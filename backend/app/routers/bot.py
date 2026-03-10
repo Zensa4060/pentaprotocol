@@ -18,8 +18,10 @@ import copy
 import time
 import random
 from collections import deque
+from fastapi import APIRouter
 
-from win_checker import check_5_line, check_structural_patterns, find_10
+router = APIRouter()
+from app.core.win_checker import check_5_line, check_structural_patterns, find_10
 
 # ── Constants ──────────────────────────────────────────────────────────────
 GRID   = 5
@@ -626,3 +628,37 @@ def tick_bot(ui, dt):
                     ui.log_move(row, col, current)
 
             ui.bot_thinking = False
+# ─────────────────────────────────────────────────────────────
+# FastAPI Endpoint
+# ─────────────────────────────────────────────────────────────
+
+from pydantic import BaseModel
+from app.core.patterns import generate_all_patterns
+
+
+class BotMoveRequest(BaseModel):
+    board: list
+    difficulty: str
+    current_player: str
+
+
+@router.post("/move")
+def bot_move(req: BotMoveRequest):
+
+    engine = type("EngineStub", (), {})()
+
+    engine.board = req.board
+    engine.current_player = req.current_player
+    engine.shiftable_patterns = generate_all_patterns()
+
+    move = get_bot_move(engine, req.difficulty)
+
+    if move is None:
+        return {"row": None, "col": None}
+
+    row, col = move
+
+    return {
+        "row": row,
+        "col": col
+    }

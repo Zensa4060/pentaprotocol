@@ -594,7 +594,7 @@ const useSnowflakeShard = pieceSkin === "snowflake_shard";
 
     return () => clearTimeout(timer);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [current, phase, winner, gameMode]);
+  }, [current, phase, winner, gameMode, board]);
 
   const initBoard = async (firstPlayer: string, c3block = false) => {
     setBoard(emptyBoard());

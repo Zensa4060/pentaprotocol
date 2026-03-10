@@ -2,7 +2,7 @@
 from app.models.game import CreateGame, MakeMove
 from app.core.database import get_db
 from app.core.security import decode_token
-from app.engine import GameEngine
+from app.game.engine import GameEngine
 from bson import ObjectId
 from datetime import datetime
 

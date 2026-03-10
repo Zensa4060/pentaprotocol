@@ -1,11 +1,7 @@
 ﻿# engine.py
 
-from app.patterns import generate_all_patterns
-from app.win_checker import (
-    check_5_line,
-    check_structural_patterns,
-    resolve_full_board
-)
+from app.core.patterns import generate_all_patterns
+from app.core.win_checker import check_5_line, check_structural_patterns, resolve_full_board
 
 
 class GameEngine:
