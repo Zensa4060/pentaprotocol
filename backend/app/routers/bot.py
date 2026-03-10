@@ -647,7 +647,13 @@ def bot_move(req: BotMoveRequest):
 
     engine = type("EngineStub", (), {})()
 
-    engine.board = req.board
+    # Convert JS null → Python None, and normalize any "null" strings
+    def normalize(cell):
+        if cell is None or cell == "null" or cell == "":
+            return None
+        return cell
+
+    engine.board = [[normalize(cell) for cell in row] for row in req.board]
     engine.current_player = req.current_player
     engine.shiftable_patterns = generate_all_patterns()
 
