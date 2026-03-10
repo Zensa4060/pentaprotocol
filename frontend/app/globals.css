@@ -1,0 +1,38 @@
+@font-face {
+  font-family: 'PixPixls';
+  src: url('/fonts/PixPixls-Regular.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+}
+@font-face {
+  font-family: 'PixPixls';
+  src: url('/fonts/PixPixls-Italic.ttf') format('truetype');
+  font-weight: normal;
+  font-style: italic;
+}
+@font-face {
+  font-family: 'grabstein';
+  src: url('/fonts/grabstein.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+}
+@font-face {
+  font-family: 'Eunomia';
+  src: url('/fonts/Eunomia-Regular.otf') format('opentype');
+  font-weight: normal;
+}
+@font-face {
+  font-family: 'Eunomia';
+  src: url('/fonts/Eunomia-Bold.otf') format('opentype');
+  font-weight: bold;
+}
+@font-face {
+  font-family: 'Eunomia';
+  src: url('/fonts/Eunomia-Light.otf') format('opentype');
+  font-weight: 300;
+}
+html, body {
+  margin: 0;
+  padding: 0;
+  background: transparent;
+}

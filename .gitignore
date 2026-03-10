@@ -1,0 +1,29 @@
+
+# Dependencies
+node_modules/
+
+# Next.js
+.next/
+out/
+
+# Environment variables
+.env
+.env.local
+.env.production
+
+# VS Code
+.vscode/
+antigravity/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Build outputs
+dist/
+build/
+
+__pycache__/
+*.pyc
+*.pyo
+.pyre_configuration
