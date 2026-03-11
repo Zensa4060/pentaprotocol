@@ -30,25 +30,13 @@ const STORE_THEMES = [
 
 // price > 0 = purchasable with ProtoCredits; price === 0 = earn-based
 const STORE_BOARD_SKINS: { id: string; label: string; desc: string; preview: string; border?: string; unlock: string; price: number }[] = [
-  { id: "default",  label: "Standard",     desc: "Clean default board",            preview: "linear-gradient(135deg,#1a1a1a,#2a2a2a)",         unlock: "Free",    price: 0 },
-  { id: "marble",   label: "Dark Marble",  desc: "Timeless dark marble finish",    preview: "linear-gradient(135deg,#1a1616,#2d2020)",          border: "#4a3333", unlock: "20 Wins", price: 0 },
-  { id: "forest",   label: "Forest Stone", desc: "Mossy stone deep in the wood",   preview: "linear-gradient(135deg,#0d1a0d,#1a2e0a)",          border: "#2d4a1a", unlock: "Emerald Rank", price: 0 },
-  { id: "void",     label: "The Void",     desc: "Pure darkness",                  preview: "linear-gradient(135deg,#000000,#050010)",           border: "#1a0030", unlock: "Legend Rank", price: 0 },
-  { id: "gold",     label: "Golden Grid",  desc: "Gilded tactical board",          preview: "linear-gradient(135deg,#1a1000,#2a1800)",           border: "#4a3300", unlock: "100 Wins", price: 0 },
-  { id: "ice",      label: "Frost",        desc: "Ice-cold precision",             preview: "linear-gradient(135deg,#001a2a,#002a3a)",           border: "#004466", unlock: "Level 25", price: 0 },
-  { id: "red_grid", label: "Red Grid",     desc: "A glowing grid of pure energy",  preview: "linear-gradient(135deg,#220803,#1a0400)",           border: "#992200", unlock: "1500 PC", price: 1500 },
-  { id: "ice_grid", label: "Ice Grid",     desc: "A crystalline grid of frozen energy", preview: "linear-gradient(135deg,#01040e,#01081c)",      border: "#50a0dc", unlock: "2000 PC", price: 2000 },
+  { id: "default",  label: "Normal",   desc: "Clean default board",                 preview: "linear-gradient(135deg,#1a1a1a,#2a2a2a)",      unlock: "Free",    price: 0 },
+  { id: "red_grid", label: "Red Grid", desc: "A glowing grid of pure energy",       preview: "linear-gradient(135deg,#220803,#1a0400)",       border: "#992200", unlock: "1500 PC", price: 1500 },
+  { id: "ice_grid", label: "Ice Grid", desc: "A crystalline grid of frozen energy", preview: "linear-gradient(135deg,#01040e,#01081c)",       border: "#50a0dc", unlock: "2000 PC", price: 2000 },
 ];
 
 const STORE_BANNERS = [
   { id: "default", label: "Default",        gradient: "linear-gradient(135deg,#1a1a2e,#16213e)",         unlock: "Free" },
-  { id: "nebula",  label: "Nebula",         gradient: "linear-gradient(135deg,#0d001a,#1a003d,#2d0066)", unlock: "Level 10" },
-  { id: "aurora",  label: "Aurora",         gradient: "linear-gradient(135deg,#001a1a,#003333,#004d40)", unlock: "50 Games" },
-  { id: "ocean",   label: "Deep Ocean",     gradient: "linear-gradient(135deg,#000d1a,#001f3f,#003366)", unlock: "25 Wins" },
-  { id: "emerald", label: "Emerald Depths", gradient: "linear-gradient(135deg,#001a0d,#003d1a,#006b2e)", unlock: "Emerald Rank" },
-  { id: "crimson", label: "Crimson Dawn",   gradient: "linear-gradient(135deg,#1a0000,#4a0000,#8b0000)", unlock: "Master Rank" },
-  { id: "gold",    label: "Golden Era",     gradient: "linear-gradient(135deg,#1a1000,#3d2800,#6b4400)", unlock: "100 Wins" },
-  { id: "void",    label: "The Void",       gradient: "linear-gradient(135deg,#000000,#0d0015,#1a0030)", unlock: "Legend Rank" },
 ];
 
 const TIER_COLOR: Record<string, string> = {
@@ -255,86 +243,6 @@ export default function StoreScreen({ setScreen, themeId }: Props) {
           </div>
         </div>
 
-        {/* ── PROFILE BORDERS ── */}
-        <div style={{ marginBottom: 52 }}>
-          <SectionHeader label="Profile Borders" accent={accent} icon={
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={accent} strokeWidth="1.8" strokeLinecap="round">
-              <circle cx="12" cy="12" r="9" /><circle cx="12" cy="12" r="5" />
-            </svg>
-          } />
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(180px,1fr))", gap: 14 }}>
-            {PROFILE_BORDERS.map(item => {
-              const tc = TIER_COLOR[item.tier];
-              const isRainbow = item.id === "rainbow_halo";
-              const hov = hovCard === `border_${item.id}`;
-              return (
-                <div key={item.id} className="store-card"
-                  onMouseEnter={() => setHovCard(`border_${item.id}`)} onMouseLeave={() => setHovCard(null)}
-                  style={{ borderRadius: 14, padding: "20px 16px", border: `1.5px solid ${hov ? tc + "88" : tc + "33"}`, background: hov ? `${tc}08` : t.bgCard, display: "flex", flexDirection: "column", alignItems: "center", gap: 12, boxShadow: hov ? `0 8px 28px ${tc}22` : "none" }}>
-                  <div style={{ width: 64, height: 64, borderRadius: "50%", background: `linear-gradient(135deg,${t.p1 || "#aaa"},${t.p2 || "#333"})`, boxShadow: item.id !== "none" ? (isRainbow ? "0 0 0 3px #FF6B6B, 0 0 0 6px #FFD700, 0 0 18px #FF6B6BAA" : item.css) : "none" }} />
-                  <div style={{ textAlign: "center" as const }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 6, justifyContent: "center", marginBottom: 4 }}>
-                      <span style={{ fontFamily: t.fontDisplay, fontSize: 14, fontWeight: 700, color: t.text }}>{item.label}</span>
-                      <span style={{ fontFamily: t.fontMono, fontSize: 9, color: tc, background: `${tc}18`, padding: "1px 6px", borderRadius: 4 }}>{item.tier.toUpperCase()}</span>
-                    </div>
-                    <div style={{ fontFamily: t.fontBody, fontSize: 11, color: t.textMuted }}>{item.unlockDesc}</div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* ── TITLES ── */}
-        <div style={{ marginBottom: 52 }}>
-          <SectionHeader label="Titles" accent={accent} icon={
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={accent} strokeWidth="1.8" strokeLinecap="round">
-              <path d="M4 7V4h16v3" /><path d="M9 20h6" /><path d="M12 4v16" />
-            </svg>
-          } />
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(280px,1fr))", gap: 10 }}>
-            {TITLES.map(ti => {
-              const hov = hovCard === `title_${ti.id}`;
-              return (
-                <div key={ti.id} className="store-card"
-                  onMouseEnter={() => setHovCard(`title_${ti.id}`)} onMouseLeave={() => setHovCard(null)}
-                  style={{ display: "flex", alignItems: "center", gap: 14, padding: "16px 18px", borderRadius: 12, border: `1.5px solid ${hov ? ti.color + "66" : ti.color + "22"}`, background: hov ? `${ti.color}08` : t.bgCard, boxShadow: hov ? `0 4px 20px ${ti.glow}` : "none" }}>
-                  <div style={{ width: 10, height: 10, borderRadius: "50%", background: ti.color, boxShadow: `0 0 8px ${ti.glow}`, flexShrink: 0 }} />
-                  <div style={{ flex: 1 }}>
-                    <span style={{ fontFamily: t.fontMono, fontSize: 15, fontWeight: 700, color: ti.color, letterSpacing: "0.04em" }}>{ti.label}</span>
-                    <div style={{ fontFamily: t.fontBody, fontSize: 12, color: t.textMuted, marginTop: 2 }}>{ti.unlockDesc}</div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* ── PROFILE BANNERS ── */}
-        <div style={{ marginBottom: 52 }}>
-          <SectionHeader label="Profile Banners" accent={accent} icon={
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={accent} strokeWidth="1.8" strokeLinecap="round">
-              <rect x="3" y="3" width="18" height="13" rx="2" /><path d="M3 18h18" /><path d="M3 21h18" />
-            </svg>
-          } />
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(220px,1fr))", gap: 14 }}>
-            {STORE_BANNERS.map(item => {
-              const hov = hovCard === `banner_${item.id}`;
-              return (
-                <div key={item.id} className="store-card"
-                  onMouseEnter={() => setHovCard(`banner_${item.id}`)} onMouseLeave={() => setHovCard(null)}
-                  style={{ borderRadius: 14, overflow: "hidden", border: `1.5px solid ${hov ? accent + "88" : t.border}`, background: t.bgCard, boxShadow: hov ? `0 8px 28px ${accent}22` : "none" }}>
-                  <div style={{ height: 70, background: item.gradient }} />
-                  <div style={{ padding: "12px 14px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                    <span style={{ fontFamily: t.fontDisplay, fontSize: 14, fontWeight: 700, color: t.text }}>{item.label}</span>
-                    <UnlockBadge text={item.unlock} accent={accent} />
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
         {/* ── BOARD SKINS ── */}
         <div style={{ marginBottom: 52 }}>
           <SectionHeader label="Board Skins" accent={accent} icon={
@@ -395,13 +303,8 @@ export default function StoreScreen({ setScreen, themeId }: Props) {
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(210px,1fr))", gap: 14 }}>
             {[
               { id: "default",           label: "Classic",      desc: "Default pieces",        p1: "X",  p2: "Y",  p1c: "#FFFFFF", p2c: "#CC0000", price: 0,   isFlameSkull: false },
-              { id: "piece_roman",       label: "Roman",        desc: "Tactical roman style",  p1: "I",  p2: "V",  p1c: "#D4AF37", p2c: "#C0C0C0", price: 500, isFlameSkull: false },
-              { id: "piece_rune",        label: "Runic",        desc: "Ancient rune symbols",  p1: "R",  p2: "T",  p1c: "#34D399", p2c: "#A78BFA", price: 500, isFlameSkull: false },
-              { id: "piece_symbol",      label: "Arcane",       desc: "Arcane power symbols",  p1: "+",  p2: "*",  p1c: "#10B981", p2c: "#60A5FA", price: 500, isFlameSkull: false },
-              { id: "piece_legend",      label: "Legend Mark",  desc: "Legendary piece set",   p1: "^",  p2: "@",  p1c: "#F59E0B", p2c: "#FF3333", price: 500, isFlameSkull: false },
               { id: "piece_flame_skull", label: "Flame & Skull", desc: "Animated flame + skull SVG pieces. Equip on Red Grid board.",  p1: "🔥", p2: "💀", p1c: "#FF4400", p2c: "#AAAAAA", price: 500, isFlameSkull: true },
-              { id: "piece_snowflake_shard", label: "Snow & Shard", desc: "Crystalline snowflake + ice shard SVG pieces. Pairs with Ice Grid board.", p1: "❄", p2: "◆", p1c: "#C8EEFF", p2c: "#64C8FF", price: 500,  isFlameSkull: false 
-},
+              { id: "piece_snowflake_shard", label: "Snow & Shard", desc: "Crystalline snowflake + ice shard SVG pieces. Pairs with Ice Grid board.", p1: "❄", p2: "◆", p1c: "#C8EEFF", p2c: "#64C8FF", price: 500,  isFlameSkull: false },
             ].map(item => {
               const hovKey = item.id;
               const hov = hovCard === hovKey;
@@ -511,10 +414,7 @@ export default function StoreScreen({ setScreen, themeId }: Props) {
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(280px,1fr))", gap: 14 }}>
             {[
               { id: "default",       label: "Classic Flip",   desc: "The standard coin toss",       color: accent,     price: 0   },
-              { id: "toss_slow_mo",  label: "Slow Motion",    desc: "Dramatic slow-motion flip",    color: "#60A5FA",  price: 500 },
-              { id: "toss_lightning",label: "Lightning Flip", desc: "Electric high-speed spin",     color: "#FBBF24",  price: 500 },
-              { id: "toss_galaxy",   label: "Galaxy Spin",    desc: "Cosmic purple vortex spin",    color: "#A78BFA",  price: 500 },
-              { id: "toss_matrix",   label: "Matrix Drop",    desc: "Green digital rain effect",    color: "#34D399",  price: 500 },
+
             ].map(item => {
               const hovKey = item.id;
               const hov = hovCard === hovKey;

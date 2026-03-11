@@ -746,7 +746,41 @@ export default function ProfileScreen({ themeId, onHover, onClick }: Props) {
         </div>
         <div style={{ fontFamily:t.fontMono, fontSize:11, color:t.textMuted, marginTop:5, textAlign:"right" }}>{elo} / {nextRank ? rank.max : "MAX"}</div>
       </div>
-
+      {/* ── XP / Level bar ───────────────────────────────────────────────── */}
+      {(() => {
+        const totalXP: number = profile.xp || 0;
+        const lvl: number     = profile.level || 1;
+        const xpForLvl = (l: number) => 5000 + (l - 1) * 1000;
+        let rem = totalXP;
+        for (let l = 1; l < lvl; l++) rem -= xpForLvl(l);
+        const xpIntoLevel = Math.max(0, rem);
+        const xpNeeded    = xpForLvl(lvl);
+        const pct         = Math.min((xpIntoLevel / xpNeeded) * 100, 100);
+        return (
+          <div style={{ background:t.bgPanel, border:`1px solid ${t.border}`, borderRadius:12, padding:"16px 22px", marginBottom:18 }}>
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:9 }}>
+              <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+                <div style={{ width:34, height:34, borderRadius:"50%", background:`${t.accent}18`, border:`2px solid ${t.accent}`, display:"flex", alignItems:"center", justifyContent:"center", fontFamily:t.fontDisplay, fontSize:14, fontWeight:900, color:t.accent }}>
+                  {lvl}
+                </div>
+                <div style={{ fontFamily:t.fontMono, fontSize:13, color:t.text, fontWeight:600, letterSpacing:"0.1em" }}>
+                  LEVEL {lvl}
+                </div>
+              </div>
+              <div style={{ fontFamily:t.fontMono, fontSize:12, color:t.textMuted }}>
+                <span style={{ color:t.accent, fontWeight:700 }}>{xpIntoLevel.toLocaleString()}</span>
+                {" / "}{xpNeeded.toLocaleString()} XP
+              </div>
+            </div>
+            <div style={{ height:10, background:t.bgCard, borderRadius:5, overflow:"hidden", border:`1px solid ${t.border}` }}>
+              <div style={{ height:"100%", width:`${pct}%`, background:`linear-gradient(90deg,${t.accent},${t.p1})`, borderRadius:5, boxShadow:`0 0 10px ${t.accentGlow}55`, transition:"width 1s ease" }} />
+            </div>
+            <div style={{ fontFamily:t.fontMono, fontSize:11, color:t.textMuted, marginTop:5, textAlign:"right" }}>
+              {(xpNeeded - xpIntoLevel).toLocaleString()} XP to level {lvl + 1}
+            </div>
+          </div>
+        );
+      })()}
       {/* ── Stats grid ────────────────────────────────────────────────────── */}
       <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(136px,1fr))", gap:12, marginBottom:18 }}>
         {stats.map((s, i) => (

@@ -7,6 +7,8 @@ interface AudioControls {
   setMusicVol: (v: number) => void;
   sfxVol: number;
   setSfxVol: (v: number) => void;
+  voiceVol?: number;
+  setVoiceVol?: (v: number) => void;
   muted: boolean;
   toggleMute: () => void;
 }
@@ -20,7 +22,7 @@ interface Props {
 
 export default function SettingsModal({ onClose, themeId, setThemeId, audio }: Props) {
   const t = THEMES[themeId];
-  const { musicVol, setMusicVol, sfxVol, setSfxVol, muted, toggleMute } = audio;
+  const { musicVol, setMusicVol, sfxVol, setSfxVol, voiceVol = 0.7, setVoiceVol, muted, toggleMute } = audio;
 
   return (
     <>
@@ -113,14 +115,19 @@ export default function SettingsModal({ onClose, themeId, setThemeId, audio }: P
               textSecondary={t.textSecondary}
               textMuted={t.textMuted}
             />
-          </div>
 
-          {/* Theme note */}
-          <div style={{ marginTop:24, padding:"12px 14px", background:`${t.accent}0A`, border:`1px solid ${t.border}`, borderRadius:8 }}>
-            <div style={{ fontFamily:t.fontMono, fontSize:11, color:t.textMuted, letterSpacing:"0.12em", marginBottom:4 }}>THEME</div>
-            <div style={{ fontFamily:t.fontBody, fontSize:13, color:t.textSecondary }}>
-              Theme can be changed from the <span style={{ color:t.accent, fontWeight:600 }}>Home</span> screen.
-            </div>
+            {/* Voice vol */}
+            <SliderRow
+              label="🎙️ Voice Volume"
+              value={voiceVol}
+              onChange={setVoiceVol ?? (() => {})}
+              disabled={muted}
+              accent={t.accent}
+              fontBody={t.fontBody}
+              fontMono={t.fontMono}
+              textSecondary={t.textSecondary}
+              textMuted={t.textMuted}
+            />
           </div>
         </div>
       </div>
