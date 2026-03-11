@@ -12,7 +12,10 @@ class DB:
 db = DB()
 
 async def connect_db():
-    uri = os.getenv("MONGO_URI")
+    uri = os.getenv("MONGO_URI") or os.getenv("MONGODB_URL")
+    if not uri:
+        raise ValueError("No MongoDB URI found! Set MONGO_URI environment variable.")
+    print(f"Connecting to MongoDB: {uri[:40]}...")
     name = os.getenv("DATABASE_NAME", "pentaprotocol")
     db.client = MongoClient(
         uri,
