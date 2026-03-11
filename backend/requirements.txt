@@ -9,3 +9,5 @@ pydantic
 pydantic-settings
 httpx
 bcrypt
+pyotp
+qrcode[pil]
