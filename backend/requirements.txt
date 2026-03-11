@@ -11,3 +11,5 @@ httpx
 bcrypt
 pyotp
 qrcode[pil]
+razorpay
+Pillow
