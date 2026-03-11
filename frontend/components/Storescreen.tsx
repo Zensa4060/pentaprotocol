@@ -5,7 +5,6 @@ import type { ThemeId } from "@/lib/themes";
 import { THEMES } from "@/lib/themes";
 import API from "@/lib/api";
 import { useAuthStore } from "@/lib/store";
-import { TITLES, PROFILE_BORDERS } from "@/components/ProfileScreen";
 
 interface Props {
   setScreen: (s: Screen) => void;
@@ -13,35 +12,32 @@ interface Props {
 }
 
 const PACKAGES = [
-  { id: "starter", credits: 100, price: 49, bonus: 0, label: "STARTER", popular: false, desc: "Try it out" },
-  { id: "plus", credits: 500, price: 199, bonus: 50, label: "PLUS", popular: true, desc: "Most popular" },
-  { id: "pro", credits: 1200, price: 399, bonus: 200, label: "PRO", popular: false, desc: "Best value" },
-  { id: "elite", credits: 3000, price: 799, bonus: 600, label: "ELITE", popular: false, desc: "Power user" },
+  { id: "starter", credits: 100, price: 49,  bonus: 0,   label: "STARTER", popular: false, desc: "Try it out" },
+  { id: "plus",    credits: 500, price: 199, bonus: 50,  label: "PLUS",    popular: true,  desc: "Most popular" },
+  { id: "pro",     credits: 1200,price: 399, bonus: 200, label: "PRO",     popular: false, desc: "Best value" },
+  { id: "elite",   credits: 3000,price: 799, bonus: 600, label: "ELITE",   popular: false, desc: "Power user" },
 ];
 
 declare global { interface Window { Razorpay: any; } }
 
 const STORE_THEMES = [
   { id: "classic_light", label: "Classic Light", desc: "The original light aesthetic", preview: "linear-gradient(135deg,#f5f0e8,#e8e0d0)", unlock: "Free" },
-  { id: "classic_dark", label: "Classic Dark", desc: "Dark mode classic", preview: "linear-gradient(135deg,#1a1a1a,#2a2a2a)", unlock: "Free" },
-  { id: "space", label: "Space", desc: "Deep space atmosphere", preview: "linear-gradient(135deg,#020410,#0d1b4b)", unlock: "Free" },
-  { id: "pixel", label: "Pixel", desc: "Retro pixel art style", preview: "linear-gradient(135deg,#0d1007,#1a2e0a)", unlock: "Free" },
+  { id: "classic_dark",  label: "Classic Dark",  desc: "Dark mode classic",            preview: "linear-gradient(135deg,#1a1a1a,#2a2a2a)", unlock: "Free" },
+  { id: "space",         label: "Space",         desc: "Deep space atmosphere",         preview: "linear-gradient(135deg,#020410,#0d1b4b)", unlock: "Free" },
+  { id: "pixel",         label: "Pixel",         desc: "Retro pixel art style",         preview: "linear-gradient(135deg,#0d1007,#1a2e0a)", unlock: "Free" },
 ];
 
-// price > 0 = purchasable with ProtoCredits; price === 0 = earn-based
+// Only purchasable board skins in store (not free/earn-based ones)
 const STORE_BOARD_SKINS: { id: string; label: string; desc: string; preview: string; border?: string; unlock: string; price: number }[] = [
-  { id: "default",  label: "Normal",   desc: "Clean default board",                 preview: "linear-gradient(135deg,#1a1a1a,#2a2a2a)",      unlock: "Free",    price: 0 },
-  { id: "red_grid", label: "Red Grid", desc: "A glowing grid of pure energy",       preview: "linear-gradient(135deg,#220803,#1a0400)",       border: "#992200", unlock: "1500 PC", price: 1500 },
-  { id: "ice_grid", label: "Ice Grid", desc: "A crystalline grid of frozen energy", preview: "linear-gradient(135deg,#01040e,#01081c)",       border: "#50a0dc", unlock: "2000 PC", price: 2000 },
+  { id: "default",  label: "Normal",   desc: "Clean default board",                 preview: "linear-gradient(135deg,#1a1a1a,#2a2a2a)",  unlock: "Free",    price: 0    },
+  { id: "red_grid", label: "Red Grid", desc: "A glowing grid of pure energy",       preview: "linear-gradient(135deg,#220803,#1a0400)",   border: "#992200", unlock: "1500 PC", price: 1500 },
+  { id: "ice_grid", label: "Ice Grid", desc: "A crystalline grid of frozen energy", preview: "linear-gradient(135deg,#01040e,#01081c)",   border: "#50a0dc", unlock: "2000 PC", price: 2000 },
 ];
 
+// Only default banner in store
 const STORE_BANNERS = [
-  { id: "default", label: "Default",        gradient: "linear-gradient(135deg,#1a1a2e,#16213e)",         unlock: "Free" },
+  { id: "default", label: "Default", gradient: "linear-gradient(135deg,#1a1a2e,#16213e)", unlock: "Free" },
 ];
-
-const TIER_COLOR: Record<string, string> = {
-  basic: "#9CA3AF", rare: "#60A5FA", epic: "#A78BFA", legendary: "#F59E0B",
-};
 
 function SectionHeader({ label, icon, accent }: { label: string; icon: React.ReactNode; accent: string }) {
   return (
@@ -56,7 +52,7 @@ function SectionHeader({ label, icon, accent }: { label: string; icon: React.Rea
 }
 
 function UnlockBadge({ text, accent }: { text: string; accent: string }) {
-  const isFree = text === "Free";
+  const isFree = text === "Free" || text === "FREE";
   return (
     <span style={{
       fontFamily: "var(--font-mono)", fontSize: 10, fontWeight: 700,
@@ -86,13 +82,15 @@ export default function StoreScreen({ setScreen, themeId }: Props) {
 
   const cssVars = {
     "--font-display": t.fontDisplay,
-    "--font-mono": t.fontMono,
-    "--font-body": t.fontBody,
-    "--text": t.text,
-    "--text-muted": t.textMuted,
-    "--border": t.border,
-    "--accent": accent,
+    "--font-mono":    t.fontMono,
+    "--font-body":    t.fontBody,
+    "--text":         t.text,
+    "--text-muted":   t.textMuted,
+    "--border":       t.border,
+    "--accent":       accent,
   } as React.CSSProperties;
+
+  const purchasedItems: string[] = (user as any)?.purchased_items ?? [];
 
   const loadRazorpay = () =>
     new Promise<boolean>(resolve => {
@@ -142,7 +140,7 @@ export default function StoreScreen({ setScreen, themeId }: Props) {
     } finally { setLoading(false); }
   };
 
-  // Buy a cosmetic item with ProtoCredits — calls backend, updates purchased_items
+  // Buy a cosmetic with ProtoCredits — hides the card after purchase (item moves to Collection)
   const handleBuyCosmetic = async (id: string, price: number, label: string) => {
     if (!user) { setMsg({ text: "Please sign in to purchase cosmetics.", ok: false }); return; }
     const balance = (user as any).protocredits ?? 0;
@@ -154,6 +152,7 @@ export default function StoreScreen({ setScreen, themeId }: Props) {
       const existing = (user as any).purchased_items ?? [];
       updateUser({ protocredits: balance - price, purchased_items: [...existing, id] });
       setMsg({ text: `✓ ${label} unlocked! Equip it in your Collection.`, ok: true });
+      setTimeout(() => setMsg(null), 3000);
     } catch (e: any) {
       setMsg({ text: e?.response?.data?.detail || "Purchase failed. Try again.", ok: false });
     } finally { setBuyingId(null); }
@@ -194,15 +193,11 @@ export default function StoreScreen({ setScreen, themeId }: Props) {
             style={{ flexShrink: 0, minWidth: 260, maxWidth: 320, background: `linear-gradient(135deg, ${accent}18, ${accent}08)`, border: `2px solid ${accent}55`, borderRadius: 18, padding: "22px 24px", boxShadow: `0 0 40px ${accent}22`, position: "relative", overflow: "hidden" }}>
             <div style={{ position: "absolute", top: -30, right: -30, width: 120, height: 120, borderRadius: "50%", background: `${accent}22`, filter: "blur(40px)", pointerEvents: "none" }} />
             <div style={{ fontFamily: t.fontMono, fontSize: 10, color: accent, letterSpacing: "0.25em", marginBottom: 10 }}>PROTOCREDITS</div>
-            <div style={{ fontFamily: t.fontDisplay, fontSize: 26, fontWeight: 900, color: t.text, marginBottom: 6, lineHeight: 1.1 }}>
-              Buy<br /><span style={{ color: accent }}>ProtoCredits</span>
-            </div>
+            <div style={{ fontFamily: t.fontDisplay, fontSize: 26, fontWeight: 900, color: t.text, marginBottom: 6, lineHeight: 1.1 }}>Buy<br /><span style={{ color: accent }}>ProtoCredits</span></div>
             <div style={{ fontFamily: t.fontBody, fontSize: 12, color: t.textMuted, marginBottom: 16 }}>Starting from ₹49 · Instant delivery</div>
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" as const, marginBottom: 18 }}>
               {PACKAGES.map(p => (
-                <div key={p.id} style={{ fontFamily: t.fontMono, fontSize: 10, color: accent, background: `${accent}14`, border: `1px solid ${accent}33`, borderRadius: 6, padding: "3px 8px" }}>
-                  {p.credits + p.bonus}
-                </div>
+                <div key={p.id} style={{ fontFamily: t.fontMono, fontSize: 10, color: accent, background: `${accent}14`, border: `1px solid ${accent}33`, borderRadius: 6, padding: "3px 8px" }}>{p.credits + p.bonus}</div>
               ))}
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 8, fontFamily: t.fontDisplay, fontSize: 13, fontWeight: 800, color: "#000", background: accent, borderRadius: 8, padding: "9px 16px", justifyContent: "center" }}>
@@ -221,10 +216,10 @@ export default function StoreScreen({ setScreen, themeId }: Props) {
         <div style={{ marginBottom: 52 }}>
           <SectionHeader label="Themes" accent={accent} icon={
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={accent} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="13.5" cy="6.5" r="1.5" /><circle cx="17.5" cy="10.5" r="1.5" /><circle cx="8.5" cy="7.5" r="1.5" /><circle cx="6.5" cy="12.5" r="1.5" />
-              <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 011.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z" />
+              <circle cx="13.5" cy="6.5" r="1.5"/><circle cx="17.5" cy="10.5" r="1.5"/><circle cx="8.5" cy="7.5" r="1.5"/><circle cx="6.5" cy="12.5" r="1.5"/>
+              <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 011.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/>
             </svg>
-          } />
+          }/>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(210px,1fr))", gap: 14 }}>
             {STORE_THEMES.map(item => (
               <div key={item.id} className="store-card"
@@ -247,28 +242,28 @@ export default function StoreScreen({ setScreen, themeId }: Props) {
         <div style={{ marginBottom: 52 }}>
           <SectionHeader label="Board Skins" accent={accent} icon={
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={accent} strokeWidth="1.8" strokeLinecap="round">
-              <rect x="3" y="3" width="18" height="18" rx="2" /><line x1="3" y1="9" x2="21" y2="9" /><line x1="3" y1="15" x2="21" y2="15" /><line x1="9" y1="3" x2="9" y2="21" /><line x1="15" y1="3" x2="15" y2="21" />
+              <rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/>
             </svg>
-          } />
+          }/>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(210px,1fr))", gap: 14 }}>
-            {STORE_BOARD_SKINS.map(item => {
+            {STORE_BOARD_SKINS.filter(item => {
+              // Hide from store once purchased — player can equip from Collection
+              if (item.price > 0 && purchasedItems.includes(item.id)) return false;
+              return true;
+            }).map(item => {
               const hov = hovCard === `board_${item.id}`;
               const isPurchasable = item.price > 0;
-              const isOwned = !isPurchasable || ((user as any)?.purchased_items ?? []).includes(item.id);
               const isBuying = buyingId === item.id;
               return (
                 <div key={item.id} className="store-card"
                   onMouseEnter={() => setHovCard(`board_${item.id}`)} onMouseLeave={() => setHovCard(null)}
-                  style={{ borderRadius: 14, overflow: "hidden", border: `1.5px solid ${hov ? accent + "88" : isPurchasable && !isOwned ? accent + "33" : t.border}`, background: t.bgCard, boxShadow: hov ? `0 8px 28px ${accent}22` : "none" }}>
+                  style={{ borderRadius: 14, overflow: "hidden", border: `1.5px solid ${hov ? accent + "88" : isPurchasable ? accent + "33" : t.border}`, background: t.bgCard, boxShadow: hov ? `0 8px 28px ${accent}22` : "none" }}>
                   <div style={{ height: 90, background: item.preview, display: "flex", alignItems: "center", justifyContent: "center", position: "relative" }}>
                     <div style={{ display: "grid", gridTemplateColumns: "repeat(4,16px)", gap: 3, opacity: 0.65 }}>
                       {Array.from({ length: 16 }).map((_, i) => <div key={i} style={{ width: 16, height: 16, background: item.border ?? "#555", borderRadius: 2 }} />)}
                     </div>
-                    {isPurchasable && !isOwned && (
+                    {isPurchasable && (
                       <div style={{ position: "absolute", top: 8, left: 8, background: `${accent}22`, border: `1px solid ${accent}55`, borderRadius: 6, padding: "2px 8px", fontFamily: t.fontMono, fontSize: 9, color: accent, fontWeight: 700, letterSpacing: "0.08em" }}>FOR SALE</div>
-                    )}
-                    {isOwned && isPurchasable && (
-                      <div style={{ position: "absolute", top: 8, right: 8, background: "#4CAF5022", border: "1px solid #4CAF5055", borderRadius: 6, padding: "2px 8px", fontFamily: t.fontMono, fontSize: 9, color: "#4CAF50", fontWeight: 700 }}>OWNED</div>
                     )}
                   </div>
                   <div style={{ padding: "13px 14px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
@@ -276,15 +271,13 @@ export default function StoreScreen({ setScreen, themeId }: Props) {
                       <div style={{ fontFamily: t.fontDisplay, fontSize: 15, fontWeight: 700, color: t.text }}>{item.label}</div>
                       <div style={{ fontFamily: t.fontBody, fontSize: 12, color: t.textMuted, marginTop: 2 }}>{item.desc}</div>
                     </div>
-                    {isPurchasable && !isOwned ? (
-                      <button
-                        disabled={isBuying}
-                        onClick={() => handleBuyCosmetic(item.id, item.price, item.label)}
+                    {isPurchasable ? (
+                      <button disabled={isBuying} onClick={() => handleBuyCosmetic(item.id, item.price, item.label)}
                         style={{ flexShrink: 0, background: isBuying ? `${accent}33` : `${accent}18`, border: `1.5px solid ${accent}${isBuying ? "33" : "66"}`, borderRadius: 8, padding: "6px 11px", fontFamily: t.fontMono, fontSize: 10, fontWeight: 800, color: isBuying ? t.textMuted : accent, cursor: isBuying ? "not-allowed" : "pointer", whiteSpace: "nowrap" as const, transition: "all 0.18s" }}>
                         {isBuying ? "..." : `${item.price.toLocaleString()} ⬡`}
                       </button>
                     ) : (
-                      <UnlockBadge text={isOwned && isPurchasable ? "Owned" : item.unlock} accent={isOwned && isPurchasable ? "#4CAF50" : accent} />
+                      <UnlockBadge text={item.unlock} accent={accent} />
                     )}
                   </div>
                 </div>
@@ -297,45 +290,42 @@ export default function StoreScreen({ setScreen, themeId }: Props) {
         <div style={{ marginBottom: 52 }}>
           <SectionHeader label="Piece Skins" accent={accent} icon={
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={accent} strokeWidth="2" strokeLinecap="round">
-              <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+              <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
             </svg>
-          } />
+          }/>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(210px,1fr))", gap: 14 }}>
             {[
-              { id: "default",           label: "Classic",      desc: "Default pieces",        p1: "X",  p2: "Y",  p1c: "#FFFFFF", p2c: "#CC0000", price: 0,   isFlameSkull: false },
-              { id: "piece_flame_skull", label: "Flame & Skull", desc: "Animated flame + skull SVG pieces. Equip on Red Grid board.",  p1: "🔥", p2: "💀", p1c: "#FF4400", p2c: "#AAAAAA", price: 500, isFlameSkull: true },
-              { id: "piece_snowflake_shard", label: "Snow & Shard", desc: "Crystalline snowflake + ice shard SVG pieces. Pairs with Ice Grid board.", p1: "❄", p2: "◆", p1c: "#C8EEFF", p2c: "#64C8FF", price: 500,  isFlameSkull: false },
-            ].map(item => {
-              const hovKey = item.id;
-              const hov = hovCard === hovKey;
+              { id: "default",               label: "Classic",       desc: "Default pieces",        p1: "X",  p2: "Y",  p1c: "#FFFFFF", p2c: "#CC0000", price: 0,   isFlameSkull: false },
+              { id: "piece_flame_skull",      label: "Flame & Skull", desc: "Animated flame + skull SVG pieces. Equip on Red Grid board.",        p1: "🔥", p2: "💀", p1c: "#FF4400", p2c: "#AAAAAA", price: 500, isFlameSkull: true },
+              { id: "piece_snowflake_shard",  label: "Snow & Shard",  desc: "Crystalline snowflake + ice shard SVG pieces. Pairs with Ice Grid.", p1: "❄",  p2: "◆",  p1c: "#C8EEFF", p2c: "#64C8FF", price: 500, isFlameSkull: false },
+            ].filter(item => {
+              // Hide from store once purchased
+              if (item.price > 0 && purchasedItems.includes(item.id)) return false;
+              return true;
+            }).map(item => {
+              const hov = hovCard === item.id;
               const isPurchasable = item.price > 0;
-              // default is always owned; others check purchased_items by their full id (e.g. "piece_roman")
-              const isOwned = !isPurchasable || ((user as any)?.purchased_items ?? []).includes(item.id);
               const isBuying = buyingId === item.id;
               return (
                 <div key={item.id} className="store-card"
-                  onMouseEnter={() => setHovCard(hovKey)} onMouseLeave={() => setHovCard(null)}
-                  style={{ borderRadius: 14, padding: "20px 16px", border: `1.5px solid ${hov ? accent + "88" : isPurchasable && !isOwned ? accent + "33" : t.border}`, background: t.bgCard, boxShadow: hov ? `0 8px 28px ${accent}22` : "none", position: "relative" }}>
-                  {isPurchasable && !isOwned && <div style={{ position: "absolute", top: 8, left: 8, background: `${accent}22`, border: `1px solid ${accent}55`, borderRadius: 6, padding: "2px 8px", fontFamily: t.fontMono, fontSize: 9, color: accent, fontWeight: 700, letterSpacing: "0.08em" }}>FOR SALE</div>}
-                  {isOwned && isPurchasable && <div style={{ position: "absolute", top: 8, right: 8, background: "#4CAF5022", border: "1px solid #4CAF5055", borderRadius: 6, padding: "2px 8px", fontFamily: t.fontMono, fontSize: 9, color: "#4CAF50", fontWeight: 700 }}>OWNED</div>}
-                  {/* Preview */}
+                  onMouseEnter={() => setHovCard(item.id)} onMouseLeave={() => setHovCard(null)}
+                  style={{ borderRadius: 14, padding: "20px 16px", border: `1.5px solid ${hov ? accent + "88" : isPurchasable ? accent + "33" : t.border}`, background: t.bgCard, boxShadow: hov ? `0 8px 28px ${accent}22` : "none", position: "relative" }}>
+                  {isPurchasable && <div style={{ position: "absolute", top: 8, left: 8, background: `${accent}22`, border: `1px solid ${accent}55`, borderRadius: 6, padding: "2px 8px", fontFamily: t.fontMono, fontSize: 9, color: accent, fontWeight: 700, letterSpacing: "0.08em" }}>FOR SALE</div>}
                   <div style={{ display: "flex", justifyContent: "center", gap: 20, marginBottom: 14, marginTop: isPurchasable ? 18 : 0 }}>
                     {item.isFlameSkull ? (
                       <>
-                        <div style={{ width: 52, height: 52, borderRadius: 8, background: isOwned ? "rgba(255,68,0,0.12)" : "#1a1a1a", border: `2px solid ${isOwned ? "#FF4400" : t.border}`, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                        <div style={{ width: 52, height: 52, borderRadius: 8, background: "rgba(255,68,0,0.12)", border: "2px solid #FF4400", display: "flex", alignItems: "center", justifyContent: "center" }}>
                           <svg width="30" height="30" viewBox="0 0 100 120" fill="none">
-                            <path d="M50 10 C30 30 15 50 25 70 C20 60 35 55 30 70 C25 85 35 100 50 110 C65 100 75 85 70 70 C65 55 80 60 75 70 C85 50 70 30 50 10Z"
-                              fill={isOwned ? "#FF4400" : "#555"} opacity={isOwned ? 0.9 : 0.35}/>
-                            <path d="M50 40 C40 55 38 65 45 75 C43 68 50 65 48 75 C46 85 50 95 50 100 C55 90 58 80 55 70 C53 62 60 58 58 68 C65 55 58 42 50 40Z"
-                              fill={isOwned ? "#FFB300" : "#444"} opacity={isOwned ? 0.85 : 0.25}/>
+                            <path d="M50 10 C30 30 15 50 25 70 C20 60 35 55 30 70 C25 85 35 100 50 110 C65 100 75 85 70 70 C65 55 80 60 75 70 C85 50 70 30 50 10Z" fill="#FF4400" opacity="0.9"/>
+                            <path d="M50 40 C40 55 38 65 45 75 C43 68 50 65 48 75 C46 85 50 95 50 100 C55 90 58 80 55 70 C53 62 60 58 58 68 C65 55 58 42 50 40Z" fill="#FFB300" opacity="0.85"/>
                           </svg>
                         </div>
-                        <div style={{ width: 52, height: 52, borderRadius: 8, background: isOwned ? "rgba(170,170,170,0.08)" : "#1a1a1a", border: `2px solid ${isOwned ? "#AAAAAA" : t.border}`, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                          <svg width="30" height="30" viewBox="0 0 100 110" fill="none" stroke={isOwned ? "#CCCCCC" : "#555"} strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" opacity={isOwned ? 1 : 0.35}>
+                        <div style={{ width: 52, height: 52, borderRadius: 8, background: "rgba(170,170,170,0.08)", border: "2px solid #AAAAAA", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                          <svg width="30" height="30" viewBox="0 0 100 110" fill="none" stroke="#CCCCCC" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round">
                             <path d="M20 65 C20 35 80 35 80 65 C80 80 72 88 72 95 L28 95 C28 88 20 80 20 65Z"/>
                             <rect x="30" y="95" width="40" height="10" rx="3"/>
-                            <circle cx="37" cy="62" r="9" fill={isOwned ? "#CCCCCC" : "#555"}/>
-                            <circle cx="63" cy="62" r="9" fill={isOwned ? "#CCCCCC" : "#555"}/>
+                            <circle cx="37" cy="62" r="9" fill="#CCCCCC"/>
+                            <circle cx="63" cy="62" r="9" fill="#CCCCCC"/>
                             <line x1="50" y1="95" x2="50" y2="105"/>
                             <line x1="37" y1="95" x2="37" y2="105"/>
                             <line x1="63" y1="95" x2="63" y2="105"/>
@@ -344,8 +334,8 @@ export default function StoreScreen({ setScreen, themeId }: Props) {
                       </>
                     ) : (
                       <>
-                        <div style={{ width: 52, height: 52, borderRadius: 8, background: isOwned ? `${item.p1c}18` : "#1a1a1a", border: `2px solid ${isOwned ? item.p1c : t.border}`, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "monospace", fontSize: 28, fontWeight: 900, color: isOwned ? item.p1c : "#444" }}>{item.p1}</div>
-                        <div style={{ width: 52, height: 52, borderRadius: 8, background: isOwned ? `${item.p2c}18` : "#1a1a1a", border: `2px solid ${isOwned ? item.p2c : t.border}`, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "monospace", fontSize: 28, fontWeight: 900, color: isOwned ? item.p2c : "#444" }}>{item.p2}</div>
+                        <div style={{ width: 52, height: 52, borderRadius: 8, background: `${item.p1c}18`, border: `2px solid ${item.p1c}`, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "monospace", fontSize: 28, fontWeight: 900, color: item.p1c }}>{item.p1}</div>
+                        <div style={{ width: 52, height: 52, borderRadius: 8, background: `${item.p2c}18`, border: `2px solid ${item.p2c}`, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "monospace", fontSize: 28, fontWeight: 900, color: item.p2c }}>{item.p2}</div>
                       </>
                     )}
                   </div>
@@ -354,13 +344,13 @@ export default function StoreScreen({ setScreen, themeId }: Props) {
                       <div style={{ fontFamily: t.fontDisplay, fontSize: 15, fontWeight: 700, color: t.text }}>{item.label}</div>
                       <div style={{ fontFamily: t.fontBody, fontSize: 12, color: t.textMuted, marginTop: 2 }}>{item.desc}</div>
                     </div>
-                    {isPurchasable && !isOwned ? (
+                    {isPurchasable ? (
                       <button disabled={isBuying} onClick={() => handleBuyCosmetic(item.id, item.price, item.label)}
                         style={{ flexShrink: 0, background: isBuying ? `${accent}33` : `${accent}18`, border: `1.5px solid ${accent}${isBuying ? "33" : "66"}`, borderRadius: 8, padding: "6px 11px", fontFamily: t.fontMono, fontSize: 10, fontWeight: 800, color: isBuying ? t.textMuted : accent, cursor: isBuying ? "not-allowed" : "pointer", whiteSpace: "nowrap" as const }}>
                         {isBuying ? "..." : `${item.price.toLocaleString()} ⬡`}
                       </button>
                     ) : (
-                      <UnlockBadge text={isOwned && isPurchasable ? "Owned" : "Free"} accent={isOwned && isPurchasable ? "#4CAF50" : accent} />
+                      <UnlockBadge text="Free" accent={accent} />
                     )}
                   </div>
                 </div>
@@ -373,9 +363,9 @@ export default function StoreScreen({ setScreen, themeId }: Props) {
         <div style={{ marginBottom: 52 }}>
           <SectionHeader label="Coin Skins" accent={accent} icon={
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={accent} strokeWidth="1.8" strokeLinecap="round">
-              <circle cx="12" cy="12" r="9" /><path d="M12 7v10M9 10h4.5a1.5 1.5 0 010 3H9" />
+              <circle cx="12" cy="12" r="9"/><path d="M12 7v10M9 10h4.5a1.5 1.5 0 010 3H9"/>
             </svg>
-          } />
+          }/>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(280px,1fr))", gap: 14 }}>
             {[{ id: "default", label: "Standard", desc: "Default coin skins", c1: "#F59E0B", c2: "#4FC3F7", unlock: "Free" }].map(item => {
               const hov = hovCard === `coin_${item.id}`;
@@ -408,43 +398,53 @@ export default function StoreScreen({ setScreen, themeId }: Props) {
         <div style={{ marginBottom: 52 }}>
           <SectionHeader label="Toss Animations" accent={accent} icon={
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={accent} strokeWidth="1.8" strokeLinecap="round">
-              <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
+              <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
             </svg>
-          } />
+          }/>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(280px,1fr))", gap: 14 }}>
-            {[
-              { id: "default",       label: "Classic Flip",   desc: "The standard coin toss",       color: accent,     price: 0   },
-
-            ].map(item => {
-              const hovKey = item.id;
-              const hov = hovCard === hovKey;
-              const isPurchasable = item.price > 0;
-              // default is always owned; others check purchased_items by their full id (e.g. "toss_slow_mo")
-              const isOwned = !isPurchasable || ((user as any)?.purchased_items ?? []).includes(item.id);
-              const isBuying = buyingId === item.id;
+            {[{ id: "default", label: "Classic Flip", desc: "The standard coin toss", color: accent, price: 0 }].map(item => {
+              const hov = hovCard === item.id;
               return (
                 <div key={item.id} className="store-card"
-                  onMouseEnter={() => setHovCard(hovKey)} onMouseLeave={() => setHovCard(null)}
-                  style={{ borderRadius: 14, padding: "20px 22px", border: `1.5px solid ${hov ? item.color + "88" : isPurchasable && !isOwned ? item.color + "33" : t.border}`, background: t.bgCard, display: "flex", alignItems: "center", gap: 18, boxShadow: hov ? `0 8px 28px ${item.color}22` : "none", position: "relative" }}>
+                  onMouseEnter={() => setHovCard(item.id)} onMouseLeave={() => setHovCard(null)}
+                  style={{ borderRadius: 14, padding: "20px 22px", border: `1.5px solid ${hov ? item.color + "88" : t.border}`, background: t.bgCard, display: "flex", alignItems: "center", gap: 18, boxShadow: hov ? `0 8px 28px ${item.color}22` : "none" }}>
                   <div style={{ width: 52, height: 52, borderRadius: "50%", background: `linear-gradient(135deg,${item.color},${item.color}88)`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, boxShadow: `0 0 16px ${item.color}44` }}>
-                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" /></svg>
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
                   </div>
                   <div style={{ flex: 1 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
                       <span style={{ fontFamily: t.fontDisplay, fontSize: 16, fontWeight: 700, color: t.text }}>{item.label}</span>
-                      {isPurchasable && !isOwned && <span style={{ background: `${item.color}22`, border: `1px solid ${item.color}55`, borderRadius: 6, padding: "1px 7px", fontFamily: t.fontMono, fontSize: 9, color: item.color, fontWeight: 700 }}>FOR SALE</span>}
-                      {isOwned && isPurchasable && <span style={{ background: "#4CAF5022", border: "1px solid #4CAF5055", borderRadius: 6, padding: "1px 7px", fontFamily: t.fontMono, fontSize: 9, color: "#4CAF50", fontWeight: 700 }}>OWNED</span>}
                     </div>
                     <div style={{ fontFamily: t.fontBody, fontSize: 12, color: t.textMuted }}>{item.desc}</div>
                   </div>
-                  {isPurchasable && !isOwned ? (
-                    <button disabled={isBuying} onClick={() => handleBuyCosmetic(item.id, item.price, item.label)}
-                      style={{ flexShrink: 0, background: isBuying ? `${item.color}33` : `${item.color}18`, border: `1.5px solid ${item.color}${isBuying ? "33" : "66"}`, borderRadius: 8, padding: "6px 11px", fontFamily: t.fontMono, fontSize: 10, fontWeight: 800, color: isBuying ? t.textMuted : item.color, cursor: isBuying ? "not-allowed" : "pointer", whiteSpace: "nowrap" as const }}>
-                      {isBuying ? "..." : `${item.price.toLocaleString()} ⬡`}
-                    </button>
-                  ) : (
-                    <UnlockBadge text={isOwned && isPurchasable ? "Owned" : "Free"} accent={isOwned && isPurchasable ? "#4CAF50" : accent} />
-                  )}
+                  <UnlockBadge text="Free" accent={accent} />
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* ── PROFILE BANNERS ── */}
+        <div style={{ marginBottom: 52 }}>
+          <SectionHeader label="Profile Banners" accent={accent} icon={
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={accent} strokeWidth="1.8" strokeLinecap="round">
+              <rect x="3" y="3" width="18" height="13" rx="2"/><path d="M3 18h18"/><path d="M3 21h18"/>
+            </svg>
+          }/>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(230px,1fr))", gap: 14 }}>
+            {STORE_BANNERS.map(item => {
+              const hov = hovCard === `banner_${item.id}`;
+              return (
+                <div key={item.id} className="store-card"
+                  onMouseEnter={() => setHovCard(`banner_${item.id}`)} onMouseLeave={() => setHovCard(null)}
+                  style={{ borderRadius: 14, overflow: "hidden", border: `1.5px solid ${hov ? accent + "88" : t.border}`, background: t.bgCard, boxShadow: hov ? `0 8px 28px ${accent}22` : "none" }}>
+                  <div style={{ height: 70, background: item.gradient }} />
+                  <div style={{ padding: "13px 14px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                    <div>
+                      <div style={{ fontFamily: t.fontDisplay, fontSize: 15, fontWeight: 700, color: t.text }}>{item.label}</div>
+                    </div>
+                    <UnlockBadge text={item.unlock} accent={accent} />
+                  </div>
                 </div>
               );
             })}
@@ -477,12 +477,8 @@ export default function StoreScreen({ setScreen, themeId }: Props) {
             <button onClick={() => setShowBuyModal(false)} style={{ position: "absolute", top: 16, right: 16, background: `${t.border}44`, border: "none", borderRadius: 8, color: t.textMuted, width: 32, height: 32, cursor: "pointer", fontSize: 16, display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
 
             <div style={{ fontFamily: t.fontMono, fontSize: 11, color: accent, letterSpacing: "0.25em", marginBottom: 8 }}>PROTOCOL STORE</div>
-            <div style={{ fontFamily: t.fontDisplay, fontSize: 28, fontWeight: 900, color: t.text, marginBottom: 4 }}>
-              BUY PROTO<span style={{ color: accent }}>CREDITS</span>
-            </div>
-            <div style={{ fontFamily: t.fontBody, fontSize: 13, color: t.textMuted, marginBottom: 24 }}>
-              Use ProtoCredits to unlock cosmetics and exclusive content.
-            </div>
+            <div style={{ fontFamily: t.fontDisplay, fontSize: 28, fontWeight: 900, color: t.text, marginBottom: 4 }}>BUY PROTO<span style={{ color: accent }}>CREDITS</span></div>
+            <div style={{ fontFamily: t.fontBody, fontSize: 13, color: t.textMuted, marginBottom: 24 }}>Use ProtoCredits to unlock cosmetics and exclusive content.</div>
 
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 24 }}>
               {PACKAGES.map(p => {
