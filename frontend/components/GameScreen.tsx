@@ -428,7 +428,10 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
       setCurrent(msg.current_player);
       setMovesPlayed(msg.moves_played);
       setExtraTurns(msg.extra_turns ?? 0);
-      if (msg.winner) { setWinLine([]); setWinner(msg.winner); }
+      if (msg.winner) { 
+  setWinLine((msg.win_line ?? []).map(([r,c]: [number,number]) => [r,c] as Coord)); 
+  setWinner(msg.winner); 
+}
     } else if (msg.type === "room_state") {
       const r = msg.room;
       setBoard(r.board ?? emptyBoard());
@@ -439,9 +442,25 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
   if (msg.player === "P1") setP1Ready(msg.ready);
   else setP2Ready(msg.ready);
 } else if (msg.type === "chat_message") {
-  setChatMessages(m => [...m.slice(-49), { from: msg.from, text: msg.text, ts: msg.ts }]);
+  setChatMessages(m => [...m.slice(-49), { from: msg.from, text: msg.text, ts: msg.ts }]);} else if (msg.type === "game_reset") {
+  setBoard(emptyBoard());
+  setCurrent(msg.first_player);
+  setMovesPlayed(0);
+  setExtraTurns(0);
+  setWinner(null);
+  setWinLine([]);
+  setShowWinOverlay(false);
+  setOverlayVisible(false);
+  setC3Blocked(false);
+  setLog([]);
+  setP1Time(180000);
+  setP2Time(180000);
+  setP1Ready(false);
+  setP2Ready(false);
+  setPhase("playing");
     }
   };
+  
 
   const ping = setInterval(() => {
     if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: "ping" }));
