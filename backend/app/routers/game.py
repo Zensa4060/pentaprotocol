@@ -9,14 +9,10 @@ import math
 
 router = APIRouter()
 
-# -- XP & Level helpers --------------------------------------------------------
-
 def xp_for_level(level: int) -> int:
-    """XP required to go from level N to N+1. Starts at 5000, increases by 1000 each level."""
     return 5000 + (level - 1) * 1000
 
 def compute_level(total_xp: int) -> tuple[int, int]:
-    """Given total XP, return (current_level, xp_into_current_level)."""
     level = 1
     remaining = total_xp
     while remaining >= xp_for_level(level):
@@ -25,16 +21,6 @@ def compute_level(total_xp: int) -> tuple[int, int]:
     return level, remaining
 
 def xp_for_result(result: str, mode: str = "multiplayer", difficulty: str = "medium") -> int:
-    """
-    Bot games (mode == "bot") give fixed XP by difficulty:
-      easy   → 10 XP
-      medium → 50 XP
-      hard   → 100 XP
-    Multiplayer games give standard XP:
-      win  → 1000 XP
-      draw → 500 XP
-      loss → 250 XP
-    """
     if mode == "bot":
         return {"easy": 10, "medium": 50, "hard": 100}.get(difficulty, 50)
     if result == "win":  return 1000
@@ -42,16 +28,12 @@ def xp_for_result(result: str, mode: str = "multiplayer", difficulty: str = "med
     if result == "loss": return 250
     return 0
 
-# -- ELO helpers ---------------------------------------------------------------
-
 def expected_score(rating_a: int, rating_b: int) -> float:
     return 1 / (1 + 10 ** ((rating_b - rating_a) / 400))
 
 def new_elo(rating: int, opponent_rating: int, score: float, k: int = 32) -> int:
     expected = expected_score(rating, opponent_rating)
     return max(0, round(rating + k * (score - expected)))
-
-# -- Auth helper ---------------------------------------------------------------
 
 async def get_current_user(authorization: str = Header(None)):
     if not authorization:
@@ -63,63 +45,43 @@ async def get_current_user(authorization: str = Header(None)):
     except:
         return None
 
-# -- Award XP + ELO after game ends --------------------------------------------
-
-def award_game_result(db, game: dict, winner: str | None):
-    """Award XP (always) and ELO (ranked only) to both players."""
+async def award_game_result(db, game: dict, winner: str | None):
     p1_id      = game.get("player1_id")
     p2_id      = game.get("player2_id")
     is_ranked  = game.get("format") == "ranked"
     mode       = game.get("mode", "multiplayer")
     difficulty = game.get("difficulty", "medium")
 
-    def update_player(user_id: str, result: str, opponent_id: str | None):
+    async def update_player(user_id: str, result: str, opponent_id: str | None):
         if not user_id:
             return
-        user = db.users.find_one({"_id": ObjectId(user_id)})
+        user = await db.users.find_one({"_id": ObjectId(user_id)})
         if not user:
             return
-
-        # -- XP & Level --------------------------------------------------
         gained_xp    = xp_for_result(result, mode, difficulty)
         new_total_xp = user.get("xp", 0) + gained_xp
         new_level, _ = compute_level(new_total_xp)
-
-        # -- Win/Loss/Draw counters ---------------------------------------
         inc = {}
         if result == "win":  inc["wins"]   = 1
         if result == "loss": inc["losses"] = 1
         if result == "draw": inc["draws"]  = 1
-
-        # -- ELO (ranked only, multiplayer only) --------------------------
         updates = {"xp": new_total_xp, "level": new_level}
         if is_ranked and opponent_id and mode != "bot":
-            opponent = db.users.find_one({"_id": ObjectId(opponent_id)})
+            opponent = await db.users.find_one({"_id": ObjectId(opponent_id)})
             if opponent:
                 score = 1.0 if result == "win" else (0.5 if result == "draw" else 0.0)
-                updated_elo = new_elo(
-                    user.get("elo", 500),
-                    opponent.get("elo", 500),
-                    score,
-                )
-                updates["elo"] = updated_elo
-
-        db.users.update_one(
-            {"_id": ObjectId(user_id)},
-            {"$set": updates, "$inc": inc},
-        )
+                updates["elo"] = new_elo(user.get("elo", 500), opponent.get("elo", 500), score)
+        await db.users.update_one({"_id": ObjectId(user_id)}, {"$set": updates, "$inc": inc})
 
     if winner == "P1":
-        update_player(p1_id, "win",  p2_id)
-        update_player(p2_id, "loss", p1_id)
+        await update_player(p1_id, "win",  p2_id)
+        await update_player(p2_id, "loss", p1_id)
     elif winner == "P2":
-        update_player(p1_id, "loss", p2_id)
-        update_player(p2_id, "win",  p1_id)
+        await update_player(p1_id, "loss", p2_id)
+        await update_player(p2_id, "win",  p1_id)
     elif winner == "draw":
-        update_player(p1_id, "draw", p2_id)
-        update_player(p2_id, "draw", p1_id)
-
-# -- Routes --------------------------------------------------------------------
+        await update_player(p1_id, "draw", p2_id)
+        await update_player(p2_id, "draw", p1_id)
 
 @router.post("/create")
 async def create_game(data: CreateGame, user_id: str = Depends(get_current_user)):
@@ -134,11 +96,12 @@ async def create_game(data: CreateGame, user_id: str = Depends(get_current_user)
         "format":         data.format,
         "difficulty":     getattr(data, "difficulty", "medium"),
         "moves_played":   0,
+        "extra_turns":    0,
         "player1_id":     user_id,
         "player2_id":     None,
         "created_at":     datetime.utcnow(),
     }
-    result = db.games.insert_one(game)
+    result = await db.games.insert_one(game)
     return {
         "game_id":        str(result.inserted_id),
         "board":          engine.board,
@@ -149,44 +112,38 @@ async def create_game(data: CreateGame, user_id: str = Depends(get_current_user)
         "winner":         None,
     }
 
-
 @router.post("/move")
 async def make_move(data: MakeMove, user_id: str = Depends(get_current_user)):
     db = get_db()
-    game = db.games.find_one({"_id": ObjectId(data.game_id)})
+    game = await db.games.find_one({"_id": ObjectId(data.game_id)})
     if not game:
         raise HTTPException(404, "Game not found")
     if game["status"] != "active":
         raise HTTPException(400, "Game is already over")
-
     engine = GameEngine()
     engine.board          = game["board"]
     engine.current_player = game["current_player"]
     engine.moves_played   = game["moves_played"]
-
+    engine.extra_turns    = game.get("extra_turns", 0)
     result = engine.deploy(data.row, data.col)
-
     is_finished = bool(result["winner"])
     update = {
         "board":          engine.board,
         "current_player": engine.current_player,
         "moves_played":   engine.moves_played,
+        "extra_turns":    engine.extra_turns,
         "status":         "finished" if is_finished else "active",
         "winner":         result.get("winner"),
     }
-    db.games.update_one({"_id": ObjectId(data.game_id)}, {"$set": update})
-
-    # Award XP + ELO when game ends
+    await db.games.update_one({"_id": ObjectId(data.game_id)}, {"$set": update})
     if is_finished:
-        award_game_result(db, game, result.get("winner"))
-
+        await award_game_result(db, game, result.get("winner"))
     return {"game_id": data.game_id, **update, "mode": game["mode"]}
-
 
 @router.get("/{game_id}")
 async def get_game(game_id: str):
     db = get_db()
-    game = db.games.find_one({"_id": ObjectId(game_id)})
+    game = await db.games.find_one({"_id": ObjectId(game_id)})
     if not game:
         raise HTTPException(404, "Game not found")
     return {
@@ -197,4 +154,5 @@ async def get_game(game_id: str):
         "winner":         game["winner"],
         "mode":           game["mode"],
         "moves_played":   game["moves_played"],
+        "extra_turns":    game.get("extra_turns", 0),
     }
