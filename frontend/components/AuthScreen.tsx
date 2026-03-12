@@ -149,8 +149,8 @@ export default function AuthScreen({ setScreen, themeId }: Props) {
   const { setAuth } = useAuthStore();
 
   const ACCENT  = "#CC0000";
-  const ACCENT2 = "#ff3333";
-
+  const ACCENT2 = "#ffffff";
+ 
   const triggerShake = () => { setShake(true); setTimeout(() => setShake(false), 420); };
 
   const validate = () => {
@@ -445,26 +445,25 @@ export default function AuthScreen({ setScreen, themeId }: Props) {
               PENTA<span style={{ color: ACCENT }}>PROTOCOL</span>
             </div>
             <div style={{
-              fontFamily: "'Courier New', monospace",
-              fontSize: 17, letterSpacing: "0.42em",
-              color: "#555", marginTop: 12,
+              fontFamily: "'Times New Roman', serif",
+              fontSize: 25, letterSpacing: "0.2em",
+              color: "#ffffff", marginTop: 1,
               textTransform: "uppercase",
             }}>
-              5 × 5 · GRID PROTOCOL
+              5×5 GRID PROTOCOL
             </div>
           </div>
-
           {/* Tagline badges */}
-          <div style={{ display: "flex", gap: 14, marginTop: 8, alignItems: "center" }}>
+          <div style={{ display: "flex", gap: 5, marginTop: 0, alignItems: "center" }}>
             {["AI", "RANKED", "SOLO"].map((tag, i) => (
               <React.Fragment key={tag}>
-                {i > 0 && <span style={{ color: "rgba(255,255,255,0.2)", fontSize: 14 }}>·</span>}
+                {i > 0 && <span style={{ color: "rgba(255,255,255,0.2)", fontSize: 10 }}>·</span>}
                 <div style={{
-                  fontFamily: "'Courier New', monospace",
-                  fontSize: 15.5, letterSpacing: "0.25em",
+                  fontFamily: "'Times New Roman', serif",
+                  fontSize: 20, letterSpacing: "0.2em",
                   color: "#ffffff",
                   textTransform: "uppercase",
-                  fontWeight: 600,
+                  fontWeight: 700,
                 }}>{tag}</div>
               </React.Fragment>
             ))}
@@ -495,9 +494,9 @@ export default function AuthScreen({ setScreen, themeId }: Props) {
         {/* Top label */}
         <div style={{
           fontFamily: "'Georgia', 'Times New Roman', serif",
-          fontSize: 15, color: "#CC0000",
+          fontSize: 18, color: "#ffffff",
           letterSpacing: "0.22em", textTransform: "uppercase",
-          marginBottom: 28, fontWeight: 700,
+          marginBottom: 28, fontWeight: 900,
           display: "flex", alignItems: "center", gap: 10,
         }}>
           <div style={{ flex: 1, height: 1, background: "rgba(204,0,0,0.3)" }} />
@@ -537,7 +536,7 @@ export default function AuthScreen({ setScreen, themeId }: Props) {
             <div style={{ fontFamily: FONT, fontSize: 15, fontWeight: 700, color: ACCENT, letterSpacing: "0.08em", marginBottom: 6 }}>
               {tab === "forgot" ? "RESET PASSWORD" : "VERIFY CODE"}
             </div>
-            <div style={{ fontFamily: FONT, fontSize: 13, color: "#444", lineHeight: 1.6 }}>
+            <div style={{ fontFamily: FONT, fontSize: 13, color: "#FFF", lineHeight: 1.6 }}>
               {tab === "forgot" ? "Enter your email to receive a 6-digit reset code." : `Code sent to ${forgotEmail}. Enter it below.`}
             </div>
           </div>
@@ -655,7 +654,7 @@ export default function AuthScreen({ setScreen, themeId }: Props) {
           display: "flex", alignItems: "center", gap: 12,
         }}>
           <div style={{ flex: 1, height: 1, background: "rgba(204,0,0,0.15)" }} />
-          <div style={{ fontFamily: FONT, fontSize: 20, fontWeight: 700, color: "#FFD700", letterSpacing: "0.15em", lineHeight: 1 }}>PENTAPROTOCOL</div>
+          <div style={{ fontFamily: FONT, fontSize: 20, fontWeight: 700, color: "#FFFFFF", letterSpacing: "0.15em", lineHeight: 1 }}>PENTAPROTOCOL</div>
           <div style={{ flex: 1, height: 1, background: "rgba(204,0,0,0.15)" }} />
         </div>
       </div>

@@ -1,12 +1,12 @@
-﻿from pymongo import MongoClient
+﻿from motor.motor_asyncio import AsyncIOMotorClient
 from dotenv import load_dotenv
 import os
-import ssl
+import certifi
 
 load_dotenv(os.path.join(os.path.dirname(__file__), "..", "..", ".env"))
 
 class DB:
-    client: MongoClient = None
+    client: AsyncIOMotorClient = None
     db = None
 
 db = DB()
@@ -17,13 +17,19 @@ async def connect_db():
         raise ValueError("No MongoDB URI found! Set MONGO_URI environment variable.")
     print(f"Connecting to MongoDB: {uri[:40]}...")
     name = os.getenv("DATABASE_NAME", "pentaprotocol")
-    db.client = MongoClient(
+
+    db.client = AsyncIOMotorClient(
         uri,
         tls=True,
-        tlsAllowInvalidCertificates=True,
+        tlsCAFile=certifi.where(),
+        serverSelectionTimeoutMS=30000,
+        connectTimeoutMS=20000,
+        socketTimeoutMS=20000,
     )
     db.db = db.client[name]
-    db.client.admin.command("ping")
+
+    # Async ping — properly awaited, no sync blocking call
+    await db.client.admin.command("ping")
     print("Connected to MongoDB Atlas successfully")
 
 async def disconnect_db():
