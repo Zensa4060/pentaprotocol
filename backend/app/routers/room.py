@@ -276,6 +276,13 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
 
     if room_code not in _room_connections:
         _room_connections[room_code] = {}
+    # Close any existing connection for this slot (prevents zombie entries)
+    old_ws = _room_connections[room_code].get(player_slot)
+    if old_ws and old_ws is not websocket:
+        try:
+            await old_ws.close()
+        except:
+            pass
     _room_connections[room_code][player_slot] = websocket
 
     db = get_db()
