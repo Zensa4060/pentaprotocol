@@ -301,8 +301,12 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                 row = msg["row"]
                 col = msg["col"]
 
-                # Always read from DB — ensures correctness across Railway workers
-                room = await db.rooms.find_one({"room_code": room_code})
+                # Use in-memory cache — avoids 50-150ms Atlas round-trip on every move
+                room = _room_state.get(room_code)
+                if not room:
+                    room = await db.rooms.find_one({"room_code": room_code})
+                    if room:
+                        _room_state[room_code] = room
                 if not room or room["game_status"] != "playing":
                     continue
 
@@ -367,12 +371,16 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
 
             elif msg["type"] == "ready":
                 ready_val = msg.get("ready", True)
-                # Store ready state in DB
                 ready_field = "p1_ready" if player_slot == "P1" else "p2_ready"
-                await db.rooms.update_one(
+
+                # Update cache immediately, fire DB write in background
+                if room_code in _room_state:
+                    _room_state[room_code][ready_field] = ready_val
+                asyncio.create_task(db.rooms.update_one(
                     {"room_code": room_code},
                     {"$set": {ready_field: ready_val}}
-                )
+                ))
+
                 # Broadcast ready state to both players
                 broadcast = {
                     "type":   "ready_update",
@@ -385,9 +393,9 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                     except:
                         pass
 
-                # Check if both ready — read from DB for cross-worker correctness
-                room = await db.rooms.find_one({"room_code": room_code})
-                if room and room.get("p1_ready") and room.get("p2_ready"):
+                # Check if both ready — use cache
+                room = _room_state.get(room_code, {})
+                if room.get("p1_ready") and room.get("p2_ready"):
                     reset = {
                         "board":          [[None]*5 for _ in range(5)],
                         "current_player": "P2" if room.get("game_number", 1) % 2 == 1 else "P1",
@@ -401,8 +409,7 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                         "game_number":    room.get("game_number", 1) + 1,
                     }
                     # Update cache and broadcast immediately
-                    if room_code in _room_state:
-                        _room_state[room_code] = {**_room_state[room_code], **reset}
+                    _room_state[room_code] = {**room, **reset}
                     for slot, ws in _room_connections.get(room_code, {}).items():
                         try:
                             await ws.send_json({"type": "game_reset", "first_player": reset["current_player"], "game_number": reset["game_number"]})
@@ -488,7 +495,11 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
 
             elif msg["type"] == "rb_start_game":
                 # Rulebreaker game 3 start — toss winner sends this
-                room = await db.rooms.find_one({"room_code": room_code})
+                room = _room_state.get(room_code)
+                if not room:
+                    room = await db.rooms.find_one({"room_code": room_code})
+                    if room:
+                        _room_state[room_code] = room
                 if not room:
                     continue
                 # Idempotent: if game 3 already started, ignore
