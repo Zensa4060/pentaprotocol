@@ -483,14 +483,9 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
         }
       } else if (msg.type === "room_state") {
         const r = msg.room;
-        const serverMoves = r.moves_played ?? 0;
-        // Only apply if server state is ahead of local — prevents a stale DB read
-        // on WS reconnect from wiping moves already rendered from move_made broadcasts
-        if (serverMoves >= movesPlayedRef.current) {
-          setBoard(r.board ?? emptyBoard());
-          setCurrent(r.current_player ?? "P1");
-          setMovesPlayed(serverMoves);
-        }
+        setBoard(r.board ?? emptyBoard());
+        setCurrent(r.current_player ?? "P1");
+        setMovesPlayed(r.moves_played ?? 0);
       } else if (msg.type === "opponent_disconnected") {
         setWinner(mySlot);
       } else if (msg.type === "ready_update") {
