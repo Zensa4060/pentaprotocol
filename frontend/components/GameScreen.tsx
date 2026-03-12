@@ -498,6 +498,10 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
         const { action, payload } = msg;
         if (action === "start_rb") {
           setTimeout(() => {
+            setWinner(null);
+            setWinLine([]);
+            setShowWinOverlay(false);
+            setOverlayVisible(false);
             setPhase("rb_splash");
             setRbSplashTimer(3);
             setCoinFlipTimer(3 + Math.random() * 3);
@@ -737,34 +741,39 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
     const gn      = R.current.gameNumber;
     const newHist = [...R.current.matchHistory, winner];
     setMatchHistory(newHist);
+    // Use newHist.length as source of truth — avoids stale gameNumber ref
+    // len=1: game 1 done, len=2: game 2 done, len=3: game 3 done
+    const afterGame = newHist.length; // 1, 2, or 3
+    const sw = checkSeriesWinner(newHist); // non-null if someone won 2-0 or has majority
+
     if (_isMP) {
-      // In multiplayer, notify both players via WS to show rematch UI after series ends
-      if (newHist.length >= 2) {
-        const sw = checkSeriesWinner(newHist);
-        if (sw !== null || gn >= 3) {
-          setMatchOver(true);
-          setSeriesWinner(sw ?? newHist[newHist.length - 1]);
-          setPhase("match_over");
-          wsRef.current?.send(JSON.stringify({ type: "match_over_notify" }));
-        } else if (gn >= 2) {
-          // Game 3 = rulebreaker — P1 broadcasts start_rb to both
-          if (_mySlot === "P1") {
-            wsRef.current?.send(JSON.stringify({ type: "toss_action", action: "start_rb", payload: {} }));
-          }
-          setGameNumber(3);
-        } else {
-          setP1Ready(false); setP2Ready(false); setReadyTimeout(60); setReadyTimer(0); setPhase("waiting_ready");
+      if (afterGame >= 3 || sw !== null) {
+        // Series decided
+        setMatchOver(true);
+        setSeriesWinner(sw ?? newHist[newHist.length - 1]);
+        setPhase("match_over");
+        wsRef.current?.send(JSON.stringify({ type: "match_over_notify" }));
+      } else if (afterGame === 2) {
+        // Game 2 done, no winner yet — go to rulebreaker (game 3)
+        // Only P1 sends start_rb; P2 receives it via WS
+        setGameNumber(3);
+        if (_mySlot === "P1") {
+          wsRef.current?.send(JSON.stringify({ type: "toss_action", action: "start_rb", payload: {} }));
         }
+        // P1 also triggers locally via the WS echo (toss_action handler)
+        // so don't set phase here — let the WS message do it for both
       } else {
+        // Game 1 done — waiting for ready
         setP1Ready(false); setP2Ready(false); setReadyTimeout(60); setReadyTimer(0); setPhase("waiting_ready");
       }
     } else {
-      if (newHist.length >= 2) {
-        const sw = checkSeriesWinner(newHist);
-        if (sw !== null) { setMatchOver(true); setSeriesWinner(sw); setPhase("match_over"); }
-        else if (gn >= 3) { setMatchOver(true); setSeriesWinner(newHist[newHist.length - 1]); setPhase("match_over"); }
-        else { setP1Ready(false); setP2Ready(false); setReadyTimeout(60); setReadyTimer(0); setPhase("waiting_ready"); }
-      } else { setP1Ready(false); setP2Ready(false); setReadyTimeout(60); setReadyTimer(0); setPhase("waiting_ready"); }
+      if (afterGame >= 3 || sw !== null) {
+        setMatchOver(true);
+        setSeriesWinner(sw ?? newHist[newHist.length - 1]);
+        setPhase("match_over");
+      } else {
+        setP1Ready(false); setP2Ready(false); setReadyTimeout(60); setReadyTimer(0); setPhase("waiting_ready");
+      }
     }
   }, [winner]);
 
