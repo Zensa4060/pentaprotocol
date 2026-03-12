@@ -278,13 +278,7 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
 
     if room_code not in _room_connections:
         _room_connections[room_code] = {}
-    # Close any existing connection for this slot (prevents zombie entries)
-    old_ws = _room_connections[room_code].get(player_slot)
-    if old_ws and old_ws is not websocket:
-        try:
-            await old_ws.close()
-        except:
-            pass
+    # Replace any existing connection for this slot — old one will close on its own
     _room_connections[room_code][player_slot] = websocket
 
     db = get_db()
@@ -531,14 +525,18 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                 await websocket.send_json({"type": "pong"})
 
     except WebSocketDisconnect:
-        if room_code in _room_connections:
+        # Only clean up if this websocket is still the registered one.
+        # If a newer connection already replaced it, do nothing — the slot is live.
+        current_ws = _room_connections.get(room_code, {}).get(player_slot)
+        if current_ws is websocket:
             _room_connections[room_code].pop(player_slot, None)
-            if not _room_connections[room_code]:
-                del _room_connections[room_code]
-                _room_state.pop(room_code, None)  # clear cache when room empty
-
-        for slot, ws in _room_connections.get(room_code, {}).items():
-            try:
-                await ws.send_json({"type": "opponent_disconnected"})
-            except:
-                pass
+            if not _room_connections.get(room_code):
+                _room_connections.pop(room_code, None)
+                _room_state.pop(room_code, None)
+            else:
+                # Notify the remaining player their opponent disconnected
+                for slot, ws in _room_connections.get(room_code, {}).items():
+                    try:
+                        await ws.send_json({"type": "opponent_disconnected"})
+                    except:
+                        pass
