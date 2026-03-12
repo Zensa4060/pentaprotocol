@@ -287,7 +287,7 @@ const TossCard = React.memo(function TossCard({ label, onClick, delay, actorCol,
   );
 });
 
-export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMode = "singleplayer", difficulty = "medium", setScreen, playHover, playPlace, playVictory, playDefeat, playRulebreaker, playTransition, playClick }: Props) {
+export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMode = "singleplayer", difficulty = "medium", setScreen, roomCode, playerSlot, playHover, playPlace, playVictory, playDefeat, playRulebreaker, playTransition, playClick }: Props) {
   const t  = THEMES[themeId];
   const ip = themeId === "pixel";
 
@@ -328,7 +328,9 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
   const [showSurrender, setShowSurrender]     = useState(false);
   const [showExitConfirm, setShowExitConfirm] = useState(false);
   const pausedRef = useRef(false);
-
+  const wsRef = useRef<WebSocket | null>(null);
+  const isMultiplayerGame = (gameMode === "ranked" || gameMode === "unranked") && !!roomCode;
+  const mySlot = playerSlot ?? "P1";
   const emptyBoard = (): (string|null)[][] => Array(5).fill(null).map(() => Array(5).fill(null));
 
   const [board, setBoard]                   = useState<(string|null)[][]>(emptyBoard());
@@ -412,6 +414,37 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
   useEffect(() => { movesPlayedRef.current = movesPlayed; }, [movesPlayed]);
 
   useEffect(() => { initBoard("P1"); }, []);
+  useEffect(() => {
+  if (!isMultiplayerGame) return;
+  const base = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000")
+    .replace("https://", "wss://").replace("http://", "ws://");
+  const ws = new WebSocket(`${base}/api/room/ws/${roomCode}/${mySlot}`);
+  wsRef.current = ws;
+
+  ws.onmessage = (e) => {
+    const msg = JSON.parse(e.data);
+    if (msg.type === "move_made") {
+      setBoard(msg.board);
+      setCurrent(msg.current_player);
+      setMovesPlayed(msg.moves_played);
+      setExtraTurns(msg.extra_turns ?? 0);
+      if (msg.winner) { setWinLine([]); setWinner(msg.winner); }
+    } else if (msg.type === "room_state") {
+      const r = msg.room;
+      setBoard(r.board ?? emptyBoard());
+      setCurrent(r.current_player ?? "P1");
+      setMovesPlayed(r.moves_played ?? 0);
+    } else if (msg.type === "opponent_disconnected") {
+      setWinner(mySlot);
+    }
+  };
+
+  const ping = setInterval(() => {
+    if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: "ping" }));
+  }, 25000);
+
+  return () => { clearInterval(ping); ws.close(); wsRef.current = null; };
+}, [isMultiplayerGame, roomCode, mySlot]);
 
   // ── Bot move trigger ──────────────────────────────────────────────────
   // Trigger on `extraTurns` too: when bot has extra turns, current stays "P2"
@@ -630,28 +663,39 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
     if (gameId) { try { await API.post("/api/game/move", { game_id: gameId, row: r, col: c }); } catch {} }
   };
 
-  const place = async (r: number, c: number) => {
-    if (phase !== "playing" || board[r][c] || winner || loading) return;
-    if (gameMode === "ai" && current === "P2") return; // bot's turn
-    if (c3Blocked && movesPlayed === 0 && r === 2 && c === 2) return;
+ const place = async (r: number, c: number) => {
+  if (phase !== "playing" || board[r][c] || winner || loading) return;
+  if (gameMode === "ai" && current === "P2") return;
+  if (c3Blocked && movesPlayed === 0 && r === 2 && c === 2) return;
+
+  // Multiplayer: send move to server, server broadcasts back to both
+  if (isMultiplayerGame) {
+    if (current !== mySlot) return; // not your turn
+    if (wsRef.current?.readyState !== WebSocket.OPEN) return;
     playPlace?.();
-    setLoading(true);
-    const playerWhoMoved = current;
-    const nb = board.map(row => [...row]);
-    nb[r][c] = playerWhoMoved;
-    const newMoves = movesPlayed + 1;
-    let newExtra = extraTurns, nextPlayer = current;
-    if (newMoves === 1 && r === 2 && c === 2) { nextPlayer = current === "P1" ? "P2" : "P1"; newExtra = 2; }
-    else if (newExtra > 0) { newExtra--; if (newExtra === 0) nextPlayer = current === "P1" ? "P2" : "P1"; }
-    else { nextPlayer = current === "P1" ? "P2" : "P1"; }
-    if (c3Blocked && newMoves === 1) setC3Blocked(false);
-    const result = checkWin(nb, r, c, playerWhoMoved, newMoves);
-    setBoard(nb); setMovesPlayed(newMoves); addLog(r, c, playerWhoMoved);
-    if (result) { setExtraTurns(0); setWinLine(result.line); setWinner(result.winner); }
-    else { setExtraTurns(newExtra); setCurrent(nextPlayer); }
-    setLoading(false);
-    if (gameId) { try { await API.post("/api/game/move", { game_id: gameId, row: r, col: c }); } catch {} }
-  };
+    wsRef.current.send(JSON.stringify({ type: "move", row: r, col: c }));
+    return;
+  }
+
+  // Singleplayer / AI (unchanged)
+  playPlace?.();
+  setLoading(true);
+  const playerWhoMoved = current;
+  const nb = board.map(row => [...row]);
+  nb[r][c] = playerWhoMoved;
+  const newMoves = movesPlayed + 1;
+  let newExtra = extraTurns, nextPlayer = current;
+  if (newMoves === 1 && r === 2 && c === 2) { nextPlayer = current === "P1" ? "P2" : "P1"; newExtra = 2; }
+  else if (newExtra > 0) { newExtra--; if (newExtra === 0) nextPlayer = current === "P1" ? "P2" : "P1"; }
+  else { nextPlayer = current === "P1" ? "P2" : "P1"; }
+  if (c3Blocked && newMoves === 1) setC3Blocked(false);
+  const result = checkWin(nb, r, c, playerWhoMoved, newMoves);
+  setBoard(nb); setMovesPlayed(newMoves); addLog(r, c, playerWhoMoved);
+  if (result) { setExtraTurns(0); setWinLine(result.line); setWinner(result.winner); }
+  else { setExtraTurns(newExtra); setCurrent(nextPlayer); }
+  setLoading(false);
+  if (gameId) { try { await API.post("/api/game/move", { game_id: gameId, row: r, col: c }); } catch {} }
+};
 
   const addLog = (r: number, c: number, player: string) => {
     const piece = player === "P1" ? t.pieces.p1 : t.pieces.p2;
