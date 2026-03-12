@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import type { Screen } from "@/lib/types";
 import type { ThemeId } from "@/lib/themes";
 import { THEMES } from "@/lib/themes";
@@ -30,6 +30,11 @@ export default function LobbyScreen({ setScreen, themeId, onQueueStart, onQueueC
   const [countdown, setCountdown] = useState(3.5);
   const [hovered,   setHovered]   = useState<MultiSub>(null);
 
+  // Queue state
+  const [queueRoomCode,   setQueueRoomCode]   = useState<string | null>(null);
+  const [queuePlayerSlot, setQueuePlayerSlot] = useState<"P1" | "P2">("P1");
+  const queuePollRef = useRef<NodeJS.Timeout | null>(null);
+
   // ── Room state ────────────────────────────────────────────────────────────
   const [roomSection, setRoomSection] = useState<"none" | "create" | "join" | "waiting">("none");
   const [roomFormat,  setRoomFormat]  = useState<"unranked" | "ranked">("unranked");
@@ -40,34 +45,125 @@ export default function LobbyScreen({ setScreen, themeId, onQueueStart, onQueueC
   const authHeader = { headers: { Authorization: `Bearer ${token}` } };
   const level = (user as any)?.level ?? 1;
 
+  // Elapsed timer while queuing
   useEffect(() => {
     if (phase !== "queuing") return;
     const iv = setInterval(() => setElapsed(e => e + 1), 1000);
-    const t1 = setTimeout(() => { clearInterval(iv); setPhase("matchup"); setCountdown(3.5); }, 1500);
-    return () => { clearInterval(iv); clearTimeout(t1); };
+    return () => clearInterval(iv);
   }, [phase]);
 
+  // Countdown timer after matchup found
   useEffect(() => {
     if (phase !== "matchup") return;
     const iv = setInterval(() => setCountdown(c => Math.max(0, +(c - 0.1).toFixed(2))), 100);
-    const t1 = setTimeout(() => { clearInterval(iv); onQueueCancel(); setScreen("multiGame"); }, 3500);
+    const t1 = setTimeout(() => {
+      clearInterval(iv);
+      onQueueCancel();
+      setScreen("multiGame");
+    }, 3500);
     return () => { clearInterval(iv); clearTimeout(t1); };
   }, [phase]);
 
-  const startSearch = () => {
-    if (!multiSub) return;
+  // Cancel flag ref — set to true to stop all queue retries immediately
+  const queueCancelledRef = useRef(false);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      queueCancelledRef.current = true;
+      if (queuePollRef.current) {
+        clearInterval(queuePollRef.current);
+        clearTimeout(queuePollRef.current);
+      }
+    };
+  }, []);
+
+  const startSearch = async () => {
+    if (!multiSub || !token) return;
+    if (multiSub === "ranked" && level < 5) return;
+
+    // Reset cancel flag for this new queue session
+    queueCancelledRef.current = false;
     onQueueStart(multiSub);
     setElapsed(0);
     setPhase("queuing");
+
+    const attemptQueueJoin = async () => {
+      // Bail out immediately if cancelled
+      if (queueCancelledRef.current) return;
+
+      try {
+        const res = await API.post("/api/room/queue/join", { format: multiSub }, authHeader);
+
+        // Check again after the async call returns
+        if (queueCancelledRef.current) return;
+
+        if (res.data.matched) {
+          onRoomReady?.(res.data.room_code, res.data.player_slot, multiSub);
+          return;
+        }
+
+        const code = res.data.room_code;
+        const slot = res.data.player_slot as "P1" | "P2";
+        setQueueRoomCode(code);
+        setQueuePlayerSlot(slot);
+
+        queuePollRef.current = setInterval(async () => {
+          if (queueCancelledRef.current) {
+            clearInterval(queuePollRef.current!);
+            return;
+          }
+          try {
+            const poll = await API.get(`/api/room/queue/status/${code}`);
+            if (poll.data.game_status === "playing") {
+              clearInterval(queuePollRef.current!);
+              setPhase("matchup");
+              setCountdown(3.5);
+              setTimeout(() => {
+                onQueueCancel();
+                onRoomReady?.(code, slot, multiSub);
+              }, 3500);
+            }
+          } catch { /* ignore poll errors — keep polling */ }
+        }, 2000);
+
+      } catch {
+        // Backend unreachable — retry after 3s only if not cancelled
+        if (queueCancelledRef.current) return;
+        queuePollRef.current = setTimeout(attemptQueueJoin, 3000);
+      }
+    };
+
+    attemptQueueJoin();
   };
-  const cancelSearch = () => { setPhase("select"); onQueueCancel(); };
+
+  const cancelSearch = async () => {
+    // Set cancel flag FIRST — stops any in-flight closure from scheduling more retries
+    queueCancelledRef.current = true;
+
+    if (queuePollRef.current) {
+      clearInterval(queuePollRef.current);
+      clearTimeout(queuePollRef.current);
+      queuePollRef.current = null;
+    }
+
+    if (queueRoomCode && token) {
+      try {
+        await API.post("/api/room/queue/leave", { format: multiSub ?? "unranked" }, authHeader);
+      } catch { /* ignore */ }
+    }
+
+    setQueueRoomCode(null);
+    setPhase("select");
+    onQueueCancel();
+  };
+
   const fmt = (s: number) =>
     `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
 
-  // ── Room handlers ─────────────────────────────────────────────────────────
+  // ── Room handlers (private rooms) ─────────────────────────────────────────
   const handleCreateRoom = async () => {
     if (!token) { setRoomError("Sign in to play multiplayer"); return; }
-    if (roomFormat === "ranked" && level < 5) { setRoomError("You must be level 5 to play ranked"); return; }
     setRoomLoading(true); setRoomError(null);
     try {
       const res = await API.post("/api/room/create", { format: roomFormat }, authHeader);
@@ -143,7 +239,7 @@ export default function LobbyScreen({ setScreen, themeId, onQueueStart, onQueueC
       <div style={{ fontFamily:t.fontMono, fontSize:26, color:t.accent, letterSpacing:"0.2em" }}>{fmt(elapsed)}</div>
       <div style={{ background:t.bgCard, border:`1px solid ${t.border}`, borderRadius:10, padding:"12px 22px", fontFamily:t.fontBody, fontSize:14, color:t.textSecondary, textAlign:"center", lineHeight:1.8 }}>
         <div>{multiSub === "ranked" ? "Ranked" : "Unranked"} · Best of 3</div>
-        <div style={{ color:t.textMuted }}>ELO Range: {(user?.elo || 100) - 120} – {(user?.elo || 100) + 120}</div>
+        <div style={{ color:t.textMuted }}>Searching for a real opponent...</div>
       </div>
       <button onClick={cancelSearch}
         style={{ background:"none", border:`1px solid ${t.danger}`, color:t.danger, fontFamily:t.fontBody, fontSize:14, padding:"10px 26px", borderRadius:6, cursor:"pointer", transition:"background 0.22s ease" }}
@@ -187,7 +283,7 @@ export default function LobbyScreen({ setScreen, themeId, onQueueStart, onQueueC
     </div>
   );
 
-  // ── WAITING FOR P2 ────────────────────────────────────────────────────────
+  // ── WAITING FOR P2 (private room) ─────────────────────────────────────────
   if (roomSection === "waiting") return (
     <div style={{ position:"fixed", inset:0, zIndex:2, background:t.bg, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:28 }}>
       <div style={{ fontFamily:t.fontDisplay, fontSize:"clamp(22px,4vw,42px)", fontWeight:900, color:t.accent, textAlign:"center" }}>
@@ -245,18 +341,20 @@ export default function LobbyScreen({ setScreen, themeId, onQueueStart, onQueueC
 
       <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:ip?14:22, width:"100%", maxWidth:760 }}>
 
-        {/* RANKED */}
+        {/* RANKED — level 5 required */}
         <button
-          onClick={() => setMultiSub(multiSub === "ranked" ? null : "ranked")}
+          onClick={() => { if (level >= 5) setMultiSub(multiSub === "ranked" ? null : "ranked"); }}
           onMouseEnter={() => { onHover?.(); setHovered("ranked"); }}
           onMouseLeave={() => setHovered(null)}
-          style={cardStyle("ranked", t.gold)}
+          style={{ ...cardStyle("ranked", t.gold), opacity: level < 5 ? 0.5 : 1, cursor: level < 5 ? "not-allowed" : "pointer" }}
         >
           <div style={{ position:"absolute", top:11, right:11, background:`${t.gold}18`, border:`1px solid ${t.gold}`, color:t.gold, fontSize:10, padding:"2px 7px", borderRadius:10, fontFamily:t.fontMono }}>
             LVL 5+
           </div>
           <div style={{ fontFamily:t.fontDisplay, fontSize:ip?15:24, fontWeight:700, marginBottom:8, color: multiSub === "ranked" || hovered === "ranked" ? t.gold : t.text, transition:"color 0.28s cubic-bezier(.22,.68,0,1.2)" }}>Ranked</div>
-          <div style={{ fontFamily:t.fontBody, fontSize:ip?12:15, color:t.textMuted }}>ELO · Rank · Season rewards</div>
+          <div style={{ fontFamily:t.fontBody, fontSize:ip?12:15, color:t.textMuted }}>
+            {level < 5 ? `Requires level 5 · You are level ${level}` : "ELO · Rank · Season rewards"}
+          </div>
         </button>
 
         {/* UNRANKED */}
@@ -296,14 +394,14 @@ export default function LobbyScreen({ setScreen, themeId, onQueueStart, onQueueC
         </div>
       )}
 
-      {/* ── Divider ────────────────────────────────────────────────────────── */}
+      {/* ── Divider ── */}
       <div style={{ display:"flex", alignItems:"center", gap:16, width:"100%", maxWidth:760, margin:"32px 0 0" }}>
         <div style={{ flex:1, height:1, background:t.border }} />
         <div style={{ fontFamily:t.fontMono, fontSize:11, color:t.textMuted, letterSpacing:"0.15em" }}>OR PLAY WITH A FRIEND</div>
         <div style={{ flex:1, height:1, background:t.border }} />
       </div>
 
-      {/* ── Play with Friend buttons ───────────────────────────────────────── */}
+      {/* ── Play with Friend buttons ── */}
       {roomSection === "none" && (
         <div style={{ display:"flex", gap:14, marginTop:18, width:"100%", maxWidth:760, animation:"fadeUp 0.32s cubic-bezier(.22,.68,0,1.2) both" }}>
           <button
@@ -323,7 +421,7 @@ export default function LobbyScreen({ setScreen, themeId, onQueueStart, onQueueC
         </div>
       )}
 
-      {/* ── CREATE ROOM panel ─────────────────────────────────────────────── */}
+      {/* ── CREATE ROOM panel ── */}
       {roomSection === "create" && (
         <div style={{ width:"100%", maxWidth:760, marginTop:18, background:t.bgPanel, border:`1px solid ${t.border}`, borderRadius:ip?2:12, padding:"22px 24px", display:"flex", flexDirection:"column", gap:16, animation:"fadeUp 0.32s cubic-bezier(.22,.68,0,1.2) both" }}>
           <div style={{ fontFamily:t.fontMono, fontSize:12, color:t.textMuted, letterSpacing:"0.15em" }}>CREATE PRIVATE ROOM</div>
@@ -332,17 +430,15 @@ export default function LobbyScreen({ setScreen, themeId, onQueueStart, onQueueC
             <div style={{ background:`${t.danger}14`, border:`1px solid ${t.danger}`, borderRadius:8, padding:"9px 13px", color:t.danger, fontFamily:t.fontBody, fontSize:13 }}>⚠ {roomError}</div>
           )}
 
-          {/* Format selector */}
           <div style={{ display:"flex", gap:10 }}>
             {(["unranked","ranked"] as const).map(f => {
-              const locked = f === "ranked" && level < 5;
               const sel = roomFormat === f;
               return (
-                <button key={f} onClick={() => !locked && setRoomFormat(f)}
-                  style={{ flex:1, padding:"12px", border:`2px solid ${sel ? t.accent : locked ? t.border+"44" : t.border}`, borderRadius:ip?2:8, background: sel ? `${t.accent}14` : "transparent", color: locked ? t.textMuted : sel ? t.accent : t.text, fontFamily:t.fontDisplay, fontSize:13, fontWeight:700, cursor: locked?"not-allowed":"pointer", opacity: locked?0.5:1, transition:"all 0.2s", letterSpacing:"0.06em" }}>
+                <button key={f} onClick={() => setRoomFormat(f)}
+                  style={{ flex:1, padding:"12px", border:`2px solid ${sel ? t.accent : t.border}`, borderRadius:ip?2:8, background: sel ? `${t.accent}14` : "transparent", color: sel ? t.accent : t.text, fontFamily:t.fontDisplay, fontSize:13, fontWeight:700, cursor:"pointer", transition:"all 0.2s", letterSpacing:"0.06em" }}>
                   <div>{f.toUpperCase()}</div>
                   <div style={{ fontFamily:t.fontBody, fontSize:11, color:t.textMuted, fontWeight:400, marginTop:3 }}>
-                    {f === "ranked" ? locked ? "Requires level 5" : "ELO changes" : "Casual · no ELO"}
+                    {f === "ranked" ? "ELO changes" : "Casual · no ELO"}
                   </div>
                 </button>
               );
@@ -362,7 +458,7 @@ export default function LobbyScreen({ setScreen, themeId, onQueueStart, onQueueC
         </div>
       )}
 
-      {/* ── JOIN ROOM panel ───────────────────────────────────────────────── */}
+      {/* ── JOIN ROOM panel ── */}
       {roomSection === "join" && (
         <div style={{ width:"100%", maxWidth:760, marginTop:18, background:t.bgPanel, border:`1px solid ${t.border}`, borderRadius:ip?2:12, padding:"22px 24px", display:"flex", flexDirection:"column", gap:16, animation:"fadeUp 0.32s cubic-bezier(.22,.68,0,1.2) both" }}>
           <div style={{ fontFamily:t.fontMono, fontSize:12, color:t.textMuted, letterSpacing:"0.15em" }}>JOIN PRIVATE ROOM</div>

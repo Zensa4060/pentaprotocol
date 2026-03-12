@@ -7,24 +7,27 @@ import type { ThemeId } from "@/lib/themes";
 import type { Difficulty } from "@/lib/botEngine";
 import type { Screen } from "@/lib/types";
 import { loadCustomTheme, resolveCustomTheme } from "@/lib/customTheme";
-import HomeScreen    from "@/components/HomeScreen";
-import AuthScreen    from "@/components/AuthScreen";
-import LobbyScreen   from "@/components/LobbyScreen";
-import GameScreen    from "@/components/GameScreen";
-import ProfileScreen from "@/components/ProfileScreen";
-import RulesScreen   from "@/components/RulesScreen";
-import AIScreen      from "@/components/AIScreen";
-import StoreScreen   from "@/components/Storescreen";
+import HomeScreen       from "@/components/HomeScreen";
+import AuthScreen       from "@/components/AuthScreen";
+import LobbyScreen      from "@/components/LobbyScreen";
+import GameScreen       from "@/components/GameScreen";
+import ProfileScreen    from "@/components/ProfileScreen";
+import RulesScreen      from "@/components/RulesScreen";
+import AIScreen         from "@/components/AIScreen";
+import StoreScreen      from "@/components/Storescreen";
 import CollectionScreen from "@/components/CollectionScreen";
-import CareerScreen    from "@/components/CareerScreen";
-import NavBar        from "@/components/NavBar";
-import SettingsModal from "@/components/SettingsModal";
+import CareerScreen     from "@/components/CareerScreen";
+import NavBar           from "@/components/NavBar";
+import SettingsModal    from "@/components/SettingsModal";
 
 THEMES["custom" as ThemeId] = resolveCustomTheme(loadCustomTheme(), THEMES) as any;
 
+// Screens blocked for guests (not signed in)
+const GUEST_BLOCKED: Screen[] = ["lobby", "profile", "career", "battlepass"];
+
 export default function Page() {
   const [themeId, setThemeIdRaw]        = useState<ThemeId>("classic_dark");
-  const [screen, setScreen]             = useState<Screen>("home");
+  const [screen, setScreen]             = useState<Screen>("auth"); // always start at auth
   const [showSettings, setShowSettings] = useState(false);
   const [inQueue, setInQueue]           = useState(false);
   const [isRanked, setIsRanked]         = useState(false);
@@ -38,9 +41,12 @@ export default function Page() {
   const [pendingScreen, setPendingScreen]     = useState<Screen | null>(null);
   const [showAiExitModal, setShowAiExitModal] = useState(false);
 
-  const { user } = useAuthStore();
-  const audio    = useAudio();
-  const { sfx }  = audio;
+  // Guest-blocked overlay
+  const [showGuestBlock, setShowGuestBlock] = useState(false);
+
+  const { user, token } = useAuthStore();
+  const audio = useAudio();
+  const { sfx } = audio;
 
   const t = THEMES[themeId];
 
@@ -57,9 +63,12 @@ export default function Page() {
     return "lobby";
   };
 
+  // On mount: restore theme; if token exists skip auth screen
   useEffect(() => {
     const saved = localStorage.getItem("pp_theme") as ThemeId;
     if (saved && THEMES[saved]) setThemeIdRaw(saved);
+    if (token) setScreen("home");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -98,7 +107,6 @@ export default function Page() {
     if (screen !== "lobby") setInQueue(false);
   }, [screen]);
 
-  // Navigate to store when CollectionScreen's "GET CREDITS" button is clicked
   useEffect(() => {
     const onGotoStore = () => handleSetScreen("store");
     window.addEventListener("pp_goto_store", onGotoStore);
@@ -119,7 +127,11 @@ export default function Page() {
   };
 
   const handleSetScreen = (s: Screen) => {
-    if (s === "lobby" && !user) { setScreen("auth"); return; }
+    // Guest block: not signed in, trying to access restricted screen
+    if (!user && GUEST_BLOCKED.includes(s)) {
+      setShowGuestBlock(true);
+      return;
+    }
     if (screen === "aiGame" && s !== "aiGame") {
       sfx.click();
       setPendingScreen(s);
@@ -144,6 +156,45 @@ export default function Page() {
 
   const ip = themeId === "pixel";
 
+  // Guest block modal overlay
+  const GuestBlockModal = () => (
+    <div style={{
+      position: "fixed", inset: 0, zIndex: 99999,
+      background: "rgba(0,0,0,0.88)",
+      display: "flex", alignItems: "center", justifyContent: "center",
+      animation: "fadeIn 0.2s ease both",
+    }}>
+      <div style={{
+        background: t.bgPanel,
+        border: `${ip ? 3 : 1}px solid ${t.border}`,
+        borderRadius: ip ? 2 : 20,
+        padding: ip ? "32px 36px" : "48px 52px",
+        maxWidth: 460, width: "90vw",
+        textAlign: "center",
+        boxShadow: "0 40px 100px rgba(0,0,0,0.8)",
+        animation: "scaleIn 0.28s cubic-bezier(.22,.68,0,1.2) both",
+      }}>
+        <div style={{ fontSize: 44, marginBottom: 18 }}>🔒</div>
+        <div style={{ fontFamily: t.fontDisplay, fontSize: ip ? 14 : 22, fontWeight: 700, color: t.text, marginBottom: 10, lineHeight: 1.4 }}>
+          Sign in to access this
+        </div>
+        <div style={{ fontFamily: t.fontBody, fontSize: ip ? 12 : 14, color: t.textMuted, marginBottom: 32, lineHeight: 1.7 }}>
+          Create a free account to play multiplayer, track your career, access your profile, and more.
+        </div>
+        <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
+          <button
+            onClick={() => { setShowGuestBlock(false); setScreen("auth"); }}
+            style={{ background: t.accent, border: "none", color: "#000", fontFamily: t.fontDisplay, fontSize: ip ? 12 : 15, fontWeight: 800, padding: ip ? "10px 28px" : "13px 36px", borderRadius: ip ? 2 : 10, cursor: "pointer", letterSpacing: "0.08em", boxShadow: `0 0 24px ${t.accentGlow}44` }}
+          >SIGN IN / SIGN UP</button>
+          <button
+            onClick={() => setShowGuestBlock(false)}
+            style={{ background: "transparent", border: `1px solid ${t.border}`, color: t.textMuted, fontFamily: t.fontDisplay, fontSize: ip ? 12 : 14, fontWeight: 700, padding: ip ? "10px 24px" : "13px 28px", borderRadius: ip ? 2 : 10, cursor: "pointer", letterSpacing: "0.06em" }}
+          >CANCEL</button>
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <div style={{
       minHeight: "100vh",
@@ -160,6 +211,8 @@ export default function Page() {
         pointerEvents: fadingOut ? "all" : "none",
         transition: fadingOut ? "opacity 0.28s ease" : "opacity 0.32s ease",
       }} />
+
+      {showGuestBlock && <GuestBlockModal />}
 
       {showAiExitModal && (
         <div style={{

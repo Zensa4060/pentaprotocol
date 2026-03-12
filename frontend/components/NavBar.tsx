@@ -50,6 +50,7 @@ type LeaveWarning = "unranked" | "ranked" | null;
 export default function NavBar({ screen, setScreen, themeId, setThemeId, onSettings, inQueue, onQueueClick, isRankedGame = false, onHover }: Props) {
   const t = THEMES[themeId as keyof typeof THEMES];
   const { user, logout } = useAuthStore();
+  const isGuest = !user;
   const rank = getRank(user?.elo ?? 0);
 
   const [showQuit, setShowQuit] = useState(false);
@@ -122,6 +123,7 @@ export default function NavBar({ screen, setScreen, themeId, setThemeId, onSetti
     disabled = false,
     onClick?: () => void,
     targetScreen?: Screen,
+    locked = false,
   ) => {
     const isActive = getActive(target);
     const isHovered = hoveredBtn === target && !disabled;
@@ -158,13 +160,16 @@ export default function NavBar({ screen, setScreen, themeId, setThemeId, onSetti
           transition: "color 0.15s, border-color 0.15s, background 0.15s",
           height: 68,
           display: "flex", alignItems: "center",
-          opacity: disabled ? 0.4 : 1,
+          opacity: disabled ? 0.4 : locked ? 0.6 : 1,
           whiteSpace: "nowrap" as const,
           textTransform: "uppercase" as const,
           textShadow: (isActive || isHovered) ? `0 0 14px ${accentCol}77` : "none",
         }}
       >
-        {label.toUpperCase()}
+        <span style={{ display:"flex", alignItems:"center", gap:5 }}>
+          {label.toUpperCase()}
+          {locked && <span style={{ fontSize:10, opacity:0.8 }}>🔒</span>}
+        </span>
       </button>
     );
   };
@@ -202,7 +207,6 @@ export default function NavBar({ screen, setScreen, themeId, setThemeId, onSetti
         willChange: "auto",
       }}>
 
-        {/* Logo + Auth button (left cluster) */}
         <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
           <div onClick={() => navigate("home")} style={{
             fontFamily: t.fontDisplay, fontSize: 17, fontWeight: 800,
@@ -215,10 +219,8 @@ export default function NavBar({ screen, setScreen, themeId, setThemeId, onSetti
             PENTAPROTOCOL
           </div>
 
-          {/* Thin separator */}
           <div style={{ width: 1, height: 22, background: `${t.border}55`, flexShrink: 0 }} />
 
-          {/* Sign In / Sign Out — right of logo */}
           {mounted && user ? (
             <button
               onClick={() => setShowSignOut(true)}
@@ -251,10 +253,8 @@ export default function NavBar({ screen, setScreen, themeId, setThemeId, onSetti
             >Sign In</button>
           ) : null}
 
-          {/* Thin separator */}
           <div style={{ width: 1, height: 22, background: `${t.border}55`, flexShrink: 0 }} />
 
-          {/* Focus — left cluster next to logo */}
           <button
             onClick={toggleFocus}
             title={focusMode ? "Exit Focus Mode" : "Focus Mode"}
@@ -263,7 +263,7 @@ export default function NavBar({ screen, setScreen, themeId, setThemeId, onSetti
             style={{
               background: focusMode ? `${t.accent}22` : `${t.accent}14`,
               border: `1px solid ${focusMode ? t.accent : `${t.accent}55`}`,
-              color: focusMode ? t.accent : t.accent,
+              color: t.accent,
               fontFamily: t.fontBody, fontSize: 11, fontWeight: 700,
               padding: "5px 11px", borderRadius: 7, cursor: "pointer",
               transition: "all 0.18s",
@@ -283,10 +283,6 @@ export default function NavBar({ screen, setScreen, themeId, setThemeId, onSetti
           </button>
         </div>
 
-        {/* Centre nav — Home is the TRUE geometric centre.
-            Both side groups share identical justifyContent so pixel widths mirror exactly.
-            LEFT:  [Game Rules] [Collection] [Store]
-            RIGHT: [Career] [Profile] [Quit Game]          */}
         <div style={{
           position: "absolute", left: "52.2%", top: 0,
           transform: "translateX(-50%)",
@@ -295,7 +291,6 @@ export default function NavBar({ screen, setScreen, themeId, setThemeId, onSetti
         }}>
           <div style={{ display: "flex", alignItems: "center", pointerEvents: "all" }}>
 
-            {/* LEFT group — flex-end so items hug the centre divider */}
             <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end" }}>
               {navBtn("rules", "Game Rules", false, false, undefined, "rules")}
               {navBtn("collection", "Collection", false, false, undefined, "collection")}
@@ -304,29 +299,24 @@ export default function NavBar({ screen, setScreen, themeId, setThemeId, onSetti
 
             <div style={{ width: 1, height: 28, background: `${t.border}55`, margin: "0 2px", flexShrink: 0 }} />
 
-            {/* HOME — centrepiece, no padding stretch */}
             {navBtn("home", "Home", false, false, undefined, "home")}
 
             <div style={{ width: 1, height: 28, background: `${t.border}55`, margin: "0 2px", flexShrink: 0 }} />
 
-            {/* RIGHT group — flex-start so items hug the centre divider */}
             <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-start" }}>
-              {navBtn("career", "Career", false, false, undefined, "career")}
-              {navBtn("battlepass", "Battlepass", false, false, undefined, "battlepass")}
-              {navBtn("profile", "Profile", false, false, undefined, "profile")}
+              {navBtn("career", "Career", false, false, undefined, "career", isGuest)}
+              {navBtn("battlepass", "Battlepass", false, false, undefined, "battlepass", isGuest)}
+              {navBtn("profile", "Profile", false, false, undefined, "profile", isGuest)}
               {navBtn("quit", "Quit Game", true, false, () => setShowQuit(true))}
             </div>
 
           </div>
         </div>
 
-        {/* Right controls */}
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0, marginLeft: "auto", marginRight: 8 }}>
 
           {mounted && user && (
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginRight: 6 }}>
-
-              {/* ELO / Rank pill */}
               <div style={{
                 display: "flex", alignItems: "center", gap: 10,
                 padding: "4px 16px 4px 5px",
@@ -338,27 +328,16 @@ export default function NavBar({ screen, setScreen, themeId, setThemeId, onSetti
               }}>
                 <NavRankBadge rank={rank} size={40} />
                 <div style={{ display: "flex", flexDirection: "column", lineHeight: 1.15 }}>
-                  <span style={{
-                    fontFamily: t.fontMono, fontSize: 22, fontWeight: 900,
-                    color: rank.color,
-                    letterSpacing: "0.02em",
-                    textShadow: `0 0 14px ${rank.color}99`,
-                  }}>{user.elo}</span>
-                  <span style={{
-                    fontFamily: t.fontMono, fontSize: 9, fontWeight: 700,
-                    color: rank.color, opacity: 0.8,
-                    letterSpacing: "0.18em",
-                  }}>{rank.name}</span>
+                  <span style={{ fontFamily: t.fontMono, fontSize: 22, fontWeight: 900, color: rank.color, letterSpacing: "0.02em", textShadow: `0 0 14px ${rank.color}99` }}>{user.elo}</span>
+                  <span style={{ fontFamily: t.fontMono, fontSize: 9, fontWeight: 700, color: rank.color, opacity: 0.8, letterSpacing: "0.18em" }}>{rank.name}</span>
                 </div>
               </div>
 
-              {/* Pentacoins */}
               <div style={{ display: "flex", alignItems: "center", gap: 3, fontFamily: t.fontMono, fontSize: 16, fontWeight: 700 }}>
                 <div style={{ width: 34, height: 34, flexShrink: 0 }} dangerouslySetInnerHTML={{ __html: (themeId === "classic_light" ? SHARDS_LIGHT_SVG : SHARDS_DARK_SVG).replace("<svg ", '<svg width="34" height="34" ') }} />
                 <span style={{ color: "#4FC3F7" }}>{pentacoins}</span>
               </div>
 
-              {/* ProtoCredits */}
               <div style={{ display: "flex", alignItems: "center", gap: 3, fontFamily: t.fontMono, fontSize: 16, fontWeight: 700 }}>
                 <div style={{ width: 34, height: 34, flexShrink: 0 }} dangerouslySetInnerHTML={{ __html: (themeId === "classic_light" ? PROTO_LIGHT_SVG : PROTO_DARK_SVG).replace("<svg ", '<svg width="34" height="34" ') }} />
                 <span style={{ color: "#FFD700" }}>{protocredits}</span>
@@ -366,9 +345,6 @@ export default function NavBar({ screen, setScreen, themeId, setThemeId, onSetti
             </div>
           )}
 
-          {/* Sign In/Out moved to left of navbar, next to logo */}
-
-          {/* Settings button */}
           <button
             onClick={onSettings}
             title="Settings"
@@ -392,7 +368,6 @@ export default function NavBar({ screen, setScreen, themeId, setThemeId, onSetti
         </div>
       </nav>
 
-      {/* LEAVE WARNING — UNRANKED */}
       {leaveWarning === "unranked" && (
         <div style={{ position: "fixed", inset: 0, zIndex: 9999, background: "rgba(0,0,0,0.88)", display: "flex", alignItems: "center", justifyContent: "center", animation: "overlayFadeIn 0.22s ease both" }}>
           <div style={{ background: t.bgPanel, border: `${ip ? 3 : 1}px solid ${t.border}`, borderRadius: ip ? 2 : 20, padding: ip ? "32px 36px" : "48px 56px", maxWidth: 520, width: "90vw", textAlign: "center", boxShadow: "0 40px 100px rgba(0,0,0,0.7)", animation: "overlayModalIn 0.28s cubic-bezier(.22,.68,0,1.2) both" }}>
@@ -407,7 +382,6 @@ export default function NavBar({ screen, setScreen, themeId, setThemeId, onSetti
         </div>
       )}
 
-      {/* LEAVE WARNING — RANKED */}
       {leaveWarning === "ranked" && (
         <div style={{ position: "fixed", inset: 0, zIndex: 9999, background: "rgba(0,0,0,0.92)", display: "flex", alignItems: "center", justifyContent: "center", animation: "overlayFadeIn 0.22s ease both" }}>
           <div style={{ background: t.bgPanel, border: `${ip ? 3 : 2}px solid ${t.danger}`, borderRadius: ip ? 2 : 20, padding: ip ? "32px 36px" : "48px 56px", maxWidth: 560, width: "90vw", textAlign: "center", boxShadow: `0 40px 100px rgba(0,0,0,0.8),0 0 60px ${t.danger}22`, animation: "overlayModalIn 0.28s cubic-bezier(.22,.68,0,1.2) both" }}>
@@ -422,7 +396,6 @@ export default function NavBar({ screen, setScreen, themeId, setThemeId, onSetti
         </div>
       )}
 
-      {/* QUIT APP */}
       {showQuit && (
         <div style={{ position: "fixed", inset: 0, zIndex: 9999, background: "rgba(0,0,0,0.94)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 36, animation: "overlayFadeIn 0.22s ease both" }}>
           <div style={{ fontFamily: t.fontDisplay, fontSize: "clamp(22px,4vw,48px)", fontWeight: 700, color: t.text, textAlign: "center", lineHeight: 1.4, animation: "overlayModalIn 0.28s cubic-bezier(.22,.68,0,1.2) both" }}>
@@ -435,84 +408,27 @@ export default function NavBar({ screen, setScreen, themeId, setThemeId, onSetti
         </div>
       )}
 
-      {/* ── SIGN OUT CONFIRM ── */}
       {showSignOut && (
-        <div style={{
-          position: "fixed", inset: 0, zIndex: 9999,
-          background: "rgba(0,0,0,0.82)",
-          display: "flex", alignItems: "center", justifyContent: "center",
-          animation: "overlayFadeIn 0.2s ease both",
-        }}>
-          <div style={{
-            background: t.bgPanel,
-            border: `1px solid ${t.border}`,
-            borderRadius: ip ? 2 : 18,
-            padding: ip ? "28px 32px" : "44px 52px",
-            maxWidth: 420, width: "90vw", textAlign: "center",
-            boxShadow: "0 32px 80px rgba(0,0,0,0.7)",
-            animation: "overlayModalIn 0.26s cubic-bezier(.22,.68,0,1.2) both",
-          }}>
-            {/* Icon */}
+        <div style={{ position: "fixed", inset: 0, zIndex: 9999, background: "rgba(0,0,0,0.82)", display: "flex", alignItems: "center", justifyContent: "center", animation: "overlayFadeIn 0.2s ease both" }}>
+          <div style={{ background: t.bgPanel, border: `1px solid ${t.border}`, borderRadius: ip ? 2 : 18, padding: ip ? "28px 32px" : "44px 52px", maxWidth: 420, width: "90vw", textAlign: "center", boxShadow: "0 32px 80px rgba(0,0,0,0.7)", animation: "overlayModalIn 0.26s cubic-bezier(.22,.68,0,1.2) both" }}>
             <div style={{ marginBottom: 18, display: "flex", justifyContent: "center" }}>
-              <div style={{
-                width: 52, height: 52, borderRadius: "50%",
-                background: `${t.danger}14`,
-                border: `1px solid ${t.danger}44`,
-                display: "flex", alignItems: "center", justifyContent: "center",
-              }}>
+              <div style={{ width: 52, height: 52, borderRadius: "50%", background: `${t.danger}14`, border: `1px solid ${t.danger}44`, display: "flex", alignItems: "center", justifyContent: "center" }}>
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={t.danger} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-                  <polyline points="16 17 21 12 16 7" />
-                  <line x1="21" y1="12" x2="9" y2="12" />
+                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><polyline points="16 17 21 12 16 7" /><line x1="21" y1="12" x2="9" y2="12" />
                 </svg>
               </div>
             </div>
-
-            <div style={{
-              fontFamily: t.fontDisplay, fontSize: ip ? 15 : 20,
-              fontWeight: 700, color: t.text, marginBottom: 8, lineHeight: 1.4,
-            }}>
-              Sign out of PentaProtocol?
-            </div>
-            <div style={{
-              fontFamily: t.fontBody, fontSize: 13, color: t.textMuted,
-              marginBottom: 32, lineHeight: 1.6,
-            }}>
-              You'll need to sign back in to play ranked matches and access your profile.
-            </div>
-
+            <div style={{ fontFamily: t.fontDisplay, fontSize: ip ? 15 : 20, fontWeight: 700, color: t.text, marginBottom: 8, lineHeight: 1.4 }}>Sign out of PentaProtocol?</div>
+            <div style={{ fontFamily: t.fontBody, fontSize: 13, color: t.textMuted, marginBottom: 32, lineHeight: 1.6 }}>You'll need to sign back in to play ranked matches and access your profile.</div>
             <div style={{ display: "flex", gap: 10 }}>
-              <button
-                onClick={() => { logout(); setShowSignOut(false); }}
+              <button onClick={() => { logout(); setShowSignOut(false); }}
                 onMouseEnter={e => { onHover?.(); e.currentTarget.style.background = t.danger; e.currentTarget.style.color = "#fff"; e.currentTarget.style.boxShadow = `0 4px 20px ${t.danger}55`; }}
                 onMouseLeave={e => { e.currentTarget.style.background = `${t.danger}14`; e.currentTarget.style.color = t.danger; e.currentTarget.style.boxShadow = "none"; }}
-                style={{
-                  flex: 1, padding: "11px 0",
-                  background: `${t.danger}14`,
-                  border: `1px solid ${t.danger}66`,
-                  color: t.danger,
-                  fontFamily: t.fontDisplay, fontSize: 13, fontWeight: 700,
-                  borderRadius: ip ? 2 : 9, cursor: "pointer",
-                  transition: "all 0.18s", letterSpacing: "0.06em",
-                  textTransform: "uppercase" as const,
-                  boxShadow: "none",
-                }}
-              >Sign Out</button>
-              <button
-                onClick={() => setShowSignOut(false)}
+                style={{ flex: 1, padding: "11px 0", background: `${t.danger}14`, border: `1px solid ${t.danger}66`, color: t.danger, fontFamily: t.fontDisplay, fontSize: 13, fontWeight: 700, borderRadius: ip ? 2 : 9, cursor: "pointer", transition: "all 0.18s", letterSpacing: "0.06em", textTransform: "uppercase" as const, boxShadow: "none" }}>Sign Out</button>
+              <button onClick={() => setShowSignOut(false)}
                 onMouseEnter={e => { onHover?.(); e.currentTarget.style.background = `${t.accent}14`; e.currentTarget.style.borderColor = t.accent; e.currentTarget.style.color = t.accent; }}
                 onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.borderColor = `${t.border}66`; e.currentTarget.style.color = t.textSecondary; }}
-                style={{
-                  flex: 1, padding: "11px 0",
-                  background: "transparent",
-                  border: `1px solid ${t.border}66`,
-                  color: t.textSecondary,
-                  fontFamily: t.fontDisplay, fontSize: 13, fontWeight: 700,
-                  borderRadius: ip ? 2 : 9, cursor: "pointer",
-                  transition: "all 0.18s", letterSpacing: "0.06em",
-                  textTransform: "uppercase" as const,
-                }}
-              >Stay</button>
+                style={{ flex: 1, padding: "11px 0", background: "transparent", border: `1px solid ${t.border}66`, color: t.textSecondary, fontFamily: t.fontDisplay, fontSize: 13, fontWeight: 700, borderRadius: ip ? 2 : 9, cursor: "pointer", transition: "all 0.18s", letterSpacing: "0.06em", textTransform: "uppercase" as const }}>Stay</button>
             </div>
           </div>
         </div>

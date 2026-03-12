@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Header, Depends
+﻿from fastapi import APIRouter, HTTPException, Header, Depends
 from app.models.game import CreateGame, MakeMove
 from app.core.database import get_db
 from app.core.security import decode_token
@@ -24,10 +24,22 @@ def compute_level(total_xp: int) -> tuple[int, int]:
         level += 1
     return level, remaining
 
-def xp_for_result(result: str) -> int:
-    if result == "win":   return 1000
-    if result == "draw":  return 500
-    if result == "loss":  return 250
+def xp_for_result(result: str, mode: str = "multiplayer", difficulty: str = "medium") -> int:
+    """
+    Bot games (mode == "bot") give fixed XP by difficulty:
+      easy   → 10 XP
+      medium → 50 XP
+      hard   → 100 XP
+    Multiplayer games give standard XP:
+      win  → 1000 XP
+      draw → 500 XP
+      loss → 250 XP
+    """
+    if mode == "bot":
+        return {"easy": 10, "medium": 50, "hard": 100}.get(difficulty, 50)
+    if result == "win":  return 1000
+    if result == "draw": return 500
+    if result == "loss": return 250
     return 0
 
 # -- ELO helpers ---------------------------------------------------------------
@@ -55,9 +67,11 @@ async def get_current_user(authorization: str = Header(None)):
 
 def award_game_result(db, game: dict, winner: str | None):
     """Award XP (always) and ELO (ranked only) to both players."""
-    p1_id = game.get("player1_id")
-    p2_id = game.get("player2_id")
-    is_ranked = game.get("format") == "ranked"
+    p1_id      = game.get("player1_id")
+    p2_id      = game.get("player2_id")
+    is_ranked  = game.get("format") == "ranked"
+    mode       = game.get("mode", "multiplayer")
+    difficulty = game.get("difficulty", "medium")
 
     def update_player(user_id: str, result: str, opponent_id: str | None):
         if not user_id:
@@ -67,7 +81,7 @@ def award_game_result(db, game: dict, winner: str | None):
             return
 
         # -- XP & Level --------------------------------------------------
-        gained_xp   = xp_for_result(result)
+        gained_xp    = xp_for_result(result, mode, difficulty)
         new_total_xp = user.get("xp", 0) + gained_xp
         new_level, _ = compute_level(new_total_xp)
 
@@ -77,9 +91,9 @@ def award_game_result(db, game: dict, winner: str | None):
         if result == "loss": inc["losses"] = 1
         if result == "draw": inc["draws"]  = 1
 
-        # -- ELO (ranked only) --------------------------------------------
+        # -- ELO (ranked only, multiplayer only) --------------------------
         updates = {"xp": new_total_xp, "level": new_level}
-        if is_ranked and opponent_id:
+        if is_ranked and opponent_id and mode != "bot":
             opponent = db.users.find_one({"_id": ObjectId(opponent_id)})
             if opponent:
                 score = 1.0 if result == "win" else (0.5 if result == "draw" else 0.0)
@@ -118,6 +132,7 @@ async def create_game(data: CreateGame, user_id: str = Depends(get_current_user)
         "winner":         None,
         "mode":           data.mode,
         "format":         data.format,
+        "difficulty":     getattr(data, "difficulty", "medium"),
         "moves_played":   0,
         "player1_id":     user_id,
         "player2_id":     None,
