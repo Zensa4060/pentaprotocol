@@ -354,8 +354,8 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                     except:
                         pass
 
-                # DB write in background — broadcast already done, cache already updated
-                asyncio.create_task(db.rooms.update_one({"room_code": room_code}, {"$set": update}))
+                # DB write — must complete before next move read to avoid stale state race
+                await db.rooms.update_one({"room_code": room_code}, {"$set": update})
 
                 if is_finished:
                     game_dict = {
