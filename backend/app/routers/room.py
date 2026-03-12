@@ -14,6 +14,7 @@ import json
 router = APIRouter()
 
 _room_connections: dict[str, dict] = {}
+_room_state: dict[str, dict] = {}  # in-memory cache — eliminates DB read on every move
 _matchmaking_queue: dict[str, list] = {
     "ranked":   [],
     "unranked": [],
@@ -281,6 +282,7 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
     try:
         room = await db.rooms.find_one({"room_code": room_code})
         if room:
+            _room_state[room_code] = room  # seed cache
             await websocket.send_json({"type": "room_state", "room": serialize_room(room)})
 
         while True:
@@ -291,7 +293,8 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                 row = msg["row"]
                 col = msg["col"]
 
-                room = await db.rooms.find_one({"room_code": room_code})
+                # Use in-memory cache — no DB read per move
+                room = _room_state.get(room_code)
                 if not room or room["game_status"] != "playing":
                     continue
 
@@ -300,10 +303,11 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                     continue
 
                 engine = GameEngine()
-                engine.board          = room["board"]
+                engine.board          = [r[:] for r in room["board"]]  # shallow copy
                 engine.current_player = room["current_player"]
                 engine.moves_played   = room["moves_played"]
                 engine.extra_turns    = room.get("extra_turns", 0)
+                engine.c3_blocked     = room.get("c3_blocked", False)
 
                 result      = engine.deploy(row, col)
                 is_finished = bool(result.get("winner"))
@@ -318,7 +322,10 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                     "status":         "finished" if is_finished else "active",
                 }
 
-                # Broadcast first to eliminate win lag
+                # Update in-memory cache immediately
+                _room_state[room_code] = {**room, **update}
+
+                # Broadcast immediately — no DB wait
                 broadcast = {
                     "type":           "move_made",
                     "row":            row,
@@ -337,7 +344,7 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                     except:
                         pass
 
-                # DB writes after broadcast
+                # DB write async — happens after broadcast, doesn't block moves
                 await db.rooms.update_one({"room_code": room_code}, {"$set": update})
 
                 if is_finished:
@@ -385,6 +392,9 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                         "game_number":    room.get("game_number", 1) + 1,
                     }
                     await db.rooms.update_one({"room_code": room_code}, {"$set": reset})
+                    # Update cache
+                    if room_code in _room_state:
+                        _room_state[room_code] = {**_room_state[room_code], **reset}
                     for slot, ws in _room_connections.get(room_code, {}).items():
                         try:
                             await ws.send_json({"type": "game_reset", "first_player": reset["current_player"], "game_number": reset["game_number"]})
@@ -490,6 +500,8 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                     "c3_blocked":     c3_blocked,
                 }
                 await db.rooms.update_one({"room_code": room_code}, {"$set": reset})
+                # Update cache
+                _room_state[room_code] = {**room, **reset}
                 for slot, ws in _room_connections.get(room_code, {}).items():
                     try:
                         await ws.send_json({
@@ -509,6 +521,7 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
             _room_connections[room_code].pop(player_slot, None)
             if not _room_connections[room_code]:
                 del _room_connections[room_code]
+                _room_state.pop(room_code, None)  # clear cache when room empty
 
         for slot, ws in _room_connections.get(room_code, {}).items():
             try:

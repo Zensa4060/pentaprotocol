@@ -380,6 +380,7 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
   const [coinAngle, setCoinAngle]             = useState(0);
   const coinAngleRef  = useRef(0); // avoids 60fps re-renders during spin
   const coinFrameRef  = useRef(0);
+  const coinDivRef    = useRef<HTMLDivElement>(null); // direct DOM for coin spin
   const [tossWinner, setTossWinner]           = useState<"P1"|"P2"|null>(null);
   const [firstPlayerChosen, setFirstPlayerChosen] = useState<string|null>(null);
   const [rbC3Blocked, setRbC3Blocked]         = useState(false);
@@ -551,8 +552,8 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
           setTossWinner(payload.toss_winner);
           setCoinRevealTimer(3.5);
           // Snap coin to upright (no mid-animation lag for receiver)
-          coinAngleRef.current = Math.round(coinAngleRef.current / (2 * Math.PI)) * 2 * Math.PI;
-          setCoinAngle(coinAngleRef.current); // trigger re-render with snapped angle
+          coinAngleRef.current = 0;
+          setCoinAngle(0); // trigger re-render to show revealed coin face
         } else if (action === "phase_choice") {
           if (payload.phase) setPhase(payload.phase);
           if (payload.firstPlayerChosen !== undefined) setFirstPlayerChosen(payload.firstPlayerChosen);
@@ -708,10 +709,16 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
       if (s.phase === "rb_splash") setRbSplashTimer(v => { const nv = v - dt/1000; if (nv <= 0) { setPhase("rb_coin"); return 3; } return nv; });
       if (s.phase === "rb_coin") {
         coinAngleRef.current += 0.18;
-        // Throttle state update to every 3 frames to reduce re-renders
-        if (!coinFrameRef.current) coinFrameRef.current = 0;
-        coinFrameRef.current++;
-        if (coinFrameRef.current % 3 === 0) setCoinAngle(coinAngleRef.current);
+        // Update coin DOM directly — zero React re-renders during spin
+        if (coinDivRef.current && !s.coinResult) {
+          const scaleX = Math.abs(Math.cos(coinAngleRef.current * 2));
+          const deg = ((coinAngleRef.current * (180 / Math.PI)) % 360 + 360) % 360;
+          const faceIsPenta = deg < 90 || deg > 270;
+          coinDivRef.current.style.transform = `scaleX(${scaleX})`;
+          coinDivRef.current.style.background = faceIsPenta ? "#ffffff" : "#0a0a0a";
+          const img = coinDivRef.current.querySelector("img") as HTMLImageElement | null;
+          if (img) img.src = faceIsPenta ? "/penta-coin.png" : "/proto-coin.png";
+        }
         if (!s.coinResult) {
           // Only P1 drives the coin flip timer and broadcasts result
           if (!isMultiplayerGame || mySlot === "P1") {
@@ -988,7 +995,7 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
             const faceIsPenta = deg < 90 || deg > 270;
             const src = faceIsPenta ? "/penta-coin.png" : "/proto-coin.png";
             const bg  = faceIsPenta ? "#ffffff" : "#0a0a0a";
-            return (<div style={{ width:coinDiam, height:coinDiam, borderRadius:"50%", overflow:"hidden", background:bg, transform:`scaleX(${Math.abs(scaleX)})`, willChange:"transform", boxShadow:"0 12px 48px rgba(0,0,0,0.65)", transition:"background 0.05s" }}><img src={src} alt={faceIsPenta?"PENTA":"PROTO"} style={{ width:"100%", height:"100%", display:"block", objectFit:"cover" }}/></div>);
+            return (<div ref={coinDivRef} style={{ width:coinDiam, height:coinDiam, borderRadius:"50%", overflow:"hidden", background:bg, transform:`scaleX(${Math.abs(scaleX)})`, willChange:"transform", boxShadow:"0 12px 48px rgba(0,0,0,0.65)", transition:"background 0.05s" }}><img src={src} alt={faceIsPenta?"PENTA":"PROTO"} style={{ width:"100%", height:"100%", display:"block", objectFit:"cover" }}/></div>);
           })()}
         </div>
         {revealed && (<div style={{ fontFamily:t.fontDisplay, fontSize:"clamp(18px,2.4vw,32px)", fontWeight:700, color:t.text, textAlign:"center", letterSpacing:"0.06em", marginTop:8, animation:"fadeUp 0.5s cubic-bezier(.22,.68,0,1.2) 0.3s both" }}><span style={{ color:winCol }}>{tossWinner}</span><span style={{ color:t.textMuted }}> WINS THE TOSS</span></div>)}
