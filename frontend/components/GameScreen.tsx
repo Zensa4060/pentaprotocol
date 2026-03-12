@@ -507,10 +507,9 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
         setP2Ready(false);
         setShowRematch(false);
         setRematchRequested(null);
-        matchHistoryRef.current = [];
-        setMatchHistory([]);
-        setSeriesWinner(null);
-        setGameNumber(msg.game_number ?? 1);
+        // Do NOT reset matchHistory here — game_reset fires between games, history must persist
+        // gameNumber already set client-side in move_made handler
+        // setGameNumber(msg.game_number ?? 1); — skip, client owns this
         setPhase("playing");
       } else if (msg.type === "match_over") {
         setShowRematch(true);
