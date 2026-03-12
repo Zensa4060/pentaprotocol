@@ -749,9 +749,12 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
             if (_isMP2) {
               // For multiplayer: P1 tells server to start game 3
               // Both players wait for game_reset WS message
-              // Both players send rb_start_game — server is idempotent (first one wins)
-              wsRef.current?.send(JSON.stringify({ type: "rb_start_game", first_player: fp, c3_blocked: s.rbC3Blocked }));
-              // c3blocked and phase("playing") set on game_reset arrival
+              // Only toss winner sends rb_start_game — they have correct firstPlayer + c3Blocked values
+              // Toss loser waits for game_reset from server
+              if (s.tossWinner === mySlot) {
+                wsRef.current?.send(JSON.stringify({ type: "rb_start_game", first_player: fp, c3_blocked: s.rbC3Blocked }));
+              }
+              // phase("playing") and c3blocked set on game_reset arrival for both
             } else {
               setGameNumber(3); setPhase("playing"); initBoard(fp, s.rbC3Blocked);
             }
