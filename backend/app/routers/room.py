@@ -295,6 +295,7 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                 engine.board          = room["board"]
                 engine.current_player = room["current_player"]
                 engine.moves_played   = room["moves_played"]
+                engine.extra_turns    = room.get("extra_turns", 0)
 
                 result      = engine.deploy(row, col)
                 is_finished = bool(result.get("winner"))
@@ -303,21 +304,13 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                     "board":          engine.board,
                     "current_player": engine.current_player,
                     "moves_played":   engine.moves_played,
+                    "extra_turns":    engine.extra_turns,
                     "winner":         result.get("winner"),
                     "game_status":    "finished" if is_finished else "playing",
                     "status":         "finished" if is_finished else "active",
                 }
-                await db.rooms.update_one({"room_code": room_code}, {"$set": update})
 
-                if is_finished:
-                    game_dict = {
-                        "player1_id": room["player1_id"],
-                        "player2_id": room["player2_id"],
-                        "format":     room["format"],
-                        "mode":       "multiplayer",
-                    }
-                    await award_game_result(db, game_dict, result.get("winner"))
-
+                # Broadcast first to eliminate win lag
                 broadcast = {
                     "type":           "move_made",
                     "row":            row,
@@ -334,6 +327,18 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                         await ws.send_json(broadcast)
                     except:
                         pass
+
+                # DB writes after broadcast
+                await db.rooms.update_one({"room_code": room_code}, {"$set": update})
+
+                if is_finished:
+                    game_dict = {
+                        "player1_id": room["player1_id"],
+                        "player2_id": room["player2_id"],
+                        "format":     room["format"],
+                        "mode":       "multiplayer",
+                    }
+                    await award_game_result(db, game_dict, result.get("winner"))
 
             elif msg["type"] == "ping":
                 await websocket.send_json({"type": "pong"})
