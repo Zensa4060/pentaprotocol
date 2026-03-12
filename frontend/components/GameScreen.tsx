@@ -438,20 +438,22 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
         setCurrent(msg.current_player);
         setMovesPlayed(msg.moves_played);
         setExtraTurns(msg.extra_turns ?? 0);
-        // Log every move from server (source of truth for both players)
+        // Log every move — use row/col directly, board already has piece placed
         if (msg.row !== undefined && msg.col !== undefined) {
-          const mover = msg.board[msg.row][msg.col];
+          const mover = msg.board[msg.row][msg.col] as string | null;
           if (mover) {
-            setLog(l => {
-              const piece = mover === "P1" ? t.pieces.p1 : t.pieces.p2;
-              return [...l, { text: `${l.length+1}. ${piece}→${String.fromCharCode(65+msg.col)}${msg.row+1} (${mover})`, player: mover }];
-            });
+            const _piece = mover === "P1" ? t.pieces.p1 : t.pieces.p2;
+            setLog(l => [...l, { text: `${l.length+1}. ${_piece}→${String.fromCharCode(65+msg.col)}${msg.row+1} (${mover})`, player: mover }]);
           }
         }
         if (msg.winner) {
           const wl = (msg.win_line ?? []) as [number, number][];
           setWinLine(wl);
           setWinner(msg.winner);
+          // Directly trigger overlay — don't rely on useEffect timing
+          requestAnimationFrame(() => { setShowWinOverlay(true); requestAnimationFrame(() => setOverlayVisible(true)); });
+          if (msg.winner === "P1") playVictory?.();
+          else if (msg.winner === "P2") playDefeat?.();
         }
       } else if (msg.type === "room_state") {
         const r = msg.room;
@@ -495,19 +497,21 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
       } else if (msg.type === "toss_action") {
         const { action, payload } = msg;
         if (action === "start_rb") {
-          setPhase("rb_splash");
-          setRbSplashTimer(3);
-          setCoinFlipTimer(3 + Math.random() * 3);
-          setCoinRevealTimer(0);
-          setCoinResult(null);
-          setCoinAngle(0);
-          setTossWinner(null);
-          setFirstPlayerChosen(null);
-          setRbC3Blocked(false);
-          setWinnerPickedRule(null);
-          setWinnerPickedFirst(null);
-          setWinnerPickedC3(null);
-          playRulebreaker?.();
+          setTimeout(() => {
+            setPhase("rb_splash");
+            setRbSplashTimer(3);
+            setCoinFlipTimer(3 + Math.random() * 3);
+            setCoinRevealTimer(0);
+            setCoinResult(null);
+            setCoinAngle(0);
+            setTossWinner(null);
+            setFirstPlayerChosen(null);
+            setRbC3Blocked(false);
+            setWinnerPickedRule(null);
+            setWinnerPickedFirst(null);
+            setWinnerPickedC3(null);
+            playRulebreaker?.();
+          }, 200);
         } else if (action === "coin_result") {
           setCoinResult(payload.result);
           setTossWinner(payload.toss_winner);
@@ -724,14 +728,16 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
 
   useEffect(() => {
     if (!winner) return;
-    if (!isMultiplayerGame && phase !== "playing") return;
+    const _isMP = (gameMode === "ranked" || gameMode === "unranked") && !!roomCode;
+    const _mySlot = playerSlot ?? "P1";
+    if (!_isMP && phase !== "playing") return;
     if (winner === "P1") playVictory?.();
     else if (winner === "P2") playDefeat?.();
     requestAnimationFrame(() => { setShowWinOverlay(true); requestAnimationFrame(() => setOverlayVisible(true)); });
     const gn      = R.current.gameNumber;
     const newHist = [...R.current.matchHistory, winner];
     setMatchHistory(newHist);
-    if (isMultiplayerGame) {
+    if (_isMP) {
       // In multiplayer, notify both players via WS to show rematch UI after series ends
       if (newHist.length >= 2) {
         const sw = checkSeriesWinner(newHist);
@@ -742,7 +748,7 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
           wsRef.current?.send(JSON.stringify({ type: "match_over_notify" }));
         } else if (gn >= 2) {
           // Game 3 = rulebreaker — P1 broadcasts start_rb to both
-          if (mySlot === "P1") {
+          if (_mySlot === "P1") {
             wsRef.current?.send(JSON.stringify({ type: "toss_action", action: "start_rb", payload: {} }));
           }
           setGameNumber(3);
