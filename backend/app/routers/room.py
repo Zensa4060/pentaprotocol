@@ -55,18 +55,15 @@ class JoinRoomRequest(BaseModel):
 class QueueRequest(BaseModel):
     format: str = "unranked"
 
-class QueueStatusRequest(BaseModel):
-    format: str
-
 # ── Matchmaking queue ─────────────────────────────────────────────────────────
 
 @router.post("/queue/join")
 async def queue_join(data: QueueRequest, user_id: str = Depends(get_current_user)):
-    db = get_db()
+    db  = get_db()
     fmt = data.format
     _matchmaking_queue[fmt] = [e for e in _matchmaking_queue[fmt] if e["user_id"] != user_id]
 
-    user = db.users.find_one({"_id": ObjectId(user_id)})
+    user = await db.users.find_one({"_id": ObjectId(user_id)})
     if not user:
         raise HTTPException(404, "User not found")
     player_name = user.get("username", "Player")
@@ -77,10 +74,10 @@ async def queue_join(data: QueueRequest, user_id: str = Depends(get_current_user
         opponent_id    = opponent_entry["user_id"]
         room_code      = opponent_entry["room_code"]
 
-        opponent = db.users.find_one({"_id": ObjectId(opponent_id)})
+        opponent = await db.users.find_one({"_id": ObjectId(opponent_id)})
         opponent_name = opponent.get("username", "Player") if opponent else "Player"
 
-        db.rooms.update_one(
+        await db.rooms.update_one(
             {"room_code": room_code},
             {"$set": {
                 "player2_id":   user_id,
@@ -89,7 +86,7 @@ async def queue_join(data: QueueRequest, user_id: str = Depends(get_current_user
                 "game_status":  "playing",
             }}
         )
-        room = db.rooms.find_one({"room_code": room_code})
+        room = await db.rooms.find_one({"room_code": room_code})
 
         conns = _room_connections.get(room_code, {})
         p1_ws = conns.get("P1")
@@ -101,11 +98,13 @@ async def queue_join(data: QueueRequest, user_id: str = Depends(get_current_user
 
         return {"matched": True, "room_code": room_code, "player_slot": "P2", "room": serialize_room(room)}
 
+    # No one waiting — create room and queue
     attempts = 0
+    code = generate_room_code()
     while attempts < 10:
-        code = generate_room_code()
-        if not db.rooms.find_one({"room_code": code, "status": "waiting"}):
+        if not await db.rooms.find_one({"room_code": code, "status": "waiting"}):
             break
+        code = generate_room_code()
         attempts += 1
 
     engine = GameEngine()
@@ -124,7 +123,7 @@ async def queue_join(data: QueueRequest, user_id: str = Depends(get_current_user
         "game_status":    "waiting",
         "created_at":     datetime.utcnow(),
     }
-    db.rooms.insert_one(room)
+    await db.rooms.insert_one(room)
     _matchmaking_queue[fmt].append({"user_id": user_id, "room_code": code})
 
     return {"matched": False, "room_code": code, "player_slot": "P1", "room": serialize_room(room)}
@@ -137,14 +136,14 @@ async def queue_leave(data: QueueRequest, user_id: str = Depends(get_current_use
     entry = next((e for e in _matchmaking_queue[fmt] if e["user_id"] == user_id), None)
     if entry:
         _matchmaking_queue[fmt] = [e for e in _matchmaking_queue[fmt] if e["user_id"] != user_id]
-        db.rooms.delete_one({"room_code": entry["room_code"], "status": "waiting"})
+        await db.rooms.delete_one({"room_code": entry["room_code"], "status": "waiting"})
     return {"ok": True}
 
 
 @router.get("/queue/status/{room_code}")
 async def queue_status(room_code: str):
     db   = get_db()
-    room = db.rooms.find_one({"room_code": room_code.upper()})
+    room = await db.rooms.find_one({"room_code": room_code.upper()})
     if not room:
         raise HTTPException(404, "Room not found")
     return serialize_room(room)
@@ -154,8 +153,8 @@ async def queue_status(room_code: str):
 
 @router.post("/create")
 async def create_room(data: CreateRoomRequest, user_id: str = Depends(get_current_user)):
-    db = get_db()
-    user = db.users.find_one({"_id": ObjectId(user_id)})
+    db   = get_db()
+    user = await db.users.find_one({"_id": ObjectId(user_id)})
     if not user:
         raise HTTPException(404, "User not found")
 
@@ -164,10 +163,11 @@ async def create_room(data: CreateRoomRequest, user_id: str = Depends(get_curren
 
     player_name = user.get("username", "Player 1")
     attempts = 0
+    code = generate_room_code()
     while attempts < 10:
-        code = generate_room_code()
-        if not db.rooms.find_one({"room_code": code, "status": "waiting"}):
+        if not await db.rooms.find_one({"room_code": code, "status": "waiting"}):
             break
+        code = generate_room_code()
         attempts += 1
 
     engine = GameEngine()
@@ -186,7 +186,7 @@ async def create_room(data: CreateRoomRequest, user_id: str = Depends(get_curren
         "game_status":    "waiting",
         "created_at":     datetime.utcnow(),
     }
-    db.rooms.insert_one(room)
+    await db.rooms.insert_one(room)
     return serialize_room(room)
 
 
@@ -195,12 +195,10 @@ async def join_room(data: JoinRoomRequest, user_id: str = Depends(get_current_us
     db   = get_db()
     code = data.room_code.upper().strip()
 
-    # Check if room exists at all
-    any_room = db.rooms.find_one({"room_code": code})
+    any_room = await db.rooms.find_one({"room_code": code})
     if not any_room:
         raise HTTPException(404, "Room not found — check the code and try again")
 
-    # If already active, allow reconnect for existing players
     if any_room["status"] in ("active", "finished"):
         p1 = str(any_room.get("player1_id", ""))
         p2 = str(any_room.get("player2_id", ""))
@@ -210,11 +208,10 @@ async def join_room(data: JoinRoomRequest, user_id: str = Depends(get_current_us
             raise HTTPException(400, "This game has already ended")
         raise HTTPException(400, "Room is already full")
 
-    # Room is waiting — validate and join
     if str(any_room["player1_id"]) == user_id:
         raise HTTPException(400, "You cannot join your own room")
 
-    user = db.users.find_one({"_id": ObjectId(user_id)})
+    user = await db.users.find_one({"_id": ObjectId(user_id)})
     if not user:
         raise HTTPException(404, "User not found")
 
@@ -223,7 +220,7 @@ async def join_room(data: JoinRoomRequest, user_id: str = Depends(get_current_us
 
     player_name = user.get("username", "Player 2")
 
-    db.rooms.update_one(
+    await db.rooms.update_one(
         {"room_code": code},
         {"$set": {
             "player2_id":   user_id,
@@ -232,9 +229,8 @@ async def join_room(data: JoinRoomRequest, user_id: str = Depends(get_current_us
             "game_status":  "playing",
         }}
     )
-    room = db.rooms.find_one({"room_code": code})
+    room = await db.rooms.find_one({"room_code": code})
 
-    # Notify P1 via WebSocket
     conns = _room_connections.get(code, {})
     p1_ws = conns.get("P1")
     if p1_ws:
@@ -248,8 +244,8 @@ async def join_room(data: JoinRoomRequest, user_id: str = Depends(get_current_us
 
 @router.get("/{room_code}")
 async def get_room(room_code: str):
-    db = get_db()
-    room = db.rooms.find_one({"room_code": room_code.upper()})
+    db   = get_db()
+    room = await db.rooms.find_one({"room_code": room_code.upper()})
     if not room:
         raise HTTPException(404, "Room not found")
     return serialize_room(room)
@@ -269,7 +265,7 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
     db = get_db()
 
     try:
-        room = db.rooms.find_one({"room_code": room_code})
+        room = await db.rooms.find_one({"room_code": room_code})
         if room:
             await websocket.send_json({"type": "room_state", "room": serialize_room(room)})
 
@@ -281,12 +277,11 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                 row = msg["row"]
                 col = msg["col"]
 
-                room = db.rooms.find_one({"room_code": room_code})
+                room = await db.rooms.find_one({"room_code": room_code})
                 if not room or room["game_status"] != "playing":
                     continue
 
-                expected_slot = room["current_player"]
-                if player_slot != expected_slot:
+                if player_slot != room["current_player"]:
                     await websocket.send_json({"type": "error", "message": "Not your turn"})
                     continue
 
@@ -306,7 +301,7 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                     "game_status":    "finished" if is_finished else "playing",
                     "status":         "finished" if is_finished else "active",
                 }
-                db.rooms.update_one({"room_code": room_code}, {"$set": update})
+                await db.rooms.update_one({"room_code": room_code}, {"$set": update})
 
                 if is_finished:
                     game_dict = {
@@ -315,7 +310,7 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                         "format":     room["format"],
                         "mode":       "multiplayer",
                     }
-                    award_game_result(db, game_dict, result.get("winner"))
+                    await award_game_result(db, game_dict, result.get("winner"))
 
                 broadcast = {
                     "type":           "move_made",
@@ -343,8 +338,7 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
             if not _room_connections[room_code]:
                 del _room_connections[room_code]
 
-        conns = _room_connections.get(room_code, {})
-        for slot, ws in conns.items():
+        for slot, ws in _room_connections.get(room_code, {}).items():
             try:
                 await ws.send_json({"type": "opponent_disconnected"})
             except:
