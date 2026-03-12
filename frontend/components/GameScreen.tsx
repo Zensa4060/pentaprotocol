@@ -368,6 +368,11 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
   const [showRematch, setShowRematch]           = useState(false);
   const [rematchRequested, setRematchRequested] = useState<string|null>(null);
 
+  // Toss choice visibility — what the winner already picked (shown to loser)
+  const [winnerPickedRule, setWinnerPickedRule]   = useState<string|null>(null); // "first" | "c3"
+  const [winnerPickedFirst, setWinnerPickedFirst] = useState<string|null>(null); // "P1" | "P2"
+  const [winnerPickedC3, setWinnerPickedC3]       = useState<boolean|null>(null); // true=block false=allow
+
   const [rbSplashTimer, setRbSplashTimer]     = useState(3.0);
   const [coinFlipTimer, setCoinFlipTimer]     = useState(3.0);
   const [coinRevealTimer, setCoinRevealTimer] = useState(0.0);
@@ -433,10 +438,10 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
         setCurrent(msg.current_player);
         setMovesPlayed(msg.moves_played);
         setExtraTurns(msg.extra_turns ?? 0);
-        // Log opponent's move only (own move already logged optimistically)
+        // Log every move from server (source of truth for both players)
         if (msg.row !== undefined && msg.col !== undefined) {
           const mover = msg.board[msg.row][msg.col];
-          if (mover && mover !== mySlot) {
+          if (mover) {
             setLog(l => {
               const piece = mover === "P1" ? t.pieces.p1 : t.pieces.p2;
               return [...l, { text: `${l.length+1}. ${piece}→${String.fromCharCode(65+msg.col)}${msg.row+1} (${mover})`, player: mover }];
@@ -487,6 +492,36 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
         setRematchRequested(msg.from);
       } else if (msg.type === "match_disbanded") {
         if (setScreen) setScreen("home");
+      } else if (msg.type === "toss_action") {
+        const { action, payload } = msg;
+        if (action === "start_rb") {
+          setPhase("rb_splash");
+          setRbSplashTimer(3);
+          setCoinFlipTimer(3 + Math.random() * 3);
+          setCoinRevealTimer(0);
+          setCoinResult(null);
+          setCoinAngle(0);
+          setTossWinner(null);
+          setFirstPlayerChosen(null);
+          setRbC3Blocked(false);
+          setWinnerPickedRule(null);
+          setWinnerPickedFirst(null);
+          setWinnerPickedC3(null);
+          playRulebreaker?.();
+        } else if (action === "coin_result") {
+          setCoinResult(payload.result);
+          setTossWinner(payload.toss_winner);
+          setCoinRevealTimer(3.5);
+        } else if (action === "phase_choice") {
+          if (payload.phase) setPhase(payload.phase);
+          if (payload.firstPlayerChosen !== undefined) setFirstPlayerChosen(payload.firstPlayerChosen);
+          if (payload.rbC3Blocked !== undefined) setRbC3Blocked(payload.rbC3Blocked);
+          if (payload.summaryTimer !== undefined) setSummaryTimer(payload.summaryTimer);
+          // Sync winner's pick visibility to loser's screen
+          if (payload.winnerPickedRule !== undefined) setWinnerPickedRule(payload.winnerPickedRule);
+          if (payload.winnerPickedFirst !== undefined) setWinnerPickedFirst(payload.winnerPickedFirst);
+          if (payload.winnerPickedC3 !== undefined) setWinnerPickedC3(payload.winnerPickedC3);
+        }
       }
     };
 
@@ -582,6 +617,7 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
     setCoinAngle(0); setTossWinner(null); setFirstPlayerChosen(null); setRbC3Blocked(false);
     setSummaryTimer(3); setOverlayVisible(false); setChoiceTimer(0);
     setShowRematch(false); setRematchRequested(null);
+    setWinnerPickedRule(null); setWinnerPickedFirst(null); setWinnerPickedC3(null);
     setPhase("playing");
     initBoard("P1");
   };
@@ -632,7 +668,19 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
       if (s.phase === "rb_coin") {
         setCoinAngle(a => a + 0.18);
         if (!s.coinResult) {
-          setCoinFlipTimer(v => { const nv = v - dt / 1000; if (nv <= 0) { const r = Math.random() < 0.5 ? "PENTA" : "PROTO"; setCoinResult(r); setTossWinner(r === "PENTA" ? "P1" : "P2"); setCoinRevealTimer(3.5); return 0; } return nv; });
+          // Only P1 drives the coin flip timer and broadcasts result
+          if (!isMultiplayerGame || mySlot === "P1") {
+            setCoinFlipTimer(v => { const nv = v - dt / 1000; if (nv <= 0) {
+              const r = Math.random() < 0.5 ? "PENTA" : "PROTO";
+              setCoinResult(r);
+              setTossWinner(r === "PENTA" ? "P1" : "P2");
+              setCoinRevealTimer(3.5);
+              if (isMultiplayerGame && wsRef.current?.readyState === WebSocket.OPEN) {
+                wsRef.current.send(JSON.stringify({ type: "toss_action", action: "coin_result", payload: { result: r, toss_winner: r === "PENTA" ? "P1" : "P2" } }));
+              }
+              return 0;
+            } return nv; });
+          }
         } else {
           setCoinRevealTimer(v => { const nv = v - dt/1000; if (nv <= 0) { setPhase("rule_choice"); return 0; } return nv; });
         }
@@ -692,6 +740,12 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
           setSeriesWinner(sw ?? newHist[newHist.length - 1]);
           setPhase("match_over");
           wsRef.current?.send(JSON.stringify({ type: "match_over_notify" }));
+        } else if (gn >= 2) {
+          // Game 3 = rulebreaker — P1 broadcasts start_rb to both
+          if (mySlot === "P1") {
+            wsRef.current?.send(JSON.stringify({ type: "toss_action", action: "start_rb", payload: {} }));
+          }
+          setGameNumber(3);
         } else {
           setP1Ready(false); setP2Ready(false); setReadyTimeout(60); setReadyTimer(0); setPhase("waiting_ready");
         }
@@ -739,18 +793,11 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
     if (gameMode === "ai" && current === "P2") return;
     if (c3Blocked && movesPlayed === 0 && r === 2 && c === 2) return;
 
-    // Multiplayer: optimistic local update + send to server (no lag for the player placing)
+    // Multiplayer: instant sound + log, let server move_made update board for everyone
     if (isMultiplayerGame) {
       if (current !== mySlot) return;
       if (wsRef.current?.readyState !== WebSocket.OPEN) return;
       playPlace?.();
-      // Optimistic update — apply locally immediately
-      const nb = board.map(row => [...row]);
-      nb[r][c] = mySlot;
-      setBoard(nb);
-      const nextPlayer = mySlot === "P1" ? "P2" : "P1";
-      setCurrent(nextPlayer);
-      addLog(r, c, mySlot);
       wsRef.current.send(JSON.stringify({ type: "move", row: r, col: c }));
       return;
     }
@@ -782,23 +829,61 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
 
   const dismissOverlay = useCallback(() => { setOverlayVisible(false); setTimeout(() => setShowWinOverlay(false), 320); }, []);
 
+  const broadcastTossPhase = useCallback((phase: string, extra: Record<string,unknown> = {}) => {
+    if (isMultiplayerGame && wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ type: "toss_action", action: "phase_choice", payload: { phase, ...extra } }));
+    }
+  }, [isMultiplayerGame]);
+
   const onLeft = useCallback(() => {
     const p = R.current.phase; const tw = R.current.tossWinner; const tl = tw === "P1" ? "P2" : "P1";
-    if      (p === "rule_choice")      setPhase("who_first_winner");
-    else if (p === "who_first_winner") { setFirstPlayerChosen(tw); setPhase("c3_choice_loser"); }
-    else if (p === "c3_choice")        { setRbC3Blocked(true);  setPhase("who_first_loser"); }
-    else if (p === "c3_choice_loser")  { setRbC3Blocked(true);  setSummaryTimer(3); setPhase("toss_summary"); }
-    else if (p === "who_first_loser")  { setFirstPlayerChosen(tl); setSummaryTimer(3); setPhase("toss_summary"); }
-  }, []);
+    if (p === "rule_choice") {
+      setWinnerPickedRule("first");
+      setPhase("who_first_winner");
+      broadcastTossPhase("who_first_winner", { winnerPickedRule: "first" });
+    } else if (p === "who_first_winner") {
+      setFirstPlayerChosen(tw);
+      setWinnerPickedFirst(tw ?? null);
+      setPhase("c3_choice_loser");
+      broadcastTossPhase("c3_choice_loser", { firstPlayerChosen: tw, winnerPickedFirst: tw });
+    } else if (p === "c3_choice") {
+      setRbC3Blocked(true);
+      setWinnerPickedC3(true);
+      setPhase("who_first_loser");
+      broadcastTossPhase("who_first_loser", { rbC3Blocked: true, winnerPickedC3: true });
+    } else if (p === "c3_choice_loser") {
+      setRbC3Blocked(true); setSummaryTimer(3); setPhase("toss_summary");
+      broadcastTossPhase("toss_summary", { rbC3Blocked: true, summaryTimer: 3 });
+    } else if (p === "who_first_loser") {
+      setFirstPlayerChosen(tl); setSummaryTimer(3); setPhase("toss_summary");
+      broadcastTossPhase("toss_summary", { firstPlayerChosen: tl, summaryTimer: 3 });
+    }
+  }, [broadcastTossPhase]);
 
   const onRight = useCallback(() => {
     const p = R.current.phase; const tw = R.current.tossWinner; const tl = tw === "P1" ? "P2" : "P1";
-    if      (p === "rule_choice")      setPhase("c3_choice");
-    else if (p === "who_first_winner") { setFirstPlayerChosen(tl);  setPhase("c3_choice_loser"); }
-    else if (p === "c3_choice")        { setRbC3Blocked(false); setPhase("who_first_loser"); }
-    else if (p === "c3_choice_loser")  { setRbC3Blocked(false); setSummaryTimer(3); setPhase("toss_summary"); }
-    else if (p === "who_first_loser")  { setFirstPlayerChosen(tw);  setSummaryTimer(3); setPhase("toss_summary"); }
-  }, []);
+    if (p === "rule_choice") {
+      setWinnerPickedRule("c3");
+      setPhase("c3_choice");
+      broadcastTossPhase("c3_choice", { winnerPickedRule: "c3" });
+    } else if (p === "who_first_winner") {
+      setFirstPlayerChosen(tl);
+      setWinnerPickedFirst(tl ?? null);
+      setPhase("c3_choice_loser");
+      broadcastTossPhase("c3_choice_loser", { firstPlayerChosen: tl, winnerPickedFirst: tl });
+    } else if (p === "c3_choice") {
+      setRbC3Blocked(false);
+      setWinnerPickedC3(false);
+      setPhase("who_first_loser");
+      broadcastTossPhase("who_first_loser", { rbC3Blocked: false, winnerPickedC3: false });
+    } else if (p === "c3_choice_loser") {
+      setRbC3Blocked(false); setSummaryTimer(3); setPhase("toss_summary");
+      broadcastTossPhase("toss_summary", { rbC3Blocked: false, summaryTimer: 3 });
+    } else if (p === "who_first_loser") {
+      setFirstPlayerChosen(tw); setSummaryTimer(3); setPhase("toss_summary");
+      broadcastTossPhase("toss_summary", { firstPlayerChosen: tw, summaryTimer: 3 });
+    }
+  }, [broadcastTossPhase]);
 
   const cc = current === "P1" ? p1c : p2c;
   const cp = current === "P1" ? t.pieces.p1 : t.pieces.p2;
@@ -889,6 +974,24 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
       <div className="phase-screen" style={{ position:"fixed", top:0, left:0, right:0, bottom:0, zIndex:2, overflowY:"auto", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", background:t.bg, padding:"40px 24px", gap:24, userSelect:"none" }}>
         <style>{`@keyframes cardSlideIn{from{opacity:0;transform:translateY(22px)}to{opacity:1;transform:translateY(0)}} .toss-card-enter{animation:cardSlideIn 0.45s cubic-bezier(.22,.68,0,1.2) both;animation-fill-mode:both;}`}</style>
         <div style={{ fontFamily:t.fontDisplay, fontSize:"clamp(13px,1.8vw,22px)", fontWeight:700, color:t.accent, textAlign:"center", maxWidth:800 }}>{title}</div>
+
+        {/* Show what toss winner already picked — visible to loser when it's their turn */}
+        {isMultiplayerGame && (phase === "c3_choice_loser" || phase === "who_first_loser") && (
+          <div style={{ background:`${actorCol}12`, border:`1px solid ${actorCol}44`, borderRadius:ip?2:10, padding:"12px 20px", maxWidth:480, width:"100%", textAlign:"center", animation:"fadeUp 0.3s ease both" }}>
+            <div style={{ fontFamily:t.fontMono, fontSize:11, color:t.textMuted, letterSpacing:"0.12em", marginBottom:6 }}>{tossWinner} ALREADY CHOSE</div>
+            {phase === "c3_choice_loser" && winnerPickedFirst && (
+              <div style={{ fontFamily:t.fontDisplay, fontSize:18, fontWeight:700, color:winCol }}>
+                PLAYS FIRST: {winnerPickedFirst}
+              </div>
+            )}
+            {phase === "who_first_loser" && winnerPickedC3 !== null && (
+              <div style={{ fontFamily:t.fontDisplay, fontSize:18, fontWeight:700, color:winCol }}>
+                C3: {winnerPickedC3 ? "BLOCKED" : "ALLOWED"}
+              </div>
+            )}
+          </div>
+        )}
+
         <div style={{ width:"min(480px,88vw)", display:"flex", flexDirection:"column", gap:6 }}>
           <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
             <span style={{ fontFamily:t.fontMono, fontSize:11, color:t.textMuted, letterSpacing:"0.12em" }}>{actor} IS CHOOSING</span>
@@ -898,10 +1001,19 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
             <div style={{ height:"100%", width:`${pct*100}%`, borderRadius:3, transition:"width 1.05s linear, background 0.35s ease", background:urgent?t.danger:`linear-gradient(90deg, ${actorCol}, ${t.accent})`, boxShadow:urgent?`0 0 14px ${t.danger}88`:`0 0 10px ${actorCol}66` }}/>
           </div>
         </div>
-        <div style={{ display:"flex", gap:20, width:"100%", maxWidth:880 }}>
-          <TossCard label={leftLabel} onClick={onLeft} delay={0.12} actorCol={actorCol} bgCard={t.bgCard} borderCol={t.border} textCol={t.text} fontDisplay={t.fontDisplay} ip={ip}/>
-          <TossCard label={rightLabel} onClick={onRight} delay={0.20} actorCol={actorCol} bgCard={t.bgCard} borderCol={t.border} textCol={t.text} fontDisplay={t.fontDisplay} ip={ip}/>
-        </div>
+        {(() => {
+          const winnerPhases = ["rule_choice", "who_first_winner", "c3_choice"];
+          const loserPhases  = ["c3_choice_loser", "who_first_loser"];
+          const isMyTurn = !isMultiplayerGame ||
+            (winnerPhases.includes(phase) && mySlot === tossWinner) ||
+            (loserPhases.includes(phase)  && mySlot === tossLoser);
+          return (
+            <div style={{ display:"flex", gap:20, width:"100%", maxWidth:880, opacity: isMyTurn ? 1 : 0.35, pointerEvents: isMyTurn ? "auto" : "none", transition:"opacity 0.3s" }}>
+              <TossCard label={leftLabel} onClick={onLeft} delay={0.12} actorCol={actorCol} bgCard={t.bgCard} borderCol={t.border} textCol={t.text} fontDisplay={t.fontDisplay} ip={ip}/>
+              <TossCard label={rightLabel} onClick={onRight} delay={0.20} actorCol={actorCol} bgCard={t.bgCard} borderCol={t.border} textCol={t.text} fontDisplay={t.fontDisplay} ip={ip}/>
+            </div>
+          );
+        })()}
       </div>
     );
   }

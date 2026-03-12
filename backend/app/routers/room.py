@@ -171,26 +171,27 @@ async def create_room(data: CreateRoomRequest, user_id: str = Depends(get_curren
         attempts += 1
 
     engine = GameEngine()
+    # Randomly assign creator as P1 or P2
+    creator_slot = random.choice(["P1", "P2"])
     room = {
-        "room_code":      code,
-        "status":         "waiting",
-        "format":         data.format,
-        "player1_id":     user_id,
-        "player2_id":     None,
-        "player1_name":   player_name,
-        "player2_name":   None,
-        "board":          engine.board,
-        "current_player": "P1",
-        "moves_played":   0,
-        "winner":         None,
-        "game_status":    "waiting",
-        "created_at":     datetime.utcnow(),
+        "room_code":       code,
+        "status":          "waiting",
+        "format":          data.format,
+        "player1_id":      user_id if creator_slot == "P1" else None,
+        "player2_id":      user_id if creator_slot == "P2" else None,
+        "player1_name":    player_name if creator_slot == "P1" else None,
+        "player2_name":    player_name if creator_slot == "P2" else None,
+        "creator_slot":    creator_slot,
+        "board":           engine.board,
+        "current_player":  "P1",
+        "moves_played":    0,
+        "winner":          None,
+        "game_status":     "waiting",
+        "created_at":      datetime.utcnow(),
     }
-    # Randomly decide if the creator is P1 or P2 (P2 slot reserved for joiner)
-    # Creator is always P1 for private rooms — joiner gets P2
     await db.rooms.insert_one(room)
     result = serialize_room(room)
-    result["player_slot"] = "P1"
+    result["player_slot"] = creator_slot
     return result
 
 
@@ -224,27 +225,34 @@ async def join_room(data: JoinRoomRequest, user_id: str = Depends(get_current_us
 
     player_name = user.get("username", "Player 2")
 
-    await db.rooms.update_one(
-        {"room_code": code},
-        {"$set": {
-            "player2_id":   user_id,
-            "player2_name": player_name,
-            "status":       "active",
-            "game_status":  "playing",
-        }}
-    )
+    # Joiner gets the slot the creator didn't take
+    creator_slot = any_room.get("creator_slot", "P1")
+    joiner_slot  = "P2" if creator_slot == "P1" else "P1"
+
+    update_fields = {
+        "status":      "active",
+        "game_status": "playing",
+    }
+    if joiner_slot == "P1":
+        update_fields["player1_id"]   = user_id
+        update_fields["player1_name"] = player_name
+    else:
+        update_fields["player2_id"]   = user_id
+        update_fields["player2_name"] = player_name
+
+    await db.rooms.update_one({"room_code": code}, {"$set": update_fields})
     room = await db.rooms.find_one({"room_code": code})
 
     conns = _room_connections.get(code, {})
-    p1_ws = conns.get("P1")
-    if p1_ws:
+    creator_ws = conns.get(creator_slot)
+    if creator_ws:
         try:
-            await p1_ws.send_json({"type": "player_joined", "room": serialize_room(room)})
+            await creator_ws.send_json({"type": "player_joined", "room": serialize_room(room)})
         except:
             pass
 
     result = serialize_room(room)
-    result["player_slot"] = "P2"
+    result["player_slot"] = joiner_slot
     return result
 
 
@@ -444,6 +452,17 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                 for slot, ws in _room_connections.get(room_code, {}).items():
                     try:
                         await ws.send_json({"type": "match_disbanded"})
+                    except:
+                        pass
+
+            elif msg["type"] == "toss_action":
+                # P1 initiates toss, broadcast result to both
+                action = msg.get("action")  # "start_rb", "coin_result", "phase_choice", "toss_summary"
+                payload = msg.get("payload", {})
+                broadcast = {"type": "toss_action", "action": action, "payload": payload, "from": player_slot}
+                for slot, ws in _room_connections.get(room_code, {}).items():
+                    try:
+                        await ws.send_json(broadcast)
                     except:
                         pass
 
