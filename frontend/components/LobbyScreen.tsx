@@ -178,12 +178,12 @@ export default function LobbyScreen({ setScreen, themeId, onQueueStart, onQueueC
   const pollForPlayer = (code: string, mySlot: "P1" | "P2" = "P1") => {
     const interval = setInterval(async () => {
       try {
-        const res = await API.get(`/api/room/${code}`);
+        const res = await API.get(`/api/room/${code}`, authHeader);
         if (res.data.game_status === "playing") {
           clearInterval(interval);
           onRoomReady?.(code, mySlot, res.data.format);
         }
-      } catch { clearInterval(interval); }
+      } catch { /* keep polling on error */ }
     }, 2000);
     setTimeout(() => clearInterval(interval), 300000);
   };

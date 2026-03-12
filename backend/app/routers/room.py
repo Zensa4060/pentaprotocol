@@ -243,7 +243,9 @@ async def join_room(data: JoinRoomRequest, user_id: str = Depends(get_current_us
         except:
             pass
 
-    return serialize_room(room)
+    result = serialize_room(room)
+    result["player_slot"] = "P2"
+    return result
 
 
 @router.get("/{room_code}")
