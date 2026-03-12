@@ -35,7 +35,7 @@ export default function Page() {
   const [fadingOut, setFadingOut]       = useState(false);
   const [aiDifficulty, setAiDifficulty] = useState<Difficulty>("medium");
   const [multiRoomCode,   setMultiRoomCode]   = useState<string>("");
-  const [multiPlayerSlot, setMultiPlayerSlot] = useState<"P1" | "P2" | null>(null);
+  const [multiPlayerSlot, setMultiPlayerSlot] = useState<"P1" | "P2">("P1");
   const [customRev, setCustomRev]       = useState(0);
   const audioStartedRef                 = useRef(false);
   const pendingTheme                    = useRef<ThemeId | null>(null);
@@ -329,7 +329,7 @@ export default function Page() {
       )}
       {screen === "multiGame" && (
         <GameScreen key="multiGame" themeId={themeId} gameMode={isRanked ? "ranked" : "unranked"} setScreen={handleSetScreen}
-          roomCode={multiRoomCode} playerSlot={multiPlayerSlot ?? undefined}
+          roomCode={multiRoomCode} playerSlot={multiPlayerSlot}
           playHover={sfx.hover} playPlace={sfx.place} playVictory={sfx.victory} playDefeat={sfx.defeat}
           playRulebreaker={sfx.rulebreaker} playTransition={sfx.transition} playClick={sfx.click} />
       )}
