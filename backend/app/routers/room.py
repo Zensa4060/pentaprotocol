@@ -294,8 +294,8 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                 row = msg["row"]
                 col = msg["col"]
 
-                # Use in-memory cache — no DB read per move
-                room = _room_state.get(room_code)
+                # Always read from DB — ensures correctness across Railway workers
+                room = await db.rooms.find_one({"room_code": room_code})
                 if not room or room["game_status"] != "playing":
                     continue
 
@@ -304,7 +304,7 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                     continue
 
                 engine = GameEngine()
-                engine.board          = [r[:] for r in room["board"]]  # shallow copy
+                engine.board          = room["board"]
                 engine.current_player = room["current_player"]
                 engine.moves_played   = room["moves_played"]
                 engine.extra_turns    = room.get("extra_turns", 0)
@@ -378,11 +378,8 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                     except:
                         pass
 
-                # Check if both ready — use cache, no DB read
-                # Update cache with the ready flag first
-                if room_code in _room_state:
-                    _room_state[room_code][ready_field] = ready_val
-                room = _room_state.get(room_code)
+                # Check if both ready — read from DB for cross-worker correctness
+                room = await db.rooms.find_one({"room_code": room_code})
                 if room and room.get("p1_ready") and room.get("p2_ready"):
                     reset = {
                         "board":          [[None]*5 for _ in range(5)],
@@ -483,8 +480,8 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                         pass
 
             elif msg["type"] == "rb_start_game":
-                # Rulebreaker game 3 start — both clients send this, first one wins
-                room = _room_state.get(room_code)
+                # Rulebreaker game 3 start — toss winner sends this
+                room = await db.rooms.find_one({"room_code": room_code})
                 if not room:
                     continue
                 # Idempotent: if game 3 already started, ignore

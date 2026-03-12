@@ -429,10 +429,10 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
 
   // ── WebSocket for multiplayer ─────────────────────────────────────────────
   useEffect(() => {
-    if (!isMultiplayerGame) return;
+    if (!isMultiplayerGame || !playerSlot) return;  // wait for real slot, not fallback
     const base = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000")
       .replace("https://", "wss://").replace("http://", "ws://");
-    const ws = new WebSocket(`${base}/api/room/ws/${roomCode}/${mySlot}`);
+    const ws = new WebSocket(`${base}/api/room/ws/${roomCode}/${playerSlot}`);
     wsRef.current = ws;
 
     ws.onmessage = (e) => {
@@ -572,7 +572,7 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
     }, 25000);
 
     return () => { clearInterval(ping); ws.close(); wsRef.current = null; };
-  }, [isMultiplayerGame, roomCode, mySlot]);
+  }, [isMultiplayerGame, roomCode, playerSlot]);
 
   // ── Bot move trigger ──────────────────────────────────────────────────────
   const botTurnKey = `${current}-${extraTurns}-${movesPlayed}`;
