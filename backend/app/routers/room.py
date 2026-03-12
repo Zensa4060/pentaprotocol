@@ -288,9 +288,13 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
     db = get_db()
 
     try:
-        room = await db.rooms.find_one({"room_code": room_code})
+        # Use in-memory cache if available — avoids stale DB read overwriting live game state
+        room = _room_state.get(room_code)
+        if not room:
+            room = await db.rooms.find_one({"room_code": room_code})
+            if room:
+                _room_state[room_code] = room
         if room:
-            _room_state[room_code] = room  # seed cache
             await websocket.send_json({"type": "room_state", "room": serialize_room(room)})
 
         while True:
@@ -356,8 +360,9 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                     except:
                         pass
 
-                # DB write in background — broadcast already done
-                asyncio.create_task(db.rooms.update_one({"room_code": room_code}, {"$set": update}))
+                # Await DB write — ensures DB is consistent if a client reconnects
+                # and falls back to DB read. Cache is already updated above.
+                await db.rooms.update_one({"room_code": room_code}, {"$set": update})
 
                 if is_finished:
                     game_dict = {
