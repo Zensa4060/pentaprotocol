@@ -340,6 +340,33 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                     }
                     await award_game_result(db, game_dict, result.get("winner"))
 
+            elif msg["type"] == "ready":
+                # Broadcast ready state to both players
+                broadcast = {
+                    "type":   "ready_update",
+                    "player": player_slot,
+                    "ready":  msg.get("ready", True),
+                }
+                for slot, ws in _room_connections.get(room_code, {}).items():
+                    try:
+                        await ws.send_json(broadcast)
+                    except:
+                        pass
+
+            elif msg["type"] == "chat":
+                # Broadcast chat to both players
+                broadcast = {
+                    "type": "chat_message",
+                    "from": player_slot,
+                    "text": msg.get("text", ""),
+                    "ts":   msg.get("ts", 0),
+                }
+                for slot, ws in _room_connections.get(room_code, {}).items():
+                    try:
+                        await ws.send_json(broadcast)
+                    except:
+                        pass
+
             elif msg["type"] == "ping":
                 await websocket.send_json({"type": "pong"})
 

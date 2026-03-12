@@ -435,7 +435,11 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
       setCurrent(r.current_player ?? "P1");
       setMovesPlayed(r.moves_played ?? 0);
     } else if (msg.type === "opponent_disconnected") {
-      setWinner(mySlot);
+      setWinner(mySlot);} else if (msg.type === "ready_update") {
+  if (msg.player === "P1") setP1Ready(msg.ready);
+  else setP2Ready(msg.ready);
+} else if (msg.type === "chat_message") {
+  setChatMessages(m => [...m.slice(-49), { from: msg.from, text: msg.text, ts: msg.ts }]);
     }
   };
 
@@ -515,13 +519,17 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
   };
 
   const sendChat = (from: "P1" | "P2") => {
-    const text = chatInput.trim();
-    if (!text) return;
-    if (containsProfanity(text)) { setChatWarning(true); setTimeout(() => setChatWarning(false), 3000); }
-    const censored = censorText(text);
+  const text = chatInput.trim();
+  if (!text) return;
+  if (containsProfanity(text)) { setChatWarning(true); setTimeout(() => setChatWarning(false), 3000); }
+  const censored = censorText(text);
+  if (isMultiplayerGame && wsRef.current?.readyState === WebSocket.OPEN) {
+    wsRef.current.send(JSON.stringify({ type: "chat", text: censored, ts: Date.now() }));
+  } else {
     setChatMessages(m => [...m.slice(-49), { from, text: censored, ts: Date.now() }]);
-    setChatInput("");
-  };
+  }
+  setChatInput("");
+};
 
   const softReset = () => {
     setGameNumber(1); setMatchHistory([]); setMatchOver(false); setSeriesWinner(null);
@@ -622,7 +630,8 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
   };
 
   useEffect(() => {
-    if (!winner || phase !== "playing") return;
+   if (!winner) return;
+   if (!isMultiplayerGame && phase !== "playing") return;
     if (winner === "P1") playVictory?.();
     else if (winner === "P2") playDefeat?.();
     requestAnimationFrame(() => { setShowWinOverlay(true); requestAnimationFrame(() => setOverlayVisible(true)); });
@@ -921,7 +930,11 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
               const col = p==="P1"?p1c:p2c;
               return (<button key={p}onClick={() => {
   if (isMultiplayerGame && mySlot !== p) return;
-  p === "P1" ? setP1Ready(v=>!v) : setP2Ready(v=>!v);
+  const newVal = p === "P1" ? !p1Ready : !p2Ready;
+  if (isMultiplayerGame && wsRef.current?.readyState === WebSocket.OPEN) {
+    wsRef.current.send(JSON.stringify({ type: "ready", ready: newVal }));
+  }
+  p === "P1" ? setP1Ready(newVal) : setP2Ready(newVal);
 }}
  style={{ background:rdy?`${col}22`:"#AA000022", border:`2px solid ${rdy?col:"#AA0000"}`, color:rdy?col:"#EE0000", fontFamily:t.fontMono, fontSize:15, fontWeight:700, padding:"12px", borderRadius:ip?2:6, cursor:"pointer", transition:"all 0.2s", boxShadow:rdy?`0 0 16px ${col}55, 0 0 4px ${col}33`:"none" }} onMouseEnter={e=>{playHover?.();e.currentTarget.style.boxShadow=rdy?`0 0 24px ${col}88`:"0 0 16px #EE000055";e.currentTarget.style.borderColor=rdy?col:"#FF3333";}} onMouseLeave={e=>{e.currentTarget.style.boxShadow=rdy?`0 0 16px ${col}55`:"none";e.currentTarget.style.borderColor=rdy?col:"#AA0000";}}>{p} {rdy?"✓ READY":"NOT READY"}</button>);
             })}
@@ -947,7 +960,7 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
                 </div>
                 {chatWarning && (<div style={{ padding:"8px 12px", background:"#F4433618", border:"1px solid #F44336", borderRadius:6, fontFamily:t.fontBody, fontSize:13, color:"#F44336" }}>⚠ Inappropriate language detected and censored.</div>)}
                 <div style={{ display:"flex", gap:6 }}>
-                  <input value={chatInput} onChange={e=>setChatInput(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")sendChat("P1");}} placeholder="message…" maxLength={60} style={{ flex:1, background:t.inputBg, border:`1px solid ${t.border}`, borderRadius:ip?2:6, color:t.text, fontFamily:t.fontBody, fontSize:14, padding:"8px 10px", outline:"none", minWidth:0 }}/>
+                  <input value={chatInput} onChange={e=>setChatInput(e.target.value)} onKeyDown={e=>{if(e.key==="Enter") sendChat(isMultiplayerGame ? mySlot : "P1");}} placeholder="message…" maxLength={60} style={{ flex:1, background:t.inputBg, border:`1px solid ${t.border}`, borderRadius:ip?2:6, color:t.text, fontFamily:t.fontBody, fontSize:14, padding:"8px 10px", outline:"none", minWidth:0 }}/>
                   {(!isMultiplayerGame || mySlot === "P1") && ( <button onClick={()=>sendChat("P1")} style={{ background:`${p1c}20`, border:`1px solid ${p1c}`, color:p1c, fontFamily:t.fontMono, fontSize:14, fontWeight:700, padding:"8px 12px", borderRadius:ip?2:6, cursor:"pointer", transition:"all 0.18s", flexShrink:0 }} onMouseEnter={e=>{e.currentTarget.style.background=p1c;e.currentTarget.style.color="#000";}} onMouseLeave={e=>{e.currentTarget.style.background=`${p1c}20`;e.currentTarget.style.color=p1c;}}>P1</button>)}
                   {(!isMultiplayerGame || mySlot === "P2") && (<button onClick={()=>sendChat("P2")} style={{ background:`${p2c}20`, border:`1px solid ${p2c}`, color:p2c, fontFamily:t.fontMono, fontSize:14, fontWeight:700, padding:"8px 12px", borderRadius:ip?2:6, cursor:"pointer", transition:"all 0.18s", flexShrink:0 }} onMouseEnter={e=>{e.currentTarget.style.background=p2c;e.currentTarget.style.color="#000";}} onMouseLeave={e=>{e.currentTarget.style.background=`${p2c}20`;e.currentTarget.style.color=p2c;}}>P2</button>)}
                 </div>
