@@ -23,7 +23,9 @@ interface Props {
   playDefeat?: () => void;
   playRulebreaker?: () => void;
   playTransition?: () => void;
-  playClick?: () => void;
+ playClick?: () => void;
+  roomCode?: string;
+  playerSlot?: "P1" | "P2";
 }
 
 type Phase =

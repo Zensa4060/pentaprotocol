@@ -169,19 +169,19 @@ export default function LobbyScreen({ setScreen, themeId, onQueueStart, onQueueC
       const res = await API.post("/api/room/create", { format: roomFormat }, authHeader);
       setRoomCode(res.data.room_code);
       setRoomSection("waiting");
-      pollForPlayer(res.data.room_code);
+      pollForPlayer(res.data.room_code, (res.data.player_slot as "P1" | "P2") ?? "P1");
     } catch (e: any) {
       setRoomError(e.response?.data?.detail || "Failed to create room");
     } finally { setRoomLoading(false); }
   };
 
-  const pollForPlayer = (code: string) => {
+  const pollForPlayer = (code: string, mySlot: "P1" | "P2" = "P1") => {
     const interval = setInterval(async () => {
       try {
         const res = await API.get(`/api/room/${code}`);
         if (res.data.game_status === "playing") {
           clearInterval(interval);
-          onRoomReady?.(code, "P1", res.data.format);
+          onRoomReady?.(code, mySlot, res.data.format);
         }
       } catch { clearInterval(interval); }
     }, 2000);
@@ -194,7 +194,7 @@ export default function LobbyScreen({ setScreen, themeId, onQueueStart, onQueueC
     setRoomLoading(true); setRoomError(null);
     try {
       const res = await API.post("/api/room/join", { room_code: joinCode.trim().toUpperCase() }, authHeader);
-      onRoomReady?.(res.data.room_code, "P2", res.data.format);
+      onRoomReady?.(res.data.room_code, (res.data.player_slot as "P1" | "P2") ?? "P2", res.data.format);
     } catch (e: any) {
       setRoomError(e.response?.data?.detail || "Could not join room");
     } finally { setRoomLoading(false); }

@@ -34,6 +34,8 @@ export default function Page() {
   const [audioStarted, setAudioStarted] = useState(false);
   const [fadingOut, setFadingOut]       = useState(false);
   const [aiDifficulty, setAiDifficulty] = useState<Difficulty>("medium");
+  const [multiRoomCode,   setMultiRoomCode]   = useState<string>("");
+  const [multiPlayerSlot, setMultiPlayerSlot] = useState<"P1" | "P2">("P1");
   const [customRev, setCustomRev]       = useState(0);
   const audioStartedRef                 = useRef(false);
   const pendingTheme                    = useRef<ThemeId | null>(null);
@@ -155,6 +157,13 @@ export default function Page() {
   };
 
   const ip = themeId === "pixel";
+
+  const handleRoomReady = (roomCode: string, playerSlot: "P1" | "P2", format: string) => {
+    setMultiRoomCode(roomCode);
+    setMultiPlayerSlot(playerSlot);
+    setIsRanked(format === "ranked");
+    setScreen("multiGame");
+  };
 
   // Guest block modal overlay
   const GuestBlockModal = () => (
@@ -298,6 +307,7 @@ export default function Page() {
           onQueueCancel={() => setInQueue(false)}
           onHover={sfx.hover}
           onClick={sfx.click}
+          onRoomReady={handleRoomReady}
         />
       )}
       {screen === "profile"    && <ProfileScreen    themeId={themeId} onHover={sfx.hover} onClick={sfx.click} />}
@@ -319,6 +329,7 @@ export default function Page() {
       )}
       {screen === "multiGame" && (
         <GameScreen key="multiGame" themeId={themeId} gameMode={isRanked ? "ranked" : "unranked"} setScreen={handleSetScreen}
+          roomCode={multiRoomCode} playerSlot={multiPlayerSlot}
           playHover={sfx.hover} playPlace={sfx.place} playVictory={sfx.victory} playDefeat={sfx.defeat}
           playRulebreaker={sfx.rulebreaker} playTransition={sfx.transition} playClick={sfx.click} />
       )}

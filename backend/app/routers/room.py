@@ -186,8 +186,12 @@ async def create_room(data: CreateRoomRequest, user_id: str = Depends(get_curren
         "game_status":    "waiting",
         "created_at":     datetime.utcnow(),
     }
+    # Randomly decide if the creator is P1 or P2 (P2 slot reserved for joiner)
+    # Creator is always P1 for private rooms — joiner gets P2
     await db.rooms.insert_one(room)
-    return serialize_room(room)
+    result = serialize_room(room)
+    result["player_slot"] = "P1"
+    return result
 
 
 @router.post("/join")
