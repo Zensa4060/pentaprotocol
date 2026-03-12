@@ -23,7 +23,7 @@ interface Props {
   playDefeat?: () => void;
   playRulebreaker?: () => void;
   playTransition?: () => void;
- playClick?: () => void;
+  playClick?: () => void;
   roomCode?: string;
   playerSlot?: "P1" | "P2";
 }
@@ -364,6 +364,10 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
   const [readyTimer, setReadyTimer]     = useState(0);
   const [phase, setPhase]               = useState<Phase>("playing");
 
+  // Rematch states
+  const [showRematch, setShowRematch]           = useState(false);
+  const [rematchRequested, setRematchRequested] = useState<string|null>(null);
+
   const [rbSplashTimer, setRbSplashTimer]     = useState(3.0);
   const [coinFlipTimer, setCoinFlipTimer]     = useState(3.0);
   const [coinRevealTimer, setCoinRevealTimer] = useState(0.0);
@@ -405,7 +409,6 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
   R.current.summaryTimer      = summaryTimer;
   R.current.choiceTimer       = choiceTimer;
 
-  // Keep refs to volatile state so placeBot always reads fresh values
   const boardRef       = useRef(board);
   const extraTurnsRef  = useRef(extraTurns);
   const movesPlayedRef = useRef(movesPlayed);
@@ -414,65 +417,87 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
   useEffect(() => { movesPlayedRef.current = movesPlayed; }, [movesPlayed]);
 
   useEffect(() => { initBoard("P1"); }, []);
+
+  // ── WebSocket for multiplayer ─────────────────────────────────────────────
   useEffect(() => {
-  if (!isMultiplayerGame) return;
-  const base = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000")
-    .replace("https://", "wss://").replace("http://", "ws://");
-  const ws = new WebSocket(`${base}/api/room/ws/${roomCode}/${mySlot}`);
-  wsRef.current = ws;
+    if (!isMultiplayerGame) return;
+    const base = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000")
+      .replace("https://", "wss://").replace("http://", "ws://");
+    const ws = new WebSocket(`${base}/api/room/ws/${roomCode}/${mySlot}`);
+    wsRef.current = ws;
 
-  ws.onmessage = (e) => {
-    const msg = JSON.parse(e.data);
-    if (msg.type === "move_made") {
-      setBoard(msg.board);
-      setCurrent(msg.current_player);
-      setMovesPlayed(msg.moves_played);
-      setExtraTurns(msg.extra_turns ?? 0);
-      if (msg.winner) { 
-  setWinLine((msg.win_line ?? []).map(([r,c]: [number,number]) => [r,c] as Coord)); 
-  setWinner(msg.winner); 
-}
-    } else if (msg.type === "room_state") {
-      const r = msg.room;
-      setBoard(r.board ?? emptyBoard());
-      setCurrent(r.current_player ?? "P1");
-      setMovesPlayed(r.moves_played ?? 0);
-    } else if (msg.type === "opponent_disconnected") {
-      setWinner(mySlot);} else if (msg.type === "ready_update") {
-  if (msg.player === "P1") setP1Ready(msg.ready);
-  else setP2Ready(msg.ready);
-} else if (msg.type === "chat_message") {
-  setChatMessages(m => [...m.slice(-49), { from: msg.from, text: msg.text, ts: msg.ts }]);} else if (msg.type === "game_reset") {
-  setBoard(emptyBoard());
-  setCurrent(msg.first_player);
-  setMovesPlayed(0);
-  setExtraTurns(0);
-  setWinner(null);
-  setWinLine([]);
-  setShowWinOverlay(false);
-  setOverlayVisible(false);
-  setC3Blocked(false);
-  setLog([]);
-  setP1Time(180000);
-  setP2Time(180000);
-  setP1Ready(false);
-  setP2Ready(false);
-  setPhase("playing");
-    }
-  };
-  
+    ws.onmessage = (e) => {
+      const msg = JSON.parse(e.data);
+      if (msg.type === "move_made") {
+        setBoard(msg.board);
+        setCurrent(msg.current_player);
+        setMovesPlayed(msg.moves_played);
+        setExtraTurns(msg.extra_turns ?? 0);
+        // Log opponent's move only (own move already logged optimistically)
+        if (msg.row !== undefined && msg.col !== undefined) {
+          const mover = msg.board[msg.row][msg.col];
+          if (mover && mover !== mySlot) {
+            setLog(l => {
+              const piece = mover === "P1" ? t.pieces.p1 : t.pieces.p2;
+              return [...l, { text: `${l.length+1}. ${piece}→${String.fromCharCode(65+msg.col)}${msg.row+1} (${mover})`, player: mover }];
+            });
+          }
+        }
+        if (msg.winner) {
+          const wl = (msg.win_line ?? []) as [number, number][];
+          setWinLine(wl);
+          setWinner(msg.winner);
+        }
+      } else if (msg.type === "room_state") {
+        const r = msg.room;
+        setBoard(r.board ?? emptyBoard());
+        setCurrent(r.current_player ?? "P1");
+        setMovesPlayed(r.moves_played ?? 0);
+      } else if (msg.type === "opponent_disconnected") {
+        setWinner(mySlot);
+      } else if (msg.type === "ready_update") {
+        if (msg.player === "P1") setP1Ready(msg.ready);
+        else setP2Ready(msg.ready);
+      } else if (msg.type === "chat_message") {
+        setChatMessages(m => [...m.slice(-49), { from: msg.from, text: msg.text, ts: msg.ts }]);
+      } else if (msg.type === "game_reset") {
+        setBoard(emptyBoard());
+        setCurrent(msg.first_player);
+        setMovesPlayed(0);
+        setExtraTurns(0);
+        setWinner(null);
+        setWinLine([]);
+        setShowWinOverlay(false);
+        setOverlayVisible(false);
+        setC3Blocked(false);
+        setLog([]);
+        setP1Time(180000);
+        setP2Time(180000);
+        setP1Ready(false);
+        setP2Ready(false);
+        setShowRematch(false);
+        setRematchRequested(null);
+        setMatchHistory([]);
+        setSeriesWinner(null);
+        setGameNumber(msg.game_number ?? 1);
+        setPhase("playing");
+      } else if (msg.type === "match_over") {
+        setShowRematch(true);
+      } else if (msg.type === "rematch_request") {
+        setRematchRequested(msg.from);
+      } else if (msg.type === "match_disbanded") {
+        if (setScreen) setScreen("home");
+      }
+    };
 
-  const ping = setInterval(() => {
-    if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: "ping" }));
-  }, 25000);
+    const ping = setInterval(() => {
+      if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: "ping" }));
+    }, 25000);
 
-  return () => { clearInterval(ping); ws.close(); wsRef.current = null; };
-}, [isMultiplayerGame, roomCode, mySlot]);
+    return () => { clearInterval(ping); ws.close(); wsRef.current = null; };
+  }, [isMultiplayerGame, roomCode, mySlot]);
 
-  // ── Bot move trigger ──────────────────────────────────────────────────
-  // Trigger on `extraTurns` too: when bot has extra turns, current stays "P2"
-  // so only an extraTurns change signals "fire again".
-  // Use a composite key so the effect always re-runs on a new bot turn.
+  // ── Bot move trigger ──────────────────────────────────────────────────────
   const botTurnKey = `${current}-${extraTurns}-${movesPlayed}`;
 
   useEffect(() => {
@@ -538,17 +563,17 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
   };
 
   const sendChat = (from: "P1" | "P2") => {
-  const text = chatInput.trim();
-  if (!text) return;
-  if (containsProfanity(text)) { setChatWarning(true); setTimeout(() => setChatWarning(false), 3000); }
-  const censored = censorText(text);
-  if (isMultiplayerGame && wsRef.current?.readyState === WebSocket.OPEN) {
-    wsRef.current.send(JSON.stringify({ type: "chat", text: censored, ts: Date.now() }));
-  } else {
-    setChatMessages(m => [...m.slice(-49), { from, text: censored, ts: Date.now() }]);
-  }
-  setChatInput("");
-};
+    const text = chatInput.trim();
+    if (!text) return;
+    if (containsProfanity(text)) { setChatWarning(true); setTimeout(() => setChatWarning(false), 3000); }
+    const censored = censorText(text);
+    if (isMultiplayerGame && wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ type: "chat", text: censored, ts: Date.now() }));
+    } else {
+      setChatMessages(m => [...m.slice(-49), { from, text: censored, ts: Date.now() }]);
+    }
+    setChatInput("");
+  };
 
   const softReset = () => {
     setGameNumber(1); setMatchHistory([]); setMatchOver(false); setSeriesWinner(null);
@@ -556,6 +581,7 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
     setRbSplashTimer(3); setCoinFlipTimer(3 + Math.random() * 3); setCoinRevealTimer(0); setCoinResult(null);
     setCoinAngle(0); setTossWinner(null); setFirstPlayerChosen(null); setRbC3Blocked(false);
     setSummaryTimer(3); setOverlayVisible(false); setChoiceTimer(0);
+    setShowRematch(false); setRematchRequested(null);
     setPhase("playing");
     initBoard("P1");
   };
@@ -649,27 +675,44 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
   };
 
   useEffect(() => {
-   if (!winner) return;
-   if (!isMultiplayerGame && phase !== "playing") return;
+    if (!winner) return;
+    if (!isMultiplayerGame && phase !== "playing") return;
     if (winner === "P1") playVictory?.();
     else if (winner === "P2") playDefeat?.();
     requestAnimationFrame(() => { setShowWinOverlay(true); requestAnimationFrame(() => setOverlayVisible(true)); });
     const gn      = R.current.gameNumber;
     const newHist = [...R.current.matchHistory, winner];
     setMatchHistory(newHist);
-    if (newHist.length >= 2) {
-      const sw = checkSeriesWinner(newHist);
-      if (sw !== null) { setMatchOver(true); setSeriesWinner(sw); setPhase("match_over"); }
-      else if (gn >= 3) { setMatchOver(true); setSeriesWinner(newHist[newHist.length - 1]); setPhase("match_over"); }
-      else { setP1Ready(false); setP2Ready(false); setReadyTimeout(60); setReadyTimer(0); setPhase("waiting_ready"); }
-    } else { setP1Ready(false); setP2Ready(false); setReadyTimeout(60); setReadyTimer(0); setPhase("waiting_ready"); }
+    if (isMultiplayerGame) {
+      // In multiplayer, notify both players via WS to show rematch UI after series ends
+      if (newHist.length >= 2) {
+        const sw = checkSeriesWinner(newHist);
+        if (sw !== null || gn >= 3) {
+          setMatchOver(true);
+          setSeriesWinner(sw ?? newHist[newHist.length - 1]);
+          setPhase("match_over");
+          wsRef.current?.send(JSON.stringify({ type: "match_over_notify" }));
+        } else {
+          setP1Ready(false); setP2Ready(false); setReadyTimeout(60); setReadyTimer(0); setPhase("waiting_ready");
+        }
+      } else {
+        setP1Ready(false); setP2Ready(false); setReadyTimeout(60); setReadyTimer(0); setPhase("waiting_ready");
+      }
+    } else {
+      if (newHist.length >= 2) {
+        const sw = checkSeriesWinner(newHist);
+        if (sw !== null) { setMatchOver(true); setSeriesWinner(sw); setPhase("match_over"); }
+        else if (gn >= 3) { setMatchOver(true); setSeriesWinner(newHist[newHist.length - 1]); setPhase("match_over"); }
+        else { setP1Ready(false); setP2Ready(false); setReadyTimeout(60); setReadyTimer(0); setPhase("waiting_ready"); }
+      } else { setP1Ready(false); setP2Ready(false); setReadyTimeout(60); setReadyTimer(0); setPhase("waiting_ready"); }
+    }
   }, [winner]);
 
   useEffect(() => {
     if (phase === "waiting_ready" && p1Ready && p2Ready && R.current.readyTimer <= 0) setReadyTimer(1);
   }, [p1Ready, p2Ready]);
 
-  // ── placeBot: called only by the bot, skips the "is it bot's turn?" guard ──
+  // ── placeBot ──────────────────────────────────────────────────────────────
   const placeBot = async (r: number, c: number) => {
     const currentBoard  = boardRef.current;
     const currentMoves  = movesPlayedRef.current;
@@ -691,39 +734,46 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
     if (gameId) { try { await API.post("/api/game/move", { game_id: gameId, row: r, col: c }); } catch {} }
   };
 
- const place = async (r: number, c: number) => {
-  if (phase !== "playing" || board[r][c] || winner || loading) return;
-  if (gameMode === "ai" && current === "P2") return;
-  if (c3Blocked && movesPlayed === 0 && r === 2 && c === 2) return;
+  const place = async (r: number, c: number) => {
+    if (phase !== "playing" || board[r][c] || winner || loading) return;
+    if (gameMode === "ai" && current === "P2") return;
+    if (c3Blocked && movesPlayed === 0 && r === 2 && c === 2) return;
 
-  // Multiplayer: send move to server, server broadcasts back to both
-  if (isMultiplayerGame) {
-    if (current !== mySlot) return; // not your turn
-    if (wsRef.current?.readyState !== WebSocket.OPEN) return;
+    // Multiplayer: optimistic local update + send to server (no lag for the player placing)
+    if (isMultiplayerGame) {
+      if (current !== mySlot) return;
+      if (wsRef.current?.readyState !== WebSocket.OPEN) return;
+      playPlace?.();
+      // Optimistic update — apply locally immediately
+      const nb = board.map(row => [...row]);
+      nb[r][c] = mySlot;
+      setBoard(nb);
+      const nextPlayer = mySlot === "P1" ? "P2" : "P1";
+      setCurrent(nextPlayer);
+      addLog(r, c, mySlot);
+      wsRef.current.send(JSON.stringify({ type: "move", row: r, col: c }));
+      return;
+    }
+
+    // Singleplayer / AI
     playPlace?.();
-    wsRef.current.send(JSON.stringify({ type: "move", row: r, col: c }));
-    return;
-  }
-
-  // Singleplayer / AI (unchanged)
-  playPlace?.();
-  setLoading(true);
-  const playerWhoMoved = current;
-  const nb = board.map(row => [...row]);
-  nb[r][c] = playerWhoMoved;
-  const newMoves = movesPlayed + 1;
-  let newExtra = extraTurns, nextPlayer = current;
-  if (newMoves === 1 && r === 2 && c === 2) { nextPlayer = current === "P1" ? "P2" : "P1"; newExtra = 2; }
-  else if (newExtra > 0) { newExtra--; if (newExtra === 0) nextPlayer = current === "P1" ? "P2" : "P1"; }
-  else { nextPlayer = current === "P1" ? "P2" : "P1"; }
-  if (c3Blocked && newMoves === 1) setC3Blocked(false);
-  const result = checkWin(nb, r, c, playerWhoMoved, newMoves);
-  setBoard(nb); setMovesPlayed(newMoves); addLog(r, c, playerWhoMoved);
-  if (result) { setExtraTurns(0); setWinLine(result.line); setWinner(result.winner); }
-  else { setExtraTurns(newExtra); setCurrent(nextPlayer); }
-  setLoading(false);
-  if (gameId) { try { await API.post("/api/game/move", { game_id: gameId, row: r, col: c }); } catch {} }
-};
+    setLoading(true);
+    const playerWhoMoved = current;
+    const nb = board.map(row => [...row]);
+    nb[r][c] = playerWhoMoved;
+    const newMoves = movesPlayed + 1;
+    let newExtra = extraTurns, nextPlayer = current;
+    if (newMoves === 1 && r === 2 && c === 2) { nextPlayer = current === "P1" ? "P2" : "P1"; newExtra = 2; }
+    else if (newExtra > 0) { newExtra--; if (newExtra === 0) nextPlayer = current === "P1" ? "P2" : "P1"; }
+    else { nextPlayer = current === "P1" ? "P2" : "P1"; }
+    if (c3Blocked && newMoves === 1) setC3Blocked(false);
+    const result = checkWin(nb, r, c, playerWhoMoved, newMoves);
+    setBoard(nb); setMovesPlayed(newMoves); addLog(r, c, playerWhoMoved);
+    if (result) { setExtraTurns(0); setWinLine(result.line); setWinner(result.winner); }
+    else { setExtraTurns(newExtra); setCurrent(nextPlayer); }
+    setLoading(false);
+    if (gameId) { try { await API.post("/api/game/move", { game_id: gameId, row: r, col: c }); } catch {} }
+  };
 
   const addLog = (r: number, c: number, player: string) => {
     const piece = player === "P1" ? t.pieces.p1 : t.pieces.p2;
@@ -947,19 +997,19 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
             {(["P1","P2"] as const).map(p => {
               const rdy = p==="P1"?p1Ready:p2Ready;
               const col = p==="P1"?p1c:p2c;
-              return (<button key={p}onClick={() => {
-  if (isMultiplayerGame && mySlot !== p) return;
-  const newVal = p === "P1" ? !p1Ready : !p2Ready;
-  if (isMultiplayerGame && wsRef.current?.readyState === WebSocket.OPEN) {
-    wsRef.current.send(JSON.stringify({ type: "ready", ready: newVal }));
-  }
-  p === "P1" ? setP1Ready(newVal) : setP2Ready(newVal);
-}}
- style={{ background:rdy?`${col}22`:"#AA000022", border:`2px solid ${rdy?col:"#AA0000"}`, color:rdy?col:"#EE0000", fontFamily:t.fontMono, fontSize:15, fontWeight:700, padding:"12px", borderRadius:ip?2:6, cursor:"pointer", transition:"all 0.2s", boxShadow:rdy?`0 0 16px ${col}55, 0 0 4px ${col}33`:"none" }} onMouseEnter={e=>{playHover?.();e.currentTarget.style.boxShadow=rdy?`0 0 24px ${col}88`:"0 0 16px #EE000055";e.currentTarget.style.borderColor=rdy?col:"#FF3333";}} onMouseLeave={e=>{e.currentTarget.style.boxShadow=rdy?`0 0 16px ${col}55`:"none";e.currentTarget.style.borderColor=rdy?col:"#AA0000";}}>{p} {rdy?"✓ READY":"NOT READY"}</button>);
+              return (<button key={p} onClick={() => {
+                if (isMultiplayerGame && mySlot !== p) return;
+                const newVal = p === "P1" ? !p1Ready : !p2Ready;
+                if (isMultiplayerGame && wsRef.current?.readyState === WebSocket.OPEN) {
+                  wsRef.current.send(JSON.stringify({ type: "ready", ready: newVal }));
+                }
+                p === "P1" ? setP1Ready(newVal) : setP2Ready(newVal);
+              }}
+              style={{ background:rdy?`${col}22`:"#AA000022", border:`2px solid ${rdy?col:"#AA0000"}`, color:rdy?col:"#EE0000", fontFamily:t.fontMono, fontSize:15, fontWeight:700, padding:"12px", borderRadius:ip?2:6, cursor:"pointer", transition:"all 0.2s", boxShadow:rdy?`0 0 16px ${col}55, 0 0 4px ${col}33`:"none" }} onMouseEnter={e=>{playHover?.();e.currentTarget.style.boxShadow=rdy?`0 0 24px ${col}88`:"0 0 16px #EE000055";e.currentTarget.style.borderColor=rdy?col:"#FF3333";}} onMouseLeave={e=>{e.currentTarget.style.boxShadow=rdy?`0 0 16px ${col}55`:"none";e.currentTarget.style.borderColor=rdy?col:"#AA0000";}}>{p} {rdy?"✓ READY":"NOT READY"}</button>);
             })}
           </div>
         )}
-        {phase==="match_over" && (
+        {phase==="match_over" && !isMultiplayerGame && (
           <div style={{ textAlign:"center", animation:"fadeUp 0.3s ease both" }}>
             <div style={{ fontFamily:t.fontDisplay, fontSize:16, fontWeight:700, color:t.gold, marginBottom:10 }}>{seriesWinner==="DRAW"?"DRAW!":seriesWinner+" WINS!"}</div>
             <button onClick={softReset} style={{ background:`${t.accent}18`, border:`1px solid ${t.accent}`, color:t.accent, fontFamily:t.fontMono, fontSize:13, padding:"10px 18px", borderRadius:ip?2:6, cursor:"pointer", transition:"all 0.2s" }}>↺ NEW MATCH</button>
@@ -980,7 +1030,7 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
                 {chatWarning && (<div style={{ padding:"8px 12px", background:"#F4433618", border:"1px solid #F44336", borderRadius:6, fontFamily:t.fontBody, fontSize:13, color:"#F44336" }}>⚠ Inappropriate language detected and censored.</div>)}
                 <div style={{ display:"flex", gap:6 }}>
                   <input value={chatInput} onChange={e=>setChatInput(e.target.value)} onKeyDown={e=>{if(e.key==="Enter") sendChat(isMultiplayerGame ? mySlot : "P1");}} placeholder="message…" maxLength={60} style={{ flex:1, background:t.inputBg, border:`1px solid ${t.border}`, borderRadius:ip?2:6, color:t.text, fontFamily:t.fontBody, fontSize:14, padding:"8px 10px", outline:"none", minWidth:0 }}/>
-                  {(!isMultiplayerGame || mySlot === "P1") && ( <button onClick={()=>sendChat("P1")} style={{ background:`${p1c}20`, border:`1px solid ${p1c}`, color:p1c, fontFamily:t.fontMono, fontSize:14, fontWeight:700, padding:"8px 12px", borderRadius:ip?2:6, cursor:"pointer", transition:"all 0.18s", flexShrink:0 }} onMouseEnter={e=>{e.currentTarget.style.background=p1c;e.currentTarget.style.color="#000";}} onMouseLeave={e=>{e.currentTarget.style.background=`${p1c}20`;e.currentTarget.style.color=p1c;}}>P1</button>)}
+                  {(!isMultiplayerGame || mySlot === "P1") && (<button onClick={()=>sendChat("P1")} style={{ background:`${p1c}20`, border:`1px solid ${p1c}`, color:p1c, fontFamily:t.fontMono, fontSize:14, fontWeight:700, padding:"8px 12px", borderRadius:ip?2:6, cursor:"pointer", transition:"all 0.18s", flexShrink:0 }} onMouseEnter={e=>{e.currentTarget.style.background=p1c;e.currentTarget.style.color="#000";}} onMouseLeave={e=>{e.currentTarget.style.background=`${p1c}20`;e.currentTarget.style.color=p1c;}}>P1</button>)}
                   {(!isMultiplayerGame || mySlot === "P2") && (<button onClick={()=>sendChat("P2")} style={{ background:`${p2c}20`, border:`1px solid ${p2c}`, color:p2c, fontFamily:t.fontMono, fontSize:14, fontWeight:700, padding:"8px 12px", borderRadius:ip?2:6, cursor:"pointer", transition:"all 0.18s", flexShrink:0 }} onMouseEnter={e=>{e.currentTarget.style.background=p2c;e.currentTarget.style.color="#000";}} onMouseLeave={e=>{e.currentTarget.style.background=`${p2c}20`;e.currentTarget.style.color=p2c;}}>P2</button>)}
                 </div>
               </>
@@ -1061,6 +1111,46 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
           <button onClick={()=>{playClick?.();pausedRef.current=true;setShowExitConfirm(true);}} style={{ background:`${t.danger}16`, border:`1px solid ${t.danger}`, color:t.danger, fontFamily:t.fontBody, fontSize:13, padding:9, borderRadius:ip?2:6, cursor:"pointer", transition:"all 0.2s", marginTop:4 }} onMouseEnter={e=>{playHover?.();e.currentTarget.style.background=`${t.danger}30`;}} onMouseLeave={e=>{e.currentTarget.style.background=`${t.danger}16`;}}>✕ EXIT MATCH</button>
         )}
       </div>
+
+      {/* REMATCH OVERLAY — multiplayer only */}
+      {showRematch && isMultiplayerGame && (
+        <div style={{ position:"fixed", inset:0, zIndex:10000, background:"rgba(0,0,0,0.92)", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", animation:"fadeIn 0.3s ease both" }}>
+          <div style={{ background:t.bgPanel, border:`2px solid ${t.accent}`, borderRadius:ip?2:20, padding:"48px 56px", maxWidth:480, width:"90vw", textAlign:"center", boxShadow:`0 40px 100px rgba(0,0,0,0.8), 0 0 60px ${t.accent}22`, animation:"scaleIn 0.38s cubic-bezier(.22,.68,0,1.2) both" }}>
+            <div style={{ fontFamily:t.fontDisplay, fontSize:28, fontWeight:900, color:t.accent, marginBottom:8, letterSpacing:"0.08em" }}>MATCH COMPLETE</div>
+            <div style={{ fontFamily:t.fontMono, fontSize:18, fontWeight:700, color:seriesWinner==="P1"?p1c:seriesWinner==="P2"?p2c:t.gold, marginBottom:6 }}>
+              {seriesWinner === "DRAW" ? "DRAW!" : `${seriesWinner} WINS THE SERIES`}
+            </div>
+            {rematchRequested && rematchRequested !== mySlot && (
+              <div style={{ fontFamily:t.fontBody, fontSize:14, color:t.gold, marginBottom:16 }}>⚡ Opponent wants a rematch!</div>
+            )}
+            {rematchRequested === mySlot && (
+              <div style={{ fontFamily:t.fontBody, fontSize:14, color:t.textMuted, marginBottom:16 }}>⏳ Waiting for opponent...</div>
+            )}
+            {!rematchRequested && <div style={{ marginBottom:16 }}/>}
+            <div style={{ display:"flex", gap:16, justifyContent:"center" }}>
+              <button
+                onClick={() => {
+                  wsRef.current?.send(JSON.stringify({ type: "rematch" }));
+                  setRematchRequested(mySlot);
+                }}
+                disabled={rematchRequested === mySlot}
+                style={{ background:rematchRequested===mySlot?`${t.accent}10`:`${t.accent}18`, border:`2px solid ${t.accent}`, color:t.accent, fontFamily:t.fontDisplay, fontSize:16, fontWeight:700, padding:"14px 36px", borderRadius:ip?2:10, cursor:rematchRequested===mySlot?"default":"pointer", opacity:rematchRequested===mySlot?0.5:1, transition:"all 0.2s" }}
+                onMouseEnter={e=>{ if(rematchRequested!==mySlot){e.currentTarget.style.background=t.accent;e.currentTarget.style.color="#000";} }}
+                onMouseLeave={e=>{ e.currentTarget.style.background=`${t.accent}18`;e.currentTarget.style.color=t.accent; }}
+              >↺ REMATCH</button>
+              <button
+                onClick={() => {
+                  wsRef.current?.send(JSON.stringify({ type: "quit_match" }));
+                  if (setScreen) setScreen("home");
+                }}
+                style={{ background:`${t.danger}18`, border:`2px solid ${t.danger}`, color:t.danger, fontFamily:t.fontDisplay, fontSize:16, fontWeight:700, padding:"14px 36px", borderRadius:ip?2:10, cursor:"pointer", transition:"all 0.2s" }}
+                onMouseEnter={e=>{e.currentTarget.style.background=t.danger;e.currentTarget.style.color="#000";}}
+                onMouseLeave={e=>{e.currentTarget.style.background=`${t.danger}18`;e.currentTarget.style.color=t.danger;}}
+              >✕ QUIT</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showSurrender && (
         <div className="overlay-backdrop" style={{ position:"fixed", inset:0, zIndex:9999, background:"rgba(0,0,0,0.92)", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:28 }}>

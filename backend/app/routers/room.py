@@ -397,6 +397,56 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                     except:
                         pass
 
+            elif msg["type"] == "match_over_notify":
+                # Broadcast to both players to show rematch UI
+                for slot, ws in _room_connections.get(room_code, {}).items():
+                    try:
+                        await ws.send_json({"type": "match_over"})
+                    except:
+                        pass
+
+            elif msg["type"] == "rematch":
+                rematch_field = "p1_rematch" if player_slot == "P1" else "p2_rematch"
+                await db.rooms.update_one({"room_code": room_code}, {"$set": {rematch_field: True}})
+                # Notify opponent
+                for slot, ws in _room_connections.get(room_code, {}).items():
+                    try:
+                        await ws.send_json({"type": "rematch_request", "from": player_slot})
+                    except:
+                        pass
+                # Check if both want rematch
+                room = await db.rooms.find_one({"room_code": room_code})
+                if room and room.get("p1_rematch") and room.get("p2_rematch"):
+                    reset = {
+                        "board":          [[None]*5 for _ in range(5)],
+                        "current_player": "P1",
+                        "moves_played":   0,
+                        "extra_turns":    0,
+                        "winner":         None,
+                        "game_status":    "playing",
+                        "status":         "active",
+                        "p1_ready":       False,
+                        "p2_ready":       False,
+                        "p1_rematch":     False,
+                        "p2_rematch":     False,
+                        "game_number":    1,
+                    }
+                    await db.rooms.update_one({"room_code": room_code}, {"$set": reset})
+                    for slot, ws in _room_connections.get(room_code, {}).items():
+                        try:
+                            await ws.send_json({"type": "game_reset", "first_player": "P1", "game_number": 1})
+                        except:
+                            pass
+
+            elif msg["type"] == "quit_match":
+                # Disband room and send both players home
+                await db.rooms.update_one({"room_code": room_code}, {"$set": {"game_status": "disbanded"}})
+                for slot, ws in _room_connections.get(room_code, {}).items():
+                    try:
+                        await ws.send_json({"type": "match_disbanded"})
+                    except:
+                        pass
+
             elif msg["type"] == "ping":
                 await websocket.send_json({"type": "pong"})
 
