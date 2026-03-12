@@ -328,7 +328,8 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
   const [showSurrender, setShowSurrender]     = useState(false);
   const [showExitConfirm, setShowExitConfirm] = useState(false);
   const pausedRef = useRef(false);
-  const wsRef = useRef<WebSocket | null>(null);
+  const wsRef   = useRef<WebSocket | null>(null);
+  const pingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const isMultiplayerGame = (gameMode === "ranked" || gameMode === "unranked") && !!roomCode;
   const mySlot = playerSlot ?? "P1";
   const emptyBoard = (): (string|null)[][] => Array(5).fill(null).map(() => Array(5).fill(null));
@@ -432,10 +433,16 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
     if (!isMultiplayerGame || !playerSlot) return;  // wait for real slot, not fallback
     const base = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000")
       .replace("https://", "wss://").replace("http://", "ws://");
-    const ws = new WebSocket(`${base}/api/room/ws/${roomCode}/${playerSlot}`);
-    wsRef.current = ws;
 
-    ws.onmessage = (e) => {
+    let destroyed = false;
+    let reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
+
+    const connect = () => {
+      if (destroyed) return;
+      const ws = new WebSocket(`${base}/api/room/ws/${roomCode}/${playerSlot}`);
+      wsRef.current = ws;
+
+      ws.onmessage = (e) => {
       const msg = JSON.parse(e.data);
       if (msg.type === "move_made") {
         setBoard(msg.board);
@@ -565,13 +572,32 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
           if (payload.winnerPickedC3 !== undefined) setWinnerPickedC3(payload.winnerPickedC3);
         }
       }
+      };
+
+      ws.onclose = () => {
+        if (destroyed) return;
+        // Auto-reconnect after 2s — keeps session alive across Railway restarts / network drops
+        reconnectTimeout = setTimeout(connect, 2000);
+      };
+
+      const ping = setInterval(() => {
+        if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: "ping" }));
+      }, 25000);
+      pingRef.current = ping;
     };
 
-    const ping = setInterval(() => {
-      if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: "ping" }));
-    }, 25000);
+    connect();
 
-    return () => { clearInterval(ping); ws.close(); wsRef.current = null; };
+    return () => {
+      destroyed = true;
+      if (reconnectTimeout) clearTimeout(reconnectTimeout);
+      if (pingRef.current) { clearInterval(pingRef.current); pingRef.current = null; }
+      if (wsRef.current) {
+        wsRef.current.onclose = null; // prevent reconnect on intentional close
+        wsRef.current.close();
+        wsRef.current = null;
+      }
+    };
   }, [isMultiplayerGame, roomCode, playerSlot]);
 
   // ── Bot move trigger ──────────────────────────────────────────────────────
