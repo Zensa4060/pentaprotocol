@@ -378,6 +378,8 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
   const [coinRevealTimer, setCoinRevealTimer] = useState(0.0);
   const [coinResult, setCoinResult]           = useState<"PENTA"|"PROTO"|null>(null);
   const [coinAngle, setCoinAngle]             = useState(0);
+  const coinAngleRef  = useRef(0); // avoids 60fps re-renders during spin
+  const coinFrameRef  = useRef(0);
   const [tossWinner, setTossWinner]           = useState<"P1"|"P2"|null>(null);
   const [firstPlayerChosen, setFirstPlayerChosen] = useState<string|null>(null);
   const [rbC3Blocked, setRbC3Blocked]         = useState(false);
@@ -499,7 +501,7 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
         setWinLine([]);
         setShowWinOverlay(false);
         setOverlayVisible(false);
-        setC3Blocked(false);
+        setC3Blocked(msg.c3_blocked ?? false);
         setLog([]);
         setP1Time(180000);
         setP2Time(180000);
@@ -507,9 +509,8 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
         setP2Ready(false);
         setShowRematch(false);
         setRematchRequested(null);
-        // Do NOT reset matchHistory here — game_reset fires between games, history must persist
-        // gameNumber already set client-side in move_made handler
-        // setGameNumber(msg.game_number ?? 1); — skip, client owns this
+        // matchHistory NOT reset here — persists across games in a series
+        if (msg.game_number) setGameNumber(msg.game_number);
         setPhase("playing");
       } else if (msg.type === "match_over") {
         setShowRematch(true);
@@ -534,6 +535,8 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
             setCoinFlipTimer(3 + Math.random() * 3);
             setCoinRevealTimer(0);
             setCoinResult(null);
+            coinAngleRef.current = 0;
+            coinFrameRef.current = 0;
             setCoinAngle(0);
             setTossWinner(null);
             setFirstPlayerChosen(null);
@@ -547,6 +550,9 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
           setCoinResult(payload.result);
           setTossWinner(payload.toss_winner);
           setCoinRevealTimer(3.5);
+          // Snap coin to upright (no mid-animation lag for receiver)
+          coinAngleRef.current = Math.round(coinAngleRef.current / (2 * Math.PI)) * 2 * Math.PI;
+          setCoinAngle(coinAngleRef.current); // trigger re-render with snapped angle
         } else if (action === "phase_choice") {
           if (payload.phase) setPhase(payload.phase);
           if (payload.firstPlayerChosen !== undefined) setFirstPlayerChosen(payload.firstPlayerChosen);
@@ -701,7 +707,11 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
       }
       if (s.phase === "rb_splash") setRbSplashTimer(v => { const nv = v - dt/1000; if (nv <= 0) { setPhase("rb_coin"); return 3; } return nv; });
       if (s.phase === "rb_coin") {
-        setCoinAngle(a => a + 0.18);
+        coinAngleRef.current += 0.18;
+        // Throttle state update to every 3 frames to reduce re-renders
+        if (!coinFrameRef.current) coinFrameRef.current = 0;
+        coinFrameRef.current++;
+        if (coinFrameRef.current % 3 === 0) setCoinAngle(coinAngleRef.current);
         if (!s.coinResult) {
           // Only P1 drives the coin flip timer and broadcasts result
           if (!isMultiplayerGame || mySlot === "P1") {
@@ -726,7 +736,20 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
         else { const sec = Math.ceil(choiceTimerRef.current); if (sec !== lastChoiceSec.current) { lastChoiceSec.current = sec; setChoiceTimer(choiceTimerRef.current); } }
       }
       if (s.phase === "toss_summary") {
-        setSummaryTimer(v => { const nv = v - dt / 1000; if (nv <= 0) { const fp = s.firstPlayerChosen ?? s.tossWinner ?? "P1"; setGameNumber(3); setPhase("playing"); initBoard(fp, s.rbC3Blocked); return 0; } return nv; });
+        setSummaryTimer(v => { const nv = v - dt / 1000; if (nv <= 0) {
+            const fp = s.firstPlayerChosen ?? s.tossWinner ?? "P1";
+            const _isMP2 = (gameMode === "ranked" || gameMode === "unranked") && !!roomCode;
+            if (_isMP2) {
+              // For multiplayer: P1 tells server to start game 3
+              // Both players wait for game_reset WS message
+              // Both players send rb_start_game — server is idempotent (first one wins)
+              wsRef.current?.send(JSON.stringify({ type: "rb_start_game", first_player: fp, c3_blocked: s.rbC3Blocked }));
+              // c3blocked and phase("playing") set on game_reset arrival
+            } else {
+              setGameNumber(3); setPhase("playing"); initBoard(fp, s.rbC3Blocked);
+            }
+            return 0;
+          } return nv; });
       }
     };
     rafHandle.current = requestAnimationFrame(tick);

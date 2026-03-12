@@ -466,6 +466,41 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                     except:
                         pass
 
+            elif msg["type"] == "rb_start_game":
+                # Rulebreaker game 3 start — both clients send this, first one wins
+                room = await db.rooms.find_one({"room_code": room_code})
+                if not room:
+                    continue
+                # Idempotent: if game 3 already started, ignore
+                if room.get("game_number") == 3 and room.get("game_status") == "playing":
+                    continue
+                first_player = msg.get("first_player", "P1")
+                c3_blocked   = msg.get("c3_blocked", False)
+                reset = {
+                    "board":          [[None]*5 for _ in range(5)],
+                    "current_player": first_player,
+                    "moves_played":   0,
+                    "extra_turns":    0,
+                    "winner":         None,
+                    "game_status":    "playing",
+                    "status":         "active",
+                    "p1_ready":       False,
+                    "p2_ready":       False,
+                    "game_number":    3,
+                    "c3_blocked":     c3_blocked,
+                }
+                await db.rooms.update_one({"room_code": room_code}, {"$set": reset})
+                for slot, ws in _room_connections.get(room_code, {}).items():
+                    try:
+                        await ws.send_json({
+                            "type":        "game_reset",
+                            "first_player": first_player,
+                            "game_number":  3,
+                            "c3_blocked":   c3_blocked,
+                        })
+                    except:
+                        pass
+
             elif msg["type"] == "ping":
                 await websocket.send_json({"type": "pong"})
 
