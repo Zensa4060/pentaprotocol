@@ -133,7 +133,7 @@ export default function NavBar({ screen, setScreen, themeId, setThemeId, onSetti
       ? `${t.textMuted}55`
       : (isActive || isHovered) ? accentCol
         : isDanger ? `${t.danger}CC`
-          : t.textSecondary;
+        : `${t.textSecondary}EE`;
 
     return (
       <button
@@ -151,8 +151,8 @@ export default function NavBar({ screen, setScreen, themeId, setThemeId, onSetti
           borderBottom: `2px solid ${(isActive || isHovered) ? accentCol : "transparent"}`,
           color: fg,
           fontFamily: t.fontBody,
-          fontSize: 14,
-          fontWeight: isActive ? 800 : isHovered ? 700 : 500,
+          fontSize: 17,
+          fontWeight: isActive ? 800 : isHovered ? 700 : 600,
           padding: "0 16px",
           cursor: disabled ? "not-allowed" : "pointer",
           borderRadius: 0,
@@ -163,7 +163,9 @@ export default function NavBar({ screen, setScreen, themeId, setThemeId, onSetti
           opacity: disabled ? 0.4 : locked ? 0.6 : 1,
           whiteSpace: "nowrap" as const,
           textTransform: "uppercase" as const,
-          textShadow: (isActive || isHovered) ? `0 0 14px ${accentCol}77` : "none",
+          textShadow: (isActive || isHovered)
+            ? `0 0 10px ${accentCol}, 0 0 20px ${accentCol}99, 0 0 40px ${accentCol}55`
+            : `0 0 8px ${t.textSecondary}44`,
         }}
       >
         <span style={{ display:"flex", alignItems:"center", gap:5 }}>
@@ -208,15 +210,20 @@ export default function NavBar({ screen, setScreen, themeId, setThemeId, onSetti
       }}>
 
         <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
-          <div onClick={() => navigate("home")} style={{
+         <div onClick={() => navigate("home")} style={{
             fontFamily: t.fontDisplay, fontSize: 17, fontWeight: 800,
-            color: t.accent, cursor: "pointer",
-            textShadow: `0 0 18px ${t.accentGlow}55`,
-            letterSpacing: "0.06em", lineHeight: 1,
-            transition: "color 0.3s",
+            cursor: "pointer", lineHeight: 1,
             whiteSpace: "nowrap",
+            background: "linear-gradient(90deg, #00FFFF, #FF00FF, #FFD700)",
+            WebkitBackgroundClip: "text",
+            WebkitTextFillColor: "transparent",
+            backgroundClip: "text",
+            textShadow: "none",
+            filter: "drop-shadow(0 0 8px rgba(0,255,255,0.6))",
+            letterSpacing: "0.06em",
+            transition: "filter 0.3s",
           }}>
-            PENTAPROTOCOL
+            {user ? (user.username ?? user.email ?? "PLAYER") : "GUEST"}
           </div>
 
           <div style={{ width: 1, height: 22, background: `${t.border}55`, flexShrink: 0 }} />
@@ -284,7 +291,7 @@ export default function NavBar({ screen, setScreen, themeId, setThemeId, onSetti
         </div>
 
         <div style={{
-          position: "absolute", left: "52.2%", top: 0,
+          position: "absolute", left: "50.15%", top: 0,
           transform: "translateX(-50%)",
           height: 68, display: "flex", alignItems: "center",
           pointerEvents: "none",
