@@ -25,6 +25,20 @@ app.add_middleware(
     max_age=3600,
 )
 
+# Force CORS headers on every response — Railway's proxy sometimes strips them
+# from the CORSMiddleware response before they reach the client.
+@app.middleware("http")
+async def force_cors_headers(request: Request, call_next):
+    origin = request.headers.get("origin", "")
+    response = await call_next(request)
+    if origin in ALLOWED_ORIGINS:
+        response.headers["Access-Control-Allow-Origin"] = origin
+        response.headers["Access-Control-Allow-Credentials"] = "true"
+        response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, PATCH"
+        response.headers["Access-Control-Allow-Headers"] = "*"
+        response.headers["Vary"] = "Origin"
+    return response
+
 # Explicit preflight handler — Railway's proxy sometimes swallows
 # the OPTIONS response before FastAPI's CORS middleware can add headers.
 @app.options("/{rest_of_path:path}")
