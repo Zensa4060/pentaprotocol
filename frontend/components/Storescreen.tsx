@@ -95,7 +95,21 @@ export default function StoreScreen({ setScreen, themeId }: Props) {
     try {
       const loaded = await loadRazorpay();
       if (!loaded) throw new Error("Failed to load payment gateway.");
-      const { data } = await API.post("/api/store/create-order", { package_id: selected }, { headers: { Authorization: `Bearer ${token}` } });
+      let data: any;
+for (let i = 0; i < 3; i++) {
+  try {
+    const res = await API.post(
+      "/api/store/create-order",
+      { package_id: selected },
+      { headers: { Authorization: `Bearer ${token}` }, timeout: 15000 }
+    );
+    data = res.data;
+    break;
+  } catch (e) {
+    if (i === 2) throw e;
+    await new Promise(r => setTimeout(r, 2000));
+  }
+}
       await new Promise<void>((resolve, reject) => {
         const rz = new window.Razorpay({
           key: data.key_id, amount: data.amount, currency: data.currency,
