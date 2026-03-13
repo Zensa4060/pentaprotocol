@@ -391,7 +391,7 @@ filter: "none",
         {isDesktop && (
           <div style={{
             flex: 1, display: "flex", alignItems: "center", justifyContent: "center",
-            overflow: "hidden",
+            overflow: "hidden", transform: "translateX(1%)"
           }}>
             <div style={{ display: "flex", alignItems: "center", flexWrap: "nowrap" }}>
               {navBtn("rules",      "Game Rules", false, false, undefined, "rules")}
@@ -564,7 +564,7 @@ filter: "none",
       {leaveWarning === "unranked" && (
         <div style={{ position: "fixed", inset: 0, zIndex: 9999, background: "rgba(0,0,0,0.88)", display: "flex", alignItems: "center", justifyContent: "center", animation: "overlayFadeIn 0.22s ease both" }}>
           <div style={{ background: t.bgPanel, border: `${ip ? 3 : 1}px solid ${t.border}`, borderRadius: ip ? 2 : 20, padding: isMobile ? "28px 24px" : ip ? "32px 36px" : "48px 56px", maxWidth: 520, width: "90vw", textAlign: "center", boxShadow: "0 40px 100px rgba(0,0,0,0.7)", animation: "overlayModalIn 0.28s cubic-bezier(.22,.68,0,1.2) both" }}>
-            <div style={{ fontSize: isMobile ? 32 : 44, marginBottom: 16 }}>⚠️</div>
+            <div style={{ fontSize: isMobile ? 32 : 44, marginBottom: 16 }}></div>
             <div style={{ fontFamily: t.fontDisplay, fontSize: isMobile ? 16 : ip ? 14 : 23, fontWeight: 700, color: t.text, lineHeight: 1.5, marginBottom: 12 }}>Leave the current game?</div>
             <div style={{ fontFamily: t.fontBody, fontSize: isMobile ? 13 : ip ? 11 : 15, color: t.textMuted, marginBottom: 28, lineHeight: 1.7 }}>Current game progress will be lost.</div>
             <div style={{ display: "flex", gap: 12, justifyContent: "center" }}>
