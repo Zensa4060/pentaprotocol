@@ -139,12 +139,7 @@ export function MatchSidebar({
           <span style={{ fontFamily:t.fontMono, fontSize:18, color:t.text, fontWeight:700 }}>{p==="P1"?fmtTime(p1Time):fmtTime(p2Time)}</span>
         </div>
       ))}
-      {gameMode === "ai" && botThinking && (
-        <div style={{ display:"flex", alignItems:"center", gap:8, padding:"8px 12px", background:`${t.accent}12`, border:`1px solid ${t.accent}44`, borderRadius:ip?2:8, animation:"fadeUp 0.3s ease both" }}>
-          <div style={{ width:8, height:8, borderRadius:"50%", background:t.accent, boxShadow:`0 0 8px ${t.accentGlow}`, animation:"botPulse 0.8s ease-in-out infinite" }}/>
-          <span style={{ fontFamily:t.fontMono, fontSize:13, color:t.accent, fontWeight:700, letterSpacing:"0.1em" }}>BOT THINKING...</span>
-        </div>
-      )}
+    
       <div style={{ borderTop:`1px solid ${t.border}`, paddingTop:12 }}>
         <div style={{ fontFamily:t.fontMono, fontSize:20, fontWeight:700, color:t.text, letterSpacing:"0.14em", marginBottom:10 }}>MATCH HISTORY</div>
         {[0,1,2].map(i => {
@@ -178,8 +173,8 @@ export function MatchSidebar({
           <button onClick={onSoftReset} style={{ background:`${t.accent}18`, border:`1px solid ${t.accent}`, color:t.accent, fontFamily:t.fontMono, fontSize:13, padding:"10px 18px", borderRadius:ip?2:6, cursor:"pointer", transition:"all 0.2s" }}>↺ NEW MATCH</button>
         </div>
       )}
-      {(phase==="playing"||phase==="waiting_ready") && (
-        <div style={{ display:"flex", flexDirection:"column", gap:8, marginTop:"auto", borderTop:`1px solid ${t.border}`, paddingTop:12 }}>
+     {isMultiplayerGame && (phase==="playing"||phase==="waiting_ready") && (
+  <div style={{ display:"flex", flexDirection:"column", gap:8, marginTop:"auto", borderTop:`1px solid ${t.border}`, paddingTop:12 }}>
           <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
             <div style={{ fontFamily:t.fontMono, fontSize:17, fontWeight:700, color:t.text, letterSpacing:"0.12em" }}>CHAT</div>
             <button onClick={onChatOpenToggle} style={{ background:"none", border:"none", color:t.text, fontFamily:t.fontMono, fontSize:16, cursor:"pointer", padding:"2px 6px" }}>{chatOpen?"▾":"▸"}</button>
@@ -316,12 +311,6 @@ export function LeftPanel(props: MatchSidebarProps) {
           <span style={{ fontFamily:t.fontMono, fontSize:18, color:t.text, fontWeight:700 }}>{p==="P1"?fmtTime(p1Time):fmtTime(p2Time)}</span>
         </div>
       ))}
-      {gameMode === "ai" && botThinking && (
-        <div style={{ display:"flex", alignItems:"center", gap:8, padding:"8px 12px", background:`${t.accent}12`, border:`1px solid ${t.accent}44`, borderRadius:ip?2:8, animation:"fadeUp 0.3s ease both" }}>
-          <div style={{ width:8, height:8, borderRadius:"50%", background:t.accent, boxShadow:`0 0 8px ${t.accentGlow}`, animation:"botPulse 0.8s ease-in-out infinite" }}/>
-          <span style={{ fontFamily:t.fontMono, fontSize:13, color:t.accent, fontWeight:700, letterSpacing:"0.1em" }}>BOT THINKING...</span>
-        </div>
-      )}
       <div style={{ borderTop:`1px solid ${t.border}`, paddingTop:12 }}>
         <div style={{ fontFamily:t.fontMono, fontSize:20, fontWeight:700, color:t.text, letterSpacing:"0.14em", marginBottom:10 }}>MATCH HISTORY</div>
         {[0,1,2].map(i => {
@@ -355,7 +344,7 @@ export function LeftPanel(props: MatchSidebarProps) {
           <button onClick={onSoftReset} style={{ background:`${t.accent}18`, border:`1px solid ${t.accent}`, color:t.accent, fontFamily:t.fontMono, fontSize:13, padding:"10px 18px", borderRadius:ip?2:6, cursor:"pointer", transition:"all 0.2s" }}>↺ NEW MATCH</button>
         </div>
       )}
-      {(phase==="playing"||phase==="waiting_ready") && (
+      {isMultiplayerGame && (phase==="playing"||phase==="waiting_ready") && (
         <div style={{ display:"flex", flexDirection:"column", gap:8, marginTop:"auto", borderTop:`1px solid ${t.border}`, paddingTop:12 }}>
           <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
             <div style={{ fontFamily:t.fontMono, fontSize:17, fontWeight:700, color:t.text, letterSpacing:"0.12em" }}>CHAT</div>

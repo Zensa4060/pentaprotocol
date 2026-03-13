@@ -27,7 +27,8 @@ const GUEST_BLOCKED: Screen[] = ["lobby", "profile", "career", "battlepass"];
 
 export default function Page() {
   const [themeId, setThemeIdRaw]        = useState<ThemeId>("classic_dark");
-  const [screen, setScreen]             = useState<Screen>("auth"); // always start at auth
+  const [screen, setScreen]             = useState<Screen>("auth");
+  const [screenHistory, setScreenHistory] = useState<Screen[]>([]);
   const [showSettings, setShowSettings] = useState(false);
   const [inQueue, setInQueue]           = useState(false);
   const [isRanked, setIsRanked]         = useState(false);
@@ -43,7 +44,6 @@ export default function Page() {
   const [pendingScreen, setPendingScreen]     = useState<Screen | null>(null);
   const [showAiExitModal, setShowAiExitModal] = useState(false);
 
-  // Guest-blocked overlay
   const [showGuestBlock, setShowGuestBlock] = useState(false);
 
   const { user, token } = useAuthStore();
@@ -70,6 +70,8 @@ export default function Page() {
     const saved = localStorage.getItem("pp_theme") as ThemeId;
     if (saved && THEMES[saved]) setThemeIdRaw(saved);
     if (token) setScreen("home");
+    // Push initial history state so back button has something to pop
+    window.history.pushState({ screen: token ? "home" : "auth" }, "", window.location.pathname);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -116,6 +118,30 @@ export default function Page() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Push browser history state on every screen change
+  useEffect(() => {
+    window.history.pushState({ screen }, "", window.location.pathname);
+  }, [screen]);
+
+  // Intercept browser back button
+  useEffect(() => {
+    const onPopState = (_e: PopStateEvent) => {
+      // Always push state back to prevent leaving the site
+      window.history.pushState({ screen: screenRef.current }, "", window.location.pathname);
+
+      // Navigate to previous screen in our history stack
+      setScreenHistory(prev => {
+        if (prev.length === 0) return prev;
+        const previousScreen = prev[prev.length - 1];
+        const next = prev.slice(0, -1);
+        setScreen(previousScreen);
+        return next;
+      });
+    };
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, []);
+
   const setThemeId = (id: ThemeId) => {
     if (id === themeId) return;
     pendingTheme.current = id;
@@ -141,13 +167,19 @@ export default function Page() {
       return;
     }
     sfx.transition();
+    // Push current screen to history before navigating
+    setScreenHistory(prev => [...prev, screen]);
     setScreen(s);
   };
 
   const confirmAiExit = () => {
     sfx.transition();
     setShowAiExitModal(false);
-    if (pendingScreen) { setScreen(pendingScreen); setPendingScreen(null); }
+    if (pendingScreen) {
+      setScreenHistory(prev => [...prev, screen]);
+      setScreen(pendingScreen);
+      setPendingScreen(null);
+    }
   };
 
   const cancelAiExit = () => {
@@ -162,6 +194,7 @@ export default function Page() {
     setMultiRoomCode(roomCode);
     setMultiPlayerSlot(playerSlot);
     setIsRanked(format === "ranked");
+    setScreenHistory(prev => [...prev, screen]);
     setScreen("multiGame");
   };
 

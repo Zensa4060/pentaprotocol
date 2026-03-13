@@ -307,7 +307,6 @@ export default function NavBar({ screen, setScreen, themeId, setThemeId, onSetti
               {navBtn("career", "Career", false, false, undefined, "career", isGuest)}
               {navBtn("battlepass", "Battlepass", false, false, undefined, "battlepass", isGuest)}
               {navBtn("profile", "Profile", false, false, undefined, "profile", isGuest)}
-              {navBtn("quit", "Quit Game", true, false, () => setShowQuit(true))}
             </div>
 
           </div>
