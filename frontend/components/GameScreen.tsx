@@ -30,9 +30,10 @@ interface Props {
   playClick?: () => void;
   roomCode?: string;
   playerSlot?: "P1" | "P2";
+  p1Name?: string;
 }
 
-export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMode = "singleplayer", difficulty = "medium", setScreen, roomCode, playerSlot, playHover, playPlace, playVictory, playDefeat, playRulebreaker, playTransition, playClick }: Props) {
+export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMode = "singleplayer", difficulty = "medium", setScreen, roomCode, playerSlot, playHover, playPlace, playVictory, playDefeat, playRulebreaker, playTransition, playClick, p1Name }: Props) {
   const t  = THEMES[themeId];
   const ip = themeId === "pixel";
 
@@ -77,6 +78,31 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
   const pingRef   = useRef<ReturnType<typeof setInterval> | null>(null);
   const isMultiplayerGame = (gameMode === "ranked" || gameMode === "unranked") && !!roomCode;
   const mySlot = playerSlot ?? "P1";
+
+  // ── Player display names ──────────────────────────────────────────────────
+  const p1DisplayName = p1Name ?? "P1";
+  const p2DisplayName = gameMode === "ai" ? "BOT" : "P2";
+
+  const p1Label = gameMode === "singleplayer"
+    ? `${p1DisplayName} (X)`
+    : gameMode === "ai"
+    ? p1DisplayName
+    : `${p1DisplayName}-X`;
+
+  const p2Label = gameMode === "singleplayer"
+    ? "P2 (Y)"
+    : gameMode === "ai"
+    ? "BOT"
+    : "P2-Y";
+
+  const winnerDisplayName = (w: string | null): string => {
+    if (w === "P1") return p1DisplayName;
+    if (w === "P2") return p2DisplayName;
+    if (w === "DRAW") return "DRAW";
+    return w ?? "";
+  };
+  // ─────────────────────────────────────────────────────────────────────────
+
   const emptyBoard = (): (string|null)[][] => Array(5).fill(null).map(() => Array(5).fill(null));
 
   const [board, setBoard]                   = useState<(string|null)[][]>(emptyBoard());
@@ -724,11 +750,7 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
   const bigCs = `calc((min(calc(100vw - 560px), calc(100vh - 200px)) - ${4*boardGap + 2*boardPad}px) / 5)`;
   const panelW = 240;
 
-  // Shared props for Left/Right panels and overlays
-  const sidebarT = {
-    ...t,
-    pieces: t.pieces,
-  };
+  const sidebarT = { ...t, pieces: t.pieces };
 
   const onReadyToggle = (player: "P1" | "P2") => {
     if (isMultiplayerGame && mySlot !== player) return;
@@ -737,6 +759,10 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
       wsRef.current.send(JSON.stringify({ type: "ready", ready: newVal }));
     }
     player === "P1" ? setP1Ready(newVal) : setP2Ready(newVal);
+    // Auto-ready the bot in AI mode
+    if (gameMode === "ai" && player === "P1") {
+      setP2Ready(newVal);
+    }
   };
 
   const onChatKeyDown = (e: React.KeyboardEvent) => {
@@ -752,6 +778,7 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
         seriesDiffers={seriesDiffers} seriesColor={seriesColor} seriesPiece={seriesPiece}
         seriesWinner={seriesWinner} phase={phase} gameNumber={gameNumber}
         t={{ fontDisplay: t.fontDisplay, fontMono: t.fontMono, fontBody: t.fontBody }}
+        winnerDisplayName={winnerDisplayName}
         onDismiss={dismissOverlay}
       />
 
@@ -771,6 +798,9 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
         showRematch={showRematch} rematchRequested={rematchRequested}
         showSurrender={showSurrender} showExitConfirm={showExitConfirm}
         setScreen={setScreen as ((s: string) => void) | undefined}
+        p1Label={p1Label}
+        p2Label={p2Label}
+        winnerDisplayName={winnerDisplayName}
         onReadyToggle={onReadyToggle}
         onSendChat={sendChat}
         onChatInputChange={setChatInput}
@@ -800,7 +830,12 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
           <div style={{ display:"flex", alignItems:"center", gap:10, padding:"8px 20px", background:`${winner?winnerColor:cc}14`, border:`${ip?3:1}px solid ${winner?winnerColor:cc}`, borderRadius:ip?2:24, transition:"background 0.25s, border-color 0.25s", flexShrink:0 }}>
             <div style={{ width:8, height:8, borderRadius:ip?0:"50%", background:winner?winnerColor:cc, transition:"background 0.25s" }}/>
             <span style={{ fontFamily:t.fontDisplay, fontSize:ip?11:15, fontWeight:700, color:winner?winnerColor:cc, transition:"color 0.25s" }}>
-              {winner?(winner==="DRAW"?"⚖ DRAW":`${winnerPiece} ${winner} WINS`):extraTurns>0?`${cp} — ${current} EXTRA TURN ×${extraTurns}`:`${cp} — ${current}'s Turn`}
+              {winner
+                ? (winner==="DRAW"?"⚖ DRAW":`${winnerPiece} ${winnerDisplayName(winner)} WINS`)
+                : extraTurns>0
+                  ? `${cp} — ${current==="P1"?p1Label:p2Label} EXTRA TURN ×${extraTurns}`
+                  : `${cp} — ${current==="P1"?p1Label:p2Label}'s Turn`
+              }
             </span>
           </div>
           <div style={{ fontFamily:t.fontMono, fontSize:11, letterSpacing:"0.08em", borderRadius:6, padding:"3px 14px", flexShrink:0, visibility:"hidden", pointerEvents:"none" }}>
@@ -858,6 +893,7 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
         show={showRematch} isMultiplayerGame={isMultiplayerGame} t={sidebarT} ip={ip}
         p1c={p1c} p2c={p2c} seriesWinner={seriesWinner} mySlot={mySlot}
         rematchRequested={rematchRequested}
+        winnerDisplayName={winnerDisplayName}
         onRematch={() => { wsRef.current?.send(JSON.stringify({ type: "rematch" })); setRematchRequested(mySlot); }}
         onQuitMatch={() => { wsRef.current?.send(JSON.stringify({ type: "quit_match" })); if (setScreen) setScreen("home"); }}
       />

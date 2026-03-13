@@ -349,24 +349,25 @@ export default function Page() {
       {screen === "store"      && <StoreScreen      setScreen={handleSetScreen} themeId={themeId} />}
       {screen === "collection" && <CollectionScreen themeId={themeId} setThemeId={setThemeId} onHover={sfx.hover} onClick={sfx.click} />}
       {screen === "career"     && <CareerScreen     themeId={themeId} onHover={sfx.hover} />}
-
-      {screen === "game" && (
-        <GameScreen key="game" themeId={themeId} isSingleplayer={true} gameMode="singleplayer" setScreen={handleSetScreen}
-          playHover={sfx.hover} playPlace={sfx.place} playVictory={sfx.victory} playDefeat={sfx.defeat}
-          playRulebreaker={sfx.rulebreaker} playTransition={sfx.transition} playClick={sfx.click} />
-      )}
-      {screen === "aiGame" && (
-        <GameScreen key="aiGame" themeId={themeId} gameMode="ai" difficulty={aiDifficulty} setScreen={handleSetScreen}
-          playHover={sfx.hover} playPlace={sfx.place} playVictory={sfx.victory} playDefeat={sfx.defeat}
-          playRulebreaker={sfx.rulebreaker} playTransition={sfx.transition} playClick={sfx.click} />
-      )}
-      {screen === "multiGame" && (
-        <GameScreen key="multiGame" themeId={themeId} gameMode={isRanked ? "ranked" : "unranked"} setScreen={handleSetScreen}
-          roomCode={multiRoomCode} playerSlot={multiPlayerSlot ?? undefined}
-          playHover={sfx.hover} playPlace={sfx.place} playVictory={sfx.victory} playDefeat={sfx.defeat}
-          playRulebreaker={sfx.rulebreaker} playTransition={sfx.transition} playClick={sfx.click} />
-      )}
-
+{screen === "game" && (
+  <GameScreen key="game" themeId={themeId} isSingleplayer={true} gameMode="singleplayer" setScreen={handleSetScreen}
+    p1Name={user?.username}
+    playHover={sfx.hover} playPlace={sfx.place} playVictory={sfx.victory} playDefeat={sfx.defeat}
+    playRulebreaker={sfx.rulebreaker} playTransition={sfx.transition} playClick={sfx.click} />
+)}
+{screen === "aiGame" && (
+  <GameScreen key="aiGame" themeId={themeId} gameMode="ai" difficulty={aiDifficulty} setScreen={handleSetScreen}
+    p1Name={user?.username}
+    playHover={sfx.hover} playPlace={sfx.place} playVictory={sfx.victory} playDefeat={sfx.defeat}
+    playRulebreaker={sfx.rulebreaker} playTransition={sfx.transition} playClick={sfx.click} />
+)}
+{screen === "multiGame" && (
+  <GameScreen key="multiGame" themeId={themeId} gameMode={isRanked ? "ranked" : "unranked"} setScreen={handleSetScreen}
+    roomCode={multiRoomCode} playerSlot={multiPlayerSlot ?? undefined}
+    p1Name={user?.username}
+    playHover={sfx.hover} playPlace={sfx.place} playVictory={sfx.victory} playDefeat={sfx.defeat}
+    playRulebreaker={sfx.rulebreaker} playTransition={sfx.transition} playClick={sfx.click} />
+)}
       {showSettings && (
         <SettingsModal
           onClose={() => { sfx.click(); setShowSettings(false); }}

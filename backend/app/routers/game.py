@@ -119,7 +119,16 @@ async def make_move(data: MakeMove, user_id: str = Depends(get_current_user)):
     if not game:
         raise HTTPException(404, "Game not found")
     if game["status"] != "active":
-        raise HTTPException(400, "Game is already over")
+        return {
+            "game_id":        data.game_id,
+            "board":          game["board"],
+            "current_player": game["current_player"],
+            "moves_played":   game["moves_played"],
+            "extra_turns":    game.get("extra_turns", 0),
+            "status":         game["status"],
+            "winner":         game["winner"],
+            "mode":           game["mode"],
+        }
     engine = GameEngine()
     engine.board          = game["board"]
     engine.current_player = game["current_player"]
