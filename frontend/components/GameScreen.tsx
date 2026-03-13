@@ -79,21 +79,29 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
   const isMultiplayerGame = (gameMode === "ranked" || gameMode === "unranked") && !!roomCode;
   const mySlot = playerSlot ?? "P1";
 
+  const [opponentName, setOpponentName] = useState<string | null>(null);
+
   // ── Player display names ──────────────────────────────────────────────────
-  const p1DisplayName = p1Name ?? "P1";
-  const p2DisplayName = gameMode === "ai" ? "BOT" : "P2";
+  const myDisplayName   = p1Name ?? (mySlot === "P1" ? "P1" : "P2");
+  const oppDisplayName  = opponentName ?? (mySlot === "P1" ? "P2" : "P1");
+
+  // In multiplayer, mySlot could be P1 or P2 — map to correct label slot
+  const p1DisplayName = isMultiplayerGame
+    ? (mySlot === "P1" ? myDisplayName : oppDisplayName)
+    : (p1Name ?? "P1");
+  const p2DisplayName = isMultiplayerGame
+    ? (mySlot === "P2" ? myDisplayName : oppDisplayName)
+    : gameMode === "ai" ? "BOT" : "P2";
 
   const p1Label = gameMode === "singleplayer"
     ? `${p1DisplayName} (X)`
-    : gameMode === "ai"
-    ? p1DisplayName
-    : `${p1DisplayName}-X`;
+    : p1DisplayName;
 
   const p2Label = gameMode === "singleplayer"
     ? "P2 (Y)"
     : gameMode === "ai"
     ? "BOT"
-    : "P2-Y";
+    : p2DisplayName;
 
   const winnerDisplayName = (w: string | null): string => {
     if (w === "P1") return p1DisplayName;
@@ -102,6 +110,7 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
     return w ?? "";
   };
   // ─────────────────────────────────────────────────────────────────────────
+
 
   const emptyBoard = (): (string|null)[][] => Array(5).fill(null).map(() => Array(5).fill(null));
 
@@ -209,8 +218,20 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
       const ws = new WebSocket(`${base}/api/room/ws/${roomCode}/${playerSlot}`);
       wsRef.current = ws;
 
+      ws.onopen = () => {
+        // Broadcast our username so the opponent can display it
+        ws.send(JSON.stringify({ type: "player_info", username: p1Name ?? playerSlot ?? "P1", slot: playerSlot }));
+      };
+
       ws.onmessage = (e) => {
         const msg = JSON.parse(e.data);
+        if (msg.type === "player_info") {
+          // Opponent sent us their username
+          if (msg.slot !== playerSlot) {
+            setOpponentName(msg.username ?? null);
+          }
+          return;
+        }
         if (msg.type === "move_made") {
           setBoard(msg.board);
           setCurrent(msg.current_player);
@@ -253,6 +274,8 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
           setBoard(r.board ?? emptyBoard());
           setCurrent(r.current_player ?? "P1");
           setMovesPlayed(r.moves_played ?? 0);
+          // Re-announce our username so reconnecting opponent gets it
+          ws.send(JSON.stringify({ type: "player_info", username: p1Name ?? playerSlot ?? "P1", slot: playerSlot }));
         } else if (msg.type === "opponent_disconnected") {
           setWinner(mySlot);
         } else if (msg.type === "ready_update") {
