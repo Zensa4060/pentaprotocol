@@ -7,13 +7,14 @@ import type { ThemeId } from "@/lib/themes";
 import { SHARDS_LIGHT_SVG, SHARDS_DARK_SVG, PROTO_LIGHT_SVG, PROTO_DARK_SVG } from "@/lib/currencyIcons";
 
 const RANKS = [
-  { name: "NOVICE", min: 0, max: 500, color: "#9CA3AF", img: "/novice.svg", scale: 1.3 },
-  { name: "ADVANCED", min: 500, max: 1000, color: "#60A5FA", img: "/advanced.svg", scale: 1.3 },
-  { name: "PROFESSIONAL", min: 1000, max: 1500, color: "#34D399", img: "/professional.svg", scale: 1.3 },
-  { name: "EMERALD", min: 1500, max: 2000, color: "#10B981", img: "/emerald.svg", scale: 1.495 },
-  { name: "MASTER", min: 2000, max: 2500, color: "#FF3333", img: "/master.png" },
-  { name: "LEGEND", min: 2500, max: 9999, color: "#F59E0B", img: "/legend.png" },
+  { name: "NOVICE",       min: 0,    max: 500,  color: "#9CA3AF", img: "/novice.svg",       scale: 1.3   },
+  { name: "ADVANCED",     min: 500,  max: 1000, color: "#60A5FA", img: "/advanced.svg",     scale: 1.3   },
+  { name: "PROFESSIONAL", min: 1000, max: 1500, color: "#34D399", img: "/professional.svg", scale: 1.3   },
+  { name: "EMERALD",      min: 1500, max: 2000, color: "#10B981", img: "/emerald.svg",      scale: 1.495 },
+  { name: "MASTER",       min: 2000, max: 2500, color: "#FF3333", img: "/master.png"                     },
+  { name: "LEGEND",       min: 2500, max: 9999, color: "#F59E0B", img: "/legend.png"                     },
 ];
+
 
 const getRank = (elo: number) => RANKS.find(r => elo >= r.min && elo < r.max) || RANKS[0];
 
@@ -23,10 +24,9 @@ const NavRankBadge = ({ rank, size = 30 }: { rank: typeof RANKS[0]; size?: numbe
   return (
     <div style={{
       width: size, height: size, borderRadius: "50%",
-      background: "#000000", flexShrink: 0,
+      background: "#000", flexShrink: 0,
       display: "flex", alignItems: "center", justifyContent: "center",
-      overflow: "hidden",
-      boxShadow: `0 0 10px ${rank.color}55`,
+      overflow: "hidden", boxShadow: `0 0 10px ${rank.color}55`,
     }}>
       <img src={rank.img} alt={rank.name} style={{ width: imgSize, height: imgSize, objectFit: "contain" }} />
     </div>
@@ -47,40 +47,113 @@ interface Props {
 
 type LeaveWarning = "unranked" | "ranked" | null;
 
-export default function NavBar({ screen, setScreen, themeId, setThemeId, onSettings, inQueue, onQueueClick, isRankedGame = false, onHover }: Props) {
+export default function NavBar({ screen, setScreen, themeId, onSettings, inQueue, isRankedGame = false, onHover }: Props) {
   const t = THEMES[themeId as keyof typeof THEMES];
   const { user, logout } = useAuthStore();
   const isGuest = !user;
   const rank = getRank(user?.elo ?? 0);
 
-  const [showQuit, setShowQuit] = useState(false);
-  const [showSignOut, setShowSignOut] = useState(false);
-  const [focusMode, setFocusMode] = useState(false);
-  const [hoveredBtn, setHoveredBtn] = useState<string | null>(null);
+  const [showSignOut, setShowSignOut]   = useState(false);
+  const [focusMode, setFocusMode]       = useState(false);
+  const [hoveredBtn, setHoveredBtn]     = useState<string | null>(null);
   const [leaveWarning, setLeaveWarning] = useState<LeaveWarning>(null);
   const [pendingScreen, setPendingScreen] = useState<Screen | null>(null);
-  const [mounted, setMounted] = useState(false);
-  const ip = themeId === "pixel";
+  const [mounted, setMounted]           = useState(false);
+  const [menuOpen, setMenuOpen]         = useState(false);
+  const [vw, setVw]                     = useState(1440);
+  // Add this hook near the top of the NavBar component, after the state declarations
+const [usernameColor, setUsernameColor] = useState("#00FFFF");
+
+useEffect(() => {
+  const COLORS = [
+    "#FF6B6B","#FF8E53","#FFA500","#FFD700","#FFEC8B",
+    "#ADFF2F","#7FFF00","#00FF7F","#00FFAA","#00FFFF",
+    "#00BFFF","#1E90FF","#6495ED","#7B68EE","#9370DB",
+    "#BA55D3","#FF69B4","#FF1493","#FF6EB4","#FFB6C1",
+    "#F0E68C","#EE82EE","#DDA0DD","#DB7093","#DC143C",
+    "#B22222","#FF4500","#FF7F50","#FFA07A","#E9967A",
+    "#FA8072","#F08080","#CD5C5C","#BC8F8F","#F4A460",
+    "#DAA520","#B8860B","#CD853F","#D2691E","#8B4513",
+    "#A0522D","#C0C0C0","#A9A9A9","#808080","#778899",
+    "#708090","#2F4F4F","#696969","#556B2F","#6B8E23",
+    "#808000","#9ACD32","#32CD32","#228B22","#006400",
+    "#008000","#2E8B57","#3CB371","#20B2AA","#008080",
+    "#008B8B","#00CED1","#40E0D0","#48D1CC","#AFEEEE",
+    "#87CEEB","#87CEFA","#4682B4","#5F9EA0","#6495ED",
+    "#00008B","#000080","#191970","#6A5ACD","#483D8B",
+    "#8A2BE2","#9400D3","#8B008B","#FF00FF","#FF00AA",
+    "#C71585","#DB7093","#FF6347","#FF4500","#FF8C00",
+    "#FFA500","#FFD700","#FFFF00","#FFFFE0","#FAFAD2",
+    "#FFEFD5","#FFE4B5","#FFDAB9","#EEE8AA","#F5DEB3",
+    "#DEB887","#D2B48C","#BC8F8F","#F4A460","#DAA520",
+  ];
+  const stored = sessionStorage.getItem("pp_username_color");
+  if (stored) {
+    setUsernameColor(stored);
+  } else {
+    const picked = COLORS[Math.floor(Math.random() * COLORS.length)];
+    sessionStorage.setItem("pp_username_color", picked);
+    setUsernameColor(picked);
+  }
+}, []);
+
+  const ip        = themeId === "pixel";
   const isClassic = themeId === "classic_light" || themeId === "classic_dark";
 
-  const toggleFocus = async () => {
-    if (!focusMode) {
-      try { await document.documentElement.requestFullscreen(); setFocusMode(true); } catch { }
-    } else {
-      try { await document.exitFullscreen(); setFocusMode(false); } catch { }
-    }
-  };
+  // Track viewport width
+  useEffect(() => {
+    const update = () => setVw(window.innerWidth);
+    update();
+    window.addEventListener("resize", update);
+    return () => window.removeEventListener("resize", update);
+  }, []);
 
   useEffect(() => { setMounted(true); }, []);
   useEffect(() => {
     document.onfullscreenchange = () => { if (!document.fullscreenElement) setFocusMode(false); };
     return () => { document.onfullscreenchange = null; };
   }, []);
+  useEffect(() => {
+  const COLORS = [
+    "#FF6B6B","#FF8E53","#FFA500","#FFD700","#FFEC8B",
+    "#ADFF2F","#7FFF00","#00FF7F","#00FFAA","#00FFFF",
+    "#00BFFF","#1E90FF","#6495ED","#7B68EE","#9370DB",
+    "#BA55D3","#FF69B4","#FF1493","#FF6EB4","#FFB6C1",
+    "#F0E68C","#EE82EE","#DDA0DD","#DB7093","#DC143C",
+    "#B22222","#FF4500","#FF7F50","#FFA07A","#E9967A",
+    "#FA8072","#F08080","#CD5C5C","#BC8F8F","#F4A460",
+    "#DAA520","#B8860B","#CD853F","#D2691E","#8B4513",
+    "#A0522D","#C0C0C0","#A9A9A9","#808080","#778899",
+    "#708090","#2F4F4F","#696969","#556B2F","#6B8E23",
+    "#808000","#9ACD32","#32CD32","#228B22","#006400",
+    "#008000","#2E8B57","#3CB371","#20B2AA","#008080",
+    "#008B8B","#00CED1","#40E0D0","#48D1CC","#AFEEEE",
+    "#87CEEB","#87CEFA","#4682B4","#5F9EA0","#6495ED",
+    "#00008B","#000080","#191970","#6A5ACD","#483D8B",
+    "#8A2BE2","#9400D3","#8B008B","#FF00FF","#FF00AA",
+    "#C71585","#DB7093","#FF6347","#FF4500","#FF8C00",
+    "#FFA500","#FFD700","#FFFF00","#FFFFE0","#FAFAD2",
+    "#FFEFD5","#FFE4B5","#FFDAB9","#EEA500","#F5DEB3",
+  ];
+  setUsernameColor(COLORS[Math.floor(Math.random() * COLORS.length)]);
+}, []);
 
-  const inGame = screen === "game" || screen === "multiGame";
+  // Close hamburger on screen change
+  useEffect(() => { setMenuOpen(false); }, [screen]);
+
+  const toggleFocus = async () => {
+    if (!focusMode) {
+      try { await document.documentElement.requestFullscreen(); setFocusMode(true); } catch {}
+    } else {
+      try { await document.exitFullscreen(); setFocusMode(false); } catch {}
+    }
+  };
+
+  const inGame  = screen === "game" || screen === "multiGame";
   const isRanked = screen === "multiGame" && isRankedGame;
 
   const navigate = (target: Screen) => {
+    setMenuOpen(false);
     if (inGame && target !== screen) {
       setPendingScreen(target);
       setLeaveWarning(isRanked ? "ranked" : "unranked");
@@ -100,21 +173,27 @@ export default function NavBar({ screen, setScreen, themeId, setThemeId, onSetti
   };
 
   const getActive = (target: string): boolean => {
-    if (target === "queue") return inQueue && screen === "lobby";
-    if (target === "multiplayer") return (screen === "lobby" && !inQueue) || screen === "multiGame";
-    if (target === "ranked-tab") return screen === "multiGame" && isRankedGame;
-    if (target === "unranked-tab") return screen === "multiGame" && !isRankedGame;
-    if (target === "singleplayer") return screen === "game";
-    if (target === "ai") return screen === "ai";
-    if (target === "home") return screen === "home";
-    if (target === "rules") return screen === "rules";
-    if (target === "profile") return screen === "profile";
-    if (target === "store") return screen === "store";
+    if (target === "home")       return screen === "home";
+    if (target === "rules")      return screen === "rules";
+    if (target === "profile")    return screen === "profile";
+    if (target === "store")      return screen === "store";
     if (target === "collection") return screen === "collection";
-    if (target === "career") return screen === "career";
+    if (target === "career")     return screen === "career";
     if (target === "battlepass") return screen === "battlepass";
     return false;
   };
+
+  // Responsive breakpoints
+  const isMobile = vw < 640;
+  const isTablet = vw >= 640 && vw < 1024;
+  const isDesktop = vw >= 1024;
+
+  // Scaled sizes
+  const NAV_H       = isMobile ? 52 : isTablet ? 60 : 68;
+  const BTN_FONT    = isMobile ? 11 : isTablet ? 12 : "clamp(12px, 1.1vw, 15px)";
+  const ICON_SIZE   = isMobile ? 16 : 20;
+  const BADGE_SIZE  = isMobile ? 28 : isTablet ? 32 : 38;
+  const CURRENCY_SZ = isMobile ? 20 : isTablet ? 24 : 30;
 
   const navBtn = (
     target: string,
@@ -125,52 +204,50 @@ export default function NavBar({ screen, setScreen, themeId, setThemeId, onSetti
     targetScreen?: Screen,
     locked = false,
   ) => {
-    const isActive = getActive(target);
+    const isActive  = getActive(target);
     const isHovered = hoveredBtn === target && !disabled;
     const accentCol = isDanger ? t.danger : isClassic ? "#CC2200" : t.accent;
 
     const fg = disabled
       ? `${t.textMuted}55`
       : (isActive || isHovered) ? accentCol
-        : isDanger ? `${t.danger}CC`
-        : `${t.textSecondary}EE`;
+      : isDanger ? `${t.danger}CC`
+      : `${t.textSecondary}EE`;
 
     return (
       <button
         key={target}
         disabled={disabled}
-        onClick={() => {
-          if (onClick) { onClick(); return; }
-          if (targetScreen) navigate(targetScreen);
-        }}
+        onClick={() => { if (onClick) { onClick(); return; } if (targetScreen) navigate(targetScreen); }}
         onMouseEnter={() => { onHover?.(); setHoveredBtn(target); }}
         onMouseLeave={() => setHoveredBtn(null)}
         style={{
-          background: isActive ? `${accentCol}1A` : isHovered ? `${accentCol}0F` : "none",
+          background:    isActive ? `${accentCol}1A` : isHovered ? `${accentCol}0F` : "none",
           borderTop: "none", borderLeft: "none", borderRight: "none",
-          borderBottom: `2px solid ${(isActive || isHovered) ? accentCol : "transparent"}`,
-          color: fg,
-          fontFamily: t.fontBody,
-          fontSize: 17,
-          fontWeight: isActive ? 800 : isHovered ? 700 : 600,
-          padding: "0 16px",
-          cursor: disabled ? "not-allowed" : "pointer",
-          borderRadius: 0,
+          borderBottom:  `2px solid ${(isActive || isHovered) ? accentCol : "transparent"}`,
+          color:         fg,
+          fontFamily:    t.fontBody,
+          fontSize:      BTN_FONT,
+          fontWeight:    isActive ? 800 : isHovered ? 700 : 600,
+          padding:       isMobile ? "0 10px" : isTablet ? "0 12px" : "0 16px",
+          cursor:        disabled ? "not-allowed" : "pointer",
+          borderRadius:  0,
           letterSpacing: "0.06em",
-          transition: "color 0.15s, border-color 0.15s, background 0.15s",
-          height: 68,
-          display: "flex", alignItems: "center",
-          opacity: disabled ? 0.4 : locked ? 0.6 : 1,
-          whiteSpace: "nowrap" as const,
+          transition:    "color 0.15s, border-color 0.15s, background 0.15s",
+          height:        NAV_H,
+          display:       "flex", alignItems: "center",
+          opacity:       disabled ? 0.4 : locked ? 0.6 : 1,
+          whiteSpace:    "nowrap" as const,
           textTransform: "uppercase" as const,
-          textShadow: (isActive || isHovered)
+          textShadow:    (isActive || isHovered)
             ? `0 0 10px ${accentCol}, 0 0 20px ${accentCol}99, 0 0 40px ${accentCol}55`
             : `0 0 8px ${t.textSecondary}44`,
+          flexShrink: 0,
         }}
       >
-        <span style={{ display:"flex", alignItems:"center", gap:5 }}>
+        <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
           {label.toUpperCase()}
-          {locked && <span style={{ fontSize:10, opacity:0.8 }}>🔒</span>}
+          {locked && <span style={{ fontSize: 9, opacity: 0.8 }}>🔒</span>}
         </span>
       </button>
     );
@@ -182,11 +259,10 @@ export default function NavBar({ screen, setScreen, themeId, setThemeId, onSetti
       className="pp-overlay-btn"
       style={{
         background: `${col}18`, border: `2px solid ${col}`, color: col,
-        fontFamily: t.fontDisplay, fontSize: ip ? 12 : 17, fontWeight: 700,
-        padding: ip ? "10px 28px" : "14px 52px", borderRadius: ip ? 2 : 8,
-        cursor: "pointer", letterSpacing: "0.08em",
+        fontFamily: t.fontDisplay, fontSize: isMobile ? 13 : ip ? 12 : 17, fontWeight: 700,
+        padding: isMobile ? "10px 24px" : ip ? "10px 28px" : "14px 52px",
+        borderRadius: ip ? 2 : 8, cursor: "pointer", letterSpacing: "0.08em",
         transition: "background 0.26s, color 0.26s, transform 0.22s, box-shadow 0.26s",
-        boxShadow: `0 0 0 0 ${col}00`,
       } as React.CSSProperties}
       onMouseEnter={e => { onHover?.(); const el = e.currentTarget; el.style.background = col; el.style.color = "#000"; el.style.transform = "scale(1.04)"; el.style.boxShadow = `0 4px 24px ${col}55`; }}
       onMouseLeave={e => { const el = e.currentTarget; el.style.background = `${col}18`; el.style.color = col; el.style.transform = "scale(1)"; el.style.boxShadow = "none"; }}
@@ -195,194 +271,305 @@ export default function NavBar({ screen, setScreen, themeId, setThemeId, onSetti
     >{label}</button>
   );
 
-  const pentacoins = (user as any)?.pentacoins ?? (user as any)?.shards ?? 0;
+  const pentacoins   = (user as any)?.pentacoins ?? (user as any)?.shards ?? 0;
   const protocredits = (user as any)?.protocredits ?? 0;
+
+  // Nav links list for both desktop and hamburger menu
+  const navLinks = [
+    { target: "rules",      label: "Game Rules",  screen: "rules"      as Screen },
+    { target: "collection", label: "Collection",  screen: "collection" as Screen },
+    { target: "store",      label: "Store",       screen: "store"      as Screen },
+    { target: "home",       label: "Home",        screen: "home"       as Screen },
+    { target: "career",     label: "Career",      screen: "career"     as Screen, locked: isGuest },
+    { target: "battlepass", label: "Battlepass",  screen: "battlepass" as Screen, locked: isGuest },
+    { target: "profile",    label: "Profile",     screen: "profile"    as Screen, locked: isGuest },
+  ];
 
   return (
     <>
       <nav style={{
         position: "fixed", top: 0, left: 0, right: 0, zIndex: 200,
-        height: 68,
-        background: themeId === "classic_light" ? "#FFFFFF" : "rgba(10,10,10,0.88)",
+        height: NAV_H,
+        background: themeId === "classic_light" ? "#FFFFFF" : "rgba(10,10,10,0.92)",
         borderBottom: `1px solid ${t.border}33`,
-        display: "flex", alignItems: "center", padding: "0 16px",
-        willChange: "auto",
+        display: "flex", alignItems: "center",
+        padding: isMobile ? "0 10px" : "0 16px",
+        gap: isMobile ? 6 : 10,
+        backdropFilter: "blur(12px)",
+        WebkitBackdropFilter: "blur(12px)",
       }}>
 
-        <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
-         <div onClick={() => navigate("home")} style={{
-            fontFamily: t.fontDisplay, fontSize: 17, fontWeight: 800,
-            cursor: "pointer", lineHeight: 1,
-            whiteSpace: "nowrap",
-            background: "linear-gradient(90deg, #00FFFF, #FF00FF, #FFD700)",
-            WebkitBackgroundClip: "text",
-            WebkitTextFillColor: "transparent",
-            backgroundClip: "text",
-            textShadow: "none",
-            filter: "drop-shadow(0 0 8px rgba(0,255,255,0.6))",
-            letterSpacing: "0.06em",
-            transition: "filter 0.3s",
-          }}>
+        {/* ── LEFT: username + sign in/out + focus ── */}
+        <div style={{ display: "flex", alignItems: "center", gap: isMobile ? 6 : 10, flexShrink: 0, minWidth: 0 }}>
+
+          {/* Username */}
+          <div
+            onClick={() => navigate("home")}
+            style={{
+              fontFamily: t.fontDisplay,
+              fontSize: isMobile ? 13 : isTablet ? 15 : 17,
+              fontWeight: 800,
+              cursor: "pointer", lineHeight: 1,
+              whiteSpace: "nowrap",
+             color: usernameColor,
+textShadow: `0 0 12px ${usernameColor}99, 0 0 24px ${usernameColor}44`,
+filter: "none",
+              letterSpacing: "0.06em",
+              maxWidth: isMobile ? 90 : 160,
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+            }}
+          >
             {user ? (user.username ?? user.email ?? "PLAYER") : "GUEST"}
           </div>
 
-          <div style={{ width: 1, height: 22, background: `${t.border}55`, flexShrink: 0 }} />
+          {!isMobile && <div style={{ width: 1, height: 22, background: `${t.border}55`, flexShrink: 0 }} />}
 
+          {/* Sign in / out */}
           {mounted && user ? (
             <button
               onClick={() => setShowSignOut(true)}
-              onMouseEnter={e => { onHover?.(); e.currentTarget.style.background = t.danger; e.currentTarget.style.borderColor = t.danger; e.currentTarget.style.color = "#fff"; e.currentTarget.style.boxShadow = `0 0 18px ${t.danger}55`; }}
-              onMouseLeave={e => { e.currentTarget.style.background = `${t.danger}14`; e.currentTarget.style.borderColor = `${t.danger}55`; e.currentTarget.style.color = t.danger; e.currentTarget.style.boxShadow = `0 0 10px ${t.danger}18`; }}
+              onMouseEnter={e => { onHover?.(); e.currentTarget.style.background = t.danger; e.currentTarget.style.borderColor = t.danger; e.currentTarget.style.color = "#fff"; }}
+              onMouseLeave={e => { e.currentTarget.style.background = `${t.danger}14`; e.currentTarget.style.borderColor = `${t.danger}55`; e.currentTarget.style.color = t.danger; }}
               style={{
-                background: `${t.danger}14`,
-                border: `1px solid ${t.danger}55`,
-                color: t.danger,
-                fontFamily: t.fontBody, fontSize: 11, fontWeight: 600,
-                padding: "5px 11px", borderRadius: 7, cursor: "pointer",
+                background: `${t.danger}14`, border: `1px solid ${t.danger}55`, color: t.danger,
+                fontFamily: t.fontBody, fontSize: isMobile ? 9 : 11, fontWeight: 600,
+                padding: isMobile ? "4px 7px" : "5px 11px", borderRadius: 7, cursor: "pointer",
                 transition: "all 0.18s", whiteSpace: "nowrap",
                 letterSpacing: "0.06em", textTransform: "uppercase" as const,
               }}
-            >Sign Out</button>
+            >{isMobile ? "Out" : "Sign Out"}</button>
           ) : mounted ? (
             <button
               onClick={() => setScreen("auth")}
-              onMouseEnter={e => { onHover?.(); e.currentTarget.style.background = t.accent; e.currentTarget.style.color = "#000"; e.currentTarget.style.boxShadow = `0 0 18px ${t.accentGlow}66`; e.currentTarget.style.borderColor = t.accent; }}
-              onMouseLeave={e => { e.currentTarget.style.background = `${t.accent}22`; e.currentTarget.style.color = t.accent; e.currentTarget.style.boxShadow = `0 0 10px ${t.accent}22`; e.currentTarget.style.borderColor = `${t.accent}88`; }}
+              onMouseEnter={e => { onHover?.(); e.currentTarget.style.background = t.accent; e.currentTarget.style.color = "#000"; e.currentTarget.style.borderColor = t.accent; }}
+              onMouseLeave={e => { e.currentTarget.style.background = `${t.accent}22`; e.currentTarget.style.color = t.accent; e.currentTarget.style.borderColor = `${t.accent}88`; }}
               style={{
-                background: `${t.accent}22`,
-                border: `1px solid ${t.accent}88`,
-                color: t.accent,
-                fontFamily: t.fontBody, fontSize: 11, fontWeight: 600,
-                padding: "5px 11px", borderRadius: 7, cursor: "pointer",
+                background: `${t.accent}22`, border: `1px solid ${t.accent}88`, color: t.accent,
+                fontFamily: t.fontBody, fontSize: isMobile ? 9 : 11, fontWeight: 600,
+                padding: isMobile ? "4px 7px" : "5px 11px", borderRadius: 7, cursor: "pointer",
                 transition: "all 0.18s", whiteSpace: "nowrap",
                 letterSpacing: "0.06em", textTransform: "uppercase" as const,
               }}
-            >Sign In</button>
+            >{isMobile ? "In" : "Sign In"}</button>
           ) : null}
 
-          <div style={{ width: 1, height: 22, background: `${t.border}55`, flexShrink: 0 }} />
-
-          <button
-            onClick={toggleFocus}
-            title={focusMode ? "Exit Focus Mode" : "Focus Mode"}
-            onMouseEnter={e => { onHover?.(); e.currentTarget.style.background = t.accent; e.currentTarget.style.borderColor = t.accent; e.currentTarget.style.color = "#000"; e.currentTarget.style.boxShadow = `0 0 18px ${t.accentGlow}66`; }}
-            onMouseLeave={e => { e.currentTarget.style.background = focusMode ? `${t.accent}22` : `${t.accent}14`; e.currentTarget.style.borderColor = `${t.accent}55`; e.currentTarget.style.color = t.accent; e.currentTarget.style.boxShadow = focusMode ? `0 0 10px ${t.accent}44` : `0 0 8px ${t.accent}18`; }}
-            style={{
-              background: focusMode ? `${t.accent}22` : `${t.accent}14`,
-              border: `1px solid ${focusMode ? t.accent : `${t.accent}55`}`,
-              color: t.accent,
-              fontFamily: t.fontBody, fontSize: 11, fontWeight: 700,
-              padding: "5px 11px", borderRadius: 7, cursor: "pointer",
-              transition: "all 0.18s",
-              display: "flex", alignItems: "center", gap: 5,
-              whiteSpace: "nowrap", letterSpacing: "0.06em",
-              textTransform: "uppercase" as const,
-              boxShadow: focusMode ? `0 0 10px ${t.accent}44` : `0 0 8px ${t.accent}18`,
-            }}
-          >
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              {focusMode
-                ? <><polyline points="8 3 3 3 3 8" /><polyline points="21 8 21 3 16 3" /><polyline points="3 16 3 21 8 21" /><polyline points="16 21 21 21 21 16" /></>
-                : <><polyline points="15 3 21 3 21 9" /><polyline points="9 21 3 21 3 15" /><line x1="21" y1="3" x2="14" y2="10" /><line x1="3" y1="21" x2="10" y2="14" /></>
-              }
-            </svg>
-            {focusMode ? "Exit" : "Focus"}
-          </button>
+          {/* Focus button — hide on mobile */}
+          {!isMobile && (
+            <>
+              <div style={{ width: 1, height: 22, background: `${t.border}55`, flexShrink: 0 }} />
+              <button
+                onClick={toggleFocus}
+                title={focusMode ? "Exit Focus Mode" : "Focus Mode"}
+                onMouseEnter={e => { onHover?.(); e.currentTarget.style.background = t.accent; e.currentTarget.style.color = "#000"; e.currentTarget.style.boxShadow = `0 0 18px ${t.accentGlow}66`; }}
+                onMouseLeave={e => { e.currentTarget.style.background = focusMode ? `${t.accent}22` : `${t.accent}14`; e.currentTarget.style.color = t.accent; e.currentTarget.style.boxShadow = focusMode ? `0 0 10px ${t.accent}44` : "none"; }}
+                style={{
+                  background: focusMode ? `${t.accent}22` : `${t.accent}14`,
+                  border: `1px solid ${focusMode ? t.accent : `${t.accent}55`}`,
+                  color: t.accent,
+                  fontFamily: t.fontBody, fontSize: 11, fontWeight: 700,
+                  padding: "5px 11px", borderRadius: 7, cursor: "pointer",
+                  transition: "all 0.18s",
+                  display: "flex", alignItems: "center", gap: 5,
+                  whiteSpace: "nowrap", letterSpacing: "0.06em",
+                  textTransform: "uppercase" as const,
+                }}
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  {focusMode
+                    ? <><polyline points="8 3 3 3 3 8"/><polyline points="21 8 21 3 16 3"/><polyline points="3 16 3 21 8 21"/><polyline points="16 21 21 21 21 16"/></>
+                    : <><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></>
+                  }
+                </svg>
+                {focusMode ? "Exit" : "Focus"}
+              </button>
+            </>
+          )}
         </div>
 
-        <div style={{
-          position: "absolute", left: "50.15%", top: 0,
-          transform: "translateX(-50%)",
-          height: 68, display: "flex", alignItems: "center",
-          pointerEvents: "none",
-        }}>
-          <div style={{ display: "flex", alignItems: "center", pointerEvents: "all" }}>
-
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end" }}>
-              {navBtn("rules", "Game Rules", false, false, undefined, "rules")}
+        {/* ── CENTER: nav links (desktop & tablet) ── */}
+        {isDesktop && (
+          <div style={{
+            flex: 1, display: "flex", alignItems: "center", justifyContent: "center",
+            overflow: "hidden",
+          }}>
+            <div style={{ display: "flex", alignItems: "center", flexWrap: "nowrap" }}>
+              {navBtn("rules",      "Game Rules", false, false, undefined, "rules")}
               {navBtn("collection", "Collection", false, false, undefined, "collection")}
-              {navBtn("store", "Store", false, false, undefined, "store")}
-            </div>
-
-            <div style={{ width: 1, height: 28, background: `${t.border}55`, margin: "0 2px", flexShrink: 0 }} />
-
-            {navBtn("home", "Home", false, false, undefined, "home")}
-
-            <div style={{ width: 1, height: 28, background: `${t.border}55`, margin: "0 2px", flexShrink: 0 }} />
-
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-start" }}>
-              {navBtn("career", "Career", false, false, undefined, "career", isGuest)}
+              {navBtn("store",      "Store",      false, false, undefined, "store")}
+              <div style={{ width: 1, height: 28, background: `${t.border}55`, margin: "0 2px", flexShrink: 0 }} />
+              {navBtn("home",       "Home",       false, false, undefined, "home")}
+              <div style={{ width: 1, height: 28, background: `${t.border}55`, margin: "0 2px", flexShrink: 0 }} />
+              {navBtn("career",     "Career",     false, false, undefined, "career",     isGuest)}
               {navBtn("battlepass", "Battlepass", false, false, undefined, "battlepass", isGuest)}
-              {navBtn("profile", "Profile", false, false, undefined, "profile", isGuest)}
+              {navBtn("profile",    "Profile",    false, false, undefined, "profile",    isGuest)}
             </div>
-
           </div>
-        </div>
+        )}
 
-        <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0, marginLeft: "auto", marginRight: 8 }}>
+        {isTablet && (
+          <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
+            <div style={{ display: "flex", alignItems: "center", flexWrap: "nowrap" }}>
+              {navBtn("home",    "Home",    false, false, undefined, "home")}
+              {navBtn("store",   "Store",   false, false, undefined, "store")}
+              {navBtn("profile", "Profile", false, false, undefined, "profile", isGuest)}
+              {navBtn("career",  "Career",  false, false, undefined, "career",  isGuest)}
+            </div>
+          </div>
+        )}
 
-          {mounted && user && (
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginRight: 6 }}>
+        {/* Spacer on mobile to push right section to end */}
+        {isMobile && <div style={{ flex: 1 }} />}
+
+        {/* ── RIGHT: rank + currency + settings + hamburger ── */}
+        <div style={{ display: "flex", alignItems: "center", gap: isMobile ? 6 : 8, flexShrink: 0 }}>
+
+          {/* Rank + currency — hide on mobile */}
+          {mounted && user && !isMobile && (
+            <div style={{ display: "flex", alignItems: "center", gap: isTablet ? 6 : 8 }}>
               <div style={{
-                display: "flex", alignItems: "center", gap: 10,
-                padding: "4px 16px 4px 5px",
+                display: "flex", alignItems: "center", gap: isTablet ? 6 : 10,
+                padding: isTablet ? "3px 10px 3px 4px" : "4px 16px 4px 5px",
                 background: `${rank.color}15`,
                 border: `1px solid ${rank.color}55`,
                 borderRadius: 28,
                 whiteSpace: "nowrap",
                 boxShadow: `0 0 20px ${rank.color}33`,
               }}>
-                <NavRankBadge rank={rank} size={40} />
+                <NavRankBadge rank={rank} size={BADGE_SIZE} />
                 <div style={{ display: "flex", flexDirection: "column", lineHeight: 1.15 }}>
-                  <span style={{ fontFamily: t.fontMono, fontSize: 22, fontWeight: 900, color: rank.color, letterSpacing: "0.02em", textShadow: `0 0 14px ${rank.color}99` }}>{user.elo}</span>
-                  <span style={{ fontFamily: t.fontMono, fontSize: 9, fontWeight: 700, color: rank.color, opacity: 0.8, letterSpacing: "0.18em" }}>{rank.name}</span>
+                  <span style={{ fontFamily: t.fontMono, fontSize: isTablet ? 14 : 18, fontWeight: 900, color: rank.color, textShadow: `0 0 14px ${rank.color}99` }}>{user.elo}</span>
+                  {!isTablet && <span style={{ fontFamily: t.fontMono, fontSize: 9, fontWeight: 700, color: rank.color, opacity: 0.8, letterSpacing: "0.18em" }}>{rank.name}</span>}
                 </div>
               </div>
 
-              <div style={{ display: "flex", alignItems: "center", gap: 3, fontFamily: t.fontMono, fontSize: 16, fontWeight: 700 }}>
-                <div style={{ width: 34, height: 34, flexShrink: 0 }} dangerouslySetInnerHTML={{ __html: (themeId === "classic_light" ? SHARDS_LIGHT_SVG : SHARDS_DARK_SVG).replace("<svg ", '<svg width="34" height="34" ') }} />
+              <div style={{ display: "flex", alignItems: "center", gap: 2, fontFamily: t.fontMono, fontSize: isTablet ? 12 : 14, fontWeight: 700 }}>
+                <div style={{ width: CURRENCY_SZ, height: CURRENCY_SZ, flexShrink: 0 }} dangerouslySetInnerHTML={{ __html: (themeId === "classic_light" ? SHARDS_LIGHT_SVG : SHARDS_DARK_SVG).replace("<svg ", `<svg width="${CURRENCY_SZ}" height="${CURRENCY_SZ}" `) }} />
                 <span style={{ color: "#4FC3F7" }}>{pentacoins}</span>
               </div>
 
-              <div style={{ display: "flex", alignItems: "center", gap: 3, fontFamily: t.fontMono, fontSize: 16, fontWeight: 700 }}>
-                <div style={{ width: 34, height: 34, flexShrink: 0 }} dangerouslySetInnerHTML={{ __html: (themeId === "classic_light" ? PROTO_LIGHT_SVG : PROTO_DARK_SVG).replace("<svg ", '<svg width="34" height="34" ') }} />
+              <div style={{ display: "flex", alignItems: "center", gap: 2, fontFamily: t.fontMono, fontSize: isTablet ? 12 : 14, fontWeight: 700 }}>
+                <div style={{ width: CURRENCY_SZ, height: CURRENCY_SZ, flexShrink: 0 }} dangerouslySetInnerHTML={{ __html: (themeId === "classic_light" ? PROTO_LIGHT_SVG : PROTO_DARK_SVG).replace("<svg ", `<svg width="${CURRENCY_SZ}" height="${CURRENCY_SZ}" `) }} />
                 <span style={{ color: "#FFD700" }}>{protocredits}</span>
               </div>
             </div>
           )}
 
+          {/* Settings button */}
           <button
             onClick={onSettings}
             title="Settings"
-            onMouseEnter={e => { onHover?.(); e.currentTarget.style.borderColor = t.accent; e.currentTarget.style.color = t.accent; e.currentTarget.style.background = `${t.accent}18`; e.currentTarget.style.boxShadow = `0 0 16px ${t.accentGlow}44`; e.currentTarget.style.transform = "rotate(30deg)"; }}
-            onMouseLeave={e => { e.currentTarget.style.borderColor = `${t.border}66`; e.currentTarget.style.color = t.text; e.currentTarget.style.background = `${t.border}22`; e.currentTarget.style.boxShadow = "none"; e.currentTarget.style.transform = "rotate(0deg)"; }}
+            onMouseEnter={e => { onHover?.(); e.currentTarget.style.borderColor = t.accent; e.currentTarget.style.color = t.accent; e.currentTarget.style.background = `${t.accent}18`; e.currentTarget.style.transform = "rotate(30deg)"; }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = `${t.border}66`; e.currentTarget.style.color = t.text; e.currentTarget.style.background = `${t.border}22`; e.currentTarget.style.transform = "rotate(0deg)"; }}
             style={{
-              background: `${t.border}22`, border: `1px solid ${t.border}66`,
-              color: t.text,
-              padding: "9px 13px", borderRadius: 9, cursor: "pointer",
+              background: `${t.border}22`, border: `1px solid ${t.border}66`, color: t.text,
+              padding: isMobile ? "7px 9px" : "9px 13px", borderRadius: 9, cursor: "pointer",
               transition: "all 0.3s ease",
               display: "flex", alignItems: "center", justifyContent: "center",
-              boxShadow: "none",
             }}
           >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg width={ICON_SIZE} height={ICON_SIZE} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="12" cy="12" r="3" />
               <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
             </svg>
           </button>
 
+          {/* Hamburger — mobile & tablet */}
+          {!isDesktop && (
+            <button
+              onClick={() => setMenuOpen(v => !v)}
+              style={{
+                background: menuOpen ? `${t.accent}22` : `${t.border}22`,
+                border: `1px solid ${menuOpen ? t.accent : `${t.border}66`}`,
+                color: menuOpen ? t.accent : t.text,
+                padding: isMobile ? "7px 9px" : "9px 13px",
+                borderRadius: 9, cursor: "pointer",
+                transition: "all 0.2s",
+                display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4,
+              }}
+            >
+              <span style={{ display: "block", width: ICON_SIZE, height: 2, background: "currentColor", borderRadius: 2, transition: "transform 0.2s", transform: menuOpen ? "rotate(45deg) translate(4px, 4px)" : "none" }} />
+              <span style={{ display: "block", width: ICON_SIZE, height: 2, background: "currentColor", borderRadius: 2, opacity: menuOpen ? 0 : 1, transition: "opacity 0.2s" }} />
+              <span style={{ display: "block", width: ICON_SIZE, height: 2, background: "currentColor", borderRadius: 2, transition: "transform 0.2s", transform: menuOpen ? "rotate(-45deg) translate(4px, -4px)" : "none" }} />
+            </button>
+          )}
         </div>
       </nav>
 
+      {/* ── Dropdown menu for mobile/tablet ── */}
+      {!isDesktop && menuOpen && (
+        <div style={{
+          position: "fixed", top: NAV_H, left: 0, right: 0, zIndex: 199,
+          background: themeId === "classic_light" ? "#FFFFFF" : "rgba(10,10,10,0.97)",
+          borderBottom: `1px solid ${t.border}44`,
+          backdropFilter: "blur(16px)",
+          WebkitBackdropFilter: "blur(16px)",
+          display: "flex", flexDirection: "column",
+          animation: "menuSlideDown 0.2s ease both",
+          boxShadow: "0 8px 32px rgba(0,0,0,0.4)",
+        }}>
+          {navLinks.map(({ target, label, screen: s, locked }) => (
+            <button
+              key={target}
+              onClick={() => navigate(s)}
+              style={{
+                background: getActive(target) ? `${t.accent}18` : "none",
+                border: "none",
+                borderBottom: `1px solid ${t.border}22`,
+                borderLeft: `3px solid ${getActive(target) ? t.accent : "transparent"}`,
+                color: getActive(target) ? t.accent : locked ? `${t.textSecondary}88` : `${t.textSecondary}EE`,
+                fontFamily: t.fontBody,
+                fontSize: isMobile ? 13 : 15,
+                fontWeight: getActive(target) ? 800 : 600,
+                padding: isMobile ? "14px 20px" : "16px 24px",
+                textAlign: "left" as const,
+                cursor: "pointer",
+                letterSpacing: "0.08em",
+                textTransform: "uppercase" as const,
+                textShadow: getActive(target) ? `0 0 10px ${t.accent}99` : "none",
+                display: "flex", alignItems: "center", justifyContent: "space-between",
+                transition: "all 0.15s",
+              }}
+            >
+              <span>{label}</span>
+              {locked && <span style={{ fontSize: 11 }}>🔒</span>}
+              {getActive(target) && <span style={{ fontSize: 11, color: t.accent }}>●</span>}
+            </button>
+          ))}
+
+          {/* Mobile-only: rank + currency in menu */}
+          {isMobile && mounted && user && (
+            <div style={{ padding: "14px 20px", display: "flex", alignItems: "center", gap: 12, borderTop: `1px solid ${t.border}33` }}>
+              <NavRankBadge rank={rank} size={32} />
+              <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                <span style={{ fontFamily: t.fontMono, fontSize: 14, fontWeight: 900, color: rank.color }}>{user.elo} ELO</span>
+                <span style={{ fontFamily: t.fontMono, fontSize: 9, color: rank.color, opacity: 0.8, letterSpacing: "0.14em" }}>{rank.name}</span>
+              </div>
+              <div style={{ marginLeft: "auto", display: "flex", gap: 12 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 3, fontFamily: t.fontMono, fontSize: 13, fontWeight: 700 }}>
+                  <div style={{ width: 22, height: 22 }} dangerouslySetInnerHTML={{ __html: (themeId === "classic_light" ? SHARDS_LIGHT_SVG : SHARDS_DARK_SVG).replace("<svg ", '<svg width="22" height="22" ') }} />
+                  <span style={{ color: "#4FC3F7" }}>{pentacoins}</span>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 3, fontFamily: t.fontMono, fontSize: 13, fontWeight: 700 }}>
+                  <div style={{ width: 22, height: 22 }} dangerouslySetInnerHTML={{ __html: (themeId === "classic_light" ? PROTO_LIGHT_SVG : PROTO_DARK_SVG).replace("<svg ", '<svg width="22" height="22" ') }} />
+                  <span style={{ color: "#FFD700" }}>{protocredits}</span>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Leave warning overlays ── */}
       {leaveWarning === "unranked" && (
         <div style={{ position: "fixed", inset: 0, zIndex: 9999, background: "rgba(0,0,0,0.88)", display: "flex", alignItems: "center", justifyContent: "center", animation: "overlayFadeIn 0.22s ease both" }}>
-          <div style={{ background: t.bgPanel, border: `${ip ? 3 : 1}px solid ${t.border}`, borderRadius: ip ? 2 : 20, padding: ip ? "32px 36px" : "48px 56px", maxWidth: 520, width: "90vw", textAlign: "center", boxShadow: "0 40px 100px rgba(0,0,0,0.7)", animation: "overlayModalIn 0.28s cubic-bezier(.22,.68,0,1.2) both" }}>
-            <div style={{ fontSize: 44, marginBottom: 20 }}>{"⚠️"}</div>
-            <div style={{ fontFamily: t.fontDisplay, fontSize: ip ? 14 : 23, fontWeight: 700, color: t.text, lineHeight: 1.5, marginBottom: 12 }}>Do you want to leave the current game session?</div>
-            <div style={{ fontFamily: t.fontBody, fontSize: ip ? 11 : 15, color: t.textMuted, marginBottom: 36, lineHeight: 1.7 }}>Current game progress will be lost.</div>
-            <div style={{ display: "flex", gap: 16, justifyContent: "center" }}>
+          <div style={{ background: t.bgPanel, border: `${ip ? 3 : 1}px solid ${t.border}`, borderRadius: ip ? 2 : 20, padding: isMobile ? "28px 24px" : ip ? "32px 36px" : "48px 56px", maxWidth: 520, width: "90vw", textAlign: "center", boxShadow: "0 40px 100px rgba(0,0,0,0.7)", animation: "overlayModalIn 0.28s cubic-bezier(.22,.68,0,1.2) both" }}>
+            <div style={{ fontSize: isMobile ? 32 : 44, marginBottom: 16 }}>⚠️</div>
+            <div style={{ fontFamily: t.fontDisplay, fontSize: isMobile ? 16 : ip ? 14 : 23, fontWeight: 700, color: t.text, lineHeight: 1.5, marginBottom: 12 }}>Leave the current game?</div>
+            <div style={{ fontFamily: t.fontBody, fontSize: isMobile ? 13 : ip ? 11 : 15, color: t.textMuted, marginBottom: 28, lineHeight: 1.7 }}>Current game progress will be lost.</div>
+            <div style={{ display: "flex", gap: 12, justifyContent: "center" }}>
               {overlayBtn("YES", t.danger, confirmLeave)}
-              {overlayBtn("NO", t.accent, cancelLeave)}
+              {overlayBtn("NO",  t.accent, cancelLeave)}
             </div>
           </div>
         </div>
@@ -390,51 +577,44 @@ export default function NavBar({ screen, setScreen, themeId, setThemeId, onSetti
 
       {leaveWarning === "ranked" && (
         <div style={{ position: "fixed", inset: 0, zIndex: 9999, background: "rgba(0,0,0,0.92)", display: "flex", alignItems: "center", justifyContent: "center", animation: "overlayFadeIn 0.22s ease both" }}>
-          <div style={{ background: t.bgPanel, border: `${ip ? 3 : 2}px solid ${t.danger}`, borderRadius: ip ? 2 : 20, padding: ip ? "32px 36px" : "48px 56px", maxWidth: 560, width: "90vw", textAlign: "center", boxShadow: `0 40px 100px rgba(0,0,0,0.8),0 0 60px ${t.danger}22`, animation: "overlayModalIn 0.28s cubic-bezier(.22,.68,0,1.2) both" }}>
-            <div style={{ fontSize: 44, marginBottom: 20 }}>{"🚨"}</div>
-            <div style={{ fontFamily: t.fontDisplay, fontSize: ip ? 14 : 23, fontWeight: 700, color: t.danger, lineHeight: 1.5, marginBottom: 12 }}>Are you sure you want to leave the current game?</div>
-            <div style={{ fontFamily: t.fontBody, fontSize: ip ? 11 : 15, color: t.textMuted, marginBottom: 36, lineHeight: 1.7 }}>This will be considered a <span style={{ color: t.danger, fontWeight: 700 }}>forfeit</span> and will result in <span style={{ color: t.danger, fontWeight: 700 }}>deduction of ELO</span>!</div>
-            <div style={{ display: "flex", gap: 16, justifyContent: "center" }}>
+          <div style={{ background: t.bgPanel, border: `${ip ? 3 : 2}px solid ${t.danger}`, borderRadius: ip ? 2 : 20, padding: isMobile ? "28px 24px" : ip ? "32px 36px" : "48px 56px", maxWidth: 560, width: "90vw", textAlign: "center", boxShadow: `0 40px 100px rgba(0,0,0,0.8),0 0 60px ${t.danger}22`, animation: "overlayModalIn 0.28s cubic-bezier(.22,.68,0,1.2) both" }}>
+            <div style={{ fontSize: isMobile ? 32 : 44, marginBottom: 16 }}>🚨</div>
+            <div style={{ fontFamily: t.fontDisplay, fontSize: isMobile ? 16 : ip ? 14 : 23, fontWeight: 700, color: t.danger, lineHeight: 1.5, marginBottom: 12 }}>Leave ranked game?</div>
+            <div style={{ fontFamily: t.fontBody, fontSize: isMobile ? 13 : ip ? 11 : 15, color: t.textMuted, marginBottom: 28, lineHeight: 1.7 }}>This counts as a <span style={{ color: t.danger, fontWeight: 700 }}>forfeit</span> and will result in <span style={{ color: t.danger, fontWeight: 700 }}>ELO deduction</span>!</div>
+            <div style={{ display: "flex", gap: 12, justifyContent: "center" }}>
               {overlayBtn("YES, FORFEIT", t.danger, confirmLeave)}
-              {overlayBtn("NO, STAY", t.accent, cancelLeave)}
+              {overlayBtn("NO, STAY",     t.accent, cancelLeave)}
             </div>
           </div>
         </div>
       )}
 
-      {showQuit && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 9999, background: "rgba(0,0,0,0.94)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 36, animation: "overlayFadeIn 0.22s ease both" }}>
-          <div style={{ fontFamily: t.fontDisplay, fontSize: "clamp(22px,4vw,48px)", fontWeight: 700, color: t.text, textAlign: "center", lineHeight: 1.4, animation: "overlayModalIn 0.28s cubic-bezier(.22,.68,0,1.2) both" }}>
-            DO YOU WANT TO QUIT<br />THE PROTOCOL?
-          </div>
-          <div style={{ display: "flex", gap: 24 }}>
-            {overlayBtn("YES", t.danger, () => { window.location.href = "about:blank"; })}
-            {overlayBtn("NO", t.accent, () => setShowQuit(false))}
-          </div>
-        </div>
-      )}
-
+      {/* ── Sign out modal ── */}
       {showSignOut && (
         <div style={{ position: "fixed", inset: 0, zIndex: 9999, background: "rgba(0,0,0,0.82)", display: "flex", alignItems: "center", justifyContent: "center", animation: "overlayFadeIn 0.2s ease both" }}>
-          <div style={{ background: t.bgPanel, border: `1px solid ${t.border}`, borderRadius: ip ? 2 : 18, padding: ip ? "28px 32px" : "44px 52px", maxWidth: 420, width: "90vw", textAlign: "center", boxShadow: "0 32px 80px rgba(0,0,0,0.7)", animation: "overlayModalIn 0.26s cubic-bezier(.22,.68,0,1.2) both" }}>
-            <div style={{ marginBottom: 18, display: "flex", justifyContent: "center" }}>
-              <div style={{ width: 52, height: 52, borderRadius: "50%", background: `${t.danger}14`, border: `1px solid ${t.danger}44`, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={t.danger} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><polyline points="16 17 21 12 16 7" /><line x1="21" y1="12" x2="9" y2="12" />
+          <div style={{ background: t.bgPanel, border: `1px solid ${t.border}`, borderRadius: ip ? 2 : 18, padding: isMobile ? "28px 24px" : ip ? "28px 32px" : "44px 52px", maxWidth: 420, width: "90vw", textAlign: "center", boxShadow: "0 32px 80px rgba(0,0,0,0.7)", animation: "overlayModalIn 0.26s cubic-bezier(.22,.68,0,1.2) both" }}>
+            <div style={{ marginBottom: 16, display: "flex", justifyContent: "center" }}>
+              <div style={{ width: 48, height: 48, borderRadius: "50%", background: `${t.danger}14`, border: `1px solid ${t.danger}44`, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={t.danger} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
                 </svg>
               </div>
             </div>
-            <div style={{ fontFamily: t.fontDisplay, fontSize: ip ? 15 : 20, fontWeight: 700, color: t.text, marginBottom: 8, lineHeight: 1.4 }}>Sign out of PentaProtocol?</div>
-            <div style={{ fontFamily: t.fontBody, fontSize: 13, color: t.textMuted, marginBottom: 32, lineHeight: 1.6 }}>You'll need to sign back in to play ranked matches and access your profile.</div>
+            <div style={{ fontFamily: t.fontDisplay, fontSize: isMobile ? 16 : ip ? 15 : 20, fontWeight: 700, color: t.text, marginBottom: 8, lineHeight: 1.4 }}>Sign out of PentaProtocol?</div>
+            <div style={{ fontFamily: t.fontBody, fontSize: isMobile ? 12 : 13, color: t.textMuted, marginBottom: 28, lineHeight: 1.6 }}>You'll need to sign back in to play ranked matches.</div>
             <div style={{ display: "flex", gap: 10 }}>
-              <button onClick={() => { logout(); setShowSignOut(false); }}
-                onMouseEnter={e => { onHover?.(); e.currentTarget.style.background = t.danger; e.currentTarget.style.color = "#fff"; e.currentTarget.style.boxShadow = `0 4px 20px ${t.danger}55`; }}
-                onMouseLeave={e => { e.currentTarget.style.background = `${t.danger}14`; e.currentTarget.style.color = t.danger; e.currentTarget.style.boxShadow = "none"; }}
-                style={{ flex: 1, padding: "11px 0", background: `${t.danger}14`, border: `1px solid ${t.danger}66`, color: t.danger, fontFamily: t.fontDisplay, fontSize: 13, fontWeight: 700, borderRadius: ip ? 2 : 9, cursor: "pointer", transition: "all 0.18s", letterSpacing: "0.06em", textTransform: "uppercase" as const, boxShadow: "none" }}>Sign Out</button>
-              <button onClick={() => setShowSignOut(false)}
+              <button
+                onClick={() => { logout(); setShowSignOut(false); }}
+                onMouseEnter={e => { onHover?.(); e.currentTarget.style.background = t.danger; e.currentTarget.style.color = "#fff"; }}
+                onMouseLeave={e => { e.currentTarget.style.background = `${t.danger}14`; e.currentTarget.style.color = t.danger; }}
+                style={{ flex: 1, padding: "11px 0", background: `${t.danger}14`, border: `1px solid ${t.danger}66`, color: t.danger, fontFamily: t.fontDisplay, fontSize: 13, fontWeight: 700, borderRadius: ip ? 2 : 9, cursor: "pointer", transition: "all 0.18s", letterSpacing: "0.06em", textTransform: "uppercase" as const }}
+              >Sign Out</button>
+              <button
+                onClick={() => setShowSignOut(false)}
                 onMouseEnter={e => { onHover?.(); e.currentTarget.style.background = `${t.accent}14`; e.currentTarget.style.borderColor = t.accent; e.currentTarget.style.color = t.accent; }}
                 onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.borderColor = `${t.border}66`; e.currentTarget.style.color = t.textSecondary; }}
-                style={{ flex: 1, padding: "11px 0", background: "transparent", border: `1px solid ${t.border}66`, color: t.textSecondary, fontFamily: t.fontDisplay, fontSize: 13, fontWeight: 700, borderRadius: ip ? 2 : 9, cursor: "pointer", transition: "all 0.18s", letterSpacing: "0.06em", textTransform: "uppercase" as const }}>Stay</button>
+                style={{ flex: 1, padding: "11px 0", background: "transparent", border: `1px solid ${t.border}66`, color: t.textSecondary, fontFamily: t.fontDisplay, fontSize: 13, fontWeight: 700, borderRadius: ip ? 2 : 9, cursor: "pointer", transition: "all 0.18s", letterSpacing: "0.06em", textTransform: "uppercase" as const }}
+              >Stay</button>
             </div>
           </div>
         </div>
@@ -444,6 +624,7 @@ export default function NavBar({ screen, setScreen, themeId, setThemeId, onSetti
         @keyframes overlayFadeIn  { from{opacity:0} to{opacity:1} }
         @keyframes overlayModalIn { from{opacity:0;transform:scale(0.92) translateY(16px)} to{opacity:1;transform:scale(1) translateY(0)} }
         @keyframes fadeUp         { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
+        @keyframes menuSlideDown  { from{opacity:0;transform:translateY(-8px)} to{opacity:1;transform:translateY(0)} }
         .pp-overlay-btn { transition: background 0.26s, color 0.26s, transform 0.22s, box-shadow 0.26s !important; }
         .pp-overlay-btn:hover  { transform: scale(1.06) !important; }
         .pp-overlay-btn:active { transform: scale(0.97) !important; }
