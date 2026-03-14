@@ -371,10 +371,10 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                     series_winner    = compute_series_winner(new_history)
                     history_update   = {"match_history": new_history, "series_winner": series_winner}
 
-                    asyncio.create_task(db.rooms.update_one(
+                    await db.rooms.update_one(
                         {"room_code": room_code},
                         {"$set": {**update, **history_update}}
-                    ))
+                    )
 
                     game_dict = {
                         "player1_id": room["player1_id"],
@@ -569,7 +569,7 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                         })
                     except:
                         pass
-                asyncio.create_task(db.rooms.update_one({"room_code": room_code}, {"$set": reset}))
+                await db.rooms.update_one({"room_code": room_code}, {"$set": reset})
 
             elif msg["type"] == "ping":
                 await websocket.send_json({"type": "pong"})
