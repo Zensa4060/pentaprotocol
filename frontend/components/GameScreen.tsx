@@ -128,8 +128,8 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
   const [movesPlayed, setMovesPlayed]       = useState(0);
   const [extraTurns, setExtraTurns]         = useState(0);
   const [c3Blocked, setC3Blocked]           = useState(false);
-  const [hover, setHover]                   = useState<string|null>(null);
   const [loading, setLoading]               = useState(false);
+  const [hover, setHover]                   = useState<string|null>(null);
   const [botThinking, setBotThinking]       = useState(false);
   const [log, setLog]                       = useState<{text:string;player:string}[]>([]);
 
@@ -174,6 +174,10 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
 
   // Mobile log drawer
   const [showMobileLog, setShowMobileLog] = useState(false);
+
+  // ── Timer values stored in refs so rAF can read/write without setState loops ──
+  const p1TimeRef = useRef(180000);
+  const p2TimeRef = useRef(180000);
 
   const fmtTime = (ms: number) => { const s = Math.max(0, Math.floor(ms / 1000)); return `${String(Math.floor(s/60)).padStart(2,"0")}:${String(s%60).padStart(2,"0")}`; };
   const fmtSec  = (s: number) => `${Math.ceil(Math.max(0, s))}`;
@@ -299,10 +303,15 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
           setLog([]);
           setP1Time(180000);
           setP2Time(180000);
+          p1TimeRef.current = 180000;
+          p2TimeRef.current = 180000;
+          lastP1Sec.current = -1;
+          lastP2Sec.current = -1;
           setP1Ready(false);
           setP2Ready(false);
           setShowRematch(false);
           setRematchRequested(null);
+          // reset guard on new game
           if (msg.game_number) setGameNumber(msg.game_number);
           setPhase("playing");
         } else if (msg.type === "match_over") {
@@ -412,6 +421,10 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
     setExtraTurns(0);
     setC3Blocked(c3block);
     setLog([]);
+    p1TimeRef.current = 180000;
+    p2TimeRef.current = 180000;
+    lastP1Sec.current = -1;
+    lastP2Sec.current = -1;
     setP1Time(180000);
     setP2Time(180000);
     setLoading(false);
@@ -466,6 +479,8 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
   const rafHandle      = useRef(0);
   const choiceTimerRef = useRef(0);
   const lastChoiceSec  = useRef(-1);
+  const lastP1Sec      = useRef(-1);
+  const lastP2Sec      = useRef(-1);
 
   useEffect(() => {
     const tossChoicePhases: Phase[] = ["rule_choice","who_first_winner","c3_choice","c3_choice_loser","who_first_loser"];
@@ -479,10 +494,33 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
       if (s.winner && !freePhases.includes(s.phase)) return;
       if (pausedRef.current && !freePhases.includes(s.phase)) return;
 
+      // ── Timer: refs hold the real countdown ms; setState only fires once
+      // per second (on second boundary) to avoid triggering re-renders every
+      // rAF frame. setWinner is called directly here — never inside an updater.
       if (s.phase === "playing" && !s.winner) {
-        if (s.current === "P1") setP1Time(v => { if (v - dt <= 0) { setWinner("P2"); return 0; } return v - dt; });
-        else setP2Time(v => { if (v - dt <= 0) { setWinner("P1"); return 0; } return v - dt; });
+        if (s.current === "P1") {
+          p1TimeRef.current = Math.max(0, p1TimeRef.current - dt);
+          const p1Sec = Math.ceil(p1TimeRef.current / 1000);
+          if (p1Sec !== lastP1Sec.current) {
+            lastP1Sec.current = p1Sec;
+            setP1Time(p1TimeRef.current);
+          }
+          if (p1TimeRef.current <= 0 && !s.winner) {
+            setWinner("P2");
+          }
+        } else {
+          p2TimeRef.current = Math.max(0, p2TimeRef.current - dt);
+          const p2Sec = Math.ceil(p2TimeRef.current / 1000);
+          if (p2Sec !== lastP2Sec.current) {
+            lastP2Sec.current = p2Sec;
+            setP2Time(p2TimeRef.current);
+          }
+          if (p2TimeRef.current <= 0 && !s.winner) {
+            setWinner("P1");
+          }
+        }
       }
+
       if (s.phase === "waiting_ready") {
         if (!s.p1Ready || !s.p2Ready) {
           setReadyTimeout(v => { const nv = v - dt / 1000; if (nv <= 0) { setP1Ready(true); setP2Ready(true); setReadyTimer(1); return 0; } return nv; });
@@ -575,6 +613,9 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
     if (winner === "P1") playVictory?.(); else if (winner === "P2") playDefeat?.();
     requestAnimationFrame(() => { setShowWinOverlay(true); requestAnimationFrame(() => setOverlayVisible(true)); });
     const newHist = [...R.current.matchHistory, winner];
+    // keep ref in sync immediately so checkSeriesWinner sees the updated history
+    R.current.matchHistory = newHist;
+    matchHistoryRef.current = newHist;
     setMatchHistory(newHist);
     const sw = checkSeriesWinner(newHist);
     if (newHist.length >= 3 || sw !== null) {
@@ -615,7 +656,6 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
     if (phase !== "playing" || board[r][c] || winner || loading) return;
     if (gameMode === "ai" && current === "P2") return;
     if (c3Blocked && movesPlayed === 0 && r === 2 && c === 2) return;
-
     if (isMultiplayerGame) {
       if (current !== mySlot) return;
       if (wsRef.current?.readyState !== WebSocket.OPEN) return;
@@ -623,7 +663,6 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
       wsRef.current.send(JSON.stringify({ type: "move", row: r, col: c }));
       return;
     }
-
     playPlace?.();
     setLoading(true);
     const playerWhoMoved = current;
@@ -682,6 +721,55 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
   const seriesColor   = seriesWinner==="P1"?p1c:seriesWinner==="P2"?p2c:t.gold;
   const seriesPiece   = seriesWinner==="P1"?t.pieces.p1:seriesWinner==="P2"?t.pieces.p2:"⚖";
 
+  // ── Board sizing — must be before early returns so hooks below are unconditional ──
+  const boardGap = ip ? 3 : 4;
+  const boardPad = ip ? 3 : 4;
+  const panelW = 240;
+  const sidebarT = { ...t, pieces: t.pieces };
+
+  const mobileCellSize = `calc((min(100vw, calc(100vh - 160px)) - ${4*boardGap + 2*boardPad + 32}px) / 5)`;
+  const panelTotal = panelW * 2;
+  const desktopCellSize = `calc((min(calc(100vw - ${panelTotal}px - 34px), calc(100vh - 164px)) - ${4*boardGap + 2*boardPad + 6}px) / 5)`;
+  const bigCs = isMobile ? mobileCellSize : desktopCellSize;
+
+  // Memoize the board grid JSX — skips full recompute on timer ticks (p1Time/p2Time changes)
+  // Only recomputes when actual board data changes
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const boardJSX = React.useMemo(() => (
+    <div style={{ position:"relative", display:"grid", gridTemplateColumns:`repeat(5,${bigCs})`, gridTemplateRows:`repeat(5,${bigCs})`, gap:`${boardGap}px`, background:isRedBoard?"rgba(10,2,1,0.99)":isIceBoard?"linear-gradient(135deg,rgba(3,8,20,0.98),rgba(1,4,14,0.99))":t.boardLine, padding:`${boardPad}px`, borderRadius:ip?2:10, border:`${ip?3:2}px solid ${isRedBoard?"rgba(140,20,0,0.35)":isIceBoard?"rgba(80,160,220,0.28)":t.border}`, boxShadow:isRedBoard?"0 0 50px rgba(180,20,0,0.1), inset 0 0 40px rgba(0,0,0,0.7)":isIceBoard?"0 0 50px rgba(80,160,255,0.08), inset 0 0 40px rgba(0,0,0,0.7)":"none", overflow:"hidden" }}>
+      {isRedBoard && <Embers count={16}/>}
+      {isRedBoard && <HeatOverlay/>}
+      {isIceBoard && <FrostCrystals/>}
+      {isIceBoard && <IceOverlay/>}
+      {board.map((row, r) => row.map((cell, c) => {
+        const key = `${r}-${c}`;
+        const blk = c3Blocked && movesPlayed===0 && r===2 && c===2;
+        const isHov = hover===key && !cell && !winner && !blk && phase==="playing";
+        const isWin = winLine.some(([wr,wc]) => wr===r && wc===c);
+        const ec = cell==="P1"?p1c:p2c;
+        const canPlay = !cell && !winner && !blk && phase==="playing";
+        if (isRedBoard) return (<RedCell key={key} cellSize={bigCs} player={cell} isWinCell={isWin} isHov={isHov} canPlay={canPlay} blk={blk} useFlameSkull={useFlameSkull} pieceSymbols={pieceSymbols} p1c={p1c} p2c={p2c} fontDisplay={t.fontDisplay} onClick={()=>place(r,c)} onMouseEnter={()=>setHover(key)} onMouseLeave={()=>setHover(null)}/>);
+        if (isIceBoard) return (<IceCell key={key} cellSize={bigCs} player={cell} isWinCell={isWin} isHov={isHov} canPlay={canPlay} blk={blk} useSnowflakeShard={useSnowflakeShard} pieceSymbols={pieceSymbols} p1c={p1c} p2c={p2c} fontDisplay={t.fontDisplay} onClick={()=>place(r,c)} onMouseEnter={()=>setHover(key)} onMouseLeave={()=>setHover(null)}/>);
+        return (
+          <div key={key} onClick={()=>place(r,c)} onMouseEnter={()=>setHover(key)} onMouseLeave={()=>setHover(null)} className={isWin?"win-cell-pulse":""}
+            style={{ "--win-col":ec, width:bigCs, height:bigCs, background:blk?`${t.danger}18`:isWin?`${ec}28`:isHov?`${cc}22`:t.boardBg, border:`2px solid ${blk?t.danger:isWin?ec:isHov?cc:t.boardLine}`, borderRadius:ip?0:4, display:"flex", alignItems:"center", justifyContent:"center", cursor:canPlay?(isHov?"grabbing":"grab"):"default", fontSize:"clamp(24px,5.5vmin,58px)", fontFamily:t.fontDisplay, fontWeight:700, color:ec, textShadow:isWin?`0 0 20px ${ec}`:cell?`0 0 14px ${ec}77`:"none", transition:"background 0.1s, border-color 0.1s", opacity:blk?0.4:1, boxShadow:isWin?`0 0 8px ${ec}44`:isHov?`inset 0 0 12px ${cc}22`:"none", willChange:isWin?"auto":canPlay?"background, border-color":"auto", position:"relative" } as React.CSSProperties}>
+            {cell && useFlameSkull && cell==="P1" && <Flame cssSize="55%"/>}
+            {cell && useFlameSkull && cell==="P2" && <Skull cssSize="55%"/>}
+            {cell && useSnowflakeShard && cell==="P1" && <SnowflakePiece cssSize="55%"/>}
+            {cell && useSnowflakeShard && cell==="P2" && <IceShardPiece cssSize="55%"/>}
+            {cell && !useFlameSkull && !useSnowflakeShard && <Piece symbol={cell==="P1"?pieceSymbols.p1:pieceSymbols.p2} color={cell==="P1"?p1c:p2c} size="36%"/>}
+            {!cell && blk && <span style={{ fontSize:"clamp(14px,2.5vmin,28px)", color:t.danger }}>✕</span>}
+          </div>
+        );
+      }))}
+    </div>
+  // recompute when board, hover, win state, or skin changes — NOT on timer ticks
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  ), [board, hover, winLine, winner, phase, c3Blocked, movesPlayed, bigCs,
+      p1c, p2c, cc, isRedBoard, isIceBoard, useFlameSkull, useSnowflakeShard]);
+
+
+
   if (showSplash) return (
     <div style={{ position:"fixed", top:64, left:0, right:0, bottom:0, zIndex:2, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", background:t.bg, gap:32, userSelect:"none" }}>
       <div style={{ fontFamily:t.fontDisplay, fontSize:"clamp(24px,5vw,72px)", fontWeight:900, color:t.accent, textShadow:`0 0 60px ${t.accentGlow}55`, letterSpacing:"0.06em", textAlign:"center" }}>SINGLEPLAYER</div>
@@ -711,18 +799,6 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
     );
   }
 
-  // ── Board sizing ──────────────────────────────────────────────────────────
-  const boardGap = ip ? 3 : 4;
-  const boardPad = ip ? 3 : 4;
-  const panelW = 240;
-  const sidebarT = { ...t, pieces: t.pieces };
-
-  // Mobile board: fill the screen (minus nav and floating bars)
-  // Desktop board: same as before, squeezed between sidebars
-  const mobileCellSize = `calc((min(100vw, 100vh - 160px) - ${4*boardGap + 2*boardPad + 32}px) / 5)`;
-  const desktopCellSize = `calc((min(calc(100vw - 560px), calc(100vh - 200px)) - ${4*boardGap + 2*boardPad}px) / 5)`;
-  const bigCs = isMobile ? mobileCellSize : desktopCellSize;
-
   const onReadyToggle = (player: "P1" | "P2") => {
     if (isMultiplayerGame && mySlot !== player) return;
     const newVal = player === "P1" ? !p1Ready : !p2Ready;
@@ -737,40 +813,7 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
     if (e.key === "Enter") sendChat(isMultiplayerGame ? mySlot : "P1");
   };
 
-  // ── Board JSX (shared between mobile and desktop) ─────────────────────────
-  const BoardGrid = () => (
-    <div style={{ position:"relative", display:"grid", gridTemplateColumns:`repeat(5,${bigCs})`, gridTemplateRows:`repeat(5,${bigCs})`, gap:`${boardGap}px`, background:isRedBoard?"rgba(10,2,1,0.99)":isIceBoard?"linear-gradient(135deg,rgba(3,8,20,0.98),rgba(1,4,14,0.99))":t.boardLine, padding:`${boardPad}px`, borderRadius:ip?2:10, border:`${ip?3:2}px solid ${isRedBoard?"rgba(140,20,0,0.35)":isIceBoard?"rgba(80,160,220,0.28)":t.border}`, boxShadow:isRedBoard?"0 0 50px rgba(180,20,0,0.1), inset 0 0 40px rgba(0,0,0,0.7)":isIceBoard?"0 0 50px rgba(80,160,255,0.08), inset 0 0 40px rgba(0,0,0,0.7)":"none", overflow:"hidden" }}>
-      {isRedBoard && <Embers count={16}/>}
-      {isRedBoard && <HeatOverlay/>}
-      {isIceBoard && <FrostCrystals/>}
-      {isIceBoard && <IceOverlay/>}
-      {board.map((row, r) => row.map((cell, c) => {
-        const key = `${r}-${c}`;
-        const blk = c3Blocked && movesPlayed===0 && r===2 && c===2;
-        const isHov = hover===key && !cell && !winner && !blk && phase==="playing";
-        const isWin = winLine.some(([wr,wc]) => wr===r && wc===c);
-        const ec = cell==="P1"?p1c:p2c;
-        const canPlay = !cell && !winner && !blk && phase==="playing";
-
-        if (isRedBoard) return (<RedCell key={key} cellSize={bigCs} player={cell} isWinCell={isWin} isHov={isHov} canPlay={canPlay} blk={blk} useFlameSkull={useFlameSkull} pieceSymbols={pieceSymbols} p1c={p1c} p2c={p2c} fontDisplay={t.fontDisplay} onClick={()=>place(r,c)} onMouseEnter={()=>setHover(key)} onMouseLeave={()=>setHover(null)}/>);
-        if (isIceBoard) return (<IceCell key={key} cellSize={bigCs} player={cell} isWinCell={isWin} isHov={isHov} canPlay={canPlay} blk={blk} useSnowflakeShard={useSnowflakeShard} pieceSymbols={pieceSymbols} p1c={p1c} p2c={p2c} fontDisplay={t.fontDisplay} onClick={()=>place(r,c)} onMouseEnter={()=>setHover(key)} onMouseLeave={()=>setHover(null)}/>);
-
-        return (
-          <div key={key} onClick={()=>place(r,c)} onMouseEnter={()=>setHover(key)} onMouseLeave={()=>setHover(null)} className={isWin?"win-cell-pulse":""}
-            style={{ "--win-col":ec, width:bigCs, height:bigCs, background:blk?`${t.danger}18`:isWin?`${ec}28`:isHov?`${cc}22`:t.boardBg, border:`2px solid ${blk?t.danger:isWin?ec:isHov?cc:t.boardLine}`, borderRadius:ip?0:4, display:"flex", alignItems:"center", justifyContent:"center", cursor:canPlay?(isHov?"grabbing":"grab"):"default", fontSize:"clamp(24px,5.5vmin,58px)", fontFamily:t.fontDisplay, fontWeight:700, color:ec, textShadow:isWin?`0 0 20px ${ec}`:cell?`0 0 14px ${ec}77`:"none", transition:"background 0.1s, border-color 0.1s", opacity:blk?0.4:1, boxShadow:isWin?`0 0 8px ${ec}44`:isHov?`inset 0 0 12px ${cc}22`:"none", willChange:isWin?"auto":canPlay?"background, border-color":"auto", position:"relative" } as React.CSSProperties}>
-            {cell && useFlameSkull && cell==="P1" && <Flame cssSize="55%"/>}
-            {cell && useFlameSkull && cell==="P2" && <Skull cssSize="55%"/>}
-            {cell && useSnowflakeShard && cell==="P1" && <SnowflakePiece cssSize="55%"/>}
-            {cell && useSnowflakeShard && cell==="P2" && <IceShardPiece cssSize="55%"/>}
-            {cell && !useFlameSkull && !useSnowflakeShard && <Piece symbol={cell==="P1"?pieceSymbols.p1:pieceSymbols.p2} color={cell==="P1"?p1c:p2c} size="36%"/>}
-            {!cell && blk && <span style={{ fontSize:"clamp(14px,2.5vmin,28px)", color:t.danger }}>✕</span>}
-          </div>
-        );
-      }))}
-    </div>
-  );
-
-  // ── MOBILE LAYOUT — Option B: Fullscreen board + floating chips ───────────
+  // ── MOBILE LAYOUT ─────────────────────────────────────────────────────────
   if (isMobile) {
     return (
       <div style={{ position:"fixed", top:52, left:0, right:0, bottom:0, zIndex:2, background:t.bg, overflow:"hidden", userSelect:"none", WebkitUserSelect:"none" }}>
@@ -787,33 +830,28 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
 
         {/* Board fills entire screen */}
         <div style={{ position:"absolute", inset:0, display:"flex", alignItems:"center", justifyContent:"center", padding:"8px" }}>
-          {/* Column labels above board */}
           <div style={{ position:"absolute", top:8, left:"50%", transform:"translateX(-50%)", display:"flex", gap:`${boardGap}px`, paddingLeft:28 }}>
             {"ABCDE".split("").map(l => (
               <div key={l} style={{ width:bigCs, textAlign:"center", fontFamily:t.fontMono, fontSize:16, fontWeight:800, color:isRedBoard?"rgba(200,60,40,0.7)":isIceBoard?"rgba(140,210,255,0.55)":t.accent, letterSpacing:"0.1em" }}>{l}</div>
             ))}
           </div>
-
           <div style={{ display:"flex", gap:4, alignItems:"flex-start", marginTop:20 }}>
-            {/* Row labels */}
             <div style={{ display:"grid", gridTemplateRows:`repeat(5,${bigCs})`, gap:`${boardGap}px` }}>
               {[1,2,3,4,5].map(n => (
                 <div key={n} style={{ display:"flex", alignItems:"center", justifyContent:"center", fontFamily:t.fontMono, fontSize:16, fontWeight:800, color:isRedBoard?"rgba(200,60,40,0.7)":t.accent, width:24 }}>{n}</div>
               ))}
             </div>
-            <BoardGrid />
+            {boardJSX}
           </div>
         </div>
 
-        {/* Floating timer chips — top left and top right */}
+        {/* Floating timer chips */}
         <div style={{ position:"absolute", top:8, left:8, zIndex:10, display:"flex", flexDirection:"column", gap:5 }}>
-          {/* P1 timer */}
           <div style={{ display:"flex", alignItems:"center", gap:6, background:"rgba(0,0,0,0.75)", border:`1px solid ${current==="P1"&&!winner?p1c:"rgba(255,255,255,0.1)"}`, borderRadius:8, padding:"5px 10px", backdropFilter:"blur(6px)" }}>
             <div style={{ width:7, height:7, borderRadius:"50%", background:p1c, opacity:current==="P1"&&!winner?1:0.35 }}/>
             <span style={{ fontFamily:t.fontMono, fontSize:11, color:current==="P1"&&!winner?p1c:"#666", fontWeight:700 }}>{p1Label}</span>
             <span style={{ fontFamily:t.fontMono, fontSize:13, color:current==="P1"&&!winner?p1c:"#444", fontWeight:900, marginLeft:4 }}>{fmtTime(p1Time)}</span>
           </div>
-          {/* P2 timer */}
           <div style={{ display:"flex", alignItems:"center", gap:6, background:"rgba(0,0,0,0.75)", border:`1px solid ${current==="P2"&&!winner?p2c:"rgba(255,255,255,0.1)"}`, borderRadius:8, padding:"5px 10px", backdropFilter:"blur(6px)" }}>
             <div style={{ width:7, height:7, borderRadius:"50%", background:p2c, opacity:current==="P2"&&!winner?1:0.35 }}/>
             <span style={{ fontFamily:t.fontMono, fontSize:11, color:current==="P2"&&!winner?p2c:"#666", fontWeight:700 }}>{p2Label}</span>
@@ -821,7 +859,7 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
           </div>
         </div>
 
-        {/* Match history chips — top right */}
+        {/* Match history chips */}
         <div style={{ position:"absolute", top:8, right:8, zIndex:10, display:"flex", flexDirection:"column", gap:4, alignItems:"flex-end" }}>
           <div style={{ background:"rgba(0,0,0,0.75)", border:"1px solid rgba(255,255,255,0.08)", borderRadius:8, padding:"4px 10px", backdropFilter:"blur(6px)" }}>
             <div style={{ display:"flex", gap:8, alignItems:"center" }}>
@@ -840,7 +878,7 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
           </div>
         </div>
 
-        {/* Turn indicator + c3 hint — bottom center floating */}
+        {/* Turn indicator */}
         <div style={{ position:"absolute", bottom:52, left:0, right:0, zIndex:10, display:"flex", flexDirection:"column", alignItems:"center", gap:5, pointerEvents:"none" }}>
           {phase==="playing" && movesPlayed===0 && (
             <div style={{ fontFamily:t.fontMono, fontSize:10, letterSpacing:"0.06em", background:c3Blocked?`${t.danger}18`:`${t.gold}18`, border:`1px solid ${c3Blocked?t.danger:t.gold}44`, borderRadius:6, padding:"3px 12px", color:c3Blocked?t.danger:t.gold }}>
@@ -862,26 +900,15 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
 
         {/* Bottom action bar */}
         <div style={{ position:"absolute", bottom:0, left:0, right:0, height:48, zIndex:10, display:"flex", alignItems:"center", justifyContent:"space-between", padding:"0 12px", background:"rgba(0,0,0,0.85)", borderTop:`1px solid ${t.border}`, backdropFilter:"blur(8px)", gap:8 }}>
-          <button
-            onClick={() => setShowMobileLog(v => !v)}
-            style={{ flex:1, padding:"8px 0", background:"rgba(255,255,255,0.04)", border:"1px solid rgba(255,255,255,0.1)", borderRadius:6, color:t.textSecondary, fontFamily:t.fontMono, fontSize:11, cursor:"pointer", letterSpacing:"0.06em" }}
-          >
+          <button onClick={() => setShowMobileLog(v => !v)} style={{ flex:1, padding:"8px 0", background:"rgba(255,255,255,0.04)", border:"1px solid rgba(255,255,255,0.1)", borderRadius:6, color:t.textSecondary, fontFamily:t.fontMono, fontSize:11, cursor:"pointer", letterSpacing:"0.06em" }}>
             📋 LOG {log.length > 0 ? `(${log.length})` : ""}
           </button>
-
           {phase==="waiting_ready" && (
-            <button
-              onClick={() => onReadyToggle(mySlot === "P1" || !isMultiplayerGame ? "P1" : "P2")}
-              style={{ flex:2, padding:"8px 0", background:`${t.accent}22`, border:`1px solid ${t.accent}`, borderRadius:6, color:t.accent, fontFamily:t.fontMono, fontSize:11, cursor:"pointer", fontWeight:700 }}
-            >
+            <button onClick={() => onReadyToggle(mySlot === "P1" || !isMultiplayerGame ? "P1" : "P2")} style={{ flex:2, padding:"8px 0", background:`${t.accent}22`, border:`1px solid ${t.accent}`, borderRadius:6, color:t.accent, fontFamily:t.fontMono, fontSize:11, cursor:"pointer", fontWeight:700 }}>
               {(mySlot==="P1"?p1Ready:p2Ready) ? "✓ READY" : "TAP TO READY"}
             </button>
           )}
-
-          <button
-            onClick={() => { playClick?.(); pausedRef.current = true; setShowExitConfirm(true); }}
-            style={{ flex:1, padding:"8px 0", background:"rgba(255,0,0,0.06)", border:"1px solid rgba(255,0,0,0.2)", borderRadius:6, color:"#cc3333", fontFamily:t.fontMono, fontSize:11, cursor:"pointer", letterSpacing:"0.06em" }}
-          >
+          <button onClick={() => { playClick?.(); pausedRef.current = true; setShowExitConfirm(true); }} style={{ flex:1, padding:"8px 0", background:"rgba(255,0,0,0.06)", border:"1px solid rgba(255,0,0,0.2)", borderRadius:6, color:"#cc3333", fontFamily:t.fontMono, fontSize:11, cursor:"pointer", letterSpacing:"0.06em" }}>
             ✕ EXIT
           </button>
         </div>
@@ -902,27 +929,9 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
           </div>
         )}
 
-        {/* Modals */}
-        <SurrenderModal
-          show={showSurrender} t={sidebarT} ip={ip} isRankedGame={isRankedGame}
-          onConfirm={() => { setShowSurrender(false); if (setScreen) setScreen("home"); }}
-          onCancel={() => { playClick?.(); pausedRef.current = false; setShowSurrender(false); }}
-          playHover={playHover}
-        />
-        <ExitModal
-          show={showExitConfirm} t={sidebarT} ip={ip}
-          onConfirm={() => { setShowExitConfirm(false); if (setScreen) setScreen("home"); }}
-          onCancel={() => { playClick?.(); pausedRef.current = false; setShowExitConfirm(false); }}
-          playHover={playHover}
-        />
-        <RematchOverlay
-          show={showRematch} isMultiplayerGame={isMultiplayerGame} t={sidebarT} ip={ip}
-          p1c={p1c} p2c={p2c} seriesWinner={seriesWinner} mySlot={mySlot}
-          rematchRequested={rematchRequested}
-          winnerDisplayName={winnerDisplayName}
-          onRematch={() => { wsRef.current?.send(JSON.stringify({ type: "rematch" })); setRematchRequested(mySlot); }}
-          onQuitMatch={() => { wsRef.current?.send(JSON.stringify({ type: "quit_match" })); if (setScreen) setScreen("home"); }}
-        />
+        <SurrenderModal show={showSurrender} t={sidebarT} ip={ip} isRankedGame={isRankedGame} onConfirm={() => { setShowSurrender(false); if (setScreen) setScreen("home"); }} onCancel={() => { playClick?.(); pausedRef.current = false; setShowSurrender(false); }} playHover={playHover}/>
+        <ExitModal show={showExitConfirm} t={sidebarT} ip={ip} onConfirm={() => { setShowExitConfirm(false); if (setScreen) setScreen("home"); }} onCancel={() => { playClick?.(); pausedRef.current = false; setShowExitConfirm(false); }} playHover={playHover}/>
+        <RematchOverlay show={showRematch} isMultiplayerGame={isMultiplayerGame} t={sidebarT} ip={ip} p1c={p1c} p2c={p2c} seriesWinner={seriesWinner} mySlot={mySlot} rematchRequested={rematchRequested} winnerDisplayName={winnerDisplayName} onRematch={() => { wsRef.current?.send(JSON.stringify({ type: "rematch" })); setRematchRequested(mySlot); }} onQuitMatch={() => { wsRef.current?.send(JSON.stringify({ type: "quit_match" })); if (setScreen) setScreen("home"); }}/>
 
         <style>{`
           @keyframes heatDrift0{from{transform:translate(0,0) scale(1)}to{transform:translate(12px,18px) scale(1.1)}}
@@ -944,7 +953,7 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
     );
   }
 
-  // ── DESKTOP LAYOUT — original 3-column layout ─────────────────────────────
+  // ── DESKTOP LAYOUT ────────────────────────────────────────────────────────
   return (
     <div style={{ position:"fixed", top:64, left:0, right:0, bottom:0, zIndex:2, display:"flex", flexDirection:"row", background:t.bg, overflow:"hidden", userSelect:"none", WebkitUserSelect:"none" }}>
 
@@ -1017,14 +1026,15 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
             {c3Blocked?"✕ Center (C3) is blocked this game":"★ Playing center gives opponent 2 extra turns"}
           </div>
         </div>
-        <div style={{ display:"grid", gridTemplateColumns:`repeat(5,${bigCs})`, gap:`${boardGap}px`, marginLeft:28 }}>
-          {"ABCDE".split("").map(l => <div key={l} style={{ textAlign:"center", fontFamily:t.fontMono, fontSize:22, fontWeight:800, color:isRedBoard?"rgba(200,60,40,0.7)":isIceBoard?"rgba(140,210,255,0.55)":t.accent, letterSpacing:"0.1em", textShadow:`0 0 10px ${isRedBoard?"rgba(200,40,0,0.4)":isIceBoard?"rgba(100,180,255,0.3)":t.accentGlow+"66"}` }}>{l}</div>)}
+        {/* Column labels — offset by row-label width to align with board columns */}
+        <div style={{ display:"flex", gap:`${boardGap}px`, marginLeft:34 }}>
+          {"ABCDE".split("").map(l => <div key={l} style={{ width:bigCs, textAlign:"center", fontFamily:t.fontMono, fontSize:18, fontWeight:800, color:isRedBoard?"rgba(200,60,40,0.7)":isIceBoard?"rgba(140,210,255,0.55)":t.accent, letterSpacing:"0.1em", textShadow:`0 0 10px ${isRedBoard?"rgba(200,40,0,0.4)":isIceBoard?"rgba(100,180,255,0.3)":t.accentGlow+"66"}` }}>{l}</div>)}
         </div>
         <div style={{ display:"flex", gap:6, alignItems:"flex-start" }}>
           <div style={{ display:"grid", gridTemplateRows:`repeat(5,${bigCs})`, gap:`${boardGap}px` }}>
-            {[1,2,3,4,5].map(n => <div key={n} style={{ display:"flex", alignItems:"center", justifyContent:"center", fontFamily:t.fontMono, fontSize:22, fontWeight:800, color:isRedBoard?"rgba(200,60,40,0.7)":t.accent, letterSpacing:"0.1em", textShadow:`0 0 10px ${isRedBoard?"rgba(200,40,0,0.4)":t.accentGlow+"66"}`, width:28 }}>{n}</div>)}
+            {[1,2,3,4,5].map(n => <div key={n} style={{ display:"flex", alignItems:"center", justifyContent:"center", fontFamily:t.fontMono, fontSize:18, fontWeight:800, color:isRedBoard?"rgba(200,60,40,0.7)":t.accent, letterSpacing:"0.1em", textShadow:`0 0 10px ${isRedBoard?"rgba(200,40,0,0.4)":t.accentGlow+"66"}`, width:34, flexShrink:0 }}>{n}</div>)}
           </div>
-          <BoardGrid />
+          {boardJSX}
         </div>
       </div>
 
@@ -1036,26 +1046,9 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
         playHover={playHover}
       />
 
-      <RematchOverlay
-        show={showRematch} isMultiplayerGame={isMultiplayerGame} t={sidebarT} ip={ip}
-        p1c={p1c} p2c={p2c} seriesWinner={seriesWinner} mySlot={mySlot}
-        rematchRequested={rematchRequested}
-        winnerDisplayName={winnerDisplayName}
-        onRematch={() => { wsRef.current?.send(JSON.stringify({ type: "rematch" })); setRematchRequested(mySlot); }}
-        onQuitMatch={() => { wsRef.current?.send(JSON.stringify({ type: "quit_match" })); if (setScreen) setScreen("home"); }}
-      />
-      <SurrenderModal
-        show={showSurrender} t={sidebarT} ip={ip} isRankedGame={isRankedGame}
-        onConfirm={() => { setShowSurrender(false); if (setScreen) setScreen("home"); }}
-        onCancel={() => { playClick?.(); pausedRef.current = false; setShowSurrender(false); }}
-        playHover={playHover}
-      />
-      <ExitModal
-        show={showExitConfirm} t={sidebarT} ip={ip}
-        onConfirm={() => { setShowExitConfirm(false); if (setScreen) setScreen("home"); }}
-        onCancel={() => { playClick?.(); pausedRef.current = false; setShowExitConfirm(false); }}
-        playHover={playHover}
-      />
+      <RematchOverlay show={showRematch} isMultiplayerGame={isMultiplayerGame} t={sidebarT} ip={ip} p1c={p1c} p2c={p2c} seriesWinner={seriesWinner} mySlot={mySlot} rematchRequested={rematchRequested} winnerDisplayName={winnerDisplayName} onRematch={() => { wsRef.current?.send(JSON.stringify({ type: "rematch" })); setRematchRequested(mySlot); }} onQuitMatch={() => { wsRef.current?.send(JSON.stringify({ type: "quit_match" })); if (setScreen) setScreen("home"); }}/>
+      <SurrenderModal show={showSurrender} t={sidebarT} ip={ip} isRankedGame={isRankedGame} onConfirm={() => { setShowSurrender(false); if (setScreen) setScreen("home"); }} onCancel={() => { playClick?.(); pausedRef.current = false; setShowSurrender(false); }} playHover={playHover}/>
+      <ExitModal show={showExitConfirm} t={sidebarT} ip={ip} onConfirm={() => { setShowExitConfirm(false); if (setScreen) setScreen("home"); }} onCancel={() => { playClick?.(); pausedRef.current = false; setShowExitConfirm(false); }} playHover={playHover}/>
 
       <style>{`
         @keyframes heatDrift0{from{transform:translate(0,0) scale(1)}to{transform:translate(12px,18px) scale(1.1)}}

@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, memo } from "react";
 
 // ─── Shared Types ─────────────────────────────────────────────────────────────
 
@@ -59,7 +59,9 @@ export function HeatOverlay() {
   );
 }
 
-export function Flame({ size, cssSize }: { size?: number; cssSize?: string }) {
+// ── Wrapped in memo: SVG draw animations must NOT restart on re-render ────────
+
+export const Flame = memo(function Flame({ size, cssSize }: { size?: number; cssSize?: string }) {
   const fw = cssSize ?? `${(size ?? 80) * 0.52}px`;
   return (
     <svg width={fw} height={fw} viewBox="0 0 40 40" style={{ position:"absolute", zIndex:4, filter:"drop-shadow(0 0 5px rgba(255,80,0,0.9)) drop-shadow(0 0 12px rgba(255,40,0,0.5))" }}>
@@ -74,9 +76,9 @@ export function Flame({ size, cssSize }: { size?: number; cssSize?: string }) {
       </path>
     </svg>
   );
-}
+});
 
-export function Skull({ size, cssSize }: { size?: number; cssSize?: string }) {
+export const Skull = memo(function Skull({ size, cssSize }: { size?: number; cssSize?: string }) {
   const sw = cssSize ?? `${(size ?? 80) * 0.52}px`;
   return (
     <svg width={sw} height={sw} viewBox="0 0 40 40" style={{ position:"absolute", zIndex:4, filter:"drop-shadow(0 0 5px rgba(200,0,0,0.9)) drop-shadow(0 0 10px rgba(180,0,0,0.5))" }}>
@@ -97,17 +99,27 @@ export function Skull({ size, cssSize }: { size?: number; cssSize?: string }) {
       </path>
     </svg>
   );
-}
+});
 
-export function RedCell({ cellSize, player, isWinCell, isHov, canPlay, blk, useFlameSkull, pieceSymbols, p1c, p2c, fontDisplay, onClick, onMouseEnter, onMouseLeave }: {
+export const RedCell = React.memo(function RedCell({ cellSize, player, isWinCell, isHov, canPlay, blk, useFlameSkull, pieceSymbols, p1c, p2c, fontDisplay, onClick, onMouseEnter, onMouseLeave }: {
   cellSize: string; player: string | null; isWinCell: boolean; isHov: boolean; canPlay: boolean; blk: boolean;
   useFlameSkull: boolean; pieceSymbols: { p1: string; p2: string }; p1c: string; p2c: string; fontDisplay: string;
   onClick: () => void; onMouseEnter: () => void; onMouseLeave: () => void;
 }) {
   const isP1 = player === "P1";
   const ref = useRef<HTMLDivElement>(null);
-  const [numSize, setNumSize] = useState(80);
-  useEffect(() => { if (ref.current) setNumSize(ref.current.offsetWidth); }, [cellSize]);
+  // Ref-based size: never triggers re-renders so SVG enter animations don't restart
+  const numSizeRef = useRef(80);
+  useEffect(() => {
+    if (!ref.current) return;
+    numSizeRef.current = ref.current.offsetWidth || 80;
+    const ro = new ResizeObserver(entries => {
+      const w = entries[0]?.contentRect.width;
+      if (w) numSizeRef.current = w;
+    });
+    ro.observe(ref.current);
+    return () => ro.disconnect();
+  }, []);
   const ec = isP1 ? p1c : p2c;
   return (
     <div ref={ref} onClick={onClick} onMouseEnter={onMouseEnter} onMouseLeave={onMouseLeave}
@@ -123,12 +135,12 @@ export function RedCell({ cellSize, player, isWinCell, isHov, canPlay, blk, useF
       }}>
       <Embers count={4}/>
       <HeatOverlay/>
-      {player === "P1" && (useFlameSkull ? <Flame size={numSize}/> : <span style={{ fontFamily:fontDisplay, fontSize:"clamp(24px,5.5vmin,58px)", fontWeight:700, color:ec, textShadow:`0 0 14px ${ec}88`, position:"relative", zIndex:4 }}>{pieceSymbols.p1}</span>)}
-      {player === "P2" && (useFlameSkull ? <Skull size={numSize}/> : <span style={{ fontFamily:fontDisplay, fontSize:"clamp(24px,5.5vmin,58px)", fontWeight:700, color:ec, textShadow:`0 0 14px ${ec}88`, position:"relative", zIndex:4 }}>{pieceSymbols.p2}</span>)}
+      {player === "P1" && (useFlameSkull ? <Flame size={numSizeRef.current}/> : <span style={{ fontFamily:fontDisplay, fontSize:"clamp(24px,5.5vmin,58px)", fontWeight:700, color:ec, textShadow:`0 0 14px ${ec}88`, position:"relative", zIndex:4 }}>{pieceSymbols.p1}</span>)}
+      {player === "P2" && (useFlameSkull ? <Skull size={numSizeRef.current}/> : <span style={{ fontFamily:fontDisplay, fontSize:"clamp(24px,5.5vmin,58px)", fontWeight:700, color:ec, textShadow:`0 0 14px ${ec}88`, position:"relative", zIndex:4 }}>{pieceSymbols.p2}</span>)}
       {!player && blk && <span style={{ fontSize:"clamp(14px,2.5vmin,28px)", color:"#AA0000", position:"relative", zIndex:5 }}>✕</span>}
     </div>
   );
-}
+});
 
 // ─── Ice board helpers ────────────────────────────────────────────────────────
 
@@ -161,7 +173,7 @@ export function IceOverlay() {
   );
 }
 
-export function SnowflakePiece({ size, cssSize }: { size?: number; cssSize?: string }) {
+export const SnowflakePiece = memo(function SnowflakePiece({ size, cssSize }: { size?: number; cssSize?: string }) {
   const fw = cssSize ?? `${(size ?? 80) * 0.52}px`;
   return (
     <svg width={fw} height={fw} viewBox="0 0 40 40" style={{ position:"absolute", zIndex:4, filter:"drop-shadow(0 0 5px rgba(200,240,255,0.9)) drop-shadow(0 0 10px rgba(160,210,255,0.5))" }}>
@@ -183,9 +195,9 @@ export function SnowflakePiece({ size, cssSize }: { size?: number; cssSize?: str
       </circle>
     </svg>
   );
-}
+});
 
-export function IceShardPiece({ size, cssSize }: { size?: number; cssSize?: string }) {
+export const IceShardPiece = memo(function IceShardPiece({ size, cssSize }: { size?: number; cssSize?: string }) {
   const sw = cssSize ?? `${(size ?? 80) * 0.52}px`;
   return (
     <svg width={sw} height={sw} viewBox="0 0 40 40" style={{ position:"absolute", zIndex:4, filter:"drop-shadow(0 0 5px rgba(100,200,255,0.9)) drop-shadow(0 0 10px rgba(60,160,255,0.5))" }}>
@@ -200,17 +212,26 @@ export function IceShardPiece({ size, cssSize }: { size?: number; cssSize?: stri
       </line>
     </svg>
   );
-}
+});
 
-export function IceCell({ cellSize, player, isWinCell, isHov, canPlay, blk, useSnowflakeShard, pieceSymbols, p1c, p2c, fontDisplay, onClick, onMouseEnter, onMouseLeave }: {
+export const IceCell = React.memo(function IceCell({ cellSize, player, isWinCell, isHov, canPlay, blk, useSnowflakeShard, pieceSymbols, p1c, p2c, fontDisplay, onClick, onMouseEnter, onMouseLeave }: {
   cellSize: string; player: string | null; isWinCell: boolean; isHov: boolean; canPlay: boolean; blk: boolean;
   useSnowflakeShard: boolean; pieceSymbols: { p1: string; p2: string }; p1c: string; p2c: string; fontDisplay: string;
   onClick: () => void; onMouseEnter: () => void; onMouseLeave: () => void;
 }) {
   const isP1 = player === "P1";
   const ref = useRef<HTMLDivElement>(null);
-  const [numSize, setNumSize] = useState(80);
-  useEffect(() => { if (ref.current) setNumSize(ref.current.offsetWidth); }, [cellSize]);
+  const numSizeRef = useRef(80);
+  useEffect(() => {
+    if (!ref.current) return;
+    numSizeRef.current = ref.current.offsetWidth || 80;
+    const ro = new ResizeObserver(entries => {
+      const w = entries[0]?.contentRect.width;
+      if (w) numSizeRef.current = w;
+    });
+    ro.observe(ref.current);
+    return () => ro.disconnect();
+  }, []);
   const ec = isP1 ? p1c : p2c;
   return (
     <div ref={ref} onClick={onClick} onMouseEnter={onMouseEnter} onMouseLeave={onMouseLeave}
@@ -226,12 +247,12 @@ export function IceCell({ cellSize, player, isWinCell, isHov, canPlay, blk, useS
       }}>
       <FrostCrystals/>
       <IceOverlay/>
-      {player === "P1" && (useSnowflakeShard ? <SnowflakePiece size={numSize}/> : <span style={{ fontFamily:fontDisplay, fontSize:"clamp(24px,5.5vmin,58px)", fontWeight:700, color:ec, textShadow:`0 0 14px ${ec}88`, position:"relative", zIndex:4 }}>{pieceSymbols.p1}</span>)}
-      {player === "P2" && (useSnowflakeShard ? <IceShardPiece size={numSize}/> : <span style={{ fontFamily:fontDisplay, fontSize:"clamp(24px,5.5vmin,58px)", fontWeight:700, color:ec, textShadow:`0 0 14px ${ec}88`, position:"relative", zIndex:4 }}>{pieceSymbols.p2}</span>)}
+      {player === "P1" && (useSnowflakeShard ? <SnowflakePiece size={numSizeRef.current}/> : <span style={{ fontFamily:fontDisplay, fontSize:"clamp(24px,5.5vmin,58px)", fontWeight:700, color:ec, textShadow:`0 0 14px ${ec}88`, position:"relative", zIndex:4 }}>{pieceSymbols.p1}</span>)}
+      {player === "P2" && (useSnowflakeShard ? <IceShardPiece size={numSizeRef.current}/> : <span style={{ fontFamily:fontDisplay, fontSize:"clamp(24px,5.5vmin,58px)", fontWeight:700, color:ec, textShadow:`0 0 14px ${ec}88`, position:"relative", zIndex:4 }}>{pieceSymbols.p2}</span>)}
       {!player && blk && <span style={{ fontSize:"clamp(14px,2.5vmin,28px)", color:"#0066BB", position:"relative", zIndex:5 }}>✕</span>}
     </div>
   );
-}
+});
 
 // ─── CoinFace ─────────────────────────────────────────────────────────────────
 
@@ -250,7 +271,7 @@ interface TossCardProps {
   label: string; onClick: () => void; delay: number; actorCol: string; bgCard: string;
   borderCol: string; textCol: string; fontDisplay: string; ip: boolean;
 }
-export const TossCard = React.memo(function TossCard({ label, onClick, delay, actorCol, bgCard, borderCol, textCol, fontDisplay, ip }: TossCardProps) {
+export const TossCard = memo(function TossCard({ label, onClick, delay, actorCol, bgCard, borderCol, textCol, fontDisplay, ip }: TossCardProps) {
   const [hov, setHov] = useState(false);
   return (
     <button onClick={onClick} onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)} className="toss-card-enter"
