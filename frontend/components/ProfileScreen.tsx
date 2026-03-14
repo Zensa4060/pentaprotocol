@@ -481,7 +481,7 @@ export default function ProfileScreen({ themeId, onHover, onClick }: Props) {
     { l:"Total Games",   v: (profile.wins||0)+(profile.losses||0)+(profile.draws||0), c: t.text },
     { l:"Draws",         v: profile.draws,           c: t.gold },
     { l:"XP",            v: profile.xp,              c: t.p1 },
-    { l:"Penta Coins",   v: profile.pentacoins ?? profile.shards ?? 0, c:"#4FC3F7" },
+    { l:"Penta Shards",   v: profile.pentashards ?? profile.shards ?? 0, c:"#4FC3F7" },
     { l:"Proto Credits", v: profile.protocredits || 0, c:"#FFD700" },
   ];
 

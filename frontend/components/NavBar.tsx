@@ -271,7 +271,7 @@ useEffect(() => {
     >{label}</button>
   );
 
-  const pentacoins   = (user as any)?.pentacoins ?? (user as any)?.shards ?? 0;
+  const pentashards   = (user as any)?.pentashards ?? (user as any)?.shards ?? 0;
   const protocredits = (user as any)?.protocredits ?? 0;
 
   // Nav links list for both desktop and hamburger menu
@@ -445,7 +445,7 @@ filter: "none",
 
               <div style={{ display: "flex", alignItems: "center", gap: 2, fontFamily: t.fontMono, fontSize: isTablet ? 12 : 14, fontWeight: 700 }}>
                 <div style={{ width: CURRENCY_SZ, height: CURRENCY_SZ, flexShrink: 0 }} dangerouslySetInnerHTML={{ __html: (themeId === "classic_light" ? SHARDS_LIGHT_SVG : SHARDS_DARK_SVG).replace("<svg ", `<svg width="${CURRENCY_SZ}" height="${CURRENCY_SZ}" `) }} />
-                <span style={{ color: "#4FC3F7" }}>{pentacoins}</span>
+                <span style={{ color: "#4FC3F7" }}>{pentashards}</span>
               </div>
 
               <div style={{ display: "flex", alignItems: "center", gap: 2, fontFamily: t.fontMono, fontSize: isTablet ? 12 : 14, fontWeight: 700 }}>
@@ -548,7 +548,7 @@ filter: "none",
               <div style={{ marginLeft: "auto", display: "flex", gap: 12 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 3, fontFamily: t.fontMono, fontSize: 13, fontWeight: 700 }}>
                   <div style={{ width: 22, height: 22 }} dangerouslySetInnerHTML={{ __html: (themeId === "classic_light" ? SHARDS_LIGHT_SVG : SHARDS_DARK_SVG).replace("<svg ", '<svg width="22" height="22" ') }} />
-                  <span style={{ color: "#4FC3F7" }}>{pentacoins}</span>
+                  <span style={{ color: "#4FC3F7" }}>{pentashards}</span>
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 3, fontFamily: t.fontMono, fontSize: 13, fontWeight: 700 }}>
                   <div style={{ width: 22, height: 22 }} dangerouslySetInnerHTML={{ __html: (themeId === "classic_light" ? PROTO_LIGHT_SVG : PROTO_DARK_SVG).replace("<svg ", '<svg width="22" height="22" ') }} />
