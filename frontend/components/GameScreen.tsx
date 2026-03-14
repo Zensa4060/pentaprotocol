@@ -697,6 +697,9 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
     setLoading(false);
     if (gameId) { try { await API.post("/api/game/move", { game_id: gameId, row: r, col: c }); } catch {} }
   };
+  // Stable ref so boardJSX memo never holds a stale place closure
+  const placeRef = useRef(place);
+  useEffect(() => { placeRef.current = place; });
 
   const addLog = (r: number, c: number, player: string) => {
     const piece = player === "P1" ? t.pieces.p1 : t.pieces.p2;
@@ -764,10 +767,10 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
         const isWin = winLine.some(([wr,wc]) => wr===r && wc===c);
         const ec = cell==="P1"?p1c:p2c;
         const canPlay = !cell && !winner && !blk && phase==="playing";
-        if (isRedBoard) return (<RedCell key={key} cellSize={bigCs} player={cell} isWinCell={isWin} isHov={isHov} canPlay={canPlay} blk={blk} useFlameSkull={useFlameSkull} pieceSymbols={pieceSymbols} p1c={p1c} p2c={p2c} fontDisplay={t.fontDisplay} onClick={()=>place(r,c)} onMouseEnter={()=>setHover(key)} onMouseLeave={()=>setHover(null)}/>);
-        if (isIceBoard) return (<IceCell key={key} cellSize={bigCs} player={cell} isWinCell={isWin} isHov={isHov} canPlay={canPlay} blk={blk} useSnowflakeShard={useSnowflakeShard} pieceSymbols={pieceSymbols} p1c={p1c} p2c={p2c} fontDisplay={t.fontDisplay} onClick={()=>place(r,c)} onMouseEnter={()=>setHover(key)} onMouseLeave={()=>setHover(null)}/>);
+        if (isRedBoard) return (<RedCell key={key} cellSize={bigCs} player={cell} isWinCell={isWin} isHov={isHov} canPlay={canPlay} blk={blk} useFlameSkull={useFlameSkull} pieceSymbols={pieceSymbols} p1c={p1c} p2c={p2c} fontDisplay={t.fontDisplay} onClick={()=>placeRef.current(r,c)}onMouseEnter={()=>setHover(key)} onMouseLeave={()=>setHover(null)}/>);
+        if (isIceBoard) return (<IceCell key={key} cellSize={bigCs} player={cell} isWinCell={isWin} isHov={isHov} canPlay={canPlay} blk={blk} useSnowflakeShard={useSnowflakeShard} pieceSymbols={pieceSymbols} p1c={p1c} p2c={p2c} fontDisplay={t.fontDisplay} onClick={()=>placeRef.current(r,c)} onMouseEnter={()=>setHover(key)} onMouseLeave={()=>setHover(null)}/>);
         return (
-          <div key={key} onClick={()=>place(r,c)} onMouseEnter={()=>setHover(key)} onMouseLeave={()=>setHover(null)} className={isWin?"win-cell-pulse":""}
+          <div key={key} onClick={()=>placeRef.current(r,c)} onMouseEnter={()=>setHover(key)} onMouseLeave={()=>setHover(null)} className={isWin?"win-cell-pulse":""}
             style={{ "--win-col":ec, width:bigCs, height:bigCs, background:blk?`${t.danger}18`:isWin?`${ec}28`:isHov?`${cc}22`:t.boardBg, border:`2px solid ${blk?t.danger:isWin?ec:isHov?cc:t.boardLine}`, borderRadius:ip?0:4, display:"flex", alignItems:"center", justifyContent:"center", cursor:canPlay?(isHov?"grabbing":"grab"):"default", fontSize:"clamp(24px,5.5vmin,58px)", fontFamily:t.fontDisplay, fontWeight:700, color:ec, textShadow:isWin?`0 0 20px ${ec}`:cell?`0 0 14px ${ec}77`:"none", transition:"background 0.1s, border-color 0.1s", opacity:blk?0.4:1, boxShadow:isWin?`0 0 8px ${ec}44`:isHov?`inset 0 0 12px ${cc}22`:"none", willChange:isWin?"auto":canPlay?"background, border-color":"auto", position:"relative" } as React.CSSProperties}>
             {cell && useFlameSkull && cell==="P1" && <Flame cssSize="55%"/>}
             {cell && useFlameSkull && cell==="P2" && <Skull cssSize="55%"/>}
