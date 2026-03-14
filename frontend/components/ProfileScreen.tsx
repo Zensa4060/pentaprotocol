@@ -212,7 +212,7 @@ const LockSVG = () => (
 
 export default function ProfileScreen({ themeId, onHover, onClick }: Props) {
   const t = THEMES[themeId];
-  const { user, token } = useAuthStore();
+  const { user, token, updateUser } = useAuthStore();
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
@@ -253,15 +253,16 @@ export default function ProfileScreen({ themeId, onHover, onClick }: Props) {
   useEffect(() => {
     if (!user) { setLoading(false); return; }
     const fetchProfile = async () => {
-      try {
-        const res = await API.get("/api/profile/me");
-        setProfile(res.data);
-        setTwoFAReady(true);
-      } catch {
-        setProfile({ ...user, totp_enabled: false });
-        setTwoFAReady(true);
-      } finally { setLoading(false); }
-    };
+  try {
+    const res = await API.get("/api/profile/me");
+    setProfile(res.data);
+    updateUser(res.data);
+    setTwoFAReady(true);
+  } catch {
+    setProfile({ ...user, totp_enabled: false });
+    setTwoFAReady(true);
+  } finally { setLoading(false); }
+};
     fetchProfile();
   }, [user]);
 
@@ -474,16 +475,25 @@ export default function ProfileScreen({ themeId, onHover, onClick }: Props) {
 
   const enabled = profile.totp_enabled;
 
-  const stats = [
-    { l:"Ranked W",      v: profile.wins,           c:"#5BE888" },
-    { l:"Ranked L",      v: profile.losses,          c: t.danger },
-    { l:"Win Rate",      v: profile.wins + profile.losses > 0 ? `${Math.round((profile.wins/(profile.wins+profile.losses))*100)}%` : "0%", c: t.accent },
-    { l:"Total Games",   v: (profile.wins||0)+(profile.losses||0)+(profile.draws||0), c: t.text },
-    { l:"Draws",         v: profile.draws,           c: t.gold },
-    { l:"XP",            v: profile.xp,              c: t.p1 },
-    { l:"Penta Shards",   v: profile.pentashards ?? profile.shards ?? 0, c:"#4FC3F7" },
-    { l:"Proto Credits", v: profile.protocredits || 0, c:"#FFD700" },
-  ];
+ const rankedW   = profile.wins        || 0;
+const rankedL   = profile.losses      || 0;
+const unrankedW = profile.unranked_wins   || 0;
+const unrankedL = profile.unranked_losses || 0;
+const draws     = profile.draws       || 0;
+const totalGames = rankedW + rankedL + unrankedW + unrankedL + draws;
+
+const stats = [
+  { l:"Ranked W",    v: rankedW,   c:"#5BE888" },
+  { l:"Ranked L",    v: rankedL,   c: t.danger },
+  { l:"Unranked W",  v: unrankedW, c:"#34D399" },
+  { l:"Unranked L",  v: unrankedL, c:"#F97316" },
+  { l:"Win Rate",    v: rankedW + rankedL > 0 ? `${Math.round((rankedW/(rankedW+rankedL))*100)}%` : "0%", c: t.accent },
+  { l:"Total Games", v: totalGames, c: t.text },
+  { l:"Draws",       v: draws,     c: t.gold },
+  { l:"XP",          v: profile.xp, c: t.p1 },
+  { l:"Penta Shards",   v: profile.pentashards ?? profile.shards ?? 0, c:"#4FC3F7" },
+  { l:"Proto Credits",  v: profile.protocredits || 0, c:"#FFD700" },
+];
 
   const TABS: { id: EditTab; label: string }[] = [
     { id: "profile",  label: "Profile"  },

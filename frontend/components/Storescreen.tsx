@@ -94,11 +94,10 @@ function BundleAnimatedPreview({ bundle, tick }: { bundle: Bundle; tick: number 
   const GRID = 5;
   const CELL = "52px";
 
-  // Alternating piece placements — P1 then P2
   const p1Cells = [12, 6, 18, 2, 22];
   const p2Cells = [8, 16, 4, 20, 10];
   const totalMoves = p1Cells.length + p2Cells.length;
-  const move = tick % (totalMoves + 5); // +5 = pause at end
+  const move = tick % (totalMoves + 5);
 
   const placedP1 = new Set<number>();
   const placedP2 = new Set<number>();
@@ -107,7 +106,6 @@ function BundleAnimatedPreview({ bundle, tick }: { bundle: Bundle; tick: number 
     else             placedP2.add(p2Cells[Math.floor(i / 2)]);
   }
 
-  // Build a 5×5 board array
   const board: (string | null)[][] = Array.from({ length: GRID }, (_, r) =>
     Array.from({ length: GRID }, (_, c) => {
       const idx = r * GRID + c;
@@ -126,64 +124,27 @@ function BundleAnimatedPreview({ bundle, tick }: { bundle: Bundle; tick: number 
   return (
     <div style={{
       width: "100%",
-      background: bundle.isIce
-        ? "linear-gradient(135deg,rgba(3,8,20,0.98),rgba(1,4,14,0.99))"
-        : "rgba(10,2,1,0.99)",
+      background: bundle.isIce ? "linear-gradient(135deg,rgba(3,8,20,0.98),rgba(1,4,14,0.99))" : "rgba(10,2,1,0.99)",
       borderRadius: 12,
       border: `2px solid ${bundle.isIce ? "rgba(80,160,220,0.28)" : "rgba(140,20,0,0.35)"}`,
-      boxShadow: bundle.isIce
-        ? "0 0 50px rgba(80,160,255,0.08), inset 0 0 40px rgba(0,0,0,0.7)"
-        : "0 0 50px rgba(180,20,0,0.1), inset 0 0 40px rgba(0,0,0,0.7)",
-      padding: 6,
-      position: "relative",
-      overflow: "hidden",
+      boxShadow: bundle.isIce ? "0 0 50px rgba(80,160,255,0.08), inset 0 0 40px rgba(0,0,0,0.7)" : "0 0 50px rgba(180,20,0,0.1), inset 0 0 40px rgba(0,0,0,0.7)",
+      padding: 6, position: "relative", overflow: "hidden",
     }}>
-      {/* Board background effects */}
       {!bundle.isIce && <Embers count={16} />}
       {!bundle.isIce && <HeatOverlay />}
       {bundle.isIce  && <FrostCrystals />}
       {bundle.isIce  && <IceOverlay />}
-
-      {/* Grid */}
-      <div style={{
-        display: "grid",
-        gridTemplateColumns: `repeat(${GRID}, ${CELL})`,
-        gridTemplateRows: `repeat(${GRID}, ${CELL})`,
-        gap: 4,
-        position: "relative",
-        zIndex: 2,
-      }}>
+      <div style={{ display: "grid", gridTemplateColumns: `repeat(${GRID}, ${CELL})`, gridTemplateRows: `repeat(${GRID}, ${CELL})`, gap: 4, position: "relative", zIndex: 2 }}>
         {board.map((row, r) => row.map((cell, c) => {
           const noop = () => {};
           const cellKey = `${r}-${c}`;
-          const sharedProps = {
-            cellSize: CELL,
-            player: cell,
-            isWinCell: false,
-            isHov: false,
-            canPlay: false,
-            blk: false,
-            pieceSymbols,
-            p1c, p2c,
-            fontDisplay: "'Courier New', monospace",
-            onClick: noop,
-            onMouseEnter: noop,
-            onMouseLeave: noop,
-          };
-          if (bundle.isIce) {
-            return <IceCell key={cellKey} {...sharedProps} useSnowflakeShard={useSnowflakeShard} />;
-          }
+          const sharedProps = { cellSize: CELL, player: cell, isWinCell: false, isHov: false, canPlay: false, blk: false, pieceSymbols, p1c, p2c, fontDisplay: "'Courier New', monospace", onClick: noop, onMouseEnter: noop, onMouseLeave: noop };
+          if (bundle.isIce) return <IceCell key={cellKey} {...sharedProps} useSnowflakeShard={useSnowflakeShard} />;
           return <RedCell key={cellKey} {...sharedProps} useFlameSkull={useFlameSkull} />;
         }))}
       </div>
-
-      {/* Corner labels */}
-      <div style={{ position: "absolute", top: 8, left: 12, fontFamily: "monospace", fontSize: 9, color: bundle.isIce ? "rgba(140,210,255,0.55)" : "rgba(200,60,40,0.7)", letterSpacing: "0.18em", zIndex: 10, pointerEvents: "none" }}>
-        {bundle.boardLabel.toUpperCase()}
-      </div>
-      <div style={{ position: "absolute", bottom: 8, right: 12, fontFamily: "monospace", fontSize: 9, color: bundle.isIce ? "rgba(100,200,255,0.45)" : "rgba(180,40,0,0.55)", letterSpacing: "0.1em", zIndex: 10, pointerEvents: "none" }}>
-        LIVE PREVIEW
-      </div>
+      <div style={{ position: "absolute", top: 8, left: 12, fontFamily: "monospace", fontSize: 9, color: bundle.isIce ? "rgba(140,210,255,0.55)" : "rgba(200,60,40,0.7)", letterSpacing: "0.18em", zIndex: 10, pointerEvents: "none" }}>{bundle.boardLabel.toUpperCase()}</div>
+      <div style={{ position: "absolute", bottom: 8, right: 12, fontFamily: "monospace", fontSize: 9, color: bundle.isIce ? "rgba(100,200,255,0.45)" : "rgba(180,40,0,0.55)", letterSpacing: "0.1em", zIndex: 10, pointerEvents: "none" }}>LIVE PREVIEW</div>
     </div>
   );
 }
@@ -213,16 +174,8 @@ function BundleModal({ bundle, t, isGuest, buyingId, purchasedItems, balance, on
       disabled: ownsBundle, owned: ownsBundle, highlight: true,
       purchaseId: ownsBoard ? bundle.pieceId : ownsPiece ? bundle.boardId : "bundle_purchase_" + bundle.id,
     },
-    {
-      id: bundle.boardId, label: bundle.boardLabel, sublabel: "Board skin only",
-      price: bundle.boardPrice, includes: [bundle.boardLabel],
-      disabled: ownsBoard, owned: ownsBoard, highlight: false, purchaseId: bundle.boardId,
-    },
-    {
-      id: bundle.pieceId, label: bundle.pieceLabel, sublabel: "Piece skin only",
-      price: bundle.piecePrice, includes: [bundle.pieceLabel],
-      disabled: ownsPiece, owned: ownsPiece, highlight: false, purchaseId: bundle.pieceId,
-    },
+    { id: bundle.boardId, label: bundle.boardLabel, sublabel: "Board skin only", price: bundle.boardPrice, includes: [bundle.boardLabel], disabled: ownsBoard, owned: ownsBoard, highlight: false, purchaseId: bundle.boardId },
+    { id: bundle.pieceId, label: bundle.pieceLabel, sublabel: "Piece skin only", price: bundle.piecePrice, includes: [bundle.pieceLabel], disabled: ownsPiece, owned: ownsPiece, highlight: false, purchaseId: bundle.pieceId },
   ];
 
   return (
@@ -233,55 +186,33 @@ function BundleModal({ bundle, t, isGuest, buyingId, purchasedItems, balance, on
         <button onClick={onClose} style={{ position: "absolute", top: 14, right: 14, zIndex: 10, background: "rgba(0,0,0,0.5)", border: `1px solid ${ac}44`, borderRadius: 8, color: "#fff", width: 30, height: 30, cursor: "pointer", fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
 
         <div style={{ padding: "24px 24px 0" }}>
-          {/* Tags + ownership */}
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap" as const, marginBottom: 12 }}>
-            {bundle.tags.map(tag => (
-              <span key={tag} style={{ fontFamily: "monospace", fontSize: 9, fontWeight: 700, color: ac, background: `${ac}18`, border: `1px solid ${ac}44`, padding: "2px 7px", borderRadius: 4, letterSpacing: "0.1em" }}>{tag}</span>
-            ))}
+            {bundle.tags.map(tag => (<span key={tag} style={{ fontFamily: "monospace", fontSize: 9, fontWeight: 700, color: ac, background: `${ac}18`, border: `1px solid ${ac}44`, padding: "2px 7px", borderRadius: 4, letterSpacing: "0.1em" }}>{tag}</span>))}
             {ownsBoard  && <span style={{ fontFamily: "monospace", fontSize: 9, fontWeight: 700, color: "#4CAF50", background: "#4CAF5018", border: "1px solid #4CAF5044", padding: "2px 7px", borderRadius: 4 }}>BOARD OWNED ✓</span>}
             {ownsPiece  && <span style={{ fontFamily: "monospace", fontSize: 9, fontWeight: 700, color: "#4CAF50", background: "#4CAF5018", border: "1px solid #4CAF5044", padding: "2px 7px", borderRadius: 4 }}>PIECES OWNED ✓</span>}
           </div>
-
           <div style={{ fontFamily: t.fontDisplay, fontSize: 28, fontWeight: 900, color: "#fff", letterSpacing: "0.04em", marginBottom: 3 }}>{bundle.label}</div>
           <div style={{ fontFamily: t.fontBody, fontSize: 13, color: `${ac}cc`, fontStyle: "italic", marginBottom: 14 }}>{bundle.tagline}</div>
-
-          {/* Real board preview */}
           <BundleAnimatedPreview bundle={bundle} tick={tick} />
-
-          {/* Piece strip */}
           <div style={{ display: "flex", gap: 10, marginTop: 12 }}>
-            {/* P1 Piece */}
             <div style={{ flex: 1, background: `${ac}0C`, border: `1px solid ${ac}2A`, borderRadius: 10, padding: "10px 12px", display: "flex", alignItems: "center", gap: 10 }}>
               <div style={{ width: 42, height: 42, borderRadius: 7, background: bundle.isIce ? "linear-gradient(135deg,rgba(5,12,25,0.96),rgba(2,7,16,0.98))" : "rgba(14,3,1,0.97)", border: `1.5px solid ${bundle.isIce ? "rgba(200,240,255,0.65)" : "rgba(255,80,0,0.7)"}`, display: "flex", alignItems: "center", justifyContent: "center", position: "relative", overflow: "hidden" }}>
                 {bundle.isIce ? <SnowflakePiece size={42} /> : <Flame size={42} />}
               </div>
-              <div>
-                <div style={{ fontFamily: "monospace", fontSize: 9, color: `${ac}77`, letterSpacing: "0.12em" }}>P1 PIECE</div>
-                <div style={{ fontFamily: t.fontDisplay, fontSize: 12, fontWeight: 700, color: ownsPiece ? "#4CAF50" : "#fff" }}>{bundle.isIce ? "Snowflake" : "Flame"} {ownsPiece ? "✓" : ""}</div>
-              </div>
+              <div><div style={{ fontFamily: "monospace", fontSize: 9, color: `${ac}77`, letterSpacing: "0.12em" }}>P1 PIECE</div><div style={{ fontFamily: t.fontDisplay, fontSize: 12, fontWeight: 700, color: ownsPiece ? "#4CAF50" : "#fff" }}>{bundle.isIce ? "Snowflake" : "Flame"} {ownsPiece ? "✓" : ""}</div></div>
             </div>
-            {/* P2 Piece */}
             <div style={{ flex: 1, background: `${ac}0C`, border: `1px solid ${ac}2A`, borderRadius: 10, padding: "10px 12px", display: "flex", alignItems: "center", gap: 10 }}>
               <div style={{ width: 42, height: 42, borderRadius: 7, background: bundle.isIce ? "linear-gradient(135deg,rgba(5,12,25,0.96),rgba(2,7,16,0.98))" : "rgba(14,3,1,0.97)", border: `1.5px solid ${bundle.isIce ? "rgba(100,200,255,0.65)" : "rgba(200,0,0,0.7)"}`, display: "flex", alignItems: "center", justifyContent: "center", position: "relative", overflow: "hidden" }}>
                 {bundle.isIce ? <IceShardPiece size={42} /> : <Skull size={42} />}
               </div>
-              <div>
-                <div style={{ fontFamily: "monospace", fontSize: 9, color: `${ac}77`, letterSpacing: "0.12em" }}>P2 PIECE</div>
-                <div style={{ fontFamily: t.fontDisplay, fontSize: 12, fontWeight: 700, color: ownsPiece ? "#4CAF50" : "#fff" }}>{bundle.isIce ? "Ice Shard" : "Skull"} {ownsPiece ? "✓" : ""}</div>
-              </div>
+              <div><div style={{ fontFamily: "monospace", fontSize: 9, color: `${ac}77`, letterSpacing: "0.12em" }}>P2 PIECE</div><div style={{ fontFamily: t.fontDisplay, fontSize: 12, fontWeight: 700, color: ownsPiece ? "#4CAF50" : "#fff" }}>{bundle.isIce ? "Ice Shard" : "Skull"} {ownsPiece ? "✓" : ""}</div></div>
             </div>
-            {/* Board */}
             <div style={{ flex: 1, background: `${ac}0C`, border: `1px solid ${ac}2A`, borderRadius: 10, padding: "10px 12px", display: "flex", alignItems: "center", gap: 10 }}>
               <div style={{ width: 42, height: 42, borderRadius: 7, background: bundle.isIce ? "linear-gradient(135deg,rgba(3,8,20,0.98),rgba(1,4,14,0.99))" : "rgba(10,2,1,0.99)", border: `1.5px solid ${bundle.isIce ? "rgba(80,160,220,0.35)" : "rgba(140,20,0,0.35)"}`, display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 2, padding: 4, position: "relative", overflow: "hidden" }}>
                 {bundle.isIce ? <FrostCrystals /> : <Embers count={4} />}
-                {Array.from({ length: 9 }).map((_, i) => (
-                  <div key={i} style={{ background: bundle.isIce ? "rgba(80,160,220,0.12)" : "rgba(150,20,0,0.15)", border: `1px solid ${bundle.isIce ? "rgba(80,160,220,0.3)" : "rgba(150,20,0,0.3)"}`, borderRadius: 1 }} />
-                ))}
+                {Array.from({ length: 9 }).map((_, i) => (<div key={i} style={{ background: bundle.isIce ? "rgba(80,160,220,0.12)" : "rgba(150,20,0,0.15)", border: `1px solid ${bundle.isIce ? "rgba(80,160,220,0.3)" : "rgba(150,20,0,0.3)"}`, borderRadius: 1 }} />))}
               </div>
-              <div>
-                <div style={{ fontFamily: "monospace", fontSize: 9, color: `${ac}77`, letterSpacing: "0.12em" }}>BOARD</div>
-                <div style={{ fontFamily: t.fontDisplay, fontSize: 12, fontWeight: 700, color: ownsBoard ? "#4CAF50" : "#fff" }}>{bundle.boardLabel} {ownsBoard ? "✓" : ""}</div>
-              </div>
+              <div><div style={{ fontFamily: "monospace", fontSize: 9, color: `${ac}77`, letterSpacing: "0.12em" }}>BOARD</div><div style={{ fontFamily: t.fontDisplay, fontSize: 12, fontWeight: 700, color: ownsBoard ? "#4CAF50" : "#fff" }}>{bundle.boardLabel} {ownsBoard ? "✓" : ""}</div></div>
             </div>
           </div>
         </div>
@@ -290,7 +221,6 @@ function BundleModal({ bundle, t, isGuest, buyingId, purchasedItems, balance, on
           <div style={{ fontFamily: t.fontBody, fontSize: 13, color: "rgba(255,255,255,0.45)", lineHeight: 1.65, marginBottom: 16 }}>{bundle.desc}</div>
         </div>
 
-        {/* Purchase options */}
         <div style={{ padding: "0 24px 24px" }}>
           <div style={{ fontFamily: "monospace", fontSize: 10, color: `${ac}77`, letterSpacing: "0.2em", marginBottom: 10 }}>PURCHASE OPTIONS</div>
           <div style={{ display: "flex", flexDirection: "column" as const, gap: 8 }}>
@@ -299,9 +229,7 @@ function BundleModal({ bundle, t, isGuest, buyingId, purchasedItems, balance, on
               const isBuying = buyingId === opt.purchaseId || buyingId === opt.id;
               const canAfford = balance >= opt.price;
               return (
-                <div key={opt.id}
-                  onMouseEnter={() => !opt.disabled && setHovOpt(opt.id)}
-                  onMouseLeave={() => setHovOpt(null)}
+                <div key={opt.id} onMouseEnter={() => !opt.disabled && setHovOpt(opt.id)} onMouseLeave={() => setHovOpt(null)}
                   style={{ background: opt.owned ? "#4CAF5010" : opt.highlight ? `${ac}16` : "rgba(255,255,255,0.04)", border: `1.5px solid ${opt.owned ? "#4CAF5033" : opt.highlight ? `${ac}44` : "rgba(255,255,255,0.09)"}`, borderRadius: 12, padding: "13px 15px", display: "flex", alignItems: "center", gap: 14, transition: "all 0.2s", transform: isHov ? "translateX(4px)" : "none", boxShadow: opt.highlight && !opt.owned ? `0 0 18px ${ac}1E` : "none" }}>
                   <div style={{ flex: 1 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 3 }}>
@@ -311,9 +239,7 @@ function BundleModal({ bundle, t, isGuest, buyingId, purchasedItems, balance, on
                     </div>
                     <div style={{ fontFamily: t.fontBody, fontSize: 11, color: "rgba(255,255,255,0.38)", marginBottom: 5 }}>{opt.sublabel}</div>
                     <div style={{ display: "flex", gap: 5, flexWrap: "wrap" as const }}>
-                      {opt.includes.map(inc => (
-                        <span key={inc} style={{ fontFamily: "monospace", fontSize: 9, color: opt.owned ? "#4CAF5077" : `${ac}88`, background: opt.owned ? "#4CAF5010" : `${ac}0C`, border: `1px solid ${opt.owned ? "#4CAF5022" : ac + "22"}`, padding: "1px 6px", borderRadius: 4 }}>+ {inc}</span>
-                      ))}
+                      {opt.includes.map(inc => (<span key={inc} style={{ fontFamily: "monospace", fontSize: 9, color: opt.owned ? "#4CAF5077" : `${ac}88`, background: opt.owned ? "#4CAF5010" : `${ac}0C`, border: `1px solid ${opt.owned ? "#4CAF5022" : ac + "22"}`, padding: "1px 6px", borderRadius: 4 }}>+ {inc}</span>))}
                     </div>
                   </div>
                   {opt.owned ? (
@@ -335,11 +261,7 @@ function BundleModal({ bundle, t, isGuest, buyingId, purchasedItems, balance, on
               );
             })}
           </div>
-          {!isGuest && (
-            <div style={{ marginTop: 12, textAlign: "center" as const, fontFamily: "monospace", fontSize: 11, color: "rgba(255,255,255,0.28)" }}>
-              Your balance: <span style={{ color: ac }}>{balance.toLocaleString()} ⬡</span>
-            </div>
-          )}
+          {!isGuest && (<div style={{ marginTop: 12, textAlign: "center" as const, fontFamily: "monospace", fontSize: 11, color: "rgba(255,255,255,0.28)" }}>Your balance: <span style={{ color: ac }}>{balance.toLocaleString()} ⬡</span></div>)}
         </div>
       </div>
     </div>
@@ -358,62 +280,31 @@ function BundleCard({ bundle, purchasedItems, t, onClick }: { bundle: Bundle; pu
     <div onClick={onClick} onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}
       style={{ background: bundle.bgGradient, border: `2px solid ${hov ? ac : ac + "33"}`, borderRadius: 18, padding: "24px", cursor: "pointer", position: "relative", overflow: "hidden", transform: hov ? "translateY(-6px) scale(1.01)" : "none", boxShadow: hov ? `0 20px 60px ${ac}30, 0 0 0 1px ${ac}20` : `0 4px 20px ${ac}14`, transition: "all 0.28s cubic-bezier(.22,.68,0,1.2)" }}>
       <div style={{ position: "absolute", top: -40, right: -40, width: 180, height: 180, borderRadius: "50%", background: `${ac}14`, filter: "blur(50px)", pointerEvents: "none" }} />
-
       <div style={{ position: "absolute", top: 14, right: 14, display: "flex", gap: 5, flexWrap: "wrap" as const, justifyContent: "flex-end", maxWidth: 160 }}>
         {ownsAll ? <span style={{ fontFamily: "monospace", fontSize: 9, fontWeight: 700, color: "#4CAF50", background: "#4CAF5018", border: "1px solid #4CAF5044", padding: "2px 8px", borderRadius: 10 }}>FULLY OWNED ✓</span>
-          : <>{ownsBoard && <span style={{ fontFamily: "monospace", fontSize: 9, color: "#4CAF50", background: "#4CAF5010", border: "1px solid #4CAF5033", padding: "2px 6px", borderRadius: 8 }}>BOARD ✓</span>}
-              {ownsPiece && <span style={{ fontFamily: "monospace", fontSize: 9, color: "#4CAF50", background: "#4CAF5010", border: "1px solid #4CAF5033", padding: "2px 6px", borderRadius: 8 }}>PIECES ✓</span>}</>
-        }
+          : <>{ownsBoard && <span style={{ fontFamily: "monospace", fontSize: 9, color: "#4CAF50", background: "#4CAF5010", border: "1px solid #4CAF5033", padding: "2px 6px", borderRadius: 8 }}>BOARD ✓</span>}{ownsPiece && <span style={{ fontFamily: "monospace", fontSize: 9, color: "#4CAF50", background: "#4CAF5010", border: "1px solid #4CAF5033", padding: "2px 6px", borderRadius: 8 }}>PIECES ✓</span>}</>}
       </div>
-
       <div style={{ display: "flex", gap: 6, marginBottom: 14, flexWrap: "wrap" as const }}>
         {bundle.tags.map(tag => (<span key={tag} style={{ fontFamily: "monospace", fontSize: 9, fontWeight: 700, color: ac, background: `${ac}18`, border: `1px solid ${ac}33`, padding: "2px 7px", borderRadius: 4, letterSpacing: "0.1em" }}>{tag}</span>))}
       </div>
-
       <div style={{ fontFamily: t.fontDisplay, fontSize: 22, fontWeight: 900, color: "#fff", letterSpacing: "0.04em", marginBottom: 3 }}>{bundle.label}</div>
       <div style={{ fontFamily: t.fontBody, fontSize: 12, color: `${ac}bb`, fontStyle: "italic", marginBottom: 16 }}>{bundle.tagline}</div>
-
-      {/* Mini board thumbnail */}
       <div style={{ height: 72, borderRadius: 10, marginBottom: 14, overflow: "hidden", position: "relative", background: bundle.isIce ? "linear-gradient(135deg,rgba(3,8,20,0.98),rgba(1,4,14,0.99))" : "rgba(10,2,1,0.99)", border: `1px solid ${bundle.isIce ? "rgba(80,160,220,0.28)" : "rgba(140,20,0,0.35)"}` }}>
-        {!bundle.isIce && <Embers count={6} />}
-        {!bundle.isIce && <HeatOverlay />}
-        {bundle.isIce  && <FrostCrystals />}
-        {bundle.isIce  && <IceOverlay />}
+        {!bundle.isIce && <Embers count={6} />}{!bundle.isIce && <HeatOverlay />}{bundle.isIce && <FrostCrystals />}{bundle.isIce && <IceOverlay />}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(5,1fr)", gap: 2, padding: 6, height: "100%", position: "relative", zIndex: 2 }}>
-          {Array.from({ length: 10 }).map((_, i) => (
-            <div key={i} style={{ background: bundle.isIce ? "rgba(80,160,220,0.12)" : "rgba(150,20,0,0.15)", border: `1px solid ${bundle.isIce ? "rgba(80,160,220,0.3)" : "rgba(150,20,0,0.3)"}`, borderRadius: 2 }} />
-          ))}
+          {Array.from({ length: 10 }).map((_, i) => (<div key={i} style={{ background: bundle.isIce ? "rgba(80,160,220,0.12)" : "rgba(150,20,0,0.15)", border: `1px solid ${bundle.isIce ? "rgba(80,160,220,0.3)" : "rgba(150,20,0,0.3)"}`, borderRadius: 2 }} />))}
         </div>
         {hov && <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.35)", zIndex: 10, fontFamily: "monospace", fontSize: 11, color: `${ac}cc`, letterSpacing: "0.1em" }}>CLICK TO PREVIEW →</div>}
       </div>
-
       <div style={{ display: "flex", gap: 8, marginBottom: 18 }}>
-        <div style={{ flex: 1, background: `${ac}0C`, border: `1px solid ${ac}1A`, borderRadius: 8, padding: "8px 10px" }}>
-          <div style={{ fontFamily: "monospace", fontSize: 8, color: `${ac}66`, letterSpacing: "0.1em" }}>BOARD</div>
-          <div style={{ fontFamily: t.fontDisplay, fontSize: 12, fontWeight: 700, color: ownsBoard ? "#4CAF50" : "#fff" }}>{bundle.boardLabel} {ownsBoard ? "✓" : ""}</div>
-        </div>
-        <div style={{ flex: 1, background: `${ac}0C`, border: `1px solid ${ac}1A`, borderRadius: 8, padding: "8px 10px" }}>
-          <div style={{ fontFamily: "monospace", fontSize: 8, color: `${ac}66`, letterSpacing: "0.1em" }}>PIECES</div>
-          <div style={{ fontFamily: t.fontDisplay, fontSize: 12, fontWeight: 700, color: ownsPiece ? "#4CAF50" : "#fff" }}>{bundle.pieceLabel} {ownsPiece ? "✓" : ""}</div>
-        </div>
+        <div style={{ flex: 1, background: `${ac}0C`, border: `1px solid ${ac}1A`, borderRadius: 8, padding: "8px 10px" }}><div style={{ fontFamily: "monospace", fontSize: 8, color: `${ac}66`, letterSpacing: "0.1em" }}>BOARD</div><div style={{ fontFamily: t.fontDisplay, fontSize: 12, fontWeight: 700, color: ownsBoard ? "#4CAF50" : "#fff" }}>{bundle.boardLabel} {ownsBoard ? "✓" : ""}</div></div>
+        <div style={{ flex: 1, background: `${ac}0C`, border: `1px solid ${ac}1A`, borderRadius: 8, padding: "8px 10px" }}><div style={{ fontFamily: "monospace", fontSize: 8, color: `${ac}66`, letterSpacing: "0.1em" }}>PIECES</div><div style={{ fontFamily: t.fontDisplay, fontSize: 12, fontWeight: 700, color: ownsPiece ? "#4CAF50" : "#fff" }}>{bundle.pieceLabel} {ownsPiece ? "✓" : ""}</div></div>
       </div>
-
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <div>
-          {!ownsAll ? (
-            <>
-              <div style={{ fontFamily: "monospace", fontSize: 9, color: `${ac}66`, letterSpacing: "0.15em", marginBottom: 2 }}>FROM</div>
-              <div style={{ fontFamily: t.fontDisplay, fontSize: 24, fontWeight: 900, color: ac, lineHeight: 1 }}>
-                {(ownsBoard ? bundle.piecePrice : ownsPiece ? bundle.boardPrice : bundle.bundlePrice).toLocaleString()} <span style={{ fontSize: 14 }}>⬡</span>
-              </div>
-            </>
-          ) : (
-            <div style={{ fontFamily: t.fontDisplay, fontSize: 14, fontWeight: 700, color: "#4CAF50" }}>Collection complete ✓</div>
-          )}
+          {!ownsAll ? (<><div style={{ fontFamily: "monospace", fontSize: 9, color: `${ac}66`, letterSpacing: "0.15em", marginBottom: 2 }}>FROM</div><div style={{ fontFamily: t.fontDisplay, fontSize: 24, fontWeight: 900, color: ac, lineHeight: 1 }}>{(ownsBoard ? bundle.piecePrice : ownsPiece ? bundle.boardPrice : bundle.bundlePrice).toLocaleString()} <span style={{ fontSize: 14 }}>⬡</span></div></>) : (<div style={{ fontFamily: t.fontDisplay, fontSize: 14, fontWeight: 700, color: "#4CAF50" }}>Collection complete ✓</div>)}
         </div>
-        <div style={{ background: ownsAll ? "#4CAF5018" : ac, border: ownsAll ? "1px solid #4CAF5044" : "none", borderRadius: 10, padding: "9px 18px", fontFamily: t.fontDisplay, fontSize: 12, fontWeight: 800, color: ownsAll ? "#4CAF50" : "#000", letterSpacing: "0.06em" }}>
-          {ownsAll ? "OWNED" : "VIEW BUNDLE →"}
-        </div>
+        <div style={{ background: ownsAll ? "#4CAF5018" : ac, border: ownsAll ? "1px solid #4CAF5044" : "none", borderRadius: 10, padding: "9px 18px", fontFamily: t.fontDisplay, fontSize: 12, fontWeight: 800, color: ownsAll ? "#4CAF50" : "#000", letterSpacing: "0.06em" }}>{ownsAll ? "OWNED" : "VIEW BUNDLE →"}</div>
       </div>
     </div>
   );
@@ -440,6 +331,19 @@ export default function StoreScreen({ setScreen, themeId }: Props) {
   const balance = (user as any)?.protocredits ?? 0;
   const purchasedItems: string[] = (user as any)?.purchased_items ?? [];
 
+  useEffect(() => {
+    if (!token) return;
+    API.get("/api/profile/me", { headers: { Authorization: `Bearer ${token}` } })
+      .then(res => updateUser(res.data))
+      .catch(() => {});
+  }, [token]);
+
+  // Helper to show error msg that auto-clears after 1s
+  const showError = (text: string) => {
+    setMsg({ text, ok: false });
+    setTimeout(() => setMsg(null), 1000);
+  };
+
   const cssVars = { "--font-display": t.fontDisplay, "--font-mono": t.fontMono, "--font-body": t.fontBody, "--text": t.text, "--text-muted": t.textMuted, "--border": t.border, "--accent": accent } as React.CSSProperties;
 
   const loadRazorpay = () => new Promise<boolean>(resolve => {
@@ -449,7 +353,7 @@ export default function StoreScreen({ setScreen, themeId }: Props) {
   });
 
   const handleBuy = async () => {
-    if (isGuest) { setShowBuyModal(false); setMsg({ text: "Sign in to buy ProtoCredits.", ok: false }); return; }
+    if (isGuest) { setShowBuyModal(false); showError("Sign in to buy ProtoCredits."); return; }
     setLoading(true); setMsg(null);
     try {
       const loaded = await loadRazorpay();
@@ -471,14 +375,14 @@ export default function StoreScreen({ setScreen, themeId }: Props) {
       });
       setMsg({ text: `✓ Payment successful! ${pkg.credits + pkg.bonus} ProtoCredits added.`, ok: true });
     } catch (e: any) {
-      if (e?.message === "dismissed") setMsg({ text: "Payment cancelled.", ok: false });
-      else setMsg({ text: e?.response?.data?.detail || e?.message || "Payment failed. Please try again.", ok: false });
+      if (e?.message === "dismissed") showError("Payment cancelled.");
+      else showError(e?.response?.data?.detail || e?.message || "Payment failed. Please try again.");
     } finally { setLoading(false); }
   };
 
   const handleBuyCosmetic = async (id: string, price: number, label: string) => {
-    if (isGuest) { setMsg({ text: "Sign in to purchase.", ok: false }); return; }
-    if (balance < price) { setOpenBundle(null); setShowBuyModal(true); return; }
+    if (isGuest) { showError("Sign in to purchase."); return; }
+    if (balance < price) { setOpenBundle(null); setMsg(null); setShowBuyModal(true); return; }
     if (!window.confirm(`Buy ${label} for ${price.toLocaleString()} ⬡?`)) return;
     setBuyingId(id);
     const isBundlePurchase = id.startsWith("bundle_purchase_");
@@ -498,12 +402,12 @@ export default function StoreScreen({ setScreen, themeId }: Props) {
       setOpenBundle(null);
       setTimeout(() => setMsg(null), 3000);
     } catch (e: any) {
-      setMsg({ text: e?.response?.data?.detail || "Purchase failed. Try again.", ok: false });
+      showError(e?.response?.data?.detail || "Purchase failed. Try again.");
     } finally { setBuyingId(null); }
   };
 
   const GuestBuyBtn = () => (
-    <button onClick={() => setMsg({ text: "Sign in to purchase.", ok: false })} style={{ flexShrink: 0, background: `${t.textMuted}14`, border: `1.5px solid ${t.border}`, borderRadius: 8, padding: "6px 11px", fontFamily: t.fontMono, fontSize: 10, fontWeight: 700, color: t.textMuted, cursor: "pointer", whiteSpace: "nowrap" as const, display: "flex", alignItems: "center", gap: 4 }}>🔒 Sign in</button>
+    <button onClick={() => showError("Sign in to purchase.")} style={{ flexShrink: 0, background: `${t.textMuted}14`, border: `1.5px solid ${t.border}`, borderRadius: 8, padding: "6px 11px", fontFamily: t.fontMono, fontSize: 10, fontWeight: 700, color: t.textMuted, cursor: "pointer", whiteSpace: "nowrap" as const, display: "flex", alignItems: "center", gap: 4 }}>🔒 Sign in</button>
   );
 
   const activeBundleData = openBundle ? BUNDLES.find(b => b.id === openBundle) : null;
@@ -534,7 +438,8 @@ export default function StoreScreen({ setScreen, themeId }: Props) {
 
       {activeBundleData && (
         <BundleModal bundle={activeBundleData} t={t} isGuest={isGuest} buyingId={buyingId} purchasedItems={purchasedItems} balance={balance}
-          onClose={() => setOpenBundle(null)} onBuy={handleBuyCosmetic} onOpenBuyCredits={() => { setOpenBundle(null); setShowBuyModal(true); }} />
+          onClose={() => setOpenBundle(null)} onBuy={handleBuyCosmetic}
+          onOpenBuyCredits={() => { setOpenBundle(null); setMsg(null); setShowBuyModal(true); }} />
       )}
 
       <div style={{ maxWidth: 1240, margin: "0 auto", padding: "0 28px 72px" }}>
@@ -550,14 +455,14 @@ export default function StoreScreen({ setScreen, themeId }: Props) {
           </div>
         )}
 
-        {/* Page header */}
         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 48, gap: 24, flexWrap: "wrap" as const }}>
           <div>
             <div style={{ fontFamily: t.fontMono, fontSize: 11, color: accent, letterSpacing: "0.3em", marginBottom: 10 }}>PROTOCOL STORE</div>
             <div style={{ fontFamily: t.fontDisplay, fontSize: "clamp(28px,5vw,52px)", fontWeight: 900, color: t.text, lineHeight: 1.05, marginBottom: 10 }}>UNLOCK YOUR<br /><span style={{ color: accent }}>ARSENAL</span></div>
             <div style={{ fontFamily: t.fontBody, fontSize: 14, color: t.textMuted, maxWidth: 420 }}>Earn rewards through ranked play and achievements — or top up ProtoCredits to unlock exclusive cosmetics instantly.</div>
           </div>
-          <div className="store-card" onClick={() => { if (isGuest) { setMsg({ text: "Sign in to buy ProtoCredits.", ok: false }); return; } setShowBuyModal(true); }}
+          <div className="store-card"
+            onClick={() => { if (isGuest) { showError("Sign in to buy ProtoCredits."); return; } setMsg(null); setShowBuyModal(true); }}
             style={{ flexShrink: 0, minWidth: 260, maxWidth: 320, background: `linear-gradient(135deg, ${accent}18, ${accent}08)`, border: `2px solid ${isGuest ? t.border : accent + "55"}`, borderRadius: 18, padding: "22px 24px", boxShadow: `0 0 40px ${accent}22`, position: "relative", overflow: "hidden", opacity: isGuest ? 0.75 : 1 }}>
             <div style={{ position: "absolute", top: -30, right: -30, width: 120, height: 120, borderRadius: "50%", background: `${accent}22`, filter: "blur(40px)", pointerEvents: "none" }} />
             <div style={{ fontFamily: t.fontMono, fontSize: 10, color: accent, letterSpacing: "0.25em", marginBottom: 10 }}>PROTOCREDITS</div>
@@ -590,10 +495,7 @@ export default function StoreScreen({ setScreen, themeId }: Props) {
                 style={{ borderRadius: 14, overflow: "hidden", border: `1.5px solid ${hovCard === item.id ? accent + "88" : t.border}`, background: t.bgCard, boxShadow: hovCard === item.id ? `0 8px 32px ${accent}22` : "none" }}>
                 <div style={{ height: 90, background: item.preview }} />
                 <div style={{ padding: "13px 14px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                  <div>
-                    <div style={{ fontFamily: t.fontDisplay, fontSize: 15, fontWeight: 700, color: t.text }}>{item.label}</div>
-                    <div style={{ fontFamily: t.fontBody, fontSize: 12, color: t.textMuted, marginTop: 2 }}>{item.desc}</div>
-                  </div>
+                  <div><div style={{ fontFamily: t.fontDisplay, fontSize: 15, fontWeight: 700, color: t.text }}>{item.label}</div><div style={{ fontFamily: t.fontBody, fontSize: 12, color: t.textMuted, marginTop: 2 }}>{item.desc}</div></div>
                   <UnlockBadge text={item.unlock} accent={accent} />
                 </div>
               </div>
@@ -658,20 +560,14 @@ export default function StoreScreen({ setScreen, themeId }: Props) {
                   {relatedBundle && <div style={{ position: "absolute", top: 8, right: 8, fontFamily: "monospace", fontSize: 9, color: `${relatedBundle.accentColor}88`, letterSpacing: "0.06em" }}>IN BUNDLE</div>}
                   <div style={{ display: "flex", justifyContent: "center", gap: 20, marginBottom: 14, marginTop: isPurchasable ? 18 : 0 }}>
                     {item.isFlame ? (
-                      <>
-                        <div style={{ width: 52, height: 52, borderRadius: 8, background: "rgba(14,3,1,0.97)", border: "1.5px solid rgba(255,80,0,0.7)", display: "flex", alignItems: "center", justifyContent: "center", position: "relative", overflow: "hidden" }}><Embers count={3}/><Flame size={52}/></div>
-                        <div style={{ width: 52, height: 52, borderRadius: 8, background: "rgba(14,3,1,0.97)", border: "1.5px solid rgba(200,0,0,0.7)", display: "flex", alignItems: "center", justifyContent: "center", position: "relative", overflow: "hidden" }}><Embers count={3}/><Skull size={52}/></div>
-                      </>
+                      <><div style={{ width: 52, height: 52, borderRadius: 8, background: "rgba(14,3,1,0.97)", border: "1.5px solid rgba(255,80,0,0.7)", display: "flex", alignItems: "center", justifyContent: "center", position: "relative", overflow: "hidden" }}><Embers count={3}/><Flame size={52}/></div>
+                        <div style={{ width: 52, height: 52, borderRadius: 8, background: "rgba(14,3,1,0.97)", border: "1.5px solid rgba(200,0,0,0.7)", display: "flex", alignItems: "center", justifyContent: "center", position: "relative", overflow: "hidden" }}><Embers count={3}/><Skull size={52}/></div></>
                     ) : item.isSnow ? (
-                      <>
-                        <div style={{ width: 52, height: 52, borderRadius: 8, background: "linear-gradient(135deg,rgba(5,12,25,0.96),rgba(2,7,16,0.98))", border: "1.5px solid rgba(200,240,255,0.65)", display: "flex", alignItems: "center", justifyContent: "center", position: "relative", overflow: "hidden" }}><FrostCrystals/><SnowflakePiece size={52}/></div>
-                        <div style={{ width: 52, height: 52, borderRadius: 8, background: "linear-gradient(135deg,rgba(5,12,25,0.96),rgba(2,7,16,0.98))", border: "1.5px solid rgba(100,200,255,0.65)", display: "flex", alignItems: "center", justifyContent: "center", position: "relative", overflow: "hidden" }}><FrostCrystals/><IceShardPiece size={52}/></div>
-                      </>
+                      <><div style={{ width: 52, height: 52, borderRadius: 8, background: "linear-gradient(135deg,rgba(5,12,25,0.96),rgba(2,7,16,0.98))", border: "1.5px solid rgba(200,240,255,0.65)", display: "flex", alignItems: "center", justifyContent: "center", position: "relative", overflow: "hidden" }}><FrostCrystals/><SnowflakePiece size={52}/></div>
+                        <div style={{ width: 52, height: 52, borderRadius: 8, background: "linear-gradient(135deg,rgba(5,12,25,0.96),rgba(2,7,16,0.98))", border: "1.5px solid rgba(100,200,255,0.65)", display: "flex", alignItems: "center", justifyContent: "center", position: "relative", overflow: "hidden" }}><FrostCrystals/><IceShardPiece size={52}/></div></>
                     ) : (
-                      <>
-                        <div style={{ width: 52, height: 52, borderRadius: 8, background: `${item.p1c}18`, border: `2px solid ${item.p1c}`, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "monospace", fontSize: 28, fontWeight: 900, color: item.p1c }}>{item.p1}</div>
-                        <div style={{ width: 52, height: 52, borderRadius: 8, background: `${item.p2c}18`, border: `2px solid ${item.p2c}`, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "monospace", fontSize: 28, fontWeight: 900, color: item.p2c }}>{item.p2}</div>
-                      </>
+                      <><div style={{ width: 52, height: 52, borderRadius: 8, background: `${item.p1c}18`, border: `2px solid ${item.p1c}`, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "monospace", fontSize: 28, fontWeight: 900, color: item.p1c }}>{item.p1}</div>
+                        <div style={{ width: 52, height: 52, borderRadius: 8, background: `${item.p2c}18`, border: `2px solid ${item.p2c}`, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "monospace", fontSize: 28, fontWeight: 900, color: item.p2c }}>{item.p2}</div></>
                     )}
                   </div>
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
@@ -706,10 +602,7 @@ export default function StoreScreen({ setScreen, themeId }: Props) {
                     <div style={{ width: 52, height: 52, borderRadius: "50%", background: `radial-gradient(circle at 35% 35%,${item.c2}FF,${item.c2}88)`, boxShadow: `0 0 16px ${item.c2}66`, display: "flex", alignItems: "center", justifyContent: "center" }}><img src="/proto-coin.png" alt="proto" style={{ width: 34, height: 34, objectFit: "contain" }} /></div>
                   </div>
                   <div style={{ flex: 1 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-                      <span style={{ fontFamily: t.fontDisplay, fontSize: 16, fontWeight: 700, color: t.text }}>{item.label}</span>
-                      <UnlockBadge text={item.unlock} accent={accent} />
-                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}><span style={{ fontFamily: t.fontDisplay, fontSize: 16, fontWeight: 700, color: t.text }}>{item.label}</span><UnlockBadge text={item.unlock} accent={accent} /></div>
                     <div style={{ fontFamily: t.fontBody, fontSize: 12, color: t.textMuted }}>{item.desc}</div>
                   </div>
                 </div>
@@ -730,10 +623,7 @@ export default function StoreScreen({ setScreen, themeId }: Props) {
                   <div style={{ width: 52, height: 52, borderRadius: "50%", background: `linear-gradient(135deg,${item.color},${item.color}88)`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, boxShadow: `0 0 16px ${item.color}44` }}>
                     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
                   </div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontFamily: t.fontDisplay, fontSize: 16, fontWeight: 700, color: t.text, marginBottom: 3 }}>{item.label}</div>
-                    <div style={{ fontFamily: t.fontBody, fontSize: 12, color: t.textMuted }}>{item.desc}</div>
-                  </div>
+                  <div style={{ flex: 1 }}><div style={{ fontFamily: t.fontDisplay, fontSize: 16, fontWeight: 700, color: t.text, marginBottom: 3 }}>{item.label}</div><div style={{ fontFamily: t.fontBody, fontSize: 12, color: t.textMuted }}>{item.desc}</div></div>
                   <UnlockBadge text="Free" accent={accent} />
                 </div>
               );

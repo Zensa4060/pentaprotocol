@@ -51,6 +51,9 @@ async def award_game_result(db, game: dict, winner: str | None):
     is_ranked  = game.get("format") == "ranked"
     mode       = game.get("mode", "multiplayer")
     difficulty = game.get("difficulty", "medium")
+    # Solo and singleplayer games do not count toward any profile stats
+    if mode in ("solo", "singleplayer", "bot"):
+        return
 
     async def update_player(user_id: str, result: str, opponent_id: str | None):
         if not user_id:
