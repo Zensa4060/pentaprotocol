@@ -4,7 +4,12 @@ import type { ThemeId } from "@/lib/themes";
 import { THEMES } from "@/lib/themes";
 import API from "@/lib/api";
 import { useAuthStore } from "@/lib/store";
-import { TITLES, PROFILE_BORDERS } from "@/components/ProfileScreen";
+import { TITLES } from "@/components/ProfileScreen";
+
+// Profile borders — only default for now, more coming later
+const PROFILE_BORDERS = [
+  { id: "none", label: "No Border", tier: "basic", css: "none", unlockDesc: "Default — always unlocked", condition: (_p: any) => true },
+];
 import type { CustomThemeConfig, SfxPack, BoardSkin, CoinSkin, TossAnim, PieceSkin, BgSource } from "@/lib/customTheme";
 import { DEFAULT_CUSTOM_THEME, loadCustomTheme, saveCustomTheme } from "@/lib/customTheme";
 
@@ -38,70 +43,41 @@ const CatIcon = ({ id, size = 16, color }: { id: string; size?: number; color: s
 
 // ── Collection data ───────────────────────────────────────────────────────────
 const COLLECTION_THEMES = [
-  { id: "classic_light", label: "Classic Light", desc: "The original light aesthetic", owned: true,  preview: "linear-gradient(135deg,#f5f0e8,#e8e0d0)" },
-  { id: "classic_dark",  label: "Classic Dark",  desc: "Dark mode classic",           owned: true,  preview: "linear-gradient(135deg,#1a1a1a,#2a2a2a)" },
-  { id: "space",         label: "Space",         desc: "Deep space atmosphere",        owned: true,  preview: "linear-gradient(135deg,#020410,#0d1b4b)" },
-  { id: "pixel",         label: "Pixel",         desc: "Retro pixel art style",        owned: true,  preview: "linear-gradient(135deg,#0d1007,#1a2e0a)" },
-  { id: "neon",          label: "Neon City",     desc: "Unlock at level 30",           owned: false, preview: "linear-gradient(135deg,#0a001a,#1a0030,#00001a)" },
-  { id: "gold",          label: "Gold Foil",     desc: "Reach Legend rank",            owned: false, preview: "linear-gradient(135deg,#1a1000,#3d2800,#6b4400)" },
+  { id: "classic_light", label: "Classic Light", desc: "The original light aesthetic", owned: true,  comingSoon: false, preview: "linear-gradient(135deg,#f5f0e8,#e8e0d0)" },
+  { id: "classic_dark",  label: "Classic Dark",  desc: "Dark mode classic",            owned: true,  comingSoon: false, preview: "linear-gradient(135deg,#1a1a1a,#2a2a2a)" },
+  { id: "space",         label: "Space",         desc: "Coming Soon",                  owned: false, comingSoon: true,  preview: "linear-gradient(135deg,#020410,#0d1b4b)" },
+  { id: "pixel",         label: "Pixel",         desc: "Coming Soon",                  owned: false, comingSoon: true,  preview: "linear-gradient(135deg,#0d1007,#1a2e0a)" },
 ];
 
 const BOARD_SKINS: { id: string; label: string; desc: string; condition: (p: any) => boolean; preview: string; border: string; price?: number }[] = [
-  { id: "default",  label: "Standard",     desc: "Clean default board",            condition: (_p: any) => true,                                                    preview: "linear-gradient(135deg,#1a1a1a,#2a2a2a)", border: "#333" },
-  { id: "marble",   label: "Dark Marble",  desc: "Win 20 games",                   condition: (p: any) => (p?.wins ?? 0) >= 20,                                     preview: "linear-gradient(135deg,#1a1616,#2d2020)",  border: "#4a3333" },
-  { id: "forest",   label: "Forest Stone", desc: "Reach Emerald rank",             condition: (p: any) => ["emerald","master","legend"].includes(p?.rank ?? ""),     preview: "linear-gradient(135deg,#0d1a0d,#1a2e0a)",  border: "#2d4a1a" },
-  { id: "void",     label: "The Void",     desc: "Reach Legend rank",              condition: (p: any) => (p?.rank ?? "") === "legend",                              preview: "linear-gradient(135deg,#000000,#050010)",  border: "#1a0030" },
-  { id: "gold",     label: "Golden Grid",  desc: "100 wins",                       condition: (p: any) => (p?.wins ?? 0) >= 100,                                    preview: "linear-gradient(135deg,#1a1000,#2a1800)",  border: "#4a3300" },
-  { id: "ice",      label: "Frost",        desc: "Level 25",                       condition: (p: any) => (p?.level ?? 0) >= 25,                                    preview: "linear-gradient(135deg,#001a2a,#002a3a)",  border: "#004466" },
-  { id: "red_grid", label: "Red Grid",     desc: "A glowing grid of pure energy",  condition: (p: any) => (p?.purchased_items ?? []).includes("red_grid"),          preview: "linear-gradient(135deg,#220803,#1a0400)",  border: "#992200", price: 1500 },
-  { id: "ice_grid",  label: "Ice Grid",   desc: "A frozen board sealed in eternal frost", condition: (p: any) => (p?.purchased_items ?? []).includes("ice_grid"), preview: "linear-gradient(135deg,#010610,#021428)", border: "#1a4a6a", 
-  price: 1500 
-},
+  { id: "default",  label: "Standard", desc: "Clean default board",                       condition: (_p: any) => true,                                                   preview: "linear-gradient(135deg,#1a1a1a,#2a2a2a)", border: "#333" },
+  { id: "red_grid", label: "Red Grid", desc: "A glowing grid of pure energy",             condition: (p: any) => (p?.purchased_items ?? []).includes("red_grid"),         preview: "linear-gradient(135deg,#220803,#1a0400)",  border: "#992200", price: 1599 },
+  { id: "ice_grid", label: "Ice Grid", desc: "A frozen board sealed in eternal frost",    condition: (p: any) => (p?.purchased_items ?? []).includes("ice_grid"),         preview: "linear-gradient(135deg,#010610,#021428)",  border: "#1a4a6a", price: 1599 },
 ];
 
 const COIN_SKINS = [
-  { id: "default",  label: "Standard",  desc: "Default",        owned: true,  c1:"#F59E0B", c2:"#4FC3F7", img1:"/penta-coin.png", img2:"/proto-coin.png" },
-  { id: "crystal",  label: "Crystal",   desc: "Level 15",       owned: false, c1:"#60A5FA", c2:"#93C5FD", img1:"/penta-coin.png", img2:"/proto-coin.png" },
-  { id: "emerald",  label: "Emerald",   desc: "Reach Emerald",  owned: false, c1:"#10B981", c2:"#34D399", img1:"/penta-coin.png", img2:"/proto-coin.png" },
-  { id: "ruby",     label: "Ruby",      desc: "Reach Master",   owned: false, c1:"#FF3333", c2:"#FF6666", img1:"/penta-coin.png", img2:"/proto-coin.png" },
-  { id: "obsidian", label: "Obsidian",  desc: "Win 50 matches", owned: false, c1:"#6B21A8", c2:"#A78BFA", img1:"/penta-coin.png", img2:"/proto-coin.png" },
-  { id: "legend",   label: "Legend",    desc: "Reach Legend",   owned: false, c1:"#F59E0B", c2:"#FCD34D", img1:"/penta-coin.png", img2:"/proto-coin.png" },
+  { id: "default", label: "Standard", desc: "Default", owned: true, c1: "#F59E0B", c2: "#4FC3F7", img1: "/penta-coin.png", img2: "/proto-coin.png" },
 ];
 
 const COIN_TOSS_ANIMS: { id: string; label: string; desc: string; condition: (p: any) => boolean; price?: number }[] = [
-  { id: "default",   label: "Classic Flip",   desc: "Default animation",  condition: (_p: any) => true },
-  { id: "slow_mo",   label: "Slow Motion",    desc: "Purchase for 500 ⬡", condition: (p: any) => (p?.purchased_items ?? []).includes("toss_slow_mo"),   price: 500 },
-  { id: "lightning", label: "Lightning Flip", desc: "Purchase for 500 ⬡", condition: (p: any) => (p?.purchased_items ?? []).includes("toss_lightning"), price: 500 },
-  { id: "galaxy",    label: "Galaxy Spin",    desc: "Purchase for 500 ⬡", condition: (p: any) => (p?.purchased_items ?? []).includes("toss_galaxy"),    price: 500 },
-  { id: "matrix",    label: "Matrix Drop",    desc: "Purchase for 500 ⬡", condition: (p: any) => (p?.purchased_items ?? []).includes("toss_matrix"),    price: 500 },
+  { id: "default", label: "Classic Flip", desc: "Default animation", condition: (_p: any) => true },
 ];
 
-const PIECE_SKINS: { id: string; label: string; desc: string; condition: (p: any) => boolean; p1: string; p2: string; p1c: string; p2c: string; price?: number; isFlameSkull?: boolean }[] = [
-  { id: "default",     label: "Classic",      desc: "Default pieces",              condition: (_p: any) => true,                                                          p1:"X",  p2:"Y",  p1c:"#FFFFFF", p2c:"#CC0000" },
-  { id: "roman",       label: "Roman",        desc: "Purchase for 500 ⬡",          condition: (p: any) => (p?.purchased_items ?? []).includes("piece_roman"),             p1:"I",  p2:"V",  p1c:"#D4AF37", p2c:"#C0C0C0", price: 500 },
-  { id: "rune",        label: "Runic",        desc: "Purchase for 500 ⬡",          condition: (p: any) => (p?.purchased_items ?? []).includes("piece_rune"),              p1:"R",  p2:"T",  p1c:"#34D399", p2c:"#A78BFA", price: 500 },
-  { id: "symbol",      label: "Arcane",       desc: "Purchase for 500 ⬡",          condition: (p: any) => (p?.purchased_items ?? []).includes("piece_symbol"),           p1:"+",  p2:"*",  p1c:"#10B981", p2c:"#60A5FA", price: 500 },
-  { id: "legend",      label: "Legend Mark",  desc: "Purchase for 500 ⬡",          condition: (p: any) => (p?.purchased_items ?? []).includes("piece_legend"),           p1:"^",  p2:"@",  p1c:"#F59E0B", p2c:"#FF3333", price: 500 },
-  { id: "flame_skull", label: "Flame & Skull", desc: "Purchase for 500 ⬡",         condition: (p: any) => (p?.purchased_items ?? []).includes("piece_flame_skull"),      p1:"🔥", p2:"💀", p1c:"#FF4400", p2c:"#AAAAAA", price: 500, isFlameSkull: true },
-  { id: "snowflake_shard", label: "Snow & Shard", desc: "Purchase for 500 ⬡", condition: (p: any) => (p?.purchased_items ?? []).includes("piece_snowflake_shard"), p1: "❄", p2: "◆", p1c: "#C8EEFF", p2c: "#64C8FF", 
-  price: 500
-},
+const PIECE_SKINS: { id: string; label: string; desc: string; condition: (p: any) => boolean; p1: string; p2: string; p1c: string; p2c: string; price?: number; isFlameSkull?: boolean; isSnowShard?: boolean }[] = [
+  { id: "default",          label: "Classic",      desc: "Default pieces",     condition: (_p: any) => true,                                                             p1: "X",  p2: "Y",  p1c: "#FFFFFF", p2c: "#CC0000" },
+  { id: "flame_skull",      label: "Flame & Skull", desc: "Purchase for 599 ⬡", condition: (p: any) => (p?.purchased_items ?? []).includes("piece_flame_skull"),       p1: "🔥", p2: "💀", p1c: "#FF4400", p2c: "#AAAAAA", price: 599, isFlameSkull: true },
+  { id: "snowflake_shard",  label: "Snow & Shard",  desc: "Purchase for 599 ⬡", condition: (p: any) => (p?.purchased_items ?? []).includes("piece_snowflake_shard"),   p1: "❄",  p2: "◆",  p1c: "#C8EEFF", p2c: "#64C8FF", price: 599, isSnowShard: true },
 ];
 
 const BANNERS = [
-  { id: "default",  label: "Default",        gradient: "linear-gradient(135deg,#1a1a2e,#16213e)",         owned: true  },
-  { id: "crimson",  label: "Crimson Dawn",   gradient: "linear-gradient(135deg,#1a0000,#4a0000,#8b0000)", owned: false },
-  { id: "emerald",  label: "Emerald Depths", gradient: "linear-gradient(135deg,#001a0d,#003d1a,#006b2e)", owned: false },
-  { id: "ocean",    label: "Deep Ocean",     gradient: "linear-gradient(135deg,#000d1a,#001f3f,#003366)", owned: false },
-  { id: "void",     label: "The Void",       gradient: "linear-gradient(135deg,#000000,#0d0015,#1a0030)", owned: false },
-  { id: "gold",     label: "Golden Era",     gradient: "linear-gradient(135deg,#1a1000,#3d2800,#6b4400)", owned: false },
+  { id: "default", label: "Default", gradient: "linear-gradient(135deg,#1a1a2e,#16213e)", owned: true },
 ];
 
-// Sound pack options (owned ones only for now = classic + space + pixel since all themes are owned)
+// Sound pack options
 const SFX_PACKS: { id: SfxPack; label: string; desc: string; owned: boolean; color: string }[] = [
-  { id: "classic", label: "Classic",  desc: "Refined, minimal clicks",  owned: true, color: "#CCCCCC" },
-  { id: "space",   label: "Space",    desc: "Atmospheric space sounds",  owned: true, color: "#3A78D4" },
-  { id: "pixel",   label: "Pixel",    desc: "Retro 8-bit sound effects", owned: true, color: "#879A77" },
+  { id: "classic", label: "Classic", desc: "Refined, minimal clicks",  owned: true, color: "#CCCCCC" },
+  { id: "space",   label: "Space",   desc: "Atmospheric space sounds",  owned: true, color: "#3A78D4" },
+  { id: "pixel",   label: "Pixel",   desc: "Retro 8-bit sound effects", owned: true, color: "#879A77" },
 ];
 
 // Background sources
@@ -116,32 +92,20 @@ const BG_SOURCES: { id: BgSource; label: string; preview: string; owned: boolean
 type CatId = "themes" | "board" | "banners" | "borders" | "coins" | "toss" | "titles" | "pieces";
 
 const CATEGORIES: { id: CatId; label: string; icon: string; count: (p: any) => number }[] = [
-  { id: "themes",  label: "Themes",           icon: "palette", count: () => COLLECTION_THEMES.filter(x=>x.owned).length },
-  { id: "board",   label: "Board Skins",      icon: "board",   count: (p) => BOARD_SKINS.filter(x=>x.condition(p)).length },
-  { id: "banners", label: "Profile Banners",  icon: "banner",  count: () => BANNERS.filter(x=>x.owned).length },
-  { id: "borders", label: "Profile Borders",  icon: "border",  count: () => PROFILE_BORDERS.filter(x=>x.id==="none"||x.id==="silver").length },
-  { id: "coins",   label: "Coin Skins",       icon: "coin",    count: () => COIN_SKINS.filter(x=>x.owned).length },
-  { id: "toss",    label: "Toss Animations",  icon: "toss",    count: (p) => COIN_TOSS_ANIMS.filter(x=>x.condition(p)).length },
+  { id: "themes",  label: "Themes",           icon: "palette", count: () => COLLECTION_THEMES.filter(x => x.owned).length },
+  { id: "board",   label: "Board Skins",      icon: "board",   count: (p) => BOARD_SKINS.filter(x => x.condition(p)).length },
+  { id: "banners", label: "Profile Banners",  icon: "banner",  count: () => BANNERS.filter(x => x.owned).length },
+  { id: "coins",   label: "Coin Skins",       icon: "coin",    count: () => COIN_SKINS.filter(x => x.owned).length },
+  { id: "toss",    label: "Toss Animations",  icon: "toss",    count: (p) => COIN_TOSS_ANIMS.filter(x => x.condition(p)).length },
   { id: "titles",  label: "Titles",           icon: "title",   count: (p) => TITLES.filter(ti => ti.condition(p)).length },
-  { id: "pieces",  label: "Piece Skins",      icon: "piece",   count: (p) => PIECE_SKINS.filter(x=>x.condition(p)).length },
-];
-
-// ── Custom Theme Section ──────────────────────────────────────────────────────
-type CustomSlot = { key: keyof CustomThemeConfig; label: string; icon: string };
-const CUSTOM_SLOTS: CustomSlot[] = [
-  { key: "sfxPack",  label: "Sound Pack",       icon: "🔊" },
-  { key: "background", label: "Background",        icon: "🖼" },
-  { key: "boardSkin",  label: "Board Skin",        icon: "⬛" },
-  { key: "coinSkin",   label: "Coin Skin",         icon: "🪙" },
-  { key: "tossSkin",   label: "Toss Animation",    icon: "🌀" },
-  { key: "pieceSkin",  label: "Piece Skin",        icon: "✖" },
+  { id: "pieces",  label: "Piece Skins",      icon: "piece",   count: (p) => PIECE_SKINS.filter(x => x.condition(p)).length },
 ];
 
 function getSlotOptions(key: keyof CustomThemeConfig, profile?: any) {
-  if (key === "sfxPack")  return SFX_PACKS.map(x => ({ id: x.id,    label: x.label, desc: x.desc,   owned: x.owned, preview: null,      color: x.color }));
-  if (key === "background") return BG_SOURCES.map(x  => ({ id: x.id,    label: x.label, desc: "",        owned: x.owned, preview: x.preview, color: null }));
+  if (key === "sfxPack")    return SFX_PACKS.map(x => ({ id: x.id, label: x.label, desc: x.desc, owned: x.owned, preview: null, color: x.color }));
+  if (key === "background") return BG_SOURCES.map(x => ({ id: x.id, label: x.label, desc: "", owned: x.owned, preview: x.preview, color: null }));
   if (key === "boardSkin")  return BOARD_SKINS.map(x => ({ id: x.id, label: x.label, desc: x.desc, owned: x.condition(profile ?? {}), preview: x.preview, color: x.border }));
-  if (key === "coinSkin")   return COIN_SKINS.map(x  => ({ id: x.id,    label: x.label, desc: x.desc,   owned: x.owned, preview: null,      color: x.c1 }));
+  if (key === "coinSkin")   return COIN_SKINS.map(x => ({ id: x.id, label: x.label, desc: x.desc, owned: x.owned, preview: null, color: x.c1 }));
   if (key === "tossSkin")   return COIN_TOSS_ANIMS.map(x => ({ id: x.id, label: x.label, desc: x.desc, owned: x.condition(profile ?? {}), preview: null, color: null }));
   if (key === "pieceSkin")  return PIECE_SKINS.map(x => ({ id: x.id, label: x.label, desc: x.desc, owned: x.condition(profile ?? {}), preview: null, color: x.p1c }));
   return [];
@@ -152,6 +116,17 @@ function getSlotLabel(key: keyof CustomThemeConfig, value: string, profile?: any
   return opts.find(o => o.id === value)?.label ?? value;
 }
 
+type CustomSlot = { key: keyof CustomThemeConfig; label: string; icon: string };
+const CUSTOM_SLOTS: CustomSlot[] = [
+  { key: "sfxPack",    label: "Sound Pack",     icon: "🔊" },
+  { key: "background", label: "Background",     icon: "🖼" },
+  { key: "boardSkin",  label: "Board Skin",     icon: "⬛" },
+  { key: "coinSkin",   label: "Coin Skin",      icon: "🪙" },
+  { key: "tossSkin",   label: "Toss Animation", icon: "🌀" },
+  { key: "pieceSkin",  label: "Piece Skin",     icon: "✖" },
+];
+
+// ── CustomThemeSection ────────────────────────────────────────────────────────
 interface CustomThemeSectionProps {
   t: typeof THEMES[ThemeId];
   ip: boolean;
@@ -188,221 +163,70 @@ function CustomThemeSection({ t, ip, themeId, profile, setThemeId, onHover, onCl
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
-
-      {/* Header card — preview + apply */}
-      <div style={{
-        borderRadius: ip ? 2 : 16,
-        overflow: "hidden",
-        border: `2px solid ${isActive ? accentHex : t.border}`,
-        background: t.bgCard,
-        boxShadow: isActive ? `0 0 24px ${accentHex}33` : "none",
-      }}>
-        {/* Preview strip */}
-        <div style={{
-          height: 80,
-          background: bgPreview,
-          position: "relative",
-          display: "flex", alignItems: "center", justifyContent: "center", gap: 18,
-        }}>
-          {/* Mini board preview */}
-          <div style={{
-            display: "grid", gridTemplateColumns: "repeat(4,12px)", gap: 2,
-            opacity: 0.85,
-          }}>
+      <div style={{ borderRadius: ip ? 2 : 16, overflow: "hidden", border: `2px solid ${isActive ? accentHex : t.border}`, background: t.bgCard, boxShadow: isActive ? `0 0 24px ${accentHex}33` : "none" }}>
+        <div style={{ height: 80, background: bgPreview, position: "relative", display: "flex", alignItems: "center", justifyContent: "center", gap: 18 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(4,12px)", gap: 2, opacity: 0.85 }}>
             {Array.from({ length: 16 }).map((_, i) => (
-              <div key={i} style={{
-                width: 12, height: 12,
-                background: BOARD_SKINS.find(b => b.id === cfg.boardSkin)?.border ?? "#333",
-                borderRadius: 1,
-              }} />
+              <div key={i} style={{ width: 12, height: 12, background: BOARD_SKINS.find(b => b.id === cfg.boardSkin)?.border ?? "#333", borderRadius: 1 }} />
             ))}
           </div>
-          {/* Piece preview */}
-          <div style={{ display: "flex", gap: 8 }}>
-            {(["default","roman","rune","symbol","legend"] as const).map(id => {
-              const skin = PIECE_SKINS.find(p => p.id === id)!;
-              const active = cfg.pieceSkin === id;
-              return active ? (
-                <div key={id} style={{ display: "flex", gap: 6 }}>
-                  <span style={{ fontFamily: "monospace", fontWeight: 900, fontSize: 20, color: skin.p1c, textShadow: `0 0 8px ${skin.p1c}88` }}>{skin.p1}</span>
-                  <span style={{ fontFamily: "monospace", fontWeight: 900, fontSize: 20, color: skin.p2c, textShadow: `0 0 8px ${skin.p2c}88` }}>{skin.p2}</span>
-                </div>
-              ) : null;
-            })}
-          </div>
-          {/* Coin preview */}
-          {(() => {
-            const coin = COIN_SKINS.find(c => c.id === cfg.coinSkin)!;
-            return (
-              <div style={{ display: "flex", gap: 6 }}>
-                <div style={{ width: 22, height: 22, borderRadius: "50%", background: `radial-gradient(circle at 35% 35%, ${coin.c1}, ${coin.c1}88)`, boxShadow: `0 0 8px ${coin.c1}66` }} />
-                <div style={{ width: 22, height: 22, borderRadius: "50%", background: `radial-gradient(circle at 35% 35%, ${coin.c2}, ${coin.c2}88)`, boxShadow: `0 0 8px ${coin.c2}66` }} />
-              </div>
-            );
-          })()}
           {isActive && (
-            <div style={{
-              position: "absolute", top: 8, right: 10,
-              background: accentHex, borderRadius: 10,
-              padding: "2px 10px",
-              fontFamily: t.fontMono, fontSize: 9, color: "#000", fontWeight: 800, letterSpacing: "0.1em",
-            }}>ACTIVE</div>
+            <div style={{ position: "absolute", top: 8, right: 10, background: accentHex, borderRadius: 10, padding: "2px 10px", fontFamily: t.fontMono, fontSize: 9, color: "#000", fontWeight: 800, letterSpacing: "0.1em" }}>ACTIVE</div>
           )}
         </div>
-
-        {/* Info row */}
         <div style={{ padding: "14px 18px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
           <div>
             <div style={{ fontFamily: t.fontDisplay, fontSize: 17, fontWeight: 700, color: t.text }}>Custom Theme</div>
-            <div style={{ fontFamily: t.fontBody, fontSize: 12, color: t.textMuted, marginTop: 2 }}>
-              Mix and match assets from any owned theme
-            </div>
+            <div style={{ fontFamily: t.fontBody, fontSize: 12, color: t.textMuted, marginTop: 2 }}>Mix and match assets from any owned theme</div>
           </div>
           <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-            {saved && (
-              <span style={{ fontFamily: t.fontMono, fontSize: 10, color: t.success ?? accentHex, letterSpacing: "0.08em", animation: "fadeIn 0.2s ease" }}>
-                ✓ SAVED
-              </span>
-            )}
-            <button
-              onClick={() => { onClick?.(); reset(); }}
-              onMouseEnter={() => onHover?.()}
-              style={{
-                background: "transparent",
-                border: `1px solid ${t.border}`,
-                borderRadius: ip ? 2 : 8,
-                color: t.textMuted,
-                fontFamily: t.fontMono, fontSize: 10,
-                padding: "7px 14px", cursor: "pointer",
-                letterSpacing: "0.08em",
-              }}
-            >RESET</button>
+            {saved && <span style={{ fontFamily: t.fontMono, fontSize: 10, color: accentHex, letterSpacing: "0.08em" }}>✓ SAVED</span>}
+            <button onClick={() => { onClick?.(); reset(); }} onMouseEnter={() => onHover?.()}
+              style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: ip ? 2 : 8, color: t.textMuted, fontFamily: t.fontMono, fontSize: 10, padding: "7px 14px", cursor: "pointer", letterSpacing: "0.08em" }}>RESET</button>
             {setThemeId && (
-              <button
-                onClick={() => { onClick?.(); setThemeId("custom" as ThemeId); }}
-                onMouseEnter={() => onHover?.()}
-                style={{
-                  background: isActive ? accentHex : `${accentHex}18`,
-                  border: `2px solid ${accentHex}`,
-                  borderRadius: ip ? 2 : 8,
-                  color: isActive ? "#000" : accentHex,
-                  fontFamily: t.fontDisplay, fontSize: 12, fontWeight: 700,
-                  padding: "8px 20px", cursor: "pointer",
-                  letterSpacing: "0.08em",
-                  transition: "all 0.2s",
-                }}
-              >{isActive ? "ACTIVE" : "APPLY"}</button>
+              <button onClick={() => { onClick?.(); setThemeId("custom" as ThemeId); }} onMouseEnter={() => onHover?.()}
+                style={{ background: isActive ? accentHex : `${accentHex}18`, border: `2px solid ${accentHex}`, borderRadius: ip ? 2 : 8, color: isActive ? "#000" : accentHex, fontFamily: t.fontDisplay, fontSize: 12, fontWeight: 700, padding: "8px 20px", cursor: "pointer", letterSpacing: "0.08em", transition: "all 0.2s" }}>
+                {isActive ? "ACTIVE" : "APPLY"}
+              </button>
             )}
           </div>
         </div>
       </div>
 
-      {/* Slot editors */}
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         {CUSTOM_SLOTS.map(slot => {
           const isOpen = activeSlot === slot.key;
           const options = getSlotOptions(slot.key, profile);
           const currentLabel = getSlotLabel(slot.key, cfg[slot.key] as string, profile);
-
           return (
-            <div key={slot.key} style={{
-              borderRadius: ip ? 2 : 12,
-              border: `1px solid ${isOpen ? accentHex : t.border}`,
-              background: isOpen ? `${accentHex}08` : t.bgCard,
-              overflow: "hidden",
-              transition: "border-color 0.2s, background 0.2s",
-            }}>
-              {/* Slot header */}
-              <button
-                onClick={() => { onClick?.(); setActiveSlot(isOpen ? null : slot.key); }}
-                onMouseEnter={() => onHover?.()}
-                style={{
-                  width: "100%", display: "flex", alignItems: "center",
-                  gap: 12, padding: "13px 16px",
-                  background: "transparent", border: "none", cursor: "pointer",
-                  textAlign: "left" as const,
-                }}
-              >
+            <div key={slot.key} style={{ borderRadius: ip ? 2 : 12, border: `1px solid ${isOpen ? accentHex : t.border}`, background: isOpen ? `${accentHex}08` : t.bgCard, overflow: "hidden", transition: "border-color 0.2s, background 0.2s" }}>
+              <button onClick={() => { onClick?.(); setActiveSlot(isOpen ? null : slot.key); }} onMouseEnter={() => onHover?.()}
+                style={{ width: "100%", display: "flex", alignItems: "center", gap: 12, padding: "13px 16px", background: "transparent", border: "none", cursor: "pointer", textAlign: "left" as const }}>
                 <span style={{ fontSize: 15, flexShrink: 0 }}>{slot.icon}</span>
-                <span style={{ fontFamily: t.fontBody, fontSize: 14, color: t.textMuted, flex: 1 }}>
-                  {slot.label}
-                </span>
-                <span style={{
-                  fontFamily: t.fontMono, fontSize: 11, fontWeight: 700,
-                  color: isOpen ? accentHex : t.text,
-                  background: `${isOpen ? accentHex : t.border}18`,
-                  padding: "3px 10px", borderRadius: 8,
-                }}>
-                  {currentLabel}
-                </span>
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={isOpen ? accentHex : t.textMuted} strokeWidth="2.5" strokeLinecap="round"
-                  style={{ transform: isOpen ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.2s", flexShrink: 0 }}>
-                  <polyline points="6 9 12 15 18 9"/>
-                </svg>
+                <span style={{ fontFamily: t.fontBody, fontSize: 14, color: t.textMuted, flex: 1 }}>{slot.label}</span>
+                <span style={{ fontFamily: t.fontMono, fontSize: 11, fontWeight: 700, color: isOpen ? accentHex : t.text, background: `${isOpen ? accentHex : t.border}18`, padding: "3px 10px", borderRadius: 8 }}>{currentLabel}</span>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={isOpen ? accentHex : t.textMuted} strokeWidth="2.5" strokeLinecap="round" style={{ transform: isOpen ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.2s", flexShrink: 0 }}><polyline points="6 9 12 15 18 9"/></svg>
               </button>
-
-              {/* Options grid */}
               {isOpen && (
-                <div style={{
-                  padding: "4px 14px 14px",
-                  display: "grid",
-                  gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))",
-                  gap: 8,
-                  borderTop: `1px solid ${t.border}44`,
-                }}>
+                <div style={{ padding: "4px 14px 14px", display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: 8, borderTop: `1px solid ${t.border}44` }}>
                   {options.map((opt, optIdx) => {
                     const isSelected = cfg[slot.key] === opt.id;
                     const locked = !opt.owned;
                     return (
-                      <div
-                        key={String(opt.id) + optIdx}
-                        onClick={() => { if (!locked) { onClick?.(); update(slot.key, opt.id); }}}
+                      <div key={String(opt.id) + optIdx}
+                        onClick={() => { if (!locked) { onClick?.(); update(slot.key, opt.id); } }}
                         onMouseEnter={() => { if (!locked) onHover?.(); }}
-                        style={{
-                          borderRadius: ip ? 2 : 8,
-                          border: `2px solid ${isSelected ? accentHex : locked ? t.border + "33" : t.border}`,
-                          background: isSelected ? `${accentHex}14` : locked ? t.bgCard + "88" : t.bgCard,
-                          padding: "10px 12px",
-                          cursor: locked ? "default" : "pointer",
-                          opacity: locked ? 0.45 : 1,
-                          position: "relative" as const,
-                          transition: "border-color 0.15s, background 0.15s",
-                          display: "flex", flexDirection: "column" as const, gap: 6,
-                        }}
-                      >
-                        {/* Color / preview swatch */}
-                        {opt.preview && (
-                          <div style={{ height: 28, borderRadius: ip ? 1 : 4, background: opt.preview, marginBottom: 2 }} />
-                        )}
-                        {!opt.preview && opt.color && (
-                          <div style={{ width: 20, height: 20, borderRadius: "50%", background: opt.color, boxShadow: isSelected ? `0 0 8px ${opt.color}88` : "none" }} />
-                        )}
-
-                        <div style={{ fontFamily: t.fontDisplay, fontSize: 13, fontWeight: 700, color: locked ? t.textMuted : (isSelected ? accentHex : t.text) }}>
-                          {opt.label}
-                        </div>
-                        {opt.desc && (
-                          <div style={{ fontFamily: t.fontBody, fontSize: 11, color: t.textMuted, lineHeight: 1.3 }}>
-                            {locked ? opt.desc : "Owned"}
-                          </div>
-                        )}
-
-                        {/* Selected check */}
+                        style={{ borderRadius: ip ? 2 : 8, border: `2px solid ${isSelected ? accentHex : locked ? t.border + "33" : t.border}`, background: isSelected ? `${accentHex}14` : locked ? t.bgCard + "88" : t.bgCard, padding: "10px 12px", cursor: locked ? "default" : "pointer", opacity: locked ? 0.45 : 1, position: "relative" as const, transition: "border-color 0.15s, background 0.15s", display: "flex", flexDirection: "column" as const, gap: 6 }}>
+                        {opt.preview && <div style={{ height: 28, borderRadius: ip ? 1 : 4, background: opt.preview, marginBottom: 2 }} />}
+                        {!opt.preview && opt.color && <div style={{ width: 20, height: 20, borderRadius: "50%", background: opt.color, boxShadow: isSelected ? `0 0 8px ${opt.color}88` : "none" }} />}
+                        <div style={{ fontFamily: t.fontDisplay, fontSize: 13, fontWeight: 700, color: locked ? t.textMuted : (isSelected ? accentHex : t.text) }}>{opt.label}</div>
+                        {opt.desc && <div style={{ fontFamily: t.fontBody, fontSize: 11, color: t.textMuted, lineHeight: 1.3 }}>{locked ? opt.desc : "Owned"}</div>}
                         {isSelected && !locked && (
-                          <div style={{
-                            position: "absolute", top: 6, right: 6,
-                            width: 16, height: 16, borderRadius: "50%",
-                            background: accentHex,
-                            display: "flex", alignItems: "center", justifyContent: "center",
-                          }}>
+                          <div style={{ position: "absolute", top: 6, right: 6, width: 16, height: 16, borderRadius: "50%", background: accentHex, display: "flex", alignItems: "center", justifyContent: "center" }}>
                             <CheckIcon size={9} color="#000" />
                           </div>
                         )}
-                        {locked && (
-                          <div style={{ position: "absolute", top: 6, right: 6 }}>
-                            <LockIcon size={11} color="#555" />
-                          </div>
-                        )}
+                        {locked && <div style={{ position: "absolute", top: 6, right: 6 }}><LockIcon size={11} color="#555" /></div>}
                       </div>
                     );
                   })}
@@ -416,7 +240,7 @@ function CustomThemeSection({ t, ip, themeId, profile, setThemeId, onHover, onCl
   );
 }
 
-// ── ThemesWithCustomize — themes grid + inline Customize card ────────────────
+// ── ThemesWithCustomize ───────────────────────────────────────────────────────
 interface ThemesWithCustomizeProps {
   t: typeof THEMES[ThemeId];
   ip: boolean;
@@ -433,73 +257,58 @@ interface ThemesWithCustomizeProps {
 function ThemesWithCustomize({ t, ip, themeId, setThemeId, profile, activeTheme, setActiveTheme, showAll, onHover, onClick }: ThemesWithCustomizeProps) {
   const [customizeOpen, setCustomizeOpen] = useState(false);
   const accentHex = t.accent;
-
-  const themes = COLLECTION_THEMES.filter(x => showAll || x.owned);
+  const themes = showAll ? COLLECTION_THEMES : COLLECTION_THEMES.filter(x => x.owned || x.comingSoon);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(210px,1fr))", gap:14 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(210px,1fr))", gap: 14 }}>
         {themes.map(item => (
-          <div key={item.id} className={`coll-item${!item.owned?" coll-locked":""}`}
-            onClick={() => { if(item.owned && setThemeId) { onClick?.(); setThemeId(item.id as ThemeId); setActiveTheme(item.id); }}}
-            onMouseEnter={() => { if(item.owned) onHover?.(); }}
-            style={{ borderRadius:12, overflow:"hidden", border:`2px solid ${activeTheme===item.id ? accentHex : item.owned ? t.border : t.border+"44"}`, background:t.bgCard, boxShadow: activeTheme===item.id ? `0 0 18px ${accentHex}44` : "none", cursor: item.owned ? "pointer" : "default" }}>
-            <div style={{ height:70, background:item.preview, position:"relative" }}>
-              {!item.owned && <div style={{ position:"absolute", top:8, right:8, zIndex:2 }}><LockIcon size={13} color="#777" /></div>}
-              {item.owned && activeTheme===item.id && (
-                <div style={{ position:"absolute", top:8, right:8, background:accentHex, borderRadius:10, padding:"2px 8px", fontFamily:t.fontMono, fontSize:9, color:"#000", fontWeight:800, letterSpacing:"0.1em", zIndex:2 }}>ACTIVE</div>
+          <div key={item.id} className={`coll-item${item.comingSoon ? " coll-locked" : (!item.owned ? " coll-locked" : "")}`}
+            onClick={() => { if (item.owned && !item.comingSoon && setThemeId) { onClick?.(); setThemeId(item.id as ThemeId); setActiveTheme(item.id); } }}
+            onMouseEnter={() => { if (item.owned && !item.comingSoon) onHover?.(); }}
+            style={{ borderRadius: 12, overflow: "hidden", border: `2px solid ${activeTheme === item.id ? accentHex : item.owned && !item.comingSoon ? t.border : t.border + "44"}`, background: t.bgCard, boxShadow: activeTheme === item.id ? `0 0 18px ${accentHex}44` : "none", cursor: item.owned && !item.comingSoon ? "pointer" : "default" }}>
+            <div style={{ height: 70, background: item.preview, position: "relative" }}>
+              {item.comingSoon && (
+                <div style={{ position: "absolute", top: 8, right: 8, background: "rgba(0,0,0,0.7)", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 8, padding: "2px 8px", fontFamily: "monospace", fontSize: 9, color: "rgba(255,255,255,0.7)", fontWeight: 700, letterSpacing: "0.1em", zIndex: 2 }}>COMING SOON</div>
+              )}
+              {!item.comingSoon && !item.owned && <div style={{ position: "absolute", top: 8, right: 8, zIndex: 2 }}><LockIcon size={13} color="#777" /></div>}
+              {item.owned && !item.comingSoon && activeTheme === item.id && (
+                <div style={{ position: "absolute", top: 8, right: 8, background: accentHex, borderRadius: 10, padding: "2px 8px", fontFamily: t.fontMono, fontSize: 9, color: "#000", fontWeight: 800, letterSpacing: "0.1em", zIndex: 2 }}>ACTIVE</div>
               )}
             </div>
-            <div style={{ padding:"10px 12px" }}>
-              <div style={{ fontFamily:t.fontDisplay, fontSize:16, fontWeight:700, color:item.owned?t.text:t.textMuted }}>{item.label}</div>
-              <div style={{ fontFamily:t.fontBody, fontSize:12, color:t.textMuted, marginTop:3 }}>{item.owned ? (activeTheme===item.id ? "Active" : "Click to apply") : item.desc}</div>
+            <div style={{ padding: "10px 12px" }}>
+              <div style={{ fontFamily: t.fontDisplay, fontSize: 16, fontWeight: 700, color: item.comingSoon ? t.textMuted : (item.owned ? t.text : t.textMuted) }}>{item.label}</div>
+              <div style={{ fontFamily: t.fontBody, fontSize: 12, color: t.textMuted, marginTop: 3 }}>
+                {item.comingSoon ? "Coming Soon" : item.owned ? (activeTheme === item.id ? "Active" : "Click to apply") : item.desc}
+              </div>
             </div>
           </div>
         ))}
 
         {/* Customize card */}
-        <div
-          className="coll-item"
+        <div className="coll-item"
           onClick={() => { onClick?.(); setCustomizeOpen(v => !v); }}
           onMouseEnter={() => onHover?.()}
-          style={{
-            borderRadius:12, overflow:"hidden",
-            border:`2px solid ${customizeOpen ? accentHex : accentHex+"44"}`,
-            background: customizeOpen ? `${accentHex}0d` : t.bgCard,
-            boxShadow: customizeOpen ? `0 0 18px ${accentHex}33` : "none",
-            cursor: "pointer",
-          }}>
-          {/* Decorative preview strip */}
-          <div style={{ height:70, background:`linear-gradient(135deg, ${accentHex}22, ${accentHex}08)`, display:"flex", alignItems:"center", justifyContent:"center", gap:10, position:"relative" }}>
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke={accentHex} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
-            </svg>
-            <div style={{ position:"absolute", top:8, right:8, background:`${accentHex}22`, border:`1px solid ${accentHex}55`, borderRadius:8, padding:"2px 8px", fontFamily:t.fontMono, fontSize:9, color:accentHex, fontWeight:800, letterSpacing:"0.08em" }}>
+          style={{ borderRadius: 12, overflow: "hidden", border: `2px solid ${customizeOpen ? accentHex : accentHex + "44"}`, background: customizeOpen ? `${accentHex}0d` : t.bgCard, boxShadow: customizeOpen ? `0 0 18px ${accentHex}33` : "none", cursor: "pointer" }}>
+          <div style={{ height: 70, background: `linear-gradient(135deg, ${accentHex}22, ${accentHex}08)`, display: "flex", alignItems: "center", justifyContent: "center", gap: 10, position: "relative" }}>
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke={accentHex} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+            <div style={{ position: "absolute", top: 8, right: 8, background: `${accentHex}22`, border: `1px solid ${accentHex}55`, borderRadius: 8, padding: "2px 8px", fontFamily: t.fontMono, fontSize: 9, color: accentHex, fontWeight: 800, letterSpacing: "0.08em" }}>
               {customizeOpen ? "CLOSE" : "OPEN"}
             </div>
           </div>
-          <div style={{ padding:"10px 12px", display:"flex", alignItems:"center", justifyContent:"space-between", gap:8 }}>
+          <div style={{ padding: "10px 12px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
             <div>
-              <div style={{ fontFamily:t.fontDisplay, fontSize:16, fontWeight:700, color:accentHex }}>Customize</div>
-              <div style={{ fontFamily:t.fontBody, fontSize:12, color:t.textMuted, marginTop:3 }}>Mix & match owned assets</div>
+              <div style={{ fontFamily: t.fontDisplay, fontSize: 16, fontWeight: 700, color: accentHex }}>Customize</div>
+              <div style={{ fontFamily: t.fontBody, fontSize: 12, color: t.textMuted, marginTop: 3 }}>Mix & match owned assets</div>
             </div>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={accentHex} strokeWidth="2.5" strokeLinecap="round"
-              style={{ transform: customizeOpen ? "rotate(180deg)" : "rotate(0deg)", transition:"transform 0.2s", flexShrink:0 }}>
-              <polyline points="6 9 12 15 18 9"/>
-            </svg>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={accentHex} strokeWidth="2.5" strokeLinecap="round" style={{ transform: customizeOpen ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.2s", flexShrink: 0 }}><polyline points="6 9 12 15 18 9"/></svg>
           </div>
         </div>
       </div>
 
-      {/* Inline expanded CustomThemeSection */}
       {customizeOpen && (
-        <div style={{ borderRadius:ip?2:14, border:`1px solid ${accentHex}44`, background:`${accentHex}06`, padding:"20px 18px" }}>
-          <CustomThemeSection
-            t={t} ip={ip} themeId={themeId}
-            profile={profile}
-            setThemeId={setThemeId}
-            onHover={onHover} onClick={onClick}
-          />
+        <div style={{ borderRadius: ip ? 2 : 14, border: `1px solid ${accentHex}44`, background: `${accentHex}06`, padding: "20px 18px" }}>
+          <CustomThemeSection t={t} ip={ip} themeId={themeId} profile={profile} setThemeId={setThemeId} onHover={onHover} onClick={onClick} />
         </div>
       )}
     </div>
@@ -534,7 +343,6 @@ export default function CollectionScreen({ themeId, setThemeId, onHover, onClick
     setEquipping(id);
     try {
       await API.put("/api/profile/me", { board_style: id }, { headers: { Authorization: `Bearer ${token}` } });
-      // Save to customTheme localStorage so GameScreen reads it immediately
       const current = loadCustomTheme();
       saveCustomTheme({ ...current, boardSkin: id as any });
       setActiveBoard(id);
@@ -562,7 +370,7 @@ export default function CollectionScreen({ themeId, setThemeId, onHover, onClick
     setTimeout(() => setEquipMsg(null), 1800);
   };
 
-  const handleBuyBoard = (id: string, label: string, price: number) => {
+  const handleBuyItem = (id: string, label: string, price: number) => {
     if (!user) { setEquipMsg({ text: "Sign in to purchase", ok: false }); return; }
     const bal = (user as any).protocredits ?? 0;
     if (bal < price) { setInsufficientModal(true); return; }
@@ -578,20 +386,15 @@ export default function CollectionScreen({ themeId, setThemeId, onHover, onClick
       const existing = (user as any).purchased_items ?? [];
       updateUser({ protocredits: bal - purchaseModal.price, purchased_items: [...existing, purchaseModal.id] });
       setPurchaseModal(null);
-      // Auto-equip after purchase
       const id = purchaseModal.id;
       const cur = loadCustomTheme();
-      if (id === "red_grid" || BOARD_SKINS.some(b => b.id === id)) {
+      if (BOARD_SKINS.some(b => b.id === id)) {
         saveCustomTheme({ ...cur, boardSkin: id as any });
         setActiveBoard(id);
       } else if (id.startsWith("piece_")) {
         const skinId = id.replace("piece_", "");
         saveCustomTheme({ ...cur, pieceSkin: skinId as any });
         setActivePiece(skinId);
-      } else if (id.startsWith("toss_")) {
-        const skinId = id.replace("toss_", "");
-        saveCustomTheme({ ...cur, tossSkin: skinId as any });
-        setActiveToss(skinId);
       }
       setEquipMsg({ text: `✓ ${purchaseModal.label} unlocked & equipped!`, ok: true });
       setTimeout(() => setEquipMsg(null), 2200);
@@ -607,58 +410,60 @@ export default function CollectionScreen({ themeId, setThemeId, onHover, onClick
     basic: "#9CA3AF", rare: "#60A5FA", epic: "#A78BFA", legendary: "#F59E0B",
   };
 
-  return (
-    <div style={{ position:"fixed", inset:0, zIndex:2, background:t.bg, paddingTop:84, overflowY:"auto", transition:"background 0.4s" }}>
+  const totalForCat = (id: CatId) => {
+    if (id === "titles")  return TITLES.length;
+    if (id === "borders") return PROFILE_BORDERS.length;
+    if (id === "themes")  return COLLECTION_THEMES.length;
+    if (id === "board")   return BOARD_SKINS.length;
+    if (id === "banners") return BANNERS.length;
+    if (id === "coins")   return COIN_SKINS.length;
+    if (id === "toss")    return COIN_TOSS_ANIMS.length;
+    return PIECE_SKINS.length;
+  };
 
-      {/* ── Equip toast ── */}
+  return (
+    <div style={{ position: "fixed", inset: 0, zIndex: 2, background: t.bg, paddingTop: 84, overflowY: "auto", transition: "background 0.4s" }}>
+
       {equipMsg && (
-        <div style={{ position:"fixed", bottom:28, left:"50%", transform:"translateX(-50%)", zIndex:999, background:equipMsg.ok?"#1a2e1a":"#2e1a1a", border:`1px solid ${equipMsg.ok?"#4CAF50":"#EF4444"}`, borderRadius:10, padding:"9px 20px", fontFamily:t.fontMono, fontSize:12, color:equipMsg.ok?"#4CAF50":"#EF4444", boxShadow:"0 8px 28px rgba(0,0,0,0.5)", pointerEvents:"none", letterSpacing:"0.06em" }}>
-          {equipMsg.ok?"✓":"⚠"} {equipMsg.text}
+        <div style={{ position: "fixed", bottom: 28, left: "50%", transform: "translateX(-50%)", zIndex: 999, background: equipMsg.ok ? "#1a2e1a" : "#2e1a1a", border: `1px solid ${equipMsg.ok ? "#4CAF50" : "#EF4444"}`, borderRadius: 10, padding: "9px 20px", fontFamily: t.fontMono, fontSize: 12, color: equipMsg.ok ? "#4CAF50" : "#EF4444", boxShadow: "0 8px 28px rgba(0,0,0,0.5)", pointerEvents: "none", letterSpacing: "0.06em" }}>
+          {equipMsg.ok ? "✓" : "⚠"} {equipMsg.text}
         </div>
       )}
 
-      {/* ── Insufficient credits modal ── */}
       {insufficientModal && (
-        <div onClick={() => setInsufficientModal(false)} style={{ position:"fixed", inset:0, zIndex:200, background:"rgba(0,0,0,0.7)", display:"flex", alignItems:"center", justifyContent:"center" }}>
-          <div onClick={e => e.stopPropagation()} style={{ background:t.bg, border:`1px solid ${t.border}`, borderRadius:16, padding:"28px 24px", maxWidth:340, width:"90%", textAlign:"center" as const }}>
-            <div style={{ fontFamily:t.fontDisplay, fontSize:20, fontWeight:800, color:t.text, marginBottom:8 }}>Not Enough Credits</div>
-            <div style={{ fontFamily:t.fontBody, fontSize:13, color:t.textMuted, marginBottom:18 }}>
-              Balance: <span style={{ color:hoverColor }}>{(user as any)?.protocredits ?? 0} ⬡</span>
-            </div>
-            <div style={{ display:"flex", gap:10 }}>
-              <button onClick={() => setInsufficientModal(false)} style={{ flex:1, padding:"10px", background:"transparent", border:`1px solid ${t.border}`, borderRadius:8, color:t.textMuted, fontFamily:t.fontMono, fontSize:12, cursor:"pointer" }}>CANCEL</button>
-              <button onClick={() => { setInsufficientModal(false); window.dispatchEvent(new Event("pp_goto_store")); }} style={{ flex:1, padding:"10px", background:hoverColor, border:"none", borderRadius:8, color:"#000", fontFamily:t.fontDisplay, fontSize:12, fontWeight:800, cursor:"pointer" }}>GET CREDITS →</button>
+        <div onClick={() => setInsufficientModal(false)} style={{ position: "fixed", inset: 0, zIndex: 200, background: "rgba(0,0,0,0.7)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: t.bg, border: `1px solid ${t.border}`, borderRadius: 16, padding: "28px 24px", maxWidth: 340, width: "90%", textAlign: "center" as const }}>
+            <div style={{ fontFamily: t.fontDisplay, fontSize: 20, fontWeight: 800, color: t.text, marginBottom: 8 }}>Not Enough Credits</div>
+            <div style={{ fontFamily: t.fontBody, fontSize: 13, color: t.textMuted, marginBottom: 18 }}>Balance: <span style={{ color: hoverColor }}>{(user as any)?.protocredits ?? 0} ⬡</span></div>
+            <div style={{ display: "flex", gap: 10 }}>
+              <button onClick={() => setInsufficientModal(false)} style={{ flex: 1, padding: "10px", background: "transparent", border: `1px solid ${t.border}`, borderRadius: 8, color: t.textMuted, fontFamily: t.fontMono, fontSize: 12, cursor: "pointer" }}>CANCEL</button>
+              <button onClick={() => { setInsufficientModal(false); window.dispatchEvent(new Event("pp_goto_store")); }} style={{ flex: 1, padding: "10px", background: hoverColor, border: "none", borderRadius: 8, color: "#000", fontFamily: t.fontDisplay, fontSize: 12, fontWeight: 800, cursor: "pointer" }}>GET CREDITS →</button>
             </div>
           </div>
         </div>
       )}
 
-      {/* ── Confirm purchase modal ── */}
       {purchaseModal && (
-        <div onClick={() => !buyLoading && setPurchaseModal(null)} style={{ position:"fixed", inset:0, zIndex:200, background:"rgba(0,0,0,0.7)", display:"flex", alignItems:"center", justifyContent:"center" }}>
-          <div onClick={e => e.stopPropagation()} style={{ background:t.bg, border:`1px solid ${t.border}`, borderRadius:16, padding:"28px 24px", maxWidth:340, width:"90%" }}>
-            <div style={{ fontFamily:t.fontMono, fontSize:10, color:hoverColor, letterSpacing:"0.2em", marginBottom:8 }}>CONFIRM PURCHASE</div>
-            <div style={{ fontFamily:t.fontDisplay, fontSize:20, fontWeight:800, color:t.text, marginBottom:6 }}>{purchaseModal.label}</div>
-            <div style={{ fontFamily:t.fontBody, fontSize:13, color:t.textMuted, marginBottom:6 }}>Cost: <span style={{ color:hoverColor, fontWeight:700 }}>{purchaseModal.price.toLocaleString()} ⬡</span></div>
-            <div style={{ fontFamily:t.fontBody, fontSize:13, color:t.textMuted, marginBottom:18 }}>Balance after: <span style={{ color:t.text }}>{((user as any)?.protocredits ?? 0) - purchaseModal.price} ⬡</span></div>
-            <div style={{ display:"flex", gap:10 }}>
-              <button onClick={() => setPurchaseModal(null)} disabled={buyLoading} style={{ flex:1, padding:"10px", background:"transparent", border:`1px solid ${t.border}`, borderRadius:8, color:t.textMuted, fontFamily:t.fontMono, fontSize:12, cursor:"pointer" }}>CANCEL</button>
-              <button onClick={confirmPurchase} disabled={buyLoading} style={{ flex:1, padding:"10px", background:buyLoading?`${hoverColor}55`:hoverColor, border:"none", borderRadius:8, color:"#000", fontFamily:t.fontDisplay, fontSize:12, fontWeight:800, cursor:buyLoading?"not-allowed":"pointer", boxShadow:buyLoading?"none":`0 0 16px ${hoverColor}44` }}>
-                {buyLoading?"...":"CONFIRM"}
+        <div onClick={() => !buyLoading && setPurchaseModal(null)} style={{ position: "fixed", inset: 0, zIndex: 200, background: "rgba(0,0,0,0.7)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: t.bg, border: `1px solid ${t.border}`, borderRadius: 16, padding: "28px 24px", maxWidth: 340, width: "90%" }}>
+            <div style={{ fontFamily: t.fontMono, fontSize: 10, color: hoverColor, letterSpacing: "0.2em", marginBottom: 8 }}>CONFIRM PURCHASE</div>
+            <div style={{ fontFamily: t.fontDisplay, fontSize: 20, fontWeight: 800, color: t.text, marginBottom: 6 }}>{purchaseModal.label}</div>
+            <div style={{ fontFamily: t.fontBody, fontSize: 13, color: t.textMuted, marginBottom: 6 }}>Cost: <span style={{ color: hoverColor, fontWeight: 700 }}>{purchaseModal.price.toLocaleString()} ⬡</span></div>
+            <div style={{ fontFamily: t.fontBody, fontSize: 13, color: t.textMuted, marginBottom: 18 }}>Balance after: <span style={{ color: t.text }}>{((user as any)?.protocredits ?? 0) - purchaseModal.price} ⬡</span></div>
+            <div style={{ display: "flex", gap: 10 }}>
+              <button onClick={() => setPurchaseModal(null)} disabled={buyLoading} style={{ flex: 1, padding: "10px", background: "transparent", border: `1px solid ${t.border}`, borderRadius: 8, color: t.textMuted, fontFamily: t.fontMono, fontSize: 12, cursor: "pointer" }}>CANCEL</button>
+              <button onClick={confirmPurchase} disabled={buyLoading} style={{ flex: 1, padding: "10px", background: buyLoading ? `${hoverColor}55` : hoverColor, border: "none", borderRadius: 8, color: "#000", fontFamily: t.fontDisplay, fontSize: 12, fontWeight: 800, cursor: buyLoading ? "not-allowed" : "pointer" }}>
+                {buyLoading ? "..." : "CONFIRM"}
               </button>
             </div>
           </div>
         </div>
       )}
+
       <style>{`
         .coll-cat-btn { transition: all 0.2s cubic-bezier(.22,.68,0,1.2); }
         .coll-cat-btn:hover { transform: translateX(4px); }
-        .coll-item {
-          transition: transform 0.22s cubic-bezier(.22,.68,0,1.2),
-                      box-shadow 0.22s cubic-bezier(.22,.68,0,1.2),
-                      border-color 0.18s ease, background 0.18s ease;
-          cursor: pointer;
-        }
+        .coll-item { transition: transform 0.22s cubic-bezier(.22,.68,0,1.2), box-shadow 0.22s cubic-bezier(.22,.68,0,1.2), border-color 0.18s ease, background 0.18s ease; cursor: pointer; }
         .coll-item:hover { transform: translateY(-4px) scale(1.02); box-shadow: 0 12px 32px rgba(0,0,0,0.35) !important; }
         .coll-item:active { transform: translateY(-1px) scale(1.005); }
         .coll-locked { position: relative; overflow: hidden; }
@@ -667,42 +472,24 @@ export default function CollectionScreen({ themeId, setThemeId, onHover, onClick
         @keyframes fadeIn { from{opacity:0} to{opacity:1} }
       `}</style>
 
-      <div style={{ maxWidth:1100, margin:"0 auto", padding:"0 24px 48px", display:"flex", gap:24 }}>
+      <div style={{ maxWidth: 1100, margin: "0 auto", padding: "0 24px 48px", display: "flex", gap: 24 }}>
 
         {/* ── Sidebar ── */}
-        <div style={{ width:220, flexShrink:0 }}>
-          <div style={{ fontFamily:t.fontMono, fontSize:11, color:t.textMuted, letterSpacing:"0.18em", marginBottom:14, paddingTop:4 }}>COLLECTION</div>
-          <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
+        <div style={{ width: 220, flexShrink: 0 }}>
+          <div style={{ fontFamily: t.fontMono, fontSize: 11, color: t.textMuted, letterSpacing: "0.18em", marginBottom: 14, paddingTop: 4 }}>COLLECTION</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
             {CATEGORIES.map(cat => {
               const isActive = activeCat === cat.id;
               const owned = cat.count(profile);
-              const total = cat.id === "titles" ? TITLES.length
-                          : cat.id === "borders" ? PROFILE_BORDERS.length
-                          : cat.id === "themes" ? COLLECTION_THEMES.length
-                          : cat.id === "board" ? BOARD_SKINS.length
-                          : cat.id === "banners" ? BANNERS.length
-                          : cat.id === "coins" ? COIN_SKINS.length
-                          : cat.id === "toss" ? COIN_TOSS_ANIMS.length
-                          : PIECE_SKINS.length;
-
+              const total = totalForCat(cat.id);
               return (
                 <button key={cat.id} className="coll-cat-btn"
                   onClick={() => { onClick?.(); setActiveCat(cat.id); setShowAll(false); }}
                   onMouseEnter={() => onHover?.()}
-                  style={{
-                    display:"flex", alignItems:"center", gap:10,
-                    padding:"10px 14px", borderRadius:ip?2:10,
-                    background: isActive ? `${t.accent}16` : "transparent",
-                    border:`1px solid ${isActive?t.accent:t.border+"44"}`,
-                    color: isActive ? t.accent : t.textMuted,
-                    fontFamily:t.fontBody, fontSize:15,
-                    fontWeight: (isActive?800:500) as React.CSSProperties["fontWeight"],
-                    cursor:"pointer", textAlign:"left" as const,
-                    boxShadow: isActive ? `0 0 12px ${t.accent}22` : "none",
-                  }}>
+                  style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", borderRadius: ip ? 2 : 10, background: isActive ? `${t.accent}16` : "transparent", border: `1px solid ${isActive ? t.accent : t.border + "44"}`, color: isActive ? t.accent : t.textMuted, fontFamily: t.fontBody, fontSize: 15, fontWeight: (isActive ? 800 : 500) as React.CSSProperties["fontWeight"], cursor: "pointer", textAlign: "left" as const, boxShadow: isActive ? `0 0 12px ${t.accent}22` : "none" }}>
                   <CatIcon id={cat.icon} size={16} color={isActive ? t.accent : t.textMuted} />
-                  <span style={{ flex:1 }}>{cat.label}</span>
-                  <span style={{ fontFamily:t.fontMono, fontSize:11, color:isActive?t.accent:t.textMuted, background:`${isActive?t.accent:t.border}18`, padding:"3px 9px", borderRadius:10, fontWeight:700 }}>
+                  <span style={{ flex: 1 }}>{cat.label}</span>
+                  <span style={{ fontFamily: t.fontMono, fontSize: 11, color: isActive ? t.accent : t.textMuted, background: `${isActive ? t.accent : t.border}18`, padding: "3px 9px", borderRadius: 10, fontWeight: 700 }}>
                     {owned}/{total}
                   </span>
                 </button>
@@ -712,92 +499,76 @@ export default function CollectionScreen({ themeId, setThemeId, onHover, onClick
         </div>
 
         {/* ── Main content ── */}
-        <div style={{ flex:1, minWidth:0 }}>
-
-          {/* Header — hide show all toggle for custom */}
-          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:20, paddingTop:4 }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20, paddingTop: 4 }}>
             <div>
-              <div style={{ fontFamily:t.fontDisplay, fontSize:22, fontWeight:700, color:t.text }}>{catData.label}</div>
-              <div style={{ fontFamily:t.fontBody, fontSize:13, color:t.textMuted, marginTop:2 }}>
-                {`${catData.count(profile)} owned · ${
-                    catData.id==="titles" ? TITLES.length
-                  : catData.id==="borders" ? PROFILE_BORDERS.length
-                  : catData.id==="themes" ? COLLECTION_THEMES.length
-                  : catData.id==="board" ? BOARD_SKINS.length
-                  : catData.id==="banners" ? BANNERS.length
-                  : catData.id==="coins" ? COIN_SKINS.length
-                  : catData.id==="toss" ? COIN_TOSS_ANIMS.length
-                  : PIECE_SKINS.length} total`
-                }
+              <div style={{ fontFamily: t.fontDisplay, fontSize: 22, fontWeight: 700, color: t.text }}>{catData.label}</div>
+              <div style={{ fontFamily: t.fontBody, fontSize: 13, color: t.textMuted, marginTop: 2 }}>
+                {`${catData.count(profile)} owned · ${totalForCat(activeCat)} total`}
               </div>
             </div>
-            <div onClick={() => { onClick?.(); setShowAll(v=>!v); }}
-              onMouseEnter={() => onHover?.()}
-              style={{ fontFamily:t.fontMono, fontSize:11, color:t.accent, cursor:"pointer", letterSpacing:"0.08em", userSelect:"none" as const }}>
+            <div onClick={() => { onClick?.(); setShowAll(v => !v); }} onMouseEnter={() => onHover?.()}
+              style={{ fontFamily: t.fontMono, fontSize: 11, color: t.accent, cursor: "pointer", letterSpacing: "0.08em", userSelect: "none" as const }}>
               {showAll ? "SHOW OWNED ONLY" : "SHOW ALL"}
             </div>
           </div>
 
-          {/* ── THEMES (with inline Customize card) ── */}
-          {activeCat==="themes" && (
-            <ThemesWithCustomize
-              t={t} ip={ip} themeId={themeId} profile={profile}
-              setThemeId={setThemeId} activeTheme={activeTheme} setActiveTheme={setActiveTheme}
-              showAll={showAll} onHover={onHover} onClick={onClick}
-            />
+          {/* ── THEMES ── */}
+          {activeCat === "themes" && (
+            <ThemesWithCustomize t={t} ip={ip} themeId={themeId} profile={profile} setThemeId={setThemeId} activeTheme={activeTheme} setActiveTheme={setActiveTheme} showAll={showAll} onHover={onHover} onClick={onClick} />
           )}
 
           {/* ── BOARD SKINS ── */}
-          {activeCat==="board" && (
-            <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(210px,1fr))", gap:14 }}>
+          {activeCat === "board" && (
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(210px,1fr))", gap: 14 }}>
               {BOARD_SKINS.filter(x => showAll || x.condition(profile)).map(item => {
                 const owned = item.condition(profile);
                 const isPurchasable = !!item.price && !owned;
                 return (
-                <div key={item.id} className={`coll-item${!owned?" coll-locked":""}`}
-                  onClick={() => { if (owned && activeBoard !== item.id && equipping !== item.id) { onClick?.(); equipBoard(item.id); } }}
-                  onMouseEnter={() => { if (owned) onHover?.(); }}
-                  style={{ borderRadius:12, overflow:"hidden", border:`1.5px solid ${owned?(activeBoard===item.id?hoverColor:t.border):isPurchasable?hoverColor+"33":t.border+"44"}`, background:t.bgCard, boxShadow:activeBoard===item.id?`0 0 16px ${hoverColor}33`:"none", cursor:owned&&activeBoard!==item.id?"pointer":"default" }}>
-                  <div style={{ height:70, background:item.preview, display:"flex", alignItems:"center", justifyContent:"center", position:"relative" }}>
-                    <div style={{ display:"grid", gridTemplateColumns:"repeat(4,14px)", gap:2, opacity:0.7 }}>
-                      {Array.from({length:16}).map((_,i) => <div key={i} style={{ width:14, height:14, background:item.border, borderRadius:1 }} />)}
-                    </div>
-                    {!owned && !isPurchasable && <div style={{ position:"absolute", top:8, right:8, zIndex:2 }}><LockIcon size={13} color="#777" /></div>}
-                    {isPurchasable && <div style={{ position:"absolute", top:8, left:8, background:`${hoverColor}22`, border:`1px solid ${hoverColor}55`, borderRadius:6, padding:"2px 7px", fontFamily:t.fontMono, fontSize:9, color:hoverColor, fontWeight:700, letterSpacing:"0.08em" }}>FOR SALE</div>}
-                    {owned && activeBoard===item.id && <div style={{ position:"absolute", top:8, right:8, background:hoverColor, borderRadius:8, padding:"2px 9px", fontFamily:t.fontMono, fontSize:9, color:"#fff", fontWeight:800 }}>ACTIVE</div>}
-                  </div>
-                  <div style={{ padding:"10px 12px", display:"flex", alignItems:"center", justifyContent:"space-between", gap:8 }}>
-                    <div style={{ flex:1 }}>
-                      <div style={{ fontFamily:t.fontDisplay, fontSize:16, fontWeight:700, color:owned?t.text:t.textMuted }}>{item.label}</div>
-                      <div style={{ fontFamily:t.fontBody, fontSize:12, color:t.textMuted, marginTop:3 }}>
-                        {equipping===item.id?"Equipping…":owned?(activeBoard===item.id?"Equipped":"Click to equip"):item.desc}
+                  <div key={item.id} className={`coll-item${!owned ? " coll-locked" : ""}`}
+                    onClick={() => { if (owned && activeBoard !== item.id && equipping !== item.id) { onClick?.(); equipBoard(item.id); } }}
+                    onMouseEnter={() => { if (owned) onHover?.(); }}
+                    style={{ borderRadius: 12, overflow: "hidden", border: `1.5px solid ${owned ? (activeBoard === item.id ? hoverColor : t.border) : isPurchasable ? hoverColor + "33" : t.border + "44"}`, background: t.bgCard, boxShadow: activeBoard === item.id ? `0 0 16px ${hoverColor}33` : "none", cursor: owned && activeBoard !== item.id ? "pointer" : "default" }}>
+                    <div style={{ height: 70, background: item.preview, display: "flex", alignItems: "center", justifyContent: "center", position: "relative" }}>
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,14px)", gap: 2, opacity: 0.7 }}>
+                        {Array.from({ length: 16 }).map((_, i) => <div key={i} style={{ width: 14, height: 14, background: item.border, borderRadius: 1 }} />)}
                       </div>
+                      {!owned && !isPurchasable && <div style={{ position: "absolute", top: 8, right: 8, zIndex: 2 }}><LockIcon size={13} color="#777" /></div>}
+                      {isPurchasable && <div style={{ position: "absolute", top: 8, left: 8, background: `${hoverColor}22`, border: `1px solid ${hoverColor}55`, borderRadius: 6, padding: "2px 7px", fontFamily: t.fontMono, fontSize: 9, color: hoverColor, fontWeight: 700, letterSpacing: "0.08em" }}>FOR SALE</div>}
+                      {owned && activeBoard === item.id && <div style={{ position: "absolute", top: 8, right: 8, background: hoverColor, borderRadius: 8, padding: "2px 9px", fontFamily: t.fontMono, fontSize: 9, color: "#fff", fontWeight: 800 }}>ACTIVE</div>}
                     </div>
-                    {isPurchasable && (
-                      <button onClick={(e) => { e.stopPropagation(); handleBuyBoard(item.id, item.label!, item.price!); }}
-                        style={{ flexShrink:0, background:`${hoverColor}18`, border:`1.5px solid ${hoverColor}55`, borderRadius:8, padding:"5px 10px", fontFamily:t.fontMono, fontSize:10, fontWeight:800, color:hoverColor, cursor:"pointer", whiteSpace:"nowrap" }}>
-                        {item.price!.toLocaleString()} ⬡
-                      </button>
-                    )}
+                    <div style={{ padding: "10px 12px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontFamily: t.fontDisplay, fontSize: 16, fontWeight: 700, color: owned ? t.text : t.textMuted }}>{item.label}</div>
+                        <div style={{ fontFamily: t.fontBody, fontSize: 12, color: t.textMuted, marginTop: 3 }}>
+                          {equipping === item.id ? "Equipping…" : owned ? (activeBoard === item.id ? "Equipped" : "Click to equip") : item.desc}
+                        </div>
+                      </div>
+                      {isPurchasable && (
+                        <button onClick={e => { e.stopPropagation(); handleBuyItem(item.id, item.label, item.price!); }}
+                          style={{ flexShrink: 0, background: `${hoverColor}18`, border: `1.5px solid ${hoverColor}55`, borderRadius: 8, padding: "5px 10px", fontFamily: t.fontMono, fontSize: 10, fontWeight: 800, color: hoverColor, cursor: "pointer", whiteSpace: "nowrap" }}>
+                          {item.price!.toLocaleString()} ⬡
+                        </button>
+                      )}
+                    </div>
                   </div>
-                </div>
                 );
               })}
             </div>
           )}
 
           {/* ── BANNERS ── */}
-          {activeCat==="banners" && (
-            <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(230px,1fr))", gap:14 }}>
+          {activeCat === "banners" && (
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(230px,1fr))", gap: 14 }}>
               {BANNERS.filter(x => showAll || x.owned).map(item => (
-                <div key={item.id} className={`coll-item${!item.owned?" coll-locked":""}`}
-                  style={{ borderRadius:12, overflow:"hidden", border:`1px solid ${item.owned?t.border:t.border+"44"}`, background:t.bgCard }}>
-                  <div style={{ height:60, background:item.gradient, position:"relative" }}>
-                    {!item.owned && <div style={{ position:"absolute", top:8, right:8, fontSize:14, zIndex:2 }}><LockIcon size={13} color="#777" /></div>}
+                <div key={item.id} className={`coll-item${!item.owned ? " coll-locked" : ""}`}
+                  style={{ borderRadius: 12, overflow: "hidden", border: `1px solid ${item.owned ? t.border : t.border + "44"}`, background: t.bgCard }}>
+                  <div style={{ height: 60, background: item.gradient, position: "relative" }}>
+                    {!item.owned && <div style={{ position: "absolute", top: 8, right: 8, zIndex: 2 }}><LockIcon size={13} color="#777" /></div>}
                   </div>
-                  <div style={{ padding:"10px 12px" }}>
-                    <div style={{ fontFamily:t.fontDisplay, fontSize:16, fontWeight:700, color:item.owned?t.text:t.textMuted }}>{item.label}</div>
-                    <div style={{ fontFamily:t.fontBody, fontSize:12, color:t.textMuted, marginTop:3 }}>{item.owned?"Owned":"Locked"}</div>
+                  <div style={{ padding: "10px 12px" }}>
+                    <div style={{ fontFamily: t.fontDisplay, fontSize: 16, fontWeight: 700, color: item.owned ? t.text : t.textMuted }}>{item.label}</div>
+                    <div style={{ fontFamily: t.fontBody, fontSize: 12, color: t.textMuted, marginTop: 3 }}>{item.owned ? "Owned" : "Locked"}</div>
                   </div>
                 </div>
               ))}
@@ -805,24 +576,24 @@ export default function CollectionScreen({ themeId, setThemeId, onHover, onClick
           )}
 
           {/* ── BORDERS ── */}
-          {activeCat==="borders" && (
-            <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(210px,1fr))", gap:14 }}>
+          {activeCat === "borders" && (
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(210px,1fr))", gap: 14 }}>
               {PROFILE_BORDERS.filter(x => showAll || x.condition(profile)).map(item => {
                 const owned = item.condition(profile);
                 const tc = TIER_COLOR[item.tier];
                 const isRainbow = item.id === "rainbow_halo";
                 return (
-                  <div key={item.id} className={`coll-item${!owned?" coll-locked":""}`}
-                    style={{ borderRadius:12, padding:"16px", border:`1px solid ${owned?tc+"44":t.border+"33"}`, background:t.bgCard, display:"flex", flexDirection:"column", alignItems:"center", gap:12 }}>
-                    <div style={{ width:60, height:60, borderRadius:"50%", background:`linear-gradient(135deg,${t.p1},${t.p2})`, boxShadow: owned && item.id!=="none" ? (isRainbow ? "0 0 0 3px #FF6B6B, 0 0 0 6px #FFD700, 0 0 20px #FF6B6BAA" : item.css) : "none" }} />
-                    <div style={{ textAlign:"center" as const }}>
-                      <div style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:6, marginBottom:3 }}>
-                        <span style={{ fontFamily:t.fontDisplay, fontSize:14, fontWeight:700, color:owned?t.text:t.textMuted }}>{item.label}</span>
-                        <span style={{ fontFamily:t.fontMono, fontSize:9, color:tc, background:`${tc}18`, padding:"1px 6px", borderRadius:4 }}>{item.tier.toUpperCase()}</span>
+                  <div key={item.id} className={`coll-item${!owned ? " coll-locked" : ""}`}
+                    style={{ borderRadius: 12, padding: "16px", border: `1px solid ${owned ? tc + "44" : t.border + "33"}`, background: t.bgCard, display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
+                    <div style={{ width: 60, height: 60, borderRadius: "50%", background: `linear-gradient(135deg,${t.p1},${t.p2})`, boxShadow: owned && item.id !== "none" ? (isRainbow ? "0 0 0 3px #FF6B6B, 0 0 0 6px #FFD700, 0 0 20px #FF6B6BAA" : item.css) : "none" }} />
+                    <div style={{ textAlign: "center" as const }}>
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, marginBottom: 3 }}>
+                        <span style={{ fontFamily: t.fontDisplay, fontSize: 14, fontWeight: 700, color: owned ? t.text : t.textMuted }}>{item.label}</span>
+                        <span style={{ fontFamily: t.fontMono, fontSize: 9, color: tc, background: `${tc}18`, padding: "1px 6px", borderRadius: 4 }}>{item.tier.toUpperCase()}</span>
                       </div>
-                      <div style={{ fontFamily:t.fontBody, fontSize:11, color:t.textMuted }}>{owned?"Unlocked":item.unlockDesc}</div>
+                      <div style={{ fontFamily: t.fontBody, fontSize: 11, color: t.textMuted }}>{owned ? "Unlocked" : item.unlockDesc}</div>
                     </div>
-                    {!owned && <div style={{ fontSize:14 }}><LockIcon size={13} color="#777" /></div>}
+                    {!owned && <div style={{ fontSize: 14 }}><LockIcon size={13} color="#777" /></div>}
                   </div>
                 );
               })}
@@ -830,89 +601,81 @@ export default function CollectionScreen({ themeId, setThemeId, onHover, onClick
           )}
 
           {/* ── COIN SKINS ── */}
-          {activeCat==="coins" && (
-            <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(190px,1fr))", gap:14 }}>
+          {activeCat === "coins" && (
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(190px,1fr))", gap: 14 }}>
               {COIN_SKINS.filter(x => showAll || x.owned).map(item => (
-                <div key={item.id} className={`coll-item${!item.owned?" coll-locked":""}`}
-                  style={{ borderRadius:12, padding:"22px 16px", border:`1px solid ${item.owned?item.c1+"44":t.border+"33"}`, background:t.bgCard, display:"flex", flexDirection:"column", alignItems:"center", gap:12, position:"relative" }}>
-                  <div style={{ display:"flex", gap:12, alignItems:"center" }}>
-                    <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:4 }}>
-                      <div style={{ width:44, height:44, borderRadius:"50%", background:item.owned?`radial-gradient(circle at 35% 35%, ${item.c1}FF, ${item.c1}88)`:"#2a2a2a", boxShadow:item.owned?`0 0 18px ${item.c1}55`:"none", display:"flex", alignItems:"center", justifyContent:"center" }}>
-                        <img src={item.img1} alt="penta" style={{ width:28, height:28, objectFit:"contain", opacity:item.owned?1:0.2, filter:item.owned?`drop-shadow(0 0 5px ${item.c1}99)`:"grayscale(1)" }} />
+                <div key={item.id} className={`coll-item${!item.owned ? " coll-locked" : ""}`}
+                  style={{ borderRadius: 12, padding: "22px 16px", border: `1px solid ${item.owned ? item.c1 + "44" : t.border + "33"}`, background: t.bgCard, display: "flex", flexDirection: "column", alignItems: "center", gap: 12, position: "relative" }}>
+                  <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+                    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+                      <div style={{ width: 44, height: 44, borderRadius: "50%", background: item.owned ? `radial-gradient(circle at 35% 35%, ${item.c1}FF, ${item.c1}88)` : "#2a2a2a", boxShadow: item.owned ? `0 0 18px ${item.c1}55` : "none", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                        <img src={item.img1} alt="penta" style={{ width: 28, height: 28, objectFit: "contain", opacity: item.owned ? 1 : 0.2 }} />
                       </div>
-                      <span style={{ fontFamily:t.fontMono, fontSize:9, color:item.owned?item.c1:t.textMuted, letterSpacing:"0.08em" }}>PENTA</span>
+                      <span style={{ fontFamily: t.fontMono, fontSize: 9, color: item.owned ? item.c1 : t.textMuted, letterSpacing: "0.08em" }}>PENTA</span>
                     </div>
-                    <div style={{ width:1, height:36, background:`${t.border}44`, flexShrink:0 }} />
-                    <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:4 }}>
-                      <div style={{ width:44, height:44, borderRadius:"50%", background:item.owned?`radial-gradient(circle at 35% 35%, ${item.c2}FF, ${item.c2}88)`:"#2a2a2a", boxShadow:item.owned?`0 0 18px ${item.c2}55`:"none", display:"flex", alignItems:"center", justifyContent:"center" }}>
-                        <img src={item.img2} alt="proto" style={{ width:28, height:28, objectFit:"contain", opacity:item.owned?1:0.2, filter:item.owned?`drop-shadow(0 0 5px ${item.c2}99)`:"grayscale(1)" }} />
+                    <div style={{ width: 1, height: 36, background: `${t.border}44`, flexShrink: 0 }} />
+                    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+                      <div style={{ width: 44, height: 44, borderRadius: "50%", background: item.owned ? `radial-gradient(circle at 35% 35%, ${item.c2}FF, ${item.c2}88)` : "#2a2a2a", boxShadow: item.owned ? `0 0 18px ${item.c2}55` : "none", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                        <img src={item.img2} alt="proto" style={{ width: 28, height: 28, objectFit: "contain", opacity: item.owned ? 1 : 0.2 }} />
                       </div>
-                      <span style={{ fontFamily:t.fontMono, fontSize:9, color:item.owned?item.c2:t.textMuted, letterSpacing:"0.08em" }}>PROTO</span>
+                      <span style={{ fontFamily: t.fontMono, fontSize: 9, color: item.owned ? item.c2 : t.textMuted, letterSpacing: "0.08em" }}>PROTO</span>
                     </div>
                   </div>
-                  <div style={{ textAlign:"center" as const }}>
-                    <div style={{ fontFamily:t.fontDisplay, fontSize:15, fontWeight:700, color:item.owned?t.text:t.textMuted }}>{item.label}</div>
-                    <div style={{ fontFamily:t.fontBody, fontSize:12, color:t.textMuted, marginTop:3 }}>{item.owned?"Owned":item.desc}</div>
+                  <div style={{ textAlign: "center" as const }}>
+                    <div style={{ fontFamily: t.fontDisplay, fontSize: 15, fontWeight: 700, color: item.owned ? t.text : t.textMuted }}>{item.label}</div>
+                    <div style={{ fontFamily: t.fontBody, fontSize: 12, color: t.textMuted, marginTop: 3 }}>{item.owned ? "Owned" : item.desc}</div>
                   </div>
-                  {!item.owned && <div style={{ position:"absolute", top:8, right:8 }}><LockIcon size={13} color="#777" /></div>}
+                  {!item.owned && <div style={{ position: "absolute", top: 8, right: 8 }}><LockIcon size={13} color="#777" /></div>}
                 </div>
               ))}
             </div>
           )}
 
           {/* ── TOSS ANIMATIONS ── */}
-          {activeCat==="toss" && (
-            <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(210px,1fr))", gap:14 }}>
+          {activeCat === "toss" && (
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(210px,1fr))", gap: 14 }}>
               {COIN_TOSS_ANIMS.filter(x => showAll || x.condition(profile)).map(item => {
                 const owned = item.condition(profile);
                 const isPurchasable = !!item.price && !owned;
-                const tossColors: Record<string, string> = { default: t.accent, slow_mo: "#60A5FA", lightning: "#FBBF24", galaxy: "#A78BFA", matrix: "#34D399" };
-                const ac = tossColors[item.id] ?? t.accent;
+                const ac = t.accent;
                 return (
-                <div key={item.id} className={`coll-item${!owned?" coll-locked":""}`}
-                  onClick={() => { if (owned && activeToss !== item.id) { onClick?.(); equipToss(item.id); } }}
-                  onMouseEnter={() => { if (owned) onHover?.(); }}
-                  style={{ borderRadius:12, padding:"18px 16px", border:`1.5px solid ${owned?(activeToss===item.id?ac:t.border):isPurchasable?hoverColor+"33":t.border+"33"}`, background:t.bgCard, display:"flex", alignItems:"center", gap:14, position:"relative", boxShadow:activeToss===item.id?`0 0 16px ${ac}33`:"none", cursor:owned&&activeToss!==item.id?"pointer":"default" }}>
-                  <div style={{ width:44, height:44, borderRadius:"50%", background:owned?`linear-gradient(135deg,${ac},${ac}88)`:"#333", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, boxShadow:owned&&activeToss===item.id?`0 0 14px ${ac}66`:"none" }}>
-                    {owned
-                      ? <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
-                      : <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9"/></svg>}
+                  <div key={item.id} className={`coll-item${!owned ? " coll-locked" : ""}`}
+                    onClick={() => { if (owned && activeToss !== item.id) { onClick?.(); equipToss(item.id); } }}
+                    onMouseEnter={() => { if (owned) onHover?.(); }}
+                    style={{ borderRadius: 12, padding: "18px 16px", border: `1.5px solid ${owned ? (activeToss === item.id ? ac : t.border) : isPurchasable ? hoverColor + "33" : t.border + "33"}`, background: t.bgCard, display: "flex", alignItems: "center", gap: 14, position: "relative", boxShadow: activeToss === item.id ? `0 0 16px ${ac}33` : "none", cursor: owned && activeToss !== item.id ? "pointer" : "default" }}>
+                    <div style={{ width: 44, height: 44, borderRadius: "50%", background: owned ? `linear-gradient(135deg,${ac},${ac}88)` : "#333", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                      {owned
+                        ? <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+                        : <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#444" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="9"/></svg>}
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontFamily: t.fontDisplay, fontSize: 16, fontWeight: 700, color: owned ? t.text : t.textMuted }}>{item.label}</div>
+                      <div style={{ fontFamily: t.fontBody, fontSize: 12, color: t.textMuted, marginTop: 3 }}>{owned ? (activeToss === item.id ? "Equipped" : "Click to equip") : item.desc}</div>
+                    </div>
+                    {owned && activeToss === item.id && <div style={{ position: "absolute", top: 8, right: 8, background: ac, borderRadius: 8, padding: "2px 9px", fontFamily: t.fontMono, fontSize: 9, color: "#fff", fontWeight: 800 }}>ACTIVE</div>}
+                    {!owned && !isPurchasable && <div style={{ position: "absolute", top: 8, right: 8 }}><LockIcon size={13} color="#777" /></div>}
                   </div>
-                  <div style={{ flex:1 }}>
-                    <div style={{ fontFamily:t.fontDisplay, fontSize:16, fontWeight:700, color:owned?t.text:t.textMuted }}>{item.label}</div>
-                    <div style={{ fontFamily:t.fontBody, fontSize:12, color:t.textMuted, marginTop:3 }}>{owned?(activeToss===item.id?"Equipped":"Click to equip"):item.desc}</div>
-                  </div>
-                  {isPurchasable && (
-                    <button onClick={(e) => { e.stopPropagation(); handleBuyBoard(item.id, item.label, item.price!); }}
-                      style={{ flexShrink:0, background:`${hoverColor}18`, border:`1.5px solid ${hoverColor}55`, borderRadius:8, padding:"5px 10px", fontFamily:t.fontMono, fontSize:10, fontWeight:800, color:hoverColor, cursor:"pointer", whiteSpace:"nowrap" }}>
-                      {item.price!.toLocaleString()} ⬡
-                    </button>
-                  )}
-                  {isPurchasable && <div style={{ position:"absolute", top:8, left:8, background:`${hoverColor}22`, border:`1px solid ${hoverColor}55`, borderRadius:6, padding:"2px 7px", fontFamily:t.fontMono, fontSize:9, color:hoverColor, fontWeight:700, letterSpacing:"0.08em" }}>FOR SALE</div>}
-                  {owned && activeToss===item.id && <div style={{ position:"absolute", top:8, right:8, background:ac, borderRadius:8, padding:"2px 9px", fontFamily:t.fontMono, fontSize:9, color:"#fff", fontWeight:800 }}>ACTIVE</div>}
-                  {!owned && !isPurchasable && <div style={{ position:"absolute", top:8, right:8 }}><LockIcon size={13} color="#777" /></div>}
-                </div>
                 );
               })}
             </div>
           )}
 
           {/* ── TITLES ── */}
-          {activeCat==="titles" && (
-            <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+          {activeCat === "titles" && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               {TITLES.filter(ti => showAll || ti.condition(profile)).map(ti => {
                 const owned = ti.condition(profile);
                 return (
                   <div key={ti.id} className="coll-item"
-                    style={{ display:"flex", alignItems:"center", gap:14, padding:"15px 18px", borderRadius:10, border:`1px solid ${owned?ti.color+"44":t.border+"33"}`, background:owned?`${ti.color}06`:t.bgCard, opacity:owned?1:0.5 }}>
-                    <div style={{ width:10, height:10, borderRadius:"50%", background:owned?ti.color:"#555", boxShadow:owned?`0 0 8px ${ti.glow}`:"none", flexShrink:0 }} />
-                    <div style={{ flex:1 }}>
-                      <span style={{ fontFamily:t.fontMono, fontSize:15, fontWeight:700, color:owned?ti.color:t.textMuted, letterSpacing:"0.04em" }}>{ti.label}</span>
-                      <div style={{ fontFamily:t.fontBody, fontSize:12, color:t.textMuted, marginTop:3 }}>{ti.unlockDesc}</div>
+                    style={{ display: "flex", alignItems: "center", gap: 14, padding: "15px 18px", borderRadius: 10, border: `1px solid ${owned ? ti.color + "44" : t.border + "33"}`, background: owned ? `${ti.color}06` : t.bgCard, opacity: owned ? 1 : 0.5 }}>
+                    <div style={{ width: 10, height: 10, borderRadius: "50%", background: owned ? ti.color : "#555", boxShadow: owned ? `0 0 8px ${ti.glow}` : "none", flexShrink: 0 }} />
+                    <div style={{ flex: 1 }}>
+                      <span style={{ fontFamily: t.fontMono, fontSize: 15, fontWeight: 700, color: owned ? ti.color : t.textMuted, letterSpacing: "0.04em" }}>{ti.label}</span>
+                      <div style={{ fontFamily: t.fontBody, fontSize: 12, color: t.textMuted, marginTop: 3 }}>{ti.unlockDesc}</div>
                     </div>
                     {owned
-                      ? <span style={{ fontFamily:t.fontMono, fontSize:10, color:ti.color, background:`${ti.color}18`, padding:"3px 10px", borderRadius:10 }}>UNLOCKED</span>
-                      : <span style={{ fontSize:13 }}><LockIcon size={13} color="#777" /></span>}
+                      ? <span style={{ fontFamily: t.fontMono, fontSize: 10, color: ti.color, background: `${ti.color}18`, padding: "3px 10px", borderRadius: 10 }}>UNLOCKED</span>
+                      : <span style={{ fontSize: 13 }}><LockIcon size={13} color="#777" /></span>}
                   </div>
                 );
               })}
@@ -920,67 +683,67 @@ export default function CollectionScreen({ themeId, setThemeId, onHover, onClick
           )}
 
           {/* ── PIECE SKINS ── */}
-          {activeCat==="pieces" && (
-            <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(210px,1fr))", gap:14 }}>
+          {activeCat === "pieces" && (
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(210px,1fr))", gap: 14 }}>
               {PIECE_SKINS.filter(x => showAll || x.condition(profile)).map(item => {
                 const owned = item.condition(profile);
                 const isPurchasable = !!item.price && !owned;
                 return (
-                <div key={item.id} className={`coll-item${!owned?" coll-locked":""}`}
-                  onClick={() => { if (owned && activePiece !== item.id) { onClick?.(); equipPiece(item.id); } }}
-                  onMouseEnter={() => { if (owned) onHover?.(); }}
-                  style={{ borderRadius:12, padding:"16px", border:`1.5px solid ${owned?(activePiece===item.id?hoverColor:t.border):isPurchasable?hoverColor+"33":t.border+"44"}`, background:t.bgCard, position:"relative", boxShadow:activePiece===item.id?`0 0 16px ${hoverColor}33`:"none", cursor:owned&&activePiece!==item.id?"pointer":"default" }}>
-                  {/* Preview */}
-                  <div style={{ display:"flex", justifyContent:"center", gap:18, marginBottom:12, marginTop: isPurchasable ? 18 : 0 }}>
-                    {item.isFlameSkull ? (
-                      <>
-                        {/* Flame preview */}
-                        <div style={{ width:40, height:40, borderRadius:6, background: owned ? "rgba(255,68,0,0.12)" : "#222", border:`2px solid ${owned ? "#FF4400" : t.border}`, display:"flex", alignItems:"center", justifyContent:"center" }}>
-                          <svg width="22" height="22" viewBox="0 0 100 120" fill="none">
-                            <path d="M50 10 C30 30 15 50 25 70 C20 60 35 55 30 70 C25 85 35 100 50 110 C65 100 75 85 70 70 C65 55 80 60 75 70 C85 50 70 30 50 10Z"
-                              fill={owned ? "#FF4400" : "#555"} opacity={owned ? 0.9 : 0.4}/>
-                            <path d="M50 40 C40 55 38 65 45 75 C43 68 50 65 48 75 C46 85 50 95 50 100 C55 90 58 80 55 70 C53 62 60 58 58 68 C65 55 58 42 50 40Z"
-                              fill={owned ? "#FFB300" : "#444"} opacity={owned ? 0.85 : 0.3}/>
-                          </svg>
-                        </div>
-                        {/* Skull preview */}
-                        <div style={{ width:40, height:40, borderRadius:6, background: owned ? "rgba(170,170,170,0.1)" : "#222", border:`2px solid ${owned ? "#AAAAAA" : t.border}`, display:"flex", alignItems:"center", justifyContent:"center" }}>
-                          <svg width="22" height="22" viewBox="0 0 100 110" fill="none" stroke={owned ? "#CCCCCC" : "#555"} strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" opacity={owned ? 1 : 0.4}>
-                            <path d="M20 65 C20 35 80 35 80 65 C80 80 72 88 72 95 L28 95 C28 88 20 80 20 65Z"/>
-                            <rect x="30" y="95" width="40" height="10" rx="3"/>
-                            <circle cx="37" cy="62" r="9" fill={owned ? "#CCCCCC" : "#555"}/>
-                            <circle cx="63" cy="62" r="9" fill={owned ? "#CCCCCC" : "#555"}/>
-                            <line x1="50" y1="95" x2="50" y2="105"/>
-                            <line x1="37" y1="95" x2="37" y2="105"/>
-                            <line x1="63" y1="95" x2="63" y2="105"/>
-                          </svg>
-                        </div>
-                      </>
-                    ) : (
-                      <>
-                        <div style={{ width:40, height:40, borderRadius:6, background:owned?`${item.p1c}18`:"#222", border:`2px solid ${owned?(activePiece===item.id?hoverColor:item.p1c):t.border}`, display:"flex", alignItems:"center", justifyContent:"center", fontFamily:"monospace", fontSize:26, fontWeight:900, color:owned?item.p1c:"#555" }}>{item.p1}</div>
-                        <div style={{ width:40, height:40, borderRadius:6, background:owned?`${item.p2c}18`:"#222", border:`2px solid ${owned?(activePiece===item.id?hoverColor:item.p2c):t.border}`, display:"flex", alignItems:"center", justifyContent:"center", fontFamily:"monospace", fontSize:26, fontWeight:900, color:owned?item.p2c:"#555" }}>{item.p2}</div>
-                      </>
-                    )}
-                  </div>
-                  <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:8 }}>
-                    <div>
-                      <div style={{ fontFamily:t.fontDisplay, fontSize:16, fontWeight:700, color:owned?t.text:t.textMuted }}>{item.label}</div>
-                      <div style={{ fontFamily:t.fontBody, fontSize:12, color:t.textMuted, marginTop:3 }}>
-                        {owned ? (activePiece===item.id ? "Equipped" : "Click to equip") : item.desc}
-                      </div>
+                  <div key={item.id} className={`coll-item${!owned ? " coll-locked" : ""}`}
+                    onClick={() => { if (owned && activePiece !== item.id) { onClick?.(); equipPiece(item.id); } }}
+                    onMouseEnter={() => { if (owned) onHover?.(); }}
+                    style={{ borderRadius: 12, padding: "16px", border: `1.5px solid ${owned ? (activePiece === item.id ? hoverColor : t.border) : isPurchasable ? hoverColor + "33" : t.border + "44"}`, background: t.bgCard, position: "relative", boxShadow: activePiece === item.id ? `0 0 16px ${hoverColor}33` : "none", cursor: owned && activePiece !== item.id ? "pointer" : "default" }}>
+                    <div style={{ display: "flex", justifyContent: "center", gap: 18, marginBottom: 12, marginTop: isPurchasable ? 18 : 0 }}>
+                      {item.isFlameSkull ? (
+                        <>
+                          <div style={{ width: 40, height: 40, borderRadius: 6, background: owned ? "rgba(255,68,0,0.12)" : "#222", border: `2px solid ${owned ? "#FF4400" : t.border}`, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                            <svg width="22" height="22" viewBox="0 0 100 120" fill="none">
+                              <path d="M50 10 C30 30 15 50 25 70 C20 60 35 55 30 70 C25 85 35 100 50 110 C65 100 75 85 70 70 C65 55 80 60 75 70 C85 50 70 30 50 10Z" fill={owned ? "#FF4400" : "#555"} opacity={owned ? 0.9 : 0.4}/>
+                              <path d="M50 40 C40 55 38 65 45 75 C43 68 50 65 48 75 C46 85 50 95 50 100 C55 90 58 80 55 70 C53 62 60 58 58 68 C65 55 58 42 50 40Z" fill={owned ? "#FFB300" : "#444"} opacity={owned ? 0.85 : 0.3}/>
+                            </svg>
+                          </div>
+                          <div style={{ width: 40, height: 40, borderRadius: 6, background: owned ? "rgba(170,170,170,0.1)" : "#222", border: `2px solid ${owned ? "#AAAAAA" : t.border}`, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                            <svg width="22" height="22" viewBox="0 0 100 110" fill="none" stroke={owned ? "#CCCCCC" : "#555"} strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" opacity={owned ? 1 : 0.4}>
+                              <path d="M20 65 C20 35 80 35 80 65 C80 80 72 88 72 95 L28 95 C28 88 20 80 20 65Z"/>
+                              <rect x="30" y="95" width="40" height="10" rx="3"/>
+                              <circle cx="37" cy="62" r="9" fill={owned ? "#CCCCCC" : "#555"}/>
+                              <circle cx="63" cy="62" r="9" fill={owned ? "#CCCCCC" : "#555"}/>
+                              <line x1="50" y1="95" x2="50" y2="105"/>
+                              <line x1="37" y1="95" x2="37" y2="105"/>
+                              <line x1="63" y1="95" x2="63" y2="105"/>
+                            </svg>
+                          </div>
+                        </>
+                      ) : item.isSnowShard ? (
+                        <>
+                          <div style={{ width: 40, height: 40, borderRadius: 6, background: owned ? "#C8EEFF14" : "#222", border: `2px solid ${owned ? "#C8EEFF" : t.border}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24, opacity: owned ? 1 : 0.4 }}>❄</div>
+                          <div style={{ width: 40, height: 40, borderRadius: 6, background: owned ? "#64C8FF14" : "#222", border: `2px solid ${owned ? "#64C8FF" : t.border}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, color: owned ? "#64C8FF" : "#555", opacity: owned ? 1 : 0.4 }}>◆</div>
+                        </>
+                      ) : (
+                        <>
+                          <div style={{ width: 40, height: 40, borderRadius: 6, background: owned ? `${item.p1c}18` : "#222", border: `2px solid ${owned ? (activePiece === item.id ? hoverColor : item.p1c) : t.border}`, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "monospace", fontSize: 26, fontWeight: 900, color: owned ? item.p1c : "#555" }}>{item.p1}</div>
+                          <div style={{ width: 40, height: 40, borderRadius: 6, background: owned ? `${item.p2c}18` : "#222", border: `2px solid ${owned ? (activePiece === item.id ? hoverColor : item.p2c) : t.border}`, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "monospace", fontSize: 26, fontWeight: 900, color: owned ? item.p2c : "#555" }}>{item.p2}</div>
+                        </>
+                      )}
                     </div>
-                    {isPurchasable && (
-                      <button onClick={(e) => { e.stopPropagation(); handleBuyBoard(`piece_${item.id}`, item.label, item.price!); }}
-                        style={{ flexShrink:0, background:`${hoverColor}18`, border:`1.5px solid ${hoverColor}55`, borderRadius:8, padding:"5px 10px", fontFamily:t.fontMono, fontSize:10, fontWeight:800, color:hoverColor, cursor:"pointer", whiteSpace:"nowrap" }}>
-                        {item.price!.toLocaleString()} ⬡
-                      </button>
-                    )}
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                      <div>
+                        <div style={{ fontFamily: t.fontDisplay, fontSize: 16, fontWeight: 700, color: owned ? t.text : t.textMuted }}>{item.label}</div>
+                        <div style={{ fontFamily: t.fontBody, fontSize: 12, color: t.textMuted, marginTop: 3 }}>
+                          {owned ? (activePiece === item.id ? "Equipped" : "Click to equip") : item.desc}
+                        </div>
+                      </div>
+                      {isPurchasable && (
+                        <button onClick={e => { e.stopPropagation(); handleBuyItem(`piece_${item.id}`, item.label, item.price!); }}
+                          style={{ flexShrink: 0, background: `${hoverColor}18`, border: `1.5px solid ${hoverColor}55`, borderRadius: 8, padding: "5px 10px", fontFamily: t.fontMono, fontSize: 10, fontWeight: 800, color: hoverColor, cursor: "pointer", whiteSpace: "nowrap" }}>
+                          {item.price!.toLocaleString()} ⬡
+                        </button>
+                      )}
+                    </div>
+                    {isPurchasable && <div style={{ position: "absolute", top: 8, left: 8, background: `${hoverColor}22`, border: `1px solid ${hoverColor}55`, borderRadius: 6, padding: "2px 7px", fontFamily: t.fontMono, fontSize: 9, color: hoverColor, fontWeight: 700, letterSpacing: "0.08em" }}>FOR SALE</div>}
+                    {owned && activePiece === item.id && <div style={{ position: "absolute", top: 8, right: 8, background: hoverColor, borderRadius: 8, padding: "2px 9px", fontFamily: t.fontMono, fontSize: 9, color: "#fff", fontWeight: 800 }}>ACTIVE</div>}
+                    {!owned && !isPurchasable && <div style={{ position: "absolute", top: 8, right: 8 }}><LockIcon size={13} color="#777" /></div>}
                   </div>
-                  {isPurchasable && <div style={{ position:"absolute", top:8, left:8, background:`${hoverColor}22`, border:`1px solid ${hoverColor}55`, borderRadius:6, padding:"2px 7px", fontFamily:t.fontMono, fontSize:9, color:hoverColor, fontWeight:700, letterSpacing:"0.08em" }}>FOR SALE</div>}
-                  {owned && activePiece===item.id && <div style={{ position:"absolute", top:8, right:8, background:hoverColor, borderRadius:8, padding:"2px 9px", fontFamily:t.fontMono, fontSize:9, color:"#fff", fontWeight:800 }}>ACTIVE</div>}
-                  {!owned && !isPurchasable && <div style={{ position:"absolute", top:8, right:8 }}><LockIcon size={13} color="#777" /></div>}
-                </div>
                 );
               })}
             </div>
