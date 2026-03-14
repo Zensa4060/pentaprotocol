@@ -33,6 +33,8 @@ interface RulebreakerFlowProps {
   onLeft: () => void;
   onRight: () => void;
   fmtSec: (s: number) => string;
+  gameMode?: string;
+  botPickedSide?: "left" | "right" | null;
 }
 
 export function RulebreakerFlow({
@@ -41,7 +43,7 @@ export function RulebreakerFlow({
   summaryTimer, firstPlayerChosen, rbC3Blocked,
   choiceTimer, isMultiplayerGame, mySlot,
   winnerPickedRule, winnerPickedFirst, winnerPickedC3,
-  onLeft, onRight, fmtSec,
+  onLeft, onRight, fmtSec, gameMode, botPickedSide,
 }: RulebreakerFlowProps) {
 
   const tossLoser = tossWinner === "P1" ? "P2" : "P1";
@@ -69,9 +71,6 @@ export function RulebreakerFlow({
     const revType     = coinResult ?? "PENTA";
     const winCol      = revealed ? (coinResult === "PENTA" ? p1c : p2c) : t.textSecondary;
 
-    // Coin driven entirely from coinAngle React state (updated each rAF via setCoinAngle).
-    // Both P1 and P2 receive the same coinAngle prop so both see the identical spin.
-    // No direct DOM manipulation needed — the old coinDivRef path only worked for P1.
     const spinScaleX  = Math.abs(Math.cos(coinAngle * 2));
     const spinDeg     = ((coinAngle * (180 / Math.PI)) % 360 + 360) % 360;
     const spinIsPenta = spinDeg < 90 || spinDeg > 270;
@@ -135,6 +134,13 @@ export function RulebreakerFlow({
       (winnerPhases.includes(phase) && mySlot === tossWinner) ||
       (loserPhases.includes(phase)  && mySlot === tossLoser);
 
+    // Bot is choosing: show/hide overlay on cards
+    const isBotTurnToChoose = gameMode === "ai" && (
+  (winnerPhases.includes(phase) && tossWinner === "P2") ||
+  (loserPhases.includes(phase)  && tossWinner === "P1")
+);
+const isBotChoosing = isBotTurnToChoose;
+
     return (
       <div className="phase-screen" style={{ position:"fixed", top:0, left:0, right:0, bottom:0, zIndex:2, overflowY:"auto", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", background:t.bg, padding:"40px 24px", gap:24, userSelect:"none" }}>
         <style>{`@keyframes cardSlideIn{from{opacity:0;transform:translateY(22px)}to{opacity:1;transform:translateY(0)}} .toss-card-enter{animation:cardSlideIn 0.45s cubic-bezier(.22,.68,0,1.2) both;animation-fill-mode:both;}`}</style>
@@ -164,6 +170,18 @@ export function RulebreakerFlow({
           </div>
         )}
 
+        {/* Bot thinking banner */}
+        {isBotTurnToChoose && !botPickedSide && (
+          <div style={{ display:"flex", alignItems:"center", gap:10, padding:"10px 20px", background:`${actorCol}10`, border:`1px solid ${actorCol}33`, borderRadius:ip?2:10, animation:"fadeUp 0.3s ease both" }}>
+            <div style={{ display:"flex", gap:6 }}>
+              {[0,1,2].map(i => (
+                <div key={i} style={{ width:7, height:7, borderRadius:"50%", background:actorCol, opacity:0.7, animation:`botPulse 1.2s ease-in-out ${i*0.25}s infinite` }}/>
+              ))}
+            </div>
+            <span style={{ fontFamily:t.fontMono, fontSize:12, color:actorCol, letterSpacing:"0.12em" }}>BOT IS CHOOSING...</span>
+          </div>
+        )}
+
         <div style={{ width:"min(480px,88vw)", display:"flex", flexDirection:"column", gap:6 }}>
           <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
             <span style={{ fontFamily:t.fontMono, fontSize:11, color:t.textMuted, letterSpacing:"0.12em" }}>{actor} IS CHOOSING</span>
@@ -174,10 +192,21 @@ export function RulebreakerFlow({
           </div>
         </div>
 
-        <div style={{ display:"flex", gap:20, width:"100%", maxWidth:880, opacity:isMyTurn?1:0.25, pointerEvents:isMyTurn?"auto":"none", transition:"opacity 0.3s", filter:isMyTurn?"none":"blur(1px)" }}>
-          <TossCard label={leftLabel} onClick={onLeft} delay={0.12} actorCol={actorCol} bgCard={t.bgCard} borderCol={t.border} textCol={t.text} fontDisplay={t.fontDisplay} ip={ip}/>
-          <TossCard label={rightLabel} onClick={onRight} delay={0.20} actorCol={actorCol} bgCard={t.bgCard} borderCol={t.border} textCol={t.text} fontDisplay={t.fontDisplay} ip={ip}/>
-        </div>
+        {/* Cards — always render normally; blur overlay only on unchosen card when bot reveals */}
+        <div style={{ display:"flex", gap:20, width:"100%", maxWidth:880, pointerEvents:(isMyTurn && !isBotTurnToChoose)?"auto":"none" }}>
+  <div style={{ flex:1, position:"relative", display:"flex" }}>
+    <TossCard label={leftLabel} onClick={onLeft} delay={0.12} actorCol={actorCol} bgCard={t.bgCard} borderCol={t.border} textCol={t.text} fontDisplay={t.fontDisplay} ip={ip}/>
+    {isBotTurnToChoose && botPickedSide !== null && botPickedSide !== null && botPickedSide !== "left" && (
+      <div style={{ position:"absolute", inset:0, borderRadius:ip?2:16, backdropFilter:"blur(5px)", background:"rgba(0,0,0,0.5)", zIndex:2 }}/>
+    )}
+  </div>
+  <div style={{ flex:1, position:"relative", display:"flex" }}>
+    <TossCard label={rightLabel} onClick={onRight} delay={0.20} actorCol={actorCol} bgCard={t.bgCard} borderCol={t.border} textCol={t.text} fontDisplay={t.fontDisplay} ip={ip}/>
+    {isBotTurnToChoose && botPickedSide !== null && botPickedSide !== "right" && (
+      <div style={{ position:"absolute", inset:0, borderRadius:ip?2:16, backdropFilter:"blur(5px)", background:"rgba(0,0,0,0.5)", zIndex:2 }}/>
+    )}
+  </div>
+</div>
       </div>
     );
   }

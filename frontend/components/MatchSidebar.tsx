@@ -413,7 +413,7 @@ export function LeftPanel(props: MatchSidebarProps) {
                   style={{ background:rdy?`${col}22`:"#AA000022", border:`2px solid ${rdy?col:"#AA0000"}`, color:rdy?col:"#EE0000", fontFamily:t.fontMono, fontSize:15, fontWeight:700, padding:"12px", borderRadius:ip?2:6, cursor:"pointer", transition:"all 0.2s", boxShadow:rdy?`0 0 16px ${col}55, 0 0 4px ${col}33`:"none" }}
                   onMouseEnter={e=>{playHover?.();e.currentTarget.style.boxShadow=rdy?`0 0 24px ${col}88`:"0 0 16px #EE000055";e.currentTarget.style.borderColor=rdy?col:"#FF3333";}}
                   onMouseLeave={e=>{e.currentTarget.style.boxShadow=rdy?`0 0 16px ${col}55`:"none";e.currentTarget.style.borderColor=rdy?col:"#AA0000";}}
-                >{props.matchHistory.length >= 2 ? "START RULEBREAKER ⚡" : "START GAME 2"} {rdy?"✓":""}</button>
+                >{props.matchHistory.length >= 2 ? "START RULEBREAKER" : "START GAME 2"} {rdy?"✓":""}</button>
               );
             })()
           ) : (

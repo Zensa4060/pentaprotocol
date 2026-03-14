@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { ThemeId } from "@/lib/themes";
 import { THEMES } from "@/lib/themes";
 import API from "@/lib/api";
@@ -337,7 +337,12 @@ export default function CollectionScreen({ themeId, setThemeId, onHover, onClick
   const ip = themeId === "pixel";
   const isClassic = themeId === "classic_light" || themeId === "classic_dark";
   const hoverColor = isClassic ? "#CC0000" : t.accent;
-
+  useEffect(() => {
+  if (!token) return;
+  API.get("/api/profile/me", { headers: { Authorization: `Bearer ${token}` } })
+    .then(res => updateUser(res.data))
+    .catch(() => {});
+}, [token]);
   const equipBoard = async (id: string) => {
     if (!token) return;
     setEquipping(id);

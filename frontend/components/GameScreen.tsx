@@ -172,6 +172,7 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
   const [summaryTimer, setSummaryTimer]       = useState(3.0);
   const [choiceTimer, setChoiceTimer]         = useState(0);
   const [overlayVisible, setOverlayVisible]   = useState(false);
+  const [botPickedSide, setBotPickedSide] = useState<"left"|"right"|null>(null);
 
   // Mobile log drawer
   const [showMobileLog, setShowMobileLog] = useState(false);
@@ -605,7 +606,6 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
     else if (p === "c3_choice_loser")  { setRbC3Blocked(true);  setSummaryTimer(3); setPhase("toss_summary"); }
     else if (p === "who_first_loser")  { setFirstPlayerChosen(tl); setSummaryTimer(3); setPhase("toss_summary"); }
   };
-
   const doAdvanceAfterReady = () => {
     const gn = R.current.gameNumber;
     if (R.current.matchOver) return;
@@ -731,6 +731,37 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
     else if (p === "who_first_loser") { setFirstPlayerChosen(tw); setSummaryTimer(3); setPhase("toss_summary"); broadcastTossPhase("toss_summary", { firstPlayerChosen: tw, summaryTimer: 3 }); }
   }, [broadcastTossPhase]);
 
+   // ── Bot auto-picks during Rulebreaker choice phases ───────────────────────
+useEffect(() => {
+  if (gameMode !== "ai") return;
+
+  const winnerPhases: Phase[] = ["rule_choice", "who_first_winner", "c3_choice"];
+  const loserPhases:  Phase[] = ["c3_choice_loser", "who_first_loser"];
+
+  const isBotWinner = tossWinner === "P2";
+  const isBotLoser  = tossWinner === "P1"; // P2 is always bot
+
+  const isBotTurn =
+    (winnerPhases.includes(phase) && isBotWinner) ||
+    (loserPhases.includes(phase)  && isBotLoser);
+
+  if (!isBotTurn) return;
+
+  // Random delay to feel natural (0.8s–2.0s)
+  const delay = 800 + Math.random() * 1200;
+  const timer = setTimeout(() => {
+  const pick = Math.random() < 0.5 ? "left" : "right";
+  setBotPickedSide(pick);
+  // Short delay so the player can see what bot chose before phase advances
+  setTimeout(() => {
+    setBotPickedSide(null);
+    if (pick === "left") onLeft(); else onRight();
+  }, 900);
+}, delay);
+
+  return () => clearTimeout(timer);
+}, [phase, tossWinner, gameMode, onLeft, onRight]);
+
   const cc = current === "P1" ? p1c : p2c;
   const cp = current === "P1" ? t.pieces.p1 : t.pieces.p2;
   const winnerColor = winner === "P1" ? p1c : winner === "P2" ? p2c : t.gold;
@@ -812,6 +843,8 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
         summaryTimer={summaryTimer} firstPlayerChosen={firstPlayerChosen} rbC3Blocked={rbC3Blocked}
         choiceTimer={choiceTimer} isMultiplayerGame={isMultiplayerGame} mySlot={mySlot}
         winnerPickedRule={winnerPickedRule} winnerPickedFirst={winnerPickedFirst} winnerPickedC3={winnerPickedC3}
+        botPickedSide={botPickedSide}
+        gameMode={gameMode}
         onLeft={onLeft} onRight={onRight} fmtSec={fmtSec}
       />
     );
