@@ -34,22 +34,44 @@ function ParticleCanvas() {
     let animId: number;
     let W = 0, H = 0;
 
+    // Mouse position tracked relative to canvas
+    const mouse = { x: -9999, y: -9999 };
+
     const resize = () => {
       W = canvas.width  = canvas.offsetWidth;
       H = canvas.height = canvas.offsetHeight;
     };
 
+    const onMouseMove = (e: MouseEvent) => {
+      const rect = canvas.getBoundingClientRect();
+      mouse.x = e.clientX - rect.left;
+      mouse.y = e.clientY - rect.top;
+    };
+
+    const onMouseLeave = () => {
+      mouse.x = -9999;
+      mouse.y = -9999;
+    };
+
     window.addEventListener("resize", resize);
+    canvas.addEventListener("mousemove", onMouseMove);
+    canvas.addEventListener("mouseleave", onMouseLeave);
+    // Also track on window so movement over child elements (logo etc) still works
+    window.addEventListener("mousemove", onMouseMove);
     resize();
 
     const COUNT = 110;
     const CONNECT = 100;
+    const ATTRACT_RADIUS = 500;  // how far mouse pulls particles
+    const ATTRACT_FORCE  = 0.5; // strength of pull
+    const MAX_SPEED      = 10.0;   // cap so particles don't fly off
+
     type Pt = { x: number; y: number; vx: number; vy: number; r: number; bright: boolean };
     const pts: Pt[] = Array.from({ length: COUNT }, () => ({
       x: Math.random() * W,
       y: Math.random() * H,
-      vx: (Math.random() - 0.5) * 0.55,
-      vy: (Math.random() - 0.5) * 0.55,
+      vx: (Math.random() - 0.5) * 0.79,
+      vy: (Math.random() - 0.5) * 0.79,
       r: 1.2 + Math.random() * 2.2,
       bright: Math.random() < 0.15,
     }));
@@ -62,6 +84,29 @@ function ParticleCanvas() {
       ctx.fillRect(0, 0, W, H);
 
       pts.forEach(p => {
+        // Mouse attraction
+        const dx = mouse.x - p.x;
+        const dy = mouse.y - p.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+
+        if (dist < ATTRACT_RADIUS && dist > 0) {
+          // Force scales with proximity — closer = stronger pull
+          const force = (1 - dist / ATTRACT_RADIUS) * ATTRACT_FORCE;
+          p.vx += (dx / dist) * force;
+          p.vy += (dy / dist) * force;
+        }
+
+        // Dampen velocity slightly so particles don't accumulate speed forever
+        p.vx *= 0.98;
+        p.vy *= 0.98;
+
+        // Cap speed
+        const speed = Math.sqrt(p.vx * p.vx + p.vy * p.vy);
+        if (speed > MAX_SPEED) {
+          p.vx = (p.vx / speed) * MAX_SPEED;
+          p.vy = (p.vy / speed) * MAX_SPEED;
+        }
+
         p.x += p.vx; p.y += p.vy;
         if (p.x < 0) p.x = W; if (p.x > W) p.x = 0;
         if (p.y < 0) p.y = H; if (p.y > H) p.y = 0;
@@ -104,6 +149,9 @@ function ParticleCanvas() {
     return () => {
       cancelAnimationFrame(animId);
       window.removeEventListener("resize", resize);
+      window.removeEventListener("mousemove", onMouseMove);
+      canvas.removeEventListener("mousemove", onMouseMove);
+      canvas.removeEventListener("mouseleave", onMouseLeave);
     };
   }, []);
 
@@ -259,10 +307,11 @@ export default function AuthScreen({ setScreen, themeId }: Props) {
     boxSizing: "border-box",
   });
 
+  // ── CHANGED: label color #666 → #aaa, size 11 → 11.6px ──
   const labelStyle: React.CSSProperties = {
     display: "block",
     fontFamily: FONT,
-    fontSize: 11, color: "#666",
+    fontSize: 11.6, color: "#aaa",
     letterSpacing: "0.18em", marginBottom: 6,
     textTransform: "uppercase",
   };
@@ -323,6 +372,7 @@ export default function AuthScreen({ setScreen, themeId }: Props) {
     </div>
   );
 
+  // ── CHANGED: checkbox label color #555 → #aaa, size 13 → 13.7px ──
   const Checkbox = ({ checked, onToggle, label }: { checked: boolean; onToggle: () => void; label: string }) => (
     <div onClick={onToggle} style={{ display: "flex", alignItems: "center", gap: 9, cursor: "pointer", marginBottom: 6, userSelect: "none" }}>
       <div style={{
@@ -334,7 +384,7 @@ export default function AuthScreen({ setScreen, themeId }: Props) {
       }}>
         {checked && <span style={{ color: "#fff", fontSize: 10, fontWeight: 900, lineHeight: 1 }}>✓</span>}
       </div>
-      <span style={{ fontFamily: FONT, fontSize: 13, color: "#555" }}>{label}</span>
+      <span style={{ fontFamily: FONT, fontSize: 13.7, color: "#aaa" }}>{label}</span>
     </div>
   );
 
@@ -342,34 +392,36 @@ export default function AuthScreen({ setScreen, themeId }: Props) {
     <button onClick={onClick} disabled={disabled}
       style={{
         width: "100%", padding: isMobile ? "14px" : "11px",
-        background: disabled ? "rgba(204,0,0,0.3)" : ACCENT,
-        border: "none", borderRadius: 8,
-        color: "#fff", fontFamily: FONT,
+        background: disabled ? "#111" : "#1c1c1c",
+        border: `1px solid ${disabled ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.28)"}`,
+        borderRadius: 8,
+        color: disabled ? "rgba(255,255,255,0.3)" : "#fff", fontFamily: FONT,
         fontSize: isMobile ? 15 : 14, fontWeight: 700, letterSpacing: "0.1em",
         cursor: disabled ? "not-allowed" : "pointer",
         textTransform: "uppercase",
-        boxShadow: disabled ? "none" : `0 0 20px ${ACCENT}44`,
+        boxShadow: disabled ? "none" : "0 2px 12px rgba(0,0,0,0.6)",
         transition: "all 0.18s", marginTop: 8,
       }}
-      onMouseEnter={e => { if (!disabled) { e.currentTarget.style.background = ACCENT2; e.currentTarget.style.boxShadow = `0 0 28px ${ACCENT}66`; } }}
-      onMouseLeave={e => { if (!disabled) { e.currentTarget.style.background = ACCENT; e.currentTarget.style.boxShadow = `0 0 20px ${ACCENT}44`; } }}
+      onMouseEnter={e => { if (!disabled) { e.currentTarget.style.background = "#2a2a2a"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.5)"; e.currentTarget.style.boxShadow = "0 4px 20px rgba(0,0,0,0.8)"; } }}
+      onMouseLeave={e => { if (!disabled) { e.currentTarget.style.background = "#1c1c1c"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.28)"; e.currentTarget.style.boxShadow = "0 2px 12px rgba(0,0,0,0.6)"; } }}
     >{label}</button>
   );
 
+  // ── CHANGED: ghost btn color #555 → #999, size 13 → 13.7px ──
   const GhostBtn = ({ label, onClick }: { label: string; onClick: () => void }) => (
     <button onClick={onClick}
       style={{
         width: "100%", padding: isMobile ? "13px" : "10px",
         background: "transparent",
-        border: "1px solid rgba(255,255,255,0.1)",
-        borderRadius: 8, color: "#555",
+        border: "1px solid rgba(255,255,255,0.15)",
+        borderRadius: 8, color: "#999",
         fontFamily: FONT,
-        fontSize: 13, fontWeight: 600, letterSpacing: "0.08em",
+        fontSize: 13.7, fontWeight: 600, letterSpacing: "0.08em",
         cursor: "pointer", textTransform: "uppercase",
         transition: "all 0.18s", marginTop: 6,
       }}
       onMouseEnter={e => { e.currentTarget.style.borderColor = ACCENT; e.currentTarget.style.color = ACCENT; }}
-      onMouseLeave={e => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.1)"; e.currentTarget.style.color = "#555"; }}
+      onMouseLeave={e => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.15)"; e.currentTarget.style.color = "#999"; }}
     >{label}</button>
   );
 
@@ -390,19 +442,16 @@ export default function AuthScreen({ setScreen, themeId }: Props) {
         .pp-left  { animation: fadeInLeft  0.6s cubic-bezier(.22,.68,0,1.1) both; }
         .pp-right { animation: fadeInRight 0.55s cubic-bezier(.22,.68,0,1.1) 0.1s both; }
         .pp-right-mobile { animation: fadeInUp 0.5s cubic-bezier(.22,.68,0,1.1) 0.15s both; }
-        input::placeholder { color: #333; }
+        input::placeholder { color: #666; }
         input:focus { outline: none; }
         ::-webkit-scrollbar { width: 3px; background: transparent; }
         ::-webkit-scrollbar-thumb { background: #CC000044; border-radius: 2px; }
       `}</style>
 
       {/* ── LEFT PANEL — particle bg + logo ── */}
-      {/* On mobile: compact banner on top. On desktop: 70% left panel */}
       <div
         className="pp-left"
         style={{
-          // Desktop: 70% width fixed panel
-          // Mobile: full width, fixed height banner with logo
           flex: isMobile ? "0 0 auto" : "0 0 70%",
           height: isMobile ? 220 : "100%",
           position: "relative",
@@ -422,7 +471,6 @@ export default function AuthScreen({ setScreen, themeId }: Props) {
           pointerEvents: "none",
         }} />
 
-        {/* Bottom fade into form on mobile */}
         {isMobile && (
           <div style={{
             position: "absolute", bottom: 0, left: 0, right: 0, height: 80, zIndex: 2,
@@ -431,7 +479,6 @@ export default function AuthScreen({ setScreen, themeId }: Props) {
           }} />
         )}
 
-        {/* Right-edge fade on desktop */}
         {!isMobile && (
           <div style={{
             position: "absolute", top: 0, right: 0, bottom: 0, width: 120, zIndex: 2,
@@ -464,25 +511,28 @@ export default function AuthScreen({ setScreen, themeId }: Props) {
           <div style={{ textAlign: isMobile ? "left" : "center" }}>
             <div style={{
               fontFamily: "'Courier New', monospace",
-              fontSize: isMobile ? 22 : 38,
+              fontSize: isMobile ? 24 : 42,
               fontWeight: 900,
               letterSpacing: isMobile ? "0.12em" : "0.22em",
-              color: "#fff",
-              textShadow: `0 0 40px rgba(204,0,0,0.5), 0 0 80px rgba(204,0,0,0.2)`,
               lineHeight: 1,
             }}>
-              PENTA<span style={{ color: ACCENT }}>PROTOCOL</span>
+              <span style={{
+                background: "linear-gradient(to bottom, #ffffff 0%, #999999 50%, #ffffff 100%)",
+                WebkitBackgroundClip: "text",
+                WebkitTextFillColor: "transparent",
+                backgroundClip: "text",
+                filter: "drop-shadow(0 0 8px rgba(255,255,255,0.4))",
+                display: "inline",
+              }}>PENTA</span><span style={{
+                background: "linear-gradient(to bottom, #FF2200 0%, #8B0000 45%, #FF1100 100%)",
+                WebkitBackgroundClip: "text",
+                WebkitTextFillColor: "transparent",
+                backgroundClip: "text",
+                filter: "drop-shadow(0 0 12px rgba(255,30,0,0.7))",
+                display: "inline",
+              }}>PROTOCOL</span>
             </div>
-            <div style={{
-              fontFamily: "'Times New Roman', serif",
-              fontSize: isMobile ? 13 : 25,
-              letterSpacing: "0.2em",
-              color: "#ffffff",
-              marginTop: 4,
-              textTransform: "uppercase",
-            }}>
-              5×5 GRID PROTOCOL
-            </div>
+
             {!isMobile && (
               <div style={{ display: "flex", gap: 5, marginTop: 12, alignItems: "center", justifyContent: "center" }}>
                 {["AI", "RANKED", "SOLO"].map((tag, i) => (
@@ -548,17 +598,18 @@ export default function AuthScreen({ setScreen, themeId }: Props) {
         {(tab === "signin" || tab === "signup") && (
           <div style={{
             display: "flex", marginBottom: 24,
-            border: "1px solid rgba(255,255,255,0.07)",
+            border: "1px solid rgba(255,255,255,0.28)",
             borderRadius: 8, overflow: "hidden",
+            background: "#1c1c1c",
           }}>
             {(["signin", "signup"] as const).map(tb => (
               <button key={tb} onClick={() => { setTab(tb); setErrors({}); setSuccessMsg(""); setShowPassword(false); setShowConfirm(false); }}
                 style={{
                   flex: 1, padding: isMobile ? "13px" : "10px",
-                  background: tab === tb ? `rgba(204,0,0,0.15)` : "transparent",
+                  background: tab === tb ? "#2e2e2e" : "transparent",
                   border: "none",
-                  borderRight: tb === "signin" ? "1px solid rgba(255,255,255,0.07)" : "none",
-                  color: tab === tb ? ACCENT : "#444",
+                  borderRight: tb === "signin" ? "1px solid rgba(255,255,255,0.15)" : "none",
+                  color: tab === tb ? "#ffffff" : "#888",
                   fontFamily: FONT,
                   fontSize: isMobile ? 14 : 13,
                   fontWeight: tab === tb ? 700 : 400,
@@ -586,7 +637,8 @@ export default function AuthScreen({ setScreen, themeId }: Props) {
         {tab === "2fa_check" && (
           <div style={{ marginBottom: 20 }}>
             <div style={{ fontFamily: FONT, fontSize: 15, fontWeight: 700, color: ACCENT, letterSpacing: "0.08em", marginBottom: 6 }}>TWO-FACTOR AUTH</div>
-            <div style={{ fontFamily: FONT, fontSize: 13, color: "#444", lineHeight: 1.6 }}>Enter the 6-digit code from your authenticator app.</div>
+            {/* ── CHANGED: 2fa description #444 → #aaa ── */}
+            <div style={{ fontFamily: FONT, fontSize: 13, color: "#aaa", lineHeight: 1.6 }}>Enter the 6-digit code from your authenticator app.</div>
           </div>
         )}
 
@@ -608,11 +660,12 @@ export default function AuthScreen({ setScreen, themeId }: Props) {
             {passwordField("password", "Password", password, setPassword, errors.password || "", "Enter password", showPassword, setShowPassword)}
             <Checkbox checked={staySignedIn} onToggle={() => setStaySignedIn(s => !s)} label="Stay signed in for 30 days" />
             <PrimaryBtn label={loading ? "Signing in…" : "Sign In"} onClick={submit} disabled={loading} />
+            {/* ── CHANGED: forgot password color #555 → #999, size 14 → 14.7px ── */}
             <div style={{ textAlign: "center", marginTop: 14 }}>
               <button onClick={() => { setTab("forgot"); setErrors({}); setSuccessMsg(""); }}
-                style={{ background: "none", border: "none", color: "#555", fontFamily: FONT, fontSize: 14, cursor: "pointer", letterSpacing: "0.05em", textDecoration: "underline", textDecorationColor: "#444", fontStyle: "italic" }}
+                style={{ background: "none", border: "none", color: "#999", fontFamily: FONT, fontSize: 14.7, cursor: "pointer", letterSpacing: "0.05em", textDecoration: "underline", textDecorationColor: "#777", fontStyle: "italic" }}
                 onMouseEnter={e => (e.currentTarget as HTMLElement).style.color = ACCENT}
-                onMouseLeave={e => (e.currentTarget as HTMLElement).style.color = "#444"}
+                onMouseLeave={e => (e.currentTarget as HTMLElement).style.color = "#999"}
               >Forgot password?</button>
             </div>
           </>)}
@@ -668,20 +721,21 @@ export default function AuthScreen({ setScreen, themeId }: Props) {
         </div>
 
         {/* Continue as Guest */}
+        {/* ── CHANGED: color #3a3a3a → #999, size 13 → 13.7px, border opacity bumped ── */}
         <div style={{ marginTop: 24, paddingTop: 20, borderTop: "1px solid rgba(255,255,255,0.05)" }}>
           <button onClick={() => setScreen("home")}
             style={{
               width: "100%", padding: isMobile ? "13px" : "10px",
               background: "transparent",
-              border: "1px solid rgba(255,255,255,0.07)",
-              borderRadius: 8, color: "#3a3a3a",
+              border: "1px solid rgba(255,255,255,0.12)",
+              borderRadius: 8, color: "#999",
               fontFamily: FONT,
-              fontSize: 13, fontWeight: 600, letterSpacing: "0.08em",
+              fontSize: 13.7, fontWeight: 600, letterSpacing: "0.08em",
               cursor: "pointer", textTransform: "uppercase",
               transition: "all 0.18s",
             }}
-            onMouseEnter={e => { e.currentTarget.style.borderColor = "rgba(204,0,0,0.4)"; e.currentTarget.style.color = "#CC0000"; }}
-            onMouseLeave={e => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.07)"; e.currentTarget.style.color = "#3a3a3a"; }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.5)"; e.currentTarget.style.color = "#ffffff"; e.currentTarget.style.background = "#1e1e1e"; }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.12)"; e.currentTarget.style.color = "#999"; e.currentTarget.style.background = "transparent"; }}
           >
             Continue as Guest
           </button>
