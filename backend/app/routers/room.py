@@ -410,9 +410,22 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                 # Check if both ready — read from DB for cross-worker correctness
                 room = await db.rooms.find_one({"room_code": room_code})
                 if room and room.get("p1_ready") and room.get("p2_ready"):
+                    current_game = room.get("game_number", 1)
+
+                    # Guard: game 3 is started exclusively by rb_start_game (rulebreaker flow).
+                    # If both players somehow send ready while game_number >= 2, we must not
+                    # skip the rulebreaker and jump straight to game 3.
+                    if current_game >= 2:
+                        # Clear the ready flags so they don't re-trigger, but don't advance.
+                        await db.rooms.update_one(
+                            {"room_code": room_code},
+                            {"$set": {"p1_ready": False, "p2_ready": False}}
+                        )
+                        continue
+
                     reset = {
                         "board":          [[None]*5 for _ in range(5)],
-                        "current_player": "P2" if room.get("game_number", 1) % 2 == 1 else "P1",
+                        "current_player": "P2" if current_game % 2 == 1 else "P1",
                         "moves_played":   0,
                         "extra_turns":    0,
                         "winner":         None,
@@ -420,7 +433,7 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                         "status":         "active",
                         "p1_ready":       False,
                         "p2_ready":       False,
-                        "game_number":    room.get("game_number", 1) + 1,
+                        "game_number":    current_game + 1,
                     }
                     _room_state[room_code] = {**room, **reset}
                     for slot, ws in _room_connections.get(room_code, {}).items():
@@ -432,7 +445,8 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                             })
                         except:
                             pass
-                    asyncio.create_task(db.rooms.update_one({"room_code": room_code}, {"$set": reset}))
+                    # Await the DB write so stale ready flags can't retrigger this block
+                    await db.rooms.update_one({"room_code": room_code}, {"$set": reset})
 
             elif msg["type"] == "chat":
                 broadcast = {
