@@ -16,7 +16,7 @@ interface Props {
   onRoomReady?: (roomCode: string, playerSlot: "P1" | "P2", format: string) => void;
 }
 
-type MultiSub = "ranked" | "unranked" | null;
+type MultiSub = "unranked" | null;
 type Phase = "select" | "queuing" | "matchup";
 
 export default function LobbyScreen({ setScreen, themeId, onQueueStart, onQueueCancel, onHover, onClick, onRoomReady }: Props) {
@@ -28,7 +28,7 @@ export default function LobbyScreen({ setScreen, themeId, onQueueStart, onQueueC
   const [phase,     setPhase]     = useState<Phase>("select");
   const [elapsed,   setElapsed]   = useState(0);
   const [countdown, setCountdown] = useState(3.5);
-  const [hovered,   setHovered]   = useState<MultiSub>(null);
+  const [hovered,   setHovered]   = useState<string | null>(null);
 
   // Queue state
   const [queueRoomCode,   setQueueRoomCode]   = useState<string | null>(null);
@@ -43,7 +43,6 @@ export default function LobbyScreen({ setScreen, themeId, onQueueStart, onQueueC
   const [roomLoading, setRoomLoading] = useState(false);
   const [roomError,   setRoomError]   = useState<string | null>(null);
   const authHeader = { headers: { Authorization: `Bearer ${token}` } };
-  const level = (user as any)?.level ?? 1;
 
   // Elapsed timer while queuing
   useEffect(() => {
@@ -64,10 +63,8 @@ export default function LobbyScreen({ setScreen, themeId, onQueueStart, onQueueC
     return () => { clearInterval(iv); clearTimeout(t1); };
   }, [phase]);
 
-  // Cancel flag ref — set to true to stop all queue retries immediately
   const queueCancelledRef = useRef(false);
 
-  // Cleanup on unmount
   useEffect(() => {
     return () => {
       queueCancelledRef.current = true;
@@ -80,55 +77,38 @@ export default function LobbyScreen({ setScreen, themeId, onQueueStart, onQueueC
 
   const startSearch = async () => {
     if (!multiSub || !token) return;
-    if (multiSub === "ranked" && level < 5) return;
 
-    // Reset cancel flag for this new queue session
     queueCancelledRef.current = false;
     onQueueStart(multiSub);
     setElapsed(0);
     setPhase("queuing");
 
     const attemptQueueJoin = async () => {
-      // Bail out immediately if cancelled
       if (queueCancelledRef.current) return;
-
       try {
         const res = await API.post("/api/room/queue/join", { format: multiSub }, authHeader);
-
-        // Check again after the async call returns
         if (queueCancelledRef.current) return;
-
         if (res.data.matched) {
           onRoomReady?.(res.data.room_code, res.data.player_slot, multiSub);
           return;
         }
-
         const code = res.data.room_code;
         const slot = res.data.player_slot as "P1" | "P2";
         setQueueRoomCode(code);
         setQueuePlayerSlot(slot);
-
         queuePollRef.current = setInterval(async () => {
-          if (queueCancelledRef.current) {
-            clearInterval(queuePollRef.current!);
-            return;
-          }
+          if (queueCancelledRef.current) { clearInterval(queuePollRef.current!); return; }
           try {
             const poll = await API.get(`/api/room/queue/status/${code}`);
             if (poll.data.game_status === "playing") {
               clearInterval(queuePollRef.current!);
               setPhase("matchup");
               setCountdown(3.5);
-              setTimeout(() => {
-                onQueueCancel();
-                onRoomReady?.(code, slot, multiSub);
-              }, 3500);
+              setTimeout(() => { onQueueCancel(); onRoomReady?.(code, slot, multiSub); }, 3500);
             }
-          } catch { /* ignore poll errors — keep polling */ }
+          } catch { /* keep polling */ }
         }, 2000);
-
       } catch {
-        // Backend unreachable — retry after 3s only if not cancelled
         if (queueCancelledRef.current) return;
         queuePollRef.current = setTimeout(attemptQueueJoin, 3000);
       }
@@ -138,21 +118,15 @@ export default function LobbyScreen({ setScreen, themeId, onQueueStart, onQueueC
   };
 
   const cancelSearch = async () => {
-    // Set cancel flag FIRST — stops any in-flight closure from scheduling more retries
     queueCancelledRef.current = true;
-
     if (queuePollRef.current) {
       clearInterval(queuePollRef.current);
       clearTimeout(queuePollRef.current);
       queuePollRef.current = null;
     }
-
     if (queueRoomCode && token) {
-      try {
-        await API.post("/api/room/queue/leave", { format: multiSub ?? "unranked" }, authHeader);
-      } catch { /* ignore */ }
+      try { await API.post("/api/room/queue/leave", { format: multiSub ?? "unranked" }, authHeader); } catch { /* ignore */ }
     }
-
     setQueueRoomCode(null);
     setPhase("select");
     onQueueCancel();
@@ -161,7 +135,7 @@ export default function LobbyScreen({ setScreen, themeId, onQueueStart, onQueueC
   const fmt = (s: number) =>
     `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
 
-  // ── Room handlers (private rooms) ─────────────────────────────────────────
+  // ── Room handlers ─────────────────────────────────────────────────────────
   const handleCreateRoom = async () => {
     if (!token) { setRoomError("Sign in to play multiplayer"); return; }
     setRoomLoading(true); setRoomError(null);
@@ -183,7 +157,7 @@ export default function LobbyScreen({ setScreen, themeId, onQueueStart, onQueueC
           clearInterval(interval);
           onRoomReady?.(code, mySlot, res.data.format);
         }
-      } catch { /* keep polling on error */ }
+      } catch { /* keep polling */ }
     }, 2000);
     setTimeout(() => clearInterval(interval), 300000);
   };
@@ -238,7 +212,7 @@ export default function LobbyScreen({ setScreen, themeId, onQueueStart, onQueueC
       <div style={{ fontFamily:t.fontDisplay, fontSize:22, color:t.text }}>Finding Opponent</div>
       <div style={{ fontFamily:t.fontMono, fontSize:26, color:t.accent, letterSpacing:"0.2em" }}>{fmt(elapsed)}</div>
       <div style={{ background:t.bgCard, border:`1px solid ${t.border}`, borderRadius:10, padding:"12px 22px", fontFamily:t.fontBody, fontSize:14, color:t.textSecondary, textAlign:"center", lineHeight:1.8 }}>
-        <div>{multiSub === "ranked" ? "Ranked" : "Unranked"} · Best of 3</div>
+        <div>Unranked · Best of 3</div>
         <div style={{ color:t.textMuted }}>Searching for a real opponent...</div>
       </div>
       <button onClick={cancelSearch}
@@ -254,7 +228,7 @@ export default function LobbyScreen({ setScreen, themeId, onQueueStart, onQueueC
   if (phase === "matchup") return (
     <div style={{ position:"fixed", inset:0, zIndex:2, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", background:t.bg, overflow:"hidden", animation:"fadeUp 0.5s cubic-bezier(.22,.68,0,1.2) both" }}>
       <div style={{ fontFamily:t.fontMono, fontSize:12, color:t.textMuted, letterSpacing:"0.18em", marginBottom:48 }}>
-        {multiSub === "ranked" ? "RANKED" : "UNRANKED"} · BEST OF 3
+        UNRANKED · BEST OF 3
       </div>
       <div style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:"clamp(32px,6vw,96px)", width:"100%" }}>
         <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:16, animation:"slideInLeft 0.6s cubic-bezier(.22,.68,0,1.2) both" }}>
@@ -309,80 +283,209 @@ export default function LobbyScreen({ setScreen, themeId, onQueueStart, onQueueC
     </div>
   );
 
-  // ── SELECT ────────────────────────────────────────────────────────────────
-  const cardStyle = (mode: "ranked" | "unranked", col: string): React.CSSProperties => {
-    const active = multiSub === mode;
-    const isHov  = hovered === mode && !active;
+  // ── Card style helpers ────────────────────────────────────────────────────
+  const cardStyle = (key: string, col: string, locked?: boolean): React.CSSProperties => {
+    const active = multiSub === key;
+    const isHov  = hovered === key && !active && !locked;
     return {
-      background: active ? `linear-gradient(145deg, ${col}1C, ${t.bgCard})` : isHov ? `linear-gradient(145deg, ${col}10, ${t.bgCard})` : t.bgCard,
+      background: active
+        ? `linear-gradient(145deg, ${col}1C, ${t.bgCard})`
+        : isHov ? `linear-gradient(145deg, ${col}10, ${t.bgCard})` : t.bgCard,
       border: `2px solid ${active ? col : isHov ? col : t.border}`,
       borderRadius: ip ? 2 : 14,
-      padding: ip ? "28px 20px" : "40px 32px",
-      cursor: "pointer", textAlign: "left", position: "relative", outline: "none",
-      transform: active ? "translateY(-3px) scale(1.01)" : isHov ? "translateY(-6px) scale(1.02)" : "translateY(0) scale(1)",
-      boxShadow: active ? `0 10px 36px ${col}2E, 0 0 0 1px ${col}1A` : isHov ? `0 14px 44px ${col}24, 0 0 0 1px ${col}16` : "none",
-      transition: ["background 0.28s cubic-bezier(.22,.68,0,1.2)","border-color 0.28s cubic-bezier(.22,.68,0,1.2)","transform 0.28s cubic-bezier(.22,.68,0,1.2)","box-shadow 0.28s cubic-bezier(.22,.68,0,1.2)"].join(", "),
+      padding: ip ? "35px 25px" : "45px 35px",
+      cursor: locked ? "not-allowed" : "pointer",
+      textAlign: "left" as const,
+      position: "relative" as const,
+      outline: "none",
+      transform: active ? "translateY(-3px) scale(1.01)" : isHov ? "translateY(-6px) scale(1.02)" : "none",
+      boxShadow: active ? `0 10px 36px ${col}2E` : isHov ? `0 14px 44px ${col}24` : "none",
+      transition: ["background 0.28s cubic-bezier(.22,.68,0,1.2)","border-color 0.28s","transform 0.28s cubic-bezier(.22,.68,0,1.2)","box-shadow 0.28s"].join(", "),
+      opacity: locked ? 0.52 : 1,
+      display: "flex",
+      flexDirection: "column" as const,
     };
   };
 
+  const customActive = hovered === "custom" || roomSection !== "none";
+
   const inputStyle: React.CSSProperties = {
-    width:"100%", padding:"14px 16px", boxSizing:"border-box",
+    width:"100%", padding:"12px 14px", boxSizing:"border-box" as const,
     background: t.bgCard, border:`2px solid ${t.border}`,
-    borderRadius: ip ? 2 : 10, color: t.accent,
-    fontFamily: t.fontDisplay, fontSize: 28, fontWeight: 900,
-    letterSpacing: "0.25em", textAlign: "center", outline: "none",
+    borderRadius: ip ? 2 : 8, color: t.accent,
+    fontFamily: t.fontDisplay, fontSize: 24, fontWeight: 900,
+    letterSpacing: "0.25em", textAlign: "center" as const, outline: "none",
     transition: "border-color 0.2s",
   };
 
   return (
     <div style={{ position:"fixed", inset:0, zIndex:2, overflowY:"auto", background:t.bg, padding:"84px 24px 48px", display:"flex", flexDirection:"column", alignItems:"center", transition:"background 0.4s" }}>
-      <h1 style={{ fontFamily:t.fontDisplay, fontSize:36, fontWeight:700, color:t.text, marginBottom:8, textAlign:"center" }}>Multiplayer</h1>
-      <p style={{ fontFamily:t.fontBody, color:t.textMuted, marginBottom:40, fontSize:15, textAlign:"center" }}>All matches are Best of 3 · Rulebreaker enabled</p>
 
-      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:ip?14:22, width:"100%", maxWidth:760 }}>
+      <h1 style={{ fontFamily:t.fontDisplay, fontSize:71, fontWeight:700, color:t.text, marginBottom:40, textAlign:"center", textTransform:"uppercase", letterSpacing:"0.05em" }}>Multiplayer</h1>
 
-        {/* RANKED — level 5 required */}
-        <button
-          onClick={() => { if (level >= 5) setMultiSub(multiSub === "ranked" ? null : "ranked"); }}
-          onMouseEnter={() => { onHover?.(); setHovered("ranked"); }}
-          onMouseLeave={() => setHovered(null)}
-          style={{ ...cardStyle("ranked", t.gold), opacity: level < 5 ? 0.5 : 1, cursor: level < 5 ? "not-allowed" : "pointer" }}
-        >
-          <div style={{ position:"absolute", top:11, right:11, background:`${t.gold}18`, border:`1px solid ${t.gold}`, color:t.gold, fontSize:10, padding:"2px 7px", borderRadius:10, fontFamily:t.fontMono }}>
-            LVL 5+
-          </div>
-          <div style={{ fontFamily:t.fontDisplay, fontSize:ip?15:24, fontWeight:700, marginBottom:8, color: multiSub === "ranked" || hovered === "ranked" ? t.gold : t.text, transition:"color 0.28s cubic-bezier(.22,.68,0,1.2)" }}>Ranked</div>
-          <div style={{ fontFamily:t.fontBody, fontSize:ip?12:15, color:t.textMuted }}>
-            {level < 5 ? `Requires level 5 · You are level ${level}` : "ELO · Rank · Season rewards"}
-          </div>
-        </button>
+      {/* ── 3-column grid ── */}
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:ip?14:20, width:"100%", maxWidth:1200, marginTop:"20vh" }}>
 
-        {/* UNRANKED */}
+        {/* ── UNRANKED ── */}
         <button
           onClick={() => setMultiSub(multiSub === "unranked" ? null : "unranked")}
           onMouseEnter={() => { onHover?.(); setHovered("unranked"); }}
           onMouseLeave={() => setHovered(null)}
-          style={cardStyle("unranked", t.p1)}
+          style={{ ...cardStyle("unranked", t.p1), alignItems:"center", textAlign:"center" as const }}
         >
-          <div style={{ fontFamily:t.fontDisplay, fontSize:ip?15:24, fontWeight:700, marginBottom:8, color: multiSub === "unranked" || hovered === "unranked" ? t.p1 : t.text, transition:"color 0.28s cubic-bezier(.22,.68,0,1.2)" }}>Unranked</div>
-          <div style={{ fontFamily:t.fontBody, fontSize:ip?12:15, color:t.textMuted }}>Casual · Coins + XP</div>
+          <div style={{ fontFamily:t.fontMono, fontSize:10, color:t.textMuted, letterSpacing:"0.18em", marginBottom:12 }}>QUEUE</div>
+          <div style={{ fontFamily:t.fontDisplay, fontSize:ip?20:32, fontWeight:700, marginBottom:8, color: multiSub === "unranked" || hovered === "unranked" ? t.p1 : t.text, transition:"color 0.28s", textTransform:"uppercase" as const, letterSpacing:"0.08em" }}>
+            Unranked
+          </div>
+          <div style={{ fontFamily:t.fontBody, fontSize:ip?12:14, color:t.textMuted, marginBottom:16, textTransform:"uppercase", letterSpacing:"0.06em" }}>Casual · Coins + XP</div>
+
+          <div style={{ marginTop:"auto", width:"100%", display:"flex", flexDirection:"column", gap:6 }}>
+            {[{k:"FORMAT",v:"Best of 3"},{k:"TIMER",v:"3 min"},{k:"RULEBREAKER",v:"Game 3"}].map(s => (
+              <div key={s.k} style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+                <div style={{ fontFamily:t.fontMono, fontSize:10, color:t.textMuted, letterSpacing:"0.1em" }}>{s.k}</div>
+                <div style={{ fontFamily:t.fontBody, fontSize:12, color:t.text }}>{s.v}</div>
+              </div>
+            ))}
+          </div>
+
+          {multiSub === "unranked" && (
+            <div style={{ position:"absolute", top:11, right:11, width:8, height:8, borderRadius:"50%", background:t.p1, boxShadow:`0 0 8px ${t.p1}` }} />
+          )}
         </button>
+
+        {/* ── RANKED (locked) ── */}
+        <div
+          style={{ ...cardStyle("ranked", t.gold, true), pointerEvents:"none", alignItems:"center", textAlign:"center" as const }}
+        >
+          {/* Lock badge */}
+          <div style={{ position:"absolute", top:11, right:11, background:`${t.gold}18`, border:`1px solid ${t.gold}55`, color:t.gold, fontSize:10, padding:"2px 8px", borderRadius:10, fontFamily:t.fontMono, display:"flex", alignItems:"center", gap:4 }}>
+            <span style={{ fontSize:11 }}>🔒</span> SOON
+          </div>
+
+          <div style={{ fontFamily:t.fontMono, fontSize:10, color:t.textMuted, letterSpacing:"0.18em", marginBottom:12 }}>QUEUE</div>
+          <div style={{ fontFamily:t.fontDisplay, fontSize:ip?20:32, fontWeight:700, marginBottom:8, color:t.gold, textTransform:"uppercase" as const, letterSpacing:"0.08em" }}>
+            Ranked
+          </div>
+          <div style={{ fontFamily:t.fontBody, fontSize:ip?12:14, color:t.textMuted, marginBottom:16 }}>ELO · Rank · Season rewards</div>
+
+          <div style={{ marginTop:"auto", width:"100%", display:"flex", flexDirection:"column", gap:6 }}>
+            {[{k:"PLACEMENT",v:"10 matches"}].map(s => (
+              <div key={s.k} style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+                <div style={{ fontFamily:t.fontMono, fontSize:10, color:t.textMuted, letterSpacing:"0.1em" }}>{s.k}</div>
+                <div style={{ fontFamily:t.fontBody, fontSize:12, color:t.text }}>{s.v}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* ── CUSTOM (private rooms) ── */}
+        <div
+          onMouseEnter={() => setHovered("custom")}
+          onMouseLeave={() => setHovered(null)}
+          style={{
+            background: roomSection !== "none"
+              ? `linear-gradient(145deg, ${t.accent}14, ${t.bgCard})`
+              : customActive ? `linear-gradient(145deg, ${t.accent}0C, ${t.bgCard})` : t.bgCard,
+            border: `2px solid ${roomSection !== "none" ? t.accent : customActive ? t.accent : t.border}`,
+            borderRadius: ip ? 2 : 14,
+            padding: ip ? "35px 25px" : "45px 35px",
+            textAlign: "center" as const,
+            position: "relative" as const,
+            display: "flex",
+            flexDirection: "column" as const,
+            alignItems: "center",
+            gap: 0,
+            transition: "background 0.28s, border-color 0.28s",
+            boxShadow: roomSection !== "none" ? `0 10px 36px ${t.accent}1E` : customActive ? `0 6px 28px ${t.accent}14` : "none",
+          }}
+        >
+          <div style={{ fontFamily:t.fontMono, fontSize:10, color:t.textMuted, letterSpacing:"0.18em", marginBottom:12 }}>PRIVATE</div>
+          <div style={{ fontFamily:t.fontDisplay, fontSize:ip?20:32, fontWeight:700, marginBottom:8, color: roomSection !== "none" || customActive ? t.accent : t.text, transition:"color 0.28s", textTransform:"uppercase" as const, letterSpacing:"0.08em" }}>
+            Custom
+          </div>
+          <div style={{ fontFamily:t.fontBody, fontSize:ip?12:14, color:t.textMuted, marginBottom:20 }}>Play with a friend · Room codes</div>
+
+          {/* Error message */}
+          {roomError && roomSection !== "none" && (
+            <div style={{ background:`${t.danger}14`, border:`1px solid ${t.danger}`, borderRadius:8, padding:"8px 12px", color:t.danger, fontFamily:t.fontBody, fontSize:12, marginBottom:12, width:"100%", boxSizing:"border-box" as const }}>
+              ⚠ {roomError}
+            </div>
+          )}
+
+          {/* ── CREATE sub-panel ── */}
+          {roomSection === "create" && (
+            <div style={{ display:"flex", flexDirection:"column", gap:10, width:"100%", animation:"fadeUp 0.28s cubic-bezier(.22,.68,0,1.2) both" }}>
+              <div style={{ display:"flex", gap:8 }}>
+                <button onClick={handleCreateRoom} disabled={roomLoading}
+                  style={{ flex:1, padding:"16px", background:t.accent, border:`2px solid ${t.accent}`, borderRadius:ip?2:7, color:"#000", fontFamily:t.fontDisplay, fontSize:14, fontWeight:800, cursor:roomLoading?"wait":"pointer", letterSpacing:"0.06em", transition:"all 0.2s" }}>
+                  {roomLoading ? "CREATING..." : "CREATE"}
+                </button>
+                <button onClick={cancelRoom}
+                  style={{ padding:"16px 18px", background:"transparent", border:`1px solid ${t.border}`, borderRadius:ip?2:7, color:t.textMuted, fontFamily:t.fontDisplay, fontSize:13, cursor:"pointer" }}>
+                  ✕
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* ── JOIN sub-panel ── */}
+          {roomSection === "join" && (
+            <div style={{ display:"flex", flexDirection:"column", gap:10, width:"100%", animation:"fadeUp 0.28s cubic-bezier(.22,.68,0,1.2) both" }}>
+              <div style={{ fontFamily:t.fontMono, fontSize:10, color:t.textMuted, letterSpacing:"0.15em", marginBottom:2 }}>ROOM CODE</div>
+              <input
+                value={joinCode}
+                onChange={e => setJoinCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g,""))}
+                onKeyDown={e => e.key === "Enter" && handleJoinRoom()}
+                maxLength={6}
+                placeholder="XXXXXX"
+                style={inputStyle}
+                onFocus={e => e.target.style.borderColor = t.accent}
+                onBlur={e => e.target.style.borderColor = t.border}
+              />
+              <div style={{ fontFamily:t.fontBody, fontSize:11, color:t.textMuted, textAlign:"center" }}>
+                6-character code from your friend
+              </div>
+              <div style={{ display:"flex", gap:8 }}>
+                <button onClick={handleJoinRoom} disabled={roomLoading || joinCode.length !== 6}
+                  style={{ flex:1, padding:"16px", background: joinCode.length===6 ? t.accent : t.bgCard, border:`2px solid ${joinCode.length===6 ? t.accent : t.border}`, borderRadius:ip?2:7, color: joinCode.length===6 ? "#000" : t.textMuted, fontFamily:t.fontDisplay, fontSize:14, fontWeight:800, cursor: joinCode.length===6&&!roomLoading?"pointer":"not-allowed", letterSpacing:"0.06em", transition:"all 0.2s" }}>
+                  {roomLoading ? "JOINING..." : "JOIN"}
+                </button>
+                <button onClick={cancelRoom}
+                  style={{ padding:"16px 18px", background:"transparent", border:`1px solid ${t.border}`, borderRadius:ip?2:7, color:t.textMuted, fontFamily:t.fontDisplay, fontSize:13, cursor:"pointer" }}>
+                  ✕
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* ── Default buttons (no sub-panel open) ── */}
+          {roomSection === "none" && (
+            <div style={{ display:"flex", flexDirection:"column", gap:10, marginTop:"auto", width:"100%", animation:"fadeUp 0.28s cubic-bezier(.22,.68,0,1.2) both" }}>
+              <button
+                onClick={() => { setRoomSection("create"); setRoomError(null); }}
+                onMouseEnter={e => { onHover?.(); e.currentTarget.style.borderColor=t.accent; e.currentTarget.style.color=t.accent; }}
+                onMouseLeave={e => { e.currentTarget.style.borderColor=t.border; e.currentTarget.style.color=t.textMuted; }}
+                style={{ width:"100%", padding:"16px", background:"transparent", border:`2px solid ${t.border}`, borderRadius:ip?2:8, color:t.textMuted, fontFamily:t.fontDisplay, fontSize:14, fontWeight:700, cursor:"pointer", letterSpacing:"0.08em", transition:"all 0.22s" }}
+              >
+                + CREATE ROOM
+              </button>
+              <button
+                onClick={() => { setRoomSection("join"); setRoomError(null); }}
+                onMouseEnter={e => { onHover?.(); e.currentTarget.style.borderColor=t.accent; e.currentTarget.style.color=t.accent; }}
+                onMouseLeave={e => { e.currentTarget.style.borderColor=t.border; e.currentTarget.style.color=t.textMuted; }}
+                style={{ width:"100%", padding:"16px", background:"transparent", border:`2px solid ${t.border}`, borderRadius:ip?2:8, color:t.textMuted, fontFamily:t.fontDisplay, fontSize:14, fontWeight:700, cursor:"pointer", letterSpacing:"0.08em", transition:"all 0.22s" }}
+              >
+                → JOIN ROOM
+              </button>
+            </div>
+          )}
+        </div>
 
       </div>
 
+      {/* ── FIND MATCH button (shows when Unranked selected) ── */}
       {multiSub && (
-        <div style={{ marginTop:18, width:"100%", maxWidth:760, background:t.bgPanel, border:`1px solid ${t.border}`, borderRadius:ip?2:10, padding:"14px 22px", display:"flex", gap:28, flexWrap:"wrap", animation:"fadeUp 0.32s cubic-bezier(.22,.68,0,1.2) both" }}>
-          {[{k:"FORMAT",v:"Best of 3"},{k:"RULEBREAKER",v:"Game 3 ON"},{k:"TIMER",v:"3 min"},{k:"REGION",v:"Auto"}].map(s => (
-            <div key={s.k}>
-              <div style={{ fontFamily:t.fontMono, fontSize:11, color:t.textMuted, letterSpacing:"0.12em", marginBottom:3 }}>{s.k}</div>
-              <div style={{ fontFamily:t.fontBody, fontSize:14, color:t.text }}>{s.v}</div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {multiSub && (
-        <div style={{ display:"flex", justifyContent:"center", marginTop:24, animation:"fadeUp 0.32s cubic-bezier(.22,.68,0,1.2) 0.06s both" }}>
+        <div style={{ display:"flex", justifyContent:"center", marginTop:28, animation:"fadeUp 0.32s cubic-bezier(.22,.68,0,1.2) 0.06s both" }}>
           <button
             onClick={startSearch}
             style={{ background:`linear-gradient(135deg,${t.accent},${t.accentGlow})`, border:"none", color:"#0A0A0A", fontFamily:t.fontDisplay, fontSize:18, fontWeight:700, padding:"18px 64px", borderRadius:ip?2:10, cursor:"pointer", boxShadow:`0 0 28px ${t.accentGlow}44`, transition:"transform 0.25s cubic-bezier(.22,.68,0,1.2), box-shadow 0.25s cubic-bezier(.22,.68,0,1.2)" }}
@@ -391,106 +494,6 @@ export default function LobbyScreen({ setScreen, themeId, onQueueStart, onQueueC
             onMouseDown={e  => { e.currentTarget.style.transform="translateY(0) scale(0.97)"; }}
             onMouseUp={e    => { e.currentTarget.style.transform="translateY(-3px) scale(1.04)"; }}
           >FIND MATCH</button>
-        </div>
-      )}
-
-      {/* ── Divider ── */}
-      <div style={{ display:"flex", alignItems:"center", gap:16, width:"100%", maxWidth:760, margin:"32px 0 0" }}>
-        <div style={{ flex:1, height:1, background:t.border }} />
-        <div style={{ fontFamily:t.fontMono, fontSize:11, color:t.textMuted, letterSpacing:"0.15em" }}>OR PLAY WITH A FRIEND</div>
-        <div style={{ flex:1, height:1, background:t.border }} />
-      </div>
-
-      {/* ── Play with Friend buttons ── */}
-      {roomSection === "none" && (
-        <div style={{ display:"flex", gap:14, marginTop:18, width:"100%", maxWidth:760, animation:"fadeUp 0.32s cubic-bezier(.22,.68,0,1.2) both" }}>
-          <button
-            onClick={() => { setRoomSection("create"); setRoomError(null); }}
-            onMouseEnter={e => { onHover?.(); e.currentTarget.style.borderColor=t.accent; e.currentTarget.style.color=t.accent; }}
-            onMouseLeave={e => { e.currentTarget.style.borderColor=t.border; e.currentTarget.style.color=t.textMuted; }}
-            style={{ flex:1, padding:"16px", background:"transparent", border:`2px solid ${t.border}`, borderRadius:ip?2:10, color:t.textMuted, fontFamily:t.fontDisplay, fontSize:15, fontWeight:700, cursor:"pointer", letterSpacing:"0.08em", transition:"all 0.2s" }}>
-            + CREATE ROOM
-          </button>
-          <button
-            onClick={() => { setRoomSection("join"); setRoomError(null); }}
-            onMouseEnter={e => { onHover?.(); e.currentTarget.style.borderColor=t.accent; e.currentTarget.style.color=t.accent; }}
-            onMouseLeave={e => { e.currentTarget.style.borderColor=t.border; e.currentTarget.style.color=t.textMuted; }}
-            style={{ flex:1, padding:"16px", background:"transparent", border:`2px solid ${t.border}`, borderRadius:ip?2:10, color:t.textMuted, fontFamily:t.fontDisplay, fontSize:15, fontWeight:700, cursor:"pointer", letterSpacing:"0.08em", transition:"all 0.2s" }}>
-            → JOIN ROOM
-          </button>
-        </div>
-      )}
-
-      {/* ── CREATE ROOM panel ── */}
-      {roomSection === "create" && (
-        <div style={{ width:"100%", maxWidth:760, marginTop:18, background:t.bgPanel, border:`1px solid ${t.border}`, borderRadius:ip?2:12, padding:"22px 24px", display:"flex", flexDirection:"column", gap:16, animation:"fadeUp 0.32s cubic-bezier(.22,.68,0,1.2) both" }}>
-          <div style={{ fontFamily:t.fontMono, fontSize:12, color:t.textMuted, letterSpacing:"0.15em" }}>CREATE PRIVATE ROOM</div>
-
-          {roomError && (
-            <div style={{ background:`${t.danger}14`, border:`1px solid ${t.danger}`, borderRadius:8, padding:"9px 13px", color:t.danger, fontFamily:t.fontBody, fontSize:13 }}>⚠ {roomError}</div>
-          )}
-
-          <div style={{ display:"flex", gap:10 }}>
-            {(["unranked","ranked"] as const).map(f => {
-              const sel = roomFormat === f;
-              return (
-                <button key={f} onClick={() => setRoomFormat(f)}
-                  style={{ flex:1, padding:"12px", border:`2px solid ${sel ? t.accent : t.border}`, borderRadius:ip?2:8, background: sel ? `${t.accent}14` : "transparent", color: sel ? t.accent : t.text, fontFamily:t.fontDisplay, fontSize:13, fontWeight:700, cursor:"pointer", transition:"all 0.2s", letterSpacing:"0.06em" }}>
-                  <div>{f.toUpperCase()}</div>
-                  <div style={{ fontFamily:t.fontBody, fontSize:11, color:t.textMuted, fontWeight:400, marginTop:3 }}>
-                    {f === "ranked" ? "ELO changes" : "Casual · no ELO"}
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-
-          <div style={{ display:"flex", gap:10 }}>
-            <button onClick={handleCreateRoom} disabled={roomLoading}
-              style={{ flex:1, padding:"14px", background:t.accent, border:`2px solid ${t.accent}`, borderRadius:ip?2:8, color:"#000", fontFamily:t.fontDisplay, fontSize:15, fontWeight:800, cursor:roomLoading?"wait":"pointer", letterSpacing:"0.08em", transition:"all 0.2s", boxShadow:`0 0 18px ${t.accentGlow}33` }}>
-              {roomLoading ? "CREATING..." : "CREATE ROOM"}
-            </button>
-            <button onClick={cancelRoom}
-              style={{ padding:"14px 20px", background:"transparent", border:`1px solid ${t.border}`, borderRadius:ip?2:8, color:t.textMuted, fontFamily:t.fontDisplay, fontSize:14, cursor:"pointer" }}>
-              CANCEL
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* ── JOIN ROOM panel ── */}
-      {roomSection === "join" && (
-        <div style={{ width:"100%", maxWidth:760, marginTop:18, background:t.bgPanel, border:`1px solid ${t.border}`, borderRadius:ip?2:12, padding:"22px 24px", display:"flex", flexDirection:"column", gap:16, animation:"fadeUp 0.32s cubic-bezier(.22,.68,0,1.2) both" }}>
-          <div style={{ fontFamily:t.fontMono, fontSize:12, color:t.textMuted, letterSpacing:"0.15em" }}>JOIN PRIVATE ROOM</div>
-
-          {roomError && (
-            <div style={{ background:`${t.danger}14`, border:`1px solid ${t.danger}`, borderRadius:8, padding:"9px 13px", color:t.danger, fontFamily:t.fontBody, fontSize:13 }}>⚠ {roomError}</div>
-          )}
-
-          <input
-            value={joinCode}
-            onChange={e => setJoinCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g,""))}
-            onKeyDown={e => e.key === "Enter" && handleJoinRoom()}
-            maxLength={6}
-            placeholder="XXXXXX"
-            style={inputStyle}
-            onFocus={e => e.target.style.borderColor = t.accent}
-            onBlur={e => e.target.style.borderColor = t.border}
-          />
-          <div style={{ fontFamily:t.fontBody, fontSize:12, color:t.textMuted, textAlign:"center", marginTop:-8 }}>
-            Enter the 6-character code from your friend
-          </div>
-
-          <div style={{ display:"flex", gap:10 }}>
-            <button onClick={handleJoinRoom} disabled={roomLoading || joinCode.length !== 6}
-              style={{ flex:1, padding:"14px", background: joinCode.length===6 ? t.accent : t.bgCard, border:`2px solid ${joinCode.length===6 ? t.accent : t.border}`, borderRadius:ip?2:8, color: joinCode.length===6 ? "#000" : t.textMuted, fontFamily:t.fontDisplay, fontSize:15, fontWeight:800, cursor: joinCode.length===6&&!roomLoading?"pointer":"not-allowed", letterSpacing:"0.08em", transition:"all 0.2s", boxShadow: joinCode.length===6 ? `0 0 18px ${t.accentGlow}33` : "none" }}>
-              {roomLoading ? "JOINING..." : "JOIN ROOM"}
-            </button>
-            <button onClick={cancelRoom}
-              style={{ padding:"14px 20px", background:"transparent", border:`1px solid ${t.border}`, borderRadius:ip?2:8, color:t.textMuted, fontFamily:t.fontDisplay, fontSize:14, cursor:"pointer" }}>
-              CANCEL
-            </button>
-          </div>
         </div>
       )}
 
