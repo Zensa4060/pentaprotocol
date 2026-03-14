@@ -238,9 +238,13 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
       ws.onmessage = (e) => {
         const msg = JSON.parse(e.data);
         if (msg.type === "player_info") {
-          if (msg.slot !== playerSlot) setOpponentName(msg.username ?? null);
-          return;
-        }
+  if (msg.slot !== playerSlot) {
+    setOpponentName(msg.username ?? null);
+    // Reply with our own info so opponent gets our name regardless of connection order
+    ws.send(JSON.stringify({ type: "player_info", username: p1Name ?? playerSlot ?? "P1", slot: playerSlot }));
+  }
+  return;
+}
         if (msg.type === "move_made") {
           setBoard(msg.board);
           setCurrent(msg.current_player);
@@ -547,23 +551,11 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
       }
       if (s.phase === "rb_splash") setRbSplashTimer(v => { const nv = v - dt/1000; if (nv <= 0) { coinStartTimeRef.current = Date.now(); setPhase("rb_coin"); return 3; } return nv; });
       if (s.phase === "rb_coin") {
-  // Both clients derive angle from elapsed time — no need to broadcast angle
-  if (coinStartTimeRef.current > 0) {
-    const elapsed = (Date.now() - coinStartTimeRef.current) / 1000;
-    coinAngleRef.current = elapsed * 0.18 * 60; // ~0.18 per frame at 60fps
-  } else {
-    coinAngleRef.current += 0.18;
+  coinAngleRef.current += 0.18;
+  if (!s.coinResult) {
+    setCoinAngle(coinAngleRef.current);
   }
-  if (coinDivRef.current && !s.coinResult) {
-          const scaleX = Math.abs(Math.cos(coinAngleRef.current * 2));
-          const deg = ((coinAngleRef.current * (180 / Math.PI)) % 360 + 360) % 360;
-          const faceIsPenta = deg < 90 || deg > 270;
-          coinDivRef.current.style.transform = `scaleX(${scaleX})`;
-          coinDivRef.current.style.background = faceIsPenta ? "#ffffff" : "#0a0a0a";
-          const img = coinDivRef.current.querySelector("img") as HTMLImageElement | null;
-          if (img) img.src = faceIsPenta ? "/penta-coin.png" : "/proto-coin.png";
-        }
-        if (!s.coinResult) {
+  if (!s.coinResult) {
           if (!isMultiplayerGame || mySlot === "P1") {
             setCoinFlipTimer(v => { const nv = v - dt / 1000; if (nv <= 0) {
               const r = Math.random() < 0.5 ? "PENTA" : "PROTO";

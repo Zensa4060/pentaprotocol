@@ -7,11 +7,8 @@ export const PHASE_TIMERS: Partial<Record<Phase, number>> = {
   rule_choice: 30, who_first_winner: 30, c3_choice: 30, c3_choice_loser: 30, who_first_loser: 30,
 };
 
-// ─── Props ────────────────────────────────────────────────────────────────────
-
 interface RulebreakerFlowProps {
   phase: Phase;
-  // theme
   t: {
     bg: string; accent: string; accentGlow: string; fontDisplay: string; fontMono: string;
     fontBody: string; textMuted: string; textSecondary: string; text: string; border: string;
@@ -20,31 +17,23 @@ interface RulebreakerFlowProps {
   ip: boolean;
   p1c: string;
   p2c: string;
-  // coin
   coinResult: "PENTA" | "PROTO" | null;
   coinAngle: number;
   coinDivRef: React.RefObject<HTMLDivElement | null>;
   tossWinner: "P1" | "P2" | null;
-  // summary
   summaryTimer: number;
   firstPlayerChosen: string | null;
   rbC3Blocked: boolean;
-  // choice timer
   choiceTimer: number;
-  // multiplayer
   isMultiplayerGame: boolean;
   mySlot: "P1" | "P2";
-  // winner's picks (shown to loser)
   winnerPickedRule: string | null;
   winnerPickedFirst: string | null;
   winnerPickedC3: boolean | null;
-  // handlers
   onLeft: () => void;
   onRight: () => void;
   fmtSec: (s: number) => string;
 }
-
-// ─── Component ────────────────────────────────────────────────────────────────
 
 export function RulebreakerFlow({
   phase, t, ip, p1c, p2c,
@@ -75,19 +64,19 @@ export function RulebreakerFlow({
 
   // ── rb_coin ────────────────────────────────────────────────────────────────
   if (phase === "rb_coin") {
-    const revealed  = coinResult !== null;
-    const coinDiam  = 240;
-    const revType   = coinResult ?? "PENTA";
-    const winCol    = revealed ? (coinResult === "PENTA" ? p1c : p2c) : t.textSecondary;
-    const deg       = ((coinAngle*(180/Math.PI))%360+360)%360;
-    const scaleX    = Math.cos(coinAngle*2);
-    const faceIsPenta = deg < 90 || deg > 270;
-    const src       = faceIsPenta ? "/penta-coin.png" : "/proto-coin.png";
-    const bg        = faceIsPenta ? "#ffffff" : "#0a0a0a";
+    const revealed    = coinResult !== null;
+    const coinDiam    = 240;
+    const revType     = coinResult ?? "PENTA";
+    const winCol      = revealed ? (coinResult === "PENTA" ? p1c : p2c) : t.textSecondary;
 
-    // In multiplayer, show a "waiting for coin" state for the non-P1 player
-    // before the coin result arrives from P1
-    const waitingForCoin = false; // both players see the coin via time-synced angle
+    // Coin driven entirely from coinAngle React state (updated each rAF via setCoinAngle).
+    // Both P1 and P2 receive the same coinAngle prop so both see the identical spin.
+    // No direct DOM manipulation needed — the old coinDivRef path only worked for P1.
+    const spinScaleX  = Math.abs(Math.cos(coinAngle * 2));
+    const spinDeg     = ((coinAngle * (180 / Math.PI)) % 360 + 360) % 360;
+    const spinIsPenta = spinDeg < 90 || spinDeg > 270;
+    const spinSrc     = spinIsPenta ? "/penta-coin.png" : "/proto-coin.png";
+    const spinBg      = spinIsPenta ? "#ffffff" : "#0a0a0a";
 
     return (
       <div className="phase-screen" style={{ position:"fixed", top:64, left:0, right:0, bottom:0, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"flex-start", background:t.bg, overflowY:"auto", userSelect:"none" }}>
@@ -108,21 +97,9 @@ export function RulebreakerFlow({
               <div style={{ borderRadius:"50%", boxShadow:`0 0 90px ${winCol}66, 0 0 40px ${winCol}33, 0 20px 60px rgba(0,0,0,0.7)` }}><CoinFace type={revType} size={coinDiam}/></div>
               <span style={{ fontFamily:t.fontDisplay, fontSize:28, fontWeight:800, color:winCol, letterSpacing:"0.14em", textShadow:`0 0 32px ${winCol}99`, animation:"fadeUp 0.4s cubic-bezier(.22,.68,0,1.2) 0.18s both" }}>{revType}</span>
             </div>
-          ) : waitingForCoin ? (
-            // P2 waiting for P1 to flip — show animated waiting state
-            <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:20 }}>
-              <div style={{ width:coinDiam, height:coinDiam, borderRadius:"50%", border:`3px solid ${t.accent}44`, display:"flex", alignItems:"center", justifyContent:"center", background:`${t.accent}08`, boxShadow:`0 0 40px ${t.accent}22` }}>
-                <div style={{ display:"flex", gap:10 }}>
-                  {[0,1,2].map(i => (
-                    <div key={i} style={{ width:12, height:12, borderRadius:"50%", background:t.accent, opacity:0.7, animation:`botPulse 1.2s ease-in-out ${i*0.3}s infinite` }}/>
-                  ))}
-                </div>
-              </div>
-              <div style={{ fontFamily:t.fontMono, fontSize:14, color:t.textMuted, letterSpacing:"0.14em" }}>WAITING FOR COIN FLIP...</div>
-            </div>
           ) : (
-            <div ref={coinDivRef} style={{ width:coinDiam, height:coinDiam, borderRadius:"50%", overflow:"hidden", background:bg, transform:`scaleX(${Math.abs(scaleX)})`, willChange:"transform", boxShadow:"0 12px 48px rgba(0,0,0,0.65)", transition:"background 0.05s" }}>
-              <img src={src} alt={faceIsPenta?"PENTA":"PROTO"} style={{ width:"100%", height:"100%", display:"block", objectFit:"cover" }}/>
+            <div style={{ width:coinDiam, height:coinDiam, borderRadius:"50%", overflow:"hidden", background:spinBg, transform:`scaleX(${spinScaleX})`, willChange:"transform", boxShadow:"0 12px 48px rgba(0,0,0,0.65)", transition:"background 0.05s" }}>
+              <img src={spinSrc} alt={spinIsPenta?"PENTA":"PROTO"} style={{ width:"100%", height:"100%", display:"block", objectFit:"cover" }}/>
             </div>
           )}
         </div>
@@ -164,7 +141,6 @@ export function RulebreakerFlow({
 
         <div style={{ fontFamily:t.fontDisplay, fontSize:"clamp(13px,1.8vw,22px)", fontWeight:700, color:t.accent, textAlign:"center", maxWidth:800 }}>{title}</div>
 
-        {/* Waiting indicator for non-active player in multiplayer */}
         {isMultiplayerGame && !isMyTurn && (
           <div style={{ display:"flex", alignItems:"center", gap:10, padding:"10px 20px", background:`${actorCol}10`, border:`1px solid ${actorCol}33`, borderRadius:ip?2:10, animation:"fadeUp 0.3s ease both" }}>
             <div style={{ display:"flex", gap:6 }}>
@@ -176,19 +152,14 @@ export function RulebreakerFlow({
           </div>
         )}
 
-        {/* Show what toss winner already picked — visible to loser when it's their turn */}
         {isMultiplayerGame && (phase === "c3_choice_loser" || phase === "who_first_loser") && (
           <div style={{ background:`${winCol}12`, border:`1px solid ${winCol}44`, borderRadius:ip?2:10, padding:"12px 20px", maxWidth:480, width:"100%", textAlign:"center", animation:"fadeUp 0.3s ease both" }}>
             <div style={{ fontFamily:t.fontMono, fontSize:11, color:t.textMuted, letterSpacing:"0.12em", marginBottom:6 }}>{tossWinner} ALREADY CHOSE</div>
             {phase === "c3_choice_loser" && winnerPickedFirst && (
-              <div style={{ fontFamily:t.fontDisplay, fontSize:18, fontWeight:700, color:winCol }}>
-                PLAYS FIRST: {winnerPickedFirst}
-              </div>
+              <div style={{ fontFamily:t.fontDisplay, fontSize:18, fontWeight:700, color:winCol }}>PLAYS FIRST: {winnerPickedFirst}</div>
             )}
             {phase === "who_first_loser" && winnerPickedC3 !== null && (
-              <div style={{ fontFamily:t.fontDisplay, fontSize:18, fontWeight:700, color:winCol }}>
-                C3: {winnerPickedC3 ? "BLOCKED" : "ALLOWED"}
-              </div>
+              <div style={{ fontFamily:t.fontDisplay, fontSize:18, fontWeight:700, color:winCol }}>C3: {winnerPickedC3 ? "BLOCKED" : "ALLOWED"}</div>
             )}
           </div>
         )}
@@ -214,10 +185,6 @@ export function RulebreakerFlow({
   // ── toss_summary ───────────────────────────────────────────────────────────
   if (phase === "toss_summary") {
     const fp = firstPlayerChosen ?? tossWinner ?? "P1";
-
-    // Determine which player picked what based on winnerPickedRule
-    // If winner picked "first" → winner chose who goes first, loser chose c3
-    // If winner picked "c3"   → winner chose c3 rule, loser chose who goes first
     const winnerPickedFirstTurn = winnerPickedRule === "first";
     const winnerChoice = winnerPickedFirstTurn
       ? `PLAYS FIRST:\n${fp}`
@@ -232,19 +199,15 @@ export function RulebreakerFlow({
         <div style={{ fontFamily:t.fontMono, fontSize:17, color:t.textMuted }}>Game starts in {Math.max(1, Math.ceil(summaryTimer))}...</div>
         <div style={{ display:"flex", gap:20, width:"100%", maxWidth:800 }}>
           {(["P1","P2"] as const).map(p => {
-            const col    = p === "P1" ? p1c : p2c;
+            const col      = p === "P1" ? p1c : p2c;
             const isWinner = p === tossWinner;
-            const choice = isWinner ? winnerChoice : loserChoice;
-            const isMe   = isMultiplayerGame && p === mySlot;
+            const choice   = isWinner ? winnerChoice : loserChoice;
+            const isMe     = isMultiplayerGame && p === mySlot;
             return (
               <div key={p} style={{ flex:1, background:t.bgCard, border:`3px solid ${col}${isMe?"":"66"}`, borderRadius:ip?2:14, padding:"24px 20px", textAlign:"center", opacity:isMe?1:0.8 }}>
                 <div style={{ fontFamily:t.fontDisplay, fontSize:50, fontWeight:900, color:col, marginBottom:4 }}>{p}</div>
-                {isMe && (
-                  <div style={{ fontFamily:t.fontMono, fontSize:10, color:col, letterSpacing:"0.14em", marginBottom:10, opacity:0.7 }}>YOU</div>
-                )}
-                <div style={{ fontFamily:t.fontMono, fontSize:11, color:t.textMuted, letterSpacing:"0.1em", marginBottom:6 }}>
-                  {isWinner ? "TOSS WINNER" : "TOSS LOSER"}
-                </div>
+                {isMe && (<div style={{ fontFamily:t.fontMono, fontSize:10, color:col, letterSpacing:"0.14em", marginBottom:10, opacity:0.7 }}>YOU</div>)}
+                <div style={{ fontFamily:t.fontMono, fontSize:11, color:t.textMuted, letterSpacing:"0.1em", marginBottom:6 }}>{isWinner ? "TOSS WINNER" : "TOSS LOSER"}</div>
                 <div style={{ fontFamily:t.fontMono, fontSize:16, color:t.textSecondary, whiteSpace:"pre-line", lineHeight:1.9 }}>{choice}</div>
               </div>
             );
