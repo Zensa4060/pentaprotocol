@@ -63,6 +63,8 @@ interface MatchSidebarProps {
   p1Label?: string;
   p2Label?: string;
   winnerDisplayName?: (w: string | null) => string;
+  // last series (populated after rematch accepted)
+  lastSeries?: { winner: string | null; history: string[] } | null;
   // handlers
   onReadyToggle: (player: "P1" | "P2") => void;
   onSendChat: (from: "P1" | "P2") => void;
@@ -95,7 +97,7 @@ export function MatchSidebar({
   chatMessages, chatInput, chatOpen, chatWarning,
   log, botThinking,
   showWinOverlay, overlayVisible, winnerColor, winnerPiece, seriesDiffers, seriesColor, seriesPiece,
-  showRematch, rematchRequested,
+  showRematch, rematchRequested, lastSeries,
   showSurrender, showExitConfirm, setScreen,
   p1Label, p2Label, winnerDisplayName,
   onReadyToggle, onSendChat, onChatInputChange, onChatKeyDown, onChatOpenToggle,
@@ -149,9 +151,32 @@ export function MatchSidebar({
           <span style={{ fontFamily:t.fontMono, fontSize:18, color:t.text, fontWeight:700 }}>{p==="P1"?fmtTime(p1Time):fmtTime(p2Time)}</span>
         </div>
       ))}
-    
+
       <div style={{ borderTop:`1px solid ${t.border}`, paddingTop:12 }}>
         <div style={{ fontFamily:t.fontMono, fontSize:20, fontWeight:700, color:t.text, letterSpacing:"0.14em", marginBottom:10 }}>MATCH HISTORY</div>
+
+        {/* Last series chip — shown during new series after a rematch */}
+        {lastSeries && (
+          <div style={{ marginBottom:12, padding:"8px 10px", background:`${t.gold}0C`, border:`1px solid ${t.gold}33`, borderRadius:ip?2:8 }}>
+            <div style={{ fontFamily:t.fontMono, fontSize:9, color:t.textMuted, letterSpacing:"0.15em", marginBottom:6 }}>LAST SERIES</div>
+            <div style={{ display:"flex", gap:10, alignItems:"center", marginBottom:5 }}>
+              {lastSeries.history.map((r, i) => {
+                const col = r==="P1"?p1c:r==="P2"?p2c:r==="DRAW"?t.gold:t.textMuted;
+                return (
+                  <div key={i} style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:3 }}>
+                    <div style={{ fontFamily:t.fontMono, fontSize:9, color:t.textMuted }}>G{i+1}</div>
+                    <div style={{ width:22, height:4, borderRadius:2, background:r?col:"#222", border:`1px solid ${r?col:"#333"}`, boxShadow:r?`0 0 5px ${col}55`:"none" }}/>
+                    <div style={{ fontFamily:t.fontMono, fontSize:9, fontWeight:700, color:r?col:t.textMuted }}>{r||"—"}</div>
+                  </div>
+                );
+              })}
+            </div>
+            <div style={{ fontFamily:t.fontMono, fontSize:11, fontWeight:700, color:lastSeries.winner==="P1"?p1c:lastSeries.winner==="P2"?p2c:t.gold }}>
+              {lastSeries.winner==="DRAW"?"DRAW":lastSeries.winner?`${getName(lastSeries.winner)} WON`:""}
+            </div>
+          </div>
+        )}
+
         {[0,1,2].map(i => {
           const result = matchHistory[i] ?? "";
           const col = result==="P1"?p1c:result==="P2"?p2c:result==="DRAW"?t.gold:t.textMuted;
@@ -160,6 +185,7 @@ export function MatchSidebar({
         })}
         {seriesWinner && (<div style={{ marginTop:10, fontFamily:t.fontMono, fontSize:20, color:t.gold, textAlign:"center", fontWeight:700 }}>SERIES: {seriesWinner==="DRAW"?"DRAW":`${getName(seriesWinner)} WINS`}</div>)}
       </div>
+
       {phase==="waiting_ready" && (
         <div style={{ display:"flex", flexDirection:"column", gap:8, animation:"fadeUp 0.3s ease both" }}>
           <div style={{ fontFamily:t.fontMono, fontSize:20, fontWeight:700, color:t.text, letterSpacing:"0.12em" }}>READY TO PLAY</div>
@@ -197,8 +223,8 @@ export function MatchSidebar({
           <button onClick={onSoftReset} style={{ background:`${t.accent}18`, border:`1px solid ${t.accent}`, color:t.accent, fontFamily:t.fontMono, fontSize:13, padding:"10px 18px", borderRadius:ip?2:6, cursor:"pointer", transition:"all 0.2s" }}>↺ NEW MATCH</button>
         </div>
       )}
-     {isMultiplayerGame && (phase==="playing"||phase==="waiting_ready") && (
-  <div style={{ display:"flex", flexDirection:"column", gap:8, marginTop:"auto", borderTop:`1px solid ${t.border}`, paddingTop:12 }}>
+      {isMultiplayerGame && (phase==="playing"||phase==="waiting_ready") && (
+        <div style={{ display:"flex", flexDirection:"column", gap:8, marginTop:"auto", borderTop:`1px solid ${t.border}`, paddingTop:12 }}>
           <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
             <div style={{ fontFamily:t.fontMono, fontSize:17, fontWeight:700, color:t.text, letterSpacing:"0.12em" }}>CHAT</div>
             <button onClick={onChatOpenToggle} style={{ background:"none", border:"none", color:t.text, fontFamily:t.fontMono, fontSize:16, cursor:"pointer", padding:"2px 6px" }}>{chatOpen?"▾":"▸"}</button>
@@ -247,7 +273,7 @@ export function MatchSidebar({
     <div style={{ position:"fixed", inset:0, zIndex:10000, background:"rgba(0,0,0,0.92)", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", animation:"fadeIn 0.3s ease both" }}>
       <div style={{ background:t.bgPanel, border:`2px solid ${t.accent}`, borderRadius:ip?2:20, padding:"48px 56px", maxWidth:480, width:"90vw", textAlign:"center", boxShadow:`0 40px 100px rgba(0,0,0,0.8), 0 0 60px ${t.accent}22`, animation:"scaleIn 0.38s cubic-bezier(.22,.68,0,1.2) both" }}>
         <div style={{ fontFamily:t.fontDisplay, fontSize:28, fontWeight:900, color:t.accent, marginBottom:8, letterSpacing:"0.08em" }}>MATCH COMPLETE</div>
-        <div style={{ fontFamily:t.fontMono, fontSize:18, fontWeight:700, color:seriesWinner==="P1"?p1c:seriesWinner==="P2"?p2c:t.gold, marginBottom:6 }}>
+        <div style={{ fontFamily:t.fontMono, fontSize:18, fontWeight:700, color:seriesWinner==="P1"?p1c:seriesWinner==="P2"?p2c:t.gold, marginBottom:20 }}>
           {seriesWinner === "DRAW" ? "DRAW!" : `${getName(seriesWinner)} WINS THE SERIES`}
         </div>
         {rematchRequested && rematchRequested !== mySlot && (
@@ -310,8 +336,6 @@ export function MatchSidebar({
     <>
       {winOverlay}
       {leftPanel}
-      {/* Board slot — children passed in from GameScreen */}
-      {/* Right panel and overlays rendered by GameScreen after board */}
     </>
   );
 }
@@ -322,8 +346,8 @@ export function LeftPanel(props: MatchSidebarProps) {
   const { t, ip, p1c, p2c, panelW, phase, current, gameNumber, matchHistory, seriesWinner,
     gameMode, isRankedGame, isMultiplayerGame, isMultiplayer, mySlot,
     p1Time, p2Time, readyTimeout, p1Ready, p2Ready,
-    chatMessages, chatInput, chatOpen, chatWarning, botThinking,
-    p1Label, p2Label, winnerDisplayName,
+    chatMessages, chatInput, chatOpen, chatWarning,
+    p1Label, p2Label, winnerDisplayName, lastSeries,
     onReadyToggle, onSendChat, onChatInputChange, onChatKeyDown, onChatOpenToggle,
     onSoftReset, onShowSurrender, fmtTime, playHover } = props;
 
@@ -341,8 +365,32 @@ export function LeftPanel(props: MatchSidebarProps) {
           <span style={{ fontFamily:t.fontMono, fontSize:18, color:t.text, fontWeight:700 }}>{p==="P1"?fmtTime(p1Time):fmtTime(p2Time)}</span>
         </div>
       ))}
+
       <div style={{ borderTop:`1px solid ${t.border}`, paddingTop:12 }}>
         <div style={{ fontFamily:t.fontMono, fontSize:20, fontWeight:700, color:t.text, letterSpacing:"0.14em", marginBottom:10 }}>MATCH HISTORY</div>
+
+        {/* Last series chip — shown during new series after a rematch */}
+        {lastSeries && (
+          <div style={{ marginBottom:12, padding:"8px 10px", background:`${t.gold}0C`, border:`1px solid ${t.gold}33`, borderRadius:ip?2:8 }}>
+            <div style={{ fontFamily:t.fontMono, fontSize:9, color:t.textMuted, letterSpacing:"0.15em", marginBottom:6 }}>LAST SERIES</div>
+            <div style={{ display:"flex", gap:10, alignItems:"center", marginBottom:5 }}>
+              {lastSeries.history.map((r, i) => {
+                const col = r==="P1"?p1c:r==="P2"?p2c:r==="DRAW"?t.gold:t.textMuted;
+                return (
+                  <div key={i} style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:3 }}>
+                    <div style={{ fontFamily:t.fontMono, fontSize:9, color:t.textMuted }}>G{i+1}</div>
+                    <div style={{ width:22, height:4, borderRadius:2, background:r?col:"#222", border:`1px solid ${r?col:"#333"}`, boxShadow:r?`0 0 5px ${col}55`:"none" }}/>
+                    <div style={{ fontFamily:t.fontMono, fontSize:9, fontWeight:700, color:r?col:t.textMuted }}>{r||"—"}</div>
+                  </div>
+                );
+              })}
+            </div>
+            <div style={{ fontFamily:t.fontMono, fontSize:11, fontWeight:700, color:lastSeries.winner==="P1"?p1c:lastSeries.winner==="P2"?p2c:t.gold }}>
+              {lastSeries.winner==="DRAW"?"DRAW":lastSeries.winner?`${getName(lastSeries.winner)} WON`:""}
+            </div>
+          </div>
+        )}
+
         {[0,1,2].map(i => {
           const result = matchHistory[i] ?? "";
           const col = result==="P1"?p1c:result==="P2"?p2c:result==="DRAW"?t.gold:t.textMuted;
@@ -351,6 +399,7 @@ export function LeftPanel(props: MatchSidebarProps) {
         })}
         {seriesWinner && (<div style={{ marginTop:10, fontFamily:t.fontMono, fontSize:20, color:t.gold, textAlign:"center", fontWeight:700 }}>SERIES: {seriesWinner==="DRAW"?"DRAW":`${getName(seriesWinner)} WINS`}</div>)}
       </div>
+
       {phase==="waiting_ready" && (
         <div style={{ display:"flex", flexDirection:"column", gap:8, animation:"fadeUp 0.3s ease both" }}>
           <div style={{ fontFamily:t.fontMono, fontSize:20, fontWeight:700, color:t.text, letterSpacing:"0.12em" }}>READY TO PLAY</div>
@@ -364,7 +413,7 @@ export function LeftPanel(props: MatchSidebarProps) {
                   style={{ background:rdy?`${col}22`:"#AA000022", border:`2px solid ${rdy?col:"#AA0000"}`, color:rdy?col:"#EE0000", fontFamily:t.fontMono, fontSize:15, fontWeight:700, padding:"12px", borderRadius:ip?2:6, cursor:"pointer", transition:"all 0.2s", boxShadow:rdy?`0 0 16px ${col}55, 0 0 4px ${col}33`:"none" }}
                   onMouseEnter={e=>{playHover?.();e.currentTarget.style.boxShadow=rdy?`0 0 24px ${col}88`:"0 0 16px #EE000055";e.currentTarget.style.borderColor=rdy?col:"#FF3333";}}
                   onMouseLeave={e=>{e.currentTarget.style.boxShadow=rdy?`0 0 16px ${col}55`:"none";e.currentTarget.style.borderColor=rdy?col:"#AA0000";}}
-                >{matchHistory.length >= 2 ? "START RULEBREAKER ⚡" : "START GAME 2"} {rdy?"✓":""}</button>
+                >{props.matchHistory.length >= 2 ? "START RULEBREAKER ⚡" : "START GAME 2"} {rdy?"✓":""}</button>
               );
             })()
           ) : (
@@ -477,32 +526,70 @@ export function WinOverlay({ showWinOverlay, overlayVisible, winner, winnerColor
   );
 }
 
-export function RematchOverlay({ show, isMultiplayerGame, t, ip, p1c, p2c, seriesWinner, mySlot, rematchRequested, winnerDisplayName, onRematch, onQuitMatch }: {
+export function RematchOverlay({ show, isMultiplayerGame, t, ip, p1c, p2c, seriesWinner, mySlot, rematchRequested, winnerDisplayName, lastSeries, onRematch, onQuitMatch }: {
   show: boolean; isMultiplayerGame: boolean; t: MatchSidebarProps["t"]; ip: boolean;
   p1c: string; p2c: string; seriesWinner: string | null; mySlot: "P1"|"P2";
   rematchRequested: string | null;
+  lastSeries?: { winner: string | null; history: string[] } | null;
   winnerDisplayName?: (w: string | null) => string;
   onRematch: () => void; onQuitMatch: () => void;
 }) {
   if (!show || !isMultiplayerGame) return null;
   const getName = (w: string | null) => winnerDisplayName ? winnerDisplayName(w) : (w ?? "");
+  const seriesColor = seriesWinner === "P1" ? p1c : seriesWinner === "P2" ? p2c : t.gold;
+
   return (
     <div style={{ position:"fixed", inset:0, zIndex:10000, background:"rgba(0,0,0,0.92)", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", animation:"fadeIn 0.3s ease both" }}>
-      <div style={{ background:t.bgPanel, border:`2px solid ${t.accent}`, borderRadius:ip?2:20, padding:"48px 56px", maxWidth:480, width:"90vw", textAlign:"center", boxShadow:`0 40px 100px rgba(0,0,0,0.8), 0 0 60px ${t.accent}22`, animation:"scaleIn 0.38s cubic-bezier(.22,.68,0,1.2) both" }}>
-        <div style={{ fontFamily:t.fontDisplay, fontSize:28, fontWeight:900, color:t.accent, marginBottom:8, letterSpacing:"0.08em" }}>MATCH COMPLETE</div>
-        <div style={{ fontFamily:t.fontMono, fontSize:18, fontWeight:700, color:seriesWinner==="P1"?p1c:seriesWinner==="P2"?p2c:t.gold, marginBottom:6 }}>
+      <div style={{ background:t.bgPanel, border:`2px solid ${t.accent}`, borderRadius:ip?2:20, padding:"40px 52px", maxWidth:500, width:"90vw", textAlign:"center", boxShadow:`0 40px 100px rgba(0,0,0,0.8), 0 0 60px ${t.accent}22`, animation:"scaleIn 0.38s cubic-bezier(.22,.68,0,1.2) both", display:"flex", flexDirection:"column", gap:0 }}>
+
+        {/* Header */}
+        <div style={{ fontFamily:t.fontDisplay, fontSize:26, fontWeight:900, color:t.accent, marginBottom:6, letterSpacing:"0.08em" }}>MATCH COMPLETE</div>
+        <div style={{ fontFamily:t.fontMono, fontSize:17, fontWeight:700, color:seriesColor, marginBottom:20 }}>
           {seriesWinner === "DRAW" ? "DRAW!" : `${getName(seriesWinner)} WINS THE SERIES`}
         </div>
-        {rematchRequested && rematchRequested !== mySlot && (<div style={{ fontFamily:t.fontBody, fontSize:14, color:t.gold, marginBottom:16 }}>⚡ Opponent wants a rematch!</div>)}
-        {rematchRequested === mySlot && (<div style={{ fontFamily:t.fontBody, fontSize:14, color:t.textMuted, marginBottom:16 }}>⏳ Waiting for opponent...</div>)}
+
+        {/* Last series breakdown — shown after both accept rematch and new series begins */}
+        {lastSeries && (
+          <div style={{ background:`${t.gold}0A`, border:`1px solid ${t.gold}2A`, borderRadius:ip?2:10, padding:"12px 16px", marginBottom:20, animation:"fadeUp 0.35s ease both" }}>
+            <div style={{ fontFamily:t.fontMono, fontSize:9, color:t.textMuted, letterSpacing:"0.18em", marginBottom:10 }}>PREVIOUS SERIES</div>
+            <div style={{ display:"flex", justifyContent:"center", gap:18, marginBottom:8 }}>
+              {lastSeries.history.map((r, i) => {
+                const col = r==="P1"?p1c:r==="P2"?p2c:r==="DRAW"?t.gold:"#444";
+                return (
+                  <div key={i} style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:4 }}>
+                    <div style={{ fontFamily:t.fontMono, fontSize:9, color:t.textMuted, letterSpacing:"0.1em" }}>G{i+1}</div>
+                    <div style={{ width:28, height:5, borderRadius:3, background:r?col:"#2a2a2a", border:`1px solid ${r?col:"#3a3a3a"}`, boxShadow:r?`0 0 7px ${col}66`:"none", transition:"all 0.2s" }}/>
+                    <div style={{ fontFamily:t.fontMono, fontSize:10, fontWeight:700, color:r?col:"#444" }}>{r||"—"}</div>
+                  </div>
+                );
+              })}
+            </div>
+            <div style={{ fontFamily:t.fontMono, fontSize:12, fontWeight:700, color:lastSeries.winner==="P1"?p1c:lastSeries.winner==="P2"?p2c:t.gold, letterSpacing:"0.06em" }}>
+              {lastSeries.winner==="DRAW" ? "DRAW" : lastSeries.winner ? `${getName(lastSeries.winner)} WON` : ""}
+            </div>
+          </div>
+        )}
+
+        {/* Waiting status */}
+        {rematchRequested && rematchRequested !== mySlot && (
+          <div style={{ fontFamily:t.fontBody, fontSize:14, color:t.gold, marginBottom:16 }}>⚡ Opponent wants a rematch!</div>
+        )}
+        {rematchRequested === mySlot && (
+          <div style={{ fontFamily:t.fontBody, fontSize:14, color:t.textMuted, marginBottom:16 }}>⏳ Waiting for opponent...</div>
+        )}
         {!rematchRequested && <div style={{ marginBottom:16 }}/>}
+
+        {/* Action buttons */}
         <div style={{ display:"flex", gap:16, justifyContent:"center" }}>
-          <button onClick={onRematch} disabled={rematchRequested === mySlot}
+          <button
+            onClick={onRematch}
+            disabled={rematchRequested === mySlot}
             style={{ background:rematchRequested===mySlot?`${t.accent}10`:`${t.accent}18`, border:`2px solid ${t.accent}`, color:t.accent, fontFamily:t.fontDisplay, fontSize:16, fontWeight:700, padding:"14px 36px", borderRadius:ip?2:10, cursor:rematchRequested===mySlot?"default":"pointer", opacity:rematchRequested===mySlot?0.5:1, transition:"all 0.2s" }}
             onMouseEnter={e=>{ if(rematchRequested!==mySlot){e.currentTarget.style.background=t.accent;e.currentTarget.style.color="#000";} }}
             onMouseLeave={e=>{ e.currentTarget.style.background=`${t.accent}18`;e.currentTarget.style.color=t.accent; }}
           >↺ REMATCH</button>
-          <button onClick={onQuitMatch}
+          <button
+            onClick={onQuitMatch}
             style={{ background:`${t.danger}18`, border:`2px solid ${t.danger}`, color:t.danger, fontFamily:t.fontDisplay, fontSize:16, fontWeight:700, padding:"14px 36px", borderRadius:ip?2:10, cursor:"pointer", transition:"all 0.2s" }}
             onMouseEnter={e=>{e.currentTarget.style.background=t.danger;e.currentTarget.style.color="#000";}}
             onMouseLeave={e=>{e.currentTarget.style.background=`${t.danger}18`;e.currentTarget.style.color=t.danger;}}

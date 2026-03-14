@@ -152,6 +152,7 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
 
   const [showRematch, setShowRematch]           = useState(false);
   const [rematchRequested, setRematchRequested] = useState<string|null>(null);
+  const [lastSeries, setLastSeries] = useState<{ winner: string | null; history: string[] } | null>(null);
 
   const [winnerPickedRule, setWinnerPickedRule]   = useState<string|null>(null);
   const [winnerPickedFirst, setWinnerPickedFirst] = useState<string|null>(null);
@@ -314,6 +315,12 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
           setPhase("playing");
           const incomingGame = msg.game_number ?? 1;
           if (incomingGame === 1) {
+            if (msg.last_series) {
+    setLastSeries(msg.last_series);
+  } else {
+    // Fallback: snapshot current local state before wipe
+    setLastSeries({ winner: seriesWinner, history: [...matchHistory] });
+  }
             matchHistoryRef.current = [];
             setMatchHistory([]);
             setGameNumber(1);
@@ -940,7 +947,7 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
 
         <SurrenderModal show={showSurrender} t={sidebarT} ip={ip} isRankedGame={isRankedGame} onConfirm={() => { setShowSurrender(false); if (setScreen) setScreen("home"); }} onCancel={() => { playClick?.(); pausedRef.current = false; setShowSurrender(false); }} playHover={playHover}/>
         <ExitModal show={showExitConfirm} t={sidebarT} ip={ip} onConfirm={() => { setShowExitConfirm(false); if (setScreen) setScreen("home"); }} onCancel={() => { playClick?.(); pausedRef.current = false; setShowExitConfirm(false); }} playHover={playHover}/>
-        <RematchOverlay show={showRematch} isMultiplayerGame={isMultiplayerGame} t={sidebarT} ip={ip} p1c={p1c} p2c={p2c} seriesWinner={seriesWinner} mySlot={mySlot} rematchRequested={rematchRequested} winnerDisplayName={winnerDisplayName} onRematch={() => { wsRef.current?.send(JSON.stringify({ type: "rematch" })); setRematchRequested(mySlot); }} onQuitMatch={() => { wsRef.current?.send(JSON.stringify({ type: "quit_match" })); if (setScreen) setScreen("home"); }}/>
+        <RematchOverlay show={showRematch} isMultiplayerGame={isMultiplayerGame} t={sidebarT} ip={ip} p1c={p1c} p2c={p2c} seriesWinner={seriesWinner} mySlot={mySlot} rematchRequested={rematchRequested} winnerDisplayName={winnerDisplayName} lastSeries={lastSeries} onRematch={() => { wsRef.current?.send(JSON.stringify({ type: "rematch" })); setRematchRequested(mySlot); }} onQuitMatch={() => { wsRef.current?.send(JSON.stringify({ type: "quit_match" })); if (setScreen) setScreen("home"); }}/>
 
         <style>{`
           @keyframes heatDrift0{from{transform:translate(0,0) scale(1)}to{transform:translate(12px,18px) scale(1.1)}}
@@ -1055,7 +1062,7 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
         playHover={playHover}
       />
 
-      <RematchOverlay show={showRematch} isMultiplayerGame={isMultiplayerGame} t={sidebarT} ip={ip} p1c={p1c} p2c={p2c} seriesWinner={seriesWinner} mySlot={mySlot} rematchRequested={rematchRequested} winnerDisplayName={winnerDisplayName} onRematch={() => { wsRef.current?.send(JSON.stringify({ type: "rematch" })); setRematchRequested(mySlot); }} onQuitMatch={() => { wsRef.current?.send(JSON.stringify({ type: "quit_match" })); if (setScreen) setScreen("home"); }}/>
+      <RematchOverlay show={showRematch} isMultiplayerGame={isMultiplayerGame} t={sidebarT} ip={ip} p1c={p1c} p2c={p2c} seriesWinner={seriesWinner} mySlot={mySlot} rematchRequested={rematchRequested} winnerDisplayName={winnerDisplayName} lastSeries={lastSeries} onRematch={() => { wsRef.current?.send(JSON.stringify({ type: "rematch" })); setRematchRequested(mySlot); }} onQuitMatch={() => { wsRef.current?.send(JSON.stringify({ type: "quit_match" })); if (setScreen) setScreen("home"); }}/>
       <SurrenderModal show={showSurrender} t={sidebarT} ip={ip} isRankedGame={isRankedGame} onConfirm={() => { setShowSurrender(false); if (setScreen) setScreen("home"); }} onCancel={() => { playClick?.(); pausedRef.current = false; setShowSurrender(false); }} playHover={playHover}/>
       <ExitModal show={showExitConfirm} t={sidebarT} ip={ip} onConfirm={() => { setShowExitConfirm(false); if (setScreen) setScreen("home"); }} onCancel={() => { playClick?.(); pausedRef.current = false; setShowExitConfirm(false); }} playHover={playHover}/>
 
