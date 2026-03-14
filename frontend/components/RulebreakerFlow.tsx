@@ -87,7 +87,7 @@ export function RulebreakerFlow({
 
     // In multiplayer, show a "waiting for coin" state for the non-P1 player
     // before the coin result arrives from P1
-    const waitingForCoin = isMultiplayerGame && mySlot !== "P1" && !revealed;
+    const waitingForCoin = false; // both players see the coin via time-synced angle
 
     return (
       <div className="phase-screen" style={{ position:"fixed", top:64, left:0, right:0, bottom:0, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"flex-start", background:t.bg, overflowY:"auto", userSelect:"none" }}>

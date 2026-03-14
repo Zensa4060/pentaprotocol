@@ -87,7 +87,7 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
   const pingRef   = useRef<ReturnType<typeof setInterval> | null>(null);
   const isMultiplayerGame = (gameMode === "ranked" || gameMode === "unranked") && !!roomCode;
   const mySlot = playerSlot ?? "P1";
-
+  const coinStartTimeRef = useRef<number>(0);
   const [opponentName, setOpponentName] = useState<string | null>(null);
 
   const myDisplayName   = p1Name ?? (mySlot === "P1" ? "P1" : "P2");
@@ -344,14 +344,15 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
             if (_rbPhases.includes(_curPhase)) {
               // already in rulebreaker
             } else setTimeout(() => {
-              setWinner(null); setWinLine([]); setShowWinOverlay(false); setOverlayVisible(false);
-              setPhase("rb_splash"); setRbSplashTimer(3);
-              setCoinFlipTimer(3 + Math.random() * 3); setCoinRevealTimer(0); setCoinResult(null);
-              coinAngleRef.current = 0; coinFrameRef.current = 0; setCoinAngle(0);
-              setTossWinner(null); setFirstPlayerChosen(null); setRbC3Blocked(false);
-              setWinnerPickedRule(null); setWinnerPickedFirst(null); setWinnerPickedC3(null);
-              playRulebreaker?.();
-            }, 200);
+  setWinner(null); setWinLine([]); setShowWinOverlay(false); setOverlayVisible(false);
+  setPhase("rb_splash"); setRbSplashTimer(3);
+  setCoinFlipTimer(3); setCoinRevealTimer(0); setCoinResult(null);
+  coinAngleRef.current = 0; coinFrameRef.current = 0; setCoinAngle(0);
+  coinStartTimeRef.current = 0; // will be set when rb_coin phase starts
+  setTossWinner(null); setFirstPlayerChosen(null); setRbC3Blocked(false);
+  setWinnerPickedRule(null); setWinnerPickedFirst(null); setWinnerPickedC3(null);
+  playRulebreaker?.();
+}, 200);
           } else if (action === "coin_result") {
             setCoinResult(payload.result);
             setTossWinner(payload.toss_winner);
@@ -468,7 +469,7 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
   const softReset = () => {
     matchHistoryRef.current = []; setGameNumber(1); setMatchHistory([]); setMatchOver(false); setSeriesWinner(null);
     setP1Ready(false); setP2Ready(false); setReadyTimeout(60); setReadyTimer(0);
-    setRbSplashTimer(3); setCoinFlipTimer(3 + Math.random() * 3); setCoinRevealTimer(0); setCoinResult(null);
+    setRbSplashTimer(3); setCoinFlipTimer(3); setCoinRevealTimer(0); setCoinResult(null);
     setCoinAngle(0); setTossWinner(null); setFirstPlayerChosen(null); setRbC3Blocked(false);
     setSummaryTimer(3); setOverlayVisible(false); setChoiceTimer(0);
     setShowRematch(false); setRematchRequested(null);
@@ -544,10 +545,16 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
           setReadyTimer(v => { const nv = v - dt / 1000; if (nv <= 0) { doAdvanceAfterReady(); return 0; } return nv; });
         }
       }
-      if (s.phase === "rb_splash") setRbSplashTimer(v => { const nv = v - dt/1000; if (nv <= 0) { setPhase("rb_coin"); return 3; } return nv; });
+      if (s.phase === "rb_splash") setRbSplashTimer(v => { const nv = v - dt/1000; if (nv <= 0) { coinStartTimeRef.current = Date.now(); setPhase("rb_coin"); return 3; } return nv; });
       if (s.phase === "rb_coin") {
-        coinAngleRef.current += 0.18;
-        if (coinDivRef.current && !s.coinResult) {
+  // Both clients derive angle from elapsed time — no need to broadcast angle
+  if (coinStartTimeRef.current > 0) {
+    const elapsed = (Date.now() - coinStartTimeRef.current) / 1000;
+    coinAngleRef.current = elapsed * 0.18 * 60; // ~0.18 per frame at 60fps
+  } else {
+    coinAngleRef.current += 0.18;
+  }
+  if (coinDivRef.current && !s.coinResult) {
           const scaleX = Math.abs(Math.cos(coinAngleRef.current * 2));
           const deg = ((coinAngleRef.current * (180 / Math.PI)) % 360 + 360) % 360;
           const faceIsPenta = deg < 90 || deg > 270;
@@ -613,7 +620,7 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
     setWinner(null); setShowWinOverlay(false); setOverlayVisible(false);
     if (gn >= 2) {
       setGameNumber(3); setPhase("rb_splash"); playRulebreaker?.();
-      setRbSplashTimer(3); setCoinFlipTimer(3 + Math.random() * 3); setCoinRevealTimer(0);
+      setRbSplashTimer(3); setCoinFlipTimer(3); setCoinRevealTimer(0);
       setCoinResult(null); setCoinAngle(0); setTossWinner(null);
       setFirstPlayerChosen(null); setRbC3Blocked(false);
     } else {
