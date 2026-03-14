@@ -66,6 +66,15 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
   const p1c = pieceSkin !== "default" ? skinData.p1c : t.p1;
   const p2c = pieceSkin !== "default" ? skinData.p2c : isRedBoard ? "#FF2222" : t.p2;
 
+  // ── Responsive ───────────────────────────────────────────────────────────
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
+
   const [showSplash, setShowSplash] = useState(!!isSingleplayer);
 
   const isMultiplayer = gameMode === "ranked" || gameMode === "unranked";
@@ -81,11 +90,9 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
 
   const [opponentName, setOpponentName] = useState<string | null>(null);
 
-  // ── Player display names ──────────────────────────────────────────────────
   const myDisplayName   = p1Name ?? (mySlot === "P1" ? "P1" : "P2");
   const oppDisplayName  = opponentName ?? (mySlot === "P1" ? "P2" : "P1");
 
-  // In multiplayer, mySlot could be P1 or P2 — map to correct label slot
   const p1DisplayName = isMultiplayerGame
     ? (mySlot === "P1" ? myDisplayName : oppDisplayName)
     : (p1Name ?? "P1");
@@ -109,8 +116,6 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
     if (w === "DRAW") return "DRAW";
     return w ?? "";
   };
-  // ─────────────────────────────────────────────────────────────────────────
-
 
   const emptyBoard = (): (string|null)[][] => Array(5).fill(null).map(() => Array(5).fill(null));
 
@@ -167,6 +172,9 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
   const [choiceTimer, setChoiceTimer]         = useState(0);
   const [overlayVisible, setOverlayVisible]   = useState(false);
 
+  // Mobile log drawer
+  const [showMobileLog, setShowMobileLog] = useState(false);
+
   const fmtTime = (ms: number) => { const s = Math.max(0, Math.floor(ms / 1000)); return `${String(Math.floor(s/60)).padStart(2,"0")}:${String(s%60).padStart(2,"0")}`; };
   const fmtSec  = (s: number) => `${Math.ceil(Math.max(0, s))}`;
 
@@ -219,17 +227,13 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
       wsRef.current = ws;
 
       ws.onopen = () => {
-        // Broadcast our username so the opponent can display it
         ws.send(JSON.stringify({ type: "player_info", username: p1Name ?? playerSlot ?? "P1", slot: playerSlot }));
       };
 
       ws.onmessage = (e) => {
         const msg = JSON.parse(e.data);
         if (msg.type === "player_info") {
-          // Opponent sent us their username
-          if (msg.slot !== playerSlot) {
-            setOpponentName(msg.username ?? null);
-          }
+          if (msg.slot !== playerSlot) setOpponentName(msg.username ?? null);
           return;
         }
         if (msg.type === "move_made") {
@@ -274,7 +278,6 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
           setBoard(r.board ?? emptyBoard());
           setCurrent(r.current_player ?? "P1");
           setMovesPlayed(r.moves_played ?? 0);
-          // Re-announce our username so reconnecting opponent gets it
           ws.send(JSON.stringify({ type: "player_info", username: p1Name ?? playerSlot ?? "P1", slot: playerSlot }));
         } else if (msg.type === "opponent_disconnected") {
           setWinner(mySlot);
@@ -314,26 +317,14 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
             const _curPhase = R.current.phase;
             const _rbPhases = ["rb_splash","rb_coin","rule_choice","who_first_winner","c3_choice","c3_choice_loser","who_first_loser","toss_summary"];
             if (_rbPhases.includes(_curPhase)) {
-              // already in rulebreaker, ignore duplicate broadcast
+              // already in rulebreaker
             } else setTimeout(() => {
-              setWinner(null);
-              setWinLine([]);
-              setShowWinOverlay(false);
-              setOverlayVisible(false);
-              setPhase("rb_splash");
-              setRbSplashTimer(3);
-              setCoinFlipTimer(3 + Math.random() * 3);
-              setCoinRevealTimer(0);
-              setCoinResult(null);
-              coinAngleRef.current = 0;
-              coinFrameRef.current = 0;
-              setCoinAngle(0);
-              setTossWinner(null);
-              setFirstPlayerChosen(null);
-              setRbC3Blocked(false);
-              setWinnerPickedRule(null);
-              setWinnerPickedFirst(null);
-              setWinnerPickedC3(null);
+              setWinner(null); setWinLine([]); setShowWinOverlay(false); setOverlayVisible(false);
+              setPhase("rb_splash"); setRbSplashTimer(3);
+              setCoinFlipTimer(3 + Math.random() * 3); setCoinRevealTimer(0); setCoinResult(null);
+              coinAngleRef.current = 0; coinFrameRef.current = 0; setCoinAngle(0);
+              setTossWinner(null); setFirstPlayerChosen(null); setRbC3Blocked(false);
+              setWinnerPickedRule(null); setWinnerPickedFirst(null); setWinnerPickedC3(null);
               playRulebreaker?.();
             }, 200);
           } else if (action === "coin_result") {
@@ -371,11 +362,7 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
       destroyed = true;
       if (reconnectTimeout) clearTimeout(reconnectTimeout);
       if (pingRef.current) { clearInterval(pingRef.current); pingRef.current = null; }
-      if (wsRef.current) {
-        wsRef.current.onclose = null;
-        wsRef.current.close();
-        wsRef.current = null;
-      }
+      if (wsRef.current) { wsRef.current.onclose = null; wsRef.current.close(); wsRef.current = null; }
     };
   }, [isMultiplayerGame, roomCode, playerSlot]);
 
@@ -398,15 +385,11 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
       if (cancelled) return;
       try {
         const res = await API.post("/api/bot/move", {
-          board: boardRef.current,
-          difficulty,
-          current_player: "P2",
+          board: boardRef.current, difficulty, current_player: "P2",
         });
         if (cancelled) return;
         const { row, col } = res.data ?? res;
-        if (typeof row === "number" && typeof col === "number") {
-          await placeBot(row, col);
-        }
+        if (typeof row === "number" && typeof col === "number") await placeBot(row, col);
       } catch (err) {
         console.error("Bot move failed:", err);
       } finally {
@@ -414,11 +397,7 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
       }
     }, delay);
 
-    return () => {
-      cancelled = true;
-      clearTimeout(timer);
-      setBotThinking(false);
-    };
+    return () => { cancelled = true; clearTimeout(timer); setBotThinking(false); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [botTurnKey, phase, winner, gameMode]);
 
@@ -530,6 +509,8 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
               setCoinResult(r);
               setTossWinner(r === "PENTA" ? "P1" : "P2");
               setCoinRevealTimer(3.5);
+              coinAngleRef.current = 0;
+              setCoinAngle(0);
               if (isMultiplayerGame && wsRef.current?.readyState === WebSocket.OPEN) {
                 wsRef.current.send(JSON.stringify({ type: "toss_action", action: "coin_result", payload: { result: r, toss_winner: r === "PENTA" ? "P1" : "P2" } }));
               }
@@ -547,17 +528,15 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
       }
       if (s.phase === "toss_summary") {
         setSummaryTimer(v => { const nv = v - dt / 1000; if (nv <= 0) {
-            const fp = s.firstPlayerChosen ?? s.tossWinner ?? "P1";
-            const _isMP2 = (gameMode === "ranked" || gameMode === "unranked") && !!roomCode;
-            if (_isMP2) {
-              if (s.tossWinner === mySlot) {
-                wsRef.current?.send(JSON.stringify({ type: "rb_start_game", first_player: fp, c3_blocked: s.rbC3Blocked }));
-              }
-            } else {
-              setGameNumber(3); setPhase("playing"); initBoard(fp, s.rbC3Blocked);
-            }
-            return 0;
-          } return nv; });
+          const fp = s.firstPlayerChosen ?? s.tossWinner ?? "P1";
+          const _isMP2 = (gameMode === "ranked" || gameMode === "unranked") && !!roomCode;
+          if (_isMP2) {
+            if (s.tossWinner === mySlot) wsRef.current?.send(JSON.stringify({ type: "rb_start_game", first_player: fp, c3_blocked: s.rbC3Blocked }));
+          } else {
+            setGameNumber(3); setPhase("playing"); initBoard(fp, s.rbC3Blocked);
+          }
+          return 0;
+        } return nv; });
       }
     };
     rafHandle.current = requestAnimationFrame(tick);
@@ -679,55 +658,22 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
 
   const onLeft = useCallback(() => {
     const p = R.current.phase; const tw = R.current.tossWinner; const tl = tw === "P1" ? "P2" : "P1";
-    if (p === "rule_choice") {
-      setWinnerPickedRule("first");
-      setPhase("who_first_winner");
-      broadcastTossPhase("who_first_winner", { winnerPickedRule: "first" });
-    } else if (p === "who_first_winner") {
-      setFirstPlayerChosen(tw);
-      setWinnerPickedFirst(tw ?? null);
-      setPhase("c3_choice_loser");
-      broadcastTossPhase("c3_choice_loser", { firstPlayerChosen: tw, winnerPickedFirst: tw });
-    } else if (p === "c3_choice") {
-      setRbC3Blocked(true);
-      setWinnerPickedC3(true);
-      setPhase("who_first_loser");
-      broadcastTossPhase("who_first_loser", { rbC3Blocked: true, winnerPickedC3: true });
-    } else if (p === "c3_choice_loser") {
-      setRbC3Blocked(true); setSummaryTimer(3); setPhase("toss_summary");
-      broadcastTossPhase("toss_summary", { rbC3Blocked: true, summaryTimer: 3 });
-    } else if (p === "who_first_loser") {
-      setFirstPlayerChosen(tl); setSummaryTimer(3); setPhase("toss_summary");
-      broadcastTossPhase("toss_summary", { firstPlayerChosen: tl, summaryTimer: 3 });
-    }
+    if (p === "rule_choice") { setWinnerPickedRule("first"); setPhase("who_first_winner"); broadcastTossPhase("who_first_winner", { winnerPickedRule: "first" }); }
+    else if (p === "who_first_winner") { setFirstPlayerChosen(tw); setWinnerPickedFirst(tw ?? null); setPhase("c3_choice_loser"); broadcastTossPhase("c3_choice_loser", { firstPlayerChosen: tw, winnerPickedFirst: tw }); }
+    else if (p === "c3_choice") { setRbC3Blocked(true); setWinnerPickedC3(true); setPhase("who_first_loser"); broadcastTossPhase("who_first_loser", { rbC3Blocked: true, winnerPickedC3: true }); }
+    else if (p === "c3_choice_loser") { setRbC3Blocked(true); setSummaryTimer(3); setPhase("toss_summary"); broadcastTossPhase("toss_summary", { rbC3Blocked: true, summaryTimer: 3 }); }
+    else if (p === "who_first_loser") { setFirstPlayerChosen(tl); setSummaryTimer(3); setPhase("toss_summary"); broadcastTossPhase("toss_summary", { firstPlayerChosen: tl, summaryTimer: 3 }); }
   }, [broadcastTossPhase]);
 
   const onRight = useCallback(() => {
     const p = R.current.phase; const tw = R.current.tossWinner; const tl = tw === "P1" ? "P2" : "P1";
-    if (p === "rule_choice") {
-      setWinnerPickedRule("c3");
-      setPhase("c3_choice");
-      broadcastTossPhase("c3_choice", { winnerPickedRule: "c3" });
-    } else if (p === "who_first_winner") {
-      setFirstPlayerChosen(tl);
-      setWinnerPickedFirst(tl ?? null);
-      setPhase("c3_choice_loser");
-      broadcastTossPhase("c3_choice_loser", { firstPlayerChosen: tl, winnerPickedFirst: tl });
-    } else if (p === "c3_choice") {
-      setRbC3Blocked(false);
-      setWinnerPickedC3(false);
-      setPhase("who_first_loser");
-      broadcastTossPhase("who_first_loser", { rbC3Blocked: false, winnerPickedC3: false });
-    } else if (p === "c3_choice_loser") {
-      setRbC3Blocked(false); setSummaryTimer(3); setPhase("toss_summary");
-      broadcastTossPhase("toss_summary", { rbC3Blocked: false, summaryTimer: 3 });
-    } else if (p === "who_first_loser") {
-      setFirstPlayerChosen(tw); setSummaryTimer(3); setPhase("toss_summary");
-      broadcastTossPhase("toss_summary", { firstPlayerChosen: tw, summaryTimer: 3 });
-    }
+    if (p === "rule_choice") { setWinnerPickedRule("c3"); setPhase("c3_choice"); broadcastTossPhase("c3_choice", { winnerPickedRule: "c3" }); }
+    else if (p === "who_first_winner") { setFirstPlayerChosen(tl); setWinnerPickedFirst(tl ?? null); setPhase("c3_choice_loser"); broadcastTossPhase("c3_choice_loser", { firstPlayerChosen: tl, winnerPickedFirst: tl }); }
+    else if (p === "c3_choice") { setRbC3Blocked(false); setWinnerPickedC3(false); setPhase("who_first_loser"); broadcastTossPhase("who_first_loser", { rbC3Blocked: false, winnerPickedC3: false }); }
+    else if (p === "c3_choice_loser") { setRbC3Blocked(false); setSummaryTimer(3); setPhase("toss_summary"); broadcastTossPhase("toss_summary", { rbC3Blocked: false, summaryTimer: 3 }); }
+    else if (p === "who_first_loser") { setFirstPlayerChosen(tw); setSummaryTimer(3); setPhase("toss_summary"); broadcastTossPhase("toss_summary", { firstPlayerChosen: tw, summaryTimer: 3 }); }
   }, [broadcastTossPhase]);
 
-  // ── Derived display values ────────────────────────────────────────────────
   const cc = current === "P1" ? p1c : p2c;
   const cp = current === "P1" ? t.pieces.p1 : t.pieces.p2;
   const winnerColor = winner === "P1" ? p1c : winner === "P2" ? p2c : t.gold;
@@ -736,7 +682,6 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
   const seriesColor   = seriesWinner==="P1"?p1c:seriesWinner==="P2"?p2c:t.gold;
   const seriesPiece   = seriesWinner==="P1"?t.pieces.p1:seriesWinner==="P2"?t.pieces.p2:"⚖";
 
-  // ── Splash screen ─────────────────────────────────────────────────────────
   if (showSplash) return (
     <div style={{ position:"fixed", top:64, left:0, right:0, bottom:0, zIndex:2, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", background:t.bg, gap:32, userSelect:"none" }}>
       <div style={{ fontFamily:t.fontDisplay, fontSize:"clamp(24px,5vw,72px)", fontWeight:900, color:t.accent, textShadow:`0 0 60px ${t.accentGlow}55`, letterSpacing:"0.06em", textAlign:"center" }}>SINGLEPLAYER</div>
@@ -752,7 +697,6 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
     </div>
   );
 
-  // ── Rulebreaker phases (full-screen takeovers) ────────────────────────────
   const rbPhases: Phase[] = ["rb_splash","rb_coin","rule_choice","who_first_winner","c3_choice","c3_choice_loser","who_first_loser","toss_summary"];
   if (rbPhases.includes(phase)) {
     return (
@@ -767,13 +711,17 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
     );
   }
 
-  // ── Board layout ──────────────────────────────────────────────────────────
+  // ── Board sizing ──────────────────────────────────────────────────────────
   const boardGap = ip ? 3 : 4;
   const boardPad = ip ? 3 : 4;
-  const bigCs = `calc((min(calc(100vw - 560px), calc(100vh - 200px)) - ${4*boardGap + 2*boardPad}px) / 5)`;
   const panelW = 240;
-
   const sidebarT = { ...t, pieces: t.pieces };
+
+  // Mobile board: fill the screen (minus nav and floating bars)
+  // Desktop board: same as before, squeezed between sidebars
+  const mobileCellSize = `calc((min(100vw, 100vh - 160px) - ${4*boardGap + 2*boardPad + 32}px) / 5)`;
+  const desktopCellSize = `calc((min(calc(100vw - 560px), calc(100vh - 200px)) - ${4*boardGap + 2*boardPad}px) / 5)`;
+  const bigCs = isMobile ? mobileCellSize : desktopCellSize;
 
   const onReadyToggle = (player: "P1" | "P2") => {
     if (isMultiplayerGame && mySlot !== player) return;
@@ -782,16 +730,221 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
       wsRef.current.send(JSON.stringify({ type: "ready", ready: newVal }));
     }
     player === "P1" ? setP1Ready(newVal) : setP2Ready(newVal);
-    // Auto-ready the bot in AI mode
-    if (gameMode === "ai" && player === "P1") {
-      setP2Ready(newVal);
-    }
+    if (gameMode === "ai" && player === "P1") setP2Ready(newVal);
   };
 
   const onChatKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") sendChat(isMultiplayerGame ? mySlot : "P1");
   };
 
+  // ── Board JSX (shared between mobile and desktop) ─────────────────────────
+  const BoardGrid = () => (
+    <div style={{ position:"relative", display:"grid", gridTemplateColumns:`repeat(5,${bigCs})`, gridTemplateRows:`repeat(5,${bigCs})`, gap:`${boardGap}px`, background:isRedBoard?"rgba(10,2,1,0.99)":isIceBoard?"linear-gradient(135deg,rgba(3,8,20,0.98),rgba(1,4,14,0.99))":t.boardLine, padding:`${boardPad}px`, borderRadius:ip?2:10, border:`${ip?3:2}px solid ${isRedBoard?"rgba(140,20,0,0.35)":isIceBoard?"rgba(80,160,220,0.28)":t.border}`, boxShadow:isRedBoard?"0 0 50px rgba(180,20,0,0.1), inset 0 0 40px rgba(0,0,0,0.7)":isIceBoard?"0 0 50px rgba(80,160,255,0.08), inset 0 0 40px rgba(0,0,0,0.7)":"none", overflow:"hidden" }}>
+      {isRedBoard && <Embers count={16}/>}
+      {isRedBoard && <HeatOverlay/>}
+      {isIceBoard && <FrostCrystals/>}
+      {isIceBoard && <IceOverlay/>}
+      {board.map((row, r) => row.map((cell, c) => {
+        const key = `${r}-${c}`;
+        const blk = c3Blocked && movesPlayed===0 && r===2 && c===2;
+        const isHov = hover===key && !cell && !winner && !blk && phase==="playing";
+        const isWin = winLine.some(([wr,wc]) => wr===r && wc===c);
+        const ec = cell==="P1"?p1c:p2c;
+        const canPlay = !cell && !winner && !blk && phase==="playing";
+
+        if (isRedBoard) return (<RedCell key={key} cellSize={bigCs} player={cell} isWinCell={isWin} isHov={isHov} canPlay={canPlay} blk={blk} useFlameSkull={useFlameSkull} pieceSymbols={pieceSymbols} p1c={p1c} p2c={p2c} fontDisplay={t.fontDisplay} onClick={()=>place(r,c)} onMouseEnter={()=>setHover(key)} onMouseLeave={()=>setHover(null)}/>);
+        if (isIceBoard) return (<IceCell key={key} cellSize={bigCs} player={cell} isWinCell={isWin} isHov={isHov} canPlay={canPlay} blk={blk} useSnowflakeShard={useSnowflakeShard} pieceSymbols={pieceSymbols} p1c={p1c} p2c={p2c} fontDisplay={t.fontDisplay} onClick={()=>place(r,c)} onMouseEnter={()=>setHover(key)} onMouseLeave={()=>setHover(null)}/>);
+
+        return (
+          <div key={key} onClick={()=>place(r,c)} onMouseEnter={()=>setHover(key)} onMouseLeave={()=>setHover(null)} className={isWin?"win-cell-pulse":""}
+            style={{ "--win-col":ec, width:bigCs, height:bigCs, background:blk?`${t.danger}18`:isWin?`${ec}28`:isHov?`${cc}22`:t.boardBg, border:`2px solid ${blk?t.danger:isWin?ec:isHov?cc:t.boardLine}`, borderRadius:ip?0:4, display:"flex", alignItems:"center", justifyContent:"center", cursor:canPlay?(isHov?"grabbing":"grab"):"default", fontSize:"clamp(24px,5.5vmin,58px)", fontFamily:t.fontDisplay, fontWeight:700, color:ec, textShadow:isWin?`0 0 20px ${ec}`:cell?`0 0 14px ${ec}77`:"none", transition:"background 0.1s, border-color 0.1s", opacity:blk?0.4:1, boxShadow:isWin?`0 0 8px ${ec}44`:isHov?`inset 0 0 12px ${cc}22`:"none", willChange:isWin?"auto":canPlay?"background, border-color":"auto", position:"relative" } as React.CSSProperties}>
+            {cell && useFlameSkull && cell==="P1" && <Flame cssSize="55%"/>}
+            {cell && useFlameSkull && cell==="P2" && <Skull cssSize="55%"/>}
+            {cell && useSnowflakeShard && cell==="P1" && <SnowflakePiece cssSize="55%"/>}
+            {cell && useSnowflakeShard && cell==="P2" && <IceShardPiece cssSize="55%"/>}
+            {cell && !useFlameSkull && !useSnowflakeShard && <Piece symbol={cell==="P1"?pieceSymbols.p1:pieceSymbols.p2} color={cell==="P1"?p1c:p2c} size="36%"/>}
+            {!cell && blk && <span style={{ fontSize:"clamp(14px,2.5vmin,28px)", color:t.danger }}>✕</span>}
+          </div>
+        );
+      }))}
+    </div>
+  );
+
+  // ── MOBILE LAYOUT — Option B: Fullscreen board + floating chips ───────────
+  if (isMobile) {
+    return (
+      <div style={{ position:"fixed", top:52, left:0, right:0, bottom:0, zIndex:2, background:t.bg, overflow:"hidden", userSelect:"none", WebkitUserSelect:"none" }}>
+
+        <WinOverlay
+          showWinOverlay={showWinOverlay} overlayVisible={overlayVisible}
+          winner={winner} winnerColor={winnerColor} winnerPiece={winnerPiece}
+          seriesDiffers={seriesDiffers} seriesColor={seriesColor} seriesPiece={seriesPiece}
+          seriesWinner={seriesWinner} phase={phase} gameNumber={gameNumber}
+          t={{ fontDisplay: t.fontDisplay, fontMono: t.fontMono, fontBody: t.fontBody }}
+          winnerDisplayName={winnerDisplayName}
+          onDismiss={dismissOverlay}
+        />
+
+        {/* Board fills entire screen */}
+        <div style={{ position:"absolute", inset:0, display:"flex", alignItems:"center", justifyContent:"center", padding:"8px" }}>
+          {/* Column labels above board */}
+          <div style={{ position:"absolute", top:8, left:"50%", transform:"translateX(-50%)", display:"flex", gap:`${boardGap}px`, paddingLeft:28 }}>
+            {"ABCDE".split("").map(l => (
+              <div key={l} style={{ width:bigCs, textAlign:"center", fontFamily:t.fontMono, fontSize:16, fontWeight:800, color:isRedBoard?"rgba(200,60,40,0.7)":isIceBoard?"rgba(140,210,255,0.55)":t.accent, letterSpacing:"0.1em" }}>{l}</div>
+            ))}
+          </div>
+
+          <div style={{ display:"flex", gap:4, alignItems:"flex-start", marginTop:20 }}>
+            {/* Row labels */}
+            <div style={{ display:"grid", gridTemplateRows:`repeat(5,${bigCs})`, gap:`${boardGap}px` }}>
+              {[1,2,3,4,5].map(n => (
+                <div key={n} style={{ display:"flex", alignItems:"center", justifyContent:"center", fontFamily:t.fontMono, fontSize:16, fontWeight:800, color:isRedBoard?"rgba(200,60,40,0.7)":t.accent, width:24 }}>{n}</div>
+              ))}
+            </div>
+            <BoardGrid />
+          </div>
+        </div>
+
+        {/* Floating timer chips — top left and top right */}
+        <div style={{ position:"absolute", top:8, left:8, zIndex:10, display:"flex", flexDirection:"column", gap:5 }}>
+          {/* P1 timer */}
+          <div style={{ display:"flex", alignItems:"center", gap:6, background:"rgba(0,0,0,0.75)", border:`1px solid ${current==="P1"&&!winner?p1c:"rgba(255,255,255,0.1)"}`, borderRadius:8, padding:"5px 10px", backdropFilter:"blur(6px)" }}>
+            <div style={{ width:7, height:7, borderRadius:"50%", background:p1c, opacity:current==="P1"&&!winner?1:0.35 }}/>
+            <span style={{ fontFamily:t.fontMono, fontSize:11, color:current==="P1"&&!winner?p1c:"#666", fontWeight:700 }}>{p1Label}</span>
+            <span style={{ fontFamily:t.fontMono, fontSize:13, color:current==="P1"&&!winner?p1c:"#444", fontWeight:900, marginLeft:4 }}>{fmtTime(p1Time)}</span>
+          </div>
+          {/* P2 timer */}
+          <div style={{ display:"flex", alignItems:"center", gap:6, background:"rgba(0,0,0,0.75)", border:`1px solid ${current==="P2"&&!winner?p2c:"rgba(255,255,255,0.1)"}`, borderRadius:8, padding:"5px 10px", backdropFilter:"blur(6px)" }}>
+            <div style={{ width:7, height:7, borderRadius:"50%", background:p2c, opacity:current==="P2"&&!winner?1:0.35 }}/>
+            <span style={{ fontFamily:t.fontMono, fontSize:11, color:current==="P2"&&!winner?p2c:"#666", fontWeight:700 }}>{p2Label}</span>
+            <span style={{ fontFamily:t.fontMono, fontSize:13, color:current==="P2"&&!winner?p2c:"#444", fontWeight:900, marginLeft:4 }}>{fmtTime(p2Time)}</span>
+          </div>
+        </div>
+
+        {/* Match history chips — top right */}
+        <div style={{ position:"absolute", top:8, right:8, zIndex:10, display:"flex", flexDirection:"column", gap:4, alignItems:"flex-end" }}>
+          <div style={{ background:"rgba(0,0,0,0.75)", border:"1px solid rgba(255,255,255,0.08)", borderRadius:8, padding:"4px 10px", backdropFilter:"blur(6px)" }}>
+            <div style={{ display:"flex", gap:8, alignItems:"center" }}>
+              {["G1","G2","G3"].map((g, i) => {
+                const res = matchHistory[i];
+                const col = res==="P1"?p1c:res==="P2"?p2c:res==="DRAW"?t.gold:"#333";
+                const isActive = i === (gameNumber - 1);
+                return (
+                  <div key={g} style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:2 }}>
+                    <span style={{ fontFamily:t.fontMono, fontSize:9, color:isActive?t.accent:"#444", fontWeight:isActive?700:400 }}>{g}{isActive?" ◀":""}</span>
+                    <div style={{ width:16, height:3, borderRadius:2, background:res?col:"#222", border:`1px solid ${res?col:"#333"}` }}/>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
+        {/* Turn indicator + c3 hint — bottom center floating */}
+        <div style={{ position:"absolute", bottom:52, left:0, right:0, zIndex:10, display:"flex", flexDirection:"column", alignItems:"center", gap:5, pointerEvents:"none" }}>
+          {phase==="playing" && movesPlayed===0 && (
+            <div style={{ fontFamily:t.fontMono, fontSize:10, letterSpacing:"0.06em", background:c3Blocked?`${t.danger}18`:`${t.gold}18`, border:`1px solid ${c3Blocked?t.danger:t.gold}44`, borderRadius:6, padding:"3px 12px", color:c3Blocked?t.danger:t.gold }}>
+              {c3Blocked?"✕ Center blocked":"★ Center → opponent gets 2 extra turns"}
+            </div>
+          )}
+          <div style={{ display:"flex", alignItems:"center", gap:8, padding:"7px 18px", background:`${winner?winnerColor:cc}18`, border:`1px solid ${winner?winnerColor:cc}88`, borderRadius:20, backdropFilter:"blur(8px)" }}>
+            <div style={{ width:7, height:7, borderRadius:"50%", background:winner?winnerColor:cc }}/>
+            <span style={{ fontFamily:t.fontDisplay, fontSize:13, fontWeight:700, color:winner?winnerColor:cc }}>
+              {winner
+                ? (winner==="DRAW"?"⚖ DRAW":`${winnerPiece} ${winnerDisplayName(winner)} WINS`)
+                : extraTurns>0
+                  ? `${cp} — ${current==="P1"?p1Label:p2Label} EXTRA ×${extraTurns}`
+                  : `${cp} — ${current==="P1"?p1Label:p2Label}'s Turn`
+              }
+            </span>
+          </div>
+        </div>
+
+        {/* Bottom action bar */}
+        <div style={{ position:"absolute", bottom:0, left:0, right:0, height:48, zIndex:10, display:"flex", alignItems:"center", justifyContent:"space-between", padding:"0 12px", background:"rgba(0,0,0,0.85)", borderTop:`1px solid ${t.border}`, backdropFilter:"blur(8px)", gap:8 }}>
+          <button
+            onClick={() => setShowMobileLog(v => !v)}
+            style={{ flex:1, padding:"8px 0", background:"rgba(255,255,255,0.04)", border:"1px solid rgba(255,255,255,0.1)", borderRadius:6, color:t.textSecondary, fontFamily:t.fontMono, fontSize:11, cursor:"pointer", letterSpacing:"0.06em" }}
+          >
+            📋 LOG {log.length > 0 ? `(${log.length})` : ""}
+          </button>
+
+          {phase==="waiting_ready" && (
+            <button
+              onClick={() => onReadyToggle(mySlot === "P1" || !isMultiplayerGame ? "P1" : "P2")}
+              style={{ flex:2, padding:"8px 0", background:`${t.accent}22`, border:`1px solid ${t.accent}`, borderRadius:6, color:t.accent, fontFamily:t.fontMono, fontSize:11, cursor:"pointer", fontWeight:700 }}
+            >
+              {(mySlot==="P1"?p1Ready:p2Ready) ? "✓ READY" : "TAP TO READY"}
+            </button>
+          )}
+
+          <button
+            onClick={() => { playClick?.(); pausedRef.current = true; setShowExitConfirm(true); }}
+            style={{ flex:1, padding:"8px 0", background:"rgba(255,0,0,0.06)", border:"1px solid rgba(255,0,0,0.2)", borderRadius:6, color:"#cc3333", fontFamily:t.fontMono, fontSize:11, cursor:"pointer", letterSpacing:"0.06em" }}
+          >
+            ✕ EXIT
+          </button>
+        </div>
+
+        {/* Mobile log drawer */}
+        {showMobileLog && (
+          <div style={{ position:"absolute", bottom:48, left:0, right:0, zIndex:20, background:"rgba(10,10,10,0.96)", borderTop:`1px solid ${t.border}`, backdropFilter:"blur(12px)", maxHeight:220, overflowY:"auto", padding:"12px 16px" }}>
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:8 }}>
+              <span style={{ fontFamily:t.fontMono, fontSize:11, color:t.textSecondary, letterSpacing:"0.08em" }}>MOVE LOG</span>
+              <button onClick={() => setShowMobileLog(false)} style={{ background:"none", border:"none", color:"#555", cursor:"pointer", fontSize:14 }}>✕</button>
+            </div>
+            {log.length === 0
+              ? <div style={{ fontFamily:t.fontMono, fontSize:11, color:"#444", fontStyle:"italic" }}>No moves yet</div>
+              : log.slice().reverse().map((entry, i) => (
+                <div key={i} style={{ fontFamily:t.fontMono, fontSize:11, color:entry.player==="P1"?p1c:p2c, padding:"2px 0", borderBottom:"1px solid rgba(255,255,255,0.03)" }}>{entry.text}</div>
+              ))
+            }
+          </div>
+        )}
+
+        {/* Modals */}
+        <SurrenderModal
+          show={showSurrender} t={sidebarT} ip={ip} isRankedGame={isRankedGame}
+          onConfirm={() => { setShowSurrender(false); if (setScreen) setScreen("home"); }}
+          onCancel={() => { playClick?.(); pausedRef.current = false; setShowSurrender(false); }}
+          playHover={playHover}
+        />
+        <ExitModal
+          show={showExitConfirm} t={sidebarT} ip={ip}
+          onConfirm={() => { setShowExitConfirm(false); if (setScreen) setScreen("home"); }}
+          onCancel={() => { playClick?.(); pausedRef.current = false; setShowExitConfirm(false); }}
+          playHover={playHover}
+        />
+        <RematchOverlay
+          show={showRematch} isMultiplayerGame={isMultiplayerGame} t={sidebarT} ip={ip}
+          p1c={p1c} p2c={p2c} seriesWinner={seriesWinner} mySlot={mySlot}
+          rematchRequested={rematchRequested}
+          winnerDisplayName={winnerDisplayName}
+          onRematch={() => { wsRef.current?.send(JSON.stringify({ type: "rematch" })); setRematchRequested(mySlot); }}
+          onQuitMatch={() => { wsRef.current?.send(JSON.stringify({ type: "quit_match" })); if (setScreen) setScreen("home"); }}
+        />
+
+        <style>{`
+          @keyframes heatDrift0{from{transform:translate(0,0) scale(1)}to{transform:translate(12px,18px) scale(1.1)}}
+          @keyframes heatDrift1{from{transform:translate(0,0) scale(1)}to{transform:translate(-15px,8px) scale(0.95)}}
+          @keyframes heatDrift2{from{transform:translate(0,0) scale(1)}to{transform:translate(8px,-12px) scale(1.08)}}
+          @keyframes winCellPulse{0%,100%{background:color-mix(in srgb, var(--win-col) 28%, transparent);box-shadow:0 0 8px color-mix(in srgb, var(--win-col) 44%, transparent)}50%{background:color-mix(in srgb, var(--win-col) 60%, transparent);box-shadow:0 0 22px color-mix(in srgb, var(--win-col) 80%, transparent)}}
+          .win-cell-pulse{animation:winCellPulse 0.75s ease-in-out infinite}
+          @keyframes fadeIn{from{opacity:0}to{opacity:1}}
+          @keyframes scaleIn{from{opacity:0;transform:scale(0.88) translateY(18px)}to{opacity:1;transform:scale(1) translateY(0)}}
+          .overlay-modal{animation:scaleIn 0.38s cubic-bezier(.22,.68,0,1.2) both}
+          .overlay-backdrop{animation:fadeIn 0.3s ease both}
+          @keyframes iceD0{from{transform:translate(0,0)}to{transform:translate(8px,12px)}}
+          @keyframes iceD1{from{transform:translate(0,0)}to{transform:translate(-10px,6px)}}
+          @keyframes iceD2{from{transform:translate(0,0)}to{transform:translate(6px,-9px)}}
+          @keyframes iceWinCellPulse{0%,100%{box-shadow:0 0 10px rgba(100,200,255,0.3)}50%{box-shadow:0 0 28px rgba(100,200,255,0.7),inset 0 0 16px rgba(60,160,255,0.2)}}
+          @keyframes redWinCellPulse{0%,100%{box-shadow:0 0 10px rgba(255,80,0,0.3)}50%{box-shadow:0 0 28px rgba(255,80,0,0.7),inset 0 0 16px rgba(255,40,0,0.2)}}
+        `}</style>
+      </div>
+    );
+  }
+
+  // ── DESKTOP LAYOUT — original 3-column layout ─────────────────────────────
   return (
     <div style={{ position:"fixed", top:64, left:0, right:0, bottom:0, zIndex:2, display:"flex", flexDirection:"row", background:t.bg, overflow:"hidden", userSelect:"none", WebkitUserSelect:"none" }}>
 
@@ -821,8 +974,7 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
         showRematch={showRematch} rematchRequested={rematchRequested}
         showSurrender={showSurrender} showExitConfirm={showExitConfirm}
         setScreen={setScreen as ((s: string) => void) | undefined}
-        p1Label={p1Label}
-        p2Label={p2Label}
+        p1Label={p1Label} p2Label={p2Label}
         winnerDisplayName={winnerDisplayName}
         onReadyToggle={onReadyToggle}
         onSendChat={sendChat}
@@ -872,35 +1024,7 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
           <div style={{ display:"grid", gridTemplateRows:`repeat(5,${bigCs})`, gap:`${boardGap}px` }}>
             {[1,2,3,4,5].map(n => <div key={n} style={{ display:"flex", alignItems:"center", justifyContent:"center", fontFamily:t.fontMono, fontSize:22, fontWeight:800, color:isRedBoard?"rgba(200,60,40,0.7)":t.accent, letterSpacing:"0.1em", textShadow:`0 0 10px ${isRedBoard?"rgba(200,40,0,0.4)":t.accentGlow+"66"}`, width:28 }}>{n}</div>)}
           </div>
-          <div style={{ position:"relative", display:"grid", gridTemplateColumns:`repeat(5,${bigCs})`, gridTemplateRows:`repeat(5,${bigCs})`, gap:`${boardGap}px`, background:isRedBoard?"rgba(10,2,1,0.99)":isIceBoard?"linear-gradient(135deg,rgba(3,8,20,0.98),rgba(1,4,14,0.99))":t.boardLine, padding:`${boardPad}px`, borderRadius:ip?2:10, border:`${ip?3:2}px solid ${isRedBoard?"rgba(140,20,0,0.35)":isIceBoard?"rgba(80,160,220,0.28)":t.border}`, boxShadow:isRedBoard?"0 0 50px rgba(180,20,0,0.1), inset 0 0 40px rgba(0,0,0,0.7)":isIceBoard?"0 0 50px rgba(80,160,255,0.08), inset 0 0 40px rgba(0,0,0,0.7)":"none", overflow:"hidden" }}>
-            {isRedBoard && <Embers count={16}/>}
-            {isRedBoard && <HeatOverlay/>}
-            {isIceBoard && <FrostCrystals/>}
-            {isIceBoard && <IceOverlay/>}
-            {board.map((row, r) => row.map((cell, c) => {
-              const key = `${r}-${c}`;
-              const blk = c3Blocked && movesPlayed===0 && r===2 && c===2;
-              const isHov = hover===key && !cell && !winner && !blk && phase==="playing";
-              const isWin = winLine.some(([wr,wc]) => wr===r && wc===c);
-              const ec = cell==="P1"?p1c:p2c;
-              const canPlay = !cell && !winner && !blk && phase==="playing";
-
-              if (isRedBoard) return (<RedCell key={key} cellSize={bigCs} player={cell} isWinCell={isWin} isHov={isHov} canPlay={canPlay} blk={blk} useFlameSkull={useFlameSkull} pieceSymbols={pieceSymbols} p1c={p1c} p2c={p2c} fontDisplay={t.fontDisplay} onClick={()=>place(r,c)} onMouseEnter={()=>setHover(key)} onMouseLeave={()=>setHover(null)}/>);
-              if (isIceBoard) return (<IceCell key={key} cellSize={bigCs} player={cell} isWinCell={isWin} isHov={isHov} canPlay={canPlay} blk={blk} useSnowflakeShard={useSnowflakeShard} pieceSymbols={pieceSymbols} p1c={p1c} p2c={p2c} fontDisplay={t.fontDisplay} onClick={()=>place(r,c)} onMouseEnter={()=>setHover(key)} onMouseLeave={()=>setHover(null)}/>);
-
-              return (
-                <div key={key} onClick={()=>place(r,c)} onMouseEnter={()=>setHover(key)} onMouseLeave={()=>setHover(null)} className={isWin?"win-cell-pulse":""}
-                  style={{ "--win-col":ec, width:bigCs, height:bigCs, background:blk?`${t.danger}18`:isWin?`${ec}28`:isHov?`${cc}22`:t.boardBg, border:`2px solid ${blk?t.danger:isWin?ec:isHov?cc:t.boardLine}`, borderRadius:ip?0:4, display:"flex", alignItems:"center", justifyContent:"center", cursor:canPlay?(isHov?"grabbing":"grab"):"default", fontSize:"clamp(24px,5.5vmin,58px)", fontFamily:t.fontDisplay, fontWeight:700, color:ec, textShadow:isWin?`0 0 20px ${ec}`:cell?`0 0 14px ${ec}77`:"none", transition:"background 0.1s, border-color 0.1s", opacity:blk?0.4:1, boxShadow:isWin?`0 0 8px ${ec}44`:isHov?`inset 0 0 12px ${cc}22`:"none", willChange:isWin?"auto":canPlay?"background, border-color":"auto", position:"relative" } as React.CSSProperties}>
-                  {cell && useFlameSkull && cell==="P1" && <Flame cssSize="55%"/>}
-                  {cell && useFlameSkull && cell==="P2" && <Skull cssSize="55%"/>}
-                  {cell && useSnowflakeShard && cell==="P1" && <SnowflakePiece cssSize="55%"/>}
-                  {cell && useSnowflakeShard && cell==="P2" && <IceShardPiece cssSize="55%"/>}
-                  {cell && !useFlameSkull && !useSnowflakeShard && <Piece symbol={cell==="P1"?pieceSymbols.p1:pieceSymbols.p2} color={cell==="P1"?p1c:p2c} size="36%"/>}
-                  {!cell && blk && <span style={{ fontSize:"clamp(14px,2.5vmin,28px)", color:t.danger }}>✕</span>}
-                </div>
-              );
-            }))}
-          </div>
+          <BoardGrid />
         </div>
       </div>
 
@@ -920,14 +1044,12 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
         onRematch={() => { wsRef.current?.send(JSON.stringify({ type: "rematch" })); setRematchRequested(mySlot); }}
         onQuitMatch={() => { wsRef.current?.send(JSON.stringify({ type: "quit_match" })); if (setScreen) setScreen("home"); }}
       />
-
       <SurrenderModal
         show={showSurrender} t={sidebarT} ip={ip} isRankedGame={isRankedGame}
         onConfirm={() => { setShowSurrender(false); if (setScreen) setScreen("home"); }}
         onCancel={() => { playClick?.(); pausedRef.current = false; setShowSurrender(false); }}
         playHover={playHover}
       />
-
       <ExitModal
         show={showExitConfirm} t={sidebarT} ip={ip}
         onConfirm={() => { setShowExitConfirm(false); if (setScreen) setScreen("home"); }}

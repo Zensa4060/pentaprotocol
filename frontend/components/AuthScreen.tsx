@@ -22,7 +22,6 @@ interface Props {
   themeId: ThemeId;
 }
 
-// ── Particle canvas component ──────────────────────────────────────
 function ParticleCanvas() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -43,7 +42,6 @@ function ParticleCanvas() {
     window.addEventListener("resize", resize);
     resize();
 
-    // Particles
     const COUNT = 110;
     const CONNECT = 100;
     type Pt = { x: number; y: number; vx: number; vy: number; r: number; bright: boolean };
@@ -56,23 +54,19 @@ function ParticleCanvas() {
       bright: Math.random() < 0.15,
     }));
 
-    // initial bg fill
     ctx.fillStyle = "#030303";
     ctx.fillRect(0, 0, W, H);
 
     const draw = () => {
-      // Soft trail — partial clear
       ctx.fillStyle = "rgba(3,3,3,0.22)";
       ctx.fillRect(0, 0, W, H);
 
-      // Move
       pts.forEach(p => {
         p.x += p.vx; p.y += p.vy;
         if (p.x < 0) p.x = W; if (p.x > W) p.x = 0;
         if (p.y < 0) p.y = H; if (p.y > H) p.y = 0;
       });
 
-      // Connections
       ctx.globalAlpha = 1;
       for (let i = 0; i < pts.length; i++) {
         for (let j = i + 1; j < pts.length; j++) {
@@ -93,7 +87,6 @@ function ParticleCanvas() {
       }
       ctx.globalAlpha = 1;
 
-      // Dots
       pts.forEach(p => {
         ctx.shadowBlur   = p.bright ? 18 : 8;
         ctx.shadowColor  = p.bright ? "#ff4444" : "#CC0000";
@@ -146,11 +139,20 @@ export default function AuthScreen({ setScreen, themeId }: Props) {
   const [tempToken, setTempToken]   = useState("");
   const [totpCode, setTotpCode]     = useState("");
   const [staySignedIn, setStaySignedIn] = useState(false);
+  const [isMobile, setIsMobile]     = useState(false);
   const { setAuth } = useAuthStore();
 
   const ACCENT  = "#CC0000";
   const ACCENT2 = "#ffffff";
- 
+
+  // ── Responsive detection ─────────────────────────────────────────
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
+
   const triggerShake = () => { setShake(true); setTimeout(() => setShake(false), 420); };
 
   const validate = () => {
@@ -245,15 +247,14 @@ export default function AuthScreen({ setScreen, themeId }: Props) {
     else if (tab === "2fa_check") submit2FA();
   };
 
-  // ── Shared field components ───────────────────────────────────────
   const FONT = "'Georgia', 'Times New Roman', serif";
 
   const inputStyle = (error: boolean): React.CSSProperties => ({
-    width: "100%", padding: "10px 13px",
+    width: "100%", padding: isMobile ? "12px 13px" : "10px 13px",
     background: "rgba(255,255,255,0.04)",
     border: `1px solid ${error ? ACCENT2 : "rgba(255,255,255,0.1)"}`,
     borderRadius: 8, color: "#fff",
-    fontFamily: FONT, fontSize: 15,
+    fontFamily: FONT, fontSize: isMobile ? 16 : 15,
     outline: "none", transition: "border-color 0.2s, box-shadow 0.2s",
     boxSizing: "border-box",
   });
@@ -340,11 +341,11 @@ export default function AuthScreen({ setScreen, themeId }: Props) {
   const PrimaryBtn = ({ label, onClick, disabled }: { label: string; onClick: () => void; disabled?: boolean }) => (
     <button onClick={onClick} disabled={disabled}
       style={{
-        width: "100%", padding: "11px",
+        width: "100%", padding: isMobile ? "14px" : "11px",
         background: disabled ? "rgba(204,0,0,0.3)" : ACCENT,
         border: "none", borderRadius: 8,
         color: "#fff", fontFamily: FONT,
-        fontSize: 14, fontWeight: 700, letterSpacing: "0.1em",
+        fontSize: isMobile ? 15 : 14, fontWeight: 700, letterSpacing: "0.1em",
         cursor: disabled ? "not-allowed" : "pointer",
         textTransform: "uppercase",
         boxShadow: disabled ? "none" : `0 0 20px ${ACCENT}44`,
@@ -358,7 +359,7 @@ export default function AuthScreen({ setScreen, themeId }: Props) {
   const GhostBtn = ({ label, onClick }: { label: string; onClick: () => void }) => (
     <button onClick={onClick}
       style={{
-        width: "100%", padding: "10px",
+        width: "100%", padding: isMobile ? "13px" : "10px",
         background: "transparent",
         border: "1px solid rgba(255,255,255,0.1)",
         borderRadius: 8, color: "#555",
@@ -375,69 +376,97 @@ export default function AuthScreen({ setScreen, themeId }: Props) {
   return (
     <div style={{
       position: "fixed", inset: 0, zIndex: 2,
-      display: "flex", flexDirection: "row",
+      display: "flex",
+      flexDirection: isMobile ? "column" : "row",
       background: "#030303",
+      overflowY: isMobile ? "auto" : "hidden",
     }}>
       <style>{`
         @keyframes shake { 0%,100%{transform:translateX(0)} 20%,60%{transform:translateX(-6px)} 40%,80%{transform:translateX(6px)} }
         .pp-auth-shake { animation: shake 0.42s ease; }
         @keyframes fadeInLeft { from{opacity:0;transform:translateX(-22px)} to{opacity:1;transform:translateX(0)} }
         @keyframes fadeInRight { from{opacity:0;transform:translateX(22px)} to{opacity:1;transform:translateX(0)} }
+        @keyframes fadeInUp { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
         .pp-left  { animation: fadeInLeft  0.6s cubic-bezier(.22,.68,0,1.1) both; }
         .pp-right { animation: fadeInRight 0.55s cubic-bezier(.22,.68,0,1.1) 0.1s both; }
+        .pp-right-mobile { animation: fadeInUp 0.5s cubic-bezier(.22,.68,0,1.1) 0.15s both; }
         input::placeholder { color: #333; }
         input:focus { outline: none; }
         ::-webkit-scrollbar { width: 3px; background: transparent; }
         ::-webkit-scrollbar-thumb { background: #CC000044; border-radius: 2px; }
       `}</style>
 
-      {/* ── LEFT PANEL — 70% — particle bg + logo ── */}
-      <div className="pp-left" style={{
-        flex: "0 0 70%", position: "relative",
-        overflow: "hidden",
-        display: "flex", flexDirection: "column",
-        alignItems: "center", justifyContent: "center",
-      }}>
-        {/* Particle canvas */}
+      {/* ── LEFT PANEL — particle bg + logo ── */}
+      {/* On mobile: compact banner on top. On desktop: 70% left panel */}
+      <div
+        className="pp-left"
+        style={{
+          // Desktop: 70% width fixed panel
+          // Mobile: full width, fixed height banner with logo
+          flex: isMobile ? "0 0 auto" : "0 0 70%",
+          height: isMobile ? 220 : "100%",
+          position: "relative",
+          overflow: "hidden",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
         <ParticleCanvas />
 
-        {/* Vignette overlay */}
+        {/* Vignette */}
         <div style={{
           position: "absolute", inset: 0, zIndex: 1,
           background: "radial-gradient(ellipse at center, transparent 30%, rgba(3,3,3,0.7) 100%)",
           pointerEvents: "none",
         }} />
 
-        {/* Right-edge fade into right panel */}
-        <div style={{
-          position: "absolute", top: 0, right: 0, bottom: 0, width: 120, zIndex: 2,
-          background: "linear-gradient(to right, transparent, #0d0d0d)",
-          pointerEvents: "none",
-        }} />
+        {/* Bottom fade into form on mobile */}
+        {isMobile && (
+          <div style={{
+            position: "absolute", bottom: 0, left: 0, right: 0, height: 80, zIndex: 2,
+            background: "linear-gradient(to bottom, transparent, #0d0d0d)",
+            pointerEvents: "none",
+          }} />
+        )}
+
+        {/* Right-edge fade on desktop */}
+        {!isMobile && (
+          <div style={{
+            position: "absolute", top: 0, right: 0, bottom: 0, width: 120, zIndex: 2,
+            background: "linear-gradient(to right, transparent, #0d0d0d)",
+            pointerEvents: "none",
+          }} />
+        )}
 
         {/* Logo content */}
         <div style={{
           position: "relative", zIndex: 3,
-          display: "flex", flexDirection: "column",
-          alignItems: "center", gap: 28,
+          display: "flex",
+          flexDirection: isMobile ? "row" : "column",
+          alignItems: "center",
+          gap: isMobile ? 16 : 28,
           userSelect: "none",
+          padding: isMobile ? "0 24px" : 0,
         }}>
-          {/* Logo image — transparent PNG over dark particle bg */}
           <img
             src="/Pentaprotocol_Logo_Transparent.png"
             alt="PentaProtocol Logo"
             style={{
-              width: 220, height: 220,
+              width: isMobile ? 72 : 220,
+              height: isMobile ? 72 : 220,
               objectFit: "contain",
               filter: "drop-shadow(0 0 32px rgba(255,100,30,0.55)) drop-shadow(0 0 80px rgba(200,60,0,0.3))",
             }}
           />
 
-          {/* Wordmark */}
-          <div style={{ textAlign: "center" }}>
+          <div style={{ textAlign: isMobile ? "left" : "center" }}>
             <div style={{
               fontFamily: "'Courier New', monospace",
-              fontSize: 38, fontWeight: 900, letterSpacing: "0.22em",
+              fontSize: isMobile ? 22 : 38,
+              fontWeight: 900,
+              letterSpacing: isMobile ? "0.12em" : "0.22em",
               color: "#fff",
               textShadow: `0 0 40px rgba(204,0,0,0.5), 0 0 80px rgba(204,0,0,0.2)`,
               lineHeight: 1,
@@ -446,57 +475,68 @@ export default function AuthScreen({ setScreen, themeId }: Props) {
             </div>
             <div style={{
               fontFamily: "'Times New Roman', serif",
-              fontSize: 25, letterSpacing: "0.2em",
-              color: "#ffffff", marginTop: 1,
+              fontSize: isMobile ? 13 : 25,
+              letterSpacing: "0.2em",
+              color: "#ffffff",
+              marginTop: 4,
               textTransform: "uppercase",
             }}>
               5×5 GRID PROTOCOL
             </div>
-          </div>
-          {/* Tagline badges */}
-          <div style={{ display: "flex", gap: 5, marginTop: 0, alignItems: "center" }}>
-            {["AI", "RANKED", "SOLO"].map((tag, i) => (
-              <React.Fragment key={tag}>
-                {i > 0 && <span style={{ color: "rgba(255,255,255,0.2)", fontSize: 10 }}>·</span>}
-                <div style={{
-                  fontFamily: "'Times New Roman', serif",
-                  fontSize: 20, letterSpacing: "0.2em",
-                  color: "#ffffff",
-                  textTransform: "uppercase",
-                  fontWeight: 700,
-                }}>{tag}</div>
-              </React.Fragment>
-            ))}
+            {!isMobile && (
+              <div style={{ display: "flex", gap: 5, marginTop: 12, alignItems: "center", justifyContent: "center" }}>
+                {["AI", "RANKED", "SOLO"].map((tag, i) => (
+                  <React.Fragment key={tag}>
+                    {i > 0 && <span style={{ color: "rgba(255,255,255,0.2)", fontSize: 10 }}>·</span>}
+                    <div style={{
+                      fontFamily: "'Times New Roman', serif",
+                      fontSize: 20, letterSpacing: "0.2em",
+                      color: "#ffffff", textTransform: "uppercase", fontWeight: 700,
+                    }}>{tag}</div>
+                  </React.Fragment>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 
-        {/* Bottom left version tag */}
-        <div style={{
-          position: "absolute", bottom: 22, left: 28, zIndex: 3,
-          fontFamily: "'Courier New', monospace", fontSize: 10,
-          color: "#2a2a2a", letterSpacing: "0.15em",
-        }}>
-          v1.0 · PROTOCOL ACTIVE
-        </div>
+        {!isMobile && (
+          <div style={{
+            position: "absolute", bottom: 22, left: 28, zIndex: 3,
+            fontFamily: "'Courier New', monospace", fontSize: 10,
+            color: "#2a2a2a", letterSpacing: "0.15em",
+          }}>
+            v1.0 · PROTOCOL ACTIVE
+          </div>
+        )}
       </div>
 
-      {/* ── RIGHT PANEL — 30% — auth form ── */}
-      <div className="pp-right" style={{
-        flex: "0 0 30%",
-        background: "#0d0d0d",
-        borderLeft: "1px solid rgba(204,0,0,0.12)",
-        display: "flex", flexDirection: "column",
-        alignItems: "stretch", justifyContent: "center",
-        padding: "32px 32px",
-        overflowY: "auto",
-        position: "relative",
-      }}>
+      {/* ── RIGHT PANEL — auth form ── */}
+      <div
+        className={isMobile ? "pp-right-mobile" : "pp-right"}
+        style={{
+          flex: isMobile ? "1 1 auto" : "0 0 30%",
+          background: "#0d0d0d",
+          borderLeft: isMobile ? "none" : "1px solid rgba(204,0,0,0.12)",
+          borderTop: isMobile ? "1px solid rgba(204,0,0,0.12)" : "none",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "stretch",
+          justifyContent: isMobile ? "flex-start" : "center",
+          padding: isMobile ? "28px 24px 48px" : "32px 32px",
+          overflowY: "auto",
+          position: "relative",
+        }}
+      >
         {/* Top label */}
         <div style={{
           fontFamily: "'Georgia', 'Times New Roman', serif",
-          fontSize: 18, color: "#ffffff",
-          letterSpacing: "0.22em", textTransform: "uppercase",
-          marginBottom: 28, fontWeight: 900,
+          fontSize: isMobile ? 13 : 18,
+          color: "#ffffff",
+          letterSpacing: isMobile ? "0.14em" : "0.22em",
+          textTransform: "uppercase",
+          marginBottom: 24,
+          fontWeight: 900,
           display: "flex", alignItems: "center", gap: 10,
         }}>
           <div style={{ flex: 1, height: 1, background: "rgba(204,0,0,0.3)" }} />
@@ -504,7 +544,7 @@ export default function AuthScreen({ setScreen, themeId }: Props) {
           <div style={{ flex: 1, height: 1, background: "rgba(204,0,0,0.3)" }} />
         </div>
 
-        {/* Tab toggle — signin / signup only */}
+        {/* Tab toggle */}
         {(tab === "signin" || tab === "signup") && (
           <div style={{
             display: "flex", marginBottom: 24,
@@ -514,13 +554,14 @@ export default function AuthScreen({ setScreen, themeId }: Props) {
             {(["signin", "signup"] as const).map(tb => (
               <button key={tb} onClick={() => { setTab(tb); setErrors({}); setSuccessMsg(""); setShowPassword(false); setShowConfirm(false); }}
                 style={{
-                  flex: 1, padding: "10px",
+                  flex: 1, padding: isMobile ? "13px" : "10px",
                   background: tab === tb ? `rgba(204,0,0,0.15)` : "transparent",
                   border: "none",
                   borderRight: tb === "signin" ? "1px solid rgba(255,255,255,0.07)" : "none",
                   color: tab === tb ? ACCENT : "#444",
                   fontFamily: FONT,
-                  fontSize: 13, fontWeight: tab === tb ? 700 : 400,
+                  fontSize: isMobile ? 14 : 13,
+                  fontWeight: tab === tb ? 700 : 400,
                   letterSpacing: "0.1em", textTransform: "uppercase",
                   cursor: "pointer", transition: "all 0.18s",
                 }}>
@@ -549,7 +590,6 @@ export default function AuthScreen({ setScreen, themeId }: Props) {
           </div>
         )}
 
-        {/* Success / Error messages */}
         {successMsg && (
           <div style={{ background: "rgba(0,200,80,0.08)", border: "1px solid rgba(0,200,80,0.3)", borderRadius: 7, padding: "10px 13px", marginBottom: 14, fontFamily: FONT, fontSize: 12, color: "#00c850", lineHeight: 1.5 }}>
             ✓ {successMsg}
@@ -561,7 +601,6 @@ export default function AuthScreen({ setScreen, themeId }: Props) {
           </div>
         )}
 
-        {/* ── Form content ── */}
         <div className={shake ? "pp-auth-shake" : ""}>
 
           {tab === "signin" && (<>
@@ -628,11 +667,11 @@ export default function AuthScreen({ setScreen, themeId }: Props) {
 
         </div>
 
-        {/* ── Continue as Guest ── */}
+        {/* Continue as Guest */}
         <div style={{ marginTop: 24, paddingTop: 20, borderTop: "1px solid rgba(255,255,255,0.05)" }}>
           <button onClick={() => setScreen("home")}
             style={{
-              width: "100%", padding: "10px",
+              width: "100%", padding: isMobile ? "13px" : "10px",
               background: "transparent",
               border: "1px solid rgba(255,255,255,0.07)",
               borderRadius: 8, color: "#3a3a3a",
@@ -650,11 +689,11 @@ export default function AuthScreen({ setScreen, themeId }: Props) {
 
         {/* Bottom decoration */}
         <div style={{
-          position: "absolute", bottom: 20, left: 32, right: 32,
+          marginTop: 28,
           display: "flex", alignItems: "center", gap: 12,
         }}>
           <div style={{ flex: 1, height: 1, background: "rgba(204,0,0,0.15)" }} />
-          <div style={{ fontFamily: FONT, fontSize: 20, fontWeight: 700, color: "#FFFFFF", letterSpacing: "0.15em", lineHeight: 1 }}>PENTAPROTOCOL</div>
+          <div style={{ fontFamily: FONT, fontSize: isMobile ? 14 : 20, fontWeight: 700, color: "#FFFFFF", letterSpacing: "0.15em", lineHeight: 1 }}>PENTAPROTOCOL</div>
           <div style={{ flex: 1, height: 1, background: "rgba(204,0,0,0.15)" }} />
         </div>
       </div>
