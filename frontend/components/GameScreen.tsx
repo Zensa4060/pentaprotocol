@@ -277,7 +277,7 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
               setP1Ready(false); setP2Ready(false); setReadyTimeout(60); setReadyTimer(0); setPhase("waiting_ready");
             }
           }
-        } else if (msg.type === "room_state") {
+       } else if (msg.type === "room_state") {
           const r = msg.room;
           setBoard(r.board ?? emptyBoard());
           setCurrent(r.current_player ?? "P1");
@@ -311,9 +311,18 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
           setP2Ready(false);
           setShowRematch(false);
           setRematchRequested(null);
-          // reset guard on new game
-          if (msg.game_number) setGameNumber(msg.game_number);
           setPhase("playing");
+          const incomingGame = msg.game_number ?? 1;
+          if (incomingGame === 1) {
+            matchHistoryRef.current = [];
+            setMatchHistory([]);
+            setGameNumber(1);
+            setMatchOver(false);
+            setSeriesWinner(null);
+            setChatMessages([]);
+          } else {
+            if (msg.game_number) setGameNumber(msg.game_number);
+          }
         } else if (msg.type === "match_over") {
           setShowRematch(true);
         } else if (msg.type === "rematch_request") {
