@@ -478,7 +478,7 @@ export default function StoreScreen({ setScreen, themeId }: Props) {
 
   const handleBuyCosmetic = async (id: string, price: number, label: string) => {
     if (isGuest) { setMsg({ text: "Sign in to purchase.", ok: false }); return; }
-    if (balance < price) { setOpenBundle(null); setShowBuyModal(true); setMsg({ text: "Not enough ProtoCredits — top up to unlock this item.", ok: false }); return; }
+    if (balance < price) { setOpenBundle(null); setShowBuyModal(true); return; }
     if (!window.confirm(`Buy ${label} for ${price.toLocaleString()} ⬡?`)) return;
     setBuyingId(id);
     const isBundlePurchase = id.startsWith("bundle_purchase_");
