@@ -143,7 +143,7 @@ for (let i = 0; i < 3; i++) {
   const handleBuyCosmetic = async (id: string, price: number, label: string) => {
     if (isGuest) { setMsg({ text: "Sign in to purchase premium equipment.", ok: false }); return; }
     const balance = (user as any).protocredits ?? 0;
-    if (balance < price) { setMsg({ text: `Not enough ProtoCredits. Balance: ${balance} ⬡`, ok: false }); return; }
+    if (balance < price) { setShowBuyModal(true); setMsg({ text: `Not enough ProtoCredits — top up to unlock this item.`, ok: false }); return; }
     if (!window.confirm(`Buy ${label} for ${price.toLocaleString()} ⬡?`)) return;
     setBuyingId(id);
     try {

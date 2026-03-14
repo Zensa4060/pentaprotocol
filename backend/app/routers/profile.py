@@ -53,7 +53,7 @@ def _serialize_user(user: dict) -> dict:
 @router.get("/me")
 async def get_profile(user_id: str = Depends(get_current_user)):
     db = get_db()
-    user = db.users.find_one({"_id": ObjectId(user_id)})
+    user = await db.users.find_one({"_id": ObjectId(user_id)})
     if not user:
         raise HTTPException(404, "User not found")
     return _serialize_user(user)
@@ -63,7 +63,7 @@ async def get_profile(user_id: str = Depends(get_current_user)):
 async def leaderboard():
     db = get_db()
     players = []
-    for u in db.users.find().sort("elo", -1).limit(20):
+    async for u in db.users.find().sort("elo", -1).limit(20):
         players.append({
             "username": u["username"],
             "elo":      u.get("elo", 500),
@@ -104,7 +104,6 @@ VALID_BOARD_STYLES = [
     "ice",
     "red_grid",
     "ice_grid"
-
 ]
 VALID_TITLES = {
     "newcomer", "sharpshooter", "strategist", "gladiator", "emerald_eye",
@@ -131,7 +130,7 @@ async def update_profile(
     user_id: str = Depends(get_current_user),
 ):
     db = get_db()
-    user = db.users.find_one({"_id": ObjectId(user_id)})
+    user = await db.users.find_one({"_id": ObjectId(user_id)})
     if not user:
         raise HTTPException(404, "User not found")
 
@@ -158,7 +157,7 @@ async def update_profile(
             raise HTTPException(400, "Emojis are not allowed in usernames")
         if contains_profanity(u):
             raise HTTPException(400, "Username contains inappropriate content")
-        if db.users.find_one({"username": u, "_id": {"$ne": ObjectId(user_id)}}):
+        if await db.users.find_one({"username": u, "_id": {"$ne": ObjectId(user_id)}}):
             raise HTTPException(400, "Username already taken")
         last_change = user.get("username_changed_at")
         if last_change:
@@ -205,6 +204,6 @@ async def update_profile(
     if not updates:
         raise HTTPException(400, "Nothing to update")
 
-    db.users.update_one({"_id": ObjectId(user_id)}, {"$set": updates})
-    user = db.users.find_one({"_id": ObjectId(user_id)})
+    await db.users.update_one({"_id": ObjectId(user_id)}, {"$set": updates})
+    user = await db.users.find_one({"_id": ObjectId(user_id)})
     return _serialize_user(user)
