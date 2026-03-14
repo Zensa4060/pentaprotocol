@@ -51,8 +51,8 @@ const COLLECTION_THEMES = [
 
 const BOARD_SKINS: { id: string; label: string; desc: string; condition: (p: any) => boolean; preview: string; border: string; price?: number }[] = [
   { id: "default",  label: "Standard", desc: "Clean default board",                       condition: (_p: any) => true,                                                   preview: "linear-gradient(135deg,#1a1a1a,#2a2a2a)", border: "#333" },
-  { id: "red_grid", label: "Red Grid", desc: "A glowing grid of pure energy",             condition: (p: any) => (p?.purchased_items ?? []).includes("red_grid"),         preview: "linear-gradient(135deg,#220803,#1a0400)",  border: "#992200", price: 1599 },
-  { id: "ice_grid", label: "Ice Grid", desc: "A frozen board sealed in eternal frost",    condition: (p: any) => (p?.purchased_items ?? []).includes("ice_grid"),         preview: "linear-gradient(135deg,#010610,#021428)",  border: "#1a4a6a", price: 1599 },
+  { id: "red_grid", label: "Inferno", desc: "A glowing grid of pure energy",             condition: (p: any) => (p?.purchased_items ?? []).includes("red_grid"),         preview: "linear-gradient(135deg,#220803,#1a0400)",  border: "#992200", price: 1599 },
+  { id: "ice_grid", label: "Glacier", desc: "A frozen board sealed in eternal frost",    condition: (p: any) => (p?.purchased_items ?? []).includes("ice_grid"),         preview: "linear-gradient(135deg,#010610,#021428)",  border: "#1a4a6a", price: 1599 },
 ];
 
 const COIN_SKINS = [

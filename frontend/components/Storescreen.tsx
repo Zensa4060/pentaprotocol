@@ -34,8 +34,8 @@ const STORE_THEMES = [
 
 const STORE_BOARD_SKINS: { id: string; label: string; desc: string; preview: string; border?: string; unlock: string; price: number }[] = [
   { id: "default",  label: "Normal",   desc: "Clean default board",                 preview: "linear-gradient(135deg,#1a1a1a,#2a2a2a)", unlock: "Free",    price: 0    },
-  { id: "red_grid", label: "Red Grid", desc: "A glowing grid of pure energy",       preview: "linear-gradient(135deg,#220803,#1a0400)", border: "#992200", unlock: "1599 PC", price: 1599 },
-  { id: "ice_grid", label: "Ice Grid", desc: "A crystalline grid of frozen energy", preview: "linear-gradient(135deg,#01040e,#01081c)", border: "#50a0dc", unlock: "1599 PC", price: 1599 },
+  { id: "red_grid", label: "Inferno", desc: "A glowing grid of pure energy",       preview: "linear-gradient(135deg,#220803,#1a0400)", border: "#992200", unlock: "1599 PC", price: 1599 },
+  { id: "ice_grid", label: "Glacier", desc: "A crystalline grid of frozen energy", preview: "linear-gradient(135deg,#01040e,#01081c)", border: "#50a0dc", unlock: "1599 PC", price: 1599 },
 ];
 
 const STORE_BANNERS = [
@@ -54,7 +54,7 @@ const BUNDLES: Bundle[] = [
   {
     id: "bundle_fire", label: "INFERNO BUNDLE", tagline: "Command fire and death",
     desc: "A smoldering battlefield pulsing with crimson energy. Flame surges with living light, the skull stares through the void. Built for the relentless.",
-    boardId: "red_grid", pieceId: "piece_flame_skull", boardLabel: "Red Grid", pieceLabel: "Flame & Skull",
+    boardId: "red_grid", pieceId: "piece_flame_skull", boardLabel: "Inferno", pieceLabel: "Flame & Skull",
     accentColor: "#FF3300", bgGradient: "linear-gradient(160deg,#140200,#2a0600,#1a0300)",
     bundlePrice: 1999, boardPrice: 1599, piecePrice: 599,
     tags: ["FIRE THEME", "ANIMATED", "BOARD + PIECES"], isIce: false,
@@ -62,7 +62,7 @@ const BUNDLES: Bundle[] = [
   {
     id: "bundle_ice", label: "GLACIER BUNDLE", tagline: "Cool, calculated, absolutely deadly",
     desc: "Crystalline frost spreads across the board. Snowflake geometry meets ice shard aggression. Built for the strategist who plays cold.",
-    boardId: "ice_grid", pieceId: "piece_snowflake_shard", boardLabel: "Ice Grid", pieceLabel: "Snow & Shard",
+    boardId: "ice_grid", pieceId: "piece_snowflake_shard", boardLabel: "Glacier", pieceLabel: "Snow & Shard",
     accentColor: "#50a0dc", bgGradient: "linear-gradient(160deg,#010c1f,#01152e,#010a1a)",
     bundlePrice: 1999, boardPrice: 1599, piecePrice: 599,
     tags: ["ICE THEME", "CRYSTALLINE", "BOARD + PIECES"], isIce: true,
