@@ -58,16 +58,17 @@ export default function LobbyScreen({ setScreen, themeId, onQueueStart, onQueueC
     return () => clearInterval(iv);
   }, [phase]);
 
-  // Countdown timer after matchup found
+  // Countdown timer after matchup found — ref-based to avoid re-renders
+  const countdownRef = useRef(3.5);
   useEffect(() => {
     if (phase !== "matchup") return;
-    const iv = setInterval(() => setCountdown(c => Math.max(0, +(c - 0.1).toFixed(2))), 100);
+    countdownRef.current = 3.5;
+    setCountdown(3.5);
     const t1 = setTimeout(() => {
-      clearInterval(iv);
       onQueueCancel();
       setScreen("multiGame");
     }, 3500);
-    return () => { clearInterval(iv); clearTimeout(t1); };
+    return () => { clearTimeout(t1); };
   }, [phase]);
 
   const queueCancelledRef = useRef(false);
@@ -360,10 +361,10 @@ export default function LobbyScreen({ setScreen, themeId, onQueueStart, onQueueC
         direction="bottom"
       />
 
-      {/* Progress bar */}
+      {/* Progress bar — pure CSS, no re-renders */}
       <div style={{ padding: "12px 20px 20px", flexShrink: 0 }}>
         <div style={{ height: 4, background: t.border, borderRadius: 2, overflow: "hidden", maxWidth: 340, margin: "0 auto" }}>
-          <div style={{ height: "100%", width: `${(countdown / 3.5) * 100}%`, background: `linear-gradient(90deg,${t.accent},${t.accentGlow})`, borderRadius: 2, transition: "width 0.1s linear", boxShadow: `0 0 10px ${t.accentGlow}88` }} />
+          <div style={{ height: "100%", width: "0%", background: `linear-gradient(90deg,${t.accent},${t.accentGlow})`, borderRadius: 2, boxShadow: `0 0 10px ${t.accentGlow}88`, animation: "matchBarShrink 3.5s linear both" }} />
         </div>
         <div style={{ fontFamily: t.fontMono, fontSize: 12, color: t.textMuted, textAlign: "center", marginTop: 8, letterSpacing: "0.1em" }}>MATCH STARTING...</div>
       </div>
@@ -372,6 +373,7 @@ export default function LobbyScreen({ setScreen, themeId, onQueueStart, onQueueC
         @keyframes fadeUp       { from{opacity:0;transform:translateY(24px)} to{opacity:1;transform:translateY(0)} }
         @keyframes slideInLeft  { from{opacity:0;transform:translateX(-60px)} to{opacity:1;transform:translateX(0)} }
         @keyframes slideInRight { from{opacity:0;transform:translateX(60px)}  to{opacity:1;transform:translateX(0)} }
+        @keyframes matchBarShrink { from{width:100%} to{width:0%} }
       `}</style>
     </div>
   );

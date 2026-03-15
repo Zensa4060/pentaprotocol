@@ -101,14 +101,13 @@ export const Skull = memo(function Skull({ size, cssSize }: { size?: number; css
   );
 });
 
-export const RedCell = React.memo(function RedCell({ cellSize, player, isWinCell, isHov, canPlay, blk, useFlameSkull, pieceSymbols, p1c, p2c, fontDisplay, onClick, onMouseEnter, onMouseLeave }: {
+export const RedCell = React.memo(function RedCell({ cellSize, player, isWinCell, isHov, canPlay, blk, useFlameSkull, useSnowflakeShard, pieceSymbols, p1c, p2c, fontDisplay, onClick, onMouseEnter, onMouseLeave }: {
   cellSize: string; player: string | null; isWinCell: boolean; isHov: boolean; canPlay: boolean; blk: boolean;
-  useFlameSkull: boolean; pieceSymbols: { p1: string; p2: string }; p1c: string; p2c: string; fontDisplay: string;
+  useFlameSkull: boolean; useSnowflakeShard: boolean; pieceSymbols: { p1: string; p2: string }; p1c: string; p2c: string; fontDisplay: string;
   onClick: () => void; onMouseEnter: () => void; onMouseLeave: () => void;
 }) {
   const isP1 = player === "P1";
   const ref = useRef<HTMLDivElement>(null);
-  // Ref-based size: never triggers re-renders so SVG enter animations don't restart
   const numSizeRef = useRef(80);
   useEffect(() => {
     if (!ref.current) return;
@@ -121,6 +120,11 @@ export const RedCell = React.memo(function RedCell({ cellSize, player, isWinCell
     return () => ro.disconnect();
   }, []);
   const ec = isP1 ? p1c : p2c;
+  const renderPiece = (slot: "P1" | "P2") => {
+    if (useFlameSkull) return slot === "P1" ? <Flame size={numSizeRef.current}/> : <Skull size={numSizeRef.current}/>;
+    if (useSnowflakeShard) return slot === "P1" ? <SnowflakePiece size={numSizeRef.current}/> : <IceShardPiece size={numSizeRef.current}/>;
+    return <Piece symbol={slot === "P1" ? pieceSymbols.p1 : pieceSymbols.p2} color={slot === "P1" ? p1c : p2c} size="36%"/>;
+  };
   return (
     <div ref={ref} onClick={onClick} onMouseEnter={onMouseEnter} onMouseLeave={onMouseLeave}
       style={{
@@ -132,11 +136,9 @@ export const RedCell = React.memo(function RedCell({ cellSize, player, isWinCell
         transition: "background 0.15s, border 0.15s, box-shadow 0.15s", flexShrink: 0,
         display: "flex", alignItems: "center", justifyContent: "center", opacity: blk ? 0.45 : 1,
         animation: isWinCell ? "redWinCellPulse 0.9s ease-in-out infinite" : "none",
-      }}>
-      <Embers count={4}/>
-      <HeatOverlay/>
-      {player === "P1" && (useFlameSkull ? <Flame size={numSizeRef.current}/> : <span style={{ fontFamily:fontDisplay, fontSize:"clamp(24px,5.5vmin,58px)", fontWeight:700, color:ec, textShadow:`0 0 14px ${ec}88`, position:"relative", zIndex:4 }}>{pieceSymbols.p1}</span>)}
-      {player === "P2" && (useFlameSkull ? <Skull size={numSizeRef.current}/> : <span style={{ fontFamily:fontDisplay, fontSize:"clamp(24px,5.5vmin,58px)", fontWeight:700, color:ec, textShadow:`0 0 14px ${ec}88`, position:"relative", zIndex:4 }}>{pieceSymbols.p2}</span>)}
+    }}>
+      {player === "P1" && renderPiece("P1")}
+      {player === "P2" && renderPiece("P2")}
       {!player && blk && <span style={{ fontSize:"clamp(14px,2.5vmin,28px)", color:"#AA0000", position:"relative", zIndex:5 }}>✕</span>}
     </div>
   );
@@ -214,9 +216,9 @@ export const IceShardPiece = memo(function IceShardPiece({ size, cssSize }: { si
   );
 });
 
-export const IceCell = React.memo(function IceCell({ cellSize, player, isWinCell, isHov, canPlay, blk, useSnowflakeShard, pieceSymbols, p1c, p2c, fontDisplay, onClick, onMouseEnter, onMouseLeave }: {
+export const IceCell = React.memo(function IceCell({ cellSize, player, isWinCell, isHov, canPlay, blk, useFlameSkull, useSnowflakeShard, pieceSymbols, p1c, p2c, fontDisplay, onClick, onMouseEnter, onMouseLeave }: {
   cellSize: string; player: string | null; isWinCell: boolean; isHov: boolean; canPlay: boolean; blk: boolean;
-  useSnowflakeShard: boolean; pieceSymbols: { p1: string; p2: string }; p1c: string; p2c: string; fontDisplay: string;
+  useFlameSkull: boolean; useSnowflakeShard: boolean; pieceSymbols: { p1: string; p2: string }; p1c: string; p2c: string; fontDisplay: string;
   onClick: () => void; onMouseEnter: () => void; onMouseLeave: () => void;
 }) {
   const isP1 = player === "P1";
@@ -233,6 +235,11 @@ export const IceCell = React.memo(function IceCell({ cellSize, player, isWinCell
     return () => ro.disconnect();
   }, []);
   const ec = isP1 ? p1c : p2c;
+  const renderPiece = (slot: "P1" | "P2") => {
+    if (useFlameSkull) return slot === "P1" ? <Flame size={numSizeRef.current}/> : <Skull size={numSizeRef.current}/>;
+    if (useSnowflakeShard) return slot === "P1" ? <SnowflakePiece size={numSizeRef.current}/> : <IceShardPiece size={numSizeRef.current}/>;
+    return <Piece symbol={slot === "P1" ? pieceSymbols.p1 : pieceSymbols.p2} color={slot === "P1" ? p1c : p2c} size="36%"/>;
+  };
   return (
     <div ref={ref} onClick={onClick} onMouseEnter={onMouseEnter} onMouseLeave={onMouseLeave}
       style={{
@@ -244,11 +251,9 @@ export const IceCell = React.memo(function IceCell({ cellSize, player, isWinCell
         transition: "background 0.15s, border 0.15s, box-shadow 0.15s", flexShrink: 0,
         display: "flex", alignItems: "center", justifyContent: "center", opacity: blk ? 0.45 : 1,
         animation: isWinCell ? "iceWinCellPulse 0.9s ease-in-out infinite" : "none",
-      }}>
-      <FrostCrystals/>
-      <IceOverlay/>
-      {player === "P1" && (useSnowflakeShard ? <SnowflakePiece size={numSizeRef.current}/> : <span style={{ fontFamily:fontDisplay, fontSize:"clamp(24px,5.5vmin,58px)", fontWeight:700, color:ec, textShadow:`0 0 14px ${ec}88`, position:"relative", zIndex:4 }}>{pieceSymbols.p1}</span>)}
-      {player === "P2" && (useSnowflakeShard ? <IceShardPiece size={numSizeRef.current}/> : <span style={{ fontFamily:fontDisplay, fontSize:"clamp(24px,5.5vmin,58px)", fontWeight:700, color:ec, textShadow:`0 0 14px ${ec}88`, position:"relative", zIndex:4 }}>{pieceSymbols.p2}</span>)}
+    }}>
+      {player === "P1" && renderPiece("P1")}
+      {player === "P2" && renderPiece("P2")}
       {!player && blk && <span style={{ fontSize:"clamp(14px,2.5vmin,28px)", color:"#0066BB", position:"relative", zIndex:5 }}>✕</span>}
     </div>
   );

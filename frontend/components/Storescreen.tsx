@@ -137,8 +137,8 @@ function BundleAnimatedPreview({ bundle, tick }: { bundle: Bundle; tick: number 
           const noop = () => {};
           const cellKey = `${r}-${c}`;
           const sharedProps = { cellSize: CELL, player: cell, isWinCell: false, isHov: false, canPlay: false, blk: false, pieceSymbols, p1c, p2c, fontDisplay: "'Courier New', monospace", onClick: noop, onMouseEnter: noop, onMouseLeave: noop };
-          if (bundle.isIce) return <IceCell key={cellKey} {...sharedProps} useSnowflakeShard={useSnowflakeShard} />;
-          return <RedCell key={cellKey} {...sharedProps} useFlameSkull={useFlameSkull} />;
+          if (bundle.isIce) return <IceCell key={cellKey} {...sharedProps} useFlameSkull={useFlameSkull} useSnowflakeShard={useSnowflakeShard} />;
+          return <RedCell key={cellKey} {...sharedProps} useFlameSkull={useFlameSkull} useSnowflakeShard={useSnowflakeShard} />;
         }))}
       </div>
       <div style={{ position: "absolute", top: 8, left: 12, fontFamily: "monospace", fontSize: 9, color: bundle.isIce ? "rgba(140,210,255,0.55)" : "rgba(200,60,40,0.7)", letterSpacing: "0.18em", zIndex: 10, pointerEvents: "none" }}>{bundle.boardLabel.toUpperCase()}</div>
