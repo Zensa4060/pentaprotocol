@@ -26,10 +26,8 @@ const PACKAGES = [
 declare global { interface Window { Razorpay: any; } }
 
 const STORE_THEMES = [
-  { id: "classic_light", label: "Classic Light", desc: "The original light aesthetic", preview: "linear-gradient(135deg,#f5f0e8,#e8e0d0)", unlock: "Free" },
-  { id: "classic_dark",  label: "Classic Dark",  desc: "Dark mode classic",            preview: "linear-gradient(135deg,#1a1a1a,#2a2a2a)", unlock: "Free" },
-  { id: "space",         label: "Space",         desc: "Deep space atmosphere",         preview: "linear-gradient(135deg,#020410,#0d1b4b)", unlock: "Free" },
-  { id: "pixel",         label: "Pixel",         desc: "Retro pixel art style",         preview: "linear-gradient(135deg,#0d1007,#1a2e0a)", unlock: "Free" },
+  { id: "space",         label: "Space",         desc: "Deep space atmosphere",         preview: "linear-gradient(135deg,#020410,#0d1b4b)", unlock: "Coming Soon" },
+  { id: "pixel",         label: "Pixel",         desc: "Retro pixel art style",         preview: "linear-gradient(135deg,#0d1007,#1a2e0a)", unlock: "Coming Soon" },
 ];
 
 const STORE_BOARD_SKINS: { id: string; label: string; desc: string; preview: string; border?: string; unlock: string; price: number }[] = [
