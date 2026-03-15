@@ -11,7 +11,7 @@ import { loadCustomTheme } from "@/lib/customTheme";
 import { Piece, Embers, HeatOverlay, Flame, Skull, FrostCrystals, IceOverlay, SnowflakePiece, IceShardPiece, RedCell, IceCell } from "./GamePieces";
 import type { Phase } from "./GamePieces";
 import { RulebreakerFlow, PHASE_TIMERS } from "./RulebreakerFlow";
-import { LeftPanel, RightPanel, WinOverlay, RematchOverlay, SurrenderModal, ExitModal } from "./MatchSidebar";
+import { LeftPanel, RightPanel, WinOverlay, RematchOverlay, SurrenderModal, DisconnectModal, ExitModal } from "./MatchSidebar";
 
 type GameMode = "singleplayer" | "ai" | "ranked" | "unranked";
 interface Props {
@@ -138,6 +138,7 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
   const [seriesWinner, setSeriesWinner] = useState<string|null>(null);
   const [p1Ready, setP1Ready]           = useState(false);
   const [p2Ready, setP2Ready]           = useState(false);
+  const [showDisconnectModal, setShowDisconnectModal] = useState(false);
   const [chatMessages, setChatMessages]  = useState<{from:"P1"|"P2";text:string;ts:number}[]>([]);
   const [chatInput, setChatInput]        = useState("");
   const [chatOpen, setChatOpen]          = useState(true);
@@ -288,7 +289,8 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
           if (playerSlot === "P2" && r.player1_name) setOpponentName(r.player1_name);
           ws.send(JSON.stringify({ type: "player_info", username: p1Name ?? playerSlot ?? "P1", slot: playerSlot }));
         } else if (msg.type === "opponent_disconnected") {
-          setWinner(mySlot);
+          setPhase("match_over");
+          setShowDisconnectModal(true);
         } else if (msg.type === "ready_update") {
           if (msg.player === "P1") setP1Ready(msg.ready);
           else setP2Ready(msg.ready);
@@ -596,7 +598,8 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
                 wsRef.current?.send(JSON.stringify({ type: "match_over_notify" }));
               } else if (newHist.length === 2) {
                 setGameNumber(3);
-                if (mySlot === "P1") wsRef.current?.send(JSON.stringify({ type: "toss_action", action: "start_rb", payload: {} }));
+                // Go to ready phase before rulebreaker — don't start toss immediately
+                setP1Ready(false); setP2Ready(false); setReadyTimeout(60); setReadyTimer(0); setPhase("waiting_ready");
               } else {
                 setP1Ready(false); setP2Ready(false); setReadyTimeout(60); setReadyTimer(0); setPhase("waiting_ready");
               }
@@ -688,7 +691,9 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
       if (isMultiplayerGame) {
         // In multiplayer, P1 initiates the toss via WS
         if (mySlot === "P1") {
-          wsRef.current?.send(JSON.stringify({ type: "toss_action", action: "start_rb", payload: {} }));
+          const r = Math.random() < 0.5 ? "PENTA" : "PROTO";
+          const payload = { result: r, toss_winner: r === "PENTA" ? "P1" : "P2" };
+          wsRef.current?.send(JSON.stringify({ type: "toss_action", action: "start_rb", payload }));
         }
         // Phase will transition when toss_action broadcasts back
       } else {
@@ -962,6 +967,12 @@ useEffect(() => {
           onDismiss={dismissOverlay}
         />
 
+        <DisconnectModal
+          show={showDisconnectModal}
+          t={sidebarT} ip={ip}
+          onGoHome={() => { if (setScreen) setScreen("home"); }}
+        />
+
         {/* Board fills entire screen */}
         <div style={{ position:"absolute", inset:0, display:"flex", alignItems:"center", justifyContent:"center", padding:"8px" }}>
           <div style={{ position:"absolute", top:8, left:"50%", transform:"translateX(-50%)", display:"flex", gap:`${boardGap}px`, paddingLeft:28 }}>
@@ -1099,6 +1110,12 @@ useEffect(() => {
         t={{ fontDisplay: t.fontDisplay, fontMono: t.fontMono, fontBody: t.fontBody }}
         winnerDisplayName={winnerDisplayName}
         onDismiss={dismissOverlay}
+      />
+
+      <DisconnectModal
+        show={showDisconnectModal}
+        t={sidebarT} ip={ip}
+        onGoHome={() => { if (setScreen) setScreen("home"); }}
       />
 
       <LeftPanel

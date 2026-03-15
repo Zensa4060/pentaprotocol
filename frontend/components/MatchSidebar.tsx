@@ -550,6 +550,23 @@ export function WinOverlay({ showWinOverlay, overlayVisible, winner, winnerColor
   );
 }
 
+export function DisconnectModal({ show, t, ip, onGoHome }: { show: boolean; t: MatchSidebarProps["t"]; ip: boolean; onGoHome: () => void; }) {
+  if (!show) return null;
+  return (
+    <div style={{ position:"fixed", inset:0, zIndex:10010, background:"rgba(0,0,0,0.85)", display:"flex", alignItems:"center", justifyContent:"center", animation:"fadeIn 0.2s ease both" }}>
+      <div style={{ background:t.bgPanel, border:`2px solid ${t.danger}`, borderRadius:ip?2:16, padding:"30px", maxWidth:400, width:"90vw", textAlign:"center", boxShadow:`0 20px 40px rgba(0,0,0,0.7), 0 0 30px ${t.danger}44`, animation:"scaleIn 0.3s cubic-bezier(.22,.68,0,1.2) both" }}>
+        <div style={{ fontFamily:t.fontDisplay, fontSize:22, fontWeight:800, color:t.danger, marginBottom:16 }}>OPPONENT DISCONNECTED</div>
+        <div style={{ fontFamily:t.fontBody, fontSize:15, color:t.textSecondary, marginBottom:24, lineHeight:1.5 }}>
+          Your opponent left the match. The game has been ended.
+        </div>
+        <button onClick={onGoHome} style={{ background:`${t.danger}22`, border:`1px solid ${t.danger}`, color:t.danger, padding:"12px 24px", borderRadius:ip?2:8, fontFamily:t.fontMono, fontSize:15, fontWeight:700, cursor:"pointer", transition:"all 0.2s" }}>
+          RETURN TO HOME
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export function RematchOverlay({ show, isMultiplayerGame, t, ip, p1c, p2c, seriesWinner, mySlot, rematchRequested, winnerDisplayName, lastSeries, onRematch, onQuitMatch }: {
   show: boolean; isMultiplayerGame: boolean; t: MatchSidebarProps["t"]; ip: boolean;
   p1c: string; p2c: string; seriesWinner: string | null; mySlot: "P1"|"P2";

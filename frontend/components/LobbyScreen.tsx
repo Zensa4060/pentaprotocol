@@ -35,9 +35,12 @@ export default function LobbyScreen({ setScreen, themeId, onQueueStart, onQueueC
   const [queuePlayerSlot, setQueuePlayerSlot] = useState<"P1" | "P2">("P1");
   const queuePollRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Opponent info for matchup screen
   const [matchupOpponentName, setMatchupOpponentName] = useState<string>("OPPONENT");
   const [matchupOpponentElo, setMatchupOpponentElo]   = useState<number | null>(null);
+  const [matchupOppAvatar, setMatchupOppAvatar] = useState<string | null>(null);
+  const [matchupOppBanner, setMatchupOppBanner] = useState<string>("default");
+  const [matchupOppBorder, setMatchupOppBorder] = useState<string>("none");
+  const [matchupOppLevel, setMatchupOppLevel]   = useState<number>(1);
 
   // ── Room state ────────────────────────────────────────────────────────────
   const [roomSection, setRoomSection] = useState<"none" | "create" | "join" | "waiting">("none");
@@ -242,11 +245,6 @@ export default function LobbyScreen({ setScreen, themeId, onQueueStart, onQueueC
     </div>
   );
 
-  // Opponent profile data for matchup screen
-  const [matchupOppAvatar, setMatchupOppAvatar] = useState<string | null>(null);
-  const [matchupOppBanner, setMatchupOppBanner] = useState<string>("default");
-  const [matchupOppBorder, setMatchupOppBorder] = useState<string>("none");
-  const [matchupOppLevel, setMatchupOppLevel]   = useState<number>(1);
 
   const RANKS = [
     { name: "NOVICE",       min: 0,    max: 500,  color: "#9CA3AF" },

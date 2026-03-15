@@ -65,15 +65,42 @@ export default function Page() {
     return "lobby";
   };
 
-  // On mount: restore theme; if token exists skip auth screen
+  // On mount: restore theme; and restore persisted screen/room state
   useEffect(() => {
     const saved = localStorage.getItem("pp_theme") as ThemeId;
     if (saved && THEMES[saved]) setThemeIdRaw(saved);
-    if (token) setScreen("home");
+
+    const savedScreen = sessionStorage.getItem("pp_screen") as Screen;
+    const savedRoom = sessionStorage.getItem("pp_multiRoomCode");
+    const savedSlot = sessionStorage.getItem("pp_multiPlayerSlot") as "P1" | "P2" | null;
+    const savedRanked = sessionStorage.getItem("pp_isRanked") === "true";
+
+    if (savedScreen) {
+      if (token || !GUEST_BLOCKED.includes(savedScreen)) {
+        setScreen(savedScreen);
+        if (savedRoom) setMultiRoomCode(savedRoom);
+        if (savedSlot) setMultiPlayerSlot(savedSlot);
+        setIsRanked(savedRanked);
+      } else {
+        setScreen("auth");
+      }
+    } else {
+      if (token) setScreen("home");
+    }
+
     // Push initial history state so back button has something to pop
-    window.history.pushState({ screen: token ? "home" : "auth" }, "", window.location.pathname);
+    window.history.pushState({ screen: savedScreen || (token ? "home" : "auth") }, "", window.location.pathname);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Save screen and game state to sessionStorage
+  useEffect(() => {
+    sessionStorage.setItem("pp_screen", screen);
+    sessionStorage.setItem("pp_multiRoomCode", multiRoomCode);
+    if (multiPlayerSlot) sessionStorage.setItem("pp_multiPlayerSlot", multiPlayerSlot);
+    else sessionStorage.removeItem("pp_multiPlayerSlot");
+    sessionStorage.setItem("pp_isRanked", String(isRanked));
+  }, [screen, multiRoomCode, multiPlayerSlot, isRanked]);
 
   useEffect(() => {
     const onCustomThemeChange = () => {
