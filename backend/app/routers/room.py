@@ -387,8 +387,10 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                 row = msg["row"]
                 col = msg["col"]
 
-                # Always read from DB — ensures correctness across Railway workers
-                room = await db.rooms.find_one({"room_code": room_code})
+                # Read from in-memory cache first for speed; fall back to DB
+                room = _room_state.get(room_code)
+                if not room:
+                    room = await db.rooms.find_one({"room_code": room_code})
                 if not room or room["game_status"] != "playing":
                     continue
 
@@ -460,8 +462,10 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                     }
                     asyncio.create_task(award_game_result(db, game_dict, result.get("winner")))
                 else:
-                    # DB write — must complete before next move read to avoid stale state race
-                    await db.rooms.update_one({"room_code": room_code}, {"$set": update})
+                    # Fire-and-forget DB write — don't block the WS loop
+                    asyncio.create_task(
+                        db.rooms.update_one({"room_code": room_code}, {"$set": update})
+                    )
 
             elif msg["type"] == "ready":
                 ready_val   = msg.get("ready", True)

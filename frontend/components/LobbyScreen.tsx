@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import type { Screen } from "@/lib/types";
 import type { ThemeId } from "@/lib/themes";
 import { THEMES } from "@/lib/themes";
@@ -272,7 +272,7 @@ export default function LobbyScreen({ setScreen, themeId, onQueueStart, onQueueC
   };
   const getBanner = (id: string) => BANNERS[id] || BANNERS["default"];
 
-  const PlayerCard = ({ name, elo, avatar, banner, level, color, direction }: {
+  const PlayerCard = React.memo(({ name, elo, avatar, banner, level, color, direction }: {
     name: string; elo: number | null; avatar: string | null; banner: string;
     level: number; color: string; direction: "top" | "bottom";
   }) => {
@@ -321,7 +321,7 @@ export default function LobbyScreen({ setScreen, themeId, onQueueStart, onQueueC
         </div>
       </div>
     );
-  };
+  });
 
   // ── MATCHUP ───────────────────────────────────────────────────────────────
   if (phase === "matchup") return (
