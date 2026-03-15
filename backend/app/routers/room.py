@@ -44,6 +44,16 @@ def serialize_room(room: dict) -> dict:
         "player2_name":   room.get("player2_name"),
         "player1_elo":    room.get("player1_elo"),
         "player2_elo":    room.get("player2_elo"),
+        "player1_avatar": room.get("player1_avatar"),
+        "player2_avatar": room.get("player2_avatar"),
+        "player1_banner": room.get("player1_banner"),
+        "player2_banner": room.get("player2_banner"),
+        "player1_border": room.get("player1_border"),
+        "player2_border": room.get("player2_border"),
+        "player1_title":  room.get("player1_title"),
+        "player2_title":  room.get("player2_title"),
+        "player1_level":  room.get("player1_level"),
+        "player2_level":  room.get("player2_level"),
         "board":          room.get("board"),
         "current_player": room.get("current_player", "P1"),
         "moves_played":   room.get("moves_played", 0),
@@ -127,6 +137,11 @@ async def queue_join(data: QueueRequest, user_id: str = Depends(get_current_user
                 "player2_id":   user_id,
                 "player2_name": player_name,
                 "player2_elo":  user.get("elo", 100),
+                "player2_avatar": user.get("avatar"),
+                "player2_banner": user.get("banner", "default"),
+                "player2_border": user.get("border_style", "none"),
+                "player2_title":  user.get("title", "newcomer"),
+                "player2_level":  user.get("level", 1),
                 "status":       "active",
                 "game_status":  "playing",
             }}
@@ -162,6 +177,11 @@ async def queue_join(data: QueueRequest, user_id: str = Depends(get_current_user
         "player2_id":     None,
         "player1_name":   player_name,
         "player1_elo":    user.get("elo", 100),
+        "player1_avatar": user.get("avatar"),
+        "player1_banner": user.get("banner", "default"),
+        "player1_border": user.get("border_style", "none"),
+        "player1_title":  user.get("title", "newcomer"),
+        "player1_level":  user.get("level", 1),
         "player2_name":   None,
         "board":          engine.board,
         "current_player": "P1",
@@ -229,8 +249,18 @@ async def create_room(data: CreateRoomRequest, user_id: str = Depends(get_curren
         "player2_id":      user_id if creator_slot == "P2" else None,
         "player1_name":    player_name if creator_slot == "P1" else None,
         "player2_name":    player_name if creator_slot == "P2" else None,
-        "player1_elo":     user.get("elo", 100) if creator_slot == "P1" else None,
-        "player2_elo":     user.get("elo", 100) if creator_slot == "P2" else None,
+        "player1_elo":     user.get("elo", 100)  if creator_slot == "P1" else None,
+        "player2_elo":     user.get("elo", 100)  if creator_slot == "P2" else None,
+        "player1_avatar":  user.get("avatar")     if creator_slot == "P1" else None,
+        "player2_avatar":  user.get("avatar")     if creator_slot == "P2" else None,
+        "player1_banner":  user.get("banner", "default") if creator_slot == "P1" else None,
+        "player2_banner":  user.get("banner", "default") if creator_slot == "P2" else None,
+        "player1_border":  user.get("border_style", "none") if creator_slot == "P1" else None,
+        "player2_border":  user.get("border_style", "none") if creator_slot == "P2" else None,
+        "player1_title":   user.get("title", "newcomer") if creator_slot == "P1" else None,
+        "player2_title":   user.get("title", "newcomer") if creator_slot == "P2" else None,
+        "player1_level":   user.get("level", 1)  if creator_slot == "P1" else None,
+        "player2_level":   user.get("level", 1)  if creator_slot == "P2" else None,
         "creator_slot":    creator_slot,
         "board":           engine.board,
         "current_player":  "P1",
@@ -286,13 +316,23 @@ async def join_room(data: JoinRoomRequest, user_id: str = Depends(get_current_us
         "game_status": "playing",
     }
     if joiner_slot == "P1":
-        update_fields["player1_id"]   = user_id
-        update_fields["player1_name"] = player_name
-        update_fields["player1_elo"]  = user.get("elo", 100)
+        update_fields["player1_id"]     = user_id
+        update_fields["player1_name"]   = player_name
+        update_fields["player1_elo"]    = user.get("elo", 100)
+        update_fields["player1_avatar"] = user.get("avatar")
+        update_fields["player1_banner"] = user.get("banner", "default")
+        update_fields["player1_border"] = user.get("border_style", "none")
+        update_fields["player1_title"]  = user.get("title", "newcomer")
+        update_fields["player1_level"]  = user.get("level", 1)
     else:
-        update_fields["player2_id"]   = user_id
-        update_fields["player2_name"] = player_name
-        update_fields["player2_elo"]  = user.get("elo", 100)
+        update_fields["player2_id"]     = user_id
+        update_fields["player2_name"]   = player_name
+        update_fields["player2_elo"]    = user.get("elo", 100)
+        update_fields["player2_avatar"] = user.get("avatar")
+        update_fields["player2_banner"] = user.get("banner", "default")
+        update_fields["player2_border"] = user.get("border_style", "none")
+        update_fields["player2_title"]  = user.get("title", "newcomer")
+        update_fields["player2_level"]  = user.get("level", 1)
 
     await db.rooms.update_one({"room_code": code}, {"$set": update_fields})
     room = await db.rooms.find_one({"room_code": code})

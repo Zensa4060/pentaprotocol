@@ -78,9 +78,18 @@ async def award_game_result(db, game: dict, winner: str | None):
         new_total_xp = user.get("xp", 0) + gained_xp
         new_level, _ = compute_level(new_total_xp)
         inc = {}
-        if result == "win":  inc["wins"]   = 1
-        if result == "loss": inc["losses"] = 1
-        if result == "draw": inc["draws"]  = 1
+        # Custom games don't affect profile stats at all
+        if career_mode == "custom":
+            pass
+        elif career_mode == "unranked":
+            if result == "win":  inc["unranked_wins"]   = 1
+            if result == "loss": inc["unranked_losses"] = 1
+            if result == "draw": inc["draws"]  = 1
+        else:
+            # Ranked
+            if result == "win":  inc["wins"]   = 1
+            if result == "loss": inc["losses"] = 1
+            if result == "draw": inc["draws"]  = 1
         updates = {"xp": new_total_xp, "level": new_level}
         if is_ranked and opponent_id and mode != "bot":
             opponent = await db.users.find_one({"_id": ObjectId(opponent_id)})

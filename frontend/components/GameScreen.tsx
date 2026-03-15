@@ -272,9 +272,8 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
               wsRef.current?.send(JSON.stringify({ type: "match_over_notify" }));
             } else if (newHist.length === 2) {
               setGameNumber(3);
-              if (_mySlot === "P1") {
-                wsRef.current?.send(JSON.stringify({ type: "toss_action", action: "start_rb", payload: {} }));
-              }
+              // Go to ready phase before rulebreaker — don't start toss immediately
+              setP1Ready(false); setP2Ready(false); setReadyTimeout(60); setReadyTimer(0); setPhase("waiting_ready");
             } else {
               setP1Ready(false); setP2Ready(false); setReadyTimeout(60); setReadyTimer(0); setPhase("waiting_ready");
             }
@@ -284,6 +283,9 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
           setBoard(r.board ?? emptyBoard());
           setCurrent(r.current_player ?? "P1");
           setMovesPlayed(r.moves_played ?? 0);
+          // Extract opponent name from room data
+          if (playerSlot === "P1" && r.player2_name) setOpponentName(r.player2_name);
+          if (playerSlot === "P2" && r.player1_name) setOpponentName(r.player1_name);
           ws.send(JSON.stringify({ type: "player_info", username: p1Name ?? playerSlot ?? "P1", slot: playerSlot }));
         } else if (msg.type === "opponent_disconnected") {
           setWinner(mySlot);
@@ -682,10 +684,19 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
     if (R.current.matchOver) return;
     setWinner(null); setShowWinOverlay(false); setOverlayVisible(false);
     if (gn >= 2) {
-      setGameNumber(3); setPhase("rb_splash"); playRulebreaker?.();
-      setRbSplashTimer(3); setCoinFlipTimer(3); setCoinRevealTimer(0);
-      setCoinResult(null); setCoinAngle(0); setTossWinner(null);
-      setFirstPlayerChosen(null); setRbC3Blocked(false);
+      // Rulebreaker transition
+      if (isMultiplayerGame) {
+        // In multiplayer, P1 initiates the toss via WS
+        if (mySlot === "P1") {
+          wsRef.current?.send(JSON.stringify({ type: "toss_action", action: "start_rb", payload: {} }));
+        }
+        // Phase will transition when toss_action broadcasts back
+      } else {
+        setGameNumber(3); setPhase("rb_splash"); playRulebreaker?.();
+        setRbSplashTimer(3); setCoinFlipTimer(3); setCoinRevealTimer(0);
+        setCoinResult(null); setCoinAngle(0); setTossWinner(null);
+        setFirstPlayerChosen(null); setRbC3Blocked(false);
+      }
     } else {
       setGameNumber(2); setPhase("playing"); initBoard("P2");
     }

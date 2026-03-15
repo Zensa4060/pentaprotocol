@@ -98,8 +98,7 @@ export default function LobbyScreen({ setScreen, themeId, onQueueStart, onQueueC
           const myS = res.data.player_slot as "P1" | "P2";
           const matchedCode = res.data.room_code;
           if (room) {
-            setMatchupOpponentName(myS === "P2" ? (room.player1_name ?? "OPPONENT") : (room.player2_name ?? "OPPONENT"));
-            setMatchupOpponentElo(myS === "P2" ? (room.player1_elo ?? null) : (room.player2_elo ?? null));
+            storeOppProfile(room, myS);
           }
           // Show matchup screen for both players (don't skip to game immediately)
           setQueueRoomCode(matchedCode);
@@ -120,10 +119,7 @@ export default function LobbyScreen({ setScreen, themeId, onQueueStart, onQueueC
             if (poll.data.game_status === "playing") {
               clearInterval(queuePollRef.current!);
               // Grab opponent info from room data
-              const oppN = slot === "P1" ? poll.data.player2_name : poll.data.player1_name;
-              const oppE = slot === "P1" ? poll.data.player2_elo  : poll.data.player1_elo;
-              setMatchupOpponentName(oppN ?? "OPPONENT");
-              setMatchupOpponentElo(oppE ?? null);
+              storeOppProfile(poll.data, slot);
               setPhase("matchup");
               setCountdown(3.5);
               setTimeout(() => { onQueueCancel(); onRoomReady?.(code, slot, multiSub); }, 3500);
@@ -246,31 +242,134 @@ export default function LobbyScreen({ setScreen, themeId, onQueueStart, onQueueC
     </div>
   );
 
+  // Opponent profile data for matchup screen
+  const [matchupOppAvatar, setMatchupOppAvatar] = useState<string | null>(null);
+  const [matchupOppBanner, setMatchupOppBanner] = useState<string>("default");
+  const [matchupOppBorder, setMatchupOppBorder] = useState<string>("none");
+  const [matchupOppLevel, setMatchupOppLevel]   = useState<number>(1);
+
+  const RANKS = [
+    { name: "NOVICE",       min: 0,    max: 500,  color: "#9CA3AF" },
+    { name: "ADVANCED",     min: 500,  max: 1000, color: "#60A5FA" },
+    { name: "PROFESSIONAL", min: 1000, max: 1500, color: "#34D399" },
+    { name: "EMERALD",      min: 1500, max: 2000, color: "#10B981" },
+    { name: "MASTER",       min: 2000, max: 2500, color: "#FF3333" },
+    { name: "LEGEND",       min: 2500, max: 9999, color: "#F59E0B" },
+  ];
+  const getRank = (elo: number) => RANKS.find(r => elo >= r.min && elo < r.max) || RANKS[5];
+
+  // Helper to store opponent profile from room data
+  const storeOppProfile = (room: any, myS: "P1" | "P2") => {
+    const prefix = myS === "P1" ? "player2" : "player1";
+    setMatchupOpponentName(room[`${prefix}_name`] ?? "OPPONENT");
+    setMatchupOpponentElo(room[`${prefix}_elo`] ?? null);
+    setMatchupOppAvatar(room[`${prefix}_avatar`] ?? null);
+    setMatchupOppBanner(room[`${prefix}_banner`] ?? "default");
+    setMatchupOppBorder(room[`${prefix}_border`] ?? "none");
+    setMatchupOppLevel(room[`${prefix}_level`] ?? 1);
+  };
+
+  const BANNERS: Record<string, string> = {
+    default: "linear-gradient(135deg,#1a1a2e,#16213e)",
+  };
+  const getBanner = (id: string) => BANNERS[id] || BANNERS["default"];
+
+  const PlayerCard = ({ name, elo, avatar, banner, level, color, direction }: {
+    name: string; elo: number | null; avatar: string | null; banner: string;
+    level: number; color: string; direction: "top" | "bottom";
+  }) => {
+    const rank = getRank(elo ?? 100);
+    const anim = direction === "top" ? "slideInLeft" : "slideInRight";
+    return (
+      <div style={{
+        flex: 1, display: "flex", flexDirection: "column", alignItems: "center",
+        justifyContent: "center", gap: 10, position: "relative", overflow: "hidden",
+        animation: `${anim} 0.6s cubic-bezier(.22,.68,0,1.2) both`,
+      }}>
+        {/* Banner background */}
+        <div style={{ position: "absolute", inset: 0, background: getBanner(banner), opacity: 0.35 }} />
+        {/* Content */}
+        <div style={{ position: "relative", zIndex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
+          {/* Avatar */}
+          <div style={{
+            width: 90, height: 90, borderRadius: "50%",
+            background: `linear-gradient(135deg, ${color}, ${t.accent})`,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            boxShadow: `0 0 24px ${color}55, 0 0 48px ${color}22`,
+            border: `3px solid ${color}`,
+            fontSize: 38, overflow: "hidden",
+          }}>
+            {avatar
+              ? <img src={avatar} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+              : "👤"}
+          </div>
+          {/* Username */}
+          <div style={{ fontFamily: t.fontDisplay, fontSize: 22, fontWeight: 800, color, letterSpacing: "0.08em", textShadow: `0 0 20px ${color}55` }}>
+            {name}
+          </div>
+          {/* Rank + Level */}
+          <div style={{ display: "flex", gap: 14, alignItems: "center" }}>
+            <div style={{ padding: "3px 12px", background: `${rank.color}18`, border: `1px solid ${rank.color}55`, borderRadius: 10, fontFamily: t.fontMono, fontSize: 11, fontWeight: 700, color: rank.color, letterSpacing: "0.08em" }}>
+              {rank.name}
+            </div>
+            <div style={{ fontFamily: t.fontMono, fontSize: 12, color: t.textMuted }}>
+              LVL <span style={{ color: t.accent, fontWeight: 700 }}>{level}</span>
+            </div>
+          </div>
+          {/* ELO */}
+          <div style={{ fontFamily: t.fontMono, fontSize: 15, color: t.textMuted, fontWeight: 600 }}>
+            <span style={{ color: t.accent, fontSize: 20, fontWeight: 900 }}>{elo ?? "---"}</span> ELO
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   // ── MATCHUP ───────────────────────────────────────────────────────────────
   if (phase === "matchup") return (
-    <div style={{ position:"fixed", inset:0, zIndex:2, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", background:t.bg, overflow:"hidden", animation:"fadeUp 0.5s cubic-bezier(.22,.68,0,1.2) both" }}>
-      <div style={{ fontFamily:t.fontMono, fontSize:12, color:t.textMuted, letterSpacing:"0.18em", marginBottom:48 }}>
+    <div style={{ position: "fixed", inset: 0, zIndex: 2, display: "flex", flexDirection: "column", background: t.bg, overflow: "hidden" }}>
+      {/* Mode badge */}
+      <div style={{ textAlign: "center", paddingTop: 20, fontFamily: t.fontMono, fontSize: 12, color: t.textMuted, letterSpacing: "0.18em", zIndex: 2 }}>
         UNRANKED · BEST OF 3
       </div>
-      <div style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:"clamp(32px,6vw,96px)", width:"100%" }}>
-        <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:16, animation:"slideInLeft 0.6s cubic-bezier(.22,.68,0,1.2) both" }}>
-          <Avatar color={t.p1} />
-          <div style={{ fontFamily:t.fontDisplay, fontSize:18, fontWeight:700, color:t.p1, letterSpacing:"0.12em" }}>{user?.username ?? "YOU"}</div>
-          <div style={{ fontFamily:t.fontMono, fontSize:13, color:t.textMuted }}>{user?.elo ?? "---"} ELO</div>
-        </div>
+
+      {/* Player 1 (you) */}
+      <PlayerCard
+        name={user?.username ?? "YOU"}
+        elo={user?.elo ?? null}
+        avatar={user?.avatar ?? null}
+        banner={user?.banner ?? "default"}
+        level={user?.level ?? 1}
+        color={t.p1}
+        direction="top"
+      />
+
+      {/* VS divider */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 20, padding: "8px 0", flexShrink: 0 }}>
+        <div style={{ flex: 1, height: 1, background: `linear-gradient(90deg, transparent, ${t.border}, transparent)` }} />
         <div style={vsStyle}>VS</div>
-        <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:16, animation:"slideInRight 0.6s cubic-bezier(.22,.68,0,1.2) both" }}>
-          <Avatar color={t.p2} />
-          <div style={{ fontFamily:t.fontDisplay, fontSize:18, fontWeight:700, color:t.p2, letterSpacing:"0.12em" }}>{matchupOpponentName}</div>
-          <div style={{ fontFamily:t.fontMono, fontSize:13, color:t.textMuted }}>{matchupOpponentElo ?? "---"} ELO</div>
-        </div>
+        <div style={{ flex: 1, height: 1, background: `linear-gradient(90deg, transparent, ${t.border}, transparent)` }} />
       </div>
-      <div style={{ marginTop:64, width:"min(340px,80vw)" }}>
-        <div style={{ height:4, background:t.border, borderRadius:2, overflow:"hidden" }}>
-          <div style={{ height:"100%", width:`${(countdown / 3.5) * 100}%`, background:`linear-gradient(90deg,${t.accent},${t.accentGlow})`, borderRadius:2, transition:"width 0.1s linear", boxShadow:`0 0 10px ${t.accentGlow}88` }} />
+
+      {/* Player 2 (opponent) */}
+      <PlayerCard
+        name={matchupOpponentName}
+        elo={matchupOpponentElo}
+        avatar={matchupOppAvatar}
+        banner={matchupOppBanner}
+        level={matchupOppLevel}
+        color={t.p2}
+        direction="bottom"
+      />
+
+      {/* Progress bar */}
+      <div style={{ padding: "12px 20px 20px", flexShrink: 0 }}>
+        <div style={{ height: 4, background: t.border, borderRadius: 2, overflow: "hidden", maxWidth: 340, margin: "0 auto" }}>
+          <div style={{ height: "100%", width: `${(countdown / 3.5) * 100}%`, background: `linear-gradient(90deg,${t.accent},${t.accentGlow})`, borderRadius: 2, transition: "width 0.1s linear", boxShadow: `0 0 10px ${t.accentGlow}88` }} />
         </div>
-        <div style={{ fontFamily:t.fontMono, fontSize:12, color:t.textMuted, textAlign:"center", marginTop:10, letterSpacing:"0.1em" }}>MATCH STARTING...</div>
+        <div style={{ fontFamily: t.fontMono, fontSize: 12, color: t.textMuted, textAlign: "center", marginTop: 8, letterSpacing: "0.1em" }}>MATCH STARTING...</div>
       </div>
+
       <style>{`
         @keyframes fadeUp       { from{opacity:0;transform:translateY(24px)} to{opacity:1;transform:translateY(0)} }
         @keyframes slideInLeft  { from{opacity:0;transform:translateX(-60px)} to{opacity:1;transform:translateX(0)} }
