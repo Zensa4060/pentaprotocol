@@ -189,7 +189,12 @@ export default function NavBar({ screen, setScreen, themeId, onSettings, inQueue
       >
         <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
           {label.toUpperCase()}
-          {locked && <span style={{ fontSize: 9, opacity: 0.8 }}>🔒</span>}
+          {locked && (
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.8 }}>
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+              <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+            </svg>
+          )}
         </span>
       </button>
     );
@@ -267,7 +272,7 @@ export default function NavBar({ screen, setScreen, themeId, onSettings, inQueue
             />
           </div>
 
-          {mounted && user && (
+          {mounted && (
             <div style={{ display: "flex", alignItems: "center", gap: 4, fontFamily: t.fontMono, fontSize: CURRENCY_FONT, fontWeight: 700 }}>
               <div style={{ width: CURRENCY_SZ, height: CURRENCY_SZ, flexShrink: 0 }} dangerouslySetInnerHTML={{ __html: (themeId === "classic_light" ? SHARDS_LIGHT_SVG : SHARDS_DARK_SVG).replace("<svg ", `<svg width="${CURRENCY_SZ}" height="${CURRENCY_SZ}" `) }} />
               <span style={{ color: "#4FC3F7" }}>{pentashards}</span>
@@ -311,7 +316,7 @@ export default function NavBar({ screen, setScreen, themeId, onSettings, inQueue
         <div style={{ display: "flex", alignItems: "center", gap: isTablet ? 12 : 20, flexShrink: 0, marginLeft: "auto" }}>
 
           {/* Currencies — show everywhere since sizing is increased */}
-          {mounted && user && (
+          {mounted && (
             <div style={{ display: "flex", alignItems: "center", gap: 4, fontFamily: t.fontMono, fontSize: CURRENCY_FONT, fontWeight: 700 }}>
               <div style={{ width: CURRENCY_SZ, height: CURRENCY_SZ, flexShrink: 0 }} dangerouslySetInnerHTML={{ __html: (themeId === "classic_light" ? PROTO_LIGHT_SVG : PROTO_DARK_SVG).replace("<svg ", `<svg width="${CURRENCY_SZ}" height="${CURRENCY_SZ}" `) }} />
               <span style={{ color: "#FFD700" }}>{protocredits}</span>
@@ -397,7 +402,12 @@ export default function NavBar({ screen, setScreen, themeId, onSettings, inQueue
               }}
             >
               <span>{label}</span>
-              {locked && <span style={{ fontSize: 11 }}>🔒</span>}
+              {locked && (
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.7 }}>
+                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                  <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                </svg>
+              )}
               {getActive(target) && <span style={{ fontSize: 11, color: t.accent }}>●</span>}
             </button>
           ))}

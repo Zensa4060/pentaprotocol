@@ -473,7 +473,12 @@ export default function StoreScreen({ setScreen, themeId }: Props) {
 
         {isGuest && (
           <div style={{ background: `${accent}10`, border: `1px solid ${accent}44`, borderRadius: 10, padding: "12px 18px", marginBottom: 28, display: "flex", alignItems: "center", gap: 12 }}>
-            <span style={{ fontSize: 18 }}>🔒</span>
+            <div style={{ width: 24, height: 24, borderRadius: "50%", background: `${accent}18`, display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={accent} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+              </svg>
+            </div>
             <div>
               <div style={{ fontFamily: t.fontDisplay, fontSize: 14, fontWeight: 700, color: accent }}>Browsing as Guest</div>
               <div style={{ fontFamily: t.fontBody, fontSize: 13, color: t.textMuted }}>Sign in to purchase ProtoCredits and unlock premium equipment.</div>
@@ -636,7 +641,7 @@ export default function StoreScreen({ setScreen, themeId }: Props) {
                   style={{ borderRadius: 14, padding: "20px 22px", border: `1.5px solid ${hov ? accent + "88" : t.border}`, background: t.bgCard, display: "flex", alignItems: "center", gap: 20, boxShadow: hov ? `0 8px 28px ${accent}22` : "none" }}>
                   <div style={{ display: "flex", gap: 14 }}>
                     <div style={{ width: 52, height: 52, borderRadius: "50%", background: `radial-gradient(circle at 35% 35%,${item.c1}FF,${item.c1}88)`, boxShadow: `0 0 16px ${item.c1}66`, display: "flex", alignItems: "center", justifyContent: "center" }}><img src="/penta-coin.png" alt="penta" style={{ width: 34, height: 34, objectFit: "contain" }} /></div>
-                    <div style={{ width: 52, height: 52, borderRadius: "50%", background: `radial-gradient(circle at 35% 35%,${item.c2}FF,${item.c2}88)`, boxShadow: `0 0 16px ${item.c2}66`, display: "flex", alignItems: "center", justifyContent: "center" }}><ProtoSVG size={34} /></div>
+                    <div style={{ width: 52, height: 52, borderRadius: "50%", background: `radial-gradient(circle at 35% 35%,${item.c2}FF,${item.c2}88)`, boxShadow: `0 0 16px ${item.c2}66`, display: "flex", alignItems: "center", justifyContent: "center" }}><img src="/proto-coin.png" alt="proto" style={{ width: 34, height: 34, objectFit: "contain" }} /></div>
                   </div>
                   <div style={{ flex: 1 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}><span style={{ fontFamily: t.fontDisplay, fontSize: 16, fontWeight: 700, color: t.text }}>{item.label}</span><UnlockBadge text={item.unlock} accent={accent} /></div>
