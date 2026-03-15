@@ -1,8 +1,10 @@
 "use client";
 import { useState, useEffect } from "react";
+import { useAuthStore } from "@/lib/store";
 import { THEMES } from "@/lib/themes";
 import type { Screen } from "@/lib/types";
 import type { ThemeId } from "@/lib/themes";
+import { getRank, NavRankBadge } from "./NavBar";
 
 interface Props {
   setScreen: (s: Screen) => void;
@@ -11,9 +13,6 @@ interface Props {
   onClick?: () => void;
 }
 
-const STATS = [
-  { label: "SEASON", value: "BETA" },
-];
 
 const CARDS = [
   { key: "game"  as Screen, title: "SINGLEPLAYER", sub: "Local · Pass & Play · Bo3" },
@@ -51,50 +50,64 @@ export default function HomeScreen({ setScreen, themeId, onHover, onClick }: Pro
 
   // ── Responsive tokens ─────────────────────────────────────────────────────
   const titleSize = isMobile
-    ? "clamp(28px, 9vw, 42px)"
+    ? "clamp(35px, 10vw, 49px)"
     : isTablet
-    ? "clamp(36px, 6vw, 60px)"
-    : ip ? "clamp(36px,6vw,88px)" : "clamp(28px,5.5vw,80px)";
+    ? "clamp(43px, 7vw, 67px)"
+    : ip ? "clamp(43px, 7vw, 95px)" : "clamp(43px, 7vw, 97px)";
 
-  const cardTitleSize = isMobile ? 15 : isTablet ? 18 : ip ? 18 : 24;
-  const cardSubSize   = isMobile ? 12 : isTablet ? 13 : ip ? 13 : 15;
+  // Increased by 50% + another 5%
+  const cardTitleSize = isMobile ? 24 : isTablet ? 28 : 34;
+  const cardSubSize   = isMobile ? 18 : isTablet ? 20 : 22;
 
+  // Made into vertical rectangles
   const cardPadding = isMobile
-    ? "24px 16px"
-    : isTablet
-    ? "32px 22px"
-    : ip ? "44px 28px" : "40px 32px";
+    ? "52px 26px"
+    : "72px 40px";
 
   const outerPadding = isMobile
-    ? "72px 16px 32px"
+    ? "90px 16px 32px"
     : isTablet
-    ? "80px 24px 40px"
-    : "80px 32px 48px";
+    ? "100px 24px 40px"
+    : "100px 32px 48px";
 
-  const outerGap = isMobile ? 24 : isTablet ? 28 : 36;
+  const outerGap = isMobile ? 32 : isTablet ? 40 : 50;
 
-  // Cards: stack on mobile, row on tablet+
-  const cardsLayout: React.CSSProperties = isMobile
-    ? { display: "flex", flexDirection: "column", gap: 12, width: "100%", maxWidth: 480 }
-    : { display: "flex", flexDirection: "row", gap: ip ? 20 : 22, width: "100%", maxWidth: isTablet ? 800 : ip ? 1100 : 980 };
+  // Cards: stack vertically on mobile, horizontally on tablet+
+  const cardsLayout: React.CSSProperties = { display: "flex", flexDirection: isMobile ? "column" : "row", gap: isMobile ? 16 : 24, width: "100%", maxWidth: 1380, marginTop: "10vh" };
 
-  const cardStyle = (key: Screen): React.CSSProperties => {
+  const { user } = useAuthStore();
+  const rank = getRank(user?.elo ?? 0);
+
+  const cardStyle = (key: Screen, index: number): React.CSSProperties => {
     const isHov = hovered === key;
+    
+    // Curved layout values for desktop
+    let curveY = 0;
+    if (!isMobile) {
+      if (index === 0) { curveY = 60; } // Left box - deeper curve
+      if (index === 2) { curveY = 60; } // Right box - deeper curve
+      // index 1 (Multiplayer) stays at curveY=0
+    }
+
     return {
-      background: isHov ? `linear-gradient(145deg, ${t.accent}18, ${t.bgCard})` : t.bgCard,
+      background: isHov ? `linear-gradient(145deg, ${t.accent}22, ${t.bgCard}dd)` : t.bgCard,
       border: `${isMobile ? "1.5px" : "2px"} solid ${isHov ? t.accent : t.border}`,
-      borderRadius: ip ? 2 : isMobile ? 12 : 16,
+      borderRadius: ip ? 2 : isMobile ? 12 : 20,
       padding: cardPadding,
       cursor: "pointer",
       textAlign: "center" as const,
-      transition: "all 0.3s cubic-bezier(.22,.68,0,1.2)",
-      transform: isHov ? "translateY(-4px) scale(1.01)" : "translateY(0) scale(1)",
-      boxShadow: isHov ? `0 16px 48px ${t.accent}22` : "none",
-      // On mobile: full width; on tablet+: flex equal columns
+      transition: "all 0.4s cubic-bezier(.22,.68,0,1.2)",
+      transform: isMobile 
+        ? (isHov ? "scale(1.02)" : "scale(1)")
+        : isHov 
+          ? `translateY(${curveY - 15}px) scale(1.06)` 
+          : `translateY(${curveY}px)`,
+      boxShadow: isHov ? `0 24px 64px ${t.accent}33, 0 0 20px ${t.accent}11` : "none",
       flex: isMobile ? undefined : 1,
       width: isMobile ? "100%" : undefined,
       minWidth: 0,
-      // Mobile: horizontal layout with icon-left / text-right feel
+      position: "relative",
+      zIndex: isHov ? 10 : 1,
       ...(isMobile ? { display: "flex", alignItems: "center", gap: 16, textAlign: "left" as const } : {}),
     };
   };
@@ -115,27 +128,32 @@ export default function HomeScreen({ setScreen, themeId, onHover, onClick }: Pro
       `}</style>
 
       {/* Title */}
-      <div style={{ position: "relative", textAlign: "center" }}>
+      <div style={{ position: "relative", textAlign: "center", width: "100%" }}>
         <h1 style={{
-          fontFamily: (themeId === "classic_light" || themeId === "classic_dark")
-            ? "'Cinzel', serif"
-            : t.fontDisplay,
+          fontFamily: "'Courier New', monospace",
           fontSize: titleSize,
-          fontWeight: 900, color: t.accent,
-          letterSpacing: (themeId === "classic_light" || themeId === "classic_dark")
-            ? "0.12em"
-            : ip ? "0.08em" : "0.06em",
+          fontWeight: 900,
+          letterSpacing: isMobile ? "0.1em" : "0.2em",
           textAlign: "center", lineHeight: 1,
-          textShadow: themeId === "space"
-            ? `0 0 20px ${t.accentGlow}CC, 0 0 60px ${t.accentGlow}66, 0 0 120px ${t.accentGlow}33`
-            : themeId === "pixel"
-            ? `4px 4px 0px ${t.accentGlow}88, -2px -2px 0 #000`
-            : (themeId === "classic_light" || themeId === "classic_dark")
-            ? `0 2px 12px ${t.accentGlow}22`
-            : `0 0 60px ${t.accentGlow}33`,
           margin: 0,
         }}>
-          PENTAPROTOCOL
+          <span style={{
+            background: "linear-gradient(to bottom, #ffffff 0%, #999999 50%, #ffffff 100%)",
+            WebkitBackgroundClip: "text",
+            WebkitTextFillColor: "transparent",
+            backgroundClip: "text",
+            filter: "drop-shadow(0 0 8px rgba(255,255,255,0.4))",
+            display: "inline",
+          }}>PENTA</span>
+          <br style={{ display: isMobile ? "block" : "none" }} />
+          <span style={{
+            background: "linear-gradient(to bottom, #FF2200 0%, #8B0000 45%, #FF1100 100%)",
+            WebkitBackgroundClip: "text",
+            WebkitTextFillColor: "transparent",
+            backgroundClip: "text",
+            filter: "drop-shadow(0 0 12px rgba(255,30,0,0.7))",
+            display: "inline",
+          }}>PROTOCOL</span>
         </h1>
         {themeId === "space" && !isMobile && (
           <div style={{ position: "absolute", inset: 0, pointerEvents: "none" }}>
@@ -163,7 +181,7 @@ export default function HomeScreen({ setScreen, themeId, onHover, onClick }: Pro
             onClick={() => { onClick?.(); setScreen(card.key); }}
             onMouseEnter={() => { onHover?.(); setHovered(card.key); }}
             onMouseLeave={() => setHovered(null)}
-            style={cardStyle(card.key)}
+            style={cardStyle(card.key, CARDS.indexOf(card))}
           >
             {/* Mobile: left-aligned text block */}
             <div style={{ flex: isMobile ? 1 : undefined }}>
@@ -197,31 +215,16 @@ export default function HomeScreen({ setScreen, themeId, onHover, onClick }: Pro
         ))}
       </div>
 
-      {/* Stats row */}
-      <div style={{ display: "flex", gap: isMobile ? 24 : 48, alignItems: "center" }}>
-        {STATS.map((s, i) => (
-          <div key={s.label} style={{ display: "flex", alignItems: "center", gap: isMobile ? 24 : 48 }}>
-            <div style={{ textAlign: "center" }}>
-              <div style={{
-                fontFamily: t.fontDisplay,
-                fontSize: isMobile ? 20 : isTablet ? 26 : ip ? 26 : 32,
-                fontWeight: 700, color: t.accent,
-              }}>
-                {s.value}
-              </div>
-              <div style={{
-                fontFamily: t.fontMono,
-                fontSize: isMobile ? 9 : 11,
-                color: t.textMuted, letterSpacing: "0.16em", marginTop: 4,
-              }}>
-                {s.label}
-              </div>
-            </div>
-            {i < STATS.length - 1 && <div style={{ width: 1, height: 32, background: t.border }} />}
-          </div>
-        ))}
-      </div>
-
+      {/* Rank Logo Space at Bottom */}
+      {user && (
+        <div style={{
+          display: "flex", flexDirection: "column", alignItems: "center", gap: 8,
+          animation: "fadeUp 0.8s cubic-bezier(.22,.68,0,1.2) both",
+          marginTop: "2vh"
+        }}>
+          <NavRankBadge rank={rank} size={isMobile ? 121 : 182} />
+        </div>
+      )}
     </div>
   );
 }

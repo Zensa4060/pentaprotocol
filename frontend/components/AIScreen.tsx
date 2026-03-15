@@ -31,8 +31,8 @@ export default function AIScreen({ setScreen, themeId, onSelectDifficulty, onHov
   return (
     <div style={{
       position: "fixed", inset: 0, zIndex: 2, background: t.bg, transition: "background 0.4s",
-      display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-      padding: "84px 24px 48px", gap: 32, overflowY: "auto",
+      display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "space-evenly",
+      padding: "90px 24px 40px", overflowY: "auto",
     }}>
       <style>{`
         @keyframes cardFadeUp { from{opacity:0;transform:translateY(18px)} to{opacity:1;transform:translateY(0)} }
@@ -55,7 +55,7 @@ export default function AIScreen({ setScreen, themeId, onSelectDifficulty, onHov
       </div>
 
       {/* Difficulty cards */}
-      <div style={{ display: "flex", gap: ip ? 16 : 20, width: "100%", maxWidth: 820, flexWrap: "wrap", justifyContent: "center" }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 12, width: "100%", maxWidth: 480 }}>
         {DIFFICULTIES.map((d, i) => {
           const isHov = hovered === d.id;
           return (

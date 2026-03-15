@@ -6,7 +6,7 @@ import type { Screen } from "@/lib/types";
 import type { ThemeId } from "@/lib/themes";
 import { SHARDS_LIGHT_SVG, SHARDS_DARK_SVG, PROTO_LIGHT_SVG, PROTO_DARK_SVG } from "@/lib/currencyIcons";
 
-const RANKS = [
+export const RANKS = [
   { name: "NOVICE",       min: 0,    max: 500,  color: "#9CA3AF", img: "/novice.svg",       scale: 1.3   },
   { name: "ADVANCED",     min: 500,  max: 1000, color: "#60A5FA", img: "/advanced.svg",     scale: 1.3   },
   { name: "PROFESSIONAL", min: 1000, max: 1500, color: "#34D399", img: "/professional.svg", scale: 1.3   },
@@ -15,10 +15,9 @@ const RANKS = [
   { name: "LEGEND",       min: 2500, max: 9999, color: "#F59E0B", img: "/legend.png"                     },
 ];
 
+export const getRank = (elo: number) => RANKS.find(r => elo >= r.min && elo < r.max) || RANKS[0];
 
-const getRank = (elo: number) => RANKS.find(r => elo >= r.min && elo < r.max) || RANKS[0];
-
-const NavRankBadge = ({ rank, size = 30 }: { rank: typeof RANKS[0]; size?: number }) => {
+export const NavRankBadge = ({ rank, size = 30 }: { rank: typeof RANKS[0]; size?: number }) => {
   const imgScale = (rank as any).scale ?? 1;
   const imgSize = size * 0.85 * imgScale;
   return (
@@ -61,41 +60,6 @@ export default function NavBar({ screen, setScreen, themeId, onSettings, inQueue
   const [mounted, setMounted]           = useState(false);
   const [menuOpen, setMenuOpen]         = useState(false);
   const [vw, setVw]                     = useState(1440);
-  // Add this hook near the top of the NavBar component, after the state declarations
-const [usernameColor, setUsernameColor] = useState("#00FFFF");
-
-useEffect(() => {
-  const COLORS = [
-    "#FF6B6B","#FF8E53","#FFA500","#FFD700","#FFEC8B",
-    "#ADFF2F","#7FFF00","#00FF7F","#00FFAA","#00FFFF",
-    "#00BFFF","#1E90FF","#6495ED","#7B68EE","#9370DB",
-    "#BA55D3","#FF69B4","#FF1493","#FF6EB4","#FFB6C1",
-    "#F0E68C","#EE82EE","#DDA0DD","#DB7093","#DC143C",
-    "#B22222","#FF4500","#FF7F50","#FFA07A","#E9967A",
-    "#FA8072","#F08080","#CD5C5C","#BC8F8F","#F4A460",
-    "#DAA520","#B8860B","#CD853F","#D2691E","#8B4513",
-    "#A0522D","#C0C0C0","#A9A9A9","#808080","#778899",
-    "#708090","#2F4F4F","#696969","#556B2F","#6B8E23",
-    "#808000","#9ACD32","#32CD32","#228B22","#006400",
-    "#008000","#2E8B57","#3CB371","#20B2AA","#008080",
-    "#008B8B","#00CED1","#40E0D0","#48D1CC","#AFEEEE",
-    "#87CEEB","#87CEFA","#4682B4","#5F9EA0","#6495ED",
-    "#00008B","#000080","#191970","#6A5ACD","#483D8B",
-    "#8A2BE2","#9400D3","#8B008B","#FF00FF","#FF00AA",
-    "#C71585","#DB7093","#FF6347","#FF4500","#FF8C00",
-    "#FFA500","#FFD700","#FFFF00","#FFFFE0","#FAFAD2",
-    "#FFEFD5","#FFE4B5","#FFDAB9","#EEE8AA","#F5DEB3",
-    "#DEB887","#D2B48C","#BC8F8F","#F4A460","#DAA520",
-  ];
-  const stored = sessionStorage.getItem("pp_username_color");
-  if (stored) {
-    setUsernameColor(stored);
-  } else {
-    const picked = COLORS[Math.floor(Math.random() * COLORS.length)];
-    sessionStorage.setItem("pp_username_color", picked);
-    setUsernameColor(picked);
-  }
-}, []);
 
   const ip        = themeId === "pixel";
   const isClassic = themeId === "classic_light" || themeId === "classic_dark";
@@ -113,30 +77,6 @@ useEffect(() => {
     document.onfullscreenchange = () => { if (!document.fullscreenElement) setFocusMode(false); };
     return () => { document.onfullscreenchange = null; };
   }, []);
-  useEffect(() => {
-  const COLORS = [
-    "#FF6B6B","#FF8E53","#FFA500","#FFD700","#FFEC8B",
-    "#ADFF2F","#7FFF00","#00FF7F","#00FFAA","#00FFFF",
-    "#00BFFF","#1E90FF","#6495ED","#7B68EE","#9370DB",
-    "#BA55D3","#FF69B4","#FF1493","#FF6EB4","#FFB6C1",
-    "#F0E68C","#EE82EE","#DDA0DD","#DB7093","#DC143C",
-    "#B22222","#FF4500","#FF7F50","#FFA07A","#E9967A",
-    "#FA8072","#F08080","#CD5C5C","#BC8F8F","#F4A460",
-    "#DAA520","#B8860B","#CD853F","#D2691E","#8B4513",
-    "#A0522D","#C0C0C0","#A9A9A9","#808080","#778899",
-    "#708090","#2F4F4F","#696969","#556B2F","#6B8E23",
-    "#808000","#9ACD32","#32CD32","#228B22","#006400",
-    "#008000","#2E8B57","#3CB371","#20B2AA","#008080",
-    "#008B8B","#00CED1","#40E0D0","#48D1CC","#AFEEEE",
-    "#87CEEB","#87CEFA","#4682B4","#5F9EA0","#6495ED",
-    "#00008B","#000080","#191970","#6A5ACD","#483D8B",
-    "#8A2BE2","#9400D3","#8B008B","#FF00FF","#FF00AA",
-    "#C71585","#DB7093","#FF6347","#FF4500","#FF8C00",
-    "#FFA500","#FFD700","#FFFF00","#FFFFE0","#FAFAD2",
-    "#FFEFD5","#FFE4B5","#FFDAB9","#EEA500","#F5DEB3",
-  ];
-  setUsernameColor(COLORS[Math.floor(Math.random() * COLORS.length)]);
-}, []);
 
   // Close hamburger on screen change
   useEffect(() => { setMenuOpen(false); }, [screen]);
@@ -190,10 +130,12 @@ useEffect(() => {
 
   // Scaled sizes
   const NAV_H       = isMobile ? 52 : isTablet ? 60 : 68;
-  const BTN_FONT    = isMobile ? 11 : isTablet ? 12 : "clamp(12px, 1.1vw, 15px)";
-  const ICON_SIZE   = isMobile ? 16 : 20;
+  const BTN_FONT    = isMobile ? 13 : isTablet ? 14 : "clamp(14px, 1.25vw, 17.5px)";
+  // Setting ICON size directly relative to Nav Base Height (nearly as big as navbar)
+  const ICON_SIZE   = Math.floor(NAV_H * 0.85); 
   const BADGE_SIZE  = isMobile ? 28 : isTablet ? 32 : 38;
-  const CURRENCY_SZ = isMobile ? 20 : isTablet ? 24 : 30;
+  const CURRENCY_SZ = isMobile ? 40 : isTablet ? 48 : 60; // 100% larger
+  const CURRENCY_FONT = isMobile ? 18 : isTablet ? 24 : 28; // Increased font size
 
   const navBtn = (
     target: string,
@@ -299,91 +241,37 @@ useEffect(() => {
         WebkitBackdropFilter: "blur(12px)",
       }}>
 
-        {/* ── LEFT: username + sign in/out + focus ── */}
-        <div style={{ display: "flex", alignItems: "center", gap: isMobile ? 6 : 10, flexShrink: 0, minWidth: 0 }}>
-
-          {/* Username */}
+        {/* ── LEFT: Logo + PentaShards ── */}
+        <div style={{ display: "flex", alignItems: "center", gap: isTablet ? 12 : 20, flexShrink: 0, minWidth: 0 }}>
           <div
             onClick={() => navigate("home")}
+            title="Home"
             style={{
-              fontFamily: t.fontDisplay,
-              fontSize: isMobile ? 13 : isTablet ? 15 : 17,
-              fontWeight: 800,
-              cursor: "pointer", lineHeight: 1,
-              whiteSpace: "nowrap",
-             color: usernameColor,
-textShadow: `0 0 12px ${usernameColor}99, 0 0 24px ${usernameColor}44`,
-filter: "none",
-              letterSpacing: "0.06em",
-              maxWidth: isMobile ? 90 : 160,
-              overflow: "hidden",
-              textOverflow: "ellipsis",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
             }}
           >
-            {user ? (user.username ?? user.email ?? "PLAYER") : "GUEST"}
+            <img
+              src="/Pentaprotocol_Logo_Transparent.png"
+              alt="PentaProtocol Logo"
+              style={{
+                width: isMobile ? 36 : isTablet ? 44 : 52,
+                height: isMobile ? 36 : isTablet ? 44 : 52,
+                objectFit: "contain",
+                filter: "drop-shadow(0 0 12px rgba(255,100,30,0.4))",
+                transition: "transform 0.2s ease",
+              }}
+              onMouseEnter={e => e.currentTarget.style.transform = "scale(1.05)"}
+              onMouseLeave={e => e.currentTarget.style.transform = "scale(1)"}
+            />
           </div>
 
-          {!isMobile && <div style={{ width: 1, height: 22, background: `${t.border}55`, flexShrink: 0 }} />}
-
-          {/* Sign in / out */}
-          {mounted && user ? (
-            <button
-              onClick={() => setShowSignOut(true)}
-              onMouseEnter={e => { onHover?.(); e.currentTarget.style.background = t.danger; e.currentTarget.style.borderColor = t.danger; e.currentTarget.style.color = "#fff"; }}
-              onMouseLeave={e => { e.currentTarget.style.background = `${t.danger}14`; e.currentTarget.style.borderColor = `${t.danger}55`; e.currentTarget.style.color = t.danger; }}
-              style={{
-                background: `${t.danger}14`, border: `1px solid ${t.danger}55`, color: t.danger,
-                fontFamily: t.fontBody, fontSize: isMobile ? 9 : 11, fontWeight: 600,
-                padding: isMobile ? "4px 7px" : "5px 11px", borderRadius: 7, cursor: "pointer",
-                transition: "all 0.18s", whiteSpace: "nowrap",
-                letterSpacing: "0.06em", textTransform: "uppercase" as const,
-              }}
-            >{isMobile ? "Out" : "Sign Out"}</button>
-          ) : mounted ? (
-            <button
-              onClick={() => setScreen("auth")}
-              onMouseEnter={e => { onHover?.(); e.currentTarget.style.background = t.accent; e.currentTarget.style.color = "#000"; e.currentTarget.style.borderColor = t.accent; }}
-              onMouseLeave={e => { e.currentTarget.style.background = `${t.accent}22`; e.currentTarget.style.color = t.accent; e.currentTarget.style.borderColor = `${t.accent}88`; }}
-              style={{
-                background: `${t.accent}22`, border: `1px solid ${t.accent}88`, color: t.accent,
-                fontFamily: t.fontBody, fontSize: isMobile ? 9 : 11, fontWeight: 600,
-                padding: isMobile ? "4px 7px" : "5px 11px", borderRadius: 7, cursor: "pointer",
-                transition: "all 0.18s", whiteSpace: "nowrap",
-                letterSpacing: "0.06em", textTransform: "uppercase" as const,
-              }}
-            >{isMobile ? "In" : "Sign In"}</button>
-          ) : null}
-
-          {/* Focus button — hide on mobile */}
-          {!isMobile && (
-            <>
-              <div style={{ width: 1, height: 22, background: `${t.border}55`, flexShrink: 0 }} />
-              <button
-                onClick={toggleFocus}
-                title={focusMode ? "Exit Focus Mode" : "Focus Mode"}
-                onMouseEnter={e => { onHover?.(); e.currentTarget.style.background = t.accent; e.currentTarget.style.color = "#000"; e.currentTarget.style.boxShadow = `0 0 18px ${t.accentGlow}66`; }}
-                onMouseLeave={e => { e.currentTarget.style.background = focusMode ? `${t.accent}22` : `${t.accent}14`; e.currentTarget.style.color = t.accent; e.currentTarget.style.boxShadow = focusMode ? `0 0 10px ${t.accent}44` : "none"; }}
-                style={{
-                  background: focusMode ? `${t.accent}22` : `${t.accent}14`,
-                  border: `1px solid ${focusMode ? t.accent : `${t.accent}55`}`,
-                  color: t.accent,
-                  fontFamily: t.fontBody, fontSize: 11, fontWeight: 700,
-                  padding: "5px 11px", borderRadius: 7, cursor: "pointer",
-                  transition: "all 0.18s",
-                  display: "flex", alignItems: "center", gap: 5,
-                  whiteSpace: "nowrap", letterSpacing: "0.06em",
-                  textTransform: "uppercase" as const,
-                }}
-              >
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  {focusMode
-                    ? <><polyline points="8 3 3 3 3 8"/><polyline points="21 8 21 3 16 3"/><polyline points="3 16 3 21 8 21"/><polyline points="16 21 21 21 21 16"/></>
-                    : <><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></>
-                  }
-                </svg>
-                {focusMode ? "Exit" : "Focus"}
-              </button>
-            </>
+          {mounted && user && (
+            <div style={{ display: "flex", alignItems: "center", gap: 4, fontFamily: t.fontMono, fontSize: CURRENCY_FONT, fontWeight: 700 }}>
+              <div style={{ width: CURRENCY_SZ, height: CURRENCY_SZ, flexShrink: 0 }} dangerouslySetInnerHTML={{ __html: (themeId === "classic_light" ? SHARDS_LIGHT_SVG : SHARDS_DARK_SVG).replace("<svg ", `<svg width="${CURRENCY_SZ}" height="${CURRENCY_SZ}" `) }} />
+              <span style={{ color: "#4FC3F7" }}>{pentashards}</span>
+            </div>
           )}
         </div>
 
@@ -391,15 +279,13 @@ filter: "none",
         {isDesktop && (
           <div style={{
             flex: 1, display: "flex", alignItems: "center", justifyContent: "center",
-            overflow: "hidden", transform: "translateX(1%)"
+            overflow: "hidden"
           }}>
-            <div style={{ display: "flex", alignItems: "center", flexWrap: "nowrap" }}>
+            <div style={{ display: "flex", alignItems: "center", flexWrap: "nowrap", gap: "2vw" }}>
               {navBtn("rules",      "Game Rules", false, false, undefined, "rules")}
               {navBtn("collection", "Collection", false, false, undefined, "collection")}
               {navBtn("store",      "Store",      false, false, undefined, "store")}
-              <div style={{ width: 1, height: 28, background: `${t.border}55`, margin: "0 2px", flexShrink: 0 }} />
               {navBtn("home",       "Home",       false, false, undefined, "home")}
-              <div style={{ width: 1, height: 28, background: `${t.border}55`, margin: "0 2px", flexShrink: 0 }} />
               {navBtn("career",     "Career",     false, false, undefined, "career",     isGuest)}
               {navBtn("battlepass", "Battlepass", false, false, undefined, "battlepass", isGuest)}
               {navBtn("profile",    "Profile",    false, false, undefined, "profile",    isGuest)}
@@ -418,40 +304,17 @@ filter: "none",
           </div>
         )}
 
-        {/* Spacer on mobile to push right section to end */}
-        {isMobile && <div style={{ flex: 1 }} />}
+        {/* Spacer on mobile/tablet to push right section to end. (Center section handles it via flex on desktop) */}
+        {!isDesktop && <div style={{ flex: 1 }} />}
 
-        {/* ── RIGHT: rank + currency + settings + hamburger ── */}
-        <div style={{ display: "flex", alignItems: "center", gap: isMobile ? 6 : 8, flexShrink: 0 }}>
+        {/* ── RIGHT: currency + settings + hamburger ── */}
+        <div style={{ display: "flex", alignItems: "center", gap: isTablet ? 12 : 20, flexShrink: 0, marginLeft: "auto" }}>
 
-          {/* Rank + currency — hide on mobile */}
-          {mounted && user && !isMobile && (
-            <div style={{ display: "flex", alignItems: "center", gap: isTablet ? 6 : 8 }}>
-              <div style={{
-                display: "flex", alignItems: "center", gap: isTablet ? 6 : 10,
-                padding: isTablet ? "3px 10px 3px 4px" : "4px 16px 4px 5px",
-                background: `${rank.color}15`,
-                border: `1px solid ${rank.color}55`,
-                borderRadius: 28,
-                whiteSpace: "nowrap",
-                boxShadow: `0 0 20px ${rank.color}33`,
-              }}>
-                <NavRankBadge rank={rank} size={BADGE_SIZE} />
-                <div style={{ display: "flex", flexDirection: "column", lineHeight: 1.15 }}>
-                  <span style={{ fontFamily: t.fontMono, fontSize: isTablet ? 14 : 18, fontWeight: 900, color: rank.color, textShadow: `0 0 14px ${rank.color}99` }}>{user.elo}</span>
-                  {!isTablet && <span style={{ fontFamily: t.fontMono, fontSize: 9, fontWeight: 700, color: rank.color, opacity: 0.8, letterSpacing: "0.18em" }}>{rank.name}</span>}
-                </div>
-              </div>
-
-              <div style={{ display: "flex", alignItems: "center", gap: 2, fontFamily: t.fontMono, fontSize: isTablet ? 12 : 14, fontWeight: 700 }}>
-                <div style={{ width: CURRENCY_SZ, height: CURRENCY_SZ, flexShrink: 0 }} dangerouslySetInnerHTML={{ __html: (themeId === "classic_light" ? SHARDS_LIGHT_SVG : SHARDS_DARK_SVG).replace("<svg ", `<svg width="${CURRENCY_SZ}" height="${CURRENCY_SZ}" `) }} />
-                <span style={{ color: "#4FC3F7" }}>{pentashards}</span>
-              </div>
-
-              <div style={{ display: "flex", alignItems: "center", gap: 2, fontFamily: t.fontMono, fontSize: isTablet ? 12 : 14, fontWeight: 700 }}>
-                <div style={{ width: CURRENCY_SZ, height: CURRENCY_SZ, flexShrink: 0 }} dangerouslySetInnerHTML={{ __html: (themeId === "classic_light" ? PROTO_LIGHT_SVG : PROTO_DARK_SVG).replace("<svg ", `<svg width="${CURRENCY_SZ}" height="${CURRENCY_SZ}" `) }} />
-                <span style={{ color: "#FFD700" }}>{protocredits}</span>
-              </div>
+          {/* Currencies — show everywhere since sizing is increased */}
+          {mounted && user && (
+            <div style={{ display: "flex", alignItems: "center", gap: 4, fontFamily: t.fontMono, fontSize: CURRENCY_FONT, fontWeight: 700 }}>
+              <div style={{ width: CURRENCY_SZ, height: CURRENCY_SZ, flexShrink: 0 }} dangerouslySetInnerHTML={{ __html: (themeId === "classic_light" ? PROTO_LIGHT_SVG : PROTO_DARK_SVG).replace("<svg ", `<svg width="${CURRENCY_SZ}" height="${CURRENCY_SZ}" `) }} />
+              <span style={{ color: "#FFD700" }}>{protocredits}</span>
             </div>
           )}
 
@@ -459,16 +322,18 @@ filter: "none",
           <button
             onClick={onSettings}
             title="Settings"
-            onMouseEnter={e => { onHover?.(); e.currentTarget.style.borderColor = t.accent; e.currentTarget.style.color = t.accent; e.currentTarget.style.background = `${t.accent}18`; e.currentTarget.style.transform = "rotate(30deg)"; }}
-            onMouseLeave={e => { e.currentTarget.style.borderColor = `${t.border}66`; e.currentTarget.style.color = t.text; e.currentTarget.style.background = `${t.border}22`; e.currentTarget.style.transform = "rotate(0deg)"; }}
+            onMouseEnter={e => { onHover?.(); e.currentTarget.style.borderColor = t.accent; e.currentTarget.style.color = t.accent; e.currentTarget.style.background = `${t.accent}18`; e.currentTarget.style.transform = "scale(1.05)"; }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = `${t.border}66`; e.currentTarget.style.color = t.text; e.currentTarget.style.background = `${t.border}22`; e.currentTarget.style.transform = "scale(1)"; }}
             style={{
               background: `${t.border}22`, border: `1px solid ${t.border}66`, color: t.text,
-              padding: isMobile ? "7px 9px" : "9px 13px", borderRadius: 9, cursor: "pointer",
+              width: isMobile ? 36 : isTablet ? 44 : 52, 
+              height: isMobile ? 36 : isTablet ? 44 : 52, 
+              borderRadius: "25%", cursor: "pointer",
               transition: "all 0.3s ease",
-              display: "flex", alignItems: "center", justifyContent: "center",
+              display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0
             }}
           >
-            <svg width={ICON_SIZE} height={ICON_SIZE} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg width={(isMobile ? 36 : isTablet ? 44 : 52) * 0.6} height={(isMobile ? 36 : isTablet ? 44 : 52) * 0.6} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="12" cy="12" r="3" />
               <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
             </svg>
@@ -537,26 +402,6 @@ filter: "none",
             </button>
           ))}
 
-          {/* Mobile-only: rank + currency in menu */}
-          {isMobile && mounted && user && (
-            <div style={{ padding: "14px 20px", display: "flex", alignItems: "center", gap: 12, borderTop: `1px solid ${t.border}33` }}>
-              <NavRankBadge rank={rank} size={32} />
-              <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                <span style={{ fontFamily: t.fontMono, fontSize: 14, fontWeight: 900, color: rank.color }}>{user.elo} ELO</span>
-                <span style={{ fontFamily: t.fontMono, fontSize: 9, color: rank.color, opacity: 0.8, letterSpacing: "0.14em" }}>{rank.name}</span>
-              </div>
-              <div style={{ marginLeft: "auto", display: "flex", gap: 12 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 3, fontFamily: t.fontMono, fontSize: 13, fontWeight: 700 }}>
-                  <div style={{ width: 22, height: 22 }} dangerouslySetInnerHTML={{ __html: (themeId === "classic_light" ? SHARDS_LIGHT_SVG : SHARDS_DARK_SVG).replace("<svg ", '<svg width="22" height="22" ') }} />
-                  <span style={{ color: "#4FC3F7" }}>{pentashards}</span>
-                </div>
-                <div style={{ display: "flex", alignItems: "center", gap: 3, fontFamily: t.fontMono, fontSize: 13, fontWeight: 700 }}>
-                  <div style={{ width: 22, height: 22 }} dangerouslySetInnerHTML={{ __html: (themeId === "classic_light" ? PROTO_LIGHT_SVG : PROTO_DARK_SVG).replace("<svg ", '<svg width="22" height="22" ') }} />
-                  <span style={{ color: "#FFD700" }}>{protocredits}</span>
-                </div>
-              </div>
-            </div>
-          )}
         </div>
       )}
 

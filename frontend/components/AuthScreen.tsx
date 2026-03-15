@@ -336,7 +336,7 @@ export default function AuthScreen({ setScreen, themeId }: Props) {
         onFocus={e => { e.target.style.borderColor = ACCENT; e.target.style.boxShadow = `0 0 0 2px ${ACCENT}22`; }}
         onBlur={e  => { e.target.style.borderColor = error ? ACCENT2 : "rgba(255,255,255,0.1)"; e.target.style.boxShadow = "none"; }}
       />
-      {error && <div style={errorStyle}>⚠ {error}</div>}
+      {error && <div style={errorStyle}>{error}</div>}
     </div>
   );
 
@@ -368,7 +368,7 @@ export default function AuthScreen({ setScreen, themeId }: Props) {
           )}
         </button>
       </div>
-      {error && <div style={errorStyle}>⚠ {error}</div>}
+      {error && <div style={errorStyle}>{error}</div>}
     </div>
   );
 
@@ -694,7 +694,7 @@ export default function AuthScreen({ setScreen, themeId }: Props) {
                 onFocus={e => { e.target.style.borderColor = ACCENT; e.target.style.boxShadow = `0 0 0 2px ${ACCENT}22`; }}
                 onBlur={e  => { e.target.style.borderColor = errors.resetCode ? ACCENT2 : "rgba(255,255,255,0.1)"; e.target.style.boxShadow = "none"; }}
               />
-              {errors.resetCode && <div style={errorStyle}>⚠ {errors.resetCode}</div>}
+              {errors.resetCode && <div style={errorStyle}>{errors.resetCode}</div>}
             </div>
             {field("newPassword", "New Password", newPassword, setNewPassword, errors.newPassword || "", "Min 6 characters", "password")}
             {field("newConfirm", "Confirm New Password", newConfirm, setNewConfirm, errors.newConfirm || "", "Re-enter new password", "password")}
@@ -712,7 +712,7 @@ export default function AuthScreen({ setScreen, themeId }: Props) {
                 onFocus={e => { e.target.style.borderColor = ACCENT; e.target.style.boxShadow = `0 0 0 2px ${ACCENT}22`; }}
                 onBlur={e  => { e.target.style.borderColor = errors.totpCode ? ACCENT2 : "rgba(255,255,255,0.1)"; e.target.style.boxShadow = "none"; }}
               />
-              {errors.totpCode && <div style={errorStyle}>⚠ {errors.totpCode}</div>}
+              {errors.totpCode && <div style={errorStyle}>{errors.totpCode}</div>}
             </div>
             <PrimaryBtn label={loading ? "Verifying…" : "Verify"} onClick={submit2FA} disabled={loading} />
             <GhostBtn label="← Back to Sign In" onClick={() => { setTab("signin"); setTempToken(""); setTotpCode(""); setErrors({}); }} />

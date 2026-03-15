@@ -5,6 +5,7 @@ import type { ThemeId } from "@/lib/themes";
 import { THEMES } from "@/lib/themes";
 import API from "@/lib/api";
 import { useAuthStore } from "@/lib/store";
+import { PROTO_DARK_SVG } from "@/lib/currencyIcons";
 import {
   Embers, HeatOverlay, FrostCrystals, IceOverlay,
   Flame, Skull, SnowflakePiece, IceShardPiece,
@@ -39,6 +40,16 @@ const STORE_BOARD_SKINS: { id: string; label: string; desc: string; preview: str
 const STORE_BANNERS = [
   { id: "default", label: "Default", gradient: "linear-gradient(135deg,#1a1a2e,#16213e)", unlock: "Free" },
 ];
+
+const STORE_BORDERS = [
+  { id: "default_border", label: "None", desc: "No border around profile", preview: "transparent", unlock: "Free" }
+];
+
+function ProtoSVG({ size = 16, color }: { size?: number, color?: string }) {
+  // If color is passed, we shouldn't necessarily override since it's an SVG string, but we can set fill/stroke via CSS or just use standard SVG.
+  // The svg string has its own colors. 
+  return <div style={{ width: size, height: size, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }} dangerouslySetInnerHTML={{ __html: PROTO_DARK_SVG.replace("<svg ", `<svg width="${size}" height="${size}" `) }} />;
+}
 
 type Bundle = {
   id: string; label: string; tagline: string; desc: string;
@@ -166,7 +177,7 @@ function BundleModal({ bundle, t, isGuest, buyingId, purchasedItems, balance, on
     {
       id: "bundle",
       label: ownsBoard ? `Add ${bundle.pieceLabel}` : ownsPiece ? `Add ${bundle.boardLabel}` : "Buy Bundle",
-      sublabel: ownsBoard || ownsPiece ? "Complete your set" : `Save ${bundle.boardPrice + bundle.piecePrice - bundle.bundlePrice} ⬡ vs buying separate`,
+      sublabel: ownsBoard || ownsPiece ? "Complete your set" : `Save ${bundle.boardPrice + bundle.piecePrice - bundle.bundlePrice} vs buying separate`,
       price: ownsBoard ? bundle.piecePrice : ownsPiece ? bundle.boardPrice : bundle.bundlePrice,
       includes: ownsBoard ? [bundle.pieceLabel] : ownsPiece ? [bundle.boardLabel] : [bundle.boardLabel, bundle.pieceLabel],
       disabled: ownsBundle, owned: ownsBundle, highlight: true,
@@ -246,7 +257,10 @@ function BundleModal({ bundle, t, isGuest, buyingId, purchasedItems, balance, on
                     <button onClick={onClose} style={{ flexShrink: 0, background: ac, border: "none", borderRadius: 8, padding: "8px 14px", fontFamily: t.fontDisplay, fontSize: 11, fontWeight: 800, color: "#000", cursor: "pointer", whiteSpace: "nowrap" as const }}>SIGN IN</button>
                   ) : (
                     <div style={{ display: "flex", flexDirection: "column" as const, alignItems: "flex-end", gap: 4, flexShrink: 0 }}>
-                      <div style={{ fontFamily: t.fontDisplay, fontSize: 18, fontWeight: 900, color: canAfford ? ac : "#EF4444", lineHeight: 1 }}>{opt.price.toLocaleString()} <span style={{ fontSize: 12 }}>⬡</span></div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6, fontFamily: t.fontDisplay, fontSize: 18, fontWeight: 900, color: canAfford ? ac : "#EF4444", lineHeight: 1 }}>
+                        {opt.price.toLocaleString()}
+                        <ProtoSVG size={16} />
+                      </div>
                       {!canAfford && <div style={{ fontFamily: "monospace", fontSize: 9, color: "#EF4444" }}>need {(opt.price - balance).toLocaleString()} more</div>}
                       <button disabled={isBuying}
                         onClick={() => { if (!canAfford) { onOpenBuyCredits(); return; } onBuy(opt.purchaseId, opt.price, opt.label); }}
@@ -259,7 +273,7 @@ function BundleModal({ bundle, t, isGuest, buyingId, purchasedItems, balance, on
               );
             })}
           </div>
-          {!isGuest && (<div style={{ marginTop: 12, textAlign: "center" as const, fontFamily: "monospace", fontSize: 11, color: "rgba(255,255,255,0.28)" }}>Your balance: <span style={{ color: ac }}>{balance.toLocaleString()} ⬡</span></div>)}
+          {!isGuest && (<div style={{ marginTop: 12, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, fontFamily: "monospace", fontSize: 11, color: "rgba(255,255,255,0.28)" }}>Your balance: <span style={{ color: ac, display: "flex", alignItems: "center", gap: 4 }}>{balance.toLocaleString()} <ProtoSVG size={14} /></span></div>)}
         </div>
       </div>
     </div>
@@ -300,7 +314,15 @@ function BundleCard({ bundle, purchasedItems, t, onClick }: { bundle: Bundle; pu
       </div>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <div>
-          {!ownsAll ? (<><div style={{ fontFamily: "monospace", fontSize: 9, color: `${ac}66`, letterSpacing: "0.15em", marginBottom: 2 }}>FROM</div><div style={{ fontFamily: t.fontDisplay, fontSize: 24, fontWeight: 900, color: ac, lineHeight: 1 }}>{(ownsBoard ? bundle.piecePrice : ownsPiece ? bundle.boardPrice : bundle.bundlePrice).toLocaleString()} <span style={{ fontSize: 14 }}>⬡</span></div></>) : (<div style={{ fontFamily: t.fontDisplay, fontSize: 14, fontWeight: 700, color: "#4CAF50" }}>Collection complete ✓</div>)}
+          {!ownsAll ? (
+            <>
+              <div style={{ fontFamily: "monospace", fontSize: 9, color: `${ac}66`, letterSpacing: "0.15em", marginBottom: 2 }}>FROM</div>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, fontFamily: t.fontDisplay, fontSize: 24, fontWeight: 900, color: ac, lineHeight: 1 }}>
+                {(ownsBoard ? bundle.piecePrice : ownsPiece ? bundle.boardPrice : bundle.bundlePrice).toLocaleString()}
+                <ProtoSVG size={20} />
+              </div>
+            </>
+          ) : (<div style={{ fontFamily: t.fontDisplay, fontSize: 14, fontWeight: 700, color: "#4CAF50" }}>Collection complete ✓</div>)}
         </div>
         <div style={{ background: ownsAll ? "#4CAF5018" : ac, border: ownsAll ? "1px solid #4CAF5044" : "none", borderRadius: 10, padding: "9px 18px", fontFamily: t.fontDisplay, fontSize: 12, fontWeight: 800, color: ownsAll ? "#4CAF50" : "#000", letterSpacing: "0.06em" }}>{ownsAll ? "OWNED" : "VIEW BUNDLE →"}</div>
       </div>
@@ -322,6 +344,7 @@ export default function StoreScreen({ setScreen, themeId }: Props) {
   const [hovCard,      setHovCard]      = useState<string | null>(null);
   const [buyingId,     setBuyingId]     = useState<string | null>(null);
   const [openBundle,   setOpenBundle]   = useState<string | null>(null);
+  const [confirmBuy,   setConfirmBuy]   = useState<{ id: string, price: number, label: string } | null>(null);
 
   const pkg = PACKAGES.find(p => p.id === selected)!;
   const isClassic = themeId === "classic_light" || themeId === "classic_dark";
@@ -378,10 +401,16 @@ export default function StoreScreen({ setScreen, themeId }: Props) {
     } finally { setLoading(false); }
   };
 
-  const handleBuyCosmetic = async (id: string, price: number, label: string) => {
+  const handleBuyCosmetic = (id: string, price: number, label: string) => {
     if (isGuest) { showError("Sign in to purchase."); return; }
     if (balance < price) { setOpenBundle(null); setMsg(null); setShowBuyModal(true); return; }
-    if (!window.confirm(`Buy ${label} for ${price.toLocaleString()} ⬡?`)) return;
+    setConfirmBuy({ id, price, label });
+  };
+
+  const proceedBuyCosmetic = async () => {
+    if (!confirmBuy) return;
+    const { id, price, label } = confirmBuy;
+    setConfirmBuy(null);
     setBuyingId(id);
     const isBundlePurchase = id.startsWith("bundle_purchase_");
     const bundleData = isBundlePurchase ? BUNDLES.find(b => b.id === id.replace("bundle_purchase_", "")) : null;
@@ -405,7 +434,7 @@ export default function StoreScreen({ setScreen, themeId }: Props) {
   };
 
   const GuestBuyBtn = () => (
-    <button onClick={() => showError("Sign in to purchase.")} style={{ flexShrink: 0, background: `${t.textMuted}14`, border: `1.5px solid ${t.border}`, borderRadius: 8, padding: "6px 11px", fontFamily: t.fontMono, fontSize: 10, fontWeight: 700, color: t.textMuted, cursor: "pointer", whiteSpace: "nowrap" as const, display: "flex", alignItems: "center", gap: 4 }}>🔒 Sign in</button>
+    <button onClick={() => setScreen("auth")} style={{ flexShrink: 0, background: t.accent, border: "none", borderRadius: 8, padding: "6px 12px", fontFamily: t.fontDisplay, fontSize: 11, fontWeight: 800, color: "#000", cursor: "pointer", whiteSpace: "nowrap" as const, display: "flex", alignItems: "center", gap: 4 }}>SIGN IN</button>
   );
 
   const activeBundleData = openBundle ? BUNDLES.find(b => b.id === openBundle) : null;
@@ -470,9 +499,9 @@ export default function StoreScreen({ setScreen, themeId }: Props) {
               {PACKAGES.map(p => (<div key={p.id} style={{ fontFamily: t.fontMono, fontSize: 10, color: accent, background: `${accent}14`, border: `1px solid ${accent}33`, borderRadius: 6, padding: "3px 8px" }}>{p.credits + p.bonus}</div>))}
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 8, fontFamily: t.fontDisplay, fontSize: 13, fontWeight: 800, color: isGuest ? t.textMuted : "#000", background: isGuest ? t.bgCard : accent, borderRadius: 8, padding: "9px 16px", justifyContent: "center", border: isGuest ? `1px solid ${t.border}` : "none" }}>
-              {isGuest ? "🔒 SIGN IN TO BUY" : (<><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v10M9 10h4.5a1.5 1.5 0 010 3H9"/></svg> OPEN STORE</>)}
+              {isGuest ? "SIGN IN TO BUY" : (<><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v10M9 10h4.5a1.5 1.5 0 010 3H9"/></svg> OPEN STORE</>)}
             </div>
-            {!isGuest && <div style={{ marginTop: 12, textAlign: "center" as const, fontFamily: t.fontMono, fontSize: 11, color: t.textMuted }}>Balance: <span style={{ color: accent }}>{balance.toLocaleString()} ⬡</span></div>}
+            {!isGuest && <div style={{ marginTop: 12, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, fontFamily: t.fontMono, fontSize: 11, color: t.textMuted }}>Balance: <span style={{ color: accent, display: "flex", alignItems: "center", gap: 4 }}>{balance.toLocaleString()} <ProtoSVG size={14}/></span></div>}
           </div>
         </div>
 
@@ -527,8 +556,13 @@ export default function StoreScreen({ setScreen, themeId }: Props) {
                     </div>
                     {isPurchasable ? (isGuest ? <GuestBuyBtn /> : (
                       <button disabled={isBuying} onClick={e => { e.stopPropagation(); handleBuyCosmetic(item.id, item.price, item.label); }}
-                        style={{ flexShrink: 0, background: isBuying ? `${accent}33` : `${accent}18`, border: `1.5px solid ${accent}${isBuying ? "33" : "66"}`, borderRadius: 8, padding: "6px 11px", fontFamily: t.fontMono, fontSize: 10, fontWeight: 800, color: isBuying ? t.textMuted : accent, cursor: isBuying ? "not-allowed" : "pointer", whiteSpace: "nowrap" as const, transition: "all 0.18s" }}>
-                        {isBuying ? "..." : `${item.price.toLocaleString()} ⬡`}
+                        style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0, background: isBuying ? `${accent}33` : `${accent}18`, border: `1.5px solid ${accent}${isBuying ? "33" : "66"}`, borderRadius: 8, padding: "6px 11px", fontFamily: t.fontMono, fontSize: 11, fontWeight: 800, color: isBuying ? t.textMuted : accent, cursor: isBuying ? "not-allowed" : "pointer", whiteSpace: "nowrap" as const, transition: "all 0.18s" }}>
+                        {isBuying ? "..." : (
+                          <>
+                            {item.price.toLocaleString()}
+                            <ProtoSVG size={14} />
+                          </>
+                        )}
                       </button>
                     )) : <UnlockBadge text={item.unlock} accent={accent} />}
                   </div>
@@ -575,8 +609,13 @@ export default function StoreScreen({ setScreen, themeId }: Props) {
                     </div>
                     {isPurchasable ? (isGuest ? <GuestBuyBtn /> : (
                       <button disabled={isBuying} onClick={e => { e.stopPropagation(); handleBuyCosmetic(item.id, item.price, item.label); }}
-                        style={{ flexShrink: 0, background: isBuying ? `${accent}33` : `${accent}18`, border: `1.5px solid ${accent}${isBuying ? "33" : "66"}`, borderRadius: 8, padding: "6px 11px", fontFamily: t.fontMono, fontSize: 10, fontWeight: 800, color: isBuying ? t.textMuted : accent, cursor: isBuying ? "not-allowed" : "pointer", whiteSpace: "nowrap" as const }}>
-                        {isBuying ? "..." : `${item.price.toLocaleString()} ⬡`}
+                        style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0, background: isBuying ? `${accent}33` : `${accent}18`, border: `1.5px solid ${accent}${isBuying ? "33" : "66"}`, borderRadius: 8, padding: "6px 11px", fontFamily: t.fontMono, fontSize: 11, fontWeight: 800, color: isBuying ? t.textMuted : accent, cursor: isBuying ? "not-allowed" : "pointer", whiteSpace: "nowrap" as const }}>
+                        {isBuying ? "..." : (
+                          <>
+                            {item.price.toLocaleString()}
+                            <ProtoSVG size={14} />
+                          </>
+                        )}
                       </button>
                     )) : <UnlockBadge text="Free" accent={accent} />}
                   </div>
@@ -597,7 +636,7 @@ export default function StoreScreen({ setScreen, themeId }: Props) {
                   style={{ borderRadius: 14, padding: "20px 22px", border: `1.5px solid ${hov ? accent + "88" : t.border}`, background: t.bgCard, display: "flex", alignItems: "center", gap: 20, boxShadow: hov ? `0 8px 28px ${accent}22` : "none" }}>
                   <div style={{ display: "flex", gap: 14 }}>
                     <div style={{ width: 52, height: 52, borderRadius: "50%", background: `radial-gradient(circle at 35% 35%,${item.c1}FF,${item.c1}88)`, boxShadow: `0 0 16px ${item.c1}66`, display: "flex", alignItems: "center", justifyContent: "center" }}><img src="/penta-coin.png" alt="penta" style={{ width: 34, height: 34, objectFit: "contain" }} /></div>
-                    <div style={{ width: 52, height: 52, borderRadius: "50%", background: `radial-gradient(circle at 35% 35%,${item.c2}FF,${item.c2}88)`, boxShadow: `0 0 16px ${item.c2}66`, display: "flex", alignItems: "center", justifyContent: "center" }}><img src="/proto-coin.png" alt="proto" style={{ width: 34, height: 34, objectFit: "contain" }} /></div>
+                    <div style={{ width: 52, height: 52, borderRadius: "50%", background: `radial-gradient(circle at 35% 35%,${item.c2}FF,${item.c2}88)`, boxShadow: `0 0 16px ${item.c2}66`, display: "flex", alignItems: "center", justifyContent: "center" }}><ProtoSVG size={34} /></div>
                   </div>
                   <div style={{ flex: 1 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}><span style={{ fontFamily: t.fontDisplay, fontSize: 16, fontWeight: 700, color: t.text }}>{item.label}</span><UnlockBadge text={item.unlock} accent={accent} /></div>
@@ -649,6 +688,31 @@ export default function StoreScreen({ setScreen, themeId }: Props) {
           </div>
         </div>
 
+        {/* ── PROFILE BORDERS ── */}
+        <div style={{ marginBottom: 52 }}>
+          <SectionHeader label="Profile Borders" accent={accent} icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={accent} strokeWidth="1.8" strokeLinecap="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/></svg>}/>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(230px,1fr))", gap: 14 }}>
+            {STORE_BORDERS.map(item => {
+              const hov = hovCard === `border_${item.id}`;
+              return (
+                <div key={item.id} className="store-card" onMouseEnter={() => setHovCard(`border_${item.id}`)} onMouseLeave={() => setHovCard(null)}
+                  style={{ borderRadius: 14, padding: "13px 14px", border: `1.5px solid ${hov ? accent + "88" : t.border}`, background: t.bgCard, boxShadow: hov ? `0 8px 28px ${accent}22` : "none", display: "flex", alignItems: "center", gap: 14 }}>
+                  <div style={{ width: 44, height: 44, borderRadius: 12, border: item.id === "default_border" ? `2px dashed ${t.border}` : `2px solid ${accent}`, display: "flex", alignItems: "center", justifyContent: "center", background: `${accent}11` }}>
+                    <div style={{ width: 24, height: 24, borderRadius: 6, background: t.bg }} />
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 2 }}>
+                      <div style={{ fontFamily: t.fontDisplay, fontSize: 15, fontWeight: 700, color: t.text }}>{item.label}</div>
+                      <UnlockBadge text={item.unlock} accent={accent} />
+                    </div>
+                    <div style={{ fontFamily: t.fontBody, fontSize: 11, color: t.textMuted }}>{item.desc}</div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
         <div style={{ textAlign: "center" as const }}>
           <button onClick={() => setScreen("home")} style={{ background: "transparent", border: `1px solid ${t.border}`, color: t.textMuted, fontFamily: t.fontDisplay, fontSize: 13, fontWeight: 700, padding: "10px 28px", borderRadius: 8, cursor: "pointer", letterSpacing: "0.06em", transition: "all 0.2s" }}
             onMouseEnter={e => { e.currentTarget.style.borderColor = accent; e.currentTarget.style.color = accent; }}
@@ -657,7 +721,7 @@ export default function StoreScreen({ setScreen, themeId }: Props) {
 
         {msg && (
           <div style={{ position: "fixed", bottom: 28, left: "50%", transform: "translateX(-50%)", zIndex: 999, background: msg.ok ? "#1a2e1a" : "#2e1a1a", border: `1px solid ${msg.ok ? "#4CAF50" : "#EF4444"}`, borderRadius: 10, padding: "10px 22px", fontFamily: t.fontMono, fontSize: 13, color: msg.ok ? "#4CAF50" : "#EF4444", boxShadow: "0 8px 32px rgba(0,0,0,0.5)", pointerEvents: "none", letterSpacing: "0.06em" }}>
-            {msg.ok ? "✓" : "⚠"} {msg.text}
+            {msg.ok ? "✓" : ""} {msg.text}
           </div>
         )}
       </div>
@@ -713,6 +777,33 @@ export default function StoreScreen({ setScreen, themeId }: Props) {
               {["Card", "UPI", "Net Banking", "Wallet"].map(m => <span key={m} style={{ fontFamily: t.fontBody, fontSize: 11, color: t.textMuted }}>{m}</span>)}
             </div>
             <div style={{ fontFamily: t.fontBody, fontSize: 11, color: t.textMuted, textAlign: "center" as const, marginTop: 14, lineHeight: 1.6 }}>Secure payments via Razorpay. ProtoCredits are non-refundable.</div>
+          </div>
+        </div>
+      )}
+
+      {/* ── In-game Purchase Confirmation Modal ── */}
+      {confirmBuy && (
+        <div className="modal-backdrop" style={{ position: "fixed", inset: 0, zIndex: 1000, background: "rgba(0,0,0,0.85)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24, paddingBottom: "10vh" }}>
+          <div className="modal-panel" style={{ background: t.bg, border: `1px solid ${accent}55`, borderRadius: 20, padding: 36, width: "100%", maxWidth: 420, textAlign: "center", boxShadow: `0 0 40px ${accent}22` }}>
+            <div style={{ fontFamily: t.fontMono, fontSize: 13, color: t.textMuted, letterSpacing: "0.15em", marginBottom: 20 }}>CONFIRM PURCHASE</div>
+            <div style={{ fontFamily: t.fontDisplay, fontSize: 26, fontWeight: 900, color: t.text, marginBottom: 16 }}>Unlock <span style={{ color: accent }}>{confirmBuy.label}</span>?</div>
+            <div style={{ display: "inline-block", padding: "10px 24px", background: `${accent}14`, border: `1px solid ${accent}44`, borderRadius: 12, marginBottom: 36 }}>
+              <div style={{ fontFamily: t.fontMono, fontSize: 22, fontWeight: 700, color: accent, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>{confirmBuy.price.toLocaleString()} <ProtoSVG size={22} /></div>
+            </div>
+            <div style={{ display: "flex", gap: 14 }}>
+              <button
+                onClick={() => setConfirmBuy(null)}
+                style={{ flex: 1, padding: "14px", background: "rgba(255,255,255,0.05)", border: `1px solid ${t.border}`, borderRadius: 10, color: t.text, fontFamily: t.fontDisplay, fontSize: 14, fontWeight: 700, cursor: "pointer", transition: "all 0.2s" }}
+                onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,255,255,0.08)"; }}
+                onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.05)"; }}
+              >CANCEL</button>
+              <button
+                onClick={proceedBuyCosmetic}
+                style={{ flex: 1, padding: "14px", background: accent, border: "none", borderRadius: 10, color: "#000", fontFamily: t.fontDisplay, fontSize: 14, fontWeight: 900, cursor: "pointer", boxShadow: `0 0 20px ${accent}44`, transition: "all 0.2s" }}
+                onMouseEnter={e => { e.currentTarget.style.filter = "brightness(1.15)"; e.currentTarget.style.transform = "translateY(-1px)"; }}
+                onMouseLeave={e => { e.currentTarget.style.filter = "none"; e.currentTarget.style.transform = "none"; }}
+              >CONFIRM</button>
+            </div>
           </div>
         </div>
       )}

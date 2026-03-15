@@ -85,6 +85,7 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
   const pausedRef = useRef(false);
   const wsRef     = useRef<WebSocket | null>(null);
   const pingRef   = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [mobileTab, setMobileTab] = useState<"log" | "chat">("log");
   const isMultiplayerGame = (gameMode === "ranked" || gameMode === "unranked") && !!roomCode;
   const mySlot = playerSlot ?? "P1";
   const coinStartTimeRef = useRef<number>(0);
@@ -911,12 +912,46 @@ useEffect(() => {
       <div style={{ fontFamily:t.fontDisplay, fontSize:"clamp(24px,5vw,72px)", fontWeight:900, color:t.accent, textShadow:`0 0 60px ${t.accentGlow}55`, letterSpacing:"0.06em", textAlign:"center" }}>SINGLEPLAYER</div>
       <div style={{ fontFamily:t.fontBody, fontSize:"clamp(13px,1.6vw,18px)", color:t.textSecondary, letterSpacing:"0.04em" }}>Local · Pass & Play · Best of 3</div>
       <button onClick={() => setShowSplash(false)}
-        style={{ marginTop:8, padding:"18px 64px", background:`linear-gradient(135deg,${t.accent},${t.accentGlow})`, border:"none", borderRadius:ip?2:12, color:"#0A0A0A", fontFamily:t.fontDisplay, fontSize:"clamp(14px,2vw,22px)", fontWeight:900, cursor:"pointer", letterSpacing:"0.1em", boxShadow:`0 0 48px ${t.accentGlow}55`, transition:"transform 0.15s ease, box-shadow 0.2s ease" }}
-        onMouseEnter={e => { playHover?.(); (e.currentTarget as HTMLElement).style.transform="scale(1.05)"; (e.currentTarget as HTMLElement).style.boxShadow=`0 0 72px ${t.accentGlow}88`; }}
-        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.transform="scale(1)"; (e.currentTarget as HTMLElement).style.boxShadow=`0 0 48px ${t.accentGlow}55`; }}
-        onMouseDown={e => { (e.currentTarget as HTMLElement).style.transform="scale(0.97)"; }}
-        onMouseUp={e   => { (e.currentTarget as HTMLElement).style.transform="scale(1.05)"; }}
-      >▶  PLAY</button>
+        style={{ 
+          marginTop:8, 
+          padding:"36px 128px", 
+          background:`linear-gradient(135deg,${t.accent},${t.accentGlow})`, 
+          border:"none", 
+          borderRadius:ip?2:16, 
+          color:"#0A0A0A", 
+          fontFamily:t.fontDisplay, 
+          fontSize:"clamp(28px,4vw,44px)", 
+          fontWeight:900, 
+          cursor:"pointer", 
+          letterSpacing:"0.15em", 
+          boxShadow:`0 0 64px ${t.accentGlow}55`, 
+          transition:"transform 0.15s ease, box-shadow 0.2s ease" 
+        }}
+        onMouseEnter={e => { playHover?.(); (e.currentTarget as HTMLElement).style.transform="scale(1.03)"; (e.currentTarget as HTMLElement).style.boxShadow=`0 0 96px ${t.accentGlow}88`; }}
+        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.transform="scale(1)"; (e.currentTarget as HTMLElement).style.boxShadow=`0 0 64px ${t.accentGlow}55`; }}
+        onMouseDown={e => { (e.currentTarget as HTMLElement).style.transform="scale(0.98)"; }}
+        onMouseUp={e   => { (e.currentTarget as HTMLElement).style.transform="scale(1.03)"; }}
+      >PLAY</button>
+      <button onClick={() => setScreen?.("home")}
+        style={{ 
+          padding:"18px 64px", 
+          background:"transparent", 
+          border:`2px solid ${t.border}`, 
+          borderRadius:ip?2:12, 
+          color:t.text, 
+          fontFamily:t.fontDisplay, 
+          fontSize:"clamp(14px,2vw,22px)", 
+          fontWeight:900, 
+          cursor:"pointer", 
+          letterSpacing:"0.15em", 
+          transition:"all 0.2s cubic-bezier(.22,.68,0,1.2)",
+          boxShadow: `0 0 20px ${t.border}22`
+        }}
+        onMouseEnter={e => { playHover?.(); e.currentTarget.style.borderColor=t.accent; e.currentTarget.style.color=t.accent; e.currentTarget.style.transform="scale(1.03)"; e.currentTarget.style.boxShadow=`0 0 40px ${t.accent}44`; }}
+        onMouseLeave={e => { e.currentTarget.style.borderColor=t.border; e.currentTarget.style.color=t.text; e.currentTarget.style.transform="scale(1)"; e.currentTarget.style.boxShadow=`0 0 20px ${t.border}22`; }}
+        onMouseDown={e => { e.currentTarget.style.transform="scale(0.98)"; }}
+        onMouseUp={e   => { e.currentTarget.style.transform="scale(1.03)"; }}
+      >GO BACK</button>
       <div style={{ fontFamily:t.fontMono, fontSize:11, color:t.textMuted, letterSpacing:"0.1em" }}>P1 goes first · Click any cell to begin</div>
     </div>
   );
@@ -974,13 +1009,13 @@ useEffect(() => {
         />
 
         {/* Board fills entire screen */}
-        <div style={{ position:"absolute", inset:0, display:"flex", alignItems:"center", justifyContent:"center", padding:"8px" }}>
-          <div style={{ position:"absolute", top:8, left:"50%", transform:"translateX(-50%)", display:"flex", gap:`${boardGap}px`, paddingLeft:28 }}>
+        <div style={{ position:"absolute", inset:0, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:"8px" }}>
+          <div style={{ display:"flex", gap:`${boardGap}px`, paddingLeft:28, marginBottom:4 }}>
             {"ABCDE".split("").map(l => (
               <div key={l} style={{ width:bigCs, textAlign:"center", fontFamily:t.fontMono, fontSize:16, fontWeight:800, color:isRedBoard?"rgba(200,60,40,0.7)":isIceBoard?"rgba(140,210,255,0.55)":t.accent, letterSpacing:"0.1em" }}>{l}</div>
             ))}
           </div>
-          <div style={{ display:"flex", gap:4, alignItems:"flex-start", marginTop:20 }}>
+          <div style={{ display:"flex", gap:4, alignItems:"flex-start" }}>
             <div style={{ display:"grid", gridTemplateRows:`repeat(5,${bigCs})`, gap:`${boardGap}px` }}>
               {[1,2,3,4,5].map(n => (
                 <div key={n} style={{ display:"flex", alignItems:"center", justifyContent:"center", fontFamily:t.fontMono, fontSize:16, fontWeight:800, color:isRedBoard?"rgba(200,60,40,0.7)":t.accent, width:24 }}>{n}</div>
@@ -1046,7 +1081,7 @@ useEffect(() => {
         {/* Bottom action bar */}
         <div style={{ position:"absolute", bottom:0, left:0, right:0, height:48, zIndex:10, display:"flex", alignItems:"center", justifyContent:"space-between", padding:"0 12px", background:"rgba(0,0,0,0.85)", borderTop:`1px solid ${t.border}`, backdropFilter:"blur(8px)", gap:8 }}>
           <button onClick={() => setShowMobileLog(v => !v)} style={{ flex:1, padding:"8px 0", background:"rgba(255,255,255,0.04)", border:"1px solid rgba(255,255,255,0.1)", borderRadius:6, color:t.textSecondary, fontFamily:t.fontMono, fontSize:11, cursor:"pointer", letterSpacing:"0.06em" }}>
-            📋 LOG {log.length > 0 ? `(${log.length})` : ""}
+            💬 CHAT / LOG
           </button>
           {phase==="waiting_ready" && (
             <button onClick={() => onReadyToggle(mySlot === "P1" || !isMultiplayerGame ? "P1" : "P2")} style={{ flex:2, padding:"8px 0", background:`${t.accent}22`, border:`1px solid ${t.accent}`, borderRadius:6, color:t.accent, fontFamily:t.fontMono, fontSize:11, cursor:"pointer", fontWeight:700 }}>
@@ -1058,19 +1093,70 @@ useEffect(() => {
           </button>
         </div>
 
-        {/* Mobile log drawer */}
+        {/* Mobile log / chat drawer */}
         {showMobileLog && (
-          <div style={{ position:"absolute", bottom:48, left:0, right:0, zIndex:20, background:"rgba(10,10,10,0.96)", borderTop:`1px solid ${t.border}`, backdropFilter:"blur(12px)", maxHeight:220, overflowY:"auto", padding:"12px 16px" }}>
-            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:8 }}>
-              <span style={{ fontFamily:t.fontMono, fontSize:11, color:t.textSecondary, letterSpacing:"0.08em" }}>MOVE LOG</span>
-              <button onClick={() => setShowMobileLog(false)} style={{ background:"none", border:"none", color:"#555", cursor:"pointer", fontSize:14 }}>✕</button>
+          <div style={{ position:"absolute", bottom:48, left:0, right:0, zIndex:20, background:"rgba(10,10,10,0.96)", borderTop:`1px solid ${t.border}`, backdropFilter:"blur(12px)", height: 280, display:"flex", flexDirection:"column" }}>
+            {/* Tabs */}
+            <div style={{ display:"flex", borderBottom:`1px solid ${t.border}44` }}>
+              <button
+                onClick={() => setMobileTab("log")}
+                style={{ flex:1, padding:"12px 0", background:mobileTab==="log"?`${t.accent}22`:"transparent", border:"none", borderBottom:`2px solid ${mobileTab==="log"?t.accent:"transparent"}`, color:mobileTab==="log"?t.accent:t.textSecondary, fontFamily:t.fontMono, fontSize:12, fontWeight:700, cursor:"pointer" }}
+              >LOGS</button>
+              {isMultiplayerGame && (
+                <button
+                  onClick={() => setMobileTab("chat")}
+                  style={{ flex:1, padding:"12px 0", background:mobileTab==="chat"?`${t.accent}22`:"transparent", border:"none", borderBottom:`2px solid ${mobileTab==="chat"?t.accent:"transparent"}`, color:mobileTab==="chat"?t.accent:t.textSecondary, fontFamily:t.fontMono, fontSize:12, fontWeight:700, cursor:"pointer", position:"relative" }}
+                >
+                  CHAT
+                  {chatWarning && <span style={{ position:"absolute", top:8, right:24, width:8, height:8, background:"#ff3333", borderRadius:"50%" }} />}
+                </button>
+              )}
+              <button onClick={() => setShowMobileLog(false)} style={{ background:"none", border:"none", color:"#555", cursor:"pointer", padding:"0 16px", fontSize:16 }}>✕</button>
             </div>
-            {log.length === 0
-              ? <div style={{ fontFamily:t.fontMono, fontSize:11, color:"#444", fontStyle:"italic" }}>No moves yet</div>
-              : log.slice().reverse().map((entry, i) => (
-                <div key={i} style={{ fontFamily:t.fontMono, fontSize:11, color:entry.player==="P1"?p1c:p2c, padding:"2px 0", borderBottom:"1px solid rgba(255,255,255,0.03)" }}>{entry.text}</div>
-              ))
-            }
+
+            {/* Content */}
+            <div style={{ flex:1, overflowY:"auto", padding:"12px 16px" }}>
+              {mobileTab === "log" ? (
+                <>
+                  {log.length === 0
+                    ? <div style={{ fontFamily:t.fontMono, fontSize:11, color:"#444", fontStyle:"italic", textAlign:"center", marginTop:20 }}>No moves yet</div>
+                    : log.slice().reverse().map((entry, i) => (
+                      <div key={i} style={{ fontFamily:t.fontMono, fontSize:11, color:entry.player==="P1"?p1c:p2c, padding:"4px 0", borderBottom:"1px solid rgba(255,255,255,0.03)" }}>{entry.text}</div>
+                    ))
+                  }
+                </>
+              ) : (
+                <div style={{ display:"flex", flexDirection:"column", height:"100%" }}>
+                  <div style={{ flex:1, overflowY:"auto", display:"flex", flexDirection:"column", gap:6, paddingBottom:8 }}>
+                    {chatMessages.length === 0 ? (
+                      <div style={{ fontFamily:t.fontMono, fontSize:11, color:"#444", fontStyle:"italic", textAlign:"center", marginTop:20 }}>No messages</div>
+                    ) : (
+                      chatMessages.map((msg, i) => {
+                        const isMe = msg.from === mySlot;
+                        const c = msg.from === "P1" ? p1c : p2c;
+                        return (
+                          <div key={i} style={{ alignSelf: isMe ? "flex-end" : "flex-start", background:`${c}15`, border:`1px solid ${c}40`, padding:"6px 10px", borderRadius:8, maxWidth:"85%" }}>
+                            <div style={{ fontFamily:t.fontMono, fontSize:9, color:c, marginBottom:2 }}>{msg.from==="P1"?p1Label:p2Label}</div>
+                            <div style={{ fontFamily:t.fontBody, fontSize:13, color:"#eee", wordBreak:"break-word" }}>{msg.text}</div>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                  <div style={{ display:"flex", gap:6, paddingTop:8, borderTop:`1px solid ${t.border}44` }}>
+                    <input
+                      type="text"
+                      value={chatInput}
+                      onChange={e => setChatInput(e.target.value)}
+                      onKeyDown={onChatKeyDown}
+                      placeholder="Message..."
+                      style={{ flex:1, background:"rgba(0,0,0,0.5)", border:`1px solid ${t.border}66`, borderRadius:6, padding:"8px 12px", color:"#fff", fontFamily:t.fontBody, fontSize:13, outline:"none" }}
+                    />
+                    <button onClick={() => sendChat(mySlot)} style={{ background:t.accent, border:"none", borderRadius:6, padding:"0 16px", color:"#000", fontFamily:t.fontMono, fontSize:12, fontWeight:700 }}>SEND</button>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         )}
 
@@ -1179,11 +1265,11 @@ useEffect(() => {
         </div>
         {/* Column labels — offset by row-label width to align with board columns */}
         <div style={{ display:"flex", gap:`${boardGap}px`, marginLeft:34 }}>
-          {"ABCDE".split("").map(l => <div key={l} style={{ width:bigCs, textAlign:"center", fontFamily:t.fontMono, fontSize:18, fontWeight:800, color:isRedBoard?"rgba(200,60,40,0.7)":isIceBoard?"rgba(140,210,255,0.55)":t.accent, letterSpacing:"0.1em", textShadow:`0 0 10px ${isRedBoard?"rgba(200,40,0,0.4)":isIceBoard?"rgba(100,180,255,0.3)":t.accentGlow+"66"}` }}>{l}</div>)}
+          {"ABCDE".split("").map(l => <div key={l} style={{ width:bigCs, textAlign:"center", fontFamily:t.fontMono, fontSize:21, fontWeight:800, color:isRedBoard?"rgba(200,60,40,0.7)":isIceBoard?"rgba(140,210,255,0.55)":t.accent, letterSpacing:"0.1em", textShadow:`0 0 10px ${isRedBoard?"rgba(200,40,0,0.4)":isIceBoard?"rgba(100,180,255,0.3)":t.accentGlow+"66"}` }}>{l}</div>)}
         </div>
         <div style={{ display:"flex", gap:6, alignItems:"flex-start" }}>
           <div style={{ display:"grid", gridTemplateRows:`repeat(5,${bigCs})`, gap:`${boardGap}px` }}>
-            {[1,2,3,4,5].map(n => <div key={n} style={{ display:"flex", alignItems:"center", justifyContent:"center", fontFamily:t.fontMono, fontSize:18, fontWeight:800, color:isRedBoard?"rgba(200,60,40,0.7)":t.accent, letterSpacing:"0.1em", textShadow:`0 0 10px ${isRedBoard?"rgba(200,40,0,0.4)":t.accentGlow+"66"}`, width:34, flexShrink:0 }}>{n}</div>)}
+            {[1,2,3,4,5].map(n => <div key={n} style={{ display:"flex", alignItems:"center", justifyContent:"center", fontFamily:t.fontMono, fontSize:21, fontWeight:800, color:isRedBoard?"rgba(200,60,40,0.7)":t.accent, letterSpacing:"0.1em", textShadow:`0 0 10px ${isRedBoard?"rgba(200,40,0,0.4)":t.accentGlow+"66"}`, width:34, flexShrink:0 }}>{n}</div>)}
           </div>
           {boardJSX}
         </div>

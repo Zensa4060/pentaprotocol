@@ -744,20 +744,27 @@ const stats = [
       })()}
       {/* ── Stats grid ────────────────────────────────────────────────────── */}
       <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(136px,1fr))", gap:12, marginBottom:18 }}>
-        {stats.map((s, i) => (
-          <div key={i} style={{ background:t.bgCard, border:`1px solid ${t.border}`, borderRadius:10, padding:"15px 17px" }}>
-            <div style={{ fontFamily:t.fontDisplay, fontSize:24, fontWeight:700, color:s.c, marginBottom:6 }}>{s.v}</div>
-            <div style={{ display:"flex", alignItems:"center", gap:6 }}>
-              {s.l === "Penta Coins" && (
-                <div style={{ width:32, height:32, flexShrink:0 }} dangerouslySetInnerHTML={{ __html: (themeId==="classic_light"?SHARDS_LIGHT_SVG:SHARDS_DARK_SVG).replace('<svg ','<svg width="32" height="32" ') }} />
-              )}
-              {s.l === "Proto Credits" && (
-                <div style={{ width:32, height:32, flexShrink:0 }} dangerouslySetInnerHTML={{ __html: (themeId==="classic_light"?PROTO_LIGHT_SVG:PROTO_DARK_SVG).replace('<svg ','<svg width="32" height="32" ') }} />
-              )}
-              <div style={{ fontFamily:t.fontMono, fontSize:13, color:t.text, letterSpacing:"0.08em", fontWeight:600 }}>{s.l.toUpperCase()}</div>
+        {stats.map((s, i) => {
+          const isPenta = s.l === "Penta Shards";
+          const isProto = s.l === "Proto Credits";
+          
+          return (
+            <div key={i} style={{ background:t.bgCard, border:`1px solid ${t.border}`, borderRadius:10, padding:"15px 17px" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                <div style={{ fontFamily:t.fontDisplay, fontSize:24, fontWeight:700, color:s.c }}>{s.v}</div>
+                {isPenta && (
+                  <div style={{ width:24, height:24, flexShrink:0 }} dangerouslySetInnerHTML={{ __html: (themeId==="classic_light"?SHARDS_LIGHT_SVG:SHARDS_DARK_SVG).replace('<svg ','<svg width="24" height="24" ') }} />
+                )}
+                {isProto && (
+                  <div style={{ width:24, height:24, flexShrink:0 }} dangerouslySetInnerHTML={{ __html: (themeId==="classic_light"?PROTO_LIGHT_SVG:PROTO_DARK_SVG).replace('<svg ','<svg width="24" height="24" ') }} />
+                )}
+              </div>
+              <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+                <div style={{ fontFamily:t.fontMono, fontSize:13, color:t.text, letterSpacing:"0.08em", fontWeight:600 }}>{s.l.toUpperCase()}</div>
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* ── Bottom row: Rank Ladder + Security ────────────────────────────── */}
@@ -791,7 +798,7 @@ const stats = [
           </div>
           {twoFAMsg && (
             <div style={{ background:twoFAMsg.ok?"#4CAF5014":`${t.danger}14`, border:`1px solid ${twoFAMsg.ok?"#4CAF50":t.danger}`, borderRadius:6, padding:"8px 12px", marginBottom:12, color:twoFAMsg.ok?"#4CAF50":t.danger, fontFamily:t.fontBody, fontSize:12 }}>
-              {twoFAMsg.ok?"✓":"⚠"} {twoFAMsg.text}
+              {twoFAMsg.ok?"✓":""} {twoFAMsg.text}
             </div>
           )}
           {twoFASection==="idle" && (enabled ? (
@@ -896,7 +903,7 @@ const stats = [
 
               {editMsg && (
                 <div style={{ background:editMsg.ok?"#4CAF5014":`${t.danger}14`, border:`1px solid ${editMsg.ok?"#4CAF50":t.danger}`, borderRadius:6, padding:"8px 12px", color:editMsg.ok?"#4CAF50":t.danger, fontFamily:t.fontBody, fontSize:13, flexShrink:0 }}>
-                  {editMsg.ok?"✓":"⚠"} {editMsg.text}
+                  {editMsg.ok?"✓":""} {editMsg.text}
                 </div>
               )}
 
@@ -1180,7 +1187,7 @@ const stats = [
                       placeholder="Re-enter new password"
                       style={{ ...inputStyle, borderColor: pwConfirm && pwNew && pwConfirm !== pwNew ? t.danger : t.border }} />
                     {pwConfirm && pwNew && pwConfirm !== pwNew && (
-                      <div style={{ fontFamily:t.fontBody, fontSize:11, color:t.danger, marginTop:3 }}>⚠ Passwords do not match</div>
+                      <div style={{ fontFamily:t.fontBody, fontSize:11, color:t.danger, marginTop:3 }}>Passwords do not match</div>
                     )}
                   </div>
                   {pwTotpStep === "awaiting_totp" && profile.totp_enabled && (

@@ -5,6 +5,7 @@ import type { ThemeId } from "@/lib/themes";
 import { THEMES } from "@/lib/themes";
 import { useAuthStore } from "@/lib/store";
 import API from "@/lib/api";
+import { NavRankBadge, getRank } from "./NavBar";
 
 interface Props {
   setScreen: (s: Screen) => void;
@@ -141,8 +142,8 @@ export default function MultiplayerScreen({ setScreen, themeId, onHover, onRoomR
   return (
     <div style={{
       position: "fixed", inset: 0, zIndex: 2, background: t.bg, transition: "background 0.4s",
-      display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-      padding: "84px 24px 48px", gap: 28, overflowY: "auto",
+      display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "space-evenly",
+      padding: "90px 24px 40px", overflowY: "auto",
     }}>
       <div style={{
         fontFamily: t.fontDisplay, fontSize: "clamp(28px,5vw,60px)", fontWeight: 900,
@@ -184,28 +185,36 @@ export default function MultiplayerScreen({ setScreen, themeId, onHover, onRoomR
                 <div style={{ fontFamily: t.fontMono, fontSize: 11, color: t.textMuted, letterSpacing: "0.15em", marginBottom: 12 }}>
                   GAME FORMAT
                 </div>
-                <div style={{ display: "flex", gap: 12 }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                   {(["unranked", "ranked"] as Format[]).map(f => {
                     const locked = f === "ranked" && level < 5;
                     const selected = format === f;
+                    const dColor = f === "ranked" ? "#B91C1C" : "#22C55E"; // Blood Red for Ranked, Emerald for Unranked
+                    
                     return (
                       <button key={f}
                         onClick={() => { if (!locked) { setFormat(f); setError(null); } }}
                         style={{
-                          flex: 1, padding: "16px 12px",
-                          border: `2px solid ${selected ? t.accent : locked ? t.border + "44" : t.border}`,
+                          flex: 1, padding: ip ? "24px 20px" : "28px 24px",
+                          border: `2px solid ${selected ? dColor : locked ? t.border + "44" : t.border}`,
                           borderRadius: ip ? 2 : 12,
-                          background: selected ? `${t.accent}14` : "transparent",
-                          color: locked ? t.textMuted : selected ? t.accent : t.text,
-                          fontFamily: t.fontDisplay, fontSize: 14, fontWeight: 700,
+                          background: selected ? `linear-gradient(145deg, ${dColor}18, ${t.bgCard})` : t.bgCard,
+                          color: locked ? t.textMuted : t.text,
+                          textAlign: "left",
                           cursor: locked ? "not-allowed" : "pointer",
-                          opacity: locked ? 0.5 : 1,
-                          transition: "all 0.2s",
-                          letterSpacing: "0.06em",
+                          opacity: locked ? 0.6 : 1,
+                          transition: "all 0.2s cubic-bezier(.22,.68,0,1.2)",
+                          transform: selected ? "scale(1.02)" : "scale(1)",
+                          boxShadow: selected ? `0 12px 32px ${dColor}33` : "none",
                         }}>
-                        <div>{f.toUpperCase()}</div>
-                        <div style={{ fontFamily: t.fontBody, fontSize: 11, color: locked ? t.textMuted : t.textMuted, fontWeight: 400, marginTop: 4 }}>
-                          {f === "ranked" ? (locked ? `Requires level 5` : "ELO · Competitive") : "Casual · No ELO"}
+                        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+                          <div style={{ width: 10, height: 10, borderRadius: "50%", background: locked ? t.textMuted : dColor, boxShadow: locked ? "none" : `0 0 12px ${dColor}66` }} />
+                          <div style={{ fontFamily: t.fontDisplay, fontSize: ip ? 16 : 20, fontWeight: 700, color: locked ? t.textMuted : selected ? dColor : t.text, letterSpacing: "0.06em" }}>
+                            {f.toUpperCase()}
+                          </div>
+                        </div>
+                        <div style={{ fontFamily: t.fontBody, fontSize: ip ? 12 : 14, color: t.textMuted, lineHeight: 1.5 }}>
+                          {f === "ranked" ? (locked ? "Requires level 5 to unlock" : "Compete for ELO with strong players") : "Casual match with no ELO impact"}
                         </div>
                       </button>
                     );
@@ -295,6 +304,11 @@ export default function MultiplayerScreen({ setScreen, themeId, onHover, onRoomR
         </div>
       </div>
 
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
+        {user && <NavRankBadge rank={getRank(user.elo ?? 0) as any} />}
+      </div>
+
+      {/* Go Back is already present but let's re-wrap it to maintain flow */}
       <button onClick={() => setScreen("home")} style={{
         background: `${t.accent}18`, border: `2px solid ${t.accent}`,
         color: t.accent, fontFamily: t.fontDisplay, fontSize: 16, fontWeight: 700,

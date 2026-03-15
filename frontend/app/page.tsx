@@ -17,6 +17,7 @@ import AIScreen         from "@/components/AIScreen";
 import StoreScreen      from "@/components/Storescreen";
 import CollectionScreen from "@/components/CollectionScreen";
 import CareerScreen     from "@/components/CareerScreen";
+import BattlepassScreen from "@/components/BattlepassScreen";
 import NavBar           from "@/components/NavBar";
 import SettingsModal    from "@/components/SettingsModal";
 
@@ -243,7 +244,7 @@ export default function Page() {
         boxShadow: "0 40px 100px rgba(0,0,0,0.8)",
         animation: "scaleIn 0.28s cubic-bezier(.22,.68,0,1.2) both",
       }}>
-        <div style={{ fontSize: 44, marginBottom: 18 }}>🔒</div>
+
         <div style={{ fontFamily: t.fontDisplay, fontSize: ip ? 14 : 22, fontWeight: 700, color: t.text, marginBottom: 10, lineHeight: 1.4 }}>
           Sign in to access this
         </div>
@@ -300,7 +301,7 @@ export default function Page() {
             boxShadow: "0 40px 100px rgba(0,0,0,0.8)",
             animation: "scaleIn 0.32s cubic-bezier(.22,.68,0,1.2) both",
           }}>
-            <div style={{ fontSize: 40, marginBottom: 18 }}>⚠️</div>
+
             <div style={{ fontFamily: t.fontDisplay, fontSize: ip ? 14 : 22, fontWeight: 700, color: t.text, marginBottom: 12, lineHeight: 1.5 }}>
               Leave AI Match?
             </div>
@@ -376,6 +377,7 @@ export default function Page() {
       {screen === "store"      && <StoreScreen      setScreen={handleSetScreen} themeId={themeId} />}
       {screen === "collection" && <CollectionScreen themeId={themeId} setThemeId={setThemeId} onHover={sfx.hover} onClick={sfx.click} />}
       {screen === "career"     && <CareerScreen     themeId={themeId} onHover={sfx.hover} />}
+      {screen === "battlepass" && <BattlepassScreen themeId={themeId} />}
 {screen === "game" && (
   <GameScreen key="game" themeId={themeId} isSingleplayer={true} gameMode="singleplayer" setScreen={handleSetScreen}
     p1Name={user?.username}
@@ -397,12 +399,16 @@ export default function Page() {
 )}
       {showSettings && (
         <SettingsModal
-          onClose={() => { sfx.click(); setShowSettings(false); }}
+          onClose={() => setShowSettings(false)}
           themeId={themeId}
           setThemeId={setThemeId}
-          audio={audio}
-        />
-      )}
+          audio={{
+            musicVol: audio.musicVol, setMusicVol: audio.setMusicVol,
+            sfxVol: audio.sfxVol, setSfxVol: audio.setSfxVol,
+            muted: audio.muted, toggleMute: audio.toggleMute
+          }}
+          onNavigateAuth={() => setScreen("auth")}
+        />)}
     </div>
   );
 }

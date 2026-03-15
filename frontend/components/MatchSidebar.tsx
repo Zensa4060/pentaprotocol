@@ -140,7 +140,7 @@ export function MatchSidebar({
 
   // ── Left panel ─────────────────────────────────────────────────────────────
   const leftPanel = (
-    <div style={{ width:panelW, flexShrink:0, background:t.bgPanel, borderRight:`${ip?3:1}px solid ${t.border}`, padding:"18px 18px", display:"flex", flexDirection:"column", gap:14, overflowY:"auto" }}>
+    <div style={{ width:panelW, minWidth:panelW, maxWidth:panelW * 1.15, resize:"horizontal", overflowX:"hidden", flexShrink:0, background:t.bgPanel, borderRight:`${ip?3:1}px solid ${t.border}`, padding:"18px 18px", display:"flex", flexDirection:"column", gap:14, overflowY:"auto" }}>
       <div style={{ fontFamily:t.fontMono, fontSize:20, fontWeight:700, color:t.text, letterSpacing:"0.14em" }}>MATCH TIMER</div>
       {(["P1","P2"] as const).map(p => (
         <div key={p} style={{ padding:"12px 14px", background:phase==="playing"&&current===p?`${p==="P1"?p1c:p2c}22`:t.bgCard, border:`1px solid ${phase==="playing"&&current===p?(p==="P1"?p1c:p2c):t.border}`, borderRadius:ip?2:8, display:"flex", justifyContent:"space-between", alignItems:"center", transition:"background 0.25s, border-color 0.25s" }}>
@@ -247,7 +247,7 @@ export function MatchSidebar({
                 {chatMessages.length===0 && (<div style={{ fontFamily:t.fontBody, fontSize:14, color:t.textMuted, textAlign:"center", marginTop:24 }}>No messages yet</div>)}
                 {chatMessages.map((m,i) => (<div key={i} style={{ display:"flex", gap:6, alignItems:"flex-start" }}><span style={{ fontFamily:t.fontMono, fontSize:14, fontWeight:700, color:m.from==="P1"?p1c:p2c, flexShrink:0 }}>{m.from==="P1"?(p1Label??"P1"):(p2Label??"P2")}:</span><span style={{ fontFamily:t.fontBody, fontSize:14, color:t.text, wordBreak:"break-word" as const }}>{m.text}</span></div>))}
               </div>
-              {chatWarning && (<div style={{ padding:"8px 12px", background:"#F4433618", border:"1px solid #F44336", borderRadius:6, fontFamily:t.fontBody, fontSize:13, color:"#F44336" }}>⚠ Inappropriate language detected and censored.</div>)}
+              {chatWarning && (<div style={{ padding:"8px 12px", background:"#F4433618", border:"1px solid #F44336", borderRadius:6, fontFamily:t.fontBody, fontSize:13, color:"#F44336" }}>Inappropriate language detected and censored.</div>)}
               <div style={{ display:"flex", gap:6 }}>
                 <input value={chatInput} onChange={e=>onChatInputChange(e.target.value)} onKeyDown={onChatKeyDown} placeholder="message…" maxLength={60} style={{ flex:1, background:t.inputBg, border:`1px solid ${t.border}`, borderRadius:ip?2:6, color:t.text, fontFamily:t.fontBody, fontSize:14, padding:"8px 10px", outline:"none", minWidth:0 }}/>
                 {(!isMultiplayerGame || mySlot === "P1") && (<button onClick={()=>onSendChat("P1")} style={{ background:`${p1c}20`, border:`1px solid ${p1c}`, color:p1c, fontFamily:t.fontMono, fontSize:14, fontWeight:700, padding:"8px 12px", borderRadius:ip?2:6, cursor:"pointer", transition:"all 0.18s", flexShrink:0 }} onMouseEnter={e=>{e.currentTarget.style.background=p1c;e.currentTarget.style.color="#000";}} onMouseLeave={e=>{e.currentTarget.style.background=`${p1c}20`;e.currentTarget.style.color=p1c;}}>P1</button>)}
@@ -333,7 +333,7 @@ export function MatchSidebar({
   const exitModal = showExitConfirm && (
     <div className="overlay-backdrop" style={{ position:"fixed", inset:0, zIndex:9999, background:"rgba(0,0,0,0.88)", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:28 }}>
       <div className="overlay-modal" style={{ background:t.bgPanel, border:`${ip?3:1}px solid ${t.border}`, borderRadius:ip?2:20, padding:ip?"32px 36px":"48px 56px", maxWidth:520, width:"90vw", textAlign:"center", boxShadow:"0 40px 100px rgba(0,0,0,0.7)" }}>
-        <div style={{ fontSize:44, marginBottom:20 }}>⚠️</div>
+
         <div style={{ fontFamily:t.fontDisplay, fontSize:ip?14:23, fontWeight:700, color:t.text, lineHeight:1.5, marginBottom:12 }}>Are you sure you want to quit the current session?</div>
         <div style={{ fontFamily:t.fontBody, fontSize:ip?11:15, color:t.textMuted, marginBottom:36, lineHeight:1.7 }}>Current game progress will be lost.</div>
         <div style={{ display:"flex", gap:16, justifyContent:"center" }}>
@@ -366,7 +366,7 @@ export function LeftPanel(props: MatchSidebarProps) {
   const getName = (w: string | null) => winnerDisplayName ? winnerDisplayName(w) : (w ?? "");
 
   return (
-    <div style={{ width:panelW, flexShrink:0, background:t.bgPanel, borderRight:`${ip?3:1}px solid ${t.border}`, padding:"18px 18px", display:"flex", flexDirection:"column", gap:14, overflowY:"auto" }}>
+    <div style={{ width:panelW, minWidth:panelW, maxWidth:panelW * 1.15, resize:"horizontal", overflowX:"hidden", flexShrink:0, background:t.bgPanel, borderRight:`${ip?3:1}px solid ${t.border}`, padding:"18px 18px", display:"flex", flexDirection:"column", gap:14, overflowY:"auto" }}>
       <div style={{ fontFamily:t.fontMono, fontSize:20, fontWeight:700, color:t.text, letterSpacing:"0.14em" }}>MATCH TIMER</div>
       {(["P1","P2"] as const).map(p => (
         <div key={p} style={{ padding:"12px 14px", background:phase==="playing"&&current===p?`${p==="P1"?p1c:p2c}22`:t.bgCard, border:`1px solid ${phase==="playing"&&current===p?(p==="P1"?p1c:p2c):t.border}`, borderRadius:ip?2:8, display:"flex", justifyContent:"space-between", alignItems:"center", transition:"background 0.25s, border-color 0.25s" }}>
@@ -473,7 +473,7 @@ export function LeftPanel(props: MatchSidebarProps) {
                 {chatMessages.length===0 && (<div style={{ fontFamily:t.fontBody, fontSize:14, color:t.textMuted, textAlign:"center", marginTop:24 }}>No messages yet</div>)}
                 {chatMessages.map((m,i) => (<div key={i} style={{ display:"flex", gap:6, alignItems:"flex-start" }}><span style={{ fontFamily:t.fontMono, fontSize:14, fontWeight:700, color:m.from==="P1"?p1c:p2c, flexShrink:0 }}>{m.from==="P1"?(p1Label??"P1"):(p2Label??"P2")}:</span><span style={{ fontFamily:t.fontBody, fontSize:14, color:t.text, wordBreak:"break-word" as const }}>{m.text}</span></div>))}
               </div>
-              {chatWarning && (<div style={{ padding:"8px 12px", background:"#F4433618", border:"1px solid #F44336", borderRadius:6, fontFamily:t.fontBody, fontSize:13, color:"#F44336" }}>⚠ Inappropriate language detected and censored.</div>)}
+              {chatWarning && (<div style={{ padding:"8px 12px", background:"#F4433618", border:"1px solid #F44336", borderRadius:6, fontFamily:t.fontBody, fontSize:13, color:"#F44336" }}>Inappropriate language detected and censored.</div>)}
               <div style={{ display:"flex", gap:6 }}>
                 <input value={chatInput} onChange={e=>onChatInputChange(e.target.value)} onKeyDown={onChatKeyDown} placeholder="message…" maxLength={60} style={{ flex:1, background:t.inputBg, border:`1px solid ${t.border}`, borderRadius:ip?2:6, color:t.text, fontFamily:t.fontBody, fontSize:14, padding:"8px 10px", outline:"none", minWidth:0 }}/>
                 {(!isMultiplayerGame || mySlot === "P1") && (<button onClick={()=>onSendChat("P1")} style={{ background:`${p1c}20`, border:`1px solid ${p1c}`, color:p1c, fontFamily:t.fontMono, fontSize:14, fontWeight:700, padding:"8px 12px", borderRadius:ip?2:6, cursor:"pointer", transition:"all 0.18s", flexShrink:0 }} onMouseEnter={e=>{e.currentTarget.style.background=p1c;e.currentTarget.style.color="#000";}} onMouseLeave={e=>{e.currentTarget.style.background=`${p1c}20`;e.currentTarget.style.color=p1c;}}>P1</button>)}
@@ -500,14 +500,16 @@ export function RightPanel({ t, ip, p1c, p2c, panelW, phase, log, isRankedGame, 
   setScreen?: (s: string) => void; onShowExitConfirm: () => void; playHover?: () => void;
 }) {
   return (
-    <div style={{ width:panelW, flexShrink:0, background:t.bgPanel, borderLeft:`${ip?3:1}px solid ${t.border}`, padding:"18px 18px", display:"flex", flexDirection:"column", gap:10, overflowY:"auto" }}>
-      <div style={{ fontFamily:t.fontMono, fontSize:20, fontWeight:700, color:t.text, letterSpacing:"0.14em" }}>MOVE LOG</div>
-      <div style={{ flex:1, display:"flex", flexDirection:"column", gap:4 }}>
+    <div style={{ width:panelW, minWidth:panelW, maxWidth:panelW * 1.15, resize:"horizontal", overflowX:"hidden", direction:"rtl", flexShrink:0, background:t.bgPanel, borderLeft:`${ip?3:1}px solid ${t.border}`, display:"flex", flexDirection:"column" }}>
+      <div style={{ direction:"ltr", padding:"18px 18px", display:"flex", flexDirection:"column", gap:10, overflowY:"auto", flex:1 }}>
+        <div style={{ fontFamily:t.fontMono, fontSize:20, fontWeight:700, color:t.text, letterSpacing:"0.14em" }}>MOVE LOG</div>
+        <div style={{ flex:1, display:"flex", flexDirection:"column", gap:4 }}>
         {log.length===0 ? <div style={{ fontFamily:t.fontBody, fontSize:14, color:t.textMuted, fontStyle:"italic" }}>No moves yet</div> : log.map((m,i) => <div key={i} style={{ fontFamily:t.fontMono, fontSize:15, color:m.player==="P1"?p1c:p2c, padding:"3px 0", borderBottom:`1px solid ${t.border}22` }}>{m.text}</div>)}
       </div>
-      {setScreen && !isRankedGame && (phase==="playing"||phase==="waiting_ready"||phase==="match_over") && (
-        <button onClick={onShowExitConfirm} style={{ background:`${t.danger}16`, border:`1px solid ${t.danger}`, color:t.danger, fontFamily:t.fontBody, fontSize:13, padding:9, borderRadius:ip?2:6, cursor:"pointer", transition:"all 0.2s", marginTop:4 }} onMouseEnter={e=>{playHover?.();e.currentTarget.style.background=`${t.danger}30`;}} onMouseLeave={e=>{e.currentTarget.style.background=`${t.danger}16`;}}>✕ EXIT MATCH</button>
-      )}
+        {setScreen && !isRankedGame && (phase==="playing" || phase==="waiting_ready" || phase==="match_over") && (
+          <button onClick={onShowExitConfirm} style={{ background:`${t.danger}16`, border:`1px solid ${t.danger}`, color:t.danger, fontFamily:t.fontBody, fontSize:13, padding:9, borderRadius:ip?2:6, cursor:"pointer", transition:"all 0.2s", marginTop:4 }} onMouseEnter={e=>{playHover?.();e.currentTarget.style.background=`${t.danger}30`;}} onMouseLeave={e=>{e.currentTarget.style.background=`${t.danger}16`;}}>✕ EXIT MATCH</button>
+        )}
+      </div>
     </div>
   );
 }
@@ -669,7 +671,7 @@ export function ExitModal({ show, t, ip, onConfirm, onCancel, playHover }: {
   return (
     <div className="overlay-backdrop" style={{ position:"fixed", inset:0, zIndex:9999, background:"rgba(0,0,0,0.88)", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:28 }}>
       <div className="overlay-modal" style={{ background:t.bgPanel, border:`${ip?3:1}px solid ${t.border}`, borderRadius:ip?2:20, padding:ip?"32px 36px":"48px 56px", maxWidth:520, width:"90vw", textAlign:"center", boxShadow:"0 40px 100px rgba(0,0,0,0.7)" }}>
-        <div style={{ fontSize:44, marginBottom:20 }}>⚠️</div>
+
         <div style={{ fontFamily:t.fontDisplay, fontSize:ip?14:23, fontWeight:700, color:t.text, lineHeight:1.5, marginBottom:12 }}>Are you sure you want to quit the current session?</div>
         <div style={{ fontFamily:t.fontBody, fontSize:ip?11:15, color:t.textMuted, marginBottom:36, lineHeight:1.7 }}>Current game progress will be lost.</div>
         <div style={{ display:"flex", gap:16, justifyContent:"center" }}>

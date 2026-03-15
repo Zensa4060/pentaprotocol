@@ -95,6 +95,7 @@ const CATEGORIES: { id: CatId; label: string; icon: string; count: (p: any) => n
   { id: "themes",  label: "Themes",           icon: "palette", count: () => COLLECTION_THEMES.filter(x => x.owned).length },
   { id: "board",   label: "Board Skins",      icon: "board",   count: (p) => BOARD_SKINS.filter(x => x.condition(p)).length },
   { id: "banners", label: "Profile Banners",  icon: "banner",  count: () => BANNERS.filter(x => x.owned).length },
+  { id: "borders", label: "Profile Borders",  icon: "border",  count: (p) => PROFILE_BORDERS.filter(x => x.condition(p)).length },
   { id: "coins",   label: "Coin Skins",       icon: "coin",    count: () => COIN_SKINS.filter(x => x.owned).length },
   { id: "toss",    label: "Toss Animations",  icon: "toss",    count: (p) => COIN_TOSS_ANIMS.filter(x => x.condition(p)).length },
   { id: "titles",  label: "Titles",           icon: "title",   count: (p) => TITLES.filter(ti => ti.condition(p)).length },
@@ -345,18 +346,27 @@ export default function CollectionScreen({ themeId, setThemeId, onHover, onClick
 }, [token]);
   const equipBoard = async (id: string) => {
     if (!token) return;
-    setEquipping(id);
+    
+    // Optimistic UI Update
+    const prevBoard = activeBoard;
+    setActiveBoard(id);
+    const current = loadCustomTheme();
+    saveCustomTheme({ ...current, boardSkin: id as any });
+    
+    setEquipMsg({ text: "Board skin equipped!", ok: true });
+    setTimeout(() => setEquipMsg(null), 1800);
+
+    // Background API call
     try {
       await API.put("/api/profile/me", { board_style: id }, { headers: { Authorization: `Bearer ${token}` } });
-      const current = loadCustomTheme();
-      saveCustomTheme({ ...current, boardSkin: id as any });
-      setActiveBoard(id);
-      setEquipMsg({ text: "Board skin equipped!", ok: true });
-      setTimeout(() => setEquipMsg(null), 1800);
+      updateUser({ board_style: id });
     } catch (e: any) {
-      setEquipMsg({ text: e?.response?.data?.detail || "Failed to equip", ok: false });
+      // Revert on failure
+      setActiveBoard(prevBoard);
+      saveCustomTheme({ ...current, boardSkin: prevBoard as any });
+      setEquipMsg({ text: e?.response?.data?.detail || "Failed to equip server-side", ok: false });
       setTimeout(() => setEquipMsg(null), 2500);
-    } finally { setEquipping(null); }
+    }
   };
 
   const equipPiece = (id: string) => {
@@ -431,7 +441,7 @@ export default function CollectionScreen({ themeId, setThemeId, onHover, onClick
 
       {equipMsg && (
         <div style={{ position: "fixed", bottom: 28, left: "50%", transform: "translateX(-50%)", zIndex: 999, background: equipMsg.ok ? "#1a2e1a" : "#2e1a1a", border: `1px solid ${equipMsg.ok ? "#4CAF50" : "#EF4444"}`, borderRadius: 10, padding: "9px 20px", fontFamily: t.fontMono, fontSize: 12, color: equipMsg.ok ? "#4CAF50" : "#EF4444", boxShadow: "0 8px 28px rgba(0,0,0,0.5)", pointerEvents: "none", letterSpacing: "0.06em" }}>
-          {equipMsg.ok ? "✓" : "⚠"} {equipMsg.text}
+          {equipMsg.ok ? "✓" : ""} {equipMsg.text}
         </div>
       )}
 

@@ -5,6 +5,7 @@ import type { ThemeId } from "@/lib/themes";
 import { THEMES } from "@/lib/themes";
 import { useAuthStore } from "@/lib/store";
 import API from "@/lib/api";
+import { NavRankBadge, getRank } from "./NavBar";
 
 interface Props {
   setScreen: (s: Screen) => void;
@@ -27,6 +28,13 @@ export default function LobbyScreen({ setScreen, themeId, onQueueStart, onQueueC
   const [multiSub,  setMultiSub]  = useState<MultiSub>(null);
   const [phase,     setPhase]     = useState<Phase>("select");
   const [elapsed,   setElapsed]   = useState(0);
+  const [isMobile,  setIsMobile]  = useState(false);
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
   const [countdown, setCountdown] = useState(3.5);
   const [hovered,   setHovered]   = useState<string | null>(null);
 
@@ -247,16 +255,6 @@ export default function LobbyScreen({ setScreen, themeId, onQueueStart, onQueueC
   );
 
 
-  const RANKS = [
-    { name: "NOVICE",       min: 0,    max: 500,  color: "#9CA3AF" },
-    { name: "ADVANCED",     min: 500,  max: 1000, color: "#60A5FA" },
-    { name: "PROFESSIONAL", min: 1000, max: 1500, color: "#34D399" },
-    { name: "EMERALD",      min: 1500, max: 2000, color: "#10B981" },
-    { name: "MASTER",       min: 2000, max: 2500, color: "#FF3333" },
-    { name: "LEGEND",       min: 2500, max: 9999, color: "#F59E0B" },
-  ];
-  const getRank = (elo: number) => RANKS.find(r => elo >= r.min && elo < r.max) || RANKS[5];
-
   // Helper to store opponent profile from room data
   const storeOppProfile = (room: any, myS: "P1" | "P2") => {
     const prefix = myS === "P1" ? "player2" : "player1";
@@ -440,12 +438,12 @@ export default function LobbyScreen({ setScreen, themeId, onQueueStart, onQueueC
   };
 
   return (
-    <div style={{ position:"fixed", inset:0, zIndex:2, overflowY:"auto", background:t.bg, padding:"84px 24px 48px", display:"flex", flexDirection:"column", alignItems:"center", transition:"background 0.4s" }}>
+    <div style={{ position:"fixed", inset:0, zIndex:2, overflowY:"auto", background:t.bg, padding:"90px 24px 40px", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"space-evenly", transition:"background 0.4s" }}>
 
-      <h1 style={{ fontFamily:t.fontDisplay, fontSize:71, fontWeight:700, color:t.text, marginBottom:40, textAlign:"center", textTransform:"uppercase", letterSpacing:"0.05em" }}>Multiplayer</h1>
+      <h1 style={{ fontFamily:t.fontDisplay, fontSize:71, fontWeight:700, color:t.text, textAlign:"center", textTransform:"uppercase", letterSpacing:"0.05em" }}>Multiplayer</h1>
 
       {/* ── 3-column grid ── */}
-      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:ip?14:20, width:"100%", maxWidth:1200, marginTop:"20vh" }}>
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:ip?14:20, width:"100%", maxWidth:1200 }}>
 
         {/* ── UNRANKED ── */}
         <button
@@ -480,7 +478,7 @@ export default function LobbyScreen({ setScreen, themeId, onQueueStart, onQueueC
         >
           {/* Lock badge */}
           <div style={{ position:"absolute", top:11, right:11, background:`${t.gold}18`, border:`1px solid ${t.gold}55`, color:t.gold, fontSize:10, padding:"2px 8px", borderRadius:10, fontFamily:t.fontMono, display:"flex", alignItems:"center", gap:4 }}>
-            <span style={{ fontSize:11 }}>🔒</span> SOON
+            <span style={{ fontSize:11 }}></span> SOON
           </div>
 
           <div style={{ fontFamily:t.fontMono, fontSize:10, color:t.textMuted, letterSpacing:"0.18em", marginBottom:12 }}>QUEUE</div>
@@ -529,7 +527,7 @@ export default function LobbyScreen({ setScreen, themeId, onQueueStart, onQueueC
           {/* Error message */}
           {roomError && roomSection !== "none" && (
             <div style={{ background:`${t.danger}14`, border:`1px solid ${t.danger}`, borderRadius:8, padding:"8px 12px", color:t.danger, fontFamily:t.fontBody, fontSize:12, marginBottom:12, width:"100%", boxSizing:"border-box" as const }}>
-              ⚠ {roomError}
+              {roomError}
             </div>
           )}
 
@@ -604,9 +602,9 @@ export default function LobbyScreen({ setScreen, themeId, onQueueStart, onQueueC
 
       </div>
 
-      {/* ── FIND MATCH button (shows when Unranked selected) ── */}
+      {/* FIND MATCH button */}
       {multiSub && (
-        <div style={{ display:"flex", justifyContent:"center", marginTop:28, animation:"fadeUp 0.32s cubic-bezier(.22,.68,0,1.2) 0.06s both" }}>
+        <div style={{ display:"flex", justifyContent:"center", animation:"fadeUp 0.32s cubic-bezier(.22,.68,0,1.2) 0.06s both" }}>
           <button
             onClick={startSearch}
             style={{ background:`linear-gradient(135deg,${t.accent},${t.accentGlow})`, border:"none", color:"#0A0A0A", fontFamily:t.fontDisplay, fontSize:18, fontWeight:700, padding:"18px 64px", borderRadius:ip?2:10, cursor:"pointer", boxShadow:`0 0 28px ${t.accentGlow}44`, transition:"transform 0.25s cubic-bezier(.22,.68,0,1.2), box-shadow 0.25s cubic-bezier(.22,.68,0,1.2)" }}
@@ -617,6 +615,44 @@ export default function LobbyScreen({ setScreen, themeId, onQueueStart, onQueueC
           >FIND MATCH</button>
         </div>
       )}
+
+      {/* Rank Showcase placed below boxes */}
+      <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:8 }}>
+        {user && (
+          <>
+            <NavRankBadge rank={getRank(user.elo ?? 0) as any} size={isMobile ? 100 : 150} />
+            <div style={{
+              fontFamily: t.fontDisplay,
+              fontSize: isMobile ? 16 : 24,
+              fontWeight: 800,
+              color: getRank(user.elo ?? 0).color,
+              letterSpacing: "0.1em",
+              textShadow: `0 0 15px ${getRank(user.elo ?? 0).color}55`
+            }}>
+              {getRank(user.elo ?? 0).name}
+            </div>
+            <div style={{
+              fontFamily: t.fontMono,
+              fontSize: isMobile ? 12 : 16,
+              fontWeight: 700,
+              color: t.textMuted
+            }}>
+              <span style={{ color: t.accent }}>{user.elo ?? 0}</span> ELO
+            </div>
+          </>
+        )}
+      </div>
+
+      <button onClick={() => setScreen("home")} style={{
+        background: `${t.accent}18`, border: `2px solid ${t.accent}`,
+        color: t.accent, fontFamily: t.fontDisplay, fontSize: 16, fontWeight: 700,
+        padding: "14px 44px", borderRadius: ip ? 2 : 10,
+        cursor: "pointer", letterSpacing: "0.06em", transition: "all 0.2s",
+      }}
+        onMouseEnter={e => { onHover?.(); e.currentTarget.style.background = t.accent; e.currentTarget.style.color = "#000"; }}
+        onMouseLeave={e => { e.currentTarget.style.background = `${t.accent}18`; e.currentTarget.style.color = t.accent; }}>
+        GO BACK
+      </button>
 
       <style>{`
         @keyframes fadeUp   { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
