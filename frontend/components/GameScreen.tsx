@@ -85,8 +85,6 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
   const pausedRef = useRef(false);
   const wsRef     = useRef<WebSocket | null>(null);
   const pingRef   = useRef<ReturnType<typeof setInterval> | null>(null);
-  // Track moves we optimistically logged to prevent duplicates when move_made arrives
-  const pendingMovesRef = useRef<Set<string>>(new Set());
   const isMultiplayerGame = (gameMode === "ranked" || gameMode === "unranked") && !!roomCode;
   const mySlot = playerSlot ?? "P1";
   const coinStartTimeRef = useRef<number>(0);
@@ -251,16 +249,10 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
           setMovesPlayed(msg.moves_played);
           setExtraTurns(msg.extra_turns ?? 0);
           if (msg.row !== undefined && msg.col !== undefined) {
-            const moveKey = `${msg.row},${msg.col}`;
-            // Skip log if we already added it optimistically
-            if (pendingMovesRef.current.has(moveKey)) {
-              pendingMovesRef.current.delete(moveKey);
-            } else {
-              const mover = msg.board[msg.row][msg.col] as string | null;
-              if (mover) {
-                const _piece = mover === "P1" ? t.pieces.p1 : t.pieces.p2;
-                setLog(l => [...l, { text: `${l.length+1}. ${_piece}→${String.fromCharCode(65+msg.col)}${msg.row+1} (${mover})`, player: mover }]);
-              }
+            const mover = msg.board[msg.row][msg.col] as string | null;
+            if (mover) {
+              const _piece = mover === "P1" ? t.pieces.p1 : t.pieces.p2;
+              setLog(l => [...l, { text: `${l.length+1}. ${_piece}→${String.fromCharCode(65+msg.col)}${msg.row+1} (${mover})`, player: mover }]);
             }
           }
           if (msg.winner) {
@@ -770,12 +762,6 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
       if (current !== mySlot) return;
       if (wsRef.current?.readyState !== WebSocket.OPEN) return;
       playPlace?.();
-      // Optimistic: show piece + log instantly
-      const nb = board.map(row => [...row]);
-      nb[r][c] = current;
-      setBoard(nb);
-      addLog(r, c, current);
-      pendingMovesRef.current.add(`${r},${c}`);
       wsRef.current.send(JSON.stringify({ type: "move", row: r, col: c }));
       return;
     }

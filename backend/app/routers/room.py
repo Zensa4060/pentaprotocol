@@ -15,7 +15,6 @@ import asyncio
 router = APIRouter()
 
 _room_connections: dict[str, dict] = {}
-_room_state: dict[str, dict] = {}  # in-memory cache — eliminates DB read on every move
 _matchmaking_queue: dict[str, list] = {
     "ranked":   [],
     "unranked": [],
@@ -376,7 +375,6 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
     try:
         room = await db.rooms.find_one({"room_code": room_code})
         if room:
-            _room_state[room_code] = room  # seed cache
             await websocket.send_json({"type": "room_state", "room": serialize_room(room)})
 
         while True:
@@ -387,10 +385,7 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                 row = msg["row"]
                 col = msg["col"]
 
-                # Read from in-memory cache first for speed; fall back to DB
-                room = _room_state.get(room_code)
-                if not room:
-                    room = await db.rooms.find_one({"room_code": room_code})
+                room = await db.rooms.find_one({"room_code": room_code})
                 if not room or room["game_status"] != "playing":
                     continue
 
@@ -418,10 +413,8 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                     "status":         "finished" if is_finished else "active",
                 }
 
-                # Update in-memory cache immediately
-                _room_state[room_code] = {**room, **update}
+                await db.rooms.update_one({"room_code": room_code}, {"$set": update})
 
-                # Broadcast immediately — no DB wait
                 broadcast = {
                     "type":           "move_made",
                     "row":            row,
@@ -434,6 +427,7 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                     "game_status":    update["game_status"],
                     "extra_turns":    result.get("extra_turns", 0),
                 }
+
                 for slot, ws in _room_connections.get(room_code, {}).items():
                     try:
                         await ws.send_json(broadcast)
@@ -441,7 +435,6 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                         pass
 
                 if is_finished:
-                    # Track match history in DB so rematch can snapshot it as last_series
                     current_history  = room.get("match_history", [])
                     new_history      = current_history + [result.get("winner")]
                     is_ranked        = room.get("format") == "ranked"
@@ -450,7 +443,7 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
 
                     await db.rooms.update_one(
                         {"room_code": room_code},
-                        {"$set": {**update, **history_update}}
+                        {"$set": history_update}
                     )
 
                     game_dict = {
@@ -461,27 +454,16 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                         "mode":       "multiplayer",
                     }
                     asyncio.create_task(award_game_result(db, game_dict, result.get("winner")))
-                else:
-                    # Fire-and-forget DB write — don't block the WS loop
-                    asyncio.create_task(
-                        db.rooms.update_one({"room_code": room_code}, {"$set": update})
-                    )
 
             elif msg["type"] == "ready":
                 ready_val   = msg.get("ready", True)
                 ready_field = "p1_ready" if player_slot == "P1" else "p2_ready"
 
-                # Update in-memory cache
-                room = _room_state.get(room_code)
-                if not room:
-                    room = await db.rooms.find_one({"room_code": room_code})
-                    if room:
-                        _room_state[room_code] = room
-                if room:
-                    room[ready_field] = ready_val
-                    _room_state[room_code] = room
+                await db.rooms.update_one(
+                    {"room_code": room_code},
+                    {"$set": {ready_field: ready_val}}
+                )
 
-                # Broadcast immediately
                 broadcast = {
                     "type":   "ready_update",
                     "player": player_slot,
@@ -493,21 +475,14 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                     except:
                         pass
 
-                # Fire-and-forget DB write
-                asyncio.create_task(
-                    db.rooms.update_one({"room_code": room_code}, {"$set": {ready_field: ready_val}})
-                )
-
-                # Check if both ready from in-memory cache
+                room = await db.rooms.find_one({"room_code": room_code})
                 if room and room.get("p1_ready") and room.get("p2_ready"):
                     current_game = room.get("game_number", 1)
 
                     if current_game >= 2:
-                        room["p1_ready"] = False
-                        room["p2_ready"] = False
-                        _room_state[room_code] = room
-                        asyncio.create_task(
-                            db.rooms.update_one({"room_code": room_code}, {"$set": {"p1_ready": False, "p2_ready": False}})
+                        await db.rooms.update_one(
+                            {"room_code": room_code},
+                            {"$set": {"p1_ready": False, "p2_ready": False}}
                         )
                         continue
 
@@ -523,7 +498,9 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                         "p2_ready":       False,
                         "game_number":    current_game + 1,
                     }
-                    _room_state[room_code] = {**room, **reset}
+
+                    await db.rooms.update_one({"room_code": room_code}, {"$set": reset})
+
                     for slot, ws in _room_connections.get(room_code, {}).items():
                         try:
                             await ws.send_json({
@@ -533,9 +510,6 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                             })
                         except:
                             pass
-                    asyncio.create_task(
-                        db.rooms.update_one({"room_code": room_code}, {"$set": reset})
-                    )
 
             elif msg["type"] == "chat":
                 broadcast = {
@@ -560,29 +534,18 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
             elif msg["type"] == "rematch":
                 rematch_field = "p1_rematch" if player_slot == "P1" else "p2_rematch"
 
-                # Update in-memory cache
-                room = _room_state.get(room_code)
-                if not room:
-                    room = await db.rooms.find_one({"room_code": room_code})
-                    if room:
-                        _room_state[room_code] = room
-                if room:
-                    room[rematch_field] = True
-                    _room_state[room_code] = room
+                await db.rooms.update_one(
+                    {"room_code": room_code},
+                    {"$set": {rematch_field: True}}
+                )
 
-                # Notify opponent immediately
                 for slot, ws in _room_connections.get(room_code, {}).items():
                     try:
                         await ws.send_json({"type": "rematch_request", "from": player_slot})
                     except:
                         pass
 
-                # Fire-and-forget DB write
-                asyncio.create_task(
-                    db.rooms.update_one({"room_code": room_code}, {"$set": {rematch_field: True}})
-                )
-
-                # Check if both want rematch from in-memory cache
+                room = await db.rooms.find_one({"room_code": room_code})
                 if room and room.get("p1_rematch") and room.get("p2_rematch"):
                     last_series = {
                         "winner":  room.get("series_winner"),
@@ -606,9 +569,9 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                         "series_winner":  None,
                         "c3_blocked":     False,
                     }
-                    _room_state[room_code] = {**room, **reset}
 
-                    # Broadcast first
+                    await db.rooms.update_one({"room_code": room_code}, {"$set": reset})
+
                     for slot, ws in _room_connections.get(room_code, {}).items():
                         try:
                             await ws.send_json({
@@ -620,24 +583,16 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                         except:
                             pass
 
-                    # Fire-and-forget DB write
-                    asyncio.create_task(
-                        db.rooms.update_one({"room_code": room_code}, {"$set": reset})
-                    )
-
             elif msg["type"] == "quit_match":
-                room = _room_state.get(room_code)
-                if room:
-                    room["game_status"] = "disbanded"
-                    _room_state[room_code] = room
+                await db.rooms.update_one(
+                    {"room_code": room_code},
+                    {"$set": {"game_status": "disbanded"}}
+                )
                 for slot, ws in _room_connections.get(room_code, {}).items():
                     try:
                         await ws.send_json({"type": "match_disbanded"})
                     except:
                         pass
-                asyncio.create_task(
-                    db.rooms.update_one({"room_code": room_code}, {"$set": {"game_status": "disbanded"}})
-                )
 
             elif msg["type"] == "toss_action":
                 action  = msg.get("action")
@@ -650,11 +605,7 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                         pass
 
             elif msg["type"] == "rb_start_game":
-                room = _room_state.get(room_code)
-                if not room:
-                    room = await db.rooms.find_one({"room_code": room_code})
-                    if room:
-                        _room_state[room_code] = room
+                room = await db.rooms.find_one({"room_code": room_code})
                 if not room:
                     continue
                 if room.get("game_number") == 3 and room.get("game_status") == "playing":
@@ -674,7 +625,9 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                     "game_number":    3,
                     "c3_blocked":     c3_blocked,
                 }
-                _room_state[room_code] = {**room, **reset}
+
+                await db.rooms.update_one({"room_code": room_code}, {"$set": reset})
+
                 for slot, ws in _room_connections.get(room_code, {}).items():
                     try:
                         await ws.send_json({
@@ -685,19 +638,12 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                         })
                     except:
                         pass
-                asyncio.create_task(
-                    db.rooms.update_one({"room_code": room_code}, {"$set": reset})
-                )
 
             elif msg["type"] == "timeout":
                 winner = msg.get("winner")
                 if winner not in ("P1", "P2"):
                     continue
-                room = _room_state.get(room_code)
-                if not room:
-                    room = await db.rooms.find_one({"room_code": room_code})
-                    if room:
-                        _room_state[room_code] = room
+                room = await db.rooms.find_one({"room_code": room_code})
                 if not room or room.get("game_status") != "playing":
                     continue
                 if room.get("winner"):
@@ -713,19 +659,24 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                 series_winner   = compute_series_winner(new_history, is_ranked=is_ranked)
                 update["match_history"]  = new_history
                 update["series_winner"]  = series_winner
-                _room_state[room_code] = {**room, **update}
 
-                # Broadcast timeout winner immediately
+                await db.rooms.update_one({"room_code": room_code}, {"$set": update})
+
                 for slot, ws in _room_connections.get(room_code, {}).items():
                     try:
-                        await ws.send_json({"type": "move_made", "winner": winner, "board": room.get("board", []), "current_player": room.get("current_player", "P1"), "moves_played": room.get("moves_played", 0), "win_line": [], "game_status": "finished", "extra_turns": 0})
+                        await ws.send_json({
+                            "type": "move_made",
+                            "winner": winner,
+                            "board": room.get("board", []),
+                            "current_player": room.get("current_player", "P1"),
+                            "moves_played": room.get("moves_played", 0),
+                            "win_line": [],
+                            "game_status": "finished",
+                            "extra_turns": 0
+                        })
                     except:
                         pass
 
-                # Fire-and-forget DB write + career award
-                asyncio.create_task(
-                    db.rooms.update_one({"room_code": room_code}, {"$set": update})
-                )
                 game_dict = {
                     "player1_id": room["player1_id"],
                     "player2_id": room["player2_id"],
