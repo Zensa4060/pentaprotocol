@@ -145,9 +145,21 @@ export function MatchSidebar({
       {(["P1","P2"] as const).map(p => (
         <div key={p} style={{ padding:"12px 14px", background:phase==="playing"&&current===p?`${p==="P1"?p1c:p2c}22`:t.bgCard, border:`1px solid ${phase==="playing"&&current===p?(p==="P1"?p1c:p2c):t.border}`, borderRadius:ip?2:8, display:"flex", justifyContent:"space-between", alignItems:"center", transition:"background 0.25s, border-color 0.25s" }}>
           <span style={{ fontFamily:t.fontBody, fontSize:16, color:p==="P1"?p1c:p2c, fontWeight:700, display:"flex", alignItems:"center", gap:4 }}>
-            <Piece symbol={p==="P1"?t.pieces.p1:t.pieces.p2} color={p==="P1"?p1c:p2c} size={16}/>
-            {p==="P1" ? (p1Label ?? "P1") : (p2Label ?? "P2")}
-          </span>
+           {
+  (() => {
+    const raw = p === "P1" ? p1Label : p2Label;
+    const name = (raw ?? "PLAYER")
+      .replace(/^\s*[xy]\s*/i, "")
+      .replace(/\([xy]\)/gi, "")
+      .trim()
+      .toUpperCase();
+
+    const piece = p === "P1" ? t.pieces.p1 : t.pieces.p2;
+
+    return `${name} (${piece})`;
+  })()
+}
+</span>
           <span style={{ fontFamily:t.fontMono, fontSize:18, color:t.text, fontWeight:700 }}>{p==="P1"?fmtTime(p1Time):fmtTime(p2Time)}</span>
         </div>
       ))}
@@ -359,9 +371,21 @@ export function LeftPanel(props: MatchSidebarProps) {
       {(["P1","P2"] as const).map(p => (
         <div key={p} style={{ padding:"12px 14px", background:phase==="playing"&&current===p?`${p==="P1"?p1c:p2c}22`:t.bgCard, border:`1px solid ${phase==="playing"&&current===p?(p==="P1"?p1c:p2c):t.border}`, borderRadius:ip?2:8, display:"flex", justifyContent:"space-between", alignItems:"center", transition:"background 0.25s, border-color 0.25s" }}>
           <span style={{ fontFamily:t.fontBody, fontSize:16, color:p==="P1"?p1c:p2c, fontWeight:700, display:"flex", alignItems:"center", gap:4 }}>
-            <Piece symbol={p==="P1"?t.pieces.p1:t.pieces.p2} color={p==="P1"?p1c:p2c} size={16}/>
-            {p==="P1" ? (p1Label ?? "P1") : (p2Label ?? "P2")}
-          </span>
+  {
+  (() => {
+    const raw = p === "P1" ? p1Label : p2Label;
+    const name = (raw ?? "PLAYER")
+      .replace(/^\s*[xy]\s*/i, "")
+      .replace(/\([xy]\)/gi, "")
+      .trim()
+      .toUpperCase();
+
+    const piece = p === "P1" ? t.pieces.p1 : t.pieces.p2;
+
+    return `${name} (${piece})`;
+  })()
+}
+</span>
           <span style={{ fontFamily:t.fontMono, fontSize:18, color:t.text, fontWeight:700 }}>{p==="P1"?fmtTime(p1Time):fmtTime(p2Time)}</span>
         </div>
       ))}
