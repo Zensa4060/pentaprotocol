@@ -1,4 +1,4 @@
-﻿from fastapi import APIRouter, HTTPException, Header, Depends
+from fastapi import APIRouter, HTTPException, Header, Depends
 from app.models.game import CreateGame, MakeMove
 from app.core.database import get_db
 from app.core.security import decode_token
@@ -51,9 +51,22 @@ async def award_game_result(db, game: dict, winner: str | None):
     is_ranked  = game.get("format") == "ranked"
     mode       = game.get("mode", "multiplayer")
     difficulty = game.get("difficulty", "medium")
+    source     = game.get("source", "matchmaking")
     # Solo and singleplayer games do not count toward any profile stats
     if mode in ("solo", "singleplayer", "bot"):
         return
+
+    # Determine career mode label: ranked / unranked / custom
+    if is_ranked:
+        career_mode = "ranked"
+    elif source == "private":
+        career_mode = "custom"
+    else:
+        career_mode = "unranked"
+
+    # Pre-fetch both players for ELO-before snapshot
+    p1_user = await db.users.find_one({"_id": ObjectId(p1_id)}) if p1_id else None
+    p2_user = await db.users.find_one({"_id": ObjectId(p2_id)}) if p2_id else None
 
     async def update_player(user_id: str, result: str, opponent_id: str | None):
         if not user_id:
@@ -85,6 +98,37 @@ async def award_game_result(db, game: dict, winner: str | None):
     elif winner == "draw":
         await update_player(p1_id, "draw", p2_id)
         await update_player(p2_id, "draw", p1_id)
+
+    # ── Log match history for each player (multiplayer only) ──────────────
+    async def log_match(user_id, opponent_id, result, user_snap, opp_snap):
+        if not user_id or not user_snap or not opp_snap:
+            return
+        elo_before = user_snap.get("elo", 100)
+        # Re-read to get the post-update ELO
+        updated = await db.users.find_one({"_id": ObjectId(user_id)})
+        elo_after = updated.get("elo", elo_before) if updated else elo_before
+        await db.match_history.insert_one({
+            "user_id":            user_id,
+            "opponent_id":        opponent_id,
+            "opponent_username":  opp_snap.get("username", "Unknown"),
+            "opponent_elo":       opp_snap.get("elo", 100),
+            "result":             result,
+            "elo_before":         elo_before,
+            "elo_after":          elo_after,
+            "elo_delta":          elo_after - elo_before,
+            "mode":               career_mode,
+            "played_at":          datetime.utcnow(),
+        })
+
+    if winner == "P1":
+        await log_match(p1_id, p2_id, "win",  p1_user, p2_user)
+        await log_match(p2_id, p1_id, "loss", p2_user, p1_user)
+    elif winner == "P2":
+        await log_match(p1_id, p2_id, "loss", p1_user, p2_user)
+        await log_match(p2_id, p1_id, "win",  p2_user, p1_user)
+    elif winner == "draw":
+        await log_match(p1_id, p2_id, "draw", p1_user, p2_user)
+        await log_match(p2_id, p1_id, "draw", p2_user, p1_user)
 
 @router.post("/create")
 async def create_game(data: CreateGame, user_id: str = Depends(get_current_user)):

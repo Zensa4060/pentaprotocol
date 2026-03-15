@@ -35,6 +35,8 @@ interface RulebreakerFlowProps {
   fmtSec: (s: number) => string;
   gameMode?: string;
   botPickedSide?: "left" | "right" | null;
+  p1Label?: string;
+  p2Label?: string;
 }
 
 export function RulebreakerFlow({
@@ -44,9 +46,13 @@ export function RulebreakerFlow({
   choiceTimer, isMultiplayerGame, mySlot,
   winnerPickedRule, winnerPickedFirst, winnerPickedC3,
   onLeft, onRight, fmtSec, gameMode, botPickedSide,
+  p1Label: p1LabelProp, p2Label: p2LabelProp,
 }: RulebreakerFlowProps) {
 
+  const p1Name = p1LabelProp ?? "P1";
+  const p2Name = p2LabelProp ?? "P2";
   const tossLoser = tossWinner === "P1" ? "P2" : "P1";
+  const nameOf = (slot: string) => slot === "P1" ? p1Name : p2Name;
 
   // ── rb_splash ──────────────────────────────────────────────────────────────
   if (phase === "rb_splash") return (
@@ -83,9 +89,9 @@ export function RulebreakerFlow({
         <div style={{ fontFamily:t.fontDisplay, fontSize:"clamp(20px,3vw,48px)", fontWeight:900, color:t.accent, textShadow:`0 0 40px ${t.accentGlow}66`, letterSpacing:"0.08em", marginTop:36, marginBottom:10, animation:"fadeUp 0.4s cubic-bezier(.22,.68,0,1.2) both" }}>COMMENCING TOSS</div>
         <div style={{ width:"clamp(160px,30vw,360px)", height:2, background:`linear-gradient(90deg, transparent, ${t.accent}, transparent)`, marginBottom:18, boxShadow:`0 0 14px ${t.accentGlow}55`, animation:"rbLineIn 0.6s cubic-bezier(.22,.68,0,1.2) 0.1s both" }}/>
         <div style={{ display:"flex", gap:28, fontFamily:t.fontMono, fontSize:39, color:t.textMuted, marginBottom:20, animation:"fadeUp 0.5s cubic-bezier(.22,.68,0,1.2) 0.12s both" }}>
-          <span style={{ display:"flex", alignItems:"center", gap:8 }}><CoinFace type="PENTA" size={26}/><span>PENTA = P1</span></span>
+          <span style={{ display:"flex", alignItems:"center", gap:8 }}><CoinFace type="PENTA" size={26}/><span>PENTA = {p1Name}</span></span>
           <span style={{ color:t.border }}>|</span>
-          <span style={{ display:"flex", alignItems:"center", gap:8 }}><CoinFace type="PROTO" size={26}/><span>PROTO = P2</span></span>
+          <span style={{ display:"flex", alignItems:"center", gap:8 }}><CoinFace type="PROTO" size={26}/><span>PROTO = {p2Name}</span></span>
         </div>
 
         <div style={{ width:"100%", height:"50vh", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", position:"relative", flexShrink:0, perspective:800 }}>
@@ -105,7 +111,7 @@ export function RulebreakerFlow({
 
         {revealed && (
           <div style={{ fontFamily:t.fontDisplay, fontSize:"clamp(18px,2.4vw,32px)", fontWeight:700, color:t.text, textAlign:"center", letterSpacing:"0.06em", marginTop:8, animation:"fadeUp 0.5s cubic-bezier(.22,.68,0,1.2) 0.3s both" }}>
-            <span style={{ color:winCol }}>{tossWinner}</span><span style={{ color:t.textMuted }}> WINS THE TOSS</span>
+            <span style={{ color:winCol }}>{nameOf(tossWinner!)}</span><span style={{ color:t.textMuted }}> WINS THE TOSS</span>
           </div>
         )}
       </div>
@@ -118,11 +124,11 @@ export function RulebreakerFlow({
     const winCol   = tossWinner === "P1" ? p1c : p2c;
     const loseCol  = tossLoser  === "P1" ? p1c : p2c;
     let title="", leftLabel="", rightLabel="", actor="", actorCol=winCol;
-    if (phase==="rule_choice")      { title=`${tossWinner} WON THE TOSS — CHOOSE YOUR RULE`; leftLabel="DECIDE WHO\nPLAYS FIRST"; rightLabel="BLOCK C3\nFIRST MOVE"; actor=tossWinner!; actorCol=winCol; }
-    if (phase==="who_first_winner") { title=`${tossWinner} — WHO PLAYS FIRST IN ROUND 3?`; leftLabel=`${tossWinner}\nPLAYS FIRST`; rightLabel=`${tossLoser}\nPLAYS FIRST`; actor=tossWinner!; actorCol=winCol; }
-    if (phase==="c3_choice")        { title=`${tossWinner} — CHOOSE C3 RULE`; leftLabel="BLOCK C3"; rightLabel="ALLOW C3"; actor=tossWinner!; actorCol=winCol; }
-    if (phase==="c3_choice_loser")  { title=`${tossLoser} — CHOOSE C3 RULE`; leftLabel="BLOCK C3"; rightLabel="ALLOW C3"; actor=tossLoser!; actorCol=loseCol; }
-    if (phase==="who_first_loser")  { title=`${tossLoser} — WHO PLAYS FIRST IN ROUND 3?`; leftLabel=`${tossLoser}\nPLAYS FIRST`; rightLabel=`${tossWinner}\nPLAYS FIRST`; actor=tossLoser!; actorCol=loseCol; }
+    if (phase==="rule_choice")      { title=`${nameOf(tossWinner!)} WON THE TOSS — CHOOSE YOUR RULE`; leftLabel="DECIDE WHO\nPLAYS FIRST"; rightLabel="BLOCK C3\nFIRST MOVE"; actor=nameOf(tossWinner!); actorCol=winCol; }
+    if (phase==="who_first_winner") { title=`${nameOf(tossWinner!)} — WHO PLAYS FIRST IN ROUND 3?`; leftLabel=`${nameOf(tossWinner!)}\nPLAYS FIRST`; rightLabel=`${nameOf(tossLoser)}\nPLAYS FIRST`; actor=nameOf(tossWinner!); actorCol=winCol; }
+    if (phase==="c3_choice")        { title=`${nameOf(tossWinner!)} — CHOOSE C3 RULE`; leftLabel="BLOCK C3"; rightLabel="ALLOW C3"; actor=nameOf(tossWinner!); actorCol=winCol; }
+    if (phase==="c3_choice_loser")  { title=`${nameOf(tossLoser)} — CHOOSE C3 RULE`; leftLabel="BLOCK C3"; rightLabel="ALLOW C3"; actor=nameOf(tossLoser); actorCol=loseCol; }
+    if (phase==="who_first_loser")  { title=`${nameOf(tossLoser)} — WHO PLAYS FIRST IN ROUND 3?`; leftLabel=`${nameOf(tossLoser)}\nPLAYS FIRST`; rightLabel=`${nameOf(tossWinner!)}\nPLAYS FIRST`; actor=nameOf(tossLoser); actorCol=loseCol; }
 
     const maxTime = PHASE_TIMERS[phase] ?? 60;
     const pct     = Math.max(0, choiceTimer / maxTime);
@@ -162,7 +168,7 @@ const isBotChoosing = isBotTurnToChoose;
           <div style={{ background:`${winCol}12`, border:`1px solid ${winCol}44`, borderRadius:ip?2:10, padding:"12px 20px", maxWidth:480, width:"100%", textAlign:"center", animation:"fadeUp 0.3s ease both" }}>
             <div style={{ fontFamily:t.fontMono, fontSize:11, color:t.textMuted, letterSpacing:"0.12em", marginBottom:6 }}>{tossWinner} ALREADY CHOSE</div>
             {phase === "c3_choice_loser" && winnerPickedFirst && (
-              <div style={{ fontFamily:t.fontDisplay, fontSize:18, fontWeight:700, color:winCol }}>PLAYS FIRST: {winnerPickedFirst}</div>
+              <div style={{ fontFamily:t.fontDisplay, fontSize:18, fontWeight:700, color:winCol }}>PLAYS FIRST: {nameOf(winnerPickedFirst)}</div>
             )}
             {phase === "who_first_loser" && winnerPickedC3 !== null && (
               <div style={{ fontFamily:t.fontDisplay, fontSize:18, fontWeight:700, color:winCol }}>C3: {winnerPickedC3 ? "BLOCKED" : "ALLOWED"}</div>
@@ -234,7 +240,7 @@ const isBotChoosing = isBotTurnToChoose;
             const isMe     = isMultiplayerGame && p === mySlot;
             return (
               <div key={p} style={{ flex:1, background:t.bgCard, border:`3px solid ${col}${isMe?"":"66"}`, borderRadius:ip?2:14, padding:"24px 20px", textAlign:"center", opacity:isMe?1:0.8 }}>
-                <div style={{ fontFamily:t.fontDisplay, fontSize:50, fontWeight:900, color:col, marginBottom:4 }}>{p}</div>
+                <div style={{ fontFamily:t.fontDisplay, fontSize:50, fontWeight:900, color:col, marginBottom:4 }}>{nameOf(p)}</div>
                 {isMe && (<div style={{ fontFamily:t.fontMono, fontSize:10, color:col, letterSpacing:"0.14em", marginBottom:10, opacity:0.7 }}>YOU</div>)}
                 <div style={{ fontFamily:t.fontMono, fontSize:11, color:t.textMuted, letterSpacing:"0.1em", marginBottom:6 }}>{isWinner ? "TOSS WINNER" : "TOSS LOSER"}</div>
                 <div style={{ fontFamily:t.fontMono, fontSize:16, color:t.textSecondary, whiteSpace:"pre-line", lineHeight:1.9 }}>{choice}</div>

@@ -42,6 +42,8 @@ def serialize_room(room: dict) -> dict:
         "player2_id":     room.get("player2_id"),
         "player1_name":   room.get("player1_name"),
         "player2_name":   room.get("player2_name"),
+        "player1_elo":    room.get("player1_elo"),
+        "player2_elo":    room.get("player2_elo"),
         "board":          room.get("board"),
         "current_player": room.get("current_player", "P1"),
         "moves_played":   room.get("moves_played", 0),
@@ -49,17 +51,41 @@ def serialize_room(room: dict) -> dict:
         "game_status":    room.get("game_status", "waiting"),
     }
 
-def compute_series_winner(history: list) -> str | None:
-    """Given a match history list, return the series winner or None if undecided."""
+def compute_series_winner(history: list, is_ranked: bool = False) -> str | None:
+    """Given a match history list, return the series winner or None if undecided.
+    
+    For non-ranked (unranked/custom): WIN+DRAW forces a rulebreaker (returns None).
+    Only 2-0 sweeps end early. If the non-winner wins the rulebreaker, series = DRAW.
+    """
     if len(history) < 2:
         return None
     g1, g2 = history[0], history[1]
+    # 2-0 sweep — same player wins both: always decisive
     if g1 == g2 and g1 in ("P1", "P2"):
         return g1
-    if g1 != "DRAW" and g2 == "DRAW":
-        return g1
-    if g2 != "DRAW" and g1 == "DRAW":
-        return g2
+    # WIN + DRAW or DRAW + WIN
+    if (g1 != "DRAW" and g2 == "DRAW") or (g2 != "DRAW" and g1 == "DRAW"):
+        # Non-ranked: force rulebreaker
+        if not is_ranked:
+            if len(history) >= 3:
+                g3 = history[2]
+                # The G1/G2 winner
+                original_winner = g1 if g1 != "DRAW" else g2
+                # If the original winner also wins G3, they win the series
+                if g3 == original_winner:
+                    return original_winner
+                # Otherwise (opponent wins G3 or G3 is draw), series is DRAW
+                return "DRAW"
+            return None  # force rulebreaker
+        else:
+            # Ranked: immediate win for the non-draw player
+            return g1 if g1 != "DRAW" else g2
+    # Both draws after 2 games
+    if g1 == "DRAW" and g2 == "DRAW":
+        if len(history) >= 3:
+            return history[2]
+        return None
+    # Different winners (P1 won one, P2 won other) — force rulebreaker
     if len(history) >= 3:
         return history[-1]
     return None
@@ -100,6 +126,7 @@ async def queue_join(data: QueueRequest, user_id: str = Depends(get_current_user
             {"$set": {
                 "player2_id":   user_id,
                 "player2_name": player_name,
+                "player2_elo":  user.get("elo", 100),
                 "status":       "active",
                 "game_status":  "playing",
             }}
@@ -130,9 +157,11 @@ async def queue_join(data: QueueRequest, user_id: str = Depends(get_current_user
         "room_code":      code,
         "status":         "waiting",
         "format":         fmt,
+        "source":         "matchmaking",
         "player1_id":     user_id,
         "player2_id":     None,
         "player1_name":   player_name,
+        "player1_elo":    user.get("elo", 100),
         "player2_name":   None,
         "board":          engine.board,
         "current_player": "P1",
@@ -195,10 +224,13 @@ async def create_room(data: CreateRoomRequest, user_id: str = Depends(get_curren
         "room_code":       code,
         "status":          "waiting",
         "format":          data.format,
+        "source":          "private",
         "player1_id":      user_id if creator_slot == "P1" else None,
         "player2_id":      user_id if creator_slot == "P2" else None,
         "player1_name":    player_name if creator_slot == "P1" else None,
         "player2_name":    player_name if creator_slot == "P2" else None,
+        "player1_elo":     user.get("elo", 100) if creator_slot == "P1" else None,
+        "player2_elo":     user.get("elo", 100) if creator_slot == "P2" else None,
         "creator_slot":    creator_slot,
         "board":           engine.board,
         "current_player":  "P1",
@@ -256,9 +288,11 @@ async def join_room(data: JoinRoomRequest, user_id: str = Depends(get_current_us
     if joiner_slot == "P1":
         update_fields["player1_id"]   = user_id
         update_fields["player1_name"] = player_name
+        update_fields["player1_elo"]  = user.get("elo", 100)
     else:
         update_fields["player2_id"]   = user_id
         update_fields["player2_name"] = player_name
+        update_fields["player2_elo"]  = user.get("elo", 100)
 
     await db.rooms.update_one({"room_code": code}, {"$set": update_fields})
     room = await db.rooms.find_one({"room_code": code})
@@ -368,7 +402,8 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                     # Track match history in DB so rematch can snapshot it as last_series
                     current_history  = room.get("match_history", [])
                     new_history      = current_history + [result.get("winner")]
-                    series_winner    = compute_series_winner(new_history)
+                    is_ranked        = room.get("format") == "ranked"
+                    series_winner    = compute_series_winner(new_history, is_ranked=is_ranked)
                     history_update   = {"match_history": new_history, "series_winner": series_winner}
 
                     await db.rooms.update_one(
@@ -380,6 +415,7 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                         "player1_id": room["player1_id"],
                         "player2_id": room["player2_id"],
                         "format":     room["format"],
+                        "source":     room.get("source", "matchmaking"),
                         "mode":       "multiplayer",
                     }
                     asyncio.create_task(award_game_result(db, game_dict, result.get("winner")))
@@ -570,6 +606,39 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                     except:
                         pass
                 await db.rooms.update_one({"room_code": room_code}, {"$set": reset})
+
+            elif msg["type"] == "timeout":
+                winner = msg.get("winner")
+                if winner not in ("P1", "P2"):
+                    continue
+                room = await db.rooms.find_one({"room_code": room_code})
+                if not room or room.get("game_status") != "playing":
+                    continue
+                # Only process if no winner yet
+                if room.get("winner"):
+                    continue
+                update = {
+                    "winner":      winner,
+                    "game_status": "finished",
+                    "status":      "finished",
+                }
+                current_history = room.get("match_history", [])
+                new_history     = current_history + [winner]
+                is_ranked       = room.get("format") == "ranked"
+                series_winner   = compute_series_winner(new_history, is_ranked=is_ranked)
+                update["match_history"]  = new_history
+                update["series_winner"]  = series_winner
+                _room_state[room_code] = {**room, **update}
+                await db.rooms.update_one({"room_code": room_code}, {"$set": update})
+                # Award game result for career tracking
+                game_dict = {
+                    "player1_id": room["player1_id"],
+                    "player2_id": room["player2_id"],
+                    "format":     room["format"],
+                    "source":     room.get("source", "matchmaking"),
+                    "mode":       "multiplayer",
+                }
+                asyncio.create_task(award_game_result(db, game_dict, winner))
 
             elif msg["type"] == "ping":
                 await websocket.send_json({"type": "pong"})

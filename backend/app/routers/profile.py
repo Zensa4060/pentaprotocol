@@ -1,4 +1,4 @@
-﻿from fastapi import APIRouter, HTTPException, Header, Depends
+from fastapi import APIRouter, HTTPException, Header, Depends
 from app.core.database import get_db
 from app.core.security import decode_token
 from bson import ObjectId
@@ -57,6 +57,25 @@ async def get_profile(user_id: str = Depends(get_current_user)):
     if not user:
         raise HTTPException(404, "User not found")
     return _serialize_user(user)
+
+
+@router.get("/career")
+async def get_career(user_id: str = Depends(get_current_user)):
+    db = get_db()
+    cursor = db.match_history.find({"user_id": user_id}).sort("played_at", -1).limit(20)
+    matches = []
+    async for doc in cursor:
+        matches.append({
+            "opponent_username": doc.get("opponent_username", "Unknown"),
+            "opponent_elo":      doc.get("opponent_elo", 100),
+            "result":            doc.get("result", "loss"),
+            "elo_before":        doc.get("elo_before", 100),
+            "elo_after":         doc.get("elo_after", 100),
+            "elo_delta":         doc.get("elo_delta", 0),
+            "mode":              doc.get("mode", "unranked"),
+            "played_at":         doc.get("played_at", "").isoformat() if doc.get("played_at") else "",
+        })
+    return matches
 
 
 @router.get("/leaderboard")

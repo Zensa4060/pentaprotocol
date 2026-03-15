@@ -100,15 +100,11 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
     ? (mySlot === "P2" ? myDisplayName : oppDisplayName)
     : gameMode === "ai" ? "BOT" : "P2";
 
-  const p1Label = gameMode === "singleplayer"
-    ? `${p1DisplayName} (X)`
-    : p1DisplayName;
+  const p1Label = `${p1DisplayName} (${pieceSymbols.p1})`;
 
-  const p2Label = gameMode === "singleplayer"
-    ? "P2 (Y)"
-    : gameMode === "ai"
-    ? "BOT"
-    : p2DisplayName;
+  const p2Label = gameMode === "ai"
+    ? `BOT (${pieceSymbols.p2})`
+    : `${p2DisplayName} (${pieceSymbols.p2})`;
 
   const winnerDisplayName = (w: string | null): string => {
     if (w === "P1") return p1DisplayName;
@@ -486,9 +482,28 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
   const checkSeriesWinner = (hist: string[]): string | null => {
     if (hist.length < 2) return null;
     const [g1, g2] = hist;
+    // 2-0 sweep: always decisive
     if (g1 === g2 && (g1 === "P1" || g1 === "P2")) return g1;
-    if (g1 !== "DRAW" && g2 === "DRAW") return g1;
-    if (g2 !== "DRAW" && g1 === "DRAW") return g2;
+    // WIN + DRAW or DRAW + WIN
+    if ((g1 !== "DRAW" && g2 === "DRAW") || (g2 !== "DRAW" && g1 === "DRAW")) {
+      // Non-ranked: force rulebreaker
+      if (!isRankedGame) {
+        if (hist.length >= 3) {
+          const g3 = hist[2];
+          const originalWinner = g1 !== "DRAW" ? g1 : g2;
+          return g3 === originalWinner ? originalWinner : "DRAW";
+        }
+        return null; // force rulebreaker
+      }
+      // Ranked fallback
+      return g1 !== "DRAW" ? g1 : g2;
+    }
+    // Both draws
+    if (g1 === "DRAW" && g2 === "DRAW") {
+      return hist.length >= 3 ? hist[2] : null;
+    }
+    // Different winners — rulebreaker
+    if (hist.length >= 3) return hist[hist.length - 1];
     return null;
   };
 
@@ -528,7 +543,30 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
             setP1Time(p1TimeRef.current);
           }
           if (p1TimeRef.current <= 0 && !s.winner) {
-            setWinner("P2");
+            const w = "P2";
+            setWinner(w);
+            // For multiplayer, the winner useEffect returns early, so handle timeout directly
+            if (isMultiplayerGame) {
+              wsRef.current?.send(JSON.stringify({ type: "timeout", winner: w }));
+              playDefeat?.();
+              requestAnimationFrame(() => { setShowWinOverlay(true); requestAnimationFrame(() => setOverlayVisible(true)); });
+              const newHist = [...matchHistoryRef.current, w];
+              matchHistoryRef.current = newHist;
+              R.current.matchHistory = newHist;
+              setMatchHistory([...newHist]);
+              const sw = checkSeriesWinner(newHist);
+              if (newHist.length >= 3 || sw !== null) {
+                setMatchOver(true);
+                setSeriesWinner(sw ?? newHist[newHist.length - 1]);
+                setPhase("match_over");
+                wsRef.current?.send(JSON.stringify({ type: "match_over_notify" }));
+              } else if (newHist.length === 2) {
+                setGameNumber(3);
+                if (mySlot === "P1") wsRef.current?.send(JSON.stringify({ type: "toss_action", action: "start_rb", payload: {} }));
+              } else {
+                setP1Ready(false); setP2Ready(false); setReadyTimeout(60); setReadyTimer(0); setPhase("waiting_ready");
+              }
+            }
           }
         } else {
           p2TimeRef.current = Math.max(0, p2TimeRef.current - dt);
@@ -538,14 +576,47 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
             setP2Time(p2TimeRef.current);
           }
           if (p2TimeRef.current <= 0 && !s.winner) {
-            setWinner("P1");
+            const w = "P1";
+            setWinner(w);
+            if (isMultiplayerGame) {
+              wsRef.current?.send(JSON.stringify({ type: "timeout", winner: w }));
+              playVictory?.();
+              requestAnimationFrame(() => { setShowWinOverlay(true); requestAnimationFrame(() => setOverlayVisible(true)); });
+              const newHist = [...matchHistoryRef.current, w];
+              matchHistoryRef.current = newHist;
+              R.current.matchHistory = newHist;
+              setMatchHistory([...newHist]);
+              const sw = checkSeriesWinner(newHist);
+              if (newHist.length >= 3 || sw !== null) {
+                setMatchOver(true);
+                setSeriesWinner(sw ?? newHist[newHist.length - 1]);
+                setPhase("match_over");
+                wsRef.current?.send(JSON.stringify({ type: "match_over_notify" }));
+              } else if (newHist.length === 2) {
+                setGameNumber(3);
+                if (mySlot === "P1") wsRef.current?.send(JSON.stringify({ type: "toss_action", action: "start_rb", payload: {} }));
+              } else {
+                setP1Ready(false); setP2Ready(false); setReadyTimeout(60); setReadyTimer(0); setPhase("waiting_ready");
+              }
+            }
           }
         }
       }
 
       if (s.phase === "waiting_ready") {
         if (!s.p1Ready || !s.p2Ready) {
-          setReadyTimeout(v => { const nv = v - dt / 1000; if (nv <= 0) { setP1Ready(true); setP2Ready(true); setReadyTimer(1); return 0; } return nv; });
+          setReadyTimeout(v => {
+            const nv = v - dt / 1000;
+            if (nv <= 0) {
+              // Multiplayer: send ready via WS so server stays in sync
+              if (isMultiplayerGame && wsRef.current?.readyState === WebSocket.OPEN) {
+                wsRef.current.send(JSON.stringify({ type: "ready", ready: true }));
+              }
+              setP1Ready(true); setP2Ready(true); setReadyTimer(1);
+              return 0;
+            }
+            return nv;
+          });
         } else if (s.readyTimer > 0) {
           setReadyTimer(v => { const nv = v - dt / 1000; if (nv <= 0) { doAdvanceAfterReady(); return 0; } return nv; });
         }
@@ -845,6 +916,7 @@ useEffect(() => {
         winnerPickedRule={winnerPickedRule} winnerPickedFirst={winnerPickedFirst} winnerPickedC3={winnerPickedC3}
         botPickedSide={botPickedSide}
         gameMode={gameMode}
+        p1Label={p1Label} p2Label={p2Label}
         onLeft={onLeft} onRight={onRight} fmtSec={fmtSec}
       />
     );

@@ -35,6 +35,10 @@ export default function LobbyScreen({ setScreen, themeId, onQueueStart, onQueueC
   const [queuePlayerSlot, setQueuePlayerSlot] = useState<"P1" | "P2">("P1");
   const queuePollRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Opponent info for matchup screen
+  const [matchupOpponentName, setMatchupOpponentName] = useState<string>("OPPONENT");
+  const [matchupOpponentElo, setMatchupOpponentElo]   = useState<number | null>(null);
+
   // ── Room state ────────────────────────────────────────────────────────────
   const [roomSection, setRoomSection] = useState<"none" | "create" | "join" | "waiting">("none");
   const [roomFormat,  setRoomFormat]  = useState<"unranked" | "ranked">("unranked");
@@ -89,7 +93,20 @@ export default function LobbyScreen({ setScreen, themeId, onQueueStart, onQueueC
         const res = await API.post("/api/room/queue/join", { format: multiSub }, authHeader);
         if (queueCancelledRef.current) return;
         if (res.data.matched) {
-          onRoomReady?.(res.data.room_code, res.data.player_slot, multiSub);
+          // Extract opponent info from the matched response
+          const room = res.data.room;
+          const myS = res.data.player_slot as "P1" | "P2";
+          const matchedCode = res.data.room_code;
+          if (room) {
+            setMatchupOpponentName(myS === "P2" ? (room.player1_name ?? "OPPONENT") : (room.player2_name ?? "OPPONENT"));
+            setMatchupOpponentElo(myS === "P2" ? (room.player1_elo ?? null) : (room.player2_elo ?? null));
+          }
+          // Show matchup screen for both players (don't skip to game immediately)
+          setQueueRoomCode(matchedCode);
+          setQueuePlayerSlot(myS);
+          setPhase("matchup");
+          setCountdown(3.5);
+          setTimeout(() => { onQueueCancel(); onRoomReady?.(matchedCode, myS, multiSub); }, 3500);
           return;
         }
         const code = res.data.room_code;
@@ -102,6 +119,11 @@ export default function LobbyScreen({ setScreen, themeId, onQueueStart, onQueueC
             const poll = await API.get(`/api/room/queue/status/${code}`);
             if (poll.data.game_status === "playing") {
               clearInterval(queuePollRef.current!);
+              // Grab opponent info from room data
+              const oppN = slot === "P1" ? poll.data.player2_name : poll.data.player1_name;
+              const oppE = slot === "P1" ? poll.data.player2_elo  : poll.data.player1_elo;
+              setMatchupOpponentName(oppN ?? "OPPONENT");
+              setMatchupOpponentElo(oppE ?? null);
               setPhase("matchup");
               setCountdown(3.5);
               setTimeout(() => { onQueueCancel(); onRoomReady?.(code, slot, multiSub); }, 3500);
@@ -239,8 +261,8 @@ export default function LobbyScreen({ setScreen, themeId, onQueueStart, onQueueC
         <div style={vsStyle}>VS</div>
         <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:16, animation:"slideInRight 0.6s cubic-bezier(.22,.68,0,1.2) both" }}>
           <Avatar color={t.p2} />
-          <div style={{ fontFamily:t.fontDisplay, fontSize:18, fontWeight:700, color:t.p2, letterSpacing:"0.12em" }}>OPPONENT</div>
-          <div style={{ fontFamily:t.fontMono, fontSize:13, color:t.textMuted }}>{(user?.elo ?? 100) + Math.floor(Math.random() * 40) - 20} ELO</div>
+          <div style={{ fontFamily:t.fontDisplay, fontSize:18, fontWeight:700, color:t.p2, letterSpacing:"0.12em" }}>{matchupOpponentName}</div>
+          <div style={{ fontFamily:t.fontMono, fontSize:13, color:t.textMuted }}>{matchupOpponentElo ?? "---"} ELO</div>
         </div>
       </div>
       <div style={{ marginTop:64, width:"min(340px,80vw)" }}>

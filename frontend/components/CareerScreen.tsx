@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import type { ThemeId } from "@/lib/themes";
 import { THEMES } from "@/lib/themes";
 import { useAuthStore } from "@/lib/store";
+import API from "@/lib/api";
 
 // ── Rank definitions (mirrors ProfileScreen exactly) ─────────────────────────
 const RANKS = [
@@ -31,35 +32,16 @@ const RankBadge = ({ elo, size = 48 }: { elo: number; size?: number }) => {
   );
 };
 
-// ── Mock match history data ───────────────────────────────────────────────────
-const MOCK_OPPONENTS = [
-  "ShadowByte", "NeonViper", "CryptoKing", "VoidWalker", "IronFist",
-  "StormBreaker", "NightOwl", "PhantomX", "CodeBreaker", "RuinedKing",
-  "AlphaWolf", "DarkMatter", "GlitchHunter", "ZeroPoint", "EchoStrike",
-  "BlazeRunner", "FrostByte", "OmegaForce", "NullPointer", "LastSurvivor",
-];
-
-function generateMockHistory(baseElo: number) {
-  return Array.from({ length: 20 }, (_, i) => {
-    const win = Math.random() > 0.45;
-    const eloDelta = win
-      ? Math.floor(Math.random() * 22) + 8
-      : -(Math.floor(Math.random() * 18) + 6);
-    const oppElo = Math.max(100, baseElo + Math.floor(Math.random() * 200) - 100);
-    const modes = ["Ranked", "Ranked", "Ranked", "Unranked"] as const;
-    const daysAgo = i * Math.floor(Math.random() * 3 + 1);
-    const date = new Date(Date.now() - daysAgo * 86400000);
-    return {
-      id: i,
-      win,
-      eloDelta,
-      opponent: MOCK_OPPONENTS[i % MOCK_OPPONENTS.length],
-      oppElo,
-      mode: modes[Math.floor(Math.random() * modes.length)],
-      score: win ? `2-${Math.floor(Math.random() * 2)}` : `${Math.floor(Math.random() * 2)}-2`,
-      date: date.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }),
-    };
-  });
+// ── Match record type from API ────────────────────────────────────────────────
+interface MatchRecord {
+  opponent_username: string;
+  opponent_elo: number;
+  result: "win" | "loss" | "draw";
+  elo_before: number;
+  elo_after: number;
+  elo_delta: number;
+  mode: "ranked" | "unranked" | "custom";
+  played_at: string;
 }
 
 interface Props { themeId: ThemeId; onHover?: () => void; }
@@ -75,20 +57,47 @@ export default function CareerScreen({ themeId, onHover }: Props) {
   const badgeSize = 120;
   const imgSize = badgeSize * 0.85 * scale;
 
-  const [history] = useState(() => generateMockHistory(elo));
+  const [history, setHistory] = useState<MatchRecord[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  // Compute career stats from mock
-  const wins = history.filter(m => m.win).length;
-  const losses = history.length - wins;
-  const eloGained = history.filter(m => m.eloDelta > 0).reduce((s, m) => s + m.eloDelta, 0);
-  const eloLost   = history.filter(m => m.eloDelta < 0).reduce((s, m) => s + m.eloDelta, 0);
-  const winRate   = Math.round((wins / history.length) * 100);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await API.get("/api/profile/career");
+        if (!cancelled) setHistory(res.data);
+      } catch (err) {
+        console.error("Failed to load career data:", err);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  // Compute career stats from real data
+  const wins = history.filter(m => m.result === "win").length;
+  const losses = history.filter(m => m.result === "loss").length;
+  const eloGained = history.filter(m => m.elo_delta > 0).reduce((s, m) => s + m.elo_delta, 0);
+  const winRate = history.length > 0 ? Math.round((wins / history.length) * 100) : 0;
 
   const nextRank  = RANKS[Math.min(RANKS.indexOf(rank) + 1, RANKS.length - 1)];
   const eloToNext = nextRank !== rank ? nextRank.min - elo : 0;
   const rankProgress = nextRank !== rank
     ? Math.min(100, Math.round(((elo - rank.min) / (nextRank.min - rank.min)) * 100))
     : 100;
+
+  const formatDate = (iso: string) => {
+    if (!iso) return "—";
+    const d = new Date(iso);
+    return d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+  };
+
+  const modeLabel = (mode: string) => {
+    if (mode === "ranked") return "Ranked";
+    if (mode === "custom") return "Custom";
+    return "Unranked";
+  };
 
   return (
     <div style={{
@@ -226,20 +235,52 @@ export default function CareerScreen({ themeId, onHover }: Props) {
           }}>
             <span>RESULT</span>
             <span>OPPONENT</span>
-            <span>MODE · SCORE</span>
+            <span>MODE</span>
             <span style={{ textAlign: "center" }}>ELO</span>
             <span style={{ textAlign: "right" }}>DATE</span>
           </div>
 
+          {/* Loading state */}
+          {loading && (
+            <div style={{
+              padding: "60px 20px", textAlign: "center",
+              fontFamily: t.fontMono, fontSize: 13, color: t.textMuted,
+              letterSpacing: "0.1em",
+            }}>
+              LOADING MATCH HISTORY...
+            </div>
+          )}
+
+          {/* Empty state */}
+          {!loading && history.length === 0 && (
+            <div style={{
+              padding: "60px 20px", textAlign: "center",
+            }}>
+              <div style={{ fontSize: 40, marginBottom: 16 }}></div>
+              <div style={{
+                fontFamily: t.fontDisplay, fontSize: ip ? 14 : 18, fontWeight: 700,
+                color: t.textMuted, letterSpacing: "0.08em", marginBottom: 8,
+              }}>NO MATCHES YET</div>
+              <div style={{
+                fontFamily: t.fontMono, fontSize: 11, color: t.textMuted,
+                opacity: 0.6, letterSpacing: "0.06em",
+              }}>Play multiplayer matches to build your career history</div>
+            </div>
+          )}
+
           {/* Rows */}
-          {history.map((match, i) => {
-            const oppRank = getRank(match.oppElo);
-            const isWin = match.win;
-            const deltaColor = isWin ? "#34D399" : "#FF4444";
+          {!loading && history.map((match, i) => {
+            const oppRank = getRank(match.opponent_elo);
+            const isWin = match.result === "win";
+            const isDraw = match.result === "draw";
+            const deltaColor = isWin ? "#34D399" : isDraw ? "#F59E0B" : "#FF4444";
+            const resultLabel = isWin ? "WIN" : isDraw ? "DRAW" : "LOSS";
+            const resultBg = isWin ? "#34D39922" : isDraw ? "#F59E0B22" : "#FF444422";
+            const resultBorder = isWin ? "#34D39966" : isDraw ? "#F59E0B66" : "#FF444466";
 
             return (
               <div
-                key={match.id}
+                key={i}
                 className="career-row"
                 style={{
                   display: "grid",
@@ -254,39 +295,36 @@ export default function CareerScreen({ themeId, onHover }: Props) {
                 <div>
                   <div style={{
                     display: "inline-flex", alignItems: "center", justifyContent: "center",
-                    width: 36, height: 22, borderRadius: 4,
-                    background: isWin ? "#34D39922" : "#FF444422",
-                    border: `1px solid ${isWin ? "#34D39966" : "#FF444466"}`,
+                    width: isDraw ? 44 : 36, height: 22, borderRadius: 4,
+                    background: resultBg,
+                    border: `1px solid ${resultBorder}`,
                     fontFamily: t.fontMono, fontSize: 11, fontWeight: 800,
-                    color: isWin ? "#34D399" : "#FF4444",
+                    color: deltaColor,
                     letterSpacing: "0.06em",
                   }}>
-                    {isWin ? "WIN" : "LOSS"}
+                    {resultLabel}
                   </div>
                 </div>
 
                 {/* Opponent */}
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <RankBadge elo={match.oppElo} size={30} />
+                  <RankBadge elo={match.opponent_elo} size={30} />
                   <div>
                     <div style={{
                       fontFamily: t.fontBody, fontSize: 14, fontWeight: 600,
                       color: t.text, letterSpacing: "0.02em",
-                    }}>{match.opponent}</div>
+                    }}>{match.opponent_username}</div>
                     <div style={{
                       fontFamily: t.fontMono, fontSize: 10,
                       color: oppRank.color, letterSpacing: "0.08em",
-                    }}>{oppRank.name} · {match.oppElo}</div>
+                    }}>{oppRank.name} · {match.opponent_elo}</div>
                   </div>
                 </div>
 
-                {/* Mode · Score */}
+                {/* Mode */}
                 <div>
                   <div style={{ fontFamily: t.fontMono, fontSize: 11, color: t.textMuted, letterSpacing: "0.06em" }}>
-                    {match.mode}
-                  </div>
-                  <div style={{ fontFamily: t.fontMono, fontSize: 13, fontWeight: 700, color: t.textSecondary }}>
-                    {match.score}
+                    {modeLabel(match.mode)}
                   </div>
                 </div>
 
@@ -297,7 +335,7 @@ export default function CareerScreen({ themeId, onHover }: Props) {
                     color: deltaColor,
                     textShadow: `0 0 8px ${deltaColor}66`,
                   }}>
-                    {isWin ? "+" : ""}{match.eloDelta}
+                    {match.elo_delta > 0 ? "+" : ""}{match.elo_delta}
                   </span>
                 </div>
 
@@ -306,7 +344,7 @@ export default function CareerScreen({ themeId, onHover }: Props) {
                   fontFamily: t.fontMono, fontSize: 10, color: t.textMuted,
                   textAlign: "right", letterSpacing: "0.04em",
                 }}>
-                  {match.date}
+                  {formatDate(match.played_at)}
                 </div>
               </div>
             );
@@ -314,13 +352,15 @@ export default function CareerScreen({ themeId, onHover }: Props) {
         </div>
 
         {/* Footer note */}
-        <div style={{
-          textAlign: "center", marginTop: 16,
-          fontFamily: t.fontMono, fontSize: 10,
-          color: t.textMuted, letterSpacing: "0.1em",
-        }}>
-          SHOWING LAST 20 MATCHES
-        </div>
+        {!loading && history.length > 0 && (
+          <div style={{
+            textAlign: "center", marginTop: 16,
+            fontFamily: t.fontMono, fontSize: 10,
+            color: t.textMuted, letterSpacing: "0.1em",
+          }}>
+            SHOWING LAST {history.length} MATCH{history.length !== 1 ? "ES" : ""}
+          </div>
+        )}
 
       </div>
     </div>
