@@ -762,20 +762,6 @@ export default function GameScreen({ themeId, setThemeId, isSingleplayer, gameMo
       if (current !== mySlot) return;
       if (wsRef.current?.readyState !== WebSocket.OPEN) return;
       playPlace?.();
-      // ── Optimistic UI: show the piece immediately ──
-      const nb = board.map(row => [...row]);
-      nb[r][c] = current;
-      setBoard(nb);
-      const newMoves = movesPlayed + 1;
-      let newExtra = extraTurns, nextPlayer = current;
-      if (newMoves === 1 && r === 2 && c === 2) { nextPlayer = current === "P1" ? "P2" : "P1"; newExtra = 2; }
-      else if (newExtra > 0) { newExtra--; if (newExtra === 0) nextPlayer = current === "P1" ? "P2" : "P1"; }
-      else { nextPlayer = current === "P1" ? "P2" : "P1"; }
-      setMovesPlayed(newMoves);
-      setExtraTurns(newExtra);
-      setCurrent(nextPlayer);
-      addLog(r, c, current);
-      // Send to server — server's move_made response will reconcile if needed
       wsRef.current.send(JSON.stringify({ type: "move", row: r, col: c }));
       return;
     }

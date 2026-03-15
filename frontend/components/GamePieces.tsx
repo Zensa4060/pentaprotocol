@@ -123,7 +123,8 @@ export const RedCell = React.memo(function RedCell({ cellSize, player, isWinCell
   const renderPiece = (slot: "P1" | "P2") => {
     if (useFlameSkull) return slot === "P1" ? <Flame size={numSizeRef.current}/> : <Skull size={numSizeRef.current}/>;
     if (useSnowflakeShard) return slot === "P1" ? <SnowflakePiece size={numSizeRef.current}/> : <IceShardPiece size={numSizeRef.current}/>;
-    return <Piece symbol={slot === "P1" ? pieceSymbols.p1 : pieceSymbols.p2} color={slot === "P1" ? p1c : p2c} size="36%"/>;
+    const sc = slot === "P1" ? p1c : p2c;
+    return <span style={{ fontFamily:fontDisplay, fontSize:"clamp(24px,5.5vmin,58px)", fontWeight:700, color:sc, textShadow:`0 0 14px ${sc}88`, position:"relative", zIndex:4 }}>{slot === "P1" ? pieceSymbols.p1 : pieceSymbols.p2}</span>;
   };
   return (
     <div ref={ref} onClick={onClick} onMouseEnter={onMouseEnter} onMouseLeave={onMouseLeave}
@@ -238,7 +239,8 @@ export const IceCell = React.memo(function IceCell({ cellSize, player, isWinCell
   const renderPiece = (slot: "P1" | "P2") => {
     if (useFlameSkull) return slot === "P1" ? <Flame size={numSizeRef.current}/> : <Skull size={numSizeRef.current}/>;
     if (useSnowflakeShard) return slot === "P1" ? <SnowflakePiece size={numSizeRef.current}/> : <IceShardPiece size={numSizeRef.current}/>;
-    return <Piece symbol={slot === "P1" ? pieceSymbols.p1 : pieceSymbols.p2} color={slot === "P1" ? p1c : p2c} size="36%"/>;
+    const sc = slot === "P1" ? p1c : p2c;
+    return <span style={{ fontFamily:fontDisplay, fontSize:"clamp(24px,5.5vmin,58px)", fontWeight:700, color:sc, textShadow:`0 0 14px ${sc}88`, position:"relative", zIndex:4 }}>{slot === "P1" ? pieceSymbols.p1 : pieceSymbols.p2}</span>;
   };
   return (
     <div ref={ref} onClick={onClick} onMouseEnter={onMouseEnter} onMouseLeave={onMouseLeave}
