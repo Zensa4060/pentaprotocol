@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type { Screen } from "@/lib/types";
 import type { ThemeId } from "@/lib/themes";
 import { THEMES } from "@/lib/themes";
@@ -29,6 +29,17 @@ export default function MultiplayerScreen({ setScreen, themeId, onHover, onRoomR
   const [error, setError] = useState<string | null>(null);
   const [roomCode, setRoomCode] = useState<string | null>(null);
   const [waiting, setWaiting] = useState(false);
+  const [vw, setVw] = useState(1440);
+
+  useEffect(() => {
+    const update = () => setVw(window.innerWidth);
+    update();
+    window.addEventListener("resize", update);
+    return () => window.removeEventListener("resize", update);
+  }, []);
+
+  const isMobile = vw < 640;
+  const isTablet = vw >= 640 && vw < 1024;
 
   const authHeader = { headers: { Authorization: `Bearer ${token}` } };
   const level = (user as any)?.level ?? 1;
@@ -142,12 +153,14 @@ export default function MultiplayerScreen({ setScreen, themeId, onHover, onRoomR
   return (
     <div style={{
       position: "fixed", inset: 0, zIndex: 2, background: t.bg, transition: "background 0.4s",
-      display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "space-evenly",
-      padding: "90px 24px 40px", overflowY: "auto",
+      display: "flex", flexDirection: "column", alignItems: "center",
+      justifyContent: isMobile ? "flex-start" : "space-evenly",
+      padding: isMobile ? "80px 16px 40px" : "90px 24px 40px", overflowY: "auto",
     }}>
       <div style={{
-        fontFamily: t.fontDisplay, fontSize: "clamp(28px,5vw,60px)", fontWeight: 900,
+        fontFamily: t.fontDisplay, fontSize: isMobile ? 32 : "clamp(36px,5vw,60px)", fontWeight: 900,
         color: t.accent, textAlign: "center", textShadow: `0 0 40px ${t.accentGlow}44`,
+        marginBottom: isMobile ? 24 : 0,
       }}>
         MULTIPLAYER
       </div>
@@ -170,7 +183,11 @@ export default function MultiplayerScreen({ setScreen, themeId, onHover, onRoomR
           ))}
         </div>
 
-        <div style={{ background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: ip ? 2 : 16, padding: "28px 28px 24px", display: "flex", flexDirection: "column", gap: 20 }}>
+        <div style={{
+          background: t.bgCard, border: `1px solid ${t.border}`,
+          borderRadius: ip ? 2 : 16, padding: isMobile ? "24px 20px" : "28px 28px 32px",
+          display: "flex", flexDirection: "column", gap: isMobile ? 16 : 20,
+        }}>
 
           {/* Error */}
           {error && (
@@ -195,21 +212,21 @@ export default function MultiplayerScreen({ setScreen, themeId, onHover, onRoomR
                       <button key={f}
                         onClick={() => { if (!locked) { setFormat(f); setError(null); } }}
                         style={{
-                          flex: 1, padding: ip ? "24px 20px" : "28px 24px",
+                          flex: 1, padding: ip ? "24px 20px" : isMobile ? "32px 24px" : "40px 28px",
                           border: `2px solid ${selected ? dColor : locked ? t.border + "44" : t.border}`,
-                          borderRadius: ip ? 2 : 12,
+                          borderRadius: ip ? 2 : 16,
                           background: selected ? `linear-gradient(145deg, ${dColor}18, ${t.bgCard})` : t.bgCard,
                           color: locked ? t.textMuted : t.text,
                           textAlign: "left",
                           cursor: locked ? "not-allowed" : "pointer",
                           opacity: locked ? 0.6 : 1,
-                          transition: "all 0.2s cubic-bezier(.22,.68,0,1.2)",
-                          transform: selected ? "scale(1.02)" : "scale(1)",
-                          boxShadow: selected ? `0 12px 32px ${dColor}33` : "none",
+                          transition: "all 0.3s cubic-bezier(.22,.68,0,1.2)",
+                          transform: selected ? "translateY(-4px) scale(1.02)" : "translateY(0) scale(1)",
+                          boxShadow: selected ? `0 16px 48px ${dColor}22` : "none",
                         }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
                           <div style={{ width: 10, height: 10, borderRadius: "50%", background: locked ? t.textMuted : dColor, boxShadow: locked ? "none" : `0 0 12px ${dColor}66` }} />
-                          <div style={{ fontFamily: t.fontDisplay, fontSize: ip ? 16 : 20, fontWeight: 700, color: locked ? t.textMuted : selected ? dColor : t.text, letterSpacing: "0.06em" }}>
+                          <div style={{ fontFamily: t.fontDisplay, fontSize: ip ? 16 : isMobile ? 18 : 22, fontWeight: 700, color: locked ? t.textMuted : selected ? dColor : t.text, letterSpacing: "0.06em" }}>
                             {f.toUpperCase()}
                           </div>
                         </div>
@@ -270,10 +287,10 @@ export default function MultiplayerScreen({ setScreen, themeId, onHover, onRoomR
                   maxLength={6}
                   placeholder="XXXXXX"
                   style={{
-                    width: "100%", padding: "16px", boxSizing: "border-box",
+                    width: "100%", padding: isMobile ? "12px" : "16px", boxSizing: "border-box",
                     background: t.inputBg ?? t.bgCard, border: `2px solid ${t.border}`,
                     borderRadius: ip ? 2 : 10, color: t.accent,
-                    fontFamily: t.fontDisplay, fontSize: 32, fontWeight: 900,
+                    fontFamily: t.fontDisplay, fontSize: isMobile ? 24 : 32, fontWeight: 900,
                     letterSpacing: "0.3em", textAlign: "center",
                     outline: "none", transition: "border-color 0.2s",
                   }}
@@ -304,16 +321,17 @@ export default function MultiplayerScreen({ setScreen, themeId, onHover, onRoomR
         </div>
       </div>
 
-      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
-        {user && <NavRankBadge rank={getRank(user.elo ?? 0) as any} />}
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12, marginBottom: isMobile ? 12 : 0 }}>
+        {user && <NavRankBadge rank={getRank(user.elo ?? 0) as any} size={isMobile ? 36 : 42} />}
       </div>
 
       {/* Go Back is already present but let's re-wrap it to maintain flow */}
       <button onClick={() => setScreen("home")} style={{
         background: `${t.accent}18`, border: `2px solid ${t.accent}`,
         color: t.accent, fontFamily: t.fontDisplay, fontSize: 16, fontWeight: 700,
-        padding: "14px 44px", borderRadius: ip ? 2 : 10,
+        padding: isMobile ? "12px 32px" : "14px 44px", borderRadius: ip ? 2 : 10,
         cursor: "pointer", letterSpacing: "0.06em", transition: "all 0.2s",
+        marginBottom: isMobile ? 20 : 0,
       }}
         onMouseEnter={e => { onHover?.(); e.currentTarget.style.background = t.accent; e.currentTarget.style.color = "#000"; }}
         onMouseLeave={e => { e.currentTarget.style.background = `${t.accent}18`; e.currentTarget.style.color = t.accent; }}>
