@@ -44,9 +44,9 @@ interface MatchRecord {
   played_at: string;
 }
 
-interface Props { themeId: ThemeId; onHover?: () => void; }
+interface Props { themeId: ThemeId; onHoverAction?: () => void; }
 
-export default function CareerScreen({ themeId, onHover }: Props) {
+export default function CareerScreen({ themeId, onHoverAction }: Props) {
   const t = THEMES[themeId as keyof typeof THEMES];
   const { user } = useAuthStore();
   const ip = themeId === "pixel";

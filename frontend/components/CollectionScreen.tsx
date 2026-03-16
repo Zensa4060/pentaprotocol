@@ -132,13 +132,13 @@ interface CustomThemeSectionProps {
   t: typeof THEMES[ThemeId];
   ip: boolean;
   themeId: ThemeId;
-  setThemeId?: (id: ThemeId) => void;
+  setThemeIdAction?: (id: ThemeId) => void;
   profile?: any;
-  onHover?: () => void;
-  onClick?: () => void;
+  onHoverAction?: () => void;
+  onClickAction?: () => void;
 }
 
-function CustomThemeSection({ t, ip, themeId, profile, setThemeId, onHover, onClick }: CustomThemeSectionProps) {
+function CustomThemeSection({ t, ip, themeId, profile, setThemeIdAction, onHoverAction, onClickAction }: CustomThemeSectionProps) {
   const [cfg, setCfg] = useState<CustomThemeConfig>(() => loadCustomTheme());
   const [activeSlot, setActiveSlot] = useState<keyof CustomThemeConfig | null>(null);
   const [saved, setSaved] = useState(false);
@@ -182,10 +182,10 @@ function CustomThemeSection({ t, ip, themeId, profile, setThemeId, onHover, onCl
           </div>
           <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
             {saved && <span style={{ fontFamily: t.fontMono, fontSize: 10, color: accentHex, letterSpacing: "0.08em" }}>✓ SAVED</span>}
-            <button onClick={() => { onClick?.(); reset(); }} onMouseEnter={() => onHover?.()}
+            <button onClick={() => { onClickAction?.(); reset(); }} onMouseEnter={() => onHoverAction?.()}
               style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: ip ? 2 : 8, color: t.textMuted, fontFamily: t.fontMono, fontSize: 10, padding: "7px 14px", cursor: "pointer", letterSpacing: "0.08em" }}>RESET</button>
-            {setThemeId && (
-              <button onClick={() => { onClick?.(); setThemeId("custom" as ThemeId); }} onMouseEnter={() => onHover?.()}
+            {setThemeIdAction && (
+              <button onClick={() => { onClickAction?.(); setThemeIdAction("custom" as ThemeId); }} onMouseEnter={() => onHoverAction?.()}
                 style={{ background: isActive ? accentHex : `${accentHex}18`, border: `2px solid ${accentHex}`, borderRadius: ip ? 2 : 8, color: isActive ? "#000" : accentHex, fontFamily: t.fontDisplay, fontSize: 12, fontWeight: 700, padding: "8px 20px", cursor: "pointer", letterSpacing: "0.08em", transition: "all 0.2s" }}>
                 {isActive ? "ACTIVE" : "APPLY"}
               </button>
@@ -201,7 +201,7 @@ function CustomThemeSection({ t, ip, themeId, profile, setThemeId, onHover, onCl
           const currentLabel = getSlotLabel(slot.key, cfg[slot.key] as string, profile);
           return (
             <div key={slot.key} style={{ borderRadius: ip ? 2 : 12, border: `1px solid ${isOpen ? accentHex : t.border}`, background: isOpen ? `${accentHex}08` : t.bgCard, overflow: "hidden", transition: "border-color 0.2s, background 0.2s" }}>
-              <button onClick={() => { onClick?.(); setActiveSlot(isOpen ? null : slot.key); }} onMouseEnter={() => onHover?.()}
+              <button onClick={() => { onClickAction?.(); setActiveSlot(isOpen ? null : slot.key); }} onMouseEnter={() => onHoverAction?.()}
                 style={{ width: "100%", display: "flex", alignItems: "center", gap: 12, padding: "13px 16px", background: "transparent", border: "none", cursor: "pointer", textAlign: "left" as const }}>
                 <span style={{ fontSize: 15, flexShrink: 0 }}>{slot.icon}</span>
                 <span style={{ fontFamily: t.fontBody, fontSize: 14, color: t.textMuted, flex: 1 }}>{slot.label}</span>
@@ -215,8 +215,8 @@ function CustomThemeSection({ t, ip, themeId, profile, setThemeId, onHover, onCl
                     const locked = !opt.owned;
                     return (
                       <div key={String(opt.id) + optIdx}
-                        onClick={() => { if (!locked) { onClick?.(); update(slot.key, opt.id); } }}
-                        onMouseEnter={() => { if (!locked) onHover?.(); }}
+                        onClick={() => { if (!locked) { onClickAction?.(); update(slot.key, opt.id); } }}
+                        onMouseEnter={() => { if (!locked) onHoverAction?.(); }}
                         style={{ borderRadius: ip ? 2 : 8, border: `2px solid ${isSelected ? accentHex : locked ? t.border + "33" : t.border}`, background: isSelected ? `${accentHex}14` : locked ? t.bgCard + "88" : t.bgCard, padding: "10px 12px", cursor: locked ? "default" : "pointer", opacity: locked ? 0.45 : 1, position: "relative" as const, transition: "border-color 0.15s, background 0.15s", display: "flex", flexDirection: "column" as const, gap: 6 }}>
                         {opt.preview && <div style={{ height: 28, borderRadius: ip ? 1 : 4, background: opt.preview, marginBottom: 2 }} />}
                         {!opt.preview && opt.color && <div style={{ width: 20, height: 20, borderRadius: "50%", background: opt.color, boxShadow: isSelected ? `0 0 8px ${opt.color}88` : "none" }} />}
@@ -246,16 +246,16 @@ interface ThemesWithCustomizeProps {
   t: typeof THEMES[ThemeId];
   ip: boolean;
   themeId: ThemeId;
-  setThemeId?: (id: ThemeId) => void;
+  setThemeIdAction?: (id: ThemeId) => void;
   profile?: any;
   activeTheme: string;
   setActiveTheme: (id: string) => void;
   showAll: boolean;
-  onHover?: () => void;
-  onClick?: () => void;
+  onHoverAction?: () => void;
+  onClickAction?: () => void;
 }
 
-function ThemesWithCustomize({ t, ip, themeId, setThemeId, profile, activeTheme, setActiveTheme, showAll, onHover, onClick }: ThemesWithCustomizeProps) {
+function ThemesWithCustomize({ t, ip, themeId, setThemeIdAction, profile, activeTheme, setActiveTheme, showAll, onHoverAction, onClickAction }: ThemesWithCustomizeProps) {
   const [customizeOpen, setCustomizeOpen] = useState(false);
   const accentHex = t.accent;
   const themes = showAll ? COLLECTION_THEMES : COLLECTION_THEMES.filter(x => x.owned || x.comingSoon);
@@ -265,8 +265,8 @@ function ThemesWithCustomize({ t, ip, themeId, setThemeId, profile, activeTheme,
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(210px,1fr))", gap: 14 }}>
         {themes.map(item => (
           <div key={item.id} className={`coll-item${item.comingSoon ? " coll-locked" : (!item.owned ? " coll-locked" : "")}`}
-            onClick={() => { if (item.owned && !item.comingSoon && setThemeId) { onClick?.(); setThemeId(item.id as ThemeId); setActiveTheme(item.id); } }}
-            onMouseEnter={() => { if (item.owned && !item.comingSoon) onHover?.(); }}
+            onClick={() => { if (item.owned && !item.comingSoon && setThemeIdAction) { onClickAction?.(); setThemeIdAction(item.id as ThemeId); setActiveTheme(item.id); } }}
+            onMouseEnter={() => { if (item.owned && !item.comingSoon) onHoverAction?.(); }}
             style={{ borderRadius: 12, overflow: "hidden", border: `2px solid ${activeTheme === item.id ? accentHex : item.owned && !item.comingSoon ? t.border : t.border + "44"}`, background: t.bgCard, boxShadow: activeTheme === item.id ? `0 0 18px ${accentHex}44` : "none", cursor: item.owned && !item.comingSoon ? "pointer" : "default" }}>
             <div style={{ height: 70, background: item.preview, position: "relative" }}>
               {item.comingSoon && (
@@ -288,8 +288,8 @@ function ThemesWithCustomize({ t, ip, themeId, setThemeId, profile, activeTheme,
 
         {/* Customize card */}
         <div className="coll-item"
-          onClick={() => { onClick?.(); setCustomizeOpen(v => !v); }}
-          onMouseEnter={() => onHover?.()}
+          onClick={() => { onClickAction?.(); setCustomizeOpen(v => !v); }}
+          onMouseEnter={() => onHoverAction?.()}
           style={{ borderRadius: 12, overflow: "hidden", border: `2px solid ${customizeOpen ? accentHex : accentHex + "44"}`, background: customizeOpen ? `${accentHex}0d` : t.bgCard, boxShadow: customizeOpen ? `0 0 18px ${accentHex}33` : "none", cursor: "pointer" }}>
           <div style={{ height: 70, background: `linear-gradient(135deg, ${accentHex}22, ${accentHex}08)`, display: "flex", alignItems: "center", justifyContent: "center", gap: 10, position: "relative" }}>
             <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke={accentHex} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
@@ -309,7 +309,7 @@ function ThemesWithCustomize({ t, ip, themeId, setThemeId, profile, activeTheme,
 
       {customizeOpen && (
         <div style={{ borderRadius: ip ? 2 : 14, border: `1px solid ${accentHex}44`, background: `${accentHex}06`, padding: "20px 18px" }}>
-          <CustomThemeSection t={t} ip={ip} themeId={themeId} profile={profile} setThemeId={setThemeId} onHover={onHover} onClick={onClick} />
+          <CustomThemeSection t={t} ip={ip} themeId={themeId} profile={profile} setThemeIdAction={setThemeIdAction} onHoverAction={onHoverAction} onClickAction={onClickAction} />
         </div>
       )}
     </div>
@@ -317,9 +317,9 @@ function ThemesWithCustomize({ t, ip, themeId, setThemeId, profile, activeTheme,
 }
 
 // ── Main CollectionScreen ─────────────────────────────────────────────────────
-interface Props { themeId: ThemeId; setThemeId?: (id: ThemeId) => void; onHover?: () => void; onClick?: () => void; }
+interface Props { themeId: ThemeId; setThemeIdAction?: (id: ThemeId) => void; onHoverAction?: () => void; onClickAction?: () => void; }
 
-export default function CollectionScreen({ themeId, setThemeId, onHover, onClick }: Props) {
+export default function CollectionScreen({ themeId, setThemeIdAction, onHoverAction, onClickAction }: Props) {
   const t = THEMES[themeId as keyof typeof THEMES];
   const { user, token, updateUser } = useAuthStore();
   const [activeCat, setActiveCat] = useState<CatId>("themes");
@@ -509,8 +509,8 @@ export default function CollectionScreen({ themeId, setThemeId, onHover, onClick
               const total = totalForCat(cat.id);
               return (
                 <button key={cat.id} className="coll-cat-btn"
-                  onClick={() => { onClick?.(); setActiveCat(cat.id); setShowAll(false); }}
-                  onMouseEnter={() => onHover?.()}
+                  onClick={() => { onClickAction?.(); setActiveCat(cat.id); setShowAll(false); }}
+                  onMouseEnter={() => onHoverAction?.()}
                   style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", borderRadius: ip ? 2 : 10, background: isActive ? `${t.accent}16` : "transparent", border: `1px solid ${isActive ? t.accent : t.border + "44"}`, color: isActive ? t.accent : t.textMuted, fontFamily: t.fontBody, fontSize: 15, fontWeight: (isActive ? 800 : 500) as React.CSSProperties["fontWeight"], cursor: "pointer", textAlign: "left" as const, boxShadow: isActive ? `0 0 12px ${t.accent}22` : "none" }}>
                   <CatIcon id={cat.icon} size={16} color={isActive ? t.accent : t.textMuted} />
                   <span style={{ flex: 1 }}>{cat.label}</span>
@@ -529,7 +529,7 @@ export default function CollectionScreen({ themeId, setThemeId, onHover, onClick
           {isMobile && (
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
               <div style={{ fontFamily: t.fontDisplay, fontSize: 24, fontWeight: 800, color: t.text }}>COLLECTION</div>
-              <div onClick={() => { onClick?.(); setShowAll(v => !v); }} style={{ fontFamily: t.fontMono, fontSize: 11, color: t.accent, cursor: "pointer", fontWeight: 700 }}>
+              <div onClick={() => { onClickAction?.(); setShowAll(v => !v); }} style={{ fontFamily: t.fontMono, fontSize: 11, color: t.accent, cursor: "pointer", fontWeight: 700 }}>
                 {showAll ? "SHOW OWNED" : "SHOW ALL"}
               </div>
             </div>
@@ -542,7 +542,7 @@ export default function CollectionScreen({ themeId, setThemeId, onHover, onClick
                   {`${catData.count(profile)} owned · ${totalForCat(activeCat)} total`}
                 </div>
               </div>
-              <div onClick={() => { onClick?.(); setShowAll(v => !v); }} onMouseEnter={() => onHover?.()}
+              <div onClick={() => { onClickAction?.(); setShowAll(v => !v); }} onMouseEnter={() => onHoverAction?.()}
                 style={{ fontFamily: t.fontMono, fontSize: 11, color: t.accent, cursor: "pointer", letterSpacing: "0.08em", userSelect: "none" as const }}>
                 {showAll ? "SHOW OWNED ONLY" : "SHOW ALL"}
               </div>
@@ -564,7 +564,7 @@ export default function CollectionScreen({ themeId, setThemeId, onHover, onClick
 
                   {/* ── THEMES ── */}
                   {cat === "themes" && (
-            <ThemesWithCustomize t={t} ip={ip} themeId={themeId} profile={profile} setThemeId={setThemeId} activeTheme={activeTheme} setActiveTheme={setActiveTheme} showAll={showAll} onHover={onHover} onClick={onClick} />
+            <ThemesWithCustomize t={t} ip={ip} themeId={themeId} profile={profile} setThemeIdAction={setThemeIdAction} activeTheme={activeTheme} setActiveTheme={setActiveTheme} showAll={showAll} onHoverAction={onHoverAction} onClickAction={onClickAction} />
           )}
 
           {/* ── BOARD SKINS ── */}
@@ -575,8 +575,8 @@ export default function CollectionScreen({ themeId, setThemeId, onHover, onClick
                 const isPurchasable = !!item.price && !owned;
                 return (
                   <div key={item.id} className={`coll-item${!owned ? " coll-locked" : ""}`}
-                    onClick={() => { if (owned && activeBoard !== item.id && equipping !== item.id) { onClick?.(); equipBoard(item.id); } }}
-                    onMouseEnter={() => { if (owned) onHover?.(); }}
+                    onClick={() => { if (owned && activeBoard !== item.id && equipping !== item.id) { onClickAction?.(); equipBoard(item.id); } }}
+                    onMouseEnter={() => { if (owned) onHoverAction?.(); }}
                     style={{ borderRadius: 12, overflow: "hidden", border: `1.5px solid ${owned ? (activeBoard === item.id ? hoverColor : t.border) : isPurchasable ? hoverColor + "33" : t.border + "44"}`, background: t.bgCard, boxShadow: activeBoard === item.id ? `0 0 16px ${hoverColor}33` : "none", cursor: owned && activeBoard !== item.id ? "pointer" : "default" }}>
                     <div style={{ height: 70, background: item.preview, display: "flex", alignItems: "center", justifyContent: "center", position: "relative" }}>
                       <div style={{ display: "grid", gridTemplateColumns: "repeat(4,14px)", gap: 2, opacity: 0.7 }}>
@@ -689,8 +689,8 @@ export default function CollectionScreen({ themeId, setThemeId, onHover, onClick
                 const ac = t.accent;
                 return (
                   <div key={item.id} className={`coll-item${!owned ? " coll-locked" : ""}`}
-                    onClick={() => { if (owned && activeToss !== item.id) { onClick?.(); equipToss(item.id); } }}
-                    onMouseEnter={() => { if (owned) onHover?.(); }}
+                    onClick={() => { if (owned && activeToss !== item.id) { onClickAction?.(); equipToss(item.id); } }}
+                    onMouseEnter={() => { if (owned) onHoverAction?.(); }}
                     style={{ borderRadius: 12, padding: "18px 16px", border: `1.5px solid ${owned ? (activeToss === item.id ? ac : t.border) : isPurchasable ? hoverColor + "33" : t.border + "33"}`, background: t.bgCard, display: "flex", alignItems: "center", gap: 14, position: "relative", boxShadow: activeToss === item.id ? `0 0 16px ${ac}33` : "none", cursor: owned && activeToss !== item.id ? "pointer" : "default" }}>
                     <div style={{ width: 44, height: 44, borderRadius: "50%", background: owned ? `linear-gradient(135deg,${ac},${ac}88)` : "#333", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                       {owned
@@ -739,8 +739,8 @@ export default function CollectionScreen({ themeId, setThemeId, onHover, onClick
                 const isPurchasable = !!item.price && !owned;
                 return (
                   <div key={item.id} className={`coll-item${!owned ? " coll-locked" : ""}`}
-                    onClick={() => { if (owned && activePiece !== item.id) { onClick?.(); equipPiece(item.id); } }}
-                    onMouseEnter={() => { if (owned) onHover?.(); }}
+                    onClick={() => { if (owned && activePiece !== item.id) { onClickAction?.(); equipPiece(item.id); } }}
+                    onMouseEnter={() => { if (owned) onHoverAction?.(); }}
                     style={{ borderRadius: 12, padding: "16px", border: `1.5px solid ${owned ? (activePiece === item.id ? hoverColor : t.border) : isPurchasable ? hoverColor + "33" : t.border + "44"}`, background: t.bgCard, position: "relative", boxShadow: activePiece === item.id ? `0 0 16px ${hoverColor}33` : "none", cursor: owned && activePiece !== item.id ? "pointer" : "default" }}>
                     <div style={{ display: "flex", justifyContent: "center", gap: 18, marginBottom: 12, marginTop: isPurchasable ? 18 : 0 }}>
                       {item.isFlameSkull ? (

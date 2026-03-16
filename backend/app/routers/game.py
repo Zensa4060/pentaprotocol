@@ -81,21 +81,24 @@ async def award_game_result(db, game: dict, winner: str | None):
         # Custom games don't affect profile stats at all
         if career_mode == "custom":
             pass
-        elif career_mode == "unranked":
+        if career_mode == "unranked":
             if result == "win":  inc["unranked_wins"]   = 1
             if result == "loss": inc["unranked_losses"] = 1
             if result == "draw": inc["draws"]  = 1
         else:
-            # Ranked
-            if result == "win":  inc["wins"]   = 1
-            if result == "loss": inc["losses"] = 1
-            if result == "draw": inc["draws"]  = 1
+            # Ranked - Disabled per user request (Ranked not available yet)
+            # if result == "win":  inc["wins"]   = 1
+            # if result == "loss": inc["losses"] = 1
+            # if result == "draw": inc["draws"]  = 1
+            pass
         updates = {"xp": new_total_xp, "level": new_level}
         if is_ranked and opponent_id and mode != "bot":
-            opponent = await db.users.find_one({"_id": ObjectId(opponent_id)})
-            if opponent:
-                score = 1.0 if result == "win" else (0.5 if result == "draw" else 0.0)
-                updates["elo"] = new_elo(user.get("elo", 500), opponent.get("elo", 500), score)
+            # Elo updates disabled for ranked
+            # opponent = await db.users.find_one({"_id": ObjectId(opponent_id)})
+            # if opponent:
+            #     score = 1.0 if result == "win" else (0.5 if result == "draw" else 0.0)
+            #     updates["elo"] = new_elo(user.get("elo", 500), opponent.get("elo", 500), score)
+            pass
         await db.users.update_one({"_id": ObjectId(user_id)}, {"$set": updates, "$inc": inc})
 
     if winner == "P1":

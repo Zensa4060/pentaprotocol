@@ -1,0 +1,23 @@
+app/page.tsx(256,13): error TS2322: Type '{ children: string; onClickAction: () => void; style: { background: string; border: string; color: "#000"; fontFamily: string; fontSize: number; fontWeight: number; padding: string; borderRadius: number; cursor: "pointer"; letterSpacing: string; boxShadow: `0 0 24px ${string}44`; }; }' is not assignable to type 'DetailedHTMLProps<ButtonHTMLAttributes<HTMLButtonElement>, HTMLButtonElement>'.
+  Property 'onClickAction' does not exist on type 'DetailedHTMLProps<ButtonHTMLAttributes<HTMLButtonElement>, HTMLButtonElement>'.
+app/page.tsx(260,13): error TS2322: Type '{ children: string; onClickAction: () => void; style: { background: string; border: string; color: string; fontFamily: string; fontSize: number; fontWeight: number; padding: string; borderRadius: number; cursor: "pointer"; letterSpacing: string; }; }' is not assignable to type 'DetailedHTMLProps<ButtonHTMLAttributes<HTMLButtonElement>, HTMLButtonElement>'.
+  Property 'onClickAction' does not exist on type 'DetailedHTMLProps<ButtonHTMLAttributes<HTMLButtonElement>, HTMLButtonElement>'.
+app/page.tsx(312,23): error TS2322: Type '{ children: string; onClickAction: () => void; onMouseEnter: () => void; style: { background: string; border: string; color: string; fontFamily: string; fontSize: number; fontWeight: number; padding: string; borderRadius: number; cursor: "pointer"; letterSpacing: string; }; onMouseDown: (e: MouseEvent<...>) => void;...' is not assignable to type 'DetailedHTMLProps<ButtonHTMLAttributes<HTMLButtonElement>, HTMLButtonElement>'.
+  Property 'onClickAction' does not exist on type 'DetailedHTMLProps<ButtonHTMLAttributes<HTMLButtonElement>, HTMLButtonElement>'.
+app/page.tsx(317,23): error TS2322: Type '{ children: string; onClickAction: () => void; onMouseEnter: () => void; style: { background: string; border: string; color: string; fontFamily: string; fontSize: number; fontWeight: number; padding: string; borderRadius: number; cursor: "pointer"; letterSpacing: string; }; onMouseDown: (e: MouseEvent<...>) => void;...' is not assignable to type 'DetailedHTMLProps<ButtonHTMLAttributes<HTMLButtonElement>, HTMLButtonElement>'.
+  Property 'onClickAction' does not exist on type 'DetailedHTMLProps<ButtonHTMLAttributes<HTMLButtonElement>, HTMLButtonElement>'.
+app/page.tsx(374,36): error TS2741: Property 'setScreenAction' is missing in type '{ themeId: ThemeId; onHoverAction: () => void; onClickAction: () => void; }' but required in type 'Props'.
+app/page.tsx(406,39): error TS2353: Object literal may only specify known properties, and 'setMusicVolAction' does not exist in type 'AudioControls'.
+components/GameScreen.tsx(939,30): error TS2552: Cannot find name 'setScreen'. Did you mean 'Screen'?
+components/GameScreen.tsx(975,9): error TS2322: Type '{ phase: Phase; t: { bg: string; bgPanel: string; bgCard: string; border: string; borderAccent: string; text: string; textSecondary: string; textMuted: string; accent: string; accentGlow: string; ... 13 more ...; pieces: { ...; }; }; ... 22 more ...; fmtSec: (s: number) => string; }' is not assignable to type 'IntrinsicAttributes & RulebreakerFlowProps'.
+  Property 'onLeft' does not exist on type 'IntrinsicAttributes & RulebreakerFlowProps'.
+components/GameScreen.tsx(1232,9): error TS2322: Type '((s: Screen) => void) | undefined' is not assignable to type '((s: string) => void) | undefined'.
+  Type '(s: Screen) => void' is not assignable to type '(s: string) => void'.
+    Types of parameters 's' and 's' are incompatible.
+      Type 'string' is not assignable to type 'Screen'.
+components/GameScreen.tsx(1252,26): error TS2304: Cannot find name 'playClick'.
+components/GameScreen.tsx(1291,9): error TS2322: Type '((s: Screen) => void) | undefined' is not assignable to type '((s: string) => void) | undefined'.
+  Type '(s: Screen) => void' is not assignable to type '(s: string) => void'.
+    Types of parameters 's' and 's' are incompatible.
+      Type 'string' is not assignable to type 'Screen'.
+components/NavBar.tsx(328,22): error TS2304: Cannot find name 'onSettings'.

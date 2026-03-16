@@ -6,10 +6,10 @@ import type { Difficulty } from "@/lib/botEngine";
 import { THEMES } from "@/lib/themes";
 
 interface Props {
-  setScreen: (s: Screen) => void;
+  setScreenAction: (s: Screen) => void;
   themeId: ThemeId;
-  onSelectDifficulty: (d: Difficulty) => void;
-  onHover?: () => void;
+  onSelectDifficultyAction: (d: Difficulty) => void;
+  onHoverAction?: () => void;
 }
 
 const DIFFICULTIES: { id: Difficulty; label: string; sub: string; color: string }[] = [
@@ -18,14 +18,14 @@ const DIFFICULTIES: { id: Difficulty; label: string; sub: string; color: string 
   { id: "hard",   label: "HARD",   sub: "Elite AI — deep search, near-perfect play",          color: "#EF4444" },
 ];
 
-export default function AIScreen({ setScreen, themeId, onSelectDifficulty, onHover }: Props) {
+export default function AIScreen({ setScreenAction, themeId, onSelectDifficultyAction, onHoverAction }: Props) {
   const t = THEMES[themeId as keyof typeof THEMES];
   const ip = themeId === "pixel";
   const [hovered, setHovered] = useState<Difficulty | null>(null);
 
   const handleSelect = (d: Difficulty) => {
-    onSelectDifficulty(d);
-    setScreen("aiGame");
+    onSelectDifficultyAction(d);
+    setScreenAction("aiGame");
   };
 
   return (
@@ -62,7 +62,7 @@ export default function AIScreen({ setScreen, themeId, onSelectDifficulty, onHov
             <button
               key={d.id}
               onClick={() => handleSelect(d.id)}
-              onMouseEnter={() => { onHover?.(); setHovered(d.id); }}
+              onMouseEnter={e => { onHoverAction?.(); e.currentTarget.style.background = t.accent; e.currentTarget.style.color = "#000"; }}
               onMouseLeave={() => setHovered(null)}
               style={{
                 flex: 1, minWidth: 200,
@@ -98,13 +98,13 @@ export default function AIScreen({ setScreen, themeId, onSelectDifficulty, onHov
       </div>
 
       {/* Back button */}
-      <button onClick={() => setScreen("home")} style={{
+      <button onClick={() => setScreenAction("home")} style={{
         background: `${t.accent}18`, border: `2px solid ${t.accent}`,
         color: t.accent, fontFamily: t.fontDisplay, fontSize: 16, fontWeight: 700,
         padding: "14px 44px", borderRadius: ip ? 2 : 10,
         cursor: "pointer", letterSpacing: "0.06em", transition: "all 0.2s", marginTop: 8,
       }}
-        onMouseEnter={e => { onHover?.(); e.currentTarget.style.background = t.accent; e.currentTarget.style.color = "#000"; }}
+        onMouseEnter={e => { onHoverAction?.(); e.currentTarget.style.background = t.accent; e.currentTarget.style.color = "#000"; }}
         onMouseLeave={e => { e.currentTarget.style.background = `${t.accent}18`; e.currentTarget.style.color = t.accent; }}
       >
         GO BACK

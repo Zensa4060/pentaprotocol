@@ -34,19 +34,19 @@ export const NavRankBadge = ({ rank, size = 30 }: { rank: typeof RANKS[0]; size?
 
 interface Props {
   screen: Screen;
-  setScreen: (s: Screen) => void;
+  setScreenAction: (s: Screen) => void;
   themeId: ThemeId;
   setThemeId?: (t: ThemeId) => void;
-  onSettings: () => void;
+  onSettingsAction: () => void;
   inQueue: boolean;
-  onQueueClick: () => void;
+  onQueueClickAction: () => void;
   isRankedGame?: boolean;
-  onHover?: () => void;
+  onHoverAction?: () => void;
 }
 
 type LeaveWarning = "unranked" | "ranked" | null;
 
-export default function NavBar({ screen, setScreen, themeId, onSettings, inQueue, isRankedGame = false, onHover }: Props) {
+export default function NavBar({ screen, setScreenAction, themeId, onSettingsAction, inQueue, isRankedGame = false, onHoverAction }: Props) {
   const t = THEMES[themeId as keyof typeof THEMES];
   const { user, logout } = useAuthStore();
   const isGuest = !user;
@@ -98,12 +98,12 @@ export default function NavBar({ screen, setScreen, themeId, onSettings, inQueue
       setPendingScreen(target);
       setLeaveWarning(isRanked ? "ranked" : "unranked");
     } else {
-      setScreen(target);
+      setScreenAction(target);
     }
   };
 
   const confirmLeave = () => {
-    if (pendingScreen) setScreen(pendingScreen);
+    if (pendingScreen) setScreenAction(pendingScreen);
     setLeaveWarning(null);
     setPendingScreen(null);
   };
@@ -161,7 +161,7 @@ export default function NavBar({ screen, setScreen, themeId, onSettings, inQueue
         key={target}
         disabled={disabled}
         onClick={() => { if (onClick) { onClick(); return; } if (targetScreen) navigate(targetScreen); }}
-        onMouseEnter={() => { onHover?.(); setHoveredBtn(target); }}
+        onMouseEnter={() => { onHoverAction?.(); setHoveredBtn(target); }}
         onMouseLeave={() => setHoveredBtn(null)}
         style={{
           background:    isActive ? `${accentCol}1A` : isHovered ? `${accentCol}0F` : "none",
@@ -211,7 +211,7 @@ export default function NavBar({ screen, setScreen, themeId, onSettings, inQueue
         borderRadius: ip ? 2 : 8, cursor: "pointer", letterSpacing: "0.08em",
         transition: "background 0.26s, color 0.26s, transform 0.22s, box-shadow 0.26s",
       } as React.CSSProperties}
-      onMouseEnter={e => { onHover?.(); const el = e.currentTarget; el.style.background = col; el.style.color = "#000"; el.style.transform = "scale(1.04)"; el.style.boxShadow = `0 4px 24px ${col}55`; }}
+      onMouseEnter={e => { onHoverAction?.(); const el = e.currentTarget; el.style.background = col; el.style.color = "#000"; el.style.transform = "scale(1.04)"; el.style.boxShadow = `0 4px 24px ${col}55`; }}
       onMouseLeave={e => { const el = e.currentTarget; el.style.background = `${col}18`; el.style.color = col; el.style.transform = "scale(1)"; el.style.boxShadow = "none"; }}
       onMouseDown={e => { e.currentTarget.style.transform = "scale(0.97)"; }}
       onMouseUp={e => { e.currentTarget.style.transform = "scale(1.04)"; }}
@@ -325,9 +325,9 @@ export default function NavBar({ screen, setScreen, themeId, onSettings, inQueue
 
           {/* Settings button */}
           <button
-            onClick={onSettings}
+            onClick={onSettingsAction}
             title="Settings"
-            onMouseEnter={e => { onHover?.(); e.currentTarget.style.borderColor = t.accent; e.currentTarget.style.color = t.accent; e.currentTarget.style.background = `${t.accent}18`; e.currentTarget.style.transform = "scale(1.05)"; }}
+            onMouseEnter={e => { onHoverAction?.(); e.currentTarget.style.borderColor = t.accent; e.currentTarget.style.color = t.accent; e.currentTarget.style.background = `${t.accent}18`; e.currentTarget.style.transform = "scale(1.05)"; }}
             onMouseLeave={e => { e.currentTarget.style.borderColor = `${t.border}66`; e.currentTarget.style.color = t.text; e.currentTarget.style.background = `${t.border}22`; e.currentTarget.style.transform = "scale(1)"; }}
             style={{
               background: `${t.border}22`, border: `1px solid ${t.border}66`, color: t.text,
@@ -460,13 +460,13 @@ export default function NavBar({ screen, setScreen, themeId, onSettings, inQueue
             <div style={{ display: "flex", gap: 10 }}>
               <button
                 onClick={() => { logout(); setShowSignOut(false); }}
-                onMouseEnter={e => { onHover?.(); e.currentTarget.style.background = t.danger; e.currentTarget.style.color = "#fff"; }}
+                onMouseEnter={e => { onHoverAction?.(); e.currentTarget.style.background = t.danger; e.currentTarget.style.color = "#fff"; }}
                 onMouseLeave={e => { e.currentTarget.style.background = `${t.danger}14`; e.currentTarget.style.color = t.danger; }}
                 style={{ flex: 1, padding: "11px 0", background: `${t.danger}14`, border: `1px solid ${t.danger}66`, color: t.danger, fontFamily: t.fontDisplay, fontSize: 13, fontWeight: 700, borderRadius: ip ? 2 : 9, cursor: "pointer", transition: "all 0.18s", letterSpacing: "0.06em", textTransform: "uppercase" as const }}
               >Sign Out</button>
               <button
                 onClick={() => setShowSignOut(false)}
-                onMouseEnter={e => { onHover?.(); e.currentTarget.style.background = `${t.accent}14`; e.currentTarget.style.borderColor = t.accent; e.currentTarget.style.color = t.accent; }}
+                onMouseEnter={e => { onHoverAction?.(); e.currentTarget.style.background = `${t.accent}14`; e.currentTarget.style.borderColor = t.accent; e.currentTarget.style.color = t.accent; }}
                 onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.borderColor = `${t.border}66`; e.currentTarget.style.color = t.textSecondary; }}
                 style={{ flex: 1, padding: "11px 0", background: "transparent", border: `1px solid ${t.border}66`, color: t.textSecondary, fontFamily: t.fontDisplay, fontSize: 13, fontWeight: 700, borderRadius: ip ? 2 : 9, cursor: "pointer", transition: "all 0.18s", letterSpacing: "0.06em", textTransform: "uppercase" as const }}
               >Stay</button>

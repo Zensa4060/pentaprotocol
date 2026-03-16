@@ -348,66 +348,66 @@ export default function Page() {
       {screen !== "auth" && (
         <NavBar
           screen={screen}
-          setScreen={handleSetScreen}
+          setScreenAction={handleSetScreen}
           themeId={themeId}
-          onSettings={() => { sfx.click(); setShowSettings(true); }}
+          onSettingsAction={() => { sfx.click(); setShowSettings(true); }}
           inQueue={inQueue}
-          onQueueClick={() => setScreen("lobby")}
+          onQueueClickAction={() => setScreen("lobby")}
           isRankedGame={isRanked}
-          onHover={sfx.hover}
+          onHoverAction={sfx.hover}
         />
       )}
 
-      {screen === "home"       && <HomeScreen    setScreen={handleSetScreen} themeId={themeId} onHover={sfx.hover} onClick={sfx.click} />}
-      {screen === "auth"       && <AuthScreen    setScreen={setScreen}       themeId={themeId} />}
+      {screen === "home"       && <HomeScreen    setScreenAction={handleSetScreen} themeId={themeId} onHoverAction={sfx.hover} onClickAction={sfx.click} />}
+      {screen === "auth"       && <AuthScreen    setScreenAction={setScreen}       themeId={themeId} />}
       {screen === "lobby"      && (
         <LobbyScreen
-          setScreen={handleSetScreen}
+          setScreenAction={handleSetScreen}
           themeId={themeId}
-          onQueueStart={(mode) => { setIsRanked(mode === "ranked"); setInQueue(true); sfx.matchFound(); }}
-          onQueueCancel={() => setInQueue(false)}
-          onHover={sfx.hover}
-          onClick={sfx.click}
-          onRoomReady={handleRoomReady}
+          onQueueStartAction={(mode) => { setIsRanked(mode === "ranked"); setInQueue(true); sfx.matchFound(); }}
+          onQueueCancelAction={() => setInQueue(false)}
+          onHoverAction={sfx.hover}
+          onClickAction={sfx.click}
+          onRoomReadyAction={handleRoomReady}
         />
       )}
-      {screen === "profile"    && <ProfileScreen    themeId={themeId} onHover={sfx.hover} onClick={sfx.click} />}
-      {screen === "rules"      && <RulesScreen      themeId={themeId} onHover={sfx.hover} onClick={sfx.click} />}
-      {screen === "ai"         && <AIScreen         setScreen={handleSetScreen} themeId={themeId} onSelectDifficulty={(d) => { sfx.click(); setAiDifficulty(d); handleSetScreen("aiGame"); }} onHover={sfx.hover} />}
-      {screen === "store"      && <StoreScreen      setScreen={handleSetScreen} themeId={themeId} />}
-      {screen === "collection" && <CollectionScreen themeId={themeId} setThemeId={setThemeId} onHover={sfx.hover} onClick={sfx.click} />}
-      {screen === "career"     && <CareerScreen     themeId={themeId} onHover={sfx.hover} />}
+      {screen === "profile"    && <ProfileScreen    setScreenAction={handleSetScreen} themeId={themeId} onHoverAction={sfx.hover} onClickAction={sfx.click} />}
+      {screen === "rules"      && <RulesScreen      themeId={themeId} onHoverAction={sfx.hover} onClickAction={sfx.click} />}
+      {screen === "ai"         && <AIScreen         setScreenAction={handleSetScreen} themeId={themeId} onSelectDifficultyAction={(d) => { sfx.click(); setAiDifficulty(d); handleSetScreen("aiGame"); }} onHoverAction={sfx.hover} />}
+      {screen === "store"      && <StoreScreen      setScreenAction={handleSetScreen} themeId={themeId} />}
+      {screen === "collection" && <CollectionScreen themeId={themeId} setThemeIdAction={setThemeId} onHoverAction={sfx.hover} onClickAction={sfx.click} />}
+      {screen === "career"     && <CareerScreen     themeId={themeId} onHoverAction={sfx.hover} />}
       {screen === "battlepass" && <BattlepassScreen themeId={themeId} />}
 {screen === "game" && (
-  <GameScreen key="game" themeId={themeId} isSingleplayer={true} gameMode="singleplayer" setScreen={handleSetScreen}
+  <GameScreen key="game" themeId={themeId} isSingleplayer={true} gameMode="singleplayer" setScreenAction={handleSetScreen}
     p1Name={user?.username}
-    playHover={sfx.hover} playPlace={sfx.place} playVictory={sfx.victory} playDefeat={sfx.defeat}
-    playRulebreaker={sfx.rulebreaker} playTransition={sfx.transition} playClick={sfx.click} />
+    playHoverAction={sfx.hover} playPlaceAction={sfx.place} playVictoryAction={sfx.victory} playDefeatAction={sfx.defeat}
+    playRulebreakerAction={sfx.rulebreaker} playTransitionAction={sfx.transition} playClickAction={sfx.click} />
 )}
 {screen === "aiGame" && (
-  <GameScreen key="aiGame" themeId={themeId} gameMode="ai" difficulty={aiDifficulty} setScreen={handleSetScreen}
+  <GameScreen key="aiGame" themeId={themeId} gameMode="ai" difficulty={aiDifficulty} setScreenAction={handleSetScreen}
     p1Name={user?.username}
-    playHover={sfx.hover} playPlace={sfx.place} playVictory={sfx.victory} playDefeat={sfx.defeat}
-    playRulebreaker={sfx.rulebreaker} playTransition={sfx.transition} playClick={sfx.click} />
+    playHoverAction={sfx.hover} playPlaceAction={sfx.place} playVictoryAction={sfx.victory} playDefeatAction={sfx.defeat}
+    playRulebreakerAction={sfx.rulebreaker} playTransitionAction={sfx.transition} playClickAction={sfx.click} />
 )}
 {screen === "multiGame" && (
-  <GameScreen key="multiGame" themeId={themeId} gameMode={isRanked ? "ranked" : "unranked"} setScreen={handleSetScreen}
+  <GameScreen key="multiGame" themeId={themeId} gameMode={isRanked ? "ranked" : "unranked"} setScreenAction={handleSetScreen}
     roomCode={multiRoomCode} playerSlot={multiPlayerSlot ?? undefined}
     p1Name={user?.username}
-    playHover={sfx.hover} playPlace={sfx.place} playVictory={sfx.victory} playDefeat={sfx.defeat}
-    playRulebreaker={sfx.rulebreaker} playTransition={sfx.transition} playClick={sfx.click} />
+    playHoverAction={sfx.hover} playPlaceAction={sfx.place} playVictoryAction={sfx.victory} playDefeatAction={sfx.defeat}
+    playRulebreakerAction={sfx.rulebreaker} playTransitionAction={sfx.transition} playClickAction={sfx.click} />
 )}
       {showSettings && (
         <SettingsModal
-          onClose={() => setShowSettings(false)}
+          onCloseAction={() => setShowSettings(false)}
           themeId={themeId}
-          setThemeId={setThemeId}
+          setThemeIdAction={setThemeId}
           audio={{
             musicVol: audio.musicVol, setMusicVol: audio.setMusicVol,
             sfxVol: audio.sfxVol, setSfxVol: audio.setSfxVol,
             muted: audio.muted, toggleMute: audio.toggleMute
           }}
-          onNavigateAuth={() => setScreen("auth")}
+          onNavigateAuthAction={() => setScreen("auth")}
         />)}
     </div>
   );

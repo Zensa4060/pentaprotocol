@@ -6,6 +6,7 @@ import { useAuthStore } from "@/lib/store";
 import API from "@/lib/api";
 import { containsProfanity, validateUsername } from "@/lib/profanity";
 import { SHARDS_LIGHT_SVG, SHARDS_DARK_SVG, PROTO_LIGHT_SVG, PROTO_DARK_SVG } from "@/lib/currencyIcons";
+import type { Screen } from "@/lib/types";
 
 const RANKS = [
   { name: "NOVICE",       min: 0,    max: 500,  color: "#9CA3AF", icon: null, img: "/novice.svg",       scale: 1.3 },
@@ -152,7 +153,7 @@ function AvatarWithBorder({
 }
 
 type EditTab = "profile" | "banner" | "border" | "title" | "password" | "email";
-interface Props { themeId: ThemeId; onHover?: () => void; onClick?: () => void; }
+interface Props { themeId: ThemeId; onHoverAction?: () => void; onClickAction?: () => void; setScreenAction: (s: Screen) => void; }
 
 const LockSVG = () => (
   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#666" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{flexShrink:0}}>
@@ -161,7 +162,7 @@ const LockSVG = () => (
   </svg>
 );
 
-export default function ProfileScreen({ themeId, onHover, onClick }: Props) {
+export default function ProfileScreen({ themeId, onHoverAction, onClickAction, setScreenAction }: Props) {
   const t = THEMES[themeId];
   const { user, token, updateUser } = useAuthStore();
   const [profile, setProfile] = useState<any>(null);
@@ -629,12 +630,12 @@ const stats = [
       <div style={{ background:t.bgPanel, border:`1px solid ${t.border}`, borderRadius:16, marginBottom:18, overflow:"hidden" }}>
         {/* Banner strip */}
         <div
-          onClick={() => { onClick?.(); openEdit("banner"); }}
+          onClick={() => { onClickAction?.(); openEdit("banner"); }}
           style={{ height:80, background: activeBanner.gradient, cursor:"pointer", position:"relative", transition:"filter 0.2s" }}
           title="Change banner"
         >
           <div style={{ position:"absolute", inset:0, display:"flex", alignItems:"center", justifyContent:"flex-end", padding:"0 16px", opacity:0, transition:"opacity 0.2s" }}
-            onMouseEnter={e => { onHover?.(); (e.currentTarget as HTMLElement).style.opacity="1"; }}
+            onMouseEnter={e => { onHoverAction?.(); (e.currentTarget as HTMLElement).style.opacity="1"; }}
             onMouseLeave={e => (e.currentTarget as HTMLElement).style.opacity="0"}>
             <div style={{ background:"rgba(0,0,0,0.6)", border:`1px solid ${t.border}`, borderRadius:6, padding:"4px 12px", fontFamily:t.fontMono, fontSize:11, color:"#fff", letterSpacing:"0.1em" }}>
               CHANGE BANNER
@@ -654,7 +655,7 @@ const stats = [
               p1={t.p1}
               p2={t.p2}
             />
-            <div onClick={() => { onClick?.(); openEdit("profile"); }}
+            <div onClick={() => { onClickAction?.(); openEdit("profile"); }}
               style={{ position:"absolute", bottom:0, right:0, width:22, height:22, borderRadius:"50%", background:t.accent, display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer", fontSize:11, border:`2px solid ${t.bg}` }}>✏</div>
           </div>
 
@@ -663,7 +664,7 @@ const stats = [
             <div style={{ display:"flex", alignItems:"center", gap:10, flexWrap:"wrap", marginBottom:4 }}>
               <div style={{ fontFamily:t.fontDisplay, fontSize:24, fontWeight:700, color:t.text }}>{profile.username}</div>
               {/* Active title badge with animation */}
-              <TitleBadge title={activeTitle} onClick={() => { onClick?.(); openEdit("title"); }} />
+              <TitleBadge title={activeTitle} onClick={() => { onClickAction?.(); openEdit("title"); }} />
             </div>
             <div style={{ display:"flex", gap:14, flexWrap:"wrap", alignItems:"center" }}>
               <div style={{ fontFamily:t.fontMono, fontSize:13, color:t.textMuted }}>LVL <span style={{ color:t.accent, fontWeight:700, fontSize:15 }}>{profile.level}</span></div>
@@ -683,7 +684,7 @@ const stats = [
               <div style={{ fontFamily:t.fontDisplay, fontSize:50, fontWeight:900, color:t.accent, lineHeight:1, textShadow:`0 0 28px ${t.accentGlow}50` }}>{elo}</div>
               <div style={{ fontFamily:t.fontMono, fontSize:11, color:t.textMuted, letterSpacing:"0.2em", marginTop:4 }}>ELO</div>
             </div>
-            <button onClick={() => { onClick?.(); openEdit("profile"); }} style={{ padding:"7px 16px", background:`${t.accent}18`, border:`1px solid ${t.accent}`, borderRadius:8, color:t.accent, fontFamily:t.fontDisplay, fontSize:12, fontWeight:700, cursor:"pointer" }}>
+            <button onClick={() => { onClickAction?.(); openEdit("profile"); }} style={{ padding:"7px 16px", background:`${t.accent}18`, border:`1px solid ${t.accent}`, borderRadius:8, color:t.accent, fontFamily:t.fontDisplay, fontSize:12, fontWeight:700, cursor:"pointer" }}>
               ✏ Edit Profile
             </button>
           </div>
@@ -804,7 +805,7 @@ const stats = [
           {twoFASection==="idle" && (enabled ? (
             <>
               <div style={{ fontFamily:t.fontBody, fontSize:12, color:"#4CAF50", marginBottom:10 }}>✅ 2FA is enabled — your account is protected.</div>
-              <button onClick={() => { onClick?.(); setTwoFAMsg(null); setTwoFASection("disable"); }} disabled={twoFALoading}
+              <button onClick={() => { onClickAction?.(); setTwoFAMsg(null); setTwoFASection("disable"); }} disabled={twoFALoading}
                 style={{ width:"100%", padding:"10px", background:`${t.danger}18`, border:`1px solid ${t.danger}`, borderRadius:8, color:t.danger, fontFamily:t.fontDisplay, fontSize:13, fontWeight:700, cursor:"pointer" }}>
                 Disable 2FA
               </button>
@@ -812,7 +813,7 @@ const stats = [
           ) : (
             <>
               <div style={{ fontFamily:t.fontBody, fontSize:12, color:t.textMuted, marginBottom:10 }}>❌ 2FA is not enabled. Add an extra layer of security.</div>
-              <button onClick={() => { onClick?.(); setTwoFAMsg(null); start2FASetup(); }} disabled={twoFALoading}
+              <button onClick={() => { onClickAction?.(); setTwoFAMsg(null); start2FASetup(); }} disabled={twoFALoading}
                 style={{ width:"100%", padding:"10px", background:`${t.accent}18`, border:`1px solid ${t.accent}`, borderRadius:8, color:t.accent, fontFamily:t.fontDisplay, fontSize:13, fontWeight:700, cursor:"pointer" }}>
                 {twoFALoading?"Please wait…":"Enable 2FA"}
               </button>
@@ -826,8 +827,8 @@ const stats = [
               <input type="text" value={totpInput} maxLength={6} placeholder="000000" autoFocus onChange={e => setTotpInput(e.target.value.replace(/\D/g,""))} onKeyDown={e => e.key==="Enter"&&confirm2FA()}
                 style={{ width:"100%", padding:"10px", background:t.inputBg, border:`1px solid ${t.border}`, borderRadius:7, color:t.text, fontFamily:t.fontMono, fontSize:24, letterSpacing:"0.35em", textAlign:"center", boxSizing:"border-box", marginBottom:10 }} />
               <div style={{ display:"flex", gap:8 }}>
-                <button onClick={() => { onClick?.(); confirm2FA(); }} disabled={twoFALoading} className="pp-primary-btn" style={{ flex:1, padding:"10px", background:t.accent, border:`2px solid ${t.accent}`, borderRadius:8, color:"#fff", fontFamily:t.fontDisplay, fontSize:12, fontWeight:800, cursor:"pointer", transition:"all 0.18s", boxShadow:`0 0 10px ${t.accentGlow}22` }}>{twoFALoading?"Verifying…":"Confirm"}</button>
-                <button onClick={() => { onClick?.(); setTwoFASection("idle"); setTotpInput(""); setTwoFAMsg(null); }} style={{ padding:"10px 14px", background:"transparent", border:`1px solid ${t.border}`, borderRadius:8, color:t.textMuted, fontFamily:t.fontDisplay, fontSize:12, cursor:"pointer" }}>Cancel</button>
+                <button onClick={() => { onClickAction?.(); confirm2FA(); }} disabled={twoFALoading} className="pp-primary-btn" style={{ flex:1, padding:"10px", background:t.accent, border:`2px solid ${t.accent}`, borderRadius:8, color:"#fff", fontFamily:t.fontDisplay, fontSize:12, fontWeight:800, cursor:"pointer", transition:"all 0.18s", boxShadow:`0 0 10px ${t.accentGlow}22` }}>{twoFALoading?"Verifying…":"Confirm"}</button>
+                <button onClick={() => { onClickAction?.(); setTwoFASection("idle"); setTotpInput(""); setTwoFAMsg(null); }} style={{ padding:"10px 14px", background:"transparent", border:`1px solid ${t.border}`, borderRadius:8, color:t.textMuted, fontFamily:t.fontDisplay, fontSize:12, cursor:"pointer" }}>Cancel</button>
               </div>
             </>
           )}
@@ -837,22 +838,22 @@ const stats = [
               <input type="text" value={totpInput} maxLength={6} placeholder="000000" autoFocus onChange={e => setTotpInput(e.target.value.replace(/\D/g,""))} onKeyDown={e => e.key==="Enter"&&disable2FA()}
                 style={{ width:"100%", padding:"10px", background:t.inputBg, border:`1px solid ${t.border}`, borderRadius:7, color:t.text, fontFamily:t.fontMono, fontSize:24, letterSpacing:"0.35em", textAlign:"center", boxSizing:"border-box", marginBottom:10 }} />
               <div style={{ display:"flex", gap:8 }}>
-                <button onClick={() => { onClick?.(); disable2FA(); }} disabled={twoFALoading} style={{ flex:1, padding:"10px", background:`${t.danger}18`, border:`1px solid ${t.danger}`, borderRadius:8, color:t.danger, fontFamily:t.fontDisplay, fontSize:12, fontWeight:700, cursor:"pointer" }}>{twoFALoading?"Disabling…":"Disable"}</button>
-                <button onClick={() => { onClick?.(); setTwoFASection("idle"); setTotpInput(""); setTwoFAMsg(null); }} style={{ padding:"10px 14px", background:"transparent", border:`1px solid ${t.border}`, borderRadius:8, color:t.textMuted, fontFamily:t.fontDisplay, fontSize:12, cursor:"pointer" }}>Cancel</button>
+                <button onClick={() => { onClickAction?.(); disable2FA(); }} disabled={twoFALoading} style={{ flex:1, padding:"10px", background:`${t.danger}18`, border:`1px solid ${t.danger}`, borderRadius:8, color:t.danger, fontFamily:t.fontDisplay, fontSize:12, fontWeight:700, cursor:"pointer" }}>{twoFALoading?"Disabling…":"Disable"}</button>
+                <button onClick={() => { onClickAction?.(); setTwoFASection("idle"); setTotpInput(""); setTwoFAMsg(null); }} style={{ padding:"10px 14px", background:"transparent", border:`1px solid ${t.border}`, borderRadius:8, color:t.textMuted, fontFamily:t.fontDisplay, fontSize:12, cursor:"pointer" }}>Cancel</button>
               </div>
             </>
           )}
 
           <div style={{ marginTop:16, paddingTop:14, borderTop:`1px solid ${t.border}44`, display:"flex", flexDirection:"column", gap:7 }}>
-            <button onClick={() => { onClick?.(); openEdit("password"); }}
+            <button onClick={() => { onClickAction?.(); openEdit("password"); }}
               style={{ width:"100%", padding:"9px", background:"transparent", border:`1px solid ${t.border}`, borderRadius:8, color:t.textMuted, fontFamily:t.fontDisplay, fontSize:12, fontWeight:600, cursor:"pointer", textAlign:"left" as const, transition:"all 0.15s" }}
-              onMouseEnter={e => { onHover?.(); (e.currentTarget as HTMLElement).style.borderColor=t.accent; (e.currentTarget as HTMLElement).style.color=t.accent; }}
+              onMouseEnter={e => { onHoverAction?.(); (e.currentTarget as HTMLElement).style.borderColor=t.accent; (e.currentTarget as HTMLElement).style.color=t.accent; }}
               onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor=t.border; (e.currentTarget as HTMLElement).style.color=t.textMuted; }}>
               Change Password
             </button>
-            <button onClick={() => { onClick?.(); openEdit("email"); }}
+            <button onClick={() => { onClickAction?.(); openEdit("email"); }}
               style={{ width:"100%", padding:"9px", background:"transparent", border:`1px solid ${t.border}`, borderRadius:8, color:t.textMuted, fontFamily:t.fontDisplay, fontSize:12, fontWeight:600, cursor:"pointer", textAlign:"left" as const, transition:"all 0.15s" }}
-              onMouseEnter={e => { onHover?.(); (e.currentTarget as HTMLElement).style.borderColor=t.accent; (e.currentTarget as HTMLElement).style.color=t.accent; }}
+              onMouseEnter={e => { onHoverAction?.(); (e.currentTarget as HTMLElement).style.borderColor=t.accent; (e.currentTarget as HTMLElement).style.color=t.accent; }}
               onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor=t.border; (e.currentTarget as HTMLElement).style.color=t.textMuted; }}>
               Change Email
             </button>
@@ -877,7 +878,7 @@ const stats = [
             <div style={{ display:"flex", gap:4, padding:"14px 26px 0", flexShrink:0, overflowX:"auto" }}>
               {TABS.map(tab => (
                 <button key={tab.id} className="edit-tab-btn"
-                  onClick={() => { onClick?.(); setEditTab(tab.id); setEditMsg(null); }}
+                  onClick={() => { onClickAction?.(); setEditTab(tab.id); setEditMsg(null); }}
                   style={{
                     padding: "8px 16px", borderRadius: "8px 8px 0 0",
                     background: editTab===tab.id ? t.bgCard : "transparent",

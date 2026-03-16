@@ -7,10 +7,10 @@ import type { ThemeId } from "@/lib/themes";
 import { getRank, NavRankBadge } from "./NavBar";
 
 interface Props {
-  setScreen: (s: Screen) => void;
+  setScreenAction: (s: Screen) => void;
   themeId: ThemeId;
-  onHover?: () => void;
-  onClick?: () => void;
+  onHoverAction?: () => void;
+  onClickAction?: () => void;
 }
 
 
@@ -38,7 +38,7 @@ function useBreakpoint(): Breakpoint {
   return bp;
 }
 
-export default function HomeScreen({ setScreen, themeId, onHover, onClick }: Props) {
+export default function HomeScreen({ setScreenAction, themeId, onHoverAction, onClickAction }: Props) {
   const t  = THEMES[themeId];
   const ip = themeId === "pixel";
   const bp = useBreakpoint();
@@ -178,8 +178,8 @@ export default function HomeScreen({ setScreen, themeId, onHover, onClick }: Pro
         {CARDS.map(card => (
           <button
             key={card.key}
-            onClick={() => { onClick?.(); setScreen(card.key); }}
-            onMouseEnter={() => { onHover?.(); setHovered(card.key); }}
+            onClick={() => { onClickAction?.(); setScreenAction(card.key); }}
+            onMouseEnter={() => { onHoverAction?.(); setHovered(card.key); }}
             onMouseLeave={() => setHovered(null)}
             style={cardStyle(card.key, CARDS.indexOf(card))}
           >

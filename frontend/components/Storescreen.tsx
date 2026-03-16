@@ -13,7 +13,7 @@ import {
 } from "./GamePieces";
 
 interface Props {
-  setScreen: (s: Screen) => void;
+  setScreenAction: (s: Screen) => void;
   themeId: ThemeId;
 }
 
@@ -331,7 +331,7 @@ function BundleCard({ bundle, purchasedItems, t, onClick }: { bundle: Bundle; pu
 }
 
 // ── Main StoreScreen ──────────────────────────────────────────────────────────
-export default function StoreScreen({ setScreen, themeId }: Props) {
+export default function StoreScreen({ setScreenAction, themeId }: Props) {
   const t = THEMES[themeId as keyof typeof THEMES];
   const { user, token, updateUser } = useAuthStore();
   const isGuest = !user;
@@ -434,7 +434,7 @@ export default function StoreScreen({ setScreen, themeId }: Props) {
   };
 
   const GuestBuyBtn = () => (
-    <button onClick={() => setScreen("auth")} style={{ flexShrink: 0, background: t.accent, border: "none", borderRadius: 8, padding: "6px 12px", fontFamily: t.fontDisplay, fontSize: 11, fontWeight: 800, color: "#000", cursor: "pointer", whiteSpace: "nowrap" as const, display: "flex", alignItems: "center", gap: 4 }}>SIGN IN</button>
+    <button onClick={() => setScreenAction("auth")} style={{ flexShrink: 0, background: t.accent, border: "none", borderRadius: 8, padding: "6px 12px", fontFamily: t.fontDisplay, fontSize: 11, fontWeight: 800, color: "#000", cursor: "pointer", whiteSpace: "nowrap" as const, display: "flex", alignItems: "center", gap: 4 }}>SIGN IN</button>
   );
 
   const activeBundleData = openBundle ? BUNDLES.find(b => b.id === openBundle) : null;
@@ -483,7 +483,7 @@ export default function StoreScreen({ setScreen, themeId }: Props) {
               <div style={{ fontFamily: t.fontDisplay, fontSize: 14, fontWeight: 700, color: accent }}>Browsing as Guest</div>
               <div style={{ fontFamily: t.fontBody, fontSize: 13, color: t.textMuted }}>Sign in to purchase ProtoCredits and unlock premium equipment.</div>
             </div>
-            <button onClick={() => setScreen("auth")} style={{ marginLeft: "auto", flexShrink: 0, background: accent, border: "none", color: "#000", fontFamily: t.fontDisplay, fontSize: 12, fontWeight: 800, padding: "7px 16px", borderRadius: 7, cursor: "pointer", letterSpacing: "0.06em" }}>SIGN IN</button>
+            <button onClick={() => setScreenAction("auth")} style={{ marginLeft: "auto", flexShrink: 0, background: accent, border: "none", color: "#000", fontFamily: t.fontDisplay, fontSize: 12, fontWeight: 800, padding: "7px 16px", borderRadius: 7, cursor: "pointer", letterSpacing: "0.06em" }}>SIGN IN</button>
           </div>
         )}
 
@@ -719,7 +719,7 @@ export default function StoreScreen({ setScreen, themeId }: Props) {
         </div>
 
         <div style={{ textAlign: "center" as const }}>
-          <button onClick={() => setScreen("home")} style={{ background: "transparent", border: `1px solid ${t.border}`, color: t.textMuted, fontFamily: t.fontDisplay, fontSize: 13, fontWeight: 700, padding: "10px 28px", borderRadius: 8, cursor: "pointer", letterSpacing: "0.06em", transition: "all 0.2s" }}
+          <button onClick={() => setScreenAction("home")} style={{ background: "transparent", border: `1px solid ${t.border}`, color: t.textMuted, fontFamily: t.fontDisplay, fontSize: 13, fontWeight: 700, padding: "10px 28px", borderRadius: 8, cursor: "pointer", letterSpacing: "0.06em", transition: "all 0.2s" }}
             onMouseEnter={e => { e.currentTarget.style.borderColor = accent; e.currentTarget.style.color = accent; }}
             onMouseLeave={e => { e.currentTarget.style.borderColor = t.border; e.currentTarget.style.color = t.textMuted; }}>← GO BACK</button>
         </div>

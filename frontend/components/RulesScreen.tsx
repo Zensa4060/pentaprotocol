@@ -3,7 +3,7 @@ import { useState } from "react";
 import type { ThemeId } from "@/lib/themes";
 import { THEMES } from "@/lib/themes";
 
-interface Props { themeId: ThemeId; onHover?: () => void; onClick?: () => void; }
+interface Props { themeId: ThemeId; onHoverAction?: () => void; onClickAction?: () => void; }
 
 interface Rule {
   id: string;
@@ -114,7 +114,7 @@ const RULES = [
 },
 ];
 
-export default function RulesScreen({ themeId, onHover, onClick }: Props) {
+export default function RulesScreen({ themeId, onHoverAction, onClickAction }: Props) {
   const t = THEMES[themeId];
   const ip = themeId === "pixel";
   const [openId, setOpenId] = useState<string | null>(null);
@@ -140,7 +140,7 @@ export default function RulesScreen({ themeId, onHover, onClick }: Props) {
 
                 {/* Clickable header row */}
                 <button
-                  onClick={() => { onClick?.(); toggle(rule.id); }}
+                  onClick={() => { onClickAction?.(); toggle(rule.id); }}
                   style={{
                     width:"100%", display:"flex", alignItems:"center", gap:16,
                     padding:"20px 24px", background:"transparent", border:"none",
@@ -148,7 +148,7 @@ export default function RulesScreen({ themeId, onHover, onClick }: Props) {
                     transition:"background 0.18s",
                   }}
                   className="rule-row-btn"
-                  onMouseEnter={e => { onHover?.(); (e.currentTarget as HTMLElement).style.background = `${t.accent}0E`; }}
+                  onMouseEnter={e => { onHoverAction?.(); (e.currentTarget as HTMLElement).style.background = `${t.accent}0E`; }}
                   onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}
                 >
                   {rule.emoji && <span style={{ fontSize:ip?22:28, flexShrink:0 }}>{rule.emoji}</span>}

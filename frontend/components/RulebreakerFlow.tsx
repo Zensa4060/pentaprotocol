@@ -30,9 +30,9 @@ interface RulebreakerFlowProps {
   winnerPickedRule: string | null;
   winnerPickedFirst: string | null;
   winnerPickedC3: boolean | null;
-  onLeft: () => void;
-  onRight: () => void;
-  fmtSec: (s: number) => string;
+  onLeftAction: () => void;
+  onRightAction: () => void;
+  fmtSecAction: (s: number) => string;
   gameMode?: string;
   botPickedSide?: "left" | "right" | null;
   p1Label?: string;
@@ -45,7 +45,7 @@ export function RulebreakerFlow({
   summaryTimer, firstPlayerChosen, rbC3Blocked,
   choiceTimer, isMultiplayerGame, mySlot,
   winnerPickedRule, winnerPickedFirst, winnerPickedC3,
-  onLeft, onRight, fmtSec, gameMode, botPickedSide,
+  onLeftAction, onRightAction, fmtSecAction, gameMode, botPickedSide,
   p1Label: p1LabelProp, p2Label: p2LabelProp,
 }: RulebreakerFlowProps) {
 
@@ -191,7 +191,7 @@ const isBotChoosing = isBotTurnToChoose;
         <div style={{ width:"min(480px,88vw)", display:"flex", flexDirection:"column", gap:6 }}>
           <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
             <span style={{ fontFamily:t.fontMono, fontSize:11, color:t.textMuted, letterSpacing:"0.12em" }}>{actor} IS CHOOSING</span>
-            <span style={{ fontFamily:t.fontMono, fontSize:22, fontWeight:700, color:urgent?t.danger:actorCol, transition:"color 0.3s ease", animation:urgent?"urgentPulse 0.6s ease infinite":"none" }}>{fmtSec(choiceTimer)}s</span>
+            <span style={{ fontFamily:t.fontMono, fontSize:22, fontWeight:700, color:urgent?t.danger:actorCol, transition:"color 0.3s ease", animation:urgent?"urgentPulse 0.6s ease infinite":"none" }}>{fmtSecAction(choiceTimer)}s</span>
           </div>
           <div style={{ height:5, background:t.border, borderRadius:3, overflow:"hidden" }}>
             <div style={{ height:"100%", width:`${pct*100}%`, borderRadius:3, transition:"width 1.05s linear, background 0.35s ease", background:urgent?t.danger:`linear-gradient(90deg, ${actorCol}, ${t.accent})`, boxShadow:urgent?`0 0 14px ${t.danger}88`:`0 0 10px ${actorCol}66` }}/>
@@ -201,13 +201,13 @@ const isBotChoosing = isBotTurnToChoose;
         {/* Cards — always render normally; blur overlay only on unchosen card when bot reveals */}
         <div style={{ display:"flex", gap:20, width:"100%", maxWidth:880, pointerEvents:(isMyTurn && !isBotTurnToChoose)?"auto":"none" }}>
   <div style={{ flex:1, position:"relative", display:"flex" }}>
-    <TossCard label={leftLabel} onClick={onLeft} delay={0.12} actorCol={actorCol} bgCard={t.bgCard} borderCol={t.border} textCol={t.text} fontDisplay={t.fontDisplay} ip={ip}/>
+    <TossCard label={leftLabel} onClick={onLeftAction} delay={0.12} actorCol={actorCol} bgCard={t.bgCard} borderCol={t.border} textCol={t.text} fontDisplay={t.fontDisplay} ip={ip}/>
     {isBotTurnToChoose && botPickedSide !== null && botPickedSide !== null && botPickedSide !== "left" && (
       <div style={{ position:"absolute", inset:0, borderRadius:ip?2:16, backdropFilter:"blur(5px)", background:"rgba(0,0,0,0.5)", zIndex:2 }}/>
     )}
   </div>
   <div style={{ flex:1, position:"relative", display:"flex" }}>
-    <TossCard label={rightLabel} onClick={onRight} delay={0.20} actorCol={actorCol} bgCard={t.bgCard} borderCol={t.border} textCol={t.text} fontDisplay={t.fontDisplay} ip={ip}/>
+    <TossCard label={rightLabel} onClick={onRightAction} delay={0.20} actorCol={actorCol} bgCard={t.bgCard} borderCol={t.border} textCol={t.text} fontDisplay={t.fontDisplay} ip={ip}/>
     {isBotTurnToChoose && botPickedSide !== null && botPickedSide !== "right" && (
       <div style={{ position:"absolute", inset:0, borderRadius:ip?2:16, backdropFilter:"blur(5px)", background:"rgba(0,0,0,0.5)", zIndex:2 }}/>
     )}

@@ -16,14 +16,14 @@ interface AudioControls {
 }
 
 interface Props {
-  onClose: () => void;
+  onCloseAction: () => void;
   themeId: ThemeId;
-  setThemeId: (t: ThemeId) => void;
+  setThemeIdAction: (t: ThemeId) => void;
   audio: AudioControls;
-  onNavigateAuth?: () => void; // Passed from NavBar to trigger navigate to auth if guest
+  onNavigateAuthAction?: () => void; 
 }
 
-export default function SettingsModal({ onClose, themeId, setThemeId, audio, onNavigateAuth }: Props) {
+export default function SettingsModal({ onCloseAction, themeId, setThemeIdAction, audio, onNavigateAuthAction }: Props) {
   const t = THEMES[themeId];
   const { musicVol, setMusicVol, sfxVol, setSfxVol, voiceVol = 0.7, setVoiceVol, muted, toggleMute } = audio;
   const { user, logout } = useAuthStore();
@@ -48,7 +48,7 @@ export default function SettingsModal({ onClose, themeId, setThemeId, audio, onN
     <>
       {/* Backdrop */}
       <div
-        onClick={onClose}
+        onClick={onCloseAction}
         style={{
           position:"fixed", inset:0, zIndex:999,
           background:"rgba(0,0,0,0.82)",
@@ -71,7 +71,7 @@ export default function SettingsModal({ onClose, themeId, setThemeId, audio, onN
           <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:28 }}>
             <div style={{ fontFamily:t.fontDisplay, fontSize:22, fontWeight:700, color:t.text }}>Settings</div>
             <button
-              onClick={onClose}
+              onClick={onCloseAction}
               className="settings-close-btn"
               style={{
                 background:"none", border:`1px solid ${t.border}`,
@@ -189,7 +189,7 @@ export default function SettingsModal({ onClose, themeId, setThemeId, audio, onN
 
               {user ? (
                 <button
-                  onClick={() => { logout(); onClose(); }}
+                  onClick={() => { logout(); onCloseAction(); }}
                   style={{
                     width: "100%", padding: "16px",
                     background: `${t.danger}10`,
@@ -206,7 +206,7 @@ export default function SettingsModal({ onClose, themeId, setThemeId, audio, onN
                 </button>
               ) : (
                 <button
-                  onClick={() => { if (onNavigateAuth) onNavigateAuth(); onClose(); }}
+                  onClick={() => { if (onNavigateAuthAction) onNavigateAuthAction(); onCloseAction(); }}
                   style={{
                     width: "100%", padding: "16px",
                     background: `${t.accent}10`,

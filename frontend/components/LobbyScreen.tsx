@@ -8,19 +8,19 @@ import API from "@/lib/api";
 import { NavRankBadge, getRank } from "./NavBar";
 
 interface Props {
-  setScreen: (s: Screen) => void;
+  setScreenAction: (s: Screen) => void;
   themeId: ThemeId;
-  onQueueStart: (mode: "ranked" | "unranked") => void;
-  onQueueCancel: () => void;
-  onHover?: () => void;
-  onClick?: () => void;
-  onRoomReady?: (roomCode: string, playerSlot: "P1" | "P2", format: string) => void;
+  onQueueStartAction: (mode: "ranked" | "unranked") => void;
+  onQueueCancelAction: () => void;
+  onHoverAction?: () => void;
+  onClickAction?: () => void;
+  onRoomReadyAction?: (roomCode: string, playerSlot: "P1" | "P2", format: string) => void;
 }
 
 type MultiSub = "unranked" | null;
 type Phase = "select" | "queuing" | "matchup";
 
-export default function LobbyScreen({ setScreen, themeId, onQueueStart, onQueueCancel, onHover, onClick, onRoomReady }: Props) {
+export default function LobbyScreen({ setScreenAction, themeId, onQueueStartAction, onQueueCancelAction, onHoverAction, onClickAction, onRoomReadyAction }: Props) {
   const t  = THEMES[themeId as keyof typeof THEMES];
   const ip = themeId === "pixel";
   const { user, token } = useAuthStore();
@@ -73,8 +73,8 @@ export default function LobbyScreen({ setScreen, themeId, onQueueStart, onQueueC
     countdownRef.current = 3.5;
     setCountdown(3.5);
     const t1 = setTimeout(() => {
-      onQueueCancel();
-      setScreen("multiGame");
+      onQueueCancelAction();
+      setScreenAction("multiGame");
     }, 3500);
     return () => { clearTimeout(t1); };
   }, [phase]);
@@ -95,7 +95,7 @@ export default function LobbyScreen({ setScreen, themeId, onQueueStart, onQueueC
     if (!multiSub || !token) return;
 
     queueCancelledRef.current = false;
-    onQueueStart(multiSub);
+    onQueueStartAction(multiSub);
     setElapsed(0);
     setPhase("queuing");
 
@@ -117,7 +117,7 @@ export default function LobbyScreen({ setScreen, themeId, onQueueStart, onQueueC
           setQueuePlayerSlot(myS);
           setPhase("matchup");
           setCountdown(3.5);
-          setTimeout(() => { onQueueCancel(); onRoomReady?.(matchedCode, myS, multiSub); }, 3500);
+          setTimeout(() => { onQueueCancelAction(); onRoomReadyAction?.(matchedCode, myS, multiSub); }, 3500);
           return;
         }
         const code = res.data.room_code;
@@ -134,7 +134,7 @@ export default function LobbyScreen({ setScreen, themeId, onQueueStart, onQueueC
               storeOppProfile(poll.data, slot);
               setPhase("matchup");
               setCountdown(3.5);
-              setTimeout(() => { onQueueCancel(); onRoomReady?.(code, slot, multiSub); }, 3500);
+              setTimeout(() => { onQueueCancelAction(); onRoomReadyAction?.(code, slot, multiSub); }, 3500);
             }
           } catch { /* keep polling */ }
         }, 2000);
@@ -159,7 +159,7 @@ export default function LobbyScreen({ setScreen, themeId, onQueueStart, onQueueC
     }
     setQueueRoomCode(null);
     setPhase("select");
-    onQueueCancel();
+    onQueueCancelAction();
   };
 
   const fmt = (s: number) =>
@@ -185,7 +185,7 @@ export default function LobbyScreen({ setScreen, themeId, onQueueStart, onQueueC
         const res = await API.get(`/api/room/${code}`, authHeader);
         if (res.data.game_status === "playing") {
           clearInterval(interval);
-          onRoomReady?.(code, mySlot, res.data.format);
+          onRoomReadyAction?.(code, mySlot, res.data.format);
         }
       } catch { /* keep polling */ }
     }, 2000);
@@ -198,7 +198,7 @@ export default function LobbyScreen({ setScreen, themeId, onQueueStart, onQueueC
     setRoomLoading(true); setRoomError(null);
     try {
       const res = await API.post("/api/room/join", { room_code: joinCode.trim().toUpperCase() }, authHeader);
-      onRoomReady?.(res.data.room_code, (res.data.player_slot as "P1" | "P2") ?? "P2", res.data.format);
+      onRoomReadyAction?.(res.data.room_code, (res.data.player_slot as "P1" | "P2") ?? "P2", res.data.format);
     } catch (e: any) {
       setRoomError(e.response?.data?.detail || "Could not join room");
     } finally { setRoomLoading(false); }
@@ -247,7 +247,7 @@ export default function LobbyScreen({ setScreen, themeId, onQueueStart, onQueueC
       </div>
       <button onClick={cancelSearch}
         style={{ background:"none", border:`1px solid ${t.danger}`, color:t.danger, fontFamily:t.fontBody, fontSize:14, padding:"10px 26px", borderRadius:6, cursor:"pointer", transition:"background 0.22s ease" }}
-        onMouseEnter={e => { onHover?.(); e.currentTarget.style.background = `${t.danger}18`; }}
+        onMouseEnter={e => { onHoverAction?.(); e.currentTarget.style.background = `${t.danger}18`; }}
         onMouseLeave={e => { e.currentTarget.style.background = "none"; }}
       >Cancel</button>
       <style>{`@keyframes spinRing { to { transform: rotate(360deg); } }`}</style>
@@ -448,7 +448,7 @@ export default function LobbyScreen({ setScreen, themeId, onQueueStart, onQueueC
         {/* ── UNRANKED ── */}
         <button
           onClick={() => setMultiSub(multiSub === "unranked" ? null : "unranked")}
-          onMouseEnter={() => { onHover?.(); setHovered("unranked"); }}
+          onMouseEnter={() => { onHoverAction?.(); setHovered("unranked"); }}
           onMouseLeave={() => setHovered(null)}
           style={{ ...cardStyle("unranked", t.p1), alignItems:"center", textAlign:"center" as const }}
         >
@@ -582,7 +582,7 @@ export default function LobbyScreen({ setScreen, themeId, onQueueStart, onQueueC
             <div style={{ display:"flex", flexDirection:"column", gap:10, marginTop:"auto", width:"100%", animation:"fadeUp 0.28s cubic-bezier(.22,.68,0,1.2) both" }}>
               <button
                 onClick={() => { setRoomSection("create"); setRoomError(null); }}
-                onMouseEnter={e => { onHover?.(); e.currentTarget.style.borderColor=t.accent; e.currentTarget.style.color=t.accent; }}
+                onMouseEnter={e => { onHoverAction?.(); e.currentTarget.style.borderColor=t.accent; e.currentTarget.style.color=t.accent; }}
                 onMouseLeave={e => { e.currentTarget.style.borderColor=t.border; e.currentTarget.style.color=t.textMuted; }}
                 style={{ width:"100%", padding:"16px", background:"transparent", border:`2px solid ${t.border}`, borderRadius:ip?2:8, color:t.textMuted, fontFamily:t.fontDisplay, fontSize:14, fontWeight:700, cursor:"pointer", letterSpacing:"0.08em", transition:"all 0.22s" }}
               >
@@ -590,7 +590,7 @@ export default function LobbyScreen({ setScreen, themeId, onQueueStart, onQueueC
               </button>
               <button
                 onClick={() => { setRoomSection("join"); setRoomError(null); }}
-                onMouseEnter={e => { onHover?.(); e.currentTarget.style.borderColor=t.accent; e.currentTarget.style.color=t.accent; }}
+                onMouseEnter={e => { onHoverAction?.(); e.currentTarget.style.borderColor=t.accent; e.currentTarget.style.color=t.accent; }}
                 onMouseLeave={e => { e.currentTarget.style.borderColor=t.border; e.currentTarget.style.color=t.textMuted; }}
                 style={{ width:"100%", padding:"16px", background:"transparent", border:`2px solid ${t.border}`, borderRadius:ip?2:8, color:t.textMuted, fontFamily:t.fontDisplay, fontSize:14, fontWeight:700, cursor:"pointer", letterSpacing:"0.08em", transition:"all 0.22s" }}
               >
@@ -608,7 +608,7 @@ export default function LobbyScreen({ setScreen, themeId, onQueueStart, onQueueC
           <button
             onClick={startSearch}
             style={{ background:`linear-gradient(135deg,${t.accent},${t.accentGlow})`, border:"none", color:"#0A0A0A", fontFamily:t.fontDisplay, fontSize:18, fontWeight:700, padding:"18px 64px", borderRadius:ip?2:10, cursor:"pointer", boxShadow:`0 0 28px ${t.accentGlow}44`, transition:"transform 0.25s cubic-bezier(.22,.68,0,1.2), box-shadow 0.25s cubic-bezier(.22,.68,0,1.2)" }}
-            onMouseEnter={e => { onHover?.(); e.currentTarget.style.transform="translateY(-3px) scale(1.04)"; e.currentTarget.style.boxShadow=`0 8px 40px ${t.accentGlow}66`; }}
+            onMouseEnter={e => { onHoverAction?.(); e.currentTarget.style.transform="translateY(-3px) scale(1.04)"; e.currentTarget.style.boxShadow=`0 8px 40px ${t.accentGlow}66`; }}
             onMouseLeave={e => { e.currentTarget.style.transform="translateY(0) scale(1)"; e.currentTarget.style.boxShadow=`0 0 28px ${t.accentGlow}44`; }}
             onMouseDown={e  => { e.currentTarget.style.transform="translateY(0) scale(0.97)"; }}
             onMouseUp={e    => { e.currentTarget.style.transform="translateY(-3px) scale(1.04)"; }}
@@ -643,13 +643,13 @@ export default function LobbyScreen({ setScreen, themeId, onQueueStart, onQueueC
         )}
       </div>
 
-      <button onClick={() => setScreen("home")} style={{
+      <button onClick={() => setScreenAction("home")} style={{
         background: `${t.accent}18`, border: `2px solid ${t.accent}`,
         color: t.accent, fontFamily: t.fontDisplay, fontSize: 16, fontWeight: 700,
         padding: "14px 44px", borderRadius: ip ? 2 : 10,
         cursor: "pointer", letterSpacing: "0.06em", transition: "all 0.2s",
       }}
-        onMouseEnter={e => { onHover?.(); e.currentTarget.style.background = t.accent; e.currentTarget.style.color = "#000"; }}
+        onMouseEnter={e => { onHoverAction?.(); e.currentTarget.style.background = t.accent; e.currentTarget.style.color = "#000"; }}
         onMouseLeave={e => { e.currentTarget.style.background = `${t.accent}18`; e.currentTarget.style.color = t.accent; }}>
         GO BACK
       </button>

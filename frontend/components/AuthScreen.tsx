@@ -18,7 +18,7 @@ function validateUsername(val: string): string | null {
 type AuthTab = "signin" | "signup" | "forgot" | "verify_code" | "2fa_check";
 
 interface Props {
-  setScreen: (s: Screen) => void;
+  setScreenAction: (s: Screen) => void;
   themeId: ThemeId;
 }
 
@@ -167,7 +167,7 @@ function ParticleCanvas() {
   );
 }
 
-export default function AuthScreen({ setScreen, themeId }: Props) {
+export default function AuthScreen({ setScreenAction, themeId }: Props) {
   const t = THEMES[themeId];
   const [tab, setTab]               = useState<AuthTab>("signin");
   const [username, setUsername]     = useState("");
@@ -231,7 +231,7 @@ export default function AuthScreen({ setScreen, themeId }: Props) {
       if (res.data.requires_2fa) { setTempToken(res.data.temp_token); setTab("2fa_check"); return; }
       if (res.data.device_token) localStorage.setItem("pp_device_token", res.data.device_token);
       setAuth(res.data.user, res.data.access_token, staySignedIn);
-      setScreen("home");
+      setScreenAction("home");
     } catch (err: any) {
       const detail = err.response?.data?.detail;
       setErrors({ general: typeof detail === "string" ? detail : "Invalid credentials or server error" });
@@ -279,7 +279,7 @@ export default function AuthScreen({ setScreen, themeId }: Props) {
       const res = await API.post("/api/auth/2fa/login", { temp_token: tempToken, code: totpCode.trim() });
       if (res.data.device_token) localStorage.setItem("pp_device_token", res.data.device_token);
       setAuth(res.data.user, res.data.access_token, staySignedIn);
-      setScreen("home");
+      setScreenAction("home");
     } catch (err: any) {
       const detail = err.response?.data?.detail;
       setErrors({ totpCode: typeof detail === "string" ? detail : "Invalid code" });
@@ -723,7 +723,7 @@ export default function AuthScreen({ setScreen, themeId }: Props) {
         {/* Continue as Guest */}
         {/* ── CHANGED: color #3a3a3a → #999, size 13 → 13.7px, border opacity bumped ── */}
         <div style={{ marginTop: 24, paddingTop: 20, borderTop: "1px solid rgba(255,255,255,0.05)" }}>
-          <button onClick={() => setScreen("home")}
+          <button onClick={() => setScreenAction("home")}
             style={{
               width: "100%", padding: isMobile ? "13px" : "10px",
               background: "transparent",
