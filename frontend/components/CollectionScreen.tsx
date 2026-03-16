@@ -5,6 +5,7 @@ import { THEMES } from "@/lib/themes";
 import API from "@/lib/api";
 import { useAuthStore } from "@/lib/store";
 import { TITLES } from "@/components/ProfileScreen";
+import VoidRiftBanner from "./VoidRiftBanner";
 
 // Profile borders — only default for now, more coming later
 const PROFILE_BORDERS = [
@@ -26,6 +27,14 @@ const CheckIcon = ({ size = 14, color = "#000" }: { size?: number; color?: strin
     <polyline points="20 6 9 17 4 12"/>
   </svg>
 );
+
+function BannerRenderer({ banner, style = {} }: { banner: any; style?: React.CSSProperties }) {
+  if (banner.component) {
+    const BannerComp = banner.component;
+    return <BannerComp style={{ width: "100%", height: "100%", ...style }} />;
+  }
+  return <div style={{ width: "100%", height: "100%", background: banner.gradient, ...style }} />;
+}
 
 const CatIcon = ({ id, size = 16, color }: { id: string; size?: number; color: string }) => {
   const s = { width: size, height: size };
@@ -69,8 +78,9 @@ const PIECE_SKINS: { id: string; label: string; desc: string; condition: (p: any
   { id: "snowflake_shard",  label: "Snow & Shard",  desc: "Purchase for 599 ⬡", condition: (p: any) => (p?.purchased_items ?? []).includes("piece_snowflake_shard"),   p1: "❄",  p2: "◆",  p1c: "#C8EEFF", p2c: "#64C8FF", price: 599, isSnowShard: true },
 ];
 
-const BANNERS = [
-  { id: "default", label: "Default", gradient: "linear-gradient(135deg,#1a1a2e,#16213e)", owned: true },
+const BANNERS: { id: string; label: string; gradient: string; condition: (p: any) => boolean; component?: any }[] = [
+  { id: "default",   label: "Default",   gradient: "linear-gradient(135deg,#1a1a2e,#16213e)", condition: () => true },
+  { id: "void_rift", label: "Void Rift", gradient: "linear-gradient(135deg,#0e0020,#020005)", condition: (p: any) => (p?.purchased_items ?? []).includes("void_rift"), component: VoidRiftBanner },
 ];
 
 // Sound pack options
@@ -94,7 +104,7 @@ type CatId = "themes" | "board" | "banners" | "borders" | "coins" | "toss" | "ti
 const CATEGORIES: { id: CatId; label: string; icon: string; count: (p: any) => number }[] = [
   { id: "themes",  label: "Themes",           icon: "palette", count: () => COLLECTION_THEMES.filter(x => x.owned).length },
   { id: "board",   label: "Board Skins",      icon: "board",   count: (p) => BOARD_SKINS.filter(x => x.condition(p)).length },
-  { id: "banners", label: "Profile Banners",  icon: "banner",  count: () => BANNERS.filter(x => x.owned).length },
+  { id: "banners", label: "Profile Banners",  icon: "banner",  count: (p) => BANNERS.filter(x => x.condition(p)).length },
   { id: "borders", label: "Profile Borders",  icon: "border",  count: (p) => PROFILE_BORDERS.filter(x => x.condition(p)).length },
   { id: "coins",   label: "Coin Skins",       icon: "coin",    count: () => COIN_SKINS.filter(x => x.owned).length },
   { id: "toss",    label: "Toss Animations",  icon: "toss",    count: (p) => COIN_TOSS_ANIMS.filter(x => x.condition(p)).length },
@@ -328,7 +338,9 @@ export default function CollectionScreen({ themeId, setThemeIdAction, onHoverAct
   const [activeBoard,  setActiveBoard]  = useState<string>(() => loadCustomTheme().boardSkin  ?? (user as any)?.board_style ?? "default");
   const [activePiece,  setActivePiece]  = useState<string>(() => loadCustomTheme().pieceSkin  ?? "default");
   const [activeToss,   setActiveToss]   = useState<string>(() => loadCustomTheme().tossSkin   ?? "default");
+  const [activeBanner, setActiveBanner] = useState<string>(() => loadCustomTheme().bannerSkin ?? (user as any)?.banner_style ?? "default");
   const [equipping, setEquipping] = useState<string | null>(null);
+  const [equippingBanner, setEquippingBanner] = useState<string | null>(null);
   const [equipMsg, setEquipMsg] = useState<{ text: string; ok: boolean } | null>(null);
   const [purchaseModal, setPurchaseModal] = useState<{ id: string; label: string; price: number } | null>(null);
   const [insufficientModal, setInsufficientModal] = useState(false);
@@ -394,6 +406,28 @@ export default function CollectionScreen({ themeId, setThemeIdAction, onHoverAct
     setTimeout(() => setEquipMsg(null), 1800);
   };
 
+  const equipBanner = async (id: string) => {
+    if (!token) return;
+    const prev = activeBanner;
+    setActiveBanner(id);
+    setEquippingBanner(id);
+    const cur = loadCustomTheme();
+    saveCustomTheme({ ...cur, bannerSkin: id as any });
+    
+    try {
+      await API.put("/api/profile/me", { banner: id }, { headers: { Authorization: `Bearer ${token}` } });
+      updateUser({ banner: id });
+      setEquipMsg({ text: "Banner equipped!", ok: true });
+    } catch (e: any) {
+      setActiveBanner(prev);
+      saveCustomTheme({ ...cur, bannerSkin: prev as any });
+      setEquipMsg({ text: e?.response?.data?.detail || "Failed to equip banner", ok: false });
+    } finally {
+      setEquippingBanner(null);
+      setTimeout(() => setEquipMsg(null), 1800);
+    }
+  };
+
   const handleBuyItem = (id: string, label: string, price: number) => {
     if (!user) { setEquipMsg({ text: "Sign in to purchase", ok: false }); return; }
     const bal = (user as any).protocredits ?? 0;
@@ -419,6 +453,9 @@ export default function CollectionScreen({ themeId, setThemeIdAction, onHoverAct
         const skinId = id.replace("piece_", "");
         saveCustomTheme({ ...cur, pieceSkin: skinId as any });
         setActivePiece(skinId);
+      } else if (id === "void_rift") {
+        saveCustomTheme({ ...cur, bannerSkin: id as any });
+        setActiveBanner(id);
       }
       setEquipMsg({ text: `✓ ${purchaseModal.label} unlocked & equipped!`, ok: true });
       setTimeout(() => setEquipMsg(null), 2200);
@@ -609,18 +646,27 @@ export default function CollectionScreen({ themeId, setThemeIdAction, onHoverAct
           {/* ── BANNERS ── */}
           {cat === "banners" && (
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(230px,1fr))", gap: 14 }}>
-              {BANNERS.filter(x => showAll || x.owned).map(item => (
-                <div key={item.id} className={`coll-item${!item.owned ? " coll-locked" : ""}`}
-                  style={{ borderRadius: 12, overflow: "hidden", border: `1px solid ${item.owned ? t.border : t.border + "44"}`, background: t.bgCard }}>
-                  <div style={{ height: 60, background: item.gradient, position: "relative" }}>
-                    {!item.owned && <div style={{ position: "absolute", top: 8, right: 8, zIndex: 2 }}><LockIcon size={13} color="#777" /></div>}
+              {BANNERS.filter(x => showAll || x.condition(profile)).map(item => {
+                const owned = item.condition(profile);
+                const isActive = activeBanner === item.id;
+                return (
+                  <div key={item.id} className={`coll-item${!owned ? " coll-locked" : ""}`}
+                    onClick={() => { if (owned && !isActive) { onClickAction?.(); equipBanner(item.id); } }}
+                    style={{ borderRadius: 12, overflow: "hidden", border: `1.5px solid ${owned ? (isActive ? hoverColor : t.border) : t.border + "44"}`, background: t.bgCard, cursor: owned && !isActive ? "pointer" : "default", boxShadow: isActive ? `0 0 16px ${hoverColor}33` : "none" }}>
+                    <div style={{ height: 100, overflow: "hidden", position: "relative" }}>
+                      <BannerRenderer banner={item} />
+                      {!owned && <div style={{ position: "absolute", top: 8, right: 8, zIndex: 2 }}><LockIcon size={13} color="#777" /></div>}
+                      {owned && isActive && <div style={{ position: "absolute", top: 8, right: 8, background: hoverColor, borderRadius: 8, padding: "2px 9px", fontFamily: t.fontMono, fontSize: 9, color: "#fff", fontWeight: 800, zIndex: 2 }}>ACTIVE</div>}
+                    </div>
+                    <div style={{ padding: "10px 12px" }}>
+                      <div style={{ fontFamily: t.fontDisplay, fontSize: 16, fontWeight: 700, color: owned ? t.text : t.textMuted }}>{item.label}</div>
+                      <div style={{ fontFamily: t.fontBody, fontSize: 12, color: t.textMuted, marginTop: 3 }}>
+                        {equippingBanner === item.id ? "Equipping…" : owned ? (isActive ? "Equipped" : "Click to equip") : "Locked"}
+                      </div>
+                    </div>
                   </div>
-                  <div style={{ padding: "10px 12px" }}>
-                    <div style={{ fontFamily: t.fontDisplay, fontSize: 16, fontWeight: 700, color: item.owned ? t.text : t.textMuted }}>{item.label}</div>
-                    <div style={{ fontFamily: t.fontBody, fontSize: 12, color: t.textMuted, marginTop: 3 }}>{item.owned ? "Owned" : "Locked"}</div>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
 

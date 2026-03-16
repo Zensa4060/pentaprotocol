@@ -4,6 +4,22 @@ import type { ThemeId } from "@/lib/themes";
 import { THEMES } from "@/lib/themes";
 import { useAuthStore } from "@/lib/store";
 import API from "@/lib/api";
+import { loadCustomTheme } from "@/lib/customTheme";
+import VoidRiftBanner from "./VoidRiftBanner";
+
+const BANNERS_DATA: Record<string, any> = {
+  default: { id: "default", gradient: "linear-gradient(135deg,#1a1a2e,#16213e)" },
+  void_rift: { id: "void_rift", gradient: "linear-gradient(135deg,#0e0020,#020005)", component: VoidRiftBanner },
+};
+
+function BannerRenderer({ bannerId, style = {} }: { bannerId: string; style?: React.CSSProperties }) {
+  const banner = BANNERS_DATA[bannerId] || BANNERS_DATA.default;
+  if (banner.component) {
+    const BannerComp = banner.component;
+    return <BannerComp style={{ width: "100%", height: "100%", ...style }} />;
+  }
+  return <div style={{ width: "100%", height: "100%", background: banner.gradient, ...style }} />;
+}
 
 // ── Rank definitions (mirrors ProfileScreen exactly) ─────────────────────────
 const RANKS = [
@@ -137,9 +153,21 @@ export default function CareerScreen({ themeId, onHoverAction }: Props) {
 
         {/* ── TOP: Rank hero section ───────────────────────────────────────── */}
         <div style={{
+          position: "relative",
           display: "flex", flexDirection: "column", alignItems: "center",
-          padding: "40px 0 36px", gap: 16,
+          padding: "60px 0 50px", gap: 16,
+          borderRadius: ip ? 2 : 24,
+          overflow: "hidden",
+          border: `1px solid ${t.border}`,
+          marginBottom: 32,
+          boxShadow: `0 20px 50px rgba(0,0,0,0.3)`,
         }}>
+          {/* Banner background */}
+          <div style={{ position: "absolute", inset: 0, opacity: 0.25, zIndex: 0 }}>
+            <BannerRenderer bannerId={loadCustomTheme().bannerSkin ?? "default"} />
+          </div>
+          
+          <div style={{ position: "relative", zIndex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 16 }}>
           {/* Big rank badge */}
           <div style={{
             width: badgeSize, height: badgeSize, borderRadius: "50%",
@@ -194,8 +222,7 @@ export default function CareerScreen({ themeId, onHoverAction }: Props) {
               </div>
             </div>
           )}
-
-          {/* Stats row */}
+            {/* Stats row */}
           <div style={{
             display: "flex", gap: 0,
             background: t.bgCard, border: `1px solid ${t.border}`,
@@ -218,6 +245,7 @@ export default function CareerScreen({ themeId, onHoverAction }: Props) {
             ))}
           </div>
         </div>
+      </div>
 
         {/* ── MATCH HISTORY ─────────────────────────────────────────────────── */}
         <div style={{

@@ -90,6 +90,8 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   const mySlot = playerSlot ?? "P1";
   const coinStartTimeRef = useRef<number>(0);
   const [opponentName, setOpponentName] = useState<string | null>(null);
+  const [p1Banner, setP1Banner] = useState<string>(_ct.bannerSkin ?? "default");
+  const [p2Banner, setP2Banner] = useState<string>("default");
 
   const myDisplayName = p1Name ?? (mySlot === "P1" ? "P1" : "P2");
   const oppDisplayName = opponentName ?? (mySlot === "P1" ? "P2" : "P1");
@@ -231,7 +233,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
       wsRef.current = ws;
 
       ws.onopen = () => {
-        ws.send(JSON.stringify({ type: "player_info", username: p1Name ?? playerSlot ?? "P1", slot: playerSlot }));
+        ws.send(JSON.stringify({ type: "player_info", username: p1Name ?? playerSlot ?? "P1", slot: playerSlot, bannerId: p1Banner }));
       };
 
       ws.onmessage = (e) => {
@@ -239,8 +241,9 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
         if (msg.type === "player_info") {
           if (msg.slot !== playerSlot) {
             setOpponentName(msg.username ?? null);
+            if (msg.bannerId) setP2Banner(msg.bannerId);
             // Reply with our own info so opponent gets our name regardless of connection order
-            ws.send(JSON.stringify({ type: "player_info", username: p1Name ?? playerSlot ?? "P1", slot: playerSlot }));
+            ws.send(JSON.stringify({ type: "player_info", username: p1Name ?? playerSlot ?? "P1", slot: playerSlot, bannerId: p1Banner }));
           }
           return;
         }
@@ -1231,6 +1234,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
         showSurrender={showSurrender} showExitConfirm={showExitConfirm}
         setScreenAction={setScreenAction}
         p1Label={p1Label} p2Label={p2Label}
+        p1Banner={p1Banner} p2Banner={p2Banner}
         winnerDisplayNameAction={winnerDisplayName}
         onReadyToggle={onReadyToggle}
         onSendChat={sendChat}

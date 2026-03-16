@@ -5,7 +5,23 @@ import type { ThemeId } from "@/lib/themes";
 import { THEMES } from "@/lib/themes";
 import { useAuthStore } from "@/lib/store";
 import API from "@/lib/api";
+import { loadCustomTheme } from "@/lib/customTheme";
 import { NavRankBadge, getRank } from "./NavBar";
+import VoidRiftBanner from "./VoidRiftBanner";
+
+const BANNERS_DATA: Record<string, any> = {
+  default: { id: "default", gradient: "linear-gradient(135deg,#1a1a2e,#16213e)" },
+  void_rift: { id: "void_rift", gradient: "linear-gradient(135deg,#0e0020,#020005)", component: VoidRiftBanner },
+};
+
+function BannerRenderer({ bannerId, style = {} }: { bannerId: string; style?: React.CSSProperties }) {
+  const banner = BANNERS_DATA[bannerId] || BANNERS_DATA.default;
+  if (banner.component) {
+    const BannerComp = banner.component;
+    return <BannerComp style={{ width: "100%", height: "100%", ...style }} />;
+  }
+  return <div style={{ width: "100%", height: "100%", background: banner.gradient, ...style }} />;
+}
 
 interface Props {
   setScreenAction: (s: Screen) => void;
@@ -266,10 +282,7 @@ export default function LobbyScreen({ setScreenAction, themeId, onQueueStartActi
     setMatchupOppLevel(room[`${prefix}_level`] ?? 1);
   };
 
-  const BANNERS: Record<string, string> = {
-    default: "linear-gradient(135deg,#1a1a2e,#16213e)",
-  };
-  const getBanner = (id: string) => BANNERS[id] || BANNERS["default"];
+  const getBanner = (id: string) => BANNERS_DATA[id] || BANNERS_DATA["default"];
 
   const PlayerCard = React.memo(({ name, elo, avatar, banner, level, color, direction }: {
     name: string; elo: number | null; avatar: string | null; banner: string;
@@ -284,7 +297,9 @@ export default function LobbyScreen({ setScreenAction, themeId, onQueueStartActi
         animation: `${anim} 0.6s cubic-bezier(.22,.68,0,1.2) both`,
       }}>
         {/* Banner background */}
-        <div style={{ position: "absolute", inset: 0, background: getBanner(banner), opacity: 0.35 }} />
+        <div style={{ position: "absolute", inset: 0, opacity: 0.35 }}>
+          <BannerRenderer bannerId={banner} />
+        </div>
         {/* Content */}
         <div style={{ position: "relative", zIndex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
           {/* Avatar */}
@@ -335,7 +350,7 @@ export default function LobbyScreen({ setScreenAction, themeId, onQueueStartActi
         name={user?.username ?? "YOU"}
         elo={user?.elo ?? null}
         avatar={user?.avatar ?? null}
-        banner={user?.banner ?? "default"}
+        banner={loadCustomTheme().bannerSkin ?? "default"}
         level={user?.level ?? 1}
         color={t.p1}
         direction="top"

@@ -19,6 +19,7 @@ export interface CustomThemeConfig {
   tossSkin:   TossAnim;
   pieceSkin:  PieceSkin;
   background: BgSource;
+  bannerSkin: string;
 }
 
 export const DEFAULT_CUSTOM_THEME: CustomThemeConfig = {
@@ -29,6 +30,7 @@ export const DEFAULT_CUSTOM_THEME: CustomThemeConfig = {
   tossSkin:   "default",
   pieceSkin:  "default",
   background: "classic_dark",
+  bannerSkin: "default",
 };
 
 export const CUSTOM_THEME_STORAGE_KEY = "pp_custom_theme";

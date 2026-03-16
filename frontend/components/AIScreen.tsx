@@ -62,7 +62,7 @@ export default function AIScreen({ setScreenAction, themeId, onSelectDifficultyA
             <button
               key={d.id}
               onClick={() => handleSelect(d.id)}
-              onMouseEnter={e => { onHoverAction?.(); e.currentTarget.style.background = t.accent; e.currentTarget.style.color = "#000"; }}
+              onMouseEnter={() => { onHoverAction?.(); setHovered(d.id); }}
               onMouseLeave={() => setHovered(null)}
               style={{
                 flex: 1, minWidth: 200,
@@ -104,8 +104,15 @@ export default function AIScreen({ setScreenAction, themeId, onSelectDifficultyA
         padding: "14px 44px", borderRadius: ip ? 2 : 10,
         cursor: "pointer", letterSpacing: "0.06em", transition: "all 0.2s", marginTop: 8,
       }}
-        onMouseEnter={e => { onHoverAction?.(); e.currentTarget.style.background = t.accent; e.currentTarget.style.color = "#000"; }}
-        onMouseLeave={e => { e.currentTarget.style.background = `${t.accent}18`; e.currentTarget.style.color = t.accent; }}
+        onMouseEnter={e => {
+          onHoverAction?.();
+          e.currentTarget.style.background = t.accent;
+          e.currentTarget.style.color = "#000";
+        }}
+        onMouseLeave={e => {
+          e.currentTarget.style.background = `${t.accent}18`;
+          e.currentTarget.style.color = t.accent;
+        }}
       >
         GO BACK
       </button>

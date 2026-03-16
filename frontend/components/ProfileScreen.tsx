@@ -7,6 +7,7 @@ import API from "@/lib/api";
 import { containsProfanity, validateUsername } from "@/lib/profanity";
 import { SHARDS_LIGHT_SVG, SHARDS_DARK_SVG, PROTO_LIGHT_SVG, PROTO_DARK_SVG } from "@/lib/currencyIcons";
 import type { Screen } from "@/lib/types";
+import VoidRiftBanner from "./VoidRiftBanner";
 
 const RANKS = [
   { name: "NOVICE",       min: 0,    max: 500,  color: "#9CA3AF", icon: null, img: "/novice.svg",       scale: 1.3 },
@@ -49,9 +50,16 @@ export const TITLES: {
     unlockDesc: "Reach level 50",        condition: p => (p.level || 0) >= 50,                   animation: "rainbow" },
 ];
 
-const BANNERS: { id: string; label: string; gradient: string; unlockDesc: string; condition: (p: any) => boolean }[] = [
+const BANNERS: {
+  id: string; label: string; gradient: string;
+  component?: React.ComponentType<{ style?: React.CSSProperties }>;
+  unlockDesc: string; condition: (p: any) => boolean;
+}[] = [
   { id: "default",    label: "Default",         gradient: "linear-gradient(135deg,#1a1a2e,#16213e)",
     unlockDesc: "Default banner", condition: () => true },
+  { id: "void_rift",  label: "Void Rift",       gradient: "linear-gradient(135deg,#0e0020,#020005)",
+    component: VoidRiftBanner,
+    unlockDesc: "Purchase for 299 PC", condition: p => (p.purchased_items || []).includes("void_rift") },
 ];
 
 export const PROFILE_BORDERS: {
@@ -107,6 +115,14 @@ function TitleBadge({ title, onClick }: { title: typeof TITLES[0]; onClick?: () 
       </span>
     </div>
   );
+}
+
+function BannerRenderer({ banner, style = {} }: { banner: typeof BANNERS[0]; style?: React.CSSProperties }) {
+  if (banner.component) {
+    const BannerComp = banner.component;
+    return <BannerComp style={{ width: "100%", height: "100%", ...style }} />;
+  }
+  return <div style={{ width: "100%", height: "100%", background: banner.gradient, ...style }} />;
 }
 
 // ── Avatar with animated border ───────────────────────────────────────────────
@@ -627,11 +643,17 @@ const stats = [
     <div style={{ position:"fixed", inset:0, zIndex:2, padding:"84px 24px 48px", overflowY:"auto", background:t.bg, transition:"background 0.4s" }}>
 
       {/* ── Banner + Avatar + Name ─────────────────────────────────────────── */}
-      <div style={{ background:t.bgPanel, border:`1px solid ${t.border}`, borderRadius:16, marginBottom:18, overflow:"hidden" }}>
-        {/* Banner strip */}
+      <div style={{ background:t.bgPanel, border:`1px solid ${t.border}`, borderRadius:16, marginBottom:18, overflow:"hidden", position: "relative" }}>
+        
+        {/* Banner background (Full Panel) */}
+        <div style={{ position: "absolute", inset: 0, zIndex: 0, opacity: 0.8 }}>
+          <BannerRenderer banner={activeBanner} />
+        </div>
+
+        {/* Change Banner overlay (Top strip hit area) */}
         <div
           onClick={() => { onClickAction?.(); openEdit("banner"); }}
-          style={{ height:80, background: activeBanner.gradient, cursor:"pointer", position:"relative", transition:"filter 0.2s" }}
+          style={{ height: 100, cursor:"pointer", position:"relative", transition:"filter 0.2s", overflow: "hidden", zIndex: 1 }}
           title="Change banner"
         >
           <div style={{ position:"absolute", inset:0, display:"flex", alignItems:"center", justifyContent:"flex-end", padding:"0 16px", opacity:0, transition:"opacity 0.2s" }}
@@ -643,12 +665,14 @@ const stats = [
           </div>
         </div>
 
-        <div style={{ display:"flex", alignItems:"center", gap:22, padding:"0 26px 22px", flexWrap:"wrap", marginTop:-28 }}>
+        {/* Content Overlay */}
+        <div style={{ position: "relative", zIndex: 2, display:"flex", alignItems:"flex-end", gap:22, padding:"0 26px 26px", flexWrap:"wrap", background: "linear-gradient(to top, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0) 100%)" }}>
+          
           {/* Avatar with live border */}
           <div style={{ position:"relative", flexShrink:0 }}>
             <AvatarWithBorder
               profile={profile}
-              size={68}
+              size={72}
               borderDef={activeBorderDef}
               accentColor={t.accent}
               bgColor={t.bg}
@@ -656,35 +680,37 @@ const stats = [
               p2={t.p2}
             />
             <div onClick={() => { onClickAction?.(); openEdit("profile"); }}
-              style={{ position:"absolute", bottom:0, right:0, width:22, height:22, borderRadius:"50%", background:t.accent, display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer", fontSize:11, border:`2px solid ${t.bg}` }}>✏</div>
+              style={{ position:"absolute", bottom:0, right:0, width:24, height:24, borderRadius:"50%", background:t.accent, display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer", fontSize:11, border:`2px solid ${t.bg}`, boxShadow: "0 0 10px rgba(0,0,0,0.5)" }}>✏</div>
           </div>
 
           {/* Name + rank + title */}
-          <div style={{ flex:1, minWidth:150, paddingTop:32 }}>
+          <div style={{ flex:1, minWidth:150 }}>
             <div style={{ display:"flex", alignItems:"center", gap:10, flexWrap:"wrap", marginBottom:4 }}>
-              <div style={{ fontFamily:t.fontDisplay, fontSize:24, fontWeight:700, color:t.text }}>{profile.username}</div>
+              <div style={{ fontFamily:t.fontDisplay, fontSize:26, fontWeight:700, color:t.text, textShadow: "0 2px 10px rgba(0,0,0,0.8)" }}>{profile.username}</div>
               {/* Active title badge with animation */}
               <TitleBadge title={activeTitle} onClick={() => { onClickAction?.(); openEdit("title"); }} />
             </div>
             <div style={{ display:"flex", gap:14, flexWrap:"wrap", alignItems:"center" }}>
-              <div style={{ fontFamily:t.fontMono, fontSize:13, color:t.textMuted }}>LVL <span style={{ color:t.accent, fontWeight:700, fontSize:15 }}>{profile.level}</span></div>
+              <div style={{ fontFamily:t.fontMono, fontSize:13, color:t.text, textShadow: "0 1px 4px rgba(0,0,0,0.5)" }}>LVL <span style={{ color:t.accent, fontWeight:700, fontSize:15 }}>{profile.level}</span></div>
               <div style={{ display:"flex", alignItems:"center", gap:5 }}>
                 <RankIcon rank={rank} size={22} />
-                <span style={{ fontFamily:t.fontBody, fontSize:14, color:rank.color, fontWeight:600 }}>{rank.name}</span>
+                <span style={{ fontFamily:t.fontBody, fontSize:14, color:rank.color, fontWeight:600, textShadow: "0 1px 4px rgba(0,0,0,0.5)" }}>{rank.name}</span>
               </div>
             </div>
             {profile.bio && (
-              <div style={{ fontFamily:t.fontBody, fontSize:13, color:t.textMuted, marginTop:6, fontStyle:"italic" }}>"{profile.bio}"</div>
+              <div style={{ fontFamily:t.fontBody, fontSize:13, color:t.textMuted, marginTop:6, fontStyle:"italic", textShadow: "0 1px 4px rgba(0,0,0,0.5)" }}>"{profile.bio}"</div>
             )}
           </div>
 
           {/* ELO + edit button */}
-          <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end", gap:10, flexShrink:0, paddingTop:32 }}>
+          <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end", gap:12, flexShrink:0 }}>
             <div style={{ textAlign:"center" }}>
-              <div style={{ fontFamily:t.fontDisplay, fontSize:50, fontWeight:900, color:t.accent, lineHeight:1, textShadow:`0 0 28px ${t.accentGlow}50` }}>{elo}</div>
-              <div style={{ fontFamily:t.fontMono, fontSize:11, color:t.textMuted, letterSpacing:"0.2em", marginTop:4 }}>ELO</div>
+              <div style={{ fontFamily:t.fontDisplay, fontSize:54, fontWeight:900, color:t.accent, lineHeight:1, textShadow:`0 0 28px ${t.accentGlow}50, 0 2px 12px rgba(0,0,0,0.8)` }}>{elo}</div>
+              <div style={{ fontFamily:t.fontMono, fontSize:11, color:t.text, letterSpacing:"0.2em", marginTop:4, textShadow: "0 1px 4px rgba(0,0,0,0.5)" }}>ELO</div>
             </div>
-            <button onClick={() => { onClickAction?.(); openEdit("profile"); }} style={{ padding:"7px 16px", background:`${t.accent}18`, border:`1px solid ${t.accent}`, borderRadius:8, color:t.accent, fontFamily:t.fontDisplay, fontSize:12, fontWeight:700, cursor:"pointer" }}>
+            <button onClick={() => { onClickAction?.(); openEdit("profile"); }} style={{ padding:"8px 18px", background:`rgba(0,0,0,0.6)`, border:`1px solid ${t.accent}`, borderRadius:8, color:t.accent, fontFamily:t.fontDisplay, fontSize:12, fontWeight:700, cursor:"pointer", backdropFilter: "blur(4px)", transition: "all 0.2s" }}
+              onMouseEnter={e => { e.currentTarget.style.background = t.accent; e.currentTarget.style.color = "#000"; }}
+              onMouseLeave={e => { e.currentTarget.style.background = "rgba(0,0,0,0.6)"; e.currentTarget.style.color = t.accent; }}>
               ✏ Edit Profile
             </button>
           </div>
@@ -969,7 +995,9 @@ const stats = [
                             position:"relative",
                             boxShadow: selected ? `0 0 16px ${t.accent}44` : "none",
                           }}>
-                          <div style={{ height:52, background:b.gradient }} />
+                          <div style={{ height:52, overflow: "hidden" }}>
+                            <BannerRenderer banner={b} />
+                          </div>
                           <div style={{ padding:"8px 12px", background:t.bgCard, display:"flex", alignItems:"center", justifyContent:"space-between" }}>
                             <div>
                               <div style={{ fontFamily:t.fontDisplay, fontSize:13, fontWeight:700, color:unlocked?t.text:t.textMuted }}>{b.label}</div>

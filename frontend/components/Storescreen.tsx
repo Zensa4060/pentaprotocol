@@ -11,6 +11,7 @@ import {
   Flame, Skull, SnowflakePiece, IceShardPiece,
   RedCell, IceCell,
 } from "./GamePieces";
+import VoidRiftBanner from "./VoidRiftBanner";
 
 interface Props {
   setScreenAction: (s: Screen) => void;
@@ -37,8 +38,9 @@ const STORE_BOARD_SKINS: { id: string; label: string; desc: string; preview: str
   { id: "ice_grid", label: "Glacier", desc: "A crystalline grid of frozen energy", preview: "linear-gradient(135deg,#01040e,#01081c)", border: "#50a0dc", unlock: "1599 PC", price: 1599 },
 ];
 
-const STORE_BANNERS = [
-  { id: "default", label: "Default", gradient: "linear-gradient(135deg,#1a1a2e,#16213e)", unlock: "Free" },
+const STORE_BANNERS: { id: string; label: string; gradient: string; unlock: string; price?: number; component?: any }[] = [
+  { id: "default",   label: "Default",   gradient: "linear-gradient(135deg,#1a1a2e,#16213e)", unlock: "Free" },
+  { id: "void_rift", label: "Void Rift", gradient: "linear-gradient(135deg,#0e0020,#020005)", unlock: "299 PC", price: 299, component: VoidRiftBanner },
 ];
 
 const STORE_BORDERS = [
@@ -96,6 +98,14 @@ function UnlockBadge({ text, accent }: { text: string; accent: string }) {
       {isFree ? "FREE" : text.toUpperCase()}
     </span>
   );
+}
+
+function BannerRenderer({ banner, style = {} }: { banner: any; style?: React.CSSProperties }) {
+  if (banner.component) {
+    const BannerComp = banner.component;
+    return <BannerComp style={{ width: "100%", height: "100%", ...style }} />;
+  }
+  return <div style={{ width: "100%", height: "100%", background: banner.gradient, ...style }} />;
 }
 
 // ── Real board preview using actual GamePieces components ──────────────────────
@@ -677,15 +687,32 @@ export default function StoreScreen({ setScreenAction, themeId }: Props) {
         <div style={{ marginBottom: 52 }}>
           <SectionHeader label="Profile Banners" accent={accent} icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={accent} strokeWidth="1.8" strokeLinecap="round"><rect x="3" y="3" width="18" height="13" rx="2"/><path d="M3 18h18"/><path d="M3 21h18"/></svg>}/>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(230px,1fr))", gap: 14 }}>
-            {STORE_BANNERS.map(item => {
+            {STORE_BANNERS.filter(item => !(item.price && item.price > 0 && purchasedItems.includes(item.id))).map(item => {
               const hov = hovCard === `banner_${item.id}`;
+              const isBuying = buyingId === item.id;
+              const isPurchasable = (item.price ?? 0) > 0;
               return (
                 <div key={item.id} className="store-card" onMouseEnter={() => setHovCard(`banner_${item.id}`)} onMouseLeave={() => setHovCard(null)}
-                  style={{ borderRadius: 14, overflow: "hidden", border: `1.5px solid ${hov ? accent + "88" : t.border}`, background: t.bgCard, boxShadow: hov ? `0 8px 28px ${accent}22` : "none" }}>
-                  <div style={{ height: 70, background: item.gradient }} />
-                  <div style={{ padding: "13px 14px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                    <div style={{ fontFamily: t.fontDisplay, fontSize: 15, fontWeight: 700, color: t.text }}>{item.label}</div>
-                    <UnlockBadge text={item.unlock} accent={accent} />
+                  style={{ borderRadius: 14, overflow: "hidden", border: `1.5px solid ${hov ? accent + "88" : t.border}`, background: t.bgCard, boxShadow: hov ? `0 8px 28px ${accent}22` : "none", position: "relative" }}>
+                  <div style={{ height: 100, overflow: "hidden" }}>
+                    <BannerRenderer banner={item} />
+                  </div>
+                  <div style={{ padding: "13px 14px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontFamily: t.fontDisplay, fontSize: 15, fontWeight: 700, color: t.text }}>{item.label}</div>
+                      {item.price && <div style={{ fontFamily: t.fontBody, fontSize: 11, color: t.textMuted, marginTop: 2 }}>Profile Banner</div>}
+                    </div>
+                    {isPurchasable ? (isGuest ? <GuestBuyBtn /> : (
+                      <button disabled={isBuying} onClick={e => { e.stopPropagation(); handleBuyCosmetic(item.id, item.price!, item.label); }}
+                        style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0, background: isBuying ? `${accent}33` : `${accent}18`, border: `1.5px solid ${accent}${isBuying ? "33" : "66"}`, borderRadius: 8, padding: "6px 11px", fontFamily: t.fontMono, fontSize: 11, fontWeight: 800, color: isBuying ? t.textMuted : accent, cursor: isBuying ? "not-allowed" : "pointer", whiteSpace: "nowrap" as const }}>
+                        {isBuying ? "..." : (
+                          <>
+                            {item.price!.toLocaleString()}
+                            <ProtoSVG size={14} />
+                          </>
+                        )}
+                      </button>
+                    )) : <UnlockBadge text={item.unlock} accent={accent} />}
                   </div>
                 </div>
               );

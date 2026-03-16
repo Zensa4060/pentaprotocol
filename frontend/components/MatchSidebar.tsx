@@ -3,6 +3,21 @@ import React from "react";
 import { Piece } from "./GamePieces";
 import type { Phase } from "./GamePieces";
 import type { Screen } from "@/lib/types";
+import VoidRiftBanner from "./VoidRiftBanner";
+
+const BANNERS_DATA: Record<string, any> = {
+  default: { id: "default", gradient: "linear-gradient(135deg,#1a1a2e,#16213e)" },
+  void_rift: { id: "void_rift", gradient: "linear-gradient(135deg,#0e0020,#020005)", component: VoidRiftBanner },
+};
+
+function BannerRenderer({ bannerId, style = {} }: { bannerId: string; style?: React.CSSProperties }) {
+  const banner = BANNERS_DATA[bannerId] || BANNERS_DATA.default;
+  if (banner.component) {
+    const BannerComp = banner.component;
+    return <BannerComp style={{ width: "100%", height: "100%", ...style }} />;
+  }
+  return <div style={{ width: "100%", height: "100%", background: banner.gradient, ...style }} />;
+}
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -14,6 +29,8 @@ interface MatchSidebarProps {
     bgCard: string; bgPanel: string; gold: string; danger: string; inputBg: string;
     pieces: { p1: string; p2: string };
   };
+  p1Banner?: string;
+  p2Banner?: string;
   ip: boolean;
   p1c: string;
   p2c: string;
@@ -359,7 +376,7 @@ export function LeftPanel(props: MatchSidebarProps) {
     gameMode, isRankedGame, isMultiplayerGame, isMultiplayer, mySlot,
     p1Time, p2Time, readyTimeout, p1Ready, p2Ready,
     chatMessages, chatInput, chatOpen, chatWarning,
-    p1Label, p2Label, winnerDisplayNameAction, lastSeries,
+    p1Label, p2Label, p1Banner, p2Banner, winnerDisplayNameAction, lastSeries,
     onReadyToggle, onSendChat, onChatInputChange, onChatKeyDown, onChatOpenToggle,
     onSoftReset, onShowSurrender, onShowExitConfirmAction, fmtTimeAction, playHoverAction } = props;
 
@@ -368,8 +385,15 @@ export function LeftPanel(props: MatchSidebarProps) {
   return (
     <div style={{ width: panelW, minWidth: panelW, maxWidth: panelW * 1.15, resize: "horizontal", overflowX: "hidden", flexShrink: 0, background: t.bgPanel, borderRight: `${ip ? 3 : 1}px solid ${t.border}`, padding: "18px 18px", display: "flex", flexDirection: "column", gap: 14, overflowY: "auto" }}>
       <div style={{ fontFamily: t.fontMono, fontSize: 20, fontWeight: 700, color: t.text, letterSpacing: "0.14em" }}>MATCH TIMER</div>
-      {(["P1", "P2"] as const).map(p => (
-        <div key={p} style={{ padding: "12px 14px", background: phase === "playing" && current === p ? `${p === "P1" ? p1c : p2c}22` : t.bgCard, border: `1px solid ${phase === "playing" && current === p ? (p === "P1" ? p1c : p2c) : t.border}`, borderRadius: ip ? 2 : 8, display: "flex", justifyContent: "space-between", alignItems: "center", transition: "background 0.25s, border-color 0.25s" }}>
+      {(["P1", "P2"] as const).map(p => {
+        const isCurrentMover = phase === "playing" && current === p;
+        const bannerId = p === "P1" ? (p1Banner || "default") : (p2Banner || "default");
+        return (
+        <div key={p} style={{ position: "relative", overflow: "hidden", borderRadius: ip ? 2 : 8, border: `1px solid ${isCurrentMover ? (p === "P1" ? p1c : p2c) : t.border}`, transition: "border-color 0.25s" }}>
+          <div style={{ position: "absolute", inset: 0, opacity: 0.25, zIndex: 0 }}>
+            <BannerRenderer bannerId={bannerId} />
+          </div>
+          <div style={{ position: "relative", zIndex: 1, padding: "12px 14px", background: isCurrentMover ? `${p === "P1" ? p1c : p2c}15` : "rgba(0,0,0,0.2)", display: "flex", justifyContent: "space-between", alignItems: "center", transition: "background 0.25s" }}>
           <span style={{ fontFamily: t.fontBody, fontSize: 16, color: p === "P1" ? p1c : p2c, fontWeight: 700, display: "flex", alignItems: "center", gap: 4 }}>
             {
               (() => {
@@ -388,7 +412,8 @@ export function LeftPanel(props: MatchSidebarProps) {
           </span>
           <span style={{ fontFamily: t.fontMono, fontSize: 18, color: t.text, fontWeight: 700 }}>{p === "P1" ? fmtTimeAction(p1Time) : fmtTimeAction(p2Time)}</span>
         </div>
-      ))}
+        </div>
+      )})}
 
       <div style={{ borderTop: `1px solid ${t.border}`, paddingTop: 12 }}>
         <div style={{ fontFamily: t.fontMono, fontSize: 20, fontWeight: 700, color: t.text, letterSpacing: "0.14em", marginBottom: 10 }}>MATCH HISTORY</div>
