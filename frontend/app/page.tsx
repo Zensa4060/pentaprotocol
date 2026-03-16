@@ -5,7 +5,7 @@ import { useAudio } from "@/hooks/useAudio";
 import { THEMES } from "@/lib/themes";
 import type { ThemeId } from "@/lib/themes";
 import type { Difficulty } from "@/lib/botEngine";
-import type { Screen } from "@/lib/types";
+import type { Screen, MatchupData } from "@/lib/types";
 import { loadCustomTheme, resolveCustomTheme } from "@/lib/customTheme";
 import HomeScreen       from "@/components/HomeScreen";
 import AuthScreen       from "@/components/AuthScreen";
@@ -38,6 +38,7 @@ export default function Page() {
   const [aiDifficulty, setAiDifficulty] = useState<Difficulty>("medium");
   const [multiRoomCode,   setMultiRoomCode]   = useState<string>("");
   const [multiPlayerSlot, setMultiPlayerSlot] = useState<"P1" | "P2" | null>(null);
+  const [multiMatchup, setMultiMatchup]       = useState<MatchupData | null>(null);
   const [customRev, setCustomRev]       = useState(0);
   const audioStartedRef                 = useRef(false);
   const pendingTheme                    = useRef<ThemeId | null>(null);
@@ -220,10 +221,11 @@ export default function Page() {
 
   const ip = themeId === "pixel";
 
-  const handleRoomReady = (roomCode: string, playerSlot: "P1" | "P2", format: string) => {
+  const handleRoomReady = (roomCode: string, playerSlot: "P1" | "P2", format: string, matchup?: MatchupData) => {
     setMultiRoomCode(roomCode);
     setMultiPlayerSlot(playerSlot);
     setIsRanked(format === "ranked");
+    if (matchup) setMultiMatchup(matchup);
     setScreenHistory(prev => [...prev, screen]);
     setScreen("multiGame");
   };
@@ -395,6 +397,7 @@ export default function Page() {
 {screen === "multiGame" && (
   <GameScreen key="multiGame" themeId={themeId} gameMode={isRanked ? "ranked" : "unranked"} setScreenAction={handleSetScreen}
     roomCode={multiRoomCode} playerSlot={multiPlayerSlot ?? undefined}
+    matchupData={multiMatchup ?? undefined}
     p1Name={user?.username}
     playHoverAction={sfx.hover} playPlaceAction={sfx.place} playVictoryAction={sfx.victory} playDefeatAction={sfx.defeat}
     playRulebreakerAction={sfx.rulebreaker} playTransitionAction={sfx.transition} playClickAction={sfx.click} />

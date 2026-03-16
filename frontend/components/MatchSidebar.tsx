@@ -3,23 +3,8 @@ import React from "react";
 import { Piece } from "./GamePieces";
 import type { Phase } from "./GamePieces";
 import type { Screen } from "@/lib/types";
-import VoidRiftBanner from "./VoidRiftBanner";
 import BloodMoonBanner from "./BloodMoonBanner";
-
-const BANNERS_DATA: Record<string, any> = {
-  default: { id: "default", gradient: "linear-gradient(135deg,#1a1a2e,#16213e)" },
-  void_rift: { id: "void_rift", gradient: "linear-gradient(135deg,#0e0020,#020005)", component: VoidRiftBanner },
-  blood_moon: { id: "blood_moon", gradient: "linear-gradient(135deg,#000008,#180008)", component: BloodMoonBanner },
-};
-
-function BannerRenderer({ bannerId, style = {}, hideLabels = false }: { bannerId: string; style?: React.CSSProperties; hideLabels?: boolean }) {
-  const banner = BANNERS_DATA[bannerId] || BANNERS_DATA.default;
-  if (banner.component) {
-    const BannerComp = banner.component;
-    return <BannerComp hideLabels={hideLabels} style={{ width: "100%", height: "100%", ...style }} />;
-  }
-  return <div style={{ width: "100%", height: "100%", background: banner.gradient, ...style }} />;
-}
+import { BannerRenderer, BANNERS_DATA } from "./BannerRenderer";
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -109,7 +94,7 @@ interface MatchSidebarProps {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function MatchSidebar({
-  t, ip, p1c, p2c, panelW,
+  t, p1Banner, p2Banner, ip, p1c, p2c, panelW,
   phase, winner, current, gameNumber, matchHistory, seriesWinner, matchOver,
   gameMode, isRankedGame, isMultiplayerGame, isMultiplayer, mySlot,
   p1Time, p2Time, readyTimeout,
@@ -162,8 +147,12 @@ export function MatchSidebar({
     <div style={{ width: panelW, minWidth: panelW, maxWidth: panelW * 1.15, resize: "horizontal", overflowX: "hidden", flexShrink: 0, background: t.bgPanel, borderRight: `${ip ? 3 : 1}px solid ${t.border}`, padding: "18px 18px", display: "flex", flexDirection: "column", gap: 14, overflowY: "auto" }}>
       <div style={{ fontFamily: t.fontMono, fontSize: 20, fontWeight: 700, color: t.text, letterSpacing: "0.14em" }}>MATCH TIMER</div>
       {(["P1", "P2"] as const).map(p => (
-        <div key={p} style={{ padding: "12px 14px", background: phase === "playing" && current === p ? `${p === "P1" ? p1c : p2c}22` : t.bgCard, border: `1px solid ${phase === "playing" && current === p ? (p === "P1" ? p1c : p2c) : t.border}`, borderRadius: ip ? 2 : 8, display: "flex", justifyContent: "space-between", alignItems: "center", transition: "background 0.25s, border-color 0.25s" }}>
-          <span style={{ fontFamily: t.fontBody, fontSize: 16, color: p === "P1" ? p1c : p2c, fontWeight: 700, display: "flex", alignItems: "center", gap: 4 }}>
+        <div key={p} style={{ position: "relative", padding: "12px 14px", background: phase === "playing" && current === p ? `${p === "P1" ? p1c : p2c}22` : t.bgCard, border: `1px solid ${phase === "playing" && current === p ? (p === "P1" ? p1c : p2c) : t.border}`, borderRadius: ip ? 2 : 8, display: "flex", justifyContent: "space-between", alignItems: "center", transition: "background 0.25s, border-color 0.25s", overflow: "hidden" }}>
+          {/* Subtle Banner Background */}
+          <div style={{ position: "absolute", inset: 0, opacity: 0.15, pointerEvents: "none" }}>
+            <BannerRenderer bannerId={(p === "P1" ? p1Banner : p2Banner) || "default"} hideLabels />
+          </div>
+          <span style={{ position: "relative", zIndex: 1, fontFamily: t.fontBody, fontSize: 16, color: p === "P1" ? p1c : p2c, fontWeight: 700, display: "flex", alignItems: "center", gap: 4 }}>
             {
               (() => {
                 const raw = p === "P1" ? p1Label : p2Label;
@@ -179,7 +168,7 @@ export function MatchSidebar({
               })()
             }
           </span>
-          <span style={{ fontFamily: t.fontMono, fontSize: 18, color: t.text, fontWeight: 700 }}>{p === "P1" ? fmtTimeAction(p1Time) : fmtTimeAction(p2Time)}</span>
+          <span style={{ position: "relative", zIndex: 1, fontFamily: t.fontMono, fontSize: 18, color: t.text, fontWeight: 700 }}>{p === "P1" ? fmtTimeAction(p1Time) : fmtTimeAction(p2Time)}</span>
         </div>
       ))}
 

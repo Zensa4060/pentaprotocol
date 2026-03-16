@@ -7,21 +7,7 @@ import { useAuthStore } from "@/lib/store";
 import API from "@/lib/api";
 import { loadCustomTheme } from "@/lib/customTheme";
 import { NavRankBadge, getRank } from "./NavBar";
-import VoidRiftBanner from "./VoidRiftBanner";
-
-const BANNERS_DATA: Record<string, any> = {
-  default: { id: "default", gradient: "linear-gradient(135deg,#1a1a2e,#16213e)" },
-  void_rift: { id: "void_rift", gradient: "linear-gradient(135deg,#0e0020,#020005)", component: VoidRiftBanner },
-};
-
-function BannerRenderer({ bannerId, style = {} }: { bannerId: string; style?: React.CSSProperties }) {
-  const banner = BANNERS_DATA[bannerId] || BANNERS_DATA.default;
-  if (banner.component) {
-    const BannerComp = banner.component;
-    return <BannerComp style={{ width: "100%", height: "100%", ...style }} />;
-  }
-  return <div style={{ width: "100%", height: "100%", background: banner.gradient, ...style }} />;
-}
+import { BannerRenderer, BANNERS_DATA } from "./BannerRenderer";
 
 interface Props {
   setScreenAction: (s: Screen) => void;

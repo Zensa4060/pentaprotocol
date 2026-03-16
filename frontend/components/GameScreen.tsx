@@ -12,6 +12,8 @@ import { Piece, Embers, HeatOverlay, Flame, Skull, FrostCrystals, IceOverlay, Sn
 import type { Phase } from "./GamePieces";
 import { RulebreakerFlow, PHASE_TIMERS } from "./RulebreakerFlow";
 import { LeftPanel, RightPanel, WinOverlay, RematchOverlay, SurrenderModal, DisconnectModal, ExitModal } from "./MatchSidebar";
+import { useAuthStore } from "@/lib/store";
+import { BannerRenderer } from "./BannerRenderer";
 
 type GameMode = "singleplayer" | "ai" | "ranked" | "unranked";
 interface Props {
@@ -31,9 +33,11 @@ interface Props {
   roomCode?: string;
   playerSlot?: "P1" | "P2";
   p1Name?: string;
+  matchupData?: import("@/lib/types").MatchupData;
 }
 
-export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, gameMode = "singleplayer", difficulty = "medium", setScreenAction, roomCode, playerSlot, playHoverAction, playPlaceAction, playVictoryAction, playDefeatAction, playRulebreakerAction, playTransitionAction, playClickAction, p1Name }: Props) {
+export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, gameMode = "singleplayer", difficulty = "medium", setScreenAction, roomCode, playerSlot, playHoverAction, playPlaceAction, playVictoryAction, playDefeatAction, playRulebreakerAction, playTransitionAction, playClickAction, p1Name, matchupData }: Props) {
+  const { user } = useAuthStore();
   const t = THEMES[themeId];
   const ip = themeId === "pixel";
 
@@ -149,6 +153,8 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   const [readyTimeout, setReadyTimeout] = useState(60);
   const [readyTimer, setReadyTimer] = useState(0);
   const [phase, setPhase] = useState<Phase>("playing");
+  const [showMatchupOverlay, setShowMatchupOverlay] = useState(!!matchupData);
+  const [matchupCountdown, setMatchupCountdown] = useState(7.5);
 
   const [showRematch, setShowRematch] = useState(false);
   const [rematchRequested, setRematchRequested] = useState<string | null>(null);
@@ -180,6 +186,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   // ── Timer values stored in refs so rAF can read/write without setState loops ──
   const p1TimeRef = useRef(180000);
   const p2TimeRef = useRef(180000);
+  const matchupCountdownRef = useRef(7.5);
 
   const fmtTime = (ms: number) => { const s = Math.max(0, Math.floor(ms / 1000)); return `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`; };
   const fmtSecAction = (s: number) => `${Math.ceil(Math.max(0, s))}`;
@@ -540,6 +547,14 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
       const dt = now - lastTick.current;
       lastTick.current = now;
       const s = R.current;
+      if (showMatchupOverlay) {
+        matchupCountdownRef.current = Math.max(0, matchupCountdownRef.current - dt / 1000);
+        if (matchupCountdownRef.current <= 0) {
+          setShowMatchupOverlay(false);
+        } else {
+          setMatchupCountdown(matchupCountdownRef.current);
+        }
+      }
       const freePhases = ["waiting_ready", "rb_splash", "rb_coin"];
       if (s.winner && !freePhases.includes(s.phase)) return;
       if (pausedRef.current && !freePhases.includes(s.phase)) return;
@@ -968,6 +983,75 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     </div>
   );
 
+  const MatchupOverlay = () => {
+    if (!matchupData || !showMatchupOverlay) return null;
+    const opp = matchupData.opponent;
+    const myBanner = loadCustomTheme().bannerSkin ?? "default";
+    const myS = playerSlot || "P1";
+    const p1Data = myS === "P1" ? { name: p1Name || "YOU", banner: myBanner, elo: user?.elo || 0, level: user?.level || 1 } : { name: opp.name, banner: opp.banner, elo: opp.elo || 0, level: opp.level || 1 };
+    const p2Data = myS === "P2" ? { name: p1Name || "YOU", banner: myBanner, elo: user?.elo || 0, level: user?.level || 1 } : { name: opp.name, banner: opp.banner, elo: opp.elo || 0, level: opp.level || 1 };
+
+    const vsStyle: React.CSSProperties = {
+      fontFamily: themeId === "pixel" ? "'Press Start 2P', cursive" : themeId === "space" ? "'Polaris', sans-serif" : "'Press Start 2P', cursive",
+      fontSize: "clamp(42px,8vw,100px)",
+      fontWeight: 900,
+      color: t.accent,
+      textShadow: `0 0 40px ${t.accentGlow}88`,
+      zIndex: 2,
+    };
+
+    return (
+      <div style={{ position: "fixed", inset: 0, zIndex: 10000, background: t.bg, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+        <div style={{ textAlign: "center", paddingTop: 30, fontFamily: t.fontMono, fontSize: 13, color: t.textMuted, letterSpacing: "0.2em", zIndex: 2 }}>
+          {isRankedGame ? "RANKED" : "UNRANKED"} · BEST OF 3
+        </div>
+
+        {/* P1 Card */}
+        <div style={{ flex: 1, position: "relative", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
+          <div style={{ position: "absolute", inset: 0, opacity: 0.45 }}>
+            <BannerRenderer bannerId={p1Data.banner} hideLabels />
+          </div>
+          <div style={{ position: "relative", zIndex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
+             <div style={{ width: 100, height: 100, borderRadius: "50%", background: `linear-gradient(135deg, ${t.p1}, ${t.accent})`, border: `4px solid ${t.p1}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 42, color: t.p1 }}>👤</div>
+             <div style={{ fontFamily: t.fontDisplay, fontSize: 26, fontWeight: 800, color: t.p1, textShadow: `0 0 20px ${t.p1}66` }}>{p1Data.name}</div>
+             <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+               <div style={{ fontFamily: t.fontMono, fontSize: 13, color: t.textMuted }}>LVL <span style={{ color: t.accent }}>{p1Data.level}</span></div>
+               <div style={{ fontFamily: t.fontMono, fontSize: 16, color: t.accent, fontWeight: 900 }}>{p1Data.elo} ELO</div>
+             </div>
+          </div>
+        </div>
+
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 20 }}>
+          <div style={{ flex: 1, height: 2, background: `linear-gradient(90deg, transparent, ${t.border}, transparent)` }} />
+          <div style={vsStyle}>VS</div>
+          <div style={{ flex: 1, height: 2, background: `linear-gradient(90deg, transparent, ${t.border}, transparent)` }} />
+        </div>
+
+        {/* P2 Card */}
+        <div style={{ flex: 1, position: "relative", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
+          <div style={{ position: "absolute", inset: 0, opacity: 0.45 }}>
+            <BannerRenderer bannerId={p2Data.banner} hideLabels />
+          </div>
+          <div style={{ position: "relative", zIndex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
+             <div style={{ width: 100, height: 100, borderRadius: "50%", background: `linear-gradient(135deg, ${t.p2}, ${t.accent})`, border: `4px solid ${t.p2}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 42, color: t.p2 }}>👤</div>
+             <div style={{ fontFamily: t.fontDisplay, fontSize: 26, fontWeight: 800, color: t.p2, textShadow: `0 0 20px ${t.p2}66` }}>{p2Data.name}</div>
+             <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+               <div style={{ fontFamily: t.fontMono, fontSize: 13, color: t.textMuted }}>LVL <span style={{ color: t.accent }}>{p2Data.level}</span></div>
+               <div style={{ fontFamily: t.fontMono, fontSize: 16, color: t.accent, fontWeight: 900 }}>{p2Data.elo} ELO</div>
+             </div>
+          </div>
+        </div>
+
+        <div style={{ padding: "20px 40px 40px", flexShrink: 0 }}>
+           <div style={{ height: 6, background: t.border, borderRadius: 3, overflow: "hidden", maxWidth: 400, margin: "0 auto" }}>
+             <div style={{ height: "100%", width: `${(matchupCountdown / 7.5) * 100}%`, background: `linear-gradient(90deg,${t.accent},${t.accentGlow})` }} />
+           </div>
+           <div style={{ fontFamily: t.fontMono, fontSize: 14, color: t.textMuted, textAlign: "center", marginTop: 12, letterSpacing: "0.15em" }}>INITIALIZING BATTLEGROUND...</div>
+        </div>
+      </div>
+    );
+  };
+
   const rbPhases: Phase[] = ["rb_splash", "rb_coin", "rule_choice", "who_first_winner", "c3_choice", "c3_choice_loser", "who_first_loser", "toss_summary"];
   if (rbPhases.includes(phase)) {
     return (
@@ -1013,6 +1097,8 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
           winnerDisplayNameAction={winnerDisplayName}
           onDismissAction={dismissOverlay}
         />
+
+        <MatchupOverlay />
 
         <DisconnectModal
           show={showDisconnectModal}
@@ -1254,6 +1340,8 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
         winnerDisplayNameAction={winnerDisplayName}
         onDismissAction={dismissOverlay}
       />
+
+      <MatchupOverlay />
 
       <DisconnectModal
         show={showDisconnectModal}
