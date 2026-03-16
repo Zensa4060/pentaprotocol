@@ -427,7 +427,7 @@ export default function LobbyScreen({ setScreenAction, themeId, onQueueStartActi
         : isHov ? `linear-gradient(145deg, ${col}10, ${t.bgCard})` : t.bgCard,
       border: `2px solid ${active ? col : isHov ? col : t.border}`,
       borderRadius: ip ? 2 : 14,
-      padding: ip ? "35px 25px" : "45px 35px",
+      padding: isMobile ? "28px 20px" : ip ? "35px 25px" : "45px 35px",
       cursor: locked ? "not-allowed" : "pointer",
       textAlign: "left" as const,
       position: "relative" as const,
@@ -453,12 +453,28 @@ export default function LobbyScreen({ setScreenAction, themeId, onQueueStartActi
   };
 
   return (
-    <div style={{ position:"fixed", inset:0, zIndex:2, overflowY:"auto", background:t.bg, padding:"90px 24px 40px", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"space-evenly", transition:"background 0.4s" }}>
+    <div style={{ position:"fixed", inset:0, zIndex:2, overflowY:"auto", background:t.bg, padding: isMobile ? "70px 16px 40px" : "90px 24px 40px", display:"flex", flexDirection:"column", alignItems:"center", justifyContent: isMobile ? "flex-start" : "space-evenly", transition:"background 0.4s" }}>
 
-      <h1 style={{ fontFamily:t.fontDisplay, fontSize:71, fontWeight:700, color:t.text, textAlign:"center", textTransform:"uppercase", letterSpacing:"0.05em" }}>Multiplayer</h1>
+      <h1 style={{
+        fontFamily:t.fontDisplay,
+        fontSize: isMobile ? "clamp(32px, 10vw, 48px)" : 71,
+        fontWeight:700,
+        color:t.text,
+        textAlign:"center",
+        textTransform:"uppercase",
+        letterSpacing:"0.05em",
+        margin: isMobile ? "20px 0 30px" : 0
+      }}>Multiplayer</h1>
 
-      {/* ── 3-column grid ── */}
-      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:ip?14:20, width:"100%", maxWidth:1200 }}>
+      {/* ── 3-column grid (now responsive) ── */}
+      <div style={{
+        display:"grid",
+        gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr 1fr",
+        gap: isMobile ? 12 : ip ? 14 : 20,
+        width: "100%",
+        maxWidth: 1200,
+        marginBottom: isMobile ? 32 : 0
+      }}>
 
         {/* ── UNRANKED ── */}
         <button
@@ -663,6 +679,8 @@ export default function LobbyScreen({ setScreenAction, themeId, onQueueStartActi
         color: t.accent, fontFamily: t.fontDisplay, fontSize: 16, fontWeight: 700,
         padding: "14px 44px", borderRadius: ip ? 2 : 10,
         cursor: "pointer", letterSpacing: "0.06em", transition: "all 0.2s",
+        marginBottom: isMobile ? 30 : 0,
+        marginTop: isMobile ? 20 : 0,
       }}
         onMouseEnter={e => { onHoverAction?.(); e.currentTarget.style.background = t.accent; e.currentTarget.style.color = "#000"; }}
         onMouseLeave={e => { e.currentTarget.style.background = `${t.accent}18`; e.currentTarget.style.color = t.accent; }}>
