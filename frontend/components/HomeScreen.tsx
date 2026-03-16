@@ -61,11 +61,11 @@ export default function HomeScreen({ setScreen, themeId, onHover, onClick }: Pro
 
   // Made into vertical rectangles
   const cardPadding = isMobile
-    ? "52px 26px"
+    ? "32px 26px"
     : "72px 40px";
 
   const outerPadding = isMobile
-    ? "90px 16px 32px"
+    ? "30px 16px 30px"
     : isTablet
     ? "100px 24px 40px"
     : "100px 32px 48px";
@@ -73,7 +73,7 @@ export default function HomeScreen({ setScreen, themeId, onHover, onClick }: Pro
   const outerGap = isMobile ? 32 : isTablet ? 40 : 50;
 
   // Cards: stack vertically on mobile, horizontally on tablet+
-  const cardsLayout: React.CSSProperties = { display: "flex", flexDirection: isMobile ? "column" : "row", gap: isMobile ? 16 : 24, width: "100%", maxWidth: 1380, marginTop: "10vh" };
+  const cardsLayout: React.CSSProperties = { display: "flex", flexDirection: isMobile ? "column" : "row", gap: isMobile ? 12 : 24, width: "100%", maxWidth: 1380, marginTop: isMobile ? "5vh" : "10vh" };
 
   const { user } = useAuthStore();
   const rank = getRank(user?.elo ?? 0);
@@ -222,7 +222,7 @@ export default function HomeScreen({ setScreen, themeId, onHover, onClick }: Pro
           animation: "fadeUp 0.8s cubic-bezier(.22,.68,0,1.2) both",
           marginTop: "2vh"
         }}>
-          <NavRankBadge rank={rank} size={isMobile ? 121 : 182} />
+          <NavRankBadge rank={rank} size={isMobile ? 85 : 182} />
         </div>
       )}
     </div>

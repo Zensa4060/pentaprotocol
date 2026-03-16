@@ -1080,9 +1080,15 @@ useEffect(() => {
 
         {/* Bottom action bar */}
         <div style={{ position:"absolute", bottom:0, left:0, right:0, height:48, zIndex:10, display:"flex", alignItems:"center", justifyContent:"space-between", padding:"0 12px", background:"rgba(0,0,0,0.85)", borderTop:`1px solid ${t.border}`, backdropFilter:"blur(8px)", gap:8 }}>
-          <button onClick={() => setShowMobileLog(v => !v)} style={{ flex:1, padding:"8px 0", background:"rgba(255,255,255,0.04)", border:"1px solid rgba(255,255,255,0.1)", borderRadius:6, color:t.textSecondary, fontFamily:t.fontMono, fontSize:11, cursor:"pointer", letterSpacing:"0.06em" }}>
-            💬 CHAT / LOG
+          <button onClick={() => { if (showMobileLog && mobileTab === "log") setShowMobileLog(false); else { setMobileTab("log"); setShowMobileLog(true); } }} style={{ flex:1, padding:"8px 0", background:"rgba(255,255,255,0.04)", border:"1px solid rgba(255,255,255,0.1)", borderRadius:6, color:t.textSecondary, fontFamily:t.fontMono, fontSize:11, cursor:"pointer", letterSpacing:"0.06em" }}>
+            📜 LOG
           </button>
+          {isMultiplayerGame && (
+            <button onClick={() => { if (showMobileLog && mobileTab === "chat") setShowMobileLog(false); else { setMobileTab("chat"); setShowMobileLog(true); } }} style={{ flex:1, padding:"8px 0", background:"rgba(255,255,255,0.04)", border:"1px solid rgba(255,255,255,0.1)", borderRadius:6, color:t.textSecondary, fontFamily:t.fontMono, fontSize:11, cursor:"pointer", letterSpacing:"0.06em", position:"relative" }}>
+              💬 CHAT
+              {chatWarning && (!showMobileLog || mobileTab !== "chat") && <span style={{ position:"absolute", top:4, right:8, width:6, height:6, background:"#ff3333", borderRadius:"50%" }} />}
+            </button>
+          )}
           {phase==="waiting_ready" && (
             <button onClick={() => onReadyToggle(mySlot === "P1" || !isMultiplayerGame ? "P1" : "P2")} style={{ flex:2, padding:"8px 0", background:`${t.accent}22`, border:`1px solid ${t.accent}`, borderRadius:6, color:t.accent, fontFamily:t.fontMono, fontSize:11, cursor:"pointer", fontWeight:700 }}>
               {(mySlot==="P1"?p1Ready:p2Ready) ? "✓ READY" : "TAP TO READY"}
@@ -1095,7 +1101,7 @@ useEffect(() => {
 
         {/* Mobile log / chat drawer */}
         {showMobileLog && (
-          <div style={{ position:"absolute", bottom:48, left:0, right:0, zIndex:20, background:"rgba(10,10,10,0.96)", borderTop:`1px solid ${t.border}`, backdropFilter:"blur(12px)", height: 280, display:"flex", flexDirection:"column" }}>
+          <div style={{ position:"absolute", bottom:48, left:0, right:0, zIndex:20, background:"rgba(10,10,10,0.96)", borderTop:`1px solid ${t.border}`, backdropFilter:"blur(12px)", height: mobileTab === "chat" ? "50vh" : 280, display:"flex", flexDirection:"column" }}>
             {/* Tabs */}
             <div style={{ display:"flex", borderBottom:`1px solid ${t.border}44` }}>
               <button

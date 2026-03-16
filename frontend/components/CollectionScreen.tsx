@@ -338,6 +338,15 @@ export default function CollectionScreen({ themeId, setThemeId, onHover, onClick
   const ip = themeId === "pixel";
   const isClassic = themeId === "classic_light" || themeId === "classic_dark";
   const hoverColor = isClassic ? "#CC0000" : t.accent;
+
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const update = () => setIsMobile(window.innerWidth < 768);
+    update();
+    window.addEventListener("resize", update);
+    return () => window.removeEventListener("resize", update);
+  }, []);
+
   useEffect(() => {
   if (!token) return;
   API.get("/api/profile/me", { headers: { Authorization: `Bearer ${token}` } })
@@ -487,11 +496,12 @@ export default function CollectionScreen({ themeId, setThemeId, onHover, onClick
         @keyframes fadeIn { from{opacity:0} to{opacity:1} }
       `}</style>
 
-      <div style={{ maxWidth: 1100, margin: "0 auto", padding: "0 24px 48px", display: "flex", gap: 24 }}>
+      <div style={{ maxWidth: 1100, margin: "0 auto", padding: isMobile ? "0 16px 48px" : "0 24px 48px", display: "flex", gap: 24 }}>
 
         {/* ── Sidebar ── */}
-        <div style={{ width: 220, flexShrink: 0 }}>
-          <div style={{ fontFamily: t.fontMono, fontSize: 11, color: t.textMuted, letterSpacing: "0.18em", marginBottom: 14, paddingTop: 4 }}>COLLECTION</div>
+        {!isMobile && (
+          <div style={{ width: 220, flexShrink: 0 }}>
+            <div style={{ fontFamily: t.fontMono, fontSize: 11, color: t.textMuted, letterSpacing: "0.18em", marginBottom: 14, paddingTop: 4 }}>COLLECTION</div>
           <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
             {CATEGORIES.map(cat => {
               const isActive = activeCat === cat.id;
@@ -512,29 +522,53 @@ export default function CollectionScreen({ themeId, setThemeId, onHover, onClick
             })}
           </div>
         </div>
+        )}
 
         {/* ── Main content ── */}
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20, paddingTop: 4 }}>
-            <div>
-              <div style={{ fontFamily: t.fontDisplay, fontSize: 22, fontWeight: 700, color: t.text }}>{catData.label}</div>
-              <div style={{ fontFamily: t.fontBody, fontSize: 13, color: t.textMuted, marginTop: 2 }}>
-                {`${catData.count(profile)} owned · ${totalForCat(activeCat)} total`}
+          {isMobile && (
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
+              <div style={{ fontFamily: t.fontDisplay, fontSize: 24, fontWeight: 800, color: t.text }}>COLLECTION</div>
+              <div onClick={() => { onClick?.(); setShowAll(v => !v); }} style={{ fontFamily: t.fontMono, fontSize: 11, color: t.accent, cursor: "pointer", fontWeight: 700 }}>
+                {showAll ? "SHOW OWNED" : "SHOW ALL"}
               </div>
             </div>
-            <div onClick={() => { onClick?.(); setShowAll(v => !v); }} onMouseEnter={() => onHover?.()}
-              style={{ fontFamily: t.fontMono, fontSize: 11, color: t.accent, cursor: "pointer", letterSpacing: "0.08em", userSelect: "none" as const }}>
-              {showAll ? "SHOW OWNED ONLY" : "SHOW ALL"}
+          )}
+          {!isMobile && (
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20, paddingTop: 4 }}>
+              <div>
+                <div style={{ fontFamily: t.fontDisplay, fontSize: 22, fontWeight: 700, color: t.text }}>{catData.label}</div>
+                <div style={{ fontFamily: t.fontBody, fontSize: 13, color: t.textMuted, marginTop: 2 }}>
+                  {`${catData.count(profile)} owned · ${totalForCat(activeCat)} total`}
+                </div>
+              </div>
+              <div onClick={() => { onClick?.(); setShowAll(v => !v); }} onMouseEnter={() => onHover?.()}
+                style={{ fontFamily: t.fontMono, fontSize: 11, color: t.accent, cursor: "pointer", letterSpacing: "0.08em", userSelect: "none" as const }}>
+                {showAll ? "SHOW OWNED ONLY" : "SHOW ALL"}
+              </div>
             </div>
-          </div>
+          )}
 
-          {/* ── THEMES ── */}
-          {activeCat === "themes" && (
+          <div style={{ display: "flex", flexDirection: "column", gap: isMobile ? 32 : 0 }}>
+            {(isMobile ? CATEGORIES : [{ id: activeCat, icon: catData.icon, label: catData.label } as any]).map(renderCat => {
+              const cat = renderCat.id;
+              return (
+                <div key={cat} style={{ width: "100%" }}>
+                  {isMobile && (
+                    <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
+                      <div style={{ width: 34, height: 34, borderRadius: 8, background: `${t.accent}14`, border: `1px solid ${t.accent}33`, display: "flex", alignItems: "center", justifyContent: "center" }}><CatIcon id={renderCat.icon} size={18} color={t.accent} /></div>
+                      <span style={{ fontFamily: t.fontDisplay, fontSize: 18, fontWeight: 800, color: t.text, letterSpacing: "0.04em" }}>{renderCat.label}</span>
+                      <div style={{ flex: 1, height: 1, background: t.border, marginLeft: 8 }} />
+                    </div>
+                  )}
+
+                  {/* ── THEMES ── */}
+                  {cat === "themes" && (
             <ThemesWithCustomize t={t} ip={ip} themeId={themeId} profile={profile} setThemeId={setThemeId} activeTheme={activeTheme} setActiveTheme={setActiveTheme} showAll={showAll} onHover={onHover} onClick={onClick} />
           )}
 
           {/* ── BOARD SKINS ── */}
-          {activeCat === "board" && (
+          {cat === "board" && (
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(210px,1fr))", gap: 14 }}>
               {BOARD_SKINS.filter(x => showAll || x.condition(profile)).map(item => {
                 const owned = item.condition(profile);
@@ -573,7 +607,7 @@ export default function CollectionScreen({ themeId, setThemeId, onHover, onClick
           )}
 
           {/* ── BANNERS ── */}
-          {activeCat === "banners" && (
+          {cat === "banners" && (
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(230px,1fr))", gap: 14 }}>
               {BANNERS.filter(x => showAll || x.owned).map(item => (
                 <div key={item.id} className={`coll-item${!item.owned ? " coll-locked" : ""}`}
@@ -591,7 +625,7 @@ export default function CollectionScreen({ themeId, setThemeId, onHover, onClick
           )}
 
           {/* ── BORDERS ── */}
-          {activeCat === "borders" && (
+          {cat === "borders" && (
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(210px,1fr))", gap: 14 }}>
               {PROFILE_BORDERS.filter(x => showAll || x.condition(profile)).map(item => {
                 const owned = item.condition(profile);
@@ -616,7 +650,7 @@ export default function CollectionScreen({ themeId, setThemeId, onHover, onClick
           )}
 
           {/* ── COIN SKINS ── */}
-          {activeCat === "coins" && (
+          {cat === "coins" && (
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(190px,1fr))", gap: 14 }}>
               {COIN_SKINS.filter(x => showAll || x.owned).map(item => (
                 <div key={item.id} className={`coll-item${!item.owned ? " coll-locked" : ""}`}
@@ -647,7 +681,7 @@ export default function CollectionScreen({ themeId, setThemeId, onHover, onClick
           )}
 
           {/* ── TOSS ANIMATIONS ── */}
-          {activeCat === "toss" && (
+          {cat === "toss" && (
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(210px,1fr))", gap: 14 }}>
               {COIN_TOSS_ANIMS.filter(x => showAll || x.condition(profile)).map(item => {
                 const owned = item.condition(profile);
@@ -676,7 +710,7 @@ export default function CollectionScreen({ themeId, setThemeId, onHover, onClick
           )}
 
           {/* ── TITLES ── */}
-          {activeCat === "titles" && (
+          {cat === "titles" && (
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               {TITLES.filter(ti => showAll || ti.condition(profile)).map(ti => {
                 const owned = ti.condition(profile);
@@ -698,7 +732,7 @@ export default function CollectionScreen({ themeId, setThemeId, onHover, onClick
           )}
 
           {/* ── PIECE SKINS ── */}
-          {activeCat === "pieces" && (
+          {cat === "pieces" && (
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(210px,1fr))", gap: 14 }}>
               {PIECE_SKINS.filter(x => showAll || x.condition(profile)).map(item => {
                 const owned = item.condition(profile);
@@ -763,6 +797,11 @@ export default function CollectionScreen({ themeId, setThemeId, onHover, onClick
               })}
             </div>
           )}
+
+                </div>
+              );
+            })}
+          </div>
 
         </div>
       </div>
