@@ -119,6 +119,8 @@ export default function Page() {
       setAudioStarted(true);
       audio.playBgm(themeRef.current, getBgmCtx(screenRef.current, rankedRef.current));
     };
+    // Try immediate start
+    start();
     window.addEventListener("click",      start, { once: true });
     window.addEventListener("keydown",    start, { once: true });
     window.addEventListener("touchstart", start, { once: true });
