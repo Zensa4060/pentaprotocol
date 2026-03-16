@@ -12,6 +12,7 @@ import {
   RedCell, IceCell,
 } from "./GamePieces";
 import VoidRiftBanner from "./VoidRiftBanner";
+import BloodMoonBanner from "./BloodMoonBanner";
 
 interface Props {
   setScreenAction: (s: Screen) => void;
@@ -41,6 +42,7 @@ const STORE_BOARD_SKINS: { id: string; label: string; desc: string; preview: str
 const STORE_BANNERS: { id: string; label: string; gradient: string; unlock: string; price?: number; component?: any }[] = [
   { id: "default",   label: "Default",   gradient: "linear-gradient(135deg,#1a1a2e,#16213e)", unlock: "Free" },
   { id: "void_rift", label: "Void Rift", gradient: "linear-gradient(135deg,#0e0020,#020005)", unlock: "299 PC", price: 299, component: VoidRiftBanner },
+  { id: "blood_moon", label: "Blood Moon", gradient: "linear-gradient(135deg,#000008,#180008)", unlock: "299 PC", price: 299, component: BloodMoonBanner },
 ];
 
 const STORE_BORDERS = [

@@ -47,6 +47,7 @@ def _serialize_user(user: dict) -> dict:
         "border_style":        user.get("border_style", "none"),
         "board_style":         user.get("board_style", "default"),
         "title":               user.get("title", "newcomer"),
+        "purchased_items":     user.get("purchased_items", []),
     }
 
 
@@ -109,7 +110,7 @@ def contains_profanity(text: str) -> bool:
 # ── Valid cosmetic IDs (must match frontend definitions) ──────────────────────
 VALID_BANNERS = {
     "default", "crimson", "emerald", "ocean", "void", "gold", "aurora", "nebula",
-    "void_rift",
+    "void_rift", "blood_moon",
 }
 VALID_BORDERS = {
     "none", "silver", "blue_pulse", "emerald_veil",

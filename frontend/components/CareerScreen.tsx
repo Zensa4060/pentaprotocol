@@ -6,11 +6,13 @@ import { useAuthStore } from "@/lib/store";
 import API from "@/lib/api";
 import { loadCustomTheme } from "@/lib/customTheme";
 import VoidRiftBanner from "./VoidRiftBanner";
+import BloodMoonBanner from "./BloodMoonBanner";
 import { RANKS, getRank, NavRankBadge } from "./NavBar";
 
 const BANNERS_DATA: Record<string, any> = {
   default: { id: "default", gradient: "linear-gradient(135deg,#1a1a2e,#16213e)" },
   void_rift: { id: "void_rift", gradient: "linear-gradient(135deg,#0e0020,#020005)", component: VoidRiftBanner },
+  blood_moon: { id: "blood_moon", gradient: "linear-gradient(135deg,#000008,#180008)", component: BloodMoonBanner },
 };
 
 function BannerRenderer({ bannerId, style = {} }: { bannerId: string; style?: React.CSSProperties }) {
@@ -77,10 +79,11 @@ export default function CareerScreen({ themeId, onHoverAction }: Props) {
   const winRate = history.length > 0 ? Math.round((wins / history.length) * 100) : 0;
 
   const nextRank  = RANKS[Math.min(RANKS.indexOf(rank) + 1, RANKS.length - 1)];
-  const eloToNext = nextRank !== rank ? nextRank.min - elo : 0;
-  const rankProgress = nextRank !== rank
-    ? Math.min(100, Math.round(((elo - rank.min) / (nextRank.min - rank.min)) * 100))
-    : 100;
+  const isMaxRank = rank === nextRank;
+  const eloToNext = isMaxRank ? 0 : nextRank.min - elo;
+  const rankProgress = isMaxRank
+    ? 100
+    : Math.min(100, Math.round(((elo - rank.min) / (nextRank.min - rank.min)) * 100));
 
   const formatDate = (iso: string) => {
     if (!iso) return "—";

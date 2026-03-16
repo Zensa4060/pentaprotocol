@@ -12,7 +12,7 @@ export const RANKS = [
   { name: "PROFESSIONAL", min: 1000, max: 1500, color: "#34D399", img: "/professional.svg", scale: 1.3   },
   { name: "EMERALD",      min: 1500, max: 2000, color: "#10B981", img: "/emerald.svg",      scale: 1.495 },
   { name: "MASTER",       min: 2000, max: 2500, color: "#FF3333", img: "/master.png"                     },
-  { name: "LEGEND",       min: 2500, max: 9999, color: "#F59E0B", img: "/legend.png"                     },
+  { name: "LEGEND",       min: 2500, max: 1000000, color: "#F59E0B", img: "/legend.png"                     },
 ];
 
 export const getRank = (elo: number) => RANKS.find(r => elo >= r.min && elo < r.max) || RANKS[0];

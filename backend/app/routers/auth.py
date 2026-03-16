@@ -1,4 +1,4 @@
-﻿from fastapi import APIRouter, HTTPException, Header, Depends
+from fastapi import APIRouter, HTTPException, Header, Depends
 from app.models.user import UserRegister
 from app.core.database import get_db
 from app.core.security import hash_password, verify_password, create_access_token, decode_token
@@ -60,6 +60,7 @@ def serialize_user(user):
         "bio":                 user.get("bio", ""),
         "avatar":              user.get("avatar", None),
         "username_changed_at": user.get("username_changed_at", None),
+        "purchased_items":     user.get("purchased_items", []),
     }
 
 async def get_current_user(authorization: str = Header(...)):

@@ -8,6 +8,7 @@ import { containsProfanity, validateUsername } from "@/lib/profanity";
 import { SHARDS_LIGHT_SVG, SHARDS_DARK_SVG, PROTO_LIGHT_SVG, PROTO_DARK_SVG } from "@/lib/currencyIcons";
 import type { Screen } from "@/lib/types";
 import VoidRiftBanner from "./VoidRiftBanner";
+import BloodMoonBanner from "./BloodMoonBanner";
 
 const RANKS = [
   { name: "NOVICE",       min: 0,    max: 500,  color: "#9CA3AF", icon: null, img: "/novice.svg",       scale: 1.3 },
@@ -15,7 +16,7 @@ const RANKS = [
   { name: "PROFESSIONAL", min: 1000, max: 1500, color: "#34D399", icon: null, img: "/professional.svg", scale: 1.3 },
   { name: "EMERALD",      min: 1500, max: 2000, color: "#10B981", icon: null, img: "/emerald.svg",      scale: 1.495 },
   { name: "MASTER",       min: 2000, max: 2500, color: "#FF3333", icon: null, img: "/master.png" },
-  { name: "LEGEND",       min: 2500, max: 9999, color: "#F59E0B", icon: null, img: "/legend.png" },
+  { name: "LEGEND",       min: 2500, max: 1000000, color: "#F59E0B", icon: null, img: "/legend.png" },
 ];
 
 export const TITLES: {
@@ -60,6 +61,9 @@ const BANNERS: {
   { id: "void_rift",  label: "Void Rift",       gradient: "linear-gradient(135deg,#0e0020,#020005)",
     component: VoidRiftBanner,
     unlockDesc: "Purchase for 299 PC", condition: p => (p.purchased_items || []).includes("void_rift") },
+  { id: "blood_moon",  label: "Blood Moon",       gradient: "linear-gradient(135deg,#000008,#180008)",
+    component: BloodMoonBanner,
+    unlockDesc: "Purchase for 299 PC", condition: p => (p.purchased_items || []).includes("blood_moon") },
 ];
 
 export const PROFILE_BORDERS: {
@@ -725,7 +729,11 @@ const stats = [
           </span>
           {nextRank && (
             <span style={{ display:"flex", alignItems:"center", gap:7, fontFamily:t.fontDisplay, fontSize:15, color:t.text, fontWeight:700 }}>
-              <RankIcon rank={nextRank} size={24} />{nextRank.name} <span style={{ color:t.accent }}>&nbsp;· {rank.max - elo} ELO away</span>
+              <RankIcon rank={nextRank} size={24} />{nextRank.name} 
+              {rank.name === nextRank.name 
+                ? <span style={{ color:t.accent }}>&nbsp;· MAX RANK</span>
+                : <span style={{ color:t.accent }}>&nbsp;· {rank.max - elo} ELO away</span>
+              }
             </span>
           )}
         </div>
@@ -806,7 +814,7 @@ const stats = [
                 <div key={i} style={{ display:"flex", alignItems:"center", gap:11, padding:"9px 13px", background:isCurrent?`${r.color}12`:"transparent", border:`1px solid ${isCurrent?r.color:t.border+"44"}`, borderRadius:7 }}>
                   <RankIcon rank={r} size={30} />
                   <div style={{ flex:1, fontFamily:t.fontDisplay, fontSize:16, fontWeight:isCurrent?800:600, color:isCurrent?r.color:t.textSecondary, letterSpacing:"0.05em" }}>{r.name}</div>
-                  <div style={{ fontFamily:t.fontMono, fontSize:16, color:isCurrent?t.accent:t.text, fontWeight:isCurrent?800:600 }}>{r.min}–{r.max===9999?"∞":r.max}</div>
+                  <div style={{ fontFamily:t.fontMono, fontSize:16, color:isCurrent?t.accent:t.text, fontWeight:isCurrent?800:600 }}>{r.min}–{r.max>=1000000?"∞":r.max}</div>
                   {isCurrent && <div style={{ background:`${r.color}18`, border:`1px solid ${r.color}`, color:r.color, fontFamily:t.fontMono, fontSize:11, padding:"3px 10px", borderRadius:10, fontWeight:700 }}>YOU</div>}
                 </div>
               );

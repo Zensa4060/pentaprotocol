@@ -4,10 +4,12 @@ import { Piece } from "./GamePieces";
 import type { Phase } from "./GamePieces";
 import type { Screen } from "@/lib/types";
 import VoidRiftBanner from "./VoidRiftBanner";
+import BloodMoonBanner from "./BloodMoonBanner";
 
 const BANNERS_DATA: Record<string, any> = {
   default: { id: "default", gradient: "linear-gradient(135deg,#1a1a2e,#16213e)" },
   void_rift: { id: "void_rift", gradient: "linear-gradient(135deg,#0e0020,#020005)", component: VoidRiftBanner },
+  blood_moon: { id: "blood_moon", gradient: "linear-gradient(135deg,#000008,#180008)", component: BloodMoonBanner },
 };
 
 function BannerRenderer({ bannerId, style = {}, hideLabels = false }: { bannerId: string; style?: React.CSSProperties; hideLabels?: boolean }) {
