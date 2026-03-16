@@ -10,15 +10,21 @@ import math
 router = APIRouter()
 
 def xp_for_level(level: int) -> int:
-    return 5000 + (level - 1) * 1000
+    # Exponential growth: base 5000 + multiplier * (1.1^level) + linear bonus
+    # This makes it increasingly difficult to level up.
+    if level >= 1000: return 999_999_999 # Effective cap
+    base = 5000
+    curve = int(1000 * (1.1 ** (level - 1)))
+    linear = (level - 1) * 500
+    return base + curve + linear
 
 def compute_level(total_xp: int) -> tuple[int, int]:
     level = 1
     remaining = total_xp
-    while remaining >= xp_for_level(level):
+    while level < 1000 and remaining >= xp_for_level(level):
         remaining -= xp_for_level(level)
         level += 1
-    return level, remaining
+    return min(level, 1000), remaining
 
 def xp_for_result(result: str, mode: str = "multiplayer", difficulty: str = "medium") -> int:
     if mode == "bot":

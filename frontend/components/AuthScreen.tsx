@@ -453,7 +453,7 @@ export default function AuthScreen({ setScreenAction, themeId }: Props) {
         className="pp-left"
         style={{
           flex: isMobile ? "0 0 auto" : "0 0 70%",
-          height: isMobile ? 220 : "100%",
+          height: isMobile ? 160 : "100%",
           position: "relative",
           overflow: "hidden",
           display: "flex",
@@ -501,8 +501,8 @@ export default function AuthScreen({ setScreenAction, themeId }: Props) {
             src="/Pentaprotocol_Logo_Transparent.png"
             alt="PentaProtocol Logo"
             style={{
-              width: isMobile ? 72 : 220,
-              height: isMobile ? 72 : 220,
+              width: isMobile ? 60 : 220,
+              height: isMobile ? 60 : 220,
               objectFit: "contain",
               filter: "drop-shadow(0 0 32px rgba(255,100,30,0.55)) drop-shadow(0 0 80px rgba(200,60,0,0.3))",
             }}
@@ -511,9 +511,9 @@ export default function AuthScreen({ setScreenAction, themeId }: Props) {
           <div style={{ textAlign: isMobile ? "left" : "center" }}>
             <div style={{
               fontFamily: "'Courier New', monospace",
-              fontSize: isMobile ? 24 : 42,
+              fontSize: isMobile ? 20 : 42,
               fontWeight: 900,
-              letterSpacing: isMobile ? "0.12em" : "0.22em",
+              letterSpacing: isMobile ? "0.1em" : "0.22em",
               lineHeight: 1,
             }}>
               <span style={{
@@ -573,7 +573,7 @@ export default function AuthScreen({ setScreenAction, themeId }: Props) {
           flexDirection: "column",
           alignItems: "stretch",
           justifyContent: isMobile ? "flex-start" : "center",
-          padding: isMobile ? "28px 24px 48px" : "32px 32px",
+          padding: isMobile ? "20px 20px 32px" : "32px 32px",
           overflowY: "auto",
           position: "relative",
         }}
@@ -581,11 +581,11 @@ export default function AuthScreen({ setScreenAction, themeId }: Props) {
         {/* Top label */}
         <div style={{
           fontFamily: "'Georgia', 'Times New Roman', serif",
-          fontSize: isMobile ? 13 : 18,
+          fontSize: isMobile ? 12 : 18,
           color: "#ffffff",
-          letterSpacing: isMobile ? "0.14em" : "0.22em",
+          letterSpacing: isMobile ? "0.12em" : "0.22em",
           textTransform: "uppercase",
-          marginBottom: 24,
+          marginBottom: isMobile ? 16 : 24,
           fontWeight: 900,
           display: "flex", alignItems: "center", gap: 10,
         }}>
@@ -597,7 +597,7 @@ export default function AuthScreen({ setScreenAction, themeId }: Props) {
         {/* Tab toggle */}
         {(tab === "signin" || tab === "signup") && (
           <div style={{
-            display: "flex", marginBottom: 24,
+            display: "flex", marginBottom: isMobile ? 16 : 24,
             border: "1px solid rgba(255,255,255,0.28)",
             borderRadius: 8, overflow: "hidden",
             background: "#1c1c1c",
