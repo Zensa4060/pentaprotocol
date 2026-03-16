@@ -992,7 +992,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
       wsRef.current.send(JSON.stringify({ type: "ready", ready: newVal }));
     }
     player === "P1" ? setP1Ready(newVal) : setP2Ready(newVal);
-    if (gameMode === "ai" && player === "P1") setP2Ready(newVal);
+    if ((gameMode === "ai" || gameMode === "singleplayer") && player === "P1") setP2Ready(newVal);
   };
 
   const onChatKeyDown = (e: React.KeyboardEvent) => {
@@ -1022,6 +1022,26 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
 
         {/* Board fills entire screen */}
         <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "8px" }}>
+          {gameMode === "singleplayer" && (
+            <button
+              onClick={softReset}
+              style={{
+                marginBottom: 12,
+                padding: "6px 16px",
+                background: "rgba(255, 0, 0, 0.08)",
+                border: `1px solid ${t.danger}66`,
+                borderRadius: 8,
+                color: t.danger,
+                fontFamily: t.fontMono,
+                fontSize: 10,
+                fontWeight: 700,
+                letterSpacing: "0.05em",
+                backdropFilter: "blur(4px)"
+              }}
+            >
+              ↺ RESET MATCH
+            </button>
+          )}
           <div style={{ display: "flex", gap: `${boardGap}px`, paddingLeft: 28, marginBottom: 4 }}>
             {"ABCDE".split("").map(l => (
               <div key={l} style={{ width: bigCs, textAlign: "center", fontFamily: t.fontMono, fontSize: 16, fontWeight: 800, color: isRedBoard ? "rgba(200,60,40,0.7)" : isIceBoard ? "rgba(140,210,255,0.55)" : t.accent, letterSpacing: "0.1em" }}>{l}</div>
