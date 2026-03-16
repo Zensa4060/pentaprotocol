@@ -87,11 +87,11 @@ const RankIcon = ({ rank, size = 26 }: { rank: typeof RANKS[0]; size?: number })
   const imgSize = size * 0.85 * imgScale;
   return rank.img ? (
     <div style={{ width:size, height:size, borderRadius:"50%", background:"#000000", flexShrink:0, display:"flex", alignItems:"center", justifyContent:"center", overflow:"hidden" }}>
-      <img src={rank.img} alt={rank.name} style={{ width:imgSize, height:imgSize, objectFit:"contain" }} />
+      <img src={rank.img} alt={rank.name} draggable={false} style={{ width:imgSize, height:imgSize, objectFit:"contain", userSelect: "none", pointerEvents: "none" }} />
     </div>
   ) : (
     <div style={{ width:size, height:size, borderRadius:"50%", background:"#000000", flexShrink:0, display:"flex", alignItems:"center", justifyContent:"center" }}>
-      <span style={{ fontSize:size*0.6, color:rank.color, lineHeight:1 }}>{rank.icon}</span>
+      <span style={{ fontSize:size*0.6, color:rank.color, lineHeight:1, userSelect: "none", pointerEvents: "none" }}>{rank.icon}</span>
     </div>
   );
 };

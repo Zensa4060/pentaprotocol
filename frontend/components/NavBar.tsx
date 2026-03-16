@@ -27,7 +27,7 @@ export const NavRankBadge = ({ rank, size = 30 }: { rank: typeof RANKS[0]; size?
       display: "flex", alignItems: "center", justifyContent: "center",
       overflow: "hidden", boxShadow: `0 0 10px ${rank.color}55`,
     }}>
-      <img src={rank.img} alt={rank.name} style={{ width: imgSize, height: imgSize, objectFit: "contain" }} />
+      <img src={rank.img} alt={rank.name} draggable={false} style={{ width: imgSize, height: imgSize, objectFit: "contain", userSelect: "none", pointerEvents: "none" }} />
     </div>
   );
 };

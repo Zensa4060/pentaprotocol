@@ -36,17 +36,34 @@ function useBreakpoint(): Breakpoint {
     return () => window.removeEventListener("resize", update);
   }, []);
   return bp;
+}function useScale() {
+  const [scale, setScale] = useState(1);
+  useEffect(() => {
+    const update = () => {
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      // Base design was for ~1440x900
+      // We want to scale down if width < 1300 or height < 850
+      const scaleW = vw < 1300 ? vw / 1380 : 1;
+      const scaleH = vh < 850 ? (vh - 100) / 750 : 1;
+      setScale(Math.min(scaleW, scaleH, 1));
+    };
+    update();
+    window.addEventListener("resize", update);
+    return () => window.removeEventListener("resize", update);
+  }, []);
+  return scale;
 }
 
 export default function HomeScreen({ setScreenAction, themeId, onHoverAction, onClickAction }: Props) {
   const t  = THEMES[themeId];
   const ip = themeId === "pixel";
   const bp = useBreakpoint();
+  const scale = useScale();
   const [hovered, setHovered] = useState<Screen | null>(null);
 
   const isMobile  = bp === "mobile";
   const isTablet  = bp === "tablet";
-  const isDesktop = bp === "desktop";
 
   // ── Responsive tokens ─────────────────────────────────────────────────────
   const titleSize = isMobile
@@ -68,12 +85,12 @@ export default function HomeScreen({ setScreenAction, themeId, onHoverAction, on
     ? "30px 16px 30px"
     : isTablet
     ? "100px 24px 40px"
-    : "100px 32px 48px";
+    : "80px 32px 48px"; // Reduced top padding for scaling
 
   const outerGap = isMobile ? 32 : isTablet ? 40 : 50;
 
   // Cards: stack vertically on mobile, horizontally on tablet+
-  const cardsLayout: React.CSSProperties = { display: "flex", flexDirection: isMobile ? "column" : "row", gap: isMobile ? 12 : 24, width: "100%", maxWidth: 1380, marginTop: isMobile ? "5vh" : "10vh" };
+  const cardsLayout: React.CSSProperties = { display: "flex", flexDirection: isMobile ? "column" : "row", gap: isMobile ? 12 : 24, width: "100%", maxWidth: 1380, marginTop: isMobile ? "5vh" : "8vh" };
 
   const { user } = useAuthStore();
   const rank = getRank(user?.elo ?? 0);
@@ -120,6 +137,15 @@ export default function HomeScreen({ setScreenAction, themeId, onHoverAction, on
       padding: outerPadding, gap: outerGap,
       transition: "background 0.4s",
     }}>
+
+      {/* Scaling Container */}
+      <div style={{
+        display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+        flex: 1, width: "100%", maxWidth: 1440,
+        transform: isMobile ? "none" : `scale(${scale})`,
+        transformOrigin: "center center",
+        transition: "transform 0.3s cubic-bezier(.22,.68,0,1.2)",
+      }}>
 
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&display=swap');
@@ -225,6 +251,7 @@ export default function HomeScreen({ setScreenAction, themeId, onHoverAction, on
           <NavRankBadge rank={rank} size={isMobile ? 85 : 182} />
         </div>
       )}
+      </div>
     </div>
   );
 }

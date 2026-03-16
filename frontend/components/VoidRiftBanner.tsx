@@ -3,7 +3,7 @@ import React, { useEffect, useRef, useState } from "react";
 
 const DPR = typeof window !== "undefined" ? window.devicePixelRatio || 2 : 2;
 
-export default function VoidRiftBanner({ style = {} }: { style?: React.CSSProperties }) {
+export default function VoidRiftBanner({ style = {}, hideLabels = false }: { style?: React.CSSProperties; hideLabels?: boolean }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rafRef = useRef<number>(0);
@@ -129,15 +129,17 @@ export default function VoidRiftBanner({ style = {} }: { style?: React.CSSProper
       ctx.fillStyle = flare; ctx.fillRect(cx - flareW / 2, cy - 1.5, flareW, 3); ctx.restore();
 
       // Rarity badge
-      ctx.save();
-      ctx.fillStyle = "rgba(60,0,80,0.55)"; ctx.strokeStyle = "rgba(192,132,252,0.8)"; ctx.lineWidth = 0.8;
-      roundRect(ctx, 10, cy - 9, 70, 18, 3); ctx.fill(); ctx.stroke();
-      ctx.font = "700 7.5px 'Courier New',monospace"; ctx.fillStyle = "#e879f9"; ctx.textAlign = "left";
-      ctx.fillText("✦ LEGENDARY", 15, cy + 4.5); ctx.restore();
+      if (!hideLabels) {
+        ctx.save();
+        ctx.fillStyle = "rgba(60,0,80,0.55)"; ctx.strokeStyle = "rgba(192,132,252,0.8)"; ctx.lineWidth = 0.8;
+        roundRect(ctx, 10, cy - 9, 70, 18, 3); ctx.fill(); ctx.stroke();
+        ctx.font = "700 7.5px 'Courier New',monospace"; ctx.fillStyle = "#e879f9"; ctx.textAlign = "left";
+        ctx.fillText("✦ LEGENDARY", 15, cy + 4.5); ctx.restore();
 
-      // Name label
-      ctx.font = "700 8.5px 'Courier New',monospace"; ctx.fillStyle = "rgba(216,180,254,0.6)";
-      ctx.textAlign = "right"; ctx.fillText("VOID RIFT", dims.w - 12, cy + 4);
+        // Name label
+        ctx.font = "700 8.5px 'Courier New',monospace"; ctx.fillStyle = "rgba(216,180,254,0.6)";
+        ctx.textAlign = "right"; ctx.fillText("VOID RIFT", dims.w - 12, cy + 4);
+      }
 
       t += 0.016;
       rafRef.current = requestAnimationFrame(draw);

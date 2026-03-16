@@ -6,6 +6,7 @@ import { useAuthStore } from "@/lib/store";
 import API from "@/lib/api";
 import { loadCustomTheme } from "@/lib/customTheme";
 import VoidRiftBanner from "./VoidRiftBanner";
+import { RANKS, getRank, NavRankBadge } from "./NavBar";
 
 const BANNERS_DATA: Record<string, any> = {
   default: { id: "default", gradient: "linear-gradient(135deg,#1a1a2e,#16213e)" },
@@ -21,31 +22,9 @@ function BannerRenderer({ bannerId, style = {} }: { bannerId: string; style?: Re
   return <div style={{ width: "100%", height: "100%", background: banner.gradient, ...style }} />;
 }
 
-// ── Rank definitions (mirrors ProfileScreen exactly) ─────────────────────────
-const RANKS = [
-  { name: "NOVICE",       min: 0,    max: 500,  color: "#9CA3AF", img: "/novice.svg",       scale: 1.3   },
-  { name: "ADVANCED",     min: 500,  max: 1000, color: "#60A5FA", img: "/advanced.svg",     scale: 1.3   },
-  { name: "PROFESSIONAL", min: 1000, max: 1500, color: "#34D399", img: "/professional.svg", scale: 1.3   },
-  { name: "EMERALD",      min: 1500, max: 2000, color: "#10B981", img: "/emerald.svg",      scale: 1.495 },
-  { name: "MASTER",       min: 2000, max: 2500, color: "#FF3333", img: "/master.png"                     },
-  { name: "LEGEND",       min: 2500, max: 9999, color: "#F59E0B", img: "/legend.png"                     },
-];
-const getRank = (elo: number) => RANKS.find(r => elo >= r.min && elo < r.max) || RANKS[0];
-
 const RankBadge = ({ elo, size = 48 }: { elo: number; size?: number }) => {
   const rank = getRank(elo);
-  const scale = (rank as any).scale ?? 1;
-  const imgSize = size * 0.85 * scale;
-  return (
-    <div style={{
-      width: size, height: size, borderRadius: "50%",
-      background: "#000", display: "flex", alignItems: "center",
-      justifyContent: "center", overflow: "hidden", flexShrink: 0,
-      boxShadow: `0 0 14px ${rank.color}55`,
-    }}>
-      <img src={rank.img} alt={rank.name} style={{ width: imgSize, height: imgSize, objectFit: "contain" }} />
-    </div>
-  );
+  return <NavRankBadge rank={rank as any} size={size} />;
 };
 
 // ── Match record type from API ────────────────────────────────────────────────
@@ -176,8 +155,8 @@ export default function CareerScreen({ themeId, onHoverAction }: Props) {
             boxShadow: `0 0 40px ${rank.color}55, 0 0 80px ${rank.color}22`,
             border: `2px solid ${rank.color}44`,
           }}>
-            <img src={rank.img} alt={rank.name}
-              style={{ width: imgSize, height: imgSize, objectFit: "contain" }} />
+            <img src={rank.img} alt={rank.name} draggable={false}
+              style={{ width: imgSize, height: imgSize, objectFit: "contain", userSelect: "none", pointerEvents: "none" }} />
           </div>
 
           {/* Rank name */}

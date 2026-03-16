@@ -10,11 +10,11 @@ const BANNERS_DATA: Record<string, any> = {
   void_rift: { id: "void_rift", gradient: "linear-gradient(135deg,#0e0020,#020005)", component: VoidRiftBanner },
 };
 
-function BannerRenderer({ bannerId, style = {} }: { bannerId: string; style?: React.CSSProperties }) {
+function BannerRenderer({ bannerId, style = {}, hideLabels = false }: { bannerId: string; style?: React.CSSProperties; hideLabels?: boolean }) {
   const banner = BANNERS_DATA[bannerId] || BANNERS_DATA.default;
   if (banner.component) {
     const BannerComp = banner.component;
-    return <BannerComp style={{ width: "100%", height: "100%", ...style }} />;
+    return <BannerComp hideLabels={hideLabels} style={{ width: "100%", height: "100%", ...style }} />;
   }
   return <div style={{ width: "100%", height: "100%", background: banner.gradient, ...style }} />;
 }
@@ -391,7 +391,7 @@ export function LeftPanel(props: MatchSidebarProps) {
         return (
         <div key={p} style={{ position: "relative", overflow: "hidden", borderRadius: ip ? 2 : 8, border: `1px solid ${isCurrentMover ? (p === "P1" ? p1c : p2c) : t.border}`, transition: "border-color 0.25s" }}>
           <div style={{ position: "absolute", inset: 0, opacity: 0.25, zIndex: 0 }}>
-            <BannerRenderer bannerId={bannerId} />
+            <BannerRenderer bannerId={bannerId} hideLabels={true} />
           </div>
           <div style={{ position: "relative", zIndex: 1, padding: "12px 14px", background: isCurrentMover ? `${p === "P1" ? p1c : p2c}15` : "rgba(0,0,0,0.2)", display: "flex", justifyContent: "space-between", alignItems: "center", transition: "background 0.25s" }}>
           <span style={{ fontFamily: t.fontBody, fontSize: 16, color: p === "P1" ? p1c : p2c, fontWeight: 700, display: "flex", alignItems: "center", gap: 4 }}>

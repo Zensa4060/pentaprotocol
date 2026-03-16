@@ -90,8 +90,8 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   const mySlot = playerSlot ?? "P1";
   const coinStartTimeRef = useRef<number>(0);
   const [opponentName, setOpponentName] = useState<string | null>(null);
-  const [p1Banner, setP1Banner] = useState<string>(_ct.bannerSkin ?? "default");
-  const [p2Banner, setP2Banner] = useState<string>("default");
+  const [p1Banner, setP1Banner] = useState<string>(mySlot === "P1" ? (_ct.bannerSkin ?? "default") : "default");
+  const [p2Banner, setP2Banner] = useState<string>(mySlot === "P2" ? (_ct.bannerSkin ?? "default") : "default");
 
   const myDisplayName = p1Name ?? (mySlot === "P1" ? "P1" : "P2");
   const oppDisplayName = opponentName ?? (mySlot === "P1" ? "P2" : "P1");
@@ -233,7 +233,8 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
       wsRef.current = ws;
 
       ws.onopen = () => {
-        ws.send(JSON.stringify({ type: "player_info", username: p1Name ?? playerSlot ?? "P1", slot: playerSlot, bannerId: p1Banner }));
+        const myBanner = mySlot === "P1" ? p1Banner : p2Banner;
+        ws.send(JSON.stringify({ type: "player_info", username: p1Name ?? playerSlot ?? "P1", slot: playerSlot, bannerId: myBanner }));
       };
 
       ws.onmessage = (e) => {
@@ -241,9 +242,13 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
         if (msg.type === "player_info") {
           if (msg.slot !== playerSlot) {
             setOpponentName(msg.username ?? null);
-            if (msg.bannerId) setP2Banner(msg.bannerId);
-            // Reply with our own info so opponent gets our name regardless of connection order
-            ws.send(JSON.stringify({ type: "player_info", username: p1Name ?? playerSlot ?? "P1", slot: playerSlot, bannerId: p1Banner }));
+            if (msg.bannerId) {
+              if (msg.slot === "P1") setP1Banner(msg.bannerId);
+              else setP2Banner(msg.bannerId);
+            }
+            // Reply with our own info
+            const myBanner = mySlot === "P1" ? p1Banner : p2Banner;
+            ws.send(JSON.stringify({ type: "player_info", username: p1Name ?? playerSlot ?? "P1", slot: playerSlot, bannerId: myBanner }));
           }
           return;
         }
@@ -1032,6 +1037,25 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
           </div>
         </div>
 
+        {/* Mobile top-right menu buttons */}
+        <div style={{ position: "absolute", top: 8, right: 8, zIndex: 10, display: "flex", gap: 8 }}>
+          {isMultiplayerGame && (
+            <button
+              onClick={() => { setMobileTab("chat"); setShowMobileLog(true); setChatWarning(false); }}
+              style={{ padding: "6px 14px", background: "rgba(0,0,0,0.75)", border: `1px solid ${chatWarning ? t.danger : t.accent}88`, borderRadius: 8, color: chatWarning ? t.danger : t.accent, fontFamily: t.fontMono, fontSize: 11, fontWeight: 700, backdropFilter: "blur(6px)", display: "flex", alignItems: "center", gap: 4 }}
+            >
+              CHAT
+              {chatWarning && <span style={{ width: 6, height: 6, background: t.danger, borderRadius: "50%", display: "inline-block" }} />}
+            </button>
+          )}
+          <button
+            onClick={() => { setMobileTab("log"); setShowMobileLog(true); }}
+            style={{ padding: "6px 14px", background: "rgba(0,0,0,0.75)", border: `1px solid rgba(255,255,255,0.2)`, borderRadius: 8, color: t.textSecondary, fontFamily: t.fontMono, fontSize: 11, fontWeight: 700, backdropFilter: "blur(6px)" }}
+          >
+            LOGS
+          </button>
+        </div>
+
         {/* Floating timer chips */}
         <div style={{ position: "absolute", top: 8, left: 8, zIndex: 10, display: "flex", flexDirection: "column", gap: 5 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 6, background: "rgba(0,0,0,0.75)", border: `1px solid ${current === "P1" && !winner ? p1c : "rgba(255,255,255,0.1)"}`, borderRadius: 8, padding: "5px 10px", backdropFilter: "blur(6px)" }}>
@@ -1108,7 +1132,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
 
         {/* Mobile log / chat drawer */}
         {showMobileLog && (
-          <div style={{ position: "absolute", bottom: 48, left: 0, right: 0, zIndex: 20, background: "rgba(10,10,10,0.96)", borderTop: `1px solid ${t.border}`, backdropFilter: "blur(12px)", height: mobileTab === "chat" ? "50vh" : 280, display: "flex", flexDirection: "column" }}>
+          <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, zIndex: 20, background: "rgba(10,10,10,0.98)", borderTop: `1px solid ${t.border}`, boxShadow: "0 -20px 40px rgba(0,0,0,0.5)", backdropFilter: "blur(20px)", height: "50vh", display: "flex", flexDirection: "column", transform: "translateY(0)", transition: "transform 0.3s ease" }}>
             {/* Tabs */}
             <div style={{ display: "flex", borderBottom: `1px solid ${t.border}44` }}>
               <button
