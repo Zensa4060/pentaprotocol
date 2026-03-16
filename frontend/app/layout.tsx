@@ -4,8 +4,13 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "PentaProtocol",
   description: "5x5 Ranked Strategy Game",
+  manifest: "/manifest.json",
   icons: {
-    icon: "/Pentaprotocol_Logo_Transparent.png",
+    icon: [
+      { url: "/Pentaprotocol_Logo_Transparent.png" },
+      { url: "/Pentaprotocol_Logo_Transparent.png", sizes: "192x192", type: "image/png" },
+      { url: "/Pentaprotocol_Logo_Transparent.png", sizes: "512x512", type: "image/png" },
+    ],
     shortcut: "/Pentaprotocol_Logo_Transparent.png",
     apple: "/Pentaprotocol_Logo_Transparent.png",
   }

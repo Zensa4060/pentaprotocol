@@ -1,0 +1,29 @@
+{
+  "name": "PentaProtocol",
+  "short_name": "PentaProtocol",
+  "description": "5x5 Ranked Strategy Game",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#030303",
+  "theme_color": "#CC0000",
+  "icons": [
+    {
+      "src": "/Pentaprotocol_Logo_Transparent.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/Pentaprotocol_Logo_Transparent.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/Pentaprotocol_Logo_Transparent.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
