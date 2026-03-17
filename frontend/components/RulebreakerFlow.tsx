@@ -258,9 +258,10 @@ const isBotChoosing = isBotTurnToChoose;
             const choice   = isWinner ? winnerChoice : loserChoice;
             const isMe     = isMultiplayerGame && p === mySlot;
             
-            const playerElo = (p === "P1" ? p1Elo : p2Elo) ?? 0;
+            // Only show rank icons in multiplayer, and only when we actually know each player's ELO.
+            const playerElo = isMultiplayerGame ? (p === "P1" ? p1Elo : p2Elo) : undefined;
             const getRankData = (elo: number) => RANKS.find(r => elo >= r.min && elo < r.max) || RANKS[RANKS.length - 1];
-            const rank = getRankData(playerElo);
+            const rank = (typeof playerElo === "number") ? getRankData(playerElo) : null;
 
             const isWhoFirst = choice.includes("PLAYS FIRST");
             const firstSlot = choice.includes("P1") ? "P1" : "P2";
@@ -276,11 +277,13 @@ const isBotChoosing = isBotTurnToChoose;
                 <div style={{ fontFamily:t.fontDisplay, fontSize:64, fontWeight:950, color:col, marginBottom:8, textShadow: `0 0 30px ${col}66` }}>{nameOf(p)}</div>
                 
                 {/* Rank Logo below name */}
-                <div style={{ display: "flex", justifyContent: "center", marginBottom: 20 }}>
-                  <div style={{ width: 120, height: 120, filter: `drop-shadow(0 0 20px ${col}44)` }}>
-                    <RankIcon rank={rank} size={120} />
+                {rank && (
+                  <div style={{ display: "flex", justifyContent: "center", marginBottom: 20 }}>
+                    <div style={{ width: 120, height: 120, filter: `drop-shadow(0 0 20px ${col}44)` }}>
+                      <RankIcon rank={rank} size={120} />
+                    </div>
                   </div>
-                </div>
+                )}
 
                 <div style={{ display: "flex", justifyContent: "center", gap: 12, marginBottom: 20 }}>
                   <div style={{ fontFamily:t.fontMono, fontSize:12, color:t.textMuted, letterSpacing:"0.2em", textTransform: "uppercase" }}>{isWinner ? "Toss Winner" : "Toss Loser"}</div>

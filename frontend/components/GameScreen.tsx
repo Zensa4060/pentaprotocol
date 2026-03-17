@@ -244,6 +244,23 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   const [mobileTab, setMobileTab] = useState<"log" | "chat">("log");
   const isMultiplayerGame = (gameMode === "ranked" || gameMode === "unranked") && !!roomCode;
   const mySlot = playerSlot ?? "P1";
+
+  // Multiplayer rank icons (Rulebreaker UI) should reflect actual players' ELO.
+  // Backend room_state includes player1_elo/player2_elo; we cache them here.
+  const [p1Elo, setP1Elo] = useState<number | undefined>(undefined);
+  const [p2Elo, setP2Elo] = useState<number | undefined>(undefined);
+  useEffect(() => {
+    if (!isMultiplayerGame) { setP1Elo(undefined); setP2Elo(undefined); return; }
+    const myElo = user?.elo;
+    const oppElo = matchupData?.opponent?.elo;
+    if (mySlot === "P1") {
+      if (typeof myElo === "number") setP1Elo(myElo);
+      if (typeof oppElo === "number") setP2Elo(oppElo);
+    } else {
+      if (typeof oppElo === "number") setP1Elo(oppElo);
+      if (typeof myElo === "number") setP2Elo(myElo);
+    }
+  }, [isMultiplayerGame, mySlot, user?.elo, matchupData?.opponent?.elo]);
   const coinStartTimeRef = useRef<number>(0);
   const [opponentName, setOpponentName] = useState<string | null>(null);
   const [p1Banner, setP1Banner] = useState<string>(mySlot === "P1" ? (_ct.bannerSkin ?? "default") : "default");
@@ -463,10 +480,18 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
           setBoard(r.board ?? emptyBoard());
           setCurrent(r.current_player ?? "P1");
           setMovesPlayed(r.moves_played ?? 0);
+          if (typeof r.player1_elo === "number") setP1Elo(r.player1_elo);
+          if (typeof r.player2_elo === "number") setP2Elo(r.player2_elo);
           // Extract opponent name from room data
           if (playerSlot === "P1" && r.player2_name) setOpponentName(r.player2_name);
           if (playerSlot === "P2" && r.player1_name) setOpponentName(r.player1_name);
           ws.send(JSON.stringify({ type: "player_info", username: p1Name ?? playerSlot ?? "P1", slot: playerSlot }));
+        } else if (msg.type === "player_joined") {
+          const r = msg.room;
+          if (r) {
+            if (typeof r.player1_elo === "number") setP1Elo(r.player1_elo);
+            if (typeof r.player2_elo === "number") setP2Elo(r.player2_elo);
+          }
         } else if (msg.type === "opponent_disconnected") {
           setPhase("match_over");
           setShowDisconnectModal(true);
@@ -1170,8 +1195,8 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   const rbOverlay = rbPhases.includes(phase) && (
       <RulebreakerFlow
         phase={phase} t={t} ip={ip} p1c={p1c} p2c={p2c}
-        p1Elo={(mySlot === "P1" ? (user?.elo ?? 0) : (matchupData?.opponent?.elo ?? 0))}
-        p2Elo={(mySlot === "P2" ? (user?.elo ?? 0) : (matchupData?.opponent?.elo ?? 0))}
+        p1Elo={isMultiplayerGame ? p1Elo : undefined}
+        p2Elo={isMultiplayerGame ? p2Elo : undefined}
         coinResult={coinResult} coinAngle={coinAngle} coinDivRef={coinDivRef} tossWinner={tossWinner}
         summaryTimer={summaryTimer} firstPlayerChosen={firstPlayerChosen} rbC3Blocked={rbC3Blocked}
         choiceTimer={choiceTimer} isMultiplayerGame={isMultiplayerGame} mySlot={mySlot}
