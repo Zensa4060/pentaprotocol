@@ -2,7 +2,9 @@
 import { useEffect, useRef, useState } from "react";
 import { useAuthStore } from "@/lib/store";
 import { useAudio } from "@/hooks/useAudio";
+import API from "@/lib/api";
 import { THEMES } from "@/lib/themes";
+import { censorText, containsProfanity } from "@/lib/profanity";
 import type { ThemeId } from "@/lib/themes";
 import type { Difficulty } from "@/lib/botEngine";
 import type { Screen, MatchupData } from "@/lib/types";
@@ -40,8 +42,18 @@ export default function Page() {
   const [multiPlayerSlot, setMultiPlayerSlot] = useState<"P1" | "P2" | null>(null);
   const [multiMatchup, setMultiMatchup]       = useState<MatchupData | null>(null);
   const [customRev, setCustomRev]       = useState(0);
+
+  // Matchmaking states
+  const [queuePhase, setQueuePhase] = useState<"none" | "queuing" | "matchup">("none");
+  const [queueElapsed, setQueueElapsed] = useState(0);
+  const [queueRoomCode, setQueueRoomCode] = useState<string | null>(null);
+  const [queuePlayerSlot, setQueuePlayerSlot] = useState<"P1" | "P2">("P1");
+  const [matchupOpponent, setMatchupOpponent] = useState<any>(null);
+
   const audioStartedRef                 = useRef(false);
   const pendingTheme                    = useRef<ThemeId | null>(null);
+  const queuePollRef = useRef<NodeJS.Timeout | null>(null);
+  const queueCancelledRef = useRef(false);
 
   const [pendingScreen, setPendingScreen]     = useState<Screen | null>(null);
   const [showAiExitModal, setShowAiExitModal] = useState(false);
@@ -139,8 +151,110 @@ export default function Page() {
   }, [themeId, screen, isRanked, audioStarted]);
 
   useEffect(() => {
-    if (screen !== "lobby") setInQueue(false);
+    // We no longer clear inQueue when screen changes
+    // setInQueue(false);
   }, [screen]);
+
+  // Matchmaking elapsed timer
+  useEffect(() => {
+    if (queuePhase !== "queuing") {
+      setQueueElapsed(0);
+      return;
+    }
+    const iv = setInterval(() => setQueueElapsed(e => e + 1), 1000);
+    return () => clearInterval(iv);
+  }, [queuePhase]);
+
+  const pollQueueStatus = async (code: string, slot: "P1" | "P2", mode: "ranked" | "unranked") => {
+    try {
+      const poll = await API.get(`/api/room/queue/status/${code}`);
+      if (poll.data.game_status === "playing") {
+        if (queuePollRef.current) clearInterval(queuePollRef.current);
+        
+        // Found opponent! 
+        const prefix = slot === "P1" ? "player2" : "player1";
+        const opp = {
+          name: poll.data[`${prefix}_name`] ?? "OPPONENT",
+          elo: poll.data[`${prefix}_elo`] ?? 1000,
+          avatar: poll.data[`${prefix}_avatar`] ?? null,
+          banner: poll.data[`${prefix}_banner`] ?? "default",
+          level: poll.data[`${prefix}_level`] ?? 1
+        };
+        setMatchupOpponent(opp);
+        setQueuePhase("matchup");
+        sfx.matchFound();
+        
+        setTimeout(() => {
+          setInQueue(false);
+          setQueuePhase("none");
+          handleRoomReady(code, slot, mode);
+        }, 10000); // 10s for the matchup screen
+      }
+    } catch { /* keep polling */ }
+  };
+
+  const startMatchmaking = async (mode: "ranked" | "unranked") => {
+    queueCancelledRef.current = false;
+    setIsRanked(mode === "ranked");
+    setInQueue(true);
+    setQueuePhase("queuing");
+    setQueueElapsed(0);
+
+    const authHeader = { headers: { Authorization: `Bearer ${token}` } };
+    try {
+      const res = await API.post("/api/room/queue/join", { format: mode }, authHeader);
+      if (queueCancelledRef.current) return;
+      
+      const code = res.data.room_code;
+      const slot = res.data.player_slot as "P1" | "P2";
+      setQueueRoomCode(code);
+      setQueuePlayerSlot(slot);
+
+      if (res.data.matched) {
+        // Immediate match
+        const room = res.data.room;
+        const prefix = slot === "P1" ? "player2" : "player1";
+        const opp = {
+          name: room[`${prefix}_name`] ?? "OPPONENT",
+          elo: room[`${prefix}_elo`] ?? 1000,
+          avatar: room[`${prefix}_avatar`] ?? null,
+          banner: room[`${prefix}_banner`] ?? "default",
+          level: room[`${prefix}_level`] ?? 1
+        };
+        setMatchupOpponent(opp);
+        setQueuePhase("matchup");
+        sfx.matchFound();
+        setTimeout(() => {
+          setInQueue(false);
+          setQueuePhase("none");
+          handleRoomReady(code, slot, mode);
+        }, 10000);
+      } else {
+        // Start polling
+        queuePollRef.current = setInterval(() => pollQueueStatus(code, slot, mode), 2000);
+      }
+    } catch (err) {
+      console.error("Matchmaking error:", err);
+      setInQueue(false);
+      setQueuePhase("none");
+    }
+  };
+
+  const cancelMatchmaking = async () => {
+    queueCancelledRef.current = true;
+    if (queuePollRef.current) {
+      clearInterval(queuePollRef.current);
+      queuePollRef.current = null;
+    }
+    const mode = isRanked ? "ranked" : "unranked";
+    const authHeader = { headers: { Authorization: `Bearer ${token}` } };
+    if (queueRoomCode) {
+      try { await API.post("/api/room/queue/leave", { format: mode }, authHeader); } catch { /* ignore */ }
+    }
+    setInQueue(false);
+    setQueuePhase("none");
+    setQueueRoomCode(null);
+  };
 
   useEffect(() => {
     const onGotoStore = () => handleSetScreen("store");
@@ -269,6 +383,27 @@ export default function Page() {
     </div>
   );
 
+  const GlobalMatchupOverlay = () => {
+    if (queuePhase !== "matchup" || !matchupOpponent) return null;
+    return (
+      <div style={{ position: "fixed", inset: 0, zIndex: 99999, background: t.bg }}>
+        <LobbyScreen
+          setScreenAction={handleSetScreen}
+          themeId={themeId}
+          onQueueStartAction={startMatchmaking}
+          onQueueCancelAction={cancelMatchmaking}
+          onHoverAction={sfx.hover}
+          onClickAction={sfx.click}
+          onRoomReadyAction={handleRoomReady}
+          queuePhase={queuePhase}
+          queueElapsed={queueElapsed}
+          matchupOpponent={matchupOpponent}
+          forcedPhase="matchup"
+        />
+      </div>
+    );
+  };
+
   return (
     <div style={{
       minHeight: "100vh",
@@ -287,6 +422,7 @@ export default function Page() {
       }} />
 
       {showGuestBlock && <GuestBlockModal />}
+      <GlobalMatchupOverlay />
 
       {showAiExitModal && (
         <div style={{
@@ -359,6 +495,8 @@ export default function Page() {
           onQueueClickAction={() => setScreen("lobby")}
           isRankedGame={isRanked}
           onHoverAction={sfx.hover}
+          queueElapsed={queueElapsed}
+          onCancelQueueAction={cancelMatchmaking}
         />
       )}
 
@@ -368,11 +506,15 @@ export default function Page() {
         <LobbyScreen
           setScreenAction={handleSetScreen}
           themeId={themeId}
-          onQueueStartAction={(mode) => { setIsRanked(mode === "ranked"); setInQueue(true); sfx.matchFound(); }}
-          onQueueCancelAction={() => setInQueue(false)}
+          onQueueStartAction={startMatchmaking}
+          onQueueCancelAction={cancelMatchmaking}
           onHoverAction={sfx.hover}
           onClickAction={sfx.click}
           onRoomReadyAction={handleRoomReady}
+          // Shared matchmaking states
+          queuePhase={queuePhase}
+          queueElapsed={queueElapsed}
+          matchupOpponent={matchupOpponent}
         />
       )}
       {screen === "profile"    && <ProfileScreen    setScreenAction={handleSetScreen} themeId={themeId} onHoverAction={sfx.hover} onClickAction={sfx.click} />}

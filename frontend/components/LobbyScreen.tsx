@@ -17,19 +17,32 @@ interface Props {
   onHoverAction?: () => void;
   onClickAction?: () => void;
   onRoomReadyAction?: (roomCode: string, playerSlot: "P1" | "P2", format: string) => void;
+  // Shared matchmaking states
+  queuePhase?: "none" | "queuing" | "matchup";
+  queueElapsed?: number;
+  matchupOpponent?: any;
+  forcedPhase?: "none" | "queuing" | "matchup";
 }
 
 type MultiSub = "unranked" | null;
 type Phase = "select" | "queuing" | "matchup";
 
-export default function LobbyScreen({ setScreenAction, themeId, onQueueStartAction, onQueueCancelAction, onHoverAction, onClickAction, onRoomReadyAction }: Props) {
+export default function LobbyScreen({ 
+  setScreenAction, themeId, onQueueStartAction, onQueueCancelAction, onHoverAction, onClickAction, onRoomReadyAction,
+  queuePhase: propQueuePhase = "none",
+  queueElapsed: propQueueElapsed = 0,
+  matchupOpponent: propMatchupOpponent = null,
+  forcedPhase = "none"
+}: Props) {
   const t  = THEMES[themeId as keyof typeof THEMES];
   const ip = themeId === "pixel";
   const { user, token } = useAuthStore();
 
   const [multiSub,  setMultiSub]  = useState<MultiSub>(null);
-  const [phase,     setPhase]     = useState<Phase>("select");
-  const [elapsed,   setElapsed]   = useState(0);
+  const [localPhase, setLocalPhase] = useState<Phase>("select");
+  const phase: Phase = forcedPhase !== "none" ? forcedPhase : (propQueuePhase !== "none" ? propQueuePhase : localPhase);
+
+  const elapsed = propQueuePhase === "queuing" ? propQueueElapsed : 0;
   const [isMobile,  setIsMobile]  = useState(false);
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 768);
@@ -40,17 +53,7 @@ export default function LobbyScreen({ setScreenAction, themeId, onQueueStartActi
   const [countdown, setCountdown] = useState(3.5);
   const [hovered,   setHovered]   = useState<string | null>(null);
 
-  // Queue state
-  const [queueRoomCode,   setQueueRoomCode]   = useState<string | null>(null);
-  const [queuePlayerSlot, setQueuePlayerSlot] = useState<"P1" | "P2">("P1");
-  const queuePollRef = useRef<NodeJS.Timeout | null>(null);
-
-  const [matchupOpponentName, setMatchupOpponentName] = useState<string>("OPPONENT");
-  const [matchupOpponentElo, setMatchupOpponentElo]   = useState<number | null>(null);
-  const [matchupOppAvatar, setMatchupOppAvatar] = useState<string | null>(null);
-  const [matchupOppBanner, setMatchupOppBanner] = useState<string>("default");
-  const [matchupOppBorder, setMatchupOppBorder] = useState<string>("none");
-  const [matchupOppLevel, setMatchupOppLevel]   = useState<number>(1);
+  // No local opponent state needed, using propMatchupOpponent from page.tsx
 
   // ── Room state ────────────────────────────────────────────────────────────
   const [roomSection, setRoomSection] = useState<"none" | "create" | "join" | "waiting">("none");
@@ -61,106 +64,14 @@ export default function LobbyScreen({ setScreenAction, themeId, onQueueStartActi
   const [roomError,   setRoomError]   = useState<string | null>(null);
   const authHeader = { headers: { Authorization: `Bearer ${token}` } };
 
-  // Elapsed timer while queuing
-  useEffect(() => {
-    if (phase !== "queuing") return;
-    const iv = setInterval(() => setElapsed(e => e + 1), 1000);
-    return () => clearInterval(iv);
-  }, [phase]);
-
-  // Countdown timer after matchup found — ref-based to avoid re-renders
-  const countdownRef = useRef(3.5);
-  useEffect(() => {
-    if (phase !== "matchup") return;
-    countdownRef.current = 3.5;
-    setCountdown(3.5);
-    const t1 = setTimeout(() => {
-      onQueueCancelAction();
-      setScreenAction("multiGame");
-    }, 3500);
-    return () => { clearTimeout(t1); };
-  }, [phase]);
-
-  const queueCancelledRef = useRef(false);
-
-  useEffect(() => {
-    return () => {
-      queueCancelledRef.current = true;
-      if (queuePollRef.current) {
-        clearInterval(queuePollRef.current);
-        clearTimeout(queuePollRef.current);
-      }
-    };
-  }, []);
+  // Timers lifted to page.tsx
 
   const startSearch = async () => {
     if (!multiSub || !token) return;
-
-    queueCancelledRef.current = false;
     onQueueStartAction(multiSub);
-    setElapsed(0);
-    setPhase("queuing");
-
-    const attemptQueueJoin = async () => {
-      if (queueCancelledRef.current) return;
-      try {
-        const res = await API.post("/api/room/queue/join", { format: multiSub }, authHeader);
-        if (queueCancelledRef.current) return;
-        if (res.data.matched) {
-          // Extract opponent info from the matched response
-          const room = res.data.room;
-          const myS = res.data.player_slot as "P1" | "P2";
-          const matchedCode = res.data.room_code;
-          if (room) {
-            storeOppProfile(room, myS);
-          }
-          // Show matchup screen for both players (don't skip to game immediately)
-          setQueueRoomCode(matchedCode);
-          setQueuePlayerSlot(myS);
-          setPhase("matchup");
-          setCountdown(3.5);
-          setTimeout(() => { onQueueCancelAction(); onRoomReadyAction?.(matchedCode, myS, multiSub); }, 3500);
-          return;
-        }
-        const code = res.data.room_code;
-        const slot = res.data.player_slot as "P1" | "P2";
-        setQueueRoomCode(code);
-        setQueuePlayerSlot(slot);
-        queuePollRef.current = setInterval(async () => {
-          if (queueCancelledRef.current) { clearInterval(queuePollRef.current!); return; }
-          try {
-            const poll = await API.get(`/api/room/queue/status/${code}`);
-            if (poll.data.game_status === "playing") {
-              clearInterval(queuePollRef.current!);
-              // Grab opponent info from room data
-              storeOppProfile(poll.data, slot);
-              setPhase("matchup");
-              setCountdown(3.5);
-              setTimeout(() => { onQueueCancelAction(); onRoomReadyAction?.(code, slot, multiSub); }, 3500);
-            }
-          } catch { /* keep polling */ }
-        }, 2000);
-      } catch {
-        if (queueCancelledRef.current) return;
-        queuePollRef.current = setTimeout(attemptQueueJoin, 3000);
-      }
-    };
-
-    attemptQueueJoin();
   };
 
   const cancelSearch = async () => {
-    queueCancelledRef.current = true;
-    if (queuePollRef.current) {
-      clearInterval(queuePollRef.current);
-      clearTimeout(queuePollRef.current);
-      queuePollRef.current = null;
-    }
-    if (queueRoomCode && token) {
-      try { await API.post("/api/room/queue/leave", { format: multiSub ?? "unranked" }, authHeader); } catch { /* ignore */ }
-    }
-    setQueueRoomCode(null);
-    setPhase("select");
     onQueueCancelAction();
   };
 
@@ -257,17 +168,6 @@ export default function LobbyScreen({ setScreenAction, themeId, onQueueStartActi
   );
 
 
-  // Helper to store opponent profile from room data
-  const storeOppProfile = (room: any, myS: "P1" | "P2") => {
-    const prefix = myS === "P1" ? "player2" : "player1";
-    setMatchupOpponentName(room[`${prefix}_name`] ?? "OPPONENT");
-    setMatchupOpponentElo(room[`${prefix}_elo`] ?? null);
-    setMatchupOppAvatar(room[`${prefix}_avatar`] ?? null);
-    setMatchupOppBanner(room[`${prefix}_banner`] ?? "default");
-    setMatchupOppBorder(room[`${prefix}_border`] ?? "none");
-    setMatchupOppLevel(room[`${prefix}_level`] ?? 1);
-  };
-
   const getBanner = (id: string) => BANNERS_DATA[id] || BANNERS_DATA["default"];
 
   const PlayerCard = React.memo(({ name, elo, avatar, banner, level, color, direction }: {
@@ -351,11 +251,11 @@ export default function LobbyScreen({ setScreenAction, themeId, onQueueStartActi
 
       {/* Player 2 (opponent) */}
       <PlayerCard
-        name={matchupOpponentName}
-        elo={matchupOpponentElo}
-        avatar={matchupOppAvatar}
-        banner={matchupOppBanner}
-        level={matchupOppLevel}
+        name={propMatchupOpponent?.name ?? "OPPONENT"}
+        elo={propMatchupOpponent?.elo ?? 1000}
+        avatar={propMatchupOpponent?.avatar ?? null}
+        banner={propMatchupOpponent?.banner ?? "default"}
+        level={propMatchupOpponent?.level ?? 1}
         color={t.p2}
         direction="bottom"
       />
@@ -363,7 +263,7 @@ export default function LobbyScreen({ setScreenAction, themeId, onQueueStartActi
       {/* Progress bar — pure CSS, no re-renders */}
       <div style={{ padding: "12px 20px 20px", flexShrink: 0 }}>
         <div style={{ height: 4, background: t.border, borderRadius: 2, overflow: "hidden", maxWidth: 340, margin: "0 auto" }}>
-          <div style={{ height: "100%", width: "0%", background: `linear-gradient(90deg,${t.accent},${t.accentGlow})`, borderRadius: 2, boxShadow: `0 0 10px ${t.accentGlow}88`, animation: "matchBarShrink 3.5s linear both" }} />
+          <div style={{ height: "100%", width: "0%", background: `linear-gradient(90deg,${t.accent},${t.accentGlow})`, borderRadius: 2, boxShadow: `0 0 10px ${t.accentGlow}88`, animation: "matchBarShrink 10s linear both" }} />
         </div>
         <div style={{ fontFamily: t.fontMono, fontSize: 12, color: t.textMuted, textAlign: "center", marginTop: 8, letterSpacing: "0.1em" }}>MATCH STARTING...</div>
       </div>

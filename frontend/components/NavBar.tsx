@@ -42,11 +42,16 @@ interface Props {
   onQueueClickAction: () => void;
   isRankedGame?: boolean;
   onHoverAction?: () => void;
+  queueElapsed?: number;
+  onCancelQueueAction?: () => void;
 }
 
 type LeaveWarning = "unranked" | "ranked" | null;
 
-export default function NavBar({ screen, setScreenAction, themeId, onSettingsAction, inQueue, isRankedGame = false, onHoverAction }: Props) {
+export default function NavBar({ 
+  screen, setScreenAction, themeId, onSettingsAction, inQueue, isRankedGame = false, onHoverAction,
+  queueElapsed = 0, onCancelQueueAction
+}: Props) {
   const t = THEMES[themeId as keyof typeof THEMES];
   const { user, logout } = useAuthStore();
   const isGuest = !user;
@@ -136,6 +141,9 @@ export default function NavBar({ screen, setScreenAction, themeId, onSettingsAct
   const BADGE_SIZE  = isMobile ? 28 : isTablet ? 32 : 38;
   const CURRENCY_SZ = isMobile ? 40 : isTablet ? 48 : 60; // 100% larger
   const CURRENCY_FONT = isMobile ? 18 : isTablet ? 24 : 28; // Increased font size
+
+  const fmt = (s: number) =>
+    `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
 
   const navBtn = (
     target: string,
@@ -234,6 +242,34 @@ export default function NavBar({ screen, setScreenAction, themeId, onSettingsAct
 
   return (
     <>
+      <style>{`
+        @keyframes slideDown { from{transform:translateY(-100%)} to{transform:translateY(0)} }
+      `}</style>
+
+      {inQueue && screen !== "lobby" && (
+        <div style={{
+          position: "fixed", top: NAV_H, left: 0, right: 0, zIndex: 190,
+          background: `linear-gradient(90deg, ${t.accent}15, ${t.bgPanel}F2, ${t.accent}15)`,
+          borderBottom: `1px solid ${t.accent}44`,
+          height: 32, display: "flex", alignItems: "center", justifyContent: "center",
+          gap: 16, backdropFilter: "blur(8px)", animation: "slideDown 0.3s ease both"
+        }}>
+          <div style={{ display: "flex", alignItems:"center", gap: 8 }}>
+            <div style={{ width: 8, height: 8, borderRadius: "50%", background: t.accent, boxShadow: `0 0 10px ${t.accentGlow}`, animation: "pulse 1.5s infinite" }} />
+            <div style={{ fontFamily: t.fontMono, fontSize: 11, fontWeight: 700, color: t.accent, letterSpacing: "0.1em" }}>
+              SEARCHING FOR MATCH... <span style={{ color: t.text }}>[{fmt(queueElapsed)}]</span>
+            </div>
+          </div>
+          <button 
+            onClick={onCancelQueueAction}
+            onMouseEnter={onHoverAction}
+            style={{ background: "none", border: `1px solid ${t.danger}88`, color: t.danger, fontFamily: t.fontMono, fontSize: 10, padding: "2px 8px", borderRadius: 4, cursor: "pointer", transition: "all 0.2s" }}
+            onMouseOver={e => { e.currentTarget.style.background = t.danger; e.currentTarget.style.color = "#000"; }}
+            onMouseOut={e => { e.currentTarget.style.background = "none"; e.currentTarget.style.color = t.danger; }}
+          >CANCEL</button>
+        </div>
+      )}
+
       <nav style={{
         position: "fixed", top: 0, left: 0, right: 0, zIndex: 200,
         height: NAV_H,
