@@ -1,10 +1,11 @@
 "use client";
 import React from "react";
-import { CoinFace, TossCard } from "./GamePieces";
+import { CoinFace, TossCard, Piece as GamePieceComp } from "./GamePieces";
 import type { Phase } from "./GamePieces";
+import { RANKS, RankIcon } from "./ProfileScreen";
 
 export const PHASE_TIMERS: Partial<Record<Phase, number>> = {
-  rule_choice: 30, who_first_winner: 30, c3_choice: 30, c3_choice_loser: 30, who_first_loser: 30,
+  rule_choice: 5, who_first_winner: 5, c3_choice: 5, c3_choice_loser: 5, who_first_loser: 5,
 };
 
 interface RulebreakerFlowProps {
@@ -56,17 +57,26 @@ export function RulebreakerFlow({
 
   // ── rb_splash ──────────────────────────────────────────────────────────────
   if (phase === "rb_splash") return (
-    <div style={{ position:"fixed", top:0, left:0, right:0, bottom:0, zIndex:10000, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", background:t.bg, userSelect:"none", gap:0, overflow:"hidden" }}>
-      <div style={{ position:"absolute", inset:0, display:"flex", alignItems:"center", justifyContent:"center", pointerEvents:"none" }}>
-        {[1,2,3].map(i => (<div key={i} style={{ position:"absolute", width:`${i*280}px`, height:`${i*280}px`, borderRadius:"50%", border:`1px solid ${t.accent}${["22","18","0C"][i-1]}`, animation:`rbRingPulse 1.8s cubic-bezier(.22,.68,0,1.2) ${i*0.18}s both` }}/>))}
-      </div>
-      <div style={{ display:"flex", gap:ip?2:4, alignItems:"center", justifyContent:"center" }}>
+    <div style={{ position:"fixed", top:0, left:0, right:0, bottom:0, zIndex:10000, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", background:"#050000", userSelect:"none", gap:0, overflow:"hidden" }}>
+      <div style={{ position:"absolute", inset:0, background:"radial-gradient(circle at center, #200000 0%, transparent 70%)", opacity:0.6 }} />
+      
+      <div style={{ display:"flex", gap:ip?2:6, alignItems:"center", justifyContent:"center", position: "relative" }}>
         {"RULEBREAKER".split("").map((ch, i) => (
-          <span key={i} style={{ fontFamily:t.fontDisplay, fontSize:"clamp(32px,5.5vw,88px)", fontWeight:900, color:t.accent, textShadow:`0 0 60px ${t.accentGlow}88`, letterSpacing:"0.01em", display:"inline-block", animation:`rbLetterIn 0.55s cubic-bezier(.22,.68,0,1.2) ${i*0.045}s both` }}>{ch}</span>
+          <div key={i} style={{ position: "relative", display: "inline-block" }}>
+            <span style={{ 
+              fontFamily:t.fontDisplay, fontSize:"clamp(40px,8vw,120px)", fontWeight:950, 
+              color:"#B91C1C", textShadow:`0 0 30px rgba(185,28,28,0.4), 0 10px 40px rgba(0,0,0,0.8)`, 
+              letterSpacing:"0.02em", display:"inline-block", 
+              animation:`rbLetterIn 0.7s cubic-bezier(.22,.68,0,1.2) ${i*0.06}s both` 
+            }}>{ch}</span>
+          </div>
         ))}
       </div>
-      <div style={{ fontFamily:t.fontMono, fontSize:ip?11:14, color:t.textMuted, letterSpacing:"0.28em", marginTop:18, animation:"rbSubIn 0.6s cubic-bezier(.22,.68,0,1.2) 0.55s both" }}>ROUND 3 — SPECIAL RULES APPLY</div>
-      <div style={{ width:"clamp(200px,38vw,480px)", height:2, background:`linear-gradient(90deg, transparent, ${t.accent}, transparent)`, marginTop:20, animation:"rbLineIn 0.7s cubic-bezier(.22,.68,0,1.2) 0.45s both", boxShadow:`0 0 18px ${t.accentGlow}66` }}/>
+      
+      <div style={{ fontFamily:t.fontMono, fontSize:ip?12:16, color:"#991b1b", letterSpacing:"0.4em", fontWeight: 700, marginTop:32, textTransform: "uppercase", animation:"rbSubIn 0.8s cubic-bezier(.22,.68,0,1.2) 0.6s both" }}>
+        ROUND 3 — SPECIAL RULES APPLY
+      </div>
+      <div style={{ width:"clamp(300px,50vw,700px)", height:3, background:`linear-gradient(90deg, transparent, #B91C1C, transparent)`, marginTop:24, animation:"rbLineIn 0.9s cubic-bezier(.22,.68,0,1.2) 0.5s both", boxShadow:`0 0 25px rgba(185,28,28,0.8)` }}/>
     </div>
   );
 
@@ -199,20 +209,20 @@ const isBotChoosing = isBotTurnToChoose;
         </div>
 
         {/* Cards — always render normally; blur overlay only on unchosen card when bot reveals */}
-        <div style={{ display:"flex", gap:20, width:"100%", maxWidth:880, pointerEvents:(isMyTurn && !isBotTurnToChoose)?"auto":"none" }}>
-  <div style={{ flex:1, position:"relative", display:"flex" }}>
-    <TossCard label={leftLabel} onClick={onLeftAction} delay={0.12} actorCol={actorCol} bgCard={t.bgCard} borderCol={t.border} textCol={t.text} fontDisplay={t.fontDisplay} ip={ip}/>
-    {isBotTurnToChoose && botPickedSide !== null && botPickedSide !== null && botPickedSide !== "left" && (
-      <div style={{ position:"absolute", inset:0, borderRadius:ip?2:16, backdropFilter:"blur(5px)", background:"rgba(0,0,0,0.5)", zIndex:2 }}/>
-    )}
-  </div>
-  <div style={{ flex:1, position:"relative", display:"flex" }}>
-    <TossCard label={rightLabel} onClick={onRightAction} delay={0.20} actorCol={actorCol} bgCard={t.bgCard} borderCol={t.border} textCol={t.text} fontDisplay={t.fontDisplay} ip={ip}/>
-    {isBotTurnToChoose && botPickedSide !== null && botPickedSide !== "right" && (
-      <div style={{ position:"absolute", inset:0, borderRadius:ip?2:16, backdropFilter:"blur(5px)", background:"rgba(0,0,0,0.5)", zIndex:2 }}/>
-    )}
-  </div>
-</div>
+        <div style={{ display:"flex", gap:32, width:"100%", maxWidth:1000, pointerEvents:(isMyTurn && !isBotTurnToChoose)?"auto":"none" }}>
+          <div style={{ flex:1, position:"relative", display:"flex" }}>
+            <TossCard label={leftLabel} onClick={onLeftAction} delay={0.12} actorCol={actorCol} bgCard={t.bgCard} borderCol={t.border} textCol={t.text} fontDisplay={t.fontDisplay} ip={ip}/>
+            {isBotTurnToChoose && botPickedSide !== null && botPickedSide !== "left" && (
+              <div style={{ position:"absolute", inset:0, borderRadius:ip?2:16, backdropFilter:"blur(5px)", background:"rgba(0,0,0,0.5)", zIndex:2 }} />
+            )}
+          </div>
+          <div style={{ flex:1, position:"relative", display:"flex" }}>
+            <TossCard label={rightLabel} onClick={onRightAction} delay={0.20} actorCol={actorCol} bgCard={t.bgCard} borderCol={t.border} textCol={t.text} fontDisplay={t.fontDisplay} ip={ip}/>
+            {isBotTurnToChoose && botPickedSide !== null && botPickedSide !== "right" && (
+              <div style={{ position:"absolute", inset:0, borderRadius:ip?2:16, backdropFilter:"blur(5px)", background:"rgba(0,0,0,0.5)", zIndex:2 }} />
+            )}
+          </div>
+        </div>
       </div>
     );
   }
@@ -229,24 +239,95 @@ const isBotChoosing = isBotTurnToChoose;
       : `PLAYS FIRST:\n${fp}`;
 
     return (
-      <div style={{ position:"fixed", top:0, left:0, right:0, bottom:0, zIndex:10000, overflowY:"auto", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", background:t.bg, padding:"40px 24px", gap:24, userSelect:"none", animation:"fadeUp 0.35s ease both" }}>
-        <div style={{ fontFamily:t.fontDisplay, fontSize:"clamp(22px,3.5vw,42px)", fontWeight:700, color:t.accent }}>ROUND 3 RULES</div>
-        <div style={{ fontFamily:t.fontMono, fontSize:17, color:t.textMuted }}>Game starts in {Math.max(1, Math.ceil(summaryTimer))}...</div>
-        <div style={{ display:"flex", gap:20, width:"100%", maxWidth:800 }}>
+      <div style={{ position:"fixed", top:0, left:0, right:0, bottom:0, zIndex:10000, overflowY:"auto", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", background:t.bg, padding:"40px 24px", gap:32, userSelect:"none", animation:"fadeUp 0.35s ease both" }}>
+        {/* Background Atmosphere */}
+        <div style={{ position: "absolute", inset: 0, background: `radial-gradient(circle at 50% 50%, ${t.accent}08 0%, transparent 70%)`, pointerEvents: "none" }} />
+        
+        <div style={{ textAlign: "center", position: "relative" }}>
+          <div style={{ fontFamily:t.fontDisplay, fontSize:"clamp(32px,5vw,64px)", fontWeight:950, color:t.accent, textShadow: `0 0 40px ${t.accentGlow}66`, letterSpacing: "0.05em" }}>ROUND 3 RULES</div>
+          <div style={{ fontFamily:t.fontMono, fontSize:18, color:t.textMuted, letterSpacing: "0.2em", marginTop: 8 }}>PREPARING FOR COMMENCEMENT...</div>
+        </div>
+
+        <div style={{ display:"flex", gap:32, width:"100%", maxWidth:1100, position: "relative" }}>
           {(["P1","P2"] as const).map(p => {
             const col      = p === "P1" ? p1c : p2c;
             const isWinner = p === tossWinner;
             const choice   = isWinner ? winnerChoice : loserChoice;
             const isMe     = isMultiplayerGame && p === mySlot;
+            
+            // Derive ELO for rank logo
+            const playerElo = p === "P1" ? (mySlot === "P1" ? 1400 : 1200) : (mySlot === "P2" ? 1400 : 1200); // Placeholder logic, should ideally pass from props
+            const getRankData = (elo: number) => RANKS.find(r => elo >= r.min && elo < r.max) || RANKS[RANKS.length - 1];
+            const rank = getRankData(1200); // Using 1200 for now as visible in screenshot
+
+            const isWhoFirst = choice.includes("PLAYS FIRST");
+            const firstSlot = choice.includes("P1") ? "P1" : "P2";
+
             return (
-              <div key={p} style={{ flex:1, background:t.bgCard, border:`3px solid ${col}${isMe?"":"66"}`, borderRadius:ip?2:14, padding:"24px 20px", textAlign:"center", opacity:isMe?1:0.8 }}>
-                <div style={{ fontFamily:t.fontDisplay, fontSize:50, fontWeight:900, color:col, marginBottom:4 }}>{nameOf(p)}</div>
-                {isMe && (<div style={{ fontFamily:t.fontMono, fontSize:10, color:col, letterSpacing:"0.14em", marginBottom:10, opacity:0.7 }}>YOU</div>)}
-                <div style={{ fontFamily:t.fontMono, fontSize:11, color:t.textMuted, letterSpacing:"0.1em", marginBottom:6 }}>{isWinner ? "TOSS WINNER" : "TOSS LOSER"}</div>
-                <div style={{ fontFamily:t.fontMono, fontSize:16, color:t.textSecondary, whiteSpace:"pre-line", lineHeight:1.9 }}>{choice}</div>
+              <div key={p} style={{ 
+                flex:1, background: "rgba(0,0,0,0.6)", backdropFilter: "blur(40px)",
+                border:`3px solid ${col}${isMe?"":"44"}`, borderRadius:ip?2:24, 
+                padding:"40px 32px", textAlign:"center", opacity:isMe?1:0.75,
+                boxShadow: isMe ? `0 30px 100px rgba(0,0,0,0.8), 0 0 50px ${col}33` : "none",
+                transform: isMe ? "scale(1.05)" : "scale(1)", transition: "all 0.4s cubic-bezier(.22,.68,0,1.2)"
+              }}>
+                <div style={{ fontFamily:t.fontDisplay, fontSize:64, fontWeight:950, color:col, marginBottom:8, textShadow: `0 0 30px ${col}66` }}>{nameOf(p)}</div>
+                
+                {/* Rank Logo below name */}
+                <div style={{ display: "flex", justifyContent: "center", marginBottom: 20 }}>
+                  <div style={{ width: 120, height: 120, filter: `drop-shadow(0 0 20px ${col}44)` }}>
+                    <RankIcon rank={rank} size={120} />
+                  </div>
+                </div>
+
+                <div style={{ display: "flex", justifyContent: "center", gap: 12, marginBottom: 20 }}>
+                  <div style={{ fontFamily:t.fontMono, fontSize:12, color:t.textMuted, letterSpacing:"0.2em", textTransform: "uppercase" }}>{isWinner ? "Toss Winner" : "Toss Loser"}</div>
+                  {isMe && <div style={{ fontFamily:t.fontMono, fontSize:12, color:col, letterSpacing:"0.2em", fontWeight: 800 }}>[YOU]</div>}
+                </div>
+
+                <div style={{ 
+                  background: "rgba(0,0,0,0.4)", border: `1px solid ${col}22`, borderRadius: 16, 
+                  padding: "24px", minHeight: 180, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+                  boxShadow: "inset 0 0 20px rgba(0,0,0,0.5)", gap: 12
+                }}>
+                 <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:10 }}>
+  {isWhoFirst ? (
+    <>
+      <div style={{ fontFamily:t.fontMono, fontSize:14, color:t.textMuted, textTransform:"uppercase" }}>
+        Plays First
+      </div>
+      <div style={{
+        fontFamily:t.fontDisplay,
+        fontSize:32,
+        fontWeight:900,
+        color:firstSlot === "P1" ? p1c : p2c,
+        letterSpacing:"0.05em"
+      }}>
+        {nameOf(firstSlot)}
+      </div>
+    </>
+  ) : (
+    <div style={{
+      fontFamily:t.fontMono,
+      fontSize:22,
+      fontWeight:700,
+      color:t.text,
+      whiteSpace:"pre-line",
+      lineHeight:1.6,
+      letterSpacing:"0.05em"
+    }}>
+      {choice}
+    </div>
+  )}
+</div>
+                </div>
               </div>
             );
           })}
+        </div>
+
+        <div style={{ fontFamily:t.fontMono, fontSize:20, fontWeight: 900, color:t.accent, background: "rgba(0,0,0,0.5)", padding: "12px 40px", borderRadius: 40, border: `1px solid ${t.accent}44` }}>
+          BATTLE STARTS IN {Math.max(1, Math.ceil(summaryTimer))}S
         </div>
       </div>
     );

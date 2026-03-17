@@ -326,7 +326,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   const [winnerPickedFirst, setWinnerPickedFirst] = useState<string | null>(null);
   const [winnerPickedC3, setWinnerPickedC3] = useState<boolean | null>(null);
 
-  const [rbSplashTimer, setRbSplashTimer] = useState(3.0);
+  const [rbSplashTimer, setRbSplashTimer] = useState(3.5);
   const [coinFlipTimer, setCoinFlipTimer] = useState(3.0);
   const [coinRevealTimer, setCoinRevealTimer] = useState(0.0);
   const [coinResult, setCoinResult] = useState<"PENTA" | "PROTO" | null>(null);
@@ -406,21 +406,22 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
         ws.send(JSON.stringify({ type: "player_info", username: p1Name ?? playerSlot ?? "P1", slot: playerSlot, bannerId: myBanner }));
       };
 
-      ws.onmessage = (e) => {
-        const msg = JSON.parse(e.data);
-        if (msg.type === "player_info") {
-          if (msg.slot !== playerSlot) {
-            setOpponentName(msg.username ?? null);
-            if (msg.bannerId) {
-              if (msg.slot === "P1") setP1Banner(msg.bannerId);
-              else if (msg.slot === "P2") setP2Banner(msg.bannerId);
+        ws.onmessage = (e) => {
+          const msg = JSON.parse(e.data);
+          if (msg.type === "player_info") {
+            if (msg.slot !== playerSlot) {
+              setOpponentName(msg.username ?? null);
+              if (msg.bannerId) {
+                // Ensure the banner ID is captured and the state update is clean
+                if (msg.slot === "P1") setP1Banner(msg.bannerId);
+                else if (msg.slot === "P2") setP2Banner(msg.bannerId);
+              }
             }
+            // Reply with our own info to ensure both sides are synced
+            const currentBanner = _ct.bannerSkin ?? "default";
+            ws.send(JSON.stringify({ type: "player_info", username: p1Name ?? playerSlot ?? "P1", slot: playerSlot, bannerId: currentBanner }));
+            return;
           }
-          // Reply with our own info to ensure both sides are synced
-          const currentBanner = _ct.bannerSkin ?? "default";
-          ws.send(JSON.stringify({ type: "player_info", username: p1Name ?? playerSlot ?? "P1", slot: playerSlot, bannerId: currentBanner }));
-          return;
-        }
         if (msg.type === "move_made") {
           setBoard(msg.board);
           setCurrent(msg.current_player);

@@ -63,8 +63,8 @@ function ParticleCanvas() {
     const COUNT = 110;
     const CONNECT = 100;
     const ATTRACT_RADIUS = 500;  // how far mouse pulls particles
-    const ATTRACT_FORCE  = 0.5; // strength of pull
-    const MAX_SPEED      = 10.0;   // cap so particles don't fly off
+    const ATTRACT_FORCE  = 65; // strength of pull
+    const MAX_SPEED      = 40.0;   // cap so particles don't fly off
 
     type Pt = { x: number; y: number; vx: number; vy: number; r: number; bright: boolean };
     const pts: Pt[] = Array.from({ length: COUNT }, () => ({
