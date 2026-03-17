@@ -348,8 +348,8 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   const [winnerPickedFirst, setWinnerPickedFirst] = useState<string | null>(null);
   const [winnerPickedC3, setWinnerPickedC3] = useState<boolean | null>(null);
 
-  const [rbSplashTimer, setRbSplashTimer] = useState(3.5);
-  const [coinFlipTimer, setCoinFlipTimer] = useState(3.0);
+  const [rbSplashTimer, setRbSplashTimer] = useState(5);
+  const [coinFlipTimer, setCoinFlipTimer] = useState(4.0);
   const [coinRevealTimer, setCoinRevealTimer] = useState(0.0);
   const [coinResult, setCoinResult] = useState<"PENTA" | "PROTO" | null>(null);
   const [coinAngle, setCoinAngle] = useState(0);
@@ -433,15 +433,9 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
           if (msg.type === "player_info") {
             if (msg.slot !== playerSlot) {
               setOpponentName(msg.username ?? null);
-              if (msg.bannerId) {
-                // Ensure the banner ID is captured and the state update is clean
-                if (msg.slot === "P1") setP1Banner(msg.bannerId);
-                else if (msg.slot === "P2") setP2Banner(msg.bannerId);
-              }
             }
             // Reply with our own info to ensure both sides are synced
-            const currentBanner = _ct.bannerSkin ?? "default";
-            ws.send(JSON.stringify({ type: "player_info", username: p1Name ?? playerSlot ?? "P1", slot: playerSlot, bannerId: currentBanner }));
+            ws.send(JSON.stringify({ type: "player_info", username: p1Name ?? playerSlot ?? "P1", slot: playerSlot }));
             return;
           }
         if (msg.type === "move_made") {
@@ -491,6 +485,8 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
             if (typeof e1 === "number") setP1Elo(e1);
             if (typeof e2 === "number") setP2Elo(e2);
           }
+          if (r.player1_banner) setP1Banner(String(r.player1_banner));
+          if (r.player2_banner) setP2Banner(String(r.player2_banner));
           // Extract opponent name from room data
           if (playerSlot === "P1" && r.player2_name) setOpponentName(r.player2_name);
           if (playerSlot === "P2" && r.player1_name) setOpponentName(r.player1_name);
@@ -502,6 +498,8 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
             const e2 = asNum(r.player2_elo);
             if (typeof e1 === "number") setP1Elo(e1);
             if (typeof e2 === "number") setP2Elo(e2);
+            if (r.player1_banner) setP1Banner(String(r.player1_banner));
+            if (r.player2_banner) setP2Banner(String(r.player2_banner));
           }
         } else if (msg.type === "opponent_disconnected") {
           setPhase("match_over");
@@ -565,8 +563,8 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
               // already in rulebreaker
             } else setTimeout(() => {
               setWinner(null); setWinLine([]); setShowWinOverlay(false); setOverlayVisible(false);
-              setPhase("rb_splash"); setRbSplashTimer(3);
-              setCoinFlipTimer(3); setCoinRevealTimer(0); setCoinResult(null);
+              setPhase("rb_splash"); setRbSplashTimer(5);
+              setCoinFlipTimer(4); setCoinRevealTimer(0); setCoinResult(null);
               coinAngleRef.current = 0; coinFrameRef.current = 0; setCoinAngle(0);
               coinStartTimeRef.current = 0; // will be set when rb_coin phase starts
               setTossWinner(null); setFirstPlayerChosen(null); setRbC3Blocked(false);
@@ -693,7 +691,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   const softReset = () => {
     matchHistoryRef.current = []; setGameNumber(1); setMatchHistory([]); setMatchOver(false); setSeriesWinner(null);
     setP1Ready(false); setP2Ready(false); setReadyTimeout(60); setReadyTimer(0);
-    setRbSplashTimer(3); setCoinFlipTimer(3); setCoinRevealTimer(0); setCoinResult(null);
+    setRbSplashTimer(5); setCoinFlipTimer(4); setCoinRevealTimer(0); setCoinResult(null);
     setCoinAngle(0); setTossWinner(null); setFirstPlayerChosen(null); setRbC3Blocked(false);
     setSummaryTimer(5); setOverlayVisible(false); setChoiceTimer(0);
     setShowRematch(false); setRematchRequested(null);
@@ -741,6 +739,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   const lastChoiceSec = useRef(-1);
   const lastP1Sec = useRef(-1);
   const lastP2Sec = useRef(-1);
+  const lastMatchupSec = useRef(-1);
 
   useEffect(() => {
     const tossChoicePhases: Phase[] = ["rule_choice", "who_first_winner", "c3_choice", "c3_choice_loser", "who_first_loser"];
@@ -755,7 +754,11 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
         if (matchupCountdownRef.current <= 0) {
           setShowMatchupOverlay(false);
         } else {
-          setMatchupCountdown(matchupCountdownRef.current);
+          const sec = Math.ceil(matchupCountdownRef.current);
+          if (sec !== lastMatchupSec.current) {
+            lastMatchupSec.current = sec;
+            setMatchupCountdown(matchupCountdownRef.current);
+          }
         }
       }
       const freePhases = ["waiting_ready", "rb_splash", "rb_coin"];
@@ -849,11 +852,15 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
           setReadyTimer(v => { const nv = v - dt / 1000; if (nv <= 0) { doAdvanceAfterReady(); return 0; } return nv; });
         }
       }
-      if (s.phase === "rb_splash") setRbSplashTimer(v => { const nv = v - dt / 1000; if (nv <= 0) { coinStartTimeRef.current = Date.now(); setPhase("rb_coin"); return 3; } return nv; });
+      if (s.phase === "rb_splash") setRbSplashTimer(v => { const nv = v - dt / 1000; if (nv <= 0) { coinStartTimeRef.current = Date.now(); setPhase("rb_coin"); return 5; } return nv; });
       if (s.phase === "rb_coin") {
-        coinAngleRef.current += 0.18;
+        // Time-based spin for smoothness across FPS variance (slower & visible).
+        const SPIN_RAD_PER_SEC = Math.PI * 2 * 1.25; // 1.25 rotations/sec
+        coinAngleRef.current += (dt / 1000) * SPIN_RAD_PER_SEC;
         if (!s.coinResult) {
-          setCoinAngle(coinAngleRef.current);
+          // Throttle React state updates slightly to reduce re-render load.
+          coinFrameRef.current = (coinFrameRef.current + 1) % 2;
+          if (coinFrameRef.current === 0) setCoinAngle(coinAngleRef.current);
           if (!isMultiplayerGame || mySlot === "P1") {
             setCoinFlipTimer(v => {
               const nv = v - dt / 1000;
@@ -944,7 +951,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
         // Phase will transition when toss_action broadcasts back
       } else {
         setGameNumber(3); setPhase("rb_splash"); playRulebreakerAction?.();
-        setRbSplashTimer(3); setCoinFlipTimer(3); setCoinRevealTimer(0);
+        setRbSplashTimer(5); setCoinFlipTimer(4); setCoinRevealTimer(0);
         setCoinResult(null); setCoinAngle(0); setTossWinner(null);
         setFirstPlayerChosen(null); setRbC3Blocked(false); setSummaryTimer(5);
       }

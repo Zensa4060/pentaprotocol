@@ -61,7 +61,75 @@ export function RulebreakerFlow({
   // ── rb_splash ──────────────────────────────────────────────────────────────
   if (phase === "rb_splash") return (
     <div style={{ position:"fixed", top:0, left:0, right:0, bottom:0, zIndex:10000, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", background:"#050000", userSelect:"none", gap:0, overflow:"hidden" }}>
+      <style>{`
+        @keyframes rbBloodPop { 0%{transform:translate(-50%,-50%) scale(0.2); opacity:0} 12%{opacity:0.95} 100%{transform:translate(-50%,-50%) scale(1.25); opacity:0} }
+        @keyframes rbDrip { 0%{transform:translateY(-20px); opacity:0} 15%{opacity:0.9} 100%{transform:translateY(120px); opacity:0} }
+        @keyframes rbMist { 0%{opacity:0; transform:translateY(10px)} 20%{opacity:0.65} 100%{opacity:0; transform:translateY(-24px)} }
+      `}</style>
       <div style={{ position:"absolute", inset:0, background:"radial-gradient(circle at center, #200000 0%, transparent 70%)", opacity:0.6 }} />
+
+      {/* Blood splash overlay */}
+      <div style={{ position:"absolute", inset:0, pointerEvents:"none" }}>
+        {[
+          { l:"50%", t:"42%", s:560, d:0.05 },
+          { l:"46%", t:"44%", s:420, d:0.12 },
+          { l:"55%", t:"41%", s:380, d:0.18 },
+          { l:"52%", t:"48%", s:320, d:0.24 },
+        ].map((b, i) => (
+          <div key={i} style={{
+            position:"absolute", left:b.l, top:b.t, width:b.s, height:b.s,
+            borderRadius:"50%",
+            background:`radial-gradient(circle, rgba(220,38,38,0.65) 0%, rgba(185,28,28,0.25) 28%, rgba(120,0,0,0.0) 70%)`,
+            filter:"blur(1px)",
+            transform:"translate(-50%,-50%) scale(0.2)",
+            opacity:0,
+            animation:`rbBloodPop 1.35s cubic-bezier(.18,.9,.12,1) ${b.d}s both`,
+          }} />
+        ))}
+
+        {[
+          { l:"44%", t:"38%", r:34, a:0.8, d:0.10 },
+          { l:"58%", t:"37%", r:28, a:0.7, d:0.18 },
+          { l:"40%", t:"48%", r:22, a:0.65, d:0.22 },
+          { l:"62%", t:"49%", r:18, a:0.6, d:0.28 },
+          { l:"50%", t:"34%", r:16, a:0.55, d:0.32 },
+          { l:"48%", t:"55%", r:14, a:0.5, d:0.36 },
+        ].map((s, i) => (
+          <div key={`s${i}`} style={{
+            position:"absolute", left:s.l, top:s.t, width:s.r, height:s.r,
+            borderRadius:"50%",
+            background:`rgba(185, 28, 28, ${s.a})`,
+            boxShadow:`0 0 22px rgba(220,38,38,0.22)`,
+            filter:"blur(0.2px)",
+            opacity:0,
+            transform:"translate(-50%,-50%) scale(0.2)",
+            animation:`rbBloodPop 1.55s cubic-bezier(.18,.9,.12,1) ${s.d}s both`,
+          }} />
+        ))}
+
+        {[
+          { l:"47%", t:"50%", w:6, d:0.42 },
+          { l:"53%", t:"51%", w:5, d:0.50 },
+          { l:"60%", t:"46%", w:4, d:0.58 },
+        ].map((dr, i) => (
+          <div key={`d${i}`} style={{
+            position:"absolute", left:dr.l, top:dr.t, width:dr.w, height:90,
+            borderRadius:999,
+            background:"linear-gradient(to bottom, rgba(185,28,28,0.85), rgba(120,0,0,0))",
+            opacity:0,
+            animation:`rbDrip 2.4s ease ${dr.d}s both`,
+          }} />
+        ))}
+
+        <div style={{
+          position:"absolute", left:"50%", top:"56%", width:"min(900px,95vw)", height:140,
+          transform:"translateX(-50%)",
+          background:"radial-gradient(circle at 50% 70%, rgba(255,60,60,0.10) 0%, rgba(0,0,0,0) 70%)",
+          filter:"blur(14px)",
+          opacity:0,
+          animation:"rbMist 2.2s ease 0.25s both",
+        }} />
+      </div>
       
       <div style={{ display:"flex", gap:ip?2:6, alignItems:"center", justifyContent:"center", position: "relative" }}>
         {"RULEBREAKER".split("").map((ch, i) => (
