@@ -1,4 +1,4 @@
-fastapi
+﻿fastapi
 uvicorn[standard]
 motor
 pymongo
@@ -14,3 +14,5 @@ qrcode[pil]
 razorpay
 Pillow
 websockets
+aiosmtplib==3.0.1
+redis
