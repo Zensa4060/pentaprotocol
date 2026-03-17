@@ -110,7 +110,7 @@ def contains_profanity(text: str) -> bool:
 # ── Valid cosmetic IDs (must match frontend definitions) ──────────────────────
 VALID_BANNERS = {
     "default", "crimson", "emerald", "ocean", "void", "gold", "aurora", "nebula",
-    "void_rift", "blood_moon",
+    "void_rift", "blood_moon", "phantom_strike",
 }
 VALID_BORDERS = {
     "none", "silver", "blue_pulse", "emerald_veil",

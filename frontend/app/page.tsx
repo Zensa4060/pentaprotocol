@@ -177,7 +177,7 @@ export default function Page() {
           name: poll.data[`${prefix}_name`] ?? "OPPONENT",
           elo: poll.data[`${prefix}_elo`] ?? 1000,
           avatar: poll.data[`${prefix}_avatar`] ?? null,
-          banner: poll.data[`${prefix}_banner`] ?? "default",
+          banner: poll.data[`${prefix}_banner`] ?? poll.data[`${prefix}_banner_style`] ?? "default",
           level: poll.data[`${prefix}_level`] ?? 1
         };
         setMatchupOpponent(opp);
@@ -218,7 +218,7 @@ export default function Page() {
           name: room[`${prefix}_name`] ?? "OPPONENT",
           elo: room[`${prefix}_elo`] ?? 1000,
           avatar: room[`${prefix}_avatar`] ?? null,
-          banner: room[`${prefix}_banner`] ?? "default",
+          banner: room[`${prefix}_banner`] ?? room[`${prefix}_banner_style`] ?? "default",
           level: room[`${prefix}_level`] ?? 1
         };
         setMatchupOpponent(opp);

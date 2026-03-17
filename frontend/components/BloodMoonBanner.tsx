@@ -126,8 +126,8 @@ export default function BloodMoonBanner({ style = {}, hideLabels = false }: { st
 
       // Crescent rim glow
       ctx.beginPath(); ctx.arc(MX,MY,30 * scaleX,-0.7,0.7);
-      ctx.strokeStyle=`rgba(220,40,40,${0.45+glow*0.35})`; ctx.lineWidth=1.5;
-      ctx.shadowColor="rgba(200,0,0,0.6)"; ctx.shadowBlur=6; ctx.stroke(); ctx.shadowBlur=0;
+      ctx.strokeStyle=`rgba(255,60,60,${0.65+glow*0.35})`; ctx.lineWidth=2.0;
+      ctx.shadowColor="rgba(255,0,0,0.8)"; ctx.shadowBlur=8; ctx.stroke(); ctx.shadowBlur=0;
 
       // Blood drips
       drips.current.forEach(d=>{

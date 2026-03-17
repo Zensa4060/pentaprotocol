@@ -28,8 +28,8 @@ export default function VoidRiftBanner({ style = {}, hideLabels = false }: { sty
   useEffect(() => {
     // Initialize or re-init particles when dims change
     particles.current = Array.from({ length: 80 }, () => ({
-      x: dims.w / 2 + (Math.random() - 0.5) * 120,
-      y: dims.h / 2 + (Math.random() - 0.5) * 40,
+      x: dims.w / 2 + (Math.random() - 0.5) * dims.w * 0.15,
+      y: dims.h / 2 + (Math.random() - 0.5) * dims.h * 0.5,
       vx: (Math.random() - 0.5) * 0.3,
       vy: -(0.15 + Math.random() * 0.35),
       r: Math.random() * 1.8 + 0.3,
@@ -97,7 +97,7 @@ export default function VoidRiftBanner({ style = {}, hideLabels = false }: { sty
         const py = p.y - p.life * 60 + Math.sin(t + p.vy * 15) * 6;
         ctx.save(); ctx.globalCompositeOperation = "screen";
         ctx.beginPath(); ctx.arc(px, py, p.r * (1.2 - p.life * 0.7), 0, Math.PI * 2);
-        ctx.fillStyle = `hsla(${p.hue},100%,75%,${a * 0.85})`; ctx.fill();
+        ctx.fillStyle = `hsla(${p.hue},100%,85%,${a * 0.95})`; ctx.fill();
         ctx.restore();
       });
 

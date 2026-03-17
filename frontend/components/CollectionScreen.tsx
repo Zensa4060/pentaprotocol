@@ -7,6 +7,7 @@ import { useAuthStore } from "@/lib/store";
 import { TITLES } from "@/components/ProfileScreen";
 import VoidRiftBanner from "./VoidRiftBanner";
 import BloodMoonBanner from "./BloodMoonBanner";
+import PhantomStrikeBanner from "./PhantomStrikeBanner";
 
 // Profile borders — only default for now, more coming later
 const PROFILE_BORDERS = [
@@ -83,6 +84,7 @@ const BANNERS: { id: string; label: string; gradient: string; condition: (p: any
   { id: "default",   label: "Default",   gradient: "linear-gradient(135deg,#1a1a2e,#16213e)", condition: () => true },
   { id: "void_rift", label: "Void Rift", gradient: "linear-gradient(135deg,#0e0020,#020005)", condition: (p: any) => (p?.purchased_items ?? []).includes("void_rift"), component: VoidRiftBanner },
   { id: "blood_moon", label: "Blood Moon", gradient: "linear-gradient(135deg,#000008,#180008)", condition: (p: any) => (p?.purchased_items ?? []).includes("blood_moon"), component: BloodMoonBanner },
+  { id: "phantom_strike", label: "Phantom Strike", gradient: "linear-gradient(135deg,#060010,#110028)", condition: (p: any) => (p?.purchased_items ?? []).includes("phantom_strike"), component: PhantomStrikeBanner },
 ];
 
 // Sound pack options

@@ -54,9 +54,9 @@ const MatchupOverlay = ({ matchupData, showMatchupOverlay, playerSlot, p1Name, u
 
       {/* P1 Card */}
       <div style={{ flex: 1, position: "relative", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
-        <div style={{ position: "absolute", inset: 0, opacity: 1 }}>
+        <div style={{ position: "absolute", inset: 0, opacity: 1, mixBlendMode: "screen" }}>
           <BannerRenderer bannerId={p1Data.banner} hideLabels />
-          <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.55)", zIndex: 1 }} />
+          <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.35)", zIndex: 1 }} />
         </div>
         <div style={{ position: "relative", zIndex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
            <div style={{ width: 100, height: 100, borderRadius: "50%", background: `linear-gradient(135deg, ${t.p1}, ${t.accent})`, border: `4px solid ${t.p1}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 42, color: t.p1 }}>👤</div>
@@ -75,9 +75,9 @@ const MatchupOverlay = ({ matchupData, showMatchupOverlay, playerSlot, p1Name, u
 
       {/* P2 Card */}
       <div style={{ flex: 1, position: "relative", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
-        <div style={{ position: "absolute", inset: 0, opacity: 1 }}>
+        <div style={{ position: "absolute", inset: 0, opacity: 1, mixBlendMode: "screen" }}>
           <BannerRenderer bannerId={p2Data.banner} hideLabels />
-          <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.55)", zIndex: 1 }} />
+          <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.35)", zIndex: 1 }} />
         </div>
         <div style={{ position: "relative", zIndex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
            <div style={{ width: 100, height: 100, borderRadius: "50%", background: `linear-gradient(135deg, ${t.p2}, ${t.accent})`, border: `4px solid ${t.p2}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 42, color: t.p2 }}>👤</div>

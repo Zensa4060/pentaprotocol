@@ -9,6 +9,7 @@ import { SHARDS_LIGHT_SVG, SHARDS_DARK_SVG, PROTO_LIGHT_SVG, PROTO_DARK_SVG } fr
 import type { Screen } from "@/lib/types";
 import VoidRiftBanner from "./VoidRiftBanner";
 import BloodMoonBanner from "./BloodMoonBanner";
+import PhantomStrikeBanner from "./PhantomStrikeBanner";
 
 const RANKS = [
   { name: "NOVICE",       min: 0,    max: 500,  color: "#9CA3AF", icon: null, img: "/novice.svg",       scale: 1.3 },
@@ -64,6 +65,9 @@ const BANNERS: {
   { id: "blood_moon",  label: "Blood Moon",       gradient: "linear-gradient(135deg,#000008,#180008)",
     component: BloodMoonBanner,
     unlockDesc: "Purchase for 299 PC", condition: p => (p.purchased_items || []).includes("blood_moon") },
+  { id: "phantom_strike", label: "Phantom Strike", gradient: "linear-gradient(135deg,#060010,#110028)",
+    component: PhantomStrikeBanner,
+    unlockDesc: "Purchase for 199 PC", condition: p => (p.purchased_items || []).includes("phantom_strike") },
 ];
 
 export const PROFILE_BORDERS: {
@@ -89,13 +93,28 @@ const getRank = (elo: number) => RANKS.find(r => elo >= r.min && elo < r.max) ||
 const RankIcon = ({ rank, size = 26 }: { rank: typeof RANKS[0]; size?: number }) => {
   const imgScale = (rank as any).scale ?? 1;
   const imgSize = size * 0.85 * imgScale;
-  return rank.img ? (
-    <div style={{ width:size, height:size, borderRadius:"50%", background:"#000000", flexShrink:0, display:"flex", alignItems:"center", justifyContent:"center", overflow:"hidden" }}>
-      <img src={rank.img} alt={rank.name} draggable={false} style={{ width:imgSize, height:imgSize, objectFit:"contain", userSelect: "none", pointerEvents: "none" }} />
-    </div>
-  ) : (
-    <div style={{ width:size, height:size, borderRadius:"50%", background:"#000000", flexShrink:0, display:"flex", alignItems:"center", justifyContent:"center" }}>
-      <span style={{ fontSize:size*0.6, color:rank.color, lineHeight:1, userSelect: "none", pointerEvents: "none" }}>{rank.icon}</span>
+  return (
+    <div className="rank-badge-container" style={{ 
+      width:size, height:size, borderRadius:"50%", background:"#000000", flexShrink:0, 
+      display:"flex", alignItems:"center", justifyContent:"center", 
+      overflow:"hidden", position: "relative",
+      boxShadow: `0 0 10px ${rank.color}44`,
+      transition: "all 0.3s ease"
+    }}>
+      {/* Shine overlay */}
+      <div className="rank-badge-shine" style={{
+        position: "absolute", inset: 0,
+        background: "linear-gradient(120deg, transparent 30%, rgba(255,255,255,0.2) 45%, rgba(255,255,255,0.4) 50%, rgba(255,255,255,0.2) 55%, transparent 70%)",
+        transform: "translateX(-150%)",
+        zIndex: 1,
+        pointerEvents: "none"
+      }} />
+      
+      {rank.img ? (
+        <img src={rank.img} alt={rank.name} draggable={false} style={{ width:imgSize, height:imgSize, objectFit:"contain", userSelect: "none", pointerEvents: "none", position: "relative", zIndex: 0 }} />
+      ) : (
+        <span style={{ fontSize:size*0.6, color:rank.color, lineHeight:1, userSelect: "none", pointerEvents: "none", position: "relative", zIndex: 0 }}>{rank.icon}</span>
+      )}
     </div>
   );
 };
@@ -642,6 +661,27 @@ const stats = [
       .title-pill:hover { transform: translateY(-1px); }
       .pw-eye { cursor:pointer; user-select:none; opacity:0.5; transition:opacity 0.15s; }
       .pw-eye:hover { opacity:1; }
+
+      /* ── Rank Badge Enhancements ─────────────────────────────────────── */
+      .rank-badge-container {
+        position: relative;
+        overflow: hidden;
+      }
+      .rank-badge-container:hover {
+        transform: scale(1.1);
+        box-shadow: -10px 0 20px -5px var(--rank-col), 10px 0 20px -5px var(--rank-col) !important;
+      }
+      .rank-badge-shine {
+        animation: rankShineSweep 3s infinite linear;
+      }
+      @keyframes rankShineSweep {
+        0% { transform: translateX(-150%) skewX(-20deg); }
+        30%, 100% { transform: translateX(150%) skewX(-20deg); }
+      }
+      @keyframes shineSweep {
+        from { transform: translateX(-50%); }
+        to { transform: translateX(100%); }
+      }
     `}</style>
 
     <div style={{ position:"fixed", inset:0, zIndex:2, padding:"84px 24px 48px", overflowY:"auto", background:t.bg, transition:"background 0.4s" }}>
@@ -650,14 +690,23 @@ const stats = [
       <div style={{ background:t.bgPanel, border:`1px solid ${t.border}`, borderRadius:16, marginBottom:18, overflow:"hidden", position: "relative" }}>
         
         {/* Banner background (Full Panel) */}
-        <div style={{ position: "absolute", inset: 0, zIndex: 0, opacity: 0.8 }}>
+        <div style={{ position: "absolute", inset: 0, zIndex: 0, opacity: 1.0 }}>
           <BannerRenderer banner={activeBanner} />
+          {/* Glossy / Shiny Effect */}
+          <div style={{
+            position: "absolute",
+            top: 0, left: "-150%",
+            width: "200%", height: "100%",
+            background: "linear-gradient(120deg, rgba(255,255,255,0) 30%, rgba(255,255,255,0.1) 38%, rgba(255,255,255,0.2) 40%, rgba(255,255,255,0.1) 42%, rgba(255,255,255,0) 50%)",
+            zIndex: 1,
+            animation: "shineSweep 4s infinite linear",
+          }} />
         </div>
 
         {/* Change Banner overlay (Top strip hit area) */}
         <div
           onClick={() => { onClickAction?.(); openEdit("banner"); }}
-          style={{ height: 100, cursor:"pointer", position:"relative", transition:"filter 0.2s", overflow: "hidden", zIndex: 1 }}
+          style={{ height: 100, cursor:"pointer", position:"relative", transition:"filter 0.2s", overflow: "hidden", zIndex: 2 }}
           title="Change banner"
         >
           <div style={{ position:"absolute", inset:0, display:"flex", alignItems:"center", justifyContent:"flex-end", padding:"0 16px", opacity:0, transition:"opacity 0.2s" }}
@@ -670,7 +719,7 @@ const stats = [
         </div>
 
         {/* Content Overlay */}
-        <div style={{ position: "relative", zIndex: 2, display:"flex", alignItems:"flex-end", gap:22, padding:"0 26px 26px", flexWrap:"wrap", background: "linear-gradient(to top, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0) 100%)" }}>
+        <div style={{ position: "relative", zIndex: 3, display:"flex", alignItems:"flex-end", gap:22, padding:"0 26px 26px", flexWrap:"wrap", background: "linear-gradient(to top, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0) 100%)" }}>
           
           {/* Avatar with live border */}
           <div style={{ position:"relative", flexShrink:0 }}>
@@ -696,7 +745,7 @@ const stats = [
             </div>
             <div style={{ display:"flex", gap:14, flexWrap:"wrap", alignItems:"center" }}>
               <div style={{ fontFamily:t.fontMono, fontSize:13, color:t.text, textShadow: "0 1px 4px rgba(0,0,0,0.5)" }}>LVL <span style={{ color:t.accent, fontWeight:700, fontSize:15 }}>{profile.level}</span></div>
-              <div style={{ display:"flex", alignItems:"center", gap:5 }}>
+              <div style={{ display:"flex", alignItems:"center", gap:5, "--rank-col": rank.color } as any}>
                 <RankIcon rank={rank} size={22} />
                 <span style={{ fontFamily:t.fontBody, fontSize:14, color:rank.color, fontWeight:600, textShadow: "0 1px 4px rgba(0,0,0,0.5)" }}>{rank.name}</span>
               </div>
@@ -724,11 +773,11 @@ const stats = [
       {/* ── ELO Progress bar ──────────────────────────────────────────────── */}
       <div style={{ background:t.bgPanel, border:`1px solid ${t.border}`, borderRadius:12, padding:"16px 22px", marginBottom:18 }}>
         <div style={{ display:"flex", justifyContent:"space-between", marginBottom:9, flexWrap:"wrap", gap:6, alignItems:"center" }}>
-          <span style={{ display:"flex", alignItems:"center", gap:8, fontFamily:t.fontDisplay, fontSize:17, color:rank.color, fontWeight:800, letterSpacing:"0.05em" }}>
+          <span style={{ display:"flex", alignItems:"center", gap:8, fontFamily:t.fontDisplay, fontSize:17, color:rank.color, fontWeight:800, letterSpacing:"0.05em", "--rank-col": rank.color } as any}>
             <RankIcon rank={rank} size={28} />{rank.name}
           </span>
           {nextRank && (
-            <span style={{ display:"flex", alignItems:"center", gap:7, fontFamily:t.fontDisplay, fontSize:15, color:t.text, fontWeight:700 }}>
+            <span style={{ display:"flex", alignItems:"center", gap:7, fontFamily:t.fontDisplay, fontSize:15, color:t.text, fontWeight:700, "--rank-col": nextRank.color } as any}>
               <RankIcon rank={nextRank} size={24} />{nextRank.name} 
               {rank.name === nextRank.name 
                 ? <span style={{ color:t.accent }}>&nbsp;· MAX RANK</span>

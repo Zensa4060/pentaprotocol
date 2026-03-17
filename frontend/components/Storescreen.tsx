@@ -13,6 +13,7 @@ import {
 } from "./GamePieces";
 import VoidRiftBanner from "./VoidRiftBanner";
 import BloodMoonBanner from "./BloodMoonBanner";
+import PhantomStrikeBanner from "./PhantomStrikeBanner";
 
 interface Props {
   setScreenAction: (s: Screen) => void;
@@ -43,6 +44,7 @@ const STORE_BANNERS: { id: string; label: string; gradient: string; unlock: stri
   { id: "default",   label: "Default",   gradient: "linear-gradient(135deg,#1a1a2e,#16213e)", unlock: "Free" },
   { id: "void_rift", label: "Void Rift", gradient: "linear-gradient(135deg,#0e0020,#020005)", unlock: "299 PC", price: 299, component: VoidRiftBanner },
   { id: "blood_moon", label: "Blood Moon", gradient: "linear-gradient(135deg,#000008,#180008)", unlock: "299 PC", price: 299, component: BloodMoonBanner },
+  { id: "phantom_strike", label: "Phantom Strike", gradient: "linear-gradient(135deg,#060010,#110028)", unlock: "199 PC", price: 199, component: PhantomStrikeBanner },
 ];
 
 const STORE_BORDERS = [

@@ -5,24 +5,10 @@ import { THEMES } from "@/lib/themes";
 import { useAuthStore } from "@/lib/store";
 import API from "@/lib/api";
 import { loadCustomTheme } from "@/lib/customTheme";
-import VoidRiftBanner from "./VoidRiftBanner";
-import BloodMoonBanner from "./BloodMoonBanner";
+import { BannerRenderer } from "./BannerRenderer";
 import { RANKS, getRank, NavRankBadge } from "./NavBar";
 
-const BANNERS_DATA: Record<string, any> = {
-  default: { id: "default", gradient: "linear-gradient(135deg,#1a1a2e,#16213e)" },
-  void_rift: { id: "void_rift", gradient: "linear-gradient(135deg,#0e0020,#020005)", component: VoidRiftBanner },
-  blood_moon: { id: "blood_moon", gradient: "linear-gradient(135deg,#000008,#180008)", component: BloodMoonBanner },
-};
 
-function BannerRenderer({ bannerId, style = {} }: { bannerId: string; style?: React.CSSProperties }) {
-  const banner = BANNERS_DATA[bannerId] || BANNERS_DATA.default;
-  if (banner.component) {
-    const BannerComp = banner.component;
-    return <BannerComp style={{ width: "100%", height: "100%", ...style }} />;
-  }
-  return <div style={{ width: "100%", height: "100%", background: banner.gradient, ...style }} />;
-}
 
 const RankBadge = ({ elo, size = 48 }: { elo: number; size?: number }) => {
   const rank = getRank(elo);
@@ -145,9 +131,26 @@ export default function CareerScreen({ themeId, onHoverAction }: Props) {
           boxShadow: `0 20px 50px rgba(0,0,0,0.3)`,
         }}>
           {/* Banner background */}
-          <div style={{ position: "absolute", inset: 0, opacity: 0.25, zIndex: 0 }}>
+          <div style={{ position: "absolute", inset: 0, opacity: 1.0, zIndex: 0 }}>
             <BannerRenderer bannerId={loadCustomTheme().bannerSkin ?? "default"} />
+            
+            {/* Glossy / Shiny Effect */}
+            <div style={{
+              position: "absolute",
+              top: 0, left: "-150%",
+              width: "200%", height: "100%",
+              background: "linear-gradient(120deg, rgba(255,255,255,0) 30%, rgba(255,255,255,0.1) 38%, rgba(255,255,255,0.2) 40%, rgba(255,255,255,0.1) 42%, rgba(255,255,255,0) 50%)",
+              zIndex: 1,
+              animation: "shineSweep 4s infinite linear",
+            }} />
           </div>
+          
+          <style>{`
+            @keyframes shineSweep {
+              from { transform: translateX(-50%); }
+              to { transform: translateX(100%); }
+            }
+          `}</style>
           
           <div style={{ position: "relative", zIndex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 16 }}>
           {/* Big rank badge */}
