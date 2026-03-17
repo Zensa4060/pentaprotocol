@@ -5,7 +5,7 @@ import type { Phase } from "./GamePieces";
 import { RANKS, RankIcon } from "./ProfileScreen";
 
 export const PHASE_TIMERS: Partial<Record<Phase, number>> = {
-  rule_choice: 5, who_first_winner: 5, c3_choice: 5, c3_choice_loser: 5, who_first_loser: 5,
+  rule_choice: 10, who_first_winner: 10, c3_choice: 10, c3_choice_loser: 10, who_first_loser: 10,
 };
 
 interface RulebreakerFlowProps {
