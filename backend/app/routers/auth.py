@@ -5,9 +5,13 @@ from app.core.security import hash_password, verify_password, create_access_toke
 from datetime import datetime, timedelta
 from pydantic import BaseModel
 from bson import ObjectId
-import re, secrets, hashlib, pyotp, qrcode, io, base64
+import re, secrets, hashlib, pyotp, qrcode, io, base64, os
+import resend
 
 router = APIRouter()
+
+resend.api_key = os.environ.get("RESEND_API_KEY")
+FROM_EMAIL = "noreply@pentaprotocol.com"
 
 _reset_codes: dict = {}
 _pending_2fa: dict = {}
@@ -256,25 +260,17 @@ async def forgot_password(data: ForgotPasswordRequest):
         "expires_at": expires_at,
     }
 
-    import aiosmtplib
-    from email.message import EmailMessage
-    msg            = EmailMessage()
-    msg["From"]    = "yagyamishra56@gmail.com"
-    msg["To"]      = data.email
-    msg["Subject"] = "PentaProtocol — Your Password Reset Code"
-    msg.set_content(
-        f"Your PentaProtocol reset code is: {code}\n\n"
-        "This code expires in 15 minutes.\n"
-        "If you didn't request this, ignore this email."
-    )
-    await aiosmtplib.send(
-    msg,
-    hostname="smtp.gmail.com",
-    port=465,
-    username="you@pentaprotocol.com",
-    password="etnk azkt hunr ncfx",
-    use_tls=True,
-)
+    resend.Emails.send({
+        "from": FROM_EMAIL,
+        "to": data.email,
+        "subject": "PentaProtocol — Your Password Reset Code",
+        "text": (
+            f"Your PentaProtocol reset code is: {code}\n\n"
+            "This code expires in 15 minutes.\n"
+            "If you didn't request this, ignore this email."
+        )
+    })
+
     return {"detail": "If that email is registered, a reset code has been sent."}
 
 # ── RESET PASSWORD ────────────────────────────────────────────────────────────
