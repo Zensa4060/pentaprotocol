@@ -13,8 +13,11 @@ export const BANNERS_DATA: Record<string, any> = {
   solar_flare: { id: "solar_flare", gradient: "linear-gradient(135deg,#060200,#f97316)", component: SolarFlareBanner },
 };
 
+const normalizeId = (id: string) => id?.toLowerCase().replace(/\s+/g, "_") || "default";
+
 export function BannerRenderer({ bannerId, style = {}, hideLabels = false }: { bannerId: string; style?: React.CSSProperties; hideLabels?: boolean }) {
-  const banner = BANNERS_DATA[bannerId] || BANNERS_DATA.default;
+  const nid = normalizeId(bannerId);
+  const banner = BANNERS_DATA[nid] || BANNERS_DATA.default;
   if (banner.component) {
     const BannerComp = banner.component;
     return <BannerComp style={{ width: "100%", height: "100%", ...style }} />;

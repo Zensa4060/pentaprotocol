@@ -150,20 +150,55 @@ export default function LobbyScreen({
 
   // ── QUEUING ───────────────────────────────────────────────────────────────
   if (phase === "queuing") return (
-    <div style={{ position:"fixed", inset:0, zIndex:2, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", background:t.bg, gap:22 }}>
-      <div style={{ width:80, height:80, border:`3px solid ${t.border}`, borderTop:`3px solid ${t.accent}`, borderRadius:"50%", animation:"spinRing 0.9s linear infinite" }} />
-      <div style={{ fontFamily:t.fontDisplay, fontSize:22, color:t.text }}>Finding Opponent</div>
-      <div style={{ fontFamily:t.fontMono, fontSize:26, color:t.accent, letterSpacing:"0.2em" }}>{fmt(elapsed)}</div>
-      <div style={{ background:t.bgCard, border:`1px solid ${t.border}`, borderRadius:10, padding:"12px 22px", fontFamily:t.fontBody, fontSize:14, color:t.textSecondary, textAlign:"center", lineHeight:1.8 }}>
-        <div>Unranked · Best of 3</div>
-        <div style={{ color:t.textMuted }}>Searching for a real opponent...</div>
+    <div style={{ position:"fixed", inset:0, zIndex:10, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", background:t.bg, overflow: "hidden" }}>
+      {/* Background Ambience */}
+      <div style={{ position: "absolute", inset: 0, background: `radial-gradient(circle at 50% 50%, ${t.accent}08 0%, transparent 70%)`, pointerEvents: "none" }} />
+      <div style={{ position: "absolute", inset: 0, opacity: 0.1, backgroundImage: `linear-gradient(${t.border} 1px, transparent 1px), linear-gradient(90deg, ${t.border} 1px, transparent 1px)`, backgroundSize: "60px 60px", transform: "translateY(0)", animation: "gridScan 30s linear infinite" }} />
+
+      <div style={{ position: "relative", zIndex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 32, animation: "fadeUp 0.6s cubic-bezier(.22,.68,0,1.2) both" }}>
+        {/* Advanced Scanner Animation */}
+        <div style={{ position: "relative", width: 140, height: 140 }}>
+          <div style={{ position: "absolute", inset: 0, border: `2px solid ${t.accent}22`, borderRadius: "50%" }} />
+          <div style={{ position: "absolute", inset: 0, border: `2px solid transparent`, borderTop: `2px solid ${t.accent}`, borderRadius: "50%", animation: "spinRing 1.2s cubic-bezier(0.4, 0, 0.2, 1) infinite" }} />
+          <div style={{ position: "absolute", inset: 15, border: `2px solid transparent`, borderBottom: `2px solid ${t.p1}`, borderRadius: "50%", animation: "spinRing 0.8s reverse linear infinite" }} />
+          <div style={{ position: "absolute", inset: 30, border: `1px solid ${t.accent}11`, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <div style={{ width: 10, height: 10, background: t.accent, borderRadius: "50%", boxShadow: `0 0 20px ${t.accentGlow}`, animation: "scannerPulse 1.5s ease-in-out infinite" }} />
+          </div>
+          {/* Scanning Sweep */}
+          <div style={{ position: "absolute", top: "50%", left: "50%", width: "100%", height: 2, background: `linear-gradient(90deg, transparent, ${t.accent}, transparent)`, transformOrigin: "0 0", animation: "spinRing 2s linear infinite" }} />
+        </div>
+
+        <div style={{ textAlign: "center" }}>
+          <div style={{ fontFamily: t.fontDisplay, fontSize: 32, fontWeight: 900, color: t.text, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 }}>
+            Establishing Protocol
+          </div>
+          <div style={{ fontFamily: t.fontMono, fontSize: 16, color: t.textMuted, letterSpacing: "0.25em", opacity: 0.8 }}>SEARCHING FOR OPPONENT...</div>
+        </div>
+
+        <div style={{ background: "rgba(0,0,0,0.5)", backdropFilter: "blur(20px)", border: `1px solid ${t.border}`, borderRadius: 20, padding: "24px 40px", boxShadow: "0 20px 50px rgba(0,0,0,0.5)", width: 320 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+            <span style={{ fontFamily: t.fontMono, fontSize: 13, color: t.textMuted }}>ELAPSED</span>
+            <span style={{ fontFamily: t.fontDisplay, fontSize: 24, color: t.accent, fontWeight: 700 }}>{fmt(elapsed)}</span>
+          </div>
+          <div style={{ height: 1, background: `linear-gradient(90deg, transparent, ${t.border}, transparent)`, marginBottom: 12 }} />
+          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+            <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#4CAF50", boxShadow: "0 0 10px #4CAF50", animation: "urgentPulse 1s infinite" }} />
+            <span style={{ fontFamily: t.fontBody, fontSize: 14, color: t.textSecondary }}>Best of 3 · Unranked</span>
+          </div>
+        </div>
+
+        <button onClick={cancelSearch}
+          style={{ background: "transparent", border: `1px solid ${t.danger}44`, color: t.danger, fontFamily: t.fontDisplay, fontSize: 12, fontWeight: 800, padding: "12px 32px", borderRadius: 10, cursor: "pointer", transition: "all 0.2s", letterSpacing: "0.1em" }}
+          onMouseEnter={e => { onHoverAction?.(); e.currentTarget.style.background = `${t.danger}18`; e.currentTarget.style.borderColor = t.danger; }}
+          onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.borderColor = `${t.danger}44`; }}
+        >TERMINATE SEARCH</button>
       </div>
-      <button onClick={cancelSearch}
-        style={{ background:"none", border:`1px solid ${t.danger}`, color:t.danger, fontFamily:t.fontBody, fontSize:14, padding:"10px 26px", borderRadius:6, cursor:"pointer", transition:"background 0.22s ease" }}
-        onMouseEnter={e => { onHoverAction?.(); e.currentTarget.style.background = `${t.danger}18`; }}
-        onMouseLeave={e => { e.currentTarget.style.background = "none"; }}
-      >Cancel</button>
-      <style>{`@keyframes spinRing { to { transform: rotate(360deg); } }`}</style>
+
+      <style>{`
+        @keyframes gridScan { from { background-position: 0 0; } to { background-position: 0 600px; } }
+        @keyframes scannerPulse { 0%, 100% { transform: scale(1); opacity: 0.5; } 50% { transform: scale(3.5); opacity: 1; } }
+        @keyframes urgentPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+      `}</style>
     </div>
   );
 
@@ -176,48 +211,91 @@ export default function LobbyScreen({
   }) => {
     const rank = getRank(elo ?? 100);
     const anim = direction === "top" ? "slideInLeft" : "slideInRight";
+    const sideBySideSize = 240;
+
     return (
       <div style={{
         flex: 1, display: "flex", flexDirection: "column", alignItems: "center",
-        justifyContent: "center", gap: 10, position: "relative", overflow: "hidden",
-        animation: `${anim} 0.6s cubic-bezier(.22,.68,0,1.2) both`,
+        justifyContent: "center", position: "relative", overflow: "hidden",
+        animation: `${anim} 0.8s cubic-bezier(.22,.68,0,1.2) both`,
       }}>
-        {/* Banner background */}
-        <div style={{ position: "absolute", inset: 0, opacity: 0.35 }}>
-          <BannerRenderer bannerId={banner} />
+        {/* Banner with 1.0 opacity and extra shine */}
+        <div style={{ position: "absolute", inset: 0, opacity: 1, zIndex: 0 }}>
+          <BannerRenderer bannerId={banner} hideLabels />
+          <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.2)", zIndex: 1 }} />
+          {/* Shiny Sweep */}
+          <div style={{ 
+            position: "absolute", inset: 0, 
+            background: "linear-gradient(110deg, transparent 35%, rgba(255,255,255,0.3) 45%, rgba(255,255,255,0.5) 50%, rgba(255,255,255,0.3) 55%, transparent 65%)", 
+            backgroundSize: "200% 100%", 
+            animation: "bannerShine 2s infinite cubic-bezier(0.4, 0, 0.2, 1)", 
+            zIndex: 2, pointerEvents: "none",
+            filter: "blur(4px)"
+          }} />
         </div>
-        {/* Content */}
-        <div style={{ position: "relative", zIndex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
-          {/* Avatar */}
-          <div style={{
-            width: 90, height: 90, borderRadius: "50%",
-            background: `linear-gradient(135deg, ${color}, ${t.accent})`,
-            display: "flex", alignItems: "center", justifyContent: "center",
-            boxShadow: `0 0 24px ${color}55, 0 0 48px ${color}22`,
-            border: `3px solid ${color}`,
-            fontSize: 38, overflow: "hidden",
-          }}>
-            {avatar
-              ? <img src={avatar} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-              : "👤"}
-          </div>
-          {/* Username */}
-          <div style={{ fontFamily: t.fontDisplay, fontSize: 22, fontWeight: 800, color, letterSpacing: "0.08em", textShadow: `0 0 20px ${color}55` }}>
-            {name}
-          </div>
-          {/* Rank + Level */}
-          <div style={{ display: "flex", gap: 14, alignItems: "center" }}>
-            <div style={{ padding: "3px 12px", background: `${rank.color}18`, border: `1px solid ${rank.color}55`, borderRadius: 10, fontFamily: t.fontMono, fontSize: 11, fontWeight: 700, color: rank.color, letterSpacing: "0.08em" }}>
-              {rank.name}
-            </div>
-            <div style={{ fontFamily: t.fontMono, fontSize: 12, color: t.textMuted }}>
-              LVL <span style={{ color: t.accent, fontWeight: 700 }}>{level}</span>
-            </div>
-          </div>
-          {/* ELO */}
-          <div style={{ fontFamily: t.fontMono, fontSize: 15, color: t.textMuted, fontWeight: 600 }}>
-            <span style={{ color: t.accent, fontSize: 20, fontWeight: 900 }}>{elo ?? "---"}</span> ELO
-          </div>
+        
+        {/* Content Layout: PFP Left, ELO Middle, Rank Right */}
+        <div style={{ 
+          position: "relative", zIndex: 5, width: "100%", maxWidth: 1200, 
+          display: "flex", alignItems: "center", justifyContent: "space-between", 
+          padding: "0 60px"
+        }}>
+           {/* Left: Profile Picture */}
+           <div style={{ 
+             width: sideBySideSize, height: sideBySideSize, borderRadius: "50%", 
+             background: `linear-gradient(135deg, ${color}, ${t.accent})`, 
+             border: `8px solid ${color}`, display: "flex", alignItems: "center", 
+             justifyContent: "center", fontSize: 110, color: "#000", 
+             boxShadow: `0 20px 60px rgba(0,0,0,0.8), 0 0 40px ${color}66`,
+             flexShrink: 0, overflow: "hidden"
+           }}>
+             {avatar ? <img src={avatar} style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : "👤"}
+           </div>
+           
+           {/* Center: Large ELO Info */}
+           <div style={{ flex: 1, textAlign: "center", display: "flex", flexDirection: "column", gap: 15 }}>
+             <div style={{ 
+               fontFamily: t.fontDisplay, fontSize: 52, fontWeight: 950, color: color, 
+               textShadow: `0 0 40px ${color}, 0 0 20px rgba(255,255,255,0.4)`, 
+               letterSpacing: "0.1em"
+             }}>
+               {name.toUpperCase()}
+             </div>
+             
+             <div style={{ 
+               display: "inline-flex", alignSelf: "center", flexDirection: "column", alignItems: "center", 
+               padding: "20px 50px", background: "rgba(0,0,0,0.7)", backdropFilter: "blur(25px)", 
+               borderRadius: 24, border: `2px solid ${color}44`, 
+               boxShadow: `0 20px 50px rgba(0,0,0,0.7), inset 0 0 15px ${color}22`
+             }}>
+               <div style={{ fontFamily: t.fontMono, fontSize: 14, color: t.textMuted, letterSpacing: "0.3em", marginBottom: 6, opacity: 0.7 }}>ELO RATING</div>
+               <div style={{ 
+                 fontFamily: t.fontDisplay, fontSize: 82, fontWeight: 950, color: t.accent, 
+                 textShadow: `0 0 25px ${t.accent}AA, 0 0 50px ${t.accent}44`,
+                 letterSpacing: "0.05em"
+               }}>
+                 {elo ?? "---"}
+               </div>
+             </div>
+             
+             <div style={{ 
+               fontFamily: t.fontMono, fontSize: 20, color: t.textSecondary, 
+               letterSpacing: "0.2em", opacity: 0.9, marginTop: 10,
+               fontWeight: 800
+             }}>
+               LEVEL {level}
+             </div>
+           </div>
+
+           {/* Right side: Rank Logo */}
+           <div style={{ 
+             width: sideBySideSize, height: sideBySideSize, display: "flex", alignItems: "center", 
+             justifyContent: "center", animation: "rankFloat 3.5s ease-in-out infinite",
+             filter: `drop-shadow(0 0 30px ${color}66)`,
+             flexShrink: 0
+           }}>
+             <NavRankBadge rank={rank as any} size={sideBySideSize} />
+           </div>
         </div>
       </div>
     );
@@ -243,10 +321,10 @@ export default function LobbyScreen({
       />
 
       {/* VS divider */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 20, padding: "8px 0", flexShrink: 0 }}>
-        <div style={{ flex: 1, height: 1, background: `linear-gradient(90deg, transparent, ${t.border}, transparent)` }} />
-        <div style={vsStyle}>VS</div>
-        <div style={{ flex: 1, height: 1, background: `linear-gradient(90deg, transparent, ${t.border}, transparent)` }} />
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 50, padding: "20px 0", flexShrink: 0, position: "relative", zIndex: 10, background: "rgba(0,0,0,0.3)", backdropFilter: "blur(10px)" }}>
+        <div style={{ flex: 1, height: 2, background: `linear-gradient(90deg, transparent, ${t.accent}, transparent)`, opacity: 0.6 }} />
+        <div style={{...vsStyle, transform: "scale(1.2)"}}>VS</div>
+        <div style={{ flex: 1, height: 2, background: `linear-gradient(90deg, transparent, ${t.accent}, transparent)`, opacity: 0.6 }} />
       </div>
 
       {/* Player 2 (opponent) */}
@@ -279,27 +357,54 @@ export default function LobbyScreen({
 
   // ── WAITING FOR P2 (private room) ─────────────────────────────────────────
   if (roomSection === "waiting") return (
-    <div style={{ position:"fixed", inset:0, zIndex:2, background:t.bg, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:28 }}>
-      <div style={{ fontFamily:t.fontDisplay, fontSize:"clamp(22px,4vw,42px)", fontWeight:900, color:t.accent, textAlign:"center" }}>
-        WAITING FOR OPPONENT
-      </div>
-      <div style={{ background:t.bgCard, border:`2px solid ${t.accent}`, borderRadius:ip?2:16, padding:"28px 48px", textAlign:"center" }}>
-        <div style={{ fontFamily:t.fontMono, fontSize:12, color:t.textMuted, letterSpacing:"0.2em", marginBottom:10 }}>ROOM CODE</div>
-        <div style={{ fontFamily:t.fontDisplay, fontSize:"clamp(40px,8vw,80px)", fontWeight:900, color:t.accent, letterSpacing:"0.15em", textShadow:`0 0 40px ${t.accentGlow}55` }}>
-          {roomCode}
+    <div style={{ position:"fixed", inset:0, zIndex:10, background:t.bg, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", overflow: "hidden" }}>
+      {/* Background Ambience */}
+      <div style={{ position: "absolute", inset: 0, background: `radial-gradient(circle at 50% 50%, ${t.accent}08 0%, transparent 70%)`, pointerEvents: "none" }} />
+      <div style={{ position: "absolute", inset: 0, opacity: 0.1, backgroundImage: `linear-gradient(${t.border} 1px, transparent 1px), linear-gradient(90deg, ${t.border} 1px, transparent 1px)`, backgroundSize: "60px 60px", transform: "translateY(0)", animation: "gridScan 30s linear infinite" }} />
+
+      <div style={{ position: "relative", zIndex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 32, animation: "fadeUp 0.6s cubic-bezier(.22,.68,0,1.2) both" }}>
+        {/* Advanced Scanner Animation */}
+        <div style={{ position: "relative", width: 140, height: 140 }}>
+          <div style={{ position: "absolute", inset: 0, border: `2px solid ${t.accent}22`, borderRadius: "50%" }} />
+          <div style={{ position: "absolute", inset: 0, border: `2px solid transparent`, borderTop: `2px solid ${t.accent}`, borderRadius: "50%", animation: "spinRing 1.2s cubic-bezier(0.4, 0, 0.2, 1) infinite" }} />
+          <div style={{ position: "absolute", inset: 15, border: `2px solid transparent`, borderBottom: `2px solid #3b82f6`, borderRadius: "50%", animation: "spinRing 0.8s reverse linear infinite" }} />
+          <div style={{ position: "absolute", inset: 30, border: `1px solid ${t.accent}11`, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <div style={{ width: 10, height: 10, background: t.accent, borderRadius: "50%", boxShadow: `0 0 20px ${t.accentGlow}`, animation: "scannerPulse 1.5s ease-in-out infinite" }} />
+          </div>
+          {/* Scanning Sweep */}
+          <div style={{ position: "absolute", top: "50%", left: "50%", width: "100%", height: 2, background: `linear-gradient(90deg, transparent, ${t.accent}, transparent)`, transformOrigin: "0 0", animation: "spinRing 2s linear infinite" }} />
         </div>
-        <div style={{ fontFamily:t.fontBody, fontSize:13, color:t.textMuted, marginTop:10 }}>Share this code with your friend</div>
-        <div style={{ fontFamily:t.fontMono, fontSize:11, color:t.accent, marginTop:6 }}>{roomFormat.toUpperCase()} · Waiting...</div>
+
+        <div style={{ textAlign: "center" }}>
+          <div style={{ fontFamily: t.fontDisplay, fontSize: 32, fontWeight: 900, color: t.text, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 }}>
+            Protocol Private
+          </div>
+          <div style={{ fontFamily: t.fontMono, fontSize: 16, color: t.textMuted, letterSpacing: "0.25em", opacity: 0.8 }}>WAITING FOR OPPONENT...</div>
+        </div>
+
+        <div style={{ background: "rgba(0,0,0,0.5)", backdropFilter: "blur(20px)", border: `2px solid ${t.accent}44`, borderRadius: 20, padding: "32px 48px", boxShadow: "0 20px 50px rgba(0,0,0,0.5)", textAlign: "center" }}>
+          <div style={{ fontFamily: t.fontMono, fontSize: 12, color: t.textMuted, letterSpacing: "0.2em", marginBottom: 12 }}>ROOM CODE</div>
+          <div style={{ fontFamily: t.fontDisplay, fontSize: "clamp(48px,10vw,88px)", fontWeight: 950, color: t.accent, letterSpacing: "0.15em", textShadow: `0 0 40px ${t.accentGlow}88` }}>
+            {roomCode}
+          </div>
+          <div style={{ fontFamily: t.fontBody, fontSize: 13, color: t.textMuted, marginTop: 10 }}>Share this code with your friend</div>
+          <div style={{ fontFamily: t.fontMono, fontSize: 11, color: t.accent, marginTop: 6, fontWeight: 700 }}>{roomFormat.toUpperCase()} · WAITING</div>
+        </div>
+
+        <button onClick={cancelRoom} style={{ background:"transparent", border:`2px solid ${t.border}`, color:t.textMuted, fontFamily:t.fontDisplay, fontSize:14, fontWeight:700, padding:"12px 36px", borderRadius:ip?2:10, cursor:"pointer", transition: "all 0.2s" }}
+          onMouseEnter={e => { e.currentTarget.style.borderColor = t.accent; e.currentTarget.style.color = t.accent; }}
+          onMouseLeave={e => { e.currentTarget.style.borderColor = t.border; e.currentTarget.style.color = t.textMuted; }}
+        >
+          CANCEL
+        </button>
       </div>
-      <div style={{ display:"flex", gap:8 }}>
-        {[0,1,2].map(i => (
-          <div key={i} style={{ width:10, height:10, borderRadius:"50%", background:t.accent, animation:`dotPulse 1.2s ease-in-out ${i*0.3}s infinite`, opacity:0.7 }} />
-        ))}
-      </div>
-      <button onClick={cancelRoom} style={{ background:"transparent", border:`2px solid ${t.border}`, color:t.textMuted, fontFamily:t.fontDisplay, fontSize:14, fontWeight:700, padding:"12px 36px", borderRadius:ip?2:10, cursor:"pointer" }}>
-        CANCEL
-      </button>
-      <style>{`@keyframes dotPulse { 0%,100%{transform:scale(0.8);opacity:0.4} 50%{transform:scale(1.2);opacity:1} }`}</style>
+
+      <style>{`
+        @keyframes gridScan { from { background-position: 0 0; } to { background-position: 0 600px; } }
+        @keyframes scannerPulse { 0%,100%{transform:scale(1);opacity:0.5} 50%{transform:scale(3.5);opacity:1} }
+        @keyframes spinRing { to { transform: rotate(360deg); } }
+        @keyframes fadeUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+      `}</style>
     </div>
   );
 
@@ -577,6 +682,11 @@ export default function LobbyScreen({
         @keyframes fadeUp   { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
         @keyframes spinRing { to { transform: rotate(360deg); } }
         @keyframes dotPulse { 0%,100%{transform:scale(0.8);opacity:0.4} 50%{transform:scale(1.2);opacity:1} }
+        @keyframes bannerShine { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+        @keyframes rankFloat { 0%, 100% { transform: translateY(0) rotate(5deg); } 50% { transform: translateY(-30px) rotate(-5deg); } }
+        @keyframes matchBarShrink { from{width:100%} to{width:0%} }
+        @keyframes slideInLeft  { from{opacity:0;transform:translateX(-100px) scale(0.9)} to{opacity:1;transform:translateX(0) scale(1)} }
+        @keyframes slideInRight { from{opacity:0;transform:translateX(100px) scale(0.9)}  to{opacity:1;transform:translateX(0) scale(1)} }
       `}</style>
     </div>
   );

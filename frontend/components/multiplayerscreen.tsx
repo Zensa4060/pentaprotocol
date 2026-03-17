@@ -97,54 +97,53 @@ export default function MultiplayerScreen({ setScreen, themeId, onHover, onRoomR
   // ── Waiting lobby (after creating a room) ──────────────────────────────────
   if (waiting && roomCode) {
     return (
-      <div style={{
-        position: "fixed", inset: 0, zIndex: 2, background: t.bg,
-        display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-        padding: "84px 24px 48px", gap: 28,
-      }}>
-        <div style={{ fontFamily: t.fontDisplay, fontSize: "clamp(28px,5vw,56px)", fontWeight: 900, color: t.accent, textAlign: "center" }}>
-          WAITING FOR OPPONENT
+      <div style={{ position:"fixed", inset:0, zIndex:10, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", background:t.bg, overflow: "hidden" }}>
+        {/* Background Ambience */}
+        <div style={{ position: "absolute", inset: 0, background: `radial-gradient(circle at 50% 50%, ${t.accent}08 0%, transparent 70%)`, pointerEvents: "none" }} />
+        <div style={{ position: "absolute", inset: 0, opacity: 0.1, backgroundImage: `linear-gradient(${t.border} 1px, transparent 1px), linear-gradient(90deg, ${t.border} 1px, transparent 1px)`, backgroundSize: "60px 60px", transform: "translateY(0)", animation: "gridScan 30s linear infinite" }} />
+
+        <div style={{ position: "relative", zIndex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 32, animation: "fadeUp 0.6s cubic-bezier(.22,.68,0,1.2) both" }}>
+          {/* Advanced Scanner Animation */}
+          <div style={{ position: "relative", width: 140, height: 140 }}>
+            <div style={{ position: "absolute", inset: 0, border: `2px solid ${t.accent}22`, borderRadius: "50%" }} />
+            <div style={{ position: "absolute", inset: 0, border: `2px solid transparent`, borderTop: `2px solid ${t.accent}`, borderRadius: "50%", animation: "spinRing 1.2s cubic-bezier(0.4, 0, 0.2, 1) infinite" }} />
+            <div style={{ position: "absolute", inset: 15, border: `2px solid transparent`, borderBottom: `2px solid #3b82f6`, borderRadius: "50%", animation: "spinRing 0.8s reverse linear infinite" }} />
+            <div style={{ position: "absolute", inset: 30, border: `1px solid ${t.accent}11`, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <div style={{ width: 10, height: 10, background: t.accent, borderRadius: "50%", boxShadow: `0 0 20px ${t.accentGlow}`, animation: "scannerPulse 1.5s ease-in-out infinite" }} />
+            </div>
+            {/* Scanning Sweep */}
+            <div style={{ position: "absolute", top: "50%", left: "50%", width: "100%", height: 2, background: `linear-gradient(90deg, transparent, ${t.accent}, transparent)`, transformOrigin: "0 0", animation: "spinRing 2s linear infinite" }} />
+          </div>
+
+          <div style={{ textAlign: "center" }}>
+            <div style={{ fontFamily: t.fontDisplay, fontSize: 32, fontWeight: 900, color: t.text, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 }}>
+              Lobby Established
+            </div>
+            <div style={{ fontFamily: t.fontMono, fontSize: 16, color: t.textMuted, letterSpacing: "0.25em", opacity: 0.8 }}>WAITING FOR OPPONENT...</div>
+          </div>
+
+          <div style={{ background: "rgba(0,0,0,0.5)", backdropFilter: "blur(20px)", border: `2px solid ${t.accent}44`, borderRadius: 20, padding: "32px 48px", boxShadow: "0 20px 50px rgba(0,0,0,0.5)", textAlign: "center" }}>
+            <div style={{ fontFamily: t.fontMono, fontSize: 12, color: t.textMuted, letterSpacing: "0.2em", marginBottom: 12 }}>ROOM CODE</div>
+            <div style={{ fontFamily: t.fontDisplay, fontSize: "clamp(48px,10vw,88px)", fontWeight: 950, color: t.accent, letterSpacing: "0.15em", textShadow: `0 0 40px ${t.accentGlow}88` }}>
+              {roomCode}
+            </div>
+            <div style={{ fontFamily: t.fontBody, fontSize: 14, color: t.textSecondary, marginTop: 12 }}>Share this code with your friend</div>
+            <div style={{ fontFamily: t.fontMono, fontSize: 13, color: t.accent, marginTop: 8, fontWeight: 700 }}>{format.toUpperCase()} · WAITING</div>
+          </div>
+
+          <button onClick={cancelRoom}
+            style={{ background: "transparent", border: `2px solid ${t.border}`, color: t.textMuted, fontFamily: t.fontDisplay, fontSize: 14, fontWeight: 700, padding: "12px 36px", borderRadius: ip ? 2 : 10, cursor: "pointer", transition: "all 0.2s" }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = t.accent; e.currentTarget.style.color = t.accent; }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = t.border; e.currentTarget.style.color = t.textMuted; }}
+          >CANCEL ROOM</button>
         </div>
 
-        <div style={{ background: t.bgCard, border: `2px solid ${t.accent}`, borderRadius: ip ? 2 : 16, padding: "32px 48px", textAlign: "center" }}>
-          <div style={{ fontFamily: t.fontMono, fontSize: 13, color: t.textMuted, letterSpacing: "0.2em", marginBottom: 12 }}>
-            ROOM CODE
-          </div>
-          <div style={{
-            fontFamily: t.fontDisplay, fontSize: "clamp(36px,8vw,80px)", fontWeight: 900,
-            color: t.accent, letterSpacing: "0.15em",
-            textShadow: `0 0 40px ${t.accentGlow}55`,
-          }}>
-            {roomCode}
-          </div>
-          <div style={{ fontFamily: t.fontBody, fontSize: 14, color: t.textMuted, marginTop: 12 }}>
-            Share this code with your friend
-          </div>
-          <div style={{ fontFamily: t.fontMono, fontSize: 12, color: t.accent, marginTop: 8 }}>
-            {format.toUpperCase()} · Waiting...
-          </div>
-        </div>
-
-        {/* Animated dots */}
-        <div style={{ display: "flex", gap: 8 }}>
-          {[0, 1, 2].map(i => (
-            <div key={i} style={{
-              width: 10, height: 10, borderRadius: "50%", background: t.accent,
-              animation: `pulse 1.2s ease-in-out ${i * 0.3}s infinite`,
-              opacity: 0.7,
-            }} />
-          ))}
-        </div>
-
-        <style>{`@keyframes pulse { 0%,100%{transform:scale(0.8);opacity:0.4} 50%{transform:scale(1.2);opacity:1} }`}</style>
-
-        <button onClick={cancelRoom} style={{
-          background: "transparent", border: `2px solid ${t.border}`,
-          color: t.textMuted, fontFamily: t.fontDisplay, fontSize: 14, fontWeight: 700,
-          padding: "12px 36px", borderRadius: ip ? 2 : 10, cursor: "pointer",
-        }}>
-          CANCEL
-        </button>
+        <style>{`
+          @keyframes gridScan { from { background-position: 0 0; } to { background-position: 0 600px; } }
+          @keyframes scannerPulse { 0%, 100% { transform: scale(1); opacity: 0.5; } 50% { transform: scale(3.5); opacity: 1; } }
+          @keyframes spinRing { to { transform: rotate(360deg); } }
+          @keyframes fadeUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        `}</style>
       </div>
     );
   }
