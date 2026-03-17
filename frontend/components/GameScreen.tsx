@@ -14,6 +14,7 @@ import { RulebreakerFlow, PHASE_TIMERS } from "./RulebreakerFlow";
 import { LeftPanel, RightPanel, WinOverlay, RematchOverlay, SurrenderModal, DisconnectModal, ExitModal } from "./MatchSidebar";
 import { useAuthStore } from "@/lib/store";
 import { BannerRenderer } from "./BannerRenderer";
+import { RANKS, RankIcon } from "./ProfileScreen";
 
 interface MatchupOverlayProps {
   matchupData: any;
@@ -34,67 +35,88 @@ const MatchupOverlay = ({ matchupData, showMatchupOverlay, playerSlot, p1Name, u
   const _ct = loadCustomTheme();
   const myBanner = _ct.bannerSkin ?? "default";
   const myS = playerSlot || "P1";
-  const p1Data = myS === "P1" ? { name: p1Name || "YOU", banner: myBanner, elo: user?.elo || 0, level: user?.level || 1 } : { name: opp.name, banner: opp.banner, elo: opp.elo || 0, level: opp.level || 1 };
-  const p2Data = myS === "P2" ? { name: p1Name || "YOU", banner: myBanner, elo: user?.elo || 0, level: user?.level || 1 } : { name: opp.name, banner: opp.banner, elo: opp.elo || 0, level: opp.level || 1 };
+  const p1D = myS === "P1" ? { name: p1Name || "YOU", banner: myBanner, elo: user?.elo || 0, level: user?.level || 1 } : { name: opp.name, banner: opp.banner, elo: opp.elo || 0, level: opp.level || 1 };
+  const p2D = myS === "P2" ? { name: p1Name || "YOU", banner: myBanner, elo: user?.elo || 0, level: user?.level || 1 } : { name: opp.name, banner: opp.banner, elo: opp.elo || 0, level: opp.level || 1 };
+
+  const getRankData = (elo: number) => RANKS.find(r => elo >= r.min && elo < r.max) || RANKS[RANKS.length - 1];
 
   const vsStyle: React.CSSProperties = {
     fontFamily: themeId === "pixel" ? "'Press Start 2P', cursive" : themeId === "space" ? "'Polaris', sans-serif" : "'Press Start 2P', cursive",
-    fontSize: "clamp(42px,8vw,100px)",
-    fontWeight: 900,
+    fontSize: "clamp(60px,12vw,160px)",
+    fontWeight: 950,
     color: t.accent,
-    textShadow: `0 0 40px ${t.accentGlow}88`,
-    zIndex: 2,
+    textShadow: `0 0 80px ${t.accent}AA`,
+    zIndex: 10,
+    letterSpacing: "-0.05em"
+  };
+
+  const UserCard = ({ data, color, isP1 }: { data: any, color: string, isP1: boolean }) => {
+    const rank = getRankData(data.elo);
+    return (
+      <div style={{ flex: 1, position: "relative", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
+        {/* Banner with extra visibility and shine */}
+        <div style={{ position: "absolute", inset: 0, opacity: 1 }}>
+          <BannerRenderer bannerId={data.banner} hideLabels />
+          <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.15)", zIndex: 1 }} />
+          {/* Shiny Overlay */}
+          <div style={{ position: "absolute", inset: 0, background: "linear-gradient(110deg, transparent 40%, rgba(255,255,255,0.1) 45%, rgba(255,255,255,0.2) 50%, rgba(255,255,255,0.1) 55%, transparent 60%)", backgroundSize: "200% 100%", animation: "bannerShine 3s infinite linear", zIndex: 2, pointerEvents: "none" }} />
+        </div>
+        
+        <div style={{ position: "relative", zIndex: 5, display: "flex", flexDirection: "column", alignItems: "center", gap: 16, animation: "cardSlideIn 0.6s cubic-bezier(.22,.68,0,1.2) both" }}>
+           {/* Larger PFP */}
+           <div style={{ width: 180, height: 180, borderRadius: "50%", background: `linear-gradient(135deg, ${color}, ${t.accent})`, border: `6px solid ${color}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 80, color: "#000", boxShadow: `0 20px 60px rgba(0,0,0,0.8), 0 0 40px ${color}66` }}>👤</div>
+           
+           <div style={{ textAlign: "center" }}>
+             <div style={{ fontFamily: t.fontDisplay, fontSize: 38, fontWeight: 900, color: color, textShadow: `0 0 30px ${color}88`, letterSpacing: "0.05em", marginBottom: 4 }}>{data.name.toUpperCase()}</div>
+             <div style={{ fontFamily: t.fontMono, fontSize: 16, color: t.textSecondary, letterSpacing: "0.1em", opacity: 0.8 }}>LEVEL {data.level}</div>
+           </div>
+
+           {/* Elo and Rank Logo Section */}
+           <div style={{ 
+             display: "flex", gap: 20, alignItems: "center", padding: "12px 28px", 
+             background: "rgba(0,0,0,0.45)", backdropFilter: "blur(12px)", borderRadius: 16, 
+             border: "1px solid rgba(255,255,255,0.12)", boxShadow: "0 10px 30px rgba(0,0,0,0.5)"
+           }}>
+             <div style={{ textAlign: isP1 ? "right" : "left" }}>
+               <div style={{ fontFamily: t.fontMono, fontSize: 13, color: t.textMuted, letterSpacing: "0.15em" }}>ELO RATING</div>
+               <div style={{ fontFamily: t.fontDisplay, fontSize: 32, fontWeight: 900, color: t.accent }}>{data.elo}</div>
+             </div>
+             <div style={{ width: 2, height: 40, background: "rgba(255,255,255,0.1)" }} />
+             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <RankIcon rank={rank} size={60} />
+                <div style={{ fontFamily: t.fontMono, fontSize: 12, fontWeight: 800, color: rank.color, letterSpacing: "0.12em" }}>{rank.name}</div>
+             </div>
+           </div>
+        </div>
+      </div>
+    );
   };
 
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 10000, background: t.bg, display: "flex", flexDirection: "column", overflow: "hidden" }}>
-      <div style={{ textAlign: "center", paddingTop: 30, fontFamily: t.fontMono, fontSize: 13, color: t.textMuted, letterSpacing: "0.2em", zIndex: 2 }}>
-        {isRankedGame ? "RANKED" : "UNRANKED"} · BEST OF 3
+      <style>{`
+        @keyframes bannerShine { from { background-position: -100% 0; } to { background-position: 100% 0; } }
+      `}</style>
+      
+      <div style={{ textAlign: "center", paddingTop: 40, fontFamily: t.fontMono, fontSize: 14, fontWeight: 700, color: t.textMuted, letterSpacing: "0.3em", zIndex: 15, textShadow: "0 2px 10px rgba(0,0,0,0.5)" }}>
+        {isRankedGame ? "RANKED MATCHUP" : "UNRANKED EXHIBITION"} · BEST OF 3
       </div>
 
-      {/* P1 Card */}
-      <div style={{ flex: 1, position: "relative", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
-        <div style={{ position: "absolute", inset: 0, opacity: 1, mixBlendMode: "screen" }}>
-          <BannerRenderer bannerId={p1Data.banner} hideLabels />
-          <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.35)", zIndex: 1 }} />
-        </div>
-        <div style={{ position: "relative", zIndex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
-           <div style={{ width: 100, height: 100, borderRadius: "50%", background: `linear-gradient(135deg, ${t.p1}, ${t.accent})`, border: `4px solid ${t.p1}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 42, color: t.p1 }}>👤</div>
-           <div style={{ fontFamily: t.fontDisplay, fontSize: 26, fontWeight: 800, color: t.p1, textShadow: `0 0 20px ${t.p1}66` }}>{p1Data.name}</div>
-           <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-             <div style={{ fontFamily: t.fontMono, fontSize: 13, color: t.textMuted }}>LVL <span style={{ color: t.accent }}>{p1Data.level}</span></div>
-             <div style={{ fontFamily: t.fontMono, fontSize: 13, color: t.textMuted }}>ELO <span style={{ color: t.accent }}>{p1Data.elo}</span></div>
-           </div>
-        </div>
-      </div>
+      <UserCard data={p1D} color={t.p1} isP1={true} />
 
       {/* VS Divider */}
-      <div style={{ height: 2, background: `linear-gradient(90deg, transparent, ${t.accent}44, transparent)`, position: "relative", zIndex: 2 }}>
+      <div style={{ height: 4, background: `linear-gradient(90deg, transparent, ${t.accent}, transparent)`, position: "relative", zIndex: 12, boxShadow: `0 0 30px ${t.accent}66` }}>
         <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%,-50%)", ...vsStyle }}>VS</div>
       </div>
 
-      {/* P2 Card */}
-      <div style={{ flex: 1, position: "relative", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
-        <div style={{ position: "absolute", inset: 0, opacity: 1, mixBlendMode: "screen" }}>
-          <BannerRenderer bannerId={p2Data.banner} hideLabels />
-          <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.35)", zIndex: 1 }} />
-        </div>
-        <div style={{ position: "relative", zIndex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
-           <div style={{ width: 100, height: 100, borderRadius: "50%", background: `linear-gradient(135deg, ${t.p2}, ${t.accent})`, border: `4px solid ${t.p2}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 42, color: t.p2 }}>👤</div>
-           <div style={{ fontFamily: t.fontDisplay, fontSize: 26, fontWeight: 800, color: t.p2, textShadow: `0 0 20px ${t.p2}66` }}>{p2Data.name}</div>
-           <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-             <div style={{ fontFamily: t.fontMono, fontSize: 13, color: t.textMuted }}>LVL <span style={{ color: t.accent }}>{p2Data.level}</span></div>
-             <div style={{ fontFamily: t.fontMono, fontSize: 13, color: t.textMuted }}>ELO <span style={{ color: t.accent }}>{p2Data.elo}</span></div>
-           </div>
-        </div>
-      </div>
+      <UserCard data={p2D} color={t.p2} isP1={false} />
 
       {/* Footer */}
-      <div style={{ padding: "10px 0 20px 0", textAlign: "center", zIndex: 2 }}>
-         <div style={{ height: 4, width: 200, background: "#333", borderRadius: 2, margin: "10px auto", overflow: "hidden" }}>
-           <div style={{ height: "100%", width: `${(matchupCountdown / 10.0) * 100}%`, background: t.accent, transition: "width 0.1s linear" }} />
+      <div style={{ padding: "20px 0 40px 0", textAlign: "center", zIndex: 15, background: "linear-gradient(to top, rgba(0,0,0,0.9), transparent)" }}>
+         <div style={{ height: 6, width: 300, background: "rgba(255,255,255,0.05)", borderRadius: 3, margin: "10px auto 16px auto", overflow: "hidden", border: "1px solid rgba(255,255,255,0.1)" }}>
+           <div style={{ height: "100%", width: `${(matchupCountdown / 10.0) * 100}%`, background: `linear-gradient(90deg, ${t.accent}, ${t.accentGlow})`, boxShadow: `0 0 20px ${t.accent}`, transition: "width 0.1s linear" }} />
          </div>
-         <div style={{ fontFamily: t.fontMono, fontSize: 11, color: t.textMuted }}>MATCH STARTING IN {Math.ceil(matchupCountdown)}s</div>
+         <div style={{ fontFamily: t.fontMono, fontSize: 13, color: t.text, fontWeight: 700, letterSpacing: "0.15em" }}>MATCH COMMENCING IN {Math.ceil(matchupCountdown)}s</div>
       </div>
     </div>
   );
@@ -184,6 +206,16 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
 
   const myDisplayName = p1Name ?? (mySlot === "P1" ? "P1" : "P2");
   const oppDisplayName = opponentName ?? (mySlot === "P1" ? "P2" : "P1");
+
+  // Sync banners from matchupData on start
+  useEffect(() => {
+    if (isMultiplayerGame && matchupData) {
+      const opp = matchupData.opponent;
+      const oppBanner = opp.banner || (opp as any).banner_style || "default";
+      if (playerSlot === "P1") setP2Banner(oppBanner);
+      else if (playerSlot === "P2") setP1Banner(oppBanner);
+    }
+  }, [matchupData, isMultiplayerGame, playerSlot]);
 
   const p1DisplayName = isMultiplayerGame
     ? (mySlot === "P1" ? myDisplayName : oppDisplayName)
@@ -338,10 +370,10 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
               if (msg.slot === "P1") setP1Banner(msg.bannerId);
               else setP2Banner(msg.bannerId);
             }
-            // Reply with our own info
-            const myBanner = mySlot === "P1" ? p1Banner : p2Banner;
-            ws.send(JSON.stringify({ type: "player_info", username: p1Name ?? playerSlot ?? "P1", slot: playerSlot, bannerId: myBanner }));
           }
+          // Reply with our own info
+          const currentBanner = mySlot === "P1" ? (_ct.bannerSkin ?? "default") : (_ct.bannerSkin ?? "default");
+          ws.send(JSON.stringify({ type: "player_info", username: p1Name ?? playerSlot ?? "P1", slot: playerSlot, bannerId: currentBanner }));
           return;
         }
         if (msg.type === "move_made") {

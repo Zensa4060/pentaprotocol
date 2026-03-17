@@ -13,7 +13,7 @@ import BloodMoonBanner from "./BloodMoonBanner";
 import PhantomStrikeBanner from "./PhantomStrikeBanner";
 import SolarFlareBanner from "./SolarFlareBanner";
 
-const RANKS = [
+export const RANKS = [
   { name: "NOVICE",       min: 0,    max: 500,  color: "#9CA3AF", icon: null, img: "/novice.svg",       scale: 1.3 },
   { name: "ADVANCED",     min: 500,  max: 1000, color: "#60A5FA", icon: null, img: "/advanced.svg",     scale: 1.3 },
   { name: "PROFESSIONAL", min: 1000, max: 1500, color: "#34D399", icon: null, img: "/professional.svg", scale: 1.3 },
@@ -95,7 +95,7 @@ const TIER_COLOR: Record<string, string> = {
 
 const getRank = (elo: number) => RANKS.find(r => elo >= r.min && elo < r.max) || RANKS[5];
 
-const RankIcon = ({ rank, size = 26 }: { rank: typeof RANKS[0]; size?: number }) => {
+export const RankIcon = ({ rank, size = 26 }: { rank: typeof RANKS[0]; size?: number }) => {
   const imgScale = (rank as any).scale ?? 1;
   const imgSize = size * 0.85 * imgScale;
   return (
