@@ -76,6 +76,7 @@ const BANNERS: { id: string; label: string; gradient: string; condition: (p: any
   { id: "void_rift", label: "Void Rift", gradient: "linear-gradient(135deg,#0e0020,#020005)", condition: (p: any) => (p?.purchased_items ?? []).includes("void_rift") },
   { id: "blood_moon", label: "Blood Moon", gradient: "linear-gradient(135deg,#000008,#180008)", condition: (p: any) => (p?.purchased_items ?? []).includes("blood_moon") },
   { id: "phantom_strike", label: "Phantom Strike", gradient: "linear-gradient(135deg,#060010,#110028)", condition: (p: any) => (p?.purchased_items ?? []).includes("phantom_strike") },
+  { id: "solar_flare", label: "Solar Flare", gradient: "linear-gradient(135deg,#060200,#f97316)", condition: (p: any) => (p?.purchased_items ?? []).includes("solar_flare") },
 ];
 
 // Sound pack options

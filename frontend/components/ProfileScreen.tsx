@@ -11,6 +11,7 @@ import { BannerRenderer } from "./BannerRenderer";
 import VoidRiftBanner from "./VoidRiftBanner";
 import BloodMoonBanner from "./BloodMoonBanner";
 import PhantomStrikeBanner from "./PhantomStrikeBanner";
+import SolarFlareBanner from "./SolarFlareBanner";
 
 const RANKS = [
   { name: "NOVICE",       min: 0,    max: 500,  color: "#9CA3AF", icon: null, img: "/novice.svg",       scale: 1.3 },
@@ -69,6 +70,9 @@ const BANNERS: {
   { id: "phantom_strike", label: "Phantom Strike", gradient: "linear-gradient(135deg,#060010,#110028)",
     component: PhantomStrikeBanner,
     unlockDesc: "Purchase for 199 PC", condition: p => (p.purchased_items || []).includes("phantom_strike") },
+  { id: "solar_flare", label: "Solar Flare", gradient: "linear-gradient(135deg,#060200,#f97316)",
+    component: SolarFlareBanner,
+    unlockDesc: "Purchase for 299 PC", condition: p => (p.purchased_items || []).includes("solar_flare") },
 ];
 
 export const PROFILE_BORDERS: {
