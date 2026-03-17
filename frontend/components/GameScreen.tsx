@@ -52,62 +52,84 @@ const MatchupOverlay = ({ matchupData, showMatchupOverlay, playerSlot, p1Name, u
 
   const UserCard = ({ data, color, isP1 }: { data: any, color: string, isP1: boolean }) => {
     const rank = getRankData(data.elo);
+    const sideBySideSize = 280;
+
     return (
       <div style={{ flex: 1, position: "relative", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
         {/* Banner with extra visibility and shine */}
         <div style={{ position: "absolute", inset: 0, opacity: 1 }}>
           <BannerRenderer bannerId={data.banner} hideLabels />
           <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.15)", zIndex: 1 }} />
-          {/* Shiny Overlay */}
-          <div style={{ position: "absolute", inset: 0, background: "linear-gradient(110deg, transparent 40%, rgba(255,255,255,0.1) 45%, rgba(255,255,255,0.2) 50%, rgba(255,255,255,0.1) 55%, transparent 60%)", backgroundSize: "200% 100%", animation: "bannerShine 3s infinite linear", zIndex: 2, pointerEvents: "none" }} />
+          {/* Intense Shiny Overlay */}
+          <div style={{ 
+            position: "absolute", inset: 0, 
+            background: "linear-gradient(110deg, transparent 35%, rgba(255,255,255,0.4) 45%, rgba(255,255,255,0.6) 50%, rgba(255,255,255,0.4) 55%, transparent 65%)", 
+            backgroundSize: "200% 100%", 
+            animation: "bannerShine 1.8s infinite cubic-bezier(0.4, 0, 0.2, 1)", 
+            zIndex: 2, pointerEvents: "none",
+            filter: "blur(4px)"
+          }} />
         </div>
         
         <div style={{ 
-          position: "relative", zIndex: 5, width: "100%", maxWidth: 1200, 
+          position: "relative", zIndex: 5, width: "100%", maxWidth: 1400, 
           display: "flex", alignItems: "center", justifyContent: "space-between", 
-          padding: "0 60px", animation: "cardSlideIn 0.6s cubic-bezier(.22,.68,0,1.2) both" 
+          padding: "0 80px", animation: "cardSlideIn 0.8s cubic-bezier(.22,.68,0,1.2) both" 
         }}>
-           {/* Left: Larger PFP */}
+           {/* Left side: Profile Picture (25% bigger -> 280px) */}
            <div style={{ 
-             width: 225, height: 225, borderRadius: "50%", 
+             width: sideBySideSize, height: sideBySideSize, borderRadius: "50%", 
              background: `linear-gradient(135deg, ${color}, ${t.accent})`, 
-             border: `8px solid ${color}`, display: "flex", alignItems: "center", 
-             justifyContent: "center", fontSize: 110, color: "#000", 
-             boxShadow: `0 20px 60px rgba(0,0,0,0.8), 0 0 40px ${color}66` 
+             border: `10px solid ${color}`, display: "flex", alignItems: "center", 
+             justifyContent: "center", fontSize: 140, color: "#000", 
+             boxShadow: `0 30px 80px rgba(0,0,0,0.9), 0 0 60px ${color}88`,
+             flexShrink: 0
            }}>👤</div>
            
-           {/* Middle: Name and ELO */}
-           <div style={{ flex: 1, textAlign: "center", display: "flex", flexDirection: "column", gap: 10 }}>
+           {/* Center: Large ELO and User Info */}
+           <div style={{ flex: 1, textAlign: "center", display: "flex", flexDirection: "column", gap: 15 }}>
              <div style={{ 
-               fontFamily: t.fontDisplay, fontSize: 48, fontWeight: 950, color: color, 
-               textShadow: `0 0 40px ${color}AA`, letterSpacing: "0.08em" 
+               fontFamily: t.fontDisplay, fontSize: 62, fontWeight: 950, color: color, 
+               textShadow: `0 0 50px ${color}, 0 0 20px rgba(255,255,255,0.4)`, 
+               letterSpacing: "0.1em",
+               transform: "scale(1.1)"
              }}>
                {data.name.toUpperCase()}
              </div>
              
              <div style={{ 
                display: "inline-flex", alignSelf: "center", flexDirection: "column", alignItems: "center", 
-               padding: "16px 40px", background: "rgba(0,0,0,0.6)", backdropFilter: "blur(20px)", 
-               borderRadius: 20, border: "1px solid rgba(255,255,255,0.15)", 
-               boxShadow: "0 15px 45px rgba(0,0,0,0.6)"
+               padding: "24px 60px", background: "rgba(0,0,0,0.75)", backdropFilter: "blur(30px)", 
+               borderRadius: 24, border: `2px solid ${color}44`, 
+               boxShadow: `0 20px 60px rgba(0,0,0,0.8), inset 0 0 20px ${color}22`
              }}>
-               <div style={{ fontFamily: t.fontMono, fontSize: 14, color: t.textMuted, letterSpacing: "0.2em", marginBottom: 4 }}>ELO RATING</div>
-               <div style={{ fontFamily: t.fontDisplay, fontSize: 44, fontWeight: 900, color: t.accent, textShadow: `0 0 20px ${t.accent}66` }}>
+               <div style={{ fontFamily: t.fontMono, fontSize: 16, color: t.textMuted, letterSpacing: "0.3em", marginBottom: 6, opacity: 0.7 }}>ELO RATING</div>
+               <div style={{ 
+                 fontFamily: t.fontDisplay, fontSize: 96, fontWeight: 950, color: t.accent, 
+                 textShadow: `0 0 30px ${t.accent}AA, 0 0 60px ${t.accent}44`,
+                 letterSpacing: "0.05em"
+               }}>
                  {data.elo}
                </div>
              </div>
              
-             <div style={{ fontFamily: t.fontMono, fontSize: 18, color: t.textSecondary, letterSpacing: "0.15em", opacity: 0.8, marginTop: 8 }}>
+             <div style={{ 
+               fontFamily: t.fontMono, fontSize: 22, color: t.textSecondary, 
+               letterSpacing: "0.2em", opacity: 0.9, marginTop: 10,
+               fontWeight: 800
+             }}>
                LEVEL {data.level}
              </div>
            </div>
 
-           {/* Right: Rank Logo (Same size as PFP) */}
+           {/* Right side: Rank Logo (Same size as PFP) */}
            <div style={{ 
-             width: 225, height: 225, display: "flex", alignItems: "center", 
-             justifyContent: "center", animation: "rankFloat 4s ease-in-out infinite" 
+             width: sideBySideSize, height: sideBySideSize, display: "flex", alignItems: "center", 
+             justifyContent: "center", animation: "rankFloat 3.5s ease-in-out infinite",
+             filter: `drop-shadow(0 0 30px ${color}66)`,
+             flexShrink: 0
            }}>
-             <RankIcon rank={rank} size={225} />
+             <RankIcon rank={rank} size={sideBySideSize} />
            </div>
         </div>
       </div>
@@ -391,11 +413,11 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
             setOpponentName(msg.username ?? null);
             if (msg.bannerId) {
               if (msg.slot === "P1") setP1Banner(msg.bannerId);
-              else setP2Banner(msg.bannerId);
+              else if (msg.slot === "P2") setP2Banner(msg.bannerId);
             }
           }
-          // Reply with our own info
-          const currentBanner = mySlot === "P1" ? (_ct.bannerSkin ?? "default") : (_ct.bannerSkin ?? "default");
+          // Reply with our own info to ensure both sides are synced
+          const currentBanner = _ct.bannerSkin ?? "default";
           ws.send(JSON.stringify({ type: "player_info", username: p1Name ?? playerSlot ?? "P1", slot: playerSlot, bannerId: currentBanner }));
           return;
         }

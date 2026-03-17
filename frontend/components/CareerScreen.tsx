@@ -115,6 +115,14 @@ export default function CareerScreen({ themeId, onHoverAction }: Props) {
 
         /* Momentum / smooth scroll for all browsers */
         * { scroll-behavior: smooth; }
+
+        @keyframes rowFadeIn {
+          from { opacity: 0; transform: translateY(10px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        .career-row-animated {
+          animation: rowFadeIn 0.5s ease-out both;
+        }
       `}</style>
 
       <div style={{ maxWidth: 860, margin: "0 auto", padding: "84px 24px 80px" }}>
@@ -233,23 +241,34 @@ export default function CareerScreen({ themeId, onHoverAction }: Props) {
       </div>
 
         {/* ── MATCH HISTORY ─────────────────────────────────────────────────── */}
+        <div style={{ marginBottom: 16, display: "flex", alignItems: "center", gap: 12 }}>
+          <div style={{ height: 1, flex: 1, background: `linear-gradient(90deg, transparent, ${t.border})` }} />
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={t.text} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.8 }}><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            <div style={{ fontFamily: t.fontDisplay, fontSize: 13, fontWeight: 900, color: t.text, letterSpacing: "0.25em", opacity: 0.9 }}>BATTLE ARCHIVE</div>
+          </div>
+          <div style={{ height: 1, flex: 1, background: `linear-gradient(90deg, ${t.border}, transparent)` }} />
+        </div>
+
         <div style={{
-          background: t.bgCard, border: `1px solid ${t.border}`,
-          borderRadius: ip ? 2 : 14, overflow: "hidden",
+          background: "rgba(25,25,25,0.4)", backdropFilter: "blur(24px)",
+          border: `1px solid ${t.border}`, borderRadius: 20, overflow: "hidden",
+          boxShadow: `0 30px 60px rgba(0,0,0,0.5), inset 0 0 40px rgba(255,255,255,0.02)`,
         }}>
           {/* Header */}
           <div style={{
             display: "grid",
-            gridTemplateColumns: "56px 1fr 140px 80px 80px",
-            padding: "10px 20px",
-            background: `${t.border}18`,
+            gridTemplateColumns: "100px 1fr 140px 100px 100px",
+            padding: "16px 24px",
+            background: "rgba(255,255,255,0.03)",
             borderBottom: `1px solid ${t.border}`,
-            fontFamily: t.fontMono, fontSize: 10, letterSpacing: "0.14em", color: t.textMuted,
+            fontFamily: t.fontMono, fontSize: 10, letterSpacing: "0.2em", color: t.textMuted,
+            fontWeight: 800,
           }}>
             <span>RESULT</span>
             <span>OPPONENT</span>
-            <span>MODE</span>
-            <span style={{ textAlign: "center" }}>ELO</span>
+            <span>TYPE</span>
+            <span style={{ textAlign: "center" }}>ELO Δ</span>
             <span style={{ textAlign: "right" }}>DATE</span>
           </div>
 
@@ -267,17 +286,24 @@ export default function CareerScreen({ themeId, onHoverAction }: Props) {
           {/* Empty state */}
           {!loading && history.length === 0 && (
             <div style={{
-              padding: "60px 20px", textAlign: "center",
+              padding: "80px 24px", textAlign: "center",
+              background: "rgba(255,255,255,0.01)",
             }}>
-              <div style={{ fontSize: 40, marginBottom: 16 }}></div>
+              <div style={{ 
+                width: 64, height: 64, borderRadius: "50%", background: "rgba(255,255,255,0.03)",
+                margin: "0 auto 24px", display: "flex", alignItems: "center", justifyContent: "center",
+                border: `1px solid ${t.border}`
+              }}>
+                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={t.textMuted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.5 }}><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+              </div>
               <div style={{
-                fontFamily: t.fontDisplay, fontSize: ip ? 14 : 18, fontWeight: 700,
-                color: t.textMuted, letterSpacing: "0.08em", marginBottom: 8,
-              }}>NO MATCHES YET</div>
+                fontFamily: t.fontDisplay, fontSize: 18, fontWeight: 800,
+                color: t.text, letterSpacing: "0.1em", marginBottom: 8,
+              }}>NO BATTLES RECORDED</div>
               <div style={{
                 fontFamily: t.fontMono, fontSize: 11, color: t.textMuted,
-                opacity: 0.6, letterSpacing: "0.06em",
-              }}>Play multiplayer matches to build your career history</div>
+                opacity: 0.6, letterSpacing: "0.06em", maxWidth: 280, margin: "0 auto", lineHeight: 1.6
+              }}>Play matches to begin documenting your legendary career archive</div>
             </div>
           )}
 
@@ -287,66 +313,78 @@ export default function CareerScreen({ themeId, onHoverAction }: Props) {
             const isWin = match.result === "win";
             const isDraw = match.result === "draw";
             const deltaColor = isWin ? "#34D399" : isDraw ? "#F59E0B" : "#FF4444";
-            const resultLabel = isWin ? "WIN" : isDraw ? "DRAW" : "LOSS";
-            const resultBg = isWin ? "#34D39922" : isDraw ? "#F59E0B22" : "#FF444422";
-            const resultBorder = isWin ? "#34D39966" : isDraw ? "#F59E0B66" : "#FF444466";
+            const resultLabel = isWin ? "VICTORY" : isDraw ? "DRAW" : "DEFEAT";
+            const resultColor = isWin ? "#10B981" : isDraw ? "#F5960B" : "#EF4444";
+            const rowDelay = (i * 0.05).toFixed(2) + "s";
 
             return (
               <div
                 key={i}
-                className="career-row"
+                className="career-row career-row-animated"
                 style={{
                   display: "grid",
-                  gridTemplateColumns: "56px 1fr 140px 80px 80px",
-                  padding: "13px 20px",
+                  gridTemplateColumns: "100px 1fr 140px 100px 100px",
+                  padding: "16px 24px",
                   borderBottom: i < history.length - 1 ? `1px solid ${t.border}22` : "none",
                   alignItems: "center",
                   background: "transparent",
+                  animationDelay: rowDelay,
                 }}
               >
                 {/* Result badge */}
                 <div>
                   <div style={{
                     display: "inline-flex", alignItems: "center", justifyContent: "center",
-                    width: isDraw ? 44 : 36, height: 22, borderRadius: 4,
-                    background: resultBg,
-                    border: `1px solid ${resultBorder}`,
-                    fontFamily: t.fontMono, fontSize: 11, fontWeight: 800,
-                    color: deltaColor,
-                    letterSpacing: "0.06em",
+                    padding: "4px 10px", borderRadius: 6,
+                    background: `${resultColor}15`,
+                    border: `1px solid ${resultColor}33`,
+                    fontFamily: t.fontMono, fontSize: 10, fontWeight: 900,
+                    color: resultColor,
+                    letterSpacing: "0.08em",
+                    boxShadow: `0 0 15px ${resultColor}22`,
                   }}>
                     {resultLabel}
                   </div>
                 </div>
 
                 {/* Opponent */}
-                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <RankBadge elo={match.opponent_elo} size={30} />
+                <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                  <div style={{ 
+                    width: 38, height: 38, borderRadius: "50%", background: "rgba(255,255,255,0.03)", 
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    border: `1px solid ${oppRank.color}33`, boxShadow: `0 0 10px ${oppRank.color}11`
+                  }}>
+                    <RankBadge elo={match.opponent_elo} size={24} />
+                  </div>
                   <div>
                     <div style={{
-                      fontFamily: t.fontBody, fontSize: 14, fontWeight: 600,
-                      color: t.text, letterSpacing: "0.02em",
+                      fontFamily: t.fontDisplay, fontSize: 16, fontWeight: 800,
+                      color: t.text, letterSpacing: "0.03em",
                     }}>{match.opponent_username}</div>
                     <div style={{
-                      fontFamily: t.fontMono, fontSize: 10,
-                      color: oppRank.color, letterSpacing: "0.08em",
-                    }}>{oppRank.name} · {match.opponent_elo}</div>
+                      fontFamily: t.fontMono, fontSize: 9,
+                      color: oppRank.color, letterSpacing: "0.1em", fontWeight: 700,
+                      opacity: 0.9
+                    }}>{oppRank.name.toUpperCase()} · {match.opponent_elo}</div>
                   </div>
                 </div>
 
                 {/* Mode */}
                 <div>
-                  <div style={{ fontFamily: t.fontMono, fontSize: 11, color: t.textMuted, letterSpacing: "0.06em" }}>
-                    {modeLabel(match.mode)}
+                  <div style={{ 
+                    fontFamily: t.fontMono, fontSize: 11, color: t.textMuted, 
+                    letterSpacing: "0.08em", fontWeight: 600, opacity: 0.8 
+                  }}>
+                    {modeLabel(match.mode).toUpperCase()}
                   </div>
                 </div>
 
                 {/* ELO delta */}
                 <div style={{ textAlign: "center" }}>
                   <span style={{
-                    fontFamily: t.fontMono, fontSize: 15, fontWeight: 800,
+                    fontFamily: t.fontMono, fontSize: 16, fontWeight: 900,
                     color: deltaColor,
-                    textShadow: `0 0 8px ${deltaColor}66`,
+                    textShadow: `0 0 12px ${deltaColor}77`,
                   }}>
                     {match.elo_delta > 0 ? "+" : ""}{match.elo_delta}
                   </span>
@@ -355,9 +393,9 @@ export default function CareerScreen({ themeId, onHoverAction }: Props) {
                 {/* Date */}
                 <div style={{
                   fontFamily: t.fontMono, fontSize: 10, color: t.textMuted,
-                  textAlign: "right", letterSpacing: "0.04em",
+                  textAlign: "right", letterSpacing: "0.05em", fontWeight: 500
                 }}>
-                  {formatDate(match.played_at)}
+                  {formatDate(match.played_at).toUpperCase()}
                 </div>
               </div>
             );

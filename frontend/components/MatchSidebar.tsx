@@ -390,10 +390,15 @@ export function LeftPanel(props: MatchSidebarProps) {
         const bannerId = p === "P1" ? (p1Banner || "default") : (p2Banner || "default");
         return (
         <div key={p} style={{ position: "relative", overflow: "hidden", borderRadius: ip ? 2 : 8, border: `1px solid ${isCurrentMover ? (p === "P1" ? p1c : p2c) : t.border}`, transition: "border-color 0.25s", background: t.bgCard }}>
-          <div style={{ position: "absolute", inset: 0, opacity: 1, zIndex: 0, mixBlendMode: "screen" }}>
+          <div style={{ position: "absolute", inset: 0, opacity: 1, zIndex: 0, transition: "opacity 0.5s ease" }}>
             <BannerRenderer bannerId={bannerId} hideLabels={true} />
-            {/* Dark mask to ensure text readability while allowing bright animations to pop through */}
-            <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.35)", zIndex: 1 }} />
+            {/* Elegant glass mask to ensure text readability while letting banner colors pop */}
+            <div style={{ 
+              position: "absolute", 
+              inset: 0, 
+              background: "linear-gradient(to right, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0.4) 50%, rgba(0,0,0,0.8) 100%)", 
+              zIndex: 1 
+            }} />
           </div>
           <div style={{ position: "relative", zIndex: 2, padding: "12px 14px", background: isCurrentMover ? `${p === "P1" ? p1c : p2c}33` : "transparent", display: "flex", justifyContent: "space-between", alignItems: "center", transition: "background 0.25s" }}>
           <span style={{ fontFamily: t.fontDisplay, fontSize: 13, color: p === "P1" ? p1c : p2c, fontWeight: 800, display: "flex", alignItems: "center", gap: 6, letterSpacing: "0.05em", textShadow: `0 2px 4px rgba(0,0,0,0.8)` }}>
