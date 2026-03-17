@@ -69,13 +69,13 @@ async def send_otp_email(to_email: str, otp: str, purpose: str):
         "If you didn't request this, ignore this email."
     )
     await aiosmtplib.send(
-        msg,
-        hostname="smtp.gmail.com",
-        port=587,
-        username=GMAIL_USER,
-        password=GMAIL_PASSWORD,
-        start_tls=True,
-    )
+    msg,
+    hostname="smtp.gmail.com",
+    port=465,
+    username=GMAIL_USER,
+    password=GMAIL_PASSWORD,
+    use_tls=True,  # ← changed from start_tls to use_tls
+)
 
 def store_otp(email: str, purpose: str, otp: str):
     key = f"otp:{purpose}:{email}"
@@ -94,6 +94,10 @@ def check_otp(email: str, purpose: str, otp: str) -> bool:
 # ─── SIGNUP ───────────────────────────────────────────────
 @router.post("/signup/send")
 async def signup_send_otp(req: EmailRequest):
+    db = get_db()
+    existing = await db.users.find_one({"email": req.email})
+    if existing:
+        raise HTTPException(400, "Email already registered")
     otp = generate_otp()
     store_otp(req.email, "signup", otp)
     await send_otp_email(req.email, otp, "signup")

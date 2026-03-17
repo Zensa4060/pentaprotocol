@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Header, Depends
+﻿from fastapi import APIRouter, HTTPException, Header, Depends
 from app.models.user import UserRegister
 from app.core.database import get_db
 from app.core.security import hash_password, verify_password, create_access_token, decode_token
@@ -268,13 +268,13 @@ async def forgot_password(data: ForgotPasswordRequest):
         "If you didn't request this, ignore this email."
     )
     await aiosmtplib.send(
-        msg,
-        hostname="smtp.gmail.com",
-        port=587,
-        username="yagyamishra56@gmail.com",
-        password="qrga leej gtlb euwj",
-        start_tls=True,
-    )
+    msg,
+    hostname="smtp.gmail.com",
+    port=465,
+    username="you@pentaprotocol.com",
+    password="etnk azkt hunr ncfx",
+    use_tls=True,
+)
     return {"detail": "If that email is registered, a reset code has been sent."}
 
 # ── RESET PASSWORD ────────────────────────────────────────────────────────────
