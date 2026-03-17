@@ -28,6 +28,7 @@ export default function SettingsModal({ onCloseAction, themeId, setThemeIdAction
   const { musicVol, setMusicVol, sfxVol, setSfxVol, voiceVol = 0.7, setVoiceVol, muted, toggleMute } = audio;
   const { user, logout } = useAuthStore();
   const [focusMode, setFocusMode] = useState(false);
+  const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
 
   useEffect(() => {
     const handleFS = () => setFocusMode(!!document.fullscreenElement);
@@ -189,7 +190,7 @@ export default function SettingsModal({ onCloseAction, themeId, setThemeIdAction
 
               {user ? (
                 <button
-                  onClick={() => { logout(); onCloseAction(); }}
+                  onClick={() => setShowSignOutConfirm(true)}
                   style={{
                     width: "100%", padding: "16px",
                     background: `${t.danger}10`,
@@ -226,6 +227,119 @@ export default function SettingsModal({ onCloseAction, themeId, setThemeIdAction
           </div>
         </div>
       </div>
+
+      {/* Sign out confirm modal */}
+      {showSignOutConfirm && (
+        <div
+          onClick={() => setShowSignOutConfirm(false)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 1001,
+            background: "rgba(0,0,0,0.85)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 24,
+            animation: "settingsFadeIn 0.18s ease both",
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: "min(520px, 94vw)",
+              background: t.bgPanel,
+              border: `1px solid ${t.border}`,
+              borderRadius: 16,
+              padding: "28px 28px",
+              boxShadow: "0 32px 96px rgba(0,0,0,0.72)",
+              animation: "settingsSlideIn 0.28s cubic-bezier(.22,.68,0,1.2) both",
+            }}
+          >
+            <div style={{ fontFamily: t.fontDisplay, fontSize: 20, fontWeight: 800, color: t.text, marginBottom: 8 }}>
+              Sign out?
+            </div>
+            <div style={{ fontFamily: t.fontBody, fontSize: 13, color: t.textSecondary, lineHeight: 1.6, marginBottom: 18 }}>
+              Choose where you want to go after signing out.
+            </div>
+
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+              <button
+                onClick={() => {
+                  logout();
+                  setShowSignOutConfirm(false);
+                  onCloseAction();
+                  onNavigateAuthAction?.();
+                }}
+                style={{
+                  flex: 1,
+                  minWidth: 220,
+                  padding: "14px 16px",
+                  background: `${t.accent}18`,
+                  border: `2px solid ${t.accent}`,
+                  borderRadius: 12,
+                  color: t.accent,
+                  fontFamily: t.fontDisplay,
+                  fontSize: 14,
+                  fontWeight: 800,
+                  cursor: "pointer",
+                  letterSpacing: "0.06em",
+                  transition: "all 0.18s",
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.background = t.accent; e.currentTarget.style.color = "#000"; }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = `${t.accent}18`; e.currentTarget.style.color = t.accent; }}
+              >
+                GO TO LOGIN PORTAL
+              </button>
+
+              <button
+                onClick={() => {
+                  logout();
+                  setShowSignOutConfirm(false);
+                  onCloseAction();
+                }}
+                style={{
+                  flex: 1,
+                  minWidth: 220,
+                  padding: "14px 16px",
+                  background: `${t.gold}10`,
+                  border: `2px solid ${t.gold}55`,
+                  borderRadius: 12,
+                  color: t.gold,
+                  fontFamily: t.fontDisplay,
+                  fontSize: 14,
+                  fontWeight: 800,
+                  cursor: "pointer",
+                  letterSpacing: "0.06em",
+                  transition: "all 0.18s",
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.background = `${t.gold}22`; e.currentTarget.style.borderColor = t.gold; }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = `${t.gold}10`; e.currentTarget.style.borderColor = `${t.gold}55`; }}
+              >
+                CONTINUE AS GUEST
+              </button>
+            </div>
+
+            <button
+              onClick={() => setShowSignOutConfirm(false)}
+              style={{
+                marginTop: 14,
+                width: "100%",
+                padding: "10px 12px",
+                background: "transparent",
+                border: `1px solid ${t.border}`,
+                borderRadius: 12,
+                color: t.textMuted,
+                fontFamily: t.fontMono,
+                fontSize: 12,
+                cursor: "pointer",
+              }}
+            >
+              CANCEL
+            </button>
+          </div>
+        </div>
+      )}
 
       <style>{`
         @keyframes settingsFadeIn   { from{opacity:0} to{opacity:1} }
