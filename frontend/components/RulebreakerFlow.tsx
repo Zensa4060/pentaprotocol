@@ -84,7 +84,7 @@ export function RulebreakerFlow({
     const spinBg      = spinIsPenta ? "#ffffff" : "#0a0a0a";
 
     return (
-      <div className="phase-screen" style={{ position:"fixed", top:64, left:0, right:0, bottom:0, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"flex-start", background:t.bg, overflowY:"auto", userSelect:"none" }}>
+      <div className="phase-screen" style={{ position:"fixed", top:64, left:0, right:0, bottom:0, zIndex:10000, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"flex-start", background:t.bg, overflowY:"auto", userSelect:"none" }}>
         <style>{`@keyframes coinReveal{from{opacity:0;transform:scale(0.7)}to{opacity:1;transform:scale(1)}} @keyframes rbLineIn{from{opacity:0;transform:scaleX(0)}to{opacity:1;transform:scaleX(1)}}`}</style>
         <div style={{ fontFamily:t.fontDisplay, fontSize:"clamp(20px,3vw,48px)", fontWeight:900, color:t.accent, textShadow:`0 0 40px ${t.accentGlow}66`, letterSpacing:"0.08em", marginTop:36, marginBottom:10, animation:"fadeUp 0.4s cubic-bezier(.22,.68,0,1.2) both" }}>COMMENCING TOSS</div>
         <div style={{ width:"clamp(160px,30vw,360px)", height:2, background:`linear-gradient(90deg, transparent, ${t.accent}, transparent)`, marginBottom:18, boxShadow:`0 0 14px ${t.accentGlow}55`, animation:"rbLineIn 0.6s cubic-bezier(.22,.68,0,1.2) 0.1s both" }}/>
