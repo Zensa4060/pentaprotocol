@@ -56,7 +56,7 @@ export function RulebreakerFlow({
 
   // ── rb_splash ──────────────────────────────────────────────────────────────
   if (phase === "rb_splash") return (
-    <div style={{ position:"fixed", top:0, left:0, right:0, bottom:0, zIndex:2, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", background:t.bg, userSelect:"none", gap:0, overflow:"hidden" }}>
+    <div style={{ position:"fixed", top:0, left:0, right:0, bottom:0, zIndex:10000, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", background:t.bg, userSelect:"none", gap:0, overflow:"hidden" }}>
       <div style={{ position:"absolute", inset:0, display:"flex", alignItems:"center", justifyContent:"center", pointerEvents:"none" }}>
         {[1,2,3].map(i => (<div key={i} style={{ position:"absolute", width:`${i*280}px`, height:`${i*280}px`, borderRadius:"50%", border:`1px solid ${t.accent}${["22","18","0C"][i-1]}`, animation:`rbRingPulse 1.8s cubic-bezier(.22,.68,0,1.2) ${i*0.18}s both` }}/>))}
       </div>
@@ -148,7 +148,7 @@ export function RulebreakerFlow({
 const isBotChoosing = isBotTurnToChoose;
 
     return (
-      <div className="phase-screen" style={{ position:"fixed", top:0, left:0, right:0, bottom:0, zIndex:2, overflowY:"auto", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", background:t.bg, padding:"40px 24px", gap:24, userSelect:"none" }}>
+      <div className="phase-screen" style={{ position:"fixed", top:0, left:0, right:0, bottom:0, zIndex:10000, overflowY:"auto", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", background:t.bg, padding:"40px 24px", gap:24, userSelect:"none" }}>
         <style>{`@keyframes cardSlideIn{from{opacity:0;transform:translateY(22px)}to{opacity:1;transform:translateY(0)}} .toss-card-enter{animation:cardSlideIn 0.45s cubic-bezier(.22,.68,0,1.2) both;animation-fill-mode:both;}`}</style>
 
         <div style={{ fontFamily:t.fontDisplay, fontSize:"clamp(13px,1.8vw,22px)", fontWeight:700, color:t.accent, textAlign:"center", maxWidth:800 }}>{title}</div>
@@ -229,7 +229,7 @@ const isBotChoosing = isBotTurnToChoose;
       : `PLAYS FIRST:\n${fp}`;
 
     return (
-      <div style={{ position:"fixed", top:0, left:0, right:0, bottom:0, zIndex:2, overflowY:"auto", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", background:t.bg, padding:"40px 24px", gap:24, userSelect:"none", animation:"fadeUp 0.35s ease both" }}>
+      <div style={{ position:"fixed", top:0, left:0, right:0, bottom:0, zIndex:10000, overflowY:"auto", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", background:t.bg, padding:"40px 24px", gap:24, userSelect:"none", animation:"fadeUp 0.35s ease both" }}>
         <div style={{ fontFamily:t.fontDisplay, fontSize:"clamp(22px,3.5vw,42px)", fontWeight:700, color:t.accent }}>ROUND 3 RULES</div>
         <div style={{ fontFamily:t.fontMono, fontSize:17, color:t.textMuted }}>Game starts in {Math.max(1, Math.ceil(summaryTimer))}...</div>
         <div style={{ display:"flex", gap:20, width:"100%", maxWidth:800 }}>
