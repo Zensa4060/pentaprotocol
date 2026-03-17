@@ -99,17 +99,9 @@ const RankIcon = ({ rank, size = 26 }: { rank: typeof RANKS[0]; size?: number })
       width:size, height:size, borderRadius:"50%", background:"#000000", flexShrink:0, 
       display:"flex", alignItems:"center", justifyContent:"center", 
       overflow:"hidden", position: "relative",
-      boxShadow: `0 0 10px ${rank.color}44`,
+      boxShadow: `0 0 15px ${rank.color}88`,
       transition: "all 0.3s ease"
     }}>
-      {/* Shine overlay */}
-      <div className="rank-badge-shine" style={{
-        position: "absolute", inset: 0,
-        background: "linear-gradient(120deg, transparent 30%, rgba(255,255,255,0.2) 45%, rgba(255,255,255,0.4) 50%, rgba(255,255,255,0.2) 55%, transparent 70%)",
-        transform: "translateX(-150%)",
-        zIndex: 1,
-        pointerEvents: "none"
-      }} />
       
       {rank.img ? (
         <img src={rank.img} alt={rank.name} draggable={false} style={{ width:imgSize, height:imgSize, objectFit:"contain", userSelect: "none", pointerEvents: "none", position: "relative", zIndex: 0 }} />
@@ -662,14 +654,7 @@ const stats = [
       }
       .rank-badge-container:hover {
         transform: scale(1.1);
-        box-shadow: -10px 0 20px -5px var(--rank-col), 10px 0 20px -5px var(--rank-col) !important;
-      }
-      .rank-badge-shine {
-        animation: rankShineSweep 3s infinite linear;
-      }
-      @keyframes rankShineSweep {
-        0% { transform: translateX(-150%) skewX(-20deg); }
-        30%, 100% { transform: translateX(150%) skewX(-20deg); }
+        box-shadow: -15px 0 30px -5px var(--rank-col), 15px 0 30px -5px var(--rank-col) !important;
       }
       @keyframes shineSweep {
         from { transform: translateX(-50%); }

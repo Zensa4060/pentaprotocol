@@ -788,8 +788,13 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
             const _isMP2 = (gameMode === "ranked" || gameMode === "unranked") && !!roomCode;
             if (_isMP2) {
               if (s.tossWinner === mySlot) wsRef.current?.send(JSON.stringify({ type: "rb_start_game", first_player: fp, c3_blocked: s.rbC3Blocked }));
+              setPhase("rb_initializing");
             } else {
-              setGameNumber(3); setPhase("playing");
+              setGameNumber(3); setPhase("rb_initializing");
+              // Auto-advance after 2.5s in singleplayer/AI
+              setTimeout(() => {
+                setPhase("playing");
+              }, 2500);
             }
             return 0;
           } return nv;
@@ -1083,7 +1088,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   );
 
 
-  const rbPhases: Phase[] = ["rb_splash", "rb_coin", "rule_choice", "who_first_winner", "c3_choice", "c3_choice_loser", "who_first_loser", "toss_summary"];
+  const rbPhases: Phase[] = ["rb_splash", "rb_coin", "rule_choice", "who_first_winner", "c3_choice", "c3_choice_loser", "who_first_loser", "toss_summary", "rb_initializing"];
   const rbOverlay = rbPhases.includes(phase) && (
       <RulebreakerFlow
         phase={phase} t={t} ip={ip} p1c={p1c} p2c={p2c}

@@ -25,19 +25,11 @@ export const NavRankBadge = ({ rank, size = 30 }: { rank: typeof RANKS[0]; size?
       width: size, height: size, borderRadius: "50%",
       background: "#000", flexShrink: 0,
       display: "flex", alignItems: "center", justifyContent: "center",
-      overflow: "hidden", boxShadow: `0 0 10px ${rank.color}55`,
+      overflow: "hidden", boxShadow: `0 0 15px ${rank.color}88`,
       position: "relative",
       transition: "all 0.3s ease",
       "--rank-col": rank.color
     } as any}>
-      {/* Shine overlay */}
-      <div className="rank-badge-shine" style={{
-        position: "absolute", inset: 0,
-        background: "linear-gradient(120deg, transparent 30%, rgba(255,255,255,0.2) 45%, rgba(255,255,255,0.4) 50%, rgba(255,255,255,0.2) 55%, transparent 70%)",
-        transform: "translateX(-150%)",
-        zIndex: 1,
-        pointerEvents: "none"
-      }} />
 
       <img src={rank.img} alt={rank.name} draggable={false} style={{ width: imgSize, height: imgSize, objectFit: "contain", userSelect: "none", pointerEvents: "none", position: "relative", zIndex: 0 }} />
     </div>
@@ -263,14 +255,7 @@ export default function NavBar({
         }
         .rank-badge-container:hover {
           transform: scale(1.1);
-          box-shadow: -10px 0 20px -5px var(--rank-col), 10px 0 20px -5px var(--rank-col) !important;
-        }
-        .rank-badge-shine {
-          animation: rankShineSweep 3s infinite linear;
-        }
-        @keyframes rankShineSweep {
-          0% { transform: translateX(-150%) skewX(-20deg); }
-          30%, 100% { transform: translateX(150%) skewX(-20deg); }
+          box-shadow: -15px 0 30px -5px var(--rank-col), 15px 0 30px -5px var(--rank-col) !important;
         }
       `}</style>
 

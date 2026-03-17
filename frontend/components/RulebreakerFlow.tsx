@@ -252,5 +252,40 @@ const isBotChoosing = isBotTurnToChoose;
     );
   }
 
+  // ── rb_initializing ────────────────────────────────────────────────────────
+  if (phase === "rb_initializing") {
+    return (
+      <div style={{ position:"fixed", inset:0, zIndex:10001, background:t.bg, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:32, overflow:"hidden" }}>
+        <div style={{ position:"absolute", inset:0, opacity:0.15, pointerEvents:"none" }}>
+          <div style={{ position:"absolute", inset:0, background:`radial-gradient(circle at center, ${t.accent} 0%, transparent 70%)`, filter:"blur(80px)" }} />
+        </div>
+        
+        <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:16, animation:"fadeUp 0.6s ease both" }}>
+          <div style={{ display:"flex", gap:4 }}>
+            {[0,1,2,3].map(i => (
+              <div key={i} style={{ width:12, height:12, borderRadius:"50%", background:t.accent, animation:`rbRingPulse 1s ease-in-out ${i*0.15}s infinite` }} />
+            ))}
+          </div>
+          <div style={{ fontFamily:t.fontDisplay, fontSize:"clamp(24px,4vw,48px)", fontWeight:900, color:t.accent, letterSpacing:"0.15em", textShadow:`0 0 40px ${t.accentGlow}66` }}>
+            RECONFIGURING BOARD...
+          </div>
+          <div style={{ fontFamily:t.fontMono, fontSize:14, color:t.textMuted, letterSpacing:"0.3em" }}>
+            PREPARING SPECIAL RULES FOR ROUND 3
+          </div>
+        </div>
+
+        <div style={{ width:"clamp(240px, 40vw, 500px)", height:6, background:t.border, borderRadius:3, overflow:"hidden", position:"relative" }}>
+          <div style={{ position:"absolute", inset:0, background:t.accent, animation:"loadingSweep 2s infinite linear" }} />
+          <style>{`
+            @keyframes loadingSweep {
+              0% { transform: translateX(-100%); }
+              100% { transform: translateX(100%); }
+            }
+          `}</style>
+        </div>
+      </div>
+    );
+  }
+
   return null;
 }
