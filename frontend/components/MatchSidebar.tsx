@@ -1,6 +1,6 @@
 "use client";
 import React from "react";
-import { Piece } from "./GamePieces";
+import { Piece, Flame, Skull, SnowflakePiece, IceShardPiece } from "./GamePieces";
 import type { Phase } from "./GamePieces";
 import type { Screen } from "@/lib/types";
 import BloodMoonBanner from "./BloodMoonBanner";
@@ -21,6 +21,7 @@ interface MatchSidebarProps {
   ip: boolean;
   p1c: string;
   p2c: string;
+  pieceSkin?: string;
   panelW: number;
   // game state
   phase: Phase;
@@ -94,7 +95,7 @@ interface MatchSidebarProps {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function MatchSidebar({
-  t, p1Banner, p2Banner, ip, p1c, p2c, panelW,
+  t, p1Banner, p2Banner, ip, p1c, p2c, pieceSkin, panelW,
   phase, winner, current, gameNumber, matchHistory, seriesWinner, matchOver,
   gameMode, isRankedGame, isMultiplayerGame, isMultiplayer, mySlot,
   p1Time, p2Time, readyTimeout,
@@ -112,6 +113,40 @@ export function MatchSidebar({
   fmtTimeAction, playHoverAction, playClickAction,
 }: MatchSidebarProps) {
   const getName = (w: string | null) => winnerDisplayNameAction ? winnerDisplayNameAction(w) : (w ?? "");
+  const useFlameSkull = pieceSkin === "flame_skull";
+  const useSnowflakeShard = pieceSkin === "snowflake_shard";
+
+  const renderSidebarPiece = (slot: "P1" | "P2") => {
+    const cssSize = ip ? "14px" : "16px";
+    const wrap: React.CSSProperties = {
+      position: "relative",
+      width: cssSize,
+      height: cssSize,
+      display: "inline-flex",
+      alignItems: "center",
+      justifyContent: "center",
+      flexShrink: 0,
+    };
+
+    if (useFlameSkull) {
+      return (
+        <span style={wrap}>
+          {slot === "P1" ? <Flame cssSize={cssSize} /> : <Skull cssSize={cssSize} />}
+        </span>
+      );
+    }
+    if (useSnowflakeShard) {
+      return (
+        <span style={wrap}>
+          {slot === "P1" ? <SnowflakePiece cssSize={cssSize} /> : <IceShardPiece cssSize={cssSize} />}
+        </span>
+      );
+    }
+
+    const col = slot === "P1" ? p1c : p2c;
+    const sym = slot === "P1" ? t.pieces.p1 : t.pieces.p2;
+    return <span style={{ opacity: 0.9, lineHeight: 1, display: "inline-flex", alignItems: "center" }}><Piece symbol={sym} color={col} size={cssSize} /></span>;
+  };
 
   // ── Win overlay ────────────────────────────────────────────────────────────
   const winOverlay = showWinOverlay && winner && (
@@ -171,9 +206,7 @@ export function MatchSidebar({
                   .trim()
                   .toUpperCase();
 
-                const piece = p === "P1" ? t.pieces.p1 : t.pieces.p2;
-
-                return <><span style={{ opacity: 0.8 }}>{piece}</span> {name}</>;
+                return <>{renderSidebarPiece(p)} {name}</>;
               })()
             }
           </span>
@@ -210,7 +243,7 @@ export function MatchSidebar({
           const result = matchHistory[i] ?? "";
           const col = result === "P1" ? p1c : result === "P2" ? p2c : result === "DRAW" ? t.gold : t.textMuted;
           const isCur = i === gameNumber - 1 && (phase === "playing" || phase === "waiting_ready");
-          return (<div key={i} style={{ display: "flex", justifyContent: "space-between", fontFamily: t.fontBody, fontSize: 22, padding: "6px 0", borderBottom: `1px solid ${t.border}22` }}><span style={{ color: isCur ? t.accent : t.textMuted, transition: "color 0.2s" }}>G{i + 1}{isCur ? " ◄" : ""}</span><span style={{ color: col, fontWeight: result ? 700 : 400, transition: "color 0.2s" }}>{result || "—"}</span></div>);
+          return (<div key={i} style={{ display: "flex", justifyContent: "space-between", fontFamily: t.fontBody, fontSize: 22, padding: "6px 0", borderBottom: `1px solid ${t.border}22` }}><span style={{ color: isCur ? t.accent : t.textMuted, transition: "color 0.2s" }}>G{i + 1}{isCur ? " *" : ""}</span><span style={{ color: col, fontWeight: result ? 700 : 400, transition: "color 0.2s" }}>{result || "—"}</span></div>);
         })}
         {seriesWinner && (<div style={{ marginTop: 10, fontFamily: t.fontMono, fontSize: 20, color: t.gold, textAlign: "center", fontWeight: 700 }}>SERIES: {seriesWinner === "DRAW" ? "DRAW" : `${getName(seriesWinner)} WINS`}</div>)}
       </div>
@@ -228,7 +261,7 @@ export function MatchSidebar({
                   style={{ background: rdy ? `${col}22` : "#AA000022", border: `2px solid ${rdy ? col : "#AA0000"}`, color: rdy ? col : "#EE0000", fontFamily: t.fontMono, fontSize: 15, fontWeight: 700, padding: "12px", borderRadius: ip ? 2 : 6, cursor: "pointer", transition: "all 0.2s", boxShadow: rdy ? `0 0 16px ${col}55, 0 0 4px ${col}33` : "none" }}
                   onMouseEnter={e => { playHoverAction?.(); e.currentTarget.style.boxShadow = rdy ? `0 0 24px ${col}88` : "0 0 16px #EE000055"; e.currentTarget.style.borderColor = rdy ? col : "#FF3333"; }}
                   onMouseLeave={e => { e.currentTarget.style.boxShadow = rdy ? `0 0 16px ${col}55` : "none"; e.currentTarget.style.borderColor = rdy ? col : "#AA0000"; }}
-                >{matchHistory.length >= 2 ? "START RULEBREAKER ⚡" : "START GAME 2"} {rdy ? "✓" : ""}</button>
+                >{matchHistory.length >= 2 ? "START RULEBREAKER" : "START GAME 2"} {rdy ? "READY" : ""}</button>
               );
             })()
           ) : (
@@ -240,7 +273,7 @@ export function MatchSidebar({
                   style={{ background: rdy ? `${col}22` : "#AA000022", border: `2px solid ${rdy ? col : "#AA0000"}`, color: rdy ? col : "#EE0000", fontFamily: t.fontMono, fontSize: 15, fontWeight: 700, padding: "12px", borderRadius: ip ? 2 : 6, cursor: "pointer", transition: "all 0.2s", boxShadow: rdy ? `0 0 16px ${col}55, 0 0 4px ${col}33` : "none" }}
                   onMouseEnter={e => { playHoverAction?.(); e.currentTarget.style.boxShadow = rdy ? `0 0 24px ${col}88` : "0 0 16px #EE000055"; e.currentTarget.style.borderColor = rdy ? col : "#FF3333"; }}
                   onMouseLeave={e => { e.currentTarget.style.boxShadow = rdy ? `0 0 16px ${col}55` : "none"; e.currentTarget.style.borderColor = rdy ? col : "#AA0000"; }}
-                >{p === "P1" ? (p1Label ?? p) : (p2Label ?? p)} {rdy ? "✓ READY" : "NOT READY"}</button>
+                >{p === "P1" ? (p1Label ?? p) : (p2Label ?? p)} {rdy ? "READY" : "NOT READY"}</button>
               );
             })
           )}
@@ -249,7 +282,7 @@ export function MatchSidebar({
       {phase === "match_over" && !isMultiplayerGame && (
         <div style={{ textAlign: "center", animation: "fadeUp 0.3s ease both" }}>
           <div style={{ fontFamily: t.fontDisplay, fontSize: 16, fontWeight: 700, color: t.gold, marginBottom: 10 }}>{seriesWinner === "DRAW" ? "DRAW!" : `${getName(seriesWinner)} WINS!`}</div>
-          <button onClick={onSoftReset} style={{ background: `${t.accent}18`, border: `1px solid ${t.accent}`, color: t.accent, fontFamily: t.fontMono, fontSize: 13, padding: "10px 18px", borderRadius: ip ? 2 : 6, cursor: "pointer", transition: "all 0.2s" }}>↺ NEW MATCH</button>
+          <button onClick={onSoftReset} style={{ background: `${t.accent}18`, border: `1px solid ${t.accent}`, color: t.accent, fontFamily: t.fontMono, fontSize: 13, padding: "10px 18px", borderRadius: ip ? 2 : 6, cursor: "pointer", transition: "all 0.2s" }}>NEW MATCH</button>
         </div>
       )}
       {isMultiplayerGame && (phase === "playing" || phase === "waiting_ready") && (
@@ -276,9 +309,9 @@ export function MatchSidebar({
       )}
       {(phase === "playing" || phase === "waiting_ready") && (
         isRankedGame ? (
-          <button onClick={onShowSurrender} style={{ background: `${t.danger}16`, border: `1px solid ${t.danger}`, color: t.danger, fontFamily: t.fontBody, fontSize: 13, padding: 9, borderRadius: ip ? 2 : 6, cursor: "pointer", transition: "all 0.2s" }} onMouseEnter={e => { playHoverAction?.(); e.currentTarget.style.background = `${t.danger}30`; }} onMouseLeave={e => { e.currentTarget.style.background = `${t.danger}16`; }}>⚑ SURRENDER</button>
+          <button onClick={onShowSurrender} style={{ background: `${t.danger}16`, border: `1px solid ${t.danger}`, color: t.danger, fontFamily: t.fontBody, fontSize: 13, padding: 9, borderRadius: ip ? 2 : 6, cursor: "pointer", transition: "all 0.2s" }} onMouseEnter={e => { playHoverAction?.(); e.currentTarget.style.background = `${t.danger}30`; }} onMouseLeave={e => { e.currentTarget.style.background = `${t.danger}16`; }}>SURRENDER</button>
         ) : isMultiplayer ? null : (
-          <button onClick={onSoftReset} style={{ background: `${t.danger}16`, border: `1px solid ${t.danger}`, color: t.danger, fontFamily: t.fontBody, fontSize: 13, padding: 9, borderRadius: ip ? 2 : 6, cursor: "pointer", transition: "all 0.2s" }}>↺ RESET</button>
+          <button onClick={onSoftReset} style={{ background: `${t.danger}16`, border: `1px solid ${t.danger}`, color: t.danger, fontFamily: t.fontBody, fontSize: 13, padding: 9, borderRadius: ip ? 2 : 6, cursor: "pointer", transition: "all 0.2s" }}>RESET</button>
         )
       )}
     </div>
@@ -292,7 +325,7 @@ export function MatchSidebar({
         {log.length === 0 ? <div style={{ fontFamily: t.fontBody, fontSize: 14, color: t.textMuted, fontStyle: "italic" }}>No moves yet</div> : log.map((m, i) => <div key={i} style={{ fontFamily: t.fontMono, fontSize: 15, color: m.player === "P1" ? p1c : p2c, padding: "3px 0", borderBottom: `1px solid ${t.border}22` }}>{m.text}</div>)}
       </div>
       {setScreenAction && !isRankedGame && (phase === "playing" || phase === "waiting_ready" || phase === "match_over") && (
-        <button onClick={onShowExitConfirmAction} style={{ background: `${t.danger}16`, border: `1px solid ${t.danger}`, color: t.danger, fontFamily: t.fontBody, fontSize: 13, padding: 9, borderRadius: ip ? 2 : 6, cursor: "pointer", transition: "all 0.2s", marginTop: 4 }} onMouseEnter={e => { playHoverAction?.(); e.currentTarget.style.background = `${t.danger}30`; }} onMouseLeave={e => { e.currentTarget.style.background = `${t.danger}16`; }}>✕ EXIT MATCH</button>
+        <button onClick={onShowExitConfirmAction} style={{ background: `${t.danger}16`, border: `1px solid ${t.danger}`, color: t.danger, fontFamily: t.fontBody, fontSize: 13, padding: 9, borderRadius: ip ? 2 : 6, cursor: "pointer", transition: "all 0.2s", marginTop: 4 }} onMouseEnter={e => { playHoverAction?.(); e.currentTarget.style.background = `${t.danger}30`; }} onMouseLeave={e => { e.currentTarget.style.background = `${t.danger}16`; }}>EXIT MATCH</button>
       )}
     </div>
   );
@@ -306,10 +339,10 @@ export function MatchSidebar({
           {seriesWinner === "DRAW" ? "DRAW!" : `${getName(seriesWinner)} WINS THE SERIES`}
         </div>
         {rematchRequested && rematchRequested !== mySlot && (
-          <div style={{ fontFamily: t.fontBody, fontSize: 14, color: t.gold, marginBottom: 16 }}>⚡ Opponent wants a rematch!</div>
+          <div style={{ fontFamily: t.fontBody, fontSize: 14, color: t.gold, marginBottom: 16 }}>Opponent wants a rematch!</div>
         )}
         {rematchRequested === mySlot && (
-          <div style={{ fontFamily: t.fontBody, fontSize: 14, color: t.textMuted, marginBottom: 16 }}>⏳ Waiting for opponent...</div>
+          <div style={{ fontFamily: t.fontBody, fontSize: 14, color: t.textMuted, marginBottom: 16 }}>Waiting for opponent...</div>
         )}
         {!rematchRequested && <div style={{ marginBottom: 16 }} />}
         <div style={{ display: "flex", gap: 16, justifyContent: "center" }}>
@@ -319,13 +352,13 @@ export function MatchSidebar({
             style={{ background: rematchRequested === mySlot ? `${t.accent}10` : `${t.accent}18`, border: `2px solid ${t.accent}`, color: t.accent, fontFamily: t.fontDisplay, fontSize: 16, fontWeight: 700, padding: "14px 36px", borderRadius: ip ? 2 : 10, cursor: rematchRequested === mySlot ? "default" : "pointer", opacity: rematchRequested === mySlot ? 0.5 : 1, transition: "all 0.2s" }}
             onMouseEnter={e => { if (rematchRequested !== mySlot) { e.currentTarget.style.background = t.accent; e.currentTarget.style.color = "#000"; } }}
             onMouseLeave={e => { e.currentTarget.style.background = `${t.accent}18`; e.currentTarget.style.color = t.accent; }}
-          >↺ REMATCH</button>
+          >REMATCH</button>
           <button
             onClick={onQuitMatch}
             style={{ background: `${t.danger}18`, border: `2px solid ${t.danger}`, color: t.danger, fontFamily: t.fontDisplay, fontSize: 16, fontWeight: 700, padding: "14px 36px", borderRadius: ip ? 2 : 10, cursor: "pointer", transition: "all 0.2s" }}
             onMouseEnter={e => { e.currentTarget.style.background = t.danger; e.currentTarget.style.color = "#000"; }}
             onMouseLeave={e => { e.currentTarget.style.background = `${t.danger}18`; e.currentTarget.style.color = t.danger; }}
-          >✕ QUIT</button>
+          >QUIT</button>
         </div>
       </div>
     </div>
@@ -335,7 +368,7 @@ export function MatchSidebar({
   const surrenderModal = showSurrender && (
     <div className="overlay-backdrop" style={{ position: "fixed", inset: 0, zIndex: 9999, background: "rgba(0,0,0,0.92)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 28 }}>
       <div className="overlay-modal" style={{ background: t.bgPanel, border: `${ip ? 3 : 2}px solid ${t.danger}`, borderRadius: ip ? 2 : 20, padding: ip ? "32px 36px" : "48px 56px", maxWidth: 520, width: "90vw", textAlign: "center", boxShadow: `0 40px 100px rgba(0,0,0,0.8), 0 0 60px ${t.danger}22` }}>
-        <div style={{ fontSize: 44, marginBottom: 20 }}>⚑</div>
+        <div style={{ fontSize: 44, marginBottom: 20 }} />
         <div style={{ fontFamily: t.fontDisplay, fontSize: ip ? 14 : 23, fontWeight: 700, color: t.danger, lineHeight: 1.5, marginBottom: 12 }}>Are you sure you want to forfeit this Match?</div>
         <div style={{ fontFamily: t.fontBody, fontSize: ip ? 11 : 15, color: t.textMuted, marginBottom: 36, lineHeight: 1.7 }}>{isRankedGame ? <>This counts as a <span style={{ color: t.danger, fontWeight: 700 }}>forfeit</span> and will result in <span style={{ color: t.danger, fontWeight: 700 }}>ELO deduction</span>.</> : "Your opponent will be declared the winner."}</div>
         <div style={{ display: "flex", gap: 16, justifyContent: "center" }}>
@@ -372,7 +405,7 @@ export function MatchSidebar({
 // ─── Separate named exports so GameScreen can render panels individually ──────
 
 export function LeftPanel(props: MatchSidebarProps) {
-  const { t, ip, p1c, p2c, panelW, phase, current, gameNumber, matchHistory, seriesWinner,
+  const { t, ip, p1c, p2c, pieceSkin, panelW, phase, current, gameNumber, matchHistory, seriesWinner,
     gameMode, isRankedGame, isMultiplayerGame, isMultiplayer, mySlot,
     p1Time, p2Time, readyTimeout, p1Ready, p2Ready,
     chatMessages, chatInput, chatOpen, chatWarning,
@@ -381,6 +414,40 @@ export function LeftPanel(props: MatchSidebarProps) {
     onSoftReset, onShowSurrender, onShowExitConfirmAction, fmtTimeAction, playHoverAction } = props;
 
   const getName = (w: string | null) => winnerDisplayNameAction ? winnerDisplayNameAction(w) : (w ?? "");
+  const useFlameSkull = pieceSkin === "flame_skull";
+  const useSnowflakeShard = pieceSkin === "snowflake_shard";
+
+  const renderSidebarPiece = (slot: "P1" | "P2") => {
+    const cssSize = ip ? "14px" : "16px";
+    const wrap: React.CSSProperties = {
+      position: "relative",
+      width: cssSize,
+      height: cssSize,
+      display: "inline-flex",
+      alignItems: "center",
+      justifyContent: "center",
+      flexShrink: 0,
+    };
+
+    if (useFlameSkull) {
+      return (
+        <span style={wrap}>
+          {slot === "P1" ? <Flame cssSize={cssSize} /> : <Skull cssSize={cssSize} />}
+        </span>
+      );
+    }
+    if (useSnowflakeShard) {
+      return (
+        <span style={wrap}>
+          {slot === "P1" ? <SnowflakePiece cssSize={cssSize} /> : <IceShardPiece cssSize={cssSize} />}
+        </span>
+      );
+    }
+
+    const col = slot === "P1" ? p1c : p2c;
+    const sym = slot === "P1" ? t.pieces.p1 : t.pieces.p2;
+    return <span style={{ opacity: 0.9, lineHeight: 1, display: "inline-flex", alignItems: "center" }}><Piece symbol={sym} color={col} size={cssSize} /></span>;
+  };
 
   return (
     <div style={{ width: panelW, minWidth: panelW, maxWidth: panelW * 1.15, resize: "horizontal", overflowX: "hidden", flexShrink: 0, background: t.bgPanel, borderRight: `${ip ? 3 : 1}px solid ${t.border}`, padding: "18px 18px", display: "flex", flexDirection: "column", gap: 14, overflowY: "auto" }}>
@@ -411,9 +478,7 @@ export function LeftPanel(props: MatchSidebarProps) {
                   .trim()
                   .toUpperCase();
 
-                const piece = p === "P1" ? t.pieces.p1 : t.pieces.p2;
-
-                return <><span style={{ opacity: 0.8 }}>{piece}</span> {name}</>;
+                return <>{renderSidebarPiece(p)} {name}</>;
               })()
             }
           </span>
@@ -451,7 +516,7 @@ export function LeftPanel(props: MatchSidebarProps) {
           const result = matchHistory[i] ?? "";
           const col = result === "P1" ? p1c : result === "P2" ? p2c : result === "DRAW" ? t.gold : t.textMuted;
           const isCur = i === gameNumber - 1 && (phase === "playing" || phase === "waiting_ready");
-          return (<div key={i} style={{ display: "flex", justifyContent: "space-between", fontFamily: t.fontBody, fontSize: 22, padding: "6px 0", borderBottom: `1px solid ${t.border}22` }}><span style={{ color: isCur ? t.accent : t.textMuted, transition: "color 0.2s" }}>G{i + 1}{isCur ? " ◄" : ""}</span><span style={{ color: col, fontWeight: result ? 700 : 400, transition: "color 0.2s" }}>{result || "—"}</span></div>);
+          return (<div key={i} style={{ display: "flex", justifyContent: "space-between", fontFamily: t.fontBody, fontSize: 22, padding: "6px 0", borderBottom: `1px solid ${t.border}22` }}><span style={{ color: isCur ? t.accent : t.textMuted, transition: "color 0.2s" }}>G{i + 1}{isCur ? " *" : ""}</span><span style={{ color: col, fontWeight: result ? 700 : 400, transition: "color 0.2s" }}>{result || "—"}</span></div>);
         })}
         {seriesWinner && (<div style={{ marginTop: 10, fontFamily: t.fontMono, fontSize: 20, color: t.gold, textAlign: "center", fontWeight: 700 }}>SERIES: {seriesWinner === "DRAW" ? "DRAW" : `${getName(seriesWinner)} WINS`}</div>)}
       </div>
@@ -469,7 +534,7 @@ export function LeftPanel(props: MatchSidebarProps) {
                   style={{ background: rdy ? `${col}22` : "#AA000022", border: `2px solid ${rdy ? col : "#AA0000"}`, color: rdy ? col : "#EE0000", fontFamily: t.fontMono, fontSize: 15, fontWeight: 700, padding: "12px", borderRadius: ip ? 2 : 6, cursor: "pointer", transition: "all 0.2s", boxShadow: rdy ? `0 0 16px ${col}55, 0 0 4px ${col}33` : "none" }}
                   onMouseEnter={e => { playHoverAction?.(); e.currentTarget.style.boxShadow = rdy ? `0 0 24px ${col}88` : "0 0 16px #EE000055"; e.currentTarget.style.borderColor = rdy ? col : "#FF3333"; }}
                   onMouseLeave={e => { e.currentTarget.style.boxShadow = rdy ? `0 0 16px ${col}55` : "none"; e.currentTarget.style.borderColor = rdy ? col : "#AA0000"; }}
-                >{props.matchHistory.length >= 2 ? "START RULEBREAKER" : "START GAME 2"} {rdy ? "✓" : ""}</button>
+                >{props.matchHistory.length >= 2 ? "START RULEBREAKER" : "START GAME 2"} {rdy ? "READY" : ""}</button>
               );
             })()
           ) : (
@@ -481,7 +546,7 @@ export function LeftPanel(props: MatchSidebarProps) {
                   style={{ background: rdy ? `${col}22` : "#AA000022", border: `2px solid ${rdy ? col : "#AA0000"}`, color: rdy ? col : "#EE0000", fontFamily: t.fontMono, fontSize: 15, fontWeight: 700, padding: "12px", borderRadius: ip ? 2 : 6, cursor: "pointer", transition: "all 0.2s", boxShadow: rdy ? `0 0 16px ${col}55, 0 0 4px ${col}33` : "none" }}
                   onMouseEnter={e => { playHoverAction?.(); e.currentTarget.style.boxShadow = rdy ? `0 0 24px ${col}88` : "0 0 16px #EE000055"; e.currentTarget.style.borderColor = rdy ? col : "#FF3333"; }}
                   onMouseLeave={e => { e.currentTarget.style.boxShadow = rdy ? `0 0 16px ${col}55` : "none"; e.currentTarget.style.borderColor = rdy ? col : "#AA0000"; }}
-                >{p === "P1" ? (p1Label ?? p) : (p2Label ?? p)} {rdy ? "✓ READY" : "NOT READY"}</button>
+                >{p === "P1" ? (p1Label ?? p) : (p2Label ?? p)} {rdy ? "READY" : "NOT READY"}</button>
               );
             })
           )}
@@ -490,7 +555,7 @@ export function LeftPanel(props: MatchSidebarProps) {
       {phase === "match_over" && !isMultiplayerGame && (
         <div style={{ textAlign: "center", animation: "fadeUp 0.3s ease both" }}>
           <div style={{ fontFamily: t.fontDisplay, fontSize: 16, fontWeight: 700, color: t.gold, marginBottom: 10 }}>{seriesWinner === "DRAW" ? "DRAW!" : `${getName(seriesWinner)} WINS!`}</div>
-          <button onClick={onSoftReset} style={{ background: `${t.accent}18`, border: `1px solid ${t.accent}`, color: t.accent, fontFamily: t.fontMono, fontSize: 13, padding: "10px 18px", borderRadius: ip ? 2 : 6, cursor: "pointer", transition: "all 0.2s" }}>↺ NEW MATCH</button>
+          <button onClick={onSoftReset} style={{ background: `${t.accent}18`, border: `1px solid ${t.accent}`, color: t.accent, fontFamily: t.fontMono, fontSize: 13, padding: "10px 18px", borderRadius: ip ? 2 : 6, cursor: "pointer", transition: "all 0.2s" }}>NEW MATCH</button>
         </div>
       )}
       {isMultiplayerGame && (phase === "playing" || phase === "waiting_ready") && (
@@ -517,9 +582,9 @@ export function LeftPanel(props: MatchSidebarProps) {
       )}
       {(phase === "playing" || phase === "waiting_ready") && (
         isRankedGame ? (
-          <button onClick={onShowSurrender} style={{ background: `${t.danger}16`, border: `1px solid ${t.danger}`, color: t.danger, fontFamily: t.fontBody, fontSize: 13, padding: 9, borderRadius: ip ? 2 : 6, cursor: "pointer", transition: "all 0.2s" }} onMouseEnter={e => { playHoverAction?.(); e.currentTarget.style.background = `${t.danger}30`; }} onMouseLeave={e => { e.currentTarget.style.background = `${t.danger}16`; }}>⚑ SURRENDER</button>
+          <button onClick={onShowSurrender} style={{ background: `${t.danger}16`, border: `1px solid ${t.danger}`, color: t.danger, fontFamily: t.fontBody, fontSize: 13, padding: 9, borderRadius: ip ? 2 : 6, cursor: "pointer", transition: "all 0.2s" }} onMouseEnter={e => { playHoverAction?.(); e.currentTarget.style.background = `${t.danger}30`; }} onMouseLeave={e => { e.currentTarget.style.background = `${t.danger}16`; }}>SURRENDER</button>
         ) : isMultiplayer ? null : (
-          <button onClick={onSoftReset} style={{ background: `${t.danger}16`, border: `1px solid ${t.danger}`, color: t.danger, fontFamily: t.fontBody, fontSize: 13, padding: 9, borderRadius: ip ? 2 : 6, cursor: "pointer", transition: "all 0.2s" }}>↺ RESET</button>
+          <button onClick={onSoftReset} style={{ background: `${t.danger}16`, border: `1px solid ${t.danger}`, color: t.danger, fontFamily: t.fontBody, fontSize: 13, padding: 9, borderRadius: ip ? 2 : 6, cursor: "pointer", transition: "all 0.2s" }}>RESET</button>
         )
       )}
     </div>
@@ -539,7 +604,7 @@ export function RightPanel({ t, ip, p1c, p2c, panelW, phase, log, isRankedGame, 
           {log.length === 0 ? <div style={{ fontFamily: t.fontBody, fontSize: 14, color: t.textMuted, fontStyle: "italic" }}>No moves yet</div> : log.map((m, i) => <div key={i} style={{ fontFamily: t.fontMono, fontSize: 15, color: m.player === "P1" ? p1c : p2c, padding: "3px 0", borderBottom: `1px solid ${t.border}22` }}>{m.text}</div>)}
         </div>
         {setScreenAction && !isRankedGame && (phase === "playing" || phase === "waiting_ready" || phase === "match_over") && (
-          <button onClick={onShowExitConfirmAction} style={{ background: `${t.danger}16`, border: `1px solid ${t.danger}`, color: t.danger, fontFamily: t.fontBody, fontSize: 13, padding: 9, borderRadius: ip ? 2 : 6, cursor: "pointer", transition: "all 0.2s", marginTop: 4 }} onMouseEnter={e => { playHoverAction?.(); e.currentTarget.style.background = `${t.danger}30`; }} onMouseLeave={e => { e.currentTarget.style.background = `${t.danger}16`; }}>✕ EXIT MATCH</button>
+          <button onClick={onShowExitConfirmAction} style={{ background: `${t.danger}16`, border: `1px solid ${t.danger}`, color: t.danger, fontFamily: t.fontBody, fontSize: 13, padding: 9, borderRadius: ip ? 2 : 6, cursor: "pointer", transition: "all 0.2s", marginTop: 4 }} onMouseEnter={e => { playHoverAction?.(); e.currentTarget.style.background = `${t.danger}30`; }} onMouseLeave={e => { e.currentTarget.style.background = `${t.danger}16`; }}>EXIT MATCH</button>
         )}
       </div>
     </div>
@@ -647,10 +712,10 @@ export function RematchOverlay({ show, isMultiplayerGame, t, ip, p1c, p2c, serie
 
         {/* Waiting status */}
         {rematchRequested && rematchRequested !== mySlot && (
-          <div style={{ fontFamily: t.fontBody, fontSize: 14, color: t.gold, marginBottom: 16 }}>⚡ Opponent wants a rematch!</div>
+          <div style={{ fontFamily: t.fontBody, fontSize: 14, color: t.gold, marginBottom: 16 }}>Opponent wants a rematch!</div>
         )}
         {rematchRequested === mySlot && (
-          <div style={{ fontFamily: t.fontBody, fontSize: 14, color: t.textMuted, marginBottom: 16 }}>⏳ Waiting for opponent...</div>
+          <div style={{ fontFamily: t.fontBody, fontSize: 14, color: t.textMuted, marginBottom: 16 }}>Waiting for opponent...</div>
         )}
         {!rematchRequested && <div style={{ marginBottom: 16 }} />}
 
@@ -662,13 +727,13 @@ export function RematchOverlay({ show, isMultiplayerGame, t, ip, p1c, p2c, serie
             style={{ background: rematchRequested === mySlot ? `${t.accent}10` : `${t.accent}18`, border: `2px solid ${t.accent}`, color: t.accent, fontFamily: t.fontDisplay, fontSize: 16, fontWeight: 700, padding: "14px 36px", borderRadius: ip ? 2 : 10, cursor: rematchRequested === mySlot ? "default" : "pointer", opacity: rematchRequested === mySlot ? 0.5 : 1, transition: "all 0.2s" }}
             onMouseEnter={e => { if (rematchRequested !== mySlot) { e.currentTarget.style.background = t.accent; e.currentTarget.style.color = "#000"; } }}
             onMouseLeave={e => { e.currentTarget.style.background = `${t.accent}18`; e.currentTarget.style.color = t.accent; }}
-          >↺ REMATCH</button>
+          >REMATCH</button>
           <button
             onClick={onQuitMatch}
             style={{ background: `${t.danger}18`, border: `2px solid ${t.danger}`, color: t.danger, fontFamily: t.fontDisplay, fontSize: 16, fontWeight: 700, padding: "14px 36px", borderRadius: ip ? 2 : 10, cursor: "pointer", transition: "all 0.2s" }}
             onMouseEnter={e => { e.currentTarget.style.background = t.danger; e.currentTarget.style.color = "#000"; }}
             onMouseLeave={e => { e.currentTarget.style.background = `${t.danger}18`; e.currentTarget.style.color = t.danger; }}
-          >✕ QUIT</button>
+          >QUIT</button>
         </div>
       </div>
     </div>
@@ -683,7 +748,7 @@ export function SurrenderModal({ show, t, ip, isRankedGame, onConfirm, onCancel,
   return (
     <div className="overlay-backdrop" style={{ position: "fixed", inset: 0, zIndex: 9999, background: "rgba(0,0,0,0.92)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 28 }}>
       <div className="overlay-modal" style={{ background: t.bgPanel, border: `${ip ? 3 : 2}px solid ${t.danger}`, borderRadius: ip ? 2 : 20, padding: ip ? "32px 36px" : "48px 56px", maxWidth: 520, width: "90vw", textAlign: "center", boxShadow: `0 40px 100px rgba(0,0,0,0.8), 0 0 60px ${t.danger}22` }}>
-        <div style={{ fontSize: 44, marginBottom: 20 }}>⚑</div>
+        <div style={{ fontSize: 44, marginBottom: 20 }} />
         <div style={{ fontFamily: t.fontDisplay, fontSize: ip ? 14 : 23, fontWeight: 700, color: t.danger, lineHeight: 1.5, marginBottom: 12 }}>Are you sure you want to forfeit this Match?</div>
         <div style={{ fontFamily: t.fontBody, fontSize: ip ? 11 : 15, color: t.textMuted, marginBottom: 36, lineHeight: 1.7 }}>{isRankedGame ? <>This counts as a <span style={{ color: t.danger, fontWeight: 700 }}>forfeit</span> and will result in <span style={{ color: t.danger, fontWeight: 700 }}>ELO deduction</span>.</> : "Your opponent will be declared the winner."}</div>
         <div style={{ display: "flex", gap: 16, justifyContent: "center" }}>

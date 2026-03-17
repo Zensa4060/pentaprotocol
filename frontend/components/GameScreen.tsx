@@ -1170,6 +1170,8 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   const rbOverlay = rbPhases.includes(phase) && (
       <RulebreakerFlow
         phase={phase} t={t} ip={ip} p1c={p1c} p2c={p2c}
+        p1Elo={(mySlot === "P1" ? (user?.elo ?? 0) : (matchupData?.opponent?.elo ?? 0))}
+        p2Elo={(mySlot === "P2" ? (user?.elo ?? 0) : (matchupData?.opponent?.elo ?? 0))}
         coinResult={coinResult} coinAngle={coinAngle} coinDivRef={coinDivRef} tossWinner={tossWinner}
         summaryTimer={summaryTimer} firstPlayerChosen={firstPlayerChosen} rbC3Blocked={rbC3Blocked}
         choiceTimer={choiceTimer} isMultiplayerGame={isMultiplayerGame} mySlot={mySlot}
@@ -1500,7 +1502,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
       />
 
       <LeftPanel
-        t={sidebarT} ip={ip} p1c={p1c} p2c={p2c} panelW={panelW}
+        t={sidebarT} ip={ip} p1c={p1c} p2c={p2c} pieceSkin={pieceSkin} panelW={panelW}
         phase={phase} winner={winner} current={current} gameNumber={gameNumber}
         matchHistory={matchHistory} seriesWinner={seriesWinner} matchOver={matchOver}
         gameMode={gameMode} isRankedGame={isRankedGame} isMultiplayerGame={isMultiplayerGame}

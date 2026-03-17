@@ -18,6 +18,8 @@ interface RulebreakerFlowProps {
   ip: boolean;
   p1c: string;
   p2c: string;
+  p1Elo?: number;
+  p2Elo?: number;
   coinResult: "PENTA" | "PROTO" | null;
   coinAngle: number;
   coinDivRef: React.RefObject<HTMLDivElement | null>;
@@ -42,6 +44,7 @@ interface RulebreakerFlowProps {
 
 export function RulebreakerFlow({
   phase, t, ip, p1c, p2c,
+  p1Elo, p2Elo,
   coinResult, coinAngle, coinDivRef, tossWinner,
   summaryTimer, firstPlayerChosen, rbC3Blocked,
   choiceTimer, isMultiplayerGame, mySlot,
@@ -255,10 +258,9 @@ const isBotChoosing = isBotTurnToChoose;
             const choice   = isWinner ? winnerChoice : loserChoice;
             const isMe     = isMultiplayerGame && p === mySlot;
             
-            // Derive ELO for rank logo
-            const playerElo = p === "P1" ? (mySlot === "P1" ? 1400 : 1200) : (mySlot === "P2" ? 1400 : 1200); // Placeholder logic, should ideally pass from props
+            const playerElo = (p === "P1" ? p1Elo : p2Elo) ?? 0;
             const getRankData = (elo: number) => RANKS.find(r => elo >= r.min && elo < r.max) || RANKS[RANKS.length - 1];
-            const rank = getRankData(1200); // Using 1200 for now as visible in screenshot
+            const rank = getRankData(playerElo);
 
             const isWhoFirst = choice.includes("PLAYS FIRST");
             const firstSlot = choice.includes("P1") ? "P1" : "P2";
