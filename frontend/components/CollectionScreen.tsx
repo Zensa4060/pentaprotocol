@@ -4,10 +4,8 @@ import type { ThemeId } from "@/lib/themes";
 import { THEMES } from "@/lib/themes";
 import API from "@/lib/api";
 import { useAuthStore } from "@/lib/store";
-import { TITLES } from "@/components/ProfileScreen";
-import VoidRiftBanner from "./VoidRiftBanner";
-import BloodMoonBanner from "./BloodMoonBanner";
-import PhantomStrikeBanner from "./PhantomStrikeBanner";
+import { TITLES } from "./ProfileScreen";
+import { BannerRenderer } from "./BannerRenderer";
 
 // Profile borders — only default for now, more coming later
 const PROFILE_BORDERS = [
@@ -30,13 +28,6 @@ const CheckIcon = ({ size = 14, color = "#000" }: { size?: number; color?: strin
   </svg>
 );
 
-function BannerRenderer({ banner, style = {} }: { banner: any; style?: React.CSSProperties }) {
-  if (banner.component) {
-    const BannerComp = banner.component;
-    return <BannerComp style={{ width: "100%", height: "100%", ...style }} />;
-  }
-  return <div style={{ width: "100%", height: "100%", background: banner.gradient, ...style }} />;
-}
 
 const CatIcon = ({ id, size = 16, color }: { id: string; size?: number; color: string }) => {
   const s = { width: size, height: size };
@@ -80,11 +71,11 @@ const PIECE_SKINS: { id: string; label: string; desc: string; condition: (p: any
   { id: "snowflake_shard",  label: "Snow & Shard",  desc: "Purchase for 599 ⬡", condition: (p: any) => (p?.purchased_items ?? []).includes("piece_snowflake_shard"),   p1: "❄",  p2: "◆",  p1c: "#C8EEFF", p2c: "#64C8FF", price: 599, isSnowShard: true },
 ];
 
-const BANNERS: { id: string; label: string; gradient: string; condition: (p: any) => boolean; component?: any }[] = [
+const BANNERS: { id: string; label: string; gradient: string; condition: (p: any) => boolean }[] = [
   { id: "default",   label: "Default",   gradient: "linear-gradient(135deg,#1a1a2e,#16213e)", condition: () => true },
-  { id: "void_rift", label: "Void Rift", gradient: "linear-gradient(135deg,#0e0020,#020005)", condition: (p: any) => (p?.purchased_items ?? []).includes("void_rift"), component: VoidRiftBanner },
-  { id: "blood_moon", label: "Blood Moon", gradient: "linear-gradient(135deg,#000008,#180008)", condition: (p: any) => (p?.purchased_items ?? []).includes("blood_moon"), component: BloodMoonBanner },
-  { id: "phantom_strike", label: "Phantom Strike", gradient: "linear-gradient(135deg,#060010,#110028)", condition: (p: any) => (p?.purchased_items ?? []).includes("phantom_strike"), component: PhantomStrikeBanner },
+  { id: "void_rift", label: "Void Rift", gradient: "linear-gradient(135deg,#0e0020,#020005)", condition: (p: any) => (p?.purchased_items ?? []).includes("void_rift") },
+  { id: "blood_moon", label: "Blood Moon", gradient: "linear-gradient(135deg,#000008,#180008)", condition: (p: any) => (p?.purchased_items ?? []).includes("blood_moon") },
+  { id: "phantom_strike", label: "Phantom Strike", gradient: "linear-gradient(135deg,#060010,#110028)", condition: (p: any) => (p?.purchased_items ?? []).includes("phantom_strike") },
 ];
 
 // Sound pack options
@@ -658,7 +649,7 @@ export default function CollectionScreen({ themeId, setThemeIdAction, onHoverAct
                     onClick={() => { if (owned && !isActive) { onClickAction?.(); equipBanner(item.id); } }}
                     style={{ borderRadius: 12, overflow: "hidden", border: `1.5px solid ${owned ? (isActive ? hoverColor : t.border) : t.border + "44"}`, background: t.bgCard, cursor: owned && !isActive ? "pointer" : "default", boxShadow: isActive ? `0 0 16px ${hoverColor}33` : "none" }}>
                     <div style={{ height: 100, overflow: "hidden", position: "relative" }}>
-                      <BannerRenderer banner={item} />
+                      <BannerRenderer bannerId={item.id} />
                       {!owned && <div style={{ position: "absolute", top: 8, right: 8, zIndex: 2 }}><LockIcon size={13} color="#777" /></div>}
                       {owned && isActive && <div style={{ position: "absolute", top: 8, right: 8, background: hoverColor, borderRadius: 8, padding: "2px 9px", fontFamily: t.fontMono, fontSize: 9, color: "#fff", fontWeight: 800, zIndex: 2 }}>ACTIVE</div>}
                     </div>

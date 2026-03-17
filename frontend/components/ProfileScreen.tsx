@@ -7,6 +7,7 @@ import API from "@/lib/api";
 import { containsProfanity, validateUsername } from "@/lib/profanity";
 import { SHARDS_LIGHT_SVG, SHARDS_DARK_SVG, PROTO_LIGHT_SVG, PROTO_DARK_SVG } from "@/lib/currencyIcons";
 import type { Screen } from "@/lib/types";
+import { BannerRenderer } from "./BannerRenderer";
 import VoidRiftBanner from "./VoidRiftBanner";
 import BloodMoonBanner from "./BloodMoonBanner";
 import PhantomStrikeBanner from "./PhantomStrikeBanner";
@@ -138,14 +139,6 @@ function TitleBadge({ title, onClick }: { title: typeof TITLES[0]; onClick?: () 
       </span>
     </div>
   );
-}
-
-function BannerRenderer({ banner, style = {} }: { banner: typeof BANNERS[0]; style?: React.CSSProperties }) {
-  if (banner.component) {
-    const BannerComp = banner.component;
-    return <BannerComp style={{ width: "100%", height: "100%", ...style }} />;
-  }
-  return <div style={{ width: "100%", height: "100%", background: banner.gradient, ...style }} />;
 }
 
 // ── Avatar with animated border ───────────────────────────────────────────────
@@ -691,7 +684,7 @@ const stats = [
         
         {/* Banner background (Full Panel) */}
         <div style={{ position: "absolute", inset: 0, zIndex: 0, opacity: 1.0 }}>
-          <BannerRenderer banner={activeBanner} />
+          <BannerRenderer bannerId={activeBanner.id} />
           {/* Glossy / Shiny Effect */}
           <div style={{
             position: "absolute",
@@ -1053,7 +1046,7 @@ const stats = [
                             boxShadow: selected ? `0 0 16px ${t.accent}44` : "none",
                           }}>
                           <div style={{ height:52, overflow: "hidden" }}>
-                            <BannerRenderer banner={b} />
+                            <BannerRenderer bannerId={b.id} />
                           </div>
                           <div style={{ padding:"8px 12px", background:t.bgCard, display:"flex", alignItems:"center", justifyContent:"space-between" }}>
                             <div>
