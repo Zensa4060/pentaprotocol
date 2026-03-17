@@ -16,3 +16,5 @@ Pillow
 websockets
 aiosmtplib==3.0.1
 redis
+email-validator
+pydantic[email]
