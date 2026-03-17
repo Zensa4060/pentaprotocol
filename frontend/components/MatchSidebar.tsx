@@ -6,6 +6,13 @@ import type { Screen } from "@/lib/types";
 import BloodMoonBanner from "./BloodMoonBanner";
 import { BannerRenderer, BANNERS_DATA } from "./BannerRenderer";
 
+function barsToColor(bars: number): string {
+  if (bars >= 3) return "#22c55e";
+  if (bars === 2) return "#eab308";
+  if (bars === 1) return "#ef4444";
+  return "rgba(255,255,255,0.25)";
+}
+
 // ─── Props ────────────────────────────────────────────────────────────────────
 
 interface MatchSidebarProps {
@@ -161,7 +168,7 @@ export function MatchSidebar({
   const renderNetBars = (slot: "P1" | "P2") => {
     const rtt = slot === "P1" ? p1RttMs : p2RttMs;
     const bars = rttToBars(rtt);
-    const col = slot === "P1" ? p1c : p2c;
+    const col = barsToColor(bars);
     return (
       <span style={{ display: "inline-flex", alignItems: "flex-end", gap: 2, marginLeft: 6, opacity: 0.95 }}>
         {[1, 2, 3, 4].map((i) => (
@@ -492,7 +499,7 @@ export function LeftPanel(props: MatchSidebarProps) {
   const renderNetBars = (slot: "P1" | "P2") => {
     const rtt = slot === "P1" ? p1RttMs : p2RttMs;
     const bars = rttToBars(rtt);
-    const col = slot === "P1" ? p1c : p2c;
+    const col = barsToColor(bars);
     return (
       <span style={{ display: "inline-flex", alignItems: "flex-end", gap: 2, marginLeft: 6, opacity: 0.95 }}>
         {[1, 2, 3, 4].map((i) => (

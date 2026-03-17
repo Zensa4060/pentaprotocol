@@ -15,7 +15,7 @@ function validateUsername(val: string): string | null {
   return null;
 }
 
-type AuthTab = "signin" | "signup" | "forgot" | "verify_code" | "2fa_check";
+type AuthTab = "signin" | "signup" | "forgot" | "verify_code" | "2fa_check" | "verify_signup";
 
 interface Props {
   setScreenAction: (s: Screen) => void;
@@ -34,7 +34,6 @@ function ParticleCanvas() {
     let animId: number;
     let W = 0, H = 0;
 
-    // Mouse position tracked relative to canvas
     const mouse = { x: -9999, y: -9999 };
 
     const resize = () => {
@@ -56,15 +55,14 @@ function ParticleCanvas() {
     window.addEventListener("resize", resize);
     canvas.addEventListener("mousemove", onMouseMove);
     canvas.addEventListener("mouseleave", onMouseLeave);
-    // Also track on window so movement over child elements (logo etc) still works
     window.addEventListener("mousemove", onMouseMove);
     resize();
 
     const COUNT = 110;
     const CONNECT = 100;
-    const ATTRACT_RADIUS = 500;  // how far mouse pulls particles
-    const ATTRACT_FORCE  = 65; // strength of pull
-    const MAX_SPEED      = 40.0;   // cap so particles don't fly off
+    const ATTRACT_RADIUS = 500;
+    const ATTRACT_FORCE  = 65;
+    const MAX_SPEED      = 40.0;
 
     type Pt = { x: number; y: number; vx: number; vy: number; r: number; bright: boolean };
     const pts: Pt[] = Array.from({ length: COUNT }, () => ({
@@ -84,23 +82,19 @@ function ParticleCanvas() {
       ctx.fillRect(0, 0, W, H);
 
       pts.forEach(p => {
-        // Mouse attraction
         const dx = mouse.x - p.x;
         const dy = mouse.y - p.y;
         const dist = Math.sqrt(dx * dx + dy * dy);
 
         if (dist < ATTRACT_RADIUS && dist > 0) {
-          // Force scales with proximity — closer = stronger pull
           const force = (1 - dist / ATTRACT_RADIUS) * ATTRACT_FORCE;
           p.vx += (dx / dist) * force;
           p.vy += (dy / dist) * force;
         }
 
-        // Dampen velocity slightly so particles don't accumulate speed forever
         p.vx *= 0.98;
         p.vy *= 0.98;
 
-        // Cap speed
         const speed = Math.sqrt(p.vx * p.vx + p.vy * p.vy);
         if (speed > MAX_SPEED) {
           p.vx = (p.vx / speed) * MAX_SPEED;
@@ -188,12 +182,15 @@ export default function AuthScreen({ setScreenAction, themeId }: Props) {
   const [totpCode, setTotpCode]     = useState("");
   const [staySignedIn, setStaySignedIn] = useState(false);
   const [isMobile, setIsMobile]     = useState(false);
+
+  // ── NEW: signup OTP state ─────────────────────────────
+  const [signupOtp, setSignupOtp]   = useState("");
+
   const { setAuth } = useAuthStore();
 
   const ACCENT  = "#CC0000";
   const ACCENT2 = "#ffffff";
 
-  // ── Responsive detection ─────────────────────────────────────────
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 768);
     check();
@@ -218,16 +215,24 @@ export default function AuthScreen({ setScreenAction, themeId }: Props) {
     return e;
   };
 
+  // ── CHANGED: signup now sends OTP first ───────────────
   const submit = async () => {
     const e = validate();
     if (Object.keys(e).length > 0) { setErrors(e); triggerShake(); return; }
     setErrors({}); setLoading(true);
     try {
-      const endpoint = tab === "signup" ? "/api/auth/register" : "/api/auth/login";
-      const payload  = tab === "signup"
-        ? { username, email, password }
-        : { username, password, device_token: localStorage.getItem("pp_device_token") };
-      const res = await API.post(endpoint, payload);
+      if (tab === "signup") {
+        // Step 1: send OTP to email
+        await API.post("/api/otp/signup/send", { email });
+        setSuccessMsg(`A 6-digit code has been sent to ${email}`);
+        setTab("verify_signup");
+        return;
+      }
+      // signin flow unchanged
+      const res = await API.post("/api/auth/login", {
+        username, password,
+        device_token: localStorage.getItem("pp_device_token"),
+      });
       if (res.data.requires_2fa) { setTempToken(res.data.temp_token); setTab("2fa_check"); return; }
       if (res.data.device_token) localStorage.setItem("pp_device_token", res.data.device_token);
       setAuth(res.data.user, res.data.access_token, staySignedIn);
@@ -235,6 +240,28 @@ export default function AuthScreen({ setScreenAction, themeId }: Props) {
     } catch (err: any) {
       const detail = err.response?.data?.detail;
       setErrors({ general: typeof detail === "string" ? detail : "Invalid credentials or server error" });
+      triggerShake();
+    } finally { setLoading(false); }
+  };
+
+  // ── NEW: verify OTP then register ─────────────────────
+  const submitSignupOtp = async () => {
+    if (signupOtp.trim().length !== 6) {
+      setErrors({ signupOtp: "Enter the 6-digit code" });
+      triggerShake();
+      return;
+    }
+    setErrors({}); setLoading(true);
+    try {
+      // Step 2: verify OTP
+      await API.post("/api/otp/signup/verify", { email, otp: signupOtp.trim() });
+      // Step 3: register
+      const res = await API.post("/api/auth/register", { username, email, password });
+      setAuth(res.data.user, res.data.access_token, staySignedIn);
+      setScreenAction("home");
+    } catch (err: any) {
+      const detail = err.response?.data?.detail;
+      setErrors({ signupOtp: typeof detail === "string" ? detail : "Invalid or expired code" });
       triggerShake();
     } finally { setLoading(false); }
   };
@@ -293,6 +320,7 @@ export default function AuthScreen({ setScreenAction, themeId }: Props) {
     else if (tab === "forgot") submitForgot();
     else if (tab === "verify_code") submitReset();
     else if (tab === "2fa_check") submit2FA();
+    else if (tab === "verify_signup") submitSignupOtp();
   };
 
   const FONT = "'Georgia', 'Times New Roman', serif";
@@ -307,7 +335,6 @@ export default function AuthScreen({ setScreenAction, themeId }: Props) {
     boxSizing: "border-box",
   });
 
-  // ── CHANGED: label color #666 → #aaa, size 11 → 11.6px ──
   const labelStyle: React.CSSProperties = {
     display: "block",
     fontFamily: FONT,
@@ -372,7 +399,6 @@ export default function AuthScreen({ setScreenAction, themeId }: Props) {
     </div>
   );
 
-  // ── CHANGED: checkbox label color #555 → #aaa, size 13 → 13.7px ──
   const Checkbox = ({ checked, onToggle, label }: { checked: boolean; onToggle: () => void; label: string }) => (
     <div onClick={onToggle} style={{ display: "flex", alignItems: "center", gap: 9, cursor: "pointer", marginBottom: 6, userSelect: "none" }}>
       <div style={{
@@ -407,7 +433,6 @@ export default function AuthScreen({ setScreenAction, themeId }: Props) {
     >{label}</button>
   );
 
-  // ── CHANGED: ghost btn color #555 → #999, size 13 → 13.7px ──
   const GhostBtn = ({ label, onClick }: { label: string; onClick: () => void }) => (
     <button onClick={onClick}
       style={{
@@ -448,7 +473,7 @@ export default function AuthScreen({ setScreenAction, themeId }: Props) {
         ::-webkit-scrollbar-thumb { background: #CC000044; border-radius: 2px; }
       `}</style>
 
-      {/* ── LEFT PANEL — particle bg + logo ── */}
+      {/* ── LEFT PANEL ── */}
       <div
         className="pp-left"
         style={{
@@ -464,7 +489,6 @@ export default function AuthScreen({ setScreenAction, themeId }: Props) {
       >
         <ParticleCanvas />
 
-        {/* Vignette */}
         <div style={{
           position: "absolute", inset: 0, zIndex: 1,
           background: "radial-gradient(ellipse at center, transparent 30%, rgba(3,3,3,0.7) 100%)",
@@ -487,7 +511,6 @@ export default function AuthScreen({ setScreenAction, themeId }: Props) {
           }} />
         )}
 
-        {/* Logo content */}
         <div style={{
           position: "relative", zIndex: 3,
           display: "flex",
@@ -561,7 +584,7 @@ export default function AuthScreen({ setScreenAction, themeId }: Props) {
         )}
       </div>
 
-      {/* ── RIGHT PANEL — auth form ── */}
+      {/* ── RIGHT PANEL ── */}
       <div
         className={isMobile ? "pp-right-mobile" : "pp-right"}
         style={{
@@ -578,7 +601,6 @@ export default function AuthScreen({ setScreenAction, themeId }: Props) {
           position: "relative",
         }}
       >
-        {/* Top label */}
         <div style={{
           fontFamily: "'Georgia', 'Times New Roman', serif",
           fontSize: isMobile ? 12 : 18,
@@ -594,7 +616,6 @@ export default function AuthScreen({ setScreenAction, themeId }: Props) {
           <div style={{ flex: 1, height: 1, background: "rgba(204,0,0,0.3)" }} />
         </div>
 
-        {/* Tab toggle */}
         {(tab === "signin" || tab === "signup") && (
           <div style={{
             display: "flex", marginBottom: isMobile ? 12 : 24,
@@ -622,7 +643,7 @@ export default function AuthScreen({ setScreenAction, themeId }: Props) {
           </div>
         )}
 
-        {/* Section headings for non-main tabs */}
+        {/* Section headings */}
         {(tab === "forgot" || tab === "verify_code") && (
           <div style={{ marginBottom: 20 }}>
             <div style={{ fontFamily: FONT, fontSize: 15, fontWeight: 700, color: ACCENT, letterSpacing: "0.08em", marginBottom: 6 }}>
@@ -634,10 +655,21 @@ export default function AuthScreen({ setScreenAction, themeId }: Props) {
           </div>
         )}
 
+        {/* ── NEW: verify signup heading ── */}
+        {tab === "verify_signup" && (
+          <div style={{ marginBottom: 20 }}>
+            <div style={{ fontFamily: FONT, fontSize: 15, fontWeight: 700, color: ACCENT, letterSpacing: "0.08em", marginBottom: 6 }}>
+              VERIFY EMAIL
+            </div>
+            <div style={{ fontFamily: FONT, fontSize: 13, color: "#fff", lineHeight: 1.6 }}>
+              A 6-digit code has been sent to <span style={{ color: ACCENT }}>{email}</span>. Enter it below to complete signup.
+            </div>
+          </div>
+        )}
+
         {tab === "2fa_check" && (
           <div style={{ marginBottom: 20 }}>
             <div style={{ fontFamily: FONT, fontSize: 15, fontWeight: 700, color: ACCENT, letterSpacing: "0.08em", marginBottom: 6 }}>TWO-FACTOR AUTH</div>
-            {/* ── CHANGED: 2fa description #444 → #aaa ── */}
             <div style={{ fontFamily: FONT, fontSize: 13, color: "#aaa", lineHeight: 1.6 }}>Enter the 6-digit code from your authenticator app.</div>
           </div>
         )}
@@ -660,7 +692,6 @@ export default function AuthScreen({ setScreenAction, themeId }: Props) {
             {passwordField("password", "Password", password, setPassword, errors.password || "", "Enter password", showPassword, setShowPassword)}
             <Checkbox checked={staySignedIn} onToggle={() => setStaySignedIn(s => !s)} label="Stay signed in for 30 days" />
             <PrimaryBtn label={loading ? "Signing in…" : "Sign In"} onClick={submit} disabled={loading} />
-            {/* ── CHANGED: forgot password color #555 → #999, size 14 → 14.7px ── */}
             <div style={{ textAlign: "center", marginTop: 14 }}>
               <button onClick={() => { setTab("forgot"); setErrors({}); setSuccessMsg(""); }}
                 style={{ background: "none", border: "none", color: "#999", fontFamily: FONT, fontSize: 14.7, cursor: "pointer", letterSpacing: "0.05em", textDecoration: "underline", textDecorationColor: "#777", fontStyle: "italic" }}
@@ -675,7 +706,32 @@ export default function AuthScreen({ setScreenAction, themeId }: Props) {
             {field("email", "Email", email, setEmail, errors.email || "", "you@example.com")}
             {passwordField("password", "Password", password, setPassword, errors.password || "", "Min 6 characters", showPassword, setShowPassword)}
             {passwordField("confirm", "Confirm Password", confirm, setConfirm, errors.confirm || "", "Re-enter password", showConfirm, setShowConfirm)}
-            <PrimaryBtn label={loading ? "Creating account…" : "Create Account"} onClick={submit} disabled={loading} />
+            <PrimaryBtn label={loading ? "Sending OTP…" : "Continue"} onClick={submit} disabled={loading} />
+          </>)}
+
+          {/* ── NEW: signup OTP verification screen ── */}
+          {tab === "verify_signup" && (<>
+            <div style={{ marginBottom: 14 }}>
+              <label style={labelStyle}>6-Digit Code</label>
+              <input type="text" value={signupOtp} maxLength={6} autoFocus
+                onChange={e => { setSignupOtp(e.target.value.replace(/\D/g, "")); setErrors(er => ({ ...er, signupOtp: "" })); }}
+                onKeyDown={handleKeyDown} placeholder="482916"
+                style={{ ...inputStyle(!!errors.signupOtp), textAlign: "center", fontSize: 22, letterSpacing: "0.35em", fontFamily: "'Courier New', monospace" }}
+                onFocus={e => { e.target.style.borderColor = ACCENT; e.target.style.boxShadow = `0 0 0 2px ${ACCENT}22`; }}
+                onBlur={e  => { e.target.style.borderColor = errors.signupOtp ? ACCENT2 : "rgba(255,255,255,0.1)"; e.target.style.boxShadow = "none"; }}
+              />
+              {errors.signupOtp && <div style={errorStyle}>{errors.signupOtp}</div>}
+            </div>
+            <PrimaryBtn label={loading ? "Verifying…" : "Verify & Create Account"} onClick={submitSignupOtp} disabled={loading} />
+            <GhostBtn label="← Resend Code" onClick={async () => {
+              setLoading(true);
+              try {
+                await API.post("/api/otp/signup/send", { email });
+                setSuccessMsg("New code sent!");
+              } catch {}
+              finally { setLoading(false); }
+            }} />
+            <GhostBtn label="← Back to Sign Up" onClick={() => { setTab("signup"); setSignupOtp(""); setErrors({}); setSuccessMsg(""); }} />
           </>)}
 
           {tab === "forgot" && (<>
@@ -720,8 +776,6 @@ export default function AuthScreen({ setScreenAction, themeId }: Props) {
 
         </div>
 
-        {/* Continue as Guest */}
-        {/* ── CHANGED: color #3a3a3a → #999, size 13 → 13.7px, border opacity bumped ── */}
         <div style={{ marginTop: isMobile ? 16 : 24, paddingTop: 20, borderTop: "1px solid rgba(255,255,255,0.05)" }}>
           <button onClick={() => setScreenAction("home")}
             style={{
@@ -741,7 +795,6 @@ export default function AuthScreen({ setScreenAction, themeId }: Props) {
           </button>
         </div>
 
-        {/* Bottom decoration */}
         <div style={{
           marginTop: 28,
           display: "flex", alignItems: "center", gap: 12,

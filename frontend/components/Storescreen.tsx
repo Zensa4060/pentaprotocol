@@ -35,12 +35,6 @@ const STORE_THEMES = [
   { id: "pixel",         label: "Pixel",         desc: "Retro pixel art style",         preview: "linear-gradient(135deg,#0d1007,#1a2e0a)", unlock: "Coming Soon" },
 ];
 
-const STORE_BOARD_SKINS: { id: string; label: string; desc: string; preview: string; border?: string; unlock: string; price: number }[] = [
-  { id: "default",  label: "Normal",   desc: "Clean default board",                 preview: "linear-gradient(135deg,#1a1a1a,#2a2a2a)", unlock: "Free",    price: 0    },
-  { id: "red_grid", label: "Inferno", desc: "A glowing grid of pure energy",       preview: "linear-gradient(135deg,#220803,#1a0400)", border: "#992200", unlock: "1599 PC", price: 1599 },
-  { id: "ice_grid", label: "Glacier", desc: "A crystalline grid of frozen energy", preview: "linear-gradient(135deg,#01040e,#01081c)", border: "#50a0dc", unlock: "1599 PC", price: 1599 },
-];
-
 const STORE_BANNERS: { id: string; label: string; gradient: string; unlock: string; price?: number; component?: any }[] = [
   { id: "default",   label: "Default",   gradient: "linear-gradient(135deg,#1a1a2e,#16213e)", unlock: "Free" },
   { id: "void_rift", label: "Void Rift", gradient: "linear-gradient(135deg,#0e0020,#020005)", unlock: "299 PC", price: 299, component: VoidRiftBanner },
@@ -85,6 +79,12 @@ const BUNDLES: Bundle[] = [
     tags: ["ICE THEME", "CRYSTALLINE", "BOARD + PIECES"], isIce: true,
   },
 ];
+
+type CoinBundle = { id: string; label: string; tagline: string; desc: string; accentColor: string; bgGradient: string; bundlePrice: number; tags: string[] };
+const COIN_BUNDLES: CoinBundle[] = [];
+
+type ProfileBundle = { id: string; label: string; tagline: string; accentColor: string; bgGradient: string; tags: string[] };
+const PROFILE_BUNDLES: ProfileBundle[] = [];
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function SectionHeader({ label, icon, accent }: { label: string; icon: React.ReactNode; accent: string }) {
@@ -526,24 +526,24 @@ export default function StoreScreen({ setScreenAction, themeId }: Props) {
           </div>
         </div>
 
-        {/* ── BUNDLES ── */}
+        {/* ── BOARD BUNDLES ── */}
         <div style={{ marginBottom: 56 }}>
-          <SectionHeader label="Bundles" accent={accent} icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={accent} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2"/><line x1="12" y1="12" x2="12" y2="16"/><line x1="10" y1="14" x2="14" y2="14"/></svg>}/>
+          <SectionHeader label="BOARD BUNDLES" accent={accent} icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={accent} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2"/><line x1="12" y1="12" x2="12" y2="16"/><line x1="10" y1="14" x2="14" y2="14"/></svg>}/>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(320px,1fr))", gap: 20 }}>
             {BUNDLES.map(bundle => <BundleCard key={bundle.id} bundle={bundle} purchasedItems={purchasedItems} t={t} onClick={() => setOpenBundle(bundle.id)} />)}
           </div>
         </div>
 
-        {/* ── THEMES ── */}
-        <div style={{ marginBottom: 52 }}>
-          <SectionHeader label="Themes" accent={accent} icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={accent} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="13.5" cy="6.5" r="1.5"/><circle cx="17.5" cy="10.5" r="1.5"/><circle cx="8.5" cy="7.5" r="1.5"/><circle cx="6.5" cy="12.5" r="1.5"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 011.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg>}/>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(210px,1fr))", gap: 14 }}>
+        {/* ── THEME BUNDLES ── */}
+        <div style={{ marginBottom: 56 }}>
+          <SectionHeader label="THEME BUNDLES" accent={accent} icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={accent} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="13.5" cy="6.5" r="1.5"/><circle cx="17.5" cy="10.5" r="1.5"/><circle cx="8.5" cy="7.5" r="1.5"/><circle cx="6.5" cy="12.5" r="1.5"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 011.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg>}/>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(320px,1fr))", gap: 20 }}>
             {STORE_THEMES.map(item => (
               <div key={item.id} className="store-card" onMouseEnter={() => setHovCard(item.id)} onMouseLeave={() => setHovCard(null)}
-                style={{ borderRadius: 14, overflow: "hidden", border: `1.5px solid ${hovCard === item.id ? accent + "88" : t.border}`, background: t.bgCard, boxShadow: hovCard === item.id ? `0 8px 32px ${accent}22` : "none" }}>
-                <div style={{ height: 90, background: item.preview }} />
-                <div style={{ padding: "13px 14px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                  <div><div style={{ fontFamily: t.fontDisplay, fontSize: 15, fontWeight: 700, color: t.text }}>{item.label}</div><div style={{ fontFamily: t.fontBody, fontSize: 12, color: t.textMuted, marginTop: 2 }}>{item.desc}</div></div>
+                style={{ borderRadius: 18, overflow: "hidden", border: `2px solid ${hovCard === item.id ? accent + "88" : t.border}`, background: t.bgCard, boxShadow: hovCard === item.id ? `0 8px 32px ${accent}22` : "none" }}>
+                <div style={{ height: 120, background: item.preview }} />
+                <div style={{ padding: "24px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <div><div style={{ fontFamily: t.fontDisplay, fontSize: 18, fontWeight: 700, color: t.text }}>{item.label}</div><div style={{ fontFamily: t.fontBody, fontSize: 13, color: t.textMuted, marginTop: 4 }}>{item.desc}</div></div>
                   <UnlockBadge text={item.unlock} accent={accent} />
                 </div>
               </div>
@@ -551,203 +551,31 @@ export default function StoreScreen({ setScreenAction, themeId }: Props) {
           </div>
         </div>
 
-        {/* ── BOARD SKINS ── */}
-        <div style={{ marginBottom: 52 }}>
-          <SectionHeader label="Board Skins" accent={accent} icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={accent} strokeWidth="1.8" strokeLinecap="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/></svg>}/>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(210px,1fr))", gap: 14 }}>
-            {STORE_BOARD_SKINS.filter(item => !(item.price > 0 && purchasedItems.includes(item.id))).map(item => {
-              const hov = hovCard === `board_${item.id}`;
-              const isPurchasable = item.price > 0;
-              const isBuying = buyingId === item.id;
-              const relatedBundle = BUNDLES.find(b => b.boardId === item.id);
-              return (
-                <div key={item.id} className="store-card" onMouseEnter={() => setHovCard(`board_${item.id}`)} onMouseLeave={() => setHovCard(null)}
-                  style={{ borderRadius: 14, overflow: "hidden", border: `1.5px solid ${hov ? accent + "88" : isPurchasable ? accent + "33" : t.border}`, background: t.bgCard, boxShadow: hov ? `0 8px 28px ${accent}22` : "none", position: "relative" }}>
-                  <div style={{ height: 90, background: item.preview, display: "flex", alignItems: "center", justifyContent: "center", position: "relative" }}>
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(4,16px)", gap: 3, opacity: 0.65 }}>
-                      {Array.from({ length: 16 }).map((_, i) => <div key={i} style={{ width: 16, height: 16, background: item.border ?? "#555", borderRadius: 2 }} />)}
-                    </div>
-                    {isPurchasable && <div style={{ position: "absolute", top: 8, left: 8, background: `${accent}22`, border: `1px solid ${accent}55`, borderRadius: 6, padding: "2px 8px", fontFamily: t.fontMono, fontSize: 9, color: accent, fontWeight: 700, letterSpacing: "0.08em" }}>FOR SALE</div>}
-                    {relatedBundle && <div style={{ position: "absolute", bottom: 8, right: 8, fontFamily: "monospace", fontSize: 9, color: `${relatedBundle.accentColor}88`, letterSpacing: "0.06em" }}>IN BUNDLE</div>}
-                  </div>
-                  <div style={{ padding: "13px 14px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontFamily: t.fontDisplay, fontSize: 15, fontWeight: 700, color: t.text }}>{item.label}</div>
-                      <div style={{ fontFamily: t.fontBody, fontSize: 12, color: t.textMuted, marginTop: 2 }}>{item.desc}</div>
-                    </div>
-                    {isPurchasable ? (isGuest ? <GuestBuyBtn /> : (
-                      <button disabled={isBuying} onClick={e => { e.stopPropagation(); handleBuyCosmetic(item.id, item.price, item.label); }}
-                        style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0, background: isBuying ? `${accent}33` : `${accent}18`, border: `1.5px solid ${accent}${isBuying ? "33" : "66"}`, borderRadius: 8, padding: "6px 11px", fontFamily: t.fontMono, fontSize: 11, fontWeight: 800, color: isBuying ? t.textMuted : accent, cursor: isBuying ? "not-allowed" : "pointer", whiteSpace: "nowrap" as const, transition: "all 0.18s" }}>
-                        {isBuying ? "..." : (
-                          <>
-                            {item.price.toLocaleString()}
-                            <ProtoSVG size={14} />
-                          </>
-                        )}
-                      </button>
-                    )) : <UnlockBadge text={item.unlock} accent={accent} />}
-                  </div>
-                </div>
-              );
-            })}
+        {/* ── COIN BUNDLES ── */}
+        <div style={{ marginBottom: 56 }}>
+          <SectionHeader label="COIN BUNDLES" accent={accent} icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={accent} strokeWidth="1.8" strokeLinecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v10M9 10h4.5a1.5 1.5 0 010 3H9"/></svg>}/>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(320px,1fr))", gap: 20 }}>
+            {COIN_BUNDLES.map(bundle => (
+              <div key={bundle.id} className="store-card" style={{ borderRadius: 18, overflow: "hidden", border: `2px solid ${bundle.accentColor}33`, background: bundle.bgGradient, padding: "24px", position: "relative" }}>
+                <div style={{ fontFamily: t.fontDisplay, fontSize: 22, fontWeight: 900, color: "#fff", letterSpacing: "0.04em", marginBottom: 3 }}>{bundle.label}</div>
+                <div style={{ fontFamily: t.fontBody, fontSize: 13, color: `${bundle.accentColor}cc`, fontStyle: "italic", marginBottom: 14 }}>{bundle.tagline}</div>
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" as const }}>{bundle.tags.map(tag => (<span key={tag} style={{ fontFamily: "monospace", fontSize: 9, fontWeight: 700, color: bundle.accentColor, background: `${bundle.accentColor}18`, border: `1px solid ${bundle.accentColor}44`, padding: "2px 7px", borderRadius: 4 }}>{tag}</span>))}</div>
+              </div>
+            ))}
           </div>
         </div>
 
-        {/* ── PIECE SKINS ── */}
-        <div style={{ marginBottom: 52 }}>
-          <SectionHeader label="Piece Skins" accent={accent} icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={accent} strokeWidth="2" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>}/>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(210px,1fr))", gap: 14 }}>
-            {[
-              { id: "default", label: "Classic", desc: "Default pieces", p1: "X", p2: "Y", p1c: "#FFFFFF", p2c: "#CC0000", price: 0, isFlame: false, isSnow: false },
-              { id: "piece_flame_skull", label: "Flame & Skull", desc: "Animated flame + skull SVG pieces. Equip on Red Grid board.", p1: "🔥", p2: "💀", p1c: "#FF4400", p2c: "#AAAAAA", price: 599, isFlame: true, isSnow: false },
-              { id: "piece_snowflake_shard", label: "Snow & Shard", desc: "Crystalline snowflake + ice shard SVG pieces. Pairs with Ice Grid.", p1: "❄", p2: "◆", p1c: "#C8EEFF", p2c: "#64C8FF", price: 599, isFlame: false, isSnow: true },
-            ].filter(item => !(item.price > 0 && purchasedItems.includes(item.id))).map(item => {
-              const hov = hovCard === item.id;
-              const isPurchasable = item.price > 0;
-              const isBuying = buyingId === item.id;
-              const relatedBundle = BUNDLES.find(b => b.pieceId === item.id);
-              return (
-                <div key={item.id} className="store-card" onMouseEnter={() => setHovCard(item.id)} onMouseLeave={() => setHovCard(null)}
-                  style={{ borderRadius: 14, padding: "20px 16px", border: `1.5px solid ${hov ? accent + "88" : isPurchasable ? accent + "33" : t.border}`, background: t.bgCard, boxShadow: hov ? `0 8px 28px ${accent}22` : "none", position: "relative" }}>
-                  {isPurchasable && <div style={{ position: "absolute", top: 8, left: 8, background: `${accent}22`, border: `1px solid ${accent}55`, borderRadius: 6, padding: "2px 8px", fontFamily: t.fontMono, fontSize: 9, color: accent, fontWeight: 700, letterSpacing: "0.08em" }}>FOR SALE</div>}
-                  {relatedBundle && <div style={{ position: "absolute", top: 8, right: 8, fontFamily: "monospace", fontSize: 9, color: `${relatedBundle.accentColor}88`, letterSpacing: "0.06em" }}>IN BUNDLE</div>}
-                  <div style={{ display: "flex", justifyContent: "center", gap: 20, marginBottom: 14, marginTop: isPurchasable ? 18 : 0 }}>
-                    {item.isFlame ? (
-                      <><div style={{ width: 52, height: 52, borderRadius: 8, background: "rgba(14,3,1,0.97)", border: "1.5px solid rgba(255,80,0,0.7)", display: "flex", alignItems: "center", justifyContent: "center", position: "relative", overflow: "hidden" }}><Embers count={3}/><Flame size={52}/></div>
-                        <div style={{ width: 52, height: 52, borderRadius: 8, background: "rgba(14,3,1,0.97)", border: "1.5px solid rgba(200,0,0,0.7)", display: "flex", alignItems: "center", justifyContent: "center", position: "relative", overflow: "hidden" }}><Embers count={3}/><Skull size={52}/></div></>
-                    ) : item.isSnow ? (
-                      <><div style={{ width: 52, height: 52, borderRadius: 8, background: "linear-gradient(135deg,rgba(5,12,25,0.96),rgba(2,7,16,0.98))", border: "1.5px solid rgba(200,240,255,0.65)", display: "flex", alignItems: "center", justifyContent: "center", position: "relative", overflow: "hidden" }}><FrostCrystals/><SnowflakePiece size={52}/></div>
-                        <div style={{ width: 52, height: 52, borderRadius: 8, background: "linear-gradient(135deg,rgba(5,12,25,0.96),rgba(2,7,16,0.98))", border: "1.5px solid rgba(100,200,255,0.65)", display: "flex", alignItems: "center", justifyContent: "center", position: "relative", overflow: "hidden" }}><FrostCrystals/><IceShardPiece size={52}/></div></>
-                    ) : (
-                      <><div style={{ width: 52, height: 52, borderRadius: 8, background: `${item.p1c}18`, border: `2px solid ${item.p1c}`, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "monospace", fontSize: 28, fontWeight: 900, color: item.p1c }}>{item.p1}</div>
-                        <div style={{ width: 52, height: 52, borderRadius: 8, background: `${item.p2c}18`, border: `2px solid ${item.p2c}`, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "monospace", fontSize: 28, fontWeight: 900, color: item.p2c }}>{item.p2}</div></>
-                    )}
-                  </div>
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-                    <div>
-                      <div style={{ fontFamily: t.fontDisplay, fontSize: 15, fontWeight: 700, color: t.text }}>{item.label}</div>
-                      <div style={{ fontFamily: t.fontBody, fontSize: 12, color: t.textMuted, marginTop: 2 }}>{item.desc}</div>
-                    </div>
-                    {isPurchasable ? (isGuest ? <GuestBuyBtn /> : (
-                      <button disabled={isBuying} onClick={e => { e.stopPropagation(); handleBuyCosmetic(item.id, item.price, item.label); }}
-                        style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0, background: isBuying ? `${accent}33` : `${accent}18`, border: `1.5px solid ${accent}${isBuying ? "33" : "66"}`, borderRadius: 8, padding: "6px 11px", fontFamily: t.fontMono, fontSize: 11, fontWeight: 800, color: isBuying ? t.textMuted : accent, cursor: isBuying ? "not-allowed" : "pointer", whiteSpace: "nowrap" as const }}>
-                        {isBuying ? "..." : (
-                          <>
-                            {item.price.toLocaleString()}
-                            <ProtoSVG size={14} />
-                          </>
-                        )}
-                      </button>
-                    )) : <UnlockBadge text="Free" accent={accent} />}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* ── COIN SKINS ── */}
-        <div style={{ marginBottom: 52 }}>
-          <SectionHeader label="Coin Skins" accent={accent} icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={accent} strokeWidth="1.8" strokeLinecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v10M9 10h4.5a1.5 1.5 0 010 3H9"/></svg>}/>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(280px,1fr))", gap: 14 }}>
-            {[{ id: "default", label: "Standard", desc: "Default coin skins", c1: "#F59E0B", c2: "#4FC3F7", unlock: "Free" }].map(item => {
-              const hov = hovCard === `coin_${item.id}`;
-              return (
-                <div key={item.id} className="store-card" onMouseEnter={() => setHovCard(`coin_${item.id}`)} onMouseLeave={() => setHovCard(null)}
-                  style={{ borderRadius: 14, padding: "20px 22px", border: `1.5px solid ${hov ? accent + "88" : t.border}`, background: t.bgCard, display: "flex", alignItems: "center", gap: 20, boxShadow: hov ? `0 8px 28px ${accent}22` : "none" }}>
-                  <div style={{ display: "flex", gap: 14 }}>
-                    <div style={{ width: 52, height: 52, borderRadius: "50%", background: `radial-gradient(circle at 35% 35%,${item.c1}FF,${item.c1}88)`, boxShadow: `0 0 16px ${item.c1}66`, display: "flex", alignItems: "center", justifyContent: "center" }}><img src="/penta-coin.png" alt="penta" style={{ width: 34, height: 34, objectFit: "contain" }} /></div>
-                    <div style={{ width: 52, height: 52, borderRadius: "50%", background: `radial-gradient(circle at 35% 35%,${item.c2}FF,${item.c2}88)`, boxShadow: `0 0 16px ${item.c2}66`, display: "flex", alignItems: "center", justifyContent: "center" }}><img src="/proto-coin.png" alt="proto" style={{ width: 34, height: 34, objectFit: "contain" }} /></div>
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}><span style={{ fontFamily: t.fontDisplay, fontSize: 16, fontWeight: 700, color: t.text }}>{item.label}</span><UnlockBadge text={item.unlock} accent={accent} /></div>
-                    <div style={{ fontFamily: t.fontBody, fontSize: 12, color: t.textMuted }}>{item.desc}</div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* ── TOSS ANIMATIONS ── */}
-        <div style={{ marginBottom: 52 }}>
-          <SectionHeader label="Toss Animations" accent={accent} icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={accent} strokeWidth="1.8" strokeLinecap="round"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>}/>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(280px,1fr))", gap: 14 }}>
-            {[{ id: "default_toss", label: "Classic Flip", desc: "The standard coin toss", color: accent }].map(item => {
-              const hov = hovCard === item.id;
-              return (
-                <div key={item.id} className="store-card" onMouseEnter={() => setHovCard(item.id)} onMouseLeave={() => setHovCard(null)}
-                  style={{ borderRadius: 14, padding: "20px 22px", border: `1.5px solid ${hov ? item.color + "88" : t.border}`, background: t.bgCard, display: "flex", alignItems: "center", gap: 18, boxShadow: hov ? `0 8px 28px ${item.color}22` : "none" }}>
-                  <div style={{ width: 52, height: 52, borderRadius: "50%", background: `linear-gradient(135deg,${item.color},${item.color}88)`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, boxShadow: `0 0 16px ${item.color}44` }}>
-                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
-                  </div>
-                  <div style={{ flex: 1 }}><div style={{ fontFamily: t.fontDisplay, fontSize: 16, fontWeight: 700, color: t.text, marginBottom: 3 }}>{item.label}</div><div style={{ fontFamily: t.fontBody, fontSize: 12, color: t.textMuted }}>{item.desc}</div></div>
-                  <UnlockBadge text="Free" accent={accent} />
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* ── PROFILE BANNERS ── */}
-        <div style={{ marginBottom: 52 }}>
-          <SectionHeader label="Profile Banners" accent={accent} icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={accent} strokeWidth="1.8" strokeLinecap="round"><rect x="3" y="3" width="18" height="13" rx="2"/><path d="M3 18h18"/><path d="M3 21h18"/></svg>}/>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(230px,1fr))", gap: 14 }}>
-            {STORE_BANNERS.filter(item => !(item.price && item.price > 0 && purchasedItems.includes(item.id))).map(item => {
-              const hov = hovCard === `banner_${item.id}`;
-              const isBuying = buyingId === item.id;
-              const isPurchasable = (item.price ?? 0) > 0;
-              return (
-                <div key={item.id} className="store-card" onMouseEnter={() => setHovCard(`banner_${item.id}`)} onMouseLeave={() => setHovCard(null)}
-                  style={{ borderRadius: 14, overflow: "hidden", border: `1.5px solid ${hov ? accent + "88" : t.border}`, background: t.bgCard, boxShadow: hov ? `0 8px 28px ${accent}22` : "none", position: "relative" }}>
-                  <div style={{ height: 100, overflow: "hidden" }}>
-                    <BannerRenderer banner={item} />
-                  </div>
-                  <div style={{ padding: "13px 14px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontFamily: t.fontDisplay, fontSize: 15, fontWeight: 700, color: t.text }}>{item.label}</div>
-                      {item.price && <div style={{ fontFamily: t.fontBody, fontSize: 11, color: t.textMuted, marginTop: 2 }}>Profile Banner</div>}
-                    </div>
-                    {isPurchasable ? (isGuest ? <GuestBuyBtn /> : (
-                      <button disabled={isBuying} onClick={e => { e.stopPropagation(); handleBuyCosmetic(item.id, item.price!, item.label); }}
-                        style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0, background: isBuying ? `${accent}33` : `${accent}18`, border: `1.5px solid ${accent}${isBuying ? "33" : "66"}`, borderRadius: 8, padding: "6px 11px", fontFamily: t.fontMono, fontSize: 11, fontWeight: 800, color: isBuying ? t.textMuted : accent, cursor: isBuying ? "not-allowed" : "pointer", whiteSpace: "nowrap" as const }}>
-                        {isBuying ? "..." : (
-                          <>
-                            {item.price!.toLocaleString()}
-                            <ProtoSVG size={14} />
-                          </>
-                        )}
-                      </button>
-                    )) : <UnlockBadge text={item.unlock} accent={accent} />}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* ── PROFILE BORDERS ── */}
-        <div style={{ marginBottom: 52 }}>
-          <SectionHeader label="Profile Borders" accent={accent} icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={accent} strokeWidth="1.8" strokeLinecap="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/></svg>}/>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(230px,1fr))", gap: 14 }}>
-            {STORE_BORDERS.map(item => {
-              const hov = hovCard === `border_${item.id}`;
-              return (
-                <div key={item.id} className="store-card" onMouseEnter={() => setHovCard(`border_${item.id}`)} onMouseLeave={() => setHovCard(null)}
-                  style={{ borderRadius: 14, padding: "13px 14px", border: `1.5px solid ${hov ? accent + "88" : t.border}`, background: t.bgCard, boxShadow: hov ? `0 8px 28px ${accent}22` : "none", display: "flex", alignItems: "center", gap: 14 }}>
-                  <div style={{ width: 44, height: 44, borderRadius: 12, border: item.id === "default_border" ? `2px dashed ${t.border}` : `2px solid ${accent}`, display: "flex", alignItems: "center", justifyContent: "center", background: `${accent}11` }}>
-                    <div style={{ width: 24, height: 24, borderRadius: 6, background: t.bg }} />
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 2 }}>
-                      <div style={{ fontFamily: t.fontDisplay, fontSize: 15, fontWeight: 700, color: t.text }}>{item.label}</div>
-                      <UnlockBadge text={item.unlock} accent={accent} />
-                    </div>
-                    <div style={{ fontFamily: t.fontBody, fontSize: 11, color: t.textMuted }}>{item.desc}</div>
-                  </div>
-                </div>
-              );
-            })}
+        {/* ── PROFILE BUNDLES ── */}
+        <div style={{ marginBottom: 56 }}>
+          <SectionHeader label="PROFILE BUNDLES" accent={accent} icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={accent} strokeWidth="1.8" strokeLinecap="round"><rect x="3" y="3" width="18" height="13" rx="2"/><path d="M3 18h18"/><path d="M3 21h18"/></svg>}/>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(320px,1fr))", gap: 20 }}>
+            {PROFILE_BUNDLES.map(bundle => (
+              <div key={bundle.id} className="store-card" style={{ borderRadius: 18, overflow: "hidden", border: `2px solid ${bundle.accentColor}33`, background: bundle.bgGradient, padding: "24px", position: "relative" }}>
+                <div style={{ fontFamily: t.fontDisplay, fontSize: 22, fontWeight: 900, color: "#fff", letterSpacing: "0.04em", marginBottom: 3 }}>{bundle.label}</div>
+                <div style={{ fontFamily: t.fontBody, fontSize: 13, color: `${bundle.accentColor}cc`, fontStyle: "italic", marginBottom: 14 }}>{bundle.tagline}</div>
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" as const }}>{bundle.tags.map(tag => (<span key={tag} style={{ fontFamily: "monospace", fontSize: 9, fontWeight: 700, color: bundle.accentColor, background: `${bundle.accentColor}18`, border: `1px solid ${bundle.accentColor}44`, padding: "2px 7px", borderRadius: 4 }}>{tag}</span>))}</div>
+              </div>
+            ))}
           </div>
         </div>
 

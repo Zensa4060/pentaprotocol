@@ -271,18 +271,26 @@ export default function Page() {
   // Intercept browser back button
   useEffect(() => {
     const onPopState = (_e: PopStateEvent) => {
-      // Always push state back to prevent leaving the site
-      window.history.pushState({ screen: screenRef.current }, "", window.location.pathname);
+  // If on auth screen, close the tab
+  if (screenRef.current === "auth") {
+    window.close();
+    window.history.pushState({ screen: "auth" }, "", window.location.pathname);
+    return;
+  }
 
-      // Navigate to previous screen in our history stack
-      setScreenHistory(prev => {
-        if (prev.length === 0) return prev;
-        const previousScreen = prev[prev.length - 1];
-        const next = prev.slice(0, -1);
-        setScreen(previousScreen);
-        return next;
-      });
-    };
+  // Always push state back to prevent leaving the site
+  window.history.pushState({ screen: screenRef.current }, "", window.location.pathname);
+
+  // Navigate to previous screen in our history stack
+  setScreenHistory(prev => {
+    // If no history, do nothing (stay on current screen)
+    if (prev.length === 0) return prev;
+    const previousScreen = prev[prev.length - 1];
+    const next = prev.slice(0, -1);
+    setScreen(previousScreen);
+    return next;
+  });
+};
     window.addEventListener("popstate", onPopState);
     return () => window.removeEventListener("popstate", onPopState);
   }, []);
