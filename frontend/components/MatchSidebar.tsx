@@ -22,6 +22,8 @@ interface MatchSidebarProps {
   p1c: string;
   p2c: string;
   pieceSkin?: string;
+  p1RttMs?: number | null;
+  p2RttMs?: number | null;
   panelW: number;
   // game state
   phase: Phase;
@@ -95,7 +97,7 @@ interface MatchSidebarProps {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function MatchSidebar({
-  t, p1Banner, p2Banner, ip, p1c, p2c, pieceSkin, panelW,
+  t, p1Banner, p2Banner, ip, p1c, p2c, pieceSkin, p1RttMs, p2RttMs, panelW,
   phase, winner, current, gameNumber, matchHistory, seriesWinner, matchOver,
   gameMode, isRankedGame, isMultiplayerGame, isMultiplayer, mySlot,
   p1Time, p2Time, readyTimeout,
@@ -146,6 +148,36 @@ export function MatchSidebar({
     const col = slot === "P1" ? p1c : p2c;
     const sym = slot === "P1" ? t.pieces.p1 : t.pieces.p2;
     return <span style={{ opacity: 0.9, lineHeight: 1, display: "inline-flex", alignItems: "center" }}><Piece symbol={sym} color={col} size={cssSize} /></span>;
+  };
+
+  const rttToBars = (rtt: number | null | undefined) => {
+    if (rtt === null || rtt === undefined) return 0;
+    if (rtt <= 80) return 4;
+    if (rtt <= 150) return 3;
+    if (rtt <= 300) return 2;
+    if (rtt <= 600) return 1;
+    return 0;
+  };
+  const renderNetBars = (slot: "P1" | "P2") => {
+    const rtt = slot === "P1" ? p1RttMs : p2RttMs;
+    const bars = rttToBars(rtt);
+    const col = slot === "P1" ? p1c : p2c;
+    return (
+      <span style={{ display: "inline-flex", alignItems: "flex-end", gap: 2, marginLeft: 6, opacity: 0.95 }}>
+        {[1, 2, 3, 4].map((i) => (
+          <span
+            key={i}
+            style={{
+              width: 3,
+              height: 3 + i * 3,
+              borderRadius: 2,
+              background: i <= bars ? col : "rgba(255,255,255,0.18)",
+              boxShadow: i <= bars ? `0 0 8px ${col}55` : "none",
+            }}
+          />
+        ))}
+      </span>
+    );
   };
 
   // ── Win overlay ────────────────────────────────────────────────────────────
@@ -206,7 +238,7 @@ export function MatchSidebar({
                   .trim()
                   .toUpperCase();
 
-                return <>{renderSidebarPiece(p)} {name}</>;
+                return <>{renderSidebarPiece(p)} {name}{renderNetBars(p)}</>;
               })()
             }
           </span>
@@ -405,7 +437,7 @@ export function MatchSidebar({
 // ─── Separate named exports so GameScreen can render panels individually ──────
 
 export function LeftPanel(props: MatchSidebarProps) {
-  const { t, ip, p1c, p2c, pieceSkin, panelW, phase, current, gameNumber, matchHistory, seriesWinner,
+  const { t, ip, p1c, p2c, pieceSkin, p1RttMs, p2RttMs, panelW, phase, current, gameNumber, matchHistory, seriesWinner,
     gameMode, isRankedGame, isMultiplayerGame, isMultiplayer, mySlot,
     p1Time, p2Time, readyTimeout, p1Ready, p2Ready,
     chatMessages, chatInput, chatOpen, chatWarning,
@@ -449,6 +481,36 @@ export function LeftPanel(props: MatchSidebarProps) {
     return <span style={{ opacity: 0.9, lineHeight: 1, display: "inline-flex", alignItems: "center" }}><Piece symbol={sym} color={col} size={cssSize} /></span>;
   };
 
+  const rttToBars = (rtt: number | null | undefined) => {
+    if (rtt === null || rtt === undefined) return 0;
+    if (rtt <= 80) return 4;
+    if (rtt <= 150) return 3;
+    if (rtt <= 300) return 2;
+    if (rtt <= 600) return 1;
+    return 0;
+  };
+  const renderNetBars = (slot: "P1" | "P2") => {
+    const rtt = slot === "P1" ? p1RttMs : p2RttMs;
+    const bars = rttToBars(rtt);
+    const col = slot === "P1" ? p1c : p2c;
+    return (
+      <span style={{ display: "inline-flex", alignItems: "flex-end", gap: 2, marginLeft: 6, opacity: 0.95 }}>
+        {[1, 2, 3, 4].map((i) => (
+          <span
+            key={i}
+            style={{
+              width: 3,
+              height: 3 + i * 3,
+              borderRadius: 2,
+              background: i <= bars ? col : "rgba(255,255,255,0.18)",
+              boxShadow: i <= bars ? `0 0 8px ${col}55` : "none",
+            }}
+          />
+        ))}
+      </span>
+    );
+  };
+
   return (
     <div style={{ width: panelW, minWidth: panelW, maxWidth: panelW * 1.15, resize: "horizontal", overflowX: "hidden", flexShrink: 0, background: t.bgPanel, borderRight: `${ip ? 3 : 1}px solid ${t.border}`, padding: "18px 18px", display: "flex", flexDirection: "column", gap: 14, overflowY: "auto" }}>
       <div style={{ fontFamily: t.fontMono, fontSize: 20, fontWeight: 700, color: t.text, letterSpacing: "0.14em" }}>MATCH TIMER</div>
@@ -478,7 +540,7 @@ export function LeftPanel(props: MatchSidebarProps) {
                   .trim()
                   .toUpperCase();
 
-                return <>{renderSidebarPiece(p)} {name}</>;
+                return <>{renderSidebarPiece(p)} {name}{renderNetBars(p)}</>;
               })()
             }
           </span>

@@ -339,6 +339,12 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   const [phase, setPhase] = useState<Phase>("playing");
   const [showMatchupOverlay, setShowMatchupOverlay] = useState(!!matchupData);
   const [matchupCountdown, setMatchupCountdown] = useState(10.0);
+  const [matchStartAtMs, setMatchStartAtMs] = useState<number | null>(null);
+  const [p1RttMs, setP1RttMs] = useState<number | null>(null);
+  const [p2RttMs, setP2RttMs] = useState<number | null>(null);
+  const sentMatchReadyRef = useRef(false);
+  const wsPingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const pingOutstandingRef = useRef<number | null>(null);
 
   const [showRematch, setShowRematch] = useState(false);
   const [rematchRequested, setRematchRequested] = useState<string | null>(null);
@@ -426,6 +432,15 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
       ws.onopen = () => {
         const myBanner = mySlot === "P1" ? p1Banner : p2Banner;
         ws.send(JSON.stringify({ type: "player_info", username: p1Name ?? playerSlot ?? "P1", slot: playerSlot, bannerId: myBanner }));
+
+        // Start frequent ping for RTT + connectivity bars
+        if (wsPingRef.current) clearInterval(wsPingRef.current);
+        wsPingRef.current = setInterval(() => {
+          if (ws.readyState !== WebSocket.OPEN) return;
+          const ts = Date.now();
+          pingOutstandingRef.current = ts;
+          ws.send(JSON.stringify({ type: "ping", ts }));
+        }, 2000);
       };
 
         ws.onmessage = (e) => {
@@ -554,6 +569,14 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
           setRematchRequested(msg.from);
         } else if (msg.type === "match_disbanded") {
           if (setScreenAction) setScreenAction("home");
+        } else if (msg.type === "match_start") {
+          const sa = asNum(msg.start_at_ms);
+          if (typeof sa === "number") setMatchStartAtMs(sa);
+        } else if (msg.type === "net_update") {
+          const a = asNum(msg.p1_rtt_ms);
+          const b = asNum(msg.p2_rtt_ms);
+          if (typeof a === "number") setP1RttMs(a); else if (msg.p1_rtt_ms === null) setP1RttMs(null);
+          if (typeof b === "number") setP2RttMs(b); else if (msg.p2_rtt_ms === null) setP2RttMs(null);
         } else if (msg.type === "toss_action") {
           const { action, payload } = msg;
           if (action === "start_rb") {
@@ -591,10 +614,22 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
             if (payload.winnerPickedC3 !== undefined) setWinnerPickedC3(payload.winnerPickedC3);
           }
         }
+        else if (msg.type === "pong") {
+          const sentTs = asNum(msg.ts ?? pingOutstandingRef.current);
+          if (typeof sentTs === "number") {
+            const rtt = Math.max(0, Date.now() - sentTs);
+            // Update local slot RTT; server broadcast updates both
+            if (mySlot === "P1") setP1RttMs(rtt); else setP2RttMs(rtt);
+            if (wsRef.current?.readyState === WebSocket.OPEN) {
+              wsRef.current.send(JSON.stringify({ type: "net_report", rtt_ms: rtt }));
+            }
+          }
+        }
       };
 
       ws.onclose = () => {
         if (destroyed) return;
+        if (wsPingRef.current) { clearInterval(wsPingRef.current); wsPingRef.current = null; }
         reconnectTimeout = setTimeout(connect, 2000);
       };
 
@@ -610,9 +645,20 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
       destroyed = true;
       if (reconnectTimeout) clearTimeout(reconnectTimeout);
       if (pingRef.current) { clearInterval(pingRef.current); pingRef.current = null; }
+      if (wsPingRef.current) { clearInterval(wsPingRef.current); wsPingRef.current = null; }
       if (wsRef.current) { wsRef.current.onclose = null; wsRef.current.close(); wsRef.current = null; }
     };
   }, [isMultiplayerGame, roomCode, playerSlot]);
+
+  // Multiplayer match-found synchronization: tell server when we're ready to start.
+  useEffect(() => {
+    if (!isMultiplayerGame) return;
+    if (!showMatchupOverlay) return;
+    if (sentMatchReadyRef.current) return;
+    if (wsRef.current?.readyState !== WebSocket.OPEN) return;
+    wsRef.current.send(JSON.stringify({ type: "match_found_ready" }));
+    sentMatchReadyRef.current = true;
+  }, [isMultiplayerGame, showMatchupOverlay]);
 
   // ── Bot move trigger ──────────────────────────────────────────────────────
   const botTurnKey = `${current}-${extraTurns}-${movesPlayed}`;
@@ -750,14 +796,28 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
       lastTick.current = now;
       const s = R.current;
       if (showMatchupOverlay) {
-        matchupCountdownRef.current = Math.max(0, matchupCountdownRef.current - dt / 1000);
-        if (matchupCountdownRef.current <= 0) {
-          setShowMatchupOverlay(false);
+        // In multiplayer, wait for server-issued start_at_ms so both clients begin simultaneously.
+        if (isMultiplayerGame) {
+          if (matchStartAtMs && Date.now() >= matchStartAtMs) {
+            setShowMatchupOverlay(false);
+          } else {
+            const remaining = matchStartAtMs ? Math.max(0, (matchStartAtMs - Date.now()) / 1000) : 60;
+            const sec = Math.ceil(remaining);
+            if (sec !== lastMatchupSec.current) {
+              lastMatchupSec.current = sec;
+              setMatchupCountdown(remaining);
+            }
+          }
         } else {
-          const sec = Math.ceil(matchupCountdownRef.current);
-          if (sec !== lastMatchupSec.current) {
-            lastMatchupSec.current = sec;
-            setMatchupCountdown(matchupCountdownRef.current);
+          matchupCountdownRef.current = Math.max(0, matchupCountdownRef.current - dt / 1000);
+          if (matchupCountdownRef.current <= 0) {
+            setShowMatchupOverlay(false);
+          } else {
+            const sec = Math.ceil(matchupCountdownRef.current);
+            if (sec !== lastMatchupSec.current) {
+              lastMatchupSec.current = sec;
+              setMatchupCountdown(matchupCountdownRef.current);
+            }
           }
         }
       }
@@ -854,13 +914,8 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
       }
       if (s.phase === "rb_splash") setRbSplashTimer(v => { const nv = v - dt / 1000; if (nv <= 0) { coinStartTimeRef.current = Date.now(); setPhase("rb_coin"); return 5; } return nv; });
       if (s.phase === "rb_coin") {
-        // Time-based spin for smoothness across FPS variance (slower & visible).
-        const SPIN_RAD_PER_SEC = Math.PI * 2 * 1.25; // 1.25 rotations/sec
-        coinAngleRef.current += (dt / 1000) * SPIN_RAD_PER_SEC;
         if (!s.coinResult) {
-          // Throttle React state updates slightly to reduce re-render load.
-          coinFrameRef.current = (coinFrameRef.current + 1) % 2;
-          if (coinFrameRef.current === 0) setCoinAngle(coinAngleRef.current);
+          // Coin spin is handled in RulebreakerFlow with a GPU-friendly CSS 3D animation.
           if (!isMultiplayerGame || mySlot === "P1") {
             setCoinFlipTimer(v => {
               const nv = v - dt / 1000;
@@ -1545,7 +1600,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
       />
 
       <LeftPanel
-        t={sidebarT} ip={ip} p1c={p1c} p2c={p2c} pieceSkin={pieceSkin} panelW={panelW}
+        t={sidebarT} ip={ip} p1c={p1c} p2c={p2c} pieceSkin={pieceSkin} p1RttMs={p1RttMs} p2RttMs={p2RttMs} panelW={panelW}
         phase={phase} winner={winner} current={current} gameNumber={gameNumber}
         matchHistory={matchHistory} seriesWinner={seriesWinner} matchOver={matchOver}
         gameMode={gameMode} isRankedGame={isRankedGame} isMultiplayerGame={isMultiplayerGame}

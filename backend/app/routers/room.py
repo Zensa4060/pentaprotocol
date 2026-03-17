@@ -20,6 +20,9 @@ _matchmaking_queue: dict[str, list] = {
     "unranked": [],
 }
 
+# Runtime (in-memory) per-room sync state (not persisted)
+_room_runtime: dict[str, dict] = {}
+
 
 async def get_current_user(authorization: str = Header(...)):
     try:
@@ -371,6 +374,13 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
     _room_connections[room_code][player_slot] = websocket
 
     db = get_db()
+    if room_code not in _room_runtime:
+        _room_runtime[room_code] = {
+            "match_ready": {"P1": False, "P2": False},
+            "ready_since_ms": None,
+            "start_at_ms": None,
+            "rtt_ms": {"P1": None, "P2": None},
+        }
 
     try:
         room = await db.rooms.find_one({"room_code": room_code})
@@ -594,6 +604,54 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                     except:
                         pass
 
+            elif msg["type"] == "match_found_ready":
+                rt = _room_runtime.get(room_code)
+                if not rt:
+                    continue
+                rt["match_ready"][player_slot] = True
+                if rt["ready_since_ms"] is None:
+                    rt["ready_since_ms"] = int(datetime.utcnow().timestamp() * 1000)
+
+                # If both ready and start not scheduled, schedule with minimum 3s delay
+                if rt["match_ready"].get("P1") and rt["match_ready"].get("P2") and rt["start_at_ms"] is None:
+                    now_ms = int(datetime.utcnow().timestamp() * 1000)
+                    rt["start_at_ms"] = now_ms + 3000
+                    for slot, ws in _room_connections.get(room_code, {}).items():
+                        try:
+                            await ws.send_json({"type": "match_start", "start_at_ms": rt["start_at_ms"]})
+                        except:
+                            pass
+
+                # Timeout: if one never becomes ready within 60s, cancel match for both
+                if rt["start_at_ms"] is None and rt["ready_since_ms"] is not None:
+                    now_ms = int(datetime.utcnow().timestamp() * 1000)
+                    if now_ms - rt["ready_since_ms"] >= 60000:
+                        await db.rooms.update_one({"room_code": room_code}, {"$set": {"game_status": "disbanded"}})
+                        for slot, ws in _room_connections.get(room_code, {}).items():
+                            try:
+                                await ws.send_json({"type": "match_disbanded"})
+                            except:
+                                pass
+
+            elif msg["type"] == "net_report":
+                rt = _room_runtime.get(room_code)
+                if not rt:
+                    continue
+                rtt = msg.get("rtt_ms")
+                try:
+                    rtt = float(rtt)
+                except:
+                    rtt = None
+                if rtt is not None:
+                    rt["rtt_ms"][player_slot] = rtt
+                    # Broadcast both players' RTT so UI can render both network bars
+                    payload = {"type": "net_update", "p1_rtt_ms": rt["rtt_ms"].get("P1"), "p2_rtt_ms": rt["rtt_ms"].get("P2")}
+                    for slot, ws in _room_connections.get(room_code, {}).items():
+                        try:
+                            await ws.send_json(payload)
+                        except:
+                            pass
+
             elif msg["type"] == "toss_action":
                 action  = msg.get("action")
                 payload = msg.get("payload", {})
@@ -687,7 +745,8 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                 asyncio.create_task(award_game_result(db, game_dict, winner))
 
             elif msg["type"] == "ping":
-                await websocket.send_json({"type": "pong"})
+                ts = msg.get("ts")
+                await websocket.send_json({"type": "pong", "ts": ts})
 
     except WebSocketDisconnect:
         # Only clean up if this websocket is still the registered one.
@@ -698,6 +757,7 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
             if not _room_connections.get(room_code):
                 _room_connections.pop(room_code, None)
                 _room_state.pop(room_code, None)
+                _room_runtime.pop(room_code, None)
             else:
                 # Notify the remaining player their opponent disconnected
                 for slot, ws in _room_connections.get(room_code, {}).items():

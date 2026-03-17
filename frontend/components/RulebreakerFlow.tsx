@@ -158,15 +158,13 @@ export function RulebreakerFlow({
     const revType     = coinResult ?? "PENTA";
     const winCol      = revealed ? (coinResult === "PENTA" ? p1c : p2c) : t.textSecondary;
 
-    const spinScaleX  = Math.abs(Math.cos(coinAngle * 2));
-    const spinDeg     = ((coinAngle * (180 / Math.PI)) % 360 + 360) % 360;
-    const spinIsPenta = spinDeg < 90 || spinDeg > 270;
-    const spinSrc     = spinIsPenta ? "/penta-coin.png" : "/proto-coin.png";
-    const spinBg      = spinIsPenta ? "#ffffff" : "#0a0a0a";
-
     return (
       <div className="phase-screen" style={{ position:"fixed", top:64, left:0, right:0, bottom:0, zIndex:10000, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"flex-start", background:t.bg, overflowY:"auto", userSelect:"none" }}>
-        <style>{`@keyframes coinReveal{from{opacity:0;transform:scale(0.7)}to{opacity:1;transform:scale(1)}} @keyframes rbLineIn{from{opacity:0;transform:scaleX(0)}to{opacity:1;transform:scaleX(1)}}`}</style>
+        <style>{`
+          @keyframes coinReveal{from{opacity:0;transform:scale(0.7)}to{opacity:1;transform:scale(1)}}
+          @keyframes rbLineIn{from{opacity:0;transform:scaleX(0)}to{opacity:1;transform:scaleX(1)}}
+          @keyframes rbCoinSpin { from { transform: rotateY(0deg); } to { transform: rotateY(360deg); } }
+        `}</style>
         <div style={{ fontFamily:t.fontDisplay, fontSize:"clamp(20px,3vw,48px)", fontWeight:900, color:t.accent, textShadow:`0 0 40px ${t.accentGlow}66`, letterSpacing:"0.08em", marginTop:36, marginBottom:10, animation:"fadeUp 0.4s cubic-bezier(.22,.68,0,1.2) both" }}>COMMENCING TOSS</div>
         <div style={{ width:"clamp(160px,30vw,360px)", height:2, background:`linear-gradient(90deg, transparent, ${t.accent}, transparent)`, marginBottom:18, boxShadow:`0 0 14px ${t.accentGlow}55`, animation:"rbLineIn 0.6s cubic-bezier(.22,.68,0,1.2) 0.1s both" }}/>
         <div style={{ display:"flex", gap:28, fontFamily:t.fontMono, fontSize:39, color:t.textMuted, marginBottom:20, animation:"fadeUp 0.5s cubic-bezier(.22,.68,0,1.2) 0.12s both" }}>
@@ -184,8 +182,49 @@ export function RulebreakerFlow({
               <span style={{ fontFamily:t.fontDisplay, fontSize:28, fontWeight:800, color:winCol, letterSpacing:"0.14em", textShadow:`0 0 32px ${winCol}99`, animation:"fadeUp 0.4s cubic-bezier(.22,.68,0,1.2) 0.18s both" }}>{revType}</span>
             </div>
           ) : (
-            <div style={{ width:coinDiam, height:coinDiam, borderRadius:"50%", overflow:"hidden", background:spinBg, transform:`scaleX(${spinScaleX})`, willChange:"transform", boxShadow:"0 12px 48px rgba(0,0,0,0.65)", transition:"background 0.05s" }}>
-              <img src={spinSrc} alt={spinIsPenta?"PENTA":"PROTO"} style={{ width:"100%", height:"100%", display:"block", objectFit:"cover" }}/>
+            <div style={{ width:coinDiam, height:coinDiam, borderRadius:"50%", perspective:900, display:"flex", alignItems:"center", justifyContent:"center" }}>
+              <div style={{
+                width:coinDiam,
+                height:coinDiam,
+                position:"relative",
+                transformStyle:"preserve-3d",
+                animation:"rbCoinSpin 0.12s linear infinite",
+                willChange:"transform",
+                borderRadius:"50%",
+                boxShadow:"0 12px 48px rgba(0,0,0,0.65)",
+              }}>
+                <img
+                  src="/penta-coin.png"
+                  alt="PENTA"
+                  style={{
+                    position:"absolute",
+                    inset:0,
+                    width:"100%",
+                    height:"100%",
+                    borderRadius:"50%",
+                    backfaceVisibility:"hidden",
+                    WebkitBackfaceVisibility:"hidden",
+                    objectFit:"cover",
+                    background:"#ffffff",
+                  }}
+                />
+                <img
+                  src="/proto-coin.png"
+                  alt="PROTO"
+                  style={{
+                    position:"absolute",
+                    inset:0,
+                    width:"100%",
+                    height:"100%",
+                    borderRadius:"50%",
+                    backfaceVisibility:"hidden",
+                    WebkitBackfaceVisibility:"hidden",
+                    transform:"rotateY(180deg)",
+                    objectFit:"cover",
+                    background:"#0a0a0a",
+                  }}
+                />
+              </div>
             </div>
           )}
         </div>
