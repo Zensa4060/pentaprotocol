@@ -62,30 +62,52 @@ const MatchupOverlay = ({ matchupData, showMatchupOverlay, playerSlot, p1Name, u
           <div style={{ position: "absolute", inset: 0, background: "linear-gradient(110deg, transparent 40%, rgba(255,255,255,0.1) 45%, rgba(255,255,255,0.2) 50%, rgba(255,255,255,0.1) 55%, transparent 60%)", backgroundSize: "200% 100%", animation: "bannerShine 3s infinite linear", zIndex: 2, pointerEvents: "none" }} />
         </div>
         
-        <div style={{ position: "relative", zIndex: 5, display: "flex", flexDirection: "column", alignItems: "center", gap: 16, animation: "cardSlideIn 0.6s cubic-bezier(.22,.68,0,1.2) both" }}>
-           {/* Larger PFP */}
-           <div style={{ width: 180, height: 180, borderRadius: "50%", background: `linear-gradient(135deg, ${color}, ${t.accent})`, border: `6px solid ${color}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 80, color: "#000", boxShadow: `0 20px 60px rgba(0,0,0,0.8), 0 0 40px ${color}66` }}>👤</div>
+        <div style={{ 
+          position: "relative", zIndex: 5, width: "100%", maxWidth: 1200, 
+          display: "flex", alignItems: "center", justifyContent: "space-between", 
+          padding: "0 60px", animation: "cardSlideIn 0.6s cubic-bezier(.22,.68,0,1.2) both" 
+        }}>
+           {/* Left: Larger PFP */}
+           <div style={{ 
+             width: 225, height: 225, borderRadius: "50%", 
+             background: `linear-gradient(135deg, ${color}, ${t.accent})`, 
+             border: `8px solid ${color}`, display: "flex", alignItems: "center", 
+             justifyContent: "center", fontSize: 110, color: "#000", 
+             boxShadow: `0 20px 60px rgba(0,0,0,0.8), 0 0 40px ${color}66` 
+           }}>👤</div>
            
-           <div style={{ textAlign: "center" }}>
-             <div style={{ fontFamily: t.fontDisplay, fontSize: 38, fontWeight: 900, color: color, textShadow: `0 0 30px ${color}88`, letterSpacing: "0.05em", marginBottom: 4 }}>{data.name.toUpperCase()}</div>
-             <div style={{ fontFamily: t.fontMono, fontSize: 16, color: t.textSecondary, letterSpacing: "0.1em", opacity: 0.8 }}>LEVEL {data.level}</div>
+           {/* Middle: Name and ELO */}
+           <div style={{ flex: 1, textAlign: "center", display: "flex", flexDirection: "column", gap: 10 }}>
+             <div style={{ 
+               fontFamily: t.fontDisplay, fontSize: 48, fontWeight: 950, color: color, 
+               textShadow: `0 0 40px ${color}AA`, letterSpacing: "0.08em" 
+             }}>
+               {data.name.toUpperCase()}
+             </div>
+             
+             <div style={{ 
+               display: "inline-flex", alignSelf: "center", flexDirection: "column", alignItems: "center", 
+               padding: "16px 40px", background: "rgba(0,0,0,0.6)", backdropFilter: "blur(20px)", 
+               borderRadius: 20, border: "1px solid rgba(255,255,255,0.15)", 
+               boxShadow: "0 15px 45px rgba(0,0,0,0.6)"
+             }}>
+               <div style={{ fontFamily: t.fontMono, fontSize: 14, color: t.textMuted, letterSpacing: "0.2em", marginBottom: 4 }}>ELO RATING</div>
+               <div style={{ fontFamily: t.fontDisplay, fontSize: 44, fontWeight: 900, color: t.accent, textShadow: `0 0 20px ${t.accent}66` }}>
+                 {data.elo}
+               </div>
+             </div>
+             
+             <div style={{ fontFamily: t.fontMono, fontSize: 18, color: t.textSecondary, letterSpacing: "0.15em", opacity: 0.8, marginTop: 8 }}>
+               LEVEL {data.level}
+             </div>
            </div>
 
-           {/* Elo and Rank Logo Section */}
+           {/* Right: Rank Logo (Same size as PFP) */}
            <div style={{ 
-             display: "flex", gap: 20, alignItems: "center", padding: "12px 28px", 
-             background: "rgba(0,0,0,0.45)", backdropFilter: "blur(12px)", borderRadius: 16, 
-             border: "1px solid rgba(255,255,255,0.12)", boxShadow: "0 10px 30px rgba(0,0,0,0.5)"
+             width: 225, height: 225, display: "flex", alignItems: "center", 
+             justifyContent: "center", animation: "rankFloat 4s ease-in-out infinite" 
            }}>
-             <div style={{ textAlign: isP1 ? "right" : "left" }}>
-               <div style={{ fontFamily: t.fontMono, fontSize: 13, color: t.textMuted, letterSpacing: "0.15em" }}>ELO RATING</div>
-               <div style={{ fontFamily: t.fontDisplay, fontSize: 32, fontWeight: 900, color: t.accent }}>{data.elo}</div>
-             </div>
-             <div style={{ width: 2, height: 40, background: "rgba(255,255,255,0.1)" }} />
-             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                <RankIcon rank={rank} size={60} />
-                <div style={{ fontFamily: t.fontMono, fontSize: 12, fontWeight: 800, color: rank.color, letterSpacing: "0.12em" }}>{rank.name}</div>
-             </div>
+             <RankIcon rank={rank} size={225} />
            </div>
         </div>
       </div>
@@ -96,6 +118,7 @@ const MatchupOverlay = ({ matchupData, showMatchupOverlay, playerSlot, p1Name, u
     <div style={{ position: "fixed", inset: 0, zIndex: 10000, background: t.bg, display: "flex", flexDirection: "column", overflow: "hidden" }}>
       <style>{`
         @keyframes bannerShine { from { background-position: -100% 0; } to { background-position: 100% 0; } }
+        @keyframes rankFloat { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
       `}</style>
       
       <div style={{ textAlign: "center", paddingTop: 40, fontFamily: t.fontMono, fontSize: 14, fontWeight: 700, color: t.textMuted, letterSpacing: "0.3em", zIndex: 15, textShadow: "0 2px 10px rgba(0,0,0,0.5)" }}>

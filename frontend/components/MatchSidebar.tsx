@@ -149,9 +149,17 @@ export function MatchSidebar({
       {(["P1", "P2"] as const).map(p => (
         <div key={p} style={{ position: "relative", padding: "12px 14px", background: phase === "playing" && current === p ? `${p === "P1" ? p1c : p2c}22` : t.bgCard, border: `1px solid ${phase === "playing" && current === p ? (p === "P1" ? p1c : p2c) : t.border}`, borderRadius: ip ? 2 : 8, display: "flex", justifyContent: "space-between", alignItems: "center", transition: "background 0.25s, border-color 0.25s", overflow: "hidden" }}>
           {/* High-Contrast Banner Background */}
-          <div style={{ position: "absolute", inset: 0, opacity: 1, pointerEvents: "none" }}>
-            <BannerRenderer bannerId={(p === "P1" ? p1Banner : p2Banner) || "default"} hideLabels />
-            <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.55)", zIndex: 1 }} />
+          <div style={{ 
+            position: "absolute", inset: 0, opacity: 1, pointerEvents: "none", 
+            overflow: "hidden", zIndex: 0, borderRadius: "inherit" 
+          }}>
+            <div style={{ 
+              position: "absolute", inset: 0, 
+              display: "flex", alignItems: "center", justifyContent: "center" 
+            }}>
+              <BannerRenderer bannerId={(p === "P1" ? p1Banner : p2Banner) || "default"} hideLabels />
+            </div>
+            <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 1 }} />
           </div>
           <span style={{ position: "relative", zIndex: 2, fontFamily: t.fontDisplay, fontSize: 13, color: p === "P1" ? p1c : p2c, fontWeight: 800, display: "flex", alignItems: "center", gap: 6, letterSpacing: "0.05em", textShadow: `0 2px 4px rgba(0,0,0,0.8)` }}>
             {
