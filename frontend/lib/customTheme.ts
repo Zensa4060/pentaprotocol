@@ -37,7 +37,24 @@ export const CUSTOM_THEME_STORAGE_KEY = "pp_custom_theme";
 
 export function loadCustomTheme(): CustomThemeConfig {
   try {
-    const raw = localStorage.getItem(CUSTOM_THEME_STORAGE_KEY);
+    // Cosmetics must be account-specific.
+    // If signed out, always fall back to defaults.
+    const userRaw = localStorage.getItem("pp_user");
+    if (!userRaw) return { ...DEFAULT_CUSTOM_THEME };
+    const user = JSON.parse(userRaw);
+    const userId = user?.id || user?._id;
+    if (!userId) return { ...DEFAULT_CUSTOM_THEME };
+
+    const userKey = `${CUSTOM_THEME_STORAGE_KEY}:${userId}`;
+
+    // One-time migration from old global key -> per-user key
+    const legacy = localStorage.getItem(CUSTOM_THEME_STORAGE_KEY);
+    if (legacy && !localStorage.getItem(userKey)) {
+      localStorage.setItem(userKey, legacy);
+      localStorage.removeItem(CUSTOM_THEME_STORAGE_KEY);
+    }
+
+    const raw = localStorage.getItem(userKey);
     if (raw) {
       const parsed = JSON.parse(raw);
       // Migrate old soundPack key to sfxPack + musicPack
@@ -53,7 +70,17 @@ export function loadCustomTheme(): CustomThemeConfig {
 }
 
 export function saveCustomTheme(cfg: CustomThemeConfig) {
-  localStorage.setItem(CUSTOM_THEME_STORAGE_KEY, JSON.stringify(cfg));
+  try {
+    const userRaw = localStorage.getItem("pp_user");
+    if (!userRaw) return; // signed out: don't persist cosmetics
+    const user = JSON.parse(userRaw);
+    const userId = user?.id || user?._id;
+    if (!userId) return;
+    const userKey = `${CUSTOM_THEME_STORAGE_KEY}:${userId}`;
+    localStorage.setItem(userKey, JSON.stringify(cfg));
+  } catch {
+    // ignore
+  }
 }
 
 const PIECE_SKIN_DATA: Record<string, { p1: string; p2: string }> = {

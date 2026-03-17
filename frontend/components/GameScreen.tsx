@@ -249,10 +249,15 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   // Backend room_state includes player1_elo/player2_elo; we cache them here.
   const [p1Elo, setP1Elo] = useState<number | undefined>(undefined);
   const [p2Elo, setP2Elo] = useState<number | undefined>(undefined);
+  const asNum = (v: any): number | undefined => {
+    if (typeof v === "number" && Number.isFinite(v)) return v;
+    if (typeof v === "string" && v.trim() !== "" && Number.isFinite(Number(v))) return Number(v);
+    return undefined;
+  };
   useEffect(() => {
     if (!isMultiplayerGame) { setP1Elo(undefined); setP2Elo(undefined); return; }
-    const myElo = user?.elo;
-    const oppElo = matchupData?.opponent?.elo;
+    const myElo = asNum(user?.elo);
+    const oppElo = asNum(matchupData?.opponent?.elo);
     if (mySlot === "P1") {
       if (typeof myElo === "number") setP1Elo(myElo);
       if (typeof oppElo === "number") setP2Elo(oppElo);
@@ -480,8 +485,12 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
           setBoard(r.board ?? emptyBoard());
           setCurrent(r.current_player ?? "P1");
           setMovesPlayed(r.moves_played ?? 0);
-          if (typeof r.player1_elo === "number") setP1Elo(r.player1_elo);
-          if (typeof r.player2_elo === "number") setP2Elo(r.player2_elo);
+          {
+            const e1 = asNum(r.player1_elo);
+            const e2 = asNum(r.player2_elo);
+            if (typeof e1 === "number") setP1Elo(e1);
+            if (typeof e2 === "number") setP2Elo(e2);
+          }
           // Extract opponent name from room data
           if (playerSlot === "P1" && r.player2_name) setOpponentName(r.player2_name);
           if (playerSlot === "P2" && r.player1_name) setOpponentName(r.player1_name);
@@ -489,8 +498,10 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
         } else if (msg.type === "player_joined") {
           const r = msg.room;
           if (r) {
-            if (typeof r.player1_elo === "number") setP1Elo(r.player1_elo);
-            if (typeof r.player2_elo === "number") setP2Elo(r.player2_elo);
+            const e1 = asNum(r.player1_elo);
+            const e2 = asNum(r.player2_elo);
+            if (typeof e1 === "number") setP1Elo(e1);
+            if (typeof e2 === "number") setP2Elo(e2);
           }
         } else if (msg.type === "opponent_disconnected") {
           setPhase("match_over");

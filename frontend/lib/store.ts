@@ -79,6 +79,8 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
     localStorage.removeItem("pp_expiry");
     localStorage.removeItem("pp_persist");
     localStorage.removeItem("pp_user");
+    // Ensure signed-out sessions don't retain equipped cosmetics
+    localStorage.removeItem("pp_custom_theme");
     // NOTE: intentionally keep pp_device_token so 2FA is skipped for 30 days
     set({ user: null, token: null });
   },
