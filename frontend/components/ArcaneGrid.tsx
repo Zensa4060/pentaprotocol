@@ -487,13 +487,14 @@ function Cell({ CS, value, onClick, isWinCell, justPlaced, lastTurn }: { CS: num
         display: "flex", alignItems: "center", justifyContent: "center",
         background: isWinCell ? `radial-gradient(ellipse,${isP1 ? "rgba(150,80,200,.22)" : "rgba(200,160,0,.22)"},transparent 70%)` : (hov && !value ? "radial-gradient(ellipse,rgba(100,40,160,.15),transparent 70%)" : "transparent"),
         boxShadow: isWinCell ? `inset 0 0 ${CS * 0.3}px ${wC}` : "none",
-        transition: "background .2s",
+        transition: "background .2s, box-shadow .2s",
+        animation: isWinCell ? "arWinPulse 1.05s ease-in-out infinite" : "none",
       }}
     >
       {justPlaced && <div style={{ position: "absolute", inset: 0, background: `radial-gradient(ellipse,rgba(${lastTurn === "X" ? "180,100,255" : "255,200,60"},.75),transparent 65%)`, animation: "arcF .55s ease-out forwards", pointerEvents: "none", zIndex: 4 }} />}
       {isP1 && <RunePortal size={CS} win={isWinCell} ak={`${value}${CS}`} />}
       {isP2 && <GoldSigil size={CS} win={isWinCell} ak={`${value}${CS}`} />}
-      <style>{`@keyframes arcF{0%{opacity:1;transform:scale(1)}100%{opacity:0;transform:scale(2.5)}}`}</style>
+      <style>{`@keyframes arcF{0%{opacity:1;transform:scale(1)}100%{opacity:0;transform:scale(2.5)}}@keyframes arWinPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.03)}}`}</style>
     </div>
   );
 }
@@ -503,14 +504,16 @@ export default function ArcaneGrid({
   onCellClick,
   winCells = [],
   showLabels = true,
+  cellSize,
 }: {
   board?: (("X" | "O") | null)[][];
   onCellClick?: (r: number, c: number) => void;
   winCells?: [number, number][];
   showLabels?: boolean;
+  cellSize?: number;
 }) {
   const PAD = 8;
-  const CS = useCellSize(PAD);
+  const CS = cellSize ?? useCellSize(PAD);
   const [demo, setDemo] = useState<(("X" | "O") | null)[][]>(() => Array(SIZE).fill(null).map(() => Array(SIZE).fill(null)));
   const [turn, setTurn] = useState<"X" | "O">("X");
   const [last, setLast] = useState<string | null>(null);

@@ -484,7 +484,8 @@ function Cell({
             ? "radial-gradient(ellipse,rgba(100,60,200,.2),transparent 70%)"
             : "transparent",
         boxShadow: isWinCell ? `inset 0 0 ${CS * 0.3}px ${wC}` : "none",
-        transition: "background .2s",
+        transition: "background .2s, box-shadow .2s",
+        animation: isWinCell ? "vdWinPulse 1.05s ease-in-out infinite" : "none",
       }}
     >
       {justPlaced && (
@@ -501,7 +502,7 @@ function Cell({
       )}
       {isP1 && <Pulsar size={CS} win={isWinCell} ak={`${value}${CS}`} />}
       {isP2 && <Quasar size={CS} win={isWinCell} ak={`${value}${CS}`} />}
-      <style>{`@keyframes cF{0%{opacity:1;transform:scale(1)}100%{opacity:0;transform:scale(2.5)}}`}</style>
+      <style>{`@keyframes cF{0%{opacity:1;transform:scale(1)}100%{opacity:0;transform:scale(2.5)}}@keyframes vdWinPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.03)}}`}</style>
     </div>
   );
 }
@@ -511,14 +512,16 @@ export default function VoidGrid({
   onCellClick,
   winCells = [],
   showLabels = true,
+  cellSize,
 }: {
   board?: (("X" | "O") | null)[][];
   onCellClick?: (r: number, c: number) => void;
   winCells?: [number, number][];
   showLabels?: boolean;
+  cellSize?: number;
 }) {
   const PAD = 8;
-  const CS = useCellSize(PAD);
+  const CS = cellSize ?? useCellSize(PAD);
   const [demo, setDemo] = useState<(("X" | "O") | null)[][]>(() => Array(SIZE).fill(null).map(() => Array(SIZE).fill(null)));
   const [turn, setTurn] = useState<"X" | "O">("X");
   const [last, setLast] = useState<string | null>(null);

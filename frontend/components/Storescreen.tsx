@@ -244,7 +244,7 @@ function BundleAnimatedPreview({ bundle, tick }: { bundle: Bundle; tick: number 
         overflow: "hidden",
       }}>
         <div style={{ position: "absolute", left: "50%", top: 10, transform: "translateX(-50%) scale(0.6)", transformOrigin: "top center" }}>
-          <BloodMoonGrid showLabels={false} />
+          <BloodMoonGrid showLabels={false} cellSize={36} />
         </div>
         <div style={{ position: "absolute", top: 8, left: 12, fontFamily: "monospace", fontSize: 9, color: "rgba(255,120,120,0.68)", letterSpacing: "0.18em", zIndex: 10, pointerEvents: "none" }}>{bundle.boardLabel.toUpperCase()}</div>
         <div style={{ position: "absolute", bottom: 8, right: 12, fontFamily: "monospace", fontSize: 9, color: "rgba(220,140,255,0.55)", letterSpacing: "0.1em", zIndex: 10, pointerEvents: "none" }}>LIVE PREVIEW</div>
@@ -264,7 +264,7 @@ function BundleAnimatedPreview({ bundle, tick }: { bundle: Bundle; tick: number 
         overflow: "hidden",
       }}>
         <div style={{ position: "absolute", left: "50%", top: 10, transform: "translateX(-50%) scale(0.6)", transformOrigin: "top center" }}>
-          <EgyptGrid showLabels={false} />
+          <EgyptGrid showLabels={false} cellSize={36} />
         </div>
         <div style={{ position: "absolute", top: 8, left: 12, fontFamily: "monospace", fontSize: 9, color: "rgba(255,210,120,0.7)", letterSpacing: "0.18em", zIndex: 10, pointerEvents: "none" }}>{bundle.boardLabel.toUpperCase()}</div>
         <div style={{ position: "absolute", bottom: 8, right: 12, fontFamily: "monospace", fontSize: 9, color: "rgba(255,230,160,0.55)", letterSpacing: "0.1em", zIndex: 10, pointerEvents: "none" }}>LIVE PREVIEW</div>
@@ -284,7 +284,7 @@ function BundleAnimatedPreview({ bundle, tick }: { bundle: Bundle; tick: number 
         overflow: "hidden",
       }}>
         <div style={{ position: "absolute", left: "50%", top: 10, transform: "translateX(-50%) scale(0.6)", transformOrigin: "top center" }}>
-          <SynthwaveGrid showLabels={false} />
+          <SynthwaveGrid showLabels={false} cellSize={36} />
         </div>
         <div style={{ position: "absolute", top: 8, left: 12, fontFamily: "monospace", fontSize: 9, color: "rgba(255,120,220,0.75)", letterSpacing: "0.18em", zIndex: 10, pointerEvents: "none" }}>{bundle.boardLabel.toUpperCase()}</div>
         <div style={{ position: "absolute", bottom: 8, right: 12, fontFamily: "monospace", fontSize: 9, color: "rgba(140,240,255,0.6)", letterSpacing: "0.1em", zIndex: 10, pointerEvents: "none" }}>LIVE PREVIEW</div>
@@ -304,7 +304,7 @@ function BundleAnimatedPreview({ bundle, tick }: { bundle: Bundle; tick: number 
         overflow: "hidden",
       }}>
         <div style={{ position: "absolute", left: "50%", top: 10, transform: "translateX(-50%) scale(0.6)", transformOrigin: "top center" }}>
-          <MatrixGrid showLabels={false} />
+          <MatrixGrid showLabels={false} cellSize={36} />
         </div>
         <div style={{ position: "absolute", top: 8, left: 12, fontFamily: "monospace", fontSize: 9, color: "rgba(150,255,150,0.7)", letterSpacing: "0.18em", zIndex: 10, pointerEvents: "none" }}>{bundle.boardLabel.toUpperCase()}</div>
         <div style={{ position: "absolute", bottom: 8, right: 12, fontFamily: "monospace", fontSize: 9, color: "rgba(0,255,65,0.55)", letterSpacing: "0.1em", zIndex: 10, pointerEvents: "none" }}>LIVE PREVIEW</div>
@@ -324,7 +324,7 @@ function BundleAnimatedPreview({ bundle, tick }: { bundle: Bundle; tick: number 
         overflow: "hidden",
       }}>
         <div style={{ position: "absolute", left: "50%", top: 10, transform: "translateX(-50%) scale(0.6)", transformOrigin: "top center" }}>
-          <ArcaneGrid showLabels={false} />
+          <ArcaneGrid showLabels={false} cellSize={36} />
         </div>
         <div style={{ position: "absolute", top: 8, left: 12, fontFamily: "monospace", fontSize: 9, color: "rgba(220,170,255,0.72)", letterSpacing: "0.18em", zIndex: 10, pointerEvents: "none" }}>{bundle.boardLabel.toUpperCase()}</div>
         <div style={{ position: "absolute", bottom: 8, right: 12, fontFamily: "monospace", fontSize: 9, color: "rgba(255,220,140,0.55)", letterSpacing: "0.1em", zIndex: 10, pointerEvents: "none" }}>LIVE PREVIEW</div>
@@ -344,7 +344,7 @@ function BundleAnimatedPreview({ bundle, tick }: { bundle: Bundle; tick: number 
         overflow: "hidden",
       }}>
         <div style={{ position: "absolute", left: "50%", top: 10, transform: "translateX(-50%) scale(0.6)", transformOrigin: "top center" }}>
-          <BioGrid showLabels={false} />
+          <BioGrid showLabels={false} cellSize={36} />
         </div>
         <div style={{ position: "absolute", top: 8, left: 12, fontFamily: "monospace", fontSize: 9, color: "rgba(140,255,230,0.70)", letterSpacing: "0.18em", zIndex: 10, pointerEvents: "none" }}>{bundle.boardLabel.toUpperCase()}</div>
         <div style={{ position: "absolute", bottom: 8, right: 12, fontFamily: "monospace", fontSize: 9, color: "rgba(190,140,255,0.55)", letterSpacing: "0.1em", zIndex: 10, pointerEvents: "none" }}>LIVE PREVIEW</div>
@@ -364,7 +364,7 @@ function BundleAnimatedPreview({ bundle, tick }: { bundle: Bundle; tick: number 
         overflow: "hidden",
       }}>
         <div style={{ position: "absolute", left: "50%", top: 10, transform: "translateX(-50%) scale(0.6)", transformOrigin: "top center" }}>
-          <ForgeGrid showLabels={false} />
+          <ForgeGrid showLabels={false} cellSize={36} />
         </div>
         <div style={{ position: "absolute", top: 8, left: 12, fontFamily: "monospace", fontSize: 9, color: "rgba(255,180,120,0.72)", letterSpacing: "0.18em", zIndex: 10, pointerEvents: "none" }}>{bundle.boardLabel.toUpperCase()}</div>
         <div style={{ position: "absolute", bottom: 8, right: 12, fontFamily: "monospace", fontSize: 9, color: "rgba(255,220,140,0.55)", letterSpacing: "0.1em", zIndex: 10, pointerEvents: "none" }}>LIVE PREVIEW</div>
@@ -384,7 +384,7 @@ function BundleAnimatedPreview({ bundle, tick }: { bundle: Bundle; tick: number 
         overflow: "hidden",
       }}>
         <div style={{ position: "absolute", left: "50%", top: 10, transform: "translateX(-50%) scale(0.6)", transformOrigin: "top center" }}>
-          <VoidGrid showLabels={false} />
+          <VoidGrid showLabels={false} cellSize={36} />
         </div>
         <div style={{ position: "absolute", top: 8, left: 12, fontFamily: "monospace", fontSize: 9, color: "rgba(200,170,255,0.70)", letterSpacing: "0.18em", zIndex: 10, pointerEvents: "none" }}>{bundle.boardLabel.toUpperCase()}</div>
         <div style={{ position: "absolute", bottom: 8, right: 12, fontFamily: "monospace", fontSize: 9, color: "rgba(180,220,255,0.55)", letterSpacing: "0.1em", zIndex: 10, pointerEvents: "none" }}>LIVE PREVIEW</div>
@@ -404,7 +404,7 @@ function BundleAnimatedPreview({ bundle, tick }: { bundle: Bundle; tick: number 
         overflow: "hidden",
       }}>
         <div style={{ position: "absolute", left: "50%", top: 10, transform: "translateX(-50%) scale(0.6)", transformOrigin: "top center" }}>
-          <TokyoGrid showLabels={false} />
+          <TokyoGrid showLabels={false} cellSize={36} />
         </div>
         <div style={{ position: "absolute", top: 8, left: 12, fontFamily: "monospace", fontSize: 9, color: "rgba(255,80,140,0.72)", letterSpacing: "0.18em", zIndex: 10, pointerEvents: "none" }}>{bundle.boardLabel.toUpperCase()}</div>
         <div style={{ position: "absolute", bottom: 8, right: 12, fontFamily: "monospace", fontSize: 9, color: "rgba(0,200,255,0.55)", letterSpacing: "0.1em", zIndex: 10, pointerEvents: "none" }}>LIVE PREVIEW</div>
@@ -630,55 +630,55 @@ function BundleCard({ bundle, purchasedItems, t, onClick }: { bundle: Bundle; pu
         {bundle.previewKind === "bloodmoon" ? (
           <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
             <div style={{ transform: "scale(0.16)", transformOrigin: "center", opacity: 0.95 }}>
-              <BloodMoonGrid showLabels={false} />
+              <BloodMoonGrid showLabels={false} cellSize={18} />
             </div>
           </div>
         ) : bundle.previewKind === "egypt" ? (
           <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
             <div style={{ transform: "scale(0.16)", transformOrigin: "center", opacity: 0.95 }}>
-              <EgyptGrid showLabels={false} />
+              <EgyptGrid showLabels={false} cellSize={18} />
             </div>
           </div>
         ) : bundle.previewKind === "synthwave" ? (
           <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
             <div style={{ transform: "scale(0.16)", transformOrigin: "center", opacity: 0.95 }}>
-              <SynthwaveGrid showLabels={false} />
+              <SynthwaveGrid showLabels={false} cellSize={18} />
             </div>
           </div>
         ) : bundle.previewKind === "matrix" ? (
           <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
             <div style={{ transform: "scale(0.16)", transformOrigin: "center", opacity: 0.95 }}>
-              <MatrixGrid showLabels={false} />
+              <MatrixGrid showLabels={false} cellSize={18} />
             </div>
           </div>
         ) : bundle.previewKind === "arcane" ? (
           <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
             <div style={{ transform: "scale(0.16)", transformOrigin: "center", opacity: 0.95 }}>
-              <ArcaneGrid showLabels={false} />
+              <ArcaneGrid showLabels={false} cellSize={18} />
             </div>
           </div>
         ) : bundle.previewKind === "bio" ? (
           <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
             <div style={{ transform: "scale(0.16)", transformOrigin: "center", opacity: 0.95 }}>
-              <BioGrid showLabels={false} />
+              <BioGrid showLabels={false} cellSize={18} />
             </div>
           </div>
         ) : bundle.previewKind === "forge" ? (
           <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
             <div style={{ transform: "scale(0.16)", transformOrigin: "center", opacity: 0.95 }}>
-              <ForgeGrid showLabels={false} />
+              <ForgeGrid showLabels={false} cellSize={18} />
             </div>
           </div>
         ) : bundle.previewKind === "void" ? (
           <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
             <div style={{ transform: "scale(0.16)", transformOrigin: "center", opacity: 0.95 }}>
-              <VoidGrid showLabels={false} />
+              <VoidGrid showLabels={false} cellSize={18} />
             </div>
           </div>
         ) : bundle.previewKind === "tokyo" ? (
           <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
             <div style={{ transform: "scale(0.16)", transformOrigin: "center", opacity: 0.95 }}>
-              <TokyoGrid showLabels={false} />
+              <TokyoGrid showLabels={false} cellSize={18} />
             </div>
           </div>
         ) : (
@@ -740,12 +740,22 @@ export default function StoreScreen({ setScreenAction, themeId }: Props) {
   const balance = (user as any)?.protocredits ?? 0;
   const purchasedItems: string[] = (user as any)?.purchased_items ?? [];
 
+  const ownsBundle = (b: Bundle) => purchasedItems.includes(b.boardId) && purchasedItems.includes(b.pieceId);
+  const visibleBundles = BUNDLES.filter((b) => !ownsBundle(b));
+
   useEffect(() => {
     if (!token) return;
     API.get("/api/profile/me", { headers: { Authorization: `Bearer ${token}` } })
       .then(res => updateUser(res.data))
       .catch(() => {});
   }, [token]);
+
+  // If a bundle becomes owned (after purchase / refresh), hide it + close modal.
+  useEffect(() => {
+    if (!openBundle) return;
+    const b = BUNDLES.find((x) => x.id === openBundle);
+    if (b && ownsBundle(b)) setOpenBundle(null);
+  }, [openBundle, purchasedItems]);
 
   // Helper to show error msg that auto-clears after 1s
   const showError = (text: string) => {
@@ -817,7 +827,15 @@ export default function StoreScreen({ setScreenAction, themeId }: Props) {
       setOpenBundle(null);
       setTimeout(() => setMsg(null), 3000);
     } catch (e: any) {
-      showError(e?.response?.data?.detail || "Purchase failed. Try again.");
+      const detail = e?.response?.data?.detail;
+      // If the backend says it's already owned, immediately sync profile and the item will disappear from store.
+      if (detail && String(detail).toLowerCase().includes("already owned")) {
+        try {
+          const me = await API.get("/api/profile/me", { headers: { Authorization: `Bearer ${token}` } });
+          updateUser(me.data);
+        } catch {}
+      }
+      showError(detail || "Purchase failed. Try again.");
     } finally { setBuyingId(null); }
   };
 
@@ -906,7 +924,7 @@ export default function StoreScreen({ setScreenAction, themeId }: Props) {
         <div style={{ marginBottom: 56 }}>
           <SectionHeader label="BOARD BUNDLES" accent={accent} icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={accent} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2"/><line x1="12" y1="12" x2="12" y2="16"/><line x1="10" y1="14" x2="14" y2="14"/></svg>}/>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(320px,1fr))", gap: 20 }}>
-            {BUNDLES.map(bundle => <BundleCard key={bundle.id} bundle={bundle} purchasedItems={purchasedItems} t={t} onClick={() => setOpenBundle(bundle.id)} />)}
+            {visibleBundles.map(bundle => <BundleCard key={bundle.id} bundle={bundle} purchasedItems={purchasedItems} t={t} onClick={() => setOpenBundle(bundle.id)} />)}
           </div>
         </div>
 
