@@ -48,8 +48,8 @@ const CatIcon = ({ id, size = 16, color }: { id: string; size?: number; color: s
 const COLLECTION_THEMES = [
   { id: "classic_light", label: "Classic Light", desc: "The original light aesthetic", owned: true,  comingSoon: false, preview: "linear-gradient(135deg,#f5f0e8,#e8e0d0)" },
   { id: "classic_dark",  label: "Classic Dark",  desc: "Dark mode classic",            owned: true,  comingSoon: false, preview: "linear-gradient(135deg,#1a1a1a,#2a2a2a)" },
-  { id: "space",         label: "Space",         desc: "Coming Soon",                  owned: false, comingSoon: true,  preview: "linear-gradient(135deg,#020410,#0d1b4b)" },
-  { id: "pixel",         label: "Pixel",         desc: "Coming Soon",                  owned: false, comingSoon: true,  preview: "linear-gradient(135deg,#0d1007,#1a2e0a)" },
+  { id: "space",         label: "Space",         desc: "Deep space atmosphere",       owned: true,  comingSoon: false, preview: "linear-gradient(135deg,#020410,#0d1b4b)" },
+  { id: "pixel",         label: "Pixel",         desc: "Retro pixel art style",        owned: true,  comingSoon: false, preview: "linear-gradient(135deg,#0d1007,#1a2e0a)" },
 ];
 
 const BOARD_SKINS: { id: string; label: string; desc: string; condition: (p: any) => boolean; preview: string; border: string; price?: number }[] = [

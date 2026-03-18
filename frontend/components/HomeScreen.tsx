@@ -36,7 +36,8 @@ function useBreakpoint(): Breakpoint {
     return () => window.removeEventListener("resize", update);
   }, []);
   return bp;
-}function useScale() {
+}
+function useScale() {
   const [scale, setScale] = useState(1);
   useEffect(() => {
     const update = () => {
@@ -246,7 +247,7 @@ export default function HomeScreen({ setScreenAction, themeId, onHoverAction, on
         <div style={{
           display: "flex", flexDirection: "column", alignItems: "center", gap: 8,
           animation: "fadeUp 0.8s cubic-bezier(.22,.68,0,1.2) both",
-          marginTop: "2vh"
+          marginTop: "2.3vh"
         }}>
           <NavRankBadge rank={rank} size={isMobile ? 85 : 182} />
         </div>
