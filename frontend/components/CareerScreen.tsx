@@ -6,7 +6,7 @@ import { useAuthStore } from "@/lib/store";
 import API from "@/lib/api";
 import { loadCustomTheme } from "@/lib/customTheme";
 import { BannerRenderer } from "./BannerRenderer";
-import { RANKS, getRank, NavRankBadge, rankHasEmblemGlow } from "./NavBar";
+import { RANKS, getRank, NavRankBadge, rankGlowVisualStrength, buildRankEmblemGlowFilter, rankHaloGradientForRank } from "./NavBar";
 
 
 
@@ -169,7 +169,7 @@ export default function CareerScreen({ themeId, onHoverAction }: Props) {
             boxShadow: "none",
             border: `1px solid ${rank.color}33`,
           }}>
-            {rankHasEmblemGlow(rank) && (
+            {rankGlowVisualStrength(rank) >= 0.0012 && (
               <div
                 aria-hidden
                 style={{
@@ -179,7 +179,7 @@ export default function CareerScreen({ themeId, onHoverAction }: Props) {
                   width: "135%",
                   height: "135%",
                   borderRadius: "50%",
-                  background: `radial-gradient(circle, ${rank.color}55 0%, ${rank.color}22 38%, transparent 68%)`,
+                  background: rankHaloGradientForRank(rank.color, rank),
                   pointerEvents: "none",
                   zIndex: 0,
                   animation: "rankHaloPulse 2.6s ease-in-out infinite",
@@ -198,9 +198,7 @@ export default function CareerScreen({ themeId, onHoverAction }: Props) {
                 pointerEvents: "none",
                 position: "relative",
                 zIndex: 1,
-                filter: rankHasEmblemGlow(rank)
-                  ? `drop-shadow(0 0 6px ${rank.color}) drop-shadow(0 0 16px ${rank.color}CC) drop-shadow(0 0 36px ${rank.color}66) drop-shadow(0 0 56px ${rank.color}33)`
-                  : "none",
+                filter: buildRankEmblemGlowFilter(rank.color, rankGlowVisualStrength(rank)),
               }}
             />
           </div>

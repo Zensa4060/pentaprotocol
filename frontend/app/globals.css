@@ -40,11 +40,11 @@ html, body {
 /* Rank emblems: internal radiating glow (halo pulses behind transparent logos) */
 @keyframes rankHaloPulse {
   0%, 100% {
-    opacity: 0.45;
+    opacity: 0.323;
     transform: translate(-50%, -50%) scale(0.88);
   }
   50% {
-    opacity: 0.95;
+    opacity: 0.675;
     transform: translate(-50%, -50%) scale(1.07);
   }
 }

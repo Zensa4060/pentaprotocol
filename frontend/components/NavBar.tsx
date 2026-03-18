@@ -11,25 +11,77 @@ export const RANKS = [
   { name: "ADVANCED",     min: 500,  max: 1000, color: "#60A5FA", img: "/advanced.svg",     scale: 1.3   },
   { name: "PROFESSIONAL", min: 1000, max: 1500, color: "#34D399", img: "/professional.svg", scale: 1.3   },
   { name: "EMERALD",      min: 1500, max: 2000, color: "#10B981", img: "/emerald.svg",      scale: 1.495 },
-  { name: "MASTER",       min: 2000, max: 2500, color: "#FF3333", img: "/master.png"                     },
-  { name: "LEGEND",       min: 2500, max: 1000000, color: "#F59E0B", img: "/legend.png"                     },
+  { name: "MASTER",       min: 2000, max: 2500, color: "#FF3333", img: "/master.png?v=3"                     },
+  { name: "LEGEND",       min: 2500, max: 1000000, color: "#F59E0B", img: "/legend.png?v=3"                     },
 ];
 
 export const getRank = (elo: number) => RANKS.find(r => elo >= r.min && elo < r.max) || RANKS[0];
 
-/** Radiating glow only for top two tiers */
-export const rankHasEmblemGlow = (rank: { name: string }) =>
-  rank.name === "MASTER" || rank.name === "LEGEND";
+/**
+ * Glow strength vs Legend (100%). Legend = prior peak × 0.75 (extra −25%).
+ * Novice 1%, Advanced 20%, … Legend 100%.
+ */
+export function rankGlowTierFraction(rank: { name: string }): number {
+  const T: Record<string, number> = {
+    NOVICE: 0.01,
+    ADVANCED: 0.2,
+    PROFESSIONAL: 0.4,
+    EMERALD: 0.6,
+    MASTER: 0.8,
+    LEGEND: 1,
+  };
+  return T[rank.name] ?? 0.01;
+}
 
-const rankEmblemImgFilter = (c: string) =>
-  `drop-shadow(0 0 4px ${c}) drop-shadow(0 0 12px ${c}CC) drop-shadow(0 0 26px ${c}66) drop-shadow(0 0 42px ${c}33)`;
+/** Legend reference tier multiplier (before global / top-rank tweaks) */
+const LEGEND_GLOW_REF = 0.75;
+const GLOW_GLOBAL = 0.95;
+const MASTER_LEGEND_GLOW_HALF = 0.5;
+
+/** Final glow strength for filters / halos (all ranks −5%; Master & Legend −50% more) */
+export function rankGlowVisualStrength(rank: { name: string }): number {
+  const tier = rankGlowTierFraction(rank);
+  let m = LEGEND_GLOW_REF * GLOW_GLOBAL;
+  if (rank.name === "MASTER" || rank.name === "LEGEND") m *= MASTER_LEGEND_GLOW_HALF;
+  return tier * m;
+}
+
+function hx(n: number) {
+  return Math.max(0, Math.min(255, Math.round(n))).toString(16).padStart(2, "0");
+}
+
+export function buildRankEmblemGlowFilter(color: string, strength: number): string {
+  const t = strength;
+  if (t < 0.0012) return "none";
+  const c = color.length >= 7 ? color.slice(0, 7) : color;
+  const b0 = Math.max(1, Math.round(3 * t));
+  const b1 = Math.max(1, Math.round(9 * t));
+  const b2 = Math.max(1, Math.round(20 * t));
+  const b3 = Math.max(1, Math.round(32 * t));
+  const a0 = Math.min(255, Math.round(255 * t));
+  const a1 = Math.min(255, Math.round(0x99 * t));
+  const a2 = Math.min(255, Math.round(0x4d * t));
+  const a3 = Math.min(255, Math.round(0x26 * t));
+  return `drop-shadow(0 0 ${b0}px ${c}${hx(Math.max(1, a0))}) drop-shadow(0 0 ${b1}px ${c}${hx(a1)}) drop-shadow(0 0 ${b2}px ${c}${hx(a2)}) drop-shadow(0 0 ${b3}px ${c}${hx(a3)})`;
+}
+
+export function rankHaloGradientForRank(color: string, rank: { name: string }): string {
+  const tier = rankGlowTierFraction(rank);
+  const scale =
+    tier * GLOW_GLOBAL * (rank.name === "MASTER" || rank.name === "LEGEND" ? MASTER_LEGEND_GLOW_HALF : 1);
+  if (scale < 0.002) return "transparent";
+  const c = color.length >= 7 ? color.slice(0, 7) : color;
+  return `radial-gradient(circle, ${c}${hx(0x40 * scale)} 0%, ${c}${hx(0x19 * scale)} 38%, transparent 68%)`;
+}
 
 export const NavRankBadge = ({ rank, size = 30 }: { rank: typeof RANKS[0]; size?: number }) => {
   const imgScale = (rank as any).scale ?? 1;
   const imgSize = size * 0.85 * imgScale;
-  const glow = rankHasEmblemGlow(rank);
+  const strength = rankGlowVisualStrength(rank);
+  const filt = buildRankEmblemGlowFilter(rank.color, strength);
+  const hasHalo = strength >= 0.0012;
   return (
-    <div className={glow ? "rank-badge-container" : undefined} style={{
+    <div className="rank-badge-container" style={{
       width: size, height: size, borderRadius: "50%",
       background: "transparent", flexShrink: 0,
       display: "flex", alignItems: "center", justifyContent: "center",
@@ -39,7 +91,7 @@ export const NavRankBadge = ({ rank, size = 30 }: { rank: typeof RANKS[0]; size?
       transition: "transform 0.3s ease, filter 0.3s ease",
       "--rank-col": rank.color
     } as any}>
-      {glow && (
+      {hasHalo && (
         <div
           aria-hidden
           style={{
@@ -49,7 +101,7 @@ export const NavRankBadge = ({ rank, size = 30 }: { rank: typeof RANKS[0]; size?
             width: "135%",
             height: "135%",
             borderRadius: "50%",
-            background: `radial-gradient(circle, ${rank.color}55 0%, ${rank.color}22 38%, transparent 68%)`,
+            background: rankHaloGradientForRank(rank.color, rank),
             pointerEvents: "none",
             zIndex: 0,
             animation: "rankHaloPulse 2.6s ease-in-out infinite",
@@ -60,7 +112,7 @@ export const NavRankBadge = ({ rank, size = 30 }: { rank: typeof RANKS[0]; size?
         src={rank.img}
         alt={rank.name}
         draggable={false}
-        className={glow ? "rank-emblem-img" : undefined}
+        className="rank-emblem-img"
         style={{
           width: imgSize,
           height: imgSize,
@@ -69,7 +121,7 @@ export const NavRankBadge = ({ rank, size = 30 }: { rank: typeof RANKS[0]; size?
           pointerEvents: "none",
           position: "relative",
           zIndex: 1,
-          filter: glow ? rankEmblemImgFilter(rank.color) : "none",
+          filter: filt,
         }}
       />
     </div>
@@ -295,9 +347,6 @@ export default function NavBar({
         }
         .rank-badge-container:hover {
           transform: scale(1.08);
-        }
-        .rank-badge-container:hover .rank-emblem-img {
-          filter: drop-shadow(0 0 8px var(--rank-col)) drop-shadow(0 0 20px var(--rank-col)) drop-shadow(0 0 40px var(--rank-col)) !important;
         }
       `}</style>
 

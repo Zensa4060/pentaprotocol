@@ -8,7 +8,7 @@ import { containsProfanity, validateUsername } from "@/lib/profanity";
 import { SHARDS_LIGHT_SVG, SHARDS_DARK_SVG, PROTO_LIGHT_SVG, PROTO_DARK_SVG } from "@/lib/currencyIcons";
 import type { Screen } from "@/lib/types";
 import { BannerRenderer } from "./BannerRenderer";
-import { rankHasEmblemGlow } from "./NavBar";
+import { rankGlowVisualStrength, buildRankEmblemGlowFilter, rankHaloGradientForRank } from "./NavBar";
 import VoidRiftBanner from "./VoidRiftBanner";
 import BloodMoonBanner from "./BloodMoonBanner";
 import PhantomStrikeBanner from "./PhantomStrikeBanner";
@@ -19,8 +19,8 @@ export const RANKS = [
   { name: "ADVANCED",     min: 500,  max: 1000, color: "#60A5FA", icon: null, img: "/advanced.svg",     scale: 1.3 },
   { name: "PROFESSIONAL", min: 1000, max: 1500, color: "#34D399", icon: null, img: "/professional.svg", scale: 1.3 },
   { name: "EMERALD",      min: 1500, max: 2000, color: "#10B981", icon: null, img: "/emerald.svg",      scale: 1.495 },
-  { name: "MASTER",       min: 2000, max: 2500, color: "#FF3333", icon: null, img: "/master.png" },
-  { name: "LEGEND",       min: 2500, max: 1000000, color: "#F59E0B", icon: null, img: "/legend.png" },
+  { name: "MASTER",       min: 2000, max: 2500, color: "#FF3333", icon: null, img: "/master.png?v=3" },
+  { name: "LEGEND",       min: 2500, max: 1000000, color: "#F59E0B", icon: null, img: "/legend.png?v=3" },
 ];
 
 export const TITLES: {
@@ -96,16 +96,16 @@ const TIER_COLOR: Record<string, string> = {
 
 const getRank = (elo: number) => RANKS.find(r => elo >= r.min && elo < r.max) || RANKS[5];
 
-const rankEmblemImgFilter = (c: string) =>
-  `drop-shadow(0 0 4px ${c}) drop-shadow(0 0 12px ${c}CC) drop-shadow(0 0 26px ${c}66) drop-shadow(0 0 42px ${c}33)`;
-
 export const RankIcon = ({ rank, size = 26 }: { rank: typeof RANKS[0]; size?: number }) => {
   const imgScale = (rank as any).scale ?? 1;
   const imgSize = size * 0.85 * imgScale;
-  const glow = rankHasEmblemGlow(rank);
+  const strength = rankGlowVisualStrength(rank);
+  const filt = buildRankEmblemGlowFilter(rank.color, strength);
+  const hasHalo = strength >= 0.0012;
+  const tGlow = strength;
   return (
     <div
-      className={glow ? "rank-badge-container" : undefined}
+      className="rank-badge-container"
       style={{
         width: size,
         height: size,
@@ -124,7 +124,7 @@ export const RankIcon = ({ rank, size = 26 }: { rank: typeof RANKS[0]; size?: nu
     >
       {rank.img ? (
         <>
-          {glow && (
+          {hasHalo && (
             <div
               aria-hidden
               style={{
@@ -134,7 +134,7 @@ export const RankIcon = ({ rank, size = 26 }: { rank: typeof RANKS[0]; size?: nu
                 width: "135%",
                 height: "135%",
                 borderRadius: "50%",
-                background: `radial-gradient(circle, ${rank.color}55 0%, ${rank.color}22 38%, transparent 68%)`,
+                background: rankHaloGradientForRank(rank.color, rank),
                 pointerEvents: "none",
                 zIndex: 0,
                 animation: "rankHaloPulse 2.6s ease-in-out infinite",
@@ -145,7 +145,7 @@ export const RankIcon = ({ rank, size = 26 }: { rank: typeof RANKS[0]; size?: nu
             src={rank.img}
             alt={rank.name}
             draggable={false}
-            className={glow ? "rank-emblem-img" : undefined}
+            className="rank-emblem-img"
             style={{
               width: imgSize,
               height: imgSize,
@@ -154,7 +154,7 @@ export const RankIcon = ({ rank, size = 26 }: { rank: typeof RANKS[0]; size?: nu
               pointerEvents: "none",
               position: "relative",
               zIndex: 1,
-              filter: glow ? rankEmblemImgFilter(rank.color) : "none",
+              filter: filt,
             }}
           />
         </>
@@ -168,7 +168,10 @@ export const RankIcon = ({ rank, size = 26 }: { rank: typeof RANKS[0]; size?: nu
             pointerEvents: "none",
             position: "relative",
             zIndex: 1,
-            textShadow: glow ? `0 0 12px ${rank.color}, 0 0 28px ${rank.color}99` : "none",
+            textShadow:
+              tGlow >= 0.002
+                ? `0 0 ${Math.max(1, Math.round(2 + 14 * tGlow))}px ${rank.color}, 0 0 ${Math.max(2, Math.round(4 + 32 * tGlow))}px ${rank.color}${Math.min(255, Math.round(0x99 * tGlow)).toString(16).padStart(2, "0")}`
+                : "none",
           }}
         >
           {rank.icon}
@@ -660,7 +663,6 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
       .pw-eye:hover { opacity:1; }
       .rank-badge-container { position: relative; overflow: visible; }
       .rank-badge-container:hover { transform: scale(1.08); }
-      .rank-badge-container:hover .rank-emblem-img { filter: drop-shadow(0 0 8px var(--rank-col)) drop-shadow(0 0 20px var(--rank-col)) drop-shadow(0 0 40px var(--rank-col)) !important; } /* Master/Legend only */
       @keyframes shineSweep { from { transform: translateX(-50%); } to { transform: translateX(100%); } }
     `}</style>
 
@@ -692,7 +694,7 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
             <div style={{ display:"flex", gap:14, flexWrap:"wrap", alignItems:"center" }}>
               <div style={{ fontFamily:t.fontMono, fontSize:13, color:t.text, textShadow: "0 1px 4px rgba(0,0,0,0.5)" }}>LVL <span style={{ color:t.accent, fontWeight:700, fontSize:15 }}>{profile.level}</span></div>
               <div style={{ display:"flex", alignItems:"center", gap:5, "--rank-col": rank.color } as any}>
-                <RankIcon rank={rank} size={22} />
+                <RankIcon rank={rank} size={33} />
                 <span style={{ fontFamily:t.fontBody, fontSize:14, color:rank.color, fontWeight:600, textShadow: "0 1px 4px rgba(0,0,0,0.5)" }}>{rank.name}</span>
               </div>
             </div>
@@ -716,11 +718,11 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
       <div style={{ background:t.bgPanel, border:`1px solid ${t.border}`, borderRadius:12, padding:"16px 22px", marginBottom:18 }}>
         <div style={{ display:"flex", justifyContent:"space-between", marginBottom:9, flexWrap:"wrap", gap:6, alignItems:"center" }}>
           <span style={{ display:"flex", alignItems:"center", gap:8, fontFamily:t.fontDisplay, fontSize:17, color:rank.color, fontWeight:800, letterSpacing:"0.05em", "--rank-col": rank.color } as any}>
-            <RankIcon rank={rank} size={28} />{rank.name}
+            <RankIcon rank={rank} size={42} />{rank.name}
           </span>
           {nextRank && (
             <span style={{ display:"flex", alignItems:"center", gap:7, fontFamily:t.fontDisplay, fontSize:15, color:t.text, fontWeight:700, "--rank-col": nextRank.color } as any}>
-              <RankIcon rank={nextRank} size={24} />{nextRank.name}
+              <RankIcon rank={nextRank} size={36} />{nextRank.name}
               {rank.name === nextRank.name
                 ? <span style={{ color:t.accent }}>&nbsp;· MAX RANK</span>
                 : <span style={{ color:t.accent }}>&nbsp;· {rank.max - elo} ELO away</span>
@@ -793,7 +795,7 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
               const isCurrent = r.name === rank.name;
               return (
                 <div key={i} style={{ display:"flex", alignItems:"center", gap:11, padding:"9px 13px", background:isCurrent?`${r.color}12`:"transparent", border:`1px solid ${isCurrent?r.color:t.border+"44"}`, borderRadius:7 }}>
-                  <RankIcon rank={r} size={30} />
+                  <RankIcon rank={r} size={45} />
                   <div style={{ flex:1, fontFamily:t.fontDisplay, fontSize:16, fontWeight:isCurrent?800:600, color:isCurrent?r.color:t.textSecondary, letterSpacing:"0.05em" }}>{r.name}</div>
                   <div style={{ fontFamily:t.fontMono, fontSize:16, color:isCurrent?t.accent:t.text, fontWeight:isCurrent?800:600 }}>{r.min}–{r.max>=1000000?"∞":r.max}</div>
                   {isCurrent && <div style={{ background:`${r.color}18`, border:`1px solid ${r.color}`, color:r.color, fontFamily:t.fontMono, fontSize:11, padding:"3px 10px", borderRadius:10, fontWeight:700 }}>YOU</div>}
