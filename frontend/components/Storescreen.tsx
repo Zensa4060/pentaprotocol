@@ -969,13 +969,117 @@ export default function StoreScreen({ setScreenAction, themeId }: Props) {
         <div style={{ marginBottom: 56 }}>
           <SectionHeader label="PROFILE BUNDLES" accent={accent} icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={accent} strokeWidth="1.8" strokeLinecap="round"><rect x="3" y="3" width="18" height="13" rx="2"/><path d="M3 18h18"/><path d="M3 21h18"/></svg>}/>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(320px,1fr))", gap: 20 }}>
-            {PROFILE_BUNDLES.map(bundle => (
-              <div key={bundle.id} className="store-card" style={{ borderRadius: 18, overflow: "hidden", border: `2px solid ${bundle.accentColor}33`, background: bundle.bgGradient, padding: "24px", position: "relative" }}>
-                <div style={{ fontFamily: t.fontDisplay, fontSize: 22, fontWeight: 900, color: "#fff", letterSpacing: "0.04em", marginBottom: 3 }}>{bundle.label}</div>
-                <div style={{ fontFamily: t.fontBody, fontSize: 13, color: `${bundle.accentColor}cc`, fontStyle: "italic", marginBottom: 14 }}>{bundle.tagline}</div>
-                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" as const }}>{bundle.tags.map(tag => (<span key={tag} style={{ fontFamily: "monospace", fontSize: 9, fontWeight: 700, color: bundle.accentColor, background: `${bundle.accentColor}18`, border: `1px solid ${bundle.accentColor}44`, padding: "2px 7px", borderRadius: 4 }}>{tag}</span>))}</div>
-              </div>
-            ))}
+            {STORE_BANNERS.map(banner => {
+              const owned = banner.id === "default" || purchasedItems.includes(banner.id);
+              const price = banner.price ?? 0;
+              return (
+                <div
+                  key={banner.id}
+                  className="store-card"
+                  style={{
+                    borderRadius: 18,
+                    overflow: "hidden",
+                    border: `2px solid ${owned ? "#4CAF50" : accent + "33"}`,
+                    background: banner.gradient,
+                    padding: "0",
+                    position: "relative",
+                    boxShadow: owned ? "none" : `0 8px 32px ${accent}22`,
+                  }}
+                >
+                  <div style={{ height: 120, position: "relative" }}>
+                    <BannerRenderer banner={banner} style={{ position: "absolute", inset: 0 }} />
+                    {!owned && (
+                      <div style={{ position: "absolute", top: 10, left: 10, zIndex: 2 }}>
+                        <UnlockBadge text={banner.unlock} accent={accent} />
+                      </div>
+                    )}
+                    {owned && (
+                      <div style={{ position: "absolute", top: 10, left: 10, zIndex: 2 }}>
+                        <UnlockBadge text="Owned" accent="#4CAF50" />
+                      </div>
+                    )}
+                  </div>
+
+                  <div style={{ padding: 24 }}>
+                    <div style={{ fontFamily: t.fontDisplay, fontSize: 22, fontWeight: 900, color: "#fff", letterSpacing: "0.04em", marginBottom: 6 }}>
+                      {banner.label}
+                    </div>
+                    <div style={{ fontFamily: t.fontBody, fontSize: 13, color: "rgba(255,255,255,0.74)", fontStyle: "italic", marginBottom: 16 }}>
+                      {banner.unlock === "Free" ? "Free to unlock" : `Unlock for ${banner.unlock}`}
+                    </div>
+
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+                      {owned ? (
+                        <div style={{ fontFamily: t.fontMono, fontSize: 12, fontWeight: 900, color: "#4CAF50", letterSpacing: "0.06em" }}>
+                          OWNED
+                        </div>
+                      ) : (
+                        <div style={{ fontFamily: t.fontMono, fontSize: 12, fontWeight: 900, color: accent, letterSpacing: "0.06em" }}>
+                          {price.toLocaleString()} <span style={{ fontFamily: t.fontBody, fontWeight: 700, color: "rgba(255,255,255,0.85)" }}>PC</span>
+                        </div>
+                      )}
+
+                      {owned ? (
+                        <button
+                          disabled
+                          style={{
+                            background: "rgba(255,255,255,0.06)",
+                            border: `1px solid rgba(255,255,255,0.14)`,
+                            borderRadius: 10,
+                            padding: "10px 14px",
+                            fontFamily: t.fontDisplay,
+                            fontSize: 12,
+                            fontWeight: 900,
+                            color: "rgba(255,255,255,0.65)",
+                            cursor: "not-allowed",
+                          }}
+                        >
+                          ✓
+                        </button>
+                      ) : isGuest ? (
+                        <button
+                          onClick={() => setScreenAction("auth")}
+                          style={{
+                            background: accent,
+                            border: "none",
+                            borderRadius: 10,
+                            padding: "10px 14px",
+                            fontFamily: t.fontDisplay,
+                            fontSize: 12,
+                            fontWeight: 900,
+                            color: "#000",
+                            cursor: "pointer",
+                            whiteSpace: "nowrap" as const,
+                          }}
+                        >
+                          SIGN IN
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => handleBuyCosmetic(banner.id, price, `${banner.label} Banner`)}
+                          disabled={price <= 0}
+                          style={{
+                            background: accent,
+                            border: "none",
+                            borderRadius: 10,
+                            padding: "10px 14px",
+                            fontFamily: t.fontDisplay,
+                            fontSize: 12,
+                            fontWeight: 900,
+                            color: "#000",
+                            cursor: price <= 0 ? "not-allowed" : "pointer",
+                            whiteSpace: "nowrap" as const,
+                            opacity: price <= 0 ? 0.7 : 1,
+                          }}
+                        >
+                          {price <= 0 ? "UNAVAILABLE" : "UNLOCK"}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
 
