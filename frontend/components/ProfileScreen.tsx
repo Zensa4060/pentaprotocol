@@ -396,62 +396,78 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
     } finally { setEditLoading(false); }
   };
 
-  const submitPassword = async () => {
-    setEditMsg(null);
-    if (!pwCurrent) { setEditMsg({ text:"Enter your current password", ok:false }); return; }
-    if (pwNew.length < 8) { setEditMsg({ text:"New password must be at least 8 characters", ok:false }); return; }
-    if (pwNew !== pwConfirm) { setEditMsg({ text:"New passwords do not match", ok:false }); return; }
-    if (profile.totp_enabled && pwTotpStep === "idle") {
-      setPwTotpStep("awaiting_totp");
-      setEditMsg({ text:"Enter your authenticator code to confirm.", ok:true });
-      return;
-    }
-    if (profile.totp_enabled && pwTotpStep === "awaiting_totp") {
-      if (pwTotpCode.trim().length !== 6) { setEditMsg({ text:"Enter the 6-digit authenticator code", ok:false }); return; }
-    }
-    setEditLoading(true);
-    try {
-      await API.post("/api/auth/change-password", {
-        current_password: pwCurrent,
-        new_password: pwNew,
-        ...(profile.totp_enabled ? { totp_code: pwTotpCode.trim() } : {}),
-      }, authHeader);
-      setEditMsg({ text:"Password changed successfully!", ok:true });
-      setPwCurrent(""); setPwNew(""); setPwConfirm("");
-      setPwTotpStep("idle"); setPwTotpCode("");
-    } catch(e:any) {
-      setEditMsg({ text: e.response?.data?.detail || "Failed to change password", ok:false });
-      setPwTotpStep("idle"); setPwTotpCode("");
-    } finally { setEditLoading(false); }
-  };
+ const submitPassword = async () => {
+  setEditMsg(null);
+  if (!pwCurrent) { setEditMsg({ text:"Enter your current password", ok:false }); return; }
+  if (pwNew.length < 8) { setEditMsg({ text:"New password must be at least 8 characters", ok:false }); return; }
+  if (pwNew !== pwConfirm) { setEditMsg({ text:"New passwords do not match", ok:false }); return; }
 
-  const submitEmail = async () => {
-    setEditMsg(null);
-    if (!emailNew || !emailNew.includes("@")) { setEditMsg({ text:"Enter a valid email address", ok:false }); return; }
-    if (!emailPw) { setEditMsg({ text:"Enter your password to confirm", ok:false }); return; }
-    if (profile.totp_enabled && emailTotpStep === "idle") {
-      setEmailTotpStep("awaiting_totp");
-      setEditMsg({ text:"Enter your authenticator code to confirm.", ok:true });
-      return;
-    }
-    if (profile.totp_enabled && emailTotpStep === "awaiting_totp") {
-      if (emailTotpCode.trim().length !== 6) { setEditMsg({ text:"Enter the 6-digit authenticator code", ok:false }); return; }
-    }
+  if (pwTotpStep === "idle") {
+    // Step 1: send OTP
     setEditLoading(true);
     try {
-      await API.post("/api/auth/change-email", {
-        new_email: emailNew,
-        password: emailPw,
-        ...(profile.totp_enabled ? { totp_code: emailTotpCode.trim() } : {}),
-      }, authHeader);
-      setEditMsg({ text:"Email updated! Check your inbox to verify.", ok:true });
-      setEmailNew(""); setEmailPw("");
-      setEmailTotpStep("idle"); setEmailTotpCode("");
+      await API.post("/api/otp/change-password/send", {}, authHeader);
+      setPwTotpStep("awaiting_totp");
+      setEditMsg({ text:"A 6-digit OTP has been sent to your email.", ok:true });
     } catch(e:any) {
-      setEditMsg({ text: e.response?.data?.detail || "Failed to update email", ok:false });
-      setEmailTotpStep("idle"); setEmailTotpCode("");
+      setEditMsg({ text: e.response?.data?.detail || "Failed to send OTP", ok:false });
     } finally { setEditLoading(false); }
-  };
+    return;
+  }
+
+  // Step 2: verify OTP + change password
+  if (pwTotpCode.trim().length !== 6) { setEditMsg({ text:"Enter the 6-digit OTP sent to your email", ok:false }); return; }
+  setEditLoading(true);
+  try {
+    await API.post("/api/otp/change-password/verify", {
+      current_password: pwCurrent,
+      new_password: pwNew,
+      otp: pwTotpCode.trim(),
+    }, authHeader);
+    setEditMsg({ text:"Password changed successfully!", ok:true });
+    setPwCurrent(""); setPwNew(""); setPwConfirm("");
+    setPwTotpStep("idle"); setPwTotpCode("");
+  } catch(e:any) {
+    setEditMsg({ text: e.response?.data?.detail || "Failed to change password", ok:false });
+    setPwTotpStep("idle"); setPwTotpCode("");
+  } finally { setEditLoading(false); }
+};
+  const submitEmail = async () => {
+  setEditMsg(null);
+  if (!emailNew || !emailNew.includes("@")) { setEditMsg({ text:"Enter a valid email address", ok:false }); return; }
+
+  if (emailTotpStep === "idle") {
+    // Step 1: send OTP to new email
+    setEditLoading(true);
+    try {
+      await API.post("/api/otp/change-email/send", { new_email: emailNew }, authHeader);
+      setEmailTotpStep("awaiting_totp");
+      setEditMsg({ text:`A 6-digit OTP has been sent to ${emailNew}.`, ok:true });
+    } catch(e:any) {
+      setEditMsg({ text: e.response?.data?.detail || "Failed to send OTP", ok:false });
+    } finally { setEditLoading(false); }
+    return;
+  }
+
+  // Step 2: verify OTP + update email
+  if (emailTotpCode.trim().length !== 6) { setEditMsg({ text:"Enter the 6-digit OTP sent to your new email", ok:false }); return; }
+  setEditLoading(true);
+  try {
+    await API.post("/api/otp/change-email/verify", {
+      new_email: emailNew,
+      otp: emailTotpCode.trim(),
+    }, authHeader);
+    setEditMsg({ text:"Email updated successfully!", ok:true });
+    setEmailNew(""); setEmailPw("");
+    setEmailTotpStep("idle"); setEmailTotpCode("");
+    // Refresh profile
+    const res = await API.get("/api/profile/me");
+    setProfile(res.data);
+  } catch(e:any) {
+    setEditMsg({ text: e.response?.data?.detail || "Failed to update email", ok:false });
+    setEmailTotpStep("idle"); setEmailTotpCode("");
+  } finally { setEditLoading(false); }
+};
 
   const enabled = profile.totp_enabled;
 
@@ -1263,8 +1279,8 @@ const stats = [
                       <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:10 }}>
                         <div style={{ width:28, height:28, borderRadius:"50%", background:`${t.accent}18`, border:`1px solid ${t.accent}44`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:14, flexShrink:0 }}>🔐</div>
                         <div>
-                          <div style={{ fontFamily:t.fontDisplay, fontSize:13, fontWeight:700, color:t.accent }}>Authenticator Required</div>
-                          <div style={{ fontFamily:t.fontBody, fontSize:11, color:t.textMuted }}>Enter the 6-digit code from your authenticator app</div>
+                          <div style={{ fontFamily:t.fontDisplay, fontSize:13, fontWeight:700, color:t.accent }}>OTP Required</div>
+<div style={{ fontFamily:t.fontBody, fontSize:11, color:t.textMuted }}>Enter the 6-digit code sent to your email</div>
                         </div>
                       </div>
                       <input type="text" value={pwTotpCode} maxLength={6} autoFocus
@@ -1322,8 +1338,8 @@ const stats = [
                       <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:10 }}>
                         <div style={{ width:28, height:28, borderRadius:"50%", background:`${t.accent}18`, border:`1px solid ${t.accent}44`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:14, flexShrink:0 }}>🔐</div>
                         <div>
-                          <div style={{ fontFamily:t.fontDisplay, fontSize:13, fontWeight:700, color:t.accent }}>Authenticator Required</div>
-                          <div style={{ fontFamily:t.fontBody, fontSize:11, color:t.textMuted }}>Enter the 6-digit code from your authenticator app</div>
+                            <div style={{ fontFamily:t.fontDisplay, fontSize:13, fontWeight:700, color:t.accent }}>OTP Required</div>
+                            <div style={{ fontFamily:t.fontBody, fontSize:11, color:t.textMuted }}>Enter the 6-digit code sent to your email</div>
                         </div>
                       </div>
                       <input type="text" value={emailTotpCode} maxLength={6} autoFocus
