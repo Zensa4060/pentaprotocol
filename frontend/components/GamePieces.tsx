@@ -101,9 +101,9 @@ export const Skull = memo(function Skull({ size, cssSize }: { size?: number; css
   );
 });
 
-export const RedCell = React.memo(function RedCell({ cellSize, player, isWinCell, isHov, canPlay, blk, useFlameSkull, useSnowflakeShard, pieceSymbols, p1c, p2c, fontDisplay, onClick, onMouseEnter, onMouseLeave }: {
+export const RedCell = React.memo(function RedCell({ cellSize, player, isWinCell, isHov, canPlay, blk, useFlameSkull, useSnowflakeShard, useGlacierSigils, pieceSymbols, p1c, p2c, fontDisplay, onClick, onMouseEnter, onMouseLeave }: {
   cellSize: string; player: string | null; isWinCell: boolean; isHov: boolean; canPlay: boolean; blk: boolean;
-  useFlameSkull: boolean; useSnowflakeShard: boolean; pieceSymbols: { p1: string; p2: string }; p1c: string; p2c: string; fontDisplay: string;
+  useFlameSkull: boolean; useSnowflakeShard: boolean; useGlacierSigils: boolean; pieceSymbols: { p1: string; p2: string }; p1c: string; p2c: string; fontDisplay: string;
   onClick: () => void; onMouseEnter: () => void; onMouseLeave: () => void;
 }) {
   const isP1 = player === "P1";
@@ -122,6 +122,7 @@ export const RedCell = React.memo(function RedCell({ cellSize, player, isWinCell
   const ec = isP1 ? p1c : p2c;
   const renderPiece = (slot: "P1" | "P2") => {
     if (useFlameSkull) return slot === "P1" ? <Flame size={numSizeRef.current}/> : <Skull size={numSizeRef.current}/>;
+    if (useGlacierSigils) return slot === "P1" ? <GlacierSigilPiece size={numSizeRef.current}/> : <GlacierPrismPiece size={numSizeRef.current}/>;
     if (useSnowflakeShard) return slot === "P1" ? <SnowflakePiece size={numSizeRef.current}/> : <IceShardPiece size={numSizeRef.current}/>;
     const sc = slot === "P1" ? p1c : p2c;
     return <span style={{ fontFamily:fontDisplay, fontSize:"clamp(24px,5.5vmin,58px)", fontWeight:700, color:sc, textShadow:`0 0 14px ${sc}88`, position:"relative", zIndex:4 }}>{slot === "P1" ? pieceSymbols.p1 : pieceSymbols.p2}</span>;
@@ -176,6 +177,49 @@ export function IceOverlay() {
   );
 }
 
+export function GlacierAurora() {
+  return (
+    <div style={{ position:"absolute", inset:0, pointerEvents:"none", zIndex:0, borderRadius:"inherit", overflow:"hidden" }}>
+      <div style={{ position:"absolute", top:"-6%", left:"-8%", width:"70%", height:"38%", borderRadius:"50%", background:"radial-gradient(ellipse at center, rgba(0,220,180,0.16), transparent 70%)", filter:"blur(22px)", animation:"glAurora1 9s ease-in-out infinite alternate" }} />
+      <div style={{ position:"absolute", top:"-2%", right:"-8%", width:"72%", height:"36%", borderRadius:"50%", background:"radial-gradient(ellipse at center, rgba(60,120,255,0.14), transparent 72%)", filter:"blur(24px)", animation:"glAurora2 11s ease-in-out infinite alternate" }} />
+      <div style={{ position:"absolute", top:"10%", left:"18%", width:"62%", height:"30%", borderRadius:"50%", background:"radial-gradient(ellipse at center, rgba(140,80,255,0.08), transparent 74%)", filter:"blur(20px)", animation:"glAurora3 10s ease-in-out infinite alternate" }} />
+    </div>
+  );
+}
+
+export function GlacierSnow({ count = 18 }: { count?: number }) {
+  const flakes = useRef(Array.from({ length: count }, (_, i) => ({
+    id: i,
+    x: Math.random() * 100,
+    d: Math.random() * 9 + 6,
+    delay: -(Math.random() * 12),
+    s: Math.random() * 1.8 + 0.8,
+    dx: (Math.random() - 0.5) * 40,
+  })));
+  return (
+    <div style={{ position:"absolute", inset:0, pointerEvents:"none", zIndex:1, overflow:"hidden" }}>
+      <style>{`@keyframes glSnowFall{0%{transform:translateY(-8px) translateX(0px);opacity:0}8%{opacity:.88}85%{opacity:.45}100%{transform:translateY(800px) translateX(var(--gl-dx,12px));opacity:0}}`}</style>
+      {flakes.current.map(f => (
+        <span
+          key={f.id}
+          style={{
+            position:"absolute",
+            left:`${f.x}%`,
+            top:0,
+            width:f.s,
+            height:f.s,
+            borderRadius:"50%",
+            background:"rgba(220,245,255,0.92)",
+            boxShadow:"0 0 5px rgba(200,240,255,0.75)",
+            ["--gl-dx" as string]:`${f.dx}px`,
+            animation:`glSnowFall ${f.d}s linear ${f.delay}s infinite`,
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
 export const SnowflakePiece = memo(function SnowflakePiece({ size, cssSize }: { size?: number; cssSize?: string }) {
   const fw = cssSize ?? `${(size ?? 80) * 0.52}px`;
   return (
@@ -200,6 +244,64 @@ export const SnowflakePiece = memo(function SnowflakePiece({ size, cssSize }: { 
   );
 });
 
+// Glacier Sigil — 6-arm snowflake matching GlacierGrid store preview exactly
+export const GlacierSigilPiece = memo(function GlacierSigilPiece({ size, cssSize }: { size?: number; cssSize?: string }) {
+  const s = cssSize ?? `${(size ?? 80) * 0.58}px`;
+  const glow = "drop-shadow(0 0 6px #7dd3fc) drop-shadow(0 0 18px rgba(125,211,252,.7))";
+  const arms = [0, 60, 120, 180, 240, 300];
+  return (
+    <svg width={s} height={s} viewBox="0 0 48 48" style={{ position: "absolute", zIndex: 6, filter: glow, animation: "gsfIn .55s cubic-bezier(.175,.885,.32,1.275) forwards" }}>
+      <style>{`@keyframes gsfIn{0%{transform:scale(0) rotate(-120deg);opacity:0}60%{transform:scale(1.22) rotate(15deg);opacity:1}80%{transform:scale(.9) rotate(-5deg)}100%{transform:scale(1) rotate(0);opacity:1}}`}</style>
+      <g transform="translate(24,24)">
+        {arms.map((a, i) => (
+          <g key={a} transform={`rotate(${a})`} opacity="0">
+            <animate attributeName="opacity" from="0" to="1" dur=".05s" begin={`${0.04 * i}s`} fill="freeze" />
+            <line x1="0" y1="-19" x2="0" y2="19" stroke="#7dd3fc" strokeWidth="1.8" strokeLinecap="round" />
+            <line x1="-4.5" y1="-11" x2="0" y2="-11" stroke="#7dd3fc" strokeWidth="1.2" strokeLinecap="round" />
+            <line x1="4.5" y1="-11" x2="0" y2="-11" stroke="#7dd3fc" strokeWidth="1.2" strokeLinecap="round" />
+            <line x1="-3" y1="-6" x2="0" y2="-6" stroke="#bae6fd" strokeWidth="1" strokeLinecap="round" />
+            <line x1="3" y1="-6" x2="0" y2="-6" stroke="#bae6fd" strokeWidth="1" strokeLinecap="round" />
+            <polygon points="0,-19 -2,-15 0,-21 2,-15" fill="#e0f2fe" opacity=".7" />
+          </g>
+        ))}
+        <circle cx="0" cy="0" r="2.5" fill="#e0f2fe" opacity="0">
+          <animate attributeName="opacity" values="0;1;.5;1;.8" dur=".4s" begin=".28s" fill="freeze" />
+          <animate attributeName="r" values="2;3.5;2" dur="2.5s" begin=".5s" repeatCount="indefinite" />
+        </circle>
+      </g>
+    </svg>
+  );
+});
+
+// Glacier Prism — tall tapered diamond matching GlacierGrid store preview exactly
+export const GlacierPrismPiece = memo(function GlacierPrismPiece({ size, cssSize }: { size?: number; cssSize?: string }) {
+  const s = cssSize ?? `${(size ?? 80) * 0.58}px`;
+  const glow = "drop-shadow(0 0 6px #93c5fd) drop-shadow(0 0 18px rgba(147,197,253,.7))";
+  return (
+    <svg width={s} height={s} viewBox="0 0 48 48" style={{ position: "absolute", zIndex: 6, filter: glow, animation: "gisIn .45s cubic-bezier(.34,1.56,.64,1) forwards" }}>
+      <style>{`@keyframes gisIn{0%{transform:scale(0) rotate(30deg);opacity:0}58%{transform:scale(1.18) rotate(-5deg);opacity:1}80%{transform:scale(.93) rotate(2deg)}100%{transform:scale(1) rotate(0);opacity:1}}`}</style>
+      <path d="M24,4 L28,20 L24,44 L20,20 Z" fill="none" stroke="#93c5fd" strokeWidth="2.2" strokeLinejoin="round" strokeDasharray="68" strokeDashoffset="68">
+        <animate attributeName="stroke-dashoffset" from="68" to="0" dur=".2s" fill="freeze" />
+      </path>
+      <path d="M24,4 L28,20 L24,44 L20,20 Z" fill="#93c5fd" opacity="0">
+        <animate attributeName="opacity" from="0" to=".12" dur=".07s" begin=".18s" fill="freeze" />
+      </path>
+      <path d="M8,10 L16,22 L14,38 L8,24 Z" fill="none" stroke="#bfdbfe" strokeWidth="1.6" strokeLinejoin="round" strokeDasharray="50" strokeDashoffset="50">
+        <animate attributeName="stroke-dashoffset" from="50" to="0" dur=".16s" begin=".16s" fill="freeze" />
+      </path>
+      <path d="M40,10 L32,22 L34,38 L40,24 Z" fill="none" stroke="#bfdbfe" strokeWidth="1.6" strokeLinejoin="round" strokeDasharray="50" strokeDashoffset="50">
+        <animate attributeName="stroke-dashoffset" from="50" to="0" dur=".16s" begin=".16s" fill="freeze" />
+      </path>
+      <line x1="24" y1="4" x2="28" y2="20" stroke="white" strokeWidth=".7" opacity="0">
+        <animate attributeName="opacity" from="0" to=".5" dur=".06s" begin=".22s" fill="freeze" />
+      </line>
+      <circle cx="24" cy="4" r="2.5" fill="#e0f2fe" opacity="0">
+        <animate attributeName="opacity" values="0;1;.4;1;0" dur="2.2s" begin=".28s" repeatCount="indefinite" />
+      </circle>
+    </svg>
+  );
+});
+
 export const IceShardPiece = memo(function IceShardPiece({ size, cssSize }: { size?: number; cssSize?: string }) {
   const sw = cssSize ?? `${(size ?? 80) * 0.52}px`;
   return (
@@ -217,9 +319,9 @@ export const IceShardPiece = memo(function IceShardPiece({ size, cssSize }: { si
   );
 });
 
-export const IceCell = React.memo(function IceCell({ cellSize, player, isWinCell, isHov, canPlay, blk, useFlameSkull, useSnowflakeShard, pieceSymbols, p1c, p2c, fontDisplay, onClick, onMouseEnter, onMouseLeave }: {
+export const IceCell = React.memo(function IceCell({ cellSize, player, isWinCell, isHov, canPlay, blk, useFlameSkull, useSnowflakeShard, useGlacierSigils, pieceSymbols, p1c, p2c, fontDisplay, onClick, onMouseEnter, onMouseLeave }: {
   cellSize: string; player: string | null; isWinCell: boolean; isHov: boolean; canPlay: boolean; blk: boolean;
-  useFlameSkull: boolean; useSnowflakeShard: boolean; pieceSymbols: { p1: string; p2: string }; p1c: string; p2c: string; fontDisplay: string;
+  useFlameSkull: boolean; useSnowflakeShard: boolean; useGlacierSigils: boolean; pieceSymbols: { p1: string; p2: string }; p1c: string; p2c: string; fontDisplay: string;
   onClick: () => void; onMouseEnter: () => void; onMouseLeave: () => void;
 }) {
   const isP1 = player === "P1";
@@ -238,6 +340,7 @@ export const IceCell = React.memo(function IceCell({ cellSize, player, isWinCell
   const ec = isP1 ? p1c : p2c;
   const renderPiece = (slot: "P1" | "P2") => {
     if (useFlameSkull) return slot === "P1" ? <Flame size={numSizeRef.current}/> : <Skull size={numSizeRef.current}/>;
+    if (useGlacierSigils) return slot === "P1" ? <GlacierSigilPiece size={numSizeRef.current}/> : <GlacierPrismPiece size={numSizeRef.current}/>;
     if (useSnowflakeShard) return slot === "P1" ? <SnowflakePiece size={numSizeRef.current}/> : <IceShardPiece size={numSizeRef.current}/>;
     const sc = slot === "P1" ? p1c : p2c;
     return <span style={{ fontFamily:fontDisplay, fontSize:"clamp(24px,5.5vmin,58px)", fontWeight:700, color:sc, textShadow:`0 0 14px ${sc}88`, position:"relative", zIndex:4 }}>{slot === "P1" ? pieceSymbols.p1 : pieceSymbols.p2}</span>;
@@ -295,3 +398,145 @@ export const TossCard = memo(function TossCard({ label, onClick, delay, actorCol
       }}>{label}</button>
   );
 });
+
+// Canvas-based animated crystalline grid lines — matches GlacierGrid store preview exactly
+export function GlacierGridLines() {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const rafRef = useRef<number | null>(null);
+  const tc = useRef(0);
+
+  useEffect(() => {
+    const container = containerRef.current;
+    const cv = canvasRef.current;
+    if (!container || !cv) return;
+
+    const startDraw = (W: number, H: number) => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      const dpr = window.devicePixelRatio || 1;
+      cv.width = W * dpr;
+      cv.height = H * dpr;
+      cv.style.width = `${W}px`;
+      cv.style.height = `${H}px`;
+      const ctx = cv.getContext("2d");
+      if (!ctx) return;
+      ctx.scale(dpr, dpr);
+
+      const loop = () => {
+        tc.current += 0.014;
+        const t = tc.current;
+        ctx.clearRect(0, 0, W, H);
+
+        for (let i = 0; i <= 5; i++) {
+          const x = (i / 5) * W;
+          const y = (i / 5) * H;
+          const icy = 0.6 + 0.4 * Math.sin(t * 1.0 + i * 0.9);
+
+          // Vertical ice-white lines
+          ctx.save();
+          ctx.strokeStyle = `rgba(160,230,255,${0.2 * icy})`;
+          ctx.lineWidth = 9;
+          ctx.shadowColor = "rgba(180,240,255,0.7)";
+          ctx.shadowBlur = 24;
+          ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
+          ctx.restore();
+          ctx.save();
+          ctx.strokeStyle = `rgba(200,240,255,${0.72 * icy})`;
+          ctx.lineWidth = 4;
+          ctx.shadowColor = "rgba(220,250,255,1)";
+          ctx.shadowBlur = 20;
+          ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
+          ctx.restore();
+          ctx.save();
+          ctx.strokeStyle = `rgba(240,250,255,${0.92 * icy})`;
+          ctx.lineWidth = 1.2;
+          ctx.shadowColor = "rgba(255,255,255,0.9)";
+          ctx.shadowBlur = 8;
+          ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
+          ctx.restore();
+
+          // Horizontal aurora-teal lines
+          ctx.save();
+          ctx.strokeStyle = `rgba(0,190,170,${0.18 * icy})`;
+          ctx.lineWidth = 9;
+          ctx.shadowColor = "rgba(0,220,200,0.7)";
+          ctx.shadowBlur = 24;
+          ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+          ctx.restore();
+          ctx.save();
+          ctx.strokeStyle = `rgba(0,220,200,${0.7 * icy})`;
+          ctx.lineWidth = 4;
+          ctx.shadowColor = "rgba(80,240,220,1)";
+          ctx.shadowBlur = 20;
+          ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+          ctx.restore();
+          ctx.save();
+          ctx.strokeStyle = `rgba(180,255,248,${0.9 * icy})`;
+          ctx.lineWidth = 1.2;
+          ctx.shadowColor = "rgba(255,255,255,0.9)";
+          ctx.shadowBlur = 8;
+          ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+          ctx.restore();
+        }
+
+        // Frost-star sparkles at intersections
+        for (let r = 0; r <= 5; r++) {
+          for (let c = 0; c <= 5; c++) {
+            const nx = (c / 5) * W;
+            const ny = (r / 5) * H;
+            const sp = 0.5 + 0.5 * Math.abs(Math.sin(t * 2 + (r * 6 + c) * 0.9));
+            ctx.save();
+            ctx.translate(nx, ny);
+            ctx.globalAlpha = sp * 0.9;
+            ctx.strokeStyle = "rgba(220,250,255,0.9)";
+            ctx.lineWidth = 1.2;
+            ctx.shadowColor = "rgba(200,240,255,1)";
+            ctx.shadowBlur = 14 * sp;
+            const sz = Math.max(W, H) * 0.012 + sp * Math.max(W, H) * 0.008;
+            [0, 60, 120].forEach(a => {
+              const rad = (a * Math.PI) / 180;
+              ctx.beginPath();
+              ctx.moveTo(-Math.cos(rad) * sz, -Math.sin(rad) * sz);
+              ctx.lineTo(Math.cos(rad) * sz, Math.sin(rad) * sz);
+              ctx.stroke();
+            });
+            ctx.fillStyle = `rgba(240,255,255,${0.9 * sp})`;
+            ctx.shadowBlur = 12 * sp;
+            ctx.beginPath();
+            ctx.arc(0, 0, Math.max(W, H) * 0.004, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+          }
+        }
+
+        rafRef.current = requestAnimationFrame(loop);
+      };
+      loop();
+    };
+
+    let W = container.offsetWidth;
+    let H = container.offsetHeight;
+    if (W > 0 && H > 0) startDraw(W, H);
+
+    const ro = new ResizeObserver(entries => {
+      const rect = entries[0]?.contentRect;
+      if (!rect) return;
+      if (Math.abs(rect.width - W) < 2 && Math.abs(rect.height - H) < 2) return;
+      W = rect.width;
+      H = rect.height;
+      if (W > 0 && H > 0) startDraw(W, H);
+    });
+    ro.observe(container);
+
+    return () => {
+      ro.disconnect();
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    };
+  }, []);
+
+  return (
+    <div ref={containerRef} style={{ position: "absolute", inset: 0, pointerEvents: "none", zIndex: 2 }}>
+      <canvas ref={canvasRef} style={{ position: "absolute", inset: 0, pointerEvents: "none" }} />
+    </div>
+  );
+}

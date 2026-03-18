@@ -8,9 +8,19 @@ import { useAuthStore } from "@/lib/store";
 import { PROTO_DARK_SVG } from "@/lib/currencyIcons";
 import {
   Embers, HeatOverlay, FrostCrystals, IceOverlay,
-  Flame, Skull, SnowflakePiece, IceShardPiece,
-  RedCell, IceCell,
+  Flame, Skull, SnowflakePiece, IceShardPiece, GlacierSigilPiece, GlacierPrismPiece,
+  RedCell, IceCell, GlacierAurora, GlacierSnow,
 } from "./GamePieces";
+import GlacierGrid from "./GlacierGrid";
+import BloodMoonGrid from "./BloodMoonGrid";
+import EgyptGrid from "./EgyptGrid";
+import SynthwaveGrid from "./SynthwaveGrid";
+import MatrixGrid from "./MatrixGrid";
+import ArcaneGrid from "./ArcaneGrid";
+import BioGrid from "./BioGrid";
+import ForgeGrid from "./ForgeGrid";
+import VoidGrid from "./VoidGrid";
+import TokyoGrid from "./TokyoGrid";
 import VoidRiftBanner from "./VoidRiftBanner";
 import BloodMoonBanner from "./BloodMoonBanner";
 import PhantomStrikeBanner from "./PhantomStrikeBanner";
@@ -59,6 +69,7 @@ type Bundle = {
   accentColor: string; bgGradient: string;
   bundlePrice: number; boardPrice: number; piecePrice: number; tags: string[];
   isIce: boolean;
+  previewKind: "fire" | "ice" | "glacier" | "bloodmoon" | "egypt" | "synthwave" | "matrix" | "arcane" | "bio" | "forge" | "void" | "tokyo";
 };
 
 const BUNDLES: Bundle[] = [
@@ -68,15 +79,95 @@ const BUNDLES: Bundle[] = [
     boardId: "red_grid", pieceId: "piece_flame_skull", boardLabel: "Inferno", pieceLabel: "Flame & Skull",
     accentColor: "#FF3300", bgGradient: "linear-gradient(160deg,#140200,#2a0600,#1a0300)",
     bundlePrice: 1999, boardPrice: 1599, piecePrice: 599,
-    tags: ["FIRE THEME", "ANIMATED", "BOARD + PIECES"], isIce: false,
+    tags: ["FIRE THEME", "ANIMATED", "BOARD + PIECES"], isIce: false, previewKind: "fire",
   },
   {
-    id: "bundle_ice", label: "GLACIER BUNDLE", tagline: "Cool, calculated, absolutely deadly",
+    id: "bundle_ice", label: "ICE BUNDLE", tagline: "Cool, calculated, absolutely deadly",
     desc: "Crystalline frost spreads across the board. Snowflake geometry meets ice shard aggression. Built for the strategist who plays cold.",
-    boardId: "ice_grid", pieceId: "piece_snowflake_shard", boardLabel: "Glacier", pieceLabel: "Snow & Shard",
+    boardId: "ice_grid", pieceId: "piece_snowflake_shard", boardLabel: "Ice Board", pieceLabel: "Snow & Shard",
     accentColor: "#50a0dc", bgGradient: "linear-gradient(160deg,#010c1f,#01152e,#010a1a)",
     bundlePrice: 1999, boardPrice: 1599, piecePrice: 599,
-    tags: ["ICE THEME", "CRYSTALLINE", "BOARD + PIECES"], isIce: true,
+    tags: ["ICE THEME", "CRYSTALLINE", "BOARD + PIECES"], isIce: true, previewKind: "ice",
+  },
+  {
+    id: "bundle_glaciergrid", label: "GLACIER BUNDLE", tagline: "Aurora-lit frost, precision first",
+    desc: "A deep arctic battleground with aurora glow and crystalline intersections. Includes GlacierGrid board skin and matching Snowflake & Ice Shard piece skin.",
+    boardId: "glacier_grid", pieceId: "piece_glacier_shard", boardLabel: "Glacier Board", pieceLabel: "Glacier Sigils",
+    accentColor: "#7DD3FC", bgGradient: "linear-gradient(160deg,#020b1a,#031329,#041f35)",
+    bundlePrice: 1999, boardPrice: 1599, piecePrice: 599,
+    tags: ["GLACIERGRID", "AURORA", "BOARD + PIECES"], isIce: true, previewKind: "glacier",
+  },
+  {
+    id: "bundle_bloodmoon", label: "BLOODMOON BUNDLE", tagline: "Ritual crimson and violet omen",
+    desc: "A cursed battleground under a pulsing blood moon. Dripping crimson, violet lattice lines, and occult sigils that ignite with every move.",
+    boardId: "bloodmoon_grid", pieceId: "piece_bloodmoon_sigils", boardLabel: "Bloodmoon Board", pieceLabel: "Pentagram & Eye",
+    accentColor: "#DC2626", bgGradient: "linear-gradient(160deg,#070000,#170006,#0a0002)",
+    bundlePrice: 1999, boardPrice: 1599, piecePrice: 599,
+    tags: ["BLOODMOON", "ANIMATED", "BOARD + PIECES"], isIce: false, previewKind: "bloodmoon",
+  },
+  {
+    id: "bundle_egypt", label: "EGYPT BUNDLE", tagline: "Golden dunes and ancient sigils",
+    desc: "A desert night beneath pyramids and hieroglyph walls. Heat-shimmer lines and sand grains drift as Ankhs and the Eye of Ra blaze into place.",
+    boardId: "egypt_grid", pieceId: "piece_egypt_sigils", boardLabel: "Egypt Board", pieceLabel: "Ankh & Eye of Ra",
+    accentColor: "#F59E0B", bgGradient: "linear-gradient(160deg,#070400,#1a0f00,#0a0500)",
+    bundlePrice: 1999, boardPrice: 1599, piecePrice: 599,
+    tags: ["EGYPT", "ANIMATED", "BOARD + PIECES"], isIce: false, previewKind: "egypt",
+  },
+  {
+    id: "bundle_synthwave", label: "SYNTHWAVE BUNDLE", tagline: "Neon horizon and retro pulse",
+    desc: "A neon sunset over a receding grid floor with city silhouettes and glowing nodes. Retro Sun and Neon Palm ignite with every move.",
+    boardId: "synthwave_grid", pieceId: "piece_synthwave_sigils", boardLabel: "Synthwave Board", pieceLabel: "Sun & Palm",
+    accentColor: "#FF00B4", bgGradient: "linear-gradient(160deg,#0a002a,#1a004a,#cc2060)",
+    bundlePrice: 1999, boardPrice: 1599, piecePrice: 599,
+    tags: ["SYNTHWAVE", "NEON", "BOARD + PIECES"], isIce: false, previewKind: "synthwave",
+  },
+  {
+    id: "bundle_matrix", label: "MATRIX BUNDLE", tagline: "Code rain and green pulse",
+    desc: "A near-black green battleground with matrix rain, scanlines, glitch blocks, and pulsing code nodes. Brackets and binary sigils render with neon glow.",
+    boardId: "matrix_grid", pieceId: "piece_matrix_sigils", boardLabel: "Matrix Board", pieceLabel: "Bracket & Pill",
+    accentColor: "#00FF41", bgGradient: "linear-gradient(160deg,#000300,#001000,#000400)",
+    bundlePrice: 1999, boardPrice: 1599, piecePrice: 599,
+    tags: ["MATRIX", "GLITCH", "BOARD + PIECES"], isIce: false, previewKind: "matrix",
+  },
+  {
+    id: "bundle_arcane", label: "ARCANE BUNDLE", tagline: "Runes, mist, and magic circles",
+    desc: "A deep void board with drifting arcane mist, rotating magic circles, and glowing runes. Portal and gold sigils flare with every move.",
+    boardId: "arcane_grid", pieceId: "piece_arcane_sigils", boardLabel: "Arcane Board", pieceLabel: "Portal & Sigil",
+    accentColor: "#A855F7", bgGradient: "linear-gradient(160deg,#0a0012,#060008,#030004)",
+    bundlePrice: 1999, boardPrice: 1599, piecePrice: 599,
+    tags: ["ARCANE", "RUNES", "BOARD + PIECES"], isIce: false, previewKind: "arcane",
+  },
+  {
+    id: "bundle_bio", label: "BIO BUNDLE", tagline: "Abyss glow and bioluminescence",
+    desc: "A deep-sea board with drifting spores, glowing creatures, and bioluminescent gridlines. Jellyfish and angler sigils pulse on placement.",
+    boardId: "bio_grid", pieceId: "piece_bio_sigils", boardLabel: "Bio Board", pieceLabel: "Jellyfish & Angler",
+    accentColor: "#00FFD0", bgGradient: "linear-gradient(160deg,#000a0f,#000608,#000304)",
+    bundlePrice: 1999, boardPrice: 1599, piecePrice: 599,
+    tags: ["BIO", "ABYSS", "BOARD + PIECES"], isIce: false, previewKind: "bio",
+  },
+  {
+    id: "bundle_forge", label: "FORGE BUNDLE", tagline: "Molten veins and rising embers",
+    desc: "An obsidian forge board with molten pools, glowing veins, and drifting embers. Hammer and molten sigils ignite each move.",
+    boardId: "forge_grid", pieceId: "piece_forge_sigils", boardLabel: "Forge Board", pieceLabel: "Hammer & Molten Sigil",
+    accentColor: "#FF6600", bgGradient: "linear-gradient(160deg,#0a0200,#150400,#080100)",
+    bundlePrice: 1999, boardPrice: 1599, piecePrice: 599,
+    tags: ["FORGE", "LAVA", "BOARD + PIECES"], isIce: false, previewKind: "forge",
+  },
+  {
+    id: "bundle_void", label: "VOID BUNDLE", tagline: "Nebulae, stars, and cosmic pulses",
+    desc: "A deep-space board with drifting nebulae, twinkling stars, shooting streaks, and a pulsing singularity. Pulsar and Quasar sigils flare on placement.",
+    boardId: "void_grid", pieceId: "piece_void_sigils", boardLabel: "Void Board", pieceLabel: "Pulsar & Quasar",
+    accentColor: "#8B5CF6", bgGradient: "linear-gradient(160deg,#04011a,#020110,#000008)",
+    bundlePrice: 1999, boardPrice: 1599, piecePrice: 599,
+    tags: ["VOID", "COSMIC", "BOARD + PIECES"], isIce: false, previewKind: "void",
+  },
+  {
+    id: "bundle_tokyo", label: "TOKYO BUNDLE", tagline: "Neon rain and city glow",
+    desc: "A neon city board with animated rain, glowing signage, reflections, and vivid grid tubes. Dragon seals and katanas flash with every move.",
+    boardId: "tokyo_grid", pieceId: "piece_tokyo_sigils", boardLabel: "Tokyo Board", pieceLabel: "Dragon Seal & Katana",
+    accentColor: "#FF0066", bgGradient: "linear-gradient(160deg,#040008,#070012,#030008)",
+    bundlePrice: 1999, boardPrice: 1599, piecePrice: 599,
+    tags: ["TOKYO", "NEON", "BOARD + PIECES"], isIce: false, previewKind: "tokyo",
   },
 ];
 
@@ -116,6 +207,211 @@ function BannerRenderer({ banner, style = {} }: { banner: any; style?: React.CSS
 
 // ── Real board preview using actual GamePieces components ──────────────────────
 function BundleAnimatedPreview({ bundle, tick }: { bundle: Bundle; tick: number }) {
+  if (bundle.previewKind === "glacier") {
+    return (
+      <div style={{
+        width: "100%",
+        height: 360,
+        background: "linear-gradient(135deg,rgba(3,10,22,0.99),rgba(2,8,18,0.99))",
+        borderRadius: 12,
+        border: "2px solid rgba(125,211,252,0.35)",
+        boxShadow: "0 0 56px rgba(80,170,255,0.14), inset 0 0 44px rgba(0,0,0,0.74)",
+        position: "relative",
+        overflow: "hidden",
+      }}>
+        <div style={{ position: "absolute", inset: 0, pointerEvents: "none" }}>
+          <GlacierAurora />
+          <GlacierSnow count={20} />
+        </div>
+        <div style={{ position: "absolute", left: "50%", top: 10, transform: "translateX(-50%) scale(0.6)", transformOrigin: "top center" }}>
+          <GlacierGrid />
+        </div>
+        <div style={{ position: "absolute", top: 8, left: 12, fontFamily: "monospace", fontSize: 9, color: "rgba(170,230,255,0.72)", letterSpacing: "0.18em", zIndex: 10, pointerEvents: "none" }}>{bundle.boardLabel.toUpperCase()}</div>
+        <div style={{ position: "absolute", bottom: 8, right: 12, fontFamily: "monospace", fontSize: 9, color: "rgba(130,210,255,0.65)", letterSpacing: "0.1em", zIndex: 10, pointerEvents: "none" }}>LIVE PREVIEW</div>
+      </div>
+    );
+  }
+  if (bundle.previewKind === "bloodmoon") {
+    return (
+      <div style={{
+        width: "100%",
+        height: 360,
+        background: "linear-gradient(135deg,rgba(10,0,0,0.99),rgba(20,0,8,0.99))",
+        borderRadius: 12,
+        border: "2px solid rgba(220,38,38,0.35)",
+        boxShadow: "0 0 56px rgba(220,38,38,0.14), inset 0 0 44px rgba(0,0,0,0.74)",
+        position: "relative",
+        overflow: "hidden",
+      }}>
+        <div style={{ position: "absolute", left: "50%", top: 10, transform: "translateX(-50%) scale(0.6)", transformOrigin: "top center" }}>
+          <BloodMoonGrid showLabels={false} />
+        </div>
+        <div style={{ position: "absolute", top: 8, left: 12, fontFamily: "monospace", fontSize: 9, color: "rgba(255,120,120,0.68)", letterSpacing: "0.18em", zIndex: 10, pointerEvents: "none" }}>{bundle.boardLabel.toUpperCase()}</div>
+        <div style={{ position: "absolute", bottom: 8, right: 12, fontFamily: "monospace", fontSize: 9, color: "rgba(220,140,255,0.55)", letterSpacing: "0.1em", zIndex: 10, pointerEvents: "none" }}>LIVE PREVIEW</div>
+      </div>
+    );
+  }
+  if (bundle.previewKind === "egypt") {
+    return (
+      <div style={{
+        width: "100%",
+        height: 360,
+        background: "linear-gradient(135deg,rgba(7,4,0,0.99),rgba(14,7,0,0.99))",
+        borderRadius: 12,
+        border: "2px solid rgba(245,158,11,0.35)",
+        boxShadow: "0 0 56px rgba(245,158,11,0.14), inset 0 0 44px rgba(0,0,0,0.74)",
+        position: "relative",
+        overflow: "hidden",
+      }}>
+        <div style={{ position: "absolute", left: "50%", top: 10, transform: "translateX(-50%) scale(0.6)", transformOrigin: "top center" }}>
+          <EgyptGrid showLabels={false} />
+        </div>
+        <div style={{ position: "absolute", top: 8, left: 12, fontFamily: "monospace", fontSize: 9, color: "rgba(255,210,120,0.7)", letterSpacing: "0.18em", zIndex: 10, pointerEvents: "none" }}>{bundle.boardLabel.toUpperCase()}</div>
+        <div style={{ position: "absolute", bottom: 8, right: 12, fontFamily: "monospace", fontSize: 9, color: "rgba(255,230,160,0.55)", letterSpacing: "0.1em", zIndex: 10, pointerEvents: "none" }}>LIVE PREVIEW</div>
+      </div>
+    );
+  }
+  if (bundle.previewKind === "synthwave") {
+    return (
+      <div style={{
+        width: "100%",
+        height: 360,
+        background: "linear-gradient(135deg,rgba(10,0,42,0.99),rgba(204,32,96,0.92))",
+        borderRadius: 12,
+        border: "2px solid rgba(255,0,180,0.35)",
+        boxShadow: "0 0 56px rgba(255,0,180,0.14), inset 0 0 44px rgba(0,0,0,0.74)",
+        position: "relative",
+        overflow: "hidden",
+      }}>
+        <div style={{ position: "absolute", left: "50%", top: 10, transform: "translateX(-50%) scale(0.6)", transformOrigin: "top center" }}>
+          <SynthwaveGrid showLabels={false} />
+        </div>
+        <div style={{ position: "absolute", top: 8, left: 12, fontFamily: "monospace", fontSize: 9, color: "rgba(255,120,220,0.75)", letterSpacing: "0.18em", zIndex: 10, pointerEvents: "none" }}>{bundle.boardLabel.toUpperCase()}</div>
+        <div style={{ position: "absolute", bottom: 8, right: 12, fontFamily: "monospace", fontSize: 9, color: "rgba(140,240,255,0.6)", letterSpacing: "0.1em", zIndex: 10, pointerEvents: "none" }}>LIVE PREVIEW</div>
+      </div>
+    );
+  }
+  if (bundle.previewKind === "matrix") {
+    return (
+      <div style={{
+        width: "100%",
+        height: 360,
+        background: "linear-gradient(135deg,rgba(0,3,0,0.99),rgba(0,16,0,0.92))",
+        borderRadius: 12,
+        border: "2px solid rgba(0,255,65,0.35)",
+        boxShadow: "0 0 56px rgba(0,255,65,0.14), inset 0 0 44px rgba(0,0,0,0.74)",
+        position: "relative",
+        overflow: "hidden",
+      }}>
+        <div style={{ position: "absolute", left: "50%", top: 10, transform: "translateX(-50%) scale(0.6)", transformOrigin: "top center" }}>
+          <MatrixGrid showLabels={false} />
+        </div>
+        <div style={{ position: "absolute", top: 8, left: 12, fontFamily: "monospace", fontSize: 9, color: "rgba(150,255,150,0.7)", letterSpacing: "0.18em", zIndex: 10, pointerEvents: "none" }}>{bundle.boardLabel.toUpperCase()}</div>
+        <div style={{ position: "absolute", bottom: 8, right: 12, fontFamily: "monospace", fontSize: 9, color: "rgba(0,255,65,0.55)", letterSpacing: "0.1em", zIndex: 10, pointerEvents: "none" }}>LIVE PREVIEW</div>
+      </div>
+    );
+  }
+  if (bundle.previewKind === "arcane") {
+    return (
+      <div style={{
+        width: "100%",
+        height: 360,
+        background: "linear-gradient(135deg,rgba(10,0,18,0.99),rgba(3,0,4,0.96))",
+        borderRadius: 12,
+        border: "2px solid rgba(168,85,247,0.35)",
+        boxShadow: "0 0 56px rgba(168,85,247,0.14), inset 0 0 44px rgba(0,0,0,0.74)",
+        position: "relative",
+        overflow: "hidden",
+      }}>
+        <div style={{ position: "absolute", left: "50%", top: 10, transform: "translateX(-50%) scale(0.6)", transformOrigin: "top center" }}>
+          <ArcaneGrid showLabels={false} />
+        </div>
+        <div style={{ position: "absolute", top: 8, left: 12, fontFamily: "monospace", fontSize: 9, color: "rgba(220,170,255,0.72)", letterSpacing: "0.18em", zIndex: 10, pointerEvents: "none" }}>{bundle.boardLabel.toUpperCase()}</div>
+        <div style={{ position: "absolute", bottom: 8, right: 12, fontFamily: "monospace", fontSize: 9, color: "rgba(255,220,140,0.55)", letterSpacing: "0.1em", zIndex: 10, pointerEvents: "none" }}>LIVE PREVIEW</div>
+      </div>
+    );
+  }
+  if (bundle.previewKind === "bio") {
+    return (
+      <div style={{
+        width: "100%",
+        height: 360,
+        background: "linear-gradient(135deg,rgba(0,10,15,0.99),rgba(0,3,4,0.96))",
+        borderRadius: 12,
+        border: "2px solid rgba(0,255,208,0.32)",
+        boxShadow: "0 0 56px rgba(0,255,208,0.12), inset 0 0 44px rgba(0,0,0,0.78)",
+        position: "relative",
+        overflow: "hidden",
+      }}>
+        <div style={{ position: "absolute", left: "50%", top: 10, transform: "translateX(-50%) scale(0.6)", transformOrigin: "top center" }}>
+          <BioGrid showLabels={false} />
+        </div>
+        <div style={{ position: "absolute", top: 8, left: 12, fontFamily: "monospace", fontSize: 9, color: "rgba(140,255,230,0.70)", letterSpacing: "0.18em", zIndex: 10, pointerEvents: "none" }}>{bundle.boardLabel.toUpperCase()}</div>
+        <div style={{ position: "absolute", bottom: 8, right: 12, fontFamily: "monospace", fontSize: 9, color: "rgba(190,140,255,0.55)", letterSpacing: "0.1em", zIndex: 10, pointerEvents: "none" }}>LIVE PREVIEW</div>
+      </div>
+    );
+  }
+  if (bundle.previewKind === "forge") {
+    return (
+      <div style={{
+        width: "100%",
+        height: 360,
+        background: "linear-gradient(135deg,rgba(10,2,0,0.99),rgba(8,1,0,0.98))",
+        borderRadius: 12,
+        border: "2px solid rgba(255,102,0,0.30)",
+        boxShadow: "0 0 56px rgba(255,102,0,0.16), inset 0 0 44px rgba(0,0,0,0.72)",
+        position: "relative",
+        overflow: "hidden",
+      }}>
+        <div style={{ position: "absolute", left: "50%", top: 10, transform: "translateX(-50%) scale(0.6)", transformOrigin: "top center" }}>
+          <ForgeGrid showLabels={false} />
+        </div>
+        <div style={{ position: "absolute", top: 8, left: 12, fontFamily: "monospace", fontSize: 9, color: "rgba(255,180,120,0.72)", letterSpacing: "0.18em", zIndex: 10, pointerEvents: "none" }}>{bundle.boardLabel.toUpperCase()}</div>
+        <div style={{ position: "absolute", bottom: 8, right: 12, fontFamily: "monospace", fontSize: 9, color: "rgba(255,220,140,0.55)", letterSpacing: "0.1em", zIndex: 10, pointerEvents: "none" }}>LIVE PREVIEW</div>
+      </div>
+    );
+  }
+  if (bundle.previewKind === "void") {
+    return (
+      <div style={{
+        width: "100%",
+        height: 360,
+        background: "linear-gradient(135deg,rgba(4,1,26,0.99),rgba(0,0,8,0.98))",
+        borderRadius: 12,
+        border: "2px solid rgba(139,92,246,0.30)",
+        boxShadow: "0 0 56px rgba(139,92,246,0.16), inset 0 0 44px rgba(0,0,0,0.74)",
+        position: "relative",
+        overflow: "hidden",
+      }}>
+        <div style={{ position: "absolute", left: "50%", top: 10, transform: "translateX(-50%) scale(0.6)", transformOrigin: "top center" }}>
+          <VoidGrid showLabels={false} />
+        </div>
+        <div style={{ position: "absolute", top: 8, left: 12, fontFamily: "monospace", fontSize: 9, color: "rgba(200,170,255,0.70)", letterSpacing: "0.18em", zIndex: 10, pointerEvents: "none" }}>{bundle.boardLabel.toUpperCase()}</div>
+        <div style={{ position: "absolute", bottom: 8, right: 12, fontFamily: "monospace", fontSize: 9, color: "rgba(180,220,255,0.55)", letterSpacing: "0.1em", zIndex: 10, pointerEvents: "none" }}>LIVE PREVIEW</div>
+      </div>
+    );
+  }
+  if (bundle.previewKind === "tokyo") {
+    return (
+      <div style={{
+        width: "100%",
+        height: 360,
+        background: "linear-gradient(135deg,rgba(4,0,8,0.99),rgba(3,0,8,0.98))",
+        borderRadius: 12,
+        border: "2px solid rgba(255,0,102,0.30)",
+        boxShadow: "0 0 56px rgba(255,0,102,0.16), inset 0 0 44px rgba(0,0,0,0.74)",
+        position: "relative",
+        overflow: "hidden",
+      }}>
+        <div style={{ position: "absolute", left: "50%", top: 10, transform: "translateX(-50%) scale(0.6)", transformOrigin: "top center" }}>
+          <TokyoGrid showLabels={false} />
+        </div>
+        <div style={{ position: "absolute", top: 8, left: 12, fontFamily: "monospace", fontSize: 9, color: "rgba(255,80,140,0.72)", letterSpacing: "0.18em", zIndex: 10, pointerEvents: "none" }}>{bundle.boardLabel.toUpperCase()}</div>
+        <div style={{ position: "absolute", bottom: 8, right: 12, fontFamily: "monospace", fontSize: 9, color: "rgba(0,200,255,0.55)", letterSpacing: "0.1em", zIndex: 10, pointerEvents: "none" }}>LIVE PREVIEW</div>
+      </div>
+    );
+  }
+
   const GRID = 5;
   const CELL = "52px";
 
@@ -140,36 +436,37 @@ function BundleAnimatedPreview({ bundle, tick }: { bundle: Bundle; tick: number 
     })
   );
 
-  const p1c = bundle.isIce ? "#C8EEFF" : "#FF4400";
-  const p2c = bundle.isIce ? "#64C8FF" : "#BBBBBB";
-  const useFlameSkull     = !bundle.isIce;
-  const useSnowflakeShard = bundle.isIce;
-  const pieceSymbols = { p1: bundle.isIce ? "❄" : "🔥", p2: bundle.isIce ? "◆" : "💀" };
+  const isIcePreview = bundle.previewKind === "ice";
+  const p1c = isIcePreview ? "#C8EEFF" : "#FF4400";
+  const p2c = isIcePreview ? "#64C8FF" : "#BBBBBB";
+  const useFlameSkull     = !isIcePreview;
+  const useSnowflakeShard = isIcePreview;
+  const pieceSymbols = { p1: isIcePreview ? "❄" : "🔥", p2: isIcePreview ? "◆" : "💀" };
 
   return (
     <div style={{
       width: "100%",
-      background: bundle.isIce ? "linear-gradient(135deg,rgba(3,8,20,0.98),rgba(1,4,14,0.99))" : "rgba(10,2,1,0.99)",
+      background: isIcePreview ? "linear-gradient(135deg,rgba(3,8,20,0.98),rgba(1,4,14,0.99))" : "rgba(10,2,1,0.99)",
       borderRadius: 12,
-      border: `2px solid ${bundle.isIce ? "rgba(80,160,220,0.28)" : "rgba(140,20,0,0.35)"}`,
-      boxShadow: bundle.isIce ? "0 0 50px rgba(80,160,255,0.08), inset 0 0 40px rgba(0,0,0,0.7)" : "0 0 50px rgba(180,20,0,0.1), inset 0 0 40px rgba(0,0,0,0.7)",
+      border: `2px solid ${isIcePreview ? "rgba(80,160,220,0.28)" : "rgba(140,20,0,0.35)"}`,
+      boxShadow: isIcePreview ? "0 0 50px rgba(80,160,255,0.08), inset 0 0 40px rgba(0,0,0,0.7)" : "0 0 50px rgba(180,20,0,0.1), inset 0 0 40px rgba(0,0,0,0.7)",
       padding: 6, position: "relative", overflow: "hidden",
     }}>
-      {!bundle.isIce && <Embers count={16} />}
-      {!bundle.isIce && <HeatOverlay />}
-      {bundle.isIce  && <FrostCrystals />}
-      {bundle.isIce  && <IceOverlay />}
+      {!isIcePreview && <Embers count={16} />}
+      {!isIcePreview && <HeatOverlay />}
+      {isIcePreview  && <FrostCrystals />}
+      {isIcePreview  && <IceOverlay />}
       <div style={{ display: "grid", gridTemplateColumns: `repeat(${GRID}, ${CELL})`, gridTemplateRows: `repeat(${GRID}, ${CELL})`, gap: 4, position: "relative", zIndex: 2 }}>
         {board.map((row, r) => row.map((cell, c) => {
           const noop = () => {};
           const cellKey = `${r}-${c}`;
           const sharedProps = { cellSize: CELL, player: cell, isWinCell: false, isHov: false, canPlay: false, blk: false, pieceSymbols, p1c, p2c, fontDisplay: "'Courier New', monospace", onClick: noop, onMouseEnter: noop, onMouseLeave: noop };
-          if (bundle.isIce) return <IceCell key={cellKey} {...sharedProps} useFlameSkull={useFlameSkull} useSnowflakeShard={useSnowflakeShard} />;
-          return <RedCell key={cellKey} {...sharedProps} useFlameSkull={useFlameSkull} useSnowflakeShard={useSnowflakeShard} />;
+          if (isIcePreview) return <IceCell key={cellKey} {...sharedProps} useFlameSkull={useFlameSkull} useSnowflakeShard={useSnowflakeShard} useGlacierSigils={false} />;
+          return <RedCell key={cellKey} {...sharedProps} useFlameSkull={useFlameSkull} useSnowflakeShard={useSnowflakeShard} useGlacierSigils={false} />;
         }))}
       </div>
-      <div style={{ position: "absolute", top: 8, left: 12, fontFamily: "monospace", fontSize: 9, color: bundle.isIce ? "rgba(140,210,255,0.55)" : "rgba(200,60,40,0.7)", letterSpacing: "0.18em", zIndex: 10, pointerEvents: "none" }}>{bundle.boardLabel.toUpperCase()}</div>
-      <div style={{ position: "absolute", bottom: 8, right: 12, fontFamily: "monospace", fontSize: 9, color: bundle.isIce ? "rgba(100,200,255,0.45)" : "rgba(180,40,0,0.55)", letterSpacing: "0.1em", zIndex: 10, pointerEvents: "none" }}>LIVE PREVIEW</div>
+      <div style={{ position: "absolute", top: 8, left: 12, fontFamily: "monospace", fontSize: 9, color: isIcePreview ? "rgba(140,210,255,0.55)" : "rgba(200,60,40,0.7)", letterSpacing: "0.18em", zIndex: 10, pointerEvents: "none" }}>{bundle.boardLabel.toUpperCase()}</div>
+      <div style={{ position: "absolute", bottom: 8, right: 12, fontFamily: "monospace", fontSize: 9, color: isIcePreview ? "rgba(100,200,255,0.45)" : "rgba(180,40,0,0.55)", letterSpacing: "0.1em", zIndex: 10, pointerEvents: "none" }}>LIVE PREVIEW</div>
     </div>
   );
 }
@@ -192,15 +489,13 @@ function BundleModal({ bundle, t, isGuest, buyingId, purchasedItems, balance, on
   const options = [
     {
       id: "bundle",
-      label: ownsBoard ? `Add ${bundle.pieceLabel}` : ownsPiece ? `Add ${bundle.boardLabel}` : "Buy Bundle",
-      sublabel: ownsBoard || ownsPiece ? "Complete your set" : `Save ${bundle.boardPrice + bundle.piecePrice - bundle.bundlePrice} vs buying separate`,
-      price: ownsBoard ? bundle.piecePrice : ownsPiece ? bundle.boardPrice : bundle.bundlePrice,
-      includes: ownsBoard ? [bundle.pieceLabel] : ownsPiece ? [bundle.boardLabel] : [bundle.boardLabel, bundle.pieceLabel],
+      label: ownsBundle ? "Bundle Owned" : "Buy Bundle",
+      sublabel: ownsBundle ? "Board + Pieces unlocked" : `Includes ${bundle.boardLabel} + ${bundle.pieceLabel}`,
+      price: bundle.bundlePrice,
+      includes: [bundle.boardLabel, bundle.pieceLabel],
       disabled: ownsBundle, owned: ownsBundle, highlight: true,
-      purchaseId: ownsBoard ? bundle.pieceId : ownsPiece ? bundle.boardId : "bundle_purchase_" + bundle.id,
+      purchaseId: "bundle_purchase_" + bundle.id,
     },
-    { id: bundle.boardId, label: bundle.boardLabel, sublabel: "Board skin only", price: bundle.boardPrice, includes: [bundle.boardLabel], disabled: ownsBoard, owned: ownsBoard, highlight: false, purchaseId: bundle.boardId },
-    { id: bundle.pieceId, label: bundle.pieceLabel, sublabel: "Piece skin only", price: bundle.piecePrice, includes: [bundle.pieceLabel], disabled: ownsPiece, owned: ownsPiece, highlight: false, purchaseId: bundle.pieceId },
   ];
 
   return (
@@ -213,29 +508,28 @@ function BundleModal({ bundle, t, isGuest, buyingId, purchasedItems, balance, on
         <div style={{ padding: "24px 24px 0" }}>
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap" as const, marginBottom: 12 }}>
             {bundle.tags.map(tag => (<span key={tag} style={{ fontFamily: "monospace", fontSize: 9, fontWeight: 700, color: ac, background: `${ac}18`, border: `1px solid ${ac}44`, padding: "2px 7px", borderRadius: 4, letterSpacing: "0.1em" }}>{tag}</span>))}
-            {ownsBoard  && <span style={{ fontFamily: "monospace", fontSize: 9, fontWeight: 700, color: "#4CAF50", background: "#4CAF5018", border: "1px solid #4CAF5044", padding: "2px 7px", borderRadius: 4 }}>BOARD OWNED ✓</span>}
-            {ownsPiece  && <span style={{ fontFamily: "monospace", fontSize: 9, fontWeight: 700, color: "#4CAF50", background: "#4CAF5018", border: "1px solid #4CAF5044", padding: "2px 7px", borderRadius: 4 }}>PIECES OWNED ✓</span>}
+            {ownsBundle && <span style={{ fontFamily: "monospace", fontSize: 9, fontWeight: 700, color: "#4CAF50", background: "#4CAF5018", border: "1px solid #4CAF5044", padding: "2px 7px", borderRadius: 4 }}>BUNDLE OWNED ✓</span>}
           </div>
           <div style={{ fontFamily: t.fontDisplay, fontSize: 28, fontWeight: 900, color: "#fff", letterSpacing: "0.04em", marginBottom: 3 }}>{bundle.label}</div>
           <div style={{ fontFamily: t.fontBody, fontSize: 13, color: `${ac}cc`, fontStyle: "italic", marginBottom: 14 }}>{bundle.tagline}</div>
           <BundleAnimatedPreview bundle={bundle} tick={tick} />
           <div style={{ display: "flex", gap: 10, marginTop: 12 }}>
             <div style={{ flex: 1, background: `${ac}0C`, border: `1px solid ${ac}2A`, borderRadius: 10, padding: "10px 12px", display: "flex", alignItems: "center", gap: 10 }}>
-              <div style={{ width: 42, height: 42, borderRadius: 7, background: bundle.isIce ? "linear-gradient(135deg,rgba(5,12,25,0.96),rgba(2,7,16,0.98))" : "rgba(14,3,1,0.97)", border: `1.5px solid ${bundle.isIce ? "rgba(200,240,255,0.65)" : "rgba(255,80,0,0.7)"}`, display: "flex", alignItems: "center", justifyContent: "center", position: "relative", overflow: "hidden" }}>
-                {bundle.isIce ? <SnowflakePiece size={42} /> : <Flame size={42} />}
+              <div style={{ width: 42, height: 42, borderRadius: 7, background: bundle.previewKind === "fire" ? "rgba(14,3,1,0.97)" : "linear-gradient(135deg,rgba(5,12,25,0.96),rgba(2,7,16,0.98))", border: `1.5px solid ${bundle.previewKind === "fire" ? "rgba(255,80,0,0.7)" : bundle.previewKind === "glacier" ? "rgba(165,243,252,0.75)" : "rgba(200,240,255,0.65)"}`, display: "flex", alignItems: "center", justifyContent: "center", position: "relative", overflow: "hidden" }}>
+                {bundle.previewKind === "fire" ? <Flame size={42} /> : bundle.previewKind === "glacier" ? <GlacierSigilPiece size={42} /> : <SnowflakePiece size={42} />}
               </div>
-              <div><div style={{ fontFamily: "monospace", fontSize: 9, color: `${ac}77`, letterSpacing: "0.12em" }}>P1 PIECE</div><div style={{ fontFamily: t.fontDisplay, fontSize: 12, fontWeight: 700, color: ownsPiece ? "#4CAF50" : "#fff" }}>{bundle.isIce ? "Snowflake" : "Flame"} {ownsPiece ? "✓" : ""}</div></div>
+              <div><div style={{ fontFamily: "monospace", fontSize: 9, color: `${ac}77`, letterSpacing: "0.12em" }}>P1 PIECE</div><div style={{ fontFamily: t.fontDisplay, fontSize: 12, fontWeight: 700, color: ownsPiece ? "#4CAF50" : "#fff" }}>{bundle.previewKind === "fire" ? "Flame" : bundle.previewKind === "glacier" ? "Sigil" : "Snowflake"} {ownsPiece ? "✓" : ""}</div></div>
             </div>
             <div style={{ flex: 1, background: `${ac}0C`, border: `1px solid ${ac}2A`, borderRadius: 10, padding: "10px 12px", display: "flex", alignItems: "center", gap: 10 }}>
-              <div style={{ width: 42, height: 42, borderRadius: 7, background: bundle.isIce ? "linear-gradient(135deg,rgba(5,12,25,0.96),rgba(2,7,16,0.98))" : "rgba(14,3,1,0.97)", border: `1.5px solid ${bundle.isIce ? "rgba(100,200,255,0.65)" : "rgba(200,0,0,0.7)"}`, display: "flex", alignItems: "center", justifyContent: "center", position: "relative", overflow: "hidden" }}>
-                {bundle.isIce ? <IceShardPiece size={42} /> : <Skull size={42} />}
+              <div style={{ width: 42, height: 42, borderRadius: 7, background: bundle.previewKind === "fire" ? "rgba(14,3,1,0.97)" : "linear-gradient(135deg,rgba(5,12,25,0.96),rgba(2,7,16,0.98))", border: `1.5px solid ${bundle.previewKind === "fire" ? "rgba(200,0,0,0.7)" : bundle.previewKind === "glacier" ? "rgba(196,181,253,0.75)" : "rgba(100,200,255,0.65)"}`, display: "flex", alignItems: "center", justifyContent: "center", position: "relative", overflow: "hidden" }}>
+                {bundle.previewKind === "fire" ? <Skull size={42} /> : bundle.previewKind === "glacier" ? <GlacierPrismPiece size={42} /> : <IceShardPiece size={42} />}
               </div>
-              <div><div style={{ fontFamily: "monospace", fontSize: 9, color: `${ac}77`, letterSpacing: "0.12em" }}>P2 PIECE</div><div style={{ fontFamily: t.fontDisplay, fontSize: 12, fontWeight: 700, color: ownsPiece ? "#4CAF50" : "#fff" }}>{bundle.isIce ? "Ice Shard" : "Skull"} {ownsPiece ? "✓" : ""}</div></div>
+              <div><div style={{ fontFamily: "monospace", fontSize: 9, color: `${ac}77`, letterSpacing: "0.12em" }}>P2 PIECE</div><div style={{ fontFamily: t.fontDisplay, fontSize: 12, fontWeight: 700, color: ownsPiece ? "#4CAF50" : "#fff" }}>{bundle.previewKind === "fire" ? "Skull" : bundle.previewKind === "glacier" ? "Prism" : "Ice Shard"} {ownsPiece ? "✓" : ""}</div></div>
             </div>
             <div style={{ flex: 1, background: `${ac}0C`, border: `1px solid ${ac}2A`, borderRadius: 10, padding: "10px 12px", display: "flex", alignItems: "center", gap: 10 }}>
-              <div style={{ width: 42, height: 42, borderRadius: 7, background: bundle.isIce ? "linear-gradient(135deg,rgba(3,8,20,0.98),rgba(1,4,14,0.99))" : "rgba(10,2,1,0.99)", border: `1.5px solid ${bundle.isIce ? "rgba(80,160,220,0.35)" : "rgba(140,20,0,0.35)"}`, display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 2, padding: 4, position: "relative", overflow: "hidden" }}>
-                {bundle.isIce ? <FrostCrystals /> : <Embers count={4} />}
-                {Array.from({ length: 9 }).map((_, i) => (<div key={i} style={{ background: bundle.isIce ? "rgba(80,160,220,0.12)" : "rgba(150,20,0,0.15)", border: `1px solid ${bundle.isIce ? "rgba(80,160,220,0.3)" : "rgba(150,20,0,0.3)"}`, borderRadius: 1 }} />))}
+              <div style={{ width: 42, height: 42, borderRadius: 7, background: bundle.previewKind === "fire" ? "rgba(10,2,1,0.99)" : "linear-gradient(135deg,rgba(3,8,20,0.98),rgba(1,4,14,0.99))", border: `1.5px solid ${bundle.previewKind === "fire" ? "rgba(140,20,0,0.35)" : bundle.previewKind === "glacier" ? "rgba(125,211,252,0.45)" : "rgba(80,160,220,0.35)"}`, display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 2, padding: 4, position: "relative", overflow: "hidden" }}>
+                {bundle.previewKind === "fire" ? <Embers count={4} /> : bundle.previewKind === "glacier" ? <GlacierAurora /> : <FrostCrystals />}
+                {Array.from({ length: 9 }).map((_, i) => (<div key={i} style={{ background: bundle.previewKind === "fire" ? "rgba(150,20,0,0.15)" : "rgba(80,160,220,0.12)", border: `1px solid ${bundle.previewKind === "fire" ? "rgba(150,20,0,0.3)" : bundle.previewKind === "glacier" ? "rgba(125,211,252,0.38)" : "rgba(80,160,220,0.3)"}`, borderRadius: 1 }} />))}
               </div>
               <div><div style={{ fontFamily: "monospace", fontSize: 9, color: `${ac}77`, letterSpacing: "0.12em" }}>BOARD</div><div style={{ fontFamily: t.fontDisplay, fontSize: 12, fontWeight: 700, color: ownsBoard ? "#4CAF50" : "#fff" }}>{bundle.boardLabel} {ownsBoard ? "✓" : ""}</div></div>
             </div>
@@ -299,46 +593,124 @@ function BundleModal({ bundle, t, isGuest, buyingId, purchasedItems, balance, on
 // ── Bundle Card ───────────────────────────────────────────────────────────────
 function BundleCard({ bundle, purchasedItems, t, onClick }: { bundle: Bundle; purchasedItems: string[]; t: any; onClick: () => void }) {
   const [hov, setHov] = useState(false);
+  const [tick, setTick] = useState(0);
   const ownsBoard = purchasedItems.includes(bundle.boardId);
   const ownsPiece = purchasedItems.includes(bundle.pieceId);
   const ownsAll   = ownsBoard && ownsPiece;
   const ac = bundle.accentColor;
+  useEffect(() => {
+    const iv = setInterval(() => setTick(v => v + 1), 650);
+    return () => clearInterval(iv);
+  }, []);
+  const p1Cells = [12, 6, 18, 2, 22];
+  const p2Cells = [8, 16, 4, 20, 10];
+  const totalMoves = p1Cells.length + p2Cells.length;
+  const move = tick % (totalMoves + 4);
+  const placedP1 = new Set<number>();
+  const placedP2 = new Set<number>();
+  for (let i = 0; i < move && i < totalMoves; i++) {
+    if (i % 2 === 0) placedP1.add(p1Cells[Math.floor(i / 2)]);
+    else placedP2.add(p2Cells[Math.floor(i / 2)]);
+  }
 
   return (
     <div onClick={onClick} onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}
       style={{ background: bundle.bgGradient, border: `2px solid ${hov ? ac : ac + "33"}`, borderRadius: 18, padding: "24px", cursor: "pointer", position: "relative", overflow: "hidden", transform: hov ? "translateY(-6px) scale(1.01)" : "none", boxShadow: hov ? `0 20px 60px ${ac}30, 0 0 0 1px ${ac}20` : `0 4px 20px ${ac}14`, transition: "all 0.28s cubic-bezier(.22,.68,0,1.2)" }}>
       <div style={{ position: "absolute", top: -40, right: -40, width: 180, height: 180, borderRadius: "50%", background: `${ac}14`, filter: "blur(50px)", pointerEvents: "none" }} />
       <div style={{ position: "absolute", top: 14, right: 14, display: "flex", gap: 5, flexWrap: "wrap" as const, justifyContent: "flex-end", maxWidth: 160 }}>
-        {ownsAll ? <span style={{ fontFamily: "monospace", fontSize: 9, fontWeight: 700, color: "#4CAF50", background: "#4CAF5018", border: "1px solid #4CAF5044", padding: "2px 8px", borderRadius: 10 }}>FULLY OWNED ✓</span>
-          : <>{ownsBoard && <span style={{ fontFamily: "monospace", fontSize: 9, color: "#4CAF50", background: "#4CAF5010", border: "1px solid #4CAF5033", padding: "2px 6px", borderRadius: 8 }}>BOARD ✓</span>}{ownsPiece && <span style={{ fontFamily: "monospace", fontSize: 9, color: "#4CAF50", background: "#4CAF5010", border: "1px solid #4CAF5033", padding: "2px 6px", borderRadius: 8 }}>PIECES ✓</span>}</>}
+        {ownsAll && <span style={{ fontFamily: "monospace", fontSize: 9, fontWeight: 700, color: "#4CAF50", background: "#4CAF5018", border: "1px solid #4CAF5044", padding: "2px 8px", borderRadius: 10 }}>BUNDLE OWNED ✓</span>}
       </div>
       <div style={{ display: "flex", gap: 6, marginBottom: 14, flexWrap: "wrap" as const }}>
         {bundle.tags.map(tag => (<span key={tag} style={{ fontFamily: "monospace", fontSize: 9, fontWeight: 700, color: ac, background: `${ac}18`, border: `1px solid ${ac}33`, padding: "2px 7px", borderRadius: 4, letterSpacing: "0.1em" }}>{tag}</span>))}
       </div>
       <div style={{ fontFamily: t.fontDisplay, fontSize: 22, fontWeight: 900, color: "#fff", letterSpacing: "0.04em", marginBottom: 3 }}>{bundle.label}</div>
       <div style={{ fontFamily: t.fontBody, fontSize: 12, color: `${ac}bb`, fontStyle: "italic", marginBottom: 16 }}>{bundle.tagline}</div>
-      <div style={{ height: 72, borderRadius: 10, marginBottom: 14, overflow: "hidden", position: "relative", background: bundle.isIce ? "linear-gradient(135deg,rgba(3,8,20,0.98),rgba(1,4,14,0.99))" : "rgba(10,2,1,0.99)", border: `1px solid ${bundle.isIce ? "rgba(80,160,220,0.28)" : "rgba(140,20,0,0.35)"}` }}>
-        {!bundle.isIce && <Embers count={6} />}{!bundle.isIce && <HeatOverlay />}{bundle.isIce && <FrostCrystals />}{bundle.isIce && <IceOverlay />}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(5,1fr)", gap: 2, padding: 6, height: "100%", position: "relative", zIndex: 2 }}>
-          {Array.from({ length: 10 }).map((_, i) => (<div key={i} style={{ background: bundle.isIce ? "rgba(80,160,220,0.12)" : "rgba(150,20,0,0.15)", border: `1px solid ${bundle.isIce ? "rgba(80,160,220,0.3)" : "rgba(150,20,0,0.3)"}`, borderRadius: 2 }} />))}
-        </div>
+      <div style={{ height: 72, borderRadius: 10, marginBottom: 14, overflow: "hidden", position: "relative", background: bundle.previewKind === "fire" ? "rgba(10,2,1,0.99)" : bundle.previewKind === "bloodmoon" ? "linear-gradient(135deg,rgba(10,0,0,0.99),rgba(18,0,10,0.99))" : bundle.previewKind === "egypt" ? "linear-gradient(135deg,rgba(7,4,0,0.99),rgba(14,7,0,0.99))" : bundle.previewKind === "synthwave" ? "linear-gradient(135deg,rgba(10,0,42,0.99),rgba(204,32,96,0.92))" : bundle.previewKind === "matrix" ? "linear-gradient(135deg,rgba(0,3,0,0.99),rgba(0,16,0,0.92))" : bundle.previewKind === "arcane" ? "linear-gradient(135deg,rgba(10,0,18,0.99),rgba(3,0,4,0.96))" : bundle.previewKind === "bio" ? "linear-gradient(135deg,rgba(0,10,15,0.99),rgba(0,3,4,0.96))" : bundle.previewKind === "forge" ? "linear-gradient(135deg,rgba(10,2,0,0.99),rgba(8,1,0,0.98))" : bundle.previewKind === "void" ? "linear-gradient(135deg,rgba(4,1,26,0.99),rgba(0,0,8,0.98))" : bundle.previewKind === "tokyo" ? "linear-gradient(135deg,rgba(4,0,8,0.99),rgba(3,0,8,0.98))" : "linear-gradient(135deg,rgba(3,8,20,0.98),rgba(1,4,14,0.99))", border: `1px solid ${bundle.previewKind === "fire" ? "rgba(140,20,0,0.35)" : bundle.previewKind === "glacier" ? "rgba(125,211,252,0.42)" : bundle.previewKind === "bloodmoon" ? "rgba(220,38,38,0.42)" : bundle.previewKind === "egypt" ? "rgba(245,158,11,0.42)" : bundle.previewKind === "synthwave" ? "rgba(255,0,180,0.42)" : bundle.previewKind === "matrix" ? "rgba(0,255,65,0.42)" : bundle.previewKind === "arcane" ? "rgba(168,85,247,0.42)" : bundle.previewKind === "bio" ? "rgba(0,255,208,0.42)" : bundle.previewKind === "forge" ? "rgba(255,102,0,0.42)" : bundle.previewKind === "void" ? "rgba(139,92,246,0.42)" : bundle.previewKind === "tokyo" ? "rgba(255,0,102,0.42)" : "rgba(80,160,220,0.28)"}` }}>
+        {bundle.previewKind === "fire" && <Embers count={6} />}{bundle.previewKind === "fire" && <HeatOverlay />}{bundle.previewKind === "ice" && <FrostCrystals />}{bundle.previewKind === "ice" && <IceOverlay />}{bundle.previewKind === "glacier" && <GlacierAurora />}{bundle.previewKind === "glacier" && <GlacierSnow count={12} />}
+        {bundle.previewKind === "bloodmoon" ? (
+          <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <div style={{ transform: "scale(0.16)", transformOrigin: "center", opacity: 0.95 }}>
+              <BloodMoonGrid showLabels={false} />
+            </div>
+          </div>
+        ) : bundle.previewKind === "egypt" ? (
+          <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <div style={{ transform: "scale(0.16)", transformOrigin: "center", opacity: 0.95 }}>
+              <EgyptGrid showLabels={false} />
+            </div>
+          </div>
+        ) : bundle.previewKind === "synthwave" ? (
+          <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <div style={{ transform: "scale(0.16)", transformOrigin: "center", opacity: 0.95 }}>
+              <SynthwaveGrid showLabels={false} />
+            </div>
+          </div>
+        ) : bundle.previewKind === "matrix" ? (
+          <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <div style={{ transform: "scale(0.16)", transformOrigin: "center", opacity: 0.95 }}>
+              <MatrixGrid showLabels={false} />
+            </div>
+          </div>
+        ) : bundle.previewKind === "arcane" ? (
+          <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <div style={{ transform: "scale(0.16)", transformOrigin: "center", opacity: 0.95 }}>
+              <ArcaneGrid showLabels={false} />
+            </div>
+          </div>
+        ) : bundle.previewKind === "bio" ? (
+          <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <div style={{ transform: "scale(0.16)", transformOrigin: "center", opacity: 0.95 }}>
+              <BioGrid showLabels={false} />
+            </div>
+          </div>
+        ) : bundle.previewKind === "forge" ? (
+          <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <div style={{ transform: "scale(0.16)", transformOrigin: "center", opacity: 0.95 }}>
+              <ForgeGrid showLabels={false} />
+            </div>
+          </div>
+        ) : bundle.previewKind === "void" ? (
+          <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <div style={{ transform: "scale(0.16)", transformOrigin: "center", opacity: 0.95 }}>
+              <VoidGrid showLabels={false} />
+            </div>
+          </div>
+        ) : bundle.previewKind === "tokyo" ? (
+          <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <div style={{ transform: "scale(0.16)", transformOrigin: "center", opacity: 0.95 }}>
+              <TokyoGrid showLabels={false} />
+            </div>
+          </div>
+        ) : (
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(5,1fr)", gridTemplateRows: "repeat(5,1fr)", gap: 2, padding: 6, height: "100%", position: "relative", zIndex: 2 }}>
+            {Array.from({ length: 25 }).map((_, i) => {
+              const isP1 = placedP1.has(i);
+              const isP2 = placedP2.has(i);
+              return (
+                <div key={i} style={{ background: bundle.previewKind === "fire" ? "rgba(150,20,0,0.15)" : "rgba(80,160,220,0.12)", border: `1px solid ${bundle.previewKind === "fire" ? "rgba(150,20,0,0.3)" : bundle.previewKind === "glacier" ? "rgba(125,211,252,0.4)" : "rgba(80,160,220,0.3)"}`, borderRadius: 2, display: "flex", alignItems: "center", justifyContent: "center", color: isP1 ? (bundle.previewKind === "fire" ? "#FF4400" : "#C8EEFF") : isP2 ? (bundle.previewKind === "fire" ? "#AAAAAA" : "#64C8FF") : "transparent", fontSize: 8, fontWeight: 800, lineHeight: 1 }}>
+                  {isP1 ? (bundle.previewKind === "fire" ? "🔥" : "❄") : isP2 ? (bundle.previewKind === "fire" ? "💀" : "◆") : ""}
+                </div>
+              );
+            })}
+          </div>
+        )}
         {hov && <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "rgba(0,0,0,0.35)", zIndex: 10, fontFamily: "monospace", fontSize: 11, color: `${ac}cc`, letterSpacing: "0.1em" }}>CLICK TO PREVIEW →</div>}
       </div>
       <div style={{ display: "flex", gap: 8, marginBottom: 18 }}>
-        <div style={{ flex: 1, background: `${ac}0C`, border: `1px solid ${ac}1A`, borderRadius: 8, padding: "8px 10px" }}><div style={{ fontFamily: "monospace", fontSize: 8, color: `${ac}66`, letterSpacing: "0.1em" }}>BOARD</div><div style={{ fontFamily: t.fontDisplay, fontSize: 12, fontWeight: 700, color: ownsBoard ? "#4CAF50" : "#fff" }}>{bundle.boardLabel} {ownsBoard ? "✓" : ""}</div></div>
-        <div style={{ flex: 1, background: `${ac}0C`, border: `1px solid ${ac}1A`, borderRadius: 8, padding: "8px 10px" }}><div style={{ fontFamily: "monospace", fontSize: 8, color: `${ac}66`, letterSpacing: "0.1em" }}>PIECES</div><div style={{ fontFamily: t.fontDisplay, fontSize: 12, fontWeight: 700, color: ownsPiece ? "#4CAF50" : "#fff" }}>{bundle.pieceLabel} {ownsPiece ? "✓" : ""}</div></div>
+        <div style={{ flex: 1, background: `${ac}0C`, border: `1px solid ${ac}1A`, borderRadius: 8, padding: "8px 10px" }}><div style={{ fontFamily: "monospace", fontSize: 8, color: `${ac}66`, letterSpacing: "0.1em" }}>BOARD</div><div style={{ fontFamily: t.fontDisplay, fontSize: 12, fontWeight: 700, color: ownsAll ? "#4CAF50" : "#fff" }}>{bundle.boardLabel} {ownsAll ? "✓" : ""}</div></div>
+        <div style={{ flex: 1, background: `${ac}0C`, border: `1px solid ${ac}1A`, borderRadius: 8, padding: "8px 10px" }}><div style={{ fontFamily: "monospace", fontSize: 8, color: `${ac}66`, letterSpacing: "0.1em" }}>PIECES</div><div style={{ fontFamily: t.fontDisplay, fontSize: 12, fontWeight: 700, color: ownsAll ? "#4CAF50" : "#fff" }}>{bundle.pieceLabel} {ownsAll ? "✓" : ""}</div></div>
       </div>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <div>
           {!ownsAll ? (
             <>
-              <div style={{ fontFamily: "monospace", fontSize: 9, color: `${ac}66`, letterSpacing: "0.15em", marginBottom: 2 }}>FROM</div>
+              <div style={{ fontFamily: "monospace", fontSize: 9, color: `${ac}66`, letterSpacing: "0.15em", marginBottom: 2 }}>BUNDLE PRICE</div>
               <div style={{ display: "flex", alignItems: "center", gap: 6, fontFamily: t.fontDisplay, fontSize: 24, fontWeight: 900, color: ac, lineHeight: 1 }}>
-                {(ownsBoard ? bundle.piecePrice : ownsPiece ? bundle.boardPrice : bundle.bundlePrice).toLocaleString()}
+                {bundle.bundlePrice.toLocaleString()}
                 <ProtoSVG size={20} />
               </div>
             </>
-          ) : (<div style={{ fontFamily: t.fontDisplay, fontSize: 14, fontWeight: 700, color: "#4CAF50" }}>Collection complete ✓</div>)}
+          ) : (<div style={{ fontFamily: t.fontDisplay, fontSize: 14, fontWeight: 700, color: "#4CAF50" }}>Bundle owned ✓</div>)}
         </div>
         <div style={{ background: ownsAll ? "#4CAF5018" : ac, border: ownsAll ? "1px solid #4CAF5044" : "none", borderRadius: 10, padding: "9px 18px", fontFamily: t.fontDisplay, fontSize: 12, fontWeight: 800, color: ownsAll ? "#4CAF50" : "#000", letterSpacing: "0.06em" }}>{ownsAll ? "OWNED" : "VIEW BUNDLE →"}</div>
       </div>
@@ -473,6 +845,10 @@ export default function StoreScreen({ setScreenAction, themeId }: Props) {
         @keyframes iceD0{from{transform:translate(0,0)}to{transform:translate(8px,12px)}}
         @keyframes iceD1{from{transform:translate(0,0)}to{transform:translate(-10px,6px)}}
         @keyframes iceD2{from{transform:translate(0,0)}to{transform:translate(6px,-9px)}}
+        @keyframes glAurora1{from{transform:translate(-2%,0) scale(1)}to{transform:translate(4%,8%) scale(1.08)}}
+        @keyframes glAurora2{from{transform:translate(0,0) scale(1)}to{transform:translate(-5%,6%) scale(1.06)}}
+        @keyframes glAurora3{from{transform:translate(0,0) scale(1)}to{transform:translate(3%,-7%) scale(1.05)}}
+        @keyframes glSnowFall{0%{transform:translateY(-8px) translateX(0px);opacity:0}8%{opacity:.88}85%{opacity:.45}100%{transform:translateY(800px) translateX(var(--gl-dx,12px));opacity:0}}
         @keyframes redWinCellPulse{0%,100%{box-shadow:0 0 10px rgba(255,80,0,0.3)}50%{box-shadow:0 0 28px rgba(255,80,0,0.7)}}
         @keyframes iceWinCellPulse{0%,100%{box-shadow:0 0 10px rgba(100,200,255,0.3)}50%{box-shadow:0 0 28px rgba(100,200,255,0.7)}}
         .modal-panel { animation: slideUp 0.22s cubic-bezier(.22,.68,0,1.2); }

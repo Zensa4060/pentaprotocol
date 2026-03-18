@@ -6,6 +6,7 @@ import API from "@/lib/api";
 import { useAuthStore } from "@/lib/store";
 import { TITLES } from "./ProfileScreen";
 import { BannerRenderer } from "./BannerRenderer";
+import { GlacierSigilPiece, GlacierPrismPiece } from "./GamePieces";
 
 // Profile borders — only default for now, more coming later
 const PROFILE_BORDERS = [
@@ -54,7 +55,8 @@ const COLLECTION_THEMES = [
 const BOARD_SKINS: { id: string; label: string; desc: string; condition: (p: any) => boolean; preview: string; border: string; price?: number }[] = [
   { id: "default",  label: "Standard", desc: "Clean default board",                       condition: (_p: any) => true,                                                   preview: "linear-gradient(135deg,#1a1a1a,#2a2a2a)", border: "#333" },
   { id: "red_grid", label: "Inferno", desc: "A glowing grid of pure energy",             condition: (p: any) => (p?.purchased_items ?? []).includes("red_grid"),         preview: "linear-gradient(135deg,#220803,#1a0400)",  border: "#992200", price: 1599 },
-  { id: "ice_grid", label: "Glacier", desc: "A frozen board sealed in eternal frost",    condition: (p: any) => (p?.purchased_items ?? []).includes("ice_grid"),         preview: "linear-gradient(135deg,#010610,#021428)",  border: "#1a4a6a", price: 1599 },
+  { id: "ice_grid", label: "Ice Board", desc: "A frozen board sealed in eternal frost",    condition: (p: any) => (p?.purchased_items ?? []).includes("ice_grid"),         preview: "linear-gradient(135deg,#010610,#021428)",  border: "#1a4a6a", price: 1599 },
+  { id: "glacier_grid", label: "Glacier Board", desc: "Aurora ice lattice with crystalline glow", condition: (p: any) => (p?.purchased_items ?? []).includes("glacier_grid"), preview: "linear-gradient(135deg,#020b1a,#031329)", border: "#7dd3fc", price: 1599 },
 ];
 
 const COIN_SKINS = [
@@ -65,10 +67,11 @@ const COIN_TOSS_ANIMS: { id: string; label: string; desc: string; condition: (p:
   { id: "default", label: "Classic Flip", desc: "Default animation", condition: (_p: any) => true },
 ];
 
-const PIECE_SKINS: { id: string; label: string; desc: string; condition: (p: any) => boolean; p1: string; p2: string; p1c: string; p2c: string; price?: number; isFlameSkull?: boolean; isSnowShard?: boolean }[] = [
+const PIECE_SKINS: { id: string; label: string; desc: string; condition: (p: any) => boolean; p1: string; p2: string; p1c: string; p2c: string; price?: number; isFlameSkull?: boolean; isSnowShard?: boolean; isGlacierShard?: boolean }[] = [
   { id: "default",          label: "Classic",      desc: "Default pieces",     condition: (_p: any) => true,                                                             p1: "X",  p2: "Y",  p1c: "#FFFFFF", p2c: "#CC0000" },
   { id: "flame_skull",      label: "Flame & Skull", desc: "Purchase for 599 ⬡", condition: (p: any) => (p?.purchased_items ?? []).includes("piece_flame_skull"),       p1: "🔥", p2: "💀", p1c: "#FF4400", p2c: "#AAAAAA", price: 599, isFlameSkull: true },
   { id: "snowflake_shard",  label: "Snow & Shard",  desc: "Purchase for 599 ⬡", condition: (p: any) => (p?.purchased_items ?? []).includes("piece_snowflake_shard"),   p1: "❄",  p2: "◆",  p1c: "#C8EEFF", p2c: "#64C8FF", price: 599, isSnowShard: true },
+  { id: "glacier_shard",    label: "Glacier Sigils",  desc: "Purchase for 599 ⬡", condition: (p: any) => (p?.purchased_items ?? []).includes("piece_glacier_shard"),   p1: "❅",  p2: "◇",  p1c: "#A5F3FC", p2c: "#93C5FD", price: 599, isGlacierShard: true },
 ];
 
 const BANNERS: { id: string; label: string; gradient: string; condition: (p: any) => boolean }[] = [
@@ -94,18 +97,124 @@ const BG_SOURCES: { id: BgSource; label: string; preview: string; owned: boolean
   { id: "pixel",         label: "Pixel",         preview: "linear-gradient(135deg,#0d1007,#1a2e0a)", owned: true },
 ];
 
+// ── Board Bundle definitions (board + piece paired) ──────────────────────────
+const BOARD_BUNDLES = [
+  {
+    id: "default", label: "Classic", tagline: "Default board & pieces",
+    boardId: "default", boardLabel: "Standard", boardPreview: "linear-gradient(135deg,#1a1a1a,#2a2a2a)", boardBorder: "#444",
+    pieceId: "default", pieceLabel: "Classic", pieceP1: "X", pieceP2: "Y", pieceP1c: "#FFFFFF", pieceP2c: "#CC0000",
+    accentColor: "#888888", isDefault: true, price: 0,
+    bOwned: (_p: any) => true,
+    pOwned: (_p: any) => true,
+  },
+  {
+    id: "inferno", label: "INFERNO BUNDLE", tagline: "Command fire and death",
+    boardId: "red_grid", boardLabel: "Inferno Board", boardPreview: "linear-gradient(135deg,#220803,#1a0400)", boardBorder: "#992200",
+    pieceId: "flame_skull", pieceLabel: "Flame & Skull", pieceP1: "🔥", pieceP2: "💀", pieceP1c: "#FF4400", pieceP2c: "#AAAAAA",
+    accentColor: "#FF4400", isDefault: false, isFlameSkull: true, price: 2999,
+    bOwned: (p: any) => (p?.purchased_items ?? []).includes("red_grid"),
+    pOwned: (p: any) => (p?.purchased_items ?? []).includes("piece_flame_skull"),
+  },
+  {
+    id: "ice", label: "ICE BUNDLE", tagline: "Cool, calculated, absolutely deadly",
+    boardId: "ice_grid", boardLabel: "Ice Board", boardPreview: "linear-gradient(135deg,#010610,#021428)", boardBorder: "#1a4a6a",
+    pieceId: "snowflake_shard", pieceLabel: "Snow & Shard", pieceP1: "❄", pieceP2: "◆", pieceP1c: "#C8EEFF", pieceP2c: "#64C8FF",
+    accentColor: "#7dd3fc", isDefault: false, isSnowShard: true, price: 2999,
+    bOwned: (p: any) => (p?.purchased_items ?? []).includes("ice_grid"),
+    pOwned: (p: any) => (p?.purchased_items ?? []).includes("piece_snowflake_shard"),
+  },
+  {
+    id: "glacier", label: "GLACIER BUNDLE", tagline: "Aurora-lit frost, precision first",
+    boardId: "glacier_grid", boardLabel: "Glacier Board", boardPreview: "linear-gradient(135deg,#020b1a,#031329)", boardBorder: "#7dd3fc",
+    pieceId: "glacier_shard", pieceLabel: "Glacier Sigils", pieceP1: "❅", pieceP2: "◇", pieceP1c: "#A5F3FC", pieceP2c: "#93C5FD",
+    accentColor: "#a5f3fc", isDefault: false, isGlacierShard: true, price: 2999,
+    bOwned: (p: any) => (p?.purchased_items ?? []).includes("glacier_grid"),
+    pOwned: (p: any) => (p?.purchased_items ?? []).includes("piece_glacier_shard"),
+  },
+  {
+    id: "bloodmoon", label: "BLOODMOON BUNDLE", tagline: "Ritual crimson and violet omen",
+    boardId: "bloodmoon_grid", boardLabel: "Bloodmoon Board", boardPreview: "linear-gradient(135deg,#080000,#1a0004)", boardBorder: "#dc2626",
+    pieceId: "bloodmoon_sigils", pieceLabel: "Pentagram & Eye", pieceP1: "⛧", pieceP2: "◉", pieceP1c: "#DC2626", pieceP2c: "#7C3AED",
+    accentColor: "#dc2626", isDefault: false, price: 2999,
+    bOwned: (p: any) => (p?.purchased_items ?? []).includes("bloodmoon_grid"),
+    pOwned: (p: any) => (p?.purchased_items ?? []).includes("piece_bloodmoon_sigils"),
+  },
+  {
+    id: "egypt", label: "EGYPT BUNDLE", tagline: "Golden dunes and ancient sigils",
+    boardId: "egypt_grid", boardLabel: "Egypt Board", boardPreview: "linear-gradient(135deg,#04020a,#0a0500)", boardBorder: "#F59E0B",
+    pieceId: "egypt_sigils", pieceLabel: "Ankh & Eye of Ra", pieceP1: "☥", pieceP2: "𓂀", pieceP1c: "#FBBF24", pieceP2c: "#C084FC",
+    accentColor: "#F59E0B", isDefault: false, price: 2999,
+    bOwned: (p: any) => (p?.purchased_items ?? []).includes("egypt_grid"),
+    pOwned: (p: any) => (p?.purchased_items ?? []).includes("piece_egypt_sigils"),
+  },
+  {
+    id: "synthwave", label: "SYNTHWAVE BUNDLE", tagline: "Neon horizon and retro pulse",
+    boardId: "synthwave_grid", boardLabel: "Synthwave Board", boardPreview: "linear-gradient(135deg,#0a002a,#cc2060)", boardBorder: "#ff00b4",
+    pieceId: "synthwave_sigils", pieceLabel: "Sun & Palm", pieceP1: "☀", pieceP2: "✦", pieceP1c: "#FF4D6D", pieceP2c: "#00E5FF",
+    accentColor: "#ff00b4", isDefault: false, price: 2999,
+    bOwned: (p: any) => (p?.purchased_items ?? []).includes("synthwave_grid"),
+    pOwned: (p: any) => (p?.purchased_items ?? []).includes("piece_synthwave_sigils"),
+  },
+  {
+    id: "matrix", label: "MATRIX BUNDLE", tagline: "Code rain and green pulse",
+    boardId: "matrix_grid", boardLabel: "Matrix Board", boardPreview: "linear-gradient(135deg,#000300,#000800)", boardBorder: "#00ff41",
+    pieceId: "matrix_sigils", pieceLabel: "Bracket & Pill", pieceP1: "[ ]", pieceP2: "01", pieceP1c: "#00FF41", pieceP2c: "#4ADE80",
+    accentColor: "#00ff41", isDefault: false, price: 2999,
+    bOwned: (p: any) => (p?.purchased_items ?? []).includes("matrix_grid"),
+    pOwned: (p: any) => (p?.purchased_items ?? []).includes("piece_matrix_sigils"),
+  },
+  {
+    id: "arcane", label: "ARCANE BUNDLE", tagline: "Runes, mist, and magic circles",
+    boardId: "arcane_grid", boardLabel: "Arcane Board", boardPreview: "linear-gradient(135deg,#0a0012,#030004)", boardBorder: "#a855f7",
+    pieceId: "arcane_sigils", pieceLabel: "Portal & Sigil", pieceP1: "◌", pieceP2: "✶", pieceP1c: "#C084FC", pieceP2c: "#FBBF24",
+    accentColor: "#a855f7", isDefault: false, price: 2999,
+    bOwned: (p: any) => (p?.purchased_items ?? []).includes("arcane_grid"),
+    pOwned: (p: any) => (p?.purchased_items ?? []).includes("piece_arcane_sigils"),
+  },
+  {
+    id: "bio", label: "BIO BUNDLE", tagline: "Abyss glow and bioluminescence",
+    boardId: "bio_grid", boardLabel: "Bio Board", boardPreview: "linear-gradient(135deg,#000a0f,#000304)", boardBorder: "#00ffd0",
+    pieceId: "bio_sigils", pieceLabel: "Jellyfish & Angler", pieceP1: "⟡", pieceP2: "◉", pieceP1c: "#00FFD0", pieceP2c: "#B464FF",
+    accentColor: "#00ffd0", isDefault: false, price: 2999,
+    bOwned: (p: any) => (p?.purchased_items ?? []).includes("bio_grid"),
+    pOwned: (p: any) => (p?.purchased_items ?? []).includes("piece_bio_sigils"),
+  },
+  {
+    id: "forge", label: "FORGE BUNDLE", tagline: "Molten veins and rising embers",
+    boardId: "forge_grid", boardLabel: "Forge Board", boardPreview: "linear-gradient(135deg,#0a0200,#080100)", boardBorder: "#ff6600",
+    pieceId: "forge_sigils", pieceLabel: "Hammer & Molten Sigil", pieceP1: "⛏", pieceP2: "✺", pieceP1c: "#FF6600", pieceP2c: "#FFCC00",
+    accentColor: "#ff6600", isDefault: false, price: 2999,
+    bOwned: (p: any) => (p?.purchased_items ?? []).includes("forge_grid"),
+    pOwned: (p: any) => (p?.purchased_items ?? []).includes("piece_forge_sigils"),
+  },
+  {
+    id: "void", label: "VOID BUNDLE", tagline: "Nebulae, stars, and cosmic pulses",
+    boardId: "void_grid", boardLabel: "Void Board", boardPreview: "linear-gradient(135deg,#04011a,#000008)", boardBorder: "#8b5cf6",
+    pieceId: "void_sigils", pieceLabel: "Pulsar & Quasar", pieceP1: "✷", pieceP2: "◎", pieceP1c: "#B464FF", pieceP2c: "#40C0FF",
+    accentColor: "#8b5cf6", isDefault: false, price: 2999,
+    bOwned: (p: any) => (p?.purchased_items ?? []).includes("void_grid"),
+    pOwned: (p: any) => (p?.purchased_items ?? []).includes("piece_void_sigils"),
+  },
+  {
+    id: "tokyo", label: "TOKYO BUNDLE", tagline: "Neon rain and city glow",
+    boardId: "tokyo_grid", boardLabel: "Tokyo Board", boardPreview: "linear-gradient(135deg,#040008,#030008)", boardBorder: "#ff0066",
+    pieceId: "tokyo_sigils", pieceLabel: "Dragon Seal & Katana", pieceP1: "⟟", pieceP2: "⟐", pieceP1c: "#FF0066", pieceP2c: "#00CCFF",
+    accentColor: "#ff0066", isDefault: false, price: 2999,
+    bOwned: (p: any) => (p?.purchased_items ?? []).includes("tokyo_grid"),
+    pOwned: (p: any) => (p?.purchased_items ?? []).includes("piece_tokyo_sigils"),
+  },
+] as const;
+type BoardBundle = typeof BOARD_BUNDLES[number];
+
 // ── Category definitions ──────────────────────────────────────────────────────
-type CatId = "themes" | "board" | "banners" | "borders" | "coins" | "toss" | "titles" | "pieces";
+type CatId = "themes" | "board_bundles" | "profile_bundles" | "coin_bundles" | "titles";
 
 const CATEGORIES: { id: CatId; label: string; icon: string; count: (p: any) => number }[] = [
-  { id: "themes",  label: "Themes",           icon: "palette", count: () => COLLECTION_THEMES.filter(x => x.owned).length },
-  { id: "board",   label: "Board Skins",      icon: "board",   count: (p) => BOARD_SKINS.filter(x => x.condition(p)).length },
-  { id: "banners", label: "Profile Banners",  icon: "banner",  count: (p) => BANNERS.filter(x => x.condition(p)).length },
-  { id: "borders", label: "Profile Borders",  icon: "border",  count: (p) => PROFILE_BORDERS.filter(x => x.condition(p)).length },
-  { id: "coins",   label: "Coin Skins",       icon: "coin",    count: () => COIN_SKINS.filter(x => x.owned).length },
-  { id: "toss",    label: "Toss Animations",  icon: "toss",    count: (p) => COIN_TOSS_ANIMS.filter(x => x.condition(p)).length },
-  { id: "titles",  label: "Titles",           icon: "title",   count: (p) => TITLES.filter(ti => ti.condition(p)).length },
-  { id: "pieces",  label: "Piece Skins",      icon: "piece",   count: (p) => PIECE_SKINS.filter(x => x.condition(p)).length },
+  { id: "themes",          label: "Themes",          icon: "palette", count: () => COLLECTION_THEMES.filter(x => x.owned).length },
+  { id: "board_bundles",   label: "Board Bundles",   icon: "board",   count: (p) => BOARD_BUNDLES.filter(b => b.bOwned(p) || b.pOwned(p)).length },
+  { id: "profile_bundles", label: "Profile Bundles", icon: "banner",  count: (p) => BANNERS.filter(x => x.condition(p)).length + PROFILE_BORDERS.filter(x => x.condition(p)).length },
+  { id: "coin_bundles",    label: "Coin Bundles",    icon: "coin",    count: () => COIN_SKINS.filter(x => x.owned).length + COIN_TOSS_ANIMS.length },
+  { id: "titles",          label: "Titles",          icon: "title",   count: (p) => TITLES.filter(ti => ti.condition(p)).length },
 ];
 
 function getSlotOptions(key: keyof CustomThemeConfig, profile?: any) {
@@ -553,14 +662,24 @@ export default function CollectionScreen({ themeId, setThemeIdAction, onHoverAct
   };
 
   const totalForCat = (id: CatId) => {
-    if (id === "titles")  return TITLES.length;
-    if (id === "borders") return PROFILE_BORDERS.length;
-    if (id === "themes")  return COLLECTION_THEMES.length;
-    if (id === "board")   return BOARD_SKINS.length;
-    if (id === "banners") return BANNERS.length;
-    if (id === "coins")   return COIN_SKINS.length;
-    if (id === "toss")    return COIN_TOSS_ANIMS.length;
-    return PIECE_SKINS.length;
+    if (id === "titles")          return TITLES.length;
+    if (id === "themes")          return COLLECTION_THEMES.length;
+    if (id === "board_bundles")   return BOARD_BUNDLES.length;
+    if (id === "profile_bundles") return BANNERS.length + PROFILE_BORDERS.length;
+    if (id === "coin_bundles")    return COIN_SKINS.length + COIN_TOSS_ANIMS.length;
+    return 0;
+  };
+
+  const equipBundle = async (bundle: BoardBundle) => {
+    const bOk = bundle.bOwned(profile);
+    const pOk = bundle.pOwned(profile);
+    if (bOk) await equipBoard(bundle.boardId);
+    if (pOk) equipPiece(bundle.pieceId);
+    if (!bOk && !pOk) return;
+    if (bOk && pOk) setEquipMsg({ text: `${bundle.label} equipped!`, ok: true });
+    else if (bOk) setEquipMsg({ text: `${bundle.boardLabel} board equipped!`, ok: true });
+    else setEquipMsg({ text: `${bundle.pieceLabel} pieces equipped!`, ok: true });
+    setTimeout(() => setEquipMsg(null), 1800);
   };
 
   return (
@@ -604,9 +723,8 @@ export default function CollectionScreen({ themeId, setThemeIdAction, onHoverAct
 
       <style>{`
         @keyframes bannerShine { from { background-position: -100% 0; } to { background-position: 100% 0; } }
-        .coll-cat-btn { transition: all 0.25s cubic-bezier(.22,.68,0,1.2); position: relative; overflow: hidden; }
-        .coll-cat-btn:hover { background: rgba(255,255,255,0.05) !important; transform: translateX(4px); }
-        .coll-cat-btn.active { background: linear-gradient(90deg, ${t.accent}22, transparent) !important; }
+        .coll-tab { transition: all 0.22s cubic-bezier(.22,.68,0,1.1); position: relative; overflow: hidden; }
+        .coll-tab:hover { transform: translateY(-1px); }
         .coll-item { transition: transform 0.28s cubic-bezier(.22,.68,0,1.2), box-shadow 0.28s cubic-bezier(.22,.68,0,1.2), border-color 0.2s ease, background 0.2s ease; cursor: pointer; position: relative; }
         .coll-item:hover { transform: translateY(-6px) scale(1.02); box-shadow: 0 20px 40px rgba(0,0,0,0.4) !important; z-index: 10; }
         .coll-item:active { transform: translateY(-2px) scale(1.01); }
@@ -616,59 +734,10 @@ export default function CollectionScreen({ themeId, setThemeIdAction, onHoverAct
         @keyframes fadeIn { from{opacity:0} to{opacity:1} }
       `}</style>
 
-      <div style={{ maxWidth: 1200, margin: "0 auto", padding: isMobile ? "0 20px 60px" : "0 40px 60px", display: "flex", gap: 32 }}>
-
-        {/* ── Sidebar ── */}
-        {!isMobile && (
-          <div style={{ width: 240, flexShrink: 0, position: "sticky", top: 110, height: "fit-content" }}>
-            <div style={{ marginBottom: 32 }}>
-              <div style={{ fontFamily: t.fontMono, fontSize: 10, color: t.accent, letterSpacing: "0.4em", fontWeight: 800, marginBottom: 8, opacity: 0.8 }}>ARSENAL</div>
-              <div style={{ fontFamily: t.fontDisplay, fontSize: 32, fontWeight: 950, color: t.text, letterSpacing: "-0.02em", lineHeight: 0.9 }}>Collection</div>
-              <div style={{ width: 40, height: 3, background: t.accent, marginTop: 12, borderRadius: 2, boxShadow: `0 0 10px ${t.accent}` }} />
-            </div>
-
-            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              {CATEGORIES.map(cat => {
-                const isActive = activeCat === cat.id;
-                const owned = cat.count(profile);
-                const total = totalForCat(cat.id);
-                return (
-                  <button key={cat.id} className={`coll-cat-btn ${isActive ? 'active' : ''}`}
-                    onClick={() => { onClickAction?.(); setActiveCat(cat.id); setShowAll(false); }}
-                    onMouseEnter={() => onHoverAction?.()}
-                    style={{ 
-                      display: "flex", alignItems: "center", gap: 16, padding: "14px 20px", borderRadius: 12, 
-                      background: isActive ? "rgba(255,255,255,0.04)" : "transparent", 
-                      border: `1px solid ${isActive ? `${t.accent}44` : "transparent"}`, 
-                      color: isActive ? t.accent : t.textMuted, 
-                      fontFamily: t.fontDisplay, fontSize: 17, fontWeight: isActive ? 950 : 700, 
-                      cursor: "pointer", textAlign: "left" as const, transition: "all 0.25s",
-                      boxShadow: isActive ? `inset 0 0 20px ${t.accent}11` : "none"
-                    }}>
-                    <div style={{ 
-                      width: 40, height: 40, borderRadius: 10, background: isActive ? `${t.accent}22` : "rgba(255,255,255,0.03)", 
-                      display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.25s",
-                      boxShadow: isActive ? `0 0 15px ${t.accent}33` : "none"
-                    }}>
-                      <CatIcon id={cat.icon} size={20} color={isActive ? t.accent : t.textMuted} />
-                    </div>
-                    <span style={{ flex: 1, letterSpacing: "0.06em", textShadow: isActive ? `0 0 10px ${t.accent}44` : "none" }}>{cat.label.toUpperCase()}</span>
-                    <span style={{ 
-                      fontFamily: t.fontMono, fontSize: 11, color: isActive ? t.accent : t.textMuted, 
-                      background: isActive ? `${t.accent}14` : "rgba(255,255,255,0.05)", 
-                      padding: "3px 10px", borderRadius: 8, fontWeight: 800, opacity: isActive ? 1 : 0.6 
-                    }}>
-                      {owned}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        )}
+      <div style={{ maxWidth: 1600, margin: "0 auto", padding: isMobile ? "0 20px 60px" : "0 40px 60px" }}>
 
         {/* ── Main content ── */}
-        <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ minWidth: 0 }}>
           {isMobile && (
             <div style={{ marginBottom: 32 }}>
               <div style={{ fontFamily: t.fontMono, fontSize: 10, color: t.accent, letterSpacing: "0.4em", fontWeight: 800, marginBottom: 4, opacity: 0.8 }}>ARSENAL</div>
@@ -684,33 +753,62 @@ export default function CollectionScreen({ themeId, setThemeIdAction, onHoverAct
             </div>
           )}
           {!isMobile && (
-            <div style={{ 
-              display: "flex", alignItems: "flex-end", justifyContent: "space-between", 
-              marginBottom: 24, paddingBottom: 16, borderBottom: `1px solid ${t.border}44` 
-            }}>
-              <div>
-                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                  <div style={{ width: 40, height: 40, borderRadius: 10, background: `${t.accent}14`, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                    <CatIcon id={catData.icon} size={20} color={t.accent} />
-                  </div>
-                  <div>
-                    <div style={{ fontFamily: t.fontDisplay, fontSize: 24, fontWeight: 800, color: t.text, letterSpacing: "0.02em" }}>{catData.label.toUpperCase()}</div>
-                    <div style={{ fontFamily: t.fontBody, fontSize: 13, color: t.textMuted, marginTop: 1, fontWeight: 500, opacity: 0.8 }}>
-                      {`${catData.count(profile)} items obtained · ${totalForCat(activeCat)} total assets`}
-                    </div>
-                  </div>
-                </div>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, marginBottom: 18, paddingBottom: 14, borderBottom: `1px solid ${t.border}44` }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "nowrap", overflowX: "auto", paddingBottom: 2 }}>
+                {CATEGORIES.map(cat => {
+                  const isActive = activeCat === cat.id;
+                  return (
+                    <button
+                      key={cat.id}
+                      className="coll-tab"
+                      onClick={() => { onClickAction?.(); setActiveCat(cat.id); setShowAll(false); }}
+                      onMouseEnter={() => onHoverAction?.()}
+                      style={{
+                        flexShrink: 0,
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 10,
+                        padding: "10px 14px",
+                        borderRadius: 12,
+                        background: isActive ? `${t.accent}18` : "rgba(255,255,255,0.02)",
+                        border: `1px solid ${isActive ? `${t.accent}55` : "rgba(255,255,255,0.06)"}`,
+                        color: isActive ? t.accent : t.textMuted,
+                        fontFamily: t.fontDisplay,
+                        fontSize: 13,
+                        fontWeight: isActive ? 950 : 800,
+                        letterSpacing: "0.12em",
+                        textTransform: "uppercase" as const,
+                        cursor: "pointer",
+                        whiteSpace: "nowrap",
+                        boxShadow: isActive ? `0 0 18px ${t.accent}22, inset 0 0 18px ${t.accent}10` : "none",
+                        transition: "all 0.2s",
+                      }}
+                    >
+                      <CatIcon id={cat.icon} size={16} color={isActive ? t.accent : t.textMuted} />
+                      <span>{cat.label}</span>
+                    </button>
+                  );
+                })}
               </div>
-              
-              <button onClick={() => { onClickAction?.(); setShowAll(v => !v); }} onMouseEnter={() => onHoverAction?.()}
-                style={{ 
-                  background: showAll ? t.accent : "rgba(255,255,255,0.03)", 
-                  border: `1px solid ${showAll ? t.accent : t.border}`, 
-                  borderRadius: 10, padding: "8px 16px", 
-                  fontFamily: t.fontMono, fontSize: 11, fontWeight: 800, 
-                  color: showAll ? "#000" : t.textMuted, cursor: "pointer", 
-                  letterSpacing: "0.05em", transition: "all 0.2s"
-                }}>
+
+              <button
+                onClick={() => { onClickAction?.(); setShowAll(v => !v); }}
+                onMouseEnter={() => onHoverAction?.()}
+                style={{
+                  flexShrink: 0,
+                  background: showAll ? t.accent : "rgba(255,255,255,0.03)",
+                  border: `1px solid ${showAll ? t.accent : t.border}`,
+                  borderRadius: 10,
+                  padding: "8px 16px",
+                  fontFamily: t.fontMono,
+                  fontSize: 11,
+                  fontWeight: 800,
+                  color: showAll ? "#000" : t.textMuted,
+                  cursor: "pointer",
+                  letterSpacing: "0.05em",
+                  transition: "all 0.2s",
+                }}
+              >
                 {showAll ? "SHOWING ALL" : "FILTER OWNED"}
               </button>
             </div>
@@ -734,8 +832,78 @@ export default function CollectionScreen({ themeId, setThemeIdAction, onHoverAct
             <ThemesWithCustomize t={t} ip={ip} themeId={themeId} profile={profile} setThemeIdAction={setThemeIdAction} activeTheme={activeTheme} setActiveTheme={setActiveTheme} showAll={showAll} onHoverAction={onHoverAction} onClickAction={onClickAction} />
           )}
 
-          {/* ── BOARD SKINS ── */}
-          {cat === "board" && (
+          {/* ── BOARD BUNDLES ── */}
+          {cat === "board_bundles" && (
+            <div style={{ display: "grid", gridTemplateColumns: `repeat(auto-fill,minmax(${isMobile ? 260 : 320}px,1fr))`, gap: isMobile ? 16 : 18 }}>
+              {BOARD_BUNDLES.filter(b => showAll || b.bOwned(profile) || b.pOwned(profile) || b.isDefault).map(bundle => {
+                const bOk = bundle.bOwned(profile);
+                const pOk = bundle.pOwned(profile);
+                const anyOwned = bOk || pOk || !!bundle.isDefault;
+                const fullyOwned = (bOk && pOk) || !!bundle.isDefault;
+                const isActive = activeBoard === bundle.boardId && activePiece === bundle.pieceId;
+                const ac = bundle.accentColor;
+                return (
+                  <div key={bundle.id}
+                    onClick={() => { if (anyOwned && !isActive) { onClickAction?.(); equipBundle(bundle as any); } }}
+                    onMouseEnter={() => { if (anyOwned) onHoverAction?.(); }}
+                    style={{ borderRadius: 18, overflow: "hidden", border: `1.5px solid ${anyOwned ? (isActive ? ac : "rgba(255,255,255,0.1)") : "rgba(255,255,255,0.04)"}`, background: "rgba(18,18,26,0.9)", backdropFilter: "blur(14px)", boxShadow: isActive ? `0 0 28px ${ac}28` : "none", cursor: anyOwned && !isActive ? "pointer" : "default", position: "relative", transition: "box-shadow 0.2s, border-color 0.2s" }}>
+                    {/* Board preview banner */}
+                    <div style={{ height: 110, background: bundle.boardPreview, position: "relative", overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      {!anyOwned && (<div className="coll-locked-overlay"><div style={{ background: "rgba(0,0,0,0.85)", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 12, padding: "8px 16px", display: "flex", alignItems: "center", gap: 8 }}><LockIcon size={14} color="#888" /><span style={{ fontFamily: t.fontMono, fontSize: 10, color: "#888", fontWeight: 800, letterSpacing: "0.1em" }}>LOCKED</span></div></div>)}
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,20px)", gap: 2, transform: "rotate(-5deg)", opacity: 0.7 }}>{Array.from({ length: 16 }).map((_, i) => <div key={i} style={{ width: 20, height: 20, background: `${bundle.boardBorder}22`, border: `1px solid ${bundle.boardBorder}77`, borderRadius: 2 }} />)}</div>
+                      {isActive && (<><div style={{ position: "absolute", top: 10, right: 10, background: ac, borderRadius: 10, padding: "3px 10px", fontFamily: t.fontMono, fontSize: 9, color: "#000", fontWeight: 900, letterSpacing: "0.06em", zIndex: 3 }}>EQUIPPED</div><div style={{ position: "absolute", inset: 0, background: "linear-gradient(110deg, transparent 40%, rgba(255,255,255,0.06) 45%, rgba(255,255,255,0.12) 50%, rgba(255,255,255,0.06) 55%, transparent 60%)", backgroundSize: "200% 100%", animation: "bannerShine 3s infinite linear", pointerEvents: "none" }} /></>)}
+                      {!fullyOwned && anyOwned && <div style={{ position: "absolute", top: 10, left: 10, background: "rgba(0,0,0,0.75)", border: `1px solid ${ac}44`, borderRadius: 8, padding: "3px 8px", fontFamily: t.fontMono, fontSize: 8, color: ac, fontWeight: 800, letterSpacing: "0.08em" }}>PARTIAL</div>}
+                    </div>
+                    {/* Content */}
+                    <div style={{ padding: "14px 16px" }}>
+                      <div style={{ fontFamily: t.fontDisplay, fontSize: 17, fontWeight: 800, color: isActive ? ac : anyOwned ? t.text : t.textMuted, letterSpacing: "0.02em", marginBottom: 2 }}>{bundle.label}</div>
+                      <div style={{ fontFamily: t.fontBody, fontSize: 11, color: t.textMuted, opacity: 0.65, marginBottom: 12 }}>{bundle.tagline}</div>
+                      {/* Piece + board previews */}
+                      <div style={{ display: "flex", gap: 6, marginBottom: 14 }}>
+                        {/* P1 */}
+                        <div style={{ flex: 1, background: pOk || bundle.isDefault ? `${ac}0D` : "#0c0c14", border: `1px solid ${pOk || bundle.isDefault ? `${ac}2A` : "rgba(255,255,255,0.05)"}`, borderRadius: 8, padding: "8px 4px", display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
+                          <div style={{ width: 32, height: 32, position: "relative", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                            {(bundle as any).isFlameSkull ? (<svg width="22" height="22" viewBox="0 0 100 120" fill="none"><path d="M50 10 C30 30 15 50 25 70 C20 60 35 55 30 70 C25 85 35 100 50 110 C65 100 75 85 70 70 C65 55 80 60 75 70 C85 50 70 30 50 10Z" fill={pOk ? "#FF4400" : "#333"} opacity={pOk ? 0.9 : 0.3}/></svg>)
+                            : (bundle as any).isGlacierShard ? (pOk ? <GlacierSigilPiece cssSize="26px" /> : <span style={{ fontSize: 14, color: "#333" }}>✶</span>)
+                            : <span style={{ fontFamily: t.fontMono, fontSize: 16, fontWeight: 900, color: pOk || bundle.isDefault ? bundle.pieceP1c : "#333" }}>{bundle.pieceP1}</span>}
+                          </div>
+                          <span style={{ fontFamily: t.fontMono, fontSize: 7, color: pOk || bundle.isDefault ? `${ac}77` : "#333", letterSpacing: "0.1em", fontWeight: 700 }}>P1</span>
+                        </div>
+                        {/* P2 */}
+                        <div style={{ flex: 1, background: pOk || bundle.isDefault ? `${ac}0D` : "#0c0c14", border: `1px solid ${pOk || bundle.isDefault ? `${ac}2A` : "rgba(255,255,255,0.05)"}`, borderRadius: 8, padding: "8px 4px", display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
+                          <div style={{ width: 32, height: 32, position: "relative", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                            {(bundle as any).isFlameSkull ? (<svg width="18" height="18" viewBox="0 0 100 110" fill="none" stroke={pOk ? "#CCCCCC" : "#333"} strokeWidth="6" strokeLinecap="round" strokeLinejoin="round" opacity={pOk ? 1 : 0.3}><path d="M20 65 C20 35 80 35 80 65 C80 80 72 88 72 95 L28 95 C28 88 20 80 20 65Z"/><circle cx="37" cy="62" r="10" fill={pOk ? "#EEE" : "#333"}/><circle cx="63" cy="62" r="10" fill={pOk ? "#EEE" : "#333"}/></svg>)
+                            : (bundle as any).isGlacierShard ? (pOk ? <GlacierPrismPiece cssSize="26px" /> : <span style={{ fontSize: 14, color: "#333" }}>◈</span>)
+                            : <span style={{ fontFamily: t.fontMono, fontSize: 16, fontWeight: 900, color: pOk || bundle.isDefault ? bundle.pieceP2c : "#333" }}>{bundle.pieceP2}</span>}
+                          </div>
+                          <span style={{ fontFamily: t.fontMono, fontSize: 7, color: pOk || bundle.isDefault ? `${ac}77` : "#333", letterSpacing: "0.1em", fontWeight: 700 }}>P2</span>
+                        </div>
+                        {/* Board mini */}
+                        <div style={{ flex: 1.4, background: bOk || bundle.isDefault ? bundle.boardPreview : "#0c0c14", border: `1px solid ${bOk || bundle.isDefault ? bundle.boardBorder + "55" : "rgba(255,255,255,0.05)"}`, borderRadius: 8, padding: "8px 4px", display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
+                          <div style={{ display: "grid", gridTemplateColumns: "repeat(3,9px)", gap: 1, opacity: bOk || bundle.isDefault ? 0.85 : 0.2 }}>{Array.from({ length: 9 }).map((_, i) => <div key={i} style={{ width: 9, height: 9, background: `${bundle.boardBorder}44`, border: `1px solid ${bundle.boardBorder}77`, borderRadius: 1 }} />)}</div>
+                          <span style={{ fontFamily: t.fontMono, fontSize: 7, color: bOk || bundle.isDefault ? `${ac}77` : "#333", letterSpacing: "0.07em", fontWeight: 700 }}>BOARD</span>
+                        </div>
+                      </div>
+                      {/* Status row */}
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                        <span style={{ fontFamily: t.fontBody, fontSize: 12, color: t.textMuted, opacity: 0.65 }}>
+                          {isActive ? "Active loadout" : anyOwned ? "Click to equip" : "Available in Store"}
+                        </span>
+                        {!anyOwned && !bundle.isDefault && (
+                          <span style={{ flexShrink: 0, background: `${ac}0E`, border: `1px solid ${ac}28`, borderRadius: 10, padding: "5px 10px", fontFamily: t.fontMono, fontSize: 10, fontWeight: 800, color: `${ac}99`, whiteSpace: "nowrap" }}>
+                            {bundle.price.toLocaleString()} ⬡
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* ── OLD board skins (hidden) ── */}
+          {cat === "board_hidden" && (
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(210px,1fr))", gap: 14 }}>
               {BOARD_SKINS.filter(x => showAll || x.condition(profile)).map(item => {
                 const owned = item.condition(profile);
@@ -792,8 +960,61 @@ export default function CollectionScreen({ themeId, setThemeIdAction, onHoverAct
             </div>
           )}
 
-          {/* ── BANNERS ── */}
-          {cat === "banners" && (
+          {/* ── PROFILE BUNDLES (banners + borders) ── */}
+          {cat === "profile_bundles" && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
+              <div>
+                <div style={{ fontFamily: t.fontMono, fontSize: 10, color: t.textMuted, letterSpacing: "0.18em", marginBottom: 12, opacity: 0.7 }}>PROFILE BANNERS</div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(230px,1fr))", gap: 14 }}>
+                  {BANNERS.filter(x => showAll || x.condition(profile)).map(item => {
+                    const owned = item.condition(profile);
+                    const isActive = activeBanner === item.id;
+                    return (
+                      <div key={item.id} className={`coll-item ${!owned ? "coll-locked" : ""}`}
+                        onClick={() => { if (owned && !isActive) { onClickAction?.(); equipBanner(item.id); } }}
+                        style={{ borderRadius: 16, overflow: "hidden", border: `1px solid ${owned ? (isActive ? hoverColor : "rgba(255,255,255,0.1)") : "rgba(255,255,255,0.05)"}`, background: "rgba(30,30,30,0.6)", backdropFilter: "blur(12px)", cursor: owned && !isActive ? "pointer" : "default", boxShadow: isActive ? `0 0 20px ${hoverColor}33` : "none" }}>
+                        {!owned && (<div className="coll-locked-overlay"><div style={{ background: "rgba(0,0,0,0.8)", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 12, padding: "8px 16px", display: "flex", alignItems: "center", gap: 8 }}><LockIcon size={14} color="#888" /><span style={{ fontFamily: t.fontMono, fontSize: 10, color: "#888", fontWeight: 800, letterSpacing: "0.1em" }}>LOCKED</span></div></div>)}
+                        <div style={{ height: 110, overflow: "hidden", position: "relative" }}>
+                          <BannerRenderer bannerId={item.id} />
+                          {owned && isActive && (<><div style={{ position: "absolute", top: 12, right: 12, background: hoverColor, borderRadius: 12, padding: "4px 12px", fontFamily: t.fontMono, fontSize: 10, color: "#fff", fontWeight: 900, letterSpacing: "0.05em", zIndex: 3, boxShadow: "0 4px 12px rgba(0,0,0,0.3)" }}>EQUIPPED</div><div style={{ position: "absolute", inset: 0, background: "linear-gradient(110deg, transparent 40%, rgba(255,255,255,0.1) 45%, rgba(255,255,255,0.2) 50%, rgba(255,255,255,0.1) 55%, transparent 60%)", backgroundSize: "200% 100%", animation: "bannerShine 3s infinite linear", zIndex: 2, pointerEvents: "none" }} /></>)}
+                        </div>
+                        <div style={{ padding: "16px" }}>
+                          <div style={{ fontFamily: t.fontDisplay, fontSize: 18, fontWeight: 800, color: isActive ? hoverColor : t.text }}>{item.label}</div>
+                          <div style={{ fontFamily: t.fontBody, fontSize: 13, color: t.textMuted, marginTop: 4, fontWeight: 500, opacity: 0.7 }}>{equippingBanner === item.id ? "Calibrating…" : owned ? (isActive ? "Current banner" : "Click to showcase") : "Unlock via progress"}</div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+              <div>
+                <div style={{ fontFamily: t.fontMono, fontSize: 10, color: t.textMuted, letterSpacing: "0.18em", marginBottom: 12, opacity: 0.7 }}>PROFILE BORDERS</div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(210px,1fr))", gap: 14 }}>
+                  {PROFILE_BORDERS.filter(x => showAll || x.condition(profile)).map(item => {
+                    const owned = item.condition(profile);
+                    const tc = TIER_COLOR[item.tier];
+                    const isRainbow = item.id === "rainbow_halo";
+                    return (
+                      <div key={item.id} className={`coll-item ${!owned ? "coll-locked" : ""}`}
+                        style={{ borderRadius: 16, padding: "24px 16px", border: `1px solid ${owned ? (item.id === "none" ? "rgba(255,255,255,0.1)" : tc + "aa") : "rgba(255,255,255,0.05)"}`, background: "rgba(30,30,30,0.6)", backdropFilter: "blur(12px)", display: "flex", flexDirection: "column", alignItems: "center", gap: 16, boxShadow: owned && item.id !== "none" ? `0 0 25px ${tc}22` : "none" }}>
+                        <div style={{ width: 72, height: 72, borderRadius: "50%", background: `linear-gradient(135deg,${t.p1},${t.p2})`, boxShadow: owned && item.id !== "none" ? (isRainbow ? "0 0 0 4px #FF6B6B, 0 0 0 8px #FFD700, 0 0 30px #FF6B6BAA" : item.css) : "none", border: item.id === "none" ? `1px dashed ${t.border}` : "none", display: "flex", alignItems: "center", justifyContent: "center" }}>{!owned && <LockIcon size={20} color="#555" />}</div>
+                        <div style={{ textAlign: "center" as const }}>
+                          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4, marginBottom: 8 }}>
+                            <span style={{ fontFamily: t.fontDisplay, fontSize: 16, fontWeight: 800, color: owned ? t.text : t.textMuted }}>{item.label}</span>
+                            <span style={{ fontFamily: t.fontMono, fontSize: 9, color: tc, background: `${tc}18`, padding: "2px 8px", borderRadius: 6, fontWeight: 800, letterSpacing: "0.1em" }}>{item.tier.toUpperCase()} LEVEL</span>
+                          </div>
+                          <div style={{ fontFamily: t.fontBody, fontSize: 12, color: t.textMuted, fontWeight: 500, opacity: 0.8 }}>{owned ? "Aura active" : item.unlockDesc}</div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ── OLD banners (hidden — merged into profile_bundles) ── */}
+          {cat === "banners_hidden" && (
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(230px,1fr))", gap: 14 }}>
               {BANNERS.filter(x => showAll || x.condition(profile)).map(item => {
                 const owned = item.condition(profile);
@@ -837,8 +1058,8 @@ export default function CollectionScreen({ themeId, setThemeIdAction, onHoverAct
             </div>
           )}
 
-          {/* ── BORDERS ── */}
-          {cat === "borders" && (
+          {/* ── OLD borders (hidden) ── */}
+          {cat === "borders_hidden" && (
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(210px,1fr))", gap: 14 }}>
               {PROFILE_BORDERS.filter(x => showAll || x.condition(profile)).map(item => {
                 const owned = item.condition(profile);
@@ -875,8 +1096,65 @@ export default function CollectionScreen({ themeId, setThemeIdAction, onHoverAct
             </div>
           )}
 
-          {/* ── COIN SKINS ── */}
-          {cat === "coins" && (
+          {/* ── COIN BUNDLES (coin skins + toss animations) ── */}
+          {cat === "coin_bundles" && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
+              <div>
+                <div style={{ fontFamily: t.fontMono, fontSize: 10, color: t.textMuted, letterSpacing: "0.18em", marginBottom: 12, opacity: 0.7 }}>COIN SKINS</div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(190px,1fr))", gap: 14 }}>
+                  {COIN_SKINS.filter(x => showAll || x.owned).map(item => (
+                    <div key={item.id} className={`coll-item ${!item.owned ? "coll-locked" : ""}`}
+                      style={{ borderRadius: 16, padding: "24px 16px", border: `1px solid ${item.owned ? item.c1 + "44" : "rgba(255,255,255,0.05)"}`, background: "rgba(30,30,30,0.6)", backdropFilter: "blur(12px)", display: "flex", flexDirection: "column", alignItems: "center", gap: 16, position: "relative", boxShadow: item.owned ? `0 0 20px ${item.c1}11` : "none" }}>
+                      <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
+                        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
+                          <div style={{ width: 52, height: 52, borderRadius: "50%", background: item.owned ? `radial-gradient(circle at 35% 35%, ${item.c1}FF, ${item.c1}88)` : "#1a1a1a", boxShadow: item.owned ? `0 0 15px ${item.c1}55` : "none", display: "flex", alignItems: "center", justifyContent: "center", position: "relative" }}><img src={item.img1} alt="penta" style={{ width: 32, height: 32, objectFit: "contain", opacity: item.owned ? 1 : 0.15 }} />{item.owned && <div style={{ position: "absolute", inset: 0, borderRadius: "50%", background: "linear-gradient(110deg, transparent 40%, rgba(255,255,255,0.2) 45%, rgba(255,255,255,0.4) 50%, rgba(255,255,255,0.2) 55%, transparent 60%)", backgroundSize: "200% 100%", animation: "bannerShine 4s infinite linear" }} />}</div>
+                          <span style={{ fontFamily: t.fontMono, fontSize: 9, color: item.owned ? item.c1 : t.textMuted, letterSpacing: "0.1em", fontWeight: 800 }}>PENTA</span>
+                        </div>
+                        <div style={{ width: 1, height: 44, background: "rgba(255,255,255,0.1)", flexShrink: 0 }} />
+                        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
+                          <div style={{ width: 52, height: 52, borderRadius: "50%", background: item.owned ? `radial-gradient(circle at 35% 35%, ${item.c2}FF, ${item.c2}88)` : "#1a1a1a", boxShadow: item.owned ? `0 0 15px ${item.c2}55` : "none", display: "flex", alignItems: "center", justifyContent: "center", position: "relative" }}><img src={item.img2} alt="proto" style={{ width: 32, height: 32, objectFit: "contain", opacity: item.owned ? 1 : 0.15 }} />{item.owned && <div style={{ position: "absolute", inset: 0, borderRadius: "50%", background: "linear-gradient(110deg, transparent 40%, rgba(255,255,255,0.2) 45%, rgba(255,255,255,0.4) 50%, rgba(255,255,255,0.2) 55%, transparent 60%)", backgroundSize: "200% 100%", animation: "bannerShine 4s infinite linear" }} />}</div>
+                          <span style={{ fontFamily: t.fontMono, fontSize: 9, color: item.owned ? item.c2 : t.textMuted, letterSpacing: "0.1em", fontWeight: 800 }}>PROTO</span>
+                        </div>
+                      </div>
+                      <div style={{ textAlign: "center" as const }}><div style={{ fontFamily: t.fontDisplay, fontSize: 18, fontWeight: 800, color: item.owned ? t.text : t.textMuted }}>{item.label}</div><div style={{ fontFamily: t.fontBody, fontSize: 13, color: t.textMuted, marginTop: 4, fontWeight: 500, opacity: 0.7 }}>{item.owned ? "Active mint" : item.desc}</div></div>
+                      {!item.owned && (<div className="coll-locked-overlay"><LockIcon size={16} color="#666" /></div>)}
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <div style={{ fontFamily: t.fontMono, fontSize: 10, color: t.textMuted, letterSpacing: "0.18em", marginBottom: 12, opacity: 0.7 }}>TOSS ANIMATIONS</div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(210px,1fr))", gap: 14 }}>
+                  {COIN_TOSS_ANIMS.filter(x => showAll || x.condition(profile)).map(item => {
+                    const owned = item.condition(profile);
+                    const isPurchasable = !!item.price && !owned;
+                    const ac = t.accent;
+                    return (
+                      <div key={item.id} className={`coll-item ${!owned ? "coll-locked" : ""}`}
+                        onClick={() => { if (owned && activeToss !== item.id) { onClickAction?.(); equipToss(item.id); } }}
+                        onMouseEnter={() => { if (owned) onHoverAction?.(); }}
+                        style={{ borderRadius: 16, padding: "20px 16px", border: `1px solid ${owned ? (activeToss === item.id ? ac : "rgba(255,255,255,0.1)") : "rgba(255,255,255,0.05)"}`, background: "rgba(30,30,30,0.6)", backdropFilter: "blur(12px)", display: "flex", alignItems: "center", gap: 16, position: "relative", boxShadow: activeToss === item.id ? `0 0 20px ${ac}33` : "none", cursor: owned && activeToss !== item.id ? "pointer" : "default" }}>
+                        {!owned && (<div className="coll-locked-overlay"><div style={{ background: "rgba(0,0,0,0.8)", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 12, padding: "6px 14px", display: "flex", alignItems: "center", gap: 6 }}><LockIcon size={12} color="#888" /><span style={{ fontFamily: t.fontMono, fontSize: 9, color: "#888", fontWeight: 800, letterSpacing: "0.1em" }}>LOCKED</span></div></div>)}
+                        <div style={{ width: 48, height: 48, borderRadius: "50%", background: owned ? `linear-gradient(135deg,${ac},${ac}88)` : "#1a1a1a", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, boxShadow: owned ? `0 0 15px ${ac}44` : "none", position: "relative", overflow: "hidden" }}>
+                          {owned ? <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg> : <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#333" strokeWidth="2.5" strokeLinecap="round"><circle cx="12" cy="12" r="9"/></svg>}
+                          {owned && activeToss === item.id && <div style={{ position: "absolute", inset: 0, background: "linear-gradient(110deg, transparent 40%, rgba(255,255,255,0.3) 45%, rgba(255,255,255,0.6) 50%, rgba(255,255,255,0.3) 55%, transparent 60%)", backgroundSize: "200% 100%", animation: "bannerShine 2s infinite linear" }} />}
+                        </div>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontFamily: t.fontDisplay, fontSize: 18, fontWeight: 800, color: activeToss === item.id ? ac : t.text }}>{item.label}</div>
+                          <div style={{ fontFamily: t.fontBody, fontSize: 13, color: t.textMuted, marginTop: 4, fontWeight: 500, opacity: 0.7 }}>{owned ? (activeToss === item.id ? "Currently active" : "Impact selection") : item.desc}</div>
+                        </div>
+                        {owned && activeToss === item.id && <div style={{ position: "absolute", top: 12, right: 12, background: ac, borderRadius: 10, padding: "3px 10px", fontFamily: t.fontMono, fontSize: 9, color: "#000", fontWeight: 900, letterSpacing: "0.05em", boxShadow: "0 2px 8px rgba(0,0,0,0.3)" }}>ACTIVE</div>}
+                        {isPurchasable && <div style={{ position: "absolute", top: 12, left: 12, background: `linear-gradient(135deg, ${hoverColor}, #000)`, border: `1px solid ${hoverColor}88`, borderRadius: 8, padding: "4px 10px", fontFamily: t.fontMono, fontSize: 10, color: "#fff", fontWeight: 800, letterSpacing: "0.08em", zIndex: 6, boxShadow: `0 4px 10px rgba(0,0,0,0.4)` }}>EXCLUSIVE</div>}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ── OLD coin skins (hidden) ── */}
+          {cat === "coins_hidden" && (
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(190px,1fr))", gap: 14 }}>
               {COIN_SKINS.filter(x => showAll || x.owned).map(item => (
                 <div key={item.id} className={`coll-item ${!item.owned ? "coll-locked" : ""}`}
@@ -918,8 +1196,8 @@ export default function CollectionScreen({ themeId, setThemeIdAction, onHoverAct
             </div>
           )}
 
-          {/* ── TOSS ANIMATIONS ── */}
-          {cat === "toss" && (
+          {/* ── OLD toss (hidden) ── */}
+          {cat === "toss_hidden" && (
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(210px,1fr))", gap: 14 }}>
               {COIN_TOSS_ANIMS.filter(x => showAll || x.condition(profile)).map(item => {
                 const owned = item.condition(profile);
@@ -991,8 +1269,8 @@ export default function CollectionScreen({ themeId, setThemeIdAction, onHoverAct
             </div>
           )}
 
-          {/* ── PIECE SKINS ── */}
-          {cat === "pieces" && (
+          {/* ── OLD piece skins (hidden — merged into board_bundles) ── */}
+          {cat === "pieces_hidden" && (
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(210px,1fr))", gap: 14 }}>
               {PIECE_SKINS.filter(x => showAll || x.condition(profile)).map(item => {
                 const owned = item.condition(profile);
@@ -1035,6 +1313,15 @@ export default function CollectionScreen({ themeId, setThemeIdAction, onHoverAct
                               <circle cx="37" cy="62" r="10" fill={owned ? "#EEEEEE" : "#444"}/>
                               <circle cx="63" cy="62" r="10" fill={owned ? "#EEEEEE" : "#444"}/>
                             </svg>
+                          </div>
+                        </>
+                      ) : item.isGlacierShard ? (
+                        <>
+                          <div style={{ width: 44, height: 44, borderRadius: 10, background: owned ? "rgba(125,211,252,0.12)" : "#0a1020", border: `2px solid ${owned ? (activePiece === item.id ? hoverColor : "#7dd3fc") : "rgba(125,211,252,0.15)"}`, display: "flex", alignItems: "center", justifyContent: "center", position: "relative", overflow: "hidden", boxShadow: owned ? "0 0 15px rgba(125,211,252,0.2)" : "none", opacity: owned ? 1 : 0.4 }}>
+                            <GlacierSigilPiece cssSize="30px" />
+                          </div>
+                          <div style={{ width: 44, height: 44, borderRadius: 10, background: owned ? "rgba(147,197,253,0.12)" : "#0a1020", border: `2px solid ${owned ? (activePiece === item.id ? hoverColor : "#93c5fd") : "rgba(147,197,253,0.15)"}`, display: "flex", alignItems: "center", justifyContent: "center", position: "relative", overflow: "hidden", boxShadow: owned ? "0 0 15px rgba(147,197,253,0.2)" : "none", opacity: owned ? 1 : 0.4 }}>
+                            <GlacierPrismPiece cssSize="30px" />
                           </div>
                         </>
                       ) : (

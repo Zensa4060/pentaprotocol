@@ -8,7 +8,17 @@ import type { Screen } from "@/lib/types";
 import type { Difficulty } from "@/lib/botEngine";
 import { loadCustomTheme } from "@/lib/customTheme";
 
-import { Piece, Embers, HeatOverlay, Flame, Skull, FrostCrystals, IceOverlay, SnowflakePiece, IceShardPiece, RedCell, IceCell } from "./GamePieces";
+import { Piece, Embers, HeatOverlay, Flame, Skull, FrostCrystals, IceOverlay, GlacierAurora, GlacierSnow, GlacierGridLines, SnowflakePiece, IceShardPiece, GlacierSigilPiece, GlacierPrismPiece, RedCell, IceCell } from "./GamePieces";
+import GlacierGrid from "./GlacierGrid";
+import BloodMoonGrid from "./BloodMoonGrid";
+import EgyptGrid from "./EgyptGrid";
+import SynthwaveGrid from "./SynthwaveGrid";
+import MatrixGrid from "./MatrixGrid";
+import ArcaneGrid from "./ArcaneGrid";
+import BioGrid from "./BioGrid";
+import ForgeGrid from "./ForgeGrid";
+import VoidGrid from "./VoidGrid";
+import TokyoGrid from "./TokyoGrid";
 import type { Phase } from "./GamePieces";
 import { RulebreakerFlow, PHASE_TIMERS } from "./RulebreakerFlow";
 import { LeftPanel, RightPanel, WinOverlay, RematchOverlay, SurrenderModal, DisconnectModal, ExitModal } from "./MatchSidebar";
@@ -206,7 +216,27 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   const isRedBoard = boardSkin === "red_grid";
   const useFlameSkull = pieceSkin === "flame_skull";
   const isIceBoard = boardSkin === "ice_grid";
+  const isGlacierBoard = boardSkin === "glacier_grid";
+  const isBloodMoonBoard = boardSkin === "bloodmoon_grid";
+  const isEgyptBoard = boardSkin === "egypt_grid";
+  const isSynthwaveBoard = boardSkin === "synthwave_grid";
+  const isMatrixBoard = boardSkin === "matrix_grid";
+  const isArcaneBoard = boardSkin === "arcane_grid";
+  const isBioBoard = boardSkin === "bio_grid";
+  const isForgeBoard = boardSkin === "forge_grid";
+  const isVoidBoard = boardSkin === "void_grid";
+  const isTokyoBoard = boardSkin === "tokyo_grid";
   const useSnowflakeShard = pieceSkin === "snowflake_shard";
+  const useGlacierSigils = pieceSkin === "glacier_shard";
+  const useBloodMoonSigils = pieceSkin === "bloodmoon_sigils";
+  const useEgyptSigils = pieceSkin === "egypt_sigils";
+  const useSynthwaveSigils = pieceSkin === "synthwave_sigils";
+  const useMatrixSigils = pieceSkin === "matrix_sigils";
+  const useArcaneSigils = pieceSkin === "arcane_sigils";
+  const useBioSigils = pieceSkin === "bio_sigils";
+  const useForgeSigils = pieceSkin === "forge_sigils";
+  const useVoidSigils = pieceSkin === "void_sigils";
+  const useTokyoSigils = pieceSkin === "tokyo_sigils";
 
   const PIECE_SKIN_SYMBOLS: Record<string, { p1: string; p2: string; p1c: string; p2c: string }> = {
     default: { p1: t.pieces.p1, p2: t.pieces.p2, p1c: t.p1, p2c: t.p2 },
@@ -216,6 +246,16 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     legend: { p1: "^", p2: "@", p1c: "#F59E0B", p2c: "#FF3333" },
     flame_skull: { p1: "🔥", p2: "💀", p1c: "#FF4400", p2c: "#AAAAAA" },
     snowflake_shard: { p1: "❄", p2: "◆", p1c: "#C8EEFF", p2c: "#64C8FF" },
+    glacier_shard: { p1: "✶", p2: "◈", p1c: "#A5F3FC", p2c: "#93C5FD" },
+    bloodmoon_sigils: { p1: "⛧", p2: "◉", p1c: "#DC2626", p2c: "#7C3AED" },
+    egypt_sigils: { p1: "☥", p2: "𓂀", p1c: "#FBBF24", p2c: "#C084FC" },
+    synthwave_sigils: { p1: "☀", p2: "✦", p1c: "#FF4D6D", p2c: "#00E5FF" },
+    matrix_sigils: { p1: "[]", p2: "01", p1c: "#00FF41", p2c: "#4ADE80" },
+    arcane_sigils: { p1: "◌", p2: "✶", p1c: "#C084FC", p2c: "#FBBF24" },
+    bio_sigils: { p1: "⟡", p2: "◉", p1c: "#00FFD0", p2c: "#B464FF" },
+    forge_sigils: { p1: "⛏", p2: "✺", p1c: "#FF6600", p2c: "#FFCC00" },
+    void_sigils: { p1: "✷", p2: "◎", p1c: "#B464FF", p2c: "#40C0FF" },
+    tokyo_sigils: { p1: "⟟", p2: "⟐", p1c: "#FF0066", p2c: "#00CCFF" },
   };
   const skinData = PIECE_SKIN_SYMBOLS[pieceSkin] ?? PIECE_SKIN_SYMBOLS.default;
   const pieceSymbols = { p1: skinData.p1, p2: skinData.p2 };
@@ -1095,6 +1135,88 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   const placeRef = useRef(place);
   useEffect(() => { placeRef.current = place; });
 
+  // For glacier board: convert "P1"/"P2" → "X"/"O" so GlacierGrid component renders correctly
+  const glacierBoard = React.useMemo(
+    () => isGlacierBoard ? board.map(row => row.map(cell => cell === "P1" ? "X" : cell === "P2" ? "O" : null)) : null,
+    [isGlacierBoard, board]
+  );
+  const bloodMoonBoard = React.useMemo(
+    () => isBloodMoonBoard ? board.map(row => row.map(cell => cell === "P1" ? "X" : cell === "P2" ? "O" : null)) : null,
+    [isBloodMoonBoard, board]
+  );
+  const egyptBoard = React.useMemo(
+    () => isEgyptBoard ? board.map(row => row.map(cell => cell === "P1" ? "X" : cell === "P2" ? "O" : null)) : null,
+    [isEgyptBoard, board]
+  );
+  const synthwaveBoard = React.useMemo(
+    () => isSynthwaveBoard ? board.map(row => row.map(cell => cell === "P1" ? "X" : cell === "P2" ? "O" : null)) : null,
+    [isSynthwaveBoard, board]
+  );
+  const matrixBoard = React.useMemo(
+    () => isMatrixBoard ? board.map(row => row.map(cell => cell === "P1" ? "X" : cell === "P2" ? "O" : null)) : null,
+    [isMatrixBoard, board]
+  );
+  const arcaneBoard = React.useMemo(
+    () => isArcaneBoard ? board.map(row => row.map(cell => cell === "P1" ? "X" : cell === "P2" ? "O" : null)) : null,
+    [isArcaneBoard, board]
+  );
+  const bioBoard = React.useMemo(
+    () => isBioBoard ? board.map(row => row.map(cell => cell === "P1" ? "X" : cell === "P2" ? "O" : null)) : null,
+    [isBioBoard, board]
+  );
+  const forgeBoard = React.useMemo(
+    () => isForgeBoard ? board.map(row => row.map(cell => cell === "P1" ? "X" : cell === "P2" ? "O" : null)) : null,
+    [isForgeBoard, board]
+  );
+  const voidBoard = React.useMemo(
+    () => isVoidBoard ? board.map(row => row.map(cell => cell === "P1" ? "X" : cell === "P2" ? "O" : null)) : null,
+    [isVoidBoard, board]
+  );
+  const tokyoBoard = React.useMemo(
+    () => isTokyoBoard ? board.map(row => row.map(cell => cell === "P1" ? "X" : cell === "P2" ? "O" : null)) : null,
+    [isTokyoBoard, board]
+  );
+  const glacierClick = React.useCallback(
+    (r: number, c: number) => { if (!winner && phase === "playing") placeRef.current(r, c); },
+    [winner, phase]
+  );
+  const bloodMoonClick = React.useCallback(
+    (r: number, c: number) => { if (!winner && phase === "playing") placeRef.current(r, c); },
+    [winner, phase]
+  );
+  const egyptClick = React.useCallback(
+    (r: number, c: number) => { if (!winner && phase === "playing") placeRef.current(r, c); },
+    [winner, phase]
+  );
+  const synthwaveClick = React.useCallback(
+    (r: number, c: number) => { if (!winner && phase === "playing") placeRef.current(r, c); },
+    [winner, phase]
+  );
+  const matrixClick = React.useCallback(
+    (r: number, c: number) => { if (!winner && phase === "playing") placeRef.current(r, c); },
+    [winner, phase]
+  );
+  const arcaneClick = React.useCallback(
+    (r: number, c: number) => { if (!winner && phase === "playing") placeRef.current(r, c); },
+    [winner, phase]
+  );
+  const bioClick = React.useCallback(
+    (r: number, c: number) => { if (!winner && phase === "playing") placeRef.current(r, c); },
+    [winner, phase]
+  );
+  const forgeClick = React.useCallback(
+    (r: number, c: number) => { if (!winner && phase === "playing") placeRef.current(r, c); },
+    [winner, phase]
+  );
+  const voidClick = React.useCallback(
+    (r: number, c: number) => { if (!winner && phase === "playing") placeRef.current(r, c); },
+    [winner, phase]
+  );
+  const tokyoClick = React.useCallback(
+    (r: number, c: number) => { if (!winner && phase === "playing") placeRef.current(r, c); },
+    [winner, phase]
+  );
+
   const addLog = (r: number, c: number, player: string) => {
     const piece = player === "P1" ? t.pieces.p1 : t.pieces.p2;
     setLog(l => [...l, { text: `${l.length + 1}. ${piece}→${String.fromCharCode(65 + c)}${r + 1} (${player})`, player }]);
@@ -1180,11 +1302,15 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   // Only recomputes when actual board data changes
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const boardJSX = React.useMemo(() => (
-    <div style={{ position: "relative", display: "grid", gridTemplateColumns: `repeat(5,${bigCs})`, gridTemplateRows: `repeat(5,${bigCs})`, gap: `${boardGap}px`, background: isRedBoard ? "rgba(10,2,1,0.99)" : isIceBoard ? "linear-gradient(135deg,rgba(3,8,20,0.98),rgba(1,4,14,0.99))" : t.boardLine, padding: `${boardPad}px`, borderRadius: ip ? 2 : 10, border: `${ip ? 3 : 2}px solid ${isRedBoard ? "rgba(140,20,0,0.35)" : isIceBoard ? "rgba(80,160,220,0.28)" : t.border}`, boxShadow: isRedBoard ? "0 0 50px rgba(180,20,0,0.1), inset 0 0 40px rgba(0,0,0,0.7)" : isIceBoard ? "0 0 50px rgba(80,160,255,0.08), inset 0 0 40px rgba(0,0,0,0.7)" : "none", overflow: "hidden" }}>
+    <div style={{ position: "relative", display: "grid", gridTemplateColumns: `repeat(5,${bigCs})`, gridTemplateRows: `repeat(5,${bigCs})`, gap: `${boardGap}px`, background: isRedBoard ? "rgba(10,2,1,0.99)" : (isIceBoard || isGlacierBoard) ? "linear-gradient(135deg,rgba(3,8,20,0.98),rgba(1,4,14,0.99))" : t.boardLine, padding: `${boardPad}px`, borderRadius: ip ? 2 : 10, border: `${ip ? 3 : 2}px solid ${isRedBoard ? "rgba(140,20,0,0.35)" : isGlacierBoard ? "rgba(125,211,252,0.42)" : (isIceBoard ? "rgba(80,160,220,0.28)" : t.border)}`, boxShadow: isRedBoard ? "0 0 50px rgba(180,20,0,0.1), inset 0 0 40px rgba(0,0,0,0.7)" : isGlacierBoard ? "0 0 58px rgba(90,190,255,0.12), inset 0 0 46px rgba(0,0,0,0.74)" : (isIceBoard ? "0 0 50px rgba(80,160,255,0.08), inset 0 0 40px rgba(0,0,0,0.7)" : "none"), overflow: "hidden" }}>
       {isRedBoard && <Embers count={16} />}
       {isRedBoard && <HeatOverlay />}
       {isIceBoard && <FrostCrystals />}
       {isIceBoard && <IceOverlay />}
+      {isGlacierBoard && <GlacierAurora />}
+      {isGlacierBoard && <GlacierSnow count={22} />}
+      {isGlacierBoard && <FrostCrystals />}
+      {isGlacierBoard && <GlacierGridLines />}
       {board.map((row, r) => row.map((cell, c) => {
         const key = `${r}-${c}`;
         const blk = c3Blocked && movesPlayed === 0 && r === 2 && c === 2;
@@ -1192,8 +1318,8 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
         const isWin = winLine.some(([wr, wc]) => wr === r && wc === c);
         const ec = cell === "P1" ? p1c : p2c;
         const canPlay = !cell && !winner && !blk && phase === "playing";
-        if (isRedBoard) return (<RedCell key={key} cellSize={bigCs} player={cell} isWinCell={isWin} isHov={isHov} canPlay={canPlay} blk={blk} useFlameSkull={useFlameSkull} useSnowflakeShard={useSnowflakeShard} pieceSymbols={pieceSymbols} p1c={p1c} p2c={p2c} fontDisplay={t.fontDisplay} onClick={() => placeRef.current(r, c)} onMouseEnter={() => setHover(key)} onMouseLeave={() => setHover(null)} />);
-        if (isIceBoard) return (<IceCell key={key} cellSize={bigCs} player={cell} isWinCell={isWin} isHov={isHov} canPlay={canPlay} blk={blk} useFlameSkull={useFlameSkull} useSnowflakeShard={useSnowflakeShard} pieceSymbols={pieceSymbols} p1c={p1c} p2c={p2c} fontDisplay={t.fontDisplay} onClick={() => placeRef.current(r, c)} onMouseEnter={() => setHover(key)} onMouseLeave={() => setHover(null)} />);
+        if (isRedBoard) return (<RedCell key={key} cellSize={bigCs} player={cell} isWinCell={isWin} isHov={isHov} canPlay={canPlay} blk={blk} useFlameSkull={useFlameSkull} useSnowflakeShard={useSnowflakeShard} useGlacierSigils={useGlacierSigils} pieceSymbols={pieceSymbols} p1c={p1c} p2c={p2c} fontDisplay={t.fontDisplay} onClick={() => placeRef.current(r, c)} onMouseEnter={() => setHover(key)} onMouseLeave={() => setHover(null)} />);
+        if (isIceBoard || isGlacierBoard) return (<IceCell key={key} cellSize={bigCs} player={cell} isWinCell={isWin} isHov={isHov} canPlay={canPlay} blk={blk} useFlameSkull={useFlameSkull} useSnowflakeShard={useSnowflakeShard} useGlacierSigils={useGlacierSigils} pieceSymbols={pieceSymbols} p1c={p1c} p2c={p2c} fontDisplay={t.fontDisplay} onClick={() => placeRef.current(r, c)} onMouseEnter={() => setHover(key)} onMouseLeave={() => setHover(null)} />);
         return (
           <div key={key} onClick={() => placeRef.current(r, c)} onMouseEnter={() => setHover(key)} onMouseLeave={() => setHover(null)} className={isWin ? "win-cell-pulse" : ""}
             style={{ "--win-col": ec, width: bigCs, height: bigCs, background: blk ? `${t.danger}18` : isWin ? `${ec}28` : isHov ? `${cc}22` : t.boardBg, border: `2px solid ${blk ? t.danger : isWin ? ec : isHov ? cc : t.boardLine}`, borderRadius: ip ? 0 : 4, display: "flex", alignItems: "center", justifyContent: "center", cursor: canPlay ? (isHov ? "grabbing" : "grab") : "default", fontSize: "clamp(24px,5.5vmin,58px)", fontFamily: t.fontDisplay, fontWeight: 700, color: ec, textShadow: isWin ? `0 0 20px ${ec}` : cell ? `0 0 14px ${ec}77` : "none", transition: "background 0.1s, border-color 0.1s", opacity: blk ? 0.4 : 1, boxShadow: isWin ? `0 0 8px ${ec}44` : isHov ? `inset 0 0 12px ${cc}22` : "none", willChange: isWin ? "auto" : canPlay ? "background, border-color" : "auto", position: "relative" } as React.CSSProperties}>
@@ -1201,7 +1327,9 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
             {cell && useFlameSkull && cell === "P2" && <Skull cssSize="55%" />}
             {cell && useSnowflakeShard && cell === "P1" && <SnowflakePiece cssSize="55%" />}
             {cell && useSnowflakeShard && cell === "P2" && <IceShardPiece cssSize="55%" />}
-            {cell && !useFlameSkull && !useSnowflakeShard && <Piece symbol={cell === "P1" ? pieceSymbols.p1 : pieceSymbols.p2} color={cell === "P1" ? p1c : p2c} size="36%" />}
+            {cell && useGlacierSigils && cell === "P1" && <GlacierSigilPiece cssSize="55%" />}
+            {cell && useGlacierSigils && cell === "P2" && <GlacierPrismPiece cssSize="55%" />}
+            {cell && !useFlameSkull && !useSnowflakeShard && !useGlacierSigils && <Piece symbol={cell === "P1" ? pieceSymbols.p1 : pieceSymbols.p2} color={cell === "P1" ? p1c : p2c} size="36%" />}
             {!cell && blk && <span style={{ fontSize: "clamp(14px,2.5vmin,28px)", color: t.danger }}>✕</span>}
           </div>
         );
@@ -1210,7 +1338,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     // recompute when board, hover, win state, or skin changes — NOT on timer ticks
     // eslint-disable-next-line react-hooks/exhaustive-deps
   ), [board, hover, winLine, winner, phase, c3Blocked, movesPlayed, bigCs,
-    p1c, p2c, cc, isRedBoard, isIceBoard, useFlameSkull, useSnowflakeShard]);
+    p1c, p2c, cc, isRedBoard, isIceBoard, isGlacierBoard, useFlameSkull, useSnowflakeShard, useGlacierSigils]);
 
 
 
@@ -1352,19 +1480,27 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
               ↺ RESET MATCH
             </button>
           )}
-          <div style={{ display: "flex", gap: `${boardGap}px`, paddingLeft: 28, marginBottom: 4 }}>
-            {"ABCDE".split("").map(l => (
-              <div key={l} style={{ width: bigCs, textAlign: "center", fontFamily: t.fontMono, fontSize: 16, fontWeight: 800, color: isRedBoard ? "rgba(200,60,40,0.7)" : isIceBoard ? "rgba(140,210,255,0.55)" : t.accent, letterSpacing: "0.1em" }}>{l}</div>
-            ))}
-          </div>
-          <div style={{ display: "flex", gap: 4, alignItems: "flex-start" }}>
-            <div style={{ display: "grid", gridTemplateRows: `repeat(5,${bigCs})`, gap: `${boardGap}px` }}>
-              {[1, 2, 3, 4, 5].map(n => (
-                <div key={n} style={{ display: "flex", alignItems: "center", justifyContent: "center", fontFamily: t.fontMono, fontSize: 16, fontWeight: 800, color: isRedBoard ? "rgba(200,60,40,0.7)" : t.accent, width: 24 }}>{n}</div>
-              ))}
-            </div>
-            {boardJSX}
-          </div>
+          {isGlacierBoard && glacierBoard ? (
+            <GlacierGrid board={glacierBoard} onCellClick={glacierClick} winCells={winLine} />
+          ) : isBloodMoonBoard && bloodMoonBoard ? (
+            <BloodMoonGrid board={bloodMoonBoard} onCellClick={bloodMoonClick} winCells={winLine} />
+          ) : (
+            <>
+              <div style={{ display: "flex", gap: `${boardGap}px`, paddingLeft: 28, marginBottom: 4 }}>
+                {"ABCDE".split("").map(l => (
+                  <div key={l} style={{ width: bigCs, textAlign: "center", fontFamily: t.fontMono, fontSize: 16, fontWeight: 800, color: isRedBoard ? "rgba(200,60,40,0.7)" : isIceBoard ? "rgba(140,210,255,0.55)" : t.accent, letterSpacing: "0.1em" }}>{l}</div>
+                ))}
+              </div>
+              <div style={{ display: "flex", gap: 4, alignItems: "flex-start" }}>
+                <div style={{ display: "grid", gridTemplateRows: `repeat(5,${bigCs})`, gap: `${boardGap}px` }}>
+                  {[1, 2, 3, 4, 5].map(n => (
+                    <div key={n} style={{ display: "flex", alignItems: "center", justifyContent: "center", fontFamily: t.fontMono, fontSize: 16, fontWeight: 800, color: isRedBoard ? "rgba(200,60,40,0.7)" : isIceBoard ? "rgba(140,210,255,0.55)" : t.accent, width: 24 }}>{n}</div>
+                  ))}
+                </div>
+                {boardJSX}
+              </div>
+            </>
+          )}
         </div>
 
         {/* Mobile top-right menu buttons */}
@@ -1560,6 +1696,10 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
           @keyframes iceD2{from{transform:translate(0,0)}to{transform:translate(6px,-9px)}}
           @keyframes iceWinCellPulse{0%,100%{box-shadow:0 0 10px rgba(100,200,255,0.3)}50%{box-shadow:0 0 28px rgba(100,200,255,0.7),inset 0 0 16px rgba(60,160,255,0.2)}}
           @keyframes redWinCellPulse{0%,100%{box-shadow:0 0 10px rgba(255,80,0,0.3)}50%{box-shadow:0 0 28px rgba(255,80,0,0.7),inset 0 0 16px rgba(255,40,0,0.2)}}
+          @keyframes glAurora1{from{transform:translate(-2%,0) scale(1)}to{transform:translate(4%,8%) scale(1.08)}}
+          @keyframes glAurora2{from{transform:translate(0,0) scale(1)}to{transform:translate(-5%,6%) scale(1.06)}}
+          @keyframes glAurora3{from{transform:translate(0,0) scale(1)}to{transform:translate(3%,-7%) scale(1.05)}}
+          @keyframes glSnowFall{0%{transform:translateY(-8px) translateX(0px);opacity:0}8%{opacity:.88}85%{opacity:.45}100%{transform:translateY(800px) translateX(var(--gl-dx,12px));opacity:0}}
         `}</style>
       </div>
     );
@@ -1659,16 +1799,40 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
             {c3Blocked ? "✕ Center (C3) is blocked this game" : "★ Playing center gives opponent 2 extra turns"}
           </div>
         </div>
-        {/* Column labels — offset by row-label width to align with board columns */}
-        <div style={{ display: "flex", gap: `${boardGap}px`, marginLeft: 34 }}>
-          {"ABCDE".split("").map(l => <div key={l} style={{ width: bigCs, textAlign: "center", fontFamily: t.fontMono, fontSize: 21, fontWeight: 800, color: isRedBoard ? "rgba(200,60,40,0.7)" : isIceBoard ? "rgba(140,210,255,0.55)" : t.accent, letterSpacing: "0.1em", textShadow: `0 0 10px ${isRedBoard ? "rgba(200,40,0,0.4)" : isIceBoard ? "rgba(100,180,255,0.3)" : t.accentGlow + "66"}` }}>{l}</div>)}
-        </div>
-        <div style={{ display: "flex", gap: 6, alignItems: "flex-start" }}>
-          <div style={{ display: "grid", gridTemplateRows: `repeat(5,${bigCs})`, gap: `${boardGap}px` }}>
-            {[1, 2, 3, 4, 5].map(n => <div key={n} style={{ display: "flex", alignItems: "center", justifyContent: "center", fontFamily: t.fontMono, fontSize: 21, fontWeight: 800, color: isRedBoard ? "rgba(200,60,40,0.7)" : t.accent, letterSpacing: "0.1em", textShadow: `0 0 10px ${isRedBoard ? "rgba(200,40,0,0.4)" : t.accentGlow + "66"}`, width: 34, flexShrink: 0 }}>{n}</div>)}
-          </div>
-          {boardJSX}
-        </div>
+        {/* Column labels + board — special boards render their own labels */}
+        {isGlacierBoard && glacierBoard ? (
+          <GlacierGrid board={glacierBoard} onCellClick={glacierClick} winCells={winLine} />
+        ) : isBloodMoonBoard && bloodMoonBoard ? (
+          <BloodMoonGrid board={bloodMoonBoard} onCellClick={bloodMoonClick} winCells={winLine} />
+        ) : isEgyptBoard && egyptBoard ? (
+          <EgyptGrid board={egyptBoard} onCellClick={egyptClick} winCells={winLine} />
+        ) : isSynthwaveBoard && synthwaveBoard ? (
+          <SynthwaveGrid board={synthwaveBoard} onCellClick={synthwaveClick} winCells={winLine} />
+        ) : isMatrixBoard && matrixBoard ? (
+          <MatrixGrid board={matrixBoard} onCellClick={matrixClick} winCells={winLine} />
+        ) : isArcaneBoard && arcaneBoard ? (
+          <ArcaneGrid board={arcaneBoard} onCellClick={arcaneClick} winCells={winLine} />
+        ) : isBioBoard && bioBoard ? (
+          <BioGrid board={bioBoard} onCellClick={bioClick} winCells={winLine} />
+        ) : isForgeBoard && forgeBoard ? (
+          <ForgeGrid board={forgeBoard} onCellClick={forgeClick} winCells={winLine} />
+        ) : isVoidBoard && voidBoard ? (
+          <VoidGrid board={voidBoard} onCellClick={voidClick} winCells={winLine} />
+        ) : isTokyoBoard && tokyoBoard ? (
+          <TokyoGrid board={tokyoBoard} onCellClick={tokyoClick} winCells={winLine} />
+        ) : (
+          <>
+            <div style={{ display: "flex", gap: `${boardGap}px`, marginLeft: 34 }}>
+              {"ABCDE".split("").map(l => <div key={l} style={{ width: bigCs, textAlign: "center", fontFamily: t.fontMono, fontSize: 21, fontWeight: 800, color: isRedBoard ? "rgba(200,60,40,0.7)" : isIceBoard ? "rgba(140,210,255,0.55)" : t.accent, letterSpacing: "0.1em", textShadow: `0 0 10px ${isRedBoard ? "rgba(200,40,0,0.4)" : isIceBoard ? "rgba(100,180,255,0.3)" : t.accentGlow + "66"}` }}>{l}</div>)}
+            </div>
+            <div style={{ display: "flex", gap: 6, alignItems: "flex-start" }}>
+              <div style={{ display: "grid", gridTemplateRows: `repeat(5,${bigCs})`, gap: `${boardGap}px` }}>
+                {[1, 2, 3, 4, 5].map(n => <div key={n} style={{ display: "flex", alignItems: "center", justifyContent: "center", fontFamily: t.fontMono, fontSize: 21, fontWeight: 800, color: isRedBoard ? "rgba(200,60,40,0.7)" : isIceBoard ? "rgba(140,210,255,0.55)" : t.accent, letterSpacing: "0.1em", textShadow: `0 0 10px ${isRedBoard ? "rgba(200,40,0,0.4)" : isIceBoard ? "rgba(100,180,255,0.3)" : t.accentGlow + "66"}`, width: 34, flexShrink: 0 }}>{n}</div>)}
+              </div>
+              {boardJSX}
+            </div>
+          </>
+        )}
       </div>
 
       <RightPanel
@@ -1713,6 +1877,10 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
         @keyframes iceD1{from{transform:translate(0,0)}to{transform:translate(-10px,6px)}}
         @keyframes iceD2{from{transform:translate(0,0)}to{transform:translate(6px,-9px)}}
         @keyframes iceWinCellPulse{0%,100%{box-shadow:0 0 10px rgba(100,200,255,0.3)}50%{box-shadow:0 0 28px rgba(100,200,255,0.7),inset 0 0 16px rgba(60,160,255,0.2)}}
+        @keyframes glAurora1{from{transform:translate(-2%,0) scale(1)}to{transform:translate(4%,8%) scale(1.08)}}
+        @keyframes glAurora2{from{transform:translate(0,0) scale(1)}to{transform:translate(-5%,6%) scale(1.06)}}
+        @keyframes glAurora3{from{transform:translate(0,0) scale(1)}to{transform:translate(3%,-7%) scale(1.05)}}
+        @keyframes glSnowFall{0%{transform:translateY(-8px) translateX(0px);opacity:0}8%{opacity:.88}85%{opacity:.45}100%{transform:translateY(800px) translateX(var(--gl-dx,12px));opacity:0}}
       `}</style>
     </div>
   );

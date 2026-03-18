@@ -2,10 +2,14 @@
 
 export type MusicPack = "classic" | "space" | "pixel";
 export type SfxPack   = "classic" | "space" | "pixel";
-export type BoardSkin = "default" | "marble" | "forest" | "void" | "gold" | "ice" | "red_grid" | "ice_grid";
+export type BoardSkin =
+  | "default" | "marble" | "forest" | "void" | "gold" | "ice"
+  | "red_grid" | "ice_grid" | "glacier_grid" | "bloodmoon_grid" | "egypt_grid" | "synthwave_grid" | "matrix_grid" | "arcane_grid" | "bio_grid" | "forge_grid" | "void_grid" | "tokyo_grid";
 export type CoinSkin   = "default" | "crystal" | "emerald" | "ruby" | "obsidian" | "legend";
 export type TossAnim   = "default" | "slow_mo" | "lightning" | "galaxy" | "matrix";
-export type PieceSkin = "default" | "roman" | "rune" | "symbol" | "legend" | "flame_skull" | "snowflake_shard";
+export type PieceSkin =
+  | "default" | "roman" | "rune" | "symbol" | "legend"
+  | "flame_skull" | "snowflake_shard" | "glacier_shard" | "bloodmoon_sigils" | "egypt_sigils" | "synthwave_sigils" | "matrix_sigils" | "arcane_sigils" | "bio_sigils" | "forge_sigils" | "void_sigils" | "tokyo_sigils";
 export type BgSource   = "classic_light" | "classic_dark" | "space" | "pixel";
 
 // Keep SoundPack as alias for backward compat

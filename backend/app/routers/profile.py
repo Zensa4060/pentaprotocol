@@ -124,7 +124,17 @@ VALID_BOARD_STYLES = [
     "gold",
     "ice",
     "red_grid",
-    "ice_grid"
+    "ice_grid",
+    "glacier_grid",
+    "bloodmoon_grid",
+    "egypt_grid",
+    "synthwave_grid",
+    "matrix_grid",
+    "arcane_grid",
+    "bio_grid",
+    "forge_grid",
+    "void_grid",
+    "tokyo_grid",
 ]
 VALID_TITLES = {
     "newcomer", "sharpshooter", "strategist", "gladiator", "emerald_eye",
