@@ -3,6 +3,16 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 
 const DPR = typeof window !== "undefined" ? window.devicePixelRatio || 2 : 2;
 
+// Deterministic PRNG so the banner looks consistent across screens.
+function mulberry32(seed: number) {
+  return function () {
+    let t = (seed += 0x6d2b79f5);
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
 function roundRect(
   ctx: CanvasRenderingContext2D,
   x: number,
@@ -59,20 +69,28 @@ export default function CryoStormBanner({
     return () => obs.disconnect();
   }, []);
 
-  const flakeCount = useMemo(() => Math.round(92), []);
+  const flakeCount = useMemo(() => {
+    const baseW = 860;
+    const baseH = 80;
+    const baseArea = baseW * baseH;
+    const area = dims.w * dims.h;
+    // Keep flake density visually consistent across banner sizes.
+    return Math.max(40, Math.min(160, Math.round(92 * (area / baseArea))));
+  }, [dims.w, dims.h]);
   const flakesRef = useRef<Flake[]>([]);
 
   // Re-seed flakes when dimensions change (keeps density stable).
   useEffect(() => {
     const { w, h } = dims;
+    const rand = mulberry32(1337);
     flakesRef.current = Array.from({ length: flakeCount }, () => ({
-      x: Math.random() * w,
-      y: Math.random() * h,
-      r: Math.random() * 1.9 + 0.35,
-      vy: 0.35 + Math.random() * 0.95,
-      drift: (Math.random() - 0.5) * 0.35,
-      alpha: 0.25 + Math.random() * 0.75,
-      phase: Math.random() * Math.PI * 2,
+      x: rand() * w,
+      y: rand() * h,
+      r: rand() * 1.9 + 0.35,
+      vy: 0.35 + rand() * 0.95,
+      drift: (rand() - 0.5) * 0.35,
+      alpha: 0.25 + rand() * 0.75,
+      phase: rand() * Math.PI * 2,
     }));
   }, [dims, flakeCount]);
 
@@ -95,30 +113,45 @@ export default function CryoStormBanner({
     let t = 0;
 
     const drawHexGrid = () => {
-      const cell = 18 * sx;
-      const stepY = cell * Math.sqrt(3) * 0.5;
-      const r = cell * 0.5;
+      // Important: scale x/y independently so the hex geometry doesn't stretch
+      // differently in banners with different aspect ratios (e.g. Career vs Profile).
+      const cellBase = 18; // design units (baseW/baseH)
+      const stepYBase = cellBase * Math.sqrt(3) * 0.5;
+      const rBase = cellBase * 0.5;
+      const cellXPix = cellBase * sx;
+      const stepYPix = stepYBase * sy;
+      const uniformStroke = Math.min(sx, sy);
+      const bandTopPix = DH * 0.22;
+      const bandBottomPix = DH * 0.58;
 
       // Subtle glow pass.
       ctx.save();
       ctx.globalAlpha = 0.55;
       ctx.globalCompositeOperation = "screen";
       ctx.strokeStyle = "rgba(130,220,255,0.25)";
-      ctx.lineWidth = 1 * sx;
+      ctx.lineWidth = 1 * uniformStroke;
 
-      const rows = Math.ceil(DH / stepY) + 4;
-      const cols = Math.ceil(DW / cell) + 4;
+      const rows = Math.ceil(DH / stepYPix) + 4;
+      const cols = Math.ceil(DW / cellXPix) + 4;
       for (let row = -2; row < rows; row++) {
-        const cy = row * stepY;
-        const offsetX = (row % 2) * (cell / 2);
+        const cyBase = row * stepYBase;
+        const offsetXBase = (row % 2) * (cellBase / 2);
         for (let col = -2; col < cols; col++) {
-          const cx = col * cell + offsetX;
-          if (cx < -cell || cx > DW + cell || cy < -stepY || cy > DH + stepY) continue;
-          // Hex vertices (flat-top-ish).
+          const cxBase = col * cellBase + offsetXBase;
+          const cxPix = cxBase * sx;
+          const cyPix = cyBase * sy;
+
+          if (cxPix < -cellXPix || cxPix > DW + cellXPix || cyPix < -stepYPix || cyPix > DH + stepYPix) continue;
+          // Fade grid into the “active band” only (core look of the original banner).
+          if (cyPix < bandTopPix || cyPix > bandBottomPix) continue;
+
+          // Hex vertices (flat-top-ish) in scaled pixel space.
           const points: Array<[number, number]> = [];
           for (let i = 0; i < 6; i++) {
             const ang = (Math.PI / 3) * i + Math.PI / 6;
-            points.push([cx + Math.cos(ang) * r, cy + Math.sin(ang) * r]);
+            const x = (cxBase + Math.cos(ang) * rBase) * sx;
+            const y = (cyBase + Math.sin(ang) * rBase) * sy;
+            points.push([x, y]);
           }
           ctx.beginPath();
           ctx.moveTo(points[0][0], points[0][1]);
@@ -140,19 +173,20 @@ export default function CryoStormBanner({
       ctx.fillStyle = bg;
       ctx.fillRect(0, 0, DW, DH);
 
-      // Aurora bands
+      // Aurora: a single dominant horizontal band (matches original artwork better)
       ctx.save();
       ctx.globalCompositeOperation = "screen";
-      for (let i = 0; i < 4; i++) {
-        const y = DH * (0.25 + i * 0.12) + Math.sin(t * 0.9 + i * 1.8) * (6 * sy);
-        const band = ctx.createLinearGradient(0, y - 14 * sy, DW, y + 14 * sy);
-        band.addColorStop(0, "rgba(70,200,255,0)");
-        band.addColorStop(0.45, `rgba(120,240,255,${0.09 + i * 0.01})`);
-        band.addColorStop(0.55, `rgba(170,255,245,${0.06 + i * 0.01})`);
-        band.addColorStop(1, "rgba(70,200,255,0)");
-        ctx.fillStyle = band;
-        ctx.fillRect(0, y - 16 * sy, DW, 32 * sy);
-      }
+      const bandTop = DH * 0.22;
+      const bandBottom = DH * 0.58;
+      const coreY = DH * 0.40 + Math.sin(t * 0.9) * (4 * sy) + Math.sin(t * 0.32) * (2.5 * sy);
+      const bandHalf = (bandBottom - bandTop) * 0.12 + 12 * sy;
+      const band = ctx.createLinearGradient(0, coreY - bandHalf, DW, coreY + bandHalf);
+      band.addColorStop(0, "rgba(70,200,255,0)");
+      band.addColorStop(0.45, "rgba(120,240,255,0.12)");
+      band.addColorStop(0.55, "rgba(170,255,245,0.09)");
+      band.addColorStop(1, "rgba(70,200,255,0)");
+      ctx.fillStyle = band;
+      ctx.fillRect(0, coreY - bandHalf, DW, bandHalf * 2);
       ctx.restore();
 
       // Hex grid (slow fade in/out)
@@ -174,15 +208,24 @@ export default function CryoStormBanner({
         }
         const px = f.x;
         const py = f.y;
+        const bandTop = DH * 0.22;
+        const bandBottom = DH * 0.58;
+        const bandPadTop = bandTop - 8 * sy;
+        const bandPadBottom = bandBottom + 10 * sy;
+        if (py < bandPadTop || py > bandPadBottom) continue;
+
+        const core = py >= bandTop && py <= bandBottom;
+        const bandMult = core ? 1 : 0.35;
+
         const a = f.alpha * (0.35 + 0.65 * (1 - (py / (DH + 10)) * 0.6));
-        ctx.fillStyle = `rgba(210,245,255,${a * 0.6})`;
+        ctx.fillStyle = `rgba(210,245,255,${a * 0.6 * bandMult})`;
         ctx.beginPath();
         ctx.arc(px, py, f.r * sx, 0, Math.PI * 2);
         ctx.fill();
 
         // Small star-like twinkle for a subset.
         if (f.r > 1.6 && Math.sin(t * 2 + f.phase) > 0.75) {
-          ctx.strokeStyle = `rgba(210,245,255,${a})`;
+          ctx.strokeStyle = `rgba(210,245,255,${a * bandMult})`;
           ctx.lineWidth = 1 * sx;
           ctx.beginPath();
           ctx.moveTo(px - 2 * sx, py);

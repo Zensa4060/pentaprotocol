@@ -1112,7 +1112,7 @@ export default function CollectionScreen({ themeId, setThemeIdAction, onHoverAct
           {cat === "coin_bundles" && (
             <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
               <div>
-                <div style={{ fontFamily: t.fontMono, fontSize: 10, color: t.textMuted, letterSpacing: "0.18em", marginBottom: 12, opacity: 0.7 }}>COIN SKINS</div>
+                <div style={{ fontFamily: t.fontMono, fontSize: 10, color: t.textMuted, letterSpacing: "0.18em", marginBottom: 12, opacity: 0.7 }}> COINS </div>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(190px,1fr))", gap: 14 }}>
                   {COIN_SKINS.filter(x => showAll || x.owned).map(item => (
                     <div key={item.id} className={`coll-item ${!item.owned ? "coll-locked" : ""}`}
