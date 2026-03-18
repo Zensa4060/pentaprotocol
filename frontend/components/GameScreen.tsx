@@ -137,7 +137,6 @@ const MatchupOverlay = ({ matchupData, showMatchupOverlay, playerSlot, p1Name, u
            <div style={{ 
              width: sideBySideSize, height: sideBySideSize, display: "flex", alignItems: "center", 
              justifyContent: "center", animation: "rankFloat 3.5s ease-in-out infinite",
-             filter: `drop-shadow(0 0 30px ${color}66)`,
              flexShrink: 0
            }}>
              <RankIcon rank={rank} size={sideBySideSize} />

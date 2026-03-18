@@ -8,6 +8,7 @@ import { containsProfanity, validateUsername } from "@/lib/profanity";
 import { SHARDS_LIGHT_SVG, SHARDS_DARK_SVG, PROTO_LIGHT_SVG, PROTO_DARK_SVG } from "@/lib/currencyIcons";
 import type { Screen } from "@/lib/types";
 import { BannerRenderer } from "./BannerRenderer";
+import { rankHasEmblemGlow } from "./NavBar";
 import VoidRiftBanner from "./VoidRiftBanner";
 import BloodMoonBanner from "./BloodMoonBanner";
 import PhantomStrikeBanner from "./PhantomStrikeBanner";
@@ -95,21 +96,83 @@ const TIER_COLOR: Record<string, string> = {
 
 const getRank = (elo: number) => RANKS.find(r => elo >= r.min && elo < r.max) || RANKS[5];
 
+const rankEmblemImgFilter = (c: string) =>
+  `drop-shadow(0 0 4px ${c}) drop-shadow(0 0 12px ${c}CC) drop-shadow(0 0 26px ${c}66) drop-shadow(0 0 42px ${c}33)`;
+
 export const RankIcon = ({ rank, size = 26 }: { rank: typeof RANKS[0]; size?: number }) => {
   const imgScale = (rank as any).scale ?? 1;
   const imgSize = size * 0.85 * imgScale;
+  const glow = rankHasEmblemGlow(rank);
   return (
-    <div className="rank-badge-container" style={{ 
-      width:size, height:size, borderRadius:"50%", background:"#000000", flexShrink:0, 
-      display:"flex", alignItems:"center", justifyContent:"center", 
-      overflow:"hidden", position: "relative",
-      boxShadow: `0 0 15px ${rank.color}88`,
-      transition: "all 0.3s ease"
-    }}>
+    <div
+      className={glow ? "rank-badge-container" : undefined}
+      style={{
+        width: size,
+        height: size,
+        borderRadius: "50%",
+        background: "transparent",
+        flexShrink: 0,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        overflow: "visible",
+        position: "relative",
+        boxShadow: "none",
+        transition: "transform 0.3s ease",
+        "--rank-col": rank.color,
+      } as React.CSSProperties}
+    >
       {rank.img ? (
-        <img src={rank.img} alt={rank.name} draggable={false} style={{ width:imgSize, height:imgSize, objectFit:"contain", userSelect: "none", pointerEvents: "none", position: "relative", zIndex: 0 }} />
+        <>
+          {glow && (
+            <div
+              aria-hidden
+              style={{
+                position: "absolute",
+                left: "50%",
+                top: "50%",
+                width: "135%",
+                height: "135%",
+                borderRadius: "50%",
+                background: `radial-gradient(circle, ${rank.color}55 0%, ${rank.color}22 38%, transparent 68%)`,
+                pointerEvents: "none",
+                zIndex: 0,
+                animation: "rankHaloPulse 2.6s ease-in-out infinite",
+              }}
+            />
+          )}
+          <img
+            src={rank.img}
+            alt={rank.name}
+            draggable={false}
+            className={glow ? "rank-emblem-img" : undefined}
+            style={{
+              width: imgSize,
+              height: imgSize,
+              objectFit: "contain",
+              userSelect: "none",
+              pointerEvents: "none",
+              position: "relative",
+              zIndex: 1,
+              filter: glow ? rankEmblemImgFilter(rank.color) : "none",
+            }}
+          />
+        </>
       ) : (
-        <span style={{ fontSize:size*0.6, color:rank.color, lineHeight:1, userSelect: "none", pointerEvents: "none", position: "relative", zIndex: 0 }}>{rank.icon}</span>
+        <span
+          style={{
+            fontSize: size * 0.6,
+            color: rank.color,
+            lineHeight: 1,
+            userSelect: "none",
+            pointerEvents: "none",
+            position: "relative",
+            zIndex: 1,
+            textShadow: glow ? `0 0 12px ${rank.color}, 0 0 28px ${rank.color}99` : "none",
+          }}
+        >
+          {rank.icon}
+        </span>
       )}
     </div>
   );
@@ -595,8 +658,9 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
       .title-pill:hover { transform: translateY(-1px); }
       .pw-eye { cursor:pointer; user-select:none; opacity:0.5; transition:opacity 0.15s; }
       .pw-eye:hover { opacity:1; }
-      .rank-badge-container { position: relative; overflow: hidden; }
-      .rank-badge-container:hover { transform: scale(1.1); box-shadow: -15px 0 30px -5px var(--rank-col), 15px 0 30px -5px var(--rank-col) !important; }
+      .rank-badge-container { position: relative; overflow: visible; }
+      .rank-badge-container:hover { transform: scale(1.08); }
+      .rank-badge-container:hover .rank-emblem-img { filter: drop-shadow(0 0 8px var(--rank-col)) drop-shadow(0 0 20px var(--rank-col)) drop-shadow(0 0 40px var(--rank-col)) !important; } /* Master/Legend only */
       @keyframes shineSweep { from { transform: translateX(-50%); } to { transform: translateX(100%); } }
     `}</style>
 

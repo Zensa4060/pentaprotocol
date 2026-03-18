@@ -17,21 +17,61 @@ export const RANKS = [
 
 export const getRank = (elo: number) => RANKS.find(r => elo >= r.min && elo < r.max) || RANKS[0];
 
+/** Radiating glow only for top two tiers */
+export const rankHasEmblemGlow = (rank: { name: string }) =>
+  rank.name === "MASTER" || rank.name === "LEGEND";
+
+const rankEmblemImgFilter = (c: string) =>
+  `drop-shadow(0 0 4px ${c}) drop-shadow(0 0 12px ${c}CC) drop-shadow(0 0 26px ${c}66) drop-shadow(0 0 42px ${c}33)`;
+
 export const NavRankBadge = ({ rank, size = 30 }: { rank: typeof RANKS[0]; size?: number }) => {
   const imgScale = (rank as any).scale ?? 1;
   const imgSize = size * 0.85 * imgScale;
+  const glow = rankHasEmblemGlow(rank);
   return (
-    <div className="rank-badge-container" style={{
+    <div className={glow ? "rank-badge-container" : undefined} style={{
       width: size, height: size, borderRadius: "50%",
-      background: "#000", flexShrink: 0,
+      background: "transparent", flexShrink: 0,
       display: "flex", alignItems: "center", justifyContent: "center",
-      overflow: "hidden", boxShadow: `0 0 15px ${rank.color}88`,
+      overflow: "visible",
+      boxShadow: "none",
       position: "relative",
-      transition: "all 0.3s ease",
+      transition: "transform 0.3s ease, filter 0.3s ease",
       "--rank-col": rank.color
     } as any}>
-
-      <img src={rank.img} alt={rank.name} draggable={false} style={{ width: imgSize, height: imgSize, objectFit: "contain", userSelect: "none", pointerEvents: "none", position: "relative", zIndex: 0 }} />
+      {glow && (
+        <div
+          aria-hidden
+          style={{
+            position: "absolute",
+            left: "50%",
+            top: "50%",
+            width: "135%",
+            height: "135%",
+            borderRadius: "50%",
+            background: `radial-gradient(circle, ${rank.color}55 0%, ${rank.color}22 38%, transparent 68%)`,
+            pointerEvents: "none",
+            zIndex: 0,
+            animation: "rankHaloPulse 2.6s ease-in-out infinite",
+          }}
+        />
+      )}
+      <img
+        src={rank.img}
+        alt={rank.name}
+        draggable={false}
+        className={glow ? "rank-emblem-img" : undefined}
+        style={{
+          width: imgSize,
+          height: imgSize,
+          objectFit: "contain",
+          userSelect: "none",
+          pointerEvents: "none",
+          position: "relative",
+          zIndex: 1,
+          filter: glow ? rankEmblemImgFilter(rank.color) : "none",
+        }}
+      />
     </div>
   );
 };
@@ -251,11 +291,13 @@ export default function NavBar({
         
         .rank-badge-container {
           position: relative;
-          overflow: hidden;
+          overflow: visible;
         }
         .rank-badge-container:hover {
-          transform: scale(1.1);
-          box-shadow: -15px 0 30px -5px var(--rank-col), 15px 0 30px -5px var(--rank-col) !important;
+          transform: scale(1.08);
+        }
+        .rank-badge-container:hover .rank-emblem-img {
+          filter: drop-shadow(0 0 8px var(--rank-col)) drop-shadow(0 0 20px var(--rank-col)) drop-shadow(0 0 40px var(--rank-col)) !important;
         }
       `}</style>
 

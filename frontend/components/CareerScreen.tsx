@@ -6,7 +6,7 @@ import { useAuthStore } from "@/lib/store";
 import API from "@/lib/api";
 import { loadCustomTheme } from "@/lib/customTheme";
 import { BannerRenderer } from "./BannerRenderer";
-import { RANKS, getRank, NavRankBadge } from "./NavBar";
+import { RANKS, getRank, NavRankBadge, rankHasEmblemGlow } from "./NavBar";
 
 
 
@@ -164,13 +164,45 @@ export default function CareerScreen({ themeId, onHoverAction }: Props) {
           {/* Big rank badge */}
           <div style={{
             width: badgeSize, height: badgeSize, borderRadius: "50%",
-            background: "#000", display: "flex", alignItems: "center",
-            justifyContent: "center", overflow: "hidden",
-            boxShadow: `0 0 40px ${rank.color}55, 0 0 80px ${rank.color}22`,
-            border: `2px solid ${rank.color}44`,
+            background: "transparent", display: "flex", alignItems: "center",
+            justifyContent: "center", overflow: "visible", position: "relative",
+            boxShadow: "none",
+            border: `1px solid ${rank.color}33`,
           }}>
-            <img src={rank.img} alt={rank.name} draggable={false}
-              style={{ width: imgSize, height: imgSize, objectFit: "contain", userSelect: "none", pointerEvents: "none" }} />
+            {rankHasEmblemGlow(rank) && (
+              <div
+                aria-hidden
+                style={{
+                  position: "absolute",
+                  left: "50%",
+                  top: "50%",
+                  width: "135%",
+                  height: "135%",
+                  borderRadius: "50%",
+                  background: `radial-gradient(circle, ${rank.color}55 0%, ${rank.color}22 38%, transparent 68%)`,
+                  pointerEvents: "none",
+                  zIndex: 0,
+                  animation: "rankHaloPulse 2.6s ease-in-out infinite",
+                }}
+              />
+            )}
+            <img
+              src={rank.img}
+              alt={rank.name}
+              draggable={false}
+              style={{
+                width: imgSize,
+                height: imgSize,
+                objectFit: "contain",
+                userSelect: "none",
+                pointerEvents: "none",
+                position: "relative",
+                zIndex: 1,
+                filter: rankHasEmblemGlow(rank)
+                  ? `drop-shadow(0 0 6px ${rank.color}) drop-shadow(0 0 16px ${rank.color}CC) drop-shadow(0 0 36px ${rank.color}66) drop-shadow(0 0 56px ${rank.color}33)`
+                  : "none",
+              }}
+            />
           </div>
 
           {/* Rank name */}

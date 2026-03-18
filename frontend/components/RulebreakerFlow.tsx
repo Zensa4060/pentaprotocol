@@ -386,9 +386,7 @@ const isBotChoosing = isBotTurnToChoose;
                 {/* Rank Logo below name */}
                 {rank && (
                   <div style={{ display: "flex", justifyContent: "center", marginBottom: 20 }}>
-                    <div style={{ width: 120, height: 120, filter: `drop-shadow(0 0 20px ${col}44)` }}>
-                      <RankIcon rank={rank} size={120} />
-                    </div>
+                    <RankIcon rank={rank} size={120} />
                   </div>
                 )}
 
