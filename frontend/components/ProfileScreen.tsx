@@ -6,6 +6,7 @@ import { useAuthStore } from "@/lib/store";
 import API from "@/lib/api";
 import { containsProfanity, validateUsername } from "@/lib/profanity";
 import { SHARDS_LIGHT_SVG, SHARDS_DARK_SVG, PROTO_LIGHT_SVG, PROTO_DARK_SVG } from "@/lib/currencyIcons";
+import { loadCustomTheme, saveCustomTheme } from "@/lib/customTheme";
 import type { Screen } from "@/lib/types";
 import { BannerRenderer } from "./BannerRenderer";
 import { rankGlowVisualStrength, buildRankEmblemGlowFilter, rankHaloGradientForRank } from "./NavBar";
@@ -13,6 +14,7 @@ import VoidRiftBanner from "./VoidRiftBanner";
 import BloodMoonBanner from "./BloodMoonBanner";
 import PhantomStrikeBanner from "./PhantomStrikeBanner";
 import SolarFlareBanner from "./SolarFlareBanner";
+import CryoStormBanner from "./CryoStormBanner";
 
 export const RANKS = [
   { name: "NOVICE",       min: 0,    max: 500,  color: "#9CA3AF", icon: null, img: "/novice.svg",       scale: 1.3 },
@@ -74,6 +76,9 @@ const BANNERS: {
   { id: "solar_flare", label: "Solar Flare", gradient: "linear-gradient(135deg,#060200,#f97316)",
     component: SolarFlareBanner,
     unlockDesc: "Purchase for 299 PC", condition: p => (p.purchased_items || []).includes("solar_flare") },
+  { id: "cryo_storm", label: "Cryo Storm", gradient: "linear-gradient(135deg,#030c20,#081840)",
+    component: CryoStormBanner,
+    unlockDesc: "Purchase for 299 PC", condition: p => (p.purchased_items || []).includes("cryo_storm") },
 ];
 
 export const PROFILE_BORDERS: {
@@ -427,6 +432,13 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
     try {
       const res = await API.put("/api/profile/me", { banner: editBanner }, authHeader);
       setProfile(res.data);
+      // Ensure other screens (Career/Game/Lobby/Collection) reflect the change:
+      // - update global auth store
+      // - update custom-theme bannerSkin (CollectionScreen + most banner renderers use it)
+      updateUser(res.data);
+      const cur = loadCustomTheme();
+      saveCustomTheme({ ...cur, bannerSkin: editBanner });
+      window.dispatchEvent(new Event("pp_custom_theme_changed"));
       setEditMsg({ text:"Banner updated!", ok:true });
       setTimeout(() => setShowEdit(false), 900);
     } catch(e:any) {
@@ -451,7 +463,7 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
     try {
       const res = await API.put("/api/profile/me", { title: editTitle }, authHeader);
       setProfile(res.data);
-      setEditMsg({ text:"Title equipped!", ok:true });
+      setEditMsg({ text:"Badge equipped!", ok:true });
       setTimeout(() => setShowEdit(false), 900);
     } catch(e:any) {
       setEditMsg({ text: e.response?.data?.detail || "Update failed", ok:false });
@@ -567,9 +579,8 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
 
   const TABS: { id: EditTab; label: string }[] = [
     { id: "profile",  label: "Profile"  },
-    { id: "banner",   label: "Banner"   },
     { id: "border",   label: "Border"   },
-    { id: "title",    label: "Title"    },
+    { id: "title",    label: "Badges"   },
     { id: "password", label: "Password" },
     { id: "email",    label: "Email"    },
   ];
@@ -669,19 +680,27 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
     <div style={{ position:"fixed", inset:0, zIndex:2, padding:"84px 24px 48px", overflowY:"auto", background:t.bg, transition:"background 0.4s" }}>
 
       {/* ── Banner + Avatar + Name ─────────────────────────────────────────── */}
-      <div style={{ background:t.bgPanel, border:`1px solid ${t.border}`, borderRadius:16, marginBottom:18, overflow:"hidden", position: "relative" }}>
+      <div style={{ background:t.bgPanel, border:`1px solid ${t.border}`, borderRadius:16, marginBottom:18, overflow:"hidden", position: "relative", minHeight: 200 }}>
         <div style={{ position: "absolute", inset: 0, zIndex: 0, opacity: 1.0 }}>
           <BannerRenderer bannerId={activeBanner.id} />
           <div style={{ position: "absolute", top: 0, left: "-150%", width: "200%", height: "100%", background: "linear-gradient(120deg, rgba(255,255,255,0) 30%, rgba(255,255,255,0.1) 38%, rgba(255,255,255,0.2) 40%, rgba(255,255,255,0.1) 42%, rgba(255,255,255,0) 50%)", zIndex: 1, animation: "shineSweep 4s infinite linear" }} />
         </div>
-        <div onClick={() => { onClickAction?.(); openEdit("banner"); }} style={{ height: 100, cursor:"pointer", position:"relative", transition:"filter 0.2s", overflow: "hidden", zIndex: 2 }} title="Change banner">
-          <div style={{ position:"absolute", inset:0, display:"flex", alignItems:"center", justifyContent:"flex-end", padding:"0 16px", opacity:0, transition:"opacity 0.2s" }}
+        <div
+          onClick={() => { onClickAction?.(); openEdit("banner"); }}
+          style={{ height: 100, cursor:"pointer", position:"relative", transition:"filter 0.2s", overflow: "hidden", zIndex: 2 }}
+          title="Change banner"
+        >
+          <div
+            style={{ position:"absolute", inset:0, display:"flex", alignItems:"center", justifyContent:"flex-end", padding:"0 16px", opacity:0, transition:"opacity 0.2s" }}
             onMouseEnter={e => { onHoverAction?.(); (e.currentTarget as HTMLElement).style.opacity="1"; }}
-            onMouseLeave={e => (e.currentTarget as HTMLElement).style.opacity="0"}>
-            <div style={{ background:"rgba(0,0,0,0.6)", border:`1px solid ${t.border}`, borderRadius:6, padding:"4px 12px", fontFamily:t.fontMono, fontSize:11, color:"#fff", letterSpacing:"0.1em" }}>CHANGE BANNER</div>
+            onMouseLeave={e => (e.currentTarget as HTMLElement).style.opacity="0"}
+          >
+            <div style={{ background:"rgba(0,0,0,0.6)", border:`1px solid ${t.border}`, borderRadius:6, padding:"4px 12px", fontFamily:t.fontMono, fontSize:11, color:"#fff", letterSpacing:"0.1em" }}>
+              CHANGE BANNER
+            </div>
           </div>
         </div>
-        <div style={{ position: "relative", zIndex: 3, display:"flex", alignItems:"flex-end", gap:22, padding:"0 26px 26px", flexWrap:"wrap", background: "linear-gradient(to top, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0) 100%)" }}>
+        <div style={{ position: "relative", zIndex: 3, display:"flex", alignItems:"flex-end", gap:22, padding:"0 26px 26px", flexWrap:"wrap", background: "linear-gradient(to top, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0) 100%)", height: "100%", boxSizing: "border-box" }}>
           <div style={{ position:"relative", flexShrink:0 }}>
             <AvatarWithBorder profile={profile} size={72} borderDef={activeBorderDef} accentColor={t.accent} bgColor={t.bg} p1={t.p1} p2={t.p2} />
             <div onClick={() => { onClickAction?.(); openEdit("profile"); }} style={{ position:"absolute", bottom:0, right:0, width:24, height:24, borderRadius:"50%", background:t.accent, display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer", fontSize:11, border:`2px solid ${t.bg}`, boxShadow: "0 0 10px rgba(0,0,0,0.5)" }}>✏</div>
@@ -701,10 +720,6 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
             {profile.bio && <div style={{ fontFamily:t.fontBody, fontSize:13, color:t.textMuted, marginTop:6, fontStyle:"italic", textShadow: "0 1px 4px rgba(0,0,0,0.5)" }}>"{profile.bio}"</div>}
           </div>
           <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end", gap:12, flexShrink:0 }}>
-            <div style={{ textAlign:"center" }}>
-              <div style={{ fontFamily:t.fontDisplay, fontSize:54, fontWeight:900, color:t.accent, lineHeight:1, textShadow:`0 0 28px ${t.accentGlow}50, 0 2px 12px rgba(0,0,0,0.8)` }}>{elo}</div>
-              <div style={{ fontFamily:t.fontMono, fontSize:11, color:t.text, letterSpacing:"0.2em", marginTop:4, textShadow: "0 1px 4px rgba(0,0,0,0.5)" }}>ELO</div>
-            </div>
             <button onClick={() => { onClickAction?.(); openEdit("profile"); }} style={{ padding:"8px 18px", background:`rgba(0,0,0,0.6)`, border:`1px solid ${t.accent}`, borderRadius:8, color:t.accent, fontFamily:t.fontDisplay, fontSize:12, fontWeight:700, cursor:"pointer", backdropFilter: "blur(4px)", transition: "all 0.2s" }}
               onMouseEnter={e => { e.currentTarget.style.background = t.accent; e.currentTarget.style.color = "#000"; }}
               onMouseLeave={e => { e.currentTarget.style.background = "rgba(0,0,0,0.6)"; e.currentTarget.style.color = t.accent; }}>
@@ -797,7 +812,11 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
                 <div key={i} style={{ display:"flex", alignItems:"center", gap:11, padding:"9px 13px", background:isCurrent?`${r.color}12`:"transparent", border:`1px solid ${isCurrent?r.color:t.border+"44"}`, borderRadius:7 }}>
                   <RankIcon rank={r} size={45} />
                   <div style={{ flex:1, fontFamily:t.fontDisplay, fontSize:16, fontWeight:isCurrent?800:600, color:isCurrent?r.color:t.textSecondary, letterSpacing:"0.05em" }}>{r.name}</div>
-                  <div style={{ fontFamily:t.fontMono, fontSize:16, color:isCurrent?t.accent:t.text, fontWeight:isCurrent?800:600 }}>{r.min}–{r.max>=1000000?"∞":r.max}</div>
+                  <div style={{ fontFamily:t.fontMono, fontSize:16, color:isCurrent?t.accent:t.text, fontWeight:isCurrent?800:600 }}>
+                    {r.min >= 2500
+                      ? `${r.min} and greater`
+                      : `${r.min} to ${r.max>=1000000?"∞":r.max}`}
+                  </div>
                   {isCurrent && <div style={{ background:`${r.color}18`, border:`1px solid ${r.color}`, color:r.color, fontFamily:t.fontMono, fontSize:11, padding:"3px 10px", borderRadius:10, fontWeight:700 }}>YOU</div>}
                 </div>
               );
@@ -956,40 +975,6 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
                 </>
               )}
 
-              {/* ── TAB: BANNER ──────────────────────────────────────────── */}
-              {editTab==="banner" && (
-                <>
-                  <div style={{ fontFamily:t.fontBody, fontSize:13, color:t.textMuted }}>Choose a profile banner. Locked banners are earned by playing.</div>
-                  <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
-                    {BANNERS.map(b => {
-                      const unlocked = b.condition(profile);
-                      const selected = editBanner === b.id;
-                      return (
-                        <div key={b.id} className="banner-card"
-                          onClick={() => unlocked && setEditBanner(b.id)}
-                          style={{ borderRadius:10, overflow:"hidden", border:`2px solid ${selected?t.accent:unlocked?t.border:t.border+"44"}`, opacity: unlocked ? 1 : 0.45, cursor: unlocked ? "pointer" : "not-allowed", position:"relative", boxShadow: selected ? `0 0 16px ${t.accent}44` : "none" }}>
-                          <div style={{ height:52, overflow: "hidden" }}><BannerRenderer bannerId={b.id} /></div>
-                          <div style={{ padding:"8px 12px", background:t.bgCard, display:"flex", alignItems:"center", justifyContent:"space-between" }}>
-                            <div>
-                              <div style={{ fontFamily:t.fontDisplay, fontSize:13, fontWeight:700, color:unlocked?t.text:t.textMuted }}>{b.label}</div>
-                              <div style={{ fontFamily:t.fontMono, fontSize:10, color:t.textMuted, marginTop:2 }}>{unlocked?"Unlocked":b.unlockDesc}</div>
-                            </div>
-                            {selected && <div style={{ width:18, height:18, borderRadius:"50%", background:t.accent, display:"flex", alignItems:"center", justifyContent:"center", fontSize:10, color:"#000", fontWeight:700 }}>✓</div>}
-                            {!unlocked && <LockSVG />}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                  <div style={{ display:"flex", gap:10 }}>
-                    <button onClick={submitBanner} disabled={editLoading} className="pp-primary-btn" style={{ flex:1, padding:"13px", background:t.accent, border:`2px solid ${t.accent}`, borderRadius:8, color:"#fff", fontFamily:t.fontDisplay, fontSize:14, fontWeight:800, cursor:"pointer", letterSpacing:"0.06em", transition:"all 0.18s", boxShadow:`0 0 12px ${t.accentGlow}33` }}>
-                      {editLoading?"Saving…":"Apply Banner"}
-                    </button>
-                    <button onClick={() => setShowEdit(false)} style={{ padding:"11px 18px", background:"transparent", border:`1px solid ${t.border}`, borderRadius:8, color:t.textMuted, fontFamily:t.fontDisplay, fontSize:14, cursor:"pointer" }}>Cancel</button>
-                  </div>
-                </>
-              )}
-
               {/* ── TAB: BORDER ──────────────────────────────────────────── */}
               {editTab==="border" && (
                 <>
@@ -1045,10 +1030,10 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
                 </>
               )}
 
-              {/* ── TAB: TITLE ───────────────────────────────────────────── */}
+              {/* ── TAB: BADGES ───────────────────────────────────────────── */}
               {editTab==="title" && (
                 <>
-                  <div style={{ fontFamily:t.fontBody, fontSize:13, color:t.textMuted }}>Your title appears below your username. Earn titles by ranking up, winning matches, and reaching milestones.</div>
+                  <div style={{ fontFamily:t.fontBody, fontSize:13, color:t.textMuted }}>Your badge appears below your username. Earn badges by ranking up, winning matches, and reaching milestones.</div>
                   <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
                     {TITLES.map(ti => {
                       const unlocked = ti.condition(profile);
@@ -1077,7 +1062,7 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
                   </div>
                   <div style={{ display:"flex", gap:10 }}>
                     <button onClick={submitTitle} disabled={editLoading} className="pp-primary-btn" style={{ flex:1, padding:"13px", background:t.accent, border:`2px solid ${t.accent}`, borderRadius:8, color:"#fff", fontFamily:t.fontDisplay, fontSize:14, fontWeight:800, cursor:"pointer", letterSpacing:"0.06em", transition:"all 0.18s", boxShadow:`0 0 12px ${t.accentGlow}33` }}>
-                      {editLoading?"Saving…":"Equip Title"}
+                      {editLoading?"Saving…":"Equip Badge"}
                     </button>
                     <button onClick={() => setShowEdit(false)} style={{ padding:"11px 18px", background:"transparent", border:`1px solid ${t.border}`, borderRadius:8, color:t.textMuted, fontFamily:t.fontDisplay, fontSize:14, cursor:"pointer" }}>Cancel</button>
                   </div>

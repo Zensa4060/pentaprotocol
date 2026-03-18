@@ -131,12 +131,16 @@ export default function CareerScreen({ themeId, onHoverAction }: Props) {
         <div style={{
           position: "relative",
           display: "flex", flexDirection: "column", alignItems: "center",
+          width: "100vw",
+          marginLeft: "calc(50% - 50vw)",
+          marginRight: "calc(50% - 50vw)",
           padding: "60px 0 50px", gap: 16,
           borderRadius: ip ? 2 : 24,
           overflow: "hidden",
           border: `1px solid ${t.border}`,
           marginBottom: 32,
           boxShadow: `0 20px 50px rgba(0,0,0,0.3)`,
+          boxSizing: "border-box",
         }}>
           {/* Banner background */}
           <div style={{ position: "absolute", inset: 0, opacity: 1.0, zIndex: 0 }}>

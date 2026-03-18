@@ -42,7 +42,8 @@ export default function PhantomStrikeBanner({ style = {}, hideLabels = false }: 
 
     canvas.width = dims.w * DPR;
     canvas.height = dims.h * DPR;
-    ctx.scale(DPR, DPR);
+    // Reset transform so DPR scaling doesn't accumulate on resize.
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
 
     let t = 0;
 
@@ -164,28 +165,7 @@ export default function PhantomStrikeBanner({ style = {}, hideLabels = false }: 
       ctx.fillStyle = sil;
       ctx.fillRect(dims.w - 100, 0, 100, dims.h);
 
-      // Rarity badge & Name
-      if (!hideLabels) {
-        ctx.save();
-        ctx.fillStyle = "rgba(60,10,100,0.6)";
-        ctx.strokeStyle = "rgba(168,85,247,0.85)";
-        ctx.lineWidth = 0.8;
-        roundRect(ctx, 10, dims.h / 2 - 9, 50, 18, 3);
-        ctx.fill();
-        ctx.stroke();
-        ctx.font = "700 7.5px 'Courier New',monospace";
-        ctx.fillStyle = "#c084fc";
-        ctx.textAlign = "left";
-        ctx.fillText("✦ EPIC", 15, dims.h / 2 + 4.5);
-        ctx.restore();
-
-        ctx.save();
-        ctx.font = "700 8.5px 'Courier New',monospace";
-        ctx.fillStyle = "rgba(192,132,252,0.45)";
-        ctx.textAlign = "right";
-        ctx.fillText("PHANTOM STRIKE", dims.w - 12, dims.h / 2 + 4);
-        ctx.restore();
-      }
+      // (Rarity/name badge removed for all screens)
 
       t += 0.018;
       rafRef.current = requestAnimationFrame(draw);

@@ -80,7 +80,10 @@ const BANNERS: { id: string; label: string; gradient: string; condition: (p: any
   { id: "blood_moon", label: "Blood Moon", gradient: "linear-gradient(135deg,#000008,#180008)", condition: (p: any) => (p?.purchased_items ?? []).includes("blood_moon") },
   { id: "phantom_strike", label: "Phantom Strike", gradient: "linear-gradient(135deg,#060010,#110028)", condition: (p: any) => (p?.purchased_items ?? []).includes("phantom_strike") },
   { id: "solar_flare", label: "Solar Flare", gradient: "linear-gradient(135deg,#060200,#f97316)", condition: (p: any) => (p?.purchased_items ?? []).includes("solar_flare") },
+  { id: "cryo_storm", label: "Cryo Storm", gradient: "linear-gradient(135deg,#030c20,#081840)", condition: (p: any) => (p?.purchased_items ?? []).includes("cryo_storm") },
 ];
+
+const STORE_BANNER_ITEM_IDS = ["void_rift", "blood_moon", "phantom_strike", "solar_flare", "cryo_storm"] as const;
 
 // Sound pack options
 const SFX_PACKS: { id: SfxPack; label: string; desc: string; owned: boolean; color: string }[] = [
@@ -211,10 +214,10 @@ type CatId = "themes" | "board_bundles" | "profile_bundles" | "coin_bundles" | "
 
 const CATEGORIES: { id: CatId; label: string; icon: string; count: (p: any) => number }[] = [
   { id: "themes",          label: "Themes",          icon: "palette", count: () => COLLECTION_THEMES.filter(x => x.owned).length },
-  { id: "board_bundles",   label: "Board Bundles",   icon: "board",   count: (p) => BOARD_BUNDLES.filter(b => b.bOwned(p) || b.pOwned(p)).length },
-  { id: "profile_bundles", label: "Profile Bundles", icon: "banner",  count: (p) => BANNERS.filter(x => x.condition(p)).length + PROFILE_BORDERS.filter(x => x.condition(p)).length },
-  { id: "coin_bundles",    label: "Coin Bundles",    icon: "coin",    count: () => COIN_SKINS.filter(x => x.owned).length + COIN_TOSS_ANIMS.length },
-  { id: "titles",          label: "Titles",          icon: "title",   count: (p) => TITLES.filter(ti => ti.condition(p)).length },
+  { id: "board_bundles",   label: "GRIDS",           icon: "board",   count: (p) => BOARD_BUNDLES.filter(b => b.bOwned(p) || b.pOwned(p)).length },
+  { id: "profile_bundles", label: "BANNERS",         icon: "banner",  count: (p) => BANNERS.filter(x => x.condition(p)).length + PROFILE_BORDERS.filter(x => x.condition(p)).length },
+  { id: "coin_bundles",    label: "COINS",           icon: "coin",    count: () => COIN_SKINS.filter(x => x.owned).length + COIN_TOSS_ANIMS.length },
+  { id: "titles",          label: "BADGES",          icon: "title",   count: (p) => TITLES.filter(ti => ti.condition(p)).length },
 ];
 
 function getSlotOptions(key: keyof CustomThemeConfig, profile?: any) {
@@ -555,6 +558,15 @@ export default function CollectionScreen({ themeId, setThemeIdAction, onHoverAct
     .then(res => updateUser(res.data))
     .catch(() => {});
 }, [token]);
+
+  // Keep banner selection synced when cosmetics are changed from other screens (e.g. ProfileScreen).
+  useEffect(() => {
+    const syncBanner = () => {
+      setActiveBanner(loadCustomTheme().bannerSkin ?? "default");
+    };
+    window.addEventListener("pp_custom_theme_changed", syncBanner);
+    return () => window.removeEventListener("pp_custom_theme_changed", syncBanner);
+  }, []);
   const equipBoard = async (id: string) => {
     if (!token) return;
     
@@ -643,7 +655,7 @@ export default function CollectionScreen({ themeId, setThemeIdAction, onHoverAct
         const skinId = id.replace("piece_", "");
         saveCustomTheme({ ...cur, pieceSkin: skinId as any });
         setActivePiece(skinId);
-      } else if (id === "void_rift") {
+      } else if ((STORE_BANNER_ITEM_IDS as readonly string[]).includes(id)) {
         saveCustomTheme({ ...cur, bannerSkin: id as any });
         setActiveBanner(id);
       }
@@ -832,7 +844,7 @@ export default function CollectionScreen({ themeId, setThemeIdAction, onHoverAct
             <ThemesWithCustomize t={t} ip={ip} themeId={themeId} profile={profile} setThemeIdAction={setThemeIdAction} activeTheme={activeTheme} setActiveTheme={setActiveTheme} showAll={showAll} onHoverAction={onHoverAction} onClickAction={onClickAction} />
           )}
 
-          {/* ── BOARD BUNDLES ── */}
+          {/* ── GRIDS ── */}
           {cat === "board_bundles" && (
             <div style={{ display: "grid", gridTemplateColumns: `repeat(auto-fill,minmax(${isMobile ? 260 : 320}px,1fr))`, gap: isMobile ? 16 : 18 }}>
               {BOARD_BUNDLES.filter(b => showAll || b.bOwned(profile) || b.pOwned(profile) || b.isDefault).map(bundle => {
@@ -960,11 +972,11 @@ export default function CollectionScreen({ themeId, setThemeIdAction, onHoverAct
             </div>
           )}
 
-          {/* ── PROFILE BUNDLES (banners + borders) ── */}
+          {/* ── BANNERS (+ borders) ── */}
           {cat === "profile_bundles" && (
             <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
               <div>
-                <div style={{ fontFamily: t.fontMono, fontSize: 10, color: t.textMuted, letterSpacing: "0.18em", marginBottom: 12, opacity: 0.7 }}>PROFILE BANNERS</div>
+                <div style={{ fontFamily: t.fontMono, fontSize: 10, color: t.textMuted, letterSpacing: "0.18em", marginBottom: 12, opacity: 0.7 }}>BANNERS</div>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(230px,1fr))", gap: 14 }}>
                   {BANNERS.filter(x => showAll || x.condition(profile)).map(item => {
                     const owned = item.condition(profile);
@@ -1096,7 +1108,7 @@ export default function CollectionScreen({ themeId, setThemeIdAction, onHoverAct
             </div>
           )}
 
-          {/* ── COIN BUNDLES (coin skins + toss animations) ── */}
+          {/* ── COINS (coin skins + toss animations) ── */}
           {cat === "coin_bundles" && (
             <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
               <div>
@@ -1241,7 +1253,7 @@ export default function CollectionScreen({ themeId, setThemeIdAction, onHoverAct
             </div>
           )}
 
-          {/* ── TITLES ── */}
+          {/* ── BADGES ── */}
           {cat === "titles" && (
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               {TITLES.filter(ti => showAll || ti.condition(profile)).map(ti => {

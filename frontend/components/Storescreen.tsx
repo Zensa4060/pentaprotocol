@@ -24,6 +24,7 @@ import VoidRiftBanner from "./VoidRiftBanner";
 import BloodMoonBanner from "./BloodMoonBanner";
 import PhantomStrikeBanner from "./PhantomStrikeBanner";
 import SolarFlareBanner from "./SolarFlareBanner";
+import CryoStormBanner from "./CryoStormBanner";
 
 interface Props {
   setScreenAction: (s: Screen) => void;
@@ -40,8 +41,8 @@ const PACKAGES = [
 declare global { interface Window { Razorpay: any; } }
 
 const STORE_THEMES = [
-  { id: "space",         label: "Space",         desc: "Deep space atmosphere",         preview: "linear-gradient(135deg,#020410,#0d1b4b)", unlock: "Coming Soon" },
-  { id: "pixel",         label: "Pixel",         desc: "Retro pixel art style",         preview: "linear-gradient(135deg,#0d1007,#1a2e0a)", unlock: "Coming Soon" },
+  { id: "space",         label: "Space",         desc: "Deep space atmosphere",         preview: "linear-gradient(135deg,#020410,#0d1b4b)", unlock: "Free" },
+  { id: "pixel",         label: "Pixel",         desc: "Retro pixel art style",         preview: "linear-gradient(135deg,#0d1007,#1a2e0a)", unlock: "Free" },
 ];
 
 const STORE_BANNERS: { id: string; label: string; gradient: string; unlock: string; price?: number; component?: any }[] = [
@@ -50,6 +51,7 @@ const STORE_BANNERS: { id: string; label: string; gradient: string; unlock: stri
   { id: "blood_moon", label: "Blood Moon", gradient: "linear-gradient(135deg,#000008,#180008)", unlock: "299 PC", price: 299, component: BloodMoonBanner },
   { id: "phantom_strike", label: "Phantom Strike", gradient: "linear-gradient(135deg,#060010,#110028)", unlock: "199 PC", price: 199, component: PhantomStrikeBanner },
   { id: "solar_flare", label: "Solar Flare", gradient: "linear-gradient(135deg,#060200,#f97316)", unlock: "299 PC", price: 299, component: SolarFlareBanner },
+  { id: "cryo_storm", label: "Cryo Storm", gradient: "linear-gradient(135deg,#030c20,#081840)", unlock: "299 PC", price: 299, component: CryoStormBanner },
 ];
 
 const STORE_BORDERS = [
@@ -196,10 +198,10 @@ function UnlockBadge({ text, accent }: { text: string; accent: string }) {
   );
 }
 
-function BannerRenderer({ banner, style = {} }: { banner: any; style?: React.CSSProperties }) {
+function BannerRenderer({ banner, style = {}, hideLabels = false }: { banner: any; style?: React.CSSProperties; hideLabels?: boolean }) {
   if (banner.component) {
     const BannerComp = banner.component;
-    return <BannerComp style={{ width: "100%", height: "100%", ...style }} />;
+    return <BannerComp style={{ width: "100%", height: "100%", ...style }} hideLabels={hideLabels} />;
   }
   return <div style={{ width: "100%", height: "100%", background: banner.gradient, ...style }} />;
 }
@@ -965,9 +967,9 @@ export default function StoreScreen({ setScreenAction, themeId }: Props) {
           </div>
         </div>
 
-        {/* ── PROFILE BUNDLES ── */}
+        {/* ── BANNERS ── */}
         <div style={{ marginBottom: 56 }}>
-          <SectionHeader label="PROFILE BUNDLES" accent={accent} icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={accent} strokeWidth="1.8" strokeLinecap="round"><rect x="3" y="3" width="18" height="13" rx="2"/><path d="M3 18h18"/><path d="M3 21h18"/></svg>}/>
+          <SectionHeader label="BANNERS" accent={accent} icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={accent} strokeWidth="1.8" strokeLinecap="round"><rect x="3" y="3" width="18" height="13" rx="2"/><path d="M3 18h18"/><path d="M3 21h18"/></svg>}/>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(320px,1fr))", gap: 20 }}>
             {STORE_BANNERS.map(banner => {
               const owned = banner.id === "default" || purchasedItems.includes(banner.id);
@@ -987,7 +989,7 @@ export default function StoreScreen({ setScreenAction, themeId }: Props) {
                   }}
                 >
                   <div style={{ height: 120, position: "relative" }}>
-                    <BannerRenderer banner={banner} style={{ position: "absolute", inset: 0 }} />
+                    <BannerRenderer banner={banner} style={{ position: "absolute", inset: 0 }} hideLabels={true} />
                     {!owned && (
                       <div style={{ position: "absolute", top: 10, left: 10, zIndex: 2 }}>
                         <UnlockBadge text={banner.unlock} accent={accent} />

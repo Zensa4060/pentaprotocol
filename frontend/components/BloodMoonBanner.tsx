@@ -50,7 +50,8 @@ export default function BloodMoonBanner({ style = {}, hideLabels = false }: { st
 
     canvas.width = dims.w * DPR;
     canvas.height = dims.h * DPR;
-    ctx.scale(DPR, DPR);
+    // Reset transform so DPR scaling doesn't accumulate on resize.
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
 
     const DW = dims.w;
     const DH = dims.h;
@@ -154,15 +155,7 @@ export default function BloodMoonBanner({ style = {}, hideLabels = false }: { st
         }
       });
 
-      // Badge
-      if (!hideLabels) {
-        ctx.fillStyle="rgba(80,0,0,0.5)"; ctx.strokeStyle="rgba(220,38,38,0.8)"; ctx.lineWidth=0.8;
-        roundRect(ctx,10,DH/2-9,70,18,3); ctx.fill(); ctx.stroke();
-        ctx.font="700 7.5px 'Courier New',monospace"; ctx.fillStyle="#f87171";
-        ctx.textAlign="left"; ctx.fillText("✦ LEGENDARY",15,DH/2+4.5);
-        ctx.font="700 8.5px 'Courier New',monospace"; ctx.fillStyle="rgba(220,60,60,0.5)";
-        ctx.textAlign="right"; ctx.fillText("BLOOD MOON",DW-12,DH/2+4);
-      }
+      // (Rarity/name badge removed for all screens)
 
       t += 0.016;
       rafRef.current = requestAnimationFrame(draw);

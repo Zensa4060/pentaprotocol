@@ -39,7 +39,8 @@ export default function SolarFlareBanner({ style = {}, hideLabels = false }: { s
 
     canvas.width = dims.w * DPR;
     canvas.height = dims.h * DPR;
-    ctx.scale(DPR, DPR);
+    // Reset transform so DPR scaling doesn't accumulate on resize.
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
 
     let t = 0;
     const DW = dims.w;
@@ -143,20 +144,7 @@ export default function SolarFlareBanner({ style = {}, hideLabels = false }: { s
       lf.addColorStop(0, "rgba(255,200,100,0.18)"); lf.addColorStop(0.5, "rgba(255,200,100,0.04)"); lf.addColorStop(1, "rgba(0,0,0,0)");
       ctx.fillStyle = lf; ctx.fillRect(SC.x, SC.y - 2, DW * 0.7 - SC.x, 4); ctx.restore();
 
-      // Badge & label
-      if (!hideLabels) {
-        ctx.save();
-        ctx.fillStyle = "rgba(120,50,0,0.5)"; ctx.strokeStyle = "rgba(251,146,60,0.8)"; ctx.lineWidth = 0.8;
-        roundRect(ctx, 10, DH / 2 - 9, 50, 18, 3); ctx.fill(); ctx.stroke();
-        ctx.font = "700 7.5px 'Courier New',monospace"; ctx.fillStyle = "#fbbf24";
-        ctx.textAlign = "left"; ctx.fillText("✦ EPIC", 15, DH / 2 + 4.5);
-        ctx.restore();
-
-        ctx.save();
-        ctx.font = "700 8.5px 'Courier New',monospace"; ctx.fillStyle = "rgba(180,80,0,0.65)";
-        ctx.textAlign = "right"; ctx.fillText("SOLAR FLARE", DW - 12, DH / 2 + 4);
-        ctx.restore();
-      }
+      // (Rarity/name badge removed for all screens)
 
       t += 0.018;
       rafRef.current = requestAnimationFrame(draw);
