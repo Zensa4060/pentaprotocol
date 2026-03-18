@@ -1,5 +1,6 @@
 "use client";
 import React, { useState, useEffect, useRef, useCallback } from "react";
+import { unstable_batchedUpdates } from "react-dom";
 import { ThemeId, THEMES } from "@/lib/themes";
 import { checkWin, Coord } from "@/lib/winChecker";
 import API from "@/lib/api";
@@ -485,51 +486,51 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
 
         ws.onmessage = (e) => {
           const msg = JSON.parse(e.data);
-          if (msg.type === "player_info") {
-            if (msg.slot !== playerSlot) {
-              setOpponentName(msg.username ?? null);
+          unstable_batchedUpdates(() => {
+            if (msg.type === "player_info") {
+              if (msg.slot !== playerSlot) {
+                setOpponentName(msg.username ?? null);
+              }
+              // Reply with our own info to ensure both sides are synced
+              ws.send(JSON.stringify({ type: "player_info", username: p1Name ?? playerSlot ?? "P1", slot: playerSlot }));
+              return;
             }
-            // Reply with our own info to ensure both sides are synced
-            ws.send(JSON.stringify({ type: "player_info", username: p1Name ?? playerSlot ?? "P1", slot: playerSlot }));
-            return;
-          }
-        if (msg.type === "move_made") {
-          setBoard(msg.board);
-          setCurrent(msg.current_player);
-          setMovesPlayed(msg.moves_played);
-          setExtraTurns(msg.extra_turns ?? 0);
-          if (msg.row !== undefined && msg.col !== undefined) {
-            const mover = msg.board[msg.row][msg.col] as string | null;
-            if (mover) {
-              const _piece = mover === "P1" ? t.pieces.p1 : t.pieces.p2;
-              setLog(l => [...l, { text: `${l.length + 1}. ${_piece}→${String.fromCharCode(65 + msg.col)}${msg.row + 1} (${mover})`, player: mover }]);
-            }
-          }
-          if (msg.winner) {
-            const wl = (msg.win_line ?? []) as [number, number][];
-            setWinLine(wl);
-            setWinner(msg.winner);
-            if (msg.winner === "P1") playVictoryAction?.(); else playDefeatAction?.();
-            requestAnimationFrame(() => { setShowWinOverlay(true); requestAnimationFrame(() => setOverlayVisible(true)); });
-            const newHist = [...matchHistoryRef.current, msg.winner as string];
-            matchHistoryRef.current = newHist;
-            setMatchHistory([...newHist]);
-            const _mySlot = playerSlot ?? "P1";
-            const sw = checkSeriesWinner(newHist);
-            if (newHist.length >= 3 || sw !== null) {
-              setMatchOver(true);
-              setSeriesWinner(sw ?? newHist[newHist.length - 1]);
-              setPhase("match_over");
-              wsRef.current?.send(JSON.stringify({ type: "match_over_notify" }));
-            } else if (newHist.length === 2) {
-              setGameNumber(3);
-              // Go to ready phase before rulebreaker — don't start toss immediately
-              setP1Ready(false); setP2Ready(false); setReadyTimeout(60); setReadyTimer(0); setPhase("waiting_ready");
-            } else {
-              setP1Ready(false); setP2Ready(false); setReadyTimeout(60); setReadyTimer(0); setPhase("waiting_ready");
-            }
-          }
-        } else if (msg.type === "room_state") {
+            if (msg.type === "move_made") {
+              setBoard(msg.board);
+              setCurrent(msg.current_player);
+              setMovesPlayed(msg.moves_played);
+              setExtraTurns(msg.extra_turns ?? 0);
+              if (msg.row !== undefined && msg.col !== undefined) {
+                const mover = msg.board[msg.row][msg.col] as string | null;
+                if (mover) {
+                  const _piece = mover === "P1" ? t.pieces.p1 : t.pieces.p2;
+                  setLog(l => [...l, { text: `${l.length + 1}. ${_piece}→${String.fromCharCode(65 + msg.col)}${msg.row + 1} (${mover})`, player: mover }]);
+                }
+              }
+              if (msg.winner) {
+                const wl = (msg.win_line ?? []) as [number, number][];
+                setWinLine(wl);
+                setWinner(msg.winner);
+                if (msg.winner === "P1") playVictoryAction?.(); else playDefeatAction?.();
+                requestAnimationFrame(() => { setShowWinOverlay(true); requestAnimationFrame(() => setOverlayVisible(true)); });
+                const newHist = [...matchHistoryRef.current, msg.winner as string];
+                matchHistoryRef.current = newHist;
+                setMatchHistory([...newHist]);
+                const sw = checkSeriesWinner(newHist);
+                if (newHist.length >= 3 || sw !== null) {
+                  setMatchOver(true);
+                  setSeriesWinner(sw ?? newHist[newHist.length - 1]);
+                  setPhase("match_over");
+                  wsRef.current?.send(JSON.stringify({ type: "match_over_notify" }));
+                } else if (newHist.length === 2) {
+                  setGameNumber(3);
+                  // Go to ready phase before rulebreaker — don't start toss immediately
+                  setP1Ready(false); setP2Ready(false); setReadyTimeout(60); setReadyTimer(0); setPhase("waiting_ready");
+                } else {
+                  setP1Ready(false); setP2Ready(false); setReadyTimeout(60); setReadyTimer(0); setPhase("waiting_ready");
+                }
+              }
+            } else if (msg.type === "room_state") {
           const r = msg.room;
           setBoard(r.board ?? emptyBoard());
           setCurrent(r.current_player ?? "P1");
@@ -546,7 +547,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
           if (playerSlot === "P1" && r.player2_name) setOpponentName(r.player2_name);
           if (playerSlot === "P2" && r.player1_name) setOpponentName(r.player1_name);
           ws.send(JSON.stringify({ type: "player_info", username: p1Name ?? playerSlot ?? "P1", slot: playerSlot }));
-        } else if (msg.type === "player_joined") {
+            } else if (msg.type === "player_joined") {
           const r = msg.room;
           if (r) {
             const e1 = asNum(r.player1_elo);
@@ -556,15 +557,15 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
             if (r.player1_banner) setP1Banner(String(r.player1_banner));
             if (r.player2_banner) setP2Banner(String(r.player2_banner));
           }
-        } else if (msg.type === "opponent_disconnected") {
+            } else if (msg.type === "opponent_disconnected") {
           setPhase("match_over");
           setShowDisconnectModal(true);
-        } else if (msg.type === "ready_update") {
+            } else if (msg.type === "ready_update") {
           if (msg.player === "P1") setP1Ready(msg.ready);
           else setP2Ready(msg.ready);
-        } else if (msg.type === "chat_message") {
+            } else if (msg.type === "chat_message") {
           setChatMessages(m => [...m.slice(-49), { from: msg.from, text: msg.text, ts: msg.ts }]);
-        } else if (msg.type === "game_reset") {
+            } else if (msg.type === "game_reset") {
           setBoard(emptyBoard());
           setCurrent(msg.first_player);
           setMovesPlayed(0);
@@ -653,8 +654,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
             if (payload.winnerPickedFirst !== undefined) setWinnerPickedFirst(payload.winnerPickedFirst);
             if (payload.winnerPickedC3 !== undefined) setWinnerPickedC3(payload.winnerPickedC3);
           }
-        }
-        else if (msg.type === "pong") {
+        } else if (msg.type === "pong") {
           const sentTs = asNum(msg.ts ?? pingOutstandingRef.current);
           if (typeof sentTs === "number") {
             const rtt = Math.max(0, Date.now() - sentTs);
@@ -665,6 +665,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
             }
           }
         }
+          });
       };
 
       ws.onclose = () => {

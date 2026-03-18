@@ -8,7 +8,6 @@ import { useAuthStore } from "@/lib/store";
 import { PROTO_DARK_SVG } from "@/lib/currencyIcons";
 import {
   Embers, HeatOverlay, FrostCrystals, IceOverlay,
-  Flame, Skull, SnowflakePiece, IceShardPiece, GlacierSigilPiece, GlacierPrismPiece,
   RedCell, IceCell, GlacierAurora, GlacierSnow,
 } from "./GamePieces";
 import GlacierGrid from "./GlacierGrid";
@@ -481,50 +480,8 @@ function BundleModal({ bundle, t, isGuest, buyingId, purchasedItems, balance, on
   const [hovOpt, setHovOpt] = useState<string | null>(null);
   useEffect(() => { const iv = setInterval(() => setTick(v => v + 1), 900); return () => clearInterval(iv); }, []);
 
-  const ownsBoard  = purchasedItems.includes(bundle.boardId);
-  const ownsPiece  = purchasedItems.includes(bundle.pieceId);
-  const ownsBundle = ownsBoard && ownsPiece;
+  const ownsBundle = purchasedItems.includes(bundle.boardId) && purchasedItems.includes(bundle.pieceId);
   const ac = bundle.accentColor;
-
-  const miniBoard = (v: "X" | "O") => {
-    const b: (("X" | "O") | null)[][] = Array.from({ length: 5 }, () => Array.from({ length: 5 }, () => null));
-    b[2][2] = v;
-    return b;
-  };
-  const renderMiniPiece = (slot: "P1" | "P2") => {
-    // Fire + Glacier + Ice use the exported GamePieces components.
-    if (bundle.previewKind === "fire") return slot === "P1" ? <Flame size={42} /> : <Skull size={42} />;
-    if (bundle.previewKind === "glacier") return slot === "P1" ? <GlacierSigilPiece size={42} /> : <GlacierPrismPiece size={42} />;
-    if (bundle.previewKind === "ice") return slot === "P1" ? <SnowflakePiece size={42} /> : <IceShardPiece size={42} />;
-
-    const cs = 6; // native small render for sharpness
-    const PAD = 8;
-    const BS = 5 * cs + 2 * PAD; // component board size
-    const scale = 42 / BS;
-    const commonWrap: React.CSSProperties = {
-      position: "absolute",
-      left: "50%",
-      top: "50%",
-      transform: `translate(-50%,-50%) scale(${scale})`,
-      transformOrigin: "center",
-    };
-    const board = miniBoard(slot === "P1" ? "X" : "O");
-
-    const wrap = (node: React.ReactNode) => <div style={commonWrap}>{node}</div>;
-
-    switch (bundle.previewKind) {
-      case "bloodmoon": return wrap(<BloodMoonGrid showLabels={false} cellSize={cs} board={board} />);
-      case "egypt": return wrap(<EgyptGrid showLabels={false} cellSize={cs} board={board} />);
-      case "synthwave": return wrap(<SynthwaveGrid showLabels={false} cellSize={cs} board={board} />);
-      case "matrix": return wrap(<MatrixGrid showLabels={false} cellSize={cs} board={board} />);
-      case "arcane": return wrap(<ArcaneGrid showLabels={false} cellSize={cs} board={board} />);
-      case "bio": return wrap(<BioGrid showLabels={false} cellSize={cs} board={board} />);
-      case "forge": return wrap(<ForgeGrid showLabels={false} cellSize={cs} board={board} />);
-      case "void": return wrap(<VoidGrid showLabels={false} cellSize={cs} board={board} />);
-      case "tokyo": return wrap(<TokyoGrid showLabels={false} cellSize={cs} board={board} />);
-      default: return null;
-    }
-  };
 
   const options = [
     {
@@ -553,27 +510,6 @@ function BundleModal({ bundle, t, isGuest, buyingId, purchasedItems, balance, on
           <div style={{ fontFamily: t.fontDisplay, fontSize: 28, fontWeight: 900, color: "#fff", letterSpacing: "0.04em", marginBottom: 3 }}>{bundle.label}</div>
           <div style={{ fontFamily: t.fontBody, fontSize: 13, color: `${ac}cc`, fontStyle: "italic", marginBottom: 14 }}>{bundle.tagline}</div>
           <BundleAnimatedPreview bundle={bundle} tick={tick} />
-          <div style={{ display: "flex", gap: 10, marginTop: 12 }}>
-            <div style={{ flex: 1, background: `${ac}0C`, border: `1px solid ${ac}2A`, borderRadius: 10, padding: "10px 12px", display: "flex", alignItems: "center", gap: 10 }}>
-              <div style={{ width: 42, height: 42, borderRadius: 7, background: bundle.previewKind === "fire" ? "rgba(14,3,1,0.97)" : "linear-gradient(135deg,rgba(5,12,25,0.96),rgba(2,7,16,0.98))", border: `1.5px solid ${bundle.previewKind === "fire" ? "rgba(255,80,0,0.7)" : bundle.previewKind === "glacier" ? "rgba(165,243,252,0.75)" : "rgba(200,240,255,0.65)"}`, display: "flex", alignItems: "center", justifyContent: "center", position: "relative", overflow: "hidden" }}>
-                {renderMiniPiece("P1")}
-              </div>
-              <div><div style={{ fontFamily: "monospace", fontSize: 9, color: `${ac}77`, letterSpacing: "0.12em" }}>P1 PIECE</div><div style={{ fontFamily: t.fontDisplay, fontSize: 12, fontWeight: 700, color: ownsPiece ? "#4CAF50" : "#fff" }}>P1 Skin {ownsPiece ? "✓" : ""}</div></div>
-            </div>
-            <div style={{ flex: 1, background: `${ac}0C`, border: `1px solid ${ac}2A`, borderRadius: 10, padding: "10px 12px", display: "flex", alignItems: "center", gap: 10 }}>
-              <div style={{ width: 42, height: 42, borderRadius: 7, background: bundle.previewKind === "fire" ? "rgba(14,3,1,0.97)" : "linear-gradient(135deg,rgba(5,12,25,0.96),rgba(2,7,16,0.98))", border: `1.5px solid ${bundle.previewKind === "fire" ? "rgba(200,0,0,0.7)" : bundle.previewKind === "glacier" ? "rgba(196,181,253,0.75)" : "rgba(100,200,255,0.65)"}`, display: "flex", alignItems: "center", justifyContent: "center", position: "relative", overflow: "hidden" }}>
-                {renderMiniPiece("P2")}
-              </div>
-              <div><div style={{ fontFamily: "monospace", fontSize: 9, color: `${ac}77`, letterSpacing: "0.12em" }}>P2 PIECE</div><div style={{ fontFamily: t.fontDisplay, fontSize: 12, fontWeight: 700, color: ownsPiece ? "#4CAF50" : "#fff" }}>P2 Skin {ownsPiece ? "✓" : ""}</div></div>
-            </div>
-            <div style={{ flex: 1, background: `${ac}0C`, border: `1px solid ${ac}2A`, borderRadius: 10, padding: "10px 12px", display: "flex", alignItems: "center", gap: 10 }}>
-              <div style={{ width: 42, height: 42, borderRadius: 7, background: bundle.previewKind === "fire" ? "rgba(10,2,1,0.99)" : "linear-gradient(135deg,rgba(3,8,20,0.98),rgba(1,4,14,0.99))", border: `1.5px solid ${bundle.previewKind === "fire" ? "rgba(140,20,0,0.35)" : bundle.previewKind === "glacier" ? "rgba(125,211,252,0.45)" : "rgba(80,160,220,0.35)"}`, display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 2, padding: 4, position: "relative", overflow: "hidden" }}>
-                {bundle.previewKind === "fire" ? <Embers count={4} /> : bundle.previewKind === "glacier" ? <GlacierAurora /> : <FrostCrystals />}
-                {Array.from({ length: 9 }).map((_, i) => (<div key={i} style={{ background: bundle.previewKind === "fire" ? "rgba(150,20,0,0.15)" : "rgba(80,160,220,0.12)", border: `1px solid ${bundle.previewKind === "fire" ? "rgba(150,20,0,0.3)" : bundle.previewKind === "glacier" ? "rgba(125,211,252,0.38)" : "rgba(80,160,220,0.3)"}`, borderRadius: 1 }} />))}
-              </div>
-              <div><div style={{ fontFamily: "monospace", fontSize: 9, color: `${ac}77`, letterSpacing: "0.12em" }}>BOARD</div><div style={{ fontFamily: t.fontDisplay, fontSize: 12, fontWeight: 700, color: ownsBoard ? "#4CAF50" : "#fff" }}>{bundle.boardLabel} {ownsBoard ? "✓" : ""}</div></div>
-            </div>
-          </div>
         </div>
 
         <div style={{ padding: "12px 24px 0" }}>
@@ -634,14 +570,31 @@ function BundleModal({ bundle, t, isGuest, buyingId, purchasedItems, balance, on
 function BundleCard({ bundle, purchasedItems, t, onClick }: { bundle: Bundle; purchasedItems: string[]; t: any; onClick: () => void }) {
   const [hov, setHov] = useState(false);
   const [tick, setTick] = useState(0);
+  const cardRef = useRef<HTMLDivElement | null>(null);
+  const [isVisible, setIsVisible] = useState(true);
   const ownsBoard = purchasedItems.includes(bundle.boardId);
   const ownsPiece = purchasedItems.includes(bundle.pieceId);
   const ownsAll   = ownsBoard && ownsPiece;
   const ac = bundle.accentColor;
   useEffect(() => {
+    const el = cardRef.current;
+    if (!el) return;
+    if (typeof IntersectionObserver === "undefined") return;
+    const obs = new IntersectionObserver(
+      (entries) => { setIsVisible(entries[0]?.isIntersecting ?? true); },
+      { root: null, threshold: 0.05 }
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, []);
+
+  const previewActive = hov && isVisible;
+
+  useEffect(() => {
+    if (!previewActive) return;
     const iv = setInterval(() => setTick(v => v + 1), 650);
     return () => clearInterval(iv);
-  }, []);
+  }, [previewActive]);
   const p1Cells = [12, 6, 18, 2, 22];
   const p2Cells = [8, 16, 4, 20, 10];
   const totalMoves = p1Cells.length + p2Cells.length;
@@ -654,7 +607,7 @@ function BundleCard({ bundle, purchasedItems, t, onClick }: { bundle: Bundle; pu
   }
 
   return (
-    <div onClick={onClick} onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}
+    <div ref={cardRef} onClick={onClick} onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}
       style={{ background: bundle.bgGradient, border: `2px solid ${hov ? ac : ac + "33"}`, borderRadius: 18, padding: "24px", cursor: "pointer", position: "relative", overflow: "hidden", transform: hov ? "translateY(-6px) scale(1.01)" : "none", boxShadow: hov ? `0 20px 60px ${ac}30, 0 0 0 1px ${ac}20` : `0 4px 20px ${ac}14`, transition: "all 0.28s cubic-bezier(.22,.68,0,1.2)" }}>
       <div style={{ position: "absolute", top: -40, right: -40, width: 180, height: 180, borderRadius: "50%", background: `${ac}14`, filter: "blur(50px)", pointerEvents: "none" }} />
       <div style={{ position: "absolute", top: 14, right: 14, display: "flex", gap: 5, flexWrap: "wrap" as const, justifyContent: "flex-end", maxWidth: 160 }}>
@@ -666,8 +619,21 @@ function BundleCard({ bundle, purchasedItems, t, onClick }: { bundle: Bundle; pu
       <div style={{ fontFamily: t.fontDisplay, fontSize: 22, fontWeight: 900, color: "#fff", letterSpacing: "0.04em", marginBottom: 3 }}>{bundle.label}</div>
       <div style={{ fontFamily: t.fontBody, fontSize: 12, color: `${ac}bb`, fontStyle: "italic", marginBottom: 16 }}>{bundle.tagline}</div>
       <div style={{ height: 72, borderRadius: 10, marginBottom: 14, overflow: "hidden", position: "relative", background: bundle.previewKind === "fire" ? "rgba(10,2,1,0.99)" : bundle.previewKind === "bloodmoon" ? "linear-gradient(135deg,rgba(10,0,0,0.99),rgba(18,0,10,0.99))" : bundle.previewKind === "egypt" ? "linear-gradient(135deg,rgba(7,4,0,0.99),rgba(14,7,0,0.99))" : bundle.previewKind === "synthwave" ? "linear-gradient(135deg,rgba(10,0,42,0.99),rgba(204,32,96,0.92))" : bundle.previewKind === "matrix" ? "linear-gradient(135deg,rgba(0,3,0,0.99),rgba(0,16,0,0.92))" : bundle.previewKind === "arcane" ? "linear-gradient(135deg,rgba(10,0,18,0.99),rgba(3,0,4,0.96))" : bundle.previewKind === "bio" ? "linear-gradient(135deg,rgba(0,10,15,0.99),rgba(0,3,4,0.96))" : bundle.previewKind === "forge" ? "linear-gradient(135deg,rgba(10,2,0,0.99),rgba(8,1,0,0.98))" : bundle.previewKind === "void" ? "linear-gradient(135deg,rgba(4,1,26,0.99),rgba(0,0,8,0.98))" : bundle.previewKind === "tokyo" ? "linear-gradient(135deg,rgba(4,0,8,0.99),rgba(3,0,8,0.98))" : "linear-gradient(135deg,rgba(3,8,20,0.98),rgba(1,4,14,0.99))", border: `1px solid ${bundle.previewKind === "fire" ? "rgba(140,20,0,0.35)" : bundle.previewKind === "glacier" ? "rgba(125,211,252,0.42)" : bundle.previewKind === "bloodmoon" ? "rgba(220,38,38,0.42)" : bundle.previewKind === "egypt" ? "rgba(245,158,11,0.42)" : bundle.previewKind === "synthwave" ? "rgba(255,0,180,0.42)" : bundle.previewKind === "matrix" ? "rgba(0,255,65,0.42)" : bundle.previewKind === "arcane" ? "rgba(168,85,247,0.42)" : bundle.previewKind === "bio" ? "rgba(0,255,208,0.42)" : bundle.previewKind === "forge" ? "rgba(255,102,0,0.42)" : bundle.previewKind === "void" ? "rgba(139,92,246,0.42)" : bundle.previewKind === "tokyo" ? "rgba(255,0,102,0.42)" : "rgba(80,160,220,0.28)"}` }}>
-        {bundle.previewKind === "fire" && <Embers count={6} />}{bundle.previewKind === "fire" && <HeatOverlay />}{bundle.previewKind === "ice" && <FrostCrystals />}{bundle.previewKind === "ice" && <IceOverlay />}{bundle.previewKind === "glacier" && <GlacierAurora />}{bundle.previewKind === "glacier" && <GlacierSnow count={12} />}
-        {bundle.previewKind === "bloodmoon" ? (
+        {previewActive && bundle.previewKind === "fire" && <Embers count={6} />}
+        {previewActive && bundle.previewKind === "fire" && <HeatOverlay />}
+        {previewActive && bundle.previewKind === "ice" && <FrostCrystals />}
+        {previewActive && bundle.previewKind === "ice" && <IceOverlay />}
+        {previewActive && bundle.previewKind === "glacier" && <GlacierAurora />}
+        {previewActive && bundle.previewKind === "glacier" && <GlacierSnow count={12} />}
+
+        {!previewActive ? (
+          <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+            <div style={{ width: 10, height: 10, borderRadius: 999, background: `${ac}cc`, boxShadow: `0 0 14px ${ac}88` }} />
+            <div style={{ fontFamily: "monospace", fontSize: 10, fontWeight: 800, color: `${ac}cc`, letterSpacing: "0.14em", textTransform: "uppercase" as const }}>
+              Hover to animate
+            </div>
+          </div>
+        ) : bundle.previewKind === "bloodmoon" ? (
           <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
             <div style={{ opacity: 0.98 }}>
               <BloodMoonGrid showLabels={false} cellSize={10} />
