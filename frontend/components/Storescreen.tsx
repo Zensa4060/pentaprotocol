@@ -243,8 +243,8 @@ function BundleAnimatedPreview({ bundle, tick }: { bundle: Bundle; tick: number 
         position: "relative",
         overflow: "hidden",
       }}>
-        <div style={{ position: "absolute", left: "50%", top: 10, transform: "translateX(-50%) scale(0.6)", transformOrigin: "top center" }}>
-          <BloodMoonGrid showLabels={false} cellSize={36} />
+        <div style={{ position: "absolute", left: "50%", top: "50%", transform: "translate(-50%,-50%)" }}>
+          <BloodMoonGrid showLabels={false} cellSize={56} />
         </div>
         <div style={{ position: "absolute", top: 8, left: 12, fontFamily: "monospace", fontSize: 9, color: "rgba(255,120,120,0.68)", letterSpacing: "0.18em", zIndex: 10, pointerEvents: "none" }}>{bundle.boardLabel.toUpperCase()}</div>
         <div style={{ position: "absolute", bottom: 8, right: 12, fontFamily: "monospace", fontSize: 9, color: "rgba(220,140,255,0.55)", letterSpacing: "0.1em", zIndex: 10, pointerEvents: "none" }}>LIVE PREVIEW</div>
@@ -263,8 +263,8 @@ function BundleAnimatedPreview({ bundle, tick }: { bundle: Bundle; tick: number 
         position: "relative",
         overflow: "hidden",
       }}>
-        <div style={{ position: "absolute", left: "50%", top: 10, transform: "translateX(-50%) scale(0.6)", transformOrigin: "top center" }}>
-          <EgyptGrid showLabels={false} cellSize={36} />
+        <div style={{ position: "absolute", left: "50%", top: "50%", transform: "translate(-50%,-50%)" }}>
+          <EgyptGrid showLabels={false} cellSize={56} />
         </div>
         <div style={{ position: "absolute", top: 8, left: 12, fontFamily: "monospace", fontSize: 9, color: "rgba(255,210,120,0.7)", letterSpacing: "0.18em", zIndex: 10, pointerEvents: "none" }}>{bundle.boardLabel.toUpperCase()}</div>
         <div style={{ position: "absolute", bottom: 8, right: 12, fontFamily: "monospace", fontSize: 9, color: "rgba(255,230,160,0.55)", letterSpacing: "0.1em", zIndex: 10, pointerEvents: "none" }}>LIVE PREVIEW</div>
@@ -283,8 +283,8 @@ function BundleAnimatedPreview({ bundle, tick }: { bundle: Bundle; tick: number 
         position: "relative",
         overflow: "hidden",
       }}>
-        <div style={{ position: "absolute", left: "50%", top: 10, transform: "translateX(-50%) scale(0.6)", transformOrigin: "top center" }}>
-          <SynthwaveGrid showLabels={false} cellSize={36} />
+        <div style={{ position: "absolute", left: "50%", top: "50%", transform: "translate(-50%,-50%)" }}>
+          <SynthwaveGrid showLabels={false} cellSize={56} />
         </div>
         <div style={{ position: "absolute", top: 8, left: 12, fontFamily: "monospace", fontSize: 9, color: "rgba(255,120,220,0.75)", letterSpacing: "0.18em", zIndex: 10, pointerEvents: "none" }}>{bundle.boardLabel.toUpperCase()}</div>
         <div style={{ position: "absolute", bottom: 8, right: 12, fontFamily: "monospace", fontSize: 9, color: "rgba(140,240,255,0.6)", letterSpacing: "0.1em", zIndex: 10, pointerEvents: "none" }}>LIVE PREVIEW</div>
@@ -303,8 +303,8 @@ function BundleAnimatedPreview({ bundle, tick }: { bundle: Bundle; tick: number 
         position: "relative",
         overflow: "hidden",
       }}>
-        <div style={{ position: "absolute", left: "50%", top: 10, transform: "translateX(-50%) scale(0.6)", transformOrigin: "top center" }}>
-          <MatrixGrid showLabels={false} cellSize={36} />
+        <div style={{ position: "absolute", left: "50%", top: "50%", transform: "translate(-50%,-50%)" }}>
+          <MatrixGrid showLabels={false} cellSize={56} />
         </div>
         <div style={{ position: "absolute", top: 8, left: 12, fontFamily: "monospace", fontSize: 9, color: "rgba(150,255,150,0.7)", letterSpacing: "0.18em", zIndex: 10, pointerEvents: "none" }}>{bundle.boardLabel.toUpperCase()}</div>
         <div style={{ position: "absolute", bottom: 8, right: 12, fontFamily: "monospace", fontSize: 9, color: "rgba(0,255,65,0.55)", letterSpacing: "0.1em", zIndex: 10, pointerEvents: "none" }}>LIVE PREVIEW</div>
@@ -323,8 +323,8 @@ function BundleAnimatedPreview({ bundle, tick }: { bundle: Bundle; tick: number 
         position: "relative",
         overflow: "hidden",
       }}>
-        <div style={{ position: "absolute", left: "50%", top: 10, transform: "translateX(-50%) scale(0.6)", transformOrigin: "top center" }}>
-          <ArcaneGrid showLabels={false} cellSize={36} />
+        <div style={{ position: "absolute", left: "50%", top: "50%", transform: "translate(-50%,-50%)" }}>
+          <ArcaneGrid showLabels={false} cellSize={56} />
         </div>
         <div style={{ position: "absolute", top: 8, left: 12, fontFamily: "monospace", fontSize: 9, color: "rgba(220,170,255,0.72)", letterSpacing: "0.18em", zIndex: 10, pointerEvents: "none" }}>{bundle.boardLabel.toUpperCase()}</div>
         <div style={{ position: "absolute", bottom: 8, right: 12, fontFamily: "monospace", fontSize: 9, color: "rgba(255,220,140,0.55)", letterSpacing: "0.1em", zIndex: 10, pointerEvents: "none" }}>LIVE PREVIEW</div>
@@ -343,8 +343,8 @@ function BundleAnimatedPreview({ bundle, tick }: { bundle: Bundle; tick: number 
         position: "relative",
         overflow: "hidden",
       }}>
-        <div style={{ position: "absolute", left: "50%", top: 10, transform: "translateX(-50%) scale(0.6)", transformOrigin: "top center" }}>
-          <BioGrid showLabels={false} cellSize={36} />
+        <div style={{ position: "absolute", left: "50%", top: "50%", transform: "translate(-50%,-50%)" }}>
+          <BioGrid showLabels={false} cellSize={56} />
         </div>
         <div style={{ position: "absolute", top: 8, left: 12, fontFamily: "monospace", fontSize: 9, color: "rgba(140,255,230,0.70)", letterSpacing: "0.18em", zIndex: 10, pointerEvents: "none" }}>{bundle.boardLabel.toUpperCase()}</div>
         <div style={{ position: "absolute", bottom: 8, right: 12, fontFamily: "monospace", fontSize: 9, color: "rgba(190,140,255,0.55)", letterSpacing: "0.1em", zIndex: 10, pointerEvents: "none" }}>LIVE PREVIEW</div>
@@ -363,8 +363,8 @@ function BundleAnimatedPreview({ bundle, tick }: { bundle: Bundle; tick: number 
         position: "relative",
         overflow: "hidden",
       }}>
-        <div style={{ position: "absolute", left: "50%", top: 10, transform: "translateX(-50%) scale(0.6)", transformOrigin: "top center" }}>
-          <ForgeGrid showLabels={false} cellSize={36} />
+        <div style={{ position: "absolute", left: "50%", top: "50%", transform: "translate(-50%,-50%)" }}>
+          <ForgeGrid showLabels={false} cellSize={56} />
         </div>
         <div style={{ position: "absolute", top: 8, left: 12, fontFamily: "monospace", fontSize: 9, color: "rgba(255,180,120,0.72)", letterSpacing: "0.18em", zIndex: 10, pointerEvents: "none" }}>{bundle.boardLabel.toUpperCase()}</div>
         <div style={{ position: "absolute", bottom: 8, right: 12, fontFamily: "monospace", fontSize: 9, color: "rgba(255,220,140,0.55)", letterSpacing: "0.1em", zIndex: 10, pointerEvents: "none" }}>LIVE PREVIEW</div>
@@ -383,8 +383,8 @@ function BundleAnimatedPreview({ bundle, tick }: { bundle: Bundle; tick: number 
         position: "relative",
         overflow: "hidden",
       }}>
-        <div style={{ position: "absolute", left: "50%", top: 10, transform: "translateX(-50%) scale(0.6)", transformOrigin: "top center" }}>
-          <VoidGrid showLabels={false} cellSize={36} />
+        <div style={{ position: "absolute", left: "50%", top: "50%", transform: "translate(-50%,-50%)" }}>
+          <VoidGrid showLabels={false} cellSize={56} />
         </div>
         <div style={{ position: "absolute", top: 8, left: 12, fontFamily: "monospace", fontSize: 9, color: "rgba(200,170,255,0.70)", letterSpacing: "0.18em", zIndex: 10, pointerEvents: "none" }}>{bundle.boardLabel.toUpperCase()}</div>
         <div style={{ position: "absolute", bottom: 8, right: 12, fontFamily: "monospace", fontSize: 9, color: "rgba(180,220,255,0.55)", letterSpacing: "0.1em", zIndex: 10, pointerEvents: "none" }}>LIVE PREVIEW</div>
@@ -403,8 +403,8 @@ function BundleAnimatedPreview({ bundle, tick }: { bundle: Bundle; tick: number 
         position: "relative",
         overflow: "hidden",
       }}>
-        <div style={{ position: "absolute", left: "50%", top: 10, transform: "translateX(-50%) scale(0.6)", transformOrigin: "top center" }}>
-          <TokyoGrid showLabels={false} cellSize={36} />
+        <div style={{ position: "absolute", left: "50%", top: "50%", transform: "translate(-50%,-50%)" }}>
+          <TokyoGrid showLabels={false} cellSize={56} />
         </div>
         <div style={{ position: "absolute", top: 8, left: 12, fontFamily: "monospace", fontSize: 9, color: "rgba(255,80,140,0.72)", letterSpacing: "0.18em", zIndex: 10, pointerEvents: "none" }}>{bundle.boardLabel.toUpperCase()}</div>
         <div style={{ position: "absolute", bottom: 8, right: 12, fontFamily: "monospace", fontSize: 9, color: "rgba(0,200,255,0.55)", letterSpacing: "0.1em", zIndex: 10, pointerEvents: "none" }}>LIVE PREVIEW</div>
@@ -486,6 +486,46 @@ function BundleModal({ bundle, t, isGuest, buyingId, purchasedItems, balance, on
   const ownsBundle = ownsBoard && ownsPiece;
   const ac = bundle.accentColor;
 
+  const miniBoard = (v: "X" | "O") => {
+    const b: (("X" | "O") | null)[][] = Array.from({ length: 5 }, () => Array.from({ length: 5 }, () => null));
+    b[2][2] = v;
+    return b;
+  };
+  const renderMiniPiece = (slot: "P1" | "P2") => {
+    // Fire + Glacier + Ice use the exported GamePieces components.
+    if (bundle.previewKind === "fire") return slot === "P1" ? <Flame size={42} /> : <Skull size={42} />;
+    if (bundle.previewKind === "glacier") return slot === "P1" ? <GlacierSigilPiece size={42} /> : <GlacierPrismPiece size={42} />;
+    if (bundle.previewKind === "ice") return slot === "P1" ? <SnowflakePiece size={42} /> : <IceShardPiece size={42} />;
+
+    const cs = 6; // native small render for sharpness
+    const PAD = 8;
+    const BS = 5 * cs + 2 * PAD; // component board size
+    const scale = 42 / BS;
+    const commonWrap: React.CSSProperties = {
+      position: "absolute",
+      left: "50%",
+      top: "50%",
+      transform: `translate(-50%,-50%) scale(${scale})`,
+      transformOrigin: "center",
+    };
+    const board = miniBoard(slot === "P1" ? "X" : "O");
+
+    const wrap = (node: React.ReactNode) => <div style={commonWrap}>{node}</div>;
+
+    switch (bundle.previewKind) {
+      case "bloodmoon": return wrap(<BloodMoonGrid showLabels={false} cellSize={cs} board={board} />);
+      case "egypt": return wrap(<EgyptGrid showLabels={false} cellSize={cs} board={board} />);
+      case "synthwave": return wrap(<SynthwaveGrid showLabels={false} cellSize={cs} board={board} />);
+      case "matrix": return wrap(<MatrixGrid showLabels={false} cellSize={cs} board={board} />);
+      case "arcane": return wrap(<ArcaneGrid showLabels={false} cellSize={cs} board={board} />);
+      case "bio": return wrap(<BioGrid showLabels={false} cellSize={cs} board={board} />);
+      case "forge": return wrap(<ForgeGrid showLabels={false} cellSize={cs} board={board} />);
+      case "void": return wrap(<VoidGrid showLabels={false} cellSize={cs} board={board} />);
+      case "tokyo": return wrap(<TokyoGrid showLabels={false} cellSize={cs} board={board} />);
+      default: return null;
+    }
+  };
+
   const options = [
     {
       id: "bundle",
@@ -516,15 +556,15 @@ function BundleModal({ bundle, t, isGuest, buyingId, purchasedItems, balance, on
           <div style={{ display: "flex", gap: 10, marginTop: 12 }}>
             <div style={{ flex: 1, background: `${ac}0C`, border: `1px solid ${ac}2A`, borderRadius: 10, padding: "10px 12px", display: "flex", alignItems: "center", gap: 10 }}>
               <div style={{ width: 42, height: 42, borderRadius: 7, background: bundle.previewKind === "fire" ? "rgba(14,3,1,0.97)" : "linear-gradient(135deg,rgba(5,12,25,0.96),rgba(2,7,16,0.98))", border: `1.5px solid ${bundle.previewKind === "fire" ? "rgba(255,80,0,0.7)" : bundle.previewKind === "glacier" ? "rgba(165,243,252,0.75)" : "rgba(200,240,255,0.65)"}`, display: "flex", alignItems: "center", justifyContent: "center", position: "relative", overflow: "hidden" }}>
-                {bundle.previewKind === "fire" ? <Flame size={42} /> : bundle.previewKind === "glacier" ? <GlacierSigilPiece size={42} /> : <SnowflakePiece size={42} />}
+                {renderMiniPiece("P1")}
               </div>
-              <div><div style={{ fontFamily: "monospace", fontSize: 9, color: `${ac}77`, letterSpacing: "0.12em" }}>P1 PIECE</div><div style={{ fontFamily: t.fontDisplay, fontSize: 12, fontWeight: 700, color: ownsPiece ? "#4CAF50" : "#fff" }}>{bundle.previewKind === "fire" ? "Flame" : bundle.previewKind === "glacier" ? "Sigil" : "Snowflake"} {ownsPiece ? "✓" : ""}</div></div>
+              <div><div style={{ fontFamily: "monospace", fontSize: 9, color: `${ac}77`, letterSpacing: "0.12em" }}>P1 PIECE</div><div style={{ fontFamily: t.fontDisplay, fontSize: 12, fontWeight: 700, color: ownsPiece ? "#4CAF50" : "#fff" }}>P1 Skin {ownsPiece ? "✓" : ""}</div></div>
             </div>
             <div style={{ flex: 1, background: `${ac}0C`, border: `1px solid ${ac}2A`, borderRadius: 10, padding: "10px 12px", display: "flex", alignItems: "center", gap: 10 }}>
               <div style={{ width: 42, height: 42, borderRadius: 7, background: bundle.previewKind === "fire" ? "rgba(14,3,1,0.97)" : "linear-gradient(135deg,rgba(5,12,25,0.96),rgba(2,7,16,0.98))", border: `1.5px solid ${bundle.previewKind === "fire" ? "rgba(200,0,0,0.7)" : bundle.previewKind === "glacier" ? "rgba(196,181,253,0.75)" : "rgba(100,200,255,0.65)"}`, display: "flex", alignItems: "center", justifyContent: "center", position: "relative", overflow: "hidden" }}>
-                {bundle.previewKind === "fire" ? <Skull size={42} /> : bundle.previewKind === "glacier" ? <GlacierPrismPiece size={42} /> : <IceShardPiece size={42} />}
+                {renderMiniPiece("P2")}
               </div>
-              <div><div style={{ fontFamily: "monospace", fontSize: 9, color: `${ac}77`, letterSpacing: "0.12em" }}>P2 PIECE</div><div style={{ fontFamily: t.fontDisplay, fontSize: 12, fontWeight: 700, color: ownsPiece ? "#4CAF50" : "#fff" }}>{bundle.previewKind === "fire" ? "Skull" : bundle.previewKind === "glacier" ? "Prism" : "Ice Shard"} {ownsPiece ? "✓" : ""}</div></div>
+              <div><div style={{ fontFamily: "monospace", fontSize: 9, color: `${ac}77`, letterSpacing: "0.12em" }}>P2 PIECE</div><div style={{ fontFamily: t.fontDisplay, fontSize: 12, fontWeight: 700, color: ownsPiece ? "#4CAF50" : "#fff" }}>P2 Skin {ownsPiece ? "✓" : ""}</div></div>
             </div>
             <div style={{ flex: 1, background: `${ac}0C`, border: `1px solid ${ac}2A`, borderRadius: 10, padding: "10px 12px", display: "flex", alignItems: "center", gap: 10 }}>
               <div style={{ width: 42, height: 42, borderRadius: 7, background: bundle.previewKind === "fire" ? "rgba(10,2,1,0.99)" : "linear-gradient(135deg,rgba(3,8,20,0.98),rgba(1,4,14,0.99))", border: `1.5px solid ${bundle.previewKind === "fire" ? "rgba(140,20,0,0.35)" : bundle.previewKind === "glacier" ? "rgba(125,211,252,0.45)" : "rgba(80,160,220,0.35)"}`, display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 2, padding: 4, position: "relative", overflow: "hidden" }}>
@@ -629,56 +669,56 @@ function BundleCard({ bundle, purchasedItems, t, onClick }: { bundle: Bundle; pu
         {bundle.previewKind === "fire" && <Embers count={6} />}{bundle.previewKind === "fire" && <HeatOverlay />}{bundle.previewKind === "ice" && <FrostCrystals />}{bundle.previewKind === "ice" && <IceOverlay />}{bundle.previewKind === "glacier" && <GlacierAurora />}{bundle.previewKind === "glacier" && <GlacierSnow count={12} />}
         {bundle.previewKind === "bloodmoon" ? (
           <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <div style={{ transform: "scale(0.16)", transformOrigin: "center", opacity: 0.95 }}>
-              <BloodMoonGrid showLabels={false} cellSize={18} />
+            <div style={{ opacity: 0.98 }}>
+              <BloodMoonGrid showLabels={false} cellSize={10} />
             </div>
           </div>
         ) : bundle.previewKind === "egypt" ? (
           <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <div style={{ transform: "scale(0.16)", transformOrigin: "center", opacity: 0.95 }}>
-              <EgyptGrid showLabels={false} cellSize={18} />
+            <div style={{ opacity: 0.98 }}>
+              <EgyptGrid showLabels={false} cellSize={10} />
             </div>
           </div>
         ) : bundle.previewKind === "synthwave" ? (
           <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <div style={{ transform: "scale(0.16)", transformOrigin: "center", opacity: 0.95 }}>
-              <SynthwaveGrid showLabels={false} cellSize={18} />
+            <div style={{ opacity: 0.98 }}>
+              <SynthwaveGrid showLabels={false} cellSize={10} />
             </div>
           </div>
         ) : bundle.previewKind === "matrix" ? (
           <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <div style={{ transform: "scale(0.16)", transformOrigin: "center", opacity: 0.95 }}>
-              <MatrixGrid showLabels={false} cellSize={18} />
+            <div style={{ opacity: 0.98 }}>
+              <MatrixGrid showLabels={false} cellSize={10} />
             </div>
           </div>
         ) : bundle.previewKind === "arcane" ? (
           <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <div style={{ transform: "scale(0.16)", transformOrigin: "center", opacity: 0.95 }}>
-              <ArcaneGrid showLabels={false} cellSize={18} />
+            <div style={{ opacity: 0.98 }}>
+              <ArcaneGrid showLabels={false} cellSize={10} />
             </div>
           </div>
         ) : bundle.previewKind === "bio" ? (
           <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <div style={{ transform: "scale(0.16)", transformOrigin: "center", opacity: 0.95 }}>
-              <BioGrid showLabels={false} cellSize={18} />
+            <div style={{ opacity: 0.98 }}>
+              <BioGrid showLabels={false} cellSize={10} />
             </div>
           </div>
         ) : bundle.previewKind === "forge" ? (
           <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <div style={{ transform: "scale(0.16)", transformOrigin: "center", opacity: 0.95 }}>
-              <ForgeGrid showLabels={false} cellSize={18} />
+            <div style={{ opacity: 0.98 }}>
+              <ForgeGrid showLabels={false} cellSize={10} />
             </div>
           </div>
         ) : bundle.previewKind === "void" ? (
           <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <div style={{ transform: "scale(0.16)", transformOrigin: "center", opacity: 0.95 }}>
-              <VoidGrid showLabels={false} cellSize={18} />
+            <div style={{ opacity: 0.98 }}>
+              <VoidGrid showLabels={false} cellSize={10} />
             </div>
           </div>
         ) : bundle.previewKind === "tokyo" ? (
           <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <div style={{ transform: "scale(0.16)", transformOrigin: "center", opacity: 0.95 }}>
-              <TokyoGrid showLabels={false} cellSize={18} />
+            <div style={{ opacity: 0.98 }}>
+              <TokyoGrid showLabels={false} cellSize={10} />
             </div>
           </div>
         ) : (
