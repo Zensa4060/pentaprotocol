@@ -332,7 +332,7 @@ export default function NavBar({
     { target: "store",      label: "Store",       screen: "store"      as Screen },
     { target: "home",       label: "Home",        screen: "home"       as Screen },
     { target: "career",     label: "Career",      screen: "career"     as Screen, locked: isGuest },
-    { target: "battlepass", label: "Battlepass",  screen: "battlepass" as Screen, locked: isGuest },
+    { target: "battlepass", label: "MISSIONS",  screen: "battlepass" as Screen, locked: isGuest },
     { target: "profile",    label: "Profile",     screen: "profile"    as Screen, locked: isGuest },
   ];
 
@@ -426,13 +426,13 @@ export default function NavBar({
             flex: 1, display: "flex", alignItems: "center", justifyContent: "center",
             overflow: "hidden"
           }}>
-            <div style={{ display: "flex", alignItems: "center", flexWrap: "nowrap", gap: "2vw" }}>
+            <div style={{ display: "flex", alignItems: "center", flexWrap: "nowrap", gap: "2vw", transform: "translateX(-1%)" }}>
               {navBtn("rules",      "Game Rules", false, false, undefined, "rules")}
               {navBtn("collection", "Collection", false, false, undefined, "collection")}
               {navBtn("store",      "Store",      false, false, undefined, "store")}
               {navBtn("home",       "Home",       false, false, undefined, "home")}
               {navBtn("career",     "Career",     false, false, undefined, "career",     isGuest)}
-              {navBtn("battlepass", "Battlepass", false, false, undefined, "battlepass", isGuest)}
+              {navBtn("battlepass", "MISSIONS", false, false, undefined, "battlepass", isGuest)}
               {navBtn("profile",    "Profile",    false, false, undefined, "profile",    isGuest)}
             </div>
           </div>

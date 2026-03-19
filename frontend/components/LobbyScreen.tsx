@@ -234,15 +234,15 @@ export default function LobbyScreen({
     level: number; color: string; direction: "top" | "bottom";
   }) => {
     const rank = getRank(elo ?? 100);
-    const anim = direction === "top" ? "slideInLeft" : "slideInRight";
+    const anim = direction === "top" ? "dropInTop" : "dropInBottom";
     const sideBySideSize = 240;
 
     return (
-      <div style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", position:"relative", overflow:"hidden", animation:`${anim} 0.8s cubic-bezier(.22,.68,0,1.2) both` }}>
+      <div style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", position:"relative", overflow:"hidden", animation:`${anim} 620ms cubic-bezier(.2,.9,.2,1) both`, willChange:"transform, opacity", transform:"translateZ(0)" }}>
         <div style={{ position:"absolute", inset:0, opacity:1, zIndex:0 }}>
           <BannerRenderer bannerId={banner} hideLabels />
           <div style={{ position:"absolute", inset:0, background:"rgba(0,0,0,0.2)", zIndex:1 }} />
-          <div style={{ position:"absolute", inset:0, background:"linear-gradient(110deg, transparent 35%, rgba(255,255,255,0.3) 45%, rgba(255,255,255,0.5) 50%, rgba(255,255,255,0.3) 55%, transparent 65%)", backgroundSize:"200% 100%", animation:"bannerShine 2s infinite cubic-bezier(0.4, 0, 0.2, 1)", zIndex:2, pointerEvents:"none", filter:"blur(4px)" }} />
+          <div style={{ position:"absolute", inset:0, background:"linear-gradient(110deg, transparent 36%, rgba(255,255,255,0.22) 45%, rgba(255,255,255,0.35) 50%, rgba(255,255,255,0.22) 55%, transparent 64%)", backgroundSize:"200% 100%", animation:"bannerShine 2.4s linear infinite", zIndex:2, pointerEvents:"none" }} />
         </div>
 
         <div style={{ position:"relative", zIndex:5, width:"100%", maxWidth:1200, display:"flex", alignItems:"center", justifyContent:"space-between", padding:"0 60px" }}>
@@ -280,9 +280,9 @@ export default function LobbyScreen({
         UNRANKED · BEST OF 3
       </div>
       <PlayerCard name={user?.username ?? "YOU"} elo={user?.elo ?? null} avatar={user?.avatar ?? null} banner={loadCustomTheme().bannerSkin ?? "default"} level={user?.level ?? 1} color={t.p1} direction="top" />
-      <div style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:50, padding:"20px 0", flexShrink:0, position:"relative", zIndex:10, background:"rgba(0,0,0,0.3)", backdropFilter:"blur(10px)" }}>
+      <div style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:50, padding:"20px 0", flexShrink:0, position:"relative", zIndex:10, background:"rgba(0,0,0,0.24)" }}>
         <div style={{ flex:1, height:2, background:`linear-gradient(90deg, transparent, ${t.accent}, transparent)`, opacity:0.6 }} />
-        <div style={{...vsStyle, transform:"scale(1.2)"}}>VS</div>
+        <div style={{...vsStyle, transform:"scale(1.05)", animation:"vsPop 620ms cubic-bezier(.2,.9,.2,1) both, vsPulse 1600ms ease-in-out infinite 700ms", willChange:"transform, opacity" }}>VS</div>
         <div style={{ flex:1, height:2, background:`linear-gradient(90deg, transparent, ${t.accent}, transparent)`, opacity:0.6 }} />
       </div>
       <PlayerCard name={propMatchupOpponent?.name ?? "OPPONENT"} elo={propMatchupOpponent?.elo ?? 1000} avatar={propMatchupOpponent?.avatar ?? null} banner={propMatchupOpponent?.banner ?? "default"} level={propMatchupOpponent?.level ?? 1} color={t.p2} direction="bottom" />
@@ -294,11 +294,13 @@ export default function LobbyScreen({
       </div>
       <style>{`
         @keyframes fadeUp       { from{opacity:0;transform:translateY(24px)} to{opacity:1;transform:translateY(0)} }
-        @keyframes slideInLeft  { from{opacity:0;transform:translateX(-60px)} to{opacity:1;transform:translateX(0)} }
-        @keyframes slideInRight { from{opacity:0;transform:translateX(60px)}  to{opacity:1;transform:translateX(0)} }
+        @keyframes dropInTop    { from{opacity:0;transform:translate3d(0,-36px,0) scale(.985)} to{opacity:1;transform:translate3d(0,0,0) scale(1)} }
+        @keyframes dropInBottom { from{opacity:0;transform:translate3d(0,36px,0) scale(.985)}  to{opacity:1;transform:translate3d(0,0,0) scale(1)} }
         @keyframes matchBarShrink { from{width:100%} to{width:0%} }
         @keyframes bannerShine  { 0%{background-position:-200% 0} 100%{background-position:200% 0} }
         @keyframes rankFloat    { 0%,100%{transform:translateY(0) rotate(5deg)} 50%{transform:translateY(-30px) rotate(-5deg)} }
+        @keyframes vsPop        { from{opacity:0;transform:translateY(12px) scale(.84)} to{opacity:1;transform:translateY(0) scale(1.05)} }
+        @keyframes vsPulse      { 0%,100%{text-shadow:0 0 26px ${t.accent}66} 50%{text-shadow:0 0 48px ${t.accent}AA} }
       `}</style>
     </div>
   );

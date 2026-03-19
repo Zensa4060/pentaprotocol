@@ -883,8 +883,8 @@ export default function CollectionScreen({ themeId, setThemeIdAction, onHoverAct
 
           {/* ── GRIDS ── */}
           {cat === "board_bundles" && (
-            <div style={{ display: "grid", gridTemplateColumns: `repeat(auto-fill,minmax(${isMobile ? 260 : 320}px,1fr))`, gap: isMobile ? 16 : 18 }}>
-              {BOARD_BUNDLES.filter(b => showAll || b.bOwned(profile) || b.pOwned(profile) || b.isDefault).map(bundle => {
+            <div style={{ display: "flex", gap: isMobile ? 16 : 18, overflowX: "auto", paddingBottom: 8, scrollSnapType: "x mandatory" }}>
+              {BOARD_BUNDLES.filter(b => showAll || b.bOwned(profile) || b.pOwned(profile) || b.isDefault).map((bundle, i) => {
                 const bOk = bundle.bOwned(profile);
                 const pOk = bundle.pOwned(profile);
                 const anyOwned = bOk || pOk || !!bundle.isDefault;
@@ -892,10 +892,10 @@ export default function CollectionScreen({ themeId, setThemeIdAction, onHoverAct
                 const isActive = activeBoard === bundle.boardId && activePiece === bundle.pieceId;
                 const ac = bundle.accentColor;
                 return (
-                  <div key={bundle.id}
+                  <div key={`${bundle.id}-${i}`}
                     onClick={() => { if (anyOwned && !isActive) { onClickAction?.(); equipBundle(bundle as any); } }}
                     onMouseEnter={() => { if (anyOwned) onHoverAction?.(); }}
-                    style={{ borderRadius: 18, overflow: "hidden", border: `1.5px solid ${anyOwned ? (isActive ? ac : "rgba(255,255,255,0.1)") : "rgba(255,255,255,0.04)"}`, background: "rgba(18,18,26,0.9)", backdropFilter: "blur(14px)", boxShadow: isActive ? `0 0 28px ${ac}28` : "none", cursor: anyOwned && !isActive ? "pointer" : "default", position: "relative", transition: "box-shadow 0.2s, border-color 0.2s" }}>
+                    style={{ minWidth: isMobile ? 260 : 320, maxWidth: isMobile ? 260 : 320, flex: `0 0 ${isMobile ? 260 : 320}px`, scrollSnapAlign: "start", borderRadius: 18, overflow: "hidden", border: `1.5px solid ${anyOwned ? (isActive ? ac : "rgba(255,255,255,0.1)") : "rgba(255,255,255,0.04)"}`, background: "rgba(18,18,26,0.9)", backdropFilter: "blur(14px)", boxShadow: isActive ? `0 0 28px ${ac}28` : "none", cursor: anyOwned && !isActive ? "pointer" : "default", position: "relative", transition: "box-shadow 0.2s, border-color 0.2s" }}>
                     {/* Board preview banner */}
                     <div style={{ height: 110, background: bundle.boardPreview, position: "relative", overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center" }}>
                       {!anyOwned && (<div className="coll-locked-overlay"><div style={{ background: "rgba(0,0,0,0.85)", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 12, padding: "8px 16px", display: "flex", alignItems: "center", gap: 8 }}><LockIcon size={14} color="#888" /><span style={{ fontFamily: t.fontMono, fontSize: 10, color: "#888", fontWeight: 800, letterSpacing: "0.1em" }}>LOCKED</span></div></div>)}
@@ -1014,14 +1014,14 @@ export default function CollectionScreen({ themeId, setThemeIdAction, onHoverAct
             <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
               <div>
                 <div style={{ fontFamily: t.fontMono, fontSize: 10, color: t.textMuted, letterSpacing: "0.18em", marginBottom: 12, opacity: 0.7 }}>BANNERS</div>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(230px,1fr))", gap: 14 }}>
-                  {BANNERS.filter(x => showAll || x.condition(profile)).map(item => {
+                <div style={{ display: "flex", gap: 14, overflowX: "auto", paddingBottom: 8, scrollSnapType: "x mandatory" }}>
+                  {BANNERS.filter(x => showAll || x.condition(profile)).map((item, idx) => {
                     const owned = item.condition(profile);
                     const isActive = activeBanner === item.id;
                     return (
-                      <div key={item.id} className={`coll-item ${!owned ? "coll-locked" : ""}`}
+                      <div key={`${item.id}-${idx}`} className={`coll-item ${!owned ? "coll-locked" : ""}`}
                         onClick={() => { if (owned && !isActive) { onClickAction?.(); equipBanner(item.id); } }}
-                        style={{ borderRadius: 16, overflow: "hidden", border: `1px solid ${owned ? (isActive ? hoverColor : "rgba(255,255,255,0.1)") : "rgba(255,255,255,0.05)"}`, background: "rgba(30,30,30,0.6)", backdropFilter: "blur(12px)", cursor: owned && !isActive ? "pointer" : "default", boxShadow: isActive ? `0 0 20px ${hoverColor}33` : "none" }}>
+                        style={{ minWidth: 230, maxWidth: 230, flex: "0 0 230px", scrollSnapAlign: "start", borderRadius: 16, overflow: "hidden", border: `1px solid ${owned ? (isActive ? hoverColor : "rgba(255,255,255,0.1)") : "rgba(255,255,255,0.05)"}`, background: "rgba(30,30,30,0.6)", backdropFilter: "blur(12px)", cursor: owned && !isActive ? "pointer" : "default", boxShadow: isActive ? `0 0 20px ${hoverColor}33` : "none" }}>
                         {!owned && (<div className="coll-locked-overlay"><div style={{ background: "rgba(0,0,0,0.8)", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 12, padding: "8px 16px", display: "flex", alignItems: "center", gap: 8 }}><LockIcon size={14} color="#888" /><span style={{ fontFamily: t.fontMono, fontSize: 10, color: "#888", fontWeight: 800, letterSpacing: "0.1em" }}>LOCKED</span></div></div>)}
                         <div style={{ height: 110, overflow: "hidden", position: "relative" }}>
                           <BannerRenderer bannerId={item.id} />
@@ -1038,14 +1038,14 @@ export default function CollectionScreen({ themeId, setThemeIdAction, onHoverAct
               </div>
               <div>
                 <div style={{ fontFamily: t.fontMono, fontSize: 10, color: t.textMuted, letterSpacing: "0.18em", marginBottom: 12, opacity: 0.7 }}>PROFILE BORDERS</div>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(210px,1fr))", gap: 14 }}>
-                  {PROFILE_BORDERS.filter(x => showAll || x.condition(profile)).map(item => {
+                <div style={{ display: "flex", gap: 14, overflowX: "auto", paddingBottom: 8, scrollSnapType: "x mandatory" }}>
+                  {PROFILE_BORDERS.filter(x => showAll || x.condition(profile)).map((item, idx) => {
                     const owned = item.condition(profile);
                     const tc = TIER_COLOR[item.tier];
                     const isRainbow = item.id === "rainbow_halo";
                     return (
-                      <div key={item.id} className={`coll-item ${!owned ? "coll-locked" : ""}`}
-                        style={{ borderRadius: 16, padding: "24px 16px", border: `1px solid ${owned ? (item.id === "none" ? "rgba(255,255,255,0.1)" : tc + "aa") : "rgba(255,255,255,0.05)"}`, background: "rgba(30,30,30,0.6)", backdropFilter: "blur(12px)", display: "flex", flexDirection: "column", alignItems: "center", gap: 16, boxShadow: owned && item.id !== "none" ? `0 0 25px ${tc}22` : "none" }}>
+                      <div key={`${item.id}-${idx}`} className={`coll-item ${!owned ? "coll-locked" : ""}`}
+                        style={{ minWidth: 210, maxWidth: 210, flex: "0 0 210px", scrollSnapAlign: "start", borderRadius: 16, padding: "24px 16px", border: `1px solid ${owned ? (item.id === "none" ? "rgba(255,255,255,0.1)" : tc + "aa") : "rgba(255,255,255,0.05)"}`, background: "rgba(30,30,30,0.6)", backdropFilter: "blur(12px)", display: "flex", flexDirection: "column", alignItems: "center", gap: 16, boxShadow: owned && item.id !== "none" ? `0 0 25px ${tc}22` : "none" }}>
                         <div style={{ width: 72, height: 72, borderRadius: "50%", background: `linear-gradient(135deg,${t.p1},${t.p2})`, boxShadow: owned && item.id !== "none" ? (isRainbow ? "0 0 0 4px #FF6B6B, 0 0 0 8px #FFD700, 0 0 30px #FF6B6BAA" : item.css) : "none", border: item.id === "none" ? `1px dashed ${t.border}` : "none", display: "flex", alignItems: "center", justifyContent: "center" }}>{!owned && <LockIcon size={20} color="#555" />}</div>
                         <div style={{ textAlign: "center" as const }}>
                           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4, marginBottom: 8 }}>
@@ -1150,10 +1150,10 @@ export default function CollectionScreen({ themeId, setThemeIdAction, onHoverAct
             <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
               <div>
                 <div style={{ fontFamily: t.fontMono, fontSize: 10, color: t.textMuted, letterSpacing: "0.18em", marginBottom: 12, opacity: 0.7 }}> COINS </div>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(190px,1fr))", gap: 14 }}>
-                  {COIN_SKINS.filter(x => showAll || x.owned).map(item => (
-                    <div key={item.id} className={`coll-item ${!item.owned ? "coll-locked" : ""}`}
-                      style={{ borderRadius: 16, padding: "24px 16px", border: `1px solid ${item.owned ? item.c1 + "44" : "rgba(255,255,255,0.05)"}`, background: "rgba(30,30,30,0.6)", backdropFilter: "blur(12px)", display: "flex", flexDirection: "column", alignItems: "center", gap: 16, position: "relative", boxShadow: item.owned ? `0 0 20px ${item.c1}11` : "none" }}>
+                <div style={{ display: "flex", gap: 14, overflowX: "auto", paddingBottom: 8, scrollSnapType: "x mandatory" }}>
+                  {COIN_SKINS.filter(x => showAll || x.owned).map((item, idx) => (
+                    <div key={`${item.id}-${idx}`} className={`coll-item ${!item.owned ? "coll-locked" : ""}`}
+                      style={{ minWidth: 190, maxWidth: 190, flex: "0 0 190px", scrollSnapAlign: "start", borderRadius: 16, padding: "24px 16px", border: `1px solid ${item.owned ? item.c1 + "44" : "rgba(255,255,255,0.05)"}`, background: "rgba(30,30,30,0.6)", backdropFilter: "blur(12px)", display: "flex", flexDirection: "column", alignItems: "center", gap: 16, position: "relative", boxShadow: item.owned ? `0 0 20px ${item.c1}11` : "none" }}>
                       <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
                         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
                           <div style={{ width: 52, height: 52, borderRadius: "50%", background: item.owned ? `radial-gradient(circle at 35% 35%, ${item.c1}FF, ${item.c1}88)` : "#1a1a1a", boxShadow: item.owned ? `0 0 15px ${item.c1}55` : "none", display: "flex", alignItems: "center", justifyContent: "center", position: "relative" }}><img src={item.img1} alt="penta" style={{ width: 32, height: 32, objectFit: "contain", opacity: item.owned ? 1 : 0.15 }} />{item.owned && <div style={{ position: "absolute", inset: 0, borderRadius: "50%", background: "linear-gradient(110deg, transparent 40%, rgba(255,255,255,0.2) 45%, rgba(255,255,255,0.4) 50%, rgba(255,255,255,0.2) 55%, transparent 60%)", backgroundSize: "200% 100%", animation: "bannerShine 4s infinite linear" }} />}</div>
@@ -1173,16 +1173,16 @@ export default function CollectionScreen({ themeId, setThemeIdAction, onHoverAct
               </div>
               <div>
                 <div style={{ fontFamily: t.fontMono, fontSize: 10, color: t.textMuted, letterSpacing: "0.18em", marginBottom: 12, opacity: 0.7 }}>TOSS ANIMATIONS</div>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(210px,1fr))", gap: 14 }}>
-                  {COIN_TOSS_ANIMS.filter(x => showAll || x.condition(profile)).map(item => {
+                <div style={{ display: "flex", gap: 14, overflowX: "auto", paddingBottom: 8, scrollSnapType: "x mandatory" }}>
+                  {COIN_TOSS_ANIMS.filter(x => showAll || x.condition(profile)).map((item, idx) => {
                     const owned = item.condition(profile);
                     const isPurchasable = !!item.price && !owned;
                     const ac = t.accent;
                     return (
-                      <div key={item.id} className={`coll-item ${!owned ? "coll-locked" : ""}`}
+                      <div key={`${item.id}-${idx}`} className={`coll-item ${!owned ? "coll-locked" : ""}`}
                         onClick={() => { if (owned && activeToss !== item.id) { onClickAction?.(); equipToss(item.id); } }}
                         onMouseEnter={() => { if (owned) onHoverAction?.(); }}
-                        style={{ borderRadius: 16, padding: "20px 16px", border: `1px solid ${owned ? (activeToss === item.id ? ac : "rgba(255,255,255,0.1)") : "rgba(255,255,255,0.05)"}`, background: "rgba(30,30,30,0.6)", backdropFilter: "blur(12px)", display: "flex", alignItems: "center", gap: 16, position: "relative", boxShadow: activeToss === item.id ? `0 0 20px ${ac}33` : "none", cursor: owned && activeToss !== item.id ? "pointer" : "default" }}>
+                        style={{ minWidth: 210, maxWidth: 210, flex: "0 0 210px", scrollSnapAlign: "start", borderRadius: 16, padding: "20px 16px", border: `1px solid ${owned ? (activeToss === item.id ? ac : "rgba(255,255,255,0.1)") : "rgba(255,255,255,0.05)"}`, background: "rgba(30,30,30,0.6)", backdropFilter: "blur(12px)", display: "flex", alignItems: "center", gap: 16, position: "relative", boxShadow: activeToss === item.id ? `0 0 20px ${ac}33` : "none", cursor: owned && activeToss !== item.id ? "pointer" : "default" }}>
                         {!owned && (<div className="coll-locked-overlay"><div style={{ background: "rgba(0,0,0,0.8)", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 12, padding: "6px 14px", display: "flex", alignItems: "center", gap: 6 }}><LockIcon size={12} color="#888" /><span style={{ fontFamily: t.fontMono, fontSize: 9, color: "#888", fontWeight: 800, letterSpacing: "0.1em" }}>LOCKED</span></div></div>)}
                         <div style={{ width: 48, height: 48, borderRadius: "50%", background: owned ? `linear-gradient(135deg,${ac},${ac}88)` : "#1a1a1a", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, boxShadow: owned ? `0 0 15px ${ac}44` : "none", position: "relative", overflow: "hidden" }}>
                           {owned ? <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg> : <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#333" strokeWidth="2.5" strokeLinecap="round"><circle cx="12" cy="12" r="9"/></svg>}
