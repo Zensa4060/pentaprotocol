@@ -157,7 +157,7 @@ class UpdateProfileRequest(BaseModel):
     # profile tab
     bio:          Optional[str] = None
     username:     Optional[str] = None
-    avatar:       Optional[str] = None   # base64 data URI
+    avatar:       Optional[str] = None   # Supabase CDN URL or legacy base64 data URI
     # cosmetics tabs
     banner:       Optional[str] = None
     border_style: Optional[str] = None
@@ -211,11 +211,14 @@ async def update_profile(
 
     # ── Avatar ───────────────────────────────────────────────────────────────
     if data.avatar is not None:
-        if not re.match(r'^data:image/(jpeg|png|webp);base64,', data.avatar):
-            raise HTTPException(400, "Avatar must be a JPEG, PNG or WebP image")
-        approx_bytes = len(data.avatar) * 0.75
-        if approx_bytes > 2 * 1024 * 1024:
-            raise HTTPException(400, "Avatar must be under 2MB")
+        is_url    = data.avatar.startswith("https://")
+        is_base64 = bool(re.match(r'^data:image/(jpeg|png|webp);base64,', data.avatar))
+        if not is_url and not is_base64:
+            raise HTTPException(400, "Avatar must be a valid image URL or JPEG/PNG/WebP")
+        if is_base64:
+            approx_bytes = len(data.avatar) * 0.75
+            if approx_bytes > 2 * 1024 * 1024:
+                raise HTTPException(400, "Avatar must be under 2MB")
         updates["avatar"] = data.avatar
 
     # ── Banner ───────────────────────────────────────────────────────────────
