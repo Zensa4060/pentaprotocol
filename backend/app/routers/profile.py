@@ -211,14 +211,21 @@ async def update_profile(
 
     # ── Avatar ───────────────────────────────────────────────────────────────
     if data.avatar is not None:
-        # Enforce URL-only avatar storage to prevent large base64 blobs in MongoDB.
-        is_url = data.avatar.startswith("https://")
-        if not is_url:
-            raise HTTPException(400, "Avatar must be a valid HTTPS URL")
-        # Optional hard guard: reject unexpectedly long URLs.
-        if len(data.avatar) > 2048:
-            raise HTTPException(400, "Avatar URL is too long")
-        updates["avatar"] = data.avatar
+        # Preferred format: Supabase/public URL.
+        is_http_url = data.avatar.startswith("https://") or data.avatar.startswith("http://")
+        is_base64 = bool(re.match(r'^data:image/(jpeg|png|webp);base64,', data.avatar))
+
+        if is_http_url:
+            # Optional hard guard: reject unexpectedly long URLs.
+            if len(data.avatar) > 2048:
+                raise HTTPException(400, "Avatar URL is too long")
+            updates["avatar"] = data.avatar
+        elif is_base64:
+            # Backward compatibility: do NOT store base64 blobs in MongoDB.
+            # Ignore this field so profile updates can still succeed from stale clients.
+            pass
+        else:
+            raise HTTPException(400, "Avatar must be a valid URL")
 
     # ── Banner ───────────────────────────────────────────────────────────────
     if data.banner is not None:
