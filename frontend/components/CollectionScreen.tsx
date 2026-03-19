@@ -557,7 +557,7 @@ export default function CollectionScreen({ themeId, setThemeIdAction, onHoverAct
   const [activeBoard,  setActiveBoard]  = useState<string>(() => loadCustomTheme().boardSkin  ?? (user as any)?.board_style ?? "default");
   const [activePiece,  setActivePiece]  = useState<string>(() => loadCustomTheme().pieceSkin  ?? "default");
   const [activeToss,   setActiveToss]   = useState<string>(() => loadCustomTheme().tossSkin   ?? "default");
-  const [activeBanner, setActiveBanner] = useState<string>(() => loadCustomTheme().bannerSkin ?? (user as any)?.banner_style ?? "default");
+  const [activeBanner, setActiveBanner] = useState<string>(() => loadCustomTheme().bannerSkin ?? (user as any)?.banner ?? "default");
   const [equipping, setEquipping] = useState<string | null>(null);
   const [equippingBanner, setEquippingBanner] = useState<string | null>(null);
   const [equipMsg, setEquipMsg] = useState<{ text: string; ok: boolean } | null>(null);

@@ -756,7 +756,6 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
             _room_connections[room_code].pop(player_slot, None)
             if not _room_connections.get(room_code):
                 _room_connections.pop(room_code, None)
-                _room_state.pop(room_code, None)
                 _room_runtime.pop(room_code, None)
             else:
                 # Notify the remaining player their opponent disconnected
