@@ -53,8 +53,8 @@ const PACKAGES = [
 declare global { interface Window { Razorpay: any; } }
 
 const STORE_THEMES = [
-  { id: "space",         label: "Space",         desc: "Deep space atmosphere",         preview: "linear-gradient(135deg,#020410,#0d1b4b)", unlock: "Free" },
-  { id: "pixel",         label: "Pixel",         desc: "Retro pixel art style",         preview: "linear-gradient(135deg,#0d1007,#1a2e0a)", unlock: "Free" },
+  { id: "space", label: "Space", desc: "Deep space atmosphere", preview: "linear-gradient(135deg,#020410,#0d1b4b)", unlock: "3,000 PC", price: 2999, purchaseId: "theme_space" },
+  { id: "pixel", label: "Pixel", desc: "Retro pixel art style", preview: "linear-gradient(135deg,#0d1007,#1a2e0a)", unlock: "3,000 PC", price: 2999, purchaseId: "theme_pixel" },
 ];
 
 const STORE_BANNERS: { id: string; label: string; gradient: string; unlock: string; price?: number; component?: any }[] = [
@@ -1064,14 +1064,94 @@ updateUser(me.data); resolve();
           <SectionHeader label="THEME BUNDLES" accent={accent} icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={accent} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="13.5" cy="6.5" r="1.5"/><circle cx="17.5" cy="10.5" r="1.5"/><circle cx="8.5" cy="7.5" r="1.5"/><circle cx="6.5" cy="12.5" r="1.5"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 011.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg>}/>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(320px,1fr))", gap: 20 }}>
             {STORE_THEMES.map(item => (
+              (() => {
+                const owned = item.purchaseId ? purchasedItems.includes(item.purchaseId) : false;
+                const price = item.price ?? 0;
+                return (
               <div key={item.id} className="store-card" onMouseEnter={() => setHovCard(item.id)} onMouseLeave={() => setHovCard(null)}
                 style={{ borderRadius: 18, overflow: "hidden", border: `2px solid ${hovCard === item.id ? accent + "88" : t.border}`, background: t.bgCard, boxShadow: hovCard === item.id ? `0 8px 32px ${accent}22` : "none" }}>
                 <div style={{ height: 120, background: item.preview }} />
-                <div style={{ padding: "24px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                  <div><div style={{ fontFamily: t.fontDisplay, fontSize: 18, fontWeight: 700, color: t.text }}>{item.label}</div><div style={{ fontFamily: t.fontBody, fontSize: 13, color: t.textMuted, marginTop: 4 }}>{item.desc}</div></div>
-                  <UnlockBadge text={item.unlock} accent={accent} />
+                <div style={{ padding: "22px 24px" }}>
+                  <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 14, marginBottom: 16 }}>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontFamily: t.fontDisplay, fontSize: 18, fontWeight: 700, color: t.text }}>{item.label}</div>
+                      <div style={{ fontFamily: t.fontBody, fontSize: 13, color: t.textMuted, marginTop: 4 }}>{item.desc}</div>
+                    </div>
+                    <UnlockBadge text={owned ? "Owned" : item.unlock} accent={owned ? "#4CAF50" : accent} />
+                  </div>
+
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+                    {owned ? (
+                      <div style={{ fontFamily: t.fontMono, fontSize: 12, fontWeight: 900, color: "#4CAF50", letterSpacing: "0.06em" }}>
+                        OWNED
+                      </div>
+                    ) : (
+                      <div style={{ fontFamily: t.fontMono, fontSize: 12, fontWeight: 900, color: accent, letterSpacing: "0.06em", display: "flex", alignItems: "center", gap: 6 }}>
+                        {price.toLocaleString()} <ProtoSVG size={16} />
+                      </div>
+                    )}
+
+                    {owned ? (
+                      <button
+                        disabled
+                        style={{
+                          background: "rgba(255,255,255,0.06)",
+                          border: `1px solid ${t.border}`,
+                          borderRadius: 10,
+                          padding: "10px 14px",
+                          fontFamily: t.fontDisplay,
+                          fontSize: 12,
+                          fontWeight: 900,
+                          color: "rgba(255,255,255,0.65)",
+                          cursor: "not-allowed",
+                        }}
+                      >
+                        ✓
+                      </button>
+                    ) : isGuest ? (
+                      <button
+                        onClick={() => setScreenAction("auth")}
+                        style={{
+                          background: accent,
+                          border: "none",
+                          borderRadius: 10,
+                          padding: "10px 14px",
+                          fontFamily: t.fontDisplay,
+                          fontSize: 12,
+                          fontWeight: 900,
+                          color: "#000",
+                          cursor: "pointer",
+                          whiteSpace: "nowrap" as const,
+                        }}
+                      >
+                        SIGN IN
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => handleBuyCosmetic(item.purchaseId, price, `${item.label} Theme`)}
+                        disabled={!item.purchaseId || price <= 0}
+                        style={{
+                          background: accent,
+                          border: "none",
+                          borderRadius: 10,
+                          padding: "10px 14px",
+                          fontFamily: t.fontDisplay,
+                          fontSize: 12,
+                          fontWeight: 900,
+                          color: "#000",
+                          cursor: !item.purchaseId || price <= 0 ? "not-allowed" : "pointer",
+                          whiteSpace: "nowrap" as const,
+                          opacity: !item.purchaseId || price <= 0 ? 0.7 : 1,
+                        }}
+                      >
+                        UNLOCK
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
+                );
+              })()
             ))}
           </div>
         </div>
