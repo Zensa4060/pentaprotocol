@@ -1,10 +1,11 @@
 ﻿from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.exceptions import RequestValidationError
 from app.routers import auth, game, profile, store, bot
 from app.core.database import connect_db, disconnect_db
 from app.routers import room
-from app.routers import otp  # ← NEW
+from app.routers import otp
 
 app = FastAPI(title="PentaProtocol API")
 
@@ -31,14 +32,34 @@ app.add_middleware(
 @app.middleware("http")
 async def force_cors_headers(request: Request, call_next):
     origin = request.headers.get("origin", "")
-    response = await call_next(request)
+
+    try:
+        response = await call_next(request)
+    except Exception:
+        response = JSONResponse({"detail": "Internal server error"}, status_code=500)
+
     if origin in ALLOWED_ORIGINS:
         response.headers["Access-Control-Allow-Origin"] = origin
         response.headers["Access-Control-Allow-Credentials"] = "true"
         response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, PATCH"
         response.headers["Access-Control-Allow-Headers"] = "*"
         response.headers["Vary"] = "Origin"
+
     return response
+
+# ← NEW: catches unhandled 500s and ensures CORS headers are present
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    origin = request.headers.get("origin", "")
+    headers = {}
+    if origin in ALLOWED_ORIGINS:
+        headers["Access-Control-Allow-Origin"] = origin
+        headers["Access-Control-Allow-Credentials"] = "true"
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Internal server error"},
+        headers=headers,
+    )
 
 # Explicit preflight handler — Railway's proxy sometimes swallows
 # the OPTIONS response before FastAPI's CORS middleware can add headers.
@@ -70,7 +91,7 @@ app.include_router(profile.router, prefix="/api/profile", tags=["profile"])
 app.include_router(store.router,   prefix="/api/store",   tags=["store"])
 app.include_router(bot.router,     prefix="/api/bot",     tags=["bot"])
 app.include_router(room.router,    prefix="/api/room",    tags=["room"])
-app.include_router(otp.router,     prefix="/api/otp",     tags=["otp"])  # ← NEW
+app.include_router(otp.router,     prefix="/api/otp",     tags=["otp"])
 
 @app.get("/")
 async def root(): return {"status": "PentaProtocol API running"}
