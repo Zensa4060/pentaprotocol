@@ -215,8 +215,27 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   const boardSkin = _ct.boardSkin ?? "default";
   const pieceSkin = _ct.pieceSkin ?? "default";
 
+  // Bundle boards should always use their matching pieces (no mixing).
+  const effectivePieceSkin = (
+    boardSkin === "red_grid"        ? "flame_skull" :
+    boardSkin === "ice_grid"        ? "snowflake_shard" :
+    boardSkin === "glacier_grid"    ? "glacier_shard" :
+    boardSkin === "bloodmoon_grid"  ? "bloodmoon_sigils" :
+    boardSkin === "egypt_grid"      ? "egypt_sigils" :
+    boardSkin === "synthwave_grid"  ? "synthwave_sigils" :
+    boardSkin === "matrix_grid"     ? "matrix_sigils" :
+    boardSkin === "arcane_grid"     ? "arcane_sigils" :
+    boardSkin === "bio_grid"        ? "bio_sigils" :
+    boardSkin === "forge_grid"      ? "forge_sigils" :
+    boardSkin === "void_grid"       ? "void_sigils" :
+    boardSkin === "tokyo_grid"      ? "tokyo_sigils" :
+    boardSkin === "space_grid"      ? "space_sigils" :
+    boardSkin === "pixel_grid"      ? "pixel_sigils" :
+    pieceSkin
+  ) as typeof pieceSkin;
+
   const isRedBoard = boardSkin === "red_grid";
-  const useFlameSkull = pieceSkin === "flame_skull";
+  const useFlameSkull = effectivePieceSkin === "flame_skull";
   const isIceBoard = boardSkin === "ice_grid";
   const isGlacierBoard = boardSkin === "glacier_grid";
   const isBloodMoonBoard = boardSkin === "bloodmoon_grid";
@@ -230,19 +249,19 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   const isTokyoBoard = boardSkin === "tokyo_grid";
   const isSpaceBoard = boardSkin === "space_grid";
   const isPixelBoard = boardSkin === "pixel_grid";
-  const useSnowflakeShard = pieceSkin === "snowflake_shard";
-  const useGlacierSigils = pieceSkin === "glacier_shard";
-  const useBloodMoonSigils = pieceSkin === "bloodmoon_sigils";
-  const useEgyptSigils = pieceSkin === "egypt_sigils";
-  const useSynthwaveSigils = pieceSkin === "synthwave_sigils";
-  const useMatrixSigils = pieceSkin === "matrix_sigils";
-  const useArcaneSigils = pieceSkin === "arcane_sigils";
-  const useBioSigils = pieceSkin === "bio_sigils";
-  const useForgeSigils = pieceSkin === "forge_sigils";
-  const useVoidSigils = pieceSkin === "void_sigils";
-  const useTokyoSigils = pieceSkin === "tokyo_sigils";
-  const useSpaceSigils = pieceSkin === "space_sigils";
-  const usePixelSigils = pieceSkin === "pixel_sigils";
+  const useSnowflakeShard = effectivePieceSkin === "snowflake_shard";
+  const useGlacierSigils = effectivePieceSkin === "glacier_shard";
+  const useBloodMoonSigils = effectivePieceSkin === "bloodmoon_sigils";
+  const useEgyptSigils = effectivePieceSkin === "egypt_sigils";
+  const useSynthwaveSigils = effectivePieceSkin === "synthwave_sigils";
+  const useMatrixSigils = effectivePieceSkin === "matrix_sigils";
+  const useArcaneSigils = effectivePieceSkin === "arcane_sigils";
+  const useBioSigils = effectivePieceSkin === "bio_sigils";
+  const useForgeSigils = effectivePieceSkin === "forge_sigils";
+  const useVoidSigils = effectivePieceSkin === "void_sigils";
+  const useTokyoSigils = effectivePieceSkin === "tokyo_sigils";
+  const useSpaceSigils = effectivePieceSkin === "space_sigils";
+  const usePixelSigils = effectivePieceSkin === "pixel_sigils";
 
   const PIECE_SKIN_SYMBOLS: Record<string, { p1: string; p2: string; p1c: string; p2c: string }> = {
     default: { p1: t.pieces.p1, p2: t.pieces.p2, p1c: t.p1, p2c: t.p2 },
@@ -265,10 +284,10 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     space_sigils: { p1: "🚀", p2: "🛰", p1c: "#00DDFF", p2c: "#FF8C00" },
     pixel_sigils: { p1: "◉", p2: "♥", p1c: "#FFDD00", p2c: "#FF4455" },
   };
-  const skinData = PIECE_SKIN_SYMBOLS[pieceSkin] ?? PIECE_SKIN_SYMBOLS.default;
+  const skinData = PIECE_SKIN_SYMBOLS[effectivePieceSkin] ?? PIECE_SKIN_SYMBOLS.default;
   const pieceSymbols = { p1: skinData.p1, p2: skinData.p2 };
-  const p1c = pieceSkin !== "default" ? skinData.p1c : t.p1;
-  const p2c = pieceSkin !== "default" ? skinData.p2c : isRedBoard ? "#FF2222" : t.p2;
+  const p1c = effectivePieceSkin !== "default" ? skinData.p1c : t.p1;
+  const p2c = effectivePieceSkin !== "default" ? skinData.p2c : isRedBoard ? "#FF2222" : t.p2;
 
   // ── Responsive ───────────────────────────────────────────────────────────
   const [isMobile, setIsMobile] = useState(false);

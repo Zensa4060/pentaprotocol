@@ -69,12 +69,16 @@ export default function Page() {
   const themeRef  = useRef(themeId);
   const screenRef = useRef(screen);
   const rankedRef = useRef(isRanked);
+  const aiDiffRef = useRef(aiDifficulty);
   themeRef.current  = themeId;
   screenRef.current = screen;
   rankedRef.current = isRanked;
+  aiDiffRef.current = aiDifficulty;
 
-  const getBgmCtx = (s: Screen, ranked: boolean): "lobby" | "game" | "ranked" => {
-    if (s === "game" || s === "aiGame") return "game";
+  const getBgmCtx = (s: Screen, ranked: boolean, aiDiff: Difficulty): "lobby" | "game" | "ranked" => {
+    // Ranked music only in ranked matches, plus Hard Bot exception.
+    if (s === "aiGame") return aiDiff === "hard" ? "ranked" : "game";
+    if (s === "game") return "game";
     if (s === "multiGame") return ranked ? "ranked" : "game";
     return "lobby";
   };
@@ -130,7 +134,7 @@ export default function Page() {
       if (audioStartedRef.current) return;
       audioStartedRef.current = true;
       setAudioStarted(true);
-      audio.playBgm(themeRef.current, getBgmCtx(screenRef.current, rankedRef.current));
+      audio.playBgm(themeRef.current, getBgmCtx(screenRef.current, rankedRef.current, aiDiffRef.current));
     };
     // Try immediate start
     start();
@@ -147,8 +151,8 @@ export default function Page() {
 
   useEffect(() => {
     if (!audioStarted) return;
-    audio.playBgm(themeId, getBgmCtx(screen, isRanked));
-  }, [themeId, screen, isRanked, audioStarted]);
+    audio.playBgm(themeId, getBgmCtx(screen, isRanked, aiDifficulty));
+  }, [themeId, screen, isRanked, aiDifficulty, audioStarted]);
 
   useEffect(() => {
     // We no longer clear inQueue when screen changes

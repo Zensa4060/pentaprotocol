@@ -912,8 +912,12 @@ export default function StoreScreen({ setScreenAction, themeId }: Props) {
     const bundleData = isBundlePurchase ? BUNDLES.find(b => b.id === id.replace("bundle_purchase_", "")) : null;
     try {
       if (bundleData) {
-        await API.post("/api/store/purchase-item", { item_id: bundleData.boardId, price: bundleData.boardPrice }, { headers: { Authorization: `Bearer ${token}` } });
-        await API.post("/api/store/purchase-item", { item_id: bundleData.pieceId, price: bundleData.piecePrice }, { headers: { Authorization: `Bearer ${token}` } });
+        // Bundle purchases must charge exactly `bundlePrice` total (store discount).
+        // We split the total across the two item purchases to keep backend accounting correct.
+        const boardCharge = Math.min(bundleData.boardPrice, price);
+        const pieceCharge = Math.max(0, price - boardCharge);
+        await API.post("/api/store/purchase-item", { item_id: bundleData.boardId, price: boardCharge }, { headers: { Authorization: `Bearer ${token}` } });
+        await API.post("/api/store/purchase-item", { item_id: bundleData.pieceId, price: pieceCharge }, { headers: { Authorization: `Bearer ${token}` } });
         const existing = (user as any).purchased_items ?? [];
         updateUser({ protocredits: balance - price, purchased_items: [...existing, bundleData.boardId, bundleData.pieceId] });
       } else {
