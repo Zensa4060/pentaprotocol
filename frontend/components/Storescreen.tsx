@@ -885,7 +885,9 @@ export default function StoreScreen({ setScreenAction, themeId }: Props) {
           handler: async (response: any) => {
             try {
               const verifyRes = await API.post("/api/store/verify-payment", { razorpay_order_id: response.razorpay_order_id, razorpay_payment_id: response.razorpay_payment_id, razorpay_signature: response.razorpay_signature, package_id: selected }, { headers: { Authorization: `Bearer ${token}` } });
-              updateUser({ protocredits: balance + verifyRes.data.credits_added }); resolve();
+              // ✅ Always fetch full profile
+const me = await API.get("/api/profile/me", { headers: { Authorization: `Bearer ${token}` } });
+updateUser(me.data); resolve();
             } catch (e) { reject(e); }
           },
         }); rz.open();
