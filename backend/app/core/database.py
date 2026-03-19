@@ -19,19 +19,18 @@ async def connect_db():
     name = os.getenv("DATABASE_NAME", "pentaprotocol")
 
     db.client = AsyncIOMotorClient(
-    uri,
-    tls=True,
-    tlsCAFile=certifi.where(),
-    serverSelectionTimeoutMS=30000,
-    connectTimeoutMS=30000,
-    socketTimeoutMS=60000,    # ← was 20000, increase to 60000
-    maxPoolSize=10,
-    minPoolSize=1,
-    waitQueueTimeoutMS=10000,
-)
+        uri,
+        tls=True,
+        tlsCAFile=certifi.where(),
+        serverSelectionTimeoutMS=30000,
+        connectTimeoutMS=30000,
+        socketTimeoutMS=60000,
+        maxPoolSize=10,
+        minPoolSize=1,
+        waitQueueTimeoutMS=10000,
+    )
     db.db = db.client[name]
 
-    # Async ping — properly awaited, no sync blocking call
     await db.client.admin.command("ping")
     print("Connected to MongoDB Atlas successfully")
 
@@ -40,7 +39,10 @@ async def disconnect_db():
         db.client.close()
     print("Disconnected from MongoDB")
 
-# app/core/database.py
+def get_db():
+    """Direct call — use this in routers that call get_db() manually."""
+    return db.db
 
-async def get_db():
+async def get_db_dep():
+    """FastAPI Depends version — use this with Depends(get_db_dep)."""
     yield db.db
