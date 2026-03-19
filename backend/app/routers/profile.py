@@ -252,7 +252,9 @@ async def update_profile(
         updates["title"] = data.title
 
     if not updates:
-        raise HTTPException(400, "Nothing to update")
+        # No-op update (e.g. stale client sent base64 avatar we intentionally ignored).
+        # Return current profile instead of failing the request.
+        return _serialize_user(user)
 
     await db.users.update_one({"_id": ObjectId(user_id)}, {"$set": updates})
     user = await db.users.find_one({"_id": ObjectId(user_id)})

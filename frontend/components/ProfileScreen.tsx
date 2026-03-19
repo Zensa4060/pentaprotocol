@@ -26,7 +26,7 @@ import StarfieldBanner from "./StarfieldBanner";
 import DigitalRainBanner from "./DigitalRainBanner";
 import InfernoBanner from "./InfernoBanner";
 // ── Supabase storage client ───────────────────────────────────────────────────
-import { supabase } from "@/lib/supabase";
+import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 
 export const RANKS = [
   { name: "NOVICE",       min: 0,    max: 500,  color: "#9CA3AF", icon: null, img: "/novice.svg",       scale: 1.3 },
@@ -394,6 +394,9 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
       let avatarUrl: string | null = null;
 
       if (avatarFile) {
+        if (!isSupabaseConfigured) {
+          throw new Error("Supabase is not configured in frontend env (NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY).");
+        }
         // Use user ID as filename so each user always overwrites their own avatar
         const userId = (user as any)?.id ?? (user as any)?._id ?? Date.now().toString();
         const ext    = avatarFile.name.split(".").pop() || "jpg";
