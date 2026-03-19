@@ -15,7 +15,7 @@ db = DB()
 
 
 async def ensure_indexes():
-    if not db.db:
+    if db.db is None:  # ← fixed: was "if not db.db" which pymongo can't bool-check
         return
     try:
         # Critical indexes for room queue/create/join and profile fetch paths.
@@ -26,6 +26,8 @@ async def ensure_indexes():
         await db.db.rooms.create_index([("player1_id", ASCENDING)], background=True)
         await db.db.rooms.create_index([("player2_id", ASCENDING)], background=True)
         await db.db.match_history.create_index([("user_id", ASCENDING), ("played_at", DESCENDING)], background=True)
+        # TTL index for matchmaking queue — auto-expires stale entries after 60s
+        await db.db.matchmaking_queue.create_index([("created_at", ASCENDING)], expireAfterSeconds=60, background=True)
         print("MongoDB indexes ensured")
     except Exception as e:
         print(f"Index ensure warning: {e}")
