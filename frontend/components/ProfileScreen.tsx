@@ -302,6 +302,8 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
   const { user, token, updateUser } = useAuthStore();
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [profileError, setProfileError] = useState<string | null>(null);
+  const [profileFetchKey, setProfileFetchKey] = useState(0);
 
   const [twoFASection, setTwoFASection] = useState<"idle"|"setup"|"disable">("idle");
   const [qrCode, setQrCode]       = useState("");
@@ -338,7 +340,9 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
   const [emailOtpCode, setEmailOtpCode]   = useState("");
 
   useEffect(() => {
-    if (!user) { setLoading(false); return; }
+    if (!user) { setLoading(false); setProfileError(null); return; }
+    setProfileError(null);
+    setLoading(true);
     let cancelled = false;
     const timeoutMs = 15000;
     const fetchProfile = async () => {
@@ -348,10 +352,12 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
         setProfile(res.data);
         updateUser(res.data);
         setTwoFAReady(true);
-      } catch {
+      } catch (e: any) {
         if (cancelled) return;
         setProfile({ ...user, totp_enabled: false });
         setTwoFAReady(true);
+        const msg = e?.code === "ECONNABORTED" ? "Request timed out." : e?.message || "Could not load profile.";
+        setProfileError(msg);
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -362,13 +368,14 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
         setProfile((p: any) => p ?? { ...user, totp_enabled: false });
         setTwoFAReady(true);
         setLoading(false);
+        setProfileError((prev) => prev ?? "Request timed out.");
       }
     }, timeoutMs + 500);
     return () => {
       cancelled = true;
       clearTimeout(fallback);
     };
-  }, [user]);
+  }, [user, profileFetchKey]);
 
   if (loading) return (
     <div style={{ minHeight:"100vh", display:"flex", alignItems:"center", justifyContent:"center", background:t.bg }}>
@@ -380,6 +387,8 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
       <div style={{ fontFamily:t.fontDisplay, fontSize:24, color:t.textMuted }}>Sign in to view your profile</div>
     </div>
   );
+
+  if (!profile) return null;
 
   const elo      = profile.elo || 500;
   const rank     = getRank(elo);
@@ -735,6 +744,13 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
     `}</style>
 
     <div style={{ position:"fixed", inset:0, zIndex:2, padding:"84px 24px 48px", overflowY:"auto", background:t.bg, transition:"background 0.4s" }}>
+
+      {profileError && (
+        <div style={{ marginBottom:12, padding:"10px 14px", background:`${t.danger}18`, border:`1px solid ${t.danger}44`, borderRadius:10, display:"flex", alignItems:"center", justifyContent:"space-between", gap:12, flexWrap:"wrap" }}>
+          <span style={{ fontFamily:t.fontMono, fontSize:13, color:t.textMuted }}>{profileError} Check your connection.</span>
+          <button type="button" onClick={() => { setProfileError(null); setProfileFetchKey(k => k + 1); }} style={{ padding:"6px 12px", background:t.accent, border:"none", borderRadius:8, color:"#fff", fontFamily:t.fontDisplay, fontSize:12, fontWeight:700, cursor:"pointer" }}>Retry</button>
+        </div>
+      )}
 
       {/* ── Banner + Avatar + Name ─────────────────────────────────────────── */}
       <div style={{ background:t.bgPanel, border:`1px solid ${t.border}`, borderRadius:16, marginBottom:18, overflow:"hidden", position: "relative", minHeight: 200 }}>

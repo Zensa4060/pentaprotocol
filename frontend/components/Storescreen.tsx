@@ -841,9 +841,10 @@ export default function StoreScreen({ setScreenAction, themeId }: Props) {
   const ownsBundle = (b: Bundle) => purchasedItems.includes(b.boardId) && purchasedItems.includes(b.pieceId);
   const visibleBundles = BUNDLES.filter((b) => !ownsBundle(b));
 
+  const PROFILE_FETCH_TIMEOUT = 15000;
   useEffect(() => {
     if (!token) return;
-    API.get("/api/profile/me", { headers: { Authorization: `Bearer ${token}` } })
+    API.get("/api/profile/me", { headers: { Authorization: `Bearer ${token}` }, timeout: PROFILE_FETCH_TIMEOUT })
       .then(res => updateUser(res.data))
       .catch(() => {});
   }, [token]);
@@ -884,9 +885,9 @@ export default function StoreScreen({ setScreenAction, themeId }: Props) {
         const rz = new window.Razorpay({ key: data.key_id, amount: data.amount, currency: data.currency, name: "PentaProtocol", description: `${pkg.credits + pkg.bonus} ProtoCredits`, order_id: data.order_id, prefill: { name: user!.username, email: (user as any).email || "" }, theme: { color: accent }, modal: { ondismiss: () => reject(new Error("dismissed")) },
           handler: async (response: any) => {
             try {
-              const verifyRes = await API.post("/api/store/verify-payment", { razorpay_order_id: response.razorpay_order_id, razorpay_payment_id: response.razorpay_payment_id, razorpay_signature: response.razorpay_signature, package_id: selected }, { headers: { Authorization: `Bearer ${token}` } });
+              const verifyRes = await API.post("/api/store/verify-payment", { razorpay_order_id: response.razorpay_order_id, razorpay_payment_id: response.razorpay_payment_id, razorpay_signature: response.razorpay_signature, package_id: selected }, { headers: { Authorization: `Bearer ${token}` }, timeout: 15000 });
               // ✅ Always fetch full profile
-const me = await API.get("/api/profile/me", { headers: { Authorization: `Bearer ${token}` } });
+const me = await API.get("/api/profile/me", { headers: { Authorization: `Bearer ${token}` }, timeout: 15000 });
 updateUser(me.data); resolve();
             } catch (e) { reject(e); }
           },

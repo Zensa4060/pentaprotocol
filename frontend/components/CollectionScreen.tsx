@@ -578,12 +578,13 @@ export default function CollectionScreen({ themeId, setThemeIdAction, onHoverAct
     return () => window.removeEventListener("resize", update);
   }, []);
 
+  const PROFILE_FETCH_TIMEOUT = 15000;
   useEffect(() => {
-  if (!token) return;
-  API.get("/api/profile/me", { headers: { Authorization: `Bearer ${token}` } })
-    .then(res => updateUser(res.data))
-    .catch(() => {});
-}, [token]);
+    if (!token) return;
+    API.get("/api/profile/me", { headers: { Authorization: `Bearer ${token}` }, timeout: PROFILE_FETCH_TIMEOUT })
+      .then(res => updateUser(res.data))
+      .catch(() => {});
+  }, [token]);
 
   // Keep banner selection synced when cosmetics are changed from other screens (e.g. ProfileScreen).
   useEffect(() => {
@@ -607,7 +608,7 @@ export default function CollectionScreen({ themeId, setThemeIdAction, onHoverAct
 
     // Background API call
     try {
-      await API.put("/api/profile/me", { board_style: id }, { headers: { Authorization: `Bearer ${token}` } });
+      await API.put("/api/profile/me", { board_style: id }, { headers: { Authorization: `Bearer ${token}` }, timeout: 15000 });
       updateUser({ board_style: id });
     } catch (e: any) {
       // Revert on failure
@@ -643,7 +644,7 @@ export default function CollectionScreen({ themeId, setThemeIdAction, onHoverAct
     saveCustomTheme({ ...cur, bannerSkin: id as any });
     
     try {
-      await API.put("/api/profile/me", { banner: id }, { headers: { Authorization: `Bearer ${token}` } });
+      await API.put("/api/profile/me", { banner: id }, { headers: { Authorization: `Bearer ${token}` }, timeout: 15000 });
       updateUser({ banner: id });
       setEquipMsg({ text: "Banner equipped!", ok: true });
     } catch (e: any) {
