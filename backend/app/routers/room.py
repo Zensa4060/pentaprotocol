@@ -15,10 +15,6 @@ import asyncio
 router = APIRouter()
 
 _room_connections: dict[str, dict] = {}
-_matchmaking_queue: dict[str, list] = {
-    "ranked":   [],
-    "unranked": [],
-}
 
 # Runtime (in-memory) per-room sync state (not persisted)
 _room_runtime: dict[str, dict] = {}
@@ -64,40 +60,26 @@ def serialize_room(room: dict) -> dict:
     }
 
 def compute_series_winner(history: list, is_ranked: bool = False) -> str | None:
-    """Given a match history list, return the series winner or None if undecided.
-    
-    For non-ranked (unranked/custom): WIN+DRAW forces a rulebreaker (returns None).
-    Only 2-0 sweeps end early. If the non-winner wins the rulebreaker, series = DRAW.
-    """
     if len(history) < 2:
         return None
     g1, g2 = history[0], history[1]
-    # 2-0 sweep — same player wins both: always decisive
     if g1 == g2 and g1 in ("P1", "P2"):
         return g1
-    # WIN + DRAW or DRAW + WIN
     if (g1 != "DRAW" and g2 == "DRAW") or (g2 != "DRAW" and g1 == "DRAW"):
-        # Non-ranked: force rulebreaker
         if not is_ranked:
             if len(history) >= 3:
                 g3 = history[2]
-                # The G1/G2 winner
                 original_winner = g1 if g1 != "DRAW" else g2
-                # If the original winner also wins G3, they win the series
                 if g3 == original_winner:
                     return original_winner
-                # Otherwise (opponent wins G3 or G3 is draw), series is DRAW
                 return "DRAW"
-            return None  # force rulebreaker
+            return None
         else:
-            # Ranked: immediate win for the non-draw player
             return g1 if g1 != "DRAW" else g2
-    # Both draws after 2 games
     if g1 == "DRAW" and g2 == "DRAW":
         if len(history) >= 3:
             return history[2]
         return None
-    # Different winners (P1 won one, P2 won other) — force rulebreaker
     if len(history) >= 3:
         return history[-1]
     return None
@@ -111,63 +93,103 @@ class JoinRoomRequest(BaseModel):
 class QueueRequest(BaseModel):
     format: str = "unranked"
 
+
+# ── Helpers ───────────────────────────────────────────────────────────────────
+
+async def _generate_unique_code(db) -> str:
+    """Generate a room code guaranteed not to collide with any active waiting room."""
+    for _ in range(20):
+        code = generate_room_code()
+        existing = await db.rooms.find_one({"room_code": code, "status": "waiting"})
+        if not existing:
+            return code
+    # Extremely unlikely fallback — timestamp suffix
+    return generate_room_code() + str(int(datetime.utcnow().timestamp()))[-2:]
+
+
+async def _cleanup_stale_rooms(db, user_id: str):
+    """
+    Delete any waiting/active rooms that belong to this user but have no
+    opponent yet AND are older than 5 minutes (clearly abandoned).
+    Also removes their matchmaking_queue entries.
+    """
+    cutoff = datetime.utcnow().timestamp() - 300  # 5 minutes ago
+    stale_rooms = await db.rooms.find({
+        "$or": [{"player1_id": user_id}, {"player2_id": user_id}],
+        "status": "waiting",
+    }).to_list(length=50)
+
+    for room in stale_rooms:
+        created = room.get("created_at")
+        if created and created.timestamp() < cutoff:
+            await db.rooms.delete_one({"room_code": room["room_code"]})
+            await db.matchmaking_queue.delete_many({"room_code": room["room_code"]})
+
+
 # ── Matchmaking queue ─────────────────────────────────────────────────────────
 
 @router.post("/queue/join")
 async def queue_join(data: QueueRequest, user_id: str = Depends(get_current_user)):
     db  = get_db()
     fmt = data.format
-    _matchmaking_queue[fmt] = [e for e in _matchmaking_queue[fmt] if e["user_id"] != user_id]
 
     user = await db.users.find_one({"_id": ObjectId(user_id)})
     if not user:
         raise HTTPException(404, "User not found")
     player_name = user.get("username", "Player")
 
-    queue = _matchmaking_queue[fmt]
-    if queue:
-        opponent_entry = queue.pop(0)
-        opponent_id    = opponent_entry["user_id"]
-        room_code      = opponent_entry["room_code"]
+    # ── Clean up stale waiting rooms for this user before doing anything ──
+    await _cleanup_stale_rooms(db, user_id)
 
-        opponent = await db.users.find_one({"_id": ObjectId(opponent_id)})
-        opponent_name = opponent.get("username", "Player") if opponent else "Player"
+    # Remove any existing queue entry for this user (idempotent re-queue)
+    await db.matchmaking_queue.delete_many({"user_id": user_id, "format": fmt})
 
-        await db.rooms.update_one(
-            {"room_code": room_code},
-            {"$set": {
-                "player2_id":   user_id,
-                "player2_name": player_name,
-                "player2_elo":  user.get("elo", 100),
-                "player2_avatar": user.get("avatar"),
-                "player2_banner": user.get("banner", "default"),
-                "player2_border": user.get("border_style", "none"),
-                "player2_title":  user.get("title", "newcomer"),
-                "player2_level":  user.get("level", 1),
-                "status":       "active",
-                "game_status":  "playing",
-            }}
-        )
-        room = await db.rooms.find_one({"room_code": room_code})
+    # Try to find an opponent already waiting (MongoDB-persisted queue)
+    opponent_entry = await db.matchmaking_queue.find_one_and_delete(
+        {"format": fmt, "user_id": {"$ne": user_id}}
+    )
 
-        conns = _room_connections.get(room_code, {})
-        p1_ws = conns.get("P1")
-        if p1_ws:
-            try:
-                await p1_ws.send_json({"type": "player_joined", "room": serialize_room(room)})
-            except:
-                pass
+    if opponent_entry:
+        opponent_id = opponent_entry["user_id"]
+        room_code   = opponent_entry["room_code"]
 
-        return {"matched": True, "room_code": room_code, "player_slot": "P2", "room": serialize_room(room)}
+        # Verify the waiting room still exists
+        waiting_room = await db.rooms.find_one({"room_code": room_code, "status": "waiting"})
+        if not waiting_room:
+            # Opponent's room disappeared — fall through to create a new one
+            opponent_entry = None
+        else:
+            opponent = await db.users.find_one({"_id": ObjectId(opponent_id)})
 
-    # No one waiting — create room and queue
-    attempts = 0
-    code = generate_room_code()
-    while attempts < 10:
-        if not await db.rooms.find_one({"room_code": code, "status": "waiting"}):
-            break
-        code = generate_room_code()
-        attempts += 1
+            await db.rooms.update_one(
+                {"room_code": room_code},
+                {"$set": {
+                    "player2_id":     user_id,
+                    "player2_name":   player_name,
+                    "player2_elo":    user.get("elo", 100),
+                    "player2_avatar": user.get("avatar"),
+                    "player2_banner": user.get("banner", "default"),
+                    "player2_border": user.get("border_style", "none"),
+                    "player2_title":  user.get("title", "newcomer"),
+                    "player2_level":  user.get("level", 1),
+                    "status":         "active",
+                    "game_status":    "playing",
+                }}
+            )
+            room = await db.rooms.find_one({"room_code": room_code})
+
+            conns = _room_connections.get(room_code, {})
+            p1_ws = conns.get("P1")
+            if p1_ws:
+                try:
+                    await p1_ws.send_json({"type": "player_joined", "room": serialize_room(room)})
+                except:
+                    pass
+
+            return {"matched": True, "room_code": room_code, "player_slot": "P2", "room": serialize_room(room)}
+
+    # No valid opponent — create a new waiting room
+    code = await _generate_unique_code(db)
 
     engine = GameEngine()
     room = {
@@ -193,7 +215,14 @@ async def queue_join(data: QueueRequest, user_id: str = Depends(get_current_user
         "created_at":     datetime.utcnow(),
     }
     await db.rooms.insert_one(room)
-    _matchmaking_queue[fmt].append({"user_id": user_id, "room_code": code})
+
+    # Persist queue entry in MongoDB with TTL (ensure TTL index exists — see main.py startup)
+    await db.matchmaking_queue.insert_one({
+        "user_id":    user_id,
+        "room_code":  code,
+        "format":     fmt,
+        "created_at": datetime.utcnow(),
+    })
 
     return {"matched": False, "room_code": code, "player_slot": "P1", "room": serialize_room(room)}
 
@@ -202,9 +231,10 @@ async def queue_join(data: QueueRequest, user_id: str = Depends(get_current_user
 async def queue_leave(data: QueueRequest, user_id: str = Depends(get_current_user)):
     db  = get_db()
     fmt = data.format
-    entry = next((e for e in _matchmaking_queue[fmt] if e["user_id"] == user_id), None)
+    entry = await db.matchmaking_queue.find_one_and_delete(
+        {"user_id": user_id, "format": fmt}
+    )
     if entry:
-        _matchmaking_queue[fmt] = [e for e in _matchmaking_queue[fmt] if e["user_id"] != user_id]
         await db.rooms.delete_one({"room_code": entry["room_code"], "status": "waiting"})
     return {"ok": True}
 
@@ -230,17 +260,13 @@ async def create_room(data: CreateRoomRequest, user_id: str = Depends(get_curren
     if data.format == "ranked" and user.get("level", 1) < 1:
         raise HTTPException(403, "Cannot create ranked room")
 
+    # ── Clean up any stale waiting rooms for this user first ──
+    await _cleanup_stale_rooms(db, user_id)
+
     player_name = user.get("username", "Player 1")
-    attempts = 0
-    code = generate_room_code()
-    while attempts < 10:
-        if not await db.rooms.find_one({"room_code": code, "status": "waiting"}):
-            break
-        code = generate_room_code()
-        attempts += 1
+    code = await _generate_unique_code(db)
 
     engine = GameEngine()
-    # Randomly assign creator as P1 or P2
     creator_slot = random.choice(["P1", "P2"])
     room = {
         "room_code":       code,
@@ -292,13 +318,22 @@ async def join_room(data: JoinRoomRequest, user_id: str = Depends(get_current_us
         p1 = str(any_room.get("player1_id", ""))
         p2 = str(any_room.get("player2_id", ""))
         if user_id in (p1, p2):
-            return serialize_room(any_room)
+            result = serialize_room(any_room)
+            creator_slot = any_room.get("creator_slot", "P1")
+            result["player_slot"] = "P1" if user_id == p1 else "P2"
+            return result
         if any_room["status"] == "finished":
             raise HTTPException(400, "This game has already ended")
         raise HTTPException(400, "Room is already full")
 
-    if str(any_room["player1_id"]) == user_id:
-        raise HTTPException(400, "You cannot join your own room")
+    # Check if this user is the creator (in either slot)
+    p1_id = str(any_room.get("player1_id") or "")
+    p2_id = str(any_room.get("player2_id") or "")
+    if user_id in (p1_id, p2_id):
+        # User is already in this room as the creator — return their slot
+        result = serialize_room(any_room)
+        result["player_slot"] = "P1" if user_id == p1_id else "P2"
+        return result
 
     user = await db.users.find_one({"_id": ObjectId(user_id)})
     if not user:
@@ -309,7 +344,6 @@ async def join_room(data: JoinRoomRequest, user_id: str = Depends(get_current_us
 
     player_name = user.get("username", "Player 2")
 
-    # Joiner gets the slot the creator didn't take
     creator_slot = any_room.get("creator_slot", "P1")
     joiner_slot  = "P2" if creator_slot == "P1" else "P1"
 
@@ -370,7 +404,6 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
 
     if room_code not in _room_connections:
         _room_connections[room_code] = {}
-    # Replace any existing connection for this slot — old one will close on its own
     _room_connections[room_code][player_slot] = websocket
 
     db = get_db()
@@ -612,7 +645,6 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                 if rt["ready_since_ms"] is None:
                     rt["ready_since_ms"] = int(datetime.utcnow().timestamp() * 1000)
 
-                # If both ready and start not scheduled, schedule with minimum 3s delay
                 if rt["match_ready"].get("P1") and rt["match_ready"].get("P2") and rt["start_at_ms"] is None:
                     now_ms = int(datetime.utcnow().timestamp() * 1000)
                     rt["start_at_ms"] = now_ms + 3000
@@ -622,7 +654,6 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                         except:
                             pass
 
-                # Timeout: if one never becomes ready within 60s, cancel match for both
                 if rt["start_at_ms"] is None and rt["ready_since_ms"] is not None:
                     now_ms = int(datetime.utcnow().timestamp() * 1000)
                     if now_ms - rt["ready_since_ms"] >= 60000:
@@ -644,7 +675,6 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                     rtt = None
                 if rtt is not None:
                     rt["rtt_ms"][player_slot] = rtt
-                    # Broadcast both players' RTT so UI can render both network bars
                     payload = {"type": "net_update", "p1_rtt_ms": rt["rtt_ms"].get("P1"), "p2_rtt_ms": rt["rtt_ms"].get("P2")}
                     for slot, ws in _room_connections.get(room_code, {}).items():
                         try:
@@ -749,8 +779,6 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                 await websocket.send_json({"type": "pong", "ts": ts})
 
     except WebSocketDisconnect:
-        # Only clean up if this websocket is still the registered one.
-        # If a newer connection already replaced it, do nothing — the slot is live.
         current_ws = _room_connections.get(room_code, {}).get(player_slot)
         if current_ws is websocket:
             _room_connections[room_code].pop(player_slot, None)
@@ -758,7 +786,6 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                 _room_connections.pop(room_code, None)
                 _room_runtime.pop(room_code, None)
             else:
-                # Notify the remaining player their opponent disconnected
                 for slot, ws in _room_connections.get(room_code, {}).items():
                     try:
                         await ws.send_json({"type": "opponent_disconnected"})

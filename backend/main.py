@@ -16,7 +16,12 @@ ALLOWED_ORIGINS = [
     "https://pentaprotocol.com",
     "https://www.pentaprotocol.com",
 ]
-
+@app.on_event("startup")
+async def startup():
+    await connect_db()
+    db = get_db()
+    # Auto-expire matchmaking queue entries after 60 seconds
+    await db.matchmaking_queue.create_index("created_at", expireAfterSeconds=60)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
