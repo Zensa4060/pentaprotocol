@@ -81,9 +81,19 @@ const BANNERS: { id: string; label: string; gradient: string; condition: (p: any
   { id: "phantom_strike", label: "Phantom Strike", gradient: "linear-gradient(135deg,#060010,#110028)", condition: (p: any) => (p?.purchased_items ?? []).includes("phantom_strike") },
   { id: "solar_flare", label: "Solar Flare", gradient: "linear-gradient(135deg,#060200,#f97316)", condition: (p: any) => (p?.purchased_items ?? []).includes("solar_flare") },
   { id: "cryo_storm", label: "Cryo Storm", gradient: "linear-gradient(135deg,#030c20,#081840)", condition: (p: any) => (p?.purchased_items ?? []).includes("cryo_storm") },
+  { id: "neon_circuit", label: "Neon Circuit", gradient: "linear-gradient(135deg,#020a04,#00ff66)", condition: (p: any) => (p?.purchased_items ?? []).includes("neon_circuit") },
+  { id: "static_glitch", label: "Static Glitch", gradient: "linear-gradient(135deg,#050505,#a00038)", condition: (p: any) => (p?.purchased_items ?? []).includes("static_glitch") },
+  { id: "golden_nexus", label: "Golden Nexus", gradient: "linear-gradient(135deg,#060200,#fbbf24)", condition: (p: any) => (p?.purchased_items ?? []).includes("golden_nexus") },
+  { id: "plasma_core", label: "Plasma Core", gradient: "linear-gradient(135deg,#12082a,#6d28d9)", condition: (p: any) => (p?.purchased_items ?? []).includes("plasma_core") },
+  { id: "toxic_spill", label: "Toxic Spill", gradient: "linear-gradient(135deg,#010d03,#0a3d22)", condition: (p: any) => (p?.purchased_items ?? []).includes("toxic_spill") },
+  { id: "storm_protocol", label: "Storm Protocol", gradient: "linear-gradient(135deg,#060810,#0b1a3b)", condition: (p: any) => (p?.purchased_items ?? []).includes("storm_protocol") },
+  { id: "arctic_veil", label: "Arctic Veil", gradient: "linear-gradient(135deg,#d8f0fc,#c5e8fb)", condition: (p: any) => (p?.purchased_items ?? []).includes("arctic_veil") },
+  { id: "starfield", label: "Starfield", gradient: "linear-gradient(135deg,#050210,#312e81)", condition: (p: any) => (p?.purchased_items ?? []).includes("starfield") },
+  { id: "digital_rain", label: "Digital Rain", gradient: "linear-gradient(135deg,#000702,#14532d)", condition: (p: any) => (p?.purchased_items ?? []).includes("digital_rain") },
+  { id: "inferno", label: "Inferno", gradient: "linear-gradient(135deg,#070100,#ea580c)", condition: (p: any) => (p?.purchased_items ?? []).includes("inferno") },
 ];
 
-const STORE_BANNER_ITEM_IDS = ["void_rift", "blood_moon", "phantom_strike", "solar_flare", "cryo_storm"] as const;
+const STORE_BANNER_ITEM_IDS = ["void_rift", "blood_moon", "phantom_strike", "solar_flare", "cryo_storm", "neon_circuit", "static_glitch", "golden_nexus", "plasma_core", "toxic_spill", "storm_protocol", "arctic_veil", "starfield", "digital_rain", "inferno"] as const;
 
 // Sound pack options
 const SFX_PACKS: { id: SfxPack; label: string; desc: string; owned: boolean; color: string }[] = [
@@ -197,6 +207,22 @@ const BOARD_BUNDLES = [
     accentColor: "#8b5cf6", isDefault: false, price: 2999,
     bOwned: (p: any) => (p?.purchased_items ?? []).includes("void_grid"),
     pOwned: (p: any) => (p?.purchased_items ?? []).includes("piece_void_sigils"),
+  },
+  {
+    id: "space", label: "SPACE BUNDLE", tagline: "Protocol rockets and satellite signals",
+    boardId: "space_grid", boardLabel: "Space Board", boardPreview: "linear-gradient(135deg,#020410,#0b1a3b)", boardBorder: "#00d9ff",
+    pieceId: "space_sigils", pieceLabel: "Rocket & Satellite", pieceP1: "🚀", pieceP2: "🛰", pieceP1c: "#00ddff", pieceP2c: "#ff8c00",
+    accentColor: "#00d9ff", isDefault: false, price: 2999,
+    bOwned: (p: any) => (p?.purchased_items ?? []).includes("space_grid"),
+    pOwned: (p: any) => (p?.purchased_items ?? []).includes("piece_space_sigils"),
+  },
+  {
+    id: "pixel", label: "PIXEL BUNDLE", tagline: "8-bit CRT chaos and dither glow",
+    boardId: "pixel_grid", boardLabel: "Pixel Board", boardPreview: "linear-gradient(135deg,#0a0a18,#0f3460)", boardBorder: "#ffdd00",
+    pieceId: "pixel_sigils", pieceLabel: "Coin & Heart", pieceP1: "◉", pieceP2: "♥", pieceP1c: "#ffdd00", pieceP2c: "#ff4455",
+    accentColor: "#ffdd00", isDefault: false, price: 2999,
+    bOwned: (p: any) => (p?.purchased_items ?? []).includes("pixel_grid"),
+    pOwned: (p: any) => (p?.purchased_items ?? []).includes("piece_pixel_sigils"),
   },
   {
     id: "tokyo", label: "TOKYO BUNDLE", tagline: "Neon rain and city glow",

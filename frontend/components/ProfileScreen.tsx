@@ -15,6 +15,16 @@ import BloodMoonBanner from "./BloodMoonBanner";
 import PhantomStrikeBanner from "./PhantomStrikeBanner";
 import SolarFlareBanner from "./SolarFlareBanner";
 import CryoStormBanner from "./CryoStormBanner";
+import NeonCircuitBanner from "./NeonCircuitBanner";
+import StaticGlitchBanner from "./StaticGlitchBanner";
+import GoldenNexusBanner from "./GoldenNexusBanner";
+import PlasmaCoreBanner from "./PlasmaCoreBanner";
+import ToxicSpillBanner from "./ToxicSpillBanner";
+import StormProtocolBanner from "./StormProtocolBanner";
+import ArcticVeilBanner from "./ArcticVeilBanner";
+import StarfieldBanner from "./StarfieldBanner";
+import DigitalRainBanner from "./DigitalRainBanner";
+import InfernoBanner from "./InfernoBanner";
 
 export const RANKS = [
   { name: "NOVICE",       min: 0,    max: 500,  color: "#9CA3AF", icon: null, img: "/novice.svg",       scale: 1.3 },
@@ -79,6 +89,36 @@ const BANNERS: {
   { id: "cryo_storm", label: "Cryo Storm", gradient: "linear-gradient(135deg,#030c20,#081840)",
     component: CryoStormBanner,
     unlockDesc: "Purchase for 299 PC", condition: p => (p.purchased_items || []).includes("cryo_storm") },
+  { id: "neon_circuit", label: "Neon Circuit", gradient: "linear-gradient(135deg,#020a04,#00ff66)",
+    component: NeonCircuitBanner,
+    unlockDesc: "Purchase for 299 PC", condition: p => (p.purchased_items || []).includes("neon_circuit") },
+  { id: "static_glitch", label: "Static Glitch", gradient: "linear-gradient(135deg,#050505,#a00038)",
+    component: StaticGlitchBanner,
+    unlockDesc: "Purchase for 299 PC", condition: p => (p.purchased_items || []).includes("static_glitch") },
+  { id: "golden_nexus", label: "Golden Nexus", gradient: "linear-gradient(135deg,#060200,#fbbf24)",
+    component: GoldenNexusBanner,
+    unlockDesc: "Purchase for 299 PC", condition: p => (p.purchased_items || []).includes("golden_nexus") },
+  { id: "plasma_core", label: "Plasma Core", gradient: "linear-gradient(135deg,#12082a,#6d28d9)",
+    component: PlasmaCoreBanner,
+    unlockDesc: "Purchase for 299 PC", condition: p => (p.purchased_items || []).includes("plasma_core") },
+  { id: "toxic_spill", label: "Toxic Spill", gradient: "linear-gradient(135deg,#010d03,#0a3d22)",
+    component: ToxicSpillBanner,
+    unlockDesc: "Purchase for 299 PC", condition: p => (p.purchased_items || []).includes("toxic_spill") },
+  { id: "storm_protocol", label: "Storm Protocol", gradient: "linear-gradient(135deg,#060810,#0b1a3b)",
+    component: StormProtocolBanner,
+    unlockDesc: "Purchase for 299 PC", condition: p => (p.purchased_items || []).includes("storm_protocol") },
+  { id: "arctic_veil", label: "Arctic Veil", gradient: "linear-gradient(135deg,#d8f0fc,#c5e8fb)",
+    component: ArcticVeilBanner,
+    unlockDesc: "Purchase for 299 PC", condition: p => (p.purchased_items || []).includes("arctic_veil") },
+  { id: "starfield", label: "Starfield", gradient: "linear-gradient(135deg,#050210,#312e81)",
+    component: StarfieldBanner,
+    unlockDesc: "Purchase for 299 PC", condition: p => (p.purchased_items || []).includes("starfield") },
+  { id: "digital_rain", label: "Digital Rain", gradient: "linear-gradient(135deg,#000702,#14532d)",
+    component: DigitalRainBanner,
+    unlockDesc: "Purchase for 299 PC", condition: p => (p.purchased_items || []).includes("digital_rain") },
+  { id: "inferno", label: "Inferno", gradient: "linear-gradient(135deg,#070100,#ea580c)",
+    component: InfernoBanner,
+    unlockDesc: "Purchase for 299 PC", condition: p => (p.purchased_items || []).includes("inferno") },
 ];
 
 export const PROFILE_BORDERS: {

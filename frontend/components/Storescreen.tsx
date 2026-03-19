@@ -20,11 +20,23 @@ import BioGrid from "./BioGrid";
 import ForgeGrid from "./ForgeGrid";
 import VoidGrid from "./VoidGrid";
 import TokyoGrid from "./TokyoGrid";
+import SpaceGrid from "./SpaceGrid";
+import PixelGrid from "./PixelGrid";
 import VoidRiftBanner from "./VoidRiftBanner";
 import BloodMoonBanner from "./BloodMoonBanner";
 import PhantomStrikeBanner from "./PhantomStrikeBanner";
 import SolarFlareBanner from "./SolarFlareBanner";
 import CryoStormBanner from "./CryoStormBanner";
+import NeonCircuitBanner from "./NeonCircuitBanner";
+import StaticGlitchBanner from "./StaticGlitchBanner";
+import GoldenNexusBanner from "./GoldenNexusBanner";
+import PlasmaCoreBanner from "./PlasmaCoreBanner";
+import ToxicSpillBanner from "./ToxicSpillBanner";
+import StormProtocolBanner from "./StormProtocolBanner";
+import ArcticVeilBanner from "./ArcticVeilBanner";
+import StarfieldBanner from "./StarfieldBanner";
+import DigitalRainBanner from "./DigitalRainBanner";
+import InfernoBanner from "./InfernoBanner";
 
 interface Props {
   setScreenAction: (s: Screen) => void;
@@ -52,6 +64,16 @@ const STORE_BANNERS: { id: string; label: string; gradient: string; unlock: stri
   { id: "phantom_strike", label: "Phantom Strike", gradient: "linear-gradient(135deg,#060010,#110028)", unlock: "199 PC", price: 199, component: PhantomStrikeBanner },
   { id: "solar_flare", label: "Solar Flare", gradient: "linear-gradient(135deg,#060200,#f97316)", unlock: "299 PC", price: 299, component: SolarFlareBanner },
   { id: "cryo_storm", label: "Cryo Storm", gradient: "linear-gradient(135deg,#030c20,#081840)", unlock: "299 PC", price: 299, component: CryoStormBanner },
+  { id: "neon_circuit", label: "Neon Circuit", gradient: "linear-gradient(135deg,#020a04,#00ff66)", unlock: "299 PC", price: 299, component: NeonCircuitBanner },
+  { id: "static_glitch", label: "Static Glitch", gradient: "linear-gradient(135deg,#050505,#a00038)", unlock: "299 PC", price: 299, component: StaticGlitchBanner },
+  { id: "golden_nexus", label: "Golden Nexus", gradient: "linear-gradient(135deg,#060200,#fbbf24)", unlock: "299 PC", price: 299, component: GoldenNexusBanner },
+  { id: "plasma_core", label: "Plasma Core", gradient: "linear-gradient(135deg,#12082a,#6d28d9)", unlock: "299 PC", price: 299, component: PlasmaCoreBanner },
+  { id: "toxic_spill", label: "Toxic Spill", gradient: "linear-gradient(135deg,#010d03,#0a3d22)", unlock: "299 PC", price: 299, component: ToxicSpillBanner },
+  { id: "storm_protocol", label: "Storm Protocol", gradient: "linear-gradient(135deg,#060810,#0b1a3b)", unlock: "299 PC", price: 299, component: StormProtocolBanner },
+  { id: "arctic_veil", label: "Arctic Veil", gradient: "linear-gradient(135deg,#d8f0fc,#c5e8fb)", unlock: "299 PC", price: 299, component: ArcticVeilBanner },
+  { id: "starfield", label: "Starfield", gradient: "linear-gradient(135deg,#050210,#312e81)", unlock: "299 PC", price: 299, component: StarfieldBanner },
+  { id: "digital_rain", label: "Digital Rain", gradient: "linear-gradient(135deg,#000702,#14532d)", unlock: "299 PC", price: 299, component: DigitalRainBanner },
+  { id: "inferno", label: "Inferno", gradient: "linear-gradient(135deg,#070100,#ea580c)", unlock: "299 PC", price: 299, component: InfernoBanner },
 ];
 
 const STORE_BORDERS = [
@@ -70,7 +92,7 @@ type Bundle = {
   accentColor: string; bgGradient: string;
   bundlePrice: number; boardPrice: number; piecePrice: number; tags: string[];
   isIce: boolean;
-  previewKind: "fire" | "ice" | "glacier" | "bloodmoon" | "egypt" | "synthwave" | "matrix" | "arcane" | "bio" | "forge" | "void" | "tokyo";
+  previewKind: "fire" | "ice" | "glacier" | "bloodmoon" | "egypt" | "synthwave" | "matrix" | "arcane" | "bio" | "forge" | "void" | "space" | "pixel" | "tokyo";
 };
 
 const BUNDLES: Bundle[] = [
@@ -161,6 +183,22 @@ const BUNDLES: Bundle[] = [
     accentColor: "#8B5CF6", bgGradient: "linear-gradient(160deg,#04011a,#020110,#000008)",
     bundlePrice: 1999, boardPrice: 1599, piecePrice: 599,
     tags: ["VOID", "COSMIC", "BOARD + PIECES"], isIce: false, previewKind: "void",
+  },
+  {
+    id: "bundle_space", label: "SPACE BUNDLE", tagline: "Protocol rockets and satellite signals",
+    desc: "A deep-space grid where rockets and satellites ignite on placement. Nebula drift, star twinkles, and targeting arcs light up the board.",
+    boardId: "space_grid", pieceId: "piece_space_sigils", boardLabel: "Space Board", pieceLabel: "Rocket & Satellite",
+    accentColor: "#00D9FF", bgGradient: "linear-gradient(160deg,#020410,#0b1a3b,#000008)",
+    bundlePrice: 1999, boardPrice: 1599, piecePrice: 599,
+    tags: ["SPACE", "ANIMATED", "BOARD + PIECES"], isIce: false, previewKind: "space",
+  },
+  {
+    id: "bundle_pixel", label: "PIXEL BUNDLE", tagline: "8-bit CRT chaos and dither glow",
+    desc: "A chunky pixel grid with dithered tiles, CRT scanlines, and floating sprites. Coins and Hearts pop in with crisp 8-bit punch.",
+    boardId: "pixel_grid", pieceId: "piece_pixel_sigils", boardLabel: "Pixel Board", pieceLabel: "Coin & Heart",
+    accentColor: "#FFDD00", bgGradient: "linear-gradient(160deg,#0a0a18,#0f3460,#2d132c)",
+    bundlePrice: 1999, boardPrice: 1599, piecePrice: 599,
+    tags: ["PIXEL", "CRT", "BOARD + PIECES"], isIce: false, previewKind: "pixel",
   },
   {
     id: "bundle_tokyo", label: "TOKYO BUNDLE", tagline: "Neon rain and city glow",
@@ -392,6 +430,46 @@ function BundleAnimatedPreview({ bundle, tick }: { bundle: Bundle; tick: number 
       </div>
     );
   }
+  if (bundle.previewKind === "space") {
+    return (
+      <div style={{
+        width: "100%",
+        height: 360,
+        background: "linear-gradient(135deg,rgba(2,4,16,0.99),rgba(13,27,59,0.98))",
+        borderRadius: 12,
+        border: "2px solid rgba(0,200,255,0.30)",
+        boxShadow: "0 0 56px rgba(0,200,255,0.14), inset 0 0 44px rgba(0,0,0,0.74)",
+        position: "relative",
+        overflow: "hidden",
+      }}>
+        <div style={{ position: "absolute", left: "50%", top: "50%", transform: "translate(-50%,-50%)" }}>
+          <SpaceGrid showLabels={false} cellSize={56} />
+        </div>
+        <div style={{ position: "absolute", top: 8, left: 12, fontFamily: "monospace", fontSize: 9, color: "rgba(150,220,255,0.70)", letterSpacing: "0.18em", zIndex: 10, pointerEvents: "none" }}>{bundle.boardLabel.toUpperCase()}</div>
+        <div style={{ position: "absolute", bottom: 8, right: 12, fontFamily: "monospace", fontSize: 9, color: "rgba(255,200,120,0.55)", letterSpacing: "0.1em", zIndex: 10, pointerEvents: "none" }}>LIVE PREVIEW</div>
+      </div>
+    );
+  }
+  if (bundle.previewKind === "pixel") {
+    return (
+      <div style={{
+        width: "100%",
+        height: 360,
+        background: "linear-gradient(135deg,rgba(10,10,24,0.99),rgba(15,52,96,0.94))",
+        borderRadius: 12,
+        border: "2px solid rgba(255,221,0,0.32)",
+        boxShadow: "0 0 56px rgba(255,180,0,0.12), inset 0 0 44px rgba(0,0,0,0.78)",
+        position: "relative",
+        overflow: "hidden",
+      }}>
+        <div style={{ position: "absolute", left: "50%", top: "50%", transform: "translate(-50%,-50%) scale(1.0)" }}>
+          <PixelGrid showLabels={false} cellSize={56} />
+        </div>
+        <div style={{ position: "absolute", top: 8, left: 12, fontFamily: "monospace", fontSize: 9, color: "rgba(255,221,0,0.75)", letterSpacing: "0.18em", zIndex: 10, pointerEvents: "none" }}>{bundle.boardLabel.toUpperCase()}</div>
+        <div style={{ position: "absolute", bottom: 8, right: 12, fontFamily: "monospace", fontSize: 9, color: "rgba(255,120,0,0.55)", letterSpacing: "0.1em", zIndex: 10, pointerEvents: "none" }}>LIVE PREVIEW</div>
+      </div>
+    );
+  }
   if (bundle.previewKind === "tokyo") {
     return (
       <div style={{
@@ -620,7 +698,7 @@ function BundleCard({ bundle, purchasedItems, t, onClick }: { bundle: Bundle; pu
       </div>
       <div style={{ fontFamily: t.fontDisplay, fontSize: 22, fontWeight: 900, color: "#fff", letterSpacing: "0.04em", marginBottom: 3 }}>{bundle.label}</div>
       <div style={{ fontFamily: t.fontBody, fontSize: 12, color: `${ac}bb`, fontStyle: "italic", marginBottom: 16 }}>{bundle.tagline}</div>
-      <div style={{ height: 72, borderRadius: 10, marginBottom: 14, overflow: "hidden", position: "relative", background: bundle.previewKind === "fire" ? "rgba(10,2,1,0.99)" : bundle.previewKind === "bloodmoon" ? "linear-gradient(135deg,rgba(10,0,0,0.99),rgba(18,0,10,0.99))" : bundle.previewKind === "egypt" ? "linear-gradient(135deg,rgba(7,4,0,0.99),rgba(14,7,0,0.99))" : bundle.previewKind === "synthwave" ? "linear-gradient(135deg,rgba(10,0,42,0.99),rgba(204,32,96,0.92))" : bundle.previewKind === "matrix" ? "linear-gradient(135deg,rgba(0,3,0,0.99),rgba(0,16,0,0.92))" : bundle.previewKind === "arcane" ? "linear-gradient(135deg,rgba(10,0,18,0.99),rgba(3,0,4,0.96))" : bundle.previewKind === "bio" ? "linear-gradient(135deg,rgba(0,10,15,0.99),rgba(0,3,4,0.96))" : bundle.previewKind === "forge" ? "linear-gradient(135deg,rgba(10,2,0,0.99),rgba(8,1,0,0.98))" : bundle.previewKind === "void" ? "linear-gradient(135deg,rgba(4,1,26,0.99),rgba(0,0,8,0.98))" : bundle.previewKind === "tokyo" ? "linear-gradient(135deg,rgba(4,0,8,0.99),rgba(3,0,8,0.98))" : "linear-gradient(135deg,rgba(3,8,20,0.98),rgba(1,4,14,0.99))", border: `1px solid ${bundle.previewKind === "fire" ? "rgba(140,20,0,0.35)" : bundle.previewKind === "glacier" ? "rgba(125,211,252,0.42)" : bundle.previewKind === "bloodmoon" ? "rgba(220,38,38,0.42)" : bundle.previewKind === "egypt" ? "rgba(245,158,11,0.42)" : bundle.previewKind === "synthwave" ? "rgba(255,0,180,0.42)" : bundle.previewKind === "matrix" ? "rgba(0,255,65,0.42)" : bundle.previewKind === "arcane" ? "rgba(168,85,247,0.42)" : bundle.previewKind === "bio" ? "rgba(0,255,208,0.42)" : bundle.previewKind === "forge" ? "rgba(255,102,0,0.42)" : bundle.previewKind === "void" ? "rgba(139,92,246,0.42)" : bundle.previewKind === "tokyo" ? "rgba(255,0,102,0.42)" : "rgba(80,160,220,0.28)"}` }}>
+      <div style={{ height: 72, borderRadius: 10, marginBottom: 14, overflow: "hidden", position: "relative", background: bundle.previewKind === "fire" ? "rgba(10,2,1,0.99)" : bundle.previewKind === "bloodmoon" ? "linear-gradient(135deg,rgba(10,0,0,0.99),rgba(18,0,10,0.99))" : bundle.previewKind === "egypt" ? "linear-gradient(135deg,rgba(7,4,0,0.99),rgba(14,7,0,0.99))" : bundle.previewKind === "synthwave" ? "linear-gradient(135deg,rgba(10,0,42,0.99),rgba(204,32,96,0.92))" : bundle.previewKind === "matrix" ? "linear-gradient(135deg,rgba(0,3,0,0.99),rgba(0,16,0,0.92))" : bundle.previewKind === "arcane" ? "linear-gradient(135deg,rgba(10,0,18,0.99),rgba(3,0,4,0.96))" : bundle.previewKind === "bio" ? "linear-gradient(135deg,rgba(0,10,15,0.99),rgba(0,3,4,0.96))" : bundle.previewKind === "forge" ? "linear-gradient(135deg,rgba(10,2,0,0.99),rgba(8,1,0,0.98))" : bundle.previewKind === "void" ? "linear-gradient(135deg,rgba(4,1,26,0.99),rgba(0,0,8,0.98))" : bundle.previewKind === "space" ? "linear-gradient(135deg,rgba(2,4,16,0.99),rgba(13,27,59,0.98))" : bundle.previewKind === "pixel" ? "linear-gradient(135deg,rgba(10,10,24,0.99),rgba(15,52,96,0.94))" : bundle.previewKind === "tokyo" ? "linear-gradient(135deg,rgba(4,0,8,0.99),rgba(3,0,8,0.98))" : "linear-gradient(135deg,rgba(3,8,20,0.98),rgba(1,4,14,0.99))", border: `1px solid ${bundle.previewKind === "fire" ? "rgba(140,20,0,0.35)" : bundle.previewKind === "glacier" ? "rgba(125,211,252,0.42)" : bundle.previewKind === "bloodmoon" ? "rgba(220,38,38,0.42)" : bundle.previewKind === "egypt" ? "rgba(245,158,11,0.42)" : bundle.previewKind === "synthwave" ? "rgba(255,0,180,0.42)" : bundle.previewKind === "matrix" ? "rgba(0,255,65,0.42)" : bundle.previewKind === "arcane" ? "rgba(168,85,247,0.42)" : bundle.previewKind === "bio" ? "rgba(0,255,208,0.42)" : bundle.previewKind === "forge" ? "rgba(255,102,0,0.42)" : bundle.previewKind === "void" ? "rgba(139,92,246,0.42)" : bundle.previewKind === "space" ? "rgba(0,200,255,0.42)" : bundle.previewKind === "pixel" ? "rgba(255,221,0,0.38)" : bundle.previewKind === "tokyo" ? "rgba(255,0,102,0.42)" : "rgba(80,160,220,0.28)"}` }}>
         {previewActive && bundle.previewKind === "fire" && <Embers count={6} />}
         {previewActive && bundle.previewKind === "fire" && <HeatOverlay />}
         {previewActive && bundle.previewKind === "ice" && <FrostCrystals />}
@@ -681,6 +759,18 @@ function BundleCard({ bundle, purchasedItems, t, onClick }: { bundle: Bundle; pu
           <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
             <div style={{ opacity: 0.98 }}>
               <VoidGrid showLabels={false} cellSize={10} />
+            </div>
+          </div>
+        ) : bundle.previewKind === "space" ? (
+          <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <div style={{ opacity: 0.98 }}>
+              <SpaceGrid showLabels={false} cellSize={10} />
+            </div>
+          </div>
+        ) : bundle.previewKind === "pixel" ? (
+          <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <div style={{ opacity: 0.98 }}>
+              <PixelGrid showLabels={false} cellSize={10} />
             </div>
           </div>
         ) : bundle.previewKind === "tokyo" ? (

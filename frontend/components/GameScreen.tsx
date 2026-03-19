@@ -20,6 +20,8 @@ import BioGrid from "./BioGrid";
 import ForgeGrid from "./ForgeGrid";
 import VoidGrid from "./VoidGrid";
 import TokyoGrid from "./TokyoGrid";
+import SpaceGrid from "./SpaceGrid";
+import PixelGrid from "./PixelGrid";
 import type { Phase } from "./GamePieces";
 import { RulebreakerFlow, PHASE_TIMERS } from "./RulebreakerFlow";
 import { LeftPanel, RightPanel, WinOverlay, RematchOverlay, SurrenderModal, DisconnectModal, ExitModal } from "./MatchSidebar";
@@ -226,6 +228,8 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   const isForgeBoard = boardSkin === "forge_grid";
   const isVoidBoard = boardSkin === "void_grid";
   const isTokyoBoard = boardSkin === "tokyo_grid";
+  const isSpaceBoard = boardSkin === "space_grid";
+  const isPixelBoard = boardSkin === "pixel_grid";
   const useSnowflakeShard = pieceSkin === "snowflake_shard";
   const useGlacierSigils = pieceSkin === "glacier_shard";
   const useBloodMoonSigils = pieceSkin === "bloodmoon_sigils";
@@ -237,6 +241,8 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   const useForgeSigils = pieceSkin === "forge_sigils";
   const useVoidSigils = pieceSkin === "void_sigils";
   const useTokyoSigils = pieceSkin === "tokyo_sigils";
+  const useSpaceSigils = pieceSkin === "space_sigils";
+  const usePixelSigils = pieceSkin === "pixel_sigils";
 
   const PIECE_SKIN_SYMBOLS: Record<string, { p1: string; p2: string; p1c: string; p2c: string }> = {
     default: { p1: t.pieces.p1, p2: t.pieces.p2, p1c: t.p1, p2c: t.p2 },
@@ -256,6 +262,8 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     forge_sigils: { p1: "⛏", p2: "✺", p1c: "#FF6600", p2c: "#FFCC00" },
     void_sigils: { p1: "✷", p2: "◎", p1c: "#B464FF", p2c: "#40C0FF" },
     tokyo_sigils: { p1: "⟟", p2: "⟐", p1c: "#FF0066", p2c: "#00CCFF" },
+    space_sigils: { p1: "🚀", p2: "🛰", p1c: "#00DDFF", p2c: "#FF8C00" },
+    pixel_sigils: { p1: "◉", p2: "♥", p1c: "#FFDD00", p2c: "#FF4455" },
   };
   const skinData = PIECE_SKIN_SYMBOLS[pieceSkin] ?? PIECE_SKIN_SYMBOLS.default;
   const pieceSymbols = { p1: skinData.p1, p2: skinData.p2 };
@@ -1176,6 +1184,14 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     () => isTokyoBoard ? board.map(row => row.map(cell => cell === "P1" ? "X" : cell === "P2" ? "O" : null)) : null,
     [isTokyoBoard, board]
   );
+  const spaceBoard = React.useMemo(
+    () => isSpaceBoard ? board.map(row => row.map(cell => cell === "P1" ? "X" : cell === "P2" ? "O" : null)) : null,
+    [isSpaceBoard, board]
+  );
+  const pixelBoard = React.useMemo(
+    () => isPixelBoard ? board.map(row => row.map(cell => cell === "P1" ? "X" : cell === "P2" ? "O" : null)) : null,
+    [isPixelBoard, board]
+  );
   const glacierClick = React.useCallback(
     (r: number, c: number) => { if (!winner && phase === "playing") placeRef.current(r, c); },
     [winner, phase]
@@ -1213,6 +1229,14 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     [winner, phase]
   );
   const tokyoClick = React.useCallback(
+    (r: number, c: number) => { if (!winner && phase === "playing") placeRef.current(r, c); },
+    [winner, phase]
+  );
+  const spaceClick = React.useCallback(
+    (r: number, c: number) => { if (!winner && phase === "playing") placeRef.current(r, c); },
+    [winner, phase]
+  );
+  const pixelClick = React.useCallback(
     (r: number, c: number) => { if (!winner && phase === "playing") placeRef.current(r, c); },
     [winner, phase]
   );
@@ -1820,6 +1844,10 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
           <VoidGrid board={voidBoard} onCellClick={voidClick} winCells={winLine} />
         ) : isTokyoBoard && tokyoBoard ? (
           <TokyoGrid board={tokyoBoard} onCellClick={tokyoClick} winCells={winLine} />
+        ) : isSpaceBoard && spaceBoard ? (
+          <SpaceGrid board={spaceBoard} onCellClick={spaceClick} winCells={winLine} />
+        ) : isPixelBoard && pixelBoard ? (
+          <PixelGrid board={pixelBoard} onCellClick={pixelClick} winCells={winLine} />
         ) : (
           <>
             <div style={{ display: "flex", gap: `${boardGap}px`, marginLeft: 34 }}>

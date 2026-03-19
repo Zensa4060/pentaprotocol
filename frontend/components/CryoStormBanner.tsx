@@ -112,56 +112,9 @@ export default function CryoStormBanner({
 
     let t = 0;
 
-    const drawHexGrid = () => {
-      // Important: scale x/y independently so the hex geometry doesn't stretch
-      // differently in banners with different aspect ratios (e.g. Career vs Profile).
-      const cellBase = 18; // design units (baseW/baseH)
-      const stepYBase = cellBase * Math.sqrt(3) * 0.5;
-      const rBase = cellBase * 0.5;
-      const cellXPix = cellBase * sx;
-      const stepYPix = stepYBase * sy;
-      const uniformStroke = Math.min(sx, sy);
-      const bandTopPix = DH * 0.22;
-      const bandBottomPix = DH * 0.58;
-
-      // Subtle glow pass.
-      ctx.save();
-      ctx.globalAlpha = 0.55;
-      ctx.globalCompositeOperation = "screen";
-      ctx.strokeStyle = "rgba(130,220,255,0.25)";
-      ctx.lineWidth = 1 * uniformStroke;
-
-      const rows = Math.ceil(DH / stepYPix) + 4;
-      const cols = Math.ceil(DW / cellXPix) + 4;
-      for (let row = -2; row < rows; row++) {
-        const cyBase = row * stepYBase;
-        const offsetXBase = (row % 2) * (cellBase / 2);
-        for (let col = -2; col < cols; col++) {
-          const cxBase = col * cellBase + offsetXBase;
-          const cxPix = cxBase * sx;
-          const cyPix = cyBase * sy;
-
-          if (cxPix < -cellXPix || cxPix > DW + cellXPix || cyPix < -stepYPix || cyPix > DH + stepYPix) continue;
-          // Fade grid into the “active band” only (core look of the original banner).
-          if (cyPix < bandTopPix || cyPix > bandBottomPix) continue;
-
-          // Hex vertices (flat-top-ish) in scaled pixel space.
-          const points: Array<[number, number]> = [];
-          for (let i = 0; i < 6; i++) {
-            const ang = (Math.PI / 3) * i + Math.PI / 6;
-            const x = (cxBase + Math.cos(ang) * rBase) * sx;
-            const y = (cyBase + Math.sin(ang) * rBase) * sy;
-            points.push([x, y]);
-          }
-          ctx.beginPath();
-          ctx.moveTo(points[0][0], points[0][1]);
-          for (let i = 1; i < 6; i++) ctx.lineTo(points[i][0], points[i][1]);
-          ctx.closePath();
-          ctx.stroke();
-        }
-      }
-      ctx.restore();
-    };
+    // NOTE: The original Cryo Storm look uses only drifting snowflakes.
+    // We intentionally do NOT render the hex-grid (honeycomb), because that
+    // changes the banner identity compared to the reference artwork.
 
     const draw = () => {
       // Background
@@ -189,11 +142,7 @@ export default function CryoStormBanner({
       ctx.fillRect(0, coreY - bandHalf, DW, bandHalf * 2);
       ctx.restore();
 
-      // Hex grid (slow fade in/out)
-      ctx.save();
-      ctx.globalAlpha = 0.25 + 0.2 * (0.5 + 0.5 * Math.sin(t * 0.35));
-      drawHexGrid();
-      ctx.restore();
+      // (hex-grid removed)
 
       // Snowflakes
       const flakes = flakesRef.current;

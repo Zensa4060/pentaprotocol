@@ -110,7 +110,15 @@ def contains_profanity(text: str) -> bool:
 # ── Valid cosmetic IDs (must match frontend definitions) ──────────────────────
 VALID_BANNERS = {
     "default", "crimson", "emerald", "ocean", "void", "gold", "aurora", "nebula",
-    "void_rift", "blood_moon", "phantom_strike", "solar_flare", "cryo_storm",
+    "void_rift", "blood_moon", "phantom_strike", "solar_flare", "cryo_storm", "neon_circuit",
+    "static_glitch", "golden_nexus",
+    "plasma_core",
+    "toxic_spill",
+    "storm_protocol",
+    "arctic_veil",
+    "starfield",
+    "digital_rain",
+    "inferno",
 }
 VALID_BORDERS = {
     "none", "silver", "blue_pulse", "emerald_veil",
@@ -135,6 +143,8 @@ VALID_BOARD_STYLES = [
     "forge_grid",
     "void_grid",
     "tokyo_grid",
+    "space_grid",
+    "pixel_grid",
 ]
 VALID_TITLES = {
     "newcomer", "sharpshooter", "strategist", "gladiator", "emerald_eye",
