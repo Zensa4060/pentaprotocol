@@ -40,5 +40,7 @@ async def disconnect_db():
         db.client.close()
     print("Disconnected from MongoDB")
 
-def get_db():
-    return db.db
+# app/core/database.py
+
+async def get_db():
+    yield db.db
