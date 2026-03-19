@@ -22,6 +22,7 @@ interface Props {
   queueElapsed?: number;
   matchupOpponent?: any;
   forcedPhase?: "none" | "queuing" | "matchup";
+  queueError?: string | null;
 }
 
 type MultiSub = "unranked" | null;
@@ -32,7 +33,8 @@ export default function LobbyScreen({
   queuePhase: propQueuePhase = "none",
   queueElapsed: propQueueElapsed = 0,
   matchupOpponent: propMatchupOpponent = null,
-  forcedPhase = "none"
+  forcedPhase = "none",
+  queueError = null,
 }: Props) {
   const t  = THEMES[themeId as keyof typeof THEMES];
   const ip = themeId === "pixel";
@@ -83,7 +85,7 @@ export default function LobbyScreen({
     if (!token) { setRoomError("Sign in to play multiplayer"); return; }
     setRoomLoading(true); setRoomError(null);
     try {
-      const res = await API.post("/api/room/create", { format: roomFormat }, authHeader);
+      const res = await API.post("/api/room/create", { format: roomFormat }, { ...authHeader, timeout: 10000 });
       setRoomCode(res.data.room_code);
       setRoomSection("waiting");
       pollForPlayer(res.data.room_code, (res.data.player_slot as "P1" | "P2") ?? "P1");
@@ -95,7 +97,7 @@ export default function LobbyScreen({
   const pollForPlayer = (code: string, mySlot: "P1" | "P2" = "P1") => {
     const interval = setInterval(async () => {
       try {
-        const res = await API.get(`/api/room/${code}`, authHeader);
+        const res = await API.get(`/api/room/${code}`, { ...authHeader, timeout: 10000 });
         if (res.data.game_status === "playing") {
           clearInterval(interval);
           onRoomReadyAction?.(code, mySlot, res.data.format);
@@ -110,7 +112,7 @@ export default function LobbyScreen({
     if (!joinCode.trim()) { setRoomError("Enter a room code"); return; }
     setRoomLoading(true); setRoomError(null);
     try {
-      const res = await API.post("/api/room/join", { room_code: joinCode.trim().toUpperCase() }, authHeader);
+      const res = await API.post("/api/room/join", { room_code: joinCode.trim().toUpperCase() }, { ...authHeader, timeout: 10000 });
       onRoomReadyAction?.(res.data.room_code, (res.data.player_slot as "P1" | "P2") ?? "P2", res.data.format);
     } catch (e: any) {
       setRoomError(e.response?.data?.detail || "Could not join room");
@@ -627,14 +629,21 @@ export default function LobbyScreen({
       {/* FIND MATCH button */}
       {multiSub && (
         <div style={{ display:"flex", justifyContent:"center", animation:"fadeUp 0.32s cubic-bezier(.22,.68,0,1.2) 0.06s both" }}>
-          <button
-            onClick={startSearch}
-            style={{ background:`linear-gradient(135deg,${t.accent},${t.accentGlow})`, border:"none", color:"#0A0A0A", fontFamily:t.fontDisplay, fontSize:18, fontWeight:700, padding:"18px 64px", borderRadius:ip?2:10, cursor:"pointer", boxShadow:`0 0 28px ${t.accentGlow}44`, transition:"transform 0.25s cubic-bezier(.22,.68,0,1.2), box-shadow 0.25s cubic-bezier(.22,.68,0,1.2)" }}
-            onMouseEnter={e => { onHoverAction?.(); e.currentTarget.style.transform="translateY(-3px) scale(1.04)"; e.currentTarget.style.boxShadow=`0 8px 40px ${t.accentGlow}66`; }}
-            onMouseLeave={e => { e.currentTarget.style.transform="translateY(0) scale(1)"; e.currentTarget.style.boxShadow=`0 0 28px ${t.accentGlow}44`; }}
-            onMouseDown={e  => { e.currentTarget.style.transform="translateY(0) scale(0.97)"; }}
-            onMouseUp={e    => { e.currentTarget.style.transform="translateY(-3px) scale(1.04)"; }}
-          >FIND MATCH</button>
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
+            <button
+              onClick={startSearch}
+              style={{ background:`linear-gradient(135deg,${t.accent},${t.accentGlow})`, border:"none", color:"#0A0A0A", fontFamily:t.fontDisplay, fontSize:18, fontWeight:700, padding:"18px 64px", borderRadius:ip?2:10, cursor:"pointer", boxShadow:`0 0 28px ${t.accentGlow}44`, transition:"transform 0.25s cubic-bezier(.22,.68,0,1.2), box-shadow 0.25s cubic-bezier(.22,.68,0,1.2)" }}
+              onMouseEnter={e => { onHoverAction?.(); e.currentTarget.style.transform="translateY(-3px) scale(1.04)"; e.currentTarget.style.boxShadow=`0 8px 40px ${t.accentGlow}66`; }}
+              onMouseLeave={e => { e.currentTarget.style.transform="translateY(0) scale(1)"; e.currentTarget.style.boxShadow=`0 0 28px ${t.accentGlow}44`; }}
+              onMouseDown={e  => { e.currentTarget.style.transform="translateY(0) scale(0.97)"; }}
+              onMouseUp={e    => { e.currentTarget.style.transform="translateY(-3px) scale(1.04)"; }}
+            >FIND MATCH</button>
+            {queueError && (
+              <div style={{ background:`${t.danger}14`, border:`1px solid ${t.danger}`, borderRadius:8, padding:"8px 12px", color:t.danger, fontFamily:t.fontBody, fontSize:12 }}>
+                {queueError}
+              </div>
+            )}
+          </div>
         </div>
       )}
 

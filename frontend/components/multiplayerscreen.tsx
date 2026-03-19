@@ -52,7 +52,7 @@ export default function MultiplayerScreen({ setScreen, themeId, onHover, onRoomR
     }
     setLoading(true); setError(null);
     try {
-      const res = await API.post("/api/room/create", { format }, authHeader);
+      const res = await API.post("/api/room/create", { format }, { ...authHeader, timeout: 10000 });
       setRoomCode(res.data.room_code);
       setWaiting(true);
       // Start polling for P2 to join
@@ -65,7 +65,7 @@ export default function MultiplayerScreen({ setScreen, themeId, onHover, onRoomR
   const pollForPlayer = (code: string) => {
     const interval = setInterval(async () => {
       try {
-        const res = await API.get(`/api/room/${code}`);
+        const res = await API.get(`/api/room/${code}`, { timeout: 10000 });
         if (res.data.game_status === "playing") {
           clearInterval(interval);
           onRoomReady?.(code, "P1", res.data.format);
@@ -81,7 +81,7 @@ export default function MultiplayerScreen({ setScreen, themeId, onHover, onRoomR
     if (!joinCode.trim()) { setError("Enter a room code"); return; }
     setLoading(true); setError(null);
     try {
-      const res = await API.post("/api/room/join", { room_code: joinCode.trim().toUpperCase() }, authHeader);
+      const res = await API.post("/api/room/join", { room_code: joinCode.trim().toUpperCase() }, { ...authHeader, timeout: 10000 });
       onRoomReady?.(res.data.room_code, "P2", res.data.format);
     } catch (e: any) {
       setError(e.response?.data?.detail || "Could not join room");

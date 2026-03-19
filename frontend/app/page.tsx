@@ -49,6 +49,7 @@ export default function Page() {
   const [queueRoomCode, setQueueRoomCode] = useState<string | null>(null);
   const [queuePlayerSlot, setQueuePlayerSlot] = useState<"P1" | "P2">("P1");
   const [matchupOpponent, setMatchupOpponent] = useState<any>(null);
+  const [queueError, setQueueError] = useState<string | null>(null);
 
   const audioStartedRef                 = useRef(false);
   const pendingTheme                    = useRef<ThemeId | null>(null);
@@ -171,7 +172,7 @@ export default function Page() {
 
   const pollQueueStatus = async (code: string, slot: "P1" | "P2", mode: "ranked" | "unranked") => {
     try {
-      const poll = await API.get(`/api/room/queue/status/${code}`);
+      const poll = await API.get(`/api/room/queue/status/${code}`, { timeout: 10000 });
       if (poll.data.game_status === "playing") {
         if (queuePollRef.current) clearInterval(queuePollRef.current);
         
@@ -194,7 +195,15 @@ export default function Page() {
           handleRoomReady(code, slot, mode);
         }, 10000); // 10s for the matchup screen
       }
-    } catch { /* keep polling */ }
+    } catch (e: any) {
+      const status = e?.response?.status;
+      if (status === 401 || status === 403) {
+        if (queuePollRef.current) clearInterval(queuePollRef.current);
+        setInQueue(false);
+        setQueuePhase("none");
+        setQueueError("Session expired. Please sign in again.");
+      }
+    }
   };
 
   const startMatchmaking = async (mode: "ranked" | "unranked") => {
@@ -203,10 +212,11 @@ export default function Page() {
     setInQueue(true);
     setQueuePhase("queuing");
     setQueueElapsed(0);
+    setQueueError(null);
 
     const authHeader = { headers: { Authorization: `Bearer ${token}` } };
     try {
-      const res = await API.post("/api/room/queue/join", { format: mode }, authHeader);
+      const res = await API.post("/api/room/queue/join", { format: mode }, { ...authHeader, timeout: 10000 });
       if (queueCancelledRef.current) return;
       
       const code = res.data.room_code;
@@ -237,10 +247,11 @@ export default function Page() {
         // Start polling
         queuePollRef.current = setInterval(() => pollQueueStatus(code, slot, mode), 2000);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("Matchmaking error:", err);
       setInQueue(false);
       setQueuePhase("none");
+      setQueueError(err?.response?.data?.detail || err?.message || "Failed to join queue.");
     }
   };
 
@@ -253,11 +264,12 @@ export default function Page() {
     const mode = isRanked ? "ranked" : "unranked";
     const authHeader = { headers: { Authorization: `Bearer ${token}` } };
     if (queueRoomCode) {
-      try { await API.post("/api/room/queue/leave", { format: mode }, authHeader); } catch { /* ignore */ }
+      try { await API.post("/api/room/queue/leave", { format: mode }, { ...authHeader, timeout: 10000 }); } catch { /* ignore */ }
     }
     setInQueue(false);
     setQueuePhase("none");
     setQueueRoomCode(null);
+    setQueueError(null);
   };
 
   useEffect(() => {
@@ -410,6 +422,7 @@ export default function Page() {
           queuePhase={queuePhase}
           queueElapsed={queueElapsed}
           matchupOpponent={matchupOpponent}
+          queueError={queueError}
           forcedPhase="matchup"
         />
       </div>
@@ -527,6 +540,7 @@ export default function Page() {
           queuePhase={queuePhase}
           queueElapsed={queueElapsed}
           matchupOpponent={matchupOpponent}
+          queueError={queueError}
         />
       )}
       {screen === "profile"    && <ProfileScreen    setScreenAction={handleSetScreen} themeId={themeId} onHoverAction={sfx.hover} onClickAction={sfx.click} />}

@@ -29,6 +29,16 @@ import { useAuthStore } from "@/lib/store";
 import { BannerRenderer } from "./BannerRenderer";
 import { RANKS, RankIcon } from "./ProfileScreen";
 
+function getWsBaseUrl(): string {
+  const envBase = process.env.NEXT_PUBLIC_API_URL;
+  if (envBase) return envBase.replace("https://", "wss://").replace("http://", "ws://");
+  if (typeof window !== "undefined") {
+    const proto = window.location.protocol === "https:" ? "wss://" : "ws://";
+    return `${proto}${window.location.host}`;
+  }
+  return "ws://localhost:8000";
+}
+
 interface MatchupOverlayProps {
   matchupData: any;
   showMatchupOverlay: boolean;
@@ -485,8 +495,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   // ── WebSocket for multiplayer ─────────────────────────────────────────────
   useEffect(() => {
     if (!isMultiplayerGame || !playerSlot) return;
-    const base = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000")
-      .replace("https://", "wss://").replace("http://", "ws://");
+    const base = getWsBaseUrl();
 
     let destroyed = false;
     let reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
