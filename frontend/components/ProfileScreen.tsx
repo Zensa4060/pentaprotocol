@@ -343,11 +343,11 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
     if (!user) { setLoading(false); setProfileError(null); return; }
     setProfileError(null);
     // Render immediately from local user snapshot, then refresh from API.
-    setProfile((p: any) => p ?? { ...user, totp_enabled: false });
+    setProfile((p: any) => p ?? { ...user, totp_enabled: (user as any)?.totp_enabled ?? false });
     setTwoFAReady(true);
     setLoading(false);
     let cancelled = false;
-    const timeoutMs = 8000;
+    const timeoutMs = 15000;
     const fetchProfile = async () => {
       try {
         const res = await API.get("/api/profile/me", { timeout: timeoutMs });
@@ -358,13 +358,14 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
       } catch (e: any) {
         if (cancelled) return;
         const msg = e?.code === "ECONNABORTED" ? "Request timed out." : e?.message || "Could not load profile.";
-        setProfileError(msg);
+        // If local profile snapshot exists, keep UI smooth and avoid noisy timeout banners.
+        if (!user) setProfileError(msg);
       }
     };
     fetchProfile();
     const fallback = setTimeout(() => {
       if (!cancelled) {
-        setProfileError((prev) => prev ?? "Request timed out.");
+        if (!user) setProfileError((prev) => prev ?? "Request timed out.");
       }
     }, timeoutMs + 500);
     return () => {
@@ -537,7 +538,7 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
     setEditMsg(null);
 
     // ← 2FA required gate
-    if (!profile.totp_enabled) {
+    if (!enabled) {
       setEditMsg({ text:"You must enable Two-Factor Authentication (2FA) before changing your password.", ok:false });
       return;
     }
@@ -580,7 +581,7 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
     setEditMsg(null);
 
     // ← 2FA required gate
-    if (!profile.totp_enabled) {
+    if (!enabled) {
       setEditMsg({ text:"You must enable Two-Factor Authentication (2FA) before changing your email.", ok:false });
       return;
     }
@@ -617,7 +618,7 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
     } finally { setEditLoading(false); }
   };
 
-  const enabled = profile.totp_enabled;
+  const enabled = Boolean((profile as any)?.totp_enabled ?? (user as any)?.totp_enabled);
 
   const rankedW   = profile.wins        || 0;
   const rankedL   = profile.losses      || 0;
@@ -1142,7 +1143,7 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
               {editTab==="password" && (
                 <>
                   {/* 2FA gate */}
-                  {!profile.totp_enabled ? (
+                  {!enabled ? (
                     <TwoFARequired />
                   ) : (
                     <>
@@ -1211,7 +1212,7 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
               {editTab==="email" && (
                 <>
                   {/* 2FA gate */}
-                  {!profile.totp_enabled ? (
+                  {!enabled ? (
                     <TwoFARequired />
                   ) : (
                     <>

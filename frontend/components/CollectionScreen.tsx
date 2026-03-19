@@ -594,34 +594,33 @@ export default function CollectionScreen({ themeId, setThemeIdAction, onHoverAct
     window.addEventListener("pp_custom_theme_changed", syncBanner);
     return () => window.removeEventListener("pp_custom_theme_changed", syncBanner);
   }, []);
-  const equipBoard = async (id: string) => {
+  const emitThemeChanged = () => window.dispatchEvent(new Event("pp_custom_theme_changed"));
+
+  const equipBoard = (id: string) => {
     if (!token) return;
     
     // Optimistic UI Update
-    const prevBoard = activeBoard;
+    setEquipping(id);
     setActiveBoard(id);
     const current = loadCustomTheme();
     saveCustomTheme({ ...current, boardSkin: id as any });
+    emitThemeChanged();
+    updateUser({ board_style: id });
     
     setEquipMsg({ text: "Board skin equipped!", ok: true });
     setTimeout(() => setEquipMsg(null), 1800);
+    setTimeout(() => setEquipping((cur) => (cur === id ? null : cur)), 350);
 
-    // Background API call
-    try {
-      await API.put("/api/profile/me", { board_style: id }, { headers: { Authorization: `Bearer ${token}` }, timeout: 15000 });
-      updateUser({ board_style: id });
-    } catch (e: any) {
-      // Revert on failure
-      setActiveBoard(prevBoard);
-      saveCustomTheme({ ...current, boardSkin: prevBoard as any });
-      setEquipMsg({ text: e?.response?.data?.detail || "Failed to equip server-side", ok: false });
-      setTimeout(() => setEquipMsg(null), 2500);
-    }
+    // Non-blocking server sync. Keep local selection to avoid lag/flicker.
+    API.put("/api/profile/me", { board_style: id }, { headers: { Authorization: `Bearer ${token}` }, timeout: 8000 })
+      .then((res) => updateUser(res.data))
+      .catch(() => {});
   };
 
   const equipPiece = (id: string) => {
     const current = loadCustomTheme();
     saveCustomTheme({ ...current, pieceSkin: id as any });
+    emitThemeChanged();
     setActivePiece(id);
     setEquipMsg({ text: "Piece skin equipped!", ok: true });
     setTimeout(() => setEquipMsg(null), 1800);
@@ -630,31 +629,27 @@ export default function CollectionScreen({ themeId, setThemeIdAction, onHoverAct
   const equipToss = (id: string) => {
     const current = loadCustomTheme();
     saveCustomTheme({ ...current, tossSkin: id as any });
+    emitThemeChanged();
     setActiveToss(id);
     setEquipMsg({ text: "Toss animation equipped!", ok: true });
     setTimeout(() => setEquipMsg(null), 1800);
   };
 
-  const equipBanner = async (id: string) => {
+  const equipBanner = (id: string) => {
     if (!token) return;
-    const prev = activeBanner;
-    setActiveBanner(id);
     setEquippingBanner(id);
+    setActiveBanner(id);
     const cur = loadCustomTheme();
     saveCustomTheme({ ...cur, bannerSkin: id as any });
-    
-    try {
-      await API.put("/api/profile/me", { banner: id }, { headers: { Authorization: `Bearer ${token}` }, timeout: 15000 });
-      updateUser({ banner: id });
-      setEquipMsg({ text: "Banner equipped!", ok: true });
-    } catch (e: any) {
-      setActiveBanner(prev);
-      saveCustomTheme({ ...cur, bannerSkin: prev as any });
-      setEquipMsg({ text: e?.response?.data?.detail || "Failed to equip banner", ok: false });
-    } finally {
-      setEquippingBanner(null);
-      setTimeout(() => setEquipMsg(null), 1800);
-    }
+    emitThemeChanged();
+    updateUser({ banner: id });
+    setEquipMsg({ text: "Banner equipped!", ok: true });
+    setTimeout(() => setEquipMsg(null), 1800);
+    setTimeout(() => setEquippingBanner((cur) => (cur === id ? null : cur)), 350);
+
+    API.put("/api/profile/me", { banner: id }, { headers: { Authorization: `Bearer ${token}` }, timeout: 8000 })
+      .then((res) => updateUser(res.data))
+      .catch(() => {});
   };
 
   const handleBuyItem = (id: string, label: string, price: number) => {
@@ -680,13 +675,16 @@ export default function CollectionScreen({ themeId, setThemeIdAction, onHoverAct
       if (BOARD_SKINS.some(b => b.id === id)) {
         saveCustomTheme({ ...cur, boardSkin: id as any });
         setActiveBoard(id);
+        emitThemeChanged();
       } else if (id.startsWith("piece_")) {
         const skinId = id.replace("piece_", "");
         saveCustomTheme({ ...cur, pieceSkin: skinId as any });
         setActivePiece(skinId);
+        emitThemeChanged();
       } else if ((STORE_BANNER_ITEM_IDS as readonly string[]).includes(id)) {
         saveCustomTheme({ ...cur, bannerSkin: id as any });
         setActiveBanner(id);
+        emitThemeChanged();
       }
       setEquipMsg({ text: `✓ ${purchaseModal.label} unlocked & equipped!`, ok: true });
       setTimeout(() => setEquipMsg(null), 2200);
@@ -714,7 +712,7 @@ export default function CollectionScreen({ themeId, setThemeIdAction, onHoverAct
   const equipBundle = async (bundle: BoardBundle) => {
     const bOk = bundle.bOwned(profile);
     const pOk = bundle.pOwned(profile);
-    if (bOk) await equipBoard(bundle.boardId);
+    if (bOk) equipBoard(bundle.boardId);
     if (pOk) equipPiece(bundle.pieceId);
     if (!bOk && !pOk) return;
     if (bOk && pOk) setEquipMsg({ text: `${bundle.label} equipped!`, ok: true });
