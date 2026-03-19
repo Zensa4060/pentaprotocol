@@ -200,7 +200,7 @@ function AvatarWithBorder({ profile, size=68, borderDef, accentColor, bgColor, p
   if (!isNoBorder) shadow = isRainbow ? "0 0 0 3px #FF6B6B, 0 0 0 6px #FFD700, 0 0 20px #FF6B6BAA" : borderDef.css;
   return (
     <div className={animClass} style={{ width:size, height:size, borderRadius:"50%", background:`linear-gradient(135deg,${p1},${p2})`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:size*0.41, border:`3px solid ${bgColor}`, overflow:"hidden", boxShadow:shadow, position:"relative", flexShrink:0 }}>
-      {profile.avatar ? <img src={profile.avatar} style={{ width:"100%", height:"100%", objectFit:"cover" }} /> : "👤"}
+      {resolveAvatar(profile) ? <img src={resolveAvatar(profile)!} style={{ width:"100%", height:"100%", objectFit:"cover" }} /> : "👤"}
     </div>
   );
 }
@@ -260,6 +260,8 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
   const [showEmailPw, setShowEmailPw]     = useState(false);
   const [emailTotpStep, setEmailTotpStep] = useState<"idle"|"awaiting_otp">("idle");
   const [emailOtpCode, setEmailOtpCode]   = useState("");
+  const resolveAvatar = (p: any): string | null =>
+    p?.avatar || p?.avatar_url || p?.profile_avatar || null;
 
   useEffect(() => {
     if (!user) { setLoading(false); setProfileError(null); return; }
@@ -270,7 +272,7 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
     let cancelled = false;
     const fetchProfile = async () => {
       try {
-        const res = await API.get("/api/profile/me", { timeout: 15000 });
+        const res = await API.get("/api/profile/me", { headers: { Authorization: `Bearer ${token}` }, timeout: 15000 });
         if (cancelled) return;
         setProfile(res.data);
         updateUser(res.data);
@@ -533,8 +535,9 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
       setEditMsg({ text:"Email updated successfully!", ok:true });
       setEmailNew(""); setEmailPw("");
       setEmailTotpStep("idle"); setEmailOtpCode("");
-      const res = await API.get("/api/profile/me");
+      const res = await API.get("/api/profile/me", authHeader);
       setProfile(res.data);
+      updateUser(res.data);
     } catch(e:any) {
       setEditMsg({ text: e.response?.data?.detail || "Failed to update email", ok:false });
       setEmailTotpStep("idle"); setEmailOtpCode("");
@@ -905,8 +908,8 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
                     <div style={{ display:"flex", alignItems:"center", gap:14 }}>
                       {/* Preview: shows local blob URL or existing avatar URL — never base64 */}
                       <div style={{ width:56, height:56, borderRadius:"50%", background:`linear-gradient(135deg,${t.p1},${t.p2})`, overflow:"hidden", border:`2px solid ${t.border}`, flexShrink:0 }}>
-                        {(avatarPreview || profile.avatar)
-                          ? <img src={avatarPreview || profile.avatar} style={{ width:"100%", height:"100%", objectFit:"cover" }} />
+                        {(avatarPreview || resolveAvatar(profile))
+                          ? <img src={avatarPreview || resolveAvatar(profile)!} style={{ width:"100%", height:"100%", objectFit:"cover" }} />
                           : <div style={{ width:"100%", height:"100%", display:"flex", alignItems:"center", justifyContent:"center", fontSize:22 }}>👤</div>}
                       </div>
                       <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
@@ -957,7 +960,7 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
                   <div style={{ display:"flex", alignItems:"center", gap:16, padding:"14px 16px", background:t.bgCard, borderRadius:12, border:`1px solid ${t.border}` }}>
                     <div className={previewBorderDef.id !== "none" ? `border-anim-${previewBorderDef.animation}` : ""}
                       style={{ width:52, height:52, borderRadius:"50%", background:`linear-gradient(135deg,${t.p1},${t.p2})`, border:`3px solid ${t.bg}`, boxShadow:previewShadow, display:"flex", alignItems:"center", justifyContent:"center", fontSize:20, flexShrink:0, overflow:"hidden" }}>
-                      {profile.avatar ? <img src={profile.avatar} style={{ width:"100%", height:"100%", objectFit:"cover", borderRadius:"50%" }} /> : "👤"}
+                      {resolveAvatar(profile) ? <img src={resolveAvatar(profile)!} style={{ width:"100%", height:"100%", objectFit:"cover", borderRadius:"50%" }} /> : "👤"}
                     </div>
                     <div>
                       <div style={{ fontFamily:t.fontDisplay, fontSize:14, fontWeight:700, color:t.text }}>{previewBorderDef.label}</div>
