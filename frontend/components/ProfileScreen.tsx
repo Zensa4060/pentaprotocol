@@ -25,6 +25,8 @@ import ArcticVeilBanner from "./ArcticVeilBanner";
 import StarfieldBanner from "./StarfieldBanner";
 import DigitalRainBanner from "./DigitalRainBanner";
 import InfernoBanner from "./InfernoBanner";
+// ── Supabase storage client ───────────────────────────────────────────────────
+import { supabase } from "@/lib/supabase";
 
 export const RANKS = [
   { name: "NOVICE",       min: 0,    max: 500,  color: "#9CA3AF", icon: null, img: "/novice.svg",       scale: 1.3 },
@@ -152,73 +154,25 @@ export const RankIcon = ({ rank, size = 26 }: { rank: typeof RANKS[0]; size?: nu
     <div
       className="rank-badge-container"
       style={{
-        width: size,
-        height: size,
-        borderRadius: "50%",
-        background: "transparent",
-        flexShrink: 0,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        overflow: "visible",
-        position: "relative",
-        boxShadow: "none",
-        transition: "transform 0.3s ease",
+        width: size, height: size, borderRadius: "50%",
+        background: "transparent", flexShrink: 0,
+        display: "flex", alignItems: "center", justifyContent: "center",
+        overflow: "visible", position: "relative",
+        boxShadow: "none", transition: "transform 0.3s ease",
         "--rank-col": rank.color,
       } as React.CSSProperties}
     >
       {rank.img ? (
         <>
           {hasHalo && (
-            <div
-              aria-hidden
-              style={{
-                position: "absolute",
-                left: "50%",
-                top: "50%",
-                width: "135%",
-                height: "135%",
-                borderRadius: "50%",
-                background: rankHaloGradientForRank(rank.color, rank),
-                pointerEvents: "none",
-                zIndex: 0,
-                animation: "rankHaloPulse 2.6s ease-in-out infinite",
-              }}
-            />
+            <div aria-hidden style={{ position:"absolute", left:"50%", top:"50%", width:"135%", height:"135%", borderRadius:"50%", background:rankHaloGradientForRank(rank.color, rank), pointerEvents:"none", zIndex:0, animation:"rankHaloPulse 2.6s ease-in-out infinite" }} />
           )}
-          <img
-            src={rank.img}
-            alt={rank.name}
-            draggable={false}
-            className="rank-emblem-img"
-            style={{
-              width: imgSize,
-              height: imgSize,
-              objectFit: "contain",
-              userSelect: "none",
-              pointerEvents: "none",
-              position: "relative",
-              zIndex: 1,
-              filter: filt,
-            }}
-          />
+          <img src={rank.img} alt={rank.name} draggable={false} className="rank-emblem-img"
+            style={{ width:imgSize, height:imgSize, objectFit:"contain", userSelect:"none", pointerEvents:"none", position:"relative", zIndex:1, filter:filt }} />
         </>
       ) : (
-        <span
-          style={{
-            fontSize: size * 0.6,
-            color: rank.color,
-            lineHeight: 1,
-            userSelect: "none",
-            pointerEvents: "none",
-            position: "relative",
-            zIndex: 1,
-            textShadow:
-              tGlow >= 0.002
-                ? `0 0 ${Math.max(1, Math.round(2 + 14 * tGlow))}px ${rank.color}, 0 0 ${Math.max(2, Math.round(4 + 32 * tGlow))}px ${rank.color}${Math.min(255, Math.round(0x99 * tGlow)).toString(16).padStart(2, "0")}`
-                : "none",
-          }}
-        >
+        <span style={{ fontSize:size*0.6, color:rank.color, lineHeight:1, userSelect:"none", pointerEvents:"none", position:"relative", zIndex:1,
+          textShadow: tGlow >= 0.002 ? `0 0 ${Math.max(1,Math.round(2+14*tGlow))}px ${rank.color}, 0 0 ${Math.max(2,Math.round(4+32*tGlow))}px ${rank.color}${Math.min(255,Math.round(0x99*tGlow)).toString(16).padStart(2,"0")}` : "none" }}>
           {rank.icon}
         </span>
       )}
@@ -227,62 +181,26 @@ export const RankIcon = ({ rank, size = 26 }: { rank: typeof RANKS[0]; size?: nu
 };
 
 function TitleBadge({ title, onClick }: { title: typeof TITLES[0]; onClick?: () => void }) {
-  const animClass = `title-anim-${title.animation}`;
   return (
-    <div onClick={onClick}
-      className={animClass}
-      style={{
-        padding: "2px 10px", borderRadius: 20,
-        border: `1px solid ${title.color}44`,
-        background: `${title.color}12`,
-        cursor: onClick ? "pointer" : "default",
-        transition: "all 0.15s",
-        display: "inline-flex", alignItems: "center",
-      }}>
-      <span style={{ fontFamily: "var(--font-mono, monospace)", fontSize: 11, fontWeight: 700, color: title.color, letterSpacing: "0.08em" }}>
-        {title.label}
-      </span>
+    <div onClick={onClick} className={`title-anim-${title.animation}`}
+      style={{ padding:"2px 10px", borderRadius:20, border:`1px solid ${title.color}44`, background:`${title.color}12`, cursor:onClick?"pointer":"default", transition:"all 0.15s", display:"inline-flex", alignItems:"center" }}>
+      <span style={{ fontFamily:"var(--font-mono, monospace)", fontSize:11, fontWeight:700, color:title.color, letterSpacing:"0.08em" }}>{title.label}</span>
     </div>
   );
 }
 
-function AvatarWithBorder({
-  profile, size = 68, borderDef, accentColor, bgColor,
-  p1, p2,
-}: {
+function AvatarWithBorder({ profile, size=68, borderDef, accentColor, bgColor, p1, p2 }: {
   profile: any; size?: number; borderDef: typeof PROFILE_BORDERS[0];
   accentColor: string; bgColor: string; p1: string; p2: string;
 }) {
-  const isRainbow   = borderDef.id === "rainbow_halo";
-  const isNoBorder  = borderDef.id === "none";
-  const animClass   = isNoBorder ? "" : `border-anim-${borderDef.animation}`;
-
+  const isNoBorder = borderDef.id === "none";
+  const isRainbow  = borderDef.id === "rainbow_halo";
+  const animClass  = isNoBorder ? "" : `border-anim-${borderDef.animation}`;
   let shadow = "none";
-  if (!isNoBorder) {
-    if (isRainbow) {
-      shadow = "0 0 0 3px #FF6B6B, 0 0 0 6px #FFD700, 0 0 20px #FF6B6BAA";
-    } else {
-      shadow = borderDef.css;
-    }
-  }
-
+  if (!isNoBorder) shadow = isRainbow ? "0 0 0 3px #FF6B6B, 0 0 0 6px #FFD700, 0 0 20px #FF6B6BAA" : borderDef.css;
   return (
-    <div
-      className={animClass}
-      style={{
-        width: size, height: size, borderRadius: "50%",
-        background: `linear-gradient(135deg,${p1},${p2})`,
-        display: "flex", alignItems: "center", justifyContent: "center",
-        fontSize: size * 0.41,
-        border: `3px solid ${bgColor}`,
-        overflow: "hidden",
-        boxShadow: shadow,
-        position: "relative",
-        flexShrink: 0,
-      }}>
-      {profile.avatar
-        ? <img src={profile.avatar} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-        : "👤"}
+    <div className={animClass} style={{ width:size, height:size, borderRadius:"50%", background:`linear-gradient(135deg,${p1},${p2})`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:size*0.41, border:`3px solid ${bgColor}`, overflow:"hidden", boxShadow:shadow, position:"relative", flexShrink:0 }}>
+      {profile.avatar ? <img src={profile.avatar} style={{ width:"100%", height:"100%", objectFit:"cover" }} /> : "👤"}
     </div>
   );
 }
@@ -300,57 +218,59 @@ const LockSVG = () => (
 export default function ProfileScreen({ themeId, onHoverAction, onClickAction, setScreenAction }: Props) {
   const t = THEMES[themeId];
   const { user, token, updateUser } = useAuthStore();
-  const [profile, setProfile] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-  const [profileError, setProfileError] = useState<string | null>(null);
+  const [profile, setProfile]             = useState<any>(null);
+  const [loading, setLoading]             = useState(true);
+  const [profileError, setProfileError]   = useState<string | null>(null);
   const [profileFetchKey, setProfileFetchKey] = useState(0);
 
-  const [twoFASection, setTwoFASection] = useState<"idle"|"setup"|"disable">("idle");
-  const [qrCode, setQrCode]       = useState("");
-  const [secret, setSecret]       = useState("");
-  const [totpInput, setTotpInput] = useState("");
-  const [twoFALoading, setTwoFALoading] = useState(false);
-  const [twoFAMsg, setTwoFAMsg]   = useState<{text:string;ok:boolean}|null>(null);
-  const [twoFAReady, setTwoFAReady] = useState(false);
+  const [twoFASection, setTwoFASection]   = useState<"idle"|"setup"|"disable">("idle");
+  const [qrCode, setQrCode]               = useState("");
+  const [secret, setSecret]               = useState("");
+  const [totpInput, setTotpInput]         = useState("");
+  const [twoFALoading, setTwoFALoading]   = useState(false);
+  const [twoFAMsg, setTwoFAMsg]           = useState<{text:string;ok:boolean}|null>(null);
+  const [twoFAReady, setTwoFAReady]       = useState(false);
 
-  const [showEdit, setShowEdit]       = useState(false);
-  const [editTab, setEditTab]         = useState<EditTab>("profile");
-  const [editMsg, setEditMsg]         = useState<{text:string;ok:boolean}|null>(null);
-  const [editLoading, setEditLoading] = useState(false);
+  const [showEdit, setShowEdit]           = useState(false);
+  const [editTab, setEditTab]             = useState<EditTab>("profile");
+  const [editMsg, setEditMsg]             = useState<{text:string;ok:boolean}|null>(null);
+  const [editLoading, setEditLoading]     = useState(false);
 
-  const [editBio, setEditBio]           = useState("");
-  const [editUsername, setEditUsername] = useState("");
-  const [editAvatar, setEditAvatar]     = useState<string|null>(null);
-  const [editBanner, setEditBanner]     = useState<string>("default");
-  const [editBorder, setEditBorder]     = useState<string>("none");
-  const [editTitle, setEditTitle]       = useState<string>("newcomer");
+  const [editBio, setEditBio]             = useState("");
+  const [editUsername, setEditUsername]   = useState("");
 
-  const [pwCurrent, setPwCurrent]   = useState("");
-  const [pwNew, setPwNew]           = useState("");
-  const [pwConfirm, setPwConfirm]   = useState("");
+  // ── Avatar state — File object + local preview URL, never base64 ──────────
+  const [avatarFile, setAvatarFile]       = useState<File | null>(null);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+
+  const [editBanner, setEditBanner]       = useState<string>("default");
+  const [editBorder, setEditBorder]       = useState<string>("none");
+  const [editTitle, setEditTitle]         = useState<string>("newcomer");
+
+  const [pwCurrent, setPwCurrent]         = useState("");
+  const [pwNew, setPwNew]                 = useState("");
+  const [pwConfirm, setPwConfirm]         = useState("");
   const [showPwCurrent, setShowPwCurrent] = useState(false);
   const [showPwNew, setShowPwNew]         = useState(false);
-  const [pwTotpStep, setPwTotpStep]   = useState<"idle"|"awaiting_otp">("idle");
-  const [pwOtpCode, setPwOtpCode]     = useState("");
+  const [pwTotpStep, setPwTotpStep]       = useState<"idle"|"awaiting_otp">("idle");
+  const [pwOtpCode, setPwOtpCode]         = useState("");
 
-  const [emailNew, setEmailNew]     = useState("");
-  const [emailPw, setEmailPw]       = useState("");
-  const [showEmailPw, setShowEmailPw] = useState(false);
+  const [emailNew, setEmailNew]           = useState("");
+  const [emailPw, setEmailPw]             = useState("");
+  const [showEmailPw, setShowEmailPw]     = useState(false);
   const [emailTotpStep, setEmailTotpStep] = useState<"idle"|"awaiting_otp">("idle");
   const [emailOtpCode, setEmailOtpCode]   = useState("");
 
   useEffect(() => {
     if (!user) { setLoading(false); setProfileError(null); return; }
     setProfileError(null);
-    // Render immediately from local user snapshot, then refresh from API.
     setProfile((p: any) => p ?? { ...user, totp_enabled: (user as any)?.totp_enabled ?? false });
     setTwoFAReady(true);
     setLoading(false);
     let cancelled = false;
-    const timeoutMs = 15000;
     const fetchProfile = async () => {
       try {
-        const res = await API.get("/api/profile/me", { timeout: timeoutMs });
+        const res = await API.get("/api/profile/me", { timeout: 15000 });
         if (cancelled) return;
         setProfile(res.data);
         updateUser(res.data);
@@ -358,20 +278,11 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
       } catch (e: any) {
         if (cancelled) return;
         const msg = e?.code === "ECONNABORTED" ? "Request timed out." : e?.message || "Could not load profile.";
-        // If local profile snapshot exists, keep UI smooth and avoid noisy timeout banners.
         if (!user) setProfileError(msg);
       }
     };
     fetchProfile();
-    const fallback = setTimeout(() => {
-      if (!cancelled) {
-        if (!user) setProfileError((prev) => prev ?? "Request timed out.");
-      }
-    }, timeoutMs + 500);
-    return () => {
-      cancelled = true;
-      clearTimeout(fallback);
-    };
+    return () => { cancelled = true; };
   }, [user, profileFetchKey]);
 
   if (loading) return (
@@ -384,7 +295,6 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
       <div style={{ fontFamily:t.fontDisplay, fontSize:24, color:t.textMuted }}>Sign in to view your profile</div>
     </div>
   );
-
   if (!profile) return null;
 
   const elo      = profile.elo || 500;
@@ -392,8 +302,8 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
   const nextRank = RANKS[RANKS.indexOf(rank) + 1];
   const progress = nextRank ? ((elo - rank.min) / (rank.max - rank.min)) * 100 : 100;
   const authHeader = { headers: { Authorization: `Bearer ${token}` } };
-  const activeTitle  = TITLES.find(ti => ti.id === (profile.title || "newcomer")) || TITLES[0];
-  const activeBanner = BANNERS.find(b => b.id === (profile.banner || "default")) || BANNERS[0];
+  const activeTitle     = TITLES.find(ti => ti.id === (profile.title || "newcomer")) || TITLES[0];
+  const activeBanner    = BANNERS.find(b => b.id === (profile.banner || "default")) || BANNERS[0];
   const activeBorderDef = PROFILE_BORDERS.find(b => b.id === (profile.border_style || "none")) || PROFILE_BORDERS[0];
 
   // ── 2FA helpers ───────────────────────────────────────────────────────────
@@ -438,7 +348,9 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
   const openEdit = (tab: EditTab = "profile") => {
     setEditBio(profile.bio || "");
     setEditUsername(profile.username || "");
-    setEditAvatar(null);
+    // Reset avatar state — never carry over old base64
+    setAvatarFile(null);
+    setAvatarPreview(null);
     setEditBanner(profile.banner || "default");
     setEditBorder(profile.border_style || "none");
     setEditTitle(profile.title || "newcomer");
@@ -451,20 +363,23 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
     setShowEdit(true);
   };
 
+  // ── Avatar file handler — stores File object + blob URL preview only ─────
   const handleAvatarFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     if (!["image/jpeg","image/png","image/webp"].includes(file.type)) {
       setEditMsg({ text:"Only JPEG, PNG or WebP allowed", ok:false }); return;
     }
-    if (file.size > 2*1024*1024) {
+    if (file.size > 2 * 1024 * 1024) {
       setEditMsg({ text:"Image must be under 2MB", ok:false }); return;
     }
-    const reader = new FileReader();
-    reader.onload = () => setEditAvatar(reader.result as string);
-    reader.readAsDataURL(file);
+    // Revoke previous preview URL to avoid memory leaks
+    if (avatarPreview) URL.revokeObjectURL(avatarPreview);
+    setAvatarFile(file);
+    setAvatarPreview(URL.createObjectURL(file)); // local preview only — never base64
   };
 
+  // ── Submit profile — uploads file to Supabase, saves URL to MongoDB ───────
   const submitProfile = async () => {
     setEditMsg(null);
     if (editUsername !== profile.username) {
@@ -476,17 +391,50 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
     }
     setEditLoading(true);
     try {
+      let avatarUrl: string | null = null;
+
+      if (avatarFile) {
+        // Use user ID as filename so each user always overwrites their own avatar
+        const userId = (user as any)?.id ?? (user as any)?._id ?? Date.now().toString();
+        const ext    = avatarFile.name.split(".").pop() || "jpg";
+        const path   = `${userId}.${ext}`;
+
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from("avatars")
+          .upload(path, avatarFile, {
+            upsert: true,           // overwrite existing avatar
+            contentType: avatarFile.type,
+          });
+
+        if (uploadError) throw new Error(`Upload failed: ${uploadError.message}`);
+
+        // Get permanent public URL — just a short string, not base64
+        const { data: urlData } = supabase.storage
+          .from("avatars")
+          .getPublicUrl(uploadData.path);
+
+        // Add cache-busting so the browser picks up the new image immediately
+        avatarUrl = `${urlData.publicUrl}?t=${Date.now()}`;
+      }
+
       const payload: any = {};
-      if (editUsername !== profile.username) payload.username = editUsername;
-      if (editBio !== (profile.bio||""))     payload.bio      = editBio;
-      if (editAvatar)                        payload.avatar   = editAvatar;
+      if (editUsername !== profile.username)  payload.username = editUsername;
+      if (editBio !== (profile.bio || ""))    payload.bio      = editBio;
+      if (avatarUrl)                          payload.avatar   = avatarUrl; // short URL ✅
+
       if (!Object.keys(payload).length) { setShowEdit(false); return; }
+
       const res = await API.put("/api/profile/me", payload, authHeader);
       setProfile(res.data);
+      updateUser(res.data);
       setEditMsg({ text:"Profile updated!", ok:true });
+      // Clean up local preview
+      if (avatarPreview) URL.revokeObjectURL(avatarPreview);
+      setAvatarFile(null);
+      setAvatarPreview(null);
       setTimeout(() => setShowEdit(false), 900);
-    } catch(e:any) {
-      setEditMsg({ text: e.response?.data?.detail || "Update failed", ok:false });
+    } catch (e: any) {
+      setEditMsg({ text: e.response?.data?.detail || e.message || "Update failed", ok:false });
     } finally { setEditLoading(false); }
   };
 
@@ -495,9 +443,6 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
     try {
       const res = await API.put("/api/profile/me", { banner: editBanner }, authHeader);
       setProfile(res.data);
-      // Ensure other screens (Career/Game/Lobby/Collection) reflect the change:
-      // - update global auth store
-      // - update custom-theme bannerSkin (CollectionScreen + most banner renderers use it)
       updateUser(res.data);
       const cur = loadCustomTheme();
       saveCustomTheme({ ...cur, bannerSkin: editBanner });
@@ -533,20 +478,12 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
     } finally { setEditLoading(false); }
   };
 
-  // ── CHANGE PASSWORD ───────────────────────────────────────────────────────
   const submitPassword = async () => {
     setEditMsg(null);
-
-    // ← 2FA required gate
-    if (!enabled) {
-      setEditMsg({ text:"You must enable Two-Factor Authentication (2FA) before changing your password.", ok:false });
-      return;
-    }
-
+    if (!enabled) { setEditMsg({ text:"You must enable Two-Factor Authentication (2FA) before changing your password.", ok:false }); return; }
     if (!pwCurrent) { setEditMsg({ text:"Enter your current password", ok:false }); return; }
     if (pwNew.length < 8) { setEditMsg({ text:"New password must be at least 8 characters", ok:false }); return; }
     if (pwNew !== pwConfirm) { setEditMsg({ text:"New passwords do not match", ok:false }); return; }
-
     if (pwTotpStep === "idle") {
       setEditLoading(true);
       try {
@@ -558,15 +495,10 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
       } finally { setEditLoading(false); }
       return;
     }
-
     if (pwOtpCode.trim().length !== 6) { setEditMsg({ text:"Enter the 6-digit OTP sent to your email", ok:false }); return; }
     setEditLoading(true);
     try {
-      await API.post("/api/otp/change-password/verify", {
-        current_password: pwCurrent,
-        new_password: pwNew,
-        otp: pwOtpCode.trim(),
-      }, authHeader);
+      await API.post("/api/otp/change-password/verify", { current_password:pwCurrent, new_password:pwNew, otp:pwOtpCode.trim() }, authHeader);
       setEditMsg({ text:"Password changed successfully!", ok:true });
       setPwCurrent(""); setPwNew(""); setPwConfirm("");
       setPwTotpStep("idle"); setPwOtpCode("");
@@ -576,18 +508,10 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
     } finally { setEditLoading(false); }
   };
 
-  // ── CHANGE EMAIL ──────────────────────────────────────────────────────────
   const submitEmail = async () => {
     setEditMsg(null);
-
-    // ← 2FA required gate
-    if (!enabled) {
-      setEditMsg({ text:"You must enable Two-Factor Authentication (2FA) before changing your email.", ok:false });
-      return;
-    }
-
+    if (!enabled) { setEditMsg({ text:"You must enable Two-Factor Authentication (2FA) before changing your email.", ok:false }); return; }
     if (!emailNew || !emailNew.includes("@")) { setEditMsg({ text:"Enter a valid email address", ok:false }); return; }
-
     if (emailTotpStep === "idle") {
       setEditLoading(true);
       try {
@@ -599,14 +523,10 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
       } finally { setEditLoading(false); }
       return;
     }
-
     if (emailOtpCode.trim().length !== 6) { setEditMsg({ text:"Enter the 6-digit OTP sent to your new email", ok:false }); return; }
     setEditLoading(true);
     try {
-      await API.post("/api/otp/change-email/verify", {
-        new_email: emailNew,
-        otp: emailOtpCode.trim(),
-      }, authHeader);
+      await API.post("/api/otp/change-email/verify", { new_email:emailNew, otp:emailOtpCode.trim() }, authHeader);
       setEditMsg({ text:"Email updated successfully!", ok:true });
       setEmailNew(""); setEmailPw("");
       setEmailTotpStep("idle"); setEmailOtpCode("");
@@ -620,11 +540,11 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
 
   const enabled = Boolean((profile as any)?.totp_enabled ?? (user as any)?.totp_enabled);
 
-  const rankedW   = profile.wins        || 0;
-  const rankedL   = profile.losses      || 0;
+  const rankedW   = profile.wins            || 0;
+  const rankedL   = profile.losses          || 0;
   const unrankedW = profile.unranked_wins   || 0;
   const unrankedL = profile.unranked_losses || 0;
-  const draws     = profile.draws       || 0;
+  const draws     = profile.draws           || 0;
   const totalGames = rankedW + rankedL + unrankedW + unrankedL + draws;
 
   const stats = [
@@ -673,26 +593,20 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
 
   const previewBorderDef = PROFILE_BORDERS.find(b => b.id === editBorder) || PROFILE_BORDERS[0];
   const previewIsRainbow = previewBorderDef.id === "rainbow_halo";
-  const previewShadow = previewBorderDef.id === "none" ? "none"
+  const previewShadow    = previewBorderDef.id === "none" ? "none"
     : previewIsRainbow ? "0 0 0 3px #FF6B6B, 0 0 0 6px #FFD700, 0 0 20px #FF6B6BAA"
     : previewBorderDef.css;
 
-  // ── Reusable 2FA required notice ──────────────────────────────────────────
   const TwoFARequired = () => (
     <div style={{ background:`${t.danger}10`, border:`1px solid ${t.danger}44`, borderRadius:10, padding:"16px 18px", display:"flex", flexDirection:"column", gap:10 }}>
       <div style={{ display:"flex", alignItems:"center", gap:10 }}>
         <div style={{ fontSize:22 }}>🔒</div>
         <div>
           <div style={{ fontFamily:t.fontDisplay, fontSize:14, fontWeight:700, color:t.danger }}>2FA Required</div>
-          <div style={{ fontFamily:t.fontBody, fontSize:12, color:t.textMuted, marginTop:2 }}>
-            You must enable Two-Factor Authentication before changing sensitive account details.
-          </div>
+          <div style={{ fontFamily:t.fontBody, fontSize:12, color:t.textMuted, marginTop:2 }}>You must enable Two-Factor Authentication before changing sensitive account details.</div>
         </div>
       </div>
-      <button
-        onClick={() => { setShowEdit(false); }}
-        style={{ padding:"9px 16px", background:`${t.accent}18`, border:`1px solid ${t.accent}`, borderRadius:8, color:t.accent, fontFamily:t.fontDisplay, fontSize:12, fontWeight:700, cursor:"pointer", alignSelf:"flex-start" }}
-      >
+      <button onClick={() => setShowEdit(false)} style={{ padding:"9px 16px", background:`${t.accent}18`, border:`1px solid ${t.accent}`, borderRadius:8, color:t.accent, fontFamily:t.fontDisplay, fontSize:12, fontWeight:700, cursor:"pointer", alignSelf:"flex-start" }}>
         ← Go enable 2FA first
       </button>
     </div>
@@ -712,24 +626,21 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
       .title-anim-fire { animation: titleFire 1.5s ease-in-out infinite alternate; }
       @keyframes titleFire { 0% { box-shadow: 0 0 4px #FF3333, 0 0 8px #FF6600; } 100% { box-shadow: 0 0 10px #FF6600, 0 0 20px #FF3333AA; } }
       .title-anim-rainbow { animation: titleRainbow 3s linear infinite; }
-      @keyframes titleRainbow { 0% { border-color: #FF6B6B44; box-shadow: 0 0 8px #FF6B6B55; } 16% { border-color: #FFD70044; box-shadow: 0 0 8px #FFD70055; } 33% { border-color: #5BE88844; box-shadow: 0 0 8px #5BE88855; } 50% { border-color: #60A5FA44; box-shadow: 0 0 8px #60A5FA55; } 66% { border-color: #A78BFA44; box-shadow: 0 0 8px #A78BFA55; } 83% { border-color: #FB718544; box-shadow: 0 0 8px #FB718555; } 100% { border-color: #FF6B6B44; box-shadow: 0 0 8px #FF6B6B55; } }
+      @keyframes titleRainbow { 0% { border-color: #FF6B6B44; } 16% { border-color: #FFD70044; } 33% { border-color: #5BE88844; } 50% { border-color: #60A5FA44; } 66% { border-color: #A78BFA44; } 83% { border-color: #FB718544; } 100% { border-color: #FF6B6B44; } }
       .title-anim-electric { animation: titleElectric 0.8s steps(1) infinite; }
-      @keyframes titleElectric { 0%,100% { box-shadow: 0 0 6px #38BDF8, 0 0 12px #A78BFA; opacity: 1; } 25% { box-shadow: 0 0 2px #38BDF8; opacity: 0.9; } 50% { box-shadow: 0 0 10px #A78BFA, 0 0 20px #38BDF8AA; opacity: 1; } 75% { box-shadow: 0 0 4px #38BDF8; opacity: 0.85; } }
+      @keyframes titleElectric { 0%,100% { box-shadow: 0 0 6px #38BDF8, 0 0 12px #A78BFA; } 25% { box-shadow: 0 0 2px #38BDF8; } 50% { box-shadow: 0 0 10px #A78BFA; } 75% { box-shadow: 0 0 4px #38BDF8; } }
       .border-anim-none { }
       .border-anim-pulse { animation: borderPulse 2s ease-in-out infinite; }
       @keyframes borderPulse { 0%,100% { filter: brightness(1); } 50% { filter: brightness(1.5) saturate(1.4); } }
-      .border-anim-spin { position: relative; }
-      .border-anim-spin::before { content: ''; position: absolute; inset: -4px; border-radius: 50%; background: conic-gradient(#F59E0B, #FCD34D, #F59E0B, #B45309, #F59E0B); animation: borderSpin 2s linear infinite; z-index: -1; }
-      @keyframes borderSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
       .border-anim-fire { animation: borderFire 1.5s ease-in-out infinite alternate; }
-      @keyframes borderFire { 0% { filter: drop-shadow(0 0 4px #FF3333) drop-shadow(0 0 8px #FF6600); } 100% { filter: drop-shadow(0 0 10px #FF6600) drop-shadow(0 0 18px #FF3333); } }
+      @keyframes borderFire { 0% { filter: drop-shadow(0 0 4px #FF3333); } 100% { filter: drop-shadow(0 0 10px #FF6600); } }
       .border-anim-electric { animation: borderElectric 0.6s steps(1) infinite; }
-      @keyframes borderElectric { 0%,100% { filter: drop-shadow(0 0 5px #A78BFA) drop-shadow(0 0 10px #7C3AED); } 33% { filter: drop-shadow(0 0 2px #7C3AED); } 66% { filter: drop-shadow(0 0 8px #A78BFA) drop-shadow(0 0 14px #38BDF8); } }
+      @keyframes borderElectric { 0%,100% { filter: drop-shadow(0 0 5px #A78BFA); } 50% { filter: drop-shadow(0 0 8px #38BDF8); } }
       .border-anim-rainbow { animation: borderRainbow 3s linear infinite; }
-      @keyframes borderRainbow { 0% { filter: drop-shadow(0 0 6px #FF6B6B); } 16% { filter: drop-shadow(0 0 6px #FFD700); } 33% { filter: drop-shadow(0 0 6px #5BE888); } 50% { filter: drop-shadow(0 0 6px #60A5FA); } 66% { filter: drop-shadow(0 0 6px #A78BFA); } 83% { filter: drop-shadow(0 0 6px #FB7185); } 100% { filter: drop-shadow(0 0 6px #FF6B6B); } }
+      @keyframes borderRainbow { 0% { filter: drop-shadow(0 0 6px #FF6B6B); } 33% { filter: drop-shadow(0 0 6px #5BE888); } 66% { filter: drop-shadow(0 0 6px #A78BFA); } 100% { filter: drop-shadow(0 0 6px #FF6B6B); } }
       .edit-tab-btn { transition: all 0.18s ease; }
       .edit-tab-btn:hover { opacity: 0.85; }
-      .banner-card { transition: transform 0.15s ease, box-shadow 0.15s ease; cursor:pointer; }
+      .banner-card { transition: transform 0.15s ease; cursor:pointer; }
       .banner-card:hover { transform: translateY(-2px); }
       .title-pill { transition: all 0.15s ease; cursor:pointer; }
       .title-pill:hover { transform: translateY(-1px); }
@@ -745,54 +656,47 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
       {profileError && (
         <div style={{ marginBottom:12, padding:"10px 14px", background:`${t.danger}18`, border:`1px solid ${t.danger}44`, borderRadius:10, display:"flex", alignItems:"center", justifyContent:"space-between", gap:12, flexWrap:"wrap" }}>
           <span style={{ fontFamily:t.fontMono, fontSize:13, color:t.textMuted }}>{profileError} Check your connection.</span>
-          <button type="button" onClick={() => { setProfileError(null); setProfileFetchKey(k => k + 1); }} style={{ padding:"6px 12px", background:t.accent, border:"none", borderRadius:8, color:"#fff", fontFamily:t.fontDisplay, fontSize:12, fontWeight:700, cursor:"pointer" }}>Retry</button>
+          <button type="button" onClick={() => { setProfileError(null); setProfileFetchKey(k => k+1); }} style={{ padding:"6px 12px", background:t.accent, border:"none", borderRadius:8, color:"#fff", fontFamily:t.fontDisplay, fontSize:12, fontWeight:700, cursor:"pointer" }}>Retry</button>
         </div>
       )}
 
       {/* ── Banner + Avatar + Name ─────────────────────────────────────────── */}
-      <div style={{ background:t.bgPanel, border:`1px solid ${t.border}`, borderRadius:16, marginBottom:18, overflow:"hidden", position: "relative", minHeight: 200 }}>
-        <div style={{ position: "absolute", inset: 0, zIndex: 0, opacity: 1.0 }}>
+      <div style={{ background:t.bgPanel, border:`1px solid ${t.border}`, borderRadius:16, marginBottom:18, overflow:"hidden", position:"relative", minHeight:200 }}>
+        <div style={{ position:"absolute", inset:0, zIndex:0, opacity:1.0 }}>
           <BannerRenderer bannerId={activeBanner.id} />
-          <div style={{ position: "absolute", top: 0, left: "-150%", width: "200%", height: "100%", background: "linear-gradient(120deg, rgba(255,255,255,0) 30%, rgba(255,255,255,0.1) 38%, rgba(255,255,255,0.2) 40%, rgba(255,255,255,0.1) 42%, rgba(255,255,255,0) 50%)", zIndex: 1, animation: "shineSweep 4s infinite linear" }} />
+          <div style={{ position:"absolute", top:0, left:"-150%", width:"200%", height:"100%", background:"linear-gradient(120deg, rgba(255,255,255,0) 30%, rgba(255,255,255,0.1) 38%, rgba(255,255,255,0.2) 40%, rgba(255,255,255,0.1) 42%, rgba(255,255,255,0) 50%)", zIndex:1, animation:"shineSweep 4s infinite linear" }} />
         </div>
-        <div
-          onClick={() => { onClickAction?.(); openEdit("banner"); }}
-          style={{ height: 100, cursor:"pointer", position:"relative", transition:"filter 0.2s", overflow: "hidden", zIndex: 2 }}
-          title="Change banner"
-        >
-          <div
-            style={{ position:"absolute", inset:0, display:"flex", alignItems:"center", justifyContent:"flex-end", padding:"0 16px", opacity:0, transition:"opacity 0.2s" }}
+        <div onClick={() => { onClickAction?.(); openEdit("banner"); }} style={{ height:100, cursor:"pointer", position:"relative", zIndex:2, overflow:"hidden" }} title="Change banner">
+          <div style={{ position:"absolute", inset:0, display:"flex", alignItems:"center", justifyContent:"flex-end", padding:"0 16px", opacity:0, transition:"opacity 0.2s" }}
             onMouseEnter={e => { onHoverAction?.(); (e.currentTarget as HTMLElement).style.opacity="1"; }}
-            onMouseLeave={e => (e.currentTarget as HTMLElement).style.opacity="0"}
-          >
-            <div style={{ background:"rgba(0,0,0,0.6)", border:`1px solid ${t.border}`, borderRadius:6, padding:"4px 12px", fontFamily:t.fontMono, fontSize:11, color:"#fff", letterSpacing:"0.1em" }}>
-              CHANGE BANNER
-            </div>
+            onMouseLeave={e => (e.currentTarget as HTMLElement).style.opacity="0"}>
+            <div style={{ background:"rgba(0,0,0,0.6)", border:`1px solid ${t.border}`, borderRadius:6, padding:"4px 12px", fontFamily:t.fontMono, fontSize:11, color:"#fff", letterSpacing:"0.1em" }}>CHANGE BANNER</div>
           </div>
         </div>
-        <div style={{ position: "relative", zIndex: 3, display:"flex", alignItems:"flex-end", gap:22, padding:"0 26px 26px", flexWrap:"wrap", background: "linear-gradient(to top, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0) 100%)", height: "100%", boxSizing: "border-box" }}>
+        <div style={{ position:"relative", zIndex:3, display:"flex", alignItems:"flex-end", gap:22, padding:"0 26px 26px", flexWrap:"wrap", background:"linear-gradient(to top, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0) 100%)", height:"100%", boxSizing:"border-box" }}>
           <div style={{ position:"relative", flexShrink:0 }}>
             <AvatarWithBorder profile={profile} size={72} borderDef={activeBorderDef} accentColor={t.accent} bgColor={t.bg} p1={t.p1} p2={t.p2} />
-            <div onClick={() => { onClickAction?.(); openEdit("profile"); }} style={{ position:"absolute", bottom:0, right:0, width:24, height:24, borderRadius:"50%", background:t.accent, display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer", fontSize:11, border:`2px solid ${t.bg}`, boxShadow: "0 0 10px rgba(0,0,0,0.5)" }}>✏</div>
+            <div onClick={() => { onClickAction?.(); openEdit("profile"); }} style={{ position:"absolute", bottom:0, right:0, width:24, height:24, borderRadius:"50%", background:t.accent, display:"flex", alignItems:"center", justifyContent:"center", cursor:"pointer", fontSize:11, border:`2px solid ${t.bg}`, boxShadow:"0 0 10px rgba(0,0,0,0.5)" }}>✏</div>
           </div>
           <div style={{ flex:1, minWidth:150 }}>
             <div style={{ display:"flex", alignItems:"center", gap:10, flexWrap:"wrap", marginBottom:4 }}>
-              <div style={{ fontFamily:t.fontDisplay, fontSize:26, fontWeight:700, color:t.text, textShadow: "0 2px 10px rgba(0,0,0,0.8)" }}>{profile.username}</div>
+              <div style={{ fontFamily:t.fontDisplay, fontSize:26, fontWeight:700, color:t.text, textShadow:"0 2px 10px rgba(0,0,0,0.8)" }}>{profile.username}</div>
               <TitleBadge title={activeTitle} onClick={() => { onClickAction?.(); openEdit("title"); }} />
             </div>
             <div style={{ display:"flex", gap:14, flexWrap:"wrap", alignItems:"center" }}>
-              <div style={{ fontFamily:t.fontMono, fontSize:13, color:t.text, textShadow: "0 1px 4px rgba(0,0,0,0.5)" }}>LVL <span style={{ color:t.accent, fontWeight:700, fontSize:15 }}>{profile.level}</span></div>
-              <div style={{ display:"flex", alignItems:"center", gap:5, "--rank-col": rank.color } as any}>
+              <div style={{ fontFamily:t.fontMono, fontSize:13, color:t.text, textShadow:"0 1px 4px rgba(0,0,0,0.5)" }}>LVL <span style={{ color:t.accent, fontWeight:700, fontSize:15 }}>{profile.level}</span></div>
+              <div style={{ display:"flex", alignItems:"center", gap:5, "--rank-col":rank.color } as any}>
                 <RankIcon rank={rank} size={33} />
-                <span style={{ fontFamily:t.fontBody, fontSize:14, color:rank.color, fontWeight:600, textShadow: "0 1px 4px rgba(0,0,0,0.5)" }}>{rank.name}</span>
+                <span style={{ fontFamily:t.fontBody, fontSize:14, color:rank.color, fontWeight:600, textShadow:"0 1px 4px rgba(0,0,0,0.5)" }}>{rank.name}</span>
               </div>
             </div>
-            {profile.bio && <div style={{ fontFamily:t.fontBody, fontSize:13, color:t.textMuted, marginTop:6, fontStyle:"italic", textShadow: "0 1px 4px rgba(0,0,0,0.5)" }}>"{profile.bio}"</div>}
+            {profile.bio && <div style={{ fontFamily:t.fontBody, fontSize:13, color:t.textMuted, marginTop:6, fontStyle:"italic", textShadow:"0 1px 4px rgba(0,0,0,0.5)" }}>"{profile.bio}"</div>}
           </div>
           <div style={{ display:"flex", flexDirection:"column", alignItems:"flex-end", gap:12, flexShrink:0 }}>
-            <button onClick={() => { onClickAction?.(); openEdit("profile"); }} style={{ padding:"8px 18px", background:`rgba(0,0,0,0.6)`, border:`1px solid ${t.accent}`, borderRadius:8, color:t.accent, fontFamily:t.fontDisplay, fontSize:12, fontWeight:700, cursor:"pointer", backdropFilter: "blur(4px)", transition: "all 0.2s" }}
-              onMouseEnter={e => { e.currentTarget.style.background = t.accent; e.currentTarget.style.color = "#000"; }}
-              onMouseLeave={e => { e.currentTarget.style.background = "rgba(0,0,0,0.6)"; e.currentTarget.style.color = t.accent; }}>
+            <button onClick={() => { onClickAction?.(); openEdit("profile"); }}
+              style={{ padding:"8px 18px", background:"rgba(0,0,0,0.6)", border:`1px solid ${t.accent}`, borderRadius:8, color:t.accent, fontFamily:t.fontDisplay, fontSize:12, fontWeight:700, cursor:"pointer", backdropFilter:"blur(4px)", transition:"all 0.2s" }}
+              onMouseEnter={e => { e.currentTarget.style.background=t.accent; e.currentTarget.style.color="#000"; }}
+              onMouseLeave={e => { e.currentTarget.style.background="rgba(0,0,0,0.6)"; e.currentTarget.style.color=t.accent; }}>
               ✏ Edit Profile
             </button>
           </div>
@@ -802,16 +706,15 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
       {/* ── ELO Progress bar ──────────────────────────────────────────────── */}
       <div style={{ background:t.bgPanel, border:`1px solid ${t.border}`, borderRadius:12, padding:"16px 22px", marginBottom:18 }}>
         <div style={{ display:"flex", justifyContent:"space-between", marginBottom:9, flexWrap:"wrap", gap:6, alignItems:"center" }}>
-          <span style={{ display:"flex", alignItems:"center", gap:8, fontFamily:t.fontDisplay, fontSize:17, color:rank.color, fontWeight:800, letterSpacing:"0.05em", "--rank-col": rank.color } as any}>
+          <span style={{ display:"flex", alignItems:"center", gap:8, fontFamily:t.fontDisplay, fontSize:17, color:rank.color, fontWeight:800, letterSpacing:"0.05em", "--rank-col":rank.color } as any}>
             <RankIcon rank={rank} size={42} />{rank.name}
           </span>
           {nextRank && (
-            <span style={{ display:"flex", alignItems:"center", gap:7, fontFamily:t.fontDisplay, fontSize:15, color:t.text, fontWeight:700, "--rank-col": nextRank.color } as any}>
+            <span style={{ display:"flex", alignItems:"center", gap:7, fontFamily:t.fontDisplay, fontSize:15, color:t.text, fontWeight:700, "--rank-col":nextRank.color } as any}>
               <RankIcon rank={nextRank} size={36} />{nextRank.name}
               {rank.name === nextRank.name
                 ? <span style={{ color:t.accent }}>&nbsp;· MAX RANK</span>
-                : <span style={{ color:t.accent }}>&nbsp;· {rank.max - elo} ELO away</span>
-              }
+                : <span style={{ color:t.accent }}>&nbsp;· {rank.max - elo} ELO away</span>}
             </span>
           )}
         </div>
@@ -857,14 +760,12 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
           const isProto = s.l === "Proto Credits";
           return (
             <div key={i} style={{ background:t.bgCard, border:`1px solid ${t.border}`, borderRadius:10, padding:"15px 17px" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+              <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:6 }}>
                 <div style={{ fontFamily:t.fontDisplay, fontSize:24, fontWeight:700, color:s.c }}>{s.v}</div>
                 {isPenta && <div style={{ width:24, height:24, flexShrink:0 }} dangerouslySetInnerHTML={{ __html: (themeId==="classic_light"?SHARDS_LIGHT_SVG:SHARDS_DARK_SVG).replace('<svg ','<svg width="24" height="24" ') }} />}
                 {isProto && <div style={{ width:24, height:24, flexShrink:0 }} dangerouslySetInnerHTML={{ __html: (themeId==="classic_light"?PROTO_LIGHT_SVG:PROTO_DARK_SVG).replace('<svg ','<svg width="24" height="24" ') }} />}
               </div>
-              <div style={{ display:"flex", alignItems:"center", gap:6 }}>
-                <div style={{ fontFamily:t.fontMono, fontSize:13, color:t.text, letterSpacing:"0.08em", fontWeight:600 }}>{s.l.toUpperCase()}</div>
-              </div>
+              <div style={{ fontFamily:t.fontMono, fontSize:13, color:t.text, letterSpacing:"0.08em", fontWeight:600 }}>{s.l.toUpperCase()}</div>
             </div>
           );
         })}
@@ -872,7 +773,6 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
 
       {/* ── Bottom row: Rank Ladder + Security ────────────────────────────── */}
       <div style={{ display:"grid", gridTemplateColumns:"1fr 340px", gap:14, alignItems:"start" }}>
-        {/* Rank Ladder */}
         <div style={{ background:t.bgPanel, border:`1px solid ${t.border}`, borderRadius:12, padding:"16px 22px" }}>
           <div style={{ fontFamily:t.fontMono, fontSize:13, color:t.text, letterSpacing:"0.15em", marginBottom:12, fontWeight:600 }}>RANK LADDER · SEASON II</div>
           <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
@@ -883,9 +783,7 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
                   <RankIcon rank={r} size={45} />
                   <div style={{ flex:1, fontFamily:t.fontDisplay, fontSize:16, fontWeight:isCurrent?800:600, color:isCurrent?r.color:t.textSecondary, letterSpacing:"0.05em" }}>{r.name}</div>
                   <div style={{ fontFamily:t.fontMono, fontSize:16, color:isCurrent?t.accent:t.text, fontWeight:isCurrent?800:600 }}>
-                    {r.min >= 2500
-                      ? `${r.min} and greater`
-                      : `${r.min} to ${r.max>=1000000?"∞":r.max}`}
+                    {r.min >= 2500 ? `${r.min} and greater` : `${r.min} to ${r.max>=1000000?"∞":r.max}`}
                   </div>
                   {isCurrent && <div style={{ background:`${r.color}18`, border:`1px solid ${r.color}`, color:r.color, fontFamily:t.fontMono, fontSize:11, padding:"3px 10px", borderRadius:10, fontWeight:700 }}>YOU</div>}
                 </div>
@@ -894,7 +792,6 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
           </div>
         </div>
 
-        {/* Security / 2FA */}
         <div style={{ background:t.bgPanel, border:`1px solid ${t.border}`, borderRadius:12, padding:"16px 22px" }}>
           <div style={{ fontFamily:t.fontMono, fontSize:13, color:t.text, letterSpacing:"0.15em", marginBottom:12, fontWeight:600 }}>SECURITY</div>
           <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:14 }}>
@@ -933,7 +830,7 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
               <input type="text" value={totpInput} maxLength={6} placeholder="000000" autoFocus onChange={e => setTotpInput(e.target.value.replace(/\D/g,""))} onKeyDown={e => e.key==="Enter"&&confirm2FA()}
                 style={{ width:"100%", padding:"10px", background:t.inputBg, border:`1px solid ${t.border}`, borderRadius:7, color:t.text, fontFamily:t.fontMono, fontSize:24, letterSpacing:"0.35em", textAlign:"center", boxSizing:"border-box", marginBottom:10 }} />
               <div style={{ display:"flex", gap:8 }}>
-                <button onClick={() => { onClickAction?.(); confirm2FA(); }} disabled={twoFALoading} style={{ flex:1, padding:"10px", background:t.accent, border:`2px solid ${t.accent}`, borderRadius:8, color:"#fff", fontFamily:t.fontDisplay, fontSize:12, fontWeight:800, cursor:"pointer", transition:"all 0.18s", boxShadow:`0 0 10px ${t.accentGlow}22` }}>{twoFALoading?"Verifying…":"Confirm"}</button>
+                <button onClick={() => { onClickAction?.(); confirm2FA(); }} disabled={twoFALoading} style={{ flex:1, padding:"10px", background:t.accent, border:`2px solid ${t.accent}`, borderRadius:8, color:"#fff", fontFamily:t.fontDisplay, fontSize:12, fontWeight:800, cursor:"pointer" }}>{twoFALoading?"Verifying…":"Confirm"}</button>
                 <button onClick={() => { onClickAction?.(); setTwoFASection("idle"); setTotpInput(""); setTwoFAMsg(null); }} style={{ padding:"10px 14px", background:"transparent", border:`1px solid ${t.border}`, borderRadius:8, color:t.textMuted, fontFamily:t.fontDisplay, fontSize:12, cursor:"pointer" }}>Cancel</button>
               </div>
             </>
@@ -982,20 +879,7 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
               {TABS.map(tab => (
                 <button key={tab.id} className="edit-tab-btn"
                   onClick={() => { onClickAction?.(); setEditTab(tab.id); setEditMsg(null); }}
-                  style={{
-                    padding: "8px 16px", borderRadius: "8px 8px 0 0",
-                    background: editTab===tab.id ? t.bgCard : "transparent",
-                    border: `1px solid ${editTab===tab.id ? t.border : "transparent"}`,
-                    borderBottom: editTab===tab.id ? `1px solid ${t.bgCard}` : `1px solid ${t.border}44`,
-                    color: editTab===tab.id ? t.accent : t.textSecondary,
-                    fontFamily: t.fontMono, fontSize: 13,
-                    fontWeight: (editTab===tab.id ? 800 : 600) as React.CSSProperties["fontWeight"],
-                    letterSpacing: "0.08em" as React.CSSProperties["letterSpacing"],
-                    cursor: "pointer" as React.CSSProperties["cursor"],
-                    whiteSpace: "nowrap" as const,
-                    display: "flex", alignItems: "center", gap: 5,
-                    transition: "color 0.15s, background 0.15s",
-                  }}>
+                  style={{ padding:"8px 16px", borderRadius:"8px 8px 0 0", background:editTab===tab.id?t.bgCard:"transparent", border:`1px solid ${editTab===tab.id?t.border:"transparent"}`, borderBottom:editTab===tab.id?`1px solid ${t.bgCard}`:`1px solid ${t.border}44`, color:editTab===tab.id?t.accent:t.textSecondary, fontFamily:t.fontMono, fontSize:13, fontWeight:(editTab===tab.id?800:600) as React.CSSProperties["fontWeight"], letterSpacing:"0.08em" as React.CSSProperties["letterSpacing"], cursor:"pointer" as React.CSSProperties["cursor"], whiteSpace:"nowrap" as const, display:"flex", alignItems:"center", gap:5, transition:"color 0.15s, background 0.15s" }}>
                   {tab.label.toUpperCase()}
                 </button>
               ))}
@@ -1016,14 +900,24 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
                   <div>
                     <div style={{ fontFamily:t.fontMono, fontSize:11, color:t.textMuted, letterSpacing:"0.1em", marginBottom:8 }}>PROFILE PICTURE</div>
                     <div style={{ display:"flex", alignItems:"center", gap:14 }}>
+                      {/* Preview: shows local blob URL or existing avatar URL — never base64 */}
                       <div style={{ width:56, height:56, borderRadius:"50%", background:`linear-gradient(135deg,${t.p1},${t.p2})`, overflow:"hidden", border:`2px solid ${t.border}`, flexShrink:0 }}>
-                        {(editAvatar||profile.avatar) ? <img src={editAvatar||profile.avatar} style={{ width:"100%", height:"100%", objectFit:"cover" }} /> : <div style={{ width:"100%", height:"100%", display:"flex", alignItems:"center", justifyContent:"center", fontSize:22 }}>👤</div>}
+                        {(avatarPreview || profile.avatar)
+                          ? <img src={avatarPreview || profile.avatar} style={{ width:"100%", height:"100%", objectFit:"cover" }} />
+                          : <div style={{ width:"100%", height:"100%", display:"flex", alignItems:"center", justifyContent:"center", fontSize:22 }}>👤</div>}
                       </div>
-                      <label style={{ padding:"8px 16px", background:`${t.accent}18`, border:`1px solid ${t.accent}`, borderRadius:8, color:t.accent, fontFamily:t.fontDisplay, fontSize:12, fontWeight:700, cursor:"pointer" }}>
-                        Choose Image
-                        <input type="file" accept="image/jpeg,image/png,image/webp" onChange={handleAvatarFile} style={{ display:"none" }} />
-                      </label>
-                      <div style={{ fontFamily:t.fontBody, fontSize:11, color:t.textMuted }}>Max 2MB · JPEG/PNG/WebP</div>
+                      <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+                        <label style={{ padding:"8px 16px", background:`${t.accent}18`, border:`1px solid ${t.accent}`, borderRadius:8, color:t.accent, fontFamily:t.fontDisplay, fontSize:12, fontWeight:700, cursor:"pointer" }}>
+                          Choose Image
+                          <input type="file" accept="image/jpeg,image/png,image/webp" onChange={handleAvatarFile} style={{ display:"none" }} />
+                        </label>
+                        {avatarFile && (
+                          <div style={{ fontFamily:t.fontMono, fontSize:10, color:"#4CAF50" }}>
+                            ✓ {avatarFile.name} ({(avatarFile.size/1024).toFixed(0)}KB) — ready to upload
+                          </div>
+                        )}
+                      </div>
+                      <div style={{ fontFamily:t.fontBody, fontSize:11, color:t.textMuted }}>Max 2MB · JPEG/PNG/WebP<br/>Stored on Supabase CDN</div>
                     </div>
                   </div>
                   <div>
@@ -1037,8 +931,8 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
                     <div style={{ fontFamily:t.fontBody, fontSize:11, color:t.textMuted, marginTop:2 }}>{editBio.length}/200</div>
                   </div>
                   <div style={{ display:"flex", gap:10 }}>
-                    <button onClick={submitProfile} disabled={editLoading} className="pp-primary-btn" style={{ flex:1, padding:"13px", background:t.accent, border:`2px solid ${t.accent}`, borderRadius:8, color:"#fff", fontFamily:t.fontDisplay, fontSize:14, fontWeight:800, cursor:"pointer", letterSpacing:"0.06em", transition:"all 0.18s", boxShadow:`0 0 12px ${t.accentGlow}33` }}>
-                      {editLoading?"Saving…":"Save Changes"}
+                    <button onClick={submitProfile} disabled={editLoading} style={{ flex:1, padding:"13px", background:t.accent, border:`2px solid ${t.accent}`, borderRadius:8, color:"#fff", fontFamily:t.fontDisplay, fontSize:14, fontWeight:800, cursor:"pointer", letterSpacing:"0.06em", transition:"all 0.18s", boxShadow:`0 0 12px ${t.accentGlow}33` }}>
+                      {editLoading ? (avatarFile ? "Uploading to Supabase…" : "Saving…") : "Save Changes"}
                     </button>
                     <button onClick={() => setShowEdit(false)} style={{ padding:"11px 18px", background:"transparent", border:`1px solid ${t.border}`, borderRadius:8, color:t.textMuted, fontFamily:t.fontDisplay, fontSize:14, cursor:"pointer" }}>Cancel</button>
                   </div>
@@ -1059,7 +953,7 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
                   </div>
                   <div style={{ display:"flex", alignItems:"center", gap:16, padding:"14px 16px", background:t.bgCard, borderRadius:12, border:`1px solid ${t.border}` }}>
                     <div className={previewBorderDef.id !== "none" ? `border-anim-${previewBorderDef.animation}` : ""}
-                      style={{ width:52, height:52, borderRadius:"50%", background:`linear-gradient(135deg,${t.p1},${t.p2})`, border:`3px solid ${t.bg}`, boxShadow: previewShadow, display:"flex", alignItems:"center", justifyContent:"center", fontSize:20, flexShrink:0 }}>
+                      style={{ width:52, height:52, borderRadius:"50%", background:`linear-gradient(135deg,${t.p1},${t.p2})`, border:`3px solid ${t.bg}`, boxShadow:previewShadow, display:"flex", alignItems:"center", justifyContent:"center", fontSize:20, flexShrink:0, overflow:"hidden" }}>
                       {profile.avatar ? <img src={profile.avatar} style={{ width:"100%", height:"100%", objectFit:"cover", borderRadius:"50%" }} /> : "👤"}
                     </div>
                     <div>
@@ -1076,14 +970,14 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
                       const itemShadow = b.id === "none" ? "none" : isRainbow ? "0 0 0 3px #FF6B6B, 0 0 0 6px #FFD700, 0 0 20px #FF6B6BAA" : b.css;
                       return (
                         <div key={b.id} onClick={() => unlocked && setEditBorder(b.id)}
-                          style={{ borderRadius:12, padding:"14px 14px 12px", background: selected ? `${tc}10` : t.bgCard, border:`2px solid ${selected?tc:unlocked?tc+"33":t.border+"33"}`, opacity: unlocked ? 1 : 0.42, cursor: unlocked ? "pointer" : "not-allowed", boxShadow: selected ? `0 0 18px ${tc}44` : "none", transition:"all 0.18s", display:"flex", alignItems:"center", gap:12 }}>
-                          <div className={unlocked && b.id !== "none" ? `border-anim-${b.animation}` : ""} style={{ width:42, height:42, borderRadius:"50%", flexShrink:0, background:`linear-gradient(135deg,${t.p1},${t.p2})`, border:`2px solid ${t.bg}`, boxShadow: unlocked && b.id !== "none" ? itemShadow : "none" }} />
+                          style={{ borderRadius:12, padding:"14px 14px 12px", background:selected?`${tc}10`:t.bgCard, border:`2px solid ${selected?tc:unlocked?tc+"33":t.border+"33"}`, opacity:unlocked?1:0.42, cursor:unlocked?"pointer":"not-allowed", boxShadow:selected?`0 0 18px ${tc}44`:"none", transition:"all 0.18s", display:"flex", alignItems:"center", gap:12 }}>
+                          <div className={unlocked && b.id !== "none" ? `border-anim-${b.animation}` : ""} style={{ width:42, height:42, borderRadius:"50%", flexShrink:0, background:`linear-gradient(135deg,${t.p1},${t.p2})`, border:`2px solid ${t.bg}`, boxShadow:unlocked&&b.id!=="none"?itemShadow:"none" }} />
                           <div style={{ flex:1, minWidth:0 }}>
                             <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:2 }}>
                               <span style={{ fontFamily:t.fontDisplay, fontSize:13, fontWeight:700, color:unlocked?t.text:t.textMuted }}>{b.label}</span>
                               <span style={{ fontFamily:t.fontMono, fontSize:9, fontWeight:700, color:tc, letterSpacing:"0.1em", background:`${tc}18`, padding:"1px 6px", borderRadius:4 }}>{b.tier.toUpperCase()}</span>
                             </div>
-                            <div style={{ fontFamily:t.fontBody, fontSize:11, color:t.textMuted }}>{unlocked ? "Unlocked" : b.unlockDesc}</div>
+                            <div style={{ fontFamily:t.fontBody, fontSize:11, color:t.textMuted }}>{unlocked?"Unlocked":b.unlockDesc}</div>
                           </div>
                           {!unlocked && <LockSVG />}
                           {unlocked && selected && <div style={{ width:18, height:18, borderRadius:"50%", background:tc, display:"flex", alignItems:"center", justifyContent:"center", fontSize:10, color:"#000", fontWeight:700, flexShrink:0 }}>✓</div>}
@@ -1092,7 +986,7 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
                     })}
                   </div>
                   <div style={{ display:"flex", gap:10 }}>
-                    <button onClick={submitBorder} disabled={editLoading} className="pp-primary-btn" style={{ flex:1, padding:"13px", background:t.accent, border:`2px solid ${t.accent}`, borderRadius:8, color:"#fff", fontFamily:t.fontDisplay, fontSize:14, fontWeight:800, cursor:"pointer", letterSpacing:"0.06em", transition:"all 0.18s", boxShadow:`0 0 12px ${t.accentGlow}33` }}>
+                    <button onClick={submitBorder} disabled={editLoading} style={{ flex:1, padding:"13px", background:t.accent, border:`2px solid ${t.accent}`, borderRadius:8, color:"#fff", fontFamily:t.fontDisplay, fontSize:14, fontWeight:800, cursor:"pointer", letterSpacing:"0.06em", transition:"all 0.18s" }}>
                       {editLoading?"Saving…":"Equip Border"}
                     </button>
                     <button onClick={() => setShowEdit(false)} style={{ padding:"11px 18px", background:"transparent", border:`1px solid ${t.border}`, borderRadius:8, color:t.textMuted, fontFamily:t.fontDisplay, fontSize:14, cursor:"pointer" }}>Cancel</button>
@@ -1109,13 +1003,12 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
                       const unlocked = ti.condition(profile);
                       const selected = editTitle === ti.id;
                       return (
-                        <div key={ti.id} className="title-pill"
-                          onClick={() => unlocked && setEditTitle(ti.id)}
-                          style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"11px 16px", borderRadius:10, border:`1px solid ${selected?ti.color:unlocked?ti.color+"44":t.border+"33"}`, background: selected?`${ti.color}14`:unlocked?`${ti.color}06`:"transparent", opacity: unlocked ? 1 : 0.4, cursor: unlocked ? "pointer" : "not-allowed", boxShadow: selected ? `0 0 12px ${ti.glow}` : "none", transition:"all 0.15s" }}>
+                        <div key={ti.id} className="title-pill" onClick={() => unlocked && setEditTitle(ti.id)}
+                          style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"11px 16px", borderRadius:10, border:`1px solid ${selected?ti.color:unlocked?ti.color+"44":t.border+"33"}`, background:selected?`${ti.color}14`:unlocked?`${ti.color}06`:"transparent", opacity:unlocked?1:0.4, cursor:unlocked?"pointer":"not-allowed", boxShadow:selected?`0 0 12px ${ti.glow}`:"none", transition:"all 0.15s" }}>
                           <div style={{ display:"flex", alignItems:"center", gap:12 }}>
                             <div style={{ width:10, height:10, borderRadius:"50%", background:ti.color, boxShadow:`0 0 6px ${ti.glow}`, flexShrink:0 }} />
                             <div>
-                              <div className={unlocked ? `title-anim-${ti.animation}` : ""} style={{ display:"inline-block", padding:"1px 8px", borderRadius:10, border:`1px solid ${ti.color}44`, background:`${ti.color}12`, marginBottom:4 }}>
+                              <div className={unlocked?`title-anim-${ti.animation}`:""} style={{ display:"inline-block", padding:"1px 8px", borderRadius:10, border:`1px solid ${ti.color}44`, background:`${ti.color}12`, marginBottom:4 }}>
                                 <span style={{ fontFamily:t.fontMono, fontSize:13, fontWeight:700, color:unlocked?ti.color:t.textMuted, letterSpacing:"0.04em" }}>{ti.label}</span>
                               </div>
                               <div style={{ fontFamily:t.fontBody, fontSize:11, color:t.textMuted, marginTop:2 }}>{ti.unlockDesc}</div>
@@ -1131,7 +1024,7 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
                     })}
                   </div>
                   <div style={{ display:"flex", gap:10 }}>
-                    <button onClick={submitTitle} disabled={editLoading} className="pp-primary-btn" style={{ flex:1, padding:"13px", background:t.accent, border:`2px solid ${t.accent}`, borderRadius:8, color:"#fff", fontFamily:t.fontDisplay, fontSize:14, fontWeight:800, cursor:"pointer", letterSpacing:"0.06em", transition:"all 0.18s", boxShadow:`0 0 12px ${t.accentGlow}33` }}>
+                    <button onClick={submitTitle} disabled={editLoading} style={{ flex:1, padding:"13px", background:t.accent, border:`2px solid ${t.accent}`, borderRadius:8, color:"#fff", fontFamily:t.fontDisplay, fontSize:14, fontWeight:800, cursor:"pointer", letterSpacing:"0.06em", transition:"all 0.18s" }}>
                       {editLoading?"Saving…":"Equip Badge"}
                     </button>
                     <button onClick={() => setShowEdit(false)} style={{ padding:"11px 18px", background:"transparent", border:`1px solid ${t.border}`, borderRadius:8, color:t.textMuted, fontFamily:t.fontDisplay, fontSize:14, cursor:"pointer" }}>Cancel</button>
@@ -1142,10 +1035,7 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
               {/* ── TAB: PASSWORD ────────────────────────────────────────── */}
               {editTab==="password" && (
                 <>
-                  {/* 2FA gate */}
-                  {!enabled ? (
-                    <TwoFARequired />
-                  ) : (
+                  {!enabled ? <TwoFARequired /> : (
                     <>
                       <div style={{ fontFamily:t.fontBody, fontSize:13, color:t.textMuted }}>Choose a strong password with at least 8 characters, mixing letters, numbers and symbols.</div>
                       <div>
@@ -1180,10 +1070,9 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
                       </div>
                       <div>
                         <div style={{ fontFamily:t.fontMono, fontSize:11, color:t.textMuted, letterSpacing:"0.1em", marginBottom:6 }}>CONFIRM NEW PASSWORD</div>
-                        <input type="password" value={pwConfirm} onChange={e => setPwConfirm(e.target.value)} placeholder="Re-enter new password" style={{ ...inputStyle, borderColor: pwConfirm && pwNew && pwConfirm !== pwNew ? t.danger : t.border }} />
+                        <input type="password" value={pwConfirm} onChange={e => setPwConfirm(e.target.value)} placeholder="Re-enter new password" style={{ ...inputStyle, borderColor:pwConfirm&&pwNew&&pwConfirm!==pwNew?t.danger:t.border }} />
                         {pwConfirm && pwNew && pwConfirm !== pwNew && <div style={{ fontFamily:t.fontBody, fontSize:11, color:t.danger, marginTop:3 }}>Passwords do not match</div>}
                       </div>
-                      {/* OTP input — shown after OTP is sent */}
                       {pwTotpStep === "awaiting_otp" && (
                         <div style={{ background:`${t.accent}08`, border:`1px solid ${t.accent}33`, borderRadius:10, padding:"14px 16px" }}>
                           <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:10 }}>
@@ -1198,8 +1087,8 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
                         </div>
                       )}
                       <div style={{ display:"flex", gap:10 }}>
-                        <button onClick={submitPassword} disabled={editLoading} className="pp-primary-btn" style={{ flex:1, padding:"13px", background:t.accent, border:`2px solid ${t.accent}`, borderRadius:8, color:"#fff", fontFamily:t.fontDisplay, fontSize:14, fontWeight:800, cursor:"pointer", letterSpacing:"0.06em", transition:"all 0.18s", boxShadow:`0 0 12px ${t.accentGlow}33` }}>
-                          {editLoading ? "Saving…" : pwTotpStep === "awaiting_otp" ? "Confirm & Change Password" : "Send OTP & Continue"}
+                        <button onClick={submitPassword} disabled={editLoading} style={{ flex:1, padding:"13px", background:t.accent, border:`2px solid ${t.accent}`, borderRadius:8, color:"#fff", fontFamily:t.fontDisplay, fontSize:14, fontWeight:800, cursor:"pointer", letterSpacing:"0.06em", transition:"all 0.18s" }}>
+                          {editLoading?"Saving…":pwTotpStep==="awaiting_otp"?"Confirm & Change Password":"Send OTP & Continue"}
                         </button>
                         <button onClick={() => setShowEdit(false)} style={{ padding:"11px 18px", background:"transparent", border:`1px solid ${t.border}`, borderRadius:8, color:t.textMuted, fontFamily:t.fontDisplay, fontSize:14, cursor:"pointer" }}>Cancel</button>
                       </div>
@@ -1211,10 +1100,7 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
               {/* ── TAB: EMAIL ───────────────────────────────────────────── */}
               {editTab==="email" && (
                 <>
-                  {/* 2FA gate */}
-                  {!enabled ? (
-                    <TwoFARequired />
-                  ) : (
+                  {!enabled ? <TwoFARequired /> : (
                     <>
                       <div style={{ fontFamily:t.fontBody, fontSize:13, color:t.textMuted }}>
                         Current email: <span style={{ color:t.text, fontWeight:600 }}>{profile.email || "not set"}</span>
@@ -1226,7 +1112,6 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
                         <div style={{ fontFamily:t.fontMono, fontSize:11, color:t.textMuted, letterSpacing:"0.1em", marginBottom:6 }}>NEW EMAIL ADDRESS</div>
                         <input type="email" value={emailNew} onChange={e => setEmailNew(e.target.value)} placeholder="you@example.com" style={inputStyle} />
                       </div>
-                      {/* OTP input — shown after OTP is sent */}
                       {emailTotpStep === "awaiting_otp" && (
                         <div style={{ background:`${t.accent}08`, border:`1px solid ${t.accent}33`, borderRadius:10, padding:"14px 16px" }}>
                           <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:10 }}>
@@ -1241,8 +1126,8 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
                         </div>
                       )}
                       <div style={{ display:"flex", gap:10 }}>
-                        <button onClick={submitEmail} disabled={editLoading} className="pp-primary-btn" style={{ flex:1, padding:"13px", background:t.accent, border:`2px solid ${t.accent}`, borderRadius:8, color:"#fff", fontFamily:t.fontDisplay, fontSize:14, fontWeight:800, cursor:"pointer", letterSpacing:"0.06em", transition:"all 0.18s", boxShadow:`0 0 12px ${t.accentGlow}33` }}>
-                          {editLoading ? "Saving…" : emailTotpStep === "awaiting_otp" ? "Confirm & Update Email" : "Send OTP & Continue"}
+                        <button onClick={submitEmail} disabled={editLoading} style={{ flex:1, padding:"13px", background:t.accent, border:`2px solid ${t.accent}`, borderRadius:8, color:"#fff", fontFamily:t.fontDisplay, fontSize:14, fontWeight:800, cursor:"pointer", letterSpacing:"0.06em", transition:"all 0.18s" }}>
+                          {editLoading?"Saving…":emailTotpStep==="awaiting_otp"?"Confirm & Update Email":"Send OTP & Continue"}
                         </button>
                         <button onClick={() => setShowEdit(false)} style={{ padding:"11px 18px", background:"transparent", border:`1px solid ${t.border}`, borderRadius:8, color:t.textMuted, fontFamily:t.fontDisplay, fontSize:14, cursor:"pointer" }}>Cancel</button>
                       </div>
