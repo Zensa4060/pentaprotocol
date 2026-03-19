@@ -51,15 +51,19 @@ export default function Page() {
   const [matchupOpponent, setMatchupOpponent] = useState<any>(null);
   const [queueError, setQueueError] = useState<string | null>(null);
 
-  const audioStartedRef                 = useRef(false);
-  const pendingTheme                    = useRef<ThemeId | null>(null);
-  const queuePollRef = useRef<NodeJS.Timeout | null>(null);
-  const queueCancelledRef = useRef(false);
+  const audioStartedRef    = useRef(false);
+  const pendingTheme       = useRef<ThemeId | null>(null);
+  const queuePollRef       = useRef<NodeJS.Timeout | null>(null);
+  const queueCancelledRef  = useRef(false);
+  // ── NEW: prevents double-fire of startMatchmaking ──
+  const matchmakingActiveRef = useRef(false);
+  // Keep latest queue state accessible inside poll closure
+  const queueRoomCodeRef   = useRef<string | null>(null);
+  const queuePlayerSlotRef = useRef<"P1" | "P2">("P1");
 
   const [pendingScreen, setPendingScreen]     = useState<Screen | null>(null);
   const [showAiExitModal, setShowAiExitModal] = useState(false);
-
-  const [showGuestBlock, setShowGuestBlock] = useState(false);
+  const [showGuestBlock, setShowGuestBlock]   = useState(false);
 
   const { user, token } = useAuthStore();
   const audio = useAudio();
@@ -76,8 +80,11 @@ export default function Page() {
   rankedRef.current = isRanked;
   aiDiffRef.current = aiDifficulty;
 
+  // Keep refs in sync with state so closures always see latest values
+  useEffect(() => { queueRoomCodeRef.current   = queueRoomCode;   }, [queueRoomCode]);
+  useEffect(() => { queuePlayerSlotRef.current = queuePlayerSlot; }, [queuePlayerSlot]);
+
   const getBgmCtx = (s: Screen, ranked: boolean, aiDiff: Difficulty): "lobby" | "game" | "ranked" => {
-    // Ranked music only in ranked matches, plus Hard Bot exception.
     if (s === "aiGame") return aiDiff === "hard" ? "ranked" : "game";
     if (s === "game") return "game";
     if (s === "multiGame") return ranked ? "ranked" : "game";
@@ -90,8 +97,8 @@ export default function Page() {
     if (saved && THEMES[saved]) setThemeIdRaw(saved);
 
     const savedScreen = sessionStorage.getItem("pp_screen") as Screen;
-    const savedRoom = sessionStorage.getItem("pp_multiRoomCode");
-    const savedSlot = sessionStorage.getItem("pp_multiPlayerSlot") as "P1" | "P2" | null;
+    const savedRoom   = sessionStorage.getItem("pp_multiRoomCode");
+    const savedSlot   = sessionStorage.getItem("pp_multiPlayerSlot") as "P1" | "P2" | null;
     const savedRanked = sessionStorage.getItem("pp_isRanked") === "true";
 
     if (savedScreen) {
@@ -107,12 +114,10 @@ export default function Page() {
       if (token) setScreen("home");
     }
 
-    // Push initial history state so back button has something to pop
     window.history.pushState({ screen: savedScreen || (token ? "home" : "auth") }, "", window.location.pathname);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Save screen and game state to sessionStorage
   useEffect(() => {
     sessionStorage.setItem("pp_screen", screen);
     sessionStorage.setItem("pp_multiRoomCode", multiRoomCode);
@@ -137,7 +142,6 @@ export default function Page() {
       setAudioStarted(true);
       audio.playBgm(themeRef.current, getBgmCtx(screenRef.current, rankedRef.current, aiDiffRef.current));
     };
-    // Try immediate start
     start();
     window.addEventListener("click",      start, { once: true });
     window.addEventListener("keydown",    start, { once: true });
@@ -155,12 +159,7 @@ export default function Page() {
     audio.playBgm(themeId, getBgmCtx(screen, isRanked, aiDifficulty));
   }, [themeId, screen, isRanked, aiDifficulty, audioStarted]);
 
-  useEffect(() => {
-    // We no longer clear inQueue when screen changes
-    // setInQueue(false);
-  }, [screen]);
-
-  // Matchmaking elapsed timer
+  // Matchmaking elapsed timer — runs indefinitely while queuing, no timeout
   useEffect(() => {
     if (queuePhase !== "queuing") {
       setQueueElapsed(0);
@@ -170,87 +169,95 @@ export default function Page() {
     return () => clearInterval(iv);
   }, [queuePhase]);
 
+  // ── Single no-retry API call ──────────────────────────────────────────────
+  const postOnce = async (url: string, data: any, config: any) => {
+    return await API.post(url, data, { ...config, timeout: 15000 });
+  };
+
+  // ── Poll queue status until matched ──────────────────────────────────────
   const pollQueueStatus = async (code: string, slot: "P1" | "P2", mode: "ranked" | "unranked") => {
+    if (queueCancelledRef.current) return;
     try {
       const poll = await API.get(`/api/room/queue/status/${code}`, { timeout: 10000 });
       if (poll.data.game_status === "playing") {
-        if (queuePollRef.current) clearInterval(queuePollRef.current);
-        
-        // Found opponent! 
+        if (queuePollRef.current) {
+          clearInterval(queuePollRef.current);
+          queuePollRef.current = null;
+        }
+
         const prefix = slot === "P1" ? "player2" : "player1";
         const opp = {
-          name: poll.data[`${prefix}_name`] ?? "OPPONENT",
-          elo: poll.data[`${prefix}_elo`] ?? 1000,
+          name:   poll.data[`${prefix}_name`]   ?? "OPPONENT",
+          elo:    poll.data[`${prefix}_elo`]    ?? 1000,
           avatar: poll.data[`${prefix}_avatar`] ?? null,
           banner: poll.data[`${prefix}_banner`] ?? poll.data[`${prefix}_banner_style`] ?? "default",
-          level: poll.data[`${prefix}_level`] ?? 1
+          level:  poll.data[`${prefix}_level`]  ?? 1,
         };
         setMatchupOpponent(opp);
         setQueuePhase("matchup");
         sfx.matchFound();
-        
+
         setTimeout(() => {
           setInQueue(false);
           setQueuePhase("none");
+          matchmakingActiveRef.current = false;
           handleRoomReady(code, slot, mode);
-        }, 10000); // 10s for the matchup screen
+        }, 10000);
       }
     } catch (e: any) {
       const status = e?.response?.status;
       if (status === 401 || status === 403) {
-        if (queuePollRef.current) clearInterval(queuePollRef.current);
+        if (queuePollRef.current) {
+          clearInterval(queuePollRef.current);
+          queuePollRef.current = null;
+        }
         setInQueue(false);
         setQueuePhase("none");
+        matchmakingActiveRef.current = false;
         setQueueError("Session expired. Please sign in again.");
       }
+      // All other errors: silently ignore and keep polling
     }
   };
 
-  const postWithRetry = async (url: string, data: any, config: any, retries = 2) => {
-    let lastErr: any;
-    for (let i = 0; i <= retries; i++) {
-      try {
-        return await API.post(url, data, { ...config, timeout: 25000 });
-      } catch (e: any) {
-        lastErr = e;
-        const retryable = e?.code === "ECONNABORTED" || !e?.response;
-        if (!retryable || i === retries) break;
-        await new Promise((r) => setTimeout(r, 700 * (i + 1)));
-      }
-    }
-    throw lastErr;
-  };
+  // ── Start matchmaking — no retries, no timeout, searches indefinitely ────
+  const startMatchmaking = async (mode: "ranked" | "unranked") => {
+    // Prevent double-fire (double-click, React strict mode, etc.)
+    if (matchmakingActiveRef.current) return;
+    matchmakingActiveRef.current = true;
 
-  const startMatchmaking = async (mode: "ranked" | "unranked", retrying = false) => {
     queueCancelledRef.current = false;
-    if (!retrying) {
-      setIsRanked(mode === "ranked");
-      setInQueue(true);
-      setQueuePhase("queuing");
-      setQueueElapsed(0);
-      setQueueError(null);
-    }
+    setIsRanked(mode === "ranked");
+    setInQueue(true);
+    setQueuePhase("queuing");
+    setQueueElapsed(0);
+    setQueueError(null);
 
     const authHeader = { headers: { Authorization: `Bearer ${token}` } };
     try {
-      const res = await postWithRetry("/api/room/queue/join", { format: mode }, authHeader, 2);
-      if (queueCancelledRef.current) return;
-      
+      const res = await postOnce("/api/room/queue/join", { format: mode }, authHeader);
+      if (queueCancelledRef.current) {
+        matchmakingActiveRef.current = false;
+        return;
+      }
+
       const code = res.data.room_code;
       const slot = res.data.player_slot as "P1" | "P2";
       setQueueRoomCode(code);
       setQueuePlayerSlot(slot);
+      queueRoomCodeRef.current   = code;
+      queuePlayerSlotRef.current = slot;
 
       if (res.data.matched) {
-        // Immediate match
-        const room = res.data.room;
+        // Immediate match — show matchup screen
+        const room   = res.data.room;
         const prefix = slot === "P1" ? "player2" : "player1";
         const opp = {
-          name: room[`${prefix}_name`] ?? "OPPONENT",
-          elo: room[`${prefix}_elo`] ?? 1000,
+          name:   room[`${prefix}_name`]   ?? "OPPONENT",
+          elo:    room[`${prefix}_elo`]    ?? 1000,
           avatar: room[`${prefix}_avatar`] ?? null,
           banner: room[`${prefix}_banner`] ?? room[`${prefix}_banner_style`] ?? "default",
-          level: room[`${prefix}_level`] ?? 1
+          level:  room[`${prefix}_level`]  ?? 1,
         };
         setMatchupOpponent(opp);
         setQueuePhase("matchup");
@@ -258,44 +265,51 @@ export default function Page() {
         setTimeout(() => {
           setInQueue(false);
           setQueuePhase("none");
+          matchmakingActiveRef.current = false;
           handleRoomReady(code, slot, mode);
         }, 10000);
       } else {
-        // Start polling
+        // No immediate match — poll indefinitely until matched or cancelled
+        if (queuePollRef.current) clearInterval(queuePollRef.current);
         queuePollRef.current = setInterval(() => pollQueueStatus(code, slot, mode), 2000);
       }
     } catch (err: any) {
       console.error("Matchmaking error:", err);
-      const retryable = err?.code === "ECONNABORTED" || !err?.response;
-      if (retryable && !queueCancelledRef.current) {
-        // Keep queue UI active and retry automatically until user cancels.
-        setQueueError("Network slow... retrying");
-        setTimeout(() => {
-          if (!queueCancelledRef.current) startMatchmaking(mode, true);
-        }, 2000);
+      if (queueCancelledRef.current) {
+        matchmakingActiveRef.current = false;
         return;
       }
-      setInQueue(false);
-      setQueuePhase("none");
-      setQueueError(err?.response?.data?.detail || err?.message || "Failed to join queue.");
+      // Show a soft error but keep the queue UI alive — don't exit the queue
+      // The user can cancel manually; we don't auto-retry to avoid ghost calls
+      setQueueError("Connection issue — still searching...");
+      matchmakingActiveRef.current = false;
     }
   };
 
+  // ── Cancel matchmaking ────────────────────────────────────────────────────
   const cancelMatchmaking = async () => {
-    queueCancelledRef.current = true;
+    queueCancelledRef.current  = true;
+    matchmakingActiveRef.current = false;
+
     if (queuePollRef.current) {
       clearInterval(queuePollRef.current);
       queuePollRef.current = null;
     }
-    const mode = isRanked ? "ranked" : "unranked";
+
+    const mode       = isRanked ? "ranked" : "unranked";
     const authHeader = { headers: { Authorization: `Bearer ${token}` } };
-    if (queueRoomCode) {
-      try { await API.post("/api/room/queue/leave", { format: mode }, { ...authHeader, timeout: 10000 }); } catch { /* ignore */ }
+    const code       = queueRoomCodeRef.current;
+    if (code) {
+      try {
+        await API.post("/api/room/queue/leave", { format: mode }, { ...authHeader, timeout: 10000 });
+      } catch { /* ignore — server will TTL-expire the entry anyway */ }
     }
+
     setInQueue(false);
     setQueuePhase("none");
     setQueueRoomCode(null);
     setQueueError(null);
+    setMatchupOpponent(null);
   };
 
   useEffect(() => {
@@ -305,34 +319,26 @@ export default function Page() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Push browser history state on every screen change
   useEffect(() => {
     window.history.pushState({ screen }, "", window.location.pathname);
   }, [screen]);
 
-  // Intercept browser back button
   useEffect(() => {
     const onPopState = (_e: PopStateEvent) => {
-  // If on auth screen, close the tab
-  if (screenRef.current === "auth") {
-    window.close();
-    window.history.pushState({ screen: "auth" }, "", window.location.pathname);
-    return;
-  }
-
-  // Always push state back to prevent leaving the site
-  window.history.pushState({ screen: screenRef.current }, "", window.location.pathname);
-
-  // Navigate to previous screen in our history stack
-  setScreenHistory(prev => {
-    // If no history, do nothing (stay on current screen)
-    if (prev.length === 0) return prev;
-    const previousScreen = prev[prev.length - 1];
-    const next = prev.slice(0, -1);
-    setScreen(previousScreen);
-    return next;
-  });
-};
+      if (screenRef.current === "auth") {
+        window.close();
+        window.history.pushState({ screen: "auth" }, "", window.location.pathname);
+        return;
+      }
+      window.history.pushState({ screen: screenRef.current }, "", window.location.pathname);
+      setScreenHistory(prev => {
+        if (prev.length === 0) return prev;
+        const previousScreen = prev[prev.length - 1];
+        const next = prev.slice(0, -1);
+        setScreen(previousScreen);
+        return next;
+      });
+    };
     window.addEventListener("popstate", onPopState);
     return () => window.removeEventListener("popstate", onPopState);
   }, []);
@@ -350,7 +356,6 @@ export default function Page() {
   };
 
   const handleSetScreen = (s: Screen) => {
-    // Guest block: not signed in, trying to access restricted screen
     if (!user && GUEST_BLOCKED.includes(s)) {
       setShowGuestBlock(true);
       return;
@@ -362,7 +367,6 @@ export default function Page() {
       return;
     }
     sfx.transition();
-    // Push current screen to history before navigating
     setScreenHistory(prev => [...prev, screen]);
     setScreen(s);
   };
@@ -394,7 +398,6 @@ export default function Page() {
     setScreen("multiGame");
   };
 
-  // Guest block modal overlay
   const GuestBlockModal = () => (
     <div style={{
       position: "fixed", inset: 0, zIndex: 99999,
@@ -412,7 +415,6 @@ export default function Page() {
         boxShadow: "0 40px 100px rgba(0,0,0,0.8)",
         animation: "scaleIn 0.28s cubic-bezier(.22,.68,0,1.2) both",
       }}>
-
         <div style={{ fontFamily: t.fontDisplay, fontSize: ip ? 14 : 22, fontWeight: 700, color: t.text, marginBottom: 10, lineHeight: 1.4 }}>
           Sign in to access this
         </div>
@@ -463,7 +465,6 @@ export default function Page() {
       fontFamily: t.fontBody,
       transition: "background 0.6s ease, color 0.6s ease",
     }}>
-
       <div style={{
         position: "fixed", inset: 0, zIndex: 9998,
         background: "#000",
@@ -492,7 +493,6 @@ export default function Page() {
             boxShadow: "0 40px 100px rgba(0,0,0,0.8)",
             animation: "scaleIn 0.32s cubic-bezier(.22,.68,0,1.2) both",
           }}>
-
             <div style={{ fontFamily: t.fontDisplay, fontSize: ip ? 14 : 22, fontWeight: 700, color: t.text, marginBottom: 12, lineHeight: 1.5 }}>
               Leave AI Match?
             </div>
@@ -562,7 +562,6 @@ export default function Page() {
           onHoverAction={sfx.hover}
           onClickAction={sfx.click}
           onRoomReadyAction={handleRoomReady}
-          // Shared matchmaking states
           queuePhase={queuePhase}
           queueElapsed={queueElapsed}
           matchupOpponent={matchupOpponent}
@@ -576,26 +575,26 @@ export default function Page() {
       {screen === "collection" && <CollectionScreen themeId={themeId} setThemeIdAction={setThemeId} onHoverAction={sfx.hover} onClickAction={sfx.click} />}
       {screen === "career"     && <CareerScreen     themeId={themeId} onHoverAction={sfx.hover} />}
       {screen === "battlepass" && <BattlepassScreen themeId={themeId} />}
-{screen === "game" && (
-  <GameScreen key="game" themeId={themeId} isSingleplayer={true} gameMode="singleplayer" setScreenAction={handleSetScreen}
-    p1Name={user?.username}
-    playHoverAction={sfx.hover} playPlaceAction={sfx.place} playVictoryAction={sfx.victory} playDefeatAction={sfx.defeat}
-    playRulebreakerAction={sfx.rulebreaker} playTransitionAction={sfx.transition} playClickAction={sfx.click} />
-)}
-{screen === "aiGame" && (
-  <GameScreen key="aiGame" themeId={themeId} gameMode="ai" difficulty={aiDifficulty} setScreenAction={handleSetScreen}
-    p1Name={user?.username}
-    playHoverAction={sfx.hover} playPlaceAction={sfx.place} playVictoryAction={sfx.victory} playDefeatAction={sfx.defeat}
-    playRulebreakerAction={sfx.rulebreaker} playTransitionAction={sfx.transition} playClickAction={sfx.click} />
-)}
-{screen === "multiGame" && (
-  <GameScreen key="multiGame" themeId={themeId} gameMode={isRanked ? "ranked" : "unranked"} setScreenAction={handleSetScreen}
-    roomCode={multiRoomCode} playerSlot={multiPlayerSlot ?? undefined}
-    matchupData={multiMatchup ?? undefined}
-    p1Name={user?.username}
-    playHoverAction={sfx.hover} playPlaceAction={sfx.place} playVictoryAction={sfx.victory} playDefeatAction={sfx.defeat}
-    playRulebreakerAction={sfx.rulebreaker} playTransitionAction={sfx.transition} playClickAction={sfx.click} />
-)}
+      {screen === "game" && (
+        <GameScreen key="game" themeId={themeId} isSingleplayer={true} gameMode="singleplayer" setScreenAction={handleSetScreen}
+          p1Name={user?.username}
+          playHoverAction={sfx.hover} playPlaceAction={sfx.place} playVictoryAction={sfx.victory} playDefeatAction={sfx.defeat}
+          playRulebreakerAction={sfx.rulebreaker} playTransitionAction={sfx.transition} playClickAction={sfx.click} />
+      )}
+      {screen === "aiGame" && (
+        <GameScreen key="aiGame" themeId={themeId} gameMode="ai" difficulty={aiDifficulty} setScreenAction={handleSetScreen}
+          p1Name={user?.username}
+          playHoverAction={sfx.hover} playPlaceAction={sfx.place} playVictoryAction={sfx.victory} playDefeatAction={sfx.defeat}
+          playRulebreakerAction={sfx.rulebreaker} playTransitionAction={sfx.transition} playClickAction={sfx.click} />
+      )}
+      {screen === "multiGame" && (
+        <GameScreen key="multiGame" themeId={themeId} gameMode={isRanked ? "ranked" : "unranked"} setScreenAction={handleSetScreen}
+          roomCode={multiRoomCode} playerSlot={multiPlayerSlot ?? undefined}
+          matchupData={multiMatchup ?? undefined}
+          p1Name={user?.username}
+          playHoverAction={sfx.hover} playPlaceAction={sfx.place} playVictoryAction={sfx.victory} playDefeatAction={sfx.defeat}
+          playRulebreakerAction={sfx.rulebreaker} playTransitionAction={sfx.transition} playClickAction={sfx.click} />
+      )}
       {showSettings && (
         <SettingsModal
           onCloseAction={() => setShowSettings(false)}
@@ -607,7 +606,8 @@ export default function Page() {
             muted: audio.muted, toggleMute: audio.toggleMute
           }}
           onNavigateAuthAction={() => setScreen("auth")}
-        />)}
+        />
+      )}
     </div>
   );
 }
