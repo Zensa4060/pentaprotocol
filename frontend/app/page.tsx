@@ -19,7 +19,7 @@ import AIScreen         from "@/components/AIScreen";
 import StoreScreen      from "@/components/Storescreen";
 import CollectionScreen from "@/components/CollectionScreen";
 import CareerScreen     from "@/components/CareerScreen";
-import BattlepassScreen from "@/components/BattlepassScreen";
+import MissionsScreen from "@/components/MissionsScreen";
 import NavBar           from "@/components/NavBar";
 import SettingsModal    from "@/components/SettingsModal";
 
@@ -574,7 +574,7 @@ export default function Page() {
       {screen === "store"      && <StoreScreen      setScreenAction={handleSetScreen} themeId={themeId} />}
       {screen === "collection" && <CollectionScreen themeId={themeId} setThemeIdAction={setThemeId} onHoverAction={sfx.hover} onClickAction={sfx.click} />}
       {screen === "career"     && <CareerScreen     themeId={themeId} onHoverAction={sfx.hover} />}
-      {screen === "battlepass" && <BattlepassScreen themeId={themeId} />}
+      {screen === "battlepass" && <MissionsScreen themeId={themeId} />}
       {screen === "game" && (
         <GameScreen key="game" themeId={themeId} isSingleplayer={true} gameMode="singleplayer" setScreenAction={handleSetScreen}
           p1Name={user?.username}

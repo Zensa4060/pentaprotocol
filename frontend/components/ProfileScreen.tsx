@@ -8,6 +8,7 @@ import { containsProfanity, validateUsername } from "@/lib/profanity";
 import { SHARDS_LIGHT_SVG, SHARDS_DARK_SVG, PROTO_LIGHT_SVG, PROTO_DARK_SVG } from "@/lib/currencyIcons";
 import { loadCustomTheme, saveCustomTheme } from "@/lib/customTheme";
 import type { Screen } from "@/lib/types";
+import { getUserKey, loadMissionState } from "@/lib/missionsClient";
 import { BannerRenderer } from "./BannerRenderer";
 import { rankGlowVisualStrength, buildRankEmblemGlowFilter, rankHaloGradientForRank } from "./NavBar";
 import VoidRiftBanner from "./VoidRiftBanner";
@@ -189,6 +190,11 @@ function TitleBadge({ title, onClick }: { title: typeof TITLES[0]; onClick?: () 
   );
 }
 
+// Resolve avatar URL across possible backend key names.
+function resolveAvatar(p: any): string | null {
+  return p?.avatar || p?.avatar_url || p?.profile_avatar || null;
+}
+
 function AvatarWithBorder({ profile, size=68, borderDef, accentColor, bgColor, p1, p2 }: {
   profile: any; size?: number; borderDef: typeof PROFILE_BORDERS[0];
   accentColor: string; bgColor: string; p1: string; p2: string;
@@ -219,6 +225,7 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
   const t = THEMES[themeId];
   const { user, token, updateUser } = useAuthStore();
   const [profile, setProfile]             = useState<any>(null);
+  const [missionShardBonus, setMissionShardBonus] = useState(0);
   const [loading, setLoading]             = useState(true);
   const [profileError, setProfileError]   = useState<string | null>(null);
   const [profileFetchKey, setProfileFetchKey] = useState(0);
@@ -286,6 +293,31 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
     fetchProfile();
     return () => { cancelled = true; };
   }, [user, profileFetchKey]);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !user) {
+      setMissionShardBonus(0);
+      return;
+    }
+    const userKey = getUserKey(user);
+    let last = -1;
+    const refresh = () => {
+      const v = loadMissionState(userKey).shardBalance || 0;
+      if (v !== last) {
+        last = v;
+        setMissionShardBonus(v);
+      }
+    };
+    refresh();
+    window.addEventListener("pp_mission_state_change", refresh);
+    window.addEventListener("storage", refresh);
+    const pollId = window.setInterval(refresh, 2000);
+    return () => {
+      window.removeEventListener("pp_mission_state_change", refresh);
+      window.removeEventListener("storage", refresh);
+      window.clearInterval(pollId);
+    };
+  }, [user]);
 
   if (loading) return (
     <div style={{ minHeight:"100vh", display:"flex", alignItems:"center", justifyContent:"center", background:t.bg }}>
@@ -562,7 +594,7 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
     { l:"Total Games", v: totalGames, c: t.text },
     { l:"Draws",       v: draws,     c: t.gold },
     { l:"XP",          v: profile.xp, c: t.p1 },
-    { l:"Penta Shards",   v: profile.pentashards ?? profile.shards ?? 0, c:"#4FC3F7" },
+    { l:"Penta Shards",   v: (profile.pentashards ?? profile.shards ?? 0) + missionShardBonus, c:"#4FC3F7" },
     { l:"Proto Credits",  v: profile.protocredits || 0, c:"#FFD700" },
   ];
 
@@ -768,8 +800,8 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
             <div key={i} style={{ background:t.bgCard, border:`1px solid ${t.border}`, borderRadius:10, padding:"15px 17px" }}>
               <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:6 }}>
                 <div style={{ fontFamily:t.fontDisplay, fontSize:24, fontWeight:700, color:s.c }}>{s.v}</div>
-                {isPenta && <div style={{ width:24, height:24, flexShrink:0 }} dangerouslySetInnerHTML={{ __html: (themeId==="classic_light"?SHARDS_LIGHT_SVG:SHARDS_DARK_SVG).replace('<svg ','<svg width="24" height="24" ') }} />}
-                {isProto && <div style={{ width:24, height:24, flexShrink:0 }} dangerouslySetInnerHTML={{ __html: (themeId==="classic_light"?PROTO_LIGHT_SVG:PROTO_DARK_SVG).replace('<svg ','<svg width="24" height="24" ') }} />}
+                {isPenta && <div style={{ width:32, height:32, flexShrink:0 }} dangerouslySetInnerHTML={{ __html: (themeId==="classic_light"?SHARDS_LIGHT_SVG:SHARDS_DARK_SVG).replace('<svg ','<svg width="32" height="32" ') }} />}
+                {isProto && <div style={{ width:32, height:32, flexShrink:0 }} dangerouslySetInnerHTML={{ __html: (themeId==="classic_light"?PROTO_LIGHT_SVG:PROTO_DARK_SVG).replace('<svg ','<svg width="32" height="32" ') }} />}
               </div>
               <div style={{ fontFamily:t.fontMono, fontSize:13, color:t.text, letterSpacing:"0.08em", fontWeight:600 }}>{s.l.toUpperCase()}</div>
             </div>

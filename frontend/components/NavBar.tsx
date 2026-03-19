@@ -5,6 +5,7 @@ import { THEMES } from "@/lib/themes";
 import type { Screen } from "@/lib/types";
 import type { ThemeId } from "@/lib/themes";
 import { SHARDS_LIGHT_SVG, SHARDS_DARK_SVG, PROTO_LIGHT_SVG, PROTO_DARK_SVG } from "@/lib/currencyIcons";
+import { getUserKey, loadMissionState } from "@/lib/missionsClient";
 
 export const RANKS = [
   { name: "NOVICE",       min: 0,    max: 500,  color: "#9CA3AF", img: "/novice.svg",       scale: 1.3   },
@@ -161,6 +162,7 @@ export default function NavBar({
   const [mounted, setMounted]           = useState(false);
   const [menuOpen, setMenuOpen]         = useState(false);
   const [vw, setVw]                     = useState(1440);
+  const [missionShardBonus, setMissionShardBonus] = useState(0);
 
   const ip        = themeId === "pixel";
   const isClassic = themeId === "classic_light" || themeId === "classic_dark";
@@ -174,6 +176,31 @@ export default function NavBar({
   }, []);
 
   useEffect(() => { setMounted(true); }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !user) {
+      setMissionShardBonus(0);
+      return;
+    }
+    const userKey = getUserKey(user);
+    let last = -1;
+    const refresh = () => {
+      const v = loadMissionState(userKey).shardBalance || 0;
+      if (v !== last) {
+        last = v;
+        setMissionShardBonus(v);
+      }
+    };
+    refresh();
+    window.addEventListener("pp_mission_state_change", refresh);
+    window.addEventListener("storage", refresh);
+    const pollId = window.setInterval(refresh, 2000);
+    return () => {
+      window.removeEventListener("pp_mission_state_change", refresh);
+      window.removeEventListener("storage", refresh);
+      window.clearInterval(pollId);
+    };
+  }, [user]);
   useEffect(() => {
     document.onfullscreenchange = () => { if (!document.fullscreenElement) setFocusMode(false); };
     return () => { document.onfullscreenchange = null; };
@@ -322,7 +349,8 @@ export default function NavBar({
     >{label}</button>
   );
 
-  const pentashards   = (user as any)?.pentashards ?? (user as any)?.shards ?? 0;
+  const pentashardsBase = (user as any)?.pentashards ?? (user as any)?.shards ?? 0;
+  const pentashards = pentashardsBase + missionShardBonus;
   const protocredits = (user as any)?.protocredits ?? 0;
 
   // Nav links list for both desktop and hamburger menu

@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { unstable_batchedUpdates } from "react-dom";
 import { ThemeId, THEMES } from "@/lib/themes";
 import { checkWin, Coord } from "@/lib/winChecker";
@@ -28,6 +28,7 @@ import { LeftPanel, RightPanel, WinOverlay, RematchOverlay, SurrenderModal, Disc
 import { useAuthStore } from "@/lib/store";
 import { BannerRenderer } from "./BannerRenderer";
 import { RANKS, RankIcon } from "./ProfileScreen";
+import { getUserKey, pushMissionEvent } from "@/lib/missionsClient";
 
 function getWsBaseUrl(): string {
   const envBase = process.env.NEXT_PUBLIC_API_URL;
@@ -214,6 +215,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   const { user } = useAuthStore();
   const t = THEMES[themeId];
   const ip = themeId === "pixel";
+  const userKey = useMemo(() => getUserKey(user), [user]);
 
   const [_ct, set_ct] = useState(() => loadCustomTheme());
   useEffect(() => {
@@ -404,6 +406,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   const [matchHistory, setMatchHistory] = useState<string[]>([]);
   const [matchOver, setMatchOver] = useState(false);
   const [seriesWinner, setSeriesWinner] = useState<string | null>(null);
+  const didRecordMissionRef = useRef(false);
   const [p1Ready, setP1Ready] = useState(false);
   const [p2Ready, setP2Ready] = useState(false);
   const [showDisconnectModal, setShowDisconnectModal] = useState(false);
@@ -1112,6 +1115,52 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
       setP1Ready(false); setP2Ready(false); setReadyTimeout(60); setReadyTimer(0); setPhase("waiting_ready");
     }
   }, [winner]);
+
+  // Record a local mission event when a match series ends.
+  // This keeps Daily/Weekly/Permanent missions progress working without backend changes.
+  useEffect(() => {
+    if (!matchOver) {
+      didRecordMissionRef.current = false;
+      return;
+    }
+    if (didRecordMissionRef.current) return;
+    if (!seriesWinner) return;
+    if (!userKey || userKey === "guest") return;
+    if (phase !== "match_over") return;
+    if (seriesWinner !== "P1" && seriesWinner !== "P2") return;
+    // Singleplayer mode should never affect mission progress.
+    if (gameMode === "singleplayer") return;
+
+    const rulebreakerUsed = matchHistoryRef.current.length >= 3;
+    const result = seriesWinner === mySlot ? "win" : "loss";
+    const matchKind: "ranked" | "unranked" | "bot" =
+      gameMode === "ai" ? "bot" : isRankedGame ? "ranked" : "unranked";
+
+    const myElo = (() => {
+      if (!isMultiplayerGame) return undefined;
+      if (mySlot === "P1") return p1Elo;
+      return p2Elo;
+    })();
+
+    const opponentElo = (() => {
+      if (!isMultiplayerGame) return undefined;
+      if (mySlot === "P1") return p2Elo;
+      return p1Elo;
+    })();
+
+    const botDifficulty = matchKind === "bot" ? (difficulty as any) : undefined;
+
+    pushMissionEvent(userKey, {
+      at: Date.now(),
+      matchKind,
+      result,
+      rulebreakerUsed,
+      botDifficulty,
+      myElo,
+      opponentElo,
+    });
+    didRecordMissionRef.current = true;
+  }, [matchOver, seriesWinner, phase, mySlot, gameMode, isRankedGame, isMultiplayerGame, p1Elo, p2Elo, difficulty, userKey]);
 
   useEffect(() => {
     if (phase === "waiting_ready" && p1Ready && p2Ready && R.current.readyTimer <= 0) setReadyTimer(1);

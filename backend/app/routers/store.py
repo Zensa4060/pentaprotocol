@@ -19,15 +19,24 @@ PACKAGES = {
     "pro":     {"credits": 1200, "bonus": 200, "price": 39900},
     "elite":   {"credits": 3000, "bonus": 600, "price": 79900},
 }
+SHARD_PACKAGES = {
+    "starter": {"shards": 100,  "bonus": 0,   "price": 2500},
+    "plus":    {"shards": 500,  "bonus": 50,  "price": 9900},
+    "pro":     {"shards": 1200, "bonus": 200, "price": 19900},
+    "elite":   {"shards": 3000, "bonus": 600, "price": 39900},
+}
 
 # ── Create Order ─────────────────────────────────────────────────────────────
 
 class CreateOrderRequest(BaseModel):
     package_id: str
+    currency_type: str = "protocredits"  # protocredits | shards
 
 @router.post("/create-order")
 async def create_order(req: CreateOrderRequest, user_id: str = Depends(get_current_user)):
-    pkg = PACKAGES.get(req.package_id)
+    currency_type = (req.currency_type or "protocredits").lower()
+    package_table = SHARD_PACKAGES if currency_type == "shards" else PACKAGES
+    pkg = package_table.get(req.package_id)
     if not pkg:
         raise HTTPException(status_code=400, detail="Invalid package.")
 
@@ -38,6 +47,7 @@ async def create_order(req: CreateOrderRequest, user_id: str = Depends(get_curre
         "notes": {
             "user_id":    user_id,
             "package_id": req.package_id,
+            "currency_type": currency_type,
         }
     })
 
@@ -55,6 +65,7 @@ class VerifyPaymentRequest(BaseModel):
     razorpay_payment_id: str
     razorpay_signature:  str
     package_id:          str
+    currency_type:       str = "protocredits"  # protocredits | shards
 
 @router.post("/verify-payment")
 async def verify_payment(
@@ -80,27 +91,30 @@ async def verify_payment(
     if existing:
         raise HTTPException(status_code=400, detail="Order already processed.")
 
-    pkg = PACKAGES.get(req.package_id)
+    currency_type = (req.currency_type or "protocredits").lower()
+    package_table = SHARD_PACKAGES if currency_type == "shards" else PACKAGES
+    pkg = package_table.get(req.package_id)
     if not pkg:
         raise HTTPException(status_code=400, detail="Invalid package.")
 
-    credits_to_add = pkg["credits"] + pkg["bonus"]
+    amount_to_add = (pkg.get("credits") if currency_type == "protocredits" else pkg.get("shards")) + pkg["bonus"]
 
-    await db["users"].update_one(
-        {"_id": ObjectId(user_id)},
-        {"$inc": {"protocredits": credits_to_add}}
-    )
+    inc_field = "protocredits" if currency_type == "protocredits" else "shards"
+    await db["users"].update_one({"_id": ObjectId(user_id)}, {"$inc": {inc_field: amount_to_add}})
 
     await db["payments"].insert_one({
         "order_id":   req.razorpay_order_id,
         "payment_id": req.razorpay_payment_id,
         "user_id":    user_id,
         "package_id": req.package_id,
-        "credits":    credits_to_add,
+        "currency_type": currency_type,
+        "amount_added": amount_to_add,
         "status":     "paid",
     })
 
-    return {"success": True, "credits_added": credits_to_add}
+    if currency_type == "shards":
+        return {"success": True, "shards_added": amount_to_add}
+    return {"success": True, "credits_added": amount_to_add}
 
 
 # ── Purchase Cosmetic Item ───────────────────────────────────────────────────
@@ -108,6 +122,7 @@ async def verify_payment(
 class PurchaseItemRequest(BaseModel):
     item_id: str
     price:   int
+    shard_price: int = 0
 
 @router.post("/purchase-item")
 async def purchase_item(
@@ -121,6 +136,8 @@ async def purchase_item(
 
     if (user.get("protocredits") or 0) < req.price:
         raise HTTPException(status_code=400, detail="Insufficient ProtoCredits.")
+    if (user.get("shards") or 0) < req.shard_price:
+        raise HTTPException(status_code=400, detail="Insufficient PentaShards.")
 
     if req.item_id in (user.get("purchased_items") or []):
         raise HTTPException(status_code=400, detail="Item already owned.")
@@ -128,7 +145,7 @@ async def purchase_item(
     await db["users"].update_one(
         {"_id": ObjectId(user_id)},
         {
-            "$inc":      {"protocredits": -req.price},
+            "$inc":      {"protocredits": -req.price, "shards": -req.shard_price},
             "$addToSet": {"purchased_items": req.item_id},
         }
     )
