@@ -157,7 +157,7 @@ class UpdateProfileRequest(BaseModel):
     # profile tab
     bio:          Optional[str] = None
     username:     Optional[str] = None
-    avatar:       Optional[str] = None   # Supabase CDN URL or legacy base64 data URI
+    avatar:       Optional[str] = None   # Supabase CDN URL only
     # cosmetics tabs
     banner:       Optional[str] = None
     border_style: Optional[str] = None
@@ -211,14 +211,13 @@ async def update_profile(
 
     # ── Avatar ───────────────────────────────────────────────────────────────
     if data.avatar is not None:
-        is_url    = data.avatar.startswith("https://")
-        is_base64 = bool(re.match(r'^data:image/(jpeg|png|webp);base64,', data.avatar))
-        if not is_url and not is_base64:
-            raise HTTPException(400, "Avatar must be a valid image URL or JPEG/PNG/WebP")
-        if is_base64:
-            approx_bytes = len(data.avatar) * 0.75
-            if approx_bytes > 2 * 1024 * 1024:
-                raise HTTPException(400, "Avatar must be under 2MB")
+        # Enforce URL-only avatar storage to prevent large base64 blobs in MongoDB.
+        is_url = data.avatar.startswith("https://")
+        if not is_url:
+            raise HTTPException(400, "Avatar must be a valid HTTPS URL")
+        # Optional hard guard: reject unexpectedly long URLs.
+        if len(data.avatar) > 2048:
+            raise HTTPException(400, "Avatar URL is too long")
         updates["avatar"] = data.avatar
 
     # ── Banner ───────────────────────────────────────────────────────────────
