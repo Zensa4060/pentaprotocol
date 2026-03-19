@@ -3,6 +3,7 @@ from dotenv import load_dotenv
 import os
 import certifi
 from pymongo import ASCENDING, DESCENDING
+import asyncio
 
 load_dotenv(os.path.join(os.path.dirname(__file__), "..", "..", ".env"))
 
@@ -11,6 +12,23 @@ class DB:
     db = None
 
 db = DB()
+
+
+async def ensure_indexes():
+    if not db.db:
+        return
+    try:
+        # Critical indexes for room queue/create/join and profile fetch paths.
+        await db.db.users.create_index([("username", ASCENDING)], unique=True, background=True)
+        await db.db.users.create_index([("email", ASCENDING)], unique=True, background=True)
+        await db.db.rooms.create_index([("room_code", ASCENDING)], unique=True, background=True)
+        await db.db.rooms.create_index([("status", ASCENDING), ("format", ASCENDING), ("created_at", DESCENDING)], background=True)
+        await db.db.rooms.create_index([("player1_id", ASCENDING)], background=True)
+        await db.db.rooms.create_index([("player2_id", ASCENDING)], background=True)
+        await db.db.match_history.create_index([("user_id", ASCENDING), ("played_at", DESCENDING)], background=True)
+        print("MongoDB indexes ensured")
+    except Exception as e:
+        print(f"Index ensure warning: {e}")
 
 async def connect_db():
     uri = os.getenv("MONGO_URI") or os.getenv("MONGODB_URL")
@@ -27,20 +45,14 @@ async def connect_db():
         connectTimeoutMS=30000,
         socketTimeoutMS=60000,
         maxPoolSize=50,
-        minPoolSize=5,
+        minPoolSize=1,
         waitQueueTimeoutMS=30000,
     )
     db.db = db.client[name]
 
     await db.client.admin.command("ping")
-    # Critical indexes for room queue/create/join and profile fetch paths.
-    await db.db.users.create_index([("username", ASCENDING)], unique=True, background=True)
-    await db.db.users.create_index([("email", ASCENDING)], unique=True, background=True)
-    await db.db.rooms.create_index([("room_code", ASCENDING)], unique=True, background=True)
-    await db.db.rooms.create_index([("status", ASCENDING), ("format", ASCENDING), ("created_at", DESCENDING)], background=True)
-    await db.db.rooms.create_index([("player1_id", ASCENDING)], background=True)
-    await db.db.rooms.create_index([("player2_id", ASCENDING)], background=True)
-    await db.db.match_history.create_index([("user_id", ASCENDING), ("played_at", DESCENDING)], background=True)
+    # Don't block startup on index operations.
+    asyncio.create_task(ensure_indexes())
     print("Connected to MongoDB Atlas successfully")
 
 async def disconnect_db():

@@ -221,13 +221,15 @@ export default function Page() {
     throw lastErr;
   };
 
-  const startMatchmaking = async (mode: "ranked" | "unranked") => {
+  const startMatchmaking = async (mode: "ranked" | "unranked", retrying = false) => {
     queueCancelledRef.current = false;
-    setIsRanked(mode === "ranked");
-    setInQueue(true);
-    setQueuePhase("queuing");
-    setQueueElapsed(0);
-    setQueueError(null);
+    if (!retrying) {
+      setIsRanked(mode === "ranked");
+      setInQueue(true);
+      setQueuePhase("queuing");
+      setQueueElapsed(0);
+      setQueueError(null);
+    }
 
     const authHeader = { headers: { Authorization: `Bearer ${token}` } };
     try {
@@ -264,6 +266,15 @@ export default function Page() {
       }
     } catch (err: any) {
       console.error("Matchmaking error:", err);
+      const retryable = err?.code === "ECONNABORTED" || !err?.response;
+      if (retryable && !queueCancelledRef.current) {
+        // Keep queue UI active and retry automatically until user cancels.
+        setQueueError("Network slow... retrying");
+        setTimeout(() => {
+          if (!queueCancelledRef.current) startMatchmaking(mode, true);
+        }, 2000);
+        return;
+      }
       setInQueue(false);
       setQueuePhase("none");
       setQueueError(err?.response?.data?.detail || err?.message || "Failed to join queue.");
