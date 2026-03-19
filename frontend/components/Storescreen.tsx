@@ -912,19 +912,45 @@ export default function StoreScreen({ setScreenAction, themeId }: Props) {
     const bundleData = isBundlePurchase ? BUNDLES.find(b => b.id === id.replace("bundle_purchase_", "")) : null;
     try {
       if (bundleData) {
+        const owned = new Set(purchasedItems);
+        const needBoard = !owned.has(bundleData.boardId);
+        const needPiece = !owned.has(bundleData.pieceId);
+
+        if (!needBoard && !needPiece) {
+          setMsg({ text: "✓ Bundle already owned.", ok: true });
+          setOpenBundle(null);
+          setTimeout(() => setMsg(null), 2500);
+          return;
+        }
+
         // Bundle purchases must charge exactly `bundlePrice` total (store discount).
-        // We split the total across the two item purchases to keep backend accounting correct.
-        const boardCharge = Math.min(bundleData.boardPrice, price);
-        const pieceCharge = Math.max(0, price - boardCharge);
-        await API.post("/api/store/purchase-item", { item_id: bundleData.boardId, price: boardCharge }, { headers: { Authorization: `Bearer ${token}` } });
-        await API.post("/api/store/purchase-item", { item_id: bundleData.pieceId, price: pieceCharge }, { headers: { Authorization: `Bearer ${token}` } });
-        const existing = (user as any).purchased_items ?? [];
-        updateUser({ protocredits: balance - price, purchased_items: [...existing, bundleData.boardId, bundleData.pieceId] });
+        // If partially owned, charge the full bundle price to the missing item.
+        const boardCharge = needBoard ? (needPiece ? Math.min(bundleData.boardPrice, price) : price) : 0;
+        const pieceCharge = needPiece ? (needBoard ? Math.max(0, price - boardCharge) : price) : 0;
+
+        const postPurchase = async (item_id: string, p: number) => {
+          if (p < 0) p = 0;
+          if (p === 0) {
+            // Still call backend so item is granted if missing (price 0 is allowed).
+            await API.post("/api/store/purchase-item", { item_id, price: 0 }, { headers: { Authorization: `Bearer ${token}` }, timeout: 15000 });
+            return;
+          }
+          await API.post("/api/store/purchase-item", { item_id, price: p }, { headers: { Authorization: `Bearer ${token}` }, timeout: 15000 });
+        };
+
+        // Buy missing parts only
+        if (needBoard) await postPurchase(bundleData.boardId, boardCharge);
+        if (needPiece) await postPurchase(bundleData.pieceId, pieceCharge);
       } else {
-        await API.post("/api/store/purchase-item", { item_id: id, price }, { headers: { Authorization: `Bearer ${token}` } });
-        const existing = (user as any).purchased_items ?? [];
-        updateUser({ protocredits: balance - price, purchased_items: [...existing, id] });
+        await API.post("/api/store/purchase-item", { item_id: id, price }, { headers: { Authorization: `Bearer ${token}` }, timeout: 15000 });
       }
+
+      // Always refresh profile after purchases so ownership never desyncs.
+      try {
+        const me = await API.get("/api/profile/me", { headers: { Authorization: `Bearer ${token}` }, timeout: 15000 });
+        updateUser(me.data);
+      } catch {}
+
       setMsg({ text: `✓ ${label} unlocked! Equip it in your Collection.`, ok: true });
       setOpenBundle(null);
       setTimeout(() => setMsg(null), 3000);
@@ -933,7 +959,7 @@ export default function StoreScreen({ setScreenAction, themeId }: Props) {
       // If the backend says it's already owned, immediately sync profile and the item will disappear from store.
       if (detail && String(detail).toLowerCase().includes("already owned")) {
         try {
-          const me = await API.get("/api/profile/me", { headers: { Authorization: `Bearer ${token}` } });
+          const me = await API.get("/api/profile/me", { headers: { Authorization: `Bearer ${token}` }, timeout: 15000 });
           updateUser(me.data);
         } catch {}
       }

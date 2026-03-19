@@ -667,10 +667,12 @@ export default function CollectionScreen({ themeId, setThemeIdAction, onHoverAct
     if (!purchaseModal || !token) return;
     setBuyLoading(true);
     try {
-      await API.post("/api/store/purchase-item", { item_id: purchaseModal.id, price: purchaseModal.price }, { headers: { Authorization: `Bearer ${token}` } });
-      const bal = (user as any).protocredits ?? 0;
-      const existing = (user as any).purchased_items ?? [];
-      updateUser({ protocredits: bal - purchaseModal.price, purchased_items: [...existing, purchaseModal.id] });
+      await API.post("/api/store/purchase-item", { item_id: purchaseModal.id, price: purchaseModal.price }, { headers: { Authorization: `Bearer ${token}` }, timeout: 15000 });
+      // Always refresh profile to avoid any local-state desync
+      try {
+        const me = await API.get("/api/profile/me", { headers: { Authorization: `Bearer ${token}` }, timeout: 15000 });
+        updateUser(me.data);
+      } catch {}
       setPurchaseModal(null);
       const id = purchaseModal.id;
       const cur = loadCustomTheme();

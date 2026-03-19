@@ -339,18 +339,35 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
 
   useEffect(() => {
     if (!user) { setLoading(false); return; }
+    let cancelled = false;
+    const timeoutMs = 15000;
     const fetchProfile = async () => {
       try {
-        const res = await API.get("/api/profile/me");
+        const res = await API.get("/api/profile/me", { timeout: timeoutMs });
+        if (cancelled) return;
         setProfile(res.data);
         updateUser(res.data);
         setTwoFAReady(true);
       } catch {
+        if (cancelled) return;
         setProfile({ ...user, totp_enabled: false });
         setTwoFAReady(true);
-      } finally { setLoading(false); }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
     };
     fetchProfile();
+    const fallback = setTimeout(() => {
+      if (!cancelled) {
+        setProfile((p: any) => p ?? { ...user, totp_enabled: false });
+        setTwoFAReady(true);
+        setLoading(false);
+      }
+    }, timeoutMs + 500);
+    return () => {
+      cancelled = true;
+      clearTimeout(fallback);
+    };
   }, [user]);
 
   if (loading) return (

@@ -19,13 +19,16 @@ async def connect_db():
     name = os.getenv("DATABASE_NAME", "pentaprotocol")
 
     db.client = AsyncIOMotorClient(
-        uri,
-        tls=True,
-        tlsCAFile=certifi.where(),
-        serverSelectionTimeoutMS=30000,
-        connectTimeoutMS=20000,
-        socketTimeoutMS=20000,
-    )
+    uri,
+    tls=True,
+    tlsCAFile=certifi.where(),
+    serverSelectionTimeoutMS=30000,
+    connectTimeoutMS=30000,
+    socketTimeoutMS=60000,    # ← was 20000, increase to 60000
+    maxPoolSize=10,
+    minPoolSize=1,
+    waitQueueTimeoutMS=10000,
+)
     db.db = db.client[name]
 
     # Async ping — properly awaited, no sync blocking call

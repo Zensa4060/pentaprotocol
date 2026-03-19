@@ -1,52 +1,61 @@
 import os
-from pymongo import MongoClient
+import asyncio
+import certifi
+from motor.motor_asyncio import AsyncIOMotorClient
+from dotenv import load_dotenv
 
-def reset_all():
-    # Use environment variable if available, otherwise default to local
-    mongo_uri = os.getenv("MONGODB_URI", "mongodb://localhost:27017")
-    client = MongoClient(mongo_uri)
+load_dotenv()
+
+async def reset_all():
+    mongo_uri = os.getenv("MONGO_URI") or os.getenv("MONGODB_URL") or "mongodb://localhost:27017"
+    client = AsyncIOMotorClient(
+        mongo_uri,
+        tls=True,
+        tlsCAFile=certifi.where(),
+        serverSelectionTimeoutMS=30000,
+        connectTimeoutMS=30000,
+        socketTimeoutMS=60000,
+    )
     db = client["pentaprotocol"]
-    
+
     print("Starting profile reset...")
-    
-    users = list(db.users.find({}))
+
+    users = await db.users.find({}).to_list(length=None)
     total_users = len(users)
     print(f"Processing {total_users} users...")
-    
+
     for user in users:
-        # Calculate total unranked games
-        unranked_wins = user.get("unranked_wins", 0)
+        unranked_wins   = user.get("unranked_wins", 0)
         unranked_losses = user.get("unranked_losses", 0)
-        total_unranked = unranked_wins + unranked_losses
-        
-        # Prepare updates
-        # Preserves: coins, shards, protocredits, bio, avatar, created_at, totp_enabled, etc.
+        total_unranked  = unranked_wins + unranked_losses
+
         updates = {
             "$set": {
-                "wins": 0,
+                "wins":   0,
                 "losses": 0,
-                "draws": 0,
-                "elo": 100,
-                "xp": 0,
-                "level": 1,
+                "draws":  0,
+                "elo":    100,
+                "xp":     0,
+                "level":  1,
             },
             "$inc": {
-                "unranked_wins": total_unranked,
-                "unranked_losses": total_unranked
-            }
+                "unranked_wins":   total_unranked,
+                "unranked_losses": total_unranked,
+            },
         }
-        
-        db.users.update_one({"_id": user["_id"]}, updates)
-    
+
+        await db.users.update_one({"_id": user["_id"]}, updates)
+
     print(f"Stats reset for {total_users} users.")
-    
-    # Clear collections that should be reset entirely
-    res_matches = db.matches.delete_many({})
+
+    res_matches = await db.matches.delete_many({})
     print(f"Matches deleted: {res_matches.deleted_count}")
-    
-    # Also clear match_history if it's a separate collection (seen in profile.py)
-    res_history = db.match_history.delete_many({})
+
+    res_history = await db.match_history.delete_many({})
     print(f"Match history deleted: {res_history.deleted_count}")
 
+    client.close()
+    print("Done.")
+
 if __name__ == "__main__":
-    reset_all()
+    asyncio.run(reset_all())
