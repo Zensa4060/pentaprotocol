@@ -45,11 +45,20 @@ const CatIcon = ({ id, size = 16, color }: { id: string; size?: number; color: s
 };
 
 // ── Collection data ───────────────────────────────────────────────────────────
-const COLLECTION_THEMES = [
-  { id: "classic_light", label: "Classic Light", desc: "The original light aesthetic", owned: true,  comingSoon: false, preview: "linear-gradient(135deg,#f5f0e8,#e8e0d0)" },
-  { id: "classic_dark",  label: "Classic Dark",  desc: "Dark mode classic",            owned: true,  comingSoon: false, preview: "linear-gradient(135deg,#1a1a1a,#2a2a2a)" },
-  { id: "space",         label: "Space",         desc: "Deep space atmosphere",       owned: true,  comingSoon: false, preview: "linear-gradient(135deg,#020410,#0d1b4b)" },
-  { id: "pixel",         label: "Pixel",         desc: "Retro pixel art style",        owned: true,  comingSoon: false, preview: "linear-gradient(135deg,#0d1007,#1a2e0a)" },
+type CollectionTheme = {
+  id: string;
+  label: string;
+  desc: string;
+  comingSoon: boolean;
+  preview: string;
+  owned: (p: any) => boolean;
+};
+
+const COLLECTION_THEMES: CollectionTheme[] = [
+  { id: "classic_light", label: "Classic Light", desc: "The original light aesthetic", comingSoon: false, preview: "linear-gradient(135deg,#f5f0e8,#e8e0d0)", owned: () => true },
+  { id: "classic_dark",  label: "Classic Dark",  desc: "Dark mode classic",            comingSoon: false, preview: "linear-gradient(135deg,#1a1a1a,#2a2a2a)", owned: () => true },
+  { id: "space",         label: "Space",         desc: "Deep space atmosphere",       comingSoon: false, preview: "linear-gradient(135deg,#020410,#0d1b4b)", owned: (p) => (p?.purchased_items ?? []).includes("theme_space") },
+  { id: "pixel",         label: "Pixel",         desc: "Retro pixel art style",        comingSoon: false, preview: "linear-gradient(135deg,#0d1007,#1a2e0a)", owned: (p) => (p?.purchased_items ?? []).includes("theme_pixel") },
 ];
 
 const BOARD_SKINS: { id: string; label: string; desc: string; condition: (p: any) => boolean; preview: string; border: string; price?: number }[] = [
@@ -239,7 +248,7 @@ type BoardBundle = typeof BOARD_BUNDLES[number];
 type CatId = "themes" | "board_bundles" | "profile_bundles" | "coin_bundles" | "titles";
 
 const CATEGORIES: { id: CatId; label: string; icon: string; count: (p: any) => number }[] = [
-  { id: "themes",          label: "Themes",          icon: "palette", count: () => COLLECTION_THEMES.filter(x => x.owned).length },
+  { id: "themes",          label: "Themes",          icon: "palette", count: (p) => COLLECTION_THEMES.filter(x => x.owned(p)).length },
   { id: "board_bundles",   label: "GRIDS",           icon: "board",   count: (p) => BOARD_BUNDLES.filter(b => b.bOwned(p) || b.pOwned(p)).length },
   { id: "profile_bundles", label: "BANNERS",         icon: "banner",  count: (p) => BANNERS.filter(x => x.condition(p)).length + PROFILE_BORDERS.filter(x => x.condition(p)).length },
   { id: "coin_bundles",    label: "COINS",           icon: "coin",    count: () => COIN_SKINS.filter(x => x.owned).length + COIN_TOSS_ANIMS.length },
@@ -462,23 +471,24 @@ interface ThemesWithCustomizeProps {
 function ThemesWithCustomize({ t, ip, themeId, setThemeIdAction, profile, activeTheme, setActiveTheme, showAll, onHoverAction, onClickAction }: ThemesWithCustomizeProps) {
   const [customizeOpen, setCustomizeOpen] = useState(false);
   const accentHex = t.accent;
-  const themes = showAll ? COLLECTION_THEMES : COLLECTION_THEMES.filter(x => x.owned || x.comingSoon);
+  const ownedThemes = COLLECTION_THEMES.map((x) => ({ ...x, isOwned: x.owned(profile ?? {}) }));
+  const themes = showAll ? ownedThemes : ownedThemes.filter(x => x.isOwned || x.comingSoon);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(210px,1fr))", gap: 14 }}>
         {themes.map(item => (
-          <div key={item.id} className={`coll-item ${item.comingSoon || !item.owned ? "coll-locked" : ""}`}
-            onClick={() => { if (item.owned && !item.comingSoon && setThemeIdAction) { onClickAction?.(); setThemeIdAction(item.id as ThemeId); setActiveTheme(item.id); } }}
-            onMouseEnter={() => { if (item.owned && !item.comingSoon) onHoverAction?.(); }}
+          <div key={item.id} className={`coll-item ${item.comingSoon || !item.isOwned ? "coll-locked" : ""}`}
+            onClick={() => { if (item.isOwned && !item.comingSoon && setThemeIdAction) { onClickAction?.(); setThemeIdAction(item.id as ThemeId); setActiveTheme(item.id); } }}
+            onMouseEnter={() => { if (item.isOwned && !item.comingSoon) onHoverAction?.(); }}
             style={{ 
               borderRadius: 16, overflow: "hidden", 
               border: `1px solid ${activeTheme === item.id ? accentHex : "rgba(255,255,255,0.1)"}`, 
               background: "rgba(30,30,30,0.6)", backdropFilter: "blur(12px)",
               boxShadow: activeTheme === item.id ? `0 0 20px ${accentHex}33` : "0 10px 30px rgba(0,0,0,0.2)", 
-              cursor: item.owned && !item.comingSoon ? "pointer" : "default" 
+              cursor: item.isOwned && !item.comingSoon ? "pointer" : "default" 
             }}>
-            {(item.comingSoon || !item.owned) && (
+            {(item.comingSoon || !item.isOwned) && (
               <div className="coll-locked-overlay">
                 <div style={{ background: "rgba(0,0,0,0.8)", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 12, padding: "8px 16px", display: "flex", alignItems: "center", gap: 8 }}>
                   <LockIcon size={14} color="#888" />
@@ -489,18 +499,18 @@ function ThemesWithCustomize({ t, ip, themeId, setThemeIdAction, profile, active
               </div>
             )}
             <div style={{ height: 90, background: item.preview, position: "relative", overflow: "hidden" }}>
-              {item.owned && activeTheme === item.id && (
+              {item.isOwned && activeTheme === item.id && (
                 <div style={{ position: "absolute", top: 12, right: 12, background: accentHex, borderRadius: 12, padding: "4px 12px", fontFamily: t.fontMono, fontSize: 10, color: "#000", fontWeight: 900, letterSpacing: "0.05em", zIndex: 2, boxShadow: "0 4px 12px rgba(0,0,0,0.3)" }}>ACTIVE</div>
               )}
               {/* Shiny Overlay for Active */}
-              {item.owned && activeTheme === item.id && (
+              {item.isOwned && activeTheme === item.id && (
                 <div style={{ position: "absolute", inset: 0, background: "linear-gradient(110deg, transparent 40%, rgba(255,255,255,0.1) 45%, rgba(255,255,255,0.2) 50%, rgba(255,255,255,0.1) 55%, transparent 60%)", backgroundSize: "200% 100%", animation: "bannerShine 3s infinite linear", zIndex: 1, pointerEvents: "none" }} />
               )}
             </div>
             <div style={{ padding: "16px" }}>
               <div style={{ fontFamily: t.fontDisplay, fontSize: 18, fontWeight: 800, color: activeTheme === item.id ? accentHex : t.text }}>{item.label}</div>
               <div style={{ fontFamily: t.fontBody, fontSize: 13, color: t.textMuted, marginTop: 4, fontWeight: 500, opacity: 0.7 }}>
-                {item.comingSoon ? "Expansion content" : item.owned ? (activeTheme === item.id ? "Current theme" : "Ready to apply") : "Not yet acquired"}
+                {item.comingSoon ? "Expansion content" : item.isOwned ? (activeTheme === item.id ? "Current theme" : "Ready to apply") : "Not yet acquired"}
               </div>
             </div>
           </div>
