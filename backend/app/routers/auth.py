@@ -1,4 +1,4 @@
-﻿from fastapi import APIRouter, HTTPException, Header, Depends
+from fastapi import APIRouter, HTTPException, Header, Depends
 from app.models.user import UserRegister
 from app.core.database import get_db
 from app.core.security import hash_password, verify_password, create_access_token, decode_token
@@ -15,6 +15,20 @@ FROM_EMAIL = "noreply@pentaprotocol.com"
 
 _reset_codes: dict = {}
 _pending_2fa: dict = {}
+
+
+def _safe_bool(v, default=False):
+    if isinstance(v, bool):
+        return v
+    if isinstance(v, str):
+        lv = v.strip().lower()
+        if lv in ("true", "1", "yes", "y"):
+            return True
+        if lv in ("false", "0", "no", "n"):
+            return False
+    if isinstance(v, (int, float)):
+        return bool(v)
+    return default
 
 class ForgotPasswordRequest(BaseModel):
     email: str
@@ -124,13 +138,24 @@ async def login(data: UserLogin):
     if not user or not verify_password(data.password, user["password"]):
         raise HTTPException(401, "Invalid credentials")
 
-    if user.get("totp_enabled") and user.get("totp_secret"):
+    totp_enabled = _safe_bool(user.get("totp_enabled"), False)
+    if totp_enabled and user.get("totp_secret"):
         skip_2fa = False
         if data.device_token:
             now        = datetime.utcnow()
             token_list = user.get("device_tokens_list", [])
+            if not isinstance(token_list, list):
+                token_list = []
             for t in token_list:
-                if t.get("token") == data.device_token and t.get("expires_at", now) > now:
+                if not isinstance(t, dict):
+                    continue
+                exp = t.get("expires_at")
+                if isinstance(exp, str):
+                    try:
+                        exp = datetime.fromisoformat(exp.replace("Z", "+00:00")).replace(tzinfo=None)
+                    except Exception:
+                        exp = None
+                if isinstance(exp, datetime) and t.get("token") == data.device_token and exp > now:
                     skip_2fa = True
                     break
 
