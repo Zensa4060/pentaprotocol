@@ -66,6 +66,21 @@ export default function LobbyScreen({
   const [roomError,   setRoomError]   = useState<string | null>(null);
   const authHeader = { headers: { Authorization: `Bearer ${token}` } };
 
+  const postWithRetry = async (url: string, data: any, config: any, retries = 2) => {
+    let lastErr: any;
+    for (let i = 0; i <= retries; i++) {
+      try {
+        return await API.post(url, data, { ...config, timeout: 25000 });
+      } catch (e: any) {
+        lastErr = e;
+        const retryable = e?.code === "ECONNABORTED" || !e?.response;
+        if (!retryable || i === retries) break;
+        await new Promise((r) => setTimeout(r, 700 * (i + 1)));
+      }
+    }
+    throw lastErr;
+  };
+
   // Timers lifted to page.tsx
 
   const startSearch = async () => {
@@ -85,7 +100,7 @@ export default function LobbyScreen({
     if (!token) { setRoomError("Sign in to play multiplayer"); return; }
     setRoomLoading(true); setRoomError(null);
     try {
-      const res = await API.post("/api/room/create", { format: roomFormat }, { ...authHeader, timeout: 10000 });
+      const res = await postWithRetry("/api/room/create", { format: roomFormat }, authHeader, 2);
       setRoomCode(res.data.room_code);
       setRoomSection("waiting");
       pollForPlayer(res.data.room_code, (res.data.player_slot as "P1" | "P2") ?? "P1");
@@ -112,7 +127,7 @@ export default function LobbyScreen({
     if (!joinCode.trim()) { setRoomError("Enter a room code"); return; }
     setRoomLoading(true); setRoomError(null);
     try {
-      const res = await API.post("/api/room/join", { room_code: joinCode.trim().toUpperCase() }, { ...authHeader, timeout: 10000 });
+      const res = await postWithRetry("/api/room/join", { room_code: joinCode.trim().toUpperCase() }, authHeader, 2);
       onRoomReadyAction?.(res.data.room_code, (res.data.player_slot as "P1" | "P2") ?? "P2", res.data.format);
     } catch (e: any) {
       setRoomError(e.response?.data?.detail || "Could not join room");

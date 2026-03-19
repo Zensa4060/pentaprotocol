@@ -44,6 +44,21 @@ export default function MultiplayerScreen({ setScreen, themeId, onHover, onRoomR
   const authHeader = { headers: { Authorization: `Bearer ${token}` } };
   const level = (user as any)?.level ?? 1;
 
+  const postWithRetry = async (url: string, data: any, config: any, retries = 2) => {
+    let lastErr: any;
+    for (let i = 0; i <= retries; i++) {
+      try {
+        return await API.post(url, data, { ...config, timeout: 25000 });
+      } catch (e: any) {
+        lastErr = e;
+        const retryable = e?.code === "ECONNABORTED" || !e?.response;
+        if (!retryable || i === retries) break;
+        await new Promise((r) => setTimeout(r, 700 * (i + 1)));
+      }
+    }
+    throw lastErr;
+  };
+
   const handleCreate = async () => {
     if (!token) { setError("Sign in to play multiplayer"); return; }
     if (format === "ranked" && level < 5) {
@@ -52,7 +67,7 @@ export default function MultiplayerScreen({ setScreen, themeId, onHover, onRoomR
     }
     setLoading(true); setError(null);
     try {
-      const res = await API.post("/api/room/create", { format }, { ...authHeader, timeout: 10000 });
+      const res = await postWithRetry("/api/room/create", { format }, authHeader, 2);
       setRoomCode(res.data.room_code);
       setWaiting(true);
       // Start polling for P2 to join
@@ -81,7 +96,7 @@ export default function MultiplayerScreen({ setScreen, themeId, onHover, onRoomR
     if (!joinCode.trim()) { setError("Enter a room code"); return; }
     setLoading(true); setError(null);
     try {
-      const res = await API.post("/api/room/join", { room_code: joinCode.trim().toUpperCase() }, { ...authHeader, timeout: 10000 });
+      const res = await postWithRetry("/api/room/join", { room_code: joinCode.trim().toUpperCase() }, authHeader, 2);
       onRoomReady?.(res.data.room_code, "P2", res.data.format);
     } catch (e: any) {
       setError(e.response?.data?.detail || "Could not join room");

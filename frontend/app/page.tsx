@@ -206,6 +206,21 @@ export default function Page() {
     }
   };
 
+  const postWithRetry = async (url: string, data: any, config: any, retries = 2) => {
+    let lastErr: any;
+    for (let i = 0; i <= retries; i++) {
+      try {
+        return await API.post(url, data, { ...config, timeout: 25000 });
+      } catch (e: any) {
+        lastErr = e;
+        const retryable = e?.code === "ECONNABORTED" || !e?.response;
+        if (!retryable || i === retries) break;
+        await new Promise((r) => setTimeout(r, 700 * (i + 1)));
+      }
+    }
+    throw lastErr;
+  };
+
   const startMatchmaking = async (mode: "ranked" | "unranked") => {
     queueCancelledRef.current = false;
     setIsRanked(mode === "ranked");
@@ -216,7 +231,7 @@ export default function Page() {
 
     const authHeader = { headers: { Authorization: `Bearer ${token}` } };
     try {
-      const res = await API.post("/api/room/queue/join", { format: mode }, { ...authHeader, timeout: 10000 });
+      const res = await postWithRetry("/api/room/queue/join", { format: mode }, authHeader, 2);
       if (queueCancelledRef.current) return;
       
       const code = res.data.room_code;
