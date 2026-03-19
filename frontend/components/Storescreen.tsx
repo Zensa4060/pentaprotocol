@@ -53,9 +53,28 @@ const PACKAGES = [
 declare global { interface Window { Razorpay: any; } }
 
 const STORE_THEMES = [
-  { id: "space", label: "Space", desc: "Deep space atmosphere", preview: "linear-gradient(135deg,#020410,#0d1b4b)", unlock: "3,000 PC", price: 2999, purchaseId: "theme_space" },
-  { id: "pixel", label: "Pixel", desc: "Retro pixel art style", preview: "linear-gradient(135deg,#0d1007,#1a2e0a)", unlock: "3,000 PC", price: 2999, purchaseId: "theme_pixel" },
+  { id: "space", label: "SPACE THEME", tagline: "Cosmic premium atmosphere", desc: "Deep-space visuals, high-contrast panels, and premium ambient glow.", preview: "linear-gradient(135deg,#020410,#0d1b4b)", unlock: "2,999 PC", price: 2999, purchaseId: "theme_space", boardId: "space_grid", boardLabel: "Space Board", musicLabel: "Space Ranked OST", fontLabel: "Space Font Pack", bgLabel: "Space Backgrounds", accentColor: "#4DA3FF", tags: ["PREMIUM", "THEME + BOARD"] },
+  { id: "pixel", label: "PIXEL THEME", tagline: "8-bit premium aesthetic", desc: "Retro pixel visuals, arcade contrast, and upgraded UI glow intensity.", preview: "linear-gradient(135deg,#0d1007,#1a2e0a)", unlock: "2,999 PC", price: 2999, purchaseId: "theme_pixel", boardId: "pixel_grid", boardLabel: "Pixel Board", musicLabel: "Pixel Ranked OST", fontLabel: "Pixel Font Pack", bgLabel: "Pixel Backgrounds", accentColor: "#A4FF3B", tags: ["PREMIUM", "THEME + BOARD"] },
 ];
+
+const THEME_MUSIC_PREVIEWS: Record<string, { key: "lobby" | "game" | "ranked"; label: string; file: string }[]> = {
+  space: [
+    { key: "lobby", label: "Lobby BGM", file: "space_lobby.mp3" },
+    { key: "game", label: "Game BGM", file: "space_game.mp3" },
+    { key: "ranked", label: "Ranked BGM", file: "space_ranked.mp3" },
+    { key: "lobby", label: "SFX: UI Transition", file: "Space UI transition.wav" },
+    { key: "game", label: "SFX: Rulebreaker", file: "Space Rulebreaker.wav" },
+    { key: "ranked", label: "SFX: Match Found", file: "Space match found.wav" },
+  ],
+  pixel: [
+    { key: "lobby", label: "Lobby BGM", file: "pixel_lobby.mp3" },
+    { key: "game", label: "Game BGM", file: "pixel_game.mp3" },
+    { key: "ranked", label: "Ranked BGM", file: "pixel_ranked.mp3" },
+    { key: "lobby", label: "SFX: UI Transition", file: "Pixel UI Transition.wav" },
+    { key: "game", label: "SFX: Rulebreaker", file: "Pixel Rulebreaker.wav" },
+    { key: "ranked", label: "SFX: Match Found", file: "Pixel Match Found.wav" },
+  ],
+};
 
 const STORE_BANNERS: { id: string; label: string; gradient: string; unlock: string; price?: number; component?: any }[] = [
   { id: "default",   label: "Default",   gradient: "linear-gradient(135deg,#1a1a2e,#16213e)", unlock: "Free" },
@@ -668,6 +687,121 @@ function BundleModal({ bundle, t, isGuest, buyingId, purchasedItems, balance, on
   );
 }
 
+function ThemePreviewModal({ item, t, onClose }: { item: any; t: any; onClose: () => void }) {
+  const [activeTrack, setActiveTrack] = useState<string | null>(null);
+  const [trackErr, setTrackErr] = useState<string | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const ac = item.accentColor ?? "#4DA3FF";
+  const tracks = THEME_MUSIC_PREVIEWS[item.id] ?? [];
+
+  useEffect(() => {
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.src = "";
+      }
+    };
+  }, []);
+
+  const stopCurrent = () => {
+    if (!audioRef.current) return;
+    audioRef.current.pause();
+    audioRef.current.currentTime = 0;
+    setActiveTrack(null);
+  };
+
+  const playTrack = (file: string) => {
+    setTrackErr(null);
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.src = "";
+    }
+    const audio = new Audio(`/sounds/${file}`);
+    audioRef.current = audio;
+    audio.currentTime = 0;
+    audio.volume = 0.7;
+    audio.addEventListener("timeupdate", () => {
+      if (audio.currentTime >= 30) {
+        audio.pause();
+      }
+    });
+    audio.addEventListener("pause", () => setActiveTrack(null));
+    audio.addEventListener("ended", () => setActiveTrack(null));
+    audio.play().then(() => setActiveTrack(file)).catch(() => {
+      setTrackErr("Could not play this track on your browser.");
+      setActiveTrack(null);
+    });
+  };
+
+  return (
+    <div onClick={e => { if (e.target === e.currentTarget) { stopCurrent(); onClose(); } }}
+      style={{ position: "fixed", inset: 0, zIndex: 210, background: "rgba(0,0,0,0.88)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16, animation: "fadeIn 0.16s ease", overflowY: "auto" }}>
+      <div style={{ background: item.preview, border: `1.5px solid ${ac}66`, borderRadius: 22, width: "100%", maxWidth: 700, position: "relative", animation: "previewSlideUp 0.26s cubic-bezier(.22,.68,0,1.2)", overflow: "hidden", margin: "auto", boxShadow: `0 20px 70px ${ac}30` }}>
+        <button onClick={() => { stopCurrent(); onClose(); }} style={{ position: "absolute", top: 14, right: 14, zIndex: 10, background: "rgba(0,0,0,0.5)", border: `1px solid ${ac}44`, borderRadius: 8, color: "#fff", width: 30, height: 30, cursor: "pointer", fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
+
+        <div style={{ padding: "24px 24px 0" }}>
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" as const, marginBottom: 12 }}>
+            {(item.tags ?? []).map((tag: string) => (<span key={tag} style={{ fontFamily: "monospace", fontSize: 9, fontWeight: 700, color: ac, background: `${ac}18`, border: `1px solid ${ac}44`, padding: "2px 7px", borderRadius: 4, letterSpacing: "0.1em" }}>{tag}</span>))}
+          </div>
+          <div style={{ fontFamily: t.fontDisplay, fontSize: 28, fontWeight: 900, color: "#fff", letterSpacing: "0.04em", marginBottom: 3 }}>{item.label} PREVIEW</div>
+          <div style={{ fontFamily: t.fontBody, fontSize: 13, color: `${ac}cc`, fontStyle: "italic", marginBottom: 14 }}>{item.tagline}</div>
+
+          <div style={{ width: "100%", borderRadius: 12, border: `2px solid ${ac}55`, boxShadow: `0 0 40px ${ac}25`, padding: 8, position: "relative", overflow: "hidden", background: "rgba(0,0,0,0.45)" }}>
+            <div style={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: 320 }}>
+              {item.id === "space" ? <SpaceGrid showLabels={false} cellSize={56} /> : <PixelGrid showLabels={false} cellSize={56} />}
+            </div>
+            <div style={{ position: "absolute", top: 8, left: 12, fontFamily: "monospace", fontSize: 9, color: `${ac}cc`, letterSpacing: "0.18em", zIndex: 10, pointerEvents: "none" }}>{String(item.boardLabel || "").toUpperCase()}</div>
+            <div style={{ position: "absolute", bottom: 8, right: 12, fontFamily: "monospace", fontSize: 9, color: `${ac}aa`, letterSpacing: "0.1em", zIndex: 10, pointerEvents: "none" }}>INTERACTIVE PREVIEW</div>
+          </div>
+        </div>
+
+        <div style={{ padding: "12px 24px 0" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: 8, marginBottom: 12 }}>
+            <div style={{ background: `${ac}10`, border: `1px solid ${ac}33`, borderRadius: 8, padding: "8px 10px" }}>
+              <div style={{ fontFamily: "monospace", fontSize: 9, color: `${ac}88`, letterSpacing: "0.12em" }}>BOARD</div>
+              <div style={{ fontFamily: t.fontDisplay, fontSize: 12, color: "#fff", fontWeight: 700 }}>{item.boardLabel}</div>
+            </div>
+            <div style={{ background: `${ac}10`, border: `1px solid ${ac}33`, borderRadius: 8, padding: "8px 10px" }}>
+              <div style={{ fontFamily: "monospace", fontSize: 9, color: `${ac}88`, letterSpacing: "0.12em" }}>MUSIC PACK</div>
+              <div style={{ fontFamily: t.fontDisplay, fontSize: 12, color: "#fff", fontWeight: 700 }}>{item.musicLabel}</div>
+            </div>
+            <div style={{ background: `${ac}10`, border: `1px solid ${ac}33`, borderRadius: 8, padding: "8px 10px" }}>
+              <div style={{ fontFamily: "monospace", fontSize: 9, color: `${ac}88`, letterSpacing: "0.12em" }}>FONT</div>
+              <div style={{ fontFamily: t.fontDisplay, fontSize: 12, color: "#fff", fontWeight: 700 }}>{item.fontLabel}</div>
+            </div>
+            <div style={{ background: `${ac}10`, border: `1px solid ${ac}33`, borderRadius: 8, padding: "8px 10px" }}>
+              <div style={{ fontFamily: "monospace", fontSize: 9, color: `${ac}88`, letterSpacing: "0.12em" }}>BACKGROUNDS</div>
+              <div style={{ fontFamily: t.fontDisplay, fontSize: 12, color: "#fff", fontWeight: 700 }}>{item.bgLabel}</div>
+            </div>
+          </div>
+
+          <div style={{ fontFamily: "monospace", fontSize: 10, color: `${ac}77`, letterSpacing: "0.2em", marginBottom: 10 }}>MUSIC + SFX PREVIEW (30 SEC EACH)</div>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" as const, marginBottom: 8 }}>
+            {tracks.map((trk) => (
+              <button key={trk.file}
+                onClick={() => playTrack(trk.file)}
+                style={{ background: activeTrack === trk.file ? ac : "rgba(0,0,0,0.42)", border: `1.5px solid ${ac}66`, borderRadius: 9, padding: "8px 12px", fontFamily: t.fontDisplay, fontSize: 11, fontWeight: 800, color: activeTrack === trk.file ? "#000" : "#fff", cursor: "pointer", letterSpacing: "0.04em" }}>
+                {activeTrack === trk.file ? `PLAYING ${trk.label.toUpperCase()}` : `PLAY ${trk.label.toUpperCase()}`}
+              </button>
+            ))}
+            <button onClick={stopCurrent}
+              style={{ background: "rgba(0,0,0,0.42)", border: `1.5px solid ${ac}44`, borderRadius: 9, padding: "8px 12px", fontFamily: t.fontDisplay, fontSize: 11, fontWeight: 800, color: "#fff", cursor: "pointer", letterSpacing: "0.04em" }}>
+              STOP
+            </button>
+          </div>
+          {trackErr && <div style={{ fontFamily: "monospace", fontSize: 10, color: "#EF4444", marginBottom: 8 }}>{trackErr}</div>}
+        </div>
+
+        <div style={{ padding: "0 24px 24px" }}>
+          <div style={{ fontFamily: t.fontBody, fontSize: 12, color: "rgba(255,255,255,0.6)", lineHeight: 1.6 }}>
+            Preview includes board visuals and all bundle contents: {item.boardLabel}, {item.musicLabel}, {item.fontLabel}, and {item.bgLabel}.
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Bundle Card ───────────────────────────────────────────────────────────────
 function BundleCard({ bundle, purchasedItems, t, onClick }: { bundle: Bundle; purchasedItems: string[]; t: any; onClick: () => void }) {
   const [hov, setHov] = useState(false);
@@ -852,6 +986,7 @@ export default function StoreScreen({ setScreenAction, themeId }: Props) {
   const [hovCard,      setHovCard]      = useState<string | null>(null);
   const [buyingId,     setBuyingId]     = useState<string | null>(null);
   const [openBundle,   setOpenBundle]   = useState<string | null>(null);
+  const [openThemePreview, setOpenThemePreview] = useState<string | null>(null);
   const [confirmBuy,   setConfirmBuy]   = useState<{ id: string, price: number, label: string } | null>(null);
 
   const pkg = PACKAGES.find(p => p.id === selected)!;
@@ -861,7 +996,7 @@ export default function StoreScreen({ setScreenAction, themeId }: Props) {
   const purchasedItems: string[] = (user as any)?.purchased_items ?? [];
 
   const ownsBundle = (b: Bundle) => purchasedItems.includes(b.boardId) && purchasedItems.includes(b.pieceId);
-  const visibleBundles = BUNDLES.filter((b) => !ownsBundle(b));
+  const visibleBundles = BUNDLES.filter((b) => b.id !== "bundle_space" && b.id !== "bundle_pixel" && !ownsBundle(b));
 
   const PROFILE_FETCH_TIMEOUT = 15000;
   useEffect(() => {
@@ -935,7 +1070,19 @@ updateUser(me.data); resolve();
     setBuyingId(id);
     const isBundlePurchase = id.startsWith("bundle_purchase_");
     const bundleData = isBundlePurchase ? BUNDLES.find(b => b.id === id.replace("bundle_purchase_", "")) : null;
+    const isThemeBundlePurchase = id.startsWith("theme_bundle_");
+    const themeBundleData = isThemeBundlePurchase ? STORE_THEMES.find(ti => ti.id === id.replace("theme_bundle_", "")) : null;
     try {
+      const postPurchase = async (item_id: string, p: number) => {
+        let safePrice = p;
+        if (safePrice < 0) safePrice = 0;
+        if (safePrice === 0) {
+          await API.post("/api/store/purchase-item", { item_id, price: 0 }, { headers: { Authorization: `Bearer ${token}` }, timeout: 15000 });
+          return;
+        }
+        await API.post("/api/store/purchase-item", { item_id, price: safePrice }, { headers: { Authorization: `Bearer ${token}` }, timeout: 15000 });
+      };
+
       if (bundleData) {
         const owned = new Set(purchasedItems);
         const needBoard = !owned.has(bundleData.boardId);
@@ -953,19 +1100,29 @@ updateUser(me.data); resolve();
         const boardCharge = needBoard ? (needPiece ? Math.min(bundleData.boardPrice, price) : price) : 0;
         const pieceCharge = needPiece ? (needBoard ? Math.max(0, price - boardCharge) : price) : 0;
 
-        const postPurchase = async (item_id: string, p: number) => {
-          if (p < 0) p = 0;
-          if (p === 0) {
-            // Still call backend so item is granted if missing (price 0 is allowed).
-            await API.post("/api/store/purchase-item", { item_id, price: 0 }, { headers: { Authorization: `Bearer ${token}` }, timeout: 15000 });
-            return;
-          }
-          await API.post("/api/store/purchase-item", { item_id, price: p }, { headers: { Authorization: `Bearer ${token}` }, timeout: 15000 });
-        };
-
         // Buy missing parts only
         if (needBoard) await postPurchase(bundleData.boardId, boardCharge);
         if (needPiece) await postPurchase(bundleData.pieceId, pieceCharge);
+      } else if (themeBundleData) {
+        const owned = new Set(purchasedItems);
+        const themeItemId = themeBundleData.purchaseId;
+        const boardItemId = themeBundleData.boardId;
+        const needTheme = !owned.has(themeItemId);
+        const needBoard = !owned.has(boardItemId);
+
+        if (!needTheme && !needBoard) {
+          setMsg({ text: "✓ Theme bundle already owned.", ok: true });
+          setTimeout(() => setMsg(null), 2500);
+          return;
+        }
+
+        // Charge exactly bundle price across theme + board.
+        const themeSuggested = Math.round(price * 0.7);
+        const themeCharge = needTheme ? (needBoard ? themeSuggested : price) : 0;
+        const boardCharge = needBoard ? (needTheme ? Math.max(0, price - themeCharge) : price) : 0;
+
+        if (needTheme) await postPurchase(themeItemId, themeCharge);
+        if (needBoard) await postPurchase(boardItemId, boardCharge);
       } else {
         await API.post("/api/store/purchase-item", { item_id: id, price }, { headers: { Authorization: `Bearer ${token}` }, timeout: 15000 });
       }
@@ -997,12 +1154,14 @@ updateUser(me.data); resolve();
   );
 
   const activeBundleData = openBundle ? BUNDLES.find(b => b.id === openBundle) : null;
+  const activeThemePreview = openThemePreview ? STORE_THEMES.find(ti => ti.id === openThemePreview) : null;
 
   return (
     <div style={{ ...cssVars, minHeight: "100vh", background: t.bg, transition: "background 0.4s", paddingTop: 84, overflowY: "auto" }}>
       <style>{`
         .store-card { transition: transform 0.22s cubic-bezier(.22,.68,0,1.2), box-shadow 0.22s ease, border-color 0.18s ease; cursor: pointer; }
         .store-card:hover { transform: translateY(-4px) scale(1.02); }
+        .store-card.no-lift:hover { transform: none; }
         .store-buy-btn:hover { filter: brightness(1.12); transform: scale(1.01); }
         .store-buy-btn,.store-pkg { transition: all 0.18s ease; cursor: pointer; }
         .store-pkg:hover { filter: brightness(1.08); }
@@ -1030,6 +1189,13 @@ updateUser(me.data); resolve();
         <BundleModal bundle={activeBundleData} t={t} isGuest={isGuest} buyingId={buyingId} purchasedItems={purchasedItems} balance={balance}
           onClose={() => setOpenBundle(null)} onBuy={handleBuyCosmetic}
           onOpenBuyCredits={() => { setOpenBundle(null); setMsg(null); setShowBuyModal(true); }} />
+      )}
+      {activeThemePreview && (
+        <ThemePreviewModal
+          item={activeThemePreview}
+          t={t}
+          onClose={() => setOpenThemePreview(null)}
+        />
       )}
 
       <div style={{ maxWidth: 1240, margin: "0 auto", padding: "0 28px 72px" }}>
@@ -1076,21 +1242,93 @@ updateUser(me.data); resolve();
         {/* ── THEME BUNDLES ── */}
         <div style={{ marginBottom: 56 }}>
           <SectionHeader label="THEME BUNDLES" accent={accent} icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={accent} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="13.5" cy="6.5" r="1.5"/><circle cx="17.5" cy="10.5" r="1.5"/><circle cx="8.5" cy="7.5" r="1.5"/><circle cx="6.5" cy="12.5" r="1.5"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 011.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg>}/>
-          <InfiniteCarouselRow
-            items={STORE_THEMES}
-            itemWidth={360}
-            gap={20}
-            renderItem={(item) => (
-                <div className="store-card" onMouseEnter={() => setHovCard(item.id)} onMouseLeave={() => setHovCard(null)}
-                  style={{ borderRadius: 18, overflow: "hidden", border: `2px solid ${hovCard === item.id ? accent + "88" : t.border}`, background: t.bgCard, boxShadow: hovCard === item.id ? `0 8px 32px ${accent}22` : "none", minHeight: 308 }}>
-                  <div style={{ height: 120, background: item.preview }} />
-                  <div style={{ padding: "24px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                    <div><div style={{ fontFamily: t.fontDisplay, fontSize: 18, fontWeight: 700, color: t.text }}>{item.label}</div><div style={{ fontFamily: t.fontBody, fontSize: 13, color: t.textMuted, marginTop: 4 }}>{item.desc}</div></div>
-                    <UnlockBadge text={item.unlock} accent={accent} />
+          <div style={{ paddingTop: 14, paddingInline: 10 }}>
+            <InfiniteCarouselRow
+              items={STORE_THEMES}
+              itemWidth={380}
+              gap={28}
+              renderItem={(item) => (
+              (() => {
+                const themeOwned = item.purchaseId ? purchasedItems.includes(item.purchaseId) : false;
+                const boardOwned = item.boardId ? purchasedItems.includes(item.boardId) : false;
+                const owned = themeOwned && boardOwned;
+                const price = item.price ?? 0;
+                const glow = item.accentColor ?? accent;
+                return (
+                  <div className="store-card no-lift" onMouseEnter={() => setHovCard(item.id)} onMouseLeave={() => setHovCard(null)}
+                    style={{ borderRadius: 18, overflow: "hidden", border: `2px solid ${owned ? "#4CAF50" : hovCard === item.id ? glow + "CC" : glow + "66"}`, background: t.bgCard, boxShadow: owned ? `0 0 44px ${glow}44` : hovCard === item.id ? `0 0 56px ${glow}66` : `0 0 34px ${glow}33`, minHeight: 402 }}>
+                    <div style={{ height: 120, background: item.preview, position: "relative", borderBottom: `1px solid ${glow}33` }}>
+                      <div style={{ position: "absolute", inset: 0, background: `radial-gradient(circle at 75% 20%, ${glow}55, transparent 45%)` }} />
+                      <div style={{ position: "absolute", top: 10, left: 10, zIndex: 2 }}>
+                        <UnlockBadge text={owned ? "Owned" : item.unlock} accent={owned ? "#4CAF50" : glow} />
+                      </div>
+                      {hovCard === item.id && (
+                        <div style={{ position: "absolute", inset: 0, zIndex: 3, background: "rgba(0,0,0,0.36)", display: "flex", flexDirection: "column", justifyContent: "space-between", padding: 8 }}>
+                          <div style={{ height: 72, borderRadius: 8, overflow: "hidden", border: `1px solid ${glow}66`, background: "rgba(0,0,0,0.42)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                            {item.id === "space" ? (
+                              <div style={{ opacity: 0.98 }}>
+                                <SpaceGrid showLabels={false} cellSize={10} />
+                              </div>
+                            ) : (
+                              <div style={{ opacity: 0.98 }}>
+                                <PixelGrid showLabels={false} cellSize={10} />
+                              </div>
+                            )}
+                          </div>
+                          <div style={{ fontFamily: t.fontMono, fontSize: 9, color: "#fff", background: "rgba(0,0,0,0.52)", border: `1px solid ${glow}55`, borderRadius: 6, padding: "4px 6px", lineHeight: 1.2 }}>
+                            {item.boardLabel} | {item.musicLabel} | {item.fontLabel} | {item.bgLabel}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    <div style={{ padding: "26px 26px 30px", display: "flex", flexDirection: "column", gap: 10 }}>
+                      <div style={{ fontFamily: t.fontDisplay, fontSize: 20, fontWeight: 900, color: t.text, letterSpacing: "0.04em" }}>{item.label}</div>
+                      <div style={{ fontFamily: t.fontBody, fontSize: 12, color: glow, marginTop: 4, marginBottom: 8, fontStyle: "italic" }}>{item.tagline}</div>
+                      <div style={{ fontFamily: t.fontBody, fontSize: 13, color: t.textMuted, marginBottom: 12 }}>{item.desc}</div>
+                      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" as const, marginBottom: 10 }}>
+                        {(item.tags ?? []).map((tag) => (
+                          <span key={tag} style={{ fontFamily: "monospace", fontSize: 9, fontWeight: 700, color: glow, background: `${glow}18`, border: `1px solid ${glow}55`, padding: "2px 7px", borderRadius: 4 }}>{tag}</span>
+                        ))}
+                      </div>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: 14 }}>
+                        <div style={{ fontFamily: t.fontMono, fontSize: 10, color: t.textMuted }}>Includes: <span style={{ color: glow }}>{item.boardLabel}</span>, {item.musicLabel}, {item.fontLabel}, {item.bgLabel}</div>
+                        {!owned && (
+                          <div style={{ fontFamily: t.fontMono, fontSize: 9, color: t.textMuted }}>
+                            Owned now: Theme {themeOwned ? "✓" : "✗"} · Board {boardOwned ? "✓" : "✗"}
+                          </div>
+                        )}
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+                        {owned ? (
+                          <div style={{ fontFamily: t.fontMono, fontSize: 12, fontWeight: 900, color: "#4CAF50", letterSpacing: "0.06em" }}>OWNED</div>
+                        ) : (
+                          <div style={{ fontFamily: t.fontMono, fontSize: 12, fontWeight: 900, color: glow, letterSpacing: "0.06em", display: "flex", alignItems: "center", gap: 6 }}>
+                            {price.toLocaleString()} <ProtoSVG size={16} />
+                          </div>
+                        )}
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <button
+                            onClick={() => setOpenThemePreview(item.id)}
+                            style={{ background: "rgba(0,0,0,0.35)", border: `1.5px solid ${glow}66`, borderRadius: 10, padding: "10px 12px", fontFamily: t.fontDisplay, fontSize: 11, fontWeight: 900, color: glow, cursor: "pointer", whiteSpace: "nowrap" as const }}
+                          >
+                            VIEW PREVIEW
+                          </button>
+                          {owned ? (
+                            <button disabled style={{ background: "rgba(255,255,255,0.06)", border: `1px solid ${t.border}`, borderRadius: 10, padding: "10px 14px", fontFamily: t.fontDisplay, fontSize: 12, fontWeight: 900, color: "rgba(255,255,255,0.65)", cursor: "not-allowed" }}>✓</button>
+                          ) : isGuest ? (
+                            <button onClick={() => setScreenAction("auth")} style={{ background: glow, border: "none", borderRadius: 10, padding: "10px 14px", fontFamily: t.fontDisplay, fontSize: 12, fontWeight: 900, color: "#000", cursor: "pointer", whiteSpace: "nowrap" as const }}>SIGN IN</button>
+                          ) : (
+                            <button onClick={() => handleBuyCosmetic(`theme_bundle_${item.id}`, price, `${item.label} Bundle`)} disabled={!item.purchaseId || price <= 0} style={{ background: glow, border: "none", borderRadius: 10, padding: "10px 14px", fontFamily: t.fontDisplay, fontSize: 12, fontWeight: 900, color: "#000", cursor: !item.purchaseId || price <= 0 ? "not-allowed" : "pointer", whiteSpace: "nowrap" as const, opacity: !item.purchaseId || price <= 0 ? 0.7 : 1 }}>UNLOCK</button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                </div>
-            )}
-          />
+                );
+              })()
+              )}
+            />
+          </div>
         </div>
 
         {/* ── BOARD BUNDLES ── */}
