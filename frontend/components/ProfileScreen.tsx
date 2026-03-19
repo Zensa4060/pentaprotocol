@@ -342,9 +342,12 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
   useEffect(() => {
     if (!user) { setLoading(false); setProfileError(null); return; }
     setProfileError(null);
-    setLoading(true);
+    // Render immediately from local user snapshot, then refresh from API.
+    setProfile((p: any) => p ?? { ...user, totp_enabled: false });
+    setTwoFAReady(true);
+    setLoading(false);
     let cancelled = false;
-    const timeoutMs = 15000;
+    const timeoutMs = 8000;
     const fetchProfile = async () => {
       try {
         const res = await API.get("/api/profile/me", { timeout: timeoutMs });
@@ -354,20 +357,13 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
         setTwoFAReady(true);
       } catch (e: any) {
         if (cancelled) return;
-        setProfile({ ...user, totp_enabled: false });
-        setTwoFAReady(true);
         const msg = e?.code === "ECONNABORTED" ? "Request timed out." : e?.message || "Could not load profile.";
         setProfileError(msg);
-      } finally {
-        if (!cancelled) setLoading(false);
       }
     };
     fetchProfile();
     const fallback = setTimeout(() => {
       if (!cancelled) {
-        setProfile((p: any) => p ?? { ...user, totp_enabled: false });
-        setTwoFAReady(true);
-        setLoading(false);
         setProfileError((prev) => prev ?? "Request timed out.");
       }
     }, timeoutMs + 500);
