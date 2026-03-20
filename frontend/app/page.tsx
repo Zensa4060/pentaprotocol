@@ -467,8 +467,7 @@ export default function Page() {
       fontFamily: t.fontBody,
       transition: "background 0.6s ease, color 0.6s ease",
     }}>
-     {themeId === "space" && screen !== "home" && <SpaceBg />}
-
+     {themeId === "space" && screen !== "home" && screen !== "store" && <SpaceBg />}
 {screen === "store" && themeId === "space" && (
   <div style={{
     position: "fixed", inset: 0, zIndex: 1, pointerEvents: "none",
