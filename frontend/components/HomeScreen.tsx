@@ -5,7 +5,6 @@ import { THEMES } from "@/lib/themes";
 import type { Screen } from "@/lib/types";
 import type { ThemeId } from "@/lib/themes";
 import { getRank, NavRankBadge } from "./NavBar";
-import SpaceBgVideo from "@/components/SpaceBgVideo";
 
 interface Props {
   setScreenAction: (s: Screen) => void;
@@ -136,17 +135,14 @@ export default function HomeScreen({ setScreenAction, themeId, onHoverAction, on
   return (
     <div style={{
       position: "fixed", inset: 0, zIndex: 2, overflowY: "auto",
-      background: isSp ? "transparent" : t.bg,
+      background: isSp ? "url(/bg-earth.png) center/cover no-repeat" : t.bg,
       display: "flex", flexDirection: "column",
       alignItems: "center", justifyContent: "center",
       padding: outerPadding, gap: outerGap,
       transition: "background 0.4s",
     }}>
 
-      {/* ── Video background — space home screen only ── */}
-      {isSp && <SpaceBgVideo />}
-
-      {/* ── Darkening overlay over video so text stays readable ── */}
+      {/* ── Darkening overlay over background so text stays readable ── */}
       {isSp && (
         <div style={{
           position: "fixed", inset: 0,
