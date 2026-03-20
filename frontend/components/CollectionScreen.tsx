@@ -7,6 +7,7 @@ import { useAuthStore } from "@/lib/store";
 import { TITLES } from "./ProfileScreen";
 import { BannerRenderer } from "./BannerRenderer";
 import { GlacierSigilPiece, GlacierPrismPiece } from "./GamePieces";
+import { WraithKingCoinTossPreview } from "./WraithKingCoinToss";
 
 // Profile borders — only default for now, more coming later
 const PROFILE_BORDERS = [
@@ -44,6 +45,48 @@ const CatIcon = ({ id, size = 16, color }: { id: string; size?: number; color: s
   return null;
 };
 
+const DominionMark = ({ size = 24, color = "#cc88ff" }: { size?: number; color?: string }) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke={color}
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    {/* Crown */}
+    <path d="M4 10l2-4 4 4 4-7 4 7 2-4v10H4V10z" opacity="0.9" />
+    {/* Skull */}
+    <path d="M9 12a3 3 0 0 0 6 0c0-3-2-4-3-4s-3 1-3 4z" />
+    <circle cx="10" cy="13" r="0.9" fill={color} stroke="none" />
+    <circle cx="14" cy="13" r="0.9" fill={color} stroke="none" />
+    <path d="M10 15c1 1 3 1 4 0" />
+  </svg>
+);
+
+const ServitudeMark = ({ size = 24, color = "#88aadd" }: { size?: number; color?: string }) => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke={color}
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    {/* Portal */}
+    <circle cx="12" cy="12" r="7" opacity="0.9" />
+    <circle cx="12" cy="12" r="4.2" />
+    <circle cx="12" cy="12" r="1.8" fill={color} stroke="none" />
+    {/* Chains crossing */}
+    <path d="M7 7l10 10" opacity="0.85" />
+    <path d="M17 7L7 17" opacity="0.85" />
+  </svg>
+);
+
 // ── Collection data ───────────────────────────────────────────────────────────
 type CollectionTheme = {
   id: string;
@@ -68,12 +111,28 @@ const BOARD_SKINS: { id: string; label: string; desc: string; condition: (p: any
   { id: "glacier_grid", label: "Glacier Board", desc: "Aurora ice lattice with crystalline glow", condition: (p: any) => (p?.purchased_items ?? []).includes("glacier_grid"), preview: "linear-gradient(135deg,#020b1a,#031329)", border: "#7dd3fc", price: 1599 },
 ];
 
-const COIN_SKINS = [
-  { id: "default", label: "Standard", desc: "Default", owned: true, c1: "#F59E0B", c2: "#4FC3F7", img1: "/penta-coin.png", img2: "/proto-coin.png" },
+const COIN_SKINS: { id: string; label: string; desc: string; c1: string; c2: string; img1: string; img2: string; owned?: boolean; condition?: (p: any) => boolean }[] = [
+  { id: "default", label: "Standard", desc: "Default", owned: true, condition: (_p: any) => true, c1: "#F59E0B", c2: "#4FC3F7", img1: "/penta-coin.png", img2: "/proto-coin.png" },
+  {
+    id: "wraith_king",
+    label: "Wraith King",
+    desc: "Crowned skull & soul portal — unlock the store bundle",
+    condition: (p: any) => (p?.purchased_items ?? []).includes("coin_bundle_wraith_king"),
+    c1: "#cc88ff",
+    c2: "#88aadd",
+    img1: "/penta-coin.png",
+    img2: "/proto-coin.png",
+  },
 ];
 
 const COIN_TOSS_ANIMS: { id: string; label: string; desc: string; condition: (p: any) => boolean; price?: number }[] = [
   { id: "default", label: "Classic Flip", desc: "Default animation", condition: (_p: any) => true },
+  {
+    id: "wraith_king",
+    label: "Wraith King",
+    desc: "Spectral toss, DOMINION / SERVITUDE faces — unlock in Store",
+    condition: (p: any) => (p?.purchased_items ?? []).includes("coin_bundle_wraith_king"),
+  },
 ];
 
 const PIECE_SKINS: { id: string; label: string; desc: string; condition: (p: any) => boolean; p1: string; p2: string; p1c: string; p2c: string; price?: number; isFlameSkull?: boolean; isSnowShard?: boolean; isGlacierShard?: boolean }[] = [
@@ -251,7 +310,7 @@ const CATEGORIES: { id: CatId; label: string; icon: string; count: (p: any) => n
   { id: "themes",          label: "Themes",          icon: "palette", count: (p) => COLLECTION_THEMES.filter(x => x.owned(p)).length },
   { id: "board_bundles",   label: "GRIDS",           icon: "board",   count: (p) => BOARD_BUNDLES.filter(b => b.bOwned(p) || b.pOwned(p)).length },
   { id: "profile_bundles", label: "BANNERS",         icon: "banner",  count: (p) => BANNERS.filter(x => x.condition(p)).length + PROFILE_BORDERS.filter(x => x.condition(p)).length },
-  { id: "coin_bundles",    label: "COINS",           icon: "coin",    count: () => COIN_SKINS.filter(x => x.owned).length + COIN_TOSS_ANIMS.length },
+  { id: "coin_bundles",    label: "COINS",           icon: "coin",    count: (p) => COIN_SKINS.filter(x => (x.condition ? x.condition(p) : !!x.owned)).length + COIN_TOSS_ANIMS.filter(x => x.condition(p)).length },
   { id: "titles",          label: "BADGES",          icon: "title",   count: (p) => TITLES.filter(ti => ti.condition(p)).length },
 ];
 
@@ -259,7 +318,7 @@ function getSlotOptions(key: keyof CustomThemeConfig, profile?: any) {
   if (key === "sfxPack")    return SFX_PACKS.map(x => ({ id: x.id, label: x.label, desc: x.desc, owned: x.owned, preview: null, color: x.color }));
   if (key === "background") return BG_SOURCES.map(x => ({ id: x.id, label: x.label, desc: "", owned: x.owned, preview: x.preview, color: null }));
   if (key === "boardSkin")  return BOARD_SKINS.map(x => ({ id: x.id, label: x.label, desc: x.desc, owned: x.condition(profile ?? {}), preview: x.preview, color: x.border }));
-  if (key === "coinSkin")   return COIN_SKINS.map(x => ({ id: x.id, label: x.label, desc: x.desc, owned: x.owned, preview: null, color: x.c1 }));
+  if (key === "coinSkin")   return COIN_SKINS.map(x => ({ id: x.id, label: x.label, desc: x.desc, owned: x.condition ? x.condition(profile ?? {}) : !!x.owned, preview: null, color: x.c1 }));
   if (key === "tossSkin")   return COIN_TOSS_ANIMS.map(x => ({ id: x.id, label: x.label, desc: x.desc, owned: x.condition(profile ?? {}), preview: null, color: null }));
   if (key === "pieceSkin")  return PIECE_SKINS.map(x => ({ id: x.id, label: x.label, desc: x.desc, owned: x.condition(profile ?? {}), preview: null, color: x.p1c }));
   return [];
@@ -1151,24 +1210,51 @@ export default function CollectionScreen({ themeId, setThemeIdAction, onHoverAct
               <div>
                 <div style={{ fontFamily: t.fontMono, fontSize: 10, color: t.textMuted, letterSpacing: "0.18em", marginBottom: 12, opacity: 0.7 }}> COINS </div>
                 <div style={{ display: "flex", gap: 14, overflowX: "auto", paddingBottom: 8, scrollSnapType: "x mandatory" }}>
-                  {COIN_SKINS.filter(x => showAll || x.owned).map((item, idx) => (
-                    <div key={`${item.id}-${idx}`} className={`coll-item ${!item.owned ? "coll-locked" : ""}`}
-                      style={{ minWidth: 190, maxWidth: 190, flex: "0 0 190px", scrollSnapAlign: "start", borderRadius: 16, padding: "24px 16px", border: `1px solid ${item.owned ? item.c1 + "44" : "rgba(255,255,255,0.05)"}`, background: "rgba(30,30,30,0.6)", backdropFilter: "blur(12px)", display: "flex", flexDirection: "column", alignItems: "center", gap: 16, position: "relative", boxShadow: item.owned ? `0 0 20px ${item.c1}11` : "none" }}>
+                  {COIN_SKINS.filter(x => showAll || (x.condition ? x.condition(profile) : !!x.owned)).map((item, idx) => {
+                    const skinOwned = item.condition ? item.condition(profile) : !!item.owned;
+                    return (
+                    <div key={`${item.id}-${idx}`} className={`coll-item ${!skinOwned ? "coll-locked" : ""}`}
+                      style={{ minWidth: 190, maxWidth: 190, flex: "0 0 190px", scrollSnapAlign: "start", borderRadius: 16, padding: "24px 16px", border: `1px solid ${skinOwned ? item.c1 + "44" : "rgba(255,255,255,0.05)"}`, background: "rgba(30,30,30,0.6)", backdropFilter: "blur(12px)", display: "flex", flexDirection: "column", alignItems: "center", gap: 16, position: "relative", boxShadow: skinOwned ? `0 0 20px ${item.c1}11` : "none" }}>
                       <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
                         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
-                          <div style={{ width: 52, height: 52, borderRadius: "50%", background: item.owned ? `radial-gradient(circle at 35% 35%, ${item.c1}FF, ${item.c1}88)` : "#1a1a1a", boxShadow: item.owned ? `0 0 15px ${item.c1}55` : "none", display: "flex", alignItems: "center", justifyContent: "center", position: "relative" }}><img src={item.img1} alt="penta" style={{ width: 32, height: 32, objectFit: "contain", opacity: item.owned ? 1 : 0.15 }} />{item.owned && <div style={{ position: "absolute", inset: 0, borderRadius: "50%", background: "linear-gradient(110deg, transparent 40%, rgba(255,255,255,0.2) 45%, rgba(255,255,255,0.4) 50%, rgba(255,255,255,0.2) 55%, transparent 60%)", backgroundSize: "200% 100%", animation: "bannerShine 4s infinite linear" }} />}</div>
-                          <span style={{ fontFamily: t.fontMono, fontSize: 9, color: item.owned ? item.c1 : t.textMuted, letterSpacing: "0.1em", fontWeight: 800 }}>PENTA</span>
+                          <div style={{ width: 52, height: 52, borderRadius: "50%", background: skinOwned ? `radial-gradient(circle at 35% 35%, ${item.c1}FF, ${item.c1}88)` : "#1a1a1a", boxShadow: skinOwned ? `0 0 15px ${item.c1}55` : "none", display: "flex", alignItems: "center", justifyContent: "center", position: "relative", overflow: "hidden" }}>
+                            {item.id === "wraith_king" ? (
+                              <DominionMark size={26} color={skinOwned ? item.c1 : "#555"} />
+                            ) : (
+                              <img src={item.img1} alt="penta" style={{ width: 32, height: 32, objectFit: "contain", opacity: skinOwned ? 1 : 0.15 }} />
+                            )}
+                            {skinOwned && item.id !== "wraith_king" && (
+                              <div style={{ position: "absolute", inset: 0, borderRadius: "50%", background: "linear-gradient(110deg, transparent 40%, rgba(255,255,255,0.2) 45%, rgba(255,255,255,0.4) 50%, rgba(255,255,255,0.2) 55%, transparent 60%)", backgroundSize: "200% 100%", animation: "bannerShine 4s infinite linear" }} />
+                            )}
+                          </div>
+                          <span style={{ fontFamily: t.fontMono, fontSize: 9, color: skinOwned ? item.c1 : t.textMuted, letterSpacing: "0.1em", fontWeight: 800 }}>{item.id === "wraith_king" ? "DOMINION" : "PENTA"}</span>
                         </div>
                         <div style={{ width: 1, height: 44, background: "rgba(255,255,255,0.1)", flexShrink: 0 }} />
                         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
-                          <div style={{ width: 52, height: 52, borderRadius: "50%", background: item.owned ? `radial-gradient(circle at 35% 35%, ${item.c2}FF, ${item.c2}88)` : "#1a1a1a", boxShadow: item.owned ? `0 0 15px ${item.c2}55` : "none", display: "flex", alignItems: "center", justifyContent: "center", position: "relative" }}><img src={item.img2} alt="proto" style={{ width: 32, height: 32, objectFit: "contain", opacity: item.owned ? 1 : 0.15 }} />{item.owned && <div style={{ position: "absolute", inset: 0, borderRadius: "50%", background: "linear-gradient(110deg, transparent 40%, rgba(255,255,255,0.2) 45%, rgba(255,255,255,0.4) 50%, rgba(255,255,255,0.2) 55%, transparent 60%)", backgroundSize: "200% 100%", animation: "bannerShine 4s infinite linear" }} />}</div>
-                          <span style={{ fontFamily: t.fontMono, fontSize: 9, color: item.owned ? item.c2 : t.textMuted, letterSpacing: "0.1em", fontWeight: 800 }}>PROTO</span>
+                          <div style={{ width: 52, height: 52, borderRadius: "50%", background: skinOwned ? `radial-gradient(circle at 35% 35%, ${item.c2}FF, ${item.c2}88)` : "#1a1a1a", boxShadow: skinOwned ? `0 0 15px ${item.c2}55` : "none", display: "flex", alignItems: "center", justifyContent: "center", position: "relative", overflow: "hidden" }}>
+                            {item.id === "wraith_king" ? (
+                              <ServitudeMark size={26} color={skinOwned ? item.c2 : "#555"} />
+                            ) : (
+                              <img src={item.img2} alt="proto" style={{ width: 32, height: 32, objectFit: "contain", opacity: skinOwned ? 1 : 0.15 }} />
+                            )}
+                            {skinOwned && item.id !== "wraith_king" && (
+                              <div style={{ position: "absolute", inset: 0, borderRadius: "50%", background: "linear-gradient(110deg, transparent 40%, rgba(255,255,255,0.2) 45%, rgba(255,255,255,0.4) 50%, rgba(255,255,255,0.2) 55%, transparent 60%)", backgroundSize: "200% 100%", animation: "bannerShine 4s infinite linear" }} />
+                            )}
+                          </div>
+                          <span style={{ fontFamily: t.fontMono, fontSize: 9, color: skinOwned ? item.c2 : t.textMuted, letterSpacing: "0.1em", fontWeight: 800 }}>{item.id === "wraith_king" ? "SERVITUDE" : "PROTO"}</span>
                         </div>
                       </div>
-                      <div style={{ textAlign: "center" as const }}><div style={{ fontFamily: t.fontDisplay, fontSize: 18, fontWeight: 800, color: item.owned ? t.text : t.textMuted }}>{item.label}</div><div style={{ fontFamily: t.fontBody, fontSize: 13, color: t.textMuted, marginTop: 4, fontWeight: 500, opacity: 0.7 }}>{item.owned ? "Active mint" : item.desc}</div></div>
-                      {!item.owned && (<div className="coll-locked-overlay"><LockIcon size={16} color="#666" /></div>)}
+                      <div style={{ textAlign: "center" as const }}><div style={{ fontFamily: t.fontDisplay, fontSize: 18, fontWeight: 800, color: skinOwned ? t.text : t.textMuted }}>{item.label}</div><div style={{ fontFamily: t.fontBody, fontSize: 13, color: t.textMuted, marginTop: 4, fontWeight: 500, opacity: 0.7 }}>{skinOwned ? "Active mint" : item.desc}</div></div>
+                      {item.id === "wraith_king" && (
+                        <div style={{ width: 120, height: 112, borderRadius: 18, border: `1px solid ${item.c1}33`, background: `${item.c1}0d`, overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                          <div style={{ transform: "scale(0.6)", transformOrigin: "center", marginTop: -4 }}>
+                            <WraithKingCoinTossPreview coinDiam={110} compact={true} />
+                          </div>
+                        </div>
+                      )}
+                      {!skinOwned && (<div className="coll-locked-overlay"><LockIcon size={16} color="#666" /></div>)}
                     </div>
-                  ))}
+                  );})}
                 </div>
               </div>
               <div>
@@ -1205,43 +1291,45 @@ export default function CollectionScreen({ themeId, setThemeIdAction, onHoverAct
           {/* ── OLD coin skins (hidden) ── */}
           {cat === "coins_hidden" && (
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(190px,1fr))", gap: 14 }}>
-              {COIN_SKINS.filter(x => showAll || x.owned).map(item => (
-                <div key={item.id} className={`coll-item ${!item.owned ? "coll-locked" : ""}`}
+              {COIN_SKINS.filter(x => showAll || (x.condition ? x.condition(profile) : !!x.owned)).map(item => {
+                const skinOwned = item.condition ? item.condition(profile) : !!item.owned;
+                return (
+                <div key={item.id} className={`coll-item ${!skinOwned ? "coll-locked" : ""}`}
                   style={{ 
                     borderRadius: 16, padding: "24px 16px", 
-                    border: `1px solid ${item.owned ? item.c1 + "44" : "rgba(255,255,255,0.05)"}`, 
+                    border: `1px solid ${skinOwned ? item.c1 + "44" : "rgba(255,255,255,0.05)"}`, 
                     background: "rgba(30,30,30,0.6)", backdropFilter: "blur(12px)",
                     display: "flex", flexDirection: "column", alignItems: "center", gap: 16, position: "relative",
-                    boxShadow: item.owned ? `0 0 20px ${item.c1}11` : "none"
+                    boxShadow: skinOwned ? `0 0 20px ${item.c1}11` : "none"
                   }}>
                   <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
                     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
-                      <div style={{ width: 52, height: 52, borderRadius: "50%", background: item.owned ? `radial-gradient(circle at 35% 35%, ${item.c1}FF, ${item.c1}88)` : "#1a1a1a", boxShadow: item.owned ? `0 0 15px ${item.c1}55` : "none", display: "flex", alignItems: "center", justifyContent: "center", position: "relative" }}>
-                        <img src={item.img1} alt="penta" style={{ width: 32, height: 32, objectFit: "contain", opacity: item.owned ? 1 : 0.15 }} />
-                        {item.owned && <div style={{ position: "absolute", inset: 0, borderRadius: "50%", background: "linear-gradient(110deg, transparent 40%, rgba(255,255,255,0.2) 45%, rgba(255,255,255,0.4) 50%, rgba(255,255,255,0.2) 55%, transparent 60%)", backgroundSize: "200% 100%", animation: "bannerShine 4s infinite linear" }} />}
+                      <div style={{ width: 52, height: 52, borderRadius: "50%", background: skinOwned ? `radial-gradient(circle at 35% 35%, ${item.c1}FF, ${item.c1}88)` : "#1a1a1a", boxShadow: skinOwned ? `0 0 15px ${item.c1}55` : "none", display: "flex", alignItems: "center", justifyContent: "center", position: "relative" }}>
+                        <img src={item.img1} alt="penta" style={{ width: 32, height: 32, objectFit: "contain", opacity: skinOwned ? 1 : 0.15 }} />
+                        {skinOwned && <div style={{ position: "absolute", inset: 0, borderRadius: "50%", background: "linear-gradient(110deg, transparent 40%, rgba(255,255,255,0.2) 45%, rgba(255,255,255,0.4) 50%, rgba(255,255,255,0.2) 55%, transparent 60%)", backgroundSize: "200% 100%", animation: "bannerShine 4s infinite linear" }} />}
                       </div>
-                      <span style={{ fontFamily: t.fontMono, fontSize: 9, color: item.owned ? item.c1 : t.textMuted, letterSpacing: "0.1em", fontWeight: 800 }}>PENTA</span>
+                      <span style={{ fontFamily: t.fontMono, fontSize: 9, color: skinOwned ? item.c1 : t.textMuted, letterSpacing: "0.1em", fontWeight: 800 }}>PENTA</span>
                     </div>
                     <div style={{ width: 1, height: 44, background: "rgba(255,255,255,0.1)", flexShrink: 0 }} />
                     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
-                      <div style={{ width: 52, height: 52, borderRadius: "50%", background: item.owned ? `radial-gradient(circle at 35% 35%, ${item.c2}FF, ${item.c2}88)` : "#1a1a1a", boxShadow: item.owned ? `0 0 15px ${item.c2}55` : "none", display: "flex", alignItems: "center", justifyContent: "center", position: "relative" }}>
-                        <img src={item.img2} alt="proto" style={{ width: 32, height: 32, objectFit: "contain", opacity: item.owned ? 1 : 0.15 }} />
-                        {item.owned && <div style={{ position: "absolute", inset: 0, borderRadius: "50%", background: "linear-gradient(110deg, transparent 40%, rgba(255,255,255,0.2) 45%, rgba(255,255,255,0.4) 50%, rgba(255,255,255,0.2) 55%, transparent 60%)", backgroundSize: "200% 100%", animation: "bannerShine 4s infinite linear" }} />}
+                      <div style={{ width: 52, height: 52, borderRadius: "50%", background: skinOwned ? `radial-gradient(circle at 35% 35%, ${item.c2}FF, ${item.c2}88)` : "#1a1a1a", boxShadow: skinOwned ? `0 0 15px ${item.c2}55` : "none", display: "flex", alignItems: "center", justifyContent: "center", position: "relative" }}>
+                        <img src={item.img2} alt="proto" style={{ width: 32, height: 32, objectFit: "contain", opacity: skinOwned ? 1 : 0.15 }} />
+                        {skinOwned && <div style={{ position: "absolute", inset: 0, borderRadius: "50%", background: "linear-gradient(110deg, transparent 40%, rgba(255,255,255,0.2) 45%, rgba(255,255,255,0.4) 50%, rgba(255,255,255,0.2) 55%, transparent 60%)", backgroundSize: "200% 100%", animation: "bannerShine 4s infinite linear" }} />}
                       </div>
-                      <span style={{ fontFamily: t.fontMono, fontSize: 9, color: item.owned ? item.c2 : t.textMuted, letterSpacing: "0.1em", fontWeight: 800 }}>PROTO</span>
+                      <span style={{ fontFamily: t.fontMono, fontSize: 9, color: skinOwned ? item.c2 : t.textMuted, letterSpacing: "0.1em", fontWeight: 800 }}>PROTO</span>
                     </div>
                   </div>
                   <div style={{ textAlign: "center" as const }}>
-                    <div style={{ fontFamily: t.fontDisplay, fontSize: 18, fontWeight: 800, color: item.owned ? t.text : t.textMuted }}>{item.label}</div>
-                    <div style={{ fontFamily: t.fontBody, fontSize: 13, color: t.textMuted, marginTop: 4, fontWeight: 500, opacity: 0.7 }}>{item.owned ? "Active mint" : item.desc}</div>
+                    <div style={{ fontFamily: t.fontDisplay, fontSize: 18, fontWeight: 800, color: skinOwned ? t.text : t.textMuted }}>{item.label}</div>
+                    <div style={{ fontFamily: t.fontBody, fontSize: 13, color: t.textMuted, marginTop: 4, fontWeight: 500, opacity: 0.7 }}>{skinOwned ? "Active mint" : item.desc}</div>
                   </div>
-                  {!item.owned && (
+                  {!skinOwned && (
                     <div className="coll-locked-overlay">
                       <LockIcon size={16} color="#666" />
                     </div>
                   )}
                 </div>
-              ))}
+              );})}
             </div>
           )}
 

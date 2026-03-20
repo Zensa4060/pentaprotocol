@@ -239,8 +239,32 @@ const BUNDLES: Bundle[] = [
   },
 ];
 
-type CoinBundle = { id: string; label: string; tagline: string; desc: string; accentColor: string; bgGradient: string; bundlePrice: number; tags: string[] };
-const COIN_BUNDLES: CoinBundle[] = [];
+type CoinBundle = {
+  id: string;
+  label: string;
+  tagline: string;
+  desc: string;
+  accentColor: string;
+  bgGradient: string;
+  bundlePrice: number;
+  shardPrice: number;
+  purchaseId: string;
+  tags: string[];
+};
+const COIN_BUNDLES: CoinBundle[] = [
+  {
+    id: "wraith_king_coin",
+    label: "WRAITH KING COIN",
+    tagline: "DOMINION & SERVITUDE — Rulebreaker toss skin",
+    desc: "Crowned skull (PENTA) and soul portal (PROTO), spectral particles, and a full Rulebreaker toss animation. Equip the toss in Collection after unlock.",
+    accentColor: "#aa66ee",
+    bgGradient: "linear-gradient(160deg,#0c0618,#12041c,#06020c)",
+    bundlePrice: 299,
+    shardPrice: 50,
+    purchaseId: "coin_bundle_wraith_king",
+    tags: ["COIN", "RULEBREAKER", "BUNDLE"],
+  },
+];
 
 type ProfileBundle = { id: string; label: string; tagline: string; accentColor: string; bgGradient: string; tags: string[] };
 const PROFILE_BUNDLES: ProfileBundle[] = [];
@@ -1161,7 +1185,7 @@ updateUser(me.data); resolve();
         if (needTheme) await postPurchase(themeItemId, themeCharge, themeShardCharge);
         if (needBoard) await postPurchase(boardItemId, boardCharge, boardShardCharge);
       } else {
-        await API.post("/api/store/purchase-item", { item_id: id, price, shard_price: 0 }, { headers: { Authorization: `Bearer ${token}` }, timeout: 15000 });
+        await API.post("/api/store/purchase-item", { item_id: id, price, shard_price: shardPrice ?? 0 }, { headers: { Authorization: `Bearer ${token}` }, timeout: 15000 });
       }
 
       // Always refresh profile after purchases so ownership never desyncs.
@@ -1194,7 +1218,7 @@ updateUser(me.data); resolve();
   const activeThemePreview = openThemePreview ? STORE_THEMES.find(ti => ti.id === openThemePreview) : null;
 
   return (
-    <div style={{ ...cssVars, minHeight: "100vh", background: t.bg, transition: "background 0.4s", paddingTop: 84, overflowY: "auto" }}>
+    <div style={{ ...cssVars, minHeight: "100vh", background: themeId === "space" ? "transparent" : t.bg, transition: "background 0.4s", paddingTop: 84, overflowY: "auto" }}>
       <style>{`
         .store-card { transition: transform 0.22s cubic-bezier(.22,.68,0,1.2), box-shadow 0.22s ease, border-color 0.18s ease; cursor: pointer; }
         .store-card:hover { transform: translateY(-4px) scale(1.02); }
@@ -1402,13 +1426,40 @@ updateUser(me.data); resolve();
         <div style={{ marginBottom: 56 }}>
           <SectionHeader label="COIN BUNDLES" accent={accent} icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={accent} strokeWidth="1.8" strokeLinecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v10M9 10h4.5a1.5 1.5 0 010 3H9"/></svg>}/>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(320px,1fr))", gap: 20 }}>
-            {COIN_BUNDLES.map(bundle => (
-              <div key={bundle.id} className="store-card" style={{ borderRadius: 18, overflow: "hidden", border: `2px solid ${bundle.accentColor}33`, background: bundle.bgGradient, padding: "24px", position: "relative" }}>
+            {COIN_BUNDLES.map(bundle => {
+              const owned = purchasedItems.includes(bundle.purchaseId);
+              const glow = bundle.accentColor;
+              return (
+              <div key={bundle.id} className="store-card" style={{ borderRadius: 18, overflow: "hidden", border: `2px solid ${owned ? "#4CAF50" : bundle.accentColor + "33"}`, background: bundle.bgGradient, padding: "24px", position: "relative", boxShadow: owned ? "none" : `0 8px 32px ${bundle.accentColor}22` }}>
+                <div style={{ position: "absolute", top: 14, right: 14, zIndex: 2 }}>
+                  {owned ? <UnlockBadge text="Owned" accent="#4CAF50" /> : (
+                    <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, fontWeight: 800, color: "#fff", display: "inline-flex", alignItems: "center", gap: 8, background: "rgba(0,0,0,0.45)", border: `1px solid ${glow}55`, padding: "4px 10px", borderRadius: 8 }}>
+                      {bundle.bundlePrice.toLocaleString()} <ProtoSVG size={12} /> {bundle.shardPrice.toLocaleString()} <ShardSVG size={12} />
+                    </span>
+                  )}
+                </div>
                 <div style={{ fontFamily: t.fontDisplay, fontSize: 22, fontWeight: 900, color: "#fff", letterSpacing: "0.04em", marginBottom: 3 }}>{bundle.label}</div>
-                <div style={{ fontFamily: t.fontBody, fontSize: 13, color: `${bundle.accentColor}cc`, fontStyle: "italic", marginBottom: 14 }}>{bundle.tagline}</div>
-                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" as const }}>{bundle.tags.map(tag => (<span key={tag} style={{ fontFamily: "monospace", fontSize: 9, fontWeight: 700, color: bundle.accentColor, background: `${bundle.accentColor}18`, border: `1px solid ${bundle.accentColor}44`, padding: "2px 7px", borderRadius: 4 }}>{tag}</span>))}</div>
+                <div style={{ fontFamily: t.fontBody, fontSize: 13, color: `${bundle.accentColor}cc`, fontStyle: "italic", marginBottom: 10 }}>{bundle.tagline}</div>
+                <div style={{ fontFamily: t.fontBody, fontSize: 12, color: "rgba(255,255,255,0.72)", marginBottom: 14, lineHeight: 1.45 }}>{bundle.desc}</div>
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" as const, marginBottom: 18 }}>{bundle.tags.map(tag => (<span key={tag} style={{ fontFamily: "monospace", fontSize: 9, fontWeight: 700, color: bundle.accentColor, background: `${bundle.accentColor}18`, border: `1px solid ${bundle.accentColor}44`, padding: "2px 7px", borderRadius: 4 }}>{tag}</span>))}</div>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+                  {owned ? (
+                    <span style={{ fontFamily: t.fontMono, fontSize: 12, fontWeight: 900, color: "#4CAF50", letterSpacing: "0.06em" }}>OWNED — equip in Collection</span>
+                  ) : (
+                    <span style={{ fontFamily: t.fontMono, fontSize: 12, fontWeight: 900, color: glow, letterSpacing: "0.06em", display: "inline-flex", alignItems: "center", gap: 6 }}>
+                      {bundle.bundlePrice.toLocaleString()} <ProtoSVG size={16} /> + {bundle.shardPrice.toLocaleString()} <ShardSVG size={16} />
+                    </span>
+                  )}
+                  {owned ? (
+                    <button type="button" disabled style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.14)", borderRadius: 10, padding: "10px 14px", fontFamily: t.fontDisplay, fontSize: 12, fontWeight: 900, color: "rgba(255,255,255,0.65)", cursor: "not-allowed" }}>✓</button>
+                  ) : isGuest ? (
+                    <button type="button" onClick={() => setScreenAction("auth")} style={{ background: glow, border: "none", borderRadius: 10, padding: "10px 14px", fontFamily: t.fontDisplay, fontSize: 12, fontWeight: 900, color: "#000", cursor: "pointer" }}>SIGN IN</button>
+                  ) : (
+                    <button type="button" onClick={() => handleBuyCosmetic(bundle.purchaseId, bundle.bundlePrice, bundle.label, bundle.shardPrice)} style={{ background: glow, border: "none", borderRadius: 10, padding: "10px 14px", fontFamily: t.fontDisplay, fontSize: 12, fontWeight: 900, color: "#000", cursor: "pointer", boxShadow: `0 4px 20px ${glow}44` }}>UNLOCK</button>
+                  )}
+                </div>
               </div>
-            ))}
+            );})}
           </div>
         </div>
 

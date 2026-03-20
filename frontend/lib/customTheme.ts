@@ -6,7 +6,7 @@ export type BoardSkin =
   | "default" | "marble" | "forest" | "void" | "gold" | "ice"
   | "red_grid" | "ice_grid" | "glacier_grid" | "bloodmoon_grid" | "egypt_grid" | "synthwave_grid" | "matrix_grid" | "arcane_grid" | "bio_grid" | "forge_grid" | "void_grid" | "tokyo_grid" | "space_grid" | "pixel_grid";
 export type CoinSkin   = "default" | "crystal" | "emerald" | "ruby" | "obsidian" | "legend";
-export type TossAnim   = "default" | "slow_mo" | "lightning" | "galaxy" | "matrix";
+export type TossAnim   = "default" | "slow_mo" | "lightning" | "galaxy" | "matrix" | "wraith_king";
 export type PieceSkin =
   | "default" | "roman" | "rune" | "symbol" | "legend"
   | "flame_skull" | "snowflake_shard" | "glacier_shard" | "bloodmoon_sigils" | "egypt_sigils" | "synthwave_sigils" | "matrix_sigils" | "arcane_sigils" | "bio_sigils" | "forge_sigils" | "void_sigils" | "tokyo_sigils" | "space_sigils" | "pixel_sigils";

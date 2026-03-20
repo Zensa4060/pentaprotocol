@@ -22,6 +22,8 @@ import CareerScreen     from "@/components/CareerScreen";
 import MissionsScreen from "@/components/MissionsScreen";
 import NavBar           from "@/components/NavBar";
 import SettingsModal    from "@/components/SettingsModal";
+import SpaceBg      from "@/components/SpaceBg";
+import SpaceBgVideo from "@/components/SpaceBgVideo";
 
 THEMES["custom" as ThemeId] = resolveCustomTheme(loadCustomTheme(), THEMES) as any;
 
@@ -460,11 +462,27 @@ export default function Page() {
   return (
     <div style={{
       minHeight: "100vh",
-      background: t.bg,
+      background: themeId === "space" ? "transparent" : t.bg,
       color: t.text,
       fontFamily: t.fontBody,
       transition: "background 0.6s ease, color 0.6s ease",
     }}>
+     {themeId === "space" && screen !== "home" && <SpaceBg />}
+
+{screen === "store" && themeId === "space" && (
+  <div style={{
+    position: "fixed", inset: 0, zIndex: 1, pointerEvents: "none",
+    background: "rgba(4, 12, 40, 0.45)",
+  }} />
+)}
+{/* Darkening overlay so text/cards stay readable */}
+{themeId === "space" && (
+  <div style={{
+    position: "fixed", inset: 0, zIndex: 1,
+    background: "rgba(0, 4, 20, 0.55)",
+    pointerEvents: "none",
+  }} />
+)}
       <div style={{
         position: "fixed", inset: 0, zIndex: 9998,
         background: "#000",
@@ -519,7 +537,7 @@ export default function Page() {
         * { user-select: none !important; -webkit-user-select: none !important; }
         @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400;1,700&family=EB+Garamond:wght@400;500;600&family=Courier+Prime&family=Fira+Code:wght@400;500;700&family=VT323&family=Audiowide&family=Jura:wght@400;600;700&family=Share+Tech+Mono&display=swap');
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-        body { background: ${t.bg}; transition: background 0.6s ease; }
+        body { background: ${themeId === "space" ? "#02040F" : t.bg}; transition: background 0.6s ease; }
         ::-webkit-scrollbar { width: 4px; background: ${t.bgPanel}; }
         ::-webkit-scrollbar-thumb { background: ${t.border}; border-radius: 2px; }
         input { outline: none; }

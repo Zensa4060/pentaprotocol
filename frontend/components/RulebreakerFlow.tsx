@@ -3,6 +3,7 @@ import React from "react";
 import { CoinFace, TossCard, Piece as GamePieceComp } from "./GamePieces";
 import type { Phase } from "./GamePieces";
 import { RANKS, RankIcon } from "./ProfileScreen";
+import { WraithKingCoinToss } from "./WraithKingCoinToss";
 
 export const PHASE_TIMERS: Partial<Record<Phase, number>> = {
   rule_choice: 10, who_first_winner: 10, c3_choice: 10, c3_choice_loser: 10, who_first_loser: 10,
@@ -40,6 +41,10 @@ interface RulebreakerFlowProps {
   botPickedSide?: "left" | "right" | null;
   p1Label?: string;
   p2Label?: string;
+  /** Wraith King bundle equipped + owned */
+  wraithKingToss?: boolean;
+  /** Pre-rolled face for authoritative client during toss (null for P2 until reveal) */
+  rbCoinPendingResult?: "PENTA" | "PROTO" | null;
 }
 
 export function RulebreakerFlow({
@@ -49,8 +54,10 @@ export function RulebreakerFlow({
   summaryTimer, firstPlayerChosen, rbC3Blocked,
   choiceTimer, isMultiplayerGame, mySlot,
   winnerPickedRule, winnerPickedFirst, winnerPickedC3,
-  onLeftAction, onRightAction, fmtSecAction, gameMode, botPickedSide,
+  onLeftAction, onRightAction, fmtSecAction,   gameMode, botPickedSide,
   p1Label: p1LabelProp, p2Label: p2LabelProp,
+  wraithKingToss = false,
+  rbCoinPendingResult = null,
 }: RulebreakerFlowProps) {
 
   const p1Name = p1LabelProp ?? "P1";
@@ -157,6 +164,7 @@ export function RulebreakerFlow({
     const coinDiam    = 240;
     const revType     = coinResult ?? "PENTA";
     const winCol      = revealed ? (coinResult === "PENTA" ? p1c : p2c) : t.textSecondary;
+    const useWraith   = wraithKingToss;
 
     return (
       <div className="phase-screen" style={{ position:"fixed", top:64, left:0, right:0, bottom:0, zIndex:10000, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"flex-start", background:t.bg, overflowY:"auto", userSelect:"none" }}>
@@ -167,65 +175,89 @@ export function RulebreakerFlow({
         `}</style>
         <div style={{ fontFamily:t.fontDisplay, fontSize:"clamp(20px,3vw,48px)", fontWeight:900, color:t.accent, textShadow:`0 0 40px ${t.accentGlow}66`, letterSpacing:"0.08em", marginTop:36, marginBottom:10, animation:"fadeUp 0.4s cubic-bezier(.22,.68,0,1.2) both" }}>COMMENCING TOSS</div>
         <div style={{ width:"clamp(160px,30vw,360px)", height:2, background:`linear-gradient(90deg, transparent, ${t.accent}, transparent)`, marginBottom:18, boxShadow:`0 0 14px ${t.accentGlow}55`, animation:"rbLineIn 0.6s cubic-bezier(.22,.68,0,1.2) 0.1s both" }}/>
-        <div style={{ display:"flex", gap:28, fontFamily:t.fontMono, fontSize:39, color:t.textMuted, marginBottom:20, animation:"fadeUp 0.5s cubic-bezier(.22,.68,0,1.2) 0.12s both" }}>
-          <span style={{ display:"flex", alignItems:"center", gap:8 }}><CoinFace type="PENTA" size={26}/><span>PENTA = {p1Name}</span></span>
-          <span style={{ color:t.border }}>|</span>
-          <span style={{ display:"flex", alignItems:"center", gap:8 }}><CoinFace type="PROTO" size={26}/><span>PROTO = {p2Name}</span></span>
-        </div>
+        {useWraith ? (
+          <div style={{ display:"flex", gap:22, flexWrap:"wrap" as const, justifyContent:"center", fontFamily:t.fontMono, fontSize:ip ? 13 : 17, color:t.textMuted, marginBottom:16, padding:"0 12px", animation:"fadeUp 0.5s cubic-bezier(.22,.68,0,1.2) 0.12s both", textAlign:"center" as const }}>
+            <span><span style={{ color:"#cc88ff", fontWeight:900, letterSpacing:"0.06em" }}>DOMINION</span> <span style={{ color:t.textMuted }}>(PENTA)</span> = {p1Name}</span>
+            <span style={{ color:t.border }}>|</span>
+            <span><span style={{ color:"#88aadd", fontWeight:900, letterSpacing:"0.06em" }}>SERVITUDE</span> <span style={{ color:t.textMuted }}>(PROTO)</span> = {p2Name}</span>
+          </div>
+        ) : (
+          <div style={{ display:"flex", gap:28, fontFamily:t.fontMono, fontSize:39, color:t.textMuted, marginBottom:20, animation:"fadeUp 0.5s cubic-bezier(.22,.68,0,1.2) 0.12s both" }}>
+            <span style={{ display:"flex", alignItems:"center", gap:8 }}><CoinFace type="PENTA" size={26}/><span>PENTA = {p1Name}</span></span>
+            <span style={{ color:t.border }}>|</span>
+            <span style={{ display:"flex", alignItems:"center", gap:8 }}><CoinFace type="PROTO" size={26}/><span>PROTO = {p2Name}</span></span>
+          </div>
+        )}
 
-        <div style={{ width:"100%", height:"50vh", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", position:"relative", flexShrink:0, perspective:800 }}>
-          <div style={{ position:"absolute", width:coinDiam*2.4, height:coinDiam*2.4, borderRadius:"50%", background:revealed?`radial-gradient(circle, ${winCol}28 0%, transparent 68%)`:`radial-gradient(circle, ${t.accent}14 0%, transparent 68%)`, transition:"background 0.6s ease", pointerEvents:"none" }}/>
-          {!revealed && [1,1.5,2].map((scale,i) => (<div key={i} style={{ position:"absolute", width:coinDiam*scale, height:coinDiam*scale, borderRadius:"50%", border:`1px solid ${t.accent}${["18","10","08"][i]}`, animation:`spinRing ${2+i*0.4}s linear infinite`, pointerEvents:"none" }}/>))}
-          {revealed ? (
-            <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:18, animation:"coinReveal 0.6s cubic-bezier(.22,.68,0,1.2) both" }}>
-              <div style={{ borderRadius:"50%", boxShadow:`0 0 90px ${winCol}66, 0 0 40px ${winCol}33, 0 20px 60px rgba(0,0,0,0.7)` }}><CoinFace type={revType} size={coinDiam}/></div>
-              <span style={{ fontFamily:t.fontDisplay, fontSize:28, fontWeight:800, color:winCol, letterSpacing:"0.14em", textShadow:`0 0 32px ${winCol}99`, animation:"fadeUp 0.4s cubic-bezier(.22,.68,0,1.2) 0.18s both" }}>{revType}</span>
+        <div style={{ width:"100%", minHeight:"50vh", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", position:"relative", flexShrink:0, perspective:800 }}>
+          {useWraith ? (
+            <div style={{ position:"relative", width:"100%", maxWidth:400, display:"flex", justifyContent:"center" }}>
+              <div style={{ position:"absolute", width:coinDiam*2.4, height:coinDiam*2.4, borderRadius:"50%", left:"50%", top:"42%", transform:"translate(-50%,-50%)", background:revealed?`radial-gradient(circle, ${winCol}28 0%, transparent 68%)`:`radial-gradient(circle, ${t.accent}14 0%, transparent 68%)`, transition:"background 0.6s ease", pointerEvents:"none" }}/>
+              <WraithKingCoinToss
+                revealed={revealed}
+                result={coinResult}
+                pendingForSpin={revealed ? null : rbCoinPendingResult}
+                coinDiam={coinDiam}
+                showOutcomeText={false}
+                compact={false}
+              />
             </div>
           ) : (
-            <div style={{ width:coinDiam, height:coinDiam, borderRadius:"50%", perspective:900, display:"flex", alignItems:"center", justifyContent:"center" }}>
-              <div style={{
-                width:coinDiam,
-                height:coinDiam,
-                position:"relative",
-                transformStyle:"preserve-3d",
-                animation:"rbCoinSpin 0.12s linear infinite",
-                willChange:"transform",
-                borderRadius:"50%",
-                boxShadow:"0 12px 48px rgba(0,0,0,0.65)",
-              }}>
-                <img
-                  src="/penta-coin.png"
-                  alt="PENTA"
-                  style={{
-                    position:"absolute",
-                    inset:0,
-                    width:"100%",
-                    height:"100%",
+            <>
+              <div style={{ position:"absolute", width:coinDiam*2.4, height:coinDiam*2.4, borderRadius:"50%", background:revealed?`radial-gradient(circle, ${winCol}28 0%, transparent 68%)`:`radial-gradient(circle, ${t.accent}14 0%, transparent 68%)`, transition:"background 0.6s ease", pointerEvents:"none" }}/>
+              {!revealed && [1,1.5,2].map((scale,i) => (<div key={i} style={{ position:"absolute", width:coinDiam*scale, height:coinDiam*scale, borderRadius:"50%", border:`1px solid ${t.accent}${["18","10","08"][i]}`, animation:`spinRing ${2+i*0.4}s linear infinite`, pointerEvents:"none" }}/>))}
+              {revealed ? (
+                <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:18, animation:"coinReveal 0.6s cubic-bezier(.22,.68,0,1.2) both" }}>
+                  <div style={{ borderRadius:"50%", boxShadow:`0 0 90px ${winCol}66, 0 0 40px ${winCol}33, 0 20px 60px rgba(0,0,0,0.7)` }}><CoinFace type={revType} size={coinDiam}/></div>
+                  <span style={{ fontFamily:t.fontDisplay, fontSize:28, fontWeight:800, color:winCol, letterSpacing:"0.14em", textShadow:`0 0 32px ${winCol}99`, animation:"fadeUp 0.4s cubic-bezier(.22,.68,0,1.2) 0.18s both" }}>{revType}</span>
+                </div>
+              ) : (
+                <div style={{ width:coinDiam, height:coinDiam, borderRadius:"50%", perspective:900, display:"flex", alignItems:"center", justifyContent:"center" }}>
+                  <div style={{
+                    width:coinDiam,
+                    height:coinDiam,
+                    position:"relative",
+                    transformStyle:"preserve-3d",
+                    animation:"rbCoinSpin 0.12s linear infinite",
+                    willChange:"transform",
                     borderRadius:"50%",
-                    backfaceVisibility:"hidden",
-                    WebkitBackfaceVisibility:"hidden",
-                    objectFit:"cover",
-                    background:"#ffffff",
-                  }}
-                />
-                <img
-                  src="/proto-coin.png"
-                  alt="PROTO"
-                  style={{
-                    position:"absolute",
-                    inset:0,
-                    width:"100%",
-                    height:"100%",
-                    borderRadius:"50%",
-                    backfaceVisibility:"hidden",
-                    WebkitBackfaceVisibility:"hidden",
-                    transform:"rotateY(180deg)",
-                    objectFit:"cover",
-                    background:"#0a0a0a",
-                  }}
-                />
-              </div>
-            </div>
+                    boxShadow:"0 12px 48px rgba(0,0,0,0.65)",
+                  }}>
+                    <img
+                      src="/penta-coin.png"
+                      alt="PENTA"
+                      style={{
+                        position:"absolute",
+                        inset:0,
+                        width:"100%",
+                        height:"100%",
+                        borderRadius:"50%",
+                        backfaceVisibility:"hidden",
+                        WebkitBackfaceVisibility:"hidden",
+                        objectFit:"cover",
+                        background:"#ffffff",
+                      }}
+                    />
+                    <img
+                      src="/proto-coin.png"
+                      alt="PROTO"
+                      style={{
+                        position:"absolute",
+                        inset:0,
+                        width:"100%",
+                        height:"100%",
+                        borderRadius:"50%",
+                        backfaceVisibility:"hidden",
+                        WebkitBackfaceVisibility:"hidden",
+                        transform:"rotateY(180deg)",
+                        objectFit:"cover",
+                        background:"#0a0a0a",
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </div>
 

@@ -222,10 +222,19 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     const sync = () => set_ct(loadCustomTheme());
     window.addEventListener("storage", sync);
     window.addEventListener("focus", sync);
-    return () => { window.removeEventListener("storage", sync); window.removeEventListener("focus", sync); };
+    window.addEventListener("pp_custom_theme_changed", sync);
+    return () => {
+      window.removeEventListener("storage", sync);
+      window.removeEventListener("focus", sync);
+      window.removeEventListener("pp_custom_theme_changed", sync);
+    };
   }, []);
   const boardSkin = _ct.boardSkin ?? "default";
   const pieceSkin = _ct.pieceSkin ?? "default";
+  const tossSkin = _ct.tossSkin ?? "default";
+  const purchasedItems = ((user as { purchased_items?: string[] } | null)?.purchased_items ?? []) as string[];
+  const wraithKingTossActive = tossSkin === "wraith_king" && purchasedItems.includes("coin_bundle_wraith_king");
+  const rbCoinFlipSeconds = wraithKingTossActive ? 5.15 : 4;
 
   // Bundle boards should always use their matching pieces (no mixing).
   const effectivePieceSkin = (
@@ -438,6 +447,9 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   const [coinFlipTimer, setCoinFlipTimer] = useState(4.0);
   const [coinRevealTimer, setCoinRevealTimer] = useState(0.0);
   const [coinResult, setCoinResult] = useState<"PENTA" | "PROTO" | null>(null);
+  const rbCoinTossInitRef = useRef(false);
+  const rbCoinPendingRef = useRef<"PENTA" | "PROTO" | null>(null);
+  const [rbCoinPendingResult, setRbCoinPendingResult] = useState<"PENTA" | "PROTO" | null>(null);
   const [coinAngle, setCoinAngle] = useState(0);
   const coinAngleRef = useRef(0);
   const coinFrameRef = useRef(0);
@@ -492,6 +504,24 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   useEffect(() => { boardRef.current = board; }, [board]);
   useEffect(() => { extraTurnsRef.current = extraTurns; }, [extraTurns]);
   useEffect(() => { movesPlayedRef.current = movesPlayed; }, [movesPlayed]);
+
+  useEffect(() => {
+    if (phase === "rb_splash") {
+      rbCoinTossInitRef.current = false;
+      rbCoinPendingRef.current = null;
+      setRbCoinPendingResult(null);
+    }
+  }, [phase]);
+
+  useEffect(() => {
+    if (phase !== "rb_coin" || coinResult) return;
+    if (isMultiplayerGame && mySlot !== "P1") return;
+    if (rbCoinTossInitRef.current) return;
+    rbCoinTossInitRef.current = true;
+    const r = Math.random() < 0.5 ? "PENTA" : "PROTO";
+    rbCoinPendingRef.current = r;
+    setRbCoinPendingResult(r);
+  }, [phase, coinResult, isMultiplayerGame, mySlot]);
 
   useEffect(() => { initBoard("P1"); }, []);
 
@@ -666,7 +696,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
             } else setTimeout(() => {
               setWinner(null); setWinLine([]); setShowWinOverlay(false); setOverlayVisible(false);
               setPhase("rb_splash"); setRbSplashTimer(5);
-              setCoinFlipTimer(4); setCoinRevealTimer(0); setCoinResult(null);
+              setCoinFlipTimer(rbCoinFlipSeconds); setCoinRevealTimer(0); setCoinResult(null);
               coinAngleRef.current = 0; coinFrameRef.current = 0; setCoinAngle(0);
               coinStartTimeRef.current = 0; // will be set when rb_coin phase starts
               setTossWinner(null); setFirstPlayerChosen(null); setRbC3Blocked(false);
@@ -816,7 +846,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   const softReset = () => {
     matchHistoryRef.current = []; setGameNumber(1); setMatchHistory([]); setMatchOver(false); setSeriesWinner(null);
     setP1Ready(false); setP2Ready(false); setReadyTimeout(60); setReadyTimer(0);
-    setRbSplashTimer(5); setCoinFlipTimer(4); setCoinRevealTimer(0); setCoinResult(null);
+    setRbSplashTimer(5); setCoinFlipTimer(rbCoinFlipSeconds); setCoinRevealTimer(0); setCoinResult(null);
     setCoinAngle(0); setTossWinner(null); setFirstPlayerChosen(null); setRbC3Blocked(false);
     setSummaryTimer(5); setOverlayVisible(false); setChoiceTimer(0);
     setShowRematch(false); setRematchRequested(null);
@@ -999,7 +1029,9 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
             setCoinFlipTimer(v => {
               const nv = v - dt / 1000;
               if (nv <= 0) {
-                const r = Math.random() < 0.5 ? "PENTA" : "PROTO";
+                const r = rbCoinPendingRef.current ?? (Math.random() < 0.5 ? "PENTA" : "PROTO");
+                rbCoinPendingRef.current = null;
+                setRbCoinPendingResult(null);
                 setCoinResult(r);
                 setTossWinner(r === "PENTA" ? "P1" : "P2");
                 setCoinRevealTimer(3.5);
@@ -1085,7 +1117,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
         // Phase will transition when toss_action broadcasts back
       } else {
         setGameNumber(3); setPhase("rb_splash"); playRulebreakerAction?.();
-        setRbSplashTimer(5); setCoinFlipTimer(4); setCoinRevealTimer(0);
+        setRbSplashTimer(5); setCoinFlipTimer(rbCoinFlipSeconds); setCoinRevealTimer(0);
         setCoinResult(null); setCoinAngle(0); setTossWinner(null);
         setFirstPlayerChosen(null); setRbC3Blocked(false); setSummaryTimer(5);
       }
@@ -1506,6 +1538,8 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
         botPickedSide={botPickedSide}
         gameMode={gameMode}
         p1Label={p1Label} p2Label={p2Label}
+        wraithKingToss={wraithKingTossActive}
+        rbCoinPendingResult={rbCoinPendingResult}
         onLeftAction={onLeftAction} onRightAction={onRightAction} fmtSecAction={fmtSecAction}
       />
   );

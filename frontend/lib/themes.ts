@@ -51,9 +51,18 @@ export const THEMES: Record<ThemeId, {
     danger: "#FF4080", success: "#00FF9B",
     gold: "#FFD060", boardBg: "#04081A", boardLine: "#142040",
     navBg: "rgba(2,4,15,0.96)", inputBg: "#04081A", overlay: "rgba(2,4,15,0.94)",
-    fontDisplay: "'Polaris', sans-serif",
-    fontBody: "'Polaris', sans-serif",
-    fontMono: "'Polaris', sans-serif",
+    // ── 3-font system ──────────────────────────────────────────────────────────
+    // Orbitron  → titles, ELO numbers, nav labels, stat badges, coin results
+    // Rajdhani  → nav links, section headings, rule titles, player names
+    // Exo 2     → body copy, descriptions, dates, metadata
+    // Load all three in your layout/root with next/font or a <link> tag:
+    //   https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900
+    //     &family=Rajdhani:wght@400;500;600;700
+    //     &family=Exo+2:ital,wght@0,300;0,400;0,600;0,800;1,300
+    //     &display=swap
+    fontDisplay: "'Orbitron', sans-serif",   // headings, numbers, brand
+    fontBody:    "'Rajdhani', sans-serif",   // nav, section titles, names
+    fontMono:    "'Exo 2', sans-serif",      // body copy, metadata, descriptions
     pieces: { p1: "α", p2: "Ω" },
   },
 
@@ -72,11 +81,6 @@ export const THEMES: Record<ThemeId, {
     pieces: { p1: "⚔", p2: "🛡" },
   },
 
-  // Custom theme — visually identical to classic_dark as base.
-  // The actual customisation (sounds, board, coins, pieces, background)
-  // is stored separately in localStorage via customTheme.ts and applied
-  // at the component level. The shell theme here just needs valid values
-  // so nothing crashes when themeId === "custom".
   custom: {
     bg: "#0A0A0A", bgPanel: "#141414", bgCard: "#1C1C1C",
     border: "#2E2E2E", borderAccent: "#888888",
