@@ -85,7 +85,7 @@ export default function CareerScreen({ themeId, onHoverAction }: Props) {
 
   return (
     <div style={{
-      position: "fixed", inset: 0, zIndex: 2, background: themeId === "space" ? "url(/bg-galaxy.png) center/cover no-repeat" : t.bg,
+      position: "fixed", inset: 0, zIndex: 2, background: themeId === "space" ? "url(/bg-earth.png) center/cover no-repeat" : t.bg,
       overflowY: "scroll",
       overflowX: "hidden",
       scrollBehavior: "smooth",
