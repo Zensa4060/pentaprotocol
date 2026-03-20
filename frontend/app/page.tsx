@@ -467,22 +467,7 @@ export default function Page() {
       fontFamily: t.fontBody,
       transition: "background 0.6s ease, color 0.6s ease",
     }}>
-     {themeId === "space" && screen !== "home" && <SpaceBg />}
-
-{screen === "store" && themeId === "space" && (
-  <div style={{
-    position: "fixed", inset: 0, zIndex: 1, pointerEvents: "none",
-    background: "rgba(4, 12, 40, 0.45)",
-  }} />
-)}
-{/* Darkening overlay so text/cards stay readable */}
-{themeId === "space" && (
-  <div style={{
-    position: "fixed", inset: 0, zIndex: 1,
-    background: "rgba(0, 4, 20, 0.55)",
-    pointerEvents: "none",
-  }} />
-)}
+     {themeId === "space" && screen !== "home" && screen !== "store" && <SpaceBg />}
       <div style={{
         position: "fixed", inset: 0, zIndex: 9998,
         background: "#000",
