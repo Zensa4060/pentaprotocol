@@ -122,7 +122,8 @@ export default function RulesScreen({ themeId, onHoverAction, onClickAction }: P
   const toggle = (id: string) => setOpenId(prev => prev === id ? null : id);
 
   return (
-    <div style={{ minHeight:"100vh", padding:"84px 24px 64px", background:themeId === "space" ? "url(/bg-earth.png) center/cover no-repeat" : t.bg, transition:"background 0.4s", display:"flex", flexDirection:"column", alignItems:"center" }}>
+    <div style={{ minHeight:"100vh", padding:"84px 24px 64px", background: "transparent", transition:"background 0.4s", display:"flex", flexDirection:"column", alignItems:"center", position: "relative", zIndex: 2 }}>
+
       <div style={{ maxWidth:820, width:"100%" }}>
 
         <h1 style={{ fontFamily:t.fontDisplay, fontSize:ip?22:36, fontWeight:700, color:t.accent, marginBottom:8, textAlign:"center", letterSpacing:"0.04em" }}>
@@ -136,7 +137,10 @@ export default function RulesScreen({ themeId, onHoverAction, onClickAction }: P
           {RULES.map(rule => {
             const isOpen = openId === rule.id;
             return (
-              <div key={rule.id} style={{ background:t.bgPanel, border:`${ip?2:1}px solid ${isOpen ? t.accent : t.border}`, borderRadius:ip?2:14, overflow:"hidden", transition:"border-color 0.22s" }}>
+              <div key={rule.id} style={{ background: themeId === "space" ? "rgba(8,20,60,0.82)" : t.bgPanel,
+border: `${ip?2:1}px solid ${isOpen ? t.accent : t.border}`,
+backdropFilter: themeId === "space" ? "blur(12px)" : undefined,
+WebkitBackdropFilter: themeId === "space" ? "blur(12px)" : undefined,borderRadius:ip?2:14, overflow:"hidden", transition:"border-color 0.22s" }}>
 
                 {/* Clickable header row */}
                 <button

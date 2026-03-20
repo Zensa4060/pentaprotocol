@@ -216,10 +216,10 @@ export default function SpaceBg() {
       const nx = mx / W;
       const ny = my / H;
       for (const s of stars) {
-        const targetX = s.x + (nx - 0.5) * s.parallax * W * 0.35;
-        const targetY = s.y + (ny - 0.5) * s.parallax * H * 0.35;
-        s.bx += (targetX - s.x - s.bx) * 0.12;
-        s.by += (targetY - s.y - s.by) * 0.12;
+        const targetX = s.x + (nx - 0.5) * s.parallax * W * 1;
+        const targetY = s.y + (ny - 0.5) * s.parallax * H * 1;
+        s.bx += (targetX - s.x - s.bx) * 0.52;
+        s.by += (targetY - s.y - s.by) * 0.52;
         const px = s.x + s.bx;
         const py = s.y + s.by;
         const tw = Math.sin(t * s.twink + s.phase);
