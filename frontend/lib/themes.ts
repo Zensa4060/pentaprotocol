@@ -43,8 +43,8 @@ export const THEMES: Record<ThemeId, {
   },
 
   space: {
-    bg: "#02040F", bgPanel: "#060C22", bgCard: "#080F28",
-    border: "#142040", borderAccent: "#3A78D4",
+    bg: "#02040F", bgPanel: "#0D1835", bgCard: "#101F40",
+    border: "#1E3060", borderAccent: "#3A78D4",
     text: "#C8E0FF", textSecondary: "#6898C8", textMuted: "#304870",
     accent: "#3A78D4", accentGlow: "#60A8FF",
     p1: "#FFD060", p2: "#00E87A",
