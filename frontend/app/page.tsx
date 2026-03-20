@@ -23,7 +23,7 @@ import MissionsScreen from "@/components/MissionsScreen";
 import NavBar           from "@/components/NavBar";
 import SettingsModal    from "@/components/SettingsModal";
 import SpaceBg      from "@/components/SpaceBg";
-import SpaceBgVideo from "@/components/SpaceBgVideo";
+
 
 THEMES["custom" as ThemeId] = resolveCustomTheme(loadCustomTheme(), THEMES) as any;
 
@@ -519,6 +519,12 @@ export default function Page() {
       )}
 
       <style>{`
+      @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Rajdhani:wght@400;500;600;700&family=Exo+2:ital,wght@0,300;0,400;0,600;0,800;1,300&display=swap');
+      [data-theme="space"], .space-theme, body {
+  --font-display: 'Orbitron', sans-serif;
+  --font-body: 'Rajdhani', sans-serif;
+  --font-mono: 'Exo 2', sans-serif;
+}
         * { user-select: none !important; -webkit-user-select: none !important; }
         @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400;1,700&family=EB+Garamond:wght@400;500;600&family=Courier+Prime&family=Fira+Code:wght@400;500;700&family=VT323&family=Audiowide&family=Jura:wght@400;600;700&family=Share+Tech+Mono&display=swap');
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }

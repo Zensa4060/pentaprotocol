@@ -320,12 +320,12 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
   }, [user]);
 
   if (loading) return (
-    <div style={{ minHeight:"100vh", display:"flex", alignItems:"center", justifyContent:"center", background:themeId === "space" ? "url(/bg-earth.png) center/cover no-repeat" : t.bg }}>
+    <div style={{ minHeight:"100vh", display:"flex", alignItems:"center", justifyContent:"center", background: themeId === "space" ? "transparent" : t.bg }}>
       <div style={{ fontFamily:t.fontMono, fontSize:14, color:t.textMuted }}>Loading…</div>
     </div>
   );
   if (!user) return (
-    <div style={{ minHeight:"100vh", display:"flex", alignItems:"center", justifyContent:"center", background:themeId === "space" ? "url(/bg-earth.png) center/cover no-repeat" : t.bg }}>
+    <div style={{ minHeight:"100vh", display:"flex", alignItems:"center", justifyContent:"center", background: themeId === "space" ? "transparent" : t.bg }}>
       <div style={{ fontFamily:t.fontDisplay, fontSize:24, color:t.textMuted }}>Sign in to view your profile</div>
     </div>
   );
@@ -689,7 +689,7 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
       @keyframes shineSweep { from { transform: translateX(-50%); } to { transform: translateX(100%); } }
     `}</style>
 
-    <div style={{ position:"fixed", inset:0, zIndex:2, padding:"84px 24px 48px", overflowY:"auto", background:themeId === "space" ? "url(/bg-earth.png) center/cover no-repeat" : t.bg, transition:"background 0.4s" }}>
+    <div style={{ position:"fixed", inset:0, zIndex:2, padding:"84px 24px 48px", overflowY:"auto", background: themeId === "space" ? "transparent" : t.bg, transition:"background 0.4s" }}>
 
       {profileError && (
         <div style={{ marginBottom:12, padding:"10px 14px", background:`${t.danger}18`, border:`1px solid ${t.danger}44`, borderRadius:10, display:"flex", alignItems:"center", justifyContent:"space-between", gap:12, flexWrap:"wrap" }}>

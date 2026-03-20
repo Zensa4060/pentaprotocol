@@ -405,7 +405,7 @@ export default function NavBar({
       <nav style={{
         position: "fixed", top: 0, left: 0, right: 0, zIndex: 200,
         height: NAV_H,
-        background: themeId === "classic_light" ? "#FFFFFF" : "rgba(10,10,10,0.92)",
+        background: themeId === "classic_light" ? "#FFFFFF" : themeId === "space" ? "rgba(4,8,24,0.85)" : "rgba(10,10,10,0.92)",
         borderBottom: `1px solid ${t.border}33`,
         display: "flex", alignItems: "center",
         padding: isMobile ? "0 10px" : "0 16px",
