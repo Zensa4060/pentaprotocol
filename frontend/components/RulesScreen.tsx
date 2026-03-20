@@ -122,7 +122,7 @@ export default function RulesScreen({ themeId, onHoverAction, onClickAction }: P
   const toggle = (id: string) => setOpenId(prev => prev === id ? null : id);
 
   return (
-    <div style={{ minHeight:"100vh", padding:"84px 24px 64px", background:t.bg, transition:"background 0.4s", display:"flex", flexDirection:"column", alignItems:"center" }}>
+    <div style={{ minHeight:"100vh", padding:"84px 24px 64px", background:themeId === "space" ? "url(/bg-earth.png) center/cover no-repeat" : t.bg, transition:"background 0.4s", display:"flex", flexDirection:"column", alignItems:"center" }}>
       <div style={{ maxWidth:820, width:"100%" }}>
 
         <h1 style={{ fontFamily:t.fontDisplay, fontSize:ip?22:36, fontWeight:700, color:t.accent, marginBottom:8, textAlign:"center", letterSpacing:"0.04em" }}>
