@@ -46,12 +46,13 @@ interface Props {
 const PACKAGES = [
   { id: "starter", credits: 100,  price: 49,  bonus: 0,   label: "STARTER", popular: false, desc: "Try it out" },
   { id: "plus",    credits: 500,  price: 199, bonus: 50,  label: "PLUS",    popular: true,  desc: "Most popular" },
-  { id: "pro",     credits: 1200, price: 399, bonus: 200, label: "PRO",     popular: false, desc: "Best value" },
+  { id: "pro",     credits: 1000, price: 349, bonus: 150, label: "PRO",     popular: false, desc: "Level up" },
+  { id: "mega",    credits: 2000, price: 599, bonus: 400, label: "MEGA",    popular: false, desc: "Best value" },
   { id: "elite",   credits: 3000, price: 799, bonus: 600, label: "ELITE",   popular: false, desc: "Power user" },
 ];
 const SHARD_PACKAGES = PACKAGES.map((p) => ({
   ...p,
-  price: Math.max(1, Math.floor(p.price / 2)),
+  price: p.id === "pro" ? 149 : Math.max(1, Math.floor(p.price / 2)),
 }));
 
 declare global { interface Window { Razorpay: any; } }
@@ -1030,10 +1031,15 @@ export default function StoreScreen({ setScreenAction, themeId }: Props) {
   const [openBundle,   setOpenBundle]   = useState<string | null>(null);
   const [openThemePreview, setOpenThemePreview] = useState<string | null>(null);
   const [confirmBuy,   setConfirmBuy]   = useState<{ id: string, price: number, shardPrice?: number, label: string } | null>(null);
+  const [purchasedProtoPackIds, setPurchasedProtoPackIds] = useState<Set<string>>(() => new Set());
+  const [purchasedShardPackIds, setPurchasedShardPackIds] = useState<Set<string>>(() => new Set());
 
   const activePackages = buyCurrencyType === "shards" ? SHARD_PACKAGES : PACKAGES;
   const selectedPackageId = buyCurrencyType === "shards" ? selectedShards : selectedProto;
   const pkg = activePackages.find(p => p.id === selectedPackageId)!;
+  const purchasedPackIdsForLane = buyCurrencyType === "shards" ? purchasedShardPackIds : purchasedProtoPackIds;
+  const showStoreBonusForPack = (packId: string, bonus: number) => bonus > 0 && !purchasedPackIdsForLane.has(packId);
+  const orderSummaryBonusVisible = showStoreBonusForPack(pkg.id, pkg.bonus);
   const isClassic = themeId === "classic_light" || themeId === "classic_dark";
   const accent = isClassic ? "#CC0000" : t.accent;
   const balance = (user as any)?.protocredits ?? 0;
@@ -1045,9 +1051,19 @@ export default function StoreScreen({ setScreenAction, themeId }: Props) {
 
   const PROFILE_FETCH_TIMEOUT = 15000;
   useEffect(() => {
-    if (!token) return;
+    if (!token) {
+      setPurchasedProtoPackIds(new Set());
+      setPurchasedShardPackIds(new Set());
+      return;
+    }
     API.get("/api/profile/me", { headers: { Authorization: `Bearer ${token}` }, timeout: PROFILE_FETCH_TIMEOUT })
       .then(res => updateUser(res.data))
+      .catch(() => {});
+    API.get("/api/store/purchased-packs", { headers: { Authorization: `Bearer ${token}` }, timeout: PROFILE_FETCH_TIMEOUT })
+      .then((res) => {
+        setPurchasedProtoPackIds(new Set(res.data.protocredits ?? []));
+        setPurchasedShardPackIds(new Set(res.data.shards ?? []));
+      })
       .catch(() => {});
   }, [token]);
 
@@ -1075,6 +1091,7 @@ export default function StoreScreen({ setScreenAction, themeId }: Props) {
   const handleBuy = async () => {
     if (isGuest) { setShowBuyModal(false); showError(`Sign in to buy ${buyCurrencyType === "shards" ? "PentaShards" : "ProtoCredits"}.`); return; }
     setLoading(true); setMsg(null);
+    let addedCount: number | null = null;
     try {
       const loaded = await loadRazorpay();
       if (!loaded) throw new Error("Failed to load payment gateway.");
@@ -1083,19 +1100,27 @@ export default function StoreScreen({ setScreenAction, themeId }: Props) {
         try { const res = await API.post("/api/store/create-order", { package_id: selectedPackageId, currency_type: buyCurrencyType }, { headers: { Authorization: `Bearer ${token}` }, timeout: 15000 }); data = res.data; break; }
         catch (e) { if (i === 2) throw e; await new Promise(r => setTimeout(r, 2000)); }
       }
+      const packLabel = `${pkg.label} ${buyCurrencyType === "shards" ? "PentaShards" : "ProtoCredits"}`;
       await new Promise<void>((resolve, reject) => {
-        const rz = new window.Razorpay({ key: data.key_id, amount: data.amount, currency: data.currency, name: "PentaProtocol", description: `${pkg.credits + pkg.bonus} ${buyCurrencyType === "shards" ? "PentaShards" : "ProtoCredits"}`, order_id: data.order_id, prefill: { name: user!.username, email: (user as any).email || "" }, theme: { color: buyCurrencyType === "shards" ? "#4FC3F7" : accent }, modal: { ondismiss: () => reject(new Error("dismissed")) },
+        const rz = new window.Razorpay({ key: data.key_id, amount: data.amount, currency: data.currency, name: "PentaProtocol", description: packLabel, order_id: data.order_id, prefill: { name: user!.username, email: (user as any).email || "" }, theme: { color: buyCurrencyType === "shards" ? "#4FC3F7" : accent }, modal: { ondismiss: () => reject(new Error("dismissed")) },
           handler: async (response: any) => {
             try {
               const verifyRes = await API.post("/api/store/verify-payment", { razorpay_order_id: response.razorpay_order_id, razorpay_payment_id: response.razorpay_payment_id, razorpay_signature: response.razorpay_signature, package_id: selectedPackageId, currency_type: buyCurrencyType }, { headers: { Authorization: `Bearer ${token}` }, timeout: 15000 });
-              // ✅ Always fetch full profile
-const me = await API.get("/api/profile/me", { headers: { Authorization: `Bearer ${token}` }, timeout: 15000 });
-updateUser(me.data); resolve();
+              addedCount = buyCurrencyType === "shards" ? verifyRes.data.shards_added : verifyRes.data.credits_added;
+              const me = await API.get("/api/profile/me", { headers: { Authorization: `Bearer ${token}` }, timeout: 15000 });
+              updateUser(me.data);
+              try {
+                const pr = await API.get("/api/store/purchased-packs", { headers: { Authorization: `Bearer ${token}` }, timeout: 15000 });
+                setPurchasedProtoPackIds(new Set(pr.data.protocredits ?? []));
+                setPurchasedShardPackIds(new Set(pr.data.shards ?? []));
+              } catch { /* ignore */ }
+              resolve();
             } catch (e) { reject(e); }
           },
         }); rz.open();
       });
-      setMsg({ text: `✓ Payment successful! ${pkg.credits + pkg.bonus} ${buyCurrencyType === "shards" ? "PentaShards" : "ProtoCredits"} added.`, ok: true });
+      const n = addedCount ?? pkg.credits + pkg.bonus;
+      setMsg({ text: `✓ Payment successful! ${n.toLocaleString()} ${buyCurrencyType === "shards" ? "PentaShards" : "ProtoCredits"} added.`, ok: true });
     } catch (e: any) {
       if (e?.message === "dismissed") showError("Payment cancelled.");
       else showError(e?.response?.data?.detail || e?.message || "Payment failed. Please try again.");
@@ -1292,7 +1317,7 @@ updateUser(me.data); resolve();
               <div style={{ fontFamily: t.fontDisplay, fontSize: 26, fontWeight: 900, color: t.text, marginBottom: 6, lineHeight: 1.1 }}>Buy<br /><span style={{ color: "#4FC3F7" }}>PentaShards</span></div>
               <div style={{ fontFamily: t.fontBody, fontSize: 12, color: t.textMuted, marginBottom: 16 }}>Starting from ₹25 · Instant delivery</div>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" as const, marginBottom: 18 }}>
-                {SHARD_PACKAGES.map(p => (<div key={`shard_${p.id}`} style={{ fontFamily: t.fontMono, fontSize: 10, color: "#4FC3F7", background: "rgba(79,195,247,0.14)", border: "1px solid rgba(79,195,247,0.33)", borderRadius: 6, padding: "3px 8px" }}>{p.credits + p.bonus}</div>))}
+                {SHARD_PACKAGES.map(p => (<div key={`shard_${p.id}`} style={{ fontFamily: t.fontMono, fontSize: 10, color: "#4FC3F7", background: "rgba(79,195,247,0.14)", border: "1px solid rgba(79,195,247,0.33)", borderRadius: 6, padding: "3px 8px" }}>{p.credits.toLocaleString()} PS</div>))}
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 8, fontFamily: t.fontDisplay, fontSize: 13, fontWeight: 800, color: isGuest ? t.textMuted : "#000", background: isGuest ? t.bgCard : "#4FC3F7", borderRadius: 8, padding: "9px 16px", justifyContent: "center", border: isGuest ? `1px solid ${t.border}` : "none" }}>
                 {isGuest ? "SIGN IN TO BUY" : (<><ShardSVG size={16} /> OPEN STORE</>)}
@@ -1308,7 +1333,7 @@ updateUser(me.data); resolve();
               <div style={{ fontFamily: t.fontDisplay, fontSize: 26, fontWeight: 900, color: t.text, marginBottom: 6, lineHeight: 1.1 }}>Buy<br /><span style={{ color: accent }}>ProtoCredits</span></div>
               <div style={{ fontFamily: t.fontBody, fontSize: 12, color: t.textMuted, marginBottom: 16 }}>Starting from ₹49 · Instant delivery</div>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" as const, marginBottom: 18 }}>
-                {PACKAGES.map(p => (<div key={p.id} style={{ fontFamily: t.fontMono, fontSize: 10, color: accent, background: `${accent}14`, border: `1px solid ${accent}33`, borderRadius: 6, padding: "3px 8px" }}>{p.credits + p.bonus}</div>))}
+                {PACKAGES.map(p => (<div key={p.id} style={{ fontFamily: t.fontMono, fontSize: 10, color: accent, background: `${accent}14`, border: `1px solid ${accent}33`, borderRadius: 6, padding: "3px 8px" }}>{p.credits.toLocaleString()} PC</div>))}
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 8, fontFamily: t.fontDisplay, fontSize: 13, fontWeight: 800, color: isGuest ? t.textMuted : "#000", background: isGuest ? t.bgCard : accent, borderRadius: 8, padding: "9px 16px", justifyContent: "center", border: isGuest ? `1px solid ${t.border}` : "none" }}>
                 {isGuest ? "SIGN IN TO BUY" : (<><ProtoSVG size={16} /> OPEN STORE</>)}
@@ -1628,8 +1653,8 @@ updateUser(me.data); resolve();
                     {p.popular && <div style={{ position: "absolute", top: -9, left: "50%", transform: "translateX(-50%)", background: buyCurrencyType === "shards" ? "#4FC3F7" : accent, color: "#000", fontFamily: t.fontMono, fontSize: 9, fontWeight: 800, padding: "2px 10px", borderRadius: 20, letterSpacing: "0.12em", whiteSpace: "nowrap" as const }}>POPULAR</div>}
                     <div style={{ fontFamily: t.fontMono, fontSize: 10, color: isSel ? (buyCurrencyType === "shards" ? "#4FC3F7" : accent) : t.textMuted, letterSpacing: "0.18em", marginBottom: 6 }}>{p.label}</div>
                     <div style={{ fontFamily: t.fontDisplay, fontSize: 28, fontWeight: 900, color: isSel ? (buyCurrencyType === "shards" ? "#4FC3F7" : accent) : t.text, lineHeight: 1, marginBottom: 2 }}>{p.credits.toLocaleString()}</div>
-                    {p.bonus > 0 && <div style={{ fontFamily: t.fontBody, fontSize: 11, color: "#4CAF50", marginBottom: 6 }}>+{p.bonus} bonus</div>}
-                    {p.bonus === 0 && <div style={{ marginBottom: 14 }} />}
+                    {showStoreBonusForPack(p.id, p.bonus) && <div style={{ fontFamily: t.fontBody, fontSize: 11, color: "#4CAF50", marginBottom: 6 }}>+{p.bonus} bonus (once)</div>}
+                    {(p.bonus === 0 || !showStoreBonusForPack(p.id, p.bonus)) && <div style={{ marginBottom: 14 }} />}
                     <div style={{ height: 1, background: isSel ? `${buyCurrencyType === "shards" ? "#4FC3F7" : accent}33` : t.border, marginBottom: 10 }} />
                     <div style={{ fontFamily: t.fontDisplay, fontSize: 20, fontWeight: 800, color: isSel ? (buyCurrencyType === "shards" ? "#4FC3F7" : accent) : t.text }}>₹{p.price}</div>
                     <div style={{ fontFamily: t.fontBody, fontSize: 11, color: t.textMuted }}>{p.desc}</div>
@@ -1641,14 +1666,23 @@ updateUser(me.data); resolve();
             <div style={{ background: t.bgPanel || t.bgCard, border: `1px solid ${t.border}`, borderRadius: 12, padding: "16px 18px", marginBottom: 16 }}>
               <div style={{ fontFamily: t.fontMono, fontSize: 10, color: t.textMuted, letterSpacing: "0.18em", marginBottom: 12 }}>ORDER SUMMARY</div>
               <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}><span style={{ fontFamily: t.fontBody, fontSize: 13, color: t.textMuted }}>{pkg.label} Package</span><span style={{ fontFamily: t.fontMono, fontSize: 13, color: t.text }}>₹{pkg.price}</span></div>
-              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: pkg.bonus > 0 ? 8 : 0 }}><span style={{ fontFamily: t.fontBody, fontSize: 13, color: t.textMuted }}>{buyCurrencyType === "shards" ? "PentaShards" : "ProtoCredits"}</span><span style={{ fontFamily: t.fontMono, fontSize: 13, color: buyCurrencyType === "shards" ? "#4FC3F7" : accent }}>{pkg.credits.toLocaleString()}</span></div>
-              {pkg.bonus > 0 && <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ fontFamily: t.fontBody, fontSize: 13, color: "#4CAF50" }}>Bonus Credits</span><span style={{ fontFamily: t.fontMono, fontSize: 13, color: "#4CAF50" }}>+{pkg.bonus}</span></div>}
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: orderSummaryBonusVisible ? 8 : 0 }}><span style={{ fontFamily: t.fontBody, fontSize: 13, color: t.textMuted }}>{buyCurrencyType === "shards" ? "PentaShards" : "ProtoCredits"}</span><span style={{ fontFamily: t.fontMono, fontSize: 13, color: buyCurrencyType === "shards" ? "#4FC3F7" : accent }}>{pkg.credits.toLocaleString()}</span></div>
+              {orderSummaryBonusVisible && (
+                <>
+                  <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ fontFamily: t.fontBody, fontSize: 13, color: "#4CAF50" }}>Bonus {buyCurrencyType === "shards" ? "shards" : "credits"} (1st purchase)</span><span style={{ fontFamily: t.fontMono, fontSize: 13, color: "#4CAF50" }}>+{pkg.bonus}</span></div>
+                  <div style={{ fontFamily: t.fontBody, fontSize: 11, color: t.textMuted, marginTop: 6, lineHeight: 1.4 }}>Bonus applies only the first time you buy this pack (ProtoCredits and PentaShards tracked separately).</div>
+                </>
+              )}
               <div style={{ height: 1, background: t.border, margin: "12px 0" }} />
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <span style={{ fontFamily: t.fontDisplay, fontSize: 14, fontWeight: 700, color: t.text }}>Total</span>
                 <div style={{ textAlign: "right" as const }}>
                   <div style={{ fontFamily: t.fontDisplay, fontSize: 20, fontWeight: 900, color: buyCurrencyType === "shards" ? "#4FC3F7" : accent }}>₹{pkg.price}</div>
-                  <div style={{ fontFamily: t.fontMono, fontSize: 10, color: t.textMuted }}>{pkg.credits + pkg.bonus} {buyCurrencyType === "shards" ? "shards" : "credits"}</div>
+                  <div style={{ fontFamily: t.fontMono, fontSize: 10, color: t.textMuted }}>
+                    {orderSummaryBonusVisible
+                      ? <>Up to {(pkg.credits + pkg.bonus).toLocaleString()} {buyCurrencyType === "shards" ? "shards" : "credits"} (incl. one-time bonus)</>
+                      : <>{pkg.credits.toLocaleString()} {buyCurrencyType === "shards" ? "shards" : "credits"}</>}
+                  </div>
                 </div>
               </div>
             </div>
