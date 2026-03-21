@@ -3,7 +3,7 @@ from pydantic import BaseModel
 from app.core.database import get_db_dep
 from app.routers.auth import get_current_user
 from bson import ObjectId
-import hmac, hashlib, os, httpx
+import hmac, hashlib, os, aiohttp
 
 router = APIRouter()
 
@@ -110,14 +110,16 @@ async def create_order(
     }
 
     try:
-        async with httpx.AsyncClient() as client:
-            resp = await client.post(
+        # Force IPv4 via aiohttp TCPConnector — fixes Railway DNS resolution
+        connector = aiohttp.TCPConnector(family=2)  # AF_INET = IPv4 only
+        async with aiohttp.ClientSession(connector=connector) as session:
+            async with session.post(
                 f"{INSTAMOJO_BASE}/payment-requests/",
                 data=payload,
                 headers=_get_headers(),
-                timeout=30,
-            )
-        data = resp.json()
+                timeout=aiohttp.ClientTimeout(total=30),
+            ) as resp:
+                data = await resp.json()
     except Exception as e:
         import traceback
         print("INSTAMOJO CREATE-ORDER ERROR:", traceback.format_exc())
@@ -153,15 +155,15 @@ async def verify_payment(
     if req.payment_status != "Credit":
         raise HTTPException(status_code=400, detail="Payment not completed.")
 
-    # Verify with Instamojo server-side
-    async with httpx.AsyncClient() as client:
-        resp = await client.get(
+    # Verify with Instamojo server-side (force IPv4 for Railway)
+    connector = aiohttp.TCPConnector(family=2)
+    async with aiohttp.ClientSession(connector=connector) as session:
+        async with session.get(
             f"{INSTAMOJO_BASE}/payment-requests/{req.payment_request_id}/{req.payment_id}/",
             headers=_get_headers(),
-            timeout=15,
-        )
-
-    data = resp.json()
+            timeout=aiohttp.ClientTimeout(total=15),
+        ) as resp:
+            data = await resp.json()
     if not data.get("success"):
         raise HTTPException(status_code=400, detail="Could not verify payment with Instamojo.")
 
