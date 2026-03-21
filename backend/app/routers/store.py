@@ -18,7 +18,7 @@ BACKEND_URL          = os.getenv("BACKEND_URL", FRONTEND_URL)
 INSTAMOJO_BASE = (
     "https://test.instamojo.com/api/1.1"
     if IS_SANDBOX
-    else "https://api.instamojo.com/api/1.1"
+    else "https://www.instamojo.com/api/1.1"
 )
 
 def _get_headers() -> dict:
