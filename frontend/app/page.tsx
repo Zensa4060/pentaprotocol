@@ -23,10 +23,6 @@ import MissionsScreen from "@/components/MissionsScreen";
 import NavBar           from "@/components/NavBar";
 import SettingsModal    from "@/components/SettingsModal";
 import SpaceBg      from "@/components/SpaceBg";
-import TermsScreen   from "@/components/TermsScreen";
-import PrivacyScreen from "@/components/PrivacyScreen";
-import RefundScreen  from "@/components/RefundScreen";
-
 
 THEMES["custom" as ThemeId] = resolveCustomTheme(loadCustomTheme(), THEMES) as any;
 
@@ -587,9 +583,6 @@ export default function Page() {
       {screen === "collection" && <CollectionScreen themeId={themeId} setThemeIdAction={setThemeId} onHoverAction={sfx.hover} onClickAction={sfx.click} />}
       {screen === "career"     && <CareerScreen     themeId={themeId} onHoverAction={sfx.hover} />}
       {screen === "battlepass" && <MissionsScreen themeId={themeId} />}
-      {screen === "terms"   && <TermsScreen   themeId={themeId} setScreenAction={handleSetScreen} />}
-{screen === "privacy" && <PrivacyScreen themeId={themeId} setScreenAction={handleSetScreen} />}
-{screen === "refund"  && <RefundScreen  themeId={themeId} setScreenAction={handleSetScreen} />}
       {screen === "game" && (
         <GameScreen key="game" themeId={themeId} isSingleplayer={true} gameMode="singleplayer" setScreenAction={handleSetScreen}
           p1Name={user?.username}
