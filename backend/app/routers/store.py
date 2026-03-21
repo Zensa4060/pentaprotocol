@@ -1,36 +1,49 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 from app.core.database import get_db_dep
 from app.routers.auth import get_current_user
 from bson import ObjectId
-import razorpay
-import hmac, hashlib, os
+import hmac, hashlib, os, httpx
 
 router = APIRouter()
 
-client = razorpay.Client(auth=(
-    os.getenv("RAZORPAY_KEY_ID"),
-    os.getenv("RAZORPAY_KEY_SECRET"),
-))
+# ── Instamojo config ──────────────────────────────────────────────────────────
+INSTAMOJO_API_KEY    = os.getenv("INSTAMOJO_API_KEY", "")
+INSTAMOJO_AUTH_TOKEN = os.getenv("INSTAMOJO_AUTH_TOKEN", "")
+INSTAMOJO_SALT       = os.getenv("INSTAMOJO_SALT", "")
+IS_SANDBOX           = os.getenv("INSTAMOJO_SANDBOX", "true").lower() == "true"
+FRONTEND_URL         = os.getenv("FRONTEND_URL", "http://localhost:3000")
+BACKEND_URL          = os.getenv("BACKEND_URL", FRONTEND_URL)
 
+INSTAMOJO_BASE = (
+    "https://test.instamojo.com/api/1.1"
+    if IS_SANDBOX
+    else "https://api.instamojo.com/api/1.1"
+)
+
+INSTAMOJO_HEADERS = {
+    "X-Api-Key":    INSTAMOJO_API_KEY,
+    "X-Auth-Token": INSTAMOJO_AUTH_TOKEN,
+}
+
+# ── Package tables (prices in INR, same as frontend) ─────────────────────────
 PACKAGES = {
-    "starter": {"credits": 100,  "bonus": 0,   "price": 4900},
-    "plus":    {"credits": 500,  "bonus": 50,  "price": 19900},
-    "pro":     {"credits": 1000, "bonus": 150, "price": 34900},
-    "mega":    {"credits": 2000, "bonus": 400, "price": 59900},
-    "elite":   {"credits": 3000, "bonus": 600, "price": 79900},
+    "starter": {"credits": 100,  "bonus": 0,   "price": 49},
+    "plus":    {"credits": 500,  "bonus": 50,  "price": 199},
+    "pro":     {"credits": 1000, "bonus": 150, "price": 349},
+    "mega":    {"credits": 2000, "bonus": 400, "price": 599},
+    "elite":   {"credits": 3000, "bonus": 600, "price": 799},
 }
 SHARD_PACKAGES = {
-    "starter": {"shards": 100,  "bonus": 0,   "price": 2500},
-    "plus":    {"shards": 500,  "bonus": 50,  "price": 9900},
-    "pro":     {"shards": 1000, "bonus": 150, "price": 14900},
-    "mega":    {"shards": 2000, "bonus": 400, "price": 29900},
-    "elite":   {"shards": 3000, "bonus": 600, "price": 39900},
+    "starter": {"shards": 100,  "bonus": 0,   "price": 25},
+    "plus":    {"shards": 500,  "bonus": 50,  "price": 99},
+    "pro":     {"shards": 1000, "bonus": 150, "price": 149},
+    "mega":    {"shards": 2000, "bonus": 400, "price": 299},
+    "elite":   {"shards": 3000, "bonus": 600, "price": 399},
 }
 
 
 async def _purchased_pack_ids_by_lane(db, user_id: str) -> dict[str, list[str]]:
-    """Package IDs this user has already paid for, per currency lane (matches verify-payment logic)."""
     pc: set[str] = set()
     sh: set[str] = set()
     async for doc in db["payments"].find(
@@ -43,57 +56,85 @@ async def _purchased_pack_ids_by_lane(db, user_id: str) -> dict[str, list[str]]:
         ct = doc.get("currency_type")
         if ct == "shards":
             sh.add(pid)
-        elif ct == "protocredits" or ct is None:
+        else:
             pc.add(pid)
     return {"protocredits": sorted(pc), "shards": sorted(sh)}
 
 
-# ── Create Order ─────────────────────────────────────────────────────────────
-
-class CreateOrderRequest(BaseModel):
-    package_id: str
-    currency_type: str = "protocredits"  # protocredits | shards
+# ── Purchased packs ───────────────────────────────────────────────────────────
 
 @router.get("/purchased-packs")
-async def get_purchased_packs(user_id: str = Depends(get_current_user), db=Depends(get_db_dep)):
-    """Which store packs this account has already bought (PC vs PS separate). Used to hide bonus UI."""
+async def get_purchased_packs(
+    user_id: str = Depends(get_current_user),
+    db=Depends(get_db_dep),
+):
     return await _purchased_pack_ids_by_lane(db, user_id)
 
 
+# ── Create Instamojo payment request ─────────────────────────────────────────
+
+class CreateOrderRequest(BaseModel):
+    package_id:    str
+    currency_type: str = "protocredits"
+    buyer_name:    str = "Player"
+    email:         str = ""
+    phone:         str = "9999999999"
+
 @router.post("/create-order")
-async def create_order(req: CreateOrderRequest, user_id: str = Depends(get_current_user)):
-    currency_type = (req.currency_type or "protocredits").lower()
-    package_table = SHARD_PACKAGES if currency_type == "shards" else PACKAGES
-    pkg = package_table.get(req.package_id)
+async def create_order(
+    req: CreateOrderRequest,
+    user_id: str = Depends(get_current_user),
+):
+    currency_type  = (req.currency_type or "protocredits").lower()
+    package_table  = SHARD_PACKAGES if currency_type == "shards" else PACKAGES
+    pkg            = package_table.get(req.package_id)
     if not pkg:
         raise HTTPException(status_code=400, detail="Invalid package.")
 
-    order = client.order.create({
-        "amount":   pkg["price"],
-        "currency": "INR",
-        "receipt":  f"{user_id}_{req.package_id}",
-        "notes": {
-            "user_id":    user_id,
-            "package_id": req.package_id,
-            "currency_type": currency_type,
-        }
-    })
+    label = f"{req.package_id.upper()} {'PentaShards' if currency_type == 'shards' else 'ProtoCredits'}"
+    purpose = f"{label} [ref:{req.package_id}_{currency_type}] [uid:{user_id}]"
 
-    return {
-        "order_id": order["id"],
-        "amount":   order["amount"],
-        "currency": order["currency"],
-        "key_id":   os.getenv("RAZORPAY_KEY_ID"),
+    payload = {
+        "purpose":                purpose,
+        "amount":                 str(pkg["price"]),
+        "buyer_name":             req.buyer_name,
+        "email":                  req.email,
+        "phone":                  req.phone,
+        "send_email":             False,
+        "send_sms":               False,
+        "allow_repeated_payments": True,
+        "redirect_url":           f"{FRONTEND_URL}/payment/callback",
+        "webhook":                f"{BACKEND_URL}/api/store/webhook",
     }
 
-# ── Verify Payment ───────────────────────────────────────────────────────────
+    async with httpx.AsyncClient() as client:
+        resp = await client.post(
+            f"{INSTAMOJO_BASE}/payment-requests/",
+            data=payload,
+            headers=INSTAMOJO_HEADERS,
+            timeout=15,
+        )
+
+    data = resp.json()
+    if not data.get("success"):
+        raise HTTPException(
+            status_code=400,
+            detail=data.get("message", "Failed to create payment request"),
+        )
+
+    pr = data["payment_request"]
+    return {
+        "payment_request_id": pr["id"],
+        "redirect_url":       pr["longurl"],
+    }
+
+
+# ── Verify payment (called by frontend after redirect back) ───────────────────
 
 class VerifyPaymentRequest(BaseModel):
-    razorpay_order_id:   str
-    razorpay_payment_id: str
-    razorpay_signature:  str
-    package_id:          str
-    currency_type:       str = "protocredits"  # protocredits | shards
+    payment_id:         str
+    payment_request_id: str
+    payment_status:     str
 
 @router.post("/verify-payment")
 async def verify_payment(
@@ -101,86 +142,93 @@ async def verify_payment(
     user_id: str = Depends(get_current_user),
     db=Depends(get_db_dep),
 ):
-    """Credit the wallet after Razorpay success.
+    if req.payment_status != "Credit":
+        raise HTTPException(status_code=400, detail="Payment not completed.")
 
-    Bonus (if any) applies only on the first *paid* completion of that exact
-    product: same ``package_id`` (starter / plus / pro / mega / elite) and same
-    ``currency_type`` (``protocredits`` vs ``shards``). Re-buying e.g. PLUS
-    PentaShards (500+50 @ ₹99) drops the +50 on later buys; other packs keep
-    their own first-time bonus until each has been bought once in that lane.
-    """
-    secret = os.getenv("RAZORPAY_KEY_SECRET")
-    if not secret:
-        raise HTTPException(status_code=500, detail="Payment secret not configured.")
+    # Verify with Instamojo server-side
+    async with httpx.AsyncClient() as client:
+        resp = await client.get(
+            f"{INSTAMOJO_BASE}/payment-requests/{req.payment_request_id}/{req.payment_id}/",
+            headers=INSTAMOJO_HEADERS,
+            timeout=15,
+        )
 
-    body = f"{req.razorpay_order_id}|{req.razorpay_payment_id}"
-    expected = hmac.new(
-        secret.encode(),
-        body.encode(),
-        hashlib.sha256,
-    ).hexdigest()
+    data = resp.json()
+    if not data.get("success"):
+        raise HTTPException(status_code=400, detail="Could not verify payment with Instamojo.")
 
-    if expected != req.razorpay_signature:
-        raise HTTPException(status_code=400, detail="Invalid payment signature.")
+    payment = data["payment_request"]["payment"]
+    if payment.get("status") != "Credit":
+        raise HTTPException(status_code=400, detail="Payment not confirmed by Instamojo.")
 
-    existing = await db["payments"].find_one({"order_id": req.razorpay_order_id})
+    # Parse package_id and currency_type from purpose
+    purpose = data["payment_request"].get("purpose", "")
+    package_id, currency_type = _parse_purpose(purpose)
+    if not package_id:
+        raise HTTPException(status_code=400, detail="Could not parse package from payment.")
+
+    return await _credit_user(
+        db=db,
+        user_id=user_id,
+        payment_id=req.payment_id,
+        payment_request_id=req.payment_request_id,
+        package_id=package_id,
+        currency_type=currency_type,
+    )
+
+
+# ── Webhook (Instamojo POSTs here after every payment) ───────────────────────
+
+@router.post("/webhook")
+async def instamojo_webhook(request: Request, db=Depends(get_db_dep)):
+    form = await request.form()
+    data = dict(form)
+
+    mac_provided = data.get("mac")
+    if not mac_provided:
+        raise HTTPException(status_code=400, detail="Missing MAC")
+
+    if not _verify_mac(data, mac_provided):
+        raise HTTPException(status_code=403, detail="Invalid MAC signature")
+
+    if data.get("status") != "Credit":
+        return {"status": "ignored"}
+
+    payment_id         = data.get("payment_id", "")
+    payment_request_id = data.get("payment_request_id", "")
+    purpose            = data.get("purpose", "")
+
+    # Check not already processed
+    existing = await db["payments"].find_one({"payment_id": payment_id, "status": "paid"})
     if existing:
-        raise HTTPException(status_code=400, detail="Order already processed.")
+        return {"status": "already_processed"}
 
-    currency_type = (req.currency_type or "protocredits").lower()
-    package_table = SHARD_PACKAGES if currency_type == "shards" else PACKAGES
-    pkg = package_table.get(req.package_id)
-    if not pkg:
-        raise HTTPException(status_code=400, detail="Invalid package.")
+    package_id, currency_type = _parse_purpose(purpose)
+    if not package_id:
+        return {"status": "unknown_package"}
 
-    base = pkg.get("credits") if currency_type == "protocredits" else pkg.get("shards")
-    bonus = pkg.get("bonus") or 0
-    # One bonus per (package_id, currency lane). Shards always keyed by currency_type.
-    # ProtoCredits: also count legacy rows with no currency_type (pre–dual-currency store).
-    if currency_type == "shards":
-        prior_paid = await db["payments"].count_documents({
-            "user_id": user_id,
-            "package_id": req.package_id,
-            "currency_type": "shards",
-            "status": "paid",
-        })
-    else:
-        prior_paid = await db["payments"].count_documents({
-            "user_id": user_id,
-            "package_id": req.package_id,
-            "status": "paid",
-            "$or": [
-                {"currency_type": "protocredits"},
-                {"currency_type": {"$exists": False}},
-            ],
-        })
-    bonus_applied = bonus > 0 and prior_paid == 0
-    amount_to_add = base + (bonus if bonus_applied else 0)
+    # Get user_id from purpose
+    user_id = _parse_uid(purpose)
+    if not user_id:
+        return {"status": "unknown_user"}
 
-    inc_field = "protocredits" if currency_type == "protocredits" else "shards"
-    await db["users"].update_one({"_id": ObjectId(user_id)}, {"$inc": {inc_field: amount_to_add}})
+    await _credit_user(
+        db=db,
+        user_id=user_id,
+        payment_id=payment_id,
+        payment_request_id=payment_request_id,
+        package_id=package_id,
+        currency_type=currency_type,
+    )
 
-    await db["payments"].insert_one({
-        "order_id":   req.razorpay_order_id,
-        "payment_id": req.razorpay_payment_id,
-        "user_id":    user_id,
-        "package_id": req.package_id,
-        "currency_type": currency_type,
-        "amount_added": amount_to_add,
-        "bonus_applied": bonus_applied,
-        "status":     "paid",
-    })
-
-    if currency_type == "shards":
-        return {"success": True, "shards_added": amount_to_add, "bonus_applied": bonus_applied}
-    return {"success": True, "credits_added": amount_to_add, "bonus_applied": bonus_applied}
+    return {"status": "ok"}
 
 
-# ── Purchase Cosmetic Item ───────────────────────────────────────────────────
+# ── Purchase Cosmetic Item (unchanged) ────────────────────────────────────────
 
 class PurchaseItemRequest(BaseModel):
-    item_id: str
-    price:   int
+    item_id:     str
+    price:       int
     shard_price: int = 0
 
 @router.post("/purchase-item")
@@ -210,3 +258,89 @@ async def purchase_item(
     )
 
     return {"ok": True}
+
+
+# ── Helpers ───────────────────────────────────────────────────────────────────
+
+def _verify_mac(data: dict, mac_provided: str) -> bool:
+    mac_data = {k: v for k, v in data.items() if k != "mac"}
+    sorted_values = "|".join(
+        str(v) for _, v in sorted(mac_data.items(), key=lambda x: x[0].lower())
+    )
+    mac_calculated = hmac.new(
+        INSTAMOJO_SALT.encode("utf-8"),
+        sorted_values.encode("utf-8"),
+        hashlib.sha1,
+    ).hexdigest()
+    return hmac.compare_digest(mac_calculated, mac_provided)
+
+
+def _parse_purpose(purpose: str):
+    """Extract package_id and currency_type from purpose string.
+    Format: 'PLUS ProtoCredits [ref:plus_protocredits] [uid:abc123]'
+    """
+    import re
+    match = re.search(r"\[ref:([a-z]+)_(protocredits|shards)\]", purpose)
+    if match:
+        return match.group(1), match.group(2)
+    return None, "protocredits"
+
+
+def _parse_uid(purpose: str):
+    """Extract user_id from purpose string: [uid:abc123]"""
+    import re
+    match = re.search(r"\[uid:([^\]]+)\]", purpose)
+    return match.group(1) if match else None
+
+
+async def _credit_user(
+    db, user_id: str, payment_id: str, payment_request_id: str,
+    package_id: str, currency_type: str,
+):
+    package_table = SHARD_PACKAGES if currency_type == "shards" else PACKAGES
+    pkg = package_table.get(package_id)
+    if not pkg:
+        raise HTTPException(status_code=400, detail="Invalid package.")
+
+    base  = pkg.get("credits") if currency_type == "protocredits" else pkg.get("shards")
+    bonus = pkg.get("bonus") or 0
+
+    # Bonus only on first purchase of this pack in this currency lane
+    if currency_type == "shards":
+        prior = await db["payments"].count_documents({
+            "user_id": user_id, "package_id": package_id,
+            "currency_type": "shards", "status": "paid",
+        })
+    else:
+        prior = await db["payments"].count_documents({
+            "user_id": user_id, "package_id": package_id,
+            "status": "paid",
+            "$or": [
+                {"currency_type": "protocredits"},
+                {"currency_type": {"$exists": False}},
+            ],
+        })
+
+    bonus_applied  = bonus > 0 and prior == 0
+    amount_to_add  = base + (bonus if bonus_applied else 0)
+    inc_field      = "protocredits" if currency_type == "protocredits" else "shards"
+
+    await db["users"].update_one(
+        {"_id": ObjectId(user_id)},
+        {"$inc": {inc_field: amount_to_add}},
+    )
+
+    await db["payments"].insert_one({
+        "payment_id":         payment_id,
+        "payment_request_id": payment_request_id,
+        "user_id":            user_id,
+        "package_id":         package_id,
+        "currency_type":      currency_type,
+        "amount_added":       amount_to_add,
+        "bonus_applied":      bonus_applied,
+        "status":             "paid",
+    })
+
+    if currency_type == "shards":
+        return {"success": True, "shards_added": amount_to_add, "bonus_applied": bonus_applied}
+    return {"success": True, "credits_added": amount_to_add, "bonus_applied": bonus_applied}

@@ -55,8 +55,6 @@ const SHARD_PACKAGES = PACKAGES.map((p) => ({
   price: p.id === "pro" ? 149 : Math.max(1, Math.floor(p.price / 2)),
 }));
 
-declare global { interface Window { Razorpay: any; } }
-
 const STORE_THEMES = [
   { id: "space", label: "SPACE THEME", tagline: "Cosmic premium atmosphere", desc: "Deep-space visuals, high-contrast panels, and premium ambient glow.", preview: "linear-gradient(135deg,#020410,#0d1b4b)", unlock: "2,999 PC + 1,000 PS", price: 2999, shardPrice: 1000, purchaseId: "theme_space", boardId: "space_grid", boardLabel: "Space Board", musicLabel: "Space Ranked OST", fontLabel: "Space Font Pack", bgLabel: "Space Backgrounds", accentColor: "#4DA3FF", tags: ["PREMIUM", "THEME + BOARD"] },
   { id: "pixel", label: "PIXEL THEME", tagline: "8-bit premium aesthetic", desc: "Retro pixel visuals, arcade contrast, and upgraded UI glow intensity.", preview: "linear-gradient(135deg,#0d1007,#1a2e0a)", unlock: "2,999 PC + 1,000 PS", price: 2999, shardPrice: 1000, purchaseId: "theme_pixel", boardId: "pixel_grid", boardLabel: "Pixel Board", musicLabel: "Pixel Ranked OST", fontLabel: "Pixel Font Pack", bgLabel: "Pixel Backgrounds", accentColor: "#A4FF3B", tags: ["PREMIUM", "THEME + BOARD"] },
@@ -1082,49 +1080,24 @@ export default function StoreScreen({ setScreenAction, themeId }: Props) {
 
   const cssVars = { "--font-display": t.fontDisplay, "--font-mono": t.fontMono, "--font-body": t.fontBody, "--text": t.text, "--text-muted": t.textMuted, "--border": t.border, "--accent": accent } as React.CSSProperties;
 
-  const loadRazorpay = () => new Promise<boolean>(resolve => {
-    if (window.Razorpay) { resolve(true); return; }
-    const s = document.createElement("script"); s.src = "https://checkout.razorpay.com/v1/checkout.js";
-    s.onload = () => resolve(true); s.onerror = () => resolve(false); document.body.appendChild(s);
-  });
-
   const handleBuy = async () => {
     if (isGuest) { setShowBuyModal(false); showError(`Sign in to buy ${buyCurrencyType === "shards" ? "PentaShards" : "ProtoCredits"}.`); return; }
     setLoading(true); setMsg(null);
-    let addedCount: number | null = null;
     try {
-      const loaded = await loadRazorpay();
-      if (!loaded) throw new Error("Failed to load payment gateway.");
-      let data: any;
-      for (let i = 0; i < 3; i++) {
-        try { const res = await API.post("/api/store/create-order", { package_id: selectedPackageId, currency_type: buyCurrencyType }, { headers: { Authorization: `Bearer ${token}` }, timeout: 15000 }); data = res.data; break; }
-        catch (e) { if (i === 2) throw e; await new Promise(r => setTimeout(r, 2000)); }
-      }
-      const packLabel = `${pkg.label} ${buyCurrencyType === "shards" ? "PentaShards" : "ProtoCredits"}`;
-      await new Promise<void>((resolve, reject) => {
-        const rz = new window.Razorpay({ key: data.key_id, amount: data.amount, currency: data.currency, name: "PentaProtocol", description: packLabel, order_id: data.order_id, prefill: { name: user!.username, email: (user as any).email || "" }, theme: { color: buyCurrencyType === "shards" ? "#4FC3F7" : accent }, modal: { ondismiss: () => reject(new Error("dismissed")) },
-          handler: async (response: any) => {
-            try {
-              const verifyRes = await API.post("/api/store/verify-payment", { razorpay_order_id: response.razorpay_order_id, razorpay_payment_id: response.razorpay_payment_id, razorpay_signature: response.razorpay_signature, package_id: selectedPackageId, currency_type: buyCurrencyType }, { headers: { Authorization: `Bearer ${token}` }, timeout: 15000 });
-              addedCount = buyCurrencyType === "shards" ? verifyRes.data.shards_added : verifyRes.data.credits_added;
-              const me = await API.get("/api/profile/me", { headers: { Authorization: `Bearer ${token}` }, timeout: 15000 });
-              updateUser(me.data);
-              try {
-                const pr = await API.get("/api/store/purchased-packs", { headers: { Authorization: `Bearer ${token}` }, timeout: 15000 });
-                setPurchasedProtoPackIds(new Set(pr.data.protocredits ?? []));
-                setPurchasedShardPackIds(new Set(pr.data.shards ?? []));
-              } catch { /* ignore */ }
-              resolve();
-            } catch (e) { reject(e); }
-          },
-        }); rz.open();
-      });
-      const n = addedCount ?? pkg.credits + pkg.bonus;
-      setMsg({ text: `✓ Payment successful! ${n.toLocaleString()} ${buyCurrencyType === "shards" ? "PentaShards" : "ProtoCredits"} added.`, ok: true });
+      const p = activePackages.find(x => x.id === selectedPackageId)!;
+      const res = await API.post("/api/store/create-order", {
+        package_id:    selectedPackageId,
+        currency_type: buyCurrencyType,
+        buyer_name:    (user as any).username ?? "Player",
+        email:         (user as any).email ?? "",
+        phone:         (user as any).phone ?? "9999999999",
+      }, { headers: { Authorization: `Bearer ${token}` }, timeout: 15000 });
+      // Redirect to Instamojo — button stays loading during redirect
+      window.location.href = res.data.redirect_url;
     } catch (e: any) {
-      if (e?.message === "dismissed") showError("Payment cancelled.");
-      else showError(e?.response?.data?.detail || e?.message || "Payment failed. Please try again.");
-    } finally { setLoading(false); }
+      showError(e?.response?.data?.detail || e?.message || "Payment failed. Please try again.");
+      setLoading(false);
+    }
   };
 
   const handleBuyCosmetic = (id: string, price: number, label: string, shardPrice = 0) => {
@@ -1689,12 +1662,12 @@ export default function StoreScreen({ setScreenAction, themeId }: Props) {
             {msg && <div style={{ background: msg.ok ? "#4CAF5014" : `${t.danger}14`, border: `1px solid ${msg.ok ? "#4CAF50" : t.danger}`, borderRadius: 8, padding: "9px 14px", marginBottom: 12, fontFamily: t.fontBody, fontSize: 13, color: msg.ok ? "#4CAF50" : t.danger }}>{msg.text}</div>}
             <button onClick={handleBuy} disabled={loading} className="store-buy-btn"
               style={{ width: "100%", padding: "14px", background: loading ? `${buyCurrencyType === "shards" ? "#4FC3F7" : accent}55` : (buyCurrencyType === "shards" ? "#4FC3F7" : accent), border: "none", borderRadius: 10, color: "#000", fontFamily: t.fontDisplay, fontSize: 15, fontWeight: 900, cursor: loading ? "not-allowed" : "pointer", letterSpacing: "0.06em", boxShadow: loading ? "none" : `0 0 24px ${buyCurrencyType === "shards" ? "#4FC3F7" : accent}44` }}>
-              {loading ? "Processing…" : `PAY ₹${pkg.price} WITH RAZORPAY`}
+              {loading ? "Redirecting to payment…" : `PAY ₹${pkg.price} · SECURE CHECKOUT`}
             </button>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 16, marginTop: 12 }}>
               {["Card", "UPI", "Net Banking", "Wallet"].map(m => <span key={m} style={{ fontFamily: t.fontBody, fontSize: 11, color: t.textMuted }}>{m}</span>)}
             </div>
-            <div style={{ fontFamily: t.fontBody, fontSize: 11, color: t.textMuted, textAlign: "center" as const, marginTop: 14, lineHeight: 1.6 }}>Secure payments via Razorpay. {buyCurrencyType === "shards" ? "PentaShards" : "ProtoCredits"} are non-refundable.</div>
+            <div style={{ fontFamily: t.fontBody, fontSize: 11, color: t.textMuted, textAlign: "center" as const, marginTop: 14, lineHeight: 1.6 }}>Secure payments via Instamojo. {buyCurrencyType === "shards" ? "PentaShards" : "ProtoCredits"} are non-refundable.</div>
           </div>
         </div>
       )}
