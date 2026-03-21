@@ -1,7 +1,6 @@
 export type Screen =
   | "home" | "auth" | "lobby" | "game" | "aiGame" | "multiGame"
-  | "profile" | "rules" | "ai" | "store" | "collection" | "career" | "battlepass"
-  | "terms" | "privacy" | "refund";
+  | "profile" | "rules" | "ai" | "store" | "collection" | "career" | "battlepass";
 
 export interface MatchupData {
   opponent: {

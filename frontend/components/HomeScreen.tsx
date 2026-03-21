@@ -135,10 +135,10 @@ export default function HomeScreen({ setScreenAction, themeId, onHoverAction, on
     };
   };
 
-  const FOOTER_LINKS: { label: string; screen: Screen }[] = [
-    { label: "Terms & Conditions", screen: "terms" },
-    { label: "Privacy Policy",     screen: "privacy" },
-    { label: "Refund Policy",      screen: "refund" },
+  const FOOTER_LINKS: { label: string; href: string }[] = [
+    { label: "Terms & Conditions", href: "/terms" },
+    { label: "Privacy Policy",     href: "/privacy" },
+    { label: "Refund Policy",      href: "/refund" },
   ];
 
   return (
@@ -268,32 +268,33 @@ export default function HomeScreen({ setScreenAction, themeId, onHoverAction, on
         borderTop: `1px solid ${isSp ? "rgba(58,120,212,0.15)" : t.border}`,
       }}>
         {FOOTER_LINKS.map((link, i) => (
-          <React.Fragment key={link.screen}>
-            <button
-              onClick={() => setScreenAction(link.screen)}
-              onMouseEnter={() => setHovFooter(link.screen)}
+          <React.Fragment key={link.href}>
+            <a
+              href={link.href}
+              target="_blank"
+              rel="noopener noreferrer"
+              onMouseEnter={() => setHovFooter(link.href)}
               onMouseLeave={() => setHovFooter(null)}
               style={{
-                background: "transparent",
-                border: "none",
                 fontFamily: t.fontMono,
                 fontSize: isMobile ? 9 : 10,
                 fontWeight: 600,
                 letterSpacing: "0.12em",
-                color: hovFooter === link.screen
+                color: hovFooter === link.href
                   ? accent
                   : isSp
                     ? "rgba(140,180,255,0.35)"
                     : t.textMuted,
-                cursor: "pointer",
+                textDecoration: "none",
                 padding: "4px 2px",
                 transition: "color 0.2s",
                 textTransform: "uppercase" as const,
                 whiteSpace: "nowrap" as const,
+                cursor: "pointer",
               }}
             >
               {link.label}
-            </button>
+            </a>
             {i < FOOTER_LINKS.length - 1 && (
               <span style={{
                 color: isSp ? "rgba(140,180,255,0.2)" : t.border,

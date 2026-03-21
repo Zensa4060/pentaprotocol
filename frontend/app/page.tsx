@@ -1,628 +1,136 @@
-"use client";
-import { useEffect, useRef, useState } from "react";
-import { useAuthStore } from "@/lib/store";
-import { useAudio } from "@/hooks/useAudio";
-import API from "@/lib/api";
-import { THEMES } from "@/lib/themes";
-import { censorText, containsProfanity } from "@/lib/profanity";
-import type { ThemeId } from "@/lib/themes";
-import type { Difficulty } from "@/lib/botEngine";
-import type { Screen, MatchupData } from "@/lib/types";
-import { loadCustomTheme, resolveCustomTheme } from "@/lib/customTheme";
-import HomeScreen       from "@/components/HomeScreen";
-import AuthScreen       from "@/components/AuthScreen";
-import LobbyScreen      from "@/components/LobbyScreen";
-import GameScreen       from "@/components/GameScreen";
-import ProfileScreen    from "@/components/ProfileScreen";
-import RulesScreen      from "@/components/RulesScreen";
-import AIScreen         from "@/components/AIScreen";
-import StoreScreen      from "@/components/Storescreen";
-import CollectionScreen from "@/components/CollectionScreen";
-import CareerScreen     from "@/components/CareerScreen";
-import MissionsScreen from "@/components/MissionsScreen";
-import NavBar           from "@/components/NavBar";
-import SettingsModal    from "@/components/SettingsModal";
-import SpaceBg      from "@/components/SpaceBg";
-import TermsScreen   from "@/components/TermsScreen";
-import PrivacyScreen from "@/components/PrivacyScreen";
-import RefundScreen  from "@/components/RefundScreen";
+import type { Metadata } from "next";
 
+export const metadata: Metadata = {
+  title: "Refund & Cancellation Policy · PentaProtocol",
+  description: "Refund and Cancellation Policy for PentaProtocol",
+};
 
-THEMES["custom" as ThemeId] = resolveCustomTheme(loadCustomTheme(), THEMES) as any;
-
-// Screens blocked for guests (not signed in)
-const GUEST_BLOCKED: Screen[] = ["lobby", "profile", "career", "battlepass"];
-
-export default function Page() {
-  const [themeId, setThemeIdRaw]        = useState<ThemeId>("classic_dark");
-  const [screen, setScreen]             = useState<Screen>("auth");
-  const [screenHistory, setScreenHistory] = useState<Screen[]>([]);
-  const [showSettings, setShowSettings] = useState(false);
-  const [inQueue, setInQueue]           = useState(false);
-  const [isRanked, setIsRanked]         = useState(false);
-  const [audioStarted, setAudioStarted] = useState(false);
-  const [fadingOut, setFadingOut]       = useState(false);
-  const [aiDifficulty, setAiDifficulty] = useState<Difficulty>("medium");
-  const [multiRoomCode,   setMultiRoomCode]   = useState<string>("");
-  const [multiPlayerSlot, setMultiPlayerSlot] = useState<"P1" | "P2" | null>(null);
-  const [multiMatchup, setMultiMatchup]       = useState<MatchupData | null>(null);
-  const [customRev, setCustomRev]       = useState(0);
-
-  // Matchmaking states
-  const [queuePhase, setQueuePhase] = useState<"none" | "queuing" | "matchup">("none");
-  const [queueElapsed, setQueueElapsed] = useState(0);
-  const [queueRoomCode, setQueueRoomCode] = useState<string | null>(null);
-  const [queuePlayerSlot, setQueuePlayerSlot] = useState<"P1" | "P2">("P1");
-  const [matchupOpponent, setMatchupOpponent] = useState<any>(null);
-  const [queueError, setQueueError] = useState<string | null>(null);
-
-  const audioStartedRef    = useRef(false);
-  const pendingTheme       = useRef<ThemeId | null>(null);
-  const queuePollRef       = useRef<NodeJS.Timeout | null>(null);
-  const queueCancelledRef  = useRef(false);
-  // ── NEW: prevents double-fire of startMatchmaking ──
-  const matchmakingActiveRef = useRef(false);
-  // Keep latest queue state accessible inside poll closure
-  const queueRoomCodeRef   = useRef<string | null>(null);
-  const queuePlayerSlotRef = useRef<"P1" | "P2">("P1");
-
-  const [pendingScreen, setPendingScreen]     = useState<Screen | null>(null);
-  const [showAiExitModal, setShowAiExitModal] = useState(false);
-  const [showGuestBlock, setShowGuestBlock]   = useState(false);
-
-  const { user, token } = useAuthStore();
-  const audio = useAudio();
-  const { sfx } = audio;
-
-  const t = THEMES[themeId];
-
-  const themeRef  = useRef(themeId);
-  const screenRef = useRef(screen);
-  const rankedRef = useRef(isRanked);
-  const aiDiffRef = useRef(aiDifficulty);
-  themeRef.current  = themeId;
-  screenRef.current = screen;
-  rankedRef.current = isRanked;
-  aiDiffRef.current = aiDifficulty;
-
-  // Keep refs in sync with state so closures always see latest values
-  useEffect(() => { queueRoomCodeRef.current   = queueRoomCode;   }, [queueRoomCode]);
-  useEffect(() => { queuePlayerSlotRef.current = queuePlayerSlot; }, [queuePlayerSlot]);
-
-  const getBgmCtx = (s: Screen, ranked: boolean, aiDiff: Difficulty): "lobby" | "game" | "ranked" => {
-    if (s === "aiGame") return aiDiff === "hard" ? "ranked" : "game";
-    if (s === "game") return "game";
-    if (s === "multiGame") return ranked ? "ranked" : "game";
-    return "lobby";
-  };
-
-  // On mount: restore theme; and restore persisted screen/room state
-  useEffect(() => {
-    const saved = localStorage.getItem("pp_theme") as ThemeId;
-    if (saved && THEMES[saved]) setThemeIdRaw(saved);
-
-    const savedScreen = sessionStorage.getItem("pp_screen") as Screen;
-    const savedRoom   = sessionStorage.getItem("pp_multiRoomCode");
-    const savedSlot   = sessionStorage.getItem("pp_multiPlayerSlot") as "P1" | "P2" | null;
-    const savedRanked = sessionStorage.getItem("pp_isRanked") === "true";
-
-    if (savedScreen) {
-      if (token || !GUEST_BLOCKED.includes(savedScreen)) {
-        setScreen(savedScreen);
-        if (savedRoom) setMultiRoomCode(savedRoom);
-        if (savedSlot) setMultiPlayerSlot(savedSlot);
-        setIsRanked(savedRanked);
-      } else {
-        setScreen("auth");
-      }
-    } else {
-      if (token) setScreen("home");
-    }
-
-    window.history.pushState({ screen: savedScreen || (token ? "home" : "auth") }, "", window.location.pathname);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  useEffect(() => {
-    sessionStorage.setItem("pp_screen", screen);
-    sessionStorage.setItem("pp_multiRoomCode", multiRoomCode);
-    if (multiPlayerSlot) sessionStorage.setItem("pp_multiPlayerSlot", multiPlayerSlot);
-    else sessionStorage.removeItem("pp_multiPlayerSlot");
-    sessionStorage.setItem("pp_isRanked", String(isRanked));
-  }, [screen, multiRoomCode, multiPlayerSlot, isRanked]);
-
-  useEffect(() => {
-    const onCustomThemeChange = () => {
-      THEMES["custom" as ThemeId] = resolveCustomTheme(loadCustomTheme(), THEMES) as any;
-      setCustomRev(r => r + 1);
-    };
-    window.addEventListener("pp_custom_theme_changed", onCustomThemeChange);
-    return () => window.removeEventListener("pp_custom_theme_changed", onCustomThemeChange);
-  }, []);
-
-  useEffect(() => {
-    const start = () => {
-      if (audioStartedRef.current) return;
-      audioStartedRef.current = true;
-      setAudioStarted(true);
-      audio.playBgm(themeRef.current, getBgmCtx(screenRef.current, rankedRef.current, aiDiffRef.current));
-    };
-    start();
-    window.addEventListener("click",      start, { once: true });
-    window.addEventListener("keydown",    start, { once: true });
-    window.addEventListener("touchstart", start, { once: true });
-    return () => {
-      window.removeEventListener("click",      start);
-      window.removeEventListener("keydown",    start);
-      window.removeEventListener("touchstart", start);
-    };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  useEffect(() => {
-    if (!audioStarted) return;
-    audio.playBgm(themeId, getBgmCtx(screen, isRanked, aiDifficulty));
-  }, [themeId, screen, isRanked, aiDifficulty, audioStarted]);
-
-  // Matchmaking elapsed timer — runs indefinitely while queuing, no timeout
-  useEffect(() => {
-    if (queuePhase !== "queuing") {
-      setQueueElapsed(0);
-      return;
-    }
-    const iv = setInterval(() => setQueueElapsed(e => e + 1), 1000);
-    return () => clearInterval(iv);
-  }, [queuePhase]);
-
-  // ── Single no-retry API call ──────────────────────────────────────────────
-  const postOnce = async (url: string, data: any, config: any) => {
-    return await API.post(url, data, { ...config, timeout: 15000 });
-  };
-
-  // ── Poll queue status until matched ──────────────────────────────────────
-  const pollQueueStatus = async (code: string, slot: "P1" | "P2", mode: "ranked" | "unranked") => {
-    if (queueCancelledRef.current) return;
-    try {
-      const poll = await API.get(`/api/room/queue/status/${code}`, { timeout: 10000 });
-      if (poll.data.game_status === "playing") {
-        if (queuePollRef.current) {
-          clearInterval(queuePollRef.current);
-          queuePollRef.current = null;
-        }
-
-        const prefix = slot === "P1" ? "player2" : "player1";
-        const opp = {
-          name:   poll.data[`${prefix}_name`]   ?? "OPPONENT",
-          elo:    poll.data[`${prefix}_elo`]    ?? 1000,
-          avatar: poll.data[`${prefix}_avatar`] ?? null,
-          banner: poll.data[`${prefix}_banner`] ?? poll.data[`${prefix}_banner_style`] ?? "default",
-          level:  poll.data[`${prefix}_level`]  ?? 1,
-        };
-        setMatchupOpponent(opp);
-        setQueuePhase("matchup");
-        sfx.matchFound();
-
-        setTimeout(() => {
-          setInQueue(false);
-          setQueuePhase("none");
-          matchmakingActiveRef.current = false;
-          handleRoomReady(code, slot, mode);
-        }, 10000);
-      }
-    } catch (e: any) {
-      const status = e?.response?.status;
-      if (status === 401 || status === 403) {
-        if (queuePollRef.current) {
-          clearInterval(queuePollRef.current);
-          queuePollRef.current = null;
-        }
-        setInQueue(false);
-        setQueuePhase("none");
-        matchmakingActiveRef.current = false;
-        setQueueError("Session expired. Please sign in again.");
-      }
-      // All other errors: silently ignore and keep polling
-    }
-  };
-
-  // ── Start matchmaking — no retries, no timeout, searches indefinitely ────
-  const startMatchmaking = async (mode: "ranked" | "unranked") => {
-    // Prevent double-fire (double-click, React strict mode, etc.)
-    if (matchmakingActiveRef.current) return;
-    matchmakingActiveRef.current = true;
-
-    queueCancelledRef.current = false;
-    setIsRanked(mode === "ranked");
-    setInQueue(true);
-    setQueuePhase("queuing");
-    setQueueElapsed(0);
-    setQueueError(null);
-
-    const authHeader = { headers: { Authorization: `Bearer ${token}` } };
-    try {
-      const res = await postOnce("/api/room/queue/join", { format: mode }, authHeader);
-      if (queueCancelledRef.current) {
-        matchmakingActiveRef.current = false;
-        return;
-      }
-
-      const code = res.data.room_code;
-      const slot = res.data.player_slot as "P1" | "P2";
-      setQueueRoomCode(code);
-      setQueuePlayerSlot(slot);
-      queueRoomCodeRef.current   = code;
-      queuePlayerSlotRef.current = slot;
-
-      if (res.data.matched) {
-        // Immediate match — show matchup screen
-        const room   = res.data.room;
-        const prefix = slot === "P1" ? "player2" : "player1";
-        const opp = {
-          name:   room[`${prefix}_name`]   ?? "OPPONENT",
-          elo:    room[`${prefix}_elo`]    ?? 1000,
-          avatar: room[`${prefix}_avatar`] ?? null,
-          banner: room[`${prefix}_banner`] ?? room[`${prefix}_banner_style`] ?? "default",
-          level:  room[`${prefix}_level`]  ?? 1,
-        };
-        setMatchupOpponent(opp);
-        setQueuePhase("matchup");
-        sfx.matchFound();
-        setTimeout(() => {
-          setInQueue(false);
-          setQueuePhase("none");
-          matchmakingActiveRef.current = false;
-          handleRoomReady(code, slot, mode);
-        }, 10000);
-      } else {
-        // No immediate match — poll indefinitely until matched or cancelled
-        if (queuePollRef.current) clearInterval(queuePollRef.current);
-        queuePollRef.current = setInterval(() => pollQueueStatus(code, slot, mode), 2000);
-      }
-    } catch (err: any) {
-      console.error("Matchmaking error:", err);
-      if (queueCancelledRef.current) {
-        matchmakingActiveRef.current = false;
-        return;
-      }
-      // Show a soft error but keep the queue UI alive — don't exit the queue
-      // The user can cancel manually; we don't auto-retry to avoid ghost calls
-      setQueueError("Connection issue — still searching...");
-      matchmakingActiveRef.current = false;
-    }
-  };
-
-  // ── Cancel matchmaking ────────────────────────────────────────────────────
-  const cancelMatchmaking = async () => {
-    queueCancelledRef.current  = true;
-    matchmakingActiveRef.current = false;
-
-    if (queuePollRef.current) {
-      clearInterval(queuePollRef.current);
-      queuePollRef.current = null;
-    }
-
-    const mode       = isRanked ? "ranked" : "unranked";
-    const authHeader = { headers: { Authorization: `Bearer ${token}` } };
-    const code       = queueRoomCodeRef.current;
-    if (code) {
-      try {
-        await API.post("/api/room/queue/leave", { format: mode }, { ...authHeader, timeout: 10000 });
-      } catch { /* ignore — server will TTL-expire the entry anyway */ }
-    }
-
-    setInQueue(false);
-    setQueuePhase("none");
-    setQueueRoomCode(null);
-    setQueueError(null);
-    setMatchupOpponent(null);
-  };
-
-  useEffect(() => {
-    const onGotoStore = () => handleSetScreen("store");
-    window.addEventListener("pp_goto_store", onGotoStore);
-    return () => window.removeEventListener("pp_goto_store", onGotoStore);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  useEffect(() => {
-    window.history.pushState({ screen }, "", window.location.pathname);
-  }, [screen]);
-
-  useEffect(() => {
-    const onPopState = (_e: PopStateEvent) => {
-      if (screenRef.current === "auth") {
-        window.close();
-        window.history.pushState({ screen: "auth" }, "", window.location.pathname);
-        return;
-      }
-      window.history.pushState({ screen: screenRef.current }, "", window.location.pathname);
-      setScreenHistory(prev => {
-        if (prev.length === 0) return prev;
-        const previousScreen = prev[prev.length - 1];
-        const next = prev.slice(0, -1);
-        setScreen(previousScreen);
-        return next;
-      });
-    };
-    window.addEventListener("popstate", onPopState);
-    return () => window.removeEventListener("popstate", onPopState);
-  }, []);
-
-  const setThemeId = (id: ThemeId) => {
-    if (id === themeId) return;
-    pendingTheme.current = id;
-    setFadingOut(true);
-    setTimeout(() => {
-      setThemeIdRaw(id);
-      localStorage.setItem("pp_theme", id);
-      setFadingOut(false);
-      pendingTheme.current = null;
-    }, 320);
-  };
-
-  const handleSetScreen = (s: Screen) => {
-    if (!user && GUEST_BLOCKED.includes(s)) {
-      setShowGuestBlock(true);
-      return;
-    }
-    if (screen === "aiGame" && s !== "aiGame") {
-      sfx.click();
-      setPendingScreen(s);
-      setShowAiExitModal(true);
-      return;
-    }
-    sfx.transition();
-    setScreenHistory(prev => [...prev, screen]);
-    setScreen(s);
-  };
-
-  const confirmAiExit = () => {
-    sfx.transition();
-    setShowAiExitModal(false);
-    if (pendingScreen) {
-      setScreenHistory(prev => [...prev, screen]);
-      setScreen(pendingScreen);
-      setPendingScreen(null);
-    }
-  };
-
-  const cancelAiExit = () => {
-    sfx.click();
-    setShowAiExitModal(false);
-    setPendingScreen(null);
-  };
-
-  const ip = themeId === "pixel";
-
-  const handleRoomReady = (roomCode: string, playerSlot: "P1" | "P2", format: string, matchup?: MatchupData) => {
-    setMultiRoomCode(roomCode);
-    setMultiPlayerSlot(playerSlot);
-    setIsRanked(format === "ranked");
-    if (matchup) setMultiMatchup(matchup);
-    setScreenHistory(prev => [...prev, screen]);
-    setScreen("multiGame");
-  };
-
-  const GuestBlockModal = () => (
-    <div style={{
-      position: "fixed", inset: 0, zIndex: 99999,
-      background: "rgba(0,0,0,0.88)",
-      display: "flex", alignItems: "center", justifyContent: "center",
-      animation: "fadeIn 0.2s ease both",
-    }}>
-      <div style={{
-        background: t.bgPanel,
-        border: `${ip ? 3 : 1}px solid ${t.border}`,
-        borderRadius: ip ? 2 : 20,
-        padding: ip ? "32px 36px" : "48px 52px",
-        maxWidth: 460, width: "90vw",
-        textAlign: "center",
-        boxShadow: "0 40px 100px rgba(0,0,0,0.8)",
-        animation: "scaleIn 0.28s cubic-bezier(.22,.68,0,1.2) both",
-      }}>
-        <div style={{ fontFamily: t.fontDisplay, fontSize: ip ? 14 : 22, fontWeight: 700, color: t.text, marginBottom: 10, lineHeight: 1.4 }}>
-          Sign in to access this
-        </div>
-        <div style={{ fontFamily: t.fontBody, fontSize: ip ? 12 : 14, color: t.textMuted, marginBottom: 32, lineHeight: 1.7 }}>
-          Create a free account to play multiplayer, track your career, access your profile, and more.
-        </div>
-        <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
-          <button
-            onClick={() => { setShowGuestBlock(false); setScreen("auth"); }}
-            style={{ background: t.accent, border: "none", color: "#000", fontFamily: t.fontDisplay, fontSize: ip ? 12 : 15, fontWeight: 800, padding: ip ? "10px 28px" : "13px 36px", borderRadius: ip ? 2 : 10, cursor: "pointer", letterSpacing: "0.08em", boxShadow: `0 0 24px ${t.accentGlow}44` }}
-          >SIGN IN / SIGN UP</button>
-          <button
-            onClick={() => setShowGuestBlock(false)}
-            style={{ background: "transparent", border: `1px solid ${t.border}`, color: t.textMuted, fontFamily: t.fontDisplay, fontSize: ip ? 12 : 14, fontWeight: 700, padding: ip ? "10px 24px" : "13px 28px", borderRadius: ip ? 2 : 10, cursor: "pointer", letterSpacing: "0.06em" }}
-          >CANCEL</button>
-        </div>
-      </div>
-    </div>
-  );
-
-  const GlobalMatchupOverlay = () => {
-    if (queuePhase !== "matchup" || !matchupOpponent) return null;
-    return (
-      <div style={{ position: "fixed", inset: 0, zIndex: 99999, background: t.bg }}>
-        <LobbyScreen
-          setScreenAction={handleSetScreen}
-          themeId={themeId}
-          onQueueStartAction={startMatchmaking}
-          onQueueCancelAction={cancelMatchmaking}
-          onHoverAction={sfx.hover}
-          onClickAction={sfx.click}
-          onRoomReadyAction={handleRoomReady}
-          queuePhase={queuePhase}
-          queueElapsed={queueElapsed}
-          matchupOpponent={matchupOpponent}
-          queueError={queueError}
-          forcedPhase="matchup"
-        />
-      </div>
-    );
-  };
-
+export default function RefundPage() {
   return (
-    <div style={{
-      minHeight: "100vh",
-      background: themeId === "space" ? "transparent" : t.bg,
-      color: t.text,
-      fontFamily: t.fontBody,
-      transition: "background 0.6s ease, color 0.6s ease",
-    }}>
-     {themeId === "space" && screen !== "home" && screen !== "store" && <SpaceBg />}
-      <div style={{
-        position: "fixed", inset: 0, zIndex: 9998,
-        background: "#000",
-        opacity: fadingOut ? 1 : 0,
-        pointerEvents: fadingOut ? "all" : "none",
-        transition: fadingOut ? "opacity 0.28s ease" : "opacity 0.32s ease",
-      }} />
+    <>
+      <style>{`
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body { background: #0a0a0f; color: #e8e8e8; }
+        ::-webkit-scrollbar { width: 6px; background: #111; }
+        ::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }
+      `}</style>
 
-      {showGuestBlock && <GuestBlockModal />}
-      <GlobalMatchupOverlay />
-
-      {showAiExitModal && (
-        <div style={{
-          position: "fixed", inset: 0, zIndex: 99999,
-          background: "rgba(0,0,0,0.88)",
-          display: "flex", alignItems: "center", justifyContent: "center",
-          animation: "fadeIn 0.2s ease both",
-        }}>
-          <div style={{
-            background: t.bgPanel,
-            border: `${ip ? 3 : 1}px solid ${t.border}`,
-            borderRadius: ip ? 2 : 20,
-            padding: ip ? "32px 36px" : "48px 56px",
-            maxWidth: 480, width: "90vw",
-            textAlign: "center",
-            boxShadow: "0 40px 100px rgba(0,0,0,0.8)",
-            animation: "scaleIn 0.32s cubic-bezier(.22,.68,0,1.2) both",
-          }}>
-            <div style={{ fontFamily: t.fontDisplay, fontSize: ip ? 14 : 22, fontWeight: 700, color: t.text, marginBottom: 12, lineHeight: 1.5 }}>
-              Leave AI Match?
-            </div>
-            <div style={{ fontFamily: t.fontBody, fontSize: ip ? 12 : 15, color: t.textMuted, marginBottom: 36, lineHeight: 1.7 }}>
-              Your current game against the bot will be lost.
-            </div>
-            <div style={{ display: "flex", gap: 16, justifyContent: "center" }}>
-              <button onClick={confirmAiExit} onMouseEnter={sfx.hover}
-                style={{ background: `${t.danger}18`, border: `2px solid ${t.danger}`, color: t.danger, fontFamily: t.fontDisplay, fontSize: ip ? 12 : 16, fontWeight: 700, padding: ip ? "10px 28px" : "13px 44px", borderRadius: ip ? 2 : 10, cursor: "pointer", letterSpacing: "0.08em" }}
-                onMouseDown={e => { e.currentTarget.style.background = t.danger; e.currentTarget.style.color = "#000"; }}
-                onMouseLeave={e => { e.currentTarget.style.background = `${t.danger}18`; e.currentTarget.style.color = t.danger; }}
-              >YES, LEAVE</button>
-              <button onClick={cancelAiExit} onMouseEnter={sfx.hover}
-                style={{ background: `${t.accent}18`, border: `2px solid ${t.accent}`, color: t.accent, fontFamily: t.fontDisplay, fontSize: ip ? 12 : 16, fontWeight: 700, padding: ip ? "10px 28px" : "13px 44px", borderRadius: ip ? 2 : 10, cursor: "pointer", letterSpacing: "0.08em" }}
-                onMouseDown={e => { e.currentTarget.style.background = t.accent; e.currentTarget.style.color = "#000"; }}
-                onMouseLeave={e => { e.currentTarget.style.background = `${t.accent}18`; e.currentTarget.style.color = t.accent; }}
-              >NO, STAY</button>
+      <div style={{ minHeight: "100vh", background: "#0a0a0f", color: "#e8e8e8", fontFamily: "'Inter', 'Segoe UI', sans-serif" }}>
+        {/* Top bar */}
+        <div style={{ borderBottom: "1px solid #1e1e2a", padding: "16px 0", background: "#08080e", position: "sticky", top: 0, zIndex: 10 }}>
+          <div style={{ maxWidth: 820, margin: "0 auto", padding: "0 24px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <a href="/" style={{ textDecoration: "none" }}>
+              <span style={{ fontFamily: "monospace", fontWeight: 900, fontSize: 18, letterSpacing: "0.1em" }}>
+                <span style={{ color: "#fff" }}>PENTA</span><span style={{ color: "#CC0000" }}>PROTOCOL</span>
+              </span>
+            </a>
+            <div style={{ display: "flex", gap: 24 }}>
+              <a href="/terms"   style={{ fontFamily: "monospace", fontSize: 11, letterSpacing: "0.1em", color: "#666", textDecoration: "none" }}>TERMS</a>
+              <a href="/privacy" style={{ fontFamily: "monospace", fontSize: 11, letterSpacing: "0.1em", color: "#666", textDecoration: "none" }}>PRIVACY</a>
+              <a href="/refund"  style={{ fontFamily: "monospace", fontSize: 11, letterSpacing: "0.1em", color: "#CC0000", textDecoration: "none" }}>REFUND</a>
             </div>
           </div>
         </div>
-      )}
 
-      <style>{`
-      @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Rajdhani:wght@400;500;600;700&family=Exo+2:ital,wght@0,300;0,400;0,600;0,800;1,300&display=swap');
-      [data-theme="space"], .space-theme, body {
-  --font-display: 'Orbitron', sans-serif;
-  --font-body: 'Rajdhani', sans-serif;
-  --font-mono: 'Exo 2', sans-serif;
+        <div style={{ maxWidth: 820, margin: "0 auto", padding: "56px 24px 96px" }}>
+          <div style={{ marginBottom: 56 }}>
+            <div style={{ fontFamily: "monospace", fontSize: 11, color: "#CC0000", letterSpacing: "0.3em", marginBottom: 12 }}>LEGAL</div>
+            <h1 style={{ fontSize: 40, fontWeight: 700, color: "#fff", lineHeight: 1.15, marginBottom: 16 }}>Refund &amp; Cancellation Policy</h1>
+            <p style={{ fontSize: 14, color: "#555", lineHeight: 1.6 }}>
+              Effective Date: {new Date().toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })} &nbsp;·&nbsp; pentaprotocol.com
+            </p>
+            <div style={{ height: 2, background: "linear-gradient(to right, #CC0000, transparent)", marginTop: 24 }} />
+          </div>
+
+          <Section title="1. Overview">
+            All purchases of virtual currency (ProtoCredits and PentaShards) and in-game items on PentaProtocol are generally <strong style={{ color: "#e8e8e8" }}>final and non-refundable</strong>, due to the immediate digital nature of delivery. We have a limited exception for accidental duplicate purchases only. By completing a purchase, you agree to this policy.
+          </Section>
+
+          <Section title="2. Non-Refundable Purchases">
+            The following are strictly non-refundable under all circumstances:
+            <br /><br />
+            • ProtoCredits or PentaShards that have been used in whole or in part
+            <br />
+            • Cosmetic bundles, boards, banners, or theme packs that have been redeemed or applied to your account
+            <br />
+            • Purchases made more than 7 days prior to the refund request
+            <br />
+            • Purchases on accounts suspended or terminated for Terms violations
+            <br /><br />
+            We do not issue refunds for change of mind or dissatisfaction with gameplay outcomes.
+          </Section>
+
+          <Section title="3. Eligible Refund: Accidental Duplicate Purchases">
+            PentaProtocol will consider a refund <strong style={{ color: "#e8e8e8" }}>solely</strong> where the same package has been purchased more than once within a single session due to a technical error, payment gateway glitch, or inadvertent double-click — and the duplicate credits have <strong style={{ color: "#e8e8e8" }}>not been spent</strong>.
+            <br /><br />
+            <strong style={{ color: "#e8e8e8" }}>To qualify, all of the following must be true:</strong>
+            <br />• The duplicate transaction occurred within the same session (within 30 minutes)
+            <br />• The duplicate credits have not been used to purchase any in-game item
+            <br />• The request is submitted within 48 hours of the transaction
+            <br />• Payment confirmation details (transaction ID or receipt) are provided
+            <br /><br />
+            <strong style={{ color: "#e8e8e8" }}>How to request:</strong> Email{" "}
+            <a href="mailto:support@pentaprotocol.com" style={{ color: "#CC0000", textDecoration: "none" }}>support@pentaprotocol.com</a>{" "}
+            with your username, date and time of both transactions, transaction IDs, and a brief description. We aim to respond within 5 business days. Approved refunds are processed to the original payment method within 7–10 business days.
+          </Section>
+
+          <Section title="4. Cancellations">
+            Orders cannot be cancelled once a transaction has been processed and virtual currency has been credited to your account, as delivery is immediate. If payment was processed but credits were not delivered due to a technical error, contact us at{" "}
+            <a href="mailto:support@pentaprotocol.com" style={{ color: "#CC0000", textDecoration: "none" }}>support@pentaprotocol.com</a>{" "}
+            within 48 hours with your transaction details.
+          </Section>
+
+          <Section title="5. Failed or Erroneous Transactions">
+            If you were charged for a transaction that failed to deliver the corresponding credits, contact us at{" "}
+            <a href="mailto:support@pentaprotocol.com" style={{ color: "#CC0000", textDecoration: "none" }}>support@pentaprotocol.com</a>{" "}
+            within 48 hours with your transaction ID. We will verify with our payment provider and credit your account or issue a refund within 7 business days if confirmed.
+          </Section>
+
+          <Section title="6. Chargebacks">
+            Initiating an unauthorised chargeback for a legitimate purchase violates our Terms and Conditions. Accounts with fraudulent chargebacks will be suspended and may face permanent termination with forfeiture of all virtual goods. If you have a genuine concern, please contact us before raising a dispute with your bank.
+          </Section>
+
+          <Section title="7. Contact">
+            For refund, cancellation, or payment queries:{" "}
+            <a href="mailto:support@pentaprotocol.com" style={{ color: "#CC0000", textDecoration: "none" }}>support@pentaprotocol.com</a>
+          </Section>
+
+          <FooterLinks current="refund" />
+        </div>
+      </div>
+    </>
+  );
 }
-        * { user-select: none !important; -webkit-user-select: none !important; }
-        @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400;1,700&family=EB+Garamond:wght@400;500;600&family=Courier+Prime&family=Fira+Code:wght@400;500;700&family=VT323&family=Audiowide&family=Jura:wght@400;600;700&family=Share+Tech+Mono&display=swap');
-        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-        body { background: ${themeId === "space" ? "#02040F" : t.bg}; transition: background 0.6s ease; }
-        ::-webkit-scrollbar { width: 4px; background: ${t.bgPanel}; }
-        ::-webkit-scrollbar-thumb { background: ${t.border}; border-radius: 2px; }
-        input { outline: none; }
-        input[type=range] { -webkit-appearance: none; appearance: none; height: 4px; border-radius: 2px; background: ${t.border}; }
-        input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 15px; height: 15px; border-radius: 50%; background: ${t.accent}; cursor: pointer; }
-        @keyframes fadeUp  { from{opacity:0;transform:translateY(18px)} to{opacity:1;transform:translateY(0)} }
-        @keyframes fadeIn  { from{opacity:0} to{opacity:1} }
-        @keyframes scaleIn { from{opacity:0;transform:scale(0.88) translateY(18px)} to{opacity:1;transform:scale(1) translateY(0)} }
-        @keyframes spinRing{ to{transform:rotate(360deg)} }
-        @keyframes shake   { 0%,100%{transform:translateX(0)} 20%,60%{transform:translateX(-6px)} 40%,80%{transform:translateX(6px)} }
-        .fade-up { animation: fadeUp 0.45s cubic-bezier(.22,.68,0,1.2) both; }
-        .shake   { animation: shake 0.4s ease; }
-        button   { cursor: pointer; }
-        button, a, input, select { transition: color 0.3s, background 0.3s, border-color 0.3s, box-shadow 0.3s; }
-      `}</style>
 
-      {screen !== "auth" && (
-        <NavBar
-          screen={screen}
-          setScreenAction={handleSetScreen}
-          themeId={themeId}
-          onSettingsAction={() => { sfx.click(); setShowSettings(true); }}
-          inQueue={inQueue}
-          onQueueClickAction={() => setScreen("lobby")}
-          isRankedGame={isRanked}
-          onHoverAction={sfx.hover}
-          queueElapsed={queueElapsed}
-          onCancelQueueAction={cancelMatchmaking}
-        />
-      )}
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div style={{ marginBottom: 40 }}>
+      <h2 style={{ fontSize: 13, fontWeight: 700, color: "#CC0000", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 12, fontFamily: "monospace" }}>
+        {title}
+      </h2>
+      <p style={{ fontSize: 15, color: "#b0b0b8", lineHeight: 1.85 }}>{children}</p>
+    </div>
+  );
+}
 
-      {screen === "home"       && <HomeScreen    setScreenAction={handleSetScreen} themeId={themeId} onHoverAction={sfx.hover} onClickAction={sfx.click} />}
-      {screen === "auth"       && <AuthScreen    setScreenAction={setScreen}       themeId={themeId} />}
-      {screen === "lobby"      && (
-        <LobbyScreen
-          setScreenAction={handleSetScreen}
-          themeId={themeId}
-          onQueueStartAction={startMatchmaking}
-          onQueueCancelAction={cancelMatchmaking}
-          onHoverAction={sfx.hover}
-          onClickAction={sfx.click}
-          onRoomReadyAction={handleRoomReady}
-          queuePhase={queuePhase}
-          queueElapsed={queueElapsed}
-          matchupOpponent={matchupOpponent}
-          queueError={queueError}
-        />
-      )}
-      {screen === "profile"    && <ProfileScreen    setScreenAction={handleSetScreen} themeId={themeId} onHoverAction={sfx.hover} onClickAction={sfx.click} />}
-      {screen === "rules"      && <RulesScreen      themeId={themeId} onHoverAction={sfx.hover} onClickAction={sfx.click} />}
-      {screen === "ai"         && <AIScreen         setScreenAction={handleSetScreen} themeId={themeId} onSelectDifficultyAction={(d) => { sfx.click(); setAiDifficulty(d); handleSetScreen("aiGame"); }} onHoverAction={sfx.hover} />}
-      {screen === "store"      && <StoreScreen      setScreenAction={handleSetScreen} themeId={themeId} />}
-      {screen === "collection" && <CollectionScreen themeId={themeId} setThemeIdAction={setThemeId} onHoverAction={sfx.hover} onClickAction={sfx.click} />}
-      {screen === "career"     && <CareerScreen     themeId={themeId} onHoverAction={sfx.hover} />}
-      {screen === "battlepass" && <MissionsScreen themeId={themeId} />}
-      {screen === "terms"   && <TermsScreen   themeId={themeId} setScreenAction={handleSetScreen} />}
-{screen === "privacy" && <PrivacyScreen themeId={themeId} setScreenAction={handleSetScreen} />}
-{screen === "refund"  && <RefundScreen  themeId={themeId} setScreenAction={handleSetScreen} />}
-      {screen === "game" && (
-        <GameScreen key="game" themeId={themeId} isSingleplayer={true} gameMode="singleplayer" setScreenAction={handleSetScreen}
-          p1Name={user?.username}
-          playHoverAction={sfx.hover} playPlaceAction={sfx.place} playVictoryAction={sfx.victory} playDefeatAction={sfx.defeat}
-          playRulebreakerAction={sfx.rulebreaker} playTransitionAction={sfx.transition} playClickAction={sfx.click} />
-      )}
-      {screen === "aiGame" && (
-        <GameScreen key="aiGame" themeId={themeId} gameMode="ai" difficulty={aiDifficulty} setScreenAction={handleSetScreen}
-          p1Name={user?.username}
-          playHoverAction={sfx.hover} playPlaceAction={sfx.place} playVictoryAction={sfx.victory} playDefeatAction={sfx.defeat}
-          playRulebreakerAction={sfx.rulebreaker} playTransitionAction={sfx.transition} playClickAction={sfx.click} />
-      )}
-      {screen === "multiGame" && (
-        <GameScreen key="multiGame" themeId={themeId} gameMode={isRanked ? "ranked" : "unranked"} setScreenAction={handleSetScreen}
-          roomCode={multiRoomCode} playerSlot={multiPlayerSlot ?? undefined}
-          matchupData={multiMatchup ?? undefined}
-          p1Name={user?.username}
-          playHoverAction={sfx.hover} playPlaceAction={sfx.place} playVictoryAction={sfx.victory} playDefeatAction={sfx.defeat}
-          playRulebreakerAction={sfx.rulebreaker} playTransitionAction={sfx.transition} playClickAction={sfx.click} />
-      )}
-      {showSettings && (
-        <SettingsModal
-          onCloseAction={() => setShowSettings(false)}
-          themeId={themeId}
-          setThemeIdAction={setThemeId}
-          audio={{
-            musicVol: audio.musicVol, setMusicVol: audio.setMusicVol,
-            sfxVol: audio.sfxVol, setSfxVol: audio.setSfxVol,
-            muted: audio.muted, toggleMute: audio.toggleMute
-          }}
-          onNavigateAuthAction={() => setScreen("auth")}
-        />
-      )}
+function FooterLinks({ current }: { current: "terms" | "privacy" | "refund" }) {
+  const links = [
+    { label: "Terms & Conditions", href: "/terms" },
+    { label: "Privacy Policy",     href: "/privacy" },
+    { label: "Refund Policy",      href: "/refund" },
+  ];
+  return (
+    <div style={{ marginTop: 72, paddingTop: 24, borderTop: "1px solid #1e1e2a", display: "flex", gap: 24, flexWrap: "wrap", justifyContent: "center" }}>
+      {links.map(l => (
+        <a key={l.href} href={l.href} style={{
+          fontFamily: "monospace", fontSize: 11, letterSpacing: "0.1em",
+          color: l.href === `/${current}` ? "#CC0000" : "#444",
+          textDecoration: l.href === `/${current}` ? "underline" : "none",
+          textTransform: "uppercase",
+        }}>
+          {l.label}
+        </a>
+      ))}
     </div>
   );
 }
