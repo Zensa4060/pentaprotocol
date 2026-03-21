@@ -791,7 +791,7 @@ export default function CollectionScreen({ themeId, setThemeIdAction, onHoverAct
   };
 
   return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 2, background: themeId === "space" ? "url(/bg-earth.png) center/cover no-repeat" : t.bg, paddingTop: 84, overflowY: "auto", transition: "background 0.4s" }}>
+    <div style={{ position: "fixed", inset: 0, zIndex: 2, background: themeId === "pixel" ? "url(/bg-pixel-hills.png) center/cover no-repeat" : themeId === "space" ? "url(/bg-earth.png) center/cover no-repeat" : t.bg, paddingTop: 84, overflowY: "auto", transition: "background 0.4s" }}>
 
       {equipMsg && (
         <div style={{ position: "fixed", bottom: 28, left: "50%", transform: "translateX(-50%)", zIndex: 999, background: equipMsg.ok ? "#1a2e1a" : "#2e1a1a", border: `1px solid ${equipMsg.ok ? "#4CAF50" : "#EF4444"}`, borderRadius: 10, padding: "9px 20px", fontFamily: t.fontMono, fontSize: 12, color: equipMsg.ok ? "#4CAF50" : "#EF4444", boxShadow: "0 8px 28px rgba(0,0,0,0.5)", pointerEvents: "none", letterSpacing: "0.06em" }}>

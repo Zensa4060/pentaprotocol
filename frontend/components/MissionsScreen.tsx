@@ -124,7 +124,7 @@ export default function MissionsScreen({ themeId }: Props) {
     <div style={{
       position: "fixed",
       inset: 0,
-      background: themeId === "space" ? "transparent" : t.bg,
+      background: themeId === "pixel" ? "url(/bg-pixel-dark.png) center/cover no-repeat" : themeId === "space" ? "transparent" : t.bg,
       display: "flex",
       flexDirection: "column",
       alignItems: "center",
