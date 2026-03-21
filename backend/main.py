@@ -1,4 +1,10 @@
-﻿from fastapi import FastAPI, Request
+﻿import socket
+_orig = socket.getaddrinfo
+def _patched(host, port, family=0, type=0, proto=0, flags=0):
+    return _orig(host, port, socket.AF_INET, type, proto, flags)
+socket.getaddrinfo = _patched
+
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
