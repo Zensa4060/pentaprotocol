@@ -21,10 +21,12 @@ INSTAMOJO_BASE = (
     else "https://api.instamojo.com/api/1.1"
 )
 
-INSTAMOJO_HEADERS = {
-    "X-Api-Key":    INSTAMOJO_API_KEY,
-    "X-Auth-Token": INSTAMOJO_AUTH_TOKEN,
-}
+def _get_headers() -> dict:
+    """Build headers at request time so env vars are always fresh."""
+    return {
+        "X-Api-Key":    os.getenv("INSTAMOJO_API_KEY", ""),
+        "X-Auth-Token": os.getenv("INSTAMOJO_AUTH_TOKEN", ""),
+    }
 
 # ── Package tables (prices in INR, same as frontend) ─────────────────────────
 PACKAGES = {
@@ -107,16 +109,22 @@ async def create_order(
         "webhook":                f"{BACKEND_URL}/api/store/webhook",
     }
 
-    async with httpx.AsyncClient() as client:
-        resp = await client.post(
-            f"{INSTAMOJO_BASE}/payment-requests/",
-            data=payload,
-            headers=INSTAMOJO_HEADERS,
-            timeout=15,
-        )
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.post(
+                f"{INSTAMOJO_BASE}/payment-requests/",
+                data=payload,
+                headers=_get_headers(),
+                timeout=30,
+            )
+        data = resp.json()
+    except Exception as e:
+        import traceback
+        print("INSTAMOJO CREATE-ORDER ERROR:", traceback.format_exc())
+        raise HTTPException(status_code=500, detail=f"Payment gateway error: {str(e)}")
 
-    data = resp.json()
     if not data.get("success"):
+        print("INSTAMOJO RESPONSE:", data)
         raise HTTPException(
             status_code=400,
             detail=data.get("message", "Failed to create payment request"),
@@ -149,7 +157,7 @@ async def verify_payment(
     async with httpx.AsyncClient() as client:
         resp = await client.get(
             f"{INSTAMOJO_BASE}/payment-requests/{req.payment_request_id}/{req.payment_id}/",
-            headers=INSTAMOJO_HEADERS,
+            headers=_get_headers(),
             timeout=15,
         )
 
