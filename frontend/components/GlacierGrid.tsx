@@ -372,7 +372,7 @@ function Cell({ CS, value, onClick, isWinCell, justPlaced }: { CS: number; value
   );
 }
 
-export default function GlacierGrid({ board, onCellClickAction, winCells = [] }: { board?: (string | null)[][]; onCellClickAction?: (r: number, c: number) => void; winCells?: [number, number][] }) {
+export default function GlacierGrid({ board, onCellClickAction, winCells = [], showLabels = true }: { board?: (string | null)[][]; onCellClickAction?: (r: number, c: number) => void; winCells?: [number, number][]; showLabels?: boolean }) {
   const active = board ?? Array(DEFAULT_SIZE).fill(null).map(() => Array(DEFAULT_SIZE).fill(null));
   const SIZE = active.length;
   const COLS = GET_COLS(SIZE);
