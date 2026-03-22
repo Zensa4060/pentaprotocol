@@ -134,7 +134,7 @@ export default function RedGrid({ board, onCellClickAction, winCells = [], showL
         padding: 8, gap: 4,
         position: "relative", zIndex: 1,
       }}>
-        {board.map((row, r) => row.map((cell, c) => {
+        {active.map((row, r) => row.map((cell, c) => {
           const key = `${r}-${c}`;
           const isHov = hov === key;
           const isWin = winCells?.some(([wr, wc]) => wr === r && wc === c);
