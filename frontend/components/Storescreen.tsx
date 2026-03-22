@@ -726,27 +726,27 @@ function BundleCard({ bundle, purchasedItems, t, onClick }: { bundle: Bundle; pu
             <div style={{ fontFamily: "monospace", fontSize: 10, fontWeight: 800, color: `${ac}cc`, letterSpacing: "0.14em", textTransform: "uppercase" as const }}>Hover to animate</div>
           </div>
         ) : bundle.previewKind === "bloodmoon" ? (
-          <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}><div style={{ opacity: 0.98 }}><BloodMoonGrid showLabels={false} cellSize={10} /></div></div>
+          <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}><div style={{ opacity: 0.98 }}><BloodMoonGrid showLabels={false} /></div></div>
         ) : bundle.previewKind === "egypt" ? (
-          <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}><div style={{ opacity: 0.98 }}><EgyptGrid showLabels={false} cellSize={10} /></div></div>
+          <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}><div style={{ opacity: 0.98 }}><EgyptGrid showLabels={false} /></div></div>
         ) : bundle.previewKind === "synthwave" ? (
-          <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}><div style={{ opacity: 0.98 }}><SynthwaveGrid showLabels={false} cellSize={10} /></div></div>
+          <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}><div style={{ opacity: 0.98 }}><SynthwaveGrid showLabels={false} /></div></div>
         ) : bundle.previewKind === "matrix" ? (
-          <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}><div style={{ opacity: 0.98 }}><MatrixGrid showLabels={false} cellSize={10} /></div></div>
+          <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}><div style={{ opacity: 0.98 }}><MatrixGrid showLabels={false} /></div></div>
         ) : bundle.previewKind === "arcane" ? (
-          <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}><div style={{ opacity: 0.98 }}><ArcaneGrid showLabels={false} cellSize={10} /></div></div>
+          <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}><div style={{ opacity: 0.98 }}><ArcaneGrid showLabels={false} /></div></div>
         ) : bundle.previewKind === "bio" ? (
-          <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}><div style={{ opacity: 0.98 }}><BioGrid showLabels={false} cellSize={10} /></div></div>
+          <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}><div style={{ opacity: 0.98 }}><BioGrid showLabels={false} /></div></div>
         ) : bundle.previewKind === "forge" ? (
-          <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}><div style={{ opacity: 0.98 }}><ForgeGrid showLabels={false} cellSize={10} /></div></div>
+          <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}><div style={{ opacity: 0.98 }}><ForgeGrid showLabels={false} /></div></div>
         ) : bundle.previewKind === "void" ? (
-          <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}><div style={{ opacity: 0.98 }}><VoidGrid showLabels={false} cellSize={10} /></div></div>
+          <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}><div style={{ opacity: 0.98 }}><VoidGrid showLabels={false} /></div></div>
         ) : bundle.previewKind === "space" ? (
-          <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}><div style={{ opacity: 0.98 }}><SpaceGrid showLabels={false} cellSize={10} /></div></div>
+          <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}><div style={{ opacity: 0.98 }}><SpaceGrid showLabels={false} /></div></div>
         ) : bundle.previewKind === "pixel" ? (
-          <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}><div style={{ opacity: 0.98 }}><PixelGrid showLabels={false} cellSize={10} /></div></div>
+          <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}><div style={{ opacity: 0.98 }}><PixelGrid showLabels={false} /></div></div>
         ) : bundle.previewKind === "tokyo" ? (
-          <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}><div style={{ opacity: 0.98 }}><TokyoGrid showLabels={false} cellSize={10} /></div></div>
+          <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}><div style={{ opacity: 0.98 }}><TokyoGrid showLabels={false} /></div></div>
         ) : (
           <div style={{ display: "grid", gridTemplateColumns: "repeat(5,1fr)", gridTemplateRows: "repeat(5,1fr)", gap: 2, padding: 6, height: "100%", position: "relative", zIndex: 2 }}>
             {Array.from({ length: 25 }).map((_, i) => {
@@ -1081,7 +1081,7 @@ export default function StoreScreen({ setScreenAction, themeId }: Props) {
                       {hovCard === item.id && (
                         <div style={{ position: "absolute", inset: 0, zIndex: 3, background: "rgba(0,0,0,0.36)", display: "flex", flexDirection: "column", justifyContent: "space-between", padding: 8 }}>
                           <div style={{ height: 72, borderRadius: 8, overflow: "hidden", border: `1px solid ${glow}66`, background: "rgba(0,0,0,0.42)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                            {item.id === "space" ? <div style={{ opacity: 0.98 }}><SpaceGrid showLabels={false} cellSize={10} /></div> : <div style={{ opacity: 0.98 }}><PixelGrid showLabels={false} cellSize={10} /></div>}
+                            {item.id === "space" ? <div style={{ opacity: 0.98 }}><SpaceGrid showLabels={false} /></div> : <div style={{ opacity: 0.98 }}><PixelGrid showLabels={false} /></div>}
                           </div>
                           <div style={{ fontFamily: t.fontMono, fontSize: 9, color: "#fff", background: "rgba(0,0,0,0.52)", border: `1px solid ${glow}55`, borderRadius: 6, padding: "4px 6px", lineHeight: 1.2 }}>
                             {item.boardLabel} | {item.musicLabel} | {item.fontLabel} | {item.bgLabel}
