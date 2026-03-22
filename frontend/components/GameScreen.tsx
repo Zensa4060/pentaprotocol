@@ -162,7 +162,7 @@ const MatchupOverlay = ({ matchupData, showMatchupOverlay, playerSlot, p1Name, u
   };
 
   return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 10000, background: themeId === "pixel" ? "url(/bg-pixel-dark.png) center/cover no-repeat" : themeId === "space" ? "transparent" : t.bg, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+    <div style={{ position: "fixed", inset: 0, zIndex: 10000, background: themeId === "pixel" ? "url(/bg-pixel.png) center/cover no-repeat" : themeId === "space" ? "transparent" : t.bg, display: "flex", flexDirection: "column", overflow: "hidden" }}>
       <style>{`
         @keyframes bannerShine { from { background-position: -100% 0; } to { background-position: 100% 0; } }
         @keyframes rankFloat { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
@@ -1495,7 +1495,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
 
 
   if (showSplash) return (
-    <div style={{ position: "fixed", top: 64, left: 0, right: 0, bottom: 0, zIndex: 2, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: themeId === "pixel" ? "url(/bg-pixel-dark.png) center/cover no-repeat" : themeId === "space" ? "transparent" : t.bg, gap: 32, userSelect: "none" }}>
+    <div style={{ position: "fixed", top: 64, left: 0, right: 0, bottom: 0, zIndex: 2, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: themeId === "pixel" ? "url(/bg-pixel.png) center/cover no-repeat" : themeId === "space" ? "transparent" : t.bg, gap: 32, userSelect: "none" }}>
       <div style={{ fontFamily: t.fontDisplay, fontSize: "clamp(24px,5vw,72px)", fontWeight: 900, color: t.accent, textShadow: `0 0 60px ${t.accentGlow}55`, letterSpacing: "0.06em", textAlign: "center" }}>SINGLEPLAYER</div>
       <div style={{ fontFamily: t.fontBody, fontSize: "clamp(13px,1.6vw,18px)", color: t.textSecondary, letterSpacing: "0.04em" }}>Local · Pass & Play · Best of 3</div>
       <button onClick={() => setShowSplash(false)}
@@ -1580,7 +1580,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   // ── MOBILE LAYOUT ─────────────────────────────────────────────────────────
   if (isMobile) {
     return (
-      <div style={{ position: "fixed", top: 52, left: 0, right: 0, bottom: 0, zIndex: 2, background: themeId === "pixel" ? "url(/bg-pixel-dark.png) center/cover no-repeat" : themeId === "space" ? "transparent" : t.bg, overflow: "hidden", userSelect: "none", WebkitUserSelect: "none" }}>
+      <div style={{ position: "fixed", top: 52, left: 0, right: 0, bottom: 0, zIndex: 2, background: themeId === "pixel" ? "url(/bg-pixel.png) center/cover no-repeat" : themeId === "space" ? "transparent" : t.bg, overflow: "hidden", userSelect: "none", WebkitUserSelect: "none" }}>
 
         <WinOverlay
           showWinOverlay={showWinOverlay} overlayVisible={overlayVisible}
@@ -1862,7 +1862,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
 
   // ── DESKTOP LAYOUT ────────────────────────────────────────────────────────
   return (
-    <div style={{ position: "fixed", top: 64, left: 0, right: 0, bottom: 0, zIndex: 2, display: "flex", flexDirection: "row", background: themeId === "pixel" ? "url(/bg-pixel-dark.png) center/cover no-repeat" : themeId === "space" ? "transparent" : t.bg, overflow: "hidden", userSelect: "none", WebkitUserSelect: "none" }}>
+    <div style={{ position: "fixed", top: 64, left: 0, right: 0, bottom: 0, zIndex: 2, display: "flex", flexDirection: "row", background: themeId === "pixel" ? "url(/bg-pixel.png) center/cover no-repeat" : themeId === "space" ? "transparent" : t.bg, overflow: "hidden", userSelect: "none", WebkitUserSelect: "none" }}>
 
       <WinOverlay
         showWinOverlay={showWinOverlay} overlayVisible={overlayVisible}
