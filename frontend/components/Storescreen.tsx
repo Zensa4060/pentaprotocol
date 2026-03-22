@@ -38,6 +38,8 @@ import StarfieldBanner from "./StarfieldBanner";
 import DigitalRainBanner from "./DigitalRainBanner";
 import InfernoBanner from "./InfernoBanner";
 
+// Payment: Instamojo (redirect-based — no global JS SDK needed)
+
 interface Props {
   setScreenAction: (s: Screen) => void;
   themeId: ThemeId;
@@ -46,15 +48,27 @@ interface Props {
 const PACKAGES = [
   { id: "starter", credits: 100,  price: 49,  bonus: 0,   label: "STARTER", popular: false, desc: "Try it out" },
   { id: "plus",    credits: 500,  price: 199, bonus: 50,  label: "PLUS",    popular: true,  desc: "Most popular" },
-  { id: "pro",     credits: 1000, price: 349, bonus: 150, label: "PRO",     popular: false, desc: "Level up" },
-  { id: "mega",    credits: 2000, price: 599, bonus: 400, label: "MEGA",    popular: false, desc: "Best value" },
+  { id: "pro",     credits: 1200, price: 399, bonus: 200, label: "PRO",     popular: false, desc: "Best value" },
   { id: "elite",   credits: 3000, price: 799, bonus: 600, label: "ELITE",   popular: false, desc: "Power user" },
 ];
 const SHARD_PACKAGES = PACKAGES.map((p) => ({
   ...p,
-  price: p.id === "pro" ? 149 : Math.max(1, Math.floor(p.price / 2)),
+  price: Math.max(1, Math.floor(p.price / 2)),
 }));
-
+const PACKAGES_USD = [
+  { id: "starter", usdPrice: 0.99 },
+  { id: "plus",    usdPrice: 2.99 },
+  { id: "pro",     usdPrice: 4.99 },
+  { id: "mega",    usdPrice: 7.99 },
+  { id: "elite",   usdPrice: 9.99 },
+];
+const SHARD_PACKAGES_USD = [
+  { id: "starter", usdPrice: 0.49 },
+  { id: "plus",    usdPrice: 1.49 },
+  { id: "pro",     usdPrice: 1.99 },
+  { id: "mega",    usdPrice: 3.99 },
+  { id: "elite",   usdPrice: 4.99 },
+];
 const STORE_THEMES = [
   { id: "space", label: "SPACE THEME", tagline: "Cosmic premium atmosphere", desc: "Deep-space visuals, high-contrast panels, and premium ambient glow.", preview: "linear-gradient(135deg,#020410,#0d1b4b)", unlock: "2,999 PC + 1,000 PS", price: 2999, shardPrice: 1000, purchaseId: "theme_space", boardId: "space_grid", boardLabel: "Space Board", musicLabel: "Space Ranked OST", fontLabel: "Space Font Pack", bgLabel: "Space Backgrounds", accentColor: "#4DA3FF", tags: ["PREMIUM", "THEME + BOARD"] },
   { id: "pixel", label: "PIXEL THEME", tagline: "8-bit premium aesthetic", desc: "Retro pixel visuals, arcade contrast, and upgraded UI glow intensity.", preview: "linear-gradient(135deg,#0d1007,#1a2e0a)", unlock: "2,999 PC + 1,000 PS", price: 2999, shardPrice: 1000, purchaseId: "theme_pixel", boardId: "pixel_grid", boardLabel: "Pixel Board", musicLabel: "Pixel Ranked OST", fontLabel: "Pixel Font Pack", bgLabel: "Pixel Backgrounds", accentColor: "#A4FF3B", tags: ["PREMIUM", "THEME + BOARD"] },
@@ -103,8 +117,6 @@ const STORE_BORDERS = [
 ];
 
 function ProtoSVG({ size = 16, color }: { size?: number, color?: string }) {
-  // If color is passed, we shouldn't necessarily override since it's an SVG string, but we can set fill/stroke via CSS or just use standard SVG.
-  // The svg string has its own colors. 
   const scaled = Math.round(size * 2);
   return <div style={{ width: scaled, height: scaled, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }} dangerouslySetInnerHTML={{ __html: PROTO_DARK_SVG.replace("<svg ", `<svg width="${scaled}" height="${scaled}" `) }} />;
 }
@@ -324,27 +336,13 @@ function BannerRenderer({ banner, style = {}, hideLabels = false }: { banner: an
   return <div style={{ width: "100%", height: "100%", background: banner.gradient, ...style }} />;
 }
 
-// ── Real board preview using actual GamePieces components ──────────────────────
+// ── Bundle animated preview (unchanged — all grid previews intact) ─────────────
 function BundleAnimatedPreview({ bundle, tick }: { bundle: Bundle; tick: number }) {
   if (bundle.previewKind === "glacier") {
     return (
-      <div style={{
-        width: "100%",
-        height: 360,
-        background: "linear-gradient(135deg,rgba(3,10,22,0.99),rgba(2,8,18,0.99))",
-        borderRadius: 12,
-        border: "2px solid rgba(125,211,252,0.35)",
-        boxShadow: "0 0 56px rgba(80,170,255,0.14), inset 0 0 44px rgba(0,0,0,0.74)",
-        position: "relative",
-        overflow: "hidden",
-      }}>
-        <div style={{ position: "absolute", inset: 0, pointerEvents: "none" }}>
-          <GlacierAurora />
-          <GlacierSnow count={20} />
-        </div>
-        <div style={{ position: "absolute", left: "50%", top: 10, transform: "translateX(-50%) scale(0.6)", transformOrigin: "top center" }}>
-          <GlacierGrid />
-        </div>
+      <div style={{ width: "100%", height: 360, background: "linear-gradient(135deg,rgba(3,10,22,0.99),rgba(2,8,18,0.99))", borderRadius: 12, border: "2px solid rgba(125,211,252,0.35)", boxShadow: "0 0 56px rgba(80,170,255,0.14), inset 0 0 44px rgba(0,0,0,0.74)", position: "relative", overflow: "hidden" }}>
+        <div style={{ position: "absolute", inset: 0, pointerEvents: "none" }}><GlacierAurora /><GlacierSnow count={20} /></div>
+        <div style={{ position: "absolute", left: "50%", top: 10, transform: "translateX(-50%) scale(0.6)", transformOrigin: "top center" }}><GlacierGrid /></div>
         <div style={{ position: "absolute", top: 8, left: 12, fontFamily: "monospace", fontSize: 9, color: "rgba(170,230,255,0.72)", letterSpacing: "0.18em", zIndex: 10, pointerEvents: "none" }}>{bundle.boardLabel.toUpperCase()}</div>
         <div style={{ position: "absolute", bottom: 8, right: 12, fontFamily: "monospace", fontSize: 9, color: "rgba(130,210,255,0.65)", letterSpacing: "0.1em", zIndex: 10, pointerEvents: "none" }}>LIVE PREVIEW</div>
       </div>
@@ -352,19 +350,8 @@ function BundleAnimatedPreview({ bundle, tick }: { bundle: Bundle; tick: number 
   }
   if (bundle.previewKind === "bloodmoon") {
     return (
-      <div style={{
-        width: "100%",
-        height: 360,
-        background: "linear-gradient(135deg,rgba(10,0,0,0.99),rgba(20,0,8,0.99))",
-        borderRadius: 12,
-        border: "2px solid rgba(220,38,38,0.35)",
-        boxShadow: "0 0 56px rgba(220,38,38,0.14), inset 0 0 44px rgba(0,0,0,0.74)",
-        position: "relative",
-        overflow: "hidden",
-      }}>
-        <div style={{ position: "absolute", left: "50%", top: "50%", transform: "translate(-50%,-50%)" }}>
-          <BloodMoonGrid showLabels={false} cellSize={56} />
-        </div>
+      <div style={{ width: "100%", height: 360, background: "linear-gradient(135deg,rgba(10,0,0,0.99),rgba(20,0,8,0.99))", borderRadius: 12, border: "2px solid rgba(220,38,38,0.35)", boxShadow: "0 0 56px rgba(220,38,38,0.14), inset 0 0 44px rgba(0,0,0,0.74)", position: "relative", overflow: "hidden" }}>
+        <div style={{ position: "absolute", left: "50%", top: "50%", transform: "translate(-50%,-50%)" }}><BloodMoonGrid showLabels={false} cellSize={56} /></div>
         <div style={{ position: "absolute", top: 8, left: 12, fontFamily: "monospace", fontSize: 9, color: "rgba(255,120,120,0.68)", letterSpacing: "0.18em", zIndex: 10, pointerEvents: "none" }}>{bundle.boardLabel.toUpperCase()}</div>
         <div style={{ position: "absolute", bottom: 8, right: 12, fontFamily: "monospace", fontSize: 9, color: "rgba(220,140,255,0.55)", letterSpacing: "0.1em", zIndex: 10, pointerEvents: "none" }}>LIVE PREVIEW</div>
       </div>
@@ -372,19 +359,8 @@ function BundleAnimatedPreview({ bundle, tick }: { bundle: Bundle; tick: number 
   }
   if (bundle.previewKind === "egypt") {
     return (
-      <div style={{
-        width: "100%",
-        height: 360,
-        background: "linear-gradient(135deg,rgba(7,4,0,0.99),rgba(14,7,0,0.99))",
-        borderRadius: 12,
-        border: "2px solid rgba(245,158,11,0.35)",
-        boxShadow: "0 0 56px rgba(245,158,11,0.14), inset 0 0 44px rgba(0,0,0,0.74)",
-        position: "relative",
-        overflow: "hidden",
-      }}>
-        <div style={{ position: "absolute", left: "50%", top: "50%", transform: "translate(-50%,-50%)" }}>
-          <EgyptGrid showLabels={false} cellSize={56} />
-        </div>
+      <div style={{ width: "100%", height: 360, background: "linear-gradient(135deg,rgba(7,4,0,0.99),rgba(14,7,0,0.99))", borderRadius: 12, border: "2px solid rgba(245,158,11,0.35)", boxShadow: "0 0 56px rgba(245,158,11,0.14), inset 0 0 44px rgba(0,0,0,0.74)", position: "relative", overflow: "hidden" }}>
+        <div style={{ position: "absolute", left: "50%", top: "50%", transform: "translate(-50%,-50%)" }}><EgyptGrid showLabels={false} cellSize={56} /></div>
         <div style={{ position: "absolute", top: 8, left: 12, fontFamily: "monospace", fontSize: 9, color: "rgba(255,210,120,0.7)", letterSpacing: "0.18em", zIndex: 10, pointerEvents: "none" }}>{bundle.boardLabel.toUpperCase()}</div>
         <div style={{ position: "absolute", bottom: 8, right: 12, fontFamily: "monospace", fontSize: 9, color: "rgba(255,230,160,0.55)", letterSpacing: "0.1em", zIndex: 10, pointerEvents: "none" }}>LIVE PREVIEW</div>
       </div>
@@ -392,19 +368,8 @@ function BundleAnimatedPreview({ bundle, tick }: { bundle: Bundle; tick: number 
   }
   if (bundle.previewKind === "synthwave") {
     return (
-      <div style={{
-        width: "100%",
-        height: 360,
-        background: "linear-gradient(135deg,rgba(10,0,42,0.99),rgba(204,32,96,0.92))",
-        borderRadius: 12,
-        border: "2px solid rgba(255,0,180,0.35)",
-        boxShadow: "0 0 56px rgba(255,0,180,0.14), inset 0 0 44px rgba(0,0,0,0.74)",
-        position: "relative",
-        overflow: "hidden",
-      }}>
-        <div style={{ position: "absolute", left: "50%", top: "50%", transform: "translate(-50%,-50%)" }}>
-          <SynthwaveGrid showLabels={false} cellSize={56} />
-        </div>
+      <div style={{ width: "100%", height: 360, background: "linear-gradient(135deg,rgba(10,0,42,0.99),rgba(204,32,96,0.92))", borderRadius: 12, border: "2px solid rgba(255,0,180,0.35)", boxShadow: "0 0 56px rgba(255,0,180,0.14), inset 0 0 44px rgba(0,0,0,0.74)", position: "relative", overflow: "hidden" }}>
+        <div style={{ position: "absolute", left: "50%", top: "50%", transform: "translate(-50%,-50%)" }}><SynthwaveGrid showLabels={false} cellSize={56} /></div>
         <div style={{ position: "absolute", top: 8, left: 12, fontFamily: "monospace", fontSize: 9, color: "rgba(255,120,220,0.75)", letterSpacing: "0.18em", zIndex: 10, pointerEvents: "none" }}>{bundle.boardLabel.toUpperCase()}</div>
         <div style={{ position: "absolute", bottom: 8, right: 12, fontFamily: "monospace", fontSize: 9, color: "rgba(140,240,255,0.6)", letterSpacing: "0.1em", zIndex: 10, pointerEvents: "none" }}>LIVE PREVIEW</div>
       </div>
@@ -412,19 +377,8 @@ function BundleAnimatedPreview({ bundle, tick }: { bundle: Bundle; tick: number 
   }
   if (bundle.previewKind === "matrix") {
     return (
-      <div style={{
-        width: "100%",
-        height: 360,
-        background: "linear-gradient(135deg,rgba(0,3,0,0.99),rgba(0,16,0,0.92))",
-        borderRadius: 12,
-        border: "2px solid rgba(0,255,65,0.35)",
-        boxShadow: "0 0 56px rgba(0,255,65,0.14), inset 0 0 44px rgba(0,0,0,0.74)",
-        position: "relative",
-        overflow: "hidden",
-      }}>
-        <div style={{ position: "absolute", left: "50%", top: "50%", transform: "translate(-50%,-50%)" }}>
-          <MatrixGrid showLabels={false} cellSize={56} />
-        </div>
+      <div style={{ width: "100%", height: 360, background: "linear-gradient(135deg,rgba(0,3,0,0.99),rgba(0,16,0,0.92))", borderRadius: 12, border: "2px solid rgba(0,255,65,0.35)", boxShadow: "0 0 56px rgba(0,255,65,0.14), inset 0 0 44px rgba(0,0,0,0.74)", position: "relative", overflow: "hidden" }}>
+        <div style={{ position: "absolute", left: "50%", top: "50%", transform: "translate(-50%,-50%)" }}><MatrixGrid showLabels={false} cellSize={56} /></div>
         <div style={{ position: "absolute", top: 8, left: 12, fontFamily: "monospace", fontSize: 9, color: "rgba(150,255,150,0.7)", letterSpacing: "0.18em", zIndex: 10, pointerEvents: "none" }}>{bundle.boardLabel.toUpperCase()}</div>
         <div style={{ position: "absolute", bottom: 8, right: 12, fontFamily: "monospace", fontSize: 9, color: "rgba(0,255,65,0.55)", letterSpacing: "0.1em", zIndex: 10, pointerEvents: "none" }}>LIVE PREVIEW</div>
       </div>
@@ -432,19 +386,8 @@ function BundleAnimatedPreview({ bundle, tick }: { bundle: Bundle; tick: number 
   }
   if (bundle.previewKind === "arcane") {
     return (
-      <div style={{
-        width: "100%",
-        height: 360,
-        background: "linear-gradient(135deg,rgba(10,0,18,0.99),rgba(3,0,4,0.96))",
-        borderRadius: 12,
-        border: "2px solid rgba(168,85,247,0.35)",
-        boxShadow: "0 0 56px rgba(168,85,247,0.14), inset 0 0 44px rgba(0,0,0,0.74)",
-        position: "relative",
-        overflow: "hidden",
-      }}>
-        <div style={{ position: "absolute", left: "50%", top: "50%", transform: "translate(-50%,-50%)" }}>
-          <ArcaneGrid showLabels={false} cellSize={56} />
-        </div>
+      <div style={{ width: "100%", height: 360, background: "linear-gradient(135deg,rgba(10,0,18,0.99),rgba(3,0,4,0.96))", borderRadius: 12, border: "2px solid rgba(168,85,247,0.35)", boxShadow: "0 0 56px rgba(168,85,247,0.14), inset 0 0 44px rgba(0,0,0,0.74)", position: "relative", overflow: "hidden" }}>
+        <div style={{ position: "absolute", left: "50%", top: "50%", transform: "translate(-50%,-50%)" }}><ArcaneGrid showLabels={false} cellSize={56} /></div>
         <div style={{ position: "absolute", top: 8, left: 12, fontFamily: "monospace", fontSize: 9, color: "rgba(220,170,255,0.72)", letterSpacing: "0.18em", zIndex: 10, pointerEvents: "none" }}>{bundle.boardLabel.toUpperCase()}</div>
         <div style={{ position: "absolute", bottom: 8, right: 12, fontFamily: "monospace", fontSize: 9, color: "rgba(255,220,140,0.55)", letterSpacing: "0.1em", zIndex: 10, pointerEvents: "none" }}>LIVE PREVIEW</div>
       </div>
@@ -452,19 +395,8 @@ function BundleAnimatedPreview({ bundle, tick }: { bundle: Bundle; tick: number 
   }
   if (bundle.previewKind === "bio") {
     return (
-      <div style={{
-        width: "100%",
-        height: 360,
-        background: "linear-gradient(135deg,rgba(0,10,15,0.99),rgba(0,3,4,0.96))",
-        borderRadius: 12,
-        border: "2px solid rgba(0,255,208,0.32)",
-        boxShadow: "0 0 56px rgba(0,255,208,0.12), inset 0 0 44px rgba(0,0,0,0.78)",
-        position: "relative",
-        overflow: "hidden",
-      }}>
-        <div style={{ position: "absolute", left: "50%", top: "50%", transform: "translate(-50%,-50%)" }}>
-          <BioGrid showLabels={false} cellSize={56} />
-        </div>
+      <div style={{ width: "100%", height: 360, background: "linear-gradient(135deg,rgba(0,10,15,0.99),rgba(0,3,4,0.96))", borderRadius: 12, border: "2px solid rgba(0,255,208,0.32)", boxShadow: "0 0 56px rgba(0,255,208,0.12), inset 0 0 44px rgba(0,0,0,0.78)", position: "relative", overflow: "hidden" }}>
+        <div style={{ position: "absolute", left: "50%", top: "50%", transform: "translate(-50%,-50%)" }}><BioGrid showLabels={false} cellSize={56} /></div>
         <div style={{ position: "absolute", top: 8, left: 12, fontFamily: "monospace", fontSize: 9, color: "rgba(140,255,230,0.70)", letterSpacing: "0.18em", zIndex: 10, pointerEvents: "none" }}>{bundle.boardLabel.toUpperCase()}</div>
         <div style={{ position: "absolute", bottom: 8, right: 12, fontFamily: "monospace", fontSize: 9, color: "rgba(190,140,255,0.55)", letterSpacing: "0.1em", zIndex: 10, pointerEvents: "none" }}>LIVE PREVIEW</div>
       </div>
@@ -472,19 +404,8 @@ function BundleAnimatedPreview({ bundle, tick }: { bundle: Bundle; tick: number 
   }
   if (bundle.previewKind === "forge") {
     return (
-      <div style={{
-        width: "100%",
-        height: 360,
-        background: "linear-gradient(135deg,rgba(10,2,0,0.99),rgba(8,1,0,0.98))",
-        borderRadius: 12,
-        border: "2px solid rgba(255,102,0,0.30)",
-        boxShadow: "0 0 56px rgba(255,102,0,0.16), inset 0 0 44px rgba(0,0,0,0.72)",
-        position: "relative",
-        overflow: "hidden",
-      }}>
-        <div style={{ position: "absolute", left: "50%", top: "50%", transform: "translate(-50%,-50%)" }}>
-          <ForgeGrid showLabels={false} cellSize={56} />
-        </div>
+      <div style={{ width: "100%", height: 360, background: "linear-gradient(135deg,rgba(10,2,0,0.99),rgba(8,1,0,0.98))", borderRadius: 12, border: "2px solid rgba(255,102,0,0.30)", boxShadow: "0 0 56px rgba(255,102,0,0.16), inset 0 0 44px rgba(0,0,0,0.72)", position: "relative", overflow: "hidden" }}>
+        <div style={{ position: "absolute", left: "50%", top: "50%", transform: "translate(-50%,-50%)" }}><ForgeGrid showLabels={false} cellSize={56} /></div>
         <div style={{ position: "absolute", top: 8, left: 12, fontFamily: "monospace", fontSize: 9, color: "rgba(255,180,120,0.72)", letterSpacing: "0.18em", zIndex: 10, pointerEvents: "none" }}>{bundle.boardLabel.toUpperCase()}</div>
         <div style={{ position: "absolute", bottom: 8, right: 12, fontFamily: "monospace", fontSize: 9, color: "rgba(255,220,140,0.55)", letterSpacing: "0.1em", zIndex: 10, pointerEvents: "none" }}>LIVE PREVIEW</div>
       </div>
@@ -492,19 +413,8 @@ function BundleAnimatedPreview({ bundle, tick }: { bundle: Bundle; tick: number 
   }
   if (bundle.previewKind === "void") {
     return (
-      <div style={{
-        width: "100%",
-        height: 360,
-        background: "linear-gradient(135deg,rgba(4,1,26,0.99),rgba(0,0,8,0.98))",
-        borderRadius: 12,
-        border: "2px solid rgba(139,92,246,0.30)",
-        boxShadow: "0 0 56px rgba(139,92,246,0.16), inset 0 0 44px rgba(0,0,0,0.74)",
-        position: "relative",
-        overflow: "hidden",
-      }}>
-        <div style={{ position: "absolute", left: "50%", top: "50%", transform: "translate(-50%,-50%)" }}>
-          <VoidGrid showLabels={false} cellSize={56} />
-        </div>
+      <div style={{ width: "100%", height: 360, background: "linear-gradient(135deg,rgba(4,1,26,0.99),rgba(0,0,8,0.98))", borderRadius: 12, border: "2px solid rgba(139,92,246,0.30)", boxShadow: "0 0 56px rgba(139,92,246,0.16), inset 0 0 44px rgba(0,0,0,0.74)", position: "relative", overflow: "hidden" }}>
+        <div style={{ position: "absolute", left: "50%", top: "50%", transform: "translate(-50%,-50%)" }}><VoidGrid showLabels={false} cellSize={56} /></div>
         <div style={{ position: "absolute", top: 8, left: 12, fontFamily: "monospace", fontSize: 9, color: "rgba(200,170,255,0.70)", letterSpacing: "0.18em", zIndex: 10, pointerEvents: "none" }}>{bundle.boardLabel.toUpperCase()}</div>
         <div style={{ position: "absolute", bottom: 8, right: 12, fontFamily: "monospace", fontSize: 9, color: "rgba(180,220,255,0.55)", letterSpacing: "0.1em", zIndex: 10, pointerEvents: "none" }}>LIVE PREVIEW</div>
       </div>
@@ -512,19 +422,8 @@ function BundleAnimatedPreview({ bundle, tick }: { bundle: Bundle; tick: number 
   }
   if (bundle.previewKind === "space") {
     return (
-      <div style={{
-        width: "100%",
-        height: 360,
-        background: "linear-gradient(135deg,rgba(2,4,16,0.99),rgba(13,27,59,0.98))",
-        borderRadius: 12,
-        border: "2px solid rgba(0,200,255,0.30)",
-        boxShadow: "0 0 56px rgba(0,200,255,0.14), inset 0 0 44px rgba(0,0,0,0.74)",
-        position: "relative",
-        overflow: "hidden",
-      }}>
-        <div style={{ position: "absolute", left: "50%", top: "50%", transform: "translate(-50%,-50%)" }}>
-          <SpaceGrid showLabels={false} cellSize={56} />
-        </div>
+      <div style={{ width: "100%", height: 360, background: "linear-gradient(135deg,rgba(2,4,16,0.99),rgba(13,27,59,0.98))", borderRadius: 12, border: "2px solid rgba(0,200,255,0.30)", boxShadow: "0 0 56px rgba(0,200,255,0.14), inset 0 0 44px rgba(0,0,0,0.74)", position: "relative", overflow: "hidden" }}>
+        <div style={{ position: "absolute", left: "50%", top: "50%", transform: "translate(-50%,-50%)" }}><SpaceGrid showLabels={false} cellSize={56} /></div>
         <div style={{ position: "absolute", top: 8, left: 12, fontFamily: "monospace", fontSize: 9, color: "rgba(150,220,255,0.70)", letterSpacing: "0.18em", zIndex: 10, pointerEvents: "none" }}>{bundle.boardLabel.toUpperCase()}</div>
         <div style={{ position: "absolute", bottom: 8, right: 12, fontFamily: "monospace", fontSize: 9, color: "rgba(255,200,120,0.55)", letterSpacing: "0.1em", zIndex: 10, pointerEvents: "none" }}>LIVE PREVIEW</div>
       </div>
@@ -532,19 +431,8 @@ function BundleAnimatedPreview({ bundle, tick }: { bundle: Bundle; tick: number 
   }
   if (bundle.previewKind === "pixel") {
     return (
-      <div style={{
-        width: "100%",
-        height: 360,
-        background: "linear-gradient(135deg,rgba(10,10,24,0.99),rgba(15,52,96,0.94))",
-        borderRadius: 12,
-        border: "2px solid rgba(255,221,0,0.32)",
-        boxShadow: "0 0 56px rgba(255,180,0,0.12), inset 0 0 44px rgba(0,0,0,0.78)",
-        position: "relative",
-        overflow: "hidden",
-      }}>
-        <div style={{ position: "absolute", left: "50%", top: "50%", transform: "translate(-50%,-50%) scale(1.0)" }}>
-          <PixelGrid showLabels={false} cellSize={56} />
-        </div>
+      <div style={{ width: "100%", height: 360, background: "linear-gradient(135deg,rgba(10,10,24,0.99),rgba(15,52,96,0.94))", borderRadius: 12, border: "2px solid rgba(255,221,0,0.32)", boxShadow: "0 0 56px rgba(255,180,0,0.12), inset 0 0 44px rgba(0,0,0,0.78)", position: "relative", overflow: "hidden" }}>
+        <div style={{ position: "absolute", left: "50%", top: "50%", transform: "translate(-50%,-50%) scale(1.0)" }}><PixelGrid showLabels={false} cellSize={56} /></div>
         <div style={{ position: "absolute", top: 8, left: 12, fontFamily: "monospace", fontSize: 9, color: "rgba(255,221,0,0.75)", letterSpacing: "0.18em", zIndex: 10, pointerEvents: "none" }}>{bundle.boardLabel.toUpperCase()}</div>
         <div style={{ position: "absolute", bottom: 8, right: 12, fontFamily: "monospace", fontSize: 9, color: "rgba(255,120,0,0.55)", letterSpacing: "0.1em", zIndex: 10, pointerEvents: "none" }}>LIVE PREVIEW</div>
       </div>
@@ -552,19 +440,8 @@ function BundleAnimatedPreview({ bundle, tick }: { bundle: Bundle; tick: number 
   }
   if (bundle.previewKind === "tokyo") {
     return (
-      <div style={{
-        width: "100%",
-        height: 360,
-        background: "linear-gradient(135deg,rgba(4,0,8,0.99),rgba(3,0,8,0.98))",
-        borderRadius: 12,
-        border: "2px solid rgba(255,0,102,0.30)",
-        boxShadow: "0 0 56px rgba(255,0,102,0.16), inset 0 0 44px rgba(0,0,0,0.74)",
-        position: "relative",
-        overflow: "hidden",
-      }}>
-        <div style={{ position: "absolute", left: "50%", top: "50%", transform: "translate(-50%,-50%)" }}>
-          <TokyoGrid showLabels={false} cellSize={56} />
-        </div>
+      <div style={{ width: "100%", height: 360, background: "linear-gradient(135deg,rgba(4,0,8,0.99),rgba(3,0,8,0.98))", borderRadius: 12, border: "2px solid rgba(255,0,102,0.30)", boxShadow: "0 0 56px rgba(255,0,102,0.16), inset 0 0 44px rgba(0,0,0,0.74)", position: "relative", overflow: "hidden" }}>
+        <div style={{ position: "absolute", left: "50%", top: "50%", transform: "translate(-50%,-50%)" }}><TokyoGrid showLabels={false} cellSize={56} /></div>
         <div style={{ position: "absolute", top: 8, left: 12, fontFamily: "monospace", fontSize: 9, color: "rgba(255,80,140,0.72)", letterSpacing: "0.18em", zIndex: 10, pointerEvents: "none" }}>{bundle.boardLabel.toUpperCase()}</div>
         <div style={{ position: "absolute", bottom: 8, right: 12, fontFamily: "monospace", fontSize: 9, color: "rgba(0,200,255,0.55)", letterSpacing: "0.1em", zIndex: 10, pointerEvents: "none" }}>LIVE PREVIEW</div>
       </div>
@@ -573,19 +450,16 @@ function BundleAnimatedPreview({ bundle, tick }: { bundle: Bundle; tick: number 
 
   const GRID = 5;
   const CELL = "52px";
-
   const p1Cells = [12, 6, 18, 2, 22];
   const p2Cells = [8, 16, 4, 20, 10];
   const totalMoves = p1Cells.length + p2Cells.length;
   const move = tick % (totalMoves + 5);
-
   const placedP1 = new Set<number>();
   const placedP2 = new Set<number>();
   for (let i = 0; i < move && i < totalMoves; i++) {
     if (i % 2 === 0) placedP1.add(p1Cells[Math.floor(i / 2)]);
     else             placedP2.add(p2Cells[Math.floor(i / 2)]);
   }
-
   const board: (string | null)[][] = Array.from({ length: GRID }, (_, r) =>
     Array.from({ length: GRID }, (_, c) => {
       const idx = r * GRID + c;
@@ -594,23 +468,14 @@ function BundleAnimatedPreview({ bundle, tick }: { bundle: Bundle; tick: number 
       return null;
     })
   );
-
   const isIcePreview = bundle.previewKind === "ice";
   const p1c = isIcePreview ? "#C8EEFF" : "#FF4400";
   const p2c = isIcePreview ? "#64C8FF" : "#BBBBBB";
   const useFlameSkull     = !isIcePreview;
   const useSnowflakeShard = isIcePreview;
   const pieceSymbols = { p1: isIcePreview ? "❄" : "🔥", p2: isIcePreview ? "◆" : "💀" };
-
   return (
-    <div style={{
-      width: "100%",
-      background: isIcePreview ? "linear-gradient(135deg,rgba(3,8,20,0.98),rgba(1,4,14,0.99))" : "rgba(10,2,1,0.99)",
-      borderRadius: 12,
-      border: `2px solid ${isIcePreview ? "rgba(80,160,220,0.28)" : "rgba(140,20,0,0.35)"}`,
-      boxShadow: isIcePreview ? "0 0 50px rgba(80,160,255,0.08), inset 0 0 40px rgba(0,0,0,0.7)" : "0 0 50px rgba(180,20,0,0.1), inset 0 0 40px rgba(0,0,0,0.7)",
-      padding: 6, position: "relative", overflow: "hidden",
-    }}>
+    <div style={{ width: "100%", background: isIcePreview ? "linear-gradient(135deg,rgba(3,8,20,0.98),rgba(1,4,14,0.99))" : "rgba(10,2,1,0.99)", borderRadius: 12, border: `2px solid ${isIcePreview ? "rgba(80,160,220,0.28)" : "rgba(140,20,0,0.35)"}`, boxShadow: isIcePreview ? "0 0 50px rgba(80,160,255,0.08), inset 0 0 40px rgba(0,0,0,0.7)" : "0 0 50px rgba(180,20,0,0.1), inset 0 0 40px rgba(0,0,0,0.7)", padding: 6, position: "relative", overflow: "hidden" }}>
       {!isIcePreview && <Embers count={16} />}
       {!isIcePreview && <HeatOverlay />}
       {isIcePreview  && <FrostCrystals />}
@@ -630,7 +495,7 @@ function BundleAnimatedPreview({ bundle, tick }: { bundle: Bundle; tick: number 
   );
 }
 
-// ── Bundle Preview Modal ───────────────────────────────────────────────────────
+// ── Bundle Preview Modal (unchanged) ─────────────────────────────────────────
 function BundleModal({ bundle, t, isGuest, buyingId, purchasedItems, balance, onClose, onBuy, onOpenBuyCredits }: {
   bundle: Bundle; t: any; isGuest: boolean; buyingId: string | null;
   purchasedItems: string[]; balance: number;
@@ -639,10 +504,8 @@ function BundleModal({ bundle, t, isGuest, buyingId, purchasedItems, balance, on
   const [tick, setTick] = useState(0);
   const [hovOpt, setHovOpt] = useState<string | null>(null);
   useEffect(() => { const iv = setInterval(() => setTick(v => v + 1), 900); return () => clearInterval(iv); }, []);
-
   const ownsBundle = purchasedItems.includes(bundle.boardId) && purchasedItems.includes(bundle.pieceId);
   const ac = bundle.accentColor;
-
   const options = [
     {
       id: "bundle",
@@ -654,14 +517,12 @@ function BundleModal({ bundle, t, isGuest, buyingId, purchasedItems, balance, on
       purchaseId: "bundle_purchase_" + bundle.id,
     },
   ];
-
   return (
     <div onClick={e => { if (e.target === e.currentTarget) onClose(); }}
       style={{ position: "fixed", inset: 0, zIndex: 200, background: "rgba(0,0,0,0.88)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16, animation: "fadeIn 0.16s ease", overflowY: "auto" }}>
       <div style={{ background: bundle.bgGradient, border: `1.5px solid ${ac}44`, borderRadius: 22, width: "100%", maxWidth: 680, position: "relative", animation: "previewSlideUp 0.26s cubic-bezier(.22,.68,0,1.2)", overflow: "hidden", margin: "auto" }}>
         <div style={{ position: "absolute", top: -60, left: "50%", transform: "translateX(-50%)", width: 400, height: 200, borderRadius: "50%", background: `${ac}14`, filter: "blur(60px)", pointerEvents: "none" }} />
         <button onClick={onClose} style={{ position: "absolute", top: 14, right: 14, zIndex: 10, background: "rgba(0,0,0,0.5)", border: `1px solid ${ac}44`, borderRadius: 8, color: "#fff", width: 30, height: 30, cursor: "pointer", fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
-
         <div style={{ padding: "24px 24px 0" }}>
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap" as const, marginBottom: 12 }}>
             {bundle.tags.map(tag => (<span key={tag} style={{ fontFamily: "monospace", fontSize: 9, fontWeight: 700, color: ac, background: `${ac}18`, border: `1px solid ${ac}44`, padding: "2px 7px", borderRadius: 4, letterSpacing: "0.1em" }}>{tag}</span>))}
@@ -671,11 +532,9 @@ function BundleModal({ bundle, t, isGuest, buyingId, purchasedItems, balance, on
           <div style={{ fontFamily: t.fontBody, fontSize: 13, color: `${ac}cc`, fontStyle: "italic", marginBottom: 14 }}>{bundle.tagline}</div>
           <BundleAnimatedPreview bundle={bundle} tick={tick} />
         </div>
-
         <div style={{ padding: "12px 24px 0" }}>
           <div style={{ fontFamily: t.fontBody, fontSize: 13, color: "rgba(255,255,255,0.45)", lineHeight: 1.65, marginBottom: 16 }}>{bundle.desc}</div>
         </div>
-
         <div style={{ padding: "0 24px 24px" }}>
           <div style={{ fontFamily: "monospace", fontSize: 10, color: `${ac}77`, letterSpacing: "0.2em", marginBottom: 10 }}>PURCHASE OPTIONS</div>
           <div style={{ display: "flex", flexDirection: "column" as const, gap: 8 }}>
@@ -732,59 +591,30 @@ function ThemePreviewModal({ item, t, onClose }: { item: any; t: any; onClose: (
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const ac = item.accentColor ?? "#4DA3FF";
   const tracks = THEME_MUSIC_PREVIEWS[item.id] ?? [];
-
-  useEffect(() => {
-    return () => {
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current.src = "";
-      }
-    };
-  }, []);
-
-  const stopCurrent = () => {
-    if (!audioRef.current) return;
-    audioRef.current.pause();
-    audioRef.current.currentTime = 0;
-    setActiveTrack(null);
-  };
-
+  useEffect(() => { return () => { if (audioRef.current) { audioRef.current.pause(); audioRef.current.src = ""; } }; }, []);
+  const stopCurrent = () => { if (!audioRef.current) return; audioRef.current.pause(); audioRef.current.currentTime = 0; setActiveTrack(null); };
   const playTrack = (file: string) => {
     setTrackErr(null);
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current.src = "";
-    }
+    if (audioRef.current) { audioRef.current.pause(); audioRef.current.src = ""; }
     const audio = new Audio(`/sounds/${file}`);
     audioRef.current = audio;
-    audio.currentTime = 0;
-    audio.volume = 0.7;
-    audio.addEventListener("timeupdate", () => {
-      if (audio.currentTime >= 30) {
-        audio.pause();
-      }
-    });
+    audio.currentTime = 0; audio.volume = 0.7;
+    audio.addEventListener("timeupdate", () => { if (audio.currentTime >= 30) audio.pause(); });
     audio.addEventListener("pause", () => setActiveTrack(null));
     audio.addEventListener("ended", () => setActiveTrack(null));
-    audio.play().then(() => setActiveTrack(file)).catch(() => {
-      setTrackErr("Could not play this track on your browser.");
-      setActiveTrack(null);
-    });
+    audio.play().then(() => setActiveTrack(file)).catch(() => { setTrackErr("Could not play this track on your browser."); setActiveTrack(null); });
   };
-
   return (
     <div onClick={e => { if (e.target === e.currentTarget) { stopCurrent(); onClose(); } }}
       style={{ position: "fixed", inset: 0, zIndex: 210, background: "rgba(0,0,0,0.88)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16, animation: "fadeIn 0.16s ease", overflowY: "auto" }}>
       <div style={{ background: item.preview, border: `1.5px solid ${ac}66`, borderRadius: 22, width: "100%", maxWidth: 700, position: "relative", animation: "previewSlideUp 0.26s cubic-bezier(.22,.68,0,1.2)", overflow: "hidden", margin: "auto", boxShadow: `0 20px 70px ${ac}30` }}>
         <button onClick={() => { stopCurrent(); onClose(); }} style={{ position: "absolute", top: 14, right: 14, zIndex: 10, background: "rgba(0,0,0,0.5)", border: `1px solid ${ac}44`, borderRadius: 8, color: "#fff", width: 30, height: 30, cursor: "pointer", fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
-
         <div style={{ padding: "24px 24px 0" }}>
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap" as const, marginBottom: 12 }}>
             {(item.tags ?? []).map((tag: string) => (<span key={tag} style={{ fontFamily: "monospace", fontSize: 9, fontWeight: 700, color: ac, background: `${ac}18`, border: `1px solid ${ac}44`, padding: "2px 7px", borderRadius: 4, letterSpacing: "0.1em" }}>{tag}</span>))}
           </div>
           <div style={{ fontFamily: t.fontDisplay, fontSize: 28, fontWeight: 900, color: "#fff", letterSpacing: "0.04em", marginBottom: 3 }}>{item.label} PREVIEW</div>
           <div style={{ fontFamily: t.fontBody, fontSize: 13, color: `${ac}cc`, fontStyle: "italic", marginBottom: 14 }}>{item.tagline}</div>
-
           <div style={{ width: "100%", borderRadius: 12, border: `2px solid ${ac}55`, boxShadow: `0 0 40px ${ac}25`, padding: 8, position: "relative", overflow: "hidden", background: "rgba(0,0,0,0.45)" }}>
             <div style={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: 320 }}>
               {item.id === "space" ? <SpaceGrid showLabels={false} cellSize={56} /> : <PixelGrid showLabels={false} cellSize={56} />}
@@ -793,44 +623,25 @@ function ThemePreviewModal({ item, t, onClose }: { item: any; t: any; onClose: (
             <div style={{ position: "absolute", bottom: 8, right: 12, fontFamily: "monospace", fontSize: 9, color: `${ac}aa`, letterSpacing: "0.1em", zIndex: 10, pointerEvents: "none" }}>INTERACTIVE PREVIEW</div>
           </div>
         </div>
-
         <div style={{ padding: "12px 24px 0" }}>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: 8, marginBottom: 12 }}>
-            <div style={{ background: `${ac}10`, border: `1px solid ${ac}33`, borderRadius: 8, padding: "8px 10px" }}>
-              <div style={{ fontFamily: "monospace", fontSize: 9, color: `${ac}88`, letterSpacing: "0.12em" }}>BOARD</div>
-              <div style={{ fontFamily: t.fontDisplay, fontSize: 12, color: "#fff", fontWeight: 700 }}>{item.boardLabel}</div>
-            </div>
-            <div style={{ background: `${ac}10`, border: `1px solid ${ac}33`, borderRadius: 8, padding: "8px 10px" }}>
-              <div style={{ fontFamily: "monospace", fontSize: 9, color: `${ac}88`, letterSpacing: "0.12em" }}>MUSIC PACK</div>
-              <div style={{ fontFamily: t.fontDisplay, fontSize: 12, color: "#fff", fontWeight: 700 }}>{item.musicLabel}</div>
-            </div>
-            <div style={{ background: `${ac}10`, border: `1px solid ${ac}33`, borderRadius: 8, padding: "8px 10px" }}>
-              <div style={{ fontFamily: "monospace", fontSize: 9, color: `${ac}88`, letterSpacing: "0.12em" }}>FONT</div>
-              <div style={{ fontFamily: t.fontDisplay, fontSize: 12, color: "#fff", fontWeight: 700 }}>{item.fontLabel}</div>
-            </div>
-            <div style={{ background: `${ac}10`, border: `1px solid ${ac}33`, borderRadius: 8, padding: "8px 10px" }}>
-              <div style={{ fontFamily: "monospace", fontSize: 9, color: `${ac}88`, letterSpacing: "0.12em" }}>BACKGROUNDS</div>
-              <div style={{ fontFamily: t.fontDisplay, fontSize: 12, color: "#fff", fontWeight: 700 }}>{item.bgLabel}</div>
-            </div>
+            <div style={{ background: `${ac}10`, border: `1px solid ${ac}33`, borderRadius: 8, padding: "8px 10px" }}><div style={{ fontFamily: "monospace", fontSize: 9, color: `${ac}88`, letterSpacing: "0.12em" }}>BOARD</div><div style={{ fontFamily: t.fontDisplay, fontSize: 12, color: "#fff", fontWeight: 700 }}>{item.boardLabel}</div></div>
+            <div style={{ background: `${ac}10`, border: `1px solid ${ac}33`, borderRadius: 8, padding: "8px 10px" }}><div style={{ fontFamily: "monospace", fontSize: 9, color: `${ac}88`, letterSpacing: "0.12em" }}>MUSIC PACK</div><div style={{ fontFamily: t.fontDisplay, fontSize: 12, color: "#fff", fontWeight: 700 }}>{item.musicLabel}</div></div>
+            <div style={{ background: `${ac}10`, border: `1px solid ${ac}33`, borderRadius: 8, padding: "8px 10px" }}><div style={{ fontFamily: "monospace", fontSize: 9, color: `${ac}88`, letterSpacing: "0.12em" }}>FONT</div><div style={{ fontFamily: t.fontDisplay, fontSize: 12, color: "#fff", fontWeight: 700 }}>{item.fontLabel}</div></div>
+            <div style={{ background: `${ac}10`, border: `1px solid ${ac}33`, borderRadius: 8, padding: "8px 10px" }}><div style={{ fontFamily: "monospace", fontSize: 9, color: `${ac}88`, letterSpacing: "0.12em" }}>BACKGROUNDS</div><div style={{ fontFamily: t.fontDisplay, fontSize: 12, color: "#fff", fontWeight: 700 }}>{item.bgLabel}</div></div>
           </div>
-
           <div style={{ fontFamily: "monospace", fontSize: 10, color: `${ac}77`, letterSpacing: "0.2em", marginBottom: 10 }}>MUSIC + SFX PREVIEW (30 SEC EACH)</div>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" as const, marginBottom: 8 }}>
             {tracks.map((trk) => (
-              <button key={trk.file}
-                onClick={() => playTrack(trk.file)}
+              <button key={trk.file} onClick={() => playTrack(trk.file)}
                 style={{ background: activeTrack === trk.file ? ac : "rgba(0,0,0,0.42)", border: `1.5px solid ${ac}66`, borderRadius: 9, padding: "8px 12px", fontFamily: t.fontDisplay, fontSize: 11, fontWeight: 800, color: activeTrack === trk.file ? "#000" : "#fff", cursor: "pointer", letterSpacing: "0.04em" }}>
                 {activeTrack === trk.file ? `PLAYING ${trk.label.toUpperCase()}` : `PLAY ${trk.label.toUpperCase()}`}
               </button>
             ))}
-            <button onClick={stopCurrent}
-              style={{ background: "rgba(0,0,0,0.42)", border: `1.5px solid ${ac}44`, borderRadius: 9, padding: "8px 12px", fontFamily: t.fontDisplay, fontSize: 11, fontWeight: 800, color: "#fff", cursor: "pointer", letterSpacing: "0.04em" }}>
-              STOP
-            </button>
+            <button onClick={stopCurrent} style={{ background: "rgba(0,0,0,0.42)", border: `1.5px solid ${ac}44`, borderRadius: 9, padding: "8px 12px", fontFamily: t.fontDisplay, fontSize: 11, fontWeight: 800, color: "#fff", cursor: "pointer", letterSpacing: "0.04em" }}>STOP</button>
           </div>
           {trackErr && <div style={{ fontFamily: "monospace", fontSize: 10, color: "#EF4444", marginBottom: 8 }}>{trackErr}</div>}
         </div>
-
         <div style={{ padding: "0 24px 24px" }}>
           <div style={{ fontFamily: t.fontBody, fontSize: 12, color: "rgba(255,255,255,0.6)", lineHeight: 1.6 }}>
             Preview includes board visuals and all bundle contents: {item.boardLabel}, {item.musicLabel}, {item.fontLabel}, and {item.bgLabel}.
@@ -841,7 +652,7 @@ function ThemePreviewModal({ item, t, onClose }: { item: any; t: any; onClose: (
   );
 }
 
-// ── Bundle Card ───────────────────────────────────────────────────────────────
+// ── Bundle Card (unchanged) ───────────────────────────────────────────────────
 function BundleCard({ bundle, purchasedItems, t, onClick }: { bundle: Bundle; purchasedItems: string[]; t: any; onClick: () => void }) {
   const [hov, setHov] = useState(false);
   const [tick, setTick] = useState(0);
@@ -855,16 +666,11 @@ function BundleCard({ bundle, purchasedItems, t, onClick }: { bundle: Bundle; pu
     const el = cardRef.current;
     if (!el) return;
     if (typeof IntersectionObserver === "undefined") return;
-    const obs = new IntersectionObserver(
-      (entries) => { setIsVisible(entries[0]?.isIntersecting ?? true); },
-      { root: null, threshold: 0.05 }
-    );
+    const obs = new IntersectionObserver((entries) => { setIsVisible(entries[0]?.isIntersecting ?? true); }, { root: null, threshold: 0.05 });
     obs.observe(el);
     return () => obs.disconnect();
   }, []);
-
   const previewActive = hov && isVisible;
-
   useEffect(() => {
     if (!previewActive) return;
     const iv = setInterval(() => setTick(v => v + 1), 650);
@@ -880,7 +686,6 @@ function BundleCard({ bundle, purchasedItems, t, onClick }: { bundle: Bundle; pu
     if (i % 2 === 0) placedP1.add(p1Cells[Math.floor(i / 2)]);
     else placedP2.add(p2Cells[Math.floor(i / 2)]);
   }
-
   return (
     <div ref={cardRef} onClick={onClick} onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}
       style={{ background: bundle.bgGradient, border: `2px solid ${hov ? ac : ac + "33"}`, borderRadius: 18, padding: "24px", cursor: "pointer", position: "relative", overflow: "hidden", transform: hov ? "translateY(-6px) scale(1.01)" : "none", boxShadow: hov ? `0 20px 60px ${ac}30, 0 0 0 1px ${ac}20` : `0 4px 20px ${ac}14`, transition: "all 0.28s cubic-bezier(.22,.68,0,1.2)" }}>
@@ -900,85 +705,37 @@ function BundleCard({ bundle, purchasedItems, t, onClick }: { bundle: Bundle; pu
         {previewActive && bundle.previewKind === "ice" && <IceOverlay />}
         {previewActive && bundle.previewKind === "glacier" && <GlacierAurora />}
         {previewActive && bundle.previewKind === "glacier" && <GlacierSnow count={12} />}
-
         {!previewActive ? (
           <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
             <div style={{ width: 10, height: 10, borderRadius: 999, background: `${ac}cc`, boxShadow: `0 0 14px ${ac}88` }} />
-            <div style={{ fontFamily: "monospace", fontSize: 10, fontWeight: 800, color: `${ac}cc`, letterSpacing: "0.14em", textTransform: "uppercase" as const }}>
-              Hover to animate
-            </div>
+            <div style={{ fontFamily: "monospace", fontSize: 10, fontWeight: 800, color: `${ac}cc`, letterSpacing: "0.14em", textTransform: "uppercase" as const }}>Hover to animate</div>
           </div>
         ) : bundle.previewKind === "bloodmoon" ? (
-          <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <div style={{ opacity: 0.98 }}>
-              <BloodMoonGrid showLabels={false} cellSize={10} />
-            </div>
-          </div>
+          <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}><div style={{ opacity: 0.98 }}><BloodMoonGrid showLabels={false} cellSize={10} /></div></div>
         ) : bundle.previewKind === "egypt" ? (
-          <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <div style={{ opacity: 0.98 }}>
-              <EgyptGrid showLabels={false} cellSize={10} />
-            </div>
-          </div>
+          <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}><div style={{ opacity: 0.98 }}><EgyptGrid showLabels={false} cellSize={10} /></div></div>
         ) : bundle.previewKind === "synthwave" ? (
-          <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <div style={{ opacity: 0.98 }}>
-              <SynthwaveGrid showLabels={false} cellSize={10} />
-            </div>
-          </div>
+          <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}><div style={{ opacity: 0.98 }}><SynthwaveGrid showLabels={false} cellSize={10} /></div></div>
         ) : bundle.previewKind === "matrix" ? (
-          <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <div style={{ opacity: 0.98 }}>
-              <MatrixGrid showLabels={false} cellSize={10} />
-            </div>
-          </div>
+          <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}><div style={{ opacity: 0.98 }}><MatrixGrid showLabels={false} cellSize={10} /></div></div>
         ) : bundle.previewKind === "arcane" ? (
-          <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <div style={{ opacity: 0.98 }}>
-              <ArcaneGrid showLabels={false} cellSize={10} />
-            </div>
-          </div>
+          <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}><div style={{ opacity: 0.98 }}><ArcaneGrid showLabels={false} cellSize={10} /></div></div>
         ) : bundle.previewKind === "bio" ? (
-          <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <div style={{ opacity: 0.98 }}>
-              <BioGrid showLabels={false} cellSize={10} />
-            </div>
-          </div>
+          <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}><div style={{ opacity: 0.98 }}><BioGrid showLabels={false} cellSize={10} /></div></div>
         ) : bundle.previewKind === "forge" ? (
-          <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <div style={{ opacity: 0.98 }}>
-              <ForgeGrid showLabels={false} cellSize={10} />
-            </div>
-          </div>
+          <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}><div style={{ opacity: 0.98 }}><ForgeGrid showLabels={false} cellSize={10} /></div></div>
         ) : bundle.previewKind === "void" ? (
-          <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <div style={{ opacity: 0.98 }}>
-              <VoidGrid showLabels={false} cellSize={10} />
-            </div>
-          </div>
+          <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}><div style={{ opacity: 0.98 }}><VoidGrid showLabels={false} cellSize={10} /></div></div>
         ) : bundle.previewKind === "space" ? (
-          <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <div style={{ opacity: 0.98 }}>
-              <SpaceGrid showLabels={false} cellSize={10} />
-            </div>
-          </div>
+          <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}><div style={{ opacity: 0.98 }}><SpaceGrid showLabels={false} cellSize={10} /></div></div>
         ) : bundle.previewKind === "pixel" ? (
-          <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <div style={{ opacity: 0.98 }}>
-              <PixelGrid showLabels={false} cellSize={10} />
-            </div>
-          </div>
+          <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}><div style={{ opacity: 0.98 }}><PixelGrid showLabels={false} cellSize={10} /></div></div>
         ) : bundle.previewKind === "tokyo" ? (
-          <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <div style={{ opacity: 0.98 }}>
-              <TokyoGrid showLabels={false} cellSize={10} />
-            </div>
-          </div>
+          <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}><div style={{ opacity: 0.98 }}><TokyoGrid showLabels={false} cellSize={10} /></div></div>
         ) : (
           <div style={{ display: "grid", gridTemplateColumns: "repeat(5,1fr)", gridTemplateRows: "repeat(5,1fr)", gap: 2, padding: 6, height: "100%", position: "relative", zIndex: 2 }}>
             {Array.from({ length: 25 }).map((_, i) => {
-              const isP1 = placedP1.has(i);
-              const isP2 = placedP2.has(i);
+              const isP1 = placedP1.has(i); const isP2 = placedP2.has(i);
               return (
                 <div key={i} style={{ background: bundle.previewKind === "fire" ? "rgba(150,20,0,0.15)" : "rgba(80,160,220,0.12)", border: `1px solid ${bundle.previewKind === "fire" ? "rgba(150,20,0,0.3)" : bundle.previewKind === "glacier" ? "rgba(125,211,252,0.4)" : "rgba(80,160,220,0.3)"}`, borderRadius: 2, display: "flex", alignItems: "center", justifyContent: "center", color: isP1 ? (bundle.previewKind === "fire" ? "#FF4400" : "#C8EEFF") : isP2 ? (bundle.previewKind === "fire" ? "#AAAAAA" : "#64C8FF") : "transparent", fontSize: 8, fontWeight: 800, lineHeight: 1 }}>
                   {isP1 ? (bundle.previewKind === "fire" ? "🔥" : "❄") : isP2 ? (bundle.previewKind === "fire" ? "💀" : "◆") : ""}
@@ -998,10 +755,7 @@ function BundleCard({ bundle, purchasedItems, t, onClick }: { bundle: Bundle; pu
           {!ownsAll ? (
             <>
               <div style={{ fontFamily: "monospace", fontSize: 9, color: `${ac}66`, letterSpacing: "0.15em", marginBottom: 2 }}>BUNDLE PRICE</div>
-              <div style={{ display: "flex", alignItems: "center", gap: 6, fontFamily: t.fontDisplay, fontSize: 24, fontWeight: 900, color: ac, lineHeight: 1 }}>
-                {bundle.bundlePrice.toLocaleString()}
-                <ProtoSVG size={20} />
-              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, fontFamily: t.fontDisplay, fontSize: 24, fontWeight: 900, color: ac, lineHeight: 1 }}>{bundle.bundlePrice.toLocaleString()}<ProtoSVG size={20} /></div>
             </>
           ) : (<div style={{ fontFamily: t.fontDisplay, fontSize: 14, fontWeight: 700, color: "#4CAF50" }}>Bundle owned ✓</div>)}
         </div>
@@ -1029,15 +783,10 @@ export default function StoreScreen({ setScreenAction, themeId }: Props) {
   const [openBundle,   setOpenBundle]   = useState<string | null>(null);
   const [openThemePreview, setOpenThemePreview] = useState<string | null>(null);
   const [confirmBuy,   setConfirmBuy]   = useState<{ id: string, price: number, shardPrice?: number, label: string } | null>(null);
-  const [purchasedProtoPackIds, setPurchasedProtoPackIds] = useState<Set<string>>(() => new Set());
-  const [purchasedShardPackIds, setPurchasedShardPackIds] = useState<Set<string>>(() => new Set());
 
   const activePackages = buyCurrencyType === "shards" ? SHARD_PACKAGES : PACKAGES;
   const selectedPackageId = buyCurrencyType === "shards" ? selectedShards : selectedProto;
   const pkg = activePackages.find(p => p.id === selectedPackageId)!;
-  const purchasedPackIdsForLane = buyCurrencyType === "shards" ? purchasedShardPackIds : purchasedProtoPackIds;
-  const showStoreBonusForPack = (packId: string, bonus: number) => bonus > 0 && !purchasedPackIdsForLane.has(packId);
-  const orderSummaryBonusVisible = showStoreBonusForPack(pkg.id, pkg.bonus);
   const isClassic = themeId === "classic_light" || themeId === "classic_dark";
   const accent = isClassic ? "#CC0000" : t.accent;
   const balance = (user as any)?.protocredits ?? 0;
@@ -1049,30 +798,18 @@ export default function StoreScreen({ setScreenAction, themeId }: Props) {
 
   const PROFILE_FETCH_TIMEOUT = 15000;
   useEffect(() => {
-    if (!token) {
-      setPurchasedProtoPackIds(new Set());
-      setPurchasedShardPackIds(new Set());
-      return;
-    }
+    if (!token) return;
     API.get("/api/profile/me", { headers: { Authorization: `Bearer ${token}` }, timeout: PROFILE_FETCH_TIMEOUT })
       .then(res => updateUser(res.data))
       .catch(() => {});
-    API.get("/api/store/purchased-packs", { headers: { Authorization: `Bearer ${token}` }, timeout: PROFILE_FETCH_TIMEOUT })
-      .then((res) => {
-        setPurchasedProtoPackIds(new Set(res.data.protocredits ?? []));
-        setPurchasedShardPackIds(new Set(res.data.shards ?? []));
-      })
-      .catch(() => {});
   }, [token]);
 
-  // If a bundle becomes owned (after purchase / refresh), hide it + close modal.
   useEffect(() => {
     if (!openBundle) return;
     const b = BUNDLES.find((x) => x.id === openBundle);
     if (b && ownsBundle(b)) setOpenBundle(null);
   }, [openBundle, purchasedItems]);
 
-  // Helper to show error msg that auto-clears after 1s
   const showError = (text: string) => {
     setMsg({ text, ok: false });
     setTimeout(() => setMsg(null), 1000);
@@ -1080,11 +817,30 @@ export default function StoreScreen({ setScreenAction, themeId }: Props) {
 
   const cssVars = { "--font-display": t.fontDisplay, "--font-mono": t.fontMono, "--font-body": t.fontBody, "--text": t.text, "--text-muted": t.textMuted, "--border": t.border, "--accent": accent } as React.CSSProperties;
 
-  const handleBuy = async () => {
+  // ── PayPal checkout (live) ───────────────────────────────────────────────────
+  const handleBuyPayPal = async () => {
     if (isGuest) { setShowBuyModal(false); showError(`Sign in to buy ${buyCurrencyType === "shards" ? "PentaShards" : "ProtoCredits"}.`); return; }
     setLoading(true); setMsg(null);
     try {
-      const p = activePackages.find(x => x.id === selectedPackageId)!;
+      sessionStorage.setItem("pp_paypal_package_id", selectedPackageId);
+      sessionStorage.setItem("pp_paypal_currency_type", buyCurrencyType);
+      const res = await API.post("/api/paypal/create-order", {
+        package_id:    selectedPackageId,
+        currency_type: buyCurrencyType,
+      }, { headers: { Authorization: `Bearer ${token}` }, timeout: 15000 });
+      window.location.href = res.data.approve_url;
+    } catch (e: any) {
+      showError(e?.response?.data?.detail || e?.message || "Payment failed. Please try again.");
+      setLoading(false);
+    }
+    // button stays loading during redirect — intentional
+  };
+
+  // ── Instamojo checkout (dormant — KYC pending approval) ───────────────────
+  const handleBuyInstamojo = async () => {
+    if (isGuest) { setShowBuyModal(false); showError(`Sign in to buy ${buyCurrencyType === "shards" ? "PentaShards" : "ProtoCredits"}.`); return; }
+    setLoading(true); setMsg(null);
+    try {
       const res = await API.post("/api/store/create-order", {
         package_id:    selectedPackageId,
         currency_type: buyCurrencyType,
@@ -1092,7 +848,6 @@ export default function StoreScreen({ setScreenAction, themeId }: Props) {
         email:         (user as any).email ?? "",
         phone:         (user as any).phone ?? "9999999999",
       }, { headers: { Authorization: `Bearer ${token}` }, timeout: 15000 });
-      // Redirect to Instamojo — button stays loading during redirect
       window.location.href = res.data.redirect_url;
     } catch (e: any) {
       showError(e?.response?.data?.detail || e?.message || "Payment failed. Please try again.");
@@ -1100,12 +855,14 @@ export default function StoreScreen({ setScreenAction, themeId }: Props) {
     }
   };
 
+  // handleBuy = PayPal (primary active gateway)
+  const handleBuy = handleBuyPayPal;
+
   const handleBuyCosmetic = (id: string, price: number, label: string, shardPrice = 0) => {
     if (isGuest) { showError("Sign in to purchase."); return; }
     if (shardPrice > 0) {
       if (balance < price || shardBalance < shardPrice) {
-        setOpenBundle(null);
-        setMsg(null);
+        setOpenBundle(null); setMsg(null);
         setBuyCurrencyType(balance < price ? "protocredits" : "shards");
         setShowBuyModal(true);
         showError(`Need ${price.toLocaleString()} ProtoCredits and ${shardPrice.toLocaleString()} PentaShards.`);
@@ -1127,35 +884,21 @@ export default function StoreScreen({ setScreenAction, themeId }: Props) {
     const themeBundleData = isThemeBundlePurchase ? STORE_THEMES.find(ti => ti.id === id.replace("theme_bundle_", "")) : null;
     try {
       const postPurchase = async (item_id: string, p: number, sp = 0) => {
-        let safePrice = p;
-        if (safePrice < 0) safePrice = 0;
-        let safeShardPrice = sp;
-        if (safeShardPrice < 0) safeShardPrice = 0;
+        let safePrice = p; if (safePrice < 0) safePrice = 0;
+        let safeShardPrice = sp; if (safeShardPrice < 0) safeShardPrice = 0;
         if (safePrice === 0 && safeShardPrice === 0) {
           await API.post("/api/store/purchase-item", { item_id, price: 0, shard_price: 0 }, { headers: { Authorization: `Bearer ${token}` }, timeout: 15000 });
           return;
         }
         await API.post("/api/store/purchase-item", { item_id, price: safePrice, shard_price: safeShardPrice }, { headers: { Authorization: `Bearer ${token}` }, timeout: 15000 });
       };
-
       if (bundleData) {
         const owned = new Set(purchasedItems);
         const needBoard = !owned.has(bundleData.boardId);
         const needPiece = !owned.has(bundleData.pieceId);
-
-        if (!needBoard && !needPiece) {
-          setMsg({ text: "✓ Bundle already owned.", ok: true });
-          setOpenBundle(null);
-          setTimeout(() => setMsg(null), 2500);
-          return;
-        }
-
-        // Bundle purchases must charge exactly `bundlePrice` total (store discount).
-        // If partially owned, charge the full bundle price to the missing item.
+        if (!needBoard && !needPiece) { setMsg({ text: "✓ Bundle already owned.", ok: true }); setOpenBundle(null); setTimeout(() => setMsg(null), 2500); return; }
         const boardCharge = needBoard ? (needPiece ? Math.min(bundleData.boardPrice, price) : price) : 0;
         const pieceCharge = needPiece ? (needBoard ? Math.max(0, price - boardCharge) : price) : 0;
-
-        // Buy missing parts only
         if (needBoard) await postPurchase(bundleData.boardId, boardCharge);
         if (needPiece) await postPurchase(bundleData.pieceId, pieceCharge);
       } else if (themeBundleData) {
@@ -1164,14 +907,7 @@ export default function StoreScreen({ setScreenAction, themeId }: Props) {
         const boardItemId = themeBundleData.boardId;
         const needTheme = !owned.has(themeItemId);
         const needBoard = !owned.has(boardItemId);
-
-        if (!needTheme && !needBoard) {
-          setMsg({ text: "✓ Theme bundle already owned.", ok: true });
-          setTimeout(() => setMsg(null), 2500);
-          return;
-        }
-
-        // Charge exactly bundle price across theme + board.
+        if (!needTheme && !needBoard) { setMsg({ text: "✓ Theme bundle already owned.", ok: true }); setTimeout(() => setMsg(null), 2500); return; }
         const themeSuggested = Math.round(price * 0.7);
         const themeCharge = needTheme ? (needBoard ? themeSuggested : price) : 0;
         const boardCharge = needBoard ? (needTheme ? Math.max(0, price - themeCharge) : price) : 0;
@@ -1179,30 +915,22 @@ export default function StoreScreen({ setScreenAction, themeId }: Props) {
         const themeShardSuggested = Math.round(shardTarget * 0.7);
         const themeShardCharge = needTheme ? (needBoard ? themeShardSuggested : shardTarget) : 0;
         const boardShardCharge = needBoard ? (needTheme ? Math.max(0, shardTarget - themeShardCharge) : shardTarget) : 0;
-
         if (needTheme) await postPurchase(themeItemId, themeCharge, themeShardCharge);
         if (needBoard) await postPurchase(boardItemId, boardCharge, boardShardCharge);
       } else {
         await API.post("/api/store/purchase-item", { item_id: id, price, shard_price: shardPrice ?? 0 }, { headers: { Authorization: `Bearer ${token}` }, timeout: 15000 });
       }
-
-      // Always refresh profile after purchases so ownership never desyncs.
       try {
         const me = await API.get("/api/profile/me", { headers: { Authorization: `Bearer ${token}` }, timeout: 15000 });
         updateUser(me.data);
       } catch {}
-
       setMsg({ text: `✓ ${label} unlocked! Equip it in your Collection.`, ok: true });
       setOpenBundle(null);
       setTimeout(() => setMsg(null), 3000);
     } catch (e: any) {
       const detail = e?.response?.data?.detail;
-      // If the backend says it's already owned, immediately sync profile and the item will disappear from store.
       if (detail && String(detail).toLowerCase().includes("already owned")) {
-        try {
-          const me = await API.get("/api/profile/me", { headers: { Authorization: `Bearer ${token}` }, timeout: 15000 });
-          updateUser(me.data);
-        } catch {}
+        try { const me = await API.get("/api/profile/me", { headers: { Authorization: `Bearer ${token}` }, timeout: 15000 }); updateUser(me.data); } catch {}
       }
       showError(detail || "Purchase failed. Try again.");
     } finally { setBuyingId(null); }
@@ -1216,7 +944,7 @@ export default function StoreScreen({ setScreenAction, themeId }: Props) {
   const activeThemePreview = openThemePreview ? STORE_THEMES.find(ti => ti.id === openThemePreview) : null;
 
   return (
-    <div style={{ ...cssVars, minHeight: "100vh", background: themeId === "pixel" ? "url(/bg-pixel-hills.png) center/cover no-repeat" : themeId === "space" ? "transparent" : t.bg, transition: "background 0.4s", paddingTop: 84, overflowY: "auto" }}>
+    <div style={{ ...cssVars, minHeight: "100vh", background: themeId === "space" ? "transparent" : t.bg, transition: "background 0.4s", paddingTop: 84, overflowY: "auto" }}>
       <style>{`
         .store-card { transition: transform 0.22s cubic-bezier(.22,.68,0,1.2), box-shadow 0.22s ease, border-color 0.18s ease; cursor: pointer; }
         .store-card:hover { transform: translateY(-4px) scale(1.02); }
@@ -1250,11 +978,7 @@ export default function StoreScreen({ setScreenAction, themeId }: Props) {
           onOpenBuyCredits={() => { setOpenBundle(null); setMsg(null); setBuyCurrencyType("protocredits"); setShowBuyModal(true); }} />
       )}
       {activeThemePreview && (
-        <ThemePreviewModal
-          item={activeThemePreview}
-          t={t}
-          onClose={() => setOpenThemePreview(null)}
-        />
+        <ThemePreviewModal item={activeThemePreview} t={t} onClose={() => setOpenThemePreview(null)} />
       )}
 
       <div style={{ maxWidth: 1240, margin: "0 auto", padding: "0 28px 72px" }}>
@@ -1262,10 +986,7 @@ export default function StoreScreen({ setScreenAction, themeId }: Props) {
         {isGuest && (
           <div style={{ background: `${accent}10`, border: `1px solid ${accent}44`, borderRadius: 10, padding: "12px 18px", marginBottom: 28, display: "flex", alignItems: "center", gap: 12 }}>
             <div style={{ width: 24, height: 24, borderRadius: "50%", background: `${accent}18`, display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={accent} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-                <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-              </svg>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={accent} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>
             </div>
             <div>
               <div style={{ fontFamily: t.fontDisplay, fontSize: 14, fontWeight: 700, color: accent }}>Browsing as Guest</div>
@@ -1282,6 +1003,7 @@ export default function StoreScreen({ setScreenAction, themeId }: Props) {
             <div style={{ fontFamily: t.fontBody, fontSize: 14, color: t.textMuted, maxWidth: 420 }}>Earn rewards through ranked play and achievements — or top up ProtoCredits to unlock exclusive cosmetics instantly.</div>
           </div>
           <div style={{ display: "flex", gap: 14, flexWrap: "wrap", alignItems: "stretch" }}>
+            {/* PentaShards card */}
             <div className="store-card"
               onClick={() => { if (isGuest) { showError("Sign in to buy PentaShards."); return; } setMsg(null); setBuyCurrencyType("shards"); setShowBuyModal(true); }}
               style={{ flexShrink: 0, minWidth: 260, maxWidth: 320, background: "linear-gradient(135deg, rgba(79,195,247,0.18), rgba(79,195,247,0.08))", border: `2px solid ${isGuest ? t.border : "#4FC3F755"}`, borderRadius: 18, padding: "22px 24px", boxShadow: "0 0 40px rgba(79,195,247,0.22)", position: "relative", overflow: "hidden", opacity: isGuest ? 0.75 : 1 }}>
@@ -1290,7 +1012,7 @@ export default function StoreScreen({ setScreenAction, themeId }: Props) {
               <div style={{ fontFamily: t.fontDisplay, fontSize: 26, fontWeight: 900, color: t.text, marginBottom: 6, lineHeight: 1.1 }}>Buy<br /><span style={{ color: "#4FC3F7" }}>PentaShards</span></div>
               <div style={{ fontFamily: t.fontBody, fontSize: 12, color: t.textMuted, marginBottom: 16 }}>Starting from ₹25 · Instant delivery</div>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" as const, marginBottom: 18 }}>
-                {SHARD_PACKAGES.map(p => (<div key={`shard_${p.id}`} style={{ fontFamily: t.fontMono, fontSize: 10, color: "#4FC3F7", background: "rgba(79,195,247,0.14)", border: "1px solid rgba(79,195,247,0.33)", borderRadius: 6, padding: "3px 8px" }}>{p.credits.toLocaleString()} PS</div>))}
+                {SHARD_PACKAGES.map(p => (<div key={`shard_${p.id}`} style={{ fontFamily: t.fontMono, fontSize: 10, color: "#4FC3F7", background: "rgba(79,195,247,0.14)", border: "1px solid rgba(79,195,247,0.33)", borderRadius: 6, padding: "3px 8px" }}>{p.credits + p.bonus}</div>))}
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 8, fontFamily: t.fontDisplay, fontSize: 13, fontWeight: 800, color: isGuest ? t.textMuted : "#000", background: isGuest ? t.bgCard : "#4FC3F7", borderRadius: 8, padding: "9px 16px", justifyContent: "center", border: isGuest ? `1px solid ${t.border}` : "none" }}>
                 {isGuest ? "SIGN IN TO BUY" : (<><ShardSVG size={16} /> OPEN STORE</>)}
@@ -1298,6 +1020,7 @@ export default function StoreScreen({ setScreenAction, themeId }: Props) {
               {!isGuest && <div style={{ marginTop: 12, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, fontFamily: t.fontMono, fontSize: 22, color: t.textMuted }}>Balance: <span style={{ color: "#4FC3F7", display: "flex", alignItems: "center", gap: 6 }}>{shardBalance.toLocaleString()} <ShardSVG size={21} /></span></div>}
             </div>
 
+            {/* ProtoCredits card */}
             <div className="store-card"
               onClick={() => { if (isGuest) { showError("Sign in to buy ProtoCredits."); return; } setMsg(null); setBuyCurrencyType("protocredits"); setShowBuyModal(true); }}
               style={{ flexShrink: 0, minWidth: 260, maxWidth: 320, background: `linear-gradient(135deg, ${accent}18, ${accent}08)`, border: `2px solid ${isGuest ? t.border : accent + "55"}`, borderRadius: 18, padding: "22px 24px", boxShadow: `0 0 40px ${accent}22`, position: "relative", overflow: "hidden", opacity: isGuest ? 0.75 : 1 }}>
@@ -1306,7 +1029,7 @@ export default function StoreScreen({ setScreenAction, themeId }: Props) {
               <div style={{ fontFamily: t.fontDisplay, fontSize: 26, fontWeight: 900, color: t.text, marginBottom: 6, lineHeight: 1.1 }}>Buy<br /><span style={{ color: accent }}>ProtoCredits</span></div>
               <div style={{ fontFamily: t.fontBody, fontSize: 12, color: t.textMuted, marginBottom: 16 }}>Starting from ₹49 · Instant delivery</div>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" as const, marginBottom: 18 }}>
-                {PACKAGES.map(p => (<div key={p.id} style={{ fontFamily: t.fontMono, fontSize: 10, color: accent, background: `${accent}14`, border: `1px solid ${accent}33`, borderRadius: 6, padding: "3px 8px" }}>{p.credits.toLocaleString()} PC</div>))}
+                {PACKAGES.map(p => (<div key={p.id} style={{ fontFamily: t.fontMono, fontSize: 10, color: accent, background: `${accent}14`, border: `1px solid ${accent}33`, borderRadius: 6, padding: "3px 8px" }}>{p.credits + p.bonus}</div>))}
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 8, fontFamily: t.fontDisplay, fontSize: 13, fontWeight: 800, color: isGuest ? t.textMuted : "#000", background: isGuest ? t.bgCard : accent, borderRadius: 8, padding: "9px 16px", justifyContent: "center", border: isGuest ? `1px solid ${t.border}` : "none" }}>
                 {isGuest ? "SIGN IN TO BUY" : (<><ProtoSVG size={16} /> OPEN STORE</>)}
@@ -1343,15 +1066,7 @@ export default function StoreScreen({ setScreenAction, themeId }: Props) {
                       {hovCard === item.id && (
                         <div style={{ position: "absolute", inset: 0, zIndex: 3, background: "rgba(0,0,0,0.36)", display: "flex", flexDirection: "column", justifyContent: "space-between", padding: 8 }}>
                           <div style={{ height: 72, borderRadius: 8, overflow: "hidden", border: `1px solid ${glow}66`, background: "rgba(0,0,0,0.42)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                            {item.id === "space" ? (
-                              <div style={{ opacity: 0.98 }}>
-                                <SpaceGrid showLabels={false} cellSize={10} />
-                              </div>
-                            ) : (
-                              <div style={{ opacity: 0.98 }}>
-                                <PixelGrid showLabels={false} cellSize={10} />
-                              </div>
-                            )}
+                            {item.id === "space" ? <div style={{ opacity: 0.98 }}><SpaceGrid showLabels={false} cellSize={10} /></div> : <div style={{ opacity: 0.98 }}><PixelGrid showLabels={false} cellSize={10} /></div>}
                           </div>
                           <div style={{ fontFamily: t.fontMono, fontSize: 9, color: "#fff", background: "rgba(0,0,0,0.52)", border: `1px solid ${glow}55`, borderRadius: 6, padding: "4px 6px", lineHeight: 1.2 }}>
                             {item.boardLabel} | {item.musicLabel} | {item.fontLabel} | {item.bgLabel}
@@ -1364,17 +1079,11 @@ export default function StoreScreen({ setScreenAction, themeId }: Props) {
                       <div style={{ fontFamily: t.fontBody, fontSize: 12, color: glow, marginTop: 4, marginBottom: 8, fontStyle: "italic" }}>{item.tagline}</div>
                       <div style={{ fontFamily: t.fontBody, fontSize: 13, color: t.textMuted, marginBottom: 12 }}>{item.desc}</div>
                       <div style={{ display: "flex", gap: 6, flexWrap: "wrap" as const, marginBottom: 10 }}>
-                        {(item.tags ?? []).map((tag) => (
-                          <span key={tag} style={{ fontFamily: "monospace", fontSize: 9, fontWeight: 700, color: glow, background: `${glow}18`, border: `1px solid ${glow}55`, padding: "2px 7px", borderRadius: 4 }}>{tag}</span>
-                        ))}
+                        {(item.tags ?? []).map((tag) => (<span key={tag} style={{ fontFamily: "monospace", fontSize: 9, fontWeight: 700, color: glow, background: `${glow}18`, border: `1px solid ${glow}55`, padding: "2px 7px", borderRadius: 4 }}>{tag}</span>))}
                       </div>
                       <div style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: 14 }}>
                         <div style={{ fontFamily: t.fontMono, fontSize: 10, color: t.textMuted }}>Includes: <span style={{ color: glow }}>{item.boardLabel}</span>, {item.musicLabel}, {item.fontLabel}, {item.bgLabel}</div>
-                        {!owned && (
-                          <div style={{ fontFamily: t.fontMono, fontSize: 9, color: t.textMuted }}>
-                            Owned now: Theme {themeOwned ? "✓" : "✗"} · Board {boardOwned ? "✓" : "✗"}
-                          </div>
-                        )}
+                        {!owned && <div style={{ fontFamily: t.fontMono, fontSize: 9, color: t.textMuted }}>Owned now: Theme {themeOwned ? "✓" : "✗"} · Board {boardOwned ? "✓" : "✗"}</div>}
                       </div>
                       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
                         {owned ? (
@@ -1385,12 +1094,7 @@ export default function StoreScreen({ setScreenAction, themeId }: Props) {
                           </div>
                         )}
                         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                          <button
-                            onClick={() => setOpenThemePreview(item.id)}
-                            style={{ background: "rgba(0,0,0,0.35)", border: `1.5px solid ${glow}66`, borderRadius: 10, padding: "10px 12px", fontFamily: t.fontDisplay, fontSize: 11, fontWeight: 900, color: glow, cursor: "pointer", whiteSpace: "nowrap" as const }}
-                          >
-                            VIEW PREVIEW
-                          </button>
+                          <button onClick={() => setOpenThemePreview(item.id)} style={{ background: "rgba(0,0,0,0.35)", border: `1.5px solid ${glow}66`, borderRadius: 10, padding: "10px 12px", fontFamily: t.fontDisplay, fontSize: 11, fontWeight: 900, color: glow, cursor: "pointer", whiteSpace: "nowrap" as const }}>VIEW PREVIEW</button>
                           {owned ? (
                             <button disabled style={{ background: "rgba(255,255,255,0.06)", border: `1px solid ${t.border}`, borderRadius: 10, padding: "10px 14px", fontFamily: t.fontDisplay, fontSize: 12, fontWeight: 900, color: "rgba(255,255,255,0.65)", cursor: "not-allowed" }}>✓</button>
                           ) : isGuest ? (
@@ -1472,110 +1176,30 @@ export default function StoreScreen({ setScreenAction, themeId }: Props) {
               const owned = banner.id === "default" || purchasedItems.includes(banner.id);
               const price = banner.price ?? 0;
               return (
-                <div
-                  className="store-card"
-                  style={{
-                    borderRadius: 18,
-                    overflow: "hidden",
-                    border: `2px solid ${owned ? "#4CAF50" : accent + "33"}`,
-                    background: banner.gradient,
-                    padding: "0",
-                    position: "relative",
-                    boxShadow: owned ? "none" : `0 8px 32px ${accent}22`,
-                  }}
-                >
+                <div className="store-card" style={{ borderRadius: 18, overflow: "hidden", border: `2px solid ${owned ? "#4CAF50" : accent + "33"}`, background: banner.gradient, padding: "0", position: "relative", boxShadow: owned ? "none" : `0 8px 32px ${accent}22` }}>
                   <div style={{ height: 120, position: "relative" }}>
                     <BannerRenderer banner={banner} style={{ position: "absolute", inset: 0 }} hideLabels={true} />
-                    {!owned && (
-                      <div style={{ position: "absolute", top: 10, left: 10, zIndex: 2 }}>
-                        <UnlockBadge text={banner.unlock} accent={accent} />
-                      </div>
-                    )}
-                    {owned && (
-                      <div style={{ position: "absolute", top: 10, left: 10, zIndex: 2 }}>
-                        <UnlockBadge text="Owned" accent="#4CAF50" />
-                      </div>
-                    )}
+                    <div style={{ position: "absolute", top: 10, left: 10, zIndex: 2 }}>
+                      <UnlockBadge text={owned ? "Owned" : banner.unlock} accent={owned ? "#4CAF50" : accent} />
+                    </div>
                   </div>
-
                   <div style={{ padding: 24 }}>
-                    <div style={{ fontFamily: t.fontDisplay, fontSize: 22, fontWeight: 900, color: "#fff", letterSpacing: "0.04em", marginBottom: 6 }}>
-                      {banner.label}
-                    </div>
+                    <div style={{ fontFamily: t.fontDisplay, fontSize: 22, fontWeight: 900, color: "#fff", letterSpacing: "0.04em", marginBottom: 6 }}>{banner.label}</div>
                     <div style={{ fontFamily: t.fontBody, fontSize: 13, color: "rgba(255,255,255,0.74)", fontStyle: "italic", marginBottom: 16, display: "flex", alignItems: "center", gap: 6 }}>
-                      {banner.unlock === "Free" ? "Free to unlock" : (
-                        <>
-                          <span>Unlock for {price.toLocaleString()}</span>
-                          <ProtoSVG size={12} />
-                        </>
-                      )}
+                      {banner.unlock === "Free" ? "Free to unlock" : (<><span>Unlock for {price.toLocaleString()}</span><ProtoSVG size={12} /></>)}
                     </div>
-
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
                       {owned ? (
-                        <div style={{ fontFamily: t.fontMono, fontSize: 12, fontWeight: 900, color: "#4CAF50", letterSpacing: "0.06em" }}>
-                          OWNED
-                        </div>
+                        <div style={{ fontFamily: t.fontMono, fontSize: 12, fontWeight: 900, color: "#4CAF50", letterSpacing: "0.06em" }}>OWNED</div>
                       ) : (
-                        <div style={{ fontFamily: t.fontMono, fontSize: 12, fontWeight: 900, color: accent, letterSpacing: "0.06em", display: "inline-flex", alignItems: "center", gap: 6 }}>
-                          <span>{price.toLocaleString()}</span>
-                          <ProtoSVG size={16} />
-                        </div>
+                        <div style={{ fontFamily: t.fontMono, fontSize: 12, fontWeight: 900, color: accent, letterSpacing: "0.06em", display: "inline-flex", alignItems: "center", gap: 6 }}><span>{price.toLocaleString()}</span><ProtoSVG size={16} /></div>
                       )}
-
                       {owned ? (
-                        <button
-                          disabled
-                          style={{
-                            background: "rgba(255,255,255,0.06)",
-                            border: `1px solid rgba(255,255,255,0.14)`,
-                            borderRadius: 10,
-                            padding: "10px 14px",
-                            fontFamily: t.fontDisplay,
-                            fontSize: 12,
-                            fontWeight: 900,
-                            color: "rgba(255,255,255,0.65)",
-                            cursor: "not-allowed",
-                          }}
-                        >
-                          ✓
-                        </button>
+                        <button disabled style={{ background: "rgba(255,255,255,0.06)", border: `1px solid rgba(255,255,255,0.14)`, borderRadius: 10, padding: "10px 14px", fontFamily: t.fontDisplay, fontSize: 12, fontWeight: 900, color: "rgba(255,255,255,0.65)", cursor: "not-allowed" }}>✓</button>
                       ) : isGuest ? (
-                        <button
-                          onClick={() => setScreenAction("auth")}
-                          style={{
-                            background: accent,
-                            border: "none",
-                            borderRadius: 10,
-                            padding: "10px 14px",
-                            fontFamily: t.fontDisplay,
-                            fontSize: 12,
-                            fontWeight: 900,
-                            color: "#000",
-                            cursor: "pointer",
-                            whiteSpace: "nowrap" as const,
-                          }}
-                        >
-                          SIGN IN
-                        </button>
+                        <button onClick={() => setScreenAction("auth")} style={{ background: accent, border: "none", borderRadius: 10, padding: "10px 14px", fontFamily: t.fontDisplay, fontSize: 12, fontWeight: 900, color: "#000", cursor: "pointer", whiteSpace: "nowrap" as const }}>SIGN IN</button>
                       ) : (
-                        <button
-                          onClick={() => handleBuyCosmetic(banner.id, price, `${banner.label} Banner`)}
-                          disabled={price <= 0}
-                          style={{
-                            background: accent,
-                            border: "none",
-                            borderRadius: 10,
-                            padding: "10px 14px",
-                            fontFamily: t.fontDisplay,
-                            fontSize: 12,
-                            fontWeight: 900,
-                            color: "#000",
-                            cursor: price <= 0 ? "not-allowed" : "pointer",
-                            whiteSpace: "nowrap" as const,
-                            opacity: price <= 0 ? 0.7 : 1,
-                          }}
-                        >
+                        <button onClick={() => handleBuyCosmetic(banner.id, price, `${banner.label} Banner`)} disabled={price <= 0} style={{ background: accent, border: "none", borderRadius: 10, padding: "10px 14px", fontFamily: t.fontDisplay, fontSize: 12, fontWeight: 900, color: "#000", cursor: price <= 0 ? "not-allowed" : "pointer", whiteSpace: "nowrap" as const, opacity: price <= 0 ? 0.7 : 1 }}>
                           {price <= 0 ? "UNAVAILABLE" : "UNLOCK"}
                         </button>
                       )}
@@ -1608,11 +1232,7 @@ export default function StoreScreen({ setScreenAction, themeId }: Props) {
             <button onClick={() => setShowBuyModal(false)} style={{ position: "absolute", top: 16, right: 16, background: `${t.border}44`, border: "none", borderRadius: 8, color: t.textMuted, width: 32, height: 32, cursor: "pointer", fontSize: 16, display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
             <div style={{ fontFamily: t.fontMono, fontSize: 11, color: buyCurrencyType === "shards" ? "#4FC3F7" : accent, letterSpacing: "0.25em", marginBottom: 8 }}>PROTOCOL STORE</div>
             <div style={{ fontFamily: t.fontDisplay, fontSize: 28, fontWeight: 900, color: t.text, marginBottom: 4 }}>
-              {buyCurrencyType === "shards" ? (
-                <>BUY PENTA<span style={{ color: "#4FC3F7" }}>SHARDS</span></>
-              ) : (
-                <>BUY PROTO<span style={{ color: accent }}>CREDITS</span></>
-              )}
+              {buyCurrencyType === "shards" ? (<>BUY PENTA<span style={{ color: "#4FC3F7" }}>SHARDS</span></>) : (<>BUY PROTO<span style={{ color: accent }}>CREDITS</span></>)}
             </div>
             <div style={{ fontFamily: t.fontBody, fontSize: 13, color: t.textMuted, marginBottom: 24 }}>
               {buyCurrencyType === "shards" ? "Use PentaShards for shard-based progression rewards." : "Use ProtoCredits to unlock cosmetics and exclusive content."}
@@ -1626,8 +1246,8 @@ export default function StoreScreen({ setScreenAction, themeId }: Props) {
                     {p.popular && <div style={{ position: "absolute", top: -9, left: "50%", transform: "translateX(-50%)", background: buyCurrencyType === "shards" ? "#4FC3F7" : accent, color: "#000", fontFamily: t.fontMono, fontSize: 9, fontWeight: 800, padding: "2px 10px", borderRadius: 20, letterSpacing: "0.12em", whiteSpace: "nowrap" as const }}>POPULAR</div>}
                     <div style={{ fontFamily: t.fontMono, fontSize: 10, color: isSel ? (buyCurrencyType === "shards" ? "#4FC3F7" : accent) : t.textMuted, letterSpacing: "0.18em", marginBottom: 6 }}>{p.label}</div>
                     <div style={{ fontFamily: t.fontDisplay, fontSize: 28, fontWeight: 900, color: isSel ? (buyCurrencyType === "shards" ? "#4FC3F7" : accent) : t.text, lineHeight: 1, marginBottom: 2 }}>{p.credits.toLocaleString()}</div>
-                    {showStoreBonusForPack(p.id, p.bonus) && <div style={{ fontFamily: t.fontBody, fontSize: 11, color: "#4CAF50", marginBottom: 6 }}>+{p.bonus} bonus (once)</div>}
-                    {(p.bonus === 0 || !showStoreBonusForPack(p.id, p.bonus)) && <div style={{ marginBottom: 14 }} />}
+                    {p.bonus > 0 && <div style={{ fontFamily: t.fontBody, fontSize: 11, color: "#4CAF50", marginBottom: 6 }}>+{p.bonus} bonus</div>}
+                    {p.bonus === 0 && <div style={{ marginBottom: 14 }} />}
                     <div style={{ height: 1, background: isSel ? `${buyCurrencyType === "shards" ? "#4FC3F7" : accent}33` : t.border, marginBottom: 10 }} />
                     <div style={{ fontFamily: t.fontDisplay, fontSize: 20, fontWeight: 800, color: isSel ? (buyCurrencyType === "shards" ? "#4FC3F7" : accent) : t.text }}>₹{p.price}</div>
                     <div style={{ fontFamily: t.fontBody, fontSize: 11, color: t.textMuted }}>{p.desc}</div>
@@ -1639,35 +1259,40 @@ export default function StoreScreen({ setScreenAction, themeId }: Props) {
             <div style={{ background: t.bgPanel || t.bgCard, border: `1px solid ${t.border}`, borderRadius: 12, padding: "16px 18px", marginBottom: 16 }}>
               <div style={{ fontFamily: t.fontMono, fontSize: 10, color: t.textMuted, letterSpacing: "0.18em", marginBottom: 12 }}>ORDER SUMMARY</div>
               <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}><span style={{ fontFamily: t.fontBody, fontSize: 13, color: t.textMuted }}>{pkg.label} Package</span><span style={{ fontFamily: t.fontMono, fontSize: 13, color: t.text }}>₹{pkg.price}</span></div>
-              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: orderSummaryBonusVisible ? 8 : 0 }}><span style={{ fontFamily: t.fontBody, fontSize: 13, color: t.textMuted }}>{buyCurrencyType === "shards" ? "PentaShards" : "ProtoCredits"}</span><span style={{ fontFamily: t.fontMono, fontSize: 13, color: buyCurrencyType === "shards" ? "#4FC3F7" : accent }}>{pkg.credits.toLocaleString()}</span></div>
-              {orderSummaryBonusVisible && (
-                <>
-                  <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ fontFamily: t.fontBody, fontSize: 13, color: "#4CAF50" }}>Bonus {buyCurrencyType === "shards" ? "shards" : "credits"} (1st purchase)</span><span style={{ fontFamily: t.fontMono, fontSize: 13, color: "#4CAF50" }}>+{pkg.bonus}</span></div>
-                  <div style={{ fontFamily: t.fontBody, fontSize: 11, color: t.textMuted, marginTop: 6, lineHeight: 1.4 }}>Bonus applies only the first time you buy this pack (ProtoCredits and PentaShards tracked separately).</div>
-                </>
-              )}
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: pkg.bonus > 0 ? 8 : 0 }}><span style={{ fontFamily: t.fontBody, fontSize: 13, color: t.textMuted }}>{buyCurrencyType === "shards" ? "PentaShards" : "ProtoCredits"}</span><span style={{ fontFamily: t.fontMono, fontSize: 13, color: buyCurrencyType === "shards" ? "#4FC3F7" : accent }}>{pkg.credits.toLocaleString()}</span></div>
+              {pkg.bonus > 0 && <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ fontFamily: t.fontBody, fontSize: 13, color: "#4CAF50" }}>Bonus Credits</span><span style={{ fontFamily: t.fontMono, fontSize: 13, color: "#4CAF50" }}>+{pkg.bonus}</span></div>}
               <div style={{ height: 1, background: t.border, margin: "12px 0" }} />
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <span style={{ fontFamily: t.fontDisplay, fontSize: 14, fontWeight: 700, color: t.text }}>Total</span>
                 <div style={{ textAlign: "right" as const }}>
                   <div style={{ fontFamily: t.fontDisplay, fontSize: 20, fontWeight: 900, color: buyCurrencyType === "shards" ? "#4FC3F7" : accent }}>₹{pkg.price}</div>
-                  <div style={{ fontFamily: t.fontMono, fontSize: 10, color: t.textMuted }}>
-                    {orderSummaryBonusVisible
-                      ? <>Up to {(pkg.credits + pkg.bonus).toLocaleString()} {buyCurrencyType === "shards" ? "shards" : "credits"} (incl. one-time bonus)</>
-                      : <>{pkg.credits.toLocaleString()} {buyCurrencyType === "shards" ? "shards" : "credits"}</>}
-                  </div>
+                  <div style={{ fontFamily: t.fontMono, fontSize: 10, color: t.textMuted }}>{pkg.credits + pkg.bonus} {buyCurrencyType === "shards" ? "shards" : "credits"}</div>
                 </div>
               </div>
             </div>
             {msg && <div style={{ background: msg.ok ? "#4CAF5014" : `${t.danger}14`, border: `1px solid ${msg.ok ? "#4CAF50" : t.danger}`, borderRadius: 8, padding: "9px 14px", marginBottom: 12, fontFamily: t.fontBody, fontSize: 13, color: msg.ok ? "#4CAF50" : t.danger }}>{msg.text}</div>}
-            <button onClick={handleBuy} disabled={loading} className="store-buy-btn"
-              style={{ width: "100%", padding: "14px", background: loading ? `${buyCurrencyType === "shards" ? "#4FC3F7" : accent}55` : (buyCurrencyType === "shards" ? "#4FC3F7" : accent), border: "none", borderRadius: 10, color: "#000", fontFamily: t.fontDisplay, fontSize: 15, fontWeight: 900, cursor: loading ? "not-allowed" : "pointer", letterSpacing: "0.06em", boxShadow: loading ? "none" : `0 0 24px ${buyCurrencyType === "shards" ? "#4FC3F7" : accent}44` }}>
-              {loading ? "Redirecting to payment…" : `PAY ₹${pkg.price} · SECURE CHECKOUT`}
+            {/* ── Payment method label ── */}
+            <div style={{ fontFamily: t.fontMono, fontSize: 10, color: t.textMuted, letterSpacing: "0.18em", marginBottom: 10 }}>CHOOSE PAYMENT METHOD</div>
+
+            {/* ── PayPal button (live) ── */}
+            <button onClick={handleBuyPayPal} disabled={loading} className="store-buy-btn"
+              style={{ width: "100%", padding: "14px", background: loading ? "#00308788" : "#003087", border: "2px solid #003087", borderRadius: 10, color: "#fff", fontFamily: t.fontDisplay, fontSize: 15, fontWeight: 900, cursor: loading ? "not-allowed" : "pointer", letterSpacing: "0.06em", boxShadow: loading ? "none" : "0 0 24px rgba(0,48,135,0.5)", marginBottom: 10, display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="#fff" xmlns="http://www.w3.org/2000/svg"><path d="M20.067 8.478c.492.315.844.825.983 1.39C21.6 12.525 20.2 15 17.5 15H15l-.8 4H10l2.5-13H17c1.657 0 2.757.693 3.067 2.478z" opacity=".6"/><path d="M7 5h7c1.657 0 2.757.693 3.067 2.478.492.315.844.825.983 1.39C18.6 11.525 17.2 14 14.5 14H12l-.8 4H7l2.5-13z"/></svg>
+              {loading ? "Redirecting to PayPal…" : `PAY $${(buyCurrencyType === "shards" ? SHARD_PACKAGES_USD : PACKAGES_USD).find(p => p.id === pkg.id)?.usdPrice.toFixed(2) ?? pkg.price} · PAY WITH PAYPAL`}
             </button>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 16, marginTop: 12 }}>
-              {["Card", "UPI", "Net Banking", "Wallet"].map(m => <span key={m} style={{ fontFamily: t.fontBody, fontSize: 11, color: t.textMuted }}>{m}</span>)}
+
+            {/* ── Instamojo button (coming soon — KYC under review) ── */}
+            <button disabled
+              style={{ width: "100%", padding: "14px", background: "rgba(255,255,255,0.03)", border: `1px solid ${t.border}`, borderRadius: 10, color: t.textMuted, fontFamily: t.fontDisplay, fontSize: 14, fontWeight: 700, cursor: "not-allowed", letterSpacing: "0.06em", opacity: 0.45, marginBottom: 6 }}>
+              PAY ₹{pkg.price} WITH INSTAMOJO
+            </button>
+            <div style={{ textAlign: "center" as const, fontFamily: t.fontMono, fontSize: 10, color: t.textMuted, letterSpacing: "0.08em", marginBottom: 12 }}>
+              🕐 INSTAMOJO · INDIA PAYMENTS · COMING SOON
             </div>
-            <div style={{ fontFamily: t.fontBody, fontSize: 11, color: t.textMuted, textAlign: "center" as const, marginTop: 14, lineHeight: 1.6 }}>Secure payments via Instamojo. {buyCurrencyType === "shards" ? "PentaShards" : "ProtoCredits"} are non-refundable.</div>
+
+            <div style={{ fontFamily: t.fontBody, fontSize: 11, color: t.textMuted, textAlign: "center" as const, marginTop: 4, lineHeight: 1.6 }}>
+              PayPal accepts cards &amp; wallets worldwide. {buyCurrencyType === "shards" ? "PentaShards" : "ProtoCredits"} are non-refundable.
+            </div>
           </div>
         </div>
       )}
@@ -1681,27 +1306,18 @@ export default function StoreScreen({ setScreenAction, themeId }: Props) {
             <div style={{ display: "inline-block", padding: "10px 24px", background: `${accent}14`, border: `1px solid ${accent}44`, borderRadius: 12, marginBottom: 36 }}>
               <div style={{ fontFamily: t.fontMono, fontSize: 22, fontWeight: 700, color: accent, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
                 {confirmBuy.price.toLocaleString()} <ProtoSVG size={22} />
-                {(confirmBuy.shardPrice ?? 0) > 0 && (
-                  <>
-                    <span style={{ color: t.textMuted }}>+</span>
-                    {confirmBuy.shardPrice?.toLocaleString()} <ShardSVG size={22} />
-                  </>
-                )}
+                {(confirmBuy.shardPrice ?? 0) > 0 && (<><span style={{ color: t.textMuted }}>+</span>{confirmBuy.shardPrice?.toLocaleString()} <ShardSVG size={22} /></>)}
               </div>
             </div>
             <div style={{ display: "flex", gap: 14 }}>
-              <button
-                onClick={() => setConfirmBuy(null)}
+              <button onClick={() => setConfirmBuy(null)}
                 style={{ flex: 1, padding: "14px", background: "rgba(255,255,255,0.05)", border: `1px solid ${t.border}`, borderRadius: 10, color: t.text, fontFamily: t.fontDisplay, fontSize: 14, fontWeight: 700, cursor: "pointer", transition: "all 0.2s" }}
                 onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,255,255,0.08)"; }}
-                onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.05)"; }}
-              >CANCEL</button>
-              <button
-                onClick={proceedBuyCosmetic}
+                onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.05)"; }}>CANCEL</button>
+              <button onClick={proceedBuyCosmetic}
                 style={{ flex: 1, padding: "14px", background: accent, border: "none", borderRadius: 10, color: "#000", fontFamily: t.fontDisplay, fontSize: 14, fontWeight: 900, cursor: "pointer", boxShadow: `0 0 20px ${accent}44`, transition: "all 0.2s" }}
                 onMouseEnter={e => { e.currentTarget.style.filter = "brightness(1.15)"; e.currentTarget.style.transform = "translateY(-1px)"; }}
-                onMouseLeave={e => { e.currentTarget.style.filter = "none"; e.currentTarget.style.transform = "none"; }}
-              >CONFIRM</button>
+                onMouseLeave={e => { e.currentTarget.style.filter = "none"; e.currentTarget.style.transform = "none"; }}>CONFIRM</button>
             </div>
           </div>
         </div>
