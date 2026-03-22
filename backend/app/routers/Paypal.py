@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 from app.core.database import get_db_dep
-from app.routers.auth import get_current_user
+from .auth import get_current_user
 from bson import ObjectId
 import os, aiohttp, base64, json
 
