@@ -173,8 +173,6 @@ export default function RedGrid({ board, onCellClickAction, winCells = [], showL
               {cell && (
                 <RedPiece
                   player={cell}
-                  p1Symbol={p1Symbol}
-                  p2Symbol={p2Symbol}
                   win={isWin}
                 />
               )}
