@@ -40,6 +40,21 @@ import InfernoBanner from "./InfernoBanner";
 
 // Payment: Instamojo (redirect-based — no global JS SDK needed)
 
+function InteractivePreview({ Grid, gridProps }: { Grid: React.ComponentType<any>; gridProps?: Record<string, any> }) {
+  const [board, setBoard] = useState<(("X" | "O") | null)[][]>(() =>
+    Array(5).fill(null).map(() => Array(5).fill(null))
+  );
+  const turnRef = useRef<"X" | "O">("X");
+  const handleClick = (r: number, c: number) => {
+    if (board[r][c]) return;
+    const nb = board.map(row => [...row]);
+    nb[r][c] = turnRef.current;
+    turnRef.current = turnRef.current === "X" ? "O" : "X";
+    setBoard(nb);
+  };
+  return <Grid board={board} onCellClickAction={handleClick} {...gridProps} />;
+}
+
 interface Props {
   setScreenAction: (s: Screen) => void;
   themeId: ThemeId;
@@ -342,7 +357,7 @@ function BundleAnimatedPreview({ bundle, tick }: { bundle: Bundle; tick: number 
     return (
       <div style={{ width: "100%", height: 360, background: "linear-gradient(135deg,rgba(3,10,22,0.99),rgba(2,8,18,0.99))", borderRadius: 12, border: "2px solid rgba(125,211,252,0.35)", boxShadow: "0 0 56px rgba(80,170,255,0.14), inset 0 0 44px rgba(0,0,0,0.74)", position: "relative", overflow: "hidden" }}>
         <div style={{ position: "absolute", inset: 0, pointerEvents: "none" }}><GlacierAurora /><GlacierSnow count={20} /></div>
-        <div style={{ position: "absolute", left: "50%", top: 10, transform: "translateX(-50%) scale(0.6)", transformOrigin: "top center" }}><GlacierGrid /></div>
+        <div style={{ position: "absolute", left: "50%", top: 10, transform: "translateX(-50%) scale(0.6)", transformOrigin: "top center" }}><InteractivePreview Grid={GlacierGrid} /></div>
         <div style={{ position: "absolute", top: 8, left: 12, fontFamily: "monospace", fontSize: 9, color: "rgba(170,230,255,0.72)", letterSpacing: "0.18em", zIndex: 10, pointerEvents: "none" }}>{bundle.boardLabel.toUpperCase()}</div>
         <div style={{ position: "absolute", bottom: 8, right: 12, fontFamily: "monospace", fontSize: 9, color: "rgba(130,210,255,0.65)", letterSpacing: "0.1em", zIndex: 10, pointerEvents: "none" }}>LIVE PREVIEW</div>
       </div>
@@ -351,7 +366,7 @@ function BundleAnimatedPreview({ bundle, tick }: { bundle: Bundle; tick: number 
   if (bundle.previewKind === "bloodmoon") {
     return (
       <div style={{ width: "100%", height: 360, background: "linear-gradient(135deg,rgba(10,0,0,0.99),rgba(20,0,8,0.99))", borderRadius: 12, border: "2px solid rgba(220,38,38,0.35)", boxShadow: "0 0 56px rgba(220,38,38,0.14), inset 0 0 44px rgba(0,0,0,0.74)", position: "relative", overflow: "hidden" }}>
-        <div style={{ position: "absolute", left: "50%", top: "50%", transform: "translate(-50%,-50%)" }}><BloodMoonGrid showLabels={false} cellSize={56} /></div>
+        <div style={{ position: "absolute", left: "50%", top: "50%", transform: "translate(-50%,-50%)" }}><InteractivePreview Grid={BloodMoonGrid} gridProps={{ showLabels: false }} /></div>
         <div style={{ position: "absolute", top: 8, left: 12, fontFamily: "monospace", fontSize: 9, color: "rgba(255,120,120,0.68)", letterSpacing: "0.18em", zIndex: 10, pointerEvents: "none" }}>{bundle.boardLabel.toUpperCase()}</div>
         <div style={{ position: "absolute", bottom: 8, right: 12, fontFamily: "monospace", fontSize: 9, color: "rgba(220,140,255,0.55)", letterSpacing: "0.1em", zIndex: 10, pointerEvents: "none" }}>LIVE PREVIEW</div>
       </div>
@@ -360,7 +375,7 @@ function BundleAnimatedPreview({ bundle, tick }: { bundle: Bundle; tick: number 
   if (bundle.previewKind === "egypt") {
     return (
       <div style={{ width: "100%", height: 360, background: "linear-gradient(135deg,rgba(7,4,0,0.99),rgba(14,7,0,0.99))", borderRadius: 12, border: "2px solid rgba(245,158,11,0.35)", boxShadow: "0 0 56px rgba(245,158,11,0.14), inset 0 0 44px rgba(0,0,0,0.74)", position: "relative", overflow: "hidden" }}>
-        <div style={{ position: "absolute", left: "50%", top: "50%", transform: "translate(-50%,-50%)" }}><EgyptGrid showLabels={false} cellSize={56} /></div>
+        <div style={{ position: "absolute", left: "50%", top: "50%", transform: "translate(-50%,-50%)" }}><InteractivePreview Grid={EgyptGrid} gridProps={{ showLabels: false }} /></div>
         <div style={{ position: "absolute", top: 8, left: 12, fontFamily: "monospace", fontSize: 9, color: "rgba(255,210,120,0.7)", letterSpacing: "0.18em", zIndex: 10, pointerEvents: "none" }}>{bundle.boardLabel.toUpperCase()}</div>
         <div style={{ position: "absolute", bottom: 8, right: 12, fontFamily: "monospace", fontSize: 9, color: "rgba(255,230,160,0.55)", letterSpacing: "0.1em", zIndex: 10, pointerEvents: "none" }}>LIVE PREVIEW</div>
       </div>
@@ -369,7 +384,7 @@ function BundleAnimatedPreview({ bundle, tick }: { bundle: Bundle; tick: number 
   if (bundle.previewKind === "synthwave") {
     return (
       <div style={{ width: "100%", height: 360, background: "linear-gradient(135deg,rgba(10,0,42,0.99),rgba(204,32,96,0.92))", borderRadius: 12, border: "2px solid rgba(255,0,180,0.35)", boxShadow: "0 0 56px rgba(255,0,180,0.14), inset 0 0 44px rgba(0,0,0,0.74)", position: "relative", overflow: "hidden" }}>
-        <div style={{ position: "absolute", left: "50%", top: "50%", transform: "translate(-50%,-50%)" }}><SynthwaveGrid showLabels={false} cellSize={56} /></div>
+        <div style={{ position: "absolute", left: "50%", top: "50%", transform: "translate(-50%,-50%)" }}><InteractivePreview Grid={SynthwaveGrid} gridProps={{ showLabels: false }} /></div>
         <div style={{ position: "absolute", top: 8, left: 12, fontFamily: "monospace", fontSize: 9, color: "rgba(255,120,220,0.75)", letterSpacing: "0.18em", zIndex: 10, pointerEvents: "none" }}>{bundle.boardLabel.toUpperCase()}</div>
         <div style={{ position: "absolute", bottom: 8, right: 12, fontFamily: "monospace", fontSize: 9, color: "rgba(140,240,255,0.6)", letterSpacing: "0.1em", zIndex: 10, pointerEvents: "none" }}>LIVE PREVIEW</div>
       </div>
@@ -378,7 +393,7 @@ function BundleAnimatedPreview({ bundle, tick }: { bundle: Bundle; tick: number 
   if (bundle.previewKind === "matrix") {
     return (
       <div style={{ width: "100%", height: 360, background: "linear-gradient(135deg,rgba(0,3,0,0.99),rgba(0,16,0,0.92))", borderRadius: 12, border: "2px solid rgba(0,255,65,0.35)", boxShadow: "0 0 56px rgba(0,255,65,0.14), inset 0 0 44px rgba(0,0,0,0.74)", position: "relative", overflow: "hidden" }}>
-        <div style={{ position: "absolute", left: "50%", top: "50%", transform: "translate(-50%,-50%)" }}><MatrixGrid showLabels={false} cellSize={56} /></div>
+        <div style={{ position: "absolute", left: "50%", top: "50%", transform: "translate(-50%,-50%)" }}><InteractivePreview Grid={MatrixGrid} gridProps={{ showLabels: false }} /></div>
         <div style={{ position: "absolute", top: 8, left: 12, fontFamily: "monospace", fontSize: 9, color: "rgba(150,255,150,0.7)", letterSpacing: "0.18em", zIndex: 10, pointerEvents: "none" }}>{bundle.boardLabel.toUpperCase()}</div>
         <div style={{ position: "absolute", bottom: 8, right: 12, fontFamily: "monospace", fontSize: 9, color: "rgba(0,255,65,0.55)", letterSpacing: "0.1em", zIndex: 10, pointerEvents: "none" }}>LIVE PREVIEW</div>
       </div>
@@ -387,7 +402,7 @@ function BundleAnimatedPreview({ bundle, tick }: { bundle: Bundle; tick: number 
   if (bundle.previewKind === "arcane") {
     return (
       <div style={{ width: "100%", height: 360, background: "linear-gradient(135deg,rgba(10,0,18,0.99),rgba(3,0,4,0.96))", borderRadius: 12, border: "2px solid rgba(168,85,247,0.35)", boxShadow: "0 0 56px rgba(168,85,247,0.14), inset 0 0 44px rgba(0,0,0,0.74)", position: "relative", overflow: "hidden" }}>
-        <div style={{ position: "absolute", left: "50%", top: "50%", transform: "translate(-50%,-50%)" }}><ArcaneGrid showLabels={false} cellSize={56} /></div>
+        <div style={{ position: "absolute", left: "50%", top: "50%", transform: "translate(-50%,-50%)" }}><InteractivePreview Grid={ArcaneGrid} gridProps={{ showLabels: false }} /></div>
         <div style={{ position: "absolute", top: 8, left: 12, fontFamily: "monospace", fontSize: 9, color: "rgba(220,170,255,0.72)", letterSpacing: "0.18em", zIndex: 10, pointerEvents: "none" }}>{bundle.boardLabel.toUpperCase()}</div>
         <div style={{ position: "absolute", bottom: 8, right: 12, fontFamily: "monospace", fontSize: 9, color: "rgba(255,220,140,0.55)", letterSpacing: "0.1em", zIndex: 10, pointerEvents: "none" }}>LIVE PREVIEW</div>
       </div>
@@ -396,7 +411,7 @@ function BundleAnimatedPreview({ bundle, tick }: { bundle: Bundle; tick: number 
   if (bundle.previewKind === "bio") {
     return (
       <div style={{ width: "100%", height: 360, background: "linear-gradient(135deg,rgba(0,10,15,0.99),rgba(0,3,4,0.96))", borderRadius: 12, border: "2px solid rgba(0,255,208,0.32)", boxShadow: "0 0 56px rgba(0,255,208,0.12), inset 0 0 44px rgba(0,0,0,0.78)", position: "relative", overflow: "hidden" }}>
-        <div style={{ position: "absolute", left: "50%", top: "50%", transform: "translate(-50%,-50%)" }}><BioGrid showLabels={false} cellSize={56} /></div>
+        <div style={{ position: "absolute", left: "50%", top: "50%", transform: "translate(-50%,-50%)" }}><InteractivePreview Grid={BioGrid} gridProps={{ showLabels: false }} /></div>
         <div style={{ position: "absolute", top: 8, left: 12, fontFamily: "monospace", fontSize: 9, color: "rgba(140,255,230,0.70)", letterSpacing: "0.18em", zIndex: 10, pointerEvents: "none" }}>{bundle.boardLabel.toUpperCase()}</div>
         <div style={{ position: "absolute", bottom: 8, right: 12, fontFamily: "monospace", fontSize: 9, color: "rgba(190,140,255,0.55)", letterSpacing: "0.1em", zIndex: 10, pointerEvents: "none" }}>LIVE PREVIEW</div>
       </div>
@@ -405,7 +420,7 @@ function BundleAnimatedPreview({ bundle, tick }: { bundle: Bundle; tick: number 
   if (bundle.previewKind === "forge") {
     return (
       <div style={{ width: "100%", height: 360, background: "linear-gradient(135deg,rgba(10,2,0,0.99),rgba(8,1,0,0.98))", borderRadius: 12, border: "2px solid rgba(255,102,0,0.30)", boxShadow: "0 0 56px rgba(255,102,0,0.16), inset 0 0 44px rgba(0,0,0,0.72)", position: "relative", overflow: "hidden" }}>
-        <div style={{ position: "absolute", left: "50%", top: "50%", transform: "translate(-50%,-50%)" }}><ForgeGrid showLabels={false} cellSize={56} /></div>
+        <div style={{ position: "absolute", left: "50%", top: "50%", transform: "translate(-50%,-50%)" }}><InteractivePreview Grid={ForgeGrid} gridProps={{ showLabels: false }} /></div>
         <div style={{ position: "absolute", top: 8, left: 12, fontFamily: "monospace", fontSize: 9, color: "rgba(255,180,120,0.72)", letterSpacing: "0.18em", zIndex: 10, pointerEvents: "none" }}>{bundle.boardLabel.toUpperCase()}</div>
         <div style={{ position: "absolute", bottom: 8, right: 12, fontFamily: "monospace", fontSize: 9, color: "rgba(255,220,140,0.55)", letterSpacing: "0.1em", zIndex: 10, pointerEvents: "none" }}>LIVE PREVIEW</div>
       </div>
@@ -414,7 +429,7 @@ function BundleAnimatedPreview({ bundle, tick }: { bundle: Bundle; tick: number 
   if (bundle.previewKind === "void") {
     return (
       <div style={{ width: "100%", height: 360, background: "linear-gradient(135deg,rgba(4,1,26,0.99),rgba(0,0,8,0.98))", borderRadius: 12, border: "2px solid rgba(139,92,246,0.30)", boxShadow: "0 0 56px rgba(139,92,246,0.16), inset 0 0 44px rgba(0,0,0,0.74)", position: "relative", overflow: "hidden" }}>
-        <div style={{ position: "absolute", left: "50%", top: "50%", transform: "translate(-50%,-50%)" }}><VoidGrid showLabels={false} cellSize={56} /></div>
+        <div style={{ position: "absolute", left: "50%", top: "50%", transform: "translate(-50%,-50%)" }}><InteractivePreview Grid={VoidGrid} gridProps={{ showLabels: false }} /></div>
         <div style={{ position: "absolute", top: 8, left: 12, fontFamily: "monospace", fontSize: 9, color: "rgba(200,170,255,0.70)", letterSpacing: "0.18em", zIndex: 10, pointerEvents: "none" }}>{bundle.boardLabel.toUpperCase()}</div>
         <div style={{ position: "absolute", bottom: 8, right: 12, fontFamily: "monospace", fontSize: 9, color: "rgba(180,220,255,0.55)", letterSpacing: "0.1em", zIndex: 10, pointerEvents: "none" }}>LIVE PREVIEW</div>
       </div>
@@ -423,7 +438,7 @@ function BundleAnimatedPreview({ bundle, tick }: { bundle: Bundle; tick: number 
   if (bundle.previewKind === "space") {
     return (
       <div style={{ width: "100%", height: 360, background: "linear-gradient(135deg,rgba(2,4,16,0.99),rgba(13,27,59,0.98))", borderRadius: 12, border: "2px solid rgba(0,200,255,0.30)", boxShadow: "0 0 56px rgba(0,200,255,0.14), inset 0 0 44px rgba(0,0,0,0.74)", position: "relative", overflow: "hidden" }}>
-        <div style={{ position: "absolute", left: "50%", top: "50%", transform: "translate(-50%,-50%)" }}><SpaceGrid showLabels={false} cellSize={56} /></div>
+        <div style={{ position: "absolute", left: "50%", top: "50%", transform: "translate(-50%,-50%)" }}><InteractivePreview Grid={SpaceGrid} gridProps={{ showLabels: false }} /></div>
         <div style={{ position: "absolute", top: 8, left: 12, fontFamily: "monospace", fontSize: 9, color: "rgba(150,220,255,0.70)", letterSpacing: "0.18em", zIndex: 10, pointerEvents: "none" }}>{bundle.boardLabel.toUpperCase()}</div>
         <div style={{ position: "absolute", bottom: 8, right: 12, fontFamily: "monospace", fontSize: 9, color: "rgba(255,200,120,0.55)", letterSpacing: "0.1em", zIndex: 10, pointerEvents: "none" }}>LIVE PREVIEW</div>
       </div>
@@ -432,7 +447,7 @@ function BundleAnimatedPreview({ bundle, tick }: { bundle: Bundle; tick: number 
   if (bundle.previewKind === "pixel") {
     return (
       <div style={{ width: "100%", height: 360, background: "linear-gradient(135deg,rgba(10,10,24,0.99),rgba(15,52,96,0.94))", borderRadius: 12, border: "2px solid rgba(255,221,0,0.32)", boxShadow: "0 0 56px rgba(255,180,0,0.12), inset 0 0 44px rgba(0,0,0,0.78)", position: "relative", overflow: "hidden" }}>
-        <div style={{ position: "absolute", left: "50%", top: "50%", transform: "translate(-50%,-50%) scale(1.0)" }}><PixelGrid showLabels={false} cellSize={56} /></div>
+        <div style={{ position: "absolute", left: "50%", top: "50%", transform: "translate(-50%,-50%) scale(1.0)" }}><InteractivePreview Grid={PixelGrid} gridProps={{ showLabels: false }} /></div>
         <div style={{ position: "absolute", top: 8, left: 12, fontFamily: "monospace", fontSize: 9, color: "rgba(255,221,0,0.75)", letterSpacing: "0.18em", zIndex: 10, pointerEvents: "none" }}>{bundle.boardLabel.toUpperCase()}</div>
         <div style={{ position: "absolute", bottom: 8, right: 12, fontFamily: "monospace", fontSize: 9, color: "rgba(255,120,0,0.55)", letterSpacing: "0.1em", zIndex: 10, pointerEvents: "none" }}>LIVE PREVIEW</div>
       </div>
@@ -441,7 +456,7 @@ function BundleAnimatedPreview({ bundle, tick }: { bundle: Bundle; tick: number 
   if (bundle.previewKind === "tokyo") {
     return (
       <div style={{ width: "100%", height: 360, background: "linear-gradient(135deg,rgba(4,0,8,0.99),rgba(3,0,8,0.98))", borderRadius: 12, border: "2px solid rgba(255,0,102,0.30)", boxShadow: "0 0 56px rgba(255,0,102,0.16), inset 0 0 44px rgba(0,0,0,0.74)", position: "relative", overflow: "hidden" }}>
-        <div style={{ position: "absolute", left: "50%", top: "50%", transform: "translate(-50%,-50%)" }}><TokyoGrid showLabels={false} cellSize={56} /></div>
+        <div style={{ position: "absolute", left: "50%", top: "50%", transform: "translate(-50%,-50%)" }}><InteractivePreview Grid={TokyoGrid} gridProps={{ showLabels: false }} /></div>
         <div style={{ position: "absolute", top: 8, left: 12, fontFamily: "monospace", fontSize: 9, color: "rgba(255,80,140,0.72)", letterSpacing: "0.18em", zIndex: 10, pointerEvents: "none" }}>{bundle.boardLabel.toUpperCase()}</div>
         <div style={{ position: "absolute", bottom: 8, right: 12, fontFamily: "monospace", fontSize: 9, color: "rgba(0,200,255,0.55)", letterSpacing: "0.1em", zIndex: 10, pointerEvents: "none" }}>LIVE PREVIEW</div>
       </div>
@@ -617,7 +632,7 @@ function ThemePreviewModal({ item, t, onClose }: { item: any; t: any; onClose: (
           <div style={{ fontFamily: t.fontBody, fontSize: 13, color: `${ac}cc`, fontStyle: "italic", marginBottom: 14 }}>{item.tagline}</div>
           <div style={{ width: "100%", borderRadius: 12, border: `2px solid ${ac}55`, boxShadow: `0 0 40px ${ac}25`, padding: 8, position: "relative", overflow: "hidden", background: "rgba(0,0,0,0.45)" }}>
             <div style={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: 320 }}>
-              {item.id === "space" ? <SpaceGrid showLabels={false} cellSize={56} /> : <PixelGrid showLabels={false} cellSize={56} />}
+              {item.id === "space" ? <InteractivePreview Grid={SpaceGrid} gridProps={{ showLabels: false }} /> : <InteractivePreview Grid={PixelGrid} gridProps={{ showLabels: false }} />}
             </div>
             <div style={{ position: "absolute", top: 8, left: 12, fontFamily: "monospace", fontSize: 9, color: `${ac}cc`, letterSpacing: "0.18em", zIndex: 10, pointerEvents: "none" }}>{String(item.boardLabel || "").toUpperCase()}</div>
             <div style={{ position: "absolute", bottom: 8, right: 12, fontFamily: "monospace", fontSize: 9, color: `${ac}aa`, letterSpacing: "0.1em", zIndex: 10, pointerEvents: "none" }}>INTERACTIVE PREVIEW</div>
@@ -944,7 +959,7 @@ export default function StoreScreen({ setScreenAction, themeId }: Props) {
   const activeThemePreview = openThemePreview ? STORE_THEMES.find(ti => ti.id === openThemePreview) : null;
 
   return (
-    <div style={{ ...cssVars, minHeight: "100vh", background: themeId === "space" ? "transparent" : t.bg, transition: "background 0.4s", paddingTop: 84, overflowY: "auto" }}>
+    <div style={{ ...cssVars, minHeight: "100vh", background: themeId === "space" ? "transparent" : t.bg, transition: "background 0.4s", paddingTop: 84, overflowY: "auto", position: "relative", zIndex: 2 }}>
       <style>{`
         .store-card { transition: transform 0.22s cubic-bezier(.22,.68,0,1.2), box-shadow 0.22s ease, border-color 0.18s ease; cursor: pointer; }
         .store-card:hover { transform: translateY(-4px) scale(1.02); }

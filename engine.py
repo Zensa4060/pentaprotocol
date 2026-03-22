@@ -2,27 +2,39 @@
 # Board logic only: deploy, turn switching, win delegation.
 # All pattern data lives in patterns.py.
 # All win checks live in win_checker.py.
+# Supports both 5×5 and 7×7 board modes.
 
-from patterns import generate_all_patterns
+from patterns import generate_all_patterns, generate_all_patterns_7
 from win_checker import (
     check_5_line,
+    check_7_line,
     check_structural_patterns,
     resolve_full_board,
+    resolve_full_board_7,
 )
 
 
 class GameEngine:
-
-    GRID_SIZE = 5
-    CENTER    = 2
 
     DIRECTIONS = [
         (-1,  0), (1,  0), (0, -1), (0, 1),
         (-1, -1), (-1, 1), (1, -1), (1, 1),
     ]
 
-    def __init__(self):
-        self.shiftable_patterns = generate_all_patterns()
+    def __init__(self, board_mode="5x5", selected_pattern_ids=None):
+        self.board_mode = board_mode
+
+        if board_mode == "7x7":
+            self.GRID_SIZE = 7
+            self.CENTER    = 3
+            self.shiftable_patterns = generate_all_patterns_7(selected_pattern_ids)
+            self.selected_pattern_ids = selected_pattern_ids or []
+        else:
+            self.GRID_SIZE = 5
+            self.CENTER    = 2
+            self.shiftable_patterns = generate_all_patterns()
+            self.selected_pattern_ids = None
+
         self.reset()
 
     # ================= RESET =================
@@ -63,12 +75,20 @@ class GameEngine:
                 return True
 
         # ===== WIN CHECKS =====
-        win, line = check_5_line(
-            self.board, row, col,
-            self.current_player,
-            self.DIRECTIONS,
-            self.GRID_SIZE,
-        )
+        if self.board_mode == "7x7":
+            win, line = check_7_line(
+                self.board, row, col,
+                self.current_player,
+                self.DIRECTIONS,
+                self.GRID_SIZE,
+            )
+        else:
+            win, line = check_5_line(
+                self.board, row, col,
+                self.current_player,
+                self.DIRECTIONS,
+                self.GRID_SIZE,
+            )
         if win:
             self.winner      = self.current_player
             self.winner_line = line
@@ -87,11 +107,18 @@ class GameEngine:
 
         # ===== FULL BOARD =====
         if self.moves_played == self.GRID_SIZE * self.GRID_SIZE:
-            result, line = resolve_full_board(
-                self.board,
-                self.DIRECTIONS,
-                self.GRID_SIZE,
-            )
+            if self.board_mode == "7x7":
+                result, line = resolve_full_board_7(
+                    self.board,
+                    self.DIRECTIONS,
+                    self.GRID_SIZE,
+                )
+            else:
+                result, line = resolve_full_board(
+                    self.board,
+                    self.DIRECTIONS,
+                    self.GRID_SIZE,
+                )
             self.winner      = result
             self.winner_line = line
             return True

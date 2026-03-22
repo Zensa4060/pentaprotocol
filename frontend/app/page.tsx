@@ -7,7 +7,7 @@ import { THEMES } from "@/lib/themes";
 import { censorText, containsProfanity } from "@/lib/profanity";
 import type { ThemeId } from "@/lib/themes";
 import type { Difficulty } from "@/lib/botEngine";
-import type { Screen, MatchupData } from "@/lib/types";
+import type { Screen, MatchupData, BoardMode } from "@/lib/types";
 import { loadCustomTheme, resolveCustomTheme } from "@/lib/customTheme";
 import HomeScreen       from "@/components/HomeScreen";
 import AuthScreen       from "@/components/AuthScreen";
@@ -16,6 +16,7 @@ import GameScreen       from "@/components/GameScreen";
 import ProfileScreen    from "@/components/ProfileScreen";
 import RulesScreen      from "@/components/RulesScreen";
 import AIScreen         from "@/components/AIScreen";
+import SingleplayerScreen from "@/components/SingleplayerScreen";
 import StoreScreen      from "@/components/Storescreen";
 import CollectionScreen from "@/components/CollectionScreen";
 import CareerScreen     from "@/components/CareerScreen";
@@ -39,6 +40,8 @@ export default function Page() {
   const [audioStarted, setAudioStarted] = useState(false);
   const [fadingOut, setFadingOut]       = useState(false);
   const [aiDifficulty, setAiDifficulty] = useState<Difficulty>("medium");
+  const [boardMode, setBoardMode] = useState<BoardMode>("5x5");
+  const [selectedPatterns, setSelectedPatterns] = useState<string[]>([]);
   const [multiRoomCode,   setMultiRoomCode]   = useState<string>("");
   const [multiPlayerSlot, setMultiPlayerSlot] = useState<"P1" | "P2" | null>(null);
   const [multiMatchup, setMultiMatchup]       = useState<MatchupData | null>(null);
@@ -466,7 +469,7 @@ export default function Page() {
       fontFamily: t.fontBody,
       transition: "background 0.6s ease, color 0.6s ease",
     }}>
-     {themeId === "space" && screen !== "home" && screen !== "store" && <SpaceBg />}
+     {themeId === "space" && screen !== "home" && <SpaceBg />}
       <div style={{
         position: "fixed", inset: 0, zIndex: 9998,
         background: "#000",
@@ -578,20 +581,23 @@ export default function Page() {
       )}
       {screen === "profile"    && <ProfileScreen    setScreenAction={handleSetScreen} themeId={themeId} onHoverAction={sfx.hover} onClickAction={sfx.click} />}
       {screen === "rules"      && <RulesScreen      themeId={themeId} onHoverAction={sfx.hover} onClickAction={sfx.click} />}
-      {screen === "ai"         && <AIScreen         setScreenAction={handleSetScreen} themeId={themeId} onSelectDifficultyAction={(d) => { sfx.click(); setAiDifficulty(d); handleSetScreen("aiGame"); }} onHoverAction={sfx.hover} />}
+      {screen === "ai"         && <AIScreen         setScreenAction={handleSetScreen} themeId={themeId} onSelectDifficultyAction={(d) => { sfx.click(); setAiDifficulty(d); handleSetScreen("aiGame"); }} onHoverAction={sfx.hover} onBoardModeAction={(mode, patterns) => { setBoardMode(mode); setSelectedPatterns(patterns || []); }} />}
+      {screen === "singleplayer" && <SingleplayerScreen setScreenAction={handleSetScreen} themeId={themeId} onHoverAction={sfx.hover} onBoardModeAction={(mode: BoardMode, patterns?: string[]) => { setBoardMode(mode); setSelectedPatterns(patterns || []); handleSetScreen("game"); }} />}
       {screen === "store"      && <StoreScreen      setScreenAction={handleSetScreen} themeId={themeId} />}
       {screen === "collection" && <CollectionScreen themeId={themeId} setThemeIdAction={setThemeId} onHoverAction={sfx.hover} onClickAction={sfx.click} />}
       {screen === "career"     && <CareerScreen     themeId={themeId} onHoverAction={sfx.hover} />}
       {screen === "battlepass" && <MissionsScreen themeId={themeId} />}
       {screen === "game" && (
-        <GameScreen key="game" themeId={themeId} isSingleplayer={true} gameMode="singleplayer" setScreenAction={handleSetScreen}
+        <GameScreen key={`game_${boardMode}`} themeId={themeId} isSingleplayer={true} gameMode="singleplayer" setScreenAction={handleSetScreen}
           p1Name={user?.username}
+          boardMode={boardMode} selectedPatterns={selectedPatterns}
           playHoverAction={sfx.hover} playPlaceAction={sfx.place} playVictoryAction={sfx.victory} playDefeatAction={sfx.defeat}
           playRulebreakerAction={sfx.rulebreaker} playTransitionAction={sfx.transition} playClickAction={sfx.click} />
       )}
       {screen === "aiGame" && (
-        <GameScreen key="aiGame" themeId={themeId} gameMode="ai" difficulty={aiDifficulty} setScreenAction={handleSetScreen}
+        <GameScreen key={`aiGame_${boardMode}`} themeId={themeId} gameMode="ai" difficulty={aiDifficulty} setScreenAction={handleSetScreen}
           p1Name={user?.username}
+          boardMode={boardMode} selectedPatterns={selectedPatterns}
           playHoverAction={sfx.hover} playPlaceAction={sfx.place} playVictoryAction={sfx.victory} playDefeatAction={sfx.defeat}
           playRulebreakerAction={sfx.rulebreaker} playTransitionAction={sfx.transition} playClickAction={sfx.click} />
       )}

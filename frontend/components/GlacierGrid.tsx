@@ -1,21 +1,21 @@
 "use client";
-import React, { useState, useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 
-const SIZE = 5;
-const COLS = ["A", "B", "C", "D", "E"];
-const ROWS = [1, 2, 3, 4, 5];
+const DEFAULT_SIZE = 5;
+const GET_COLS = (s: number) => Array.from({ length: s }, (_, i) => String.fromCharCode(65 + i));
+const GET_ROWS = (s: number) => Array.from({ length: s }, (_, i) => i + 1);
 
-function useCellSize(pad = 8) {
+function useCellSize(size: number, pad = 8) {
   const [cs, setCs] = useState(110);
   useEffect(() => {
     const c = () => {
       const b = Math.min(Math.max(window.innerWidth - 560, 260), Math.max(window.innerHeight - 200, 260));
-      setCs(Math.max(50, (b - 2 * pad) / 5));
+      setCs(Math.max(50, (b - 2 * pad) / size));
     };
     c();
     window.addEventListener("resize", c);
     return () => window.removeEventListener("resize", c);
-  }, [pad]);
+  }, [pad, size]);
   return cs;
 }
 
@@ -147,7 +147,7 @@ function GlacierBg({ W, H }: { W: number; H: number }) {
   return <canvas ref={ref} style={{ position: "absolute", inset: 0, zIndex: 0, pointerEvents: "none" }} />;
 }
 
-function GridLines({ W, H, PAD, CS }: { W: number; H: number; PAD: number; CS: number }) {
+function GridLines({ W, H, PAD, CS, SIZE }: { W: number; H: number; PAD: number; CS: number; SIZE: number }) {
   const ref = useRef<HTMLCanvasElement | null>(null);
   const raf = useRef<number | null>(null);
   const t = useRef(0);
@@ -166,7 +166,7 @@ function GridLines({ W, H, PAD, CS }: { W: number; H: number; PAD: number; CS: n
       t.current += 0.014;
       const tc = t.current;
       ctx.clearRect(0, 0, W, H);
-      for (let i = 0; i <= 5; i++) {
+      for (let i = 0; i <= SIZE; i++) {
         const x = PAD + i * CS;
         const y = PAD + i * CS;
         const icy = 0.6 + 0.4 * Math.sin(tc * 1.0 + i * 0.9);
@@ -249,7 +249,7 @@ function GridLines({ W, H, PAD, CS }: { W: number; H: number; PAD: number; CS: n
         ctx.restore();
       }
 
-      for (let r = 0; r <= 5; r++) for (let c = 0; c <= 5; c++) {
+      for (let r = 0; r < SIZE; r++) for (let c = 0; c < SIZE; c++) {
         const nx = PAD + c * CS;
         const ny = PAD + r * CS;
         const sp = 0.5 + 0.5 * Math.abs(Math.sin(tc * 2 + (r * 6 + c) * 0.9));
@@ -279,7 +279,7 @@ function GridLines({ W, H, PAD, CS }: { W: number; H: number; PAD: number; CS: n
     };
     draw();
     return () => { if (raf.current) cancelAnimationFrame(raf.current); };
-  }, [W, H, PAD, CS]);
+  }, [W, H, PAD, CS, SIZE]);
   return <canvas ref={ref} style={{ position: "absolute", inset: 0, zIndex: 3, pointerEvents: "none" }} />;
 }
 
@@ -372,23 +372,26 @@ function Cell({ CS, value, onClick, isWinCell, justPlaced }: { CS: number; value
   );
 }
 
-export default function GlacierGrid({ board, onCellClick, winCells = [] }: { board?: (string | null)[][]; onCellClick?: (r: number, c: number) => void; winCells?: [number, number][] }) {
+export default function GlacierGrid({ board, onCellClickAction, winCells = [] }: { board?: (string | null)[][]; onCellClickAction?: (r: number, c: number) => void; winCells?: [number, number][] }) {
+  const active = board ?? Array(DEFAULT_SIZE).fill(null).map(() => Array(DEFAULT_SIZE).fill(null));
+  const SIZE = active.length;
+  const COLS = GET_COLS(SIZE);
+  const ROWS = GET_ROWS(SIZE);
   const PAD = 8;
-  const CS = useCellSize(PAD);
+  const CS = useCellSize(SIZE, PAD);
+  const BS = SIZE * CS + 2 * PAD;
   const [demo, setDemo] = useState<(string | null)[][]>(() => Array(SIZE).fill(null).map(() => Array(SIZE).fill(null)));
   const [turn, setTurn] = useState("X");
   const [last, setLast] = useState<string | null>(null);
-  const active = board ?? demo;
   const winSet = new Set(winCells.map(([r, c]) => `${r}-${c}`));
   const burstRef = useRef<BurstFn>(null);
-  const BS = 5 * CS + 2 * PAD;
 
   const click = (r: number, c: number) => {
     if (active[r][c]) return;
     if (burstRef.current) burstRef.current(PAD + c * CS + CS / 2, PAD + r * CS + CS / 2, turn === "X");
     setLast(`${r}-${c}`);
     setTimeout(() => setLast(null), 700);
-    if (onCellClick) { onCellClick(r, c); return; }
+    if (onCellClickAction) { onCellClickAction(r, c); return; }
     const n = demo.map(row => [...row]);
     n[r][c] = turn;
     setDemo(n);
@@ -405,12 +408,12 @@ export default function GlacierGrid({ board, onCellClick, winCells = [] }: { boa
         <div style={{ display: "flex", flexDirection: "column", paddingTop: PAD }}>{ROWS.map(r => <div key={r} style={{ height: CS, display: "flex", alignItems: "center", justifyContent: "flex-end", paddingRight: 8, minWidth: 24, ...lbl }}>{r}</div>)}</div>
         <div style={{ position: "relative", width: BS, height: BS, borderRadius: CS * 0.08, overflow: "hidden", border: "2px solid rgba(120,200,255,.65)", boxShadow: "0 0 0 1px rgba(80,160,220,.3),0 0 45px rgba(100,180,255,.4),0 0 100px rgba(50,100,200,.25),inset 0 0 80px rgba(0,0,15,.55)" }}>
           <GlacierBg W={BS} H={BS} />
-          <GridLines W={BS} H={BS} PAD={PAD} CS={CS} />
+          <GridLines W={BS} H={BS} PAD={PAD} CS={CS} SIZE={SIZE} />
           <BurstCanvas burstRef={burstRef} W={BS} H={BS} />
           <div style={{ position: "absolute", inset: PAD, zIndex: 4, display: "flex", flexDirection: "column" }}>
-            {ROWS.map((_, r) => (
+            {active.map((row, r) => (
               <div key={r} style={{ display: "flex", flex: 1 }}>
-                {COLS.map((_, c) => (<Cell key={`${r}-${c}`} CS={CS} value={active[r][c]} onClick={() => click(r, c)} isWinCell={winSet.has(`${r}-${c}`)} justPlaced={last === `${r}-${c}`} />))}
+                {row.map((cell, c) => (<Cell key={`${r}-${c}`} CS={CS} value={cell} onClick={() => click(r, c)} isWinCell={winSet.has(`${r}-${c}`)} justPlaced={last === `${r}-${c}`} />))}
               </div>
             ))}
           </div>
@@ -419,4 +422,3 @@ export default function GlacierGrid({ board, onCellClick, winCells = [] }: { boa
     </div>
   );
 }
-

@@ -1,6 +1,7 @@
 # win_checker.py
 # All win-condition checks.
 # Extracted from the original monolithic engine.py.
+# Now supports both 5×5 and 7×7 modes.
 
 
 # ================= 5 IN A LINE =================
@@ -29,6 +30,37 @@ def check_5_line(board, r, c, player, directions, grid_size):
                 cc += sign * dc
 
         if count >= 5:
+            return True, line
+
+    return False, []
+
+
+# ================= 7 IN A LINE =================
+
+def check_7_line(board, r, c, player, directions, grid_size=7):
+    """
+    Check whether placing at (r, c) completes a 7-in-a-line for player.
+    Returns (True, line_coords) on win, (False, []) otherwise.
+    """
+    for dr, dc in directions:
+
+        count = 1
+        line  = [(r, c)]
+
+        for sign in (1, -1):
+            rr = r + sign * dr
+            cc = c + sign * dc
+
+            while (0 <= rr < grid_size and
+                   0 <= cc < grid_size and
+                   board[rr][cc] == player):
+
+                count += 1
+                line.append((rr, cc))
+                rr += sign * dr
+                cc += sign * dc
+
+        if count >= 7:
             return True, line
 
     return False, []
@@ -106,15 +138,69 @@ def find_10(board, player, directions, grid_size):
     return None
 
 
+# ================= 15-CELL CONNECTION =================
+
+def find_15(board, player, directions, grid_size=7):
+    """
+    DFS search for a chain of 15 connected cells belonging to player.
+    Returns the path list if found, None otherwise.
+    """
+    def dfs(path):
+        if len(path) == 15:
+            return path
+
+        r0, c0 = path[-1]
+
+        for dr, dc in directions:
+            nr = r0 + dr
+            nc = c0 + dc
+
+            if (0 <= nr < grid_size and
+                    0 <= nc < grid_size and
+                    board[nr][nc] == player and
+                    (nr, nc) not in path):
+
+                result = dfs(path + [(nr, nc)])
+                if result:
+                    return result
+
+        return None
+
+    for r in range(grid_size):
+        for c in range(grid_size):
+            if board[r][c] == player:
+                result = dfs([(r, c)])
+                if result:
+                    return result
+
+    return None
+
+
 # ================= FULL-BOARD RESOLUTION =================
 
 def resolve_full_board(board, directions, grid_size):
     """
-    Called when the board is completely filled.
+    Called when the board is completely filled (5×5).
     Returns (winner_string, winner_line).
     """
     p1 = find_10(board, "P1", directions, grid_size)
     p2 = find_10(board, "P2", directions, grid_size)
+
+    if p1 and not p2:
+        return "P1", p1
+    elif p2 and not p1:
+        return "P2", p2
+    else:
+        return "DRAW", []
+
+
+def resolve_full_board_7(board, directions, grid_size=7):
+    """
+    Called when the 7×7 board is completely filled.
+    Returns (winner_string, winner_line).
+    """
+    p1 = find_15(board, "P1", directions, grid_size)
+    p2 = find_15(board, "P2", directions, grid_size)
 
     if p1 and not p2:
         return "P1", p1

@@ -68,57 +68,93 @@ def check_structural_patterns(board, player, patterns, grid_size):
     return False, []
 
 
-# ================= 10-CELL CONNECTION =================
-
-def find_10(board, player, directions, grid_size):
+def find_path(board, player, target_len, directions, grid_size):
     """
-    DFS search for a chain of 10 connected cells belonging to player.
+    DFS search for a simple path of target_len connected cells belonging to player.
     Returns the path list if found, None otherwise.
     """
-    def dfs(path):
-        if len(path) == 10:
-            return path
+    memo = {}
 
-        r0, c0 = path[-1]
-
+    def dfs(r, c, path_set):
+        if len(path_set) == target_len:
+            return list(path_set)
+        
+        # We don't really need a full memo for "any path of length N" 
+        # because the state includes the path_set (visited nodes in current path).
+        # But for depth 10-15 on 5x5/7x7, simple backtracking is fine.
+        
         for dr, dc in directions:
-            nr = r0 + dr
-            nc = c0 + dc
-
-            if (0 <= nr < grid_size and
-                    0 <= nc < grid_size and
-                    board[nr][nc] == player and
-                    (nr, nc) not in path):
-
-                result = dfs(path + [(nr, nc)])
-                if result:
-                    return result
-
+            nr, nc = r + dr, c + dc
+            if (0 <= nr < grid_size and 0 <= nc < grid_size and 
+                board[nr][nc] == player and (nr, nc) not in path_set):
+                
+                path_set.add((nr, nc))
+                res = dfs(nr, nc, path_set)
+                if res: return res
+                path_set.remove((nr, nc))
         return None
 
     for r in range(grid_size):
         for c in range(grid_size):
             if board[r][c] == player:
-                result = dfs([(r, c)])
-                if result:
-                    return result
-
+                start_set = {(r, c)}
+                res = dfs(r, c, start_set)
+                if res: return res
     return None
 
+# ================= LARGEST CONNECTED COMPONENT =================
+
+def find_largest_component(board, player, directions, grid_size):
+    """
+    Flood-fill search for the largest contiguous blob belonging to player.
+    Returns the maximum size found and the path list of that component.
+    """
+    visited = set()
+    best_path = []
+    max_size = 0
+
+    for r in range(grid_size):
+        for c in range(grid_size):
+            if board[r][c] == player and (r, c) not in visited:
+                queue = [(r, c)]
+                visited.add((r, c))
+                component_path = [(r, c)]
+
+                while queue:
+                    r0, c0 = queue.pop(0)
+
+                    for dr, dc in directions:
+                        nr = r0 + dr
+                        nc = c0 + dc
+                        if (0 <= nr < grid_size and 0 <= nc < grid_size and
+                                board[nr][nc] == player and (nr, nc) not in visited):
+                            visited.add((nr, nc))
+                            queue.append((nr, nc))
+
+                if len(component_path) > max_size:
+                    max_size = len(component_path)
+                    best_path = component_path
+
+    return max_size, best_path
 
 # ================= FULL-BOARD RESOLUTION =================
 
 def resolve_full_board(board, directions, grid_size):
     """
     Called when the board is completely filled.
-    Returns (winner_string, winner_line).
+    Returns (winner_string, winner_line, p1_score, p2_score).
+    Note: p1_score/p2_score are now 10 if path found, 0 otherwise (for simplicity).
     """
-    p1 = find_10(board, "P1", directions, grid_size)
-    p2 = find_10(board, "P2", directions, grid_size)
+    p1_path = find_path(board, "P1", 10, directions, grid_size)
+    p2_path = find_path(board, "P2", 10, directions, grid_size)
 
-    if p1 and not p2:
-        return "P1", p1
-    elif p2 and not p1:
-        return "P2", p2
+    p1_score = 10 if p1_path else 0
+    p2_score = 10 if p2_path else 0
+
+    if p1_path and not p2_path:
+        return "P1", p1_path, p1_score, p2_score
+    elif p2_path and not p1_path:
+        return "P2", p2_path, p1_score, p2_score
     else:
-        return "DRAW", []
+        # Draw if both have path or neither has path
+        return "DRAW", [], p1_score, p2_score

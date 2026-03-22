@@ -1,0 +1,42 @@
+﻿
+--- Test 1: Blocking Opponent 20-point Connection ---
+Board state:
+. . . . . . .
+. . . . . . .
+. . . . . . .
+. O O O O O O
+. . . . . . .
+. . . . . . .
+. . . . . . .
+Bot (P1) picks move: (3, 0)
+New board state (5 pieces in row):
+. . . . . . .
+. . . . . . .
+. . . . . . .
+. O O O O O .
+. . . . . . .
+. . . . . . .
+. . . . . . .
+Bot (P1) picks move: (3, 6)
+
+--- Test 2: Full Board Usage (Reduced Center Bias) ---
+Board state:
+X . . . . . .
+. . . . . . .
+. . . . . . .
+. . . . . . .
+. . . . . . .
+. . . . . . .
+. . . . . . X
+Bot (P1) picks move: (5, 6)
+
+--- Test 3: Aggressive Pattern Blocking ---
+Board state (P2 near pattern completion):
+. . . . . . .
+. . . . . . .
+. . O O . . .
+. . O . . . .
+. . . . . . .
+. . . . . . .
+. . . . . . .
+Bot (P1) picks move: (2, 4)

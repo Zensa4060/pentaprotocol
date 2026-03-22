@@ -45,6 +45,8 @@ interface MatchSidebarProps {
   isMultiplayerGame: boolean;
   isMultiplayer: boolean;
   mySlot: "P1" | "P2";
+  boardMode?: string;
+  selectedPatterns?: string[];
   // timers
   p1Time: number;
   p2Time: number;
@@ -71,6 +73,7 @@ interface MatchSidebarProps {
   seriesPiece: string;
   showRematch: boolean;
   rematchRequested: string | null;
+  connectionScores?: { p1: number; p2: number };
   showSurrender: boolean;
   showExitConfirm: boolean;
   setScreenAction?: (s: Screen) => void;
@@ -88,14 +91,15 @@ interface MatchSidebarProps {
   onChatOpenToggle: () => void;
   onSoftReset: () => void;
   onDismissOverlayAction: () => void;
-  onRematch: () => void;
-  onQuitMatch: () => void;
-  onSurrenderConfirm: () => void;
-  onSurrenderCancel: () => void;
-  onExitConfirm: () => void;
-  onExitCancel: () => void;
-  onShowSurrender: () => void;
+  onRematchAction: () => void;
+  onQuitMatchAction: () => void;
+  onSurrenderConfirmAction: () => void;
+  onSurrenderCancelAction: () => void;
+  onExitConfirmAction: () => void;
+  onExitCancelAction: () => void;
+  onShowSurrenderAction: () => void;
   onShowExitConfirmAction: () => void;
+  onShowRematchOverlayAction: () => void;
   fmtTimeAction: (ms: number) => string;
   playHoverAction?: () => void;
   playClickAction?: () => void;
@@ -107,18 +111,19 @@ export function MatchSidebar({
   t, p1Banner, p2Banner, ip, p1c, p2c, pieceSkin, p1RttMs, p2RttMs, panelW,
   phase, winner, current, gameNumber, matchHistory, seriesWinner, matchOver,
   gameMode, isRankedGame, isMultiplayerGame, isMultiplayer, mySlot,
+  boardMode, selectedPatterns,
   p1Time, p2Time, readyTimeout,
   p1Ready, p2Ready,
   chatMessages, chatInput, chatOpen, chatWarning,
   log, botThinking,
   showWinOverlay, overlayVisible, winnerColor, winnerPiece, seriesDiffers, seriesColor, seriesPiece,
-  showRematch, rematchRequested, lastSeries,
+  showRematch, rematchRequested, connectionScores, lastSeries,
   showSurrender, showExitConfirm, setScreenAction,
   p1Label, p2Label, winnerDisplayNameAction,
   onReadyToggle, onSendChat, onChatInputChange, onChatKeyDown, onChatOpenToggle,
-  onSoftReset, onDismissOverlayAction, onRematch, onQuitMatch,
-  onSurrenderConfirm, onSurrenderCancel, onExitConfirm, onExitCancel,
-  onShowSurrender, onShowExitConfirmAction,
+  onSoftReset, onDismissOverlayAction, onRematchAction, onQuitMatchAction,
+  onSurrenderConfirmAction, onSurrenderCancelAction, onExitConfirmAction, onExitCancelAction,
+  onShowSurrenderAction, onShowExitConfirmAction, onShowRematchOverlayAction,
   fmtTimeAction, playHoverAction, playClickAction,
 }: MatchSidebarProps) {
   const getName = (w: string | null) => winnerDisplayNameAction ? winnerDisplayNameAction(w) : (w ?? "");
@@ -287,6 +292,19 @@ export function MatchSidebar({
         {seriesWinner && (<div style={{ marginTop: 10, fontFamily: t.fontMono, fontSize: 20, color: t.gold, textAlign: "center", fontWeight: 700 }}>SERIES: {seriesWinner === "DRAW" ? "DRAW" : `${getName(seriesWinner)} WINS`}</div>)}
       </div>
 
+      {boardMode === "7x7" && selectedPatterns && selectedPatterns.length > 0 && phase !== "waiting_ready" && (
+        <div style={{ borderTop: `1px solid ${t.border}`, paddingTop: 12 }}>
+          <div style={{ fontFamily: t.fontMono, fontSize: 13, fontWeight: 700, color: t.text, letterSpacing: "0.1em", marginBottom: 8, display: "flex", justifyContent: "space-between" }}>
+            <span>7×7 PATTERNS</span>
+          </div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+            {selectedPatterns.map(p => (
+              <div key={p} style={{ padding: "4px 8px", background: `${t.accent}1A`, border: `1px solid ${t.accent}44`, borderRadius: 4, fontFamily: t.fontMono, fontSize: 11, color: t.accent, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em" }}>{p}</div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {phase === "waiting_ready" && (
         <div style={{ display: "flex", flexDirection: "column", gap: 8, animation: "fadeUp 0.3s ease both" }}>
           <div style={{ fontFamily: t.fontMono, fontSize: 20, fontWeight: 700, color: t.text, letterSpacing: "0.12em" }}>READY TO PLAY</div>
@@ -348,7 +366,7 @@ export function MatchSidebar({
       )}
       {(phase === "playing" || phase === "waiting_ready") && (
         isRankedGame ? (
-          <button onClick={onShowSurrender} style={{ background: `${t.danger}16`, border: `1px solid ${t.danger}`, color: t.danger, fontFamily: t.fontBody, fontSize: 13, padding: 9, borderRadius: ip ? 2 : 6, cursor: "pointer", transition: "all 0.2s" }} onMouseEnter={e => { playHoverAction?.(); e.currentTarget.style.background = `${t.danger}30`; }} onMouseLeave={e => { e.currentTarget.style.background = `${t.danger}16`; }}>SURRENDER</button>
+          <button onClick={onShowSurrenderAction} style={{ background: `${t.danger}16`, border: `1px solid ${t.danger}`, color: t.danger, fontFamily: t.fontBody, fontSize: 13, padding: 9, borderRadius: ip ? 2 : 6, cursor: "pointer", transition: "all 0.2s" }} onMouseEnter={e => { playHoverAction?.(); e.currentTarget.style.background = `${t.danger}30`; }} onMouseLeave={e => { e.currentTarget.style.background = `${t.danger}16`; }}>SURRENDER</button>
         ) : isMultiplayer ? null : (
           <button onClick={onSoftReset} style={{ background: `${t.danger}16`, border: `1px solid ${t.danger}`, color: t.danger, fontFamily: t.fontBody, fontSize: 13, padding: 9, borderRadius: ip ? 2 : 6, cursor: "pointer", transition: "all 0.2s" }}>RESET</button>
         )
@@ -386,14 +404,14 @@ export function MatchSidebar({
         {!rematchRequested && <div style={{ marginBottom: 16 }} />}
         <div style={{ display: "flex", gap: 16, justifyContent: "center" }}>
           <button
-            onClick={onRematch}
+            onClick={onRematchAction}
             disabled={rematchRequested === mySlot}
             style={{ background: rematchRequested === mySlot ? `${t.accent}10` : `${t.accent}18`, border: `2px solid ${t.accent}`, color: t.accent, fontFamily: t.fontDisplay, fontSize: 16, fontWeight: 700, padding: "14px 36px", borderRadius: ip ? 2 : 10, cursor: rematchRequested === mySlot ? "default" : "pointer", opacity: rematchRequested === mySlot ? 0.5 : 1, transition: "all 0.2s" }}
             onMouseEnter={e => { if (rematchRequested !== mySlot) { e.currentTarget.style.background = t.accent; e.currentTarget.style.color = "#000"; } }}
             onMouseLeave={e => { e.currentTarget.style.background = `${t.accent}18`; e.currentTarget.style.color = t.accent; }}
           >REMATCH</button>
           <button
-            onClick={onQuitMatch}
+            onClick={onQuitMatchAction}
             style={{ background: `${t.danger}18`, border: `2px solid ${t.danger}`, color: t.danger, fontFamily: t.fontDisplay, fontSize: 16, fontWeight: 700, padding: "14px 36px", borderRadius: ip ? 2 : 10, cursor: "pointer", transition: "all 0.2s" }}
             onMouseEnter={e => { e.currentTarget.style.background = t.danger; e.currentTarget.style.color = "#000"; }}
             onMouseLeave={e => { e.currentTarget.style.background = `${t.danger}18`; e.currentTarget.style.color = t.danger; }}
@@ -411,8 +429,8 @@ export function MatchSidebar({
         <div style={{ fontFamily: t.fontDisplay, fontSize: ip ? 14 : 23, fontWeight: 700, color: t.danger, lineHeight: 1.5, marginBottom: 12 }}>Are you sure you want to forfeit this Match?</div>
         <div style={{ fontFamily: t.fontBody, fontSize: ip ? 11 : 15, color: t.textMuted, marginBottom: 36, lineHeight: 1.7 }}>{isRankedGame ? <>This counts as a <span style={{ color: t.danger, fontWeight: 700 }}>forfeit</span> and will result in <span style={{ color: t.danger, fontWeight: 700 }}>ELO deduction</span>.</> : "Your opponent will be declared the winner."}</div>
         <div style={{ display: "flex", gap: 16, justifyContent: "center" }}>
-          <button className="action-btn" onClick={onSurrenderConfirm} style={{ background: `${t.danger}18`, border: `2px solid ${t.danger}`, color: t.danger, fontFamily: t.fontDisplay, fontSize: ip ? 12 : 17, fontWeight: 700, padding: ip ? "10px 28px" : "14px 52px", borderRadius: ip ? 2 : 10, cursor: "pointer", letterSpacing: "0.08em" }} onMouseEnter={e => { playHoverAction?.(); e.currentTarget.style.background = t.danger; e.currentTarget.style.color = "#000"; e.currentTarget.style.boxShadow = `0 6px 28px ${t.danger}55`; }} onMouseLeave={e => { e.currentTarget.style.background = `${t.danger}18`; e.currentTarget.style.color = t.danger; e.currentTarget.style.boxShadow = "none"; }}>YES, FORFEIT</button>
-          <button className="action-btn" onClick={onSurrenderCancel} style={{ background: `${t.accent}18`, border: `2px solid ${t.accent}`, color: t.accent, fontFamily: t.fontDisplay, fontSize: ip ? 12 : 17, fontWeight: 700, padding: ip ? "10px 28px" : "14px 52px", borderRadius: ip ? 2 : 10, cursor: "pointer", letterSpacing: "0.08em" }} onMouseEnter={e => { playHoverAction?.(); e.currentTarget.style.background = t.accent; e.currentTarget.style.color = "#000"; e.currentTarget.style.boxShadow = `0 6px 28px ${t.accent}55`; }} onMouseLeave={e => { e.currentTarget.style.background = `${t.accent}18`; e.currentTarget.style.color = t.accent; e.currentTarget.style.boxShadow = "none"; }}>NO, STAY</button>
+          <button className="action-btn" onClick={onSurrenderConfirmAction} style={{ background: `${t.danger}18`, border: `2px solid ${t.danger}`, color: t.danger, fontFamily: t.fontDisplay, fontSize: ip ? 12 : 17, fontWeight: 700, padding: ip ? "10px 28px" : "14px 52px", borderRadius: ip ? 2 : 10, cursor: "pointer", letterSpacing: "0.08em" }} onMouseEnter={e => { playHoverAction?.(); e.currentTarget.style.background = t.danger; e.currentTarget.style.color = "#000"; e.currentTarget.style.boxShadow = `0 6px 28px ${t.danger}55`; }} onMouseLeave={e => { e.currentTarget.style.background = `${t.danger}18`; e.currentTarget.style.color = t.danger; e.currentTarget.style.boxShadow = "none"; }}>YES, FORFEIT</button>
+          <button className="action-btn" onClick={onSurrenderCancelAction} style={{ background: `${t.accent}18`, border: `2px solid ${t.accent}`, color: t.accent, fontFamily: t.fontDisplay, fontSize: ip ? 12 : 17, fontWeight: 700, padding: ip ? "10px 28px" : "14px 52px", borderRadius: ip ? 2 : 10, cursor: "pointer", letterSpacing: "0.08em" }} onMouseEnter={e => { playHoverAction?.(); e.currentTarget.style.background = t.accent; e.currentTarget.style.color = "#000"; e.currentTarget.style.boxShadow = `0 6px 28px ${t.accent}55`; }} onMouseLeave={e => { e.currentTarget.style.background = `${t.accent}18`; e.currentTarget.style.color = t.accent; e.currentTarget.style.boxShadow = "none"; }}>NO, STAY</button>
         </div>
       </div>
     </div>
@@ -426,8 +444,8 @@ export function MatchSidebar({
         <div style={{ fontFamily: t.fontDisplay, fontSize: ip ? 14 : 23, fontWeight: 700, color: t.text, lineHeight: 1.5, marginBottom: 12 }}>Are you sure you want to quit the current session?</div>
         <div style={{ fontFamily: t.fontBody, fontSize: ip ? 11 : 15, color: t.textMuted, marginBottom: 36, lineHeight: 1.7 }}>Current game progress will be lost.</div>
         <div style={{ display: "flex", gap: 16, justifyContent: "center" }}>
-          <button className="action-btn" onClick={onExitConfirm} style={{ background: `${t.danger}18`, border: `2px solid ${t.danger}`, color: t.danger, fontFamily: t.fontDisplay, fontSize: ip ? 12 : 17, fontWeight: 700, padding: ip ? "10px 28px" : "14px 52px", borderRadius: ip ? 2 : 10, cursor: "pointer", letterSpacing: "0.08em" }} onMouseEnter={e => { playHoverAction?.(); e.currentTarget.style.background = t.danger; e.currentTarget.style.color = "#000"; e.currentTarget.style.boxShadow = `0 6px 28px ${t.danger}55`; }} onMouseLeave={e => { e.currentTarget.style.background = `${t.danger}18`; e.currentTarget.style.color = t.danger; e.currentTarget.style.boxShadow = "none"; }}>YES</button>
-          <button className="action-btn" onClick={onExitCancel} style={{ background: `${t.accent}18`, border: `2px solid ${t.accent}`, color: t.accent, fontFamily: t.fontDisplay, fontSize: ip ? 12 : 17, fontWeight: 700, padding: ip ? "10px 28px" : "14px 52px", borderRadius: ip ? 2 : 10, cursor: "pointer", letterSpacing: "0.08em" }} onMouseEnter={e => { playHoverAction?.(); e.currentTarget.style.background = t.accent; e.currentTarget.style.color = "#000"; e.currentTarget.style.boxShadow = `0 6px 28px ${t.accent}55`; }} onMouseLeave={e => { e.currentTarget.style.background = `${t.accent}18`; e.currentTarget.style.color = t.accent; e.currentTarget.style.boxShadow = "none"; }}>NO</button>
+          <button className="action-btn" onClick={onExitConfirmAction} style={{ background: `${t.danger}18`, border: `2px solid ${t.danger}`, color: t.danger, fontFamily: t.fontDisplay, fontSize: ip ? 12 : 17, fontWeight: 700, padding: ip ? "10px 28px" : "14px 52px", borderRadius: ip ? 2 : 10, cursor: "pointer", letterSpacing: "0.08em" }} onMouseEnter={e => { playHoverAction?.(); e.currentTarget.style.background = t.danger; e.currentTarget.style.color = "#000"; e.currentTarget.style.boxShadow = `0 6px 28px ${t.danger}55`; }} onMouseLeave={e => { e.currentTarget.style.background = `${t.danger}18`; e.currentTarget.style.color = t.danger; e.currentTarget.style.boxShadow = "none"; }}>YES</button>
+          <button className="action-btn" onClick={onExitCancelAction} style={{ background: `${t.accent}18`, border: `2px solid ${t.accent}`, color: t.accent, fontFamily: t.fontDisplay, fontSize: ip ? 12 : 17, fontWeight: 700, padding: ip ? "10px 28px" : "14px 52px", borderRadius: ip ? 2 : 10, cursor: "pointer", letterSpacing: "0.08em" }} onMouseEnter={e => { playHoverAction?.(); e.currentTarget.style.background = t.accent; e.currentTarget.style.color = "#000"; e.currentTarget.style.boxShadow = `0 6px 28px ${t.accent}55`; }} onMouseLeave={e => { e.currentTarget.style.background = `${t.accent}18`; e.currentTarget.style.color = t.accent; e.currentTarget.style.boxShadow = "none"; }}>NO</button>
         </div>
       </div>
     </div>
@@ -445,12 +463,12 @@ export function MatchSidebar({
 
 export function LeftPanel(props: MatchSidebarProps) {
   const { t, ip, p1c, p2c, pieceSkin, p1RttMs, p2RttMs, panelW, phase, current, gameNumber, matchHistory, seriesWinner,
-    gameMode, isRankedGame, isMultiplayerGame, isMultiplayer, mySlot,
+    gameMode, isRankedGame, isMultiplayerGame, isMultiplayer, mySlot, boardMode, selectedPatterns,
     p1Time, p2Time, readyTimeout, p1Ready, p2Ready,
     chatMessages, chatInput, chatOpen, chatWarning,
     p1Label, p2Label, p1Banner, p2Banner, winnerDisplayNameAction, lastSeries,
     onReadyToggle, onSendChat, onChatInputChange, onChatKeyDown, onChatOpenToggle,
-    onSoftReset, onShowSurrender, onShowExitConfirmAction, fmtTimeAction, playHoverAction } = props;
+    onSoftReset, onShowSurrenderAction, onShowExitConfirmAction, fmtTimeAction, playHoverAction } = props;
 
   const getName = (w: string | null) => winnerDisplayNameAction ? winnerDisplayNameAction(w) : (w ?? "");
   const useFlameSkull = pieceSkin === "flame_skull";
@@ -590,6 +608,19 @@ export function LeftPanel(props: MatchSidebarProps) {
         {seriesWinner && (<div style={{ marginTop: 10, fontFamily: t.fontMono, fontSize: 20, color: t.gold, textAlign: "center", fontWeight: 700 }}>SERIES: {seriesWinner === "DRAW" ? "DRAW" : `${getName(seriesWinner)} WINS`}</div>)}
       </div>
 
+      {boardMode === "7x7" && selectedPatterns && selectedPatterns.length > 0 && (
+        <div style={{ borderTop: `1px solid ${t.border}`, paddingTop: 12 }}>
+          <div style={{ fontFamily: t.fontMono, fontSize: 13, fontWeight: 700, color: t.text, letterSpacing: "0.1em", marginBottom: 8, display: "flex", justifyContent: "space-between" }}>
+            <span>7×7 PATTERNS</span>
+          </div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+            {selectedPatterns.map(p => (
+              <div key={p} style={{ padding: "4px 8px", background: `${t.accent}1A`, border: `1px solid ${t.accent}44`, borderRadius: 4, fontFamily: t.fontMono, fontSize: 11, color: t.accent, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em" }}>{p}</div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {phase === "waiting_ready" && (
         <div style={{ display: "flex", flexDirection: "column", gap: 8, animation: "fadeUp 0.3s ease both" }}>
           <div style={{ fontFamily: t.fontMono, fontSize: 20, fontWeight: 700, color: t.text, letterSpacing: "0.12em" }}>READY TO PLAY</div>
@@ -651,7 +682,7 @@ export function LeftPanel(props: MatchSidebarProps) {
       )}
       {(phase === "playing" || phase === "waiting_ready") && (
         isRankedGame ? (
-          <button onClick={onShowSurrender} style={{ background: `${t.danger}16`, border: `1px solid ${t.danger}`, color: t.danger, fontFamily: t.fontBody, fontSize: 13, padding: 9, borderRadius: ip ? 2 : 6, cursor: "pointer", transition: "all 0.2s" }} onMouseEnter={e => { playHoverAction?.(); e.currentTarget.style.background = `${t.danger}30`; }} onMouseLeave={e => { e.currentTarget.style.background = `${t.danger}16`; }}>SURRENDER</button>
+          <button onClick={onShowSurrenderAction} style={{ background: `${t.danger}16`, border: `1px solid ${t.danger}`, color: t.danger, fontFamily: t.fontBody, fontSize: 13, padding: 9, borderRadius: ip ? 2 : 6, cursor: "pointer", transition: "all 0.2s" }} onMouseEnter={e => { playHoverAction?.(); e.currentTarget.style.background = `${t.danger}30`; }} onMouseLeave={e => { e.currentTarget.style.background = `${t.danger}16`; }}>SURRENDER</button>
         ) : isMultiplayer ? null : (
           <button onClick={onSoftReset} style={{ background: `${t.danger}16`, border: `1px solid ${t.danger}`, color: t.danger, fontFamily: t.fontBody, fontSize: 13, padding: 9, borderRadius: ip ? 2 : 6, cursor: "pointer", transition: "all 0.2s" }}>RESET</button>
         )
@@ -680,11 +711,12 @@ export function RightPanel({ t, ip, p1c, p2c, panelW, phase, log, isRankedGame, 
   );
 }
 
-export function WinOverlay({ showWinOverlay, overlayVisible, winner, winnerColor, winnerPiece, seriesDiffers, seriesColor, seriesPiece, seriesWinner, phase, gameNumber, t, winnerDisplayNameAction, onDismissAction }: {
+export function WinOverlay({ showWinOverlay, overlayVisible, winner, winnerColor, winnerPiece, seriesDiffers, seriesColor, seriesPiece, seriesWinner, phase, gameNumber, t, winnerDisplayNameAction, connectionScores, onDismissAction }: {
   showWinOverlay: boolean; overlayVisible: boolean; winner: string | null; winnerColor: string; winnerPiece: string;
   seriesDiffers: boolean; seriesColor: string; seriesPiece: string; seriesWinner: string | null;
   phase: Phase; gameNumber: number; t: { fontDisplay: string; fontMono: string; fontBody: string };
   winnerDisplayNameAction?: (w: string | null) => string;
+  connectionScores?: { p1: number; p2: number };
   onDismissAction: () => void;
 }) {
   if (!showWinOverlay || !winner) return null;
@@ -711,6 +743,21 @@ export function WinOverlay({ showWinOverlay, overlayVisible, winner, winnerColor
           <div style={{ fontSize: "clamp(52px,8vw,110px)", lineHeight: 1, marginBottom: 8, animation: "winPulse 1.6s ease infinite" }}>{winnerPiece}</div>
           <div style={{ fontFamily: t.fontDisplay, fontSize: "clamp(44px,7vw,100px)", fontWeight: 900, color: winnerColor, lineHeight: 1, marginBottom: 18, textShadow: `0 0 60px ${winnerColor}88`, animation: "winPulse 1.6s ease infinite" }}>{winner === "DRAW" ? "DRAW" : `${getName(winner)} WINS!`}</div>
           {phase === "match_over" ? <div style={{ fontFamily: t.fontMono, fontSize: "clamp(13px,1.8vw,18px)", color: "#AAAAAA", marginBottom: 20 }}>MATCH OVER — SERIES COMPLETE</div> : <div style={{ fontFamily: t.fontMono, fontSize: "clamp(13px,1.8vw,18px)", color: "#AAAAAA", marginBottom: 20 }}>GAME {gameNumber} COMPLETE</div>}
+          
+          {connectionScores && (
+            <div style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, padding: "12px 24px", marginBottom: 20, display: "flex", gap: 32 }}>
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+                <span style={{ fontFamily: t.fontMono, fontSize: 10, color: "#999", letterSpacing: "0.1em" }}>P1 LONGEST CONNECTION</span>
+                <span style={{ fontFamily: t.fontDisplay, fontSize: 24, color: "#fff", fontWeight: 900 }}>{connectionScores.p1}</span>
+              </div>
+              <div style={{ width: 1, background: "rgba(255,255,255,0.1)" }} />
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+                <span style={{ fontFamily: t.fontMono, fontSize: 10, color: "#999", letterSpacing: "0.1em" }}>P2 LONGEST CONNECTION</span>
+                <span style={{ fontFamily: t.fontDisplay, fontSize: 24, color: "#fff", fontWeight: 900 }}>{connectionScores.p2}</span>
+              </div>
+            </div>
+          )}
+
           <div style={{ fontFamily: t.fontBody, fontSize: 14, color: "#666" }}>click anywhere to continue</div>
         </div>
       )}
@@ -718,7 +765,7 @@ export function WinOverlay({ showWinOverlay, overlayVisible, winner, winnerColor
   );
 }
 
-export function DisconnectModal({ show, t, ip, onGoHome }: { show: boolean; t: MatchSidebarProps["t"]; ip: boolean; onGoHome: () => void; }) {
+export function DisconnectModal({ show, t, ip, onGoHomeAction }: { show: boolean; t: MatchSidebarProps["t"]; ip: boolean; onGoHomeAction: () => void; }) {
   if (!show) return null;
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 10010, background: "rgba(0,0,0,0.85)", display: "flex", alignItems: "center", justifyContent: "center", animation: "fadeIn 0.2s ease both" }}>
@@ -727,7 +774,7 @@ export function DisconnectModal({ show, t, ip, onGoHome }: { show: boolean; t: M
         <div style={{ fontFamily: t.fontBody, fontSize: 15, color: t.textSecondary, marginBottom: 24, lineHeight: 1.5 }}>
           Your opponent left the match. The game has been ended.
         </div>
-        <button onClick={onGoHome} style={{ background: `${t.danger}22`, border: `1px solid ${t.danger}`, color: t.danger, padding: "12px 24px", borderRadius: ip ? 2 : 8, fontFamily: t.fontMono, fontSize: 15, fontWeight: 700, cursor: "pointer", transition: "all 0.2s" }}>
+        <button onClick={onGoHomeAction} style={{ background: `${t.danger}22`, border: `1px solid ${t.danger}`, color: t.danger, padding: "12px 24px", borderRadius: ip ? 2 : 8, fontFamily: t.fontMono, fontSize: 15, fontWeight: 700, cursor: "pointer", transition: "all 0.2s" }}>
           RETURN TO HOME
         </button>
       </div>
@@ -735,13 +782,14 @@ export function DisconnectModal({ show, t, ip, onGoHome }: { show: boolean; t: M
   );
 }
 
-export function RematchOverlay({ show, isMultiplayerGame, t, ip, p1c, p2c, seriesWinner, mySlot, rematchRequested, winnerDisplayNameAction, lastSeries, onRematch, onQuitMatch }: {
+export function RematchOverlay({ show, isMultiplayerGame, t, ip, p1c, p2c, seriesWinner, mySlot, rematchRequested, winnerDisplayNameAction, lastSeries, connectionScores, onRematchAction, onQuitMatchAction }: {
   show: boolean; isMultiplayerGame: boolean; t: MatchSidebarProps["t"]; ip: boolean;
   p1c: string; p2c: string; seriesWinner: string | null; mySlot: "P1" | "P2";
   rematchRequested: string | null;
   lastSeries?: { winner: string | null; history: string[] } | null;
+  connectionScores?: { p1: number; p2: number };
   winnerDisplayNameAction?: (w: string | null) => string;
-  onRematch: () => void; onQuitMatch: () => void;
+  onRematchAction: () => void; onQuitMatchAction: () => void;
 }) {
   if (!show || !isMultiplayerGame) return null;
   const getName = (w: string | null) => winnerDisplayNameAction ? winnerDisplayNameAction(w) : (w ?? "");
@@ -756,6 +804,20 @@ export function RematchOverlay({ show, isMultiplayerGame, t, ip, p1c, p2c, serie
         <div style={{ fontFamily: t.fontMono, fontSize: 17, fontWeight: 700, color: seriesColor, marginBottom: 20 }}>
           {seriesWinner === "DRAW" ? "DRAW!" : `${getName(seriesWinner)} WINS THE SERIES`}
         </div>
+
+        {connectionScores && (
+          <div style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, padding: "12px 24px", marginBottom: 20, display: "flex", gap: 32, justifyContent: "center" }}>
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+              <span style={{ fontFamily: t.fontMono, fontSize: 10, color: "#999", letterSpacing: "0.1em" }}>P1 LONGEST CONNECTION</span>
+              <span style={{ fontFamily: t.fontDisplay, fontSize: 24, color: p1c, fontWeight: 900 }}>{connectionScores.p1}</span>
+            </div>
+            <div style={{ width: 1, background: "rgba(255,255,255,0.1)" }} />
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+              <span style={{ fontFamily: t.fontMono, fontSize: 10, color: "#999", letterSpacing: "0.1em" }}>P2 LONGEST CONNECTION</span>
+              <span style={{ fontFamily: t.fontDisplay, fontSize: 24, color: p2c, fontWeight: 900 }}>{connectionScores.p2}</span>
+            </div>
+          </div>
+        )}
 
         {/* Last series breakdown — shown after both accept rematch and new series begins */}
         {lastSeries && (
@@ -791,14 +853,14 @@ export function RematchOverlay({ show, isMultiplayerGame, t, ip, p1c, p2c, serie
         {/* Action buttons */}
         <div style={{ display: "flex", gap: 16, justifyContent: "center" }}>
           <button
-            onClick={onRematch}
+            onClick={onRematchAction}
             disabled={rematchRequested === mySlot}
             style={{ background: rematchRequested === mySlot ? `${t.accent}10` : `${t.accent}18`, border: `2px solid ${t.accent}`, color: t.accent, fontFamily: t.fontDisplay, fontSize: 16, fontWeight: 700, padding: "14px 36px", borderRadius: ip ? 2 : 10, cursor: rematchRequested === mySlot ? "default" : "pointer", opacity: rematchRequested === mySlot ? 0.5 : 1, transition: "all 0.2s" }}
             onMouseEnter={e => { if (rematchRequested !== mySlot) { e.currentTarget.style.background = t.accent; e.currentTarget.style.color = "#000"; } }}
             onMouseLeave={e => { e.currentTarget.style.background = `${t.accent}18`; e.currentTarget.style.color = t.accent; }}
           >REMATCH</button>
           <button
-            onClick={onQuitMatch}
+            onClick={onQuitMatchAction}
             style={{ background: `${t.danger}18`, border: `2px solid ${t.danger}`, color: t.danger, fontFamily: t.fontDisplay, fontSize: 16, fontWeight: 700, padding: "14px 36px", borderRadius: ip ? 2 : 10, cursor: "pointer", transition: "all 0.2s" }}
             onMouseEnter={e => { e.currentTarget.style.background = t.danger; e.currentTarget.style.color = "#000"; }}
             onMouseLeave={e => { e.currentTarget.style.background = `${t.danger}18`; e.currentTarget.style.color = t.danger; }}
@@ -809,9 +871,9 @@ export function RematchOverlay({ show, isMultiplayerGame, t, ip, p1c, p2c, serie
   );
 }
 
-export function SurrenderModal({ show, t, ip, isRankedGame, onConfirm, onCancel, playHoverAction }: {
+export function SurrenderModal({ show, t, ip, isRankedGame, onConfirmAction, onCancelAction, playHoverAction }: {
   show: boolean; t: MatchSidebarProps["t"]; ip: boolean; isRankedGame: boolean;
-  onConfirm: () => void; onCancel: () => void; playHoverAction?: () => void;
+  onConfirmAction: () => void; onCancelAction: () => void; playHoverAction?: () => void;
 }) {
   if (!show) return null;
   return (
@@ -821,28 +883,27 @@ export function SurrenderModal({ show, t, ip, isRankedGame, onConfirm, onCancel,
         <div style={{ fontFamily: t.fontDisplay, fontSize: ip ? 14 : 23, fontWeight: 700, color: t.danger, lineHeight: 1.5, marginBottom: 12 }}>Are you sure you want to forfeit this Match?</div>
         <div style={{ fontFamily: t.fontBody, fontSize: ip ? 11 : 15, color: t.textMuted, marginBottom: 36, lineHeight: 1.7 }}>{isRankedGame ? <>This counts as a <span style={{ color: t.danger, fontWeight: 700 }}>forfeit</span> and will result in <span style={{ color: t.danger, fontWeight: 700 }}>ELO deduction</span>.</> : "Your opponent will be declared the winner."}</div>
         <div style={{ display: "flex", gap: 16, justifyContent: "center" }}>
-          <button className="action-btn" onClick={onConfirm} style={{ background: `${t.danger}18`, border: `2px solid ${t.danger}`, color: t.danger, fontFamily: t.fontDisplay, fontSize: ip ? 12 : 17, fontWeight: 700, padding: ip ? "10px 28px" : "14px 52px", borderRadius: ip ? 2 : 10, cursor: "pointer", letterSpacing: "0.08em" }} onMouseEnter={e => { playHoverAction?.(); e.currentTarget.style.background = t.danger; e.currentTarget.style.color = "#000"; e.currentTarget.style.boxShadow = `0 6px 28px ${t.danger}55`; }} onMouseLeave={e => { e.currentTarget.style.background = `${t.danger}18`; e.currentTarget.style.color = t.danger; e.currentTarget.style.boxShadow = "none"; }}>YES, FORFEIT</button>
-          <button className="action-btn" onClick={onCancel} style={{ background: `${t.accent}18`, border: `2px solid ${t.accent}`, color: t.accent, fontFamily: t.fontDisplay, fontSize: ip ? 12 : 17, fontWeight: 700, padding: ip ? "10px 28px" : "14px 52px", borderRadius: ip ? 2 : 10, cursor: "pointer", letterSpacing: "0.08em" }} onMouseEnter={e => { playHoverAction?.(); e.currentTarget.style.background = t.accent; e.currentTarget.style.color = "#000"; e.currentTarget.style.boxShadow = `0 6px 28px ${t.accent}55`; }} onMouseLeave={e => { e.currentTarget.style.background = `${t.accent}18`; e.currentTarget.style.color = t.accent; e.currentTarget.style.boxShadow = "none"; }}>NO, STAY</button>
+          <button className="action-btn" onClick={onConfirmAction} style={{ background: `${t.danger}18`, border: `2px solid ${t.danger}`, color: t.danger, fontFamily: t.fontDisplay, fontSize: ip ? 12 : 17, fontWeight: 700, padding: ip ? "10px 28px" : "14px 52px", borderRadius: ip ? 2 : 10, cursor: "pointer", letterSpacing: "0.08em" }} onMouseEnter={e => { playHoverAction?.(); e.currentTarget.style.background = t.danger; e.currentTarget.style.color = "#000"; e.currentTarget.style.boxShadow = `0 6px 28px ${t.danger}55`; }} onMouseLeave={e => { e.currentTarget.style.background = `${t.danger}18`; e.currentTarget.style.color = t.danger; e.currentTarget.style.boxShadow = "none"; }}>YES, FORFEIT</button>
+          <button className="action-btn" onClick={onCancelAction} style={{ background: `${t.accent}18`, border: `2px solid ${t.accent}`, color: t.accent, fontFamily: t.fontDisplay, fontSize: ip ? 12 : 17, fontWeight: 700, padding: ip ? "10px 28px" : "14px 52px", borderRadius: ip ? 2 : 10, cursor: "pointer", letterSpacing: "0.08em" }} onMouseEnter={e => { playHoverAction?.(); e.currentTarget.style.background = t.accent; e.currentTarget.style.color = "#000"; e.currentTarget.style.boxShadow = `0 6px 28px ${t.accent}55`; }} onMouseLeave={e => { e.currentTarget.style.background = `${t.accent}18`; e.currentTarget.style.color = t.accent; e.currentTarget.style.boxShadow = "none"; }}>NO, STAY</button>
         </div>
       </div>
     </div>
   );
 }
 
-export function ExitModal({ show, t, ip, onConfirm, onCancel, playHoverAction }: {
+export function ExitModal({ show, t, ip, onConfirmAction, onCancelAction, playHoverAction }: {
   show: boolean; t: MatchSidebarProps["t"]; ip: boolean;
-  onConfirm: () => void; onCancel: () => void; playHoverAction?: () => void;
+  onConfirmAction: () => void; onCancelAction: () => void; playHoverAction?: () => void;
 }) {
   if (!show) return null;
   return (
     <div className="overlay-backdrop" style={{ position: "fixed", inset: 0, zIndex: 9999, background: "rgba(0,0,0,0.88)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 28 }}>
       <div className="overlay-modal" style={{ background: t.bgPanel, border: `${ip ? 3 : 1}px solid ${t.border}`, borderRadius: ip ? 2 : 20, padding: ip ? "32px 36px" : "48px 56px", maxWidth: 520, width: "90vw", textAlign: "center", boxShadow: "0 40px 100px rgba(0,0,0,0.7)" }}>
-
         <div style={{ fontFamily: t.fontDisplay, fontSize: ip ? 14 : 23, fontWeight: 700, color: t.text, lineHeight: 1.5, marginBottom: 12 }}>Are you sure you want to quit the current session?</div>
         <div style={{ fontFamily: t.fontBody, fontSize: ip ? 11 : 15, color: t.textMuted, marginBottom: 36, lineHeight: 1.7 }}>Current game progress will be lost.</div>
         <div style={{ display: "flex", gap: 16, justifyContent: "center" }}>
-          <button className="action-btn" onClick={onConfirm} style={{ background: `${t.danger}18`, border: `2px solid ${t.danger}`, color: t.danger, fontFamily: t.fontDisplay, fontSize: ip ? 12 : 17, fontWeight: 700, padding: ip ? "10px 28px" : "14px 52px", borderRadius: ip ? 2 : 10, cursor: "pointer", letterSpacing: "0.08em" }} onMouseEnter={e => { playHoverAction?.(); e.currentTarget.style.background = t.danger; e.currentTarget.style.color = "#000"; e.currentTarget.style.boxShadow = `0 6px 28px ${t.danger}55`; }} onMouseLeave={e => { e.currentTarget.style.background = `${t.danger}18`; e.currentTarget.style.color = t.danger; e.currentTarget.style.boxShadow = "none"; }}>YES</button>
-          <button className="action-btn" onClick={onCancel} style={{ background: `${t.accent}18`, border: `2px solid ${t.accent}`, color: t.accent, fontFamily: t.fontDisplay, fontSize: ip ? 12 : 17, fontWeight: 700, padding: ip ? "10px 28px" : "14px 52px", borderRadius: ip ? 2 : 10, cursor: "pointer", letterSpacing: "0.08em" }} onMouseEnter={e => { playHoverAction?.(); e.currentTarget.style.background = t.accent; e.currentTarget.style.color = "#000"; e.currentTarget.style.boxShadow = `0 6px 28px ${t.accent}55`; }} onMouseLeave={e => { e.currentTarget.style.background = `${t.accent}18`; e.currentTarget.style.color = t.accent; e.currentTarget.style.boxShadow = "none"; }}>NO</button>
+          <button className="action-btn" onClick={onConfirmAction} style={{ background: `${t.danger}18`, border: `2px solid ${t.danger}`, color: t.danger, fontFamily: t.fontDisplay, fontSize: ip ? 12 : 17, fontWeight: 700, padding: ip ? "10px 28px" : "14px 52px", borderRadius: ip ? 2 : 10, cursor: "pointer", letterSpacing: "0.08em" }} onMouseEnter={e => { playHoverAction?.(); e.currentTarget.style.background = t.danger; e.currentTarget.style.color = "#000"; e.currentTarget.style.boxShadow = `0 6px 28px ${t.danger}55`; }} onMouseLeave={e => { e.currentTarget.style.background = `${t.danger}18`; e.currentTarget.style.color = t.danger; e.currentTarget.style.boxShadow = "none"; }}>YES</button>
+          <button className="action-btn" onClick={onCancelAction} style={{ background: `${t.accent}18`, border: `2px solid ${t.accent}`, color: t.accent, fontFamily: t.fontDisplay, fontSize: ip ? 12 : 17, fontWeight: 700, padding: ip ? "10px 28px" : "14px 52px", borderRadius: ip ? 2 : 10, cursor: "pointer", letterSpacing: "0.08em" }} onMouseEnter={e => { playHoverAction?.(); e.currentTarget.style.background = t.accent; e.currentTarget.style.color = "#000"; e.currentTarget.style.boxShadow = `0 6px 28px ${t.accent}55`; }} onMouseLeave={e => { e.currentTarget.style.background = `${t.accent}18`; e.currentTarget.style.color = t.accent; e.currentTarget.style.boxShadow = "none"; }}>NO</button>
         </div>
       </div>
     </div>

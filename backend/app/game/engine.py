@@ -1,19 +1,32 @@
-﻿from app.core.patterns import generate_all_patterns
-from app.core.win_checker import check_5_line, check_structural_patterns, resolve_full_board
+from app.core.patterns import generate_all_patterns
+from app.core.patterns7 import generate_all_patterns_7
+from app.core.win_checker import check_5_line, check_structural_patterns, find_path, resolve_full_board
+from app.core.win_checker7 import check_7_line, resolve_full_board_7
 
 
 class GameEngine:
-
-    GRID_SIZE = 5
-    CENTER = 2
 
     DIRECTIONS = [
         (-1, 0), (1, 0), (0, -1), (0, 1),
         (-1, -1), (-1, 1), (1, -1), (1, 1)
     ]
 
-    def __init__(self):
-        self.shiftable_patterns = generate_all_patterns()
+    def __init__(self, board_mode="5x5", selected_pattern_ids=None):
+        self.board_mode = board_mode
+
+        if board_mode == "7x7":
+            self.GRID_SIZE = 7
+            self.CENTER = 3
+            self.shiftable_patterns = generate_all_patterns_7(selected_pattern_ids)
+            self.selected_pattern_ids = selected_pattern_ids or []
+            self.chain_target = 20
+        else:
+            self.GRID_SIZE = 5
+            self.CENTER = 2
+            self.shiftable_patterns = generate_all_patterns()
+            self.selected_pattern_ids = None
+            self.chain_target = 10
+
         self.reset()
 
     def reset(self):
@@ -24,6 +37,7 @@ class GameEngine:
         self.winner_line = []
         self.moves_played = 0
         self.extra_turns = 0
+        self.connection_scores = None
 
     def deploy(self, row, col):
         if self.winner:
@@ -43,15 +57,23 @@ class GameEngine:
             self.extra_turns = 2         # opponent gets 2 extra turns
             return {"success": True, "winner": None, "extra_turns": 2}
 
-        # ── Win checks (use player_who_moved, not current_player) ──
-        win, line = check_5_line(
-            self.board, row, col, player_who_moved, self.DIRECTIONS, self.GRID_SIZE
-        )
+        # ── Win checks ──
+        if self.board_mode == "7x7":
+            win, line = check_7_line(
+                self.board, row, col, player_who_moved,
+                self.DIRECTIONS, self.GRID_SIZE
+            )
+        else:
+            win, line = check_5_line(
+                self.board, row, col, player_who_moved,
+                self.DIRECTIONS, self.GRID_SIZE
+            )
         if win:
             self.winner = player_who_moved
             self.winner_line = line
             return {"success": True, "winner": self.winner, "extra_turns": 0}
 
+        # ── Structural patterns ──
         win, line = check_structural_patterns(
             self.board, player_who_moved, self.shiftable_patterns, self.GRID_SIZE
         )
@@ -60,19 +82,27 @@ class GameEngine:
             self.winner_line = line
             return {"success": True, "winner": self.winner, "extra_turns": 0}
 
-        # ── Full board draw ──
+
+        # ── Full board ──
         if self.moves_played == self.GRID_SIZE * self.GRID_SIZE:
-            result, line = resolve_full_board(self.board, self.DIRECTIONS, self.GRID_SIZE)
+            if self.board_mode == "7x7":
+                result, line, p1_s, p2_s = resolve_full_board_7(
+                    self.board, self.DIRECTIONS, self.GRID_SIZE
+                )
+            else:
+                result, line, p1_s, p2_s = resolve_full_board(
+                    self.board, self.DIRECTIONS, self.GRID_SIZE
+                )
             self.winner = result
             self.winner_line = line
-            return {"success": True, "winner": self.winner, "extra_turns": 0}
+            self.connection_scores = {"p1": p1_s, "p2": p2_s}
+            return {"success": True, "winner": self.winner, "extra_turns": 0, "connectionScores": self.connection_scores}
 
         # ── Extra turns logic ──
         if self.extra_turns > 0:
             self.extra_turns -= 1
             if self.extra_turns == 0:
                 self._switch_turn()
-            # else: same player keeps their turn
         else:
             self._switch_turn()
 

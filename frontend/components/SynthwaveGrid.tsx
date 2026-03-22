@@ -1,21 +1,25 @@
 "use client";
 import React, { useEffect, useRef, useState } from "react";
 
-const SIZE = 5;
-const COLS = ["A", "B", "C", "D", "E"];
-const ROWS = [1, 2, 3, 4, 5];
+const DEFAULT_SIZE = 5;
+const GET_COLS = (s: number) => Array.from({ length: s }, (_, i) => String.fromCharCode(65 + i));
+const GET_ROWS = (s: number) => Array.from({ length: s }, (_, i) => i + 1);
 
-function useCellSize(pad = 8) {
+
+
+
+
+function useCellSize(size: number, pad = 8) {
   const [cs, setCs] = useState(110);
   useEffect(() => {
     const c = () => {
       const b = Math.min(Math.max(window.innerWidth - 560, 260), Math.max(window.innerHeight - 200, 260));
-      setCs(Math.max(50, (b - 2 * pad) / 5));
+      setCs(Math.max(50, (b - 2 * pad) / size));
     };
     c();
     window.addEventListener("resize", c);
     return () => window.removeEventListener("resize", c);
-  }, [pad]);
+  }, [pad, size]);
   return cs;
 }
 
@@ -186,7 +190,7 @@ function SynthBg({ W, H }: { W: number; H: number }) {
   return <canvas ref={ref} style={{ position: "absolute", inset: 0, zIndex: 0, pointerEvents: "none" }} />;
 }
 
-function GridLines({ W, H, PAD, CS }: { W: number; H: number; PAD: number; CS: number }) {
+function GridLines({ W, H, PAD, CS, SIZE }: { W: number; H: number; PAD: number; CS: number; SIZE: number }) {
   const ref = useRef<HTMLCanvasElement | null>(null);
   const raf = useRef<number | null>(null);
   const t = useRef(0);
@@ -207,7 +211,7 @@ function GridLines({ W, H, PAD, CS }: { W: number; H: number; PAD: number; CS: n
       t.current += 0.016;
       const tc = t.current;
       ctx.clearRect(0, 0, W, H);
-      for (let i = 0; i <= 5; i++) {
+      for (let i = 0; i <= SIZE; i++) {
         const x = PAD + i * CS, y = PAD + i * CS;
         const p = 0.65 + 0.35 * Math.sin(tc * 1.8 + i * 0.85);
 
@@ -296,7 +300,7 @@ function GridLines({ W, H, PAD, CS }: { W: number; H: number; PAD: number; CS: n
         ctx.restore();
       }
 
-      for (let r = 0; r <= 5; r++) for (let c = 0; c <= 5; c++) {
+      for (let r = 0; r < SIZE; r++) for (let c = 0; c < SIZE; c++) {
         const nx = PAD + c * CS, ny = PAD + r * CS;
         const fl = 0.45 + 0.55 * Math.abs(Math.sin(tc * 2.2 + (r * 6 + c) * 0.85));
         const isP = (r + c) % 2 === 0;
@@ -536,35 +540,27 @@ function Cell({ CS, value, onClick, isWinCell, justPlaced, lastTurn }: { CS: num
   );
 }
 
-export default function SynthwaveGrid({
-  board,
-  onCellClick,
-  winCells = [],
-  showLabels = true,
-  cellSize,
-}: {
-  board?: (("X" | "O") | null)[][];
-  onCellClick?: (r: number, c: number) => void;
-  winCells?: [number, number][];
-  showLabels?: boolean;
-  cellSize?: number;
-}) {
+export default function SynthwaveGrid({ board, onCellClickAction, winCells = [], showLabels = true }: { board?: (string | null)[][]; onCellClickAction?: (r: number, c: number) => void; winCells?: [number, number][]; showLabels?: boolean }) {
+  const active = board ?? Array(DEFAULT_SIZE).fill(null).map(() => Array(DEFAULT_SIZE).fill(null));
+  const SIZE = active.length;
+  const COLS = GET_COLS(SIZE);
+  const ROWS = GET_ROWS(SIZE);
   const PAD = 8;
-  const CS = cellSize ?? useCellSize(PAD);
+  const CS = useCellSize(SIZE, PAD);
+  const BS = SIZE * CS + 2 * PAD;
+
   const [demo, setDemo] = useState<(("X" | "O") | null)[][]>(() => Array(SIZE).fill(null).map(() => Array(SIZE).fill(null)));
   const [turn, setTurn] = useState<"X" | "O">("X");
   const [last, setLast] = useState<string | null>(null);
-  const active = board ?? demo;
   const winSet = new Set(winCells.map(([r, c]) => `${r}-${c}`));
   const burstRef = useRef<((x: number, y: number, isP1: boolean) => void) | null>(null);
-  const BS = 5 * CS + 2 * PAD;
 
   const click = (r: number, c: number) => {
     if (active[r][c]) return;
     burstRef.current?.(PAD + c * CS + CS / 2, PAD + r * CS + CS / 2, turn === "X");
     setLast(`${r}-${c}`);
     setTimeout(() => setLast(null), 700);
-    if (onCellClick) { onCellClick(r, c); return; }
+    if (onCellClickAction) { onCellClickAction?.(r, c); return; }
     const n = demo.map((row) => [...row]);
     n[r][c] = turn;
     setDemo(n);
@@ -596,7 +592,7 @@ export default function SynthwaveGrid({
         )}
         <div style={{ position: "relative", width: BS, height: BS, borderRadius: CS * 0.07, overflow: "hidden", border: "2px solid rgba(255,0,180,.65)", boxShadow: "0 0 0 1px rgba(0,180,255,.25),0 0 50px rgba(200,0,160,.45),0 0 120px rgba(100,0,80,.3),inset 0 0 80px rgba(0,0,10,.6)" }}>
           <SynthBg W={BS} H={BS} />
-          <GridLines W={BS} H={BS} PAD={PAD} CS={CS} />
+          <GridLines W={BS} H={BS} PAD={PAD} CS={CS} SIZE={SIZE} />
           <BurstCanvas burstRef={burstRef} W={BS} H={BS} />
           <div style={{ position: "absolute", inset: PAD, zIndex: 4, display: "flex", flexDirection: "column" }}>
             {ROWS.map((_, r) => (

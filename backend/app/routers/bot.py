@@ -1,670 +1,296 @@
-# bot.py — XO-Arena Elite AI Bot
-#
-# Architecture:
-#   BotEngine           — stateful class, one instance per session
-#   ├── Opening Book    — optimal first moves for hard mode
-#   ├── Pattern DB      — pre-indexed cell→pattern membership
-#   ├── IDAB            — Iterative Deepening Alpha-Beta w/ time control
-#   │   ├── Move Ordering  (win>block>fork>killer>history>heuristic)
-#   │   ├── Quiescence     — extend on direct threats
-#   │   └── Transposition Table
-#   └── Endgame Solver  — perfect minimax when ≤ 8 cells remain
-#
-# Public API (unchanged from previous version):
-#   get_bot_move(engine, difficulty) → (row, col)
-#   tick_bot(ui, dt)                → called every frame
-
 import copy
 import time
-import random
-from collections import deque
+from typing import List, Optional
 from fastapi import APIRouter
-
-router = APIRouter()
-from app.core.win_checker import check_5_line, check_structural_patterns, find_10
-
-# ── Constants ──────────────────────────────────────────────────────────────
-GRID   = 5
-ALL_RC = [(r, c) for r in range(GRID) for c in range(GRID)]
-DIRS   = [(-1,0),(1,0),(0,-1),(0,1),(-1,-1),(-1,1),(1,-1),(1,1)]
-DIRS4  = [(0,1),(1,0),(1,1),(1,-1)]    # canonical 4 for line scanning
-INF    = float('inf')
-
-# Evaluation score tables  (index = pieces in line/pattern, opponent not present)
-LINE_SCORE = [0, 1, 6, 50, 400, 0]    # 5 = already a win (handled separately)
-PAT_SCORE  = [0, 0, 5, 30, 200, 0]
-OPPO_MULT  = 1.3                       # opponent threats weighted higher
-
-# Think-time budgets in seconds per difficulty
-TIME_BUDGET = {"easy": 0.0, "medium": 0.60, "hard": 1.80}
-MAX_DEPTH   = {"easy": 1,   "medium": 5,    "hard": 99}
-
-# Quiescence extension depth
-QSEARCH_DEPTH = 2
-
-
-# ══════════════════════════════════════════════════════════════════════════
-#  BOT ENGINE
-# ══════════════════════════════════════════════════════════════════════════
-
-class BotEngine:
-    """
-    Created once and re-used across all games in a session.
-    Holds the pattern index and killer/history tables.
-    """
-
-    def __init__(self, shiftable_patterns):
-        # Pre-build the cell → pattern-membership index
-        self.patterns = shiftable_patterns
-        self._build_pattern_index()
-
-        # Killer move table: killers[depth] = [move1, move2]
-        self.killers  = [[] for _ in range(30)]
-
-        # History heuristic: history[r][c] += 2**depth on cutoff
-        self.history  = [[0] * GRID for _ in range(GRID)]
-
-        # Transposition table: board_key → (depth, score, flag)
-        # flag: 'exact' | 'lower' | 'upper'
-        self.tt = {}
-
-    # ── Pattern index ──────────────────────────────────────────────────────
-
-    def _build_pattern_index(self):
-        """
-        For every pattern P and every valid placement (br, bc),
-        record which cells are part of that instance.
-        cell_uses[r][c] → list of (pat_id, instance_cells)
-        """
-        self.cell_uses = [[[] for _ in range(GRID)] for _ in range(GRID)]
-        for pid, pattern in enumerate(self.patterns):
-            max_r = max(dr for dr, _ in pattern)
-            max_c = max(dc for _, dc in pattern)
-            for br in range(GRID - max_r):
-                for bc in range(GRID - max_c):
-                    cells = tuple((br+dr, bc+dc) for dr, dc in pattern)
-                    for r, c in cells:
-                        self.cell_uses[r][c].append((pid, cells))
-
-    # ── Public entry point ────────────────────────────────────────────────
-
-    def choose(self, board, bot, human, difficulty):
-        """Return (row, col) — the bot's chosen move."""
-        empties = _empty(board)
-        if not empties:
-            return None
-
-        if difficulty == "easy":
-            return random.choice(empties)
-
-        # Opening book (hard mode, ≤ 2 moves played)
-        placed = sum(1 for r, c in ALL_RC if board[r][c] is not None)
-        if difficulty == "hard" and placed <= 1:
-            book = _opening_book(board, bot)
-            if book:
-                return book
-
-        # Endgame: ≤ 8 cells → perfect solve
-        if len(empties) <= 8:
-            return self._endgame(board, bot, human)
-
-        # IDAB
-        return self._idab(board, bot, human, difficulty)
-
-    # ── Opening Book ──────────────────────────────────────────────────────
-
-    # (delegated to module-level function for clarity)
-
-    # ── Endgame Perfect Solver ────────────────────────────────────────────
-
-    def _endgame(self, board, bot, human):
-        """Full exhaustive minimax — only called when ≤ 8 cells remain."""
-        empties = _empty(board)
-        ordered = self._order(board, empties, bot, human)
-        best_val, best_mv = -INF, ordered[0]
-
-        for r, c in ordered:
-            b   = _place(board, r, c, bot)
-            val = self._negamax(b, depth=len(empties)-1,
-                                alpha=-INF, beta=INF,
-                                cur=human, opp=bot,
-                                root_bot=bot, last=(r, c, bot))
-            val = -val
-            if val > best_val:
-                best_val, best_mv = val, (r, c)
-
-        return best_mv
-
-    # ── IDAB ──────────────────────────────────────────────────────────────
-
-    def _idab(self, board, bot, human, difficulty):
-        """
-        Iterative Deepening Alpha-Beta.
-        Searches depth 1, 2, 3… until time budget expires.
-        Always returns the best move found in the last completed depth.
-        """
-        deadline = time.monotonic() + TIME_BUDGET[difficulty]
-        max_d    = MAX_DEPTH[difficulty]
-        empties  = _empty(board)
-
-        # Reset killer/history for this search
-        self.killers = [[] for _ in range(max_d + QSEARCH_DEPTH + 4)]
-        self.history = [[0] * GRID for _ in range(GRID)]
-        self.tt      = {}
-
-        best_mv = self._order(board, empties, bot, human)[0]
-
-        for depth in range(1, max_d + 1):
-            if time.monotonic() >= deadline and depth > 1:
-                break
-
-            ordered  = self._order(board, empties, bot, human)
-            best_val = -INF
-            alpha    = -INF
-
-            for r, c in ordered:
-                if time.monotonic() >= deadline and depth > 1:
-                    break
-                b   = _place(board, r, c, bot)
-                val = self._negamax(b, depth=depth-1,
-                                    alpha=-INF, beta=-alpha,
-                                    cur=human, opp=bot,
-                                    root_bot=bot, last=(r, c, bot),
-                                    deadline=deadline)
-                val = -val
-                if val > best_val:
-                    best_val = val
-                    best_mv  = (r, c)
-                alpha = max(alpha, best_val)
-
-        return best_mv
-
-    # ── Negamax (α-β) core ───────────────────────────────────────────────
-
-    def _negamax(self, board, depth, alpha, beta, cur, opp,
-                 root_bot, last, deadline=None):
-        """
-        Negamax with alpha-beta pruning.
-        `cur`  = player whose turn it is at this node
-        `opp`  = other player
-        Returns score from `cur`'s perspective.
-        """
-        lr, lc, lp = last
-
-        # ── Terminal: last move was a win ──
-        if _wins(board, lr, lc, lp, self.patterns):
-            bonus = depth + 1
-            val   = 10000 + bonus
-            return val if lp == cur else -val
-
-        empties = _empty(board)
-
-        # ── Terminal: board full → 10-chain tiebreak ──
-        if not empties:
-            p_bot = find_10(board, root_bot, DIRS, GRID)
-            p_opp = find_10(board, opp if root_bot == cur else cur, DIRS, GRID)
-            if p_bot and not p_opp:
-                return 4000 if cur == root_bot else -4000
-            elif p_opp and not p_bot:
-                return -4000 if cur == root_bot else 4000
-            return 0
-
-        # ── Depth limit or time up → heuristic ──
-        if depth == 0 or (deadline and time.monotonic() >= deadline):
-            h = (_eval(board, root_bot, self.patterns, self.cell_uses)
-                 - _eval(board, opp if root_bot == cur else cur,
-                         self.patterns, self.cell_uses))
-            return h if cur == root_bot else -h
-
-        # ── Transposition table ──
-        key = (_board_key(board), cur)
-        if key in self.tt:
-            stored_depth, stored_score, flag = self.tt[key]
-            if stored_depth >= depth:
-                if flag == 'exact':
-                    return stored_score
-                elif flag == 'lower':
-                    alpha = max(alpha, stored_score)
-                elif flag == 'upper':
-                    beta = min(beta, stored_score)
-                if alpha >= beta:
-                    return stored_score
-
-        # ── Quiescence: extend if opponent has a direct threat ──
-        if depth == 0:
-            return self._quiesce(board, alpha, beta, cur, opp,
-                                 root_bot, deadline)
-
-        # ── Move ordering ──
-        ordered = self._order_with_killers(board, empties, cur, opp, depth)
-
-        best_val = -INF
-        flag     = 'upper'
-
-        for r, c in ordered:
-            b   = _place(board, r, c, cur)
-            val = -self._negamax(b, depth-1, -beta, -alpha,
-                                 opp, cur, root_bot, (r, c, cur), deadline)
-            if val > best_val:
-                best_val = val
-                flag     = 'exact'
-
-            alpha = max(alpha, val)
-
-            if alpha >= beta:
-                # β-cutoff — record killer and history
-                self._record_killer(r, c, depth)
-                self.history[r][c] += 2 ** depth
-                flag = 'lower'
-                break
-
-        self.tt[key] = (depth, best_val, flag)
-        return best_val
-
-    # ── Quiescence Search ─────────────────────────────────────────────────
-
-    def _quiesce(self, board, alpha, beta, cur, opp, root_bot, deadline,
-                 qdepth=QSEARCH_DEPTH):
-        """
-        Extend search on forcing moves (immediate win / block) only.
-        Prevents the horizon effect on threat positions.
-        """
-        # Stand-pat: evaluate as-is
-        h = (_eval(board, root_bot, self.patterns, self.cell_uses)
-             - _eval(board, opp if root_bot == cur else cur,
-                     self.patterns, self.cell_uses))
-        stand_pat = h if cur == root_bot else -h
-
-        if stand_pat >= beta:
-            return beta
-        alpha = max(alpha, stand_pat)
-
-        if qdepth == 0 or (deadline and time.monotonic() >= deadline):
-            return alpha
-
-        empties = _empty(board)
-
-        # Only investigate moves that win or block a win
-        forcing = []
-        for r, c in empties:
-            b = _place(board, r, c, cur)
-            if _wins(b, r, c, cur, self.patterns):
-                forcing.append((r, c))
-                continue
-            b2 = _place(board, r, c, opp)
-            if _wins(b2, r, c, opp, self.patterns):
-                forcing.append((r, c))
-
-        if not forcing:
-            return alpha
-
-        for r, c in forcing:
-            b   = _place(board, r, c, cur)
-            val = -self._quiesce(b, -beta, -alpha, opp, cur,
-                                 root_bot, deadline, qdepth-1)
-            if val >= beta:
-                return beta
-            alpha = max(alpha, val)
-
-        return alpha
-
-    # ── Killer move management ────────────────────────────────────────────
-
-    def _record_killer(self, r, c, depth):
-        slot = self.killers[depth]
-        mv   = (r, c)
-        if mv not in slot:
-            slot.insert(0, mv)
-            if len(slot) > 2:
-                slot.pop()
-
-    # ── Move ordering ─────────────────────────────────────────────────────
-
-    def _order(self, board, empties, player, opponent):
-        """Simple ordering: win > block-win > fork > block-fork > heuristic."""
-        return _order_moves(board, empties, player, opponent,
-                            self.patterns, [], self.history)
-
-    def _order_with_killers(self, board, empties, player, opponent, depth):
-        """Full ordering including killers at this depth."""
-        killers = self.killers[depth] if depth < len(self.killers) else []
-        return _order_moves(board, empties, player, opponent,
-                            self.patterns, killers, self.history)
-
-
-# ══════════════════════════════════════════════════════════════════════════
-#  MODULE-LEVEL HELPERS
-# ══════════════════════════════════════════════════════════════════════════
-
-def _empty(board):
-    return [(r, c) for r, c in ALL_RC if board[r][c] is None]
-
-
-def _place(board, r, c, player):
-    b = copy.deepcopy(board)
-    b[r][c] = player
-    return b
-
-
-def _board_key(board):
-    return tuple(board[r][c] for r, c in ALL_RC)
-
-
-def _wins(board, r, c, player, patterns):
-    w, _ = check_5_line(board, r, c, player, DIRS, GRID)
-    if w:
-        return True
-    w, _ = check_structural_patterns(board, player, patterns, GRID)
-    return w
-
-
-# ── Opening Book ──────────────────────────────────────────────────────────
-
-# Preferred non-centre corners and edges for first move
-_BOOK_FIRST  = [(1, 1), (1, 3), (3, 1), (3, 3)]
-_BOOK_SECOND = [(0, 0), (0, 4), (4, 0), (4, 4), (0, 2), (2, 0), (2, 4), (4, 2)]
-
-def _opening_book(board, bot):
-    placed = [(r, c) for r, c in ALL_RC if board[r][c] is not None]
-    n      = len(placed)
-
-    if n == 0:
-        # Bot moves first — avoid centre (gives opponent 2 extra turns)
-        candidates = [m for m in _BOOK_FIRST if board[m[0]][m[1]] is None]
-        return random.choice(candidates) if candidates else None
-
-    if n == 1:
-        # Bot moves second — pick a strong corner not yet taken
-        candidates = [m for m in _BOOK_SECOND if board[m[0]][m[1]] is None]
-        return random.choice(candidates) if candidates else None
-
-    return None
-
-
-# ── Threat Counting ───────────────────────────────────────────────────────
-
-def _count_threats(board, player, patterns):
-    """Number of un-blocked threat lines with ≥ 2 of player's pieces."""
-    opponent = "P2" if player == "P1" else "P1"
-    threats  = 0
-
-    # Linear threats (4 canonical directions)
-    for dr, dc in DIRS4:
-        for r in range(GRID):
-            for c in range(GRID):
-                mine = blk = length = 0
-                rr, cc = r, c
-                while 0 <= rr < GRID and 0 <= cc < GRID:
-                    v = board[rr][cc]
-                    if v == opponent:
-                        blk = 1; break
-                    if v == player:
-                        mine += 1
-                    length += 1
-                    rr += dr; cc += dc
-                if not blk and mine >= 2 and length >= 5:
-                    threats += 1
-
-    # Pattern threats
-    for pattern in patterns:
-        max_r = max(dr for dr, _ in pattern)
-        max_c = max(dc for _, dc in pattern)
-        for br in range(GRID - max_r):
-            for bc in range(GRID - max_c):
-                mine = blk = 0
-                for dr, dc in pattern:
-                    v = board[br+dr][bc+dc]
-                    if v == opponent: blk = 1; break
-                    if v == player:   mine += 1
-                if not blk and mine >= 2:
-                    threats += 1
-
-    return threats
-
-
-# ── Evaluation Function ───────────────────────────────────────────────────
-
-def _eval(board, player, patterns, cell_uses):
-    """
-    Full heuristic evaluation from `player`'s perspective.
-    Uses the pre-built cell_uses index for pattern scoring.
-    """
-    opponent = "P2" if player == "P1" else "P1"
-    score    = 0
-
-    # ── 1. Linear streaks ──
-    for dr, dc in DIRS4:
-        for r in range(GRID):
-            for c in range(GRID):
-                my_run = opp_run = 0
-                my_blk = opp_blk = False
-                length = 0
-                rr, cc = r, c
-                while 0 <= rr < GRID and 0 <= cc < GRID:
-                    v = board[rr][cc]
-                    if v == player:
-                        if opp_run > 0: opp_blk = True
-                        my_run += 1
-                    elif v == opponent:
-                        if my_run > 0:  my_blk = True
-                        opp_run += 1
-                    length += 1
-                    rr += dr; cc += dc
-
-                if my_run >= 2 and not my_blk:
-                    score += LINE_SCORE[min(my_run, 5)]
-                if opp_run >= 2 and not opp_blk:
-                    score -= int(LINE_SCORE[min(opp_run, 5)] * OPPO_MULT)
-
-    # ── 2. Pattern progress (via pre-built index) ──
-    seen = set()
-    for r in range(GRID):
-        for c in range(GRID):
-            if board[r][c] is None:
-                continue
-            for pid, cells in cell_uses[r][c]:
-                key = (pid, cells)
-                if key in seen:
-                    continue
-                seen.add(key)
-
-                mine = opp_cnt = 0
-                for cr, cc in cells:
-                    v = board[cr][cc]
-                    if v == player:    mine    += 1
-                    elif v == opponent: opp_cnt += 1
-
-                if opp_cnt == 0 and mine >= 2:
-                    score += PAT_SCORE[min(mine, 5)]
-                if mine == 0 and opp_cnt >= 2:
-                    score -= int(PAT_SCORE[min(opp_cnt, 5)] * OPPO_MULT)
-
-    # ── 3. BFS connectivity (10-chain potential) ──
-    visited = [[False]*GRID for _ in range(GRID)]
-    for r in range(GRID):
-        for c in range(GRID):
-            if board[r][c] == player and not visited[r][c]:
-                sz = _bfs(board, r, c, player, visited)
-                if sz >= 3:
-                    score += sz * 12
-
-    # ── 4. Fork bonus ──
-    threat_count = _count_threats(board, player, patterns)
-    if threat_count >= 2:
-        score += 80 * (threat_count - 1)
-
-    # ── 5. Positional bias ──
-    for r in range(GRID):
-        for c in range(GRID):
-            if board[r][c] == player:
-                score += max(0, 4 - (abs(r-2) + abs(c-2)))
-
-    return score
-
-
-def _bfs(board, sr, sc, player, visited):
-    q = deque([(sr, sc)])
-    visited[sr][sc] = True
-    size = 0
-    while q:
-        r, c = q.popleft()
-        size += 1
-        for dr, dc in DIRS:
-            nr, nc = r+dr, c+dc
-            if (0 <= nr < GRID and 0 <= nc < GRID
-                    and not visited[nr][nc]
-                    and board[nr][nc] == player):
-                visited[nr][nc] = True
-                q.append((nr, nc))
-    return size
-
-
-# ── Move Ordering ─────────────────────────────────────────────────────────
-
-def _order_moves(board, empties, player, opponent, patterns, killers, history):
-    """
-    Full priority ordering:
-      1. Immediate win
-      2. Block opponent immediate win
-      3. Fork creation (2+ own threats)
-      4. Block opponent fork
-      5. Killer moves from this depth
-      6. History heuristic score (descending)
-    """
-    win_mvs = []; blk_mvs = []; fork_mvs = []; bfork_mvs = []
-    kill_mvs = []; rest = []
-
-    for r, c in empties:
-        b = _place(board, r, c, player)
-
-        if _wins(b, r, c, player, patterns):
-            win_mvs.append((r, c)); continue
-
-        b2 = _place(board, r, c, opponent)
-        if _wins(b2, r, c, opponent, patterns):
-            blk_mvs.append((r, c)); continue
-
-        if _count_threats(b, player, patterns) >= 2:
-            fork_mvs.append((r, c)); continue
-
-        b3 = _place(board, r, c, opponent)
-        if _count_threats(b3, opponent, patterns) >= 2:
-            bfork_mvs.append((r, c)); continue
-
-        if (r, c) in killers:
-            kill_mvs.append((r, c)); continue
-
-        rest.append((history[r][c], r, c))
-
-    rest.sort(key=lambda x: x[0], reverse=True)
-    return (win_mvs + blk_mvs + fork_mvs + bfork_mvs
-            + kill_mvs + [(r, c) for _, r, c in rest])
-
-
-# ══════════════════════════════════════════════════════════════════════════
-#  PUBLIC API
-# ══════════════════════════════════════════════════════════════════════════
-
-# One engine instance per session — created lazily
-_ENGINE: BotEngine | None = None
-
-
-def _get_engine(shiftable_patterns):
-    global _ENGINE
-    if _ENGINE is None:
-        _ENGINE = BotEngine(shiftable_patterns)
-    return _ENGINE
-
-
-def get_bot_move(engine, difficulty):
-    """Return (row, col) for the bot to play."""
-    be    = _get_engine(engine.shiftable_patterns)
-    board = copy.deepcopy(engine.board)
-    bot   = engine.current_player
-    human = "P2" if bot == "P1" else "P1"
-    return be.choose(board, bot, human, difficulty)
-
-
-def tick_bot(ui, dt):
-    """
-    Called every frame from the main game loop.
-    Manages think-delay; fires the actual move when the timer expires.
-    """
-    if not ui.bot_mode:
-        return
-    if ui.engine.is_finished():
-        return
-    if (ui.show_splash or ui.show_rulebreaker
-            or ui.waiting_ready or ui.match_over
-            or ui.forfeit_screen):
-        return
-    if ui.engine.get_current_player() != ui.bot_player:
-        return
-
-    if not ui.bot_thinking:
-        ui.bot_thinking = True
-        # Minimum visual delay so the UI shows "BOT THINKING..."
-        delays = {"easy": 0.4, "medium": 0.85, "hard": 2.0}
-        ui.bot_think_timer = delays.get(ui.bot_difficulty, 0.85)
-    else:
-        ui.bot_think_timer -= dt / 1000.0
-        if ui.bot_think_timer <= 0:
-            move = get_bot_move(ui.engine, ui.bot_difficulty)
-            if move is not None:
-                row, col = move
-                current  = ui.engine.get_current_player()
-
-                # Respect the c3_blocked rule (same as human's event handler)
-                if ui.c3_blocked and ui.engine.moves_played == 0:
-                    if row == 2 and col == 2:
-                        alts = [(r, c) for r, c in _empty(ui.engine.board)
-                                if not (r == 2 and c == 2)]
-                        if alts:
-                            row, col = alts[0]
-
-                if ui.engine.deploy(row, col):
-                    if ui.c3_blocked and ui.engine.moves_played == 1:
-                        ui.c3_blocked = False
-                    ui.log_move(row, col, current)
-
-            ui.bot_thinking = False
-# ─────────────────────────────────────────────────────────────
-# FastAPI Endpoint
-# ─────────────────────────────────────────────────────────────
-
 from pydantic import BaseModel
 from app.core.patterns import generate_all_patterns
+from app.core.patterns7 import generate_all_patterns_7
+from app.core.win_checker import check_5_line, check_structural_patterns
+from app.core.win_checker7 import check_7_line, resolve_full_board_7
 
+router = APIRouter()
+
+GRID5 = 5
+GRID7 = 7
+DIRS = [(0, 1), (1, 0), (1, 1), (1, -1)]
+ALL_DIRS = [(0, 1), (1, 0), (1, 1), (1, -1), (0, -1), (-1, 0), (-1, -1), (-1, 1)]
+INF = 10**9
+
+LINE_SCORE = [0, 10, 100, 1000, 5000, 100000]
+PAT_SCORE = [0, 30, 300, 3000, 15000, 500000]
+OPPO_MULT = 1.3
+
+ALL_RC5 = [(r, c) for r in range(GRID5) for c in range(GRID5)]
+ALL_RC7 = [(r, c) for r in range(GRID7) for c in range(GRID7)]
+
+# =============================================================
+#  7x7 BOT ENGINE
+# =============================================================
+
+class BotEngine7:
+    def __init__(self, patterns):
+        self.patterns = patterns
+        self.cell_uses = [[[] for _ in range(GRID7)] for _ in range(GRID7)]
+        self._build_pattern_index()
+        self.tt = {}
+        self.history = [[0] * GRID7 for _ in range(GRID7)]
+
+    def _build_pattern_index(self):
+        for pid, pattern in enumerate(self.patterns):
+            max_r = max(dr for dr, _ in pattern); max_c = max(dc for _, dc in pattern)
+            for br in range(GRID7 - max_r):
+                for bc in range(GRID7 - max_c):
+                    cells = tuple((br+dr, bc+dc) for dr, dc in pattern)
+                    for r, c in cells: self.cell_uses[r][c].append((pid, cells))
+
+    def choose(self, board, bot, human, difficulty):
+        empties = _empty7(board)
+        if not empties: return None
+        if difficulty == "easy":
+            import random
+            return random.choice(empties)
+
+        # 1-ply immediate win/block
+        for r, c in empties:
+            b = _place(board, r, c, bot)
+            if _wins7(b, r, c, bot, self.patterns): return (r, c)
+        for r, c in empties:
+            b = _place(board, r, c, human)
+            if _wins7(b, r, c, human, self.patterns): return (r, c)
+
+        return self._idab(board, bot, human, difficulty)
+
+    def _idab(self, board, bot, human, difficulty):
+        empties = _empty7(board)
+        # Move ordering: center-first
+        ordered = sorted(empties, key=lambda x: abs(x[0]-3) + abs(x[1]-3))
+        
+        max_d = {"medium": 4, "hard": 6}[difficulty]
+        budget = {"medium": 1.2, "hard": 3.5}[difficulty]
+        deadline = time.monotonic() + budget
+        
+        best_mv = ordered[0]
+        self.tt = {}
+        self.history = [[0] * GRID7 for _ in range(GRID7)]
+
+        for depth in range(1, max_d + 1):
+            if time.monotonic() >= deadline and depth > 1: break
+            
+            depth_ordered = [best_mv] + [m for m in ordered if m != best_mv]
+            depth_best_mv = best_mv
+            depth_best_val = -INF
+            alpha = -INF
+            
+            for r, c in depth_ordered:
+                if time.monotonic() >= deadline and depth > 1: break
+                b = _place(board, r, c, bot)
+                val = -self._negamax(b, depth - 1, -INF, -alpha, human, bot, bot, (r, c, bot), deadline)
+                
+                if val > depth_best_val:
+                    depth_best_val = val
+                    depth_best_mv = (r, c)
+                alpha = max(alpha, val)
+            
+            if time.monotonic() < deadline or depth == 1:
+                best_mv = depth_best_mv
+            if depth_best_val > 900000: break
+            
+        return best_mv
+
+    def _negamax(self, board, depth, alpha, beta, cur, opp, root_bot, last, deadline=None):
+        if deadline and time.monotonic() >= deadline: return 0
+        lr, lc, lp = last
+        if _wins7(board, lr, lc, lp, self.patterns):
+            val = 1000000 + depth
+            return val if lp == cur else -val
+        
+        if depth == 0:
+            h = _eval(board, root_bot, self.patterns, self.cell_uses)
+            h -= _eval(board, opp if root_bot == cur else cur, self.patterns, self.cell_uses)
+            return h if cur == root_bot else -h
+
+        key = (tuple(tuple(r) for r in board), cur)
+        if key in self.tt:
+            d, v, f = self.tt[key]
+            if d >= depth:
+                if f == 0: return v
+                elif f == 1: alpha = max(alpha, v)
+                elif f == 2: beta = min(beta, v)
+                if alpha >= beta: return v
+
+        empties = _empty7(board)
+        # Simple ordering for internal nodes
+        moves = sorted(empties, key=lambda x: self.history[x[0]][x[1]], reverse=True)
+        
+        best_v = -INF
+        for r, c in moves:
+            b = _place(board, r, c, cur)
+            v = -self._negamax(b, depth - 1, -beta, -alpha, opp, cur, root_bot, (r, c, cur), deadline)
+            if v > best_v:
+                best_v = v
+            alpha = max(alpha, v)
+            if alpha >= beta:
+                self.history[r][c] += 2**depth
+                break
+        
+        flag = 0 if best_v <= alpha and best_v >= beta else (1 if best_v > alpha else 2)
+        self.tt[key] = (depth, best_v, flag)
+        return best_v
+
+# =============================================================
+#  5x5 BOT ENGINE (Original)
+# =============================================================
+
+class BotEngine:
+    def __init__(self, patterns):
+        self.patterns = patterns
+
+    def choose(self, board, bot, human, difficulty):
+        empties = _empty5(board)
+        if not empties: return None
+        if difficulty == "easy":
+            import random
+            return random.choice(empties)
+
+        # Immediate win/block
+        for r, c in empties:
+            b = _place(board, r, c, bot)
+            if check_5_line(b, r, c, bot, DIRS, 5)[0] or check_structural_patterns(b, bot, self.patterns, 5)[0]:
+                return (r, c)
+        for r, c in empties:
+            b = _place(board, r, c, human)
+            if check_5_line(b, r, c, human, DIRS, 5)[0] or check_structural_patterns(b, human, self.patterns, 5)[0]:
+                return (r, c)
+
+        best_v = -INF; best_mv = empties[0]
+        for r, c in empties:
+            b = _place(board, r, c, bot)
+            v = _eval(b, bot, self.patterns, None)
+            v -= _eval(b, human, self.patterns, None)
+            if v > best_v:
+                best_v = v
+                best_mv = (r, c)
+        return best_mv
+
+# =============================================================
+#  HELPERS
+# =============================================================
+
+def _place(board, r, c, p):
+    nb = [list(row) for row in board]
+    nb[r][c] = p
+    return nb
+
+def _empty5(board): return [(r, c) for r, c in ALL_RC5 if board[r][c] is None]
+def _empty7(board): return [(r, c) for r, c in ALL_RC7 if board[r][c] is None]
+
+def _wins7(board, r, c, player, patterns):
+    if check_7_line(board, r, c, player, ALL_DIRS, 7)[0]: return True
+    if check_structural_patterns(board, player, patterns, 7)[0]: return True
+    return False
+
+def _eval(board, player, patterns, cell_uses):
+    score = 0
+    grid_size = len(board)
+    opponent = "P2" if player == "P1" else "P1"
+    
+    # 1. Line Progress
+    target = 7 if grid_size == 7 else 5
+    for dr, dc in DIRS:
+        for r in range(grid_size):
+            for c in range(grid_size):
+                if r + (target-1)*dr >= grid_size or c + (target-1)*dc >= grid_size or c + (target-1)*dc < 0: continue
+                m, o = 0, 0
+                for i in range(target):
+                    v = board[r + i*dr][c + i*dc]
+                    if v == player: m += 1
+                    elif v == opponent: o += 1
+                if m > 0 and o == 0:
+                    score += (m ** 4) * (30 if grid_size == 7 else 10)
+                elif o > 0 and m == 0:
+                    score -= (o ** 4) * (45 if grid_size == 7 else 15)
+
+    # 2. Pattern Progress
+    if cell_uses:
+        seen = set()
+        for r in range(grid_size):
+            for c in range(grid_size):
+                if board[r][c] is None: continue
+                for pid, cells in cell_uses[r][c]:
+                    if (pid, cells[0]) in seen: continue
+                    seen.add((pid, cells[0]))
+                    m, o = 0, 0
+                    for cr, cc in cells:
+                        v = board[cr][cc]
+                        if v == player: m += 1
+                        elif v == opponent: o += 1
+                    if m > 0 and o == 0: score += (m**4) * 50
+                    elif o > 0 and m == 0: score -= (o**4) * 75
+
+    # 3. Center Bias
+    center = grid_size // 2
+    for r in range(grid_size):
+        for c in range(grid_size):
+            if board[r][c] == player: 
+                score += max(0, center + 1 - (abs(r-center) + abs(c-center))) * (1.0 if grid_size == 5 else 4.0)
+            elif board[r][c] == opponent: 
+                score -= max(0, center + 1 - (abs(r-center) + abs(c-center))) * (1.0 if grid_size == 5 else 4.0)
+    
+    return score
+
+# =============================================================
+#  ROUTERS
+# =============================================================
 
 class BotMoveRequest(BaseModel):
-    board: list
+    board: List[List[Optional[str]]]
     difficulty: str
     current_player: str
+    board_mode: str = "5x5"
+    selected_patterns: Optional[List[str]] = None
+    c3_blocked: bool = False
+    moves_played: Optional[int] = None
 
+_ENGINE5 = None
+_LAST_PATS5 = None
+
+def get_bot_move(engine, difficulty):
+    global _ENGINE5, _LAST_PATS5
+    pats = engine.shiftable_patterns
+    if _ENGINE5 is None or pats != _LAST_PATS5:
+        _ENGINE5 = BotEngine(pats)
+        _LAST_PATS5 = pats
+    bot = engine.current_player; human = "P2" if bot == "P1" else "P1"
+    return _ENGINE5.choose(copy.deepcopy(engine.board), bot, human, difficulty)
+
+from app.routers.bot7 import Bot7Engine as _Bot7Engine
+
+_ENGINE7_NEW = None
+_LAST_PATS7_NEW = None
 
 @router.post("/move")
 def bot_move(req: BotMoveRequest):
+    global _ENGINE7_NEW, _LAST_PATS7_NEW
+    def normalize(cell): return None if cell in [None, "null", ""] else cell
+    board = [[normalize(cell) for cell in row] for row in req.board]
+    actual_mode = "7x7" if len(board) >= 7 and len(board[0]) >= 7 else "5x5"
+    moves_played = req.moves_played if req.moves_played is not None else sum(1 for row in board for cell in row if cell is not None)
 
-    engine = type("EngineStub", (), {})()
-
-    # Convert JS null → Python None, and normalize any "null" strings
-    def normalize(cell):
-        if cell is None or cell == "null" or cell == "":
-            return None
-        return cell
-
-    engine.board = [[normalize(cell) for cell in row] for row in req.board]
-    engine.current_player = req.current_player
-    engine.shiftable_patterns = generate_all_patterns()
-
-    move = get_bot_move(engine, req.difficulty)
-
-    if move is None:
-        return {"row": None, "col": None}
-
-    row, col = move
-
-    return {
-        "row": row,
-        "col": col
-    }
+    if actual_mode == "7x7":
+        pats = generate_all_patterns_7(req.selected_patterns)
+        pat_key = tuple(tuple(p) for p in pats)
+        if _ENGINE7_NEW is None or _LAST_PATS7_NEW != pat_key:
+            _ENGINE7_NEW = _Bot7Engine(pats)
+            _LAST_PATS7_NEW = pat_key
+        bot = req.current_player
+        human = "P2" if bot == "P1" else "P1"
+        move = _ENGINE7_NEW.choose(copy.deepcopy(board), bot, human, req.difficulty, moves_played, req.c3_blocked)
+    else:
+        engine_stub = type("EngineStub", (), {
+            "board": board,
+            "current_player": req.current_player,
+            "moves_played": moves_played,
+            "shiftable_patterns": generate_all_patterns()
+        })()
+        move = get_bot_move(engine_stub, req.difficulty)
+    return {"row": move[0], "col": move[1]} if move else {"row": None, "col": None}

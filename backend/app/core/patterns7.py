@@ -1,60 +1,58 @@
-# patterns.py
-# Shape pattern definitions and variant generation.
-# Extracted from the original monolithic engine.py.
-# Now supports both 5×5 and 7×7 modes.
+# patterns7.py
+# 7×7 shape pattern definitions and variant generation.
+# 6 special patterns: H, L, W, V, C, Zigzag — each has 7 cells.
 
-GRID_SIZE = 5
-
-BASE_PATTERNS = [
-    [(0, 0), (-1, 1), (-2, 2), (-1, 3), (0, 4)],      # V
-    [(0, 0), (1, 0), (2, 0), (2, 1), (2, 2)],          # L
-    [(1, 1), (1, 2), (1, 3), (2, 3), (3, 3)],          # Offset L
-    [(0, 0), (1, 1), (0, 2), (1, 3), (0, 4)],          # W
-    [(0, 0), (1, 1), (2, 2), (1, 3), (0, 4)],          # Diagonal V
-    [(0, 1), (1, 2), (2, 3), (3, 2), (4, 1)]           # Diamond
-]
-
-
-# ── 7×7 Base Patterns ──
 GRID_SIZE_7 = 7
+
+# The 6 base patterns for 7×7 mode (0-indexed row, col offsets)
+# Each pattern uses exactly 7 cells.
 
 BASE_PATTERNS_7 = {
     "H": [
+        # H-shape: two vertical bars connected by a horizontal bar
+        # A1-A2-A3-B2-C1-C2-C3
         (0, 0), (1, 0), (2, 0), (1, 1), (0, 2), (1, 2), (2, 2)
     ],
     "L": [
+        # L-shape: vertical bar then horizontal bar
+        # A1-A2-A3-A4-B4-C4-D4
         (0, 0), (0, 1), (0, 2), (0, 3), (1, 3), (2, 3), (3, 3)
     ],
     "W": [
+        # W-shape: zigzag going up-down-up-down-up-down
+        # A1-B2-C3-D2-E3-F2-G1
         (0, 0), (1, 1), (2, 2), (3, 1), (4, 2), (5, 1), (6, 0)
     ],
     "V": [
+        # V-shape: diagonal down then diagonal up
+        # A1-B2-C3-D4-E3-F2-G1
         (0, 0), (1, 1), (2, 2), (3, 3), (4, 2), (5, 1), (6, 0)
     ],
     "C": [
+        # C-shape: U/bracket shape
+        # C1-B1-A1-A2-A3-B3-C3
         (0, 0), (0, 1), (0, 2), (1, 0), (2, 0), (1, 2), (2, 2)
     ],
     "zigzag": [
+        # Zigzag: alternating diagonal steps
+        # A1-B2-C1-D2-E1-F2-G1
         (0, 0), (1, 1), (2, 0), (3, 1), (4, 0), (5, 1), (6, 0)
     ],
 }
 
+# Ordered list of pattern IDs (0-5) for selection
 PATTERN_NAMES_7 = ["H", "L", "W", "V", "C", "zigzag"]
 
 
-def generate_all_patterns():
-    patterns = []
-    for base in BASE_PATTERNS:
-        patterns.extend(generate_variants(base))
-    return patterns
-
-
-def generate_variants(pattern):
+def generate_variants_7(pattern):
+    """
+    Generate all unique rotations and reflections of a pattern,
+    normalized to start at (0,0).
+    """
     variants = set()
 
     for reflect in [1, -1]:
         for rotation in range(4):
-
             transformed = []
 
             for r, c in pattern:
@@ -80,7 +78,7 @@ def generate_variants(pattern):
 
 def generate_all_patterns_7(selected_ids=None):
     """
-    Generate all pattern variants for the selected 7×7 patterns.
+    Generate all pattern variants for the selected patterns.
     selected_ids: list of indices (0-5) or pattern names.
     If None, generates all 6.
     """
@@ -97,5 +95,5 @@ def generate_all_patterns_7(selected_ids=None):
     patterns = []
     for name in names:
         base = BASE_PATTERNS_7[name]
-        patterns.extend(generate_variants(base))
+        patterns.extend(generate_variants_7(base))
     return patterns

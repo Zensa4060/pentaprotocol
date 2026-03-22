@@ -1,6 +1,9 @@
 export type Screen =
   | "home" | "auth" | "lobby" | "game" | "aiGame" | "multiGame"
-  | "profile" | "rules" | "ai" | "store" | "collection" | "career" | "battlepass";
+  | "profile" | "rules" | "ai" | "singleplayer" | "store" | "collection" | "career" | "battlepass";
+
+export type BoardMode = "5x5" | "7x7";
+
 
 export interface MatchupData {
   opponent: {

@@ -2,25 +2,16 @@
 import { useState } from "react";
 import type { Screen, BoardMode } from "@/lib/types";
 import type { ThemeId } from "@/lib/themes";
-import type { Difficulty } from "@/lib/botEngine";
 import { THEMES } from "@/lib/themes";
 import { PATTERN_NAMES_7, type PatternName7 } from "@/lib/winChecker7";
 
 interface Props {
   setScreenAction: (s: Screen) => void;
   themeId: ThemeId;
-  onSelectDifficultyAction: (d: Difficulty) => void;
   onHoverAction?: () => void;
   onBoardModeAction?: (mode: BoardMode, patterns?: string[]) => void;
 }
 
-const DIFFICULTIES: { id: Difficulty; label: string; sub: string; color: string }[] = [
-  { id: "easy",   label: "EASY",   sub: "Random moves — great for learning the rules",      color: "#22C55E" },
-  { id: "medium", label: "MEDIUM", sub: "Strategic play — a fair challenge for most players", color: "#EAB308" },
-  { id: "hard",   label: "HARD",   sub: "Elite AI — deep search, near-perfect play",          color: "#EF4444" },
-];
-
-// Pattern descriptions & mini-grid diagrams for the 6 special 7×7 patterns
 const PATTERN_INFO: Record<PatternName7, { label: string; desc: string; cells: [number, number][] }> = {
   H: {
     label: "H-SHAPE",
@@ -54,7 +45,6 @@ const PATTERN_INFO: Record<PatternName7, { label: string; desc: string; cells: [
   },
 };
 
-/** Mini grid diagram component */
 function PatternDiagram({ cells, accent, isSelected }: { cells: [number, number][]; accent: string; isSelected: boolean }) {
   const maxR = Math.max(...cells.map(([r]) => r));
   const maxC = Math.max(...cells.map(([, c]) => c));
@@ -93,24 +83,14 @@ function PatternDiagram({ cells, accent, isSelected }: { cells: [number, number]
   );
 }
 
-export default function AIScreen({ setScreenAction, themeId, onSelectDifficultyAction, onHoverAction, onBoardModeAction }: Props) {
+export default function SingleplayerScreen({ setScreenAction, themeId, onHoverAction, onBoardModeAction }: Props) {
   const t = THEMES[themeId as keyof typeof THEMES];
   const ip = themeId === "pixel";
-  const [hovered, setHovered] = useState<Difficulty | null>(null);
   const [boardMode, setBoardMode] = useState<BoardMode>("5x5");
-  const [step, setStep] = useState<"mode" | "patterns" | "difficulty">("mode");
+  const [hovered, setHovered] = useState<BoardMode | null>(null);
+  const [step, setStep] = useState<"mode" | "patterns">("mode");
   const [selectedPatterns, setSelectedPatterns] = useState<Set<PatternName7>>(new Set());
   const [hoveredPattern, setHoveredPattern] = useState<PatternName7 | null>(null);
-
-  const handleSelect = (d: Difficulty) => {
-    if (boardMode === "7x7") {
-      onBoardModeAction?.("7x7", Array.from(selectedPatterns));
-    } else {
-      onBoardModeAction?.("5x5");
-    }
-    onSelectDifficultyAction(d);
-    setScreenAction("aiGame");
-  };
 
   const togglePattern = (name: PatternName7) => {
     setSelectedPatterns(prev => {
@@ -125,13 +105,17 @@ export default function AIScreen({ setScreenAction, themeId, onSelectDifficultyA
   };
 
   const goBack = () => {
-    if (step === "difficulty") {
-      setStep(boardMode === "7x7" ? "patterns" : "mode");
-    } else if (step === "patterns") {
+    if (step === "patterns") {
       setStep("mode");
       setSelectedPatterns(new Set());
     } else {
       setScreenAction("home");
+    }
+  };
+
+  const proceedFromPatterns = () => {
+    if (selectedPatterns.size >= 1) {
+      onBoardModeAction?.("7x7", Array.from(selectedPatterns));
     }
   };
 
@@ -156,7 +140,7 @@ export default function AIScreen({ setScreenAction, themeId, onSelectDifficultyA
             letterSpacing: ip ? "0.08em" : "0.04em",
             lineHeight: 1.1,
           }}>
-            VS COMPUTER
+            SINGLEPLAYER
           </div>
 
           <div style={{ fontFamily: t.fontBody, fontSize: 16, color: t.textMuted, textAlign: "center", maxWidth: 440 }}>
@@ -165,7 +149,8 @@ export default function AIScreen({ setScreenAction, themeId, onSelectDifficultyA
 
           <div style={{ display: "flex", flexDirection: "column", gap: 14, width: "100%", maxWidth: 480 }}>
             {(["5x5", "7x7"] as BoardMode[]).map((mode, i) => {
-              const isHov = boardMode === mode && hovered !== null;
+              const isSelected = boardMode === mode;
+              const isHov = hovered === mode;
               const modeColor = mode === "5x5" ? "#60A8FF" : "#FF6B35";
               return (
                 <button
@@ -175,20 +160,20 @@ export default function AIScreen({ setScreenAction, themeId, onSelectDifficultyA
                     if (mode === "7x7") {
                       setStep("patterns");
                     } else {
-                      setStep("difficulty");
+                      onBoardModeAction?.("5x5");
                     }
                   }}
-                  onMouseEnter={() => { onHoverAction?.(); setBoardMode(mode); setHovered("easy"); }}
+                  onMouseEnter={() => { onHoverAction?.(); setBoardMode(mode); setHovered(mode); }}
                   onMouseLeave={() => setHovered(null)}
                   style={{
-                    background: boardMode === mode ? `linear-gradient(145deg, ${modeColor}18, ${t.bgCard})` : t.bgCard,
-                    border: `2px solid ${boardMode === mode ? modeColor : t.border}`,
+                    background: isSelected ? `linear-gradient(145deg, ${modeColor}18, ${t.bgCard})` : t.bgCard,
+                    border: `2px solid ${isSelected ? modeColor : t.border}`,
                     borderRadius: ip ? 2 : 16,
                     padding: ip ? "28px 24px" : "32px 28px",
                     cursor: "pointer", textAlign: "left",
                     transition: "all 0.3s cubic-bezier(.22,.68,0,1.2)",
-                    transform: boardMode === mode ? "translateY(-4px) scale(1.02)" : "translateY(0) scale(1)",
-                    boxShadow: boardMode === mode ? `0 16px 48px ${modeColor}22` : "none",
+                    transform: isSelected ? "translateY(-4px) scale(1.02)" : "translateY(0) scale(1)",
+                    boxShadow: isSelected ? `0 16px 48px ${modeColor}22` : "none",
                     animation: `cardFadeUp 0.45s cubic-bezier(.22,.68,0,1.2) ${i * 0.08}s both`,
                   }}
                 >
@@ -199,15 +184,15 @@ export default function AIScreen({ setScreenAction, themeId, onSelectDifficultyA
                     }} />
                     <div style={{
                       fontFamily: t.fontDisplay, fontSize: ip ? 20 : 26, fontWeight: 700,
-                      color: boardMode === mode ? modeColor : t.text, transition: "color 0.2s", letterSpacing: "0.06em",
+                      color: isSelected ? modeColor : t.text, transition: "color 0.2s", letterSpacing: "0.06em",
                     }}>
                       {mode === "5x5" ? "5 × 5 CLASSIC" : "7 × 7 EXPANDED"}
                     </div>
                   </div>
                   <div style={{ fontFamily: t.fontBody, fontSize: ip ? 12 : 14, color: t.textMuted, lineHeight: 1.5 }}>
                     {mode === "5x5"
-                      ? "Standard board — 5-in-a-line, V/L/W patterns, 10-cell chain"
-                      : "Larger board — 7-in-a-line, choose 3 of 6 special patterns, 20-cell chain"
+                      ? "Standard board — 5-in-a-line, V/L/W patterns, 10-cell chain. Local pass-and-play."
+                      : "Larger board — 7-in-a-line, choose 3 of 6 special patterns, 20-cell chain. Local pass-and-play."
                     }
                   </div>
                 </button>
@@ -279,7 +264,6 @@ export default function AIScreen({ setScreenAction, themeId, onSelectDifficultyA
                   }}
                 >
                   <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
-                    {/* Checkbox */}
                     <div style={{
                       width: 20, height: 20, borderRadius: 5, flexShrink: 0, marginTop: 2,
                       border: `2px solid ${isSelected ? t.accent : t.border}`,
@@ -312,9 +296,8 @@ export default function AIScreen({ setScreenAction, themeId, onSelectDifficultyA
             })}
           </div>
 
-          {/* Proceed button */}
           <button
-            onClick={() => selectedPatterns.size >= 1 && setStep("difficulty")}
+            onClick={proceedFromPatterns}
             disabled={selectedPatterns.size < 1}
             style={{
               background: selectedPatterns.size >= 1 ? t.accent : `${t.accent}33`,
@@ -327,94 +310,22 @@ export default function AIScreen({ setScreenAction, themeId, onSelectDifficultyA
               boxShadow: selectedPatterns.size >= 1 ? `0 0 24px ${t.accentGlow}44` : "none",
             }}
           >
-            PROCEED →
+            START MATCH →
           </button>
         </>
       )}
 
-      {/* ── STEP 3: Difficulty Selection (same as before) ── */}
-      {step === "difficulty" && (
-        <>
-          <div style={{
-            fontFamily: t.fontDisplay,
-            fontSize: "clamp(32px,6vw,72px)",
-            fontWeight: 900, color: t.accent, textAlign: "center",
-            textShadow: `0 0 60px ${t.accentGlow}44`,
-            letterSpacing: ip ? "0.08em" : "0.04em",
-            lineHeight: 1.1,
-          }}>
-            VS COMPUTER
-          </div>
-
-          <div style={{ fontFamily: t.fontBody, fontSize: 16, color: t.textMuted, textAlign: "center", maxWidth: 440 }}>
-            <span style={{ color: boardMode === "7x7" ? "#FF6B35" : "#60A8FF", fontWeight: 700 }}>
-              {boardMode === "7x7" ? "7×7 EXPANDED" : "5×5 CLASSIC"}
-            </span>
-            {" · "}Choose your difficulty
-          </div>
-
-          <div style={{ display: "flex", flexDirection: "column", gap: 12, width: "100%", maxWidth: 480 }}>
-            {DIFFICULTIES.map((d, i) => {
-              const isHov = hovered === d.id;
-              return (
-                <button
-                  key={d.id}
-                  onClick={() => handleSelect(d.id)}
-                  onMouseEnter={() => { onHoverAction?.(); setHovered(d.id); }}
-                  onMouseLeave={() => setHovered(null)}
-                  style={{
-                    flex: 1, minWidth: 200,
-                    background: isHov ? `linear-gradient(145deg, ${d.color}18, ${t.bgCard})` : t.bgCard,
-                    border: `2px solid ${isHov ? d.color : t.border}`,
-                    borderRadius: ip ? 2 : 16,
-                    padding: ip ? "36px 24px" : "40px 28px",
-                    cursor: "pointer", textAlign: "left",
-                    transition: "all 0.3s cubic-bezier(.22,.68,0,1.2)",
-                    transform: isHov ? "translateY(-4px) scale(1.02)" : "translateY(0) scale(1)",
-                    boxShadow: isHov ? `0 16px 48px ${d.color}22` : "none",
-                    animation: `cardFadeUp 0.45s cubic-bezier(.22,.68,0,1.2) ${i * 0.08}s both`,
-                  }}
-                >
-                  <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
-                    <div style={{
-                      width: 10, height: 10, borderRadius: "50%",
-                      background: d.color, boxShadow: `0 0 12px ${d.color}66`,
-                    }} />
-                    <div style={{
-                      fontFamily: t.fontDisplay, fontSize: ip ? 18 : 22, fontWeight: 700,
-                      color: isHov ? d.color : t.text, transition: "color 0.2s", letterSpacing: "0.06em",
-                    }}>
-                      {d.label}
-                    </div>
-                  </div>
-                  <div style={{ fontFamily: t.fontBody, fontSize: ip ? 12 : 14, color: t.textMuted, lineHeight: 1.5 }}>
-                    {d.sub}
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-        </>
-      )}
-
       {/* Back button */}
-      <button onClick={goBack} style={{
-        background: `${t.accent}18`, border: `2px solid ${t.accent}`,
-        color: t.accent, fontFamily: t.fontDisplay, fontSize: 16, fontWeight: 700,
-        padding: "14px 44px", borderRadius: ip ? 2 : 10,
-        cursor: "pointer", letterSpacing: "0.06em", transition: "all 0.2s", marginTop: 8,
-      }}
-        onMouseEnter={e => {
-          onHoverAction?.();
-          e.currentTarget.style.background = t.accent;
-          e.currentTarget.style.color = "#000";
+      <button
+        onClick={goBack}
+        style={{
+          background: "transparent", border: "none", color: t.textMuted, fontFamily: t.fontDisplay,
+          fontSize: 16, cursor: "pointer", marginTop: 24, letterSpacing: "0.06em", transition: "color 0.2s",
         }}
-        onMouseLeave={e => {
-          e.currentTarget.style.background = `${t.accent}18`;
-          e.currentTarget.style.color = t.accent;
-        }}
+        onMouseEnter={(e) => { onHoverAction?.(); e.currentTarget.style.color = t.text; }}
+        onMouseLeave={(e) => { e.currentTarget.style.color = t.textMuted; }}
       >
-        GO BACK
+        ← GO BACK
       </button>
     </div>
   );

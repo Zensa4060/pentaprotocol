@@ -66,42 +66,49 @@ export function checkStructuralPatterns(board: Board, player: string): Coord[] |
   return null;
 }
 
-// ─── DFS: find a chain of exactly 10 connected cells (mirrors Python find_10) ───
-function find10(board: Board, player: string): Coord[] | null {
-  function dfs(path: Coord[]): Coord[] | null {
-    if (path.length === 10) return path;
-    const [r0, c0] = path[path.length - 1];
+// ─── Flood Fill: find largest contiguous blob ───
+function findPath(board: Board, player: string, targetLen: number): Coord[] | null {
+  function dfs(r: number, c: number, path: Coord[], pathSet: Set<string>): Coord[] | null {
+    if (path.length === targetLen) return path;
+
     for (const [dr, dc] of DIRS) {
-      const nr = r0 + dr, nc = c0 + dc;
+      const nr = r + dr, nc = c + dc;
+      const key = `${nr},${nc}`;
       if (
         nr >= 0 && nr < GRID && nc >= 0 && nc < GRID &&
-        board[nr][nc] === player &&
-        !path.some(([pr, pc]) => pr === nr && pc === nc)
+        board[nr][nc] === player && !pathSet.has(key)
       ) {
-        const result = dfs([...path, [nr, nc]]);
-        if (result) return result;
+        pathSet.add(key);
+        path.push([nr, nc]);
+        const res = dfs(nr, nc, path, pathSet);
+        if (res) return res;
+        path.pop();
+        pathSet.delete(key);
       }
     }
     return null;
   }
+
   for (let r = 0; r < GRID; r++) {
     for (let c = 0; c < GRID; c++) {
       if (board[r][c] === player) {
-        const result = dfs([[r, c]]);
-        if (result) return result;
+        const res = dfs(r, c, [[r, c]], new Set([`${r},${c}`]));
+        if (res) return res;
       }
     }
   }
   return null;
 }
 
-// ─── Full board resolution (mirrors Python resolve_full_board) ───
-function resolveFullBoard(board: Board): { winner: string; line: Coord[] } {
-  const p1 = find10(board, "P1");
-  const p2 = find10(board, "P2");
-  if (p1 && !p2) return { winner: "P1", line: p1 };
-  if (p2 && !p1) return { winner: "P2", line: p2 };
-  return { winner: "DRAW", line: [] };
+// ─── Full board resolution ───
+function resolveFullBoard(board: Board): { winner: string; line: Coord[]; connectionScores?: { p1: number; p2: number } } {
+  const p1Path = findPath(board, "P1", 10);
+  const p2Path = findPath(board, "P2", 10);
+  const scores = { p1: p1Path ? 10 : 0, p2: p2Path ? 10 : 0 };
+
+  if (p1Path && !p2Path) return { winner: "P1", line: p1Path, connectionScores: scores };
+  if (p2Path && !p1Path) return { winner: "P2", line: p2Path, connectionScores: scores };
+  return { winner: "DRAW", line: [], connectionScores: scores };
 }
 
 // ─── Main entry ───
@@ -112,7 +119,7 @@ export function checkWin(
   c: number,
   player: string,
   movesPlayed: number
-): { winner: string; line: Coord[] } | null {
+): { winner: string; line: Coord[]; connectionScores?: { p1: number; p2: number } } | null {
   const line5 = check5Line(board, r, c, player);
   if (line5) return { winner: player, line: line5 };
 

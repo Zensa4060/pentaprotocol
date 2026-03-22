@@ -53,6 +53,8 @@ def serialize_room(room: dict) -> dict:
         "player1_level":  room.get("player1_level"),
         "player2_level":  room.get("player2_level"),
         "board":          room.get("board"),
+        "board_mode":     room.get("board_mode", "5x5"),
+        "selected_patterns": room.get("selected_patterns", []),
         "current_player": room.get("current_player", "P1"),
         "moves_played":   room.get("moves_played", 0),
         "winner":         room.get("winner"),
@@ -84,14 +86,18 @@ def compute_series_winner(history: list, is_ranked: bool = False) -> str | None:
         return history[-1]
     return None
 
-class CreateRoomRequest(BaseModel):
-    format: str = "unranked"
-
 class JoinRoomRequest(BaseModel):
     room_code: str
 
 class QueueRequest(BaseModel):
     format: str = "unranked"
+    board_mode: str = "5x5"
+    selected_patterns: Optional[list[str]] = None
+
+class CreateRoomRequest(BaseModel):
+    format: str = "unranked"
+    board_mode: str = "5x5"
+    selected_patterns: Optional[list[str]] = None
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -191,14 +197,22 @@ async def queue_join(data: QueueRequest, user_id: str = Depends(get_current_user
     # No valid opponent — create a new waiting room
     code = await _generate_unique_code(db)
 
-    engine = GameEngine()
+    # For 7x7 multiplayer, randomize patterns if not provided
+    board_mode = data.board_mode or "5x5"
+    selected_patterns = data.selected_patterns
+    if board_mode == "7x7" and not selected_patterns:
+        from app.core.patterns7 import PATTERN_NAMES_7
+        selected_patterns = random.sample(PATTERN_NAMES_7, 3)
+
+    engine = GameEngine(board_mode=board_mode, selected_pattern_ids=selected_patterns)
     room = {
         "room_code":      code,
         "status":         "waiting",
         "format":         fmt,
+        "board_mode":     board_mode,
+        "selected_patterns": selected_patterns,
         "source":         "matchmaking",
         "player1_id":     user_id,
-        "player2_id":     None,
         "player1_name":   player_name,
         "player1_elo":    user.get("elo", 100),
         "player1_avatar": user.get("avatar"),
@@ -206,11 +220,9 @@ async def queue_join(data: QueueRequest, user_id: str = Depends(get_current_user
         "player1_border": user.get("border_style", "none"),
         "player1_title":  user.get("title", "newcomer"),
         "player1_level":  user.get("level", 1),
-        "player2_name":   None,
         "board":          engine.board,
         "current_player": "P1",
         "moves_played":   0,
-        "winner":         None,
         "game_status":    "waiting",
         "created_at":     datetime.utcnow(),
     }
@@ -266,12 +278,21 @@ async def create_room(data: CreateRoomRequest, user_id: str = Depends(get_curren
     player_name = user.get("username", "Player 1")
     code = await _generate_unique_code(db)
 
-    engine = GameEngine()
+    # For 7x7 multiplayer, randomize patterns if not provided
+    board_mode = data.board_mode or "5x5"
+    selected_patterns = data.selected_patterns
+    if board_mode == "7x7" and not selected_patterns:
+        from app.core.patterns7 import PATTERN_NAMES_7
+        selected_patterns = random.sample(PATTERN_NAMES_7, 3)
+
+    engine = GameEngine(board_mode=board_mode, selected_pattern_ids=selected_patterns)
     creator_slot = random.choice(["P1", "P2"])
     room = {
         "room_code":       code,
         "status":          "waiting",
         "format":          data.format,
+        "board_mode":      board_mode,
+        "selected_patterns": selected_patterns,
         "source":          "private",
         "player1_id":      user_id if creator_slot == "P1" else None,
         "player2_id":      user_id if creator_slot == "P2" else None,
@@ -436,7 +457,10 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                     await websocket.send_json({"type": "error", "message": "Not your turn"})
                     continue
 
-                engine = GameEngine()
+                engine = GameEngine(
+                    board_mode=room.get("board_mode", "5x5"),
+                    selected_pattern_ids=room.get("selected_patterns")
+                )
                 engine.board          = room["board"]
                 engine.current_player = room["current_player"]
                 engine.moves_played   = room["moves_played"]
@@ -469,6 +493,7 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                     "win_line":       [[r, c] for r, c in engine.winner_line] if engine.winner_line else [],
                     "game_status":    update["game_status"],
                     "extra_turns":    result.get("extra_turns", 0),
+                    "connectionScores": result.get("connectionScores"),
                 }
 
                 for slot, ws in _room_connections.get(room_code, {}).items():
@@ -529,8 +554,12 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                         )
                         continue
 
+                    bm = room.get("board_mode", "5x5")
+                    sp = room.get("selected_patterns")
+                    new_engine = GameEngine(board_mode=bm, selected_pattern_ids=sp)
+
                     reset = {
-                        "board":          [[None]*5 for _ in range(5)],
+                        "board":          new_engine.board,
                         "current_player": "P2" if current_game % 2 == 1 else "P1",
                         "moves_played":   0,
                         "extra_turns":    0,
@@ -595,8 +624,12 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                         "history": room.get("match_history", []),
                     }
 
+                    bm = room.get("board_mode", "5x5")
+                    sp = room.get("selected_patterns")
+                    new_engine = GameEngine(board_mode=bm, selected_pattern_ids=sp)
+
                     reset = {
-                        "board":          [[None]*5 for _ in range(5)],
+                        "board":          new_engine.board,
                         "current_player": "P1",
                         "moves_played":   0,
                         "extra_turns":    0,
@@ -700,8 +733,9 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                     continue
                 first_player = msg.get("first_player", "P1")
                 c3_blocked   = msg.get("c3_blocked", False)
+                gs = 7 if room.get("board_mode") == "7x7" else 5
                 reset = {
-                    "board":          [[None]*5 for _ in range(5)],
+                    "board":          [[None]*gs for _ in range(gs)],
                     "current_player": first_player,
                     "moves_played":   0,
                     "extra_turns":    0,

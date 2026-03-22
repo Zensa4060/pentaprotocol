@@ -3,6 +3,8 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from "react"
 import { unstable_batchedUpdates } from "react-dom";
 import { ThemeId, THEMES } from "@/lib/themes";
 import { checkWin, Coord } from "@/lib/winChecker";
+import { checkWin7 } from "@/lib/winChecker7";
+import type { BoardMode } from "@/lib/types";
 import API from "@/lib/api";
 import { censorText, containsProfanity } from "@/lib/profanity";
 import type { Screen } from "@/lib/types";
@@ -160,7 +162,7 @@ const MatchupOverlay = ({ matchupData, showMatchupOverlay, playerSlot, p1Name, u
   };
 
   return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 10000, background: themeId === "pixel" ? "url(/bg-pixel-dark.png) center/cover no-repeat" : themeId === "space" ? "url(/bg-earth.png) center/cover no-repeat" : t.bg, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+    <div style={{ position: "fixed", inset: 0, zIndex: 10000, background: themeId === "pixel" ? "url(/bg-pixel-dark.png) center/cover no-repeat" : themeId === "space" ? "transparent" : t.bg, display: "flex", flexDirection: "column", overflow: "hidden" }}>
       <style>{`
         @keyframes bannerShine { from { background-position: -100% 0; } to { background-position: 100% 0; } }
         @keyframes rankFloat { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
@@ -209,9 +211,13 @@ interface Props {
   playerSlot?: "P1" | "P2";
   p1Name?: string;
   matchupData?: import("@/lib/types").MatchupData;
+  boardMode?: BoardMode;
+  selectedPatterns?: string[];
 }
 
-export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, gameMode = "singleplayer", difficulty = "medium", setScreenAction, roomCode, playerSlot, playHoverAction, playPlaceAction, playVictoryAction, playDefeatAction, playRulebreakerAction, playTransitionAction, playClickAction, p1Name, matchupData }: Props) {
+export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, gameMode = "singleplayer", difficulty = "medium", setScreenAction, roomCode, playerSlot, playHoverAction, playPlaceAction, playVictoryAction, playDefeatAction, playRulebreakerAction, playTransitionAction, playClickAction, p1Name, matchupData, boardMode = "5x5", selectedPatterns = [] }: Props) {
+  const GRID_SIZE = boardMode === "7x7" ? 7 : 5;
+  const CENTER = boardMode === "7x7" ? 3 : 2;
   const { user } = useAuthStore();
   const t = THEMES[themeId];
   const ip = themeId === "pixel";
@@ -392,12 +398,13 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     return w ?? "";
   };
 
-  const emptyBoard = (): (string | null)[][] => Array(5).fill(null).map(() => Array(5).fill(null));
+  const emptyBoard = (): (string | null)[][] => Array(GRID_SIZE).fill(null).map(() => Array(GRID_SIZE).fill(null));
 
   const [board, setBoard] = useState<(string | null)[][]>(emptyBoard());
   const [current, setCurrent] = useState("P1");
   const [winner, setWinner] = useState<string | null>(null);
   const [winLine, setWinLine] = useState<Coord[]>([]);
+  const [connectionScores, setConnectionScores] = useState<{ p1: number; p2: number } | undefined>(undefined);
   const [showWinOverlay, setShowWinOverlay] = useState(false);
   const [gameId, setGameId] = useState<string | null>(null);
   const [movesPlayed, setMovesPlayed] = useState(0);
@@ -525,6 +532,12 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
 
   useEffect(() => { initBoard("P1"); }, []);
 
+  useEffect(() => {
+    if (board.length !== GRID_SIZE || (board[0] && board[0].length !== GRID_SIZE)) {
+      setBoard(emptyBoard());
+    }
+  }, [GRID_SIZE]);
+
   // ── WebSocket for multiplayer ─────────────────────────────────────────────
   useEffect(() => {
     if (!isMultiplayerGame || !playerSlot) return;
@@ -575,9 +588,10 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
                   setLog(l => [...l, { text: `${l.length + 1}. ${_piece}→${String.fromCharCode(65 + msg.col)}${msg.row + 1} (${mover})`, player: mover }]);
                 }
               }
-              if (msg.winner) {
+                if (msg.winner) {
                 const wl = (msg.win_line ?? []) as [number, number][];
                 setWinLine(wl);
+                if (msg.connectionScores) setConnectionScores(msg.connectionScores);
                 setWinner(msg.winner);
                 if (msg.winner === "P1") playVictoryAction?.(); else playDefeatAction?.();
                 requestAnimationFrame(() => { setShowWinOverlay(true); requestAnimationFrame(() => setOverlayVisible(true)); });
@@ -789,6 +803,10 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
       try {
         const res = await API.post("/api/bot/move", {
           board: boardRef.current, difficulty, current_player: "P2",
+          board_mode: boardMode || (boardRef.current?.length === 7 ? "7x7" : "5x5"),
+          selected_patterns: selectedPatterns,
+          c3_blocked: c3Blocked,
+          moves_played: movesPlayedRef.current,
         });
         if (cancelled) return;
         const { row, col } = res.data ?? res;
@@ -802,12 +820,13 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
 
     return () => { cancelled = true; clearTimeout(timer); setBotThinking(false); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [botTurnKey, phase, winner, gameMode]);
+  }, [botTurnKey, phase, winner, gameMode, boardMode, selectedPatterns, difficulty]);
 
   const initBoard = async (firstPlayer: string, c3block = false) => {
     setBoard(emptyBoard());
     setCurrent(firstPlayer);
     setWinner(null);
+    setConnectionScores(undefined);
     setWinLine([]);
     setShowWinOverlay(false);
     setOverlayVisible(false);
@@ -1209,10 +1228,10 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     nb[r][c] = playerWhoMoved;
     const newMoves = currentMoves + 1;
     let newExtra = currentExtra, nextPlayer: string = "P1";
-    if (newMoves === 1 && r === 2 && c === 2) { nextPlayer = "P1"; newExtra = 2; }
+    if (newMoves === 1 && r === CENTER && c === CENTER) { nextPlayer = "P1"; newExtra = 2; }
     else if (newExtra > 0) { newExtra--; if (newExtra === 0) nextPlayer = "P1"; else nextPlayer = "P2"; }
     else { nextPlayer = "P1"; }
-    const result = checkWin(nb, r, c, playerWhoMoved, newMoves);
+    const result = boardMode === "7x7" ? checkWin7(nb, r, c, playerWhoMoved, newMoves, selectedPatterns) : checkWin(nb, r, c, playerWhoMoved, newMoves);
     setBoard(nb); setMovesPlayed(newMoves); addLog(r, c, playerWhoMoved);
     if (result) { setExtraTurns(0); setWinLine(result.line); setWinner(result.winner); }
     else { setExtraTurns(newExtra); setCurrent(nextPlayer); }
@@ -1222,7 +1241,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   const place = async (r: number, c: number) => {
     if (phase !== "playing" || board[r][c] || winner || loading) return;
     if (gameMode === "ai" && current === "P2") return;
-    if (c3Blocked && movesPlayed === 0 && r === 2 && c === 2) return;
+    if (c3Blocked && movesPlayed === 0 && r === CENTER && c === CENTER) return;
     if (isMultiplayerGame) {
       if (current !== mySlot) return;
       if (wsRef.current?.readyState !== WebSocket.OPEN) return;
@@ -1237,11 +1256,11 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     nb[r][c] = playerWhoMoved;
     const newMoves = movesPlayed + 1;
     let newExtra = extraTurns, nextPlayer = current;
-    if (newMoves === 1 && r === 2 && c === 2) { nextPlayer = current === "P1" ? "P2" : "P1"; newExtra = 2; }
+    if (newMoves === 1 && r === CENTER && c === CENTER) { nextPlayer = current === "P1" ? "P2" : "P1"; newExtra = 2; }
     else if (newExtra > 0) { newExtra--; if (newExtra === 0) nextPlayer = current === "P1" ? "P2" : "P1"; }
     else { nextPlayer = current === "P1" ? "P2" : "P1"; }
     if (c3Blocked && newMoves === 1) setC3Blocked(false);
-    const result = checkWin(nb, r, c, playerWhoMoved, newMoves);
+    const result = boardMode === "7x7" ? checkWin7(nb, r, c, playerWhoMoved, newMoves, selectedPatterns) : checkWin(nb, r, c, playerWhoMoved, newMoves);
     setBoard(nb); setMovesPlayed(newMoves); addLog(r, c, playerWhoMoved);
     if (result) { setExtraTurns(0); setWinLine(result.line); setWinner(result.winner); }
     else { setExtraTurns(newExtra); setCurrent(nextPlayer); }
@@ -1426,16 +1445,16 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   const panelW = 240;
   const sidebarT = { ...t, pieces: t.pieces };
 
-  const mobileCellSize = `calc((min(100vw, calc(100vh - 160px)) - ${4 * boardGap + 2 * boardPad + 32}px) / 5)`;
+  const mobileCellSize = `calc((min(100vw, calc(100vh - 160px)) - ${(GRID_SIZE - 1) * boardGap + 2 * boardPad + 32}px) / ${GRID_SIZE})`;
   const panelTotal = panelW * 2;
-  const desktopCellSize = `calc((min(calc(100vw - ${panelTotal}px - 34px), calc(100vh - 164px)) - ${4 * boardGap + 2 * boardPad + 6}px) / 5)`;
+  const desktopCellSize = `calc((min(calc(100vw - ${panelTotal}px - 34px), calc(100vh - 164px)) - ${(GRID_SIZE - 1) * boardGap + 2 * boardPad + 6}px) / ${GRID_SIZE})`;
   const bigCs = isMobile ? mobileCellSize : desktopCellSize;
 
   // Memoize the board grid JSX — skips full recompute on timer ticks (p1Time/p2Time changes)
   // Only recomputes when actual board data changes
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const boardJSX = React.useMemo(() => (
-    <div style={{ position: "relative", display: "grid", gridTemplateColumns: `repeat(5,${bigCs})`, gridTemplateRows: `repeat(5,${bigCs})`, gap: `${boardGap}px`, background: isRedBoard ? "rgba(10,2,1,0.99)" : (isIceBoard || isGlacierBoard) ? "linear-gradient(135deg,rgba(3,8,20,0.98),rgba(1,4,14,0.99))" : t.boardLine, padding: `${boardPad}px`, borderRadius: ip ? 2 : 10, border: `${ip ? 3 : 2}px solid ${isRedBoard ? "rgba(140,20,0,0.35)" : isGlacierBoard ? "rgba(125,211,252,0.42)" : (isIceBoard ? "rgba(80,160,220,0.28)" : t.border)}`, boxShadow: isRedBoard ? "0 0 50px rgba(180,20,0,0.1), inset 0 0 40px rgba(0,0,0,0.7)" : isGlacierBoard ? "0 0 58px rgba(90,190,255,0.12), inset 0 0 46px rgba(0,0,0,0.74)" : (isIceBoard ? "0 0 50px rgba(80,160,255,0.08), inset 0 0 40px rgba(0,0,0,0.7)" : "none"), overflow: "hidden" }}>
+    <div style={{ position: "relative", display: "grid", gridTemplateColumns: `repeat(${GRID_SIZE},${bigCs})`, gridTemplateRows: `repeat(${GRID_SIZE},${bigCs})`, gap: `${boardGap}px`, background: isRedBoard ? "rgba(10,2,1,0.99)" : (isIceBoard || isGlacierBoard) ? "linear-gradient(135deg,rgba(3,8,20,0.98),rgba(1,4,14,0.99))" : t.boardLine, padding: `${boardPad}px`, borderRadius: ip ? 2 : 10, border: `${ip ? 3 : 2}px solid ${isRedBoard ? "rgba(140,20,0,0.35)" : isGlacierBoard ? "rgba(125,211,252,0.42)" : (isIceBoard ? "rgba(80,160,220,0.28)" : t.border)}`, boxShadow: isRedBoard ? "0 0 50px rgba(180,20,0,0.1), inset 0 0 40px rgba(0,0,0,0.7)" : isGlacierBoard ? "0 0 58px rgba(90,190,255,0.12), inset 0 0 46px rgba(0,0,0,0.74)" : (isIceBoard ? "0 0 50px rgba(80,160,255,0.08), inset 0 0 40px rgba(0,0,0,0.7)" : "none"), overflow: "hidden" }}>
       {isRedBoard && <Embers count={16} />}
       {isRedBoard && <HeatOverlay />}
       {isIceBoard && <FrostCrystals />}
@@ -1446,7 +1465,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
       {isGlacierBoard && <GlacierGridLines />}
       {board.map((row, r) => row.map((cell, c) => {
         const key = `${r}-${c}`;
-        const blk = c3Blocked && movesPlayed === 0 && r === 2 && c === 2;
+        const blk = c3Blocked && movesPlayed === 0 && r === CENTER && c === CENTER;
         const isHov = hover === key && !cell && !winner && !blk && phase === "playing";
         const isWin = winLine.some(([wr, wc]) => wr === r && wc === c);
         const ec = cell === "P1" ? p1c : p2c;
@@ -1476,7 +1495,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
 
 
   if (showSplash) return (
-    <div style={{ position: "fixed", top: 64, left: 0, right: 0, bottom: 0, zIndex: 2, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: themeId === "pixel" ? "url(/bg-pixel-dark.png) center/cover no-repeat" : themeId === "space" ? "url(/bg-earth.png) center/cover no-repeat" : t.bg, gap: 32, userSelect: "none" }}>
+    <div style={{ position: "fixed", top: 64, left: 0, right: 0, bottom: 0, zIndex: 2, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: themeId === "pixel" ? "url(/bg-pixel-dark.png) center/cover no-repeat" : themeId === "space" ? "transparent" : t.bg, gap: 32, userSelect: "none" }}>
       <div style={{ fontFamily: t.fontDisplay, fontSize: "clamp(24px,5vw,72px)", fontWeight: 900, color: t.accent, textShadow: `0 0 60px ${t.accentGlow}55`, letterSpacing: "0.06em", textAlign: "center" }}>SINGLEPLAYER</div>
       <div style={{ fontFamily: t.fontBody, fontSize: "clamp(13px,1.6vw,18px)", color: t.textSecondary, letterSpacing: "0.04em" }}>Local · Pass & Play · Best of 3</div>
       <button onClick={() => setShowSplash(false)}
@@ -1561,13 +1580,14 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   // ── MOBILE LAYOUT ─────────────────────────────────────────────────────────
   if (isMobile) {
     return (
-      <div style={{ position: "fixed", top: 52, left: 0, right: 0, bottom: 0, zIndex: 2, background: themeId === "pixel" ? "url(/bg-pixel-dark.png) center/cover no-repeat" : themeId === "space" ? "url(/bg-earth.png) center/cover no-repeat" : t.bg, overflow: "hidden", userSelect: "none", WebkitUserSelect: "none" }}>
+      <div style={{ position: "fixed", top: 52, left: 0, right: 0, bottom: 0, zIndex: 2, background: themeId === "pixel" ? "url(/bg-pixel-dark.png) center/cover no-repeat" : themeId === "space" ? "transparent" : t.bg, overflow: "hidden", userSelect: "none", WebkitUserSelect: "none" }}>
 
         <WinOverlay
           showWinOverlay={showWinOverlay} overlayVisible={overlayVisible}
           winner={winner} winnerColor={winnerColor} winnerPiece={winnerPiece}
           seriesDiffers={seriesDiffers} seriesColor={seriesColor} seriesPiece={seriesPiece}
           seriesWinner={seriesWinner} phase={phase} gameNumber={gameNumber}
+          connectionScores={connectionScores}
           t={{ fontDisplay: t.fontDisplay, fontMono: t.fontMono, fontBody: t.fontBody }}
           winnerDisplayNameAction={winnerDisplayName}
           onDismissAction={dismissOverlay}
@@ -1590,7 +1610,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
         <DisconnectModal
           show={showDisconnectModal}
           t={sidebarT} ip={ip}
-          onGoHome={() => { if (setScreenAction) setScreenAction("home"); }}
+          onGoHomeAction={() => { if (setScreenAction) setScreenAction("home"); }}
         />
 
         {/* Board fills entire screen */}
@@ -1616,20 +1636,20 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
             </button>
           )}
           {isGlacierBoard && glacierBoard ? (
-            <GlacierGrid board={glacierBoard} onCellClick={glacierClick} winCells={winLine} />
+            <GlacierGrid board={glacierBoard} onCellClickAction={glacierClick} winCells={winLine} />
           ) : isBloodMoonBoard && bloodMoonBoard ? (
-            <BloodMoonGrid board={bloodMoonBoard} onCellClick={bloodMoonClick} winCells={winLine} />
+            <BloodMoonGrid board={bloodMoonBoard} onCellClickAction={bloodMoonClick} winCells={winLine} />
           ) : (
             <>
               <div style={{ display: "flex", gap: `${boardGap}px`, paddingLeft: 28, marginBottom: 4 }}>
-                {"ABCDE".split("").map(l => (
-                  <div key={l} style={{ width: bigCs, textAlign: "center", fontFamily: t.fontMono, fontSize: 16, fontWeight: 800, color: isRedBoard ? "rgba(200,60,40,0.7)" : isIceBoard ? "rgba(140,210,255,0.55)" : t.accent, letterSpacing: "0.1em" }}>{l}</div>
+                {"ABCDEFG".slice(0, GRID_SIZE).split("").map(l => (
+                  <div key={l} style={{ width: bigCs, textAlign: "center", fontFamily: t.fontMono, fontSize: GRID_SIZE === 7 ? 13 : 16, fontWeight: 800, color: isRedBoard ? "rgba(200,60,40,0.7)" : isIceBoard ? "rgba(140,210,255,0.55)" : t.accent, letterSpacing: "0.1em" }}>{l}</div>
                 ))}
               </div>
               <div style={{ display: "flex", gap: 4, alignItems: "flex-start" }}>
-                <div style={{ display: "grid", gridTemplateRows: `repeat(5,${bigCs})`, gap: `${boardGap}px` }}>
-                  {[1, 2, 3, 4, 5].map(n => (
-                    <div key={n} style={{ display: "flex", alignItems: "center", justifyContent: "center", fontFamily: t.fontMono, fontSize: 16, fontWeight: 800, color: isRedBoard ? "rgba(200,60,40,0.7)" : isIceBoard ? "rgba(140,210,255,0.55)" : t.accent, width: 24 }}>{n}</div>
+                <div style={{ display: "grid", gridTemplateRows: `repeat(${GRID_SIZE},${bigCs})`, gap: `${boardGap}px` }}>
+                  {Array.from({ length: GRID_SIZE }, (_, i) => i + 1).map(n => (
+                    <div key={n} style={{ display: "flex", alignItems: "center", justifyContent: "center", fontFamily: t.fontMono, fontSize: GRID_SIZE === 7 ? 13 : 16, fontWeight: 800, color: isRedBoard ? "rgba(200,60,40,0.7)" : isIceBoard ? "rgba(140,210,255,0.55)" : t.accent, width: 24 }}>{n}</div>
                   ))}
                 </div>
                 {boardJSX}
@@ -1812,9 +1832,9 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
         />
         {rbOverlay}
 
-        <SurrenderModal show={showSurrender} t={sidebarT} ip={ip} isRankedGame={isRankedGame} onConfirm={() => { setShowSurrender(false); if (setScreenAction) setScreenAction("home"); }} onCancel={() => { playClickAction?.(); pausedRef.current = false; setShowSurrender(false); }} playHoverAction={playHoverAction} />
-        <ExitModal show={showExitConfirm} t={sidebarT} ip={ip} onConfirm={() => { setShowExitConfirm(false); if (setScreenAction) setScreenAction("home"); }} onCancel={() => { playClickAction?.(); pausedRef.current = false; setShowExitConfirm(false); }} playHoverAction={playHoverAction} />
-        <RematchOverlay show={showRematch} isMultiplayerGame={isMultiplayerGame} t={sidebarT} ip={ip} p1c={p1c} p2c={p2c} seriesWinner={seriesWinner} mySlot={mySlot} rematchRequested={rematchRequested} winnerDisplayNameAction={winnerDisplayName} lastSeries={lastSeries} onRematch={() => { wsRef.current?.send(JSON.stringify({ type: "rematch" })); setRematchRequested(mySlot); }} onQuitMatch={() => { wsRef.current?.send(JSON.stringify({ type: "quit_match" })); if (setScreenAction) setScreenAction("home"); }} />
+        <SurrenderModal show={showSurrender} t={sidebarT} ip={ip} isRankedGame={isRankedGame} onConfirmAction={() => { setShowSurrender(false); if (setScreenAction) setScreenAction("home"); }} onCancelAction={() => { playClickAction?.(); pausedRef.current = false; setShowSurrender(false); }} playHoverAction={playHoverAction} />
+        <ExitModal show={showExitConfirm} t={sidebarT} ip={ip} onConfirmAction={() => { setShowExitConfirm(false); if (setScreenAction) setScreenAction("home"); }} onCancelAction={() => { playClickAction?.(); pausedRef.current = false; setShowExitConfirm(false); }} playHoverAction={playHoverAction} />
+        <RematchOverlay show={showRematch} isMultiplayerGame={isMultiplayerGame} t={sidebarT} ip={ip} p1c={p1c} p2c={p2c} seriesWinner={seriesWinner} mySlot={mySlot} rematchRequested={rematchRequested} winnerDisplayNameAction={winnerDisplayName} lastSeries={lastSeries} onRematchAction={() => { wsRef.current?.send(JSON.stringify({ type: "rematch" })); setRematchRequested(mySlot); }} onQuitMatchAction={() => { wsRef.current?.send(JSON.stringify({ type: "quit_match" })); if (setScreenAction) setScreenAction("home"); }} />
 
         <style>{`
           @keyframes heatDrift0{from{transform:translate(0,0) scale(1)}to{transform:translate(12px,18px) scale(1.1)}}
@@ -1842,13 +1862,14 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
 
   // ── DESKTOP LAYOUT ────────────────────────────────────────────────────────
   return (
-    <div style={{ position: "fixed", top: 64, left: 0, right: 0, bottom: 0, zIndex: 2, display: "flex", flexDirection: "row", background: themeId === "pixel" ? "url(/bg-pixel-dark.png) center/cover no-repeat" : themeId === "space" ? "url(/bg-earth.png) center/cover no-repeat" : t.bg, overflow: "hidden", userSelect: "none", WebkitUserSelect: "none" }}>
+    <div style={{ position: "fixed", top: 64, left: 0, right: 0, bottom: 0, zIndex: 2, display: "flex", flexDirection: "row", background: themeId === "pixel" ? "url(/bg-pixel-dark.png) center/cover no-repeat" : themeId === "space" ? "transparent" : t.bg, overflow: "hidden", userSelect: "none", WebkitUserSelect: "none" }}>
 
       <WinOverlay
         showWinOverlay={showWinOverlay} overlayVisible={overlayVisible}
         winner={winner} winnerColor={winnerColor} winnerPiece={winnerPiece}
         seriesDiffers={seriesDiffers} seriesColor={seriesColor} seriesPiece={seriesPiece}
         seriesWinner={seriesWinner} phase={phase} gameNumber={gameNumber}
+        connectionScores={connectionScores}
         t={{ fontDisplay: t.fontDisplay, fontMono: t.fontMono, fontBody: t.fontBody }}
         winnerDisplayNameAction={winnerDisplayName}
         onDismissAction={dismissOverlay}
@@ -1871,7 +1892,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
       <DisconnectModal
         show={showDisconnectModal}
         t={sidebarT} ip={ip}
-        onGoHome={() => { if (setScreenAction) setScreenAction("home"); }}
+        onGoHomeAction={() => { if (setScreenAction) setScreenAction("home"); }}
       />
 
       <LeftPanel
@@ -1880,8 +1901,10 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
         matchHistory={matchHistory} seriesWinner={seriesWinner} matchOver={matchOver}
         gameMode={gameMode} isRankedGame={isRankedGame} isMultiplayerGame={isMultiplayerGame}
         isMultiplayer={isMultiplayer} mySlot={mySlot}
+        boardMode={boardMode} selectedPatterns={selectedPatterns}
         p1Time={p1Time} p2Time={p2Time} readyTimeout={readyTimeout}
         p1Ready={p1Ready} p2Ready={p2Ready}
+        connectionScores={connectionScores}
         chatMessages={chatMessages} chatInput={chatInput} chatOpen={chatOpen} chatWarning={chatWarning}
         log={log} botThinking={botThinking}
         showWinOverlay={showWinOverlay} overlayVisible={overlayVisible}
@@ -1900,14 +1923,15 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
         onChatOpenToggle={() => setChatOpen(v => !v)}
         onSoftReset={softReset}
         onDismissOverlayAction={dismissOverlay}
-        onRematch={() => { wsRef.current?.send(JSON.stringify({ type: "rematch" })); setRematchRequested(mySlot); }}
-        onQuitMatch={() => { wsRef.current?.send(JSON.stringify({ type: "quit_match" })); if (setScreenAction) setScreenAction("home"); }}
-        onSurrenderConfirm={() => { setShowSurrender(false); if (setScreenAction) setScreenAction("home"); }}
-        onSurrenderCancel={() => { playClickAction?.(); pausedRef.current = false; setShowSurrender(false); }}
-        onExitConfirm={() => { setShowExitConfirm(false); if (setScreenAction) setScreenAction("home"); }}
-        onExitCancel={() => { playClickAction?.(); pausedRef.current = false; setShowExitConfirm(false); }}
-        onShowSurrender={() => { playClickAction?.(); pausedRef.current = true; setShowSurrender(true); }}
+        onRematchAction={() => { wsRef.current?.send(JSON.stringify({ type: "rematch" })); setRematchRequested(mySlot); }}
+        onQuitMatchAction={() => { wsRef.current?.send(JSON.stringify({ type: "quit_match" })); if (setScreenAction) setScreenAction("home"); }}
+        onSurrenderConfirmAction={() => { setShowSurrender(false); if (setScreenAction) setScreenAction("home"); }}
+        onSurrenderCancelAction={() => { playClickAction?.(); pausedRef.current = false; setShowSurrender(false); }}
+        onExitConfirmAction={() => { setShowExitConfirm(false); if (setScreenAction) setScreenAction("home"); }}
+        onExitCancelAction={() => { playClickAction?.(); pausedRef.current = false; setShowExitConfirm(false); }}
+        onShowSurrenderAction={() => { playClickAction?.(); pausedRef.current = true; setShowSurrender(true); }}
         onShowExitConfirmAction={() => { playClickAction?.(); pausedRef.current = true; setShowExitConfirm(true); }}
+        onShowRematchOverlayAction={() => setShowRematch(true)}
         fmtTimeAction={fmtTime}
         playHoverAction={playHoverAction}
         playClickAction={playClickAction}
@@ -1936,37 +1960,37 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
         </div>
         {/* Column labels + board — special boards render their own labels */}
         {isGlacierBoard && glacierBoard ? (
-          <GlacierGrid board={glacierBoard} onCellClick={glacierClick} winCells={winLine} />
+          <GlacierGrid board={glacierBoard} onCellClickAction={glacierClick} winCells={winLine} />
         ) : isBloodMoonBoard && bloodMoonBoard ? (
-          <BloodMoonGrid board={bloodMoonBoard} onCellClick={bloodMoonClick} winCells={winLine} />
+          <BloodMoonGrid board={bloodMoonBoard} onCellClickAction={bloodMoonClick} winCells={winLine} />
         ) : isEgyptBoard && egyptBoard ? (
-          <EgyptGrid board={egyptBoard} onCellClick={egyptClick} winCells={winLine} />
+          <EgyptGrid board={egyptBoard} onCellClickAction={egyptClick} winCells={winLine} />
         ) : isSynthwaveBoard && synthwaveBoard ? (
-          <SynthwaveGrid board={synthwaveBoard} onCellClick={synthwaveClick} winCells={winLine} />
+          <SynthwaveGrid board={synthwaveBoard} onCellClickAction={synthwaveClick} winCells={winLine} />
         ) : isMatrixBoard && matrixBoard ? (
-          <MatrixGrid board={matrixBoard} onCellClick={matrixClick} winCells={winLine} />
+          <MatrixGrid board={matrixBoard} onCellClickAction={matrixClick} winCells={winLine} />
         ) : isArcaneBoard && arcaneBoard ? (
-          <ArcaneGrid board={arcaneBoard} onCellClick={arcaneClick} winCells={winLine} />
+          <ArcaneGrid board={arcaneBoard} onCellClickAction={arcaneClick} winCells={winLine} />
         ) : isBioBoard && bioBoard ? (
-          <BioGrid board={bioBoard} onCellClick={bioClick} winCells={winLine} />
+          <BioGrid board={bioBoard} onCellClickAction={bioClick} winCells={winLine} />
         ) : isForgeBoard && forgeBoard ? (
-          <ForgeGrid board={forgeBoard} onCellClick={forgeClick} winCells={winLine} />
+          <ForgeGrid board={forgeBoard} onCellClickAction={forgeClick} winCells={winLine} />
         ) : isVoidBoard && voidBoard ? (
-          <VoidGrid board={voidBoard} onCellClick={voidClick} winCells={winLine} />
+          <VoidGrid board={voidBoard} onCellClickAction={voidClick} winCells={winLine} />
         ) : isTokyoBoard && tokyoBoard ? (
-          <TokyoGrid board={tokyoBoard} onCellClick={tokyoClick} winCells={winLine} />
+          <TokyoGrid board={tokyoBoard} onCellClickAction={tokyoClick} winCells={winLine} />
         ) : isSpaceBoard && spaceBoard ? (
-          <SpaceGrid board={spaceBoard} onCellClick={spaceClick} winCells={winLine} />
+          <SpaceGrid board={spaceBoard} onCellClickAction={spaceClick} winCells={winLine} />
         ) : isPixelBoard && pixelBoard ? (
-          <PixelGrid board={pixelBoard} onCellClick={pixelClick} winCells={winLine} />
+          <PixelGrid board={pixelBoard} onCellClickAction={pixelClick} winCells={winLine} />
         ) : (
           <>
             <div style={{ display: "flex", gap: `${boardGap}px`, marginLeft: 34 }}>
-              {"ABCDE".split("").map(l => <div key={l} style={{ width: bigCs, textAlign: "center", fontFamily: t.fontMono, fontSize: 21, fontWeight: 800, color: isRedBoard ? "rgba(200,60,40,0.7)" : isIceBoard ? "rgba(140,210,255,0.55)" : t.accent, letterSpacing: "0.1em", textShadow: `0 0 10px ${isRedBoard ? "rgba(200,40,0,0.4)" : isIceBoard ? "rgba(100,180,255,0.3)" : t.accentGlow + "66"}` }}>{l}</div>)}
+              {"ABCDEFG".slice(0, GRID_SIZE).split("").map(l => <div key={l} style={{ width: bigCs, textAlign: "center", fontFamily: t.fontMono, fontSize: GRID_SIZE === 7 ? 16 : 21, fontWeight: 800, color: isRedBoard ? "rgba(200,60,40,0.7)" : isIceBoard ? "rgba(140,210,255,0.55)" : t.accent, letterSpacing: "0.1em", textShadow: `0 0 10px ${isRedBoard ? "rgba(200,40,0,0.4)" : isIceBoard ? "rgba(100,180,255,0.3)" : t.accentGlow + "66"}` }}>{l}</div>)}
             </div>
             <div style={{ display: "flex", gap: 6, alignItems: "flex-start" }}>
-              <div style={{ display: "grid", gridTemplateRows: `repeat(5,${bigCs})`, gap: `${boardGap}px` }}>
-                {[1, 2, 3, 4, 5].map(n => <div key={n} style={{ display: "flex", alignItems: "center", justifyContent: "center", fontFamily: t.fontMono, fontSize: 21, fontWeight: 800, color: isRedBoard ? "rgba(200,60,40,0.7)" : isIceBoard ? "rgba(140,210,255,0.55)" : t.accent, letterSpacing: "0.1em", textShadow: `0 0 10px ${isRedBoard ? "rgba(200,40,0,0.4)" : isIceBoard ? "rgba(100,180,255,0.3)" : t.accentGlow + "66"}`, width: 34, flexShrink: 0 }}>{n}</div>)}
+              <div style={{ display: "grid", gridTemplateRows: `repeat(${GRID_SIZE},${bigCs})`, gap: `${boardGap}px` }}>
+                {Array.from({ length: GRID_SIZE }, (_, i) => i + 1).map(n => <div key={n} style={{ display: "flex", alignItems: "center", justifyContent: "center", fontFamily: t.fontMono, fontSize: GRID_SIZE === 7 ? 16 : 21, fontWeight: 800, color: isRedBoard ? "rgba(200,60,40,0.7)" : isIceBoard ? "rgba(140,210,255,0.55)" : t.accent, letterSpacing: "0.1em", textShadow: `0 0 10px ${isRedBoard ? "rgba(200,40,0,0.4)" : isIceBoard ? "rgba(100,180,255,0.3)" : t.accentGlow + "66"}`, width: 34, flexShrink: 0 }}>{n}</div>)}
               </div>
               {boardJSX}
             </div>
@@ -1982,9 +2006,9 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
         playHoverAction={playHoverAction}
       />
 
-      <RematchOverlay show={showRematch} isMultiplayerGame={isMultiplayerGame} t={sidebarT} ip={ip} p1c={p1c} p2c={p2c} seriesWinner={seriesWinner} mySlot={mySlot} rematchRequested={rematchRequested} winnerDisplayNameAction={winnerDisplayName} lastSeries={lastSeries} onRematch={() => { wsRef.current?.send(JSON.stringify({ type: "rematch" })); setRematchRequested(mySlot); }} onQuitMatch={() => { wsRef.current?.send(JSON.stringify({ type: "quit_match" })); if (setScreenAction) setScreenAction("home"); }} />
-      <SurrenderModal show={showSurrender} t={sidebarT} ip={ip} isRankedGame={isRankedGame} onConfirm={() => { setShowSurrender(false); if (setScreenAction) setScreenAction("home"); }} onCancel={() => { playClickAction?.(); pausedRef.current = false; setShowSurrender(false); }} playHoverAction={playHoverAction} />
-      <ExitModal show={showExitConfirm} t={sidebarT} ip={ip} onConfirm={() => { setShowExitConfirm(false); if (setScreenAction) setScreenAction("home"); }} onCancel={() => { playClickAction?.(); pausedRef.current = false; setShowExitConfirm(false); }} playHoverAction={playHoverAction} />
+      <RematchOverlay show={showRematch} isMultiplayerGame={isMultiplayerGame} t={sidebarT} ip={ip} p1c={p1c} p2c={p2c} seriesWinner={seriesWinner} mySlot={mySlot} rematchRequested={rematchRequested} winnerDisplayNameAction={winnerDisplayName} lastSeries={lastSeries} onRematchAction={() => { wsRef.current?.send(JSON.stringify({ type: "rematch" })); setRematchRequested(mySlot); }} onQuitMatchAction={() => { wsRef.current?.send(JSON.stringify({ type: "quit_match" })); if (setScreenAction) setScreenAction("home"); }} />
+      <SurrenderModal show={showSurrender} t={sidebarT} ip={ip} isRankedGame={isRankedGame} onConfirmAction={() => { setShowSurrender(false); if (setScreenAction) setScreenAction("home"); }} onCancelAction={() => { playClickAction?.(); pausedRef.current = false; setShowSurrender(false); }} playHoverAction={playHoverAction} />
+      <ExitModal show={showExitConfirm} t={sidebarT} ip={ip} onConfirmAction={() => { setShowExitConfirm(false); if (setScreenAction) setScreenAction("home"); }} onCancelAction={() => { playClickAction?.(); pausedRef.current = false; setShowExitConfirm(false); }} playHoverAction={playHoverAction} />
 
       <style>{`
         @keyframes heatDrift0{from{transform:translate(0,0) scale(1)}to{transform:translate(12px,18px) scale(1.1)}}

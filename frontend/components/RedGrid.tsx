@@ -1,7 +1,15 @@
+"use client";
 import React, { useState, useEffect, useRef } from "react";
+
+const DEFAULT_SIZE = 5;
+const GET_COLS = (s: number) => Array.from({ length: s }, (_, i) => String.fromCharCode(65 + i));
+const GET_ROWS = (s: number) => Array.from({ length: s }, (_, i) => i + 1);
+
+
+
+
 import { ThemeId, THEMES } from "@/lib/themes";
 
-const SIZE = 5;
 
 function Embers({ count = 10 }: { count?: number }) {
   const embers = useRef(Array.from({ length: count }, (_, i) => ({
@@ -75,19 +83,15 @@ function RedPiece({
   );
 }
 
-export default function RedGrid({
-  board,
-  onCellClick,
-  winCells,
-  p1Symbol = "+",
-  p2Symbol = "○",
-}: {
-  board: (string | null)[][];
-  onCellClick: (r: number, c: number) => void;
-  winCells?: [number, number][];
-  p1Symbol?: string;
-  p2Symbol?: string;
-}) {
+export default function RedGrid({ board, onCellClickAction, winCells = [], showLabels = true }: { board?: (string | null)[][]; onCellClickAction?: (r: number, c: number) => void; winCells?: [number, number][]; showLabels?: boolean }) {
+  const active = board ?? Array(DEFAULT_SIZE).fill(null).map(() => Array(DEFAULT_SIZE).fill(null));
+  const SIZE = active.length;
+  const COLS = GET_COLS(SIZE);
+  const ROWS = GET_ROWS(SIZE);
+  const PAD = 8;
+  const CS = useCellSize(SIZE, PAD);
+  const BS = SIZE * CS + 2 * PAD;
+
   const [hov, setHov] = useState<string | null>(null);
 
   const redTheme = {
@@ -125,7 +129,7 @@ export default function RedGrid({
             <div key={key}
               onMouseEnter={() => setHov(key)}
               onMouseLeave={() => setHov(null)}
-              onClick={() => onCellClick(r, c)}
+              onClick={() => onCellClickAction?.(r, c)}
               style={{
                 background: cell
                   ? "rgba(0,0,0,0.4)"

@@ -14,7 +14,7 @@ interface Props {
 }
 
 const CARDS = [
-  { key: "game" as Screen, title: "SINGLEPLAYER", sub: "Local · Pass & Play · Bo3" },
+  { key: "singleplayer" as Screen, title: "SINGLEPLAYER", sub: "Local · Pass & Play · Bo3" },
   { key: "lobby" as Screen, title: "MULTIPLAYER", sub: "Online · Ranked & Unranked" },
   { key: "ai" as Screen, title: "AI / BOT", sub: "Practice vs Computer" },
 ];

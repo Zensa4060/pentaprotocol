@@ -11,7 +11,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
-from app.routers import auth, game, profile, store, bot, room, otp, paypal  # ← Added paypal here
+from app.routers import auth, game, profile, store, bot, bot7, room, otp, paypal
 from app.core.database import connect_db, disconnect_db, get_db
 
 app = FastAPI(title="PentaProtocol API")
@@ -84,6 +84,7 @@ app.include_router(game,    prefix="/api/game",    tags=["game"])
 app.include_router(profile, prefix="/api/profile", tags=["profile"])
 app.include_router(store,   prefix="/api/store",   tags=["store"])
 app.include_router(bot,     prefix="/api/bot",     tags=["bot"])
+app.include_router(bot7,    prefix="/api/bot7",    tags=["bot7"])
 app.include_router(room,    prefix="/api/room",    tags=["room"])
 app.include_router(otp,     prefix="/api/otp",     tags=["otp"])
 app.include_router(paypal,  prefix="/api/paypal",  tags=["paypal"])  # ← Added PayPal router
