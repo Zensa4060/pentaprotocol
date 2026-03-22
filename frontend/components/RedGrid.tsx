@@ -10,6 +10,19 @@ const GET_ROWS = (s: number) => Array.from({ length: s }, (_, i) => i + 1);
 
 import { ThemeId, THEMES } from "@/lib/themes";
 
+function useCellSize(size: number, pad = 8) {
+  const [cs, setCs] = useState(110);
+  useEffect(() => {
+    const c = () => {
+      const b = Math.min(Math.max(window.innerWidth - 560, 260), Math.max(window.innerHeight - 200, 260));
+      setCs(Math.max(50, (b - 2 * pad) / size));
+    };
+    c();
+    window.addEventListener("resize", c);
+    return () => window.removeEventListener("resize", c);
+  }, [pad, size]);
+  return cs;
+}
 
 function Embers({ count = 10 }: { count?: number }) {
   const embers = useRef(Array.from({ length: count }, (_, i) => ({
