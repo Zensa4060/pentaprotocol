@@ -5,7 +5,7 @@ import certifi
 from pymongo import ASCENDING, DESCENDING
 import asyncio
 
-load_dotenv(os.path.join(os.path.dirname(__file__), "..", "..", ".env"))
+
 
 class DB:
     client: AsyncIOMotorClient = None
