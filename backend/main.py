@@ -88,7 +88,8 @@ async def startup():
 @app.on_event("shutdown")
 async def shutdown():
     await disconnect_db()
-
+from app.routers import paypal
+app.include_router(paypal.router, prefix="/api/paypal", tags=["paypal"])
 app.include_router(auth.router,    prefix="/api/auth",    tags=["auth"])
 app.include_router(game.router,    prefix="/api/game",    tags=["game"])
 app.include_router(profile.router, prefix="/api/profile", tags=["profile"])
