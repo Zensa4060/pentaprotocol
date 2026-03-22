@@ -30,7 +30,7 @@ export default function AIScreen({ setScreenAction, themeId, onSelectDifficultyA
 
   return (
     <div style={{
-      position: "fixed", inset: 0, zIndex: 2, background: themeId === "space" ? "transparent" : t.bg, transition: "background 0.4s",
+      position: "fixed", inset: 0, zIndex: 2, background: themeId === "pixel" ? "url(/bg-pixel.png) center/cover no-repeat" : themeId === "space" ? "transparent" : t.bg, transition: "background 0.4s",
       display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "space-evenly",
       padding: "90px 24px 40px", overflowY: "auto",
     }}>
