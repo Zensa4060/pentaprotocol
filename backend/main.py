@@ -1,11 +1,17 @@
-import socket
+﻿import socket
 _orig = socket.getaddrinfo
 def _patched(host, port, family=0, type=0, proto=0, flags=0):
     return _orig(host, port, socket.AF_INET, type, proto, flags)
 socket.getaddrinfo = _patched
 
-from routers import auth, game, profile, store, bot, room, otp, paypal
-from core.database import connect_db, disconnect_db, get_db
+from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from fastapi.exceptions import RequestValidationError
+from app.routers import auth, game, profile, store, bot
+from app.core.database import connect_db, disconnect_db, get_db  # ← added get_db
+from app.routers import room
+from app.routers import otp
 
 app = FastAPI(title="PentaProtocol API")
 
@@ -82,8 +88,7 @@ async def startup():
 @app.on_event("shutdown")
 async def shutdown():
     await disconnect_db()
-from app.routers import paypal
-app.include_router(paypal.router, prefix="/api/paypal", tags=["paypal"])
+
 app.include_router(auth.router,    prefix="/api/auth",    tags=["auth"])
 app.include_router(game.router,    prefix="/api/game",    tags=["game"])
 app.include_router(profile.router, prefix="/api/profile", tags=["profile"])
