@@ -4,14 +4,8 @@ def _patched(host, port, family=0, type=0, proto=0, flags=0):
     return _orig(host, port, socket.AF_INET, type, proto, flags)
 socket.getaddrinfo = _patched
 
-from fastapi import FastAPI, Request
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
-from fastapi.exceptions import RequestValidationError
-from app.routers import auth, game, profile, store, bot
-from app.core.database import connect_db, disconnect_db, get_db  # ← added get_db
-from app.routers import room
-from app.routers import otp
+from routers import auth, game, profile, store, bot, room, otp, paypal
+from core.database import connect_db, disconnect_db, get_db
 
 app = FastAPI(title="PentaProtocol API")
 
