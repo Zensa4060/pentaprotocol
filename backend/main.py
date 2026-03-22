@@ -8,10 +8,8 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
-from app.routers import auth, game, profile, store, bot
-from app.core.database import connect_db, disconnect_db, get_db  # ← added get_db
-from app.routers import room
-from app.routers import otp
+from app.routers import auth, game, profile, store, bot, room, otp, paypal  # ← Added paypal here
+from app.core.database import connect_db, disconnect_db, get_db
 
 app = FastAPI(title="PentaProtocol API")
 
@@ -77,6 +75,16 @@ async def preflight_handler(request: Request, rest_of_path: str):
         )
     return JSONResponse(content={}, status_code=403)
 
+# Include all routers BEFORE the startup event
+app.include_router(auth,    prefix="/api/auth",    tags=["auth"])
+app.include_router(game,    prefix="/api/game",    tags=["game"])
+app.include_router(profile, prefix="/api/profile", tags=["profile"])
+app.include_router(store,   prefix="/api/store",   tags=["store"])
+app.include_router(bot,     prefix="/api/bot",     tags=["bot"])
+app.include_router(room,    prefix="/api/room",    tags=["room"])
+app.include_router(otp,     prefix="/api/otp",     tags=["otp"])
+app.include_router(paypal,  prefix="/api/paypal",  tags=["paypal"])  # ← Added PayPal router
+
 # ── Single startup — connect DB then create TTL index ────────────────────────
 @app.on_event("startup")
 async def startup():
@@ -103,3 +111,7 @@ async def startup():
 @app.on_event("shutdown")
 async def shutdown():
     await disconnect_db()
+
+@app.get("/")
+async def root(): 
+    return {"status": "PentaProtocol API running"}
