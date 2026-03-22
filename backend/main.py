@@ -1,4 +1,5 @@
-﻿import socket
+﻿# main.py
+import socket
 _orig = socket.getaddrinfo
 def _patched(host, port, family=0, type=0, proto=0, flags=0):
     return _orig(host, port, socket.AF_INET, type, proto, flags)
@@ -7,12 +8,10 @@ socket.getaddrinfo = _patched
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from fastapi.exceptions import RequestValidationError
-from app.routers import auth, game, profile, store, bot
-from app.core.database import connect_db, disconnect_db, get_db  # ← added get_db
-from app.routers import room
-from app.routers import otp
+from app.routers import auth, game, profile, store, bot, room, otp, paypal
+from app.core.database import connect_db, disconnect_db, get_db
 
+# Create FastAPI instance
 app = FastAPI(title="PentaProtocol API")
 
 ALLOWED_ORIGINS = [
@@ -84,24 +83,27 @@ async def startup():
     db = get_db()
     # Auto-expire matchmaking queue entries after 60 seconds
     await db.matchmaking_queue.create_index("created_at", expireAfterSeconds=60)
+    
+    # Debug: Print all registered routes (optional)
+    print("\n=== Registered Routes ===")
+    for route in app.routes:
+        print(f"{getattr(route, 'methods', 'N/A')} {route.path}")
+    print("========================\n")
 
 @app.on_event("shutdown")
 async def shutdown():
     await disconnect_db()
 
-app.include_router(auth.router,    prefix="/api/auth",    tags=["auth"])
-app.include_router(game.router,    prefix="/api/game",    tags=["game"])
-app.include_router(profile.router, prefix="/api/profile", tags=["profile"])
-app.include_router(store.router,   prefix="/api/store",   tags=["store"])
-app.include_router(bot.router,     prefix="/api/bot",     tags=["bot"])
-app.include_router(room.router,    prefix="/api/room",    tags=["room"])
-app.include_router(otp.router,     prefix="/api/otp",     tags=["otp"])
-# Add this after including all routers
-@app.on_event("startup")
-async def print_routes():
-    print("\n=== Registered Routes ===")
-    for route in fastapi_app.routes:
-        print(f"{route.methods} {route.path}")
-    print("========================\n")
+# Include all routers
+app.include_router(auth,    prefix="/api/auth",    tags=["auth"])
+app.include_router(game,    prefix="/api/game",    tags=["game"])
+app.include_router(profile, prefix="/api/profile", tags=["profile"])
+app.include_router(store,   prefix="/api/store",   tags=["store"])
+app.include_router(bot,     prefix="/api/bot",     tags=["bot"])
+app.include_router(room,    prefix="/api/room",    tags=["room"])
+app.include_router(otp,     prefix="/api/otp",     tags=["otp"])
+app.include_router(paypal,  prefix="/api/paypal",  tags=["paypal"])
+
 @app.get("/")
-async def root(): return {"status": "PentaProtocol API running"}
+async def root(): 
+    return {"status": "PentaProtocol API running"}
