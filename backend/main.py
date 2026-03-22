@@ -96,6 +96,12 @@ app.include_router(store.router,   prefix="/api/store",   tags=["store"])
 app.include_router(bot.router,     prefix="/api/bot",     tags=["bot"])
 app.include_router(room.router,    prefix="/api/room",    tags=["room"])
 app.include_router(otp.router,     prefix="/api/otp",     tags=["otp"])
-
+# Add this after including all routers
+@app.on_event("startup")
+async def print_routes():
+    print("\n=== Registered Routes ===")
+    for route in fastapi_app.routes:
+        print(f"{route.methods} {route.path}")
+    print("========================\n")
 @app.get("/")
 async def root(): return {"status": "PentaProtocol API running"}
