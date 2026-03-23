@@ -79,11 +79,27 @@ def compute_segment_points(history: list, segment_start: int) -> tuple[int, int]
     return p1, p2
 
 
-def series_winner_from_points(p1_pts: int, p2_pts: int, win_cap: int = 2) -> str | None:
+def compute_series_winner(history: list, segment_start: int, win_cap: int = 2) -> str | None:
+    """
+    First-to-two decisive wins, plus DRAW → win → DRAW (three games): the middle winner
+    wins the segment (e.g. G1 draw, G2 P1, G3 draw → P1 wins the series).
+    """
+    if segment_start > len(history):
+        return None
+    seg = history[segment_start:]
+    p1_pts, p2_pts = compute_segment_points(history, segment_start)
+
     if p1_pts >= win_cap and p1_pts > p2_pts:
         return "P1"
     if p2_pts >= win_cap and p2_pts > p1_pts:
         return "P2"
+
+    if len(seg) == 3 and seg[0] == "DRAW" and seg[2] == "DRAW":
+        mid = seg[1]
+        if mid == "P1" and p2_pts == 0:
+            return "P1"
+        if mid == "P2" and p1_pts == 0:
+            return "P2"
     return None
 
 
@@ -143,7 +159,7 @@ def should_auto_upgrade_7x7_after_5x5_game3_draw(
 
 def compute_series_state(history: list, segment_start: int) -> dict:
     p1_pts, p2_pts = compute_segment_points(history, segment_start)
-    series_winner = series_winner_from_points(p1_pts, p2_pts, 2)
+    series_winner = compute_series_winner(history, segment_start, 2)
     awaiting_rb = False if series_winner else compute_awaiting_rulebreaker(history, segment_start)
     return {
         "p1_series_points": p1_pts,
@@ -954,13 +970,14 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                 seg_start = room.get("segment_start_index", 0)
                 p1p, p2p = compute_segment_points(hist, seg_start)
 
-                # 5×5: after Rulebreaker toss, unequal segment score → match ends (no Game 3 board).
+                # After Rulebreaker toss: only end the match if first-to-two is already decided
+                # (e.g. rare edge case). If e.g. segment is 1-0 after DRAW+win, play the next game (G3).
                 if bool(msg.get("resolve_series_only")):
                     if not room.get("awaiting_rulebreaker"):
                         continue
-                    if p1p == p2p:
+                    leader = compute_series_winner(hist, seg_start, 2)
+                    if leader is None:
                         continue
-                    leader = "P1" if p1p > p2p else "P2"
                     await db.rooms.update_one(
                         {"room_code": room_code},
                         {

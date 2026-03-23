@@ -660,6 +660,20 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
                     : null;
                 if (p1p >= 2 && p1p > p2p) sw = "P1";
                 else if (p2p >= 2 && p2p > p1p) sw = "P2";
+                else if (
+                  segSlice.length === 3 &&
+                  segSlice[0] === "DRAW" &&
+                  segSlice[2] === "DRAW" &&
+                  segSlice[1] === "P1" &&
+                  p2p === 0
+                ) sw = "P1";
+                else if (
+                  segSlice.length === 3 &&
+                  segSlice[0] === "DRAW" &&
+                  segSlice[2] === "DRAW" &&
+                  segSlice[1] === "P2" &&
+                  p1p === 0
+                ) sw = "P2";
                 else if (sw == null) sw = checkSeriesWinner(newHist);
                 if (sw === "P1" || sw === "P2" || sw === "DRAW") {
                   setMatchOver(true);
@@ -1037,6 +1051,10 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
       const p2 = seg.filter(w => w === "P2").length;
       if (p1 >= 2 && p1 > p2) return "P1";
       if (p2 >= 2 && p2 > p1) return "P2";
+      if (seg.length === 3 && seg[0] === "DRAW" && seg[2] === "DRAW") {
+        if (seg[1] === "P1" && p2 === 0) return "P1";
+        if (seg[1] === "P2" && p1 === 0) return "P2";
+      }
       return null;
     }
     if (hist.length < 2) return null;
@@ -1227,10 +1245,11 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
             const _isMP2 = (gameMode === "ranked" || gameMode === "unranked") && !!roomCode;
             if (_isMP2) {
               const { p1, p2 } = seriesPtsRef.current;
+              const seriesAlreadyDecided = (p1 >= 2 && p1 > p2) || (p2 >= 2 && p2 > p1);
               if (s.tossWinner === mySlot) {
-                if (p1 !== p2) {
+                if (seriesAlreadyDecided) {
                   wsRef.current?.send(JSON.stringify({ type: "rb_start_game", resolve_series_only: true }));
-                } else if (liveBoardModeRef.current === "7x7") {
+                } else if (liveBoardModeRef.current === "7x7" && p1 === p2) {
                   wsRef.current?.send(JSON.stringify({ type: "rb_start_game", resolve_series_draw: true }));
                 } else {
                   wsRef.current?.send(JSON.stringify({ type: "rb_start_game", first_player: fp, c3_blocked: s.rbC3Blocked }));
