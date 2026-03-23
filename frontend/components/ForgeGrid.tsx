@@ -1,5 +1,6 @@
 "use client";
 import React, { useEffect, useRef, useState } from "react";
+import { boardSkinCanvasDpr } from "@/lib/boardSkinCanvasDpr";
 
 const DEFAULT_SIZE = 5;
 const GET_COLS = (s: number) => Array.from({ length: s }, (_, i) => String.fromCharCode(65 + i));
@@ -23,7 +24,7 @@ function useCellSize(size: number, pad = 8) {
   return cs;
 }
 
-function ForgeBg({ W, H }: { W: number; H: number }) {
+function ForgeBg({ W, H, gridSize = 5 }: { W: number; H: number; gridSize?: number }) {
   const ref = useRef<HTMLCanvasElement | null>(null);
   const raf = useRef<number | null>(null);
   const t = useRef(0);
@@ -31,7 +32,7 @@ function ForgeBg({ W, H }: { W: number; H: number }) {
   useEffect(() => {
     const cv = ref.current;
     if (!cv) return;
-    const dpr = window.devicePixelRatio || 1;
+    const dpr = boardSkinCanvasDpr(gridSize);
     cv.width = W * dpr;
     cv.height = H * dpr;
     cv.style.width = W + "px";
@@ -167,7 +168,7 @@ function ForgeBg({ W, H }: { W: number; H: number }) {
     return () => {
       if (raf.current) cancelAnimationFrame(raf.current);
     };
-  }, [W, H]);
+  }, [W, H, gridSize]);
 
   return <canvas ref={ref} style={{ position: "absolute", inset: 0, zIndex: 0, pointerEvents: "none" }} />;
 }
@@ -180,7 +181,7 @@ function GridLines({ W, H, PAD, CS, SIZE }: { W: number; H: number; PAD: number;
   useEffect(() => {
     const cv = ref.current;
     if (!cv) return;
-    const dpr = window.devicePixelRatio || 1;
+    const dpr = boardSkinCanvasDpr(SIZE);
     cv.width = W * dpr;
     cv.height = H * dpr;
     cv.style.width = W + "px";
@@ -323,7 +324,7 @@ function GridLines({ W, H, PAD, CS, SIZE }: { W: number; H: number; PAD: number;
     return () => {
       if (raf.current) cancelAnimationFrame(raf.current);
     };
-  }, [W, H, PAD, CS]);
+  }, [W, H, PAD, CS, SIZE]);
 
   return <canvas ref={ref} style={{ position: "absolute", inset: 0, zIndex: 3, pointerEvents: "none" }} />;
 }
@@ -332,10 +333,12 @@ function BurstCanvas({
   burstRef,
   W,
   H,
+  gridSize = 5,
 }: {
   burstRef: React.MutableRefObject<((x: number, y: number, isP1: boolean) => void) | null>;
   W: number;
   H: number;
+  gridSize?: number;
 }) {
   const ref = useRef<HTMLCanvasElement | null>(null);
   const pts = useRef<any[]>([]);
@@ -414,7 +417,7 @@ function BurstCanvas({
   useEffect(() => {
     const cv = ref.current;
     if (!cv) return;
-    const dpr = window.devicePixelRatio || 1;
+    const dpr = boardSkinCanvasDpr(gridSize);
     cv.width = W * dpr;
     cv.height = H * dpr;
     cv.style.width = W + "px";
@@ -425,7 +428,7 @@ function BurstCanvas({
     return () => {
       if (raf.current) cancelAnimationFrame(raf.current);
     };
-  }, [W, H]);
+  }, [W, H, gridSize]);
 
   return <canvas ref={ref} style={{ position: "absolute", inset: 0, zIndex: 5, pointerEvents: "none" }} />;
 }
@@ -616,9 +619,9 @@ export default function ForgeGrid({ board, onCellClickAction, winCells = [], sho
           </div>
         )}
         <div style={{ position: "relative", width: BS, height: BS, borderRadius: CS * 0.05, overflow: "hidden", border: "3px solid rgba(200,60,0,.8)", boxShadow: "0 0 0 1px rgba(255,120,0,.3),0 0 50px rgba(200,60,0,.6),0 0 120px rgba(120,20,0,.4),inset 0 0 80px rgba(0,0,0,.5)" }}>
-          <ForgeBg W={BS} H={BS} />
+          <ForgeBg W={BS} H={BS} gridSize={SIZE} />
           <GridLines W={BS} H={BS} PAD={PAD} CS={CS} SIZE={SIZE} />
-          <BurstCanvas burstRef={burstRef} W={BS} H={BS} />
+          <BurstCanvas burstRef={burstRef} W={BS} H={BS} gridSize={SIZE} />
           <div style={{ position: "absolute", inset: PAD, zIndex: 4, display: "flex", flexDirection: "column" }}>
             {ROWS.map((_, r) => (
               <div key={r} style={{ display: "flex", flex: 1 }}>

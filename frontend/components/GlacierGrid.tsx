@@ -1,5 +1,6 @@
 "use client";
 import React, { useEffect, useRef, useState } from "react";
+import { boardSkinCanvasDpr } from "@/lib/boardSkinCanvasDpr";
 
 const DEFAULT_SIZE = 5;
 const GET_COLS = (s: number) => Array.from({ length: s }, (_, i) => String.fromCharCode(65 + i));
@@ -19,7 +20,7 @@ function useCellSize(size: number, pad = 8) {
   return cs;
 }
 
-function GlacierBg({ W, H }: { W: number; H: number }) {
+function GlacierBg({ W, H, gridSize = 5 }: { W: number; H: number; gridSize?: number }) {
   const ref = useRef<HTMLCanvasElement | null>(null);
   const raf = useRef<number | null>(null);
   const t = useRef(0);
@@ -27,7 +28,7 @@ function GlacierBg({ W, H }: { W: number; H: number }) {
   useEffect(() => {
     const cv = ref.current;
     if (!cv) return;
-    const dpr = window.devicePixelRatio || 1;
+    const dpr = boardSkinCanvasDpr(gridSize);
     cv.width = W * dpr;
     cv.height = H * dpr;
     cv.style.width = W + "px";
@@ -142,7 +143,7 @@ function GlacierBg({ W, H }: { W: number; H: number }) {
     return () => {
       if (raf.current) cancelAnimationFrame(raf.current);
     };
-  }, [W, H]);
+  }, [W, H, gridSize]);
 
   return <canvas ref={ref} style={{ position: "absolute", inset: 0, zIndex: 0, pointerEvents: "none" }} />;
 }
@@ -154,7 +155,7 @@ function GridLines({ W, H, PAD, CS, SIZE }: { W: number; H: number; PAD: number;
   useEffect(() => {
     const cv = ref.current;
     if (!cv) return;
-    const dpr = window.devicePixelRatio || 1;
+    const dpr = boardSkinCanvasDpr(SIZE);
     cv.width = W * dpr;
     cv.height = H * dpr;
     cv.style.width = W + "px";
@@ -284,7 +285,7 @@ function GridLines({ W, H, PAD, CS, SIZE }: { W: number; H: number; PAD: number;
 }
 
 type BurstFn = ((x: number, y: number, isP1: boolean) => void) | null;
-function BurstCanvas({ burstRef, W, H }: { burstRef: React.MutableRefObject<BurstFn>; W: number; H: number }) {
+function BurstCanvas({ burstRef, W, H, gridSize = 5 }: { burstRef: React.MutableRefObject<BurstFn>; W: number; H: number; gridSize?: number }) {
   const ref = useRef<HTMLCanvasElement | null>(null);
   const pts = useRef<any[]>([]);
   const raf = useRef<number | null>(null);
@@ -313,7 +314,7 @@ function BurstCanvas({ burstRef, W, H }: { burstRef: React.MutableRefObject<Burs
   useEffect(() => {
     const cv = ref.current;
     if (!cv) return;
-    const dpr = window.devicePixelRatio || 1;
+    const dpr = boardSkinCanvasDpr(gridSize);
     cv.width = W * dpr;
     cv.height = H * dpr;
     cv.style.width = W + "px";
@@ -322,7 +323,7 @@ function BurstCanvas({ burstRef, W, H }: { burstRef: React.MutableRefObject<Burs
     if (!ctx) return;
     ctx.scale(dpr, dpr);
     return () => { if (raf.current) cancelAnimationFrame(raf.current); };
-  }, [W, H]);
+  }, [W, H, gridSize]);
   return <canvas ref={ref} style={{ position: "absolute", inset: 0, zIndex: 5, pointerEvents: "none" }} />;
 }
 
@@ -407,9 +408,9 @@ export default function GlacierGrid({ board, onCellClickAction, winCells = [], s
       <div style={{ display: "flex", alignItems: "flex-start" }}>
         <div style={{ display: "flex", flexDirection: "column", paddingTop: PAD }}>{ROWS.map(r => <div key={r} style={{ height: CS, display: "flex", alignItems: "center", justifyContent: "flex-end", paddingRight: 8, minWidth: 24, ...lbl }}>{r}</div>)}</div>
         <div style={{ position: "relative", width: BS, height: BS, borderRadius: CS * 0.08, overflow: "hidden", border: "2px solid rgba(120,200,255,.65)", boxShadow: "0 0 0 1px rgba(80,160,220,.3),0 0 45px rgba(100,180,255,.4),0 0 100px rgba(50,100,200,.25),inset 0 0 80px rgba(0,0,15,.55)" }}>
-          <GlacierBg W={BS} H={BS} />
+          <GlacierBg W={BS} H={BS} gridSize={SIZE} />
           <GridLines W={BS} H={BS} PAD={PAD} CS={CS} SIZE={SIZE} />
-          <BurstCanvas burstRef={burstRef} W={BS} H={BS} />
+          <BurstCanvas burstRef={burstRef} W={BS} H={BS} gridSize={SIZE} />
           <div style={{ position: "absolute", inset: PAD, zIndex: 4, display: "flex", flexDirection: "column" }}>
             {active.map((row, r) => (
               <div key={r} style={{ display: "flex", flex: 1 }}>

@@ -47,11 +47,11 @@ export default function PrivacyPage() {
           </Section>
 
           <Section title="2. Information We Collect">
-            <strong style={{ color: "#e8e8e8" }}>Information you provide:</strong> Username and email address (required for account creation), phone number (required for payment processing via Instamojo), profile preferences and collection data, and communications sent to our support team.
+            <strong style={{ color: "#e8e8e8" }}>Information you provide:</strong> Username and email address (required for account creation), phone number (may be required for certain payment methods such as Instamojo), profile preferences and collection data, and communications sent to our support team.
             <br /><br />
             <strong style={{ color: "#e8e8e8" }}>Automatically collected:</strong> Device information (browser, OS, identifiers), log data (IP address, pages visited, timestamps), gameplay data (match history, rankings, activity), and cookie/session data for authentication and preferences.
             <br /><br />
-            <strong style={{ color: "#e8e8e8" }}>Payment information:</strong> Payments are processed by Instamojo. We do not store card or banking details on our servers — only transaction confirmation metadata (amount, transaction ID, item purchased).
+            <strong style={{ color: "#e8e8e8" }}>Payment information:</strong> Payments are processed by <strong style={{ color: "#e8e8e8" }}>PayPal</strong> and <strong style={{ color: "#e8e8e8" }}>Instamojo</strong>. We do not store card or banking details on our servers — only transaction confirmation metadata (amount, transaction ID, item purchased).
           </Section>
 
           <Section title="3. How We Use Your Information">
@@ -65,7 +65,7 @@ export default function PrivacyPage() {
           </Section>
 
           <Section title="5. Data Sharing">
-            We may share your information with: <strong style={{ color: "#e8e8e8" }}>Instamojo</strong> for payment processing; <strong style={{ color: "#e8e8e8" }}>infrastructure providers</strong> (Railway for hosting, MongoDB Atlas for database, Redis for session management) who process data under data processing agreements; and <strong style={{ color: "#e8e8e8" }}>law enforcement</strong> where required by law or court order. All third-party providers are contractually obligated to handle your data securely.
+            We may share your information with: <strong style={{ color: "#e8e8e8" }}>PayPal</strong> and <strong style={{ color: "#e8e8e8" }}>Instamojo</strong> for payment processing; <strong style={{ color: "#e8e8e8" }}>infrastructure providers</strong> (Railway for hosting, MongoDB Atlas for database, Redis for session management) who process data under data processing agreements; and <strong style={{ color: "#e8e8e8" }}>law enforcement</strong> where required by law or court order. All third-party providers are contractually obligated to handle your data securely.
           </Section>
 
           <Section title="6. Data Retention">

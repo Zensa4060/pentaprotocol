@@ -1,5 +1,6 @@
 "use client";
 import React, { useEffect, useRef, useState } from "react";
+import { boardSkinCanvasDpr } from "@/lib/boardSkinCanvasDpr";
 
 const DEFAULT_SIZE = 5;
 const GET_COLS = (s: number) => Array.from({ length: s }, (_, i) => String.fromCharCode(65 + i));
@@ -23,7 +24,7 @@ function useCellSize(size: number, pad = 8) {
   return cs;
 }
 
-function BloodMoonBg({ W, H }: { W: number; H: number }) {
+function BloodMoonBg({ W, H, gridSize = 5 }: { W: number; H: number; gridSize?: number }) {
   const ref = useRef<HTMLCanvasElement | null>(null);
   const raf = useRef<number | null>(null);
   const t = useRef(0);
@@ -31,7 +32,7 @@ function BloodMoonBg({ W, H }: { W: number; H: number }) {
   useEffect(() => {
     const cv = ref.current;
     if (!cv) return;
-    const dpr = window.devicePixelRatio || 1;
+    const dpr = boardSkinCanvasDpr(gridSize);
     cv.width = W * dpr;
     cv.height = H * dpr;
     cv.style.width = W + "px";
@@ -141,7 +142,7 @@ function BloodMoonBg({ W, H }: { W: number; H: number }) {
     return () => {
       if (raf.current) cancelAnimationFrame(raf.current);
     };
-  }, [W, H]);
+  }, [W, H, gridSize]);
 
   return <canvas ref={ref} style={{ position: "absolute", inset: 0, zIndex: 0, pointerEvents: "none" }} />;
 }
@@ -154,7 +155,7 @@ function GridLines({ W, H, PAD, CS, SIZE }: { W: number; H: number; PAD: number;
   useEffect(() => {
     const cv = ref.current;
     if (!cv) return;
-    const dpr = window.devicePixelRatio || 1;
+    const dpr = boardSkinCanvasDpr(SIZE);
     cv.width = W * dpr;
     cv.height = H * dpr;
     cv.style.width = W + "px";
@@ -280,12 +281,12 @@ function GridLines({ W, H, PAD, CS, SIZE }: { W: number; H: number; PAD: number;
 
     draw();
     return () => { if (raf.current) cancelAnimationFrame(raf.current); };
-  }, [W, H, PAD, CS]);
+  }, [W, H, PAD, CS, SIZE]);
 
   return <canvas ref={ref} style={{ position: "absolute", inset: 0, zIndex: 3, pointerEvents: "none" }} />;
 }
 
-function BurstCanvas({ burstRef, W, H }: { burstRef: React.MutableRefObject<((x: number, y: number, isP1: boolean) => void) | null>; W: number; H: number }) {
+function BurstCanvas({ burstRef, W, H, gridSize = 5 }: { burstRef: React.MutableRefObject<((x: number, y: number, isP1: boolean) => void) | null>; W: number; H: number; gridSize?: number }) {
   const ref = useRef<HTMLCanvasElement | null>(null);
   const pts = useRef<any[]>([]);
   const raf = useRef<number | null>(null);
@@ -372,7 +373,7 @@ function BurstCanvas({ burstRef, W, H }: { burstRef: React.MutableRefObject<((x:
   useEffect(() => {
     const cv = ref.current;
     if (!cv) return;
-    const dpr = window.devicePixelRatio || 1;
+    const dpr = boardSkinCanvasDpr(gridSize);
     cv.width = W * dpr;
     cv.height = H * dpr;
     cv.style.width = W + "px";
@@ -381,7 +382,7 @@ function BurstCanvas({ burstRef, W, H }: { burstRef: React.MutableRefObject<((x:
     if (!ctx) return;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     return () => { if (raf.current) cancelAnimationFrame(raf.current); };
-  }, [W, H]);
+  }, [W, H, gridSize]);
 
   return <canvas ref={ref} style={{ position: "absolute", inset: 0, zIndex: 5, pointerEvents: "none" }} />;
 }
@@ -569,9 +570,9 @@ export default function BloodMoonGrid({ board, onCellClickAction, winCells = [],
             boxShadow: "0 0 0 1px rgba(100,0,100,.3),0 0 45px rgba(160,0,0,.45),0 0 100px rgba(80,0,0,.3),inset 0 0 80px rgba(0,0,0,.7)",
           }}
         >
-          <BloodMoonBg W={BS} H={BS} />
+          <BloodMoonBg W={BS} H={BS} gridSize={SIZE} />
           <GridLines W={BS} H={BS} PAD={PAD} CS={CS} SIZE={SIZE} />
-          <BurstCanvas burstRef={burstRef} W={BS} H={BS} />
+          <BurstCanvas burstRef={burstRef} W={BS} H={BS} gridSize={SIZE} />
           <div style={{ position: "absolute", inset: PAD, zIndex: 4, display: "flex", flexDirection: "column" }}>
             {ROWS.map((_, r) => (
               <div key={r} style={{ display: "flex", flex: 1 }}>

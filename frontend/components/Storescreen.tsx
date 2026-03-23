@@ -790,7 +790,8 @@ export default function StoreScreen({ setScreenAction, themeId }: Props) {
   const [buyCurrencyType, setBuyCurrencyType] = useState<"protocredits" | "shards">("protocredits");
   const [selectedProto, setSelectedProto] = useState("plus");
   const [selectedShards, setSelectedShards] = useState("plus");
-  const [loading,      setLoading]      = useState(false);
+  /** Which payment redirect is in progress (both gateways stay available until one starts). */
+  const [payRedirect, setPayRedirect] = useState<null | "paypal" | "instamojo">(null);
   const [msg,          setMsg]          = useState<{ text: string; ok: boolean } | null>(null);
   const [hovPkg,       setHovPkg]       = useState<string | null>(null);
   const [hovCard,      setHovCard]      = useState<string | null>(null);
@@ -820,6 +821,10 @@ export default function StoreScreen({ setScreenAction, themeId }: Props) {
   }, [token]);
 
   useEffect(() => {
+    if (!showBuyModal) setPayRedirect(null);
+  }, [showBuyModal]);
+
+  useEffect(() => {
     if (!openBundle) return;
     const b = BUNDLES.find((x) => x.id === openBundle);
     if (b && ownsBundle(b)) setOpenBundle(null);
@@ -835,7 +840,7 @@ export default function StoreScreen({ setScreenAction, themeId }: Props) {
   // ── PayPal checkout (live) ───────────────────────────────────────────────────
   const handleBuyPayPal = async () => {
     if (isGuest) { setShowBuyModal(false); showError(`Sign in to buy ${buyCurrencyType === "shards" ? "PentaShards" : "ProtoCredits"}.`); return; }
-    setLoading(true); setMsg(null);
+    setPayRedirect("paypal"); setMsg(null);
     try {
       sessionStorage.setItem("pp_paypal_package_id", selectedPackageId);
       sessionStorage.setItem("pp_paypal_currency_type", buyCurrencyType);
@@ -846,15 +851,14 @@ export default function StoreScreen({ setScreenAction, themeId }: Props) {
       window.location.href = res.data.approve_url;
     } catch (e: any) {
       showError(e?.response?.data?.detail || e?.message || "Payment failed. Please try again.");
-      setLoading(false);
+      setPayRedirect(null);
     }
-    // button stays loading during redirect — intentional
+    // stays busy during redirect — intentional
   };
 
-  // ── Instamojo checkout (dormant — KYC pending approval) ───────────────────
   const handleBuyInstamojo = async () => {
     if (isGuest) { setShowBuyModal(false); showError(`Sign in to buy ${buyCurrencyType === "shards" ? "PentaShards" : "ProtoCredits"}.`); return; }
-    setLoading(true); setMsg(null);
+    setPayRedirect("instamojo"); setMsg(null);
     try {
       const res = await API.post("/api/store/create-order", {
         package_id:    selectedPackageId,
@@ -866,12 +870,11 @@ export default function StoreScreen({ setScreenAction, themeId }: Props) {
       window.location.href = res.data.redirect_url;
     } catch (e: any) {
       showError(e?.response?.data?.detail || e?.message || "Payment failed. Please try again.");
-      setLoading(false);
+      setPayRedirect(null);
     }
   };
 
-  // handleBuy = PayPal (primary active gateway)
-  const handleBuy = handleBuyPayPal;
+  const payBusy = payRedirect !== null;
 
   const handleBuyCosmetic = (id: string, price: number, label: string, shardPrice = 0) => {
     if (isGuest) { showError("Sign in to purchase."); return; }
@@ -1290,23 +1293,19 @@ export default function StoreScreen({ setScreenAction, themeId }: Props) {
             <div style={{ fontFamily: t.fontMono, fontSize: 10, color: t.textMuted, letterSpacing: "0.18em", marginBottom: 10 }}>CHOOSE PAYMENT METHOD</div>
 
             {/* ── PayPal button (live) ── */}
-            <button onClick={handleBuyPayPal} disabled={loading} className="store-buy-btn"
-              style={{ width: "100%", padding: "14px", background: loading ? "#00308788" : "#003087", border: "2px solid #003087", borderRadius: 10, color: "#fff", fontFamily: t.fontDisplay, fontSize: 15, fontWeight: 900, cursor: loading ? "not-allowed" : "pointer", letterSpacing: "0.06em", boxShadow: loading ? "none" : "0 0 24px rgba(0,48,135,0.5)", marginBottom: 10, display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }}>
+            <button onClick={handleBuyPayPal} disabled={payBusy} className="store-buy-btn"
+              style={{ width: "100%", padding: "14px", background: payBusy ? "#00308788" : "#003087", border: "2px solid #003087", borderRadius: 10, color: "#fff", fontFamily: t.fontDisplay, fontSize: 15, fontWeight: 900, cursor: payBusy ? "not-allowed" : "pointer", letterSpacing: "0.06em", boxShadow: payBusy ? "none" : "0 0 24px rgba(0,48,135,0.5)", marginBottom: 10, display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="#fff" xmlns="http://www.w3.org/2000/svg"><path d="M20.067 8.478c.492.315.844.825.983 1.39C21.6 12.525 20.2 15 17.5 15H15l-.8 4H10l2.5-13H17c1.657 0 2.757.693 3.067 2.478z" opacity=".6"/><path d="M7 5h7c1.657 0 2.757.693 3.067 2.478.492.315.844.825.983 1.39C18.6 11.525 17.2 14 14.5 14H12l-.8 4H7l2.5-13z"/></svg>
-              {loading ? "Redirecting to PayPal…" : `PAY $${(buyCurrencyType === "shards" ? SHARD_PACKAGES_USD : PACKAGES_USD).find(p => p.id === pkg.id)?.usdPrice.toFixed(2) ?? pkg.price} · PAY WITH PAYPAL`}
+              {payRedirect === "paypal" ? "Redirecting to PayPal…" : `PAY $${(buyCurrencyType === "shards" ? SHARD_PACKAGES_USD : PACKAGES_USD).find(p => p.id === pkg.id)?.usdPrice.toFixed(2) ?? pkg.price} · PAY WITH PAYPAL`}
             </button>
 
-            {/* ── Instamojo button (coming soon — KYC under review) ── */}
-            <button disabled
-              style={{ width: "100%", padding: "14px", background: "rgba(255,255,255,0.03)", border: `1px solid ${t.border}`, borderRadius: 10, color: t.textMuted, fontFamily: t.fontDisplay, fontSize: 14, fontWeight: 700, cursor: "not-allowed", letterSpacing: "0.06em", opacity: 0.45, marginBottom: 6 }}>
-              PAY ₹{pkg.price} WITH INSTAMOJO
+            <button onClick={handleBuyInstamojo} disabled={payBusy} className="store-buy-btn"
+              style={{ width: "100%", padding: "14px", background: payBusy && payRedirect !== "instamojo" ? "rgba(255,255,255,0.06)" : "linear-gradient(135deg, #1a237e 0%, #3949ab 100%)", border: `2px solid ${payBusy && payRedirect !== "instamojo" ? t.border : "#5c6bc0"}`, borderRadius: 10, color: "#fff", fontFamily: t.fontDisplay, fontSize: 15, fontWeight: 900, cursor: payBusy ? "not-allowed" : "pointer", letterSpacing: "0.06em", boxShadow: payBusy && payRedirect !== "instamojo" ? "none" : "0 0 20px rgba(57,73,171,0.45)", marginBottom: 10, display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }}>
+              {payRedirect === "instamojo" ? "Redirecting to Instamojo…" : `PAY ₹${pkg.price} · PAY WITH INSTAMOJO`}
             </button>
-            <div style={{ textAlign: "center" as const, fontFamily: t.fontMono, fontSize: 10, color: t.textMuted, letterSpacing: "0.08em", marginBottom: 12 }}>
-              🕐 INSTAMOJO · INDIA PAYMENTS · COMING SOON
-            </div>
 
             <div style={{ fontFamily: t.fontBody, fontSize: 11, color: t.textMuted, textAlign: "center" as const, marginTop: 4, lineHeight: 1.6 }}>
-              PayPal accepts cards &amp; wallets worldwide. {buyCurrencyType === "shards" ? "PentaShards" : "ProtoCredits"} are non-refundable.
+              PayPal (USD) for international cards &amp; wallets. Instamojo (INR) for India. {buyCurrencyType === "shards" ? "PentaShards" : "ProtoCredits"} are non-refundable.
             </div>
           </div>
         </div>
