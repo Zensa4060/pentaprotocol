@@ -93,10 +93,17 @@ def compute_awaiting_rulebreaker(history: list, segment_start: int) -> bool:
     before the next game **unless** that pair was a two-game sweep (same player won both).
 
     The only cases with no Rulebreaker after two games are P1,P1 or P2,P2.
+
+    Also: three games played in the segment with wins still 1-1 (one game was a DRAW)
+    → Rulebreaker, then (on tied toss) upgrade to 7×7 for the tiebreak leg.
     """
     if segment_start > len(history):
         return False
     seg = history[segment_start:]
+    p1w = sum(1 for w in seg if w == "P1")
+    p2w = sum(1 for w in seg if w == "P2")
+    if len(seg) >= 3 and p1w == 1 and p2w == 1:
+        return True
     if len(seg) < 2 or len(seg) % 2 != 0:
         return False
     g1, g2 = seg[-2], seg[-1]
@@ -232,7 +239,7 @@ async def queue_join(data: QueueRequest, user_id: str = Depends(get_current_user
     selected_patterns = data.selected_patterns
     if board_mode == "7x7" and not selected_patterns:
         from app.core.patterns7 import PATTERN_NAMES_7
-        selected_patterns = random.sample(PATTERN_NAMES_7, 3)
+        selected_patterns = list(PATTERN_NAMES_7)
 
     engine = GameEngine(board_mode=board_mode, selected_pattern_ids=selected_patterns)
     room = {
@@ -320,7 +327,7 @@ async def create_room(data: CreateRoomRequest, user_id: str = Depends(get_curren
     selected_patterns = data.selected_patterns
     if board_mode == "7x7" and not selected_patterns:
         from app.core.patterns7 import PATTERN_NAMES_7
-        selected_patterns = random.sample(PATTERN_NAMES_7, 3)
+        selected_patterns = list(PATTERN_NAMES_7)
 
     engine = GameEngine(board_mode=board_mode, selected_pattern_ids=selected_patterns)
     creator_slot = random.choice(["P1", "P2"])
@@ -881,16 +888,19 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
 
                 patch: dict = {}
                 if upgrade_7:
+                    seg = hist[seg_start:]
                     if (
                         room.get("board_mode", "5x5") != "5x5"
-                        or p1p != p2p
+                        or p1p != 1
+                        or p2p != 1
+                        or len(seg) < 3
                         or not room.get("awaiting_rulebreaker")
                     ):
                         continue
                     from app.core.patterns7 import PATTERN_NAMES_7
 
                     patch["board_mode"] = "7x7"
-                    patch["selected_patterns"] = random.sample(PATTERN_NAMES_7, 3)
+                    patch["selected_patterns"] = list(PATTERN_NAMES_7)
                     patch["segment_start_index"] = len(hist)
                     c3_blocked = False
 
@@ -899,7 +909,8 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                     c3_blocked = False
 
                 gn = room.get("game_number", 1)
-                next_gn = gn + 1
+                # New 7×7 leg after 5×5 deadlock: restart at game 1 with 0-0 segment points
+                next_gn = 1 if upgrade_7 else gn + 1
                 gs = 7 if bm == "7x7" else 5
 
                 post_seg = patch.get("segment_start_index", seg_start)

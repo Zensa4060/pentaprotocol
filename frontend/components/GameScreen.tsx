@@ -1197,10 +1197,14 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
             const _isMP2 = (gameMode === "ranked" || gameMode === "unranked") && !!roomCode;
             if (_isMP2) {
               const { p1, p2 } = seriesPtsRef.current;
+              const seg = matchHistoryRef.current.slice(segmentStartIndexRef.current);
+              const w1 = seg.filter(w => w === "P1").length;
+              const w2 = seg.filter(w => w === "P2").length;
+              const fiveByFiveDeadlock = seg.length >= 3 && w1 === 1 && w2 === 1;
               if (s.tossWinner === mySlot) {
                 if (p1 !== p2) {
                   wsRef.current?.send(JSON.stringify({ type: "rb_start_game", resolve_series_only: true }));
-                } else if (liveBoardModeRef.current === "5x5") {
+                } else if (liveBoardModeRef.current === "5x5" && fiveByFiveDeadlock) {
                   setShow7x7LevelUp(true);
                   playTransitionAction?.();
                   setTimeout(() => {
@@ -1212,8 +1216,10 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
                     }));
                     setShow7x7LevelUp(false);
                   }, 2800);
-                } else {
+                } else if (liveBoardModeRef.current === "7x7") {
                   wsRef.current?.send(JSON.stringify({ type: "rb_start_game", resolve_series_draw: true }));
+                } else {
+                  wsRef.current?.send(JSON.stringify({ type: "rb_start_game", first_player: fp, c3_blocked: s.rbC3Blocked }));
                 }
               }
               setPhase("rb_initializing");
@@ -1750,7 +1756,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
       <div style={{ fontFamily: t.fontMono, fontSize: 11, color: t.textMuted, letterSpacing: "0.35em", marginBottom: 18 }}>TIED SERIES · RULEBREAKER</div>
       <div style={{ fontFamily: t.fontDisplay, fontSize: "clamp(28px,7vw,56px)", fontWeight: 950, color: t.accent, textAlign: "center", textShadow: `0 0 50px ${t.accent}AA`, animation: "levelUpPulse 1.1s ease-in-out infinite" }}>LEVEL UP</div>
       <div style={{ fontFamily: t.fontDisplay, fontSize: "clamp(42px,12vw,100px)", fontWeight: 950, color: "#FF6B35", marginTop: 10, textShadow: "0 0 70px rgba(255,107,53,0.65)" }}>7 × 7</div>
-      <div style={{ fontFamily: t.fontBody, fontSize: 14, color: t.textSecondary, marginTop: 24, maxWidth: 380, textAlign: "center", lineHeight: 1.55, padding: "0 20px" }}>Both players advance to the expanded arena. Points carry over — same series rules on the larger grid.</div>
+      <div style={{ fontFamily: t.fontBody, fontSize: 14, color: t.textSecondary, marginTop: 24, maxWidth: 420, textAlign: "center", lineHeight: 1.55, padding: "0 20px" }}>5×5 stayed 1-1 after three games (including a draw). Fresh 7×7 leg: game 1, 0-0, all six patterns — then standard 7×7 Rulebreaker (pattern ban) when required.</div>
     </div>
   );
 

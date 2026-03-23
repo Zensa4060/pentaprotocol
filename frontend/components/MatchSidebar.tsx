@@ -13,6 +13,11 @@ function barsToColor(bars: number): string {
   return "rgba(255,255,255,0.25)";
 }
 
+/** 7×7 pattern chip text in the match sidebar (internal id stays `zigzag`) */
+function patternSidebarLabel(pat: string): string {
+  return pat === "zigzag" ? "ZZ" : pat;
+}
+
 // ─── Props ────────────────────────────────────────────────────────────────────
 
 interface MatchSidebarProps {
@@ -332,10 +337,10 @@ export function MatchSidebar({
           </div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
             {selectedPatterns.map(p => (
-              <div key={p} style={{ padding: "4px 8px", background: `${t.accent}1A`, border: `1px solid ${t.accent}44`, borderRadius: 4, fontFamily: t.fontMono, fontSize: 11, color: t.accent, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em" }}>{p}</div>
+              <div key={p} style={{ padding: "4px 8px", background: `${t.accent}1A`, border: `1px solid ${t.accent}44`, borderRadius: 4, fontFamily: t.fontMono, fontSize: 11, color: t.accent, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em" }}>{patternSidebarLabel(p)}</div>
             ))}
             {rbBannedPattern && (
-              <div style={{ padding: "4px 8px", background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.4)", borderRadius: 4, fontFamily: t.fontMono, fontSize: 11, color: "#EF4444", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", textDecoration: "line-through" }}>{rbBannedPattern}</div>
+              <div style={{ padding: "4px 8px", background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.4)", borderRadius: 4, fontFamily: t.fontMono, fontSize: 11, color: "#EF4444", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", textDecoration: "line-through" }}>{patternSidebarLabel(rbBannedPattern)}</div>
             )}
           </div>
         </div>
@@ -673,10 +678,10 @@ export function LeftPanel(props: MatchSidebarProps) {
           </div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
             {selectedPatterns.map(p => (
-              <div key={p} style={{ padding: "4px 8px", background: `${t.accent}1A`, border: `1px solid ${t.accent}44`, borderRadius: 4, fontFamily: t.fontMono, fontSize: 11, color: t.accent, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em" }}>{p}</div>
+              <div key={p} style={{ padding: "4px 8px", background: `${t.accent}1A`, border: `1px solid ${t.accent}44`, borderRadius: 4, fontFamily: t.fontMono, fontSize: 11, color: t.accent, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em" }}>{patternSidebarLabel(p)}</div>
             ))}
             {rbBannedPattern && (
-              <div style={{ padding: "4px 8px", background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.4)", borderRadius: 4, fontFamily: t.fontMono, fontSize: 11, color: "#EF4444", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", textDecoration: "line-through" }}>{rbBannedPattern}</div>
+              <div style={{ padding: "4px 8px", background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.4)", borderRadius: 4, fontFamily: t.fontMono, fontSize: 11, color: "#EF4444", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", textDecoration: "line-through" }}>{patternSidebarLabel(rbBannedPattern)}</div>
             )}
           </div>
         </div>
