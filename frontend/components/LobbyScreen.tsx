@@ -401,7 +401,7 @@ export default function LobbyScreen({
           <div style={{ fontFamily:t.fontDisplay, fontSize:ip?20:32, fontWeight:700, marginBottom:8, color:multiSub==="unranked"||hovered==="unranked"?t.p1:t.text, transition:"color 0.28s", textTransform:"uppercase" as const, letterSpacing:"0.08em" }}>Unranked</div>
           <div style={{ fontFamily:t.fontBody, fontSize:ip?12:14, color:t.textMuted, marginBottom:16, textTransform:"uppercase", letterSpacing:"0.06em" }}>Casual · Coins + XP</div>
           <div style={{ marginTop:"auto", width:"100%", display:"flex", flexDirection:"column", gap:6 }}>
-            {[{k:"FORMAT",v:"Best of 3"},{k:"TIMER",v:"3 min"},{k:"RULEBREAKER",v:"Game 3"}].map(s => (
+            {[{k:"FORMAT",v:"Best of 3"},{k:"TIMER",v:"3 min (5×5) · 5 min (7×7)"},{k:"RULEBREAKER",v:"Game 3"}].map(s => (
               <div key={s.k} style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
                 <div style={{ fontFamily:t.fontMono, fontSize:10, color:t.textMuted, letterSpacing:"0.1em" }}>{s.k}</div>
                 <div style={{ fontFamily:t.fontBody, fontSize:12, color:t.text }}>{s.v}</div>

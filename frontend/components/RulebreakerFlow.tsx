@@ -6,8 +6,8 @@ import { RANKS, RankIcon } from "./ProfileScreen";
 import { WraithKingCoinToss } from "./WraithKingCoinToss";
 
 export const PHASE_TIMERS: Partial<Record<Phase, number>> = {
-  rule_choice: 10, who_first_winner: 10, c3_choice: 10, c3_choice_loser: 10, who_first_loser: 10,
-  ban_pattern_winner: 10, ban_pattern_loser: 10,
+  rule_choice: 30, who_first_winner: 30, c3_choice: 30, c3_choice_loser: 30, who_first_loser: 30,
+  ban_pattern_winner: 30, ban_pattern_loser: 30,
 };
 
 interface RulebreakerFlowProps {

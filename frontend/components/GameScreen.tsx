@@ -219,6 +219,8 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   const GRID_SIZE = boardMode === "7x7" ? 7 : 5;
   const CENTER = boardMode === "7x7" ? 3 : 2;
   const is7x7 = boardMode === "7x7";
+  /** Per-player clock: 5 min on 7×7, 3 min on 5×5 (all modes). */
+  const matchTimeMs = is7x7 ? 300_000 : 180_000;
   const { user } = useAuthStore();
   const t = THEMES[themeId];
   const ip = themeId === "pixel";
@@ -416,8 +418,8 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   const [botThinking, setBotThinking] = useState(false);
   const [log, setLog] = useState<{ text: string; player: string }[]>([]);
 
-  const [p1Time, setP1Time] = useState(180000);
-  const [p2Time, setP2Time] = useState(180000);
+  const [p1Time, setP1Time] = useState(() => (boardMode === "7x7" ? 300_000 : 180_000));
+  const [p2Time, setP2Time] = useState(() => (boardMode === "7x7" ? 300_000 : 180_000));
 
   const [gameNumber, setGameNumber] = useState(1);
   const [matchHistory, setMatchHistory] = useState<string[]>([]);
@@ -480,8 +482,8 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   );
 
   // ── Timer values stored in refs so rAF can read/write without setState loops ──
-  const p1TimeRef = useRef(180000);
-  const p2TimeRef = useRef(180000);
+  const p1TimeRef = useRef(boardMode === "7x7" ? 300_000 : 180_000);
+  const p2TimeRef = useRef(boardMode === "7x7" ? 300_000 : 180_000);
   const matchupCountdownRef = useRef(10.0);
 
   const fmtTime = (ms: number) => { const s = Math.max(0, Math.floor(ms / 1000)); return `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`; };
@@ -666,10 +668,10 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
           setOverlayVisible(false);
           setC3Blocked(msg.c3_blocked ?? false);
           setLog([]);
-          setP1Time(180000);
-          setP2Time(180000);
-          p1TimeRef.current = 180000;
-          p2TimeRef.current = 180000;
+          setP1Time(matchTimeMs);
+          setP2Time(matchTimeMs);
+          p1TimeRef.current = matchTimeMs;
+          p2TimeRef.current = matchTimeMs;
           lastP1Sec.current = -1;
           lastP2Sec.current = -1;
           setP1Ready(false);
@@ -780,7 +782,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
       if (wsPingRef.current) { clearInterval(wsPingRef.current); wsPingRef.current = null; }
       if (wsRef.current) { wsRef.current.onclose = null; wsRef.current.close(); wsRef.current = null; }
     };
-  }, [isMultiplayerGame, roomCode, playerSlot]);
+  }, [isMultiplayerGame, roomCode, playerSlot, matchTimeMs]);
 
   // Multiplayer match-found synchronization: tell server when we're ready to start.
   useEffect(() => {
@@ -866,12 +868,12 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     setExtraTurns(0);
     setC3Blocked(c3block);
     setLog([]);
-    p1TimeRef.current = 180000;
-    p2TimeRef.current = 180000;
+    p1TimeRef.current = matchTimeMs;
+    p2TimeRef.current = matchTimeMs;
     lastP1Sec.current = -1;
     lastP2Sec.current = -1;
-    setP1Time(180000);
-    setP2Time(180000);
+    setP1Time(matchTimeMs);
+    setP2Time(matchTimeMs);
     setLoading(false);
     setHover(null);
     setBotThinking(false);
