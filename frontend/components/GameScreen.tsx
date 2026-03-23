@@ -652,8 +652,16 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
                 if (typeof msg.awaiting_rulebreaker === "boolean") {
                   awaitingRulebreakerRef.current = msg.awaiting_rulebreaker;
                 }
-                const sw = (msg.series_winner as string | null | undefined) ?? checkSeriesWinner(newHist);
-                if (sw !== null) {
+                // First-to-2 in current segment: trust segment win counts (same as server) so match
+                // ends after game 3 when someone reaches 2 wins — even if series_winner was omitted/null.
+                let sw: string | null =
+                  msg.series_winner === "P1" || msg.series_winner === "P2" || msg.series_winner === "DRAW"
+                    ? (msg.series_winner as string)
+                    : null;
+                if (p1p >= 2 && p1p > p2p) sw = "P1";
+                else if (p2p >= 2 && p2p > p1p) sw = "P2";
+                else if (sw == null) sw = checkSeriesWinner(newHist);
+                if (sw === "P1" || sw === "P2" || sw === "DRAW") {
                   setMatchOver(true);
                   setSeriesWinner(sw);
                   setPhase("match_over");

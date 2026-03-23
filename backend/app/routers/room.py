@@ -705,7 +705,9 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                     broadcast["p2_series_points"] = update["p2_series_points"]
                     broadcast["series_winner"] = update["series_winner"]
                     broadcast["awaiting_rulebreaker"] = update["awaiting_rulebreaker"]
-                    broadcast["segment_start_index"] = room.get("segment_start_index", 0)
+                    broadcast["segment_start_index"] = update.get(
+                        "segment_start_index", room.get("segment_start_index", 0)
+                    )
 
                 for slot, ws in _room_connections.get(room_code, {}).items():
                     try:
