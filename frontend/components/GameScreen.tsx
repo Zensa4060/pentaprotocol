@@ -169,7 +169,7 @@ const MatchupOverlay = ({ matchupData, showMatchupOverlay, playerSlot, p1Name, u
       `}</style>
       
       <div style={{ textAlign: "center", paddingTop: 40, fontFamily: t.fontMono, fontSize: 14, fontWeight: 700, color: t.textMuted, letterSpacing: "0.3em", zIndex: 15, textShadow: "0 2px 10px rgba(0,0,0,0.5)" }}>
-        {isRankedGame ? "RANKED MATCHUP" : "UNRANKED EXHIBITION"} · BEST OF 3
+        {isRankedGame ? "RANKED MATCHUP" : "UNRANKED EXHIBITION"} · FIRST TO 2 POINTS
       </div>
 
       <UserCard data={p1D} color={t.p1} isP1={true} />
@@ -213,14 +213,33 @@ interface Props {
   matchupData?: import("@/lib/types").MatchupData;
   boardMode?: BoardMode;
   selectedPatterns?: string[];
+  /** Sync lobby `boardMode` / patterns when server upgrades mid-match (e.g. 5×5 → 7×7). */
+  onMultiplayerBoardSync?: (mode: BoardMode, patterns: string[]) => void;
 }
 
-export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, gameMode = "singleplayer", difficulty = "medium", setScreenAction, roomCode, playerSlot, playHoverAction, playPlaceAction, playVictoryAction, playDefeatAction, playRulebreakerAction, playTransitionAction, playClickAction, p1Name, matchupData, boardMode = "5x5", selectedPatterns = [] }: Props) {
-  const GRID_SIZE = boardMode === "7x7" ? 7 : 5;
-  const CENTER = boardMode === "7x7" ? 3 : 2;
-  const is7x7 = boardMode === "7x7";
+export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, gameMode = "singleplayer", difficulty = "medium", setScreenAction, roomCode, playerSlot, playHoverAction, playPlaceAction, playVictoryAction, playDefeatAction, playRulebreakerAction, playTransitionAction, playClickAction, p1Name, matchupData, boardMode = "5x5", selectedPatterns = [], onMultiplayerBoardSync }: Props) {
+  const [liveBoardMode, setLiveBoardMode] = useState<BoardMode>(boardMode);
+  const [liveSelectedPatterns, setLiveSelectedPatterns] = useState<string[]>(selectedPatterns ?? []);
+  useEffect(() => { setLiveBoardMode(boardMode); }, [boardMode]);
+  useEffect(() => { setLiveSelectedPatterns(selectedPatterns ?? []); }, [selectedPatterns]);
+
+  const liveBoardModeRef = useRef(boardMode);
+  liveBoardModeRef.current = liveBoardMode;
+
+  const [p1SeriesPts, setP1SeriesPts] = useState(0);
+  const [p2SeriesPts, setP2SeriesPts] = useState(0);
+  const seriesPtsRef = useRef({ p1: 0, p2: 0 });
+  seriesPtsRef.current = { p1: p1SeriesPts, p2: p2SeriesPts };
+  const awaitingRulebreakerRef = useRef(false);
+  const [show7x7LevelUp, setShow7x7LevelUp] = useState(false);
+
+  const GRID_SIZE = liveBoardMode === "7x7" ? 7 : 5;
+  const CENTER = liveBoardMode === "7x7" ? 3 : 2;
+  const is7x7 = liveBoardMode === "7x7";
   /** Per-player clock: 5 min on 7×7, 3 min on 5×5 (all modes). */
   const matchTimeMs = is7x7 ? 300_000 : 180_000;
+  const matchTimeMsRef = useRef(matchTimeMs);
+  matchTimeMsRef.current = matchTimeMs;
   const { user } = useAuthStore();
   const t = THEMES[themeId];
   const ip = themeId === "pixel";
@@ -418,8 +437,8 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   const [botThinking, setBotThinking] = useState(false);
   const [log, setLog] = useState<{ text: string; player: string }[]>([]);
 
-  const [p1Time, setP1Time] = useState(() => (boardMode === "7x7" ? 300_000 : 180_000));
-  const [p2Time, setP2Time] = useState(() => (boardMode === "7x7" ? 300_000 : 180_000));
+  const [p1Time, setP1Time] = useState(() => (liveBoardMode === "7x7" ? 300_000 : 180_000));
+  const [p2Time, setP2Time] = useState(() => (liveBoardMode === "7x7" ? 300_000 : 180_000));
 
   const [gameNumber, setGameNumber] = useState(1);
   const [matchHistory, setMatchHistory] = useState<string[]>([]);
@@ -477,13 +496,13 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   const [showMobileLog, setShowMobileLog] = useState(false);
 
   const activePatterns = useMemo(
-    () => rbBannedPattern ? selectedPatterns.filter(p => p !== rbBannedPattern) : selectedPatterns,
-    [selectedPatterns, rbBannedPattern],
+    () => rbBannedPattern ? liveSelectedPatterns.filter(p => p !== rbBannedPattern) : liveSelectedPatterns,
+    [liveSelectedPatterns, rbBannedPattern],
   );
 
   // ── Timer values stored in refs so rAF can read/write without setState loops ──
-  const p1TimeRef = useRef(boardMode === "7x7" ? 300_000 : 180_000);
-  const p2TimeRef = useRef(boardMode === "7x7" ? 300_000 : 180_000);
+  const p1TimeRef = useRef(liveBoardMode === "7x7" ? 300_000 : 180_000);
+  const p2TimeRef = useRef(liveBoardMode === "7x7" ? 300_000 : 180_000);
   const matchupCountdownRef = useRef(10.0);
 
   const fmtTime = (ms: number) => { const s = Math.max(0, Math.floor(ms / 1000)); return `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`; };
@@ -603,21 +622,30 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
                 setWinLine(wl);
                 if (msg.connectionScores) setConnectionScores(msg.connectionScores);
                 setWinner(msg.winner);
-                if (msg.winner === "P1") playVictoryAction?.(); else playDefeatAction?.();
+                if (msg.winner === "P1") playVictoryAction?.(); else if (msg.winner === "P2") playDefeatAction?.();
                 requestAnimationFrame(() => { setShowWinOverlay(true); requestAnimationFrame(() => setOverlayVisible(true)); });
-                const newHist = [...matchHistoryRef.current, msg.winner as string];
+                const newHist = Array.isArray(msg.match_history)
+                  ? (msg.match_history as string[])
+                  : [...matchHistoryRef.current, msg.winner as string];
                 matchHistoryRef.current = newHist;
                 setMatchHistory([...newHist]);
-                const sw = checkSeriesWinner(newHist);
-                if (newHist.length >= 3 || sw !== null) {
+                const p1p = typeof msg.p1_series_points === "number"
+                  ? msg.p1_series_points
+                  : newHist.filter(w => w === "P1").length;
+                const p2p = typeof msg.p2_series_points === "number"
+                  ? msg.p2_series_points
+                  : newHist.filter(w => w === "P2").length;
+                setP1SeriesPts(p1p);
+                setP2SeriesPts(p2p);
+                if (typeof msg.awaiting_rulebreaker === "boolean") {
+                  awaitingRulebreakerRef.current = msg.awaiting_rulebreaker;
+                }
+                const sw = (msg.series_winner as string | null | undefined) ?? checkSeriesWinner(newHist);
+                if (sw !== null) {
                   setMatchOver(true);
-                  setSeriesWinner(sw ?? newHist[newHist.length - 1]);
+                  setSeriesWinner(sw);
                   setPhase("match_over");
                   wsRef.current?.send(JSON.stringify({ type: "match_over_notify" }));
-                } else if (newHist.length === 2) {
-                  setGameNumber(3);
-                  // Go to ready phase before rulebreaker — don't start toss immediately
-                  setP1Ready(false); setP2Ready(false); setReadyTimeout(60); setReadyTimer(0); setPhase("waiting_ready");
                 } else {
                   setP1Ready(false); setP2Ready(false); setReadyTimeout(60); setReadyTimer(0); setPhase("waiting_ready");
                 }
@@ -638,6 +666,16 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
           // Extract opponent name from room data
           if (playerSlot === "P1" && r.player2_name) setOpponentName(r.player2_name);
           if (playerSlot === "P2" && r.player1_name) setOpponentName(r.player1_name);
+          if (r.board_mode) setLiveBoardMode(r.board_mode as BoardMode);
+          if (Array.isArray(r.selected_patterns)) setLiveSelectedPatterns(r.selected_patterns);
+          if (typeof r.p1_series_points === "number") setP1SeriesPts(r.p1_series_points);
+          if (typeof r.p2_series_points === "number") setP2SeriesPts(r.p2_series_points);
+          if (typeof r.awaiting_rulebreaker === "boolean") awaitingRulebreakerRef.current = r.awaiting_rulebreaker;
+          if (Array.isArray(r.match_history)) {
+            matchHistoryRef.current = r.match_history as string[];
+            setMatchHistory(r.match_history as string[]);
+          }
+          if (typeof r.game_number === "number") setGameNumber(r.game_number);
           ws.send(JSON.stringify({ type: "player_info", username: p1Name ?? playerSlot ?? "P1", slot: playerSlot }));
             } else if (msg.type === "player_joined") {
           const r = msg.room;
@@ -658,7 +696,16 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
             } else if (msg.type === "chat_message") {
           setChatMessages(m => [...m.slice(-49), { from: msg.from, text: msg.text, ts: msg.ts }]);
             } else if (msg.type === "game_reset") {
-          setBoard(emptyBoard());
+          const nextBm = (msg.board_mode as BoardMode | undefined) ?? liveBoardMode;
+          const gs = nextBm === "7x7" ? 7 : 5;
+          const emptyB = Array(gs).fill(null).map(() => Array(gs).fill(null)) as (string | null)[][];
+          if (msg.board_mode) {
+            const bm = msg.board_mode as BoardMode;
+            setLiveBoardMode(bm);
+            onMultiplayerBoardSync?.(bm, Array.isArray(msg.selected_patterns) ? msg.selected_patterns : liveSelectedPatterns);
+          }
+          if (Array.isArray(msg.selected_patterns)) setLiveSelectedPatterns(msg.selected_patterns);
+          setBoard(emptyB);
           setCurrent(msg.first_player);
           setMovesPlayed(0);
           setExtraTurns(0);
@@ -668,10 +715,11 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
           setOverlayVisible(false);
           setC3Blocked(msg.c3_blocked ?? false);
           setLog([]);
-          setP1Time(matchTimeMs);
-          setP2Time(matchTimeMs);
-          p1TimeRef.current = matchTimeMs;
-          p2TimeRef.current = matchTimeMs;
+          const mtm = nextBm === "7x7" ? 300_000 : 180_000;
+          setP1Time(mtm);
+          setP2Time(mtm);
+          p1TimeRef.current = mtm;
+          p2TimeRef.current = mtm;
           lastP1Sec.current = -1;
           lastP2Sec.current = -1;
           setP1Ready(false);
@@ -693,6 +741,9 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
             setMatchOver(false);
             setSeriesWinner(null);
             setChatMessages([]);
+            setP1SeriesPts(0);
+            setP2SeriesPts(0);
+            awaitingRulebreakerRef.current = false;
           } else {
             if (msg.game_number) setGameNumber(msg.game_number);
           }
@@ -822,7 +873,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
         const b = boardRef.current;
         let p2Stones = 0;
         for (const row of b) for (const cell of row) if (cell === "P2") p2Stones++;
-        const is77 = boardMode === "7x7" || b?.length === 7;
+        const is77 = liveBoardMode === "7x7" || b?.length === 7;
         const needMinDangerThink =
           difficulty === "danger" && is77 && p2Stones < 2;
         const dangerMinThinkMs = 1000;
@@ -830,7 +881,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
         const t0 = Date.now();
         const res = await API.post("/api/bot/move", {
           board: b, difficulty, current_player: "P2",
-          board_mode: boardMode || (b?.length === 7 ? "7x7" : "5x5"),
+          board_mode: liveBoardMode || (b?.length === 7 ? "7x7" : "5x5"),
           selected_patterns: activePatterns,
           c3_blocked: c3Blocked,
           moves_played: movesPlayedRef.current,
@@ -854,7 +905,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
 
     return () => { cancelled = true; clearTimeout(timer); setBotThinking(false); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [botTurnKey, phase, winner, gameMode, boardMode, activePatterns, difficulty]);
+  }, [botTurnKey, phase, winner, gameMode, liveBoardMode, activePatterns, difficulty]);
 
   const initBoard = async (firstPlayer: string, c3block = false) => {
     setBoard(emptyBoard());
@@ -898,6 +949,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
 
   const softReset = () => {
     matchHistoryRef.current = []; setGameNumber(1); setMatchHistory([]); setMatchOver(false); setSeriesWinner(null);
+    setP1SeriesPts(0); setP2SeriesPts(0); awaitingRulebreakerRef.current = false;
     setP1Ready(false); setP2Ready(false); setReadyTimeout(60); setReadyTimer(0);
     setRbSplashTimer(5); setCoinFlipTimer(rbCoinFlipSeconds); setCoinRevealTimer(0); setCoinResult(null);
     setCoinAngle(0); setTossWinner(null); setFirstPlayerChosen(null); setRbC3Blocked(false); setRbBannedPattern(null);
@@ -909,6 +961,13 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   };
 
   const checkSeriesWinner = (hist: string[]): string | null => {
+    if (isMultiplayerGame) {
+      const p1 = hist.filter(w => w === "P1").length;
+      const p2 = hist.filter(w => w === "P2").length;
+      if (p1 >= 2 && p1 > p2) return "P1";
+      if (p2 >= 2 && p2 > p1) return "P2";
+      return null;
+    }
     if (hist.length < 2) return null;
     const [g1, g2] = hist;
     // 2-0 sweep: always decisive
@@ -1002,22 +1061,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
               wsRef.current?.send(JSON.stringify({ type: "timeout", winner: w }));
               playDefeatAction?.();
               requestAnimationFrame(() => { setShowWinOverlay(true); requestAnimationFrame(() => setOverlayVisible(true)); });
-              const newHist = [...matchHistoryRef.current, w];
-              matchHistoryRef.current = newHist;
-              R.current.matchHistory = newHist;
-              setMatchHistory([...newHist]);
-              const sw = checkSeriesWinner(newHist);
-              if (newHist.length >= 3 || sw !== null) {
-                setMatchOver(true);
-                setSeriesWinner(sw ?? newHist[newHist.length - 1]);
-                setPhase("match_over");
-                wsRef.current?.send(JSON.stringify({ type: "match_over_notify" }));
-              } else if (newHist.length === 2) {
-                setGameNumber(3);
-                if (mySlot === "P1") wsRef.current?.send(JSON.stringify({ type: "toss_action", action: "start_rb", payload: {} }));
-              } else {
-                setP1Ready(false); setP2Ready(false); setReadyTimeout(60); setReadyTimer(0); setPhase("waiting_ready");
-              }
+              // Authoritative series state arrives on the next `move_made` from the server.
             }
           }
         } else {
@@ -1034,23 +1078,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
               wsRef.current?.send(JSON.stringify({ type: "timeout", winner: w }));
               playVictoryAction?.();
               requestAnimationFrame(() => { setShowWinOverlay(true); requestAnimationFrame(() => setOverlayVisible(true)); });
-              const newHist = [...matchHistoryRef.current, w];
-              matchHistoryRef.current = newHist;
-              R.current.matchHistory = newHist;
-              setMatchHistory([...newHist]);
-              const sw = checkSeriesWinner(newHist);
-              if (newHist.length >= 3 || sw !== null) {
-                setMatchOver(true);
-                setSeriesWinner(sw ?? newHist[newHist.length - 1]);
-                setPhase("match_over");
-                wsRef.current?.send(JSON.stringify({ type: "match_over_notify" }));
-              } else if (newHist.length === 2) {
-                setGameNumber(3);
-                // Go to ready phase before rulebreaker — don't start toss immediately
-                setP1Ready(false); setP2Ready(false); setReadyTimeout(60); setReadyTimer(0); setPhase("waiting_ready");
-              } else {
-                setP1Ready(false); setP2Ready(false); setReadyTimeout(60); setReadyTimer(0); setPhase("waiting_ready");
-              }
+              // Authoritative series state arrives on the next `move_made` from the server.
             }
           }
         }
@@ -1127,7 +1155,25 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
             const fp = s.firstPlayerChosen ?? s.tossWinner ?? "P1";
             const _isMP2 = (gameMode === "ranked" || gameMode === "unranked") && !!roomCode;
             if (_isMP2) {
-              if (s.tossWinner === mySlot) wsRef.current?.send(JSON.stringify({ type: "rb_start_game", first_player: fp, c3_blocked: s.rbC3Blocked }));
+              const { p1, p2 } = seriesPtsRef.current;
+              const needUpgrade = awaitingRulebreakerRef.current && liveBoardModeRef.current === "5x5" && p1 === p2;
+              if (s.tossWinner === mySlot) {
+                if (needUpgrade) {
+                  setShow7x7LevelUp(true);
+                  playTransitionAction?.();
+                  setTimeout(() => {
+                    wsRef.current?.send(JSON.stringify({
+                      type: "rb_start_game",
+                      first_player: fp,
+                      c3_blocked: s.rbC3Blocked,
+                      upgrade_to_7x7: true,
+                    }));
+                    setShow7x7LevelUp(false);
+                  }, 2800);
+                } else {
+                  wsRef.current?.send(JSON.stringify({ type: "rb_start_game", first_player: fp, c3_blocked: s.rbC3Blocked }));
+                }
+              }
               setPhase("rb_initializing");
             } else {
               setGameNumber(3); setPhase("rb_initializing");
@@ -1161,11 +1207,11 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     else if (p === "c3_choice_loser") { setRbC3Blocked(true); setSummaryTimer(5); setPhase("toss_summary"); }
     else if (p === "who_first_loser") { setFirstPlayerChosen(tl); setSummaryTimer(5); setPhase("toss_summary"); }
     else if (p === "ban_pattern_winner") {
-      const first = selectedPatterns[0] ?? null;
+      const first = liveSelectedPatterns[0] ?? null;
       setRbBannedPattern(first); setSummaryTimer(5); setPhase("who_first_loser");
     }
     else if (p === "ban_pattern_loser") {
-      const first = selectedPatterns[0] ?? null;
+      const first = liveSelectedPatterns[0] ?? null;
       setRbBannedPattern(first); setSummaryTimer(5); setPhase("toss_summary");
     }
   };
@@ -1173,22 +1219,21 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     const gn = R.current.gameNumber;
     if (R.current.matchOver) return;
     setWinner(null); setShowWinOverlay(false); setOverlayVisible(false);
-    if (gn >= 2) {
-      // Rulebreaker transition
-      if (isMultiplayerGame) {
-        // In multiplayer, P1 initiates the toss via WS
+    if (isMultiplayerGame) {
+      if (awaitingRulebreakerRef.current && gn >= 2) {
         if (mySlot === "P1") {
           const r = Math.random() < 0.5 ? "PENTA" : "PROTO";
           const payload = { result: r, toss_winner: r === "PENTA" ? "P1" : "P2" };
           wsRef.current?.send(JSON.stringify({ type: "toss_action", action: "start_rb", payload }));
         }
-        // Phase will transition when toss_action broadcasts back
-      } else {
-        setGameNumber(3); setPhase("rb_splash"); playRulebreakerAction?.();
-        setRbSplashTimer(5); setCoinFlipTimer(rbCoinFlipSeconds); setCoinRevealTimer(0);
-        setCoinResult(null); setCoinAngle(0); setTossWinner(null);
-        setFirstPlayerChosen(null); setRbC3Blocked(false); setRbBannedPattern(null); setSummaryTimer(5);
       }
+      return;
+    }
+    if (gn >= 2) {
+      setGameNumber(3); setPhase("rb_splash"); playRulebreakerAction?.();
+      setRbSplashTimer(5); setCoinFlipTimer(rbCoinFlipSeconds); setCoinRevealTimer(0);
+      setCoinResult(null); setCoinAngle(0); setTossWinner(null);
+      setFirstPlayerChosen(null); setRbC3Blocked(false); setRbBannedPattern(null); setSummaryTimer(5);
     } else {
       setGameNumber(2); setPhase("playing"); initBoard("P2");
     }
@@ -1280,7 +1325,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     if (newMoves === 1 && r === CENTER && c === CENTER) { nextPlayer = "P1"; newExtra = 2; }
     else if (newExtra > 0) { newExtra--; if (newExtra === 0) nextPlayer = "P1"; else nextPlayer = "P2"; }
     else { nextPlayer = "P1"; }
-    const result = boardMode === "7x7" ? checkWin7(nb, r, c, playerWhoMoved, newMoves, activePatterns) : checkWin(nb, r, c, playerWhoMoved, newMoves);
+    const result = liveBoardMode === "7x7" ? checkWin7(nb, r, c, playerWhoMoved, newMoves, activePatterns) : checkWin(nb, r, c, playerWhoMoved, newMoves);
     setBoard(nb); setMovesPlayed(newMoves); addLog(r, c, playerWhoMoved);
     if (result) { setExtraTurns(0); setWinLine(result.line); setWinner(result.winner); }
     else { setExtraTurns(newExtra); setCurrent(nextPlayer); }
@@ -1309,7 +1354,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     else if (newExtra > 0) { newExtra--; if (newExtra === 0) nextPlayer = current === "P1" ? "P2" : "P1"; }
     else { nextPlayer = current === "P1" ? "P2" : "P1"; }
     if (c3Blocked && newMoves === 1) setC3Blocked(false);
-    const result = boardMode === "7x7" ? checkWin7(nb, r, c, playerWhoMoved, newMoves, activePatterns) : checkWin(nb, r, c, playerWhoMoved, newMoves);
+    const result = liveBoardMode === "7x7" ? checkWin7(nb, r, c, playerWhoMoved, newMoves, activePatterns) : checkWin(nb, r, c, playerWhoMoved, newMoves);
     setBoard(nb); setMovesPlayed(newMoves); addLog(r, c, playerWhoMoved);
     if (result) { setExtraTurns(0); setWinLine(result.line); setWinner(result.winner); }
     else { setExtraTurns(newExtra); setCurrent(nextPlayer); }
@@ -1491,8 +1536,8 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     const delay = 800 + Math.random() * 1200;
     const timer = setTimeout(() => {
       if (phase === "ban_pattern_winner" || phase === "ban_pattern_loser") {
-        const rndIdx = Math.floor(Math.random() * selectedPatterns.length);
-        const patToBan = selectedPatterns[rndIdx] ?? selectedPatterns[0];
+        const rndIdx = Math.floor(Math.random() * liveSelectedPatterns.length);
+        const patToBan = liveSelectedPatterns[rndIdx] ?? liveSelectedPatterns[0];
         setBotPickedSide("left");
         setTimeout(() => {
           setBotPickedSide(null);
@@ -1509,7 +1554,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     }, delay);
 
     return () => clearTimeout(timer);
-  }, [phase, tossWinner, gameMode, onLeftAction, onRightAction, onBanPattern, selectedPatterns]);
+  }, [phase, tossWinner, gameMode, onLeftAction, onRightAction, onBanPattern, liveSelectedPatterns]);
 
   const cc = current === "P1" ? p1c : p2c;
   const cp = current === "P1" ? t.pieces.p1 : t.pieces.p2;
@@ -1640,7 +1685,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
         wraithKingToss={wraithKingTossActive}
         rbCoinPendingResult={rbCoinPendingResult}
         onLeftAction={onLeftAction} onRightAction={onRightAction} fmtSecAction={fmtSecAction}
-        is7x7={is7x7} selectedPatterns={selectedPatterns} rbBannedPattern={rbBannedPattern} onBanPattern={onBanPattern}
+        is7x7={is7x7} selectedPatterns={liveSelectedPatterns} rbBannedPattern={rbBannedPattern} onBanPattern={onBanPattern}
       />
   );
 
@@ -1657,6 +1702,15 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   const onChatKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") sendChat(isMultiplayerGame ? mySlot : "P1");
   };
+
+  const levelUp7x7Overlay = show7x7LevelUp && (
+    <div style={{ position: "fixed", inset: 0, zIndex: 10002, background: "rgba(0,0,0,0.94)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", pointerEvents: "none" }}>
+      <div style={{ fontFamily: t.fontMono, fontSize: 11, color: t.textMuted, letterSpacing: "0.35em", marginBottom: 18 }}>TIED SERIES · RULEBREAKER</div>
+      <div style={{ fontFamily: t.fontDisplay, fontSize: "clamp(28px,7vw,56px)", fontWeight: 950, color: t.accent, textAlign: "center", textShadow: `0 0 50px ${t.accent}AA`, animation: "levelUpPulse 1.1s ease-in-out infinite" }}>LEVEL UP</div>
+      <div style={{ fontFamily: t.fontDisplay, fontSize: "clamp(42px,12vw,100px)", fontWeight: 950, color: "#FF6B35", marginTop: 10, textShadow: "0 0 70px rgba(255,107,53,0.65)" }}>7 × 7</div>
+      <div style={{ fontFamily: t.fontBody, fontSize: 14, color: t.textSecondary, marginTop: 24, maxWidth: 380, textAlign: "center", lineHeight: 1.55, padding: "0 20px" }}>Both players advance to the expanded arena. Points carry over — same series rules on the larger grid.</div>
+    </div>
+  );
 
   // ── MOBILE LAYOUT ─────────────────────────────────────────────────────────
   if (isMobile) {
@@ -1686,6 +1740,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
           matchupCountdown={matchupCountdown} 
           loadCustomTheme={loadCustomTheme}
         />
+        {levelUp7x7Overlay}
         {rbOverlay}
 
         <DisconnectModal
@@ -1968,6 +2023,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
         matchupCountdown={matchupCountdown} 
         loadCustomTheme={loadCustomTheme}
       />
+      {levelUp7x7Overlay}
       {rbOverlay}
 
       <DisconnectModal
@@ -1982,7 +2038,8 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
         matchHistory={matchHistory} seriesWinner={seriesWinner} matchOver={matchOver}
         gameMode={gameMode} isRankedGame={isRankedGame} isMultiplayerGame={isMultiplayerGame}
         isMultiplayer={isMultiplayer} mySlot={mySlot}
-        boardMode={boardMode} selectedPatterns={activePatterns} rbBannedPattern={rbBannedPattern}
+        boardMode={liveBoardMode} selectedPatterns={activePatterns} rbBannedPattern={rbBannedPattern}
+        p1SeriesPts={isMultiplayerGame ? p1SeriesPts : undefined} p2SeriesPts={isMultiplayerGame ? p2SeriesPts : undefined}
         p1Time={p1Time} p2Time={p2Time} readyTimeout={readyTimeout}
         p1Ready={p1Ready} p2Ready={p2Ready}
         connectionScores={connectionScores}
@@ -2097,6 +2154,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
         @keyframes heatDrift2{from{transform:translate(0,0) scale(1)}to{transform:translate(8px,-12px) scale(1.08)}}
         @keyframes redWinCellPulse{0%,100%{box-shadow:0 0 10px rgba(255,80,0,0.3)}50%{box-shadow:0 0 28px rgba(255,80,0,0.7),inset 0 0 16px rgba(255,40,0,0.2)}}
         @keyframes fadeUp{from{opacity:0;transform:translateY(22px)}to{opacity:1;transform:translateY(0)}}
+        @keyframes levelUpPulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.05);opacity:0.9}}
         @keyframes fadeIn{from{opacity:0}to{opacity:1}}
         @keyframes scaleIn{from{opacity:0;transform:scale(0.88) translateY(18px)}to{opacity:1;transform:scale(1) translateY(0)}}
         @keyframes rbLetterIn{from{opacity:0;transform:translateY(40px) scaleY(1.4)}to{opacity:1;transform:translateY(0) scaleY(1)}}

@@ -48,6 +48,9 @@ interface MatchSidebarProps {
   boardMode?: string;
   selectedPatterns?: string[];
   rbBannedPattern?: string | null;
+  /** Multiplayer series score (wins only; draws add 0). */
+  p1SeriesPts?: number;
+  p2SeriesPts?: number;
   // timers
   p1Time: number;
   p2Time: number;
@@ -112,7 +115,7 @@ export function MatchSidebar({
   t, p1Banner, p2Banner, ip, p1c, p2c, pieceSkin, p1RttMs, p2RttMs, panelW,
   phase, winner, current, gameNumber, matchHistory, seriesWinner, matchOver,
   gameMode, isRankedGame, isMultiplayerGame, isMultiplayer, mySlot,
-  boardMode, selectedPatterns, rbBannedPattern,
+  boardMode, selectedPatterns, rbBannedPattern, p1SeriesPts, p2SeriesPts,
   p1Time, p2Time, readyTimeout,
   p1Ready, p2Ready,
   chatMessages, chatInput, chatOpen, chatWarning,
@@ -261,6 +264,17 @@ export function MatchSidebar({
 
       <div style={{ borderTop: `1px solid ${t.border}`, paddingTop: 12 }}>
         <div style={{ fontFamily: t.fontMono, fontSize: 20, fontWeight: 700, color: t.text, letterSpacing: "0.14em", marginBottom: 10 }}>MATCH HISTORY</div>
+
+        {isMultiplayerGame && typeof p1SeriesPts === "number" && typeof p2SeriesPts === "number" && (
+          <div style={{ marginBottom: 12, padding: "10px 12px", background: `${t.accent}0C`, border: `1px solid ${t.accent}33`, borderRadius: ip ? 2 : 10 }}>
+            <div style={{ fontFamily: t.fontMono, fontSize: 9, color: t.textMuted, letterSpacing: "0.2em", marginBottom: 6 }}>SERIES POINTS · FIRST TO 2</div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontFamily: t.fontDisplay, fontSize: 18, fontWeight: 800 }}>
+              <span style={{ color: p1c }}>{p1Label ?? "P1"} <span style={{ color: t.text }}>{p1SeriesPts}</span></span>
+              <span style={{ color: t.textMuted, fontSize: 14 }}>—</span>
+              <span style={{ color: p2c }}>{p2Label ?? "P2"} <span style={{ color: t.text }}>{p2SeriesPts}</span></span>
+            </div>
+          </div>
+        )}
 
         {/* Last series chip — shown during new series after a rematch */}
         {lastSeries && (
@@ -467,7 +481,7 @@ export function MatchSidebar({
 
 export function LeftPanel(props: MatchSidebarProps) {
   const { t, ip, p1c, p2c, pieceSkin, p1RttMs, p2RttMs, panelW, phase, current, gameNumber, matchHistory, seriesWinner,
-    gameMode, isRankedGame, isMultiplayerGame, isMultiplayer, mySlot, boardMode, selectedPatterns, rbBannedPattern,
+    gameMode, isRankedGame, isMultiplayerGame, isMultiplayer, mySlot, boardMode, selectedPatterns, rbBannedPattern, p1SeriesPts, p2SeriesPts,
     p1Time, p2Time, readyTimeout, p1Ready, p2Ready,
     chatMessages, chatInput, chatOpen, chatWarning,
     p1Label, p2Label, p1Banner, p2Banner, winnerDisplayNameAction, lastSeries,
@@ -580,6 +594,17 @@ export function LeftPanel(props: MatchSidebarProps) {
 
       <div style={{ borderTop: `1px solid ${t.border}`, paddingTop: 12 }}>
         <div style={{ fontFamily: t.fontMono, fontSize: 20, fontWeight: 700, color: t.text, letterSpacing: "0.14em", marginBottom: 10 }}>MATCH HISTORY</div>
+
+        {isMultiplayerGame && typeof p1SeriesPts === "number" && typeof p2SeriesPts === "number" && (
+          <div style={{ marginBottom: 12, padding: "10px 12px", background: `${t.accent}0C`, border: `1px solid ${t.accent}33`, borderRadius: ip ? 2 : 10 }}>
+            <div style={{ fontFamily: t.fontMono, fontSize: 9, color: t.textMuted, letterSpacing: "0.2em", marginBottom: 6 }}>SERIES POINTS · FIRST TO 2</div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontFamily: t.fontDisplay, fontSize: 18, fontWeight: 800 }}>
+              <span style={{ color: p1c }}>{p1Label ?? "P1"} <span style={{ color: t.text }}>{p1SeriesPts}</span></span>
+              <span style={{ color: t.textMuted, fontSize: 14 }}>—</span>
+              <span style={{ color: p2c }}>{p2Label ?? "P2"} <span style={{ color: t.text }}>{p2SeriesPts}</span></span>
+            </div>
+          </div>
+        )}
 
         {/* Last series chip — shown during new series after a rematch */}
         {lastSeries && (

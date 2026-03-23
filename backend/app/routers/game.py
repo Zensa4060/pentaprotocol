@@ -107,13 +107,14 @@ async def award_game_result(db, game: dict, winner: str | None):
             pass
         await db.users.update_one({"_id": ObjectId(user_id)}, {"$set": updates, "$inc": inc})
 
-    if winner == "P1":
+    w = (winner or "").upper()
+    if w == "P1":
         await update_player(p1_id, "win",  p2_id)
         await update_player(p2_id, "loss", p1_id)
-    elif winner == "P2":
+    elif w == "P2":
         await update_player(p1_id, "loss", p2_id)
         await update_player(p2_id, "win",  p1_id)
-    elif winner == "draw":
+    elif w == "DRAW":
         await update_player(p1_id, "draw", p2_id)
         await update_player(p2_id, "draw", p1_id)
 
@@ -138,13 +139,13 @@ async def award_game_result(db, game: dict, winner: str | None):
             "played_at":          datetime.utcnow(),
         })
 
-    if winner == "P1":
+    if w == "P1":
         await log_match(p1_id, p2_id, "win",  p1_user, p2_user)
         await log_match(p2_id, p1_id, "loss", p2_user, p1_user)
-    elif winner == "P2":
+    elif w == "P2":
         await log_match(p1_id, p2_id, "loss", p1_user, p2_user)
         await log_match(p2_id, p1_id, "win",  p2_user, p1_user)
-    elif winner == "draw":
+    elif w == "DRAW":
         await log_match(p1_id, p2_id, "draw", p1_user, p2_user)
         await log_match(p2_id, p1_id, "draw", p2_user, p1_user)
 

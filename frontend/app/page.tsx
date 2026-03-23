@@ -633,11 +633,12 @@ export default function Page() {
           playRulebreakerAction={sfx.rulebreaker} playTransitionAction={sfx.transition} playClickAction={sfx.click} />
       )}
       {screen === "multiGame" && (
-        <GameScreen key={`multiGame_${boardMode}`} themeId={themeId} gameMode={isRanked ? "ranked" : "unranked"} setScreenAction={handleSetScreen}
+        <GameScreen key={`multiGame_${multiRoomCode}`} themeId={themeId} gameMode={isRanked ? "ranked" : "unranked"} setScreenAction={handleSetScreen}
           roomCode={multiRoomCode} playerSlot={multiPlayerSlot ?? undefined}
           matchupData={multiMatchup ?? undefined}
           p1Name={user?.username}
           boardMode={boardMode} selectedPatterns={selectedPatterns}
+          onMultiplayerBoardSync={(mode, pats) => { setBoardMode(mode); setSelectedPatterns(pats); }}
           playHoverAction={sfx.hover} playPlaceAction={sfx.place} playVictoryAction={sfx.victory} playDefeatAction={sfx.defeat}
           playRulebreakerAction={sfx.rulebreaker} playTransitionAction={sfx.transition} playClickAction={sfx.click} />
       )}

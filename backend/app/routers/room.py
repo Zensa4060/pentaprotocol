@@ -59,32 +59,54 @@ def serialize_room(room: dict) -> dict:
         "moves_played":   room.get("moves_played", 0),
         "winner":         room.get("winner"),
         "game_status":    room.get("game_status", "waiting"),
+        "game_number":    room.get("game_number", 1),
+        "match_history":  room.get("match_history", []),
+        "p1_series_points": room.get("p1_series_points", 0),
+        "p2_series_points": room.get("p2_series_points", 0),
+        "series_winner":  room.get("series_winner"),
+        "awaiting_rulebreaker": room.get("awaiting_rulebreaker", False),
+        "segment_start_index": room.get("segment_start_index", 0),
     }
 
-def compute_series_winner(history: list, is_ranked: bool = False) -> str | None:
-    if len(history) < 2:
-        return None
-    g1, g2 = history[0], history[1]
-    if g1 == g2 and g1 in ("P1", "P2"):
-        return g1
-    if (g1 != "DRAW" and g2 == "DRAW") or (g2 != "DRAW" and g1 == "DRAW"):
-        if not is_ranked:
-            if len(history) >= 3:
-                g3 = history[2]
-                original_winner = g1 if g1 != "DRAW" else g2
-                if g3 == original_winner:
-                    return original_winner
-                return "DRAW"
-            return None
-        else:
-            return g1 if g1 != "DRAW" else g2
-    if g1 == "DRAW" and g2 == "DRAW":
-        if len(history) >= 3:
-            return history[2]
-        return None
-    if len(history) >= 3:
-        return history[-1]
+
+def compute_series_points(history: list) -> tuple[int, int]:
+    """Wins only: P1 / P2 each +1; DRAW adds nothing for either player."""
+    p1 = sum(1 for w in history if w == "P1")
+    p2 = sum(1 for w in history if w == "P2")
+    return p1, p2
+
+
+def series_winner_from_points(p1_pts: int, p2_pts: int, win_cap: int = 2) -> str | None:
+    if p1_pts >= win_cap and p1_pts > p2_pts:
+        return "P1"
+    if p2_pts >= win_cap and p2_pts > p1_pts:
+        return "P2"
     return None
+
+
+def compute_awaiting_rulebreaker(history: list, segment_start: int) -> bool:
+    """
+    After each even count of games in the current board segment, if either of the
+    last two games was a draw, the next start goes through Rulebreaker first.
+    """
+    if segment_start > len(history):
+        return False
+    seg = history[segment_start:]
+    if len(seg) < 2 or len(seg) % 2 != 0:
+        return False
+    return "DRAW" in seg[-2:]
+
+
+def compute_series_state(history: list, segment_start: int) -> dict:
+    p1_pts, p2_pts = compute_series_points(history)
+    series_winner = series_winner_from_points(p1_pts, p2_pts, 2)
+    awaiting_rb = False if series_winner else compute_awaiting_rulebreaker(history, segment_start)
+    return {
+        "p1_series_points": p1_pts,
+        "p2_series_points": p2_pts,
+        "series_winner": series_winner,
+        "awaiting_rulebreaker": awaiting_rb,
+    }
 
 class JoinRoomRequest(BaseModel):
     room_code: str
@@ -224,6 +246,13 @@ async def queue_join(data: QueueRequest, user_id: str = Depends(get_current_user
         "current_player": "P1",
         "moves_played":   0,
         "game_status":    "waiting",
+        "game_number":    1,
+        "match_history":  [],
+        "series_winner":  None,
+        "p1_series_points": 0,
+        "p2_series_points": 0,
+        "awaiting_rulebreaker": False,
+        "segment_start_index": 0,
         "created_at":     datetime.utcnow(),
     }
     await db.rooms.insert_one(room)
@@ -316,8 +345,13 @@ async def create_room(data: CreateRoomRequest, user_id: str = Depends(get_curren
         "moves_played":    0,
         "winner":          None,
         "game_status":     "waiting",
+        "game_number":     1,
         "match_history":   [],
         "series_winner":   None,
+        "p1_series_points": 0,
+        "p2_series_points": 0,
+        "awaiting_rulebreaker": False,
+        "segment_start_index": 0,
         "created_at":      datetime.utcnow(),
     }
     await db.rooms.insert_one(room)
@@ -369,8 +403,15 @@ async def join_room(data: JoinRoomRequest, user_id: str = Depends(get_current_us
     joiner_slot  = "P2" if creator_slot == "P1" else "P1"
 
     update_fields = {
-        "status":      "active",
-        "game_status": "playing",
+        "status":       "active",
+        "game_status":  "playing",
+        "game_number":  1,
+        "match_history": [],
+        "p1_series_points": 0,
+        "p2_series_points": 0,
+        "series_winner": None,
+        "awaiting_rulebreaker": False,
+        "segment_start_index": 0,
     }
     if joiner_slot == "P1":
         update_fields["player1_id"]     = user_id
@@ -479,6 +520,17 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                     "game_status":    "finished" if is_finished else "playing",
                     "status":         "finished" if is_finished else "active",
                 }
+                if is_finished:
+                    outcome = result.get("winner")
+                    history = room.get("match_history", [])
+                    new_history = history + [outcome]
+                    seg_start = room.get("segment_start_index", 0)
+                    update.update(
+                        {
+                            "match_history": new_history,
+                            **compute_series_state(new_history, seg_start),
+                        }
+                    )
 
                 await db.rooms.update_one({"room_code": room_code}, {"$set": update})
 
@@ -495,6 +547,12 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                     "extra_turns":    result.get("extra_turns", 0),
                     "connectionScores": result.get("connectionScores"),
                 }
+                if is_finished:
+                    broadcast["match_history"] = update["match_history"]
+                    broadcast["p1_series_points"] = update["p1_series_points"]
+                    broadcast["p2_series_points"] = update["p2_series_points"]
+                    broadcast["series_winner"] = update["series_winner"]
+                    broadcast["awaiting_rulebreaker"] = update["awaiting_rulebreaker"]
 
                 for slot, ws in _room_connections.get(room_code, {}).items():
                     try:
@@ -503,17 +561,6 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                         pass
 
                 if is_finished:
-                    current_history  = room.get("match_history", [])
-                    new_history      = current_history + [result.get("winner")]
-                    is_ranked        = room.get("format") == "ranked"
-                    series_winner    = compute_series_winner(new_history, is_ranked=is_ranked)
-                    history_update   = {"match_history": new_history, "series_winner": series_winner}
-
-                    await db.rooms.update_one(
-                        {"room_code": room_code},
-                        {"$set": history_update}
-                    )
-
                     game_dict = {
                         "player1_id": room["player1_id"],
                         "player2_id": room["player2_id"],
@@ -545,15 +592,21 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
 
                 room = await db.rooms.find_one({"room_code": room_code})
                 if room and room.get("p1_ready") and room.get("p2_ready"):
-                    current_game = room.get("game_number", 1)
-
-                    if current_game >= 2:
+                    if room.get("series_winner"):
                         await db.rooms.update_one(
                             {"room_code": room_code},
-                            {"$set": {"p1_ready": False, "p2_ready": False}}
+                            {"$set": {"p1_ready": False, "p2_ready": False}},
                         )
                         continue
 
+                    if room.get("awaiting_rulebreaker"):
+                        await db.rooms.update_one(
+                            {"room_code": room_code},
+                            {"$set": {"p1_ready": False, "p2_ready": False}},
+                        )
+                        continue
+
+                    current_game = room.get("game_number", 1)
                     bm = room.get("board_mode", "5x5")
                     sp = room.get("selected_patterns")
                     new_engine = GameEngine(board_mode=bm, selected_pattern_ids=sp)
@@ -573,13 +626,17 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
 
                     await db.rooms.update_one({"room_code": room_code}, {"$set": reset})
 
+                    gr_payload = {
+                        "type":         "game_reset",
+                        "first_player": reset["current_player"],
+                        "game_number":  reset["game_number"],
+                        "board_mode":   bm,
+                    }
+                    if sp is not None:
+                        gr_payload["selected_patterns"] = sp
                     for slot, ws in _room_connections.get(room_code, {}).items():
                         try:
-                            await ws.send_json({
-                                "type":         "game_reset",
-                                "first_player": reset["current_player"],
-                                "game_number":  reset["game_number"],
-                            })
+                            await ws.send_json(gr_payload)
                         except:
                             pass
 
@@ -644,6 +701,10 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                         "match_history":  [],
                         "series_winner":  None,
                         "c3_blocked":     False,
+                        "p1_series_points": 0,
+                        "p2_series_points": 0,
+                        "awaiting_rulebreaker": False,
+                        "segment_start_index": 0,
                     }
 
                     await db.rooms.update_one({"room_code": room_code}, {"$set": reset})
@@ -729,13 +790,41 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                 room = await db.rooms.find_one({"room_code": room_code})
                 if not room:
                     continue
-                if room.get("game_number") == 3 and room.get("game_status") == "playing":
+                # Only enter Rulebreaker board from a completed game (avoids mid-game abuse / double rb_start).
+                if room.get("game_status") != "finished":
                     continue
                 first_player = msg.get("first_player", "P1")
                 c3_blocked   = msg.get("c3_blocked", False)
-                gs = 7 if room.get("board_mode") == "7x7" else 5
+                upgrade_7    = bool(msg.get("upgrade_to_7x7"))
+
+                patch: dict = {}
+                if upgrade_7:
+                    p1p = room.get("p1_series_points", 0)
+                    p2p = room.get("p2_series_points", 0)
+                    hist = room.get("match_history", [])
+                    if (
+                        room.get("board_mode", "5x5") != "5x5"
+                        or p1p != p2p
+                        or not room.get("awaiting_rulebreaker")
+                    ):
+                        continue
+                    from app.core.patterns7 import PATTERN_NAMES_7
+
+                    patch["board_mode"] = "7x7"
+                    patch["selected_patterns"] = random.sample(PATTERN_NAMES_7, 3)
+                    patch["segment_start_index"] = len(hist)
+                    c3_blocked = False
+
+                bm = patch.get("board_mode", room.get("board_mode", "5x5"))
+                if bm == "7x7":
+                    c3_blocked = False
+
+                gn = room.get("game_number", 1)
+                next_gn = gn + 1
+                gs = 7 if bm == "7x7" else 5
                 reset = {
-                    "board":          [[None]*gs for _ in range(gs)],
+                    **patch,
+                    "board":          [[None] * gs for _ in range(gs)],
                     "current_player": first_player,
                     "moves_played":   0,
                     "extra_turns":    0,
@@ -744,20 +833,28 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                     "status":         "active",
                     "p1_ready":       False,
                     "p2_ready":       False,
-                    "game_number":    3,
+                    "game_number":    next_gn,
                     "c3_blocked":     c3_blocked,
+                    "awaiting_rulebreaker": False,
                 }
 
                 await db.rooms.update_one({"room_code": room_code}, {"$set": reset})
 
+                merged = {**room, **reset}
+                sp_out = merged.get("selected_patterns")
+                gr_payload = {
+                    "type":         "game_reset",
+                    "first_player": first_player,
+                    "game_number":  next_gn,
+                    "c3_blocked":   c3_blocked,
+                    "board_mode":   bm,
+                }
+                if sp_out is not None:
+                    gr_payload["selected_patterns"] = sp_out
+
                 for slot, ws in _room_connections.get(room_code, {}).items():
                     try:
-                        await ws.send_json({
-                            "type":         "game_reset",
-                            "first_player": first_player,
-                            "game_number":  3,
-                            "c3_blocked":   c3_blocked,
-                        })
+                        await ws.send_json(gr_payload)
                     except:
                         pass
 
@@ -770,17 +867,16 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                     continue
                 if room.get("winner"):
                     continue
+                current_history = room.get("match_history", [])
+                new_history     = current_history + [winner]
+                seg_start       = room.get("segment_start_index", 0)
                 update = {
                     "winner":      winner,
                     "game_status": "finished",
                     "status":      "finished",
+                    "match_history": new_history,
+                    **compute_series_state(new_history, seg_start),
                 }
-                current_history = room.get("match_history", [])
-                new_history     = current_history + [winner]
-                is_ranked       = room.get("format") == "ranked"
-                series_winner   = compute_series_winner(new_history, is_ranked=is_ranked)
-                update["match_history"]  = new_history
-                update["series_winner"]  = series_winner
 
                 await db.rooms.update_one({"room_code": room_code}, {"$set": update})
 
@@ -794,7 +890,12 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                             "moves_played": room.get("moves_played", 0),
                             "win_line": [],
                             "game_status": "finished",
-                            "extra_turns": 0
+                            "extra_turns": 0,
+                            "match_history": new_history,
+                            "p1_series_points": update["p1_series_points"],
+                            "p2_series_points": update["p2_series_points"],
+                            "series_winner": update["series_winner"],
+                            "awaiting_rulebreaker": update["awaiting_rulebreaker"],
                         })
                     except:
                         pass
