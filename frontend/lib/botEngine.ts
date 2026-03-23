@@ -571,4 +571,6 @@ export const BOT_DELAY: Record<Difficulty, number> = {
     easy: 400,
     medium: 850,
     hard: 2000,
+    /** Strongest bot tier — matches 5×5 “thinking” feel in GameScreen (7×7 overrides to 0 there). */
+    danger: 3000,
 };
