@@ -566,11 +566,11 @@ export function getBotMove(
 
 /**
  * Visual delay before the bot "thinks" — in ms.
+ * `danger`: 5×5 default feel (GameScreen uses 0 ms for 7×7 hard/danger via its own delays map).
  */
-export const BOT_DELAY: Record<Difficulty, number> = {
+export const BOT_DELAY = {
     easy: 400,
     medium: 850,
     hard: 2000,
-    /** Strongest bot tier — matches 5×5 “thinking” feel in GameScreen (7×7 overrides to 0 there). */
     danger: 3000,
-};
+} as const satisfies Record<Difficulty, number>;
