@@ -69,10 +69,13 @@ def serialize_room(room: dict) -> dict:
     }
 
 
-def compute_series_points(history: list) -> tuple[int, int]:
-    """Wins only: P1 / P2 each +1; DRAW adds nothing for either player."""
-    p1 = sum(1 for w in history if w == "P1")
-    p2 = sum(1 for w in history if w == "P2")
+def compute_segment_points(history: list, segment_start: int) -> tuple[int, int]:
+    """Wins in the current board segment only; DRAW adds nothing."""
+    if segment_start > len(history):
+        return 0, 0
+    seg = history[segment_start:]
+    p1 = sum(1 for w in seg if w == "P1")
+    p2 = sum(1 for w in seg if w == "P2")
     return p1, p2
 
 
@@ -86,19 +89,24 @@ def series_winner_from_points(p1_pts: int, p2_pts: int, win_cap: int = 2) -> str
 
 def compute_awaiting_rulebreaker(history: list, segment_start: int) -> bool:
     """
-    After each even count of games in the current board segment, if either of the
-    last two games was a draw, the next start goes through Rulebreaker first.
+    After each completed *pair* of games in the segment, Rulebreaker is required
+    before the next game **unless** that pair was a two-game sweep (same player won both).
+
+    The only cases with no Rulebreaker after two games are P1,P1 or P2,P2.
     """
     if segment_start > len(history):
         return False
     seg = history[segment_start:]
     if len(seg) < 2 or len(seg) % 2 != 0:
         return False
-    return "DRAW" in seg[-2:]
+    g1, g2 = seg[-2], seg[-1]
+    if g1 == g2 and g1 in ("P1", "P2"):
+        return False
+    return True
 
 
 def compute_series_state(history: list, segment_start: int) -> dict:
-    p1_pts, p2_pts = compute_series_points(history)
+    p1_pts, p2_pts = compute_segment_points(history, segment_start)
     series_winner = series_winner_from_points(p1_pts, p2_pts, 2)
     awaiting_rb = False if series_winner else compute_awaiting_rulebreaker(history, segment_start)
     return {
@@ -553,6 +561,7 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                     broadcast["p2_series_points"] = update["p2_series_points"]
                     broadcast["series_winner"] = update["series_winner"]
                     broadcast["awaiting_rulebreaker"] = update["awaiting_rulebreaker"]
+                    broadcast["segment_start_index"] = room.get("segment_start_index", 0)
 
                 for slot, ws in _room_connections.get(room_code, {}).items():
                     try:
@@ -790,18 +799,88 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                 room = await db.rooms.find_one({"room_code": room_code})
                 if not room:
                     continue
-                # Only enter Rulebreaker board from a completed game (avoids mid-game abuse / double rb_start).
+                # Only from a completed game (avoids mid-game abuse / double rb_start).
                 if room.get("game_status") != "finished":
                     continue
+
+                hist = room.get("match_history", [])
+                seg_start = room.get("segment_start_index", 0)
+                p1p, p2p = compute_segment_points(hist, seg_start)
+
+                # 5×5: after Rulebreaker toss, unequal segment score → match ends (no Game 3 board).
+                if bool(msg.get("resolve_series_only")):
+                    if not room.get("awaiting_rulebreaker"):
+                        continue
+                    if p1p == p2p:
+                        continue
+                    leader = "P1" if p1p > p2p else "P2"
+                    await db.rooms.update_one(
+                        {"room_code": room_code},
+                        {
+                            "$set": {
+                                "series_winner": leader,
+                                "awaiting_rulebreaker": False,
+                                "game_status": "finished",
+                                "status": "finished",
+                            }
+                        },
+                    )
+                    done = {
+                        "type": "series_resolved",
+                        "series_winner": leader,
+                        "match_history": hist,
+                        "p1_series_points": p1p,
+                        "p2_series_points": p2p,
+                        "segment_start_index": seg_start,
+                    }
+                    for slot, ws in _room_connections.get(room_code, {}).items():
+                        try:
+                            await ws.send_json(done)
+                        except:
+                            pass
+                    continue
+
+                # 7×7: after Rulebreaker toss, tied segment score → entire match is a draw (no further game).
+                if bool(msg.get("resolve_series_draw")):
+                    if room.get("board_mode", "5x5") != "7x7":
+                        continue
+                    if not room.get("awaiting_rulebreaker"):
+                        continue
+                    if p1p != p2p:
+                        continue
+                    await db.rooms.update_one(
+                        {"room_code": room_code},
+                        {
+                            "$set": {
+                                "series_winner": "DRAW",
+                                "awaiting_rulebreaker": False,
+                                "game_status": "finished",
+                                "status": "finished",
+                            }
+                        },
+                    )
+                    done = {
+                        "type": "series_resolved",
+                        "series_winner": "DRAW",
+                        "match_history": hist,
+                        "p1_series_points": p1p,
+                        "p2_series_points": p2p,
+                        "segment_start_index": seg_start,
+                        "full_match_draw": True,
+                    }
+                    for slot, ws in _room_connections.get(room_code, {}).items():
+                        try:
+                            await ws.send_json(done)
+                        except:
+                            pass
+                    continue
+
                 first_player = msg.get("first_player", "P1")
                 c3_blocked   = msg.get("c3_blocked", False)
                 upgrade_7    = bool(msg.get("upgrade_to_7x7"))
 
                 patch: dict = {}
                 if upgrade_7:
-                    p1p = room.get("p1_series_points", 0)
-                    p2p = room.get("p2_series_points", 0)
-                    hist = room.get("match_history", [])
                     if (
                         room.get("board_mode", "5x5") != "5x5"
                         or p1p != p2p
@@ -822,6 +901,9 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                 gn = room.get("game_number", 1)
                 next_gn = gn + 1
                 gs = 7 if bm == "7x7" else 5
+
+                post_seg = patch.get("segment_start_index", seg_start)
+                seg_pts = compute_segment_points(hist, post_seg)
                 reset = {
                     **patch,
                     "board":          [[None] * gs for _ in range(gs)],
@@ -836,6 +918,8 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                     "game_number":    next_gn,
                     "c3_blocked":     c3_blocked,
                     "awaiting_rulebreaker": False,
+                    "p1_series_points": seg_pts[0],
+                    "p2_series_points": seg_pts[1],
                 }
 
                 await db.rooms.update_one({"room_code": room_code}, {"$set": reset})
@@ -848,6 +932,9 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                     "game_number":  next_gn,
                     "c3_blocked":   c3_blocked,
                     "board_mode":   bm,
+                    "segment_start_index": merged.get("segment_start_index", 0),
+                    "p1_series_points": seg_pts[0],
+                    "p2_series_points": seg_pts[1],
                 }
                 if sp_out is not None:
                     gr_payload["selected_patterns"] = sp_out
@@ -896,6 +983,7 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                             "p2_series_points": update["p2_series_points"],
                             "series_winner": update["series_winner"],
                             "awaiting_rulebreaker": update["awaiting_rulebreaker"],
+                            "segment_start_index": seg_start,
                         })
                     except:
                         pass

@@ -231,6 +231,9 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   const seriesPtsRef = useRef({ p1: 0, p2: 0 });
   seriesPtsRef.current = { p1: p1SeriesPts, p2: p2SeriesPts };
   const awaitingRulebreakerRef = useRef(false);
+  const [segmentStartIndex, setSegmentStartIndex] = useState(0);
+  const segmentStartIndexRef = useRef(0);
+  segmentStartIndexRef.current = segmentStartIndex;
   const [show7x7LevelUp, setShow7x7LevelUp] = useState(false);
 
   const GRID_SIZE = liveBoardMode === "7x7" ? 7 : 5;
@@ -629,12 +632,18 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
                   : [...matchHistoryRef.current, msg.winner as string];
                 matchHistoryRef.current = newHist;
                 setMatchHistory([...newHist]);
+                if (typeof msg.segment_start_index === "number") {
+                  segmentStartIndexRef.current = msg.segment_start_index;
+                  setSegmentStartIndex(msg.segment_start_index);
+                }
+                const segIdx = typeof msg.segment_start_index === "number" ? msg.segment_start_index : segmentStartIndexRef.current;
+                const segSlice = newHist.slice(segIdx);
                 const p1p = typeof msg.p1_series_points === "number"
                   ? msg.p1_series_points
-                  : newHist.filter(w => w === "P1").length;
+                  : segSlice.filter(w => w === "P1").length;
                 const p2p = typeof msg.p2_series_points === "number"
                   ? msg.p2_series_points
-                  : newHist.filter(w => w === "P2").length;
+                  : segSlice.filter(w => w === "P2").length;
                 setP1SeriesPts(p1p);
                 setP2SeriesPts(p2p);
                 if (typeof msg.awaiting_rulebreaker === "boolean") {
@@ -676,6 +685,10 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
             setMatchHistory(r.match_history as string[]);
           }
           if (typeof r.game_number === "number") setGameNumber(r.game_number);
+          if (typeof r.segment_start_index === "number") {
+            segmentStartIndexRef.current = r.segment_start_index;
+            setSegmentStartIndex(r.segment_start_index);
+          }
           ws.send(JSON.stringify({ type: "player_info", username: p1Name ?? playerSlot ?? "P1", slot: playerSlot }));
             } else if (msg.type === "player_joined") {
           const r = msg.room;
@@ -744,9 +757,34 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
             setP1SeriesPts(0);
             setP2SeriesPts(0);
             awaitingRulebreakerRef.current = false;
+            setSegmentStartIndex(0);
+            segmentStartIndexRef.current = 0;
           } else {
             if (msg.game_number) setGameNumber(msg.game_number);
+            if (typeof msg.segment_start_index === "number") {
+              setSegmentStartIndex(msg.segment_start_index);
+              segmentStartIndexRef.current = msg.segment_start_index;
+            }
+            if (typeof msg.p1_series_points === "number") setP1SeriesPts(msg.p1_series_points);
+            if (typeof msg.p2_series_points === "number") setP2SeriesPts(msg.p2_series_points);
           }
+        } else if (msg.type === "series_resolved") {
+          const h = (msg.match_history as string[] | undefined) ?? matchHistoryRef.current;
+          matchHistoryRef.current = h;
+          setMatchHistory([...h]);
+          if (typeof msg.p1_series_points === "number") setP1SeriesPts(msg.p1_series_points);
+          if (typeof msg.p2_series_points === "number") setP2SeriesPts(msg.p2_series_points);
+          if (typeof msg.segment_start_index === "number") {
+            setSegmentStartIndex(msg.segment_start_index);
+            segmentStartIndexRef.current = msg.segment_start_index;
+          }
+          awaitingRulebreakerRef.current = false;
+          setSeriesWinner(msg.series_winner as string);
+          setMatchOver(true);
+          setPhase("match_over");
+          setShowWinOverlay(false);
+          setOverlayVisible(false);
+          wsRef.current?.send(JSON.stringify({ type: "match_over_notify" }));
         } else if (msg.type === "match_over") {
           setShowRematch(true);
         } else if (msg.type === "rematch_request") {
@@ -950,6 +988,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   const softReset = () => {
     matchHistoryRef.current = []; setGameNumber(1); setMatchHistory([]); setMatchOver(false); setSeriesWinner(null);
     setP1SeriesPts(0); setP2SeriesPts(0); awaitingRulebreakerRef.current = false;
+    setSegmentStartIndex(0); segmentStartIndexRef.current = 0;
     setP1Ready(false); setP2Ready(false); setReadyTimeout(60); setReadyTimer(0);
     setRbSplashTimer(5); setCoinFlipTimer(rbCoinFlipSeconds); setCoinRevealTimer(0); setCoinResult(null);
     setCoinAngle(0); setTossWinner(null); setFirstPlayerChosen(null); setRbC3Blocked(false); setRbBannedPattern(null);
@@ -962,8 +1001,10 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
 
   const checkSeriesWinner = (hist: string[]): string | null => {
     if (isMultiplayerGame) {
-      const p1 = hist.filter(w => w === "P1").length;
-      const p2 = hist.filter(w => w === "P2").length;
+      const start = segmentStartIndexRef.current;
+      const seg = hist.slice(start);
+      const p1 = seg.filter(w => w === "P1").length;
+      const p2 = seg.filter(w => w === "P2").length;
       if (p1 >= 2 && p1 > p2) return "P1";
       if (p2 >= 2 && p2 > p1) return "P2";
       return null;
@@ -1156,9 +1197,10 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
             const _isMP2 = (gameMode === "ranked" || gameMode === "unranked") && !!roomCode;
             if (_isMP2) {
               const { p1, p2 } = seriesPtsRef.current;
-              const needUpgrade = awaitingRulebreakerRef.current && liveBoardModeRef.current === "5x5" && p1 === p2;
               if (s.tossWinner === mySlot) {
-                if (needUpgrade) {
+                if (p1 !== p2) {
+                  wsRef.current?.send(JSON.stringify({ type: "rb_start_game", resolve_series_only: true }));
+                } else if (liveBoardModeRef.current === "5x5") {
                   setShow7x7LevelUp(true);
                   playTransitionAction?.();
                   setTimeout(() => {
@@ -1171,7 +1213,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
                     setShow7x7LevelUp(false);
                   }, 2800);
                 } else {
-                  wsRef.current?.send(JSON.stringify({ type: "rb_start_game", first_player: fp, c3_blocked: s.rbC3Blocked }));
+                  wsRef.current?.send(JSON.stringify({ type: "rb_start_game", resolve_series_draw: true }));
                 }
               }
               setPhase("rb_initializing");

@@ -208,9 +208,16 @@ export function MatchSidebar({
             <div style={{ fontFamily: t.fontMono, fontSize: "clamp(11px,1.2vw,14px)", color: "#777", marginTop: 12, letterSpacing: "0.12em" }}>GAME {gameNumber}</div>
           </div>
           <div style={{ position: "relative", zIndex: 1, flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", willChange: "transform, opacity", opacity: overlayVisible ? 1 : 0, transform: overlayVisible ? "translateY(0)" : "translateY(28px)", transition: "opacity 0.32s ease 0.18s, transform 0.32s cubic-bezier(.22,.68,0,1.2) 0.18s" }}>
-            <div style={{ fontFamily: t.fontMono, fontSize: "clamp(11px,1.2vw,14px)", color: "#777", marginBottom: 12, letterSpacing: "0.12em" }}>SERIES WINNER</div>
+            <div style={{ fontFamily: t.fontMono, fontSize: "clamp(11px,1.2vw,14px)", color: "#777", marginBottom: 12, letterSpacing: "0.12em" }}>{seriesWinner === "DRAW" ? "SERIES RESULT" : "SERIES WINNER"}</div>
             <div style={{ fontSize: "clamp(44px,7vw,96px)", lineHeight: 1, marginBottom: 8, animation: "winPulse 1.6s ease infinite" }}>{seriesPiece}</div>
-            <div style={{ fontFamily: t.fontDisplay, fontSize: "clamp(40px,6.5vw,90px)", fontWeight: 900, color: seriesColor, lineHeight: 1, textShadow: `0 0 60px ${seriesColor}88`, animation: "winPulse 1.6s ease infinite" }}>{getName(seriesWinner)} WINS!</div>
+            {seriesWinner === "DRAW" ? (
+              <>
+                <div style={{ fontFamily: t.fontDisplay, fontSize: "clamp(32px,5vw,72px)", fontWeight: 900, color: seriesColor, lineHeight: 1.1, textAlign: "center", textShadow: `0 0 60px ${seriesColor}88`, animation: "winPulse 1.6s ease infinite" }}>FULL MATCH DRAW</div>
+                <div style={{ fontFamily: t.fontBody, fontSize: 14, color: "#888", marginTop: 12, textAlign: "center" }}>No overall winner</div>
+              </>
+            ) : (
+              <div style={{ fontFamily: t.fontDisplay, fontSize: "clamp(40px,6.5vw,90px)", fontWeight: 900, color: seriesColor, lineHeight: 1, textShadow: `0 0 60px ${seriesColor}88`, animation: "winPulse 1.6s ease infinite" }}>{getName(seriesWinner)} WINS!</div>
+            )}
             <div style={{ fontFamily: t.fontBody, fontSize: 13, color: "#555", marginTop: 16 }}>click anywhere to continue</div>
           </div>
         </>
@@ -218,7 +225,7 @@ export function MatchSidebar({
         <div style={{ position: "relative", zIndex: 1, flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", willChange: "transform, opacity", opacity: overlayVisible ? 1 : 0, transform: overlayVisible ? "translateY(0) scale(1)" : "translateY(32px) scale(0.96)", transition: "opacity 0.32s ease 0.06s, transform 0.35s cubic-bezier(.22,.68,0,1.2) 0.06s" }}>
           <div style={{ fontSize: "clamp(52px,8vw,110px)", lineHeight: 1, marginBottom: 8, animation: "winPulse 1.6s ease infinite" }}>{winnerPiece}</div>
           <div style={{ fontFamily: t.fontDisplay, fontSize: "clamp(44px,7vw,100px)", fontWeight: 900, color: winnerColor, lineHeight: 1, marginBottom: 18, textShadow: `0 0 60px ${winnerColor}88`, animation: "winPulse 1.6s ease infinite" }}>{winner === "DRAW" ? "DRAW" : `${getName(winner)} WINS!`}</div>
-          {phase === "match_over" ? <div style={{ fontFamily: t.fontMono, fontSize: "clamp(13px,1.8vw,18px)", color: "#AAAAAA", marginBottom: 20 }}>MATCH OVER — SERIES COMPLETE</div> : <div style={{ fontFamily: t.fontMono, fontSize: "clamp(13px,1.8vw,18px)", color: "#AAAAAA", marginBottom: 20 }}>GAME {gameNumber} COMPLETE</div>}
+          {phase === "match_over" ? <div style={{ fontFamily: t.fontMono, fontSize: "clamp(13px,1.8vw,18px)", color: "#AAAAAA", marginBottom: 20 }}>{seriesWinner === "DRAW" ? "MATCH OVER — FULL SERIES DRAW" : "MATCH OVER — SERIES COMPLETE"}</div> : <div style={{ fontFamily: t.fontMono, fontSize: "clamp(13px,1.8vw,18px)", color: "#AAAAAA", marginBottom: 20 }}>GAME {gameNumber} COMPLETE</div>}
           <div style={{ fontFamily: t.fontBody, fontSize: 14, color: "#666" }}>click anywhere to continue</div>
         </div>
       )}
@@ -304,7 +311,18 @@ export function MatchSidebar({
           const isCur = i === gameNumber - 1 && (phase === "playing" || phase === "waiting_ready");
           return (<div key={i} style={{ display: "flex", justifyContent: "space-between", fontFamily: t.fontBody, fontSize: 22, padding: "6px 0", borderBottom: `1px solid ${t.border}22` }}><span style={{ color: isCur ? t.accent : t.textMuted, transition: "color 0.2s" }}>G{i + 1}{isCur ? " *" : ""}</span><span style={{ color: col, fontWeight: result ? 700 : 400, transition: "color 0.2s" }}>{result || "—"}</span></div>);
         })}
-        {seriesWinner && (<div style={{ marginTop: 10, fontFamily: t.fontMono, fontSize: 20, color: t.gold, textAlign: "center", fontWeight: 700 }}>SERIES: {seriesWinner === "DRAW" ? "DRAW" : `${getName(seriesWinner)} WINS`}</div>)}
+        {seriesWinner && (
+          <div style={{ marginTop: 10, fontFamily: t.fontMono, fontSize: 20, color: t.gold, textAlign: "center", fontWeight: 700 }}>
+            {seriesWinner === "DRAW" ? (
+              <>
+                <div>SERIES: FULL DRAW</div>
+                <div style={{ fontFamily: t.fontBody, fontSize: 12, color: t.textMuted, fontWeight: 600, marginTop: 6, letterSpacing: "0.06em" }}>No overall winner</div>
+              </>
+            ) : (
+              <>SERIES: {getName(seriesWinner)} WINS</>
+            )}
+          </div>
+        )}
       </div>
 
       {boardMode === "7x7" && selectedPatterns && selectedPatterns.length > 0 && phase !== "waiting_ready" && (
@@ -356,7 +374,7 @@ export function MatchSidebar({
       )}
       {phase === "match_over" && !isMultiplayerGame && (
         <div style={{ textAlign: "center", animation: "fadeUp 0.3s ease both" }}>
-          <div style={{ fontFamily: t.fontDisplay, fontSize: 16, fontWeight: 700, color: t.gold, marginBottom: 10 }}>{seriesWinner === "DRAW" ? "DRAW!" : `${getName(seriesWinner)} WINS!`}</div>
+          <div style={{ fontFamily: t.fontDisplay, fontSize: 16, fontWeight: 700, color: t.gold, marginBottom: 10 }}>{seriesWinner === "DRAW" ? "FULL MATCH DRAW — NO WINNER" : `${getName(seriesWinner)} WINS!`}</div>
           <button onClick={onSoftReset} style={{ background: `${t.accent}18`, border: `1px solid ${t.accent}`, color: t.accent, fontFamily: t.fontMono, fontSize: 13, padding: "10px 18px", borderRadius: ip ? 2 : 6, cursor: "pointer", transition: "all 0.2s" }}>NEW MATCH</button>
         </div>
       )}
@@ -411,7 +429,7 @@ export function MatchSidebar({
       <div style={{ background: t.bgPanel, border: `2px solid ${t.accent}`, borderRadius: ip ? 2 : 20, padding: "48px 56px", maxWidth: 480, width: "90vw", textAlign: "center", boxShadow: `0 40px 100px rgba(0,0,0,0.8), 0 0 60px ${t.accent}22`, animation: "scaleIn 0.38s cubic-bezier(.22,.68,0,1.2) both" }}>
         <div style={{ fontFamily: t.fontDisplay, fontSize: 28, fontWeight: 900, color: t.accent, marginBottom: 8, letterSpacing: "0.08em" }}>MATCH COMPLETE</div>
         <div style={{ fontFamily: t.fontMono, fontSize: 18, fontWeight: 700, color: seriesWinner === "P1" ? p1c : seriesWinner === "P2" ? p2c : t.gold, marginBottom: 20 }}>
-          {seriesWinner === "DRAW" ? "DRAW!" : `${getName(seriesWinner)} WINS THE SERIES`}
+          {seriesWinner === "DRAW" ? "FULL MATCH DRAW — NO WINNER" : `${getName(seriesWinner)} WINS THE SERIES`}
         </div>
         {rematchRequested && rematchRequested !== mySlot && (
           <div style={{ fontFamily: t.fontBody, fontSize: 14, color: t.gold, marginBottom: 16 }}>Opponent wants a rematch!</div>
@@ -634,7 +652,18 @@ export function LeftPanel(props: MatchSidebarProps) {
           const isCur = i === gameNumber - 1 && (phase === "playing" || phase === "waiting_ready");
           return (<div key={i} style={{ display: "flex", justifyContent: "space-between", fontFamily: t.fontBody, fontSize: 22, padding: "6px 0", borderBottom: `1px solid ${t.border}22` }}><span style={{ color: isCur ? t.accent : t.textMuted, transition: "color 0.2s" }}>G{i + 1}{isCur ? " *" : ""}</span><span style={{ color: col, fontWeight: result ? 700 : 400, transition: "color 0.2s" }}>{result || "—"}</span></div>);
         })}
-        {seriesWinner && (<div style={{ marginTop: 10, fontFamily: t.fontMono, fontSize: 20, color: t.gold, textAlign: "center", fontWeight: 700 }}>SERIES: {seriesWinner === "DRAW" ? "DRAW" : `${getName(seriesWinner)} WINS`}</div>)}
+        {seriesWinner && (
+          <div style={{ marginTop: 10, fontFamily: t.fontMono, fontSize: 20, color: t.gold, textAlign: "center", fontWeight: 700 }}>
+            {seriesWinner === "DRAW" ? (
+              <>
+                <div>SERIES: FULL DRAW</div>
+                <div style={{ fontFamily: t.fontBody, fontSize: 12, color: t.textMuted, fontWeight: 600, marginTop: 6, letterSpacing: "0.06em" }}>No overall winner</div>
+              </>
+            ) : (
+              <>SERIES: {getName(seriesWinner)} WINS</>
+            )}
+          </div>
+        )}
       </div>
 
       {boardMode === "7x7" && selectedPatterns && selectedPatterns.length > 0 && (
@@ -686,7 +715,7 @@ export function LeftPanel(props: MatchSidebarProps) {
       )}
       {phase === "match_over" && !isMultiplayerGame && (
         <div style={{ textAlign: "center", animation: "fadeUp 0.3s ease both" }}>
-          <div style={{ fontFamily: t.fontDisplay, fontSize: 16, fontWeight: 700, color: t.gold, marginBottom: 10 }}>{seriesWinner === "DRAW" ? "DRAW!" : `${getName(seriesWinner)} WINS!`}</div>
+          <div style={{ fontFamily: t.fontDisplay, fontSize: 16, fontWeight: 700, color: t.gold, marginBottom: 10 }}>{seriesWinner === "DRAW" ? "FULL MATCH DRAW — NO WINNER" : `${getName(seriesWinner)} WINS!`}</div>
           <button onClick={onSoftReset} style={{ background: `${t.accent}18`, border: `1px solid ${t.accent}`, color: t.accent, fontFamily: t.fontMono, fontSize: 13, padding: "10px 18px", borderRadius: ip ? 2 : 6, cursor: "pointer", transition: "all 0.2s" }}>NEW MATCH</button>
         </div>
       )}
@@ -764,9 +793,16 @@ export function WinOverlay({ showWinOverlay, overlayVisible, winner, winnerColor
             <div style={{ fontFamily: t.fontMono, fontSize: "clamp(11px,1.2vw,14px)", color: "#777", marginTop: 12, letterSpacing: "0.12em" }}>GAME {gameNumber}</div>
           </div>
           <div style={{ position: "relative", zIndex: 1, flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", willChange: "transform, opacity", opacity: overlayVisible ? 1 : 0, transform: overlayVisible ? "translateY(0)" : "translateY(28px)", transition: "opacity 0.32s ease 0.18s, transform 0.32s cubic-bezier(.22,.68,0,1.2) 0.18s" }}>
-            <div style={{ fontFamily: t.fontMono, fontSize: "clamp(11px,1.2vw,14px)", color: "#777", marginBottom: 12, letterSpacing: "0.12em" }}>SERIES WINNER</div>
+            <div style={{ fontFamily: t.fontMono, fontSize: "clamp(11px,1.2vw,14px)", color: "#777", marginBottom: 12, letterSpacing: "0.12em" }}>{seriesWinner === "DRAW" ? "SERIES RESULT" : "SERIES WINNER"}</div>
             <div style={{ fontSize: "clamp(44px,7vw,96px)", lineHeight: 1, marginBottom: 8, animation: "winPulse 1.6s ease infinite" }}>{seriesPiece}</div>
-            <div style={{ fontFamily: t.fontDisplay, fontSize: "clamp(40px,6.5vw,90px)", fontWeight: 900, color: seriesColor, lineHeight: 1, textShadow: `0 0 60px ${seriesColor}88`, animation: "winPulse 1.6s ease infinite" }}>{getName(seriesWinner)} WINS!</div>
+            {seriesWinner === "DRAW" ? (
+              <>
+                <div style={{ fontFamily: t.fontDisplay, fontSize: "clamp(32px,5vw,72px)", fontWeight: 900, color: seriesColor, lineHeight: 1.1, textAlign: "center", textShadow: `0 0 60px ${seriesColor}88`, animation: "winPulse 1.6s ease infinite" }}>FULL MATCH DRAW</div>
+                <div style={{ fontFamily: t.fontBody, fontSize: 14, color: "#888", marginTop: 12, textAlign: "center" }}>No overall winner</div>
+              </>
+            ) : (
+              <div style={{ fontFamily: t.fontDisplay, fontSize: "clamp(40px,6.5vw,90px)", fontWeight: 900, color: seriesColor, lineHeight: 1, textShadow: `0 0 60px ${seriesColor}88`, animation: "winPulse 1.6s ease infinite" }}>{getName(seriesWinner)} WINS!</div>
+            )}
             <div style={{ fontFamily: t.fontBody, fontSize: 13, color: "#555", marginTop: 16 }}>click anywhere to continue</div>
           </div>
         </>
@@ -774,7 +810,7 @@ export function WinOverlay({ showWinOverlay, overlayVisible, winner, winnerColor
         <div style={{ position: "relative", zIndex: 1, flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", willChange: "transform, opacity", opacity: overlayVisible ? 1 : 0, transform: overlayVisible ? "translateY(0) scale(1)" : "translateY(32px) scale(0.96)", transition: "opacity 0.32s ease 0.06s, transform 0.35s cubic-bezier(.22,.68,0,1.2) 0.06s" }}>
           <div style={{ fontSize: "clamp(52px,8vw,110px)", lineHeight: 1, marginBottom: 8, animation: "winPulse 1.6s ease infinite" }}>{winnerPiece}</div>
           <div style={{ fontFamily: t.fontDisplay, fontSize: "clamp(44px,7vw,100px)", fontWeight: 900, color: winnerColor, lineHeight: 1, marginBottom: 18, textShadow: `0 0 60px ${winnerColor}88`, animation: "winPulse 1.6s ease infinite" }}>{winner === "DRAW" ? "DRAW" : `${getName(winner)} WINS!`}</div>
-          {phase === "match_over" ? <div style={{ fontFamily: t.fontMono, fontSize: "clamp(13px,1.8vw,18px)", color: "#AAAAAA", marginBottom: 20 }}>MATCH OVER — SERIES COMPLETE</div> : <div style={{ fontFamily: t.fontMono, fontSize: "clamp(13px,1.8vw,18px)", color: "#AAAAAA", marginBottom: 20 }}>GAME {gameNumber} COMPLETE</div>}
+          {phase === "match_over" ? <div style={{ fontFamily: t.fontMono, fontSize: "clamp(13px,1.8vw,18px)", color: "#AAAAAA", marginBottom: 20 }}>{seriesWinner === "DRAW" ? "MATCH OVER — FULL SERIES DRAW" : "MATCH OVER — SERIES COMPLETE"}</div> : <div style={{ fontFamily: t.fontMono, fontSize: "clamp(13px,1.8vw,18px)", color: "#AAAAAA", marginBottom: 20 }}>GAME {gameNumber} COMPLETE</div>}
           
           {connectionScores && (
             <div style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, padding: "12px 24px", marginBottom: 20, display: "flex", gap: 32 }}>
@@ -834,7 +870,7 @@ export function RematchOverlay({ show, isMultiplayerGame, t, ip, p1c, p2c, serie
         {/* Header */}
         <div style={{ fontFamily: t.fontDisplay, fontSize: 26, fontWeight: 900, color: t.accent, marginBottom: 6, letterSpacing: "0.08em" }}>MATCH COMPLETE</div>
         <div style={{ fontFamily: t.fontMono, fontSize: 17, fontWeight: 700, color: seriesColor, marginBottom: 20 }}>
-          {seriesWinner === "DRAW" ? "DRAW!" : `${getName(seriesWinner)} WINS THE SERIES`}
+          {seriesWinner === "DRAW" ? "FULL MATCH DRAW — NO WINNER" : `${getName(seriesWinner)} WINS THE SERIES`}
         </div>
 
         {connectionScores && (
