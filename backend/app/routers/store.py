@@ -3,6 +3,7 @@ from pydantic import BaseModel
 from app.core.database import get_db_dep
 from app.routers.auth import get_current_user
 from bson import ObjectId
+from datetime import datetime
 import hmac, hashlib, os, aiohttp
 
 router = APIRouter()
@@ -110,8 +111,7 @@ async def create_order(
     }
 
     try:
-        # Force IPv4 via aiohttp TCPConnector — fixes Railway DNS resolution
-        connector = aiohttp.TCPConnector(family=2)  # AF_INET = IPv4 only
+        connector = aiohttp.TCPConnector(family=2)
         async with aiohttp.ClientSession(connector=connector) as session:
             async with session.post(
                 f"{INSTAMOJO_BASE}/payment-requests/",
@@ -155,7 +155,6 @@ async def verify_payment(
     if req.payment_status != "Credit":
         raise HTTPException(status_code=400, detail="Payment not completed.")
 
-    # Verify with Instamojo server-side (force IPv4 for Railway)
     connector = aiohttp.TCPConnector(family=2)
     async with aiohttp.ClientSession(connector=connector) as session:
         async with session.get(
@@ -171,7 +170,6 @@ async def verify_payment(
     if payment.get("status") != "Credit":
         raise HTTPException(status_code=400, detail="Payment not confirmed by Instamojo.")
 
-    # Parse package_id and currency_type from purpose
     purpose = data["payment_request"].get("purpose", "")
     package_id, currency_type = _parse_purpose(purpose)
     if not package_id:
@@ -208,7 +206,6 @@ async def instamojo_webhook(request: Request, db=Depends(get_db_dep)):
     payment_request_id = data.get("payment_request_id", "")
     purpose            = data.get("purpose", "")
 
-    # Check not already processed
     existing = await db["payments"].find_one({"payment_id": payment_id, "status": "paid"})
     if existing:
         return {"status": "already_processed"}
@@ -217,7 +214,6 @@ async def instamojo_webhook(request: Request, db=Depends(get_db_dep)):
     if not package_id:
         return {"status": "unknown_package"}
 
-    # Get user_id from purpose
     user_id = _parse_uid(purpose)
     if not user_id:
         return {"status": "unknown_user"}
@@ -234,7 +230,47 @@ async def instamojo_webhook(request: Request, db=Depends(get_db_dep)):
     return {"status": "ok"}
 
 
-# ── Purchase Cosmetic Item (unchanged) ────────────────────────────────────────
+# ── UPI / QR Code Payment Submission ─────────────────────────────────────────
+
+class UpiSubmitRequest(BaseModel):
+    utr:           str
+    amount:        float
+    package_id:    str
+    currency_type: str = "protocredits"
+
+@router.post("/upi-submit")
+async def upi_submit(
+    req: UpiSubmitRequest,
+    user_id: str = Depends(get_current_user),
+    db=Depends(get_db_dep),
+):
+    if not req.utr or len(req.utr.strip()) < 6:
+        raise HTTPException(status_code=400, detail="Invalid UTR.")
+
+    package_table = SHARD_PACKAGES if req.currency_type == "shards" else PACKAGES
+    pkg = package_table.get(req.package_id)
+    if not pkg:
+        raise HTTPException(status_code=400, detail="Invalid package.")
+
+    # Prevent duplicate UTR submissions
+    existing = await db["upi_payments"].find_one({"utr": req.utr.strip()})
+    if existing:
+        raise HTTPException(status_code=400, detail="This UTR has already been submitted.")
+
+    await db["upi_payments"].insert_one({
+        "user_id":       user_id,
+        "utr":           req.utr.strip(),
+        "amount":        req.amount,
+        "package_id":    req.package_id,
+        "currency_type": req.currency_type,
+        "status":        "pending",
+        "created_at":    datetime.utcnow(),
+    })
+
+    return {"message": "Payment submitted for verification. Credits will be added within a few hours."}
+
+
+# ── Purchase Cosmetic Item ────────────────────────────────────────────────────
 
 class PurchaseItemRequest(BaseModel):
     item_id:     str
@@ -286,9 +322,6 @@ def _verify_mac(data: dict, mac_provided: str) -> bool:
 
 
 def _parse_purpose(purpose: str):
-    """Extract package_id and currency_type from purpose string.
-    Format: 'PLUS ProtoCredits [ref:plus_protocredits] [uid:abc123]'
-    """
     import re
     match = re.search(r"\[ref:([a-z]+)_(protocredits|shards)\]", purpose)
     if match:
@@ -297,7 +330,6 @@ def _parse_purpose(purpose: str):
 
 
 def _parse_uid(purpose: str):
-    """Extract user_id from purpose string: [uid:abc123]"""
     import re
     match = re.search(r"\[uid:([^\]]+)\]", purpose)
     return match.group(1) if match else None
@@ -315,7 +347,6 @@ async def _credit_user(
     base  = pkg.get("credits") if currency_type == "protocredits" else pkg.get("shards")
     bonus = pkg.get("bonus") or 0
 
-    # Bonus only on first purchase of this pack in this currency lane
     if currency_type == "shards":
         prior = await db["payments"].count_documents({
             "user_id": user_id, "package_id": package_id,
