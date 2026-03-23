@@ -4,8 +4,7 @@ danger_bot7.py  --  DANGER difficulty engine for 7x7 PentaProtocol.
 Flat board with make/unmake (no copies), Zobrist-hashed transposition table,
 IDAB + negamax + alpha-beta, killer moves, history heuristic, quiescence
 search on forcing moves, fork detection, threat-table evaluation,
-multi-component connectivity with bridge bonuses, endgame path planning,
-and a small opening book.
+multi-component connectivity with bridge bonuses, and endgame path planning.
 """
 
 import time
@@ -69,13 +68,6 @@ ZOBRIST: tuple[tuple[int, ...], ...] = tuple(
 #    Used for both 7-in-a-line windows and pattern placements.
 THREAT_MY  = (0, 2, 30, 300, 2500, 15000, 100000, 1_000_000)
 THREAT_OPP = (0, 3, 45, 450, 3800, 22000, 150000, 1_000_000)
-
-# ── Opening-book preferred cells (near center, outward) ──────────
-OPENING_NEAR: tuple[int, ...] = (
-    _idx(2, 3), _idx(3, 2), _idx(3, 4), _idx(4, 3),
-    _idx(2, 2), _idx(2, 4), _idx(4, 2), _idx(4, 4),
-)
-
 
 # ═══════════════════════════════════════════════════════════════════
 #  ENGINE
@@ -600,25 +592,6 @@ class DangerBot7Engine:
 
         return best_mv
 
-    # ── opening book ───────────────────────────────────────────────
-
-    @staticmethod
-    def _opening(board, empties, mp, c3_blocked):
-        if mp == 0:
-            if not c3_blocked and CENTER_IDX in empties:
-                return CENTER_IDX
-            for idx in OPENING_NEAR:
-                if idx in empties:
-                    return idx
-            return None
-        if mp <= 2:
-            if not c3_blocked and not board[CENTER_IDX]:
-                return CENTER_IDX
-            for idx in OPENING_NEAR:
-                if not board[idx]:
-                    return idx
-        return None
-
     # ── public entry point ─────────────────────────────────────────
 
     def choose(self, board_2d, bot, human, moves_played, c3_blocked):
@@ -633,12 +606,6 @@ class DangerBot7Engine:
             empties = [i for i in empties if i != CENTER_IDX]
             if not empties:
                 return None
-
-        # Opening book
-        if moves_played <= 2:
-            mv = self._opening(board, empties, moves_played, c3_blocked)
-            if mv is not None:
-                return _rc(mv)
 
         # 1-ply win
         for idx in empties:

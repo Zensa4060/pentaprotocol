@@ -269,28 +269,6 @@ impl DangerSearch {
         best_val
     }
 
-    fn opening_move(&self, board: &Board, moves_played: i32, c3_blocked: bool) -> Option<usize> {
-        if moves_played > 2 {
-            return None;
-        }
-        if moves_played == 0 {
-            if !c3_blocked && board[CENTER_IDX] == 0 {
-                return Some(CENTER_IDX);
-            }
-        }
-        // Pick best available near-center cell
-        let t = tables();
-        let center_area: Vec<usize> = {
-            let mut cs: Vec<(u8, usize)> = (0..CELLS)
-                .filter(|&i| board[i] == 0)
-                .map(|i| (t.center_dist[i], i))
-                .collect();
-            cs.sort_unstable();
-            cs.into_iter().map(|(_, i)| i).collect()
-        };
-        center_area.into_iter().next()
-    }
-
     fn count_threat_cells(&self, board: &Board, player: u8, pi: &PatternIndex) -> usize {
         let mut count = 0;
         let mut board_copy = *board;
@@ -323,12 +301,10 @@ impl DangerSearch {
         self.killers = [[None; 2]; MAX_DEPTH + 8];
         self.nodes = 0;
 
-        // Opening book
-        if let Some(mv) = self.opening_move(board, moves_played, c3_blocked) {
-            return Some(mv);
+        let mut empties: Vec<usize> = (0..CELLS).filter(|&i| board[i] == 0).collect();
+        if c3_blocked && moves_played == 0 {
+            empties.retain(|&i| i != CENTER_IDX);
         }
-
-        let empties: Vec<usize> = (0..CELLS).filter(|&i| board[i] == 0).collect();
         if empties.is_empty() {
             return None;
         }

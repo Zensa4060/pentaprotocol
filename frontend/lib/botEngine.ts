@@ -565,12 +565,12 @@ export function getBotMove(
 }
 
 /**
- * Visual delay before the bot "thinks" — in ms.
- * `danger`: 5×5 default feel (GameScreen uses 0 ms for 7×7 hard/danger via its own delays map).
+ * Visual delay before the bot "thinks" — in ms (client-side only; GameScreen AI uses the same values).
+ * Hard and danger use 0 so the API runs immediately; strength comes from server search, not delay.
  */
 export const BOT_DELAY = {
     easy: 400,
     medium: 850,
-    hard: 2000,
-    danger: 3000,
+    hard: 0,
+    danger: 0,
 } as const satisfies Record<Difficulty, number>;

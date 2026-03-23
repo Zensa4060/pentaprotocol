@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useAuthStore } from "@/lib/store";
 import { useAudio } from "@/hooks/useAudio";
 import API from "@/lib/api";
@@ -32,7 +32,9 @@ const GUEST_BLOCKED: Screen[] = ["lobby", "profile", "career", "battlepass"];
 
 export default function Page() {
   const [themeId, setThemeIdRaw]        = useState<ThemeId>("classic_dark");
-  const [screen, setScreen]             = useState<Screen>("auth");
+  const [screen, setScreen]             = useState<Screen>("home");
+  /** False until session + auth are read — avoids flashing AuthScreen before Home/game restore */
+  const [appReady, setAppReady]         = useState(false);
   const [screenHistory, setScreenHistory] = useState<Screen[]>([]);
   const [showSettings, setShowSettings] = useState(false);
   const [inQueue, setInQueue]           = useState(false);
@@ -89,24 +91,35 @@ export default function Page() {
   useEffect(() => { queuePlayerSlotRef.current = queuePlayerSlot; }, [queuePlayerSlot]);
 
   const getBgmCtx = (s: Screen, ranked: boolean, aiDiff: Difficulty): "lobby" | "game" | "ranked" => {
-    if (s === "aiGame") return aiDiff === "hard" ? "ranked" : "game";
+    if (s === "aiGame") return aiDiff === "hard" || aiDiff === "danger" ? "ranked" : "game";
     if (s === "game") return "game";
     if (s === "multiGame") return ranked ? "ranked" : "game";
     return "lobby";
   };
 
-  // On mount: restore theme; and restore persisted screen/room state
-  useEffect(() => {
-    const saved = localStorage.getItem("pp_theme") as ThemeId;
-    if (saved && THEMES[saved]) setThemeIdRaw(saved);
+  // Before first paint: restore theme, screen, 7×7 board mode / patterns (no AuthScreen flash if logged in)
+  useLayoutEffect(() => {
+    const savedTheme = localStorage.getItem("pp_theme") as ThemeId;
+    if (savedTheme && THEMES[savedTheme]) setThemeIdRaw(savedTheme);
 
-    const savedScreen = sessionStorage.getItem("pp_screen") as Screen;
-    const savedRoom   = sessionStorage.getItem("pp_multiRoomCode");
-    const savedSlot   = sessionStorage.getItem("pp_multiPlayerSlot") as "P1" | "P2" | null;
+    const tok = useAuthStore.getState().token;
+    const savedScreen = sessionStorage.getItem("pp_screen") as Screen | null;
+    const savedRoom = sessionStorage.getItem("pp_multiRoomCode");
+    const savedSlot = sessionStorage.getItem("pp_multiPlayerSlot") as "P1" | "P2" | null;
     const savedRanked = sessionStorage.getItem("pp_isRanked") === "true";
+    const savedBoard = sessionStorage.getItem("pp_boardMode") as BoardMode | null;
+    const savedPats = sessionStorage.getItem("pp_selectedPatterns");
+
+    if (savedBoard === "5x5" || savedBoard === "7x7") setBoardMode(savedBoard);
+    if (savedPats) {
+      try {
+        const arr = JSON.parse(savedPats);
+        if (Array.isArray(arr)) setSelectedPatterns(arr);
+      } catch { /* ignore */ }
+    }
 
     if (savedScreen) {
-      if (token || !GUEST_BLOCKED.includes(savedScreen)) {
+      if (tok || !GUEST_BLOCKED.includes(savedScreen)) {
         setScreen(savedScreen);
         if (savedRoom) setMultiRoomCode(savedRoom);
         if (savedSlot) setMultiPlayerSlot(savedSlot);
@@ -115,11 +128,15 @@ export default function Page() {
         setScreen("auth");
       }
     } else {
-      if (token) setScreen("home");
+      setScreen(tok ? "home" : "auth");
     }
 
-    window.history.pushState({ screen: savedScreen || (token ? "home" : "auth") }, "", window.location.pathname);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    window.history.pushState(
+      { screen: savedScreen || (tok ? "home" : "auth") },
+      "",
+      window.location.pathname,
+    );
+    setAppReady(true);
   }, []);
 
   useEffect(() => {
@@ -128,7 +145,9 @@ export default function Page() {
     if (multiPlayerSlot) sessionStorage.setItem("pp_multiPlayerSlot", multiPlayerSlot);
     else sessionStorage.removeItem("pp_multiPlayerSlot");
     sessionStorage.setItem("pp_isRanked", String(isRanked));
-  }, [screen, multiRoomCode, multiPlayerSlot, isRanked]);
+    sessionStorage.setItem("pp_boardMode", boardMode);
+    sessionStorage.setItem("pp_selectedPatterns", JSON.stringify(selectedPatterns));
+  }, [screen, multiRoomCode, multiPlayerSlot, isRanked, boardMode, selectedPatterns]);
 
   useEffect(() => {
     const onCustomThemeChange = () => {
@@ -461,6 +480,18 @@ export default function Page() {
     );
   };
 
+  if (!appReady) {
+    return (
+      <div
+        style={{
+          minHeight: "100vh",
+          background: themeId === "space" ? "#02040F" : t.bg,
+        }}
+        aria-busy="true"
+      />
+    );
+  }
+
   return (
     <div style={{
       minHeight: "100vh",
@@ -602,10 +633,11 @@ export default function Page() {
           playRulebreakerAction={sfx.rulebreaker} playTransitionAction={sfx.transition} playClickAction={sfx.click} />
       )}
       {screen === "multiGame" && (
-        <GameScreen key="multiGame" themeId={themeId} gameMode={isRanked ? "ranked" : "unranked"} setScreenAction={handleSetScreen}
+        <GameScreen key={`multiGame_${boardMode}`} themeId={themeId} gameMode={isRanked ? "ranked" : "unranked"} setScreenAction={handleSetScreen}
           roomCode={multiRoomCode} playerSlot={multiPlayerSlot ?? undefined}
           matchupData={multiMatchup ?? undefined}
           p1Name={user?.username}
+          boardMode={boardMode} selectedPatterns={selectedPatterns}
           playHoverAction={sfx.hover} playPlaceAction={sfx.place} playVictoryAction={sfx.victory} playDefeatAction={sfx.defeat}
           playRulebreakerAction={sfx.rulebreaker} playTransitionAction={sfx.transition} playClickAction={sfx.click} />
       )}

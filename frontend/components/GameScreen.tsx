@@ -802,11 +802,13 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     if (winner) return;
 
     let cancelled = false;
-    const is7x7 = boardMode === "7x7";
+    // Cosmetic delay before calling API (server search unchanged). DANGER 7×7: extra minimum
+    // “think” time for the bot’s first two moves so it doesn’t feel instant vs HARD.
     const delays: Record<string, number> = {
-      easy: 400, medium: 850,
-      hard: is7x7 ? 0 : 1800,
-      danger: is7x7 ? 0 : 3000,
+      easy: 400,
+      medium: 850,
+      hard: 0,
+      danger: 0,
     };
     const delay = delays[difficulty] ?? 850;
 
@@ -815,13 +817,29 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     const timer = setTimeout(async () => {
       if (cancelled) return;
       try {
+        const b = boardRef.current;
+        let p2Stones = 0;
+        for (const row of b) for (const cell of row) if (cell === "P2") p2Stones++;
+        const is77 = boardMode === "7x7" || b?.length === 7;
+        const needMinDangerThink =
+          difficulty === "danger" && is77 && p2Stones < 2;
+        const dangerMinThinkMs = 1000;
+
+        const t0 = Date.now();
         const res = await API.post("/api/bot/move", {
-          board: boardRef.current, difficulty, current_player: "P2",
-          board_mode: boardMode || (boardRef.current?.length === 7 ? "7x7" : "5x5"),
+          board: b, difficulty, current_player: "P2",
+          board_mode: boardMode || (b?.length === 7 ? "7x7" : "5x5"),
           selected_patterns: activePatterns,
           c3_blocked: c3Blocked,
           moves_played: movesPlayedRef.current,
         });
+        if (cancelled) return;
+        if (needMinDangerThink) {
+          const elapsed = Date.now() - t0;
+          if (elapsed < dangerMinThinkMs) {
+            await new Promise<void>(r => setTimeout(r, dangerMinThinkMs - elapsed));
+          }
+        }
         if (cancelled) return;
         const { row, col } = res.data ?? res;
         if (typeof row === "number" && typeof col === "number") await placeBot(row, col);
