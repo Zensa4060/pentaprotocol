@@ -94,8 +94,9 @@ def compute_awaiting_rulebreaker(history: list, segment_start: int) -> bool:
 
     The only cases with no Rulebreaker after two games are P1,P1 or P2,P2.
 
-    Also: three games played in the segment with wins still 1-1 (one game was a DRAW)
-    → Rulebreaker, then (on tied toss) upgrade to 7×7 for the tiebreak leg.
+    Also: three games in the segment at 1-1 with last result not DRAW → Rulebreaker before
+    further 5×5 (should not occur in normal flow). If the third game is a DRAW, the
+    server auto-upgrades to 7×7 without a second Rulebreaker (see move handler).
     """
     if segment_start > len(history):
         return False
@@ -103,6 +104,9 @@ def compute_awaiting_rulebreaker(history: list, segment_start: int) -> bool:
     p1w = sum(1 for w in seg if w == "P1")
     p2w = sum(1 for w in seg if w == "P2")
     if len(seg) >= 3 and p1w == 1 and p2w == 1:
+        # Last game was a DRAW → server auto-upgrades to 7×7 (no second Rulebreaker)
+        if seg[-1] == "DRAW":
+            return False
         return True
     if len(seg) < 2 or len(seg) % 2 != 0:
         return False
@@ -110,6 +114,31 @@ def compute_awaiting_rulebreaker(history: list, segment_start: int) -> bool:
     if g1 == g2 and g1 in ("P1", "P2"):
         return False
     return True
+
+
+def should_auto_upgrade_7x7_after_5x5_game3_draw(
+    board_mode: str,
+    history: list,
+    segment_start: int,
+    outcome,
+    game_number: int,
+) -> bool:
+    """
+    Game 3 on 5×5 ended in a full-board DRAW with the segment at 1-1 wins
+    (two decisive games + this draw) → go straight to 7×7; no Rulebreaker toss.
+    """
+    if board_mode != "5x5" or outcome != "DRAW":
+        return False
+    if game_number != 3:
+        return False
+    if segment_start > len(history):
+        return False
+    seg = history[segment_start:]
+    if len(seg) != 2:
+        return False
+    p1w = sum(1 for w in seg if w == "P1")
+    p2w = sum(1 for w in seg if w == "P2")
+    return p1w == 1 and p2w == 1
 
 
 def compute_series_state(history: list, segment_start: int) -> dict:
@@ -427,6 +456,7 @@ async def join_room(data: JoinRoomRequest, user_id: str = Depends(get_current_us
         "series_winner": None,
         "awaiting_rulebreaker": False,
         "segment_start_index": 0,
+        "game1_first_player": None,
     }
     if joiner_slot == "P1":
         update_fields["player1_id"]     = user_id
@@ -526,6 +556,14 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                 result      = engine.deploy(row, col)
                 is_finished = bool(result.get("winner"))
 
+                game1_patch: dict = {}
+                if (
+                    room.get("game_number", 1) == 1
+                    and room.get("board_mode", "5x5") == "5x5"
+                    and room.get("moves_played", 0) == 0
+                ):
+                    game1_patch["game1_first_player"] = player_slot
+
                 update = {
                     "board":          engine.board,
                     "current_player": engine.current_player,
@@ -534,12 +572,111 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                     "winner":         result.get("winner"),
                     "game_status":    "finished" if is_finished else "playing",
                     "status":         "finished" if is_finished else "active",
+                    **game1_patch,
                 }
+
                 if is_finished:
                     outcome = result.get("winner")
                     history = room.get("match_history", [])
-                    new_history = history + [outcome]
                     seg_start = room.get("segment_start_index", 0)
+                    gn = room.get("game_number", 1)
+                    bm = room.get("board_mode", "5x5")
+
+                    if should_auto_upgrade_7x7_after_5x5_game3_draw(
+                        bm, history, seg_start, outcome, gn
+                    ):
+                        from app.core.patterns7 import PATTERN_NAMES_7
+
+                        new_history = history + [outcome]
+                        g1f = room.get("game1_first_player") or "P1"
+                        first_7 = "P2" if g1f == "P1" else "P1"
+                        seg_new = len(new_history)
+                        ss = compute_series_state(new_history, seg_new)
+                        finished_5 = [list(r) for r in engine.board]
+
+                        upgrade_update = {
+                            **game1_patch,
+                            "board": [[None] * 7 for _ in range(7)],
+                            "board_mode": "7x7",
+                            "selected_patterns": list(PATTERN_NAMES_7),
+                            "current_player": first_7,
+                            "moves_played": 0,
+                            "extra_turns": 0,
+                            "winner": None,
+                            "game_status": "playing",
+                            "status": "active",
+                            "match_history": new_history,
+                            "segment_start_index": seg_new,
+                            "game_number": 1,
+                            "c3_blocked": False,
+                            "awaiting_rulebreaker": False,
+                            "p1_series_points": ss["p1_series_points"],
+                            "p2_series_points": ss["p2_series_points"],
+                            "series_winner": ss["series_winner"],
+                        }
+                        await db.rooms.update_one(
+                            {"room_code": room_code}, {"$set": upgrade_update}
+                        )
+
+                        move_broadcast = {
+                            "type": "move_made",
+                            "row": row,
+                            "col": col,
+                            "board": finished_5,
+                            "current_player": engine.current_player,
+                            "moves_played": engine.moves_played,
+                            "winner": outcome,
+                            "win_line": [[r, c] for r, c in engine.winner_line]
+                            if engine.winner_line
+                            else [],
+                            "game_status": "finished",
+                            "extra_turns": result.get("extra_turns", 0),
+                            "connectionScores": result.get("connectionScores"),
+                            "match_history": new_history,
+                            "p1_series_points": ss["p1_series_points"],
+                            "p2_series_points": ss["p2_series_points"],
+                            "series_winner": ss["series_winner"],
+                            "awaiting_rulebreaker": False,
+                            "segment_start_index": seg_start,
+                            "auto_7x7_upgrade_follows": True,
+                        }
+                        for slot, ws in _room_connections.get(room_code, {}).items():
+                            try:
+                                await ws.send_json(move_broadcast)
+                            except:
+                                pass
+
+                        gr_payload = {
+                            "type": "game_reset",
+                            "first_player": first_7,
+                            "game_number": 1,
+                            "board_mode": "7x7",
+                            "segment_start_index": seg_new,
+                            "p1_series_points": ss["p1_series_points"],
+                            "p2_series_points": ss["p2_series_points"],
+                            "selected_patterns": list(PATTERN_NAMES_7),
+                            "c3_blocked": False,
+                            "from_5x5_draw_upgrade": True,
+                        }
+                        for slot, ws in _room_connections.get(room_code, {}).items():
+                            try:
+                                await ws.send_json(gr_payload)
+                            except:
+                                pass
+
+                        game_dict = {
+                            "player1_id": room["player1_id"],
+                            "player2_id": room["player2_id"],
+                            "format":     room["format"],
+                            "source":     room.get("source", "matchmaking"),
+                            "mode":       "multiplayer",
+                        }
+                        asyncio.create_task(
+                            award_game_result(db, game_dict, outcome)
+                        )
+                        continue
+
+                    new_history = history + [outcome]
                     update.update(
                         {
                             "match_history": new_history,
@@ -721,6 +858,7 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                         "p2_series_points": 0,
                         "awaiting_rulebreaker": False,
                         "segment_start_index": 0,
+                        "game1_first_player": None,
                     }
 
                     await db.rooms.update_one({"room_code": room_code}, {"$set": reset})
@@ -884,33 +1022,14 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
 
                 first_player = msg.get("first_player", "P1")
                 c3_blocked   = msg.get("c3_blocked", False)
-                upgrade_7    = bool(msg.get("upgrade_to_7x7"))
 
                 patch: dict = {}
-                if upgrade_7:
-                    seg = hist[seg_start:]
-                    if (
-                        room.get("board_mode", "5x5") != "5x5"
-                        or p1p != 1
-                        or p2p != 1
-                        or len(seg) < 3
-                        or not room.get("awaiting_rulebreaker")
-                    ):
-                        continue
-                    from app.core.patterns7 import PATTERN_NAMES_7
-
-                    patch["board_mode"] = "7x7"
-                    patch["selected_patterns"] = list(PATTERN_NAMES_7)
-                    patch["segment_start_index"] = len(hist)
-                    c3_blocked = False
-
-                bm = patch.get("board_mode", room.get("board_mode", "5x5"))
+                bm = room.get("board_mode", "5x5")
                 if bm == "7x7":
                     c3_blocked = False
 
                 gn = room.get("game_number", 1)
-                # New 7×7 leg after 5×5 deadlock: restart at game 1 with 0-0 segment points
-                next_gn = 1 if upgrade_7 else gn + 1
+                next_gn = gn + 1
                 gs = 7 if bm == "7x7" else 5
 
                 post_seg = patch.get("segment_start_index", seg_start)

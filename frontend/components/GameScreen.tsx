@@ -625,8 +625,11 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
                 setWinLine(wl);
                 if (msg.connectionScores) setConnectionScores(msg.connectionScores);
                 setWinner(msg.winner);
-                if (msg.winner === "P1") playVictoryAction?.(); else if (msg.winner === "P2") playDefeatAction?.();
-                requestAnimationFrame(() => { setShowWinOverlay(true); requestAnimationFrame(() => setOverlayVisible(true)); });
+                const skipDrawOverlay = Boolean((msg as { auto_7x7_upgrade_follows?: boolean }).auto_7x7_upgrade_follows);
+                if (!skipDrawOverlay) {
+                  if (msg.winner === "P1") playVictoryAction?.(); else if (msg.winner === "P2") playDefeatAction?.();
+                  requestAnimationFrame(() => { setShowWinOverlay(true); requestAnimationFrame(() => setOverlayVisible(true)); });
+                }
                 const newHist = Array.isArray(msg.match_history)
                   ? (msg.match_history as string[])
                   : [...matchHistoryRef.current, msg.winner as string];
@@ -655,7 +658,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
                   setSeriesWinner(sw);
                   setPhase("match_over");
                   wsRef.current?.send(JSON.stringify({ type: "match_over_notify" }));
-                } else {
+                } else if (!skipDrawOverlay) {
                   setP1Ready(false); setP2Ready(false); setReadyTimeout(60); setReadyTimer(0); setPhase("waiting_ready");
                 }
               }
@@ -709,6 +712,12 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
             } else if (msg.type === "chat_message") {
           setChatMessages(m => [...m.slice(-49), { from: msg.from, text: msg.text, ts: msg.ts }]);
             } else if (msg.type === "game_reset") {
+          const fromDrawUp = Boolean((msg as { from_5x5_draw_upgrade?: boolean }).from_5x5_draw_upgrade);
+          if (fromDrawUp) {
+            setShow7x7LevelUp(true);
+            playTransitionAction?.();
+            setTimeout(() => setShow7x7LevelUp(false), 2800);
+          }
           const nextBm = (msg.board_mode as BoardMode | undefined) ?? liveBoardMode;
           const gs = nextBm === "7x7" ? 7 : 5;
           const emptyB = Array(gs).fill(null).map(() => Array(gs).fill(null)) as (string | null)[][];
@@ -742,23 +751,36 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
           setPhase("playing");
           const incomingGame = msg.game_number ?? 1;
           if (incomingGame === 1) {
-            if (msg.last_series) {
-              setLastSeries(msg.last_series);
+            if (fromDrawUp) {
+              if (typeof msg.segment_start_index === "number") {
+                setSegmentStartIndex(msg.segment_start_index);
+                segmentStartIndexRef.current = msg.segment_start_index;
+              }
+              if (typeof msg.p1_series_points === "number") setP1SeriesPts(msg.p1_series_points);
+              if (typeof msg.p2_series_points === "number") setP2SeriesPts(msg.p2_series_points);
+              setGameNumber(1);
+              setMatchOver(false);
+              setSeriesWinner(null);
+              awaitingRulebreakerRef.current = false;
+              // Keep full match_history (5×5 leg + DRAW); segment_start_index scopes 7×7 points
             } else {
-              // Fallback: snapshot current local state before wipe
-              setLastSeries({ winner: seriesWinner, history: [...matchHistory] });
+              if (msg.last_series) {
+                setLastSeries(msg.last_series);
+              } else {
+                setLastSeries({ winner: seriesWinner, history: [...matchHistory] });
+              }
+              matchHistoryRef.current = [];
+              setMatchHistory([]);
+              setGameNumber(1);
+              setMatchOver(false);
+              setSeriesWinner(null);
+              setChatMessages([]);
+              setP1SeriesPts(0);
+              setP2SeriesPts(0);
+              awaitingRulebreakerRef.current = false;
+              setSegmentStartIndex(0);
+              segmentStartIndexRef.current = 0;
             }
-            matchHistoryRef.current = [];
-            setMatchHistory([]);
-            setGameNumber(1);
-            setMatchOver(false);
-            setSeriesWinner(null);
-            setChatMessages([]);
-            setP1SeriesPts(0);
-            setP2SeriesPts(0);
-            awaitingRulebreakerRef.current = false;
-            setSegmentStartIndex(0);
-            segmentStartIndexRef.current = 0;
           } else {
             if (msg.game_number) setGameNumber(msg.game_number);
             if (typeof msg.segment_start_index === "number") {
@@ -1197,25 +1219,9 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
             const _isMP2 = (gameMode === "ranked" || gameMode === "unranked") && !!roomCode;
             if (_isMP2) {
               const { p1, p2 } = seriesPtsRef.current;
-              const seg = matchHistoryRef.current.slice(segmentStartIndexRef.current);
-              const w1 = seg.filter(w => w === "P1").length;
-              const w2 = seg.filter(w => w === "P2").length;
-              const fiveByFiveDeadlock = seg.length >= 3 && w1 === 1 && w2 === 1;
               if (s.tossWinner === mySlot) {
                 if (p1 !== p2) {
                   wsRef.current?.send(JSON.stringify({ type: "rb_start_game", resolve_series_only: true }));
-                } else if (liveBoardModeRef.current === "5x5" && fiveByFiveDeadlock) {
-                  setShow7x7LevelUp(true);
-                  playTransitionAction?.();
-                  setTimeout(() => {
-                    wsRef.current?.send(JSON.stringify({
-                      type: "rb_start_game",
-                      first_player: fp,
-                      c3_blocked: s.rbC3Blocked,
-                      upgrade_to_7x7: true,
-                    }));
-                    setShow7x7LevelUp(false);
-                  }, 2800);
                 } else if (liveBoardModeRef.current === "7x7") {
                   wsRef.current?.send(JSON.stringify({ type: "rb_start_game", resolve_series_draw: true }));
                 } else {
@@ -1756,7 +1762,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
       <div style={{ fontFamily: t.fontMono, fontSize: 11, color: t.textMuted, letterSpacing: "0.35em", marginBottom: 18 }}>TIED SERIES · RULEBREAKER</div>
       <div style={{ fontFamily: t.fontDisplay, fontSize: "clamp(28px,7vw,56px)", fontWeight: 950, color: t.accent, textAlign: "center", textShadow: `0 0 50px ${t.accent}AA`, animation: "levelUpPulse 1.1s ease-in-out infinite" }}>LEVEL UP</div>
       <div style={{ fontFamily: t.fontDisplay, fontSize: "clamp(42px,12vw,100px)", fontWeight: 950, color: "#FF6B35", marginTop: 10, textShadow: "0 0 70px rgba(255,107,53,0.65)" }}>7 × 7</div>
-      <div style={{ fontFamily: t.fontBody, fontSize: 14, color: t.textSecondary, marginTop: 24, maxWidth: 420, textAlign: "center", lineHeight: 1.55, padding: "0 20px" }}>5×5 stayed 1-1 after three games (including a draw). Fresh 7×7 leg: game 1, 0-0, all six patterns — then standard 7×7 Rulebreaker (pattern ban) when required.</div>
+      <div style={{ fontFamily: t.fontBody, fontSize: 14, color: t.textSecondary, marginTop: 24, maxWidth: 420, textAlign: "center", lineHeight: 1.55, padding: "0 20px" }}>Game 3 on 5×5 ended in a draw at 1-1. No extra toss — opening the 7×7 leg at game 1 (0-0), first move to whoever had the second move on 5×5 game 1. Pattern-ban Rulebreaker on 7×7 only when the usual pair rule says so.</div>
     </div>
   );
 
