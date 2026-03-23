@@ -7,6 +7,12 @@ from fastapi import APIRouter
 from pydantic import BaseModel
 from app.core.patterns7 import generate_all_patterns_7
 
+try:
+    from penta_engine import RustHardBot7, RustDangerBot7
+    _HAS_RUST = True
+except ImportError:
+    _HAS_RUST = False
+
 router = APIRouter()
 
 GRID = 7
@@ -336,10 +342,28 @@ class Bot7MoveRequest(BaseModel):
 _cached_engine: Optional[Bot7Engine] = None
 _cached_pats = None
 
+_cached_danger = None
+_cached_danger_pats = None
+
+_cached_rust_hard = None
+_cached_rust_hard_pats = None
+_cached_rust_danger = None
+_cached_rust_danger_pats = None
+
+
+class _DangerRef:
+    """Thin wrapper so we can store the danger engine in a module global."""
+    __slots__ = ("engine",)
+    def __init__(self, engine):
+        self.engine = engine
+
 
 @router.post("/move")
 def bot7_move(req: Bot7MoveRequest):
     global _cached_engine, _cached_pats
+    global _cached_danger, _cached_danger_pats
+    global _cached_rust_hard, _cached_rust_hard_pats
+    global _cached_rust_danger, _cached_rust_danger_pats
 
     def normalize(cell):
         return None if cell in [None, "null", ""] else cell
@@ -351,16 +375,44 @@ def bot7_move(req: Bot7MoveRequest):
         moves_played = sum(1 for row in board for cell in row if cell is not None)
 
     pat_key = tuple(tuple(p) for p in pats)
-    if _cached_engine is None or _cached_pats != pat_key:
-        _cached_engine = Bot7Engine(pats)
-        _cached_pats = pat_key
-
     bot = req.current_player
     human = "P2" if bot == "P1" else "P1"
-    move = _cached_engine.choose(
-        copy.deepcopy(board), bot, human,
-        req.difficulty, moves_played, req.c3_blocked,
-    )
+
+    if req.difficulty == "danger":
+        if _HAS_RUST:
+            if _cached_rust_danger is None or _cached_rust_danger_pats != pat_key:
+                _cached_rust_danger = RustDangerBot7(pats)
+                _cached_rust_danger_pats = pat_key
+            move = _cached_rust_danger.choose(
+                copy.deepcopy(board), bot, human,
+                moves_played, req.c3_blocked,
+            )
+        else:
+            from app.routers.danger_bot7 import DangerBot7Engine
+            if _cached_danger is None or _cached_danger_pats != pat_key:
+                _cached_danger = _DangerRef(DangerBot7Engine(pats))
+                _cached_danger_pats = pat_key
+            move = _cached_danger.engine.choose(
+                copy.deepcopy(board), bot, human,
+                moves_played, req.c3_blocked,
+            )
+    elif req.difficulty == "hard" and _HAS_RUST:
+        if _cached_rust_hard is None or _cached_rust_hard_pats != pat_key:
+            _cached_rust_hard = RustHardBot7(pats)
+            _cached_rust_hard_pats = pat_key
+        move = _cached_rust_hard.choose(
+            copy.deepcopy(board), bot, human,
+            "hard", moves_played, req.c3_blocked,
+        )
+    else:
+        if _cached_engine is None or _cached_pats != pat_key:
+            _cached_engine = Bot7Engine(pats)
+            _cached_pats = pat_key
+        move = _cached_engine.choose(
+            copy.deepcopy(board), bot, human,
+            req.difficulty, moves_played, req.c3_blocked,
+        )
+
     if move:
         return {"row": move[0], "col": move[1]}
     return {"row": None, "col": None}

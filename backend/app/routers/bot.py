@@ -8,6 +8,12 @@ from app.core.patterns7 import generate_all_patterns_7
 from app.core.win_checker import check_5_line, check_structural_patterns
 from app.core.win_checker7 import check_7_line, resolve_full_board_7
 
+try:
+    from penta_engine import RustHardBot7, RustDangerBot7
+    _HAS_RUST = True
+except ImportError:
+    _HAS_RUST = False
+
 router = APIRouter()
 
 GRID5 = 5
@@ -267,10 +273,17 @@ from app.routers.bot7 import Bot7Engine as _Bot7Engine
 
 _ENGINE7_NEW = None
 _LAST_PATS7_NEW = None
+_DANGER_ENG = None
+_DANGER_PATS = None
+_RUST_HARD_ENG = None
+_RUST_HARD_PATS = None
+_RUST_DANGER_ENG = None
+_RUST_DANGER_PATS = None
 
 @router.post("/move")
 def bot_move(req: BotMoveRequest):
-    global _ENGINE7_NEW, _LAST_PATS7_NEW
+    global _ENGINE7_NEW, _LAST_PATS7_NEW, _DANGER_ENG, _DANGER_PATS
+    global _RUST_HARD_ENG, _RUST_HARD_PATS, _RUST_DANGER_ENG, _RUST_DANGER_PATS
     def normalize(cell): return None if cell in [None, "null", ""] else cell
     board = [[normalize(cell) for cell in row] for row in req.board]
     actual_mode = "7x7" if len(board) >= 7 and len(board[0]) >= 7 else "5x5"
@@ -279,12 +292,36 @@ def bot_move(req: BotMoveRequest):
     if actual_mode == "7x7":
         pats = generate_all_patterns_7(req.selected_patterns)
         pat_key = tuple(tuple(p) for p in pats)
-        if _ENGINE7_NEW is None or _LAST_PATS7_NEW != pat_key:
-            _ENGINE7_NEW = _Bot7Engine(pats)
-            _LAST_PATS7_NEW = pat_key
         bot = req.current_player
         human = "P2" if bot == "P1" else "P1"
-        move = _ENGINE7_NEW.choose(copy.deepcopy(board), bot, human, req.difficulty, moves_played, req.c3_blocked)
+        if req.difficulty == "danger":
+            if _HAS_RUST:
+                if _RUST_DANGER_ENG is None or _RUST_DANGER_PATS != pat_key:
+                    _RUST_DANGER_ENG = RustDangerBot7(pats)
+                    _RUST_DANGER_PATS = pat_key
+                move = _RUST_DANGER_ENG.choose(
+                    copy.deepcopy(board), bot, human, moves_played, req.c3_blocked,
+                )
+            else:
+                from app.routers.danger_bot7 import DangerBot7Engine as _DangerBot7
+                if _DANGER_ENG is None or _DANGER_PATS != pat_key:
+                    _DANGER_ENG = _DangerBot7(pats)
+                    _DANGER_PATS = pat_key
+                move = _DANGER_ENG.choose(
+                    copy.deepcopy(board), bot, human, moves_played, req.c3_blocked,
+                )
+        elif req.difficulty == "hard" and _HAS_RUST:
+            if _RUST_HARD_ENG is None or _RUST_HARD_PATS != pat_key:
+                _RUST_HARD_ENG = RustHardBot7(pats)
+                _RUST_HARD_PATS = pat_key
+            move = _RUST_HARD_ENG.choose(
+                copy.deepcopy(board), bot, human, "hard", moves_played, req.c3_blocked,
+            )
+        else:
+            if _ENGINE7_NEW is None or _LAST_PATS7_NEW != pat_key:
+                _ENGINE7_NEW = _Bot7Engine(pats)
+                _LAST_PATS7_NEW = pat_key
+            move = _ENGINE7_NEW.choose(copy.deepcopy(board), bot, human, req.difficulty, moves_played, req.c3_blocked)
     else:
         engine_stub = type("EngineStub", (), {
             "board": board,

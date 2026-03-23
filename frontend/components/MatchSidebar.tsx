@@ -47,6 +47,7 @@ interface MatchSidebarProps {
   mySlot: "P1" | "P2";
   boardMode?: string;
   selectedPatterns?: string[];
+  rbBannedPattern?: string | null;
   // timers
   p1Time: number;
   p2Time: number;
@@ -111,7 +112,7 @@ export function MatchSidebar({
   t, p1Banner, p2Banner, ip, p1c, p2c, pieceSkin, p1RttMs, p2RttMs, panelW,
   phase, winner, current, gameNumber, matchHistory, seriesWinner, matchOver,
   gameMode, isRankedGame, isMultiplayerGame, isMultiplayer, mySlot,
-  boardMode, selectedPatterns,
+  boardMode, selectedPatterns, rbBannedPattern,
   p1Time, p2Time, readyTimeout,
   p1Ready, p2Ready,
   chatMessages, chatInput, chatOpen, chatWarning,
@@ -301,6 +302,9 @@ export function MatchSidebar({
             {selectedPatterns.map(p => (
               <div key={p} style={{ padding: "4px 8px", background: `${t.accent}1A`, border: `1px solid ${t.accent}44`, borderRadius: 4, fontFamily: t.fontMono, fontSize: 11, color: t.accent, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em" }}>{p}</div>
             ))}
+            {rbBannedPattern && (
+              <div style={{ padding: "4px 8px", background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.4)", borderRadius: 4, fontFamily: t.fontMono, fontSize: 11, color: "#EF4444", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", textDecoration: "line-through" }}>{rbBannedPattern}</div>
+            )}
           </div>
         </div>
       )}
@@ -463,7 +467,7 @@ export function MatchSidebar({
 
 export function LeftPanel(props: MatchSidebarProps) {
   const { t, ip, p1c, p2c, pieceSkin, p1RttMs, p2RttMs, panelW, phase, current, gameNumber, matchHistory, seriesWinner,
-    gameMode, isRankedGame, isMultiplayerGame, isMultiplayer, mySlot, boardMode, selectedPatterns,
+    gameMode, isRankedGame, isMultiplayerGame, isMultiplayer, mySlot, boardMode, selectedPatterns, rbBannedPattern,
     p1Time, p2Time, readyTimeout, p1Ready, p2Ready,
     chatMessages, chatInput, chatOpen, chatWarning,
     p1Label, p2Label, p1Banner, p2Banner, winnerDisplayNameAction, lastSeries,
@@ -617,6 +621,9 @@ export function LeftPanel(props: MatchSidebarProps) {
             {selectedPatterns.map(p => (
               <div key={p} style={{ padding: "4px 8px", background: `${t.accent}1A`, border: `1px solid ${t.accent}44`, borderRadius: 4, fontFamily: t.fontMono, fontSize: 11, color: t.accent, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em" }}>{p}</div>
             ))}
+            {rbBannedPattern && (
+              <div style={{ padding: "4px 8px", background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.4)", borderRadius: 4, fontFamily: t.fontMono, fontSize: 11, color: "#EF4444", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", textDecoration: "line-through" }}>{rbBannedPattern}</div>
+            )}
           </div>
         </div>
       )}

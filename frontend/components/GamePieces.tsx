@@ -7,7 +7,8 @@ export type Phase =
   | "playing" | "waiting_ready" | "match_over"
   | "rb_splash" | "rb_coin"
   | "rule_choice" | "who_first_winner" | "c3_choice"
-  | "c3_choice_loser" | "who_first_loser" | "toss_summary" | "rb_initializing";
+  | "c3_choice_loser" | "who_first_loser" | "toss_summary" | "rb_initializing"
+  | "ban_pattern_winner" | "ban_pattern_loser";
 
 // ─── Piece ────────────────────────────────────────────────────────────────────
 

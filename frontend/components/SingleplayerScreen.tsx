@@ -104,6 +104,11 @@ export default function SingleplayerScreen({ setScreenAction, themeId, onHoverAc
     });
   };
 
+  const selectAllPatterns = () => {
+    onHoverAction?.();
+    setSelectedPatterns(new Set(PATTERN_NAMES_7));
+  };
+
   const goBack = () => {
     if (step === "patterns") {
       setStep("mode");
@@ -114,7 +119,7 @@ export default function SingleplayerScreen({ setScreenAction, themeId, onHoverAc
   };
 
   const proceedFromPatterns = () => {
-    if (selectedPatterns.size >= 1) {
+    if (selectedPatterns.size >= 4) {
       onBoardModeAction?.("7x7", Array.from(selectedPatterns));
     }
   };
@@ -192,7 +197,7 @@ export default function SingleplayerScreen({ setScreenAction, themeId, onHoverAc
                   <div style={{ fontFamily: t.fontBody, fontSize: ip ? 12 : 14, color: t.textMuted, lineHeight: 1.5 }}>
                     {mode === "5x5"
                       ? "Standard board — 5-in-a-line, V/L/W patterns, 10-cell chain. Local pass-and-play."
-                      : "Larger board — 7-in-a-line, choose 3 of 6 special patterns, 20-cell chain. Local pass-and-play."
+                      : "Larger board — 7-in-a-line, choose 4–6 of 6 special patterns, 20-cell chain. Local pass-and-play."
                     }
                   </div>
                 </button>
@@ -220,15 +225,44 @@ export default function SingleplayerScreen({ setScreenAction, themeId, onHoverAc
             fontFamily: t.fontBody, fontSize: 14, color: t.textMuted, textAlign: "center", maxWidth: 500,
             lineHeight: 1.6,
           }}>
-            Choose <span style={{ color: t.accent, fontWeight: 700 }}>1 to 6</span> special winning patterns for this game.
+            Choose <span style={{ color: t.accent, fontWeight: 700 }}>4 to 6</span> special winning patterns for this game.
             These patterns (plus 7-in-a-line, diagonals, and 20-cell chain) will be the win conditions.
           </div>
 
           <div style={{
-            fontFamily: t.fontMono, fontSize: 12, color: selectedPatterns.size >= 1 ? "#22C55E" : t.textMuted,
-            letterSpacing: "0.1em", transition: "color 0.2s",
+            display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "center", gap: 12,
+            width: "100%", maxWidth: 660,
           }}>
-            {selectedPatterns.size} SELECTED
+            <div style={{
+              fontFamily: t.fontMono, fontSize: 12, color: selectedPatterns.size >= 4 ? "#22C55E" : t.textMuted,
+              letterSpacing: "0.1em", transition: "color 0.2s",
+            }}>
+              {selectedPatterns.size} / 4–6 SELECTED
+            </div>
+            <button
+              type="button"
+              onClick={selectAllPatterns}
+              style={{
+                fontFamily: t.fontDisplay, fontSize: ip ? 11 : 13, fontWeight: 800,
+                letterSpacing: "0.08em",
+                padding: "8px 18px", borderRadius: ip ? 2 : 8,
+                cursor: "pointer",
+                background: `${t.accent}22`,
+                border: `2px solid ${t.accent}`,
+                color: t.accent,
+                transition: "all 0.2s",
+              }}
+              onMouseEnter={e => {
+                e.currentTarget.style.background = t.accent;
+                e.currentTarget.style.color = "#000";
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.background = `${t.accent}22`;
+                e.currentTarget.style.color = t.accent;
+              }}
+            >
+              SELECT ALL 6
+            </button>
           </div>
 
           <div style={{
@@ -298,16 +332,16 @@ export default function SingleplayerScreen({ setScreenAction, themeId, onHoverAc
 
           <button
             onClick={proceedFromPatterns}
-            disabled={selectedPatterns.size < 1}
+            disabled={selectedPatterns.size < 4}
             style={{
-              background: selectedPatterns.size >= 1 ? t.accent : `${t.accent}33`,
-              border: `2px solid ${selectedPatterns.size >= 1 ? t.accent : t.border}`,
-              color: selectedPatterns.size >= 1 ? "#000" : t.textMuted,
+              background: selectedPatterns.size >= 4 ? t.accent : `${t.accent}33`,
+              border: `2px solid ${selectedPatterns.size >= 4 ? t.accent : t.border}`,
+              color: selectedPatterns.size >= 4 ? "#000" : t.textMuted,
               fontFamily: t.fontDisplay, fontSize: 16, fontWeight: 700,
               padding: "14px 52px", borderRadius: ip ? 2 : 10,
-              cursor: selectedPatterns.size >= 1 ? "pointer" : "not-allowed",
+              cursor: selectedPatterns.size >= 4 ? "pointer" : "not-allowed",
               letterSpacing: "0.06em", transition: "all 0.3s",
-              boxShadow: selectedPatterns.size >= 1 ? `0 0 24px ${t.accentGlow}44` : "none",
+              boxShadow: selectedPatterns.size >= 4 ? `0 0 24px ${t.accentGlow}44` : "none",
             }}
           >
             START MATCH →

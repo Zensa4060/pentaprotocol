@@ -218,6 +218,7 @@ interface Props {
 export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, gameMode = "singleplayer", difficulty = "medium", setScreenAction, roomCode, playerSlot, playHoverAction, playPlaceAction, playVictoryAction, playDefeatAction, playRulebreakerAction, playTransitionAction, playClickAction, p1Name, matchupData, boardMode = "5x5", selectedPatterns = [] }: Props) {
   const GRID_SIZE = boardMode === "7x7" ? 7 : 5;
   const CENTER = boardMode === "7x7" ? 3 : 2;
+  const is7x7 = boardMode === "7x7";
   const { user } = useAuthStore();
   const t = THEMES[themeId];
   const ip = themeId === "pixel";
@@ -464,6 +465,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   const [tossWinner, setTossWinner] = useState<"P1" | "P2" | null>(null);
   const [firstPlayerChosen, setFirstPlayerChosen] = useState<string | null>(null);
   const [rbC3Blocked, setRbC3Blocked] = useState(false);
+  const [rbBannedPattern, setRbBannedPattern] = useState<string | null>(null);
   const [summaryTimer, setSummaryTimer] = useState(5);
   const [choiceTimer, setChoiceTimer] = useState(0);
   const [overlayVisible, setOverlayVisible] = useState(false);
@@ -471,6 +473,11 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
 
   // Mobile log drawer
   const [showMobileLog, setShowMobileLog] = useState(false);
+
+  const activePatterns = useMemo(
+    () => rbBannedPattern ? selectedPatterns.filter(p => p !== rbBannedPattern) : selectedPatterns,
+    [selectedPatterns, rbBannedPattern],
+  );
 
   // ── Timer values stored in refs so rAF can read/write without setState loops ──
   const p1TimeRef = useRef(180000);
@@ -485,7 +492,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     p1Ready: false, p2Ready: false, readyTimeout: 60, readyTimer: 0,
     coinResult: null as "PENTA" | "PROTO" | null, matchOver: false, gameNumber: 1,
     matchHistory: [] as string[], firstPlayerChosen: null as string | null,
-    tossWinner: null as "P1" | "P2" | null, rbC3Blocked: false, summaryTimer: 5, choiceTimer: 0,
+    tossWinner: null as "P1" | "P2" | null, rbC3Blocked: false, rbBannedPattern: null as string | null, summaryTimer: 5, choiceTimer: 0,
   });
   R.current.phase = phase;
   R.current.current = current;
@@ -501,6 +508,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   R.current.firstPlayerChosen = firstPlayerChosen;
   R.current.tossWinner = tossWinner;
   R.current.rbC3Blocked = rbC3Blocked;
+  R.current.rbBannedPattern = rbBannedPattern;
   R.current.summaryTimer = summaryTimer;
   R.current.choiceTimer = choiceTimer;
 
@@ -704,7 +712,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
           const { action, payload } = msg;
           if (action === "start_rb") {
             const _curPhase = R.current.phase;
-            const _rbPhases = ["rb_splash", "rb_coin", "rule_choice", "who_first_winner", "c3_choice", "c3_choice_loser", "who_first_loser", "toss_summary"];
+            const _rbPhases = ["rb_splash", "rb_coin", "rule_choice", "who_first_winner", "c3_choice", "c3_choice_loser", "who_first_loser", "ban_pattern_winner", "ban_pattern_loser", "toss_summary"];
             if (_rbPhases.includes(_curPhase)) {
               // already in rulebreaker
             } else setTimeout(() => {
@@ -713,7 +721,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
               setCoinFlipTimer(rbCoinFlipSeconds); setCoinRevealTimer(0); setCoinResult(null);
               coinAngleRef.current = 0; coinFrameRef.current = 0; setCoinAngle(0);
               coinStartTimeRef.current = 0; // will be set when rb_coin phase starts
-              setTossWinner(null); setFirstPlayerChosen(null); setRbC3Blocked(false);
+              setTossWinner(null); setFirstPlayerChosen(null); setRbC3Blocked(false); setRbBannedPattern(null);
               setWinnerPickedRule(null); setWinnerPickedFirst(null); setWinnerPickedC3(null);
               playRulebreakerAction?.();
             }, 200);
@@ -735,6 +743,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
             if (payload.winnerPickedRule !== undefined) setWinnerPickedRule(payload.winnerPickedRule);
             if (payload.winnerPickedFirst !== undefined) setWinnerPickedFirst(payload.winnerPickedFirst);
             if (payload.winnerPickedC3 !== undefined) setWinnerPickedC3(payload.winnerPickedC3);
+            if (payload.rbBannedPattern !== undefined) setRbBannedPattern(payload.rbBannedPattern);
           }
         } else if (msg.type === "pong") {
           const sentTs = asNum(msg.ts ?? pingOutstandingRef.current);
@@ -793,7 +802,12 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     if (winner) return;
 
     let cancelled = false;
-    const delays: Record<string, number> = { easy: 400, medium: 850, hard: 1800 };
+    const is7x7 = boardMode === "7x7";
+    const delays: Record<string, number> = {
+      easy: 400, medium: 850,
+      hard: is7x7 ? 0 : 1800,
+      danger: is7x7 ? 0 : 3000,
+    };
     const delay = delays[difficulty] ?? 850;
 
     setBotThinking(true);
@@ -804,7 +818,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
         const res = await API.post("/api/bot/move", {
           board: boardRef.current, difficulty, current_player: "P2",
           board_mode: boardMode || (boardRef.current?.length === 7 ? "7x7" : "5x5"),
-          selected_patterns: selectedPatterns,
+          selected_patterns: activePatterns,
           c3_blocked: c3Blocked,
           moves_played: movesPlayedRef.current,
         });
@@ -820,7 +834,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
 
     return () => { cancelled = true; clearTimeout(timer); setBotThinking(false); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [botTurnKey, phase, winner, gameMode, boardMode, selectedPatterns, difficulty]);
+  }, [botTurnKey, phase, winner, gameMode, boardMode, activePatterns, difficulty]);
 
   const initBoard = async (firstPlayer: string, c3block = false) => {
     setBoard(emptyBoard());
@@ -866,7 +880,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     matchHistoryRef.current = []; setGameNumber(1); setMatchHistory([]); setMatchOver(false); setSeriesWinner(null);
     setP1Ready(false); setP2Ready(false); setReadyTimeout(60); setReadyTimer(0);
     setRbSplashTimer(5); setCoinFlipTimer(rbCoinFlipSeconds); setCoinRevealTimer(0); setCoinResult(null);
-    setCoinAngle(0); setTossWinner(null); setFirstPlayerChosen(null); setRbC3Blocked(false);
+    setCoinAngle(0); setTossWinner(null); setFirstPlayerChosen(null); setRbC3Blocked(false); setRbBannedPattern(null);
     setSummaryTimer(5); setOverlayVisible(false); setChoiceTimer(0);
     setShowRematch(false); setRematchRequested(null);
     setWinnerPickedRule(null); setWinnerPickedFirst(null); setWinnerPickedC3(null);
@@ -916,7 +930,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   const lastMatchupSec = useRef(-1);
 
   useEffect(() => {
-    const tossChoicePhases: Phase[] = ["rule_choice", "who_first_winner", "c3_choice", "c3_choice_loser", "who_first_loser"];
+    const tossChoicePhases: Phase[] = ["rule_choice", "who_first_winner", "c3_choice", "c3_choice_loser", "who_first_loser", "ban_pattern_winner", "ban_pattern_loser"];
     const tick = () => {
       rafHandle.current = requestAnimationFrame(tick);
       const now = Date.now();
@@ -1114,11 +1128,26 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   const autoPickLeft = (p: Phase) => {
     const tw = R.current.tossWinner;
     const tl = tw === "P1" ? "P2" : "P1";
-    if (p === "rule_choice") setPhase("who_first_winner");
-    else if (p === "who_first_winner") { setFirstPlayerChosen(tw); setPhase("c3_choice_loser"); }
+    if (p === "rule_choice") {
+      if (is7x7) { setWinnerPickedRule("first"); setPhase("who_first_winner"); }
+      else { setPhase("who_first_winner"); }
+    }
+    else if (p === "who_first_winner") {
+      setFirstPlayerChosen(tw);
+      if (is7x7) { setPhase("ban_pattern_loser"); }
+      else { setPhase("c3_choice_loser"); }
+    }
     else if (p === "c3_choice") { setRbC3Blocked(true); setPhase("who_first_loser"); }
     else if (p === "c3_choice_loser") { setRbC3Blocked(true); setSummaryTimer(5); setPhase("toss_summary"); }
     else if (p === "who_first_loser") { setFirstPlayerChosen(tl); setSummaryTimer(5); setPhase("toss_summary"); }
+    else if (p === "ban_pattern_winner") {
+      const first = selectedPatterns[0] ?? null;
+      setRbBannedPattern(first); setSummaryTimer(5); setPhase("who_first_loser");
+    }
+    else if (p === "ban_pattern_loser") {
+      const first = selectedPatterns[0] ?? null;
+      setRbBannedPattern(first); setSummaryTimer(5); setPhase("toss_summary");
+    }
   };
   const doAdvanceAfterReady = () => {
     const gn = R.current.gameNumber;
@@ -1138,7 +1167,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
         setGameNumber(3); setPhase("rb_splash"); playRulebreakerAction?.();
         setRbSplashTimer(5); setCoinFlipTimer(rbCoinFlipSeconds); setCoinRevealTimer(0);
         setCoinResult(null); setCoinAngle(0); setTossWinner(null);
-        setFirstPlayerChosen(null); setRbC3Blocked(false); setSummaryTimer(5);
+        setFirstPlayerChosen(null); setRbC3Blocked(false); setRbBannedPattern(null); setSummaryTimer(5);
       }
     } else {
       setGameNumber(2); setPhase("playing"); initBoard("P2");
@@ -1231,7 +1260,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     if (newMoves === 1 && r === CENTER && c === CENTER) { nextPlayer = "P1"; newExtra = 2; }
     else if (newExtra > 0) { newExtra--; if (newExtra === 0) nextPlayer = "P1"; else nextPlayer = "P2"; }
     else { nextPlayer = "P1"; }
-    const result = boardMode === "7x7" ? checkWin7(nb, r, c, playerWhoMoved, newMoves, selectedPatterns) : checkWin(nb, r, c, playerWhoMoved, newMoves);
+    const result = boardMode === "7x7" ? checkWin7(nb, r, c, playerWhoMoved, newMoves, activePatterns) : checkWin(nb, r, c, playerWhoMoved, newMoves);
     setBoard(nb); setMovesPlayed(newMoves); addLog(r, c, playerWhoMoved);
     if (result) { setExtraTurns(0); setWinLine(result.line); setWinner(result.winner); }
     else { setExtraTurns(newExtra); setCurrent(nextPlayer); }
@@ -1260,7 +1289,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     else if (newExtra > 0) { newExtra--; if (newExtra === 0) nextPlayer = current === "P1" ? "P2" : "P1"; }
     else { nextPlayer = current === "P1" ? "P2" : "P1"; }
     if (c3Blocked && newMoves === 1) setC3Blocked(false);
-    const result = boardMode === "7x7" ? checkWin7(nb, r, c, playerWhoMoved, newMoves, selectedPatterns) : checkWin(nb, r, c, playerWhoMoved, newMoves);
+    const result = boardMode === "7x7" ? checkWin7(nb, r, c, playerWhoMoved, newMoves, activePatterns) : checkWin(nb, r, c, playerWhoMoved, newMoves);
     setBoard(nb); setMovesPlayed(newMoves); addLog(r, c, playerWhoMoved);
     if (result) { setExtraTurns(0); setWinLine(result.line); setWinner(result.winner); }
     else { setExtraTurns(newExtra); setCurrent(nextPlayer); }
@@ -1384,31 +1413,54 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
 
   const onLeftAction = useCallback(() => {
     const p = R.current.phase; const tw = R.current.tossWinner; const tl = tw === "P1" ? "P2" : "P1";
-    if (p === "rule_choice") { setWinnerPickedRule("first"); setPhase("who_first_winner"); broadcastTossPhase("who_first_winner", { winnerPickedRule: "first" }); }
-    else if (p === "who_first_winner") { setFirstPlayerChosen(tw); setWinnerPickedFirst(tw ?? null); setPhase("c3_choice_loser"); broadcastTossPhase("c3_choice_loser", { firstPlayerChosen: tw, winnerPickedFirst: tw }); }
+    if (p === "rule_choice") {
+      setWinnerPickedRule("first"); setPhase("who_first_winner"); broadcastTossPhase("who_first_winner", { winnerPickedRule: "first" });
+    }
+    else if (p === "who_first_winner") {
+      setFirstPlayerChosen(tw); setWinnerPickedFirst(tw ?? null);
+      if (is7x7) { setPhase("ban_pattern_loser"); broadcastTossPhase("ban_pattern_loser", { firstPlayerChosen: tw, winnerPickedFirst: tw }); }
+      else { setPhase("c3_choice_loser"); broadcastTossPhase("c3_choice_loser", { firstPlayerChosen: tw, winnerPickedFirst: tw }); }
+    }
     else if (p === "c3_choice") { setRbC3Blocked(true); setWinnerPickedC3(true); setPhase("who_first_loser"); broadcastTossPhase("who_first_loser", { rbC3Blocked: true, winnerPickedC3: true }); }
     else if (p === "c3_choice_loser") { setRbC3Blocked(true); setSummaryTimer(5); setPhase("toss_summary"); broadcastTossPhase("toss_summary", { rbC3Blocked: true, summaryTimer: 5 }); }
     else if (p === "who_first_loser") { setFirstPlayerChosen(tl); setSummaryTimer(5); setPhase("toss_summary"); broadcastTossPhase("toss_summary", { firstPlayerChosen: tl, summaryTimer: 5 }); }
-  }, [broadcastTossPhase]);
+  }, [broadcastTossPhase, is7x7]);
 
   const onRightAction = useCallback(() => {
     const p = R.current.phase; const tw = R.current.tossWinner; const tl = tw === "P1" ? "P2" : "P1";
-    if (p === "rule_choice") { setWinnerPickedRule("c3"); setPhase("c3_choice"); broadcastTossPhase("c3_choice", { winnerPickedRule: "c3" }); }
-    else if (p === "who_first_winner") { setFirstPlayerChosen(tl); setWinnerPickedFirst(tl ?? null); setPhase("c3_choice_loser"); broadcastTossPhase("c3_choice_loser", { firstPlayerChosen: tl, winnerPickedFirst: tl }); }
+    if (p === "rule_choice") {
+      if (is7x7) { setWinnerPickedRule("ban"); setPhase("ban_pattern_winner"); broadcastTossPhase("ban_pattern_winner", { winnerPickedRule: "ban" }); }
+      else { setWinnerPickedRule("c3"); setPhase("c3_choice"); broadcastTossPhase("c3_choice", { winnerPickedRule: "c3" }); }
+    }
+    else if (p === "who_first_winner") {
+      setFirstPlayerChosen(tl); setWinnerPickedFirst(tl ?? null);
+      if (is7x7) { setPhase("ban_pattern_loser"); broadcastTossPhase("ban_pattern_loser", { firstPlayerChosen: tl, winnerPickedFirst: tl }); }
+      else { setPhase("c3_choice_loser"); broadcastTossPhase("c3_choice_loser", { firstPlayerChosen: tl, winnerPickedFirst: tl }); }
+    }
     else if (p === "c3_choice") { setRbC3Blocked(false); setWinnerPickedC3(false); setPhase("who_first_loser"); broadcastTossPhase("who_first_loser", { rbC3Blocked: false, winnerPickedC3: false }); }
     else if (p === "c3_choice_loser") { setRbC3Blocked(false); setSummaryTimer(5); setPhase("toss_summary"); broadcastTossPhase("toss_summary", { rbC3Blocked: false, summaryTimer: 5 }); }
     else if (p === "who_first_loser") { setFirstPlayerChosen(tw); setSummaryTimer(5); setPhase("toss_summary"); broadcastTossPhase("toss_summary", { firstPlayerChosen: tw, summaryTimer: 5 }); }
+  }, [broadcastTossPhase, is7x7]);
+
+  const onBanPattern = useCallback((patternName: string) => {
+    const p = R.current.phase;
+    setRbBannedPattern(patternName);
+    if (p === "ban_pattern_winner") {
+      setPhase("who_first_loser"); broadcastTossPhase("who_first_loser", { rbBannedPattern: patternName });
+    } else if (p === "ban_pattern_loser") {
+      setSummaryTimer(5); setPhase("toss_summary"); broadcastTossPhase("toss_summary", { rbBannedPattern: patternName, summaryTimer: 5 });
+    }
   }, [broadcastTossPhase]);
 
   // ── Bot auto-picks during Rulebreaker choice phases ───────────────────────
   useEffect(() => {
     if (gameMode !== "ai") return;
 
-    const winnerPhases: Phase[] = ["rule_choice", "who_first_winner", "c3_choice"];
-    const loserPhases: Phase[] = ["c3_choice_loser", "who_first_loser"];
+    const winnerPhases: Phase[] = ["rule_choice", "who_first_winner", "c3_choice", "ban_pattern_winner"];
+    const loserPhases: Phase[] = ["c3_choice_loser", "who_first_loser", "ban_pattern_loser"];
 
     const isBotWinner = tossWinner === "P2";
-    const isBotLoser = tossWinner === "P1"; // P2 is always bot
+    const isBotLoser = tossWinner === "P1";
 
     const isBotTurn =
       (winnerPhases.includes(phase) && isBotWinner) ||
@@ -1416,20 +1468,28 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
 
     if (!isBotTurn) return;
 
-    // Random delay to feel natural (0.8s–2.0s)
     const delay = 800 + Math.random() * 1200;
     const timer = setTimeout(() => {
-      const pick = Math.random() < 0.5 ? "left" : "right";
-      setBotPickedSide(pick);
-      // Short delay so the player can see what bot chose before phase advances
-      setTimeout(() => {
-        setBotPickedSide(null);
-        if (pick === "left") onLeftAction(); else onRightAction();
-      }, 900);
+      if (phase === "ban_pattern_winner" || phase === "ban_pattern_loser") {
+        const rndIdx = Math.floor(Math.random() * selectedPatterns.length);
+        const patToBan = selectedPatterns[rndIdx] ?? selectedPatterns[0];
+        setBotPickedSide("left");
+        setTimeout(() => {
+          setBotPickedSide(null);
+          onBanPattern(patToBan);
+        }, 900);
+      } else {
+        const pick = Math.random() < 0.5 ? "left" : "right";
+        setBotPickedSide(pick);
+        setTimeout(() => {
+          setBotPickedSide(null);
+          if (pick === "left") onLeftAction(); else onRightAction();
+        }, 900);
+      }
     }, delay);
 
     return () => clearTimeout(timer);
-  }, [phase, tossWinner, gameMode, onLeftAction, onRightAction]);
+  }, [phase, tossWinner, gameMode, onLeftAction, onRightAction, onBanPattern, selectedPatterns]);
 
   const cc = current === "P1" ? p1c : p2c;
   const cp = current === "P1" ? t.pieces.p1 : t.pieces.p2;
@@ -1544,7 +1604,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   );
 
 
-  const rbPhases: Phase[] = ["rb_splash", "rb_coin", "rule_choice", "who_first_winner", "c3_choice", "c3_choice_loser", "who_first_loser", "toss_summary", "rb_initializing"];
+  const rbPhases: Phase[] = ["rb_splash", "rb_coin", "rule_choice", "who_first_winner", "c3_choice", "c3_choice_loser", "who_first_loser", "ban_pattern_winner", "ban_pattern_loser", "toss_summary", "rb_initializing"];
   const rbOverlay = rbPhases.includes(phase) && (
       <RulebreakerFlow
         phase={phase} t={t} ip={ip} p1c={p1c} p2c={p2c}
@@ -1560,6 +1620,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
         wraithKingToss={wraithKingTossActive}
         rbCoinPendingResult={rbCoinPendingResult}
         onLeftAction={onLeftAction} onRightAction={onRightAction} fmtSecAction={fmtSecAction}
+        is7x7={is7x7} selectedPatterns={selectedPatterns} rbBannedPattern={rbBannedPattern} onBanPattern={onBanPattern}
       />
   );
 
@@ -1901,7 +1962,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
         matchHistory={matchHistory} seriesWinner={seriesWinner} matchOver={matchOver}
         gameMode={gameMode} isRankedGame={isRankedGame} isMultiplayerGame={isMultiplayerGame}
         isMultiplayer={isMultiplayer} mySlot={mySlot}
-        boardMode={boardMode} selectedPatterns={selectedPatterns}
+        boardMode={boardMode} selectedPatterns={activePatterns} rbBannedPattern={rbBannedPattern}
         p1Time={p1Time} p2Time={p2Time} readyTimeout={readyTimeout}
         p1Ready={p1Ready} p2Ready={p2Ready}
         connectionScores={connectionScores}

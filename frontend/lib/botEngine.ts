@@ -546,7 +546,7 @@ function getEngine(): BotEngine {
     return _engine;
 }
 
-export type Difficulty = "easy" | "medium" | "hard";
+export type Difficulty = "easy" | "medium" | "hard" | "danger";
 
 /**
  * Main entry point for the frontend.

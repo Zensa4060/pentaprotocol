@@ -7,6 +7,7 @@ import { WraithKingCoinToss } from "./WraithKingCoinToss";
 
 export const PHASE_TIMERS: Partial<Record<Phase, number>> = {
   rule_choice: 10, who_first_winner: 10, c3_choice: 10, c3_choice_loser: 10, who_first_loser: 10,
+  ban_pattern_winner: 10, ban_pattern_loser: 10,
 };
 
 interface RulebreakerFlowProps {
@@ -45,6 +46,14 @@ interface RulebreakerFlowProps {
   wraithKingToss?: boolean;
   /** Pre-rolled face for authoritative client during toss (null for P2 until reveal) */
   rbCoinPendingResult?: "PENTA" | "PROTO" | null;
+  /** 7x7 mode flag for pattern-ban rulebreaker */
+  is7x7?: boolean;
+  /** Currently selected pattern names */
+  selectedPatterns?: string[];
+  /** Pattern banned during rulebreaker */
+  rbBannedPattern?: string | null;
+  /** Called when a player bans a pattern */
+  onBanPattern?: (patternName: string) => void;
 }
 
 export function RulebreakerFlow({
@@ -58,6 +67,10 @@ export function RulebreakerFlow({
   p1Label: p1LabelProp, p2Label: p2LabelProp,
   wraithKingToss = false,
   rbCoinPendingResult = null,
+  is7x7 = false,
+  selectedPatterns = [],
+  rbBannedPattern = null,
+  onBanPattern,
 }: RulebreakerFlowProps) {
 
   const p1Name = p1LabelProp ?? "P1";
@@ -270,13 +283,18 @@ export function RulebreakerFlow({
     );
   }
 
-  // ── toss choice phases ─────────────────────────────────────────────────────
+  // ── toss choice phases (card-based left/right) ─────────────────────────────
   const tossChoicePhases: Phase[] = ["rule_choice","who_first_winner","c3_choice","c3_choice_loser","who_first_loser"];
   if (tossChoicePhases.includes(phase)) {
     const winCol   = tossWinner === "P1" ? p1c : p2c;
     const loseCol  = tossLoser  === "P1" ? p1c : p2c;
     let title="", leftLabel="", rightLabel="", actor="", actorCol=winCol;
-    if (phase==="rule_choice")      { title=`${nameOf(tossWinner!)} WON THE TOSS — CHOOSE YOUR RULE`; leftLabel="DECIDE WHO\nPLAYS FIRST"; rightLabel="BLOCK C3\nFIRST MOVE"; actor=nameOf(tossWinner!); actorCol=winCol; }
+    if (phase==="rule_choice") {
+      title=`${nameOf(tossWinner!)} WON THE TOSS — CHOOSE YOUR RULE`;
+      leftLabel="DECIDE WHO\nPLAYS FIRST";
+      rightLabel= is7x7 ? "BAN A\nPATTERN" : "BLOCK C3\nFIRST MOVE";
+      actor=nameOf(tossWinner!); actorCol=winCol;
+    }
     if (phase==="who_first_winner") { title=`${nameOf(tossWinner!)} — WHO PLAYS FIRST IN ROUND 3?`; leftLabel=`${nameOf(tossWinner!)}\nPLAYS FIRST`; rightLabel=`${nameOf(tossLoser)}\nPLAYS FIRST`; actor=nameOf(tossWinner!); actorCol=winCol; }
     if (phase==="c3_choice")        { title=`${nameOf(tossWinner!)} — CHOOSE C3 RULE`; leftLabel="BLOCK C3"; rightLabel="ALLOW C3"; actor=nameOf(tossWinner!); actorCol=winCol; }
     if (phase==="c3_choice_loser")  { title=`${nameOf(tossLoser)} — CHOOSE C3 RULE`; leftLabel="BLOCK C3"; rightLabel="ALLOW C3"; actor=nameOf(tossLoser); actorCol=loseCol; }
@@ -322,8 +340,11 @@ const isBotChoosing = isBotTurnToChoose;
             {phase === "c3_choice_loser" && winnerPickedFirst && (
               <div style={{ fontFamily:t.fontDisplay, fontSize:18, fontWeight:700, color:winCol }}>PLAYS FIRST: {nameOf(winnerPickedFirst)}</div>
             )}
-            {phase === "who_first_loser" && winnerPickedC3 !== null && (
+            {phase === "who_first_loser" && !is7x7 && winnerPickedC3 !== null && (
               <div style={{ fontFamily:t.fontDisplay, fontSize:18, fontWeight:700, color:winCol }}>C3: {winnerPickedC3 ? "BLOCKED" : "ALLOWED"}</div>
+            )}
+            {phase === "who_first_loser" && is7x7 && rbBannedPattern && (
+              <div style={{ fontFamily:t.fontDisplay, fontSize:18, fontWeight:700, color:"#EF4444" }}>BANNED: {({"H":"H-SHAPE","L":"L-SHAPE","W":"W-SHAPE","V":"V-SHAPE","C":"C-SHAPE","zigzag":"ZIGZAG"} as Record<string,string>)[rbBannedPattern] || rbBannedPattern.toUpperCase()}</div>
             )}
           </div>
         )}
@@ -369,16 +390,139 @@ const isBotChoosing = isBotTurnToChoose;
     );
   }
 
+  // ── ban_pattern_winner / ban_pattern_loser ──────────────────────────────────
+  if (phase === "ban_pattern_winner" || phase === "ban_pattern_loser") {
+    const isWinnerBanning = phase === "ban_pattern_winner";
+    const banActor = isWinnerBanning ? tossWinner! : tossLoser;
+    const actorCol = banActor === "P1" ? p1c : p2c;
+    const title = `${nameOf(banActor)} — BAN ONE PATTERN`;
+
+    const maxTime = PHASE_TIMERS[phase] ?? 60;
+    const pct = Math.max(0, choiceTimer / maxTime);
+    const urgent = choiceTimer <= 10;
+
+    const winnerPhases = ["ban_pattern_winner"];
+    const loserPhases  = ["ban_pattern_loser"];
+    const isMyTurn = !isMultiplayerGame ||
+      (winnerPhases.includes(phase) && mySlot === tossWinner) ||
+      (loserPhases.includes(phase) && mySlot === tossLoser);
+
+    const isBotTurnToChoose = gameMode === "ai" && (
+      (isWinnerBanning && tossWinner === "P2") ||
+      (!isWinnerBanning && tossWinner === "P1")
+    );
+
+    const PATTERN_LABELS: Record<string, string> = {
+      H: "H-SHAPE", L: "L-SHAPE", W: "W-SHAPE", V: "V-SHAPE", C: "C-SHAPE", zigzag: "ZIGZAG",
+    };
+
+    return (
+      <div className="phase-screen" style={{ position:"fixed", top:0, left:0, right:0, bottom:0, zIndex:10000, overflowY:"auto", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", background:t.bg, padding:"40px 24px", gap:20, userSelect:"none" }}>
+        <style>{`@keyframes cardSlideIn{from{opacity:0;transform:translateY(22px)}to{opacity:1;transform:translateY(0)}} .toss-card-enter{animation:cardSlideIn 0.45s cubic-bezier(.22,.68,0,1.2) both;}`}</style>
+
+        <div style={{ fontFamily:t.fontDisplay, fontSize:"clamp(13px,1.8vw,22px)", fontWeight:700, color:t.accent, textAlign:"center", maxWidth:800 }}>{title}</div>
+
+        <div style={{ fontFamily:t.fontBody, fontSize:14, color:t.textMuted, textAlign:"center", maxWidth:500 }}>
+          Choose one pattern to <span style={{ color: "#EF4444", fontWeight: 700 }}>remove</span> from Round 3.
+          The remaining patterns will be the win conditions.
+        </div>
+
+        {isBotTurnToChoose && !botPickedSide && (
+          <div style={{ display:"flex", alignItems:"center", gap:10, padding:"10px 20px", background:`${actorCol}10`, border:`1px solid ${actorCol}33`, borderRadius:ip?2:10, animation:"fadeUp 0.3s ease both" }}>
+            <div style={{ display:"flex", gap:6 }}>
+              {[0,1,2].map(i => (
+                <div key={i} style={{ width:7, height:7, borderRadius:"50%", background:actorCol, opacity:0.7, animation:`botPulse 1.2s ease-in-out ${i*0.25}s infinite` }}/>
+              ))}
+            </div>
+            <span style={{ fontFamily:t.fontMono, fontSize:12, color:actorCol, letterSpacing:"0.12em" }}>BOT IS CHOOSING...</span>
+          </div>
+        )}
+
+        <div style={{ width:"min(480px,88vw)", display:"flex", flexDirection:"column", gap:6 }}>
+          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+            <span style={{ fontFamily:t.fontMono, fontSize:11, color:t.textMuted, letterSpacing:"0.12em" }}>{nameOf(banActor)} IS CHOOSING</span>
+            <span style={{ fontFamily:t.fontMono, fontSize:22, fontWeight:700, color:urgent?t.danger:actorCol, transition:"color 0.3s ease", animation:urgent?"urgentPulse 0.6s ease infinite":"none" }}>{fmtSecAction(choiceTimer)}s</span>
+          </div>
+          <div style={{ height:5, background:t.border, borderRadius:3, overflow:"hidden" }}>
+            <div style={{ height:"100%", width:`${pct*100}%`, borderRadius:3, transition:"width 1.05s linear, background 0.35s ease", background:urgent?t.danger:`linear-gradient(90deg, ${actorCol}, ${t.accent})`, boxShadow:urgent?`0 0 14px ${t.danger}88`:`0 0 10px ${actorCol}66` }}/>
+          </div>
+        </div>
+
+        <div style={{
+          display:"grid", gridTemplateColumns:"repeat(auto-fit, minmax(160px, 1fr))",
+          gap:12, width:"100%", maxWidth:660,
+          pointerEvents: (isMyTurn && !isBotTurnToChoose) ? "auto" : "none",
+        }}>
+          {selectedPatterns.map((name, i) => {
+            const label = PATTERN_LABELS[name] || name.toUpperCase();
+            return (
+              <button
+                key={name}
+                onClick={() => onBanPattern?.(name)}
+                className="toss-card-enter"
+                style={{
+                  animationDelay: `${i * 0.06}s`,
+                  background: `linear-gradient(145deg, rgba(239,68,68,0.08), ${t.bgCard})`,
+                  border: `2px solid ${t.border}`,
+                  borderRadius: ip ? 2 : 14,
+                  padding: "20px 16px",
+                  cursor: "pointer",
+                  textAlign: "center",
+                  transition: "all 0.25s cubic-bezier(.22,.68,0,1.2)",
+                  minHeight: 80,
+                  display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 6,
+                }}
+                onMouseEnter={e => {
+                  (e.currentTarget as HTMLButtonElement).style.border = "2px solid #EF4444";
+                  (e.currentTarget as HTMLButtonElement).style.background = "linear-gradient(145deg, rgba(239,68,68,0.18), rgba(0,0,0,0.4))";
+                  (e.currentTarget as HTMLButtonElement).style.transform = "translateY(-4px) scale(1.03)";
+                  (e.currentTarget as HTMLButtonElement).style.boxShadow = "0 12px 32px rgba(239,68,68,0.2)";
+                }}
+                onMouseLeave={e => {
+                  (e.currentTarget as HTMLButtonElement).style.border = `2px solid ${t.border}`;
+                  (e.currentTarget as HTMLButtonElement).style.background = `linear-gradient(145deg, rgba(239,68,68,0.08), ${t.bgCard})`;
+                  (e.currentTarget as HTMLButtonElement).style.transform = "translateY(0) scale(1)";
+                  (e.currentTarget as HTMLButtonElement).style.boxShadow = "none";
+                }}
+              >
+                <div style={{ fontFamily:t.fontDisplay, fontSize:16, fontWeight:700, color:t.text, letterSpacing:"0.06em" }}>{label}</div>
+                <div style={{ fontFamily:t.fontMono, fontSize:11, color:"#EF4444", letterSpacing:"0.1em", fontWeight:600 }}>BAN</div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
   // ── toss_summary ───────────────────────────────────────────────────────────
   if (phase === "toss_summary") {
     const fp = firstPlayerChosen ?? tossWinner ?? "P1";
     const winnerPickedFirstTurn = winnerPickedRule === "first";
-    const winnerChoice = winnerPickedFirstTurn
-      ? `PLAYS FIRST:\n${fp}`
-      : `C3: ${rbC3Blocked ? "BLOCKED" : "ALLOWED"}`;
-    const loserChoice = winnerPickedFirstTurn
-      ? `C3: ${rbC3Blocked ? "BLOCKED" : "ALLOWED"}`
-      : `PLAYS FIRST:\n${fp}`;
+
+    const PATTERN_LABELS_SUMMARY: Record<string, string> = {
+      H: "H-SHAPE", L: "L-SHAPE", W: "W-SHAPE", V: "V-SHAPE", C: "C-SHAPE", zigzag: "ZIGZAG",
+    };
+
+    let winnerChoice: string;
+    let loserChoice: string;
+    if (is7x7) {
+      const bannedLabel = rbBannedPattern ? (PATTERN_LABELS_SUMMARY[rbBannedPattern] || rbBannedPattern.toUpperCase()) : "NONE";
+      if (winnerPickedFirstTurn) {
+        winnerChoice = `PLAYS FIRST:\n${fp}`;
+        loserChoice = `BANNED:\n${bannedLabel}`;
+      } else {
+        winnerChoice = `BANNED:\n${bannedLabel}`;
+        loserChoice = `PLAYS FIRST:\n${fp}`;
+      }
+    } else {
+      winnerChoice = winnerPickedFirstTurn
+        ? `PLAYS FIRST:\n${fp}`
+        : `C3: ${rbC3Blocked ? "BLOCKED" : "ALLOWED"}`;
+      loserChoice = winnerPickedFirstTurn
+        ? `C3: ${rbC3Blocked ? "BLOCKED" : "ALLOWED"}`
+        : `PLAYS FIRST:\n${fp}`;
+    }
 
     return (
       <div style={{ position:"fixed", top:0, left:0, right:0, bottom:0, zIndex:10000, overflowY:"auto", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", background:t.bg, padding:"40px 24px", gap:32, userSelect:"none", animation:"fadeUp 0.35s ease both" }}>
@@ -403,6 +547,7 @@ const isBotChoosing = isBotTurnToChoose;
             const rank = (typeof playerElo === "number") ? getRankData(playerElo) : null;
 
             const isWhoFirst = choice.includes("PLAYS FIRST");
+            const isBanned = choice.includes("BANNED");
             const firstSlot = choice.includes("P1") ? "P1" : "P2";
 
             return (
@@ -446,6 +591,23 @@ const isBotChoosing = isBotTurnToChoose;
         letterSpacing:"0.05em"
       }}>
         {nameOf(firstSlot)}
+      </div>
+    </>
+  ) : isBanned ? (
+    <>
+      <div style={{ fontFamily:t.fontMono, fontSize:14, color:t.textMuted, textTransform:"uppercase" }}>
+        Pattern Banned
+      </div>
+      <div style={{
+        fontFamily:t.fontDisplay,
+        fontSize:28,
+        fontWeight:900,
+        color:"#EF4444",
+        letterSpacing:"0.05em",
+        textDecoration:"line-through",
+        textDecorationColor:"rgba(239,68,68,0.6)",
+      }}>
+        {choice.replace("BANNED:\n", "")}
       </div>
     </>
   ) : (
