@@ -71,7 +71,7 @@ const MatchupOverlay = ({ matchupData, showMatchupOverlay, playerSlot, p1Name, u
     fontSize: "clamp(60px,12vw,160px)",
     fontWeight: 950,
     color: t.accent,
-    textShadow: `0 0 80px ${t.accent}AA`,
+    textShadow: `0 0 28px ${t.accent}66`,
     zIndex: 10,
     letterSpacing: "-0.05em"
   };
@@ -82,19 +82,10 @@ const MatchupOverlay = ({ matchupData, showMatchupOverlay, playerSlot, p1Name, u
 
     return (
       <div style={{ flex: 1, position: "relative", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
-        {/* Banner with extra visibility and shine */}
+        {/* Banner with static overlay for stable performance */}
         <div style={{ position: "absolute", inset: 0, opacity: 1 }}>
           <BannerRenderer bannerId={data.banner} hideLabels />
-          <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.15)", zIndex: 1 }} />
-          {/* Intense Shiny Overlay */}
-          <div style={{ 
-            position: "absolute", inset: 0, 
-            background: "linear-gradient(110deg, transparent 35%, rgba(255,255,255,0.4) 45%, rgba(255,255,255,0.6) 50%, rgba(255,255,255,0.4) 55%, transparent 65%)", 
-            backgroundSize: "200% 100%", 
-            animation: "bannerShine 1.8s infinite cubic-bezier(0.4, 0, 0.2, 1)", 
-            zIndex: 2, pointerEvents: "none",
-            filter: "blur(4px)"
-          }} />
+          <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.22)", zIndex: 1 }} />
         </div>
         
         <div style={{ 
@@ -108,7 +99,7 @@ const MatchupOverlay = ({ matchupData, showMatchupOverlay, playerSlot, p1Name, u
              background: `linear-gradient(135deg, ${color}, ${t.accent})`, 
              border: `10px solid ${color}`, display: "flex", alignItems: "center", 
              justifyContent: "center", fontSize: 140, color: "#000", 
-             boxShadow: `0 30px 80px rgba(0,0,0,0.9), 0 0 60px ${color}88`,
+             boxShadow: `0 16px 36px rgba(0,0,0,0.72), 0 0 22px ${color}55`,
              flexShrink: 0
            }}>👤</div>
            
@@ -116,7 +107,7 @@ const MatchupOverlay = ({ matchupData, showMatchupOverlay, playerSlot, p1Name, u
            <div style={{ flex: 1, textAlign: "center", display: "flex", flexDirection: "column", gap: 15 }}>
              <div style={{ 
                fontFamily: t.fontDisplay, fontSize: 62, fontWeight: 950, color: color, 
-               textShadow: `0 0 50px ${color}, 0 0 20px rgba(255,255,255,0.4)`, 
+               textShadow: `0 0 20px ${color}88`, 
                letterSpacing: "0.1em",
                transform: "scale(1.1)"
              }}>
@@ -125,14 +116,14 @@ const MatchupOverlay = ({ matchupData, showMatchupOverlay, playerSlot, p1Name, u
              
              <div style={{ 
                display: "inline-flex", alignSelf: "center", flexDirection: "column", alignItems: "center", 
-               padding: "24px 60px", background: "rgba(0,0,0,0.75)", backdropFilter: "blur(30px)", 
+               padding: "24px 60px", background: "rgba(0,0,0,0.82)",
                borderRadius: 24, border: `2px solid ${color}44`, 
-               boxShadow: `0 20px 60px rgba(0,0,0,0.8), inset 0 0 20px ${color}22`
+               boxShadow: `0 10px 22px rgba(0,0,0,0.58), inset 0 0 10px ${color}1A`
              }}>
                <div style={{ fontFamily: t.fontMono, fontSize: 16, color: t.textMuted, letterSpacing: "0.3em", marginBottom: 6, opacity: 0.7 }}>ELO RATING</div>
                <div style={{ 
                  fontFamily: t.fontDisplay, fontSize: 96, fontWeight: 950, color: t.accent, 
-                 textShadow: `0 0 30px ${t.accent}AA, 0 0 60px ${t.accent}44`,
+                 textShadow: `0 0 18px ${t.accent}88`,
                  letterSpacing: "0.05em"
                }}>
                  {data.elo}
@@ -151,7 +142,7 @@ const MatchupOverlay = ({ matchupData, showMatchupOverlay, playerSlot, p1Name, u
            {/* Right side: Rank Logo (Same size as PFP) */}
            <div style={{ 
              width: sideBySideSize, height: sideBySideSize, display: "flex", alignItems: "center", 
-             justifyContent: "center", animation: "rankFloat 3.5s ease-in-out infinite",
+             justifyContent: "center",
              flexShrink: 0
            }}>
              <RankIcon rank={rank} size={sideBySideSize} />
@@ -163,11 +154,6 @@ const MatchupOverlay = ({ matchupData, showMatchupOverlay, playerSlot, p1Name, u
 
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 10000, background: themeId === "pixel" ? "url(/bg-pixel.png) center/cover no-repeat" : themeId === "space" ? "transparent" : t.bg, display: "flex", flexDirection: "column", overflow: "hidden" }}>
-      <style>{`
-        @keyframes bannerShine { from { background-position: -100% 0; } to { background-position: 100% 0; } }
-        @keyframes rankFloat { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
-      `}</style>
-      
       <div style={{ textAlign: "center", paddingTop: 40, fontFamily: t.fontMono, fontSize: 14, fontWeight: 700, color: t.textMuted, letterSpacing: "0.3em", zIndex: 15, textShadow: "0 2px 10px rgba(0,0,0,0.5)" }}>
         {isRankedGame ? "RANKED MATCHUP" : "UNRANKED EXHIBITION"} · FIRST TO 2 POINTS
       </div>
@@ -948,7 +934,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
       if (wsPingRef.current) { clearInterval(wsPingRef.current); wsPingRef.current = null; }
       if (wsRef.current) { wsRef.current.onclose = null; wsRef.current.close(); wsRef.current = null; }
     };
-  }, [isMultiplayerGame, roomCode, playerSlot, matchTimeMs]);
+  }, [isMultiplayerGame, roomCode, playerSlot]);
 
   // Multiplayer match-found synchronization: tell server when we're ready to start.
   useEffect(() => {

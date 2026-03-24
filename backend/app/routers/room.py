@@ -18,6 +18,7 @@ _room_connections: dict[str, dict] = {}
 
 # Runtime (in-memory) per-room sync state (not persisted)
 _room_runtime: dict[str, dict] = {}
+DISCONNECT_GRACE_SECONDS = 3.0
 
 
 async def get_current_user(authorization: str = Header(...)):
@@ -1246,7 +1247,15 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                 _room_connections.pop(room_code, None)
                 _room_runtime.pop(room_code, None)
             else:
-                for slot, ws in _room_connections.get(room_code, {}).items():
+                await asyncio.sleep(DISCONNECT_GRACE_SECONDS)
+                # Suppress false disconnects if the same player quickly reconnects.
+                if _room_connections.get(room_code, {}).get(player_slot) is not None:
+                    return
+                peers = _room_connections.get(room_code, {})
+                if not peers:
+                    _room_runtime.pop(room_code, None)
+                    return
+                for slot, ws in peers.items():
                     try:
                         await ws.send_json({"type": "opponent_disconnected"})
                     except:
