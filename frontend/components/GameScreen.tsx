@@ -674,6 +674,12 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
                   segSlice[1] === "P2" &&
                   p1p === 0
                 ) sw = "P2";
+                else if (
+                  segSlice.length === 3 &&
+                  segSlice[0] === "DRAW" &&
+                  segSlice[1] === "DRAW" &&
+                  (segSlice[2] === "P1" || segSlice[2] === "P2")
+                ) sw = segSlice[2];
                 else if (sw == null) sw = checkSeriesWinner(newHist);
                 if (sw === "P1" || sw === "P2" || sw === "DRAW") {
                   setMatchOver(true);
@@ -734,7 +740,8 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
             } else if (msg.type === "chat_message") {
           setChatMessages(m => [...m.slice(-49), { from: msg.from, text: msg.text, ts: msg.ts }]);
             } else if (msg.type === "game_reset") {
-          const fromDrawUp = Boolean((msg as { from_5x5_draw_upgrade?: boolean }).from_5x5_draw_upgrade);
+          const gr = msg as { from_5x5_draw_upgrade?: boolean; from_5x5_level_up?: boolean };
+          const fromDrawUp = Boolean(gr.from_5x5_draw_upgrade || gr.from_5x5_level_up);
           if (fromDrawUp) {
             setShow7x7LevelUp(true);
             playTransitionAction?.();
@@ -1054,6 +1061,14 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
       if (seg.length === 3 && seg[0] === "DRAW" && seg[2] === "DRAW") {
         if (seg[1] === "P1" && p2 === 0) return "P1";
         if (seg[1] === "P2" && p1 === 0) return "P2";
+      }
+      if (
+        seg.length === 3 &&
+        seg[0] === "DRAW" &&
+        seg[1] === "DRAW" &&
+        (seg[2] === "P1" || seg[2] === "P2")
+      ) {
+        return seg[2];
       }
       return null;
     }

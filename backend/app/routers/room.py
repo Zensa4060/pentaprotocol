@@ -100,6 +100,9 @@ def compute_series_winner(history: list, segment_start: int, win_cap: int = 2) -
             return "P1"
         if mid == "P2" and p1_pts == 0:
             return "P2"
+
+    if len(seg) == 3 and seg[0] == "DRAW" and seg[1] == "DRAW" and seg[2] in ("P1", "P2"):
+        return seg[2]
     return None
 
 
@@ -110,9 +113,8 @@ def compute_awaiting_rulebreaker(history: list, segment_start: int) -> bool:
 
     The only cases with no Rulebreaker after two games are P1,P1 or P2,P2.
 
-    Also: three games in the segment at 1-1 with last result not DRAW → Rulebreaker before
-    further 5×5 (should not occur in normal flow). If the third game is a DRAW, the
-    server auto-upgrades to 7×7 without a second Rulebreaker (see move handler).
+    After three games at 1–1 (or triple draw pending upgrade), never require a second
+    Rulebreaker on the same grid — the move handler upgrades 5×5→7×7 or the segment ends.
     """
     if segment_start > len(history):
         return False
@@ -120,10 +122,9 @@ def compute_awaiting_rulebreaker(history: list, segment_start: int) -> bool:
     p1w = sum(1 for w in seg if w == "P1")
     p2w = sum(1 for w in seg if w == "P2")
     if len(seg) >= 3 and p1w == 1 and p2w == 1:
-        # Last game was a DRAW → server auto-upgrades to 7×7 (no second Rulebreaker)
-        if seg[-1] == "DRAW":
-            return False
-        return True
+        return False
+    if len(seg) >= 3 and all(w == "DRAW" for w in seg):
+        return False
     if len(seg) < 2 or len(seg) % 2 != 0:
         return False
     g1, g2 = seg[-2], seg[-1]
@@ -132,29 +133,138 @@ def compute_awaiting_rulebreaker(history: list, segment_start: int) -> bool:
     return True
 
 
-def should_auto_upgrade_7x7_after_5x5_game3_draw(
-    board_mode: str,
-    history: list,
+def should_auto_upgrade_7x7_after_5x5_game3(
+    new_history: list,
     segment_start: int,
-    outcome,
+    board_mode: str,
     game_number: int,
 ) -> bool:
     """
-    Game 3 on 5×5 ended in a full-board DRAW with the segment at 1-1 wins
-    (two decisive games + this draw) → go straight to 7×7; no Rulebreaker toss.
+    After game 3 on 5×5, if the segment is still undecided and either tied 1–1 in wins
+    or all three games were draws, open the 7×7 leg (no second 5×5 Rulebreaker).
     """
-    if board_mode != "5x5" or outcome != "DRAW":
+    if board_mode != "5x5" or game_number != 3:
         return False
-    if game_number != 3:
+    if segment_start > len(new_history):
         return False
-    if segment_start > len(history):
+    seg = new_history[segment_start:]
+    if len(seg) != 3:
         return False
-    seg = history[segment_start:]
-    if len(seg) != 2:
+    if compute_series_winner(new_history, segment_start, 2) is not None:
         return False
-    p1w = sum(1 for w in seg if w == "P1")
-    p2w = sum(1 for w in seg if w == "P2")
-    return p1w == 1 and p2w == 1
+    p1p, p2p = compute_segment_points(new_history, segment_start)
+    if p1p == 1 and p2p == 1:
+        return True
+    if all(w == "DRAW" for w in seg):
+        return True
+    return False
+
+
+async def _apply_5x5_to_7x7_upgrade(
+    db,
+    room_code: str,
+    room: dict,
+    new_history: list,
+    outcome,
+    *,
+    game1_patch: dict | None = None,
+    finished_board: list,
+    row: int | None = None,
+    col: int | None = None,
+    moves_played: int | None = None,
+    current_player: str | None = None,
+    win_line: list | None = None,
+    extra_turns: int = 0,
+    connection_scores=None,
+) -> None:
+    from app.core.patterns7 import PATTERN_NAMES_7
+
+    patch = dict(game1_patch or {})
+    g1f = room.get("game1_first_player") or "P1"
+    first_7 = "P2" if g1f == "P1" else "P1"
+    seg_new = len(new_history)
+    ss = compute_series_state(new_history, seg_new)
+
+    upgrade_update = {
+        **patch,
+        "board": [[None] * 7 for _ in range(7)],
+        "board_mode": "7x7",
+        "selected_patterns": list(PATTERN_NAMES_7),
+        "current_player": first_7,
+        "moves_played": 0,
+        "extra_turns": 0,
+        "winner": None,
+        "game_status": "playing",
+        "status": "active",
+        "match_history": new_history,
+        "segment_start_index": seg_new,
+        "game_number": 1,
+        "c3_blocked": False,
+        "awaiting_rulebreaker": False,
+        "p1_series_points": ss["p1_series_points"],
+        "p2_series_points": ss["p2_series_points"],
+        "series_winner": ss["series_winner"],
+    }
+    await db.rooms.update_one({"room_code": room_code}, {"$set": upgrade_update})
+
+    move_broadcast = {
+        "type": "move_made",
+        "board": finished_board,
+        "winner": outcome,
+        "win_line": win_line or [],
+        "game_status": "finished",
+        "extra_turns": extra_turns,
+        "match_history": new_history,
+        "p1_series_points": ss["p1_series_points"],
+        "p2_series_points": ss["p2_series_points"],
+        "series_winner": ss["series_winner"],
+        "awaiting_rulebreaker": False,
+        "segment_start_index": seg_new,
+        "auto_7x7_upgrade_follows": True,
+    }
+    if row is not None and col is not None:
+        move_broadcast["row"] = row
+        move_broadcast["col"] = col
+    if moves_played is not None:
+        move_broadcast["moves_played"] = moves_played
+    if current_player is not None:
+        move_broadcast["current_player"] = current_player
+    if connection_scores is not None:
+        move_broadcast["connectionScores"] = connection_scores
+
+    for slot, ws in _room_connections.get(room_code, {}).items():
+        try:
+            await ws.send_json(move_broadcast)
+        except:
+            pass
+
+    gr_payload = {
+        "type": "game_reset",
+        "first_player": first_7,
+        "game_number": 1,
+        "board_mode": "7x7",
+        "segment_start_index": seg_new,
+        "p1_series_points": ss["p1_series_points"],
+        "p2_series_points": ss["p2_series_points"],
+        "selected_patterns": list(PATTERN_NAMES_7),
+        "c3_blocked": False,
+        "from_5x5_level_up": True,
+        "from_5x5_draw_upgrade": True,
+    }
+    for slot, ws in _room_connections.get(room_code, {}).items():
+        try:
+            await ws.send_json(gr_payload)
+        except:
+            pass
+
+    game_dict = {
+        "player1_id": room["player1_id"],
+        "player2_id": room["player2_id"],
+        "format":     room["format"],
+        "source":     room.get("source", "matchmaking"),
+        "mode":       "multiplayer",
+    }
+    asyncio.create_task(award_game_result(db, game_dict, outcome))
 
 
 def compute_series_state(history: list, segment_start: int) -> dict:
@@ -598,101 +708,31 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                     gn = room.get("game_number", 1)
                     bm = room.get("board_mode", "5x5")
 
-                    if should_auto_upgrade_7x7_after_5x5_game3_draw(
-                        bm, history, seg_start, outcome, gn
+                    new_history = history + [outcome]
+                    if should_auto_upgrade_7x7_after_5x5_game3(
+                        new_history, seg_start, bm, gn
                     ):
-                        from app.core.patterns7 import PATTERN_NAMES_7
-
-                        new_history = history + [outcome]
-                        g1f = room.get("game1_first_player") or "P1"
-                        first_7 = "P2" if g1f == "P1" else "P1"
-                        seg_new = len(new_history)
-                        ss = compute_series_state(new_history, seg_new)
                         finished_5 = [list(r) for r in engine.board]
-
-                        upgrade_update = {
-                            **game1_patch,
-                            "board": [[None] * 7 for _ in range(7)],
-                            "board_mode": "7x7",
-                            "selected_patterns": list(PATTERN_NAMES_7),
-                            "current_player": first_7,
-                            "moves_played": 0,
-                            "extra_turns": 0,
-                            "winner": None,
-                            "game_status": "playing",
-                            "status": "active",
-                            "match_history": new_history,
-                            "segment_start_index": seg_new,
-                            "game_number": 1,
-                            "c3_blocked": False,
-                            "awaiting_rulebreaker": False,
-                            "p1_series_points": ss["p1_series_points"],
-                            "p2_series_points": ss["p2_series_points"],
-                            "series_winner": ss["series_winner"],
-                        }
-                        await db.rooms.update_one(
-                            {"room_code": room_code}, {"$set": upgrade_update}
-                        )
-
-                        move_broadcast = {
-                            "type": "move_made",
-                            "row": row,
-                            "col": col,
-                            "board": finished_5,
-                            "current_player": engine.current_player,
-                            "moves_played": engine.moves_played,
-                            "winner": outcome,
-                            "win_line": [[r, c] for r, c in engine.winner_line]
+                        await _apply_5x5_to_7x7_upgrade(
+                            db,
+                            room_code,
+                            room,
+                            new_history,
+                            outcome,
+                            game1_patch=game1_patch,
+                            finished_board=finished_5,
+                            row=row,
+                            col=col,
+                            moves_played=engine.moves_played,
+                            current_player=engine.current_player,
+                            win_line=[[r, c] for r, c in engine.winner_line]
                             if engine.winner_line
                             else [],
-                            "game_status": "finished",
-                            "extra_turns": result.get("extra_turns", 0),
-                            "connectionScores": result.get("connectionScores"),
-                            "match_history": new_history,
-                            "p1_series_points": ss["p1_series_points"],
-                            "p2_series_points": ss["p2_series_points"],
-                            "series_winner": ss["series_winner"],
-                            "awaiting_rulebreaker": False,
-                            "segment_start_index": seg_start,
-                            "auto_7x7_upgrade_follows": True,
-                        }
-                        for slot, ws in _room_connections.get(room_code, {}).items():
-                            try:
-                                await ws.send_json(move_broadcast)
-                            except:
-                                pass
-
-                        gr_payload = {
-                            "type": "game_reset",
-                            "first_player": first_7,
-                            "game_number": 1,
-                            "board_mode": "7x7",
-                            "segment_start_index": seg_new,
-                            "p1_series_points": ss["p1_series_points"],
-                            "p2_series_points": ss["p2_series_points"],
-                            "selected_patterns": list(PATTERN_NAMES_7),
-                            "c3_blocked": False,
-                            "from_5x5_draw_upgrade": True,
-                        }
-                        for slot, ws in _room_connections.get(room_code, {}).items():
-                            try:
-                                await ws.send_json(gr_payload)
-                            except:
-                                pass
-
-                        game_dict = {
-                            "player1_id": room["player1_id"],
-                            "player2_id": room["player2_id"],
-                            "format":     room["format"],
-                            "source":     room.get("source", "matchmaking"),
-                            "mode":       "multiplayer",
-                        }
-                        asyncio.create_task(
-                            award_game_result(db, game_dict, outcome)
+                            extra_turns=result.get("extra_turns", 0),
+                            connection_scores=result.get("connectionScores"),
                         )
                         continue
 
-                    new_history = history + [outcome]
                     update.update(
                         {
                             "match_history": new_history,
@@ -1106,6 +1146,32 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                 current_history = room.get("match_history", [])
                 new_history     = current_history + [winner]
                 seg_start       = room.get("segment_start_index", 0)
+                gn = room.get("game_number", 1)
+                bm = room.get("board_mode", "5x5")
+
+                if should_auto_upgrade_7x7_after_5x5_game3(
+                    new_history, seg_start, bm, gn
+                ):
+                    fb = room.get("board", [])
+                    finished = [list(r) for r in fb] if fb else []
+                    await _apply_5x5_to_7x7_upgrade(
+                        db,
+                        room_code,
+                        room,
+                        new_history,
+                        winner,
+                        game1_patch={},
+                        finished_board=finished,
+                        row=None,
+                        col=None,
+                        moves_played=room.get("moves_played", 0),
+                        current_player=room.get("current_player", "P1"),
+                        win_line=[],
+                        extra_turns=0,
+                        connection_scores=None,
+                    )
+                    continue
+
                 update = {
                     "winner":      winner,
                     "game_status": "finished",
