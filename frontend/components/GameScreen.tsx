@@ -724,6 +724,18 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
             historyDisplayStartIndexRef.current = r.history_display_start_index;
             setHistoryDisplayStartIndex(r.history_display_start_index);
           }
+          if (r.board_mode === "7x7" && r.awaiting_7x7_rules_ready === true) {
+            setShow7x7RulesReadyScreen(true);
+            setPhase("playing");
+            setWinner(null);
+            setWinLine([]);
+            setShowWinOverlay(false);
+            setOverlayVisible(false);
+            setMatchOver(false);
+            setSeriesWinner(null);
+          } else {
+            setShow7x7RulesReadyScreen(false);
+          }
           ws.send(JSON.stringify({ type: "player_info", username: p1Name ?? playerSlot ?? "P1", slot: playerSlot }));
             } else if (msg.type === "player_joined") {
           const r = msg.room;
@@ -744,6 +756,10 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
             } else if (msg.type === "levelup_ready_update") {
           if (msg.player === "P1") setP1LevelUpReady(Boolean(msg.ready));
           else if (msg.player === "P2") setP2LevelUpReady(Boolean(msg.ready));
+            } else if (msg.type === "levelup_sync") {
+          setShow7x7RulesReadyScreen(true);
+          setP1LevelUpReady(Boolean(msg.p1_ready));
+          setP2LevelUpReady(Boolean(msg.p2_ready));
             } else if (msg.type === "levelup_start") {
           setShow7x7RulesReadyScreen(false);
             } else if (msg.type === "chat_message") {

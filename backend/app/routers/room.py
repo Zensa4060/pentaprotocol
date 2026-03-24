@@ -68,6 +68,7 @@ def serialize_room(room: dict) -> dict:
         "awaiting_rulebreaker": room.get("awaiting_rulebreaker", False),
         "segment_start_index": room.get("segment_start_index", 0),
         "history_display_start_index": room.get("history_display_start_index", 0),
+        "awaiting_7x7_rules_ready": room.get("awaiting_7x7_rules_ready", False),
     }
 
 
@@ -211,6 +212,7 @@ async def _apply_5x5_to_7x7_upgrade(
         "game1_first_player": None,
         "c3_blocked": False,
         "awaiting_rulebreaker": False,
+        "awaiting_7x7_rules_ready": True,
         "p1_series_points": ss["p1_series_points"],
         "p2_series_points": ss["p2_series_points"],
         "series_winner": ss["series_winner"],
@@ -262,6 +264,7 @@ async def _apply_5x5_to_7x7_upgrade(
         "c3_blocked": False,
         "from_5x5_level_up": True,
         "from_5x5_draw_upgrade": True,
+        "awaiting_7x7_rules_ready": True,
     }
     for slot, ws in _room_connections.get(room_code, {}).items():
         try:
@@ -436,6 +439,7 @@ async def queue_join(data: QueueRequest, user_id: str = Depends(get_current_user
         "awaiting_rulebreaker": False,
         "segment_start_index": 0,
         "history_display_start_index": 0,
+        "awaiting_7x7_rules_ready": False,
         "created_at":     datetime.utcnow(),
     }
     await db.rooms.insert_one(room)
@@ -536,6 +540,7 @@ async def create_room(data: CreateRoomRequest, user_id: str = Depends(get_curren
         "awaiting_rulebreaker": False,
         "segment_start_index": 0,
         "history_display_start_index": 0,
+        "awaiting_7x7_rules_ready": False,
         "created_at":      datetime.utcnow(),
     }
     await db.rooms.insert_one(room)
@@ -598,6 +603,7 @@ async def join_room(data: JoinRoomRequest, user_id: str = Depends(get_current_us
         "segment_start_index": 0,
         "history_display_start_index": 0,
         "game1_first_player": None,
+        "awaiting_7x7_rules_ready": False,
     }
     if joiner_slot == "P1":
         update_fields["player1_id"]     = user_id
@@ -668,6 +674,16 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
         room = await db.rooms.find_one({"room_code": room_code})
         if room:
             await websocket.send_json({"type": "room_state", "room": serialize_room(room)})
+            if room.get("awaiting_7x7_rules_ready") and room.get("board_mode") == "7x7":
+                rt = _room_runtime.get(room_code) or {}
+                lu = rt.get("levelup_ready") or {"P1": False, "P2": False}
+                await websocket.send_json(
+                    {
+                        "type": "levelup_sync",
+                        "p1_ready": bool(lu.get("P1")),
+                        "p2_ready": bool(lu.get("P2")),
+                    }
+                )
 
         while True:
             data = await websocket.receive_text()
@@ -905,6 +921,10 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
 
                 if rt["levelup_ready"].get("P1") and rt["levelup_ready"].get("P2"):
                     rt["levelup_ready"] = {"P1": False, "P2": False}
+                    await db.rooms.update_one(
+                        {"room_code": room_code},
+                        {"$set": {"awaiting_7x7_rules_ready": False}},
+                    )
                     for slot, ws in _room_connections.get(room_code, {}).items():
                         try:
                             await ws.send_json({"type": "levelup_start"})
@@ -980,6 +1000,7 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                         "game1_first_player": None,
                         "board_mode": "5x5",
                         "selected_patterns": None,
+                        "awaiting_7x7_rules_ready": False,
                     }
 
                     await db.rooms.update_one({"room_code": room_code}, {"$set": reset})
