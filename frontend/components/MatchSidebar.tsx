@@ -82,7 +82,6 @@ interface MatchSidebarProps {
   seriesPiece: string;
   showRematch: boolean;
   rematchRequested: string | null;
-  connectionScores?: { p1: number; p2: number };
   showSurrender: boolean;
   showExitConfirm: boolean;
   setScreenAction?: (s: Screen) => void;
@@ -126,7 +125,7 @@ export function MatchSidebar({
   chatMessages, chatInput, chatOpen, chatWarning,
   log, botThinking,
   showWinOverlay, overlayVisible, winnerColor, winnerPiece, seriesDiffers, seriesColor, seriesPiece,
-  showRematch, rematchRequested, connectionScores, lastSeries,
+  showRematch, rematchRequested, lastSeries,
   showSurrender, showExitConfirm, setScreenAction,
   p1Label, p2Label, winnerDisplayNameAction,
   onReadyToggle, onSendChat, onChatInputChange, onChatKeyDown, onChatOpenToggle,
@@ -777,12 +776,11 @@ export function RightPanel({ t, ip, p1c, p2c, panelW, phase, log, isRankedGame, 
   );
 }
 
-export function WinOverlay({ showWinOverlay, overlayVisible, winner, winnerColor, winnerPiece, seriesDiffers, seriesColor, seriesPiece, seriesWinner, phase, gameNumber, t, winnerDisplayNameAction, connectionScores, onDismissAction }: {
+export function WinOverlay({ showWinOverlay, overlayVisible, winner, winnerColor, winnerPiece, seriesDiffers, seriesColor, seriesPiece, seriesWinner, phase, gameNumber, t, winnerDisplayNameAction, onDismissAction }: {
   showWinOverlay: boolean; overlayVisible: boolean; winner: string | null; winnerColor: string; winnerPiece: string;
   seriesDiffers: boolean; seriesColor: string; seriesPiece: string; seriesWinner: string | null;
   phase: Phase; gameNumber: number; t: { fontDisplay: string; fontMono: string; fontBody: string };
   winnerDisplayNameAction?: (w: string | null) => string;
-  connectionScores?: { p1: number; p2: number };
   onDismissAction: () => void;
 }) {
   if (!showWinOverlay || !winner) return null;
@@ -816,20 +814,6 @@ export function WinOverlay({ showWinOverlay, overlayVisible, winner, winnerColor
           <div style={{ fontSize: "clamp(52px,8vw,110px)", lineHeight: 1, marginBottom: 8, animation: "winPulse 1.6s ease infinite" }}>{winnerPiece}</div>
           <div style={{ fontFamily: t.fontDisplay, fontSize: "clamp(44px,7vw,100px)", fontWeight: 900, color: winnerColor, lineHeight: 1, marginBottom: 18, textShadow: `0 0 60px ${winnerColor}88`, animation: "winPulse 1.6s ease infinite" }}>{winner === "DRAW" ? "DRAW" : `${getName(winner)} WINS!`}</div>
           {phase === "match_over" ? <div style={{ fontFamily: t.fontMono, fontSize: "clamp(13px,1.8vw,18px)", color: "#AAAAAA", marginBottom: 20 }}>{seriesWinner === "DRAW" ? "MATCH OVER — FULL SERIES DRAW" : "MATCH OVER — SERIES COMPLETE"}</div> : <div style={{ fontFamily: t.fontMono, fontSize: "clamp(13px,1.8vw,18px)", color: "#AAAAAA", marginBottom: 20 }}>GAME {gameNumber} COMPLETE</div>}
-          
-          {connectionScores && (
-            <div style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, padding: "12px 24px", marginBottom: 20, display: "flex", gap: 32 }}>
-              <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-                <span style={{ fontFamily: t.fontMono, fontSize: 10, color: "#999", letterSpacing: "0.1em" }}>P1 LONGEST CONNECTION</span>
-                <span style={{ fontFamily: t.fontDisplay, fontSize: 24, color: "#fff", fontWeight: 900 }}>{connectionScores.p1}</span>
-              </div>
-              <div style={{ width: 1, background: "rgba(255,255,255,0.1)" }} />
-              <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-                <span style={{ fontFamily: t.fontMono, fontSize: 10, color: "#999", letterSpacing: "0.1em" }}>P2 LONGEST CONNECTION</span>
-                <span style={{ fontFamily: t.fontDisplay, fontSize: 24, color: "#fff", fontWeight: 900 }}>{connectionScores.p2}</span>
-              </div>
-            </div>
-          )}
 
           <div style={{ fontFamily: t.fontBody, fontSize: 14, color: "#666" }}>click anywhere to continue</div>
         </div>
@@ -855,12 +839,11 @@ export function DisconnectModal({ show, t, ip, onGoHomeAction }: { show: boolean
   );
 }
 
-export function RematchOverlay({ show, isMultiplayerGame, t, ip, p1c, p2c, seriesWinner, mySlot, rematchRequested, winnerDisplayNameAction, lastSeries, connectionScores, onRematchAction, onQuitMatchAction }: {
+export function RematchOverlay({ show, isMultiplayerGame, t, ip, p1c, p2c, seriesWinner, mySlot, rematchRequested, winnerDisplayNameAction, lastSeries, onRematchAction, onQuitMatchAction }: {
   show: boolean; isMultiplayerGame: boolean; t: MatchSidebarProps["t"]; ip: boolean;
   p1c: string; p2c: string; seriesWinner: string | null; mySlot: "P1" | "P2";
   rematchRequested: string | null;
   lastSeries?: { winner: string | null; history: string[] } | null;
-  connectionScores?: { p1: number; p2: number };
   winnerDisplayNameAction?: (w: string | null) => string;
   onRematchAction: () => void; onQuitMatchAction: () => void;
 }) {
@@ -877,20 +860,6 @@ export function RematchOverlay({ show, isMultiplayerGame, t, ip, p1c, p2c, serie
         <div style={{ fontFamily: t.fontMono, fontSize: 17, fontWeight: 700, color: seriesColor, marginBottom: 20 }}>
           {seriesWinner === "DRAW" ? "FULL MATCH DRAW — NO WINNER" : `${getName(seriesWinner)} WINS THE SERIES`}
         </div>
-
-        {connectionScores && (
-          <div style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, padding: "12px 24px", marginBottom: 20, display: "flex", gap: 32, justifyContent: "center" }}>
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-              <span style={{ fontFamily: t.fontMono, fontSize: 10, color: "#999", letterSpacing: "0.1em" }}>P1 LONGEST CONNECTION</span>
-              <span style={{ fontFamily: t.fontDisplay, fontSize: 24, color: p1c, fontWeight: 900 }}>{connectionScores.p1}</span>
-            </div>
-            <div style={{ width: 1, background: "rgba(255,255,255,0.1)" }} />
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-              <span style={{ fontFamily: t.fontMono, fontSize: 10, color: "#999", letterSpacing: "0.1em" }}>P2 LONGEST CONNECTION</span>
-              <span style={{ fontFamily: t.fontDisplay, fontSize: 24, color: p2c, fontWeight: 900 }}>{connectionScores.p2}</span>
-            </div>
-          </div>
-        )}
 
         {/* Last series breakdown — shown after both accept rematch and new series begins */}
         {lastSeries && (

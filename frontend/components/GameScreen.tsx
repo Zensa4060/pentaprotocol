@@ -27,6 +27,7 @@ import PixelGrid from "./PixelGrid";
 import type { Phase } from "./GamePieces";
 import { RulebreakerFlow, PHASE_TIMERS } from "./RulebreakerFlow";
 import { LeftPanel, RightPanel, WinOverlay, RematchOverlay, SurrenderModal, DisconnectModal, ExitModal } from "./MatchSidebar";
+import RuleshowScreen, { type RuleshowSheet } from "./RuleshowScreen";
 import { useAuthStore } from "@/lib/store";
 import { BannerRenderer } from "./BannerRenderer";
 import { RANKS, RankIcon } from "./ProfileScreen";
@@ -224,9 +225,23 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   const historyDisplayStartIndexRef = useRef(0);
   historyDisplayStartIndexRef.current = historyDisplayStartIndex;
   const [show7x7LevelUp, setShow7x7LevelUp] = useState(false);
-  const [show7x7RulesReadyScreen, setShow7x7RulesReadyScreen] = useState(false);
+  const [rulesShowSheet, setRulesShowSheet] = useState<RuleshowSheet | null>(null);
   const [p1LevelUpReady, setP1LevelUpReady] = useState(false);
   const [p2LevelUpReady, setP2LevelUpReady] = useState(false);
+  const levelUpSplashActiveRef = useRef(false);
+  const awaiting7x7RulesRef = useRef(false);
+  const levelUpSplashTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const rulesShowSheetRef = useRef<RuleshowSheet | null>(null);
+  const show7x7LevelUpRef = useRef(false);
+  useEffect(() => {
+    rulesShowSheetRef.current = rulesShowSheet;
+  }, [rulesShowSheet]);
+  useEffect(() => {
+    show7x7LevelUpRef.current = show7x7LevelUp;
+  }, [show7x7LevelUp]);
+  useEffect(() => () => {
+    if (levelUpSplashTimerRef.current) clearTimeout(levelUpSplashTimerRef.current);
+  }, []);
 
   const GRID_SIZE = liveBoardMode === "7x7" ? 7 : 5;
   const CENTER = liveBoardMode === "7x7" ? 3 : 2;
@@ -421,7 +436,6 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   const [current, setCurrent] = useState("P1");
   const [winner, setWinner] = useState<string | null>(null);
   const [winLine, setWinLine] = useState<Coord[]>([]);
-  const [connectionScores, setConnectionScores] = useState<{ p1: number; p2: number } | undefined>(undefined);
   const [showWinOverlay, setShowWinOverlay] = useState(false);
   const [gameId, setGameId] = useState<string | null>(null);
   const [movesPlayed, setMovesPlayed] = useState(0);
@@ -619,7 +633,6 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
                 if (msg.winner) {
                 const wl = (msg.win_line ?? []) as [number, number][];
                 setWinLine(wl);
-                if (msg.connectionScores) setConnectionScores(msg.connectionScores);
                 setWinner(msg.winner);
                 const skipDrawOverlay = Boolean((msg as { auto_7x7_upgrade_follows?: boolean }).auto_7x7_upgrade_follows);
                 if (!skipDrawOverlay) {
@@ -724,8 +737,10 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
             historyDisplayStartIndexRef.current = r.history_display_start_index;
             setHistoryDisplayStartIndex(r.history_display_start_index);
           }
-          if (r.board_mode === "7x7" && r.awaiting_7x7_rules_ready === true) {
-            setShow7x7RulesReadyScreen(true);
+          awaiting7x7RulesRef.current = r.awaiting_7x7_rules_ready === true;
+          if (r.board_mode === "5x5" && r.awaiting_5x5_rules_ready === true) {
+            setRulesShowSheet("5x5");
+            setShow7x7LevelUp(false);
             setPhase("playing");
             setWinner(null);
             setWinLine([]);
@@ -733,8 +748,19 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
             setOverlayVisible(false);
             setMatchOver(false);
             setSeriesWinner(null);
-          } else {
-            setShow7x7RulesReadyScreen(false);
+          } else if (r.board_mode === "7x7" && r.awaiting_7x7_rules_ready === true) {
+            if (!levelUpSplashActiveRef.current) {
+              setRulesShowSheet("7x7");
+              setPhase("playing");
+              setWinner(null);
+              setWinLine([]);
+              setShowWinOverlay(false);
+              setOverlayVisible(false);
+              setMatchOver(false);
+              setSeriesWinner(null);
+            }
+          } else if (!levelUpSplashActiveRef.current) {
+            setRulesShowSheet(null);
           }
           ws.send(JSON.stringify({ type: "player_info", username: p1Name ?? playerSlot ?? "P1", slot: playerSlot }));
             } else if (msg.type === "player_joined") {
@@ -746,6 +772,10 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
             if (typeof e2 === "number") setP2Elo(e2);
             if (r.player1_banner) setP1Banner(String(r.player1_banner));
             if (r.player2_banner) setP2Banner(String(r.player2_banner));
+            if (r.board_mode) setLiveBoardMode(r.board_mode as BoardMode);
+            if (r.board_mode === "5x5" && r.awaiting_5x5_rules_ready === true) {
+              setRulesShowSheet("5x5");
+            }
           }
             } else if (msg.type === "opponent_disconnected") {
           setPhase("match_over");
@@ -757,20 +787,32 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
           if (msg.player === "P1") setP1LevelUpReady(Boolean(msg.ready));
           else if (msg.player === "P2") setP2LevelUpReady(Boolean(msg.ready));
             } else if (msg.type === "levelup_sync") {
-          setShow7x7RulesReadyScreen(true);
           setP1LevelUpReady(Boolean(msg.p1_ready));
           setP2LevelUpReady(Boolean(msg.p2_ready));
             } else if (msg.type === "levelup_start") {
-          setShow7x7RulesReadyScreen(false);
+          awaiting7x7RulesRef.current = false;
+          setRulesShowSheet(null);
+          setShow7x7LevelUp(false);
             } else if (msg.type === "chat_message") {
           setChatMessages(m => [...m.slice(-49), { from: msg.from, text: msg.text, ts: msg.ts }]);
             } else if (msg.type === "game_reset") {
           const gr = msg as { from_5x5_draw_upgrade?: boolean; from_5x5_level_up?: boolean };
           const fromDrawUp = Boolean(gr.from_5x5_draw_upgrade || gr.from_5x5_level_up);
           if (fromDrawUp) {
+            awaiting7x7RulesRef.current = true;
+            if (levelUpSplashTimerRef.current) clearTimeout(levelUpSplashTimerRef.current);
+            levelUpSplashActiveRef.current = true;
             setShow7x7LevelUp(true);
+            setRulesShowSheet(null);
+            setP1LevelUpReady(false);
+            setP2LevelUpReady(false);
             playTransitionAction?.();
-            setTimeout(() => setShow7x7LevelUp(false), 2800);
+            levelUpSplashTimerRef.current = setTimeout(() => {
+              levelUpSplashTimerRef.current = null;
+              levelUpSplashActiveRef.current = false;
+              setShow7x7LevelUp(false);
+              if (awaiting7x7RulesRef.current) setRulesShowSheet("7x7");
+            }, 2800);
           }
           const nextBm = (msg.board_mode as BoardMode | undefined) ?? liveBoardMode;
           const gs = nextBm === "7x7" ? 7 : 5;
@@ -820,7 +862,6 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
               setGameNumber(1);
               setP1LevelUpReady(false);
               setP2LevelUpReady(false);
-              setShow7x7RulesReadyScreen(true);
               setMatchOver(false);
               setSeriesWinner(null);
               awaitingRulebreakerRef.current = false;
@@ -844,7 +885,13 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
               segmentStartIndexRef.current = 0;
               setHistoryDisplayStartIndex(0);
               historyDisplayStartIndexRef.current = 0;
-              setShow7x7RulesReadyScreen(false);
+              if ((msg as { awaiting_5x5_rules_ready?: boolean }).awaiting_5x5_rules_ready) {
+                setRulesShowSheet("5x5");
+                setP1LevelUpReady(false);
+                setP2LevelUpReady(false);
+              } else {
+                setRulesShowSheet(null);
+              }
             }
           } else {
             if (msg.game_number) setGameNumber(msg.game_number);
@@ -1040,7 +1087,6 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     setBoard(emptyBoard());
     setCurrent(firstPlayer);
     setWinner(null);
-    setConnectionScores(undefined);
     setWinLine([]);
     setShowWinOverlay(false);
     setOverlayVisible(false);
@@ -1192,7 +1238,11 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
       if (pausedRef.current && !freePhases.includes(s.phase)) return;
 
       if (s.phase === "playing" && !s.winner) {
-        if (s.current === "P1") {
+        const blockMpClock =
+          isMultiplayerGame && (rulesShowSheetRef.current !== null || show7x7LevelUpRef.current);
+        if (blockMpClock) {
+          /* multiplayer rules gate or level-up splash — clocks stay frozen */
+        } else if (s.current === "P1") {
           p1TimeRef.current = Math.max(0, p1TimeRef.current - dt);
           const p1Sec = Math.ceil(p1TimeRef.current / 1000);
           if (p1Sec !== lastP1Sec.current) {
@@ -1550,52 +1600,52 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     [isPixelBoard, board]
   );
   const glacierClick = React.useCallback(
-    (r: number, c: number) => { if (!winner && phase === "playing" && !show7x7RulesReadyScreen) placeRef.current(r, c); },
-    [winner, phase, show7x7RulesReadyScreen]
+    (r: number, c: number) => { if (!winner && phase === "playing" && rulesShowSheet === null && !show7x7LevelUp) placeRef.current(r, c); },
+    [winner, phase, rulesShowSheet, show7x7LevelUp]
   );
   const bloodMoonClick = React.useCallback(
-    (r: number, c: number) => { if (!winner && phase === "playing" && !show7x7RulesReadyScreen) placeRef.current(r, c); },
-    [winner, phase, show7x7RulesReadyScreen]
+    (r: number, c: number) => { if (!winner && phase === "playing" && rulesShowSheet === null && !show7x7LevelUp) placeRef.current(r, c); },
+    [winner, phase, rulesShowSheet, show7x7LevelUp]
   );
   const egyptClick = React.useCallback(
-    (r: number, c: number) => { if (!winner && phase === "playing" && !show7x7RulesReadyScreen) placeRef.current(r, c); },
-    [winner, phase, show7x7RulesReadyScreen]
+    (r: number, c: number) => { if (!winner && phase === "playing" && rulesShowSheet === null && !show7x7LevelUp) placeRef.current(r, c); },
+    [winner, phase, rulesShowSheet, show7x7LevelUp]
   );
   const synthwaveClick = React.useCallback(
-    (r: number, c: number) => { if (!winner && phase === "playing" && !show7x7RulesReadyScreen) placeRef.current(r, c); },
-    [winner, phase, show7x7RulesReadyScreen]
+    (r: number, c: number) => { if (!winner && phase === "playing" && rulesShowSheet === null && !show7x7LevelUp) placeRef.current(r, c); },
+    [winner, phase, rulesShowSheet, show7x7LevelUp]
   );
   const matrixClick = React.useCallback(
-    (r: number, c: number) => { if (!winner && phase === "playing" && !show7x7RulesReadyScreen) placeRef.current(r, c); },
-    [winner, phase, show7x7RulesReadyScreen]
+    (r: number, c: number) => { if (!winner && phase === "playing" && rulesShowSheet === null && !show7x7LevelUp) placeRef.current(r, c); },
+    [winner, phase, rulesShowSheet, show7x7LevelUp]
   );
   const arcaneClick = React.useCallback(
-    (r: number, c: number) => { if (!winner && phase === "playing" && !show7x7RulesReadyScreen) placeRef.current(r, c); },
-    [winner, phase, show7x7RulesReadyScreen]
+    (r: number, c: number) => { if (!winner && phase === "playing" && rulesShowSheet === null && !show7x7LevelUp) placeRef.current(r, c); },
+    [winner, phase, rulesShowSheet, show7x7LevelUp]
   );
   const bioClick = React.useCallback(
-    (r: number, c: number) => { if (!winner && phase === "playing" && !show7x7RulesReadyScreen) placeRef.current(r, c); },
-    [winner, phase, show7x7RulesReadyScreen]
+    (r: number, c: number) => { if (!winner && phase === "playing" && rulesShowSheet === null && !show7x7LevelUp) placeRef.current(r, c); },
+    [winner, phase, rulesShowSheet, show7x7LevelUp]
   );
   const forgeClick = React.useCallback(
-    (r: number, c: number) => { if (!winner && phase === "playing" && !show7x7RulesReadyScreen) placeRef.current(r, c); },
-    [winner, phase, show7x7RulesReadyScreen]
+    (r: number, c: number) => { if (!winner && phase === "playing" && rulesShowSheet === null && !show7x7LevelUp) placeRef.current(r, c); },
+    [winner, phase, rulesShowSheet, show7x7LevelUp]
   );
   const voidClick = React.useCallback(
-    (r: number, c: number) => { if (!winner && phase === "playing" && !show7x7RulesReadyScreen) placeRef.current(r, c); },
-    [winner, phase, show7x7RulesReadyScreen]
+    (r: number, c: number) => { if (!winner && phase === "playing" && rulesShowSheet === null && !show7x7LevelUp) placeRef.current(r, c); },
+    [winner, phase, rulesShowSheet, show7x7LevelUp]
   );
   const tokyoClick = React.useCallback(
-    (r: number, c: number) => { if (!winner && phase === "playing" && !show7x7RulesReadyScreen) placeRef.current(r, c); },
-    [winner, phase, show7x7RulesReadyScreen]
+    (r: number, c: number) => { if (!winner && phase === "playing" && rulesShowSheet === null && !show7x7LevelUp) placeRef.current(r, c); },
+    [winner, phase, rulesShowSheet, show7x7LevelUp]
   );
   const spaceClick = React.useCallback(
-    (r: number, c: number) => { if (!winner && phase === "playing" && !show7x7RulesReadyScreen) placeRef.current(r, c); },
-    [winner, phase, show7x7RulesReadyScreen]
+    (r: number, c: number) => { if (!winner && phase === "playing" && rulesShowSheet === null && !show7x7LevelUp) placeRef.current(r, c); },
+    [winner, phase, rulesShowSheet, show7x7LevelUp]
   );
   const pixelClick = React.useCallback(
-    (r: number, c: number) => { if (!winner && phase === "playing" && !show7x7RulesReadyScreen) placeRef.current(r, c); },
-    [winner, phase, show7x7RulesReadyScreen]
+    (r: number, c: number) => { if (!winner && phase === "playing" && rulesShowSheet === null && !show7x7LevelUp) placeRef.current(r, c); },
+    [winner, phase, rulesShowSheet, show7x7LevelUp]
   );
 
   const addLog = (r: number, c: number, player: string) => {
@@ -1726,10 +1776,10 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
       {board.map((row, r) => row.map((cell, c) => {
         const key = `${r}-${c}`;
         const blk = c3Blocked && movesPlayed === 0 && r === CENTER && c === CENTER;
-        const isHov = hover === key && !cell && !winner && !blk && phase === "playing" && !show7x7RulesReadyScreen;
+        const isHov = hover === key && !cell && !winner && !blk && phase === "playing" && rulesShowSheet === null && !show7x7LevelUp;
         const isWin = winLine.some(([wr, wc]) => wr === r && wc === c);
         const ec = cell === "P1" ? p1c : p2c;
-        const canPlay = !cell && !winner && !blk && phase === "playing" && !show7x7RulesReadyScreen;
+        const canPlay = !cell && !winner && !blk && phase === "playing" && rulesShowSheet === null && !show7x7LevelUp;
         if (isRedBoard) return (<RedCell key={key} cellSize={bigCs} player={cell} isWinCell={isWin} isHov={isHov} canPlay={canPlay} blk={blk} useFlameSkull={useFlameSkull} useSnowflakeShard={useSnowflakeShard} useGlacierSigils={useGlacierSigils} pieceSymbols={pieceSymbols} p1c={p1c} p2c={p2c} fontDisplay={t.fontDisplay} onClick={() => placeRef.current(r, c)} onMouseEnter={() => setHover(key)} onMouseLeave={() => setHover(null)} />);
         if (isIceBoard || isGlacierBoard) return (<IceCell key={key} cellSize={bigCs} player={cell} isWinCell={isWin} isHov={isHov} canPlay={canPlay} blk={blk} useFlameSkull={useFlameSkull} useSnowflakeShard={useSnowflakeShard} useGlacierSigils={useGlacierSigils} pieceSymbols={pieceSymbols} p1c={p1c} p2c={p2c} fontDisplay={t.fontDisplay} onClick={() => placeRef.current(r, c)} onMouseEnter={() => setHover(key)} onMouseLeave={() => setHover(null)} />);
         return (
@@ -1856,38 +1906,71 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
       <div style={{ fontFamily: t.fontBody, fontSize: 14, color: t.textSecondary, marginTop: 24, maxWidth: 420, textAlign: "center", lineHeight: 1.55, padding: "0 20px" }}>Game 3 on 5×5 ended in a draw at 1-1. No extra toss — opening the 7×7 leg at game 1 (0-0), first move to whoever had the second move on 5×5 game 1. Pattern-ban Rulebreaker on 7×7 only when the usual pair rule says so.</div>
     </div>
   );
-  const levelUp7x7RulesReadyOverlay = show7x7RulesReadyScreen && (
-    <div style={{ position: "fixed", inset: 0, zIndex: 10003, background: "rgba(4,7,14,0.96)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 20 }}>
-      <div style={{ width: "min(980px, 95vw)", maxHeight: "90vh", overflowY: "auto", border: `1px solid ${t.accent}44`, borderRadius: 14, background: "rgba(0,0,0,0.6)", boxShadow: `0 0 20px ${t.accent}22`, padding: 22 }}>
-        <div style={{ fontFamily: t.fontMono, fontSize: 11, color: t.textMuted, letterSpacing: "0.22em", textAlign: "center" }}>7x7 LEG UNLOCKED</div>
-        <div style={{ fontFamily: t.fontDisplay, fontSize: "clamp(24px,5vw,42px)", color: t.accent, textAlign: "center", fontWeight: 900, marginTop: 8 }}>READY CHECK + RULES</div>
-        <div style={{ marginTop: 18, display: "flex", justifyContent: "center", gap: 14, flexWrap: "wrap" }}>
-          <div style={{ padding: "8px 12px", borderRadius: 8, border: `1px solid ${p1LevelUpReady ? t.p1 : t.border}`, color: p1LevelUpReady ? t.p1 : t.textMuted, fontFamily: t.fontMono, fontSize: 12 }}>P1: {p1LevelUpReady ? "READY" : "WAITING"}</div>
-          <div style={{ padding: "8px 12px", borderRadius: 8, border: `1px solid ${p2LevelUpReady ? t.p2 : t.border}`, color: p2LevelUpReady ? t.p2 : t.textMuted, fontFamily: t.fontMono, fontSize: 12 }}>P2: {p2LevelUpReady ? "READY" : "WAITING"}</div>
-        </div>
-        {isMultiplayerGame && mySlot && (
-          <div style={{ display: "flex", justifyContent: "center", marginTop: 14 }}>
-            <button onClick={onLevelUpReadyToggle} style={{ padding: "10px 20px", borderRadius: 8, border: `1px solid ${t.accent}`, background: `${t.accent}22`, color: t.accent, fontFamily: t.fontMono, fontWeight: 800, letterSpacing: "0.08em", cursor: "pointer" }}>
-              {(mySlot === "P1" ? p1LevelUpReady : p2LevelUpReady) ? "UNREADY" : "I AM READY"}
-            </button>
-          </div>
+  const blockMultiRulesOrLevelUp =
+    isMultiplayerGame &&
+    !showMatchupOverlay &&
+    (rulesShowSheet !== null || show7x7LevelUp);
+
+  if (blockMultiRulesOrLevelUp) {
+    const shellBg =
+      themeId === "pixel"
+        ? "url(/bg-pixel.png) center/cover no-repeat"
+        : themeId === "space"
+          ? "transparent"
+          : t.bg;
+    return (
+      <div
+        style={{
+          position: "fixed",
+          top: isMobile ? 52 : 64,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          zIndex: 2,
+          background: shellBg,
+          overflow: "hidden",
+          userSelect: "none",
+          WebkitUserSelect: "none",
+        }}
+      >
+        {levelUp7x7Overlay}
+        {rulesShowSheet !== null && (
+          <RuleshowScreen
+            sheet={rulesShowSheet}
+            t={{
+              accent: t.accent,
+              border: t.border,
+              fontDisplay: t.fontDisplay,
+              fontMono: t.fontMono,
+              fontBody: t.fontBody,
+              text: t.text,
+              textSecondary: t.textSecondary,
+              textMuted: t.textMuted,
+            }}
+            ip={ip}
+            p1c={p1c}
+            p2c={p2c}
+            p1Ready={p1LevelUpReady}
+            p2Ready={p2LevelUpReady}
+            mySlot={mySlot ?? "P1"}
+            onToggleReady={onLevelUpReadyToggle}
+          />
         )}
-        <div style={{ marginTop: 20, borderTop: `1px solid ${t.border}`, paddingTop: 14 }}>
-          <div style={{ fontFamily: t.fontMono, fontSize: 12, color: t.text, letterSpacing: "0.12em", marginBottom: 8 }}>7x7 RULES</div>
-          <div style={{ fontFamily: t.fontBody, fontSize: 13, color: t.textSecondary, lineHeight: 1.6 }}>
-            <div>1) Objective: win the 7x7 leg by being first to 2 decisive wins in this leg.</div>
-            <div>2) Draws give 0 points to both players and do not break score ties.</div>
-            <div>3) Turn order alternates by game; first-player advantage rotates naturally.</div>
-            <div>4) Center is not auto-blocked on 7x7 (standard open board start).</div>
-            <div>5) Active win patterns for this leg are shown in the sidebar and must be respected.</div>
-            <div>6) If Rulebreaker is triggered by the pair rule, toss flow decides constraints/first-player for the next game.</div>
-            <div>7) Game 3 is always played when required; match result is decided only after that game ends.</div>
-            <div>8) If final points are tied after the deciding game, overall leg result is declared DRAW.</div>
-          </div>
-        </div>
+        <DisconnectModal
+          show={showDisconnectModal}
+          t={sidebarT}
+          ip={ip}
+          onGoHomeAction={() => {
+            if (setScreenAction) setScreenAction("home");
+          }}
+        />
+        <style>{`
+        @keyframes levelUpPulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.05);opacity:0.9}}
+      `}</style>
       </div>
-    </div>
-  );
+    );
+  }
+
   // ── MOBILE LAYOUT ─────────────────────────────────────────────────────────
   if (isMobile) {
     return (
@@ -1898,7 +1981,6 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
           winner={winner} winnerColor={winnerColor} winnerPiece={winnerPiece}
           seriesDiffers={seriesDiffers} seriesColor={seriesColor} seriesPiece={seriesPiece}
           seriesWinner={seriesWinner} phase={phase} gameNumber={gameNumber}
-          connectionScores={connectionScores}
           t={{ fontDisplay: t.fontDisplay, fontMono: t.fontMono, fontBody: t.fontBody }}
           winnerDisplayNameAction={winnerDisplayName}
           onDismissAction={dismissOverlay}
@@ -1916,8 +1998,6 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
           matchupCountdown={matchupCountdown} 
           loadCustomTheme={loadCustomTheme}
         />
-        {levelUp7x7Overlay}
-        {levelUp7x7RulesReadyOverlay}
         {rbOverlay}
 
         <DisconnectModal
@@ -2182,7 +2262,6 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
         winner={winner} winnerColor={winnerColor} winnerPiece={winnerPiece}
         seriesDiffers={seriesDiffers} seriesColor={seriesColor} seriesPiece={seriesPiece}
         seriesWinner={seriesWinner} phase={phase} gameNumber={gameNumber}
-        connectionScores={connectionScores}
         t={{ fontDisplay: t.fontDisplay, fontMono: t.fontMono, fontBody: t.fontBody }}
         winnerDisplayNameAction={winnerDisplayName}
         onDismissAction={dismissOverlay}
@@ -2200,8 +2279,6 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
         matchupCountdown={matchupCountdown} 
         loadCustomTheme={loadCustomTheme}
       />
-      {levelUp7x7Overlay}
-      {levelUp7x7RulesReadyOverlay}
       {rbOverlay}
 
       <DisconnectModal
@@ -2220,7 +2297,6 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
         p1SeriesPts={isMultiplayerGame ? p1SeriesPts : undefined} p2SeriesPts={isMultiplayerGame ? p2SeriesPts : undefined}
         p1Time={p1Time} p2Time={p2Time} readyTimeout={readyTimeout}
         p1Ready={p1Ready} p2Ready={p2Ready}
-        connectionScores={connectionScores}
         chatMessages={chatMessages} chatInput={chatInput} chatOpen={chatOpen} chatWarning={chatWarning}
         log={log} botThinking={botThinking}
         showWinOverlay={showWinOverlay} overlayVisible={overlayVisible}

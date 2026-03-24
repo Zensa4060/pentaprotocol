@@ -21,6 +21,12 @@ _room_runtime: dict[str, dict] = {}
 DISCONNECT_GRACE_SECONDS = 3.0
 
 
+def _reset_rules_gate_runtime(room_code: str) -> None:
+    rt = _room_runtime.get(room_code)
+    if rt is not None:
+        rt["levelup_ready"] = {"P1": False, "P2": False}
+
+
 async def get_current_user(authorization: str = Header(...)):
     try:
         token = authorization.split(" ")[1]
@@ -68,6 +74,7 @@ def serialize_room(room: dict) -> dict:
         "awaiting_rulebreaker": room.get("awaiting_rulebreaker", False),
         "segment_start_index": room.get("segment_start_index", 0),
         "history_display_start_index": room.get("history_display_start_index", 0),
+        "awaiting_5x5_rules_ready": room.get("awaiting_5x5_rules_ready", False),
         "awaiting_7x7_rules_ready": room.get("awaiting_7x7_rules_ready", False),
     }
 
@@ -374,21 +381,23 @@ async def queue_join(data: QueueRequest, user_id: str = Depends(get_current_user
         else:
             opponent = await db.users.find_one({"_id": ObjectId(opponent_id)})
 
-            await db.rooms.update_one(
-                {"room_code": room_code},
-                {"$set": {
-                    "player2_id":     user_id,
-                    "player2_name":   player_name,
-                    "player2_elo":    user.get("elo", 100),
-                    "player2_avatar": user.get("avatar"),
-                    "player2_banner": user.get("banner", "default"),
-                    "player2_border": user.get("border_style", "none"),
-                    "player2_title":  user.get("title", "newcomer"),
-                    "player2_level":  user.get("level", 1),
-                    "status":         "active",
-                    "game_status":    "playing",
-                }}
-            )
+            bm = waiting_room.get("board_mode", "5x5")
+            match_update = {
+                "player2_id":     user_id,
+                "player2_name":   player_name,
+                "player2_elo":    user.get("elo", 100),
+                "player2_avatar": user.get("avatar"),
+                "player2_banner": user.get("banner", "default"),
+                "player2_border": user.get("border_style", "none"),
+                "player2_title":  user.get("title", "newcomer"),
+                "player2_level":  user.get("level", 1),
+                "status":         "active",
+                "game_status":    "playing",
+                "awaiting_5x5_rules_ready": bm == "5x5",
+                "awaiting_7x7_rules_ready": False,
+            }
+            await db.rooms.update_one({"room_code": room_code}, {"$set": match_update})
+            _reset_rules_gate_runtime(room_code)
             room = await db.rooms.find_one({"room_code": room_code})
 
             conns = _room_connections.get(room_code, {})
@@ -439,6 +448,7 @@ async def queue_join(data: QueueRequest, user_id: str = Depends(get_current_user
         "awaiting_rulebreaker": False,
         "segment_start_index": 0,
         "history_display_start_index": 0,
+        "awaiting_5x5_rules_ready": False,
         "awaiting_7x7_rules_ready": False,
         "created_at":     datetime.utcnow(),
     }
@@ -540,6 +550,7 @@ async def create_room(data: CreateRoomRequest, user_id: str = Depends(get_curren
         "awaiting_rulebreaker": False,
         "segment_start_index": 0,
         "history_display_start_index": 0,
+        "awaiting_5x5_rules_ready": False,
         "awaiting_7x7_rules_ready": False,
         "created_at":      datetime.utcnow(),
     }
@@ -591,6 +602,7 @@ async def join_room(data: JoinRoomRequest, user_id: str = Depends(get_current_us
     creator_slot = any_room.get("creator_slot", "P1")
     joiner_slot  = "P2" if creator_slot == "P1" else "P1"
 
+    bm_join = any_room.get("board_mode", "5x5")
     update_fields = {
         "status":       "active",
         "game_status":  "playing",
@@ -603,6 +615,7 @@ async def join_room(data: JoinRoomRequest, user_id: str = Depends(get_current_us
         "segment_start_index": 0,
         "history_display_start_index": 0,
         "game1_first_player": None,
+        "awaiting_5x5_rules_ready": bm_join == "5x5",
         "awaiting_7x7_rules_ready": False,
     }
     if joiner_slot == "P1":
@@ -625,6 +638,7 @@ async def join_room(data: JoinRoomRequest, user_id: str = Depends(get_current_us
         update_fields["player2_level"]  = user.get("level", 1)
 
     await db.rooms.update_one({"room_code": code}, {"$set": update_fields})
+    _reset_rules_gate_runtime(code)
     room = await db.rooms.find_one({"room_code": code})
 
     conns = _room_connections.get(code, {})
@@ -674,7 +688,12 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
         room = await db.rooms.find_one({"room_code": room_code})
         if room:
             await websocket.send_json({"type": "room_state", "room": serialize_room(room)})
-            if room.get("awaiting_7x7_rules_ready") and room.get("board_mode") == "7x7":
+            bm0 = room.get("board_mode", "5x5")
+            need_sync = (
+                (room.get("awaiting_5x5_rules_ready") and bm0 == "5x5")
+                or (room.get("awaiting_7x7_rules_ready") and bm0 == "7x7")
+            )
+            if need_sync:
                 rt = _room_runtime.get(room_code) or {}
                 lu = rt.get("levelup_ready") or {"P1": False, "P2": False}
                 await websocket.send_json(
@@ -899,6 +918,14 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                             pass
 
             elif msg["type"] == "levelup_ready":
+                room = await db.rooms.find_one({"room_code": room_code})
+                if not room:
+                    continue
+                bm = room.get("board_mode", "5x5")
+                gate_5 = bool(room.get("awaiting_5x5_rules_ready")) and bm == "5x5"
+                gate_7 = bool(room.get("awaiting_7x7_rules_ready")) and bm == "7x7"
+                if not gate_5 and not gate_7:
+                    continue
                 rt = _room_runtime.get(room_code)
                 if not rt:
                     continue
@@ -921,9 +948,14 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
 
                 if rt["levelup_ready"].get("P1") and rt["levelup_ready"].get("P2"):
                     rt["levelup_ready"] = {"P1": False, "P2": False}
+                    clear_doc = {}
+                    if gate_5:
+                        clear_doc["awaiting_5x5_rules_ready"] = False
+                    if gate_7:
+                        clear_doc["awaiting_7x7_rules_ready"] = False
                     await db.rooms.update_one(
                         {"room_code": room_code},
-                        {"$set": {"awaiting_7x7_rules_ready": False}},
+                        {"$set": clear_doc},
                     )
                     for slot, ws in _room_connections.get(room_code, {}).items():
                         try:
@@ -1000,10 +1032,12 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                         "game1_first_player": None,
                         "board_mode": "5x5",
                         "selected_patterns": None,
+                        "awaiting_5x5_rules_ready": True,
                         "awaiting_7x7_rules_ready": False,
                     }
 
                     await db.rooms.update_one({"room_code": room_code}, {"$set": reset})
+                    _reset_rules_gate_runtime(room_code)
 
                     for slot, ws in _room_connections.get(room_code, {}).items():
                         try:
@@ -1015,6 +1049,7 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                                 "selected_patterns": [],
                                 "history_display_start_index": 0,
                                 "last_series":  last_series,
+                                "awaiting_5x5_rules_ready": True,
                             })
                         except:
                             pass
