@@ -291,7 +291,7 @@ export function RulebreakerFlow({
     let title="", leftLabel="", rightLabel="", actor="", actorCol=winCol;
     if (phase==="rule_choice") {
       title=`${nameOf(tossWinner!)} WON THE TOSS — CHOOSE YOUR RULE`;
-      leftLabel="DECIDE WHO\nPLAYS FIRST";
+      leftLabel= is7x7 ? "EXTRA TURN\nTOKEN" : "DECIDE WHO\nPLAYS FIRST";
       rightLabel= is7x7 ? "BAN A\nPATTERN" : "BLOCK C3\nFIRST MOVE";
       actor=nameOf(tossWinner!); actorCol=winCol;
     }
@@ -343,8 +343,14 @@ const isBotChoosing = isBotTurnToChoose;
             {phase === "who_first_loser" && !is7x7 && winnerPickedC3 !== null && (
               <div style={{ fontFamily:t.fontDisplay, fontSize:18, fontWeight:700, color:winCol }}>C3: {winnerPickedC3 ? "BLOCKED" : "ALLOWED"}</div>
             )}
-            {phase === "who_first_loser" && is7x7 && rbBannedPattern && (
+            {phase === "who_first_loser" && is7x7 && rbBannedPattern && !(winnerPickedRule === "extra_turn" && mySlot === tossWinner) && !(winnerPickedRule === "ban" && mySlot === tossLoser) && (
               <div style={{ fontFamily:t.fontDisplay, fontSize:18, fontWeight:700, color:"#EF4444" }}>BANNED: {({"H":"H-SHAPE","L":"L-SHAPE","W":"W-SHAPE","V":"V-SHAPE","C":"C-SHAPE","zigzag":"ZIGZAG"} as Record<string,string>)[rbBannedPattern] || rbBannedPattern.toUpperCase()}</div>
+            )}
+            {phase === "who_first_loser" && is7x7 && winnerPickedRule === "extra_turn" && mySlot === tossWinner && (
+              <div style={{ fontFamily:t.fontDisplay, fontSize:16, fontWeight:700, color:winCol }}>EXTRA TURN TOKEN (opponent banned a pattern — hidden from you for the full 7×7 game and on the match results screen; Career shows which pattern)</div>
+            )}
+            {phase === "who_first_loser" && is7x7 && winnerPickedRule === "ban" && mySlot === tossLoser && (
+              <div style={{ fontFamily:t.fontDisplay, fontSize:16, fontWeight:700, color:loseCol }}>OPPONENT BANNED A PATTERN (hidden from you for the full 7×7 game and on the results screen; Career shows which pattern)</div>
             )}
           </div>
         )}
@@ -425,6 +431,15 @@ const isBotChoosing = isBotTurnToChoose;
         <div style={{ fontFamily:t.fontBody, fontSize:14, color:t.textMuted, textAlign:"center", maxWidth:500 }}>
           Choose one pattern to <span style={{ color: "#EF4444", fontWeight: 700 }}>remove</span> from Round 3.
           The remaining patterns will be the win conditions.
+          {!isWinnerBanning && winnerPickedRule === "extra_turn" ? (
+            <span style={{ display: "block", marginTop: 10, color: t.textSecondary }}>
+              Your ban stays hidden from the toss winner for the entire 7×7 game and on the match results screen; Career shows which pattern was banned.
+            </span>
+          ) : isWinnerBanning && is7x7 && winnerPickedRule === "ban" ? (
+            <span style={{ display: "block", marginTop: 10, color: t.textSecondary }}>
+              Your ban stays hidden from your opponent in the match UI for the entire 7×7 game and on the results screen; Career shows which pattern was banned.
+            </span>
+          ) : null}
         </div>
 
         {isBotTurnToChoose && !botPickedSide && (
@@ -508,7 +523,10 @@ const isBotChoosing = isBotTurnToChoose;
     let loserChoice: string;
     if (is7x7) {
       const bannedLabel = rbBannedPattern ? (PATTERN_LABELS_SUMMARY[rbBannedPattern] || rbBannedPattern.toUpperCase()) : "NONE";
-      if (winnerPickedFirstTurn) {
+      if (winnerPickedRule === "extra_turn") {
+        winnerChoice = "EXTRA TURN TOKEN\n(1× · center rule off)";
+        loserChoice = `BANNED:\n${bannedLabel}\nPLAYS FIRST:\n${fp}`;
+      } else if (winnerPickedFirstTurn) {
         winnerChoice = `PLAYS FIRST:\n${fp}`;
         loserChoice = `BANNED:\n${bannedLabel}`;
       } else {
@@ -540,6 +558,7 @@ const isBotChoosing = isBotTurnToChoose;
             const isWinner = p === tossWinner;
             const choice   = isWinner ? winnerChoice : loserChoice;
             const isMe     = isMultiplayerGame && p === mySlot;
+            const firstSlotFromFp = fp === "P1" || fp === "P2" ? fp : "P1";
             
             // Only show rank icons in multiplayer, and only when we actually know each player's ELO.
             const playerElo = isMultiplayerGame ? (p === "P1" ? p1Elo : p2Elo) : undefined;
@@ -548,7 +567,7 @@ const isBotChoosing = isBotTurnToChoose;
 
             const isWhoFirst = choice.includes("PLAYS FIRST");
             const isBanned = choice.includes("BANNED");
-            const firstSlot = choice.includes("P1") ? "P1" : "P2";
+            const bannedLabelOnly = is7x7 && rbBannedPattern ? (PATTERN_LABELS_SUMMARY[rbBannedPattern] || rbBannedPattern.toUpperCase()) : "";
 
             return (
               <div key={p} style={{ 
@@ -578,7 +597,36 @@ const isBotChoosing = isBotTurnToChoose;
                   boxShadow: "inset 0 0 20px rgba(0,0,0,0.5)", gap: 12
                 }}>
                  <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:10 }}>
-  {isWhoFirst ? (
+  {is7x7 && winnerPickedRule === "extra_turn" && isWinner ? (
+    <>
+      <div style={{ fontFamily:t.fontMono, fontSize:14, color:t.textMuted, textTransform:"uppercase" }}>Extra turn token</div>
+      <div style={{ fontFamily:t.fontDisplay, fontSize:26, fontWeight:900, color:col, letterSpacing:"0.05em", textAlign:"center", lineHeight:1.35 }}>
+        One bonus consecutive move later · center opening off
+      </div>
+    </>
+  ) : is7x7 && winnerPickedRule === "ban" && isWinner ? (
+    <>
+      <div style={{ fontFamily:t.fontMono, fontSize:14, color:t.textMuted, textTransform:"uppercase" }}>Pattern banned</div>
+      <div style={{ fontFamily:t.fontDisplay, fontSize:28, fontWeight:900, color:"#EF4444", letterSpacing:"0.05em", textDecoration:"line-through", textDecorationColor:"rgba(239,68,68,0.6)" }}>{bannedLabelOnly}</div>
+      <div style={{ fontFamily:t.fontMono, fontSize:14, color:t.textMuted, textTransform:"uppercase", marginTop: 8 }}>Hidden from opponent in the match UI — Career shows it after the match</div>
+    </>
+  ) : is7x7 && winnerPickedRule === "ban" && !isWinner ? (
+    <>
+      <div style={{ fontFamily:t.fontMono, fontSize:14, color:t.textMuted, textTransform:"uppercase" }}>Opponent banned</div>
+      <div style={{ fontFamily:t.fontDisplay, fontSize:22, fontWeight:800, color:col, letterSpacing:"0.04em", textAlign:"center", lineHeight:1.4 }}>
+        One pattern removed — which one stays hidden for the full game and on the results screen; Career shows it afterward
+      </div>
+      <div style={{ fontFamily:t.fontMono, fontSize:14, color:t.textMuted, textTransform:"uppercase", marginTop: 8 }}>Plays first</div>
+      <div style={{ fontFamily:t.fontDisplay, fontSize:32, fontWeight:900, color:firstSlotFromFp === "P1" ? p1c : p2c, letterSpacing:"0.05em" }}>{nameOf(firstSlotFromFp)}</div>
+    </>
+  ) : is7x7 && winnerPickedRule === "extra_turn" && !isWinner ? (
+    <>
+      <div style={{ fontFamily:t.fontMono, fontSize:14, color:t.textMuted, textTransform:"uppercase" }}>Pattern banned</div>
+      <div style={{ fontFamily:t.fontDisplay, fontSize:28, fontWeight:900, color:"#EF4444", letterSpacing:"0.05em", textDecoration:"line-through", textDecorationColor:"rgba(239,68,68,0.6)" }}>{bannedLabelOnly}</div>
+      <div style={{ fontFamily:t.fontMono, fontSize:14, color:t.textMuted, textTransform:"uppercase", marginTop: 8 }}>Plays first</div>
+      <div style={{ fontFamily:t.fontDisplay, fontSize:32, fontWeight:900, color:firstSlotFromFp === "P1" ? p1c : p2c, letterSpacing:"0.05em" }}>{nameOf(firstSlotFromFp)}</div>
+    </>
+  ) : isWhoFirst ? (
     <>
       <div style={{ fontFamily:t.fontMono, fontSize:14, color:t.textMuted, textTransform:"uppercase" }}>
         Plays First
@@ -587,10 +635,10 @@ const isBotChoosing = isBotTurnToChoose;
         fontFamily:t.fontDisplay,
         fontSize:32,
         fontWeight:900,
-        color:firstSlot === "P1" ? p1c : p2c,
+        color:firstSlotFromFp === "P1" ? p1c : p2c,
         letterSpacing:"0.05em"
       }}>
-        {nameOf(firstSlot)}
+        {nameOf(firstSlotFromFp)}
       </div>
     </>
   ) : isBanned ? (

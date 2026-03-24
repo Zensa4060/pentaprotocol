@@ -76,6 +76,14 @@ def serialize_room(room: dict) -> dict:
         "history_display_start_index": room.get("history_display_start_index", 0),
         "awaiting_5x5_rules_ready": room.get("awaiting_5x5_rules_ready", False),
         "awaiting_7x7_rules_ready": room.get("awaiting_7x7_rules_ready", False),
+        "extra_turns": room.get("extra_turns", 0),
+        "c3_blocked": room.get("c3_blocked", False),
+        "suppress_center_opening": room.get("suppress_center_opening", False),
+        "rb_extra_turn_token_holder": room.get("rb_extra_turn_token_holder"),
+        "rb_extra_turn_token_used": room.get("rb_extra_turn_token_used", False),
+        "rb_hide_banned_from_slot": room.get("rb_hide_banned_from_slot"),
+        "rb_patterns_pre_ban": room.get("rb_patterns_pre_ban"),
+        "rb_banned_pattern": room.get("rb_banned_pattern"),
     }
 
 
@@ -272,6 +280,7 @@ async def _apply_5x5_to_7x7_upgrade(
         "from_5x5_level_up": True,
         "from_5x5_draw_upgrade": True,
         "awaiting_7x7_rules_ready": True,
+        "preserve_rb_hide": False,
     }
     for slot, ws in _room_connections.get(room_code, {}).items():
         try:
@@ -729,9 +738,13 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                 engine.moves_played   = room["moves_played"]
                 engine.extra_turns    = room.get("extra_turns", 0)
                 engine.c3_blocked     = room.get("c3_blocked", False)
+                engine.suppress_center_opening = bool(
+                    room.get("suppress_center_opening", False)
+                )
 
                 result      = engine.deploy(row, col)
                 is_finished = bool(result.get("winner"))
+                career_rb_meta = None
 
                 game1_patch: dict = {}
                 if (
@@ -799,6 +812,16 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                     ):
                         update["series_winner"] = "DRAW"
 
+                    if bm == "7x7" and room.get("rb_banned_pattern"):
+                        career_rb_meta = {
+                            "rb_banned_pattern_7x7": room["rb_banned_pattern"],
+                            "board_mode": bm,
+                            "game_number": gn,
+                        }
+                    update["rb_hide_banned_from_slot"] = None
+                    update["rb_patterns_pre_ban"] = None
+                    update["rb_banned_pattern"] = None
+
                 await db.rooms.update_one({"room_code": room_code}, {"$set": update})
 
                 broadcast = {
@@ -842,6 +865,8 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                         "source":     room.get("source", "matchmaking"),
                         "mode":       "multiplayer",
                     }
+                    if career_rb_meta:
+                        game_dict.update(career_rb_meta)
                     asyncio.create_task(award_game_result(db, game_dict, result.get("winner")))
 
             elif msg["type"] == "ready":
@@ -899,6 +924,12 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                         "p1_ready":       False,
                         "p2_ready":       False,
                         "game_number":    next_game,
+                        "suppress_center_opening": False,
+                        "rb_extra_turn_token_holder": None,
+                        "rb_extra_turn_token_used": False,
+                        "rb_hide_banned_from_slot": None,
+                        "rb_patterns_pre_ban": None,
+                        "rb_banned_pattern": None,
                     }
 
                     await db.rooms.update_one({"room_code": room_code}, {"$set": reset})
@@ -908,6 +939,9 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                         "first_player": reset["current_player"],
                         "game_number":  reset["game_number"],
                         "board_mode":   bm,
+                        "suppress_center_opening": False,
+                        "rb_extra_turn_token_used": False,
+                        "preserve_rb_hide": False,
                     }
                     if sp is not None:
                         gr_payload["selected_patterns"] = sp
@@ -1034,6 +1068,12 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                         "selected_patterns": None,
                         "awaiting_5x5_rules_ready": True,
                         "awaiting_7x7_rules_ready": False,
+                        "suppress_center_opening": False,
+                        "rb_extra_turn_token_holder": None,
+                        "rb_extra_turn_token_used": False,
+                        "rb_hide_banned_from_slot": None,
+                        "rb_patterns_pre_ban": None,
+                        "rb_banned_pattern": None,
                     }
 
                     await db.rooms.update_one({"room_code": room_code}, {"$set": reset})
@@ -1050,6 +1090,7 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                                 "history_display_start_index": 0,
                                 "last_series":  last_series,
                                 "awaiting_5x5_rules_ready": True,
+                                "preserve_rb_hide": False,
                             })
                         except:
                             pass
@@ -1206,8 +1247,21 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
 
                 patch: dict = {}
                 bm = room.get("board_mode", "5x5")
-                if bm == "7x7":
-                    c3_blocked = False
+                sel_patterns = msg.get("selected_patterns")
+                suppress_center = bool(msg.get("suppress_center_opening", False))
+                token_holder = msg.get("rb_extra_turn_token_holder")
+                if token_holder not in ("P1", "P2"):
+                    token_holder = None
+
+                hide_slot = msg.get("rb_hide_banned_from_slot")
+                if hide_slot not in ("P1", "P2"):
+                    hide_slot = None
+                pre_ban = msg.get("rb_patterns_pre_ban")
+                if not isinstance(pre_ban, list):
+                    pre_ban = None
+                banned_pat = msg.get("rb_banned_pattern")
+                if not isinstance(banned_pat, str) or not banned_pat.strip():
+                    banned_pat = None
 
                 gn = room.get("game_number", 1)
                 next_gn = gn + 1
@@ -1231,7 +1285,20 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                     "awaiting_rulebreaker": False,
                     "p1_series_points": seg_pts[0],
                     "p2_series_points": seg_pts[1],
+                    "suppress_center_opening": suppress_center if bm == "7x7" else False,
+                    "rb_extra_turn_token_holder": token_holder if bm == "7x7" else None,
+                    "rb_extra_turn_token_used": False,
                 }
+                if bm == "7x7" and isinstance(sel_patterns, list) and len(sel_patterns) > 0:
+                    reset["selected_patterns"] = sel_patterns
+                if bm == "7x7":
+                    reset["rb_hide_banned_from_slot"] = hide_slot
+                    reset["rb_patterns_pre_ban"] = pre_ban
+                    reset["rb_banned_pattern"] = banned_pat
+                else:
+                    reset["rb_hide_banned_from_slot"] = None
+                    reset["rb_patterns_pre_ban"] = None
+                    reset["rb_banned_pattern"] = None
 
                 await db.rooms.update_one({"room_code": room_code}, {"$set": reset})
 
@@ -1246,13 +1313,69 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                     "segment_start_index": merged.get("segment_start_index", 0),
                     "p1_series_points": seg_pts[0],
                     "p2_series_points": seg_pts[1],
+                    "suppress_center_opening": reset["suppress_center_opening"],
+                    "rb_extra_turn_token_holder": reset["rb_extra_turn_token_holder"],
+                    "rb_extra_turn_token_used": False,
                 }
                 if sp_out is not None:
                     gr_payload["selected_patterns"] = sp_out
+                preserve_hide = bool(
+                    bm == "7x7"
+                    and hide_slot
+                    and isinstance(pre_ban, list)
+                    and len(pre_ban) > 0
+                )
+                gr_payload["preserve_rb_hide"] = preserve_hide
+                if preserve_hide or (bm == "7x7" and banned_pat):
+                    gr_payload["rb_hide_banned_from_slot"] = reset.get(
+                        "rb_hide_banned_from_slot"
+                    )
+                    gr_payload["rb_patterns_pre_ban"] = reset.get("rb_patterns_pre_ban")
+                    gr_payload["rb_banned_pattern"] = reset.get("rb_banned_pattern")
 
                 for slot, ws in _room_connections.get(room_code, {}).items():
                     try:
                         await ws.send_json(gr_payload)
+                    except:
+                        pass
+
+            elif msg["type"] == "rb_use_extra_turn":
+                room = await db.rooms.find_one({"room_code": room_code})
+                if not room or room.get("game_status") != "playing":
+                    continue
+                if room.get("winner"):
+                    continue
+                if room.get("board_mode", "5x5") != "7x7":
+                    continue
+                if player_slot != room.get("current_player"):
+                    await websocket.send_json(
+                        {"type": "error", "message": "Not your turn"}
+                    )
+                    continue
+                if room.get("rb_extra_turn_token_holder") != player_slot:
+                    continue
+                if room.get("rb_extra_turn_token_used"):
+                    continue
+                if room.get("extra_turns", 0) != 0:
+                    continue
+                new_et = room.get("extra_turns", 0) + 2
+                await db.rooms.update_one(
+                    {"room_code": room_code},
+                    {
+                        "$set": {
+                            "extra_turns": new_et,
+                            "rb_extra_turn_token_used": True,
+                        }
+                    },
+                )
+                payload = {
+                    "type": "rb_extra_turn_update",
+                    "extra_turns": new_et,
+                    "rb_extra_turn_token_used": True,
+                }
+                for slot, ws in _room_connections.get(room_code, {}).items():
+                    try:
+                        await ws.send_json(payload)
                     except:
                         pass
 

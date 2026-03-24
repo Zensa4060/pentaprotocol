@@ -16,6 +16,10 @@ const RankBadge = ({ elo, size = 48 }: { elo: number; size?: number }) => {
 };
 
 // ── Match record type from API ────────────────────────────────────────────────
+const CAREER_PATTERN_LABELS: Record<string, string> = {
+  H: "H-SHAPE", L: "L-SHAPE", W: "W-SHAPE", V: "V-SHAPE", C: "C-SHAPE", zigzag: "ZIGZAG",
+};
+
 interface MatchRecord {
   opponent_username: string;
   opponent_elo: number;
@@ -25,6 +29,9 @@ interface MatchRecord {
   elo_delta: number;
   mode: "ranked" | "unranked" | "custom";
   played_at: string;
+  banned_pattern_7x7?: string;
+  board_mode?: string;
+  game_number?: number;
 }
 
 interface Props { themeId: ThemeId; onHoverAction?: () => void; }
@@ -411,6 +418,15 @@ export default function CareerScreen({ themeId, onHoverAction }: Props) {
                   }}>
                     {modeLabel(match.mode).toUpperCase()}
                   </div>
+                  {match.banned_pattern_7x7 ? (
+                    <div style={{
+                      fontFamily: t.fontMono, fontSize: 9, color: "#EF4444",
+                      letterSpacing: "0.06em", fontWeight: 700, marginTop: 6, lineHeight: 1.35, maxWidth: 140,
+                    }}>
+                      7×7 BAN:{" "}
+                      {CAREER_PATTERN_LABELS[match.banned_pattern_7x7] ?? match.banned_pattern_7x7.toUpperCase()}
+                    </div>
+                  ) : null}
                 </div>
 
                 {/* ELO delta */}

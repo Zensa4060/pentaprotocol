@@ -126,7 +126,7 @@ async def award_game_result(db, game: dict, winner: str | None):
         # Re-read to get the post-update ELO
         updated = await db.users.find_one({"_id": ObjectId(user_id)})
         elo_after = updated.get("elo", elo_before) if updated else elo_before
-        await db.match_history.insert_one({
+        doc = {
             "user_id":            user_id,
             "opponent_id":        opponent_id,
             "opponent_username":  opp_snap.get("username", "Unknown"),
@@ -137,7 +137,13 @@ async def award_game_result(db, game: dict, winner: str | None):
             "elo_delta":          elo_after - elo_before,
             "mode":               career_mode,
             "played_at":          datetime.utcnow(),
-        })
+        }
+        bp = game.get("rb_banned_pattern_7x7")
+        if isinstance(bp, str) and bp.strip():
+            doc["banned_pattern_7x7"] = bp.strip()
+            doc["board_mode"] = game.get("board_mode", "7x7")
+            doc["game_number"] = game.get("game_number")
+        await db.match_history.insert_one(doc)
 
     if w == "P1":
         await log_match(p1_id, p2_id, "win",  p1_user, p2_user)

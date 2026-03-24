@@ -45,9 +45,9 @@ export default function RuleshowScreen({
       <div>1) Objective: win the 7×7 leg by being first to 2 decisive wins in this leg.</div>
       <div>2) Draws give 0 points to both players and do not break score ties.</div>
       <div>3) Turn order alternates by game; first-player advantage rotates naturally.</div>
-      <div>4) Center is not auto-blocked on 7×7 (standard open board start).</div>
+      <div>4) First move on the center can give your opponent two extra turns, unless that game began from Rulebreaker with the extra-turn token (center rule off for that game).</div>
       <div>5) Active win patterns for this leg are shown in the sidebar and must be respected.</div>
-      <div>6) If Rulebreaker is triggered by the pair rule, toss flow decides constraints/first-player for the next game.</div>
+      <div>6) 7×7 Rulebreaker: toss winner picks an extra-turn token or bans a pattern. Token: loser bans one pattern (hidden from the winner in the UI), center rule is off, loser picks who plays first, winner gets one use of the token. Ban: winner bans one pattern (hidden from the loser in the UI), then loser picks who plays first.</div>
       <div>7) Game 3 is always played when required; match result is decided only after that game ends.</div>
       <div>8) If final points are tied after the deciding game, overall leg result is declared DRAW.</div>
     </>

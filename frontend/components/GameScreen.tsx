@@ -496,6 +496,13 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   const [firstPlayerChosen, setFirstPlayerChosen] = useState<string | null>(null);
   const [rbC3Blocked, setRbC3Blocked] = useState(false);
   const [rbBannedPattern, setRbBannedPattern] = useState<string | null>(null);
+  /** Toss winner on extra-turn path: hide which pattern was banned in sidebar / summary for this slot */
+  const [rbHideBannedPatternFromSlot, setRbHideBannedPatternFromSlot] = useState<"P1" | "P2" | null>(null);
+  /** Full pattern list before ban (7×7 extra-turn path) for decoy sidebar display */
+  const [rbPatternsPreBan, setRbPatternsPreBan] = useState<string[] | null>(null);
+  const [suppressCenterOpening, setSuppressCenterOpening] = useState(false);
+  const [rbExtraTurnTokenHolder, setRbExtraTurnTokenHolder] = useState<"P1" | "P2" | null>(null);
+  const [rbExtraTurnTokenUsed, setRbExtraTurnTokenUsed] = useState(false);
   const [summaryTimer, setSummaryTimer] = useState(5);
   const [choiceTimer, setChoiceTimer] = useState(0);
   const [overlayVisible, setOverlayVisible] = useState(false);
@@ -508,6 +515,21 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     () => rbBannedPattern ? liveSelectedPatterns.filter(p => p !== rbBannedPattern) : liveSelectedPatterns,
     [liveSelectedPatterns, rbBannedPattern],
   );
+  const sidebarPatternList = useMemo(() => {
+    if (
+      liveBoardMode === "7x7" &&
+      rbHideBannedPatternFromSlot === mySlot &&
+      rbPatternsPreBan &&
+      rbPatternsPreBan.length > 0
+    ) {
+      return rbPatternsPreBan;
+    }
+    return activePatterns;
+  }, [liveBoardMode, rbHideBannedPatternFromSlot, mySlot, rbPatternsPreBan, activePatterns]);
+  const sidebarRbBannedPattern = useMemo(() => {
+    if (liveBoardMode === "7x7" && rbHideBannedPatternFromSlot === mySlot) return null;
+    return rbBannedPattern;
+  }, [liveBoardMode, rbHideBannedPatternFromSlot, mySlot, rbBannedPattern]);
   const displayMatchHistory = useMemo(
     () => matchHistory.slice(Math.max(0, historyDisplayStartIndex)),
     [matchHistory, historyDisplayStartIndex],
@@ -527,6 +549,9 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     coinResult: null as "PENTA" | "PROTO" | null, matchOver: false, gameNumber: 1,
     matchHistory: [] as string[], firstPlayerChosen: null as string | null,
     tossWinner: null as "P1" | "P2" | null, rbC3Blocked: false, rbBannedPattern: null as string | null, summaryTimer: 5, choiceTimer: 0,
+    winnerPickedRule: null as string | null,
+    rbHideBannedPatternFromSlot: null as "P1" | "P2" | null,
+    rbPatternsPreBan: null as string[] | null,
   });
   R.current.phase = phase;
   R.current.current = current;
@@ -543,12 +568,19 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   R.current.tossWinner = tossWinner;
   R.current.rbC3Blocked = rbC3Blocked;
   R.current.rbBannedPattern = rbBannedPattern;
+  R.current.rbHideBannedPatternFromSlot = rbHideBannedPatternFromSlot;
+  R.current.rbPatternsPreBan = rbPatternsPreBan;
   R.current.summaryTimer = summaryTimer;
   R.current.choiceTimer = choiceTimer;
+  R.current.winnerPickedRule = winnerPickedRule;
 
   const boardRef = useRef(board);
   const extraTurnsRef = useRef(extraTurns);
   const movesPlayedRef = useRef(movesPlayed);
+  const activePatternsRef = useRef(activePatterns);
+  useEffect(() => { activePatternsRef.current = activePatterns; }, [activePatterns]);
+  const liveSelectedPatternsRef = useRef(liveSelectedPatterns);
+  useEffect(() => { liveSelectedPatternsRef.current = liveSelectedPatterns; }, [liveSelectedPatterns]);
   const matchHistoryRef = useRef<string[]>([]);
   useEffect(() => { boardRef.current = board; }, [board]);
   useEffect(() => { extraTurnsRef.current = extraTurns; }, [extraTurns]);
@@ -721,6 +753,22 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
           if (playerSlot === "P2" && r.player1_name) setOpponentName(r.player1_name);
           if (r.board_mode) setLiveBoardMode(r.board_mode as BoardMode);
           if (Array.isArray(r.selected_patterns)) setLiveSelectedPatterns(r.selected_patterns);
+          if (typeof r.suppress_center_opening === "boolean") setSuppressCenterOpening(r.suppress_center_opening);
+          if (r.rb_extra_turn_token_holder === "P1" || r.rb_extra_turn_token_holder === "P2") {
+            setRbExtraTurnTokenHolder(r.rb_extra_turn_token_holder);
+          } else if (r.rb_extra_turn_token_holder === null) {
+            setRbExtraTurnTokenHolder(null);
+          }
+          if (typeof r.rb_extra_turn_token_used === "boolean") setRbExtraTurnTokenUsed(r.rb_extra_turn_token_used);
+          if (r.rb_hide_banned_from_slot === "P1" || r.rb_hide_banned_from_slot === "P2") {
+            setRbHideBannedPatternFromSlot(r.rb_hide_banned_from_slot);
+          } else {
+            setRbHideBannedPatternFromSlot(null);
+          }
+          if (Array.isArray(r.rb_patterns_pre_ban)) setRbPatternsPreBan(r.rb_patterns_pre_ban as string[]);
+          else setRbPatternsPreBan(null);
+          if (typeof r.rb_banned_pattern === "string") setRbBannedPattern(r.rb_banned_pattern);
+          else if (r.rb_banned_pattern === null) setRbBannedPattern(null);
           if (typeof r.p1_series_points === "number") setP1SeriesPts(r.p1_series_points);
           if (typeof r.p2_series_points === "number") setP2SeriesPts(r.p2_series_points);
           if (typeof r.awaiting_rulebreaker === "boolean") awaitingRulebreakerRef.current = r.awaiting_rulebreaker;
@@ -793,6 +841,10 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
           awaiting7x7RulesRef.current = false;
           setRulesShowSheet(null);
           setShow7x7LevelUp(false);
+            } else if (msg.type === "rb_extra_turn_update") {
+          const et = asNum(msg.extra_turns);
+          if (typeof et === "number") setExtraTurns(et);
+          if (msg.rb_extra_turn_token_used === true) setRbExtraTurnTokenUsed(true);
             } else if (msg.type === "chat_message") {
           setChatMessages(m => [...m.slice(-49), { from: msg.from, text: msg.text, ts: msg.ts }]);
             } else if (msg.type === "game_reset") {
@@ -832,6 +884,34 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
           setShowWinOverlay(false);
           setOverlayVisible(false);
           setC3Blocked(msg.c3_blocked ?? false);
+          setSuppressCenterOpening(Boolean(msg.suppress_center_opening));
+          {
+            const h = msg.rb_extra_turn_token_holder;
+            setRbExtraTurnTokenHolder(h === "P1" || h === "P2" ? h : null);
+          }
+          setRbExtraTurnTokenUsed(Boolean(msg.rb_extra_turn_token_used));
+          {
+            const grm = msg as {
+              preserve_rb_hide?: boolean;
+              rb_hide_banned_from_slot?: unknown;
+              rb_patterns_pre_ban?: unknown;
+              rb_banned_pattern?: unknown;
+            };
+            if (grm.preserve_rb_hide === true) {
+              const hs = grm.rb_hide_banned_from_slot;
+              setRbHideBannedPatternFromSlot(hs === "P1" || hs === "P2" ? hs : null);
+              if (Array.isArray(grm.rb_patterns_pre_ban)) {
+                setRbPatternsPreBan(grm.rb_patterns_pre_ban as string[]);
+              }
+              if (typeof grm.rb_banned_pattern === "string") {
+                setRbBannedPattern(grm.rb_banned_pattern);
+              }
+            } else {
+              setRbHideBannedPatternFromSlot(null);
+              setRbPatternsPreBan(null);
+              setRbBannedPattern(null);
+            }
+          }
           setLog([]);
           const mtm = nextBm === "7x7" ? 300_000 : 180_000;
           setP1Time(mtm);
@@ -952,6 +1032,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
               coinStartTimeRef.current = 0; // will be set when rb_coin phase starts
               setTossWinner(null); setFirstPlayerChosen(null); setRbC3Blocked(false); setRbBannedPattern(null);
               setWinnerPickedRule(null); setWinnerPickedFirst(null); setWinnerPickedC3(null);
+              setRbHideBannedPatternFromSlot(null); setRbPatternsPreBan(null);
               playRulebreakerAction?.();
             }, 200);
           } else if (action === "coin_result") {
@@ -973,6 +1054,11 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
             if (payload.winnerPickedFirst !== undefined) setWinnerPickedFirst(payload.winnerPickedFirst);
             if (payload.winnerPickedC3 !== undefined) setWinnerPickedC3(payload.winnerPickedC3);
             if (payload.rbBannedPattern !== undefined) setRbBannedPattern(payload.rbBannedPattern);
+            if (payload.rbHideBannedPatternFromSlot !== undefined) {
+              const s = payload.rbHideBannedPatternFromSlot;
+              setRbHideBannedPatternFromSlot(s === "P1" || s === "P2" ? s : null);
+            }
+            if (Array.isArray(payload.rbPatternsPreBan)) setRbPatternsPreBan(payload.rbPatternsPreBan as string[]);
           }
         } else if (msg.type === "pong") {
           const sentTs = asNum(msg.ts ?? pingOutstandingRef.current);
@@ -1083,7 +1169,10 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [botTurnKey, phase, winner, gameMode, liveBoardMode, activePatterns, difficulty]);
 
-  const initBoard = async (firstPlayer: string, c3block = false) => {
+  const initBoard = async (firstPlayer: string, c3block = false, suppressCenter = false) => {
+    setSuppressCenterOpening(suppressCenter);
+    setRbExtraTurnTokenHolder(null);
+    setRbExtraTurnTokenUsed(false);
     setBoard(emptyBoard());
     setCurrent(firstPlayer);
     setWinner(null);
@@ -1133,6 +1222,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     setSummaryTimer(5); setOverlayVisible(false); setChoiceTimer(0);
     setShowRematch(false); setRematchRequested(null);
     setWinnerPickedRule(null); setWinnerPickedFirst(null); setWinnerPickedC3(null);
+    setRbHideBannedPatternFromSlot(null); setRbPatternsPreBan(null);
     setPhase("playing");
     initBoard("P1");
   };
@@ -1342,7 +1432,16 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
                 const fp = s.firstPlayerChosen ?? s.tossWinner ?? "P1";
                 const _isMP2 = (gameMode === "ranked" || gameMode === "unranked") && !!roomCode;
                 if (!_isMP2) {
-                   initBoard(fp, s.rbC3Blocked);
+                  const wr = R.current.winnerPickedRule;
+                  const tw = R.current.tossWinner;
+                  const supC = wr === "extra_turn";
+                  initBoard(fp, s.rbC3Blocked, supC);
+                  unstable_batchedUpdates(() => {
+                    if (wr === "extra_turn" && (tw === "P1" || tw === "P2")) {
+                      setRbExtraTurnTokenHolder(tw);
+                      setRbExtraTurnTokenUsed(false);
+                    }
+                  });
                 }
             }
           }
@@ -1356,7 +1455,19 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
                 if (seriesAlreadyDecided) {
                   wsRef.current?.send(JSON.stringify({ type: "rb_start_game", resolve_series_only: true }));
                 } else {
-                  wsRef.current?.send(JSON.stringify({ type: "rb_start_game", first_player: fp, c3_blocked: s.rbC3Blocked }));
+                  const wr = R.current.winnerPickedRule;
+                  const tw = R.current.tossWinner;
+                  wsRef.current?.send(JSON.stringify({
+                    type: "rb_start_game",
+                    first_player: fp,
+                    c3_blocked: s.rbC3Blocked,
+                    selected_patterns: activePatternsRef.current,
+                    suppress_center_opening: wr === "extra_turn",
+                    rb_extra_turn_token_holder: wr === "extra_turn" && (tw === "P1" || tw === "P2") ? tw : null,
+                    rb_hide_banned_from_slot: R.current.rbHideBannedPatternFromSlot,
+                    rb_patterns_pre_ban: R.current.rbPatternsPreBan,
+                    rb_banned_pattern: R.current.rbBannedPattern,
+                  }));
                 }
               }
               setPhase("rb_initializing");
@@ -1379,25 +1490,29 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   const autoPickLeft = (p: Phase) => {
     const tw = R.current.tossWinner;
     const tl = tw === "P1" ? "P2" : "P1";
+    const patList = liveSelectedPatternsRef.current;
     if (p === "rule_choice") {
-      if (is7x7) { setWinnerPickedRule("first"); setPhase("who_first_winner"); }
-      else { setPhase("who_first_winner"); }
+      if (is7x7 && tw) {
+        setWinnerPickedRule("extra_turn");
+        setRbPatternsPreBan([...patList]);
+        setRbHideBannedPatternFromSlot(tw);
+        setPhase("ban_pattern_loser");
+      } else if (!is7x7) { setPhase("who_first_winner"); }
     }
     else if (p === "who_first_winner") {
       setFirstPlayerChosen(tw);
-      if (is7x7) { setPhase("ban_pattern_loser"); }
-      else { setPhase("c3_choice_loser"); }
+      setPhase("c3_choice_loser");
     }
     else if (p === "c3_choice") { setRbC3Blocked(true); setPhase("who_first_loser"); }
     else if (p === "c3_choice_loser") { setRbC3Blocked(true); setSummaryTimer(5); setPhase("toss_summary"); }
     else if (p === "who_first_loser") { setFirstPlayerChosen(tl); setSummaryTimer(5); setPhase("toss_summary"); }
     else if (p === "ban_pattern_winner") {
-      const first = liveSelectedPatterns[0] ?? null;
-      setRbBannedPattern(first); setSummaryTimer(5); setPhase("who_first_loser");
+      const first = patList[0] ?? null;
+      setRbBannedPattern(first); setPhase("who_first_loser");
     }
     else if (p === "ban_pattern_loser") {
-      const first = liveSelectedPatterns[0] ?? null;
-      setRbBannedPattern(first); setSummaryTimer(5); setPhase("toss_summary");
+      const first = patList[0] ?? null;
+      setRbBannedPattern(first); setPhase("who_first_loser");
     }
   };
   const doAdvanceAfterReady = () => {
@@ -1419,6 +1534,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
       setRbSplashTimer(5); setCoinFlipTimer(rbCoinFlipSeconds); setCoinRevealTimer(0);
       setCoinResult(null); setCoinAngle(0); setTossWinner(null);
       setFirstPlayerChosen(null); setRbC3Blocked(false); setRbBannedPattern(null); setSummaryTimer(5);
+      setRbHideBannedPatternFromSlot(null); setRbPatternsPreBan(null);
     } else {
       setGameNumber(2); setPhase("playing"); initBoard("P2");
     }
@@ -1507,7 +1623,8 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     nb[r][c] = playerWhoMoved;
     const newMoves = currentMoves + 1;
     let newExtra = currentExtra, nextPlayer: string = "P1";
-    if (newMoves === 1 && r === CENTER && c === CENTER) { nextPlayer = "P1"; newExtra = 2; }
+    const skipC7 = liveBoardMode === "7x7" && suppressCenterOpening;
+    if (!skipC7 && newMoves === 1 && r === CENTER && c === CENTER) { nextPlayer = "P1"; newExtra = 2; }
     else if (newExtra > 0) { newExtra--; if (newExtra === 0) nextPlayer = "P1"; else nextPlayer = "P2"; }
     else { nextPlayer = "P1"; }
     const result = liveBoardMode === "7x7" ? checkWin7(nb, r, c, playerWhoMoved, newMoves, activePatterns) : checkWin(nb, r, c, playerWhoMoved, newMoves);
@@ -1535,7 +1652,8 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     nb[r][c] = playerWhoMoved;
     const newMoves = movesPlayed + 1;
     let newExtra = extraTurns, nextPlayer = current;
-    if (newMoves === 1 && r === CENTER && c === CENTER) { nextPlayer = current === "P1" ? "P2" : "P1"; newExtra = 2; }
+    const skipC7 = liveBoardMode === "7x7" && suppressCenterOpening;
+    if (!skipC7 && newMoves === 1 && r === CENTER && c === CENTER) { nextPlayer = current === "P1" ? "P2" : "P1"; newExtra = 2; }
     else if (newExtra > 0) { newExtra--; if (newExtra === 0) nextPlayer = current === "P1" ? "P2" : "P1"; }
     else { nextPlayer = current === "P1" ? "P2" : "P1"; }
     if (c3Blocked && newMoves === 1) setC3Blocked(false);
@@ -1655,6 +1773,20 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
 
   const dismissOverlay = useCallback(() => { setOverlayVisible(false); setTimeout(() => setShowWinOverlay(false), 320); }, []);
 
+  const useRbExtraTurnToken = useCallback(() => {
+    if (phase !== "playing" || winner) return;
+    if (!rbExtraTurnTokenHolder || rbExtraTurnTokenUsed) return;
+    if (extraTurns !== 0) return;
+    const imHolder = isMultiplayerGame ? mySlot === rbExtraTurnTokenHolder : current === rbExtraTurnTokenHolder;
+    if (!imHolder) return;
+    if (isMultiplayerGame && wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ type: "rb_use_extra_turn" }));
+      return;
+    }
+    setExtraTurns(x => x + 2);
+    setRbExtraTurnTokenUsed(true);
+  }, [phase, winner, rbExtraTurnTokenHolder, rbExtraTurnTokenUsed, extraTurns, isMultiplayerGame, mySlot, current]);
+
   const broadcastTossPhase = useCallback((ph: string, extra: Record<string, unknown> = {}) => {
     if (isMultiplayerGame && wsRef.current?.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify({ type: "toss_action", action: "phase_choice", payload: { phase: ph, ...extra } }));
@@ -1664,7 +1796,20 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   const onLeftAction = useCallback(() => {
     const p = R.current.phase; const tw = R.current.tossWinner; const tl = tw === "P1" ? "P2" : "P1";
     if (p === "rule_choice") {
-      setWinnerPickedRule("first"); setPhase("who_first_winner"); broadcastTossPhase("who_first_winner", { winnerPickedRule: "first" });
+      if (is7x7 && tw) {
+        const pre = [...liveSelectedPatterns];
+        setWinnerPickedRule("extra_turn");
+        setRbPatternsPreBan(pre);
+        setRbHideBannedPatternFromSlot(tw);
+        setPhase("ban_pattern_loser");
+        broadcastTossPhase("ban_pattern_loser", {
+          winnerPickedRule: "extra_turn",
+          rbHideBannedPatternFromSlot: tw,
+          rbPatternsPreBan: pre,
+        });
+      } else {
+        setWinnerPickedRule("first"); setPhase("who_first_winner"); broadcastTossPhase("who_first_winner", { winnerPickedRule: "first" });
+      }
     }
     else if (p === "who_first_winner") {
       setFirstPlayerChosen(tw); setWinnerPickedFirst(tw ?? null);
@@ -1674,13 +1819,24 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     else if (p === "c3_choice") { setRbC3Blocked(true); setWinnerPickedC3(true); setPhase("who_first_loser"); broadcastTossPhase("who_first_loser", { rbC3Blocked: true, winnerPickedC3: true }); }
     else if (p === "c3_choice_loser") { setRbC3Blocked(true); setSummaryTimer(5); setPhase("toss_summary"); broadcastTossPhase("toss_summary", { rbC3Blocked: true, summaryTimer: 5 }); }
     else if (p === "who_first_loser") { setFirstPlayerChosen(tl); setSummaryTimer(5); setPhase("toss_summary"); broadcastTossPhase("toss_summary", { firstPlayerChosen: tl, summaryTimer: 5 }); }
-  }, [broadcastTossPhase, is7x7]);
+  }, [broadcastTossPhase, is7x7, liveSelectedPatterns]);
 
   const onRightAction = useCallback(() => {
     const p = R.current.phase; const tw = R.current.tossWinner; const tl = tw === "P1" ? "P2" : "P1";
     if (p === "rule_choice") {
-      if (is7x7) { setWinnerPickedRule("ban"); setPhase("ban_pattern_winner"); broadcastTossPhase("ban_pattern_winner", { winnerPickedRule: "ban" }); }
-      else { setWinnerPickedRule("c3"); setPhase("c3_choice"); broadcastTossPhase("c3_choice", { winnerPickedRule: "c3" }); }
+      if (is7x7 && tw) {
+        const pre = [...liveSelectedPatterns];
+        setWinnerPickedRule("ban");
+        setRbPatternsPreBan(pre);
+        setRbHideBannedPatternFromSlot(tl);
+        setPhase("ban_pattern_winner");
+        broadcastTossPhase("ban_pattern_winner", {
+          winnerPickedRule: "ban",
+          rbHideBannedPatternFromSlot: tl,
+          rbPatternsPreBan: pre,
+        });
+      }
+      else if (!is7x7) { setWinnerPickedRule("c3"); setPhase("c3_choice"); broadcastTossPhase("c3_choice", { winnerPickedRule: "c3" }); }
     }
     else if (p === "who_first_winner") {
       setFirstPlayerChosen(tl); setWinnerPickedFirst(tl ?? null);
@@ -1690,7 +1846,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     else if (p === "c3_choice") { setRbC3Blocked(false); setWinnerPickedC3(false); setPhase("who_first_loser"); broadcastTossPhase("who_first_loser", { rbC3Blocked: false, winnerPickedC3: false }); }
     else if (p === "c3_choice_loser") { setRbC3Blocked(false); setSummaryTimer(5); setPhase("toss_summary"); broadcastTossPhase("toss_summary", { rbC3Blocked: false, summaryTimer: 5 }); }
     else if (p === "who_first_loser") { setFirstPlayerChosen(tw); setSummaryTimer(5); setPhase("toss_summary"); broadcastTossPhase("toss_summary", { firstPlayerChosen: tw, summaryTimer: 5 }); }
-  }, [broadcastTossPhase, is7x7]);
+  }, [broadcastTossPhase, is7x7, liveSelectedPatterns]);
 
   const onBanPattern = useCallback((patternName: string) => {
     const p = R.current.phase;
@@ -1698,7 +1854,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     if (p === "ban_pattern_winner") {
       setPhase("who_first_loser"); broadcastTossPhase("who_first_loser", { rbBannedPattern: patternName });
     } else if (p === "ban_pattern_loser") {
-      setSummaryTimer(5); setPhase("toss_summary"); broadcastTossPhase("toss_summary", { rbBannedPattern: patternName, summaryTimer: 5 });
+      setPhase("who_first_loser"); broadcastTossPhase("who_first_loser", { rbBannedPattern: patternName });
     }
   }, [broadcastTossPhase]);
 
@@ -2105,9 +2261,16 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
 
         {/* Turn indicator */}
         <div style={{ position: "absolute", bottom: 52, left: 0, right: 0, zIndex: 10, display: "flex", flexDirection: "column", alignItems: "center", gap: 5, pointerEvents: "none" }}>
-          {phase === "playing" && movesPlayed === 0 && (
+          {phase === "playing" && movesPlayed === 0 && !(liveBoardMode === "7x7" && suppressCenterOpening) && (
             <div style={{ fontFamily: t.fontMono, fontSize: 10, letterSpacing: "0.06em", background: c3Blocked ? `${t.danger}18` : `${t.gold}18`, border: `1px solid ${c3Blocked ? t.danger : t.gold}44`, borderRadius: 6, padding: "3px 12px", color: c3Blocked ? t.danger : t.gold }}>
               {c3Blocked ? "✕ Center blocked" : "★ Center → opponent gets 2 extra turns"}
+            </div>
+          )}
+          {liveBoardMode === "7x7" && phase === "playing" && !winner && rbExtraTurnTokenHolder && !rbExtraTurnTokenUsed && extraTurns === 0 && (isMultiplayerGame ? mySlot === rbExtraTurnTokenHolder : current === rbExtraTurnTokenHolder) && (
+            <div style={{ pointerEvents: "auto" }}>
+              <button type="button" onClick={() => { playClickAction?.(); useRbExtraTurnToken(); }} title="Use once: your next move does not end your turn." style={{ fontFamily: t.fontMono, fontSize: 10, fontWeight: 800, letterSpacing: "0.05em", padding: "8px 14px", borderRadius: 10, border: `1px solid ${t.accent}88`, background: `${t.accent}22`, color: t.accent }}>
+                EXTRA TURN TOKEN
+              </button>
             </div>
           )}
           <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 18px", background: `${winner ? winnerColor : cc}18`, border: `1px solid ${winner ? winnerColor : cc}88`, borderRadius: 20, backdropFilter: "blur(8px)" }}>
@@ -2293,7 +2456,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
         matchHistory={displayMatchHistory} seriesWinner={seriesWinner} matchOver={matchOver}
         gameMode={gameMode} isRankedGame={isRankedGame} isMultiplayerGame={isMultiplayerGame}
         isMultiplayer={isMultiplayer} mySlot={mySlot}
-        boardMode={liveBoardMode} selectedPatterns={activePatterns} rbBannedPattern={rbBannedPattern}
+        boardMode={liveBoardMode} selectedPatterns={sidebarPatternList} rbBannedPattern={sidebarRbBannedPattern}
         p1SeriesPts={isMultiplayerGame ? p1SeriesPts : undefined} p2SeriesPts={isMultiplayerGame ? p2SeriesPts : undefined}
         p1Time={p1Time} p2Time={p2Time} readyTimeout={readyTimeout}
         p1Ready={p1Ready} p2Ready={p2Ready}
@@ -2332,7 +2495,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
       {/* BOARD */}
       <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 10, padding: "10px 0", minWidth: 0 }}>
         <div style={{ height: 36, display: "flex", alignItems: "center", justifyContent: "center", gap: 16, width: "100%", position: "relative", paddingLeft: "2%" }}>
-          <div style={{ fontFamily: t.fontMono, fontSize: 11, letterSpacing: "0.08em", background: c3Blocked ? `${t.danger}10` : `${t.gold}10`, border: `1px solid ${c3Blocked ? t.danger : t.gold}33`, borderRadius: 6, padding: "3px 14px", color: c3Blocked ? t.danger : t.gold, flexShrink: 0, visibility: phase === "playing" && movesPlayed === 0 ? "visible" : "hidden", opacity: phase === "playing" && movesPlayed === 0 ? 1 : 0, transition: "opacity 0.4s ease", pointerEvents: "none" }}>
+          <div style={{ fontFamily: t.fontMono, fontSize: 11, letterSpacing: "0.08em", background: c3Blocked ? `${t.danger}10` : `${t.gold}10`, border: `1px solid ${c3Blocked ? t.danger : t.gold}33`, borderRadius: 6, padding: "3px 14px", color: c3Blocked ? t.danger : t.gold, flexShrink: 0, visibility: phase === "playing" && movesPlayed === 0 && !(liveBoardMode === "7x7" && suppressCenterOpening) ? "visible" : "hidden", opacity: phase === "playing" && movesPlayed === 0 && !(liveBoardMode === "7x7" && suppressCenterOpening) ? 1 : 0, transition: "opacity 0.4s ease", pointerEvents: "none" }}>
             {c3Blocked ? "✕ Center (C3) is blocked this game" : "★ Playing center gives opponent 2 extra turns"}
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 20px", background: `${winner ? winnerColor : cc}14`, border: `${ip ? 3 : 1}px solid ${winner ? winnerColor : cc}`, borderRadius: ip ? 2 : 24, transition: "background 0.25s, border-color 0.25s", flexShrink: 0 }}>
@@ -2346,6 +2509,11 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
               }
             </span>
           </div>
+          {liveBoardMode === "7x7" && phase === "playing" && !winner && rbExtraTurnTokenHolder && !rbExtraTurnTokenUsed && extraTurns === 0 && (isMultiplayerGame ? mySlot === rbExtraTurnTokenHolder : current === rbExtraTurnTokenHolder) && (
+            <button type="button" onClick={() => { playClickAction?.(); useRbExtraTurnToken(); }} title="Use once: your next move does not end your turn (then turns alternate normally). Center opening rule is off this game." style={{ flexShrink: 0, fontFamily: t.fontMono, fontSize: 10, fontWeight: 800, letterSpacing: "0.06em", padding: "6px 12px", borderRadius: 8, border: `1px solid ${t.accent}88`, background: `${t.accent}22`, color: t.accent, cursor: "pointer" }}>
+              USE EXTRA TURN TOKEN
+            </button>
+          )}
           <div style={{ fontFamily: t.fontMono, fontSize: 11, letterSpacing: "0.08em", borderRadius: 6, padding: "3px 14px", flexShrink: 0, visibility: "hidden", pointerEvents: "none" }}>
             {c3Blocked ? "✕ Center (C3) is blocked this game" : "★ Playing center gives opponent 2 extra turns"}
           </div>

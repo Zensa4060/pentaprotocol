@@ -66,7 +66,7 @@ async def get_career(user_id: str = Depends(get_current_user)):
     cursor = db.match_history.find({"user_id": user_id}).sort("played_at", -1).limit(20)
     matches = []
     async for doc in cursor:
-        matches.append({
+        row = {
             "opponent_username": doc.get("opponent_username", "Unknown"),
             "opponent_elo":      doc.get("opponent_elo", 100),
             "result":            doc.get("result", "loss"),
@@ -75,7 +75,14 @@ async def get_career(user_id: str = Depends(get_current_user)):
             "elo_delta":         doc.get("elo_delta", 0),
             "mode":              doc.get("mode", "unranked"),
             "played_at":         doc.get("played_at", "").isoformat() if doc.get("played_at") else "",
-        })
+        }
+        if doc.get("banned_pattern_7x7"):
+            row["banned_pattern_7x7"] = doc["banned_pattern_7x7"]
+        if doc.get("board_mode"):
+            row["board_mode"] = doc["board_mode"]
+        if doc.get("game_number") is not None:
+            row["game_number"] = doc["game_number"]
+        matches.append(row)
     return matches
 
 

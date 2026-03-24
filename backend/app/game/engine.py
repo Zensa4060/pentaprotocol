@@ -38,6 +38,7 @@ class GameEngine:
         self.moves_played = 0
         self.extra_turns = 0
         self.connection_scores = None
+        self.suppress_center_opening = False
 
     def deploy(self, row, col):
         if self.winner:
@@ -52,7 +53,12 @@ class GameEngine:
         self.moves_played += 1
 
         # ── Center rule: first move on center gives opponent 2 extra turns ──
-        if self.moves_played == 1 and row == self.CENTER and col == self.CENTER:
+        if (
+            not getattr(self, "suppress_center_opening", False)
+            and self.moves_played == 1
+            and row == self.CENTER
+            and col == self.CENTER
+        ):
             self._switch_turn()          # opponent now has the turn
             self.extra_turns = 2         # opponent gets 2 extra turns
             return {"success": True, "winner": None, "extra_turns": 2}
