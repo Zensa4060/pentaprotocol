@@ -224,6 +224,9 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   const historyDisplayStartIndexRef = useRef(0);
   historyDisplayStartIndexRef.current = historyDisplayStartIndex;
   const [show7x7LevelUp, setShow7x7LevelUp] = useState(false);
+  const [show7x7RulesReadyScreen, setShow7x7RulesReadyScreen] = useState(false);
+  const [p1LevelUpReady, setP1LevelUpReady] = useState(false);
+  const [p2LevelUpReady, setP2LevelUpReady] = useState(false);
 
   const GRID_SIZE = liveBoardMode === "7x7" ? 7 : 5;
   const CENTER = liveBoardMode === "7x7" ? 3 : 2;
@@ -738,6 +741,11 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
             } else if (msg.type === "ready_update") {
           if (msg.player === "P1") setP1Ready(msg.ready);
           else setP2Ready(msg.ready);
+            } else if (msg.type === "levelup_ready_update") {
+          if (msg.player === "P1") setP1LevelUpReady(Boolean(msg.ready));
+          else if (msg.player === "P2") setP2LevelUpReady(Boolean(msg.ready));
+            } else if (msg.type === "levelup_start") {
+          setShow7x7RulesReadyScreen(false);
             } else if (msg.type === "chat_message") {
           setChatMessages(m => [...m.slice(-49), { from: msg.from, text: msg.text, ts: msg.ts }]);
             } else if (msg.type === "game_reset") {
@@ -794,6 +802,9 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
               if (typeof msg.p1_series_points === "number") setP1SeriesPts(msg.p1_series_points);
               if (typeof msg.p2_series_points === "number") setP2SeriesPts(msg.p2_series_points);
               setGameNumber(1);
+              setP1LevelUpReady(false);
+              setP2LevelUpReady(false);
+              setShow7x7RulesReadyScreen(true);
               setMatchOver(false);
               setSeriesWinner(null);
               awaitingRulebreakerRef.current = false;
@@ -817,6 +828,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
               segmentStartIndexRef.current = 0;
               setHistoryDisplayStartIndex(0);
               historyDisplayStartIndexRef.current = 0;
+              setShow7x7RulesReadyScreen(false);
             }
           } else {
             if (msg.game_number) setGameNumber(msg.game_number);
@@ -1277,8 +1289,6 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
               if (s.tossWinner === mySlot) {
                 if (seriesAlreadyDecided) {
                   wsRef.current?.send(JSON.stringify({ type: "rb_start_game", resolve_series_only: true }));
-                } else if (liveBoardModeRef.current === "7x7" && p1 === p2) {
-                  wsRef.current?.send(JSON.stringify({ type: "rb_start_game", resolve_series_draw: true }));
                 } else {
                   wsRef.current?.send(JSON.stringify({ type: "rb_start_game", first_player: fp, c3_blocked: s.rbC3Blocked }));
                 }
@@ -1524,52 +1534,52 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     [isPixelBoard, board]
   );
   const glacierClick = React.useCallback(
-    (r: number, c: number) => { if (!winner && phase === "playing") placeRef.current(r, c); },
-    [winner, phase]
+    (r: number, c: number) => { if (!winner && phase === "playing" && !show7x7RulesReadyScreen) placeRef.current(r, c); },
+    [winner, phase, show7x7RulesReadyScreen]
   );
   const bloodMoonClick = React.useCallback(
-    (r: number, c: number) => { if (!winner && phase === "playing") placeRef.current(r, c); },
-    [winner, phase]
+    (r: number, c: number) => { if (!winner && phase === "playing" && !show7x7RulesReadyScreen) placeRef.current(r, c); },
+    [winner, phase, show7x7RulesReadyScreen]
   );
   const egyptClick = React.useCallback(
-    (r: number, c: number) => { if (!winner && phase === "playing") placeRef.current(r, c); },
-    [winner, phase]
+    (r: number, c: number) => { if (!winner && phase === "playing" && !show7x7RulesReadyScreen) placeRef.current(r, c); },
+    [winner, phase, show7x7RulesReadyScreen]
   );
   const synthwaveClick = React.useCallback(
-    (r: number, c: number) => { if (!winner && phase === "playing") placeRef.current(r, c); },
-    [winner, phase]
+    (r: number, c: number) => { if (!winner && phase === "playing" && !show7x7RulesReadyScreen) placeRef.current(r, c); },
+    [winner, phase, show7x7RulesReadyScreen]
   );
   const matrixClick = React.useCallback(
-    (r: number, c: number) => { if (!winner && phase === "playing") placeRef.current(r, c); },
-    [winner, phase]
+    (r: number, c: number) => { if (!winner && phase === "playing" && !show7x7RulesReadyScreen) placeRef.current(r, c); },
+    [winner, phase, show7x7RulesReadyScreen]
   );
   const arcaneClick = React.useCallback(
-    (r: number, c: number) => { if (!winner && phase === "playing") placeRef.current(r, c); },
-    [winner, phase]
+    (r: number, c: number) => { if (!winner && phase === "playing" && !show7x7RulesReadyScreen) placeRef.current(r, c); },
+    [winner, phase, show7x7RulesReadyScreen]
   );
   const bioClick = React.useCallback(
-    (r: number, c: number) => { if (!winner && phase === "playing") placeRef.current(r, c); },
-    [winner, phase]
+    (r: number, c: number) => { if (!winner && phase === "playing" && !show7x7RulesReadyScreen) placeRef.current(r, c); },
+    [winner, phase, show7x7RulesReadyScreen]
   );
   const forgeClick = React.useCallback(
-    (r: number, c: number) => { if (!winner && phase === "playing") placeRef.current(r, c); },
-    [winner, phase]
+    (r: number, c: number) => { if (!winner && phase === "playing" && !show7x7RulesReadyScreen) placeRef.current(r, c); },
+    [winner, phase, show7x7RulesReadyScreen]
   );
   const voidClick = React.useCallback(
-    (r: number, c: number) => { if (!winner && phase === "playing") placeRef.current(r, c); },
-    [winner, phase]
+    (r: number, c: number) => { if (!winner && phase === "playing" && !show7x7RulesReadyScreen) placeRef.current(r, c); },
+    [winner, phase, show7x7RulesReadyScreen]
   );
   const tokyoClick = React.useCallback(
-    (r: number, c: number) => { if (!winner && phase === "playing") placeRef.current(r, c); },
-    [winner, phase]
+    (r: number, c: number) => { if (!winner && phase === "playing" && !show7x7RulesReadyScreen) placeRef.current(r, c); },
+    [winner, phase, show7x7RulesReadyScreen]
   );
   const spaceClick = React.useCallback(
-    (r: number, c: number) => { if (!winner && phase === "playing") placeRef.current(r, c); },
-    [winner, phase]
+    (r: number, c: number) => { if (!winner && phase === "playing" && !show7x7RulesReadyScreen) placeRef.current(r, c); },
+    [winner, phase, show7x7RulesReadyScreen]
   );
   const pixelClick = React.useCallback(
-    (r: number, c: number) => { if (!winner && phase === "playing") placeRef.current(r, c); },
-    [winner, phase]
+    (r: number, c: number) => { if (!winner && phase === "playing" && !show7x7RulesReadyScreen) placeRef.current(r, c); },
+    [winner, phase, show7x7RulesReadyScreen]
   );
 
   const addLog = (r: number, c: number, player: string) => {
@@ -1700,10 +1710,10 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
       {board.map((row, r) => row.map((cell, c) => {
         const key = `${r}-${c}`;
         const blk = c3Blocked && movesPlayed === 0 && r === CENTER && c === CENTER;
-        const isHov = hover === key && !cell && !winner && !blk && phase === "playing";
+        const isHov = hover === key && !cell && !winner && !blk && phase === "playing" && !show7x7RulesReadyScreen;
         const isWin = winLine.some(([wr, wc]) => wr === r && wc === c);
         const ec = cell === "P1" ? p1c : p2c;
-        const canPlay = !cell && !winner && !blk && phase === "playing";
+        const canPlay = !cell && !winner && !blk && phase === "playing" && !show7x7RulesReadyScreen;
         if (isRedBoard) return (<RedCell key={key} cellSize={bigCs} player={cell} isWinCell={isWin} isHov={isHov} canPlay={canPlay} blk={blk} useFlameSkull={useFlameSkull} useSnowflakeShard={useSnowflakeShard} useGlacierSigils={useGlacierSigils} pieceSymbols={pieceSymbols} p1c={p1c} p2c={p2c} fontDisplay={t.fontDisplay} onClick={() => placeRef.current(r, c)} onMouseEnter={() => setHover(key)} onMouseLeave={() => setHover(null)} />);
         if (isIceBoard || isGlacierBoard) return (<IceCell key={key} cellSize={bigCs} player={cell} isWinCell={isWin} isHov={isHov} canPlay={canPlay} blk={blk} useFlameSkull={useFlameSkull} useSnowflakeShard={useSnowflakeShard} useGlacierSigils={useGlacierSigils} pieceSymbols={pieceSymbols} p1c={p1c} p2c={p2c} fontDisplay={t.fontDisplay} onClick={() => placeRef.current(r, c)} onMouseEnter={() => setHover(key)} onMouseLeave={() => setHover(null)} />);
         return (
@@ -1807,6 +1817,16 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     player === "P1" ? setP1Ready(newVal) : setP2Ready(newVal);
     if ((gameMode === "ai" || gameMode === "singleplayer") && player === "P1") setP2Ready(newVal);
   };
+  const onLevelUpReadyToggle = () => {
+    if (!isMultiplayerGame || !mySlot) return;
+    const isP1 = mySlot === "P1";
+    const nextVal = isP1 ? !p1LevelUpReady : !p2LevelUpReady;
+    if (isP1) setP1LevelUpReady(nextVal);
+    else setP2LevelUpReady(nextVal);
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ type: "levelup_ready", ready: nextVal }));
+    }
+  };
 
   const onChatKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") sendChat(isMultiplayerGame ? mySlot : "P1");
@@ -1820,7 +1840,38 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
       <div style={{ fontFamily: t.fontBody, fontSize: 14, color: t.textSecondary, marginTop: 24, maxWidth: 420, textAlign: "center", lineHeight: 1.55, padding: "0 20px" }}>Game 3 on 5×5 ended in a draw at 1-1. No extra toss — opening the 7×7 leg at game 1 (0-0), first move to whoever had the second move on 5×5 game 1. Pattern-ban Rulebreaker on 7×7 only when the usual pair rule says so.</div>
     </div>
   );
-
+  const levelUp7x7RulesReadyOverlay = show7x7RulesReadyScreen && (
+    <div style={{ position: "fixed", inset: 0, zIndex: 10003, background: "rgba(4,7,14,0.96)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 20 }}>
+      <div style={{ width: "min(980px, 95vw)", maxHeight: "90vh", overflowY: "auto", border: `1px solid ${t.accent}44`, borderRadius: 14, background: "rgba(0,0,0,0.6)", boxShadow: `0 0 20px ${t.accent}22`, padding: 22 }}>
+        <div style={{ fontFamily: t.fontMono, fontSize: 11, color: t.textMuted, letterSpacing: "0.22em", textAlign: "center" }}>7x7 LEG UNLOCKED</div>
+        <div style={{ fontFamily: t.fontDisplay, fontSize: "clamp(24px,5vw,42px)", color: t.accent, textAlign: "center", fontWeight: 900, marginTop: 8 }}>READY CHECK + RULES</div>
+        <div style={{ marginTop: 18, display: "flex", justifyContent: "center", gap: 14, flexWrap: "wrap" }}>
+          <div style={{ padding: "8px 12px", borderRadius: 8, border: `1px solid ${p1LevelUpReady ? t.p1 : t.border}`, color: p1LevelUpReady ? t.p1 : t.textMuted, fontFamily: t.fontMono, fontSize: 12 }}>P1: {p1LevelUpReady ? "READY" : "WAITING"}</div>
+          <div style={{ padding: "8px 12px", borderRadius: 8, border: `1px solid ${p2LevelUpReady ? t.p2 : t.border}`, color: p2LevelUpReady ? t.p2 : t.textMuted, fontFamily: t.fontMono, fontSize: 12 }}>P2: {p2LevelUpReady ? "READY" : "WAITING"}</div>
+        </div>
+        {isMultiplayerGame && mySlot && (
+          <div style={{ display: "flex", justifyContent: "center", marginTop: 14 }}>
+            <button onClick={onLevelUpReadyToggle} style={{ padding: "10px 20px", borderRadius: 8, border: `1px solid ${t.accent}`, background: `${t.accent}22`, color: t.accent, fontFamily: t.fontMono, fontWeight: 800, letterSpacing: "0.08em", cursor: "pointer" }}>
+              {(mySlot === "P1" ? p1LevelUpReady : p2LevelUpReady) ? "UNREADY" : "I AM READY"}
+            </button>
+          </div>
+        )}
+        <div style={{ marginTop: 20, borderTop: `1px solid ${t.border}`, paddingTop: 14 }}>
+          <div style={{ fontFamily: t.fontMono, fontSize: 12, color: t.text, letterSpacing: "0.12em", marginBottom: 8 }}>7x7 RULES</div>
+          <div style={{ fontFamily: t.fontBody, fontSize: 13, color: t.textSecondary, lineHeight: 1.6 }}>
+            <div>1) Objective: win the 7x7 leg by being first to 2 decisive wins in this leg.</div>
+            <div>2) Draws give 0 points to both players and do not break score ties.</div>
+            <div>3) Turn order alternates by game; first-player advantage rotates naturally.</div>
+            <div>4) Center is not auto-blocked on 7x7 (standard open board start).</div>
+            <div>5) Active win patterns for this leg are shown in the sidebar and must be respected.</div>
+            <div>6) If Rulebreaker is triggered by the pair rule, toss flow decides constraints/first-player for the next game.</div>
+            <div>7) Game 3 is always played when required; match result is decided only after that game ends.</div>
+            <div>8) If final points are tied after the deciding game, overall leg result is declared DRAW.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
   // ── MOBILE LAYOUT ─────────────────────────────────────────────────────────
   if (isMobile) {
     return (
@@ -1850,6 +1901,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
           loadCustomTheme={loadCustomTheme}
         />
         {levelUp7x7Overlay}
+        {levelUp7x7RulesReadyOverlay}
         {rbOverlay}
 
         <DisconnectModal
@@ -2133,6 +2185,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
         loadCustomTheme={loadCustomTheme}
       />
       {levelUp7x7Overlay}
+      {levelUp7x7RulesReadyOverlay}
       {rbOverlay}
 
       <DisconnectModal

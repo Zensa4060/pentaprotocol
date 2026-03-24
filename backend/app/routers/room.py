@@ -181,6 +181,10 @@ async def _apply_5x5_to_7x7_upgrade(
 ) -> None:
     from app.core.patterns7 import PATTERN_NAMES_7
 
+    rt = _room_runtime.get(room_code)
+    if rt is not None:
+        rt["levelup_ready"] = {"P1": False, "P2": False}
+
     patch = dict(game1_patch or {})
     g1f = room.get("game1_first_player") or "P1"
     first_7 = "P2" if g1f == "P1" else "P1"
@@ -654,6 +658,7 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
     if room_code not in _room_runtime:
         _room_runtime[room_code] = {
             "match_ready": {"P1": False, "P2": False},
+            "levelup_ready": {"P1": False, "P2": False},
             "ready_since_ms": None,
             "start_at_ms": None,
             "rtt_ms": {"P1": None, "P2": None},
@@ -749,6 +754,15 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                             **compute_series_state(new_history, seg_start),
                         }
                     )
+                    # 7x7 final game rule: after Game 3, tied points means full match DRAW.
+                    if (
+                        bm == "7x7"
+                        and gn >= 3
+                        and update.get("series_winner") is None
+                        and not update.get("awaiting_rulebreaker", False)
+                        and update.get("p1_series_points") == update.get("p2_series_points")
+                    ):
+                        update["series_winner"] = "DRAW"
 
                 await db.rooms.update_one({"room_code": room_code}, {"$set": update})
 
@@ -865,6 +879,35 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                     for slot, ws in _room_connections.get(room_code, {}).items():
                         try:
                             await ws.send_json(gr_payload)
+                        except:
+                            pass
+
+            elif msg["type"] == "levelup_ready":
+                rt = _room_runtime.get(room_code)
+                if not rt:
+                    continue
+                if "levelup_ready" not in rt:
+                    rt["levelup_ready"] = {"P1": False, "P2": False}
+                ready_val = bool(msg.get("ready", True))
+                rt["levelup_ready"][player_slot] = ready_val
+
+                for slot, ws in _room_connections.get(room_code, {}).items():
+                    try:
+                        await ws.send_json(
+                            {
+                                "type": "levelup_ready_update",
+                                "player": player_slot,
+                                "ready": ready_val,
+                            }
+                        )
+                    except:
+                        pass
+
+                if rt["levelup_ready"].get("P1") and rt["levelup_ready"].get("P2"):
+                    rt["levelup_ready"] = {"P1": False, "P2": False}
+                    for slot, ws in _room_connections.get(room_code, {}).items():
+                        try:
+                            await ws.send_json({"type": "levelup_start"})
                         except:
                             pass
 
