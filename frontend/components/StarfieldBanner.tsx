@@ -51,7 +51,7 @@ export default function StarfieldBanner({
     const CX = BASE_DW / 2;
     const CY = BASE_DH / 2;
 
-    const stars: Star[] = Array.from({ length: 160 }, () => {
+    const stars: Star[] = Array.from({ length: 96 }, () => {
       const a = rand() * Math.PI * 2;
       const d = rand() * 35 + 2;
       const baseDx = Math.cos(a) * (d / 35) * (0.12 + rand() * 0.35);
@@ -70,7 +70,7 @@ export default function StarfieldBanner({
       };
     });
 
-    const nebulas: Nebula[] = Array.from({ length: 8 }, () => ({
+    const nebulas: Nebula[] = Array.from({ length: 5 }, () => ({
       x: rand() * BASE_DW,
       y: rand() * BASE_DH,
       rx: 35 + rand() * 65,
@@ -104,21 +104,21 @@ export default function StarfieldBanner({
     const stars = scene.stars.map((s) => ({ ...s }));
     const nebulas = scene.nebulas.map((n) => ({ ...n }));
     const rand = scene.rand;
-    const DPR = typeof window !== "undefined" ? window.devicePixelRatio || 2 : 2;
+    const DPR = typeof window !== "undefined" ? Math.min(window.devicePixelRatio || 1, 1.25) : 1;
 
     const CX = BASE_DW / 2;
     const CY = BASE_DH / 2;
     let t = 0;
 
-    const loop = () => {
-      const w = Math.max(1, Math.floor(dims.w));
-      const h = Math.max(1, Math.floor(dims.h));
-      canvas.width = Math.floor(w * DPR);
-      canvas.height = Math.floor(h * DPR);
+    const w = Math.max(1, Math.floor(dims.w));
+    const h = Math.max(1, Math.floor(dims.h));
+    canvas.width = Math.floor(w * DPR);
+    canvas.height = Math.floor(h * DPR);
+    const sx = w / BASE_DW;
+    const sy = h / BASE_DH;
 
+    const loop = () => {
       ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
-      const sx = w / BASE_DW;
-      const sy = h / BASE_DH;
       ctx.scale(sx, sy);
 
       // Deep space bg

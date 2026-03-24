@@ -71,7 +71,7 @@ export default function StormProtocolBanner({
     const clouds = scene.clouds.map((c) => ({ ...c }));
     const bolts = scene.bolts.map((b) => ({ ...b }));
     const rand = scene.rand;
-    const DPR = typeof window !== "undefined" ? window.devicePixelRatio || 2 : 2;
+    const DPR = typeof window !== "undefined" ? Math.min(window.devicePixelRatio || 1, 1.25) : 1;
 
     let t = 0;
     let flash = 0;
@@ -115,15 +115,15 @@ export default function StormProtocolBanner({
       }
     };
 
-    const loop = () => {
-      const w = Math.max(1, Math.floor(dims.w));
-      const h = Math.max(1, Math.floor(dims.h));
-      canvas.width = Math.floor(w * DPR);
-      canvas.height = Math.floor(h * DPR);
+    const w = Math.max(1, Math.floor(dims.w));
+    const h = Math.max(1, Math.floor(dims.h));
+    canvas.width = Math.floor(w * DPR);
+    canvas.height = Math.floor(h * DPR);
+    const sx = w / BASE_DW;
+    const sy = h / BASE_DH;
 
+    const loop = () => {
       ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
-      const sx = w / BASE_DW;
-      const sy = h / BASE_DH;
       ctx.scale(sx, sy);
 
       flash = Math.max(0, flash - 0.06);
@@ -138,7 +138,7 @@ export default function StormProtocolBanner({
       ctx.fillRect(0, 0, BASE_DW, BASE_DH);
 
       // Rain streaks — angled
-      for (let i = 0; i < 80; i++) {
+      for (let i = 0; i < 56; i++) {
         const rx = ((i * 19 + t * 55) % (BASE_DW + 30)) - 15;
         const ry = ((i * 27 + t * 40) % (BASE_DH + 12)) - 6;
         const ra = 0.04 + Math.sin(i) * 0.025;

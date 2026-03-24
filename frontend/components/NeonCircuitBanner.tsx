@@ -3,7 +3,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 
 const BASE_DW = 860;
 const BASE_DH = 80;
-const DPR = typeof window !== "undefined" ? window.devicePixelRatio || 2 : 2;
+const DPR = typeof window !== "undefined" ? Math.min(window.devicePixelRatio || 1, 1.25) : 1;
 
 // Deterministic RNG for consistent visuals across screens.
 function mulberry32(seed: number) {
@@ -43,7 +43,7 @@ export default function NeonCircuitBanner({
     const rand = mulberry32(20260319);
 
     const traces: Trace[] = [];
-    for (let row = 0; row < 5; row++) {
+    for (let row = 0; row < 4; row++) {
       let x = 0;
       const y = 8 + row * 16;
       while (x < BASE_DW) {
@@ -94,19 +94,18 @@ export default function NeonCircuitBanner({
     let raf = 0;
     let t = 0;
 
+    const w = Math.max(1, Math.floor(dims.w));
+    const h = Math.max(1, Math.floor(dims.h));
+    canvas.width = Math.floor(w * DPR);
+    canvas.height = Math.floor(h * DPR);
+    const sx = w / BASE_DW;
+    const sy = h / BASE_DH;
+
     const draw = () => {
-      const w = Math.max(1, Math.floor(dims.w));
-      const h = Math.max(1, Math.floor(dims.h));
-
-      canvas.width = Math.floor(w * DPR);
-      canvas.height = Math.floor(h * DPR);
-
       // Prevent accumulated scaling when dims changes.
       ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
 
       // Scale base design into actual banner size.
-      const sx = w / BASE_DW;
-      const sy = h / BASE_DH;
       ctx.scale(sx, sy);
 
       // Background
@@ -114,8 +113,8 @@ export default function NeonCircuitBanner({
       ctx.fillRect(0, 0, BASE_DW, BASE_DH);
 
       // Grid dot background
-      for (let gx = 0; gx < BASE_DW; gx += 18) {
-        for (let gy = 0; gy < BASE_DH; gy += 16) {
+      for (let gx = 0; gx < BASE_DW; gx += 24) {
+        for (let gy = 0; gy < BASE_DH; gy += 20) {
           ctx.beginPath();
           ctx.arc(gx, gy, 0.6, 0, Math.PI * 2);
           ctx.fillStyle = "rgba(0,200,80,0.06)";
@@ -170,7 +169,7 @@ export default function NeonCircuitBanner({
       });
 
       // Vertical connectors
-      for (let i = 0; i < 16; i++) {
+      for (let i = 0; i < 12; i++) {
         const x = 25 + i * 52;
         const active = Math.sin(t * 3.5 + i * 0.9) > 0.4;
 

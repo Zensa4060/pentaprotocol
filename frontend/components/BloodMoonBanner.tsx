@@ -1,7 +1,7 @@
 "use client";
 import React, { useEffect, useRef, useState } from "react";
 
-const DPR = typeof window !== "undefined" ? window.devicePixelRatio || 2 : 2;
+const DPR = typeof window !== "undefined" ? Math.min(window.devicePixelRatio || 1, 1.25) : 1;
 
 export default function BloodMoonBanner({ style = {}, hideLabels = false }: { style?: React.CSSProperties; hideLabels?: boolean }) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -24,7 +24,7 @@ export default function BloodMoonBanner({ style = {}, hideLabels = false }: { st
     return () => obs.disconnect();
   }, []);
 
-  const stars = useRef(Array.from({length:140},()=>({
+  const stars = useRef(Array.from({length:90},()=>({
     x: Math.random() * 860, 
     y: Math.random() * 80, 
     r: Math.random() * 1.2 + 0.2, 
@@ -127,8 +127,8 @@ export default function BloodMoonBanner({ style = {}, hideLabels = false }: { st
 
       // Crescent rim glow
       ctx.beginPath(); ctx.arc(MX,MY,30 * scaleX,-0.7,0.7);
-      ctx.strokeStyle=`rgba(255,60,60,${0.65+glow*0.35})`; ctx.lineWidth=2.0;
-      ctx.shadowColor="rgba(255,0,0,0.8)"; ctx.shadowBlur=8; ctx.stroke(); ctx.shadowBlur=0;
+      ctx.strokeStyle=`rgba(255,60,60,${0.55+glow*0.25})`; ctx.lineWidth=1.6;
+      ctx.shadowColor="rgba(255,0,0,0.5)"; ctx.shadowBlur=4; ctx.stroke(); ctx.shadowBlur=0;
 
       // Blood drips
       drips.current.forEach(d=>{

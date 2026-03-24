@@ -184,8 +184,8 @@ async def _apply_5x5_to_7x7_upgrade(
     patch = dict(game1_patch or {})
     g1f = room.get("game1_first_player") or "P1"
     first_7 = "P2" if g1f == "P1" else "P1"
-    # Keep series points continuous across 5x5 -> 7x7.
-    seg_new = room.get("segment_start_index", 0)
+    # Start a fresh 7x7 segment: score and G1/G2/G3 should reset.
+    seg_new = len(new_history)
     ss = compute_series_state(new_history, seg_new)
     hist_display_start = len(new_history)
 
