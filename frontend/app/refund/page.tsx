@@ -43,10 +43,26 @@ export default function RefundPage() {
           </div>
 
           <Section title="1. Overview">
-            All purchases of virtual currency (ProtoCredits and PentaShards) and in-game items on PentaProtocol are generally <strong style={{ color: "#e8e8e8" }}>final and non-refundable</strong>, due to the immediate digital nature of delivery. We have a limited exception for accidental duplicate purchases only. By completing a purchase, you agree to this policy.
+            All purchases of virtual currency (ProtoCredits and PentaShards) and in-game items on PentaProtocol are generally <strong style={{ color: "#e8e8e8" }}>final and non-refundable</strong>, due to the immediate digital nature of delivery. We have a limited exception for accidental duplicate purchases only. Payments may be made via PayPal or by scanning the creator&apos;s personal payment QR (UPI or other method shown below). We do not use Instamojo. By completing a purchase, you agree to this policy.
           </Section>
 
-          <Section title="2. Non-Refundable Purchases">
+          <Section title="2. Creator payment QR (direct payments)" id="creator-payment-qr">
+            For direct payments (e.g. UPI in India), scan the <strong style={{ color: "#e8e8e8" }}>creator&apos;s personal QR code</strong> below. After payment, email{" "}
+            <a href="mailto:support@pentaprotocol.com" style={{ color: "#CC0000", textDecoration: "none" }}>support@pentaprotocol.com</a>{" "}
+            with your username, amount, and transaction reference (UPI ref or bank note) so we can verify and credit your account.
+            <br /><br />
+            <span style={{ display: "block", textAlign: "center", marginTop: 20 }}>
+              <img
+                src="/creator-payment-qr.svg"
+                alt="Creator payment QR code for UPI or other direct payment"
+                width={220}
+                height={220}
+                style={{ borderRadius: 12, border: "1px solid #2a2a38", maxWidth: "100%", height: "auto" }}
+              />
+            </span>
+          </Section>
+
+          <Section title="3. Non-Refundable Purchases">
             The following are strictly non-refundable under all circumstances:
             <br /><br />
             • ProtoCredits or PentaShards that have been used in whole or in part
@@ -60,8 +76,8 @@ export default function RefundPage() {
             We do not issue refunds for change of mind or dissatisfaction with gameplay outcomes.
           </Section>
 
-          <Section title="3. Eligible Refund: Accidental Duplicate Purchases">
-            PentaProtocol will consider a refund <strong style={{ color: "#e8e8e8" }}>solely</strong> where the same package has been purchased more than once within a single session due to a technical error, payment gateway glitch, or inadvertent double-click — and the duplicate credits have <strong style={{ color: "#e8e8e8" }}>not been spent</strong>.
+          <Section title="4. Eligible Refund: Accidental Duplicate Purchases">
+            PentaProtocol will consider a refund <strong style={{ color: "#e8e8e8" }}>solely</strong> where the same package has been purchased more than once within a single session due to a technical error, duplicate PayPal charge, inadvertent double payment to the creator&apos;s QR, or double-click — and the duplicate credits have <strong style={{ color: "#e8e8e8" }}>not been spent</strong>.
             <br /><br />
             <strong style={{ color: "#e8e8e8" }}>To qualify, all of the following must be true:</strong>
             <br />• The duplicate transaction occurred within the same session (within 30 minutes)
@@ -71,26 +87,26 @@ export default function RefundPage() {
             <br /><br />
             <strong style={{ color: "#e8e8e8" }}>How to request:</strong> Email{" "}
             <a href="mailto:support@pentaprotocol.com" style={{ color: "#CC0000", textDecoration: "none" }}>support@pentaprotocol.com</a>{" "}
-            with your username, date and time of both transactions, transaction IDs, and a brief description. We aim to respond within 5 business days. Approved refunds are processed to the original payment method within 7–10 business days.
+            with your username, date and time of both transactions, PayPal transaction IDs or UPI / bank references, and a brief description. We aim to respond within 5 business days. Approved refunds for PayPal payments are processed back through PayPal where possible. For direct QR / UPI payments, approved refunds may be returned via UPI or bank transfer at the creator&apos;s discretion within a reasonable time — not guaranteed to be instant.
           </Section>
 
-          <Section title="4. Cancellations">
+          <Section title="5. Cancellations">
             Orders cannot be cancelled once a transaction has been processed and virtual currency has been credited to your account, as delivery is immediate. If payment was processed but credits were not delivered due to a technical error, contact us at{" "}
             <a href="mailto:support@pentaprotocol.com" style={{ color: "#CC0000", textDecoration: "none" }}>support@pentaprotocol.com</a>{" "}
             within 48 hours with your transaction details.
           </Section>
 
-          <Section title="5. Failed or Erroneous Transactions">
+          <Section title="6. Failed or Erroneous Transactions">
             If you were charged for a transaction that failed to deliver the corresponding credits, contact us at{" "}
             <a href="mailto:support@pentaprotocol.com" style={{ color: "#CC0000", textDecoration: "none" }}>support@pentaprotocol.com</a>{" "}
-            within 48 hours with your transaction ID. We will verify with our payment provider and credit your account or issue a refund within 7 business days if confirmed.
+            within 48 hours with your transaction ID or UPI reference. We will verify with PayPal or your payment proof to the creator&apos;s account and credit your account or arrange a refund within 7 business days if confirmed.
           </Section>
 
-          <Section title="6. Chargebacks">
+          <Section title="7. Chargebacks">
             Initiating an unauthorised chargeback for a legitimate purchase violates our Terms and Conditions. Accounts with fraudulent chargebacks will be suspended and may face permanent termination with forfeiture of all virtual goods. If you have a genuine concern, please contact us before raising a dispute with your bank.
           </Section>
 
-          <Section title="7. Contact">
+          <Section title="8. Contact">
             For refund, cancellation, or payment queries:{" "}
             <a href="mailto:support@pentaprotocol.com" style={{ color: "#CC0000", textDecoration: "none" }}>support@pentaprotocol.com</a>
           </Section>
@@ -102,9 +118,9 @@ export default function RefundPage() {
   );
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({ title, children, id }: { title: string; children: React.ReactNode; id?: string }) {
   return (
-    <div style={{ marginBottom: 40 }}>
+    <div style={{ marginBottom: 40 }} id={id}>
       <h2 style={{ fontSize: 13, fontWeight: 700, color: "#CC0000", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 12, fontFamily: "monospace" }}>
         {title}
       </h2>

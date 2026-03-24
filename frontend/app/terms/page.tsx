@@ -77,7 +77,7 @@ export default function TermsPage() {
           <Section title="5. Virtual Currency and In-Game Items">
             <strong style={{ color: "#e8e8e8" }}>ProtoCredits (PC)</strong> are purchased with real money and used to unlock cosmetics and premium content. <strong style={{ color: "#e8e8e8" }}>PentaShards (PS)</strong> may be purchased or earned through gameplay.
             <br /><br />
-            All virtual currency and in-game items are <em>licensed to you, not sold</em>. Virtual goods have no real-world monetary value, are non-transferable, cannot be traded or sold to other users, and may be modified or removed by PentaProtocol at any time. Purchases are processed by our payment partners: <strong style={{ color: "#e8e8e8" }}>PayPal</strong> (USD and international methods) and <strong style={{ color: "#e8e8e8" }}>Instamojo</strong> (INR, India).
+            All virtual currency and in-game items are <em>licensed to you, not sold</em>. Virtual goods have no real-world monetary value, are non-transferable, cannot be traded or sold to other users, and may be modified or removed by PentaProtocol at any time. Purchases are processed via <strong style={{ color: "#e8e8e8" }}>PayPal</strong> (USD and international cards/wallets where available) and, where offered, <strong style={{ color: "#e8e8e8" }}>direct payment to the creator</strong> using the personal UPI / QR code published in our Refund &amp; Cancellation Policy. We do not use Instamojo.
           </Section>
 
           <Section title="6. Prohibited Conduct">

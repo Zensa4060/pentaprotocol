@@ -38,7 +38,7 @@ import StarfieldBanner from "./StarfieldBanner";
 import DigitalRainBanner from "./DigitalRainBanner";
 import InfernoBanner from "./InfernoBanner";
 
-// Payment: Instamojo (redirect-based — no global JS SDK needed)
+// Payment: PayPal + UPI/manual verification; see Refund Policy for creator QR.
 
 function InteractivePreview({ Grid, gridProps }: { Grid: React.ComponentType<any>; gridProps?: Record<string, any> }) {
   const [board, setBoard] = useState<(("X" | "O") | null)[][]>(() =>
@@ -549,7 +549,7 @@ export default function StoreScreen({ setScreenAction, themeId }: Props) {
   const [buyCurrencyType, setBuyCurrencyType] = useState<"protocredits" | "shards">("protocredits");
   const [selectedProto, setSelectedProto] = useState("plus");
   const [selectedShards, setSelectedShards] = useState("plus");
-  const [payRedirect, setPayRedirect] = useState<null | "paypal" | "instamojo">(null);
+  const [payRedirect, setPayRedirect] = useState<null | "paypal">(null);
   // ── UPI state ──────────────────────────────────────────────────────────────
   const [showUpiModal, setShowUpiModal] = useState(false);
   const [upiStep, setUpiStep]           = useState<"qr" | "utr" | "success">("qr");
@@ -604,18 +604,6 @@ export default function StoreScreen({ setScreenAction, themeId }: Props) {
       sessionStorage.setItem("pp_paypal_currency_type", buyCurrencyType);
       const res = await API.post("/api/paypal/create-order", { package_id: selectedPackageId, currency_type: buyCurrencyType }, { headers: { Authorization: `Bearer ${token}` }, timeout: 15000 });
       window.location.href = res.data.approve_url;
-    } catch (e: any) {
-      showError(e?.response?.data?.detail || e?.message || "Payment failed. Please try again.");
-      setPayRedirect(null);
-    }
-  };
-
-  const handleBuyInstamojo = async () => {
-    if (isGuest) { setShowBuyModal(false); showError(`Sign in to buy ${buyCurrencyType === "shards" ? "PentaShards" : "ProtoCredits"}.`); return; }
-    setPayRedirect("instamojo"); setMsg(null);
-    try {
-      const res = await API.post("/api/store/create-order", { package_id: selectedPackageId, currency_type: buyCurrencyType, buyer_name: (user as any).username ?? "Player", email: (user as any).email ?? "", phone: (user as any).phone ?? "9999999999" }, { headers: { Authorization: `Bearer ${token}` }, timeout: 15000 });
-      window.location.href = res.data.redirect_url;
     } catch (e: any) {
       showError(e?.response?.data?.detail || e?.message || "Payment failed. Please try again.");
       setPayRedirect(null);
@@ -917,10 +905,13 @@ export default function StoreScreen({ setScreenAction, themeId }: Props) {
               {payRedirect === "paypal" ? "Redirecting to PayPal…" : `PAY $${(buyCurrencyType === "shards" ? SHARD_PACKAGES_USD : PACKAGES_USD).find(p => p.id === pkg.id)?.usdPrice.toFixed(2) ?? pkg.price} · PAY WITH PAYPAL`}
             </button>
 
-            {/* Instamojo — Coming Soon */}
-            <button disabled style={{ width: "100%", padding: "14px", background: "rgba(255,255,255,0.04)", border: `2px solid ${t.border}`, borderRadius: 10, color: t.textMuted, fontFamily: t.fontDisplay, fontSize: 15, fontWeight: 900, cursor: "not-allowed", letterSpacing: "0.06em", marginBottom: 10, display: "flex", alignItems: "center", justifyContent: "center", gap: 10, opacity: 0.5 }}>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-              INSTAMOJO — COMING SOON
+            <button
+              type="button"
+              onClick={() => window.open("/refund#creator-payment-qr", "_blank", "noopener,noreferrer")}
+              style={{ width: "100%", padding: "14px", background: "rgba(255,255,255,0.06)", border: `2px solid ${t.border}`, borderRadius: 10, color: t.text, fontFamily: t.fontDisplay, fontSize: 14, fontWeight: 800, cursor: "pointer", letterSpacing: "0.05em", marginBottom: 10, display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h7v7h-7z"/></svg>
+              CREATOR QR (INR) — OPEN REFUND PAGE
             </button>
             {/* ── UPI / QR Code button ── */}
             <button
@@ -933,7 +924,7 @@ export default function StoreScreen({ setScreenAction, themeId }: Props) {
             </button>
 
             <div style={{ fontFamily: t.fontBody, fontSize: 11, color: t.textMuted, textAlign: "center" as const, marginTop: 4, lineHeight: 1.6 }}>
-              PayPal (USD) for international cards &amp; wallets · Instamojo (INR) for India · UPI for domestic scan &amp; pay. {buyCurrencyType === "shards" ? "PentaShards" : "ProtoCredits"} are non-refundable.
+              PayPal (USD) for international cards &amp; wallets · UPI / creator QR (INR) as on the Refund Policy page. {buyCurrencyType === "shards" ? "PentaShards" : "ProtoCredits"} are non-refundable except as stated in the Refund Policy.
             </div>
           </div>
         </div>

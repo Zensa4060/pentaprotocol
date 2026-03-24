@@ -24,6 +24,8 @@ import MissionsScreen from "@/components/MissionsScreen";
 import NavBar           from "@/components/NavBar";
 import SettingsModal    from "@/components/SettingsModal";
 import SpaceBg      from "@/components/SpaceBg";
+import PolicyAcceptanceGate from "@/components/PolicyAcceptanceGate";
+import { POLICY_GATE_SESSION_KEY, getUserId, hasAcceptedLegal } from "@/lib/legalAcceptance";
 
 THEMES["custom" as ThemeId] = resolveCustomTheme(loadCustomTheme(), THEMES) as any;
 
@@ -70,8 +72,10 @@ export default function Page() {
   const [pendingScreen, setPendingScreen]     = useState<Screen | null>(null);
   const [showAiExitModal, setShowAiExitModal] = useState(false);
   const [showGuestBlock, setShowGuestBlock]   = useState(false);
+  /** Resume legal gate after refresh if signup completed but policies not accepted. */
+  const [policyComplianceGate, setPolicyComplianceGate] = useState(false);
 
-  const { user, token } = useAuthStore();
+  const { user, token, logout } = useAuthStore();
   const audio = useAudio();
   const { sfx } = audio;
 
@@ -138,6 +142,14 @@ export default function Page() {
     );
     setAppReady(true);
   }, []);
+
+  useEffect(() => {
+    if (!appReady || !user || !token) return;
+    const uid = getUserId(user);
+    if (!uid) return;
+    const pending = sessionStorage.getItem(POLICY_GATE_SESSION_KEY);
+    if (pending === uid && !hasAcceptedLegal(uid)) setPolicyComplianceGate(true);
+  }, [appReady, user, token]);
 
   useEffect(() => {
     sessionStorage.setItem("pp_screen", screen);
@@ -510,6 +522,18 @@ export default function Page() {
       }} />
 
       {showGuestBlock && <GuestBlockModal />}
+      {policyComplianceGate && (
+        <PolicyAcceptanceGate
+          themeId={themeId}
+          user={user}
+          onAcceptedAction={() => setPolicyComplianceGate(false)}
+          onDeclinedAction={() => {
+            logout();
+            setPolicyComplianceGate(false);
+            setScreen("auth");
+          }}
+        />
+      )}
       <GlobalMatchupOverlay />
 
       {showAiExitModal && (

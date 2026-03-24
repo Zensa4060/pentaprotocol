@@ -1,6 +1,7 @@
 "use client";
 import React, { useState, useEffect, useRef } from "react";
 import { useAuthStore } from "@/lib/store";
+import { POLICY_GATE_SESSION_KEY, getUserId } from "@/lib/legalAcceptance";
 import { THEMES } from "@/lib/themes";
 import type { Screen } from "@/lib/types";
 import type { ThemeId } from "@/lib/themes";
@@ -257,7 +258,10 @@ export default function AuthScreen({ setScreenAction, themeId }: Props) {
       await API.post("/api/otp/signup/verify", { email, otp: signupOtp.trim() });
       // Step 3: register
       const res = await API.post("/api/auth/register", { username, email, password });
-      setAuth(res.data.user, res.data.access_token, staySignedIn);
+      const newUser = res.data.user;
+      const uid = getUserId(newUser);
+      if (uid) sessionStorage.setItem(POLICY_GATE_SESSION_KEY, uid);
+      setAuth(newUser, res.data.access_token, staySignedIn);
       setScreenAction("home");
     } catch (err: any) {
       const detail = err.response?.data?.detail;
