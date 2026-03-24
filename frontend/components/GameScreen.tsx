@@ -234,6 +234,9 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   const [segmentStartIndex, setSegmentStartIndex] = useState(0);
   const segmentStartIndexRef = useRef(0);
   segmentStartIndexRef.current = segmentStartIndex;
+  const [historyDisplayStartIndex, setHistoryDisplayStartIndex] = useState(0);
+  const historyDisplayStartIndexRef = useRef(0);
+  historyDisplayStartIndexRef.current = historyDisplayStartIndex;
   const [show7x7LevelUp, setShow7x7LevelUp] = useState(false);
 
   const GRID_SIZE = liveBoardMode === "7x7" ? 7 : 5;
@@ -502,6 +505,10 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     () => rbBannedPattern ? liveSelectedPatterns.filter(p => p !== rbBannedPattern) : liveSelectedPatterns,
     [liveSelectedPatterns, rbBannedPattern],
   );
+  const displayMatchHistory = useMemo(
+    () => matchHistory.slice(Math.max(0, historyDisplayStartIndex)),
+    [matchHistory, historyDisplayStartIndex],
+  );
 
   // ── Timer values stored in refs so rAF can read/write without setState loops ──
   const p1TimeRef = useRef(liveBoardMode === "7x7" ? 300_000 : 180_000);
@@ -639,6 +646,10 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
                   segmentStartIndexRef.current = msg.segment_start_index;
                   setSegmentStartIndex(msg.segment_start_index);
                 }
+                if (typeof msg.history_display_start_index === "number") {
+                  historyDisplayStartIndexRef.current = msg.history_display_start_index;
+                  setHistoryDisplayStartIndex(msg.history_display_start_index);
+                }
                 const segIdx = typeof msg.segment_start_index === "number" ? msg.segment_start_index : segmentStartIndexRef.current;
                 const segSlice = newHist.slice(segIdx);
                 const p1p = typeof msg.p1_series_points === "number"
@@ -720,6 +731,10 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
             segmentStartIndexRef.current = r.segment_start_index;
             setSegmentStartIndex(r.segment_start_index);
           }
+          if (typeof r.history_display_start_index === "number") {
+            historyDisplayStartIndexRef.current = r.history_display_start_index;
+            setHistoryDisplayStartIndex(r.history_display_start_index);
+          }
           ws.send(JSON.stringify({ type: "player_info", username: p1Name ?? playerSlot ?? "P1", slot: playerSlot }));
             } else if (msg.type === "player_joined") {
           const r = msg.room;
@@ -785,6 +800,11 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
                 setSegmentStartIndex(msg.segment_start_index);
                 segmentStartIndexRef.current = msg.segment_start_index;
               }
+              const displayStart = typeof msg.history_display_start_index === "number"
+                ? msg.history_display_start_index
+                : matchHistoryRef.current.length;
+              setHistoryDisplayStartIndex(displayStart);
+              historyDisplayStartIndexRef.current = displayStart;
               if (typeof msg.p1_series_points === "number") setP1SeriesPts(msg.p1_series_points);
               if (typeof msg.p2_series_points === "number") setP2SeriesPts(msg.p2_series_points);
               setGameNumber(1);
@@ -809,6 +829,8 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
               awaitingRulebreakerRef.current = false;
               setSegmentStartIndex(0);
               segmentStartIndexRef.current = 0;
+              setHistoryDisplayStartIndex(0);
+              historyDisplayStartIndexRef.current = 0;
             }
           } else {
             if (msg.game_number) setGameNumber(msg.game_number);
@@ -828,6 +850,10 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
           if (typeof msg.segment_start_index === "number") {
             setSegmentStartIndex(msg.segment_start_index);
             segmentStartIndexRef.current = msg.segment_start_index;
+          }
+          if (typeof msg.history_display_start_index === "number") {
+            setHistoryDisplayStartIndex(msg.history_display_start_index);
+            historyDisplayStartIndexRef.current = msg.history_display_start_index;
           }
           awaitingRulebreakerRef.current = false;
           setSeriesWinner(msg.series_winner as string);
@@ -1040,6 +1066,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     matchHistoryRef.current = []; setGameNumber(1); setMatchHistory([]); setMatchOver(false); setSeriesWinner(null);
     setP1SeriesPts(0); setP2SeriesPts(0); awaitingRulebreakerRef.current = false;
     setSegmentStartIndex(0); segmentStartIndexRef.current = 0;
+    setHistoryDisplayStartIndex(0); historyDisplayStartIndexRef.current = 0;
     setP1Ready(false); setP2Ready(false); setReadyTimeout(60); setReadyTimer(0);
     setRbSplashTimer(5); setCoinFlipTimer(rbCoinFlipSeconds); setCoinRevealTimer(0); setCoinResult(null);
     setCoinAngle(0); setTossWinner(null); setFirstPlayerChosen(null); setRbC3Blocked(false); setRbBannedPattern(null);
@@ -1928,7 +1955,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
           <div style={{ background: "rgba(0,0,0,0.75)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 8, padding: "4px 10px", backdropFilter: "blur(6px)" }}>
             <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
               {["G1", "G2", "G3"].map((g, i) => {
-                const res = matchHistory[i];
+                const res = displayMatchHistory[i];
                 const col = res === "P1" ? p1c : res === "P2" ? p2c : res === "DRAW" ? t.gold : "#333";
                 const isActive = i === (gameNumber - 1);
                 return (
@@ -2131,7 +2158,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
       <LeftPanel
         t={sidebarT} ip={ip} p1c={p1c} p2c={p2c} pieceSkin={pieceSkin} p1RttMs={p1RttMs} p2RttMs={p2RttMs} panelW={panelW}
         phase={phase} winner={winner} current={current} gameNumber={gameNumber}
-        matchHistory={matchHistory} seriesWinner={seriesWinner} matchOver={matchOver}
+        matchHistory={displayMatchHistory} seriesWinner={seriesWinner} matchOver={matchOver}
         gameMode={gameMode} isRankedGame={isRankedGame} isMultiplayerGame={isMultiplayerGame}
         isMultiplayer={isMultiplayer} mySlot={mySlot}
         boardMode={liveBoardMode} selectedPatterns={activePatterns} rbBannedPattern={rbBannedPattern}

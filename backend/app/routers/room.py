@@ -66,6 +66,7 @@ def serialize_room(room: dict) -> dict:
         "series_winner":  room.get("series_winner"),
         "awaiting_rulebreaker": room.get("awaiting_rulebreaker", False),
         "segment_start_index": room.get("segment_start_index", 0),
+        "history_display_start_index": room.get("history_display_start_index", 0),
     }
 
 
@@ -182,8 +183,10 @@ async def _apply_5x5_to_7x7_upgrade(
     patch = dict(game1_patch or {})
     g1f = room.get("game1_first_player") or "P1"
     first_7 = "P2" if g1f == "P1" else "P1"
-    seg_new = len(new_history)
+    # Keep series points continuous across 5x5 -> 7x7.
+    seg_new = room.get("segment_start_index", 0)
     ss = compute_series_state(new_history, seg_new)
+    hist_display_start = len(new_history)
 
     upgrade_update = {
         **patch,
@@ -198,7 +201,9 @@ async def _apply_5x5_to_7x7_upgrade(
         "status": "active",
         "match_history": new_history,
         "segment_start_index": seg_new,
+        "history_display_start_index": hist_display_start,
         "game_number": 1,
+        "game1_first_player": None,
         "c3_blocked": False,
         "awaiting_rulebreaker": False,
         "p1_series_points": ss["p1_series_points"],
@@ -220,6 +225,7 @@ async def _apply_5x5_to_7x7_upgrade(
         "series_winner": ss["series_winner"],
         "awaiting_rulebreaker": False,
         "segment_start_index": seg_new,
+        "history_display_start_index": hist_display_start,
         "auto_7x7_upgrade_follows": True,
     }
     if row is not None and col is not None:
@@ -244,6 +250,7 @@ async def _apply_5x5_to_7x7_upgrade(
         "game_number": 1,
         "board_mode": "7x7",
         "segment_start_index": seg_new,
+        "history_display_start_index": hist_display_start,
         "p1_series_points": ss["p1_series_points"],
         "p2_series_points": ss["p2_series_points"],
         "selected_patterns": list(PATTERN_NAMES_7),
@@ -423,6 +430,7 @@ async def queue_join(data: QueueRequest, user_id: str = Depends(get_current_user
         "p2_series_points": 0,
         "awaiting_rulebreaker": False,
         "segment_start_index": 0,
+        "history_display_start_index": 0,
         "created_at":     datetime.utcnow(),
     }
     await db.rooms.insert_one(room)
@@ -522,6 +530,7 @@ async def create_room(data: CreateRoomRequest, user_id: str = Depends(get_curren
         "p2_series_points": 0,
         "awaiting_rulebreaker": False,
         "segment_start_index": 0,
+        "history_display_start_index": 0,
         "created_at":      datetime.utcnow(),
     }
     await db.rooms.insert_one(room)
@@ -582,6 +591,7 @@ async def join_room(data: JoinRoomRequest, user_id: str = Depends(get_current_us
         "series_winner": None,
         "awaiting_rulebreaker": False,
         "segment_start_index": 0,
+        "history_display_start_index": 0,
         "game1_first_player": None,
     }
     if joiner_slot == "P1":
@@ -685,7 +695,6 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                 game1_patch: dict = {}
                 if (
                     room.get("game_number", 1) == 1
-                    and room.get("board_mode", "5x5") == "5x5"
                     and room.get("moves_played", 0) == 0
                 ):
                     game1_patch["game1_first_player"] = player_slot
@@ -764,6 +773,10 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                     broadcast["segment_start_index"] = update.get(
                         "segment_start_index", room.get("segment_start_index", 0)
                     )
+                    broadcast["history_display_start_index"] = update.get(
+                        "history_display_start_index",
+                        room.get("history_display_start_index", 0),
+                    )
 
                 for slot, ws in _room_connections.get(room_code, {}).items():
                     try:
@@ -821,10 +834,13 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                     bm = room.get("board_mode", "5x5")
                     sp = room.get("selected_patterns")
                     new_engine = GameEngine(board_mode=bm, selected_pattern_ids=sp)
+                    next_game = current_game + 1
+                    g1f = room.get("game1_first_player") or "P1"
+                    first_next = g1f if next_game % 2 == 1 else ("P2" if g1f == "P1" else "P1")
 
                     reset = {
                         "board":          new_engine.board,
-                        "current_player": "P2" if current_game % 2 == 1 else "P1",
+                        "current_player": first_next,
                         "moves_played":   0,
                         "extra_turns":    0,
                         "winner":         None,
@@ -832,7 +848,7 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                         "status":         "active",
                         "p1_ready":       False,
                         "p2_ready":       False,
-                        "game_number":    current_game + 1,
+                        "game_number":    next_game,
                     }
 
                     await db.rooms.update_one({"room_code": room_code}, {"$set": reset})
@@ -892,8 +908,8 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                         "history": room.get("match_history", []),
                     }
 
-                    bm = room.get("board_mode", "5x5")
-                    sp = room.get("selected_patterns")
+                    bm = "5x5"
+                    sp = None
                     new_engine = GameEngine(board_mode=bm, selected_pattern_ids=sp)
 
                     reset = {
@@ -916,7 +932,10 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                         "p2_series_points": 0,
                         "awaiting_rulebreaker": False,
                         "segment_start_index": 0,
+                        "history_display_start_index": 0,
                         "game1_first_player": None,
+                        "board_mode": "5x5",
+                        "selected_patterns": None,
                     }
 
                     await db.rooms.update_one({"room_code": room_code}, {"$set": reset})
@@ -927,6 +946,9 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                                 "type":         "game_reset",
                                 "first_player": "P1",
                                 "game_number":  1,
+                                "board_mode": "5x5",
+                                "selected_patterns": [],
+                                "history_display_start_index": 0,
                                 "last_series":  last_series,
                             })
                         except:
