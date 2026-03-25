@@ -23,10 +23,10 @@ const DIFFICULTIES: { id: Difficulty; label: string; sub: string; color: string 
 
 // Pattern descriptions & mini-grid diagrams for the 6 special 7×7 patterns
 const PATTERN_INFO: Record<PatternName7, { label: string; desc: string; cells: [number, number][] }> = {
-  H: {
-    label: "H-SHAPE",
-    desc: "Two vertical bars connected by a horizontal bridge",
-    cells: [[0,0],[1,0],[2,0],[1,1],[0,2],[1,2],[2,2]],
+  Y: {
+    label: "Y-SHAPE",
+    desc: "Diagonal stem splitting into a fork — a branching Y",
+    cells: [[0,0],[1,1],[2,2],[2,3],[2,4],[3,1],[4,0]],
   },
   L: {
     label: "L-SHAPE",

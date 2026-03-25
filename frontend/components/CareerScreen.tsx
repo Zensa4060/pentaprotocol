@@ -17,7 +17,7 @@ const RankBadge = ({ elo, size = 48 }: { elo: number; size?: number }) => {
 
 // ── Match record type from API ────────────────────────────────────────────────
 const CAREER_PATTERN_LABELS: Record<string, string> = {
-  H: "H-SHAPE", L: "L-SHAPE", W: "W-SHAPE", V: "V-SHAPE", C: "C-SHAPE", zigzag: "ZIGZAG",
+  Y: "Y-SHAPE", L: "L-SHAPE", W: "W-SHAPE", V: "V-SHAPE", C: "C-SHAPE", zigzag: "ZIGZAG",
 };
 
 interface MatchRecord {

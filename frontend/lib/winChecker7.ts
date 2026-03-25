@@ -17,7 +17,7 @@ const DIRS: Coord[] = [
 // ── 6 Base Patterns (0-indexed offsets) ──
 // Each pattern has 7 cells.
 const BASE_PATTERNS_7: Record<string, Coord[]> = {
-  H:      [[0,0],[1,0],[2,0],[1,1],[0,2],[1,2],[2,2]],
+  Y:      [[0,0],[1,1],[2,2],[2,3],[2,4],[3,1],[4,0]],
   L:      [[0,0],[0,1],[0,2],[0,3],[1,3],[2,3],[3,3]],
   W:      [[0,0],[1,1],[2,2],[3,1],[4,2],[5,1],[6,0]],
   V:      [[0,0],[1,1],[2,2],[3,3],[4,2],[5,1],[6,0]],
@@ -25,7 +25,7 @@ const BASE_PATTERNS_7: Record<string, Coord[]> = {
   zigzag: [[0,0],[1,1],[2,0],[3,1],[4,0],[5,1],[6,0]],
 };
 
-export const PATTERN_NAMES_7 = ["H", "L", "W", "V", "C", "zigzag"] as const;
+export const PATTERN_NAMES_7 = ["Y", "L", "W", "V", "C", "zigzag"] as const;
 export type PatternName7 = typeof PATTERN_NAMES_7[number];
 
 // ── Variant Generation ──

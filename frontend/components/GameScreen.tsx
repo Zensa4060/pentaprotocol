@@ -2037,7 +2037,12 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     p1c, p2c, cc, isRedBoard, isIceBoard, isGlacierBoard, useFlameSkull, useSnowflakeShard, useGlacierSigils,
     rulesShowSheet, show7x7LevelUp, rulesMatchGate]);
 
-
+  const [rulesGateDontShowAgain, setRulesGateDontShowAgain] = useState(false);
+  useEffect(() => {
+    if (!rulesMatchGateRef.current || rulesShowSheetRef.current !== null || show7x7LevelUpRef.current) return;
+    const sheet: RuleshowSheet = liveBoardMode === "7x7" ? "7x7" : "5x5";
+    setRulesGateDontShowAgain(readRuleshowSkip(sheet));
+  }, [liveBoardMode, rulesMatchGate]);
 
   if (showSplash) return (
     <div style={{ position: "fixed", top: 64, left: 0, right: 0, bottom: 0, zIndex: 2, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: themeId === "pixel" ? "url(/bg-pixel.png) center/cover no-repeat" : themeId === "space" ? "transparent" : t.bg, gap: 32, userSelect: "none" }}>
@@ -2128,13 +2133,6 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
       wsRef.current.send(JSON.stringify({ type: "levelup_ready", ready: nextVal }));
     }
   };
-
-  const [rulesGateDontShowAgain, setRulesGateDontShowAgain] = useState(false);
-  useEffect(() => {
-    if (!rulesMatchGateRef.current || rulesShowSheetRef.current !== null || show7x7LevelUpRef.current) return;
-    const sheet: RuleshowSheet = liveBoardMode === "7x7" ? "7x7" : "5x5";
-    setRulesGateDontShowAgain(readRuleshowSkip(sheet));
-  }, [liveBoardMode, rulesMatchGate]);
 
   const onLevelUpReadyToggleWithGateSkip = () => {
     if (!isMultiplayerGame || !mySlot) return;

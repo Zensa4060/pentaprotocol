@@ -340,7 +340,7 @@ const isBotChoosing = isBotTurnToChoose;
               <div style={{ fontFamily:t.fontDisplay, fontSize:18, fontWeight:700, color:winCol }}>C3: {winnerPickedC3 ? "BLOCKED" : "ALLOWED"}</div>
             )}
             {phase === "who_first_loser" && is7x7 && rbBannedPattern && !(winnerPickedRule === "extra_turn" && mySlot === tossWinner) && !(winnerPickedRule === "ban" && mySlot === tossLoser) && (
-              <div style={{ fontFamily:t.fontDisplay, fontSize:18, fontWeight:700, color:"#EF4444" }}>BANNED: {({"H":"H-SHAPE","L":"L-SHAPE","W":"W-SHAPE","V":"V-SHAPE","C":"C-SHAPE","zigzag":"ZIGZAG"} as Record<string,string>)[rbBannedPattern] || rbBannedPattern.toUpperCase()}</div>
+              <div style={{ fontFamily:t.fontDisplay, fontSize:18, fontWeight:700, color:"#EF4444" }}>BANNED: {({"Y":"Y-SHAPE","L":"L-SHAPE","W":"W-SHAPE","V":"V-SHAPE","C":"C-SHAPE","zigzag":"ZIGZAG"} as Record<string,string>)[rbBannedPattern] || rbBannedPattern.toUpperCase()}</div>
             )}
             {phase === "who_first_loser" && is7x7 && winnerPickedRule === "extra_turn" && mySlot === tossWinner && (
               <div style={{ fontFamily:t.fontDisplay, fontSize:16, fontWeight:700, color:winCol }}>EXTRA TURN TOKEN (opponent banned a pattern — hidden from you for the full 7×7 game and on the match results screen; Career shows which pattern)</div>
@@ -415,7 +415,7 @@ const isBotChoosing = isBotTurnToChoose;
     );
 
     const PATTERN_LABELS: Record<string, string> = {
-      H: "H-SHAPE", L: "L-SHAPE", W: "W-SHAPE", V: "V-SHAPE", C: "C-SHAPE", zigzag: "ZIGZAG",
+      Y: "Y-SHAPE", L: "L-SHAPE", W: "W-SHAPE", V: "V-SHAPE", C: "C-SHAPE", zigzag: "ZIGZAG",
     };
 
     return (
@@ -512,7 +512,7 @@ const isBotChoosing = isBotTurnToChoose;
     const winnerPickedFirstTurn = winnerPickedRule === "first";
 
     const PATTERN_LABELS_SUMMARY: Record<string, string> = {
-      H: "H-SHAPE", L: "L-SHAPE", W: "W-SHAPE", V: "V-SHAPE", C: "C-SHAPE", zigzag: "ZIGZAG",
+      Y: "Y-SHAPE", L: "L-SHAPE", W: "W-SHAPE", V: "V-SHAPE", C: "C-SHAPE", zigzag: "ZIGZAG",
     };
 
     const tossLoserSumm: "P1" | "P2" | null =

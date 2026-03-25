@@ -1,6 +1,6 @@
 # patterns7.py
 # 7×7 shape pattern definitions and variant generation.
-# 6 special patterns: H, L, W, V, C, Zigzag — each has 7 cells.
+# 6 special patterns: Y, L, W, V, C, Zigzag — each has 7 cells.
 
 GRID_SIZE_7 = 7
 
@@ -8,10 +8,10 @@ GRID_SIZE_7 = 7
 # Each pattern uses exactly 7 cells.
 
 BASE_PATTERNS_7 = {
-    "H": [
-        # H-shape: two vertical bars connected by a horizontal bar
-        # A1-A2-A3-B2-C1-C2-C3
-        (0, 0), (1, 0), (2, 0), (1, 1), (0, 2), (1, 2), (2, 2)
+    "Y": [
+        # Y-shape: diagonal stem splitting into a fork
+        # A1-B2-C3-C4-C5-D2-E1
+        (0, 0), (1, 1), (2, 2), (2, 3), (2, 4), (3, 1), (4, 0)
     ],
     "L": [
         # L-shape: vertical bar then horizontal bar
@@ -41,7 +41,7 @@ BASE_PATTERNS_7 = {
 }
 
 # Ordered list of pattern IDs (0-5) for selection
-PATTERN_NAMES_7 = ["H", "L", "W", "V", "C", "zigzag"]
+PATTERN_NAMES_7 = ["Y", "L", "W", "V", "C", "zigzag"]
 
 
 def generate_variants_7(pattern):

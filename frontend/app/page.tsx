@@ -117,7 +117,12 @@ export default function Page() {
     if (savedPats) {
       try {
         const arr = JSON.parse(savedPats);
-        if (Array.isArray(arr)) setSelectedPatterns(arr);
+        if (Array.isArray(arr)) {
+          // Map legacy 'H' pattern to 'Y' pattern to prevent bot API 500 errors
+          const mapped = arr.map(p => p === "H" ? "Y" : p);
+          // If they happened to have both H and Y (impossible logically, but safely de-duplicate)
+          setSelectedPatterns(Array.from(new Set(mapped)));
+        }
       } catch { /* ignore */ }
     }
 
