@@ -676,6 +676,9 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
                 }
               }
                 if (msg.winner) {
+                const skipDrawOverlay = Boolean(
+                  (msg as { auto_7x7_upgrade_follows?: boolean }).auto_7x7_upgrade_follows,
+                );
                 const wl = (msg.win_line ?? []) as [number, number][];
                 setWinLine(wl);
                 setWinner(msg.winner);
