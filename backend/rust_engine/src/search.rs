@@ -9,15 +9,18 @@ const TT_FLAG_EXACT: u8 = 0;
 const TT_FLAG_LOWER: u8 = 1;
 const TT_FLAG_UPPER: u8 = 2;
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Default)]
 struct TTEntry {
+    zhash: u64,
     depth: i32,
     value: i32,
     flag: u8,
 }
 
+const TT_SIZE: usize = 1 << 19; // ~512k entries for Hard mode
+
 pub struct HardSearch {
-    tt: HashMap<(u64, u8), TTEntry>,
+    tt: Vec<TTEntry>,
     history: [i32; CELLS],
     start: Instant,
     budget: f64,
@@ -28,7 +31,7 @@ pub struct HardSearch {
 impl HardSearch {
     pub fn new(max_depth: i32, budget: f64) -> Self {
         HardSearch {
-            tt: HashMap::with_capacity(1 << 18),
+            tt: vec![TTEntry::default(); TT_SIZE],
             history: [0; CELLS],
             start: Instant::now(),
             budget,
@@ -58,22 +61,25 @@ impl HardSearch {
             return 0;
         }
 
-        let key = (zhash, me);
-        if let Some(entry) = self.tt.get(&key) {
-            if entry.depth >= depth {
-                match entry.flag {
-                    TT_FLAG_EXACT => return entry.value,
-                    TT_FLAG_LOWER => {
-                        if entry.value >= beta {
-                            return entry.value;
+        let tt_idx = (zhash as usize) & (TT_SIZE - 1);
+        {
+            let entry = &self.tt[tt_idx];
+            if entry.zhash == zhash {
+                if entry.depth >= depth {
+                    match entry.flag {
+                        TT_FLAG_EXACT => return entry.value,
+                        TT_FLAG_LOWER => {
+                            if entry.value >= beta {
+                                return entry.value;
+                            }
                         }
-                    }
-                    TT_FLAG_UPPER => {
-                        if entry.value <= alpha {
-                            return entry.value;
+                        TT_FLAG_UPPER => {
+                            if entry.value <= alpha {
+                                return entry.value;
+                            }
                         }
+                        _ => {}
                     }
-                    _ => {}
                 }
             }
         }
@@ -130,7 +136,7 @@ impl HardSearch {
             }
         }
 
-        self.tt.insert(key, TTEntry { depth, value: best_val, flag });
+        self.tt[tt_idx] = TTEntry { zhash, depth, value: best_val, flag };
         best_val
     }
 
@@ -144,7 +150,7 @@ impl HardSearch {
         moves_played: i32,
     ) -> Option<usize> {
         self.start = Instant::now();
-        self.tt.clear();
+        // Do NOT clear TT, just history/nodes
         self.history = [0; CELLS];
         self.nodes = 0;
 

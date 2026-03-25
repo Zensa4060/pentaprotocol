@@ -63,7 +63,7 @@ impl RustDangerBot7 {
         c3_blocked: bool,
     ) -> PyResult<Option<(usize, usize)>> {
         let (mut flat, zhash) = to_flat(&board_2d, bot, human);
-        let mut engine = search_danger::DangerSearch::new(10, 8.0);
+        let mut engine = search_danger::DangerSearch::new(10, 5.0);
         let result = engine.search(&mut flat, zhash, &self.pi, 1, 2, moves_played, c3_blocked);
         Ok(result.map(rc))
     }

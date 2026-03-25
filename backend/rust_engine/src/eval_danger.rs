@@ -7,27 +7,44 @@ const THREAT_MY: [i32; 8] = [0, 2, 30, 300, 2500, 15000, 100_000, 1_000_000];
 const THREAT_OPP: [i32; 8] = [0, 3, 45, 450, 3800, 22000, 150_000, 1_000_000];
 const PATH_DFS_BUDGET: i32 = 4000;
 
+pub struct EvalContext {
+    pub seen_l: [bool; 1024],
+    pub seen_p: [bool; 1024],
+    pub vis: [bool; CELLS],
+}
+
+impl Default for EvalContext {
+    fn default() -> Self {
+        EvalContext {
+            seen_l: [false; 1024],
+            seen_p: [false; 1024],
+            vis: [false; CELLS],
+        }
+    }
+}
+
 pub fn evaluate(
     board: &Board,
     me: u8,
     opp: u8,
     pi: &PatternIndex,
     moves_played: i32,
+    ctx: &mut EvalContext,
 ) -> i32 {
     let mut score: i32 = 0;
 
     // 1. Line windows
-    let mut seen_l = vec![false; pi.line_cells.len()];
+    ctx.seen_l.iter_mut().for_each(|x| *x = false);
     for i in 0..CELLS {
         if board[i] == 0 {
             continue;
         }
         for &li in &pi.cell_lines[i] {
             let li = li as usize;
-            if seen_l[li] {
+            if li >= 1024 || ctx.seen_l[li] {
                 continue;
             }
-            seen_l[li] = true;
+            ctx.seen_l[li] = true;
             let win = &pi.line_cells[li];
             let mut mine = 0usize;
             let mut theirs = 0usize;
@@ -48,17 +65,17 @@ pub fn evaluate(
     }
 
     // 2. Pattern placements
-    let mut seen_p = vec![false; pi.pat_cells.len()];
+    ctx.seen_p.iter_mut().for_each(|x| *x = false);
     for i in 0..CELLS {
         if board[i] == 0 {
             continue;
         }
         for &pat_idx in &pi.cell_pats[i] {
             let pat_idx = pat_idx as usize;
-            if seen_p[pat_idx] {
+            if pat_idx >= 1024 || ctx.seen_p[pat_idx] {
                 continue;
             }
-            seen_p[pat_idx] = true;
+            ctx.seen_p[pat_idx] = true;
             let cells = &pi.pat_cells[pat_idx];
             let mut mine = 0usize;
             let mut theirs = 0usize;
@@ -79,7 +96,7 @@ pub fn evaluate(
     }
 
     // 3. Connectivity
-    score += connectivity_eval(board, me, opp, moves_played);
+    score += connectivity_eval(board, me, opp, moves_played, ctx);
 
     // 4. Centre control
     let t = tables();
@@ -94,8 +111,8 @@ pub fn evaluate(
 
     // 5. Late-game path planning
     if moves_played >= 35 {
-        let my_p = path_estimate(board, me) as i32;
-        let opp_p = path_estimate(board, opp) as i32;
+        let my_p = path_estimate(board, me, ctx) as i32;
+        let opp_p = path_estimate(board, opp, ctx) as i32;
         let pw = 25.0 + (moves_played - 35) as f64 * 8.0;
         score += ((my_p - opp_p) as f64 * pw) as i32;
     }
@@ -105,11 +122,11 @@ pub fn evaluate(
 
 // ── connectivity ──
 
-fn components(board: &Board, player: u8) -> Vec<Vec<usize>> {
+fn components(board: &Board, player: u8, vis: &mut [bool; CELLS]) -> Vec<Vec<usize>> {
     let t = tables();
-    let mut vis = [false; CELLS];
-    let mut comps = Vec::new();
-    let mut q = VecDeque::new();
+    vis.iter_mut().for_each(|x| *x = false);
+    let mut comps = Vec::with_capacity(8);
+    let mut q = VecDeque::with_capacity(CELLS);
     for i in 0..CELLS {
         if board[i] != player || vis[i] {
             continue;
@@ -168,9 +185,11 @@ fn bridge_bonus(board: &Board, player: u8, comps: &[Vec<usize>]) -> i32 {
     bonus
 }
 
-fn connectivity_eval(board: &Board, me: u8, opp: u8, mp: i32) -> i32 {
-    let my_c = components(board, me);
-    let opp_c = components(board, opp);
+fn connectivity_eval(board: &Board, me: u8, opp: u8, mp: i32, ctx: &mut EvalContext) -> i32 {
+    let my_c = components(board, me, &mut ctx.vis);
+    // Note: ctx.vis is cleared inside components, so we can't easily keep both.
+    // For now, let's just re-run for opp.
+    let opp_c = components(board, opp, &mut ctx.vis);
 
     let my_big = my_c.iter().map(|c| c.len() as i32).max().unwrap_or(0);
     let opp_big = opp_c.iter().map(|c| c.len() as i32).max().unwrap_or(0);
@@ -187,8 +206,8 @@ fn connectivity_eval(board: &Board, me: u8, opp: u8, mp: i32) -> i32 {
 
 // ── endgame path estimation ──
 
-pub fn path_estimate(board: &Board, player: u8) -> usize {
-    let comps = components(board, player);
+pub fn path_estimate(board: &Board, player: u8, ctx: &mut EvalContext) -> usize {
+    let comps = components(board, player, &mut ctx.vis);
     if comps.is_empty() {
         return 0;
     }
@@ -240,8 +259,8 @@ pub fn path_estimate(board: &Board, player: u8) -> usize {
         if budget <= 0 || best >= 20 {
             break;
         }
-        let mut vis = [false; CELLS];
-        vis[s] = true;
+        let mut local_vis = [false; CELLS];
+        local_vis[s] = true;
         dfs(
             board,
             player,
@@ -249,24 +268,24 @@ pub fn path_estimate(board: &Board, player: u8) -> usize {
             1,
             &mut best,
             &mut budget,
-            &mut vis,
+            &mut local_vis,
             &t.neighbors,
         );
     }
     best
 }
 
-pub fn eval_full_danger(board: &Board, me: u8, opp: u8) -> i32 {
-    let my_ok = path_estimate(board, me) >= 20;
-    let opp_ok = path_estimate(board, opp) >= 20;
+pub fn eval_full_danger(board: &Board, me: u8, opp: u8, ctx: &mut EvalContext) -> i32 {
+    let my_ok = path_estimate(board, me, ctx) >= 20;
+    let opp_ok = path_estimate(board, opp, ctx) >= 20;
     if my_ok && !opp_ok {
         return 800_000;
     }
     if opp_ok && !my_ok {
         return -800_000;
     }
-    let my_c = components(board, me);
-    let opp_c = components(board, opp);
+    let my_c = components(board, me, &mut ctx.vis);
+    let opp_c = components(board, opp, &mut ctx.vis);
     let my_big = my_c.iter().map(|c| c.len() as i32).max().unwrap_or(0);
     let opp_big = opp_c.iter().map(|c| c.len() as i32).max().unwrap_or(0);
     (my_big - opp_big) * 500

@@ -1,5 +1,5 @@
 use crate::board::{tables, make, unmake, Board, CELLS, CENTER_IDX, INF};
-use crate::eval_danger::{eval_full_danger, evaluate};
+use crate::eval_danger::{eval_full_danger, evaluate, EvalContext};
 use crate::patterns::PatternIndex;
 use crate::wins::wins_at;
 use std::collections::HashMap;
@@ -12,34 +12,39 @@ const TT_FLAG_EXACT: u8 = 0;
 const TT_FLAG_LOWER: u8 = 1;
 const TT_FLAG_UPPER: u8 = 2;
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Default)]
 struct TTEntry {
+    zhash: u64,
     depth: i32,
     value: i32,
     flag: u8,
     best_move: Option<u8>,
 }
 
+const TT_SIZE: usize = 1 << 20; // ~1 million entries
+
 pub struct DangerSearch {
-    tt: HashMap<(u64, u8), TTEntry>,
+    tt: Vec<TTEntry>,
     history: [i32; CELLS],
     killers: [[Option<u8>; 2]; MAX_DEPTH + 8],
     start: Instant,
     budget: f64,
     max_depth: i32,
     nodes: u64,
+    ctx: EvalContext,
 }
 
 impl DangerSearch {
     pub fn new(max_depth: i32, budget: f64) -> Self {
         DangerSearch {
-            tt: HashMap::with_capacity(1 << 20),
+            tt: vec![TTEntry::default(); TT_SIZE],
             history: [0; CELLS],
             killers: [[None; 2]; MAX_DEPTH + 8],
             start: Instant::now(),
             budget,
             max_depth,
             nodes: 0,
+            ctx: EvalContext::default(),
         }
     }
 
@@ -86,7 +91,7 @@ impl DangerSearch {
     ) -> i32 {
         self.nodes += 1;
 
-        let stand = evaluate(board, me, opp, pi, moves_played);
+        let stand = evaluate(board, me, opp, pi, moves_played, &mut self.ctx);
         if stand >= beta {
             return stand;
         }
@@ -125,6 +130,8 @@ impl DangerSearch {
                 alpha = val;
             }
         }
+        // TT probe omitted in quiescence for simplicity, or add similar indexing logic
+        // For now, let's keep it simple as stand evaluation is usually fast in Rust.
         alpha
     }
 
@@ -132,15 +139,18 @@ impl DangerSearch {
         &self,
         empties: &[usize],
         zhash: u64,
-        me: u8,
+        _me: u8,
         ply: usize,
     ) -> Vec<usize> {
         let t = tables();
-        let tt_best = self
-            .tt
-            .get(&(zhash, me))
-            .and_then(|e| e.best_move)
-            .map(|m| m as usize);
+        let tt_best = {
+            let entry = &self.tt[(zhash as usize) & (TT_SIZE - 1)];
+            if entry.zhash == zhash {
+                entry.best_move.map(|m| m as usize)
+            } else {
+                None
+            }
+        };
 
         let k0 = self.killers[ply][0].map(|m| m as usize);
         let k1 = self.killers[ply][1].map(|m| m as usize);
@@ -183,21 +193,28 @@ impl DangerSearch {
         }
 
         let key = (zhash, me);
-        if let Some(entry) = self.tt.get(&key) {
-            if entry.depth >= depth {
-                match entry.flag {
-                    TT_FLAG_EXACT => return entry.value,
-                    TT_FLAG_LOWER => {
-                        if entry.value >= beta {
-                            return entry.value;
+        // TT probe
+        let mut tt_move = None;
+        let tt_idx = (zhash as usize) & (TT_SIZE - 1);
+        {
+            let entry = &self.tt[tt_idx];
+            if entry.zhash == zhash {
+                tt_move = entry.best_move;
+                if entry.depth >= depth {
+                    match entry.flag {
+                        TT_FLAG_EXACT => return entry.value,
+                        TT_FLAG_LOWER => {
+                            if entry.value >= beta {
+                                return entry.value;
+                            }
                         }
-                    }
-                    TT_FLAG_UPPER => {
-                        if entry.value <= alpha {
-                            return entry.value;
+                        TT_FLAG_UPPER => {
+                            if entry.value <= alpha {
+                                return entry.value;
+                            }
                         }
+                        _ => {}
                     }
-                    _ => {}
                 }
             }
         }
@@ -208,7 +225,7 @@ impl DangerSearch {
 
         let empties: Vec<usize> = (0..CELLS).filter(|&i| board[i] == 0).collect();
         if empties.is_empty() {
-            return eval_full_danger(board, me, opp);
+            return eval_full_danger(board, me, opp, &mut self.ctx);
         }
 
         let moves = self.order_moves(&empties, zhash, me, ply);
@@ -296,7 +313,7 @@ impl DangerSearch {
         c3_blocked: bool,
     ) -> Option<usize> {
         self.start = Instant::now();
-        self.tt.clear();
+        // Do NOT clear TT entirely, just the history/killers
         self.history = [0; CELLS];
         self.killers = [[None; 2]; MAX_DEPTH + 8];
         self.nodes = 0;
@@ -339,7 +356,7 @@ impl DangerSearch {
             for &mv in &empties {
                 make(board, mv, me);
                 let remaining = self.count_threat_cells(board, opp, pi);
-                let sc = -(remaining as i32) * 10000 + evaluate(board, me, opp, pi, moves_played);
+                let sc = -(remaining as i32) * 10000 + evaluate(board, me, opp, pi, moves_played, &mut self.ctx);
                 if sc > best_score {
                     best_score = sc;
                     best_move = mv;
