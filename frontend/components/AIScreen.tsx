@@ -4,7 +4,7 @@ import type { Screen, BoardMode } from "@/lib/types";
 import type { ThemeId } from "@/lib/themes";
 import type { Difficulty } from "@/lib/botEngine";
 import { THEMES } from "@/lib/themes";
-import { PATTERN_NAMES_7, type PatternName7 } from "@/lib/winChecker7";
+import { PATTERN_NAMES_7, MIN_SELECTED_PATTERNS_7X7, type PatternName7 } from "@/lib/winChecker7";
 
 interface Props {
   setScreenAction: (s: Screen) => void;
@@ -213,7 +213,7 @@ export default function AIScreen({ setScreenAction, themeId, onSelectDifficultyA
                   <div style={{ fontFamily: t.fontBody, fontSize: ip ? 12 : 14, color: t.textMuted, lineHeight: 1.5 }}>
                     {mode === "5x5"
                       ? "Standard board — 5-in-a-line, V/L/W patterns, 10-cell chain"
-                      : "Larger board — 7-in-a-line, choose 4–6 of 6 special patterns, 20-cell chain"
+                      : "Larger board — 7-in-a-line, choose 5–6 of 6 special patterns, 20-cell chain"
                     }
                   </div>
                 </button>
@@ -241,7 +241,7 @@ export default function AIScreen({ setScreenAction, themeId, onSelectDifficultyA
             fontFamily: t.fontBody, fontSize: 14, color: t.textMuted, textAlign: "center", maxWidth: 500,
             lineHeight: 1.6,
           }}>
-            Choose <span style={{ color: t.accent, fontWeight: 700 }}>4 to 6</span> special winning patterns for this game.
+            Choose <span style={{ color: t.accent, fontWeight: 700 }}>5 to 6</span> special winning patterns for this game.
             These patterns (plus 7-in-a-line, diagonals, and 20-cell chain) will be the win conditions.
           </div>
 
@@ -250,10 +250,10 @@ export default function AIScreen({ setScreenAction, themeId, onSelectDifficultyA
             width: "100%", maxWidth: 660,
           }}>
             <div style={{
-              fontFamily: t.fontMono, fontSize: 12, color: selectedPatterns.size >= 4 ? "#22C55E" : t.textMuted,
+              fontFamily: t.fontMono, fontSize: 12, color: selectedPatterns.size >= MIN_SELECTED_PATTERNS_7X7 ? "#22C55E" : t.textMuted,
               letterSpacing: "0.1em", transition: "color 0.2s",
             }}>
-              {selectedPatterns.size} / 4–6 SELECTED
+              {selectedPatterns.size} / 5–6 SELECTED
             </div>
             <button
               type="button"
@@ -349,17 +349,17 @@ export default function AIScreen({ setScreenAction, themeId, onSelectDifficultyA
 
           {/* Proceed button */}
           <button
-            onClick={() => selectedPatterns.size >= 4 && setStep("difficulty")}
-            disabled={selectedPatterns.size < 4}
+            onClick={() => selectedPatterns.size >= MIN_SELECTED_PATTERNS_7X7 && setStep("difficulty")}
+            disabled={selectedPatterns.size < MIN_SELECTED_PATTERNS_7X7}
             style={{
-              background: selectedPatterns.size >= 4 ? t.accent : `${t.accent}33`,
-              border: `2px solid ${selectedPatterns.size >= 4 ? t.accent : t.border}`,
-              color: selectedPatterns.size >= 4 ? "#000" : t.textMuted,
+              background: selectedPatterns.size >= MIN_SELECTED_PATTERNS_7X7 ? t.accent : `${t.accent}33`,
+              border: `2px solid ${selectedPatterns.size >= MIN_SELECTED_PATTERNS_7X7 ? t.accent : t.border}`,
+              color: selectedPatterns.size >= MIN_SELECTED_PATTERNS_7X7 ? "#000" : t.textMuted,
               fontFamily: t.fontDisplay, fontSize: 16, fontWeight: 700,
               padding: "14px 52px", borderRadius: ip ? 2 : 10,
-              cursor: selectedPatterns.size >= 4 ? "pointer" : "not-allowed",
+              cursor: selectedPatterns.size >= MIN_SELECTED_PATTERNS_7X7 ? "pointer" : "not-allowed",
               letterSpacing: "0.06em", transition: "all 0.3s",
-              boxShadow: selectedPatterns.size >= 4 ? `0 0 24px ${t.accentGlow}44` : "none",
+              boxShadow: selectedPatterns.size >= MIN_SELECTED_PATTERNS_7X7 ? `0 0 24px ${t.accentGlow}44` : "none",
             }}
           >
             PROCEED →

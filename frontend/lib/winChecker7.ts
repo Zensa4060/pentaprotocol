@@ -27,6 +27,8 @@ const BASE_PATTERNS_7: Record<string, Coord[]> = {
 
 export const PATTERN_NAMES_7 = ["Y", "L", "W", "V", "C", "zigzag"] as const;
 export type PatternName7 = typeof PATTERN_NAMES_7[number];
+/** Minimum count of special patterns players must enable to start a 7×7 game (max is 6). */
+export const MIN_SELECTED_PATTERNS_7X7 = 5;
 
 // ── Variant Generation ──
 function generateVariants(pattern: Coord[]): Coord[][] {
