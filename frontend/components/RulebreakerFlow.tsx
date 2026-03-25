@@ -163,10 +163,6 @@ export function RulebreakerFlow({
           </div>
         ))}
       </div>
-      
-      <div style={{ fontFamily:t.fontMono, fontSize:ip?12:16, color:"#991b1b", letterSpacing:"0.4em", fontWeight: 700, marginTop:32, textTransform: "uppercase", animation:"rbSubIn 0.8s cubic-bezier(.22,.68,0,1.2) 0.6s both" }}>
-        ROUND 3 — SPECIAL RULES APPLY
-      </div>
       <div style={{ width:"clamp(300px,50vw,700px)", height:3, background:`linear-gradient(90deg, transparent, #B91C1C, transparent)`, marginTop:24, animation:"rbLineIn 0.9s cubic-bezier(.22,.68,0,1.2) 0.5s both", boxShadow:`0 0 25px rgba(185,28,28,0.8)` }}/>
     </div>
   );
@@ -519,6 +515,25 @@ const isBotChoosing = isBotTurnToChoose;
       H: "H-SHAPE", L: "L-SHAPE", W: "W-SHAPE", V: "V-SHAPE", C: "C-SHAPE", zigzag: "ZIGZAG",
     };
 
+    const tossLoserSumm: "P1" | "P2" | null =
+      tossWinner === "P1" ? "P2" : tossWinner === "P2" ? "P1" : null;
+    const banActorColumn: "P1" | "P2" | null =
+      is7x7 && tossWinner
+        ? winnerPickedRule === "extra_turn"
+          ? tossLoserSumm
+          : winnerPickedRule === "ban"
+            ? tossWinner
+            : winnerPickedFirstTurn
+              ? tossLoserSumm
+              : tossWinner
+        : null;
+    const hideBannedNameForViewer = (col: "P1" | "P2") =>
+      Boolean(
+        rbBannedPattern &&
+          banActorColumn === col &&
+          ((isMultiplayerGame && col !== mySlot) || (gameMode === "ai" && col === "P2")),
+      );
+
     let winnerChoice: string;
     let loserChoice: string;
     if (is7x7) {
@@ -568,6 +583,8 @@ const isBotChoosing = isBotTurnToChoose;
             const isWhoFirst = choice.includes("PLAYS FIRST");
             const isBanned = choice.includes("BANNED");
             const bannedLabelOnly = is7x7 && rbBannedPattern ? (PATTERN_LABELS_SUMMARY[rbBannedPattern] || rbBannedPattern.toUpperCase()) : "";
+            const secretBan = hideBannedNameForViewer(p);
+            const displayBannedLabel = secretBan ? "?" : bannedLabelOnly;
 
             return (
               <div key={p} style={{ 
@@ -607,7 +624,7 @@ const isBotChoosing = isBotTurnToChoose;
   ) : is7x7 && winnerPickedRule === "ban" && isWinner ? (
     <>
       <div style={{ fontFamily:t.fontMono, fontSize:14, color:t.textMuted, textTransform:"uppercase" }}>Pattern banned</div>
-      <div style={{ fontFamily:t.fontDisplay, fontSize:28, fontWeight:900, color:"#EF4444", letterSpacing:"0.05em", textDecoration:"line-through", textDecorationColor:"rgba(239,68,68,0.6)" }}>{bannedLabelOnly}</div>
+      <div style={{ fontFamily:t.fontDisplay, fontSize:28, fontWeight:900, color:"#EF4444", letterSpacing:"0.05em", textDecoration: secretBan ? "none" : "line-through", textDecorationColor:"rgba(239,68,68,0.6)" }}>{displayBannedLabel}</div>
       <div style={{ fontFamily:t.fontMono, fontSize:14, color:t.textMuted, textTransform:"uppercase", marginTop: 8 }}>Hidden from opponent in the match UI — Career shows it after the match</div>
     </>
   ) : is7x7 && winnerPickedRule === "ban" && !isWinner ? (
@@ -622,7 +639,7 @@ const isBotChoosing = isBotTurnToChoose;
   ) : is7x7 && winnerPickedRule === "extra_turn" && !isWinner ? (
     <>
       <div style={{ fontFamily:t.fontMono, fontSize:14, color:t.textMuted, textTransform:"uppercase" }}>Pattern banned</div>
-      <div style={{ fontFamily:t.fontDisplay, fontSize:28, fontWeight:900, color:"#EF4444", letterSpacing:"0.05em", textDecoration:"line-through", textDecorationColor:"rgba(239,68,68,0.6)" }}>{bannedLabelOnly}</div>
+      <div style={{ fontFamily:t.fontDisplay, fontSize:28, fontWeight:900, color:"#EF4444", letterSpacing:"0.05em", textDecoration: secretBan ? "none" : "line-through", textDecorationColor:"rgba(239,68,68,0.6)" }}>{displayBannedLabel}</div>
       <div style={{ fontFamily:t.fontMono, fontSize:14, color:t.textMuted, textTransform:"uppercase", marginTop: 8 }}>Plays first</div>
       <div style={{ fontFamily:t.fontDisplay, fontSize:32, fontWeight:900, color:firstSlotFromFp === "P1" ? p1c : p2c, letterSpacing:"0.05em" }}>{nameOf(firstSlotFromFp)}</div>
     </>
@@ -652,10 +669,10 @@ const isBotChoosing = isBotTurnToChoose;
         fontWeight:900,
         color:"#EF4444",
         letterSpacing:"0.05em",
-        textDecoration:"line-through",
+        textDecoration: secretBan ? "none" : "line-through",
         textDecorationColor:"rgba(239,68,68,0.6)",
       }}>
-        {choice.replace("BANNED:\n", "")}
+        {secretBan ? "?" : choice.replace("BANNED:\n", "")}
       </div>
     </>
   ) : (

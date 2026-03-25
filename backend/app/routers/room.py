@@ -266,6 +266,8 @@ async def _apply_5x5_to_7x7_upgrade(
         except:
             pass
 
+    await asyncio.sleep(2.0)
+
     gr_payload = {
         "type": "game_reset",
         "first_player": first_7,
@@ -723,6 +725,16 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
 
                 room = await db.rooms.find_one({"room_code": room_code})
                 if not room or room["game_status"] != "playing":
+                    continue
+
+                bm0 = room.get("board_mode", "5x5")
+                if (
+                    (room.get("awaiting_5x5_rules_ready") and bm0 == "5x5")
+                    or (room.get("awaiting_7x7_rules_ready") and bm0 == "7x7")
+                ):
+                    await websocket.send_json(
+                        {"type": "error", "message": "Confirm rules screen first"}
+                    )
                     continue
 
                 if player_slot != room["current_player"]:

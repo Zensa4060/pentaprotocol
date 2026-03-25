@@ -1,7 +1,16 @@
 "use client";
-import React from "react";
+import React, { useState } from "react";
 
 export type RuleshowSheet = "5x5" | "7x7";
+
+export const RULESHOW_SKIP_STORAGE_5x5 = "pentaprotocol_ruleshow_skip_5x5";
+export const RULESHOW_SKIP_STORAGE_7x7 = "pentaprotocol_ruleshow_skip_7x7";
+
+export function readRuleshowSkip(sheet: RuleshowSheet): boolean {
+  if (typeof window === "undefined") return false;
+  const k = sheet === "7x7" ? RULESHOW_SKIP_STORAGE_7x7 : RULESHOW_SKIP_STORAGE_5x5;
+  return window.localStorage.getItem(k) === "1";
+}
 
 type RuleshowScreenProps = {
   sheet: RuleshowSheet;
@@ -35,6 +44,7 @@ export default function RuleshowScreen({
   mySlot,
   onToggleReady,
 }: RuleshowScreenProps) {
+  const [dontShowAgain, setDontShowAgain] = useState(false);
   const is77 = sheet === "7x7";
   const kicker = is77 ? "7×7 LEG UNLOCKED" : "5×5 SERIES";
   const title = "READY CHECK + RULES";
@@ -142,10 +152,22 @@ export default function RuleshowScreen({
             P2: {p2Ready ? "READY" : "WAITING"}
           </div>
         </div>
-        <div style={{ display: "flex", justifyContent: "center", marginTop: 14 }}>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginTop: 14, gap: 12 }}>
           <button
             type="button"
-            onClick={onToggleReady}
+            onClick={() => {
+              const nowReady = mySlot === "P1" ? p1Ready : p2Ready;
+              const becomingReady = !nowReady;
+              if (becomingReady && dontShowAgain) {
+                const k = is77 ? RULESHOW_SKIP_STORAGE_7x7 : RULESHOW_SKIP_STORAGE_5x5;
+                try {
+                  window.localStorage.setItem(k, "1");
+                } catch {
+                  /* ignore quota / private mode */
+                }
+              }
+              onToggleReady();
+            }}
             style={{
               padding: "10px 20px",
               borderRadius: ip ? 2 : 8,
@@ -160,6 +182,26 @@ export default function RuleshowScreen({
           >
             {(mySlot === "P1" ? p1Ready : p2Ready) ? "UNREADY" : "I AM READY"}
           </button>
+          <label
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+              cursor: "pointer",
+              fontFamily: t.fontBody,
+              fontSize: 13,
+              color: t.textSecondary,
+              userSelect: "none",
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={dontShowAgain}
+              onChange={e => setDontShowAgain(e.target.checked)}
+              style={{ width: 16, height: 16, accentColor: t.accent }}
+            />
+            Don&apos;t show this again
+          </label>
         </div>
         <div style={{ marginTop: 20, borderTop: `1px solid ${t.border}`, paddingTop: 14 }}>
           <div
