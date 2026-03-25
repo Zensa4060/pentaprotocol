@@ -115,8 +115,8 @@ async def create_paypal_order(
                         "brand_name":   "PentaProtocol",
                         "landing_page": "LOGIN",
                         "user_action":  "PAY_NOW",
-                        "return_url":   f"{FRONTEND_URL}/payment/paypal/callback",
-                        "cancel_url":   f"{FRONTEND_URL}/payment/paypal/cancel",
+                        "return_url":   f"{FRONTEND_URL}/payment/Paypal/callback",
+                        "cancel_url":   f"{FRONTEND_URL}/payment/Paypal/cancel",
                     }
                 }
             }
