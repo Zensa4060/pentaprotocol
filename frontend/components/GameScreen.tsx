@@ -27,7 +27,12 @@ import PixelGrid from "./PixelGrid";
 import type { Phase } from "./GamePieces";
 import { RulebreakerFlow, PHASE_TIMERS } from "./RulebreakerFlow";
 import { LeftPanel, RightPanel, WinOverlay, RematchOverlay, SurrenderModal, DisconnectModal, ExitModal } from "./MatchSidebar";
-import RuleshowScreen, { type RuleshowSheet, readRuleshowSkip } from "./RuleshowScreen";
+import RuleshowScreen, {
+  type RuleshowSheet,
+  readRuleshowSkip,
+  RULESHOW_SKIP_STORAGE_5x5,
+  RULESHOW_SKIP_STORAGE_7x7,
+} from "./RuleshowScreen";
 import { useAuthStore } from "@/lib/store";
 import { BannerRenderer } from "./BannerRenderer";
 import { RANKS, RankIcon } from "./ProfileScreen";
@@ -2124,6 +2129,29 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     }
   };
 
+  const [rulesGateDontShowAgain, setRulesGateDontShowAgain] = useState(false);
+  useEffect(() => {
+    if (!rulesMatchGateRef.current || rulesShowSheetRef.current !== null || show7x7LevelUpRef.current) return;
+    const sheet: RuleshowSheet = liveBoardMode === "7x7" ? "7x7" : "5x5";
+    setRulesGateDontShowAgain(readRuleshowSkip(sheet));
+  }, [liveBoardMode, rulesMatchGate]);
+
+  const onLevelUpReadyToggleWithGateSkip = () => {
+    if (!isMultiplayerGame || !mySlot) return;
+    const isP1 = mySlot === "P1";
+    const nowReady = isP1 ? p1LevelUpReady : p2LevelUpReady;
+    const becomingReady = !nowReady;
+    if (becomingReady && rulesGateDontShowAgain) {
+      const key = liveBoardMode === "7x7" ? RULESHOW_SKIP_STORAGE_7x7 : RULESHOW_SKIP_STORAGE_5x5;
+      try {
+        window.localStorage.setItem(key, "1");
+      } catch {
+        /* ignore quota / private mode */
+      }
+    }
+    onLevelUpReadyToggle();
+  };
+
   const onChatKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") sendChat(isMultiplayerGame ? mySlot : "P1");
   };
@@ -2164,7 +2192,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
         }}
       >
         {levelUp7x7Overlay}
-        {rulesMatchGate && rulesShowSheet === null && !show7x7LevelUp && (
+        {rulesMatchGate && rulesShowSheet === null && !(p1LevelUpReady && p2LevelUpReady) && !show7x7LevelUp && (
           <div
             style={{
               position: "absolute",
@@ -2204,7 +2232,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
             >
               Waiting for both players to confirm rules
             </div>
-            <div style={{ display: "flex", justifyContent: "center", gap: 14, flexWrap: "wrap", marginBottom: 20 }}>
+            <div style={{ display: "flex", justifyContent: "center", gap: 14, flexWrap: "wrap", marginBottom: 14 }}>
               <div
                 style={{
                   padding: "8px 12px",
@@ -2230,9 +2258,32 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
                 P2: {p2LevelUpReady ? "READY" : "WAITING"}
               </div>
             </div>
+
+            <label
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 10,
+                cursor: "pointer",
+                fontFamily: t.fontBody,
+                fontSize: 13,
+                color: t.textSecondary,
+                userSelect: "none",
+                marginBottom: 14,
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={rulesGateDontShowAgain}
+                onChange={e => setRulesGateDontShowAgain(e.target.checked)}
+                style={{ width: 16, height: 16, accentColor: t.accent }}
+              />
+              Don&apos;t show this again
+            </label>
             <button
               type="button"
-              onClick={onLevelUpReadyToggle}
+              onClick={onLevelUpReadyToggleWithGateSkip}
               style={{
                 padding: "10px 20px",
                 borderRadius: ip ? 2 : 8,
