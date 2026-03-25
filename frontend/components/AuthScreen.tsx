@@ -262,7 +262,7 @@ export default function AuthScreen({ setScreenAction, themeId }: Props) {
       const uid = getUserId(newUser);
       if (uid) sessionStorage.setItem(POLICY_GATE_SESSION_KEY, uid);
       setAuth(newUser, res.data.access_token, staySignedIn);
-      setScreenAction("home");
+      setScreenAction("policy_gate");
     } catch (err: any) {
       const detail = err.response?.data?.detail;
       setErrors({ signupOtp: typeof detail === "string" ? detail : "Invalid or expired code" });

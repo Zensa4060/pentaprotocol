@@ -73,7 +73,6 @@ export default function Page() {
   const [showAiExitModal, setShowAiExitModal] = useState(false);
   const [showGuestBlock, setShowGuestBlock]   = useState(false);
   /** Resume legal gate after refresh if signup completed but policies not accepted. */
-  const [policyComplianceGate, setPolicyComplianceGate] = useState(false);
 
   const { user, token, logout } = useAuthStore();
   const audio = useAudio();
@@ -148,7 +147,7 @@ export default function Page() {
     const uid = getUserId(user);
     if (!uid) return;
     const pending = sessionStorage.getItem(POLICY_GATE_SESSION_KEY);
-    if (pending === uid && !hasAcceptedLegal(uid)) setPolicyComplianceGate(true);
+    if (pending === uid && !hasAcceptedLegal(uid)) setScreen("policy_gate");
   }, [appReady, user, token]);
 
   useEffect(() => {
@@ -522,14 +521,13 @@ export default function Page() {
       }} />
 
       {showGuestBlock && <GuestBlockModal />}
-      {policyComplianceGate && (
+      {screen === "policy_gate" && (
         <PolicyAcceptanceGate
           themeId={themeId}
           user={user}
-          onAcceptedAction={() => setPolicyComplianceGate(false)}
+          onAcceptedAction={() => setScreen("home")}
           onDeclinedAction={() => {
             logout();
-            setPolicyComplianceGate(false);
             setScreen("auth");
           }}
         />
@@ -602,7 +600,7 @@ export default function Page() {
         button, a, input, select { transition: color 0.3s, background 0.3s, border-color 0.3s, box-shadow 0.3s; }
       `}</style>
 
-      {screen !== "auth" && (
+      {screen !== "auth" && screen !== "policy_gate" && (
         <NavBar
           screen={screen}
           setScreenAction={handleSetScreen}

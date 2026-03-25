@@ -34,6 +34,18 @@ export default function PolicyAcceptanceGate({
     window.open(path, "_blank", "noopener,noreferrer");
   };
 
+  const acceptAll = () => {
+    setTerms(true);
+    setPrivacy(true);
+    setRefund(true);
+  };
+
+  const rejectAll = () => {
+    setTerms(false);
+    setPrivacy(false);
+    setRefund(false);
+  };
+
   const accept = () => {
     if (!allChecked || !uid) return;
     setLegalAccepted(uid);
@@ -230,6 +242,46 @@ export default function PolicyAcceptanceGate({
         ))}
 
         <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 8 }}>
+          <div style={{ display: "flex", gap: 10, width: "100%" }}>
+            <button
+              type="button"
+              onClick={acceptAll}
+              style={{
+                flex: 1,
+                padding: ip ? "11px" : "12px",
+                borderRadius: ip ? 2 : 10,
+                border: "none",
+                background: `${t.accent}22`,
+                color: t.accent,
+                fontFamily: t.fontDisplay,
+                fontSize: ip ? 11 : 13,
+                fontWeight: 800,
+                letterSpacing: "0.08em",
+                cursor: "pointer",
+              }}
+            >
+              ACCEPT ALL
+            </button>
+            <button
+              type="button"
+              onClick={rejectAll}
+              style={{
+                flex: 1,
+                padding: ip ? "11px" : "12px",
+                borderRadius: ip ? 2 : 10,
+                border: `1px solid ${t.border}`,
+                background: "transparent",
+                color: t.textMuted,
+                fontFamily: t.fontDisplay,
+                fontSize: ip ? 11 : 13,
+                fontWeight: 700,
+                letterSpacing: "0.06em",
+                cursor: "pointer",
+              }}
+            >
+              REJECT ALL
+            </button>
+          </div>
           <button
             type="button"
             disabled={!allChecked}

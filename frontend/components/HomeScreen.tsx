@@ -265,7 +265,7 @@ export default function HomeScreen({ setScreenAction, themeId, onHoverAction, on
         paddingTop: 12,
         paddingBottom: isMobile ? 16 : 8,
         width: "100%",
-        borderTop: `1px solid ${isSp ? "rgba(58,120,212,0.15)" : t.border}`,
+        transform: "translateY(100%)",
       }}>
         {FOOTER_LINKS.map((link, i) => (
           <React.Fragment key={link.href}>

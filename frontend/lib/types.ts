@@ -1,5 +1,5 @@
 export type Screen =
-  | "home" | "auth" | "lobby" | "game" | "aiGame" | "multiGame"
+  | "home" | "auth" | "policy_gate" | "lobby" | "game" | "aiGame" | "multiGame"
   | "profile" | "rules" | "ai" | "singleplayer" | "store" | "collection" | "career" | "battlepass";
 
 export type BoardMode = "5x5" | "7x7";
