@@ -77,7 +77,9 @@ async def get_career(user_id: str = Depends(get_current_user)):
             "played_at":         doc.get("played_at", "").isoformat() if doc.get("played_at") else "",
         }
         if doc.get("banned_pattern_7x7"):
-            row["banned_pattern_7x7"] = doc["banned_pattern_7x7"]
+            bp = doc["banned_pattern_7x7"]
+            if bp == "H": bp = "Y"
+            row["banned_pattern_7x7"] = bp
         if doc.get("board_mode"):
             row["board_mode"] = doc["board_mode"]
         if doc.get("game_number") is not None:
