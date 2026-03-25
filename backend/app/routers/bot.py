@@ -284,8 +284,6 @@ _RUST_DANGER_PATS = None
 def bot_move(req: BotMoveRequest):
     global _ENGINE7_NEW, _LAST_PATS7_NEW, _DANGER_ENG, _DANGER_PATS
     global _RUST_HARD_ENG, _RUST_HARD_PATS, _RUST_DANGER_ENG, _RUST_DANGER_PATS
-    with open("C:/Users/yagya/Documents/pentaprotocol/backend/bot_debug.txt", "w") as f:
-        f.write(f"BOT HIT: mode={req.board_mode}, pats={req.selected_patterns}\n")
     def normalize(cell): return None if cell in [None, "null", ""] else cell
     board = [[normalize(cell) for cell in row] for row in req.board]
     actual_mode = "7x7" if len(board) >= 7 and len(board[0]) >= 7 else "5x5"
