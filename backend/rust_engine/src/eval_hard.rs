@@ -1,4 +1,4 @@
-use crate::board::{tables, Board, CELLS};
+use crate::board::{tables, Board, CELLS, EvalContext};
 use crate::patterns::PatternIndex;
 use std::collections::VecDeque;
 
@@ -11,28 +11,29 @@ pub fn eval_heuristic(
     opp: u8,
     pi: &PatternIndex,
     moves_played: i32,
+    ctx: &mut EvalContext,
 ) -> i32 {
     let mut score: i32 = 0;
-    score += line_score(board, me, opp, pi);
-    score += pattern_score(board, me, opp, pi);
+    score += line_score(board, me, opp, pi, ctx);
+    score += pattern_score(board, me, opp, pi, ctx);
     score += connectivity_score(board, me, opp, moves_played);
     score += center_score(board, me, opp);
     score
 }
 
-fn line_score(board: &Board, me: u8, opp: u8, pi: &PatternIndex) -> i32 {
+fn line_score(board: &Board, me: u8, opp: u8, pi: &PatternIndex, ctx: &mut EvalContext) -> i32 {
     let mut score: i32 = 0;
-    let mut seen = vec![false; pi.line_cells.len()];
+    ctx.seen_l.iter_mut().for_each(|x| *x = false);
     for i in 0..CELLS {
         if board[i] == 0 {
             continue;
         }
         for &li in &pi.cell_lines[i] {
             let li = li as usize;
-            if seen[li] {
+            if li >= 1024 || ctx.seen_l[li] {
                 continue;
             }
-            seen[li] = true;
+            ctx.seen_l[li] = true;
             let win = &pi.line_cells[li];
             let mut mine = 0i32;
             let mut theirs = 0i32;
@@ -56,19 +57,19 @@ fn line_score(board: &Board, me: u8, opp: u8, pi: &PatternIndex) -> i32 {
     score
 }
 
-fn pattern_score(board: &Board, me: u8, opp: u8, pi: &PatternIndex) -> i32 {
+fn pattern_score(board: &Board, me: u8, opp: u8, pi: &PatternIndex, ctx: &mut EvalContext) -> i32 {
     let mut score: i32 = 0;
-    let mut seen = vec![false; pi.pat_cells.len()];
+    ctx.seen_p.iter_mut().for_each(|x| *x = false);
     for i in 0..CELLS {
         if board[i] == 0 {
             continue;
         }
         for &pat_idx in &pi.cell_pats[i] {
             let pat_idx = pat_idx as usize;
-            if seen[pat_idx] {
+            if pat_idx >= 1024 || ctx.seen_p[pat_idx] {
                 continue;
             }
-            seen[pat_idx] = true;
+            ctx.seen_p[pat_idx] = true;
             let cells = &pi.pat_cells[pat_idx];
             let mut mine = 0i32;
             let mut theirs = 0i32;

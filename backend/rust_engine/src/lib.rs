@@ -34,7 +34,7 @@ impl RustHardBot7 {
         _c3_blocked: bool,
     ) -> PyResult<Option<(usize, usize)>> {
         let (mut flat, zhash) = to_flat(&board_2d, bot, human);
-        let mut engine = search::HardSearch::new(6, 4.0);
+        let mut engine = search::HardSearch::new(6, 2.5);
         let result = engine.search(&mut flat, zhash, &self.pi, 1, 2, moves_played);
         Ok(result.map(rc))
     }

@@ -1,4 +1,4 @@
-use crate::board::{tables, Board, CELLS};
+use crate::board::{tables, Board, CELLS, EvalContext};
 use crate::patterns::PatternIndex;
 use std::collections::VecDeque;
 
@@ -6,22 +6,6 @@ use std::collections::VecDeque;
 const THREAT_MY: [i32; 8] = [0, 2, 30, 300, 2500, 15000, 100_000, 1_000_000];
 const THREAT_OPP: [i32; 8] = [0, 3, 45, 450, 3800, 22000, 150_000, 1_000_000];
 const PATH_DFS_BUDGET: i32 = 4000;
-
-pub struct EvalContext {
-    pub seen_l: [bool; 1024],
-    pub seen_p: [bool; 1024],
-    pub vis: [bool; CELLS],
-}
-
-impl Default for EvalContext {
-    fn default() -> Self {
-        EvalContext {
-            seen_l: [false; 1024],
-            seen_p: [false; 1024],
-            vis: [false; CELLS],
-        }
-    }
-}
 
 pub fn evaluate(
     board: &Board,

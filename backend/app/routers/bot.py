@@ -29,6 +29,12 @@ OPPO_MULT = 1.3
 ALL_RC5 = [(r, c) for r in range(GRID5) for c in range(GRID5)]
 ALL_RC7 = [(r, c) for r in range(GRID7) for c in range(GRID7)]
 
+def _rc5(idx): return (idx // GRID5, idx % GRID5)
+def _idx5(r, c): return r * GRID5 + c
+
+def _rc7(idx): return (idx // GRID7, idx % GRID7)
+def _idx7(r, c): return r * GRID7 + c
+
 # =============================================================
 #  7x7 BOT ENGINE
 # =============================================================
@@ -132,6 +138,7 @@ class BotEngine7:
         for r, c in moves:
             b = _place(board, r, c, cur)
             v = -self._negamax(b, depth - 1, -beta, -alpha, opp, cur, root_bot, (r, c, cur), deadline)
+            b[r][c] = None # Unmake move
             if v > best_v:
                 best_v = v
             alpha = max(alpha, v)
@@ -150,33 +157,99 @@ class BotEngine7:
 class BotEngine:
     def __init__(self, patterns):
         self.patterns = patterns
+        self.tt = {}
+        self.history = [0] * (GRID5 * GRID5)
+        self.zobrist = [[random.getrandbits(64) for _ in range(3)] for _ in range(GRID5 * GRID5)]
 
-    def choose(self, board, bot, human, difficulty):
-        empties = _empty5(board)
+    def choose(self, board_2d, bot, human, difficulty):
+        board = [None] * (GRID5 * GRID5)
+        zhash = 0
+        p_map = {bot: 1, human: 2, None: 0}
+        for r in range(GRID5):
+            for c in range(GRID5):
+                val = board_2d[r][c]
+                idx = r * GRID5 + c
+                board[idx] = val
+                pv = p_map.get(val, 0)
+                if pv > 0: zhash ^= self.zobrist[idx][pv]
+
+        empties = [i for i, v in enumerate(board) if v is None]
         if not empties: return None
         if difficulty == "easy":
-            import random
-            return random.choice(empties)
+            return _rc5(random.choice(empties))
 
-        # Immediate win/block
-        for r, c in empties:
-            b = _place(board, r, c, bot)
-            if check_5_line(b, r, c, bot, DIRS, 5)[0] or check_structural_patterns(b, bot, self.patterns, 5)[0]:
-                return (r, c)
-        for r, c in empties:
-            b = _place(board, r, c, human)
-            if check_5_line(b, r, c, human, DIRS, 5)[0] or check_structural_patterns(b, human, self.patterns, 5)[0]:
-                return (r, c)
+        # Win/Block check
+        for i in empties:
+            if _wins5_idx(board, i, bot, self.patterns): return _rc5(i)
+        for i in empties:
+            if _wins5_idx(board, i, human, self.patterns): return _rc5(i)
 
-        best_v = -INF; best_mv = empties[0]
-        for r, c in empties:
-            b = _place(board, r, c, bot)
-            v = _eval(b, bot, self.patterns, None)
-            v -= _eval(b, human, self.patterns, None)
-            if v > best_v:
-                best_v = v
-                best_mv = (r, c)
+        if difficulty == "medium":
+            depth, budget = 4, 1.0
+        else: # hard
+            depth, budget = 8, 2.0
+
+        move_idx = self._idab(board, zhash, bot, human, depth, budget, empties)
+        return _rc5(move_idx)
+
+    def _idab(self, board, zhash, bot, human, max_d, budget, empties):
+        deadline = time.monotonic() + budget
+        best_mv = empties[0]
+        self.tt = {}
+        self.history = [0] * (GRID5 * GRID5)
+        p_map = {bot: 1, human: 2}
+
+        for d in range(1, max_d + 1):
+            if time.monotonic() >= deadline and d > 1: break
+            ordered = sorted(empties, key=lambda i: (i == best_mv, self.history[i], -(abs(i // GRID5 - 2) + abs(i % GRID5 - 2))), reverse=True)
+            d_best_mv = best_mv
+            d_best_val = -INF
+            alpha = -INF
+            for i in ordered:
+                if time.monotonic() >= deadline and d > 1: break
+                board[i] = bot
+                val = -self._negamax(board, zhash ^ self.zobrist[i][p_map[bot]], d - 1, -INF, -alpha, human, bot, bot, i, p_map[human], p_map[bot], deadline)
+                board[i] = None
+                if val > d_best_val:
+                    d_best_val = val
+                    d_best_mv = i
+                alpha = max(alpha, val)
+            if time.monotonic() < deadline or d == 1:
+                best_mv = d_best_mv
+            if d_best_val > 900000: break
         return best_mv
+
+    def _negamax(self, board, zhash, depth, alpha, beta, cur, opp, root_bot, last_idx, p_cur, p_opp, deadline):
+        if deadline and time.monotonic() >= deadline: return 0
+        if _wins5_placed_idx(board, last_idx, opp, self.patterns):
+            return -(1000000 + depth)
+        if depth == 0:
+            return _eval_flat(board, root_bot, self.patterns, GRID5) if cur == root_bot else -_eval_flat(board, root_bot, self.patterns, GRID5)
+
+        if zhash in self.tt:
+            d, v, f = self.tt[zhash]
+            if d >= depth:
+                if f == 0: return v
+                elif f == 1: alpha = max(alpha, v)
+                elif f == 2: beta = min(beta, v)
+                if alpha >= beta: return v
+
+        empties = [i for i, v in enumerate(board) if v is None]
+        if not empties: return 0
+        moves = sorted(empties, key=lambda i: self.history[i], reverse=True)
+        best_v = -INF; orig_alpha = alpha
+        for i in moves:
+            board[i] = cur
+            v = -self._negamax(board, zhash ^ self.zobrist[i][p_cur], depth - 1, -beta, -alpha, opp, cur, root_bot, i, p_opp, p_cur, deadline)
+            board[i] = None
+            if v > best_v: best_v = v
+            alpha = max(alpha, v)
+            if alpha >= beta:
+                self.history[i] += 2**depth
+                break
+        flag = 0 if best_v > orig_alpha and best_v < beta else (1 if best_v >= beta else 2)
+        self.tt[zhash] = (depth, best_v, flag)
+        return best_v
 
 # =============================================================
 #  HELPERS
@@ -193,6 +266,42 @@ def _empty7(board): return [(r, c) for r, c in ALL_RC7 if board[r][c] is None]
 def _wins7(board, r, c, player, patterns):
     if check_7_line(board, r, c, player, ALL_DIRS, 7)[0]: return True
     if check_structural_patterns(board, player, patterns, 7)[0]: return True
+    return False
+
+def _wins5_idx(board, i, player, patterns):
+    board[i] = player
+    w = _wins5_placed_idx(board, i, player, patterns)
+    board[i] = None
+    return w
+
+def _wins5_placed_idx(board, i, player, patterns):
+    r, c = _rc5(i)
+    if check_5_line_flat(board, r, c, player): return True
+    if check_structural_patterns_flat(board, player, patterns, GRID5): return True
+    return False
+
+def check_5_line_flat(board, r, c, player):
+    for dr, dc in [(0, 1), (1, 0), (1, 1), (1, -1)]:
+        count = 1
+        for sign in (1, -1):
+            rr, cc = r + sign * dr, c + sign * dc
+            while 0 <= rr < GRID5 and 0 <= cc < GRID5 and board[rr * GRID5 + cc] == player:
+                count += 1
+                rr += sign * dr
+                cc += sign * dc
+        if count >= 5: return True
+    return False
+
+def check_structural_patterns_flat(board, player, patterns, grid_size):
+    for pat in patterns:
+        max_r = max(dr for dr, _ in pat); max_c = max(dc for _, dc in pat)
+        for br in range(grid_size - max_r):
+            for bc in range(grid_size - max_c):
+                ok = True
+                for dr, dc in pat:
+                    if board[(br + dr) * grid_size + (bc + dc)] != player:
+                        ok = False; break
+                if ok: return True
     return False
 
 def _eval(board, player, patterns, cell_uses):
@@ -243,6 +352,34 @@ def _eval(board, player, patterns, cell_uses):
                 score -= max(0, center + 1 - (abs(r-center) + abs(c-center))) * (1.0 if grid_size == 5 else 4.0)
     
     return score
+
+def _eval_flat(board, player, patterns, grid_size):
+    score = 0
+    opponent = "P2" if player == "P1" else "P1"
+    target = 5
+    # Lines
+    for dr, dc in [(0, 1), (1, 0), (1, 1), (1, -1)]:
+        for r in range(grid_size):
+            for c in range(grid_size):
+                if r + (target-1)*dr >= grid_size or c + (target-1)*dc >= grid_size or c + (target-1)*dc < 0: continue
+                m, o = 0, 0
+                for i in range(target):
+                    v = board[(r + i*dr) * grid_size + (c + i*dc)]
+                    if v == player: m += 1
+                    elif v == opponent: o += 1
+                if m > 0 and o == 0: score += (m ** 4) * 10
+                elif o > 0 and m == 0: score -= (o ** 4) * 15
+    # Center
+    center = grid_size // 2
+    for i in range(grid_size * grid_size):
+        if board[i] == player:
+            r, c = i // grid_size, i % grid_size
+            score += max(0, center + 1 - (abs(r-center) + abs(c-center)))
+        elif board[i] == opponent:
+            r, c = i // grid_size, i % grid_size
+            score -= max(0, center + 1 - (abs(r-center) + abs(c-center)))
+    return score
+
 
 # =============================================================
 #  ROUTERS

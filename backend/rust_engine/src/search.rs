@@ -1,8 +1,7 @@
-use crate::board::{tables, make, unmake, Board, CELLS, INF};
+use crate::board::{tables, make, unmake, Board, CELLS, INF, EvalContext};
 use crate::eval_hard::{eval_full_hard, eval_heuristic};
 use crate::patterns::PatternIndex;
 use crate::wins::wins_at;
-use std::collections::HashMap;
 use std::time::Instant;
 
 const TT_FLAG_EXACT: u8 = 0;
@@ -26,6 +25,7 @@ pub struct HardSearch {
     budget: f64,
     max_depth: i32,
     nodes: u64,
+    ctx: EvalContext,
 }
 
 impl HardSearch {
@@ -37,6 +37,7 @@ impl HardSearch {
             budget,
             max_depth,
             nodes: 0,
+            ctx: EvalContext::default(),
         }
     }
 
@@ -85,7 +86,7 @@ impl HardSearch {
         }
 
         if depth <= 0 {
-            return eval_heuristic(board, me, opp, pi, moves_played);
+            return eval_heuristic(board, me, opp, pi, moves_played, &mut self.ctx);
         }
 
         let t = tables();

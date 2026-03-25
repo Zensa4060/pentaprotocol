@@ -48,6 +48,22 @@ pub struct TablesOwned {
     pub zobrist: [[u64; 3]; CELLS],
 }
 
+pub struct EvalContext {
+    pub seen_l: [bool; 1024],
+    pub seen_p: [bool; 1024],
+    pub vis: [bool; CELLS],
+}
+
+impl Default for EvalContext {
+    fn default() -> Self {
+        EvalContext {
+            seen_l: [false; 1024],
+            seen_p: [false; 1024],
+            vis: [false; CELLS],
+        }
+    }
+}
+
 impl TablesOwned {
     fn build() -> Self {
         let mut neighbors = vec![Vec::new(); CELLS];
