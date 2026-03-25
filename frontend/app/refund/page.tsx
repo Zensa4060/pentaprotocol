@@ -53,7 +53,7 @@ export default function RefundPage() {
             <br /><br />
             <span style={{ display: "block", textAlign: "center", marginTop: 20 }}>
               <img
-                src="/creator-payment-qr.svg"
+                src="/creator-payment-qr.png"
                 alt="Creator payment QR code for UPI or other direct payment"
                 width={220}
                 height={220}
