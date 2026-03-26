@@ -86,95 +86,81 @@ export function RulebreakerFlow({
     const isBalancedGraphics = graphicsQuality === "balanced";
     const isFiveByFive = !is7x7;
     const splashTitle = isFiveByFive ? "RULEBREAKER" : "MINDBREAKER";
-    const splashColor = isFiveByFive ? "#06B6D4" : "#B91C1C";
-    const splashMid = isFiveByFive ? "rgba(8,145,178,0.30)" : "rgba(185,28,28,0.30)";
-    const splashGlow = isFiveByFive ? "rgba(34,211,238,0.78)" : "rgba(220,38,38,0.78)";
-    const splashBg = isFiveByFive ? "#02090d" : "#050000";
+    const splashColor = isFiveByFive ? "#22d3ee" : "#B91C1C";
+    const splashMid = isFiveByFive ? "rgba(56,200,235,0.28)" : "rgba(127,29,29,0.4)";
+    const splashGlow = isFiveByFive ? "rgba(130,235,255,0.72)" : "rgba(185,28,28,0.88)";
+    const splashTitleGlow = isFiveByFive ? "rgba(34,211,238,0.55)" : "rgba(220,38,38,0.62)";
+    const splashBg = isFiveByFive ? "#02060c" : "#0a0000";
     const splashVignette = isFiveByFive
-      ? "radial-gradient(circle at center, rgba(10,70,90,0.9) 0%, transparent 72%)"
-      : "radial-gradient(circle at center, rgba(40,0,0,0.85) 0%, transparent 72%)";
-    const cloudTone = isFiveByFive ? "rgba(34,211,238,0.17)" : "rgba(255,60,60,0.12)";
-    const sceneTilt = "rotateX(11deg) rotateY(-8deg)";
-    const titleTilt = "translateZ(94px) rotateX(14deg) rotateY(-7deg)";
+      ? "radial-gradient(ellipse at 50% 38%, rgba(8,55,72,0.88) 0%, rgba(4,18,28,0.5) 48%, transparent 76%)"
+      : "radial-gradient(ellipse at 50% 40%, rgba(72,0,0,0.92) 0%, rgba(28,0,0,0.72) 52%, transparent 78%)";
+    const cloudTone = isFiveByFive ? "rgba(120,230,255,0.1)" : "rgba(200,40,40,0.18)";
+    const mistBlurPx = isLowGraphics ? 0 : isBalancedGraphics ? 8 : 11;
 
-    const mainSplatsAll = [
-      { l: "12%", t: "14%", s: 540, d: 0.03 },
-      { l: "28%", t: "78%", s: 500, d: 0.08 },
-      { l: "52%", t: "34%", s: 620, d: 0.12 },
-      { l: "72%", t: "66%", s: 560, d: 0.16 },
-      { l: "90%", t: "20%", s: 480, d: 0.2 },
-      { l: "84%", t: "86%", s: 460, d: 0.25 },
-    ];
-    const microDropsAll = [
-      { l: "8%", t: "42%", r: 28, a: 0.72, d: 0.09 },
-      { l: "20%", t: "24%", r: 22, a: 0.64, d: 0.11 },
-      { l: "34%", t: "58%", r: 18, a: 0.56, d: 0.15 },
-      { l: "44%", t: "18%", r: 20, a: 0.6, d: 0.19 },
-      { l: "58%", t: "76%", r: 24, a: 0.68, d: 0.21 },
-      { l: "68%", t: "32%", r: 16, a: 0.52, d: 0.24 },
-      { l: "78%", t: "48%", r: 20, a: 0.58, d: 0.27 },
-      { l: "88%", t: "62%", r: 18, a: 0.53, d: 0.3 },
-      { l: "93%", t: "36%", r: 16, a: 0.48, d: 0.34 },
-      { l: "64%", t: "10%", r: 14, a: 0.44, d: 0.38 },
-      { l: "40%", t: "88%", r: 22, a: 0.62, d: 0.42 },
+    /** 5×5 — large cyan splashes across the viewport (no micro-drops / drips = fewer layers). */
+    const rulebreakerSplatsAll = [
+      { l: "50%", t: "46%", s: 980, d: 0 },
+      { l: "10%", t: "12%", s: 560, d: 0.14 },
+      { l: "90%", t: "18%", s: 520, d: 0.2 },
+      { l: "14%", t: "82%", s: 540, d: 0.1 },
+      { l: "86%", t: "78%", s: 500, d: 0.24 },
+      { l: "50%", t: "8%", s: 480, d: 0.18 },
+      { l: "4%", t: "48%", s: 420, d: 0.28 },
+      { l: "96%", t: "52%", s: 440, d: 0.32 },
     ];
     const mindSlashesAll = [
-      { l: "8%", t: "18%", w: 56, h: 560, rot: -35, d: 0.06 },
-      { l: "24%", t: "72%", w: 44, h: 480, rot: 28, d: 0.12 },
-      { l: "38%", t: "30%", w: 52, h: 620, rot: -22, d: 0.16 },
-      { l: "54%", t: "82%", w: 60, h: 540, rot: 31, d: 0.21 },
-      { l: "70%", t: "26%", w: 48, h: 600, rot: -27, d: 0.25 },
-      { l: "84%", t: "74%", w: 42, h: 520, rot: 24, d: 0.31 },
-      { l: "94%", t: "16%", w: 38, h: 430, rot: -33, d: 0.36 },
+      { l: "8%", t: "18%", w: 48, h: 420, rot: -35, d: 0.12 },
+      { l: "24%", t: "72%", w: 38, h: 380, rot: 28, d: 0.24 },
+      { l: "38%", t: "30%", w: 44, h: 460, rot: -22, d: 0.36 },
+      { l: "54%", t: "82%", w: 50, h: 400, rot: 31, d: 0.48 },
+      { l: "70%", t: "26%", w: 42, h: 430, rot: -27, d: 0.6 },
+      { l: "84%", t: "74%", w: 36, h: 360, rot: 24, d: 0.72 },
     ];
-
-    const mainSplats = isLowGraphics ? mainSplatsAll.slice(0, 3) : isBalancedGraphics ? mainSplatsAll.slice(0, 5) : mainSplatsAll;
-    const microDrops = isLowGraphics ? microDropsAll.slice(0, 4) : isBalancedGraphics ? microDropsAll.slice(0, 8) : microDropsAll;
+    const mainSplats = isFiveByFive
+      ? (isLowGraphics ? rulebreakerSplatsAll.slice(0, 3) : isBalancedGraphics ? rulebreakerSplatsAll.slice(0, 4) : rulebreakerSplatsAll.slice(0, 6))
+      : [];
     const mindSlashes = isLowGraphics ? mindSlashesAll.slice(0, 4) : isBalancedGraphics ? mindSlashesAll.slice(0, 6) : mindSlashesAll;
 
     return (
-      <div style={{ position:"fixed", top:0, left:0, right:0, bottom:0, zIndex:10000, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", background:splashBg, userSelect:"none", gap:0, overflow:"hidden", perspective:"1100px" }}>
+      <div style={{ position:"fixed", top:0, left:0, right:0, bottom:0, zIndex:10000, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", background:splashBg, userSelect:"none", gap:0, overflow:"hidden" }}>
         <style>{`
-          @keyframes rbBloodPop { 0%{transform:translate(-50%,-50%) translateZ(var(--rb-z,-20px)) scale(0.16) rotate(-12deg); opacity:0} 18%{opacity:0.98} 56%{transform:translate(-50%,-50%) translateZ(var(--rb-z,0px)) scale(1.05) rotate(2deg); opacity:0.74} 100%{transform:translate(-50%,-50%) translateZ(var(--rb-z,20px)) scale(1.32) rotate(6deg); opacity:0} }
-          @keyframes rbMicroPop { 0%{transform:translate(-50%,-50%) scale(0.2); opacity:0} 24%{opacity:0.9} 100%{transform:translate(-50%,-50%) scale(1.18); opacity:0} }
-          @keyframes rbDropFall { 0%{transform:translate(-50%,-50%) translateY(-42px) scaleY(0.5); opacity:0} 16%{opacity:0.95} 56%{transform:translate(-50%,-50%) translateY(26px) scaleY(1.08); opacity:0.88} 100%{transform:translate(-50%,-50%) translateY(190px) scaleY(1.25); opacity:0} }
-          @keyframes rbTailFall { 0%{transform:translateX(-50%) scaleY(0.2); opacity:0} 18%{opacity:0.82} 100%{transform:translateX(-50%) scaleY(1); opacity:0} }
+          @keyframes rbLetterInSplash { from{opacity:0;transform:translateY(16px) scaleY(1.04)} to{opacity:1;transform:translateY(0) scaleY(1)} }
+          @keyframes rbLineInSplash { from{opacity:0;transform:scaleX(0)} to{opacity:1;transform:scaleX(1)} }
+          @keyframes rbCyanWash { 0%{opacity:0;transform:scale(0.92)} 35%{opacity:0.38} 100%{opacity:0.12;transform:scale(1)} }
+          @keyframes rbCyanSplat { 0%{transform:translate(-50%,-50%) scale(0.2); opacity:0} 22%{opacity:0.9} 55%{transform:translate(-50%,-50%) scale(1.02); opacity:0.65} 100%{transform:translate(-50%,-50%) scale(1.18); opacity:0} }
           @keyframes rbMindSlashSweep { 0%{transform:translate(-50%,-50%) scaleY(0.2) scaleX(0.5) rotate(var(--rb-rot)); opacity:0} 22%{opacity:0.95} 58%{transform:translate(-50%,-50%) scaleY(1.08) scaleX(1.02) rotate(var(--rb-rot)); opacity:0.88} 100%{transform:translate(-50%,-50%) scaleY(1.22) scaleX(0.7) rotate(var(--rb-rot)); opacity:0} }
           @keyframes rbMindCoreSweep { 0%{transform:translate(-50%,-50%) scaleY(0.3) rotate(var(--rb-rot)); opacity:0} 18%{opacity:0.92} 100%{transform:translate(-50%,-50%) scaleY(1.1) rotate(var(--rb-rot)); opacity:0} }
-          @keyframes rbMist { 0%{opacity:0; transform:translateY(20px) scale(0.98)} 20%{opacity:0.74} 100%{opacity:0; transform:translateY(-26px) scale(1.04)} }
+          @keyframes rbMist { 0%{opacity:0; transform:translateX(-50%) translateY(16px) scale(0.98)} 22%{opacity:0.62} 100%{opacity:0; transform:translateX(-50%) translateY(-20px) scale(1.03)} }
         `}</style>
-        <div style={{ position:"absolute", inset:0, background:splashVignette, opacity:0.72, transform:"translateZ(-160px)" }} />
+        <div style={{ position:"absolute", inset:0, background:splashVignette, opacity:0.72 }} />
 
-        {/* Full-screen splash overlay */}
-        <div style={{ position:"absolute", inset:0, pointerEvents:"none", transformStyle:"preserve-3d", transform:sceneTilt }}>
-          {mainSplats.map((b, i) => (
+        {/* Full-screen splash overlay (2D — avoids perspective + preserve-3d cost) */}
+        <div style={{ position:"absolute", inset:0, pointerEvents:"none", contain:"strict" }}>
+          {isFiveByFive && (
+            <div
+              style={{
+                position:"absolute",
+                inset:"-8%",
+                background:"radial-gradient(ellipse at 50% 42%, rgba(56,210,240,0.35) 0%, rgba(34,160,200,0.12) 38%, transparent 62%)",
+                opacity:0,
+                animation:"rbCyanWash 2.2s cubic-bezier(.3,.55,.2,1) both",
+              }}
+            />
+          )}
+          {isFiveByFive && mainSplats.map((b, i) => (
             <div key={i} style={{
               position:"absolute", left:b.l, top:b.t, width:b.s, height:b.s,
-              ["--rb-z" as string]: isFiveByFive ? `${18 + (i % 3) * 8}px` : `${32 + (i % 3) * 12}px`,
               borderRadius:"54% 46% 58% 42% / 52% 48% 54% 46%",
-              background:`radial-gradient(circle, ${splashGlow} 0%, ${splashMid} 36%, rgba(0,0,0,0) 72%)`,
-              filter:isLowGraphics ? "none" : isFiveByFive ? "blur(1.1px)" : "blur(0.7px)",
-              transform:`translate(-50%,-50%) translateZ(${isFiveByFive ? `${14 + i * 2}px` : `${28 + i * 4}px`}) scale(0.16)`,
+              background:`radial-gradient(circle, ${splashGlow} 0%, ${splashMid} 40%, rgba(0,0,0,0) 74%)`,
+              filter:"none",
+              transform:"translate(-50%,-50%) scale(0.2)",
               opacity:0,
-              animation:`rbBloodPop ${isFiveByFive ? "1.85s" : "1.55s"} cubic-bezier(.18,.9,.12,1) ${b.d}s both`,
+              animation:`rbCyanSplat 1.55s cubic-bezier(.32,.72,.22,1) ${b.d}s both`,
             }} />
           ))}
 
-          {microDrops.map((s, i) => (
-            <div key={`s${i}`} style={{
-              position:"absolute", left:s.l, top:s.t, width:s.r, height:s.r,
-              borderRadius:"50%",
-              background:`${isFiveByFive ? `rgba(34, 211, 238, ${s.a})` : `rgba(185, 28, 28, ${s.a})`}`,
-              boxShadow:`0 0 ${isFiveByFive ? "20px" : "26px"} ${isFiveByFive ? "rgba(34,211,238,0.34)" : "rgba(220,38,38,0.36)"}`,
-              filter:"blur(0.25px)",
-              opacity:0,
-              transform:`translate(-50%,-50%) translateZ(${isFiveByFive ? "26px" : "52px"}) scale(0.2)`,
-              animation:`rbMicroPop 1.7s cubic-bezier(.18,.9,.12,1) ${s.d}s both`,
-            }} />
-          ))}
-
-          {mindSlashes.map((sl, i) => (
-            <div key={`ms${i}`} style={{ position:"absolute", left:sl.l, top:sl.t, transform:`translateZ(${72 + i * 8}px)` }}>
+          {!isFiveByFive && mindSlashes.map((sl, i) => (
+            <div key={`ms${i}`} style={{ position:"absolute", left:sl.l, top:sl.t }}>
               <div style={{
                 position:"absolute",
                 left:"50%",
@@ -182,17 +168,13 @@ export function RulebreakerFlow({
                 width:sl.w,
                 height:sl.h,
                 ["--rb-rot" as string]: `${sl.rot}deg`,
-                transform:`translate(-50%,-50%) rotate(${sl.rot}deg) translateZ(${64 + i * 6}px)`,
+                transform:`translate(-50%,-50%) rotate(${sl.rot}deg)`,
                 borderRadius:"70% 30% 60% 40% / 8% 12% 88% 92%",
-                background:isFiveByFive
-                  ? "linear-gradient(to bottom, rgba(34,211,238,0) 0%, rgba(103,232,249,0.86) 18%, rgba(34,211,238,0.95) 52%, rgba(8,145,178,0.16) 100%)"
-                  : "linear-gradient(to bottom, rgba(255,110,110,0) 0%, rgba(248,113,113,0.82) 18%, rgba(220,38,38,0.94) 52%, rgba(127,29,29,0.16) 100%)",
-                filter:"blur(0.35px)",
-                boxShadow:isLowGraphics ? "none" : isFiveByFive
-                  ? "0 0 26px rgba(34,211,238,0.52), 0 20px 36px rgba(0,0,0,0.36)"
-                  : "0 0 26px rgba(220,38,38,0.48), 0 20px 36px rgba(0,0,0,0.36)",
+                background:"linear-gradient(to bottom, rgba(160,20,20,0) 0%, rgba(185,28,28,0.92) 16%, rgba(120,10,10,0.96) 48%, rgba(50,0,0,0.45) 100%)",
+                filter:isLowGraphics ? "none" : "blur(0.2px)",
+                boxShadow:isLowGraphics ? "none" : "0 0 16px rgba(127,0,0,0.42), 0 10px 18px rgba(0,0,0,0.38)",
                 opacity:0,
-                animation:`rbMindSlashSweep 1.75s cubic-bezier(.2,.85,.15,1) ${sl.d}s both`,
+                animation:`rbMindSlashSweep 1.78s cubic-bezier(.25,.75,.2,1) ${sl.d}s both`,
               } as React.CSSProperties} />
               <div style={{
                 position:"absolute",
@@ -201,43 +183,54 @@ export function RulebreakerFlow({
                 width:Math.max(6, Math.floor(sl.w * 0.26)),
                 height:Math.max(80, Math.floor(sl.h * 0.74)),
                 ["--rb-rot" as string]: `${sl.rot}deg`,
-                transform:`translate(-50%,-50%) rotate(${sl.rot}deg) translateZ(${110 + i * 8}px)`,
+                transform:`translate(-50%,-50%) rotate(${sl.rot}deg)`,
                 borderRadius:"999px",
-                background:isFiveByFive
-                  ? "linear-gradient(to bottom, rgba(165,243,252,0) 0%, rgba(103,232,249,0.9) 24%, rgba(34,211,238,0.28) 82%, rgba(0,0,0,0) 100%)"
-                  : "linear-gradient(to bottom, rgba(254,202,202,0) 0%, rgba(252,165,165,0.88) 24%, rgba(248,113,113,0.28) 82%, rgba(0,0,0,0) 100%)",
+                background:"linear-gradient(to bottom, rgba(90,0,0,0) 0%, rgba(220,38,38,0.78) 22%, rgba(100,15,15,0.42) 78%, rgba(0,0,0,0) 100%)",
                 opacity:0,
-                animation:`rbMindCoreSweep 1.45s ease ${sl.d + 0.05}s both`,
+                animation:`rbMindCoreSweep 1.5s cubic-bezier(.28,.7,.2,1) ${sl.d + 0.14}s both`,
               } as React.CSSProperties} />
             </div>
           ))}
 
-          <div style={{
-            position:"absolute", left:"50%", top:"56%", width:"min(1300px,100vw)", height:260,
-            transform:"translateX(-50%) translateZ(54px) rotateX(16deg)",
-            background:`radial-gradient(circle at 50% 70%, ${cloudTone} 0%, rgba(0,0,0,0) 72%)`,
-            filter:isLowGraphics ? "none" : "blur(16px)",
-            opacity:0,
-            animation:"rbMist 2.3s ease 0.2s both",
-          }} />
+          {!isFiveByFive && (
+            <div style={{
+              position:"absolute", left:"50%", top:"56%", width:"min(1300px,100vw)", height:260,
+              transform:"translateX(-50%)",
+              background:`radial-gradient(circle at 50% 70%, ${cloudTone} 0%, rgba(0,0,0,0) 72%)`,
+              filter:mistBlurPx ? `blur(${mistBlurPx}px)` : "none",
+              opacity:0,
+              animation:"rbMist 2.1s cubic-bezier(.3,.6,.2,1) 0.35s both",
+            }} />
+          )}
         </div>
 
-        <div style={{ display:"flex", gap:ip?1:5, alignItems:"center", justifyContent:"center", position:"relative", maxWidth:"98vw", flexWrap:"wrap", transformStyle:"preserve-3d", transform:titleTilt }}>
+        <div style={{ display:"flex", gap:ip?1:5, alignItems:"center", justifyContent:"center", position:"relative", zIndex:2, maxWidth:"98vw", flexWrap:"wrap" }}>
           {splashTitle.split("").map((ch, i) => (
             <div key={i} style={{ position:"relative", display:"inline-block" }}>
               <span style={{
                 fontFamily:t.fontDisplay, fontSize:"clamp(32px,6.2vw,108px)", fontWeight:950,
-                color:splashColor, textShadow:isLowGraphics ? "0 0 20px rgba(0,0,0,0.45)" : isFiveByFive
-                  ? "0 0 34px rgba(34,211,238,0.62), 0 18px 40px rgba(0,0,0,0.8)"
-                  : "0 0 38px rgba(185,28,28,0.62), 0 18px 40px rgba(0,0,0,0.86)",
+                color:splashColor,
+                textShadow:isLowGraphics
+                  ? (isFiveByFive ? "0 0 14px rgba(0,0,0,0.42)" : "0 0 16px rgba(40,0,0,0.65)")
+                  : `0 0 22px ${splashTitleGlow}, 0 8px 20px rgba(0,0,0,0.55)`,
                 letterSpacing:isFiveByFive ? "0.01em" : "0.02em", display:"inline-block",
-                transform:`translateZ(${isFiveByFive ? 56 : 62}px) rotateX(${isFiveByFive ? 10 : 10}deg)`,
-                animation:`rbLetterIn 0.7s cubic-bezier(.22,.68,0,1.2) ${i*0.045}s both`
+                animation:`rbLetterInSplash 0.7s cubic-bezier(.33,.66,.2,1) ${i * 0.05}s both`,
               }}>{ch}</span>
             </div>
           ))}
         </div>
-        <div style={{ width:"clamp(320px,62vw,980px)", height:3, background:`linear-gradient(90deg, transparent, ${splashColor}, transparent)`, marginTop:24, animation:"rbLineIn 0.9s cubic-bezier(.22,.68,0,1.2) 0.45s both", boxShadow:`0 0 28px ${isFiveByFive ? "rgba(34,211,238,0.72)" : "rgba(185,28,28,0.8)"}`, transform:`translateZ(${isFiveByFive ? 46 : 46}px) rotateX(${isFiveByFive ? 8 : 8}deg)` }}/>
+        <div style={{
+          width:"clamp(320px,62vw,980px)",
+          height:3,
+          background:`linear-gradient(90deg, transparent, ${splashColor}, transparent)`,
+          marginTop:24,
+          position:"relative",
+          zIndex:2,
+          animation:`rbLineInSplash 0.85s cubic-bezier(.28,.65,.25,1) 0.52s both`,
+          boxShadow:isLowGraphics
+            ? `0 0 14px ${isFiveByFive ? "rgba(34,211,238,0.55)" : splashGlow}`
+            : `0 0 20px ${isFiveByFive ? "rgba(34,211,238,0.72)" : splashGlow}`,
+        }}/>
       </div>
     );
   }
@@ -259,7 +252,7 @@ export function RulebreakerFlow({
           @keyframes rbLineIn{from{opacity:0;transform:scaleX(0)}to{opacity:1;transform:scaleX(1)}}
           @keyframes rbCoinSpin { from { transform: rotateY(0deg); } to { transform: rotateY(360deg); } }
         `}</style>
-        <div style={{ fontFamily:t.fontDisplay, fontSize:"clamp(20px,3vw,48px)", fontWeight:900, color:t.accent, textShadow:`0 0 40px ${t.accentGlow}66`, letterSpacing:"0.08em", marginTop:36, marginBottom:10, animation:"fadeUp 0.4s cubic-bezier(.22,.68,0,1.2) both" }}>COMMENCING TOSS</div>
+        <div style={{ fontFamily:t.fontDisplay, fontSize:"clamp(20px,3vw,48px)", fontWeight:900, color:t.accent, textShadow:`0 0 40px ${t.accentGlow}66`, letterSpacing:"0.08em", marginTop:36, marginBottom:10, animation:"fadeUp 0.4s cubic-bezier(.22,.68,0,1.2) both" }}>COMMENCING</div>
         <div style={{ width:"clamp(160px,30vw,360px)", height:2, background:`linear-gradient(90deg, transparent, ${t.accent}, transparent)`, marginBottom:18, boxShadow:`0 0 14px ${t.accentGlow}55`, animation:"rbLineIn 0.6s cubic-bezier(.22,.68,0,1.2) 0.1s both" }}/>
         {useWraith ? (
           <div style={{ display:"flex", gap:22, flexWrap:"wrap" as const, justifyContent:"center", fontFamily:t.fontMono, fontSize:ip ? 13 : 17, color:t.textMuted, marginBottom:16, padding:"0 12px", animation:"fadeUp 0.5s cubic-bezier(.22,.68,0,1.2) 0.12s both", textAlign:"center" as const }}>
