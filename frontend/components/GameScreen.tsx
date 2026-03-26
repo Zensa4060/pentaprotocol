@@ -1260,6 +1260,9 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     if (Date.now() < botApiRetryAfterRef.current) return;
 
     let cancelled = false;
+    const boardNow = boardRef.current;
+    const is77Now = liveBoardMode === "7x7" || boardNow?.length === 7;
+    const isFiveByFiveFastPath = !is77Now;
     // Cosmetic delay before calling API (server search unchanged). DANGER 7×7: extra minimum
     // “think” time for the bot’s first two moves so it doesn’t feel instant vs HARD.
     const delays: Record<string, number> = {
@@ -1272,7 +1275,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
 
     setBotThinking(true);
 
-    const timer = setTimeout(async () => {
+    const runBotMove = async () => {
       if (cancelled) return;
       try {
         const b = boardRef.current;
@@ -1304,7 +1307,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
         const { row, col } = res.data ?? res;
         if (typeof row === "number" && typeof col === "number") await placeBot(row, col);
       } catch (err) {
-        botApiRetryAfterRef.current = Date.now() + 2500;
+        botApiRetryAfterRef.current = Date.now() + (isFiveByFiveFastPath ? 350 : 2500);
         if (!botApiWarnedRef.current) {
           setLog(l => [...l.slice(-19), { text: "BOT service unavailable. Retrying shortly...", player: "BOT" }]);
           botApiWarnedRef.current = true;
@@ -1313,9 +1316,14 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
       } finally {
         if (!cancelled) setBotThinking(false);
       }
-    }, delay);
+    };
 
-    return () => { cancelled = true; clearTimeout(timer); setBotThinking(false); };
+    const timer = isFiveByFiveFastPath ? null : setTimeout(runBotMove, delay);
+    if (isFiveByFiveFastPath) {
+      runBotMove();
+    }
+
+    return () => { cancelled = true; if (timer) clearTimeout(timer); setBotThinking(false); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [botTurnKey, phase, winner, gameMode, liveBoardMode, structuralPatternsP2, difficulty]);
 
