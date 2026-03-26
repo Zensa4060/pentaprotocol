@@ -521,10 +521,47 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   // Mobile log drawer
   const [showMobileLog, setShowMobileLog] = useState(false);
 
+  /** Multiplayer: authoritative per-player structural lists from server (7×7 asymmetric ban). */
+  const [serverStructuralPatternsP1, setServerStructuralPatternsP1] = useState<string[] | null>(null);
+  const [serverStructuralPatternsP2, setServerStructuralPatternsP2] = useState<string[] | null>(null);
+
+  /** Who chose the ban in rulebreaker: toss winner (ban path) or toss loser (extra-turn path). */
+  const rulebreakerBanActorSlot = useMemo((): "P1" | "P2" | null => {
+    if (!rbBannedPattern || liveBoardMode !== "7x7") return null;
+    if (winnerPickedRule === "ban" && tossWinner) return tossWinner;
+    if (winnerPickedRule === "extra_turn" && tossWinner) return tossWinner === "P1" ? "P2" : "P1";
+    return null;
+  }, [rbBannedPattern, liveBoardMode, winnerPickedRule, tossWinner]);
+
+  /** Sidebar / legacy UI: pool with banned pattern removed (unchanged display semantics). */
   const activePatterns = useMemo(
     () => rbBannedPattern ? liveSelectedPatterns.filter(p => p !== rbBannedPattern) : liveSelectedPatterns,
     [liveSelectedPatterns, rbBannedPattern],
   );
+
+  /** Structural win checks: banned pattern applies only to the opponent of the player who banned. */
+  const structuralPatternsP1 = useMemo(() => {
+    if (liveBoardMode !== "7x7") return liveSelectedPatterns;
+    if (serverStructuralPatternsP1 && serverStructuralPatternsP1.length > 0) return serverStructuralPatternsP1;
+    if (!rbBannedPattern || !rulebreakerBanActorSlot) {
+      return rbBannedPattern ? liveSelectedPatterns.filter(p => p !== rbBannedPattern) : liveSelectedPatterns;
+    }
+    return rulebreakerBanActorSlot === "P1"
+      ? liveSelectedPatterns
+      : liveSelectedPatterns.filter(p => p !== rbBannedPattern);
+  }, [liveBoardMode, liveSelectedPatterns, serverStructuralPatternsP1, rbBannedPattern, rulebreakerBanActorSlot]);
+
+  const structuralPatternsP2 = useMemo(() => {
+    if (liveBoardMode !== "7x7") return liveSelectedPatterns;
+    if (serverStructuralPatternsP2 && serverStructuralPatternsP2.length > 0) return serverStructuralPatternsP2;
+    if (!rbBannedPattern || !rulebreakerBanActorSlot) {
+      return rbBannedPattern ? liveSelectedPatterns.filter(p => p !== rbBannedPattern) : liveSelectedPatterns;
+    }
+    return rulebreakerBanActorSlot === "P2"
+      ? liveSelectedPatterns
+      : liveSelectedPatterns.filter(p => p !== rbBannedPattern);
+  }, [liveBoardMode, liveSelectedPatterns, serverStructuralPatternsP2, rbBannedPattern, rulebreakerBanActorSlot]);
+
   const sidebarPatternList = useMemo(() => {
     if (
       liveBoardMode === "7x7" &&
@@ -595,8 +632,10 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   const boardRef = useRef(board);
   const extraTurnsRef = useRef(extraTurns);
   const movesPlayedRef = useRef(movesPlayed);
-  const activePatternsRef = useRef(activePatterns);
-  useEffect(() => { activePatternsRef.current = activePatterns; }, [activePatterns]);
+  const structuralPatternsP1Ref = useRef(structuralPatternsP1);
+  const structuralPatternsP2Ref = useRef(structuralPatternsP2);
+  useEffect(() => { structuralPatternsP1Ref.current = structuralPatternsP1; }, [structuralPatternsP1]);
+  useEffect(() => { structuralPatternsP2Ref.current = structuralPatternsP2; }, [structuralPatternsP2]);
   const liveSelectedPatternsRef = useRef(liveSelectedPatterns);
   useEffect(() => { liveSelectedPatternsRef.current = liveSelectedPatterns; }, [liveSelectedPatterns]);
   const matchHistoryRef = useRef<string[]>([]);
@@ -771,6 +810,15 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
           if (playerSlot === "P2" && r.player1_name) setOpponentName(r.player1_name);
           if (r.board_mode) setLiveBoardMode(r.board_mode as BoardMode);
           if (Array.isArray(r.selected_patterns)) setLiveSelectedPatterns(r.selected_patterns);
+          {
+            const rs = r as { selected_patterns_p1?: string[] | null; selected_patterns_p2?: string[] | null };
+            if (rs.selected_patterns_p1 !== undefined) {
+              setServerStructuralPatternsP1(Array.isArray(rs.selected_patterns_p1) ? rs.selected_patterns_p1 : null);
+            }
+            if (rs.selected_patterns_p2 !== undefined) {
+              setServerStructuralPatternsP2(Array.isArray(rs.selected_patterns_p2) ? rs.selected_patterns_p2 : null);
+            }
+          }
           if (typeof r.suppress_center_opening === "boolean") setSuppressCenterOpening(r.suppress_center_opening);
           if (r.rb_extra_turn_token_holder === "P1" || r.rb_extra_turn_token_holder === "P2") {
             setRbExtraTurnTokenHolder(r.rb_extra_turn_token_holder);
@@ -940,6 +988,19 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
             onMultiplayerBoardSync?.(bm, Array.isArray(msg.selected_patterns) ? msg.selected_patterns : liveSelectedPatterns);
           }
           if (Array.isArray(msg.selected_patterns)) setLiveSelectedPatterns(msg.selected_patterns);
+          if (nextBm === "7x7") {
+            const m7 = msg as { selected_patterns_p1?: unknown; selected_patterns_p2?: unknown; preserve_rb_hide?: boolean };
+            if (Array.isArray(m7.selected_patterns_p1) && Array.isArray(m7.selected_patterns_p2)) {
+              setServerStructuralPatternsP1(m7.selected_patterns_p1 as string[]);
+              setServerStructuralPatternsP2(m7.selected_patterns_p2 as string[]);
+            } else if (!m7.preserve_rb_hide) {
+              setServerStructuralPatternsP1(null);
+              setServerStructuralPatternsP2(null);
+            }
+          } else {
+            setServerStructuralPatternsP1(null);
+            setServerStructuralPatternsP2(null);
+          }
           setBoard(emptyB);
           setCurrent(msg.first_player);
           setMovesPlayed(0);
@@ -1221,7 +1282,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
         const res = await API.post("/api/bot/move", {
           board: b, difficulty, current_player: "P2",
           board_mode: liveBoardMode || (b?.length === 7 ? "7x7" : "5x5"),
-          selected_patterns: activePatterns,
+          selected_patterns: structuralPatternsP2,
           c3_blocked: c3Blocked,
           moves_played: movesPlayedRef.current,
         });
@@ -1244,7 +1305,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
 
     return () => { cancelled = true; clearTimeout(timer); setBotThinking(false); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [botTurnKey, phase, winner, gameMode, liveBoardMode, activePatterns, difficulty]);
+  }, [botTurnKey, phase, winner, gameMode, liveBoardMode, structuralPatternsP2, difficulty]);
 
   const initBoard = async (firstPlayer: string, c3block = false, suppressCenter = false) => {
     setSuppressCenterOpening(suppressCenter);
@@ -1300,6 +1361,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     setShowRematch(false); setRematchRequested(null);
     setWinnerPickedRule(null); setWinnerPickedFirst(null); setWinnerPickedC3(null);
     setRbHideBannedPatternFromSlot(null); setRbPatternsPreBan(null);
+    setServerStructuralPatternsP1(null); setServerStructuralPatternsP2(null);
     setPhase("playing");
     initBoard("P1");
   };
@@ -1539,7 +1601,9 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
                     type: "rb_start_game",
                     first_player: fp,
                     c3_blocked: s.rbC3Blocked,
-                    selected_patterns: activePatternsRef.current,
+                    selected_patterns: liveSelectedPatternsRef.current,
+                    selected_patterns_p1: structuralPatternsP1Ref.current,
+                    selected_patterns_p2: structuralPatternsP2Ref.current,
                     suppress_center_opening: wr === "extra_turn",
                     rb_extra_turn_token_holder: wr === "extra_turn" && (tw === "P1" || tw === "P2") ? tw : null,
                     rb_hide_banned_from_slot: R.current.rbHideBannedPatternFromSlot,
@@ -1705,7 +1769,9 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     if (!skipC7 && newMoves === 1 && r === CENTER && c === CENTER) { nextPlayer = "P1"; newExtra = 2; }
     else if (newExtra > 0) { newExtra--; if (newExtra === 0) nextPlayer = "P1"; else nextPlayer = "P2"; }
     else { nextPlayer = "P1"; }
-    const result = liveBoardMode === "7x7" ? checkWin7(nb, r, c, playerWhoMoved, newMoves, activePatterns) : checkWin(nb, r, c, playerWhoMoved, newMoves);
+    const result = liveBoardMode === "7x7"
+      ? checkWin7(nb, r, c, playerWhoMoved, newMoves, structuralPatternsP2)
+      : checkWin(nb, r, c, playerWhoMoved, newMoves);
     setBoard(nb); setMovesPlayed(newMoves); addLog(r, c, playerWhoMoved);
     if (result) { setExtraTurns(0); setWinLine(result.line); setWinner(result.winner); }
     else { setExtraTurns(newExtra); setCurrent(nextPlayer); }
@@ -1735,7 +1801,8 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     else if (newExtra > 0) { newExtra--; if (newExtra === 0) nextPlayer = current === "P1" ? "P2" : "P1"; }
     else { nextPlayer = current === "P1" ? "P2" : "P1"; }
     if (c3Blocked && newMoves === 1) setC3Blocked(false);
-    const result = liveBoardMode === "7x7" ? checkWin7(nb, r, c, playerWhoMoved, newMoves, activePatterns) : checkWin(nb, r, c, playerWhoMoved, newMoves);
+    const pat7 = playerWhoMoved === "P1" ? structuralPatternsP1 : structuralPatternsP2;
+    const result = liveBoardMode === "7x7" ? checkWin7(nb, r, c, playerWhoMoved, newMoves, pat7) : checkWin(nb, r, c, playerWhoMoved, newMoves);
     setBoard(nb); setMovesPlayed(newMoves); addLog(r, c, playerWhoMoved);
     if (result) { setExtraTurns(0); setWinLine(result.line); setWinner(result.winner); }
     else { setExtraTurns(newExtra); setCurrent(nextPlayer); }

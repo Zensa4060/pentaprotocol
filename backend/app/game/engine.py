@@ -11,20 +11,45 @@ class GameEngine:
         (-1, -1), (-1, 1), (1, -1), (1, 1)
     ]
 
-    def __init__(self, board_mode="5x5", selected_pattern_ids=None):
+    def __init__(
+        self,
+        board_mode="5x5",
+        selected_pattern_ids=None,
+        selected_pattern_ids_p1=None,
+        selected_pattern_ids_p2=None,
+    ):
         self.board_mode = board_mode
 
         if board_mode == "7x7":
             self.GRID_SIZE = 7
             self.CENTER = 3
-            self.shiftable_patterns = generate_all_patterns_7(selected_pattern_ids)
+            # Asymmetric rulebreaker ban: each player may have a different allowed pattern set.
+            base = selected_pattern_ids or []
+            p1 = (
+                selected_pattern_ids_p1
+                if selected_pattern_ids_p1 is not None
+                else base
+            )
+            p2 = (
+                selected_pattern_ids_p2
+                if selected_pattern_ids_p2 is not None
+                else base
+            )
+            self.shiftable_patterns_p1 = generate_all_patterns_7(p1)
+            self.shiftable_patterns_p2 = generate_all_patterns_7(p2)
+            # Back-compat: default structural set (P1) for any code reading .shiftable_patterns
+            self.shiftable_patterns = self.shiftable_patterns_p1
             self.selected_pattern_ids = selected_pattern_ids or []
+            self.selected_pattern_ids_p1 = p1
+            self.selected_pattern_ids_p2 = p2
             self.chain_target = 20
         else:
             self.GRID_SIZE = 5
             self.CENTER = 2
             self.shiftable_patterns = generate_all_patterns()
             self.selected_pattern_ids = None
+            self.selected_pattern_ids_p1 = None
+            self.selected_pattern_ids_p2 = None
             self.chain_target = 10
 
         self.reset()
@@ -80,8 +105,16 @@ class GameEngine:
             return {"success": True, "winner": self.winner, "extra_turns": 0}
 
         # ── Structural patterns ──
+        if self.board_mode == "7x7":
+            pat_for_mover = (
+                self.shiftable_patterns_p1
+                if player_who_moved == "P1"
+                else self.shiftable_patterns_p2
+            )
+        else:
+            pat_for_mover = self.shiftable_patterns
         win, line = check_structural_patterns(
-            self.board, player_who_moved, self.shiftable_patterns, self.GRID_SIZE
+            self.board, player_who_moved, pat_for_mover, self.GRID_SIZE
         )
         if win:
             self.winner = player_who_moved

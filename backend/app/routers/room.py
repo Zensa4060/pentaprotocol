@@ -62,6 +62,8 @@ def serialize_room(room: dict) -> dict:
         "board":          room.get("board"),
         "board_mode":     room.get("board_mode", "5x5"),
         "selected_patterns": room.get("selected_patterns", []),
+        "selected_patterns_p1": room.get("selected_patterns_p1"),
+        "selected_patterns_p2": room.get("selected_patterns_p2"),
         "current_player": room.get("current_player", "P1"),
         "moves_played":   room.get("moves_played", 0),
         "winner":         room.get("winner"),
@@ -214,6 +216,8 @@ async def _apply_5x5_to_7x7_upgrade(
         "board": [[None] * 7 for _ in range(7)],
         "board_mode": "7x7",
         "selected_patterns": list(PATTERN_NAMES_7),
+        "selected_patterns_p1": list(PATTERN_NAMES_7),
+        "selected_patterns_p2": list(PATTERN_NAMES_7),
         "current_player": first_7,
         "moves_played": 0,
         "extra_turns": 0,
@@ -278,6 +282,8 @@ async def _apply_5x5_to_7x7_upgrade(
         "p1_series_points": ss["p1_series_points"],
         "p2_series_points": ss["p2_series_points"],
         "selected_patterns": list(PATTERN_NAMES_7),
+        "selected_patterns_p1": list(PATTERN_NAMES_7),
+        "selected_patterns_p2": list(PATTERN_NAMES_7),
         "c3_blocked": False,
         "from_5x5_level_up": True,
         "from_5x5_draw_upgrade": True,
@@ -438,6 +444,14 @@ async def queue_join(data: QueueRequest, user_id: str = Depends(get_current_user
         "format":         fmt,
         "board_mode":     board_mode,
         "selected_patterns": selected_patterns,
+        **(
+            {
+                "selected_patterns_p1": selected_patterns,
+                "selected_patterns_p2": selected_patterns,
+            }
+            if board_mode == "7x7"
+            else {}
+        ),
         "source":         "matchmaking",
         "player1_id":     user_id,
         "player1_name":   player_name,
@@ -530,6 +544,14 @@ async def create_room(data: CreateRoomRequest, user_id: str = Depends(get_curren
         "format":          data.format,
         "board_mode":      board_mode,
         "selected_patterns": selected_patterns,
+        **(
+            {
+                "selected_patterns_p1": selected_patterns,
+                "selected_patterns_p2": selected_patterns,
+            }
+            if board_mode == "7x7"
+            else {}
+        ),
         "source":          "private",
         "player1_id":      user_id if creator_slot == "P1" else None,
         "player2_id":      user_id if creator_slot == "P2" else None,
@@ -743,7 +765,9 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
 
                 engine = GameEngine(
                     board_mode=room.get("board_mode", "5x5"),
-                    selected_pattern_ids=room.get("selected_patterns")
+                    selected_pattern_ids=room.get("selected_patterns"),
+                    selected_pattern_ids_p1=room.get("selected_patterns_p1"),
+                    selected_pattern_ids_p2=room.get("selected_patterns_p2"),
                 )
                 engine.board          = room["board"]
                 engine.current_player = room["current_player"]
@@ -920,7 +944,14 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                     current_game = room.get("game_number", 1)
                     bm = room.get("board_mode", "5x5")
                     sp = room.get("selected_patterns")
-                    new_engine = GameEngine(board_mode=bm, selected_pattern_ids=sp)
+                    sp1 = room.get("selected_patterns_p1")
+                    sp2 = room.get("selected_patterns_p2")
+                    new_engine = GameEngine(
+                        board_mode=bm,
+                        selected_pattern_ids=sp,
+                        selected_pattern_ids_p1=sp1 if bm == "7x7" else None,
+                        selected_pattern_ids_p2=sp2 if bm == "7x7" else None,
+                    )
                     next_game = current_game + 1
                     g1f = room.get("game1_first_player") or "P1"
                     first_next = g1f if next_game % 2 == 1 else ("P2" if g1f == "P1" else "P1")
@@ -957,6 +988,13 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                     }
                     if sp is not None:
                         gr_payload["selected_patterns"] = sp
+                    if (
+                        bm == "7x7"
+                        and sp1 is not None
+                        and sp2 is not None
+                    ):
+                        gr_payload["selected_patterns_p1"] = sp1
+                        gr_payload["selected_patterns_p2"] = sp2
                     for slot, ws in _room_connections.get(room_code, {}).items():
                         try:
                             await ws.send_json(gr_payload)
@@ -1078,6 +1116,8 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                         "game1_first_player": None,
                         "board_mode": "5x5",
                         "selected_patterns": None,
+                        "selected_patterns_p1": None,
+                        "selected_patterns_p2": None,
                         "awaiting_5x5_rules_ready": True,
                         "awaiting_7x7_rules_ready": False,
                         "suppress_center_opening": False,
@@ -1260,6 +1300,12 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                 patch: dict = {}
                 bm = room.get("board_mode", "5x5")
                 sel_patterns = msg.get("selected_patterns")
+                sel_patterns_p1 = msg.get("selected_patterns_p1")
+                sel_patterns_p2 = msg.get("selected_patterns_p2")
+                if not isinstance(sel_patterns_p1, list):
+                    sel_patterns_p1 = None
+                if not isinstance(sel_patterns_p2, list):
+                    sel_patterns_p2 = None
                 suppress_center = bool(msg.get("suppress_center_opening", False))
                 token_holder = msg.get("rb_extra_turn_token_holder")
                 if token_holder not in ("P1", "P2"):
@@ -1307,10 +1353,23 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                     reset["rb_hide_banned_from_slot"] = hide_slot
                     reset["rb_patterns_pre_ban"] = pre_ban
                     reset["rb_banned_pattern"] = banned_pat
+                    if (
+                        sel_patterns_p1 is not None
+                        and sel_patterns_p2 is not None
+                        and len(sel_patterns_p1) > 0
+                        and len(sel_patterns_p2) > 0
+                    ):
+                        reset["selected_patterns_p1"] = sel_patterns_p1
+                        reset["selected_patterns_p2"] = sel_patterns_p2
+                    else:
+                        reset["selected_patterns_p1"] = None
+                        reset["selected_patterns_p2"] = None
                 else:
                     reset["rb_hide_banned_from_slot"] = None
                     reset["rb_patterns_pre_ban"] = None
                     reset["rb_banned_pattern"] = None
+                    reset["selected_patterns_p1"] = None
+                    reset["selected_patterns_p2"] = None
 
                 await db.rooms.update_one({"room_code": room_code}, {"$set": reset})
 
@@ -1331,6 +1390,17 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                 }
                 if sp_out is not None:
                     gr_payload["selected_patterns"] = sp_out
+                if (
+                    bm == "7x7"
+                    and merged.get("selected_patterns_p1") is not None
+                    and merged.get("selected_patterns_p2") is not None
+                ):
+                    gr_payload["selected_patterns_p1"] = merged.get(
+                        "selected_patterns_p1"
+                    )
+                    gr_payload["selected_patterns_p2"] = merged.get(
+                        "selected_patterns_p2"
+                    )
                 preserve_hide = bool(
                     bm == "7x7"
                     and hide_slot
