@@ -634,6 +634,8 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   const boardRef = useRef(board);
   const extraTurnsRef = useRef(extraTurns);
   const movesPlayedRef = useRef(movesPlayed);
+  const botApiRetryAfterRef = useRef(0);
+  const botApiWarnedRef = useRef(false);
   const structuralPatternsP1Ref = useRef(structuralPatternsP1);
   const structuralPatternsP2Ref = useRef(structuralPatternsP2);
   useEffect(() => { structuralPatternsP1Ref.current = structuralPatternsP1; }, [structuralPatternsP1]);
@@ -1255,6 +1257,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     if (phase !== "playing") return;
     if (current !== "P2") return;
     if (winner) return;
+    if (Date.now() < botApiRetryAfterRef.current) return;
 
     let cancelled = false;
     // Cosmetic delay before calling API (server search unchanged). DANGER 7×7: extra minimum
@@ -1289,6 +1292,8 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
           moves_played: movesPlayedRef.current,
         });
         if (cancelled) return;
+        botApiRetryAfterRef.current = 0;
+        botApiWarnedRef.current = false;
         if (needMinDangerThink) {
           const elapsed = Date.now() - t0;
           if (elapsed < dangerMinThinkMs) {
@@ -1299,6 +1304,11 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
         const { row, col } = res.data ?? res;
         if (typeof row === "number" && typeof col === "number") await placeBot(row, col);
       } catch (err) {
+        botApiRetryAfterRef.current = Date.now() + 2500;
+        if (!botApiWarnedRef.current) {
+          setLog(l => [...l.slice(-19), { text: "BOT service unavailable. Retrying shortly...", player: "BOT" }]);
+          botApiWarnedRef.current = true;
+        }
         console.error("Bot move failed:", err);
       } finally {
         if (!cancelled) setBotThinking(false);
