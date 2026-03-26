@@ -2180,6 +2180,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
         rbCoinPendingResult={rbCoinPendingResult}
         onLeftAction={onLeftAction} onRightAction={onRightAction} fmtSecAction={fmtSecAction}
         is7x7={is7x7} selectedPatterns={liveSelectedPatterns} rbBannedPattern={rbBannedPattern} onBanPattern={onBanPattern}
+        graphicsQuality={graphicsQuality}
       />
   );
 
@@ -2416,6 +2417,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
           seriesWinner={seriesWinner} phase={phase} gameNumber={gameNumber}
           t={{ fontDisplay: t.fontDisplay, fontMono: t.fontMono, fontBody: t.fontBody }}
           winnerDisplayNameAction={winnerDisplayName}
+          graphicsQuality={graphicsQuality}
           onDismissAction={dismissOverlay}
         />
 
@@ -2462,7 +2464,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
             </button>
           )}
           {isGlacierBoard && glacierBoard ? (
-            <GlacierGrid board={glacierBoard} onCellClickAction={glacierClick} winCells={winLine} />
+            <GlacierGrid board={glacierBoard} onCellClickAction={glacierClick} winCells={isLowGraphics ? [] : winLine} />
           ) : isBloodMoonBoard && bloodMoonBoard ? (
             <BloodMoonGrid board={bloodMoonBoard} onCellClickAction={bloodMoonClick} winCells={isLowGraphics ? [] : winLine} graphicsQuality={graphicsQuality} />
           ) : (
@@ -2704,6 +2706,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
         seriesWinner={seriesWinner} phase={phase} gameNumber={gameNumber}
         t={{ fontDisplay: t.fontDisplay, fontMono: t.fontMono, fontBody: t.fontBody }}
         winnerDisplayNameAction={winnerDisplayName}
+        graphicsQuality={graphicsQuality}
         onDismissAction={dismissOverlay}
       />
 
@@ -2797,7 +2800,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
         </div>
         {/* Column labels + board — special boards render their own labels */}
         {isGlacierBoard && glacierBoard ? (
-          <GlacierGrid board={glacierBoard} onCellClickAction={glacierClick} winCells={winLine} />
+          <GlacierGrid board={glacierBoard} onCellClickAction={glacierClick} winCells={isLowGraphics ? [] : winLine} />
         ) : isBloodMoonBoard && bloodMoonBoard ? (
           <BloodMoonGrid board={bloodMoonBoard} onCellClickAction={bloodMoonClick} winCells={isLowGraphics ? [] : winLine} graphicsQuality={graphicsQuality} />
         ) : isEgyptBoard && egyptBoard ? (
@@ -2807,19 +2810,19 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
         ) : isMatrixBoard && matrixBoard ? (
           <MatrixGrid board={matrixBoard} onCellClickAction={matrixClick} winCells={isLowGraphics ? [] : winLine} graphicsQuality={graphicsQuality} />
         ) : isArcaneBoard && arcaneBoard ? (
-          <ArcaneGrid board={arcaneBoard} onCellClickAction={arcaneClick} winCells={winLine} />
+          <ArcaneGrid board={arcaneBoard} onCellClickAction={arcaneClick} winCells={isLowGraphics ? [] : winLine} />
         ) : isBioBoard && bioBoard ? (
           <BioGrid board={bioBoard} onCellClickAction={bioClick} winCells={isLowGraphics ? [] : winLine} graphicsQuality={graphicsQuality} />
         ) : isForgeBoard && forgeBoard ? (
-          <ForgeGrid board={forgeBoard} onCellClickAction={forgeClick} winCells={winLine} />
+          <ForgeGrid board={forgeBoard} onCellClickAction={forgeClick} winCells={isLowGraphics ? [] : winLine} />
         ) : isVoidBoard && voidBoard ? (
-          <VoidGrid board={voidBoard} onCellClickAction={voidClick} winCells={winLine} />
+          <VoidGrid board={voidBoard} onCellClickAction={voidClick} winCells={isLowGraphics ? [] : winLine} />
         ) : isTokyoBoard && tokyoBoard ? (
-          <TokyoGrid board={tokyoBoard} onCellClickAction={tokyoClick} winCells={winLine} />
+          <TokyoGrid board={tokyoBoard} onCellClickAction={tokyoClick} winCells={isLowGraphics ? [] : winLine} />
         ) : isSpaceBoard && spaceBoard ? (
-          <SpaceGrid board={spaceBoard} onCellClickAction={spaceClick} winCells={winLine} />
+          <SpaceGrid board={spaceBoard} onCellClickAction={spaceClick} winCells={isLowGraphics ? [] : winLine} />
         ) : isPixelBoard && pixelBoard ? (
-          <PixelGrid board={pixelBoard} onCellClickAction={pixelClick} winCells={winLine} />
+          <PixelGrid board={pixelBoard} onCellClickAction={pixelClick} winCells={isLowGraphics ? [] : winLine} />
         ) : (
           <>
             <div style={{ display: "flex", gap: `${boardGap}px`, marginLeft: 34 }}>

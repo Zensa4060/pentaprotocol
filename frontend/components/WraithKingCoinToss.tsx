@@ -120,7 +120,7 @@ export function WraithKingCoinToss({
     }
   }, []);
 
-  // Particle canvas loop
+  // Particle canvas loop (auto-pauses when idle)
   useEffect(() => {
     const c = canvasRef.current;
     if (!c) return;
@@ -136,6 +136,15 @@ export function WraithKingCoinToss({
     ctx.setTransform(2 * dpr, 0, 0, 2 * dpr, 0, 0);
 
     const draw = () => {
+      const shouldRun =
+        parts.current.length > 0 ||
+        phase === "tossing-PENTA" ||
+        phase === "tossing-PROTO" ||
+        (enableAmbient && (revealed || phase === "done"));
+      if (!shouldRun) {
+        pRaf.current = null;
+        return;
+      }
       ctx.clearRect(0, 0, particleW, particleH);
       for (let i = parts.current.length - 1; i >= 0; i--) {
         const p = parts.current[i];
@@ -173,11 +182,11 @@ export function WraithKingCoinToss({
       pRaf.current = requestAnimationFrame(draw);
     };
 
-    draw();
+    if (!pRaf.current) draw();
     return () => {
       if (pRaf.current) cancelAnimationFrame(pRaf.current);
     };
-  }, [particleW, particleH]);
+  }, [particleW, particleH, phase, enableAmbient, revealed]);
 
   // Start toss automatically (toss up from ground)
   const startToss = useCallback(() => {
@@ -204,8 +213,9 @@ export function WraithKingCoinToss({
     const CX = particleCX;
 
     // Start burst above ground
-    emit(CX, particleCY, compact ? 10 : 30, compact ? 1.2 : 2.0, 275, 80);
+    emit(CX, particleCY, compact ? 8 : 20, compact ? 1.1 : 1.5, 275, 80);
 
+    let lastPaint = 0;
     const step = (now: number) => {
       if (forceDoneRef.current && !settled) {
         settled = true;
@@ -221,7 +231,10 @@ export function WraithKingCoinToss({
 
       if (settled) {
         const st = Math.min(1, (now - settleTime) / 400);
-        setScl(1 + 0.04 * Math.sin(st * Math.PI * 3) * (1 - st));
+        if (now - lastPaint > 33) {
+          setScl(1 + 0.04 * Math.sin(st * Math.PI * 3) * (1 - st));
+          lastPaint = now;
+        }
         if (st >= 1) {
           setScl(1);
           setPhase("done");
@@ -237,11 +250,11 @@ export function WraithKingCoinToss({
       posY += velY;
 
       const hN = Math.min(1, Math.abs(posY) / 340);
-      setScl(1 - hN * 0.08);
-      setGlow(Math.max(0, 1 - hN * 0.5));
+      const nextScl = 1 - hN * 0.08;
+      const nextGlow = Math.max(0, 1 - hN * 0.5);
 
       if (posY < -30 && now - lastE > 40) {
-        emit(CX, particleCY + posY + 100, compact ? 2 : 3, 0.5, 275, 75);
+        emit(CX, particleCY + posY + 100, compact ? 1 : 2, 0.5, 275, 75);
         lastE = now;
       }
 
@@ -250,7 +263,7 @@ export function WraithKingCoinToss({
         if (bounceN === 0) {
           velY = -10;
           burst(CX, particleCY);
-          emit(CX, particleCY, compact ? 9 : 15, compact ? 1.0 : 1.2, 275, 80);
+          emit(CX, particleCY, compact ? 6 : 10, compact ? 0.9 : 1.0, 275, 80);
           setShake(true);
           setSw(true);
           setTimeout(() => setShake(false), 380);
@@ -258,7 +271,7 @@ export function WraithKingCoinToss({
           bounceN++;
         } else if (bounceN === 1) {
           velY = -5;
-          emit(CX, particleCY, compact ? 5 : 6, 0.4, 275, 70);
+          emit(CX, particleCY, compact ? 3 : 4, 0.35, 275, 70);
           bounceN++;
         } else if (bounceN === 2) {
           velY = -2;
@@ -275,7 +288,12 @@ export function WraithKingCoinToss({
         }
       }
 
-      setYOff(posY);
+      if (now - lastPaint > 33) {
+        setScl(nextScl);
+        setGlow(nextGlow);
+        setYOff(posY);
+        lastPaint = now;
+      }
       raf.current = requestAnimationFrame(step);
     };
 

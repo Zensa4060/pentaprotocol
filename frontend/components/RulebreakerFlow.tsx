@@ -54,6 +54,7 @@ interface RulebreakerFlowProps {
   rbBannedPattern?: string | null;
   /** Called when a player bans a pattern */
   onBanPattern?: (patternName: string) => void;
+  graphicsQuality?: "low" | "balanced" | "ultra";
 }
 
 export function RulebreakerFlow({
@@ -71,6 +72,7 @@ export function RulebreakerFlow({
   selectedPatterns = [],
   rbBannedPattern = null,
   onBanPattern,
+  graphicsQuality = "balanced",
 }: RulebreakerFlowProps) {
 
   const p1Name = p1LabelProp ?? "P1";
@@ -80,6 +82,8 @@ export function RulebreakerFlow({
 
   // ── rb_splash ──────────────────────────────────────────────────────────────
   if (phase === "rb_splash") {
+    const isLowGraphics = graphicsQuality === "low";
+    const isBalancedGraphics = graphicsQuality === "balanced";
     const isFiveByFive = !is7x7;
     const splashTitle = isFiveByFive ? "RULEBREAKER" : "MINDBREAKER";
     const splashColor = isFiveByFive ? "#06B6D4" : "#B91C1C";
@@ -93,7 +97,7 @@ export function RulebreakerFlow({
     const sceneTilt = "rotateX(11deg) rotateY(-8deg)";
     const titleTilt = "translateZ(94px) rotateX(14deg) rotateY(-7deg)";
 
-    const mainSplats = [
+    const mainSplatsAll = [
       { l: "12%", t: "14%", s: 540, d: 0.03 },
       { l: "28%", t: "78%", s: 500, d: 0.08 },
       { l: "52%", t: "34%", s: 620, d: 0.12 },
@@ -101,7 +105,7 @@ export function RulebreakerFlow({
       { l: "90%", t: "20%", s: 480, d: 0.2 },
       { l: "84%", t: "86%", s: 460, d: 0.25 },
     ];
-    const microDrops = [
+    const microDropsAll = [
       { l: "8%", t: "42%", r: 28, a: 0.72, d: 0.09 },
       { l: "20%", t: "24%", r: 22, a: 0.64, d: 0.11 },
       { l: "34%", t: "58%", r: 18, a: 0.56, d: 0.15 },
@@ -114,7 +118,7 @@ export function RulebreakerFlow({
       { l: "64%", t: "10%", r: 14, a: 0.44, d: 0.38 },
       { l: "40%", t: "88%", r: 22, a: 0.62, d: 0.42 },
     ];
-    const mindSlashes = [
+    const mindSlashesAll = [
       { l: "8%", t: "18%", w: 56, h: 560, rot: -35, d: 0.06 },
       { l: "24%", t: "72%", w: 44, h: 480, rot: 28, d: 0.12 },
       { l: "38%", t: "30%", w: 52, h: 620, rot: -22, d: 0.16 },
@@ -123,6 +127,10 @@ export function RulebreakerFlow({
       { l: "84%", t: "74%", w: 42, h: 520, rot: 24, d: 0.31 },
       { l: "94%", t: "16%", w: 38, h: 430, rot: -33, d: 0.36 },
     ];
+
+    const mainSplats = isLowGraphics ? mainSplatsAll.slice(0, 3) : isBalancedGraphics ? mainSplatsAll.slice(0, 5) : mainSplatsAll;
+    const microDrops = isLowGraphics ? microDropsAll.slice(0, 4) : isBalancedGraphics ? microDropsAll.slice(0, 8) : microDropsAll;
+    const mindSlashes = isLowGraphics ? mindSlashesAll.slice(0, 4) : isBalancedGraphics ? mindSlashesAll.slice(0, 6) : mindSlashesAll;
 
     return (
       <div style={{ position:"fixed", top:0, left:0, right:0, bottom:0, zIndex:10000, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", background:splashBg, userSelect:"none", gap:0, overflow:"hidden", perspective:"1100px" }}>
@@ -145,7 +153,7 @@ export function RulebreakerFlow({
               ["--rb-z" as string]: isFiveByFive ? `${18 + (i % 3) * 8}px` : `${32 + (i % 3) * 12}px`,
               borderRadius:"54% 46% 58% 42% / 52% 48% 54% 46%",
               background:`radial-gradient(circle, ${splashGlow} 0%, ${splashMid} 36%, rgba(0,0,0,0) 72%)`,
-              filter:isFiveByFive ? "blur(1.1px)" : "blur(0.7px)",
+              filter:isLowGraphics ? "none" : isFiveByFive ? "blur(1.1px)" : "blur(0.7px)",
               transform:`translate(-50%,-50%) translateZ(${isFiveByFive ? `${14 + i * 2}px` : `${28 + i * 4}px`}) scale(0.16)`,
               opacity:0,
               animation:`rbBloodPop ${isFiveByFive ? "1.85s" : "1.55s"} cubic-bezier(.18,.9,.12,1) ${b.d}s both`,
@@ -180,7 +188,7 @@ export function RulebreakerFlow({
                   ? "linear-gradient(to bottom, rgba(34,211,238,0) 0%, rgba(103,232,249,0.86) 18%, rgba(34,211,238,0.95) 52%, rgba(8,145,178,0.16) 100%)"
                   : "linear-gradient(to bottom, rgba(255,110,110,0) 0%, rgba(248,113,113,0.82) 18%, rgba(220,38,38,0.94) 52%, rgba(127,29,29,0.16) 100%)",
                 filter:"blur(0.35px)",
-                boxShadow:isFiveByFive
+                boxShadow:isLowGraphics ? "none" : isFiveByFive
                   ? "0 0 26px rgba(34,211,238,0.52), 0 20px 36px rgba(0,0,0,0.36)"
                   : "0 0 26px rgba(220,38,38,0.48), 0 20px 36px rgba(0,0,0,0.36)",
                 opacity:0,
@@ -208,7 +216,7 @@ export function RulebreakerFlow({
             position:"absolute", left:"50%", top:"56%", width:"min(1300px,100vw)", height:260,
             transform:"translateX(-50%) translateZ(54px) rotateX(16deg)",
             background:`radial-gradient(circle at 50% 70%, ${cloudTone} 0%, rgba(0,0,0,0) 72%)`,
-            filter:"blur(16px)",
+            filter:isLowGraphics ? "none" : "blur(16px)",
             opacity:0,
             animation:"rbMist 2.3s ease 0.2s both",
           }} />
@@ -219,7 +227,7 @@ export function RulebreakerFlow({
             <div key={i} style={{ position:"relative", display:"inline-block" }}>
               <span style={{
                 fontFamily:t.fontDisplay, fontSize:"clamp(32px,6.2vw,108px)", fontWeight:950,
-                color:splashColor, textShadow:isFiveByFive
+                color:splashColor, textShadow:isLowGraphics ? "0 0 20px rgba(0,0,0,0.45)" : isFiveByFive
                   ? "0 0 34px rgba(34,211,238,0.62), 0 18px 40px rgba(0,0,0,0.8)"
                   : "0 0 38px rgba(185,28,28,0.62), 0 18px 40px rgba(0,0,0,0.86)",
                 letterSpacing:isFiveByFive ? "0.01em" : "0.02em", display:"inline-block",
@@ -236,6 +244,8 @@ export function RulebreakerFlow({
 
   // ── rb_coin ────────────────────────────────────────────────────────────────
   if (phase === "rb_coin") {
+    const isLowGraphics = graphicsQuality === "low";
+    const isBalancedGraphics = graphicsQuality === "balanced";
     const revealed    = coinResult !== null;
     const coinDiam    = 240;
     const revType     = coinResult ?? "PENTA";
@@ -281,7 +291,20 @@ export function RulebreakerFlow({
           ) : (
             <>
               <div style={{ position:"absolute", width:coinDiam*2.4, height:coinDiam*2.4, borderRadius:"50%", background:revealed?`radial-gradient(circle, ${winCol}28 0%, transparent 68%)`:`radial-gradient(circle, ${t.accent}14 0%, transparent 68%)`, transition:"background 0.6s ease", pointerEvents:"none" }}/>
-              {!revealed && [1,1.5,2].map((scale,i) => (<div key={i} style={{ position:"absolute", width:coinDiam*scale, height:coinDiam*scale, borderRadius:"50%", border:`1px solid ${t.accent}${["18","10","08"][i]}`, animation:`spinRing ${2+i*0.4}s linear infinite`, pointerEvents:"none" }}/>))}
+              {!revealed && (isLowGraphics ? [1.2] : isBalancedGraphics ? [1, 1.6] : [1, 1.5, 2]).map((scale, i) => (
+                <div
+                  key={i}
+                  style={{
+                    position:"absolute",
+                    width:coinDiam*scale,
+                    height:coinDiam*scale,
+                    borderRadius:"50%",
+                    border:`1px solid ${t.accent}${(["18","10","08"][i] ?? "08")}`,
+                    animation:`spinRing ${2.4 + i * 0.6}s linear infinite`,
+                    pointerEvents:"none",
+                  }}
+                />
+              ))}
               {revealed ? (
                 <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:18, animation:"coinReveal 0.6s cubic-bezier(.22,.68,0,1.2) both" }}>
                   <div style={{ borderRadius:"50%", boxShadow:`0 0 90px ${winCol}66, 0 0 40px ${winCol}33, 0 20px 60px rgba(0,0,0,0.7)` }}><CoinFace type={revType} size={coinDiam}/></div>
@@ -294,7 +317,7 @@ export function RulebreakerFlow({
                     height:coinDiam,
                     position:"relative",
                     transformStyle:"preserve-3d",
-                    animation:"rbCoinSpin 0.12s linear infinite",
+                    animation:`rbCoinSpin ${isLowGraphics ? "0.9s" : isBalancedGraphics ? "0.6s" : "0.42s"} linear infinite`,
                     willChange:"transform",
                     borderRadius:"50%",
                     boxShadow:"0 12px 48px rgba(0,0,0,0.65)",

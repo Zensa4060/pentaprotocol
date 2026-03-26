@@ -778,43 +778,46 @@ export function RightPanel({ t, ip, p1c, p2c, panelW, phase, log, isRankedGame, 
   );
 }
 
-export function WinOverlay({ showWinOverlay, overlayVisible, winner, winnerColor, winnerPiece, seriesDiffers, seriesColor, seriesPiece, seriesWinner, phase, gameNumber, t, winnerDisplayNameAction, onDismissAction }: {
+export function WinOverlay({ showWinOverlay, overlayVisible, winner, winnerColor, winnerPiece, seriesDiffers, seriesColor, seriesPiece, seriesWinner, phase, gameNumber, t, winnerDisplayNameAction, onDismissAction, graphicsQuality = "balanced" }: {
   showWinOverlay: boolean; overlayVisible: boolean; winner: string | null; winnerColor: string; winnerPiece: string;
   seriesDiffers: boolean; seriesColor: string; seriesPiece: string; seriesWinner: string | null;
   phase: Phase; gameNumber: number; t: { fontDisplay: string; fontMono: string; fontBody: string };
   winnerDisplayNameAction?: (w: string | null) => string;
   onDismissAction: () => void;
+  graphicsQuality?: "low" | "balanced" | "ultra";
 }) {
   if (!showWinOverlay || !winner) return null;
   const getName = (w: string | null) => winnerDisplayNameAction ? winnerDisplayNameAction(w) : (w ?? "");
+  const pulseAnim = graphicsQuality === "low" ? "none" : graphicsQuality === "balanced" ? "winPulse 1.6s ease 2" : "winPulse 1.6s ease infinite";
+  const glow = graphicsQuality === "low" ? "none" : "0 0 60px";
   return (
     <div onClick={onDismissAction} style={{ position: "fixed", inset: 0, zIndex: 999, cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "stretch", willChange: "opacity", opacity: overlayVisible ? 1 : 0, transition: "opacity 0.28s ease" }}>
       <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.92)", zIndex: 0 }} />
       {seriesDiffers ? (
         <>
           <div style={{ position: "relative", zIndex: 1, flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", borderBottom: "1px solid #ffffff14", willChange: "transform, opacity", opacity: overlayVisible ? 1 : 0, transform: overlayVisible ? "translateY(0)" : "translateY(28px)", transition: "opacity 0.32s ease 0.08s, transform 0.32s cubic-bezier(.22,.68,0,1.2) 0.08s" }}>
-            <div style={{ fontSize: "clamp(44px,7vw,96px)", lineHeight: 1, marginBottom: 8, animation: "winPulse 1.6s ease infinite" }}>{winnerPiece}</div>
-            <div style={{ fontFamily: t.fontDisplay, fontSize: "clamp(40px,6.5vw,90px)", fontWeight: 900, color: winnerColor, lineHeight: 1, textShadow: `0 0 60px ${winnerColor}88`, animation: "winPulse 1.6s ease infinite" }}>{winner === "DRAW" ? "DRAW" : `${getName(winner)} WINS!`}</div>
+            <div style={{ fontSize: "clamp(44px,7vw,96px)", lineHeight: 1, marginBottom: 8, animation: pulseAnim }}>{winnerPiece}</div>
+            <div style={{ fontFamily: t.fontDisplay, fontSize: "clamp(40px,6.5vw,90px)", fontWeight: 900, color: winnerColor, lineHeight: 1, textShadow: `${glow} ${winnerColor}88`, animation: pulseAnim }}>{winner === "DRAW" ? "DRAW" : `${getName(winner)} WINS!`}</div>
             <div style={{ fontFamily: t.fontMono, fontSize: "clamp(11px,1.2vw,14px)", color: "#777", marginTop: 12, letterSpacing: "0.12em" }}>GAME {gameNumber}</div>
           </div>
           <div style={{ position: "relative", zIndex: 1, flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", willChange: "transform, opacity", opacity: overlayVisible ? 1 : 0, transform: overlayVisible ? "translateY(0)" : "translateY(28px)", transition: "opacity 0.32s ease 0.18s, transform 0.32s cubic-bezier(.22,.68,0,1.2) 0.18s" }}>
             <div style={{ fontFamily: t.fontMono, fontSize: "clamp(11px,1.2vw,14px)", color: "#777", marginBottom: 12, letterSpacing: "0.12em" }}>{seriesWinner === "DRAW" ? "SERIES RESULT" : "SERIES WINNER"}</div>
-            <div style={{ fontSize: "clamp(44px,7vw,96px)", lineHeight: 1, marginBottom: 8, animation: "winPulse 1.6s ease infinite" }}>{seriesPiece}</div>
+            <div style={{ fontSize: "clamp(44px,7vw,96px)", lineHeight: 1, marginBottom: 8, animation: pulseAnim }}>{seriesPiece}</div>
             {seriesWinner === "DRAW" ? (
               <>
-                <div style={{ fontFamily: t.fontDisplay, fontSize: "clamp(32px,5vw,72px)", fontWeight: 900, color: seriesColor, lineHeight: 1.1, textAlign: "center", textShadow: `0 0 60px ${seriesColor}88`, animation: "winPulse 1.6s ease infinite" }}>FULL MATCH DRAW</div>
+                <div style={{ fontFamily: t.fontDisplay, fontSize: "clamp(32px,5vw,72px)", fontWeight: 900, color: seriesColor, lineHeight: 1.1, textAlign: "center", textShadow: `${glow} ${seriesColor}88`, animation: pulseAnim }}>FULL MATCH DRAW</div>
                 <div style={{ fontFamily: t.fontBody, fontSize: 14, color: "#888", marginTop: 12, textAlign: "center" }}>No overall winner</div>
               </>
             ) : (
-              <div style={{ fontFamily: t.fontDisplay, fontSize: "clamp(40px,6.5vw,90px)", fontWeight: 900, color: seriesColor, lineHeight: 1, textShadow: `0 0 60px ${seriesColor}88`, animation: "winPulse 1.6s ease infinite" }}>{getName(seriesWinner)} WINS!</div>
+              <div style={{ fontFamily: t.fontDisplay, fontSize: "clamp(40px,6.5vw,90px)", fontWeight: 900, color: seriesColor, lineHeight: 1, textShadow: `${glow} ${seriesColor}88`, animation: pulseAnim }}>{getName(seriesWinner)} WINS!</div>
             )}
             <div style={{ fontFamily: t.fontBody, fontSize: 13, color: "#555", marginTop: 16 }}>click anywhere to continue</div>
           </div>
         </>
       ) : (
         <div style={{ position: "relative", zIndex: 1, flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", willChange: "transform, opacity", opacity: overlayVisible ? 1 : 0, transform: overlayVisible ? "translateY(0) scale(1)" : "translateY(32px) scale(0.96)", transition: "opacity 0.32s ease 0.06s, transform 0.35s cubic-bezier(.22,.68,0,1.2) 0.06s" }}>
-          <div style={{ fontSize: "clamp(52px,8vw,110px)", lineHeight: 1, marginBottom: 8, animation: "winPulse 1.6s ease infinite" }}>{winnerPiece}</div>
-          <div style={{ fontFamily: t.fontDisplay, fontSize: "clamp(44px,7vw,100px)", fontWeight: 900, color: winnerColor, lineHeight: 1, marginBottom: 18, textShadow: `0 0 60px ${winnerColor}88`, animation: "winPulse 1.6s ease infinite" }}>{winner === "DRAW" ? "DRAW" : `${getName(winner)} WINS!`}</div>
+          <div style={{ fontSize: "clamp(52px,8vw,110px)", lineHeight: 1, marginBottom: 8, animation: pulseAnim }}>{winnerPiece}</div>
+          <div style={{ fontFamily: t.fontDisplay, fontSize: "clamp(44px,7vw,100px)", fontWeight: 900, color: winnerColor, lineHeight: 1, marginBottom: 18, textShadow: `${glow} ${winnerColor}88`, animation: pulseAnim }}>{winner === "DRAW" ? "DRAW" : `${getName(winner)} WINS!`}</div>
           {phase === "match_over" ? <div style={{ fontFamily: t.fontMono, fontSize: "clamp(13px,1.8vw,18px)", color: "#AAAAAA", marginBottom: 20 }}>{seriesWinner === "DRAW" ? "MATCH OVER — FULL SERIES DRAW" : "MATCH OVER — SERIES COMPLETE"}</div> : <div style={{ fontFamily: t.fontMono, fontSize: "clamp(13px,1.8vw,18px)", color: "#AAAAAA", marginBottom: 20 }}>GAME {gameNumber} COMPLETE</div>}
 
           <div style={{ fontFamily: t.fontBody, fontSize: 14, color: "#666" }}>click anywhere to continue</div>
