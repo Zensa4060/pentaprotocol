@@ -1263,6 +1263,8 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     const boardNow = boardRef.current;
     const is77Now = liveBoardMode === "7x7" || boardNow?.length === 7;
     const isFiveByFiveFastPath = !is77Now;
+    const isSevenBySevenHardDangerFastPath = is77Now && (difficulty === "hard" || difficulty === "danger");
+    const isInstantBotPath = isFiveByFiveFastPath || isSevenBySevenHardDangerFastPath;
     // Cosmetic delay before calling API (server search unchanged). DANGER 7×7: extra minimum
     // “think” time for the bot’s first two moves so it doesn’t feel instant vs HARD.
     const delays: Record<string, number> = {
@@ -1279,14 +1281,6 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
       if (cancelled) return;
       try {
         const b = boardRef.current;
-        let p2Stones = 0;
-        for (const row of b) for (const cell of row) if (cell === "P2") p2Stones++;
-        const is77 = liveBoardMode === "7x7" || b?.length === 7;
-        const needMinDangerThink =
-          difficulty === "danger" && is77 && p2Stones < 2;
-        const dangerMinThinkMs = 1000;
-
-        const t0 = Date.now();
         const res = await API.post("/api/bot/move", {
           board: b, difficulty, current_player: "P2",
           board_mode: liveBoardMode || (b?.length === 7 ? "7x7" : "5x5"),
@@ -1297,17 +1291,12 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
         if (cancelled) return;
         botApiRetryAfterRef.current = 0;
         botApiWarnedRef.current = false;
-        if (needMinDangerThink) {
-          const elapsed = Date.now() - t0;
-          if (elapsed < dangerMinThinkMs) {
-            await new Promise<void>(r => setTimeout(r, dangerMinThinkMs - elapsed));
-          }
-        }
         if (cancelled) return;
         const { row, col } = res.data ?? res;
         if (typeof row === "number" && typeof col === "number") await placeBot(row, col);
       } catch (err) {
-        botApiRetryAfterRef.current = Date.now() + (isFiveByFiveFastPath ? 350 : 2500);
+        const backoffMs = isInstantBotPath ? 400 : 2500;
+        botApiRetryAfterRef.current = Date.now() + backoffMs;
         if (!botApiWarnedRef.current) {
           setLog(l => [...l.slice(-19), { text: "BOT service unavailable. Retrying shortly...", player: "BOT" }]);
           botApiWarnedRef.current = true;
@@ -1318,8 +1307,8 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
       }
     };
 
-    const timer = isFiveByFiveFastPath ? null : setTimeout(runBotMove, delay);
-    if (isFiveByFiveFastPath) {
+    const timer = isInstantBotPath ? null : setTimeout(runBotMove, delay);
+    if (isInstantBotPath) {
       runBotMove();
     }
 

@@ -27,8 +27,9 @@ ALL_DIRS = (
     (0, -1), (-1, 0), (-1, -1), (-1, 1),
 )
 
-MAX_DEPTH = 10
-TIME_BUDGET = 5.0
+MAX_DEPTH = 11
+TIME_BUDGET_EARLY = 5.0
+TIME_BUDGET_LATE = 6.0
 QSEARCH_DEPTH = 4
 
 
@@ -551,7 +552,9 @@ class DangerBot7Engine:
 
     def _idab(self, board, zhash, me, opp, empties, mp):
         ordered = sorted(empties, key=lambda x: CENTER_DIST[x])
-        dl = time.monotonic() + TIME_BUDGET
+        max_depth = 10 if mp < 10 else MAX_DEPTH
+        time_budget = TIME_BUDGET_EARLY if mp < 10 else TIME_BUDGET_LATE
+        dl = time.monotonic() + time_budget
 
         self.tt.clear()
         self.history = [0] * CELLS
@@ -560,7 +563,7 @@ class DangerBot7Engine:
 
         best_mv = ordered[0]
 
-        for depth in range(1, MAX_DEPTH + 1):
+        for depth in range(1, max_depth + 1):
             if time.monotonic() >= dl and depth > 1:
                 break
 

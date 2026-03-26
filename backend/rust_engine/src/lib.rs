@@ -63,7 +63,15 @@ impl RustDangerBot7 {
         c3_blocked: bool,
     ) -> PyResult<Option<(usize, usize)>> {
         let (mut flat, zhash) = to_flat(&board_2d, bot, human);
-        let mut engine = search_danger::DangerSearch::new(10, 5.0);
+        // Phase-1 strength bump with bounded latency:
+        // - early game: keep baseline latency budget
+        // - mid game onward: allow slightly deeper/longer search
+        let (max_depth, budget_sec) = if moves_played < 10 {
+            (10, 5.0)
+        } else {
+            (11, 6.0)
+        };
+        let mut engine = search_danger::DangerSearch::new(max_depth, budget_sec);
         let result = engine.search(&mut flat, zhash, &self.pi, 1, 2, moves_played, c3_blocked);
         Ok(result.map(rc))
     }
