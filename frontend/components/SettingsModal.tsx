@@ -21,9 +21,11 @@ interface Props {
   setThemeIdAction: (t: ThemeId) => void;
   audio: AudioControls;
   onNavigateAuthAction?: () => void; 
+  graphicsQuality: "low" | "balanced" | "ultra";
+  setGraphicsQualityAction: (v: "low" | "balanced" | "ultra") => void;
 }
 
-export default function SettingsModal({ onCloseAction, themeId, setThemeIdAction, audio, onNavigateAuthAction }: Props) {
+export default function SettingsModal({ onCloseAction, themeId, setThemeIdAction, audio, onNavigateAuthAction, graphicsQuality, setGraphicsQualityAction }: Props) {
   const t = THEMES[themeId];
   const { musicVol, setMusicVol, sfxVol, setSfxVol, voiceVol = 0.7, setVoiceVol, muted, toggleMute } = audio;
   const { user, logout } = useAuthStore();
@@ -159,6 +161,40 @@ export default function SettingsModal({ onCloseAction, themeId, setThemeIdAction
           </div>
 
           <div style={{ height: 1, background: `${t.border}44`, margin: "24px 0" }} />
+
+          <div>
+            <div style={{ fontFamily:t.fontMono, fontSize:13, fontWeight:800, color:t.accent, letterSpacing:"0.16em", marginBottom:18 }}>GRAPHICS SETTINGS</div>
+            <div style={{ display:"grid", gridTemplateColumns:"repeat(3,minmax(0,1fr))", gap:8, marginBottom:20 }}>
+              {([
+                { id: "low", label: "LOW" },
+                { id: "balanced", label: "BALANCED" },
+                { id: "ultra", label: "ULTRA" },
+              ] as const).map((opt) => {
+                const active = graphicsQuality === opt.id;
+                return (
+                  <button
+                    key={opt.id}
+                    onClick={() => setGraphicsQualityAction(opt.id)}
+                    style={{
+                      padding: "12px 8px",
+                      background: active ? `${t.accent}24` : `${t.bgCard}`,
+                      border: `1.5px solid ${active ? t.accent : t.border}`,
+                      borderRadius: 10,
+                      color: active ? t.accent : t.textSecondary,
+                      fontFamily: t.fontMono,
+                      fontSize: 12,
+                      fontWeight: 800,
+                      letterSpacing: "0.06em",
+                      cursor: "pointer",
+                      transition: "all 0.18s",
+                    }}
+                  >
+                    {opt.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
 
           {/* System section */}
           <div>

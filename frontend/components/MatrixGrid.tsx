@@ -3,6 +3,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { boardSkinCanvasDpr } from "@/lib/boardSkinCanvasDpr";
 
 const DEFAULT_SIZE = 5;
+type GraphicsQuality = "low" | "balanced" | "ultra";
 const GET_COLS = (s: number) => Array.from({ length: s }, (_, i) => String.fromCharCode(65 + i));
 const GET_ROWS = (s: number) => Array.from({ length: s }, (_, i) => i + 1);
 
@@ -24,7 +25,7 @@ function useCellSize(size: number, pad = 8) {
   return cs;
 }
 
-function MatrixBg({ W, H, gridSize = 5 }: { W: number; H: number; gridSize?: number }) {
+function MatrixBg({ W, H, gridSize = 5, graphicsQuality = "balanced" }: { W: number; H: number; gridSize?: number; graphicsQuality?: GraphicsQuality }) {
   const ref = useRef<HTMLCanvasElement | null>(null);
   const raf = useRef<number | null>(null);
   const t = useRef(0);
@@ -62,7 +63,15 @@ function MatrixBg({ W, H, gridSize = 5 }: { W: number; H: number; gridSize?: num
       alpha: 0,
     }));
 
+    let frameSkip = 0;
     const draw = () => {
+      if (graphicsQuality === "balanced") {
+        frameSkip = (frameSkip + 1) % 2;
+        if (frameSkip !== 0) {
+          raf.current = requestAnimationFrame(draw);
+          return;
+        }
+      }
       t.current += 0.016;
       const tc = t.current;
       ctx.clearRect(0, 0, W, H);
@@ -146,7 +155,7 @@ function MatrixBg({ W, H, gridSize = 5 }: { W: number; H: number; gridSize?: num
 
     draw();
     return () => { if (raf.current) cancelAnimationFrame(raf.current); };
-  }, [W, H, gridSize]);
+  }, [W, H, gridSize, graphicsQuality]);
 
   return <canvas ref={ref} style={{ position: "absolute", inset: 0, zIndex: 0, pointerEvents: "none" }} />;
 }
@@ -495,7 +504,7 @@ function Cell({ CS, value, onClick, isWinCell, justPlaced }: { CS: number; value
   );
 }
 
-export default function MatrixGrid({ board, onCellClickAction, winCells = [], showLabels = true }: { board?: (string | null)[][]; onCellClickAction?: (r: number, c: number) => void; winCells?: [number, number][]; showLabels?: boolean }) {
+export default function MatrixGrid({ board, onCellClickAction, winCells = [], showLabels = true, graphicsQuality = "balanced" }: { board?: (string | null)[][]; onCellClickAction?: (r: number, c: number) => void; winCells?: [number, number][]; showLabels?: boolean; graphicsQuality?: GraphicsQuality }) {
   const active = board ?? Array(DEFAULT_SIZE).fill(null).map(() => Array(DEFAULT_SIZE).fill(null));
   const SIZE = active.length;
   const COLS = GET_COLS(SIZE);
@@ -512,9 +521,11 @@ export default function MatrixGrid({ board, onCellClickAction, winCells = [], sh
 
   const click = (r: number, c: number) => {
     if (active[r][c]) return;
-    burstRef.current?.(PAD + c * CS + CS / 2, PAD + r * CS + CS / 2, turn === "X");
-    setLast(`${r}-${c}`);
-    setTimeout(() => setLast(null), 700);
+    if (graphicsQuality !== "low") {
+      burstRef.current?.(PAD + c * CS + CS / 2, PAD + r * CS + CS / 2, turn === "X");
+      setLast(`${r}-${c}`);
+      setTimeout(() => setLast(null), 700);
+    }
     if (onCellClickAction) { onCellClickAction?.(r, c); return; }
     const n = demo.map((row) => [...row]);
     n[r][c] = turn;
@@ -546,14 +557,18 @@ export default function MatrixGrid({ board, onCellClickAction, winCells = [], sh
           </div>
         )}
         <div style={{ position: "relative", width: BS, height: BS, borderRadius: CS * 0.07, overflow: "hidden", border: "2px solid rgba(0,180,40,.65)", boxShadow: "0 0 0 1px rgba(0,100,20,.3),0 0 45px rgba(0,200,50,.4),0 0 100px rgba(0,80,20,.25),inset 0 0 80px rgba(0,0,0,.65)" }}>
-          <MatrixBg W={BS} H={BS} gridSize={SIZE} />
+          {graphicsQuality === "low" ? (
+            <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, #001003 0%, #000500 100%)" }} />
+          ) : (
+            <MatrixBg W={BS} H={BS} gridSize={SIZE} graphicsQuality={graphicsQuality} />
+          )}
           <GridLines W={BS} H={BS} PAD={PAD} CS={CS} SIZE={SIZE} />
-          <BurstCanvas burstRef={burstRef} W={BS} H={BS} gridSize={SIZE} />
+          {graphicsQuality !== "low" && <BurstCanvas burstRef={burstRef} W={BS} H={BS} gridSize={SIZE} />}
           <div style={{ position: "absolute", inset: PAD, zIndex: 4, display: "flex", flexDirection: "column" }}>
             {ROWS.map((_, r) => (
               <div key={r} style={{ display: "flex", flex: 1 }}>
                 {COLS.map((_, c) => (
-                  <Cell key={`${r}-${c}`} CS={CS} value={active[r][c]} onClick={() => click(r, c)} isWinCell={winSet.has(`${r}-${c}`)} justPlaced={last === `${r}-${c}`} />
+                  <Cell key={`${r}-${c}`} CS={CS} value={active[r][c]} onClick={() => click(r, c)} isWinCell={winSet.has(`${r}-${c}`)} justPlaced={graphicsQuality !== "low" && last === `${r}-${c}`} />
                 ))}
               </div>
             ))}

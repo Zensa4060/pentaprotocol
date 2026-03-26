@@ -46,6 +46,7 @@ export default function Page() {
   const [aiDifficulty, setAiDifficulty] = useState<Difficulty>("medium");
   const [boardMode, setBoardMode] = useState<BoardMode>("5x5");
   const [selectedPatterns, setSelectedPatterns] = useState<string[]>([]);
+  const [graphicsQuality, setGraphicsQuality] = useState<"low" | "balanced" | "ultra">("balanced");
   const [multiRoomCode,   setMultiRoomCode]   = useState<string>("");
   const [multiPlayerSlot, setMultiPlayerSlot] = useState<"P1" | "P2" | null>(null);
   const [multiMatchup, setMultiMatchup]       = useState<MatchupData | null>(null);
@@ -112,8 +113,12 @@ export default function Page() {
     const savedRanked = sessionStorage.getItem("pp_isRanked") === "true";
     const savedBoard = sessionStorage.getItem("pp_boardMode") as BoardMode | null;
     const savedPats = sessionStorage.getItem("pp_selectedPatterns");
+    const savedGraphics = localStorage.getItem("pp_graphics_quality");
 
     if (savedBoard === "5x5" || savedBoard === "7x7") setBoardMode(savedBoard);
+    if (savedGraphics === "low" || savedGraphics === "balanced" || savedGraphics === "ultra") {
+      setGraphicsQuality(savedGraphics);
+    }
     if (savedPats) {
       try {
         const arr = JSON.parse(savedPats);
@@ -164,6 +169,10 @@ export default function Page() {
     sessionStorage.setItem("pp_boardMode", boardMode);
     sessionStorage.setItem("pp_selectedPatterns", JSON.stringify(selectedPatterns));
   }, [screen, multiRoomCode, multiPlayerSlot, isRanked, boardMode, selectedPatterns]);
+
+  useEffect(() => {
+    localStorage.setItem("pp_graphics_quality", graphicsQuality);
+  }, [graphicsQuality]);
 
   useEffect(() => {
     const onCustomThemeChange = () => {
@@ -648,6 +657,7 @@ export default function Page() {
       {screen === "game" && (
         <GameScreen key={`game_${boardMode}`} themeId={themeId} isSingleplayer={true} gameMode="singleplayer" setScreenAction={handleSetScreen}
           p1Name={user?.username}
+          graphicsQuality={graphicsQuality}
           boardMode={boardMode} selectedPatterns={selectedPatterns}
           playHoverAction={sfx.hover} playPlaceAction={sfx.place} playVictoryAction={sfx.victory} playDefeatAction={sfx.defeat}
           playRulebreakerAction={sfx.rulebreaker} playTransitionAction={sfx.transition} playClickAction={sfx.click} />
@@ -655,6 +665,7 @@ export default function Page() {
       {screen === "aiGame" && (
         <GameScreen key={`aiGame_${boardMode}`} themeId={themeId} gameMode="ai" difficulty={aiDifficulty} setScreenAction={handleSetScreen}
           p1Name={user?.username}
+          graphicsQuality={graphicsQuality}
           boardMode={boardMode} selectedPatterns={selectedPatterns}
           playHoverAction={sfx.hover} playPlaceAction={sfx.place} playVictoryAction={sfx.victory} playDefeatAction={sfx.defeat}
           playRulebreakerAction={sfx.rulebreaker} playTransitionAction={sfx.transition} playClickAction={sfx.click} />
@@ -664,6 +675,7 @@ export default function Page() {
           roomCode={multiRoomCode} playerSlot={multiPlayerSlot ?? undefined}
           matchupData={multiMatchup ?? undefined}
           p1Name={user?.username}
+          graphicsQuality={graphicsQuality}
           boardMode={boardMode} selectedPatterns={selectedPatterns}
           onMultiplayerBoardSync={(mode, pats) => { setBoardMode(mode); setSelectedPatterns(pats); }}
           playHoverAction={sfx.hover} playPlaceAction={sfx.place} playVictoryAction={sfx.victory} playDefeatAction={sfx.defeat}
@@ -679,6 +691,8 @@ export default function Page() {
             sfxVol: audio.sfxVol, setSfxVol: audio.setSfxVol,
             muted: audio.muted, toggleMute: audio.toggleMute
           }}
+          graphicsQuality={graphicsQuality}
+          setGraphicsQualityAction={setGraphicsQuality}
           onNavigateAuthAction={() => setScreen("auth")}
         />
       )}

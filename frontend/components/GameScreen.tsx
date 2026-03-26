@@ -207,9 +207,10 @@ interface Props {
   selectedPatterns?: string[];
   /** Sync lobby `boardMode` / patterns when server upgrades mid-match (e.g. 5×5 → 7×7). */
   onMultiplayerBoardSync?: (mode: BoardMode, patterns: string[]) => void;
+  graphicsQuality?: "low" | "balanced" | "ultra";
 }
 
-export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, gameMode = "singleplayer", difficulty = "medium", setScreenAction, roomCode, playerSlot, playHoverAction, playPlaceAction, playVictoryAction, playDefeatAction, playRulebreakerAction, playTransitionAction, playClickAction, p1Name, matchupData, boardMode = "5x5", selectedPatterns = [], onMultiplayerBoardSync }: Props) {
+export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, gameMode = "singleplayer", difficulty = "medium", setScreenAction, roomCode, playerSlot, playHoverAction, playPlaceAction, playVictoryAction, playDefeatAction, playRulebreakerAction, playTransitionAction, playClickAction, p1Name, matchupData, boardMode = "5x5", selectedPatterns = [], onMultiplayerBoardSync, graphicsQuality = "balanced" }: Props) {
   const [liveBoardMode, setLiveBoardMode] = useState<BoardMode>(boardMode);
   const [liveSelectedPatterns, setLiveSelectedPatterns] = useState<string[]>(selectedPatterns ?? []);
   useEffect(() => { setLiveBoardMode(boardMode); }, [boardMode]);
@@ -263,6 +264,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   const { user } = useAuthStore();
   const t = THEMES[themeId];
   const ip = themeId === "pixel";
+  const isLowGraphics = graphicsQuality === "low";
   const userKey = useMemo(() => getUserKey(user), [user]);
 
   const [_ct, set_ct] = useState(() => loadCustomTheme());
@@ -2462,7 +2464,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
           {isGlacierBoard && glacierBoard ? (
             <GlacierGrid board={glacierBoard} onCellClickAction={glacierClick} winCells={winLine} />
           ) : isBloodMoonBoard && bloodMoonBoard ? (
-            <BloodMoonGrid board={bloodMoonBoard} onCellClickAction={bloodMoonClick} winCells={winLine} />
+            <BloodMoonGrid board={bloodMoonBoard} onCellClickAction={bloodMoonClick} winCells={isLowGraphics ? [] : winLine} graphicsQuality={graphicsQuality} />
           ) : (
             <>
               <div style={{ display: "flex", gap: `${boardGap}px`, paddingLeft: 28, marginBottom: 4 }}>
@@ -2797,17 +2799,17 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
         {isGlacierBoard && glacierBoard ? (
           <GlacierGrid board={glacierBoard} onCellClickAction={glacierClick} winCells={winLine} />
         ) : isBloodMoonBoard && bloodMoonBoard ? (
-          <BloodMoonGrid board={bloodMoonBoard} onCellClickAction={bloodMoonClick} winCells={winLine} />
+          <BloodMoonGrid board={bloodMoonBoard} onCellClickAction={bloodMoonClick} winCells={isLowGraphics ? [] : winLine} graphicsQuality={graphicsQuality} />
         ) : isEgyptBoard && egyptBoard ? (
-          <EgyptGrid board={egyptBoard} onCellClickAction={egyptClick} winCells={winLine} />
+          <EgyptGrid board={egyptBoard} onCellClickAction={egyptClick} winCells={isLowGraphics ? [] : winLine} graphicsQuality={graphicsQuality} />
         ) : isSynthwaveBoard && synthwaveBoard ? (
-          <SynthwaveGrid board={synthwaveBoard} onCellClickAction={synthwaveClick} winCells={winLine} />
+          <SynthwaveGrid board={synthwaveBoard} onCellClickAction={synthwaveClick} winCells={isLowGraphics ? [] : winLine} graphicsQuality={graphicsQuality} />
         ) : isMatrixBoard && matrixBoard ? (
-          <MatrixGrid board={matrixBoard} onCellClickAction={matrixClick} winCells={winLine} />
+          <MatrixGrid board={matrixBoard} onCellClickAction={matrixClick} winCells={isLowGraphics ? [] : winLine} graphicsQuality={graphicsQuality} />
         ) : isArcaneBoard && arcaneBoard ? (
           <ArcaneGrid board={arcaneBoard} onCellClickAction={arcaneClick} winCells={winLine} />
         ) : isBioBoard && bioBoard ? (
-          <BioGrid board={bioBoard} onCellClickAction={bioClick} winCells={winLine} />
+          <BioGrid board={bioBoard} onCellClickAction={bioClick} winCells={isLowGraphics ? [] : winLine} graphicsQuality={graphicsQuality} />
         ) : isForgeBoard && forgeBoard ? (
           <ForgeGrid board={forgeBoard} onCellClickAction={forgeClick} winCells={winLine} />
         ) : isVoidBoard && voidBoard ? (
