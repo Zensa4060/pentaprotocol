@@ -149,14 +149,14 @@ export default function SingleplayerScreen({ setScreenAction, themeId, onHoverAc
           </div>
 
           <div style={{ fontFamily: t.fontBody, fontSize: 16, color: t.textMuted, textAlign: "center", maxWidth: 440 }}>
-            Choose your board size
+            CHOOSE YOUR PROTOCOL
           </div>
 
           <div style={{ display: "flex", flexDirection: "column", gap: 14, width: "100%", maxWidth: 480 }}>
-            {(["5x5", "7x7"] as BoardMode[]).map((mode, i) => {
+            {(["5x5", "6x6", "7x7"] as BoardMode[]).map((mode, i) => {
               const isSelected = boardMode === mode;
               const isHov = hovered === mode;
-              const modeColor = mode === "5x5" ? "#60A8FF" : "#FF6B35";
+              const modeColor = mode === "5x5" ? "#60A8FF" : mode === "6x6" ? "#A78BFA" : "#FF6B35";
               return (
                 <button
                   key={mode}
@@ -164,6 +164,8 @@ export default function SingleplayerScreen({ setScreenAction, themeId, onHoverAc
                     setBoardMode(mode);
                     if (mode === "7x7") {
                       setStep("patterns");
+                    } else if (mode === "6x6") {
+                      onBoardModeAction?.("6x6");
                     } else {
                       onBoardModeAction?.("5x5");
                     }
@@ -191,13 +193,15 @@ export default function SingleplayerScreen({ setScreenAction, themeId, onHoverAc
                       fontFamily: t.fontDisplay, fontSize: ip ? 20 : 26, fontWeight: 700,
                       color: isSelected ? modeColor : t.text, transition: "color 0.2s", letterSpacing: "0.06em",
                     }}>
-                      {mode === "5x5" ? "5 × 5 CLASSIC" : "7 × 7 EXPANDED"}
+                      {mode === "5x5" ? "5 × 5 CLASSIC" : mode === "6x6" ? "6 × 6 ADVANCED" : "7 × 7 EXPANDED"}
                     </div>
                   </div>
                   <div style={{ fontFamily: t.fontBody, fontSize: ip ? 12 : 14, color: t.textMuted, lineHeight: 1.5 }}>
                     {mode === "5x5"
                       ? "Standard board — 5-in-a-line, V/L/W patterns, 10-cell chain. Local pass-and-play."
-                      : "Larger board — 7-in-a-line, choose 5–6 of 6 special patterns, 20-cell chain. Local pass-and-play."
+                      : mode === "6x6"
+                        ? "6-in-a-line and diagonals, four fixed patterns (A / ZZ / L / T), 15-point connection. 4 min clock.Local pass-and-play only."
+                        : "Larger board — 7-in-a-line, choose 5–6 of 6 special patterns, 20-cell chain. Local pass-and-play."
                     }
                   </div>
                 </button>

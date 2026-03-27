@@ -421,7 +421,7 @@ export function MatchSidebar({
     <div style={{ width: panelW, flexShrink: 0, background: t.bgPanel, borderLeft: `${ip ? 3 : 1}px solid ${t.border}`, padding: "18px 18px", display: "flex", flexDirection: "column", gap: 10, overflowY: "auto" }}>
       <div style={{ fontFamily: t.fontMono, fontSize: 20, fontWeight: 700, color: t.text, letterSpacing: "0.14em" }}>MOVE LOG</div>
       <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 4 }}>
-        {log.length === 0 ? <div style={{ fontFamily: t.fontBody, fontSize: 14, color: t.textMuted, fontStyle: "italic" }}>No moves yet</div> : log.map((m, i) => <div key={i} style={{ fontFamily: t.fontMono, fontSize: 15, color: m.player === "P1" ? p1c : p2c, padding: "3px 0", borderBottom: `1px solid ${t.border}22` }}>{m.text}</div>)}
+        {log.length === 0 ? <div style={{ fontFamily: t.fontBody, fontSize: 14, color: t.textMuted, fontStyle: "italic" }}>No moves yet</div> : log.slice().reverse().map((m, i) => <div key={i} style={{ fontFamily: t.fontMono, fontSize: 15, color: m.player === "P1" ? p1c : p2c, padding: "3px 0", borderBottom: `1px solid ${t.border}22` }}>{m.text}</div>)}
       </div>
       {setScreenAction && !isRankedGame && (phase === "playing" || phase === "waiting_ready" || phase === "match_over") && (
         <button onClick={onShowExitConfirmAction} style={{ background: `${t.danger}16`, border: `1px solid ${t.danger}`, color: t.danger, fontFamily: t.fontBody, fontSize: 13, padding: 9, borderRadius: ip ? 2 : 6, cursor: "pointer", transition: "all 0.2s", marginTop: 4 }} onMouseEnter={e => { playHoverAction?.(); e.currentTarget.style.background = `${t.danger}30`; }} onMouseLeave={e => { e.currentTarget.style.background = `${t.danger}16`; }}>EXIT MATCH</button>
@@ -672,21 +672,67 @@ export function LeftPanel(props: MatchSidebarProps) {
         )}
       </div>
 
-      {boardMode === "7x7" && selectedPatterns && selectedPatterns.length > 0 && (
-        <div style={{ borderTop: `1px solid ${t.border}`, paddingTop: 12 }}>
-          <div style={{ fontFamily: t.fontMono, fontSize: 13, fontWeight: 700, color: t.text, letterSpacing: "0.1em", marginBottom: 8, display: "flex", justifyContent: "space-between" }}>
-            <span>7×7 PATTERNS</span>
+      {(() => {
+        const mode = boardMode === "7x7" || boardMode === "6x6" ? boardMode : "5x5";
+        const patternChips =
+          mode === "7x7"
+            ? ((selectedPatterns && selectedPatterns.length > 0) ? selectedPatterns : ["Y", "L", "W", "V", "C", "zigzag"])
+            : mode === "6x6"
+              ? ["A", "ZZ", "L", "T"]
+              : ["V", "L", "ZZ"];
+
+        const modeRules =
+          mode === "7x7"
+            ? [
+                { k: "Straight", v: "14" },
+                { k: "Diagonal", v: "2" },
+                { k: "Connect Pts", v: "20" },
+              ]
+            : mode === "6x6"
+              ? [
+                  { k: "Straight", v: "6" },
+                  { k: "Diagonal", v: "6" },
+                  { k: "Connect Pts", v: "15" },
+                ]
+              : [
+                  { k: "Straight", v: "10" },
+                  { k: "Diagonal", v: "2" },
+                  { k: "Connect Pts", v: "10" },
+                ];
+
+        return (
+          <div style={{ borderTop: `1px solid ${t.border}`, paddingTop: 12 }}>
+            <div style={{ fontFamily: t.fontMono, fontSize: 13, fontWeight: 700, color: t.text, letterSpacing: "0.1em", marginBottom: 8, display: "flex", justifyContent: "space-between" }}>
+              <span>{mode.toUpperCase()} PATTERNS</span>
+            </div>
+
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 10 }}>
+              {patternChips.map((p, i) => (
+                <div
+                  key={patternsAsSecret && mode === "7x7" ? `sec-${i}` : p}
+                  style={{ padding: "4px 8px", background: `${t.accent}1A`, border: `1px solid ${t.accent}44`, borderRadius: 4, fontFamily: t.fontMono, fontSize: 11, color: t.accent, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em" }}
+                >
+                  {patternsAsSecret && mode === "7x7" ? "?" : patternSidebarLabel(p)}
+                </div>
+              ))}
+              {!patternsAsSecret && mode === "7x7" && rbBannedPattern && (
+                <div style={{ padding: "4px 8px", background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.4)", borderRadius: 4, fontFamily: t.fontMono, fontSize: 11, color: "#EF4444", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", textDecoration: "line-through" }}>
+                  {patternSidebarLabel(rbBannedPattern)}
+                </div>
+              )}
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0,1fr))", gap: 6 }}>
+              {modeRules.map((rule) => (
+                <div key={rule.k} style={{ background: `${t.bgCard}`, border: `1px solid ${t.border}`, borderRadius: 6, padding: "6px 4px", textAlign: "center" }}>
+                  <div style={{ fontFamily: t.fontMono, fontSize: 9, color: t.textMuted, letterSpacing: "0.08em", marginBottom: 3, textTransform: "uppercase" }}>{rule.k}</div>
+                  <div style={{ fontFamily: t.fontDisplay, fontSize: 14, fontWeight: 800, color: t.text }}>{rule.v}</div>
+                </div>
+              ))}
+            </div>
           </div>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-            {selectedPatterns.map((p, i) => (
-              <div key={patternsAsSecret ? `sec-${i}` : p} style={{ padding: "4px 8px", background: `${t.accent}1A`, border: `1px solid ${t.accent}44`, borderRadius: 4, fontFamily: t.fontMono, fontSize: 11, color: t.accent, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em" }}>{patternsAsSecret ? "?" : patternSidebarLabel(p)}</div>
-            ))}
-            {!patternsAsSecret && rbBannedPattern && (
-              <div style={{ padding: "4px 8px", background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.4)", borderRadius: 4, fontFamily: t.fontMono, fontSize: 11, color: "#EF4444", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", textDecoration: "line-through" }}>{patternSidebarLabel(rbBannedPattern)}</div>
-            )}
-          </div>
-        </div>
-      )}
+        );
+      })()}
 
       {phase === "waiting_ready" && (
         <div style={{ display: "flex", flexDirection: "column", gap: 8, animation: "fadeUp 0.3s ease both" }}>
@@ -768,7 +814,7 @@ export function RightPanel({ t, ip, p1c, p2c, panelW, phase, log, isRankedGame, 
       <div style={{ direction: "ltr", padding: "18px 18px", display: "flex", flexDirection: "column", gap: 10, overflowY: "auto", flex: 1 }}>
         <div style={{ fontFamily: t.fontMono, fontSize: 20, fontWeight: 700, color: t.text, letterSpacing: "0.14em" }}>MOVE LOG</div>
         <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 4 }}>
-          {log.length === 0 ? <div style={{ fontFamily: t.fontBody, fontSize: 14, color: t.textMuted, fontStyle: "italic" }}>No moves yet</div> : log.map((m, i) => <div key={i} style={{ fontFamily: t.fontMono, fontSize: 15, color: m.player === "P1" ? p1c : p2c, padding: "3px 0", borderBottom: `1px solid ${t.border}22` }}>{m.text}</div>)}
+          {log.length === 0 ? <div style={{ fontFamily: t.fontBody, fontSize: 14, color: t.textMuted, fontStyle: "italic" }}>No moves yet</div> : log.slice().reverse().map((m, i) => <div key={i} style={{ fontFamily: t.fontMono, fontSize: 15, color: m.player === "P1" ? p1c : p2c, padding: "3px 0", borderBottom: `1px solid ${t.border}22` }}>{m.text}</div>)}
         </div>
         {setScreenAction && !isRankedGame && (phase === "playing" || phase === "waiting_ready" || phase === "match_over") && (
           <button onClick={onShowExitConfirmAction} style={{ background: `${t.danger}16`, border: `1px solid ${t.danger}`, color: t.danger, fontFamily: t.fontBody, fontSize: 13, padding: 9, borderRadius: ip ? 2 : 6, cursor: "pointer", transition: "all 0.2s", marginTop: 4 }} onMouseEnter={e => { playHoverAction?.(); e.currentTarget.style.background = `${t.danger}30`; }} onMouseLeave={e => { e.currentTarget.style.background = `${t.danger}16`; }}>EXIT MATCH</button>

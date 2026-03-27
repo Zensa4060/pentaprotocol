@@ -4,6 +4,7 @@ import { unstable_batchedUpdates } from "react-dom";
 import { ThemeId, THEMES } from "@/lib/themes";
 import { checkWin, Coord } from "@/lib/winChecker";
 import { checkWin7 } from "@/lib/winChecker7";
+import { checkWin6 } from "@/lib/winChecker6";
 import type { BoardMode } from "@/lib/types";
 import API from "@/lib/api";
 import { censorText, containsProfanity } from "@/lib/profanity";
@@ -215,6 +216,10 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   const [liveSelectedPatterns, setLiveSelectedPatterns] = useState<string[]>(selectedPatterns ?? []);
   useEffect(() => { setLiveBoardMode(boardMode); }, [boardMode]);
   useEffect(() => { setLiveSelectedPatterns(selectedPatterns ?? []); }, [selectedPatterns]);
+  /** 6×6 is singleplayer-only; never run it in AI or multiplayer. */
+  useEffect(() => {
+    if (gameMode !== "singleplayer" && boardMode === "6x6") setLiveBoardMode("5x5");
+  }, [gameMode, boardMode]);
 
   const liveBoardModeRef = useRef(boardMode);
   liveBoardModeRef.current = liveBoardMode;
@@ -254,11 +259,12 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     if (levelUpSplashTimerRef.current) clearTimeout(levelUpSplashTimerRef.current);
   }, []);
 
-  const GRID_SIZE = liveBoardMode === "7x7" ? 7 : 5;
-  const CENTER = liveBoardMode === "7x7" ? 3 : 2;
   const is7x7 = liveBoardMode === "7x7";
-  /** Per-player clock: 5 min on 7×7, 3 min on 5×5 (all modes). */
-  const matchTimeMs = is7x7 ? 300_000 : 180_000;
+  const is6x6 = liveBoardMode === "6x6";
+  const GRID_SIZE = is7x7 ? 7 : is6x6 ? 6 : 5;
+  const CENTER = is7x7 ? 3 : 2;
+  /** Per-player clock: 5 min 7×7, 4 min 6×6, 3 min 5×5 */
+  const matchTimeMs = is7x7 ? 300_000 : is6x6 ? 240_000 : 180_000;
   const matchTimeMsRef = useRef(matchTimeMs);
   matchTimeMsRef.current = matchTimeMs;
   const { user } = useAuthStore();
@@ -458,8 +464,8 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   const [botThinking, setBotThinking] = useState(false);
   const [log, setLog] = useState<{ text: string; player: string }[]>([]);
 
-  const [p1Time, setP1Time] = useState(() => (liveBoardMode === "7x7" ? 300_000 : 180_000));
-  const [p2Time, setP2Time] = useState(() => (liveBoardMode === "7x7" ? 300_000 : 180_000));
+  const [p1Time, setP1Time] = useState(() => (liveBoardMode === "7x7" ? 300_000 : liveBoardMode === "6x6" ? 240_000 : 180_000));
+  const [p2Time, setP2Time] = useState(() => (liveBoardMode === "7x7" ? 300_000 : liveBoardMode === "6x6" ? 240_000 : 180_000));
 
   const [gameNumber, setGameNumber] = useState(1);
   const [matchHistory, setMatchHistory] = useState<string[]>([]);
@@ -515,6 +521,12 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   const [suppressCenterOpening, setSuppressCenterOpening] = useState(false);
   const [rbExtraTurnTokenHolder, setRbExtraTurnTokenHolder] = useState<"P1" | "P2" | null>(null);
   const [rbExtraTurnTokenUsed, setRbExtraTurnTokenUsed] = useState(false);
+  /** Round 3 (6×6): chosen special cell owner; stone always counts as this symbol. */
+  const [rb6SpecialCell, setRb6SpecialCell] = useState<{ r: number; c: number; owner: "P1" | "P2" } | null>(null);
+  /** Round 3 (6×6): whose timer is reduced to 2:00. */
+  const [rb6TimerOwner, setRb6TimerOwner] = useState<"P1" | "P2" | null>(null);
+  /** Round 3 (6×6): who must pick the special grid cell. */
+  const [rb6CellChooser, setRb6CellChooser] = useState<"P1" | "P2" | null>(null);
   const [summaryTimer, setSummaryTimer] = useState(5);
   const [choiceTimer, setChoiceTimer] = useState(0);
   const [overlayVisible, setOverlayVisible] = useState(false);
@@ -593,8 +605,8 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   );
 
   // ── Timer values stored in refs so rAF can read/write without setState loops ──
-  const p1TimeRef = useRef(liveBoardMode === "7x7" ? 300_000 : 180_000);
-  const p2TimeRef = useRef(liveBoardMode === "7x7" ? 300_000 : 180_000);
+  const p1TimeRef = useRef(liveBoardMode === "7x7" ? 300_000 : liveBoardMode === "6x6" ? 240_000 : 180_000);
+  const p2TimeRef = useRef(liveBoardMode === "7x7" ? 300_000 : liveBoardMode === "6x6" ? 240_000 : 180_000);
   const matchupCountdownRef = useRef(10.0);
 
   const fmtTime = (ms: number) => { const s = Math.max(0, Math.floor(ms / 1000)); return `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`; };
@@ -609,6 +621,8 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     winnerPickedRule: null as string | null,
     rbHideBannedPatternFromSlot: null as "P1" | "P2" | null,
     rbPatternsPreBan: null as string[] | null,
+    rb6TimerOwner: null as "P1" | "P2" | null,
+    rb6CellChooser: null as "P1" | "P2" | null,
   });
   R.current.phase = phase;
   R.current.current = current;
@@ -627,6 +641,8 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   R.current.rbBannedPattern = rbBannedPattern;
   R.current.rbHideBannedPatternFromSlot = rbHideBannedPatternFromSlot;
   R.current.rbPatternsPreBan = rbPatternsPreBan;
+  R.current.rb6TimerOwner = rb6TimerOwner;
+  R.current.rb6CellChooser = rb6CellChooser;
   R.current.summaryTimer = summaryTimer;
   R.current.choiceTimer = choiceTimer;
   R.current.winnerPickedRule = winnerPickedRule;
@@ -1163,7 +1179,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
           const { action, payload } = msg;
           if (action === "start_rb") {
             const _curPhase = R.current.phase;
-            const _rbPhases = ["rb_splash", "rb_coin", "rule_choice", "who_first_winner", "c3_choice", "c3_choice_loser", "who_first_loser", "ban_pattern_winner", "ban_pattern_loser", "toss_summary"];
+            const _rbPhases = ["rb_splash", "rb_coin", "rule_choice", "who_first_winner", "c3_choice", "c3_choice_loser", "who_first_loser", "ban_pattern_winner", "ban_pattern_loser", "grid_block_warning", "grid_block_selection", "toss_summary"];
             if (_rbPhases.includes(_curPhase)) {
               // already in rulebreaker
             } else setTimeout(() => {
@@ -1196,6 +1212,8 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
             if (payload.winnerPickedFirst !== undefined) setWinnerPickedFirst(payload.winnerPickedFirst);
             if (payload.winnerPickedC3 !== undefined) setWinnerPickedC3(payload.winnerPickedC3);
             if (payload.rbBannedPattern !== undefined) setRbBannedPattern(payload.rbBannedPattern);
+            if (payload.rb6TimerOwner === "P1" || payload.rb6TimerOwner === "P2" || payload.rb6TimerOwner === null) setRb6TimerOwner(payload.rb6TimerOwner);
+            if (payload.rb6CellChooser === "P1" || payload.rb6CellChooser === "P2" || payload.rb6CellChooser === null) setRb6CellChooser(payload.rb6CellChooser);
             if (payload.rbHideBannedPatternFromSlot !== undefined) {
               const s = payload.rbHideBannedPatternFromSlot;
               setRbHideBannedPatternFromSlot(s === "P1" || s === "P2" ? s : null);
@@ -1254,17 +1272,15 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
 
   useEffect(() => {
     if (gameMode !== "ai") return;
+    if (liveBoardMode === "6x6") return;
     if (phase !== "playing") return;
     if (current !== "P2") return;
     if (winner) return;
-    if (Date.now() < botApiRetryAfterRef.current) return;
 
     let cancelled = false;
     const boardNow = boardRef.current;
     const is77Now = liveBoardMode === "7x7" || boardNow?.length === 7;
     const isFiveByFiveFastPath = !is77Now;
-    const isSevenBySevenHardDangerFastPath = is77Now && (difficulty === "hard" || difficulty === "danger");
-    const isInstantBotPath = isFiveByFiveFastPath || isSevenBySevenHardDangerFastPath;
     // Cosmetic delay before calling API (server search unchanged). DANGER 7×7: extra minimum
     // “think” time for the bot’s first two moves so it doesn’t feel instant vs HARD.
     const delays: Record<string, number> = {
@@ -1281,6 +1297,14 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
       if (cancelled) return;
       try {
         const b = boardRef.current;
+        let p2Stones = 0;
+        for (const row of b) for (const cell of row) if (cell === "P2") p2Stones++;
+        const is77 = liveBoardMode === "7x7" || b?.length === 7;
+        const needMinDangerThink =
+          difficulty === "danger" && is77 && p2Stones < 2;
+        const dangerMinThinkMs = 1000;
+
+        const t0 = Date.now();
         const res = await API.post("/api/bot/move", {
           board: b, difficulty, current_player: "P2",
           board_mode: liveBoardMode || (b?.length === 7 ? "7x7" : "5x5"),
@@ -1291,12 +1315,26 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
         if (cancelled) return;
         botApiRetryAfterRef.current = 0;
         botApiWarnedRef.current = false;
+        if (needMinDangerThink) {
+          const elapsed = Date.now() - t0;
+          if (elapsed < dangerMinThinkMs) {
+            await new Promise<void>(r => setTimeout(r, dangerMinThinkMs - elapsed));
+          }
+        }
         if (cancelled) return;
         const { row, col } = res.data ?? res;
-        if (typeof row === "number" && typeof col === "number") await placeBot(row, col);
+        if (typeof row === "number" && typeof col === "number") {
+          await placeBot(row, col);
+        } else {
+          // Recover from transient empty/null bot responses without deadlocking the AI turn.
+          botApiRetryAfterRef.current = Date.now() + (isFiveByFiveFastPath ? 350 : 700);
+          if (!botApiWarnedRef.current) {
+            setLog(l => [...l.slice(-19), { text: "BOT returned no move. Retrying...", player: "BOT" }]);
+            botApiWarnedRef.current = true;
+          }
+        }
       } catch (err) {
-        const backoffMs = isInstantBotPath ? 400 : 2500;
-        botApiRetryAfterRef.current = Date.now() + backoffMs;
+        botApiRetryAfterRef.current = Date.now() + (isFiveByFiveFastPath ? 350 : 2500);
         if (!botApiWarnedRef.current) {
           setLog(l => [...l.slice(-19), { text: "BOT service unavailable. Retrying shortly...", player: "BOT" }]);
           botApiWarnedRef.current = true;
@@ -1307,8 +1345,15 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
       }
     };
 
-    const timer = isInstantBotPath ? null : setTimeout(runBotMove, delay);
-    if (isInstantBotPath) {
+    const retryRemaining = botApiRetryAfterRef.current - Date.now();
+    if (retryRemaining > 0) {
+      setBotThinking(true);
+      const retryTimer = setTimeout(runBotMove, Math.max(80, retryRemaining));
+      return () => { cancelled = true; clearTimeout(retryTimer); setBotThinking(false); };
+    }
+
+    const timer = isFiveByFiveFastPath ? null : setTimeout(runBotMove, delay);
+    if (isFiveByFiveFastPath) {
       runBotMove();
     }
 
@@ -1320,6 +1365,11 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     setSuppressCenterOpening(suppressCenter);
     setRbExtraTurnTokenHolder(null);
     setRbExtraTurnTokenUsed(false);
+    if (R.current.gameNumber < 3) {
+      setRb6SpecialCell(null);
+      setRb6TimerOwner(null);
+      setRb6CellChooser(null);
+    }
     setBoard(emptyBoard());
     setCurrent(firstPlayer);
     setWinner(null);
@@ -1336,6 +1386,15 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     lastP2Sec.current = -1;
     setP1Time(matchTimeMs);
     setP2Time(matchTimeMs);
+    if (liveBoardMode === "6x6" && R.current.gameNumber === 3 && R.current.rb6TimerOwner) {
+      if (R.current.rb6TimerOwner === "P1") {
+        p1TimeRef.current = 120_000;
+        setP1Time(120_000);
+      } else {
+        p2TimeRef.current = 120_000;
+        setP2Time(120_000);
+      }
+    }
     setLoading(false);
     setHover(null);
     setBotThinking(false);
@@ -1371,6 +1430,8 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     setWinnerPickedRule(null); setWinnerPickedFirst(null); setWinnerPickedC3(null);
     setRbHideBannedPatternFromSlot(null); setRbPatternsPreBan(null);
     setServerStructuralPatternsP1(null); setServerStructuralPatternsP2(null);
+    setRb6SpecialCell(null);
+    setRb6TimerOwner(null); setRb6CellChooser(null);
     setPhase("playing");
     initBoard("P1");
   };
@@ -1438,7 +1499,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   const lastMatchupSec = useRef(-1);
 
   useEffect(() => {
-    const tossChoicePhases: Phase[] = ["rule_choice", "who_first_winner", "c3_choice", "c3_choice_loser", "who_first_loser", "ban_pattern_winner", "ban_pattern_loser"];
+    const tossChoicePhases: Phase[] = ["rule_choice", "who_first_winner", "c3_choice", "c3_choice_loser", "who_first_loser", "ban_pattern_winner", "ban_pattern_loser", "grid_block_warning", "grid_block_selection"];
     const tick = () => {
       rafHandle.current = requestAnimationFrame(tick);
       const now = Date.now();
@@ -1648,11 +1709,38 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
         setRbPatternsPreBan([...patList]);
         setRbHideBannedPatternFromSlot(tw);
         setPhase("ban_pattern_loser");
-      } else if (!is7x7) { setPhase("who_first_winner"); }
+      } else if (is6x6 && tw) {
+        setWinnerPickedRule("timer_half");
+        setRb6TimerOwner(tw);
+        setRb6CellChooser(tw);
+        setPhase("grid_block_warning");
+      } else if (!is7x7 && !is6x6) { setPhase("who_first_winner"); }
+    }
+    else if (p === "grid_block_warning") {
+      setPhase("grid_block_selection");
+    }
+    else if (p === "grid_block_selection") {
+      if (R.current.rb6CellChooser) {
+        setRb6SpecialCell({ r: 0, c: 0, owner: R.current.rb6CellChooser });
+        if (R.current.winnerPickedRule === "timer_half") {
+          setPhase("who_first_loser");
+        } else {
+          setSummaryTimer(5);
+          setPhase("toss_summary");
+        }
+      }
     }
     else if (p === "who_first_winner") {
       setFirstPlayerChosen(tw);
-      setPhase("c3_choice_loser");
+      if (is6x6 && tw) {
+        const forcedOther = tw === "P1" ? "P2" : "P1";
+        setRb6TimerOwner(forcedOther);
+        setRb6CellChooser(forcedOther);
+        setWinnerPickedRule("choose_first");
+        setPhase("grid_block_selection");
+      } else {
+        setPhase("c3_choice_loser");
+      }
     }
     else if (p === "c3_choice") { setRbC3Blocked(true); setPhase("who_first_loser"); }
     else if (p === "c3_choice_loser") { setRbC3Blocked(true); setSummaryTimer(5); setPhase("toss_summary"); }
@@ -1681,6 +1769,9 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
       return;
     }
     if (gn >= 2) {
+      setRb6SpecialCell(null);
+      setRb6TimerOwner(null);
+      setRb6CellChooser(null);
       setGameNumber(3); setPhase("rb_splash"); playRulebreakerAction?.();
       setRbSplashTimer(5); setCoinFlipTimer(rbCoinFlipSeconds); setCoinRevealTimer(0);
       setCoinResult(null); setCoinAngle(0); setTossWinner(null);
@@ -1771,16 +1862,22 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     playPlaceAction?.();
     const playerWhoMoved = "P2";
     const nb = currentBoard.map(row => [...row]);
-    nb[r][c] = playerWhoMoved;
+    const rbTrap = liveBoardMode === "6x6" && rb6SpecialCell && rb6SpecialCell.r === r && rb6SpecialCell.c === c;
+    const stoneOwner = rbTrap ? rb6SpecialCell!.owner : playerWhoMoved;
+    nb[r][c] = stoneOwner;
     const newMoves = currentMoves + 1;
     let newExtra = currentExtra, nextPlayer: string = "P1";
     const skipC7 = liveBoardMode === "7x7" && suppressCenterOpening;
-    if (!skipC7 && newMoves === 1 && r === CENTER && c === CENTER) { nextPlayer = "P1"; newExtra = 2; }
+    const centerOpenBonus = liveBoardMode !== "6x6" && !skipC7 && newMoves === 1 && r === CENTER && c === CENTER;
+    if (centerOpenBonus) { nextPlayer = "P1"; newExtra = 2; }
     else if (newExtra > 0) { newExtra--; if (newExtra === 0) nextPlayer = "P1"; else nextPlayer = "P2"; }
     else { nextPlayer = "P1"; }
+    const patBot = stoneOwner === "P1" ? structuralPatternsP1Ref.current : structuralPatternsP2Ref.current;
     const result = liveBoardMode === "7x7"
-      ? checkWin7(nb, r, c, playerWhoMoved, newMoves, structuralPatternsP2)
-      : checkWin(nb, r, c, playerWhoMoved, newMoves);
+      ? checkWin7(nb, r, c, stoneOwner, newMoves, patBot)
+      : liveBoardMode === "6x6"
+        ? checkWin6(nb, r, c, stoneOwner, newMoves)
+        : checkWin(nb, r, c, stoneOwner, newMoves);
     setBoard(nb); setMovesPlayed(newMoves); addLog(r, c, playerWhoMoved);
     if (result) { setExtraTurns(0); setWinLine(result.line); setWinner(result.winner); }
     else { setExtraTurns(newExtra); setCurrent(nextPlayer); }
@@ -1790,7 +1887,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   const place = async (r: number, c: number) => {
     if (phase !== "playing" || board[r][c] || winner || loading) return;
     if (gameMode === "ai" && current === "P2") return;
-    if (c3Blocked && movesPlayed === 0 && r === CENTER && c === CENTER) return;
+    if (c3Blocked && movesPlayed === 0 && r === CENTER && c === CENTER && liveBoardMode !== "6x6") return;
     if (isMultiplayerGame) {
       if (current !== mySlot) return;
       if (wsRef.current?.readyState !== WebSocket.OPEN) return;
@@ -1802,16 +1899,23 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     setLoading(true);
     const playerWhoMoved = current;
     const nb = board.map(row => [...row]);
-    nb[r][c] = playerWhoMoved;
+    const rbTrap = liveBoardMode === "6x6" && rb6SpecialCell && rb6SpecialCell.r === r && rb6SpecialCell.c === c;
+    const stoneOwner = rbTrap ? rb6SpecialCell!.owner : playerWhoMoved;
+    nb[r][c] = stoneOwner;
     const newMoves = movesPlayed + 1;
     let newExtra = extraTurns, nextPlayer = current;
     const skipC7 = liveBoardMode === "7x7" && suppressCenterOpening;
-    if (!skipC7 && newMoves === 1 && r === CENTER && c === CENTER) { nextPlayer = current === "P1" ? "P2" : "P1"; newExtra = 2; }
+    const centerOpenBonus = liveBoardMode !== "6x6" && !skipC7 && newMoves === 1 && r === CENTER && c === CENTER;
+    if (centerOpenBonus) { nextPlayer = current === "P1" ? "P2" : "P1"; newExtra = 2; }
     else if (newExtra > 0) { newExtra--; if (newExtra === 0) nextPlayer = current === "P1" ? "P2" : "P1"; }
     else { nextPlayer = current === "P1" ? "P2" : "P1"; }
     if (c3Blocked && newMoves === 1) setC3Blocked(false);
-    const pat7 = playerWhoMoved === "P1" ? structuralPatternsP1 : structuralPatternsP2;
-    const result = liveBoardMode === "7x7" ? checkWin7(nb, r, c, playerWhoMoved, newMoves, pat7) : checkWin(nb, r, c, playerWhoMoved, newMoves);
+    const pat7 = stoneOwner === "P1" ? structuralPatternsP1 : structuralPatternsP2;
+    const result = liveBoardMode === "7x7"
+      ? checkWin7(nb, r, c, stoneOwner, newMoves, pat7)
+      : liveBoardMode === "6x6"
+        ? checkWin6(nb, r, c, stoneOwner, newMoves)
+        : checkWin(nb, r, c, stoneOwner, newMoves);
     setBoard(nb); setMovesPlayed(newMoves); addLog(r, c, playerWhoMoved);
     if (result) { setExtraTurns(0); setWinLine(result.line); setWinner(result.winner); }
     else { setExtraTurns(newExtra); setCurrent(nextPlayer); }
@@ -1947,6 +2051,20 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     }
   }, [isMultiplayerGame]);
 
+  const onGridBlockChoice = useCallback((r: number, c: number) => {
+    const chooser = R.current.rb6CellChooser;
+    if (!chooser) return;
+    setRb6SpecialCell({ r, c, owner: chooser });
+    if (R.current.winnerPickedRule === "timer_half") {
+      // Own-cell branch: loser still chooses who starts after special-cell selection.
+      setPhase("who_first_loser");
+      return;
+    }
+    // Choose-first branch: first-player choice is already locked; go straight to summary.
+    setSummaryTimer(5);
+    setPhase("toss_summary");
+  }, []);
+
   const onLeftAction = useCallback(() => {
     const p = R.current.phase; const tw = R.current.tossWinner; const tl = tw === "P1" ? "P2" : "P1";
     if (p === "rule_choice") {
@@ -1961,19 +2079,49 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
           rbHideBannedPatternFromSlot: tw,
           rbPatternsPreBan: pre,
         });
-      } else {
+      } else if (is6x6 && tw) {
+        setWinnerPickedRule("timer_half");
+        setRb6TimerOwner(tw);
+        setRb6CellChooser(tw);
+        setPhase("grid_block_warning");
+        broadcastTossPhase("grid_block_warning", {
+          winnerPickedRule: "timer_half",
+          rb6TimerOwner: tw,
+          rb6CellChooser: tw,
+        });
+      } else if (!is7x7 && !is6x6) {
         setWinnerPickedRule("first"); setPhase("who_first_winner"); broadcastTossPhase("who_first_winner", { winnerPickedRule: "first" });
       }
     }
     else if (p === "who_first_winner") {
       setFirstPlayerChosen(tw); setWinnerPickedFirst(tw ?? null);
       if (is7x7) { setPhase("ban_pattern_loser"); broadcastTossPhase("ban_pattern_loser", { firstPlayerChosen: tw, winnerPickedFirst: tw }); }
-      else { setPhase("c3_choice_loser"); broadcastTossPhase("c3_choice_loser", { firstPlayerChosen: tw, winnerPickedFirst: tw }); }
+      else if (is6x6 && tw) {
+        const forcedOther = tw === "P1" ? "P2" : "P1";
+        setRb6TimerOwner(forcedOther);
+        setRb6CellChooser(forcedOther);
+        setPhase("grid_block_selection");
+        broadcastTossPhase("grid_block_selection", {
+          firstPlayerChosen: tw,
+          winnerPickedFirst: tw,
+          rb6TimerOwner: forcedOther,
+          rb6CellChooser: forcedOther,
+          winnerPickedRule: "choose_first",
+        });
+      } else { setPhase("c3_choice_loser"); broadcastTossPhase("c3_choice_loser", { firstPlayerChosen: tw, winnerPickedFirst: tw }); }
+    }
+    else if (p === "grid_block_warning") {
+      setPhase("grid_block_selection");
+      broadcastTossPhase("grid_block_selection", {
+        rb6TimerOwner: R.current.rb6TimerOwner,
+        rb6CellChooser: R.current.rb6CellChooser,
+        winnerPickedRule: R.current.winnerPickedRule,
+      });
     }
     else if (p === "c3_choice") { setRbC3Blocked(true); setWinnerPickedC3(true); setPhase("who_first_loser"); broadcastTossPhase("who_first_loser", { rbC3Blocked: true, winnerPickedC3: true }); }
     else if (p === "c3_choice_loser") { setRbC3Blocked(true); setSummaryTimer(5); setPhase("toss_summary"); broadcastTossPhase("toss_summary", { rbC3Blocked: true, summaryTimer: 5 }); }
     else if (p === "who_first_loser") { setFirstPlayerChosen(tl); setSummaryTimer(5); setPhase("toss_summary"); broadcastTossPhase("toss_summary", { firstPlayerChosen: tl, summaryTimer: 5 }); }
-  }, [broadcastTossPhase, is7x7, liveSelectedPatterns]);
+  }, [broadcastTossPhase, is7x7, is6x6, liveSelectedPatterns]);
 
   const onRightAction = useCallback(() => {
     const p = R.current.phase; const tw = R.current.tossWinner; const tl = tw === "P1" ? "P2" : "P1";
@@ -1989,18 +2137,33 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
           rbHideBannedPatternFromSlot: tl,
           rbPatternsPreBan: pre,
         });
-      }
-      else if (!is7x7) { setWinnerPickedRule("c3"); setPhase("c3_choice"); broadcastTossPhase("c3_choice", { winnerPickedRule: "c3" }); }
+      } else if (is6x6 && tw) {
+        setWinnerPickedRule("choose_first");
+        setPhase("who_first_winner");
+        broadcastTossPhase("who_first_winner", { winnerPickedRule: "choose_first" });
+      } else if (!is7x7 && !is6x6) { setWinnerPickedRule("c3"); setPhase("c3_choice"); broadcastTossPhase("c3_choice", { winnerPickedRule: "c3" }); }
     }
     else if (p === "who_first_winner") {
       setFirstPlayerChosen(tl); setWinnerPickedFirst(tl ?? null);
       if (is7x7) { setPhase("ban_pattern_loser"); broadcastTossPhase("ban_pattern_loser", { firstPlayerChosen: tl, winnerPickedFirst: tl }); }
-      else { setPhase("c3_choice_loser"); broadcastTossPhase("c3_choice_loser", { firstPlayerChosen: tl, winnerPickedFirst: tl }); }
+      else if (is6x6 && tw) {
+        const forcedOther = tw === "P1" ? "P2" : "P1";
+        setRb6TimerOwner(forcedOther);
+        setRb6CellChooser(forcedOther);
+        setPhase("grid_block_selection");
+        broadcastTossPhase("grid_block_selection", {
+          firstPlayerChosen: tl,
+          winnerPickedFirst: tl,
+          rb6TimerOwner: forcedOther,
+          rb6CellChooser: forcedOther,
+          winnerPickedRule: "choose_first",
+        });
+      } else { setPhase("c3_choice_loser"); broadcastTossPhase("c3_choice_loser", { firstPlayerChosen: tl, winnerPickedFirst: tl }); }
     }
     else if (p === "c3_choice") { setRbC3Blocked(false); setWinnerPickedC3(false); setPhase("who_first_loser"); broadcastTossPhase("who_first_loser", { rbC3Blocked: false, winnerPickedC3: false }); }
     else if (p === "c3_choice_loser") { setRbC3Blocked(false); setSummaryTimer(5); setPhase("toss_summary"); broadcastTossPhase("toss_summary", { rbC3Blocked: false, summaryTimer: 5 }); }
     else if (p === "who_first_loser") { setFirstPlayerChosen(tw); setSummaryTimer(5); setPhase("toss_summary"); broadcastTossPhase("toss_summary", { firstPlayerChosen: tw, summaryTimer: 5 }); }
-  }, [broadcastTossPhase, is7x7, liveSelectedPatterns]);
+  }, [broadcastTossPhase, is7x7, is6x6, liveSelectedPatterns]);
 
   const onBanPattern = useCallback((patternName: string) => {
     const p = R.current.phase;
@@ -2085,7 +2248,8 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
       {isGlacierBoard && <GlacierGridLines />}
       {board.map((row, r) => row.map((cell, c) => {
         const key = `${r}-${c}`;
-        const blk = c3Blocked && movesPlayed === 0 && r === CENTER && c === CENTER;
+        const blk = c3Blocked && movesPlayed === 0 && r === CENTER && c === CENTER && liveBoardMode !== "6x6";
+        const rb6SecretHint = liveBoardMode === "6x6" && rb6SpecialCell && rb6SpecialCell.r === r && rb6SpecialCell.c === c && current === rb6SpecialCell.owner && !cell;
         const isHov = hover === key && !cell && !winner && !blk && phase === "playing" && rulesShowSheet === null && !show7x7LevelUp && !rulesMatchGate;
         const isWin = winLine.some(([wr, wc]) => wr === r && wc === c);
         const ec = cell === "P1" ? p1c : p2c;
@@ -2094,7 +2258,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
         if (isIceBoard || isGlacierBoard) return (<IceCell key={key} cellSize={bigCs} player={cell} isWinCell={isWin} isHov={isHov} canPlay={canPlay} blk={blk} useFlameSkull={useFlameSkull} useSnowflakeShard={useSnowflakeShard} useGlacierSigils={useGlacierSigils} pieceSymbols={pieceSymbols} p1c={p1c} p2c={p2c} fontDisplay={t.fontDisplay} onClick={() => placeRef.current(r, c)} onMouseEnter={() => setHover(key)} onMouseLeave={() => setHover(null)} />);
         return (
           <div key={key} onClick={() => placeRef.current(r, c)} onMouseEnter={() => setHover(key)} onMouseLeave={() => setHover(null)} className={isWin ? "win-cell-pulse" : ""}
-            style={{ "--win-col": ec, width: bigCs, height: bigCs, background: blk ? `${t.danger}18` : isWin ? `${ec}28` : isHov ? `${cc}22` : t.boardBg, border: `2px solid ${blk ? t.danger : isWin ? ec : isHov ? cc : t.boardLine}`, borderRadius: ip ? 0 : 4, display: "flex", alignItems: "center", justifyContent: "center", cursor: canPlay ? (isHov ? "grabbing" : "grab") : "default", fontSize: "clamp(24px,5.5vmin,58px)", fontFamily: t.fontDisplay, fontWeight: 700, color: ec, textShadow: isWin ? `0 0 20px ${ec}` : cell ? `0 0 14px ${ec}77` : "none", transition: "background 0.1s, border-color 0.1s", opacity: blk ? 0.4 : 1, boxShadow: isWin ? `0 0 8px ${ec}44` : isHov ? `inset 0 0 12px ${cc}22` : "none", willChange: isWin ? "auto" : canPlay ? "background, border-color" : "auto", position: "relative" } as React.CSSProperties}>
+            style={{ "--win-col": ec, width: bigCs, height: bigCs, background: blk ? `${t.danger}18` : isWin ? `${ec}28` : isHov ? `${cc}22` : t.boardBg, border: `2px solid ${blk ? t.danger : isWin ? ec : rb6SecretHint ? `${rb6SpecialCell!.owner === "P1" ? p1c : p2c}99` : isHov ? cc : t.boardLine}`, borderRadius: ip ? 0 : 4, display: "flex", alignItems: "center", justifyContent: "center", cursor: canPlay ? (isHov ? "grabbing" : "grab") : "default", fontSize: "clamp(24px,5.5vmin,58px)", fontFamily: t.fontDisplay, fontWeight: 700, color: ec, textShadow: isWin ? `0 0 20px ${ec}` : cell ? `0 0 14px ${ec}77` : "none", transition: "background 0.1s, border-color 0.1s", opacity: blk ? 0.4 : 1, boxShadow: isWin ? `0 0 8px ${ec}44` : rb6SecretHint ? `0 0 14px ${rb6SpecialCell!.owner === "P1" ? p1c : p2c}55` : isHov ? `inset 0 0 12px ${cc}22` : "none", willChange: isWin ? "auto" : canPlay ? "background, border-color" : "auto", position: "relative" } as React.CSSProperties}>
             {cell && useFlameSkull && cell === "P1" && <Flame cssSize="55%" />}
             {cell && useFlameSkull && cell === "P2" && <Skull cssSize="55%" />}
             {cell && useSnowflakeShard && cell === "P1" && <SnowflakePiece cssSize="55%" />}
@@ -2110,7 +2274,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     // recompute when board, hover, win state, or skin changes — NOT on timer ticks
     // eslint-disable-next-line react-hooks/exhaustive-deps
   ), [board, hover, winLine, winner, phase, c3Blocked, movesPlayed, bigCs,
-    p1c, p2c, cc, isRedBoard, isIceBoard, isGlacierBoard, useFlameSkull, useSnowflakeShard, useGlacierSigils,
+    p1c, p2c, cc, current, liveBoardMode, rb6SpecialCell, isRedBoard, isIceBoard, isGlacierBoard, useFlameSkull, useSnowflakeShard, useGlacierSigils,
     rulesShowSheet, show7x7LevelUp, rulesMatchGate]);
 
   const [rulesGateDontShowAgain, setRulesGateDontShowAgain] = useState(false);
@@ -2170,7 +2334,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   );
 
 
-  const rbPhases: Phase[] = ["rb_splash", "rb_coin", "rule_choice", "who_first_winner", "c3_choice", "c3_choice_loser", "who_first_loser", "ban_pattern_winner", "ban_pattern_loser", "toss_summary", "rb_initializing"];
+  const rbPhases: Phase[] = ["rb_splash", "rb_coin", "rule_choice", "who_first_winner", "c3_choice", "c3_choice_loser", "who_first_loser", "ban_pattern_winner", "ban_pattern_loser", "grid_block_warning", "grid_block_selection", "toss_summary", "rb_initializing"];
   const rbOverlay = rbPhases.includes(phase) && (
       <RulebreakerFlow
         phase={phase} t={t} ip={ip} p1c={p1c} p2c={p2c}
@@ -2180,13 +2344,15 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
         summaryTimer={summaryTimer} firstPlayerChosen={firstPlayerChosen} rbC3Blocked={rbC3Blocked}
         choiceTimer={choiceTimer} isMultiplayerGame={isMultiplayerGame} mySlot={mySlot}
         winnerPickedRule={winnerPickedRule} winnerPickedFirst={winnerPickedFirst} winnerPickedC3={winnerPickedC3}
+        rb6TimerOwner={rb6TimerOwner} rb6CellChooser={rb6CellChooser}
         botPickedSide={botPickedSide}
         gameMode={gameMode}
         p1Label={p1Label} p2Label={p2Label}
         wraithKingToss={wraithKingTossActive}
         rbCoinPendingResult={rbCoinPendingResult}
         onLeftAction={onLeftAction} onRightAction={onRightAction} fmtSecAction={fmtSecAction}
-        is7x7={is7x7} selectedPatterns={liveSelectedPatterns} rbBannedPattern={rbBannedPattern} onBanPattern={onBanPattern}
+        is7x7={is7x7} is6x6={is6x6} selectedPatterns={liveSelectedPatterns} rbBannedPattern={rbBannedPattern} onBanPattern={onBanPattern}
+        onGridBlockChoice={onGridBlockChoice}
         graphicsQuality={graphicsQuality}
       />
   );
@@ -2547,7 +2713,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
 
         {/* Turn indicator */}
         <div style={{ position: "absolute", bottom: 52, left: 0, right: 0, zIndex: 10, display: "flex", flexDirection: "column", alignItems: "center", gap: 5, pointerEvents: "none" }}>
-          {phase === "playing" && movesPlayed === 0 && !(liveBoardMode === "7x7" && suppressCenterOpening) && (
+          {phase === "playing" && movesPlayed === 0 && !(liveBoardMode === "7x7" && suppressCenterOpening) && liveBoardMode !== "6x6" && (
             <div style={{ fontFamily: t.fontMono, fontSize: 10, letterSpacing: "0.06em", background: c3Blocked ? `${t.danger}18` : `${t.gold}18`, border: `1px solid ${c3Blocked ? t.danger : t.gold}44`, borderRadius: 6, padding: "3px 12px", color: c3Blocked ? t.danger : t.gold }}>
               {c3Blocked ? "✕ Center blocked" : "★ Center → opponent gets 2 extra turns"}
             </div>
@@ -2742,7 +2908,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
         phase={phase} winner={winner} current={current} gameNumber={gameNumber}
         matchHistory={displayMatchHistory} seriesWinner={seriesWinner} matchOver={matchOver}
         gameMode={gameMode} isRankedGame={isRankedGame} isMultiplayerGame={isMultiplayerGame}
-        isMultiplayer={isMultiplayer} mySlot={mySlot}
+        isMultiplayer={isMultiplayerGame} mySlot={mySlot}
         boardMode={liveBoardMode} selectedPatterns={sidebarPatternList} rbBannedPattern={sidebarRbBannedPattern} patternsAsSecret={patternsSidebarSecret}
         p1SeriesPts={isMultiplayerGame ? p1SeriesPts : undefined} p2SeriesPts={isMultiplayerGame ? p2SeriesPts : undefined}
         p1Time={p1Time} p2Time={p2Time} readyTimeout={readyTimeout}
@@ -2782,7 +2948,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
       {/* BOARD */}
       <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 10, padding: "10px 0", minWidth: 0 }}>
         <div style={{ height: 36, display: "flex", alignItems: "center", justifyContent: "center", gap: 16, width: "100%", position: "relative", paddingLeft: "2%" }}>
-          <div style={{ fontFamily: t.fontMono, fontSize: 11, letterSpacing: "0.08em", background: c3Blocked ? `${t.danger}10` : `${t.gold}10`, border: `1px solid ${c3Blocked ? t.danger : t.gold}33`, borderRadius: 6, padding: "3px 14px", color: c3Blocked ? t.danger : t.gold, flexShrink: 0, visibility: phase === "playing" && movesPlayed === 0 && !(liveBoardMode === "7x7" && suppressCenterOpening) ? "visible" : "hidden", opacity: phase === "playing" && movesPlayed === 0 && !(liveBoardMode === "7x7" && suppressCenterOpening) ? 1 : 0, transition: "opacity 0.4s ease", pointerEvents: "none" }}>
+          <div style={{ fontFamily: t.fontMono, fontSize: 11, letterSpacing: "0.08em", background: c3Blocked ? `${t.danger}10` : `${t.gold}10`, border: `1px solid ${c3Blocked ? t.danger : t.gold}33`, borderRadius: 6, padding: "3px 14px", color: c3Blocked ? t.danger : t.gold, flexShrink: 0, visibility: phase === "playing" && movesPlayed === 0 && !(liveBoardMode === "7x7" && suppressCenterOpening) && liveBoardMode !== "6x6" ? "visible" : "hidden", opacity: phase === "playing" && movesPlayed === 0 && !(liveBoardMode === "7x7" && suppressCenterOpening) && liveBoardMode !== "6x6" ? 1 : 0, transition: "opacity 0.4s ease", pointerEvents: "none" }}>
             {c3Blocked ? "✕ Center (C3) is blocked this game" : "★ Playing center gives opponent 2 extra turns"}
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 20px", background: `${winner ? winnerColor : cc}14`, border: `${ip ? 3 : 1}px solid ${winner ? winnerColor : cc}`, borderRadius: ip ? 2 : 24, transition: "background 0.25s, border-color 0.25s", flexShrink: 0 }}>

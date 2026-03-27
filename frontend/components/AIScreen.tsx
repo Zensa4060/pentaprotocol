@@ -15,9 +15,9 @@ interface Props {
 }
 
 const DIFFICULTIES: { id: Difficulty; label: string; sub: string; color: string }[] = [
-  { id: "easy",   label: "EASY",   sub: "Random moves — great for learning the rules",      color: "#22C55E" },
+  { id: "easy", label: "EASY", sub: "Random moves — great for learning the rules", color: "#22C55E" },
   { id: "medium", label: "MEDIUM", sub: "Strategic play — a fair challenge for most players", color: "#EAB308" },
-  { id: "hard",   label: "HARD",   sub: "Elite AI — deep search, near-perfect play",          color: "#EF4444" },
+  { id: "hard", label: "HARD", sub: "Elite AI — deep search, near-perfect play", color: "#EF4444" },
   { id: "danger", label: "DANGER", sub: "Extreme AI — threat detection, fork search, nearly unbeatable (7×7 only)", color: "#9333EA" },
 ];
 
@@ -26,32 +26,32 @@ const PATTERN_INFO: Record<PatternName7, { label: string; desc: string; cells: [
   Y: {
     label: "Y-SHAPE",
     desc: "Diagonal stem splitting into a fork — a branching Y",
-    cells: [[0,0],[1,1],[2,2],[2,3],[2,4],[3,1],[4,0]],
+    cells: [[0, 0], [1, 1], [2, 2], [2, 3], [2, 4], [3, 1], [4, 0]],
   },
   L: {
     label: "L-SHAPE",
     desc: "A vertical bar turning 90° into a horizontal bar",
-    cells: [[0,0],[0,1],[0,2],[0,3],[1,3],[2,3],[3,3]],
+    cells: [[0, 0], [0, 1], [0, 2], [0, 3], [1, 3], [2, 3], [3, 3]],
   },
   W: {
     label: "W-SHAPE",
     desc: "Alternating diagonal zigzag forming a W wave",
-    cells: [[0,0],[1,1],[2,2],[3,1],[4,2],[5,1],[6,0]],
+    cells: [[0, 0], [1, 1], [2, 2], [3, 1], [4, 2], [5, 1], [6, 0]],
   },
   V: {
     label: "V-SHAPE",
     desc: "Diagonal descent and ascent — a wide V chevron",
-    cells: [[0,0],[1,1],[2,2],[3,3],[4,2],[5,1],[6,0]],
+    cells: [[0, 0], [1, 1], [2, 2], [3, 3], [4, 2], [5, 1], [6, 0]],
   },
   C: {
     label: "C-SHAPE",
     desc: "Open bracket — two horizontal bars with a left spine",
-    cells: [[0,0],[0,1],[0,2],[1,0],[2,0],[1,2],[2,2]],
+    cells: [[0, 0], [0, 1], [0, 2], [1, 0], [2, 0], [1, 2], [2, 2]],
   },
   zigzag: {
     label: "ZIGZAG",
     desc: "Sharp alternating steps — teeth of a saw",
-    cells: [[0,0],[1,1],[2,0],[3,1],[4,0],[5,1],[6,0]],
+    cells: [[0, 0], [1, 1], [2, 0], [3, 1], [4, 0], [5, 1], [6, 0]],
   },
 };
 
@@ -166,7 +166,7 @@ export default function AIScreen({ setScreenAction, themeId, onSelectDifficultyA
           </div>
 
           <div style={{ fontFamily: t.fontBody, fontSize: 16, color: t.textMuted, textAlign: "center", maxWidth: 440 }}>
-            Choose your board size
+            CHOOSE YOUR PROTOCOL
           </div>
 
           <div style={{ display: "flex", flexDirection: "column", gap: 14, width: "100%", maxWidth: 480 }}>

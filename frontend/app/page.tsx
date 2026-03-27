@@ -115,7 +115,7 @@ export default function Page() {
     const savedPats = sessionStorage.getItem("pp_selectedPatterns");
     const savedGraphics = localStorage.getItem("pp_graphics_quality");
 
-    if (savedBoard === "5x5" || savedBoard === "7x7") setBoardMode(savedBoard);
+    if (savedBoard === "5x5" || savedBoard === "7x7" || savedBoard === "6x6") setBoardMode(savedBoard);
     if (savedGraphics === "low" || savedGraphics === "balanced" || savedGraphics === "ultra") {
       setGraphicsQuality(savedGraphics);
     }

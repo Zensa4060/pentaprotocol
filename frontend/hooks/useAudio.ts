@@ -121,8 +121,8 @@ export function useAudio() {
       return;
     }
 
-    const STEPS = 30;
-    const INTERVAL = 40;
+    const STEPS = 8;
+    const INTERVAL = 20;
 
     const old = audioRef.current;
     const downStep = old ? old.volume / STEPS : 0;
