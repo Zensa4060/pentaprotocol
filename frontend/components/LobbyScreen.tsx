@@ -47,6 +47,7 @@ export default function LobbyScreen({
   const [localPhase, setLocalPhase] = useState<Phase>("select");
   const [showUnrankedOptions, setShowUnrankedOptions] = useState(false);
   const [showRankedOptions, setShowRankedOptions] = useState(false);
+  const [showCustomOptions, setShowCustomOptions] = useState(false);
   const phase: Phase = forcedPhase !== "none" ? forcedPhase : (propQueuePhase !== "none" ? propQueuePhase : localPhase);
 
   const elapsed = propQueuePhase === "queuing" ? propQueueElapsed : 0;
@@ -517,7 +518,7 @@ export default function LobbyScreen({
           {roomSection === "none" && (
             <div style={{ display:"flex", flexDirection:"column", gap:10, marginTop:"auto", width:"100%", animation:"fadeUp 0.28s cubic-bezier(.22,.68,0,1.2) both" }}>
               <button
-                onClick={() => { setRoomSection("create"); setRoomError(null); }}
+                onClick={() => { setShowCustomOptions(true); setRoomError(null); }}
                 onMouseEnter={e => { onHoverAction?.(); e.currentTarget.style.borderColor=t.accent; e.currentTarget.style.color=t.accent; }}
                 onMouseLeave={e => { e.currentTarget.style.borderColor=t.border; e.currentTarget.style.color=t.textMuted; }}
                 style={{ width:"100%", padding:"16px", background:"transparent", border:`2px solid ${t.border}`, borderRadius:ip?2:8, color:t.textMuted, fontFamily:t.fontDisplay, fontSize:14, fontWeight:700, cursor:"pointer", letterSpacing:"0.08em", transition:"all 0.22s" }}
@@ -576,12 +577,12 @@ export default function LobbyScreen({
             gap: 16, width: "100%", maxWidth: 800,
           }}>
             {[
-              { id: "5x5", label: "5 × 5", sub: "Standard Rulebreak grid", color: "#60A8FF" },
-              { id: "6x6", label: "6 × 6", sub: "Timebomb protocol", color: "#A78BFA", comingSoon: true },
-              { id: "7x7", label: "7 × 7", sub: "Mindlock advanced grid", color: "#FF6B35" },
-              { id: "5x5_7x7", label: "5x5 + 7x7", sub: "Classic Rulebreaker flow", color: "#22C55E", current: true },
-              { id: "5x5_6x6", label: "5x5 + 6x6", sub: "Hybrid progression", color: "#F472B6", comingSoon: true },
-              { id: "6x6_7x7", label: "6x6 + 7x7", sub: "Elite progression", color: "#FBBF24", comingSoon: true },
+              { id: "5x5", label: "5 × 5", sub: "Standard Rulebreak grid" },
+              { id: "6x6", label: "6 × 6", sub: "Timebomb protocol", comingSoon: true },
+              { id: "7x7", label: "7 × 7", sub: "Mindlock advanced grid" },
+              { id: "5x5_7x7", label: "5x5 + 7x7", sub: "Classic Rulebreaker flow", current: true },
+              { id: "5x5_6x6", label: "5x5 + 6x6", sub: "Hybrid progression", comingSoon: true },
+              { id: "6x6_7x7", label: "6x6 + 7x7", sub: "Elite progression", comingSoon: true },
             ].map((opt, i) => (
               <button
                 key={opt.id}
@@ -593,30 +594,30 @@ export default function LobbyScreen({
                 }}
                 className={`protocol-card ${opt.comingSoon ? "coming-soon" : ""}`}
                 style={{
-                  background: t.bgCard, border: `2px solid ${opt.comingSoon ? "rgba(255,255,255,0.05)" : opt.color + "44"}`,
+                  background: t.bgCard, border: `2px solid ${opt.comingSoon ? "rgba(255,255,255,0.05)" : "rgba(255,255,255,0.15)"}`,
                   borderRadius: ip ? 2 : 16, padding: "24px 28px", textAlign: "left",
                   cursor: opt.comingSoon ? "not-allowed" : "pointer",
                   transition: "all 0.2s ease-out",
                   position: "relative", overflow: "hidden",
-                  ["--hover-color" as any]: opt.color,
+                  ["--hover-color" as any]: "#ffffff",
                 } as any}
               >
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
-                  <div style={{ fontFamily: t.fontDisplay, fontSize: 22, fontWeight: 800, color: opt.comingSoon ? t.textMuted : opt.color }}>
+                  <div style={{ fontFamily: t.fontDisplay, fontSize: 22, fontWeight: 800, color: opt.comingSoon ? t.textMuted : "#fff" }}>
                     {opt.label}
                   </div>
                   {opt.comingSoon && (
                     <div style={{ background: "rgba(255,255,255,0.1)", color: "#fff", fontSize: 10, padding: "2px 8px", borderRadius: 4, fontFamily: t.fontMono }}>COMING SOON</div>
                   )}
                   {opt.current && (
-                    <div style={{ background: `${opt.color}22`, color: opt.color, fontSize: 10, padding: "2px 8px", borderRadius: 4, fontFamily: t.fontMono, border: `1px solid ${opt.color}44` }}>RECOMMENDED</div>
+                    <div style={{ background: `rgba(255,255,255,0.1)`, color: "#fff", fontSize: 10, padding: "2px 8px", borderRadius: 4, fontFamily: t.fontMono, border: `1px solid rgba(255,255,255,0.2)` }}>RECOMMENDED</div>
                   )}
                 </div>
                 <div style={{ fontFamily: t.fontBody, fontSize: 14, color: t.textMuted, opacity: 0.8 }}>
                   {opt.sub}
                 </div>
                 {!opt.comingSoon && (
-                  <div style={{ position: "absolute", bottom: 0, left: 0, height: 3, width: "100%", background: `linear-gradient(90deg, transparent, ${opt.color}, transparent)`, opacity: 0.4 }} />
+                  <div style={{ position: "absolute", bottom: 0, left: 0, height: 3, width: "100%", background: `linear-gradient(90deg, transparent, #fff, transparent)`, opacity: 0.3 }} />
                 )}
               </button>
             ))}
@@ -690,6 +691,80 @@ export default function LobbyScreen({
 
           <button
             onClick={() => setShowRankedOptions(false)}
+            style={{
+              marginTop: 48, background: "transparent", border: "none", color: t.textMuted,
+              fontFamily: t.fontDisplay, fontSize: 14, cursor: "pointer", letterSpacing: "0.2em", fontWeight: 700
+            }}
+          >
+            CANCEL SELECTION
+          </button>
+        </div>
+      )}
+
+      {/* Custom Room Options Overlay */}
+      {showCustomOptions && (
+        <div style={{
+          position: "fixed", inset: 0, zIndex: 10000, background: "rgba(0,0,0,0.98)",
+          display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 24,
+        }}>
+          <div style={{
+            fontFamily: t.fontDisplay, fontSize: 36, fontWeight: 900, color: "#fff",
+            marginBottom: 32, letterSpacing: "0.1em", textAlign: "center", textShadow: `0 0 40px rgba(255,255,255,0.3)`
+          }}>
+            CREATE CUSTOM ROOM
+          </div>
+
+          <div style={{
+            display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(2, 1fr)",
+            gap: 16, width: "100%", maxWidth: 800,
+          }}>
+            {[
+              { id: "5x5", label: "5 × 5", sub: "Standard Rulebreak grid" },
+              { id: "6x6", label: "6 × 6", sub: "Timebomb protocol", comingSoon: true },
+              { id: "7x7", label: "7 × 7", sub: "Mindlock advanced grid" },
+              { id: "5x5_7x7", label: "5x5 + 7x7", sub: "Classic Rulebreaker flow", current: true },
+            ].map((opt, i) => (
+              <button
+                key={opt.id}
+                disabled={opt.comingSoon}
+                onClick={() => {
+                  onBoardModeAction?.(opt.id.split("_")[0]);
+                  setRoomSection("create");
+                  setShowCustomOptions(false);
+                }}
+                className={`protocol-card ${opt.comingSoon ? "coming-soon" : ""}`}
+                style={{
+                  background: t.bgCard, border: `2px solid ${opt.comingSoon ? "rgba(255,255,255,0.05)" : "rgba(255,255,255,0.15)"}`,
+                  borderRadius: ip ? 2 : 16, padding: "24px 28px", textAlign: "left",
+                  cursor: opt.comingSoon ? "not-allowed" : "pointer",
+                  transition: "all 0.2s ease-out",
+                  position: "relative", overflow: "hidden",
+                  ["--hover-color" as any]: "#ffffff",
+                } as any}
+              >
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
+                  <div style={{ fontFamily: t.fontDisplay, fontSize: 22, fontWeight: 800, color: opt.comingSoon ? t.textMuted : "#fff" }}>
+                    {opt.label}
+                  </div>
+                  {opt.comingSoon && (
+                    <div style={{ background: "rgba(255,255,255,0.1)", color: "#fff", fontSize: 10, padding: "2px 8px", borderRadius: 4, fontFamily: t.fontMono }}>COMING SOON</div>
+                  )}
+                  {opt.current && (
+                    <div style={{ background: `rgba(255,255,255,0.1)`, color: "#fff", fontSize: 10, padding: "2px 8px", borderRadius: 4, fontFamily: t.fontMono, border: `1px solid rgba(255,255,255,0.2)` }}>RECOMMENDED</div>
+                  )}
+                </div>
+                <div style={{ fontFamily: t.fontBody, fontSize: 14, color: t.textMuted, opacity: 0.8 }}>
+                  {opt.sub}
+                </div>
+                {!opt.comingSoon && (
+                  <div style={{ position: "absolute", bottom: 0, left: 0, height: 3, width: "100%", background: `linear-gradient(90deg, transparent, #fff, transparent)`, opacity: 0.3 }} />
+                )}
+              </button>
+            ))}
+          </div>
+
+          <button
+            onClick={() => setShowCustomOptions(false)}
             style={{
               marginTop: 48, background: "transparent", border: "none", color: t.textMuted,
               fontFamily: t.fontDisplay, fontSize: 14, cursor: "pointer", letterSpacing: "0.2em", fontWeight: 700

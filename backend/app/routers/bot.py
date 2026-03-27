@@ -275,6 +275,19 @@ class BotEngine6:
         self.tt = {}
         self.history = [0] * (GRID6 * GRID6)
         self.zobrist = [[random.getrandbits(64) for _ in range(3)] for _ in range(GRID6 * GRID6)]
+        
+        # Pattern indexing for fast eval (similar to 7x7)
+        self.cell_pats = [[] for _ in range(GRID6 * GRID6)]
+        self._build_pattern_index()
+
+    def _build_pattern_index(self):
+        for pid, pattern in enumerate(self.patterns):
+            max_r = max(dr for dr, _ in pattern); max_c = max(dc for _, dc in pattern)
+            for br in range(GRID6 - max_r):
+                for bc in range(GRID6 - max_c):
+                    cells = tuple( (br+dr)*GRID6 + (bc+dc) for dr, dc in pattern )
+                    for idx in cells:
+                        self.cell_pats[idx].append((pid, cells))
 
     def choose(self, board_2d, bot, human, difficulty):
         board = [None] * (GRID6 * GRID6)
@@ -316,6 +329,83 @@ class BotEngine6:
         move_idx = self._idab(board, zhash, bot, human, depth, budget, empties)
         return _rc6(move_idx)
 
+    def _largest_connected6(self, board, player):
+        visited = [False] * (GRID6 * GRID6)
+        best = 0
+        for i in range(GRID6 * GRID6):
+            if board[i] != player or visited[i]: continue
+            size = 0
+            q = [i]
+            visited[i] = True
+            while q:
+                ci = q.pop(0)
+                size += 1
+                r, c = ci // GRID6, ci % GRID6
+                for dr, dc in [(0,1),(1,0),(0,-1),(-1,0),(1,1),(1,-1),(-1,1),(-1,-1)]:
+                    nr, nc = r+dr, c+dc
+                    ni = nr * GRID6 + nc
+                    if 0<=nr<GRID6 and 0<=nc<GRID6 and board[ni] == player and not visited[ni]:
+                        visited[ni] = True
+                        q.append(ni)
+            if size > best: best = size
+        return best
+
+    def _eval_6x6(self, board, root_bot, moves_played):
+        score = 0
+        opp = "P2" if root_bot == "P1" else "P1"
+        
+        # 1. Line Progress (Synced with Rust weights)
+        for dr, dc in [(0,1),(1,0),(1,1),(1,-1)]:
+            for r in range(GRID6):
+                for c in range(GRID6):
+                    if r+5*dr>=GRID6 or c+5*dc>=GRID6 or c+5*dc<0: continue
+                    m, o = 0, 0
+                    for k in range(6):
+                        v = board[(r+k*dr)*GRID6 + (c+k*dc)]
+                        if v == root_bot: m += 1
+                        elif v == opp: o += 1
+                    if m>0 and o==0: score += (m**4) * 24
+                    elif o>0 and m==0: score -= (o**4) * 34
+        
+        # 2. Pattern Progress (ZZ, L, T, etc.)
+        seen_p = set()
+        for i in range(GRID6 * GRID6):
+            if board[i] is None: continue
+            for pid, cells in self.cell_pats[i]:
+                if (pid, cells[0]) in seen_p: continue
+                seen_p.add((pid, cells[0]))
+                m, o = 0, 0
+                for ci in cells:
+                    v = board[ci]
+                    if v == root_bot: m += 1
+                    elif v == opp: o += 1
+                if m>0 and o==0: score += (m**4) * 44
+                elif o>0 and m==0: score -= (o**4) * 62
+
+        # 3. Connectivity (The 15-cell rule - crucial parity)
+        m_conn = self._largest_connected6(board, root_bot)
+        o_conn = self._largest_connected6(board, opp)
+        if m_conn >= 15 and o_conn < 15: score += 500000
+        elif o_conn >= 15 and m_conn < 15: score -= 700000
+        else:
+            weight = 4.0 + (moves_played / 36.0) * 14.0
+            score += int((m_conn - o_conn) * weight * 10) # Scaled for integer math roughly
+
+        # 4. Center Bias
+        center_pts = [
+            0,0,0,0,0,0,
+            0,1,1,1,1,0,
+            0,1,2,2,1,0,
+            0,1,2,2,1,0,
+            0,1,1,1,1,0,
+            0,0,0,0,0,0
+        ]
+        for i in range(GRID6 * GRID6):
+            if board[i] == root_bot: score += center_pts[i] * 5
+            elif board[i] == opp: score -= center_pts[i] * 5
+
+        return score
+
     def _idab(self, board, zhash, bot, human, max_d, budget, empties):
         deadline = time.monotonic() + budget
         best_mv = empties[0]
@@ -353,7 +443,7 @@ class BotEngine6:
             return -(1000000 + depth)
         
         if depth == 0:
-            return _eval_flat(board, root_bot, self.patterns, GRID6) if cur == root_bot else -_eval_flat(board, root_bot, self.patterns, GRID6)
+            return self._eval_6x6(board, root_bot, sum(1 for v in board if v is not None)) if cur == root_bot else -self._eval_6x6(board, root_bot, sum(1 for v in board if v is not None))
 
         if zhash in self.tt:
             d, v, f = self.tt[zhash]
