@@ -144,21 +144,12 @@ export default function HomeScreen({ setScreenAction, themeId, onHoverAction, on
   return (
     <div style={{
       position: "fixed", inset: 0, zIndex: 2, overflowY: "auto",
-      background: themeId === "pixel" ? "url(/bg-pixel.png) center/cover no-repeat" : isSp ? "url(/bg-earth.png) center/cover no-repeat" : t.bg,
+      background: themeId === "pixel" ? "url(/bg-pixel.png) center/cover no-repeat" : t.bg,
       display: "flex", flexDirection: "column",
       alignItems: "center", justifyContent: "center",
       padding: outerPadding, gap: outerGap,
       transition: "background 0.4s",
     }}>
-
-      {/* ── Darkening overlay ── */}
-      {isSp && (
-        <div style={{
-          position: "fixed", inset: 0,
-          background: "rgba(0, 4, 20, 0.50)",
-          pointerEvents: "none", zIndex: 1,
-        }} />
-      )}
 
       {/* ── Main content ── */}
       <div style={{

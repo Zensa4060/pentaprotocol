@@ -63,7 +63,8 @@ interface Props {
 const PACKAGES = [
   { id: "starter", credits: 100,  price: 49,  bonus: 0,   label: "STARTER", popular: false, desc: "Try it out" },
   { id: "plus",    credits: 500,  price: 199, bonus: 50,  label: "PLUS",    popular: true,  desc: "Most popular" },
-  { id: "pro",     credits: 1200, price: 399, bonus: 200, label: "PRO",     popular: false, desc: "Best value" },
+  { id: "pro",     credits: 1000, price: 399, bonus: 150, label: "PRO",     popular: false, desc: "Best value" },
+  { id: "mega",    credits: 2000, price: 599, bonus: 400, label: "MEGA",    popular: false, desc: "Heavy unlocks" },
   { id: "elite",   credits: 3000, price: 799, bonus: 600, label: "ELITE",   popular: false, desc: "Power user" },
 ];
 const SHARD_PACKAGES = PACKAGES.map((p) => ({
