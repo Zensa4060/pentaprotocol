@@ -86,14 +86,20 @@ def generate_all_patterns_7(selected_ids=None):
         names = PATTERN_NAMES_7
     else:
         names = []
+        # Ensure we have a case-insensitive lookup
+        lookup = {n.lower(): n for n in PATTERN_NAMES_7}
         for sid in selected_ids:
             if isinstance(sid, int):
-                names.append(PATTERN_NAMES_7[sid])
-            else:
-                names.append(sid)
+                if 0 <= sid < len(PATTERN_NAMES_7):
+                    names.append(PATTERN_NAMES_7[sid])
+            elif isinstance(sid, str):
+                s = sid.strip().lower()
+                if s in lookup:
+                    names.append(lookup[s])
 
     patterns = []
     for name in names:
-        base = BASE_PATTERNS_7[name]
-        patterns.extend(generate_variants_7(base))
+        if name in BASE_PATTERNS_7:
+            base = BASE_PATTERNS_7[name]
+            patterns.extend(generate_variants_7(base))
     return patterns

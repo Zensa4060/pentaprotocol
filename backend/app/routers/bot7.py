@@ -18,6 +18,7 @@ router = APIRouter()
 GRID = 7
 ALL_RC = [(r, c) for r in range(GRID) for c in range(GRID)]
 CENTER = 3
+CENTER_IDX = CENTER * GRID + CENTER # 24
 DIRS4 = [(0, 1), (1, 0), (1, 1), (1, -1)]
 ALL_DIRS = [(0, 1), (1, 0), (1, 1), (1, -1), (0, -1), (-1, 0), (-1, -1), (-1, 1)]
 INF = 10**9

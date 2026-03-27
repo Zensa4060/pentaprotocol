@@ -39,7 +39,13 @@ async def force_cors_headers(request: Request, call_next):
     origin = request.headers.get("origin", "")
     try:
         response = await call_next(request)
-    except Exception:
+    except Exception as e:
+        # Don't catch HTTPExceptions here as they should be handled by FastAPI
+        from starlette.exceptions import HTTPException as StarletteHTTPException
+        if isinstance(e, StarletteHTTPException):
+            raise e
+        import traceback
+        traceback.print_exc()
         response = JSONResponse({"detail": "Internal server error"}, status_code=500)
     if origin in ALLOWED_ORIGINS:
         response.headers["Access-Control-Allow-Origin"] = origin
@@ -51,16 +57,19 @@ async def force_cors_headers(request: Request, call_next):
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
-    origin = request.headers.get("origin", "")
-    headers = {}
-    if origin in ALLOWED_ORIGINS:
-        headers["Access-Control-Allow-Origin"] = origin
-        headers["Access-Control-Allow-Credentials"] = "true"
-    return JSONResponse(
-        status_code=500,
-        content={"detail": "Internal server error"},
-        headers=headers,
-    )
+    from starlette.exceptions import HTTPException as StarletteHTTPException
+    if isinstance(exc, StarletteHTTPException):
+        # Let FastAPI's default handler handle it (or just return it)
+        return await http_exception_handler(request, exc)
+
+    import traceback
+    traceback.print_exc()
+    headers = {
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "*",
+        "Access-Control-Allow-Headers": "*",
+    }
+    return JSONResponse(status_code=500, content={"detail": "Internal server error"}, headers=headers)
 
 @app.options("/{rest_of_path:path}")
 async def preflight_handler(request: Request, rest_of_path: str):

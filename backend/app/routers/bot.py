@@ -299,9 +299,20 @@ class BotEngine6:
         for i in empties:
             if self._wins6_idx(board, i, human): return _rc6(i)
 
-        # Iterative Search
-        depth = 4 if difficulty == "normal" else (6 if difficulty == "hard" else 8)
-        budget = 1.0 if difficulty == "normal" else 2.5
+        if difficulty == "easy":
+            return _rc6(random.choice(empties))
+
+        # Iterative Deepening Alpha-Beta Search
+        budget = None # Will be set based on difficulty
+        if difficulty == "normal":
+            depth, budget = 4, 1.0
+        elif difficulty == "medium":
+            depth, budget = 5, 1.5
+        elif difficulty == "hard":
+            depth, budget = 6, 2.5
+        else: # machine_god or default
+            depth, budget = 8, 4.0
+        
         move_idx = self._idab(board, zhash, bot, human, depth, budget, empties)
         return _rc6(move_idx)
 
@@ -571,6 +582,7 @@ def bot_move(req: BotMoveRequest):
     global _ENGINE7_NEW, _LAST_PATS7_NEW, _DANGER_ENG, _DANGER_PATS
     global _RUST_HARD_ENG, _RUST_HARD_PATS, _RUST_DANGER_ENG, _RUST_DANGER_PATS
     global _RUST_NORMAL6_ENG, _RUST_HARD6_ENG, _RUST_GOD6_ENG, _RUST_6_PATS
+    global _PYTHON_6_ENG, _PYTHON_6_PATS
     def normalize(cell): return None if cell in [None, "null", ""] else cell
     board = [[normalize(cell) for cell in row] for row in req.board]
     if len(board) >= 7 and len(board[0]) >= 7:
@@ -619,8 +631,8 @@ def bot_move(req: BotMoveRequest):
         pat_key6 = tuple(tuple(p) for p in pats6)
         bot = req.current_player
         human = "P2" if bot == "P1" else "P1"
-        diff6 = (req.difficulty or "").lower()
-        valid6 = {"normal", "hard", "machine_god"}
+        diff6 = (req.difficulty or "normal").lower()
+        valid6 = {"easy", "normal", "medium", "hard", "machine_god", "danger"}
 
         if diff6 not in valid6:
             raise HTTPException(
