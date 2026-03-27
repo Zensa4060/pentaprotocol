@@ -1283,14 +1283,14 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     // Cosmetic delay before calling API (server search unchanged). DANGER 7×7: extra minimum
     // “think” time for the bot’s first two moves so it doesn’t feel instant vs HARD.
     const delays: Record<string, number> = {
-      easy: 400,
-      medium: 850,
+      easy: 0,
+      medium: 0,
       hard: 0,
       danger: 0,
-      normal: 250,
+      normal: 0,
       machine_god: 0,
     };
-    const delay = delays[difficulty] ?? 850;
+    const delay = delays[difficulty] ?? 0;
 
     setBotThinking(true);
 
@@ -1301,11 +1301,6 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
         let p2Stones = 0;
         for (const row of b) for (const cell of row) if (cell === "P2") p2Stones++;
         const is77 = liveBoardMode === "7x7" || b?.length === 7;
-        const needMinDangerThink =
-          difficulty === "danger" && is77 && p2Stones < 2;
-        const dangerMinThinkMs = 1000;
-
-        const t0 = Date.now();
         const res = await API.post("/api/bot/move", {
           board: b, difficulty, current_player: "P2",
           board_mode: liveBoardMode || (b?.length === 7 ? "7x7" : "5x5"),
@@ -1316,12 +1311,6 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
         if (cancelled) return;
         botApiRetryAfterRef.current = 0;
         botApiWarnedRef.current = false;
-        if (needMinDangerThink) {
-          const elapsed = Date.now() - t0;
-          if (elapsed < dangerMinThinkMs) {
-            await new Promise<void>(r => setTimeout(r, dangerMinThinkMs - elapsed));
-          }
-        }
         if (cancelled) return;
         const { row, col } = res.data ?? res;
         if (typeof row === "number" && typeof col === "number") {
