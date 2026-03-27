@@ -15,15 +15,15 @@ interface Props {
 }
 
 const DIFFICULTIES: { id: Difficulty; label: string; sub: string; color: string }[] = [
-  { id: "easy", label: "NORMAL", sub: "Random moves — great for learning the rules", color: "#22C55E" },
-  { id: "medium", label: "HARD", sub: "Strategic play — a fair challenge for most players", color: "#EAB308" },
-  { id: "hard", label: "INSANE", sub: "Elite AI — deep search, near-perfect play", color: "#EF4444" },
-  { id: "danger", label: "MACHINE GOD", sub: "Extreme AI — threat detection, fork search, nearly unbeatable (7×7 only)", color: "#9333EA" },
+  { id: "easy", label: "NORMAL", sub: "great for learning the rules", color: "#22C55E" },
+  { id: "medium", label: "HARD", sub: "a fair challenge for most players", color: "#FF0" },
+  { id: "hard", label: "INSANE", sub: "near-perfect play", color: "#700B0B" },
+  { id: "danger", label: "ANAMOLY", sub: "???????", color: "#CC0000" },
 ];
 const DIFFICULTIES_6X6: { id: Difficulty; label: string; sub: string; color: string }[] = [
-  { id: "normal", label: "NORMAL", sub: "Balanced Rust AI for standard 6x6 play", color: "#38BDF8" },
-  { id: "hard", label: "HARD", sub: "Stronger search depth with faster tactical punish", color: "#F97316" },
-  { id: "machine_god", label: "MACHINE GOD", sub: "Maximum 6x6 strength - deepest Rust search tier", color: "#9333EA" },
+  { id: "normal", label: "NORMAL", sub: "standard 6x6 play", color: "#FF0" },
+  { id: "hard", label: "HARD", sub: "Stronger search depth", color: "#000FFF" },
+  { id: "machine_god", label: "ANAMOLY", sub: "??????", color: "#CC0000" },
 ];
 
 // Pattern descriptions & mini-grid diagrams for the 6 special 7×7 patterns
@@ -156,6 +156,18 @@ export default function AIScreen({ setScreenAction, themeId, onSelectDifficultyA
     }}>
       <style>{`
         @keyframes cardFadeUp { from{opacity:0;transform:translateY(18px)} to{opacity:1;transform:translateY(0)} }
+        .ai-card { will-change: transform; transition: all 0.3s cubic-bezier(.22,.68,0,1.2) !important; }
+        .ai-card:hover {
+          transform: translateY(-4px) scale(1.02) !important;
+          box-shadow: 0 16px 48px var(--hover-glow) !important;
+          background: linear-gradient(145deg, var(--hover-bg), var(--card-bg)) !important;
+        }
+        .ai-card.selected {
+          border-color: var(--hover-color) !important;
+          background: linear-gradient(145deg, var(--hover-bg), var(--card-bg)) !important;
+          transform: translateY(-4px) scale(1.02);
+          box-shadow: 0 16px 48px var(--hover-glow);
+        }
       `}</style>
 
       {/* ── STEP 1: Board Mode Selection ── */}
@@ -178,7 +190,7 @@ export default function AIScreen({ setScreenAction, themeId, onSelectDifficultyA
 
           <div style={{ display: "flex", flexDirection: "column", gap: 14, width: "100%", maxWidth: 480 }}>
             {(["5x5", "6x6", "7x7"] as BoardMode[]).map((mode, i) => {
-              const isHov = boardMode === mode && hovered !== null;
+              const isSelected = boardMode === mode;
               const modeColor = mode === "5x5" ? "#60A8FF" : mode === "6x6" ? "#A78BFA" : "#FF6B35";
               return (
                 <button
@@ -191,19 +203,19 @@ export default function AIScreen({ setScreenAction, themeId, onSelectDifficultyA
                       setStep("difficulty");
                     }
                   }}
-                  onMouseEnter={() => { onHoverAction?.(); setBoardMode(mode); setHovered("easy"); }}
-                  onMouseLeave={() => setHovered(null)}
+                  className={`ai-card ${isSelected ? "selected" : ""}`}
                   style={{
-                    background: boardMode === mode ? `linear-gradient(145deg, ${modeColor}18, ${t.bgCard})` : t.bgCard,
-                    border: `2px solid ${boardMode === mode ? modeColor : t.border}`,
+                    background: t.bgCard,
+                    border: `2px solid ${t.border}`,
                     borderRadius: ip ? 2 : 16,
                     padding: ip ? "28px 24px" : "32px 28px",
                     cursor: "pointer", textAlign: "left",
-                    transition: "all 0.3s cubic-bezier(.22,.68,0,1.2)",
-                    transform: boardMode === mode ? "translateY(-4px) scale(1.02)" : "translateY(0) scale(1)",
-                    boxShadow: boardMode === mode ? `0 16px 48px ${modeColor}22` : "none",
                     animation: `cardFadeUp 0.45s cubic-bezier(.22,.68,0,1.2) ${i * 0.08}s both`,
-                  }}
+                    ["--hover-color" as any]: modeColor,
+                    ["--hover-bg" as any]: `${modeColor}18`,
+                    ["--hover-glow" as any]: `${modeColor}22`,
+                    ["--card-bg" as any]: t.bgCard,
+                  } as any}
                 >
                   <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
                     <div style={{
@@ -212,7 +224,7 @@ export default function AIScreen({ setScreenAction, themeId, onSelectDifficultyA
                     }} />
                     <div style={{
                       fontFamily: t.fontDisplay, fontSize: ip ? 20 : 26, fontWeight: 700,
-                      color: boardMode === mode ? modeColor : t.text, transition: "color 0.2s", letterSpacing: "0.06em",
+                      color: isSelected ? modeColor : t.text, transition: "color 0.2s", letterSpacing: "0.06em",
                     }}>
                       {mode === "5x5" ? "5 × 5 RULEBREAK" : mode === "6x6" ? "6 × 6 TIMEBOMB" : "7 × 7 MINDLOCK"}
                     </div>
@@ -402,25 +414,24 @@ export default function AIScreen({ setScreenAction, themeId, onSelectDifficultyA
               ? DIFFICULTIES_6X6
               : DIFFICULTIES.filter(d => d.id !== "danger" || boardMode === "7x7")
             ).map((d, i) => {
-              const isHov = hovered === d.id;
               return (
                 <button
                   key={d.id}
                   onClick={() => handleSelect(d.id)}
-                  onMouseEnter={() => { onHoverAction?.(); setHovered(d.id); }}
-                  onMouseLeave={() => setHovered(null)}
+                  className="ai-card"
                   style={{
                     flex: 1, minWidth: 200,
-                    background: isHov ? `linear-gradient(145deg, ${d.color}18, ${t.bgCard})` : t.bgCard,
-                    border: `2px solid ${isHov ? d.color : t.border}`,
+                    background: t.bgCard,
+                    border: `2px solid ${t.border}`,
                     borderRadius: ip ? 2 : 16,
                     padding: ip ? "36px 24px" : "40px 28px",
                     cursor: "pointer", textAlign: "left",
-                    transition: "all 0.3s cubic-bezier(.22,.68,0,1.2)",
-                    transform: isHov ? "translateY(-4px) scale(1.02)" : "translateY(0) scale(1)",
-                    boxShadow: isHov ? `0 16px 48px ${d.color}22` : "none",
                     animation: `cardFadeUp 0.45s cubic-bezier(.22,.68,0,1.2) ${i * 0.08}s both`,
-                  }}
+                    ["--hover-color" as any]: d.color,
+                    ["--hover-bg" as any]: `${d.color}18`,
+                    ["--hover-glow" as any]: `${d.color}22`,
+                    ["--card-bg" as any]: t.bgCard,
+                  } as any}
                 >
                   <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
                     <div style={{
@@ -429,7 +440,7 @@ export default function AIScreen({ setScreenAction, themeId, onSelectDifficultyA
                     }} />
                     <div style={{
                       fontFamily: t.fontDisplay, fontSize: ip ? 18 : 22, fontWeight: 700,
-                      color: isHov ? d.color : t.text, transition: "color 0.2s", letterSpacing: "0.06em",
+                      color: t.text, transition: "color 0.2s", letterSpacing: "0.06em",
                     }}>
                       {d.label}
                     </div>

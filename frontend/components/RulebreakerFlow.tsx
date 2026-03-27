@@ -123,12 +123,14 @@ export function RulebreakerFlow({
       { l: "96%", t: "52%", s: 440, d: 0.32 },
     ];
     const mindSlashesAll = [
-      { l: "8%", t: "18%", w: 48, h: 420, rot: -35, d: 0.12 },
-      { l: "24%", t: "72%", w: 38, h: 380, rot: 28, d: 0.24 },
-      { l: "38%", t: "30%", w: 44, h: 460, rot: -22, d: 0.36 },
-      { l: "54%", t: "82%", w: 50, h: 400, rot: 31, d: 0.48 },
-      { l: "70%", t: "26%", w: 42, h: 430, rot: -27, d: 0.6 },
-      { l: "84%", t: "74%", w: 36, h: 360, rot: 24, d: 0.72 },
+      { l: "5%", t: "15%", w: 120, h: 1200, rot: -45, d: 0.05 },
+      { l: "25%", t: "85%", w: 100, h: 1100, rot: 35, d: 0.15 },
+      { l: "45%", t: "25%", w: 110, h: 1300, rot: -25, d: 0.25 },
+      { l: "65%", t: "75%", w: 130, h: 1250, rot: 40, d: 0.35 },
+      { l: "85%", t: "20%", w: 105, h: 1150, rot: -30, d: 0.45 },
+      { l: "95%", t: "50%", w: 115, h: 1200, rot: 15, d: 0.55 },
+      { l: "15%", t: "40%", w: 90, h: 1000, rot: 60, d: 0.12 },
+      { l: "75%", t: "60%", w: 95, h: 1050, rot: -65, d: 0.28 },
     ];
     const mainSplats = isFiveByFive
       ? (isLowGraphics ? rulebreakerSplatsAll.slice(0, 3) : isBalancedGraphics ? rulebreakerSplatsAll.slice(0, 4) : rulebreakerSplatsAll.slice(0, 6))
@@ -153,9 +155,38 @@ export function RulebreakerFlow({
       <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, zIndex: 10000, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: splashBg, userSelect: "none", gap: 0, overflow: "hidden" }}>
         <style>{`
           @keyframes rbLetterInSplash { from{opacity:0;transform:translateY(16px) scaleY(1.04)} to{opacity:1;transform:translateY(0) scaleY(1)} }
+          @keyframes rb3DPunchLetter {
+            0% { opacity: 0; transform: translateZ(600px) scale(0.4) rotateX(60deg); filter: blur(12px) brightness(3); }
+            45% { opacity: 1; transform: translateZ(-40px) scale(1.08) rotateX(-10deg); filter: blur(0px) brightness(1.5); }
+            100% { opacity: 1; transform: translateZ(0) scale(1) rotateX(0); filter: drop-shadow(0 0 20px var(--glow)); }
+          }
           @keyframes rbLineInSplash { from{opacity:0;transform:scaleX(0)} to{opacity:1;transform:scaleX(1)} }
           @keyframes rbCyanWash { 0%{opacity:0;transform:scale(0.92)} 35%{opacity:0.38} 100%{opacity:0.12;transform:scale(1)} }
           @keyframes rbCyanSplat { 0%{transform:translate(-50%,-50%) scale(0.2); opacity:0} 22%{opacity:0.9} 55%{transform:translate(-50%,-50%) scale(1.02); opacity:0.65} 100%{transform:translate(-50%,-50%) scale(1.18); opacity:0} }
+          @keyframes rbBloodDrip {
+            0% { transform: translateY(-160%) scaleY(1); opacity: 0; }
+            10% { opacity: 1; }
+            100% { transform: translateY(110vh) scaleY(1.5); opacity: 0.2; }
+          }
+          @keyframes rbBloodMelt {
+            0% { transform: translateY(-90%) scaleY(1); opacity: 0; }
+            5% { opacity: 0.9; }
+            100% { transform: translateY(0) scaleY(1); opacity: 0.95; }
+          }
+          @keyframes rbBloodFingerExpand {
+            0% { transform: scaleY(0); opacity: 0; }
+            10% { opacity: 1; }
+            100% { transform: scaleY(1); opacity: 0.98; }
+          }
+          @keyframes rbBloodSplatFade {
+            0% { transform: scale(0.2); opacity: 0; }
+            20% { opacity: 0.8; }
+            100% { transform: scale(1.1); opacity: 0; }
+          }
+          @keyframes rbMindPulseVignette {
+            0%, 100% { opacity: 0.5; filter: contrast(1); }
+            50% { opacity: 0.85; filter: contrast(1.6) brightness(0.8); }
+          }
           @keyframes rbMindSlashSweep { 0%{transform:translate(-50%,-50%) scaleY(0.2) scaleX(0.5) rotate(var(--rb-rot)); opacity:0} 22%{opacity:0.95} 58%{transform:translate(-50%,-50%) scaleY(1.08) scaleX(1.02) rotate(var(--rb-rot)); opacity:0.88} 100%{transform:translate(-50%,-50%) scaleY(1.22) scaleX(0.7) rotate(var(--rb-rot)); opacity:0} }
           @keyframes rbMindCoreSweep { 0%{transform:translate(-50%,-50%) scaleY(0.3) rotate(var(--rb-rot)); opacity:0} 18%{opacity:0.92} 100%{transform:translate(-50%,-50%) scaleY(1.1) rotate(var(--rb-rot)); opacity:0} }
           @keyframes rbMist { 0%{opacity:0; transform:translateX(-50%) translateY(16px) scale(0.98)} 22%{opacity:0.62} 100%{opacity:0; transform:translateX(-50%) translateY(-20px) scale(1.03)} }
@@ -165,7 +196,7 @@ export function RulebreakerFlow({
           @keyframes tbHandSlow { from { transform:translateX(-50%) rotate(0deg);} to { transform:translateX(-50%) rotate(360deg);} }
           @keyframes tbVignetteBreath { 0%,100%{opacity:0.15;} 50%{opacity:0.32;} }
         `}</style>
-        <div style={{ position: "absolute", inset: 0, background: splashVignette, opacity: 0.72 }} />
+        <div style={{ position: "absolute", inset: 0, background: splashVignette, opacity: 0.72, animation: !isFiveByFive && !isSixBySixRb ? "rbMindPulseVignette 2s ease-in-out infinite" : "none" }} />
 
         {/* Full-screen splash overlay (2D — avoids perspective + preserve-3d cost) */}
         <div style={{ position: "absolute", inset: 0, pointerEvents: "none", contain: "strict" }}>
@@ -191,16 +222,19 @@ export function RulebreakerFlow({
               }}
             />
           )}
-          {isFiveByFive && mainSplats.map((b, i) => (
-            <div key={i} style={{
-              position: "absolute", left: b.l, top: b.t, width: b.s, height: b.s,
-              borderRadius: "54% 46% 58% 42% / 52% 48% 54% 46%",
-              background: `radial-gradient(circle, ${splashGlow} 0%, ${splashMid} 40%, rgba(0,0,0,0) 74%)`,
-              filter: "none",
-              transform: "translate(-50%,-50%) scale(0.2)",
-              opacity: 0,
-              animation: `rbCyanSplat 1.55s cubic-bezier(.32,.72,.22,1) ${b.d}s both`,
-            }} />
+          {isFiveByFive && Array.from({ length: 22 }).map((_, i) => (
+            <div key={`drip-${i}`} style={{
+              position: "absolute",
+              left: `${(i * 4.6) + Math.random() * 3}%`,
+              top: -160,
+              width: 8,
+              height: 180 + Math.random() * 100,
+              willChange: "transform",
+              animation: `rbBloodDrip ${0.5 + Math.random() * 0.3}s cubic-bezier(.45, 0, .55, 1) ${i * 0.03}s infinite`,
+            }}>
+              <div style={{ position: "absolute", top: 0, left: 2, width: 4, height: "100%", background: `linear-gradient(to bottom, transparent, ${splashColor})`, borderRadius: "4px" }} />
+              <div style={{ position: "absolute", bottom: 0, left: 0, width: 8, height: 12, borderRadius: "50% 50% 50% 50% / 60% 60% 40% 40%", background: splashColor, boxShadow: `0 0 12px ${splashGlow}` }} />
+            </div>
           ))}
           {isSixBySixRb && (
             <>
@@ -230,38 +264,61 @@ export function RulebreakerFlow({
             </>
           )}
 
-          {!isFiveByFive && !isSixBySixRb && mindSlashes.map((sl, i) => (
-            <div key={`ms${i}`} style={{ position: "absolute", left: sl.l, top: sl.t }}>
+          {/* Mindbreaker cascade (Bleeding Screen Effect) */}
+          {!isFiveByFive && !isSixBySixRb && (
+            <div style={{ position: "absolute", inset:0, pointerEvents: "none" }}>
+              {/* Top Blood Pool */}
               <div style={{
-                position: "absolute",
-                left: "50%",
-                top: "50%",
-                width: sl.w,
-                height: sl.h,
-                ["--rb-rot" as string]: `${sl.rot}deg`,
-                transform: `translate(-50%,-50%) rotate(${sl.rot}deg)`,
-                borderRadius: "70% 30% 60% 40% / 8% 12% 88% 92%",
-                background: "linear-gradient(to bottom, rgba(160,20,20,0) 0%, rgba(185,28,28,0.92) 16%, rgba(120,10,10,0.96) 48%, rgba(50,0,0,0.45) 100%)",
-                filter: isLowGraphics ? "none" : "blur(0.2px)",
-                boxShadow: isLowGraphics ? "none" : "0 0 16px rgba(127,0,0,0.42), 0 10px 18px rgba(0,0,0,0.38)",
-                opacity: 0,
-                animation: `rbMindSlashSweep 1.78s cubic-bezier(.25,.75,.2,1) ${sl.d}s both`,
-              } as React.CSSProperties} />
-              <div style={{
-                position: "absolute",
-                left: "50%",
-                top: "50%",
-                width: Math.max(6, Math.floor(sl.w * 0.26)),
-                height: Math.max(80, Math.floor(sl.h * 0.74)),
-                ["--rb-rot" as string]: `${sl.rot}deg`,
-                transform: `translate(-50%,-50%) rotate(${sl.rot}deg)`,
-                borderRadius: "999px",
-                background: "linear-gradient(to bottom, rgba(90,0,0,0) 0%, rgba(220,38,38,0.78) 22%, rgba(100,15,15,0.42) 78%, rgba(0,0,0,0) 100%)",
-                opacity: 0,
-                animation: `rbMindCoreSweep 1.5s cubic-bezier(.28,.7,.2,1) ${sl.d + 0.14}s both`,
-              } as React.CSSProperties} />
+                position: "absolute", top: 0, left: 0, width: "100%", height: 180,
+                background: "linear-gradient(to bottom, #7F1D1D 0%, #B91C1C 40%, transparent 100%)",
+                filter: "blur(4px)", opacity: 0.95,
+                willChange: "transform, opacity",
+                animation: "rbBloodMelt 6s cubic-bezier(0.12, 0, 0.39, 0) both"
+              }} />
+              
+              {/* Viscous Fingers */}
+              {Array.from({ length: 12 }).map((_, i) => (
+                <div key={`finger-${i}`} style={{
+                  position: "absolute", top: 0, 
+                  left: `${(i * 8.5) + Math.random() * 4}%`,
+                  width: 14 + Math.random() * 22,
+                  height: 480 + Math.random() * 400,
+                  transformOrigin: "top",
+                  background: `linear-gradient(to bottom, #991B1B 0%, #B91C1C 60%, transparent 100%)`,
+                  borderRadius: "0 0 16px 16px",
+                  opacity: 0.98,
+                  willChange: "transform, opacity",
+                  animation: `rbBloodFingerExpand ${6 + Math.random() * 3}s cubic-bezier(0.12, 0, 0.39, 0) ${i * 0.2}s both`
+                }}>
+                  {/* Internal spec highlight */}
+                  <div style={{ position: "absolute", top: "10%", left: 5, width: 3, height: "60%", background: "rgba(255,255,255,0.15)", borderRadius: "2px" }} />
+                  {/* Thick bulb at bottom of finger */}
+                  <div style={{ position: "absolute", bottom: 0, left: "5%", width: "90%", height: 32, borderRadius: "50%", background: "#B91C1C", boxShadow: "0 4px 12px rgba(0,0,0,0.4)" }} />
+                </div>
+              ))}
+
+              {/* Random Blood Splashes */}
+              {Array.from({ length: 8 }).map((_, i) => (
+                <div key={`splat-${i}`} style={{
+                  position: "absolute",
+                  left: `${Math.random() * 80 + 10}%`,
+                  top: `${Math.random() * 80 + 10}%`,
+                  width: 120 + Math.random() * 200,
+                  height: 120 + Math.random() * 150,
+                  background: `radial-gradient(circle, #B91C1C 0%, #7F1D1D 40%, transparent 70%)`,
+                  borderRadius: "50%",
+                  filter: "blur(8px)",
+                  opacity: 0,
+                  willChange: "transform, opacity",
+                  animation: `rbBloodSplatFade 4.5s ease-out ${1 + Math.random() * 2}s both`
+                }} />
+              ))}
+
+              {/* Aggressive Corner pooling */}
+              <div style={{ position:"absolute", top: -20, left: -40, width: 300, height: 300, borderRadius: "50%", background: "radial-gradient(circle at 30% 30%, #450A0A 0%, #B91C1C 60%, transparent 100%)", filter: "blur(10px)", opacity: 0.8, animation: "rbBloodMelt 2s both" }} />
+              <div style={{ position:"absolute", top: -20, right: -40, width: 300, height: 300, borderRadius: "50%", background: "radial-gradient(circle at 70% 30%, #450A0A 0%, #B91C1C 60%, transparent 100%)", filter: "blur(10px)", opacity: 0.8, animation: "rbBloodMelt 2s both" }} />
             </div>
-          ))}
+          )}
 
           {!isFiveByFive && !isSixBySixRb && (
             <div style={{
@@ -277,16 +334,22 @@ export function RulebreakerFlow({
 
         <div style={{ display: "flex", gap: ip ? 1 : 5, alignItems: "center", justifyContent: "center", position: "relative", zIndex: 2, maxWidth: "98vw", flexWrap: "wrap" }}>
           {splashTitle.split("").map((ch, i) => (
-            <div key={i} style={{ position: "relative", display: "inline-block" }}>
+            <div key={i} style={{ position: "relative", display: "inline-block", perspective: 1000 }}>
               <span style={{
                 fontFamily: t.fontDisplay, fontSize: "clamp(32px,6.2vw,108px)", fontWeight: 950,
                 color: splashColor,
                 textShadow: isLowGraphics
                   ? (isFiveByFive ? "0 0 14px rgba(0,0,0,0.42)" : isSixBySixRb ? "0 0 14px rgba(0,0,0,0.6), 0 0 16px rgba(167,139,250,0.5)" : "0 0 16px rgba(40,0,0,0.65)")
                   : `0 0 22px ${splashTitleGlow}, 0 8px 20px rgba(0,0,0,0.55)`,
-                letterSpacing: isFiveByFive || isSixBySixRb ? "0.01em" : "0.02em", display: "inline-block",
-                animation: `rbLetterInSplash 0.7s cubic-bezier(.33,.66,.2,1) ${i * 0.05}s both`,
-              }}>{ch}</span>
+                letterSpacing: "0.02em", display: "inline-block",
+                ["--glow" as any]: splashGlow,
+                willChange: "transform, opacity, filter",
+                animation: isFiveByFive 
+                  ? `rb3DPunchLetter 0.8s cubic-bezier(.16,1,0.3,1) ${i * 0.08}s both`
+                  : isSixBySixRb
+                    ? `rbLetterInSplash 0.7s cubic-bezier(.33,.66,.2,1) ${i * 0.05}s both`
+                    : `rbShatterIn 0.9s cubic-bezier(.16,1,0.3,1) ${i * 0.04}s both`,
+              } as any}>{ch}</span>
             </div>
           ))}
         </div>

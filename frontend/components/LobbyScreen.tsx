@@ -561,7 +561,7 @@ export default function LobbyScreen({
       {/* Unranked Options Overlay */}
       {showUnrankedOptions && (
         <div style={{
-          position: "fixed", inset: 0, zIndex: 10000, background: "rgba(0,0,0,0.95)", backdropFilter: "blur(20px)",
+          position: "fixed", inset: 0, zIndex: 10000, background: "rgba(0,0,0,0.98)",
           display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 24,
         }}>
           <div style={{
@@ -573,7 +573,7 @@ export default function LobbyScreen({
 
           <div style={{
             display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(2, 1fr)",
-            gap: 16, width: "100%", maxWidth: 800, perspective: "1000px",
+            gap: 16, width: "100%", maxWidth: 800,
           }}>
             {[
               { id: "5x5", label: "5 × 5", sub: "Standard Rulebreak grid", color: "#60A8FF" },
@@ -591,29 +591,15 @@ export default function LobbyScreen({
                   setMultiSub("unranked");
                   setShowUnrankedOptions(false);
                 }}
+                className={`protocol-card ${opt.comingSoon ? "coming-soon" : ""}`}
                 style={{
                   background: t.bgCard, border: `2px solid ${opt.comingSoon ? "rgba(255,255,255,0.05)" : opt.color + "44"}`,
                   borderRadius: ip ? 2 : 16, padding: "24px 28px", textAlign: "left",
                   cursor: opt.comingSoon ? "not-allowed" : "pointer",
-                  animation: `cardDistribute 0.5s cubic-bezier(.22,.68,0,1.2) ${i * 0.08}s both`,
-                  transition: "all 0.3s cubic-bezier(.22,.68,0,1.2)",
+                  transition: "all 0.2s ease-out",
                   position: "relative", overflow: "hidden",
-                  transformStyle: "preserve-3d",
-                }}
-                onMouseEnter={e => {
-                  if (!opt.comingSoon) {
-                    e.currentTarget.style.borderColor = opt.color;
-                    e.currentTarget.style.transform = "translateY(-4px) translateZ(20px)";
-                    e.currentTarget.style.boxShadow = `0 14px 40px ${opt.color}22`;
-                  }
-                }}
-                onMouseLeave={e => {
-                  if (!opt.comingSoon) {
-                    e.currentTarget.style.borderColor = opt.color + "44";
-                    e.currentTarget.style.transform = "translateY(0) translateZ(0)";
-                    e.currentTarget.style.boxShadow = "none";
-                  }
-                }}
+                  ["--hover-color" as any]: opt.color,
+                } as any}
               >
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
                   <div style={{ fontFamily: t.fontDisplay, fontSize: 22, fontWeight: 800, color: opt.comingSoon ? t.textMuted : opt.color }}>
@@ -651,7 +637,7 @@ export default function LobbyScreen({
       {/* Ranked Options Overlay */}
       {showRankedOptions && (
         <div style={{
-          position: "fixed", inset: 0, zIndex: 10000, background: "rgba(0,0,0,0.95)", backdropFilter: "blur(20px)",
+          position: "fixed", inset: 0, zIndex: 10000, background: "rgba(0,0,0,0.98)",
           display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 24,
         }}>
           <div style={{
@@ -663,7 +649,7 @@ export default function LobbyScreen({
 
           <div style={{
             display: "grid", gridTemplateColumns: "1fr",
-            gap: 16, width: "100%", maxWidth: 400, perspective: "1000px",
+            gap: 16, width: "100%", maxWidth: 400,
           }}>
             {[
               { id: "main", label: "MAIN PROTOCOL", sub: "5*5 + 6*6 + 7*7", color: t.gold, comingSoon: true },
@@ -674,29 +660,15 @@ export default function LobbyScreen({
                 onClick={() => {
                   // Not selectable for now
                 }}
+                className={`protocol-card ${opt.comingSoon ? "coming-soon" : ""}`}
                 style={{
                   background: t.bgCard, border: `2px solid ${opt.comingSoon ? "rgba(255,255,255,0.05)" : opt.color + "44"}`,
                   borderRadius: ip ? 2 : 16, padding: "32px 28px", textAlign: "left",
                   cursor: opt.comingSoon ? "not-allowed" : "pointer",
-                  animation: `cardDistribute 0.5s cubic-bezier(.22,.68,0,1.2) ${i * 0.08}s both`,
-                  transition: "all 0.3s cubic-bezier(.22,.68,0,1.2)",
+                  transition: "all 0.2s ease-out",
                   position: "relative", overflow: "hidden",
-                  transformStyle: "preserve-3d",
-                }}
-                onMouseEnter={e => {
-                  if (!opt.comingSoon) {
-                    e.currentTarget.style.borderColor = opt.color;
-                    e.currentTarget.style.transform = "translateY(-4px) translateZ(20px)";
-                    e.currentTarget.style.boxShadow = `0 14px 40px ${opt.color}22`;
-                  }
-                }}
-                onMouseLeave={e => {
-                  if (!opt.comingSoon) {
-                    e.currentTarget.style.borderColor = opt.color + "44";
-                    e.currentTarget.style.transform = "translateY(0) translateZ(0)";
-                    e.currentTarget.style.boxShadow = "none";
-                  }
-                }}
+                  ["--hover-color" as any]: opt.color,
+                } as any}
               >
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
                   <div style={{ fontFamily: t.fontDisplay, fontSize: 24, fontWeight: 800, color: opt.comingSoon ? t.textMuted : opt.color }}>
@@ -758,9 +730,11 @@ export default function LobbyScreen({
         @keyframes matchBarShrink { from{width:100%} to{width:0%} }
         @keyframes slideInLeft  { from{opacity:0;transform:translateX(-100px) scale(0.9)} to{opacity:1;transform:translateX(0) scale(1)} }
         @keyframes slideInRight { from{opacity:0;transform:translateX(100px) scale(0.9)}  to{opacity:1;transform:translateX(0) scale(1)} }
-        @keyframes cardDistribute {
-          0% { opacity: 0; transform: translateY(40px) scale(0.8) rotateX(-20deg); }
-          100% { opacity: 1; transform: translateY(0) scale(1) rotateX(0deg); }
+        .protocol-card { will-change: transform; }
+        .protocol-card:not(.coming-soon):hover {
+          border-color: var(--hover-color) !important;
+          transform: translateY(-4px);
+          box-shadow: 0 10px 40px rgba(0,0,0,0.6);
         }
       `}</style>
     </div>

@@ -132,6 +132,18 @@ export default function SingleplayerScreen({ setScreenAction, themeId, onHoverAc
     }}>
       <style>{`
         @keyframes cardFadeUp { from{opacity:0;transform:translateY(18px)} to{opacity:1;transform:translateY(0)} }
+        .sp-card { will-change: transform; transition: all 0.3s cubic-bezier(.22,.68,0,1.2) !important; }
+        .sp-card:hover {
+          transform: translateY(-4px) scale(1.02) !important;
+          box-shadow: 0 16px 48px var(--hover-glow) !important;
+          background: linear-gradient(145deg, var(--hover-bg), var(--card-bg)) !important;
+        }
+        .sp-card.selected {
+          border-color: var(--hover-color) !important;
+          background: linear-gradient(145deg, var(--hover-bg), var(--card-bg)) !important;
+          transform: translateY(-4px) scale(1.02);
+          box-shadow: 0 16px 48px var(--hover-glow);
+        }
       `}</style>
 
       {/* ── STEP 1: Board Mode Selection ── */}
@@ -155,7 +167,6 @@ export default function SingleplayerScreen({ setScreenAction, themeId, onHoverAc
           <div style={{ display: "flex", flexDirection: "column", gap: 14, width: "100%", maxWidth: 480 }}>
             {(["5x5", "6x6", "7x7"] as BoardMode[]).map((mode, i) => {
               const isSelected = boardMode === mode;
-              const isHov = hovered === mode;
               const modeColor = mode === "5x5" ? "#60A8FF" : mode === "6x6" ? "#A78BFA" : "#FF6B35";
               return (
                 <button
@@ -170,19 +181,19 @@ export default function SingleplayerScreen({ setScreenAction, themeId, onHoverAc
                       onBoardModeAction?.("5x5");
                     }
                   }}
-                  onMouseEnter={() => { onHoverAction?.(); setBoardMode(mode); setHovered(mode); }}
-                  onMouseLeave={() => setHovered(null)}
+                  className={`sp-card ${isSelected ? "selected" : ""}`}
                   style={{
-                    background: isSelected ? `linear-gradient(145deg, ${modeColor}18, ${t.bgCard})` : t.bgCard,
-                    border: `2px solid ${isSelected ? modeColor : t.border}`,
+                    background: t.bgCard,
+                    border: `2px solid ${t.border}`,
                     borderRadius: ip ? 2 : 16,
                     padding: ip ? "28px 24px" : "32px 28px",
                     cursor: "pointer", textAlign: "left",
-                    transition: "all 0.3s cubic-bezier(.22,.68,0,1.2)",
-                    transform: isSelected ? "translateY(-4px) scale(1.02)" : "translateY(0) scale(1)",
-                    boxShadow: isSelected ? `0 16px 48px ${modeColor}22` : "none",
                     animation: `cardFadeUp 0.45s cubic-bezier(.22,.68,0,1.2) ${i * 0.08}s both`,
-                  }}
+                    ["--hover-color" as any]: modeColor,
+                    ["--hover-bg" as any]: `${modeColor}18`,
+                    ["--hover-glow" as any]: `${modeColor}22`,
+                    ["--card-bg" as any]: t.bgCard,
+                  } as any}
                 >
                   <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
                     <div style={{
@@ -283,23 +294,21 @@ export default function SingleplayerScreen({ setScreenAction, themeId, onHoverAc
                 <button
                   key={name}
                   onClick={() => togglePattern(name)}
-                  onMouseEnter={() => { onHoverAction?.(); setHoveredPattern(name); }}
-                  onMouseLeave={() => setHoveredPattern(null)}
+                  className={`sp-card ${isSelected ? "selected" : ""}`}
                   style={{
-                    background: isSelected
-                      ? `linear-gradient(145deg, ${t.accent}1A, ${t.bgCard})`
-                      : t.bgCard,
-                    border: `2px solid ${isSelected ? t.accent : isHov ? `${t.accent}55` : t.border}`,
+                    background: t.bgCard,
+                    border: `2px solid ${t.border}`,
                     borderRadius: ip ? 2 : 14,
                     padding: "16px 14px",
                     cursor: selectedPatterns.size >= 6 && !isSelected ? "not-allowed" : "pointer",
                     textAlign: "left",
-                    transition: "all 0.25s cubic-bezier(.22,.68,0,1.2)",
-                    transform: isSelected ? "scale(1.03)" : isHov ? "scale(1.01)" : "scale(1)",
-                    boxShadow: isSelected ? `0 8px 32px ${t.accent}22` : "none",
-                    opacity: selectedPatterns.size >= 6 && !isSelected ? 0.5 : 1,
                     animation: `cardFadeUp 0.4s cubic-bezier(.22,.68,0,1.2) ${i * 0.06}s both`,
-                  }}
+                    ["--hover-color" as any]: t.accent,
+                    ["--hover-bg" as any]: `${t.accent}1A`,
+                    ["--hover-glow" as any]: `${t.accent}22`,
+                    ["--card-bg" as any]: t.bgCard,
+                    opacity: selectedPatterns.size >= 6 && !isSelected ? 0.5 : 1,
+                  } as any}
                 >
                   <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
                     <div style={{
