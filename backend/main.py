@@ -105,6 +105,11 @@ async def startup():
     db = get_db()
     # Auto-expire matchmaking queue entries after 60 seconds
     await db.matchmaking_queue.create_index("created_at", expireAfterSeconds=60)
+    try:
+        from app.routers.bot import _HAS_RUST as BOT_RUST_ACTIVE
+        print(f"Rust Engine Active: {BOT_RUST_ACTIVE}")
+    except Exception as e:
+        print(f"Rust Engine Active: unknown ({e})")
     
     # Optional: Print routes for debugging (handles both HTTP and WebSocket)
     try:

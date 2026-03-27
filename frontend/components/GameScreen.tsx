@@ -1279,6 +1279,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     const boardNow = boardRef.current;
     const is77Now = liveBoardMode === "7x7" || boardNow?.length === 7;
     const is66Now = liveBoardMode === "6x6" || boardNow?.length === 6;
+    const instantBotBoards = is66Now || is77Now;
     const isFastPath = !is77Now || is66Now;
     // Cosmetic delay before calling API (server search unchanged). DANGER 7×7: extra minimum
     // “think” time for the bot’s first two moves so it doesn’t feel instant vs HARD.
@@ -1317,14 +1318,14 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
           await placeBot(row, col);
         } else {
           // Recover from transient empty/null bot responses without deadlocking the AI turn.
-          botApiRetryAfterRef.current = Date.now() + (isFastPath ? 350 : 700);
+          botApiRetryAfterRef.current = Date.now() + (instantBotBoards ? 0 : (isFastPath ? 350 : 700));
           if (!botApiWarnedRef.current) {
             setLog(l => [...l.slice(-19), { text: "BOT returned no move. Retrying...", player: "BOT" }]);
             botApiWarnedRef.current = true;
           }
         }
       } catch (err) {
-        botApiRetryAfterRef.current = Date.now() + (isFastPath ? 350 : 2500);
+        botApiRetryAfterRef.current = Date.now() + (instantBotBoards ? 0 : (isFastPath ? 350 : 2500));
         if (!botApiWarnedRef.current) {
           setLog(l => [...l.slice(-19), { text: "BOT service unavailable. Retrying shortly...", player: "BOT" }]);
           botApiWarnedRef.current = true;
@@ -1342,8 +1343,9 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
       return () => { cancelled = true; clearTimeout(retryTimer); setBotThinking(false); };
     }
 
-    const timer = isFastPath ? null : setTimeout(runBotMove, delay);
-    if (isFastPath) {
+    const shouldRunNow = instantBotBoards || isFastPath;
+    const timer = shouldRunNow ? null : setTimeout(runBotMove, delay);
+    if (shouldRunNow) {
       runBotMove();
     }
 
