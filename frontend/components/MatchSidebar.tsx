@@ -690,8 +690,8 @@ export function LeftPanel(props: MatchSidebarProps) {
               ]
             : mode === "6x6"
               ? [
-                  { k: "Straight", v: "6" },
-                  { k: "Diagonal", v: "6" },
+                  { k: "Straight", v: "12" },
+                  { k: "Diagonal", v: "2" },
                   { k: "Connect Pts", v: "15" },
                 ]
               : [

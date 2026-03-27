@@ -95,7 +95,7 @@ export default function Page() {
   useEffect(() => { queuePlayerSlotRef.current = queuePlayerSlot; }, [queuePlayerSlot]);
 
   const getBgmCtx = (s: Screen, ranked: boolean, aiDiff: Difficulty): "lobby" | "game" | "ranked" => {
-    if (s === "aiGame") return aiDiff === "hard" || aiDiff === "danger" ? "ranked" : "game";
+    if (s === "aiGame") return aiDiff === "hard" || aiDiff === "danger" || aiDiff === "machine_god" ? "ranked" : "game";
     if (s === "game") return "game";
     if (s === "multiGame") return ranked ? "ranked" : "game";
     return "lobby";

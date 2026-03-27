@@ -1,8 +1,8 @@
 use crate::board::{tables, make, unmake, Board, CELLS, CENTER_IDX, INF};
-use crate::eval_danger::{eval_full_danger, evaluate, EvalContext};
+use crate::board::EvalContext;
+use crate::eval_danger::{eval_full_danger, evaluate};
 use crate::patterns::PatternIndex;
 use crate::wins::wins_at;
-use std::collections::HashMap;
 use std::time::Instant;
 
 const MAX_DEPTH: usize = 16;
@@ -192,14 +192,11 @@ impl DangerSearch {
             return 0;
         }
 
-        let key = (zhash, me);
         // TT probe
-        let mut tt_move = None;
         let tt_idx = (zhash as usize) & (TT_SIZE - 1);
         {
             let entry = &self.tt[tt_idx];
             if entry.zhash == zhash {
-                tt_move = entry.best_move;
                 if entry.depth >= depth {
                     match entry.flag {
                         TT_FLAG_EXACT => return entry.value,
@@ -242,10 +239,7 @@ impl DangerSearch {
             if wins_at(board, mv, me, pi) {
                 unmake(board, mv);
                 let val = INF - 1;
-                self.tt.insert(
-                    key,
-                    TTEntry { depth, value: val, flag: TT_FLAG_EXACT, best_move: Some(mv as u8) },
-                );
+                self.tt[tt_idx] = TTEntry { zhash, depth, value: val, flag: TT_FLAG_EXACT, best_move: Some(mv as u8) };
                 return val;
             }
 
@@ -282,7 +276,7 @@ impl DangerSearch {
             }
         }
 
-        self.tt.insert(key, TTEntry { depth, value: best_val, flag, best_move: best_mv });
+        self.tt[tt_idx] = TTEntry { zhash, depth, value: best_val, flag, best_move: best_mv };
         best_val
     }
 

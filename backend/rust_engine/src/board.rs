@@ -129,5 +129,3 @@ pub fn to_flat(board_2d: &[Vec<Option<String>>], bot: &str, human: &str) -> (Boa
     (flat, zhash)
 }
 
-}
-

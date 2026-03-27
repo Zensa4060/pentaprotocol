@@ -193,7 +193,7 @@ export default function SingleplayerScreen({ setScreenAction, themeId, onHoverAc
                       fontFamily: t.fontDisplay, fontSize: ip ? 20 : 26, fontWeight: 700,
                       color: isSelected ? modeColor : t.text, transition: "color 0.2s", letterSpacing: "0.06em",
                     }}>
-                      {mode === "5x5" ? "5 × 5 CLASSIC" : mode === "6x6" ? "6 × 6 ADVANCED" : "7 × 7 EXPANDED"}
+                      {mode === "5x5" ? "5 × 5 RULEBREAK" : mode === "6x6" ? "6 × 6 TIMEBOMB" : "7 × 7 MINDLOCK"}
                     </div>
                   </div>
                   <div style={{ fontFamily: t.fontBody, fontSize: ip ? 12 : 14, color: t.textMuted, lineHeight: 1.5 }}>

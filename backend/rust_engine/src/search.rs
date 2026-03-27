@@ -111,7 +111,7 @@ impl HardSearch {
             if wins_at(board, mv, me, pi) {
                 unmake(board, mv);
                 let val = INF - 1;
-                self.tt.insert(key, TTEntry { depth, value: val, flag: TT_FLAG_EXACT });
+                self.tt[tt_idx] = TTEntry { zhash, depth, value: val, flag: TT_FLAG_EXACT };
                 return val;
             }
 

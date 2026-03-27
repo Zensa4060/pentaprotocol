@@ -15,10 +15,15 @@ interface Props {
 }
 
 const DIFFICULTIES: { id: Difficulty; label: string; sub: string; color: string }[] = [
-  { id: "easy", label: "EASY", sub: "Random moves — great for learning the rules", color: "#22C55E" },
-  { id: "medium", label: "MEDIUM", sub: "Strategic play — a fair challenge for most players", color: "#EAB308" },
-  { id: "hard", label: "HARD", sub: "Elite AI — deep search, near-perfect play", color: "#EF4444" },
-  { id: "danger", label: "DANGER", sub: "Extreme AI — threat detection, fork search, nearly unbeatable (7×7 only)", color: "#9333EA" },
+  { id: "easy", label: "NORMAL", sub: "Random moves — great for learning the rules", color: "#22C55E" },
+  { id: "medium", label: "HARD", sub: "Strategic play — a fair challenge for most players", color: "#EAB308" },
+  { id: "hard", label: "INSANE", sub: "Elite AI — deep search, near-perfect play", color: "#EF4444" },
+  { id: "danger", label: "MACHINE GOD", sub: "Extreme AI — threat detection, fork search, nearly unbeatable (7×7 only)", color: "#9333EA" },
+];
+const DIFFICULTIES_6X6: { id: Difficulty; label: string; sub: string; color: string }[] = [
+  { id: "normal", label: "NORMAL", sub: "Balanced Rust AI for standard 6x6 play", color: "#38BDF8" },
+  { id: "hard", label: "HARD", sub: "Stronger search depth with faster tactical punish", color: "#F97316" },
+  { id: "machine_god", label: "MACHINE GOD", sub: "Maximum 6x6 strength - deepest Rust search tier", color: "#9333EA" },
 ];
 
 // Pattern descriptions & mini-grid diagrams for the 6 special 7×7 patterns
@@ -106,6 +111,8 @@ export default function AIScreen({ setScreenAction, themeId, onSelectDifficultyA
   const handleSelect = (d: Difficulty) => {
     if (boardMode === "7x7") {
       onBoardModeAction?.("7x7", Array.from(selectedPatterns));
+    } else if (boardMode === "6x6") {
+      onBoardModeAction?.("6x6");
     } else {
       onBoardModeAction?.("5x5");
     }
@@ -170,9 +177,9 @@ export default function AIScreen({ setScreenAction, themeId, onSelectDifficultyA
           </div>
 
           <div style={{ display: "flex", flexDirection: "column", gap: 14, width: "100%", maxWidth: 480 }}>
-            {(["5x5", "7x7"] as BoardMode[]).map((mode, i) => {
+            {(["5x5", "6x6", "7x7"] as BoardMode[]).map((mode, i) => {
               const isHov = boardMode === mode && hovered !== null;
-              const modeColor = mode === "5x5" ? "#60A8FF" : "#FF6B35";
+              const modeColor = mode === "5x5" ? "#60A8FF" : mode === "6x6" ? "#A78BFA" : "#FF6B35";
               return (
                 <button
                   key={mode}
@@ -207,13 +214,15 @@ export default function AIScreen({ setScreenAction, themeId, onSelectDifficultyA
                       fontFamily: t.fontDisplay, fontSize: ip ? 20 : 26, fontWeight: 700,
                       color: boardMode === mode ? modeColor : t.text, transition: "color 0.2s", letterSpacing: "0.06em",
                     }}>
-                      {mode === "5x5" ? "5 × 5 CLASSIC" : "7 × 7 EXPANDED"}
+                      {mode === "5x5" ? "5 × 5 RULEBREAK" : mode === "6x6" ? "6 × 6 TIMEBOMB" : "7 × 7 MINDLOCK"}
                     </div>
                   </div>
                   <div style={{ fontFamily: t.fontBody, fontSize: ip ? 12 : 14, color: t.textMuted, lineHeight: 1.5 }}>
                     {mode === "5x5"
-                      ? "Standard board — 5-in-a-line, V/L/W patterns, 10-cell chain"
-                      : "Larger board — 7-in-a-line, choose 5–6 of 6 special patterns, 20-cell chain"
+                      ? "Standard board - 5-in-a-line, V/L/W patterns, 10-cell chain"
+                      : mode === "6x6"
+                        ? "6-in-a-line + 15-cell chain with fixed A/ZZ/L/T patterns"
+                        : "Larger board - 7-in-a-line, choose 5-6 of 6 special patterns, 20-cell chain"
                     }
                   </div>
                 </button>
@@ -382,14 +391,17 @@ export default function AIScreen({ setScreenAction, themeId, onSelectDifficultyA
           </div>
 
           <div style={{ fontFamily: t.fontBody, fontSize: 16, color: t.textMuted, textAlign: "center", maxWidth: 440 }}>
-            <span style={{ color: boardMode === "7x7" ? "#FF6B35" : "#60A8FF", fontWeight: 700 }}>
-              {boardMode === "7x7" ? "7×7 EXPANDED" : "5×5 CLASSIC"}
+            <span style={{ color: boardMode === "7x7" ? "#FF6B35" : boardMode === "6x6" ? "#A78BFA" : "#60A8FF", fontWeight: 700 }}>
+              {boardMode === "7x7" ? "7x7 MINDLOCK" : boardMode === "6x6" ? "6x6 TIMEBOMB" : "5x5 RULEBREAK"}
             </span>
             {" · "}Choose your difficulty
           </div>
 
           <div style={{ display: "flex", flexDirection: "column", gap: 12, width: "100%", maxWidth: 480 }}>
-            {DIFFICULTIES.filter(d => d.id !== "danger" || boardMode === "7x7").map((d, i) => {
+            {(boardMode === "6x6"
+              ? DIFFICULTIES_6X6
+              : DIFFICULTIES.filter(d => d.id !== "danger" || boardMode === "7x7")
+            ).map((d, i) => {
               const isHov = hovered === d.id;
               return (
                 <button

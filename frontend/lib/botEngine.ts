@@ -546,7 +546,7 @@ function getEngine(): BotEngine {
     return _engine;
 }
 
-export type Difficulty = "easy" | "medium" | "hard" | "danger";
+export type Difficulty = "easy" | "medium" | "hard" | "danger" | "normal" | "machine_god";
 
 /**
  * Main entry point for the frontend.
@@ -573,4 +573,6 @@ export const BOT_DELAY = {
     medium: 850,
     hard: 0,
     danger: 0,
+    normal: 350,
+    machine_god: 0,
 } as const satisfies Record<Difficulty, number>;

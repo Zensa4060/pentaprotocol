@@ -2,15 +2,23 @@ import copy
 import random
 import time
 from typing import List, Optional
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from app.core.patterns import generate_all_patterns
+from app.core.patterns6 import generate_all_patterns_6
 from app.core.patterns7 import generate_all_patterns_7
 from app.core.win_checker import check_5_line, check_structural_patterns
 from app.core.win_checker7 import check_7_line, resolve_full_board_7
+from app.core.win_checker6 import check_6_line, resolve_full_board_6
 
 try:
-    from penta_engine import RustHardBot7, RustDangerBot7
+    from penta_engine import (
+        RustHardBot7,
+        RustDangerBot7,
+        RustNormalBot6,
+        RustHardBot6,
+        RustMachineGodBot6,
+    )
     _HAS_RUST = True
 except ImportError:
     _HAS_RUST = False
@@ -18,6 +26,7 @@ except ImportError:
 router = APIRouter()
 
 GRID5 = 5
+GRID6 = 6
 GRID7 = 7
 DIRS = [(0, 1), (1, 0), (1, 1), (1, -1)]
 ALL_DIRS = [(0, 1), (1, 0), (1, 1), (1, -1), (0, -1), (-1, 0), (-1, -1), (-1, 1)]
@@ -28,10 +37,14 @@ PAT_SCORE = [0, 30, 300, 3000, 15000, 500000]
 OPPO_MULT = 1.3
 
 ALL_RC5 = [(r, c) for r in range(GRID5) for c in range(GRID5)]
+ALL_RC6 = [(r, c) for r in range(GRID6) for c in range(GRID6)]
 ALL_RC7 = [(r, c) for r in range(GRID7) for c in range(GRID7)]
 
 def _rc5(idx): return (idx // GRID5, idx % GRID5)
 def _idx5(r, c): return r * GRID5 + c
+
+def _rc6(idx): return (idx // GRID6, idx % GRID6)
+def _idx6(r, c): return r * GRID6 + c
 
 def _rc7(idx): return (idx // GRID7, idx % GRID7)
 def _idx7(r, c): return r * GRID7 + c
@@ -253,6 +266,134 @@ class BotEngine:
         return best_v
 
 # =============================================================
+#  6x6 BOT ENGINE (Python Fallback)
+# =============================================================
+
+class BotEngine6:
+    def __init__(self, patterns):
+        self.patterns = patterns
+        self.tt = {}
+        self.history = [0] * (GRID6 * GRID6)
+        self.zobrist = [[random.getrandbits(64) for _ in range(3)] for _ in range(GRID6 * GRID6)]
+
+    def choose(self, board_2d, bot, human, difficulty):
+        board = [None] * (GRID6 * GRID6)
+        zhash = 0
+        p_map = {bot: 1, human: 2, None: 0}
+        for r in range(GRID6):
+            for c in range(GRID6):
+                val = board_2d[r][c]
+                idx = r * GRID6 + c
+                board[idx] = val
+                pv = p_map.get(val, 0)
+                if pv > 0: zhash ^= self.zobrist[idx][pv]
+
+        empties = [i for i, v in enumerate(board) if v is None]
+        if not empties: return None
+        if difficulty == "easy":
+            return _rc6(random.choice(empties))
+
+        # 1-ply immediate win/block
+        for i in empties:
+            if self._wins6_idx(board, i, bot): return _rc6(i)
+        for i in empties:
+            if self._wins6_idx(board, i, human): return _rc6(i)
+
+        # Iterative Search
+        depth = 4 if difficulty == "normal" else (6 if difficulty == "hard" else 8)
+        budget = 1.0 if difficulty == "normal" else 2.5
+        move_idx = self._idab(board, zhash, bot, human, depth, budget, empties)
+        return _rc6(move_idx)
+
+    def _idab(self, board, zhash, bot, human, max_d, budget, empties):
+        deadline = time.monotonic() + budget
+        best_mv = empties[0]
+        self.tt = {}
+        self.history = [0] * (GRID6 * GRID6)
+        p_map = {bot: 1, human: 2}
+
+        # Center preference for 6x6
+        ordered_empties = sorted(empties, key=lambda i: abs(i // GRID6 - 2.5) + abs(i % GRID6 - 2.5))
+
+        for d in range(1, max_d + 1):
+            if time.monotonic() >= deadline and d > 1: break
+            # Sort by history and result of previous depth
+            ordered = sorted(ordered_empties, key=lambda i: (i == best_mv, self.history[i]), reverse=True)
+            d_best_mv = best_mv
+            d_best_val = -INF
+            alpha = -INF
+            for i in ordered:
+                if time.monotonic() >= deadline and d > 1: break
+                board[i] = bot
+                val = -self._negamax(board, zhash ^ self.zobrist[i][p_map[bot]], d - 1, -INF, -alpha, human, bot, bot, i, p_map[human], p_map[bot], deadline)
+                board[i] = None
+                if val > d_best_val:
+                    d_best_val = val
+                    d_best_mv = i
+                alpha = max(alpha, val)
+            if time.monotonic() < deadline or d == 1:
+                best_mv = d_best_mv
+            if d_best_val > 900000: break
+        return best_mv
+
+    def _negamax(self, board, zhash, depth, alpha, beta, cur, opp, root_bot, last_idx, p_cur, p_opp, deadline):
+        if deadline and time.monotonic() >= deadline: return 0
+        if self._wins6_placed_idx(board, last_idx, opp):
+            return -(1000000 + depth)
+        
+        if depth == 0:
+            return _eval_flat(board, root_bot, self.patterns, GRID6) if cur == root_bot else -_eval_flat(board, root_bot, self.patterns, GRID6)
+
+        if zhash in self.tt:
+            d, v, f = self.tt[zhash]
+            if d >= depth:
+                if f == 0: return v
+                elif f == 1: alpha = max(alpha, v)
+                elif f == 2: beta = min(beta, v)
+                if alpha >= beta: return v
+
+        empties = [i for i, v in enumerate(board) if v is None]
+        if not empties: return 0
+        moves = sorted(empties, key=lambda i: self.history[i], reverse=True)
+        best_v = -INF; orig_alpha = alpha
+        for i in moves:
+            board[i] = cur
+            v = -self._negamax(board, zhash ^ self.zobrist[i][p_cur], depth - 1, -beta, -alpha, opp, cur, root_bot, i, p_opp, p_cur, deadline)
+            board[i] = None
+            if v > best_v: best_v = v
+            alpha = max(alpha, v)
+            if alpha >= beta:
+                self.history[i] += 2**depth
+                break
+        flag = 0 if best_v > orig_alpha and best_v < beta else (1 if best_v >= beta else 2)
+        self.tt[zhash] = (depth, best_v, flag)
+        return best_v
+
+    def _wins6_idx(self, board, i, player):
+        board[i] = player
+        w = self._wins6_placed_idx(board, i, player)
+        board[i] = None
+        return w
+
+    def _wins6_placed_idx(self, board, i, player):
+        r, c = _rc6(i)
+        if self._check_6_line_flat(board, r, c, player): return True
+        if check_structural_patterns_flat(board, player, self.patterns, GRID6): return True
+        return False
+
+    def _check_6_line_flat(self, board, r, c, player):
+        for dr, dc in [(0, 1), (1, 0), (1, 1), (1, -1)]:
+            count = 1
+            for sign in (1, -1):
+                rr, cc = r + sign * dr, c + sign * dc
+                while 0 <= rr < GRID6 and 0 <= cc < GRID6 and board[rr * GRID6 + cc] == player:
+                    count += 1
+                    rr += sign * dr
+                    cc += sign * dc
+            if count >= 6: return True
+        return False
+
+# =============================================================
 #  HELPERS
 # =============================================================
 
@@ -262,6 +403,7 @@ def _place(board, r, c, p):
     return nb
 
 def _empty5(board): return [(r, c) for r, c in ALL_RC5 if board[r][c] is None]
+def _empty6(board): return [(r, c) for r, c in ALL_RC6 if board[r][c] is None]
 def _empty7(board): return [(r, c) for r, c in ALL_RC7 if board[r][c] is None]
 
 def _wins7(board, r, c, player, patterns):
@@ -311,7 +453,7 @@ def _eval(board, player, patterns, cell_uses):
     opponent = "P2" if player == "P1" else "P1"
     
     # 1. Line Progress
-    target = 7 if grid_size == 7 else 5
+    target = grid_size
     for dr, dc in DIRS:
         for r in range(grid_size):
             for c in range(grid_size):
@@ -322,9 +464,9 @@ def _eval(board, player, patterns, cell_uses):
                     if v == player: m += 1
                     elif v == opponent: o += 1
                 if m > 0 and o == 0:
-                    score += (m ** 4) * (30 if grid_size == 7 else 10)
+                    score += (m ** 4) * (30 if grid_size >= 6 else 10)
                 elif o > 0 and m == 0:
-                    score -= (o ** 4) * (45 if grid_size == 7 else 15)
+                    score -= (o ** 4) * (45 if grid_size >= 6 else 15)
 
     # 2. Pattern Progress
     if cell_uses:
@@ -357,7 +499,7 @@ def _eval(board, player, patterns, cell_uses):
 def _eval_flat(board, player, patterns, grid_size):
     score = 0
     opponent = "P2" if player == "P1" else "P1"
-    target = 5
+    target = grid_size
     # Lines
     for dr, dc in [(0, 1), (1, 0), (1, 1), (1, -1)]:
         for r in range(grid_size):
@@ -368,8 +510,8 @@ def _eval_flat(board, player, patterns, grid_size):
                     v = board[(r + i*dr) * grid_size + (c + i*dc)]
                     if v == player: m += 1
                     elif v == opponent: o += 1
-                if m > 0 and o == 0: score += (m ** 4) * 10
-                elif o > 0 and m == 0: score -= (o ** 4) * 15
+                if m > 0 and o == 0: score += (m ** 4) * (15 if grid_size == 6 else 10)
+                elif o > 0 and m == 0: score -= (o ** 4) * (22 if grid_size == 6 else 15)
     # Center
     center = grid_size // 2
     for i in range(grid_size * grid_size):
@@ -417,14 +559,26 @@ _RUST_HARD_ENG = None
 _RUST_HARD_PATS = None
 _RUST_DANGER_ENG = None
 _RUST_DANGER_PATS = None
+_RUST_NORMAL6_ENG = None
+_RUST_HARD6_ENG = None
+_RUST_GOD6_ENG = None
+_RUST_6_PATS = None
+_PYTHON_6_ENG = None
+_PYTHON_6_PATS = None
 
 @router.post("/move")
 def bot_move(req: BotMoveRequest):
     global _ENGINE7_NEW, _LAST_PATS7_NEW, _DANGER_ENG, _DANGER_PATS
     global _RUST_HARD_ENG, _RUST_HARD_PATS, _RUST_DANGER_ENG, _RUST_DANGER_PATS
+    global _RUST_NORMAL6_ENG, _RUST_HARD6_ENG, _RUST_GOD6_ENG, _RUST_6_PATS
     def normalize(cell): return None if cell in [None, "null", ""] else cell
     board = [[normalize(cell) for cell in row] for row in req.board]
-    actual_mode = "7x7" if len(board) >= 7 and len(board[0]) >= 7 else "5x5"
+    if len(board) >= 7 and len(board[0]) >= 7:
+        actual_mode = "7x7"
+    elif len(board) >= 6 and len(board[0]) >= 6:
+        actual_mode = "6x6"
+    else:
+        actual_mode = "5x5"
     moves_played = req.moves_played if req.moves_played is not None else sum(1 for row in board for cell in row if cell is not None)
 
     if actual_mode == "7x7":
@@ -460,6 +614,38 @@ def bot_move(req: BotMoveRequest):
                 _ENGINE7_NEW = _Bot7Engine(pats)
                 _LAST_PATS7_NEW = pat_key
             move = _ENGINE7_NEW.choose(copy.deepcopy(board), bot, human, req.difficulty, moves_played, req.c3_blocked)
+    elif actual_mode == "6x6":
+        pats6 = generate_all_patterns_6()
+        pat_key6 = tuple(tuple(p) for p in pats6)
+        bot = req.current_player
+        human = "P2" if bot == "P1" else "P1"
+        diff6 = (req.difficulty or "").lower()
+        valid6 = {"normal", "hard", "machine_god"}
+
+        if diff6 not in valid6:
+            raise HTTPException(
+                status_code=422,
+                detail="Invalid 6x6 difficulty. Use one of: normal, hard, machine_god.",
+            )
+
+        if _HAS_RUST:
+            if _RUST_6_PATS != pat_key6:
+                _RUST_NORMAL6_ENG = RustNormalBot6(pats6)
+                _RUST_HARD6_ENG = RustHardBot6(pats6)
+                _RUST_GOD6_ENG = RustMachineGodBot6(pats6)
+                _RUST_6_PATS = pat_key6
+
+            if diff6 == "machine_god":
+                move = _RUST_GOD6_ENG.choose(copy.deepcopy(board), bot, human, moves_played)
+            elif diff6 == "hard":
+                move = _RUST_HARD6_ENG.choose(copy.deepcopy(board), bot, human, moves_played)
+            else:
+                move = _RUST_NORMAL6_ENG.choose(copy.deepcopy(board), bot, human, moves_played)
+        else:
+            if _PYTHON_6_ENG is None or _PYTHON_6_PATS != pat_key6:
+                _PYTHON_6_ENG = BotEngine6(pats6)
+                _PYTHON_6_PATS = pat_key6
+            move = _PYTHON_6_ENG.choose(copy.deepcopy(board), bot, human, diff6)
     else:
         engine_stub = type("EngineStub", (), {
             "board": board,
