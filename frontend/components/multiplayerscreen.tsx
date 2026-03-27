@@ -30,6 +30,8 @@ export default function MultiplayerScreen({ setScreen, themeId, onHover, onRoomR
   const [roomCode, setRoomCode] = useState<string | null>(null);
   const [waiting, setWaiting] = useState(false);
   const [vw, setVw] = useState(1440);
+  const [showUnrankedOptions, setShowUnrankedOptions] = useState(false);
+  const [boardMode, setBoardMode] = useState<string>("5x5");
 
   useEffect(() => {
     const update = () => setVw(window.innerWidth);
@@ -67,7 +69,7 @@ export default function MultiplayerScreen({ setScreen, themeId, onHover, onRoomR
     }
     setLoading(true); setError(null);
     try {
-      const res = await postWithRetry("/api/room/create", { format }, authHeader, 2);
+      const res = await postWithRetry("/api/room/create", { format, board_mode: boardMode }, authHeader, 2);
       setRoomCode(res.data.room_code);
       setWaiting(true);
       // Start polling for P2 to join
@@ -158,6 +160,10 @@ export default function MultiplayerScreen({ setScreen, themeId, onHover, onRoomR
           @keyframes scannerPulse { 0%, 100% { transform: scale(1); opacity: 0.5; } 50% { transform: scale(3.5); opacity: 1; } }
           @keyframes spinRing { to { transform: rotate(360deg); } }
           @keyframes fadeUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+          @keyframes cardDistribute {
+            0% { opacity: 0; transform: translateY(40px) scale(0.8) rotateX(-20deg); }
+            100% { opacity: 1; transform: translateY(0) scale(1) rotateX(0deg); }
+          }
         `}</style>
       </div>
     );
@@ -176,7 +182,7 @@ export default function MultiplayerScreen({ setScreen, themeId, onHover, onRoomR
         color: t.accent, textAlign: "center", textShadow: `0 0 40px ${t.accentGlow}44`,
         marginBottom: isMobile ? 24 : 0,
       }}>
-        MULTIPLAYER
+        {showUnrankedOptions ? "SELECT PROTOCOL" : "MULTIPLAYER"}
       </div>
 
       <div style={{ width: "100%", maxWidth: 480 }}>
@@ -220,11 +226,19 @@ export default function MultiplayerScreen({ setScreen, themeId, onHover, onRoomR
                   {(["unranked", "ranked"] as Format[]).map(f => {
                     const locked = f === "ranked" && level < 5;
                     const selected = format === f;
-                    const dColor = f === "ranked" ? "#B91C1C" : "#22C55E"; // Blood Red for Ranked, Emerald for Unranked
+                    const dColor = f === "ranked" ? "#B91C1C" : "#22C55E"; 
                     
                     return (
                       <button key={f}
-                        onClick={() => { if (!locked) { setFormat(f); setError(null); } }}
+                        onClick={() => { 
+                          if (!locked) { 
+                            setFormat(f); 
+                            setError(null);
+                            if (f === "unranked") {
+                              setShowUnrankedOptions(true);
+                            }
+                          } 
+                        }}
                         style={{
                           flex: 1, padding: ip ? "24px 20px" : isMobile ? "32px 24px" : "40px 28px",
                           border: `2px solid ${selected ? dColor : locked ? t.border + "44" : t.border}`,
@@ -245,13 +259,104 @@ export default function MultiplayerScreen({ setScreen, themeId, onHover, onRoomR
                           </div>
                         </div>
                         <div style={{ fontFamily: t.fontBody, fontSize: ip ? 12 : 14, color: t.textMuted, lineHeight: 1.5 }}>
-                          {f === "ranked" ? (locked ? "Requires level 5 to unlock" : "Compete for ELO with strong players") : "Casual match with no ELO impact"}
+                          {f === "ranked" ? (locked ? "Requires level 5 to unlock" : "Compete for ELO with strong players") : "Casual match with various board sizes"}
                         </div>
                       </button>
                     );
                   })}
                 </div>
               </div>
+
+              {/* Unranked Options Overlay/Replacement */}
+              {showUnrankedOptions && (
+                <div style={{
+                  position: "fixed", inset: 0, zIndex: 100, background: "rgba(0,0,0,0.95)", backdropFilter: "blur(12px)",
+                  display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 24,
+                }}>
+                  <div style={{
+                    fontFamily: t.fontDisplay, fontSize: 32, fontWeight: 900, color: t.accent,
+                    marginBottom: 32, letterSpacing: "0.05em", textAlign: "center",
+                  }}>
+                    UNRANKED PROTOCOLS
+                  </div>
+
+                  <div style={{
+                    display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(2, 1fr)",
+                    gap: 16, width: "100%", maxWidth: 800, perspective: "1000px",
+                  }}>
+                    {[
+                      { id: "5x5", label: "5 × 5", sub: "Standard Rulebreak grid", color: "#60A8FF" },
+                      { id: "6x6", label: "6 × 6", sub: "Timebomb protocol", color: "#A78BFA", comingSoon: true },
+                      { id: "7x7", label: "7 × 7", sub: "Mindlock advanced grid", color: "#FF6B35" },
+                      { id: "5x5_7x7", label: "5x5 + 7x7", sub: "Current Rulebreaker flow", color: "#22C55E", current: true },
+                      { id: "5x5_6x6", label: "5x5 + 6x6", sub: "Coming soon transition", color: "#F472B6", comingSoon: true },
+                      { id: "6x6_7x7", label: "6x6 + 7x7", sub: "Coming soon transition", color: "#FBBF24", comingSoon: true },
+                    ].map((opt, i) => (
+                      <button
+                        key={opt.id}
+                        disabled={opt.comingSoon}
+                        onClick={() => {
+                          setBoardMode(opt.id.split("_")[0]); // Map to actual board mode
+                          setShowUnrankedOptions(false);
+                          // If current, it starts as 5x5 but upgrades. Backend handles unranked upgrade logic by default.
+                          // We'll just set boardMode and let the handleCreate use it.
+                        }}
+                        style={{
+                          background: t.bgCard, border: `2px solid ${opt.comingSoon ? "rgba(255,255,255,0.05)" : opt.color + "44"}`,
+                          borderRadius: ip ? 2 : 16, padding: "20px 24px", textAlign: "left",
+                          cursor: opt.comingSoon ? "not-allowed" : "pointer",
+                          animation: `cardDistribute 0.5s cubic-bezier(.22,.68,0,1.2) ${i * 0.08}s both`,
+                          transition: "all 0.3s cubic-bezier(.22,.68,0,1.2)",
+                          position: "relative", overflow: "hidden",
+                          transformStyle: "preserve-3d",
+                        }}
+                        onMouseEnter={e => {
+                          if (!opt.comingSoon) {
+                            e.currentTarget.style.borderColor = opt.color;
+                            e.currentTarget.style.transform = "translateY(-4px) translateZ(20px)";
+                            e.currentTarget.style.boxShadow = `0 14px 40px ${opt.color}22`;
+                          }
+                        }}
+                        onMouseLeave={e => {
+                          if (!opt.comingSoon) {
+                            e.currentTarget.style.borderColor = opt.color + "44";
+                            e.currentTarget.style.transform = "translateY(0) translateZ(0)";
+                            e.currentTarget.style.boxShadow = "none";
+                          }
+                        }}
+                      >
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
+                          <div style={{ fontFamily: t.fontDisplay, fontSize: 20, fontWeight: 800, color: opt.comingSoon ? t.textMuted : opt.color }}>
+                            {opt.label}
+                          </div>
+                          {opt.comingSoon && (
+                            <div style={{ background: "rgba(255,255,255,0.1)", color: "#fff", fontSize: 9, padding: "2px 6px", borderRadius: 4, fontFamily: t.fontMono }}>COMING SOON</div>
+                          )}
+                          {opt.current && (
+                            <div style={{ background: `${opt.color}22`, color: opt.color, fontSize: 9, padding: "2px 6px", borderRadius: 4, fontFamily: t.fontMono, border: `1px solid ${opt.color}44` }}>RECOMMENDED</div>
+                          )}
+                        </div>
+                        <div style={{ fontFamily: t.fontBody, fontSize: 13, color: t.textMuted, opacity: 0.8 }}>
+                          {opt.sub}
+                        </div>
+                        {!opt.comingSoon && (
+                          <div style={{ position: "absolute", bottom: 0, left: 0, height: 3, width: "100%", background: `linear-gradient(90deg, transparent, ${opt.color}, transparent)`, opacity: 0.4 }} />
+                        )}
+                      </button>
+                    ))}
+                  </div>
+
+                  <button
+                    onClick={() => setShowUnrankedOptions(false)}
+                    style={{
+                      marginTop: 40, background: "transparent", border: "none", color: t.textMuted,
+                      fontFamily: t.fontDisplay, fontSize: 14, cursor: "pointer", letterSpacing: "0.1em",
+                    }}
+                  >
+                    CLOSE OPTIONS
+                  </button>
+                </div>
+              )}
 
               {/* Level indicator */}
               <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 14px", background: `${t.accent}08`, border: `1px solid ${t.accent}22`, borderRadius: 8 }}>

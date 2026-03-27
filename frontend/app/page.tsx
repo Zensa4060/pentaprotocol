@@ -283,7 +283,7 @@ export default function Page() {
 
     const authHeader = { headers: { Authorization: `Bearer ${token}` } };
     try {
-      const res = await postOnce("/api/room/queue/join", { format: mode }, authHeader);
+      const res = await postOnce("/api/room/queue/join", { format: mode, board_mode: boardMode }, authHeader);
       if (queueCancelledRef.current) {
         matchmakingActiveRef.current = false;
         return;
@@ -644,6 +644,8 @@ export default function Page() {
           queueElapsed={queueElapsed}
           matchupOpponent={matchupOpponent}
           queueError={queueError}
+          boardMode={boardMode}
+          onBoardModeAction={setBoardMode}
         />
       )}
       {screen === "profile"    && <ProfileScreen    setScreenAction={handleSetScreen} themeId={themeId} onHoverAction={sfx.hover} onClickAction={sfx.click} />}

@@ -1,7 +1,9 @@
 from app.core.patterns import generate_all_patterns
 from app.core.patterns7 import generate_all_patterns_7
+from app.core.patterns6 import generate_all_patterns_6
 from app.core.win_checker import check_5_line, check_structural_patterns, find_path, resolve_full_board
 from app.core.win_checker7 import check_7_line, resolve_full_board_7
+from app.core.win_checker6 import check_6_line, resolve_full_board_6
 
 
 class GameEngine:
@@ -43,6 +45,14 @@ class GameEngine:
             self.selected_pattern_ids_p1 = p1
             self.selected_pattern_ids_p2 = p2
             self.chain_target = 20
+        elif board_mode == "6x6":
+            self.GRID_SIZE = 6
+            self.CENTER = 2.5 # No single center cell
+            self.shiftable_patterns = generate_all_patterns_6()
+            self.selected_pattern_ids = None
+            self.selected_pattern_ids_p1 = None
+            self.selected_pattern_ids_p2 = None
+            self.chain_target = 15
         else:
             self.GRID_SIZE = 5
             self.CENTER = 2
@@ -81,6 +91,7 @@ class GameEngine:
         if (
             not getattr(self, "suppress_center_opening", False)
             and self.moves_played == 1
+            and self.GRID_SIZE == 5 # Only for 5x5
             and row == self.CENTER
             and col == self.CENTER
         ):
@@ -91,6 +102,11 @@ class GameEngine:
         # ── Win checks ──
         if self.board_mode == "7x7":
             win, line = check_7_line(
+                self.board, row, col, player_who_moved,
+                self.DIRECTIONS, self.GRID_SIZE
+            )
+        elif self.board_mode == "6x6":
+            win, line = check_6_line(
                 self.board, row, col, player_who_moved,
                 self.DIRECTIONS, self.GRID_SIZE
             )
@@ -126,6 +142,10 @@ class GameEngine:
         if self.moves_played == self.GRID_SIZE * self.GRID_SIZE:
             if self.board_mode == "7x7":
                 result, line, p1_s, p2_s = resolve_full_board_7(
+                    self.board, self.DIRECTIONS, self.GRID_SIZE
+                )
+            elif self.board_mode == "6x6":
+                result, line, p1_s, p2_s = resolve_full_board_6(
                     self.board, self.DIRECTIONS, self.GRID_SIZE
                 )
             else:

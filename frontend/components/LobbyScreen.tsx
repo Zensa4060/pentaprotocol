@@ -22,9 +22,11 @@ interface Props {
   matchupOpponent?: any;
   forcedPhase?: "none" | "queuing" | "matchup";
   queueError?: string | null;
+  boardMode?: string;
+  onBoardModeAction?: (mode: any) => void;
 }
 
-type MultiSub = "unranked" | null;
+type MultiSub = "unranked" | "ranked" | null;
 type Phase = "select" | "queuing" | "matchup";
 
 export default function LobbyScreen({
@@ -34,6 +36,8 @@ export default function LobbyScreen({
   matchupOpponent: propMatchupOpponent = null,
   forcedPhase = "none",
   queueError = null,
+  boardMode = "5x5",
+  onBoardModeAction,
 }: Props) {
   const t  = THEMES[themeId as keyof typeof THEMES];
   const ip = themeId === "pixel";
@@ -41,6 +45,8 @@ export default function LobbyScreen({
 
   const [multiSub,   setMultiSub]   = useState<MultiSub>(null);
   const [localPhase, setLocalPhase] = useState<Phase>("select");
+  const [showUnrankedOptions, setShowUnrankedOptions] = useState(false);
+  const [showRankedOptions, setShowRankedOptions] = useState(false);
   const phase: Phase = forcedPhase !== "none" ? forcedPhase : (propQueuePhase !== "none" ? propQueuePhase : localPhase);
 
   const elapsed = propQueuePhase === "queuing" ? propQueueElapsed : 0;
@@ -93,7 +99,7 @@ export default function LobbyScreen({
     setRoomLoading(true);
     setRoomError(null);
     try {
-      const res = await postOnce("/api/room/create", { format: roomFormat }, authHeader);
+      const res = await postOnce("/api/room/create", { format: roomFormat, board_mode: boardMode }, authHeader);
       setRoomCode(res.data.room_code);
       setRoomSection("waiting");
       pollForPlayer(res.data.room_code, (res.data.player_slot as "P1" | "P2") ?? "P1");
@@ -392,7 +398,10 @@ export default function LobbyScreen({
 
         {/* ── UNRANKED ── */}
         <button
-          onClick={() => setMultiSub(multiSub === "unranked" ? null : "unranked")}
+          onClick={() => {
+            if (multiSub === "unranked") setMultiSub(null);
+            else setShowUnrankedOptions(true);
+          }}
           onMouseEnter={() => { onHoverAction?.(); setHovered("unranked"); }}
           onMouseLeave={() => setHovered(null)}
           style={{ ...cardStyle("unranked", t.p1), alignItems:"center", textAlign:"center" as const }}
@@ -409,17 +418,25 @@ export default function LobbyScreen({
             ))}
           </div>
           {multiSub === "unranked" && (
-            <div style={{ position:"absolute", top:11, right:11, width:8, height:8, borderRadius:"50%", background:t.p1, boxShadow:`0 0 8px ${t.p1}` }} />
+            <div style={{ position:"absolute", top:11, right:11, background:t.p1, color:"#000", fontSize:9, padding:"2px 6px", borderRadius:4, fontFamily:t.fontMono, fontWeight:900 }}>{boardMode.toUpperCase()}</div>
           )}
         </button>
 
-        {/* ── RANKED (locked) ── */}
-        <div style={{ ...cardStyle("ranked", t.gold, true), pointerEvents:"none", alignItems:"center", textAlign:"center" as const }}>
+        {/* ── RANKED ── */}
+        <button
+          onClick={() => {
+            if (multiSub === "ranked") setMultiSub(null);
+            else setShowRankedOptions(true);
+          }}
+          onMouseEnter={() => { onHoverAction?.(); setHovered("ranked"); }}
+          onMouseLeave={() => setHovered(null)}
+          style={{ ...cardStyle("ranked", t.gold, false), alignItems:"center", textAlign:"center" as const }}
+        >
           <div style={{ position:"absolute", top:11, right:11, background:`${t.gold}18`, border:`1px solid ${t.gold}55`, color:t.gold, fontSize:10, padding:"2px 8px", borderRadius:10, fontFamily:t.fontMono, display:"flex", alignItems:"center", gap:4 }}>
-            <span style={{ fontSize:11 }}></span> SOON
+            SOON
           </div>
           <div style={{ fontFamily:t.fontMono, fontSize:10, color:t.textMuted, letterSpacing:"0.18em", marginBottom:12 }}>QUEUE</div>
-          <div style={{ fontFamily:t.fontDisplay, fontSize:ip?20:32, fontWeight:700, marginBottom:8, color:t.gold, textTransform:"uppercase" as const, letterSpacing:"0.08em" }}>Ranked</div>
+          <div style={{ fontFamily:t.fontDisplay, fontSize:ip?20:32, fontWeight:700, marginBottom:8, color:multiSub==="ranked"||hovered==="ranked"?t.gold:t.text, transition:"color 0.28s", textTransform:"uppercase" as const, letterSpacing:"0.08em" }}>Ranked</div>
           <div style={{ fontFamily:t.fontBody, fontSize:ip?12:14, color:t.textMuted, marginBottom:16 }}>ELO · Rank · Season rewards</div>
           <div style={{ marginTop:"auto", width:"100%", display:"flex", flexDirection:"column", gap:6 }}>
             {[{k:"PLACEMENT",v:"10 matches"}].map(s => (
@@ -429,7 +446,10 @@ export default function LobbyScreen({
               </div>
             ))}
           </div>
-        </div>
+          {multiSub === "ranked" && (
+            <div style={{ position:"absolute", top:11, right:11, background:t.gold, color:"#000", fontSize:9, padding:"2px 6px", borderRadius:4, fontFamily:t.fontMono, fontWeight:900 }}>SOON</div>
+          )}
+        </button>
 
         {/* ── CUSTOM (private rooms) ── */}
         <div
@@ -524,13 +544,187 @@ export default function LobbyScreen({
               onMouseLeave={e => { e.currentTarget.style.transform="translateY(0) scale(1)"; e.currentTarget.style.boxShadow=`0 0 28px ${t.accentGlow}44`; }}
               onMouseDown={e => { e.currentTarget.style.transform="translateY(0) scale(0.97)"; }}
               onMouseUp={e   => { e.currentTarget.style.transform="translateY(-3px) scale(1.04)"; }}
-            >FIND MATCH</button>
+            >FIND MATCH ({boardMode.toUpperCase()})</button>
             {queueError && (
               <div style={{ background:`${t.danger}14`, border:`1px solid ${t.danger}`, borderRadius:8, padding:"8px 12px", color:t.danger, fontFamily:t.fontBody, fontSize:12 }}>
                 {queueError}
               </div>
             )}
+            <button 
+              onClick={() => setShowUnrankedOptions(true)}
+              style={{ background:"transparent", border:"none", color:t.accent, borderBottom:`1px solid ${t.accent}44`, fontFamily:t.fontMono, fontSize:10, cursor:"pointer", padding:"2px 0", marginTop:4 }}
+            >CHANGE PROTOCOL</button>
           </div>
+        </div>
+      )}
+
+      {/* Unranked Options Overlay */}
+      {showUnrankedOptions && (
+        <div style={{
+          position: "fixed", inset: 0, zIndex: 10000, background: "rgba(0,0,0,0.95)", backdropFilter: "blur(20px)",
+          display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 24,
+        }}>
+          <div style={{
+            fontFamily: t.fontDisplay, fontSize: 36, fontWeight: 900, color: t.accent,
+            marginBottom: 32, letterSpacing: "0.1em", textAlign: "center", textShadow: `0 0 40px ${t.accentGlow}44`
+          }}>
+            SELECT PROTOCOL
+          </div>
+
+          <div style={{
+            display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(2, 1fr)",
+            gap: 16, width: "100%", maxWidth: 800, perspective: "1000px",
+          }}>
+            {[
+              { id: "5x5", label: "5 × 5", sub: "Standard Rulebreak grid", color: "#60A8FF" },
+              { id: "6x6", label: "6 × 6", sub: "Timebomb protocol", color: "#A78BFA", comingSoon: true },
+              { id: "7x7", label: "7 × 7", sub: "Mindlock advanced grid", color: "#FF6B35" },
+              { id: "5x5_7x7", label: "5x5 + 7x7", sub: "Classic Rulebreaker flow", color: "#22C55E", current: true },
+              { id: "5x5_6x6", label: "5x5 + 6x6", sub: "Hybrid progression", color: "#F472B6", comingSoon: true },
+              { id: "6x6_7x7", label: "6x6 + 7x7", sub: "Elite progression", color: "#FBBF24", comingSoon: true },
+            ].map((opt, i) => (
+              <button
+                key={opt.id}
+                disabled={opt.comingSoon}
+                onClick={() => {
+                  onBoardModeAction?.(opt.id.split("_")[0]);
+                  setMultiSub("unranked");
+                  setShowUnrankedOptions(false);
+                }}
+                style={{
+                  background: t.bgCard, border: `2px solid ${opt.comingSoon ? "rgba(255,255,255,0.05)" : opt.color + "44"}`,
+                  borderRadius: ip ? 2 : 16, padding: "24px 28px", textAlign: "left",
+                  cursor: opt.comingSoon ? "not-allowed" : "pointer",
+                  animation: `cardDistribute 0.5s cubic-bezier(.22,.68,0,1.2) ${i * 0.08}s both`,
+                  transition: "all 0.3s cubic-bezier(.22,.68,0,1.2)",
+                  position: "relative", overflow: "hidden",
+                  transformStyle: "preserve-3d",
+                }}
+                onMouseEnter={e => {
+                  if (!opt.comingSoon) {
+                    e.currentTarget.style.borderColor = opt.color;
+                    e.currentTarget.style.transform = "translateY(-4px) translateZ(20px)";
+                    e.currentTarget.style.boxShadow = `0 14px 40px ${opt.color}22`;
+                  }
+                }}
+                onMouseLeave={e => {
+                  if (!opt.comingSoon) {
+                    e.currentTarget.style.borderColor = opt.color + "44";
+                    e.currentTarget.style.transform = "translateY(0) translateZ(0)";
+                    e.currentTarget.style.boxShadow = "none";
+                  }
+                }}
+              >
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
+                  <div style={{ fontFamily: t.fontDisplay, fontSize: 22, fontWeight: 800, color: opt.comingSoon ? t.textMuted : opt.color }}>
+                    {opt.label}
+                  </div>
+                  {opt.comingSoon && (
+                    <div style={{ background: "rgba(255,255,255,0.1)", color: "#fff", fontSize: 10, padding: "2px 8px", borderRadius: 4, fontFamily: t.fontMono }}>COMING SOON</div>
+                  )}
+                  {opt.current && (
+                    <div style={{ background: `${opt.color}22`, color: opt.color, fontSize: 10, padding: "2px 8px", borderRadius: 4, fontFamily: t.fontMono, border: `1px solid ${opt.color}44` }}>RECOMMENDED</div>
+                  )}
+                </div>
+                <div style={{ fontFamily: t.fontBody, fontSize: 14, color: t.textMuted, opacity: 0.8 }}>
+                  {opt.sub}
+                </div>
+                {!opt.comingSoon && (
+                  <div style={{ position: "absolute", bottom: 0, left: 0, height: 3, width: "100%", background: `linear-gradient(90deg, transparent, ${opt.color}, transparent)`, opacity: 0.4 }} />
+                )}
+              </button>
+            ))}
+          </div>
+
+          <button
+            onClick={() => setShowUnrankedOptions(false)}
+            style={{
+              marginTop: 48, background: "transparent", border: "none", color: t.textMuted,
+              fontFamily: t.fontDisplay, fontSize: 14, cursor: "pointer", letterSpacing: "0.2em", fontWeight: 700
+            }}
+          >
+            CANCEL SELECTION
+          </button>
+        </div>
+      )}
+
+      {/* Ranked Options Overlay */}
+      {showRankedOptions && (
+        <div style={{
+          position: "fixed", inset: 0, zIndex: 10000, background: "rgba(0,0,0,0.95)", backdropFilter: "blur(20px)",
+          display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 24,
+        }}>
+          <div style={{
+            fontFamily: t.fontDisplay, fontSize: 36, fontWeight: 900, color: t.gold,
+            marginBottom: 32, letterSpacing: "0.1em", textAlign: "center", textShadow: `0 0 40px ${t.gold}44`
+          }}>
+            RANKED PROTOCOLS
+          </div>
+
+          <div style={{
+            display: "grid", gridTemplateColumns: "1fr",
+            gap: 16, width: "100%", maxWidth: 400, perspective: "1000px",
+          }}>
+            {[
+              { id: "main", label: "MAIN PROTOCOL", sub: "5*5 + 6*6 + 7*7", color: t.gold, comingSoon: true },
+            ].map((opt, i) => (
+              <button
+                key={opt.id}
+                disabled={opt.comingSoon}
+                onClick={() => {
+                  // Not selectable for now
+                }}
+                style={{
+                  background: t.bgCard, border: `2px solid ${opt.comingSoon ? "rgba(255,255,255,0.05)" : opt.color + "44"}`,
+                  borderRadius: ip ? 2 : 16, padding: "32px 28px", textAlign: "left",
+                  cursor: opt.comingSoon ? "not-allowed" : "pointer",
+                  animation: `cardDistribute 0.5s cubic-bezier(.22,.68,0,1.2) ${i * 0.08}s both`,
+                  transition: "all 0.3s cubic-bezier(.22,.68,0,1.2)",
+                  position: "relative", overflow: "hidden",
+                  transformStyle: "preserve-3d",
+                }}
+                onMouseEnter={e => {
+                  if (!opt.comingSoon) {
+                    e.currentTarget.style.borderColor = opt.color;
+                    e.currentTarget.style.transform = "translateY(-4px) translateZ(20px)";
+                    e.currentTarget.style.boxShadow = `0 14px 40px ${opt.color}22`;
+                  }
+                }}
+                onMouseLeave={e => {
+                  if (!opt.comingSoon) {
+                    e.currentTarget.style.borderColor = opt.color + "44";
+                    e.currentTarget.style.transform = "translateY(0) translateZ(0)";
+                    e.currentTarget.style.boxShadow = "none";
+                  }
+                }}
+              >
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
+                  <div style={{ fontFamily: t.fontDisplay, fontSize: 24, fontWeight: 800, color: opt.comingSoon ? t.textMuted : opt.color }}>
+                    {opt.label}
+                  </div>
+                  {opt.comingSoon && (
+                    <div style={{ background: "rgba(255,255,255,0.1)", color: "#fff", fontSize: 10, padding: "2px 8px", borderRadius: 4, fontFamily: t.fontMono }}>COMING SOON</div>
+                  )}
+                </div>
+                <div style={{ fontFamily: t.fontBody, fontSize: 16, color: t.textMuted, opacity: 0.8 }}>
+                  {opt.sub}
+                </div>
+                {!opt.comingSoon && (
+                  <div style={{ position: "absolute", bottom: 0, left: 0, height: 3, width: "100%", background: `linear-gradient(90deg, transparent, ${opt.color}, transparent)`, opacity: 0.4 }} />
+                )}
+              </button>
+            ))}
+          </div>
+
+          <button
+            onClick={() => setShowRankedOptions(false)}
+            style={{
+              marginTop: 48, background: "transparent", border: "none", color: t.textMuted,
+              fontFamily: t.fontDisplay, fontSize: 14, cursor: "pointer", letterSpacing: "0.2em", fontWeight: 700
+            }}
+          >
+            CANCEL SELECTION
+          </button>
         </div>
       )}
 
@@ -564,6 +758,10 @@ export default function LobbyScreen({
         @keyframes matchBarShrink { from{width:100%} to{width:0%} }
         @keyframes slideInLeft  { from{opacity:0;transform:translateX(-100px) scale(0.9)} to{opacity:1;transform:translateX(0) scale(1)} }
         @keyframes slideInRight { from{opacity:0;transform:translateX(100px) scale(0.9)}  to{opacity:1;transform:translateX(0) scale(1)} }
+        @keyframes cardDistribute {
+          0% { opacity: 0; transform: translateY(40px) scale(0.8) rotateX(-20deg); }
+          100% { opacity: 1; transform: translateY(0) scale(1) rotateX(0deg); }
+        }
       `}</style>
     </div>
   );
