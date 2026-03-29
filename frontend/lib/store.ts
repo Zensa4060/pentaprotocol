@@ -1,5 +1,6 @@
 "use client";
 import { create } from "zustand";
+import API from "./api";
 
 // ── Token expiry helpers ──────────────────────────────────────────────────────
 const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
@@ -58,6 +59,7 @@ interface AuthStore {
   setAuth:    (user: any, token: string, persist?: boolean) => void;
   logout:     () => void;
   updateUser: (patch: Partial<any>) => void;
+  refreshProfile: () => Promise<void>;
 }
 
 export const useAuthStore = create<AuthStore>((set, get) => ({
@@ -102,5 +104,19 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
 
     saveUser(updated);
     set({ user: updated });
+  },
+
+  refreshProfile: async () => {
+    const token = get().token;
+    if (!token) return;
+    try {
+      const res = await API.get("/api/profile/me", {
+        headers: { Authorization: `Bearer ${token}` },
+        timeout: 15000,
+      });
+      get().updateUser(res.data);
+    } catch {
+      /* ignore */
+    }
   },
 }));

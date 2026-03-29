@@ -69,6 +69,7 @@ export default function Page() {
   // Keep latest queue state accessible inside poll closure
   const queueRoomCodeRef   = useRef<string | null>(null);
   const queuePlayerSlotRef = useRef<"P1" | "P2">("P1");
+  const profileRefreshDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [pendingScreen, setPendingScreen]     = useState<Screen | null>(null);
   const [showAiExitModal, setShowAiExitModal] = useState(false);
@@ -159,6 +160,36 @@ export default function Page() {
     const pending = sessionStorage.getItem(POLICY_GATE_SESSION_KEY);
     if (pending === uid && !hasAcceptedLegal(uid)) setScreen("policy_gate");
   }, [appReady, user, token]);
+
+  useEffect(() => {
+    if (!appReady || !token) return;
+    useAuthStore.getState().refreshProfile();
+  }, [appReady, token]);
+
+  useEffect(() => {
+    if (!token) return;
+    const scheduleProfileRefresh = () => {
+      if (profileRefreshDebounceRef.current) clearTimeout(profileRefreshDebounceRef.current);
+      profileRefreshDebounceRef.current = setTimeout(() => {
+        profileRefreshDebounceRef.current = null;
+        useAuthStore.getState().refreshProfile();
+      }, 1000);
+    };
+    const onVis = () => {
+      if (document.visibilityState === "visible") scheduleProfileRefresh();
+    };
+    const onFocus = () => scheduleProfileRefresh();
+    document.addEventListener("visibilitychange", onVis);
+    window.addEventListener("focus", onFocus);
+    return () => {
+      document.removeEventListener("visibilitychange", onVis);
+      window.removeEventListener("focus", onFocus);
+      if (profileRefreshDebounceRef.current) {
+        clearTimeout(profileRefreshDebounceRef.current);
+        profileRefreshDebounceRef.current = null;
+      }
+    };
+  }, [token]);
 
   useEffect(() => {
     sessionStorage.setItem("pp_screen", screen);

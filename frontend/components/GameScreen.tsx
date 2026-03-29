@@ -468,6 +468,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   const [matchOver, setMatchOver] = useState(false);
   const [seriesWinner, setSeriesWinner] = useState<string | null>(null);
   const didRecordMissionRef = useRef(false);
+  const didRefreshProfileAfterSeriesRef = useRef(false);
   const [p1Ready, setP1Ready] = useState(false);
   const [p2Ready, setP2Ready] = useState(false);
   const [showDisconnectModal, setShowDisconnectModal] = useState(false);
@@ -1838,6 +1839,19 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     });
     didRecordMissionRef.current = true;
   }, [matchOver, seriesWinner, phase, mySlot, gameMode, isRankedGame, isMultiplayerGame, p1Elo, p2Elo, difficulty, userKey]);
+
+  useEffect(() => {
+    if (!matchOver) {
+      didRefreshProfileAfterSeriesRef.current = false;
+      return;
+    }
+    if (didRefreshProfileAfterSeriesRef.current) return;
+    if (phase !== "match_over") return;
+    if (!isMultiplayerGame) return;
+    if (!userKey || userKey === "guest") return;
+    didRefreshProfileAfterSeriesRef.current = true;
+    void useAuthStore.getState().refreshProfile();
+  }, [matchOver, phase, isMultiplayerGame, userKey]);
 
   useEffect(() => {
     if (phase === "waiting_ready" && p1Ready && p2Ready && R.current.readyTimer <= 0) setReadyTimer(1);
