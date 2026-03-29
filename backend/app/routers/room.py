@@ -505,9 +505,10 @@ async def queue_join(data: QueueRequest, user_id: str = Depends(get_current_user
 async def queue_leave(data: QueueRequest, user_id: str = Depends(get_current_user)):
     db  = get_db()
     fmt = data.format
-    entry = await db.matchmaking_queue.find_one_and_delete(
-        {"user_id": user_id, "format": fmt}
-    )
+    filt: dict = {"user_id": user_id, "format": fmt}
+    if data.board_mode:
+        filt["board_mode"] = data.board_mode
+    entry = await db.matchmaking_queue.find_one_and_delete(filt)
     if entry:
         await db.rooms.delete_one({"room_code": entry["room_code"], "status": "waiting"})
     return {"ok": True}

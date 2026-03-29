@@ -98,13 +98,10 @@ app.include_router(room,    prefix="/api/room",    tags=["room"])
 app.include_router(otp,     prefix="/api/otp",     tags=["otp"])
 app.include_router(paypal,  prefix="/api/paypal",  tags=["paypal"])  # ← Added PayPal router
 
-# ── Single startup — connect DB then create TTL index ────────────────────────
+# ── Single startup — connect DB (matchmaking TTL lives in database.ensure_indexes) ─
 @app.on_event("startup")
 async def startup():
     await connect_db()
-    db = get_db()
-    # Auto-expire matchmaking queue entries after 60 seconds
-    await db.matchmaking_queue.create_index("created_at", expireAfterSeconds=60)
     try:
         from app.routers.bot import _HAS_RUST as BOT_RUST_ACTIVE
         print(f"Rust Engine Active: {BOT_RUST_ACTIVE}")

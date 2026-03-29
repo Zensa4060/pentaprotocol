@@ -349,7 +349,7 @@ export default function Page() {
     const code       = queueRoomCodeRef.current;
     if (code) {
       try {
-        await API.post("/api/room/queue/leave", { format: mode }, { ...authHeader, timeout: 10000 });
+        await API.post("/api/room/queue/leave", { format: mode, board_mode: boardMode }, { ...authHeader, timeout: 10000 });
       } catch { /* ignore — server will TTL-expire the entry anyway */ }
     }
 
