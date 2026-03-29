@@ -153,6 +153,11 @@ def compute_awaiting_rulebreaker(history: list, segment_start: int) -> bool:
     return True
 
 
+def _starting_board_mode(mode: str) -> str:
+    """Extract the first board size from a compound mode (e.g. '5x5_7x7' -> '5x5')."""
+    return mode.split("_")[0]
+
+
 def should_auto_upgrade_7x7_after_5x5_game3(
     new_history: list,
     segment_start: int,
@@ -163,7 +168,9 @@ def should_auto_upgrade_7x7_after_5x5_game3(
     After game 3 on 5×5, if the segment is still undecided and either tied 1–1 in wins
     or all three games were draws, open the 7×7 leg (no second 5×5 Rulebreaker).
     """
-    if board_mode != "5x5" or game_number != 3:
+    # Use starting board mode for check (handles both '5x5' and '5x5_7x7' etc)
+    start_mode = _starting_board_mode(board_mode)
+    if start_mode != "5x5" or game_number != 3:
         return False
     if segment_start > len(new_history):
         return False
@@ -382,8 +389,9 @@ async def queue_join(data: QueueRequest, user_id: str = Depends(get_current_user
     await db.matchmaking_queue.delete_many({"user_id": user_id, "format": fmt})
 
     # Try to find an opponent already waiting (MongoDB-persisted queue)
+    # MUST match on board_mode to ensure queue isolation!
     opponent_entry = await db.matchmaking_queue.find_one_and_delete(
-        {"format": fmt, "user_id": {"$ne": user_id}}
+        {"format": fmt, "board_mode": data.board_mode, "user_id": {"$ne": user_id}}
     )
 
     if opponent_entry:
@@ -410,7 +418,7 @@ async def queue_join(data: QueueRequest, user_id: str = Depends(get_current_user
                 "player2_level":  user.get("level", 1),
                 "status":         "active",
                 "game_status":    "playing",
-                "awaiting_5x5_rules_ready": bm == "5x5",
+                "awaiting_5x5_rules_ready": _starting_board_mode(bm) == "5x5",
                 "awaiting_7x7_rules_ready": False,
             }
             await db.rooms.update_one({"room_code": room_code}, {"$set": match_update})
@@ -430,26 +438,28 @@ async def queue_join(data: QueueRequest, user_id: str = Depends(get_current_user
     # No valid opponent — create a new waiting room
     code = await _generate_unique_code(db)
 
-    # For 7x7 multiplayer, randomize patterns if not provided
-    board_mode = data.board_mode or "5x5"
+    # For compound multiplayer, randomize patterns if not provided (if starting on 7x7)
+    full_board_mode = data.board_mode or "5x5"
+    start_mode = _starting_board_mode(full_board_mode)
     selected_patterns = data.selected_patterns
-    if board_mode == "7x7" and not selected_patterns:
+    if start_mode == "7x7" and not selected_patterns:
         from app.core.patterns7 import PATTERN_NAMES_7
         selected_patterns = list(PATTERN_NAMES_7)
 
-    engine = GameEngine(board_mode=board_mode, selected_pattern_ids=selected_patterns)
+    # Initialize Engine with STARTING board size (e.g. 5x5 for 5x5_7x7)
+    engine = GameEngine(board_mode=start_mode, selected_pattern_ids=selected_patterns)
     room = {
         "room_code":      code,
         "status":         "waiting",
         "format":         fmt,
-        "board_mode":     board_mode,
+        "board_mode":     full_board_mode,
         "selected_patterns": selected_patterns,
         **(
             {
                 "selected_patterns_p1": selected_patterns,
                 "selected_patterns_p2": selected_patterns,
             }
-            if board_mode == "7x7"
+            if start_mode == "7x7"
             else {}
         ),
         "source":         "matchmaking",
@@ -484,6 +494,7 @@ async def queue_join(data: QueueRequest, user_id: str = Depends(get_current_user
         "user_id":    user_id,
         "room_code":  code,
         "format":     fmt,
+        "board_mode": full_board_mode,
         "created_at": datetime.utcnow(),
     })
 
@@ -529,27 +540,27 @@ async def create_room(data: CreateRoomRequest, user_id: str = Depends(get_curren
     player_name = user.get("username", "Player 1")
     code = await _generate_unique_code(db)
 
-    # For 7x7 multiplayer, randomize patterns if not provided
-    board_mode = data.board_mode or "5x5"
+    full_board_mode = data.board_mode or "5x5"
+    start_mode = _starting_board_mode(full_board_mode)
     selected_patterns = data.selected_patterns
-    if board_mode == "7x7" and not selected_patterns:
+    if start_mode == "7x7" and not selected_patterns:
         from app.core.patterns7 import PATTERN_NAMES_7
         selected_patterns = list(PATTERN_NAMES_7)
 
-    engine = GameEngine(board_mode=board_mode, selected_pattern_ids=selected_patterns)
+    engine = GameEngine(board_mode=start_mode, selected_pattern_ids=selected_patterns)
     creator_slot = random.choice(["P1", "P2"])
     room = {
         "room_code":       code,
         "status":          "waiting",
         "format":          data.format,
-        "board_mode":      board_mode,
+        "board_mode":      full_board_mode,
         "selected_patterns": selected_patterns,
         **(
             {
                 "selected_patterns_p1": selected_patterns,
                 "selected_patterns_p2": selected_patterns,
             }
-            if board_mode == "7x7"
+            if start_mode == "7x7"
             else {}
         ),
         "source":          "private",
@@ -648,7 +659,7 @@ async def join_room(data: JoinRoomRequest, user_id: str = Depends(get_current_us
         "segment_start_index": 0,
         "history_display_start_index": 0,
         "game1_first_player": None,
-        "awaiting_5x5_rules_ready": bm_join == "5x5",
+        "awaiting_5x5_rules_ready": _starting_board_mode(bm_join) == "5x5",
         "awaiting_7x7_rules_ready": False,
     }
     if joiner_slot == "P1":
