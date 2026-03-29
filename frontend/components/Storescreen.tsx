@@ -39,6 +39,8 @@ import DigitalRainBanner from "./DigitalRainBanner";
 import InfernoBanner from "./InfernoBanner";
 
 // Payment: PayPal + UPI/manual verification; see Refund Policy for creator QR.
+/** Set to `false` to re-enable PayPal checkout in the currency modal. */
+const PAYPAL_COMING_SOON = true;
 
 function InteractivePreview({ Grid, gridProps }: { Grid: React.ComponentType<any>; gridProps?: Record<string, any> }) {
   const [board, setBoard] = useState<(("X" | "O") | null)[][]>(() =>
@@ -551,6 +553,7 @@ export default function StoreScreen({ setScreenAction, themeId }: Props) {
   const [selectedProto, setSelectedProto] = useState("plus");
   const [selectedShards, setSelectedShards] = useState("plus");
   const [payRedirect, setPayRedirect] = useState<null | "paypal">(null);
+  const [showPaypalComingSoon, setShowPaypalComingSoon] = useState(false);
   // ── UPI state ──────────────────────────────────────────────────────────────
   const [showUpiModal, setShowUpiModal] = useState(false);
   const [upiStep, setUpiStep]           = useState<"qr" | "utr" | "success">("qr");
@@ -584,7 +587,10 @@ export default function StoreScreen({ setScreenAction, themeId }: Props) {
   }, [token]);
 
   useEffect(() => {
-    if (!showBuyModal) setPayRedirect(null);
+    if (!showBuyModal) {
+      setPayRedirect(null);
+      setShowPaypalComingSoon(false);
+    }
   }, [showBuyModal]);
 
   useEffect(() => {
@@ -598,6 +604,7 @@ export default function StoreScreen({ setScreenAction, themeId }: Props) {
   const cssVars = { "--font-display": t.fontDisplay, "--font-mono": t.fontMono, "--font-body": t.fontBody, "--text": t.text, "--text-muted": t.textMuted, "--border": t.border, "--accent": accent } as React.CSSProperties;
 
   const handleBuyPayPal = async () => {
+    if (PAYPAL_COMING_SOON) return;
     if (isGuest) { setShowBuyModal(false); showError(`Sign in to buy ${buyCurrencyType === "shards" ? "PentaShards" : "ProtoCredits"}.`); return; }
     setPayRedirect("paypal"); setMsg(null);
     try {
@@ -901,9 +908,38 @@ export default function StoreScreen({ setScreenAction, themeId }: Props) {
             <div style={{ fontFamily: t.fontMono, fontSize: 10, color: t.textMuted, letterSpacing: "0.18em", marginBottom: 10 }}>CHOOSE PAYMENT METHOD</div>
 
             {/* PayPal */}
-            <button onClick={handleBuyPayPal} disabled={payBusy} className="store-buy-btn" style={{ width: "100%", padding: "14px", background: payBusy ? "#00308788" : "#003087", border: "2px solid #003087", borderRadius: 10, color: "#fff", fontFamily: t.fontDisplay, fontSize: 15, fontWeight: 900, cursor: payBusy ? "not-allowed" : "pointer", letterSpacing: "0.06em", boxShadow: payBusy ? "none" : "0 0 24px rgba(0,48,135,0.5)", marginBottom: 10, display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }}>
+            <button
+              type="button"
+              onClick={PAYPAL_COMING_SOON ? () => setShowPaypalComingSoon(true) : handleBuyPayPal}
+              disabled={payBusy}
+              className="store-buy-btn"
+              style={{
+                width: "100%",
+                padding: "14px",
+                background: payBusy ? "#00308788" : PAYPAL_COMING_SOON ? "rgba(0,48,135,0.45)" : "#003087",
+                border: `2px solid ${PAYPAL_COMING_SOON ? "rgba(0,48,135,0.55)" : "#003087"}`,
+                borderRadius: 10,
+                color: "#fff",
+                fontFamily: t.fontDisplay,
+                fontSize: PAYPAL_COMING_SOON ? 14 : 15,
+                fontWeight: 900,
+                cursor: payBusy ? "not-allowed" : "pointer",
+                letterSpacing: "0.06em",
+                boxShadow: payBusy || PAYPAL_COMING_SOON ? "none" : "0 0 24px rgba(0,48,135,0.5)",
+                marginBottom: 10,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 10,
+                opacity: PAYPAL_COMING_SOON ? 0.92 : 1,
+              }}
+            >
               <svg width="18" height="18" viewBox="0 0 24 24" fill="#fff" xmlns="http://www.w3.org/2000/svg"><path d="M20.067 8.478c.492.315.844.825.983 1.39C21.6 12.525 20.2 15 17.5 15H15l-.8 4H10l2.5-13H17c1.657 0 2.757.693 3.067 2.478z" opacity=".6"/><path d="M7 5h7c1.657 0 2.757.693 3.067 2.478.492.315.844.825.983 1.39C18.6 11.525 17.2 14 14.5 14H12l-.8 4H7l2.5-13z"/></svg>
-              {payRedirect === "paypal" ? "Redirecting to PayPal…" : `PAY $${(buyCurrencyType === "shards" ? SHARD_PACKAGES_USD : PACKAGES_USD).find(p => p.id === pkg.id)?.usdPrice.toFixed(2) ?? pkg.price} · PAY WITH PAYPAL`}
+              {PAYPAL_COMING_SOON
+                ? "PAYPAL (USD) — COMING SOON"
+                : payRedirect === "paypal"
+                  ? "Redirecting to PayPal…"
+                  : `PAY $${(buyCurrencyType === "shards" ? SHARD_PACKAGES_USD : PACKAGES_USD).find(p => p.id === pkg.id)?.usdPrice.toFixed(2) ?? pkg.price} · PAY WITH PAYPAL`}
             </button>
 
             <button
@@ -925,8 +961,33 @@ export default function StoreScreen({ setScreenAction, themeId }: Props) {
             </button>
 
             <div style={{ fontFamily: t.fontBody, fontSize: 11, color: t.textMuted, textAlign: "center" as const, marginTop: 4, lineHeight: 1.6 }}>
-              PayPal (USD) for international cards &amp; wallets · UPI / creator QR (INR) as on the Refund Policy page. {buyCurrencyType === "shards" ? "PentaShards" : "ProtoCredits"} are non-refundable except as stated in the Refund Policy.
+              {PAYPAL_COMING_SOON
+                ? <>International PayPal (USD) checkout is coming soon. Use UPI / creator QR (INR) on the Refund Policy page in the meantime. {buyCurrencyType === "shards" ? "PentaShards" : "ProtoCredits"} are non-refundable except as stated in the Refund Policy.</>
+                : <>PayPal (USD) for international cards &amp; wallets · UPI / creator QR (INR) as on the Refund Policy page. {buyCurrencyType === "shards" ? "PentaShards" : "ProtoCredits"} are non-refundable except as stated in the Refund Policy.</>}
             </div>
+          </div>
+        </div>
+      )}
+
+      {showPaypalComingSoon && (
+        <div
+          className="modal-backdrop"
+          onClick={(e) => { if (e.target === e.currentTarget) setShowPaypalComingSoon(false); }}
+          style={{ position: "fixed", inset: 0, zIndex: 10010, background: "rgba(0,0,0,0.78)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}
+        >
+          <div className="modal-panel" style={{ background: t.bg, border: `1px solid ${t.border}`, borderRadius: 20, padding: "28px 26px", width: "100%", maxWidth: 420, position: "relative", boxShadow: `0 0 40px ${accent}18` }}>
+            <div style={{ fontFamily: t.fontMono, fontSize: 11, color: accent, letterSpacing: "0.22em", marginBottom: 10 }}>PROTOCOL STORE</div>
+            <div style={{ fontFamily: t.fontDisplay, fontSize: 24, fontWeight: 900, color: t.text, marginBottom: 12 }}>Coming soon</div>
+            <div style={{ fontFamily: t.fontBody, fontSize: 14, color: t.textMuted, lineHeight: 1.65, marginBottom: 24 }}>
+              PayPal checkout for international purchases is not available yet. You can still pay with UPI or the creator QR (INR) from the Refund Policy page.
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowPaypalComingSoon(false)}
+              style={{ width: "100%", padding: "14px", background: accent, border: "none", borderRadius: 10, color: "#000", fontFamily: t.fontDisplay, fontSize: 14, fontWeight: 900, cursor: "pointer", letterSpacing: "0.06em" }}
+            >
+              Got it
+            </button>
           </div>
         </div>
       )}
