@@ -331,7 +331,7 @@ export function MatchSidebar({
         )}
       </div>
 
-      {boardMode === "7x7" && selectedPatterns && selectedPatterns.length > 0 && phase !== "waiting_ready" && (
+      {boardMode === "7x7" && selectedPatterns && selectedPatterns.length > 0 && phase !== "waiting_ready" && !(isMultiplayerGame && chatOpen) && (
         <div style={{ borderTop: `1px solid ${t.border}`, paddingTop: 12 }}>
           <div style={{ fontFamily: t.fontMono, fontSize: 13, fontWeight: 700, color: t.text, letterSpacing: "0.1em", marginBottom: 8, display: "flex", justifyContent: "space-between" }}>
             <span>7×7 PATTERNS</span>
@@ -672,7 +672,7 @@ export function LeftPanel(props: MatchSidebarProps) {
         )}
       </div>
 
-      {(() => {
+      {!(isMultiplayerGame && chatOpen) && (() => {
         const mode = boardMode === "7x7" || boardMode === "6x6" ? boardMode : "5x5";
         const patternChips =
           mode === "7x7"

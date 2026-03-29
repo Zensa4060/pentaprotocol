@@ -473,7 +473,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   const [showDisconnectModal, setShowDisconnectModal] = useState(false);
   const [chatMessages, setChatMessages] = useState<{ from: "P1" | "P2"; text: string; ts: number }[]>([]);
   const [chatInput, setChatInput] = useState("");
-  const [chatOpen, setChatOpen] = useState(true);
+  const [chatOpen, setChatOpen] = useState(false);
   const [chatWarning, setChatWarning] = useState(false);
   const [readyTimeout, setReadyTimeout] = useState(60);
   const [readyTimer, setReadyTimer] = useState(0);
