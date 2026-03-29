@@ -3,6 +3,7 @@ from app.models.game import CreateGame, MakeMove
 from app.core.database import get_db
 from app.core.security import decode_token
 from app.game.engine import GameEngine
+from app.game.ranked_penalties import record_ranked_match_completed_clean
 from bson import ObjectId
 from datetime import datetime
 import math
@@ -154,6 +155,113 @@ async def award_game_result(db, game: dict, winner: str | None):
     elif w == "DRAW":
         await log_match(p1_id, p2_id, "draw", p1_user, p2_user)
         await log_match(p2_id, p1_id, "draw", p2_user, p1_user)
+
+
+async def award_ranked_match_result(
+    db, game: dict, winner: str | None, *, record_clean_streak: bool = True
+):
+    """
+    Single ranked match outcome (full match, not per mini-game).
+    Updates elo + ranked_rating together; logs match_history once.
+    """
+    p1_id = game.get("player1_id")
+    p2_id = game.get("player2_id")
+    is_ranked = game.get("format") == "ranked"
+    mode = game.get("mode", "multiplayer")
+    difficulty = game.get("difficulty", "medium")
+    source = game.get("source", "matchmaking")
+    if mode in ("solo", "singleplayer", "bot") or not is_ranked:
+        return
+
+    career_mode = "ranked"
+    p1_user = await db.users.find_one({"_id": ObjectId(p1_id)}) if p1_id else None
+    p2_user = await db.users.find_one({"_id": ObjectId(p2_id)}) if p2_id else None
+
+    async def update_player(user_id: str, result: str, opponent_id: str | None):
+        if not user_id:
+            return
+        user = await db.users.find_one({"_id": ObjectId(user_id)})
+        if not user:
+            return
+        gained_xp = xp_for_result(result, mode, difficulty)
+        new_total_xp = user.get("xp", 0) + gained_xp
+        new_level, _ = compute_level(new_total_xp)
+        inc = {}
+        if result == "win":
+            inc["wins"] = 1
+        if result == "loss":
+            inc["losses"] = 1
+        if result == "draw":
+            inc["draws"] = 1
+        updates = {"xp": new_total_xp, "level": new_level}
+        if opponent_id and mode != "bot":
+            opponent = await db.users.find_one({"_id": ObjectId(opponent_id)})
+            if opponent:
+                score = 1.0 if result == "win" else (0.5 if result == "draw" else 0.0)
+                elo_old = user.get("elo", 500)
+                rr_old = int(user.get("ranked_rating", elo_old))
+                opp_elo = opponent.get("elo", 500)
+                opp_rr = int(opponent.get("ranked_rating", opp_elo))
+                new_elo_val = new_elo(elo_old, opp_elo, score)
+                new_rr_val = new_elo(rr_old, opp_rr, score)
+                updates["elo"] = new_elo_val
+                updates["ranked_rating"] = new_rr_val
+        await db.users.update_one({"_id": ObjectId(user_id)}, {"$set": updates, "$inc": inc})
+
+    w = (winner or "").upper()
+    if w == "P1":
+        await update_player(p1_id, "win", p2_id)
+        await update_player(p2_id, "loss", p1_id)
+    elif w == "P2":
+        await update_player(p1_id, "loss", p2_id)
+        await update_player(p2_id, "win", p1_id)
+    elif w == "DRAW":
+        await update_player(p1_id, "draw", p2_id)
+        await update_player(p2_id, "draw", p1_id)
+
+    async def log_match(user_id, opponent_id, result, user_snap, opp_snap):
+        if not user_id or not user_snap or not opp_snap:
+            return
+        elo_before = user_snap.get("elo", 100)
+        updated = await db.users.find_one({"_id": ObjectId(user_id)})
+        elo_after = updated.get("elo", elo_before) if updated else elo_before
+        doc = {
+            "user_id": user_id,
+            "opponent_id": opponent_id,
+            "opponent_username": opp_snap.get("username", "Unknown"),
+            "opponent_elo": opp_snap.get("elo", 100),
+            "result": result,
+            "elo_before": elo_before,
+            "elo_after": elo_after,
+            "elo_delta": elo_after - elo_before,
+            "mode": career_mode,
+            "played_at": datetime.utcnow(),
+            "match_scope": "ranked_full_match",
+        }
+        if isinstance(game.get("board_mode"), str):
+            doc["board_mode"] = game.get("board_mode")
+        await db.match_history.insert_one(doc)
+
+    if w == "P1":
+        await log_match(p1_id, p2_id, "win", p1_user, p2_user)
+        await log_match(p2_id, p1_id, "loss", p2_user, p1_user)
+    elif w == "P2":
+        await log_match(p1_id, p2_id, "loss", p1_user, p2_user)
+        await log_match(p2_id, p1_id, "win", p2_user, p1_user)
+    elif w == "DRAW":
+        await log_match(p1_id, p2_id, "draw", p1_user, p2_user)
+        await log_match(p2_id, p1_id, "draw", p2_user, p1_user)
+
+    if record_clean_streak:
+        if p1_id:
+            await record_ranked_match_completed_clean(db, p1_id)
+        if p2_id:
+            await record_ranked_match_completed_clean(db, p2_id)
+    elif winner in ("P1", "P2"):
+        wid = p1_id if winner == "P1" else p2_id
+        if wid:
+            await record_ranked_match_completed_clean(db, wid)
+
 
 @router.post("/create")
 async def create_game(data: CreateGame, user_id: str = Depends(get_current_user)):

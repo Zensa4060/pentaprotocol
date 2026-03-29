@@ -313,8 +313,9 @@ export default function Page() {
     setQueueError(null);
 
     const authHeader = { headers: { Authorization: `Bearer ${token}` } };
+    const boardModeForQueue = mode === "ranked" ? ("5x5_6x6_7x7" as const) : boardMode;
     try {
-      const res = await postOnce("/api/room/queue/join", { format: mode, board_mode: boardMode }, authHeader);
+      const res = await postOnce("/api/room/queue/join", { format: mode, board_mode: boardModeForQueue }, authHeader);
       if (queueCancelledRef.current) {
         matchmakingActiveRef.current = false;
         return;
@@ -378,9 +379,10 @@ export default function Page() {
     const mode       = isRanked ? "ranked" : "unranked";
     const authHeader = { headers: { Authorization: `Bearer ${token}` } };
     const code       = queueRoomCodeRef.current;
+    const boardModeForQueue = mode === "ranked" ? "5x5_6x6_7x7" : boardMode;
     if (code) {
       try {
-        await API.post("/api/room/queue/leave", { format: mode, board_mode: boardMode }, { ...authHeader, timeout: 10000 });
+        await API.post("/api/room/queue/leave", { format: mode, board_mode: boardModeForQueue }, { ...authHeader, timeout: 10000 });
       } catch { /* ignore — server will TTL-expire the entry anyway */ }
     }
 

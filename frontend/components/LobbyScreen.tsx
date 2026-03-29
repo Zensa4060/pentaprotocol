@@ -438,7 +438,7 @@ export default function LobbyScreen({
         >
           <div style={{ fontFamily:t.fontMono, fontSize:10, color:t.textMuted, letterSpacing:"0.18em", marginBottom:12 }}>QUEUE</div>
           <div style={{ fontFamily:t.fontDisplay, fontSize:ip?20:32, fontWeight:700, marginBottom:8, color:multiSub==="ranked"||hovered==="ranked"?t.gold:t.text, transition:"color 0.28s", textTransform:"uppercase" as const, letterSpacing:"0.08em" }}>Ranked</div>
-          <div style={{ fontFamily:t.fontBody, fontSize:ip?12:14, color:t.textMuted, marginBottom:16 }}>ELO · Rank · Season rewards</div>
+          <div style={{ fontFamily:t.fontBody, fontSize:ip?12:14, color:t.textMuted, marginBottom:16 }}>ELO · RR · Rank · Season rewards</div>
           <div style={{ marginTop:"auto", width:"100%", display:"flex", flexDirection:"column", gap:6 }}>
             {[{k:"FORMAT",v:"5×5 → 6×6 → 7×7"},{k:"PLACEMENT",v:"10 matches"}].map(s => (
               <div key={s.k} style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
@@ -668,7 +668,7 @@ export default function LobbyScreen({
                 </div>
               </div>
               <div style={{ fontFamily: t.fontBody, fontSize: 16, color: t.textMuted, opacity: 0.8 }}>
-                5×5 → 6×6 → 7×7 ladder
+                Three legs (Bo3 each). ELO and RR update once at full match end.
               </div>
               <div style={{ position: "absolute", bottom: 0, left: 0, height: 3, width: "100%", background: `linear-gradient(90deg, transparent, ${t.gold}, transparent)`, opacity: 0.4 }} />
             </button>

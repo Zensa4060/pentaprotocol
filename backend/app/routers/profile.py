@@ -1,7 +1,9 @@
 from fastapi import APIRouter, HTTPException, Header, Depends
 from app.core.database import get_db
 from app.core.security import decode_token
+from app.game.ranked_penalties import user_ranked_allowed
 from bson import ObjectId
+from datetime import datetime
 
 router = APIRouter()
 
@@ -33,7 +35,14 @@ def _serialize_user(user: dict) -> dict:
         "shards":              user.get("shards", 0),
         "protocredits":        user.get("protocredits", 0),
         "elo":                 user.get("elo", 100),
+        "ranked_rating":       int(user.get("ranked_rating", user.get("elo", 100))),
         "rank":                get_rank(user.get("elo", 100)),
+        "ranked_ban_until":   (
+            user.get("ranked_ban_until").isoformat() + "Z"
+            if isinstance(user.get("ranked_ban_until"), datetime)
+            else None
+        ),
+        "ranked_allowed":      user_ranked_allowed(user)[0],
         "wins":                user.get("wins", 0),
         "losses":              user.get("losses", 0),
         "draws":               user.get("draws", 0),
