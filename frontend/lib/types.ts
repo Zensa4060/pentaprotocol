@@ -2,7 +2,7 @@ export type Screen =
   | "home" | "auth" | "policy_gate" | "lobby" | "game" | "aiGame" | "multiGame"
   | "profile" | "rules" | "ai" | "singleplayer" | "store" | "collection" | "career" | "battlepass";
 
-export type BoardMode = "5x5" | "6x6" | "7x7";
+export type BoardMode = "5x5" | "6x6" | "7x7" | "5x5_7x7" | "5x5_6x6" | "6x6_7x7" | "5x5_6x6_7x7";
 
 
 export interface MatchupData {

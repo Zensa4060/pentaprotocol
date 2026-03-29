@@ -427,20 +427,20 @@ export default function LobbyScreen({
         <button
           onClick={() => {
             if (multiSub === "ranked") setMultiSub(null);
-            else setShowRankedOptions(true);
+            else {
+              onBoardModeAction?.("5x5_6x6_7x7");
+              setMultiSub("ranked");
+            }
           }}
           onMouseEnter={() => { onHoverAction?.(); setHovered("ranked"); }}
           onMouseLeave={() => setHovered(null)}
           style={{ ...cardStyle("ranked", t.gold, false), alignItems:"center", textAlign:"center" as const }}
         >
-          <div style={{ position:"absolute", top:11, right:11, background:`${t.gold}18`, border:`1px solid ${t.gold}55`, color:t.gold, fontSize:10, padding:"2px 8px", borderRadius:10, fontFamily:t.fontMono, display:"flex", alignItems:"center", gap:4 }}>
-            SOON
-          </div>
           <div style={{ fontFamily:t.fontMono, fontSize:10, color:t.textMuted, letterSpacing:"0.18em", marginBottom:12 }}>QUEUE</div>
           <div style={{ fontFamily:t.fontDisplay, fontSize:ip?20:32, fontWeight:700, marginBottom:8, color:multiSub==="ranked"||hovered==="ranked"?t.gold:t.text, transition:"color 0.28s", textTransform:"uppercase" as const, letterSpacing:"0.08em" }}>Ranked</div>
           <div style={{ fontFamily:t.fontBody, fontSize:ip?12:14, color:t.textMuted, marginBottom:16 }}>ELO · Rank · Season rewards</div>
           <div style={{ marginTop:"auto", width:"100%", display:"flex", flexDirection:"column", gap:6 }}>
-            {[{k:"PLACEMENT",v:"10 matches"}].map(s => (
+            {[{k:"FORMAT",v:"5×5 → 6×6 → 7×7"},{k:"PLACEMENT",v:"10 matches"}].map(s => (
               <div key={s.k} style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
                 <div style={{ fontFamily:t.fontMono, fontSize:10, color:t.textMuted, letterSpacing:"0.1em" }}>{s.k}</div>
                 <div style={{ fontFamily:t.fontBody, fontSize:12, color:t.text }}>{s.v}</div>
@@ -448,7 +448,7 @@ export default function LobbyScreen({
             ))}
           </div>
           {multiSub === "ranked" && (
-            <div style={{ position:"absolute", top:11, right:11, background:t.gold, color:"#000", fontSize:9, padding:"2px 6px", borderRadius:4, fontFamily:t.fontMono, fontWeight:900 }}>SOON</div>
+            <div style={{ position:"absolute", top:11, right:11, background:t.gold, color:"#000", fontSize:9, padding:"2px 6px", borderRadius:4, fontFamily:t.fontMono, fontWeight:900 }}>5×6×7</div>
           )}
         </button>
 
@@ -545,14 +545,14 @@ export default function LobbyScreen({
               onMouseLeave={e => { e.currentTarget.style.transform="translateY(0) scale(1)"; e.currentTarget.style.boxShadow=`0 0 28px ${t.accentGlow}44`; }}
               onMouseDown={e => { e.currentTarget.style.transform="translateY(0) scale(0.97)"; }}
               onMouseUp={e   => { e.currentTarget.style.transform="translateY(-3px) scale(1.04)"; }}
-            >FIND MATCH ({boardMode.toUpperCase()})</button>
+            >FIND MATCH ({boardMode === "5x5_7x7" ? "5×7" : boardMode === "5x5_6x6" ? "5×6" : boardMode === "6x6_7x7" ? "6×7" : boardMode === "5x5_6x6_7x7" ? "5×6×7" : boardMode.toUpperCase()})</button>
             {queueError && (
               <div style={{ background:`${t.danger}14`, border:`1px solid ${t.danger}`, borderRadius:8, padding:"8px 12px", color:t.danger, fontFamily:t.fontBody, fontSize:12 }}>
                 {queueError}
               </div>
             )}
             <button 
-              onClick={() => setShowUnrankedOptions(true)}
+              onClick={() => multiSub === "ranked" ? setShowRankedOptions(true) : setShowUnrankedOptions(true)}
               style={{ background:"transparent", border:"none", color:t.accent, borderBottom:`1px solid ${t.accent}44`, fontFamily:t.fontMono, fontSize:10, cursor:"pointer", padding:"2px 0", marginTop:4 }}
             >CHANGE PROTOCOL</button>
           </div>
@@ -578,37 +578,33 @@ export default function LobbyScreen({
           }}>
             {[
               { id: "5x5", label: "5 × 5", sub: "Standard Rulebreak grid" },
-              { id: "6x6", label: "6 × 6", sub: "Timebomb protocol", comingSoon: true },
+              { id: "6x6", label: "6 × 6", sub: "Timebomb protocol" },
               { id: "7x7", label: "7 × 7", sub: "Mindlock advanced grid" },
-              { id: "5x5_7x7", label: "5x5 + 7x7", sub: "Classic Rulebreaker flow", current: true },
-              { id: "5x5_6x6", label: "5x5 + 6x6", sub: "Hybrid progression", comingSoon: true },
-              { id: "6x6_7x7", label: "6x6 + 7x7", sub: "Elite progression", comingSoon: true },
+              { id: "5x5_7x7", label: "5×5 + 7×7", sub: "Classic Rulebreaker flow", current: true },
+              { id: "5x5_6x6", label: "5×5 + 6×6", sub: "Hybrid progression" },
+              { id: "6x6_7x7", label: "6×6 + 7×7", sub: "Elite progression" },
             ].map((opt, i) => (
               <button
                 key={opt.id}
-                disabled={opt.comingSoon}
                 onClick={() => {
-                  onBoardModeAction?.(opt.id.split("_")[0]);
+                  onBoardModeAction?.(opt.id);
                   setMultiSub("unranked");
                   setShowUnrankedOptions(false);
                 }}
-                className={`protocol-card ${opt.comingSoon ? "coming-soon" : ""}`}
+                className="protocol-card"
                 style={{
-                  background: t.bgCard, border: `2px solid ${opt.comingSoon ? "rgba(255,255,255,0.05)" : "rgba(255,255,255,0.15)"}`,
+                  background: t.bgCard, border: `2px solid rgba(255,255,255,0.15)`,
                   borderRadius: ip ? 2 : 16, padding: "24px 28px", textAlign: "left",
-                  cursor: opt.comingSoon ? "not-allowed" : "pointer",
+                  cursor: "pointer",
                   transition: "all 0.2s ease-out",
                   position: "relative", overflow: "hidden",
                   ["--hover-color" as any]: "#ffffff",
                 } as any}
               >
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
-                  <div style={{ fontFamily: t.fontDisplay, fontSize: 22, fontWeight: 800, color: opt.comingSoon ? t.textMuted : "#fff" }}>
+                  <div style={{ fontFamily: t.fontDisplay, fontSize: 22, fontWeight: 800, color: "#fff" }}>
                     {opt.label}
                   </div>
-                  {opt.comingSoon && (
-                    <div style={{ background: "rgba(255,255,255,0.1)", color: "#fff", fontSize: 10, padding: "2px 8px", borderRadius: 4, fontFamily: t.fontMono }}>COMING SOON</div>
-                  )}
                   {opt.current && (
                     <div style={{ background: `rgba(255,255,255,0.1)`, color: "#fff", fontSize: 10, padding: "2px 8px", borderRadius: 4, fontFamily: t.fontMono, border: `1px solid rgba(255,255,255,0.2)` }}>RECOMMENDED</div>
                   )}
@@ -616,9 +612,7 @@ export default function LobbyScreen({
                 <div style={{ fontFamily: t.fontBody, fontSize: 14, color: t.textMuted, opacity: 0.8 }}>
                   {opt.sub}
                 </div>
-                {!opt.comingSoon && (
-                  <div style={{ position: "absolute", bottom: 0, left: 0, height: 3, width: "100%", background: `linear-gradient(90deg, transparent, #fff, transparent)`, opacity: 0.3 }} />
-                )}
+                <div style={{ position: "absolute", bottom: 0, left: 0, height: 3, width: "100%", background: `linear-gradient(90deg, transparent, #fff, transparent)`, opacity: 0.3 }} />
               </button>
             ))}
           </div>
@@ -645,48 +639,39 @@ export default function LobbyScreen({
             fontFamily: t.fontDisplay, fontSize: 36, fontWeight: 900, color: t.gold,
             marginBottom: 32, letterSpacing: "0.1em", textAlign: "center", textShadow: `0 0 40px ${t.gold}44`
           }}>
-            RANKED PROTOCOLS
+            RANKED PROTOCOL
           </div>
 
           <div style={{
             display: "grid", gridTemplateColumns: "1fr",
             gap: 16, width: "100%", maxWidth: 400,
           }}>
-            {[
-              { id: "main", label: "MAIN PROTOCOL", sub: "5*5 + 6*6 + 7*7", color: t.gold, comingSoon: true },
-            ].map((opt, i) => (
-              <button
-                key={opt.id}
-                disabled={opt.comingSoon}
-                onClick={() => {
-                  // Not selectable for now
-                }}
-                className={`protocol-card ${opt.comingSoon ? "coming-soon" : ""}`}
-                style={{
-                  background: t.bgCard, border: `2px solid ${opt.comingSoon ? "rgba(255,255,255,0.05)" : opt.color + "44"}`,
-                  borderRadius: ip ? 2 : 16, padding: "32px 28px", textAlign: "left",
-                  cursor: opt.comingSoon ? "not-allowed" : "pointer",
-                  transition: "all 0.2s ease-out",
-                  position: "relative", overflow: "hidden",
-                  ["--hover-color" as any]: opt.color,
-                } as any}
-              >
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
-                  <div style={{ fontFamily: t.fontDisplay, fontSize: 24, fontWeight: 800, color: opt.comingSoon ? t.textMuted : opt.color }}>
-                    {opt.label}
-                  </div>
-                  {opt.comingSoon && (
-                    <div style={{ background: "rgba(255,255,255,0.1)", color: "#fff", fontSize: 10, padding: "2px 8px", borderRadius: 4, fontFamily: t.fontMono }}>COMING SOON</div>
-                  )}
+            <button
+              onClick={() => {
+                onBoardModeAction?.("5x5_6x6_7x7");
+                setMultiSub("ranked");
+                setShowRankedOptions(false);
+              }}
+              className="protocol-card"
+              style={{
+                background: t.bgCard, border: `2px solid ${t.gold}44`,
+                borderRadius: ip ? 2 : 16, padding: "32px 28px", textAlign: "left",
+                cursor: "pointer",
+                transition: "all 0.2s ease-out",
+                position: "relative", overflow: "hidden",
+                ["--hover-color" as any]: t.gold,
+              } as any}
+            >
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
+                <div style={{ fontFamily: t.fontDisplay, fontSize: 24, fontWeight: 800, color: t.gold }}>
+                  MAIN PROTOCOL
                 </div>
-                <div style={{ fontFamily: t.fontBody, fontSize: 16, color: t.textMuted, opacity: 0.8 }}>
-                  {opt.sub}
-                </div>
-                {!opt.comingSoon && (
-                  <div style={{ position: "absolute", bottom: 0, left: 0, height: 3, width: "100%", background: `linear-gradient(90deg, transparent, ${opt.color}, transparent)`, opacity: 0.4 }} />
-                )}
-              </button>
-            ))}
+              </div>
+              <div style={{ fontFamily: t.fontBody, fontSize: 16, color: t.textMuted, opacity: 0.8 }}>
+                5×5 → 6×6 → 7×7 ladder
+              </div>
+              <div style={{ position: "absolute", bottom: 0, left: 0, height: 3, width: "100%", background: `linear-gradient(90deg, transparent, ${t.gold}, transparent)`, opacity: 0.4 }} />
+            </button>
           </div>
 
           <button
@@ -720,35 +705,33 @@ export default function LobbyScreen({
           }}>
             {[
               { id: "5x5", label: "5 × 5", sub: "Standard Rulebreak grid" },
-              { id: "6x6", label: "6 × 6", sub: "Timebomb protocol", comingSoon: true },
+              { id: "6x6", label: "6 × 6", sub: "Timebomb protocol" },
               { id: "7x7", label: "7 × 7", sub: "Mindlock advanced grid" },
-              { id: "5x5_7x7", label: "5x5 + 7x7", sub: "Classic Rulebreaker flow", current: true },
+              { id: "5x5_7x7", label: "5×5 + 7×7", sub: "Classic Rulebreaker flow", current: true },
+              { id: "5x5_6x6", label: "5×5 + 6×6", sub: "Hybrid progression" },
+              { id: "6x6_7x7", label: "6×6 + 7×7", sub: "Elite progression" },
             ].map((opt, i) => (
               <button
                 key={opt.id}
-                disabled={opt.comingSoon}
                 onClick={() => {
-                  onBoardModeAction?.(opt.id.split("_")[0]);
+                  onBoardModeAction?.(opt.id);
                   setRoomSection("create");
                   setShowCustomOptions(false);
                 }}
-                className={`protocol-card ${opt.comingSoon ? "coming-soon" : ""}`}
+                className="protocol-card"
                 style={{
-                  background: t.bgCard, border: `2px solid ${opt.comingSoon ? "rgba(255,255,255,0.05)" : "rgba(255,255,255,0.15)"}`,
+                  background: t.bgCard, border: `2px solid rgba(255,255,255,0.15)`,
                   borderRadius: ip ? 2 : 16, padding: "24px 28px", textAlign: "left",
-                  cursor: opt.comingSoon ? "not-allowed" : "pointer",
+                  cursor: "pointer",
                   transition: "all 0.2s ease-out",
                   position: "relative", overflow: "hidden",
                   ["--hover-color" as any]: "#ffffff",
                 } as any}
               >
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
-                  <div style={{ fontFamily: t.fontDisplay, fontSize: 22, fontWeight: 800, color: opt.comingSoon ? t.textMuted : "#fff" }}>
+                  <div style={{ fontFamily: t.fontDisplay, fontSize: 22, fontWeight: 800, color: "#fff" }}>
                     {opt.label}
                   </div>
-                  {opt.comingSoon && (
-                    <div style={{ background: "rgba(255,255,255,0.1)", color: "#fff", fontSize: 10, padding: "2px 8px", borderRadius: 4, fontFamily: t.fontMono }}>COMING SOON</div>
-                  )}
                   {opt.current && (
                     <div style={{ background: `rgba(255,255,255,0.1)`, color: "#fff", fontSize: 10, padding: "2px 8px", borderRadius: 4, fontFamily: t.fontMono, border: `1px solid rgba(255,255,255,0.2)` }}>RECOMMENDED</div>
                   )}
@@ -756,9 +739,7 @@ export default function LobbyScreen({
                 <div style={{ fontFamily: t.fontBody, fontSize: 14, color: t.textMuted, opacity: 0.8 }}>
                   {opt.sub}
                 </div>
-                {!opt.comingSoon && (
-                  <div style={{ position: "absolute", bottom: 0, left: 0, height: 3, width: "100%", background: `linear-gradient(90deg, transparent, #fff, transparent)`, opacity: 0.3 }} />
-                )}
+                <div style={{ position: "absolute", bottom: 0, left: 0, height: 3, width: "100%", background: `linear-gradient(90deg, transparent, #fff, transparent)`, opacity: 0.3 }} />
               </button>
             ))}
           </div>
