@@ -216,9 +216,6 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   const [liveSelectedPatterns, setLiveSelectedPatterns] = useState<string[]>(selectedPatterns ?? []);
   useEffect(() => { setLiveBoardMode(boardMode); }, [boardMode]);
   useEffect(() => { setLiveSelectedPatterns(selectedPatterns ?? []); }, [selectedPatterns]);
-  useEffect(() => {
-    if ((gameMode === "ranked" || gameMode === "unranked") && boardMode === "6x6") setLiveBoardMode("5x5");
-  }, [gameMode, boardMode]);
 
   const liveBoardModeRef = useRef(boardMode);
   liveBoardModeRef.current = liveBoardMode;

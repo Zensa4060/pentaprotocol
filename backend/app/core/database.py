@@ -28,6 +28,8 @@ async def ensure_indexes():
         await db.db.match_history.create_index([("user_id", ASCENDING), ("played_at", DESCENDING)], background=True)
         # TTL for abandoned queue rows only — 60s was too short (players queue longer than
         # that while waiting for a match, which removed them from the pool but left the room stuck).
+        # Deploy: restart API after deploy so ensure_indexes runs; if Atlas still shows old TTL,
+        # manually drop index created_at_1 on matchmaking_queue then redeploy.
         try:
             await db.db.matchmaking_queue.drop_index("created_at_1")
         except Exception:

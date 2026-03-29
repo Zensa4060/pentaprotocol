@@ -98,6 +98,7 @@ async def award_game_result(db, game: dict, winner: str | None):
             if result == "draw": inc["draws"]  = 1
 
         updates = {"xp": new_total_xp, "level": new_level}
+        # ELO changes apply to ranked PvP only; unranked uses unranked_wins/losses without ELO.
         if is_ranked and opponent_id and mode != "bot":
             # Elo updates re-enabled for ranked
             opponent = await db.users.find_one({"_id": ObjectId(opponent_id)})

@@ -249,7 +249,7 @@ export default function Page() {
           setInQueue(false);
           setQueuePhase("none");
           matchmakingActiveRef.current = false;
-          handleRoomReady(code, slot, mode);
+          handleRoomReady(code, slot, mode, undefined, poll.data);
         }, 10000);
       }
     } catch (e: any) {
@@ -314,7 +314,7 @@ export default function Page() {
           setInQueue(false);
           setQueuePhase("none");
           matchmakingActiveRef.current = false;
-          handleRoomReady(code, slot, mode);
+          handleRoomReady(code, slot, mode, undefined, room);
         }, 10000);
       } else {
         // No immediate match — poll indefinitely until matched or cancelled
@@ -437,7 +437,15 @@ export default function Page() {
 
   const ip = themeId === "pixel";
 
-  const handleRoomReady = (roomCode: string, playerSlot: "P1" | "P2", format: string, matchup?: MatchupData) => {
+  const handleRoomReady = (
+    roomCode: string,
+    playerSlot: "P1" | "P2",
+    format: string,
+    matchup?: MatchupData,
+    roomFromServer?: { board_mode?: string; selected_patterns?: string[] },
+  ) => {
+    if (roomFromServer?.board_mode) setBoardMode(roomFromServer.board_mode as BoardMode);
+    if (Array.isArray(roomFromServer?.selected_patterns)) setSelectedPatterns(roomFromServer.selected_patterns);
     setMultiRoomCode(roomCode);
     setMultiPlayerSlot(playerSlot);
     setIsRanked(format === "ranked");
@@ -500,6 +508,8 @@ export default function Page() {
           matchupOpponent={matchupOpponent}
           queueError={queueError}
           forcedPhase="matchup"
+          boardMode={boardMode}
+          onBoardModeAction={setBoardMode}
         />
       </div>
     );
