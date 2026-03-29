@@ -580,19 +580,16 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
 
   const rankedW   = profile.wins            || 0;
   const rankedL   = profile.losses          || 0;
-  const unrankedW = profile.unranked_wins   || 0;
-  const unrankedL = profile.unranked_losses || 0;
   const draws     = profile.draws           || 0;
-  const totalGames = rankedW + rankedL + unrankedW + unrankedL + draws;
+  const totalGames = rankedW + rankedL + draws;
 
   const stats = [
     { l:"Ranked W",    v: rankedW,   c:"#5BE888" },
     { l:"Ranked L",    v: rankedL,   c: t.danger },
-    { l:"Unranked W",  v: unrankedW, c:"#34D399" },
-    { l:"Unranked L",  v: unrankedL, c:"#F97316" },
     { l:"Win Rate",    v: rankedW + rankedL > 0 ? `${Math.round((rankedW/(rankedW+rankedL))*100)}%` : "0%", c: t.accent },
     { l:"Total Games", v: totalGames, c: t.text },
     { l:"Draws",       v: draws,     c: t.gold },
+    { l:"ELO",         v: elo,       c: rank.color },
     { l:"XP",          v: profile.xp, c: t.p1 },
     { l:"Penta Shards",   v: (profile.pentashards ?? profile.shards ?? 0) + missionShardBonus, c:"#4FC3F7" },
     { l:"Proto Credits",  v: profile.protocredits || 0, c:"#FFD700" },
