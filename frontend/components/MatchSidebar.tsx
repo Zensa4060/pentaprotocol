@@ -919,14 +919,14 @@ export function WinOverlay({ showWinOverlay, overlayVisible, winner, winnerColor
 
   if (!showWinOverlay || !winner) return null;
   const getName = (w: string | null) => winnerDisplayNameAction ? winnerDisplayNameAction(w) : (w ?? "");
-  const pulseAnim = graphicsQuality === "low" ? "none" : graphicsQuality === "balanced" ? "winPulse 1.6s ease 2" : "winPulse 1.6s ease infinite";
-  const glow = graphicsQuality === "low" ? "none" : "0 0 60px";
+  const pulseAnim = "none";
+const glow = "none";
 
   const handleDismiss = () => { if (canDismiss) onDismissAction(); };
 
   return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 999, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", willChange: "opacity", opacity: overlayVisible ? 1 : 0, transition: "opacity 0.35s ease", pointerEvents: overlayVisible ? "auto" : "none" }}>
-      <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.85)", backdropFilter: "blur(8px)", zIndex: 0 }} />
+    <div style={{ position: "fixed", inset: 0, zIndex: 999, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", willChange: "opacity", opacity: overlayVisible ? 1 : 0, transition: "none", pointerEvents: overlayVisible ? "auto" : "none" }}>
+      <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.85)", zIndex: 0 }} />
       
       {/* Proper Box Modal */}
       <div style={{
@@ -942,8 +942,6 @@ export function WinOverlay({ showWinOverlay, overlayVisible, winner, winnerColor
         alignItems: "center",
         boxShadow: `0 24px 80px rgba(0,0,0,0.8), 0 0 40px ${winnerColor}22, inset 0 0 20px ${winnerColor}11`,
         willChange: "transform, opacity",
-        transform: overlayVisible ? "scale(1) translateY(0)" : "scale(0.9) translateY(20px)",
-        transition: "all 0.5s cubic-bezier(.22,.68,0,1.2)",
         textAlign: "center"
       }}>
         {/* Glow Header */}
@@ -1008,13 +1006,6 @@ export function WinOverlay({ showWinOverlay, overlayVisible, winner, winnerColor
           CONTINUE
           <span style={{ fontSize: 18, transition: "transform 0.3s", transform: "translateX(0)" }}>→</span>
         </button>
-
-        <style>{`
-          @keyframes winPulse {
-            0%, 100% { transform: scale(1); opacity: 1; }
-            50% { transform: scale(1.05); opacity: 0.9; }
-          }
-        `}</style>
       </div>
     </div>
   );

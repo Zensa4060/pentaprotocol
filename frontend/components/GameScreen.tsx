@@ -902,7 +902,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
                     setShowWinOverlay(true); 
                     requestAnimationFrame(() => setOverlayVisible(true)); 
                   });
-                }, 1000);
+                }, 300);
                 const newHist = Array.isArray(msg.match_history)
                   ? (msg.match_history as string[])
                   : [...matchHistoryRef.current, msg.winner as string];
@@ -2099,7 +2099,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
         setShowWinOverlay(true); 
         requestAnimationFrame(() => setOverlayVisible(true)); 
       });
-    }, 1000);
+    }, 300);
     const newHist = [...R.current.matchHistory, winner];
     // keep ref in sync immediately so checkSeriesWinner sees the updated history
     R.current.matchHistory = newHist;
@@ -2274,14 +2274,12 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     setLog(l => [...l, { text: `${l.length + 1}. ${piece}→${String.fromCharCode(65 + c)}${r + 1} (${player})`, player }]);
   };
 
-  const dismissOverlay = useCallback(() => { 
-    setOverlayVisible(false); 
-    setTimeout(() => {
-      setShowWinOverlay(false);
-      setIsBoardPaused(false);
-      winClickLockRef.current = false;
-    }, 320); 
-  }, []);
+  const dismissOverlay = useCallback(() => {
+  setShowWinOverlay(false);
+  setOverlayVisible(false);
+  setIsBoardPaused(false);
+  winClickLockRef.current = false;
+}, []);
 
   const useRbExtraTurnToken = useCallback(() => {
     if (phase !== "playing" || winner) return;
