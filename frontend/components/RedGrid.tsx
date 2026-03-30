@@ -96,15 +96,59 @@ function RedPiece({
   );
 }
 
-export default function RedGrid({ board, onCellClickAction, winCells = [], showLabels = true }: { board?: (string | null)[][]; onCellClickAction?: (r: number, c: number) => void; winCells?: [number, number][]; showLabels?: boolean }) {
+const RedCell = React.memo(({
+  r, c, cell, isHov, isWin, redTheme, onCellClickAction, onHover
+}: {
+  r: number, c: number, cell: string | null, isHov: boolean, isWin: boolean,
+  redTheme: any, onCellClickAction?: (r: number, c: number) => void, onHover: (key: string | null) => void
+}) => {
+  const key = `${r}-${c}`;
+  return (
+    <div
+      onMouseEnter={() => onHover(key)}
+      onMouseLeave={() => onHover(null)}
+      onClick={() => !cell && onCellClickAction?.(r, c)}
+      style={{
+        background: cell
+          ? "rgba(0,0,0,0.4)"
+          : isHov
+            ? "rgba(255,50,0,0.1)"
+            : "rgba(255,50,0,0.02)",
+        border: `1px solid ${
+          isWin
+            ? redTheme.accentGlow
+            : isHov
+              ? "rgba(255,50,0,0.4)"
+              : "rgba(255,50,0,0.1)"
+        }`,
+        borderRadius: 6,
+        display: "flex", alignItems: "center", justifyContent: "center",
+        transition: "background 0.2s, border 0.2s, box-shadow 0.2s",
+        cursor: cell ? "default" : "pointer",
+        boxShadow: isWin
+          ? `0 0 15px rgba(255,50,0,0.5), inset 0 0 10px rgba(255,50,0,0.2)`
+          : isHov && !cell
+            ? `inset 0 0 8px rgba(255,50,0,0.2)`
+            : "none",
+        willChange: "transform, background",
+      }}
+    >
+      {!cell && isHov && (
+        <div style={{ width: 8, height: 8, borderRadius: "50%", background: "rgba(255,50,0,0.6)", filter: "blur(2px)" }} />
+      )}
+      {cell && (
+        <RedPiece
+          player={cell}
+          win={isWin}
+        />
+      )}
+    </div>
+  );
+});
+
+export default React.memo(function RedGrid({ board, onCellClickAction, winCells = [], showLabels = true }: { board?: (string | null)[][]; onCellClickAction?: (r: number, c: number) => void; winCells?: [number, number][]; showLabels?: boolean }) {
   const active = board ?? Array(DEFAULT_SIZE).fill(null).map(() => Array(DEFAULT_SIZE).fill(null));
   const SIZE = active.length;
-  const COLS = GET_COLS(SIZE);
-  const ROWS = GET_ROWS(SIZE);
-  const PAD = 8;
-  const CS = useCellSize(SIZE, PAD);
-  const BS = SIZE * CS + 2 * PAD;
-
   const [hov, setHov] = useState<string | null>(null);
 
   const redTheme = {
@@ -115,13 +159,17 @@ export default function RedGrid({ board, onCellClickAction, winCells = [], showL
     accentGlow:  "#ff6633",
   };
 
+  const handleHover = React.useCallback((key: string | null) => {
+    setHov(key);
+  }, []);
+
   return (
     <div style={{
       width: "100%", maxWidth: 420, aspectRatio: "1", position: "relative",
       background: redTheme.boardBg, borderRadius: 12,
       border: `2px solid ${redTheme.boardLine}`,
       boxShadow: `0 0 40px rgba(204,0,0,0.1), inset 0 0 20px rgba(0,0,0,0.8)`,
-      overflow: "hidden", margin: "0 auto",
+      overflow: "hidden", margin: "0 auto", contain: "layout style"
     }}>
       <div style={{ position: "absolute", inset: 0, background: `linear-gradient(135deg, transparent 40%, rgba(255,50,0,0.03) 100%)`, pointerEvents: "none" }} />
       <Embers count={12} />
@@ -136,50 +184,20 @@ export default function RedGrid({ board, onCellClickAction, winCells = [], showL
       }}>
         {active.map((row, r) => row.map((cell, c) => {
           const key = `${r}-${c}`;
-          const isHov = hov === key;
-          const isWin = winCells?.some(([wr, wc]) => wr === r && wc === c);
           return (
-            <div key={key}
-              onMouseEnter={() => setHov(key)}
-              onMouseLeave={() => setHov(null)}
-              onClick={() => onCellClickAction?.(r, c)}
-              style={{
-                background: cell
-                  ? "rgba(0,0,0,0.4)"
-                  : isHov
-                    ? "rgba(255,50,0,0.1)"
-                    : "rgba(255,50,0,0.02)",
-                border: `1px solid ${
-                  isWin
-                    ? redTheme.accentGlow
-                    : isHov
-                      ? "rgba(255,50,0,0.4)"
-                      : "rgba(255,50,0,0.1)"
-                }`,
-                borderRadius: 6,
-                display: "flex", alignItems: "center", justifyContent: "center",
-                transition: "all 0.2s ease",
-                cursor: cell ? "default" : "pointer",
-                boxShadow: isWin
-                  ? `0 0 15px rgba(255,50,0,0.5), inset 0 0 10px rgba(255,50,0,0.2)`
-                  : isHov && !cell
-                    ? `inset 0 0 8px rgba(255,50,0,0.2)`
-                    : "none",
-              }}
-            >
-              {!cell && isHov && (
-                <div style={{ width: 8, height: 8, borderRadius: "50%", background: "rgba(255,50,0,0.6)", filter: "blur(2px)" }} />
-              )}
-              {cell && (
-                <RedPiece
-                  player={cell}
-                  win={isWin}
-                />
-              )}
-            </div>
+            <RedCell
+              key={key}
+              r={r} c={c}
+              cell={cell}
+              isHov={hov === key}
+              isWin={winCells?.some(([wr, wc]) => wr === r && wc === c)}
+              redTheme={redTheme}
+              onCellClickAction={onCellClickAction}
+              onHover={handleHover}
+            />
           );
         }))}
       </div>
     </div>
   );
-}
+});

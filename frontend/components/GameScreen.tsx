@@ -98,73 +98,88 @@ function MatchResultOverlay({
 
   return (
     <div
+      className="overlay-backdrop"
       style={{
         position: "fixed", inset: 0, zIndex: 12000,
-        background: "rgba(0,0,0,0.92)",
+        background: "rgba(0,0,0,0.94)",
         display: "flex", flexDirection: "column",
         alignItems: "center", justifyContent: "center",
         padding: 24,
+        overflow: "hidden"
       }}
     >
-      <div style={{ 
-        fontFamily: t.fontDisplay, fontSize: 32, fontWeight: 900, 
-        color: isVictory ? "#10B981" : isDraw ? "#F59E0B" : "#EF4444", 
-        letterSpacing: "0.12em", marginBottom: 8,
-        textShadow: `0 0 30px ${isVictory ? "#10B981" : isDraw ? "#F59E0B" : "#EF4444"}44`
-      }}>
-        {isRanked ? "RANKED MATCH COMPLETE" : "MATCH COMPLETE"}
-      </div>
-      <div style={{ fontFamily: t.fontMono, fontSize: 13, color: t.textMuted, marginBottom: 28, letterSpacing: "0.1em" }}>
-        {label}
-      </div>
-
-      {isRanked && (
-        <div style={{ display: "flex", gap: 48, flexWrap: "wrap", justifyContent: "center", marginBottom: 36 }}>
-          <div style={{ textAlign: "center" }}>
-            <div style={{ fontFamily: t.fontMono, fontSize: 11, color: t.textMuted, letterSpacing: "0.2em", marginBottom: 8 }}>ELO</div>
-            <div style={{ fontFamily: t.fontDisplay, fontSize: 56, fontWeight: 900, color: t.accent }}>{eloN}</div>
-            <div style={{ fontFamily: t.fontMono, fontSize: 14, color: dElo >= 0 ? "#22c55e" : "#f87171", marginTop: 6 }}>
-              {dElo >= 0 ? "+" : ""}{dElo}
-            </div>
-          </div>
-          <div style={{ textAlign: "center" }}>
-            <div style={{ fontFamily: t.fontMono, fontSize: 11, color: t.textMuted, letterSpacing: "0.2em", marginBottom: 8 }}>RR</div>
-            <div style={{ fontFamily: t.fontDisplay, fontSize: 56, fontWeight: 900, color: t.gold }}>{rrN}</div>
-            <div style={{ fontFamily: t.fontMono, fontSize: 14, color: dRr >= 0 ? "#22c55e" : "#f87171", marginTop: 6 }}>
-              {dRr >= 0 ? "+" : ""}{dRr}
-            </div>
-          </div>
+      {/* Victory Aura / Draw Glitch Background (Simplified) */}
+      {isVictory && (
+        <div style={{ position: "absolute", inset: 0, pointerEvents: "none", zIndex: -1 }}>
+          <div style={{ position: "absolute", top: "50%", left: "50%", width: "100%", height: "100%", transform: "translate(-50%, -50%)", background: `radial-gradient(circle, ${t.accent}1A 0%, transparent 70%)` }} />
         </div>
       )}
-
-      {!isRanked && (
-        <div style={{ marginBottom: 40, textAlign: "center" }}>
-           <div style={{ fontFamily: t.fontMono, fontSize: 14, color: t.textMuted, letterSpacing: "0.05em" }}>
-             Battle archived in career history
-           </div>
-        </div>
+      {isDraw && (
+        <div style={{ position: "absolute", inset: 0, pointerEvents: "none", zIndex: -1, background: "rgba(255,255,255,0.01)", opacity: 0.1 }} />
       )}
 
-      <button
-        type="button"
-        onClick={onDismiss}
-        style={{
-          padding: "16px 48px",
-          background: t.accent,
-          border: "none",
-          borderRadius: 12,
-          color: "#000",
-          fontFamily: t.fontDisplay,
-          fontSize: 16,
-          fontWeight: 900,
-          cursor: "pointer",
-          letterSpacing: "0.08em",
-          boxShadow: `0 10px 30px ${t.accent}44`,
-          transition: "all 0.2s"
-        }}
-      >
-        CONTINUE
-      </button>
+      <div className="overlay-modal" style={{ display: "flex", flexDirection: "column", alignItems: "center", width: "100%", maxWidth: 640 }}>
+        <div style={{ 
+          fontFamily: t.fontDisplay, fontSize: 32, fontWeight: 900, 
+          color: isVictory ? "#10B981" : isDraw ? "#F59E0B" : "#EF4444", 
+          letterSpacing: "0.12em", marginBottom: 8,
+          textAlign: "center"
+        }}>
+          {isRanked ? "RANKED MATCH COMPLETE" : "MATCH COMPLETE"}
+        </div>
+        <div style={{ fontFamily: t.fontMono, fontSize: 13, color: t.textMuted, marginBottom: 28, letterSpacing: "0.1em" }}>
+          {label}
+        </div>
+
+        {isRanked && (
+          <div style={{ display: "flex", gap: 48, flexWrap: "wrap", justifyContent: "center", marginBottom: 36 }}>
+            <div style={{ textAlign: "center" }}>
+              <div style={{ fontFamily: t.fontMono, fontSize: 11, color: t.textMuted, letterSpacing: "0.2em", marginBottom: 8 }}>ELO</div>
+              <div style={{ fontFamily: t.fontDisplay, fontSize: 56, fontWeight: 900, color: t.accent }}>{eloN}</div>
+              <div style={{ fontFamily: t.fontMono, fontSize: 14, color: dElo >= 0 ? "#22c55e" : "#f87171", marginTop: 6 }}>
+                {dElo >= 0 ? "+" : ""}{dElo}
+              </div>
+            </div>
+            <div style={{ textAlign: "center" }}>
+              <div style={{ fontFamily: t.fontMono, fontSize: 11, color: t.textMuted, letterSpacing: "0.2em", marginBottom: 8 }}>RR</div>
+              <div style={{ fontFamily: t.fontDisplay, fontSize: 56, fontWeight: 900, color: t.gold }}>{rrN}</div>
+              <div style={{ fontFamily: t.fontMono, fontSize: 14, color: dRr >= 0 ? "#22c55e" : "#f87171", marginTop: 6 }}>
+                {dRr >= 0 ? "+" : ""}{dRr}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {!isRanked && (
+          <div style={{ marginBottom: 40, textAlign: "center" }}>
+             <div style={{ fontFamily: t.fontMono, fontSize: 14, color: t.textMuted, letterSpacing: "0.05em" }}>
+               Battle archived in career history
+             </div>
+          </div>
+        )}
+
+        <button
+          className="action-btn"
+          type="button"
+          onClick={onDismiss}
+          style={{
+            padding: "16px 48px",
+            background: t.accent,
+            border: "none",
+            borderRadius: 12,
+            color: "#000",
+            fontFamily: t.fontDisplay,
+            fontSize: 16,
+            fontWeight: 900,
+            cursor: "pointer",
+            letterSpacing: "0.08em",
+            boxShadow: `0 10px 30px ${t.accent}44`,
+            transition: "all 0.2s"
+          }}
+        >
+          CONTINUE
+        </button>
+      </div>
     </div>
   );
 }
@@ -644,7 +659,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   const [tossWinner, setTossWinner] = useState<"P1" | "P2" | null>(null);
   const [firstPlayerChosen, setFirstPlayerChosen] = useState<string | null>(null);
   const [rbC3Blocked, setRbC3Blocked] = useState(false);
-  const [rbBannedPattern, setRbBannedPattern] = useState<string | null>(null);
+  const [rbBannedPatterns, setRbBannedPatterns] = useState<string[]>([]);
   /** Toss winner on extra-turn path: hide which pattern was banned in sidebar / summary for this slot */
   const [rbHideBannedPatternFromSlot, setRbHideBannedPatternFromSlot] = useState<"P1" | "P2" | null>(null);
   /** Full pattern list before ban (7×7 extra-turn path) for decoy sidebar display */
@@ -665,6 +680,8 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
 
   // Mobile log drawer
   const [showMobileLog, setShowMobileLog] = useState(false);
+  const [isBoardPaused, setIsBoardPaused] = useState(false);
+  const winClickLockRef = useRef(false);
 
   /** Multiplayer: authoritative per-player structural lists from server (7×7 asymmetric ban). */
   const [serverStructuralPatternsP1, setServerStructuralPatternsP1] = useState<string[] | null>(null);
@@ -672,40 +689,40 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
 
   /** Who chose the ban in rulebreaker: toss winner (ban path) or toss loser (extra-turn path). */
   const rulebreakerBanActorSlot = useMemo((): "P1" | "P2" | null => {
-    if (!rbBannedPattern || liveBoardMode !== "7x7") return null;
+    if (rbBannedPatterns.length === 0 || liveBoardMode !== "7x7") return null;
     if (winnerPickedRule === "ban" && tossWinner) return tossWinner;
     if (winnerPickedRule === "extra_turn" && tossWinner) return tossWinner === "P1" ? "P2" : "P1";
     return null;
-  }, [rbBannedPattern, liveBoardMode, winnerPickedRule, tossWinner]);
+  }, [rbBannedPatterns, liveBoardMode, winnerPickedRule, tossWinner]);
 
   /** Sidebar / legacy UI: pool with banned pattern removed (unchanged display semantics). */
   const activePatterns = useMemo(
-    () => rbBannedPattern ? liveSelectedPatterns.filter(p => p !== rbBannedPattern) : liveSelectedPatterns,
-    [liveSelectedPatterns, rbBannedPattern],
+    () => rbBannedPatterns.length > 0 ? liveSelectedPatterns.filter(p => !rbBannedPatterns.includes(p)) : liveSelectedPatterns,
+    [liveSelectedPatterns, rbBannedPatterns],
   );
 
   /** Structural win checks: banned pattern applies only to the opponent of the player who banned. */
   const structuralPatternsP1 = useMemo(() => {
     if (liveBoardMode !== "7x7") return liveSelectedPatterns;
     if (serverStructuralPatternsP1 && serverStructuralPatternsP1.length > 0) return serverStructuralPatternsP1;
-    if (!rbBannedPattern || !rulebreakerBanActorSlot) {
-      return rbBannedPattern ? liveSelectedPatterns.filter(p => p !== rbBannedPattern) : liveSelectedPatterns;
+    if (rbBannedPatterns.length === 0 || !rulebreakerBanActorSlot) {
+      return rbBannedPatterns.length > 0 ? liveSelectedPatterns.filter(p => !rbBannedPatterns.includes(p)) : liveSelectedPatterns;
     }
     return rulebreakerBanActorSlot === "P1"
       ? liveSelectedPatterns
-      : liveSelectedPatterns.filter(p => p !== rbBannedPattern);
-  }, [liveBoardMode, liveSelectedPatterns, serverStructuralPatternsP1, rbBannedPattern, rulebreakerBanActorSlot]);
+      : liveSelectedPatterns.filter(p => !rbBannedPatterns.includes(p));
+  }, [liveBoardMode, liveSelectedPatterns, serverStructuralPatternsP1, rbBannedPatterns, rulebreakerBanActorSlot]);
 
   const structuralPatternsP2 = useMemo(() => {
     if (liveBoardMode !== "7x7") return liveSelectedPatterns;
     if (serverStructuralPatternsP2 && serverStructuralPatternsP2.length > 0) return serverStructuralPatternsP2;
-    if (!rbBannedPattern || !rulebreakerBanActorSlot) {
-      return rbBannedPattern ? liveSelectedPatterns.filter(p => p !== rbBannedPattern) : liveSelectedPatterns;
+    if (rbBannedPatterns.length === 0 || !rulebreakerBanActorSlot) {
+      return rbBannedPatterns.length > 0 ? liveSelectedPatterns.filter(p => !rbBannedPatterns.includes(p)) : liveSelectedPatterns;
     }
     return rulebreakerBanActorSlot === "P2"
       ? liveSelectedPatterns
-      : liveSelectedPatterns.filter(p => p !== rbBannedPattern);
-  }, [liveBoardMode, liveSelectedPatterns, serverStructuralPatternsP2, rbBannedPattern, rulebreakerBanActorSlot]);
+      : liveSelectedPatterns.filter(p => !rbBannedPatterns.includes(p));
+  }, [liveBoardMode, liveSelectedPatterns, serverStructuralPatternsP2, rbBannedPatterns, rulebreakerBanActorSlot]);
 
   const sidebarPatternList = useMemo(() => {
     if (
@@ -718,10 +735,10 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     }
     return activePatterns;
   }, [liveBoardMode, rbHideBannedPatternFromSlot, mySlot, rbPatternsPreBan, activePatterns]);
-  const sidebarRbBannedPattern = useMemo(() => {
-    if (liveBoardMode === "7x7" && rbHideBannedPatternFromSlot === mySlot) return null;
-    return rbBannedPattern;
-  }, [liveBoardMode, rbHideBannedPatternFromSlot, mySlot, rbBannedPattern]);
+  const sidebarRbBannedPatterns = useMemo(() => {
+    if (liveBoardMode === "7x7" && rbHideBannedPatternFromSlot === mySlot) return [];
+    return rbBannedPatterns;
+  }, [liveBoardMode, rbHideBannedPatternFromSlot, mySlot, rbBannedPatterns]);
   const patternsSidebarSecret = useMemo(
     () =>
       liveBoardMode === "7x7" &&
@@ -748,7 +765,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     p1Ready: false, p2Ready: false, readyTimeout: 60, readyTimer: 0,
     coinResult: null as "PENTA" | "PROTO" | null, matchOver: false, gameNumber: 1,
     matchHistory: [] as string[], firstPlayerChosen: null as string | null,
-    tossWinner: null as "P1" | "P2" | null, rbC3Blocked: false, rbBannedPattern: null as string | null, summaryTimer: 5, choiceTimer: 0,
+    tossWinner: null as "P1" | "P2" | null, rbC3Blocked: false, rbBannedPatterns: [] as string[], summaryTimer: 5, choiceTimer: 0,
     winnerPickedRule: null as string | null,
     rbHideBannedPatternFromSlot: null as "P1" | "P2" | null,
     rbPatternsPreBan: null as string[] | null,
@@ -769,7 +786,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   R.current.firstPlayerChosen = firstPlayerChosen;
   R.current.tossWinner = tossWinner;
   R.current.rbC3Blocked = rbC3Blocked;
-  R.current.rbBannedPattern = rbBannedPattern;
+  R.current.rbBannedPatterns = rbBannedPatterns;
   R.current.rbHideBannedPatternFromSlot = rbHideBannedPatternFromSlot;
   R.current.rbPatternsPreBan = rbPatternsPreBan;
   R.current.rb6TimerOwner = rb6TimerOwner;
@@ -878,7 +895,14 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
                 setWinLine(wl);
                 setWinner(msg.winner);
                 if (msg.winner === "P1") playVictoryAction?.(); else if (msg.winner === "P2") playDefeatAction?.();
-                requestAnimationFrame(() => { setShowWinOverlay(true); requestAnimationFrame(() => setOverlayVisible(true)); });
+                setIsBoardPaused(true);
+                winClickLockRef.current = true;
+                setTimeout(() => {
+                  unstable_batchedUpdates(() => {
+                    setShowWinOverlay(true); 
+                    requestAnimationFrame(() => setOverlayVisible(true)); 
+                  });
+                }, 1000);
                 const newHist = Array.isArray(msg.match_history)
                   ? (msg.match_history as string[])
                   : [...matchHistoryRef.current, msg.winner as string];
@@ -984,8 +1008,9 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
           }
           if (Array.isArray(r.rb_patterns_pre_ban)) setRbPatternsPreBan(r.rb_patterns_pre_ban as string[]);
           else setRbPatternsPreBan(null);
-          if (typeof r.rb_banned_pattern === "string") setRbBannedPattern(r.rb_banned_pattern);
-          else if (r.rb_banned_pattern === null) setRbBannedPattern(null);
+          if (Array.isArray(r.rb_banned_patterns)) setRbBannedPatterns(r.rb_banned_patterns);
+          else if (typeof r.rb_banned_pattern === "string") setRbBannedPatterns([r.rb_banned_pattern]);
+          else if (r.rb_banned_pattern === null) setRbBannedPatterns([]);
           if (typeof r.p1_series_points === "number") setP1SeriesPts(r.p1_series_points);
           if (typeof r.p2_series_points === "number") setP2SeriesPts(r.p2_series_points);
           if (typeof r.awaiting_rulebreaker === "boolean") awaitingRulebreakerRef.current = r.awaiting_rulebreaker;
@@ -1319,6 +1344,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
               preserve_rb_hide?: boolean;
               rb_hide_banned_from_slot?: unknown;
               rb_patterns_pre_ban?: unknown;
+              rb_banned_patterns?: unknown;
               rb_banned_pattern?: unknown;
             };
             if (grm.preserve_rb_hide === true) {
@@ -1327,13 +1353,15 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
               if (Array.isArray(grm.rb_patterns_pre_ban)) {
                 setRbPatternsPreBan(grm.rb_patterns_pre_ban as string[]);
               }
-              if (typeof grm.rb_banned_pattern === "string") {
-                setRbBannedPattern(grm.rb_banned_pattern);
+              if (Array.isArray(grm.rb_banned_patterns)) {
+                setRbBannedPatterns(grm.rb_banned_patterns);
+              } else if (typeof grm.rb_banned_pattern === "string") {
+                setRbBannedPatterns([grm.rb_banned_pattern]);
               }
             } else {
               setRbHideBannedPatternFromSlot(null);
               setRbPatternsPreBan(null);
-              setRbBannedPattern(null);
+              setRbBannedPatterns([]);
             }
           }
           setLog([]);
@@ -1356,11 +1384,8 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
                 setSegmentStartIndex(msg.segment_start_index);
                 segmentStartIndexRef.current = msg.segment_start_index;
               }
-              const displayStart = typeof msg.history_display_start_index === "number"
-                ? msg.history_display_start_index
-                : matchHistoryRef.current.length;
-              setHistoryDisplayStartIndex(displayStart);
-              historyDisplayStartIndexRef.current = displayStart;
+              setHistoryDisplayStartIndex(0);
+              historyDisplayStartIndexRef.current = 0;
               if (typeof msg.p1_series_points === "number") setP1SeriesPts(msg.p1_series_points);
               if (typeof msg.p2_series_points === "number") setP2SeriesPts(msg.p2_series_points);
               setGameNumber(1);
@@ -1468,7 +1493,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
               setCoinFlipTimer(rbCoinFlipSeconds); setCoinRevealTimer(0); setCoinResult(null);
               coinAngleRef.current = 0; coinFrameRef.current = 0; setCoinAngle(0);
               coinStartTimeRef.current = 0; // will be set when rb_coin phase starts
-              setTossWinner(null); setFirstPlayerChosen(null); setRbC3Blocked(false); setRbBannedPattern(null);
+              setTossWinner(null); setFirstPlayerChosen(null); setRbC3Blocked(false); setRbBannedPatterns([]);
               setWinnerPickedRule(null); setWinnerPickedFirst(null); setWinnerPickedC3(null);
               setRbHideBannedPatternFromSlot(null); setRbPatternsPreBan(null);
               playRulebreakerAction?.();
@@ -1503,7 +1528,8 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
             if (payload.winnerPickedRule !== undefined) setWinnerPickedRule(payload.winnerPickedRule);
             if (payload.winnerPickedFirst !== undefined) setWinnerPickedFirst(payload.winnerPickedFirst);
             if (payload.winnerPickedC3 !== undefined) setWinnerPickedC3(payload.winnerPickedC3);
-            if (payload.rbBannedPattern !== undefined) setRbBannedPattern(payload.rbBannedPattern);
+            if (Array.isArray(payload.rb_banned_patterns)) setRbBannedPatterns(payload.rb_banned_patterns);
+            else if (payload.rb_banned_pattern !== undefined) setRbBannedPatterns([payload.rb_banned_pattern]);
             if (payload.rb6TimerOwner === "P1" || payload.rb6TimerOwner === "P2" || payload.rb6TimerOwner === null) setRb6TimerOwner(payload.rb6TimerOwner);
             if (payload.rb6CellChooser === "P1" || payload.rb6CellChooser === "P2" || payload.rb6CellChooser === null) setRb6CellChooser(payload.rb6CellChooser);
             if (payload.rb6_special_cell && typeof payload.rb6_special_cell === "object") {
@@ -1718,7 +1744,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     setHistoryDisplayStartIndex(0); historyDisplayStartIndexRef.current = 0;
     setP1Ready(false); setP2Ready(false); setReadyTimeout(60); setReadyTimer(0);
     setRbSplashTimer(5); setCoinFlipTimer(rbCoinFlipSeconds); setCoinRevealTimer(0); setCoinResult(null);
-    setCoinAngle(0); setTossWinner(null); setFirstPlayerChosen(null); setRbC3Blocked(false); setRbBannedPattern(null);
+    setCoinAngle(0); setTossWinner(null); setFirstPlayerChosen(null); setRbC3Blocked(false); setRbBannedPatterns([]);
     setSummaryTimer(5); setOverlayVisible(false); setChoiceTimer(0);
     setShowRematch(false); setRematchRequested(null);
     setWinnerPickedRule(null); setWinnerPickedFirst(null); setWinnerPickedC3(null);
@@ -1958,7 +1984,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
                     rb_extra_turn_token_holder: wr === "extra_turn" && (tw === "P1" || tw === "P2") ? tw : null,
                     rb_hide_banned_from_slot: R.current.rbHideBannedPatternFromSlot,
                     rb_patterns_pre_ban: R.current.rbPatternsPreBan,
-                    rb_banned_pattern: R.current.rbBannedPattern,
+                    rb_banned_patterns: R.current.rbBannedPatterns,
                   }));
                 }
               }
@@ -2027,11 +2053,11 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     else if (p === "who_first_loser") { setFirstPlayerChosen(tl); setSummaryTimer(5); setPhase("toss_summary"); }
     else if (p === "ban_pattern_winner") {
       const first = patList[0] ?? null;
-      setRbBannedPattern(first); setPhase("who_first_loser");
+      if (first) onBanPattern(first);
     }
     else if (p === "ban_pattern_loser") {
       const first = patList[0] ?? null;
-      setRbBannedPattern(first); setPhase("who_first_loser");
+      if (first) onBanPattern(first);
     }
   };
   const doAdvanceAfterReady = () => {
@@ -2055,7 +2081,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
       setGameNumber(3); setPhase("rb_splash"); playRulebreakerAction?.();
       setRbSplashTimer(5); setCoinFlipTimer(rbCoinFlipSeconds); setCoinRevealTimer(0);
       setCoinResult(null); setCoinAngle(0); setTossWinner(null);
-      setFirstPlayerChosen(null); setRbC3Blocked(false); setRbBannedPattern(null); setSummaryTimer(5);
+      setFirstPlayerChosen(null); setRbC3Blocked(false); setRbBannedPatterns([]); setSummaryTimer(5);
       setRbHideBannedPatternFromSlot(null); setRbPatternsPreBan(null);
     } else {
       setGameNumber(2); setPhase("playing"); initBoard("P2");
@@ -2068,7 +2094,12 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     if (_isMP) return;
     if (phase !== "playing") return;
     if (winner === "P1") playVictoryAction?.(); else if (winner === "P2") playDefeatAction?.();
-    requestAnimationFrame(() => { setShowWinOverlay(true); requestAnimationFrame(() => setOverlayVisible(true)); });
+    setTimeout(() => {
+      unstable_batchedUpdates(() => {
+        setShowWinOverlay(true); 
+        requestAnimationFrame(() => setOverlayVisible(true)); 
+      });
+    }, 1000);
     const newHist = [...R.current.matchHistory, winner];
     // keep ref in sync immediately so checkSeriesWinner sees the updated history
     R.current.matchHistory = newHist;
@@ -2203,12 +2234,12 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     else if (newExtra > 0) { newExtra--; if (newExtra === 0) nextPlayer = current === "P1" ? "P2" : "P1"; }
     else { nextPlayer = current === "P1" ? "P2" : "P1"; }
     if (c3Blocked && newMoves === 1) setC3Blocked(false);
-    const pat7 = stoneOwner === "P1" ? structuralPatternsP1 : structuralPatternsP2;
+    const activePatterns = stoneOwner === "P1" ? structuralPatternsP1 : structuralPatternsP2;
     const result = liveBoardMode === "7x7"
-      ? checkWin7(nb, r, c, stoneOwner, newMoves, pat7)
+      ? checkWin7(nb, r, c, stoneOwner, newMoves, activePatterns)
       : liveBoardMode === "6x6"
-        ? checkWin6(nb, r, c, stoneOwner, newMoves)
-        : checkWin(nb, r, c, stoneOwner, newMoves);
+        ? checkWin6(nb, r, c, stoneOwner, newMoves, activePatterns)
+        : checkWin(nb, r, c, stoneOwner, newMoves, activePatterns);
     setBoard(nb); setMovesPlayed(newMoves); addLog(r, c, playerWhoMoved);
     if (result) { setExtraTurns(0); setWinLine(result.line); setWinner(result.winner); }
     else { setExtraTurns(newExtra); setCurrent(nextPlayer); }
@@ -2219,101 +2250,22 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   const placeRef = useRef(place);
   useEffect(() => { placeRef.current = place; });
 
-  // For glacier board: convert "P1"/"P2" → "X"/"O" so GlacierGrid component renders correctly
-  const glacierBoard = React.useMemo(
-    () => isGlacierBoard ? board.map(row => row.map(cell => cell === "P1" ? "X" : cell === "P2" ? "O" : null)) : null,
-    [isGlacierBoard, board]
-  );
-  const bloodMoonBoard = React.useMemo(
-    () => isBloodMoonBoard ? board.map(row => row.map(cell => cell === "P1" ? "X" : cell === "P2" ? "O" : null)) : null,
-    [isBloodMoonBoard, board]
-  );
-  const egyptBoard = React.useMemo(
-    () => isEgyptBoard ? board.map(row => row.map(cell => cell === "P1" ? "X" : cell === "P2" ? "O" : null)) : null,
-    [isEgyptBoard, board]
-  );
-  const synthwaveBoard = React.useMemo(
-    () => isSynthwaveBoard ? board.map(row => row.map(cell => cell === "P1" ? "X" : cell === "P2" ? "O" : null)) : null,
-    [isSynthwaveBoard, board]
-  );
-  const matrixBoard = React.useMemo(
-    () => isMatrixBoard ? board.map(row => row.map(cell => cell === "P1" ? "X" : cell === "P2" ? "O" : null)) : null,
-    [isMatrixBoard, board]
-  );
-  const arcaneBoard = React.useMemo(
-    () => isArcaneBoard ? board.map(row => row.map(cell => cell === "P1" ? "X" : cell === "P2" ? "O" : null)) : null,
-    [isArcaneBoard, board]
-  );
-  const bioBoard = React.useMemo(
-    () => isBioBoard ? board.map(row => row.map(cell => cell === "P1" ? "X" : cell === "P2" ? "O" : null)) : null,
-    [isBioBoard, board]
-  );
-  const forgeBoard = React.useMemo(
-    () => isForgeBoard ? board.map(row => row.map(cell => cell === "P1" ? "X" : cell === "P2" ? "O" : null)) : null,
-    [isForgeBoard, board]
-  );
-  const voidBoard = React.useMemo(
-    () => isVoidBoard ? board.map(row => row.map(cell => cell === "P1" ? "X" : cell === "P2" ? "O" : null)) : null,
-    [isVoidBoard, board]
-  );
-  const tokyoBoard = React.useMemo(
-    () => isTokyoBoard ? board.map(row => row.map(cell => cell === "P1" ? "X" : cell === "P2" ? "O" : null)) : null,
-    [isTokyoBoard, board]
-  );
-  const spaceBoard = React.useMemo(
-    () => isSpaceBoard ? board.map(row => row.map(cell => cell === "P1" ? "X" : cell === "P2" ? "O" : null)) : null,
-    [isSpaceBoard, board]
-  );
-  const pixelBoard = React.useMemo(
-    () => isPixelBoard ? board.map(row => row.map(cell => cell === "P1" ? "X" : cell === "P2" ? "O" : null)) : null,
-    [isPixelBoard, board]
-  );
-  const glacierClick = React.useCallback(
-    (r: number, c: number) => { if (!winner && phase === "playing" && rulesShowSheet === null && !show7x7LevelUp && !show6x6LevelUp && !rulesMatchGate) placeRef.current(r, c); },
-    [winner, phase, rulesShowSheet, show7x7LevelUp, show6x6LevelUp, rulesMatchGate]
-  );
-  const bloodMoonClick = React.useCallback(
-    (r: number, c: number) => { if (!winner && phase === "playing" && rulesShowSheet === null && !show7x7LevelUp && !show6x6LevelUp && !rulesMatchGate) placeRef.current(r, c); },
-    [winner, phase, rulesShowSheet, show7x7LevelUp, show6x6LevelUp, rulesMatchGate]
-  );
-  const egyptClick = React.useCallback(
-    (r: number, c: number) => { if (!winner && phase === "playing" && rulesShowSheet === null && !show7x7LevelUp && !show6x6LevelUp && !rulesMatchGate) placeRef.current(r, c); },
-    [winner, phase, rulesShowSheet, show7x7LevelUp, show6x6LevelUp, rulesMatchGate]
-  );
-  const synthwaveClick = React.useCallback(
-    (r: number, c: number) => { if (!winner && phase === "playing" && rulesShowSheet === null && !show7x7LevelUp && !show6x6LevelUp && !rulesMatchGate) placeRef.current(r, c); },
-    [winner, phase, rulesShowSheet, show7x7LevelUp, show6x6LevelUp, rulesMatchGate]
-  );
-  const matrixClick = React.useCallback(
-    (r: number, c: number) => { if (!winner && phase === "playing" && rulesShowSheet === null && !show7x7LevelUp && !show6x6LevelUp && !rulesMatchGate) placeRef.current(r, c); },
-    [winner, phase, rulesShowSheet, show7x7LevelUp, show6x6LevelUp, rulesMatchGate]
-  );
-  const arcaneClick = React.useCallback(
-    (r: number, c: number) => { if (!winner && phase === "playing" && rulesShowSheet === null && !show7x7LevelUp && !show6x6LevelUp && !rulesMatchGate) placeRef.current(r, c); },
-    [winner, phase, rulesShowSheet, show7x7LevelUp, show6x6LevelUp, rulesMatchGate]
-  );
-  const bioClick = React.useCallback(
-    (r: number, c: number) => { if (!winner && phase === "playing" && rulesShowSheet === null && !show7x7LevelUp && !show6x6LevelUp && !rulesMatchGate) placeRef.current(r, c); },
-    [winner, phase, rulesShowSheet, show7x7LevelUp, show6x6LevelUp, rulesMatchGate]
-  );
-  const forgeClick = React.useCallback(
-    (r: number, c: number) => { if (!winner && phase === "playing" && rulesShowSheet === null && !show7x7LevelUp && !show6x6LevelUp && !rulesMatchGate) placeRef.current(r, c); },
-    [winner, phase, rulesShowSheet, show7x7LevelUp, show6x6LevelUp, rulesMatchGate]
-  );
-  const voidClick = React.useCallback(
-    (r: number, c: number) => { if (!winner && phase === "playing" && rulesShowSheet === null && !show7x7LevelUp && !show6x6LevelUp && !rulesMatchGate) placeRef.current(r, c); },
-    [winner, phase, rulesShowSheet, show7x7LevelUp, show6x6LevelUp, rulesMatchGate]
-  );
-  const tokyoClick = React.useCallback(
-    (r: number, c: number) => { if (!winner && phase === "playing" && rulesShowSheet === null && !show7x7LevelUp && !show6x6LevelUp && !rulesMatchGate) placeRef.current(r, c); },
-    [winner, phase, rulesShowSheet, show7x7LevelUp, show6x6LevelUp, rulesMatchGate]
-  );
-  const spaceClick = React.useCallback(
-    (r: number, c: number) => { if (!winner && phase === "playing" && rulesShowSheet === null && !show7x7LevelUp && !show6x6LevelUp && !rulesMatchGate) placeRef.current(r, c); },
-    [winner, phase, rulesShowSheet, show7x7LevelUp, show6x6LevelUp, rulesMatchGate]
-  );
-  const pixelClick = React.useCallback(
-    (r: number, c: number) => { if (!winner && phase === "playing" && rulesShowSheet === null && !show7x7LevelUp && !show6x6LevelUp && !rulesMatchGate) placeRef.current(r, c); },
+  const liveSkinBoard = React.useMemo(() => {
+    // Only map the board if we are using a themed grid that requires X/O format
+    const needsMapping = isGlacierBoard || isBloodMoonBoard || isEgyptBoard || isSynthwaveBoard || 
+                         isMatrixBoard || isArcaneBoard || isBioBoard || isForgeBoard || 
+                         isVoidBoard || isTokyoBoard || isSpaceBoard || isPixelBoard;
+    if (!needsMapping) return null;
+    return board.map(row => row.map(cell => cell === "P1" ? "X" : cell === "P2" ? "O" : null));
+  }, [board, isGlacierBoard, isBloodMoonBoard, isEgyptBoard, isSynthwaveBoard, isMatrixBoard, isArcaneBoard, isBioBoard, isForgeBoard, isVoidBoard, isTokyoBoard, isSpaceBoard, isPixelBoard]);
+
+  const handleCellClick = React.useCallback(
+    (r: number, c: number) => { 
+      if (winClickLockRef.current) return;
+      if (!winner && phase === "playing" && rulesShowSheet === null && !show7x7LevelUp && !show6x6LevelUp && !rulesMatchGate) {
+        placeRef.current(r, c); 
+      }
+    },
     [winner, phase, rulesShowSheet, show7x7LevelUp, show6x6LevelUp, rulesMatchGate]
   );
 
@@ -2322,7 +2274,14 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     setLog(l => [...l, { text: `${l.length + 1}. ${piece}→${String.fromCharCode(65 + c)}${r + 1} (${player})`, player }]);
   };
 
-  const dismissOverlay = useCallback(() => { setOverlayVisible(false); setTimeout(() => setShowWinOverlay(false), 320); }, []);
+  const dismissOverlay = useCallback(() => { 
+    setOverlayVisible(false); 
+    setTimeout(() => {
+      setShowWinOverlay(false);
+      setIsBoardPaused(false);
+      winClickLockRef.current = false;
+    }, 320); 
+  }, []);
 
   const useRbExtraTurnToken = useCallback(() => {
     if (phase !== "playing" || winner) return;
@@ -2470,13 +2429,21 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
 
   const onBanPattern = useCallback((patternName: string) => {
     const p = R.current.phase;
-    setRbBannedPattern(patternName);
-    if (p === "ban_pattern_winner") {
-      setPhase("who_first_loser"); broadcastTossPhase("who_first_loser", { rbBannedPattern: patternName });
-    } else if (p === "ban_pattern_loser") {
-      setPhase("who_first_loser"); broadcastTossPhase("who_first_loser", { rbBannedPattern: patternName });
+    const currentBans = R.current.rbBannedPatterns || [];
+    if (currentBans.includes(patternName)) return;
+    
+    const newBans = [...currentBans, patternName];
+    setRbBannedPatterns(newBans);
+    R.current.rbBannedPatterns = newBans; 
+
+    const limit = is7x7 ? 2 : 1;
+    if (newBans.length >= limit) {
+      setPhase("who_first_loser"); 
+      broadcastTossPhase("who_first_loser", { rb_banned_patterns: newBans });
+    } else {
+      broadcastTossPhase(p, { rb_banned_patterns: newBans });
     }
-  }, [broadcastTossPhase]);
+  }, [broadcastTossPhase, is7x7]);
 
   // ── Bot auto-picks during Rulebreaker choice phases ───────────────────────
   useEffect(() => {
@@ -2497,8 +2464,10 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     const delay = 800 + Math.random() * 1200;
     const timer = setTimeout(() => {
       if (phase === "ban_pattern_winner" || phase === "ban_pattern_loser") {
-        const rndIdx = Math.floor(Math.random() * liveSelectedPatterns.length);
-        const patToBan = liveSelectedPatterns[rndIdx] ?? liveSelectedPatterns[0];
+        const available = liveSelectedPatterns.filter(p => !rbBannedPatterns.includes(p));
+        if (available.length === 0) return;
+        const rndIdx = Math.floor(Math.random() * available.length);
+        const patToBan = available[rndIdx];
         setBotPickedSide("left");
         setTimeout(() => {
           setBotPickedSide(null);
@@ -2515,7 +2484,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     }, delay);
 
     return () => clearTimeout(timer);
-  }, [phase, tossWinner, gameMode, onLeftAction, onRightAction, onBanPattern, liveSelectedPatterns]);
+  }, [phase, tossWinner, gameMode, onLeftAction, onRightAction, onBanPattern, liveSelectedPatterns, rbBannedPatterns]);
 
   const cc = current === "P1" ? p1c : p2c;
   const cp = current === "P1" ? t.pieces.p1 : t.pieces.p2;
@@ -2654,7 +2623,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
         wraithKingToss={wraithKingTossActive}
         rbCoinPendingResult={rbCoinPendingResult}
         onLeftAction={onLeftAction} onRightAction={onRightAction} fmtSecAction={fmtSecAction}
-        is7x7={is7x7} is6x6={is6x6} selectedPatterns={liveSelectedPatterns} rbBannedPattern={rbBannedPattern} onBanPattern={onBanPattern}
+        is7x7={is7x7} is6x6={is6x6} selectedPatterns={liveSelectedPatterns} rbBannedPatterns={rbBannedPatterns} onBanPattern={onBanPattern}
         onGridBlockChoice={onGridBlockChoice}
         graphicsQuality={graphicsQuality}
       />
@@ -2669,14 +2638,18 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     player === "P1" ? setP1Ready(newVal) : setP2Ready(newVal);
     if ((gameMode === "ai" || gameMode === "singleplayer") && player === "P1") setP2Ready(newVal);
   };
-  const onLevelUpReadyToggle = () => {
+  const onLevelUpReadyToggle = (selected?: string[]) => {
     if (!isMultiplayerGame || !mySlot) return;
     const isP1 = mySlot === "P1";
     const nextVal = isP1 ? !p1LevelUpReady : !p2LevelUpReady;
     if (isP1) setP1LevelUpReady(nextVal);
     else setP2LevelUpReady(nextVal);
     if (wsRef.current?.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify({ type: "levelup_ready", ready: nextVal }));
+      wsRef.current.send(JSON.stringify({ 
+        type: "levelup_ready", 
+        ready: nextVal,
+        selected_patterns: selected 
+      }));
     }
   };
 
@@ -2875,7 +2848,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
             p1Ready={p1LevelUpReady}
             p2Ready={p2LevelUpReady}
             mySlot={mySlot ?? "P1"}
-            onToggleReady={onLevelUpReadyToggle}
+            onToggleReadyAction={onLevelUpReadyToggle}
           />
         )}
         <DisconnectModal
@@ -2951,10 +2924,10 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
               ↺ RESET MATCH
             </button>
           )}
-          {isGlacierBoard && glacierBoard ? (
-            <GlacierGrid board={glacierBoard} onCellClickAction={glacierClick} winCells={isLowGraphics ? [] : winLine} />
-          ) : isBloodMoonBoard && bloodMoonBoard ? (
-            <BloodMoonGrid board={bloodMoonBoard} onCellClickAction={bloodMoonClick} winCells={isLowGraphics ? [] : winLine} graphicsQuality={graphicsQuality} />
+          {isGlacierBoard && liveSkinBoard ? (
+            <GlacierGrid board={liveSkinBoard} onCellClickAction={handleCellClick} winCells={isLowGraphics ? [] : winLine} isPaused={isBoardPaused} />
+          ) : isBloodMoonBoard && liveSkinBoard ? (
+            <BloodMoonGrid board={liveSkinBoard} onCellClickAction={handleCellClick} winCells={isLowGraphics ? [] : winLine} graphicsQuality={graphicsQuality} isPaused={isBoardPaused} />
           ) : (
             <>
               <div style={{ display: "flex", gap: `${boardGap}px`, paddingLeft: 28, marginBottom: 4 }}>
@@ -3045,7 +3018,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
               </button>
             </div>
           )}
-          <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 18px", background: `${winner ? winnerColor : cc}18`, border: `1px solid ${winner ? winnerColor : cc}88`, borderRadius: 20, backdropFilter: "blur(8px)" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 18px", background: `${winner ? winnerColor : cc}26`, border: `1px solid ${winner ? winnerColor : cc}88`, borderRadius: 20 }}>
             <div style={{ width: 7, height: 7, borderRadius: "50%", background: winner ? winnerColor : cc }} />
             <span style={{ fontFamily: t.fontDisplay, fontSize: 13, fontWeight: 700, color: winner ? winnerColor : cc }}>
               {winner
@@ -3059,7 +3032,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
         </div>
 
         {/* Bottom action bar */}
-        <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 48, zIndex: 10, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 12px", background: "rgba(0,0,0,0.85)", borderTop: `1px solid ${t.border}`, backdropFilter: "blur(8px)", gap: 8 }}>
+        <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 48, zIndex: 10, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 12px", background: "rgba(5,5,5,0.96)", borderTop: `1px solid ${t.border}`, gap: 8 }}>
           <button onClick={() => { if (showMobileLog && mobileTab === "log") setShowMobileLog(false); else { setMobileTab("log"); setShowMobileLog(true); } }} style={{ flex: 1, padding: "8px 0", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, color: t.textSecondary, fontFamily: t.fontMono, fontSize: 11, cursor: "pointer", letterSpacing: "0.06em" }}>
             📜 LOG
           </button>
@@ -3295,7 +3268,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
         matchHistory={displayMatchHistory} seriesWinner={seriesWinner} matchOver={matchOver}
         gameMode={gameMode} isRankedGame={isRankedGame} isMultiplayerGame={isMultiplayerGame}
         isMultiplayer={isMultiplayerGame} mySlot={mySlot}
-        boardMode={liveBoardMode} selectedPatterns={sidebarPatternList} rbBannedPattern={sidebarRbBannedPattern} patternsAsSecret={patternsSidebarSecret}
+        boardMode={liveBoardMode} selectedPatterns={sidebarPatternList} rbBannedPatterns={sidebarRbBannedPatterns} patternsAsSecret={patternsSidebarSecret}
         p1SeriesPts={isMultiplayerGame ? p1SeriesPts : undefined} p2SeriesPts={isMultiplayerGame ? p2SeriesPts : undefined}
         p1Time={p1Time} p2Time={p2Time} readyTimeout={readyTimeout}
         p1Ready={p1Ready} p2Ready={p2Ready}
@@ -3358,30 +3331,30 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
           </div>
         </div>
         {/* Column labels + board — special boards render their own labels */}
-        {isGlacierBoard && glacierBoard ? (
-          <GlacierGrid board={glacierBoard} onCellClickAction={glacierClick} winCells={isLowGraphics ? [] : winLine} />
-        ) : isBloodMoonBoard && bloodMoonBoard ? (
-          <BloodMoonGrid board={bloodMoonBoard} onCellClickAction={bloodMoonClick} winCells={isLowGraphics ? [] : winLine} graphicsQuality={graphicsQuality} />
-        ) : isEgyptBoard && egyptBoard ? (
-          <EgyptGrid board={egyptBoard} onCellClickAction={egyptClick} winCells={isLowGraphics ? [] : winLine} graphicsQuality={graphicsQuality} />
-        ) : isSynthwaveBoard && synthwaveBoard ? (
-          <SynthwaveGrid board={synthwaveBoard} onCellClickAction={synthwaveClick} winCells={isLowGraphics ? [] : winLine} graphicsQuality={graphicsQuality} />
-        ) : isMatrixBoard && matrixBoard ? (
-          <MatrixGrid board={matrixBoard} onCellClickAction={matrixClick} winCells={isLowGraphics ? [] : winLine} graphicsQuality={graphicsQuality} />
-        ) : isArcaneBoard && arcaneBoard ? (
-          <ArcaneGrid board={arcaneBoard} onCellClickAction={arcaneClick} winCells={isLowGraphics ? [] : winLine} />
-        ) : isBioBoard && bioBoard ? (
-          <BioGrid board={bioBoard} onCellClickAction={bioClick} winCells={isLowGraphics ? [] : winLine} graphicsQuality={graphicsQuality} />
-        ) : isForgeBoard && forgeBoard ? (
-          <ForgeGrid board={forgeBoard} onCellClickAction={forgeClick} winCells={isLowGraphics ? [] : winLine} />
-        ) : isVoidBoard && voidBoard ? (
-          <VoidGrid board={voidBoard} onCellClickAction={voidClick} winCells={isLowGraphics ? [] : winLine} />
-        ) : isTokyoBoard && tokyoBoard ? (
-          <TokyoGrid board={tokyoBoard} onCellClickAction={tokyoClick} winCells={isLowGraphics ? [] : winLine} />
-        ) : isSpaceBoard && spaceBoard ? (
-          <SpaceGrid board={spaceBoard} onCellClickAction={spaceClick} winCells={isLowGraphics ? [] : winLine} />
-        ) : isPixelBoard && pixelBoard ? (
-          <PixelGrid board={pixelBoard} onCellClickAction={pixelClick} winCells={isLowGraphics ? [] : winLine} />
+        {isGlacierBoard ? (
+          <GlacierGrid board={liveSkinBoard!} onCellClickAction={handleCellClick} winCells={isLowGraphics ? [] : winLine} isPaused={isBoardPaused} />
+        ) : isBloodMoonBoard ? (
+          <BloodMoonGrid board={liveSkinBoard!} onCellClickAction={handleCellClick} winCells={isLowGraphics ? [] : winLine} graphicsQuality={graphicsQuality} isPaused={isBoardPaused} />
+        ) : isEgyptBoard ? (
+          <EgyptGrid board={liveSkinBoard!} onCellClickAction={handleCellClick} winCells={isLowGraphics ? [] : winLine} graphicsQuality={graphicsQuality} isPaused={isBoardPaused} />
+        ) : isSynthwaveBoard ? (
+          <SynthwaveGrid board={liveSkinBoard!} onCellClickAction={handleCellClick} winCells={isLowGraphics ? [] : winLine} graphicsQuality={graphicsQuality} isPaused={isBoardPaused} />
+        ) : isMatrixBoard ? (
+          <MatrixGrid board={liveSkinBoard!} onCellClickAction={handleCellClick} winCells={isLowGraphics ? [] : winLine} graphicsQuality={graphicsQuality} isPaused={isBoardPaused} />
+        ) : isArcaneBoard ? (
+          <ArcaneGrid board={liveSkinBoard!} onCellClickAction={handleCellClick} winCells={isLowGraphics ? [] : winLine} isPaused={isBoardPaused} />
+        ) : isBioBoard ? (
+          <BioGrid board={liveSkinBoard!} onCellClickAction={handleCellClick} winCells={isLowGraphics ? [] : winLine} graphicsQuality={graphicsQuality} isPaused={isBoardPaused} />
+        ) : isForgeBoard ? (
+          <ForgeGrid board={liveSkinBoard!} onCellClickAction={handleCellClick} winCells={isLowGraphics ? [] : winLine} isPaused={isBoardPaused} />
+        ) : isVoidBoard ? (
+          <VoidGrid board={liveSkinBoard!} onCellClickAction={handleCellClick} winCells={isLowGraphics ? [] : winLine} isPaused={isBoardPaused} />
+        ) : isTokyoBoard ? (
+          <TokyoGrid board={liveSkinBoard!} onCellClickAction={handleCellClick} winCells={isLowGraphics ? [] : winLine} isPaused={isBoardPaused} />
+        ) : isSpaceBoard ? (
+          <SpaceGrid board={liveSkinBoard!} onCellClickAction={handleCellClick} winCells={isLowGraphics ? [] : winLine} isPaused={isBoardPaused} />
+        ) : isPixelBoard ? (
+          <PixelGrid board={liveSkinBoard!} onCellClickAction={handleCellClick} winCells={isLowGraphics ? [] : winLine} isPaused={isBoardPaused} />
         ) : (
           <>
             <div style={{ display: "flex", gap: `${boardGap}px`, marginLeft: 34 }}>
@@ -3494,14 +3467,20 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
         @keyframes cardSlideIn{from{opacity:0;transform:translateY(14px) scale(0.97)}to{opacity:1;transform:translateY(0) scale(1)}}
         @keyframes spinRing{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
         @keyframes botPulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:0.4;transform:scale(0.7)}}
-        @keyframes winCellPulse{0%,100%{background:color-mix(in srgb, var(--win-col) 28%, transparent);box-shadow:0 0 8px color-mix(in srgb, var(--win-col) 44%, transparent)}50%{background:color-mix(in srgb, var(--win-col) 60%, transparent);box-shadow:0 0 22px color-mix(in srgb, var(--win-col) 80%, transparent)}}
-        .win-cell-pulse{animation:winCellPulse 0.75s ease-in-out infinite}
+        @keyframes winCellPulse{0%,100%{background:color-mix(in srgb, var(--win-col) 25%, transparent);box-shadow:0 0 8px color-mix(in srgb, var(--win-col) 40%, transparent)}50%{background:color-mix(in srgb, var(--win-col) 60%, transparent);box-shadow:0 0 16px color-mix(in srgb, var(--win-col) 70%, transparent)}}
+        @keyframes victoryGlow{0%,100%{opacity:0.6}50%{opacity:0.9}}
+        @keyframes confettiFall{0%{transform:translateY(0) rotate(0deg);opacity:1}100%{transform:translateY(110vh) rotate(720deg);opacity:0}}
+        @keyframes glitch{0%{transform:translate(0)}20%{transform:translate(-2px,2px)}40%{transform:translate(-2px,-2px)}60%{transform:translate(2px,2px)}80%{transform:translate(2px,-2px)}100%{transform:translate(0)}}
+        @keyframes thump{0%,100%{transform:scale(1);filter:brightness(1)}50%{transform:scale(1.03);filter:brightness(1.15)}}
+        .win-cell-pulse{animation:winCellPulse 0.65s ease-in-out infinite}
         .overlay-modal{animation:scaleIn 0.38s cubic-bezier(.22,.68,0,1.2) both}
         .overlay-backdrop{animation:fadeIn 0.3s ease both}
         .phase-screen{animation:fadeUp 0.42s cubic-bezier(.22,.68,0,1.2) both}
         .action-btn{transition:background 0.25s cubic-bezier(.22,.68,0,1.2),color 0.25s cubic-bezier(.22,.68,0,1.2),transform 0.2s cubic-bezier(.22,.68,0,1.2),box-shadow 0.25s cubic-bezier(.22,.68,0,1.2) !important}
         .action-btn:hover{transform:scale(1.05) !important}
         .action-btn:active{transform:scale(0.97) !important}
+        .glitch-overlay{animation:glitch 0.25s infinite alternate}
+        .thump-anim{animation:thump 0.5s ease-in-out infinite}
         @keyframes iceD0{from{transform:translate(0,0)}to{transform:translate(8px,12px)}}
         @keyframes iceD1{from{transform:translate(0,0)}to{transform:translate(-10px,6px)}}
         @keyframes iceD2{from{transform:translate(0,0)}to{transform:translate(6px,-9px)}}

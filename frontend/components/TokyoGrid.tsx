@@ -20,7 +20,7 @@ function useCellSize(size: number, pad = 8) {
   return cs;
 }
 
-function TokyoBg({ W, H, gridSize = 5 }: { W: number; H: number; gridSize?: number }) {
+function TokyoBg({ W, H, gridSize = 5, isPaused = false }: { W: number; H: number; gridSize?: number; isPaused?: boolean }) {
   const ref = useRef<HTMLCanvasElement | null>(null);
   const raf = useRef<number | null>(null);
   const t = useRef(0);
@@ -28,6 +28,10 @@ function TokyoBg({ W, H, gridSize = 5 }: { W: number; H: number; gridSize?: numb
   useEffect(() => {
     const cv = ref.current;
     if (!cv) return;
+    if (isPaused) {
+      if (raf.current) cancelAnimationFrame(raf.current);
+      return;
+    }
     const dpr = boardSkinCanvasDpr(gridSize);
     cv.width = W * dpr;
     cv.height = H * dpr;
@@ -117,12 +121,12 @@ function TokyoBg({ W, H, gridSize = 5 }: { W: number; H: number; gridSize?: numb
     return () => {
       if (raf.current) cancelAnimationFrame(raf.current);
     };
-  }, [W, H, gridSize]);
+  }, [W, H, gridSize, isPaused]);
 
   return <canvas ref={ref} style={{ position: "absolute", inset: 0, zIndex: 0, pointerEvents: "none" }} />;
 }
 
-function GridLines({ W, H, PAD, CS, SIZE }: { W: number; H: number; PAD: number; CS: number; SIZE: number }) {
+function GridLines({ W, H, PAD, CS, SIZE, isPaused = false }: { W: number; H: number; PAD: number; CS: number; SIZE: number; isPaused?: boolean }) {
   const ref = useRef<HTMLCanvasElement | null>(null);
   const raf = useRef<number | null>(null);
   const t = useRef(0);
@@ -130,6 +134,10 @@ function GridLines({ W, H, PAD, CS, SIZE }: { W: number; H: number; PAD: number;
   useEffect(() => {
     const cv = ref.current;
     if (!cv) return;
+    if (isPaused) {
+      if (raf.current) cancelAnimationFrame(raf.current);
+      return;
+    }
     const dpr = boardSkinCanvasDpr(SIZE);
     cv.width = W * dpr;
     cv.height = H * dpr;
@@ -188,7 +196,7 @@ function GridLines({ W, H, PAD, CS, SIZE }: { W: number; H: number; PAD: number;
     };
     draw();
     return () => { if (raf.current) cancelAnimationFrame(raf.current); };
-  }, [W, H, PAD, CS, SIZE]);
+  }, [W, H, PAD, CS, SIZE, isPaused]);
 
   return <canvas ref={ref} style={{ position: "absolute", inset: 0, zIndex: 3, pointerEvents: "none" }} />;
 }
@@ -277,19 +285,19 @@ function Katana({ size, win, ak }: { size: number; win: boolean; ak: string }) {
   );
 }
 
-function Cell({ CS, value, onClick, isWinCell, justPlaced, lastTurn }: { CS: number; value: "X" | "O" | null; onClick: () => void; isWinCell: boolean; justPlaced: boolean; lastTurn: "X" | "O"; }) {
+function TokyoCell({ CS, value, onClick, isWinCell, isP1, isP2 }: { CS: number; value: "X" | "O" | null; onClick: () => void; isWinCell: boolean; isP1: boolean; isP2: boolean }) {
   const [hov, setHov] = useState(false);
-  const isP1 = value === "X", isP2 = value === "O";
   return (
     <div onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)} onClick={onClick}
-      style={{ width: CS, height: CS, position: "relative", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", background: isWinCell ? "rgba(255,0,80,.2)" : hov && !value ? "rgba(255,0,80,.05)" : "transparent" }}>
+      style={{ width: CS, height: CS, position: "relative", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", background: isWinCell ? "rgba(255,0,80,.2)" : hov && !value ? "rgba(255,0,80,.05)" : "transparent", contain: "layout style" }}>
       {isP1 && <DragonSeal size={CS} win={isWinCell} ak={`${value}${CS}`} />}
       {isP2 && <Katana size={CS} win={isWinCell} ak={`${value}${CS}`} />}
     </div>
   );
 }
+const MemoizedTokyoCell = React.memo(TokyoCell);
 
-export default function TokyoGrid({ board, onCellClickAction, winCells = [], showLabels = true, cellSize }: { board?: (("X" | "O") | null)[][]; onCellClickAction?: (r: number, c: number) => void; winCells?: [number, number][]; showLabels?: boolean; cellSize?: number; }) {
+export default React.memo(function TokyoGrid({ board, onCellClickAction, winCells = [], showLabels = true, cellSize, isPaused = false }: { board?: (string | null)[][]; onCellClickAction?: (r: number, c: number) => void; winCells?: [number, number][]; showLabels?: boolean; cellSize?: number; isPaused?: boolean }) {
   const active = board ?? Array(DEFAULT_SIZE).fill(null).map(() => Array(DEFAULT_SIZE).fill(null));
   const SIZE = active.length;
   const COLS = GET_COLS(SIZE);
@@ -315,15 +323,15 @@ export default function TokyoGrid({ board, onCellClickAction, winCells = [], sho
       {showLabels && <div style={{ display: "flex", paddingLeft: PAD + 24 }}>{COLS.map((c) => <div key={c} style={{ width: CS, textAlign: "center", ...lbl }}>{c}</div>)}</div>}
       <div style={{ display: "flex", alignItems: "flex-start" }}>
         {showLabels && <div style={{ display: "flex", flexDirection: "column", paddingTop: PAD }}>{ROWS.map((r) => <div key={r} style={{ height: CS, display: "flex", alignItems: "center", justifyContent: "flex-end", paddingRight: 8, minWidth: 24, ...lbl }}>{r}</div>)}</div>}
-        <div style={{ position: "relative", width: BS, height: BS, borderRadius: 10, overflow: "hidden", border: "2px solid rgba(255,0,100,.7)" }}>
-          <TokyoBg W={BS} H={BS} gridSize={SIZE} />
-          <GridLines W={BS} H={BS} PAD={PAD} CS={CS} SIZE={SIZE} />
+        <div style={{ position: "relative", width: BS, height: BS, borderRadius: 10, overflow: "hidden", border: "2px solid rgba(255,0,100,.7)", willChange: "transform", contain: "layout size style" }}>
+          <TokyoBg W={BS} H={BS} gridSize={SIZE} isPaused={isPaused} />
+          <GridLines W={BS} H={BS} PAD={PAD} CS={CS} SIZE={SIZE} isPaused={isPaused} />
           <BurstCanvas burstRef={burstRef} W={BS} H={BS} gridSize={SIZE} />
           <div style={{ position: "absolute", inset: PAD, zIndex: 4, display: "flex", flexDirection: "column" }}>
             {active.map((row, r) => (
               <div key={r} style={{ display: "flex", flex: 1 }}>
                 {row.map((cell, c) => (
-                  <Cell key={`${r}-${c}`} CS={CS} value={cell} onClick={() => click(r, c)} isWinCell={winSet.has(`${r}-${c}`)} justPlaced={last === `${r}-${c}`} lastTurn="X" />
+                  <MemoizedTokyoCell key={`${r}-${c}`} CS={CS} value={cell} onClick={() => click(r, c)} isWinCell={winSet.has(`${r}-${c}`)} isP1={cell === "X"} isP2={cell === "O"} />
                 ))}
               </div>
             ))}
@@ -332,4 +340,4 @@ export default function TokyoGrid({ board, onCellClickAction, winCells = [], sho
       </div>
     </div>
   );
-}
+});

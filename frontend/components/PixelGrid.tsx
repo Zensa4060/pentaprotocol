@@ -6,10 +6,6 @@ const DEFAULT_SIZE = 5;
 const GET_COLS = (s: number) => Array.from({ length: s }, (_, i) => String.fromCharCode(65 + i));
 const GET_ROWS = (s: number) => Array.from({ length: s }, (_, i) => i + 1);
 
-
-
-
-
 function useCellSize(size: number, pad = 8) {
   const [cs, setCs] = useState(110);
   useEffect(() => {
@@ -27,7 +23,7 @@ function useCellSize(size: number, pad = 8) {
   return cs;
 }
 
-function PixelBg({ W, H, gridSize = 5 }: { W: number; H: number; gridSize?: number }) {
+function PixelBg({ W, H, gridSize = 5, isPaused = false }: { W: number; H: number; gridSize?: number; isPaused?: boolean }) {
   const ref = useRef<HTMLCanvasElement | null>(null);
   const raf = useRef<number | null>(null);
   const t = useRef(0);
@@ -35,6 +31,10 @@ function PixelBg({ W, H, gridSize = 5 }: { W: number; H: number; gridSize?: numb
   useEffect(() => {
     const cv = ref.current;
     if (!cv) return;
+    if (isPaused) {
+      if (raf.current) cancelAnimationFrame(raf.current);
+      return;
+    }
     const dpr = boardSkinCanvasDpr(gridSize);
     cv.width = W * dpr;
     cv.height = H * dpr;
@@ -161,12 +161,12 @@ function PixelBg({ W, H, gridSize = 5 }: { W: number; H: number; gridSize?: numb
     return () => {
       if (raf.current) cancelAnimationFrame(raf.current);
     };
-  }, [W, H, gridSize]);
+  }, [W, H, gridSize, isPaused]);
 
   return <canvas ref={ref} style={{ position: "absolute", inset: 0, zIndex: 0, pointerEvents: "none", imageRendering: "pixelated" }} />;
 }
 
-function GridLines({ W, H, PAD, CS, SIZE }: { W: number; H: number; PAD: number; CS: number; SIZE: number }) {
+function GridLines({ W, H, PAD, CS, SIZE, isPaused = false }: { W: number; H: number; PAD: number; CS: number; SIZE: number; isPaused?: boolean }) {
   const ref = useRef<HTMLCanvasElement | null>(null);
   const raf = useRef<number | null>(null);
   const t = useRef(0);
@@ -174,6 +174,10 @@ function GridLines({ W, H, PAD, CS, SIZE }: { W: number; H: number; PAD: number;
   useEffect(() => {
     const cv = ref.current;
     if (!cv) return;
+    if (isPaused) {
+      if (raf.current) cancelAnimationFrame(raf.current);
+      return;
+    }
     const dpr = boardSkinCanvasDpr(SIZE);
     cv.width = W * dpr;
     cv.height = H * dpr;
@@ -239,7 +243,7 @@ function GridLines({ W, H, PAD, CS, SIZE }: { W: number; H: number; PAD: number;
     return () => {
       if (raf.current) cancelAnimationFrame(raf.current);
     };
-  }, [W, H, PAD, CS, SIZE]);
+  }, [W, H, PAD, CS, SIZE, isPaused]);
 
   return <canvas ref={ref} style={{ position: "absolute", inset: 0, zIndex: 3, pointerEvents: "none", imageRendering: "pixelated" }} />;
 }
@@ -414,23 +418,8 @@ function PixelHeart({ size, win, ak }: { size: number; win: boolean; ak: string 
   );
 }
 
-function Cell({
-  CS,
-  value,
-  onClick,
-  isWinCell,
-  justPlaced,
-  lastTurn,
-}: {
-  CS: number;
-  value: "X" | "O" | null;
-  onClick: () => void;
-  isWinCell: boolean;
-  justPlaced: boolean;
-  lastTurn: "X" | "O";
-}) {
+function PixelCell({ CS, value, onClick, isWinCell, justPlaced, lastTurn, isP1, isP2 }: { CS: number; value: "X" | "O" | null; onClick: () => void; isWinCell: boolean; justPlaced: boolean; lastTurn: "X" | "O"; isP1: boolean; isP2: boolean }) {
   const [hov, setHov] = useState(false);
-  const isP1 = value === "X";
   const hovBg = "repeating-conic-gradient(rgba(255,220,0,.08) 0% 25%, transparent 0% 50%) 0 0 / 8px 8px";
   const winC = isP1 ? "rgba(255,220,0,.4)" : "rgba(255,100,120,.4)";
 
@@ -457,6 +446,7 @@ function Cell({
             : "transparent",
         boxShadow: isWinCell ? `inset 0 0 ${CS * 0.3}px ${winC}` : "none",
         transition: "background .15s",
+        contain: "layout style",
       }}
     >
       {justPlaced && (
@@ -471,14 +461,15 @@ function Cell({
           }}
         />
       )}
-      {value === "X" && <PixelCoin size={CS} win={isWinCell} ak={`${value}${CS}`} />}
-      {value === "O" && <PixelHeart size={CS} win={isWinCell} ak={`${value}${CS}`} />}
+      {isP1 && <PixelCoin size={CS} win={isWinCell} ak={`${value}${CS}`} />}
+      {isP2 && <PixelHeart size={CS} win={isWinCell} ak={`${value}${CS}`} />}
       <style>{`@keyframes pfF{0%{opacity:1}33%{opacity:.7}66%{opacity:.4}100%{opacity:0}}`}</style>
     </div>
   );
 }
+const MemoizedPixelCell = React.memo(PixelCell);
 
-export default function PixelGrid({ board, onCellClickAction, winCells = [], showLabels = true }: { board?: (string | null)[][]; onCellClickAction?: (r: number, c: number) => void; winCells?: [number, number][]; showLabels?: boolean }) {
+export default React.memo(function PixelGrid({ board, onCellClickAction, winCells = [], showLabels = true, isPaused = false }: { board?: (string | null)[][]; onCellClickAction?: (r: number, c: number) => void; winCells?: [number, number][]; showLabels?: boolean; isPaused?: boolean }) {
   const active = board ?? Array(DEFAULT_SIZE).fill(null).map(() => Array(DEFAULT_SIZE).fill(null));
   const SIZE = active.length;
   const COLS = GET_COLS(SIZE);
@@ -553,17 +544,22 @@ export default function PixelGrid({ board, onCellClickAction, winCells = [], sho
             border: frameBorder,
             boxShadow: "0 0 0 6px #220000, 0 0 0 9px #ff5500, 0 0 0 12px #330000, 6px 6px 0 12px rgba(0,0,0,.5), inset 0 0 0 3px #440000",
             imageRendering: "pixelated",
+            contain: "layout size style",
+            willChange: "transform",
           }}
         >
-          <PixelBg W={BS} H={BS} gridSize={SIZE} />
-          <GridLines W={BS} H={BS} PAD={PAD} CS={CS} SIZE={SIZE} />
+          <PixelBg W={BS} H={BS} gridSize={SIZE} isPaused={isPaused} />
+          <GridLines W={BS} H={BS} PAD={PAD} CS={CS} SIZE={SIZE} isPaused={isPaused} />
           <BurstCanvas burstRef={burstRef} W={BS} H={BS} gridSize={SIZE} />
           <div style={{ position: "absolute", inset: PAD, zIndex: 4, display: "flex", flexDirection: "column" }}>
             {ROWS.map((_, r) => (
               <div key={r} style={{ display: "flex", flex: 1 }}>
-                {COLS.map((_, c) => (
-                  <Cell key={`${r}-${c}`} CS={CS} value={active[r][c]} onClick={() => click(r, c)} isWinCell={winSet.has(`${r}-${c}`)} justPlaced={last === `${r}-${c}`} lastTurn={turn} />
-                ))}
+                {COLS.map((_, c) => {
+                  const val = active[r][c] as "X" | "O" | null;
+                  return (
+                    <MemoizedPixelCell key={`${r}-${c}`} CS={CS} value={val} onClick={() => click(r, c)} isWinCell={winSet.has(`${r}-${c}`)} justPlaced={last === `${r}-${c}`} lastTurn={turn} isP1={val === "X"} isP2={val === "O"} />
+                  );
+                })}
               </div>
             ))}
           </div>
@@ -571,5 +567,4 @@ export default function PixelGrid({ board, onCellClickAction, winCells = [], sho
       </div>
     </div>
   );
-}
-
+});

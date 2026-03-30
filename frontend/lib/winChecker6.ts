@@ -17,21 +17,20 @@ const DIRS: Coord[] = [
 // ── 4 Patterns for 6x6 (0-indexed offsets) ──
 // These are mandatory and always active in 6x6.
 const PATTERNS_6: Record<string, Coord[]> = {
-  // A shape: C1-B2-A3-D2-E3-C2
-  // C1(0,2), B2(1,1), A3(2,0), D2(1,3), E3(2,4), C2(1,2)
-  A: [[0, 2], [1, 1], [2, 0], [1, 3], [2, 4], [1, 2]],
-
   // Zigzag (ZZ): A1-B2-C1-D2-E1-F2
-  // A1(0,0), B2(1,1), C1(0,2), D2(1,3), E1(0,4), F2(1,5)
   ZZ: [[0, 0], [1, 1], [0, 2], [1, 3], [0, 4], [1, 5]],
 
-  // L shape (Right angle triangle): A1-A2-A3-B3-C3-B2
-  // A1(0,0), A2(1,0), A3(2,0), B3(2,1), C3(2,2), B2(1,1)
-  L: [[0, 0], [1, 0], [2, 0], [2, 1], [2, 2], [1, 1]],
+  // J-shape: A1-A2-A3-A4-B4-B3
+  J: [[0, 0], [1, 0], [2, 0], [3, 0], [3, 1], [2, 1]],
 
   // T shape: A1-B1-C1-B2-B3-B4
-  // A1(0,0), B1(0,1), C1(0,2), B2(1,1), B3(2,1), B4(3,1)
   T: [[0, 0], [0, 1], [0, 2], [1, 1], [2, 1], [3, 1]],
+
+  // L shape: A1-B1-C1-C2-C3-B2
+  L: [[0, 0], [1, 0], [2, 0], [2, 1], [2, 2], [1, 1]],
+
+  // Y shape: A1-B2-C1-B3-B4-B5
+  Y: [[0, 0], [1, 1], [2, 0], [1, 2], [1, 3], [1, 4]],
 };
 
 // ── Variant Generation ──
@@ -64,9 +63,10 @@ function generateVariants(pattern: Coord[]): Coord[][] {
   return result;
 }
 
-const ALL_VARIANTS_6: Coord[][] = [];
+// Pre-generate all variants for all patterns
+const ALL_VARIANTS_6: Record<string, Coord[][]> = {};
 for (const name in PATTERNS_6) {
-  ALL_VARIANTS_6.push(...generateVariants(PATTERNS_6[name]));
+  ALL_VARIANTS_6[name] = generateVariants(PATTERNS_6[name]);
 }
 
 // ─── 6-in-a-line ───
@@ -88,8 +88,15 @@ export function check6Line(board: Board, r: number, c: number, player: string): 
 }
 
 // ─── Structural patterns ───
-export function checkStructuralPatterns6(board: Board, player: string): Coord[] | null {
-  for (const pattern of ALL_VARIANTS_6) {
+export function checkStructuralPatterns6(board: Board, player: string, activeIds: string[]): Coord[] | null {
+  const patterns: Coord[][] = [];
+  for (const id of activeIds) {
+    if (ALL_VARIANTS_6[id]) {
+      patterns.push(...ALL_VARIANTS_6[id]);
+    }
+  }
+
+  for (const pattern of patterns) {
     const maxR = Math.max(...pattern.map(([r]) => r));
     const maxC = Math.max(...pattern.map(([, c]) => c));
     for (let br = 0; br <= GRID - 1 - maxR; br++) {
@@ -159,12 +166,15 @@ export function checkWin6(
   r: number,
   c: number,
   player: string,
-  movesPlayed: number
+  movesPlayed: number,
+  selectedPatternIds: string[] = []
 ): { winner: string; line: Coord[]; connectionScores?: { p1: number; p2: number } } | null {
   const line6 = check6Line(board, r, c, player);
   if (line6) return { winner: player, line: line6 };
 
-  const lineS = checkStructuralPatterns6(board, player);
+  // If no patterns selected (e.g. legacy), default to standard 6x6 set
+  const activeIds = selectedPatternIds.length > 0 ? selectedPatternIds : ["ZZ", "J", "T", "L", "Y"];
+  const lineS = checkStructuralPatterns6(board, player, activeIds);
   if (lineS) return { winner: player, line: lineS };
 
   if (movesPlayed === GRID * GRID) return resolveFullBoard6(board);

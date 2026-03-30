@@ -92,7 +92,8 @@ def serialize_room(room: dict) -> dict:
         "rb_extra_turn_token_used": room.get("rb_extra_turn_token_used", False),
         "rb_hide_banned_from_slot": room.get("rb_hide_banned_from_slot"),
         "rb_patterns_pre_ban": room.get("rb_patterns_pre_ban"),
-        "rb_banned_pattern": room.get("rb_banned_pattern"),
+        "rb_banned_patterns": room.get("rb_banned_patterns", []),
+        "rb_banned_pattern":  room.get("rb_banned_pattern"),
         "protocolbreaker_pending": room.get("protocolbreaker_pending", False),
         "pb_toss_winner": room.get("pb_toss_winner"),
         "pb_bans": room.get("pb_bans") or [],
@@ -1503,15 +1504,16 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                         }
                     )
 
-                    if bm == "7x7" and room.get("rb_banned_pattern"):
+                    if bm == "7x7" and (room.get("rb_banned_pattern") or room.get("rb_banned_patterns")):
                         career_rb_meta = {
-                            "rb_banned_pattern_7x7": room["rb_banned_pattern"],
+                            "rb_banned_patterns_7x7": room.get("rb_banned_patterns") or ([room["rb_banned_pattern"]] if room.get("rb_banned_pattern") else []),
                             "board_mode": bm,
                             "game_number": gn,
                         }
                     update["rb_hide_banned_from_slot"] = None
                     update["rb_patterns_pre_ban"] = None
                     update["rb_banned_pattern"] = None
+                    update["rb_banned_patterns"] = []
 
                 await db.rooms.update_one({"room_code": room_code}, {"$set": update})
 
@@ -1619,6 +1621,7 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                         "rb_extra_turn_token_used": False,
                         "rb_hide_banned_from_slot": None,
                         "rb_patterns_pre_ban": None,
+                        "rb_banned_patterns": [],
                         "rb_banned_pattern": None,
                     }
 
@@ -1665,6 +1668,14 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                     rt["levelup_ready"] = {"P1": False, "P2": False}
                 ready_val = bool(msg.get("ready", True))
                 rt["levelup_ready"][player_slot] = ready_val
+
+                # If 7x7 pattern selection is provided, persist it to the room
+                if bm == "7x7" and msg.get("selected_patterns"):
+                    sp_field = "selected_patterns_p1" if player_slot == "P1" else "selected_patterns_p2"
+                    await db.rooms.update_one(
+                        {"room_code": room_code},
+                        {"$set": {sp_field: msg["selected_patterns"]}}
+                    )
 
                 for slot, ws in _room_connections.get(room_code, {}).items():
                     try:
@@ -1775,6 +1786,7 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                         "rb_extra_turn_token_used": False,
                         "rb_hide_banned_from_slot": None,
                         "rb_patterns_pre_ban": None,
+                        "rb_banned_patterns": [],
                         "rb_banned_pattern": None,
                     }
 
@@ -2038,9 +2050,14 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                 pre_ban = msg.get("rb_patterns_pre_ban")
                 if not isinstance(pre_ban, list):
                     pre_ban = None
+                banned_pats = msg.get("rb_banned_patterns")
+                if not isinstance(banned_pats, list):
+                    banned_pats = []
                 banned_pat = msg.get("rb_banned_pattern")
                 if not isinstance(banned_pat, str) or not banned_pat.strip():
                     banned_pat = None
+                if banned_pat and banned_pat not in banned_pats:
+                    banned_pats.append(banned_pat)
 
                 gn = room.get("game_number", 1)
                 next_gn = gn + 1
@@ -2076,7 +2093,8 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                 if bm == "7x7":
                     reset["rb_hide_banned_from_slot"] = hide_slot
                     reset["rb_patterns_pre_ban"] = pre_ban
-                    reset["rb_banned_pattern"] = banned_pat
+                    reset["rb_banned_patterns"] = banned_pats
+                    reset["rb_banned_pattern"] = None
                     if (
                         sel_patterns_p1 is not None
                         and sel_patterns_p2 is not None
@@ -2091,6 +2109,7 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                 else:
                     reset["rb_hide_banned_from_slot"] = None
                     reset["rb_patterns_pre_ban"] = None
+                    reset["rb_banned_patterns"] = []
                     reset["rb_banned_pattern"] = None
                     reset["selected_patterns_p1"] = None
                     reset["selected_patterns_p2"] = None
@@ -2132,11 +2151,12 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                     and len(pre_ban) > 0
                 )
                 gr_payload["preserve_rb_hide"] = preserve_hide
-                if preserve_hide or (bm == "7x7" and banned_pat):
+                if preserve_hide or (bm == "7x7" and (banned_pats or banned_pat)):
                     gr_payload["rb_hide_banned_from_slot"] = reset.get(
                         "rb_hide_banned_from_slot"
                     )
                     gr_payload["rb_patterns_pre_ban"] = reset.get("rb_patterns_pre_ban")
+                    gr_payload["rb_banned_patterns"] = reset.get("rb_banned_patterns", [])
                     gr_payload["rb_banned_pattern"] = reset.get("rb_banned_pattern")
 
                 for slot, ws in _room_connections.get(room_code, {}).items():

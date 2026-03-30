@@ -20,7 +20,7 @@ function useCellSize(size: number, pad = 8) {
   return cs;
 }
 
-function GlacierBg({ W, H, gridSize = 5 }: { W: number; H: number; gridSize?: number }) {
+function GlacierBg({ W, H, gridSize = 5, isPaused = false }: { W: number; H: number; gridSize?: number; isPaused?: boolean }) {
   const ref = useRef<HTMLCanvasElement | null>(null);
   const raf = useRef<number | null>(null);
   const t = useRef(0);
@@ -28,6 +28,10 @@ function GlacierBg({ W, H, gridSize = 5 }: { W: number; H: number; gridSize?: nu
   useEffect(() => {
     const cv = ref.current;
     if (!cv) return;
+    if (isPaused) {
+      if (raf.current) cancelAnimationFrame(raf.current);
+      return;
+    }
     const dpr = boardSkinCanvasDpr(gridSize);
     cv.width = W * dpr;
     cv.height = H * dpr;
@@ -143,18 +147,22 @@ function GlacierBg({ W, H, gridSize = 5 }: { W: number; H: number; gridSize?: nu
     return () => {
       if (raf.current) cancelAnimationFrame(raf.current);
     };
-  }, [W, H, gridSize]);
+  }, [W, H, gridSize, isPaused]);
 
   return <canvas ref={ref} style={{ position: "absolute", inset: 0, zIndex: 0, pointerEvents: "none" }} />;
 }
 
-function GridLines({ W, H, PAD, CS, SIZE }: { W: number; H: number; PAD: number; CS: number; SIZE: number }) {
+function GridLines({ W, H, PAD, CS, SIZE, isPaused = false }: { W: number; H: number; PAD: number; CS: number; SIZE: number; isPaused?: boolean }) {
   const ref = useRef<HTMLCanvasElement | null>(null);
   const raf = useRef<number | null>(null);
   const t = useRef(0);
   useEffect(() => {
     const cv = ref.current;
     if (!cv) return;
+    if (isPaused) {
+      if (raf.current) cancelAnimationFrame(raf.current);
+      return;
+    }
     const dpr = boardSkinCanvasDpr(SIZE);
     cv.width = W * dpr;
     cv.height = H * dpr;
@@ -280,7 +288,7 @@ function GridLines({ W, H, PAD, CS, SIZE }: { W: number; H: number; PAD: number;
     };
     draw();
     return () => { if (raf.current) cancelAnimationFrame(raf.current); };
-  }, [W, H, PAD, CS, SIZE]);
+  }, [W, H, PAD, CS, SIZE, isPaused]);
   return <canvas ref={ref} style={{ position: "absolute", inset: 0, zIndex: 3, pointerEvents: "none" }} />;
 }
 
@@ -358,13 +366,11 @@ function IceShard({ size, win, ak }: { size: number; win: boolean; ak: string })
   );
 }
 
-function Cell({ CS, value, onClick, isWinCell, justPlaced }: { CS: number; value: string | null; onClick: () => void; isWinCell: boolean; justPlaced: boolean }) {
+function GlacierCell({ CS, value, onClick, isWinCell, justPlaced, isP1, isP2 }: { CS: number; value: string | null; onClick: () => void; isWinCell: boolean; justPlaced: boolean; isP1: boolean; isP2: boolean }) {
   const [hov, setHov] = useState(false);
-  const isP1 = value === "X";
-  const isP2 = value === "O";
   const wC = isP1 ? "rgba(125,211,252,.4)" : "rgba(147,197,253,.4)";
   return (
-    <div onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)} onClick={onClick} style={{ width: CS, height: CS, position: "relative", cursor: "pointer", overflow: "hidden", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", background: isWinCell ? "radial-gradient(ellipse,rgba(125,211,252,.25),transparent 70%)" : hov && !value ? "radial-gradient(ellipse,rgba(80,140,200,.18),transparent 70%)" : "transparent", boxShadow: isWinCell ? `inset 0 0 ${CS * 0.3}px ${wC}` : "none", transition: "background .2s" }}>
+    <div onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)} onClick={onClick} style={{ width: CS, height: CS, position: "relative", cursor: "pointer", overflow: "hidden", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", background: isWinCell ? "radial-gradient(ellipse,rgba(125,211,252,.25),transparent 70%)" : hov && !value ? "radial-gradient(ellipse,rgba(80,140,200,.18),transparent 70%)" : "transparent", boxShadow: isWinCell ? `inset 0 0 ${CS * 0.3}px ${wC}` : "none", transition: "background .2s", contain: "layout style" }}>
       {justPlaced && <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse,rgba(200,235,255,.75),transparent 70%)", animation: "icF .6s ease-out forwards", pointerEvents: "none", zIndex: 4 }} />}
       {isP1 && <Snowflake size={CS} win={isWinCell} ak={`${value}${CS}`} />}
       {isP2 && <IceShard size={CS} win={isWinCell} ak={`${value}${CS}`} />}
@@ -372,8 +378,9 @@ function Cell({ CS, value, onClick, isWinCell, justPlaced }: { CS: number; value
     </div>
   );
 }
+const MemoizedGlacierCell = React.memo(GlacierCell);
 
-export default function GlacierGrid({ board, onCellClickAction, winCells = [], showLabels = true }: { board?: (string | null)[][]; onCellClickAction?: (r: number, c: number) => void; winCells?: [number, number][]; showLabels?: boolean }) {
+export default React.memo(function GlacierGrid({ board, onCellClickAction, winCells = [], showLabels = true, isPaused = false }: { board?: (string | null)[][]; onCellClickAction?: (r: number, c: number) => void; winCells?: [number, number][]; showLabels?: boolean; isPaused?: boolean }) {
   const active = board ?? Array(DEFAULT_SIZE).fill(null).map(() => Array(DEFAULT_SIZE).fill(null));
   const SIZE = active.length;
   const COLS = GET_COLS(SIZE);
@@ -404,17 +411,17 @@ export default function GlacierGrid({ board, onCellClickAction, winCells = [], s
 
   return (
     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
-      <div style={{ display: "flex", paddingLeft: PAD + CS * 0.3 }}>{COLS.map(c => <div key={c} style={{ width: CS, textAlign: "center", ...lbl }}>{c}</div>)}</div>
+      {showLabels && <div style={{ display: "flex", paddingLeft: PAD + CS * 0.3 }}>{COLS.map(c => <div key={c} style={{ width: CS, textAlign: "center", ...lbl }}>{c}</div>)}</div>}
       <div style={{ display: "flex", alignItems: "flex-start" }}>
-        <div style={{ display: "flex", flexDirection: "column", paddingTop: PAD }}>{ROWS.map(r => <div key={r} style={{ height: CS, display: "flex", alignItems: "center", justifyContent: "flex-end", paddingRight: 8, minWidth: 24, ...lbl }}>{r}</div>)}</div>
-        <div style={{ position: "relative", width: BS, height: BS, borderRadius: CS * 0.08, overflow: "hidden", border: "2px solid rgba(120,200,255,.65)", boxShadow: "0 0 0 1px rgba(80,160,220,.3),0 0 45px rgba(100,180,255,.4),0 0 100px rgba(50,100,200,.25),inset 0 0 80px rgba(0,0,15,.55)" }}>
-          <GlacierBg W={BS} H={BS} gridSize={SIZE} />
-          <GridLines W={BS} H={BS} PAD={PAD} CS={CS} SIZE={SIZE} />
+        {showLabels && <div style={{ display: "flex", flexDirection: "column", paddingTop: PAD }}>{ROWS.map(r => <div key={r} style={{ height: CS, display: "flex", alignItems: "center", justifyContent: "flex-end", paddingRight: 8, minWidth: 24, ...lbl }}>{r}</div>)}</div>}
+        <div style={{ position: "relative", width: BS, height: BS, borderRadius: CS * 0.08, overflow: "hidden", border: "2px solid rgba(120,200,255,.65)", boxShadow: "0 0 0 1px rgba(80,160,220,.3),0 0 45px rgba(100,180,255,.4),0 0 100px rgba(50,100,200,.25),inset 0 0 80px rgba(0,0,15,.55)", willChange: "transform", contain: "layout size style" }}>
+          <GlacierBg W={BS} H={BS} gridSize={SIZE} isPaused={isPaused} />
+          <GridLines W={BS} H={BS} PAD={PAD} CS={CS} SIZE={SIZE} isPaused={isPaused} />
           <BurstCanvas burstRef={burstRef} W={BS} H={BS} gridSize={SIZE} />
           <div style={{ position: "absolute", inset: PAD, zIndex: 4, display: "flex", flexDirection: "column" }}>
             {active.map((row, r) => (
               <div key={r} style={{ display: "flex", flex: 1 }}>
-                {row.map((cell, c) => (<Cell key={`${r}-${c}`} CS={CS} value={cell} onClick={() => click(r, c)} isWinCell={winSet.has(`${r}-${c}`)} justPlaced={last === `${r}-${c}`} />))}
+                {row.map((cell, c) => (<MemoizedGlacierCell key={`${r}-${c}`} CS={CS} value={cell} onClick={() => click(r, c)} isWinCell={winSet.has(`${r}-${c}`)} justPlaced={last === `${r}-${c}`} isP1={cell === "X"} isP2={cell === "O"} />))}
               </div>
             ))}
           </div>
@@ -422,4 +429,4 @@ export default function GlacierGrid({ board, onCellClickAction, winCells = [], s
       </div>
     </div>
   );
-}
+});

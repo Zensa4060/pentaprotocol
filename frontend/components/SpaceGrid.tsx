@@ -6,10 +6,6 @@ const DEFAULT_SIZE = 5;
 const GET_COLS = (s: number) => Array.from({ length: s }, (_, i) => String.fromCharCode(65 + i));
 const GET_ROWS = (s: number) => Array.from({ length: s }, (_, i) => i + 1);
 
-
-
-
-
 function useCellSize(size: number, pad = 8) {
   const [cs, setCs] = useState(110);
   useEffect(() => {
@@ -27,7 +23,7 @@ function useCellSize(size: number, pad = 8) {
   return cs;
 }
 
-function SpaceExBg({ W, H, gridSize = 5 }: { W: number; H: number; gridSize?: number }) {
+function SpaceExBg({ W, H, gridSize = 5, isPaused = false }: { W: number; H: number; gridSize?: number; isPaused?: boolean }) {
   const ref = useRef<HTMLCanvasElement | null>(null);
   const raf = useRef<number | null>(null);
   const t = useRef(0);
@@ -35,6 +31,10 @@ function SpaceExBg({ W, H, gridSize = 5 }: { W: number; H: number; gridSize?: nu
   useEffect(() => {
     const cv = ref.current;
     if (!cv) return;
+    if (isPaused) {
+      if (raf.current) cancelAnimationFrame(raf.current);
+      return;
+    }
     const dpr = boardSkinCanvasDpr(gridSize);
     cv.width = W * dpr;
     cv.height = H * dpr;
@@ -44,18 +44,15 @@ function SpaceExBg({ W, H, gridSize = 5 }: { W: number; H: number; gridSize?: nu
     if (!ctx) return;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-    // Star field — 3 layers of depth
     const starsNear = Array.from({ length: 60 }, () => ({ x: Math.random() * W, y: Math.random() * H, r: Math.random() * 2 + 0.8, phase: Math.random() * Math.PI * 2, spd: 0.025 + Math.random() * 0.015 }));
     const starsMid  = Array.from({ length: 100 }, () => ({ x: Math.random() * W, y: Math.random() * H, r: Math.random() * 1.2 + 0.3, phase: Math.random() * Math.PI * 2, spd: 0.01 + Math.random() * 0.01 }));
     const starsFar  = Array.from({ length: 80 }, () => ({ x: Math.random() * W, y: Math.random() * H, r: Math.random() * 0.5 + 0.2, phase: Math.random() * Math.PI * 2, spd: 0.004 + Math.random() * 0.006 }));
 
-    // Planets
     const planets = [
       { cx: W * 0.78, cy: H * 0.22, r: W * 0.09, col1: "#ff6b35", col2: "#cc3a00", ring: true,  ringTilt: 0.3, phase: 0,   spd: 0.003 },
       { cx: W * 0.12, cy: H * 0.72, r: W * 0.055, col1: "#4488ff", col2: "#0033bb", ring: false, ringTilt: 0,   phase: 1.2, spd: 0.005 },
     ];
 
-    // Asteroids
     const asteroids = Array.from({ length: 10 }, () => ({
       x: Math.random() * W,
       y: Math.random() * H,
@@ -67,17 +64,14 @@ function SpaceExBg({ W, H, gridSize = 5 }: { W: number; H: number; gridSize?: nu
       col: ["#8B7355", "#6B5B3E", "#9C8362", "#7A6245"][Math.floor(Math.random() * 4)],
     }));
 
-    // Meteor streaks
     const meteors = Array.from({ length: 2 }, () => ({ x: -100, y: Math.random() * H, vx: 12 + Math.random() * 8, vy: 2 + Math.random() * 3, alpha: 0, timer: Math.random() * 250 }));
 
-    // Nebula clouds
     const nebClouds = [
       { cx: W * 0.5, cy: H * 0.5, rx: W * 0.5, ry: H * 0.4, col: "rgba(20,40,120,0.3)" },
       { cx: W * 0.2, cy: H * 0.3, rx: W * 0.3, ry: H * 0.25, col: "rgba(60,0,80,0.25)" },
       { cx: W * 0.8, cy: H * 0.7, rx: W * 0.25, ry: H * 0.3, col: "rgba(0,60,100,0.2)" },
     ];
 
-    // Solar wind particles
     const solarWind = Array.from({ length: 20 }, () => ({ x: Math.random() * W, y: Math.random() * H, len: Math.random() * 25 + 10, vx: 1.5 + Math.random() * 1, alpha: Math.random() * 0.3 + 0.1 }));
 
     const draw = () => {
@@ -85,7 +79,6 @@ function SpaceExBg({ W, H, gridSize = 5 }: { W: number; H: number; gridSize?: nu
       const tc = t.current;
       ctx.clearRect(0, 0, W, H);
 
-      // Deep space base
       const bg = ctx.createRadialGradient(W * 0.5, H * 0.5, 0, W * 0.5, H * 0.5, W * 0.9);
       bg.addColorStop(0, "#050818");
       bg.addColorStop(0.4, "#020510");
@@ -93,7 +86,6 @@ function SpaceExBg({ W, H, gridSize = 5 }: { W: number; H: number; gridSize?: nu
       ctx.fillStyle = bg;
       ctx.fillRect(0, 0, W, H);
 
-      // Nebula
       nebClouds.forEach((n) => {
         ctx.save();
         ctx.scale(1, n.ry / n.rx);
@@ -107,7 +99,6 @@ function SpaceExBg({ W, H, gridSize = 5 }: { W: number; H: number; gridSize?: nu
         ctx.restore();
       });
 
-      // Far stars
       starsFar.forEach((s) => {
         s.phase += s.spd;
         const b = 0.25 + 0.75 * Math.abs(Math.sin(s.phase));
@@ -120,7 +111,6 @@ function SpaceExBg({ W, H, gridSize = 5 }: { W: number; H: number; gridSize?: nu
         ctx.restore();
       });
 
-      // Mid stars
       starsMid.forEach((s) => {
         s.phase += s.spd;
         const b = 0.4 + 0.6 * Math.abs(Math.sin(s.phase));
@@ -135,7 +125,6 @@ function SpaceExBg({ W, H, gridSize = 5 }: { W: number; H: number; gridSize?: nu
         ctx.restore();
       });
 
-      // Near stars (twinkling with color)
       starsNear.forEach((s) => {
         s.phase += s.spd;
         const b = 0.5 + 0.5 * Math.abs(Math.sin(s.phase));
@@ -151,12 +140,10 @@ function SpaceExBg({ W, H, gridSize = 5 }: { W: number; H: number; gridSize?: nu
         ctx.restore();
       });
 
-      // Planets
       planets.forEach((p) => {
         p.phase += p.spd;
         const pl = 0.8 + 0.2 * Math.sin(p.phase);
 
-        // Glow halo
         for (let g = 5; g >= 1; g--) {
           const gR = p.r * (1 + g * 0.25);
           const gg = ctx.createRadialGradient(p.cx, p.cy, p.r * 0.5, p.cx, p.cy, gR);
@@ -169,7 +156,6 @@ function SpaceExBg({ W, H, gridSize = 5 }: { W: number; H: number; gridSize?: nu
           ctx.fill();
         }
 
-        // Planet body
         const pd = ctx.createRadialGradient(p.cx - p.r * 0.25, p.cy - p.r * 0.25, 0, p.cx, p.cy, p.r);
         pd.addColorStop(0, p.ring ? "rgba(255,200,150,1)" : "rgba(100,160,255,1)");
         pd.addColorStop(0.5, p.col1);
@@ -182,7 +168,6 @@ function SpaceExBg({ W, H, gridSize = 5 }: { W: number; H: number; gridSize?: nu
         ctx.fill();
         ctx.shadowBlur = 0;
 
-        // Surface bands
         ctx.save();
         ctx.beginPath();
         ctx.arc(p.cx, p.cy, p.r, 0, Math.PI * 2);
@@ -195,7 +180,6 @@ function SpaceExBg({ W, H, gridSize = 5 }: { W: number; H: number; gridSize?: nu
         });
         ctx.restore();
 
-        // Ring
         if (p.ring) {
           ctx.save();
           ctx.translate(p.cx, p.cy);
@@ -214,7 +198,6 @@ function SpaceExBg({ W, H, gridSize = 5 }: { W: number; H: number; gridSize?: nu
         }
       });
 
-      // Asteroids
       asteroids.forEach((a) => {
         a.x += a.vx;
         a.y += a.vy;
@@ -243,7 +226,6 @@ function SpaceExBg({ W, H, gridSize = 5 }: { W: number; H: number; gridSize?: nu
         ctx.restore();
       });
 
-      // Solar wind streaks
       solarWind.forEach((s) => {
         s.x += s.vx;
         if (s.x > W + s.len) s.x = -s.len;
@@ -261,7 +243,6 @@ function SpaceExBg({ W, H, gridSize = 5 }: { W: number; H: number; gridSize?: nu
         ctx.restore();
       });
 
-      // Meteors
       meteors.forEach((m) => {
         m.timer--;
         if (m.timer < 0) {
@@ -307,12 +288,12 @@ function SpaceExBg({ W, H, gridSize = 5 }: { W: number; H: number; gridSize?: nu
     return () => {
       if (raf.current) cancelAnimationFrame(raf.current);
     };
-  }, [W, H, gridSize]);
+  }, [W, H, gridSize, isPaused]);
 
   return <canvas ref={ref} style={{ position: "absolute", inset: 0, zIndex: 0, pointerEvents: "none" }} />;
 }
 
-function GridLines({ W, H, PAD, CS, SIZE }: { W: number; H: number; PAD: number; CS: number; SIZE: number }) {
+function GridLines({ W, H, PAD, CS, SIZE, isPaused = false }: { W: number; H: number; PAD: number; CS: number; SIZE: number; isPaused?: boolean }) {
   const ref = useRef<HTMLCanvasElement | null>(null);
   const raf = useRef<number | null>(null);
   const t = useRef(0);
@@ -320,6 +301,10 @@ function GridLines({ W, H, PAD, CS, SIZE }: { W: number; H: number; PAD: number;
   useEffect(() => {
     const cv = ref.current;
     if (!cv) return;
+    if (isPaused) {
+      if (raf.current) cancelAnimationFrame(raf.current);
+      return;
+    }
     const dpr = boardSkinCanvasDpr(SIZE);
     cv.width = W * dpr;
     cv.height = H * dpr;
@@ -338,7 +323,6 @@ function GridLines({ W, H, PAD, CS, SIZE }: { W: number; H: number; PAD: number;
         const y = PAD + i * CS;
         const p = 0.65 + 0.35 * Math.sin(tc * 1.1 + i * 0.9);
 
-        // VERTICAL — solar cyan
         ctx.save();
         ctx.strokeStyle = "rgba(0,200,255,.07)";
         ctx.lineWidth = 18;
@@ -378,7 +362,6 @@ function GridLines({ W, H, PAD, CS, SIZE }: { W: number; H: number; PAD: number;
         ctx.stroke();
         ctx.restore();
 
-        // HORIZONTAL — orbital orange
         ctx.save();
         ctx.strokeStyle = "rgba(255,120,0,.06)";
         ctx.lineWidth = 18;
@@ -419,7 +402,6 @@ function GridLines({ W, H, PAD, CS, SIZE }: { W: number; H: number; PAD: number;
         ctx.restore();
       }
 
-      // Intersection — targeting reticle crosshairs
       for (let r = 0; r <= SIZE; r++) {
         for (let c = 0; c <= SIZE; c++) {
           const nx = PAD + c * CS;
@@ -469,7 +451,7 @@ function GridLines({ W, H, PAD, CS, SIZE }: { W: number; H: number; PAD: number;
     return () => {
       if (raf.current) cancelAnimationFrame(raf.current);
     };
-  }, [W, H, PAD, CS, SIZE]);
+  }, [W, H, PAD, CS, SIZE, isPaused]);
 
   return <canvas ref={ref} style={{ position: "absolute", inset: 0, zIndex: 3, pointerEvents: "none" }} />;
 }
@@ -694,23 +676,8 @@ function Satellite({ size, win, ak }: { size: number; win: boolean; ak: string }
   );
 }
 
-function Cell({
-  CS,
-  value,
-  onClick,
-  isWinCell,
-  justPlaced,
-  lastTurn,
-}: {
-  CS: number;
-  value: "X" | "O" | null;
-  onClick: () => void;
-  isWinCell: boolean;
-  justPlaced: boolean;
-  lastTurn: "X" | "O";
-}) {
+function SpaceCell({ CS, value, onClick, isWinCell, justPlaced, lastTurn, isP1, isP2 }: { CS: number; value: "X" | "O" | null; onClick: () => void; isWinCell: boolean; justPlaced: boolean; lastTurn: "X" | "O"; isP1: boolean; isP2: boolean }) {
   const [hov, setHov] = useState(false);
-  const isP1 = value === "X";
   const wC = isP1 ? "rgba(0,200,255,.4)" : "rgba(255,140,0,.4)";
   return (
     <div
@@ -734,6 +701,7 @@ function Cell({
             : "transparent",
         boxShadow: isWinCell ? `inset 0 0 ${CS * 0.3}px ${wC}` : "none",
         transition: "background .2s",
+        contain: "layout style",
       }}
     >
       {justPlaced && (
@@ -748,14 +716,15 @@ function Cell({
           }}
         />
       )}
-      {value === "X" && <Rocket size={CS} win={isWinCell} ak={`${value}${CS}`} />}
-      {value === "O" && <Satellite size={CS} win={isWinCell} ak={`${value}${CS}`} />}
+      {isP1 && <Rocket size={CS} win={isWinCell} ak={`${value}${CS}`} />}
+      {isP2 && <Satellite size={CS} win={isWinCell} ak={`${value}${CS}`} />}
       <style>{`@keyframes spF{0%{opacity:1;transform:scale(1)}100%{opacity:0;transform:scale(2.5)}}`}</style>
     </div>
   );
 }
+const MemoizedSpaceCell = React.memo(SpaceCell);
 
-export default function SpaceGrid({ board, onCellClickAction, winCells = [], showLabels = true }: { board?: (string | null)[][]; onCellClickAction?: (r: number, c: number) => void; winCells?: [number, number][]; showLabels?: boolean }) {
+export default React.memo(function SpaceGrid({ board, onCellClickAction, winCells = [], showLabels = true, isPaused = false }: { board?: (string | null)[][]; onCellClickAction?: (r: number, c: number) => void; winCells?: [number, number][]; showLabels?: boolean; isPaused?: boolean }) {
   const active = board ?? Array(DEFAULT_SIZE).fill(null).map(() => Array(DEFAULT_SIZE).fill(null));
   const SIZE = active.length;
   const COLS = GET_COLS(SIZE);
@@ -816,16 +785,29 @@ export default function SpaceGrid({ board, onCellClickAction, winCells = [], sho
             ))}
           </div>
         )}
-        <div style={{ position: "relative", width: BS, height: BS, borderRadius: CS * 0.07, overflow: "hidden", border: "2px solid rgba(0,160,220,.65)", boxShadow: "0 0 0 1px rgba(255,120,0,.2),0 0 45px rgba(0,160,220,.4),0 0 100px rgba(0,60,120,.25),inset 0 0 80px rgba(0,0,0,.6)" }}>
-          <SpaceExBg W={BS} H={BS} gridSize={SIZE} />
-          <GridLines W={BS} H={BS} PAD={PAD} CS={CS} SIZE={SIZE} />
+        <div style={{ position: "relative", width: BS, height: BS, borderRadius: CS * 0.05, overflow: "hidden", border: "3px solid rgba(0,150,255,.8)", boxShadow: "0 0 0 1px rgba(0,120,255,.3),0 0 50px rgba(0,100,255,.6),0 0 120px rgba(0,50,150,.4),inset 0 0 80px rgba(0,0,0,.85)" }}>
+          <SpaceExBg W={BS} H={BS} gridSize={SIZE} isPaused={isPaused} />
+          <GridLines W={BS} H={BS} PAD={PAD} CS={CS} SIZE={SIZE} isPaused={isPaused} />
           <BurstCanvas burstRef={burstRef} W={BS} H={BS} gridSize={SIZE} />
           <div style={{ position: "absolute", inset: PAD, zIndex: 4, display: "flex", flexDirection: "column" }}>
             {ROWS.map((_, r) => (
               <div key={r} style={{ display: "flex", flex: 1 }}>
-                {COLS.map((_, c) => (
-                  <Cell key={`${r}-${c}`} CS={CS} value={active[r][c]} onClick={() => click(r, c)} isWinCell={winSet.has(`${r}-${c}`)} justPlaced={last === `${r}-${c}`} lastTurn={turn} />
-                ))}
+                {COLS.map((_, c) => {
+                  const val = active[r][c] as "X" | "O" | null;
+                  return (
+                    <MemoizedSpaceCell
+                      key={`${r}-${c}`}
+                      CS={CS}
+                      value={val}
+                      onClick={() => click(r, c)}
+                      isWinCell={winSet.has(`${r}-${c}`)}
+                      justPlaced={last === `${r}-${c}`}
+                      lastTurn={turn}
+                      isP1={val === "X"}
+                      isP2={val === "O"}
+                    />
+                  );
+                })}
               </div>
             ))}
           </div>
@@ -833,5 +815,4 @@ export default function SpaceGrid({ board, onCellClickAction, winCells = [], sho
       </div>
     </div>
   );
-}
-
+});

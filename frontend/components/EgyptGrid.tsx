@@ -7,10 +7,6 @@ type GraphicsQuality = "low" | "balanced" | "ultra";
 const GET_COLS = (s: number) => Array.from({ length: s }, (_, i) => String.fromCharCode(65 + i));
 const GET_ROWS = (s: number) => Array.from({ length: s }, (_, i) => i + 1);
 
-
-
-
-
 function useCellSize(size: number, pad = 8) {
   const [cs, setCs] = useState(110);
   useEffect(() => {
@@ -25,7 +21,7 @@ function useCellSize(size: number, pad = 8) {
   return cs;
 }
 
-function EgyptBg({ W, H, gridSize = 5, graphicsQuality = "balanced" }: { W: number; H: number; gridSize?: number; graphicsQuality?: GraphicsQuality }) {
+function EgyptBg({ W, H, gridSize = 5, graphicsQuality = "balanced", isPaused = false }: { W: number; H: number; gridSize?: number; graphicsQuality?: GraphicsQuality; isPaused?: boolean }) {
   const ref = useRef<HTMLCanvasElement | null>(null);
   const raf = useRef<number | null>(null);
   const t = useRef(0);
@@ -33,6 +29,10 @@ function EgyptBg({ W, H, gridSize = 5, graphicsQuality = "balanced" }: { W: numb
   useEffect(() => {
     const cv = ref.current;
     if (!cv) return;
+    if (isPaused) {
+      if (raf.current) cancelAnimationFrame(raf.current);
+      return;
+    }
     const dpr = boardSkinCanvasDpr(gridSize);
     cv.width = W * dpr;
     cv.height = H * dpr;
@@ -186,12 +186,12 @@ function EgyptBg({ W, H, gridSize = 5, graphicsQuality = "balanced" }: { W: numb
 
     draw();
     return () => { if (raf.current) cancelAnimationFrame(raf.current); };
-  }, [W, H, gridSize, graphicsQuality]);
+  }, [W, H, gridSize, graphicsQuality, isPaused]);
 
   return <canvas ref={ref} style={{ position: "absolute", inset: 0, zIndex: 0, pointerEvents: "none" }} />;
 }
 
-function GridLines({ W, H, PAD, CS, SIZE }: { W: number; H: number; PAD: number; CS: number; SIZE: number }) {
+function GridLines({ W, H, PAD, CS, SIZE, isPaused = false }: { W: number; H: number; PAD: number; CS: number; SIZE: number; isPaused?: boolean }) {
   const ref = useRef<HTMLCanvasElement | null>(null);
   const raf = useRef<number | null>(null);
   const t = useRef(0);
@@ -199,6 +199,10 @@ function GridLines({ W, H, PAD, CS, SIZE }: { W: number; H: number; PAD: number;
   useEffect(() => {
     const cv = ref.current;
     if (!cv) return;
+    if (isPaused) {
+      if (raf.current) cancelAnimationFrame(raf.current);
+      return;
+    }
     const dpr = boardSkinCanvasDpr(SIZE);
     cv.width = W * dpr;
     cv.height = H * dpr;
@@ -327,7 +331,7 @@ function GridLines({ W, H, PAD, CS, SIZE }: { W: number; H: number; PAD: number;
 
     draw();
     return () => { if (raf.current) cancelAnimationFrame(raf.current); };
-  }, [W, H, PAD, CS, SIZE]);
+  }, [W, H, PAD, CS, SIZE, isPaused]);
 
   return <canvas ref={ref} style={{ position: "absolute", inset: 0, zIndex: 3, pointerEvents: "none" }} />;
 }
@@ -482,9 +486,8 @@ function EyeOfRa({ size, win, ak }: { size: number; win: boolean; ak: string }) 
   );
 }
 
-function Cell({ CS, value, onClick, isWinCell, justPlaced, lastTurn }: { CS: number; value: string | null; onClick: () => void; isWinCell: boolean; justPlaced: boolean; lastTurn: "X" | "O" }) {
+const EgyptCell = React.memo(({ CS, value, onClick, isWinCell, justPlaced, lastTurn, isP1, isP2 }: { CS: number; value: string | null; onClick: () => void; isWinCell: boolean; justPlaced: boolean; lastTurn: "X" | "O"; isP1: boolean; isP2: boolean }) => {
   const [hov, setHov] = useState(false);
-  const isP1 = value === "X", isP2 = value === "O";
   const wC = isP1 ? "rgba(251,191,36,.4)" : "rgba(192,132,252,.4)";
   return (
     <div onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)} onClick={onClick}
@@ -495,6 +498,7 @@ function Cell({ CS, value, onClick, isWinCell, justPlaced, lastTurn }: { CS: num
         boxShadow: isWinCell ? `inset 0 0 ${CS * 0.3}px ${wC}` : "none",
         transition: "background .2s, box-shadow .2s",
         animation: isWinCell ? "egWinPulse 1.05s ease-in-out infinite" : "none",
+        contain: "layout style",
       }}
     >
       {justPlaced && <div style={{ position: "absolute", inset: 0, background: `radial-gradient(ellipse,rgba(${lastTurn === "X" ? "220,160,0" : "180,100,240"},.75),transparent 65%)`, animation: "egF .6s ease-out forwards", pointerEvents: "none", zIndex: 4 }} />}
@@ -503,9 +507,9 @@ function Cell({ CS, value, onClick, isWinCell, justPlaced, lastTurn }: { CS: num
       <style>{`@keyframes egF{0%{opacity:1;transform:scale(1)}100%{opacity:0;transform:scale(2.3)}}@keyframes egWinPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.03)}}`}</style>
     </div>
   );
-}
+});
 
-export default function EgyptGrid({ board, onCellClickAction, winCells = [], showLabels = true, graphicsQuality = "balanced" }: { board?: (string | null)[][]; onCellClickAction?: (r: number, c: number) => void; winCells?: [number, number][]; showLabels?: boolean; graphicsQuality?: GraphicsQuality }) {
+export default React.memo(function EgyptGrid({ board, onCellClickAction, winCells = [], showLabels = true, graphicsQuality = "balanced", isPaused = false }: { board?: (string | null)[][]; onCellClickAction?: (r: number, c: number) => void; winCells?: [number, number][]; showLabels?: boolean; graphicsQuality?: GraphicsQuality; isPaused?: boolean }) {
   const active = board ?? Array(DEFAULT_SIZE).fill(null).map(() => Array(DEFAULT_SIZE).fill(null));
   const SIZE = active.length;
   const COLS = GET_COLS(SIZE);
@@ -557,20 +561,23 @@ export default function EgyptGrid({ board, onCellClickAction, winCells = [], sho
             {ROWS.map((r) => <div key={r} style={{ height: CS, display: "flex", alignItems: "center", justifyContent: "flex-end", paddingRight: 8, minWidth: 24, ...lbl }}>{r}</div>)}
           </div>
         )}
-        <div style={{ position: "relative", width: BS, height: BS, borderRadius: CS * 0.05, overflow: "hidden", border: "2px solid rgba(180,110,10,.7)", boxShadow: "0 0 0 1px rgba(120,60,0,.3),0 0 45px rgba(200,130,10,.4),0 0 100px rgba(120,60,0,.25),inset 0 0 80px rgba(0,0,0,.55)" }}>
+        <div style={{ position: "relative", width: BS, height: BS, borderRadius: CS * 0.05, overflow: "hidden", border: "2px solid rgba(180,110,10,.7)", boxShadow: "0 0 0 1px rgba(120,60,0,.3),0 0 45px rgba(200,130,10,.4),0 0 100px rgba(120,60,0,.25),inset 0 0 80px rgba(0,0,0,.55)", willChange: "transform", contain: "layout size style" }}>
           {graphicsQuality === "low" ? (
             <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, #090400 0%, #2a1704 60%, #140900 100%)" }} />
           ) : (
-            <EgyptBg W={BS} H={BS} gridSize={SIZE} graphicsQuality={graphicsQuality} />
+            <EgyptBg W={BS} H={BS} gridSize={SIZE} graphicsQuality={graphicsQuality} isPaused={isPaused} />
           )}
-          <GridLines W={BS} H={BS} PAD={PAD} CS={CS} SIZE={SIZE} />
+          <GridLines W={BS} H={BS} PAD={PAD} CS={CS} SIZE={SIZE} isPaused={isPaused} />
           {graphicsQuality !== "low" && <BurstCanvas burstRef={burstRef} W={BS} H={BS} gridSize={SIZE} />}
           <div style={{ position: "absolute", inset: PAD, zIndex: 4, display: "flex", flexDirection: "column" }}>
             {ROWS.map((_, r) => (
               <div key={r} style={{ display: "flex", flex: 1 }}>
-                {COLS.map((_, c) => (
-                  <Cell key={`${r}-${c}`} CS={CS} value={active[r][c]} onClick={() => click(r, c)} isWinCell={winSet.has(`${r}-${c}`)} justPlaced={graphicsQuality !== "low" && last === `${r}-${c}`} lastTurn={turn} />
-                ))}
+                {COLS.map((_, c) => {
+                  const val = active[r][c];
+                  return (
+                    <EgyptCell key={`${r}-${c}`} CS={CS} value={val} onClick={() => click(r, c)} isWinCell={winSet.has(`${r}-${c}`)} justPlaced={graphicsQuality !== "low" && last === `${r}-${c}`} lastTurn={turn} isP1={val === "X"} isP2={val === "O"} />
+                  );
+                })}
               </div>
             ))}
           </div>
@@ -578,5 +585,4 @@ export default function EgyptGrid({ board, onCellClickAction, winCells = [], sho
       </div>
     </div>
   );
-}
-
+});

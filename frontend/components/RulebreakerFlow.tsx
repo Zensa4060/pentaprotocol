@@ -56,8 +56,8 @@ interface RulebreakerFlowProps {
   is6x6?: boolean;
   /** Currently selected pattern names */
   selectedPatterns?: string[];
-  /** Pattern banned during rulebreaker */
-  rbBannedPattern?: string | null;
+  /** Patterns banned during rulebreaker */
+  rbBannedPatterns?: string[];
   /** Called when a player chooses a grid block for 6x6 rulebreaker */
   onGridBlockChoice?: (r: number, c: number) => void;
   /** Called when a player bans a pattern */
@@ -80,7 +80,7 @@ export function RulebreakerFlow({
   is7x7 = false,
   is6x6 = false,
   selectedPatterns = [],
-  rbBannedPattern = null,
+  rbBannedPatterns = [],
   onGridBlockChoice,
   onBanPattern,
   graphicsQuality = "balanced",
@@ -697,8 +697,12 @@ export function RulebreakerFlow({
             {phase === "who_first_loser" && !is7x7 && winnerPickedC3 !== null && (
               <div style={{ fontFamily: t.fontDisplay, fontSize: 18, fontWeight: 700, color: winCol }}>C3: {winnerPickedC3 ? "BLOCKED" : "ALLOWED"}</div>
             )}
-            {phase === "who_first_loser" && is7x7 && rbBannedPattern && !(winnerPickedRule === "extra_turn" && mySlot === tossWinner) && !(winnerPickedRule === "ban" && mySlot === tossLoser) && (
-              <div style={{ fontFamily: t.fontDisplay, fontSize: 18, fontWeight: 700, color: "#EF4444" }}>BANNED: {({ "Y": "Y-SHAPE", "L": "L-SHAPE", "W": "W-SHAPE", "V": "V-SHAPE", "C": "C-SHAPE", "zigzag": "ZIGZAG" } as Record<string, string>)[rbBannedPattern] || rbBannedPattern.toUpperCase()}</div>
+            {phase === "who_first_loser" && is7x7 && rbBannedPatterns.length > 0 && !(winnerPickedRule === "extra_turn" && mySlot === tossWinner) && !(winnerPickedRule === "ban" && mySlot === tossLoser) && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 4, alignItems: "center" }}>
+                {rbBannedPatterns.map(p => (
+                  <div key={p} style={{ fontFamily: t.fontDisplay, fontSize: 16, fontWeight: 700, color: "#EF4444" }}>BANNED: {({ "Y": "Y-SHAPE", "L": "L-SHAPE", "W": "W-SHAPE", "V": "V-SHAPE", "C": "C-SHAPE", "zigzag": "ZIGZAG" } as Record<string, string>)[p] || p.toUpperCase()}</div>
+                ))}
+              </div>
             )}
             {phase === "who_first_loser" && is7x7 && winnerPickedRule === "extra_turn" && mySlot === tossWinner && (
               <div style={{ fontFamily: t.fontDisplay, fontSize: 16, fontWeight: 700, color: winCol }}>EXTRA TURN TOKEN (opponent banned a pattern — hidden from you for the full 7×7 game and on the match results screen; Career shows which pattern)</div>
@@ -755,7 +759,8 @@ export function RulebreakerFlow({
     const isWinnerBanning = phase === "ban_pattern_winner";
     const banActor = isWinnerBanning ? tossWinner! : tossLoser;
     const actorCol = banActor === "P1" ? p1c : p2c;
-    const title = `${nameOf(banActor)} — BAN ONE PATTERN`;
+    const banLimit = is7x7 ? 2 : 1;
+    const title = `${nameOf(banActor)} — BAN ${banLimit === 2 ? "TWO" : "ONE"} PATTERN${banLimit === 2 ? "S" : ""}`;
 
     const maxTime = PHASE_TIMERS[phase] ?? 60;
     const pct = Math.max(0, choiceTimer / maxTime);
@@ -783,8 +788,8 @@ export function RulebreakerFlow({
         <div style={{ fontFamily: t.fontDisplay, fontSize: "clamp(13px,1.8vw,22px)", fontWeight: 700, color: t.accent, textAlign: "center", maxWidth: 800 }}>{title}</div>
 
         <div style={{ fontFamily: t.fontBody, fontSize: 14, color: t.textMuted, textAlign: "center", maxWidth: 500 }}>
-          Choose one pattern to <span style={{ color: "#EF4444", fontWeight: 700 }}>remove</span> from Round 3.
-          The remaining patterns will be the win conditions.
+          Choose {is7x7 ? "two patterns" : "one pattern"} to <span style={{ color: "#EF4444", fontWeight: 700 }}>remove</span> from Round 3.
+          The remaining patterns will be the win conditions. ({rbBannedPatterns.length}/{is7x7 ? 2 : 1})
           {!isWinnerBanning && winnerPickedRule === "extra_turn" ? (
             <span style={{ display: "block", marginTop: 10, color: t.textSecondary }}>
               Your ban stays hidden from the toss winner for the entire 7×7 game and on the match results screen; Career shows which pattern was banned.
@@ -824,30 +829,36 @@ export function RulebreakerFlow({
         }}>
           {selectedPatterns.map((name, i) => {
             const label = PATTERN_LABELS[name] || name.toUpperCase();
+            const isBanned = rbBannedPatterns.includes(name);
             return (
               <button
                 key={name}
                 onClick={() => onBanPattern?.(name)}
                 className="toss-card-enter"
+                disabled={isBanned}
                 style={{
                   animationDelay: `${i * 0.06}s`,
-                  background: `linear-gradient(145deg, rgba(239,68,68,0.08), ${t.bgCard})`,
-                  border: `2px solid ${t.border}`,
+                  background: isBanned ? "rgba(239,68,68,0.2)" : `linear-gradient(145deg, rgba(239,68,68,0.08), ${t.bgCard})`,
+                  border: `2px solid ${isBanned ? "#EF4444" : t.border}`,
                   borderRadius: ip ? 2 : 14,
                   padding: "20px 16px",
-                  cursor: "pointer",
+                  cursor: isBanned ? "default" : "pointer",
                   textAlign: "center",
                   transition: "all 0.25s cubic-bezier(.22,.68,0,1.2)",
                   minHeight: 80,
                   display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 6,
+                  opacity: isBanned ? 0.7 : 1,
+                  filter: isBanned ? "grayscale(0.5)" : "none",
                 }}
                 onMouseEnter={e => {
+                  if (isBanned) return;
                   (e.currentTarget as HTMLButtonElement).style.border = "2px solid #EF4444";
                   (e.currentTarget as HTMLButtonElement).style.background = "linear-gradient(145deg, rgba(239,68,68,0.18), rgba(0,0,0,0.4))";
                   (e.currentTarget as HTMLButtonElement).style.transform = "translateY(-4px) scale(1.03)";
                   (e.currentTarget as HTMLButtonElement).style.boxShadow = "0 12px 32px rgba(239,68,68,0.2)";
                 }}
                 onMouseLeave={e => {
+                  if (isBanned) return;
                   (e.currentTarget as HTMLButtonElement).style.border = `2px solid ${t.border}`;
                   (e.currentTarget as HTMLButtonElement).style.background = `linear-gradient(145deg, rgba(239,68,68,0.08), ${t.bgCard})`;
                   (e.currentTarget as HTMLButtonElement).style.transform = "translateY(0) scale(1)";
@@ -855,7 +866,7 @@ export function RulebreakerFlow({
                 }}
               >
                 <div style={{ fontFamily: t.fontDisplay, fontSize: 16, fontWeight: 700, color: t.text, letterSpacing: "0.06em" }}>{label}</div>
-                <div style={{ fontFamily: t.fontMono, fontSize: 11, color: "#EF4444", letterSpacing: "0.1em", fontWeight: 600 }}>BAN</div>
+                <div style={{ fontFamily: t.fontMono, fontSize: 11, color: "#EF4444", letterSpacing: "0.1em", fontWeight: 600 }}>{isBanned ? "SELECTED" : "BAN"}</div>
               </button>
             );
           })}
@@ -887,7 +898,7 @@ export function RulebreakerFlow({
         : null;
     const hideBannedNameForViewer = (col: "P1" | "P2") =>
       Boolean(
-        rbBannedPattern &&
+        rbBannedPatterns.length > 0 &&
         banActorColumn === col &&
         ((isMultiplayerGame && col !== mySlot) || (gameMode === "ai" && col === "P2")),
       );
@@ -895,15 +906,16 @@ export function RulebreakerFlow({
     let winnerChoice: string;
     let loserChoice: string;
     if (is7x7) {
-      const bannedLabel = rbBannedPattern ? (PATTERN_LABELS_SUMMARY[rbBannedPattern] || rbBannedPattern.toUpperCase()) : "NONE";
+      const bannedLabels = rbBannedPatterns.map(p => PATTERN_LABELS_SUMMARY[p] || p.toUpperCase()).join(", ");
+      const bannedText = bannedLabels || "NONE";
       if (winnerPickedRule === "extra_turn") {
         winnerChoice = "EXTRA TURN TOKEN\n(1× · center rule off)";
-        loserChoice = `BANNED:\n${bannedLabel}\nPLAYS FIRST:\n${fp}`;
+        loserChoice = `BANNED:\n${bannedText}\nPLAYS FIRST:\n${fp}`;
       } else if (winnerPickedFirstTurn) {
         winnerChoice = `PLAYS FIRST:\n${fp}`;
-        loserChoice = `BANNED:\n${bannedLabel}`;
+        loserChoice = `BANNED:\n${bannedText}`;
       } else {
-        winnerChoice = `BANNED:\n${bannedLabel}`;
+        winnerChoice = `BANNED:\n${bannedText}`;
         loserChoice = `PLAYS FIRST:\n${fp}`;
       }
     } else if (is6x6) {
@@ -945,7 +957,7 @@ export function RulebreakerFlow({
 
             const isWhoFirst = choice.includes("PLAYS FIRST");
             const isBanned = choice.includes("BANNED");
-            const bannedLabelOnly = is7x7 && rbBannedPattern ? (PATTERN_LABELS_SUMMARY[rbBannedPattern] || rbBannedPattern.toUpperCase()) : "";
+            const bannedLabelOnly = is7x7 && rbBannedPatterns.length > 0 ? rbBannedPatterns.map(p => PATTERN_LABELS_SUMMARY[p] || p.toUpperCase()).join(", ") : "";
             const secretBan = hideBannedNameForViewer(p);
             const displayBannedLabel = secretBan ? "?" : bannedLabelOnly;
 
@@ -986,23 +998,35 @@ export function RulebreakerFlow({
                       </>
                     ) : is7x7 && winnerPickedRule === "ban" && isWinner ? (
                       <>
-                        <div style={{ fontFamily: t.fontMono, fontSize: 14, color: t.textMuted, textTransform: "uppercase" }}>Pattern banned</div>
-                        <div style={{ fontFamily: t.fontDisplay, fontSize: 28, fontWeight: 900, color: "#EF4444", letterSpacing: "0.05em", textDecoration: secretBan ? "none" : "line-through", textDecorationColor: "rgba(239,68,68,0.6)" }}>{displayBannedLabel}</div>
+                        <div style={{ fontFamily: t.fontMono, fontSize: 14, color: t.textMuted, textTransform: "uppercase" }}>Patterns banned</div>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                          {rbBannedPatterns.map(p => (
+                            <div key={p} style={{ fontFamily: t.fontDisplay, fontSize: 28, fontWeight: 900, color: "#EF4444", letterSpacing: "0.05em", textDecoration: secretBan ? "none" : "line-through", textDecorationColor: "rgba(239,68,68,0.6)" }}>
+                              {secretBan ? "?" : (PATTERN_LABELS_SUMMARY[p] || p.toUpperCase())}
+                            </div>
+                          ))}
+                        </div>
                         <div style={{ fontFamily: t.fontMono, fontSize: 14, color: t.textMuted, textTransform: "uppercase", marginTop: 8 }}>Hidden from opponent in the match UI — Career shows it after the match</div>
                       </>
                     ) : is7x7 && winnerPickedRule === "ban" && !isWinner ? (
                       <>
                         <div style={{ fontFamily: t.fontMono, fontSize: 14, color: t.textMuted, textTransform: "uppercase" }}>Opponent banned</div>
                         <div style={{ fontFamily: t.fontDisplay, fontSize: 22, fontWeight: 800, color: col, letterSpacing: "0.04em", textAlign: "center", lineHeight: 1.4 }}>
-                          One pattern removed — which one stays hidden for the full game and on the results screen; Career shows it afterward
+                          {rbBannedPatterns.length} patterns removed — they stay hidden for the full game and on the results screen; Career shows them afterward
                         </div>
                         <div style={{ fontFamily: t.fontMono, fontSize: 14, color: t.textMuted, textTransform: "uppercase", marginTop: 8 }}>Plays first</div>
                         <div style={{ fontFamily: t.fontDisplay, fontSize: 32, fontWeight: 900, color: firstSlotFromFp === "P1" ? p1c : p2c, letterSpacing: "0.05em" }}>{nameOf(firstSlotFromFp)}</div>
                       </>
                     ) : is7x7 && winnerPickedRule === "extra_turn" && !isWinner ? (
                       <>
-                        <div style={{ fontFamily: t.fontMono, fontSize: 14, color: t.textMuted, textTransform: "uppercase" }}>Pattern banned</div>
-                        <div style={{ fontFamily: t.fontDisplay, fontSize: 28, fontWeight: 900, color: "#EF4444", letterSpacing: "0.05em", textDecoration: secretBan ? "none" : "line-through", textDecorationColor: "rgba(239,68,68,0.6)" }}>{displayBannedLabel}</div>
+                        <div style={{ fontFamily: t.fontMono, fontSize: 14, color: t.textMuted, textTransform: "uppercase" }}>Patterns banned</div>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                          {rbBannedPatterns.map(p => (
+                            <div key={p} style={{ fontFamily: t.fontDisplay, fontSize: 28, fontWeight: 900, color: "#EF4444", letterSpacing: "0.05em", textDecoration: secretBan ? "none" : "line-through", textDecorationColor: "rgba(239,68,68,0.6)" }}>
+                              {secretBan ? "?" : (PATTERN_LABELS_SUMMARY[p] || p.toUpperCase())}
+                            </div>
+                          ))}
+                        </div>
                         <div style={{ fontFamily: t.fontMono, fontSize: 14, color: t.textMuted, textTransform: "uppercase", marginTop: 8 }}>Plays first</div>
                         <div style={{ fontFamily: t.fontDisplay, fontSize: 32, fontWeight: 900, color: firstSlotFromFp === "P1" ? p1c : p2c, letterSpacing: "0.05em" }}>{nameOf(firstSlotFromFp)}</div>
                       </>

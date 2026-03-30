@@ -6,10 +6,6 @@ const DEFAULT_SIZE = 5;
 const GET_COLS = (s: number) => Array.from({ length: s }, (_, i) => String.fromCharCode(65 + i));
 const GET_ROWS = (s: number) => Array.from({ length: s }, (_, i) => i + 1);
 
-
-
-
-
 function useCellSize(size: number, pad = 8) {
   const [cs, setCs] = useState(110);
   useEffect(() => {
@@ -24,7 +20,7 @@ function useCellSize(size: number, pad = 8) {
   return cs;
 }
 
-function SpaceBackground({ W, H, gridSize = 5 }: { W: number; H: number; gridSize?: number }) {
+function SpaceBackground({ W, H, gridSize = 5, isPaused = false }: { W: number; H: number; gridSize?: number; isPaused?: boolean }) {
   const ref = useRef<HTMLCanvasElement | null>(null);
   const raf = useRef<number | null>(null);
   const t = useRef(0);
@@ -32,6 +28,10 @@ function SpaceBackground({ W, H, gridSize = 5 }: { W: number; H: number; gridSiz
   useEffect(() => {
     const cv = ref.current;
     if (!cv) return;
+    if (isPaused) {
+      if (raf.current) cancelAnimationFrame(raf.current);
+      return;
+    }
     const dpr = boardSkinCanvasDpr(gridSize);
     cv.width = W * dpr;
     cv.height = H * dpr;
@@ -160,12 +160,12 @@ function SpaceBackground({ W, H, gridSize = 5 }: { W: number; H: number; gridSiz
     return () => {
       if (raf.current) cancelAnimationFrame(raf.current);
     };
-  }, [W, H, gridSize]);
+  }, [W, H, gridSize, isPaused]);
 
   return <canvas ref={ref} style={{ position: "absolute", inset: 0, zIndex: 0, pointerEvents: "none" }} />;
 }
 
-function GridLines({ W, H, PAD, CS, SIZE }: { W: number; H: number; PAD: number; CS: number; SIZE: number }) {
+function GridLines({ W, H, PAD, CS, SIZE, isPaused = false }: { W: number; H: number; PAD: number; CS: number; SIZE: number; isPaused?: boolean }) {
   const ref = useRef<HTMLCanvasElement | null>(null);
   const raf = useRef<number | null>(null);
   const t = useRef(0);
@@ -173,6 +173,10 @@ function GridLines({ W, H, PAD, CS, SIZE }: { W: number; H: number; PAD: number;
   useEffect(() => {
     const cv = ref.current;
     if (!cv) return;
+    if (isPaused) {
+      if (raf.current) cancelAnimationFrame(raf.current);
+      return;
+    }
     const dpr = boardSkinCanvasDpr(SIZE);
     cv.width = W * dpr;
     cv.height = H * dpr;
@@ -279,7 +283,7 @@ function GridLines({ W, H, PAD, CS, SIZE }: { W: number; H: number; PAD: number;
     return () => {
       if (raf.current) cancelAnimationFrame(raf.current);
     };
-  }, [W, H, PAD, CS, SIZE]);
+  }, [W, H, PAD, CS, SIZE, isPaused]);
 
   return <canvas ref={ref} style={{ position: "absolute", inset: 0, zIndex: 3, pointerEvents: "none" }} />;
 }
@@ -452,23 +456,8 @@ function Quasar({ size, win, ak }: { size: number; win: boolean; ak: string }) {
   );
 }
 
-function Cell({
-  CS,
-  value,
-  onClick,
-  isWinCell,
-  justPlaced,
-  lastTurn,
-}: {
-  CS: number;
-  value: "X" | "O" | null;
-  onClick: () => void;
-  isWinCell: boolean;
-  justPlaced: boolean;
-  lastTurn: "X" | "O";
-}) {
+function VoidCell({ CS, value, onClick, isWinCell, justPlaced, lastTurn, isP1, isP2 }: { CS: number; value: "X" | "O" | null; onClick: () => void; isWinCell: boolean; justPlaced: boolean; lastTurn: "X" | "O"; isP1: boolean; isP2: boolean }) {
   const [hov, setHov] = useState(false);
-  const isP1 = value === "X", isP2 = value === "O";
   const wC = isP1 ? "rgba(180,100,255,.5)" : "rgba(80,180,255,.5)";
   return (
     <div
@@ -493,6 +482,7 @@ function Cell({
         boxShadow: isWinCell ? `inset 0 0 ${CS * 0.3}px ${wC}` : "none",
         transition: "background .2s, box-shadow .2s",
         animation: isWinCell ? "vdWinPulse 1.05s ease-in-out infinite" : "none",
+        contain: "layout style",
       }}
     >
       {justPlaced && (
@@ -513,8 +503,9 @@ function Cell({
     </div>
   );
 }
+const MemoizedVoidCell = React.memo(VoidCell);
 
-export default function VoidGrid({ board, onCellClickAction, winCells = [], showLabels = true }: { board?: (string | null)[][]; onCellClickAction?: (r: number, c: number) => void; winCells?: [number, number][]; showLabels?: boolean }) {
+export default React.memo(function VoidGrid({ board, onCellClickAction, winCells = [], showLabels = true, isPaused = false }: { board?: (string | null)[][]; onCellClickAction?: (r: number, c: number) => void; winCells?: [number, number][]; showLabels?: boolean; isPaused?: boolean }) {
   const active = board ?? Array(DEFAULT_SIZE).fill(null).map(() => Array(DEFAULT_SIZE).fill(null));
   const SIZE = active.length;
   const COLS = GET_COLS(SIZE);
@@ -575,24 +566,29 @@ export default function VoidGrid({ board, onCellClickAction, winCells = [], show
             ))}
           </div>
         )}
-        <div style={{ position: "relative", width: BS, height: BS, borderRadius: CS * 0.06, overflow: "hidden", border: "2px solid rgba(140,80,255,.7)", boxShadow: "0 0 0 1px rgba(80,40,160,.4),0 0 40px rgba(120,60,220,.5),0 0 100px rgba(60,20,120,.3),inset 0 0 80px rgba(0,0,20,.6)" }}>
-          <SpaceBackground W={BS} H={BS} gridSize={SIZE} />
-          <GridLines W={BS} H={BS} PAD={PAD} CS={CS} SIZE={SIZE} />
+        <div style={{ position: "relative", width: BS, height: BS, borderRadius: CS * 0.06, overflow: "hidden", border: "2px solid rgba(140,80,255,.7)", boxShadow: "0 0 0 1px rgba(80,40,160,.4),0 0 40px rgba(120,60,220,.5),0 0 100px rgba(60,20,120,.3),inset 0 0 80px rgba(0,0,0,.85)", willChange: "transform", contain: "layout size style" }}>
+          <SpaceBackground W={BS} H={BS} gridSize={SIZE} isPaused={isPaused} />
+          <GridLines W={BS} H={BS} PAD={PAD} CS={CS} SIZE={SIZE} isPaused={isPaused} />
           <BurstCanvas burstRef={burstRef} W={BS} H={BS} gridSize={SIZE} />
           <div style={{ position: "absolute", inset: PAD, zIndex: 4, display: "flex", flexDirection: "column" }}>
             {ROWS.map((_, r) => (
               <div key={r} style={{ display: "flex", flex: 1 }}>
-                {COLS.map((_, c) => (
-                  <Cell
-                    key={`${r}-${c}`}
-                    CS={CS}
-                    value={active[r][c]}
-                    onClick={() => click(r, c)}
-                    isWinCell={winSet.has(`${r}-${c}`)}
-                    justPlaced={last === `${r}-${c}`}
-                    lastTurn={turn}
-                  />
-                ))}
+                {COLS.map((_, c) => {
+                  const val = active[r][c] as "X" | "O" | null;
+                  return (
+                    <MemoizedVoidCell
+                      key={`${r}-${c}`}
+                      CS={CS}
+                      value={val}
+                      onClick={() => click(r, c)}
+                      isWinCell={winSet.has(`${r}-${c}`)}
+                      justPlaced={last === `${r}-${c}`}
+                      lastTurn={turn}
+                      isP1={val === "X"}
+                      isP2={val === "O"}
+                    />
+                  );
+                })}
               </div>
             ))}
           </div>
@@ -600,5 +596,4 @@ export default function VoidGrid({ board, onCellClickAction, winCells = [], show
       </div>
     </div>
   );
-}
-
+});

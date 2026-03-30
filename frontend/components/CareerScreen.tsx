@@ -7,6 +7,7 @@ import API from "@/lib/api";
 import { loadCustomTheme } from "@/lib/customTheme";
 import { BannerRenderer } from "./BannerRenderer";
 import { RANKS, getRank, NavRankBadge, rankGlowVisualStrength, buildRankEmblemGlowFilter, rankHaloGradientForRank } from "./NavBar";
+import React from "react";
 
 
 const RankBadge = ({ elo, size = 48 }: { elo: number; size?: number }) => {
@@ -15,7 +16,8 @@ const RankBadge = ({ elo, size = 48 }: { elo: number; size?: number }) => {
 };
 
 const CAREER_PATTERN_LABELS: Record<string, string> = {
-  Y: "Y-SHAPE", H: "Y-SHAPE", L: "L-SHAPE", W: "W-SHAPE", V: "V-SHAPE", C: "C-SHAPE", zigzag: "ZIGZAG",
+  Y: "Y-SHAPE", H: "Y-SHAPE", L: "L-SHAPE", W: "W-SHAPE", V: "V-SHAPE", C: "C-SHAPE", 
+  zigzag: "ZIGZAG", ZZ: "ZIGZAG-6", J: "J-SHAPE", T: "T-SHAPE",
 };
 
 interface MatchRound {
@@ -41,6 +43,194 @@ interface MatchRecord {
   match_rounds?: MatchRound[];
   protocolbreaker_played?: boolean;
 }
+
+const CareerMatchRow = React.memo(({ 
+  match, 
+  i, 
+  activeTab, 
+  t, 
+  setSelectedMatch 
+}: { 
+  match: MatchRecord; 
+  i: number; 
+  activeTab: string; 
+  t: any;
+  setSelectedMatch: (m: MatchRecord | null) => void;
+}) => {
+  const oppRank = getRank(match.opponent_elo);
+  const isWin = match.result === "win";
+  const isDraw = match.result === "draw";
+  const deltaColor = isWin ? "#34D399" : isDraw ? "#F59E0B" : "#FF4444";
+  const resultLabel = isWin ? "VICTORY" : isDraw ? "DRAW" : "DEFEAT";
+  const resultColor = isWin ? "#10B981" : isDraw ? "#F5960B" : "#EF4444";
+  const rowDelay = (i * 0.05).toFixed(2) + "s";
+  const hasRounds = Array.isArray(match.match_rounds) && match.match_rounds.length > 0;
+
+  const formatDate = (iso: string) => {
+    if (!iso) return "—";
+    const d = new Date(iso);
+    return d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+  };
+
+  const modeLabel = (mode: string) => {
+    if (mode === "ranked") return "Ranked";
+    if (mode === "custom") return "Custom";
+    return "Unranked";
+  };
+
+  return (
+    <div
+      className="career-row career-row-animated"
+      onClick={() => {
+        if (hasRounds) setSelectedMatch(match);
+      }}
+      style={{
+        display: "grid",
+        gridTemplateColumns:
+          activeTab === "ranked"
+            ? "100px 1fr 140px 100px 100px"
+            : "100px 1fr 140px 100px",
+        padding: "16px 24px",
+        alignItems: "center",
+        background: "transparent",
+        animationDelay: rowDelay,
+        cursor: hasRounds ? "pointer" : "default",
+        borderBottom: `1px solid ${t.border}22`,
+      }}
+    >
+      {/* Result badge */}
+      <div>
+        <div
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "4px 10px",
+            borderRadius: 6,
+            background: `${resultColor}15`,
+            border: `1px solid ${resultColor}33`,
+            fontFamily: t.fontMono,
+            fontSize: 10,
+            fontWeight: 900,
+            color: resultColor,
+            letterSpacing: "0.08em",
+            boxShadow: `0 0 15px ${resultColor}22`,
+          }}
+        >
+          {resultLabel}
+        </div>
+      </div>
+
+      {/* Opponent */}
+      <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+        <div
+          style={{
+            width: 38,
+            height: 38,
+            borderRadius: "50%",
+            background: "rgba(255,255,255,0.03)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            border: `1px solid ${oppRank.color}33`,
+            boxShadow: `0 0 10px ${oppRank.color}11`,
+          }}
+        >
+          <RankBadge elo={match.opponent_elo} size={24} />
+        </div>
+        <div>
+          <div
+            style={{
+              fontFamily: t.fontDisplay,
+              fontSize: 16,
+              fontWeight: 800,
+              color: t.text,
+              letterSpacing: "0.03em",
+            }}
+          >
+            {match.opponent_username}
+          </div>
+          <div
+            style={{
+              fontFamily: t.fontMono,
+              fontSize: 9,
+              color: oppRank.color,
+              letterSpacing: "0.1em",
+              fontWeight: 700,
+              opacity: 0.9,
+            }}
+          >
+            {oppRank.name.toUpperCase()} · {match.opponent_elo}
+          </div>
+        </div>
+      </div>
+
+      {/* Mode */}
+      <div>
+        <div
+          style={{
+            fontFamily: t.fontMono,
+            fontSize: 11,
+            color: t.textMuted,
+            letterSpacing: "0.08em",
+            fontWeight: 600,
+            opacity: 0.8,
+          }}
+        >
+          {match.board_mode_full === "5x5_6x6_7x7"
+            ? "RANKED TRIPLE"
+            : modeLabel(match.mode).toUpperCase()}
+        </div>
+        {match.protocolbreaker_played ? (
+          <div
+            style={{
+              fontFamily: t.fontMono,
+              fontSize: 9,
+              color: "#a78bfa",
+              letterSpacing: "0.06em",
+              fontWeight: 700,
+              marginTop: 6,
+            }}
+          >
+            PROTOCOLBREAKER
+          </div>
+        ) : null}
+      </div>
+
+      {/* ELO delta */}
+      {activeTab === "ranked" && (
+        <div style={{ textAlign: "center" }}>
+          <span
+            style={{
+              fontFamily: t.fontMono,
+              fontSize: 16,
+              fontWeight: 900,
+              color: deltaColor,
+              textShadow: `0 0 12px ${deltaColor}77`,
+            }}
+          >
+            {match.elo_delta > 0 ? "+" : ""}
+            {match.elo_delta}
+          </span>
+        </div>
+      )}
+
+      {/* Date */}
+      <div
+        style={{
+          fontFamily: t.fontMono,
+          fontSize: 10,
+          color: t.textMuted,
+          textAlign: "right",
+          letterSpacing: "0.05em",
+          fontWeight: 500,
+        }}
+      >
+        {formatDate(match.played_at).toUpperCase()}
+      </div>
+    </div>
+  );
+});
 
 interface Props {
   themeId: ThemeId;
@@ -619,171 +809,16 @@ export default function CareerScreen({ themeId, onHoverAction }: Props) {
                     if (activeTab === "unranked") return m.mode === "unranked" || !m.mode;
                     return m.mode === "custom";
                   })
-                  .map((match, i) => {
-                    const oppRank = getRank(match.opponent_elo);
-                    const isWin = match.result === "win";
-                    const isDraw = match.result === "draw";
-                    const deltaColor = isWin ? "#34D399" : isDraw ? "#F59E0B" : "#FF4444";
-                    const resultLabel = isWin ? "VICTORY" : isDraw ? "DRAW" : "DEFEAT";
-                    const resultColor = isWin ? "#10B981" : isDraw ? "#F5960B" : "#EF4444";
-                    const rowDelay = (i * 0.05).toFixed(2) + "s";
-                    const hasRounds =
-                      Array.isArray(match.match_rounds) && match.match_rounds.length > 0;
-
-                    return (
-                      <div
-                        key={i}
-                        className="career-row career-row-animated"
-                        onClick={() => {
-                          if (hasRounds) setSelectedMatch(match);
-                        }}
-                        style={{
-                          display: "grid",
-                          gridTemplateColumns:
-                            activeTab === "ranked"
-                              ? "100px 1fr 140px 100px 100px"
-                              : "100px 1fr 140px 100px",
-                          padding: "16px 24px",
-                          alignItems: "center",
-                          background: "transparent",
-                          animationDelay: rowDelay,
-                          cursor: hasRounds ? "pointer" : "default",
-                          borderBottom: i < history.length - 1 ? `1px solid ${t.border}22` : "none",
-                        }}
-                      >
-                        {/* Result badge */}
-                        <div>
-                          <div
-                            style={{
-                              display: "inline-flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              padding: "4px 10px",
-                              borderRadius: 6,
-                              background: `${resultColor}15`,
-                              border: `1px solid ${resultColor}33`,
-                              fontFamily: t.fontMono,
-                              fontSize: 10,
-                              fontWeight: 900,
-                              color: resultColor,
-                              letterSpacing: "0.08em",
-                              boxShadow: `0 0 15px ${resultColor}22`,
-                            }}
-                          >
-                            {resultLabel}
-                          </div>
-                        </div>
-
-                        {/* Opponent */}
-                        <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-                          <div
-                            style={{
-                              width: 38,
-                              height: 38,
-                              borderRadius: "50%",
-                              background: "rgba(255,255,255,0.03)",
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              border: `1px solid ${oppRank.color}33`,
-                              boxShadow: `0 0 10px ${oppRank.color}11`,
-                            }}
-                          >
-                            <RankBadge elo={match.opponent_elo} size={24} />
-                          </div>
-                          <div>
-                            <div
-                              style={{
-                                fontFamily: t.fontDisplay,
-                                fontSize: 16,
-                                fontWeight: 800,
-                                color: t.text,
-                                letterSpacing: "0.03em",
-                              }}
-                            >
-                              {match.opponent_username}
-                            </div>
-                            <div
-                              style={{
-                                fontFamily: t.fontMono,
-                                fontSize: 9,
-                                color: oppRank.color,
-                                letterSpacing: "0.1em",
-                                fontWeight: 700,
-                                opacity: 0.9,
-                              }}
-                            >
-                              {oppRank.name.toUpperCase()} · {match.opponent_elo}
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Mode */}
-                        <div>
-                          <div
-                            style={{
-                              fontFamily: t.fontMono,
-                              fontSize: 11,
-                              color: t.textMuted,
-                              letterSpacing: "0.08em",
-                              fontWeight: 600,
-                              opacity: 0.8,
-                            }}
-                          >
-                            {match.board_mode_full === "5x5_6x6_7x7"
-                              ? "RANKED TRIPLE"
-                              : modeLabel(match.mode).toUpperCase()}
-                          </div>
-                          {match.protocolbreaker_played ? (
-                            <div
-                              style={{
-                                fontFamily: t.fontMono,
-                                fontSize: 9,
-                                color: "#a78bfa",
-                                letterSpacing: "0.06em",
-                                fontWeight: 700,
-                                marginTop: 6,
-                              }}
-                            >
-                              PROTOCOLBREAKER
-                            </div>
-                          ) : null}
-                        </div>
-
-                        {/* ELO delta */}
-                        {activeTab === "ranked" && (
-                          <div style={{ textAlign: "center" }}>
-                            <span
-                              style={{
-                                fontFamily: t.fontMono,
-                                fontSize: 16,
-                                fontWeight: 900,
-                                color: deltaColor,
-                                textShadow: `0 0 12px ${deltaColor}77`,
-                              }}
-                            >
-                              {match.elo_delta > 0 ? "+" : ""}
-                              {match.elo_delta}
-                            </span>
-                          </div>
-                        )}
-
-                        {/* Date */}
-                        <div
-                          style={{
-                            fontFamily: t.fontMono,
-                            fontSize: 10,
-                            color: t.textMuted,
-                            textAlign: "right",
-                            letterSpacing: "0.05em",
-                            fontWeight: 500,
-                          }}
-                        >
-                          {formatDate(match.played_at).toUpperCase()}
-                        </div>
-                      </div>
-                    );
-                  })}
+                  .map((match, i) => (
+                    <CareerMatchRow 
+                      key={`${match.played_at}-${i}`}
+                      match={match}
+                      i={i}
+                      activeTab={activeTab}
+                      t={t}
+                      setSelectedMatch={setSelectedMatch}
+                    />
+                  ))}
             </div>
 
             {/* Footer note */}

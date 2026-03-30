@@ -23,9 +23,10 @@ const BASE_PATTERNS_7: Record<string, Coord[]> = {
   V:      [[0,0],[1,1],[2,2],[3,3],[4,2],[5,1],[6,0]],
   C:      [[0,0],[0,1],[0,2],[1,0],[2,0],[1,2],[2,2]],
   zigzag: [[0,0],[1,1],[2,0],[3,1],[4,0],[5,1],[6,0]],
+  T:      [[0,0],[0,1],[0,2],[0,3],[0,4],[1,2],[2,2]],
 };
 
-export const PATTERN_NAMES_7 = ["Y", "L", "W", "V", "C", "zigzag"] as const;
+export const PATTERN_NAMES_7 = ["Y", "L", "W", "V", "C", "zigzag", "T"] as const;
 export type PatternName7 = typeof PATTERN_NAMES_7[number];
 /** Minimum count of special patterns players must enable to start a 7×7 game (max is 6). */
 export const MIN_SELECTED_PATTERNS_7X7 = 5;
@@ -97,18 +98,29 @@ export function check7Line(board: Board, r: number, c: number, player: string): 
 }
 
 // ─── Structural patterns ───
-export function checkStructuralPatterns7(board: Board, player: string, patterns: Coord[][]): Coord[] | null {
+// Optimized: Only check patterns that COULD contain the last placed cell (r, c)
+export function checkStructuralPatterns7(board: Board, player: string, patterns: Coord[][], lastR: number, lastC: number): Coord[] | null {
   for (const pattern of patterns) {
-    const maxR = Math.max(...pattern.map(([r]) => r));
-    const maxC = Math.max(...pattern.map(([, c]) => c));
-    for (let br = 0; br < GRID - maxR; br++) {
-      for (let bc = 0; bc < GRID - maxC; bc++) {
+    // A pattern variant at (br, bc) contains (lastR, lastC) if there exists (dr, dc) in pattern 
+    // such that br + dr = lastR and bc + dc = lastC.
+    // This means br = lastR - dr and bc = lastC - dc.
+    for (const [dr, dc] of pattern) {
+      const br = lastR - dr;
+      const bc = lastC - dc;
+
+      // Check if this bounding box is valid on the grid
+      const maxPR = Math.max(...pattern.map(([pr]) => pr));
+      const maxPC = Math.max(...pattern.map(([, pc]) => pc));
+
+      if (br >= 0 && bc >= 0 && br + maxPR < GRID && bc + maxPC < GRID) {
         const coords: Coord[] = [];
         let valid = true;
-        for (const [dr, dc] of pattern) {
-          const rr = br + dr, cc = bc + dc;
-          if (board[rr][cc] !== player) { valid = false; break; }
-          coords.push([rr, cc]);
+        for (const [pdr, pdc] of pattern) {
+          if (board[br + pdr][bc + pdc] !== player) {
+            valid = false;
+            break;
+          }
+          coords.push([br + pdr, bc + pdc]);
         }
         if (valid) return coords;
       }
@@ -175,8 +187,10 @@ export function checkWin7(
   const line7 = check7Line(board, r, c, player);
   if (line7) return { winner: player, line: line7 };
 
+  // For 7x7, we check for structural patterns from the provided list.
+  // The caller (GameScreen) is responsible for filtering out banned patterns if in Rulebreaker mode.
   const patterns = getSelectedPatterns(selectedPatternIds);
-  const lineS = checkStructuralPatterns7(board, player, patterns);
+  const lineS = checkStructuralPatterns7(board, player, patterns, r, c);
   if (lineS) return { winner: player, line: lineS };
 
   if (movesPlayed === GRID * GRID) return resolveFullBoard7(board);

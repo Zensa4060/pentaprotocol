@@ -1,15 +1,11 @@
 "use client";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useCallback } from "react";
 import { boardSkinCanvasDpr } from "@/lib/boardSkinCanvasDpr";
 
 const DEFAULT_SIZE = 5;
 type GraphicsQuality = "low" | "balanced" | "ultra";
 const GET_COLS = (s: number) => Array.from({ length: s }, (_, i) => String.fromCharCode(65 + i));
 const GET_ROWS = (s: number) => Array.from({ length: s }, (_, i) => i + 1);
-
-
-
-
 
 function useCellSize(size: number, pad = 8) {
   const [cs, setCs] = useState(110);
@@ -25,7 +21,7 @@ function useCellSize(size: number, pad = 8) {
   return cs;
 }
 
-function BloodMoonBg({ W, H, gridSize = 5, graphicsQuality = "balanced" }: { W: number; H: number; gridSize?: number; graphicsQuality?: GraphicsQuality }) {
+function BloodMoonBg({ W, H, gridSize = 5, graphicsQuality = "balanced", isPaused = false }: { W: number; H: number; gridSize?: number; graphicsQuality?: GraphicsQuality; isPaused?: boolean }) {
   const ref = useRef<HTMLCanvasElement | null>(null);
   const raf = useRef<number | null>(null);
   const t = useRef(0);
@@ -33,6 +29,10 @@ function BloodMoonBg({ W, H, gridSize = 5, graphicsQuality = "balanced" }: { W: 
   useEffect(() => {
     const cv = ref.current;
     if (!cv) return;
+    if (isPaused) {
+      if (raf.current) cancelAnimationFrame(raf.current);
+      return;
+    }
     const dpr = boardSkinCanvasDpr(gridSize);
     cv.width = W * dpr;
     cv.height = H * dpr;
@@ -151,12 +151,12 @@ function BloodMoonBg({ W, H, gridSize = 5, graphicsQuality = "balanced" }: { W: 
     return () => {
       if (raf.current) cancelAnimationFrame(raf.current);
     };
-  }, [W, H, gridSize, graphicsQuality]);
+  }, [W, H, gridSize, graphicsQuality, isPaused]);
 
   return <canvas ref={ref} style={{ position: "absolute", inset: 0, zIndex: 0, pointerEvents: "none" }} />;
 }
 
-function GridLines({ W, H, PAD, CS, SIZE }: { W: number; H: number; PAD: number; CS: number; SIZE: number }) {
+function GridLines({ W, H, PAD, CS, SIZE, isPaused = false }: { W: number; H: number; PAD: number; CS: number; SIZE: number; isPaused?: boolean }) {
   const ref = useRef<HTMLCanvasElement | null>(null);
   const raf = useRef<number | null>(null);
   const t = useRef(0);
@@ -164,6 +164,10 @@ function GridLines({ W, H, PAD, CS, SIZE }: { W: number; H: number; PAD: number;
   useEffect(() => {
     const cv = ref.current;
     if (!cv) return;
+    if (isPaused) {
+      if (raf.current) cancelAnimationFrame(raf.current);
+      return;
+    }
     const dpr = boardSkinCanvasDpr(SIZE);
     cv.width = W * dpr;
     cv.height = H * dpr;
@@ -290,7 +294,7 @@ function GridLines({ W, H, PAD, CS, SIZE }: { W: number; H: number; PAD: number;
 
     draw();
     return () => { if (raf.current) cancelAnimationFrame(raf.current); };
-  }, [W, H, PAD, CS, SIZE]);
+  }, [W, H, PAD, CS, SIZE, isPaused]);
 
   return <canvas ref={ref} style={{ position: "absolute", inset: 0, zIndex: 3, pointerEvents: "none" }} />;
 }
@@ -514,7 +518,9 @@ function Cell({ CS, value, onClick, isWinCell, justPlaced, lastTurn }: { CS: num
   );
 }
 
-export default function BloodMoonGrid({ board, onCellClickAction, winCells = [], showLabels = true, graphicsQuality = "balanced" }: { board?: (string | null)[][]; onCellClickAction?: (r: number, c: number) => void; winCells?: [number, number][]; showLabels?: boolean; graphicsQuality?: GraphicsQuality }) {
+const MemoizedCell = React.memo(Cell);
+
+export default React.memo(function BloodMoonGrid({ board, onCellClickAction, winCells = [], showLabels = true, graphicsQuality = "balanced", isPaused = false }: { board?: (string | null)[][]; onCellClickAction?: (r: number, c: number) => void; winCells?: [number, number][]; showLabels?: boolean; graphicsQuality?: GraphicsQuality; isPaused?: boolean }) {
   const active = board ?? Array(DEFAULT_SIZE).fill(null).map(() => Array(DEFAULT_SIZE).fill(null));
   const SIZE = active.length;
   const COLS = GET_COLS(SIZE);
@@ -526,10 +532,11 @@ export default function BloodMoonGrid({ board, onCellClickAction, winCells = [],
   const [demo, setDemo] = useState<(("X" | "O") | null)[][]>(() => Array(SIZE).fill(null).map(() => Array(SIZE).fill(null)));
   const [turn, setTurn] = useState<"X" | "O">("X");
   const [last, setLast] = useState<string | null>(null);
-  const winSet = new Set(winCells.map(([r, c]) => `${r}-${c}`));
+  
+  const winSet = React.useMemo(() => new Set(winCells.map(([r, c]) => `${r}-${c}`)), [winCells]);
   const burstRef = useRef<((x: number, y: number, isP1: boolean) => void) | null>(null);
 
-  const click = (r: number, c: number) => {
+  const click = useCallback((r: number, c: number) => {
     if (active[r][c]) return;
     if (graphicsQuality !== "low") {
       burstRef.current?.(PAD + c * CS + CS / 2, PAD + r * CS + CS / 2, turn === "X");
@@ -541,7 +548,7 @@ export default function BloodMoonGrid({ board, onCellClickAction, winCells = [],
     n[r][c] = turn;
     setDemo(n);
     setTurn((t2) => (t2 === "X" ? "O" : "X"));
-  };
+  }, [active, graphicsQuality, PAD, CS, turn, onCellClickAction, demo]);
 
   const fs = (n: number) => Math.max(10, CS * n);
   const lbl = {
@@ -579,20 +586,21 @@ export default function BloodMoonGrid({ board, onCellClickAction, winCells = [],
             overflow: "hidden",
             border: "2px solid rgba(140,0,0,.7)",
             boxShadow: "0 0 0 1px rgba(100,0,100,.3),0 0 45px rgba(160,0,0,.45),0 0 100px rgba(80,0,0,.3),inset 0 0 80px rgba(0,0,0,.7)",
+            contain: "layout style"
           }}
         >
           {graphicsQuality === "low" ? (
             <div style={{ position: "absolute", inset: 0, background: "radial-gradient(circle at 70% 20%, rgba(180,20,0,.35), rgba(8,0,0,.95) 60%)" }} />
           ) : (
-            <BloodMoonBg W={BS} H={BS} gridSize={SIZE} graphicsQuality={graphicsQuality} />
+            <BloodMoonBg W={BS} H={BS} gridSize={SIZE} graphicsQuality={graphicsQuality} isPaused={isPaused} />
           )}
-          <GridLines W={BS} H={BS} PAD={PAD} CS={CS} SIZE={SIZE} />
+          <GridLines W={BS} H={BS} PAD={PAD} CS={CS} SIZE={SIZE} isPaused={isPaused} />
           {graphicsQuality !== "low" && <BurstCanvas burstRef={burstRef} W={BS} H={BS} gridSize={SIZE} />}
           <div style={{ position: "absolute", inset: PAD, zIndex: 4, display: "flex", flexDirection: "column" }}>
             {ROWS.map((_, r) => (
               <div key={r} style={{ display: "flex", flex: 1 }}>
                 {COLS.map((_, c) => (
-                  <Cell
+                  <MemoizedCell
                     key={`${r}-${c}`}
                     CS={CS}
                     value={active[r][c]}
@@ -609,5 +617,4 @@ export default function BloodMoonGrid({ board, onCellClickAction, winCells = [],
       </div>
     </div>
   );
-}
-
+});

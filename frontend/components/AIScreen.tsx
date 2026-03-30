@@ -4,7 +4,12 @@ import type { Screen, BoardMode } from "@/lib/types";
 import type { ThemeId } from "@/lib/themes";
 import type { Difficulty } from "@/lib/botEngine";
 import { THEMES } from "@/lib/themes";
-import { PATTERN_NAMES_7, MIN_SELECTED_PATTERNS_7X7, type PatternName7 } from "@/lib/winChecker7";
+import { 
+  PATTERN_METADATA_5, 
+  PATTERN_METADATA_6, 
+  PATTERN_METADATA_7, 
+  PatternInfo 
+} from "@/lib/patterns_metadata";
 
 interface Props {
   setScreenAction: (s: Screen) => void;
@@ -26,59 +31,22 @@ const DIFFICULTIES_6X6: { id: Difficulty; label: string; sub: string; color: str
   { id: "machine_god", label: "ANAMOLY", sub: "??????", color: "#CC0000" },
 ];
 
-// Pattern descriptions & mini-grid diagrams for the 6 special 7×7 patterns
-const PATTERN_INFO: Record<PatternName7, { label: string; desc: string; cells: [number, number][] }> = {
-  Y: {
-    label: "Y-SHAPE",
-    desc: "Diagonal stem splitting into a fork — a branching Y",
-    cells: [[0, 0], [1, 1], [2, 2], [2, 3], [2, 4], [3, 1], [4, 0]],
-  },
-  L: {
-    label: "L-SHAPE",
-    desc: "A vertical bar turning 90° into a horizontal bar",
-    cells: [[0, 0], [0, 1], [0, 2], [0, 3], [1, 3], [2, 3], [3, 3]],
-  },
-  W: {
-    label: "W-SHAPE",
-    desc: "Alternating diagonal zigzag forming a W wave",
-    cells: [[0, 0], [1, 1], [2, 2], [3, 1], [4, 2], [5, 1], [6, 0]],
-  },
-  V: {
-    label: "V-SHAPE",
-    desc: "Diagonal descent and ascent — a wide V chevron",
-    cells: [[0, 0], [1, 1], [2, 2], [3, 3], [4, 2], [5, 1], [6, 0]],
-  },
-  C: {
-    label: "C-SHAPE",
-    desc: "Open bracket — two horizontal bars with a left spine",
-    cells: [[0, 0], [0, 1], [0, 2], [1, 0], [2, 0], [1, 2], [2, 2]],
-  },
-  zigzag: {
-    label: "ZIGZAG",
-    desc: "Sharp alternating steps — teeth of a saw",
-    cells: [[0, 0], [1, 1], [2, 0], [3, 1], [4, 0], [5, 1], [6, 0]],
-  },
-};
-
 /** Mini grid diagram component */
-function PatternDiagram({ cells, accent, isSelected }: { cells: [number, number][]; accent: string; isSelected: boolean }) {
-  const maxR = Math.max(...cells.map(([r]) => r));
-  const maxC = Math.max(...cells.map(([, c]) => c));
-  const rows = maxR + 1;
-  const cols = maxC + 1;
-  const cellSize = 16;
+function PatternDiagram({ info, accent, isSelected }: { info: PatternInfo; accent: string; isSelected: boolean }) {
+  const { cells, gridSize } = info;
+  const cellSize = gridSize === 7 ? 14 : gridSize === 6 ? 16 : 18;
   const gap = 2;
   const cellSet = new Set(cells.map(([r, c]) => `${r},${c}`));
 
   return (
     <div style={{
       display: "grid",
-      gridTemplateRows: `repeat(${rows}, ${cellSize}px)`,
-      gridTemplateColumns: `repeat(${cols}, ${cellSize}px)`,
+      gridTemplateRows: `repeat(${gridSize}, ${cellSize}px)`,
+      gridTemplateColumns: `repeat(${gridSize}, ${cellSize}px)`,
       gap,
     }}>
-      {Array.from({ length: rows }, (_, r) =>
-        Array.from({ length: cols }, (_, c) => {
+      {Array.from({ length: gridSize }, (_, r) =>
+        Array.from({ length: gridSize }, (_, c) => {
           const filled = cellSet.has(`${r},${c}`);
           return (
             <div key={`${r}-${c}`} style={{
@@ -105,28 +73,27 @@ export default function AIScreen({ setScreenAction, themeId, onSelectDifficultyA
   const [hovered, setHovered] = useState<Difficulty | null>(null);
   const [boardMode, setBoardMode] = useState<BoardMode>("5x5");
   const [step, setStep] = useState<"mode" | "patterns" | "difficulty">("mode");
-  const [selectedPatterns, setSelectedPatterns] = useState<Set<PatternName7>>(new Set());
-  const [hoveredPattern, setHoveredPattern] = useState<PatternName7 | null>(null);
+  const [selectedPatterns, setSelectedPatterns] = useState<Set<string>>(new Set());
+  const [hoveredPattern, setHoveredPattern] = useState<string | null>(null);
+
+  const meta = boardMode === "7x7" ? PATTERN_METADATA_7 : boardMode === "6x6" ? PATTERN_METADATA_6 : PATTERN_METADATA_5;
+  const patternNames = Object.keys(meta);
+  const minSelection = boardMode === "7x7" ? 5 : boardMode === "6x6" ? 3 : 2;
+  const maxSelection = boardMode === "7x7" ? 6 : boardMode === "6x6" ? 5 : 3;
 
   const handleSelect = (d: Difficulty) => {
-    if (boardMode === "7x7") {
-      onBoardModeAction?.("7x7", Array.from(selectedPatterns));
-    } else if (boardMode === "6x6") {
-      onBoardModeAction?.("6x6");
-    } else {
-      onBoardModeAction?.("5x5");
-    }
+    onBoardModeAction?.(boardMode, Array.from(selectedPatterns));
     onSelectDifficultyAction(d);
     setScreenAction("aiGame");
   };
 
-  const togglePattern = (name: PatternName7) => {
-    setSelectedPatterns(prev => {
+  const togglePattern = (id: string) => {
+    setSelectedPatterns((prev: Set<string>) => {
       const next = new Set(prev);
-      if (next.has(name)) {
-        next.delete(name);
-      } else if (next.size < 6) {
-        next.add(name);
+      if (next.has(id)) {
+        next.delete(id);
+      } else if (next.size < maxSelection) {
+        next.add(id);
       }
       return next;
     });
@@ -134,12 +101,12 @@ export default function AIScreen({ setScreenAction, themeId, onSelectDifficultyA
 
   const selectAllPatterns = () => {
     onHoverAction?.();
-    setSelectedPatterns(new Set(PATTERN_NAMES_7));
+    setSelectedPatterns(new Set(patternNames));
   };
 
   const goBack = () => {
     if (step === "difficulty") {
-      setStep(boardMode === "7x7" ? "patterns" : "mode");
+      setStep("patterns");
     } else if (step === "patterns") {
       setStep("mode");
       setSelectedPatterns(new Set());
@@ -197,11 +164,7 @@ export default function AIScreen({ setScreenAction, themeId, onSelectDifficultyA
                   key={mode}
                   onClick={() => {
                     setBoardMode(mode);
-                    if (mode === "7x7") {
-                      setStep("patterns");
-                    } else {
-                      setStep("difficulty");
-                    }
+                    setStep("patterns");
                   }}
                   className={`ai-card ${isSelected ? "selected" : ""}`}
                   style={{
@@ -231,10 +194,10 @@ export default function AIScreen({ setScreenAction, themeId, onSelectDifficultyA
                   </div>
                   <div style={{ fontFamily: t.fontBody, fontSize: ip ? 12 : 14, color: t.textMuted, lineHeight: 1.5 }}>
                     {mode === "5x5"
-                      ? "Standard board - 5-in-a-line, V/L/W patterns, 10-cell chain"
+                      ? "Standard board — 5-in-a-line, select 2–3 patterns, 10-cell chain."
                       : mode === "6x6"
-                        ? "6-in-a-line + 15-cell chain with fixed A/ZZ/L/T patterns"
-                        : "Larger board - 7-in-a-line, choose 5-6 of 6 special patterns, 20-cell chain"
+                        ? "6-in-a-line + 15-cell chain. Select 3–5 patterns including ZZ and Y."
+                        : "Larger board — 7-in-a-line, select 5–6 patterns, 20-cell chain."
                     }
                   </div>
                 </button>
@@ -262,8 +225,8 @@ export default function AIScreen({ setScreenAction, themeId, onSelectDifficultyA
             fontFamily: t.fontBody, fontSize: 14, color: t.textMuted, textAlign: "center", maxWidth: 500,
             lineHeight: 1.6,
           }}>
-            Choose <span style={{ color: t.accent, fontWeight: 700 }}>5 to 6</span> special winning patterns for this game.
-            These patterns (plus 7-in-a-line, diagonals, and 20-cell chain) will be the win conditions.
+            Choose <span style={{ color: t.accent, fontWeight: 700 }}>{minSelection} to {maxSelection}</span> special winning patterns for this match.
+            These patterns (plus {boardMode === "7x7" ? "7" : boardMode === "6x6" ? "6" : "5"}-in-a-line, diagonals, and chain) will be the win conditions.
           </div>
 
           <div style={{
@@ -271,10 +234,10 @@ export default function AIScreen({ setScreenAction, themeId, onSelectDifficultyA
             width: "100%", maxWidth: 660,
           }}>
             <div style={{
-              fontFamily: t.fontMono, fontSize: 12, color: selectedPatterns.size >= MIN_SELECTED_PATTERNS_7X7 ? "#22C55E" : t.textMuted,
+              fontFamily: t.fontMono, fontSize: 12, color: selectedPatterns.size >= minSelection ? "#22C55E" : t.textMuted,
               letterSpacing: "0.1em", transition: "color 0.2s",
             }}>
-              {selectedPatterns.size} / 5–6 SELECTED
+              {selectedPatterns.size} / {minSelection}–{maxSelection} SELECTED
             </div>
             <button
               type="button"
@@ -298,7 +261,7 @@ export default function AIScreen({ setScreenAction, themeId, onSelectDifficultyA
                 e.currentTarget.style.color = t.accent;
               }}
             >
-              SELECT ALL 6
+              SELECT MAX ({maxSelection})
             </button>
           </div>
 
@@ -306,8 +269,8 @@ export default function AIScreen({ setScreenAction, themeId, onSelectDifficultyA
             display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
             gap: 12, width: "100%", maxWidth: 660,
           }}>
-            {PATTERN_NAMES_7.map((name, i) => {
-              const info = PATTERN_INFO[name];
+            {patternNames.map((name, i) => {
+              const info = meta[name];
               const isSelected = selectedPatterns.has(name);
               const isHov = hoveredPattern === name;
               const patColor = isSelected ? t.accent : isHov ? `${t.accent}AA` : t.textMuted;
@@ -320,17 +283,19 @@ export default function AIScreen({ setScreenAction, themeId, onSelectDifficultyA
                   onMouseLeave={() => setHoveredPattern(null)}
                   style={{
                     background: isSelected
-                      ? `linear-gradient(145deg, ${t.accent}1A, ${t.bgCard})`
+                      ? `linear-gradient(145deg, ${info.isException ? "#B2222233" : t.accent + "1A"}, ${t.bgCard})`
                       : t.bgCard,
-                    border: `2px solid ${isSelected ? t.accent : isHov ? `${t.accent}55` : t.border}`,
+                    border: info.isException 
+                      ? `2px solid ${isSelected ? "#FF4444" : isHov ? "#B22222" : "#701A1A"}` 
+                      : `2px solid ${isSelected ? t.accent : isHov ? `${t.accent}55` : t.border}`,
                     borderRadius: ip ? 2 : 14,
                     padding: "16px 14px",
-                    cursor: selectedPatterns.size >= 6 && !isSelected ? "not-allowed" : "pointer",
+                    cursor: selectedPatterns.size >= maxSelection && !isSelected ? "not-allowed" : "pointer",
                     textAlign: "left",
                     transition: "all 0.25s cubic-bezier(.22,.68,0,1.2)",
                     transform: isSelected ? "scale(1.03)" : isHov ? "scale(1.01)" : "scale(1)",
-                    boxShadow: isSelected ? `0 8px 32px ${t.accent}22` : "none",
-                    opacity: selectedPatterns.size >= 6 && !isSelected ? 0.5 : 1,
+                    boxShadow: isSelected ? `0 8px 32px ${info.isException ? "#B2222244" : t.accent + "22"}` : "none",
+                    opacity: selectedPatterns.size >= maxSelection && !isSelected ? 0.5 : 1,
                     animation: `cardFadeUp 0.4s cubic-bezier(.22,.68,0,1.2) ${i * 0.06}s both`,
                   }}
                 >
@@ -338,8 +303,8 @@ export default function AIScreen({ setScreenAction, themeId, onSelectDifficultyA
                     {/* Checkbox */}
                     <div style={{
                       width: 20, height: 20, borderRadius: 5, flexShrink: 0, marginTop: 2,
-                      border: `2px solid ${isSelected ? t.accent : t.border}`,
-                      background: isSelected ? t.accent : "transparent",
+                      border: `2px solid ${isSelected ? (info.isException ? "#FF4444" : t.accent) : (info.isException ? "#B22222" : t.border)}`,
+                      background: isSelected ? (info.isException ? "#B22222" : t.accent) : "transparent",
                       display: "flex", alignItems: "center", justifyContent: "center",
                       transition: "all 0.2s",
                     }}>
@@ -349,18 +314,27 @@ export default function AIScreen({ setScreenAction, themeId, onSelectDifficultyA
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{
                         fontFamily: t.fontDisplay, fontSize: ip ? 12 : 14, fontWeight: 700,
-                        color: isSelected ? t.accent : t.text, transition: "color 0.2s",
+                        color: isSelected ? (info.isException ? "#FF4444" : t.accent) : (info.isException ? "#B22222" : t.text), 
+                        transition: "color 0.2s",
                         letterSpacing: "0.06em", marginBottom: 4,
                       }}>
                         {info.label}
                       </div>
                       <div style={{
                         fontFamily: t.fontBody, fontSize: ip ? 10 : 11, color: t.textMuted,
-                        lineHeight: 1.4, marginBottom: 10,
+                        lineHeight: 1.4, marginBottom: 4,
                       }}>
                         {info.desc}
                       </div>
-                      <PatternDiagram cells={info.cells} accent={t.accent} isSelected={isSelected} />
+                      <div style={{
+                        fontFamily: t.fontMono, fontSize: 9, fontWeight: 700,
+                        color: info.isException ? "#FF4444" : t.accent,
+                        letterSpacing: "0.08em", marginBottom: 10,
+                        textTransform: "uppercase", opacity: 0.8
+                      }}>
+                        {info.mirrorCount} MIRRORS{info.mirrorCount === 8 ? " HIGHLIGHTED" : ""}
+                      </div>
+                      <PatternDiagram info={info} accent={info.isException ? "#B22222" : t.accent} isSelected={isSelected} />
                     </div>
                   </div>
                 </button>
@@ -370,17 +344,17 @@ export default function AIScreen({ setScreenAction, themeId, onSelectDifficultyA
 
           {/* Proceed button */}
           <button
-            onClick={() => selectedPatterns.size >= MIN_SELECTED_PATTERNS_7X7 && setStep("difficulty")}
-            disabled={selectedPatterns.size < MIN_SELECTED_PATTERNS_7X7}
+            onClick={() => selectedPatterns.size >= minSelection && setStep("difficulty")}
+            disabled={selectedPatterns.size < minSelection}
             style={{
-              background: selectedPatterns.size >= MIN_SELECTED_PATTERNS_7X7 ? t.accent : `${t.accent}33`,
-              border: `2px solid ${selectedPatterns.size >= MIN_SELECTED_PATTERNS_7X7 ? t.accent : t.border}`,
-              color: selectedPatterns.size >= MIN_SELECTED_PATTERNS_7X7 ? "#000" : t.textMuted,
+              background: selectedPatterns.size >= minSelection ? t.accent : `${t.accent}33`,
+              border: `2px solid ${selectedPatterns.size >= minSelection ? t.accent : t.border}`,
+              color: selectedPatterns.size >= minSelection ? "#000" : t.textMuted,
               fontFamily: t.fontDisplay, fontSize: 16, fontWeight: 700,
               padding: "14px 52px", borderRadius: ip ? 2 : 10,
-              cursor: selectedPatterns.size >= MIN_SELECTED_PATTERNS_7X7 ? "pointer" : "not-allowed",
+              cursor: selectedPatterns.size >= minSelection ? "pointer" : "not-allowed",
               letterSpacing: "0.06em", transition: "all 0.3s",
-              boxShadow: selectedPatterns.size >= MIN_SELECTED_PATTERNS_7X7 ? `0 0 24px ${t.accentGlow}44` : "none",
+              boxShadow: selectedPatterns.size >= minSelection ? `0 0 24px ${t.accentGlow}44` : "none",
             }}
           >
             PROCEED →
@@ -413,7 +387,7 @@ export default function AIScreen({ setScreenAction, themeId, onSelectDifficultyA
             {(boardMode === "6x6"
               ? DIFFICULTIES_6X6
               : DIFFICULTIES.filter(d => d.id !== "danger" || boardMode === "7x7")
-            ).map((d, i) => {
+            ).map((d: any, i: number) => {
               return (
                 <button
                   key={d.id}

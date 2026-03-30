@@ -11,21 +11,49 @@ const DIRS: Coord[] = [
   [-1, -1], [-1, 1], [1, -1], [1, 1],
 ];
 
-// All 12 unique pattern variants (generated from patterns.py)
-const ALL_PATTERNS: Coord[][] = [
-  [[0,2],[1,1],[2,0],[3,1],[4,2]],
-  [[0,0],[1,1],[2,2],[3,1],[4,0]],
-  [[0,2],[1,1],[1,3],[2,0],[2,4]],
-  [[0,0],[0,4],[1,1],[1,3],[2,2]],
-  [[0,2],[1,2],[2,0],[2,1],[2,2]],
-  [[0,0],[1,0],[2,0],[2,1],[2,2]],
-  [[0,0],[0,1],[0,2],[1,2],[2,2]],
-  [[0,0],[0,1],[0,2],[1,0],[2,0]],
-  [[0,0],[0,2],[0,4],[1,1],[1,3]],
-  [[0,0],[1,1],[2,0],[3,1],[4,0]],
-  [[0,1],[0,3],[1,0],[1,2],[1,4]],
-  [[0,1],[1,0],[2,1],[3,0],[4,1]],
-];
+const BASE_PATTERNS_5: Record<string, Coord[]> = {
+  V:        [[0, 0], [1, 1], [2, 2], [1, 3], [0, 4]],
+  L:        [[0, 0], [1, 0], [2, 0], [2, 1], [2, 2]],
+  "ZZ-5":   [[0, 0], [1, 1], [2, 0], [3, 1], [4, 0]],
+  offset_l: [[1, 1], [1, 2], [1, 3], [2, 3], [3, 3]],
+  w:        [[0, 0], [1, 1], [0, 2], [1, 3], [0, 4]],
+  diamond:  [[0, 1], [1, 2], [2, 3], [3, 2], [4, 1]],
+};
+
+// ── Variant Generation ──
+function generateVariants(pattern: Coord[]): Coord[][] {
+  const variants = new Set<string>();
+  const result: Coord[][] = [];
+
+  for (const reflect of [1, -1]) {
+    for (let rotation = 0; rotation < 4; rotation++) {
+      const transformed: Coord[] = [];
+      for (const [r, c] of pattern) {
+        let r2 = r, c2 = c * reflect;
+        for (let i = 0; i < rotation; i++) {
+          [r2, c2] = [c2, -r2];
+        }
+        transformed.push([r2, c2]);
+      }
+      const minR = Math.min(...transformed.map(([r]) => r));
+      const minC = Math.min(...transformed.map(([, c]) => c));
+      const normalized: Coord[] = transformed
+        .map(([r, c]) => [r - minR, c - minC] as Coord)
+        .sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+      const key = normalized.map(([r, c]) => `${r},${c}`).join("|");
+      if (!variants.has(key)) {
+        variants.add(key);
+        result.push(normalized);
+      }
+    }
+  }
+  return result;
+}
+
+const ALL_VARIANTS_5: Record<string, Coord[][]> = {};
+for (const name in BASE_PATTERNS_5) {
+  ALL_VARIANTS_5[name] = generateVariants(BASE_PATTERNS_5[name]);
+}
 
 // ─── 5-in-a-line ───
 export function check5Line(board: Board, r: number, c: number, player: string): Coord[] | null {
@@ -46,8 +74,15 @@ export function check5Line(board: Board, r: number, c: number, player: string): 
 }
 
 // ─── Structural patterns ───
-export function checkStructuralPatterns(board: Board, player: string): Coord[] | null {
-  for (const pattern of ALL_PATTERNS) {
+export function checkStructuralPatterns(board: Board, player: string, activeIds: string[]): Coord[] | null {
+  const patterns: Coord[][] = [];
+  for (const id of activeIds) {
+    if (ALL_VARIANTS_5[id]) {
+      patterns.push(...ALL_VARIANTS_5[id]);
+    }
+  }
+
+  for (const pattern of patterns) {
     const maxR = Math.max(...pattern.map(([r]) => r));
     const maxC = Math.max(...pattern.map(([, c]) => c));
     for (let br = 0; br < GRID - maxR; br++) {
@@ -112,21 +147,23 @@ function resolveFullBoard(board: Board): { winner: string; line: Coord[]; connec
 }
 
 // ─── Main entry ───
-// movesPlayed must be the TOTAL number of pieces on the board (pass _totalMoves + 1)
 export function checkWin(
   board: Board,
   r: number,
   c: number,
   player: string,
-  movesPlayed: number
+  movesPlayed: number,
+  selectedPatternIds: string[] = []
 ): { winner: string; line: Coord[]; connectionScores?: { p1: number; p2: number } } | null {
   const line5 = check5Line(board, r, c, player);
   if (line5) return { winner: player, line: line5 };
 
-  const lineS = checkStructuralPatterns(board, player);
+  // If no patterns selected (e.g. legacy or not yet initialized), default to standard 5x5 set
+  const activeIds = selectedPatternIds.length > 0 ? selectedPatternIds : ["V", "L", "ZZ-5"];
+  const lineS = checkStructuralPatterns(board, player, activeIds);
   if (lineS) return { winner: player, line: lineS };
 
   if (movesPlayed === GRID * GRID) return resolveFullBoard(board);
 
   return null;
-}
+}

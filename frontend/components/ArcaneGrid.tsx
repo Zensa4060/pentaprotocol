@@ -20,7 +20,7 @@ function useCellSize(size: number, pad = 8) {
   return cs;
 }
 
-function ArcaneBg({ W, H, gridSize = 5 }: { W: number; H: number; gridSize?: number }) {
+function ArcaneBg({ W, H, gridSize = 5, isPaused = false }: { W: number; H: number; gridSize?: number; isPaused?: boolean }) {
   const ref = useRef<HTMLCanvasElement | null>(null);
   const raf = useRef<number | null>(null);
   const t = useRef(0);
@@ -28,6 +28,10 @@ function ArcaneBg({ W, H, gridSize = 5 }: { W: number; H: number; gridSize?: num
   useEffect(() => {
     const cv = ref.current;
     if (!cv) return;
+    if (isPaused) {
+      if (raf.current) cancelAnimationFrame(raf.current);
+      return;
+    }
     const dpr = boardSkinCanvasDpr(gridSize);
     cv.width = W * dpr;
     cv.height = H * dpr;
@@ -156,12 +160,12 @@ function ArcaneBg({ W, H, gridSize = 5 }: { W: number; H: number; gridSize?: num
 
     draw();
     return () => { if (raf.current) cancelAnimationFrame(raf.current); };
-  }, [W, H, gridSize]);
+  }, [W, H, gridSize, isPaused]);
 
   return <canvas ref={ref} style={{ position: "absolute", inset: 0, zIndex: 0, pointerEvents: "none" }} />;
 }
 
-function GridLines({ W, H, PAD, CS, SIZE }: { W: number; H: number; PAD: number; CS: number; SIZE: number }) {
+function GridLines({ W, H, PAD, CS, SIZE, isPaused = false }: { W: number; H: number; PAD: number; CS: number; SIZE: number; isPaused?: boolean }) {
   const ref = useRef<HTMLCanvasElement | null>(null);
   const raf = useRef<number | null>(null);
   const t = useRef(0);
@@ -169,6 +173,10 @@ function GridLines({ W, H, PAD, CS, SIZE }: { W: number; H: number; PAD: number;
   useEffect(() => {
     const cv = ref.current;
     if (!cv) return;
+    if (isPaused) {
+      if (raf.current) cancelAnimationFrame(raf.current);
+      return;
+    }
     const dpr = boardSkinCanvasDpr(SIZE);
     cv.width = W * dpr;
     cv.height = H * dpr;
@@ -313,7 +321,7 @@ function GridLines({ W, H, PAD, CS, SIZE }: { W: number; H: number; PAD: number;
 
     draw();
     return () => { if (raf.current) cancelAnimationFrame(raf.current); };
-  }, [W, H, PAD, CS, SIZE]);
+  }, [W, H, PAD, CS, SIZE, isPaused]);
 
   return <canvas ref={ref} style={{ position: "absolute", inset: 0, zIndex: 3, pointerEvents: "none" }} />;
 }
@@ -477,9 +485,8 @@ function GoldSigil({ size, win, ak }: { size: number; win: boolean; ak: string }
   );
 }
 
-function Cell({ CS, value, onClick, isWinCell, justPlaced, lastTurn }: { CS: number; value: string | null; onClick: () => void; isWinCell: boolean; justPlaced: boolean; lastTurn: "X" | "O" }) {
+function ArcaneCell({ CS, value, onClick, isWinCell, justPlaced, lastTurn, isP1, isP2 }: { CS: number; value: string | null; onClick: () => void; isWinCell: boolean; justPlaced: boolean; lastTurn: "X" | "O"; isP1: boolean; isP2: boolean }) {
   const [hov, setHov] = useState(false);
-  const isP1 = value === "X", isP2 = value === "O";
   const wC = isP1 ? "rgba(180,100,255,.4)" : "rgba(255,200,60,.4)";
   return (
     <div onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)} onClick={onClick}
@@ -490,6 +497,7 @@ function Cell({ CS, value, onClick, isWinCell, justPlaced, lastTurn }: { CS: num
         boxShadow: isWinCell ? `inset 0 0 ${CS * 0.3}px ${wC}` : "none",
         transition: "background .2s, box-shadow .2s",
         animation: isWinCell ? "arWinPulse 1.05s ease-in-out infinite" : "none",
+        contain: "layout style",
       }}
     >
       {justPlaced && <div style={{ position: "absolute", inset: 0, background: `radial-gradient(ellipse,rgba(${lastTurn === "X" ? "180,100,255" : "255,200,60"},.75),transparent 65%)`, animation: "arcF .55s ease-out forwards", pointerEvents: "none", zIndex: 4 }} />}
@@ -499,8 +507,9 @@ function Cell({ CS, value, onClick, isWinCell, justPlaced, lastTurn }: { CS: num
     </div>
   );
 }
+const MemoizedArcaneCell = React.memo(ArcaneCell);
 
-export default function ArcaneGrid({ board, onCellClickAction, winCells = [], showLabels = true }: { board?: (string | null)[][]; onCellClickAction?: (r: number, c: number) => void; winCells?: [number, number][]; showLabels?: boolean }) {
+export default React.memo(function ArcaneGrid({ board, onCellClickAction, winCells = [], showLabels = true, isPaused = false }: { board?: (string | null)[][]; onCellClickAction?: (r: number, c: number) => void; winCells?: [number, number][]; showLabels?: boolean; isPaused?: boolean }) {
   const active = board ?? Array(DEFAULT_SIZE).fill(null).map(() => Array(DEFAULT_SIZE).fill(null));
   const SIZE = active.length;
   const COLS = GET_COLS(SIZE);
@@ -546,15 +555,15 @@ export default function ArcaneGrid({ board, onCellClickAction, winCells = [], sh
         <div style={{ display: "flex", flexDirection: "column", paddingTop: PAD }}>
           {ROWS.map((r) => <div key={r} style={{ height: CS, display: "flex", alignItems: "center", justifyContent: "flex-end", paddingRight: 8, minWidth: 24, ...lbl }}>{r}</div>)}
         </div>
-        <div style={{ position: "relative", width: BS, height: BS, borderRadius: CS * 0.06, overflow: "hidden", border: "2px solid rgba(160,80,255,.75)", boxShadow: "0 0 0 1px rgba(200,140,0,.25),0 0 50px rgba(140,60,220,.55),0 0 120px rgba(80,20,160,.4),inset 0 0 80px rgba(0,0,10,.6)" }}>
-          <ArcaneBg W={BS} H={BS} gridSize={SIZE} />
-          <GridLines W={BS} H={BS} PAD={PAD} CS={CS} SIZE={SIZE} />
+        <div style={{ position: "relative", width: BS, height: BS, borderRadius: CS * 0.06, overflow: "hidden", border: "2px solid rgba(160,80,255,.75)", boxShadow: "0 0 0 1px rgba(200,140,0,.25),0 0 50px rgba(140,60,220,.55),0 0 120px rgba(80,20,160,.4),inset 0 0 80px rgba(0,0,0,.65)", willChange: "transform", contain: "layout size style" }}>
+          <ArcaneBg W={BS} H={BS} gridSize={SIZE} isPaused={isPaused} />
+          <GridLines W={BS} H={BS} PAD={PAD} CS={CS} SIZE={SIZE} isPaused={isPaused} />
           <BurstCanvas burstRef={burstRef} W={BS} H={BS} gridSize={SIZE} />
           <div style={{ position: "absolute", inset: PAD, zIndex: 4, display: "flex", flexDirection: "column" }}>
             {active.map((row, r) => (
               <div key={r} style={{ display: "flex", flex: 1 }}>
                 {row.map((cell, c) => (
-                  <Cell key={`${r}-${c}`} CS={CS} value={cell} onClick={() => click(r, c)} isWinCell={winSet.has(`${r}-${c}`)} justPlaced={last === `${r}-${c}`} lastTurn={turn} />
+                  <MemoizedArcaneCell key={`${r}-${c}`} CS={CS} value={cell} onClick={() => click(r, c)} isWinCell={winSet.has(`${r}-${c}`)} justPlaced={last === `${r}-${c}`} lastTurn={turn} isP1={cell === "X"} isP2={cell === "O"} />
                 ))}
               </div>
             ))}
@@ -563,4 +572,4 @@ export default function ArcaneGrid({ board, onCellClickAction, winCells = [], sh
       </div>
     </div>
   );
-}
+});

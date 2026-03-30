@@ -14,8 +14,13 @@ function barsToColor(bars: number): string {
 }
 
 /** 7×7 pattern chip text in the match sidebar (internal id stays `zigzag`) */
+/** 7×7 and 6x6 pattern chip text in the match sidebar */
 function patternSidebarLabel(pat: string): string {
-  return pat === "zigzag" ? "ZZ" : pat;
+  if (pat === "zigzag") return "ZZ-7";
+  if (pat === "ZZ") return "ZZ-6";
+  if (pat === "J") return "J";
+  if (pat === "T") return "T";
+  return pat;
 }
 
 // ─── Props ────────────────────────────────────────────────────────────────────
@@ -52,7 +57,7 @@ interface MatchSidebarProps {
   mySlot: "P1" | "P2";
   boardMode?: string;
   selectedPatterns?: string[];
-  rbBannedPattern?: string | null;
+  rbBannedPatterns?: string[];
   /** When true, show ? chips instead of pattern names (opponent/bot ban hidden from viewer). */
   patternsAsSecret?: boolean;
   /** Multiplayer series score (wins only; draws add 0). */
@@ -121,7 +126,7 @@ export function MatchSidebar({
   t, p1Banner, p2Banner, ip, p1c, p2c, pieceSkin, p1RttMs, p2RttMs, panelW,
   phase, winner, current, gameNumber, matchHistory, seriesWinner, matchOver,
   gameMode, isRankedGame, isMultiplayerGame, isMultiplayer, mySlot,
-  boardMode, selectedPatterns, rbBannedPattern, patternsAsSecret = false, p1SeriesPts, p2SeriesPts,
+  boardMode, selectedPatterns, rbBannedPatterns = [], patternsAsSecret = false, p1SeriesPts, p2SeriesPts,
   p1Time, p2Time, readyTimeout,
   p1Ready, p2Ready,
   chatMessages, chatInput, chatOpen, chatWarning,
@@ -204,37 +209,84 @@ export function MatchSidebar({
 
   // ── Win overlay ────────────────────────────────────────────────────────────
   const winOverlay = showWinOverlay && winner && (
-    <div onClick={onDismissOverlayAction} style={{ position: "fixed", inset: 0, zIndex: 999, cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "stretch", willChange: "opacity", opacity: overlayVisible ? 1 : 0, transition: "opacity 0.28s ease" }}>
-      <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.92)", zIndex: 0 }} />
-      {seriesDiffers ? (
-        <>
-          <div style={{ position: "relative", zIndex: 1, flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", borderBottom: "1px solid #ffffff14", willChange: "transform, opacity", opacity: overlayVisible ? 1 : 0, transform: overlayVisible ? "translateY(0)" : "translateY(28px)", transition: "opacity 0.32s ease 0.08s, transform 0.32s cubic-bezier(.22,.68,0,1.2) 0.08s" }}>
-            <div style={{ fontSize: "clamp(44px,7vw,96px)", lineHeight: 1, marginBottom: 8, animation: "winPulse 1.6s ease infinite" }}>{winnerPiece}</div>
-            <div style={{ fontFamily: t.fontDisplay, fontSize: "clamp(40px,6.5vw,90px)", fontWeight: 900, color: winnerColor, lineHeight: 1, textShadow: `0 0 60px ${winnerColor}88`, animation: "winPulse 1.6s ease infinite" }}>{winner === "DRAW" ? "DRAW" : `${getName(winner)} WINS!`}</div>
-            <div style={{ fontFamily: t.fontMono, fontSize: "clamp(11px,1.2vw,14px)", color: "#777", marginTop: 12, letterSpacing: "0.12em" }}>GAME {gameNumber}</div>
+    <div style={{
+      position: "fixed", inset: 0, zIndex: 9999,
+      display: "flex", alignItems: "center", justifyContent: "center",
+      opacity: overlayVisible ? 1 : 0,
+      pointerEvents: overlayVisible ? "auto" : "none",
+      background: "rgba(0,0,0,0.88)" // Solid dark background to replace heavy blur
+    }}>
+      <div style={{
+        position: "relative", zIndex: 1,
+        width: "min(600px, 90vw)",
+        background: "rgba(10,10,10,0.98)",
+        border: `2px solid ${winnerColor}66`,
+        borderRadius: 24,
+        padding: "60px 40px",
+        display: "flex", flexDirection: "column", alignItems: "center",
+        boxShadow: `0 30px 80px rgba(0,0,0,0.9)`, // Simplified shadow
+        textAlign: "center"
+      }}>
+        {seriesDiffers ? (
+          <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 32 }}>
+            {/* Game Winner Section */}
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+              <div style={{ fontSize: 80, lineHeight: 1, marginBottom: 12 }}>{winnerPiece}</div>
+              <div style={{ fontFamily: t.fontDisplay, fontSize: 44, fontWeight: 900, color: winnerColor, letterSpacing: "0.02em" }}>{winner === "DRAW" ? "DRAW" : `${getName(winner)} WINS!`}</div>
+              <div style={{ fontFamily: t.fontMono, fontSize: 13, color: t.textMuted, marginTop: 8, letterSpacing: "0.2em", textTransform: "uppercase" }}>GAME {gameNumber} COMPLETE</div>
+            </div>
+
+            <div style={{ height: 1, background: "rgba(255,255,255,0.1)" }} />
+
+            {/* Series Winner Section */}
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+              <div style={{ fontFamily: t.fontMono, fontSize: 13, color: t.textMuted, marginBottom: 16, letterSpacing: "0.2em", textTransform: "uppercase" }}>Series Result</div>
+              <div style={{ fontSize: 80, lineHeight: 1, marginBottom: 12 }}>{seriesPiece}</div>
+              <div style={{ fontFamily: t.fontDisplay, fontSize: 48, fontWeight: 950, color: seriesColor, letterSpacing: "0.02em" }}>
+                {seriesWinner === "DRAW" ? "MATCH DRAW" : `${getName(seriesWinner)} WINS SERIES!`}
+              </div>
+            </div>
           </div>
-          <div style={{ position: "relative", zIndex: 1, flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", willChange: "transform, opacity", opacity: overlayVisible ? 1 : 0, transform: overlayVisible ? "translateY(0)" : "translateY(28px)", transition: "opacity 0.32s ease 0.18s, transform 0.32s cubic-bezier(.22,.68,0,1.2) 0.18s" }}>
-            <div style={{ fontFamily: t.fontMono, fontSize: "clamp(11px,1.2vw,14px)", color: "#777", marginBottom: 12, letterSpacing: "0.12em" }}>{seriesWinner === "DRAW" ? "SERIES RESULT" : "SERIES WINNER"}</div>
-            <div style={{ fontSize: "clamp(44px,7vw,96px)", lineHeight: 1, marginBottom: 8, animation: "winPulse 1.6s ease infinite" }}>{seriesPiece}</div>
-            {seriesWinner === "DRAW" ? (
-              <>
-                <div style={{ fontFamily: t.fontDisplay, fontSize: "clamp(32px,5vw,72px)", fontWeight: 900, color: seriesColor, lineHeight: 1.1, textAlign: "center", textShadow: `0 0 60px ${seriesColor}88`, animation: "winPulse 1.6s ease infinite" }}>FULL MATCH DRAW</div>
-                <div style={{ fontFamily: t.fontBody, fontSize: 14, color: "#888", marginTop: 12, textAlign: "center" }}>No overall winner</div>
-              </>
-            ) : (
-              <div style={{ fontFamily: t.fontDisplay, fontSize: "clamp(40px,6.5vw,90px)", fontWeight: 900, color: seriesColor, lineHeight: 1, textShadow: `0 0 60px ${seriesColor}88`, animation: "winPulse 1.6s ease infinite" }}>{getName(seriesWinner)} WINS!</div>
-            )}
-            <div style={{ fontFamily: t.fontBody, fontSize: 13, color: "#555", marginTop: 16 }}>click anywhere to continue</div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+            <div style={{ fontSize: 110, lineHeight: 1, marginBottom: 20 }}>{winnerPiece}</div>
+            <div style={{ fontFamily: t.fontDisplay, fontSize: 64, fontWeight: 950, color: winnerColor, letterSpacing: "0.02em", marginBottom: 8 }}>{winner === "DRAW" ? "DRAW" : `${getName(winner)} WINS!`}</div>
+            <div style={{ fontFamily: t.fontMono, fontSize: 16, color: t.textMuted, letterSpacing: "0.2em", textTransform: "uppercase" }}>
+              {phase === "match_over" ? "Series Complete" : `Game ${gameNumber} Complete`}
+            </div>
           </div>
-        </>
-      ) : (
-        <div style={{ position: "relative", zIndex: 1, flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", willChange: "transform, opacity", opacity: overlayVisible ? 1 : 0, transform: overlayVisible ? "translateY(0) scale(1)" : "translateY(32px) scale(0.96)", transition: "opacity 0.32s ease 0.06s, transform 0.35s cubic-bezier(.22,.68,0,1.2) 0.06s" }}>
-          <div style={{ fontSize: "clamp(52px,8vw,110px)", lineHeight: 1, marginBottom: 8, animation: "winPulse 1.6s ease infinite" }}>{winnerPiece}</div>
-          <div style={{ fontFamily: t.fontDisplay, fontSize: "clamp(44px,7vw,100px)", fontWeight: 900, color: winnerColor, lineHeight: 1, marginBottom: 18, textShadow: `0 0 60px ${winnerColor}88`, animation: "winPulse 1.6s ease infinite" }}>{winner === "DRAW" ? "DRAW" : `${getName(winner)} WINS!`}</div>
-          {phase === "match_over" ? <div style={{ fontFamily: t.fontMono, fontSize: "clamp(13px,1.8vw,18px)", color: "#AAAAAA", marginBottom: 20 }}>{seriesWinner === "DRAW" ? "MATCH OVER — FULL SERIES DRAW" : "MATCH OVER — SERIES COMPLETE"}</div> : <div style={{ fontFamily: t.fontMono, fontSize: "clamp(13px,1.8vw,18px)", color: "#AAAAAA", marginBottom: 20 }}>GAME {gameNumber} COMPLETE</div>}
-          <div style={{ fontFamily: t.fontBody, fontSize: 14, color: "#666" }}>click anywhere to continue</div>
-        </div>
-      )}
+        )}
+
+        {/* Continue Button */}
+        <button
+          onClick={onDismissOverlayAction}
+          style={{
+            marginTop: 48,
+            padding: "16px 48px",
+            background: winnerColor,
+            color: "#000",
+            border: "none",
+            borderRadius: 12,
+            fontFamily: t.fontDisplay,
+            fontSize: 18,
+            fontWeight: 800,
+            cursor: "pointer",
+            transition: "all 0.2s cubic-bezier(0.2, 0, 0, 1)",
+            boxShadow: `0 10px 30px ${winnerColor}33`,
+            letterSpacing: "0.05em"
+          }}
+          onMouseEnter={e => {
+            e.currentTarget.style.transform = "scale(1.05)";
+            e.currentTarget.style.boxShadow = `0 15px 40px ${winnerColor}55`;
+          }}
+          onMouseLeave={e => {
+            e.currentTarget.style.transform = "scale(1)";
+            e.currentTarget.style.boxShadow = `0 10px 30px ${winnerColor}33`;
+          }}
+        >
+          CONTINUE
+        </button>
+      </div>
     </div>
   );
 
@@ -296,9 +348,10 @@ export function MatchSidebar({
             <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 5 }}>
               {lastSeries.history.map((r, i) => {
                 const col = r === "P1" ? p1c : r === "P2" ? p2c : r === "DRAW" ? t.gold : t.textMuted;
+                const offset = (isMultiplayerGame && boardMode === "6x6") ? 3 : (isMultiplayerGame && boardMode === "7x7") ? 6 : 0;
                 return (
                   <div key={i} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
-                    <div style={{ fontFamily: t.fontMono, fontSize: 9, color: t.textMuted }}>G{i + 1}</div>
+                    <div style={{ fontFamily: t.fontMono, fontSize: 9, color: t.textMuted }}>G{i + 1 + offset}</div>
                     <div style={{ width: 22, height: 4, borderRadius: 2, background: r ? col : "#222", border: `1px solid ${r ? col : "#333"}`, boxShadow: r ? `0 0 5px ${col}55` : "none" }} />
                     <div style={{ fontFamily: t.fontMono, fontSize: 9, fontWeight: 700, color: r ? col : t.textMuted }}>{r || "—"}</div>
                   </div>
@@ -315,7 +368,13 @@ export function MatchSidebar({
           const result = matchHistory[i] ?? "";
           const col = result === "P1" ? p1c : result === "P2" ? p2c : result === "DRAW" ? t.gold : t.textMuted;
           const isCur = i === gameNumber - 1 && (phase === "playing" || phase === "waiting_ready");
-          return (<div key={i} style={{ display: "flex", justifyContent: "space-between", fontFamily: t.fontBody, fontSize: 22, padding: "6px 0", borderBottom: `1px solid ${t.border}22` }}><span style={{ color: isCur ? t.accent : t.textMuted, transition: "color 0.2s" }}>G{i + 1}{isCur ? " *" : ""}</span><span style={{ color: col, fontWeight: result ? 700 : 400, transition: "color 0.2s" }}>{result || "—"}</span></div>);
+          const offset = (isMultiplayerGame && boardMode === "6x6") ? 3 : (isMultiplayerGame && boardMode === "7x7") ? 6 : 0;
+          return (
+            <div key={i} style={{ display: "flex", justifyContent: "space-between", fontFamily: t.fontBody, fontSize: 22, padding: "6px 0", borderBottom: `1px solid ${t.border}22` }}>
+              <span style={{ color: isCur ? t.accent : t.textMuted, transition: "color 0.2s" }}>G{i + 1 + offset}{isCur ? " *" : ""}</span>
+              <span style={{ color: col, fontWeight: result ? 700 : 400, transition: "color 0.2s" }}>{result || "—"}</span>
+            </div>
+          );
         })}
         {seriesWinner && (
           <div style={{ marginTop: 10, fontFamily: t.fontMono, fontSize: 20, color: t.gold, textAlign: "center", fontWeight: 700 }}>
@@ -340,9 +399,9 @@ export function MatchSidebar({
             {selectedPatterns.map((p, i) => (
               <div key={patternsAsSecret ? `sec-${i}` : p} style={{ padding: "4px 8px", background: `${t.accent}1A`, border: `1px solid ${t.accent}44`, borderRadius: 4, fontFamily: t.fontMono, fontSize: 11, color: t.accent, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em" }}>{patternsAsSecret ? "?" : patternSidebarLabel(p)}</div>
             ))}
-            {!patternsAsSecret && rbBannedPattern && (
-              <div style={{ padding: "4px 8px", background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.4)", borderRadius: 4, fontFamily: t.fontMono, fontSize: 11, color: "#EF4444", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", textDecoration: "line-through" }}>{patternSidebarLabel(rbBannedPattern)}</div>
-            )}
+            {!patternsAsSecret && rbBannedPatterns.map((pb, idx) => (
+              <div key={`ban-${idx}`} style={{ padding: "4px 8px", background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.4)", borderRadius: 4, fontFamily: t.fontMono, fontSize: 11, color: "#EF4444", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", textDecoration: "line-through" }}>{patternSidebarLabel(pb)}</div>
+            ))}
           </div>
         </div>
       )}
@@ -360,7 +419,7 @@ export function MatchSidebar({
                   style={{ background: rdy ? `${col}22` : "#AA000022", border: `2px solid ${rdy ? col : "#AA0000"}`, color: rdy ? col : "#EE0000", fontFamily: t.fontMono, fontSize: 15, fontWeight: 700, padding: "12px", borderRadius: ip ? 2 : 6, cursor: "pointer", transition: "all 0.2s", boxShadow: rdy ? `0 0 16px ${col}55, 0 0 4px ${col}33` : "none" }}
                   onMouseEnter={e => { playHoverAction?.(); e.currentTarget.style.boxShadow = rdy ? `0 0 24px ${col}88` : "0 0 16px #EE000055"; e.currentTarget.style.borderColor = rdy ? col : "#FF3333"; }}
                   onMouseLeave={e => { e.currentTarget.style.boxShadow = rdy ? `0 0 16px ${col}55` : "none"; e.currentTarget.style.borderColor = rdy ? col : "#AA0000"; }}
-                >{matchHistory.length >= 2 ? "START RULEBREAKER" : "START GAME 2"} {rdy ? "READY" : ""}</button>
+                >{matchHistory.length >= 2 ? "START RULEBREAKER" : `START GAME ${gameNumber + 1 + ((isMultiplayerGame && boardMode === "6x6") ? 3 : (isMultiplayerGame && boardMode === "7x7") ? 6 : 0)}`} {rdy ? "READY" : ""}</button>
               );
             })()
           ) : (
@@ -505,7 +564,7 @@ export function MatchSidebar({
 
 export function LeftPanel(props: MatchSidebarProps) {
   const { t, ip, p1c, p2c, pieceSkin, p1RttMs, p2RttMs, panelW, phase, current, gameNumber, matchHistory, seriesWinner,
-    gameMode, isRankedGame, isMultiplayerGame, isMultiplayer, mySlot, boardMode, selectedPatterns, rbBannedPattern, patternsAsSecret = false, p1SeriesPts, p2SeriesPts,
+    gameMode, isRankedGame, isMultiplayerGame, isMultiplayer, mySlot, boardMode, selectedPatterns, rbBannedPatterns = [], patternsAsSecret = false, p1SeriesPts, p2SeriesPts,
     p1Time, p2Time, readyTimeout, p1Ready, p2Ready,
     chatMessages, chatInput, chatOpen, chatWarning,
     p1Label, p2Label, p1Banner, p2Banner, winnerDisplayNameAction, lastSeries,
@@ -652,7 +711,11 @@ export function LeftPanel(props: MatchSidebarProps) {
           </div>
         )}
 
-        {Array.from({ length: Math.max(matchHistory.length + 1, gameNumber) }).slice(0, 9).map((_, i) => {
+        {Array.from({ 
+          length: seriesWinner 
+            ? matchHistory.length 
+            : Math.max(matchHistory.length + 1, gameNumber) 
+        }).slice(0, 9).map((_, i) => {
           const result = matchHistory[i] ?? "";
           const col = result === "P1" ? p1c : result === "P2" ? p2c : result === "DRAW" ? t.gold : t.textMuted;
           const isCur = i === gameNumber - 1 && (phase === "playing" || phase === "waiting_ready");
@@ -678,8 +741,8 @@ export function LeftPanel(props: MatchSidebarProps) {
           mode === "7x7"
             ? ((selectedPatterns && selectedPatterns.length > 0) ? selectedPatterns : ["Y", "L", "W", "V", "C", "zigzag"])
             : mode === "6x6"
-              ? ["A", "ZZ", "L", "T"]
-              : ["V", "L", "ZZ"];
+              ? ["ZZ", "J", "T", "L", "Y"]
+              : ["V", "L", "ZZ-5",];
 
         const modeRules =
           mode === "7x7"
@@ -706,20 +769,32 @@ export function LeftPanel(props: MatchSidebarProps) {
               <span>{mode.toUpperCase()} PATTERNS</span>
             </div>
 
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 10 }}>
-              {patternChips.map((p, i) => (
-                <div
-                  key={patternsAsSecret && mode === "7x7" ? `sec-${i}` : p}
-                  style={{ padding: "4px 8px", background: `${t.accent}1A`, border: `1px solid ${t.accent}44`, borderRadius: 4, fontFamily: t.fontMono, fontSize: 11, color: t.accent, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em" }}
-                >
-                  {patternsAsSecret && mode === "7x7" ? "?" : patternSidebarLabel(p)}
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 16 }}>
+              {patternChips.map((p, i) => {
+                const label = patternsAsSecret && mode === "7x7" ? "?" : patternSidebarLabel(p);
+                
+                return (
+                  <div
+                    key={patternsAsSecret && mode === "7x7" ? `sec-${i}` : p}
+                    style={{ 
+                      display: "flex", flexDirection: "column", gap: 6, alignItems: "center",
+                      padding: "6px 12px", background: `${t.accent}12`, border: `1px solid ${t.accent}22`, 
+                      borderRadius: 6, transition: "all 0.2s"
+                    }}
+                  >
+                    <div style={{ fontFamily: t.fontMono, fontSize: 10, color: t.accent, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                      {label}
+                    </div>
+                  </div>
+                );
+              })}
+              {!patternsAsSecret && mode === "7x7" && rbBannedPatterns.map((pb, idx) => (
+                <div key={`ban-${idx}`} style={{ padding: "6px 8px", background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)", borderRadius: 6, display: "flex", alignItems: "center" }}>
+                   <div style={{ fontFamily: t.fontMono, fontSize: 10, color: "#EF4444", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em", textDecoration: "line-through" }}>
+                    {patternSidebarLabel(pb)}
+                  </div>
                 </div>
               ))}
-              {!patternsAsSecret && mode === "7x7" && rbBannedPattern && (
-                <div style={{ padding: "4px 8px", background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.4)", borderRadius: 4, fontFamily: t.fontMono, fontSize: 11, color: "#EF4444", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", textDecoration: "line-through" }}>
-                  {patternSidebarLabel(rbBannedPattern)}
-                </div>
-              )}
             </div>
 
             <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0,1fr))", gap: 6 }}>
@@ -744,6 +819,7 @@ export function LeftPanel(props: MatchSidebarProps) {
               const col = p1c;
               return (
                 <button onClick={() => onReadyToggle("P1")}
+                  className={!rdy ? "thump-anim" : ""}
                   style={{ background: rdy ? `${col}22` : "#AA000022", border: `2px solid ${rdy ? col : "#AA0000"}`, color: rdy ? col : "#EE0000", fontFamily: t.fontMono, fontSize: 15, fontWeight: 700, padding: "12px", borderRadius: ip ? 2 : 6, cursor: "pointer", transition: "all 0.2s", boxShadow: rdy ? `0 0 16px ${col}55, 0 0 4px ${col}33` : "none" }}
                   onMouseEnter={e => { playHoverAction?.(); e.currentTarget.style.boxShadow = rdy ? `0 0 24px ${col}88` : "0 0 16px #EE000055"; e.currentTarget.style.borderColor = rdy ? col : "#FF3333"; }}
                   onMouseLeave={e => { e.currentTarget.style.boxShadow = rdy ? `0 0 16px ${col}55` : "none"; e.currentTarget.style.borderColor = rdy ? col : "#AA0000"; }}
@@ -832,43 +908,114 @@ export function WinOverlay({ showWinOverlay, overlayVisible, winner, winnerColor
   onDismissAction: () => void;
   graphicsQuality?: "low" | "balanced" | "ultra";
 }) {
+  const [canDismiss, setCanDismiss] = React.useState(false);
+  React.useEffect(() => {
+    if (showWinOverlay) {
+      setCanDismiss(false);
+      const timer = setTimeout(() => setCanDismiss(true), 500);
+      return () => clearTimeout(timer);
+    }
+  }, [showWinOverlay]);
+
   if (!showWinOverlay || !winner) return null;
   const getName = (w: string | null) => winnerDisplayNameAction ? winnerDisplayNameAction(w) : (w ?? "");
   const pulseAnim = graphicsQuality === "low" ? "none" : graphicsQuality === "balanced" ? "winPulse 1.6s ease 2" : "winPulse 1.6s ease infinite";
   const glow = graphicsQuality === "low" ? "none" : "0 0 60px";
-  return (
-    <div onClick={onDismissAction} style={{ position: "fixed", inset: 0, zIndex: 999, cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "stretch", willChange: "opacity", opacity: overlayVisible ? 1 : 0, transition: "opacity 0.28s ease" }}>
-      <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.92)", zIndex: 0 }} />
-      {seriesDiffers ? (
-        <>
-          <div style={{ position: "relative", zIndex: 1, flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", borderBottom: "1px solid #ffffff14", willChange: "transform, opacity", opacity: overlayVisible ? 1 : 0, transform: overlayVisible ? "translateY(0)" : "translateY(28px)", transition: "opacity 0.32s ease 0.08s, transform 0.32s cubic-bezier(.22,.68,0,1.2) 0.08s" }}>
-            <div style={{ fontSize: "clamp(44px,7vw,96px)", lineHeight: 1, marginBottom: 8, animation: pulseAnim }}>{winnerPiece}</div>
-            <div style={{ fontFamily: t.fontDisplay, fontSize: "clamp(40px,6.5vw,90px)", fontWeight: 900, color: winnerColor, lineHeight: 1, textShadow: `${glow} ${winnerColor}88`, animation: pulseAnim }}>{winner === "DRAW" ? "DRAW" : `${getName(winner)} WINS!`}</div>
-            <div style={{ fontFamily: t.fontMono, fontSize: "clamp(11px,1.2vw,14px)", color: "#777", marginTop: 12, letterSpacing: "0.12em" }}>GAME {gameNumber}</div>
-          </div>
-          <div style={{ position: "relative", zIndex: 1, flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", willChange: "transform, opacity", opacity: overlayVisible ? 1 : 0, transform: overlayVisible ? "translateY(0)" : "translateY(28px)", transition: "opacity 0.32s ease 0.18s, transform 0.32s cubic-bezier(.22,.68,0,1.2) 0.18s" }}>
-            <div style={{ fontFamily: t.fontMono, fontSize: "clamp(11px,1.2vw,14px)", color: "#777", marginBottom: 12, letterSpacing: "0.12em" }}>{seriesWinner === "DRAW" ? "SERIES RESULT" : "SERIES WINNER"}</div>
-            <div style={{ fontSize: "clamp(44px,7vw,96px)", lineHeight: 1, marginBottom: 8, animation: pulseAnim }}>{seriesPiece}</div>
-            {seriesWinner === "DRAW" ? (
-              <>
-                <div style={{ fontFamily: t.fontDisplay, fontSize: "clamp(32px,5vw,72px)", fontWeight: 900, color: seriesColor, lineHeight: 1.1, textAlign: "center", textShadow: `${glow} ${seriesColor}88`, animation: pulseAnim }}>FULL MATCH DRAW</div>
-                <div style={{ fontFamily: t.fontBody, fontSize: 14, color: "#888", marginTop: 12, textAlign: "center" }}>No overall winner</div>
-              </>
-            ) : (
-              <div style={{ fontFamily: t.fontDisplay, fontSize: "clamp(40px,6.5vw,90px)", fontWeight: 900, color: seriesColor, lineHeight: 1, textShadow: `${glow} ${seriesColor}88`, animation: pulseAnim }}>{getName(seriesWinner)} WINS!</div>
-            )}
-            <div style={{ fontFamily: t.fontBody, fontSize: 13, color: "#555", marginTop: 16 }}>click anywhere to continue</div>
-          </div>
-        </>
-      ) : (
-        <div style={{ position: "relative", zIndex: 1, flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", willChange: "transform, opacity", opacity: overlayVisible ? 1 : 0, transform: overlayVisible ? "translateY(0) scale(1)" : "translateY(32px) scale(0.96)", transition: "opacity 0.32s ease 0.06s, transform 0.35s cubic-bezier(.22,.68,0,1.2) 0.06s" }}>
-          <div style={{ fontSize: "clamp(52px,8vw,110px)", lineHeight: 1, marginBottom: 8, animation: pulseAnim }}>{winnerPiece}</div>
-          <div style={{ fontFamily: t.fontDisplay, fontSize: "clamp(44px,7vw,100px)", fontWeight: 900, color: winnerColor, lineHeight: 1, marginBottom: 18, textShadow: `${glow} ${winnerColor}88`, animation: pulseAnim }}>{winner === "DRAW" ? "DRAW" : `${getName(winner)} WINS!`}</div>
-          {phase === "match_over" ? <div style={{ fontFamily: t.fontMono, fontSize: "clamp(13px,1.8vw,18px)", color: "#AAAAAA", marginBottom: 20 }}>{seriesWinner === "DRAW" ? "MATCH OVER — FULL SERIES DRAW" : "MATCH OVER — SERIES COMPLETE"}</div> : <div style={{ fontFamily: t.fontMono, fontSize: "clamp(13px,1.8vw,18px)", color: "#AAAAAA", marginBottom: 20 }}>GAME {gameNumber} COMPLETE</div>}
 
-          <div style={{ fontFamily: t.fontBody, fontSize: 14, color: "#666" }}>click anywhere to continue</div>
+  const handleDismiss = () => { if (canDismiss) onDismissAction(); };
+
+  return (
+    <div style={{ position: "fixed", inset: 0, zIndex: 999, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", willChange: "opacity", opacity: overlayVisible ? 1 : 0, transition: "opacity 0.35s ease", pointerEvents: overlayVisible ? "auto" : "none" }}>
+      <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.85)", backdropFilter: "blur(8px)", zIndex: 0 }} />
+      
+      {/* Proper Box Modal */}
+      <div style={{
+        position: "relative",
+        zIndex: 1,
+        width: "min(600px, 92vw)",
+        background: "rgba(10, 10, 15, 0.95)",
+        border: `1px solid ${winnerColor}55`,
+        borderRadius: 24,
+        padding: "48px 32px",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        boxShadow: `0 24px 80px rgba(0,0,0,0.8), 0 0 40px ${winnerColor}22, inset 0 0 20px ${winnerColor}11`,
+        willChange: "transform, opacity",
+        transform: overlayVisible ? "scale(1) translateY(0)" : "scale(0.9) translateY(20px)",
+        transition: "all 0.5s cubic-bezier(.22,.68,0,1.2)",
+        textAlign: "center"
+      }}>
+        {/* Glow Header */}
+        <div style={{ position: "absolute", top: -1, left: "20%", right: "20%", height: 1, background: `linear-gradient(90deg, transparent, ${winnerColor}, transparent)`, opacity: 0.8 }} />
+        
+        <div style={{ fontSize: "clamp(64px, 10vw, 110px)", lineHeight: 1, marginBottom: 12, animation: pulseAnim, filter: `drop-shadow(0 0 20px ${winnerColor}88)` }}>{winnerPiece}</div>
+        <div style={{ fontFamily: t.fontDisplay, fontSize: "clamp(36px, 6vw, 72px)", fontWeight: 900, color: winnerColor, lineHeight: 1, textShadow: `${glow} ${winnerColor}88`, animation: pulseAnim, letterSpacing: "-0.02em", marginBottom: 8 }}>
+          {winner === "DRAW" ? "DRAW" : `${getName(winner)} WINS!`}
         </div>
-      )}
+        
+        <div style={{ fontFamily: t.fontMono, fontSize: 13, color: "rgba(255,255,255,0.4)", letterSpacing: "0.2em", marginBottom: 32, textTransform: "uppercase" }}>
+          {phase === "match_over" ? "SERIES COMPLETE" : `GAME ${gameNumber} COMPLETE`}
+        </div>
+
+        {seriesDiffers && (
+          <div style={{ 
+            width: "100%", 
+            margin: "0 0 40px 0", 
+            padding: "24px", 
+            background: "rgba(255,255,255,0.03)", 
+            borderRadius: 16, 
+            border: "1px solid rgba(255,255,255,0.05)",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            gap: 12
+          }}>
+            <div style={{ fontFamily: t.fontMono, fontSize: 11, color: "rgba(255,255,255,0.3)", letterSpacing: "0.15em" }}>OVERALL SERIES WINNER</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+              <span style={{ fontSize: 32 }}>{seriesPiece}</span>
+              <span style={{ fontFamily: t.fontDisplay, fontSize: 32, fontWeight: 800, color: seriesColor }}>{getName(seriesWinner)}</span>
+            </div>
+          </div>
+        )}
+
+        {/* Premium Continue Button */}
+        <button 
+          onClick={handleDismiss}
+          disabled={!canDismiss}
+          style={{
+            marginTop: 8,
+            padding: "16px 48px",
+            background: canDismiss ? winnerColor : "rgba(255,255,255,0.05)",
+            border: "none",
+            borderRadius: 12,
+            color: canDismiss ? "#000" : "rgba(255,255,255,0.2)",
+            fontFamily: t.fontDisplay,
+            fontSize: 16,
+            fontWeight: 900,
+            cursor: canDismiss ? "pointer" : "default",
+            transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+            boxShadow: canDismiss ? `0 8px 32px ${winnerColor}44` : "none",
+            opacity: canDismiss ? 1 : 0.6,
+            display: "flex",
+            alignItems: "center",
+            gap: 12,
+            letterSpacing: "0.05em"
+          }}
+          onMouseEnter={e => { if (canDismiss) { e.currentTarget.style.transform = "translateY(-2px) scale(1.02)"; e.currentTarget.style.boxShadow = `0 12px 48px ${winnerColor}66`; } }}
+          onMouseLeave={e => { if (canDismiss) { e.currentTarget.style.transform = "translateY(0) scale(1)"; e.currentTarget.style.boxShadow = `0 8px 32px ${winnerColor}44`; } }}
+        >
+          CONTINUE
+          <span style={{ fontSize: 18, transition: "transform 0.3s", transform: "translateX(0)" }}>→</span>
+        </button>
+
+        <style>{`
+          @keyframes winPulse {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.05); opacity: 0.9; }
+          }
+        `}</style>
+      </div>
     </div>
   );
 }
