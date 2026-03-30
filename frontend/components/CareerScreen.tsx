@@ -7,7 +7,7 @@ import API from "@/lib/api";
 import { loadCustomTheme } from "@/lib/customTheme";
 import { BannerRenderer } from "./BannerRenderer";
 import { RANKS, getRank, NavRankBadge, rankGlowVisualStrength, buildRankEmblemGlowFilter, rankHaloGradientForRank } from "./NavBar";
-import { ObjectId } from "bson";
+
 
 const RankBadge = ({ elo, size = 48 }: { elo: number; size?: number }) => {
   const rank = getRank(elo);
