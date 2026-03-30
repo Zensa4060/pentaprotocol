@@ -92,7 +92,7 @@ class BotEngine7:
         ordered = sorted(empties, key=lambda x: abs(x[0]-3) + abs(x[1]-3))
         
         max_d = {"medium": 4, "hard": 6}[difficulty]
-        budget = {"medium": 1.2, "hard": 3.5}[difficulty]
+        budget = {"medium": 1.0, "hard": 1.0}[difficulty]
         deadline = time.monotonic() + budget
         
         best_mv = ordered[0]
@@ -201,7 +201,7 @@ class BotEngine:
         if difficulty == "medium":
             depth, budget = 4, 1.0
         else: # hard
-            depth, budget = 8, 2.0
+            depth, budget = 8, 1.0
 
         move_idx = self._idab(board, zhash, bot, human, depth, budget, empties)
         return _rc5(move_idx)
@@ -320,11 +320,11 @@ class BotEngine6:
         if difficulty == "normal":
             depth, budget = 4, 1.0
         elif difficulty == "medium":
-            depth, budget = 5, 1.5
+            depth, budget = 5, 1.0
         elif difficulty == "hard":
-            depth, budget = 6, 2.5
+            depth, budget = 6, 1.0
         else: # machine_god or default
-            depth, budget = 8, 4.0
+            depth, budget = 8, 1.0
         
         move_idx = self._idab(board, zhash, bot, human, depth, budget, empties)
         return _rc6(move_idx)

@@ -43,7 +43,7 @@ impl RustHardBot7 {
         _c3_blocked: bool,
     ) -> PyResult<Option<(usize, usize)>> {
         let (mut flat, zhash) = to_flat(&board_2d, bot, human);
-        let mut engine = search::HardSearch::new(6, 2.5);
+        let mut engine = search::HardSearch::new(6, 1.0);
         let result = engine.search(&mut flat, zhash, &self.pi, 1, 2, moves_played);
         Ok(result.map(rc))
     }
@@ -106,7 +106,7 @@ impl RustHardBot6 {
         moves_played: i32,
     ) -> PyResult<Option<(usize, usize)>> {
         let (mut flat, zhash) = to_flat6(&board_2d, bot, human);
-        let mut engine = search6_hard::HardSearch6::new(5, 1.4);
+        let mut engine = search6_hard::HardSearch6::new(5, 1.0);
         let result = engine.search(&mut flat, zhash, &self.pi6, 1, 2, moves_played);
         Ok(result.map(rc6))
     }
@@ -135,7 +135,7 @@ impl RustMachineGodBot6 {
         moves_played: i32,
     ) -> PyResult<Option<(usize, usize)>> {
         let (mut flat, zhash) = to_flat6(&board_2d, bot, human);
-        let mut engine = search6_god::GodSearch6::new(8, 3.0);
+        let mut engine = search6_god::GodSearch6::new(8, 1.0);
         let result = engine.search(&mut flat, zhash, &self.pi6, 1, 2, moves_played);
         Ok(result.map(rc6))
     }
@@ -159,13 +159,11 @@ impl RustDangerBot7 {
         c3_blocked: bool,
     ) -> PyResult<Option<(usize, usize)>> {
         let (mut flat, zhash) = to_flat(&board_2d, bot, human);
-        // Phase-1 strength bump with bounded latency:
-        // - early game: keep baseline latency budget
-        // - mid game onward: allow slightly deeper/longer search
+        // 7×7 ANAMOLY: 1.5s wall-clock cap (only mode above the global 1.0s bot limit)
         let (max_depth, budget_sec) = if moves_played < 10 {
-            (10, 5.0)
+            (10, 1.5)
         } else {
-            (11, 6.0)
+            (11, 1.5)
         };
         let mut engine = search_danger::DangerSearch::new(max_depth, budget_sec);
         let result = engine.search(&mut flat, zhash, &self.pi, 1, 2, moves_played, c3_blocked);

@@ -106,7 +106,7 @@ class Bot7Engine:
 
     def _idab(self, board, zhash, bot, human, difficulty, empties, moves_played):
         max_d = {"medium": 4, "hard": 6}.get(difficulty, 4)
-        budget = {"medium": 1.5, "hard": 4.0}.get(difficulty, 1.5)
+        budget = {"medium": 1.0, "hard": 1.0}.get(difficulty, 1.0)
         deadline = time.monotonic() + budget
 
         best_mv = empties[0]
