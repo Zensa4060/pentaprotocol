@@ -22,7 +22,7 @@ const RULES = [
     id: "objective",
     emoji: "",
     summary: "Be the first player to complete a winning pattern on the 5×5 grid.",
-     detail: `The goal of PentaProtocol is to outmaneuver your opponent by placing your pieces strategically on the 5×5 grid. You win a game by completing one of the recognized winning patterns before your opponent does.\n\nEach match is Best-of-3 — the first player to win 2 games wins the series. A draw counts as neither a win nor a loss for series purposes.`,
+     detail: `The goal of PentaProtocol is to outmaneuver your opponent by placing your pieces strategically on the 5×5 grid. You win a game by completing one of the recognized winning patterns before your opponent does.\n\nEach match is First-to-5 — the first player to accumulate 5 total points wins the series. A draw counts as neither a win nor a loss for point purposes, but triggers a tiebreaker if scores are tied.`,
     title: "OBJECTIVE",
     screenshot: "/api/proxy-image?url=https://lh3.googleusercontent.com/d/1SjiJqsN4Vcb4OZimsIYpFADV0OsMK7jn",
   },
@@ -90,8 +90,8 @@ const RULES = [
     id: "rulebreaker",
     emoji: "",
     title: "RULEBREAKER",
-    summary: "Before Game 3, a coin toss grants one player the power to set a special rule.",
-    detail: `If the series reaches Game 3 (1–1 or split with draws), the Rulebreaker phase begins before the deciding game.\n\nA coin is flipped — YIN gives the toss to P1, YANG gives it to P2.\n\nThe toss winner chooses one of two rule tracks:\n\n1. DECIDE WHO PLAYS FIRST — the winner picks which player goes first in Game 3. Then the loser decides the C3 rule.\n\n2. BLOCK C3 FIRST MOVE — the winner decides whether C3 is blocked or allowed for the first move. Then the loser picks who goes first.\n\nEach player has a countdown timer to make their choice — if time runs out, the first option is selected automatically.`,
+    summary: "If a game ends in a DRAW and the overall match points are tied, a tiebreaker mini-game occurs.",
+    detail: `If a game ends in a DRAW and the match scores are tied (0–0, 1–1, 2–2, 3–3, or 4–4), the Protocolbreaker phase begins. This is a decisive mini-game to resolve the tie.\n\nA coin is flipped — YIN gives the choice to P1, YANG gives it to P2.\n\nThe toss winner chooses one of two tracks:\n\n1. DECIDE WHO PLAYS FIRST — the winner picks which player goes first in the tiebreaker. Then the loser decides the C3 rule.\n\n2. BLOCK C3 FIRST MOVE — the winner decides whether C3 is blocked or allowed for the first move. Then the loser picks who goes first.\n\nThe tiebreaker is played on a board size determined by a banning process (both players ban one board size, the last remains). The winner of this tiebreaker gains a critical advantage toward the 5-point goal.`,
     screenshot: null,
     screenshotCaption: "Rulebreaker coin toss and choice screens",
     screenshots: [{ src: "/api/proxy-image?url=https://lh3.googleusercontent.com/d/1ruG7o40ffMD6mQL5MrbQ1I8E7OLRmzs6", caption: "" },
@@ -106,9 +106,9 @@ const RULES = [
   {
   id: "series",
   emoji: "",
-  title: "SERIES & MATCH FORMAT",
-  summary: "First to win 2 games wins the match. Draws count as neither win nor loss.",
-  detail: `Every match is Best-of-3:\n\n• Win Game 1 + Win Game 2 → you win the series (no Game 3 needed)\n• Win Game 1, Draw Game 2 → you still win the series\n• Win Game 1, Lose Game 2 → series goes to Game 3 with Rulebreaker\n• Draw Game 1, Draw Game 2 → Game 3 with Rulebreaker\n\nGame 1: P1 goes first.\nGame 2: P2 goes first.\nGame 3: Decided by Rulebreaker coin toss.\n\nAfter the series, ELO is updated based on the final result.`,
+  title: "MATCH FORMAT: FIRST TO 5",
+  summary: "First to reach 5 total points wins the match. Draws trigger tiebreakers at tied intervals.",
+  detail: `Every match is First-to-5:\n\n• Each game win grants 1 point.\n• The first player to reach 5 points wins the match.\n• If a game ends in a DRAW and your points are tied, a Protocolbreaker tiebreaker occurs to resolve the tie.\n\nGames alternate starting players (P1 starts G1, P2 starts G2, etc.). Tiebreakers use a coin toss to decide the starting player.\n\nELO is updated exclusively for Ranked matches based on the final 5-point victory result.`,
   screenshot: "/api/proxy-image?url=https://lh3.googleusercontent.com/d/1X8BPjljEUplyX_nzhRu3P_Ic9tg4SToA",
   screenshotCaption: "Match timer, history panel (P1 won Game 1), and ready-to-deploy buttons",
 },
@@ -130,7 +130,7 @@ export default function RulesScreen({ themeId, onHoverAction, onClickAction }: P
           How to Play
         </h1>
         <p style={{ fontFamily:t.fontBody, fontSize:15, color:t.textMuted, textAlign:"center", marginBottom:40, letterSpacing:"0.08em" }}>
-          PENTAPROTOCOL · 5×5 · Best of 3 · Rulebreaker
+          PENTAPROTOCOL · 5×5 · First to 5 · Protocolbreaker
         </p>
 
         <div style={{ display:"flex", flexDirection:"column", gap:10 }}>

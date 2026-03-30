@@ -220,8 +220,12 @@ export default function NavBar({
   const inGame  = screen === "game" || screen === "multiGame";
   const isRanked = screen === "multiGame" && isRankedGame;
 
-  const navigate = (target: Screen) => {
+  const navigate = (target: Screen, isLocked: boolean = false) => {
     setMenuOpen(false);
+    if (isLocked && isGuest) {
+      setScreenAction("auth");
+      return;
+    }
     if (inGame && target !== screen) {
       setPendingScreen(target);
       setLeaveWarning(isRanked ? "ranked" : "unranked");
@@ -291,7 +295,7 @@ export default function NavBar({
       <button
         key={target}
         disabled={disabled}
-        onClick={() => { if (onClick) { onClick(); return; } if (targetScreen) navigate(targetScreen); }}
+        onClick={() => { if (onClick) { onClick(); return; } if (targetScreen) navigate(targetScreen, locked); }}
         onMouseEnter={() => { onHoverAction?.(); setHoveredBtn(target); }}
         onMouseLeave={() => setHoveredBtn(null)}
         style={{
@@ -547,9 +551,8 @@ export default function NavBar({
           boxShadow: "0 8px 32px rgba(0,0,0,0.4)",
         }}>
           {navLinks.map(({ target, label, screen: s, locked }) => (
-            <button
-              key={target}
-              onClick={() => navigate(s)}
+              <button
+                onClick={() => navigate(s, locked)}
               style={{
                 background: getActive(target) ? `${t.accent}18` : "none",
                 border: "none",

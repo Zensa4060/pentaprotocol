@@ -25,19 +25,15 @@ def tick_ready_system(ui, dt):
             if ui.match_over:
                 pass  # series already decided, do nothing
 
-            elif ui.game_number + 1 == 3:
-                # About to start game 3 — show rulebreaker first
-                ui.show_rulebreaker  = True
-                ui.rulebreaker_timer = 3.0
-                ui.coin_flip_timer   = 3.0
-                ui.coin_result       = None
-
             else:
                 ui.engine.reset()
                 ui.game_number += 1
 
-                if ui.game_number == 2:
+                # Alternate starting player
+                if ui.game_number % 2 == 0:
                     ui.engine.current_player = "P2"
+                else:
+                    ui.engine.current_player = "P1"
 
                 ui.reset_timers()
                 ui.move_log.clear()
@@ -81,27 +77,14 @@ def process_game_end(ui):
     ui.series_processed = True
     ui.match_history.append(ui.engine.get_winner())
 
-    if len(ui.match_history) >= 2:
-        series_winner = ui._check_series_winner()
-        if series_winner is not None:
-            # Series decided in 2 games
-            ui.match_over    = True
-            ui.series_winner = series_winner
-        else:
-            # Need game 3
-            if ui.game_number >= 3:
-                ui.match_over    = True
-                ui.series_winner = ui.match_history[-1]
-            else:
-                ui.waiting_ready = True
-                ui.p1_ready      = False
-                ui.p2_ready      = False
-                ui.ready_timeout = 60
-                ui.ready_timer   = 2
+    series_winner = ui._check_series_winner()
+    if series_winner is not None:
+        ui.match_over    = True
+        ui.series_winner = series_winner
     else:
-        # After game 1, always go to game 2
+        # Match continues
         ui.waiting_ready = True
         ui.p1_ready      = False
         ui.p2_ready      = False
         ui.ready_timeout = 60
-        ui.ready_timer   = 2
+        ui.ready_timer   = 2

@@ -50,25 +50,28 @@ function getWsBaseUrl(): string {
   return "ws://localhost:8000";
 }
 
-type RankedMatchCompletePayload = {
+type MatchSeriesCompletePayload = {
   series_winner: string;
+  format: string; // "ranked" | "unranked" | "custom"
   p1: { elo_before: number; elo_after: number; rr_before: number; rr_after: number };
   p2: { elo_before: number; elo_after: number; rr_before: number; rr_after: number };
 };
 
-function RankedResultOverlay({
+function MatchResultOverlay({
   payload,
   mySlot,
   themeId,
   onDismiss,
 }: {
-  payload: RankedMatchCompletePayload;
+  payload: MatchSeriesCompletePayload;
   mySlot: "P1" | "P2";
   themeId: ThemeId;
   onDismiss: () => void;
 }) {
   const t = THEMES[themeId];
   const mine = mySlot === "P1" ? payload.p1 : payload.p2;
+  const isRanked = payload.format === "ranked";
+  
   const [prog, setProg] = useState(0);
   useEffect(() => {
     const t0 = performance.now();
@@ -82,64 +85,82 @@ function RankedResultOverlay({
     id = requestAnimationFrame(step);
     return () => cancelAnimationFrame(id);
   }, [payload]);
+
   const lerp = (a: number, b: number) => Math.round(a + (b - a) * prog);
   const eloN = lerp(mine.elo_before, mine.elo_after);
   const rrN = lerp(mine.rr_before, mine.rr_after);
   const dElo = mine.elo_after - mine.elo_before;
   const dRr = mine.rr_after - mine.rr_before;
-  const label =
-    payload.series_winner === "DRAW" ? "MATCH DRAW" : payload.series_winner === mySlot ? "VICTORY" : "DEFEAT";
+  
+  const isVictory = payload.series_winner === mySlot;
+  const isDraw = payload.series_winner === "DRAW";
+  const label = isDraw ? "MATCH DRAW" : isVictory ? "VICTORY" : "DEFEAT";
 
   return (
     <div
       style={{
-        position: "fixed",
-        inset: 0,
-        zIndex: 12000,
+        position: "fixed", inset: 0, zIndex: 12000,
         background: "rgba(0,0,0,0.92)",
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
+        display: "flex", flexDirection: "column",
+        alignItems: "center", justifyContent: "center",
         padding: 24,
       }}
     >
-      <div style={{ fontFamily: t.fontDisplay, fontSize: 28, fontWeight: 900, color: t.gold, letterSpacing: "0.12em", marginBottom: 8 }}>
-        RANKED MATCH COMPLETE
+      <div style={{ 
+        fontFamily: t.fontDisplay, fontSize: 32, fontWeight: 900, 
+        color: isVictory ? "#10B981" : isDraw ? "#F59E0B" : "#EF4444", 
+        letterSpacing: "0.12em", marginBottom: 8,
+        textShadow: `0 0 30px ${isVictory ? "#10B981" : isDraw ? "#F59E0B" : "#EF4444"}44`
+      }}>
+        {isRanked ? "RANKED MATCH COMPLETE" : "MATCH COMPLETE"}
       </div>
-      <div style={{ fontFamily: t.fontMono, fontSize: 13, color: t.textMuted, marginBottom: 28 }}>{label}</div>
-      <div style={{ display: "flex", gap: 48, flexWrap: "wrap", justifyContent: "center", marginBottom: 36 }}>
-        <div style={{ textAlign: "center" }}>
-          <div style={{ fontFamily: t.fontMono, fontSize: 11, color: t.textMuted, letterSpacing: "0.2em", marginBottom: 8 }}>ELO</div>
-          <div style={{ fontFamily: t.fontDisplay, fontSize: 56, fontWeight: 900, color: t.accent }}>{eloN}</div>
-          <div style={{ fontFamily: t.fontMono, fontSize: 14, color: dElo >= 0 ? "#22c55e" : "#f87171", marginTop: 6 }}>
-            {dElo >= 0 ? "+" : ""}
-            {dElo}
+      <div style={{ fontFamily: t.fontMono, fontSize: 13, color: t.textMuted, marginBottom: 28, letterSpacing: "0.1em" }}>
+        {label}
+      </div>
+
+      {isRanked && (
+        <div style={{ display: "flex", gap: 48, flexWrap: "wrap", justifyContent: "center", marginBottom: 36 }}>
+          <div style={{ textAlign: "center" }}>
+            <div style={{ fontFamily: t.fontMono, fontSize: 11, color: t.textMuted, letterSpacing: "0.2em", marginBottom: 8 }}>ELO</div>
+            <div style={{ fontFamily: t.fontDisplay, fontSize: 56, fontWeight: 900, color: t.accent }}>{eloN}</div>
+            <div style={{ fontFamily: t.fontMono, fontSize: 14, color: dElo >= 0 ? "#22c55e" : "#f87171", marginTop: 6 }}>
+              {dElo >= 0 ? "+" : ""}{dElo}
+            </div>
+          </div>
+          <div style={{ textAlign: "center" }}>
+            <div style={{ fontFamily: t.fontMono, fontSize: 11, color: t.textMuted, letterSpacing: "0.2em", marginBottom: 8 }}>RR</div>
+            <div style={{ fontFamily: t.fontDisplay, fontSize: 56, fontWeight: 900, color: t.gold }}>{rrN}</div>
+            <div style={{ fontFamily: t.fontMono, fontSize: 14, color: dRr >= 0 ? "#22c55e" : "#f87171", marginTop: 6 }}>
+              {dRr >= 0 ? "+" : ""}{dRr}
+            </div>
           </div>
         </div>
-        <div style={{ textAlign: "center" }}>
-          <div style={{ fontFamily: t.fontMono, fontSize: 11, color: t.textMuted, letterSpacing: "0.2em", marginBottom: 8 }}>RR</div>
-          <div style={{ fontFamily: t.fontDisplay, fontSize: 56, fontWeight: 900, color: t.gold }}>{rrN}</div>
-          <div style={{ fontFamily: t.fontMono, fontSize: 14, color: dRr >= 0 ? "#22c55e" : "#f87171", marginTop: 6 }}>
-            {dRr >= 0 ? "+" : ""}
-            {dRr}
-          </div>
+      )}
+
+      {!isRanked && (
+        <div style={{ marginBottom: 40, textAlign: "center" }}>
+           <div style={{ fontFamily: t.fontMono, fontSize: 14, color: t.textMuted, letterSpacing: "0.05em" }}>
+             Battle archived in career history
+           </div>
         </div>
-      </div>
+      )}
+
       <button
         type="button"
         onClick={onDismiss}
         style={{
-          padding: "14px 36px",
+          padding: "16px 48px",
           background: t.accent,
-          border: `2px solid ${t.accent}`,
-          borderRadius: 8,
+          border: "none",
+          borderRadius: 12,
           color: "#000",
           fontFamily: t.fontDisplay,
-          fontSize: 15,
-          fontWeight: 800,
+          fontSize: 16,
+          fontWeight: 900,
           cursor: "pointer",
           letterSpacing: "0.08em",
+          boxShadow: `0 10px 30px ${t.accent}44`,
+          transition: "all 0.2s"
         }}
       >
         CONTINUE
@@ -356,7 +377,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   useEffect(() => {
     rulesMatchGateRef.current = rulesMatchGate;
   }, [rulesMatchGate]);
-  const [rankedMatchComplete, setRankedMatchComplete] = useState<RankedMatchCompletePayload | null>(null);
+  const [matchSeriesComplete, setMatchSeriesComplete] = useState<MatchSeriesCompletePayload | null>(null);
   const [pbOverlay, setPbOverlay] = useState<{
     tossWinner: "P1" | "P2";
     p1Agg: number;
@@ -1136,12 +1157,13 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
           const et = asNum(msg.extra_turns);
           if (typeof et === "number") setExtraTurns(et);
           if (msg.rb_extra_turn_token_used === true) setRbExtraTurnTokenUsed(true);
-            } else if (msg.type === "ranked_match_complete") {
-          const rm = msg as unknown as Partial<RankedMatchCompletePayload> & { series_winner?: string };
+            } else if (msg.type === "match_series_complete" || msg.type === "ranked_match_complete") {
+          const rm = msg as unknown as Partial<MatchSeriesCompletePayload> & { series_winner?: string; format?: string };
           const z = (n: unknown, d: number) => (typeof n === "number" && !Number.isNaN(n) ? n : d);
           void useAuthStore.getState().refreshProfile();
-          setRankedMatchComplete({
+          setMatchSeriesComplete({
             series_winner: String(rm.series_winner ?? "DRAW"),
+            format: String(rm.format ?? "ranked"),
             p1: {
               elo_before: z(rm.p1?.elo_before, 0),
               elo_after: z(rm.p1?.elo_after, 0),
@@ -1710,24 +1732,10 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
 
   const checkSeriesWinner = (hist: string[]): string | null => {
     if (isMultiplayerGame) {
-      const start = segmentStartIndexRef.current;
-      const seg = hist.slice(start);
-      const p1 = seg.filter(w => w === "P1").length;
-      const p2 = seg.filter(w => w === "P2").length;
-      if (p1 >= 2 && p1 > p2) return "P1";
-      if (p2 >= 2 && p2 > p1) return "P2";
-      if (seg.length === 3 && seg[0] === "DRAW" && seg[2] === "DRAW") {
-        if (seg[1] === "P1" && p2 === 0) return "P1";
-        if (seg[1] === "P2" && p1 === 0) return "P2";
-      }
-      if (
-        seg.length === 3 &&
-        seg[0] === "DRAW" &&
-        seg[1] === "DRAW" &&
-        (seg[2] === "P1" || seg[2] === "P2")
-      ) {
-        return seg[2];
-      }
+      const p1 = hist.filter(w => w === "P1").length;
+      const p2 = hist.filter(w => w === "P2").length;
+      if (p1 >= 5) return "P1";
+      if (p2 >= 5) return "P2";
       return null;
     }
     if (hist.length < 2) return null;
@@ -2582,7 +2590,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   if (showSplash) return (
     <div style={{ position: "fixed", top: 64, left: 0, right: 0, bottom: 0, zIndex: 2, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: themeId === "pixel" ? "url(/bg-pixel.png) center/cover no-repeat" : themeId === "space" ? "transparent" : t.bg, gap: 32, userSelect: "none" }}>
       <div style={{ fontFamily: t.fontDisplay, fontSize: "clamp(24px,5vw,72px)", fontWeight: 900, color: t.accent, textShadow: `0 0 60px ${t.accentGlow}55`, letterSpacing: "0.06em", textAlign: "center" }}>SINGLEPLAYER</div>
-      <div style={{ fontFamily: t.fontBody, fontSize: "clamp(13px,1.6vw,18px)", color: t.textSecondary, letterSpacing: "0.04em" }}>Local · Pass & Play · Best of 3</div>
+      <div style={{ fontFamily: t.fontBody, fontSize: "clamp(13px,1.6vw,18px)", color: t.textSecondary, letterSpacing: "0.04em" }}>Local · Pass & Play · First to 5</div>
       <button onClick={() => setShowSplash(false)}
         style={{
           marginTop: 8,
@@ -3003,8 +3011,8 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
         <div style={{ position: "absolute", top: 8, right: 8, zIndex: 10, display: "flex", flexDirection: "column", gap: 4, alignItems: "flex-end" }}>
           <div style={{ background: "rgba(0,0,0,0.75)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 8, padding: "4px 10px", backdropFilter: "blur(6px)" }}>
             <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-              {["G1", "G2", "G3"].map((g, i) => {
-                const res = displayMatchHistory[i];
+              {displayMatchHistory.length > 0 ? displayMatchHistory.map((res, i) => {
+                const g = `G${i + 1}`;
                 const col = res === "P1" ? p1c : res === "P2" ? p2c : res === "DRAW" ? t.gold : "#333";
                 const isActive = i === (gameNumber - 1);
                 return (
@@ -3013,7 +3021,12 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
                     <div style={{ width: 16, height: 3, borderRadius: 2, background: res ? col : "#222", border: `1px solid ${res ? col : "#333"}` }} />
                   </div>
                 );
-              })}
+              }) : (
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
+                  <span style={{ fontFamily: t.fontMono, fontSize: 9, color: t.accent, fontWeight: 700 }}>G1 ◀</span>
+                  <div style={{ width: 16, height: 3, borderRadius: 2, background: "#222", border: `1px solid #333` }} />
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -3149,8 +3162,8 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
 
         <SurrenderModal show={showSurrender} t={sidebarT} ip={ip} isRankedGame={isRankedGame} onConfirmAction={() => { setShowSurrender(false); if (isMultiplayerGame && isRankedGame && wsRef.current?.readyState === WebSocket.OPEN) { wsRef.current.send(JSON.stringify({ type: "quit_match", slot: mySlot })); } if (setScreenAction) setScreenAction("home"); }} onCancelAction={() => { playClickAction?.(); pausedRef.current = false; setShowSurrender(false); }} playHoverAction={playHoverAction} />
         <ExitModal show={showExitConfirm} t={sidebarT} ip={ip} onConfirmAction={() => { setShowExitConfirm(false); if (setScreenAction) setScreenAction("home"); }} onCancelAction={() => { playClickAction?.(); pausedRef.current = false; setShowExitConfirm(false); }} playHoverAction={playHoverAction} />
-        <RematchOverlay show={showRematch && rankedMatchComplete === null} isMultiplayerGame={isMultiplayerGame} t={sidebarT} ip={ip} p1c={p1c} p2c={p2c} seriesWinner={seriesWinner} mySlot={mySlot} rematchRequested={rematchRequested} winnerDisplayNameAction={winnerDisplayName} lastSeries={lastSeries} onRematchAction={() => { wsRef.current?.send(JSON.stringify({ type: "rematch" })); setRematchRequested(mySlot); }} onQuitMatchAction={() => { wsRef.current?.send(JSON.stringify({ type: "quit_match", slot: mySlot })); if (setScreenAction) setScreenAction("home"); }} />
-        {pbOverlay && isMultiplayerGame && isRankedGame && (
+        <RematchOverlay show={showRematch && matchSeriesComplete === null} isMultiplayerGame={isMultiplayerGame} t={sidebarT} ip={ip} p1c={p1c} p2c={p2c} seriesWinner={seriesWinner} mySlot={mySlot} rematchRequested={rematchRequested} winnerDisplayNameAction={winnerDisplayName} lastSeries={lastSeries} onRematchAction={() => { wsRef.current?.send(JSON.stringify({ type: "rematch" })); setRematchRequested(mySlot); }} onQuitMatchAction={() => { wsRef.current?.send(JSON.stringify({ type: "quit_match", slot: mySlot })); if (setScreenAction) setScreenAction("home"); }} />
+        {pbOverlay && isMultiplayerGame && (
           <div
             style={{
               position: "fixed",
@@ -3166,7 +3179,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
           >
             <div style={{ fontFamily: t.fontDisplay, fontSize: 22, fontWeight: 900, color: t.gold, marginBottom: 8, letterSpacing: "0.1em" }}>PROTOCOLBREAKER</div>
             <div style={{ fontFamily: t.fontMono, fontSize: 12, color: t.textMuted, marginBottom: 12, textAlign: "center", maxWidth: 420, lineHeight: 1.5 }}>
-              Full-protocol aggregate is tied ({pbOverlay.p1Agg}–{pbOverlay.p2Agg} decisive mini-game wins). Each player bans one board; the match continues on the surviving size.
+              The match is tied at {pbOverlay.p1Agg}–{pbOverlay.p2Agg} and the last game ended in a DRAW. Both players must ban one board size to determine where the tie will be broken.
             </div>
             <div style={{ fontFamily: t.fontMono, fontSize: 11, color: t.accent, marginBottom: 20, textAlign: "center" }}>
               {pbOverlay.nextSlot === mySlot ? "Your turn — choose a board to ban." : "Other player is choosing a board to ban…"}
@@ -3208,12 +3221,12 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
             </div>
           </div>
         )}
-        {rankedMatchComplete && (
-          <RankedResultOverlay
-            payload={rankedMatchComplete}
+        {matchSeriesComplete && (
+          <MatchResultOverlay
+            payload={matchSeriesComplete}
             mySlot={mySlot}
             themeId={themeId}
-            onDismiss={() => setRankedMatchComplete(null)}
+            onDismiss={() => setMatchSeriesComplete(null)}
           />
         )}
 
@@ -3392,10 +3405,10 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
         playHoverAction={playHoverAction}
       />
 
-        <RematchOverlay show={showRematch && rankedMatchComplete === null} isMultiplayerGame={isMultiplayerGame} t={sidebarT} ip={ip} p1c={p1c} p2c={p2c} seriesWinner={seriesWinner} mySlot={mySlot} rematchRequested={rematchRequested} winnerDisplayNameAction={winnerDisplayName} lastSeries={lastSeries} onRematchAction={() => { wsRef.current?.send(JSON.stringify({ type: "rematch" })); setRematchRequested(mySlot); }} onQuitMatchAction={() => { wsRef.current?.send(JSON.stringify({ type: "quit_match", slot: mySlot })); if (setScreenAction) setScreenAction("home"); }} />
+        <RematchOverlay show={showRematch && matchSeriesComplete === null} isMultiplayerGame={isMultiplayerGame} t={sidebarT} ip={ip} p1c={p1c} p2c={p2c} seriesWinner={seriesWinner} mySlot={mySlot} rematchRequested={rematchRequested} winnerDisplayNameAction={winnerDisplayName} lastSeries={lastSeries} onRematchAction={() => { wsRef.current?.send(JSON.stringify({ type: "rematch" })); setRematchRequested(mySlot); }} onQuitMatchAction={() => { wsRef.current?.send(JSON.stringify({ type: "quit_match", slot: mySlot })); if (setScreenAction) setScreenAction("home"); }} />
         <SurrenderModal show={showSurrender} t={sidebarT} ip={ip} isRankedGame={isRankedGame} onConfirmAction={() => { setShowSurrender(false); if (isMultiplayerGame && isRankedGame && wsRef.current?.readyState === WebSocket.OPEN) { wsRef.current.send(JSON.stringify({ type: "quit_match", slot: mySlot })); } if (setScreenAction) setScreenAction("home"); }} onCancelAction={() => { playClickAction?.(); pausedRef.current = false; setShowSurrender(false); }} playHoverAction={playHoverAction} />
       <ExitModal show={showExitConfirm} t={sidebarT} ip={ip} onConfirmAction={() => { setShowExitConfirm(false); if (setScreenAction) setScreenAction("home"); }} onCancelAction={() => { playClickAction?.(); pausedRef.current = false; setShowExitConfirm(false); }} playHoverAction={playHoverAction} />
-      {pbOverlay && isMultiplayerGame && isRankedGame && (
+      {pbOverlay && isMultiplayerGame && (
         <div
           style={{
             position: "fixed",
@@ -3411,7 +3424,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
         >
           <div style={{ fontFamily: t.fontDisplay, fontSize: 22, fontWeight: 900, color: t.gold, marginBottom: 8, letterSpacing: "0.1em" }}>PROTOCOLBREAKER</div>
           <div style={{ fontFamily: t.fontMono, fontSize: 12, color: t.textMuted, marginBottom: 12, textAlign: "center", maxWidth: 420, lineHeight: 1.5 }}>
-            Full-protocol aggregate is tied ({pbOverlay.p1Agg}–{pbOverlay.p2Agg} decisive mini-game wins). Each player bans one board; the match continues on the surviving size.
+            The match is tied at {pbOverlay.p1Agg}–{pbOverlay.p2Agg} and the last game ended in a DRAW. Both players must ban one board size to determine where the tie will be broken.
           </div>
           <div style={{ fontFamily: t.fontMono, fontSize: 11, color: t.accent, marginBottom: 20, textAlign: "center" }}>
             {pbOverlay.nextSlot === mySlot ? "Your turn — choose a board to ban." : "Other player is choosing a board to ban…"}
@@ -3453,12 +3466,12 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
           </div>
         </div>
       )}
-      {rankedMatchComplete && (
-        <RankedResultOverlay
-          payload={rankedMatchComplete}
+      {matchSeriesComplete && (
+        <MatchResultOverlay
+          payload={matchSeriesComplete}
           mySlot={mySlot}
           themeId={themeId}
-          onDismiss={() => setRankedMatchComplete(null)}
+          onDismiss={() => setMatchSeriesComplete(null)}
         />
       )}
 

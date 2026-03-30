@@ -278,9 +278,9 @@ export function MatchSidebar({
       <div style={{ borderTop: `1px solid ${t.border}`, paddingTop: 12 }}>
         <div style={{ fontFamily: t.fontMono, fontSize: 20, fontWeight: 700, color: t.text, letterSpacing: "0.14em", marginBottom: 10 }}>MATCH HISTORY</div>
 
-        {isMultiplayerGame && typeof p1SeriesPts === "number" && typeof p2SeriesPts === "number" && (
+        {(isMultiplayerGame || isMultiplayer) && typeof p1SeriesPts === "number" && typeof p2SeriesPts === "number" && (
           <div style={{ marginBottom: 12, padding: "10px 12px", background: `${t.accent}0C`, border: `1px solid ${t.accent}33`, borderRadius: ip ? 2 : 10 }}>
-            <div style={{ fontFamily: t.fontMono, fontSize: 9, color: t.textMuted, letterSpacing: "0.2em", marginBottom: 6 }}>SERIES POINTS · FIRST TO 2</div>
+            <div style={{ fontFamily: t.fontMono, fontSize: 9, color: t.textMuted, letterSpacing: "0.2em", marginBottom: 6 }}>SERIES POINTS · FIRST TO 5</div>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontFamily: t.fontDisplay, fontSize: 18, fontWeight: 800 }}>
               <span style={{ color: p1c }}>{p1Label ?? "P1"} <span style={{ color: t.text }}>{p1SeriesPts}</span></span>
               <span style={{ color: t.textMuted, fontSize: 14 }}>—</span>
@@ -311,7 +311,7 @@ export function MatchSidebar({
           </div>
         )}
 
-        {[0, 1, 2].map(i => {
+        {Array.from({ length: Math.max(matchHistory.length + 1, gameNumber) }).slice(0, 9).map((_, i) => {
           const result = matchHistory[i] ?? "";
           const col = result === "P1" ? p1c : result === "P2" ? p2c : result === "DRAW" ? t.gold : t.textMuted;
           const isCur = i === gameNumber - 1 && (phase === "playing" || phase === "waiting_ready");
@@ -619,9 +619,9 @@ export function LeftPanel(props: MatchSidebarProps) {
       <div style={{ borderTop: `1px solid ${t.border}`, paddingTop: 12 }}>
         <div style={{ fontFamily: t.fontMono, fontSize: 20, fontWeight: 700, color: t.text, letterSpacing: "0.14em", marginBottom: 10 }}>MATCH HISTORY</div>
 
-        {isMultiplayerGame && typeof p1SeriesPts === "number" && typeof p2SeriesPts === "number" && (
+        {(isMultiplayerGame || isMultiplayer) && typeof p1SeriesPts === "number" && typeof p2SeriesPts === "number" && (
           <div style={{ marginBottom: 12, padding: "10px 12px", background: `${t.accent}0C`, border: `1px solid ${t.accent}33`, borderRadius: ip ? 2 : 10 }}>
-            <div style={{ fontFamily: t.fontMono, fontSize: 9, color: t.textMuted, letterSpacing: "0.2em", marginBottom: 6 }}>SERIES POINTS · FIRST TO 2</div>
+            <div style={{ fontFamily: t.fontMono, fontSize: 9, color: t.textMuted, letterSpacing: "0.2em", marginBottom: 6 }}>SERIES POINTS · FIRST TO 5</div>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontFamily: t.fontDisplay, fontSize: 18, fontWeight: 800 }}>
               <span style={{ color: p1c }}>{p1Label ?? "P1"} <span style={{ color: t.text }}>{p1SeriesPts}</span></span>
               <span style={{ color: t.textMuted, fontSize: 14 }}>—</span>
@@ -652,7 +652,7 @@ export function LeftPanel(props: MatchSidebarProps) {
           </div>
         )}
 
-        {[0, 1, 2].map(i => {
+        {Array.from({ length: Math.max(matchHistory.length + 1, gameNumber) }).slice(0, 9).map((_, i) => {
           const result = matchHistory[i] ?? "";
           const col = result === "P1" ? p1c : result === "P2" ? p2c : result === "DRAW" ? t.gold : t.textMuted;
           const isCur = i === gameNumber - 1 && (phase === "playing" || phase === "waiting_ready");

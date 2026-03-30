@@ -16,7 +16,9 @@ function loadToken(): string | null {
   if (typeof window === "undefined") return null;
   const token  = localStorage.getItem("pp_token");
   const expiry = Number(localStorage.getItem("pp_expiry") || "0");
-  if (!token) return null;
+
+  if (!token || token === "null" || token === "undefined") return null;
+
   if (expiry && Date.now() > expiry) {
     localStorage.removeItem("pp_token");
     localStorage.removeItem("pp_expiry");
@@ -62,61 +64,61 @@ interface AuthStore {
   refreshProfile: () => Promise<void>;
 }
 
-export const useAuthStore = create<AuthStore>((set, get) => ({
-  user:  loadUser(),
-  token: loadToken(),
+export const useAuthStore = create<AuthStore>((set, get) => {
+  const token = loadToken();
+  const user = token ? loadUser() : null;
 
-  setAuth: (user, token, persist = false) => {
-    saveToken(token, persist);
-    saveUser(user);
-    set({ user, token });
-  },
+  return {
+    user,
+    token,
 
-  logout: () => {
-    localStorage.removeItem("pp_token");
-    localStorage.removeItem("pp_expiry");
-    localStorage.removeItem("pp_persist");
-    localStorage.removeItem("pp_user");
-    localStorage.removeItem("pp_custom_theme");
-    // Intentionally keep pp_device_token so 2FA is skipped for 30 days
-    set({ user: null, token: null });
-  },
+    setAuth: (user, token, persist = false) => {
+      saveToken(token, persist);
+      saveUser(user);
+      set({ user, token });
+    },
 
-  updateUser: (patch) => {
-    const current = get().user;
+    logout: () => {
+      localStorage.removeItem("pp_token");
+      localStorage.removeItem("pp_expiry");
+      localStorage.removeItem("pp_persist");
+      localStorage.removeItem("pp_user");
+      localStorage.removeItem("pp_custom_theme");
+      set({ user: null, token: null });
+    },
 
-    // For array fields, always prefer the longer/newer array to prevent
-    // a partial patch (e.g. { protocredits: X }) from wiping purchased_items.
-    const mergeArray = (key: string) => {
-      const patched  = patch[key];
-      const existing = current?.[key];
-      if (patched  === undefined) return existing ?? [];
-      if (existing === undefined) return patched;
-      // If patch came from a full profile fetch it will be equal length or longer
-      return patched.length >= existing.length ? patched : existing;
-    };
+    updateUser: (patch) => {
+      const current = get().user;
+      const mergeArray = (key: string) => {
+        const patched  = patch[key];
+        const existing = current?.[key];
+        if (patched  === undefined) return existing ?? [];
+        if (existing === undefined) return patched;
+        return patched.length >= existing.length ? patched : existing;
+      };
 
-    const updated = {
-      ...current,
-      ...patch,
-      purchased_items: mergeArray("purchased_items"),
-    };
+      const updated = {
+        ...current,
+        ...patch,
+        purchased_items: mergeArray("purchased_items"),
+      };
 
-    saveUser(updated);
-    set({ user: updated });
-  },
+      saveUser(updated);
+      set({ user: updated });
+    },
 
-  refreshProfile: async () => {
-    const token = get().token;
-    if (!token) return;
-    try {
-      const res = await API.get("/api/profile/me", {
-        headers: { Authorization: `Bearer ${token}` },
-        timeout: 15000,
-      });
-      get().updateUser(res.data);
-    } catch {
-      /* ignore */
-    }
-  },
-}));
+    refreshProfile: async () => {
+      const token = get().token;
+      if (!token) return;
+      try {
+        const res = await API.get("/api/profile/me", {
+          headers: { Authorization: `Bearer ${token}` },
+          timeout: 15000,
+        });
+        get().updateUser(res.data);
+      } catch {
+        /* ignore */
+      }
+    },
+  };
+});

@@ -71,6 +71,7 @@ def serialize_room(room: dict) -> dict:
         "game_status":    room.get("game_status", "waiting"),
         "game_number":    room.get("game_number", 1),
         "match_history":  room.get("match_history", []),
+        "move_log":       room.get("move_log", []),
         "p1_series_points": room.get("p1_series_points", 0),
         "p2_series_points": room.get("p2_series_points", 0),
         "series_winner":  room.get("series_winner"),
@@ -101,40 +102,40 @@ def serialize_room(room: dict) -> dict:
     }
 
 
-def compute_segment_points(history: list, segment_start: int) -> tuple[int, int]:
-    """Wins in the current board segment only; DRAW adds nothing."""
-    if segment_start > len(history):
-        return 0, 0
-    seg = history[segment_start:]
-    p1 = sum(1 for w in seg if w == "P1")
-    p2 = sum(1 for w in seg if w == "P2")
+def compute_segment_points(history: list, segment_start: int = 0) -> tuple[int, int]:
+    """
+    Wins in the full match history for the current first-to-5 flow.
+    Handles both string winners ('P1') and rich history objects ({'winner': 'P1'}).
+    """
+    p1 = 0
+    p2 = 0
+    for item in history:
+        w = item["winner"] if isinstance(item, dict) else item
+        if w == "P1": p1 += 1
+        elif w == "P2": p2 += 1
     return p1, p2
 
 
-def compute_series_winner(history: list, segment_start: int, win_cap: int = 2) -> str | None:
+def compute_series_winner(history: list, segment_start: int = 0, win_cap: int = 5) -> str | None:
     """
-    First-to-two decisive wins, plus DRAW → win → DRAW (three games): the middle winner
-    wins the segment (e.g. G1 draw, G2 P1, G3 draw → P1 wins the series).
+    First-to-5 total points wins instantly.
+    If all 9 games are played, the player with the most points wins.
+    If points are equal at 9 games (4-4, 3-3, etc.), returns None (Protocolbreaker).
     """
-    if segment_start > len(history):
-        return None
-    seg = history[segment_start:]
-    p1_pts, p2_pts = compute_segment_points(history, segment_start)
-
-    if p1_pts >= win_cap and p1_pts > p2_pts:
+    p1_pts, p2_pts = compute_segment_points(history)
+    if p1_pts >= win_cap:
         return "P1"
-    if p2_pts >= win_cap and p2_pts > p1_pts:
+    if p2_pts >= win_cap:
         return "P2"
-
-    if len(seg) == 3 and seg[0] == "DRAW" and seg[2] == "DRAW":
-        mid = seg[1]
-        if mid == "P1" and p2_pts == 0:
+    
+    # If full 9 rounds are played, decide by majority or None (Protocolbreaker)
+    if len(history) >= 9:
+        if p1_pts > p2_pts:
             return "P1"
-        if mid == "P2" and p1_pts == 0:
+        if p2_pts > p1_pts:
             return "P2"
-
-    if len(seg) == 3 and seg[0] == "DRAW" and seg[1] == "DRAW" and seg[2] in ("P1", "P2"):
-        return seg[2]
+        return None # Protocolbreaker tie
+        
     return None
 
 
@@ -142,24 +143,25 @@ def compute_awaiting_rulebreaker(history: list, segment_start: int) -> bool:
     """
     After each completed *pair* of games in the segment, Rulebreaker is required
     before the next game **unless** that pair was a two-game sweep (same player won both).
-
-    The only cases with no Rulebreaker after two games are P1,P1 or P2,P2.
-
-    After three games at 1–1 (or triple draw pending upgrade), never require a second
-    Rulebreaker on the same grid — the move handler upgrades 5×5→7×7 or the segment ends.
     """
     if segment_start > len(history):
         return False
     seg = history[segment_start:]
-    p1w = sum(1 for w in seg if w == "P1")
-    p2w = sum(1 for w in seg if w == "P2")
+    
+    # Extract winners for logic
+    winners = [item["winner"] if isinstance(item, dict) else item for item in seg]
+    
+    p1w = sum(1 for w in winners if w == "P1")
+    p2w = sum(1 for w in winners if w == "P2")
+    
     if len(seg) >= 3 and p1w == 1 and p2w == 1:
         return False
-    if len(seg) >= 3 and all(w == "DRAW" for w in seg):
+    if len(seg) >= 3 and all(w == "DRAW" for w in winners):
         return False
     if len(seg) < 2 or len(seg) % 2 != 0:
         return False
-    g1, g2 = seg[-2], seg[-1]
+        
+    g1, g2 = winners[-2], winners[-1]
     if g1 == g2 and g1 in ("P1", "P2"):
         return False
     return True
@@ -184,24 +186,14 @@ def should_auto_upgrade_7x7_after_5x5_game3(
     game_number: int,
 ) -> bool:
     """
-    After game 3 on 5×5, if the segment is still undecided and either tied 1–1 in wins
-    or all three games were draws, open the 7×7 leg (no second 5×5 Rulebreaker).
+    After 3 games on 5x5, if the match isn't won, we unconditionally 
+    transition to the next board (6x6 or 7x7 depending on flow).
     """
-    # Use starting board mode for check (handles both '5x5' and '5x5_7x7' etc)
     start_mode = _starting_board_mode(board_mode)
     if start_mode != "5x5" or game_number != 3:
         return False
-    if segment_start > len(new_history):
-        return False
-    seg = new_history[segment_start:]
-    if len(seg) != 3:
-        return False
-    if compute_series_winner(new_history, segment_start, 2) is not None:
-        return False
-    p1p, p2p = compute_segment_points(new_history, segment_start)
-    if p1p == 1 and p2p == 1:
-        return True
-    if all(w == "DRAW" for w in seg):
+    # If no one has 5 wins yet (and we played 3/6/9 games), we move to next board
+    if compute_series_winner(new_history) is None:
         return True
     return False
 
@@ -339,19 +331,13 @@ def should_auto_upgrade_7x7_after_6x6_game3(
     board_mode: str,
     game_number: int,
 ) -> bool:
+    """
+    After 3 games on 6x6, if the match isn't won, we unconditionally 
+    transition to 7x7.
+    """
     if board_mode != "6x6" or game_number != 3:
         return False
-    if segment_start > len(new_history):
-        return False
-    seg = new_history[segment_start:]
-    if len(seg) != 3:
-        return False
-    if compute_series_winner(new_history, segment_start, 2) is not None:
-        return False
-    p1p, p2p = compute_segment_points(new_history, segment_start)
-    if p1p == 1 and p2p == 1:
-        return True
-    if all(w == "DRAW" for w in seg):
+    if compute_series_winner(new_history) is None:
         return True
     return False
 
@@ -584,7 +570,7 @@ async def _apply_6x6_to_7x7_upgrade(
             pass
 
 
-async def _award_ranked_triple_and_notify(
+async def _award_match_series_and_notify(
     db,
     room_code: str,
     room: dict,
@@ -593,7 +579,7 @@ async def _award_ranked_triple_and_notify(
     *,
     record_clean_streak: bool = True,
 ):
-    """Single ELO/RR update + optional WS payload for clients."""
+    """General match series outcome (First-to-5) for Ranked, Unranked, and Custom."""
     hist = list(update.get("match_history") or room.get("match_history") or [])
     room_fresh = await db.rooms.find_one({"room_code": room_code}) or room
     pb_played = bool(room_fresh.get("protocolbreaker_final"))
@@ -601,21 +587,26 @@ async def _award_ranked_triple_and_notify(
     if room_fresh.get("protocolbreaker_pending"):
         return
 
+    effective = match_winner
     if room_fresh.get("protocolbreaker_final"):
-        effective = match_winner if match_winner in ("P1", "P2", "DRAW") else None
-        if effective is None:
+        if effective not in ("P1", "P2", "DRAW"):
             return
         await db.rooms.update_one(
             {"room_code": room_code},
             {"$unset": {"protocolbreaker_final": ""}},
         )
     else:
-        agg = _aggregate_match_winner(hist)
+        agg = compute_series_winner(hist)
         if agg is not None:
             effective = agg
         else:
-            await _broadcast_protocolbreaker_tie(db, room_code, room, hist)
-            return
+            # Check if Protocolbreaker should trigger (Score tied at end of 9 rounds)
+            if len(hist) >= 9:
+                 p1p, p2p = compute_segment_points(hist)
+                 if p1p == p2p:
+                     await _broadcast_protocolbreaker_tie(db, room_code, room, hist)
+                     return
+            effective = match_winner # Fallback
 
     game_dict = {
         "player1_id": room["player1_id"],
@@ -623,14 +614,17 @@ async def _award_ranked_triple_and_notify(
         "format": room["format"],
         "source": room.get("source", "matchmaking"),
         "mode": "multiplayer",
-        "board_mode": room.get("board_mode", "7x7"),
+        "board_mode": room.get("board_mode"),
         "match_rounds": hist,
-        "board_mode_full": room.get("board_mode_full", RANKED_TRIPLE_BOARD_MODE),
+        "board_mode_full": room.get("board_mode_full"),
         "protocolbreaker_played": pb_played,
     }
+    
     p1_id, p2_id = room.get("player1_id"), room.get("player2_id")
     u1 = await db.users.find_one({"_id": ObjectId(p1_id)}) if p1_id else None
     u2 = await db.users.find_one({"_id": ObjectId(p2_id)}) if p2_id else None
+    
+    # Snapshot ELO for UI report
     elo1_before = u1.get("elo", 500) if u1 else 500
     elo2_before = u2.get("elo", 500) if u2 else 500
     rr1_before = int(u1.get("ranked_rating", elo1_before)) if u1 else elo1_before
@@ -642,9 +636,11 @@ async def _award_ranked_triple_and_notify(
 
     u1a = await db.users.find_one({"_id": ObjectId(p1_id)}) if p1_id else None
     u2a = await db.users.find_one({"_id": ObjectId(p2_id)}) if p2_id else None
+    
     payload = {
-        "type": "ranked_match_complete",
+        "type": "match_series_complete",
         "series_winner": effective,
+        "format": room["format"],
         "p1": {
             "elo_before": elo1_before,
             "elo_after": u1a.get("elo", elo1_before) if u1a else elo1_before,
@@ -673,13 +669,12 @@ def _aggregate_decisive_games(history: list) -> tuple[int, int]:
 
 
 def _aggregate_match_winner(history: list) -> str | None:
-    """Return P1/P2 if one player won more decisive games; None if tied."""
-    p1, p2 = _aggregate_decisive_games(history)
-    if p1 > p2:
-        return "P1"
-    if p2 > p1:
-        return "P2"
-    return None
+    """
+    Uses the match-wide point system. 
+    Returns P1/P2 if they hit 5 wins or have majority after 9.
+    None if Protocolbreaker is needed.
+    """
+    return compute_series_winner(history)
 
 
 async def _start_protocolbreaker_final_game(
@@ -709,6 +704,7 @@ async def _start_protocolbreaker_final_game(
     )
     first = "P1"
     seg_new = len(room.get("match_history") or [])
+    p1p, p2p = compute_segment_points(room.get("match_history") or [])
     patch = {
         "board": engine.board,
         "board_mode": mode,
@@ -718,10 +714,10 @@ async def _start_protocolbreaker_final_game(
         "winner": None,
         "game_status": "playing",
         "status": "active",
-        "game_number": 1,
+        "game_number": room.get("game_number", 1), # Keep board number same? No, incrementing matches.
         "segment_start_index": seg_new,
-        "p1_series_points": 0,
-        "p2_series_points": 0,
+        "p1_series_points": p1p,
+        "p2_series_points": p2p,
         "series_winner": None,
         "awaiting_rulebreaker": False,
         "protocolbreaker_pending": False,
@@ -748,12 +744,12 @@ async def _start_protocolbreaker_final_game(
     gr = {
         "type": "game_reset",
         "first_player": first,
-        "game_number": 1,
+        "game_number": room.get("game_number", 1),
         "board_mode": mode,
         "segment_start_index": seg_new,
         "history_display_start_index": room.get("history_display_start_index", 0),
-        "p1_series_points": 0,
-        "p2_series_points": 0,
+        "p1_series_points": p1p,
+        "p2_series_points": p2p,
         "protocolbreaker_final": True,
         "pb_bans": banned,
         "c3_blocked": False,
@@ -805,15 +801,16 @@ async def _broadcast_protocolbreaker_tie(
             pass
 
 
-def compute_series_state(history: list, segment_start: int) -> dict:
-    p1_pts, p2_pts = compute_segment_points(history, segment_start)
-    series_winner = compute_series_winner(history, segment_start, 2)
-    awaiting_rb = False if series_winner else compute_awaiting_rulebreaker(history, segment_start)
+def compute_series_state(history: list, segment_start: int = 0) -> dict:
+    p1_pts, p2_pts = compute_segment_points(history)
+    series_winner = compute_series_winner(history)
+    # The new flow does not use the old awaiting_rulebreaker logic between boards;
+    # Protocolbreaker is triggered only on DRAW ties.
     return {
         "p1_series_points": p1_pts,
         "p2_series_points": p2_pts,
         "series_winner": series_winner,
-        "awaiting_rulebreaker": awaiting_rb,
+        "awaiting_rulebreaker": False,
     }
 
 class JoinRoomRequest(BaseModel):
@@ -821,12 +818,12 @@ class JoinRoomRequest(BaseModel):
 
 class QueueRequest(BaseModel):
     format: str = "unranked"
-    board_mode: str = "5x5"
+    board_mode: str = "5x5_6x6_7x7"
     selected_patterns: Optional[list[str]] = None
 
 class CreateRoomRequest(BaseModel):
     format: str = "unranked"
-    board_mode: str = "5x5"
+    board_mode: str = "5x5_6x6_7x7"
     selected_patterns: Optional[list[str]] = None
 
 
@@ -1003,6 +1000,7 @@ async def queue_join(data: QueueRequest, user_id: str = Depends(get_current_user
         "game_status":    "waiting",
         "game_number":    1,
         "match_history":  [],
+        "move_log":       [],
         "series_winner":  None,
         "p1_series_points": 0,
         "p2_series_points": 0,
@@ -1123,6 +1121,7 @@ async def create_room(data: CreateRoomRequest, user_id: str = Depends(get_curren
         "game_status":     "waiting",
         "game_number":     1,
         "match_history":   [],
+        "move_log":        [],
         "series_winner":   None,
         "p1_series_points": 0,
         "p2_series_points": 0,
@@ -1331,6 +1330,10 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                 is_finished = bool(result.get("winner"))
                 career_rb_meta = None
 
+                # ── Record Move Log ──
+                move_log = list(room.get("move_log") or [])
+                move_log.append({"row": row, "col": col, "player": player_slot, "ext": result.get("extra_turns", 0)})
+
                 game1_patch: dict = {}
                 if (
                     room.get("game_number", 1) == 1
@@ -1346,6 +1349,7 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                     "winner":         result.get("winner"),
                     "game_status":    "finished" if is_finished else "playing",
                     "status":         "finished" if is_finished else "active",
+                    "move_log":       move_log,
                     **game1_patch,
                 }
 
@@ -1356,19 +1360,33 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                     gn = room.get("game_number", 1)
                     bm = _effective_board_mode(room)
 
-                    new_history = history + [outcome]
+                    # ── Create Rich Round Record ──
+                    round_record = {
+                        "winner": outcome,
+                        "board": [list(r) for r in engine.board],
+                        "moves": move_log,
+                        "board_mode": bm,
+                        "game_number": gn,
+                    }
+                    new_history = history + [round_record]
+                    update["match_history"] = new_history
+                    update["move_log"] = [] # Clear for next round
+
                     if room.get("protocolbreaker_final") and is_finished:
-                        sw_pb = outcome if outcome in ("P1", "P2", "DRAW") else "DRAW"
+                        sw_pb = compute_series_winner(new_history)
+                        p1p_new, p2p_new = compute_segment_points(new_history)
                         update.update(
                             {
                                 "match_history": new_history,
                                 "series_winner": sw_pb,
-                                "p1_series_points": 1 if outcome == "P1" else 0,
-                                "p2_series_points": 1 if outcome == "P2" else 0,
+                                "p1_series_points": p1p_new,
+                                "p2_series_points": p2p_new,
                                 "awaiting_rulebreaker": False,
+                                "game_number": gn + 1 if sw_pb is None else gn,
                             }
                         )
                         await db.rooms.update_one({"room_code": room_code}, {"$set": update})
+                        # ... (broadcast logic follows)
                         broadcast_pb = {
                             "type": "move_made",
                             "row": row,
@@ -1380,7 +1398,7 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                             "win_line": [[r, c] for r, c in engine.winner_line]
                             if engine.winner_line
                             else [],
-                            "game_status": update["game_status"],
+                            "game_status": "finished" if sw_pb else "playing",
                             "extra_turns": result.get("extra_turns", 0),
                             "connectionScores": result.get("connectionScores"),
                             "match_history": update["match_history"],
@@ -1401,11 +1419,12 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                                 await ws.send_json(broadcast_pb)
                             except Exception:
                                 pass
-                        asyncio.create_task(
-                            _award_ranked_triple_and_notify(
-                                db, room_code, room, update, str(sw_pb)
+                        if sw_pb:
+                            asyncio.create_task(
+                                _award_match_series_and_notify(
+                                    db, room_code, room, update, str(sw_pb)
+                                )
                             )
-                        )
                         continue
                     if should_auto_upgrade_7x7_after_6x6_game3(
                         new_history, seg_start, bm, gn
@@ -1483,15 +1502,6 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                             **compute_series_state(new_history, seg_start),
                         }
                     )
-                    # 7x7 final game rule: after Game 3, tied points means full match DRAW.
-                    if (
-                        bm == "7x7"
-                        and gn >= 3
-                        and update.get("series_winner") is None
-                        and not update.get("awaiting_rulebreaker", False)
-                        and update.get("p1_series_points") == update.get("p2_series_points")
-                    ):
-                        update["series_winner"] = "DRAW"
 
                     if bm == "7x7" and room.get("rb_banned_pattern"):
                         career_rb_meta = {
@@ -1538,24 +1548,8 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                     except:
                         pass
 
-                if is_finished:
-                    game_dict = {
-                        "player1_id": room["player1_id"],
-                        "player2_id": room["player2_id"],
-                        "format":     room["format"],
-                        "source":     room.get("source", "matchmaking"),
-                        "mode":       "multiplayer",
-                    }
-                    if career_rb_meta:
-                        game_dict.update(career_rb_meta)
-                    if _is_ranked_triple_leg_room(room) and bm == "7x7" and update.get("series_winner") is not None:
-                        asyncio.create_task(
-                            _award_ranked_triple_and_notify(
-                                db, room_code, room, update, str(update["series_winner"])
-                            )
-                        )
-                    elif not _is_ranked_triple_leg_room(room):
-                        asyncio.create_task(award_game_result(db, game_dict, result.get("winner")))
+                    # Award logic moved to the bottom of the loop to handle all series outcomes.
+                    pass
 
             elif msg["type"] == "ready":
                 ready_val   = msg.get("ready", True)
@@ -2054,6 +2048,9 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
 
                 post_seg = patch.get("segment_start_index", seg_start)
                 seg_pts = compute_segment_points(hist, post_seg)
+                gs = 5
+                if bm == "7x7": gs = 7
+                elif bm == "6x6": gs = 6
                 reset = {
                     **patch,
                     "board":          [[None] * gs for _ in range(gs)],
@@ -2241,7 +2238,7 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                         except Exception:
                             pass
                     asyncio.create_task(
-                        _award_ranked_triple_and_notify(
+                        _award_match_series_and_notify(
                             db, room_code, room, update_pb, str(sw_to)
                         )
                     )
@@ -2323,14 +2320,8 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                     "match_history": new_history,
                     **compute_series_state(new_history, seg_start),
                 }
-                if (
-                    bm == "7x7"
-                    and gn >= 3
-                    and update.get("series_winner") is None
-                    and not update.get("awaiting_rulebreaker", False)
-                    and update.get("p1_series_points") == update.get("p2_series_points")
-                ):
-                    update["series_winner"] = "DRAW"
+                # No-one won yet? Just proceed.
+                pass
 
                 await db.rooms.update_one({"room_code": room_code}, {"$set": update})
 
@@ -2362,14 +2353,16 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                     "source":     room.get("source", "matchmaking"),
                     "mode":       "multiplayer",
                 }
-                if _is_ranked_triple_leg_room(room) and bm == "7x7" and update.get("series_winner") is not None:
+                # Award or Tiebreaker trigger
+                should_award = update.get("series_winner") is not None
+                is_full_9_tie = (len(new_history) >= 9 and update.get("series_winner") is None)
+                
+                if should_award or is_full_9_tie:
                     asyncio.create_task(
-                        _award_ranked_triple_and_notify(
-                            db, room_code, room, update, str(update["series_winner"])
+                        _award_match_series_and_notify(
+                            db, room_code, room, update, str(update.get("series_winner") or "DRAW")
                         )
                     )
-                elif not _is_ranked_triple_leg_room(room):
-                    asyncio.create_task(award_game_result(db, game_dict, winner))
 
             elif msg["type"] == "ping":
                 ts = msg.get("ts")

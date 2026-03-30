@@ -161,40 +161,37 @@ async def award_ranked_match_result(
     db, game: dict, winner: str | None, *, record_clean_streak: bool = True
 ):
     """
-    Single ranked match outcome (full match, not per mini-game).
-    Updates elo + ranked_rating together; logs match_history once.
+    Standard match outcome for both Ranked and Unranked modes.
+    Follows the "First-to-5" win condition.
     """
     p1_id = game.get("player1_id")
     p2_id = game.get("player2_id")
-    is_ranked = game.get("format") == "ranked"
+    fmt = game.get("format", "unranked")
+    is_ranked = (fmt == "ranked")
     mode = game.get("mode", "multiplayer")
     difficulty = game.get("difficulty", "medium")
-    source = game.get("source", "matchmaking")
-    if mode in ("solo", "singleplayer", "bot") or not is_ranked:
-        return
-
-    career_mode = "ranked"
+    
     p1_user = await db.users.find_one({"_id": ObjectId(p1_id)}) if p1_id else None
     p2_user = await db.users.find_one({"_id": ObjectId(p2_id)}) if p2_id else None
 
     async def update_player(user_id: str, result: str, opponent_id: str | None):
-        if not user_id:
-            return
+        if not user_id: return
         user = await db.users.find_one({"_id": ObjectId(user_id)})
-        if not user:
-            return
+        if not user: return
+        
         gained_xp = xp_for_result(result, mode, difficulty)
         new_total_xp = user.get("xp", 0) + gained_xp
         new_level, _ = compute_level(new_total_xp)
+        
         inc = {}
-        if result == "win":
-            inc["wins"] = 1
-        if result == "loss":
-            inc["losses"] = 1
-        if result == "draw":
-            inc["draws"] = 1
+        if result == "win": inc["wins"] = 1
+        elif result == "loss": inc["losses"] = 1
+        elif result == "draw": inc["draws"] = 1
+        
         updates = {"xp": new_total_xp, "level": new_level}
-        if opponent_id and mode != "bot":
+        
+        # Only update ELO/RR for ranked matches
+        if is_ranked and opponent_id and mode != "bot":
             opponent = await db.users.find_one({"_id": ObjectId(opponent_id)})
             if opponent:
                 score = 1.0 if result == "win" else (0.5 if result == "draw" else 0.0)
@@ -202,10 +199,9 @@ async def award_ranked_match_result(
                 rr_old = int(user.get("ranked_rating", elo_old))
                 opp_elo = opponent.get("elo", 500)
                 opp_rr = int(opponent.get("ranked_rating", opp_elo))
-                new_elo_val = new_elo(elo_old, opp_elo, score)
-                new_rr_val = new_elo(rr_old, opp_rr, score)
-                updates["elo"] = new_elo_val
-                updates["ranked_rating"] = new_rr_val
+                updates["elo"] = new_elo(elo_old, opp_elo, score)
+                updates["ranked_rating"] = new_elo(rr_old, opp_rr, score)
+                
         await db.users.update_one({"_id": ObjectId(user_id)}, {"$set": updates, "$inc": inc})
 
     w = (winner or "").upper()
@@ -220,33 +216,28 @@ async def award_ranked_match_result(
         await update_player(p2_id, "draw", p1_id)
 
     async def log_match(user_id, opponent_id, result, user_snap, opp_snap):
-        if not user_id or not user_snap or not opp_snap:
-            return
-        elo_before = user_snap.get("elo", 100)
+        if not user_id or not user_snap or not opp_snap: return
+        elo_before = user_snap.get("elo", 500)
         updated = await db.users.find_one({"_id": ObjectId(user_id)})
         elo_after = updated.get("elo", elo_before) if updated else elo_before
+        
         doc = {
-            "user_id": user_id,
-            "opponent_id": opponent_id,
-            "opponent_username": opp_snap.get("username", "Unknown"),
-            "opponent_elo": opp_snap.get("elo", 100),
-            "result": result,
-            "elo_before": elo_before,
-            "elo_after": elo_after,
-            "elo_delta": elo_after - elo_before,
-            "mode": career_mode,
-            "played_at": datetime.utcnow(),
-            "match_scope": "ranked_full_match",
+            "user_id":            user_id,
+            "opponent_id":        opponent_id,
+            "opponent_username":  opp_snap.get("username", "Unknown"),
+            "opponent_elo":       opp_snap.get("elo", 500),
+            "result":             result,
+            "elo_before":         elo_before,
+            "elo_after":          elo_after,
+            "elo_delta":          elo_after - elo_before if is_ranked else 0,
+            "mode":               fmt,
+            "played_at":          datetime.utcnow(),
+            "match_scope":        "full_match",
+            "board_mode":         game.get("board_mode"),
+            "board_mode_full":    game.get("board_mode_full"),
+            "match_rounds":       game.get("match_rounds", []),
+            "protocolbreaker_played": bool(game.get("protocolbreaker_played")),
         }
-        if isinstance(game.get("board_mode"), str):
-            doc["board_mode"] = game.get("board_mode")
-        if isinstance(game.get("board_mode_full"), str):
-            doc["board_mode_full"] = game.get("board_mode_full")
-        mr = game.get("match_rounds")
-        if isinstance(mr, list) and mr:
-            doc["match_rounds"] = mr
-        if game.get("protocolbreaker_played") is not None:
-            doc["protocolbreaker_played"] = bool(game.get("protocolbreaker_played"))
         await db.match_history.insert_one(doc)
 
     if w == "P1":

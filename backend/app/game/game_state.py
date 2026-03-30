@@ -21,6 +21,8 @@ class GameState:
         self.game_number      = 1
         self.match_history    = []
         self.match_wins       = {"P1": 0, "P2": 0}
+        self.p1_series_points = 0
+        self.p2_series_points = 0
         self.match_over       = False
         self.series_winner    = None
         self.series_processed = False
@@ -86,6 +88,8 @@ class GameState:
         self.game_number      = 1
         self.match_history    = []
         self.match_wins       = {"P1": 0, "P2": 0}
+        self.p1_series_points = 0
+        self.p2_series_points = 0
         self.match_over       = False
         self.series_winner    = None
         self.series_processed = False
@@ -159,26 +163,18 @@ class GameState:
 
     def _check_series_winner(self):
         """
-        Returns "P1", "P2", or None if game 3 is required.
-        Rules:
-          - Same player wins both games                → that player wins
-          - One win + one DRAW                         → win player wins
-          - 1-1 tie OR both DRAWs                     → game 3 needed
+        Returns "P1", "P2", or None.
+        Standardized first-to-5 total points.
         """
-        if len(self.match_history) < 2:
-            return None
+        self.p1_series_points = sum(1 for w in self.match_history if w == "P1")
+        self.p2_series_points = sum(1 for w in self.match_history if w == "P2")
 
-        g1, g2 = self.match_history[0], self.match_history[1]
+        if self.p1_series_points >= 5:
+            return "P1"
+        if self.p2_series_points >= 5:
+            return "P2"
 
-        if g1 == g2 and g1 in ("P1", "P2"):
-            return g1
-
-        if g1 in ("P1", "P2") and g2 == "DRAW":
-            return g1
-        if g2 in ("P1", "P2") and g1 == "DRAW":
-            return g2
-
-        return None   # 1-1 or both DRAW → game 3
+        return None
 
     # ============================================================
     # MOVE LOG

@@ -207,8 +207,7 @@ export default function LobbyScreen({
           </div>
           <div style={{ height:1, background:`linear-gradient(90deg, transparent, ${t.border}, transparent)`, marginBottom:12 }} />
           <div style={{ display:"flex", gap:10, alignItems:"center" }}>
-            <div style={{ width:8, height:8, borderRadius:"50%", background:"#4CAF50", boxShadow:"0 0 10px #4CAF50", animation:"urgentPulse 1s infinite" }} />
-            <span style={{ fontFamily:t.fontBody, fontSize:14, color:t.textSecondary }}>First to 2 pts · Unranked</span>
+            <span style={{ fontFamily:t.fontBody, fontSize:14, color:t.textSecondary }}>Competitive Standard · First to 5</span>
           </div>
           {queueError && (
             <div style={{ marginTop:12, fontFamily:t.fontMono, fontSize:11, color:t.danger, opacity:0.8, textAlign:"center" }}>
@@ -284,7 +283,7 @@ export default function LobbyScreen({
   if (phase === "matchup") return (
     <div style={{ position:"fixed", inset:0, zIndex:2, display:"flex", flexDirection:"column", background:t.bg, overflow:"hidden" }}>
       <div style={{ textAlign:"center", paddingTop:20, fontFamily:t.fontMono, fontSize:12, color:t.textMuted, letterSpacing:"0.18em", zIndex:2 }}>
-        UNRANKED · FIRST TO 2 POINTS
+        UNRANKED · FIRST TO 5 POINTS
       </div>
       <PlayerCard name={user?.username ?? "YOU"} elo={user?.elo ?? null} avatar={user?.avatar ?? null} banner={loadCustomTheme().bannerSkin ?? "default"} level={user?.level ?? 1} color={t.p1} direction="top" />
       <div style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:50, padding:"20px 0", flexShrink:0, position:"relative", zIndex:10, background:"rgba(0,0,0,0.24)" }}>
@@ -400,8 +399,8 @@ export default function LobbyScreen({
         {/* ── UNRANKED ── */}
         <button
           onClick={() => {
-            if (multiSub === "unranked") setMultiSub(null);
-            else setShowUnrankedOptions(true);
+            onBoardModeAction?.("5x5_6x6_7x7");
+            setMultiSub("unranked");
           }}
           onMouseEnter={() => { onHoverAction?.(); setHovered("unranked"); }}
           onMouseLeave={() => setHovered(null)}
@@ -411,7 +410,7 @@ export default function LobbyScreen({
           <div style={{ fontFamily:t.fontDisplay, fontSize:ip?20:32, fontWeight:700, marginBottom:8, color:multiSub==="unranked"||hovered==="unranked"?t.p1:t.text, transition:"color 0.28s", textTransform:"uppercase" as const, letterSpacing:"0.08em" }}>Unranked</div>
           <div style={{ fontFamily:t.fontBody, fontSize:ip?12:14, color:t.textMuted, marginBottom:16, textTransform:"uppercase", letterSpacing:"0.06em" }}>Casual · Coins + XP</div>
           <div style={{ marginTop:"auto", width:"100%", display:"flex", flexDirection:"column", gap:6 }}>
-            {[{k:"FORMAT",v:"First to 2 pts (draws = 0)"},{k:"TIMER",v:"3 min (5×5) · 5 min (7×7)"},{k:"RULEBREAKER",v:"If a segment has a draw"}].map(s => (
+            {[{k:"FORMAT",v:"5×5 → 6×6 → 7×7"},{k:"SERIES",v:"First to 5 points"},{k:"COINS",v:"+ XP rewarded"}].map(s => (
               <div key={s.k} style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
                 <div style={{ fontFamily:t.fontMono, fontSize:10, color:t.textMuted, letterSpacing:"0.1em" }}>{s.k}</div>
                 <div style={{ fontFamily:t.fontBody, fontSize:12, color:t.text }}>{s.v}</div>
@@ -440,7 +439,7 @@ export default function LobbyScreen({
           <div style={{ fontFamily:t.fontDisplay, fontSize:ip?20:32, fontWeight:700, marginBottom:8, color:multiSub==="ranked"||hovered==="ranked"?t.gold:t.text, transition:"color 0.28s", textTransform:"uppercase" as const, letterSpacing:"0.08em" }}>Ranked</div>
           <div style={{ fontFamily:t.fontBody, fontSize:ip?12:14, color:t.textMuted, marginBottom:16 }}>ELO · RR · Rank · Season rewards</div>
           <div style={{ marginTop:"auto", width:"100%", display:"flex", flexDirection:"column", gap:6 }}>
-            {[{k:"FORMAT",v:"5×5 → 6×6 → 7×7"},{k:"PLACEMENT",v:"10 matches"}].map(s => (
+            {[{k:"FORMAT",v:"5×5 → 6×6 → 7×7"},{k:"SERIES",v:"First to 5 points"},{k:"ELO",v:"Rating updates"}].map(s => (
               <div key={s.k} style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
                 <div style={{ fontFamily:t.fontMono, fontSize:10, color:t.textMuted, letterSpacing:"0.1em" }}>{s.k}</div>
                 <div style={{ fontFamily:t.fontBody, fontSize:12, color:t.text }}>{s.v}</div>
@@ -551,10 +550,7 @@ export default function LobbyScreen({
                 {queueError}
               </div>
             )}
-            <button 
-              onClick={() => multiSub === "ranked" ? setShowRankedOptions(true) : setShowUnrankedOptions(true)}
-              style={{ background:"transparent", border:"none", color:t.accent, borderBottom:`1px solid ${t.accent}44`, fontFamily:t.fontMono, fontSize:10, cursor:"pointer", padding:"2px 0", marginTop:4 }}
-            >CHANGE PROTOCOL</button>
+            {/* No change protocol for ranked/unranked anymore, they are standard */}
           </div>
         </div>
       )}
