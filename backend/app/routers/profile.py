@@ -93,6 +93,12 @@ async def get_career(user_id: str = Depends(get_current_user)):
             row["board_mode"] = doc["board_mode"]
         if doc.get("game_number") is not None:
             row["game_number"] = doc["game_number"]
+        if doc.get("match_rounds"):
+            row["match_rounds"] = doc["match_rounds"]
+        if doc.get("board_mode_full"):
+            row["board_mode_full"] = doc["board_mode_full"]
+        if doc.get("protocolbreaker_played") is not None:
+            row["protocolbreaker_played"] = doc["protocolbreaker_played"]
         matches.append(row)
     return matches
 

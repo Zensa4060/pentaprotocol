@@ -1,14 +1,18 @@
 "use client";
 import React, { useState } from "react";
 
-export type RuleshowSheet = "5x5" | "7x7";
+export type RuleshowSheet = "5x5" | "6x6" | "7x7";
 
 export const RULESHOW_SKIP_STORAGE_5x5 = "pentaprotocol_ruleshow_skip_5x5";
+export const RULESHOW_SKIP_STORAGE_6x6 = "pentaprotocol_ruleshow_skip_6x6";
 export const RULESHOW_SKIP_STORAGE_7x7 = "pentaprotocol_ruleshow_skip_7x7";
 
 export function readRuleshowSkip(sheet: RuleshowSheet): boolean {
   if (typeof window === "undefined") return false;
-  const k = sheet === "7x7" ? RULESHOW_SKIP_STORAGE_7x7 : RULESHOW_SKIP_STORAGE_5x5;
+  const k =
+    sheet === "7x7" ? RULESHOW_SKIP_STORAGE_7x7 :
+    sheet === "6x6" ? RULESHOW_SKIP_STORAGE_6x6 :
+    RULESHOW_SKIP_STORAGE_5x5;
   return window.localStorage.getItem(k) === "1";
 }
 
@@ -46,9 +50,10 @@ export default function RuleshowScreen({
 }: RuleshowScreenProps) {
   const [dontShowAgain, setDontShowAgain] = useState(false);
   const is77 = sheet === "7x7";
-  const kicker = is77 ? "7×7 LEG UNLOCKED" : "5×5 SERIES";
+  const is66 = sheet === "6x6";
+  const kicker = is77 ? "7×7 LEG UNLOCKED" : is66 ? "6×6 LEG UNLOCKED" : "5×5 SERIES";
   const title = "READY CHECK + RULES";
-  const rulesTitle = is77 ? "7×7 RULES" : "5×5 RULES";
+  const rulesTitle = is77 ? "7×7 RULES" : is66 ? "6×6 RULES" : "5×5 RULES";
 
   const rules77 = (
     <>
@@ -63,6 +68,18 @@ export default function RuleshowScreen({
     </>
   );
 
+  const rules66 = (
+    <>
+      <div>1) Objective: win the 6×6 leg by being first to 2 decisive wins in this leg.</div>
+      <div>2) Draws give 0 points to both players and do not break score ties.</div>
+      <div>3) Turn order alternates by game; first-player advantage rotates naturally.</div>
+      <div>4) 6×6 uses connectivity: a 15-cell connected group of your stones can win; lines and structural patterns still apply.</div>
+      <div>5) Timers are longer than 5×5; Round 3 Timebreaker can assign a 2:00 clock and a hidden special cell.</div>
+      <div>6) If the 5×5 segment ends tied 1–1 or triple-draw, you enter this 6×6 leg at game 1 (0–0).</div>
+      <div>7) Game 3 on 6×6 is played when needed; if still tied, the match proceeds to the 7×7 leg per series rules.</div>
+    </>
+  );
+
   const rules55 = (
     <>
       <div>1) Objective: win the 5×5 segment by being first to 2 decisive wins in this segment.</div>
@@ -71,7 +88,7 @@ export default function RuleshowScreen({
       <div>4) Center is special on 5×5: see the in-game hint — center play can grant your opponent extra turns unless Rulebreaker changes it.</div>
       <div>5) Active win patterns for this segment are shown in the sidebar and must be respected.</div>
       <div>6) If Rulebreaker is triggered by the pair rule, toss flow decides constraints/first-player for the next game.</div>
-      <div>7) Game 3 on 5×5 is played when needed; at 1–1 after three games, or triple draw, the match opens the 7×7 leg (no second 5×5 toss in that case).</div>
+      <div>7) Game 3 on 5×5 is played when needed; at 1–1 after three games, or triple draw, the match opens the next leg (6×6 in full ranked protocol).</div>
       <div>8) If final points are tied after the deciding game in a segment, that segment can end in DRAW before any upgrade.</div>
     </>
   );
@@ -159,7 +176,7 @@ export default function RuleshowScreen({
               const nowReady = mySlot === "P1" ? p1Ready : p2Ready;
               const becomingReady = !nowReady;
               if (becomingReady && dontShowAgain) {
-                const k = is77 ? RULESHOW_SKIP_STORAGE_7x7 : RULESHOW_SKIP_STORAGE_5x5;
+                const k = is77 ? RULESHOW_SKIP_STORAGE_7x7 : is66 ? RULESHOW_SKIP_STORAGE_6x6 : RULESHOW_SKIP_STORAGE_5x5;
                 try {
                   window.localStorage.setItem(k, "1");
                 } catch {
@@ -216,7 +233,7 @@ export default function RuleshowScreen({
             {rulesTitle}
           </div>
           <div style={{ fontFamily: t.fontBody, fontSize: 13, color: t.textSecondary, lineHeight: 1.6, display: "flex", flexDirection: "column", gap: 6 }}>
-            {is77 ? rules77 : rules55}
+            {is77 ? rules77 : is66 ? rules66 : rules55}
           </div>
         </div>
       </div>

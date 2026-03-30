@@ -7,7 +7,7 @@ import { WraithKingCoinToss } from "./WraithKingCoinToss";
 
 export const PHASE_TIMERS: Partial<Record<Phase, number>> = {
   rule_choice: 30, who_first_winner: 30, c3_choice: 30, c3_choice_loser: 30, who_first_loser: 30,
-  ban_pattern_winner: 30, ban_pattern_loser: 30, grid_block_warning: 30, grid_block_selection: 45,
+  ban_pattern_winner: 30, ban_pattern_loser: 30, grid_block_warning: 30, grid_block_selection: 45, grid_block_waiting: 45,
 };
 
 interface RulebreakerFlowProps {
@@ -539,6 +539,20 @@ export function RulebreakerFlow({
         >
           CONTINUE TO CELL SELECT
         </button>
+      </div>
+    );
+  }
+
+  // ── grid_block_waiting (6×6 — peer is picking secret cell) ────────────────
+  if (phase === "grid_block_waiting") {
+    return (
+      <div className="phase-screen" style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, zIndex: 10000, overflowY: "auto", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: t.bg, padding: "32px 20px", gap: 20, userSelect: "none" }}>
+        <div style={{ fontFamily: t.fontDisplay, fontSize: "clamp(18px,2.8vw,32px)", fontWeight: 800, color: t.accent, textAlign: "center", maxWidth: 560, lineHeight: 1.35 }}>
+          Other player is choosing their option
+        </div>
+        <div style={{ fontFamily: t.fontBody, fontSize: 14, color: t.textMuted, textAlign: "center", maxWidth: 480, lineHeight: 1.6 }}>
+          Wait until they finish selecting their special grid cell. You will then choose who plays first (or see the toss summary).
+        </div>
       </div>
     );
   }

@@ -8,7 +8,7 @@ export type Phase =
   | "rb_splash" | "rb_coin"
   | "rule_choice" | "who_first_winner" | "c3_choice"
   | "c3_choice_loser" | "who_first_loser" | "toss_summary" | "rb_initializing"
-  | "ban_pattern_winner" | "ban_pattern_loser" | "grid_block_warning" | "grid_block_selection";
+  | "ban_pattern_winner" | "ban_pattern_loser" | "grid_block_warning" | "grid_block_selection" | "grid_block_waiting";
 
 // ─── Piece ────────────────────────────────────────────────────────────────────
 

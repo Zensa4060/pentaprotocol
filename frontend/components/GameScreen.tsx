@@ -32,6 +32,7 @@ import RuleshowScreen, {
   type RuleshowSheet,
   readRuleshowSkip,
   RULESHOW_SKIP_STORAGE_5x5,
+  RULESHOW_SKIP_STORAGE_6x6,
   RULESHOW_SKIP_STORAGE_7x7,
 } from "./RuleshowScreen";
 import { useAuthStore } from "@/lib/store";
@@ -330,26 +331,39 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   const historyDisplayStartIndexRef = useRef(0);
   historyDisplayStartIndexRef.current = historyDisplayStartIndex;
   const [show7x7LevelUp, setShow7x7LevelUp] = useState(false);
+  const [show6x6LevelUp, setShow6x6LevelUp] = useState(false);
   const [rulesShowSheet, setRulesShowSheet] = useState<RuleshowSheet | null>(null);
   const [p1LevelUpReady, setP1LevelUpReady] = useState(false);
   const [p2LevelUpReady, setP2LevelUpReady] = useState(false);
   const levelUpSplashActiveRef = useRef(false);
   const awaiting7x7RulesRef = useRef(false);
+  const awaiting6x6RulesRef = useRef(false);
   const levelUpSplashTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const rulesShowSheetRef = useRef<RuleshowSheet | null>(null);
   const show7x7LevelUpRef = useRef(false);
+  const show6x6LevelUpRef = useRef(false);
   useEffect(() => {
     rulesShowSheetRef.current = rulesShowSheet;
   }, [rulesShowSheet]);
   useEffect(() => {
     show7x7LevelUpRef.current = show7x7LevelUp;
   }, [show7x7LevelUp]);
+  useEffect(() => {
+    show6x6LevelUpRef.current = show6x6LevelUp;
+  }, [show6x6LevelUp]);
   const [rulesMatchGate, setRulesMatchGate] = useState(false);
   const rulesMatchGateRef = useRef(false);
   useEffect(() => {
     rulesMatchGateRef.current = rulesMatchGate;
   }, [rulesMatchGate]);
   const [rankedMatchComplete, setRankedMatchComplete] = useState<RankedMatchCompletePayload | null>(null);
+  const [pbOverlay, setPbOverlay] = useState<{
+    tossWinner: "P1" | "P2";
+    p1Agg: number;
+    p2Agg: number;
+    bans: string[];
+    nextSlot: "P1" | "P2";
+  } | null>(null);
   useEffect(() => () => {
     if (levelUpSplashTimerRef.current) clearTimeout(levelUpSplashTimerRef.current);
   }, []);
@@ -991,12 +1005,18 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
             setSeriesWinner(null);
           } else if (r.board_mode === "6x6" && (r as { awaiting_6x6_rules_ready?: boolean }).awaiting_6x6_rules_ready === true) {
             setRulesMatchGate(true);
-            if (wsRef.current?.readyState === WebSocket.OPEN) {
-              wsRef.current.send(JSON.stringify({ type: "levelup_ready", ready: true }));
-            }
-            if (slot === "P1") setP1LevelUpReady(true);
-            else setP2LevelUpReady(true);
             setShow7x7LevelUp(false);
+            setShow6x6LevelUp(false);
+            if (readRuleshowSkip("6x6")) {
+              setRulesShowSheet(null);
+              if (wsRef.current?.readyState === WebSocket.OPEN) {
+                wsRef.current.send(JSON.stringify({ type: "levelup_ready", ready: true }));
+              }
+              if (slot === "P1") setP1LevelUpReady(true);
+              else setP2LevelUpReady(true);
+            } else {
+              setRulesShowSheet("6x6");
+            }
             setPhase("playing");
             setWinner(null);
             setWinLine([]);
@@ -1029,6 +1049,30 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
             setRulesShowSheet(null);
             setRulesMatchGate(false);
           }
+          {
+            const rp = r as {
+              protocolbreaker_pending?: boolean;
+              pb_toss_winner?: string;
+              pb_bans?: string[];
+              pb_p1_aggregate?: number;
+              pb_p2_aggregate?: number;
+            };
+            if (rp.protocolbreaker_pending && (rp.pb_toss_winner === "P1" || rp.pb_toss_winner === "P2")) {
+              const bans = Array.isArray(rp.pb_bans) ? rp.pb_bans : [];
+              const tw = rp.pb_toss_winner as "P1" | "P2";
+              const nextSlot: "P1" | "P2" =
+                bans.length === 0 ? tw : bans.length === 1 ? (tw === "P1" ? "P2" : "P1") : tw;
+              setPbOverlay({
+                tossWinner: tw,
+                p1Agg: typeof rp.pb_p1_aggregate === "number" ? rp.pb_p1_aggregate : 0,
+                p2Agg: typeof rp.pb_p2_aggregate === "number" ? rp.pb_p2_aggregate : 0,
+                bans,
+                nextSlot,
+              });
+            } else if (!rp.protocolbreaker_pending) {
+              setPbOverlay(null);
+            }
+          }
           ws.send(JSON.stringify({ type: "player_info", username: p1Name ?? playerSlot ?? "P1", slot: playerSlot }));
             } else if (msg.type === "player_joined") {
           const r = msg.room;
@@ -1057,11 +1101,16 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
             if (r.board_mode === "6x6" && (r as { awaiting_6x6_rules_ready?: boolean }).awaiting_6x6_rules_ready === true) {
               setRulesMatchGate(true);
               const sj6 = playerSlot ?? "P1";
-              if (wsRef.current?.readyState === WebSocket.OPEN) {
-                wsRef.current.send(JSON.stringify({ type: "levelup_ready", ready: true }));
+              if (readRuleshowSkip("6x6")) {
+                setRulesShowSheet(null);
+                if (wsRef.current?.readyState === WebSocket.OPEN) {
+                  wsRef.current.send(JSON.stringify({ type: "levelup_ready", ready: true }));
+                }
+                if (sj6 === "P1") setP1LevelUpReady(true);
+                else setP2LevelUpReady(true);
+              } else {
+                setRulesShowSheet("6x6");
               }
-              if (sj6 === "P1") setP1LevelUpReady(true);
-              else setP2LevelUpReady(true);
             }
           }
             } else if (msg.type === "opponent_disconnected") {
@@ -1078,8 +1127,10 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
           setP2LevelUpReady(Boolean(msg.p2_ready));
             } else if (msg.type === "levelup_start") {
           awaiting7x7RulesRef.current = false;
+          awaiting6x6RulesRef.current = false;
           setRulesShowSheet(null);
           setShow7x7LevelUp(false);
+          setShow6x6LevelUp(false);
           setRulesMatchGate(false);
             } else if (msg.type === "rb_extra_turn_update") {
           const et = asNum(msg.extra_turns);
@@ -1104,33 +1155,77 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
               rr_after: z(rm.p2?.rr_after, 0),
             },
           });
+            } else if (msg.type === "protocolbreaker_start") {
+          const m = msg as {
+            toss_winner?: string;
+            p1_aggregate?: number;
+            p2_aggregate?: number;
+          };
+          const tw = m.toss_winner === "P2" ? "P2" : "P1";
+          setPbOverlay({
+            tossWinner: tw,
+            p1Agg: typeof m.p1_aggregate === "number" ? m.p1_aggregate : 0,
+            p2Agg: typeof m.p2_aggregate === "number" ? m.p2_aggregate : 0,
+            bans: [],
+            nextSlot: tw,
+          });
+            } else if (msg.type === "protocolbreaker_ban_update") {
+          const m = msg as { pb_bans?: string[]; next_ban_slot?: string };
+          const bans = Array.isArray(m.pb_bans) ? m.pb_bans : [];
+          const ns = m.next_ban_slot === "P2" ? "P2" : "P1";
+          setPbOverlay(prev =>
+            prev
+              ? { ...prev, bans, nextSlot: ns }
+              : null
+          );
             } else if (msg.type === "chat_message") {
           setChatMessages(m => [...m.slice(-49), { from: msg.from, text: msg.text, ts: msg.ts }]);
             } else if (msg.type === "game_reset") {
+          const gr0 = msg as { protocolbreaker_final?: boolean };
+          if (gr0.protocolbreaker_final) {
+            setPbOverlay(null);
+          }
           const gr = msg as { from_5x5_draw_upgrade?: boolean; from_5x5_level_up?: boolean; from_6x6_level_up?: boolean };
           const from55Up = Boolean(gr.from_5x5_draw_upgrade || gr.from_5x5_level_up);
           const from66Up = Boolean(gr.from_6x6_level_up);
-          const nextBmGuess = (msg.board_mode as BoardMode | undefined) ?? liveBoardMode;
+          const nextBm = (msg.board_mode as BoardMode | undefined) ?? liveBoardMode;
           const fromLegUpgrade = from55Up || from66Up;
-          const is56AutoReady = from55Up && nextBmGuess === "6x6";
+          const is56LevelUp = from55Up && nextBm === "6x6";
 
-          if (is56AutoReady) {
+          if (is56LevelUp) {
+            awaiting6x6RulesRef.current = true;
             awaiting7x7RulesRef.current = false;
             setRulesMatchGate(true);
+            setShow6x6LevelUp(true);
             setShow7x7LevelUp(false);
             setRulesShowSheet(null);
-            if (levelUpSplashTimerRef.current) clearTimeout(levelUpSplashTimerRef.current);
-            levelUpSplashActiveRef.current = false;
             setP1LevelUpReady(false);
             setP2LevelUpReady(false);
-            if (wsRef.current?.readyState === WebSocket.OPEN) {
-              wsRef.current.send(JSON.stringify({ type: "levelup_ready", ready: true }));
-            }
+            if (levelUpSplashTimerRef.current) clearTimeout(levelUpSplashTimerRef.current);
+            levelUpSplashActiveRef.current = true;
+            playTransitionAction?.();
             const slot6 = playerSlot ?? "P1";
-            if (slot6 === "P1") setP1LevelUpReady(true);
-            else setP2LevelUpReady(true);
-          } else if ((from55Up && nextBmGuess === "7x7") || (from66Up && nextBmGuess === "7x7")) {
+            levelUpSplashTimerRef.current = setTimeout(() => {
+              levelUpSplashTimerRef.current = null;
+              levelUpSplashActiveRef.current = false;
+              setShow6x6LevelUp(false);
+              if (awaiting6x6RulesRef.current) {
+                if (readRuleshowSkip("6x6")) {
+                  setRulesShowSheet(null);
+                  if (wsRef.current?.readyState === WebSocket.OPEN) {
+                    wsRef.current.send(JSON.stringify({ type: "levelup_ready", ready: true }));
+                  }
+                  if (slot6 === "P1") setP1LevelUpReady(true);
+                  else setP2LevelUpReady(true);
+                } else {
+                  setRulesShowSheet("6x6");
+                }
+              }
+            }, 2800);
+          } else if ((from55Up && nextBm === "7x7") || (from66Up && nextBm === "7x7")) {
             awaiting7x7RulesRef.current = true;
+            awaiting6x6RulesRef.current = false;
+            setShow6x6LevelUp(false);
             setRulesMatchGate(true);
             if (levelUpSplashTimerRef.current) clearTimeout(levelUpSplashTimerRef.current);
             levelUpSplashActiveRef.current = true;
@@ -1157,8 +1252,10 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
                 }
               }
             }, 2800);
+          } else {
+            awaiting6x6RulesRef.current = false;
+            setShow6x6LevelUp(false);
           }
-          const nextBm = (msg.board_mode as BoardMode | undefined) ?? liveBoardMode;
           const gs = nextBm === "7x7" ? 7 : nextBm === "6x6" ? 6 : 5;
           const emptyB = Array(gs).fill(null).map(() => Array(gs).fill(null)) as (string | null)[][];
           if (msg.board_mode) {
@@ -1245,7 +1342,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
               if (typeof msg.p1_series_points === "number") setP1SeriesPts(msg.p1_series_points);
               if (typeof msg.p2_series_points === "number") setP2SeriesPts(msg.p2_series_points);
               setGameNumber(1);
-              if (!is56AutoReady) {
+              if (!is56LevelUp) {
                 setP1LevelUpReady(false);
                 setP2LevelUpReady(false);
               }
@@ -1340,7 +1437,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
           const { action, payload } = msg;
           if (action === "start_rb") {
             const _curPhase = R.current.phase;
-            const _rbPhases = ["rb_splash", "rb_coin", "rule_choice", "who_first_winner", "c3_choice", "c3_choice_loser", "who_first_loser", "ban_pattern_winner", "ban_pattern_loser", "grid_block_warning", "grid_block_selection", "toss_summary"];
+            const _rbPhases = ["rb_splash", "rb_coin", "rule_choice", "who_first_winner", "c3_choice", "c3_choice_loser", "who_first_loser", "ban_pattern_winner", "ban_pattern_loser", "grid_block_warning", "grid_block_selection", "grid_block_waiting", "toss_summary"];
             if (_rbPhases.includes(_curPhase)) {
               // already in rulebreaker
             } else setTimeout(() => {
@@ -1365,7 +1462,19 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
             coinAngleRef.current = 0;
             setCoinAngle(0);
           } else if (action === "phase_choice") {
-            if (payload.phase) setPhase(payload.phase);
+            if (payload.phase) {
+              let ph = payload.phase as Phase;
+              if (
+                ph === "grid_block_selection" &&
+                isMultiplayerGame &&
+                (payload.rb6CellChooser === "P1" || payload.rb6CellChooser === "P2") &&
+                mySlot &&
+                payload.rb6CellChooser !== mySlot
+              ) {
+                ph = "grid_block_waiting";
+              }
+              setPhase(ph);
+            }
             if (payload.firstPlayerChosen !== undefined) setFirstPlayerChosen(payload.firstPlayerChosen);
             if (payload.rbC3Blocked !== undefined) setRbC3Blocked(payload.rbC3Blocked);
             if (payload.summaryTimer !== undefined) setSummaryTimer(payload.summaryTimer);
@@ -1375,6 +1484,15 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
             if (payload.rbBannedPattern !== undefined) setRbBannedPattern(payload.rbBannedPattern);
             if (payload.rb6TimerOwner === "P1" || payload.rb6TimerOwner === "P2" || payload.rb6TimerOwner === null) setRb6TimerOwner(payload.rb6TimerOwner);
             if (payload.rb6CellChooser === "P1" || payload.rb6CellChooser === "P2" || payload.rb6CellChooser === null) setRb6CellChooser(payload.rb6CellChooser);
+            if (payload.rb6_special_cell && typeof payload.rb6_special_cell === "object") {
+              const sc = payload.rb6_special_cell as { r?: unknown; c?: unknown; owner?: unknown };
+              const rr = sc.r;
+              const cc = sc.c;
+              const ow = sc.owner;
+              if (typeof rr === "number" && typeof cc === "number" && (ow === "P1" || ow === "P2")) {
+                setRb6SpecialCell({ r: rr, c: cc, owner: ow });
+              }
+            }
             if (payload.rbHideBannedPatternFromSlot !== undefined) {
               const s = payload.rbHideBannedPatternFromSlot;
               setRbHideBannedPatternFromSlot(s === "P1" || s === "P2" ? s : null);
@@ -1653,7 +1771,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   const lastMatchupSec = useRef(-1);
 
   useEffect(() => {
-    const tossChoicePhases: Phase[] = ["rule_choice", "who_first_winner", "c3_choice", "c3_choice_loser", "who_first_loser", "ban_pattern_winner", "ban_pattern_loser", "grid_block_warning", "grid_block_selection"];
+    const tossChoicePhases: Phase[] = ["rule_choice", "who_first_winner", "c3_choice", "c3_choice_loser", "who_first_loser", "ban_pattern_winner", "ban_pattern_loser", "grid_block_warning", "grid_block_selection", "grid_block_waiting"];
     const tick = () => {
       rafHandle.current = requestAnimationFrame(tick);
       const now = Date.now();
@@ -1693,7 +1811,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
       if (s.phase === "playing" && !s.winner) {
         const blockMpClock =
           isMultiplayerGame &&
-          (rulesShowSheetRef.current !== null || show7x7LevelUpRef.current || rulesMatchGateRef.current);
+          (rulesShowSheetRef.current !== null || show7x7LevelUpRef.current || show6x6LevelUpRef.current || rulesMatchGateRef.current);
         if (blockMpClock) {
           /* multiplayer rules gate or level-up splash — clocks stay frozen */
         } else if (s.current === "P1") {
@@ -2143,52 +2261,52 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     [isPixelBoard, board]
   );
   const glacierClick = React.useCallback(
-    (r: number, c: number) => { if (!winner && phase === "playing" && rulesShowSheet === null && !show7x7LevelUp && !rulesMatchGate) placeRef.current(r, c); },
-    [winner, phase, rulesShowSheet, show7x7LevelUp, rulesMatchGate]
+    (r: number, c: number) => { if (!winner && phase === "playing" && rulesShowSheet === null && !show7x7LevelUp && !show6x6LevelUp && !rulesMatchGate) placeRef.current(r, c); },
+    [winner, phase, rulesShowSheet, show7x7LevelUp, show6x6LevelUp, rulesMatchGate]
   );
   const bloodMoonClick = React.useCallback(
-    (r: number, c: number) => { if (!winner && phase === "playing" && rulesShowSheet === null && !show7x7LevelUp && !rulesMatchGate) placeRef.current(r, c); },
-    [winner, phase, rulesShowSheet, show7x7LevelUp, rulesMatchGate]
+    (r: number, c: number) => { if (!winner && phase === "playing" && rulesShowSheet === null && !show7x7LevelUp && !show6x6LevelUp && !rulesMatchGate) placeRef.current(r, c); },
+    [winner, phase, rulesShowSheet, show7x7LevelUp, show6x6LevelUp, rulesMatchGate]
   );
   const egyptClick = React.useCallback(
-    (r: number, c: number) => { if (!winner && phase === "playing" && rulesShowSheet === null && !show7x7LevelUp && !rulesMatchGate) placeRef.current(r, c); },
-    [winner, phase, rulesShowSheet, show7x7LevelUp, rulesMatchGate]
+    (r: number, c: number) => { if (!winner && phase === "playing" && rulesShowSheet === null && !show7x7LevelUp && !show6x6LevelUp && !rulesMatchGate) placeRef.current(r, c); },
+    [winner, phase, rulesShowSheet, show7x7LevelUp, show6x6LevelUp, rulesMatchGate]
   );
   const synthwaveClick = React.useCallback(
-    (r: number, c: number) => { if (!winner && phase === "playing" && rulesShowSheet === null && !show7x7LevelUp && !rulesMatchGate) placeRef.current(r, c); },
-    [winner, phase, rulesShowSheet, show7x7LevelUp, rulesMatchGate]
+    (r: number, c: number) => { if (!winner && phase === "playing" && rulesShowSheet === null && !show7x7LevelUp && !show6x6LevelUp && !rulesMatchGate) placeRef.current(r, c); },
+    [winner, phase, rulesShowSheet, show7x7LevelUp, show6x6LevelUp, rulesMatchGate]
   );
   const matrixClick = React.useCallback(
-    (r: number, c: number) => { if (!winner && phase === "playing" && rulesShowSheet === null && !show7x7LevelUp && !rulesMatchGate) placeRef.current(r, c); },
-    [winner, phase, rulesShowSheet, show7x7LevelUp, rulesMatchGate]
+    (r: number, c: number) => { if (!winner && phase === "playing" && rulesShowSheet === null && !show7x7LevelUp && !show6x6LevelUp && !rulesMatchGate) placeRef.current(r, c); },
+    [winner, phase, rulesShowSheet, show7x7LevelUp, show6x6LevelUp, rulesMatchGate]
   );
   const arcaneClick = React.useCallback(
-    (r: number, c: number) => { if (!winner && phase === "playing" && rulesShowSheet === null && !show7x7LevelUp && !rulesMatchGate) placeRef.current(r, c); },
-    [winner, phase, rulesShowSheet, show7x7LevelUp, rulesMatchGate]
+    (r: number, c: number) => { if (!winner && phase === "playing" && rulesShowSheet === null && !show7x7LevelUp && !show6x6LevelUp && !rulesMatchGate) placeRef.current(r, c); },
+    [winner, phase, rulesShowSheet, show7x7LevelUp, show6x6LevelUp, rulesMatchGate]
   );
   const bioClick = React.useCallback(
-    (r: number, c: number) => { if (!winner && phase === "playing" && rulesShowSheet === null && !show7x7LevelUp && !rulesMatchGate) placeRef.current(r, c); },
-    [winner, phase, rulesShowSheet, show7x7LevelUp, rulesMatchGate]
+    (r: number, c: number) => { if (!winner && phase === "playing" && rulesShowSheet === null && !show7x7LevelUp && !show6x6LevelUp && !rulesMatchGate) placeRef.current(r, c); },
+    [winner, phase, rulesShowSheet, show7x7LevelUp, show6x6LevelUp, rulesMatchGate]
   );
   const forgeClick = React.useCallback(
-    (r: number, c: number) => { if (!winner && phase === "playing" && rulesShowSheet === null && !show7x7LevelUp && !rulesMatchGate) placeRef.current(r, c); },
-    [winner, phase, rulesShowSheet, show7x7LevelUp, rulesMatchGate]
+    (r: number, c: number) => { if (!winner && phase === "playing" && rulesShowSheet === null && !show7x7LevelUp && !show6x6LevelUp && !rulesMatchGate) placeRef.current(r, c); },
+    [winner, phase, rulesShowSheet, show7x7LevelUp, show6x6LevelUp, rulesMatchGate]
   );
   const voidClick = React.useCallback(
-    (r: number, c: number) => { if (!winner && phase === "playing" && rulesShowSheet === null && !show7x7LevelUp && !rulesMatchGate) placeRef.current(r, c); },
-    [winner, phase, rulesShowSheet, show7x7LevelUp, rulesMatchGate]
+    (r: number, c: number) => { if (!winner && phase === "playing" && rulesShowSheet === null && !show7x7LevelUp && !show6x6LevelUp && !rulesMatchGate) placeRef.current(r, c); },
+    [winner, phase, rulesShowSheet, show7x7LevelUp, show6x6LevelUp, rulesMatchGate]
   );
   const tokyoClick = React.useCallback(
-    (r: number, c: number) => { if (!winner && phase === "playing" && rulesShowSheet === null && !show7x7LevelUp && !rulesMatchGate) placeRef.current(r, c); },
-    [winner, phase, rulesShowSheet, show7x7LevelUp, rulesMatchGate]
+    (r: number, c: number) => { if (!winner && phase === "playing" && rulesShowSheet === null && !show7x7LevelUp && !show6x6LevelUp && !rulesMatchGate) placeRef.current(r, c); },
+    [winner, phase, rulesShowSheet, show7x7LevelUp, show6x6LevelUp, rulesMatchGate]
   );
   const spaceClick = React.useCallback(
-    (r: number, c: number) => { if (!winner && phase === "playing" && rulesShowSheet === null && !show7x7LevelUp && !rulesMatchGate) placeRef.current(r, c); },
-    [winner, phase, rulesShowSheet, show7x7LevelUp, rulesMatchGate]
+    (r: number, c: number) => { if (!winner && phase === "playing" && rulesShowSheet === null && !show7x7LevelUp && !show6x6LevelUp && !rulesMatchGate) placeRef.current(r, c); },
+    [winner, phase, rulesShowSheet, show7x7LevelUp, show6x6LevelUp, rulesMatchGate]
   );
   const pixelClick = React.useCallback(
-    (r: number, c: number) => { if (!winner && phase === "playing" && rulesShowSheet === null && !show7x7LevelUp && !rulesMatchGate) placeRef.current(r, c); },
-    [winner, phase, rulesShowSheet, show7x7LevelUp, rulesMatchGate]
+    (r: number, c: number) => { if (!winner && phase === "playing" && rulesShowSheet === null && !show7x7LevelUp && !show6x6LevelUp && !rulesMatchGate) placeRef.current(r, c); },
+    [winner, phase, rulesShowSheet, show7x7LevelUp, show6x6LevelUp, rulesMatchGate]
   );
 
   const addLog = (r: number, c: number, player: string) => {
@@ -2223,14 +2341,24 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     if (!chooser) return;
     setRb6SpecialCell({ r, c, owner: chooser });
     if (R.current.winnerPickedRule === "timer_half") {
-      // Own-cell branch: loser still chooses who starts after special-cell selection.
       setPhase("who_first_loser");
+      if (isMultiplayerGame) {
+        broadcastTossPhase("who_first_loser", {
+          rb6_special_cell: { r, c, owner: chooser },
+          winnerPickedRule: R.current.winnerPickedRule,
+        });
+      }
       return;
     }
-    // Choose-first branch: first-player choice is already locked; go straight to summary.
     setSummaryTimer(5);
     setPhase("toss_summary");
-  }, []);
+    if (isMultiplayerGame) {
+      broadcastTossPhase("toss_summary", {
+        rb6_special_cell: { r, c, owner: chooser },
+        summaryTimer: 5,
+      });
+    }
+  }, [isMultiplayerGame, broadcastTossPhase]);
 
   const onLeftAction = useCallback(() => {
     const p = R.current.phase; const tw = R.current.tossWinner; const tl = tw === "P1" ? "P2" : "P1";
@@ -2417,10 +2545,10 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
         const key = `${r}-${c}`;
         const blk = c3Blocked && movesPlayed === 0 && r === CENTER && c === CENTER && liveBoardMode !== "6x6";
         const rb6SecretHint = liveBoardMode === "6x6" && rb6SpecialCell && rb6SpecialCell.r === r && rb6SpecialCell.c === c && current === rb6SpecialCell.owner && !cell;
-        const isHov = hover === key && !cell && !winner && !blk && phase === "playing" && rulesShowSheet === null && !show7x7LevelUp && !rulesMatchGate;
+        const isHov = hover === key && !cell && !winner && !blk && phase === "playing" && rulesShowSheet === null && !show7x7LevelUp && !show6x6LevelUp && !rulesMatchGate;
         const isWin = winLine.some(([wr, wc]) => wr === r && wc === c);
         const ec = cell === "P1" ? p1c : p2c;
-        const canPlay = !cell && !winner && !blk && phase === "playing" && rulesShowSheet === null && !show7x7LevelUp && !rulesMatchGate;
+        const canPlay = !cell && !winner && !blk && phase === "playing" && rulesShowSheet === null && !show7x7LevelUp && !show6x6LevelUp && !rulesMatchGate;
         if (isRedBoard) return (<RedCell key={key} cellSize={bigCs} player={cell} isWinCell={isWin} isHov={isHov} canPlay={canPlay} blk={blk} useFlameSkull={useFlameSkull} useSnowflakeShard={useSnowflakeShard} useGlacierSigils={useGlacierSigils} pieceSymbols={pieceSymbols} p1c={p1c} p2c={p2c} fontDisplay={t.fontDisplay} onClick={() => placeRef.current(r, c)} onMouseEnter={() => setHover(key)} onMouseLeave={() => setHover(null)} />);
         if (isIceBoard || isGlacierBoard) return (<IceCell key={key} cellSize={bigCs} player={cell} isWinCell={isWin} isHov={isHov} canPlay={canPlay} blk={blk} useFlameSkull={useFlameSkull} useSnowflakeShard={useSnowflakeShard} useGlacierSigils={useGlacierSigils} pieceSymbols={pieceSymbols} p1c={p1c} p2c={p2c} fontDisplay={t.fontDisplay} onClick={() => placeRef.current(r, c)} onMouseEnter={() => setHover(key)} onMouseLeave={() => setHover(null)} />);
         return (
@@ -2442,12 +2570,12 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   ), [board, hover, winLine, winner, phase, c3Blocked, movesPlayed, bigCs,
     p1c, p2c, cc, current, liveBoardMode, rb6SpecialCell, isRedBoard, isIceBoard, isGlacierBoard, useFlameSkull, useSnowflakeShard, useGlacierSigils,
-    rulesShowSheet, show7x7LevelUp, rulesMatchGate]);
+    rulesShowSheet, show7x7LevelUp, show6x6LevelUp, rulesMatchGate]);
 
   const [rulesGateDontShowAgain, setRulesGateDontShowAgain] = useState(false);
   useEffect(() => {
-    if (!rulesMatchGateRef.current || rulesShowSheetRef.current !== null || show7x7LevelUpRef.current) return;
-    const sheet: RuleshowSheet = liveBoardMode === "7x7" ? "7x7" : "5x5";
+    if (!rulesMatchGateRef.current || rulesShowSheetRef.current !== null || show7x7LevelUpRef.current || show6x6LevelUpRef.current) return;
+    const sheet: RuleshowSheet = liveBoardMode === "7x7" ? "7x7" : liveBoardMode === "6x6" ? "6x6" : "5x5";
     setRulesGateDontShowAgain(readRuleshowSkip(sheet));
   }, [liveBoardMode, rulesMatchGate]);
 
@@ -2501,7 +2629,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   );
 
 
-  const rbPhases: Phase[] = ["rb_splash", "rb_coin", "rule_choice", "who_first_winner", "c3_choice", "c3_choice_loser", "who_first_loser", "ban_pattern_winner", "ban_pattern_loser", "grid_block_warning", "grid_block_selection", "toss_summary", "rb_initializing"];
+  const rbPhases: Phase[] = ["rb_splash", "rb_coin", "rule_choice", "who_first_winner", "c3_choice", "c3_choice_loser", "who_first_loser", "ban_pattern_winner", "ban_pattern_loser", "grid_block_warning", "grid_block_selection", "grid_block_waiting", "toss_summary", "rb_initializing"];
   const rbOverlay = rbPhases.includes(phase) && (
       <RulebreakerFlow
         phase={phase} t={t} ip={ip} p1c={p1c} p2c={p2c}
@@ -2550,7 +2678,10 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     const nowReady = isP1 ? p1LevelUpReady : p2LevelUpReady;
     const becomingReady = !nowReady;
     if (becomingReady && rulesGateDontShowAgain) {
-      const key = liveBoardMode === "7x7" ? RULESHOW_SKIP_STORAGE_7x7 : RULESHOW_SKIP_STORAGE_5x5;
+      const key =
+        liveBoardMode === "7x7" ? RULESHOW_SKIP_STORAGE_7x7 :
+        liveBoardMode === "6x6" ? RULESHOW_SKIP_STORAGE_6x6 :
+        RULESHOW_SKIP_STORAGE_5x5;
       try {
         window.localStorage.setItem(key, "1");
       } catch {
@@ -2572,10 +2703,18 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
       <div style={{ fontFamily: t.fontBody, fontSize: 14, color: t.textSecondary, marginTop: 24, maxWidth: 420, textAlign: "center", lineHeight: 1.55, padding: "0 20px" }}>Game 3 on 5×5 ended in a draw at 1-1. No extra toss — opening the 7×7 leg at game 1 (0-0), first move to whoever had the second move on 5×5 game 1. Pattern-ban Rulebreaker on 7×7 only when the usual pair rule says so.</div>
     </div>
   );
+  const levelUp6x6Overlay = show6x6LevelUp && (
+    <div style={{ position: "fixed", inset: 0, zIndex: 10002, background: "rgba(0,0,0,0.94)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", pointerEvents: "none" }}>
+      <div style={{ fontFamily: t.fontMono, fontSize: 11, color: t.textMuted, letterSpacing: "0.35em", marginBottom: 18 }}>5×5 LEG COMPLETE</div>
+      <div style={{ fontFamily: t.fontDisplay, fontSize: "clamp(28px,7vw,56px)", fontWeight: 950, color: t.accent, textAlign: "center", textShadow: `0 0 50px ${t.accent}AA`, animation: "levelUpPulse 1.1s ease-in-out infinite" }}>LEVEL UP</div>
+      <div style={{ fontFamily: t.fontDisplay, fontSize: "clamp(42px,12vw,100px)", fontWeight: 950, color: "#A78BFA", marginTop: 10, textShadow: "0 0 70px rgba(167,139,250,0.55)" }}>6 × 6</div>
+      <div style={{ fontFamily: t.fontBody, fontSize: 14, color: t.textSecondary, marginTop: 24, maxWidth: 420, textAlign: "center", lineHeight: 1.55, padding: "0 20px" }}>Opening the Timebomb leg — confirm rules with your opponent, then play on the 6×6 grid.</div>
+    </div>
+  );
   const blockMultiRulesOrLevelUp =
     isMultiplayerGame &&
     !showMatchupOverlay &&
-    (rulesShowSheet !== null || show7x7LevelUp || rulesMatchGate);
+    (rulesShowSheet !== null || show7x7LevelUp || show6x6LevelUp || rulesMatchGate);
 
   if (blockMultiRulesOrLevelUp) {
     const shellBg =
@@ -2600,7 +2739,8 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
         }}
       >
         {levelUp7x7Overlay}
-        {rulesMatchGate && rulesShowSheet === null && !(p1LevelUpReady && p2LevelUpReady) && !show7x7LevelUp && (
+        {levelUp6x6Overlay}
+        {rulesMatchGate && rulesShowSheet === null && !(p1LevelUpReady && p2LevelUpReady) && !show7x7LevelUp && !show6x6LevelUp && (
           <div
             style={{
               position: "absolute",
@@ -3010,6 +3150,64 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
         <SurrenderModal show={showSurrender} t={sidebarT} ip={ip} isRankedGame={isRankedGame} onConfirmAction={() => { setShowSurrender(false); if (isMultiplayerGame && isRankedGame && wsRef.current?.readyState === WebSocket.OPEN) { wsRef.current.send(JSON.stringify({ type: "quit_match", slot: mySlot })); } if (setScreenAction) setScreenAction("home"); }} onCancelAction={() => { playClickAction?.(); pausedRef.current = false; setShowSurrender(false); }} playHoverAction={playHoverAction} />
         <ExitModal show={showExitConfirm} t={sidebarT} ip={ip} onConfirmAction={() => { setShowExitConfirm(false); if (setScreenAction) setScreenAction("home"); }} onCancelAction={() => { playClickAction?.(); pausedRef.current = false; setShowExitConfirm(false); }} playHoverAction={playHoverAction} />
         <RematchOverlay show={showRematch && rankedMatchComplete === null} isMultiplayerGame={isMultiplayerGame} t={sidebarT} ip={ip} p1c={p1c} p2c={p2c} seriesWinner={seriesWinner} mySlot={mySlot} rematchRequested={rematchRequested} winnerDisplayNameAction={winnerDisplayName} lastSeries={lastSeries} onRematchAction={() => { wsRef.current?.send(JSON.stringify({ type: "rematch" })); setRematchRequested(mySlot); }} onQuitMatchAction={() => { wsRef.current?.send(JSON.stringify({ type: "quit_match", slot: mySlot })); if (setScreenAction) setScreenAction("home"); }} />
+        {pbOverlay && isMultiplayerGame && isRankedGame && (
+          <div
+            style={{
+              position: "fixed",
+              inset: 0,
+              zIndex: 11500,
+              background: "rgba(0,0,0,0.9)",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: 24,
+            }}
+          >
+            <div style={{ fontFamily: t.fontDisplay, fontSize: 22, fontWeight: 900, color: t.gold, marginBottom: 8, letterSpacing: "0.1em" }}>PROTOCOLBREAKER</div>
+            <div style={{ fontFamily: t.fontMono, fontSize: 12, color: t.textMuted, marginBottom: 12, textAlign: "center", maxWidth: 420, lineHeight: 1.5 }}>
+              Full-protocol aggregate is tied ({pbOverlay.p1Agg}–{pbOverlay.p2Agg} decisive mini-game wins). Each player bans one board; the match continues on the surviving size.
+            </div>
+            <div style={{ fontFamily: t.fontMono, fontSize: 11, color: t.accent, marginBottom: 20, textAlign: "center" }}>
+              {pbOverlay.nextSlot === mySlot ? "Your turn — choose a board to ban." : "Other player is choosing a board to ban…"}
+            </div>
+            <div style={{ display: "flex", gap: 12, flexWrap: "wrap", justifyContent: "center" }}>
+              {(["5x5", "6x6", "7x7"] as const).map(bm => {
+                const inBanList = pbOverlay.bans.includes(bm);
+                const blockSecond = pbOverlay.bans.length === 1 && bm === pbOverlay.bans[0];
+                const canClick =
+                  mySlot === pbOverlay.nextSlot && pbOverlay.bans.length < 2 && !inBanList && !blockSecond;
+                return (
+                  <button
+                    key={bm}
+                    type="button"
+                    disabled={!canClick}
+                    onClick={() => {
+                      if (wsRef.current?.readyState === WebSocket.OPEN) {
+                        wsRef.current.send(JSON.stringify({ type: "protocolbreaker_ban", board_mode: bm }));
+                      }
+                    }}
+                    style={{
+                      padding: "14px 22px",
+                      fontFamily: t.fontMono,
+                      fontSize: 13,
+                      fontWeight: 800,
+                      letterSpacing: "0.08em",
+                      borderRadius: 8,
+                      border: `2px solid ${canClick ? t.accent : "#444"}`,
+                      background: inBanList || blockSecond ? "rgba(80,80,80,0.4)" : canClick ? `${t.accent}33` : "rgba(40,40,40,0.5)",
+                      color: canClick ? t.accent : "#888",
+                      cursor: canClick ? "pointer" : "not-allowed",
+                    }}
+                  >
+                    {bm === "5x5" ? "5×5" : bm === "6x6" ? "6×6" : "7×7"}
+                    {inBanList || blockSecond ? " ✕" : ""}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
         {rankedMatchComplete && (
           <RankedResultOverlay
             payload={rankedMatchComplete}
@@ -3197,6 +3395,64 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
         <RematchOverlay show={showRematch && rankedMatchComplete === null} isMultiplayerGame={isMultiplayerGame} t={sidebarT} ip={ip} p1c={p1c} p2c={p2c} seriesWinner={seriesWinner} mySlot={mySlot} rematchRequested={rematchRequested} winnerDisplayNameAction={winnerDisplayName} lastSeries={lastSeries} onRematchAction={() => { wsRef.current?.send(JSON.stringify({ type: "rematch" })); setRematchRequested(mySlot); }} onQuitMatchAction={() => { wsRef.current?.send(JSON.stringify({ type: "quit_match", slot: mySlot })); if (setScreenAction) setScreenAction("home"); }} />
         <SurrenderModal show={showSurrender} t={sidebarT} ip={ip} isRankedGame={isRankedGame} onConfirmAction={() => { setShowSurrender(false); if (isMultiplayerGame && isRankedGame && wsRef.current?.readyState === WebSocket.OPEN) { wsRef.current.send(JSON.stringify({ type: "quit_match", slot: mySlot })); } if (setScreenAction) setScreenAction("home"); }} onCancelAction={() => { playClickAction?.(); pausedRef.current = false; setShowSurrender(false); }} playHoverAction={playHoverAction} />
       <ExitModal show={showExitConfirm} t={sidebarT} ip={ip} onConfirmAction={() => { setShowExitConfirm(false); if (setScreenAction) setScreenAction("home"); }} onCancelAction={() => { playClickAction?.(); pausedRef.current = false; setShowExitConfirm(false); }} playHoverAction={playHoverAction} />
+      {pbOverlay && isMultiplayerGame && isRankedGame && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 11500,
+            background: "rgba(0,0,0,0.9)",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 24,
+          }}
+        >
+          <div style={{ fontFamily: t.fontDisplay, fontSize: 22, fontWeight: 900, color: t.gold, marginBottom: 8, letterSpacing: "0.1em" }}>PROTOCOLBREAKER</div>
+          <div style={{ fontFamily: t.fontMono, fontSize: 12, color: t.textMuted, marginBottom: 12, textAlign: "center", maxWidth: 420, lineHeight: 1.5 }}>
+            Full-protocol aggregate is tied ({pbOverlay.p1Agg}–{pbOverlay.p2Agg} decisive mini-game wins). Each player bans one board; the match continues on the surviving size.
+          </div>
+          <div style={{ fontFamily: t.fontMono, fontSize: 11, color: t.accent, marginBottom: 20, textAlign: "center" }}>
+            {pbOverlay.nextSlot === mySlot ? "Your turn — choose a board to ban." : "Other player is choosing a board to ban…"}
+          </div>
+          <div style={{ display: "flex", gap: 12, flexWrap: "wrap", justifyContent: "center" }}>
+            {(["5x5", "6x6", "7x7"] as const).map(bm => {
+              const inBanList = pbOverlay.bans.includes(bm);
+              const blockSecond = pbOverlay.bans.length === 1 && bm === pbOverlay.bans[0];
+              const canClick =
+                mySlot === pbOverlay.nextSlot && pbOverlay.bans.length < 2 && !inBanList && !blockSecond;
+              return (
+                <button
+                  key={bm}
+                  type="button"
+                  disabled={!canClick}
+                  onClick={() => {
+                    if (wsRef.current?.readyState === WebSocket.OPEN) {
+                      wsRef.current.send(JSON.stringify({ type: "protocolbreaker_ban", board_mode: bm }));
+                    }
+                  }}
+                  style={{
+                    padding: "14px 22px",
+                    fontFamily: t.fontMono,
+                    fontSize: 13,
+                    fontWeight: 800,
+                    letterSpacing: "0.08em",
+                    borderRadius: 8,
+                    border: `2px solid ${canClick ? t.accent : "#444"}`,
+                    background: inBanList || blockSecond ? "rgba(80,80,80,0.4)" : canClick ? `${t.accent}33` : "rgba(40,40,40,0.5)",
+                    color: canClick ? t.accent : "#888",
+                    cursor: canClick ? "pointer" : "not-allowed",
+                  }}
+                >
+                  {bm === "5x5" ? "5×5" : bm === "6x6" ? "6×6" : "7×7"}
+                  {inBanList || blockSecond ? " ✕" : ""}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
       {rankedMatchComplete && (
         <RankedResultOverlay
           payload={rankedMatchComplete}

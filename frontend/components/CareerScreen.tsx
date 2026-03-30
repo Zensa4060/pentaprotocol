@@ -32,6 +32,9 @@ interface MatchRecord {
   banned_pattern_7x7?: string;
   board_mode?: string;
   game_number?: number;
+  match_rounds?: string[];
+  board_mode_full?: string;
+  protocolbreaker_played?: boolean;
 }
 
 interface Props { themeId: ThemeId; onHoverAction?: () => void; }
@@ -49,6 +52,7 @@ export default function CareerScreen({ themeId, onHoverAction }: Props) {
 
   const [history, setHistory] = useState<MatchRecord[]>([]);
   const [loading, setLoading] = useState(true);
+  const [expandedRow, setExpandedRow] = useState<number | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -357,19 +361,28 @@ export default function CareerScreen({ themeId, onHoverAction }: Props) {
             const resultLabel = isWin ? "VICTORY" : isDraw ? "DRAW" : "DEFEAT";
             const resultColor = isWin ? "#10B981" : isDraw ? "#F5960B" : "#EF4444";
             const rowDelay = (i * 0.05).toFixed(2) + "s";
+            const hasRounds = Array.isArray(match.match_rounds) && match.match_rounds.length > 0;
 
             return (
               <div
                 key={i}
+                style={{
+                  borderBottom: i < history.length - 1 ? `1px solid ${t.border}22` : "none",
+                }}
+              >
+              <div
                 className="career-row career-row-animated"
+                onClick={() => {
+                  if (hasRounds) setExpandedRow(expandedRow === i ? null : i);
+                }}
                 style={{
                   display: "grid",
                   gridTemplateColumns: "100px 1fr 140px 100px 100px",
                   padding: "16px 24px",
-                  borderBottom: i < history.length - 1 ? `1px solid ${t.border}22` : "none",
                   alignItems: "center",
                   background: "transparent",
                   animationDelay: rowDelay,
+                  cursor: hasRounds ? "pointer" : "default",
                 }}
               >
                 {/* Result badge */}
@@ -416,8 +429,18 @@ export default function CareerScreen({ themeId, onHoverAction }: Props) {
                     fontFamily: t.fontMono, fontSize: 11, color: t.textMuted, 
                     letterSpacing: "0.08em", fontWeight: 600, opacity: 0.8 
                   }}>
-                    {modeLabel(match.mode).toUpperCase()}
+                    {match.board_mode_full === "5x5_6x6_7x7"
+                      ? "RANKED TRIPLE"
+                      : modeLabel(match.mode).toUpperCase()}
                   </div>
+                  {match.protocolbreaker_played ? (
+                    <div style={{
+                      fontFamily: t.fontMono, fontSize: 9, color: "#a78bfa",
+                      letterSpacing: "0.06em", fontWeight: 700, marginTop: 6,
+                    }}>
+                      PROTOCOLBREAKER
+                    </div>
+                  ) : null}
                   {match.banned_pattern_7x7 ? (
                     <div style={{
                       fontFamily: t.fontMono, fontSize: 9, color: "#EF4444",
@@ -447,6 +470,31 @@ export default function CareerScreen({ themeId, onHoverAction }: Props) {
                 }}>
                   {formatDate(match.played_at).toUpperCase()}
                 </div>
+              </div>
+              {expandedRow === i && hasRounds && (
+                <div style={{
+                  padding: "4px 24px 18px",
+                  background: "rgba(0,0,0,0.2)",
+                  borderTop: `1px solid ${t.border}18`,
+                }}>
+                  <div style={{ fontFamily: t.fontMono, fontSize: 9, color: t.textMuted, letterSpacing: "0.14em", marginBottom: 8 }}>
+                    MINI-GAME SEQUENCE (CHRONOLOGICAL)
+                  </div>
+                  <div style={{
+                    fontFamily: t.fontMono, fontSize: 12, color: t.textSecondary, lineHeight: 1.7, wordBreak: "break-word",
+                  }}>
+                    {match.match_rounds!.map((w, j) => (
+                      <span key={j}>
+                        {j > 0 ? " → " : ""}
+                        <span style={{ color: w === "P1" ? "#34D399" : w === "P2" ? "#f87171" : "#F59E0B", fontWeight: 700 }}>{w}</span>
+                      </span>
+                    ))}
+                  </div>
+                  <div style={{ fontFamily: t.fontMono, fontSize: 9, color: t.textMuted, marginTop: 10, opacity: 0.75 }}>
+                    Tap row again to collapse
+                  </div>
+                </div>
+              )}
               </div>
             );
           })}

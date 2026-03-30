@@ -92,6 +92,12 @@ def serialize_room(room: dict) -> dict:
         "rb_hide_banned_from_slot": room.get("rb_hide_banned_from_slot"),
         "rb_patterns_pre_ban": room.get("rb_patterns_pre_ban"),
         "rb_banned_pattern": room.get("rb_banned_pattern"),
+        "protocolbreaker_pending": room.get("protocolbreaker_pending", False),
+        "pb_toss_winner": room.get("pb_toss_winner"),
+        "pb_bans": room.get("pb_bans") or [],
+        "protocolbreaker_final": room.get("protocolbreaker_final", False),
+        "pb_p1_aggregate": room.get("pb_p1_aggregate"),
+        "pb_p2_aggregate": room.get("pb_p2_aggregate"),
     }
 
 
@@ -588,13 +594,39 @@ async def _award_ranked_triple_and_notify(
     record_clean_streak: bool = True,
 ):
     """Single ELO/RR update + optional WS payload for clients."""
+    hist = list(update.get("match_history") or room.get("match_history") or [])
+    room_fresh = await db.rooms.find_one({"room_code": room_code}) or room
+    pb_played = bool(room_fresh.get("protocolbreaker_final"))
+
+    if room_fresh.get("protocolbreaker_pending"):
+        return
+
+    if room_fresh.get("protocolbreaker_final"):
+        effective = match_winner if match_winner in ("P1", "P2", "DRAW") else None
+        if effective is None:
+            return
+        await db.rooms.update_one(
+            {"room_code": room_code},
+            {"$unset": {"protocolbreaker_final": ""}},
+        )
+    else:
+        agg = _aggregate_match_winner(hist)
+        if agg is not None:
+            effective = agg
+        else:
+            await _broadcast_protocolbreaker_tie(db, room_code, room, hist)
+            return
+
     game_dict = {
         "player1_id": room["player1_id"],
         "player2_id": room["player2_id"],
         "format": room["format"],
         "source": room.get("source", "matchmaking"),
         "mode": "multiplayer",
-        "board_mode": "7x7",
+        "board_mode": room.get("board_mode", "7x7"),
+        "match_rounds": hist,
+        "board_mode_full": room.get("board_mode_full", RANKED_TRIPLE_BOARD_MODE),
+        "protocolbreaker_played": pb_played,
     }
     p1_id, p2_id = room.get("player1_id"), room.get("player2_id")
     u1 = await db.users.find_one({"_id": ObjectId(p1_id)}) if p1_id else None
@@ -605,14 +637,14 @@ async def _award_ranked_triple_and_notify(
     rr2_before = int(u2.get("ranked_rating", elo2_before)) if u2 else elo2_before
 
     await award_ranked_match_result(
-        db, game_dict, match_winner, record_clean_streak=record_clean_streak
+        db, game_dict, effective, record_clean_streak=record_clean_streak
     )
 
     u1a = await db.users.find_one({"_id": ObjectId(p1_id)}) if p1_id else None
     u2a = await db.users.find_one({"_id": ObjectId(p2_id)}) if p2_id else None
     payload = {
         "type": "ranked_match_complete",
-        "series_winner": match_winner,
+        "series_winner": effective,
         "p1": {
             "elo_before": elo1_before,
             "elo_after": u1a.get("elo", elo1_before) if u1a else elo1_before,
@@ -630,6 +662,146 @@ async def _award_ranked_triple_and_notify(
         try:
             await ws.send_json(payload)
         except:
+            pass
+
+
+def _aggregate_decisive_games(history: list) -> tuple[int, int]:
+    """Count P1 vs P2 wins across the full match_history (DRAW ignored)."""
+    p1 = sum(1 for w in history if w == "P1")
+    p2 = sum(1 for w in history if w == "P2")
+    return p1, p2
+
+
+def _aggregate_match_winner(history: list) -> str | None:
+    """Return P1/P2 if one player won more decisive games; None if tied."""
+    p1, p2 = _aggregate_decisive_games(history)
+    if p1 > p2:
+        return "P1"
+    if p2 > p1:
+        return "P2"
+    return None
+
+
+async def _start_protocolbreaker_final_game(
+    db,
+    room_code: str,
+    room: dict,
+    banned: list[str],
+) -> None:
+    """After two bans, play one decisive game on the surviving board."""
+    from app.core.patterns7 import PATTERN_NAMES_7
+
+    ALL = ["5x5", "6x6", "7x7"]
+    remaining = [m for m in ALL if m not in banned]
+    if len(remaining) != 1:
+        return
+    mode = remaining[0]
+    sp = sp1 = sp2 = None
+    if mode == "7x7":
+        sp = list(PATTERN_NAMES_7)
+        sp1 = list(PATTERN_NAMES_7)
+        sp2 = list(PATTERN_NAMES_7)
+    engine = GameEngine(
+        board_mode=mode,
+        selected_pattern_ids=sp,
+        selected_pattern_ids_p1=sp1 if mode == "7x7" else None,
+        selected_pattern_ids_p2=sp2 if mode == "7x7" else None,
+    )
+    first = "P1"
+    seg_new = len(room.get("match_history") or [])
+    patch = {
+        "board": engine.board,
+        "board_mode": mode,
+        "current_player": first,
+        "moves_played": 0,
+        "extra_turns": 0,
+        "winner": None,
+        "game_status": "playing",
+        "status": "active",
+        "game_number": 1,
+        "segment_start_index": seg_new,
+        "p1_series_points": 0,
+        "p2_series_points": 0,
+        "series_winner": None,
+        "awaiting_rulebreaker": False,
+        "protocolbreaker_pending": False,
+        "protocolbreaker_final": True,
+        "pb_bans": banned,
+        "awaiting_5x5_rules_ready": False,
+        "awaiting_6x6_rules_ready": False,
+        "awaiting_7x7_rules_ready": False,
+        "selected_patterns": sp,
+        "selected_patterns_p1": sp1,
+        "selected_patterns_p2": sp2,
+        "c3_blocked": False,
+        "suppress_center_opening": False,
+        "rb_extra_turn_token_holder": None,
+        "rb_extra_turn_token_used": False,
+        "rb_hide_banned_from_slot": None,
+        "rb_patterns_pre_ban": None,
+        "rb_banned_pattern": None,
+    }
+    await db.rooms.update_one(
+        {"room_code": room_code},
+        {"$set": patch, "$unset": {"pb_toss_winner": ""}},
+    )
+    gr = {
+        "type": "game_reset",
+        "first_player": first,
+        "game_number": 1,
+        "board_mode": mode,
+        "segment_start_index": seg_new,
+        "history_display_start_index": room.get("history_display_start_index", 0),
+        "p1_series_points": 0,
+        "p2_series_points": 0,
+        "protocolbreaker_final": True,
+        "pb_bans": banned,
+        "c3_blocked": False,
+        "preserve_rb_hide": False,
+    }
+    if mode == "7x7" and sp is not None:
+        gr["selected_patterns"] = sp
+        gr["selected_patterns_p1"] = sp1
+        gr["selected_patterns_p2"] = sp2
+    for slot, ws in _room_connections.get(room_code, {}).items():
+        try:
+            await ws.send_json(gr)
+        except Exception:
+            pass
+
+
+async def _broadcast_protocolbreaker_tie(
+    db,
+    room_code: str,
+    room: dict,
+    history: list,
+) -> None:
+    """Aggregate tie on triple-leg ranked — start board-ban tiebreaker (PROTOCOLBREAKER)."""
+    tw = random.choice(["P1", "P2"])
+    p1a, p2a = _aggregate_decisive_games(history)
+    await db.rooms.update_one(
+        {"room_code": room_code},
+        {
+            "$set": {
+                "protocolbreaker_pending": True,
+                "pb_toss_winner": tw,
+                "pb_bans": [],
+                "pb_p1_aggregate": p1a,
+                "pb_p2_aggregate": p2a,
+            }
+        },
+    )
+    payload = {
+        "type": "protocolbreaker_start",
+        "toss_winner": tw,
+        "p1_aggregate": p1a,
+        "p2_aggregate": p2a,
+        "match_history_snapshot": history,
+    }
+    for slot, ws in _room_connections.get(room_code, {}).items():
+        try:
+            await ws.send_json(payload)
+        except Exception:
             pass
 
 
@@ -693,6 +865,8 @@ async def _cleanup_stale_rooms(db, user_id: str):
 # ── Matchmaking queue ─────────────────────────────────────────────────────────
 
 RANKED_TRIPLE_BOARD_MODE = "5x5_6x6_7x7"
+# Ranked matchmaking: only pair players within this Elo window (inclusive).
+RANKED_ELO_MATCH_RANGE = 500
 
 
 def _is_ranked_triple_leg_room(room: dict) -> bool:
@@ -721,11 +895,18 @@ async def queue_join(data: QueueRequest, user_id: str = Depends(get_current_user
     # Remove any existing queue entry for this user (idempotent re-queue)
     await db.matchmaking_queue.delete_many({"user_id": user_id, "format": fmt})
 
+    user_elo = int(user.get("elo", 500))
+
     # Try to find an opponent already waiting (MongoDB-persisted queue)
     # MUST match on board_mode to ensure queue isolation!
-    opponent_entry = await db.matchmaking_queue.find_one_and_delete(
-        {"format": fmt, "board_mode": data.board_mode, "user_id": {"$ne": user_id}}
-    )
+    # Ranked: also require Elo within ±RANKED_ELO_MATCH_RANGE (queue rows store "elo").
+    queue_query: dict = {"format": fmt, "board_mode": data.board_mode, "user_id": {"$ne": user_id}}
+    if fmt == "ranked":
+        queue_query["elo"] = {
+            "$gte": user_elo - RANKED_ELO_MATCH_RANGE,
+            "$lte": user_elo + RANKED_ELO_MATCH_RANGE,
+        }
+    opponent_entry = await db.matchmaking_queue.find_one_and_delete(queue_query)
 
     if opponent_entry:
         opponent_id = opponent_entry["user_id"]
@@ -737,36 +918,48 @@ async def queue_join(data: QueueRequest, user_id: str = Depends(get_current_user
             # Opponent's room disappeared — fall through to create a new one
             opponent_entry = None
         else:
-            opponent = await db.users.find_one({"_id": ObjectId(opponent_id)})
+            p1_elo_room = int(waiting_room.get("player1_elo", 500))
+            if fmt == "ranked" and abs(p1_elo_room - user_elo) > RANKED_ELO_MATCH_RANGE:
+                # Legacy or inconsistent row — put opponent back in queue and keep searching
+                await db.matchmaking_queue.insert_one({
+                    "user_id": opponent_id,
+                    "room_code": room_code,
+                    "format": fmt,
+                    "board_mode": opponent_entry.get("board_mode", data.board_mode),
+                    "elo": p1_elo_room,
+                    "created_at": datetime.utcnow(),
+                })
+                opponent_entry = None
+            else:
+                _ = await db.users.find_one({"_id": ObjectId(opponent_id)})
+                bm = waiting_room.get("board_mode", "5x5")
+                match_update = {
+                    "player2_id":     user_id,
+                    "player2_name":   player_name,
+                    "player2_elo":    user.get("elo", 100),
+                    "player2_avatar": user.get("avatar"),
+                    "player2_banner": user.get("banner", "default"),
+                    "player2_border": user.get("border_style", "none"),
+                    "player2_title":  user.get("title", "newcomer"),
+                    "player2_level":  user.get("level", 1),
+                    "status":         "active",
+                    "game_status":    "playing",
+                    "awaiting_5x5_rules_ready": _starting_board_mode(bm) == "5x5",
+                    "awaiting_7x7_rules_ready": False,
+                }
+                await db.rooms.update_one({"room_code": room_code}, {"$set": match_update})
+                _reset_rules_gate_runtime(room_code)
+                room = await db.rooms.find_one({"room_code": room_code})
 
-            bm = waiting_room.get("board_mode", "5x5")
-            match_update = {
-                "player2_id":     user_id,
-                "player2_name":   player_name,
-                "player2_elo":    user.get("elo", 100),
-                "player2_avatar": user.get("avatar"),
-                "player2_banner": user.get("banner", "default"),
-                "player2_border": user.get("border_style", "none"),
-                "player2_title":  user.get("title", "newcomer"),
-                "player2_level":  user.get("level", 1),
-                "status":         "active",
-                "game_status":    "playing",
-                "awaiting_5x5_rules_ready": _starting_board_mode(bm) == "5x5",
-                "awaiting_7x7_rules_ready": False,
-            }
-            await db.rooms.update_one({"room_code": room_code}, {"$set": match_update})
-            _reset_rules_gate_runtime(room_code)
-            room = await db.rooms.find_one({"room_code": room_code})
+                conns = _room_connections.get(room_code, {})
+                p1_ws = conns.get("P1")
+                if p1_ws:
+                    try:
+                        await p1_ws.send_json({"type": "player_joined", "room": serialize_room(room)})
+                    except:
+                        pass
 
-            conns = _room_connections.get(room_code, {})
-            p1_ws = conns.get("P1")
-            if p1_ws:
-                try:
-                    await p1_ws.send_json({"type": "player_joined", "room": serialize_room(room)})
-                except:
-                    pass
-
-            return {"matched": True, "room_code": room_code, "player_slot": "P2", "room": serialize_room(room)}
+                return {"matched": True, "room_code": room_code, "player_slot": "P2", "room": serialize_room(room)}
 
     # No valid opponent — create a new waiting room
     code = await _generate_unique_code(db)
@@ -828,13 +1021,16 @@ async def queue_join(data: QueueRequest, user_id: str = Depends(get_current_user
     await db.rooms.insert_one(room)
 
     # Persist queue entry in MongoDB with TTL (ensure TTL index exists — see main.py startup)
-    await db.matchmaking_queue.insert_one({
+    qrow = {
         "user_id":    user_id,
         "room_code":  code,
         "format":     fmt,
         "board_mode": full_board_mode,
         "created_at": datetime.utcnow(),
-    })
+    }
+    if fmt == "ranked":
+        qrow["elo"] = user_elo
+    await db.matchmaking_queue.insert_one(qrow)
 
     return {"matched": False, "room_code": code, "player_slot": "P1", "room": serialize_room(room)}
 
@@ -1161,6 +1357,56 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                     bm = _effective_board_mode(room)
 
                     new_history = history + [outcome]
+                    if room.get("protocolbreaker_final") and is_finished:
+                        sw_pb = outcome if outcome in ("P1", "P2", "DRAW") else "DRAW"
+                        update.update(
+                            {
+                                "match_history": new_history,
+                                "series_winner": sw_pb,
+                                "p1_series_points": 1 if outcome == "P1" else 0,
+                                "p2_series_points": 1 if outcome == "P2" else 0,
+                                "awaiting_rulebreaker": False,
+                            }
+                        )
+                        await db.rooms.update_one({"room_code": room_code}, {"$set": update})
+                        broadcast_pb = {
+                            "type": "move_made",
+                            "row": row,
+                            "col": col,
+                            "board": engine.board,
+                            "current_player": engine.current_player,
+                            "moves_played": engine.moves_played,
+                            "winner": result.get("winner"),
+                            "win_line": [[r, c] for r, c in engine.winner_line]
+                            if engine.winner_line
+                            else [],
+                            "game_status": update["game_status"],
+                            "extra_turns": result.get("extra_turns", 0),
+                            "connectionScores": result.get("connectionScores"),
+                            "match_history": update["match_history"],
+                            "p1_series_points": update["p1_series_points"],
+                            "p2_series_points": update["p2_series_points"],
+                            "series_winner": update["series_winner"],
+                            "awaiting_rulebreaker": update["awaiting_rulebreaker"],
+                            "segment_start_index": update.get(
+                                "segment_start_index", room.get("segment_start_index", 0)
+                            ),
+                            "history_display_start_index": update.get(
+                                "history_display_start_index",
+                                room.get("history_display_start_index", 0),
+                            ),
+                        }
+                        for slot, ws in _room_connections.get(room_code, {}).items():
+                            try:
+                                await ws.send_json(broadcast_pb)
+                            except Exception:
+                                pass
+                        asyncio.create_task(
+                            _award_ranked_triple_and_notify(
+                                db, room_code, room, update, str(sw_pb)
+                            )
+                        )
+                        continue
                     if should_auto_upgrade_7x7_after_6x6_game3(
                         new_history, seg_start, bm, gn
                     ) and room.get("ranked_triple_leg"):
@@ -1653,6 +1899,47 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                     except:
                         pass
 
+            elif msg["type"] == "protocolbreaker_ban":
+                ban_mode = msg.get("board_mode") or msg.get("ban")
+                if ban_mode not in ("5x5", "6x6", "7x7"):
+                    continue
+                room_pb = await db.rooms.find_one({"room_code": room_code})
+                if not room_pb or not room_pb.get("protocolbreaker_pending"):
+                    continue
+                bans = list(room_pb.get("pb_bans") or [])
+                tw = room_pb.get("pb_toss_winner")
+                if len(bans) >= 2:
+                    continue
+                if len(bans) == 0:
+                    if player_slot != tw:
+                        continue
+                else:
+                    if player_slot == tw:
+                        continue
+                    if ban_mode == bans[0]:
+                        continue
+                bans.append(ban_mode)
+                if len(bans) == 1:
+                    await db.rooms.update_one(
+                        {"room_code": room_code},
+                        {"$set": {"pb_bans": bans}},
+                    )
+                    nxt = "P2" if tw == "P1" else "P1"
+                    upd = {
+                        "type": "protocolbreaker_ban_update",
+                        "pb_bans": bans,
+                        "next_ban_slot": nxt,
+                    }
+                    for slot, ws in _room_connections.get(room_code, {}).items():
+                        try:
+                            await ws.send_json(upd)
+                        except Exception:
+                            pass
+                else:
+                    await _start_protocolbreaker_final_game(
+                        db, room_code, room_pb, bans
+                    )
+
             elif msg["type"] == "rb_start_game":
                 room = await db.rooms.find_one({"room_code": room_code})
                 if not room:
@@ -1915,6 +2202,50 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                 seg_start       = room.get("segment_start_index", 0)
                 gn = room.get("game_number", 1)
                 bm = _effective_board_mode(room)
+
+                if room.get("protocolbreaker_final"):
+                    sw_to = winner if winner in ("P1", "P2", "DRAW") else "DRAW"
+                    update_pb = {
+                        "winner": winner,
+                        "game_status": "finished",
+                        "status": "finished",
+                        "match_history": new_history,
+                        "series_winner": sw_to,
+                        "p1_series_points": 1 if winner == "P1" else 0,
+                        "p2_series_points": 1 if winner == "P2" else 0,
+                        "awaiting_rulebreaker": False,
+                    }
+                    await db.rooms.update_one(
+                        {"room_code": room_code}, {"$set": update_pb}
+                    )
+                    for slot, ws in _room_connections.get(room_code, {}).items():
+                        try:
+                            await ws.send_json(
+                                {
+                                    "type": "move_made",
+                                    "winner": winner,
+                                    "board": room.get("board", []),
+                                    "current_player": room.get("current_player", "P1"),
+                                    "moves_played": room.get("moves_played", 0),
+                                    "win_line": [],
+                                    "game_status": "finished",
+                                    "extra_turns": 0,
+                                    "match_history": new_history,
+                                    "p1_series_points": update_pb["p1_series_points"],
+                                    "p2_series_points": update_pb["p2_series_points"],
+                                    "series_winner": update_pb["series_winner"],
+                                    "awaiting_rulebreaker": False,
+                                    "segment_start_index": seg_start,
+                                }
+                            )
+                        except Exception:
+                            pass
+                    asyncio.create_task(
+                        _award_ranked_triple_and_notify(
+                            db, room_code, room, update_pb, str(sw_to)
+                        )
+                    )
+                    continue
 
                 if should_auto_upgrade_7x7_after_6x6_game3(
                     new_history, seg_start, bm, gn

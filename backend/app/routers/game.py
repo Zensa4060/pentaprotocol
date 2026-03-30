@@ -240,6 +240,13 @@ async def award_ranked_match_result(
         }
         if isinstance(game.get("board_mode"), str):
             doc["board_mode"] = game.get("board_mode")
+        if isinstance(game.get("board_mode_full"), str):
+            doc["board_mode_full"] = game.get("board_mode_full")
+        mr = game.get("match_rounds")
+        if isinstance(mr, list) and mr:
+            doc["match_rounds"] = mr
+        if game.get("protocolbreaker_played") is not None:
+            doc["protocolbreaker_played"] = bool(game.get("protocolbreaker_played"))
         await db.match_history.insert_one(doc)
 
     if w == "P1":
