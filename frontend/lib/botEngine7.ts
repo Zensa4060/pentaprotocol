@@ -37,7 +37,7 @@ function place(board: Board, r: number, c: number, player: string): Board {
 
 function wins7(board: Board, r: number, c: number, player: string, patterns: Coord[][]): boolean {
   if (check7Line(board, r, c, player)) return true;
-  return checkStructuralPatterns7(board, player, patterns) !== null;
+  return checkStructuralPatterns7(board, player, patterns, r, c) !== null;
 }
 
 // ══════════════════════════════════════════════════════════════
