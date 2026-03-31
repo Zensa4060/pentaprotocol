@@ -117,7 +117,7 @@ def compute_segment_points(history: list, segment_start: int = 0) -> tuple[int, 
     return p1, p2
 
 
-def compute_series_winner(history: list, segment_start: int = 0, win_cap: int = 5) -> str | None:
+def compute_series_winner(history: list, start_index: int = 0, target_points: int = 5) -> str | None:
     """
     First-to-5 total points wins instantly.
     If all 9 games are played, the player with the most points wins.
@@ -502,6 +502,7 @@ async def _apply_6x6_to_7x7_upgrade(
         "game_number": 1,
         "game1_first_player": None,
         "c3_blocked": False,
+        "suppress_center_opening": False,
         "awaiting_rulebreaker": False,
         "awaiting_6x6_rules_ready": False,
         "awaiting_7x7_rules_ready": True,
@@ -577,6 +578,7 @@ async def _award_match_series_and_notify(
     match_winner: str,
     *,
     record_clean_streak: bool = True,
+    surrendered_by: str | None = None,
 ):
     """General match series outcome (First-to-5) for Ranked, Unranked, and Custom."""
     hist = list(update.get("match_history") or room.get("match_history") or [])
@@ -595,7 +597,7 @@ async def _award_match_series_and_notify(
             {"$unset": {"protocolbreaker_final": ""}},
         )
     else:
-        agg = compute_series_winner(hist)
+        agg = compute_series_winner(hist, 0, 5)
         if agg is not None:
             effective = agg
         else:
@@ -630,7 +632,7 @@ async def _award_match_series_and_notify(
     rr2_before = int(u2.get("ranked_rating", elo2_before)) if u2 else elo2_before
 
     await award_ranked_match_result(
-        db, game_dict, effective, record_clean_streak=record_clean_streak
+        db, game_dict, effective, record_clean_streak=record_clean_streak, surrendered_by=surrendered_by
     )
 
     u1a = await db.users.find_one({"_id": ObjectId(p1_id)}) if p1_id else None
@@ -830,6 +832,45 @@ def compute_series_state(history: list, segment_start: int = 0) -> dict:
         "awaiting_rulebreaker": awaiting_rulebreaker,
         "breaker_type": breaker_type,
     }
+
+async def _broadcast_rulebreaker_start(db, room_code: str, room: dict, history: list):
+    """Transition to Rulebreaker splash screen & start coin toss/pattern selection."""
+    p1a, p2a = _aggregate_decisive_games(history)
+    lh = len(history)
+    bm = _effective_board_mode(room)
+    
+    # Randomly pick toss winner for the rulebreaker
+    tw = random.choice(["P1", "P2"])
+    
+    # Update room state for rulebreaker phase
+    update = {
+        "phase": "rb_splash",
+        "awaiting_rulebreaker": False, # Reset now that we started it
+        "rb_toss_winner": tw,
+        "p1_ready": False,
+        "p2_ready": False,
+    }
+    
+    # For 6x6 (Game 6) -> TIMEBREAKER
+    # For 5x5 (Game 3) -> RULEBREAKER
+    # For 7x7 (Game 9) -> MINDBREAKER
+    
+    await db.rooms.update_one({"room_code": room_code}, {"$set": update})
+    
+    payload = {
+        "type": "rulebreaker_start",
+        "toss_winner": tw,
+        "lh": lh,
+        "board_mode": bm,
+        "p1_aggregate": p1a,
+        "p2_aggregate": p2a,
+    }
+    
+    for slot, ws in _room_connections.get(room_code, {}).items():
+        try:
+            await ws.send_json(payload)
+        except:
+            pass
 
 class JoinRoomRequest(BaseModel):
     room_code: str
@@ -1458,7 +1499,15 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                             "match_history": new_history,
                             **s_state
                         })
+                    elif lh == 2 and bm == "5x5" and is_triple_leg:
+                        # After Game 2, indicate Game 3 is Rulebreaker
+                        update.update({
+                            "match_history": new_history,
+                            "awaiting_rulebreaker": True,
+                            **s_state
+                        })
                     elif lh == 3 and bm == "5x5" and is_triple_leg:
+                        # After Game 3 (Rulebreaker), level up to 6x6
                         finished_5 = [list(r) for r in engine.board]
                         await _apply_5x5_to_6x6_upgrade(
                             db, room_code, room, new_history, outcome,
@@ -1470,7 +1519,15 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                             connection_scores=result.get("connectionScores"),
                         )
                         continue
+                    elif lh == 5 and bm == "6x6" and is_triple_leg:
+                        # After Game 5, indicate Game 6 is Timebreaker
+                        update.update({
+                            "match_history": new_history,
+                            "awaiting_rulebreaker": True,
+                            **s_state
+                        })
                     elif lh == 6 and bm == "6x6" and is_triple_leg:
+                        # After Game 6 (Timebreaker), level up to 7x7
                         finished_6 = [list(r) for r in engine.board]
                         await _apply_6x6_to_7x7_upgrade(
                             db, room_code, room, new_history, outcome,
@@ -1482,7 +1539,14 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                             connection_scores=result.get("connectionScores"),
                         )
                         continue
-                    elif lh == 9 and not sw_found:
+                    elif lh == 8 and bm == "7x7" and is_triple_leg:
+                        # After Game 8, indicate Game 9 is Mindbreaker
+                        update.update({
+                            "match_history": new_history,
+                            "awaiting_rulebreaker": True,
+                            **s_state
+                        })
+                    elif lh >= 9 and not sw_found:
                          # Score tied after 9 rounds -> Protocolbreaker
                          await _broadcast_protocolbreaker_tie(db, room_code, room, new_history)
                          continue
@@ -1563,10 +1627,7 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                         continue
 
                     if room.get("awaiting_rulebreaker"):
-                        await db.rooms.update_one(
-                            {"room_code": room_code},
-                            {"$set": {"p1_ready": False, "p2_ready": False}},
-                        )
+                        await _broadcast_rulebreaker_start(db, room_code, room, room.get("match_history", []))
                         continue
 
                     current_game = room.get("game_number", 1)
@@ -1596,7 +1657,7 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                         "p1_ready":       False,
                         "p2_ready":       False,
                         "game_number":    next_game,
-                        "suppress_center_opening": False,
+                        "suppress_center_opening": bool(next_game == 9 and eff_bm == "7x7"),
                         "rb_extra_turn_token_holder": None,
                         "rb_extra_turn_token_used": False,
                         "rb_hide_banned_from_slot": None,
@@ -1818,6 +1879,21 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                             {"series_winner": win_slot},
                             win_slot,
                             record_clean_streak=False,
+                            surrendered_by=quitter_slot,
+                        )
+                    )
+                else:
+                    # Unranked or other mode quit - also award series to opponent
+                    win_slot = "P2" if quitter_slot == "P1" else "P1"
+                    asyncio.create_task(
+                        _award_match_series_and_notify(
+                            db,
+                            room_code,
+                            room_q,
+                            {"series_winner": win_slot},
+                            win_slot,
+                            record_clean_streak=True,
+                            surrendered_by=quitter_slot,
                         )
                     )
                 await db.rooms.update_one(
@@ -2064,7 +2140,7 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                     "awaiting_rulebreaker": False,
                     "p1_series_points": seg_pts[0],
                     "p2_series_points": seg_pts[1],
-                    "suppress_center_opening": suppress_center if bm == "7x7" else False,
+                    "suppress_center_opening": True if (bm == "7x7" and next_gn == 3) else (suppress_center if bm == "7x7" else False),
                     "rb_extra_turn_token_holder": token_holder if bm == "7x7" else None,
                     "rb_extra_turn_token_used": False,
                 }

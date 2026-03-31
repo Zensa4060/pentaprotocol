@@ -98,7 +98,7 @@ export function RulebreakerFlow({
     const isSixBySixRb = Boolean(is6x6);
     const isFiveByFive = !is7x7 && !isSixBySixRb;
     const splashTitle = isSixBySixRb ? "TIMEBREAKER" : isFiveByFive ? "RULEBREAKER" : "MINDBREAKER";
-    const splashColor = isSixBySixRb ? "#c4b5fd" : isFiveByFive ? "#22d3ee" : "#B91C1C";
+    const splashColor = isSixBySixRb ? "#c4b5fd" : isFiveByFive ? "#22d3ee" : "#EF4444";
     const splashMid = isSixBySixRb ? "rgba(139,92,246,0.32)" : isFiveByFive ? "rgba(56,200,235,0.28)" : "rgba(127,29,29,0.4)";
     const splashGlow = isSixBySixRb ? "rgba(196,181,253,0.75)" : isFiveByFive ? "rgba(130,235,255,0.72)" : "rgba(185,28,28,0.88)";
     const splashTitleGlow = isSixBySixRb ? "rgba(167,139,250,0.58)" : isFiveByFive ? "rgba(34,211,238,0.55)" : "rgba(220,38,38,0.62)";
@@ -700,7 +700,7 @@ export function RulebreakerFlow({
             {phase === "who_first_loser" && is7x7 && rbBannedPatterns.length > 0 && !(winnerPickedRule === "extra_turn" && mySlot === tossWinner) && !(winnerPickedRule === "ban" && mySlot === tossLoser) && (
               <div style={{ display: "flex", flexDirection: "column", gap: 4, alignItems: "center" }}>
                 {rbBannedPatterns.map(p => (
-                  <div key={p} style={{ fontFamily: t.fontDisplay, fontSize: 16, fontWeight: 700, color: "#EF4444" }}>BANNED: {({ "Y": "Y-SHAPE", "L": "L-SHAPE", "W": "W-SHAPE", "V": "V-SHAPE", "C": "C-SHAPE", "zigzag": "ZIGZAG" } as Record<string, string>)[p] || p.toUpperCase()}</div>
+                  <div key={p} style={{ fontFamily: t.fontDisplay, fontSize: 16, fontWeight: 700, color: "#EF4444" }}>BANNED: {({ "Y": "Y-SHAPE", "L": "L-SHAPE", "W": "W-SHAPE", "V": "V-SHAPE", "C": "C-SHAPE", "zigzag": "ZIGZAG", "T": "T-SHAPE" } as Record<string, string>)[p] || p.toUpperCase()}</div>
                 ))}
               </div>
             )}

@@ -39,6 +39,7 @@ import { useAuthStore } from "@/lib/store";
 import { BannerRenderer } from "./BannerRenderer";
 import { RANKS, RankIcon } from "./ProfileScreen";
 import { getUserKey, pushMissionEvent } from "@/lib/missionsClient";
+import { MatchCompleteOverlay } from "./MatchCompleteOverlay";
 
 function getWsBaseUrl(): string {
   const envBase = process.env.NEXT_PUBLIC_API_URL;
@@ -57,132 +58,7 @@ type MatchSeriesCompletePayload = {
   p2: { elo_before: number; elo_after: number; rr_before: number; rr_after: number };
 };
 
-function MatchResultOverlay({
-  payload,
-  mySlot,
-  themeId,
-  onDismiss,
-}: {
-  payload: MatchSeriesCompletePayload;
-  mySlot: "P1" | "P2";
-  themeId: ThemeId;
-  onDismiss: () => void;
-}) {
-  const t = THEMES[themeId];
-  const mine = mySlot === "P1" ? payload.p1 : payload.p2;
-  const isRanked = payload.format === "ranked";
-  
-  const [prog, setProg] = useState(0);
-  useEffect(() => {
-    const t0 = performance.now();
-    const dur = 880;
-    let id = 0;
-    const step = (now: number) => {
-      const p = Math.min(1, (now - t0) / dur);
-      setProg(p);
-      if (p < 1) id = requestAnimationFrame(step);
-    };
-    id = requestAnimationFrame(step);
-    return () => cancelAnimationFrame(id);
-  }, [payload]);
-
-  const lerp = (a: number, b: number) => Math.round(a + (b - a) * prog);
-  const eloN = lerp(mine.elo_before, mine.elo_after);
-  const rrN = lerp(mine.rr_before, mine.rr_after);
-  const dElo = mine.elo_after - mine.elo_before;
-  const dRr = mine.rr_after - mine.rr_before;
-  
-  const isVictory = payload.series_winner === mySlot;
-  const isDraw = payload.series_winner === "DRAW";
-  const label = isDraw ? "MATCH DRAW" : isVictory ? "VICTORY" : "DEFEAT";
-
-  return (
-    <div
-      className="overlay-backdrop"
-      style={{
-        position: "fixed", inset: 0, zIndex: 12000,
-        background: "rgba(0,0,0,0.94)",
-        display: "flex", flexDirection: "column",
-        alignItems: "center", justifyContent: "center",
-        padding: 24,
-        overflow: "hidden"
-      }}
-    >
-      {/* Victory Aura / Draw Glitch Background (Simplified) */}
-      {isVictory && (
-        <div style={{ position: "absolute", inset: 0, pointerEvents: "none", zIndex: -1 }}>
-          <div style={{ position: "absolute", top: "50%", left: "50%", width: "100%", height: "100%", transform: "translate(-50%, -50%)", background: `radial-gradient(circle, ${t.accent}1A 0%, transparent 70%)` }} />
-        </div>
-      )}
-      {isDraw && (
-        <div style={{ position: "absolute", inset: 0, pointerEvents: "none", zIndex: -1, background: "rgba(255,255,255,0.01)", opacity: 0.1 }} />
-      )}
-
-      <div className="overlay-modal" style={{ display: "flex", flexDirection: "column", alignItems: "center", width: "100%", maxWidth: 640 }}>
-        <div style={{ 
-          fontFamily: t.fontDisplay, fontSize: 32, fontWeight: 900, 
-          color: isVictory ? "#10B981" : isDraw ? "#F59E0B" : "#EF4444", 
-          letterSpacing: "0.12em", marginBottom: 8,
-          textAlign: "center"
-        }}>
-          {isRanked ? "RANKED MATCH COMPLETE" : "MATCH COMPLETE"}
-        </div>
-        <div style={{ fontFamily: t.fontMono, fontSize: 13, color: t.textMuted, marginBottom: 28, letterSpacing: "0.1em" }}>
-          {label}
-        </div>
-
-        {isRanked && (
-          <div style={{ display: "flex", gap: 48, flexWrap: "wrap", justifyContent: "center", marginBottom: 36 }}>
-            <div style={{ textAlign: "center" }}>
-              <div style={{ fontFamily: t.fontMono, fontSize: 11, color: t.textMuted, letterSpacing: "0.2em", marginBottom: 8 }}>ELO</div>
-              <div style={{ fontFamily: t.fontDisplay, fontSize: 56, fontWeight: 900, color: t.accent }}>{eloN}</div>
-              <div style={{ fontFamily: t.fontMono, fontSize: 14, color: dElo >= 0 ? "#22c55e" : "#f87171", marginTop: 6 }}>
-                {dElo >= 0 ? "+" : ""}{dElo}
-              </div>
-            </div>
-            <div style={{ textAlign: "center" }}>
-              <div style={{ fontFamily: t.fontMono, fontSize: 11, color: t.textMuted, letterSpacing: "0.2em", marginBottom: 8 }}>RR</div>
-              <div style={{ fontFamily: t.fontDisplay, fontSize: 56, fontWeight: 900, color: t.gold }}>{rrN}</div>
-              <div style={{ fontFamily: t.fontMono, fontSize: 14, color: dRr >= 0 ? "#22c55e" : "#f87171", marginTop: 6 }}>
-                {dRr >= 0 ? "+" : ""}{dRr}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {!isRanked && (
-          <div style={{ marginBottom: 40, textAlign: "center" }}>
-             <div style={{ fontFamily: t.fontMono, fontSize: 14, color: t.textMuted, letterSpacing: "0.05em" }}>
-               Battle archived in career history
-             </div>
-          </div>
-        )}
-
-        <button
-          className="action-btn"
-          type="button"
-          onClick={onDismiss}
-          style={{
-            padding: "16px 48px",
-            background: t.accent,
-            border: "none",
-            borderRadius: 12,
-            color: "#000",
-            fontFamily: t.fontDisplay,
-            fontSize: 16,
-            fontWeight: 900,
-            cursor: "pointer",
-            letterSpacing: "0.08em",
-            boxShadow: `0 10px 30px ${t.accent}44`,
-            transition: "all 0.2s"
-          }}
-        >
-          CONTINUE
-        </button>
-      </div>
-    </div>
-  );
-}
+// MatchResultOverlay removed in favor of MatchCompleteOverlay.tsx
 
 interface MatchupOverlayProps {
   matchupData: any;
@@ -3203,11 +3079,25 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
           </div>
         )}
         {matchSeriesComplete && (
-          <MatchResultOverlay
-            payload={matchSeriesComplete}
+          <MatchCompleteOverlay
+            seriesWinner={matchSeriesComplete.series_winner}
+            format={matchSeriesComplete.format}
+            p1={{ ...matchSeriesComplete.p1, name: p1DisplayName }}
+            p2={{ ...matchSeriesComplete.p2, name: p2DisplayName }}
             mySlot={mySlot}
-            themeId={themeId}
-            onDismiss={() => setMatchSeriesComplete(null)}
+            t={{
+              fontDisplay: t.fontDisplay,
+              fontMono: t.fontMono,
+              fontBody: t.fontBody,
+              accent: t.accent,
+              accentGlow: t.accentGlow,
+              gold: t.gold,
+              danger: t.danger,
+              text: t.text,
+              textSecondary: t.textSecondary,
+              textMuted: t.textMuted,
+            }}
+            onClose={() => setMatchSeriesComplete(null)}
           />
         )}
 
@@ -3448,11 +3338,25 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
         </div>
       )}
       {matchSeriesComplete && (
-        <MatchResultOverlay
-          payload={matchSeriesComplete}
+        <MatchCompleteOverlay
+          seriesWinner={matchSeriesComplete.series_winner}
+          format={matchSeriesComplete.format}
+          p1={{ ...matchSeriesComplete.p1, name: p1DisplayName }}
+          p2={{ ...matchSeriesComplete.p2, name: p2DisplayName }}
           mySlot={mySlot}
-          themeId={themeId}
-          onDismiss={() => setMatchSeriesComplete(null)}
+          t={{
+            fontDisplay: t.fontDisplay,
+            fontMono: t.fontMono,
+            fontBody: t.fontBody,
+            accent: t.accent,
+            accentGlow: t.accentGlow,
+            gold: t.gold,
+            danger: t.danger,
+            text: t.text,
+            textSecondary: t.textSecondary,
+            textMuted: t.textMuted,
+          }}
+          onClose={() => setMatchSeriesComplete(null)}
         />
       )}
 

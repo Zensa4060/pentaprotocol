@@ -38,10 +38,15 @@ BASE_PATTERNS_7 = {
         # A1-B2-C1-D2-E1-F2-G1
         (0, 0), (1, 1), (2, 0), (3, 1), (4, 0), (5, 1), (6, 0)
     ],
+    "T": [
+        # T-shape: wide T-junction
+        # (0,0)-(1,0)-(2,0)-(3,0)-(4,0)-(2,1)-(2,2)
+        (0, 0), (1, 0), (2, 0), (3, 0), (4, 0), (2, 1), (2, 2)
+    ],
 }
 
 # Ordered list of pattern IDs (0-5) for selection
-PATTERN_NAMES_7 = ["Y", "L", "W", "V", "C", "zigzag"]
+PATTERN_NAMES_7 = ["Y", "L", "W", "V", "C", "zigzag", "T"]
 
 
 def generate_variants_7(pattern):

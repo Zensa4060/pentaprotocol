@@ -158,7 +158,7 @@ async def award_game_result(db, game: dict, winner: str | None):
 
 
 async def award_ranked_match_result(
-    db, game: dict, winner: str | None, *, record_clean_streak: bool = True
+    db, game: dict, winner: str | None, *, record_clean_streak: bool = True, surrendered_by: str | None = None
 ):
     """
     Standard match outcome for both Ranked and Unranked modes.
@@ -232,11 +232,13 @@ async def award_ranked_match_result(
             "elo_delta":          elo_after - elo_before if is_ranked else 0,
             "mode":               fmt,
             "played_at":          datetime.utcnow(),
+            "my_slot":            "P1" if user_id == p1_id else "P2",
             "match_scope":        "full_match",
             "board_mode":         game.get("board_mode"),
             "board_mode_full":    game.get("board_mode_full"),
             "match_rounds":       game.get("match_rounds", []),
             "protocolbreaker_played": bool(game.get("protocolbreaker_played")),
+            "surrendered_by":         surrendered_by,
         }
         await db.match_history.insert_one(doc)
 

@@ -42,6 +42,8 @@ interface MatchRecord {
   board_mode_full?: string;
   match_rounds?: MatchRound[];
   protocolbreaker_played?: boolean;
+  my_slot?: "P1" | "P2";
+  surrendered_by?: "P1" | "P2";
 }
 
 const CareerMatchRow = React.memo(({ 
@@ -61,8 +63,19 @@ const CareerMatchRow = React.memo(({
   const isWin = match.result === "win";
   const isDraw = match.result === "draw";
   const deltaColor = isWin ? "#34D399" : isDraw ? "#F59E0B" : "#FF4444";
-  const resultLabel = isWin ? "VICTORY" : isDraw ? "DRAW" : "DEFEAT";
-  const resultColor = isWin ? "#10B981" : isDraw ? "#F5960B" : "#EF4444";
+  
+  let resultLabel = isWin ? "VICTORY" : isDraw ? "DRAW" : "DEFEAT";
+  let resultColor = isWin ? "#10B981" : isDraw ? "#F5960B" : "#EF4444";
+
+  if (match.surrendered_by) {
+    if (match.surrendered_by === match.my_slot) {
+      resultLabel = "FORFEITED";
+      resultColor = "#EF4444";
+    } else {
+      resultLabel = "OPPONENT SURRENDERED";
+      resultColor = "#10B981";
+    }
+  }
   const rowDelay = (i * 0.05).toFixed(2) + "s";
   const hasRounds = Array.isArray(match.match_rounds) && match.match_rounds.length > 0;
 

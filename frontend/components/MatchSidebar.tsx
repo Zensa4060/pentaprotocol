@@ -373,7 +373,7 @@ export function MatchSidebar({
           </div>
         )}
 
-        {Array.from({ length: Math.max(matchHistory.length + 1, gameNumber) }).slice(0, 9).map((_, i) => {
+        {Array.from({ length: Math.max(matchHistory.length + 1, gameNumber) }).slice(0, 10).map((_, i) => {
           const rawResult = matchHistory[i];
           const result = safeWinner(rawResult);
           const col = result === "P1" ? p1c : result === "P2" ? p2c : result === "DRAW" ? t.gold : t.textMuted;
@@ -400,21 +400,6 @@ export function MatchSidebar({
         )}
       </div>
 
-      {boardMode === "7x7" && selectedPatterns && selectedPatterns.length > 0 && phase !== "waiting_ready" && !(isMultiplayerGame && chatOpen) && (
-        <div style={{ borderTop: `1px solid ${t.border}`, paddingTop: 12 }}>
-          <div style={{ fontFamily: t.fontMono, fontSize: 13, fontWeight: 700, color: t.text, letterSpacing: "0.1em", marginBottom: 8, display: "flex", justifyContent: "space-between" }}>
-            <span>7×7 PATTERNS</span>
-          </div>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-            {selectedPatterns.map((p, i) => (
-              <div key={patternsAsSecret ? `sec-${i}` : p} style={{ padding: "4px 8px", background: `${t.accent}1A`, border: `1px solid ${t.accent}44`, borderRadius: 4, fontFamily: t.fontMono, fontSize: 11, color: t.accent, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em" }}>{patternsAsSecret ? "?" : patternSidebarLabel(p)}</div>
-            ))}
-            {!patternsAsSecret && rbBannedPatterns.map((pb, idx) => (
-              <div key={`ban-${idx}`} style={{ padding: "4px 8px", background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.4)", borderRadius: 4, fontFamily: t.fontMono, fontSize: 11, color: "#EF4444", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", textDecoration: "line-through" }}>{patternSidebarLabel(pb)}</div>
-            ))}
-          </div>
-        </div>
-      )}
 
       {phase === "waiting_ready" && (
         <div style={{ display: "flex", flexDirection: "column", gap: 8, animation: "fadeUp 0.3s ease both" }}>
@@ -722,16 +707,13 @@ export function LeftPanel(props: MatchSidebarProps) {
           </div>
         )}
 
-        {Array.from({ 
-          length: seriesWinner 
-            ? matchHistory.length 
-            : Math.max(matchHistory.length + 1, gameNumber) 
-        }).slice(0, 9).map((_, i) => {
+        {Array.from({ length: Math.max(matchHistory.length + 1, gameNumber) }).slice(0, 10).map((_, i) => {
           const rawResult = matchHistory[i];
           const result = safeWinner(rawResult);
           const col = result === "P1" ? p1c : result === "P2" ? p2c : result === "DRAW" ? t.gold : t.textMuted;
           const isCur = i === gameNumber - 1 && (phase === "playing" || phase === "waiting_ready");
-          return (<div key={i} style={{ display: "grid", gridTemplateColumns: "1fr auto", fontFamily: t.fontBody, fontSize: 22, padding: "6px 0", borderBottom: `1px solid ${t.border}22` }}><span style={{ color: isCur ? t.accent : t.textMuted, transition: "color 0.2s" }}>G{i + 1}{isCur ? " *" : ""}</span><span style={{ color: col, fontWeight: result ? 700 : 400, transition: "color 0.2s" }}>{result || "—"}</span></div>);
+          const offset = (isMultiplayerGame && boardMode === "6x6") ? 3 : (isMultiplayerGame && boardMode === "7x7") ? 6 : 0;
+          return (<div key={i} style={{ display: "grid", gridTemplateColumns: "1fr auto", fontFamily: t.fontBody, fontSize: 22, padding: "6px 0", borderBottom: `1px solid ${t.border}22` }}><span style={{ color: isCur ? t.accent : t.textMuted, transition: "color 0.2s" }}>G{i + 1 + offset}{isCur ? " *" : ""}</span><span style={{ color: col, fontWeight: result ? 700 : 400, transition: "color 0.2s" }}>{result || "—"}</span></div>);
         })}
         {seriesWinner && (
           <div style={{ marginTop: 10, fontFamily: t.fontMono, fontSize: 20, color: t.gold, textAlign: "center", fontWeight: 700 }}>
@@ -747,79 +729,6 @@ export function LeftPanel(props: MatchSidebarProps) {
         )}
       </div>
 
-      {!(isMultiplayerGame && chatOpen) && (() => {
-        const mode = boardMode === "7x7" || boardMode === "6x6" ? boardMode : "5x5";
-        const patternChips =
-          mode === "7x7"
-            ? ((selectedPatterns && selectedPatterns.length > 0) ? selectedPatterns : ["Y", "L", "W", "V", "C", "zigzag"])
-            : mode === "6x6"
-              ? ["ZZ", "J", "T", "L", "Y"]
-              : ["V", "L", "ZZ-5",];
-
-        const modeRules =
-          mode === "7x7"
-            ? [
-                { k: "Straight", v: "14" },
-                { k: "Diagonal", v: "2" },
-                { k: "Connect Pts", v: "20" },
-              ]
-            : mode === "6x6"
-              ? [
-                  { k: "Straight", v: "12" },
-                  { k: "Diagonal", v: "2" },
-                  { k: "Connect Pts", v: "15" },
-                ]
-              : [
-                  { k: "Straight", v: "10" },
-                  { k: "Diagonal", v: "2" },
-                  { k: "Connect Pts", v: "10" },
-                ];
-
-        return (
-          <div style={{ borderTop: `1px solid ${t.border}`, paddingTop: 12 }}>
-            <div style={{ fontFamily: t.fontMono, fontSize: 13, fontWeight: 700, color: t.text, letterSpacing: "0.1em", marginBottom: 8, display: "flex", justifyContent: "space-between" }}>
-              <span>{mode.toUpperCase()} PATTERNS</span>
-            </div>
-
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 16 }}>
-              {patternChips.map((p, i) => {
-                const label = patternsAsSecret && mode === "7x7" ? "?" : patternSidebarLabel(p);
-                
-                return (
-                  <div
-                    key={patternsAsSecret && mode === "7x7" ? `sec-${i}` : p}
-                    style={{ 
-                      display: "flex", flexDirection: "column", gap: 6, alignItems: "center",
-                      padding: "6px 12px", background: `${t.accent}12`, border: `1px solid ${t.accent}22`, 
-                      borderRadius: 6, transition: "all 0.2s"
-                    }}
-                  >
-                    <div style={{ fontFamily: t.fontMono, fontSize: 10, color: t.accent, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em" }}>
-                      {label}
-                    </div>
-                  </div>
-                );
-              })}
-              {!patternsAsSecret && mode === "7x7" && rbBannedPatterns.map((pb, idx) => (
-                <div key={`ban-${idx}`} style={{ padding: "6px 8px", background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)", borderRadius: 6, display: "flex", alignItems: "center" }}>
-                   <div style={{ fontFamily: t.fontMono, fontSize: 10, color: "#EF4444", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em", textDecoration: "line-through" }}>
-                    {patternSidebarLabel(pb)}
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0,1fr))", gap: 6 }}>
-              {modeRules.map((rule) => (
-                <div key={rule.k} style={{ background: `${t.bgCard}`, border: `1px solid ${t.border}`, borderRadius: 6, padding: "6px 4px", textAlign: "center" }}>
-                  <div style={{ fontFamily: t.fontMono, fontSize: 9, color: t.textMuted, letterSpacing: "0.08em", marginBottom: 3, textTransform: "uppercase" }}>{rule.k}</div>
-                  <div style={{ fontFamily: t.fontDisplay, fontSize: 14, fontWeight: 800, color: t.text }}>{rule.v}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-        );
-      })()}
 
       {phase === "waiting_ready" && (
         <div style={{ display: "flex", flexDirection: "column", gap: 8, animation: "fadeUp 0.3s ease both" }}>
