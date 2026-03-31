@@ -141,11 +141,11 @@ export default function SingleplayerScreen({ setScreenAction, themeId, onHoverAc
             letterSpacing: ip ? "0.08em" : "0.04em",
             lineHeight: 1.1,
           }}>
-            SINGLEPLAYER
+            GOT NO ONE TO PLAY WITH?
           </div>
 
           <div style={{ fontFamily: t.fontBody, fontSize: 16, color: t.textMuted, textAlign: "center", maxWidth: 440 }}>
-            CHOOSE YOUR PROTOCOL
+            SWEATY TRYHARDS
           </div>
 
           <div style={{ display: "flex", flexDirection: "column", gap: 14, width: "100%", maxWidth: 480 }}>
@@ -182,15 +182,15 @@ export default function SingleplayerScreen({ setScreenAction, themeId, onHoverAc
                       fontFamily: t.fontDisplay, fontSize: ip ? 20 : 26, fontWeight: 700,
                       color: isSelected ? modeColor : t.text, transition: "color 0.2s", letterSpacing: "0.06em",
                     }}>
-                      {mode === "5x5" ? "5 × 5 RULEBREAK" : mode === "6x6" ? "6 × 6 TIMEBOMB" : "7 × 7 MINDLOCK"}
+                      {mode === "5x5" ? "5 × 5" : mode === "6x6" ? "6 × 6" : "7 × 7"}
                     </div>
                   </div>
                   <div style={{ fontFamily: t.fontBody, fontSize: ip ? 12 : 14, color: t.textMuted, lineHeight: 1.5 }}>
                     {mode === "5x5"
-                      ? "Standard board — 5-in-a-line + chain. All 3 patterns mandatory. Local pass-and-play."
+                      ? ""
                       : mode === "6x6"
-                        ? "6-in-a-line + 15-cell chain. All 5 patterns mandatory. Local pass-and-play."
-                        : "Larger board — 7-in-a-line, select 5–6 patterns, 20-cell chain. Local pass-and-play."
+                        ? ""
+                        : ""
                     }
                   </div>
                 </button>

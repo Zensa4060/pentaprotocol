@@ -14,9 +14,9 @@ interface Props {
 }
 
 const CARDS = [
-  { key: "singleplayer" as Screen, title: "SINGLEPLAYER", sub: "Local · Pass & Play · Bo3" },
-  { key: "lobby" as Screen, title: "MULTIPLAYER", sub: "Online · Ranked & Unranked" },
-  { key: "ai" as Screen, title: "AI / BOT", sub: "Practice vs Computer" },
+  { key: "singleplayer" as Screen, title: "TRAINING", sub: "Local · Pass & Play · Bo3" },
+  { key: "lobby" as Screen, title: "1 V 1 : ONLINE", sub: "Online · Ranked & Unranked" },
+  { key: "ai" as Screen, title: "GET REKT", sub: "Practice vs Computer" },
 ];
 
 type Breakpoint = "mobile" | "tablet" | "desktop";

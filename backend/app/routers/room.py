@@ -644,16 +644,22 @@ async def _award_match_series_and_notify(
         "series_winner": effective,
         "format": room["format"],
         "p1": {
+            "name": u1.get("username", "P1") if u1 else "P1",
             "elo_before": elo1_before,
             "elo_after": u1a.get("elo", elo1_before) if u1a else elo1_before,
             "rr_before": rr1_before,
             "rr_after": int(u1a.get("ranked_rating", rr1_before)) if u1a else rr1_before,
+            "xp_before": u1.get("xp", 0) if u1 else 0,
+            "xp_after": u1a.get("xp", 0) if u1a else 0,
         },
         "p2": {
+            "name": u2.get("username", "P2") if u2 else "P2",
             "elo_before": elo2_before,
             "elo_after": u2a.get("elo", elo2_before) if u2a else elo2_before,
             "rr_before": rr2_before,
             "rr_after": int(u2a.get("ranked_rating", rr2_before)) if u2a else rr2_before,
+            "xp_before": u2.get("xp", 0) if u2 else 0,
+            "xp_after": u2a.get("xp", 0) if u2a else 0,
         },
     }
     for slot, ws in _room_connections.get(room_code, {}).items():

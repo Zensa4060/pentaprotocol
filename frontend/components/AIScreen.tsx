@@ -20,15 +20,15 @@ interface Props {
 }
 
 const DIFFICULTIES: { id: Difficulty; label: string; sub: string; color: string }[] = [
-  { id: "easy", label: "NORMAL", sub: "great for learning the rules", color: "#22C55E" },
-  { id: "medium", label: "HARD", sub: "a fair challenge for most players", color: "#FF0" },
-  { id: "hard", label: "INSANE", sub: "near-perfect play", color: "#700B0B" },
-  { id: "danger", label: "ANAMOLY", sub: "???????", color: "#CC0000" },
+  { id: "easy", label: "BALTAZAR SALAZAR JR THE III", sub: "", color: "#22C55E" },
+  { id: "medium", label: "BALTAZAR SALAZAR JR THE IV", sub: "", color: "#FF0" },
+  { id: "hard", label: "BALTAZAR SALAZAR JR THE V", sub: "", color: "#700B0B" },
+  { id: "danger", label: "BOB", sub: "?", color: "#CC0000" },
 ];
 const DIFFICULTIES_6X6: { id: Difficulty; label: string; sub: string; color: string }[] = [
-  { id: "normal", label: "NORMAL", sub: "standard 6x6 play", color: "#FF0" },
-  { id: "hard", label: "HARD", sub: "Stronger search depth", color: "#000FFF" },
-  { id: "machine_god", label: "ANAMOLY", sub: "??????", color: "#CC0000" },
+  { id: "normal", label: "BALTAZAR SALAZAR JR THE III", sub: "", color: "#FF0" },
+  { id: "hard", label: "BALTAZAR SALAZAR JR THE IV", sub: "", color: "#000FFF" },
+  { id: "machine_god", label: "BOB", sub: "?", color: "#CC0000" },
 ];
 
 /** Mini grid diagram component */
@@ -159,11 +159,11 @@ export default function AIScreen({ setScreenAction, themeId, onSelectDifficultyA
             letterSpacing: ip ? "0.08em" : "0.04em",
             lineHeight: 1.1,
           }}>
-            VS COMPUTER
+            THE GREAT GRID WAR
           </div>
 
           <div style={{ fontFamily: t.fontBody, fontSize: 16, color: t.textMuted, textAlign: "center", maxWidth: 440 }}>
-            CHOOSE YOUR PROTOCOL
+            CHOOSE YOUR DEMISE
           </div>
 
           <div style={{ display: "flex", flexDirection: "column", gap: 14, width: "100%", maxWidth: 480 }}>
@@ -200,15 +200,15 @@ export default function AIScreen({ setScreenAction, themeId, onSelectDifficultyA
                       fontFamily: t.fontDisplay, fontSize: ip ? 20 : 26, fontWeight: 700,
                       color: isSelected ? modeColor : t.text, transition: "color 0.2s", letterSpacing: "0.06em",
                     }}>
-                      {mode === "5x5" ? "5 × 5 RULEBREAK" : mode === "6x6" ? "6 × 6 TIMEBOMB" : "7 × 7 MINDLOCK"}
+                      {mode === "5x5" ? "5 × 5" : mode === "6x6" ? "6 × 6" : "7 × 7"}
                     </div>
                   </div>
                   <div style={{ fontFamily: t.fontBody, fontSize: ip ? 12 : 14, color: t.textMuted, lineHeight: 1.5 }}>
                     {mode === "5x5"
-                      ? "Standard board — 5-in-a-line, select 2–3 patterns, 10-cell chain."
+                      ? ""
                       : mode === "6x6"
-                        ? "6-in-a-line + 15-cell chain. Select 3–5 patterns including ZZ and Y."
-                        : "Larger board — 7-in-a-line, select 5–6 patterns, 20-cell chain."
+                        ? ""
+                        : ""
                     }
                   </div>
                 </button>
@@ -229,7 +229,7 @@ export default function AIScreen({ setScreenAction, themeId, onSelectDifficultyA
             letterSpacing: ip ? "0.08em" : "0.04em",
             lineHeight: 1.1,
           }}>
-            SELECT PATTERNS
+            SELECT FORMATIONS
           </div>
 
           <div style={{
@@ -394,7 +394,7 @@ export default function AIScreen({ setScreenAction, themeId, onSelectDifficultyA
 
           <div style={{ fontFamily: t.fontBody, fontSize: 16, color: t.textMuted, textAlign: "center", maxWidth: 440 }}>
             <span style={{ color: boardMode === "7x7" ? "#FF6B35" : boardMode === "6x6" ? "#A78BFA" : "#60A8FF", fontWeight: 700 }}>
-              {boardMode === "7x7" ? "7x7 MINDLOCK" : boardMode === "6x6" ? "6x6 TIMEBOMB" : "5x5 RULEBREAK"}
+              {boardMode === "7x7" ? "7x7" : boardMode === "6x6" ? "6x6" : "5x5"}
             </span>
             {" · "}Choose your difficulty
           </div>

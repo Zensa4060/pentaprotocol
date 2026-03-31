@@ -72,7 +72,9 @@ async def get_profile(user_id: str = Depends(get_current_user)):
 @router.get("/career")
 async def get_career(user_id: str = Depends(get_current_user)):
     db = get_db()
-    cursor = db.match_history.find({"user_id": user_id}).sort("played_at", -1).limit(20)
+    # Support both string and ObjectId for user_id to handle legacy data/migration
+    query = {"user_id": {"$in": [user_id, ObjectId(user_id)]}}
+    cursor = db.match_history.find(query).sort("played_at", -1).limit(20)
     matches = []
     async for doc in cursor:
         row = {

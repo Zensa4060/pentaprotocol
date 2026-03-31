@@ -9,6 +9,58 @@ import { loadCustomTheme } from "@/lib/customTheme";
 import { NavRankBadge, getRank } from "./NavBar";
 import { BannerRenderer, BANNERS_DATA } from "./BannerRenderer";
 
+const TAUNT_QUOTES = [
+  "Queueing again? Confidence is doing heavy lifting today.",
+  "You call that a rank or a suggestion?",
+  "Your MMR has trust issues.",
+  "Statistically, you are the problem.",
+  "Win rate lower than your expectations.",
+  "You didn't lose. You consistently failed.",
+  "Even matchmaking gave up trying to balance you.",
+  "You play like the tutorial beat you.",
+  "Ranked isn't for self-discovery.",
+  "Your peak was accidental.",
+  "You're not stuck. You belong there.",
+  "That wasn't bad luck. That was you.",
+  "Your strategy is 'hope they're worse.'",
+  "Impressive. Losing with commitment.",
+  "You make average look ambitious.",
+  "You don't tilt. You start tilted.",
+  "Consistency matters. You consistently lose.",
+  "That wasn't a misplay. That's your play.",
+  "You bring chaos. Unfortunately, not the useful kind.",
+  "Every match is a learning experience. You just don't learn.",
+  "Your decision-making is… brave.",
+  "You're not unlucky. You're predictable.",
+  "Your game sense took a day off.",
+  "You don't need pressure. You collapse naturally.",
+  "You're speedrunning disappointment.",
+  "Rank blind?",
+  "Loss streak enthusiast?",
+  "Still queueing?",
+  "This again?",
+  "Win allergic?",
+  "Hope or habit?",
+  "Confidence > skill?",
+  "Boosted in other games before?",
+  "Try uninstalling.",
+  "Main character syndrome?",
+  "Queue responsibly.",
+  "Still coping?",
+  "Skill issue.",
+  "Delusion level: ranked",
+  "Some people grind rank. You grind excuses.",
+  "If effort matched outcome, you'd still be here.",
+  "You're not improving. You're rehearsing mistakes.",
+  "Every loss is a lesson. You're repeating the course.",
+  "Your opponent isn't special. You're just easier.",
+  "Matchmaking tried. You insisted.",
+  "You confuse persistence with progress.",
+];
+
+const getLobbyQuote = (): string =>
+  TAUNT_QUOTES[Math.floor(Math.random() * TAUNT_QUOTES.length)];
+
 interface Props {
   setScreenAction: (s: Screen) => void;
   themeId: ThemeId;
@@ -53,6 +105,13 @@ export default function LobbyScreen({
 
   const elapsed = propQueuePhase === "queuing" ? propQueueElapsed : 0;
   const [isMobile, setIsMobile] = useState(false);
+
+  // ── Taunt quote — re-rolls on every mount (navigate away & back), resets on page refresh ──
+  const [lobbyTitle, setLobbyTitle] = useState<string>(() => getLobbyQuote());
+  useEffect(() => {
+    setLobbyTitle(getLobbyQuote());
+  }, []);
+
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 768);
     check();
@@ -96,7 +155,7 @@ export default function LobbyScreen({
   // ── Room handlers ─────────────────────────────────────────────────────────
   const handleCreateRoom = async () => {
     if (!token)              { setRoomError("Sign in to play multiplayer"); return; }
-    if (isSubmitting.current) return; // prevent double-fire
+    if (isSubmitting.current) return;
     isSubmitting.current = true;
     setRoomLoading(true);
     setRoomError(null);
@@ -123,14 +182,13 @@ export default function LobbyScreen({
         }
       } catch { /* keep polling */ }
     }, 2000);
-    // 5-minute max wait for private rooms
     setTimeout(() => clearInterval(interval), 300000);
   };
 
   const handleJoinRoom = async () => {
     if (!token)               { setRoomError("Sign in to play multiplayer"); return; }
     if (!joinCode.trim())     { setRoomError("Enter a room code"); return; }
-    if (isSubmitting.current) return; // prevent double-fire
+    if (isSubmitting.current) return;
     isSubmitting.current = true;
     setRoomLoading(true);
     setRoomError(null);
@@ -353,6 +411,7 @@ export default function LobbyScreen({
         @keyframes scannerPulse{ 0%,100%{transform:scale(1);opacity:0.5} 50%{transform:scale(3.5);opacity:1} }
         @keyframes spinRing    { to{transform:rotate(360deg)} }
         @keyframes fadeUp      { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
+        @keyframes whiteShimmer { 0% { background-position: 200% center } 100% { background-position: -200% center } }
       `}</style>
     </div>
   );
@@ -393,7 +452,19 @@ export default function LobbyScreen({
   return (
     <div style={{ position:"fixed", inset:0, zIndex:2, overflowY:"auto", background:t.bg, padding:isMobile?"70px 16px 40px":"90px 24px 40px", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:isMobile?"flex-start":"space-evenly", transition:"background 0.4s" }}>
 
-      <h1 style={{ fontFamily:t.fontDisplay, fontSize:isMobile?"clamp(32px, 10vw, 48px)":71, fontWeight:700, color:t.text, textAlign:"center", textTransform:"uppercase", letterSpacing:"0.05em", margin:isMobile?"20px 0 30px":0 }}>Multiplayer</h1>
+     <h1 style={{
+  fontFamily: t.fontDisplay,
+  fontSize: isMobile ? "clamp(18px, 5vw, 28px)" : "clamp(22px, 2.5vw, 38px)",
+  fontWeight: 700,
+  textAlign: "center",
+  letterSpacing: "0.08em",
+  margin: isMobile ? "20px 0 30px" : 0,
+  maxWidth: 800,
+  lineHeight: 1.3,
+  textTransform: "uppercase",
+  color: "#ffffff",
+  textShadow: "0 0 10px rgba(255,255,255,0.9), 0 0 20px rgba(255,255,255,0.6), 0 0 40px rgba(255,255,255,0.3)",
+}}>{lobbyTitle}</h1>
 
       <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr":"1fr 1fr 1fr", gap:isMobile?12:ip?14:20, width:"100%", maxWidth:1200, marginBottom:isMobile?32:0 }}>
 
@@ -551,7 +622,6 @@ export default function LobbyScreen({
                 {queueError}
               </div>
             )}
-            {/* No change protocol for ranked/unranked anymore, they are standard */}
           </div>
         </div>
       )}
@@ -580,7 +650,7 @@ export default function LobbyScreen({
               { id: "5x5_7x7", label: "5×5 + 7×7", sub: "Classic Rulebreaker flow", current: true },
               { id: "5x5_6x6", label: "5×5 + 6×6", sub: "Hybrid progression" },
               { id: "6x6_7x7", label: "6×6 + 7×7", sub: "Elite progression" },
-            ].map((opt, i) => (
+            ].map((opt) => (
               <button
                 key={opt.id}
                 onClick={() => {
@@ -592,35 +662,25 @@ export default function LobbyScreen({
                 style={{
                   background: t.bgCard, border: `2px solid rgba(255,255,255,0.15)`,
                   borderRadius: ip ? 2 : 16, padding: "24px 28px", textAlign: "left",
-                  cursor: "pointer",
-                  transition: "all 0.2s ease-out",
+                  cursor: "pointer", transition: "all 0.2s ease-out",
                   position: "relative", overflow: "hidden",
                   ["--hover-color" as any]: "#ffffff",
                 } as any}
               >
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
-                  <div style={{ fontFamily: t.fontDisplay, fontSize: 22, fontWeight: 800, color: "#fff" }}>
-                    {opt.label}
-                  </div>
+                  <div style={{ fontFamily: t.fontDisplay, fontSize: 22, fontWeight: 800, color: "#fff" }}>{opt.label}</div>
                   {opt.current && (
                     <div style={{ background: `rgba(255,255,255,0.1)`, color: "#fff", fontSize: 10, padding: "2px 8px", borderRadius: 4, fontFamily: t.fontMono, border: `1px solid rgba(255,255,255,0.2)` }}>RECOMMENDED</div>
                   )}
                 </div>
-                <div style={{ fontFamily: t.fontBody, fontSize: 14, color: t.textMuted, opacity: 0.8 }}>
-                  {opt.sub}
-                </div>
+                <div style={{ fontFamily: t.fontBody, fontSize: 14, color: t.textMuted, opacity: 0.8 }}>{opt.sub}</div>
                 <div style={{ position: "absolute", bottom: 0, left: 0, height: 3, width: "100%", background: `linear-gradient(90deg, transparent, #fff, transparent)`, opacity: 0.3 }} />
               </button>
             ))}
           </div>
 
-          <button
-            onClick={() => setShowUnrankedOptions(false)}
-            style={{
-              marginTop: 48, background: "transparent", border: "none", color: t.textMuted,
-              fontFamily: t.fontDisplay, fontSize: 14, cursor: "pointer", letterSpacing: "0.2em", fontWeight: 700
-            }}
-          >
+          <button onClick={() => setShowUnrankedOptions(false)}
+            style={{ marginTop: 48, background: "transparent", border: "none", color: t.textMuted, fontFamily: t.fontDisplay, fontSize: 14, cursor: "pointer", letterSpacing: "0.2em", fontWeight: 700 }}>
             CANCEL SELECTION
           </button>
         </div>
@@ -639,10 +699,7 @@ export default function LobbyScreen({
             RANKED PROTOCOL
           </div>
 
-          <div style={{
-            display: "grid", gridTemplateColumns: "1fr",
-            gap: 16, width: "100%", maxWidth: 400,
-          }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 16, width: "100%", maxWidth: 400 }}>
             <button
               onClick={() => {
                 onBoardModeAction?.("5x5_6x6_7x7");
@@ -653,16 +710,13 @@ export default function LobbyScreen({
               style={{
                 background: t.bgCard, border: `2px solid ${t.gold}44`,
                 borderRadius: ip ? 2 : 16, padding: "32px 28px", textAlign: "left",
-                cursor: "pointer",
-                transition: "all 0.2s ease-out",
+                cursor: "pointer", transition: "all 0.2s ease-out",
                 position: "relative", overflow: "hidden",
                 ["--hover-color" as any]: t.gold,
               } as any}
             >
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
-                <div style={{ fontFamily: t.fontDisplay, fontSize: 24, fontWeight: 800, color: t.gold }}>
-                  MAIN PROTOCOL
-                </div>
+                <div style={{ fontFamily: t.fontDisplay, fontSize: 24, fontWeight: 800, color: t.gold }}>MAIN PROTOCOL</div>
               </div>
               <div style={{ fontFamily: t.fontBody, fontSize: 16, color: t.textMuted, opacity: 0.8 }}>
                 Three legs (Bo3 each). ELO and RR update once at full match end.
@@ -671,13 +725,8 @@ export default function LobbyScreen({
             </button>
           </div>
 
-          <button
-            onClick={() => setShowRankedOptions(false)}
-            style={{
-              marginTop: 48, background: "transparent", border: "none", color: t.textMuted,
-              fontFamily: t.fontDisplay, fontSize: 14, cursor: "pointer", letterSpacing: "0.2em", fontWeight: 700
-            }}
-          >
+          <button onClick={() => setShowRankedOptions(false)}
+            style={{ marginTop: 48, background: "transparent", border: "none", color: t.textMuted, fontFamily: t.fontDisplay, fontSize: 14, cursor: "pointer", letterSpacing: "0.2em", fontWeight: 700 }}>
             CANCEL SELECTION
           </button>
         </div>
@@ -707,7 +756,7 @@ export default function LobbyScreen({
               { id: "5x5_7x7", label: "5×5 + 7×7", sub: "Classic Rulebreaker flow", current: true },
               { id: "5x5_6x6", label: "5×5 + 6×6", sub: "Hybrid progression" },
               { id: "6x6_7x7", label: "6×6 + 7×7", sub: "Elite progression" },
-            ].map((opt, i) => (
+            ].map((opt) => (
               <button
                 key={opt.id}
                 onClick={() => {
@@ -719,35 +768,25 @@ export default function LobbyScreen({
                 style={{
                   background: t.bgCard, border: `2px solid rgba(255,255,255,0.15)`,
                   borderRadius: ip ? 2 : 16, padding: "24px 28px", textAlign: "left",
-                  cursor: "pointer",
-                  transition: "all 0.2s ease-out",
+                  cursor: "pointer", transition: "all 0.2s ease-out",
                   position: "relative", overflow: "hidden",
                   ["--hover-color" as any]: "#ffffff",
                 } as any}
               >
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
-                  <div style={{ fontFamily: t.fontDisplay, fontSize: 22, fontWeight: 800, color: "#fff" }}>
-                    {opt.label}
-                  </div>
+                  <div style={{ fontFamily: t.fontDisplay, fontSize: 22, fontWeight: 800, color: "#fff" }}>{opt.label}</div>
                   {opt.current && (
                     <div style={{ background: `rgba(255,255,255,0.1)`, color: "#fff", fontSize: 10, padding: "2px 8px", borderRadius: 4, fontFamily: t.fontMono, border: `1px solid rgba(255,255,255,0.2)` }}>RECOMMENDED</div>
                   )}
                 </div>
-                <div style={{ fontFamily: t.fontBody, fontSize: 14, color: t.textMuted, opacity: 0.8 }}>
-                  {opt.sub}
-                </div>
+                <div style={{ fontFamily: t.fontBody, fontSize: 14, color: t.textMuted, opacity: 0.8 }}>{opt.sub}</div>
                 <div style={{ position: "absolute", bottom: 0, left: 0, height: 3, width: "100%", background: `linear-gradient(90deg, transparent, #fff, transparent)`, opacity: 0.3 }} />
               </button>
             ))}
           </div>
 
-          <button
-            onClick={() => setShowCustomOptions(false)}
-            style={{
-              marginTop: 48, background: "transparent", border: "none", color: t.textMuted,
-              fontFamily: t.fontDisplay, fontSize: 14, cursor: "pointer", letterSpacing: "0.2em", fontWeight: 700
-            }}
-          >
+          <button onClick={() => setShowCustomOptions(false)}
+            style={{ marginTop: 48, background: "transparent", border: "none", color: t.textMuted, fontFamily: t.fontDisplay, fontSize: 14, cursor: "pointer", letterSpacing: "0.2em", fontWeight: 700 }}>
             CANCEL SELECTION
           </button>
         </div>

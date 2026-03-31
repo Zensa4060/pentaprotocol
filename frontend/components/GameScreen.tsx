@@ -39,7 +39,7 @@ import { useAuthStore } from "@/lib/store";
 import { BannerRenderer } from "./BannerRenderer";
 import { RANKS, RankIcon } from "./ProfileScreen";
 import { getUserKey, pushMissionEvent } from "@/lib/missionsClient";
-import { MatchCompleteOverlay } from "./MatchCompleteOverlay";
+import MatchResultScreen from "./MatchResultScreen";
 
 function getWsBaseUrl(): string {
   const envBase = process.env.NEXT_PUBLIC_API_URL;
@@ -54,8 +54,24 @@ function getWsBaseUrl(): string {
 type MatchSeriesCompletePayload = {
   series_winner: string;
   format: string; // "ranked" | "unranked" | "custom"
-  p1: { elo_before: number; elo_after: number; rr_before: number; rr_after: number };
-  p2: { elo_before: number; elo_after: number; rr_before: number; rr_after: number };
+  p1: {
+    name: string;
+    elo_before: number;
+    elo_after: number;
+    rr_before: number;
+    rr_after: number;
+    xp_before: number;
+    xp_after: number;
+  };
+  p2: {
+    name: string;
+    elo_before: number;
+    elo_after: number;
+    rr_before: number;
+    rr_after: number;
+    xp_before: number;
+    xp_after: number;
+  };
 };
 
 // MatchResultOverlay removed in favor of MatchCompleteOverlay.tsx
@@ -1042,16 +1058,22 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
             series_winner: String(rm.series_winner ?? "DRAW"),
             format: String(rm.format ?? "ranked"),
             p1: {
+              name: String(rm.p1?.name ?? "P1"),
               elo_before: z(rm.p1?.elo_before, 0),
               elo_after: z(rm.p1?.elo_after, 0),
               rr_before: z(rm.p1?.rr_before, 0),
               rr_after: z(rm.p1?.rr_after, 0),
+              xp_before: z(rm.p1?.xp_before, 0),
+              xp_after: z(rm.p1?.xp_after, 0),
             },
             p2: {
+              name: String(rm.p2?.name ?? "P2"),
               elo_before: z(rm.p2?.elo_before, 0),
               elo_after: z(rm.p2?.elo_after, 0),
               rr_before: z(rm.p2?.rr_before, 0),
               rr_after: z(rm.p2?.rr_after, 0),
+              xp_before: z(rm.p2?.xp_before, 0),
+              xp_after: z(rm.p2?.xp_after, 0),
             },
           });
             } else if (msg.type === "protocolbreaker_start") {
@@ -3087,16 +3109,15 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
           </div>
         )}
         {matchSeriesComplete && (
-          <MatchCompleteOverlay
+          <MatchResultScreen
             seriesWinner={matchSeriesComplete.series_winner}
             format={matchSeriesComplete.format}
-            p1={{ ...matchSeriesComplete.p1, name: p1DisplayName }}
-            p2={{ ...matchSeriesComplete.p2, name: p2DisplayName }}
+            p1={matchSeriesComplete.p1}
+            p2={matchSeriesComplete.p2}
             mySlot={mySlot}
             t={{
               fontDisplay: t.fontDisplay,
               fontMono: t.fontMono,
-              fontBody: t.fontBody,
               accent: t.accent,
               accentGlow: t.accentGlow,
               gold: t.gold,
@@ -3105,7 +3126,12 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
               textSecondary: t.textSecondary,
               textMuted: t.textMuted,
             }}
-            onClose={() => setMatchSeriesComplete(null)}
+            onRematch={() => {
+              if (wsRef.current?.readyState === WebSocket.OPEN) {
+                wsRef.current.send(JSON.stringify({ type: "rematch" }));
+              }
+            }}
+            onQuit={() => setScreenAction?.("home")}
           />
         )}
 
@@ -3347,16 +3373,15 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
         </div>
       )}
       {matchSeriesComplete && (
-        <MatchCompleteOverlay
+        <MatchResultScreen
           seriesWinner={matchSeriesComplete.series_winner}
           format={matchSeriesComplete.format}
-          p1={{ ...matchSeriesComplete.p1, name: p1DisplayName }}
-          p2={{ ...matchSeriesComplete.p2, name: p2DisplayName }}
+          p1={matchSeriesComplete.p1}
+          p2={matchSeriesComplete.p2}
           mySlot={mySlot}
           t={{
             fontDisplay: t.fontDisplay,
             fontMono: t.fontMono,
-            fontBody: t.fontBody,
             accent: t.accent,
             accentGlow: t.accentGlow,
             gold: t.gold,
@@ -3365,7 +3390,12 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
             textSecondary: t.textSecondary,
             textMuted: t.textMuted,
           }}
-          onClose={() => setMatchSeriesComplete(null)}
+          onRematch={() => {
+            if (wsRef.current?.readyState === WebSocket.OPEN) {
+              wsRef.current.send(JSON.stringify({ type: "rematch" }));
+            }
+          }}
+          onQuit={() => setScreenAction?.("home")}
         />
       )}
 

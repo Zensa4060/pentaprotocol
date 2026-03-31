@@ -217,13 +217,18 @@ async def award_ranked_match_result(
 
     async def log_match(user_id, opponent_id, result, user_snap, opp_snap):
         if not user_id or not user_snap or not opp_snap: return
+        
+        # Ensure IDs are strings for consistent MongoDB querying (JWT uses string sub)
+        u_id_str = str(user_id)
+        o_id_str = str(opponent_id)
+        
         elo_before = user_snap.get("elo", 500)
-        updated = await db.users.find_one({"_id": ObjectId(user_id)})
+        updated = await db.users.find_one({"_id": ObjectId(u_id_str)})
         elo_after = updated.get("elo", elo_before) if updated else elo_before
         
         doc = {
-            "user_id":            user_id,
-            "opponent_id":        opponent_id,
+            "user_id":            u_id_str,
+            "opponent_id":        o_id_str,
             "opponent_username":  opp_snap.get("username", "Unknown"),
             "opponent_elo":       opp_snap.get("elo", 500),
             "result":             result,
