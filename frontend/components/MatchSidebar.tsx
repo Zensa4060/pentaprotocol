@@ -373,19 +373,20 @@ export function MatchSidebar({
           </div>
         )}
 
-        {Array.from({ length: Math.max(matchHistory.length + 1, gameNumber) }).slice(0, 10).map((_, i) => {
-          const rawResult = matchHistory[i];
-          const result = safeWinner(rawResult);
-          const col = result === "P1" ? p1c : result === "P2" ? p2c : result === "DRAW" ? t.gold : t.textMuted;
-          const isCur = i === gameNumber - 1 && (phase === "playing" || phase === "waiting_ready");
-          const offset = (isMultiplayerGame && boardMode === "6x6") ? 3 : (isMultiplayerGame && boardMode === "7x7") ? 6 : 0;
-          return (
-            <div key={i} style={{ display: "grid", gridTemplateColumns: "1fr auto", fontFamily: t.fontBody, fontSize: 22, padding: "6px 0", borderBottom: `1px solid ${t.border}22` }}>
-              <span style={{ color: isCur ? t.accent : t.textMuted, transition: "color 0.2s" }}>G{i + 1 + offset}{isCur ? " *" : ""}</span>
-              <span style={{ color: col, fontWeight: result ? 700 : 400, transition: "color 0.2s" }}>{result || "—"}</span>
-            </div>
-          );
-        })}
+        <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0, overflowY: "auto" }}>
+          {Array.from({ length: 10 }).map((_, i) => {
+            const rawResult = matchHistory[i];
+            const result = safeWinner(rawResult);
+            const col = result === "P1" ? p1c : result === "P2" ? p2c : result === "DRAW" ? t.gold : t.textMuted;
+            const isCur = i === gameNumber - 1 && (phase === "playing" || phase === "waiting_ready");
+            return (
+              <div key={i} style={{ display: "grid", gridTemplateColumns: "1fr auto", fontFamily: t.fontBody, fontSize: 22, padding: "6px 0", borderBottom: `1px solid ${t.border}22`, opacity: i < gameNumber ? 1 : 0.4 }}>
+                <span style={{ color: isCur ? t.accent : t.textMuted, transition: "color 0.2s" }}>G{i + 1}{isCur ? " *" : ""}</span>
+                <span style={{ color: col, fontWeight: result ? 700 : 400, transition: "color 0.2s" }}>{result || "—"}</span>
+              </div>
+            );
+          })}
+        </div>
         {seriesWinner && (
           <div style={{ marginTop: 10, fontFamily: t.fontMono, fontSize: 20, color: t.gold, textAlign: "center", fontWeight: 700 }}>
             {seriesWinner === "DRAW" ? (
@@ -707,14 +708,20 @@ export function LeftPanel(props: MatchSidebarProps) {
           </div>
         )}
 
-        {Array.from({ length: Math.max(matchHistory.length + 1, gameNumber) }).slice(0, 10).map((_, i) => {
-          const rawResult = matchHistory[i];
-          const result = safeWinner(rawResult);
-          const col = result === "P1" ? p1c : result === "P2" ? p2c : result === "DRAW" ? t.gold : t.textMuted;
-          const isCur = i === gameNumber - 1 && (phase === "playing" || phase === "waiting_ready");
-          const offset = (isMultiplayerGame && boardMode === "6x6") ? 3 : (isMultiplayerGame && boardMode === "7x7") ? 6 : 0;
-          return (<div key={i} style={{ display: "grid", gridTemplateColumns: "1fr auto", fontFamily: t.fontBody, fontSize: 22, padding: "6px 0", borderBottom: `1px solid ${t.border}22` }}><span style={{ color: isCur ? t.accent : t.textMuted, transition: "color 0.2s" }}>G{i + 1 + offset}{isCur ? " *" : ""}</span><span style={{ color: col, fontWeight: result ? 700 : 400, transition: "color 0.2s" }}>{result || "—"}</span></div>);
-        })}
+        <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0, overflowY: "auto" }}>
+          {Array.from({ length: 10 }).map((_, i) => {
+            const rawResult = matchHistory[i];
+            const result = safeWinner(rawResult);
+            const col = result === "P1" ? p1c : result === "P2" ? p2c : result === "DRAW" ? t.gold : t.textMuted;
+            const isCur = i === gameNumber - 1 && (phase === "playing" || phase === "waiting_ready");
+            return (
+              <div key={i} style={{ display: "grid", gridTemplateColumns: "1fr auto", fontFamily: t.fontBody, fontSize: 22, padding: "6px 0", borderBottom: `1px solid ${t.border}22`, opacity: i < gameNumber ? 1 : 0.4 }}>
+                <span style={{ color: isCur ? t.accent : t.textMuted, transition: "color 0.2s" }}>G{i + 1}{isCur ? " *" : ""}</span>
+                <span style={{ color: col, fontWeight: result ? 700 : 400, transition: "color 0.2s" }}>{result || "—"}</span>
+              </div>
+            );
+          })}
+        </div>
         {seriesWinner && (
           <div style={{ marginTop: 10, fontFamily: t.fontMono, fontSize: 20, color: t.gold, textAlign: "center", fontWeight: 700 }}>
             {seriesWinner === "DRAW" ? (

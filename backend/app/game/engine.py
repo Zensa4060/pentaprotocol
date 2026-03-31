@@ -91,7 +91,7 @@ class GameEngine:
         if (
             not getattr(self, "suppress_center_opening", False)
             and self.moves_played == 1
-            and self.GRID_SIZE == 5 # Only for 5x5
+            and (self.GRID_SIZE == 5 or self.GRID_SIZE == 7)
             and row == self.CENTER
             and col == self.CENTER
         ):
