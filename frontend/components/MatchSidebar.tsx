@@ -107,6 +107,7 @@ interface MatchSidebarProps {
   // last series (populated after rematch accepted)
   lastSeries?: { winner: string | null; history: string[] } | null;
   segmentStartIndex?: number;
+  historyDisplayStartIndex?: number;
   // handlers
   onReadyToggle: (player: "P1" | "P2") => void;
   onSendChat: (from: "P1" | "P2") => void;
@@ -143,7 +144,7 @@ export function MatchSidebar({
   showWinOverlay, overlayVisible, winnerColor, winnerPiece, seriesDiffers, seriesColor, seriesPiece,
   showRematch, rematchRequested, lastSeries,
   showSurrender, showExitConfirm, setScreenAction,
-  p1Label, p2Label, winnerDisplayNameAction, segmentStartIndex = 0,
+  p1Label, p2Label, winnerDisplayNameAction, segmentStartIndex = 0, historyDisplayStartIndex = 0,
   onReadyToggle, onSendChat, onChatInputChange, onChatKeyDown, onChatOpenToggle,
   onSoftReset, onDismissOverlayAction, onRematchAction, onQuitMatchAction,
   onSurrenderConfirmAction, onSurrenderCancelAction, onExitConfirmAction, onExitCancelAction,
@@ -151,6 +152,7 @@ export function MatchSidebar({
   fmtTimeAction, playHoverAction, playClickAction,
 }: MatchSidebarProps) {
   const getName = (w: string | null) => winnerDisplayNameAction ? winnerDisplayNameAction(w) : (w ?? "");
+  const absoluteCurrentGame = historyDisplayStartIndex + gameNumber;
   const useFlameSkull = pieceSkin === "flame_skull";
   const useSnowflakeShard = pieceSkin === "snowflake_shard";
 
@@ -378,11 +380,12 @@ export function MatchSidebar({
             const rawResult = matchHistory[i];
             const result = safeWinner(rawResult);
             const col = result === "P1" ? p1c : result === "P2" ? p2c : result === "DRAW" ? t.gold : t.textMuted;
-            const isCur = i === gameNumber - 1 && (phase === "playing" || phase === "waiting_ready");
+            const absoluteGame = i + 1;
+            const isCur = absoluteGame === absoluteCurrentGame && (phase === "playing" || phase === "waiting_ready");
             return (
               <React.Fragment key={i}>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr auto", fontFamily: t.fontBody, fontSize: 22, padding: "6px 0", borderBottom: `1px solid ${t.border}22`, opacity: i < gameNumber ? 1 : 0.4 }}>
-                  <span style={{ color: isCur ? t.accent : t.textMuted, transition: "color 0.2s" }}>G{i + 1 + segmentStartIndex}{isCur ? " *" : ""}</span>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr auto", fontFamily: t.fontBody, fontSize: 22, padding: "6px 0", borderBottom: `1px solid ${t.border}22`, opacity: absoluteGame <= absoluteCurrentGame ? 1 : 0.4 }}>
+                  <span style={{ color: isCur ? t.accent : t.textMuted, transition: "color 0.2s" }}>G{absoluteGame}{isCur ? " *" : ""}</span>
                   <span style={{ color: col, fontWeight: result ? 700 : 400, transition: "color 0.2s" }}>{result || "—"}</span>
                 </div>
               </React.Fragment>
@@ -501,11 +504,12 @@ export function LeftPanel(props: MatchSidebarProps) {
     gameMode, isRankedGame, isMultiplayerGame, isMultiplayer, mySlot, boardMode, selectedPatterns, rbBannedPatterns = [], patternsAsSecret = false, p1SeriesPts, p2SeriesPts,
     p1Time, p2Time, readyTimeout, p1Ready, p2Ready,
     chatMessages, chatInput, chatOpen, chatWarning,
-    p1Label, p2Label, p1Banner, p2Banner, winnerDisplayNameAction, lastSeries, segmentStartIndex = 0,
+    p1Label, p2Label, p1Banner, p2Banner, winnerDisplayNameAction, lastSeries, segmentStartIndex = 0, historyDisplayStartIndex = 0,
     onReadyToggle, onSendChat, onChatInputChange, onChatKeyDown, onChatOpenToggle,
     onSoftReset, onShowSurrenderAction, onShowExitConfirmAction, fmtTimeAction, playHoverAction } = props;
 
   const getName = (w: string | null) => winnerDisplayNameAction ? winnerDisplayNameAction(w) : (w ?? "");
+  const absoluteCurrentGame = historyDisplayStartIndex + gameNumber;
   const useFlameSkull = pieceSkin === "flame_skull";
   const useSnowflakeShard = pieceSkin === "snowflake_shard";
 
@@ -651,11 +655,12 @@ export function LeftPanel(props: MatchSidebarProps) {
             const rawResult = matchHistory[i];
             const result = safeWinner(rawResult);
             const col = result === "P1" ? p1c : result === "P2" ? p2c : result === "DRAW" ? t.gold : t.textMuted;
-            const isCur = i === gameNumber - 1 && (phase === "playing" || phase === "waiting_ready");
+            const absoluteGame = i + 1;
+            const isCur = absoluteGame === absoluteCurrentGame && (phase === "playing" || phase === "waiting_ready");
             return (
               <React.Fragment key={i}>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr auto", fontFamily: t.fontBody, fontSize: 22, padding: "6px 0", borderBottom: `1px solid ${t.border}22`, opacity: i < gameNumber ? 1 : 0.4 }}>
-                  <span style={{ color: isCur ? t.accent : t.textMuted, transition: "color 0.2s" }}>G{i + 1 + segmentStartIndex}{isCur ? " *" : ""}</span>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr auto", fontFamily: t.fontBody, fontSize: 22, padding: "6px 0", borderBottom: `1px solid ${t.border}22`, opacity: absoluteGame <= absoluteCurrentGame ? 1 : 0.4 }}>
+                  <span style={{ color: isCur ? t.accent : t.textMuted, transition: "color 0.2s" }}>G{absoluteGame}{isCur ? " *" : ""}</span>
                   <span style={{ color: col, fontWeight: result ? 700 : 400, transition: "color 0.2s" }}>{result || "—"}</span>
                 </div>
               </React.Fragment>

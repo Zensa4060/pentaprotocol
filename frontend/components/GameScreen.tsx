@@ -901,11 +901,6 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
             setRulesMatchGate(true);
             if (readRuleshowSkip("5x5")) {
               setRulesShowSheet(null);
-              if (wsRef.current?.readyState === WebSocket.OPEN) {
-                wsRef.current.send(JSON.stringify({ type: "levelup_ready", ready: true }));
-              }
-              if (slot === "P1") setP1LevelUpReady(true);
-              else setP2LevelUpReady(true);
             } else {
               setRulesShowSheet("5x5");
             }
@@ -923,11 +918,6 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
             setShow6x6LevelUp(false);
             if (readRuleshowSkip("6x6")) {
               setRulesShowSheet(null);
-              if (wsRef.current?.readyState === WebSocket.OPEN) {
-                wsRef.current.send(JSON.stringify({ type: "levelup_ready", ready: true }));
-              }
-              if (slot === "P1") setP1LevelUpReady(true);
-              else setP2LevelUpReady(true);
             } else {
               setRulesShowSheet("6x6");
             }
@@ -943,11 +933,6 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
               setRulesMatchGate(true);
               if (readRuleshowSkip("7x7")) {
                 setRulesShowSheet(null);
-                if (wsRef.current?.readyState === WebSocket.OPEN) {
-                  wsRef.current.send(JSON.stringify({ type: "levelup_ready", ready: true }));
-                }
-                if (slot === "P1") setP1LevelUpReady(true);
-                else setP2LevelUpReady(true);
               } else {
                 setRulesShowSheet("7x7");
               }
@@ -970,6 +955,11 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
               pb_bans?: string[];
               pb_p1_aggregate?: number;
               pb_p2_aggregate?: number;
+              phase?: string | null;
+              rb_toss_winner?: string | null;
+              rb_coin_result?: "PENTA" | "PROTO" | null;
+              rb_phase_payload?: Record<string, unknown> | null;
+              rb_auto_start_due_ms?: number | null;
             };
             if (rp.protocolbreaker_pending && (rp.pb_toss_winner === "P1" || rp.pb_toss_winner === "P2")) {
               const bans = Array.isArray(rp.pb_bans) ? rp.pb_bans : [];
@@ -986,6 +976,30 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
             } else if (!rp.protocolbreaker_pending) {
               setPbOverlay(null);
             }
+            const rbPayload = (rp.rb_phase_payload && typeof rp.rb_phase_payload === "object") ? rp.rb_phase_payload : {};
+            if (
+              typeof rp.phase === "string" &&
+              ["rb_splash", "rb_coin", "rule_choice", "who_first_winner", "c3_choice", "c3_choice_loser", "who_first_loser", "ban_pattern_winner", "ban_pattern_loser", "grid_block_warning", "grid_block_selection", "grid_block_waiting", "toss_summary"].includes(rp.phase)
+            ) {
+              const restoredPhase = rp.phase as Phase;
+              setPhase(restoredPhase);
+              if (rp.rb_toss_winner === "P1" || rp.rb_toss_winner === "P2") setTossWinner(rp.rb_toss_winner);
+              if (rp.rb_coin_result === "PENTA" || rp.rb_coin_result === "PROTO") setCoinResult(rp.rb_coin_result);
+              if (rbPayload.firstPlayerChosen !== undefined) setFirstPlayerChosen(String(rbPayload.firstPlayerChosen));
+              if (rbPayload.rbC3Blocked !== undefined) setRbC3Blocked(Boolean(rbPayload.rbC3Blocked));
+              if (rbPayload.winnerPickedRule !== undefined) setWinnerPickedRule(String(rbPayload.winnerPickedRule));
+              if (rbPayload.winnerPickedFirst !== undefined) setWinnerPickedFirst(String(rbPayload.winnerPickedFirst));
+              if (rbPayload.winnerPickedC3 !== undefined) setWinnerPickedC3(Boolean(rbPayload.winnerPickedC3));
+              if (Array.isArray(rbPayload.rb_banned_patterns)) setRbBannedPatterns(rbPayload.rb_banned_patterns as string[]);
+              if (rbPayload.rb6TimerOwner === "P1" || rbPayload.rb6TimerOwner === "P2" || rbPayload.rb6TimerOwner === null) setRb6TimerOwner(rbPayload.rb6TimerOwner as "P1" | "P2" | null);
+              if (rbPayload.rb6CellChooser === "P1" || rbPayload.rb6CellChooser === "P2" || rbPayload.rb6CellChooser === null) setRb6CellChooser(rbPayload.rb6CellChooser as "P1" | "P2" | null);
+              if (rbPayload.rbHideBannedPatternFromSlot === "P1" || rbPayload.rbHideBannedPatternFromSlot === "P2") setRbHideBannedPatternFromSlot(rbPayload.rbHideBannedPatternFromSlot);
+              if (Array.isArray(rbPayload.rbPatternsPreBan)) setRbPatternsPreBan(rbPayload.rbPatternsPreBan as string[]);
+              if (restoredPhase === "toss_summary") {
+                const dueMs = typeof rp.rb_auto_start_due_ms === "number" ? rp.rb_auto_start_due_ms : null;
+                setSummaryTimer(dueMs ? Math.max(0, (dueMs - Date.now()) / 1000) : 3.5);
+              }
+            }
           }
           ws.send(JSON.stringify({ type: "player_info", username: p1Name ?? playerSlot ?? "P1", slot: playerSlot }));
             } else if (msg.type === "player_joined") {
@@ -1000,28 +1014,16 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
             if (r.board_mode) setLiveBoardMode(r.board_mode as BoardMode);
             if (r.board_mode === "5x5" && r.awaiting_5x5_rules_ready === true) {
               setRulesMatchGate(true);
-              const sj = playerSlot ?? "P1";
               if (readRuleshowSkip("5x5")) {
                 setRulesShowSheet(null);
-                if (wsRef.current?.readyState === WebSocket.OPEN) {
-                  wsRef.current.send(JSON.stringify({ type: "levelup_ready", ready: true }));
-                }
-                if (sj === "P1") setP1LevelUpReady(true);
-                else setP2LevelUpReady(true);
               } else {
                 setRulesShowSheet("5x5");
               }
             }
             if (r.board_mode === "6x6" && (r as { awaiting_6x6_rules_ready?: boolean }).awaiting_6x6_rules_ready === true) {
               setRulesMatchGate(true);
-              const sj6 = playerSlot ?? "P1";
               if (readRuleshowSkip("6x6")) {
                 setRulesShowSheet(null);
-                if (wsRef.current?.readyState === WebSocket.OPEN) {
-                  wsRef.current.send(JSON.stringify({ type: "levelup_ready", ready: true }));
-                }
-                if (sj6 === "P1") setP1LevelUpReady(true);
-                else setP2LevelUpReady(true);
               } else {
                 setRulesShowSheet("6x6");
               }
@@ -1054,6 +1056,10 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
           const rm = msg as unknown as Partial<MatchSeriesCompletePayload> & { series_winner?: string; format?: string };
           const z = (n: unknown, d: number) => (typeof n === "number" && !Number.isNaN(n) ? n : d);
           void useAuthStore.getState().refreshProfile();
+          if (typeof window !== "undefined") {
+            window.dispatchEvent(new Event("pp:career-refresh"));
+            window.localStorage.removeItem("penta_lobby_quote");
+          }
           setMatchSeriesComplete({
             series_winner: String(rm.series_winner ?? "DRAW"),
             format: String(rm.format ?? "ranked"),
@@ -1125,7 +1131,6 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
             if (levelUpSplashTimerRef.current) clearTimeout(levelUpSplashTimerRef.current);
             levelUpSplashActiveRef.current = true;
             playTransitionAction?.();
-            const slot6 = playerSlot ?? "P1";
             levelUpSplashTimerRef.current = setTimeout(() => {
               levelUpSplashTimerRef.current = null;
               levelUpSplashActiveRef.current = false;
@@ -1133,11 +1138,6 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
               if (awaiting6x6RulesRef.current) {
                 if (readRuleshowSkip("6x6")) {
                   setRulesShowSheet(null);
-                  if (wsRef.current?.readyState === WebSocket.OPEN) {
-                    wsRef.current.send(JSON.stringify({ type: "levelup_ready", ready: true }));
-                  }
-                  if (slot6 === "P1") setP1LevelUpReady(true);
-                  else setP2LevelUpReady(true);
                 } else {
                   setRulesShowSheet("6x6");
                 }
@@ -1155,7 +1155,6 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
             setP1LevelUpReady(false);
             setP2LevelUpReady(false);
             playTransitionAction?.();
-            const slot7 = playerSlot ?? "P1";
             levelUpSplashTimerRef.current = setTimeout(() => {
               levelUpSplashTimerRef.current = null;
               levelUpSplashActiveRef.current = false;
@@ -1163,11 +1162,6 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
               if (awaiting7x7RulesRef.current) {
                 if (readRuleshowSkip("7x7")) {
                   setRulesShowSheet(null);
-                  if (wsRef.current?.readyState === WebSocket.OPEN) {
-                    wsRef.current.send(JSON.stringify({ type: "levelup_ready", ready: true }));
-                  }
-                  if (slot7 === "P1") setP1LevelUpReady(true);
-                  else setP2LevelUpReady(true);
                 } else {
                   setRulesShowSheet("7x7");
                 }
@@ -1294,14 +1288,8 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
                 setRulesMatchGate(true);
                 setP1LevelUpReady(false);
                 setP2LevelUpReady(false);
-                const s5 = playerSlot ?? "P1";
                 if (readRuleshowSkip("5x5")) {
                   setRulesShowSheet(null);
-                  if (wsRef.current?.readyState === WebSocket.OPEN) {
-                    wsRef.current.send(JSON.stringify({ type: "levelup_ready", ready: true }));
-                  }
-                  if (s5 === "P1") setP1LevelUpReady(true);
-                  else setP2LevelUpReady(true);
                 } else {
                   setRulesShowSheet("5x5");
                 }
@@ -2080,6 +2068,10 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     if (!userKey || userKey === "guest") return;
     didRefreshProfileAfterSeriesRef.current = true;
     void useAuthStore.getState().refreshProfile();
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new Event("pp:career-refresh"));
+      window.localStorage.removeItem("penta_lobby_quote");
+    }
   }, [matchOver, phase, isMultiplayerGame, userKey]);
 
   useEffect(() => {
@@ -2897,11 +2889,11 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
         <div style={{ position: "absolute", top: 8, right: 8, zIndex: 10, display: "flex", flexDirection: "column", gap: 4, alignItems: "flex-end" }}>
           <div style={{ background: "rgba(0,0,0,0.75)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 8, padding: "4px 10px", backdropFilter: "blur(6px)" }}>
             <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-              {displayMatchHistory.length > 0 ? displayMatchHistory.map((res, i) => {
-                const gNum = i + 1 + segmentStartIndex;
+              {matchHistory.length > 0 ? matchHistory.map((res, i) => {
+                const gNum = i + 1;
                 const g = `G${gNum}`;
                 const col = res === "P1" ? p1c : res === "P2" ? p2c : res === "DRAW" ? t.gold : "#333";
-                const isActive = i === (gameNumber - 1);
+                const isActive = gNum === historyDisplayStartIndex + gameNumber;
                 return (
                   <div key={gNum} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
                     <span style={{ fontFamily: t.fontMono, fontSize: 9, color: isActive ? t.accent : "#444", fontWeight: isActive ? 700 : 400 }}>{g}{isActive ? " ◀" : ""}</span>
@@ -3197,7 +3189,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
       <LeftPanel
         t={sidebarT} ip={ip} p1c={p1c} p2c={p2c} pieceSkin={pieceSkin} p1RttMs={p1RttMs} p2RttMs={p2RttMs} panelW={panelW}
         phase={phase} winner={winner} current={current} gameNumber={gameNumber}
-        matchHistory={displayMatchHistory} seriesWinner={seriesWinner} matchOver={matchOver}
+        matchHistory={matchHistory} seriesWinner={seriesWinner} matchOver={matchOver}
         gameMode={gameMode} isRankedGame={isRankedGame} isMultiplayerGame={isMultiplayerGame}
         isMultiplayer={isMultiplayerGame} mySlot={mySlot}
         boardMode={liveBoardMode} selectedPatterns={sidebarPatternList} rbBannedPatterns={sidebarRbBannedPatterns} patternsAsSecret={patternsSidebarSecret}
@@ -3215,6 +3207,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
         p1Label={p1Label} p2Label={p2Label}
         p1Banner={p1Banner} p2Banner={p2Banner}
         winnerDisplayNameAction={winnerDisplayName}
+        historyDisplayStartIndex={historyDisplayStartIndex}
         onReadyToggle={onReadyToggle}
         onSendChat={sendChat}
         onChatInputChange={setChatInput}

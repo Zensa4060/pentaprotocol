@@ -121,7 +121,15 @@ async def award_game_result(db, game: dict, winner: str | None):
 
     # ── Log match history for each player (multiplayer only) ──────────────
     async def log_match(user_id, opponent_id, result, user_snap, opp_snap):
-        if not user_id or not user_snap or not opp_snap:
+        if not user_id:
+            return
+        user_id = str(user_id)
+        opponent_id = str(opponent_id) if opponent_id else None
+        if not user_snap:
+            user_snap = await db.users.find_one({"_id": ObjectId(user_id)})
+        if opponent_id and not opp_snap:
+            opp_snap = await db.users.find_one({"_id": ObjectId(opponent_id)})
+        if not user_snap:
             return
         elo_before = user_snap.get("elo", 100)
         # Re-read to get the post-update ELO
@@ -130,8 +138,8 @@ async def award_game_result(db, game: dict, winner: str | None):
         doc = {
             "user_id":            user_id,
             "opponent_id":        opponent_id,
-            "opponent_username":  opp_snap.get("username", "Unknown"),
-            "opponent_elo":       opp_snap.get("elo", 100),
+            "opponent_username":  (opp_snap or {}).get("username", "Unknown"),
+            "opponent_elo":       (opp_snap or {}).get("elo", 100),
             "result":             result,
             "elo_before":         elo_before,
             "elo_after":          elo_after,
@@ -216,12 +224,18 @@ async def award_ranked_match_result(
         await update_player(p2_id, "draw", p1_id)
 
     async def log_match(user_id, opponent_id, result, user_snap, opp_snap):
-        if not user_id or not user_snap or not opp_snap: return
+        if not user_id:
+            return
+        u_id_str = str(user_id)
+        o_id_str = str(opponent_id) if opponent_id else None
+        if not user_snap:
+            user_snap = await db.users.find_one({"_id": ObjectId(u_id_str)})
+        if o_id_str and not opp_snap:
+            opp_snap = await db.users.find_one({"_id": ObjectId(o_id_str)})
+        if not user_snap:
+            return
         
         # Ensure IDs are strings for consistent MongoDB querying (JWT uses string sub)
-        u_id_str = str(user_id)
-        o_id_str = str(opponent_id)
-        
         elo_before = user_snap.get("elo", 500)
         updated = await db.users.find_one({"_id": ObjectId(u_id_str)})
         elo_after = updated.get("elo", elo_before) if updated else elo_before
@@ -229,8 +243,8 @@ async def award_ranked_match_result(
         doc = {
             "user_id":            u_id_str,
             "opponent_id":        o_id_str,
-            "opponent_username":  opp_snap.get("username", "Unknown"),
-            "opponent_elo":       opp_snap.get("elo", 500),
+            "opponent_username":  (opp_snap or {}).get("username", "Unknown"),
+            "opponent_elo":       (opp_snap or {}).get("elo", 500),
             "result":             result,
             "elo_before":         elo_before,
             "elo_after":          elo_after,

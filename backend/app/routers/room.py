@@ -19,6 +19,7 @@ _room_connections: dict[str, dict] = {}
 
 # Runtime (in-memory) per-room sync state (not persisted)
 _room_runtime: dict[str, dict] = {}
+_rb_autostart_tasks: dict[str, asyncio.Task] = {}
 DISCONNECT_GRACE_SECONDS = 3.0
 
 
@@ -26,6 +27,12 @@ def _reset_rules_gate_runtime(room_code: str) -> None:
     rt = _room_runtime.get(room_code)
     if rt is not None:
         rt["levelup_ready"] = {"P1": False, "P2": False}
+
+
+def _cancel_rb_autostart(room_code: str) -> None:
+    task = _rb_autostart_tasks.pop(room_code, None)
+    if task and not task.done():
+        task.cancel()
 
 
 async def get_current_user(authorization: str = Header(...)):
@@ -76,6 +83,7 @@ def serialize_room(room: dict) -> dict:
         "p2_series_points": room.get("p2_series_points", 0),
         "series_winner":  room.get("series_winner"),
         "awaiting_rulebreaker": room.get("awaiting_rulebreaker", False),
+        "phase": room.get("phase"),
         "segment_start_index": room.get("segment_start_index", 0),
         "history_display_start_index": room.get("history_display_start_index", 0),
         "awaiting_5x5_rules_ready": room.get("awaiting_5x5_rules_ready", False),
@@ -94,6 +102,11 @@ def serialize_room(room: dict) -> dict:
         "rb_patterns_pre_ban": room.get("rb_patterns_pre_ban"),
         "rb_banned_patterns": room.get("rb_banned_patterns", []),
         "rb_banned_pattern":  room.get("rb_banned_pattern"),
+        "rb_toss_winner": room.get("rb_toss_winner"),
+        "rb_coin_result": room.get("rb_coin_result"),
+        "rb_phase_payload": room.get("rb_phase_payload"),
+        "rb_summary_started_at_ms": room.get("rb_summary_started_at_ms"),
+        "rb_auto_start_due_ms": room.get("rb_auto_start_due_ms"),
         "protocolbreaker_pending": room.get("protocolbreaker_pending", False),
         "pb_toss_winner": room.get("pb_toss_winner"),
         "pb_bans": room.get("pb_bans") or [],
@@ -853,6 +866,10 @@ async def _broadcast_rulebreaker_start(db, room_code: str, room: dict, history: 
         "phase": "rb_splash",
         "awaiting_rulebreaker": False, # Reset now that we started it
         "rb_toss_winner": tw,
+        "rb_coin_result": None,
+        "rb_phase_payload": {},
+        "rb_summary_started_at_ms": None,
+        "rb_auto_start_due_ms": None,
         "p1_ready": False,
         "p2_ready": False,
     }
@@ -877,6 +894,263 @@ async def _broadcast_rulebreaker_start(db, room_code: str, room: dict, history: 
             await ws.send_json(payload)
         except:
             pass
+
+
+async def _finalize_rulebreaker_start(
+    db,
+    room_code: str,
+    room: dict,
+    msg: dict,
+) -> None:
+    hist = room.get("match_history", [])
+    seg_start = room.get("segment_start_index", 0)
+    p1p, p2p = compute_segment_points(hist, seg_start)
+
+    if bool(msg.get("resolve_series_only")):
+        if not room.get("awaiting_rulebreaker"):
+            return
+        leader = compute_series_winner(hist, seg_start, 5)
+        if leader is None:
+            return
+        await db.rooms.update_one(
+            {"room_code": room_code},
+            {
+                "$set": {
+                    "series_winner": leader,
+                    "awaiting_rulebreaker": False,
+                    "game_status": "finished",
+                    "status": "finished",
+                    "phase": None,
+                    "rb_phase_payload": None,
+                    "rb_summary_started_at_ms": None,
+                    "rb_auto_start_due_ms": None,
+                }
+            },
+        )
+        done = {
+            "type": "series_resolved",
+            "series_winner": leader,
+            "match_history": hist,
+            "p1_series_points": p1p,
+            "p2_series_points": p2p,
+            "segment_start_index": seg_start,
+        }
+        for slot, ws in _room_connections.get(room_code, {}).items():
+            try:
+                await ws.send_json(done)
+            except:
+                pass
+        return
+
+    if bool(msg.get("resolve_series_draw")):
+        if room.get("board_mode", "5x5") != "7x7":
+            return
+        if not room.get("awaiting_rulebreaker"):
+            return
+        if p1p != p2p:
+            return
+        await db.rooms.update_one(
+            {"room_code": room_code},
+            {
+                "$set": {
+                    "series_winner": "DRAW",
+                    "awaiting_rulebreaker": False,
+                    "game_status": "finished",
+                    "status": "finished",
+                    "phase": None,
+                    "rb_phase_payload": None,
+                    "rb_summary_started_at_ms": None,
+                    "rb_auto_start_due_ms": None,
+                }
+            },
+        )
+        done = {
+            "type": "series_resolved",
+            "series_winner": "DRAW",
+            "match_history": hist,
+            "p1_series_points": p1p,
+            "p2_series_points": p2p,
+            "segment_start_index": seg_start,
+            "full_match_draw": True,
+        }
+        for slot, ws in _room_connections.get(room_code, {}).items():
+            try:
+                await ws.send_json(done)
+            except:
+                pass
+        return
+
+    first_player = msg.get("first_player", "P1")
+    c3_blocked = msg.get("c3_blocked", False)
+    bm = room.get("board_mode", "5x5")
+    sel_patterns = msg.get("selected_patterns")
+    sel_patterns_p1 = msg.get("selected_patterns_p1")
+    sel_patterns_p2 = msg.get("selected_patterns_p2")
+    if not isinstance(sel_patterns_p1, list):
+        sel_patterns_p1 = None
+    if not isinstance(sel_patterns_p2, list):
+        sel_patterns_p2 = None
+    suppress_center = bool(msg.get("suppress_center_opening", False))
+    token_holder = msg.get("rb_extra_turn_token_holder")
+    if token_holder not in ("P1", "P2"):
+        token_holder = None
+
+    hide_slot = msg.get("rb_hide_banned_from_slot")
+    if hide_slot not in ("P1", "P2"):
+        hide_slot = None
+    pre_ban = msg.get("rb_patterns_pre_ban")
+    if not isinstance(pre_ban, list):
+        pre_ban = None
+    banned_pats = msg.get("rb_banned_patterns")
+    if not isinstance(banned_pats, list):
+        banned_pats = []
+    banned_pat = msg.get("rb_banned_pattern")
+    if not isinstance(banned_pat, str) or not banned_pat.strip():
+        banned_pat = None
+    if banned_pat and banned_pat not in banned_pats:
+        banned_pats.append(banned_pat)
+
+    gn = room.get("game_number", 1)
+    next_gn = gn + 1
+    gs = 7 if bm == "7x7" else 5
+
+    seg_pts = compute_segment_points(hist, seg_start)
+    gs = 5
+    if bm == "7x7":
+        gs = 7
+    elif bm == "6x6":
+        gs = 6
+    reset = {
+        "board": [[None] * gs for _ in range(gs)],
+        "current_player": first_player,
+        "moves_played": 0,
+        "extra_turns": 0,
+        "winner": None,
+        "game_status": "playing",
+        "status": "active",
+        "p1_ready": False,
+        "p2_ready": False,
+        "game_number": next_gn,
+        "c3_blocked": c3_blocked,
+        "awaiting_rulebreaker": False,
+        "p1_series_points": seg_pts[0],
+        "p2_series_points": seg_pts[1],
+        "phase": None,
+        "rb_phase_payload": None,
+        "rb_summary_started_at_ms": None,
+        "rb_auto_start_due_ms": None,
+        "suppress_center_opening": True if (bm == "7x7" and next_gn == 3) else (suppress_center if bm == "7x7" else False),
+        "rb_extra_turn_token_holder": token_holder if bm == "7x7" else None,
+        "rb_extra_turn_token_used": False,
+    }
+    if bm == "7x7" and isinstance(sel_patterns, list) and len(sel_patterns) > 0:
+        reset["selected_patterns"] = sel_patterns
+    if bm == "7x7":
+        reset["rb_hide_banned_from_slot"] = hide_slot
+        reset["rb_patterns_pre_ban"] = pre_ban
+        reset["rb_banned_patterns"] = banned_pats
+        reset["rb_banned_pattern"] = None
+        if (
+            sel_patterns_p1 is not None
+            and sel_patterns_p2 is not None
+            and len(sel_patterns_p1) > 0
+            and len(sel_patterns_p2) > 0
+        ):
+            reset["selected_patterns_p1"] = sel_patterns_p1
+            reset["selected_patterns_p2"] = sel_patterns_p2
+        else:
+            reset["selected_patterns_p1"] = None
+            reset["selected_patterns_p2"] = None
+    else:
+        reset["rb_hide_banned_from_slot"] = None
+        reset["rb_patterns_pre_ban"] = None
+        reset["rb_banned_patterns"] = []
+        reset["rb_banned_pattern"] = None
+        reset["selected_patterns_p1"] = None
+        reset["selected_patterns_p2"] = None
+
+    await db.rooms.update_one({"room_code": room_code}, {"$set": reset})
+
+    merged = {**room, **reset}
+    sp_out = merged.get("selected_patterns")
+    gr_payload = {
+        "type": "game_reset",
+        "first_player": first_player,
+        "game_number": next_gn,
+        "c3_blocked": c3_blocked,
+        "board_mode": bm,
+        "segment_start_index": merged.get("segment_start_index", 0),
+        "p1_series_points": seg_pts[0],
+        "p2_series_points": seg_pts[1],
+        "suppress_center_opening": reset["suppress_center_opening"],
+        "rb_extra_turn_token_holder": reset["rb_extra_turn_token_holder"],
+        "rb_extra_turn_token_used": False,
+    }
+    if sp_out is not None:
+        gr_payload["selected_patterns"] = sp_out
+    if (
+        bm == "7x7"
+        and merged.get("selected_patterns_p1") is not None
+        and merged.get("selected_patterns_p2") is not None
+    ):
+        gr_payload["selected_patterns_p1"] = merged.get("selected_patterns_p1")
+        gr_payload["selected_patterns_p2"] = merged.get("selected_patterns_p2")
+    preserve_hide = bool(
+        bm == "7x7"
+        and hide_slot
+        and isinstance(pre_ban, list)
+        and len(pre_ban) > 0
+    )
+    gr_payload["preserve_rb_hide"] = preserve_hide
+    if preserve_hide or (bm == "7x7" and (banned_pats or banned_pat)):
+        gr_payload["rb_hide_banned_from_slot"] = reset.get("rb_hide_banned_from_slot")
+        gr_payload["rb_patterns_pre_ban"] = reset.get("rb_patterns_pre_ban")
+        gr_payload["rb_banned_patterns"] = reset.get("rb_banned_patterns", [])
+        gr_payload["rb_banned_pattern"] = reset.get("rb_banned_pattern")
+
+    for slot, ws in _room_connections.get(room_code, {}).items():
+        try:
+            await ws.send_json(gr_payload)
+        except:
+            pass
+
+
+async def _auto_finalize_rulebreaker_toss(db, room_code: str, due_ms: int) -> None:
+    try:
+        wait_ms = max(0, due_ms - int(datetime.utcnow().timestamp() * 1000))
+        if wait_ms > 0:
+            await asyncio.sleep(wait_ms / 1000)
+        room = await db.rooms.find_one({"room_code": room_code})
+        if not room:
+            return
+        if room.get("phase") != "toss_summary" or room.get("game_status") != "finished":
+            return
+        payload = room.get("rb_phase_payload") or {}
+        if not isinstance(payload, dict):
+            payload = {}
+        hist = room.get("match_history", [])
+        seg_start = room.get("segment_start_index", 0)
+        p1p, p2p = compute_segment_points(hist, seg_start)
+        series_already_decided = (p1p >= 5 and p1p > p2p) or (p2p >= 5 and p2p > p1p)
+        auto_msg = {
+            "resolve_series_only": series_already_decided,
+            "resolve_series_draw": room.get("board_mode", "5x5") == "7x7" and p1p == p2p and not series_already_decided,
+            "first_player": payload.get("firstPlayerChosen") or room.get("rb_toss_winner") or "P1",
+            "c3_blocked": bool(payload.get("rbC3Blocked", False)),
+            "selected_patterns": room.get("selected_patterns"),
+            "selected_patterns_p1": room.get("selected_patterns_p1"),
+            "selected_patterns_p2": room.get("selected_patterns_p2"),
+            "suppress_center_opening": bool(payload.get("winnerPickedRule") == "extra_turn"),
+            "rb_extra_turn_token_holder": room.get("rb_toss_winner") if payload.get("winnerPickedRule") == "extra_turn" else None,
+            "rb_hide_banned_from_slot": payload.get("rbHideBannedPatternFromSlot") or room.get("rb_hide_banned_from_slot"),
+            "rb_patterns_pre_ban": payload.get("rbPatternsPreBan") or room.get("rb_patterns_pre_ban"),
+            "rb_banned_patterns": payload.get("rb_banned_patterns") or room.get("rb_banned_patterns") or [],
+        }
+        await _finalize_rulebreaker_start(db, room_code, room, auto_msg)
+    except asyncio.CancelledError:
+        raise
+    finally:
+        _rb_autostart_tasks.pop(room_code, None)
 
 class JoinRoomRequest(BaseModel):
     room_code: str
@@ -1966,6 +2240,41 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                 payload = msg.get("payload", {})
                 broadcast = {"type": "toss_action", "action": action, "payload": payload, "from": player_slot}
 
+                room = await db.rooms.find_one({"room_code": room_code})
+                if room:
+                    phase_patch = {}
+                    if action == "start_rb":
+                        phase_patch = {
+                            "phase": "rb_splash",
+                            "rb_phase_payload": payload if isinstance(payload, dict) else {},
+                            "rb_summary_started_at_ms": None,
+                            "rb_auto_start_due_ms": None,
+                        }
+                    elif action == "coin_result":
+                        phase_patch = {
+                            "phase": "rb_coin",
+                            "rb_toss_winner": payload.get("toss_winner"),
+                            "rb_coin_result": payload.get("result"),
+                            "rb_phase_payload": payload if isinstance(payload, dict) else {},
+                        }
+                    elif action == "phase_choice" and isinstance(payload, dict) and payload.get("phase"):
+                        phase_patch = {
+                            "phase": payload.get("phase"),
+                            "rb_phase_payload": payload,
+                            "rb_summary_started_at_ms": None,
+                            "rb_auto_start_due_ms": None,
+                        }
+                        if payload.get("phase") == "toss_summary":
+                            due_ms = int(datetime.utcnow().timestamp() * 1000) + 3500
+                            phase_patch["rb_summary_started_at_ms"] = due_ms - 3500
+                            phase_patch["rb_auto_start_due_ms"] = due_ms
+                            _cancel_rb_autostart(room_code)
+                            _rb_autostart_tasks[room_code] = asyncio.create_task(
+                                _auto_finalize_rulebreaker_toss(db, room_code, due_ms)
+                            )
+                    if phase_patch:
+                        await db.rooms.update_one({"room_code": room_code}, {"$set": phase_patch})
+
                 # Persist Timebreaker 6x6 special cell if chosen
                 if action == "phase_choice" and payload.get("phase") == "toss_summary":
                     rb6_cell = payload.get("rb6_special_cell")
@@ -2029,217 +2338,8 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                 # Only from a completed game (avoids mid-game abuse / double rb_start).
                 if room.get("game_status") != "finished":
                     continue
-
-                hist = room.get("match_history", [])
-                seg_start = room.get("segment_start_index", 0)
-                p1p, p2p = compute_segment_points(hist, seg_start)
-
-                # After Rulebreaker toss: only end the match if first-to-two is already decided
-                # (e.g. rare edge case). If e.g. segment is 1-0 after DRAW+win, play the next game (G3).
-                if bool(msg.get("resolve_series_only")):
-                    if not room.get("awaiting_rulebreaker"):
-                        continue
-                    leader = compute_series_winner(hist, seg_start, 5)
-                    if leader is None:
-                        continue
-                    await db.rooms.update_one(
-                        {"room_code": room_code},
-                        {
-                            "$set": {
-                                "series_winner": leader,
-                                "awaiting_rulebreaker": False,
-                                "game_status": "finished",
-                                "status": "finished",
-                            }
-                        },
-                    )
-                    done = {
-                        "type": "series_resolved",
-                        "series_winner": leader,
-                        "match_history": hist,
-                        "p1_series_points": p1p,
-                        "p2_series_points": p2p,
-                        "segment_start_index": seg_start,
-                    }
-                    for slot, ws in _room_connections.get(room_code, {}).items():
-                        try:
-                            await ws.send_json(done)
-                        except:
-                            pass
-                    continue
-
-                # 7×7: after Rulebreaker toss, tied segment score → entire match is a draw (no further game).
-                if bool(msg.get("resolve_series_draw")):
-                    if room.get("board_mode", "5x5") != "7x7":
-                        continue
-                    if not room.get("awaiting_rulebreaker"):
-                        continue
-                    if p1p != p2p:
-                        continue
-                    await db.rooms.update_one(
-                        {"room_code": room_code},
-                        {
-                            "$set": {
-                                "series_winner": "DRAW",
-                                "awaiting_rulebreaker": False,
-                                "game_status": "finished",
-                                "status": "finished",
-                            }
-                        },
-                    )
-                    done = {
-                        "type": "series_resolved",
-                        "series_winner": "DRAW",
-                        "match_history": hist,
-                        "p1_series_points": p1p,
-                        "p2_series_points": p2p,
-                        "segment_start_index": seg_start,
-                        "full_match_draw": True,
-                    }
-                    for slot, ws in _room_connections.get(room_code, {}).items():
-                        try:
-                            await ws.send_json(done)
-                        except:
-                            pass
-                    continue
-
-                first_player = msg.get("first_player", "P1")
-                c3_blocked   = msg.get("c3_blocked", False)
-
-                patch: dict = {}
-                bm = room.get("board_mode", "5x5")
-                sel_patterns = msg.get("selected_patterns")
-                sel_patterns_p1 = msg.get("selected_patterns_p1")
-                sel_patterns_p2 = msg.get("selected_patterns_p2")
-                if not isinstance(sel_patterns_p1, list):
-                    sel_patterns_p1 = None
-                if not isinstance(sel_patterns_p2, list):
-                    sel_patterns_p2 = None
-                suppress_center = bool(msg.get("suppress_center_opening", False))
-                token_holder = msg.get("rb_extra_turn_token_holder")
-                if token_holder not in ("P1", "P2"):
-                    token_holder = None
-
-                hide_slot = msg.get("rb_hide_banned_from_slot")
-                if hide_slot not in ("P1", "P2"):
-                    hide_slot = None
-                pre_ban = msg.get("rb_patterns_pre_ban")
-                if not isinstance(pre_ban, list):
-                    pre_ban = None
-                banned_pats = msg.get("rb_banned_patterns")
-                if not isinstance(banned_pats, list):
-                    banned_pats = []
-                banned_pat = msg.get("rb_banned_pattern")
-                if not isinstance(banned_pat, str) or not banned_pat.strip():
-                    banned_pat = None
-                if banned_pat and banned_pat not in banned_pats:
-                    banned_pats.append(banned_pat)
-
-                gn = room.get("game_number", 1)
-                next_gn = gn + 1
-                gs = 7 if bm == "7x7" else 5
-
-                post_seg = patch.get("segment_start_index", seg_start)
-                seg_pts = compute_segment_points(hist, post_seg)
-                gs = 5
-                if bm == "7x7": gs = 7
-                elif bm == "6x6": gs = 6
-                reset = {
-                    **patch,
-                    "board":          [[None] * gs for _ in range(gs)],
-                    "current_player": first_player,
-                    "moves_played":   0,
-                    "extra_turns":    0,
-                    "winner":         None,
-                    "game_status":    "playing",
-                    "status":         "active",
-                    "p1_ready":       False,
-                    "p2_ready":       False,
-                    "game_number":    next_gn,
-                    "c3_blocked":     c3_blocked,
-                    "awaiting_rulebreaker": False,
-                    "p1_series_points": seg_pts[0],
-                    "p2_series_points": seg_pts[1],
-                    "suppress_center_opening": True if (bm == "7x7" and next_gn == 3) else (suppress_center if bm == "7x7" else False),
-                    "rb_extra_turn_token_holder": token_holder if bm == "7x7" else None,
-                    "rb_extra_turn_token_used": False,
-                }
-                if bm == "7x7" and isinstance(sel_patterns, list) and len(sel_patterns) > 0:
-                    reset["selected_patterns"] = sel_patterns
-                if bm == "7x7":
-                    reset["rb_hide_banned_from_slot"] = hide_slot
-                    reset["rb_patterns_pre_ban"] = pre_ban
-                    reset["rb_banned_patterns"] = banned_pats
-                    reset["rb_banned_pattern"] = None
-                    if (
-                        sel_patterns_p1 is not None
-                        and sel_patterns_p2 is not None
-                        and len(sel_patterns_p1) > 0
-                        and len(sel_patterns_p2) > 0
-                    ):
-                        reset["selected_patterns_p1"] = sel_patterns_p1
-                        reset["selected_patterns_p2"] = sel_patterns_p2
-                    else:
-                        reset["selected_patterns_p1"] = None
-                        reset["selected_patterns_p2"] = None
-                else:
-                    reset["rb_hide_banned_from_slot"] = None
-                    reset["rb_patterns_pre_ban"] = None
-                    reset["rb_banned_patterns"] = []
-                    reset["rb_banned_pattern"] = None
-                    reset["selected_patterns_p1"] = None
-                    reset["selected_patterns_p2"] = None
-
-                await db.rooms.update_one({"room_code": room_code}, {"$set": reset})
-
-                merged = {**room, **reset}
-                sp_out = merged.get("selected_patterns")
-                gr_payload = {
-                    "type":         "game_reset",
-                    "first_player": first_player,
-                    "game_number":  next_gn,
-                    "c3_blocked":   c3_blocked,
-                    "board_mode":   bm,
-                    "segment_start_index": merged.get("segment_start_index", 0),
-                    "p1_series_points": seg_pts[0],
-                    "p2_series_points": seg_pts[1],
-                    "suppress_center_opening": reset["suppress_center_opening"],
-                    "rb_extra_turn_token_holder": reset["rb_extra_turn_token_holder"],
-                    "rb_extra_turn_token_used": False,
-                }
-                if sp_out is not None:
-                    gr_payload["selected_patterns"] = sp_out
-                if (
-                    bm == "7x7"
-                    and merged.get("selected_patterns_p1") is not None
-                    and merged.get("selected_patterns_p2") is not None
-                ):
-                    gr_payload["selected_patterns_p1"] = merged.get(
-                        "selected_patterns_p1"
-                    )
-                    gr_payload["selected_patterns_p2"] = merged.get(
-                        "selected_patterns_p2"
-                    )
-                preserve_hide = bool(
-                    bm == "7x7"
-                    and hide_slot
-                    and isinstance(pre_ban, list)
-                    and len(pre_ban) > 0
-                )
-                gr_payload["preserve_rb_hide"] = preserve_hide
-                if preserve_hide or (bm == "7x7" and (banned_pats or banned_pat)):
-                    gr_payload["rb_hide_banned_from_slot"] = reset.get(
-                        "rb_hide_banned_from_slot"
-                    )
-                    gr_payload["rb_patterns_pre_ban"] = reset.get("rb_patterns_pre_ban")
-                    gr_payload["rb_banned_patterns"] = reset.get("rb_banned_patterns", [])
-                    gr_payload["rb_banned_pattern"] = reset.get("rb_banned_pattern")
-
-                for slot, ws in _room_connections.get(room_code, {}).items():
-                    try:
-                        await ws.send_json(gr_payload)
-                    except:
-                        pass
+                _cancel_rb_autostart(room_code)
+                await _finalize_rulebreaker_start(db, room_code, room, msg)
 
             elif msg["type"] == "rb_use_extra_turn":
                 room = await db.rooms.find_one({"room_code": room_code})

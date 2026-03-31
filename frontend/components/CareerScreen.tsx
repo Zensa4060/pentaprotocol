@@ -272,8 +272,9 @@ export default function CareerScreen({ themeId, onHoverAction }: Props) {
       setLoading(false);
       return;
     }
-    (async () => {
+    const loadCareer = async () => {
       try {
+        if (!cancelled) setLoading(true);
         const res = await API.get("/api/profile/career");
         if (!cancelled) setHistory(res.data);
       } catch (err) {
@@ -281,9 +282,15 @@ export default function CareerScreen({ themeId, onHoverAction }: Props) {
       } finally {
         if (!cancelled) setLoading(false);
       }
-    })();
+    };
+    void loadCareer();
+    const handleCareerRefresh = () => {
+      void loadCareer();
+    };
+    window.addEventListener("pp:career-refresh", handleCareerRefresh);
     return () => {
       cancelled = true;
+      window.removeEventListener("pp:career-refresh", handleCareerRefresh);
     };
   }, [user]);
 
