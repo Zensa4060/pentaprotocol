@@ -78,9 +78,26 @@ function getSfxFile(themeId: string, key: string): string {
 }
 
 export function useAudio() {
-  const [musicVol, setMusicVol] = useState(0.4);
-  const [sfxVol, setSfxVol] = useState(0.6);
-  const [muted, setMuted] = useState(false);
+  const [musicVol, setMusicVol] = useState(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("pp_music_vol");
+      return saved !== null ? parseFloat(saved) : 0.4;
+    }
+    return 0.4;
+  });
+  const [sfxVol, setSfxVol] = useState(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("pp_sfx_vol");
+      return saved !== null ? parseFloat(saved) : 0.6;
+    }
+    return 0.6;
+  });
+  const [muted, setMuted] = useState(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("pp_muted") === "true";
+    }
+    return false;
+  });
   const [theme, setTheme] = useState("classic_dark");
 
   const mutedRef = useRef(false);
@@ -160,7 +177,17 @@ export function useAudio() {
 
   useEffect(() => {
     if (audioRef.current) audioRef.current.volume = muted ? 0 : musicVol;
+    if (typeof window !== "undefined") {
+      localStorage.setItem("pp_music_vol", musicVol.toString());
+      localStorage.setItem("pp_muted", muted.toString());
+    }
   }, [musicVol, muted]);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("pp_sfx_vol", sfxVol.toString());
+    }
+  }, [sfxVol]);
 
   const playBgm = useCallback((themeId: string, context: "lobby" | "game" | "ranked") => {
     setTheme(themeId);

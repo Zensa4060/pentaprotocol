@@ -129,7 +129,7 @@ def compute_series_winner(history: list, segment_start: int = 0, win_cap: int = 
     if p2_pts >= win_cap:
         return "P2"
     
-    # If full 9 rounds are played, decide by majority or None (Protocolbreaker)
+    # If the history reaches or exceeds 9, we MUST decide or trigger Protocolbreaker.
     if len(history) >= 9:
         if p1_pts > p2_pts:
             return "P1"
@@ -143,7 +143,7 @@ def compute_series_winner(history: list, segment_start: int = 0, win_cap: int = 
 def compute_awaiting_rulebreaker(history: list, segment_start: int) -> bool:
     """
     After each completed *pair* of games in the segment, Rulebreaker is required
-    before the next game **unless** that pair was a two-game sweep (same player won both).
+    before the next game unless the match has already reached its win condition.
     """
     if segment_start > len(history):
         return False
@@ -152,19 +152,17 @@ def compute_awaiting_rulebreaker(history: list, segment_start: int) -> bool:
     # Extract winners for logic
     winners = [item["winner"] if isinstance(item, dict) else item for item in seg]
     
-    p1w = sum(1 for w in winners if w == "P1")
-    p2w = sum(1 for w in winners if w == "P2")
-    
-    if len(seg) >= 3 and p1w == 1 and p2w == 1:
+    p1_total, p2_total = compute_segment_points(history)
+    # If someone already has 5, no more Rulebreaker
+    if p1_total >= 5 or p2_total >= 5:
         return False
+
     if len(seg) >= 3 and all(w == "DRAW" for w in winners):
         return False
     if len(seg) < 2 or len(seg) % 2 != 0:
         return False
         
-    g1, g2 = winners[-2], winners[-1]
-    if g1 == g2 and g1 in ("P1", "P2"):
-        return False
+    # We always play Rulebreaker after Game 2, Game 4, Game 6... unless the match is over.
     return True
 
 

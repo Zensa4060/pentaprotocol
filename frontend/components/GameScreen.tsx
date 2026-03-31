@@ -1756,40 +1756,20 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     initBoard("P1");
   };
 
-  const checkSeriesWinner = (hist: string[]): string | null => {
-    if (isMultiplayerGame) {
-      const p1 = hist.filter(w => (typeof w === "string" ? w : (w as any)?.winner) === "P1").length;
-      const p2 = hist.filter(w => (typeof w === "string" ? w : (w as any)?.winner) === "P2").length;
-      if (p1 >= 5) return "P1";
-      if (p2 >= 5) return "P2";
-      return null;
+  const checkSeriesWinner = (hist: any[]): string | null => {
+    const p1_pts = hist.filter(w => (typeof w === "string" ? w : (w as any)?.winner) === "P1").length;
+    const p2_pts = hist.filter(w => (typeof w === "string" ? w : (w as any)?.winner) === "P2").length;
+
+    if (p1_pts >= 5) return "P1";
+    if (p2_pts >= 5) return "P2";
+
+    // If 9 games are played, use majority or DRAW (for Protocolbreaker trigger)
+    if (hist.length >= 9) {
+      if (p1_pts > p2_pts) return "P1";
+      if (p2_pts > p1_pts) return "P2";
+      return null; // Protocolbreaker tie
     }
-    if (hist.length < 2) return null;
-    const [h1, h2] = hist;
-    const g1 = typeof h1 === "string" ? h1 : (h1 as any)?.winner;
-    const g2 = typeof h2 === "string" ? h2 : (h2 as any)?.winner;
-    // 2-0 sweep: always decisive
-    if (g1 === g2 && (g1 === "P1" || g1 === "P2")) return g1;
-    // WIN + DRAW or DRAW + WIN
-    if ((g1 !== "DRAW" && g2 === "DRAW") || (g2 !== "DRAW" && g1 === "DRAW")) {
-      // Non-ranked: force rulebreaker
-      if (!isRankedGame) {
-        if (hist.length >= 3) {
-          const g3 = hist[2];
-          const originalWinner = g1 !== "DRAW" ? g1 : g2;
-          return g3 === originalWinner ? originalWinner : "DRAW";
-        }
-        return null; // force rulebreaker
-      }
-      // Ranked fallback
-      return g1 !== "DRAW" ? g1 : g2;
-    }
-    // Both draws
-    if (g1 === "DRAW" && g2 === "DRAW") {
-      return hist.length >= 3 ? hist[2] : null;
-    }
-    // Different winners — rulebreaker
-    if (hist.length >= 3) return hist[hist.length - 1];
+
     return null;
   };
 
@@ -2065,28 +2045,80 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   const doAdvanceAfterReady = () => {
     const gn = R.current.gameNumber;
     if (R.current.matchOver) return;
-    setWinner(null); setShowWinOverlay(false); setOverlayVisible(false);
+    setWinner(null);
+    setShowWinOverlay(false);
+    setOverlayVisible(false);
+
     if (isMultiplayerGame) {
       if (awaitingRulebreakerRef.current && gn >= 2) {
         if (mySlot === "P1") {
           const r = Math.random() < 0.5 ? "PENTA" : "PROTO";
-          const payload = { result: r, toss_winner: r === "PENTA" ? "P1" : "P2" };
-          wsRef.current?.send(JSON.stringify({ type: "toss_action", action: "start_rb", payload }));
+          const payload = {
+            result: r,
+            toss_winner: r === "PENTA" ? "P1" : "P2",
+          };
+          wsRef.current?.send(
+            JSON.stringify({ type: "toss_action", action: "start_rb", payload })
+          );
         }
       }
       return;
     }
-    if (gn >= 2) {
+
+    // AI / Singleplayer match flow logic
+    const nextGameNum = gn + 1;
+    const isEndOfLeg = gn === 3 || gn === 6;
+
+    if (isEndOfLeg) {
+      // Escalate board size
+      const currentBm = liveBoardMode;
+      const nextBm: BoardMode = currentBm === "5x5" ? "6x6" : "7x7";
+      setLiveBoardMode(nextBm);
+      setGameNumber(nextGameNum);
+
+      if (nextBm === "6x6") {
+        setShow6x6LevelUp(true);
+        playTransitionAction?.();
+        setTimeout(() => {
+          setShow6x6LevelUp(false);
+          setPhase("playing");
+          initBoard("P1");
+        }, 2800);
+      } else {
+        setShow7x7LevelUp(true);
+        playTransitionAction?.();
+        setTimeout(() => {
+          setShow7x7LevelUp(false);
+          setPhase("playing");
+          initBoard("P1");
+        }, 2800);
+      }
+    } else if (gn === 2 || gn === 5 || gn === 8) {
+      // Transition to Rulebreaker (Game 3, 6, 9)
       setRb6SpecialCell(null);
       setRb6TimerOwner(null);
       setRb6CellChooser(null);
-      setGameNumber(3); setPhase("rb_splash"); playRulebreakerAction?.();
-      setRbSplashTimer(5); setCoinFlipTimer(rbCoinFlipSeconds); setCoinRevealTimer(0);
-      setCoinResult(null); setCoinAngle(0); setTossWinner(null);
-      setFirstPlayerChosen(null); setRbC3Blocked(false); setRbBannedPatterns([]); setSummaryTimer(5);
-      setRbHideBannedPatternFromSlot(null); setRbPatternsPreBan(null);
+      setGameNumber(nextGameNum);
+      setPhase("rb_splash");
+      playRulebreakerAction?.();
+      setRbSplashTimer(5);
+      setCoinFlipTimer(rbCoinFlipSeconds);
+      setCoinRevealTimer(0);
+      setCoinResult(null);
+      setCoinAngle(0);
+      setTossWinner(null);
+      setFirstPlayerChosen(null);
+      setRbC3Blocked(false);
+      setRbBannedPatterns([]);
+      setSummaryTimer(5);
+      setRbHideBannedPatternFromSlot(null);
+      setRbPatternsPreBan(null);
     } else {
-      setGameNumber(2); setPhase("playing"); initBoard("P2");
+      // Next normal game (e.g., G1 -> G2, G4 -> G5, G7 -> G8)
+      setGameNumber(nextGameNum);
+      setPhase("playing");
+      // Alternate starting player for normal games in the same leg
+      initBoard(gn % 2 === 1 ? "P2" : "P1");
     }
   };
 
