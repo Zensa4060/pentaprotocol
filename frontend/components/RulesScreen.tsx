@@ -91,7 +91,7 @@ const RULES = [
     emoji: "",
     title: "RULEBREAKER",
     summary: "If a game ends in a DRAW and the overall match points are tied, a tiebreaker mini-game occurs.",
-    detail: `If a game ends in a DRAW and the match scores are tied (0–0, 1–1, 2–2, 3–3, or 4–4), the Protocolbreaker phase begins. This is a decisive mini-game to resolve the tie.\n\nA coin is flipped — YIN gives the choice to P1, YANG gives it to P2.\n\nThe toss winner chooses one of two tracks:\n\n1. DECIDE WHO PLAYS FIRST — the winner picks which player goes first in the tiebreaker. Then the loser decides the C3 rule.\n\n2. BLOCK C3 FIRST MOVE — the winner decides whether C3 is blocked or allowed for the first move. Then the loser picks who goes first.\n\nThe tiebreaker is played on a board size determined by a banning process (both players ban one board size, the last remains). The winner of this tiebreaker gains a critical advantage toward the 5-point goal.`,
+    detail: `If game 9 ends in a DRAW and the match is still tied, the Limitbreaker phase begins.\n\nA coin is flipped — the toss winner chooses one of two tracks:\n\n1. CHOOSE WHO PLAYS FIRST — the toss winner decides who starts game 10, then the other player bans the first board and the toss winner bans the second.\n\n2. BAN A BOARD FIRST — the toss winner bans the first board, then the other player decides who starts game 10 and also bans the second board.\n\nThe only remaining board size is used for the final deciding game.`,
     screenshot: null,
     screenshotCaption: "Rulebreaker coin toss and choice screens",
     screenshots: [{ src: "/api/proxy-image?url=https://lh3.googleusercontent.com/d/1ruG7o40ffMD6mQL5MrbQ1I8E7OLRmzs6", caption: "" },
@@ -108,7 +108,7 @@ const RULES = [
   emoji: "",
   title: "MATCH FORMAT: FIRST TO 5",
   summary: "First to reach 5 total points wins the match. Draws trigger tiebreakers at tied intervals.",
-  detail: `Every match is First-to-5:\n\n• Each game win grants 1 point.\n• The first player to reach 5 points wins the match.\n• If a game ends in a DRAW and your points are tied, a Protocolbreaker tiebreaker occurs to resolve the tie.\n\nGames alternate starting players (P1 starts G1, P2 starts G2, etc.). Tiebreakers use a coin toss to decide the starting player.\n\nELO is updated exclusively for Ranked matches based on the final 5-point victory result.`,
+  detail: `Every match is First-to-5:\n\n• Each game win grants 1 point.\n• The first player to reach 5 points wins the match.\n• If game 9 ends in a DRAW and the match is still tied, a Limitbreaker tiebreaker decides the final board and first player for game 10.\n\nGames alternate starting players (P1 starts G1, P2 starts G2, etc.). Tiebreakers use a coin toss to decide control of the final setup.\n\nELO is updated exclusively for Ranked matches based on the final 5-point victory result.`,
   screenshot: "/api/proxy-image?url=https://lh3.googleusercontent.com/d/1X8BPjljEUplyX_nzhRu3P_Ic9tg4SToA",
   screenshotCaption: "Match timer, history panel (P1 won Game 1), and ready-to-deploy buttons",
 },
@@ -130,7 +130,7 @@ export default function RulesScreen({ themeId, onHoverAction, onClickAction }: P
           How to Play
         </h1>
         <p style={{ fontFamily:t.fontBody, fontSize:15, color:t.textMuted, textAlign:"center", marginBottom:40, letterSpacing:"0.08em" }}>
-          PENTAPROTOCOL · 5×5 · First to 5 · Protocolbreaker
+          PENTAPROTOCOL · 5×5 · First to 5 · Limitbreaker
         </p>
 
         <div style={{ display:"flex", flexDirection:"column", gap:10 }}>

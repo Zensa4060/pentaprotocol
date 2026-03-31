@@ -289,8 +289,12 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     tossWinner: "P1" | "P2";
     p1Agg: number;
     p2Agg: number;
+    phase: "coin" | "choice" | "choose_first_player" | "ban_first" | "ban_second";
+    choice: "choose_first_player" | "ban_first" | null;
+    firstPlayer: "P1" | "P2" | null;
     bans: string[];
     nextSlot: "P1" | "P2";
+    coinDueMs?: number | null;
   } | null>(null);
   useEffect(() => () => {
     if (levelUpSplashTimerRef.current) clearTimeout(levelUpSplashTimerRef.current);
@@ -951,29 +955,40 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
           {
             const rp = r as {
               protocolbreaker_pending?: boolean;
+              limitbreaker_pending?: boolean;
               pb_toss_winner?: string;
               pb_bans?: string[];
               pb_p1_aggregate?: number;
               pb_p2_aggregate?: number;
+              lb_phase?: string | null;
+              lb_choice?: string | null;
+              lb_first_player?: string | null;
+              lb_next_slot?: string | null;
+              lb_coin_due_ms?: number | null;
               phase?: string | null;
               rb_toss_winner?: string | null;
               rb_coin_result?: "PENTA" | "PROTO" | null;
               rb_phase_payload?: Record<string, unknown> | null;
               rb_auto_start_due_ms?: number | null;
             };
-            if (rp.protocolbreaker_pending && (rp.pb_toss_winner === "P1" || rp.pb_toss_winner === "P2")) {
+            if ((rp.limitbreaker_pending || rp.protocolbreaker_pending) && (rp.pb_toss_winner === "P1" || rp.pb_toss_winner === "P2")) {
               const bans = Array.isArray(rp.pb_bans) ? rp.pb_bans : [];
               const tw = rp.pb_toss_winner as "P1" | "P2";
+              const phase = rp.lb_phase === "choice" || rp.lb_phase === "choose_first_player" || rp.lb_phase === "ban_first" || rp.lb_phase === "ban_second" ? rp.lb_phase : "coin";
               const nextSlot: "P1" | "P2" =
-                bans.length === 0 ? tw : bans.length === 1 ? (tw === "P1" ? "P2" : "P1") : tw;
+                rp.lb_next_slot === "P2" ? "P2" : "P1";
               setPbOverlay({
                 tossWinner: tw,
                 p1Agg: typeof rp.pb_p1_aggregate === "number" ? rp.pb_p1_aggregate : 0,
                 p2Agg: typeof rp.pb_p2_aggregate === "number" ? rp.pb_p2_aggregate : 0,
+                phase,
+                choice: rp.lb_choice === "ban_first" || rp.lb_choice === "choose_first_player" ? rp.lb_choice : null,
+                firstPlayer: rp.lb_first_player === "P1" || rp.lb_first_player === "P2" ? rp.lb_first_player : null,
                 bans,
                 nextSlot,
+                coinDueMs: typeof rp.lb_coin_due_ms === "number" ? rp.lb_coin_due_ms : null,
               });
-            } else if (!rp.protocolbreaker_pending) {
+            } else if (!rp.limitbreaker_pending && !rp.protocolbreaker_pending) {
               setPbOverlay(null);
             }
             const rbPayload = (rp.rb_phase_payload && typeof rp.rb_phase_payload === "object") ? rp.rb_phase_payload : {};
@@ -1082,34 +1097,52 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
               xp_after: z(rm.p2?.xp_after, 0),
             },
           });
-            } else if (msg.type === "protocolbreaker_start") {
+            } else if (msg.type === "limitbreaker_start") {
           const m = msg as {
             toss_winner?: string;
             p1_aggregate?: number;
             p2_aggregate?: number;
+            phase?: string;
+            next_slot?: string;
+            coin_due_ms?: number;
           };
           const tw = m.toss_winner === "P2" ? "P2" : "P1";
           setPbOverlay({
             tossWinner: tw,
             p1Agg: typeof m.p1_aggregate === "number" ? m.p1_aggregate : 0,
             p2Agg: typeof m.p2_aggregate === "number" ? m.p2_aggregate : 0,
+            phase: m.phase === "choice" || m.phase === "choose_first_player" || m.phase === "ban_first" || m.phase === "ban_second" ? m.phase : "coin",
+            choice: null,
+            firstPlayer: null,
             bans: [],
-            nextSlot: tw,
+            nextSlot: m.next_slot === "P2" ? "P2" : tw,
+            coinDueMs: typeof m.coin_due_ms === "number" ? m.coin_due_ms : null,
           });
-            } else if (msg.type === "protocolbreaker_ban_update") {
-          const m = msg as { pb_bans?: string[]; next_ban_slot?: string };
-          const bans = Array.isArray(m.pb_bans) ? m.pb_bans : [];
-          const ns = m.next_ban_slot === "P2" ? "P2" : "P1";
+            } else if (msg.type === "limitbreaker_update") {
+          const m = msg as { bans?: string[]; next_slot?: string; phase?: string; choice?: string | null; first_player?: string | null; toss_winner?: string; p1_aggregate?: number; p2_aggregate?: number; coin_due_ms?: number | null };
+          const bans = Array.isArray(m.bans) ? m.bans : [];
+          const ns = m.next_slot === "P2" ? "P2" : "P1";
           setPbOverlay(prev =>
             prev
-              ? { ...prev, bans, nextSlot: ns }
+              ? {
+                  ...prev,
+                  tossWinner: m.toss_winner === "P2" ? "P2" : prev.tossWinner,
+                  p1Agg: typeof m.p1_aggregate === "number" ? m.p1_aggregate : prev.p1Agg,
+                  p2Agg: typeof m.p2_aggregate === "number" ? m.p2_aggregate : prev.p2Agg,
+                  phase: m.phase === "choice" || m.phase === "choose_first_player" || m.phase === "ban_first" || m.phase === "ban_second" ? m.phase : prev.phase,
+                  choice: m.choice === "ban_first" || m.choice === "choose_first_player" ? m.choice : null,
+                  firstPlayer: m.first_player === "P1" || m.first_player === "P2" ? m.first_player : null,
+                  bans,
+                  nextSlot: ns,
+                  coinDueMs: typeof m.coin_due_ms === "number" ? m.coin_due_ms : null,
+                }
               : null
           );
             } else if (msg.type === "chat_message") {
           setChatMessages(m => [...m.slice(-49), { from: msg.from, text: msg.text, ts: msg.ts }]);
             } else if (msg.type === "game_reset") {
-          const gr0 = msg as { protocolbreaker_final?: boolean };
-          if (gr0.protocolbreaker_final) {
+          const gr0 = msg as { protocolbreaker_final?: boolean; limitbreaker_final?: boolean };
+          if (gr0.protocolbreaker_final || gr0.limitbreaker_final) {
             setPbOverlay(null);
           }
           const gr = msg as { from_5x5_draw_upgrade?: boolean; from_5x5_level_up?: boolean; from_6x6_level_up?: boolean };
@@ -2581,6 +2614,152 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     if (e.key === "Enter") sendChat(isMultiplayerGame ? mySlot : "P1");
   };
 
+  const limitbreakerOverlay = pbOverlay && isMultiplayerGame && (() => {
+    const isMyTurn = pbOverlay.nextSlot === mySlot;
+    const phaseTitle =
+      pbOverlay.phase === "coin" ? "COIN TOSS" :
+      pbOverlay.phase === "choice" ? "CHOOSE THE TRACK" :
+      pbOverlay.phase === "choose_first_player" ? "CHOOSE WHO PLAYS FIRST" :
+      pbOverlay.phase === "ban_first" ? "FIRST BOARD BAN" :
+      "SECOND BOARD BAN";
+    const statusText =
+      pbOverlay.phase === "coin"
+        ? `${pbOverlay.tossWinner} won the toss.`
+        : pbOverlay.phase === "choice"
+          ? (isMyTurn ? "Choose what you want to control first." : "Waiting for the toss winner to choose the track.")
+          : pbOverlay.phase === "choose_first_player"
+            ? (isMyTurn ? "Choose who takes the first move in game 10." : "Waiting for the first-player choice.")
+            : (isMyTurn ? "Choose one board to ban." : "Waiting for the next board ban.");
+    return (
+      <div
+        style={{
+          position: "fixed",
+          inset: 0,
+          zIndex: 11500,
+          background: "rgba(0,0,0,0.9)",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: 24,
+        }}
+      >
+        <div style={{ fontFamily: t.fontDisplay, fontSize: 22, fontWeight: 900, color: t.gold, marginBottom: 8, letterSpacing: "0.1em" }}>LIMITBREAKER</div>
+        <div style={{ fontFamily: t.fontMono, fontSize: 12, color: t.textMuted, marginBottom: 12, textAlign: "center", maxWidth: 520, lineHeight: 1.5 }}>
+          The match is tied at {pbOverlay.p1Agg}-{pbOverlay.p2Agg}. Game 10 will be played on the only board size left after two bans.
+        </div>
+        <div style={{ fontFamily: t.fontDisplay, fontSize: 18, fontWeight: 800, color: t.accent, marginBottom: 8, letterSpacing: "0.08em", textAlign: "center" }}>{phaseTitle}</div>
+        <div style={{ fontFamily: t.fontMono, fontSize: 11, color: t.textSecondary, marginBottom: 18, textAlign: "center", maxWidth: 520 }}>
+          {statusText}
+          {pbOverlay.firstPlayer ? ` First player: ${pbOverlay.firstPlayer}.` : ""}
+          {pbOverlay.choice === "choose_first_player" ? " Toss winner chose to decide the starter first." : pbOverlay.choice === "ban_first" ? " Toss winner chose to ban a board first." : ""}
+        </div>
+        {pbOverlay.phase === "coin" && (
+          <div style={{ fontFamily: t.fontMono, fontSize: 13, color: t.accent }}>
+            {typeof pbOverlay.coinDueMs === "number" ? `Revealing choice in ${Math.max(0, Math.ceil((pbOverlay.coinDueMs - Date.now()) / 1000))}s` : "Preparing next step..."}
+          </div>
+        )}
+        {pbOverlay.phase === "choice" && (
+          <div style={{ display: "flex", gap: 12, flexWrap: "wrap", justifyContent: "center" }}>
+            {[
+              { id: "choose_first_player", label: "CHOOSE WHO PLAYS FIRST" },
+              { id: "ban_first", label: "BAN A BOARD FIRST" },
+            ].map((opt) => (
+              <button
+                key={opt.id}
+                type="button"
+                disabled={!isMyTurn}
+                onClick={() => {
+                  if (wsRef.current?.readyState === WebSocket.OPEN) {
+                    wsRef.current.send(JSON.stringify({ type: "limitbreaker_action", choice: opt.id }));
+                  }
+                }}
+                style={{
+                  padding: "14px 22px",
+                  fontFamily: t.fontMono,
+                  fontSize: 13,
+                  fontWeight: 800,
+                  letterSpacing: "0.08em",
+                  borderRadius: 8,
+                  border: `2px solid ${isMyTurn ? t.accent : "#444"}`,
+                  background: isMyTurn ? `${t.accent}22` : "rgba(40,40,40,0.5)",
+                  color: isMyTurn ? t.accent : "#888",
+                  cursor: isMyTurn ? "pointer" : "not-allowed",
+                }}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        )}
+        {pbOverlay.phase === "choose_first_player" && (
+          <div style={{ display: "flex", gap: 12, flexWrap: "wrap", justifyContent: "center" }}>
+            {(["P1", "P2"] as const).map((slot) => (
+              <button
+                key={slot}
+                type="button"
+                disabled={!isMyTurn}
+                onClick={() => {
+                  if (wsRef.current?.readyState === WebSocket.OPEN) {
+                    wsRef.current.send(JSON.stringify({ type: "limitbreaker_action", first_player: slot }));
+                  }
+                }}
+                style={{
+                  padding: "14px 22px",
+                  fontFamily: t.fontMono,
+                  fontSize: 13,
+                  fontWeight: 800,
+                  letterSpacing: "0.08em",
+                  borderRadius: 8,
+                  border: `2px solid ${isMyTurn ? t.accent : "#444"}`,
+                  background: pbOverlay.firstPlayer === slot ? `${t.accent}33` : isMyTurn ? `${t.accent}22` : "rgba(40,40,40,0.5)",
+                  color: isMyTurn ? t.accent : "#888",
+                  cursor: isMyTurn ? "pointer" : "not-allowed",
+                }}
+              >
+                {slot} PLAYS FIRST
+              </button>
+            ))}
+          </div>
+        )}
+        {(pbOverlay.phase === "ban_first" || pbOverlay.phase === "ban_second") && (
+          <div style={{ display: "flex", gap: 12, flexWrap: "wrap", justifyContent: "center" }}>
+            {(["5x5", "6x6", "7x7"] as const).map((bm) => {
+              const inBanList = pbOverlay.bans.includes(bm);
+              const canClick = isMyTurn && !inBanList && pbOverlay.bans.length < 2;
+              return (
+                <button
+                  key={bm}
+                  type="button"
+                  disabled={!canClick}
+                  onClick={() => {
+                    if (wsRef.current?.readyState === WebSocket.OPEN) {
+                      wsRef.current.send(JSON.stringify({ type: "limitbreaker_action", board_mode: bm }));
+                    }
+                  }}
+                  style={{
+                    padding: "14px 22px",
+                    fontFamily: t.fontMono,
+                    fontSize: 13,
+                    fontWeight: 800,
+                    letterSpacing: "0.08em",
+                    borderRadius: 8,
+                    border: `2px solid ${canClick ? t.accent : "#444"}`,
+                    background: inBanList ? "rgba(80,80,80,0.4)" : canClick ? `${t.accent}33` : "rgba(40,40,40,0.5)",
+                    color: canClick ? t.accent : inBanList ? "#aaa" : "#888",
+                    cursor: canClick ? "pointer" : "not-allowed",
+                  }}
+                >
+                  {bm === "5x5" ? "5x5" : bm === "6x6" ? "6x6" : "7x7"}{inBanList ? " X" : ""}
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    );
+  })();
+
   const levelUp7x7Overlay = show7x7LevelUp && (
     <div style={{ position: "fixed", inset: 0, zIndex: 10002, background: "rgba(0,0,0,0.94)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", pointerEvents: "none" }}>
       <div style={{ fontFamily: t.fontMono, fontSize: 11, color: t.textMuted, letterSpacing: "0.35em", marginBottom: 18 }}>TIED SERIES · RULEBREAKER</div>
@@ -3042,64 +3221,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
         <SurrenderModal show={showSurrender} t={sidebarT} ip={ip} isRankedGame={isRankedGame} onConfirmAction={() => { setShowSurrender(false); if (isMultiplayerGame && isRankedGame && wsRef.current?.readyState === WebSocket.OPEN) { wsRef.current.send(JSON.stringify({ type: "quit_match", slot: mySlot })); } if (setScreenAction) setScreenAction("home"); }} onCancelAction={() => { playClickAction?.(); pausedRef.current = false; setShowSurrender(false); }} playHoverAction={playHoverAction} />
         <ExitModal show={showExitConfirm} t={sidebarT} ip={ip} onConfirmAction={() => { setShowExitConfirm(false); if (setScreenAction) setScreenAction("home"); }} onCancelAction={() => { playClickAction?.(); pausedRef.current = false; setShowExitConfirm(false); }} playHoverAction={playHoverAction} />
         <RematchOverlay show={showRematch && matchSeriesComplete === null} isMultiplayerGame={isMultiplayerGame} t={sidebarT} ip={ip} p1c={p1c} p2c={p2c} seriesWinner={seriesWinner} mySlot={mySlot} rematchRequested={rematchRequested} winnerDisplayNameAction={winnerDisplayName} lastSeries={lastSeries} onRematchAction={() => { wsRef.current?.send(JSON.stringify({ type: "rematch" })); setRematchRequested(mySlot); }} onQuitMatchAction={() => { wsRef.current?.send(JSON.stringify({ type: "quit_match", slot: mySlot })); if (setScreenAction) setScreenAction("home"); }} />
-        {pbOverlay && isMultiplayerGame && (
-          <div
-            style={{
-              position: "fixed",
-              inset: 0,
-              zIndex: 11500,
-              background: "rgba(0,0,0,0.9)",
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              justifyContent: "center",
-              padding: 24,
-            }}
-          >
-            <div style={{ fontFamily: t.fontDisplay, fontSize: 22, fontWeight: 900, color: t.gold, marginBottom: 8, letterSpacing: "0.1em" }}>PROTOCOLBREAKER</div>
-            <div style={{ fontFamily: t.fontMono, fontSize: 12, color: t.textMuted, marginBottom: 12, textAlign: "center", maxWidth: 420, lineHeight: 1.5 }}>
-              The match is tied at {pbOverlay.p1Agg}–{pbOverlay.p2Agg} and the last game ended in a DRAW. Both players must ban one board size to determine where the tie will be broken.
-            </div>
-            <div style={{ fontFamily: t.fontMono, fontSize: 11, color: t.accent, marginBottom: 20, textAlign: "center" }}>
-              {pbOverlay.nextSlot === mySlot ? "Your turn — choose a board to ban." : "Other player is choosing a board to ban…"}
-            </div>
-            <div style={{ display: "flex", gap: 12, flexWrap: "wrap", justifyContent: "center" }}>
-              {(["5x5", "6x6", "7x7"] as const).map(bm => {
-                const inBanList = pbOverlay.bans.includes(bm);
-                const blockSecond = pbOverlay.bans.length === 1 && bm === pbOverlay.bans[0];
-                const canClick =
-                  mySlot === pbOverlay.nextSlot && pbOverlay.bans.length < 2 && !inBanList && !blockSecond;
-                return (
-                  <button
-                    key={bm}
-                    type="button"
-                    disabled={!canClick}
-                    onClick={() => {
-                      if (wsRef.current?.readyState === WebSocket.OPEN) {
-                        wsRef.current.send(JSON.stringify({ type: "protocolbreaker_ban", board_mode: bm }));
-                      }
-                    }}
-                    style={{
-                      padding: "14px 22px",
-                      fontFamily: t.fontMono,
-                      fontSize: 13,
-                      fontWeight: 800,
-                      letterSpacing: "0.08em",
-                      borderRadius: 8,
-                      border: `2px solid ${canClick ? t.accent : "#444"}`,
-                      background: inBanList || blockSecond ? "rgba(80,80,80,0.4)" : canClick ? `${t.accent}33` : "rgba(40,40,40,0.5)",
-                      color: canClick ? t.accent : "#888",
-                      cursor: canClick ? "pointer" : "not-allowed",
-                    }}
-                  >
-                    {bm === "5x5" ? "5×5" : bm === "6x6" ? "6×6" : "7×7"}
-                    {inBanList || blockSecond ? " ✕" : ""}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        )}
+        {limitbreakerOverlay}
         {matchSeriesComplete && (
           <MatchResultScreen
             seriesWinner={matchSeriesComplete.series_winner}
@@ -3307,64 +3429,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
         <RematchOverlay show={showRematch && matchSeriesComplete === null} isMultiplayerGame={isMultiplayerGame} t={sidebarT} ip={ip} p1c={p1c} p2c={p2c} seriesWinner={seriesWinner} mySlot={mySlot} rematchRequested={rematchRequested} winnerDisplayNameAction={winnerDisplayName} lastSeries={lastSeries} segmentStartIndex={segmentStartIndex} onRematchAction={() => { wsRef.current?.send(JSON.stringify({ type: "rematch" })); setRematchRequested(mySlot); }} onQuitMatchAction={() => { wsRef.current?.send(JSON.stringify({ type: "quit_match", slot: mySlot })); if (setScreenAction) setScreenAction("home"); }} />
         <SurrenderModal show={showSurrender} t={sidebarT} ip={ip} isRankedGame={isRankedGame} onConfirmAction={() => { setShowSurrender(false); if (isMultiplayerGame && isRankedGame && wsRef.current?.readyState === WebSocket.OPEN) { wsRef.current.send(JSON.stringify({ type: "quit_match", slot: mySlot })); } if (setScreenAction) setScreenAction("home"); }} onCancelAction={() => { playClickAction?.(); pausedRef.current = false; setShowSurrender(false); }} playHoverAction={playHoverAction} />
       <ExitModal show={showExitConfirm} t={sidebarT} ip={ip} onConfirmAction={() => { setShowExitConfirm(false); if (setScreenAction) setScreenAction("home"); }} onCancelAction={() => { playClickAction?.(); pausedRef.current = false; setShowExitConfirm(false); }} playHoverAction={playHoverAction} />
-      {pbOverlay && isMultiplayerGame && (
-        <div
-          style={{
-            position: "fixed",
-            inset: 0,
-            zIndex: 11500,
-            background: "rgba(0,0,0,0.9)",
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: 24,
-          }}
-        >
-          <div style={{ fontFamily: t.fontDisplay, fontSize: 22, fontWeight: 900, color: t.gold, marginBottom: 8, letterSpacing: "0.1em" }}>PROTOCOLBREAKER</div>
-          <div style={{ fontFamily: t.fontMono, fontSize: 12, color: t.textMuted, marginBottom: 12, textAlign: "center", maxWidth: 420, lineHeight: 1.5 }}>
-            The match is tied at {pbOverlay.p1Agg}–{pbOverlay.p2Agg} and the last game ended in a DRAW. Both players must ban one board size to determine where the tie will be broken.
-          </div>
-          <div style={{ fontFamily: t.fontMono, fontSize: 11, color: t.accent, marginBottom: 20, textAlign: "center" }}>
-            {pbOverlay.nextSlot === mySlot ? "Your turn — choose a board to ban." : "Other player is choosing a board to ban…"}
-          </div>
-          <div style={{ display: "flex", gap: 12, flexWrap: "wrap", justifyContent: "center" }}>
-            {(["5x5", "6x6", "7x7"] as const).map(bm => {
-              const inBanList = pbOverlay.bans.includes(bm);
-              const blockSecond = pbOverlay.bans.length === 1 && bm === pbOverlay.bans[0];
-              const canClick =
-                mySlot === pbOverlay.nextSlot && pbOverlay.bans.length < 2 && !inBanList && !blockSecond;
-              return (
-                <button
-                  key={bm}
-                  type="button"
-                  disabled={!canClick}
-                  onClick={() => {
-                    if (wsRef.current?.readyState === WebSocket.OPEN) {
-                      wsRef.current.send(JSON.stringify({ type: "protocolbreaker_ban", board_mode: bm }));
-                    }
-                  }}
-                  style={{
-                    padding: "14px 22px",
-                    fontFamily: t.fontMono,
-                    fontSize: 13,
-                    fontWeight: 800,
-                    letterSpacing: "0.08em",
-                    borderRadius: 8,
-                    border: `2px solid ${canClick ? t.accent : "#444"}`,
-                    background: inBanList || blockSecond ? "rgba(80,80,80,0.4)" : canClick ? `${t.accent}33` : "rgba(40,40,40,0.5)",
-                    color: canClick ? t.accent : "#888",
-                    cursor: canClick ? "pointer" : "not-allowed",
-                  }}
-                >
-                  {bm === "5x5" ? "5×5" : bm === "6x6" ? "6×6" : "7×7"}
-                  {inBanList || blockSecond ? " ✕" : ""}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
+      {limitbreakerOverlay}
       {matchSeriesComplete && (
         <MatchResultScreen
           seriesWinner={matchSeriesComplete.series_winner}

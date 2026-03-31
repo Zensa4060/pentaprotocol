@@ -42,6 +42,7 @@ interface MatchRecord {
   board_mode_full?: string;
   match_rounds?: MatchRound[];
   protocolbreaker_played?: boolean;
+  limitbreaker_played?: boolean;
   my_slot?: "P1" | "P2";
   surrendered_by?: "P1" | "P2";
 }
@@ -194,7 +195,7 @@ const CareerMatchRow = React.memo(({
             ? "RANKED TRIPLE"
             : modeLabel(match.mode).toUpperCase()}
         </div>
-        {match.protocolbreaker_played ? (
+        {match.limitbreaker_played || match.protocolbreaker_played ? (
           <div
             style={{
               fontFamily: t.fontMono,
@@ -205,7 +206,7 @@ const CareerMatchRow = React.memo(({
               marginTop: 6,
             }}
           >
-            PROTOCOLBREAKER
+            LIMITBREAKER
           </div>
         ) : null}
       </div>

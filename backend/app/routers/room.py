@@ -20,6 +20,7 @@ _room_connections: dict[str, dict] = {}
 # Runtime (in-memory) per-room sync state (not persisted)
 _room_runtime: dict[str, dict] = {}
 _rb_autostart_tasks: dict[str, asyncio.Task] = {}
+_lb_phase_tasks: dict[str, asyncio.Task] = {}
 DISCONNECT_GRACE_SECONDS = 3.0
 
 
@@ -31,6 +32,12 @@ def _reset_rules_gate_runtime(room_code: str) -> None:
 
 def _cancel_rb_autostart(room_code: str) -> None:
     task = _rb_autostart_tasks.pop(room_code, None)
+    if task and not task.done():
+        task.cancel()
+
+
+def _cancel_lb_phase_task(room_code: str) -> None:
+    task = _lb_phase_tasks.pop(room_code, None)
     if task and not task.done():
         task.cancel()
 
@@ -113,6 +120,15 @@ def serialize_room(room: dict) -> dict:
         "protocolbreaker_final": room.get("protocolbreaker_final", False),
         "pb_p1_aggregate": room.get("pb_p1_aggregate"),
         "pb_p2_aggregate": room.get("pb_p2_aggregate"),
+        "limitbreaker_pending": room.get("protocolbreaker_pending", False),
+        "limitbreaker_final": room.get("protocolbreaker_final", False),
+        "lb_phase": room.get("pb_phase"),
+        "lb_choice": room.get("pb_choice"),
+        "lb_first_player": room.get("pb_first_player"),
+        "lb_next_slot": room.get("pb_next_slot"),
+        "lb_first_ban_slot": room.get("pb_first_ban_slot"),
+        "lb_second_ban_slot": room.get("pb_second_ban_slot"),
+        "lb_coin_due_ms": room.get("pb_coin_due_ms"),
     }
 
 
@@ -703,8 +719,9 @@ async def _start_protocolbreaker_final_game(
     room_code: str,
     room: dict,
     banned: list[str],
+    first_player: str,
 ) -> None:
-    """After two bans, play one decisive game on the surviving board."""
+    """After Limitbreaker choices resolve, play the decisive surviving-board game."""
     from app.core.patterns7 import PATTERN_NAMES_7
 
     ALL = ["5x5", "6x6", "7x7"]
@@ -723,8 +740,10 @@ async def _start_protocolbreaker_final_game(
         selected_pattern_ids_p1=sp1 if mode == "7x7" else None,
         selected_pattern_ids_p2=sp2 if mode == "7x7" else None,
     )
-    first = "P1"
+    first = first_player if first_player in ("P1", "P2") else "P1"
     gn = len(room.get("match_history") or []) + 1
+    seg_new = room.get("segment_start_index", 0)
+    p1p, p2p = compute_segment_points(room.get("match_history", []), seg_new)
     patch = {
         "board": engine.board,
         "board_mode": mode,
@@ -743,6 +762,13 @@ async def _start_protocolbreaker_final_game(
         "protocolbreaker_pending": False,
         "protocolbreaker_final": True,
         "pb_bans": banned,
+        "pb_phase": None,
+        "pb_choice": None,
+        "pb_first_player": first,
+        "pb_next_slot": None,
+        "pb_first_ban_slot": None,
+        "pb_second_ban_slot": None,
+        "pb_coin_due_ms": None,
         "awaiting_5x5_rules_ready": False,
         "awaiting_6x6_rules_ready": False,
         "awaiting_7x7_rules_ready": False,
@@ -771,6 +797,7 @@ async def _start_protocolbreaker_final_game(
         "p1_series_points": p1p,
         "p2_series_points": p2p,
         "protocolbreaker_final": True,
+        "limitbreaker_final": True,
         "pb_bans": banned,
         "c3_blocked": False,
         "preserve_rb_hide": False,
@@ -792,9 +819,10 @@ async def _broadcast_protocolbreaker_tie(
     room: dict,
     history: list,
 ) -> None:
-    """Aggregate tie on triple-leg ranked — start board-ban tiebreaker (PROTOCOLBREAKER)."""
+    """Aggregate tie on triple-leg ranked — start Limitbreaker."""
     tw = random.choice(["P1", "P2"])
     p1a, p2a = _aggregate_decisive_games(history)
+    due_ms = int(datetime.utcnow().timestamp() * 1000) + 3500
     await db.rooms.update_one(
         {"room_code": room_code},
         {
@@ -804,21 +832,86 @@ async def _broadcast_protocolbreaker_tie(
                 "pb_bans": [],
                 "pb_p1_aggregate": p1a,
                 "pb_p2_aggregate": p2a,
+                "pb_phase": "coin",
+                "pb_choice": None,
+                "pb_first_player": None,
+                "pb_next_slot": tw,
+                "pb_first_ban_slot": None,
+                "pb_second_ban_slot": None,
+                "pb_coin_due_ms": due_ms,
             }
         },
     )
     payload = {
-        "type": "protocolbreaker_start",
+        "type": "limitbreaker_start",
         "toss_winner": tw,
         "p1_aggregate": p1a,
         "p2_aggregate": p2a,
         "match_history_snapshot": history,
+        "phase": "coin",
+        "next_slot": tw,
+        "coin_due_ms": due_ms,
     }
     for slot, ws in _room_connections.get(room_code, {}).items():
         try:
             await ws.send_json(payload)
         except Exception:
             pass
+    _cancel_lb_phase_task(room_code)
+    _lb_phase_tasks[room_code] = asyncio.create_task(
+        _advance_limitbreaker_coin(db, room_code, due_ms)
+    )
+
+
+async def _broadcast_limitbreaker_update(room_code: str, room: dict) -> None:
+    payload = {
+        "type": "limitbreaker_update",
+        "phase": room.get("pb_phase"),
+        "toss_winner": room.get("pb_toss_winner"),
+        "p1_aggregate": room.get("pb_p1_aggregate", 0),
+        "p2_aggregate": room.get("pb_p2_aggregate", 0),
+        "bans": room.get("pb_bans") or [],
+        "choice": room.get("pb_choice"),
+        "first_player": room.get("pb_first_player"),
+        "next_slot": room.get("pb_next_slot"),
+        "first_ban_slot": room.get("pb_first_ban_slot"),
+        "second_ban_slot": room.get("pb_second_ban_slot"),
+        "coin_due_ms": room.get("pb_coin_due_ms"),
+    }
+    for slot, ws in _room_connections.get(room_code, {}).items():
+        try:
+            await ws.send_json(payload)
+        except Exception:
+            pass
+
+
+async def _advance_limitbreaker_coin(db, room_code: str, due_ms: int) -> None:
+    try:
+        wait_ms = max(0, due_ms - int(datetime.utcnow().timestamp() * 1000))
+        if wait_ms > 0:
+            await asyncio.sleep(wait_ms / 1000)
+        room = await db.rooms.find_one({"room_code": room_code})
+        if not room or not room.get("protocolbreaker_pending"):
+            return
+        if room.get("pb_phase") != "coin":
+            return
+        await db.rooms.update_one(
+            {"room_code": room_code},
+            {
+                "$set": {
+                    "pb_phase": "choice",
+                    "pb_next_slot": room.get("pb_toss_winner"),
+                    "pb_coin_due_ms": None,
+                }
+            },
+        )
+        room = await db.rooms.find_one({"room_code": room_code})
+        if room:
+            await _broadcast_limitbreaker_update(room_code, room)
+    except asyncio.CancelledError:
+        raise
+    finally:
+        _lb_phase_tasks.pop(room_code, None)
 
 
 def compute_series_state(history: list, segment_start: int = 0) -> dict:
@@ -840,9 +933,9 @@ def compute_series_state(history: list, segment_start: int = 0) -> dict:
             awaiting_rulebreaker = True
             breaker_type = "MINDBREAKER"
         elif lh == 9:
-            # Game 9 ended, still no winner -> Protocolbreaker
+            # Game 9 ended, still no winner -> Limitbreaker
             awaiting_rulebreaker = True
-            breaker_type = "PROTOCOLBREAKER"
+            breaker_type = "LIMITBREAKER"
 
     return {
         "p1_series_points": p1_pts,
@@ -2290,46 +2383,81 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                     except:
                         pass
 
-            elif msg["type"] == "protocolbreaker_ban":
-                ban_mode = msg.get("board_mode") or msg.get("ban")
-                if ban_mode not in ("5x5", "6x6", "7x7"):
-                    continue
+            elif msg["type"] == "limitbreaker_action":
                 room_pb = await db.rooms.find_one({"room_code": room_code})
                 if not room_pb or not room_pb.get("protocolbreaker_pending"):
                     continue
+                phase = room_pb.get("pb_phase")
+                choice = msg.get("choice")
+                chosen_first = msg.get("first_player")
+                ban_mode = msg.get("board_mode") or msg.get("ban")
                 bans = list(room_pb.get("pb_bans") or [])
                 tw = room_pb.get("pb_toss_winner")
-                if len(bans) >= 2:
+                other = "P2" if tw == "P1" else "P1"
+                next_slot = room_pb.get("pb_next_slot")
+                if next_slot in ("P1", "P2") and player_slot != next_slot:
                     continue
-                if len(bans) == 0:
+
+                if phase == "choice":
                     if player_slot != tw:
                         continue
-                else:
-                    if player_slot == tw:
+                    if choice not in ("choose_first_player", "ban_first"):
                         continue
-                    if ban_mode == bans[0]:
-                        continue
-                bans.append(ban_mode)
-                if len(bans) == 1:
-                    await db.rooms.update_one(
-                        {"room_code": room_code},
-                        {"$set": {"pb_bans": bans}},
-                    )
-                    nxt = "P2" if tw == "P1" else "P1"
-                    upd = {
-                        "type": "protocolbreaker_ban_update",
-                        "pb_bans": bans,
-                        "next_ban_slot": nxt,
+                    patch = {
+                        "pb_choice": choice,
+                        "pb_phase": "choose_first_player" if choice == "choose_first_player" else "ban_first",
+                        "pb_next_slot": tw,
+                        "pb_first_ban_slot": other if choice == "choose_first_player" else tw,
+                        "pb_second_ban_slot": tw if choice == "choose_first_player" else other,
                     }
-                    for slot, ws in _room_connections.get(room_code, {}).items():
-                        try:
-                            await ws.send_json(upd)
-                        except Exception:
-                            pass
-                else:
-                    await _start_protocolbreaker_final_game(
-                        db, room_code, room_pb, bans
-                    )
+                    await db.rooms.update_one({"room_code": room_code}, {"$set": patch})
+                    room_pb = await db.rooms.find_one({"room_code": room_code})
+                    if room_pb:
+                        await _broadcast_limitbreaker_update(room_code, room_pb)
+                elif phase == "choose_first_player":
+                    if chosen_first not in ("P1", "P2"):
+                        continue
+                    pb_choice = room_pb.get("pb_choice")
+                    patch = {"pb_first_player": chosen_first}
+                    if pb_choice == "choose_first_player":
+                        patch["pb_phase"] = "ban_first"
+                        patch["pb_next_slot"] = room_pb.get("pb_first_ban_slot")
+                    else:
+                        patch["pb_phase"] = "ban_second"
+                        patch["pb_next_slot"] = room_pb.get("pb_second_ban_slot")
+                    await db.rooms.update_one({"room_code": room_code}, {"$set": patch})
+                    room_pb = await db.rooms.find_one({"room_code": room_code})
+                    if room_pb:
+                        await _broadcast_limitbreaker_update(room_code, room_pb)
+                elif phase in ("ban_first", "ban_second"):
+                    if ban_mode not in ("5x5", "6x6", "7x7"):
+                        continue
+                    if ban_mode in bans:
+                        continue
+                    bans.append(ban_mode)
+                    if len(bans) >= 2:
+                        first_player = room_pb.get("pb_first_player") or "P1"
+                        await db.rooms.update_one(
+                            {"room_code": room_code},
+                            {"$set": {"pb_bans": bans}},
+                        )
+                        room_pb["pb_bans"] = bans
+                        _cancel_lb_phase_task(room_code)
+                        await _start_protocolbreaker_final_game(
+                            db, room_code, room_pb, bans, first_player
+                        )
+                    else:
+                        patch = {"pb_bans": bans}
+                        if room_pb.get("pb_choice") == "ban_first":
+                            patch["pb_phase"] = "choose_first_player"
+                            patch["pb_next_slot"] = other
+                        else:
+                            patch["pb_phase"] = "ban_second"
+                            patch["pb_next_slot"] = room_pb.get("pb_second_ban_slot")
+                        await db.rooms.update_one({"room_code": room_code}, {"$set": patch})
+                        room_pb = await db.rooms.find_one({"room_code": room_code})
+                        if room_pb:
+                            await _broadcast_limitbreaker_update(room_code, room_pb)
 
             elif msg["type"] == "rb_start_game":
                 room = await db.rooms.find_one({"room_code": room_code})

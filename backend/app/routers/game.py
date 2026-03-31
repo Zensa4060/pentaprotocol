@@ -256,7 +256,8 @@ async def award_ranked_match_result(
             "board_mode":         game.get("board_mode"),
             "board_mode_full":    game.get("board_mode_full"),
             "match_rounds":       game.get("match_rounds", []),
-            "protocolbreaker_played": bool(game.get("protocolbreaker_played")),
+            "protocolbreaker_played": bool(game.get("protocolbreaker_played") or game.get("limitbreaker_played")),
+            "limitbreaker_played": bool(game.get("protocolbreaker_played") or game.get("limitbreaker_played")),
             "surrendered_by":         surrendered_by,
         }
         await db.match_history.insert_one(doc)
