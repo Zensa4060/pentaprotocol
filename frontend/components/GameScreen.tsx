@@ -2876,17 +2876,12 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
           <div style={{ background: "rgba(0,0,0,0.75)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 8, padding: "4px 10px", backdropFilter: "blur(6px)" }}>
             <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
               {displayMatchHistory.length > 0 ? displayMatchHistory.map((res, i) => {
-                const g = `G${i + 1}`;
+                const gNum = i + 1 + segmentStartIndex;
+                const g = `G${gNum}`;
                 const col = res === "P1" ? p1c : res === "P2" ? p2c : res === "DRAW" ? t.gold : "#333";
                 const isActive = i === (gameNumber - 1);
-                let label = null;
-                if (i === 0) label = "5×5";
-                else if (i === 3) label = "6×6";
-                else if (i === 6) label = "7×7";
-                else if (i === 9) label = "PB";
                 return (
-                  <div key={g} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
-                    {label && <span style={{ fontFamily: t.fontMono, fontSize: 8, color: t.accent, opacity: 0.6, marginBottom: -2 }}>{label}</span>}
+                  <div key={gNum} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
                     <span style={{ fontFamily: t.fontMono, fontSize: 9, color: isActive ? t.accent : "#444", fontWeight: isActive ? 700 : 400 }}>{g}{isActive ? " ◀" : ""}</span>
                     <div style={{ width: 16, height: 3, borderRadius: 2, background: res ? col : "#222", border: `1px solid ${res ? col : "#333"}` }} />
                   </div>
@@ -3211,6 +3206,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
         onShowExitConfirmAction={() => { playClickAction?.(); pausedRef.current = true; setShowExitConfirm(true); }}
         onShowRematchOverlayAction={() => setShowRematch(true)}
         fmtTimeAction={fmtTime}
+        segmentStartIndex={segmentStartIndex}
         playHoverAction={playHoverAction}
         playClickAction={playClickAction}
       />
@@ -3289,7 +3285,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
         playHoverAction={playHoverAction}
       />
 
-        <RematchOverlay show={showRematch && matchSeriesComplete === null} isMultiplayerGame={isMultiplayerGame} t={sidebarT} ip={ip} p1c={p1c} p2c={p2c} seriesWinner={seriesWinner} mySlot={mySlot} rematchRequested={rematchRequested} winnerDisplayNameAction={winnerDisplayName} lastSeries={lastSeries} onRematchAction={() => { wsRef.current?.send(JSON.stringify({ type: "rematch" })); setRematchRequested(mySlot); }} onQuitMatchAction={() => { wsRef.current?.send(JSON.stringify({ type: "quit_match", slot: mySlot })); if (setScreenAction) setScreenAction("home"); }} />
+        <RematchOverlay show={showRematch && matchSeriesComplete === null} isMultiplayerGame={isMultiplayerGame} t={sidebarT} ip={ip} p1c={p1c} p2c={p2c} seriesWinner={seriesWinner} mySlot={mySlot} rematchRequested={rematchRequested} winnerDisplayNameAction={winnerDisplayName} lastSeries={lastSeries} segmentStartIndex={segmentStartIndex} onRematchAction={() => { wsRef.current?.send(JSON.stringify({ type: "rematch" })); setRematchRequested(mySlot); }} onQuitMatchAction={() => { wsRef.current?.send(JSON.stringify({ type: "quit_match", slot: mySlot })); if (setScreenAction) setScreenAction("home"); }} />
         <SurrenderModal show={showSurrender} t={sidebarT} ip={ip} isRankedGame={isRankedGame} onConfirmAction={() => { setShowSurrender(false); if (isMultiplayerGame && isRankedGame && wsRef.current?.readyState === WebSocket.OPEN) { wsRef.current.send(JSON.stringify({ type: "quit_match", slot: mySlot })); } if (setScreenAction) setScreenAction("home"); }} onCancelAction={() => { playClickAction?.(); pausedRef.current = false; setShowSurrender(false); }} playHoverAction={playHoverAction} />
       <ExitModal show={showExitConfirm} t={sidebarT} ip={ip} onConfirmAction={() => { setShowExitConfirm(false); if (setScreenAction) setScreenAction("home"); }} onCancelAction={() => { playClickAction?.(); pausedRef.current = false; setShowExitConfirm(false); }} playHoverAction={playHoverAction} />
       {pbOverlay && isMultiplayerGame && (

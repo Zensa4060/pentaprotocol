@@ -705,8 +705,7 @@ async def _start_protocolbreaker_final_game(
         selected_pattern_ids_p2=sp2 if mode == "7x7" else None,
     )
     first = "P1"
-    seg_new = len(room.get("match_history") or [])
-    p1p, p2p = compute_segment_points(room.get("match_history") or [])
+    gn = len(room.get("match_history") or []) + 1
     patch = {
         "board": engine.board,
         "board_mode": mode,
@@ -716,7 +715,7 @@ async def _start_protocolbreaker_final_game(
         "winner": None,
         "game_status": "playing",
         "status": "active",
-        "game_number": room.get("game_number", 1), # Keep board number same? No, incrementing matches.
+        "game_number": gn,
         "segment_start_index": seg_new,
         "p1_series_points": p1p,
         "p2_series_points": p2p,
@@ -746,7 +745,7 @@ async def _start_protocolbreaker_final_game(
     gr = {
         "type": "game_reset",
         "first_player": first,
-        "game_number": room.get("game_number", 1),
+        "game_number": gn,
         "board_mode": mode,
         "segment_start_index": seg_new,
         "history_display_start_index": room.get("history_display_start_index", 0),
@@ -1434,8 +1433,9 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                     update["move_log"] = [] # Clear for next round
 
                     if room.get("protocolbreaker_final") and is_finished:
-                        sw_pb = compute_series_winner(new_history)
-                        p1p_new, p2p_new = compute_segment_points(new_history)
+                        # Protocolbreaker is a single decisive round (sudden death).
+                        sw_pb = outcome if outcome in ("P1", "P2") else "DRAW"
+                        p1p_new, p2p_new = compute_segment_points(new_history, seg_start)
                         update.update(
                             {
                                 "match_history": new_history,
@@ -1443,7 +1443,7 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                                 "p1_series_points": p1p_new,
                                 "p2_series_points": p2p_new,
                                 "awaiting_rulebreaker": False,
-                                "game_number": gn + 1 if sw_pb is None else gn,
+                                "game_number": gn,
                             }
                         )
                         await db.rooms.update_one({"room_code": room_code}, {"$set": update})

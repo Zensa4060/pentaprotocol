@@ -106,6 +106,7 @@ interface MatchSidebarProps {
   winnerDisplayNameAction?: (w: string | null) => string;
   // last series (populated after rematch accepted)
   lastSeries?: { winner: string | null; history: string[] } | null;
+  segmentStartIndex?: number;
   // handlers
   onReadyToggle: (player: "P1" | "P2") => void;
   onSendChat: (from: "P1" | "P2") => void;
@@ -142,7 +143,7 @@ export function MatchSidebar({
   showWinOverlay, overlayVisible, winnerColor, winnerPiece, seriesDiffers, seriesColor, seriesPiece,
   showRematch, rematchRequested, lastSeries,
   showSurrender, showExitConfirm, setScreenAction,
-  p1Label, p2Label, winnerDisplayNameAction,
+  p1Label, p2Label, winnerDisplayNameAction, segmentStartIndex = 0,
   onReadyToggle, onSendChat, onChatInputChange, onChatKeyDown, onChatOpenToggle,
   onSoftReset, onDismissOverlayAction, onRematchAction, onQuitMatchAction,
   onSurrenderConfirmAction, onSurrenderCancelAction, onExitConfirmAction, onExitCancelAction,
@@ -357,10 +358,9 @@ export function MatchSidebar({
               {lastSeries.history.map((hItem, i) => {
                 const r = safeWinner(hItem);
                 const col = r === "P1" ? p1c : r === "P2" ? p2c : r === "DRAW" ? t.gold : t.textMuted;
-                const offset = (isMultiplayerGame && boardMode === "6x6") ? 3 : (isMultiplayerGame && boardMode === "7x7") ? 6 : 0;
                 return (
                   <div key={i} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
-                    <div style={{ fontFamily: t.fontMono, fontSize: 9, color: t.textMuted }}>G{i + 1 + offset}</div>
+                    <div style={{ fontFamily: t.fontMono, fontSize: 9, color: t.textMuted }}>G{i + 1}</div>
                     <div style={{ width: 22, height: 4, borderRadius: 2, background: r ? col : "#222", border: `1px solid ${r ? col : "#333"}`, boxShadow: r ? `0 0 5px ${col}55` : "none" }} />
                     <div style={{ fontFamily: t.fontMono, fontSize: 9, fontWeight: 700, color: r ? col : t.textMuted }}>{r || "—"}</div>
                   </div>
@@ -379,20 +379,10 @@ export function MatchSidebar({
             const result = safeWinner(rawResult);
             const col = result === "P1" ? p1c : result === "P2" ? p2c : result === "DRAW" ? t.gold : t.textMuted;
             const isCur = i === gameNumber - 1 && (phase === "playing" || phase === "waiting_ready");
-            let bmLabel = null;
-            if (i === 0) bmLabel = "5 × 5";
-            else if (i === 3) bmLabel = "6 × 6";
-            else if (i === 6) bmLabel = "7 × 7";
-            else if (i === 9) bmLabel = "PB";
             return (
               <React.Fragment key={i}>
-                {bmLabel && (
-                  <div style={{ fontFamily: t.fontMono, fontSize: 10, color: t.accent, opacity: 0.8, letterSpacing: "0.2em", marginTop: i === 0 ? 0 : 12, marginBottom: 4, borderBottom: `1px solid ${t.accent}33`, paddingBottom: 2 }}>
-                    {bmLabel}
-                  </div>
-                )}
                 <div style={{ display: "grid", gridTemplateColumns: "1fr auto", fontFamily: t.fontBody, fontSize: 22, padding: "6px 0", borderBottom: `1px solid ${t.border}22`, opacity: i < gameNumber ? 1 : 0.4 }}>
-                  <span style={{ color: isCur ? t.accent : t.textMuted, transition: "color 0.2s" }}>G{i + 1}{isCur ? " *" : ""}</span>
+                  <span style={{ color: isCur ? t.accent : t.textMuted, transition: "color 0.2s" }}>G{i + 1 + segmentStartIndex}{isCur ? " *" : ""}</span>
                   <span style={{ color: col, fontWeight: result ? 700 : 400, transition: "color 0.2s" }}>{result || "—"}</span>
                 </div>
               </React.Fragment>
@@ -427,7 +417,7 @@ export function MatchSidebar({
                   style={{ background: rdy ? `${col}22` : "#AA000022", border: `2px solid ${rdy ? col : "#AA0000"}`, color: rdy ? col : "#EE0000", fontFamily: t.fontMono, fontSize: 15, fontWeight: 700, padding: "12px", borderRadius: ip ? 2 : 6, cursor: "pointer", transition: "all 0.2s", boxShadow: rdy ? `0 0 16px ${col}55, 0 0 4px ${col}33` : "none" }}
                   onMouseEnter={e => { playHoverAction?.(); e.currentTarget.style.boxShadow = rdy ? `0 0 24px ${col}88` : "0 0 16px #EE000055"; e.currentTarget.style.borderColor = rdy ? col : "#FF3333"; }}
                   onMouseLeave={e => { e.currentTarget.style.boxShadow = rdy ? `0 0 16px ${col}55` : "none"; e.currentTarget.style.borderColor = rdy ? col : "#AA0000"; }}
-                >{matchHistory.length >= 2 ? "START RULEBREAKER" : `START GAME ${gameNumber + 1 + ((isMultiplayerGame && boardMode === "6x6") ? 3 : (isMultiplayerGame && boardMode === "7x7") ? 6 : 0)}`} {rdy ? "READY" : ""}</button>
+                >{matchHistory.length >= 2 ? "START RULEBREAKER" : `START GAME ${gameNumber + 1}`} {rdy ? "READY" : ""}</button>
               );
             })()
           ) : (
@@ -496,70 +486,6 @@ export function MatchSidebar({
     </div>
   );
 
-  // ── Rematch overlay ────────────────────────────────────────────────────────
-  const rematchOverlay = showRematch && isMultiplayerGame && (
-    <div style={{ position: "fixed", inset: 0, zIndex: 10000, background: "rgba(0,0,0,0.92)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", animation: "fadeIn 0.3s ease both" }}>
-      <div style={{ background: t.bgPanel, border: `2px solid ${t.accent}`, borderRadius: ip ? 2 : 20, padding: "48px 56px", maxWidth: 480, width: "90vw", textAlign: "center", boxShadow: `0 40px 100px rgba(0,0,0,0.8), 0 0 60px ${t.accent}22`, animation: "scaleIn 0.38s cubic-bezier(.22,.68,0,1.2) both" }}>
-        <div style={{ fontFamily: t.fontDisplay, fontSize: 28, fontWeight: 900, color: t.accent, marginBottom: 8, letterSpacing: "0.08em" }}>MATCH COMPLETE</div>
-        <div style={{ fontFamily: t.fontMono, fontSize: 18, fontWeight: 700, color: seriesWinner === "P1" ? p1c : seriesWinner === "P2" ? p2c : t.gold, marginBottom: 20 }}>
-          {seriesWinner === "DRAW" ? "FULL MATCH DRAW — NO WINNER" : `${getName(seriesWinner)} WINS THE SERIES`}
-        </div>
-        {rematchRequested && rematchRequested !== mySlot && (
-          <div style={{ fontFamily: t.fontBody, fontSize: 14, color: t.gold, marginBottom: 16 }}>Opponent wants a rematch!</div>
-        )}
-        {rematchRequested === mySlot && (
-          <div style={{ fontFamily: t.fontBody, fontSize: 14, color: t.textMuted, marginBottom: 16 }}>Waiting for opponent...</div>
-        )}
-        {!rematchRequested && <div style={{ marginBottom: 16 }} />}
-        <div style={{ display: "flex", gap: 16, justifyContent: "center" }}>
-          <button
-            onClick={onRematchAction}
-            disabled={rematchRequested === mySlot}
-            style={{ background: rematchRequested === mySlot ? `${t.accent}10` : `${t.accent}18`, border: `2px solid ${t.accent}`, color: t.accent, fontFamily: t.fontDisplay, fontSize: 16, fontWeight: 700, padding: "14px 36px", borderRadius: ip ? 2 : 10, cursor: rematchRequested === mySlot ? "default" : "pointer", opacity: rematchRequested === mySlot ? 0.5 : 1, transition: "all 0.2s" }}
-            onMouseEnter={e => { if (rematchRequested !== mySlot) { e.currentTarget.style.background = t.accent; e.currentTarget.style.color = "#000"; } }}
-            onMouseLeave={e => { e.currentTarget.style.background = `${t.accent}18`; e.currentTarget.style.color = t.accent; }}
-          >REMATCH</button>
-          <button
-            onClick={onQuitMatchAction}
-            style={{ background: `${t.danger}18`, border: `2px solid ${t.danger}`, color: t.danger, fontFamily: t.fontDisplay, fontSize: 16, fontWeight: 700, padding: "14px 36px", borderRadius: ip ? 2 : 10, cursor: "pointer", transition: "all 0.2s" }}
-            onMouseEnter={e => { e.currentTarget.style.background = t.danger; e.currentTarget.style.color = "#000"; }}
-            onMouseLeave={e => { e.currentTarget.style.background = `${t.danger}18`; e.currentTarget.style.color = t.danger; }}
-          >QUIT</button>
-        </div>
-      </div>
-    </div>
-  );
-
-  // ── Surrender confirm ──────────────────────────────────────────────────────
-  const surrenderModal = showSurrender && (
-    <div className="overlay-backdrop" style={{ position: "fixed", inset: 0, zIndex: 9999, background: "rgba(0,0,0,0.92)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 28 }}>
-      <div className="overlay-modal" style={{ background: t.bgPanel, border: `${ip ? 3 : 2}px solid ${t.danger}`, borderRadius: ip ? 2 : 20, padding: ip ? "32px 36px" : "48px 56px", maxWidth: 520, width: "90vw", textAlign: "center", boxShadow: `0 40px 100px rgba(0,0,0,0.8), 0 0 60px ${t.danger}22` }}>
-        <div style={{ fontSize: 44, marginBottom: 20 }} />
-        <div style={{ fontFamily: t.fontDisplay, fontSize: ip ? 14 : 23, fontWeight: 700, color: t.danger, lineHeight: 1.5, marginBottom: 12 }}>Are you sure you want to forfeit this Match?</div>
-        <div style={{ fontFamily: t.fontBody, fontSize: ip ? 11 : 15, color: t.textMuted, marginBottom: 36, lineHeight: 1.7 }}>{isRankedGame ? <>This counts as a <span style={{ color: t.danger, fontWeight: 700 }}>forfeit</span> and will result in <span style={{ color: t.danger, fontWeight: 700 }}>ELO deduction</span>.</> : "Your opponent will be declared the winner."}</div>
-        <div style={{ display: "flex", gap: 16, justifyContent: "center" }}>
-          <button className="action-btn" onClick={onSurrenderConfirmAction} style={{ background: `${t.danger}18`, border: `2px solid ${t.danger}`, color: t.danger, fontFamily: t.fontDisplay, fontSize: ip ? 12 : 17, fontWeight: 700, padding: ip ? "10px 28px" : "14px 52px", borderRadius: ip ? 2 : 10, cursor: "pointer", letterSpacing: "0.08em" }} onMouseEnter={e => { playHoverAction?.(); e.currentTarget.style.background = t.danger; e.currentTarget.style.color = "#000"; e.currentTarget.style.boxShadow = `0 6px 28px ${t.danger}55`; }} onMouseLeave={e => { e.currentTarget.style.background = `${t.danger}18`; e.currentTarget.style.color = t.danger; e.currentTarget.style.boxShadow = "none"; }}>YES, FORFEIT</button>
-          <button className="action-btn" onClick={onSurrenderCancelAction} style={{ background: `${t.accent}18`, border: `2px solid ${t.accent}`, color: t.accent, fontFamily: t.fontDisplay, fontSize: ip ? 12 : 17, fontWeight: 700, padding: ip ? "10px 28px" : "14px 52px", borderRadius: ip ? 2 : 10, cursor: "pointer", letterSpacing: "0.08em" }} onMouseEnter={e => { playHoverAction?.(); e.currentTarget.style.background = t.accent; e.currentTarget.style.color = "#000"; e.currentTarget.style.boxShadow = `0 6px 28px ${t.accent}55`; }} onMouseLeave={e => { e.currentTarget.style.background = `${t.accent}18`; e.currentTarget.style.color = t.accent; e.currentTarget.style.boxShadow = "none"; }}>NO, STAY</button>
-        </div>
-      </div>
-    </div>
-  );
-
-  // ── Exit confirm ───────────────────────────────────────────────────────────
-  const exitModal = showExitConfirm && (
-    <div className="overlay-backdrop" style={{ position: "fixed", inset: 0, zIndex: 9999, background: "rgba(0,0,0,0.88)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 28 }}>
-      <div className="overlay-modal" style={{ background: t.bgPanel, border: `${ip ? 3 : 1}px solid ${t.border}`, borderRadius: ip ? 2 : 20, padding: ip ? "32px 36px" : "48px 56px", maxWidth: 520, width: "90vw", textAlign: "center", boxShadow: "0 40px 100px rgba(0,0,0,0.7)" }}>
-
-        <div style={{ fontFamily: t.fontDisplay, fontSize: ip ? 14 : 23, fontWeight: 700, color: t.text, lineHeight: 1.5, marginBottom: 12 }}>Are you sure you want to quit the current session?</div>
-        <div style={{ fontFamily: t.fontBody, fontSize: ip ? 11 : 15, color: t.textMuted, marginBottom: 36, lineHeight: 1.7 }}>Current game progress will be lost.</div>
-        <div style={{ display: "flex", gap: 16, justifyContent: "center" }}>
-          <button className="action-btn" onClick={onExitConfirmAction} style={{ background: `${t.danger}18`, border: `2px solid ${t.danger}`, color: t.danger, fontFamily: t.fontDisplay, fontSize: ip ? 12 : 17, fontWeight: 700, padding: ip ? "10px 28px" : "14px 52px", borderRadius: ip ? 2 : 10, cursor: "pointer", letterSpacing: "0.08em" }} onMouseEnter={e => { playHoverAction?.(); e.currentTarget.style.background = t.danger; e.currentTarget.style.color = "#000"; e.currentTarget.style.boxShadow = `0 6px 28px ${t.danger}55`; }} onMouseLeave={e => { e.currentTarget.style.background = `${t.danger}18`; e.currentTarget.style.color = t.danger; e.currentTarget.style.boxShadow = "none"; }}>YES</button>
-          <button className="action-btn" onClick={onExitCancelAction} style={{ background: `${t.accent}18`, border: `2px solid ${t.accent}`, color: t.accent, fontFamily: t.fontDisplay, fontSize: ip ? 12 : 17, fontWeight: 700, padding: ip ? "10px 28px" : "14px 52px", borderRadius: ip ? 2 : 10, cursor: "pointer", letterSpacing: "0.08em" }} onMouseEnter={e => { playHoverAction?.(); e.currentTarget.style.background = t.accent; e.currentTarget.style.color = "#000"; e.currentTarget.style.boxShadow = `0 6px 28px ${t.accent}55`; }} onMouseLeave={e => { e.currentTarget.style.background = `${t.accent}18`; e.currentTarget.style.color = t.accent; e.currentTarget.style.boxShadow = "none"; }}>NO</button>
-        </div>
-      </div>
-    </div>
-  );
-
   return (
     <>
       {winOverlay}
@@ -575,7 +501,7 @@ export function LeftPanel(props: MatchSidebarProps) {
     gameMode, isRankedGame, isMultiplayerGame, isMultiplayer, mySlot, boardMode, selectedPatterns, rbBannedPatterns = [], patternsAsSecret = false, p1SeriesPts, p2SeriesPts,
     p1Time, p2Time, readyTimeout, p1Ready, p2Ready,
     chatMessages, chatInput, chatOpen, chatWarning,
-    p1Label, p2Label, p1Banner, p2Banner, winnerDisplayNameAction, lastSeries,
+    p1Label, p2Label, p1Banner, p2Banner, winnerDisplayNameAction, lastSeries, segmentStartIndex = 0,
     onReadyToggle, onSendChat, onChatInputChange, onChatKeyDown, onChatOpenToggle,
     onSoftReset, onShowSurrenderAction, onShowExitConfirmAction, fmtTimeAction, playHoverAction } = props;
 
@@ -684,7 +610,7 @@ export function LeftPanel(props: MatchSidebarProps) {
       )})}
 
       <div style={{ borderTop: `1px solid ${t.border}`, paddingTop: 12 }}>
-        <div style={{ fontFamily: t.fontMono, fontSize: 20, fontWeight: 700, color: t.text, letterSpacing: "0.14em", marginBottom: 10 }}>MATCH HISTORY</div>
+        <div style={{ fontFamily: t.fontMono, fontSize: 19, fontWeight: 700, color: t.text, letterSpacing: "0.14em", marginBottom: 10 }}>MATCH HISTORY</div>
 
         {(isMultiplayerGame || isMultiplayer) && typeof p1SeriesPts === "number" && typeof p2SeriesPts === "number" && (
           <div style={{ marginBottom: 12, padding: "10px 12px", background: `${t.accent}0C`, border: `1px solid ${t.accent}33`, borderRadius: ip ? 2 : 10 }}>
@@ -726,20 +652,10 @@ export function LeftPanel(props: MatchSidebarProps) {
             const result = safeWinner(rawResult);
             const col = result === "P1" ? p1c : result === "P2" ? p2c : result === "DRAW" ? t.gold : t.textMuted;
             const isCur = i === gameNumber - 1 && (phase === "playing" || phase === "waiting_ready");
-            let bmLabel = null;
-            if (i === 0) bmLabel = "5 × 5";
-            else if (i === 3) bmLabel = "6 × 6";
-            else if (i === 6) bmLabel = "7 × 7";
-            else if (i === 9) bmLabel = "PB";
             return (
               <React.Fragment key={i}>
-                {bmLabel && (
-                  <div style={{ fontFamily: t.fontMono, fontSize: 10, color: t.accent, opacity: 0.8, letterSpacing: "0.2em", marginTop: i === 0 ? 0 : 12, marginBottom: 4, borderBottom: `1px solid ${t.accent}33`, paddingBottom: 2 }}>
-                    {bmLabel}
-                  </div>
-                )}
                 <div style={{ display: "grid", gridTemplateColumns: "1fr auto", fontFamily: t.fontBody, fontSize: 22, padding: "6px 0", borderBottom: `1px solid ${t.border}22`, opacity: i < gameNumber ? 1 : 0.4 }}>
-                  <span style={{ color: isCur ? t.accent : t.textMuted, transition: "color 0.2s" }}>G{i + 1}{isCur ? " *" : ""}</span>
+                  <span style={{ color: isCur ? t.accent : t.textMuted, transition: "color 0.2s" }}>G{i + 1 + segmentStartIndex}{isCur ? " *" : ""}</span>
                   <span style={{ color: col, fontWeight: result ? 700 : 400, transition: "color 0.2s" }}>{result || "—"}</span>
                 </div>
               </React.Fragment>
@@ -775,7 +691,7 @@ export function LeftPanel(props: MatchSidebarProps) {
                   style={{ background: rdy ? `${col}22` : "#AA000022", border: `2px solid ${rdy ? col : "#AA0000"}`, color: rdy ? col : "#EE0000", fontFamily: t.fontMono, fontSize: 15, fontWeight: 700, padding: "12px", borderRadius: ip ? 2 : 6, cursor: "pointer", transition: "all 0.2s", boxShadow: rdy ? `0 0 16px ${col}55, 0 0 4px ${col}33` : "none" }}
                   onMouseEnter={e => { playHoverAction?.(); e.currentTarget.style.boxShadow = rdy ? `0 0 24px ${col}88` : "0 0 16px #EE000055"; e.currentTarget.style.borderColor = rdy ? col : "#FF3333"; }}
                   onMouseLeave={e => { e.currentTarget.style.boxShadow = rdy ? `0 0 16px ${col}55` : "none"; e.currentTarget.style.borderColor = rdy ? col : "#AA0000"; }}
-                >{props.matchHistory.length >= 2 ? "START RULEBREAKER" : "START GAME 2"} {rdy ? "READY" : ""}</button>
+                >{props.matchHistory.length >= 2 ? "START RULEBREAKER" : `START GAME ${gameNumber + 1}`} {rdy ? "READY" : ""}</button>
               );
             })()
           ) : (
@@ -980,12 +896,13 @@ export function DisconnectModal({ show, t, ip, onGoHomeAction }: { show: boolean
   );
 }
 
-export function RematchOverlay({ show, isMultiplayerGame, t, ip, p1c, p2c, seriesWinner, mySlot, rematchRequested, winnerDisplayNameAction, lastSeries, onRematchAction, onQuitMatchAction }: {
+export function RematchOverlay({ show, isMultiplayerGame, t, ip, p1c, p2c, seriesWinner, mySlot, rematchRequested, winnerDisplayNameAction, lastSeries, segmentStartIndex = 0, onRematchAction, onQuitMatchAction }: {
   show: boolean; isMultiplayerGame: boolean; t: MatchSidebarProps["t"]; ip: boolean;
   p1c: string; p2c: string; seriesWinner: string | null; mySlot: "P1" | "P2";
   rematchRequested: string | null;
-  lastSeries?: { winner: string | null; history: string[] } | null;
   winnerDisplayNameAction?: (w: string | null) => string;
+  lastSeries?: { winner: string | null; history: string[] } | null;
+  segmentStartIndex?: number;
   onRematchAction: () => void; onQuitMatchAction: () => void;
 }) {
   if (!show || !isMultiplayerGame) return null;
