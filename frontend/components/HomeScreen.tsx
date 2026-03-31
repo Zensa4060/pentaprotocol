@@ -58,6 +58,8 @@ export default function HomeScreen({ setScreenAction, themeId, onHoverAction, on
   const t = THEMES[themeId];
   const ip = themeId === "pixel";
   const isSp = themeId === "space";
+  const BLOOD_RED = "#FF0000";
+  const AI_PURPLE = "#A855F7";
   const bp = useBreakpoint();
   const scale = useScale();
   const [hovered, setHovered] = useState<Screen | null>(null);
@@ -94,6 +96,9 @@ export default function HomeScreen({ setScreenAction, themeId, onHoverAction, on
 
   const cardStyle = (key: Screen, index: number): React.CSSProperties => {
     const isHov = hovered === key;
+    const isMulti = key === "lobby";
+    const isAI = key === "ai";
+    const hovCol = isMulti ? BLOOD_RED : isAI ? AI_PURPLE : t.accent;
     let curveY = 0;
     if (!isMobile) {
       if (index === 0) curveY = 60;
@@ -105,8 +110,8 @@ export default function HomeScreen({ setScreenAction, themeId, onHoverAction, on
       : "rgba(6,12,34,0.52)";
 
     return {
-      background: isSp ? spaceBg : (isHov ? `linear-gradient(145deg, ${t.accent}22, ${t.bgCard}dd)` : t.bgCard),
-      border: `${isMobile ? "1.5px" : "2px"} solid ${isHov ? t.accent : (isSp ? "rgba(58,120,212,0.25)" : t.border)}`,
+      background: isSp ? spaceBg : (isHov ? `linear-gradient(145deg, ${hovCol}22, ${t.bgCard}dd)` : t.bgCard),
+      border: `${isMobile ? "1.5px" : "2px"} solid ${isHov ? hovCol : (isSp ? "rgba(58,120,212,0.25)" : t.border)}`,
       borderRadius: ip ? 2 : isMobile ? 12 : 20,
       padding: cardPadding,
       cursor: "pointer",
@@ -120,7 +125,7 @@ export default function HomeScreen({ setScreenAction, themeId, onHoverAction, on
       boxShadow: isHov
         ? isSp
           ? `0 24px 64px rgba(58,120,212,0.35), 0 0 30px rgba(96,168,255,0.15), inset 0 1px 0 rgba(255,255,255,0.08)`
-          : `0 24px 64px ${t.accent}33, 0 0 20px ${t.accent}11`
+          : `0 24px 64px ${hovCol}33, 0 0 20px ${hovCol}11`
         : isSp
           ? "inset 0 1px 0 rgba(255,255,255,0.04)"
           : "none",
@@ -166,6 +171,11 @@ export default function HomeScreen({ setScreenAction, themeId, onHoverAction, on
           @keyframes starPulse { from { opacity:0.2; transform:scale(0.8); } to { opacity:0.9; transform:scale(1.2); } }
           @keyframes pixelBlink { 0%,100%{opacity:1} 50%{opacity:0.7} }
           @keyframes spaceCardIn { from { opacity:0; transform:translateY(24px); } to { opacity:1; transform:translateY(0); } }
+          @keyframes purpleSmokeAnim {
+            0% { transform: scale(1) translateY(0) rotate(0deg); opacity: 0; }
+            50% { transform: scale(1.5) translateY(-20px) rotate(180deg); opacity: 0.5; }
+            100% { transform: scale(2) translateY(-40px) rotate(360deg); opacity: 0; }
+          }
         `}</style>
 
         {/* ── Title ── */}
@@ -212,13 +222,26 @@ export default function HomeScreen({ setScreenAction, themeId, onHoverAction, on
               onMouseLeave={() => setHovered(null)}
               style={cardStyle(card.key, idx)}
             >
-              <div style={{ flex: isMobile ? 1 : undefined }}>
+              {card.key === "ai" && hovered === "ai" && !isMobile && (
+                <div style={{ position:"absolute", inset:0, overflow:"hidden", pointerEvents:"none", borderRadius:20 }}>
+                  {[...Array(6)].map((_, i) => (
+                    <div key={i} style={{
+                      position: "absolute", bottom: "-20%", left: `${15 + i * 15}%`,
+                      width: 60, height: 60, background: `radial-gradient(circle, ${AI_PURPLE}44 0%, transparent 70%)`,
+                      borderRadius: "50%", animation: `purpleSmokeAnim ${2 + i * 0.5}s ease-out infinite`,
+                      animationDelay: `${i * 0.3}s`,
+                    }} />
+                  ))}
+                </div>
+              )}
+              <div style={{ flex: isMobile ? 1 : undefined, position: "relative", zIndex: 2 }}>
                 <div style={{
                   fontFamily: isSp ? "'Orbitron', sans-serif" : (themeId === "classic_light" || themeId === "classic_dark") ? "'Cinzel', serif" : t.fontDisplay,
                   fontSize: cardTitleSize, fontWeight: 700,
                   letterSpacing: isSp ? "0.18em" : undefined,
-                  color: hovered === card.key ? t.accent : t.text,
+                  color: hovered === card.key ? (card.key === "lobby" ? BLOOD_RED : card.key === "ai" ? AI_PURPLE : t.accent) : t.text,
                   marginBottom: isMobile ? 4 : 8, transition: "color 0.2s",
+                  position: "relative", zIndex: 2,
                 }}>
                   {card.title}
                 </div>
@@ -232,7 +255,7 @@ export default function HomeScreen({ setScreenAction, themeId, onHoverAction, on
                 </div>
               </div>
               {isMobile && (
-                <div style={{ fontFamily: t.fontMono, fontSize: 18, color: hovered === card.key ? t.accent : t.textMuted, transition: "color 0.2s, transform 0.2s", transform: hovered === card.key ? "translateX(4px)" : "translateX(0)", flexShrink: 0 }}>›</div>
+                <div style={{ fontFamily: t.fontMono, fontSize: 18, color: hovered === card.key ? (card.key === "lobby" ? BLOOD_RED : card.key === "ai" ? AI_PURPLE : t.accent) : t.textMuted, transition: "color 0.2s, transform 0.2s", transform: hovered === card.key ? "translateX(4px)" : "translateX(0)", flexShrink: 0 }}>›</div>
               )}
             </button>
           ))}
@@ -240,8 +263,25 @@ export default function HomeScreen({ setScreenAction, themeId, onHoverAction, on
 
         {/* ── Rank badge ── */}
         {user && (
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8, animation: "fadeUp 0.8s cubic-bezier(.22,.68,0,1.2) both", marginTop: "2.3vh" }}>
+          <div style={{ 
+            display: "flex", flexDirection: "column", alignItems: "center", gap: 8, 
+            animation: "fadeUp 0.8s cubic-bezier(.22,.68,0,1.2) both", marginTop: "2.3vh",
+            transform: hovered === "lobby" ? "scale(1.08)" : "scale(1)",
+            transition: "all 0.4s cubic-bezier(.22,.68,0,1.2)",
+            filter: hovered === "lobby" ? `drop-shadow(0 0 25px ${BLOOD_RED}44)` : "none",
+          }}>
             <NavRankBadge rank={rank} size={isMobile ? 85 : 182} />
+            <div style={{ 
+              fontFamily: t.fontMono, fontSize: 12, color: BLOOD_RED, letterSpacing: "0.2em", 
+              animation: "pixelBlink 1s infinite", fontWeight: 700,
+              position: "absolute", bottom: -20, left: "50%", transform: "translateX(-50%)",
+              opacity: hovered === "lobby" ? 1 : 0,
+              transition: "opacity 0.3s ease",
+              width: "max-content",
+              pointerEvents: "none",
+            }}>
+              RANKED TARGET ACQUIRED
+            </div>
           </div>
         )}
 

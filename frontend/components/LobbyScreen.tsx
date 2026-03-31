@@ -42,6 +42,7 @@ export default function LobbyScreen({
   const t  = THEMES[themeId as keyof typeof THEMES];
   const ip = themeId === "pixel";
   const { user, token } = useAuthStore();
+  const BLOOD_RED = "#FF0000";
 
   const [multiSub,   setMultiSub]   = useState<MultiSub>(null);
   const [localPhase, setLocalPhase] = useState<Phase>("select");
@@ -433,10 +434,10 @@ export default function LobbyScreen({
           }}
           onMouseEnter={() => { onHoverAction?.(); setHovered("ranked"); }}
           onMouseLeave={() => setHovered(null)}
-          style={{ ...cardStyle("ranked", t.gold, false), alignItems:"center", textAlign:"center" as const }}
+          style={{ ...cardStyle("ranked", (hovered === "ranked" || multiSub === "ranked") ? BLOOD_RED : t.gold, false), alignItems:"center", textAlign:"center" as const }}
         >
           <div style={{ fontFamily:t.fontMono, fontSize:10, color:t.textMuted, letterSpacing:"0.18em", marginBottom:12 }}>QUEUE</div>
-          <div style={{ fontFamily:t.fontDisplay, fontSize:ip?20:32, fontWeight:700, marginBottom:8, color:multiSub==="ranked"||hovered==="ranked"?t.gold:t.text, transition:"color 0.28s", textTransform:"uppercase" as const, letterSpacing:"0.08em" }}>Ranked</div>
+          <div style={{ fontFamily:t.fontDisplay, fontSize:ip?20:32, fontWeight:700, marginBottom:8, color:multiSub==="ranked"||hovered==="ranked"?BLOOD_RED:t.text, transition:"color 0.28s", textTransform:"uppercase" as const, letterSpacing:"0.08em", textShadow: hovered === "ranked" ? `0 0 20px ${BLOOD_RED}88` : "none" }}>Ranked</div>
           <div style={{ fontFamily:t.fontBody, fontSize:ip?12:14, color:t.textMuted, marginBottom:16 }}>ELO · RR · Rank · Season rewards</div>
           <div style={{ marginTop:"auto", width:"100%", display:"flex", flexDirection:"column", gap:6 }}>
             {[{k:"FORMAT",v:"5×5 → 6×6 → 7×7"},{k:"SERIES",v:"First to 5 points"},{k:"ELO",v:"Rating updates"}].map(s => (
@@ -447,7 +448,7 @@ export default function LobbyScreen({
             ))}
           </div>
           {multiSub === "ranked" && (
-            <div style={{ position:"absolute", top:11, right:11, background:t.gold, color:"#000", fontSize:9, padding:"2px 6px", borderRadius:4, fontFamily:t.fontMono, fontWeight:900 }}>5×6×7</div>
+            <div style={{ position:"absolute", top:11, right:11, background:BLOOD_RED, color:"#fff", fontSize:9, padding:"2px 6px", borderRadius:4, fontFamily:t.fontMono, fontWeight:900, boxShadow: `0 0 10px ${BLOOD_RED}aa` }}>5×6×7</div>
           )}
         </button>
 
@@ -755,15 +756,20 @@ export default function LobbyScreen({
       {/* Rank Showcase */}
       <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:8 }}>
         {user && (
-          <>
-            <NavRankBadge rank={getRank(user.elo ?? 0) as any} size={isMobile?100:150} />
-            <div style={{ fontFamily:t.fontDisplay, fontSize:isMobile?16:24, fontWeight:800, color:getRank(user.elo??0).color, letterSpacing:"0.1em", textShadow:`0 0 15px ${getRank(user.elo??0).color}55` }}>
+          <div style={{ position:"relative", transition: "all 0.4s cubic-bezier(.22,.68,0,1.2)", transform: hovered === "ranked" ? "scale(1.1)" : "scale(1)", display: "flex", flexDirection: "column", alignItems: "center" }}>
+            {hovered === "ranked" && (
+              <div style={{ position: "absolute", inset: -40, background: `radial-gradient(circle, ${BLOOD_RED}22 0%, transparent 70%)`, borderRadius: "50%", animation: "rankHoverPulse 1.5s ease-in-out infinite" }} />
+            )}
+            <div style={{ filter: hovered === "ranked" ? `drop-shadow(0 0 30px ${BLOOD_RED}aa) drop-shadow(0 0 60px ${BLOOD_RED}44)` : "none", transition: "filter 0.4s" }}>
+              <NavRankBadge rank={getRank(user.elo ?? 0) as any} size={isMobile?100:150} />
+            </div>
+            <div style={{ fontFamily:t.fontDisplay, fontSize:isMobile?16:24, fontWeight:800, color:hovered === "ranked" ? BLOOD_RED : getRank(user.elo??0).color, letterSpacing:"0.1em", textShadow:hovered === "ranked" ? `0 0 25px ${BLOOD_RED}, 0 0 50px ${BLOOD_RED}88` : `0 0 15px ${getRank(user.elo??0).color}55`, transition: "all 0.4s" }}>
               {getRank(user.elo ?? 0).name}
             </div>
-            <div style={{ fontFamily:t.fontMono, fontSize:isMobile?12:16, fontWeight:700, color:t.textMuted }}>
-              <span style={{ color:t.accent }}>{user.elo ?? 0}</span> ELO
+            <div style={{ fontFamily:t.fontMono, fontSize:isMobile?12:16, fontWeight:700, color:t.textMuted, transition: "all 0.4s" }}>
+              <span style={{ color:hovered === "ranked" ? BLOOD_RED : t.accent }}>{user.elo ?? 0}</span> ELO
             </div>
-          </>
+          </div>
         )}
       </div>
 
@@ -782,6 +788,7 @@ export default function LobbyScreen({
         @keyframes matchBarShrink { from{width:100%} to{width:0%} }
         @keyframes slideInLeft  { from{opacity:0;transform:translateX(-100px) scale(0.9)} to{opacity:1;transform:translateX(0) scale(1)} }
         @keyframes slideInRight { from{opacity:0;transform:translateX(100px) scale(0.9)}  to{opacity:1;transform:translateX(0) scale(1)} }
+        @keyframes rankHoverPulse { 0%, 100% { transform: scale(1); opacity: 0.3; } 50% { transform: scale(1.4); opacity: 0.6; } }
         .protocol-card { will-change: transform; }
         .protocol-card:not(.coming-soon):hover {
           border-color: var(--hover-color) !important;
