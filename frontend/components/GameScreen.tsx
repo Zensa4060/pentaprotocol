@@ -920,10 +920,10 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
                 const segSlice = newHist.slice(segIdx);
                 const p1p = typeof msg.p1_series_points === "number"
                   ? msg.p1_series_points
-                  : segSlice.filter(w => w === "P1").length;
+                  : segSlice.filter(w => (typeof w === "string" ? w : (w as any)?.winner) === "P1").length;
                 const p2p = typeof msg.p2_series_points === "number"
                   ? msg.p2_series_points
-                  : segSlice.filter(w => w === "P2").length;
+                  : segSlice.filter(w => (typeof w === "string" ? w : (w as any)?.winner) === "P2").length;
                 setP1SeriesPts(p1p);
                 setP2SeriesPts(p2p);
                 if (typeof msg.awaiting_rulebreaker === "boolean") {
@@ -1446,7 +1446,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
             if (typeof msg.p2_series_points === "number") setP2SeriesPts(msg.p2_series_points);
           }
         } else if (msg.type === "series_resolved") {
-          const h = (msg.match_history as string[] | undefined) ?? matchHistoryRef.current;
+          const h = (msg.match_history as any[] | undefined) ?? matchHistoryRef.current;
           matchHistoryRef.current = h;
           setMatchHistory([...h]);
           if (typeof msg.p1_series_points === "number") setP1SeriesPts(msg.p1_series_points);
@@ -1758,14 +1758,16 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
 
   const checkSeriesWinner = (hist: string[]): string | null => {
     if (isMultiplayerGame) {
-      const p1 = hist.filter(w => w === "P1").length;
-      const p2 = hist.filter(w => w === "P2").length;
+      const p1 = hist.filter(w => (typeof w === "string" ? w : (w as any)?.winner) === "P1").length;
+      const p2 = hist.filter(w => (typeof w === "string" ? w : (w as any)?.winner) === "P2").length;
       if (p1 >= 5) return "P1";
       if (p2 >= 5) return "P2";
       return null;
     }
     if (hist.length < 2) return null;
-    const [g1, g2] = hist;
+    const [h1, h2] = hist;
+    const g1 = typeof h1 === "string" ? h1 : (h1 as any)?.winner;
+    const g2 = typeof h2 === "string" ? h2 : (h2 as any)?.winner;
     // 2-0 sweep: always decisive
     if (g1 === g2 && (g1 === "P1" || g1 === "P2")) return g1;
     // WIN + DRAW or DRAW + WIN

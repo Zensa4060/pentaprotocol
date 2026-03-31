@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type { Screen, BoardMode } from "@/lib/types";
 import type { ThemeId } from "@/lib/themes";
 import type { Difficulty } from "@/lib/botEngine";
@@ -78,8 +78,18 @@ export default function AIScreen({ setScreenAction, themeId, onSelectDifficultyA
 
   const meta = boardMode === "7x7" ? PATTERN_METADATA_7 : boardMode === "6x6" ? PATTERN_METADATA_6 : PATTERN_METADATA_5;
   const patternNames = Object.keys(meta);
-  const minSelection = boardMode === "7x7" ? 5 : boardMode === "6x6" ? 3 : 2;
-  const maxSelection = boardMode === "7x7" ? 6 : boardMode === "6x6" ? 5 : 3;
+
+  // Auto-select all patterns for 5x5 and 6x6
+  useEffect(() => {
+    if (boardMode !== "7x7") {
+      setSelectedPatterns(new Set(patternNames));
+    } else {
+      setSelectedPatterns(new Set());
+    }
+  }, [boardMode]);
+
+  const minSelection = boardMode === "7x7" ? 5 : patternNames.length;
+  const maxSelection = boardMode === "7x7" ? 7 : patternNames.length;
 
   const handleSelect = (d: Difficulty) => {
     onBoardModeAction?.(boardMode, Array.from(selectedPatterns));
@@ -88,6 +98,7 @@ export default function AIScreen({ setScreenAction, themeId, onSelectDifficultyA
   };
 
   const togglePattern = (id: string) => {
+    if (boardMode !== "7x7") return; // Patterns are mandatory for 5x5 and 6x6
     setSelectedPatterns((prev: Set<string>) => {
       const next = new Set(prev);
       if (next.has(id)) {
@@ -225,12 +236,16 @@ export default function AIScreen({ setScreenAction, themeId, onSelectDifficultyA
             fontFamily: t.fontBody, fontSize: 14, color: t.textMuted, textAlign: "center", maxWidth: 500,
             lineHeight: 1.6,
           }}>
-            Choose <span style={{ color: t.accent, fontWeight: 700 }}>{minSelection} to {maxSelection}</span> special winning patterns for this match.
-            These patterns (plus {boardMode === "7x7" ? "7" : boardMode === "6x6" ? "6" : "5"}-in-a-line, diagonals, and chain) will be the win conditions.
+            {boardMode === "7x7" ? (
+              <>Choose <span style={{ color: t.accent, fontWeight: 700 }}>{minSelection} to {maxSelection}</span> special winning patterns for this match.</>
+            ) : (
+              <>All <span style={{ color: t.accent, fontWeight: 700 }}>{patternNames.length} patterns</span> are mandatory for {boardMode} mode.</>
+            )}
+            {" "}These patterns (plus {boardMode === "7x7" ? "7" : boardMode === "6x6" ? "6" : "5"}-in-a-line, diagonals, and chain) will be the win conditions.
           </div>
 
           <div style={{
-            display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "center", gap: 12,
+            display: boardMode === "7x7" ? "flex" : "none", flexWrap: "wrap", alignItems: "center", justifyContent: "center", gap: 12,
             width: "100%", maxWidth: 660,
           }}>
             <div style={{
@@ -266,8 +281,9 @@ export default function AIScreen({ setScreenAction, themeId, onSelectDifficultyA
           </div>
 
           <div style={{
-            display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
-            gap: 12, width: "100%", maxWidth: 660,
+            display: "grid", 
+            gridTemplateColumns: boardMode === "7x7" ? "repeat(auto-fit, minmax(180px, 1fr))" : "repeat(auto-fit, minmax(200px, 1fr))",
+            gap: 12, width: "100%", maxWidth: boardMode === "7x7" ? 820 : 660,
           }}>
             {patternNames.map((name, i) => {
               const info = meta[name];
@@ -290,12 +306,12 @@ export default function AIScreen({ setScreenAction, themeId, onSelectDifficultyA
                       : `2px solid ${isSelected ? t.accent : isHov ? `${t.accent}55` : t.border}`,
                     borderRadius: ip ? 2 : 14,
                     padding: "16px 14px",
-                    cursor: selectedPatterns.size >= maxSelection && !isSelected ? "not-allowed" : "pointer",
+                    cursor: boardMode !== "7x7" ? "default" : (selectedPatterns.size >= maxSelection && !isSelected ? "not-allowed" : "pointer"),
                     textAlign: "left",
                     transition: "all 0.25s cubic-bezier(.22,.68,0,1.2)",
                     transform: isSelected ? "scale(1.03)" : isHov ? "scale(1.01)" : "scale(1)",
                     boxShadow: isSelected ? `0 8px 32px ${info.isException ? "#B2222244" : t.accent + "22"}` : "none",
-                    opacity: selectedPatterns.size >= maxSelection && !isSelected ? 0.5 : 1,
+                    opacity: boardMode !== "7x7" ? 1 : (selectedPatterns.size >= maxSelection && !isSelected ? 0.5 : 1),
                     animation: `cardFadeUp 0.4s cubic-bezier(.22,.68,0,1.2) ${i * 0.06}s both`,
                   }}
                 >

@@ -5,7 +5,7 @@ from app.core.security import hash_password, verify_password, create_access_toke
 from datetime import datetime, timedelta
 from pydantic import BaseModel
 from bson import ObjectId
-import re, secrets, hashlib, pyotp, qrcode, io, base64, os
+import re, secrets, hashlib, pyotp, qrcode, io,os
 import resend
 
 router = APIRouter()
