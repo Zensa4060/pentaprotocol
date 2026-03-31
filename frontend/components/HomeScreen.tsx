@@ -271,17 +271,18 @@ export default function HomeScreen({ setScreenAction, themeId, onHoverAction, on
             filter: hovered === "lobby" ? `drop-shadow(0 0 25px ${BLOOD_RED}44)` : "none",
           }}>
             <NavRankBadge rank={rank} size={isMobile ? 85 : 182} />
-            <div style={{ 
-              fontFamily: t.fontMono, fontSize: 12, color: BLOOD_RED, letterSpacing: "0.2em", 
-              animation: "pixelBlink 1s infinite", fontWeight: 700,
-              position: "absolute", bottom: -20, left: "50%", transform: "translateX(-50%)",
-              opacity: hovered === "lobby" ? 1 : 0,
-              transition: "opacity 0.3s ease",
-              width: "max-content",
-              pointerEvents: "none",
-            }}>
-              RANKED TARGET ACQUIRED
-            </div>
+            {hovered === "lobby" && (
+              <div style={{ 
+                fontFamily: t.fontMono, fontSize: 12, color: BLOOD_RED, letterSpacing: "0.2em", 
+                animation: "pixelBlink 1s infinite", fontWeight: 700,
+                position: "absolute", bottom: -20, left: "50%", transform: "translateX(-50%)",
+                width: "max-content",
+                pointerEvents: "none",
+                zIndex: 10,
+              }}>
+                RANKED TARGET ACQUIRED
+              </div>
+            )}
           </div>
         )}
 
