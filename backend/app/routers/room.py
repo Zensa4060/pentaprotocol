@@ -1376,6 +1376,7 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                     selected_pattern_ids=room.get("selected_patterns"),
                     selected_pattern_ids_p1=room.get("selected_patterns_p1"),
                     selected_pattern_ids_p2=room.get("selected_patterns_p2"),
+                    rb6_special_cell=room.get("rb6_special_cell"),
                 )
                 engine.board          = room["board"]
                 engine.current_player = room["current_player"]
@@ -1665,6 +1666,7 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                         "rb_patterns_pre_ban": None,
                         "rb_banned_patterns": [],
                         "rb_banned_pattern": None,
+                        "rb6_special_cell": None,
                     }
 
                     await db.rooms.update_one({"room_code": room_code}, {"$set": reset})
@@ -1830,6 +1832,7 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                         "rb_patterns_pre_ban": None,
                         "rb_banned_patterns": [],
                         "rb_banned_pattern": None,
+                        "rb6_special_cell": None,
                     }
 
                     await db.rooms.update_one({"room_code": room_code}, {"$set": reset})
@@ -1956,6 +1959,16 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                 action  = msg.get("action")
                 payload = msg.get("payload", {})
                 broadcast = {"type": "toss_action", "action": action, "payload": payload, "from": player_slot}
+
+                # Persist Timebreaker 6x6 special cell if chosen
+                if action == "phase_choice" and payload.get("phase") == "toss_summary":
+                    rb6_cell = payload.get("rb6_special_cell")
+                    if rb6_cell:
+                        await db.rooms.update_one(
+                            {"room_code": room_code},
+                            {"$set": {"rb6_special_cell": rb6_cell}}
+                        )
+
                 for slot, ws in _room_connections.get(room_code, {}).items():
                     try:
                         await ws.send_json(broadcast)

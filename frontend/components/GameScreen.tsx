@@ -2413,7 +2413,6 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
       {board.map((row, r) => row.map((cell, c) => {
         const key = `${r}-${c}`;
         const blk = c3Blocked && movesPlayed === 0 && r === CENTER && c === CENTER && liveBoardMode !== "6x6";
-        const rb6SecretHint = liveBoardMode === "6x6" && rb6SpecialCell && rb6SpecialCell.r === r && rb6SpecialCell.c === c && current === rb6SpecialCell.owner && !cell;
         const isHov = hover === key && !cell && !winner && !blk && phase === "playing" && rulesShowSheet === null && !show7x7LevelUp && !show6x6LevelUp && !rulesMatchGate;
         const isWin = winLine.some(([wr, wc]) => wr === r && wc === c);
         const ec = cell === "P1" ? p1c : p2c;
@@ -2422,7 +2421,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
         if (isIceBoard || isGlacierBoard) return (<IceCell key={key} cellSize={bigCs} player={cell} isWinCell={isWin} isHov={isHov} canPlay={canPlay} blk={blk} useFlameSkull={useFlameSkull} useSnowflakeShard={useSnowflakeShard} useGlacierSigils={useGlacierSigils} pieceSymbols={pieceSymbols} p1c={p1c} p2c={p2c} fontDisplay={t.fontDisplay} onClick={() => placeRef.current(r, c)} onMouseEnter={() => setHover(key)} onMouseLeave={() => setHover(null)} />);
         return (
           <div key={key} onClick={() => placeRef.current(r, c)} onMouseEnter={() => setHover(key)} onMouseLeave={() => setHover(null)} className={isWin ? "win-cell-pulse" : ""}
-            style={{ "--win-col": ec, width: bigCs, height: bigCs, background: blk ? `${t.danger}18` : isWin ? `${ec}28` : isHov ? `${cc}22` : t.boardBg, border: `2px solid ${blk ? t.danger : isWin ? ec : rb6SecretHint ? `${rb6SpecialCell!.owner === "P1" ? p1c : p2c}99` : isHov ? cc : t.boardLine}`, borderRadius: ip ? 0 : 4, display: "flex", alignItems: "center", justifyContent: "center", cursor: canPlay ? (isHov ? "grabbing" : "grab") : "default", fontSize: "clamp(24px,5.5vmin,58px)", fontFamily: t.fontDisplay, fontWeight: 700, color: ec, textShadow: isWin ? `0 0 20px ${ec}` : cell ? `0 0 14px ${ec}77` : "none", transition: "background 0.1s, border-color 0.1s", opacity: blk ? 0.4 : 1, boxShadow: isWin ? `0 0 8px ${ec}44` : rb6SecretHint ? `0 0 14px ${rb6SpecialCell!.owner === "P1" ? p1c : p2c}55` : isHov ? `inset 0 0 12px ${cc}22` : "none", willChange: isWin ? "auto" : canPlay ? "background, border-color" : "auto", position: "relative" } as React.CSSProperties}>
+            style={{ "--win-col": ec, width: bigCs, height: bigCs, background: blk ? `${t.danger}18` : isWin ? `${ec}28` : isHov ? `${cc}22` : t.boardBg, border: `2px solid ${blk ? t.danger : isWin ? ec : isHov ? cc : t.boardLine}`, borderRadius: ip ? 0 : 4, display: "flex", alignItems: "center", justifyContent: "center", cursor: canPlay ? (isHov ? "grabbing" : "grab") : "default", fontSize: "clamp(24px,5.5vmin,58px)", fontFamily: t.fontDisplay, fontWeight: 700, color: ec, textShadow: isWin ? `0 0 20px ${ec}` : cell ? `0 0 14px ${ec}77` : "none", transition: "background 0.1s, border-color 0.1s", opacity: blk ? 0.4 : 1, boxShadow: isWin ? `0 0 8px ${ec}44` : isHov ? `inset 0 0 12px ${cc}22` : "none", willChange: isWin ? "auto" : canPlay ? "background, border-color" : "auto", position: "relative" } as React.CSSProperties}>
             {cell && useFlameSkull && cell === "P1" && <Flame cssSize="55%" />}
             {cell && useFlameSkull && cell === "P2" && <Skull cssSize="55%" />}
             {cell && useSnowflakeShard && cell === "P1" && <SnowflakePiece cssSize="55%" />}
@@ -2880,8 +2879,14 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
                 const g = `G${i + 1}`;
                 const col = res === "P1" ? p1c : res === "P2" ? p2c : res === "DRAW" ? t.gold : "#333";
                 const isActive = i === (gameNumber - 1);
+                let label = null;
+                if (i === 0) label = "5×5";
+                else if (i === 3) label = "6×6";
+                else if (i === 6) label = "7×7";
+                else if (i === 9) label = "PB";
                 return (
                   <div key={g} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
+                    {label && <span style={{ fontFamily: t.fontMono, fontSize: 8, color: t.accent, opacity: 0.6, marginBottom: -2 }}>{label}</span>}
                     <span style={{ fontFamily: t.fontMono, fontSize: 9, color: isActive ? t.accent : "#444", fontWeight: isActive ? 700 : 400 }}>{g}{isActive ? " ◀" : ""}</span>
                     <div style={{ width: 16, height: 3, borderRadius: 2, background: res ? col : "#222", border: `1px solid ${res ? col : "#333"}` }} />
                   </div>

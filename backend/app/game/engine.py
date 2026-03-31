@@ -19,8 +19,10 @@ class GameEngine:
         selected_pattern_ids=None,
         selected_pattern_ids_p1=None,
         selected_pattern_ids_p2=None,
+        rb6_special_cell=None,
     ):
         self.board_mode = board_mode
+        self.rb6_special_cell = rb6_special_cell  # {'r': int, 'c': int, 'owner': 'P1'|'P2'}
 
         if board_mode == "7x7":
             self.GRID_SIZE = 7
@@ -74,6 +76,8 @@ class GameEngine:
         self.extra_turns = 0
         self.connection_scores = None
         self.suppress_center_opening = False
+        # rb6_special_cell is typically passed in __init__ for stateless deploy, 
+        # but we keep it here if reset is used.
 
     def deploy(self, row, col):
         if self.winner:
@@ -84,7 +88,18 @@ class GameEngine:
             return {"success": False, "winner": None, "extra_turns": 0}
 
         player_who_moved = self.current_player
-        self.board[row][col] = player_who_moved
+        
+        # ── 6x6 Timebreaker Special Cell ──
+        stone_owner = player_who_moved
+        if (
+            self.board_mode == "6x6"
+            and self.rb6_special_cell
+            and self.rb6_special_cell.get("r") == row
+            and self.rb6_special_cell.get("c") == col
+        ):
+            stone_owner = self.rb6_special_cell.get("owner", player_who_moved)
+
+        self.board[row][col] = stone_owner
         self.moves_played += 1
 
         # ── Center rule: first move on center gives opponent 2 extra turns ──
@@ -102,21 +117,21 @@ class GameEngine:
         # ── Win checks ──
         if self.board_mode == "7x7":
             win, line = check_7_line(
-                self.board, row, col, player_who_moved,
+                self.board, row, col, stone_owner,
                 self.DIRECTIONS, self.GRID_SIZE
             )
         elif self.board_mode == "6x6":
             win, line = check_6_line(
-                self.board, row, col, player_who_moved,
+                self.board, row, col, stone_owner,
                 self.DIRECTIONS, self.GRID_SIZE
             )
         else:
             win, line = check_5_line(
-                self.board, row, col, player_who_moved,
+                self.board, row, col, stone_owner,
                 self.DIRECTIONS, self.GRID_SIZE
             )
         if win:
-            self.winner = player_who_moved
+            self.winner = stone_owner
             self.winner_line = line
             return {"success": True, "winner": self.winner, "extra_turns": 0}
 
@@ -124,16 +139,16 @@ class GameEngine:
         if self.board_mode == "7x7":
             pat_for_mover = (
                 self.shiftable_patterns_p1
-                if player_who_moved == "P1"
+                if stone_owner == "P1"
                 else self.shiftable_patterns_p2
             )
         else:
             pat_for_mover = self.shiftable_patterns
         win, line = check_structural_patterns(
-            self.board, player_who_moved, pat_for_mover, self.GRID_SIZE
+            self.board, stone_owner, pat_for_mover, self.GRID_SIZE
         )
         if win:
-            self.winner = player_who_moved
+            self.winner = stone_owner
             self.winner_line = line
             return {"success": True, "winner": self.winner, "extra_turns": 0}
 

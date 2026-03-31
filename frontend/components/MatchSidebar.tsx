@@ -379,11 +379,23 @@ export function MatchSidebar({
             const result = safeWinner(rawResult);
             const col = result === "P1" ? p1c : result === "P2" ? p2c : result === "DRAW" ? t.gold : t.textMuted;
             const isCur = i === gameNumber - 1 && (phase === "playing" || phase === "waiting_ready");
+            let bmLabel = null;
+            if (i === 0) bmLabel = "5 × 5";
+            else if (i === 3) bmLabel = "6 × 6";
+            else if (i === 6) bmLabel = "7 × 7";
+            else if (i === 9) bmLabel = "PB";
             return (
-              <div key={i} style={{ display: "grid", gridTemplateColumns: "1fr auto", fontFamily: t.fontBody, fontSize: 22, padding: "6px 0", borderBottom: `1px solid ${t.border}22`, opacity: i < gameNumber ? 1 : 0.4 }}>
-                <span style={{ color: isCur ? t.accent : t.textMuted, transition: "color 0.2s" }}>G{i + 1}{isCur ? " *" : ""}</span>
-                <span style={{ color: col, fontWeight: result ? 700 : 400, transition: "color 0.2s" }}>{result || "—"}</span>
-              </div>
+              <React.Fragment key={i}>
+                {bmLabel && (
+                  <div style={{ fontFamily: t.fontMono, fontSize: 10, color: t.accent, opacity: 0.8, letterSpacing: "0.2em", marginTop: i === 0 ? 0 : 12, marginBottom: 4, borderBottom: `1px solid ${t.accent}33`, paddingBottom: 2 }}>
+                    {bmLabel}
+                  </div>
+                )}
+                <div style={{ display: "grid", gridTemplateColumns: "1fr auto", fontFamily: t.fontBody, fontSize: 22, padding: "6px 0", borderBottom: `1px solid ${t.border}22`, opacity: i < gameNumber ? 1 : 0.4 }}>
+                  <span style={{ color: isCur ? t.accent : t.textMuted, transition: "color 0.2s" }}>G{i + 1}{isCur ? " *" : ""}</span>
+                  <span style={{ color: col, fontWeight: result ? 700 : 400, transition: "color 0.2s" }}>{result || "—"}</span>
+                </div>
+              </React.Fragment>
             );
           })}
         </div>
@@ -714,11 +726,23 @@ export function LeftPanel(props: MatchSidebarProps) {
             const result = safeWinner(rawResult);
             const col = result === "P1" ? p1c : result === "P2" ? p2c : result === "DRAW" ? t.gold : t.textMuted;
             const isCur = i === gameNumber - 1 && (phase === "playing" || phase === "waiting_ready");
+            let bmLabel = null;
+            if (i === 0) bmLabel = "5 × 5";
+            else if (i === 3) bmLabel = "6 × 6";
+            else if (i === 6) bmLabel = "7 × 7";
+            else if (i === 9) bmLabel = "PB";
             return (
-              <div key={i} style={{ display: "grid", gridTemplateColumns: "1fr auto", fontFamily: t.fontBody, fontSize: 22, padding: "6px 0", borderBottom: `1px solid ${t.border}22`, opacity: i < gameNumber ? 1 : 0.4 }}>
-                <span style={{ color: isCur ? t.accent : t.textMuted, transition: "color 0.2s" }}>G{i + 1}{isCur ? " *" : ""}</span>
-                <span style={{ color: col, fontWeight: result ? 700 : 400, transition: "color 0.2s" }}>{result || "—"}</span>
-              </div>
+              <React.Fragment key={i}>
+                {bmLabel && (
+                  <div style={{ fontFamily: t.fontMono, fontSize: 10, color: t.accent, opacity: 0.8, letterSpacing: "0.2em", marginTop: i === 0 ? 0 : 12, marginBottom: 4, borderBottom: `1px solid ${t.accent}33`, paddingBottom: 2 }}>
+                    {bmLabel}
+                  </div>
+                )}
+                <div style={{ display: "grid", gridTemplateColumns: "1fr auto", fontFamily: t.fontBody, fontSize: 22, padding: "6px 0", borderBottom: `1px solid ${t.border}22`, opacity: i < gameNumber ? 1 : 0.4 }}>
+                  <span style={{ color: isCur ? t.accent : t.textMuted, transition: "color 0.2s" }}>G{i + 1}{isCur ? " *" : ""}</span>
+                  <span style={{ color: col, fontWeight: result ? 700 : 400, transition: "color 0.2s" }}>{result || "—"}</span>
+                </div>
+              </React.Fragment>
             );
           })}
         </div>
