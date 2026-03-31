@@ -125,28 +125,47 @@ export function MatchCompleteOverlay({
               <h1
                 style={{
                   fontFamily: t.fontDisplay,
-                  fontSize: "clamp(48px, 10vw, 120px)",
+                  fontSize: "clamp(36px, 8vw, 100px)",
                   fontWeight: 950,
                   color: winnerColor,
                   textShadow: `0 0 80px ${winnerColor}AA`,
                   margin: 0,
-                  letterSpacing: "0.1em",
+                  letterSpacing: "0.05em",
+                  textAlign: "center",
+                  lineHeight: 1.1,
                 }}
               >
-                {isDraw ? "SERIES DRAW" : isWinner ? "VICTORY" : "DEFEAT"}
+                {format === "ranked" ? "PROTOCOL WINNER" : "SERIES WINNER"}
+                <br />
+                <span style={{ fontSize: "0.6em", opacity: 0.9 }}>{winnerName.toUpperCase()}</span>
               </h1>
+              {format === "ranked" && (
+                <div
+                  style={{
+                    fontFamily: t.fontMono,
+                    fontSize: "clamp(24px, 4vw, 48px)",
+                    fontWeight: 900,
+                    color: eloDiff >= 0 ? t.accent : t.danger,
+                    marginTop: 20,
+                    textShadow: `0 0 20px ${eloDiff >= 0 ? t.accent : t.danger}66`,
+                  }}
+                >
+                  {eloDiff >= 0 ? `+${eloDiff}` : eloDiff} ELO
+                </div>
+              )}
               <p
                 style={{
                   fontFamily: t.fontMono,
-                  fontSize: "clamp(14px, 2vw, 24px)",
+                  fontSize: "clamp(12px, 1.5vw, 18px)",
                   color: t.textSecondary,
                   letterSpacing: "0.4em",
-                  marginTop: 12,
+                  marginTop: 20,
                   textTransform: "uppercase",
                 }}
               >
-                {isDraw ? "Points Level" : `${winnerName} Conquers`}
+                {isDraw ? "POINTS LEVEL" : "BATTLE CONCLUDED"}
               </p>
+
             </motion.div>
           </motion.div>
         ) : (

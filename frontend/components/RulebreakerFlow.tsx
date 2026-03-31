@@ -777,7 +777,21 @@ export function RulebreakerFlow({
       (!isWinnerBanning && tossWinner === "P1")
     );
 
+    if (isMultiplayerGame && !isMyTurn) {
+      return (
+        <div className="phase-screen" style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, zIndex: 10000, overflowY: "auto", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: t.bg, padding: "32px 20px", gap: 20, userSelect: "none" }}>
+          <div style={{ fontFamily: t.fontDisplay, fontSize: "clamp(18px,2.8vw,32px)", fontWeight: 800, color: t.accent, textAlign: "center", maxWidth: 560, lineHeight: 1.35 }}>
+            Other player is banning patterns
+          </div>
+          <div style={{ fontFamily: t.fontBody, fontSize: 14, color: t.textMuted, textAlign: "center", maxWidth: 480, lineHeight: 1.6 }}>
+            Wait until they finish selecting which win conditions to remove for Round 3.
+          </div>
+        </div>
+      );
+    }
+
     const PATTERN_LABELS: Record<string, string> = {
+
       Y: "Y-SHAPE", L: "L-SHAPE", W: "W-SHAPE", V: "V-SHAPE", C: "C-SHAPE", zigzag: "ZIGZAG",
     };
 
