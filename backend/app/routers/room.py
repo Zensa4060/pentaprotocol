@@ -110,7 +110,7 @@ def compute_segment_points(history: list, segment_start: int = 0) -> tuple[int, 
     """
     p1 = 0
     p2 = 0
-    for item in history:
+    for item in history[segment_start:]:
         w = item["winner"] if isinstance(item, dict) else item
         if w == "P1": p1 += 1
         elif w == "P2": p2 += 1
@@ -123,14 +123,15 @@ def compute_series_winner(history: list, start_index: int = 0, target_points: in
     If all 9 games are played, the player with the most points wins.
     If points are equal at 9 games (4-4, 3-3, etc.), returns None (Protocolbreaker).
     """
-    p1_pts, p2_pts = compute_segment_points(history)
-    if p1_pts >= win_cap:
+    p1_pts, p2_pts = compute_segment_points(history, start_index)
+    if p1_pts >= target_points:
         return "P1"
-    if p2_pts >= win_cap:
+    if p2_pts >= target_points:
         return "P2"
     
     # If the history reaches or exceeds 9, we MUST decide or trigger Protocolbreaker.
-    if len(history) >= 9:
+    seg = history[start_index:]
+    if len(seg) >= 9:
         if p1_pts > p2_pts:
             return "P1"
         if p2_pts > p1_pts:

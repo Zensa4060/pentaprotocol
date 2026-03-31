@@ -2099,8 +2099,15 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     if (gameMode === "ai" && current === "P2") return;
     if (c3Blocked && movesPlayed === 0 && r === CENTER && c === CENTER && liveBoardMode !== "6x6") return;
     if (isMultiplayerGame) {
-      if (current !== mySlot) return;
-      if (wsRef.current?.readyState !== WebSocket.OPEN) return;
+      console.log("[MP] sending move to server", { r, c, slot: mySlot, current });
+      if (current !== mySlot) {
+        console.warn("[MP] not my turn", { current, mySlot });
+        return;
+      }
+      if (wsRef.current?.readyState !== WebSocket.OPEN) {
+        console.error("[MP] WS not open", wsRef.current?.readyState);
+        return;
+      }
       playPlaceAction?.();
       wsRef.current.send(JSON.stringify({ type: "move", row: r, col: c }));
       return;
@@ -2147,6 +2154,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
 
   const handleCellClick = React.useCallback(
     (r: number, c: number) => { 
+      console.log("handleCellClick", { r, c, winner, phase, rulesShowSheet, show7x7LevelUp, show6x6LevelUp, rulesMatchGate, lock: winClickLockRef.current });
       if (winClickLockRef.current) return;
       if (!winner && phase === "playing" && rulesShowSheet === null && !show7x7LevelUp && !show6x6LevelUp && !rulesMatchGate) {
         placeRef.current(r, c); 
