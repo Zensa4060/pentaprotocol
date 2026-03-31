@@ -802,14 +802,33 @@ async def _broadcast_protocolbreaker_tie(
 
 def compute_series_state(history: list, segment_start: int = 0) -> dict:
     p1_pts, p2_pts = compute_segment_points(history)
-    series_winner = compute_series_winner(history)
-    # The new flow does not use the old awaiting_rulebreaker logic between boards;
-    # Protocolbreaker is triggered only on DRAW ties.
+    series_winner = compute_series_winner(history, segment_start, 5)
+    
+    awaiting_rulebreaker = False
+    breaker_type = None
+    
+    if not series_winner:
+        lh = len(history)
+        if lh == 2:
+            awaiting_rulebreaker = True
+            breaker_type = "RULEBREAKER"
+        elif lh == 5:
+            awaiting_rulebreaker = True
+            breaker_type = "TIMEBREAKER"
+        elif lh == 8:
+            awaiting_rulebreaker = True
+            breaker_type = "MINDBREAKER"
+        elif lh == 9:
+            # Game 9 ended, still no winner -> Protocolbreaker
+            awaiting_rulebreaker = True
+            breaker_type = "PROTOCOLBREAKER"
+
     return {
         "p1_series_points": p1_pts,
         "p2_series_points": p2_pts,
         "series_winner": series_winner,
-        "awaiting_rulebreaker": False,
+        "awaiting_rulebreaker": awaiting_rulebreaker,
+        "breaker_type": breaker_type,
     }
 
 class JoinRoomRequest(BaseModel):
@@ -1425,90 +1444,53 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                                 )
                             )
                         continue
-                    if should_auto_upgrade_7x7_after_6x6_game3(
-                        new_history, seg_start, bm, gn
-                    ) and room.get("ranked_triple_leg"):
-                        finished_6 = [list(r) for r in engine.board]
-                        await _apply_6x6_to_7x7_upgrade(
-                            db,
-                            room_code,
-                            room,
-                            new_history,
-                            outcome,
-                            game1_patch=game1_patch,
-                            finished_board=finished_6,
-                            row=row,
-                            col=col,
-                            moves_played=engine.moves_played,
-                            current_player=engine.current_player,
-                            win_line=[[r, c] for r, c in engine.winner_line]
-                            if engine.winner_line
-                            else [],
-                            extra_turns=result.get("extra_turns", 0),
-                            connection_scores=result.get("connectionScores"),
-                        )
-                        continue
-                    if should_auto_upgrade_7x7_after_5x5_game3(
-                        new_history, seg_start, bm, gn
-                    ) and room.get("ranked_triple_leg"):
+                    # ── Match-wide Pipeline Logic ──
+                    lh = len(new_history)
+                    s_state = compute_series_state(new_history, 0)
+                    sw_found = s_state["series_winner"]
+
+                    is_triple_leg = room.get("ranked_triple_leg") or \
+                                   room.get("board_mode_full") == "5x5_6x6_7x7"
+
+                    if sw_found:
+                        # Match is over - skip upgrades and resolve series
+                        update.update({
+                            "match_history": new_history,
+                            **s_state
+                        })
+                    elif lh == 3 and bm == "5x5" and is_triple_leg:
                         finished_5 = [list(r) for r in engine.board]
                         await _apply_5x5_to_6x6_upgrade(
-                            db,
-                            room_code,
-                            room,
-                            new_history,
-                            outcome,
-                            game1_patch=game1_patch,
-                            finished_board=finished_5,
-                            row=row,
-                            col=col,
-                            moves_played=engine.moves_played,
+                            db, room_code, room, new_history, outcome,
+                            game1_patch=game1_patch, finished_board=finished_5,
+                            row=row, col=col, moves_played=engine.moves_played,
                             current_player=engine.current_player,
-                            win_line=[[r, c] for r, c in engine.winner_line]
-                            if engine.winner_line
-                            else [],
+                            win_line=[[r,c] for r,c in engine.winner_line] if engine.winner_line else [],
                             extra_turns=result.get("extra_turns", 0),
                             connection_scores=result.get("connectionScores"),
                         )
                         continue
-                    if should_auto_upgrade_7x7_after_5x5_game3(
-                        new_history, seg_start, bm, gn
-                    ):
-                        finished_5 = [list(r) for r in engine.board]
-                        await _apply_5x5_to_7x7_upgrade(
-                            db,
-                            room_code,
-                            room,
-                            new_history,
-                            outcome,
-                            game1_patch=game1_patch,
-                            finished_board=finished_5,
-                            row=row,
-                            col=col,
-                            moves_played=engine.moves_played,
+                    elif lh == 6 and bm == "6x6" and is_triple_leg:
+                        finished_6 = [list(r) for r in engine.board]
+                        await _apply_6x6_to_7x7_upgrade(
+                            db, room_code, room, new_history, outcome,
+                            game1_patch=game1_patch, finished_board=finished_6,
+                            row=row, col=col, moves_played=engine.moves_played,
                             current_player=engine.current_player,
-                            win_line=[[r, c] for r, c in engine.winner_line]
-                            if engine.winner_line
-                            else [],
+                            win_line=[[r,c] for r,c in engine.winner_line] if engine.winner_line else [],
                             extra_turns=result.get("extra_turns", 0),
                             connection_scores=result.get("connectionScores"),
                         )
                         continue
-
-                    update.update(
-                        {
+                    elif lh == 9 and not sw_found:
+                         # Score tied after 9 rounds -> Protocolbreaker
+                         await _broadcast_protocolbreaker_tie(db, room_code, room, new_history)
+                         continue
+                    else:
+                        update.update({
                             "match_history": new_history,
-                            **compute_series_state(new_history, seg_start),
-                        }
-                    )
-
-                    if bm == "7x7" and (room.get("rb_banned_pattern") or room.get("rb_banned_patterns")):
-                        career_rb_meta = {
-                            "rb_banned_patterns_7x7": room.get("rb_banned_patterns") or ([room["rb_banned_pattern"]] if room.get("rb_banned_pattern") else []),
-                            "board_mode": bm,
-                            "game_number": gn,
-                        }
-                    update["rb_hide_banned_from_slot"] = None
+                            **s_state
+                        })
                     update["rb_patterns_pre_ban"] = None
                     update["rb_banned_pattern"] = None
                     update["rb_banned_patterns"] = []
@@ -1961,7 +1943,7 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                 if bool(msg.get("resolve_series_only")):
                     if not room.get("awaiting_rulebreaker"):
                         continue
-                    leader = compute_series_winner(hist, seg_start, 2)
+                    leader = compute_series_winner(hist, seg_start, 5)
                     if leader is None:
                         continue
                     await db.rooms.update_one(

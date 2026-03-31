@@ -929,35 +929,11 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
                 if (typeof msg.awaiting_rulebreaker === "boolean") {
                   awaitingRulebreakerRef.current = msg.awaiting_rulebreaker;
                 }
-                // First-to-2 in current segment: trust segment win counts (same as server) so match
-                // ends after game 3 when someone reaches 2 wins — even if series_winner was omitted/null.
                 let sw: string | null =
                   msg.series_winner === "P1" || msg.series_winner === "P2" || msg.series_winner === "DRAW"
                     ? (msg.series_winner as string)
                     : null;
-                if (p1p >= 2 && p1p > p2p) sw = "P1";
-                else if (p2p >= 2 && p2p > p1p) sw = "P2";
-                else if (
-                  segSlice.length === 3 &&
-                  segSlice[0] === "DRAW" &&
-                  segSlice[2] === "DRAW" &&
-                  segSlice[1] === "P1" &&
-                  p2p === 0
-                ) sw = "P1";
-                else if (
-                  segSlice.length === 3 &&
-                  segSlice[0] === "DRAW" &&
-                  segSlice[2] === "DRAW" &&
-                  segSlice[1] === "P2" &&
-                  p1p === 0
-                ) sw = "P2";
-                else if (
-                  segSlice.length === 3 &&
-                  segSlice[0] === "DRAW" &&
-                  segSlice[1] === "DRAW" &&
-                  (segSlice[2] === "P1" || segSlice[2] === "P2")
-                ) sw = segSlice[2];
-                else if (sw == null) sw = checkSeriesWinner(newHist);
+                if (sw == null) sw = checkSeriesWinner(newHist);
                 if (sw === "P1" || sw === "P2" || sw === "DRAW") {
                   setMatchOver(true);
                   setSeriesWinner(sw);
@@ -1948,7 +1924,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
             const _isMP2 = (gameMode === "ranked" || gameMode === "unranked") && !!roomCode;
             if (_isMP2) {
               const { p1, p2 } = seriesPtsRef.current;
-              const seriesAlreadyDecided = (p1 >= 2 && p1 > p2) || (p2 >= 2 && p2 > p1);
+              const seriesAlreadyDecided = (p1 >= 5 && p1 > p2) || (p2 >= 5 && p2 > p1);
               if (s.tossWinner === mySlot) {
                 if (seriesAlreadyDecided) {
                   wsRef.current?.send(JSON.stringify({ type: "rb_start_game", resolve_series_only: true }));

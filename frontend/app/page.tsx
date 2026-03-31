@@ -112,21 +112,25 @@ export default function Page() {
     const savedRoom = sessionStorage.getItem("pp_multiRoomCode");
     const savedSlot = sessionStorage.getItem("pp_multiPlayerSlot") as "P1" | "P2" | null;
     const savedRanked = sessionStorage.getItem("pp_isRanked") === "true";
-    const savedBoard = sessionStorage.getItem("pp_boardMode") as BoardMode | null;
-    const savedPats = sessionStorage.getItem("pp_selectedPatterns");
+    const savedBoard = localStorage.getItem("pp_boardMode") as BoardMode | null || sessionStorage.getItem("pp_boardMode") as BoardMode | null;
+    const savedPats = localStorage.getItem("pp_selectedPatterns") || sessionStorage.getItem("pp_selectedPatterns");
     const savedGraphics = localStorage.getItem("pp_graphics_quality");
+    const savedDifficulty = localStorage.getItem("pp_ai_difficulty") as Difficulty | null;
 
-    if (savedBoard === "5x5" || savedBoard === "7x7" || savedBoard === "6x6" || savedBoard === "5x5_7x7" || savedBoard === "5x5_6x6" || savedBoard === "6x6_7x7" || savedBoard === "5x5_6x6_7x7") setBoardMode(savedBoard);
+    if (savedBoard && (savedBoard === "5x5" || savedBoard === "7x7" || savedBoard === "6x6" || savedBoard === "5x5_7x7" || savedBoard === "5x5_6x6" || savedBoard === "6x6_7x7" || savedBoard === "5x5_6x6_7x7")) {
+        setBoardMode(savedBoard);
+    }
     if (savedGraphics === "low" || savedGraphics === "balanced" || savedGraphics === "ultra") {
       setGraphicsQuality(savedGraphics);
+    }
+    if (savedDifficulty) {
+      setAiDifficulty(savedDifficulty);
     }
     if (savedPats) {
       try {
         const arr = JSON.parse(savedPats);
         if (Array.isArray(arr)) {
-          // Map legacy 'H' pattern to 'Y' pattern to prevent bot API 500 errors
           const mapped = arr.map(p => p === "H" ? "Y" : p);
-          // If they happened to have both H and Y (impossible logically, but safely de-duplicate)
           setSelectedPatterns(Array.from(new Set(mapped)));
         }
       } catch { /* ignore */ }
@@ -198,7 +202,11 @@ export default function Page() {
     else sessionStorage.removeItem("pp_multiPlayerSlot");
     sessionStorage.setItem("pp_isRanked", String(isRanked));
     sessionStorage.setItem("pp_boardMode", boardMode);
+    localStorage.setItem("pp_boardMode", boardMode);
     sessionStorage.setItem("pp_selectedPatterns", JSON.stringify(selectedPatterns));
+    localStorage.setItem("pp_selectedPatterns", JSON.stringify(selectedPatterns));
+    localStorage.setItem("pp_ai_difficulty", aiDifficulty);
+    localStorage.setItem("pp_graphics_quality", graphicsQuality);
   }, [screen, multiRoomCode, multiPlayerSlot, isRanked, boardMode, selectedPatterns]);
 
   useEffect(() => {
