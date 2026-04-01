@@ -3,7 +3,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { boardSkinCanvasDpr } from "@/lib/boardSkinCanvasDpr";
 
 const DEFAULT_SIZE = 5;
-type GraphicsQuality = "low" | "balanced" | "ultra";
+type GraphicsQuality = "performance" | "quality";
 const GET_COLS = (s: number) => Array.from({ length: s }, (_, i) => String.fromCharCode(65 + i));
 const GET_ROWS = (s: number) => Array.from({ length: s }, (_, i) => i + 1);
 
@@ -21,7 +21,7 @@ function useCellSize(size: number, pad = 8) {
   return cs;
 }
 
-function SynthBg({ W, H, gridSize = 5, graphicsQuality = "balanced", isPaused = false }: { W: number; H: number; gridSize?: number; graphicsQuality?: GraphicsQuality; isPaused?: boolean }) {
+function SynthBg({ W, H, gridSize = 5, graphicsQuality = "quality", isPaused = false }: { W: number; H: number; gridSize?: number; graphicsQuality?: GraphicsQuality; isPaused?: boolean }) {
   const ref = useRef<HTMLCanvasElement | null>(null);
   const raf = useRef<number | null>(null);
   const t = useRef(0);
@@ -62,13 +62,7 @@ function SynthBg({ W, H, gridSize = 5, graphicsQuality = "balanced", isPaused = 
 
     let frameSkip = 0;
     const draw = () => {
-      if (graphicsQuality === "balanced") {
-        frameSkip = (frameSkip + 1) % 2;
-        if (frameSkip !== 0) {
-          raf.current = requestAnimationFrame(draw);
-          return;
-        }
-      }
+      if (graphicsQuality === "performance") return;
       t.current += 0.016;
       const tc = t.current;
       ctx.clearRect(0, 0, W, H);
@@ -314,44 +308,6 @@ function GridLines({ W, H, PAD, CS, SIZE, isPaused = false }: { W: number; H: nu
         ctx.restore();
       }
 
-      for (let r = 0; r < SIZE; r++) for (let c = 0; c < SIZE; c++) {
-        const nx = PAD + c * CS, ny = PAD + r * CS;
-        const fl = 0.45 + 0.55 * Math.abs(Math.sin(tc * 2.2 + (r * 6 + c) * 0.85));
-        const isP = (r + c) % 2 === 0;
-        const col = isP ? "rgba(255,0,200," : "rgba(0,220,255,";
-        const dSz = CS * 0.045 * fl;
-
-        ctx.save();
-        ctx.fillStyle = `${col}${0.9 * fl})`;
-        ctx.shadowColor = `${col}1)`;
-        ctx.shadowBlur = 16 * fl;
-        ctx.beginPath();
-        ctx.moveTo(nx, ny - dSz);
-        ctx.lineTo(nx + dSz, ny);
-        ctx.lineTo(nx, ny + dSz);
-        ctx.lineTo(nx - dSz, ny);
-        ctx.closePath();
-        ctx.fill();
-        ctx.restore();
-
-        ctx.save();
-        ctx.fillStyle = "rgba(255,255,255,.9)";
-        ctx.beginPath();
-        ctx.arc(nx, ny, 1.5, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.restore();
-
-        ctx.save();
-        ctx.strokeStyle = `${col}${0.5 * fl})`;
-        ctx.lineWidth = 1.2;
-        ctx.shadowColor = `${col}0.8)`;
-        ctx.shadowBlur = 10;
-        ctx.beginPath();
-        ctx.arc(nx, ny, 8 * fl, 0, Math.PI * 2);
-        ctx.stroke();
-        ctx.restore();
-      }
-
       raf.current = requestAnimationFrame(draw);
     };
 
@@ -555,7 +511,7 @@ function SynthwaveCell({ CS, value, onClick, isWinCell, justPlaced, lastTurn, is
 }
 const MemoizedSynthwaveCell = React.memo(SynthwaveCell);
 
-export default React.memo(function SynthwaveGrid({ board, onCellClickAction, winCells = [], showLabels = true, graphicsQuality = "balanced", isPaused = false }: { board?: (string | null)[][]; onCellClickAction?: (r: number, c: number) => void; winCells?: [number, number][]; showLabels?: boolean; graphicsQuality?: GraphicsQuality; isPaused?: boolean }) {
+export default React.memo(function SynthwaveGrid({ board, onCellClickAction, winCells = [], showLabels = true, graphicsQuality = "quality", isPaused = false }: { board?: (string | null)[][]; onCellClickAction?: (r: number, c: number) => void; winCells?: [number, number][]; showLabels?: boolean; graphicsQuality?: GraphicsQuality; isPaused?: boolean }) {
   const active = board ?? Array(DEFAULT_SIZE).fill(null).map(() => Array(DEFAULT_SIZE).fill(null));
   const SIZE = active.length;
   const COLS = GET_COLS(SIZE);
@@ -572,7 +528,7 @@ export default React.memo(function SynthwaveGrid({ board, onCellClickAction, win
 
   const click = (r: number, c: number) => {
     if (active[r][c]) return;
-    if (graphicsQuality !== "low") {
+    if (graphicsQuality !== "performance") {
       burstRef.current?.(PAD + c * CS + CS / 2, PAD + r * CS + CS / 2, turn === "X");
       setLast(`${r}-${c}`);
       setTimeout(() => setLast(null), 700);
@@ -608,20 +564,20 @@ export default React.memo(function SynthwaveGrid({ board, onCellClickAction, win
           </div>
         )}
         <div style={{ position: "relative", width: BS, height: BS, borderRadius: CS * 0.07, overflow: "hidden", border: "2px solid rgba(255,0,180,.65)", boxShadow: "0 0 0 1px rgba(0,180,255,.25),0 0 50px rgba(200,0,160,.45),0 0 120px rgba(100,0,80,.3),inset 0 0 80px rgba(0,0,10,.6)", willChange: "transform", contain: "layout size style" }}>
-          {graphicsQuality === "low" ? (
+          {graphicsQuality === "performance" ? (
             <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, #120024 0%, #2f0040 45%, #130018 100%)" }} />
           ) : (
             <SynthBg W={BS} H={BS} gridSize={SIZE} graphicsQuality={graphicsQuality} isPaused={isPaused} />
           )}
           <GridLines W={BS} H={BS} PAD={PAD} CS={CS} SIZE={SIZE} isPaused={isPaused} />
-          {graphicsQuality !== "low" && <BurstCanvas burstRef={burstRef} W={BS} H={BS} gridSize={SIZE} />}
+          {graphicsQuality !== "performance" && <BurstCanvas burstRef={burstRef} W={BS} H={BS} gridSize={SIZE} />}
           <div style={{ position: "absolute", inset: PAD, zIndex: 4, display: "flex", flexDirection: "column" }}>
             {ROWS.map((_, r) => (
               <div key={r} style={{ display: "flex", flex: 1 }}>
                 {COLS.map((_, c) => {
                   const val = active[r][c];
                   return (
-                    <MemoizedSynthwaveCell key={`${r}-${c}`} CS={CS} value={val} onClick={() => click(r, c)} isWinCell={winSet.has(`${r}-${c}`)} justPlaced={graphicsQuality !== "low" && last === `${r}-${c}`} lastTurn={turn} isP1={val === "X"} isP2={val === "O"} />
+                    <MemoizedSynthwaveCell key={`${r}-${c}`} CS={CS} value={val} onClick={() => click(r, c)} isWinCell={winSet.has(`${r}-${c}`)} justPlaced={graphicsQuality !== "performance" && last === `${r}-${c}`} lastTurn={turn} isP1={val === "X"} isP2={val === "O"} />
                   );
                 })}
               </div>

@@ -46,7 +46,7 @@ export default function Page() {
   const [aiDifficulty, setAiDifficulty] = useState<Difficulty>("medium");
   const [boardMode, setBoardMode] = useState<BoardMode>("5x5");
   const [selectedPatterns, setSelectedPatterns] = useState<string[]>([]);
-  const [graphicsQuality, setGraphicsQuality] = useState<"low" | "balanced" | "ultra">("balanced");
+  const [graphicsQuality, setGraphicsQuality] = useState<"performance" | "quality">("quality");
   const [multiRoomCode,   setMultiRoomCode]   = useState<string>("");
   const [multiPlayerSlot, setMultiPlayerSlot] = useState<"P1" | "P2" | null>(null);
   const [multiMatchup, setMultiMatchup]       = useState<MatchupData | null>(null);
@@ -120,8 +120,12 @@ export default function Page() {
     if (savedBoard && (savedBoard === "5x5" || savedBoard === "7x7" || savedBoard === "6x6" || savedBoard === "5x5_7x7" || savedBoard === "5x5_6x6" || savedBoard === "6x6_7x7" || savedBoard === "5x5_6x6_7x7")) {
         setBoardMode(savedBoard);
     }
-    if (savedGraphics === "low" || savedGraphics === "balanced" || savedGraphics === "ultra") {
+    if (savedGraphics === "performance" || savedGraphics === "quality") {
       setGraphicsQuality(savedGraphics);
+    } else if (savedGraphics === "low") {
+      setGraphicsQuality("performance");
+    } else if (savedGraphics === "balanced" || savedGraphics === "ultra") {
+      setGraphicsQuality("quality");
     }
     if (savedDifficulty) {
       setAiDifficulty(savedDifficulty);
@@ -576,7 +580,7 @@ export default function Page() {
       fontFamily: t.fontBody,
       transition: "background 0.6s ease, color 0.6s ease",
     }}>
-     {themeId === "space" && screen !== "home" && <SpaceBg />}
+     {themeId === "space" && screen !== "home" && screen !== "game" && screen !== "aiGame" && screen !== "multiGame" && <SpaceBg />}
       <div style={{
         position: "fixed", inset: 0, zIndex: 9998,
         background: "#000",
@@ -746,6 +750,7 @@ export default function Page() {
           }}
           graphicsQuality={graphicsQuality}
           setGraphicsQualityAction={setGraphicsQuality}
+          currentScreen={screen}
           onNavigateAuthAction={() => setScreen("auth")}
         />
       )}

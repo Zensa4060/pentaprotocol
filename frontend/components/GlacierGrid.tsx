@@ -380,7 +380,7 @@ function GlacierCell({ CS, value, onClick, isWinCell, justPlaced, isP1, isP2 }: 
 }
 const MemoizedGlacierCell = React.memo(GlacierCell);
 
-export default React.memo(function GlacierGrid({ board, onCellClickAction, winCells = [], showLabels = true, isPaused = false }: { board?: (string | null)[][]; onCellClickAction?: (r: number, c: number) => void; winCells?: [number, number][]; showLabels?: boolean; isPaused?: boolean }) {
+export default React.memo(function GlacierGrid({ board, onCellClickAction, winCells = [], showLabels = true, isPaused = false, graphicsQuality = "quality" }: { board?: (string | null)[][]; onCellClickAction?: (r: number, c: number) => void; winCells?: [number, number][]; showLabels?: boolean; isPaused?: boolean; graphicsQuality?: "performance" | "quality" }) {
   const active = board ?? Array(DEFAULT_SIZE).fill(null).map(() => Array(DEFAULT_SIZE).fill(null));
   const SIZE = active.length;
   const COLS = GET_COLS(SIZE);
@@ -393,12 +393,15 @@ export default React.memo(function GlacierGrid({ board, onCellClickAction, winCe
   const [last, setLast] = useState<string | null>(null);
   const winSet = new Set(winCells.map(([r, c]) => `${r}-${c}`));
   const burstRef = useRef<BurstFn>(null);
+  const lowFx = graphicsQuality === "performance";
 
   const click = (r: number, c: number) => {
     if (active[r][c]) return;
-    if (burstRef.current) burstRef.current(PAD + c * CS + CS / 2, PAD + r * CS + CS / 2, turn === "X");
-    setLast(`${r}-${c}`);
-    setTimeout(() => setLast(null), 700);
+    if (!lowFx) {
+      if (burstRef.current) burstRef.current(PAD + c * CS + CS / 2, PAD + r * CS + CS / 2, turn === "X");
+      setLast(`${r}-${c}`);
+      setTimeout(() => setLast(null), 700);
+    }
     if (onCellClickAction) { onCellClickAction(r, c); return; }
     const n = demo.map(row => [...row]);
     n[r][c] = turn;
@@ -415,13 +418,17 @@ export default React.memo(function GlacierGrid({ board, onCellClickAction, winCe
       <div style={{ display: "flex", alignItems: "flex-start" }}>
         {showLabels && <div style={{ display: "flex", flexDirection: "column", paddingTop: PAD }}>{ROWS.map(r => <div key={r} style={{ height: CS, display: "flex", alignItems: "center", justifyContent: "flex-end", paddingRight: 8, minWidth: 24, ...lbl }}>{r}</div>)}</div>}
         <div style={{ position: "relative", width: BS, height: BS, borderRadius: CS * 0.08, overflow: "hidden", border: "2px solid rgba(120,200,255,.65)", boxShadow: "0 0 0 1px rgba(80,160,220,.3),0 0 45px rgba(100,180,255,.4),0 0 100px rgba(50,100,200,.25),inset 0 0 80px rgba(0,0,15,.55)", willChange: "transform", contain: "layout size style" }}>
-          <GlacierBg W={BS} H={BS} gridSize={SIZE} isPaused={isPaused} />
-          <GridLines W={BS} H={BS} PAD={PAD} CS={CS} SIZE={SIZE} isPaused={isPaused} />
-          <BurstCanvas burstRef={burstRef} W={BS} H={BS} gridSize={SIZE} />
+          {lowFx ? (
+            <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, rgba(5,18,34,0.98), rgba(6,28,48,0.98))" }} />
+          ) : (
+            <GlacierBg W={BS} H={BS} gridSize={SIZE} isPaused={isPaused} />
+          )}
+          {!lowFx && <GridLines W={BS} H={BS} PAD={PAD} CS={CS} SIZE={SIZE} isPaused={isPaused} />}
+          {!lowFx && <BurstCanvas burstRef={burstRef} W={BS} H={BS} gridSize={SIZE} />}
           <div style={{ position: "absolute", inset: PAD, zIndex: 4, display: "flex", flexDirection: "column" }}>
             {active.map((row, r) => (
               <div key={r} style={{ display: "flex", flex: 1 }}>
-                {row.map((cell, c) => (<MemoizedGlacierCell key={`${r}-${c}`} CS={CS} value={cell} onClick={() => click(r, c)} isWinCell={winSet.has(`${r}-${c}`)} justPlaced={last === `${r}-${c}`} isP1={cell === "X"} isP2={cell === "O"} />))}
+                {row.map((cell, c) => (<MemoizedGlacierCell key={`${r}-${c}`} CS={CS} value={cell} onClick={() => click(r, c)} isWinCell={winSet.has(`${r}-${c}`)} justPlaced={!lowFx && last === `${r}-${c}`} isP1={cell === "X"} isP2={cell === "O"} />))}
               </div>
             ))}
           </div>

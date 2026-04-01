@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { boardSkinCanvasDpr } from "@/lib/boardSkinCanvasDpr";
 
 const DEFAULT_SIZE = 5;
@@ -582,11 +582,13 @@ function BurstCanvas({
   return <canvas ref={ref} style={{ position: "absolute", inset: 0, zIndex: 5, pointerEvents: "none" }} />;
 }
 
-function Rocket({ size, win, ak }: { size: number; win: boolean; ak: string }) {
+function Rocket({ size, win, ak, lowFx }: { size: number; win: boolean; ak: string; lowFx: boolean }) {
   const s = size * 0.6;
-  const glow = win
-    ? "drop-shadow(0 0 10px #00eeff) drop-shadow(0 0 28px #00aaff) drop-shadow(0 0 56px rgba(0,200,255,.6))"
-    : "drop-shadow(0 0 6px #00ddff) drop-shadow(0 0 18px rgba(0,180,255,.7))";
+  const glow = lowFx
+    ? (win ? "drop-shadow(0 0 6px rgba(0,200,255,.45))" : "drop-shadow(0 0 4px rgba(0,180,255,.35))")
+    : win
+      ? "drop-shadow(0 0 10px #00eeff) drop-shadow(0 0 28px #00aaff) drop-shadow(0 0 56px rgba(0,200,255,.6))"
+      : "drop-shadow(0 0 6px #00ddff) drop-shadow(0 0 18px rgba(0,180,255,.7))";
   return (
     <svg key={ak} width={s} height={s} viewBox="0 0 48 48" style={{ position: "absolute", zIndex: 6, filter: glow, animation: "rktIn .5s cubic-bezier(.34,1.56,.64,1) forwards" }}>
       <style>{`@keyframes rktIn{0%{transform:translateY(-${size * 0.8}px) rotate(-15deg) scale(.3);opacity:0}55%{transform:translateY(${size * 0.05}px) rotate(5deg) scale(1.14);opacity:1}78%{transform:translateY(0) rotate(-2deg) scale(.93)}100%{transform:translateY(0) rotate(0) scale(1);opacity:1}}`}</style>
@@ -622,11 +624,13 @@ function Rocket({ size, win, ak }: { size: number; win: boolean; ak: string }) {
   );
 }
 
-function Satellite({ size, win, ak }: { size: number; win: boolean; ak: string }) {
+function Satellite({ size, win, ak, lowFx }: { size: number; win: boolean; ak: string; lowFx: boolean }) {
   const s = size * 0.6;
-  const glow = win
-    ? "drop-shadow(0 0 10px #ff8c00) drop-shadow(0 0 26px #ff6600) drop-shadow(0 0 55px rgba(255,120,0,.6))"
-    : "drop-shadow(0 0 6px #ff9922) drop-shadow(0 0 18px rgba(255,140,0,.7))";
+  const glow = lowFx
+    ? (win ? "drop-shadow(0 0 6px rgba(255,140,0,.45))" : "drop-shadow(0 0 4px rgba(255,140,0,.35))")
+    : win
+      ? "drop-shadow(0 0 10px #ff8c00) drop-shadow(0 0 26px #ff6600) drop-shadow(0 0 55px rgba(255,120,0,.6))"
+      : "drop-shadow(0 0 6px #ff9922) drop-shadow(0 0 18px rgba(255,140,0,.7))";
   return (
     <svg key={ak} width={s} height={s} viewBox="0 0 48 48" style={{ position: "absolute", zIndex: 6, filter: glow, animation: "satIn .48s cubic-bezier(.34,1.56,.64,1) forwards" }}>
       <style>{`@keyframes satIn{0%{transform:scale(0) rotate(45deg);opacity:0}55%{transform:scale(1.22) rotate(-8deg);opacity:1}80%{transform:scale(.92) rotate(3deg)}100%{transform:scale(1) rotate(0);opacity:1}}`}</style>
@@ -676,14 +680,14 @@ function Satellite({ size, win, ak }: { size: number; win: boolean; ak: string }
   );
 }
 
-function SpaceCell({ CS, value, onClick, isWinCell, justPlaced, lastTurn, isP1, isP2 }: { CS: number; value: "X" | "O" | null; onClick: () => void; isWinCell: boolean; justPlaced: boolean; lastTurn: "X" | "O"; isP1: boolean; isP2: boolean }) {
+function SpaceCell({ CS, value, row, col, onCellClickAction, isWinCell, justPlaced, lastTurn, isP1, isP2, lowFx }: { CS: number; value: "X" | "O" | null; row: number; col: number; onCellClickAction: (r: number, c: number) => void; isWinCell: boolean; justPlaced: boolean; lastTurn: "X" | "O"; isP1: boolean; isP2: boolean; lowFx: boolean }) {
   const [hov, setHov] = useState(false);
   const wC = isP1 ? "rgba(0,200,255,.4)" : "rgba(255,140,0,.4)";
   return (
     <div
       onMouseEnter={() => setHov(true)}
       onMouseLeave={() => setHov(false)}
-      onClick={onClick}
+      onClick={() => onCellClickAction(row, col)}
       style={{
         width: CS,
         height: CS,
@@ -716,15 +720,15 @@ function SpaceCell({ CS, value, onClick, isWinCell, justPlaced, lastTurn, isP1, 
           }}
         />
       )}
-      {isP1 && <Rocket size={CS} win={isWinCell} ak={`${value}${CS}`} />}
-      {isP2 && <Satellite size={CS} win={isWinCell} ak={`${value}${CS}`} />}
+      {isP1 && <Rocket size={CS} win={isWinCell} ak={`${value}${CS}`} lowFx={lowFx} />}
+      {isP2 && <Satellite size={CS} win={isWinCell} ak={`${value}${CS}`} lowFx={lowFx} />}
       <style>{`@keyframes spF{0%{opacity:1;transform:scale(1)}100%{opacity:0;transform:scale(2.5)}}`}</style>
     </div>
   );
 }
 const MemoizedSpaceCell = React.memo(SpaceCell);
 
-export default React.memo(function SpaceGrid({ board, onCellClickAction, winCells = [], showLabels = true, isPaused = false }: { board?: (string | null)[][]; onCellClickAction?: (r: number, c: number) => void; winCells?: [number, number][]; showLabels?: boolean; isPaused?: boolean }) {
+export default React.memo(function SpaceGrid({ board, onCellClickAction, winCells = [], showLabels = true, isPaused = false, graphicsQuality = "quality", showShowcaseFx = false }: { board?: (string | null)[][]; onCellClickAction?: (r: number, c: number) => void; winCells?: [number, number][]; showLabels?: boolean; isPaused?: boolean; graphicsQuality?: "performance" | "quality"; showShowcaseFx?: boolean }) {
   const active = board ?? Array(DEFAULT_SIZE).fill(null).map(() => Array(DEFAULT_SIZE).fill(null));
   const SIZE = active.length;
   const COLS = GET_COLS(SIZE);
@@ -736,12 +740,12 @@ export default React.memo(function SpaceGrid({ board, onCellClickAction, winCell
   const [demo, setDemo] = useState<(("X" | "O") | null)[][]>(() => Array(SIZE).fill(null).map(() => Array(SIZE).fill(null)));
   const [turn, setTurn] = useState<"X" | "O">("X");
   const [last, setLast] = useState<string | null>(null);
-  const winSet = new Set(winCells.map(([r, c]) => `${r}-${c}`));
+  const winSet = useMemo(() => new Set(winCells.map(([r, c]) => `${r}-${c}`)), [winCells]);
   const burstRef = useRef<((x: number, y: number, isP1: boolean) => void) | null>(null);
+  const lowFx = graphicsQuality === "performance";
 
-  const click = (r: number, c: number) => {
+  const click = useCallback((r: number, c: number) => {
     if (active[r][c]) return;
-    burstRef.current?.(PAD + c * CS + CS / 2, PAD + r * CS + CS / 2, turn === "X");
     setLast(`${r}-${c}`);
     setTimeout(() => setLast(null), 700);
     if (onCellClickAction) {
@@ -752,7 +756,7 @@ export default React.memo(function SpaceGrid({ board, onCellClickAction, winCell
     n[r][c] = turn;
     setDemo(n);
     setTurn((t2) => (t2 === "X" ? "O" : "X"));
-  };
+  }, [active, demo, onCellClickAction, turn]);
 
   const fs = (n: number) => Math.max(10, CS * n);
   const lbl = {
@@ -785,10 +789,10 @@ export default React.memo(function SpaceGrid({ board, onCellClickAction, winCell
             ))}
           </div>
         )}
-        <div style={{ position: "relative", width: BS, height: BS, borderRadius: CS * 0.05, overflow: "hidden", border: "3px solid rgba(0,150,255,.8)", boxShadow: "0 0 0 1px rgba(0,120,255,.3),0 0 50px rgba(0,100,255,.6),0 0 120px rgba(0,50,150,.4),inset 0 0 80px rgba(0,0,0,.85)" }}>
-          <SpaceExBg W={BS} H={BS} gridSize={SIZE} isPaused={isPaused} />
-          <GridLines W={BS} H={BS} PAD={PAD} CS={CS} SIZE={SIZE} isPaused={isPaused} />
-          <BurstCanvas burstRef={burstRef} W={BS} H={BS} gridSize={SIZE} />
+        <div style={{ position: "relative", width: BS, height: BS, borderRadius: CS * 0.05, overflow: "hidden", border: "2px solid rgba(0,150,255,.55)", background: "linear-gradient(180deg, rgba(4,10,28,0.98), rgba(2,6,18,0.98))", boxShadow: "0 0 0 1px rgba(0,120,255,.18), inset 0 0 26px rgba(0,0,0,.68)" }}>
+          {showShowcaseFx && graphicsQuality === "quality" && <SpaceExBg W={BS} H={BS} gridSize={SIZE} isPaused={isPaused} />}
+          {showShowcaseFx && graphicsQuality === "quality" && <GridLines W={BS} H={BS} PAD={PAD} CS={CS} SIZE={SIZE} isPaused={isPaused} />}
+          {showShowcaseFx && graphicsQuality === "quality" && <BurstCanvas burstRef={burstRef} W={BS} H={BS} gridSize={SIZE} />}
           <div style={{ position: "absolute", inset: PAD, zIndex: 4, display: "flex", flexDirection: "column" }}>
             {ROWS.map((_, r) => (
               <div key={r} style={{ display: "flex", flex: 1 }}>
@@ -799,12 +803,15 @@ export default React.memo(function SpaceGrid({ board, onCellClickAction, winCell
                       key={`${r}-${c}`}
                       CS={CS}
                       value={val}
-                      onClick={() => click(r, c)}
+                      row={r}
+                      col={c}
+                      onCellClickAction={click}
                       isWinCell={winSet.has(`${r}-${c}`)}
-                      justPlaced={last === `${r}-${c}`}
+                      justPlaced={!lowFx && last === `${r}-${c}`}
                       lastTurn={turn}
                       isP1={val === "X"}
                       isP2={val === "O"}
+                      lowFx={lowFx}
                     />
                   );
                 })}

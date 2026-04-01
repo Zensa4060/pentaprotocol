@@ -548,7 +548,7 @@ function ForgeCell({ CS, value, onClick, isWinCell, justPlaced, lastTurn, isP1, 
 }
 const MemoizedForgeCell = React.memo(ForgeCell);
 
-export default React.memo(function ForgeGrid({ board, onCellClickAction, winCells = [], showLabels = true, isPaused = false }: { board?: (string | null)[][]; onCellClickAction?: (r: number, c: number) => void; winCells?: [number, number][]; showLabels?: boolean; isPaused?: boolean }) {
+export default React.memo(function ForgeGrid({ board, onCellClickAction, winCells = [], showLabels = true, isPaused = false, graphicsQuality = "quality" }: { board?: (string | null)[][]; onCellClickAction?: (r: number, c: number) => void; winCells?: [number, number][]; showLabels?: boolean; isPaused?: boolean; graphicsQuality?: "performance" | "quality" }) {
   const active = board ?? Array(DEFAULT_SIZE).fill(null).map(() => Array(DEFAULT_SIZE).fill(null));
   const SIZE = active.length;
   const COLS = GET_COLS(SIZE);
@@ -562,12 +562,15 @@ export default React.memo(function ForgeGrid({ board, onCellClickAction, winCell
   const [last, setLast] = useState<string | null>(null);
   const winSet = new Set(winCells.map(([r, c]) => `${r}-${c}`));
   const burstRef = useRef<((x: number, y: number, isP1: boolean) => void) | null>(null);
+  const lowFx = graphicsQuality === "performance";
 
   const click = (r: number, c: number) => {
     if (active[r][c]) return;
-    burstRef.current?.(PAD + c * CS + CS / 2, PAD + r * CS + CS / 2, turn === "X");
-    setLast(`${r}-${c}`);
-    setTimeout(() => setLast(null), 700);
+    if (!lowFx) {
+      burstRef.current?.(PAD + c * CS + CS / 2, PAD + r * CS + CS / 2, turn === "X");
+      setLast(`${r}-${c}`);
+      setTimeout(() => setLast(null), 700);
+    }
     if (onCellClickAction) {
       onCellClickAction?.(r, c);
       return;
@@ -610,9 +613,13 @@ export default React.memo(function ForgeGrid({ board, onCellClickAction, winCell
           </div>
         )}
         <div style={{ position: "relative", width: BS, height: BS, borderRadius: CS * 0.05, overflow: "hidden", border: "3px solid rgba(200,60,0,.8)", boxShadow: "0 0 0 1px rgba(255,120,0,.3),0 0 50px rgba(200,60,0,.6),0 0 120px rgba(80,20,160,.4),inset 0 0 80px rgba(0,0,0,.65)", willChange: "transform", contain: "layout size style" }}>
-          <ForgeBg W={BS} H={BS} gridSize={SIZE} isPaused={isPaused} />
-          <GridLines W={BS} H={BS} PAD={PAD} CS={CS} SIZE={SIZE} isPaused={isPaused} />
-          <BurstCanvas burstRef={burstRef} W={BS} H={BS} gridSize={SIZE} />
+          {lowFx ? (
+            <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, rgba(28,8,2,0.98), rgba(12,4,1,0.98))" }} />
+          ) : (
+            <ForgeBg W={BS} H={BS} gridSize={SIZE} isPaused={isPaused} />
+          )}
+          {!lowFx && <GridLines W={BS} H={BS} PAD={PAD} CS={CS} SIZE={SIZE} isPaused={isPaused} />}
+          {!lowFx && <BurstCanvas burstRef={burstRef} W={BS} H={BS} gridSize={SIZE} />}
           <div style={{ position: "absolute", inset: PAD, zIndex: 4, display: "flex", flexDirection: "column" }}>
             {ROWS.map((_, r) => (
               <div key={r} style={{ display: "flex", flex: 1 }}>
@@ -625,7 +632,7 @@ export default React.memo(function ForgeGrid({ board, onCellClickAction, winCell
                       value={val}
                       onClick={() => click(r, c)}
                       isWinCell={winSet.has(`${r}-${c}`)}
-                      justPlaced={last === `${r}-${c}`}
+                      justPlaced={!lowFx && last === `${r}-${c}`}
                       lastTurn={turn}
                       isP1={val === "X"}
                       isP2={val === "O"}

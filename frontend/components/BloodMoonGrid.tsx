@@ -3,7 +3,7 @@ import React, { useEffect, useRef, useState, useCallback } from "react";
 import { boardSkinCanvasDpr } from "@/lib/boardSkinCanvasDpr";
 
 const DEFAULT_SIZE = 5;
-type GraphicsQuality = "low" | "balanced" | "ultra";
+type GraphicsQuality = "performance" | "quality";
 const GET_COLS = (s: number) => Array.from({ length: s }, (_, i) => String.fromCharCode(65 + i));
 const GET_ROWS = (s: number) => Array.from({ length: s }, (_, i) => i + 1);
 
@@ -21,7 +21,7 @@ function useCellSize(size: number, pad = 8) {
   return cs;
 }
 
-function BloodMoonBg({ W, H, gridSize = 5, graphicsQuality = "balanced", isPaused = false }: { W: number; H: number; gridSize?: number; graphicsQuality?: GraphicsQuality; isPaused?: boolean }) {
+function BloodMoonBg({ W, H, gridSize = 5, graphicsQuality = "quality", isPaused = false }: { W: number; H: number; gridSize?: number; graphicsQuality?: GraphicsQuality; isPaused?: boolean }) {
   const ref = useRef<HTMLCanvasElement | null>(null);
   const raf = useRef<number | null>(null);
   const t = useRef(0);
@@ -62,13 +62,7 @@ function BloodMoonBg({ W, H, gridSize = 5, graphicsQuality = "balanced", isPause
 
     let frameSkip = 0;
     const draw = () => {
-      if (graphicsQuality === "balanced") {
-        frameSkip = (frameSkip + 1) % 2;
-        if (frameSkip !== 0) {
-          raf.current = requestAnimationFrame(draw);
-          return;
-        }
-      }
+      if (graphicsQuality === "performance") return;
       t.current += 0.014;
       const tc = t.current;
       ctx.clearRect(0, 0, W, H);
@@ -520,7 +514,7 @@ function Cell({ CS, value, onClick, isWinCell, justPlaced, lastTurn }: { CS: num
 
 const MemoizedCell = React.memo(Cell);
 
-export default React.memo(function BloodMoonGrid({ board, onCellClickAction, winCells = [], showLabels = true, graphicsQuality = "balanced", isPaused = false }: { board?: (string | null)[][]; onCellClickAction?: (r: number, c: number) => void; winCells?: [number, number][]; showLabels?: boolean; graphicsQuality?: GraphicsQuality; isPaused?: boolean }) {
+export default React.memo(function BloodMoonGrid({ board, onCellClickAction, winCells = [], showLabels = true, graphicsQuality = "quality", isPaused = false }: { board?: (string | null)[][]; onCellClickAction?: (r: number, c: number) => void; winCells?: [number, number][]; showLabels?: boolean; graphicsQuality?: GraphicsQuality; isPaused?: boolean }) {
   const active = board ?? Array(DEFAULT_SIZE).fill(null).map(() => Array(DEFAULT_SIZE).fill(null));
   const SIZE = active.length;
   const COLS = GET_COLS(SIZE);
@@ -538,7 +532,7 @@ export default React.memo(function BloodMoonGrid({ board, onCellClickAction, win
 
   const click = useCallback((r: number, c: number) => {
     if (active[r][c]) return;
-    if (graphicsQuality !== "low") {
+    if (graphicsQuality !== "performance") {
       burstRef.current?.(PAD + c * CS + CS / 2, PAD + r * CS + CS / 2, turn === "X");
       setLast(`${r}-${c}`);
       setTimeout(() => setLast(null), 700);
@@ -589,13 +583,13 @@ export default React.memo(function BloodMoonGrid({ board, onCellClickAction, win
             contain: "layout style"
           }}
         >
-          {graphicsQuality === "low" ? (
+          {graphicsQuality === "performance" ? (
             <div style={{ position: "absolute", inset: 0, background: "radial-gradient(circle at 70% 20%, rgba(180,20,0,.35), rgba(8,0,0,.95) 60%)" }} />
           ) : (
             <BloodMoonBg W={BS} H={BS} gridSize={SIZE} graphicsQuality={graphicsQuality} isPaused={isPaused} />
           )}
           <GridLines W={BS} H={BS} PAD={PAD} CS={CS} SIZE={SIZE} isPaused={isPaused} />
-          {graphicsQuality !== "low" && <BurstCanvas burstRef={burstRef} W={BS} H={BS} gridSize={SIZE} />}
+          {graphicsQuality !== "performance" && <BurstCanvas burstRef={burstRef} W={BS} H={BS} gridSize={SIZE} />}
           <div style={{ position: "absolute", inset: PAD, zIndex: 4, display: "flex", flexDirection: "column" }}>
             {ROWS.map((_, r) => (
               <div key={r} style={{ display: "flex", flex: 1 }}>
@@ -606,7 +600,7 @@ export default React.memo(function BloodMoonGrid({ board, onCellClickAction, win
                     value={active[r][c]}
                     onClick={() => click(r, c)}
                     isWinCell={winSet.has(`${r}-${c}`)}
-                    justPlaced={graphicsQuality !== "low" && last === `${r}-${c}`}
+                    justPlaced={graphicsQuality !== "performance" && last === `${r}-${c}`}
                     lastTurn={turn}
                   />
                 ))}

@@ -505,7 +505,7 @@ function VoidCell({ CS, value, onClick, isWinCell, justPlaced, lastTurn, isP1, i
 }
 const MemoizedVoidCell = React.memo(VoidCell);
 
-export default React.memo(function VoidGrid({ board, onCellClickAction, winCells = [], showLabels = true, isPaused = false }: { board?: (string | null)[][]; onCellClickAction?: (r: number, c: number) => void; winCells?: [number, number][]; showLabels?: boolean; isPaused?: boolean }) {
+export default React.memo(function VoidGrid({ board, onCellClickAction, winCells = [], showLabels = true, isPaused = false, graphicsQuality = "quality" }: { board?: (string | null)[][]; onCellClickAction?: (r: number, c: number) => void; winCells?: [number, number][]; showLabels?: boolean; isPaused?: boolean; graphicsQuality?: "performance" | "quality" }) {
   const active = board ?? Array(DEFAULT_SIZE).fill(null).map(() => Array(DEFAULT_SIZE).fill(null));
   const SIZE = active.length;
   const COLS = GET_COLS(SIZE);
@@ -519,12 +519,15 @@ export default React.memo(function VoidGrid({ board, onCellClickAction, winCells
   const [last, setLast] = useState<string | null>(null);
   const winSet = new Set(winCells.map(([r, c]) => `${r}-${c}`));
   const burstRef = useRef<((x: number, y: number, isP1: boolean) => void) | null>(null);
+  const lowFx = graphicsQuality === "performance";
 
   const click = (r: number, c: number) => {
     if (active[r][c]) return;
-    burstRef.current?.(PAD + c * CS + CS / 2, PAD + r * CS + CS / 2, turn === "X");
-    setLast(`${r}-${c}`);
-    setTimeout(() => setLast(null), 700);
+    if (!lowFx) {
+      burstRef.current?.(PAD + c * CS + CS / 2, PAD + r * CS + CS / 2, turn === "X");
+      setLast(`${r}-${c}`);
+      setTimeout(() => setLast(null), 700);
+    }
     if (onCellClickAction) {
       onCellClickAction?.(r, c);
       return;
@@ -567,9 +570,13 @@ export default React.memo(function VoidGrid({ board, onCellClickAction, winCells
           </div>
         )}
         <div style={{ position: "relative", width: BS, height: BS, borderRadius: CS * 0.06, overflow: "hidden", border: "2px solid rgba(140,80,255,.7)", boxShadow: "0 0 0 1px rgba(80,40,160,.4),0 0 40px rgba(120,60,220,.5),0 0 100px rgba(60,20,120,.3),inset 0 0 80px rgba(0,0,0,.85)", willChange: "transform", contain: "layout size style" }}>
-          <SpaceBackground W={BS} H={BS} gridSize={SIZE} isPaused={isPaused} />
-          <GridLines W={BS} H={BS} PAD={PAD} CS={CS} SIZE={SIZE} isPaused={isPaused} />
-          <BurstCanvas burstRef={burstRef} W={BS} H={BS} gridSize={SIZE} />
+          {lowFx ? (
+            <div style={{ position: "absolute", inset: 0, background: "radial-gradient(circle at 55% 35%, rgba(98,58,180,0.3), rgba(4,2,14,0.97) 62%)" }} />
+          ) : (
+            <SpaceBackground W={BS} H={BS} gridSize={SIZE} isPaused={isPaused} />
+          )}
+          {!lowFx && <GridLines W={BS} H={BS} PAD={PAD} CS={CS} SIZE={SIZE} isPaused={isPaused} />}
+          {!lowFx && <BurstCanvas burstRef={burstRef} W={BS} H={BS} gridSize={SIZE} />}
           <div style={{ position: "absolute", inset: PAD, zIndex: 4, display: "flex", flexDirection: "column" }}>
             {ROWS.map((_, r) => (
               <div key={r} style={{ display: "flex", flex: 1 }}>
@@ -582,7 +589,7 @@ export default React.memo(function VoidGrid({ board, onCellClickAction, winCells
                       value={val}
                       onClick={() => click(r, c)}
                       isWinCell={winSet.has(`${r}-${c}`)}
-                      justPlaced={last === `${r}-${c}`}
+                      justPlaced={!lowFx && last === `${r}-${c}`}
                       lastTurn={turn}
                       isP1={val === "X"}
                       isP2={val === "O"}

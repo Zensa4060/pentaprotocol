@@ -9,8 +9,10 @@ export function boardSkinCanvasDpr(gridSize: number): number {
     typeof window !== "undefined"
       ? window.localStorage.getItem("pp_graphics_quality")
       : null;
-  if (quality === "low") return Math.min(raw, gridSize >= 7 ? 0.9 : 1.0);
-  if (quality === "balanced") return Math.min(raw, gridSize >= 7 ? 1.1 : 1.25);
-  if (gridSize >= 7) return Math.min(raw, 1.35);
-  return Math.min(raw, 1.75);
+  if (quality === "performance") return Math.min(raw, 0.75);
+  if (quality === "quality") return Math.min(raw, gridSize >= 7 ? 1.05 : 1.25);
+  if (quality === "low") return Math.min(raw, 0.75);
+  if (quality === "balanced") return Math.min(raw, gridSize >= 7 ? 0.85 : 1.0);
+  if (gridSize >= 7) return Math.min(raw, 1.05);
+  return Math.min(raw, 1.25);
 }

@@ -62,7 +62,7 @@ interface RulebreakerFlowProps {
   onGridBlockChoice?: (r: number, c: number) => void;
   /** Called when a player bans a pattern */
   onBanPattern?: (patternName: string) => void;
-  graphicsQuality?: "low" | "balanced" | "ultra";
+  graphicsQuality?: "performance" | "quality";
 }
 
 export function RulebreakerFlow({
@@ -83,7 +83,7 @@ export function RulebreakerFlow({
   rbBannedPatterns = [],
   onGridBlockChoice,
   onBanPattern,
-  graphicsQuality = "balanced",
+  graphicsQuality = "quality",
 }: RulebreakerFlowProps) {
 
   const p1Name = p1LabelProp ?? "P1";
@@ -93,8 +93,8 @@ export function RulebreakerFlow({
 
   // ── rb_splash ──────────────────────────────────────────────────────────────
   if (phase === "rb_splash") {
-    const isLowGraphics = graphicsQuality === "low";
-    const isBalancedGraphics = graphicsQuality === "balanced";
+    const isLowGraphics = graphicsQuality === "performance";
+    const isBalancedGraphics = false;
     const isSixBySixRb = Boolean(is6x6);
     const isFiveByFive = !is7x7 && !isSixBySixRb;
     const splashTitle = isSixBySixRb ? "TIMEBREAKER" : isFiveByFive ? "RULEBREAKER" : "MINDBREAKER";
@@ -371,8 +371,8 @@ export function RulebreakerFlow({
 
   // ── rb_coin ────────────────────────────────────────────────────────────────
   if (phase === "rb_coin") {
-    const isLowGraphics = graphicsQuality === "low";
-    const isBalancedGraphics = graphicsQuality === "balanced";
+    const isLowGraphics = graphicsQuality === "performance";
+    const isBalancedGraphics = false;
     const revealed = coinResult !== null;
     const coinDiam = 240;
     const revType = coinResult ?? "PENTA";

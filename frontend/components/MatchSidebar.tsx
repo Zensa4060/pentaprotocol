@@ -772,13 +772,13 @@ export function RightPanel({ t, ip, p1c, p2c, panelW, phase, log, isRankedGame, 
   );
 }
 
-export function WinOverlay({ showWinOverlay, overlayVisible, winner, winnerColor, winnerPiece, seriesDiffers, seriesColor, seriesPiece, seriesWinner, phase, gameNumber, t, winnerDisplayNameAction, onDismissAction, graphicsQuality = "balanced" }: {
+export function WinOverlay({ showWinOverlay, overlayVisible, winner, winnerColor, winnerPiece, seriesDiffers, seriesColor, seriesPiece, seriesWinner, phase, gameNumber, t, winnerDisplayNameAction, onDismissAction, graphicsQuality = "quality" }: {
   showWinOverlay: boolean; overlayVisible: boolean; winner: string | null; winnerColor: string; winnerPiece: string;
   seriesDiffers: boolean; seriesColor: string; seriesPiece: string; seriesWinner: string | null;
   phase: Phase; gameNumber: number; t: { fontDisplay: string; fontMono: string; fontBody: string };
   winnerDisplayNameAction?: (w: string | null) => string;
   onDismissAction: () => void;
-  graphicsQuality?: "low" | "balanced" | "ultra";
+  graphicsQuality?: "performance" | "quality";
 }) {
   const [canDismiss, setCanDismiss] = React.useState(false);
   React.useEffect(() => {

@@ -484,9 +484,7 @@ export default function CareerScreen({ themeId, onHoverAction }: Props) {
           inset: 0,
           zIndex: 2,
           background:
-            themeId === "pixel"
-              ? "url(/bg-pixel.png) center/cover no-repeat"
-              : themeId === "space"
+            themeId === "space"
               ? "transparent"
               : t.bg,
           overflowY: "scroll",

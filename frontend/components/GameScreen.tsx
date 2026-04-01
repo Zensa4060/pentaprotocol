@@ -38,6 +38,12 @@ import RuleshowScreen, {
 import { useAuthStore } from "@/lib/store";
 import { BannerRenderer } from "./BannerRenderer";
 import { RANKS, RankIcon } from "./ProfileScreen";
+
+const GlacierGridCompat = GlacierGrid as React.ComponentType<any>;
+const ArcaneGridCompat = ArcaneGrid as React.ComponentType<any>;
+const ForgeGridCompat = ForgeGrid as React.ComponentType<any>;
+const VoidGridCompat = VoidGrid as React.ComponentType<any>;
+const TokyoGridCompat = TokyoGrid as React.ComponentType<any>;
 import { getUserKey, pushMissionEvent } from "@/lib/missionsClient";
 import MatchResultScreen from "./MatchResultScreen";
 import GameWinScreen from "./GameWinScreen";
@@ -188,7 +194,7 @@ const MatchupOverlay = ({ matchupData, showMatchupOverlay, playerSlot, p1Name, u
   };
 
   return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 10000, background: themeId === "pixel" ? "url(/bg-pixel.png) center/cover no-repeat" : themeId === "space" ? "transparent" : t.bg, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+    <div style={{ position: "fixed", inset: 0, zIndex: 10000, background: t.bg, display: "flex", flexDirection: "column", overflow: "hidden" }}>
       <div style={{ textAlign: "center", paddingTop: 40, fontFamily: t.fontMono, fontSize: 14, fontWeight: 700, color: t.textMuted, letterSpacing: "0.3em", zIndex: 15, textShadow: "0 2px 10px rgba(0,0,0,0.5)" }}>
         {isRankedGame ? "RANKED · 5×5 → 6×6 → 7×7 · BO3 PER LEG" : "UNRANKED EXHIBITION · FIRST TO 2 POINTS"}
       </div>
@@ -236,10 +242,10 @@ interface Props {
   selectedPatterns?: string[];
   /** Sync lobby `boardMode` / patterns when server upgrades mid-match (e.g. 5×5 → 7×7). */
   onMultiplayerBoardSync?: (mode: BoardMode, patterns: string[]) => void;
-  graphicsQuality?: "low" | "balanced" | "ultra";
+  graphicsQuality?: "performance" | "quality";
 }
 
-export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, gameMode = "singleplayer", difficulty = "medium", setScreenAction, roomCode, playerSlot, playHoverAction, playPlaceAction, playVictoryAction, playDefeatAction, playRulebreakerAction, playTransitionAction, playClickAction, p1Name, matchupData, boardMode = "5x5", selectedPatterns = [], onMultiplayerBoardSync, graphicsQuality = "balanced" }: Props) {
+export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, gameMode = "singleplayer", difficulty = "medium", setScreenAction, roomCode, playerSlot, playHoverAction, playPlaceAction, playVictoryAction, playDefeatAction, playRulebreakerAction, playTransitionAction, playClickAction, p1Name, matchupData, boardMode = "5x5", selectedPatterns = [], onMultiplayerBoardSync, graphicsQuality = "quality" }: Props) {
   const [liveBoardMode, setLiveBoardMode] = useState<BoardMode>(boardMode);
   const [liveSelectedPatterns, setLiveSelectedPatterns] = useState<string[]>(selectedPatterns ?? []);
   useEffect(() => { setLiveBoardMode(boardMode); }, [boardMode]);
@@ -314,7 +320,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   const { user } = useAuthStore();
   const t = THEMES[themeId];
   const ip = themeId === "pixel";
-  const isLowGraphics = graphicsQuality === "low";
+  const gameplayGraphicsQuality = graphicsQuality;
   const userKey = useMemo(() => getUserKey(user), [user]);
 
   const [_ct, set_ct] = useState(() => loadCustomTheme());
@@ -2599,7 +2605,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   }, [liveBoardMode, rulesMatchGate]);
 
   const splashScreen = (
-    <div style={{ position: "fixed", top: 64, left: 0, right: 0, bottom: 0, zIndex: 2, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: themeId === "pixel" ? "url(/bg-pixel.png) center/cover no-repeat" : themeId === "space" ? "transparent" : t.bg, gap: 32, userSelect: "none" }}>
+    <div style={{ position: "fixed", top: 64, left: 0, right: 0, bottom: 0, zIndex: 2, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: t.bg, gap: 32, userSelect: "none" }}>
       <div style={{ fontFamily: t.fontDisplay, fontSize: "clamp(24px,5vw,72px)", fontWeight: 900, color: t.accent, textShadow: `0 0 60px ${t.accentGlow}55`, letterSpacing: "0.06em", textAlign: "center" }}>SINGLEPLAYER</div>
       <div style={{ fontFamily: t.fontBody, fontSize: "clamp(13px,1.6vw,18px)", color: t.textSecondary, letterSpacing: "0.04em" }}>Local · Pass & Play · First to 5</div>
       <button onClick={() => setShowSplash(false)}
@@ -2667,7 +2673,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
         onLeftAction={onLeftAction} onRightAction={onRightAction} fmtSecAction={fmtSecAction}
         is7x7={is7x7} is6x6={is6x6} selectedPatterns={liveSelectedPatterns} rbBannedPatterns={rbBannedPatterns} onBanPattern={onBanPattern}
         onGridBlockChoice={onGridBlockChoice}
-        graphicsQuality={graphicsQuality}
+        graphicsQuality={gameplayGraphicsQuality}
       />
   );
 
@@ -2900,12 +2906,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     (rulesShowSheet !== null || show7x7LevelUp || show6x6LevelUp || rulesMatchGate);
 
   if (blockMultiRulesOrLevelUp) {
-    const shellBg =
-      themeId === "pixel"
-        ? "url(/bg-pixel.png) center/cover no-repeat"
-        : themeId === "space"
-          ? "transparent"
-          : t.bg;
+    const shellBg = t.bg;
     return (
       <div
         style={{
@@ -3073,7 +3074,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   // ── MOBILE LAYOUT ─────────────────────────────────────────────────────────
   if (isMobile) {
     return (
-      <div style={{ position: "fixed", top: 52, left: 0, right: 0, bottom: 0, zIndex: 2, background: themeId === "pixel" ? "url(/bg-pixel.png) center/cover no-repeat" : themeId === "space" ? "transparent" : t.bg, overflow: "hidden", userSelect: "none", WebkitUserSelect: "none" }}>
+      <div style={{ position: "fixed", top: 52, left: 0, right: 0, bottom: 0, zIndex: 2, background: t.bg, overflow: "hidden", userSelect: "none", WebkitUserSelect: "none" }}>
 
         <WinOverlay
           showWinOverlay={showWinOverlay} overlayVisible={overlayVisible}
@@ -3082,7 +3083,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
           seriesWinner={seriesWinner} phase={phase} gameNumber={gameNumber}
           t={{ fontDisplay: t.fontDisplay, fontMono: t.fontMono, fontBody: t.fontBody }}
           winnerDisplayNameAction={winnerDisplayName}
-          graphicsQuality={graphicsQuality}
+          graphicsQuality={gameplayGraphicsQuality}
           onDismissAction={dismissOverlay}
         />
 
@@ -3129,9 +3130,9 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
             </button>
           )}
           {isGlacierBoard && liveSkinBoard ? (
-            <GlacierGrid board={liveSkinBoard} onCellClickAction={handleCellClick} winCells={isLowGraphics ? [] : winLine} isPaused={isBoardPaused} />
+            <GlacierGridCompat board={liveSkinBoard} onCellClickAction={handleCellClick} winCells={winLine} isPaused={isBoardPaused} graphicsQuality={gameplayGraphicsQuality} />
           ) : isBloodMoonBoard && liveSkinBoard ? (
-            <BloodMoonGrid board={liveSkinBoard} onCellClickAction={handleCellClick} winCells={isLowGraphics ? [] : winLine} graphicsQuality={graphicsQuality} isPaused={isBoardPaused} />
+            <BloodMoonGrid board={liveSkinBoard} onCellClickAction={handleCellClick} winCells={winLine} graphicsQuality={gameplayGraphicsQuality} isPaused={isBoardPaused} />
           ) : (
             <>
               <div style={{ display: "flex", gap: `${boardGap}px`, paddingLeft: 28, marginBottom: 4 }}>
@@ -3438,7 +3439,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
 
   // ── DESKTOP LAYOUT ────────────────────────────────────────────────────────
   return (
-    <div style={{ position: "fixed", top: 64, left: 0, right: 0, bottom: 0, zIndex: 2, display: "flex", flexDirection: "row", background: themeId === "pixel" ? "url(/bg-pixel.png) center/cover no-repeat" : themeId === "space" ? "transparent" : t.bg, overflow: "hidden", userSelect: "none", WebkitUserSelect: "none" }}>
+    <div style={{ position: "fixed", top: 64, left: 0, right: 0, bottom: 0, zIndex: 2, display: "flex", flexDirection: "row", background: t.bg, overflow: "hidden", userSelect: "none", WebkitUserSelect: "none" }}>
 
       <WinOverlay
         showWinOverlay={showWinOverlay} overlayVisible={overlayVisible}
@@ -3447,7 +3448,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
         seriesWinner={seriesWinner} phase={phase} gameNumber={gameNumber}
         t={{ fontDisplay: t.fontDisplay, fontMono: t.fontMono, fontBody: t.fontBody }}
         winnerDisplayNameAction={winnerDisplayName}
-        graphicsQuality={graphicsQuality}
+        graphicsQuality={gameplayGraphicsQuality}
         onDismissAction={dismissOverlay}
       />
 
@@ -3543,29 +3544,29 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
         </div>
         {/* Column labels + board — special boards render their own labels */}
         {isGlacierBoard ? (
-          <GlacierGrid board={liveSkinBoard!} onCellClickAction={handleCellClick} winCells={isLowGraphics ? [] : winLine} isPaused={isBoardPaused} />
+          <GlacierGridCompat board={liveSkinBoard!} onCellClickAction={handleCellClick} winCells={winLine} isPaused={isBoardPaused} graphicsQuality={gameplayGraphicsQuality} />
         ) : isBloodMoonBoard ? (
-          <BloodMoonGrid board={liveSkinBoard!} onCellClickAction={handleCellClick} winCells={isLowGraphics ? [] : winLine} graphicsQuality={graphicsQuality} isPaused={isBoardPaused} />
+          <BloodMoonGrid board={liveSkinBoard!} onCellClickAction={handleCellClick} winCells={winLine} graphicsQuality={gameplayGraphicsQuality} isPaused={isBoardPaused} />
         ) : isEgyptBoard ? (
-          <EgyptGrid board={liveSkinBoard!} onCellClickAction={handleCellClick} winCells={isLowGraphics ? [] : winLine} graphicsQuality={graphicsQuality} isPaused={isBoardPaused} />
+          <EgyptGrid board={liveSkinBoard!} onCellClickAction={handleCellClick} winCells={winLine} graphicsQuality={gameplayGraphicsQuality} isPaused={isBoardPaused} />
         ) : isSynthwaveBoard ? (
-          <SynthwaveGrid board={liveSkinBoard!} onCellClickAction={handleCellClick} winCells={isLowGraphics ? [] : winLine} graphicsQuality={graphicsQuality} isPaused={isBoardPaused} />
+          <SynthwaveGrid board={liveSkinBoard!} onCellClickAction={handleCellClick} winCells={winLine} graphicsQuality={gameplayGraphicsQuality} isPaused={isBoardPaused} />
         ) : isMatrixBoard ? (
-          <MatrixGrid board={liveSkinBoard!} onCellClickAction={handleCellClick} winCells={isLowGraphics ? [] : winLine} graphicsQuality={graphicsQuality} isPaused={isBoardPaused} />
+          <MatrixGrid board={liveSkinBoard!} onCellClickAction={handleCellClick} winCells={winLine} graphicsQuality={gameplayGraphicsQuality} isPaused={isBoardPaused} />
         ) : isArcaneBoard ? (
-          <ArcaneGrid board={liveSkinBoard!} onCellClickAction={handleCellClick} winCells={isLowGraphics ? [] : winLine} isPaused={isBoardPaused} />
+          <ArcaneGridCompat board={liveSkinBoard!} onCellClickAction={handleCellClick} winCells={winLine} isPaused={isBoardPaused} graphicsQuality={gameplayGraphicsQuality} />
         ) : isBioBoard ? (
-          <BioGrid board={liveSkinBoard!} onCellClickAction={handleCellClick} winCells={isLowGraphics ? [] : winLine} graphicsQuality={graphicsQuality} isPaused={isBoardPaused} />
+          <BioGrid board={liveSkinBoard!} onCellClickAction={handleCellClick} winCells={winLine} graphicsQuality={gameplayGraphicsQuality} isPaused={isBoardPaused} />
         ) : isForgeBoard ? (
-          <ForgeGrid board={liveSkinBoard!} onCellClickAction={handleCellClick} winCells={isLowGraphics ? [] : winLine} isPaused={isBoardPaused} />
+          <ForgeGridCompat board={liveSkinBoard!} onCellClickAction={handleCellClick} winCells={winLine} isPaused={isBoardPaused} graphicsQuality={gameplayGraphicsQuality} />
         ) : isVoidBoard ? (
-          <VoidGrid board={liveSkinBoard!} onCellClickAction={handleCellClick} winCells={isLowGraphics ? [] : winLine} isPaused={isBoardPaused} />
+          <VoidGridCompat board={liveSkinBoard!} onCellClickAction={handleCellClick} winCells={winLine} isPaused={isBoardPaused} graphicsQuality={gameplayGraphicsQuality} />
         ) : isTokyoBoard ? (
-          <TokyoGrid board={liveSkinBoard!} onCellClickAction={handleCellClick} winCells={isLowGraphics ? [] : winLine} isPaused={isBoardPaused} />
+          <TokyoGridCompat board={liveSkinBoard!} onCellClickAction={handleCellClick} winCells={winLine} isPaused={isBoardPaused} graphicsQuality={gameplayGraphicsQuality} />
         ) : isSpaceBoard ? (
-          <SpaceGrid board={liveSkinBoard!} onCellClickAction={handleCellClick} winCells={isLowGraphics ? [] : winLine} isPaused={isBoardPaused} />
+          <SpaceGrid board={liveSkinBoard!} onCellClickAction={handleCellClick} winCells={winLine} isPaused={isBoardPaused} graphicsQuality={gameplayGraphicsQuality} />
         ) : isPixelBoard ? (
-          <PixelGrid board={liveSkinBoard!} onCellClickAction={handleCellClick} winCells={isLowGraphics ? [] : winLine} isPaused={isBoardPaused} />
+          <PixelGrid board={liveSkinBoard!} onCellClickAction={handleCellClick} winCells={winLine} isPaused={isBoardPaused} graphicsQuality={gameplayGraphicsQuality} />
         ) : (
           <>
             <div style={{ display: "flex", gap: `${boardGap}px`, marginLeft: 34 }}>

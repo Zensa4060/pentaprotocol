@@ -297,7 +297,7 @@ function TokyoCell({ CS, value, onClick, isWinCell, isP1, isP2 }: { CS: number; 
 }
 const MemoizedTokyoCell = React.memo(TokyoCell);
 
-export default React.memo(function TokyoGrid({ board, onCellClickAction, winCells = [], showLabels = true, cellSize, isPaused = false }: { board?: (string | null)[][]; onCellClickAction?: (r: number, c: number) => void; winCells?: [number, number][]; showLabels?: boolean; cellSize?: number; isPaused?: boolean }) {
+export default React.memo(function TokyoGrid({ board, onCellClickAction, winCells = [], showLabels = true, cellSize, isPaused = false, graphicsQuality = "quality" }: { board?: (string | null)[][]; onCellClickAction?: (r: number, c: number) => void; winCells?: [number, number][]; showLabels?: boolean; cellSize?: number; isPaused?: boolean; graphicsQuality?: "performance" | "quality" }) {
   const active = board ?? Array(DEFAULT_SIZE).fill(null).map(() => Array(DEFAULT_SIZE).fill(null));
   const SIZE = active.length;
   const COLS = GET_COLS(SIZE);
@@ -308,11 +308,14 @@ export default React.memo(function TokyoGrid({ board, onCellClickAction, winCell
   const [last, setLast] = useState<string | null>(null);
   const winSet = new Set(winCells.map(([r, c]) => `${r}-${c}`));
   const burstRef = useRef<((x: number, y: number, isP1: boolean) => void) | null>(null);
+  const lowFx = graphicsQuality === "performance";
 
   const click = (r: number, c: number) => {
     if (active[r][c]) return;
-    burstRef.current?.(PAD + c * CS + CS / 2, PAD + r * CS + CS / 2, true);
-    setLast(`${r}-${c}`); setTimeout(() => setLast(null), 700);
+    if (!lowFx) {
+      burstRef.current?.(PAD + c * CS + CS / 2, PAD + r * CS + CS / 2, true);
+      setLast(`${r}-${c}`); setTimeout(() => setLast(null), 700);
+    }
     onCellClickAction?.(r, c);
   };
 
@@ -324,9 +327,13 @@ export default React.memo(function TokyoGrid({ board, onCellClickAction, winCell
       <div style={{ display: "flex", alignItems: "flex-start" }}>
         {showLabels && <div style={{ display: "flex", flexDirection: "column", paddingTop: PAD }}>{ROWS.map((r) => <div key={r} style={{ height: CS, display: "flex", alignItems: "center", justifyContent: "flex-end", paddingRight: 8, minWidth: 24, ...lbl }}>{r}</div>)}</div>}
         <div style={{ position: "relative", width: BS, height: BS, borderRadius: 10, overflow: "hidden", border: "2px solid rgba(255,0,100,.7)", willChange: "transform", contain: "layout size style" }}>
-          <TokyoBg W={BS} H={BS} gridSize={SIZE} isPaused={isPaused} />
-          <GridLines W={BS} H={BS} PAD={PAD} CS={CS} SIZE={SIZE} isPaused={isPaused} />
-          <BurstCanvas burstRef={burstRef} W={BS} H={BS} gridSize={SIZE} />
+          {lowFx ? (
+            <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, rgba(20,2,12,0.98), rgba(8,2,10,0.98))" }} />
+          ) : (
+            <TokyoBg W={BS} H={BS} gridSize={SIZE} isPaused={isPaused} />
+          )}
+          {!lowFx && <GridLines W={BS} H={BS} PAD={PAD} CS={CS} SIZE={SIZE} isPaused={isPaused} />}
+          {!lowFx && <BurstCanvas burstRef={burstRef} W={BS} H={BS} gridSize={SIZE} />}
           <div style={{ position: "absolute", inset: PAD, zIndex: 4, display: "flex", flexDirection: "column" }}>
             {active.map((row, r) => (
               <div key={r} style={{ display: "flex", flex: 1 }}>

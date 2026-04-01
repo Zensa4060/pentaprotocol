@@ -149,7 +149,7 @@ export default function HomeScreen({ setScreenAction, themeId, onHoverAction, on
   return (
     <div style={{
       position: "fixed", inset: 0, zIndex: 2, overflowY: "auto",
-      background: themeId === "pixel" ? "url(/bg-pixel.png) center/cover no-repeat" : t.bg,
+      background: t.bg,
       display: "flex", flexDirection: "column",
       alignItems: "center", justifyContent: "center",
       padding: outerPadding, gap: outerGap,

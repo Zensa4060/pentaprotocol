@@ -305,7 +305,7 @@ function BundleAnimatedPreview({ bundle, tick }: { bundle: Bundle; tick: number 
   if (bundle.previewKind === "space") {
     return (
       <div style={{ width: "100%", height: 360, background: "linear-gradient(135deg,rgba(2,4,16,0.99),rgba(13,27,59,0.98))", borderRadius: 12, border: "2px solid rgba(0,200,255,0.30)", boxShadow: "0 0 56px rgba(0,200,255,0.14), inset 0 0 44px rgba(0,0,0,0.74)", position: "relative", overflow: "hidden" }}>
-        <div style={{ position: "absolute", left: "50%", top: "50%", transform: "translate(-50%,-50%)" }}><InteractivePreview Grid={SpaceGrid} gridProps={{ showLabels: false }} /></div>
+        <div style={{ position: "absolute", left: "50%", top: "50%", transform: "translate(-50%,-50%)" }}><InteractivePreview Grid={SpaceGrid} gridProps={{ showLabels: false, graphicsQuality: "quality", showShowcaseFx: true }} /></div>
         <div style={{ position: "absolute", top: 8, left: 12, fontFamily: "monospace", fontSize: 9, color: "rgba(150,220,255,0.70)", letterSpacing: "0.18em", zIndex: 10, pointerEvents: "none" }}>{bundle.boardLabel.toUpperCase()}</div>
         <div style={{ position: "absolute", bottom: 8, right: 12, fontFamily: "monospace", fontSize: 9, color: "rgba(255,200,120,0.55)", letterSpacing: "0.1em", zIndex: 10, pointerEvents: "none" }}>LIVE PREVIEW</div>
       </div>
@@ -314,7 +314,7 @@ function BundleAnimatedPreview({ bundle, tick }: { bundle: Bundle; tick: number 
   if (bundle.previewKind === "pixel") {
     return (
       <div style={{ width: "100%", height: 360, background: "linear-gradient(135deg,rgba(10,10,24,0.99),rgba(15,52,96,0.94))", borderRadius: 12, border: "2px solid rgba(255,221,0,0.32)", boxShadow: "0 0 56px rgba(255,180,0,0.12), inset 0 0 44px rgba(0,0,0,0.78)", position: "relative", overflow: "hidden" }}>
-        <div style={{ position: "absolute", left: "50%", top: "50%", transform: "translate(-50%,-50%) scale(1.0)" }}><InteractivePreview Grid={PixelGrid} gridProps={{ showLabels: false }} /></div>
+        <div style={{ position: "absolute", left: "50%", top: "50%", transform: "translate(-50%,-50%) scale(1.0)" }}><InteractivePreview Grid={PixelGrid} gridProps={{ showLabels: false, graphicsQuality: "quality", showShowcaseFx: true }} /></div>
         <div style={{ position: "absolute", top: 8, left: 12, fontFamily: "monospace", fontSize: 9, color: "rgba(255,221,0,0.75)", letterSpacing: "0.18em", zIndex: 10, pointerEvents: "none" }}>{bundle.boardLabel.toUpperCase()}</div>
         <div style={{ position: "absolute", bottom: 8, right: 12, fontFamily: "monospace", fontSize: 9, color: "rgba(255,120,0,0.55)", letterSpacing: "0.1em", zIndex: 10, pointerEvents: "none" }}>LIVE PREVIEW</div>
       </div>
@@ -482,7 +482,7 @@ function ThemePreviewModal({ item, t, onClose, audio }: { item: any; t: any; onC
           <div style={{ fontFamily: t.fontBody, fontSize: 13, color: `${ac}cc`, fontStyle: "italic", marginBottom: 14 }}>{item.tagline}</div>
           <div style={{ width: "100%", borderRadius: 12, border: `2px solid ${ac}55`, boxShadow: `0 0 40px ${ac}25`, padding: 8, position: "relative", overflow: "hidden", background: "rgba(0,0,0,0.45)" }}>
             <div style={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: 320 }}>
-              {item.id === "space" ? <InteractivePreview Grid={SpaceGrid} gridProps={{ showLabels: false }} /> : <InteractivePreview Grid={PixelGrid} gridProps={{ showLabels: false }} />}
+              {item.id === "space" ? <InteractivePreview Grid={SpaceGrid} gridProps={{ showLabels: false, graphicsQuality: "quality", showShowcaseFx: true }} /> : <InteractivePreview Grid={PixelGrid} gridProps={{ showLabels: false, graphicsQuality: "quality", showShowcaseFx: true }} />}
             </div>
             <div style={{ position: "absolute", top: 8, left: 12, fontFamily: "monospace", fontSize: 9, color: `${ac}cc`, letterSpacing: "0.18em", zIndex: 10, pointerEvents: "none" }}>{String(item.boardLabel || "").toUpperCase()}</div>
             <div style={{ position: "absolute", bottom: 8, right: 12, fontFamily: "monospace", fontSize: 9, color: `${ac}aa`, letterSpacing: "0.1em", zIndex: 10, pointerEvents: "none" }}>INTERACTIVE PREVIEW</div>
@@ -557,8 +557,8 @@ function BundleCard({ bundle, purchasedItems, t, onClick }: { bundle: Bundle; pu
         : bundle.previewKind === "bio" ? (<div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}><div style={{ opacity: 0.98 }}><BioGrid showLabels={false} /></div></div>)
         : bundle.previewKind === "forge" ? (<div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}><div style={{ opacity: 0.98 }}><ForgeGrid showLabels={false} /></div></div>)
         : bundle.previewKind === "void" ? (<div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}><div style={{ opacity: 0.98 }}><VoidGrid showLabels={false} /></div></div>)
-        : bundle.previewKind === "space" ? (<div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}><div style={{ opacity: 0.98 }}><SpaceGrid showLabels={false} /></div></div>)
-        : bundle.previewKind === "pixel" ? (<div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}><div style={{ opacity: 0.98 }}><PixelGrid showLabels={false} /></div></div>)
+        : bundle.previewKind === "space" ? (<div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}><div style={{ opacity: 0.98 }}><SpaceGrid showLabels={false} graphicsQuality="quality" showShowcaseFx /></div></div>)
+        : bundle.previewKind === "pixel" ? (<div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}><div style={{ opacity: 0.98 }}><PixelGrid showLabels={false} graphicsQuality="quality" showShowcaseFx /></div></div>)
         : bundle.previewKind === "tokyo" ? (<div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}><div style={{ opacity: 0.98 }}><TokyoGrid showLabels={false} /></div></div>)
         : (
           <div style={{ display: "grid", gridTemplateColumns: "repeat(5,1fr)", gridTemplateRows: "repeat(5,1fr)", gap: 2, padding: 6, height: "100%", position: "relative", zIndex: 2 }}>
@@ -716,7 +716,7 @@ export default function StoreScreen({ setScreenAction, themeId, audio }: Props) 
   const activeBundleData = openBundle ? BUNDLES.find(b => b.id === openBundle) : null;
   const activeThemePreview = openThemePreview ? STORE_THEMES.find(ti => ti.id === openThemePreview) : null;
   return (
-    <div style={{ ...cssVars, minHeight: "100vh", background: themeId === "pixel" ? "url(/bg-pixel.png) center/cover no-repeat" : themeId === "space" ? "transparent" : t.bg, transition: "background 0.4s", paddingTop: 84, overflowY: "auto", position: "relative", zIndex: 2 }}>
+    <div style={{ ...cssVars, minHeight: "100vh", background: themeId === "space" ? "transparent" : t.bg, transition: "background 0.4s", paddingTop: 84, overflowY: "auto", position: "relative", zIndex: 2 }}>
       <style>{`
         .store-card { transition: transform 0.22s cubic-bezier(.22,.68,0,1.2), box-shadow 0.22s ease, border-color 0.18s ease; cursor: pointer; }
         .store-card:hover { transform: translateY(-4px) scale(1.02); }

@@ -122,7 +122,7 @@ export default function RulesScreen({ themeId, onHoverAction, onClickAction }: P
   const toggle = (id: string) => setOpenId(prev => prev === id ? null : id);
 
   return (
-    <div style={{ minHeight:"100vh", padding:"84px 24px 64px", background: themeId === "pixel" ? "url(/bg-pixel.png) center/cover no-repeat" : "transparent", transition:"background 0.4s", display:"flex", flexDirection:"column", alignItems:"center", position: "relative", zIndex: 2 }}>
+    <div style={{ minHeight:"100vh", padding:"84px 24px 64px", background: t.bg, transition:"background 0.4s", display:"flex", flexDirection:"column", alignItems:"center", position: "relative", zIndex: 2 }}>
 
       <div style={{ maxWidth:820, width:"100%" }}>
 

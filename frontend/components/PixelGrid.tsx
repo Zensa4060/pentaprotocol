@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { boardSkinCanvasDpr } from "@/lib/boardSkinCanvasDpr";
 
 const DEFAULT_SIZE = 5;
@@ -338,11 +338,13 @@ function BurstCanvas({
   return <canvas ref={ref} style={{ position: "absolute", inset: 0, zIndex: 5, pointerEvents: "none", imageRendering: "pixelated" }} />;
 }
 
-function PixelCoin({ size, win, ak }: { size: number; win: boolean; ak: string }) {
+function PixelCoin({ size, win, ak, lowFx }: { size: number; win: boolean; ak: string; lowFx: boolean }) {
   const s = size * 0.62;
-  const glow = win
-    ? "drop-shadow(0 0 8px #ffdd00) drop-shadow(0 0 20px #ffaa00) drop-shadow(0 0 40px rgba(255,200,0,.6))"
-    : "drop-shadow(0 0 5px #ffdd00) drop-shadow(0 0 14px rgba(255,180,0,.7))";
+  const glow = lowFx
+    ? (win ? "drop-shadow(0 0 5px rgba(255,200,0,.45))" : "drop-shadow(0 0 3px rgba(255,180,0,.35))")
+    : win
+      ? "drop-shadow(0 0 8px #ffdd00) drop-shadow(0 0 20px #ffaa00) drop-shadow(0 0 40px rgba(255,200,0,.6))"
+      : "drop-shadow(0 0 5px #ffdd00) drop-shadow(0 0 14px rgba(255,180,0,.7))";
   const coinMap = [
     [0, 0, 1, 1, 1, 1, 0, 0],
     [0, 1, 1, 1, 1, 1, 1, 0],
@@ -377,11 +379,13 @@ function PixelCoin({ size, win, ak }: { size: number; win: boolean; ak: string }
   );
 }
 
-function PixelHeart({ size, win, ak }: { size: number; win: boolean; ak: string }) {
+function PixelHeart({ size, win, ak, lowFx }: { size: number; win: boolean; ak: string; lowFx: boolean }) {
   const s = size * 0.62;
-  const glow = win
-    ? "drop-shadow(0 0 8px #ff4455) drop-shadow(0 0 20px #ff0022) drop-shadow(0 0 40px rgba(255,0,40,.6))"
-    : "drop-shadow(0 0 5px #ff4455) drop-shadow(0 0 14px rgba(255,0,40,.7))";
+  const glow = lowFx
+    ? (win ? "drop-shadow(0 0 5px rgba(255,80,100,.45))" : "drop-shadow(0 0 3px rgba(255,0,40,.35))")
+    : win
+      ? "drop-shadow(0 0 8px #ff4455) drop-shadow(0 0 20px #ff0022) drop-shadow(0 0 40px rgba(255,0,40,.6))"
+      : "drop-shadow(0 0 5px #ff4455) drop-shadow(0 0 14px rgba(255,0,40,.7))";
   const hRows = [
     [0, 1, 1, 0, 0, 1, 1, 0],
     [1, 1, 1, 1, 1, 1, 1, 1],
@@ -418,7 +422,7 @@ function PixelHeart({ size, win, ak }: { size: number; win: boolean; ak: string 
   );
 }
 
-function PixelCell({ CS, value, onClick, isWinCell, justPlaced, lastTurn, isP1, isP2 }: { CS: number; value: "X" | "O" | null; onClick: () => void; isWinCell: boolean; justPlaced: boolean; lastTurn: "X" | "O"; isP1: boolean; isP2: boolean }) {
+function PixelCell({ CS, value, row, col, onCellClickAction, isWinCell, justPlaced, lastTurn, isP1, isP2, lowFx }: { CS: number; value: "X" | "O" | null; row: number; col: number; onCellClickAction: (r: number, c: number) => void; isWinCell: boolean; justPlaced: boolean; lastTurn: "X" | "O"; isP1: boolean; isP2: boolean; lowFx: boolean }) {
   const [hov, setHov] = useState(false);
   const hovBg = "repeating-conic-gradient(rgba(255,220,0,.08) 0% 25%, transparent 0% 50%) 0 0 / 8px 8px";
   const winC = isP1 ? "rgba(255,220,0,.4)" : "rgba(255,100,120,.4)";
@@ -427,7 +431,7 @@ function PixelCell({ CS, value, onClick, isWinCell, justPlaced, lastTurn, isP1, 
     <div
       onMouseEnter={() => setHov(true)}
       onMouseLeave={() => setHov(false)}
-      onClick={onClick}
+      onClick={() => onCellClickAction(row, col)}
       style={{
         width: CS,
         height: CS,
@@ -461,15 +465,15 @@ function PixelCell({ CS, value, onClick, isWinCell, justPlaced, lastTurn, isP1, 
           }}
         />
       )}
-      {isP1 && <PixelCoin size={CS} win={isWinCell} ak={`${value}${CS}`} />}
-      {isP2 && <PixelHeart size={CS} win={isWinCell} ak={`${value}${CS}`} />}
+      {isP1 && <PixelCoin size={CS} win={isWinCell} ak={`${value}${CS}`} lowFx={lowFx} />}
+      {isP2 && <PixelHeart size={CS} win={isWinCell} ak={`${value}${CS}`} lowFx={lowFx} />}
       <style>{`@keyframes pfF{0%{opacity:1}33%{opacity:.7}66%{opacity:.4}100%{opacity:0}}`}</style>
     </div>
   );
 }
 const MemoizedPixelCell = React.memo(PixelCell);
 
-export default React.memo(function PixelGrid({ board, onCellClickAction, winCells = [], showLabels = true, isPaused = false }: { board?: (string | null)[][]; onCellClickAction?: (r: number, c: number) => void; winCells?: [number, number][]; showLabels?: boolean; isPaused?: boolean }) {
+export default React.memo(function PixelGrid({ board, onCellClickAction, winCells = [], showLabels = true, isPaused = false, graphicsQuality = "quality", showShowcaseFx = false }: { board?: (string | null)[][]; onCellClickAction?: (r: number, c: number) => void; winCells?: [number, number][]; showLabels?: boolean; isPaused?: boolean; graphicsQuality?: "performance" | "quality"; showShowcaseFx?: boolean }) {
   const active = board ?? Array(DEFAULT_SIZE).fill(null).map(() => Array(DEFAULT_SIZE).fill(null));
   const SIZE = active.length;
   const COLS = GET_COLS(SIZE);
@@ -481,12 +485,12 @@ export default React.memo(function PixelGrid({ board, onCellClickAction, winCell
   const [demo, setDemo] = useState<(("X" | "O") | null)[][]>(() => Array(SIZE).fill(null).map(() => Array(SIZE).fill(null)));
   const [turn, setTurn] = useState<"X" | "O">("X");
   const [last, setLast] = useState<string | null>(null);
-  const winSet = new Set(winCells.map(([r, c]) => `${r}-${c}`));
+  const winSet = useMemo(() => new Set(winCells.map(([r, c]) => `${r}-${c}`)), [winCells]);
   const burstRef = useRef<((x: number, y: number, isP1: boolean) => void) | null>(null);
+  const lowFx = graphicsQuality === "performance";
 
-  const click = (r: number, c: number) => {
+  const click = useCallback((r: number, c: number) => {
     if (active[r][c]) return;
-    burstRef.current?.(PAD + c * CS + CS / 2, PAD + r * CS + CS / 2, turn === "X");
     setLast(`${r}-${c}`);
     setTimeout(() => setLast(null), 600);
     if (onCellClickAction) {
@@ -497,7 +501,7 @@ export default React.memo(function PixelGrid({ board, onCellClickAction, winCell
     n[r][c] = turn;
     setDemo(n);
     setTurn((t2) => (t2 === "X" ? "O" : "X"));
-  };
+  }, [active, demo, onCellClickAction, turn]);
 
   const fs = (n: number) => Math.max(9, Math.round((CS * n) / 4) * 4);
   const lbl = {
@@ -542,22 +546,22 @@ export default React.memo(function PixelGrid({ board, onCellClickAction, winCell
             outline: frameBorder,
             outlineOffset: "3px",
             border: frameBorder,
-            boxShadow: "0 0 0 6px #220000, 0 0 0 9px #ff5500, 0 0 0 12px #330000, 6px 6px 0 12px rgba(0,0,0,.5), inset 0 0 0 3px #440000",
+            background: "linear-gradient(180deg, #140700, #0b0300)",
+            boxShadow: "0 0 0 4px #220000, 0 0 0 7px #ff5500, inset 0 0 0 2px #440000",
             imageRendering: "pixelated",
             contain: "layout size style",
-            willChange: "transform",
           }}
         >
-          <PixelBg W={BS} H={BS} gridSize={SIZE} isPaused={isPaused} />
-          <GridLines W={BS} H={BS} PAD={PAD} CS={CS} SIZE={SIZE} isPaused={isPaused} />
-          <BurstCanvas burstRef={burstRef} W={BS} H={BS} gridSize={SIZE} />
+          {showShowcaseFx && graphicsQuality === "quality" && <PixelBg W={BS} H={BS} gridSize={SIZE} isPaused={isPaused} />}
+          {showShowcaseFx && graphicsQuality === "quality" && <GridLines W={BS} H={BS} PAD={PAD} CS={CS} SIZE={SIZE} isPaused={isPaused} />}
+          {showShowcaseFx && graphicsQuality === "quality" && <BurstCanvas burstRef={burstRef} W={BS} H={BS} gridSize={SIZE} />}
           <div style={{ position: "absolute", inset: PAD, zIndex: 4, display: "flex", flexDirection: "column" }}>
             {ROWS.map((_, r) => (
               <div key={r} style={{ display: "flex", flex: 1 }}>
                 {COLS.map((_, c) => {
                   const val = active[r][c] as "X" | "O" | null;
                   return (
-                    <MemoizedPixelCell key={`${r}-${c}`} CS={CS} value={val} onClick={() => click(r, c)} isWinCell={winSet.has(`${r}-${c}`)} justPlaced={last === `${r}-${c}`} lastTurn={turn} isP1={val === "X"} isP2={val === "O"} />
+                    <MemoizedPixelCell key={`${r}-${c}`} CS={CS} value={val} row={r} col={c} onCellClickAction={click} isWinCell={winSet.has(`${r}-${c}`)} justPlaced={!lowFx && last === `${r}-${c}`} lastTurn={turn} isP1={val === "X"} isP2={val === "O"} lowFx={lowFx} />
                   );
                 })}
               </div>
