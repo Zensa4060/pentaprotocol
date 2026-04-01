@@ -52,13 +52,15 @@ const CareerMatchRow = React.memo(({
   i, 
   activeTab, 
   t, 
-  setSelectedMatch 
+  setSelectedMatch,
+  isMobile,
 }: { 
   match: MatchRecord; 
   i: number; 
   activeTab: string; 
   t: any;
   setSelectedMatch: (m: MatchRecord | null) => void;
+  isMobile: boolean;
 }) => {
   const oppRank = getRank(match.opponent_elo);
   const isWin = match.result === "win";
@@ -91,6 +93,156 @@ const CareerMatchRow = React.memo(({
     if (mode === "custom") return "Custom";
     return "Unranked";
   };
+
+  if (isMobile) {
+    return (
+      <div
+        className="career-row career-row-animated"
+        onClick={() => {
+          if (hasRounds) setSelectedMatch(match);
+        }}
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          gap: 12,
+          padding: "16px",
+          background: "transparent",
+          animationDelay: rowDelay,
+          cursor: hasRounds ? "pointer" : "default",
+          borderBottom: `1px solid ${t.border}22`,
+        }}
+      >
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
+          <div
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: "4px 10px",
+              borderRadius: 6,
+              background: `${resultColor}15`,
+              border: `1px solid ${resultColor}33`,
+              fontFamily: t.fontMono,
+              fontSize: 10,
+              fontWeight: 900,
+              color: resultColor,
+              letterSpacing: "0.08em",
+              boxShadow: `0 0 15px ${resultColor}22`,
+              flexShrink: 0,
+            }}
+          >
+            {resultLabel}
+          </div>
+          <div
+            style={{
+              fontFamily: t.fontMono,
+              fontSize: 10,
+              color: t.textMuted,
+              textAlign: "right",
+              letterSpacing: "0.05em",
+              fontWeight: 500,
+            }}
+          >
+            {formatDate(match.played_at).toUpperCase()}
+          </div>
+        </div>
+
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <div
+            style={{
+              width: 34,
+              height: 34,
+              borderRadius: "50%",
+              background: "rgba(255,255,255,0.03)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              border: `1px solid ${oppRank.color}33`,
+              boxShadow: `0 0 10px ${oppRank.color}11`,
+              flexShrink: 0,
+            }}
+          >
+            <RankBadge elo={match.opponent_elo} size={22} />
+          </div>
+          <div style={{ minWidth: 0 }}>
+            <div
+              style={{
+                fontFamily: t.fontDisplay,
+                fontSize: 15,
+                fontWeight: 800,
+                color: t.text,
+                letterSpacing: "0.03em",
+                wordBreak: "break-word",
+              }}
+            >
+              {match.opponent_username}
+            </div>
+            <div
+              style={{
+                fontFamily: t.fontMono,
+                fontSize: 9,
+                color: oppRank.color,
+                letterSpacing: "0.08em",
+                fontWeight: 700,
+                opacity: 0.9,
+              }}
+            >
+              {oppRank.name.toUpperCase()} · {match.opponent_elo}
+            </div>
+          </div>
+        </div>
+
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
+          <div>
+            <div
+              style={{
+                fontFamily: t.fontMono,
+                fontSize: 11,
+                color: t.textMuted,
+                letterSpacing: "0.08em",
+                fontWeight: 600,
+                opacity: 0.8,
+              }}
+            >
+              {match.board_mode_full === "5x5_6x6_7x7"
+                ? "RANKED TRIPLE"
+                : modeLabel(match.mode).toUpperCase()}
+            </div>
+            {match.limitbreaker_played || match.protocolbreaker_played ? (
+              <div
+                style={{
+                  fontFamily: t.fontMono,
+                  fontSize: 9,
+                  color: "#a78bfa",
+                  letterSpacing: "0.06em",
+                  fontWeight: 700,
+                  marginTop: 6,
+                }}
+              >
+                LIMITBREAKER
+              </div>
+            ) : null}
+          </div>
+          {activeTab === "ranked" && (
+            <div style={{ textAlign: "right", flexShrink: 0 }}>
+              <span
+                style={{
+                  fontFamily: t.fontMono,
+                  fontSize: 15,
+                  fontWeight: 900,
+                  color: deltaColor,
+                  textShadow: `0 0 12px ${deltaColor}77`,
+                }}
+              >
+                {match.elo_delta > 0 ? "+" : ""}
+                {match.elo_delta}
+              </span>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -266,6 +418,14 @@ export default function CareerScreen({ themeId, onHoverAction }: Props) {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<"ranked" | "unranked" | "custom">("ranked");
   const [selectedMatch, setSelectedMatch] = useState<MatchRecord | null>(null);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -372,7 +532,7 @@ export default function CareerScreen({ themeId, onHoverAction }: Props) {
         .round-card.active { border-color: ${t.accent}; background: ${t.accent}15; }
       `}</style>
 
-      <div style={{ maxWidth: 860, margin: "0 auto", padding: "84px 24px 80px" }}>
+      <div style={{ maxWidth: 860, margin: "0 auto", padding: isMobile ? "76px 12px 72px" : "84px 24px 80px" }}>
         {user && (
           <>
             {/* ── TOP: Rank hero section ───────────────────────────────────────── */}
@@ -717,27 +877,29 @@ export default function CareerScreen({ themeId, onHoverAction }: Props) {
               }}
             >
               {/* Header */}
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns:
-                    activeTab === "ranked" ? "100px 1fr 140px 100px 100px" : "100px 1fr 140px 100px",
-                  padding: "16px 24px",
-                  background: "rgba(255,255,255,0.03)",
-                  borderBottom: `1px solid ${t.border}`,
-                  fontFamily: t.fontMono,
-                  fontSize: 10,
-                  letterSpacing: "0.2em",
-                  color: t.textMuted,
-                  fontWeight: 800,
-                }}
-              >
-                <span>RESULT</span>
-                <span>OPPONENT</span>
-                <span>TYPE</span>
-                {activeTab === "ranked" && <span style={{ textAlign: "center" }}>ELO Δ</span>}
-                <span style={{ textAlign: "right" }}>DATE</span>
-              </div>
+              {!isMobile && (
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns:
+                      activeTab === "ranked" ? "100px 1fr 140px 100px 100px" : "100px 1fr 140px 100px",
+                    padding: "16px 24px",
+                    background: "rgba(255,255,255,0.03)",
+                    borderBottom: `1px solid ${t.border}`,
+                    fontFamily: t.fontMono,
+                    fontSize: 10,
+                    letterSpacing: "0.2em",
+                    color: t.textMuted,
+                    fontWeight: 800,
+                  }}
+                >
+                  <span>RESULT</span>
+                  <span>OPPONENT</span>
+                  <span>TYPE</span>
+                  {activeTab === "ranked" && <span style={{ textAlign: "center" }}>ELO Δ</span>}
+                  <span style={{ textAlign: "right" }}>DATE</span>
+                </div>
+              )}
 
               {/* Loading state */}
               {loading && (
@@ -838,6 +1000,7 @@ export default function CareerScreen({ themeId, onHoverAction }: Props) {
                       activeTab={activeTab}
                       t={t}
                       setSelectedMatch={setSelectedMatch}
+                      isMobile={isMobile}
                     />
                   ))}
             </div>
@@ -865,6 +1028,7 @@ export default function CareerScreen({ themeId, onHoverAction }: Props) {
         <MatchOverlay
           match={selectedMatch}
           themeId={themeId}
+          isMobile={isMobile}
           onClose={() => setSelectedMatch(null)}
         />
       )}
@@ -876,10 +1040,12 @@ export default function CareerScreen({ themeId, onHoverAction }: Props) {
 function MatchOverlay({
   match,
   themeId,
+  isMobile,
   onClose,
 }: {
   match: MatchRecord;
   themeId: ThemeId;
+  isMobile: boolean;
   onClose: () => void;
 }) {
   const t = THEMES[themeId as keyof typeof THEMES];
@@ -902,14 +1068,16 @@ function MatchOverlay({
     >
       <div
         style={{
-          padding: "24px 32px",
+          padding: isMobile ? "16px" : "24px 32px",
           borderBottom: `1px solid ${t.border}44`,
           display: "flex",
           justifyContent: "space-between",
-          alignItems: "center",
+          alignItems: isMobile ? "flex-start" : "center",
+          flexWrap: isMobile ? "wrap" as const : "nowrap" as const,
+          gap: isMobile ? 12 : 0,
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
+        <div style={{ display: "flex", alignItems: isMobile ? "flex-start" : "center", gap: isMobile ? 12 : 20, minWidth: 0 }}>
           <button
             onClick={onClose}
             style={{
@@ -938,12 +1106,12 @@ function MatchOverlay({
             >
               MATCH ARCHIVE
             </div>
-            <div style={{ fontFamily: t.fontDisplay, fontSize: 24, fontWeight: 900, color: t.text }}>
+            <div style={{ fontFamily: t.fontDisplay, fontSize: isMobile ? 18 : 24, fontWeight: 900, color: t.text, wordBreak: "break-word" }}>
               VS {match.opponent_username.toUpperCase()}
             </div>
           </div>
         </div>
-        <div style={{ textAlign: "right" }}>
+        <div style={{ textAlign: isMobile ? "left" : "right" }}>
           <div
             style={{
               fontFamily: t.fontMono,
@@ -961,17 +1129,19 @@ function MatchOverlay({
         </div>
       </div>
 
-      <div style={{ flex: 1, display: "flex", overflow: "hidden" }}>
+      <div style={{ flex: 1, display: "flex", flexDirection: isMobile ? "column" : "row", overflow: "hidden" }}>
         {/* Sidebar: Rounds List */}
         <div
           style={{
-            width: 280,
-            borderRight: `1px solid ${t.border}44`,
-            padding: 20,
+            width: isMobile ? "100%" : 280,
+            borderRight: isMobile ? "none" : `1px solid ${t.border}44`,
+            borderBottom: isMobile ? `1px solid ${t.border}44` : "none",
+            padding: isMobile ? 16 : 20,
             overflowY: "auto",
             display: "flex",
             flexDirection: "column",
             gap: 12,
+            flexShrink: 0,
           }}
           className="career-scroll"
         >
@@ -1015,9 +1185,10 @@ function MatchOverlay({
         <div
           style={{
             flex: 1,
-            padding: 40,
+            padding: isMobile ? 16 : 40,
             display: "flex",
-            gap: 40,
+            flexDirection: isMobile ? "column" : "row",
+            gap: isMobile ? 20 : 40,
             overflowY: "auto",
           }}
         >
@@ -1031,7 +1202,7 @@ function MatchOverlay({
                   <div
                     style={{
                       fontFamily: t.fontDisplay,
-                      fontSize: 32,
+                      fontSize: isMobile ? 24 : 32,
                       fontWeight: 900,
                       color: t.text,
                     }}
@@ -1049,7 +1220,7 @@ function MatchOverlay({
                     gridTemplateColumns: `repeat(${currentRound.board.length}, 1fr)`,
                     gap: 4,
                     width: "100%",
-                    maxWidth: 500,
+                    maxWidth: isMobile ? 420 : 500,
                     aspectRatio: "1/1",
                     background: "rgba(255,255,255,0.02)",
                     padding: 10,
@@ -1088,7 +1259,7 @@ function MatchOverlay({
               </div>
 
               {/* Move log */}
-              <div style={{ width: 300, display: "flex", flexDirection: "column" }}>
+              <div style={{ width: isMobile ? "100%" : 300, display: "flex", flexDirection: "column", flexShrink: 0 }}>
                 <div style={{ fontFamily: t.fontMono, fontSize: 11, color: t.textMuted, marginBottom: 16 }}>
                   MOVE LOG
                 </div>

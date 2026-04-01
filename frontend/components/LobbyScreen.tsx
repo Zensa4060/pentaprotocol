@@ -6,7 +6,7 @@ import { THEMES } from "@/lib/themes";
 import { useAuthStore } from "@/lib/store";
 import API from "@/lib/api";
 import { loadCustomTheme } from "@/lib/customTheme";
-import { NavRankBadge, getRank } from "./NavBar";
+import { getRank } from "./NavBar";
 import { BannerRenderer, BANNERS_DATA } from "./BannerRenderer";
 
 const TAUNT_QUOTES = [
@@ -298,40 +298,34 @@ export default function LobbyScreen({
     name: string; elo: number | null; avatar: string | null; banner: string;
     level: number; color: string; direction: "top" | "bottom";
   }) => {
-    const rank = getRank(elo ?? 100);
     const anim = direction === "top" ? "dropInTop" : "dropInBottom";
-    const sideBySideSize = 240;
+    const sideBySideSize = isMobile ? 132 : 240;
 
     return (
       <div style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", position:"relative", overflow:"hidden", animation:`${anim} 620ms cubic-bezier(.2,.9,.2,1) both`, willChange:"transform, opacity", transform:"translateZ(0)" }}>
         <div style={{ position:"absolute", inset:0, opacity:1, zIndex:0 }}>
           <BannerRenderer bannerId={banner} hideLabels />
           <div style={{ position:"absolute", inset:0, background:"rgba(0,0,0,0.2)", zIndex:1 }} />
-          <div style={{ position:"absolute", inset:0, background:"linear-gradient(110deg, transparent 36%, rgba(255,255,255,0.22) 45%, rgba(255,255,255,0.35) 50%, rgba(255,255,255,0.22) 55%, transparent 64%)", backgroundSize:"200% 100%", animation:"bannerShine 2.4s linear infinite", zIndex:2, pointerEvents:"none" }} />
         </div>
 
-        <div style={{ position:"relative", zIndex:5, width:"100%", maxWidth:1200, display:"flex", alignItems:"center", justifyContent:"space-between", padding:"0 60px" }}>
-          <div style={{ width:sideBySideSize, height:sideBySideSize, borderRadius:"50%", background:`linear-gradient(135deg, ${color}, ${t.accent})`, border:`8px solid ${color}`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:110, color:"#000", boxShadow:`0 20px 60px rgba(0,0,0,0.8), 0 0 40px ${color}66`, flexShrink:0, overflow:"hidden" }}>
+        <div style={{ position:"relative", zIndex:5, width:"100%", maxWidth:isMobile ? 560 : 1200, display:"flex", flexDirection:isMobile ? "column" : "row", alignItems:"center", justifyContent:"center", gap:isMobile ? 18 : 40, padding:isMobile ? "0 20px" : "0 60px", textAlign:"center" }}>
+          <div style={{ width:sideBySideSize, height:sideBySideSize, borderRadius:"50%", background:`linear-gradient(135deg, ${color}, ${t.accent})`, border:`8px solid ${color}`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:isMobile ? 60 : 110, color:"#000", boxShadow:`0 20px 60px rgba(0,0,0,0.8), 0 0 40px ${color}66`, flexShrink:0, overflow:"hidden" }}>
             {avatar ? <img src={avatar} style={{ width:"100%", height:"100%", objectFit:"cover" }} /> : "👤"}
           </div>
 
-          <div style={{ flex:1, textAlign:"center", display:"flex", flexDirection:"column", gap:15 }}>
-            <div style={{ fontFamily:t.fontDisplay, fontSize:52, fontWeight:950, color:color, textShadow:`0 0 40px ${color}, 0 0 20px rgba(255,255,255,0.4)`, letterSpacing:"0.1em" }}>
+          <div style={{ flex:isMobile ? "0 1 auto" : 1, width:isMobile ? "100%" : "auto", textAlign:"center", display:"flex", flexDirection:"column", gap:isMobile ? 10 : 15, alignItems:"center" }}>
+            <div style={{ fontFamily:t.fontDisplay, fontSize:isMobile ? 28 : 52, fontWeight:950, color:color, textShadow:`0 0 40px ${color}, 0 0 20px rgba(255,255,255,0.4)`, letterSpacing:"0.1em", lineHeight:1.1, wordBreak:"break-word" as const }}>
               {name.toUpperCase()}
             </div>
-            <div style={{ display:"inline-flex", alignSelf:"center", flexDirection:"column", alignItems:"center", padding:"20px 50px", background:"rgba(0,0,0,0.7)", backdropFilter:"blur(25px)", borderRadius:24, border:`2px solid ${color}44`, boxShadow:`0 20px 50px rgba(0,0,0,0.7), inset 0 0 15px ${color}22` }}>
-              <div style={{ fontFamily:t.fontMono, fontSize:14, color:t.textMuted, letterSpacing:"0.3em", marginBottom:6, opacity:0.7 }}>ELO RATING</div>
-              <div style={{ fontFamily:t.fontDisplay, fontSize:82, fontWeight:950, color:t.accent, textShadow:`0 0 25px ${t.accent}AA, 0 0 50px ${t.accent}44`, letterSpacing:"0.05em" }}>
+            <div style={{ display:"inline-flex", alignSelf:"center", flexDirection:"column", alignItems:"center", padding:isMobile ? "14px 24px" : "20px 50px", background:"rgba(0,0,0,0.7)", backdropFilter:"blur(25px)", borderRadius:24, border:`2px solid ${color}44`, boxShadow:`0 20px 50px rgba(0,0,0,0.7), inset 0 0 15px ${color}22`, width:isMobile ? "100%" : "auto", maxWidth:isMobile ? 280 : undefined, boxSizing:"border-box" }}>
+              <div style={{ fontFamily:t.fontMono, fontSize:isMobile ? 11 : 14, color:t.textMuted, letterSpacing:"0.3em", marginBottom:6, opacity:0.7 }}>ELO RATING</div>
+              <div style={{ fontFamily:t.fontDisplay, fontSize:isMobile ? 48 : 82, fontWeight:950, color:t.accent, textShadow:`0 0 25px ${t.accent}AA, 0 0 50px ${t.accent}44`, letterSpacing:"0.05em", lineHeight:1 }}>
                 {elo ?? "---"}
               </div>
             </div>
-            <div style={{ fontFamily:t.fontMono, fontSize:20, color:t.textSecondary, letterSpacing:"0.2em", opacity:0.9, marginTop:10, fontWeight:800 }}>
+            <div style={{ fontFamily:t.fontMono, fontSize:isMobile ? 14 : 20, color:t.textSecondary, letterSpacing:"0.2em", opacity:0.9, marginTop:isMobile ? 2 : 10, fontWeight:800 }}>
               LEVEL {level}
             </div>
-          </div>
-
-          <div style={{ width:sideBySideSize, height:sideBySideSize, display:"flex", alignItems:"center", justifyContent:"center", animation:"rankFloat 3.5s ease-in-out infinite", filter:`drop-shadow(0 0 30px ${color}66)`, flexShrink:0 }}>
-            <NavRankBadge rank={rank as any} size={sideBySideSize} />
           </div>
         </div>
       </div>
@@ -362,8 +356,6 @@ export default function LobbyScreen({
         @keyframes dropInTop    { from{opacity:0;transform:translate3d(0,-36px,0) scale(.985)} to{opacity:1;transform:translate3d(0,0,0) scale(1)} }
         @keyframes dropInBottom { from{opacity:0;transform:translate3d(0,36px,0) scale(.985)}  to{opacity:1;transform:translate3d(0,0,0) scale(1)} }
         @keyframes matchBarShrink { from{width:100%} to{width:0%} }
-        @keyframes bannerShine  { 0%{background-position:-200% 0} 100%{background-position:200% 0} }
-        @keyframes rankFloat    { 0%,100%{transform:translateY(0) rotate(5deg)} 50%{transform:translateY(-30px) rotate(-5deg)} }
         @keyframes vsPop        { from{opacity:0;transform:translateY(12px) scale(.84)} to{opacity:1;transform:translateY(0) scale(1.05)} }
         @keyframes vsPulse      { 0%,100%{text-shadow:0 0 26px ${t.accent}66} 50%{text-shadow:0 0 48px ${t.accent}AA} }
       `}</style>
