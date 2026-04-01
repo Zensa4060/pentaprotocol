@@ -74,7 +74,7 @@ async def get_career(user_id: str = Depends(get_current_user)):
     db = get_db()
     # Support both string and ObjectId for user_id to handle legacy data/migration
     query = {"user_id": {"$in": [user_id, ObjectId(user_id)]}}
-    cursor = db.match_history.find(query).sort("played_at", -1).limit(20)
+    cursor = db.match_history.find(query).sort("played_at", -1).limit(10)
     matches = []
     async for doc in cursor:
         row = {
@@ -87,6 +87,12 @@ async def get_career(user_id: str = Depends(get_current_user)):
             "mode":              doc.get("mode", "unranked"),
             "played_at":         doc.get("played_at", "").isoformat() if doc.get("played_at") else "",
         }
+        if doc.get("my_slot") in ("P1", "P2"):
+            row["my_slot"] = doc["my_slot"]
+        if doc.get("surrendered_by") in ("P1", "P2"):
+            row["surrendered_by"] = doc["surrendered_by"]
+        if doc.get("match_scope"):
+            row["match_scope"] = doc["match_scope"]
         if doc.get("banned_pattern_7x7"):
             bp = doc["banned_pattern_7x7"]
             if bp == "H": bp = "Y"

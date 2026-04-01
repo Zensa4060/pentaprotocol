@@ -676,6 +676,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     rbPatternsPreBan: null as string[] | null,
     rb6TimerOwner: null as "P1" | "P2" | null,
     rb6CellChooser: null as "P1" | "P2" | null,
+    rb6SpecialCell: null as { r: number; c: number; owner: "P1" | "P2" } | null,
   });
   R.current.phase = phase;
   R.current.current = current;
@@ -696,6 +697,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   R.current.rbPatternsPreBan = rbPatternsPreBan;
   R.current.rb6TimerOwner = rb6TimerOwner;
   R.current.rb6CellChooser = rb6CellChooser;
+  R.current.rb6SpecialCell = rb6SpecialCell;
   R.current.summaryTimer = summaryTimer;
   R.current.choiceTimer = choiceTimer;
   R.current.winnerPickedRule = winnerPickedRule;
@@ -1043,6 +1045,12 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
               if (Array.isArray(rbPayload.rb_banned_patterns)) setRbBannedPatterns(rbPayload.rb_banned_patterns as string[]);
               if (rbPayload.rb6TimerOwner === "P1" || rbPayload.rb6TimerOwner === "P2" || rbPayload.rb6TimerOwner === null) setRb6TimerOwner(rbPayload.rb6TimerOwner as "P1" | "P2" | null);
               if (rbPayload.rb6CellChooser === "P1" || rbPayload.rb6CellChooser === "P2" || rbPayload.rb6CellChooser === null) setRb6CellChooser(rbPayload.rb6CellChooser as "P1" | "P2" | null);
+              if (rbPayload.rb6_special_cell && typeof rbPayload.rb6_special_cell === "object") {
+                const sc = rbPayload.rb6_special_cell as { r?: unknown; c?: unknown; owner?: unknown };
+                if (typeof sc.r === "number" && typeof sc.c === "number" && (sc.owner === "P1" || sc.owner === "P2")) {
+                  setRb6SpecialCell({ r: sc.r, c: sc.c, owner: sc.owner });
+                }
+              }
               if (rbPayload.rbHideBannedPatternFromSlot === "P1" || rbPayload.rbHideBannedPatternFromSlot === "P2") setRbHideBannedPatternFromSlot(rbPayload.rbHideBannedPatternFromSlot);
               if (Array.isArray(rbPayload.rbPatternsPreBan)) setRbPatternsPreBan(rbPayload.rbPatternsPreBan as string[]);
               if (restoredPhase === "toss_summary") {
@@ -1442,10 +1450,15 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
           // #region agent log
           fetch('http://127.0.0.1:7852/ingest/44a3777c-2714-4f08-b3ff-de0caf166408',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'6fad40'},body:JSON.stringify({sessionId:'6fad40',runId:'run1',hypothesisId:'H1',location:'frontend/components/GameScreen.tsx:1364',message:'received match_over',data:{phaseBefore:R.current.phase,showRematchBefore:showRematch,hasMatchSeriesComplete:Boolean(matchSeriesComplete)},timestamp:Date.now()})}).catch(()=>{});
           // #endregion
-          if (!showGameWinScreen && !matchSeriesComplete) setShowRematch(true);
+          if (!isMultiplayerGame && !showGameWinScreen && !matchSeriesComplete) setShowRematch(true);
         } else if (msg.type === "rematch_request") {
           setRematchRequested(msg.from);
         } else if (msg.type === "match_disbanded") {
+          void useAuthStore.getState().refreshProfile();
+          if (typeof window !== "undefined") {
+            window.dispatchEvent(new Event("pp:career-refresh"));
+            window.dispatchEvent(new Event("pp:lobby-quote-refresh"));
+          }
           if (setScreenAction) setScreenAction("home");
         } else if (msg.type === "match_start") {
           const sa = asNum(msg.start_at_ms);
@@ -1952,6 +1965,8 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
                     rb_hide_banned_from_slot: R.current.rbHideBannedPatternFromSlot,
                     rb_patterns_pre_ban: R.current.rbPatternsPreBan,
                     rb_banned_patterns: R.current.rbBannedPatterns,
+                    rb6_special_cell: R.current.rb6SpecialCell,
+                    rb6TimerOwner: R.current.rb6TimerOwner,
                   }));
                 }
               }
@@ -1994,12 +2009,34 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     }
     else if (p === "grid_block_selection") {
       if (R.current.rb6CellChooser) {
-        setRb6SpecialCell({ r: 0, c: 0, owner: R.current.rb6CellChooser });
+        const fallbackCell = { r: 2, c: 2, owner: R.current.rb6CellChooser };
+        setRb6SpecialCell(fallbackCell);
         if (R.current.winnerPickedRule === "timer_half") {
+          if (R.current.rb6CellChooser === "P1") {
+            p1TimeRef.current = 120_000;
+            setP1Time(120_000);
+          } else {
+            p2TimeRef.current = 120_000;
+            setP2Time(120_000);
+          }
           setPhase("who_first_loser");
+          if (isMultiplayerGame) {
+            broadcastTossPhase("who_first_loser", {
+              rb6_special_cell: fallbackCell,
+              winnerPickedRule: R.current.winnerPickedRule,
+              rb6TimerOwner: R.current.rb6CellChooser,
+            });
+          }
         } else {
           setSummaryTimer(5);
           setPhase("toss_summary");
+          if (isMultiplayerGame) {
+            broadcastTossPhase("toss_summary", {
+              rb6_special_cell: fallbackCell,
+              rb6TimerOwner: R.current.rb6TimerOwner,
+              summaryTimer: 5,
+            });
+          }
         }
       }
     }
@@ -2431,7 +2468,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     }
     else if (p === "c3_choice") { setRbC3Blocked(true); setWinnerPickedC3(true); setPhase("who_first_loser"); broadcastTossPhase("who_first_loser", { rbC3Blocked: true, winnerPickedC3: true }); }
     else if (p === "c3_choice_loser") { setRbC3Blocked(true); setSummaryTimer(5); setPhase("toss_summary"); broadcastTossPhase("toss_summary", { rbC3Blocked: true, summaryTimer: 5 }); }
-    else if (p === "who_first_loser") { setFirstPlayerChosen(tl); setSummaryTimer(5); setPhase("toss_summary"); broadcastTossPhase("toss_summary", { firstPlayerChosen: tl, summaryTimer: 5 }); }
+    else if (p === "who_first_loser") { setFirstPlayerChosen(tl); setSummaryTimer(5); setPhase("toss_summary"); broadcastTossPhase("toss_summary", { firstPlayerChosen: tl, summaryTimer: 5, rb6_special_cell: R.current.rb6SpecialCell, rb6TimerOwner: R.current.rb6TimerOwner }); }
   }, [broadcastTossPhase, is7x7, is6x6, liveSelectedPatterns]);
 
   const onRightAction = useCallback(() => {
@@ -2473,7 +2510,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     }
     else if (p === "c3_choice") { setRbC3Blocked(false); setWinnerPickedC3(false); setPhase("who_first_loser"); broadcastTossPhase("who_first_loser", { rbC3Blocked: false, winnerPickedC3: false }); }
     else if (p === "c3_choice_loser") { setRbC3Blocked(false); setSummaryTimer(5); setPhase("toss_summary"); broadcastTossPhase("toss_summary", { rbC3Blocked: false, summaryTimer: 5 }); }
-    else if (p === "who_first_loser") { setFirstPlayerChosen(tw); setSummaryTimer(5); setPhase("toss_summary"); broadcastTossPhase("toss_summary", { firstPlayerChosen: tw, summaryTimer: 5 }); }
+    else if (p === "who_first_loser") { setFirstPlayerChosen(tw); setSummaryTimer(5); setPhase("toss_summary"); broadcastTossPhase("toss_summary", { firstPlayerChosen: tw, summaryTimer: 5, rb6_special_cell: R.current.rb6SpecialCell, rb6TimerOwner: R.current.rb6TimerOwner }); }
   }, [broadcastTossPhase, is7x7, is6x6, liveSelectedPatterns]);
 
   const onBanPattern = useCallback((patternName: string) => {
@@ -3339,7 +3376,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
         />
         {rbOverlay}
 
-        <SurrenderModal show={showSurrender} t={sidebarT} ip={ip} isRankedGame={isRankedGame} onConfirmAction={() => { setShowSurrender(false); if (isMultiplayerGame && isRankedGame && wsRef.current?.readyState === WebSocket.OPEN) { wsRef.current.send(JSON.stringify({ type: "quit_match", slot: mySlot })); } if (setScreenAction) setScreenAction("home"); }} onCancelAction={() => { playClickAction?.(); pausedRef.current = false; setShowSurrender(false); }} playHoverAction={playHoverAction} />
+        <SurrenderModal show={showSurrender} t={sidebarT} ip={ip} isRankedGame={isRankedGame} onConfirmAction={() => { setShowSurrender(false); if (isMultiplayerGame && wsRef.current?.readyState === WebSocket.OPEN) { wsRef.current.send(JSON.stringify({ type: "quit_match", slot: mySlot })); } if (setScreenAction) setScreenAction("home"); }} onCancelAction={() => { playClickAction?.(); pausedRef.current = false; setShowSurrender(false); }} playHoverAction={playHoverAction} />
         <ExitModal show={showExitConfirm} t={sidebarT} ip={ip} onConfirmAction={() => { setShowExitConfirm(false); if (setScreenAction) setScreenAction("home"); }} onCancelAction={() => { playClickAction?.(); pausedRef.current = false; setShowExitConfirm(false); }} playHoverAction={playHoverAction} />
         {limitbreakerOverlay}
         {showGameWinScreen && matchSeriesComplete && isMultiplayerGame && (
@@ -3503,7 +3540,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
         onDismissOverlayAction={dismissOverlay}
         onRematchAction={() => { wsRef.current?.send(JSON.stringify({ type: "rematch" })); setRematchRequested(mySlot); }}
         onQuitMatchAction={() => { wsRef.current?.send(JSON.stringify({ type: "quit_match", slot: mySlot })); if (setScreenAction) setScreenAction("home"); }}
-        onSurrenderConfirmAction={() => { setShowSurrender(false); if (isMultiplayerGame && isRankedGame && wsRef.current?.readyState === WebSocket.OPEN) { wsRef.current.send(JSON.stringify({ type: "quit_match", slot: mySlot })); } if (setScreenAction) setScreenAction("home"); }}
+        onSurrenderConfirmAction={() => { setShowSurrender(false); if (isMultiplayerGame && wsRef.current?.readyState === WebSocket.OPEN) { wsRef.current.send(JSON.stringify({ type: "quit_match", slot: mySlot })); } if (setScreenAction) setScreenAction("home"); }}
         onSurrenderCancelAction={() => { playClickAction?.(); pausedRef.current = false; setShowSurrender(false); }}
         onExitConfirmAction={() => { setShowExitConfirm(false); if (setScreenAction) setScreenAction("home"); }}
         onExitCancelAction={() => { playClickAction?.(); pausedRef.current = false; setShowExitConfirm(false); }}
@@ -3590,7 +3627,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
         playHoverAction={playHoverAction}
       />
 
-        <SurrenderModal show={showSurrender} t={sidebarT} ip={ip} isRankedGame={isRankedGame} onConfirmAction={() => { setShowSurrender(false); if (isMultiplayerGame && isRankedGame && wsRef.current?.readyState === WebSocket.OPEN) { wsRef.current.send(JSON.stringify({ type: "quit_match", slot: mySlot })); } if (setScreenAction) setScreenAction("home"); }} onCancelAction={() => { playClickAction?.(); pausedRef.current = false; setShowSurrender(false); }} playHoverAction={playHoverAction} />
+        <SurrenderModal show={showSurrender} t={sidebarT} ip={ip} isRankedGame={isRankedGame} onConfirmAction={() => { setShowSurrender(false); if (isMultiplayerGame && wsRef.current?.readyState === WebSocket.OPEN) { wsRef.current.send(JSON.stringify({ type: "quit_match", slot: mySlot })); } if (setScreenAction) setScreenAction("home"); }} onCancelAction={() => { playClickAction?.(); pausedRef.current = false; setShowSurrender(false); }} playHoverAction={playHoverAction} />
       <ExitModal show={showExitConfirm} t={sidebarT} ip={ip} onConfirmAction={() => { setShowExitConfirm(false); if (setScreenAction) setScreenAction("home"); }} onCancelAction={() => { playClickAction?.(); pausedRef.current = false; setShowExitConfirm(false); }} playHoverAction={playHoverAction} />
       {limitbreakerOverlay}
       {showGameWinScreen && matchSeriesComplete && isMultiplayerGame && (

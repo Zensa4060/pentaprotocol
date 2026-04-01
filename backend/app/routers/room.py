@@ -2259,48 +2259,37 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                     if qid:
                         await apply_ranked_quit_penalty(db, qid)
                     win_slot = "P2" if quitter_slot == "P1" else "P1"
-                    game_dict_q = {
-                        "player1_id": room_q["player1_id"],
-                        "player2_id": room_q["player2_id"],
-                        "format": "ranked",
-                        "source": room_q.get("source", "matchmaking"),
-                        "mode": "multiplayer",
-                        "board_mode": "7x7",
-                    }
-                    asyncio.create_task(
-                        _award_ranked_triple_and_notify(
-                            db,
-                            room_code,
-                            room_q,
-                            {"series_winner": win_slot},
-                            win_slot,
-                            record_clean_streak=False,
-                            surrendered_by=quitter_slot,
-                        )
+                    await _award_ranked_triple_and_notify(
+                        db,
+                        room_code,
+                        room_q,
+                        {"series_winner": win_slot},
+                        win_slot,
+                        record_clean_streak=False,
+                        surrendered_by=quitter_slot,
                     )
                 else:
                     # Unranked or other mode quit - also award series to opponent
                     win_slot = "P2" if quitter_slot == "P1" else "P1"
-                    asyncio.create_task(
-                        _award_match_series_and_notify(
-                            db,
-                            room_code,
-                            room_q,
-                            {"series_winner": win_slot},
-                            win_slot,
-                            record_clean_streak=True,
-                            surrendered_by=quitter_slot,
-                        )
+                    await _award_match_series_and_notify(
+                        db,
+                        room_code,
+                        room_q,
+                        {"series_winner": win_slot},
+                        win_slot,
+                        record_clean_streak=True,
+                        surrendered_by=quitter_slot,
                     )
-                await db.rooms.update_one(
-                    {"room_code": room_code},
-                    {"$set": {"game_status": "disbanded"}},
-                )
-                for slot, ws in _room_connections.get(room_code, {}).items():
-                    try:
-                        await ws.send_json({"type": "match_disbanded"})
-                    except:
-                        pass
+                if room_q:
+                    await db.rooms.update_one(
+                        {"room_code": room_code},
+                        {"$set": {"game_status": "disbanded"}},
+                    )
+                    for slot, ws in _room_connections.get(room_code, {}).items():
+                        try:
+                            await ws.send_json({"type": "match_disbanded"})
+                        except:
+                            pass
 
             elif msg["type"] == "match_found_ready":
                 rt = _room_runtime.get(room_code)
@@ -2387,13 +2376,17 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                     if phase_patch:
                         await db.rooms.update_one({"room_code": room_code}, {"$set": phase_patch})
 
-                # Persist Timebreaker 6x6 special cell if chosen
-                if action == "phase_choice" and payload.get("phase") == "toss_summary":
+                # Persist Timebreaker 6x6 special cell/timer as soon as they are chosen.
+                if action == "phase_choice" and isinstance(payload, dict):
                     rb6_cell = payload.get("rb6_special_cell")
                     rb6_timer_owner = payload.get("rb6TimerOwner")
                     timer_patch = {}
-                    if rb6_cell:
-                        timer_patch["rb6_special_cell"] = rb6_cell
+                    if isinstance(rb6_cell, dict):
+                        owner = rb6_cell.get("owner")
+                        row = rb6_cell.get("r")
+                        col = rb6_cell.get("c")
+                        if owner in ("P1", "P2") and isinstance(row, int) and isinstance(col, int):
+                            timer_patch["rb6_special_cell"] = {"r": row, "c": col, "owner": owner}
                     if rb6_timer_owner in ("P1", "P2"):
                         timer_patch["rb6_timer_owner"] = rb6_timer_owner
                     if timer_patch:
@@ -2732,6 +2725,48 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                 peers = _room_connections.get(room_code, {})
                 if not peers:
                     _room_runtime.pop(room_code, None)
+                    return
+                room_d = await db.rooms.find_one({"room_code": room_code})
+                if (
+                    room_d
+                    and room_d.get("player1_id")
+                    and room_d.get("player2_id")
+                    and room_d.get("game_status") not in ("disbanded",)
+                    and room_d.get("series_winner") is None
+                ):
+                    winner_slot = "P2" if player_slot == "P1" else "P1"
+                    if room_d.get("format") == "ranked" and _is_ranked_triple_leg_room(room_d):
+                        quitter_id = room_d.get("player1_id") if player_slot == "P1" else room_d.get("player2_id")
+                        if quitter_id:
+                            await apply_ranked_quit_penalty(db, quitter_id)
+                        await _award_ranked_triple_and_notify(
+                            db,
+                            room_code,
+                            room_d,
+                            {"series_winner": winner_slot},
+                            winner_slot,
+                            record_clean_streak=False,
+                            surrendered_by=player_slot,
+                        )
+                    else:
+                        await _award_match_series_and_notify(
+                            db,
+                            room_code,
+                            room_d,
+                            {"series_winner": winner_slot},
+                            winner_slot,
+                            record_clean_streak=True,
+                            surrendered_by=player_slot,
+                        )
+                    await db.rooms.update_one(
+                        {"room_code": room_code},
+                        {"$set": {"game_status": "disbanded"}},
+                    )
+                    for slot, ws in peers.items():
+                        try:
+                            await ws.send_json({"type": "match_disbanded"})
+                        except:
+                            pass
                     return
                 for slot, ws in peers.items():
                     try:
