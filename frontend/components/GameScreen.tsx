@@ -40,6 +40,7 @@ import { BannerRenderer } from "./BannerRenderer";
 import { RANKS, RankIcon } from "./ProfileScreen";
 import { getUserKey, pushMissionEvent } from "@/lib/missionsClient";
 import MatchResultScreen from "./MatchResultScreen";
+import GameWinScreen from "./GameWinScreen";
 
 function getWsBaseUrl(): string {
   const envBase = process.env.NEXT_PUBLIC_API_URL;
@@ -285,6 +286,8 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     rulesMatchGateRef.current = rulesMatchGate;
   }, [rulesMatchGate]);
   const [matchSeriesComplete, setMatchSeriesComplete] = useState<MatchSeriesCompletePayload | null>(null);
+  const [showGameWinScreen, setShowGameWinScreen] = useState(false);
+  const [showRankedMatchResult, setShowRankedMatchResult] = useState(false);
   const [pbOverlay, setPbOverlay] = useState<{
     tossWinner: "P1" | "P2";
     p1Agg: number;
@@ -791,14 +794,6 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
                 setWinLine(wl);
                 setWinner(msg.winner);
                 if (msg.winner === "P1") playVictoryAction?.(); else if (msg.winner === "P2") playDefeatAction?.();
-                setIsBoardPaused(true);
-                winClickLockRef.current = true;
-                setTimeout(() => {
-                  unstable_batchedUpdates(() => {
-                    setShowWinOverlay(true); 
-                    requestAnimationFrame(() => setOverlayVisible(true)); 
-                  });
-                }, 300);
                 const newHist = Array.isArray(msg.match_history)
                   ? (msg.match_history as string[])
                   : [...matchHistoryRef.current, msg.winner as string];
@@ -831,11 +826,23 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
                     : null;
                 if (sw == null) sw = checkSeriesWinner(newHist);
                 if (sw === "P1" || sw === "P2" || sw === "DRAW") {
+                  setIsBoardPaused(true);
+                  winClickLockRef.current = true;
+                  setShowWinOverlay(false);
+                  setOverlayVisible(false);
                   setMatchOver(true);
                   setSeriesWinner(sw);
                   setPhase("match_over");
                   wsRef.current?.send(JSON.stringify({ type: "match_over_notify" }));
                 } else if (!skipDrawOverlay) {
+                  setIsBoardPaused(true);
+                  winClickLockRef.current = true;
+                  setTimeout(() => {
+                    unstable_batchedUpdates(() => {
+                      setShowWinOverlay(true);
+                      requestAnimationFrame(() => setOverlayVisible(true));
+                    });
+                  }, 300);
                   setP1Ready(false); setP2Ready(false); setReadyTimeout(60); setReadyTimer(0); setPhase("waiting_ready");
                 }
               }
@@ -1102,6 +1109,10 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
           }
           setShowRematch(false);
           setRematchRequested(null);
+          setShowGameWinScreen(true);
+          setShowRankedMatchResult(false);
+          setShowWinOverlay(false);
+          setOverlayVisible(false);
           setMatchSeriesComplete({
             series_winner: String(rm.series_winner ?? "DRAW"),
             format: String(rm.format ?? "ranked"),
@@ -1328,6 +1339,9 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
           setP2Ready(false);
           setShowRematch(false);
           setRematchRequested(null);
+          setShowGameWinScreen(false);
+          setShowRankedMatchResult(false);
+          setMatchSeriesComplete(null);
           setPhase("playing");
           const incomingGame = msg.game_number ?? 1;
           if (incomingGame === 1) {
@@ -1422,7 +1436,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
           // #region agent log
           fetch('http://127.0.0.1:7852/ingest/44a3777c-2714-4f08-b3ff-de0caf166408',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'6fad40'},body:JSON.stringify({sessionId:'6fad40',runId:'run1',hypothesisId:'H1',location:'frontend/components/GameScreen.tsx:1364',message:'received match_over',data:{phaseBefore:R.current.phase,showRematchBefore:showRematch,hasMatchSeriesComplete:Boolean(matchSeriesComplete)},timestamp:Date.now()})}).catch(()=>{});
           // #endregion
-          setShowRematch(true);
+          if (!showGameWinScreen && !matchSeriesComplete) setShowRematch(true);
         } else if (msg.type === "rematch_request") {
           setRematchRequested(msg.from);
         } else if (msg.type === "match_disbanded") {
@@ -1711,6 +1725,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     setCoinAngle(0); setTossWinner(null); setFirstPlayerChosen(null); setRbC3Blocked(false); setRbBannedPatterns([]);
     setSummaryTimer(5); setOverlayVisible(false); setChoiceTimer(0);
     setShowRematch(false); setRematchRequested(null);
+    setShowGameWinScreen(false); setShowRankedMatchResult(false); setMatchSeriesComplete(null);
     setWinnerPickedRule(null); setWinnerPickedFirst(null); setWinnerPickedC3(null);
     setRbHideBannedPatternFromSlot(null); setRbPatternsPreBan(null);
     setServerStructuralPatternsP1(null); setServerStructuralPatternsP2(null);
@@ -3326,7 +3341,45 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
         <SurrenderModal show={showSurrender} t={sidebarT} ip={ip} isRankedGame={isRankedGame} onConfirmAction={() => { setShowSurrender(false); if (isMultiplayerGame && isRankedGame && wsRef.current?.readyState === WebSocket.OPEN) { wsRef.current.send(JSON.stringify({ type: "quit_match", slot: mySlot })); } if (setScreenAction) setScreenAction("home"); }} onCancelAction={() => { playClickAction?.(); pausedRef.current = false; setShowSurrender(false); }} playHoverAction={playHoverAction} />
         <ExitModal show={showExitConfirm} t={sidebarT} ip={ip} onConfirmAction={() => { setShowExitConfirm(false); if (setScreenAction) setScreenAction("home"); }} onCancelAction={() => { playClickAction?.(); pausedRef.current = false; setShowExitConfirm(false); }} playHoverAction={playHoverAction} />
         {limitbreakerOverlay}
-        {matchSeriesComplete && (
+        {showGameWinScreen && matchSeriesComplete && isMultiplayerGame && (
+          <GameWinScreen
+            seriesWinner={matchSeriesComplete.series_winner}
+            format={matchSeriesComplete.format}
+            p1={matchSeriesComplete.p1}
+            p2={matchSeriesComplete.p2}
+            mySlot={mySlot}
+            t={{
+              fontDisplay: t.fontDisplay,
+              fontMono: t.fontMono,
+              accent: t.accent,
+              accentGlow: t.accentGlow,
+              gold: t.gold,
+              danger: t.danger,
+              text: t.text,
+              textSecondary: t.textSecondary,
+              textMuted: t.textMuted,
+            }}
+            onContinue={matchSeriesComplete.format === "ranked"
+              ? () => {
+                  setShowGameWinScreen(false);
+                  setShowRankedMatchResult(true);
+                }
+              : undefined}
+            onRematch={() => {
+              if (wsRef.current?.readyState === WebSocket.OPEN) {
+                wsRef.current.send(JSON.stringify({ type: "rematch" }));
+              }
+              setRematchRequested(mySlot);
+            }}
+            onQuit={() => {
+              if (wsRef.current?.readyState === WebSocket.OPEN) {
+                wsRef.current.send(JSON.stringify({ type: "quit_match", slot: mySlot }));
+              }
+              setScreenAction?.("home");
+            }}
+          />
+        )}
+        {showRankedMatchResult && matchSeriesComplete && matchSeriesComplete.format === "ranked" && (
           <MatchResultScreen
             seriesWinner={matchSeriesComplete.series_winner}
             format={matchSeriesComplete.format}
@@ -3539,7 +3592,45 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
         <SurrenderModal show={showSurrender} t={sidebarT} ip={ip} isRankedGame={isRankedGame} onConfirmAction={() => { setShowSurrender(false); if (isMultiplayerGame && isRankedGame && wsRef.current?.readyState === WebSocket.OPEN) { wsRef.current.send(JSON.stringify({ type: "quit_match", slot: mySlot })); } if (setScreenAction) setScreenAction("home"); }} onCancelAction={() => { playClickAction?.(); pausedRef.current = false; setShowSurrender(false); }} playHoverAction={playHoverAction} />
       <ExitModal show={showExitConfirm} t={sidebarT} ip={ip} onConfirmAction={() => { setShowExitConfirm(false); if (setScreenAction) setScreenAction("home"); }} onCancelAction={() => { playClickAction?.(); pausedRef.current = false; setShowExitConfirm(false); }} playHoverAction={playHoverAction} />
       {limitbreakerOverlay}
-      {matchSeriesComplete && (
+      {showGameWinScreen && matchSeriesComplete && isMultiplayerGame && (
+        <GameWinScreen
+          seriesWinner={matchSeriesComplete.series_winner}
+          format={matchSeriesComplete.format}
+          p1={matchSeriesComplete.p1}
+          p2={matchSeriesComplete.p2}
+          mySlot={mySlot}
+          t={{
+            fontDisplay: t.fontDisplay,
+            fontMono: t.fontMono,
+            accent: t.accent,
+            accentGlow: t.accentGlow,
+            gold: t.gold,
+            danger: t.danger,
+            text: t.text,
+            textSecondary: t.textSecondary,
+            textMuted: t.textMuted,
+          }}
+          onContinue={matchSeriesComplete.format === "ranked"
+            ? () => {
+                setShowGameWinScreen(false);
+                setShowRankedMatchResult(true);
+              }
+            : undefined}
+          onRematch={() => {
+            if (wsRef.current?.readyState === WebSocket.OPEN) {
+              wsRef.current.send(JSON.stringify({ type: "rematch" }));
+            }
+            setRematchRequested(mySlot);
+          }}
+          onQuit={() => {
+            if (wsRef.current?.readyState === WebSocket.OPEN) {
+              wsRef.current.send(JSON.stringify({ type: "quit_match", slot: mySlot }));
+            }
+            setScreenAction?.("home");
+          }}
+        />
+      )}
+      {showRankedMatchResult && matchSeriesComplete && matchSeriesComplete.format === "ranked" && (
         <MatchResultScreen
           seriesWinner={matchSeriesComplete.series_winner}
           format={matchSeriesComplete.format}
