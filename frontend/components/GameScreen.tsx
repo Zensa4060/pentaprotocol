@@ -2575,7 +2575,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     setRulesGateDontShowAgain(readRuleshowSkip(sheet));
   }, [liveBoardMode, rulesMatchGate]);
 
-  if (showSplash) return (
+  const splashScreen = (
     <div style={{ position: "fixed", top: 64, left: 0, right: 0, bottom: 0, zIndex: 2, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: themeId === "pixel" ? "url(/bg-pixel.png) center/cover no-repeat" : themeId === "space" ? "transparent" : t.bg, gap: 32, userSelect: "none" }}>
       <div style={{ fontFamily: t.fontDisplay, fontSize: "clamp(24px,5vw,72px)", fontWeight: 900, color: t.accent, textShadow: `0 0 60px ${t.accentGlow}55`, letterSpacing: "0.06em", textAlign: "center" }}>SINGLEPLAYER</div>
       <div style={{ fontFamily: t.fontBody, fontSize: "clamp(13px,1.6vw,18px)", color: t.textSecondary, letterSpacing: "0.04em" }}>Local · Pass & Play · First to 5</div>
@@ -3044,6 +3044,8 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
       </div>
     );
   }
+
+  if (showSplash) return splashScreen;
 
   // ── MOBILE LAYOUT ─────────────────────────────────────────────────────────
   if (isMobile) {
