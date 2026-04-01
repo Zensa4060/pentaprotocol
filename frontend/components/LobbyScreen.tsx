@@ -6,7 +6,7 @@ import { THEMES } from "@/lib/themes";
 import { useAuthStore } from "@/lib/store";
 import API from "@/lib/api";
 import { loadCustomTheme } from "@/lib/customTheme";
-import { getRank } from "./NavBar";
+import { NavRankBadge, getRank } from "./NavBar";
 import { BannerRenderer, BANNERS_DATA } from "./BannerRenderer";
 
 const TAUNT_QUOTES = [
