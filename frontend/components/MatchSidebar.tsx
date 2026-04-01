@@ -31,6 +31,13 @@ function safeWinner(item: any): string {
   return "";
 }
 
+function sidebarDisplayName(raw?: string): string {
+  return (raw ?? "PLAYER")
+    .replace(/\(([xy])\)/gi, "")
+    .trim()
+    .toUpperCase();
+}
+
 // ─── Props ────────────────────────────────────────────────────────────────────
 
 interface MatchSidebarProps {
@@ -324,11 +331,7 @@ export function MatchSidebar({
             {
               (() => {
                 const raw = p === "P1" ? p1Label : p2Label;
-                const name = (raw ?? "PLAYER")
-                  .replace(/^\s*[xy]\s*/i, "")
-                  .replace(/\([xy]\)/gi, "")
-                  .trim()
-                  .toUpperCase();
+                const name = sidebarDisplayName(raw);
 
                 return <>{renderSidebarPiece(p)} {name}{renderNetBars(p)}</>;
               })()
@@ -384,7 +387,7 @@ export function MatchSidebar({
             const isCur = absoluteGame === absoluteCurrentGame && (phase === "playing" || phase === "waiting_ready");
             return (
               <React.Fragment key={i}>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr auto", fontFamily: t.fontBody, fontSize: 22, padding: "6px 0", borderBottom: `1px solid ${t.border}22`, opacity: absoluteGame <= absoluteCurrentGame ? 1 : 0.4 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr auto", fontFamily: t.fontBody, fontSize: 22, padding: "6px 0", borderBottom: `1px solid ${t.border}22`, opacity: 1 }}>
                   <span style={{ color: isCur ? t.accent : t.textMuted, transition: "color 0.2s" }}>G{absoluteGame}{isCur ? " *" : ""}</span>
                   <span style={{ color: col, fontWeight: result ? 700 : 400, transition: "color 0.2s" }}>{result || "—"}</span>
                 </div>
@@ -598,11 +601,7 @@ export function LeftPanel(props: MatchSidebarProps) {
             {
               (() => {
                 const raw = p === "P1" ? p1Label : p2Label;
-                const name = (raw ?? "PLAYER")
-                  .replace(/^\s*[xy]\s*/i, "")
-                  .replace(/\([xy]\)/gi, "")
-                  .trim()
-                  .toUpperCase();
+                const name = sidebarDisplayName(raw);
 
                 return <>{renderSidebarPiece(p)} {name}{renderNetBars(p)}</>;
               })()
@@ -659,7 +658,7 @@ export function LeftPanel(props: MatchSidebarProps) {
             const isCur = absoluteGame === absoluteCurrentGame && (phase === "playing" || phase === "waiting_ready");
             return (
               <React.Fragment key={i}>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr auto", fontFamily: t.fontBody, fontSize: 22, padding: "6px 0", borderBottom: `1px solid ${t.border}22`, opacity: absoluteGame <= absoluteCurrentGame ? 1 : 0.4 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr auto", fontFamily: t.fontBody, fontSize: 22, padding: "6px 0", borderBottom: `1px solid ${t.border}22`, opacity: 1 }}>
                   <span style={{ color: isCur ? t.accent : t.textMuted, transition: "color 0.2s" }}>G{absoluteGame}{isCur ? " *" : ""}</span>
                   <span style={{ color: col, fontWeight: result ? 700 : 400, transition: "color 0.2s" }}>{result || "—"}</span>
                 </div>

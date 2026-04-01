@@ -27,7 +27,7 @@ import SpaceGrid from "./SpaceGrid";
 import PixelGrid from "./PixelGrid";
 import type { Phase } from "./GamePieces";
 import { RulebreakerFlow, PHASE_TIMERS } from "./RulebreakerFlow";
-import { LeftPanel, RightPanel, WinOverlay, RematchOverlay, SurrenderModal, DisconnectModal, ExitModal } from "./MatchSidebar";
+import { LeftPanel, RightPanel, WinOverlay, SurrenderModal, DisconnectModal, ExitModal } from "./MatchSidebar";
 import RuleshowScreen, {
   type RuleshowSheet,
   readRuleshowSkip,
@@ -867,6 +867,28 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
             }
           }
           if (typeof r.suppress_center_opening === "boolean") setSuppressCenterOpening(r.suppress_center_opening);
+          if (r.rb6_timer_owner === "P1" || r.rb6_timer_owner === "P2") {
+            setRb6TimerOwner(r.rb6_timer_owner);
+            if (r.board_mode === "6x6" && (r.moves_played ?? 0) === 0) {
+              if (r.rb6_timer_owner === "P1") {
+                p1TimeRef.current = 120_000;
+                setP1Time(120_000);
+              } else {
+                p2TimeRef.current = 120_000;
+                setP2Time(120_000);
+              }
+            }
+          } else if (r.rb6_timer_owner === null) {
+            setRb6TimerOwner(null);
+          }
+          if (r.rb6_special_cell && typeof r.rb6_special_cell === "object") {
+            const sc = r.rb6_special_cell as { r?: unknown; c?: unknown; owner?: unknown };
+            if (typeof sc.r === "number" && typeof sc.c === "number" && (sc.owner === "P1" || sc.owner === "P2")) {
+              setRb6SpecialCell({ r: sc.r, c: sc.c, owner: sc.owner });
+            }
+          } else if (r.rb6_special_cell === null) {
+            setRb6SpecialCell(null);
+          }
           if (r.rb_extra_turn_token_holder === "P1" || r.rb_extra_turn_token_holder === "P2") {
             setRbExtraTurnTokenHolder(r.rb_extra_turn_token_holder);
           } else if (r.rb_extra_turn_token_holder === null) {
@@ -1068,6 +1090,9 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
           if (typeof et === "number") setExtraTurns(et);
           if (msg.rb_extra_turn_token_used === true) setRbExtraTurnTokenUsed(true);
             } else if (msg.type === "match_series_complete" || msg.type === "ranked_match_complete") {
+          // #region agent log
+          fetch('http://127.0.0.1:7852/ingest/44a3777c-2714-4f08-b3ff-de0caf166408',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'6fad40'},body:JSON.stringify({sessionId:'6fad40',runId:'run1',hypothesisId:'H2',location:'frontend/components/GameScreen.tsx:1070',message:'received match series complete',data:{phaseBefore:R.current.phase,showRematchBefore:showRematch,hasMatchSeriesComplete:Boolean(matchSeriesComplete)},timestamp:Date.now()})}).catch(()=>{});
+          // #endregion
           const rm = msg as unknown as Partial<MatchSeriesCompletePayload> & { series_winner?: string; format?: string };
           const z = (n: unknown, d: number) => (typeof n === "number" && !Number.isNaN(n) ? n : d);
           void useAuthStore.getState().refreshProfile();
@@ -1075,6 +1100,8 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
             window.dispatchEvent(new Event("pp:career-refresh"));
             window.localStorage.removeItem("penta_lobby_quote");
           }
+          setShowRematch(false);
+          setRematchRequested(null);
           setMatchSeriesComplete({
             series_winner: String(rm.series_winner ?? "DRAW"),
             format: String(rm.format ?? "ranked"),
@@ -1240,14 +1267,16 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
             setRbExtraTurnTokenHolder(h === "P1" || h === "P2" ? h : null);
           }
           setRbExtraTurnTokenUsed(Boolean(msg.rb_extra_turn_token_used));
+          const grm = msg as {
+            preserve_rb_hide?: boolean;
+            rb_hide_banned_from_slot?: unknown;
+            rb_patterns_pre_ban?: unknown;
+            rb_banned_patterns?: unknown;
+            rb_banned_pattern?: unknown;
+            rb6_timer_owner?: unknown;
+            rb6_special_cell?: unknown;
+          };
           {
-            const grm = msg as {
-              preserve_rb_hide?: boolean;
-              rb_hide_banned_from_slot?: unknown;
-              rb_patterns_pre_ban?: unknown;
-              rb_banned_patterns?: unknown;
-              rb_banned_pattern?: unknown;
-            };
             if (grm.preserve_rb_hide === true) {
               const hs = grm.rb_hide_banned_from_slot;
               setRbHideBannedPatternFromSlot(hs === "P1" || hs === "P2" ? hs : null);
@@ -1271,6 +1300,28 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
           setP2Time(mtm);
           p1TimeRef.current = mtm;
           p2TimeRef.current = mtm;
+          if (nextBm === "6x6" && (grm.rb6_timer_owner === "P1" || grm.rb6_timer_owner === "P2")) {
+            setRb6TimerOwner(grm.rb6_timer_owner);
+            if (grm.rb6_timer_owner === "P1") {
+              setP1Time(120_000);
+              p1TimeRef.current = 120_000;
+            } else {
+              setP2Time(120_000);
+              p2TimeRef.current = 120_000;
+            }
+          } else {
+            setRb6TimerOwner(null);
+          }
+          if (grm.rb6_special_cell && typeof grm.rb6_special_cell === "object") {
+            const sc = grm.rb6_special_cell as { r?: unknown; c?: unknown; owner?: unknown };
+            if (typeof sc.r === "number" && typeof sc.c === "number" && (sc.owner === "P1" || sc.owner === "P2")) {
+              setRb6SpecialCell({ r: sc.r, c: sc.c, owner: sc.owner });
+            } else {
+              setRb6SpecialCell(null);
+            }
+          } else {
+            setRb6SpecialCell(null);
+          }
           lastP1Sec.current = -1;
           lastP2Sec.current = -1;
           setP1Ready(false);
@@ -1285,8 +1336,10 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
                 setSegmentStartIndex(msg.segment_start_index);
                 segmentStartIndexRef.current = msg.segment_start_index;
               }
-              setHistoryDisplayStartIndex(0);
-              historyDisplayStartIndexRef.current = 0;
+              if (typeof msg.history_display_start_index === "number") {
+                setHistoryDisplayStartIndex(msg.history_display_start_index);
+                historyDisplayStartIndexRef.current = msg.history_display_start_index;
+              }
               if (typeof msg.p1_series_points === "number") setP1SeriesPts(msg.p1_series_points);
               if (typeof msg.p2_series_points === "number") setP2SeriesPts(msg.p2_series_points);
               setGameNumber(1);
@@ -1337,6 +1390,10 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
               setSegmentStartIndex(msg.segment_start_index);
               segmentStartIndexRef.current = msg.segment_start_index;
             }
+            if (typeof msg.history_display_start_index === "number") {
+              setHistoryDisplayStartIndex(msg.history_display_start_index);
+              historyDisplayStartIndexRef.current = msg.history_display_start_index;
+            }
             if (typeof msg.p1_series_points === "number") setP1SeriesPts(msg.p1_series_points);
             if (typeof msg.p2_series_points === "number") setP2SeriesPts(msg.p2_series_points);
           }
@@ -1362,6 +1419,9 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
           setOverlayVisible(false);
           wsRef.current?.send(JSON.stringify({ type: "match_over_notify" }));
         } else if (msg.type === "match_over") {
+          // #region agent log
+          fetch('http://127.0.0.1:7852/ingest/44a3777c-2714-4f08-b3ff-de0caf166408',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'6fad40'},body:JSON.stringify({sessionId:'6fad40',runId:'run1',hypothesisId:'H1',location:'frontend/components/GameScreen.tsx:1364',message:'received match_over',data:{phaseBefore:R.current.phase,showRematchBefore:showRematch,hasMatchSeriesComplete:Boolean(matchSeriesComplete)},timestamp:Date.now()})}).catch(()=>{});
+          // #endregion
           setShowRematch(true);
         } else if (msg.type === "rematch_request") {
           setRematchRequested(msg.from);
@@ -1425,7 +1485,16 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
             if (payload.winnerPickedC3 !== undefined) setWinnerPickedC3(payload.winnerPickedC3);
             if (Array.isArray(payload.rb_banned_patterns)) setRbBannedPatterns(payload.rb_banned_patterns);
             else if (payload.rb_banned_pattern !== undefined) setRbBannedPatterns([payload.rb_banned_pattern]);
-            if (payload.rb6TimerOwner === "P1" || payload.rb6TimerOwner === "P2" || payload.rb6TimerOwner === null) setRb6TimerOwner(payload.rb6TimerOwner);
+            if (payload.rb6TimerOwner === "P1" || payload.rb6TimerOwner === "P2" || payload.rb6TimerOwner === null) {
+              setRb6TimerOwner(payload.rb6TimerOwner);
+              if (payload.rb6TimerOwner === "P1") {
+                p1TimeRef.current = 120_000;
+                setP1Time(120_000);
+              } else if (payload.rb6TimerOwner === "P2") {
+                p2TimeRef.current = 120_000;
+                setP2Time(120_000);
+              }
+            }
             if (payload.rb6CellChooser === "P1" || payload.rb6CellChooser === "P2" || payload.rb6CellChooser === null) setRb6CellChooser(payload.rb6CellChooser);
             if (payload.rb6_special_cell && typeof payload.rb6_special_cell === "object") {
               const sc = payload.rb6_special_cell as { r?: unknown; c?: unknown; owner?: unknown };
@@ -2245,13 +2314,25 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   const onGridBlockChoice = useCallback((r: number, c: number) => {
     const chooser = R.current.rb6CellChooser;
     if (!chooser) return;
+    // #region agent log
+    fetch('http://127.0.0.1:7852/ingest/44a3777c-2714-4f08-b3ff-de0caf166408',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'6fad40'},body:JSON.stringify({sessionId:'6fad40',runId:'run1',hypothesisId:'H3',location:'frontend/components/GameScreen.tsx:2245',message:'selected 6x6 special cell',data:{chooser,r,c,winnerPickedRule:R.current.winnerPickedRule,p1Time,p2Time},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
     setRb6SpecialCell({ r, c, owner: chooser });
     if (R.current.winnerPickedRule === "timer_half") {
+      setRb6TimerOwner(chooser);
+      if (chooser === "P1") {
+        p1TimeRef.current = 120_000;
+        setP1Time(120_000);
+      } else {
+        p2TimeRef.current = 120_000;
+        setP2Time(120_000);
+      }
       setPhase("who_first_loser");
       if (isMultiplayerGame) {
         broadcastTossPhase("who_first_loser", {
           rb6_special_cell: { r, c, owner: chooser },
           winnerPickedRule: R.current.winnerPickedRule,
+          rb6TimerOwner: chooser,
         });
       }
       return;
@@ -2613,6 +2694,20 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   const onChatKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") sendChat(isMultiplayerGame ? mySlot : "P1");
   };
+
+  useEffect(() => {
+    if (!isMultiplayerGame) return;
+    // #region agent log
+    fetch('http://127.0.0.1:7852/ingest/44a3777c-2714-4f08-b3ff-de0caf166408',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'6fad40'},body:JSON.stringify({sessionId:'6fad40',runId:'run1',hypothesisId:'H1',location:'frontend/components/GameScreen.tsx:2616',message:'multiplayer overlay state snapshot',data:{phase,showRematch,hasMatchSeriesComplete:Boolean(matchSeriesComplete),matchOver,showWinOverlay},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
+  }, [isMultiplayerGame, phase, showRematch, matchSeriesComplete, matchOver, showWinOverlay]);
+
+  useEffect(() => {
+    if (!isMultiplayerGame || liveBoardMode !== "6x6") return;
+    // #region agent log
+    fetch('http://127.0.0.1:7852/ingest/44a3777c-2714-4f08-b3ff-de0caf166408',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'6fad40'},body:JSON.stringify({sessionId:'6fad40',runId:'run1',hypothesisId:'H4',location:'frontend/components/GameScreen.tsx:2622',message:'6x6 timing snapshot',data:{p1Time,p2Time,rb6SpecialCell,rb6CellChooser,winnerPickedRule,phase,current},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
+  }, [isMultiplayerGame, liveBoardMode, p1Time, p2Time, rb6SpecialCell, rb6CellChooser, winnerPickedRule, phase, current]);
 
   const limitbreakerOverlay = pbOverlay && isMultiplayerGame && (() => {
     const isMyTurn = pbOverlay.nextSlot === mySlot;
@@ -3220,7 +3315,6 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
 
         <SurrenderModal show={showSurrender} t={sidebarT} ip={ip} isRankedGame={isRankedGame} onConfirmAction={() => { setShowSurrender(false); if (isMultiplayerGame && isRankedGame && wsRef.current?.readyState === WebSocket.OPEN) { wsRef.current.send(JSON.stringify({ type: "quit_match", slot: mySlot })); } if (setScreenAction) setScreenAction("home"); }} onCancelAction={() => { playClickAction?.(); pausedRef.current = false; setShowSurrender(false); }} playHoverAction={playHoverAction} />
         <ExitModal show={showExitConfirm} t={sidebarT} ip={ip} onConfirmAction={() => { setShowExitConfirm(false); if (setScreenAction) setScreenAction("home"); }} onCancelAction={() => { playClickAction?.(); pausedRef.current = false; setShowExitConfirm(false); }} playHoverAction={playHoverAction} />
-        <RematchOverlay show={showRematch && matchSeriesComplete === null} isMultiplayerGame={isMultiplayerGame} t={sidebarT} ip={ip} p1c={p1c} p2c={p2c} seriesWinner={seriesWinner} mySlot={mySlot} rematchRequested={rematchRequested} winnerDisplayNameAction={winnerDisplayName} lastSeries={lastSeries} onRematchAction={() => { wsRef.current?.send(JSON.stringify({ type: "rematch" })); setRematchRequested(mySlot); }} onQuitMatchAction={() => { wsRef.current?.send(JSON.stringify({ type: "quit_match", slot: mySlot })); if (setScreenAction) setScreenAction("home"); }} />
         {limitbreakerOverlay}
         {matchSeriesComplete && (
           <MatchResultScreen
@@ -3244,8 +3338,14 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
               if (wsRef.current?.readyState === WebSocket.OPEN) {
                 wsRef.current.send(JSON.stringify({ type: "rematch" }));
               }
+              setRematchRequested(mySlot);
             }}
-            onQuit={() => setScreenAction?.("home")}
+            onQuit={() => {
+              if (wsRef.current?.readyState === WebSocket.OPEN) {
+                wsRef.current.send(JSON.stringify({ type: "quit_match", slot: mySlot }));
+              }
+              setScreenAction?.("home");
+            }}
           />
         )}
 
@@ -3426,7 +3526,6 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
         playHoverAction={playHoverAction}
       />
 
-        <RematchOverlay show={showRematch && matchSeriesComplete === null} isMultiplayerGame={isMultiplayerGame} t={sidebarT} ip={ip} p1c={p1c} p2c={p2c} seriesWinner={seriesWinner} mySlot={mySlot} rematchRequested={rematchRequested} winnerDisplayNameAction={winnerDisplayName} lastSeries={lastSeries} segmentStartIndex={segmentStartIndex} onRematchAction={() => { wsRef.current?.send(JSON.stringify({ type: "rematch" })); setRematchRequested(mySlot); }} onQuitMatchAction={() => { wsRef.current?.send(JSON.stringify({ type: "quit_match", slot: mySlot })); if (setScreenAction) setScreenAction("home"); }} />
         <SurrenderModal show={showSurrender} t={sidebarT} ip={ip} isRankedGame={isRankedGame} onConfirmAction={() => { setShowSurrender(false); if (isMultiplayerGame && isRankedGame && wsRef.current?.readyState === WebSocket.OPEN) { wsRef.current.send(JSON.stringify({ type: "quit_match", slot: mySlot })); } if (setScreenAction) setScreenAction("home"); }} onCancelAction={() => { playClickAction?.(); pausedRef.current = false; setShowSurrender(false); }} playHoverAction={playHoverAction} />
       <ExitModal show={showExitConfirm} t={sidebarT} ip={ip} onConfirmAction={() => { setShowExitConfirm(false); if (setScreenAction) setScreenAction("home"); }} onCancelAction={() => { playClickAction?.(); pausedRef.current = false; setShowExitConfirm(false); }} playHoverAction={playHoverAction} />
       {limitbreakerOverlay}
@@ -3452,8 +3551,14 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
             if (wsRef.current?.readyState === WebSocket.OPEN) {
               wsRef.current.send(JSON.stringify({ type: "rematch" }));
             }
+            setRematchRequested(mySlot);
           }}
-          onQuit={() => setScreenAction?.("home")}
+          onQuit={() => {
+            if (wsRef.current?.readyState === WebSocket.OPEN) {
+              wsRef.current.send(JSON.stringify({ type: "quit_match", slot: mySlot }));
+            }
+            setScreenAction?.("home");
+          }}
         />
       )}
 

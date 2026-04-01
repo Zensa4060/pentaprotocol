@@ -114,6 +114,8 @@ def serialize_room(room: dict) -> dict:
         "rb_phase_payload": room.get("rb_phase_payload"),
         "rb_summary_started_at_ms": room.get("rb_summary_started_at_ms"),
         "rb_auto_start_due_ms": room.get("rb_auto_start_due_ms"),
+        "rb6_special_cell": room.get("rb6_special_cell"),
+        "rb6_timer_owner": room.get("rb6_timer_owner"),
         "protocolbreaker_pending": room.get("protocolbreaker_pending", False),
         "pb_toss_winner": room.get("pb_toss_winner"),
         "pb_bans": room.get("pb_bans") or [],
@@ -1135,6 +1137,8 @@ async def _finalize_rulebreaker_start(
         "suppress_center_opening": True if (bm == "7x7" and next_gn == 3) else (suppress_center if bm == "7x7" else False),
         "rb_extra_turn_token_holder": token_holder if bm == "7x7" else None,
         "rb_extra_turn_token_used": False,
+        "rb6_special_cell": msg.get("rb6_special_cell") if bm == "6x6" else None,
+        "rb6_timer_owner": msg.get("rb6TimerOwner") if msg.get("rb6TimerOwner") in ("P1", "P2") and bm == "6x6" else None,
     }
     if bm == "7x7" and isinstance(sel_patterns, list) and len(sel_patterns) > 0:
         reset["selected_patterns"] = sel_patterns
@@ -1178,6 +1182,8 @@ async def _finalize_rulebreaker_start(
         "suppress_center_opening": reset["suppress_center_opening"],
         "rb_extra_turn_token_holder": reset["rb_extra_turn_token_holder"],
         "rb_extra_turn_token_used": False,
+        "rb6_special_cell": reset.get("rb6_special_cell"),
+        "rb6_timer_owner": reset.get("rb6_timer_owner"),
     }
     if sp_out is not None:
         gr_payload["selected_patterns"] = sp_out
@@ -1743,6 +1749,10 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                     continue
 
                 eff_bm = _effective_board_mode(room)
+                if eff_bm == "6x6":
+                    # #region agent log
+                    open("debug-6fad40.log","a",encoding="utf-8").write(json.dumps({"sessionId":"6fad40","runId":"run1","hypothesisId":"H3","location":"backend/app/routers/room.py:1745","message":"before 6x6 deploy","data":{"player_slot":player_slot,"current_player":room.get("current_player"),"moves_played":room.get("moves_played",0),"rb6_special_cell":room.get("rb6_special_cell"),"row":row,"col":col},"timestamp":int(datetime.utcnow().timestamp()*1000)})+"\n")
+                    # #endregion
                 engine = GameEngine(
                     board_mode=eff_bm,
                     selected_pattern_ids=room.get("selected_patterns"),
@@ -1760,6 +1770,13 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                 )
 
                 result      = engine.deploy(row, col)
+                if eff_bm == "6x6":
+                    played_owner = None
+                    if 0 <= row < len(engine.board) and 0 <= col < len(engine.board[row]):
+                        played_owner = engine.board[row][col]
+                    # #region agent log
+                    open("debug-6fad40.log","a",encoding="utf-8").write(json.dumps({"sessionId":"6fad40","runId":"run1","hypothesisId":"H3","location":"backend/app/routers/room.py:1762","message":"after 6x6 deploy","data":{"player_slot":player_slot,"played_owner":played_owner,"next_player":engine.current_player,"extra_turns":engine.extra_turns,"winner":result.get("winner"),"rb6_special_cell":room.get("rb6_special_cell")},"timestamp":int(datetime.utcnow().timestamp()*1000)})+"\n")
+                    # #endregion
                 is_finished = bool(result.get("winner"))
                 career_rb_meta = None
 
@@ -2040,6 +2057,7 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                         "rb_banned_patterns": [],
                         "rb_banned_pattern": None,
                         "rb6_special_cell": None,
+                        "rb6_timer_owner": None,
                     }
 
                     await db.rooms.update_one({"room_code": room_code}, {"$set": reset})
@@ -2206,6 +2224,7 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                         "rb_banned_patterns": [],
                         "rb_banned_pattern": None,
                         "rb6_special_cell": None,
+                        "rb6_timer_owner": None,
                     }
 
                     await db.rooms.update_one({"room_code": room_code}, {"$set": reset})
@@ -2371,10 +2390,16 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                 # Persist Timebreaker 6x6 special cell if chosen
                 if action == "phase_choice" and payload.get("phase") == "toss_summary":
                     rb6_cell = payload.get("rb6_special_cell")
+                    rb6_timer_owner = payload.get("rb6TimerOwner")
+                    timer_patch = {}
                     if rb6_cell:
+                        timer_patch["rb6_special_cell"] = rb6_cell
+                    if rb6_timer_owner in ("P1", "P2"):
+                        timer_patch["rb6_timer_owner"] = rb6_timer_owner
+                    if timer_patch:
                         await db.rooms.update_one(
                             {"room_code": room_code},
-                            {"$set": {"rb6_special_cell": rb6_cell}}
+                            {"$set": timer_patch}
                         )
 
                 for slot, ws in _room_connections.get(room_code, {}).items():
