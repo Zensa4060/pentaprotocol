@@ -452,18 +452,18 @@ function ThemePreviewModal({ item, t, onClose, audio }: { item: any; t: any; onC
       bgmPausedForPreviewRef.current = true;
     }
     if (audioRef.current) { audioRef.current.pause(); audioRef.current.src = ""; }
-    const audio = new Audio(`/sounds/${file}`); audioRef.current = audio;
-    audio.currentTime = 0; audio.volume = 0.7;
-    audio.addEventListener("timeupdate", () => { if (audio.currentTime >= 30) audio.pause(); });
-    audio.addEventListener("pause", () => {
+    const previewAudio = new Audio(`/sounds/${file}`); audioRef.current = previewAudio;
+    previewAudio.currentTime = 0; previewAudio.volume = 0.7;
+    previewAudio.addEventListener("timeupdate", () => { if (previewAudio.currentTime >= 30) previewAudio.pause(); });
+    previewAudio.addEventListener("pause", () => {
       setActiveTrack(null);
       if (bgmPausedForPreviewRef.current) {
         audio?.resumeBgm();
         bgmPausedForPreviewRef.current = false;
       }
     });
-    audio.addEventListener("ended", () => setActiveTrack(null));
-    audio.play().then(() => setActiveTrack(file)).catch(() => {
+    previewAudio.addEventListener("ended", () => setActiveTrack(null));
+    previewAudio.play().then(() => setActiveTrack(file)).catch(() => {
       setTrackErr("Could not play this track on your browser.");
       setActiveTrack(null);
       if (bgmPausedForPreviewRef.current) {
