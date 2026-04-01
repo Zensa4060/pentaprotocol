@@ -414,7 +414,7 @@ export function MatchSidebar({
         <div style={{ display: "flex", flexDirection: "column", gap: 8, animation: "fadeUp 0.3s ease both" }}>
           <div style={{ fontFamily: t.fontMono, fontSize: 20, fontWeight: 700, color: t.text, letterSpacing: "0.12em" }}>READY TO PLAY</div>
           <div style={{ fontFamily: t.fontMono, fontSize: 28, fontWeight: 700, color: t.accent, textAlign: "center" }}>{Math.ceil(readyTimeout)}s</div>
-          {gameMode === "ai" ? (
+          {gameMode === "ai" || gameMode === "singleplayer" ? (
             (() => {
               const rdy = p1Ready;
               const col = p1c;
@@ -685,7 +685,7 @@ export function LeftPanel(props: MatchSidebarProps) {
         <div style={{ display: "flex", flexDirection: "column", gap: 8, animation: "fadeUp 0.3s ease both" }}>
           <div style={{ fontFamily: t.fontMono, fontSize: 20, fontWeight: 700, color: t.text, letterSpacing: "0.12em" }}>READY TO PLAY</div>
           <div style={{ fontFamily: t.fontMono, fontSize: 28, fontWeight: 700, color: t.accent, textAlign: "center" }}>{Math.ceil(readyTimeout)}s</div>
-          {gameMode === "ai" ? (
+          {gameMode === "ai" || gameMode === "singleplayer" ? (
             (() => {
               const rdy = p1Ready;
               const col = p1c;

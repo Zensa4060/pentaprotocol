@@ -2092,23 +2092,31 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     if (_isMP) return;
     if (phase !== "playing") return;
     if (winner === "P1") playVictoryAction?.(); else if (winner === "P2") playDefeatAction?.();
-    setTimeout(() => {
-      unstable_batchedUpdates(() => {
-        setShowWinOverlay(true); 
-        requestAnimationFrame(() => setOverlayVisible(true)); 
-      });
-    }, 300);
     const newHist = [...R.current.matchHistory, winner];
     // keep ref in sync immediately so checkSeriesWinner sees the updated history
     R.current.matchHistory = newHist;
     matchHistoryRef.current = newHist;
     setMatchHistory(newHist);
     const sw = checkSeriesWinner(newHist);
-    if (newHist.length >= 3 || sw !== null) {
+    const seriesWinnerNow = sw ?? newHist[newHist.length - 1];
+    const isSeriesComplete = newHist.length >= 3 || sw !== null;
+    if (isSeriesComplete) {
       setMatchOver(true);
-      setSeriesWinner(sw ?? newHist[newHist.length - 1]);
+      setSeriesWinner(seriesWinnerNow);
       setPhase("match_over");
+      setTimeout(() => {
+        unstable_batchedUpdates(() => {
+          setShowWinOverlay(true);
+          requestAnimationFrame(() => setOverlayVisible(true));
+        });
+      }, 300);
     } else {
+      setTimeout(() => {
+        unstable_batchedUpdates(() => {
+          setShowWinOverlay(true);
+          requestAnimationFrame(() => setOverlayVisible(true));
+        });
+      }, 300);
       setP1Ready(false); setP2Ready(false); setReadyTimeout(60); setReadyTimer(0); setPhase("waiting_ready");
     }
   }, [winner]);
