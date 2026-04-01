@@ -9,7 +9,7 @@ import { loadCustomTheme } from "@/lib/customTheme";
 import { NavRankBadge, getRank } from "./NavBar";
 import { BannerRenderer, BANNERS_DATA } from "./BannerRenderer";
 
-const TAUNT_QUOTES = [
+const TAUNT_QUOTES_NEUTRAL = [
   "Queueing again? Confidence is doing heavy lifting today.",
   "You call that a rank or a suggestion?",
   "Your MMR has trust issues.",
@@ -58,8 +58,69 @@ const TAUNT_QUOTES = [
   "You confuse persistence with progress.",
 ];
 
-const getLobbyQuote = (): string =>
-  TAUNT_QUOTES[Math.floor(Math.random() * TAUNT_QUOTES.length)];
+const TAUNT_QUOTES_WIN = [
+  "That wasn't a win. That was a correction.",
+  "You didn't play well. You played inevitable.",
+  "Blink and you'd still miss it.",
+  "Rank adjusted itself to you.",
+  "That felt illegal.",
+  "You made it look scripted.",
+  "Effortless. Almost insulting.",
+  "They queued. You ended them.",
+  "Precision bordering on arrogance.",
+  "You didn't win. You demonstrated.",
+  "That wasn't close. It wasn't supposed to be.",
+  "You made confidence look justified.",
+  "Clean. Ruthless. Repetitive.",
+  "That's what control looks like.",
+  "You played like you already knew the outcome.",
+  "No hesitation. No mercy. No debate.",
+  "You reduced them to a statistic.",
+  "That wasn't skill. That was authority.",
+  "Dominance, quietly executed.",
+  "You didn't outplay. You outclassed.",
+  "That win will age badly for them.",
+  "You moved like mistakes don't apply to you.",
+  "That wasn't pressure. That was ownership.",
+  "You made ranked look casual.",
+  "You don't chase wins. Wins follow.",
+];
+
+const TAUNT_QUOTES_LOSS = [
+  "That wasn't close. Let's not pretend.",
+  "You lost before it started.",
+  "Nothing worked. Including you.",
+  "That was avoidable. Entirely.",
+  "You didn't adapt. You repeated.",
+  "Your plan collapsed on contact.",
+  "You made it easy for them.",
+  "That wasn't pressure. That was exposure.",
+  "You played like the outcome didn't matter.",
+  "Every move had consequences. You chose all of them.",
+  "You weren't unlucky. You were expected.",
+  "That wasn't a mistake. That's your pattern.",
+  "You gave them confidence.",
+  "You didn't lose fast enough.",
+  "That was decided long ago.",
+  "You kept going. That's the only credit.",
+  "You weren't outplayed. You were understood.",
+  "Your decisions aged poorly. Instantly.",
+  "You made losing look structured.",
+  "That wasn't resistance. That was delay.",
+  "You brought effort. They brought results.",
+  "You didn't fall short. You stayed there.",
+  "That game explained your rank.",
+  "You weren't competing. You were participating.",
+  "You made it predictable.",
+];
+
+const getLobbyQuote = (result?: "win" | "loss" | null): string => {
+  const pool =
+    result === "win"  ? TAUNT_QUOTES_WIN  :
+    result === "loss" ? TAUNT_QUOTES_LOSS :
+    TAUNT_QUOTES_NEUTRAL;
+  return pool[Math.floor(Math.random() * pool.length)];
+};
 
 const LOBBY_QUOTE_STORAGE_KEY = "penta_lobby_quote";
 const LOBBY_QUOTE_REFRESH_EVENT = "pp:lobby-quote-refresh";
@@ -79,6 +140,7 @@ interface Props {
   queueError?: string | null;
   boardMode?: string;
   onBoardModeAction?: (mode: any) => void;
+  lastMatchResult?: "win" | "loss" | null;
 }
 
 type MultiSub = "unranked" | "ranked" | null;
@@ -93,6 +155,7 @@ export default function LobbyScreen({
   queueError = null,
   boardMode = "5x5",
   onBoardModeAction,
+  lastMatchResult = null,
 }: Props) {
   const t  = THEMES[themeId as keyof typeof THEMES];
   const ip = themeId === "pixel";
@@ -108,31 +171,42 @@ export default function LobbyScreen({
   const elapsed = propQueuePhase === "queuing" ? propQueueElapsed : 0;
   const [isMobile, setIsMobile] = useState(false);
 
-  // Persist the quote across refresh/navigation; only rotate it after multiplayer match completion.
+  // ── Taunt quote — pool selected by last ranked match result ───────────────
+  // If lastMatchResult is set (returning from ranked), always pick fresh from the right pool.
+  // Otherwise persist the current quote across navigation; only rotates after a match.
   const [lobbyTitle, setLobbyTitle] = useState<string>(() => {
-    if (typeof window === "undefined") return getLobbyQuote();
+    if (typeof window === "undefined") return getLobbyQuote(lastMatchResult);
     const saved = window.localStorage.getItem(LOBBY_QUOTE_STORAGE_KEY);
-    if (saved) return saved;
-    const initial = getLobbyQuote();
+    if (saved && !lastMatchResult) return saved;
+    const initial = getLobbyQuote(lastMatchResult);
     window.localStorage.setItem(LOBBY_QUOTE_STORAGE_KEY, initial);
     return initial;
   });
+
   useEffect(() => {
     if (typeof window === "undefined") return;
+    if (lastMatchResult) {
+      // Returning from a ranked game — always rotate into the correct pool
+      const next = getLobbyQuote(lastMatchResult);
+      window.localStorage.setItem(LOBBY_QUOTE_STORAGE_KEY, next);
+      setLobbyTitle(next);
+      return;
+    }
     const saved = window.localStorage.getItem(LOBBY_QUOTE_STORAGE_KEY);
     if (saved) {
       setLobbyTitle(saved);
       return;
     }
-    const initial = getLobbyQuote();
+    const initial = getLobbyQuote(null);
     window.localStorage.setItem(LOBBY_QUOTE_STORAGE_KEY, initial);
     setLobbyTitle(initial);
-  }, []);
+  }, [lastMatchResult]);
 
+  // Listen for the post-match refresh event fired by GameScreen on match_series_complete
   useEffect(() => {
     if (typeof window === "undefined") return;
     const refreshQuote = () => {
-      const nextQuote = getLobbyQuote();
+      const nextQuote = getLobbyQuote(null);
       window.localStorage.setItem(LOBBY_QUOTE_STORAGE_KEY, nextQuote);
       setLobbyTitle(nextQuote);
     };
@@ -432,7 +506,6 @@ export default function LobbyScreen({
         @keyframes scannerPulse{ 0%,100%{transform:scale(1);opacity:0.5} 50%{transform:scale(3.5);opacity:1} }
         @keyframes spinRing    { to{transform:rotate(360deg)} }
         @keyframes fadeUp      { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
-        @keyframes whiteShimmer { 0% { background-position: 200% center } 100% { background-position: -200% center } }
       `}</style>
     </div>
   );
@@ -473,19 +546,19 @@ export default function LobbyScreen({
   return (
     <div style={{ position:"fixed", inset:0, zIndex:2, overflowY:"auto", background:t.bg, padding:isMobile?"70px 16px 40px":"90px 24px 40px", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:isMobile?"flex-start":"space-evenly", transition:"background 0.4s" }}>
 
-     <h1 style={{
-  fontFamily: t.fontDisplay,
-  fontSize: isMobile ? "clamp(18px, 5vw, 28px)" : "clamp(22px, 2.5vw, 38px)",
-  fontWeight: 700,
-  textAlign: "center",
-  letterSpacing: "0.08em",
-  margin: isMobile ? "20px 0 30px" : 0,
-  maxWidth: 800,
-  lineHeight: 1.3,
-  textTransform: "uppercase",
-  color: "#ffffff",
-  textShadow: "0 0 10px rgba(255,255,255,0.9), 0 0 20px rgba(255,255,255,0.6), 0 0 40px rgba(255,255,255,0.3)",
-}}>{lobbyTitle}</h1>
+      <h1 style={{
+        fontFamily: t.fontDisplay,
+        fontSize: isMobile ? "clamp(18px, 5vw, 28px)" : "clamp(22px, 2.5vw, 38px)",
+        fontWeight: 700,
+        textAlign: "center",
+        letterSpacing: "0.08em",
+        margin: isMobile ? "20px 0 30px" : 0,
+        maxWidth: 800,
+        lineHeight: 1.3,
+        textTransform: "uppercase",
+        color: "#ffffff",
+        textShadow: "0 0 10px rgba(255,255,255,0.9), 0 0 20px rgba(255,255,255,0.6), 0 0 40px rgba(255,255,255,0.3)",
+      }}>{lobbyTitle}</h1>
 
       <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr":"1fr 1fr 1fr", gap:isMobile?12:ip?14:20, width:"100%", maxWidth:1200, marginBottom:isMobile?32:0 }}>
 
@@ -659,7 +732,6 @@ export default function LobbyScreen({
           }}>
             SELECT PROTOCOL
           </div>
-
           <div style={{
             display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(2, 1fr)",
             gap: 16, width: "100%", maxWidth: 800,
@@ -672,34 +744,20 @@ export default function LobbyScreen({
               { id: "5x5_6x6", label: "5×5 + 6×6", sub: "Hybrid progression" },
               { id: "6x6_7x7", label: "6×6 + 7×7", sub: "Elite progression" },
             ].map((opt) => (
-              <button
-                key={opt.id}
-                onClick={() => {
-                  onBoardModeAction?.(opt.id);
-                  setMultiSub("unranked");
-                  setShowUnrankedOptions(false);
-                }}
+              <button key={opt.id}
+                onClick={() => { onBoardModeAction?.(opt.id); setMultiSub("unranked"); setShowUnrankedOptions(false); }}
                 className="protocol-card"
-                style={{
-                  background: t.bgCard, border: `2px solid rgba(255,255,255,0.15)`,
-                  borderRadius: ip ? 2 : 16, padding: "24px 28px", textAlign: "left",
-                  cursor: "pointer", transition: "all 0.2s ease-out",
-                  position: "relative", overflow: "hidden",
-                  ["--hover-color" as any]: "#ffffff",
-                } as any}
+                style={{ background: t.bgCard, border: `2px solid rgba(255,255,255,0.15)`, borderRadius: ip ? 2 : 16, padding: "24px 28px", textAlign: "left", cursor: "pointer", transition: "all 0.2s ease-out", position: "relative", overflow: "hidden", ["--hover-color" as any]: "#ffffff" } as any}
               >
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
                   <div style={{ fontFamily: t.fontDisplay, fontSize: 22, fontWeight: 800, color: "#fff" }}>{opt.label}</div>
-                  {opt.current && (
-                    <div style={{ background: `rgba(255,255,255,0.1)`, color: "#fff", fontSize: 10, padding: "2px 8px", borderRadius: 4, fontFamily: t.fontMono, border: `1px solid rgba(255,255,255,0.2)` }}>RECOMMENDED</div>
-                  )}
+                  {opt.current && <div style={{ background: `rgba(255,255,255,0.1)`, color: "#fff", fontSize: 10, padding: "2px 8px", borderRadius: 4, fontFamily: t.fontMono, border: `1px solid rgba(255,255,255,0.2)` }}>RECOMMENDED</div>}
                 </div>
                 <div style={{ fontFamily: t.fontBody, fontSize: 14, color: t.textMuted, opacity: 0.8 }}>{opt.sub}</div>
                 <div style={{ position: "absolute", bottom: 0, left: 0, height: 3, width: "100%", background: `linear-gradient(90deg, transparent, #fff, transparent)`, opacity: 0.3 }} />
               </button>
             ))}
           </div>
-
           <button onClick={() => setShowUnrankedOptions(false)}
             style={{ marginTop: 48, background: "transparent", border: "none", color: t.textMuted, fontFamily: t.fontDisplay, fontSize: 14, cursor: "pointer", letterSpacing: "0.2em", fontWeight: 700 }}>
             CANCEL SELECTION
@@ -719,22 +777,11 @@ export default function LobbyScreen({
           }}>
             RANKED PROTOCOL
           </div>
-
           <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 16, width: "100%", maxWidth: 400 }}>
             <button
-              onClick={() => {
-                onBoardModeAction?.("5x5_6x6_7x7");
-                setMultiSub("ranked");
-                setShowRankedOptions(false);
-              }}
+              onClick={() => { onBoardModeAction?.("5x5_6x6_7x7"); setMultiSub("ranked"); setShowRankedOptions(false); }}
               className="protocol-card"
-              style={{
-                background: t.bgCard, border: `2px solid ${t.gold}44`,
-                borderRadius: ip ? 2 : 16, padding: "32px 28px", textAlign: "left",
-                cursor: "pointer", transition: "all 0.2s ease-out",
-                position: "relative", overflow: "hidden",
-                ["--hover-color" as any]: t.gold,
-              } as any}
+              style={{ background: t.bgCard, border: `2px solid ${t.gold}44`, borderRadius: ip ? 2 : 16, padding: "32px 28px", textAlign: "left", cursor: "pointer", transition: "all 0.2s ease-out", position: "relative", overflow: "hidden", ["--hover-color" as any]: t.gold } as any}
             >
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
                 <div style={{ fontFamily: t.fontDisplay, fontSize: 24, fontWeight: 800, color: t.gold }}>MAIN PROTOCOL</div>
@@ -745,14 +792,12 @@ export default function LobbyScreen({
               <div style={{ position: "absolute", bottom: 0, left: 0, height: 3, width: "100%", background: `linear-gradient(90deg, transparent, ${t.gold}, transparent)`, opacity: 0.4 }} />
             </button>
           </div>
-
           <button onClick={() => setShowRankedOptions(false)}
             style={{ marginTop: 48, background: "transparent", border: "none", color: t.textMuted, fontFamily: t.fontDisplay, fontSize: 14, cursor: "pointer", letterSpacing: "0.2em", fontWeight: 700 }}>
             CANCEL SELECTION
           </button>
         </div>
       )}
-
 
       {/* Rank Showcase */}
       <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:8 }}>
