@@ -230,7 +230,7 @@ export default function GameWinScreen({
                 {eloCounter >= 0 ? "+" : ""}{eloCounter}
               </div>
               <div style={{ fontFamily: t.fontMono, fontSize: 12, color: t.textSecondary }}>
-                {myData.elo_before} -> {myData.elo_after}
+                {myData.elo_before}{" -> "}{myData.elo_after}
               </div>
             </div>
           )}
@@ -243,7 +243,7 @@ export default function GameWinScreen({
               +{xpCounter}
             </div>
             <div style={{ fontFamily: t.fontMono, fontSize: 12, color: t.textSecondary }}>
-              {myData.xp_before} -> {myData.xp_after}
+              {myData.xp_before}{" -> "}{myData.xp_after}
             </div>
           </div>
         </div>
@@ -254,7 +254,7 @@ export default function GameWinScreen({
               LEVEL PROGRESS
             </span>
             <span style={{ fontFamily: t.fontMono, fontSize: 12, color: t.textSecondary }}>
-              LVL {before.level} -> LVL {after.level}
+              LVL {before.level}{" -> "}LVL {after.level}
             </span>
           </div>
           <div style={{ height: 10, borderRadius: 999, overflow: "hidden", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.06)" }}>
