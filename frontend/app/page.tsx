@@ -703,7 +703,7 @@ export default function Page() {
       {screen === "rules"      && <RulesScreen      themeId={themeId} onHoverAction={sfx.hover} onClickAction={sfx.click} />}
       {screen === "ai"         && <AIScreen         setScreenAction={handleSetScreen} themeId={themeId} onSelectDifficultyAction={(d) => { sfx.click(); setAiDifficulty(d); handleSetScreen("aiGame"); }} onHoverAction={sfx.hover} onBoardModeAction={(mode, patterns) => { setBoardMode(mode); setSelectedPatterns(patterns || []); }} />}
       {screen === "singleplayer" && <SingleplayerScreen setScreenAction={handleSetScreen} themeId={themeId} onHoverAction={sfx.hover} onBoardModeAction={(mode: BoardMode, patterns?: string[]) => { setBoardMode(mode); setSelectedPatterns(patterns || []); handleSetScreen("game"); }} />}
-      {screen === "store"      && <StoreScreen      setScreenAction={handleSetScreen} themeId={themeId} />}
+      {screen === "store"      && <StoreScreen      setScreenAction={handleSetScreen} themeId={themeId} audio={{ pauseBgm: audio.pauseBgm, resumeBgm: audio.resumeBgm }} />}
       {screen === "collection" && <CollectionScreen themeId={themeId} setThemeIdAction={setThemeId} onHoverAction={sfx.hover} onClickAction={sfx.click} />}
       {screen === "career"     && <CareerScreen     themeId={themeId} onHoverAction={sfx.hover} />}
       {screen === "battlepass" && <MissionsScreen themeId={themeId} />}

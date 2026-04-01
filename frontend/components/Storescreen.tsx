@@ -60,6 +60,10 @@ function InteractivePreview({ Grid, gridProps }: { Grid: React.ComponentType<any
 interface Props {
   setScreenAction: (s: Screen) => void;
   themeId: ThemeId;
+  audio?: {
+    pauseBgm: () => void;
+    resumeBgm: () => void;
+  };
 }
 
 const PACKAGES = [
@@ -414,23 +418,59 @@ function BundleModal({ bundle, t, isGuest, buyingId, purchasedItems, balance, on
   );
 }
 
-function ThemePreviewModal({ item, t, onClose }: { item: any; t: any; onClose: () => void }) {
+function ThemePreviewModal({ item, t, onClose, audio }: { item: any; t: any; onClose: () => void; audio?: { pauseBgm: () => void; resumeBgm: () => void } }) {
   const [activeTrack, setActiveTrack] = useState<string | null>(null);
   const [trackErr, setTrackErr] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const bgmPausedForPreviewRef = useRef(false);
   const ac = item.accentColor ?? "#4DA3FF";
   const tracks = THEME_MUSIC_PREVIEWS[item.id] ?? [];
-  useEffect(() => { return () => { if (audioRef.current) { audioRef.current.pause(); audioRef.current.src = ""; } }; }, []);
-  const stopCurrent = () => { if (!audioRef.current) return; audioRef.current.pause(); audioRef.current.currentTime = 0; setActiveTrack(null); };
+  useEffect(() => {
+    return () => {
+      if (audioRef.current) { audioRef.current.pause(); audioRef.current.src = ""; }
+      if (bgmPausedForPreviewRef.current) {
+        audio?.resumeBgm();
+        bgmPausedForPreviewRef.current = false;
+      }
+    };
+  }, [audio]);
+  const stopCurrent = () => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+    }
+    setActiveTrack(null);
+    if (bgmPausedForPreviewRef.current) {
+      audio?.resumeBgm();
+      bgmPausedForPreviewRef.current = false;
+    }
+  };
   const playTrack = (file: string) => {
     setTrackErr(null);
+    if (!bgmPausedForPreviewRef.current) {
+      audio?.pauseBgm();
+      bgmPausedForPreviewRef.current = true;
+    }
     if (audioRef.current) { audioRef.current.pause(); audioRef.current.src = ""; }
     const audio = new Audio(`/sounds/${file}`); audioRef.current = audio;
     audio.currentTime = 0; audio.volume = 0.7;
     audio.addEventListener("timeupdate", () => { if (audio.currentTime >= 30) audio.pause(); });
-    audio.addEventListener("pause", () => setActiveTrack(null));
+    audio.addEventListener("pause", () => {
+      setActiveTrack(null);
+      if (bgmPausedForPreviewRef.current) {
+        audio?.resumeBgm();
+        bgmPausedForPreviewRef.current = false;
+      }
+    });
     audio.addEventListener("ended", () => setActiveTrack(null));
-    audio.play().then(() => setActiveTrack(file)).catch(() => { setTrackErr("Could not play this track on your browser."); setActiveTrack(null); });
+    audio.play().then(() => setActiveTrack(file)).catch(() => {
+      setTrackErr("Could not play this track on your browser.");
+      setActiveTrack(null);
+      if (bgmPausedForPreviewRef.current) {
+        audio?.resumeBgm();
+        bgmPausedForPreviewRef.current = false;
+      }
+    });
   };
   return (
     <div onClick={e => { if (e.target === e.currentTarget) { stopCurrent(); onClose(); } }} style={{ position: "fixed", inset: 0, zIndex: 210, background: "rgba(0,0,0,0.88)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16, animation: "fadeIn 0.16s ease", overflowY: "auto" }}>
@@ -543,7 +583,7 @@ function BundleCard({ bundle, purchasedItems, t, onClick }: { bundle: Bundle; pu
     </div>
   );
 }
-export default function StoreScreen({ setScreenAction, themeId }: Props) {
+export default function StoreScreen({ setScreenAction, themeId, audio }: Props) {
   const t = THEMES[themeId as keyof typeof THEMES];
   const { user, token, updateUser } = useAuthStore();
   const isGuest = !user;
@@ -709,7 +749,7 @@ export default function StoreScreen({ setScreenAction, themeId }: Props) {
           onClose={() => setOpenBundle(null)} onBuy={handleBuyCosmetic}
           onOpenBuyCredits={() => { setOpenBundle(null); setMsg(null); setBuyCurrencyType("protocredits"); setShowBuyModal(true); }} />
       )}
-      {activeThemePreview && (<ThemePreviewModal item={activeThemePreview} t={t} onClose={() => setOpenThemePreview(null)} />)}
+      {activeThemePreview && (<ThemePreviewModal item={activeThemePreview} t={t} onClose={() => setOpenThemePreview(null)} audio={audio} />)}
 
       <div style={{ maxWidth: 1240, margin: "0 auto", padding: "0 28px 72px" }}>
 

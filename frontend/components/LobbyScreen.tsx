@@ -61,6 +61,9 @@ const TAUNT_QUOTES = [
 const getLobbyQuote = (): string =>
   TAUNT_QUOTES[Math.floor(Math.random() * TAUNT_QUOTES.length)];
 
+const LOBBY_QUOTE_STORAGE_KEY = "penta_lobby_quote";
+const LOBBY_QUOTE_REFRESH_EVENT = "pp:lobby-quote-refresh";
+
 interface Props {
   setScreenAction: (s: Screen) => void;
   themeId: ThemeId;
@@ -105,10 +108,36 @@ export default function LobbyScreen({
   const elapsed = propQueuePhase === "queuing" ? propQueueElapsed : 0;
   const [isMobile, setIsMobile] = useState(false);
 
-  // ── Taunt quote — re-rolls on every mount (navigate away & back), resets on page refresh ──
-  const [lobbyTitle, setLobbyTitle] = useState<string>(() => getLobbyQuote());
+  // Persist the quote across refresh/navigation; only rotate it after multiplayer match completion.
+  const [lobbyTitle, setLobbyTitle] = useState<string>(() => {
+    if (typeof window === "undefined") return getLobbyQuote();
+    const saved = window.localStorage.getItem(LOBBY_QUOTE_STORAGE_KEY);
+    if (saved) return saved;
+    const initial = getLobbyQuote();
+    window.localStorage.setItem(LOBBY_QUOTE_STORAGE_KEY, initial);
+    return initial;
+  });
   useEffect(() => {
-    setLobbyTitle(getLobbyQuote());
+    if (typeof window === "undefined") return;
+    const saved = window.localStorage.getItem(LOBBY_QUOTE_STORAGE_KEY);
+    if (saved) {
+      setLobbyTitle(saved);
+      return;
+    }
+    const initial = getLobbyQuote();
+    window.localStorage.setItem(LOBBY_QUOTE_STORAGE_KEY, initial);
+    setLobbyTitle(initial);
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const refreshQuote = () => {
+      const nextQuote = getLobbyQuote();
+      window.localStorage.setItem(LOBBY_QUOTE_STORAGE_KEY, nextQuote);
+      setLobbyTitle(nextQuote);
+    };
+    window.addEventListener(LOBBY_QUOTE_REFRESH_EVENT, refreshQuote);
+    return () => window.removeEventListener(LOBBY_QUOTE_REFRESH_EVENT, refreshQuote);
   }, []);
 
   useEffect(() => {

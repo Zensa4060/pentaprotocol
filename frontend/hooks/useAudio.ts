@@ -224,7 +224,23 @@ export function useAudio() {
     });
   }, []);
 
+  const pauseBgm = useCallback(() => {
+    clearFade();
+    if (audioRef.current && !audioRef.current.paused) {
+      audioRef.current.pause();
+    }
+  }, []);
+
+  const resumeBgm = useCallback(() => {
+    clearFade();
+    if (!audioRef.current || !currentSrc.current) return;
+    audioRef.current.volume = mutedRef.current ? 0 : musicVolRef.current;
+    if (audioRef.current.paused) {
+      audioRef.current.play().catch(() => { });
+    }
+  }, []);
+
   useEffect(() => () => hardStop(), []);
 
-  return { musicVol, setMusicVol, sfxVol, setSfxVol, muted, toggleMute, playSfx, playBgm, sfx };
+  return { musicVol, setMusicVol, sfxVol, setSfxVol, muted, toggleMute, playSfx, playBgm, pauseBgm, resumeBgm, sfx };
 }

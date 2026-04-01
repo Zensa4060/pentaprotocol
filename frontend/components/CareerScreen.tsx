@@ -79,7 +79,6 @@ const CareerMatchRow = React.memo(({
       resultColor = "#10B981";
     }
   }
-  const rowDelay = (i * 0.05).toFixed(2) + "s";
   const hasRounds = Array.isArray(match.match_rounds) && match.match_rounds.length > 0;
 
   const formatDate = (iso: string) => {
@@ -97,7 +96,7 @@ const CareerMatchRow = React.memo(({
   if (isMobile) {
     return (
       <div
-        className="career-row career-row-animated"
+        className="career-row"
         onClick={() => {
           if (hasRounds) setSelectedMatch(match);
         }}
@@ -107,7 +106,6 @@ const CareerMatchRow = React.memo(({
           gap: 12,
           padding: "16px",
           background: "transparent",
-          animationDelay: rowDelay,
           cursor: hasRounds ? "pointer" : "default",
           borderBottom: `1px solid ${t.border}22`,
         }}
@@ -246,7 +244,7 @@ const CareerMatchRow = React.memo(({
 
   return (
     <div
-      className="career-row career-row-animated"
+      className="career-row"
       onClick={() => {
         if (hasRounds) setSelectedMatch(match);
       }}
@@ -259,7 +257,6 @@ const CareerMatchRow = React.memo(({
         padding: "16px 24px",
         alignItems: "center",
         background: "transparent",
-        animationDelay: rowDelay,
         cursor: hasRounds ? "pointer" : "default",
         borderBottom: `1px solid ${t.border}22`,
       }}
@@ -494,7 +491,6 @@ export default function CareerScreen({ themeId, onHoverAction }: Props) {
               : t.bg,
           overflowY: "scroll",
           overflowX: "hidden",
-          scrollBehavior: "smooth",
           WebkitOverflowScrolling: "touch",
           transition: "background 0.4s",
         } as React.CSSProperties
@@ -502,12 +498,11 @@ export default function CareerScreen({ themeId, onHoverAction }: Props) {
     >
       <style>{`
         .career-row {
-          transition: background 0.18s ease, transform 0.18s cubic-bezier(.22,.68,0,1.2);
+          transition: background-color 0.12s ease, border-color 0.12s ease;
           cursor: default;
         }
         .career-row:hover {
-          background: rgba(255,255,255,0.035) !important;
-          transform: translateX(4px);
+          background: rgba(255,255,255,0.025) !important;
         }
         .career-scroll::-webkit-scrollbar { width: 5px; }
         .career-scroll::-webkit-scrollbar-track { background: transparent; }
@@ -518,17 +513,9 @@ export default function CareerScreen({ themeId, onHoverAction }: Props) {
         .career-scroll::-webkit-scrollbar-thumb:hover {
           background: rgba(255,255,255,0.22);
         }
-        * { scroll-behavior: smooth; }
-        @keyframes rowFadeIn {
-          from { opacity: 0; transform: translateY(10px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        .career-row-animated {
-          animation: rowFadeIn 0.5s ease-out both;
-        }
         @keyframes overlayIn { from { opacity: 0; transform: scale(1.05); } to { opacity: 1; transform: scale(1); } }
-        .round-card { transition: all 0.2s; border: 1px solid rgba(255,255,255,0.05); cursor: pointer; }
-        .round-card:hover { background: rgba(255,255,255,0.05); transform: translateY(-2px); }
+        .round-card { transition: background-color 0.12s ease, border-color 0.12s ease; border: 1px solid rgba(255,255,255,0.05); cursor: pointer; }
+        .round-card:hover { background: rgba(255,255,255,0.04); }
         .round-card.active { border-color: ${t.accent}; background: ${t.accent}15; }
       `}</style>
 
@@ -869,11 +856,10 @@ export default function CareerScreen({ themeId, onHoverAction }: Props) {
             <div
               style={{
                 background: "rgba(25,25,25,0.4)",
-                backdropFilter: "blur(24px)",
                 border: `1px solid ${t.border}`,
                 borderRadius: 20,
                 overflow: "hidden",
-                boxShadow: `0 30px 60px rgba(0,0,0,0.5), inset 0 0 40px rgba(255,255,255,0.02)`,
+                boxShadow: `0 18px 36px rgba(0,0,0,0.32)`,
               }}
             >
               {/* Header */}
@@ -1060,7 +1046,6 @@ function MatchOverlay({
         inset: 0,
         zIndex: 1000,
         background: "rgba(10,10,10,0.95)",
-        backdropFilter: "blur(20px)",
         display: "flex",
         flexDirection: "column",
         animation: "overlayIn 0.3s cubic-bezier(0.16, 1, 0.3, 1)",
@@ -1226,7 +1211,7 @@ function MatchOverlay({
                     padding: 10,
                     border: `1px solid ${t.border}88`,
                     borderRadius: 12,
-                    boxShadow: "0 20px 40px rgba(0,0,0,0.4)",
+                    boxShadow: "0 12px 24px rgba(0,0,0,0.24)",
                   }}
                 >
                   {currentRound.board.map((row, rIdx) =>

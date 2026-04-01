@@ -1105,7 +1105,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
           void useAuthStore.getState().refreshProfile();
           if (typeof window !== "undefined") {
             window.dispatchEvent(new Event("pp:career-refresh"));
-            window.localStorage.removeItem("penta_lobby_quote");
+            window.dispatchEvent(new Event("pp:lobby-quote-refresh"));
           }
           setShowRematch(false);
           setRematchRequested(null);
@@ -2195,7 +2195,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     void useAuthStore.getState().refreshProfile();
     if (typeof window !== "undefined") {
       window.dispatchEvent(new Event("pp:career-refresh"));
-      window.localStorage.removeItem("penta_lobby_quote");
+      window.dispatchEvent(new Event("pp:lobby-quote-refresh"));
     }
   }, [matchOver, phase, isMultiplayerGame, userKey]);
 
