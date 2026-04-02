@@ -552,9 +552,9 @@ export default React.memo(function PixelGrid({ board, onCellClickAction, winCell
             contain: "layout size style",
           }}
         >
-          {showShowcaseFx && graphicsQuality === "quality" && <PixelBg W={BS} H={BS} gridSize={SIZE} isPaused={isPaused} />}
-          {showShowcaseFx && graphicsQuality === "quality" && <GridLines W={BS} H={BS} PAD={PAD} CS={CS} SIZE={SIZE} isPaused={isPaused} />}
-          {showShowcaseFx && graphicsQuality === "quality" && <BurstCanvas burstRef={burstRef} W={BS} H={BS} gridSize={SIZE} />}
+          {showShowcaseFx && !lowFx && <PixelBg W={BS} H={BS} gridSize={SIZE} isPaused={isPaused} />}
+          {!lowFx && <GridLines W={BS} H={BS} PAD={PAD} CS={CS} SIZE={SIZE} isPaused={isPaused} />}
+          {!lowFx && <BurstCanvas burstRef={burstRef} W={BS} H={BS} gridSize={SIZE} />}
           <div style={{ position: "absolute", inset: PAD, zIndex: 4, display: "flex", flexDirection: "column" }}>
             {ROWS.map((_, r) => (
               <div key={r} style={{ display: "flex", flex: 1 }}>

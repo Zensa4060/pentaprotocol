@@ -790,9 +790,9 @@ export default React.memo(function SpaceGrid({ board, onCellClickAction, winCell
           </div>
         )}
         <div style={{ position: "relative", width: BS, height: BS, borderRadius: CS * 0.05, overflow: "hidden", border: "2px solid rgba(0,150,255,.55)", background: "linear-gradient(180deg, rgba(4,10,28,0.98), rgba(2,6,18,0.98))", boxShadow: "0 0 0 1px rgba(0,120,255,.18), inset 0 0 26px rgba(0,0,0,.68)" }}>
-          {showShowcaseFx && graphicsQuality === "quality" && <SpaceExBg W={BS} H={BS} gridSize={SIZE} isPaused={isPaused} />}
-          {showShowcaseFx && graphicsQuality === "quality" && <GridLines W={BS} H={BS} PAD={PAD} CS={CS} SIZE={SIZE} isPaused={isPaused} />}
-          {showShowcaseFx && graphicsQuality === "quality" && <BurstCanvas burstRef={burstRef} W={BS} H={BS} gridSize={SIZE} />}
+          {showShowcaseFx && !lowFx && <SpaceExBg W={BS} H={BS} gridSize={SIZE} isPaused={isPaused} />}
+          {!lowFx && <GridLines W={BS} H={BS} PAD={PAD} CS={CS} SIZE={SIZE} isPaused={isPaused} />}
+          {!lowFx && <BurstCanvas burstRef={burstRef} W={BS} H={BS} gridSize={SIZE} />}
           <div style={{ position: "absolute", inset: PAD, zIndex: 4, display: "flex", flexDirection: "column" }}>
             {ROWS.map((_, r) => (
               <div key={r} style={{ display: "flex", flex: 1 }}>
