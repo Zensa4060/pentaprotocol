@@ -29,6 +29,8 @@ interface MatchRound {
 }
 
 interface MatchRecord {
+  /** MongoDB `match_history` row id (for deep-link / focus from post-match flow). */
+  id?: string;
   opponent_id: string;
   opponent_username: string;
   opponent_elo: number;
@@ -54,6 +56,7 @@ const CareerMatchRow = React.memo(({
   t, 
   setSelectedMatch,
   isMobile,
+  highlightId,
 }: { 
   match: MatchRecord; 
   i: number; 
@@ -61,6 +64,7 @@ const CareerMatchRow = React.memo(({
   t: any;
   setSelectedMatch: (m: MatchRecord | null) => void;
   isMobile: boolean;
+  highlightId?: string | null;
 }) => {
   const oppRank = getRank(match.opponent_elo);
   const isWin = match.result === "win";
@@ -80,6 +84,14 @@ const CareerMatchRow = React.memo(({
     }
   }
   const hasRounds = Array.isArray(match.match_rounds) && match.match_rounds.length > 0;
+  const rowDomId = match.id ? `career-match-${match.id}` : undefined;
+  const rowHighlight = Boolean(highlightId && match.id && highlightId === match.id);
+  const highlightStyle = rowHighlight
+    ? {
+        boxShadow: `0 0 0 2px ${t.accent}aa`,
+        background: `${t.accent}12`,
+      }
+    : {};
 
   const formatDate = (iso: string) => {
     if (!iso) return "—";
@@ -96,6 +108,7 @@ const CareerMatchRow = React.memo(({
   if (isMobile) {
     return (
       <div
+        id={rowDomId}
         className="career-row"
         onClick={() => {
           if (hasRounds) setSelectedMatch(match);
@@ -108,6 +121,7 @@ const CareerMatchRow = React.memo(({
           background: "transparent",
           cursor: hasRounds ? "pointer" : "default",
           borderBottom: `1px solid ${t.border}22`,
+          ...highlightStyle,
         }}
       >
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
@@ -244,6 +258,7 @@ const CareerMatchRow = React.memo(({
 
   return (
     <div
+      id={rowDomId}
       className="career-row"
       onClick={() => {
         if (hasRounds) setSelectedMatch(match);
@@ -259,6 +274,7 @@ const CareerMatchRow = React.memo(({
         background: "transparent",
         cursor: hasRounds ? "pointer" : "default",
         borderBottom: `1px solid ${t.border}22`,
+        ...highlightStyle,
       }}
     >
       {/* Result badge */}
@@ -416,6 +432,7 @@ export default function CareerScreen({ themeId, onHoverAction }: Props) {
   const [activeTab, setActiveTab] = useState<"ranked" | "unranked" | "custom">("ranked");
   const [selectedMatch, setSelectedMatch] = useState<MatchRecord | null>(null);
   const [isMobile, setIsMobile] = useState(false);
+  const [focusHighlightId, setFocusHighlightId] = useState<string | null>(null);
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 768);
@@ -434,7 +451,30 @@ export default function CareerScreen({ themeId, onHoverAction }: Props) {
       try {
         if (!cancelled) setLoading(true);
         const res = await API.get("/api/profile/career");
-        if (!cancelled) setHistory(res.data);
+        const rows = (Array.isArray(res.data) ? res.data : []) as MatchRecord[];
+        if (cancelled) return;
+        setHistory(rows);
+        const focusId =
+          typeof window !== "undefined" ? sessionStorage.getItem("pp_career_focus_match_id") : null;
+        if (focusId) {
+          const m = rows.find((x) => x.id === focusId);
+          if (m) {
+            const tab: "ranked" | "unranked" | "custom" =
+              m.mode === "ranked" ? "ranked" : m.mode === "custom" ? "custom" : "unranked";
+            setActiveTab(tab);
+            setSelectedMatch(m);
+            sessionStorage.removeItem("pp_career_focus_match_id");
+            setFocusHighlightId(focusId);
+            requestAnimationFrame(() => {
+              requestAnimationFrame(() => {
+                document.getElementById(`career-match-${focusId}`)?.scrollIntoView({
+                  behavior: "smooth",
+                  block: "center",
+                });
+              });
+            });
+          }
+        }
       } catch (err) {
         console.error("Failed to load career data:", err);
       } finally {
@@ -451,6 +491,12 @@ export default function CareerScreen({ themeId, onHoverAction }: Props) {
       window.removeEventListener("pp:career-refresh", handleCareerRefresh);
     };
   }, [user]);
+
+  useEffect(() => {
+    if (!focusHighlightId) return;
+    const timer = window.setTimeout(() => setFocusHighlightId(null), 4500);
+    return () => window.clearTimeout(timer);
+  }, [focusHighlightId]);
 
   const wins = history.filter((m) => m.result === "win").length;
   const losses = history.filter((m) => m.result === "loss").length;
@@ -978,13 +1024,14 @@ export default function CareerScreen({ themeId, onHoverAction }: Props) {
                   })
                   .map((match, i) => (
                     <CareerMatchRow 
-                      key={`${match.played_at}-${i}`}
+                      key={match.id ?? `${match.played_at}-${i}`}
                       match={match}
                       i={i}
                       activeTab={activeTab}
                       t={t}
                       setSelectedMatch={setSelectedMatch}
                       isMobile={isMobile}
+                      highlightId={focusHighlightId}
                     />
                   ))}
             </div>

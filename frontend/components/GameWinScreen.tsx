@@ -49,6 +49,8 @@ interface GameWinScreenProps {
   onRematch: () => void;
   onQuit: () => void;
   onContinue?: () => void;
+  /** Navigate to career with this match highlighted (multiplayer series end). */
+  onGoToCareer?: () => void;
 }
 
 export default function GameWinScreen({
@@ -61,6 +63,7 @@ export default function GameWinScreen({
   onRematch,
   onQuit,
   onContinue,
+  onGoToCareer,
 }: GameWinScreenProps) {
   const [showActions, setShowActions] = useState(false);
   const [eloCounter, setEloCounter] = useState(0);
@@ -280,6 +283,26 @@ export default function GameWinScreen({
               style={{ display: "flex", flexDirection: "column", gap: 14, alignItems: "center" }}
             >
               <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: 14 }}>
+                {onGoToCareer && (
+                  <button
+                    type="button"
+                    onClick={onGoToCareer}
+                    style={{
+                      padding: "16px 28px",
+                      borderRadius: 14,
+                      border: `1px solid ${t.accent}99`,
+                      background: `${t.accent}1c`,
+                      color: t.accent,
+                      fontFamily: t.fontDisplay,
+                      fontSize: 16,
+                      fontWeight: 900,
+                      letterSpacing: "0.16em",
+                      cursor: "pointer",
+                    }}
+                  >
+                    GO TO CAREER
+                  </button>
+                )}
                 {onContinue && (
                   <button
                     onClick={onContinue}

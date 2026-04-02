@@ -61,6 +61,8 @@ function getWsBaseUrl(): string {
 type MatchSeriesCompletePayload = {
   series_winner: string;
   format: string; // "ranked" | "unranked" | "custom"
+  /** Mongo match_history row id for the current player's career entry */
+  careerEntryId?: string | null;
   p1: {
     name: string;
     elo_before: number;
@@ -292,6 +294,8 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     rulesMatchGateRef.current = rulesMatchGate;
   }, [rulesMatchGate]);
   const [matchSeriesComplete, setMatchSeriesComplete] = useState<MatchSeriesCompletePayload | null>(null);
+  /** Briefly ignore game_reset clearing the series-complete overlay (race with match_series_complete). */
+  const matchSeriesUiLockUntilRef = useRef(0);
   const [showGameWinScreen, setShowGameWinScreen] = useState(false);
   const [showRankedMatchResult, setShowRankedMatchResult] = useState(false);
   const [pbOverlay, setPbOverlay] = useState<{
@@ -1123,13 +1127,20 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
           }
           setShowRematch(false);
           setRematchRequested(null);
+          matchSeriesUiLockUntilRef.current = Date.now() + 800;
           setShowGameWinScreen(true);
           setShowRankedMatchResult(false);
           setShowWinOverlay(false);
           setOverlayVisible(false);
+          const rmExt = rm as Partial<MatchSeriesCompletePayload> & { p1_career_entry_id?: string; p2_career_entry_id?: string };
+          const cid =
+            mySlot === "P1"
+              ? (typeof rmExt.p1_career_entry_id === "string" ? rmExt.p1_career_entry_id : null)
+              : (typeof rmExt.p2_career_entry_id === "string" ? rmExt.p2_career_entry_id : null);
           setMatchSeriesComplete({
             series_winner: String(rm.series_winner ?? "DRAW"),
             format: String(rm.format ?? "ranked"),
+            careerEntryId: cid,
             p1: {
               name: String(rm.p1?.name ?? "P1"),
               elo_before: z(rm.p1?.elo_before, 0),
@@ -1353,9 +1364,11 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
           setP2Ready(false);
           setShowRematch(false);
           setRematchRequested(null);
-          setShowGameWinScreen(false);
-          setShowRankedMatchResult(false);
-          setMatchSeriesComplete(null);
+          if (Date.now() >= matchSeriesUiLockUntilRef.current) {
+            setShowGameWinScreen(false);
+            setShowRankedMatchResult(false);
+            setMatchSeriesComplete(null);
+          }
           setPhase("playing");
           const incomingGame = msg.game_number ?? 1;
           if (incomingGame === 1) {
@@ -2358,6 +2371,20 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   setIsBoardPaused(false);
   winClickLockRef.current = false;
 }, []);
+
+  const goToCareerAfterSeries = useCallback(() => {
+    const id = matchSeriesComplete?.careerEntryId;
+    if (id && typeof window !== "undefined") {
+      sessionStorage.setItem("pp_career_focus_match_id", id);
+    }
+    if (isMultiplayerGame && wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ type: "quit_match", slot: mySlot }));
+    }
+    setShowGameWinScreen(false);
+    setShowRankedMatchResult(false);
+    setMatchSeriesComplete(null);
+    setScreenAction?.("career");
+  }, [matchSeriesComplete?.careerEntryId, isMultiplayerGame, mySlot, setScreenAction]);
 
   const useRbExtraTurnToken = useCallback(() => {
     if (phase !== "playing" || winner) return;
@@ -3417,6 +3444,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
               }
               setScreenAction?.("home");
             }}
+            onGoToCareer={goToCareerAfterSeries}
           />
         )}
         {showRankedMatchResult && matchSeriesComplete && matchSeriesComplete.format === "ranked" && (
@@ -3668,6 +3696,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
             }
             setScreenAction?.("home");
           }}
+          onGoToCareer={goToCareerAfterSeries}
         />
       )}
       {showRankedMatchResult && matchSeriesComplete && matchSeriesComplete.format === "ranked" && (

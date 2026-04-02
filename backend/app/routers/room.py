@@ -663,7 +663,7 @@ async def _award_match_series_and_notify(
     rr1_before = int(u1.get("ranked_rating", elo1_before)) if u1 else elo1_before
     rr2_before = int(u2.get("ranked_rating", elo2_before)) if u2 else elo2_before
 
-    await award_ranked_match_result(
+    career_ids = await award_ranked_match_result(
         db, game_dict, effective, record_clean_streak=record_clean_streak, surrendered_by=surrendered_by
     )
 
@@ -692,6 +692,8 @@ async def _award_match_series_and_notify(
             "xp_before": u2.get("xp", 0) if u2 else 0,
             "xp_after": u2a.get("xp", 0) if u2a else 0,
         },
+        "p1_career_entry_id": (career_ids or {}).get("p1_career_entry_id"),
+        "p2_career_entry_id": (career_ids or {}).get("p2_career_entry_id"),
     }
     for slot, ws in _room_connections.get(room_code, {}).items():
         try:

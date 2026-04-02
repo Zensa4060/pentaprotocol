@@ -78,6 +78,7 @@ async def get_career(user_id: str = Depends(get_current_user)):
     matches = []
     async for doc in cursor:
         row = {
+            "id": str(doc["_id"]) if doc.get("_id") is not None else "",
             "opponent_username": doc.get("opponent_username", "Unknown"),
             "opponent_elo":      doc.get("opponent_elo", 100),
             "result":            doc.get("result", "loss"),

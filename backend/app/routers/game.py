@@ -225,7 +225,7 @@ async def award_ranked_match_result(
 
     async def log_match(user_id, opponent_id, result, user_snap, opp_snap):
         if not user_id:
-            return
+            return None
         u_id_str = str(user_id)
         o_id_str = str(opponent_id) if opponent_id else None
         if not user_snap:
@@ -233,7 +233,7 @@ async def award_ranked_match_result(
         if o_id_str and not opp_snap:
             opp_snap = await db.users.find_one({"_id": ObjectId(o_id_str)})
         if not user_snap:
-            return
+            return None
         
         # Ensure IDs are strings for consistent MongoDB querying (JWT uses string sub)
         elo_before = user_snap.get("elo", 500)
@@ -260,17 +260,20 @@ async def award_ranked_match_result(
             "limitbreaker_played": bool(game.get("protocolbreaker_played") or game.get("limitbreaker_played")),
             "surrendered_by":         surrendered_by,
         }
-        await db.match_history.insert_one(doc)
+        ins = await db.match_history.insert_one(doc)
+        return str(ins.inserted_id)
 
+    p1_career_entry_id = None
+    p2_career_entry_id = None
     if w == "P1":
-        await log_match(p1_id, p2_id, "win", p1_user, p2_user)
-        await log_match(p2_id, p1_id, "loss", p2_user, p1_user)
+        p1_career_entry_id = await log_match(p1_id, p2_id, "win", p1_user, p2_user)
+        p2_career_entry_id = await log_match(p2_id, p1_id, "loss", p2_user, p1_user)
     elif w == "P2":
-        await log_match(p1_id, p2_id, "loss", p1_user, p2_user)
-        await log_match(p2_id, p1_id, "win", p2_user, p1_user)
+        p1_career_entry_id = await log_match(p1_id, p2_id, "loss", p1_user, p2_user)
+        p2_career_entry_id = await log_match(p2_id, p1_id, "win", p2_user, p1_user)
     elif w == "DRAW":
-        await log_match(p1_id, p2_id, "draw", p1_user, p2_user)
-        await log_match(p2_id, p1_id, "draw", p2_user, p1_user)
+        p1_career_entry_id = await log_match(p1_id, p2_id, "draw", p1_user, p2_user)
+        p2_career_entry_id = await log_match(p2_id, p1_id, "draw", p2_user, p1_user)
 
     if record_clean_streak:
         if p1_id:
@@ -281,6 +284,11 @@ async def award_ranked_match_result(
         wid = p1_id if winner == "P1" else p2_id
         if wid:
             await record_ranked_match_completed_clean(db, wid)
+
+    return {
+        "p1_career_entry_id": p1_career_entry_id,
+        "p2_career_entry_id": p2_career_entry_id,
+    }
 
 
 @router.post("/create")
