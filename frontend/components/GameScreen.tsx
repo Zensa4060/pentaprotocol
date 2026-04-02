@@ -1820,6 +1820,13 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
       }
       const freePhases = ["waiting_ready", "rb_splash", "rb_coin"];
       if (s.winner && !freePhases.includes(s.phase)) return;
+      // Rulebreaker choice timers (incl. 6x6 grid cell picker) must tick even when pausedRef is true
+      // (e.g. exit modal), so they run before the pause guard below.
+      if (tossChoicePhases.includes(s.phase) && s.choiceTimer > 0) {
+        choiceTimerRef.current -= dt / 1000;
+        if (choiceTimerRef.current <= 0) { choiceTimerRef.current = 0; setChoiceTimer(0); autoPickLeft(s.phase); }
+        else { const sec = Math.ceil(choiceTimerRef.current); if (sec !== lastChoiceSec.current) { lastChoiceSec.current = sec; setChoiceTimer(choiceTimerRef.current); } }
+      }
       if (pausedRef.current && !freePhases.includes(s.phase)) return;
 
       if (s.phase === "playing" && !s.winner) {
@@ -1913,11 +1920,6 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
           }
           setCoinRevealTimer(v => { const nv = v - dt / 1000; if (nv <= 0) { setPhase("rule_choice"); return 0; } return nv; });
         }
-      }
-      if (tossChoicePhases.includes(s.phase) && s.choiceTimer > 0) {
-        choiceTimerRef.current -= dt / 1000;
-        if (choiceTimerRef.current <= 0) { choiceTimerRef.current = 0; setChoiceTimer(0); autoPickLeft(s.phase); }
-        else { const sec = Math.ceil(choiceTimerRef.current); if (sec !== lastChoiceSec.current) { lastChoiceSec.current = sec; setChoiceTimer(choiceTimerRef.current); } }
       }
       if (s.phase === "toss_summary") {
         setSummaryTimer(v => {

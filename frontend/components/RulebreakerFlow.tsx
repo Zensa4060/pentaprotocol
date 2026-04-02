@@ -7,7 +7,7 @@ import { WraithKingCoinToss } from "./WraithKingCoinToss";
 
 export const PHASE_TIMERS: Partial<Record<Phase, number>> = {
   rule_choice: 30, who_first_winner: 30, c3_choice: 30, c3_choice_loser: 30, who_first_loser: 30,
-  ban_pattern_winner: 30, ban_pattern_loser: 30, grid_block_warning: 30, grid_block_selection: 45, grid_block_waiting: 45,
+  ban_pattern_winner: 30, ban_pattern_loser: 30, grid_block_warning: 30, grid_block_selection: 120, grid_block_waiting: 120,
 };
 
 interface RulebreakerFlowProps {
@@ -500,7 +500,7 @@ export function RulebreakerFlow({
   if (phase === "grid_block_warning" && onGridBlockChoice) {
     const chooser = rb6CellChooser ?? tossWinner ?? "P1";
     const chooserCol = chooser === "P1" ? p1c : p2c;
-    const maxTime = PHASE_TIMERS.grid_block_selection ?? 45;
+    const maxTime = PHASE_TIMERS.grid_block_selection ?? 120;
     const pct = Math.max(0, choiceTimer / maxTime);
     const urgent = choiceTimer <= 10;
     return (
@@ -561,7 +561,7 @@ export function RulebreakerFlow({
   if (phase === "grid_block_selection" && onGridBlockChoice) {
     const chooser = rb6CellChooser ?? tossWinner ?? "P1";
     const chooserCol = chooser === "P1" ? p1c : p2c;
-    const maxTime = PHASE_TIMERS.grid_block_selection ?? 45;
+    const maxTime = PHASE_TIMERS.grid_block_selection ?? 120;
     const pct = Math.max(0, choiceTimer / maxTime);
     const urgent = choiceTimer <= 10;
     const cols = "ABCDEF".split("");

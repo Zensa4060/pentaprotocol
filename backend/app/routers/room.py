@@ -1105,6 +1105,34 @@ async def _finalize_rulebreaker_start(
     if banned_pat and banned_pat not in banned_pats:
         banned_pats.append(banned_pat)
 
+    def _valid_rb6_cell(d) -> bool:
+        if not isinstance(d, dict):
+            return False
+        owner = d.get("owner")
+        row = d.get("r")
+        col = d.get("c")
+        return owner in ("P1", "P2") and isinstance(row, int) and isinstance(col, int)
+
+    msg_cell = msg.get("rb6_special_cell")
+    room_cell = room.get("rb6_special_cell")
+    if bm == "6x6":
+        rb6_cell_resolved = (
+            msg_cell if _valid_rb6_cell(msg_cell) else (room_cell if _valid_rb6_cell(room_cell) else None)
+        )
+    else:
+        rb6_cell_resolved = None
+
+    msg_to = msg.get("rb6TimerOwner")
+    room_to = room.get("rb6_timer_owner")
+    if bm == "6x6":
+        rb6_to_resolved = (
+            msg_to
+            if msg_to in ("P1", "P2")
+            else (room_to if room_to in ("P1", "P2") else None)
+        )
+    else:
+        rb6_to_resolved = None
+
     gn = room.get("game_number", 1)
     next_gn = gn + 1
     gs = 7 if bm == "7x7" else 5
@@ -1137,8 +1165,8 @@ async def _finalize_rulebreaker_start(
         "suppress_center_opening": True if (bm == "7x7" and next_gn == 3) else (suppress_center if bm == "7x7" else False),
         "rb_extra_turn_token_holder": token_holder if bm == "7x7" else None,
         "rb_extra_turn_token_used": False,
-        "rb6_special_cell": msg.get("rb6_special_cell") if bm == "6x6" else None,
-        "rb6_timer_owner": msg.get("rb6TimerOwner") if msg.get("rb6TimerOwner") in ("P1", "P2") and bm == "6x6" else None,
+        "rb6_special_cell": rb6_cell_resolved,
+        "rb6_timer_owner": rb6_to_resolved,
     }
     if bm == "7x7" and isinstance(sel_patterns, list) and len(sel_patterns) > 0:
         reset["selected_patterns"] = sel_patterns
