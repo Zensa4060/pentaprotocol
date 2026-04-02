@@ -448,7 +448,7 @@ function PixelCell({ CS, value, row, col, onCellClickAction, isWinCell, justPlac
           : hov && !value
             ? hovBg
             : "transparent",
-        boxShadow: isWinCell ? `inset 0 0 ${CS * 0.3}px ${winC}` : "none",
+        boxShadow: isWinCell ? `inset 0 0 ${CS * 0.3}px ${winC}` : "inset 0 0 0 1px rgba(255,140,0,0.38)",
         transition: "background .15s",
         contain: "layout style",
       }}

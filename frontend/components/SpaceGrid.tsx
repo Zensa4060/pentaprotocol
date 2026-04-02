@@ -703,7 +703,7 @@ function SpaceCell({ CS, value, row, col, onCellClickAction, isWinCell, justPlac
           : hov && !value
             ? "radial-gradient(ellipse,rgba(0,80,120,.18),transparent 70%)"
             : "transparent",
-        boxShadow: isWinCell ? `inset 0 0 ${CS * 0.3}px ${wC}` : "none",
+        boxShadow: isWinCell ? `inset 0 0 ${CS * 0.3}px ${wC}` : "inset 0 0 0 1px rgba(0,150,255,0.32)",
         transition: "background .2s",
         contain: "layout style",
       }}
