@@ -90,6 +90,8 @@ interface MatchSidebarProps {
   chatInput: string;
   chatOpen: boolean;
   chatWarning: boolean;
+  /** Opponent messages received while chat panel was collapsed (multiplayer). */
+  unreadOpponentChat?: number;
   // log
   log: { text: string; player: string }[];
   // bot
@@ -146,7 +148,7 @@ export function MatchSidebar({
   boardMode, selectedPatterns, rbBannedPatterns = [], patternsAsSecret = false, p1SeriesPts, p2SeriesPts,
   p1Time, p2Time, readyTimeout,
   p1Ready, p2Ready,
-  chatMessages, chatInput, chatOpen, chatWarning,
+  chatMessages, chatInput, chatOpen, chatWarning, unreadOpponentChat = 0,
   log, botThinking,
   showWinOverlay, overlayVisible, winnerColor, winnerPiece, seriesDiffers, seriesColor, seriesPiece,
   showRematch, rematchRequested, lastSeries,
@@ -449,9 +451,16 @@ export function MatchSidebar({
       )}
       {isMultiplayerGame && (phase === "playing" || phase === "waiting_ready") && (
         <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: "auto", borderTop: `1px solid ${t.border}`, paddingTop: 12 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <div style={{ fontFamily: t.fontMono, fontSize: 17, fontWeight: 700, color: t.text, letterSpacing: "0.12em" }}>CHAT</div>
-            <button onClick={onChatOpenToggle} style={{ background: "none", border: "none", color: t.text, fontFamily: t.fontMono, fontSize: 16, cursor: "pointer", padding: "2px 6px" }}>{chatOpen ? "▾" : "▸"}</button>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+              <div style={{ fontFamily: t.fontMono, fontSize: 17, fontWeight: 700, color: t.text, letterSpacing: "0.12em" }}>CHAT</div>
+              {!chatOpen && unreadOpponentChat > 0 && (
+                <span style={{ minWidth: 22, height: 22, borderRadius: 11, background: t.accent, color: "#000", fontFamily: t.fontMono, fontSize: 12, fontWeight: 800, display: "inline-flex", alignItems: "center", justifyContent: "center", padding: "0 6px" }}>
+                  {unreadOpponentChat > 9 ? "9+" : unreadOpponentChat}
+                </span>
+              )}
+            </div>
+            <button onClick={onChatOpenToggle} style={{ background: "none", border: "none", color: t.text, fontFamily: t.fontMono, fontSize: 16, cursor: "pointer", padding: "2px 6px", flexShrink: 0 }}>{chatOpen ? "▾" : "▸"}</button>
           </div>
           {chatOpen && (
             <>
@@ -506,8 +515,8 @@ export function LeftPanel(props: MatchSidebarProps) {
   const { t, ip, p1c, p2c, pieceSkin, p1RttMs, p2RttMs, panelW, phase, current, gameNumber, matchHistory, seriesWinner,
     gameMode, isRankedGame, isMultiplayerGame, isMultiplayer, mySlot, boardMode, selectedPatterns, rbBannedPatterns = [], patternsAsSecret = false, p1SeriesPts, p2SeriesPts,
     p1Time, p2Time, readyTimeout, p1Ready, p2Ready,
-    chatMessages, chatInput, chatOpen, chatWarning,
-    p1Label, p2Label, p1Banner, p2Banner, winnerDisplayNameAction, lastSeries, segmentStartIndex = 0, historyDisplayStartIndex = 0,
+  chatMessages, chatInput, chatOpen, chatWarning, unreadOpponentChat = 0,
+  p1Label, p2Label, p1Banner, p2Banner, winnerDisplayNameAction, lastSeries, segmentStartIndex = 0, historyDisplayStartIndex = 0,
     onReadyToggle, onSendChat, onChatInputChange, onChatKeyDown, onChatOpenToggle,
     onSoftReset, onShowSurrenderAction, onShowExitConfirmAction, fmtTimeAction, playHoverAction } = props;
 
@@ -721,9 +730,16 @@ export function LeftPanel(props: MatchSidebarProps) {
       )}
       {isMultiplayerGame && (phase === "playing" || phase === "waiting_ready") && (
         <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: "auto", borderTop: `1px solid ${t.border}`, paddingTop: 12 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <div style={{ fontFamily: t.fontMono, fontSize: 17, fontWeight: 700, color: t.text, letterSpacing: "0.12em" }}>CHAT</div>
-            <button onClick={onChatOpenToggle} style={{ background: "none", border: "none", color: t.text, fontFamily: t.fontMono, fontSize: 16, cursor: "pointer", padding: "2px 6px" }}>{chatOpen ? "▾" : "▸"}</button>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+              <div style={{ fontFamily: t.fontMono, fontSize: 17, fontWeight: 700, color: t.text, letterSpacing: "0.12em" }}>CHAT</div>
+              {!chatOpen && unreadOpponentChat > 0 && (
+                <span style={{ minWidth: 22, height: 22, borderRadius: 11, background: t.accent, color: "#000", fontFamily: t.fontMono, fontSize: 12, fontWeight: 800, display: "inline-flex", alignItems: "center", justifyContent: "center", padding: "0 6px" }}>
+                  {unreadOpponentChat > 9 ? "9+" : unreadOpponentChat}
+                </span>
+              )}
+            </div>
+            <button onClick={onChatOpenToggle} style={{ background: "none", border: "none", color: t.text, fontFamily: t.fontMono, fontSize: 16, cursor: "pointer", padding: "2px 6px", flexShrink: 0 }}>{chatOpen ? "▾" : "▸"}</button>
           </div>
           {chatOpen && (
             <>

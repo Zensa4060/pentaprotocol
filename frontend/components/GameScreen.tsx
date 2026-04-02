@@ -47,6 +47,12 @@ const TokyoGridCompat = TokyoGrid as React.ComponentType<any>;
 import { getUserKey, pushMissionEvent } from "@/lib/missionsClient";
 import MatchResultScreen from "./MatchResultScreen";
 import GameWinScreen from "./GameWinScreen";
+import { persistLobbyTauntQuote, type LobbyQuoteResult } from "@/lib/lobbyTauntQuote";
+
+function lobbyQuoteFromSeriesWinner(seriesWinner: string | null | undefined, mySlot: "P1" | "P2"): LobbyQuoteResult {
+  if (!seriesWinner || seriesWinner === "DRAW") return null;
+  return seriesWinner === mySlot ? "win" : "loss";
+}
 
 function getWsBaseUrl(): string {
   const envBase = process.env.NEXT_PUBLIC_API_URL;
@@ -528,6 +534,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   const [seriesWinner, setSeriesWinner] = useState<string | null>(null);
   const didRecordMissionRef = useRef(false);
   const didRefreshProfileAfterSeriesRef = useRef(false);
+  const didPersistLobbyQuoteForSeriesRef = useRef(false);
   const [p1Ready, setP1Ready] = useState(false);
   const [p2Ready, setP2Ready] = useState(false);
   const [showDisconnectModal, setShowDisconnectModal] = useState(false);
@@ -535,6 +542,10 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   const [chatInput, setChatInput] = useState("");
   const [chatOpen, setChatOpen] = useState(false);
   const [chatWarning, setChatWarning] = useState(false);
+  const [unreadOpponentChat, setUnreadOpponentChat] = useState(0);
+  const [chatToastVisible, setChatToastVisible] = useState(false);
+  const chatToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const chatVisibleRef = useRef(false);
   const [readyTimeout, setReadyTimeout] = useState(60);
   const [readyTimer, setReadyTimer] = useState(0);
   const [phase, setPhase] = useState<Phase>("playing");
@@ -588,14 +599,49 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   const [overlayVisible, setOverlayVisible] = useState(false);
   const [botPickedSide, setBotPickedSide] = useState<"left" | "right" | null>(null);
 
-  // Mobile log drawer
-  const [showMobileLog, setShowMobileLog] = useState(false);
   const [isBoardPaused, setIsBoardPaused] = useState(false);
   const winClickLockRef = useRef(false);
+
+  // Mobile log drawer
+  const [showMobileLog, setShowMobileLog] = useState(false);
 
   /** Multiplayer: authoritative per-player structural lists from server (7×7 asymmetric ban). */
   const [serverStructuralPatternsP1, setServerStructuralPatternsP1] = useState<string[] | null>(null);
   const [serverStructuralPatternsP2, setServerStructuralPatternsP2] = useState<string[] | null>(null);
+
+  useEffect(() => {
+    chatVisibleRef.current = isMobile ? (showMobileLog && mobileTab === "chat") : chatOpen;
+  }, [isMobile, showMobileLog, mobileTab, chatOpen]);
+
+  useEffect(() => {
+    if (!isMultiplayerGame) return;
+    if (!isMobile) return;
+    if (showMobileLog && mobileTab === "chat") {
+      setUnreadOpponentChat(0);
+      setChatToastVisible(false);
+      if (chatToastTimerRef.current) {
+        clearTimeout(chatToastTimerRef.current);
+        chatToastTimerRef.current = null;
+      }
+    }
+  }, [isMultiplayerGame, isMobile, showMobileLog, mobileTab]);
+
+  useEffect(() => {
+    if (!isMultiplayerGame) return;
+    if (isMobile) return;
+    if (chatOpen) {
+      setUnreadOpponentChat(0);
+      setChatToastVisible(false);
+      if (chatToastTimerRef.current) {
+        clearTimeout(chatToastTimerRef.current);
+        chatToastTimerRef.current = null;
+      }
+    }
+  }, [isMultiplayerGame, isMobile, chatOpen]);
+
+  useEffect(() => () => {
+    if (chatToastTimerRef.current) clearTimeout(chatToastTimerRef.current);
+  }, []);
 
   /** Who chose the ban in rulebreaker: toss winner (ban path) or toss loser (extra-turn path). */
   const rulebreakerBanActorSlot = useMemo((): "P1" | "P2" | null => {
@@ -1124,7 +1170,10 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
           void useAuthStore.getState().refreshProfile();
           if (typeof window !== "undefined") {
             window.dispatchEvent(new Event("pp:career-refresh"));
-            window.dispatchEvent(new Event("pp:lobby-quote-refresh"));
+            if (!didPersistLobbyQuoteForSeriesRef.current) {
+              didPersistLobbyQuoteForSeriesRef.current = true;
+              persistLobbyTauntQuote(lobbyQuoteFromSeriesWinner(String(rm.series_winner ?? "DRAW"), mySlot));
+            }
           }
           setShowRematch(false);
           setRematchRequested(null);
@@ -1205,6 +1254,12 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
           );
             } else if (msg.type === "chat_message") {
           setChatMessages(m => [...m.slice(-49), { from: msg.from, text: msg.text, ts: msg.ts }]);
+          if (msg.from !== mySlot && !chatVisibleRef.current) {
+            setUnreadOpponentChat(c => c + 1);
+            setChatToastVisible(true);
+            if (chatToastTimerRef.current) clearTimeout(chatToastTimerRef.current);
+            chatToastTimerRef.current = setTimeout(() => setChatToastVisible(false), 4000);
+          }
             } else if (msg.type === "game_reset") {
           const gr0 = msg as { protocolbreaker_final?: boolean; limitbreaker_final?: boolean };
           if (gr0.protocolbreaker_final || gr0.limitbreaker_final) {
@@ -1407,6 +1462,8 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
               setMatchOver(false);
               setSeriesWinner(null);
               setChatMessages([]);
+              setUnreadOpponentChat(0);
+              setChatToastVisible(false);
               setP1SeriesPts(0);
               setP2SeriesPts(0);
               awaitingRulebreakerRef.current = false;
@@ -1473,7 +1530,6 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
           void useAuthStore.getState().refreshProfile();
           if (typeof window !== "undefined") {
             window.dispatchEvent(new Event("pp:career-refresh"));
-            window.dispatchEvent(new Event("pp:lobby-quote-refresh"));
           }
           if (!isViewingPostMatchRef.current) {
             if (setScreenAction) setScreenAction("home");
@@ -2249,19 +2305,25 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   useEffect(() => {
     if (!matchOver) {
       didRefreshProfileAfterSeriesRef.current = false;
+      didPersistLobbyQuoteForSeriesRef.current = false;
       return;
     }
-    if (didRefreshProfileAfterSeriesRef.current) return;
     if (phase !== "match_over") return;
     if (!isMultiplayerGame) return;
+    if (!didPersistLobbyQuoteForSeriesRef.current) {
+      didPersistLobbyQuoteForSeriesRef.current = true;
+      if (typeof window !== "undefined") {
+        persistLobbyTauntQuote(lobbyQuoteFromSeriesWinner(seriesWinner, mySlot));
+      }
+    }
     if (!userKey || userKey === "guest") return;
+    if (didRefreshProfileAfterSeriesRef.current) return;
     didRefreshProfileAfterSeriesRef.current = true;
     void useAuthStore.getState().refreshProfile();
     if (typeof window !== "undefined") {
       window.dispatchEvent(new Event("pp:career-refresh"));
-      window.dispatchEvent(new Event("pp:lobby-quote-refresh"));
     }
-  }, [matchOver, phase, isMultiplayerGame, userKey]);
+  }, [matchOver, phase, isMultiplayerGame, userKey, seriesWinner, mySlot]);
 
   useEffect(() => {
     if (phase === "waiting_ready" && p1Ready && p2Ready && R.current.readyTimer <= 0) setReadyTimer(1);
@@ -3179,6 +3241,33 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
           onGoHomeAction={() => { if (setScreenAction) setScreenAction("home"); }}
         />
 
+        {isMultiplayerGame && chatToastVisible && unreadOpponentChat > 0 && (
+          <div
+            style={{
+              position: "fixed",
+              top: 56,
+              left: "50%",
+              transform: "translateX(-50%)",
+              zIndex: 50,
+              maxWidth: "min(92vw, 320px)",
+              padding: "10px 18px",
+              background: "rgba(0,0,0,0.92)",
+              border: `1px solid ${t.accent}88`,
+              borderRadius: ip ? 2 : 10,
+              boxShadow: "0 8px 32px rgba(0,0,0,0.5)",
+              fontFamily: t.fontMono,
+              fontSize: 12,
+              fontWeight: 700,
+              color: t.accent,
+              letterSpacing: "0.04em",
+              pointerEvents: "none",
+              textAlign: "center",
+            }}
+          >
+            {unreadOpponentChat} new message{unreadOpponentChat > 1 ? "s" : ""}
+          </div>
+        )}
+
         {/* Board fills entire screen */}
         <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "8px" }}>
           {gameMode === "singleplayer" && (
@@ -3229,9 +3318,14 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
           {isMultiplayerGame && (
             <button
               onClick={() => { setMobileTab("chat"); setShowMobileLog(true); setChatWarning(false); }}
-              style={{ padding: "6px 14px", background: "rgba(0,0,0,0.75)", border: `1px solid ${chatWarning ? t.danger : t.accent}88`, borderRadius: 8, color: chatWarning ? t.danger : t.accent, fontFamily: t.fontMono, fontSize: 11, fontWeight: 700, backdropFilter: "blur(6px)", display: "flex", alignItems: "center", gap: 4 }}
+              style={{ padding: "6px 14px", background: "rgba(0,0,0,0.75)", border: `1px solid ${chatWarning ? t.danger : t.accent}88`, borderRadius: 8, color: chatWarning ? t.danger : t.accent, fontFamily: t.fontMono, fontSize: 11, fontWeight: 700, backdropFilter: "blur(6px)", display: "flex", alignItems: "center", gap: 4, position: "relative" }}
             >
               CHAT
+              {unreadOpponentChat > 0 && (!showMobileLog || mobileTab !== "chat") && (
+                <span style={{ minWidth: 18, height: 18, borderRadius: 9, background: t.accent, color: "#000", fontSize: 10, fontWeight: 800, display: "inline-flex", alignItems: "center", justifyContent: "center", padding: "0 5px" }}>
+                  {unreadOpponentChat > 9 ? "9+" : unreadOpponentChat}
+                </span>
+              )}
               {chatWarning && <span style={{ width: 6, height: 6, background: t.danger, borderRadius: "50%", display: "inline-block" }} />}
             </button>
           )}
@@ -3317,6 +3411,11 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
           {isMultiplayerGame && (
             <button onClick={() => { if (showMobileLog && mobileTab === "chat") setShowMobileLog(false); else { setMobileTab("chat"); setShowMobileLog(true); } }} style={{ flex: 1, padding: "8px 0", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6, color: t.textSecondary, fontFamily: t.fontMono, fontSize: 11, cursor: "pointer", letterSpacing: "0.06em", position: "relative" }}>
               💬 CHAT
+              {unreadOpponentChat > 0 && (!showMobileLog || mobileTab !== "chat") && (
+                <span style={{ position: "absolute", top: 2, right: 6, minWidth: 18, height: 18, borderRadius: 9, background: t.accent, color: "#000", fontSize: 10, fontWeight: 800, display: "inline-flex", alignItems: "center", justifyContent: "center", padding: "0 5px" }}>
+                  {unreadOpponentChat > 9 ? "9+" : unreadOpponentChat}
+                </span>
+              )}
               {chatWarning && (!showMobileLog || mobileTab !== "chat") && <span style={{ position: "absolute", top: 4, right: 8, width: 6, height: 6, background: "#ff3333", borderRadius: "50%" }} />}
             </button>
           )}
@@ -3556,6 +3655,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
         p1Time={p1Time} p2Time={p2Time} readyTimeout={readyTimeout}
         p1Ready={p1Ready} p2Ready={p2Ready}
         chatMessages={chatMessages} chatInput={chatInput} chatOpen={chatOpen} chatWarning={chatWarning}
+        unreadOpponentChat={unreadOpponentChat}
         log={log} botThinking={botThinking}
         showWinOverlay={showWinOverlay} overlayVisible={overlayVisible}
         winnerColor={winnerColor} winnerPiece={winnerPiece} seriesDiffers={seriesDiffers}
@@ -3571,7 +3671,20 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
         onSendChat={sendChat}
         onChatInputChange={setChatInput}
         onChatKeyDown={onChatKeyDown}
-        onChatOpenToggle={() => setChatOpen(v => !v)}
+        onChatOpenToggle={() => {
+          setChatOpen(v => {
+            const next = !v;
+            if (next) {
+              setUnreadOpponentChat(0);
+              setChatToastVisible(false);
+              if (chatToastTimerRef.current) {
+                clearTimeout(chatToastTimerRef.current);
+                chatToastTimerRef.current = null;
+              }
+            }
+            return next;
+          });
+        }}
         onSoftReset={softReset}
         onDismissOverlayAction={dismissOverlay}
         onRematchAction={() => { wsRef.current?.send(JSON.stringify({ type: "rematch" })); setRematchRequested(mySlot); }}
@@ -3588,6 +3701,31 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
         playHoverAction={playHoverAction}
         playClickAction={playClickAction}
       />
+
+      {isMultiplayerGame && chatToastVisible && unreadOpponentChat > 0 && (
+        <div
+          style={{
+            position: "fixed",
+            left: panelW + 16,
+            bottom: 28,
+            zIndex: 50,
+            maxWidth: 280,
+            padding: "10px 18px",
+            background: "rgba(0,0,0,0.92)",
+            border: `1px solid ${t.accent}88`,
+            borderRadius: ip ? 2 : 10,
+            boxShadow: "0 8px 32px rgba(0,0,0,0.5)",
+            fontFamily: t.fontMono,
+            fontSize: 13,
+            fontWeight: 700,
+            color: t.accent,
+            letterSpacing: "0.04em",
+            pointerEvents: "none",
+          }}
+        >
+          {unreadOpponentChat} new message{unreadOpponentChat > 1 ? "s" : ""}
+        </div>
+      )}
 
       {/* BOARD */}
       <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 10, padding: "10px 0", minWidth: 0 }}>
