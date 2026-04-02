@@ -32,7 +32,6 @@ export default function SettingsModal({ onCloseAction, themeId, setThemeIdAction
   const { user, logout } = useAuthStore();
   const [focusMode, setFocusMode] = useState(false);
   const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
-  const graphicsLocked = currentScreen === "game" || currentScreen === "aiGame" || currentScreen === "multiGame";
 
   useEffect(() => {
     const handleFS = () => setFocusMode(!!document.fullscreenElement);
@@ -163,51 +162,6 @@ export default function SettingsModal({ onCloseAction, themeId, setThemeIdAction
           </div>
 
           <div style={{ height: 1, background: `${t.border}44`, margin: "24px 0" }} />
-
-          <div>
-            <div style={{ fontFamily:t.fontMono, fontSize:13, fontWeight:800, color:t.accent, letterSpacing:"0.16em", marginBottom:18 }}>GRAPHICS SETTINGS</div>
-            <div style={{ display:"grid", gridTemplateColumns:"repeat(2,minmax(0,1fr))", gap:8, marginBottom:12 }}>
-              {([
-                { id: "performance", label: "PERFORMANCE" },
-                { id: "quality", label: "QUALITY" },
-              ] as const).map((opt) => {
-                const active = graphicsQuality === opt.id;
-                return (
-                  <button
-                    key={opt.id}
-                    onClick={() => {
-                      if (!graphicsLocked) setGraphicsQualityAction(opt.id);
-                    }}
-                    disabled={graphicsLocked}
-                    style={{
-                      padding: "12px 8px",
-                      background: graphicsLocked ? "rgba(255,255,255,0.03)" : active ? `${t.accent}24` : `${t.bgCard}`,
-                      border: `1.5px solid ${graphicsLocked ? `${t.border}88` : active ? t.accent : t.border}`,
-                      borderRadius: 10,
-                      color: graphicsLocked ? t.textMuted : active ? t.accent : t.textSecondary,
-                      fontFamily: t.fontMono,
-                      fontSize: 12,
-                      fontWeight: 800,
-                      letterSpacing: "0.06em",
-                      cursor: graphicsLocked ? "not-allowed" : "pointer",
-                      transition: "all 0.18s",
-                      opacity: graphicsLocked ? 0.7 : 1,
-                    }}
-                  >
-                    {opt.label}
-                  </button>
-                );
-              })}
-            </div>
-            <div style={{ fontFamily:t.fontBody, fontSize:12, color:t.textSecondary, lineHeight:1.5 }}>
-              `Performance` disables gameplay animations and prioritizes smooth piece placement. `Quality` keeps the full visual experience.
-            </div>
-            {graphicsLocked && (
-              <div style={{ fontFamily:t.fontBody, fontSize:12, color:t.textMuted, lineHeight:1.5, marginTop:8 }}>
-                Graphics mode can only be changed outside active game screens.
-              </div>
-            )}
-          </div>
 
           {/* System section */}
           <div>

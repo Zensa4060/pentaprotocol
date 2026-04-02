@@ -1,0 +1,390 @@
+﻿commit 6c635e28a909b9b25f3ad26c39ad27c2bac71572
+Author: Zensa4060 <yagyamishra56@gmail.com>
+Date:   Thu Apr 2 12:17:59 2026 +0530
+
+    career flow
+
+diff --git a/backend/app/routers/game.py b/backend/app/routers/game.py
+index 4a4be3a..93decc6 100644
+--- a/backend/app/routers/game.py
++++ b/backend/app/routers/game.py
+@@ -225,7 +225,7 @@ async def award_ranked_match_result(
+ 
+     async def log_match(user_id, opponent_id, result, user_snap, opp_snap):
+         if not user_id:
+-            return
++            return None
+         u_id_str = str(user_id)
+         o_id_str = str(opponent_id) if opponent_id else None
+         if not user_snap:
+@@ -233,7 +233,7 @@ async def award_ranked_match_result(
+         if o_id_str and not opp_snap:
+             opp_snap = await db.users.find_one({"_id": ObjectId(o_id_str)})
+         if not user_snap:
+-            return
++            return None
+         
+         # Ensure IDs are strings for consistent MongoDB querying (JWT uses string sub)
+         elo_before = user_snap.get("elo", 500)
+@@ -260,17 +260,20 @@ async def award_ranked_match_result(
+             "limitbreaker_played": bool(game.get("protocolbreaker_played") or game.get("limitbreaker_played")),
+             "surrendered_by":         surrendered_by,
+         }
+-        await db.match_history.insert_one(doc)
++        ins = await db.match_history.insert_one(doc)
++        return str(ins.inserted_id)
+ 
++    p1_career_entry_id = None
++    p2_career_entry_id = None
+     if w == "P1":
+-        await log_match(p1_id, p2_id, "win", p1_user, p2_user)
+-        await log_match(p2_id, p1_id, "loss", p2_user, p1_user)
++        p1_career_entry_id = await log_match(p1_id, p2_id, "win", p1_user, p2_user)
++        p2_career_entry_id = await log_match(p2_id, p1_id, "loss", p2_user, p1_user)
+     elif w == "P2":
+-        await log_match(p1_id, p2_id, "loss", p1_user, p2_user)
+-        await log_match(p2_id, p1_id, "win", p2_user, p1_user)
++        p1_career_entry_id = await log_match(p1_id, p2_id, "loss", p1_user, p2_user)
++        p2_career_entry_id = await log_match(p2_id, p1_id, "win", p2_user, p1_user)
+     elif w == "DRAW":
+-        await log_match(p1_id, p2_id, "draw", p1_user, p2_user)
+-        await log_match(p2_id, p1_id, "draw", p2_user, p1_user)
++        p1_career_entry_id = await log_match(p1_id, p2_id, "draw", p1_user, p2_user)
++        p2_career_entry_id = await log_match(p2_id, p1_id, "draw", p2_user, p1_user)
+ 
+     if record_clean_streak:
+         if p1_id:
+@@ -282,6 +285,11 @@ async def award_ranked_match_result(
+         if wid:
+             await record_ranked_match_completed_clean(db, wid)
+ 
++    return {
++        "p1_career_entry_id": p1_career_entry_id,
++        "p2_career_entry_id": p2_career_entry_id,
++    }
++
+ 
+ @router.post("/create")
+ async def create_game(data: CreateGame, user_id: str = Depends(get_current_user)):
+diff --git a/backend/app/routers/profile.py b/backend/app/routers/profile.py
+index 765ee99..7c2213a 100644
+--- a/backend/app/routers/profile.py
++++ b/backend/app/routers/profile.py
+@@ -78,6 +78,7 @@ async def get_career(user_id: str = Depends(get_current_user)):
+     matches = []
+     async for doc in cursor:
+         row = {
++            "id": str(doc["_id"]) if doc.get("_id") is not None else "",
+             "opponent_username": doc.get("opponent_username", "Unknown"),
+             "opponent_elo":      doc.get("opponent_elo", 100),
+             "result":            doc.get("result", "loss"),
+diff --git a/backend/app/routers/room.py b/backend/app/routers/room.py
+index 4c046b2..42feb8e 100644
+--- a/backend/app/routers/room.py
++++ b/backend/app/routers/room.py
+@@ -663,7 +663,7 @@ async def _award_match_series_and_notify(
+     rr1_before = int(u1.get("ranked_rating", elo1_before)) if u1 else elo1_before
+     rr2_before = int(u2.get("ranked_rating", elo2_before)) if u2 else elo2_before
+ 
+-    await award_ranked_match_result(
++    career_ids = await award_ranked_match_result(
+         db, game_dict, effective, record_clean_streak=record_clean_streak, surrendered_by=surrendered_by
+     )
+ 
+@@ -692,6 +692,8 @@ async def _award_match_series_and_notify(
+             "xp_before": u2.get("xp", 0) if u2 else 0,
+             "xp_after": u2a.get("xp", 0) if u2a else 0,
+         },
++        "p1_career_entry_id": (career_ids or {}).get("p1_career_entry_id"),
++        "p2_career_entry_id": (career_ids or {}).get("p2_career_entry_id"),
+     }
+     for slot, ws in _room_connections.get(room_code, {}).items():
+         try:
+diff --git a/frontend/components/CareerScreen.tsx b/frontend/components/CareerScreen.tsx
+index 8495c5f..7df143d 100644
+--- a/frontend/components/CareerScreen.tsx
++++ b/frontend/components/CareerScreen.tsx
+@@ -29,6 +29,8 @@ interface MatchRound {
+ }
+ 
+ interface MatchRecord {
++  /** MongoDB `match_history` row id (for deep-link / focus from post-match flow). */
++  id?: string;
+   opponent_id: string;
+   opponent_username: string;
+   opponent_elo: number;
+@@ -54,6 +56,7 @@ const CareerMatchRow = React.memo(({
+   t, 
+   setSelectedMatch,
+   isMobile,
++  highlightId,
+ }: { 
+   match: MatchRecord; 
+   i: number; 
+@@ -61,6 +64,7 @@ const CareerMatchRow = React.memo(({
+   t: any;
+   setSelectedMatch: (m: MatchRecord | null) => void;
+   isMobile: boolean;
++  highlightId?: string | null;
+ }) => {
+   const oppRank = getRank(match.opponent_elo);
+   const isWin = match.result === "win";
+@@ -80,6 +84,14 @@ const CareerMatchRow = React.memo(({
+     }
+   }
+   const hasRounds = Array.isArray(match.match_rounds) && match.match_rounds.length > 0;
++  const rowDomId = match.id ? `career-match-${match.id}` : undefined;
++  const rowHighlight = Boolean(highlightId && match.id && highlightId === match.id);
++  const highlightStyle = rowHighlight
++    ? {
++        boxShadow: `0 0 0 2px ${t.accent}aa`,
++        background: `${t.accent}12`,
++      }
++    : {};
+ 
+   const formatDate = (iso: string) => {
+     if (!iso) return "ÔÇö";
+@@ -96,6 +108,7 @@ const CareerMatchRow = React.memo(({
+   if (isMobile) {
+     return (
+       <div
++        id={rowDomId}
+         className="career-row"
+         onClick={() => {
+           if (hasRounds) setSelectedMatch(match);
+@@ -108,6 +121,7 @@ const CareerMatchRow = React.memo(({
+           background: "transparent",
+           cursor: hasRounds ? "pointer" : "default",
+           borderBottom: `1px solid ${t.border}22`,
++          ...highlightStyle,
+         }}
+       >
+         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
+@@ -244,6 +258,7 @@ const CareerMatchRow = React.memo(({
+ 
+   return (
+     <div
++      id={rowDomId}
+       className="career-row"
+       onClick={() => {
+         if (hasRounds) setSelectedMatch(match);
+@@ -259,6 +274,7 @@ const CareerMatchRow = React.memo(({
+         background: "transparent",
+         cursor: hasRounds ? "pointer" : "default",
+         borderBottom: `1px solid ${t.border}22`,
++        ...highlightStyle,
+       }}
+     >
+       {/* Result badge */}
+@@ -416,6 +432,7 @@ export default function CareerScreen({ themeId, onHoverAction }: Props) {
+   const [activeTab, setActiveTab] = useState<"ranked" | "unranked" | "custom">("ranked");
+   const [selectedMatch, setSelectedMatch] = useState<MatchRecord | null>(null);
+   const [isMobile, setIsMobile] = useState(false);
++  const [focusHighlightId, setFocusHighlightId] = useState<string | null>(null);
+ 
+   useEffect(() => {
+     const check = () => setIsMobile(window.innerWidth < 768);
+@@ -434,7 +451,30 @@ export default function CareerScreen({ themeId, onHoverAction }: Props) {
+       try {
+         if (!cancelled) setLoading(true);
+         const res = await API.get("/api/profile/career");
+-        if (!cancelled) setHistory(res.data);
++        const rows = (Array.isArray(res.data) ? res.data : []) as MatchRecord[];
++        if (cancelled) return;
++        setHistory(rows);
++        const focusId =
++          typeof window !== "undefined" ? sessionStorage.getItem("pp_career_focus_match_id") : null;
++        if (focusId) {
++          const m = rows.find((x) => x.id === focusId);
++          if (m) {
++            const tab: "ranked" | "unranked" | "custom" =
++              m.mode === "ranked" ? "ranked" : m.mode === "custom" ? "custom" : "unranked";
++            setActiveTab(tab);
++            setSelectedMatch(m);
++            sessionStorage.removeItem("pp_career_focus_match_id");
++            setFocusHighlightId(focusId);
++            requestAnimationFrame(() => {
++              requestAnimationFrame(() => {
++                document.getElementById(`career-match-${focusId}`)?.scrollIntoView({
++                  behavior: "smooth",
++                  block: "center",
++                });
++              });
++            });
++          }
++        }
+       } catch (err) {
+         console.error("Failed to load career data:", err);
+       } finally {
+@@ -452,6 +492,12 @@ export default function CareerScreen({ themeId, onHoverAction }: Props) {
+     };
+   }, [user]);
+ 
++  useEffect(() => {
++    if (!focusHighlightId) return;
++    const timer = window.setTimeout(() => setFocusHighlightId(null), 4500);
++    return () => window.clearTimeout(timer);
++  }, [focusHighlightId]);
++
+   const wins = history.filter((m) => m.result === "win").length;
+   const losses = history.filter((m) => m.result === "loss").length;
+   const eloGained = history.filter((m) => m.elo_delta > 0).reduce((s, m) => s + m.elo_delta, 0);
+@@ -978,13 +1024,14 @@ export default function CareerScreen({ themeId, onHoverAction }: Props) {
+                   })
+                   .map((match, i) => (
+                     <CareerMatchRow 
+-                      key={`${match.played_at}-${i}`}
++                      key={match.id ?? `${match.played_at}-${i}`}
+                       match={match}
+                       i={i}
+                       activeTab={activeTab}
+                       t={t}
+                       setSelectedMatch={setSelectedMatch}
+                       isMobile={isMobile}
++                      highlightId={focusHighlightId}
+                     />
+                   ))}
+             </div>
+diff --git a/frontend/components/GameScreen.tsx b/frontend/components/GameScreen.tsx
+index 71fc963..136de66 100644
+--- a/frontend/components/GameScreen.tsx
++++ b/frontend/components/GameScreen.tsx
+@@ -61,6 +61,8 @@ function getWsBaseUrl(): string {
+ type MatchSeriesCompletePayload = {
+   series_winner: string;
+   format: string; // "ranked" | "unranked" | "custom"
++  /** Mongo match_history row id for the current player's career entry */
++  careerEntryId?: string | null;
+   p1: {
+     name: string;
+     elo_before: number;
+@@ -292,6 +294,8 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer,
+     rulesMatchGateRef.current = rulesMatchGate;
+   }, [rulesMatchGate]);
+   const [matchSeriesComplete, setMatchSeriesComplete] = useState<MatchSeriesCompletePayload | null>(null);
++  /** Briefly ignore game_reset clearing the series-complete overlay (race with match_series_complete). */
++  const matchSeriesUiLockUntilRef = useRef(0);
+   const [showGameWinScreen, setShowGameWinScreen] = useState(false);
+   const [showRankedMatchResult, setShowRankedMatchResult] = useState(false);
+   const [pbOverlay, setPbOverlay] = useState<{
+@@ -1123,13 +1127,20 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer,
+           }
+           setShowRematch(false);
+           setRematchRequested(null);
++          matchSeriesUiLockUntilRef.current = Date.now() + 800;
+           setShowGameWinScreen(true);
+           setShowRankedMatchResult(false);
+           setShowWinOverlay(false);
+           setOverlayVisible(false);
++          const rmExt = rm as Partial<MatchSeriesCompletePayload> & { p1_career_entry_id?: string; p2_career_entry_id?: string };
++          const cid =
++            mySlot === "P1"
++              ? (typeof rmExt.p1_career_entry_id === "string" ? rmExt.p1_career_entry_id : null)
++              : (typeof rmExt.p2_career_entry_id === "string" ? rmExt.p2_career_entry_id : null);
+           setMatchSeriesComplete({
+             series_winner: String(rm.series_winner ?? "DRAW"),
+             format: String(rm.format ?? "ranked"),
++            careerEntryId: cid,
+             p1: {
+               name: String(rm.p1?.name ?? "P1"),
+               elo_before: z(rm.p1?.elo_before, 0),
+@@ -1353,9 +1364,11 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer,
+           setP2Ready(false);
+           setShowRematch(false);
+           setRematchRequested(null);
+-          setShowGameWinScreen(false);
+-          setShowRankedMatchResult(false);
+-          setMatchSeriesComplete(null);
++          if (Date.now() >= matchSeriesUiLockUntilRef.current) {
++            setShowGameWinScreen(false);
++            setShowRankedMatchResult(false);
++            setMatchSeriesComplete(null);
++          }
+           setPhase("playing");
+           const incomingGame = msg.game_number ?? 1;
+           if (incomingGame === 1) {
+@@ -2359,6 +2372,20 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer,
+   winClickLockRef.current = false;
+ }, []);
+ 
++  const goToCareerAfterSeries = useCallback(() => {
++    const id = matchSeriesComplete?.careerEntryId;
++    if (id && typeof window !== "undefined") {
++      sessionStorage.setItem("pp_career_focus_match_id", id);
++    }
++    if (isMultiplayerGame && wsRef.current?.readyState === WebSocket.OPEN) {
++      wsRef.current.send(JSON.stringify({ type: "quit_match", slot: mySlot }));
++    }
++    setShowGameWinScreen(false);
++    setShowRankedMatchResult(false);
++    setMatchSeriesComplete(null);
++    setScreenAction?.("career");
++  }, [matchSeriesComplete?.careerEntryId, isMultiplayerGame, mySlot, setScreenAction]);
++
+   const useRbExtraTurnToken = useCallback(() => {
+     if (phase !== "playing" || winner) return;
+     if (!rbExtraTurnTokenHolder || rbExtraTurnTokenUsed) return;
+@@ -3417,6 +3444,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer,
+               }
+               setScreenAction?.("home");
+             }}
++            onGoToCareer={goToCareerAfterSeries}
+           />
+         )}
+         {showRankedMatchResult && matchSeriesComplete && matchSeriesComplete.format === "ranked" && (
+@@ -3668,6 +3696,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer,
+             }
+             setScreenAction?.("home");
+           }}
++          onGoToCareer={goToCareerAfterSeries}
+         />
+       )}
+       {showRankedMatchResult && matchSeriesComplete && matchSeriesComplete.format === "ranked" && (
+diff --git a/frontend/components/GameWinScreen.tsx b/frontend/components/GameWinScreen.tsx
+index f52bcb9..b7e46e9 100644
+--- a/frontend/components/GameWinScreen.tsx
++++ b/frontend/components/GameWinScreen.tsx
+@@ -49,6 +49,8 @@ interface GameWinScreenProps {
+   onRematch: () => void;
+   onQuit: () => void;
+   onContinue?: () => void;
++  /** Navigate to career with this match highlighted (multiplayer series end). */
++  onGoToCareer?: () => void;
+ }
+ 
+ export default function GameWinScreen({
+@@ -61,6 +63,7 @@ export default function GameWinScreen({
+   onRematch,
+   onQuit,
+   onContinue,
++  onGoToCareer,
+ }: GameWinScreenProps) {
+   const [showActions, setShowActions] = useState(false);
+   const [eloCounter, setEloCounter] = useState(0);
+@@ -280,6 +283,26 @@ export default function GameWinScreen({
+               style={{ display: "flex", flexDirection: "column", gap: 14, alignItems: "center" }}
+             >
+               <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: 14 }}>
++                {onGoToCareer && (
++                  <button
++                    type="button"
++                    onClick={onGoToCareer}
++                    style={{
++                      padding: "16px 28px",
++                      borderRadius: 14,
++                      border: `1px solid ${t.accent}99`,
++                      background: `${t.accent}1c`,
++                      color: t.accent,
++                      fontFamily: t.fontDisplay,
++                      fontSize: 16,
++                      fontWeight: 900,
++                      letterSpacing: "0.16em",
++                      cursor: "pointer",
++                    }}
++                  >
++                    GO TO CAREER
++                  </button>
++                )}
+                 {onContinue && (
+                   <button
+                     onClick={onContinue}

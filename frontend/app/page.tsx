@@ -46,7 +46,7 @@ export default function Page() {
   const [aiDifficulty, setAiDifficulty] = useState<Difficulty>("medium");
   const [boardMode, setBoardMode] = useState<BoardMode>("5x5");
   const [selectedPatterns, setSelectedPatterns] = useState<string[]>([]);
-  const [graphicsQuality, setGraphicsQuality] = useState<"performance" | "quality">("quality");
+  const graphicsQuality: "quality" = "quality";
   const [multiRoomCode,   setMultiRoomCode]   = useState<string>("");
   const [multiPlayerSlot, setMultiPlayerSlot] = useState<"P1" | "P2" | null>(null);
   const [multiMatchup, setMultiMatchup]       = useState<MatchupData | null>(null);
@@ -114,18 +114,10 @@ export default function Page() {
     const savedRanked = sessionStorage.getItem("pp_isRanked") === "true";
     const savedBoard = localStorage.getItem("pp_boardMode") as BoardMode | null || sessionStorage.getItem("pp_boardMode") as BoardMode | null;
     const savedPats = localStorage.getItem("pp_selectedPatterns") || sessionStorage.getItem("pp_selectedPatterns");
-    const savedGraphics = localStorage.getItem("pp_graphics_quality");
     const savedDifficulty = localStorage.getItem("pp_ai_difficulty") as Difficulty | null;
 
     if (savedBoard && (savedBoard === "5x5" || savedBoard === "7x7" || savedBoard === "6x6" || savedBoard === "5x5_7x7" || savedBoard === "5x5_6x6" || savedBoard === "6x6_7x7" || savedBoard === "5x5_6x6_7x7")) {
         setBoardMode(savedBoard);
-    }
-    if (savedGraphics === "performance" || savedGraphics === "quality") {
-      setGraphicsQuality(savedGraphics);
-    } else if (savedGraphics === "low") {
-      setGraphicsQuality("performance");
-    } else if (savedGraphics === "balanced" || savedGraphics === "ultra") {
-      setGraphicsQuality("quality");
     }
     if (savedDifficulty) {
       setAiDifficulty(savedDifficulty);
@@ -210,12 +202,7 @@ export default function Page() {
     sessionStorage.setItem("pp_selectedPatterns", JSON.stringify(selectedPatterns));
     localStorage.setItem("pp_selectedPatterns", JSON.stringify(selectedPatterns));
     localStorage.setItem("pp_ai_difficulty", aiDifficulty);
-    localStorage.setItem("pp_graphics_quality", graphicsQuality);
   }, [screen, multiRoomCode, multiPlayerSlot, isRanked, boardMode, selectedPatterns]);
-
-  useEffect(() => {
-    localStorage.setItem("pp_graphics_quality", graphicsQuality);
-  }, [graphicsQuality]);
 
   useEffect(() => {
     const onCustomThemeChange = () => {
@@ -749,7 +736,7 @@ export default function Page() {
             muted: audio.muted, toggleMute: audio.toggleMute
           }}
           graphicsQuality={graphicsQuality}
-          setGraphicsQualityAction={setGraphicsQuality}
+          setGraphicsQualityAction={() => {}}
           currentScreen={screen}
           onNavigateAuthAction={() => setScreen("auth")}
         />

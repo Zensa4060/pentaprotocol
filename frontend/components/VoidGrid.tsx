@@ -1,6 +1,7 @@
 "use client";
 import React, { useEffect, useRef, useState } from "react";
 import { boardSkinCanvasDpr } from "@/lib/boardSkinCanvasDpr";
+import BioStaticGridLines from "./BioStaticGridLines";
 
 const DEFAULT_SIZE = 5;
 const GET_COLS = (s: number) => Array.from({ length: s }, (_, i) => String.fromCharCode(65 + i));
@@ -575,7 +576,7 @@ export default React.memo(function VoidGrid({ board, onCellClickAction, winCells
           ) : (
             <SpaceBackground W={BS} H={BS} gridSize={SIZE} isPaused={isPaused} />
           )}
-          {!lowFx && <GridLines W={BS} H={BS} PAD={PAD} CS={CS} SIZE={SIZE} isPaused={isPaused} />}
+          <BioStaticGridLines W={BS} H={BS} PAD={PAD} CS={CS} SIZE={SIZE} />
           {!lowFx && <BurstCanvas burstRef={burstRef} W={BS} H={BS} gridSize={SIZE} />}
           <div style={{ position: "absolute", inset: PAD, zIndex: 4, display: "flex", flexDirection: "column" }}>
             {ROWS.map((_, r) => (
