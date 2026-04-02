@@ -296,6 +296,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   const [matchSeriesComplete, setMatchSeriesComplete] = useState<MatchSeriesCompletePayload | null>(null);
   /** Briefly ignore game_reset clearing the series-complete overlay (race with match_series_complete). */
   const matchSeriesUiLockUntilRef = useRef(0);
+  const isViewingPostMatchRef = useRef(false);
   const [showGameWinScreen, setShowGameWinScreen] = useState(false);
   const [showRankedMatchResult, setShowRankedMatchResult] = useState(false);
   const [pbOverlay, setPbOverlay] = useState<{
@@ -1128,6 +1129,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
           setShowRematch(false);
           setRematchRequested(null);
           matchSeriesUiLockUntilRef.current = Date.now() + 800;
+          isViewingPostMatchRef.current = true;
           setShowGameWinScreen(true);
           setShowRankedMatchResult(false);
           setShowWinOverlay(false);
@@ -1365,6 +1367,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
           setShowRematch(false);
           setRematchRequested(null);
           if (Date.now() >= matchSeriesUiLockUntilRef.current) {
+            isViewingPostMatchRef.current = false;
             setShowGameWinScreen(false);
             setShowRankedMatchResult(false);
             setMatchSeriesComplete(null);
@@ -1472,7 +1475,9 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
             window.dispatchEvent(new Event("pp:career-refresh"));
             window.dispatchEvent(new Event("pp:lobby-quote-refresh"));
           }
-          if (setScreenAction) setScreenAction("home");
+          if (!isViewingPostMatchRef.current) {
+            if (setScreenAction) setScreenAction("home");
+          }
         } else if (msg.type === "match_start") {
           const sa = asNum(msg.start_at_ms);
           if (typeof sa === "number") setMatchStartAtMs(sa);
@@ -1757,6 +1762,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     setCoinAngle(0); setTossWinner(null); setFirstPlayerChosen(null); setRbC3Blocked(false); setRbBannedPatterns([]);
     setSummaryTimer(5); setOverlayVisible(false); setChoiceTimer(0);
     setShowRematch(false); setRematchRequested(null);
+    isViewingPostMatchRef.current = false;
     setShowGameWinScreen(false); setShowRankedMatchResult(false); setMatchSeriesComplete(null);
     setWinnerPickedRule(null); setWinnerPickedFirst(null); setWinnerPickedC3(null);
     setRbHideBannedPatternFromSlot(null); setRbPatternsPreBan(null);
@@ -2371,7 +2377,6 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   setIsBoardPaused(false);
   winClickLockRef.current = false;
 }, []);
-
   const goToCareerAfterSeries = useCallback(() => {
     const id = matchSeriesComplete?.careerEntryId;
     if (id && typeof window !== "undefined") {
@@ -2380,6 +2385,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     if (isMultiplayerGame && wsRef.current?.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify({ type: "quit_match", slot: mySlot }));
     }
+    isViewingPostMatchRef.current = false;
     setShowGameWinScreen(false);
     setShowRankedMatchResult(false);
     setMatchSeriesComplete(null);
