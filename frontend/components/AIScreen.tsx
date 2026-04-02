@@ -21,14 +21,14 @@ interface Props {
 
 const DIFFICULTIES: { id: Difficulty; label: string; sub: string; color: string }[] = [
   { id: "easy", label: "BALTAZAR SALAZAR JR THE III", sub: "", color: "#22C55E" },
-  { id: "medium", label: "BALTAZAR SALAZAR JR THE IV", sub: "", color: "#FF0" },
-  { id: "hard", label: "BALTAZAR SALAZAR JR THE V", sub: "", color: "#700B0B" },
+  { id: "medium", label: "BALTAZAR SALAZAR JR THE II", sub: "", color: "#FF0" },
+  { id: "hard", label: "BALTAZAR SALAZAR JR THE I", sub: "", color: "#700B0B" },
   { id: "danger", label: "BOB", sub: "?", color: "#CC0000" },
 ];
 const DIFFICULTIES_6X6: { id: Difficulty; label: string; sub: string; color: string }[] = [
-  { id: "normal", label: "BALTAZAR SALAZAR JR THE III", sub: "", color: "#FF0" },
-  { id: "hard", label: "BALTAZAR SALAZAR JR THE IV", sub: "", color: "#000FFF" },
-  { id: "machine_god", label: "BOB", sub: "?", color: "#CC0000" },
+  { id: "normal", label: "Magnus Dominus Aurelius III", sub: "", color: "#FF0" },
+  { id: "hard", label: "Magnus Dominus Aurelius II", sub: "", color: "#000FFF" },
+  { id: "machine_god", label: "Magnus Dominus Aurelius I", sub: "?", color: "#CC0000" },
 ];
 
 /** Mini grid diagram component */

@@ -1077,7 +1077,18 @@ async def _finalize_rulebreaker_start(
                 pass
         return
 
-    first_player = msg.get("first_player", "P1")
+    # `first_player` should be authoritative, but tolerate incomplete messages by
+    # falling back to earlier stored selections.
+    first_player = msg.get("first_player")
+    if first_player not in ("P1", "P2"):
+        rb_phase_payload = room.get("rb_phase_payload")
+        if isinstance(rb_phase_payload, dict):
+            fp = rb_phase_payload.get("firstPlayerChosen")
+            if fp in ("P1", "P2"):
+                first_player = fp
+        if first_player not in ("P1", "P2"):
+            toss_winner = room.get("rb_toss_winner")
+            first_player = toss_winner if toss_winner in ("P1", "P2") else "P1"
     c3_blocked = msg.get("c3_blocked", False)
     bm = room.get("board_mode", "5x5")
     sel_patterns = msg.get("selected_patterns")
@@ -2389,9 +2400,15 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                             "rb_phase_payload": payload if isinstance(payload, dict) else {},
                         }
                     elif action == "phase_choice" and isinstance(payload, dict) and payload.get("phase"):
+                        # Preserve earlier rulebreaker selections (e.g. `firstPlayerChosen`)
+                        # across later phase payloads which may omit those keys (e.g. toss_summary).
+                        existing_rb_phase_payload = room.get("rb_phase_payload")
+                        if not isinstance(existing_rb_phase_payload, dict):
+                            existing_rb_phase_payload = {}
+                        merged_rb_phase_payload = {**existing_rb_phase_payload, **payload}
                         phase_patch = {
                             "phase": payload.get("phase"),
-                            "rb_phase_payload": payload,
+                            "rb_phase_payload": merged_rb_phase_payload,
                             "rb_summary_started_at_ms": None,
                             "rb_auto_start_due_ms": None,
                         }
