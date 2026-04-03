@@ -21,6 +21,8 @@ _room_connections: dict[str, dict] = {}
 _room_runtime: dict[str, dict] = {}
 _rb_autostart_tasks: dict[str, asyncio.Task] = {}
 _lb_phase_tasks: dict[str, asyncio.Task] = {}
+_rules_sheet_timeout_tasks: dict[str, asyncio.Task] = {}
+RULES_SHEET_TIMEOUT_SECONDS = 60.0
 DISCONNECT_GRACE_SECONDS = 3.0
 
 
@@ -40,6 +42,51 @@ def _cancel_lb_phase_task(room_code: str) -> None:
     task = _lb_phase_tasks.pop(room_code, None)
     if task and not task.done():
         task.cancel()
+
+
+def _cancel_rules_sheet_timeout(room_code: str) -> None:
+    task = _rules_sheet_timeout_tasks.pop(room_code, None)
+    if task and not task.done():
+        task.cancel()
+
+
+async def _rules_sheet_timeout_worker(db, room_code: str) -> None:
+    """After RULES_SHEET_TIMEOUT_SECONDS, force rules sheet completion (6x6 / 7x7) if gate still active."""
+    try:
+        await asyncio.sleep(RULES_SHEET_TIMEOUT_SECONDS)
+        room = await db.rooms.find_one({"room_code": room_code})
+        if not room:
+            return
+        bm = _effective_board_mode(room)
+        gate_6 = bool(room.get("awaiting_6x6_rules_ready")) and bm == "6x6"
+        gate_7 = bool(room.get("awaiting_7x7_rules_ready")) and bm == "7x7"
+        if not gate_6 and not gate_7:
+            return
+        rt = _room_runtime.get(room_code)
+        if rt is not None:
+            rt["levelup_ready"] = {"P1": False, "P2": False}
+        clear_doc: dict = {}
+        if gate_6:
+            clear_doc["awaiting_6x6_rules_ready"] = False
+        if gate_7:
+            clear_doc["awaiting_7x7_rules_ready"] = False
+        await db.rooms.update_one({"room_code": room_code}, {"$set": clear_doc})
+        for slot, ws in _room_connections.get(room_code, {}).items():
+            try:
+                await ws.send_json({"type": "levelup_start"})
+            except Exception:
+                pass
+    except asyncio.CancelledError:
+        raise
+    finally:
+        _rules_sheet_timeout_tasks.pop(room_code, None)
+
+
+def _schedule_rules_sheet_timeout(db, room_code: str) -> None:
+    _cancel_rules_sheet_timeout(room_code)
+    _rules_sheet_timeout_tasks[room_code] = asyncio.create_task(
+        _rules_sheet_timeout_worker(db, room_code)
+    )
 
 
 async def get_current_user(authorization: str = Header(...)):
@@ -350,6 +397,8 @@ async def _apply_5x5_to_7x7_upgrade(
         except:
             pass
 
+    _schedule_rules_sheet_timeout(db, room_code)
+
     game_dict = {
         "player1_id": room["player1_id"],
         "player2_id": room["player2_id"],
@@ -489,6 +538,8 @@ async def _apply_5x5_to_6x6_upgrade(
         except:
             pass
 
+    _schedule_rules_sheet_timeout(db, room_code)
+
 
 async def _apply_6x6_to_7x7_upgrade(
     db,
@@ -605,6 +656,8 @@ async def _apply_6x6_to_7x7_upgrade(
             await ws.send_json(gr_payload)
         except:
             pass
+
+    _schedule_rules_sheet_timeout(db, room_code)
 
 
 async def _award_match_series_and_notify(
@@ -2197,6 +2250,7 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                         pass
 
                 if rt["levelup_ready"].get("P1") and rt["levelup_ready"].get("P2"):
+                    _cancel_rules_sheet_timeout(room_code)
                     rt["levelup_ready"] = {"P1": False, "P2": False}
                     clear_doc = {}
                     if gate_5:

@@ -1,5 +1,5 @@
 "use client";
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   PATTERN_METADATA_5,
   PATTERN_METADATA_6,
@@ -87,6 +87,10 @@ export default function RuleshowScreen({
   const is77 = sheet === "7x7";
   const is66 = sheet === "6x6";
 
+  const [rulesSecLeft, setRulesSecLeft] = useState(60);
+  const selected77Ref = useRef<Set<string>>(new Set());
+  const autoReadyFiredRef = useRef(false);
+
   const patterns = is77 ? PATTERN_METADATA_7 : is66 ? PATTERN_METADATA_6 : PATTERN_METADATA_5;
   const patternList = Object.values(patterns);
 
@@ -101,6 +105,45 @@ export default function RuleshowScreen({
       return next;
     });
   };
+
+  selected77Ref.current = selected77;
+
+  useEffect(() => {
+    if (!is66 && !is77) {
+      setRulesSecLeft(60);
+      return;
+    }
+    autoReadyFiredRef.current = false;
+    setRulesSecLeft(60);
+    const id = window.setInterval(() => {
+      setRulesSecLeft(s => (s <= 1 ? 0 : s - 1));
+    }, 1000);
+    return () => window.clearInterval(id);
+  }, [sheet, is66, is77]);
+
+  useEffect(() => {
+    if (!is66 && !is77) return;
+    if (rulesSecLeft !== 0) return;
+    if (autoReadyFiredRef.current) return;
+    const myReady = mySlot === "P1" ? p1Ready : p2Ready;
+    if (myReady) return;
+    autoReadyFiredRef.current = true;
+    if (is77) {
+      let ids = Array.from(selected77Ref.current);
+      if (ids.length < 5) {
+        const all = Object.keys(PATTERN_METADATA_7);
+        const next = new Set(selected77Ref.current);
+        for (const pid of all) {
+          if (next.size >= 5) break;
+          next.add(pid);
+        }
+        ids = Array.from(next);
+      }
+      onToggleReadyAction(ids);
+    } else {
+      onToggleReadyAction(undefined);
+    }
+  }, [rulesSecLeft, is66, is77, mySlot, p1Ready, p2Ready, onToggleReadyAction]);
 
   const kicker = is77 ? "7×7 LEG UNLOCKED" : is66 ? "6×6 LEG UNLOCKED" : "5×5 SERIES";
   const title = "SELECT PATTERNS";
@@ -138,6 +181,21 @@ export default function RuleshowScreen({
         <div style={{ fontFamily: t.fontMono, fontSize: 11, color: t.textMuted, letterSpacing: "0.22em", textAlign: "center" }}>
           {kicker}
         </div>
+        {(is66 || is77) && (
+          <div
+            style={{
+              fontFamily: t.fontMono,
+              fontSize: 12,
+              color: rulesSecLeft <= 10 ? "#F59E0B" : t.textSecondary,
+              letterSpacing: "0.12em",
+              textAlign: "center",
+              marginTop: 10,
+              fontWeight: 700,
+            }}
+          >
+            AUTO-START IN {Math.floor(rulesSecLeft / 60)}:{String(rulesSecLeft % 60).padStart(2, "0")}
+          </div>
+        )}
         <div
           style={{
             fontFamily: t.fontDisplay,

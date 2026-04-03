@@ -5,10 +5,9 @@ import { ThemeId, THEMES } from "@/lib/themes";
 import { checkWin, Coord } from "@/lib/winChecker";
 import { checkWin7 } from "@/lib/winChecker7";
 import { checkWin6 } from "@/lib/winChecker6";
-import type { BoardMode } from "@/lib/types";
+import type { BoardMode, Screen, SetScreenOptions } from "@/lib/types";
 import API from "@/lib/api";
 import { censorText, containsProfanity } from "@/lib/profanity";
-import type { Screen } from "@/lib/types";
 import type { Difficulty } from "@/lib/botEngine";
 import { loadCustomTheme } from "@/lib/customTheme";
 
@@ -259,7 +258,7 @@ interface Props {
   isSingleplayer?: boolean;
   gameMode?: GameMode;
   difficulty?: Difficulty;
-  setScreenAction?: (s: Screen) => void;
+  setScreenAction?: (s: Screen, opts?: SetScreenOptions) => void;
   playHoverAction?: () => void;
   playPlaceAction?: () => void;
   playVictoryAction?: () => void;
@@ -2461,7 +2460,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     setShowGameWinScreen(false);
     setShowRankedMatchResult(false);
     setMatchSeriesComplete(null);
-    setScreenAction?.("career");
+    setScreenAction?.("career", { exitMultiGameToCareer: true });
   }, [matchSeriesComplete?.careerEntryId, isMultiplayerGame, mySlot, setScreenAction]);
 
   const useRbExtraTurnToken = useCallback(() => {

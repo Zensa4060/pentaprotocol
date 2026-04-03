@@ -7,7 +7,7 @@ import { THEMES } from "@/lib/themes";
 import { censorText, containsProfanity } from "@/lib/profanity";
 import type { ThemeId } from "@/lib/themes";
 import type { Difficulty } from "@/lib/botEngine";
-import type { Screen, MatchupData, BoardMode } from "@/lib/types";
+import type { Screen, MatchupData, BoardMode, SetScreenOptions } from "@/lib/types";
 import { loadCustomTheme, resolveCustomTheme } from "@/lib/customTheme";
 import HomeScreen       from "@/components/HomeScreen";
 import AuthScreen       from "@/components/AuthScreen";
@@ -435,7 +435,7 @@ export default function Page() {
     }, 320);
   };
 
-  const handleSetScreen = (s: Screen) => {
+  const handleSetScreen = (s: Screen, opts?: SetScreenOptions) => {
     if (!user && GUEST_BLOCKED.includes(s)) {
       setShowGuestBlock(true);
       return;
@@ -447,6 +447,17 @@ export default function Page() {
       return;
     }
     sfx.transition();
+    if (opts?.exitMultiGameToCareer && screen === "multiGame" && s === "career") {
+      setScreenHistory(prev => [...prev.filter(x => x !== "multiGame"), s]);
+      setScreen(s);
+      if (typeof window !== "undefined") {
+        sessionStorage.removeItem("pp_screen");
+        sessionStorage.removeItem("pp_multiRoomCode");
+        sessionStorage.removeItem("pp_multiPlayerSlot");
+        sessionStorage.removeItem("pp_isRanked");
+      }
+      return;
+    }
     setScreenHistory(prev => [...prev, screen]);
     setScreen(s);
   };

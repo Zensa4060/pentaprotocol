@@ -66,7 +66,7 @@ const CareerMatchRow = React.memo(({
   isMobile: boolean;
   highlightId?: string | null;
 }) => {
-  const oppRank = getRank(match.opponent_elo);
+  const myRank = getRank(match.elo_after);
   const isWin = match.result === "win";
   const isDraw = match.result === "draw";
   const deltaColor = isWin ? "#34D399" : isDraw ? "#F59E0B" : "#FF4444";
@@ -169,12 +169,12 @@ const CareerMatchRow = React.memo(({
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              border: `1px solid ${oppRank.color}33`,
-              boxShadow: `0 0 10px ${oppRank.color}11`,
+              border: `1px solid ${myRank.color}33`,
+              boxShadow: `0 0 10px ${myRank.color}11`,
               flexShrink: 0,
             }}
           >
-            <RankBadge elo={match.opponent_elo} size={22} />
+            <RankBadge elo={match.elo_after} size={22} />
           </div>
           <div style={{ minWidth: 0 }}>
             <div
@@ -193,13 +193,13 @@ const CareerMatchRow = React.memo(({
               style={{
                 fontFamily: t.fontMono,
                 fontSize: 9,
-                color: oppRank.color,
+                color: myRank.color,
                 letterSpacing: "0.08em",
                 fontWeight: 700,
                 opacity: 0.9,
               }}
             >
-              {oppRank.name.toUpperCase()} · {match.opponent_elo}
+              {myRank.name.toUpperCase()} · {match.elo_after}
             </div>
           </div>
         </div>
@@ -311,11 +311,11 @@ const CareerMatchRow = React.memo(({
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            border: `1px solid ${oppRank.color}33`,
-            boxShadow: `0 0 10px ${oppRank.color}11`,
-          }}
-        >
-          <RankBadge elo={match.opponent_elo} size={24} />
+          border: `1px solid ${myRank.color}33`,
+          boxShadow: `0 0 10px ${myRank.color}11`,
+        }}
+      >
+        <RankBadge elo={match.elo_after} size={24} />
         </div>
         <div>
           <div
@@ -333,18 +333,18 @@ const CareerMatchRow = React.memo(({
             style={{
               fontFamily: t.fontMono,
               fontSize: 9,
-              color: oppRank.color,
-              letterSpacing: "0.1em",
-              fontWeight: 700,
-              opacity: 0.9,
-            }}
-          >
-            {oppRank.name.toUpperCase()} · {match.opponent_elo}
+                color: myRank.color,
+                letterSpacing: "0.1em",
+                fontWeight: 700,
+                opacity: 0.9,
+              }}
+            >
+              {myRank.name.toUpperCase()} · {match.elo_after}
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* Mode */}
+        {/* Mode */}
       <div>
         <div
           style={{
