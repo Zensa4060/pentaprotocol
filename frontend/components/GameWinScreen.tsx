@@ -1,7 +1,8 @@
 "use client";
 import React, { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { RankIcon, RANKS } from "./ProfileScreen";
+import { RankIcon } from "./ProfileScreen";
+import { getRank } from "./NavBar";
 
 const xpForLevel = (level: number) => {
   if (level >= 1000) return 999_999_999;
@@ -79,10 +80,12 @@ export default function GameWinScreen({
   const before = useMemo(() => computeLevelStats(myData.xp_before), [myData.xp_before]);
   const after = useMemo(() => computeLevelStats(myData.xp_after), [myData.xp_after]);
   const accentColor = isDraw ? t.gold : isWinner ? t.accent : t.danger;
-  const viewerRank = useMemo(
-    () => RANKS.find(r => myData.elo_after >= r.min && myData.elo_after < r.max) ?? RANKS[0],
-    [myData.elo_after]
-  );
+  const viewerRank = useMemo(() => {
+    const after = myData.elo_after;
+    const before = myData.elo_before;
+    const elo = Number.isFinite(after) ? after : Number.isFinite(before) ? before : 0;
+    return getRank(elo);
+  }, [myData.elo_after, myData.elo_before]);
   const statusTitle = isDraw ? "MATCH DRAW" : isWinner ? "SERIES VICTORY" : "SERIES DEFEAT";
   const statusSubtitle = isDraw
     ? "The protocol ends in a deadlock."
@@ -195,7 +198,7 @@ export default function GameWinScreen({
               lineHeight: 1,
             }}
           >
-            <RankIcon rank={viewerRank} size={104} />
+            <RankIcon rank={viewerRank as React.ComponentProps<typeof RankIcon>["rank"]} size={104} />
           </motion.div>
           <div style={{ fontFamily: t.fontMono, fontSize: 12, letterSpacing: "0.3em", color: t.textMuted }}>
             MULTIPLAYER MATCH COMPLETE

@@ -42,6 +42,9 @@ import { getUserKey, pushMissionEvent } from "@/lib/missionsClient";
 import MatchResultScreen from "./MatchResultScreen";
 import GameWinScreen from "./GameWinScreen";
 import { persistLobbyTauntQuote, type LobbyQuoteResult } from "@/lib/lobbyTauntQuote";
+import { seriesPointsFromHistory } from "@/lib/seriesPoints";
+
+const EPS = 1e-9;
 
 function lobbyQuoteFromSeriesWinner(seriesWinner: string | null | undefined, mySlot: "P1" | "P2"): LobbyQuoteResult {
   if (!seriesWinner || seriesWinner === "DRAW") return null;
@@ -860,14 +863,13 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
                   historyDisplayStartIndexRef.current = msg.history_display_start_index;
                   setHistoryDisplayStartIndex(msg.history_display_start_index);
                 }
-                const segIdx = typeof msg.segment_start_index === "number" ? msg.segment_start_index : segmentStartIndexRef.current;
-                const segSlice = newHist.slice(segIdx);
+                const fbPts = seriesPointsFromHistory(newHist);
                 const p1p = typeof msg.p1_series_points === "number"
                   ? msg.p1_series_points
-                  : segSlice.filter(w => (typeof w === "string" ? w : (w as any)?.winner) === "P1").length;
+                  : fbPts.p1;
                 const p2p = typeof msg.p2_series_points === "number"
                   ? msg.p2_series_points
-                  : segSlice.filter(w => (typeof w === "string" ? w : (w as any)?.winner) === "P2").length;
+                  : fbPts.p2;
                 setP1SeriesPts(p1p);
                 setP2SeriesPts(p2p);
                 if (typeof msg.awaiting_rulebreaker === "boolean") {
@@ -1419,7 +1421,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
               setMatchOver(false);
               setSeriesWinner(null);
               awaitingRulebreakerRef.current = false;
-              // Keep full match_history (5×5 leg + DRAW); segment_start_index scopes 7×7 points
+              // Full match_history is kept; series points are match-wide (segment_start_index is for display scoping only)
             } else {
               if (msg.last_series) {
                 setLastSeries(msg.last_series);
@@ -1796,17 +1798,15 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   };
 
   const checkSeriesWinner = (hist: any[]): string | null => {
-    const p1_pts = hist.filter(w => (typeof w === "string" ? w : (w as any)?.winner) === "P1").length;
-    const p2_pts = hist.filter(w => (typeof w === "string" ? w : (w as any)?.winner) === "P2").length;
+    const { p1: p1_pts, p2: p2_pts } = seriesPointsFromHistory(hist);
 
-    if (p1_pts >= 5) return "P1";
-    if (p2_pts >= 5) return "P2";
+    if (p1_pts + EPS >= 5) return "P1";
+    if (p2_pts + EPS >= 5) return "P2";
 
-    // If 9 games are played, use majority or DRAW (for Protocolbreaker trigger)
     if (hist.length >= 9) {
-      if (p1_pts > p2_pts) return "P1";
-      if (p2_pts > p1_pts) return "P2";
-      return null; // Protocolbreaker tie
+      if (p1_pts > p2_pts + EPS) return "P1";
+      if (p2_pts > p1_pts + EPS) return "P2";
+      return null;
     }
 
     return null;

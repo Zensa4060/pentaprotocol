@@ -1,5 +1,6 @@
 "use client";
 import React from "react";
+import { formatSeriesPts } from "@/lib/seriesPoints";
 import { Piece, Flame, Skull, SnowflakePiece, IceShardPiece } from "./GamePieces";
 import type { Phase } from "./GamePieces";
 import type { Screen } from "@/lib/types";
@@ -350,9 +351,9 @@ export function MatchSidebar({
           <div style={{ marginBottom: 12, padding: "10px 12px", background: `${t.accent}0C`, border: `1px solid ${t.accent}33`, borderRadius: ip ? 2 : 10 }}>
             <div style={{ fontFamily: t.fontMono, fontSize: 9, color: t.textMuted, letterSpacing: "0.2em", marginBottom: 6 }}>SERIES POINTS · FIRST TO 5</div>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontFamily: t.fontDisplay, fontSize: 18, fontWeight: 800 }}>
-              <span style={{ color: p1c }}>{p1Label ?? "P1"} <span style={{ color: t.text }}>{p1SeriesPts}</span></span>
+              <span style={{ color: p1c }}>{p1Label ?? "P1"} <span style={{ color: t.text }}>{formatSeriesPts(p1SeriesPts)}</span></span>
               <span style={{ color: t.textMuted, fontSize: 14 }}>—</span>
-              <span style={{ color: p2c }}>{p2Label ?? "P2"} <span style={{ color: t.text }}>{p2SeriesPts}</span></span>
+              <span style={{ color: p2c }}>{p2Label ?? "P2"} <span style={{ color: t.text }}>{formatSeriesPts(p2SeriesPts)}</span></span>
             </div>
           </div>
         )}
@@ -628,9 +629,9 @@ export function LeftPanel(props: MatchSidebarProps) {
           <div style={{ marginBottom: 12, padding: "10px 12px", background: `${t.accent}0C`, border: `1px solid ${t.accent}33`, borderRadius: ip ? 2 : 10 }}>
             <div style={{ fontFamily: t.fontMono, fontSize: 9, color: t.textMuted, letterSpacing: "0.2em", marginBottom: 6 }}>SERIES POINTS · FIRST TO 5</div>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontFamily: t.fontDisplay, fontSize: 18, fontWeight: 800 }}>
-              <span style={{ color: p1c }}>{p1Label ?? "P1"} <span style={{ color: t.text }}>{p1SeriesPts}</span></span>
+              <span style={{ color: p1c }}>{p1Label ?? "P1"} <span style={{ color: t.text }}>{formatSeriesPts(p1SeriesPts)}</span></span>
               <span style={{ color: t.textMuted, fontSize: 14 }}>—</span>
-              <span style={{ color: p2c }}>{p2Label ?? "P2"} <span style={{ color: t.text }}>{p2SeriesPts}</span></span>
+              <span style={{ color: p2c }}>{p2Label ?? "P2"} <span style={{ color: t.text }}>{formatSeriesPts(p2SeriesPts)}</span></span>
             </div>
           </div>
         )}

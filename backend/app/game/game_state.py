@@ -166,12 +166,22 @@ class GameState:
         Returns "P1", "P2", or None.
         Standardized first-to-5 total points.
         """
-        self.p1_series_points = sum(1 for w in self.match_history if w == "P1")
-        self.p2_series_points = sum(1 for w in self.match_history if w == "P2")
+        p1 = 0.0
+        p2 = 0.0
+        for w in self.match_history:
+            if w == "P1":
+                p1 += 1.0
+            elif w == "P2":
+                p2 += 1.0
+            elif w == "DRAW":
+                p1 += 0.5
+                p2 += 0.5
+        self.p1_series_points = p1
+        self.p2_series_points = p2
 
-        if self.p1_series_points >= 5:
+        if self.p1_series_points >= 5 - 1e-9:
             return "P1"
-        if self.p2_series_points >= 5:
+        if self.p2_series_points >= 5 - 1e-9:
             return "P2"
 
         return None

@@ -134,41 +134,46 @@ def serialize_room(room: dict) -> dict:
     }
 
 
-def compute_segment_points(history: list, segment_start: int = 0) -> tuple[int, int]:
+def compute_segment_points(history: list, segment_start: int = 0) -> tuple[float, float]:
     """
-    Wins in the full match history for the current first-to-5 flow.
-    Handles both string winners ('P1') and rich history objects ({'winner': 'P1'}).
+    Points in match history for first-to-5: win = 1, draw = 0.5 each.
+    Handles string winners and rich history objects ({'winner': 'P1'|'P2'|'DRAW'}).
     """
-    p1 = 0
-    p2 = 0
+    p1 = 0.0
+    p2 = 0.0
     for item in history[segment_start:]:
         w = item["winner"] if isinstance(item, dict) else item
-        if w == "P1": p1 += 1
-        elif w == "P2": p2 += 1
+        if w == "P1":
+            p1 += 1.0
+        elif w == "P2":
+            p2 += 1.0
+        elif w == "DRAW":
+            p1 += 0.5
+            p2 += 0.5
     return p1, p2
 
 
 def compute_series_winner(history: list, start_index: int = 0, target_points: int = 5) -> str | None:
     """
-    First-to-5 total points wins instantly.
+    First-to-5 total points wins instantly (wins + draw halves).
     If all 9 games are played, the player with the most points wins.
-    If points are equal at 9 games (4-4, 3-3, etc.), returns None (Protocolbreaker).
+    If points are equal at 9 games, returns None (Protocolbreaker).
     """
+    _EPS = 1e-9
     p1_pts, p2_pts = compute_segment_points(history, start_index)
-    if p1_pts >= target_points:
+    if p1_pts + _EPS >= target_points:
         return "P1"
-    if p2_pts >= target_points:
+    if p2_pts + _EPS >= target_points:
         return "P2"
-    
-    # If the history reaches or exceeds 9, we MUST decide or trigger Protocolbreaker.
+
     seg = history[start_index:]
     if len(seg) >= 9:
-        if p1_pts > p2_pts:
+        if p1_pts > p2_pts + _EPS:
             return "P1"
-        if p2_pts > p1_pts:
+        if p2_pts > p1_pts + _EPS:
             return "P2"
-        return None # Protocolbreaker tie
-        
+        return None  # Protocolbreaker tie
+
     return None
 
 

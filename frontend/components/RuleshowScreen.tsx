@@ -6,6 +6,7 @@ import {
   PATTERN_METADATA_7,
   PatternInfo,
 } from "@/lib/patterns_metadata";
+import { MULTIPLAYER_RULE_BLOCKS } from "@/lib/multiplayerRulesNarrative";
 
 export type RuleshowSheet = "5x5" | "6x6" | "7x7";
 
@@ -154,13 +155,41 @@ export default function RuleshowScreen({
           {desc}
         </div>
 
+        <div
+          style={{
+            width: "100%",
+            maxWidth: 720,
+            marginTop: 24,
+            padding: "16px 18px",
+            borderRadius: ip ? 2 : 14,
+            border: `1px solid ${t.border}`,
+            background: "rgba(255,255,255,0.02)",
+            maxHeight: "min(42vh, 360px)",
+            overflowY: "auto",
+          }}
+        >
+          <div style={{ fontFamily: t.fontMono, fontSize: 10, color: t.textMuted, letterSpacing: "0.2em", marginBottom: 12 }}>
+            PROTOCOL RULES · SAME AS HOW TO PLAY
+          </div>
+          {MULTIPLAYER_RULE_BLOCKS.map(block => (
+            <div key={block.id} style={{ marginBottom: 14 }}>
+              <div style={{ fontFamily: t.fontDisplay, fontSize: 12, fontWeight: 800, color: t.accent, letterSpacing: "0.06em", marginBottom: 6 }}>
+                {block.title}
+              </div>
+              <div style={{ fontFamily: t.fontBody, fontSize: 12, color: t.textSecondary, lineHeight: 1.55, whiteSpace: "pre-line" }}>
+                {block.detail}
+              </div>
+            </div>
+          ))}
+        </div>
+
         {is77 && (
           <div style={{ marginTop: 12, fontFamily: t.fontMono, fontSize: selFont, color: selected77.size >= 5 ? "#22C55E" : t.textMuted }}>
             {selected77.size} / 5–6 SELECTED
           </div>
         )}
 
-        {/* Pattern cards first — same content as single-player full sheet */}
+        {/* Pattern cards — same pattern metadata as single-player */}
         <div
           style={{
             marginTop: 28,
