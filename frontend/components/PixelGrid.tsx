@@ -485,6 +485,11 @@ export default React.memo(function PixelGrid({ board, onCellClickAction, winCell
   const [demo, setDemo] = useState<(("X" | "O") | null)[][]>(() => Array(SIZE).fill(null).map(() => Array(SIZE).fill(null)));
   const [turn, setTurn] = useState<"X" | "O">("X");
   const [last, setLast] = useState<string | null>(null);
+  useEffect(() => {
+    setDemo(Array(SIZE).fill(null).map(() => Array(SIZE).fill(null)));
+    setTurn("X");
+    setLast(null);
+  }, [SIZE]);
   const winSet = useMemo(() => new Set(winCells.map(([r, c]) => `${r}-${c}`)), [winCells]);
   const burstRef = useRef<((x: number, y: number, isP1: boolean) => void) | null>(null);
   const lowFx = graphicsQuality === "performance";

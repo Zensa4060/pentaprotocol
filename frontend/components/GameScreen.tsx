@@ -61,6 +61,34 @@ function getWsBaseUrl(): string {
   return "ws://localhost:8000";
 }
 
+type PlayGridSize = 5 | 6 | 7;
+
+/** First leg of compound modes (e.g. 5x5_6x6_7x7) — matches backend _starting_board_mode idea. */
+function startingLegFromBoardMode(mode: BoardMode): "5x5" | "6x6" | "7x7" {
+  if (mode === "5x5" || mode === "6x6" || mode === "7x7") return mode;
+  const seg = mode.split("_").filter((p): p is "5x5" | "6x6" | "7x7" => p === "5x5" || p === "6x6" || p === "7x7");
+  return seg[0] ?? "5x5";
+}
+
+function fallbackGridSizeFromMode(mode: BoardMode): PlayGridSize {
+  const leg = startingLegFromBoardMode(mode);
+  if (leg === "7x7") return 7;
+  if (leg === "6x6") return 6;
+  return 5;
+}
+
+function inferGridSizeFromBoard(board: (string | null)[][]): PlayGridSize | null {
+  const n = board?.length;
+  if (n !== 5 && n !== 6 && n !== 7) return null;
+  const row0 = board[0];
+  if (!Array.isArray(row0) || row0.length !== n) return null;
+  return n as PlayGridSize;
+}
+
+function matchMsForGridSize(s: PlayGridSize): number {
+  return s === 7 ? 300_000 : s === 6 ? 240_000 : 180_000;
+}
+
 type MatchSeriesCompletePayload = {
   series_winner: string;
   format: string; // "ranked" | "unranked" | "custom"
@@ -317,14 +345,6 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     if (levelUpSplashTimerRef.current) clearTimeout(levelUpSplashTimerRef.current);
   }, []);
 
-  const is7x7 = liveBoardMode === "7x7";
-  const is6x6 = liveBoardMode === "6x6";
-  const GRID_SIZE = is7x7 ? 7 : is6x6 ? 6 : 5;
-  const CENTER = is7x7 ? 3 : 2;
-  /** Per-player clock: 5 min 7×7, 4 min 6×6, 3 min 5×5 */
-  const matchTimeMs = is7x7 ? 300_000 : is6x6 ? 240_000 : 180_000;
-  const matchTimeMsRef = useRef(matchTimeMs);
-  matchTimeMsRef.current = matchTimeMs;
   const { user } = useAuthStore();
   const t = THEMES[themeId];
   const ip = themeId === "pixel";
@@ -506,9 +526,28 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     return w ?? "";
   };
 
-  const emptyBoard = (): (string | null)[][] => Array(GRID_SIZE).fill(null).map(() => Array(GRID_SIZE).fill(null));
+  const [board, setBoard] = useState<(string | null)[][]>(() => {
+    const s = fallbackGridSizeFromMode(boardMode);
+    return Array(s).fill(null).map(() => Array(s).fill(null));
+  });
 
-  const [board, setBoard] = useState<(string | null)[][]>(emptyBoard());
+  const GRID_SIZE = useMemo((): PlayGridSize => {
+    const inferred = inferGridSizeFromBoard(board);
+    if (inferred !== null) return inferred;
+    return fallbackGridSizeFromMode(liveBoardMode);
+  }, [board, liveBoardMode]);
+
+  const is7x7 = GRID_SIZE === 7;
+  const is6x6 = GRID_SIZE === 6;
+  const CENTER = is7x7 ? 3 : 2;
+  const matchTimeMs = matchMsForGridSize(GRID_SIZE);
+  const matchTimeMsRef = useRef(matchTimeMs);
+  matchTimeMsRef.current = matchTimeMs;
+
+  const emptyBoard = useCallback(
+    (): (string | null)[][] => Array(GRID_SIZE).fill(null).map(() => Array(GRID_SIZE).fill(null)),
+    [GRID_SIZE],
+  );
   const [current, setCurrent] = useState("P1");
   const [winner, setWinner] = useState<string | null>(null);
   const [winLine, setWinLine] = useState<Coord[]>([]);
@@ -522,8 +561,8 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   const [botThinking, setBotThinking] = useState(false);
   const [log, setLog] = useState<{ text: string; player: string }[]>([]);
 
-  const [p1Time, setP1Time] = useState(() => (liveBoardMode === "7x7" ? 300_000 : liveBoardMode === "6x6" ? 240_000 : 180_000));
-  const [p2Time, setP2Time] = useState(() => (liveBoardMode === "7x7" ? 300_000 : liveBoardMode === "6x6" ? 240_000 : 180_000));
+  const [p1Time, setP1Time] = useState(() => matchMsForGridSize(fallbackGridSizeFromMode(boardMode)));
+  const [p2Time, setP2Time] = useState(() => matchMsForGridSize(fallbackGridSizeFromMode(boardMode)));
 
   const [gameNumber, setGameNumber] = useState(1);
   const [matchHistory, setMatchHistory] = useState<string[]>([]);
@@ -642,11 +681,11 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
 
   /** Who chose the ban in rulebreaker: toss winner (ban path) or toss loser (extra-turn path). */
   const rulebreakerBanActorSlot = useMemo((): "P1" | "P2" | null => {
-    if (rbBannedPatterns.length === 0 || liveBoardMode !== "7x7") return null;
+    if (rbBannedPatterns.length === 0 || GRID_SIZE !== 7) return null;
     if (winnerPickedRule === "ban" && tossWinner) return tossWinner;
     if (winnerPickedRule === "extra_turn" && tossWinner) return tossWinner === "P1" ? "P2" : "P1";
     return null;
-  }, [rbBannedPatterns, liveBoardMode, winnerPickedRule, tossWinner]);
+  }, [rbBannedPatterns, GRID_SIZE, winnerPickedRule, tossWinner]);
 
   /** Sidebar / legacy UI: pool with banned pattern removed (unchanged display semantics). */
   const activePatterns = useMemo(
@@ -656,7 +695,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
 
   /** Structural win checks: banned pattern applies only to the opponent of the player who banned. */
   const structuralPatternsP1 = useMemo(() => {
-    if (liveBoardMode !== "7x7") return liveSelectedPatterns;
+    if (GRID_SIZE !== 7) return liveSelectedPatterns;
     if (serverStructuralPatternsP1 && serverStructuralPatternsP1.length > 0) return serverStructuralPatternsP1;
     if (rbBannedPatterns.length === 0 || !rulebreakerBanActorSlot) {
       return rbBannedPatterns.length > 0 ? liveSelectedPatterns.filter(p => !rbBannedPatterns.includes(p)) : liveSelectedPatterns;
@@ -664,10 +703,10 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     return rulebreakerBanActorSlot === "P1"
       ? liveSelectedPatterns
       : liveSelectedPatterns.filter(p => !rbBannedPatterns.includes(p));
-  }, [liveBoardMode, liveSelectedPatterns, serverStructuralPatternsP1, rbBannedPatterns, rulebreakerBanActorSlot]);
+  }, [GRID_SIZE, liveSelectedPatterns, serverStructuralPatternsP1, rbBannedPatterns, rulebreakerBanActorSlot]);
 
   const structuralPatternsP2 = useMemo(() => {
-    if (liveBoardMode !== "7x7") return liveSelectedPatterns;
+    if (GRID_SIZE !== 7) return liveSelectedPatterns;
     if (serverStructuralPatternsP2 && serverStructuralPatternsP2.length > 0) return serverStructuralPatternsP2;
     if (rbBannedPatterns.length === 0 || !rulebreakerBanActorSlot) {
       return rbBannedPatterns.length > 0 ? liveSelectedPatterns.filter(p => !rbBannedPatterns.includes(p)) : liveSelectedPatterns;
@@ -675,11 +714,11 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     return rulebreakerBanActorSlot === "P2"
       ? liveSelectedPatterns
       : liveSelectedPatterns.filter(p => !rbBannedPatterns.includes(p));
-  }, [liveBoardMode, liveSelectedPatterns, serverStructuralPatternsP2, rbBannedPatterns, rulebreakerBanActorSlot]);
+  }, [GRID_SIZE, liveSelectedPatterns, serverStructuralPatternsP2, rbBannedPatterns, rulebreakerBanActorSlot]);
 
   const sidebarPatternList = useMemo(() => {
     if (
-      liveBoardMode === "7x7" &&
+      GRID_SIZE === 7 &&
       rbHideBannedPatternFromSlot === mySlot &&
       rbPatternsPreBan &&
       rbPatternsPreBan.length > 0
@@ -687,18 +726,18 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
       return rbPatternsPreBan;
     }
     return activePatterns;
-  }, [liveBoardMode, rbHideBannedPatternFromSlot, mySlot, rbPatternsPreBan, activePatterns]);
+  }, [GRID_SIZE, rbHideBannedPatternFromSlot, mySlot, rbPatternsPreBan, activePatterns]);
   const sidebarRbBannedPatterns = useMemo(() => {
-    if (liveBoardMode === "7x7" && rbHideBannedPatternFromSlot === mySlot) return [];
+    if (GRID_SIZE === 7 && rbHideBannedPatternFromSlot === mySlot) return [];
     return rbBannedPatterns;
-  }, [liveBoardMode, rbHideBannedPatternFromSlot, mySlot, rbBannedPatterns]);
+  }, [GRID_SIZE, rbHideBannedPatternFromSlot, mySlot, rbBannedPatterns]);
   const patternsSidebarSecret = useMemo(
     () =>
-      liveBoardMode === "7x7" &&
+      GRID_SIZE === 7 &&
       rbHideBannedPatternFromSlot != null &&
       ((isMultiplayerGame && rbHideBannedPatternFromSlot === mySlot) ||
         (gameMode === "ai" && rbHideBannedPatternFromSlot === "P1")),
-    [liveBoardMode, rbHideBannedPatternFromSlot, isMultiplayerGame, mySlot, gameMode],
+    [GRID_SIZE, rbHideBannedPatternFromSlot, isMultiplayerGame, mySlot, gameMode],
   );
   const displayMatchHistory = useMemo(
     () => matchHistory.slice(Math.max(0, historyDisplayStartIndex)),
@@ -706,8 +745,8 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   );
 
   // ── Timer values stored in refs so rAF can read/write without setState loops ──
-  const p1TimeRef = useRef(liveBoardMode === "7x7" ? 300_000 : liveBoardMode === "6x6" ? 240_000 : 180_000);
-  const p2TimeRef = useRef(liveBoardMode === "7x7" ? 300_000 : liveBoardMode === "6x6" ? 240_000 : 180_000);
+  const p1TimeRef = useRef(matchMsForGridSize(fallbackGridSizeFromMode(boardMode)));
+  const p2TimeRef = useRef(matchMsForGridSize(fallbackGridSizeFromMode(boardMode)));
   const matchupCountdownRef = useRef(10.0);
 
   const fmtTime = (ms: number) => { const s = Math.max(0, Math.floor(ms / 1000)); return `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`; };
@@ -1644,8 +1683,8 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
 
     let cancelled = false;
     const boardNow = boardRef.current;
-    const is77Now = liveBoardMode === "7x7" || boardNow?.length === 7;
-    const is66Now = liveBoardMode === "6x6" || boardNow?.length === 6;
+    const is77Now = boardNow?.length === 7;
+    const is66Now = boardNow?.length === 6;
     const instantBotBoards = is66Now || is77Now;
     const isFastPath = !is77Now || is66Now;
     // Cosmetic delay before calling API (server search unchanged). DANGER 7×7: extra minimum
@@ -1668,7 +1707,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
         const b = boardRef.current;
         let p2Stones = 0;
         for (const row of b) for (const cell of row) if (cell === "P2") p2Stones++;
-        const is77 = liveBoardMode === "7x7" || b?.length === 7;
+        const is77 = b?.length === 7;
         const res = await API.post("/api/bot/move", {
           board: b, difficulty, current_player: "P2",
           board_mode: liveBoardMode || (b?.length === 7 ? "7x7" : "5x5"),
@@ -1718,7 +1757,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
 
     return () => { cancelled = true; if (timer) clearTimeout(timer); setBotThinking(false); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [botTurnKey, phase, winner, gameMode, liveBoardMode, structuralPatternsP2, difficulty]);
+  }, [botTurnKey, phase, winner, gameMode, liveBoardMode, GRID_SIZE, structuralPatternsP2, difficulty]);
 
   const initBoard = async (firstPlayer: string, c3block = false, suppressCenter = false) => {
     setSuppressCenterOpening(suppressCenter);
@@ -1745,7 +1784,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     lastP2Sec.current = -1;
     setP1Time(matchTimeMs);
     setP2Time(matchTimeMs);
-    if (liveBoardMode === "6x6" && R.current.gameNumber === 3 && R.current.rb6TimerOwner) {
+    if (GRID_SIZE === 6 && R.current.gameNumber === 3 && R.current.rb6TimerOwner) {
       if (R.current.rb6TimerOwner === "P1") {
         p1TimeRef.current = 120_000;
         setP1Time(120_000);
@@ -2303,20 +2342,20 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     playPlaceAction?.();
     const playerWhoMoved = "P2";
     const nb = currentBoard.map(row => [...row]);
-    const rbTrap = liveBoardMode === "6x6" && rb6SpecialCell && rb6SpecialCell.r === r && rb6SpecialCell.c === c;
+    const rbTrap = GRID_SIZE === 6 && rb6SpecialCell && rb6SpecialCell.r === r && rb6SpecialCell.c === c;
     const stoneOwner = rbTrap ? rb6SpecialCell!.owner : playerWhoMoved;
     nb[r][c] = stoneOwner;
     const newMoves = currentMoves + 1;
     let newExtra = currentExtra, nextPlayer: string = "P1";
-    const skipC7 = liveBoardMode === "7x7" && suppressCenterOpening;
-    const centerOpenBonus = liveBoardMode !== "6x6" && !skipC7 && newMoves === 1 && r === CENTER && c === CENTER;
+    const skipC7 = GRID_SIZE === 7 && suppressCenterOpening;
+    const centerOpenBonus = GRID_SIZE !== 6 && !skipC7 && newMoves === 1 && r === CENTER && c === CENTER;
     if (centerOpenBonus) { nextPlayer = "P1"; newExtra = 2; }
     else if (newExtra > 0) { newExtra--; if (newExtra === 0) nextPlayer = "P1"; else nextPlayer = "P2"; }
     else { nextPlayer = "P1"; }
     const patBot = stoneOwner === "P1" ? structuralPatternsP1Ref.current : structuralPatternsP2Ref.current;
-    const result = liveBoardMode === "7x7"
+    const result = GRID_SIZE === 7
       ? checkWin7(nb, r, c, stoneOwner, newMoves, patBot)
-      : liveBoardMode === "6x6"
+      : GRID_SIZE === 6
         ? checkWin6(nb, r, c, stoneOwner, newMoves)
         : checkWin(nb, r, c, stoneOwner, newMoves);
     setBoard(nb); setMovesPlayed(newMoves); addLog(r, c, playerWhoMoved);
@@ -2328,7 +2367,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   const place = async (r: number, c: number) => {
     if (phase !== "playing" || board[r][c] || winner || loading) return;
     if (gameMode === "ai" && current === "P2") return;
-    if (c3Blocked && movesPlayed === 0 && r === CENTER && c === CENTER && liveBoardMode !== "6x6") return;
+    if (c3Blocked && movesPlayed === 0 && r === CENTER && c === CENTER && GRID_SIZE !== 6) return;
     if (isMultiplayerGame) {
       console.log("[MP] sending move to server", { r, c, slot: mySlot, current });
       if (current !== mySlot) {
@@ -2347,21 +2386,21 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     setLoading(true);
     const playerWhoMoved = current;
     const nb = board.map(row => [...row]);
-    const rbTrap = liveBoardMode === "6x6" && rb6SpecialCell && rb6SpecialCell.r === r && rb6SpecialCell.c === c;
+    const rbTrap = GRID_SIZE === 6 && rb6SpecialCell && rb6SpecialCell.r === r && rb6SpecialCell.c === c;
     const stoneOwner = rbTrap ? rb6SpecialCell!.owner : playerWhoMoved;
     nb[r][c] = stoneOwner;
     const newMoves = movesPlayed + 1;
     let newExtra = extraTurns, nextPlayer = current;
-    const skipC7 = liveBoardMode === "7x7" && suppressCenterOpening;
-    const centerOpenBonus = liveBoardMode !== "6x6" && !skipC7 && newMoves === 1 && r === CENTER && c === CENTER;
+    const skipC7 = GRID_SIZE === 7 && suppressCenterOpening;
+    const centerOpenBonus = GRID_SIZE !== 6 && !skipC7 && newMoves === 1 && r === CENTER && c === CENTER;
     if (centerOpenBonus) { nextPlayer = current === "P1" ? "P2" : "P1"; newExtra = 2; }
     else if (newExtra > 0) { newExtra--; if (newExtra === 0) nextPlayer = current === "P1" ? "P2" : "P1"; }
     else { nextPlayer = current === "P1" ? "P2" : "P1"; }
     if (c3Blocked && newMoves === 1) setC3Blocked(false);
     const activePatterns = stoneOwner === "P1" ? structuralPatternsP1 : structuralPatternsP2;
-    const result = liveBoardMode === "7x7"
+    const result = GRID_SIZE === 7
       ? checkWin7(nb, r, c, stoneOwner, newMoves, activePatterns)
-      : liveBoardMode === "6x6"
+      : GRID_SIZE === 6
         ? checkWin6(nb, r, c, stoneOwner, newMoves, activePatterns)
         : checkWin(nb, r, c, stoneOwner, newMoves, activePatterns);
     setBoard(nb); setMovesPlayed(newMoves); addLog(r, c, playerWhoMoved);
@@ -2382,6 +2421,11 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     if (!needsMapping) return null;
     return board.map(row => row.map(cell => cell === "P1" ? "X" : cell === "P2" ? "O" : null));
   }, [board, isGlacierBoard, isBloodMoonBoard, isEgyptBoard, isSynthwaveBoard, isMatrixBoard, isArcaneBoard, isBioBoard, isForgeBoard, isVoidBoard, isTokyoBoard, isSpaceBoard, isPixelBoard]);
+
+  const bundledGridKey = React.useMemo(
+    () => `${boardSkin}-${liveBoardMode}-${board.length}`,
+    [boardSkin, liveBoardMode, board.length],
+  );
 
   const handleCellClick = React.useCallback(
     (r: number, c: number) => { 
@@ -2669,7 +2713,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
       {isGlacierBoard && <GlacierGridLines />}
       {board.map((row, r) => row.map((cell, c) => {
         const key = `${r}-${c}`;
-        const blk = c3Blocked && movesPlayed === 0 && r === CENTER && c === CENTER && liveBoardMode !== "6x6";
+        const blk = c3Blocked && movesPlayed === 0 && r === CENTER && c === CENTER && GRID_SIZE !== 6;
         const isHov = hover === key && !cell && !winner && !blk && phase === "playing" && rulesShowSheet === null && !show7x7LevelUp && !show6x6LevelUp && !rulesMatchGate;
         const isWin = winLine.some(([wr, wc]) => wr === r && wc === c);
         const ec = cell === "P1" ? p1c : p2c;
@@ -2693,9 +2737,84 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     </div>
     // recompute when board, hover, win state, or skin changes — NOT on timer ticks
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  ), [board, hover, winLine, winner, phase, c3Blocked, movesPlayed, bigCs,
-    p1c, p2c, cc, current, liveBoardMode, rb6SpecialCell, isRedBoard, isIceBoard, isGlacierBoard, useFlameSkull, useSnowflakeShard, useGlacierSigils,
+  ), [board, hover, winLine, winner, phase, c3Blocked, movesPlayed, bigCs, GRID_SIZE,
+    p1c, p2c, cc, current, rb6SpecialCell, isRedBoard, isIceBoard, isGlacierBoard, useFlameSkull, useSnowflakeShard, useGlacierSigils,
     rulesShowSheet, show7x7LevelUp, show6x6LevelUp, rulesMatchGate]);
+
+  function renderMainBoard(variant: "mobile" | "desktop"): React.ReactNode {
+    const k = bundledGridKey;
+    const colHdrStyle =
+      variant === "mobile"
+        ? ({ display: "flex", gap: `${boardGap}px`, paddingLeft: 28, marginBottom: 4 } as const)
+        : ({ display: "flex", gap: `${boardGap}px`, marginLeft: 34 } as const);
+    const colFontSize = GRID_SIZE === 7 ? (variant === "mobile" ? 13 : 16) : variant === "mobile" ? 16 : 21;
+    const rowColGap = variant === "mobile" ? 4 : 6;
+    const rowLabelWidth = variant === "mobile" ? 24 : 34;
+    const labelTextShadow =
+      variant === "desktop"
+        ? ({ textShadow: `0 0 10px ${isRedBoard ? "rgba(200,40,0,0.4)" : isIceBoard ? "rgba(100,180,255,0.3)" : t.accentGlow + "66"}` } as const)
+        : ({} as const);
+    const rowLabelExtra = variant === "desktop" ? ({ width: 34, flexShrink: 0 } as const) : ({ width: rowLabelWidth } as const);
+    if (isGlacierBoard) return <GlacierGridCompat key={k} board={liveSkinBoard!} onCellClickAction={handleCellClick} winCells={winLine} isPaused={isBoardPaused} graphicsQuality={gameplayGraphicsQuality} />;
+    if (isBloodMoonBoard) return <BloodMoonGrid key={k} board={liveSkinBoard!} onCellClickAction={handleCellClick} winCells={winLine} graphicsQuality={gameplayGraphicsQuality} isPaused={isBoardPaused} />;
+    if (isEgyptBoard) return <EgyptGrid key={k} board={liveSkinBoard!} onCellClickAction={handleCellClick} winCells={winLine} graphicsQuality={gameplayGraphicsQuality} isPaused={isBoardPaused} />;
+    if (isSynthwaveBoard) return <SynthwaveGrid key={k} board={liveSkinBoard!} onCellClickAction={handleCellClick} winCells={winLine} graphicsQuality={gameplayGraphicsQuality} isPaused={isBoardPaused} />;
+    if (isMatrixBoard) return <MatrixGrid key={k} board={liveSkinBoard!} onCellClickAction={handleCellClick} winCells={winLine} graphicsQuality={gameplayGraphicsQuality} isPaused={isBoardPaused} />;
+    if (isArcaneBoard) return <ArcaneGridCompat key={k} board={liveSkinBoard!} onCellClickAction={handleCellClick} winCells={winLine} isPaused={isBoardPaused} graphicsQuality={gameplayGraphicsQuality} />;
+    if (isBioBoard) return <BioGrid key={k} board={liveSkinBoard!} onCellClickAction={handleCellClick} winCells={winLine} graphicsQuality={gameplayGraphicsQuality} isPaused={isBoardPaused} />;
+    if (isForgeBoard) return <ForgeGridCompat key={k} board={liveSkinBoard!} onCellClickAction={handleCellClick} winCells={winLine} isPaused={isBoardPaused} graphicsQuality={gameplayGraphicsQuality} />;
+    if (isVoidBoard) return <VoidGridCompat key={k} board={liveSkinBoard!} onCellClickAction={handleCellClick} winCells={winLine} isPaused={isBoardPaused} graphicsQuality={gameplayGraphicsQuality} />;
+    if (isTokyoBoard) return <TokyoGridCompat key={k} board={liveSkinBoard!} onCellClickAction={handleCellClick} winCells={winLine} isPaused={isBoardPaused} graphicsQuality={gameplayGraphicsQuality} />;
+    if (isSpaceBoard) return <SpaceGrid key={k} board={liveSkinBoard!} onCellClickAction={handleCellClick} winCells={winLine} isPaused={isBoardPaused} graphicsQuality={gameplayGraphicsQuality} />;
+    if (isPixelBoard) return <PixelGrid key={k} board={liveSkinBoard!} onCellClickAction={handleCellClick} winCells={winLine} isPaused={isBoardPaused} graphicsQuality={gameplayGraphicsQuality} />;
+    return (
+      <>
+        <div style={colHdrStyle}>
+          {"ABCDEFG".slice(0, GRID_SIZE).split("").map(l => (
+            <div
+              key={l}
+              style={{
+                width: bigCs,
+                textAlign: "center",
+                fontFamily: t.fontMono,
+                fontSize: colFontSize,
+                fontWeight: 800,
+                color: isRedBoard ? "rgba(200,60,40,0.7)" : isIceBoard ? "rgba(140,210,255,0.55)" : t.accent,
+                letterSpacing: "0.1em",
+                ...labelTextShadow,
+              }}
+            >
+              {l}
+            </div>
+          ))}
+        </div>
+        <div style={{ display: "flex", gap: rowColGap, alignItems: "flex-start" }}>
+          <div style={{ display: "grid", gridTemplateRows: `repeat(${GRID_SIZE},${bigCs})`, gap: `${boardGap}px` }}>
+            {Array.from({ length: GRID_SIZE }, (_, i) => i + 1).map(n => (
+              <div
+                key={n}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontFamily: t.fontMono,
+                  fontSize: colFontSize,
+                  fontWeight: 800,
+                  color: isRedBoard ? "rgba(200,60,40,0.7)" : isIceBoard ? "rgba(140,210,255,0.55)" : t.accent,
+                  letterSpacing: "0.1em",
+                  ...labelTextShadow,
+                  ...rowLabelExtra,
+                }}
+              >
+                {n}
+              </div>
+            ))}
+          </div>
+          {boardJSX}
+        </div>
+      </>
+    );
+  }
 
   const splashScreen = (
     <div style={{ position: "fixed", top: 64, left: 0, right: 0, bottom: 0, zIndex: 2, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: t.bg, gap: 32, userSelect: "none" }}>
@@ -2806,11 +2925,11 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   }, [isMultiplayerGame, phase, showRematch, matchSeriesComplete, matchOver, showWinOverlay]);
 
   useEffect(() => {
-    if (!isMultiplayerGame || liveBoardMode !== "6x6") return;
+    if (!isMultiplayerGame || GRID_SIZE !== 6) return;
     // #region agent log
     fetch('http://127.0.0.1:7852/ingest/44a3777c-2714-4f08-b3ff-de0caf166408',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'6fad40'},body:JSON.stringify({sessionId:'6fad40',runId:'run1',hypothesisId:'H4',location:'frontend/components/GameScreen.tsx:2622',message:'6x6 timing snapshot',data:{p1Time,p2Time,rb6SpecialCell,rb6CellChooser,winnerPickedRule,phase,current},timestamp:Date.now()})}).catch(()=>{});
     // #endregion
-  }, [isMultiplayerGame, liveBoardMode, p1Time, p2Time, rb6SpecialCell, rb6CellChooser, winnerPickedRule, phase, current]);
+  }, [isMultiplayerGame, GRID_SIZE, p1Time, p2Time, rb6SpecialCell, rb6CellChooser, winnerPickedRule, phase, current]);
 
   const limitbreakerOverlay = pbOverlay && isMultiplayerGame && (() => {
     const isMyTurn = pbOverlay.nextSlot === mySlot;
@@ -3122,47 +3241,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
               ↺ RESET MATCH
             </button>
           )}
-          {isGlacierBoard ? (
-            <GlacierGridCompat board={liveSkinBoard!} onCellClickAction={handleCellClick} winCells={winLine} isPaused={isBoardPaused} graphicsQuality={gameplayGraphicsQuality} />
-          ) : isBloodMoonBoard ? (
-            <BloodMoonGrid board={liveSkinBoard!} onCellClickAction={handleCellClick} winCells={winLine} graphicsQuality={gameplayGraphicsQuality} isPaused={isBoardPaused} />
-          ) : isEgyptBoard ? (
-            <EgyptGrid board={liveSkinBoard!} onCellClickAction={handleCellClick} winCells={winLine} graphicsQuality={gameplayGraphicsQuality} isPaused={isBoardPaused} />
-          ) : isSynthwaveBoard ? (
-            <SynthwaveGrid board={liveSkinBoard!} onCellClickAction={handleCellClick} winCells={winLine} graphicsQuality={gameplayGraphicsQuality} isPaused={isBoardPaused} />
-          ) : isMatrixBoard ? (
-            <MatrixGrid board={liveSkinBoard!} onCellClickAction={handleCellClick} winCells={winLine} graphicsQuality={gameplayGraphicsQuality} isPaused={isBoardPaused} />
-          ) : isArcaneBoard ? (
-            <ArcaneGridCompat board={liveSkinBoard!} onCellClickAction={handleCellClick} winCells={winLine} isPaused={isBoardPaused} graphicsQuality={gameplayGraphicsQuality} />
-          ) : isBioBoard ? (
-            <BioGrid board={liveSkinBoard!} onCellClickAction={handleCellClick} winCells={winLine} graphicsQuality={gameplayGraphicsQuality} isPaused={isBoardPaused} />
-          ) : isForgeBoard ? (
-            <ForgeGridCompat board={liveSkinBoard!} onCellClickAction={handleCellClick} winCells={winLine} isPaused={isBoardPaused} graphicsQuality={gameplayGraphicsQuality} />
-          ) : isVoidBoard ? (
-            <VoidGridCompat board={liveSkinBoard!} onCellClickAction={handleCellClick} winCells={winLine} isPaused={isBoardPaused} graphicsQuality={gameplayGraphicsQuality} />
-          ) : isTokyoBoard ? (
-            <TokyoGridCompat board={liveSkinBoard!} onCellClickAction={handleCellClick} winCells={winLine} isPaused={isBoardPaused} graphicsQuality={gameplayGraphicsQuality} />
-          ) : isSpaceBoard ? (
-            <SpaceGrid board={liveSkinBoard!} onCellClickAction={handleCellClick} winCells={winLine} isPaused={isBoardPaused} graphicsQuality={gameplayGraphicsQuality} />
-          ) : isPixelBoard ? (
-            <PixelGrid board={liveSkinBoard!} onCellClickAction={handleCellClick} winCells={winLine} isPaused={isBoardPaused} graphicsQuality={gameplayGraphicsQuality} />
-          ) : (
-            <>
-              <div style={{ display: "flex", gap: `${boardGap}px`, paddingLeft: 28, marginBottom: 4 }}>
-                {"ABCDEFG".slice(0, GRID_SIZE).split("").map(l => (
-                  <div key={l} style={{ width: bigCs, textAlign: "center", fontFamily: t.fontMono, fontSize: GRID_SIZE === 7 ? 13 : 16, fontWeight: 800, color: isRedBoard ? "rgba(200,60,40,0.7)" : isIceBoard ? "rgba(140,210,255,0.55)" : t.accent, letterSpacing: "0.1em" }}>{l}</div>
-                ))}
-              </div>
-              <div style={{ display: "flex", gap: 4, alignItems: "flex-start" }}>
-                <div style={{ display: "grid", gridTemplateRows: `repeat(${GRID_SIZE},${bigCs})`, gap: `${boardGap}px` }}>
-                  {Array.from({ length: GRID_SIZE }, (_, i) => i + 1).map(n => (
-                    <div key={n} style={{ display: "flex", alignItems: "center", justifyContent: "center", fontFamily: t.fontMono, fontSize: GRID_SIZE === 7 ? 13 : 16, fontWeight: 800, color: isRedBoard ? "rgba(200,60,40,0.7)" : isIceBoard ? "rgba(140,210,255,0.55)" : t.accent, width: 24 }}>{n}</div>
-                  ))}
-                </div>
-                {boardJSX}
-              </div>
-            </>
-          )}
+          {renderMainBoard("mobile")}
         </div>
 
         {/* Mobile top-right menu buttons */}
@@ -3230,12 +3309,12 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
 
         {/* Turn indicator */}
         <div style={{ position: "absolute", bottom: 52, left: 0, right: 0, zIndex: 10, display: "flex", flexDirection: "column", alignItems: "center", gap: 5, pointerEvents: "none" }}>
-          {phase === "playing" && movesPlayed === 0 && !(liveBoardMode === "7x7" && suppressCenterOpening) && liveBoardMode !== "6x6" && (
+          {phase === "playing" && movesPlayed === 0 && !(GRID_SIZE === 7 && suppressCenterOpening) && GRID_SIZE !== 6 && (
             <div style={{ fontFamily: t.fontMono, fontSize: 10, letterSpacing: "0.06em", background: c3Blocked ? `${t.danger}18` : `${t.gold}18`, border: `1px solid ${c3Blocked ? t.danger : t.gold}44`, borderRadius: 6, padding: "3px 12px", color: c3Blocked ? t.danger : t.gold }}>
               {c3Blocked ? "✕ Center blocked" : "★ Center → opponent gets 2 extra turns"}
             </div>
           )}
-          {liveBoardMode === "7x7" && phase === "playing" && !winner && rbExtraTurnTokenHolder && !rbExtraTurnTokenUsed && extraTurns === 0 && (isMultiplayerGame ? mySlot === rbExtraTurnTokenHolder : current === rbExtraTurnTokenHolder) && (
+          {GRID_SIZE === 7 && phase === "playing" && !winner && rbExtraTurnTokenHolder && !rbExtraTurnTokenUsed && extraTurns === 0 && (isMultiplayerGame ? mySlot === rbExtraTurnTokenHolder : current === rbExtraTurnTokenHolder) && (
             <div style={{ pointerEvents: "auto" }}>
               <button type="button" onClick={() => { playClickAction?.(); useRbExtraTurnToken(); }} title="Use once: your next move does not end your turn." style={{ fontFamily: t.fontMono, fontSize: 10, fontWeight: 800, letterSpacing: "0.05em", padding: "8px 14px", borderRadius: 10, border: `1px solid ${t.accent}88`, background: `${t.accent}22`, color: t.accent }}>
                 EXTRA TURN TOKEN
@@ -3582,7 +3661,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
       {/* BOARD */}
       <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 10, padding: "10px 0", minWidth: 0 }}>
         <div style={{ height: 36, display: "flex", alignItems: "center", justifyContent: "center", gap: 16, width: "100%", position: "relative", paddingLeft: "2%" }}>
-          <div style={{ fontFamily: t.fontMono, fontSize: 11, letterSpacing: "0.08em", background: c3Blocked ? `${t.danger}10` : `${t.gold}10`, border: `1px solid ${c3Blocked ? t.danger : t.gold}33`, borderRadius: 6, padding: "3px 14px", color: c3Blocked ? t.danger : t.gold, flexShrink: 0, visibility: phase === "playing" && movesPlayed === 0 && !(liveBoardMode === "7x7" && suppressCenterOpening) && liveBoardMode !== "6x6" ? "visible" : "hidden", opacity: phase === "playing" && movesPlayed === 0 && !(liveBoardMode === "7x7" && suppressCenterOpening) && liveBoardMode !== "6x6" ? 1 : 0, transition: "opacity 0.4s ease", pointerEvents: "none" }}>
+          <div style={{ fontFamily: t.fontMono, fontSize: 11, letterSpacing: "0.08em", background: c3Blocked ? `${t.danger}10` : `${t.gold}10`, border: `1px solid ${c3Blocked ? t.danger : t.gold}33`, borderRadius: 6, padding: "3px 14px", color: c3Blocked ? t.danger : t.gold, flexShrink: 0, visibility: phase === "playing" && movesPlayed === 0 && !(GRID_SIZE === 7 && suppressCenterOpening) && GRID_SIZE !== 6 ? "visible" : "hidden", opacity: phase === "playing" && movesPlayed === 0 && !(GRID_SIZE === 7 && suppressCenterOpening) && GRID_SIZE !== 6 ? 1 : 0, transition: "opacity 0.4s ease", pointerEvents: "none" }}>
             {c3Blocked ? "✕ Center (C3) is blocked this game" : "★ Playing center gives opponent 2 extra turns"}
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 20px", background: `${winner ? winnerColor : cc}14`, border: `${ip ? 3 : 1}px solid ${winner ? winnerColor : cc}`, borderRadius: ip ? 2 : 24, transition: "background 0.25s, border-color 0.25s", flexShrink: 0 }}>
@@ -3596,7 +3675,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
               }
             </span>
           </div>
-          {liveBoardMode === "7x7" && phase === "playing" && !winner && rbExtraTurnTokenHolder && !rbExtraTurnTokenUsed && extraTurns === 0 && (isMultiplayerGame ? mySlot === rbExtraTurnTokenHolder : current === rbExtraTurnTokenHolder) && (
+          {GRID_SIZE === 7 && phase === "playing" && !winner && rbExtraTurnTokenHolder && !rbExtraTurnTokenUsed && extraTurns === 0 && (isMultiplayerGame ? mySlot === rbExtraTurnTokenHolder : current === rbExtraTurnTokenHolder) && (
             <button type="button" onClick={() => { playClickAction?.(); useRbExtraTurnToken(); }} title="Use once: your next move does not end your turn (then turns alternate normally). Center opening rule is off this game." style={{ flexShrink: 0, fontFamily: t.fontMono, fontSize: 10, fontWeight: 800, letterSpacing: "0.06em", padding: "6px 12px", borderRadius: 8, border: `1px solid ${t.accent}88`, background: `${t.accent}22`, color: t.accent, cursor: "pointer" }}>
               USE EXTRA TURN TOKEN
             </button>
@@ -3606,43 +3685,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
           </div>
         </div>
         {/* Column labels + board — special boards render their own labels */}
-        {isGlacierBoard ? (
-          <GlacierGridCompat board={liveSkinBoard!} onCellClickAction={handleCellClick} winCells={winLine} isPaused={isBoardPaused} graphicsQuality={gameplayGraphicsQuality} />
-        ) : isBloodMoonBoard ? (
-          <BloodMoonGrid board={liveSkinBoard!} onCellClickAction={handleCellClick} winCells={winLine} graphicsQuality={gameplayGraphicsQuality} isPaused={isBoardPaused} />
-        ) : isEgyptBoard ? (
-          <EgyptGrid board={liveSkinBoard!} onCellClickAction={handleCellClick} winCells={winLine} graphicsQuality={gameplayGraphicsQuality} isPaused={isBoardPaused} />
-        ) : isSynthwaveBoard ? (
-          <SynthwaveGrid board={liveSkinBoard!} onCellClickAction={handleCellClick} winCells={winLine} graphicsQuality={gameplayGraphicsQuality} isPaused={isBoardPaused} />
-        ) : isMatrixBoard ? (
-          <MatrixGrid board={liveSkinBoard!} onCellClickAction={handleCellClick} winCells={winLine} graphicsQuality={gameplayGraphicsQuality} isPaused={isBoardPaused} />
-        ) : isArcaneBoard ? (
-          <ArcaneGridCompat board={liveSkinBoard!} onCellClickAction={handleCellClick} winCells={winLine} isPaused={isBoardPaused} graphicsQuality={gameplayGraphicsQuality} />
-        ) : isBioBoard ? (
-          <BioGrid board={liveSkinBoard!} onCellClickAction={handleCellClick} winCells={winLine} graphicsQuality={gameplayGraphicsQuality} isPaused={isBoardPaused} />
-        ) : isForgeBoard ? (
-          <ForgeGridCompat board={liveSkinBoard!} onCellClickAction={handleCellClick} winCells={winLine} isPaused={isBoardPaused} graphicsQuality={gameplayGraphicsQuality} />
-        ) : isVoidBoard ? (
-          <VoidGridCompat board={liveSkinBoard!} onCellClickAction={handleCellClick} winCells={winLine} isPaused={isBoardPaused} graphicsQuality={gameplayGraphicsQuality} />
-        ) : isTokyoBoard ? (
-          <TokyoGridCompat board={liveSkinBoard!} onCellClickAction={handleCellClick} winCells={winLine} isPaused={isBoardPaused} graphicsQuality={gameplayGraphicsQuality} />
-        ) : isSpaceBoard ? (
-          <SpaceGrid board={liveSkinBoard!} onCellClickAction={handleCellClick} winCells={winLine} isPaused={isBoardPaused} graphicsQuality={gameplayGraphicsQuality} />
-        ) : isPixelBoard ? (
-          <PixelGrid board={liveSkinBoard!} onCellClickAction={handleCellClick} winCells={winLine} isPaused={isBoardPaused} graphicsQuality={gameplayGraphicsQuality} />
-        ) : (
-          <>
-            <div style={{ display: "flex", gap: `${boardGap}px`, marginLeft: 34 }}>
-              {"ABCDEFG".slice(0, GRID_SIZE).split("").map(l => <div key={l} style={{ width: bigCs, textAlign: "center", fontFamily: t.fontMono, fontSize: GRID_SIZE === 7 ? 16 : 21, fontWeight: 800, color: isRedBoard ? "rgba(200,60,40,0.7)" : isIceBoard ? "rgba(140,210,255,0.55)" : t.accent, letterSpacing: "0.1em", textShadow: `0 0 10px ${isRedBoard ? "rgba(200,40,0,0.4)" : isIceBoard ? "rgba(100,180,255,0.3)" : t.accentGlow + "66"}` }}>{l}</div>)}
-            </div>
-            <div style={{ display: "flex", gap: 6, alignItems: "flex-start" }}>
-              <div style={{ display: "grid", gridTemplateRows: `repeat(${GRID_SIZE},${bigCs})`, gap: `${boardGap}px` }}>
-                {Array.from({ length: GRID_SIZE }, (_, i) => i + 1).map(n => <div key={n} style={{ display: "flex", alignItems: "center", justifyContent: "center", fontFamily: t.fontMono, fontSize: GRID_SIZE === 7 ? 16 : 21, fontWeight: 800, color: isRedBoard ? "rgba(200,60,40,0.7)" : isIceBoard ? "rgba(140,210,255,0.55)" : t.accent, letterSpacing: "0.1em", textShadow: `0 0 10px ${isRedBoard ? "rgba(200,40,0,0.4)" : isIceBoard ? "rgba(100,180,255,0.3)" : t.accentGlow + "66"}`, width: 34, flexShrink: 0 }}>{n}</div>)}
-              </div>
-              {boardJSX}
-            </div>
-          </>
-        )}
+        {renderMainBoard("desktop")}
       </div>
 
       <RightPanel
