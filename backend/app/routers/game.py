@@ -58,18 +58,12 @@ async def award_game_result(db, game: dict, winner: str | None):
     is_ranked  = game.get("format") == "ranked"
     mode       = game.get("mode", "multiplayer")
     difficulty = game.get("difficulty", "medium")
-    source     = game.get("source", "matchmaking")
     # Solo and singleplayer games do not count toward any profile stats
     if mode in ("solo", "singleplayer", "bot"):
         return
 
-    # Determine career mode label: ranked / unranked / custom
-    if is_ranked:
-        career_mode = "ranked"
-    elif source == "private":
-        career_mode = "custom"
-    else:
-        career_mode = "unranked"
+    # Ranked vs unranked (private friend rooms use the same labels as queue when format matches)
+    career_mode = "ranked" if is_ranked else "unranked"
 
     # Pre-fetch both players for ELO-before snapshot
     p1_user = await db.users.find_one({"_id": ObjectId(p1_id)}) if p1_id else None
@@ -85,9 +79,6 @@ async def award_game_result(db, game: dict, winner: str | None):
         new_total_xp = user.get("xp", 0) + gained_xp
         new_level, _ = compute_level(new_total_xp)
         inc = {}
-        # Custom games don't affect profile stats at all
-        if career_mode == "custom":
-            pass
         if career_mode == "unranked":
             if result == "win":  inc["unranked_wins"]   = 1
             if result == "loss": inc["unranked_losses"] = 1

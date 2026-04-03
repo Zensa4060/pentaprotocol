@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useEffect, useRef } from "react";
-import type { Screen } from "@/lib/types";
+import type { MatchupData, Screen } from "@/lib/types";
 import type { ThemeId } from "@/lib/themes";
 import { THEMES } from "@/lib/themes";
 import { useAuthStore } from "@/lib/store";
@@ -22,7 +22,13 @@ interface Props {
   onQueueCancelAction: () => void;
   onHoverAction?: () => void;
   onClickAction?: () => void;
-  onRoomReadyAction?: (roomCode: string, playerSlot: "P1" | "P2", format: string) => void;
+  onRoomReadyAction?: (
+    roomCode: string,
+    playerSlot: "P1" | "P2",
+    format: string,
+    matchup?: MatchupData,
+    roomFromServer?: { board_mode?: string; board_mode_full?: string; selected_patterns?: string[] },
+  ) => void;
   queuePhase?: "none" | "queuing" | "matchup";
   queueElapsed?: number;
   matchupOpponent?: any;
@@ -180,7 +186,7 @@ export default function LobbyScreen({
         const res = await API.get(`/api/room/${code}`, { ...authHeader, timeout: 10000 });
         if (res.data.game_status === "playing") {
           clearInterval(interval);
-          onRoomReadyAction?.(code, mySlot, res.data.format);
+          onRoomReadyAction?.(code, mySlot, res.data.format, undefined, res.data);
         }
       } catch { /* keep polling */ }
     }, 2000);
@@ -196,7 +202,13 @@ export default function LobbyScreen({
     setRoomError(null);
     try {
       const res = await postOnce("/api/room/join", { room_code: joinCode.trim().toUpperCase() }, authHeader);
-      onRoomReadyAction?.(res.data.room_code, (res.data.player_slot as "P1" | "P2") ?? "P2", res.data.format);
+      onRoomReadyAction?.(
+        res.data.room_code,
+        (res.data.player_slot as "P1" | "P2") ?? "P2",
+        res.data.format,
+        undefined,
+        res.data,
+      );
     } catch (e: any) {
       setRoomError(e.response?.data?.detail || "Could not join room");
     } finally {

@@ -1608,7 +1608,12 @@ async def create_room(data: CreateRoomRequest, user_id: str = Depends(get_curren
         "segment_start_index": 0,
         "history_display_start_index": 0,
         "awaiting_5x5_rules_ready": False,
+        "awaiting_6x6_rules_ready": False,
         "awaiting_7x7_rules_ready": False,
+        "board_mode_full": full_board_mode,
+        "ranked_triple_leg": data.format == "ranked" and full_board_mode == RANKED_TRIPLE_BOARD_MODE,
+        "p1_legs_won": 0,
+        "p2_legs_won": 0,
         "created_at":      datetime.utcnow(),
     }
     await db.rooms.insert_one(room)
@@ -1924,7 +1929,8 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                     sw_found = s_state["series_winner"]
 
                     is_triple_leg = room.get("ranked_triple_leg") or \
-                                   room.get("board_mode_full") == "5x5_6x6_7x7"
+                                   room.get("board_mode_full") == "5x5_6x6_7x7" or \
+                                   room.get("board_mode") == "5x5_6x6_7x7"
 
                     if sw_found:
                         # Match is over - skip upgrades and resolve series
