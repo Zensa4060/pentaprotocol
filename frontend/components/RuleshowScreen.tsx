@@ -1,26 +1,13 @@
 "use client";
 import React, { useState } from "react";
-import { 
-  PATTERN_METADATA_5, 
-  PATTERN_METADATA_6, 
-  PATTERN_METADATA_7, 
-  PatternInfo 
+import {
+  PATTERN_METADATA_5,
+  PATTERN_METADATA_6,
+  PATTERN_METADATA_7,
+  PatternInfo,
 } from "@/lib/patterns_metadata";
 
 export type RuleshowSheet = "5x5" | "6x6" | "7x7";
-
-export const RULESHOW_SKIP_STORAGE_5x5 = "pentaprotocol_ruleshow_skip_5x5";
-export const RULESHOW_SKIP_STORAGE_6x6 = "pentaprotocol_ruleshow_skip_6x6";
-export const RULESHOW_SKIP_STORAGE_7x7 = "pentaprotocol_ruleshow_skip_7x7";
-
-export function readRuleshowSkip(sheet: RuleshowSheet): boolean {
-  if (typeof window === "undefined") return false;
-  const k =
-    sheet === "7x7" ? RULESHOW_SKIP_STORAGE_7x7 :
-    sheet === "6x6" ? RULESHOW_SKIP_STORAGE_6x6 :
-    RULESHOW_SKIP_STORAGE_5x5;
-  return window.localStorage.getItem(k) === "1";
-}
 
 type RuleshowScreenProps = {
   sheet: RuleshowSheet;
@@ -51,33 +38,39 @@ function PatternDiagram({ info, accent, isSelected }: { info: PatternInfo; accen
   const cellSet = new Set(cells.map(([r, c]) => `${r},${c}`));
 
   return (
-    <div style={{
-      display: "grid",
-      gridTemplateRows: `repeat(${gridSize}, ${cellSize}px)`,
-      gridTemplateColumns: `repeat(${gridSize}, ${cellSize}px)`,
-      gap,
-      marginTop: 8,
-    }}>
+    <div
+      style={{
+        display: "grid",
+        gridTemplateRows: `repeat(${gridSize}, ${cellSize}px)`,
+        gridTemplateColumns: `repeat(${gridSize}, ${cellSize}px)`,
+        gap,
+        marginTop: 8,
+      }}
+    >
       {Array.from({ length: gridSize }, (_, r) =>
         Array.from({ length: gridSize }, (_, c) => {
           const filled = cellSet.has(`${r},${c}`);
           return (
-            <div key={`${r}-${c}`} style={{
-              width: cellSize,
-              height: cellSize,
-              borderRadius: 2,
-              background: filled
-                ? isSelected ? accent : `${accent}66`
-                : "rgba(255,255,255,0.04)",
-              border: filled ? `1px solid ${accent}` : "1px solid rgba(255,255,255,0.06)",
-              transition: "all 0.2s",
-            }} />
+            <div
+              key={`${r}-${c}`}
+              style={{
+                width: cellSize,
+                height: cellSize,
+                borderRadius: 2,
+                background: filled ? (isSelected ? accent : `${accent}66`) : "rgba(255,255,255,0.04)",
+                border: filled ? `1px solid ${accent}` : "1px solid rgba(255,255,255,0.06)",
+                transition: "all 0.2s",
+              }}
+            />
           );
         })
       )}
     </div>
   );
 }
+
+/** +60% vs prior sizing for readiness chips and primary button */
+const RS = 1.6;
 
 export default function RuleshowScreen({
   sheet,
@@ -90,15 +83,12 @@ export default function RuleshowScreen({
   mySlot,
   onToggleReadyAction,
 }: RuleshowScreenProps) {
-  const [dontShowAgain, setDontShowAgain] = useState(false);
   const is77 = sheet === "7x7";
   const is66 = sheet === "6x6";
-  const is55 = sheet === "5x5";
 
   const patterns = is77 ? PATTERN_METADATA_7 : is66 ? PATTERN_METADATA_6 : PATTERN_METADATA_5;
   const patternList = Object.values(patterns);
 
-  // For 7x7, handle selection state locally before ready
   const [selected77, setSelected77] = useState<Set<string>>(new Set(Object.keys(PATTERN_METADATA_7)));
 
   const toggle77 = (id: string) => {
@@ -113,11 +103,19 @@ export default function RuleshowScreen({
 
   const kicker = is77 ? "7×7 LEG UNLOCKED" : is66 ? "6×6 LEG UNLOCKED" : "5×5 SERIES";
   const title = "SELECT PATTERNS";
-  const desc = is77 
-    ? "Choose 5 to 6 winning patterns for this high-tier leg." 
-    : is66 
-      ? "Five mandatory patterns enforced for the 6×6 protocol." 
+  const desc = is77
+    ? "Choose 5 to 6 winning patterns for this high-tier leg."
+    : is66
+      ? "Five mandatory patterns enforced for the 6×6 protocol."
       : "Standard active patterns for the 5×5 series.";
+
+  const chipPadV = Math.round(8 * RS);
+  const chipPadH = Math.round(16 * RS);
+  const chipFont = Math.round(12 * RS);
+  const btnPadV = Math.round(14 * RS);
+  const btnPadH = Math.round(48 * RS);
+  const btnFont = Math.round(16 * RS);
+  const selFont = Math.round(12 * RS);
 
   return (
     <div
@@ -139,7 +137,17 @@ export default function RuleshowScreen({
         <div style={{ fontFamily: t.fontMono, fontSize: 11, color: t.textMuted, letterSpacing: "0.22em", textAlign: "center" }}>
           {kicker}
         </div>
-        <div style={{ fontFamily: t.fontDisplay, fontSize: "clamp(32px,5vw,52px)", color: t.accent, textAlign: "center", fontWeight: 900, marginTop: 8, letterSpacing: "0.04em" }}>
+        <div
+          style={{
+            fontFamily: t.fontDisplay,
+            fontSize: "clamp(32px,5vw,52px)",
+            color: t.accent,
+            textAlign: "center",
+            fontWeight: 900,
+            marginTop: 8,
+            letterSpacing: "0.04em",
+          }}
+        >
           {title}
         </div>
         <div style={{ fontFamily: t.fontBody, fontSize: 14, color: t.textSecondary, textAlign: "center", marginTop: 8, maxWidth: 500 }}>
@@ -147,72 +155,26 @@ export default function RuleshowScreen({
         </div>
 
         {is77 && (
-          <div style={{ marginTop: 12, fontFamily: t.fontMono, fontSize: 12, color: selected77.size >= 5 ? "#22C55E" : t.textMuted }}>
+          <div style={{ marginTop: 12, fontFamily: t.fontMono, fontSize: selFont, color: selected77.size >= 5 ? "#22C55E" : t.textMuted }}>
             {selected77.size} / 5–6 SELECTED
           </div>
         )}
 
-        {/* Readiness Bars */}
-        <div style={{ marginTop: 24, display: "flex", justifyContent: "center", gap: 14, flexWrap: "wrap" }}>
-          <div style={{ padding: "8px 16px", borderRadius: ip ? 2 : 8, border: `1px solid ${p1Ready ? p1c : t.border}`, color: p1Ready ? p1c : t.textMuted, fontFamily: t.fontMono, fontSize: 12, fontWeight: 700, background: p1Ready ? `${p1c}12` : "transparent" }}>
-            P1: {p1Ready ? "READY" : "WAITING"}
-          </div>
-          <div style={{ padding: "8px 16px", borderRadius: ip ? 2 : 8, border: `1px solid ${p2Ready ? p2c : t.border}`, color: p2Ready ? p2c : t.textMuted, fontFamily: t.fontMono, fontSize: 12, fontWeight: 700, background: p2Ready ? `${p2c}12` : "transparent" }}>
-            P2: {p2Ready ? "READY" : "WAITING"}
-          </div>
-        </div>
-
-        {/* Action Buttons */}
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginTop: 20, gap: 12 }}>
-          <button
-            type="button"
-            disabled={is77 && selected77.size < 5}
-            onClick={() => {
-              const nowReady = mySlot === "P1" ? p1Ready : p2Ready;
-              const becomingReady = !nowReady;
-              if (becomingReady && dontShowAgain) {
-                const k = is77 ? RULESHOW_SKIP_STORAGE_7x7 : is66 ? RULESHOW_SKIP_STORAGE_6x6 : RULESHOW_SKIP_STORAGE_5x5;
-                try { window.localStorage.setItem(k, "1"); } catch {}
-              }
-              onToggleReadyAction(is77 ? Array.from(selected77) : undefined);
-            }}
-            style={{
-              padding: "14px 48px",
-              borderRadius: ip ? 2 : 12,
-              border: `2px solid ${t.accent}`,
-              background: (is77 && selected77.size < 5) ? "transparent" : `${t.accent}22`,
-              color: t.accent,
-              fontFamily: t.fontDisplay,
-              fontSize: 16,
-              fontWeight: 900,
-              letterSpacing: "0.08em",
-              cursor: (is77 && selected77.size < 5) ? "not-allowed" : "pointer",
-              opacity: (is77 && selected77.size < 5) ? 0.4 : 1,
-              transition: "all 0.2s"
-            }}
-          >
-            {(mySlot === "P1" ? p1Ready : p2Ready) ? "UNREADY" : "START MATCH →"}
-          </button>
-          
-          <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", fontFamily: t.fontBody, fontSize: 13, color: t.textSecondary, userSelect: "none" }}>
-            <input type="checkbox" checked={dontShowAgain} onChange={e => setDontShowAgain(e.target.checked)} style={{ width: 16, height: 16, accentColor: t.accent }} />
-            Don&apos;t show this again
-          </label>
-        </div>
-
-        {/* Pattern Cards Grid */}
-        <div style={{ 
-          marginTop: 40, 
-          display: "grid", 
-          gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", 
-          gap: 16, 
-          width: "100%",
-          paddingBottom: 40
-        }}>
-          {patternList.map((p) => {
+        {/* Pattern cards first — same content as single-player full sheet */}
+        <div
+          style={{
+            marginTop: 28,
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
+            gap: 16,
+            width: "100%",
+            paddingBottom: 28,
+          }}
+        >
+          {patternList.map(p => {
             const isSelected = is77 ? selected77.has(p.id) : true;
             return (
-              <div 
+              <div
                 key={p.id}
                 onClick={() => is77 && toggle77(p.id)}
                 style={{
@@ -229,12 +191,33 @@ export default function RuleshowScreen({
                 }}
               >
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <div style={{ fontFamily: t.fontDisplay, fontSize: 16, fontWeight: 800, color: isSelected ? t.accent : t.text, letterSpacing: "0.04em" }}>
+                  <div
+                    style={{
+                      fontFamily: t.fontDisplay,
+                      fontSize: 16,
+                      fontWeight: 800,
+                      color: isSelected ? t.accent : t.text,
+                      letterSpacing: "0.04em",
+                    }}
+                  >
                     {p.label}
                   </div>
                   {is77 && (
-                    <div style={{ width: 18, height: 18, borderRadius: 4, border: `1.5px solid ${isSelected ? t.accent : t.textMuted}`, background: isSelected ? t.accent : "transparent", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                      {isSelected && <span style={{ fontSize: 12, color: "#000", fontWeight: 900 }}>✓</span>}
+                    <div
+                      style={{
+                        width: 18,
+                        height: 18,
+                        borderRadius: 4,
+                        border: `1.5px solid ${isSelected ? t.accent : t.textMuted}`,
+                        background: isSelected ? t.accent : "transparent",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
+                    >
+                      {isSelected && (
+                        <span style={{ fontSize: 12, color: "#000", fontWeight: 900 }}>✓</span>
+                      )}
                     </div>
                   )}
                 </div>
@@ -245,6 +228,64 @@ export default function RuleshowScreen({
               </div>
             );
           })}
+        </div>
+
+        {/* Readiness + primary action */}
+        <div style={{ marginTop: 8, display: "flex", justifyContent: "center", gap: Math.round(14 * RS), flexWrap: "wrap" }}>
+          <div
+            style={{
+              padding: `${chipPadV}px ${chipPadH}px`,
+              borderRadius: ip ? 2 : 8,
+              border: `1px solid ${p1Ready ? p1c : t.border}`,
+              color: p1Ready ? p1c : t.textMuted,
+              fontFamily: t.fontMono,
+              fontSize: chipFont,
+              fontWeight: 700,
+              background: p1Ready ? `${p1c}12` : "transparent",
+            }}
+          >
+            P1: {p1Ready ? "READY" : "WAITING"}
+          </div>
+          <div
+            style={{
+              padding: `${chipPadV}px ${chipPadH}px`,
+              borderRadius: ip ? 2 : 8,
+              border: `1px solid ${p2Ready ? p2c : t.border}`,
+              color: p2Ready ? p2c : t.textMuted,
+              fontFamily: t.fontMono,
+              fontSize: chipFont,
+              fontWeight: 700,
+              background: p2Ready ? `${p2c}12` : "transparent",
+            }}
+          >
+            P2: {p2Ready ? "READY" : "WAITING"}
+          </div>
+        </div>
+
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginTop: Math.round(20 * RS), gap: 12 }}>
+          <button
+            type="button"
+            disabled={is77 && selected77.size < 5}
+            onClick={() => {
+              onToggleReadyAction(is77 ? Array.from(selected77) : undefined);
+            }}
+            style={{
+              padding: `${btnPadV}px ${btnPadH}px`,
+              borderRadius: ip ? 2 : 12,
+              border: `2px solid ${t.accent}`,
+              background: is77 && selected77.size < 5 ? "transparent" : `${t.accent}22`,
+              color: t.accent,
+              fontFamily: t.fontDisplay,
+              fontSize: btnFont,
+              fontWeight: 900,
+              letterSpacing: "0.08em",
+              cursor: is77 && selected77.size < 5 ? "not-allowed" : "pointer",
+              opacity: is77 && selected77.size < 5 ? 0.4 : 1,
+              transition: "all 0.2s",
+            }}
+          >
+            {(mySlot === "P1" ? p1Ready : p2Ready) ? "UNREADY" : "START MATCH →"}
+          </button>
         </div>
       </div>
     </div>

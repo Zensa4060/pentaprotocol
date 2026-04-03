@@ -28,13 +28,7 @@ import PixelGrid from "./PixelGrid";
 import type { Phase } from "./GamePieces";
 import { RulebreakerFlow, PHASE_TIMERS } from "./RulebreakerFlow";
 import { LeftPanel, RightPanel, WinOverlay, SurrenderModal, DisconnectModal, ExitModal } from "./MatchSidebar";
-import RuleshowScreen, {
-  type RuleshowSheet,
-  readRuleshowSkip,
-  RULESHOW_SKIP_STORAGE_5x5,
-  RULESHOW_SKIP_STORAGE_6x6,
-  RULESHOW_SKIP_STORAGE_7x7,
-} from "./RuleshowScreen";
+import RuleshowScreen, { type RuleshowSheet } from "./RuleshowScreen";
 import { useAuthStore } from "@/lib/store";
 import { BannerRenderer } from "./BannerRenderer";
 import { RANKS, RankIcon } from "./ProfileScreen";
@@ -991,11 +985,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
           const slot = playerSlot ?? "P1";
           if (r.board_mode === "5x5" && r.awaiting_5x5_rules_ready === true) {
             setRulesMatchGate(true);
-            if (readRuleshowSkip("5x5")) {
-              setRulesShowSheet(null);
-            } else {
-              setRulesShowSheet("5x5");
-            }
+            setRulesShowSheet("5x5");
             setShow7x7LevelUp(false);
             setPhase("playing");
             setWinner(null);
@@ -1008,11 +998,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
             setRulesMatchGate(true);
             setShow7x7LevelUp(false);
             setShow6x6LevelUp(false);
-            if (readRuleshowSkip("6x6")) {
-              setRulesShowSheet(null);
-            } else {
-              setRulesShowSheet("6x6");
-            }
+            setRulesShowSheet("6x6");
             setPhase("playing");
             setWinner(null);
             setWinLine([]);
@@ -1023,11 +1009,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
           } else if (r.board_mode === "7x7" && r.awaiting_7x7_rules_ready === true) {
             if (!levelUpSplashActiveRef.current) {
               setRulesMatchGate(true);
-              if (readRuleshowSkip("7x7")) {
-                setRulesShowSheet(null);
-              } else {
-                setRulesShowSheet("7x7");
-              }
+              setRulesShowSheet("7x7");
               setPhase("playing");
               setWinner(null);
               setWinLine([]);
@@ -1123,19 +1105,15 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
             if (r.board_mode) setLiveBoardMode(r.board_mode as BoardMode);
             if (r.board_mode === "5x5" && r.awaiting_5x5_rules_ready === true) {
               setRulesMatchGate(true);
-              if (readRuleshowSkip("5x5")) {
-                setRulesShowSheet(null);
-              } else {
-                setRulesShowSheet("5x5");
-              }
+              setRulesShowSheet("5x5");
             }
             if (r.board_mode === "6x6" && (r as { awaiting_6x6_rules_ready?: boolean }).awaiting_6x6_rules_ready === true) {
               setRulesMatchGate(true);
-              if (readRuleshowSkip("6x6")) {
-                setRulesShowSheet(null);
-              } else {
-                setRulesShowSheet("6x6");
-              }
+              setRulesShowSheet("6x6");
+            }
+            if (r.board_mode === "7x7" && r.awaiting_7x7_rules_ready === true) {
+              setRulesMatchGate(true);
+              setRulesShowSheet("7x7");
             }
           }
             } else if (msg.type === "opponent_disconnected") {
@@ -1289,11 +1267,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
               levelUpSplashActiveRef.current = false;
               setShow6x6LevelUp(false);
               if (awaiting6x6RulesRef.current) {
-                if (readRuleshowSkip("6x6")) {
-                  setRulesShowSheet(null);
-                } else {
-                  setRulesShowSheet("6x6");
-                }
+                setRulesShowSheet("6x6");
               }
             }, 2800);
           } else if ((from55Up && nextBm === "7x7") || (from66Up && nextBm === "7x7")) {
@@ -1313,11 +1287,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
               levelUpSplashActiveRef.current = false;
               setShow7x7LevelUp(false);
               if (awaiting7x7RulesRef.current) {
-                if (readRuleshowSkip("7x7")) {
-                  setRulesShowSheet(null);
-                } else {
-                  setRulesShowSheet("7x7");
-                }
+                setRulesShowSheet("7x7");
               }
             }, 2800);
           } else {
@@ -1475,11 +1445,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
                 setRulesMatchGate(true);
                 setP1LevelUpReady(false);
                 setP2LevelUpReady(false);
-                if (readRuleshowSkip("5x5")) {
-                  setRulesShowSheet(null);
-                } else {
-                  setRulesShowSheet("5x5");
-                }
+                setRulesShowSheet("5x5");
               } else {
                 setRulesShowSheet(null);
                 setRulesMatchGate(false);
@@ -2692,7 +2658,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   // Only recomputes when actual board data changes
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const boardJSX = React.useMemo(() => (
-    <div style={{ position: "relative", display: "grid", gridTemplateColumns: `repeat(${GRID_SIZE},${bigCs})`, gridTemplateRows: `repeat(${GRID_SIZE},${bigCs})`, gap: `${boardGap}px`, background: isRedBoard ? "rgba(10,2,1,0.99)" : (isIceBoard || isGlacierBoard) ? "linear-gradient(135deg,rgba(3,8,20,0.98),rgba(1,4,14,0.99))" : t.boardLine, padding: `${boardPad}px`, borderRadius: ip ? 2 : 10, border: `${ip ? 3 : 2}px solid ${isRedBoard ? "rgba(140,20,0,0.35)" : isGlacierBoard ? "rgba(125,211,252,0.42)" : (isIceBoard ? "rgba(80,160,220,0.28)" : t.border)}`, boxShadow: isRedBoard ? "0 0 50px rgba(180,20,0,0.1), inset 0 0 40px rgba(0,0,0,0.7)" : isGlacierBoard ? "0 0 58px rgba(90,190,255,0.12), inset 0 0 46px rgba(0,0,0,0.74)" : (isIceBoard ? "0 0 50px rgba(80,160,255,0.08), inset 0 0 40px rgba(0,0,0,0.7)" : "none"), overflow: "hidden" }}>
+    <div style={{ position: "relative", display: "grid", gridTemplateColumns: `repeat(${GRID_SIZE},${bigCs})`, gridTemplateRows: `repeat(${GRID_SIZE},${bigCs})`, gap: `${boardGap}px`, background: isRedBoard ? "rgba(10,2,1,0.99)" : (isIceBoard || isGlacierBoard) ? "linear-gradient(135deg,rgba(3,8,20,0.98),rgba(1,4,14,0.99))" : `color-mix(in srgb, ${t.boardLine} 88%, rgba(255,255,255,0.14))`, padding: `${boardPad}px`, borderRadius: ip ? 2 : 10, border: `${ip ? 3 : 2}px solid ${isRedBoard ? "rgba(140,20,0,0.35)" : isGlacierBoard ? "rgba(125,211,252,0.42)" : (isIceBoard ? "rgba(80,160,220,0.28)" : t.border)}`, boxShadow: isRedBoard ? "0 0 50px rgba(180,20,0,0.1), inset 0 0 40px rgba(0,0,0,0.7)" : isGlacierBoard ? "0 0 58px rgba(90,190,255,0.12), inset 0 0 46px rgba(0,0,0,0.74)" : (isIceBoard ? "0 0 50px rgba(80,160,255,0.08), inset 0 0 40px rgba(0,0,0,0.7)" : "none"), overflow: "hidden" }}>
       {isRedBoard && <Embers count={16} />}
       {isRedBoard && <HeatOverlay />}
       {isIceBoard && <FrostCrystals />}
@@ -2712,7 +2678,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
         if (isIceBoard || isGlacierBoard) return (<IceCell key={key} cellSize={bigCs} player={cell} isWinCell={isWin} isHov={isHov} canPlay={canPlay} blk={blk} useFlameSkull={useFlameSkull} useSnowflakeShard={useSnowflakeShard} useGlacierSigils={useGlacierSigils} pieceSymbols={pieceSymbols} p1c={p1c} p2c={p2c} fontDisplay={t.fontDisplay} onClick={() => placeRef.current(r, c)} onMouseEnter={() => setHover(key)} onMouseLeave={() => setHover(null)} />);
         return (
           <div key={key} onClick={() => placeRef.current(r, c)} onMouseEnter={() => setHover(key)} onMouseLeave={() => setHover(null)} className={isWin ? "win-cell-pulse" : ""}
-            style={{ "--win-col": ec, width: bigCs, height: bigCs, background: blk ? `${t.danger}18` : isWin ? `${ec}28` : isHov ? `${cc}22` : t.boardBg, border: `2px solid ${blk ? t.danger : isWin ? ec : isHov ? cc : t.boardLine}`, borderRadius: ip ? 0 : 4, display: "flex", alignItems: "center", justifyContent: "center", cursor: canPlay ? (isHov ? "grabbing" : "grab") : "default", fontSize: "clamp(24px,5.5vmin,58px)", fontFamily: t.fontDisplay, fontWeight: 700, color: ec, textShadow: isWin ? `0 0 20px ${ec}` : cell ? `0 0 14px ${ec}77` : "none", transition: "background 0.1s, border-color 0.1s", opacity: blk ? 0.4 : 1, boxShadow: isWin ? `0 0 8px ${ec}44` : isHov ? `inset 0 0 12px ${cc}22` : "none", willChange: isWin ? "auto" : canPlay ? "background, border-color" : "auto", position: "relative" } as React.CSSProperties}>
+            style={{ "--win-col": ec, width: bigCs, height: bigCs, background: blk ? `${t.danger}18` : isWin ? `${ec}28` : isHov ? `${cc}22` : t.boardBg, border: `2px solid ${blk ? t.danger : isWin ? ec : isHov ? cc : `color-mix(in srgb, ${t.boardLine} 76%, rgba(255,255,255,0.28))`}`, borderRadius: ip ? 0 : 4, display: "flex", alignItems: "center", justifyContent: "center", cursor: canPlay ? (isHov ? "grabbing" : "grab") : "default", fontSize: "clamp(24px,5.5vmin,58px)", fontFamily: t.fontDisplay, fontWeight: 700, color: ec, textShadow: isWin ? `0 0 20px ${ec}` : cell ? `0 0 14px ${ec}77` : "none", transition: "background 0.1s, border-color 0.1s", opacity: blk ? 0.4 : 1, boxShadow: isWin ? `0 0 8px ${ec}44` : isHov ? `inset 0 0 12px ${cc}22` : "inset 0 0 0 1px rgba(255,255,255,0.07)", willChange: isWin ? "auto" : canPlay ? "background, border-color" : "auto", position: "relative" } as React.CSSProperties}>
             {cell && useFlameSkull && cell === "P1" && <Flame cssSize="55%" />}
             {cell && useFlameSkull && cell === "P2" && <Skull cssSize="55%" />}
             {cell && useSnowflakeShard && cell === "P1" && <SnowflakePiece cssSize="55%" />}
@@ -2730,13 +2696,6 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   ), [board, hover, winLine, winner, phase, c3Blocked, movesPlayed, bigCs,
     p1c, p2c, cc, current, liveBoardMode, rb6SpecialCell, isRedBoard, isIceBoard, isGlacierBoard, useFlameSkull, useSnowflakeShard, useGlacierSigils,
     rulesShowSheet, show7x7LevelUp, show6x6LevelUp, rulesMatchGate]);
-
-  const [rulesGateDontShowAgain, setRulesGateDontShowAgain] = useState(false);
-  useEffect(() => {
-    if (!rulesMatchGateRef.current || rulesShowSheetRef.current !== null || show7x7LevelUpRef.current || show6x6LevelUpRef.current) return;
-    const sheet: RuleshowSheet = liveBoardMode === "7x7" ? "7x7" : liveBoardMode === "6x6" ? "6x6" : "5x5";
-    setRulesGateDontShowAgain(readRuleshowSkip(sheet));
-  }, [liveBoardMode, rulesMatchGate]);
 
   const splashScreen = (
     <div style={{ position: "fixed", top: 64, left: 0, right: 0, bottom: 0, zIndex: 2, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: t.bg, gap: 32, userSelect: "none" }}>
@@ -2833,25 +2792,6 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
         selected_patterns: selected 
       }));
     }
-  };
-
-  const onLevelUpReadyToggleWithGateSkip = () => {
-    if (!isMultiplayerGame || !mySlot) return;
-    const isP1 = mySlot === "P1";
-    const nowReady = isP1 ? p1LevelUpReady : p2LevelUpReady;
-    const becomingReady = !nowReady;
-    if (becomingReady && rulesGateDontShowAgain) {
-      const key =
-        liveBoardMode === "7x7" ? RULESHOW_SKIP_STORAGE_7x7 :
-        liveBoardMode === "6x6" ? RULESHOW_SKIP_STORAGE_6x6 :
-        RULESHOW_SKIP_STORAGE_5x5;
-      try {
-        window.localStorage.setItem(key, "1");
-      } catch {
-        /* ignore quota / private mode */
-      }
-    }
-    onLevelUpReadyToggle();
   };
 
   const onChatKeyDown = (e: React.KeyboardEvent) => {
@@ -3058,114 +2998,6 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
       >
         {levelUp7x7Overlay}
         {levelUp6x6Overlay}
-        {rulesMatchGate && rulesShowSheet === null && !(p1LevelUpReady && p2LevelUpReady) && !show7x7LevelUp && !show6x6LevelUp && (
-          <div
-            style={{
-              position: "absolute",
-              inset: 0,
-              zIndex: 10003,
-              background: "rgba(4,7,14,0.96)",
-              display: "flex",
-              flexDirection: "column",
-              alignItems: "center",
-              justifyContent: "center",
-              padding: 24,
-            }}
-          >
-            <div
-              style={{
-                fontFamily: t.fontMono,
-                fontSize: 11,
-                color: t.textMuted,
-                letterSpacing: "0.22em",
-                textAlign: "center",
-                marginBottom: 12,
-              }}
-            >
-              RULES GATE
-            </div>
-            <div
-              style={{
-                fontFamily: t.fontDisplay,
-                fontSize: "clamp(20px,4vw,32px)",
-                color: t.accent,
-                textAlign: "center",
-                fontWeight: 800,
-                marginBottom: 20,
-                maxWidth: 420,
-                lineHeight: 1.4,
-              }}
-            >
-              Waiting for both players to confirm rules
-            </div>
-            <div style={{ display: "flex", justifyContent: "center", gap: 14, flexWrap: "wrap", marginBottom: 14 }}>
-              <div
-                style={{
-                  padding: "8px 12px",
-                  borderRadius: ip ? 2 : 8,
-                  border: `1px solid ${p1LevelUpReady ? p1c : t.border}`,
-                  color: p1LevelUpReady ? p1c : t.textMuted,
-                  fontFamily: t.fontMono,
-                  fontSize: 12,
-                }}
-              >
-                P1: {p1LevelUpReady ? "READY" : "WAITING"}
-              </div>
-              <div
-                style={{
-                  padding: "8px 12px",
-                  borderRadius: ip ? 2 : 8,
-                  border: `1px solid ${p2LevelUpReady ? p2c : t.border}`,
-                  color: p2LevelUpReady ? p2c : t.textMuted,
-                  fontFamily: t.fontMono,
-                  fontSize: 12,
-                }}
-              >
-                P2: {p2LevelUpReady ? "READY" : "WAITING"}
-              </div>
-            </div>
-
-            <label
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: 10,
-                cursor: "pointer",
-                fontFamily: t.fontBody,
-                fontSize: 13,
-                color: t.textSecondary,
-                userSelect: "none",
-                marginBottom: 14,
-              }}
-            >
-              <input
-                type="checkbox"
-                checked={rulesGateDontShowAgain}
-                onChange={e => setRulesGateDontShowAgain(e.target.checked)}
-                style={{ width: 16, height: 16, accentColor: t.accent }}
-              />
-              Don&apos;t show this again
-            </label>
-            <button
-              type="button"
-              onClick={onLevelUpReadyToggleWithGateSkip}
-              style={{
-                padding: "10px 20px",
-                borderRadius: ip ? 2 : 8,
-                border: `1px solid ${t.accent}`,
-                background: `${t.accent}22`,
-                color: t.accent,
-                fontFamily: t.fontMono,
-                fontWeight: 800,
-                letterSpacing: "0.08em",
-                cursor: "pointer",
-              }}
-            >
-              {(mySlot === "P1" ? p1LevelUpReady : p2LevelUpReady) ? "UNREADY" : "I AM READY"}
-            </button>
-          </div>
-        )}
         {rulesShowSheet !== null && (
           <RuleshowScreen
             sheet={rulesShowSheet}
@@ -3290,10 +3122,30 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
               ↺ RESET MATCH
             </button>
           )}
-          {isGlacierBoard && liveSkinBoard ? (
-            <GlacierGridCompat board={liveSkinBoard} onCellClickAction={handleCellClick} winCells={winLine} isPaused={isBoardPaused} graphicsQuality={gameplayGraphicsQuality} />
-          ) : isBloodMoonBoard && liveSkinBoard ? (
-            <BloodMoonGrid board={liveSkinBoard} onCellClickAction={handleCellClick} winCells={winLine} graphicsQuality={gameplayGraphicsQuality} isPaused={isBoardPaused} />
+          {isGlacierBoard ? (
+            <GlacierGridCompat board={liveSkinBoard!} onCellClickAction={handleCellClick} winCells={winLine} isPaused={isBoardPaused} graphicsQuality={gameplayGraphicsQuality} />
+          ) : isBloodMoonBoard ? (
+            <BloodMoonGrid board={liveSkinBoard!} onCellClickAction={handleCellClick} winCells={winLine} graphicsQuality={gameplayGraphicsQuality} isPaused={isBoardPaused} />
+          ) : isEgyptBoard ? (
+            <EgyptGrid board={liveSkinBoard!} onCellClickAction={handleCellClick} winCells={winLine} graphicsQuality={gameplayGraphicsQuality} isPaused={isBoardPaused} />
+          ) : isSynthwaveBoard ? (
+            <SynthwaveGrid board={liveSkinBoard!} onCellClickAction={handleCellClick} winCells={winLine} graphicsQuality={gameplayGraphicsQuality} isPaused={isBoardPaused} />
+          ) : isMatrixBoard ? (
+            <MatrixGrid board={liveSkinBoard!} onCellClickAction={handleCellClick} winCells={winLine} graphicsQuality={gameplayGraphicsQuality} isPaused={isBoardPaused} />
+          ) : isArcaneBoard ? (
+            <ArcaneGridCompat board={liveSkinBoard!} onCellClickAction={handleCellClick} winCells={winLine} isPaused={isBoardPaused} graphicsQuality={gameplayGraphicsQuality} />
+          ) : isBioBoard ? (
+            <BioGrid board={liveSkinBoard!} onCellClickAction={handleCellClick} winCells={winLine} graphicsQuality={gameplayGraphicsQuality} isPaused={isBoardPaused} />
+          ) : isForgeBoard ? (
+            <ForgeGridCompat board={liveSkinBoard!} onCellClickAction={handleCellClick} winCells={winLine} isPaused={isBoardPaused} graphicsQuality={gameplayGraphicsQuality} />
+          ) : isVoidBoard ? (
+            <VoidGridCompat board={liveSkinBoard!} onCellClickAction={handleCellClick} winCells={winLine} isPaused={isBoardPaused} graphicsQuality={gameplayGraphicsQuality} />
+          ) : isTokyoBoard ? (
+            <TokyoGridCompat board={liveSkinBoard!} onCellClickAction={handleCellClick} winCells={winLine} isPaused={isBoardPaused} graphicsQuality={gameplayGraphicsQuality} />
+          ) : isSpaceBoard ? (
+            <SpaceGrid board={liveSkinBoard!} onCellClickAction={handleCellClick} winCells={winLine} isPaused={isBoardPaused} graphicsQuality={gameplayGraphicsQuality} />
+          ) : isPixelBoard ? (
+            <PixelGrid board={liveSkinBoard!} onCellClickAction={handleCellClick} winCells={winLine} isPaused={isBoardPaused} graphicsQuality={gameplayGraphicsQuality} />
           ) : (
             <>
               <div style={{ display: "flex", gap: `${boardGap}px`, paddingLeft: 28, marginBottom: 4 }}>
