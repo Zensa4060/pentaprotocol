@@ -318,6 +318,11 @@ export default function Page() {
       const res = await postOnce("/api/room/queue/join", { format: mode, board_mode: boardModeForQueue }, authHeader);
       if (queueCancelledRef.current) {
         matchmakingActiveRef.current = false;
+        try {
+          await API.post("/api/room/queue/leave", { format: mode, board_mode: boardModeForQueue }, { ...authHeader, timeout: 10000 });
+        } catch {
+          /* ignore */
+        }
         return;
       }
 

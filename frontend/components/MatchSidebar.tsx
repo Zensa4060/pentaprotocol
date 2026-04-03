@@ -938,9 +938,9 @@ export function MatchAbortedNoPlayModal({
         <div style={{ fontFamily: t.fontDisplay, fontSize: 20, fontWeight: 800, color: t.text, marginBottom: 14 }}>MATCH ABORTED</div>
         <div style={{ fontFamily: t.fontBody, fontSize: 15, color: t.textSecondary, marginBottom: 24, lineHeight: 1.55 }}>
           {isSelfAbort ? (
-            <>You left before playing a move. This game was voided and will not appear in Career.</>
+            <>You left before any move in game 1. This match was voided and will not appear in Career.</>
           ) : (
-            <>Your opponent left before playing a move. The game was voided and will not appear in Career for either player.</>
+            <>Your opponent left before any move in game 1. The match was voided and will not appear in Career for either player.</>
           )}
         </div>
         <button

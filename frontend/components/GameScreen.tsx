@@ -1049,17 +1049,15 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
             setMatchOver(false);
             setSeriesWinner(null);
           } else if (r.board_mode === "7x7" && r.awaiting_7x7_rules_ready === true) {
-            if (!levelUpSplashActiveRef.current) {
-              setRulesMatchGate(true);
-              setRulesShowSheet("7x7");
-              setPhase("playing");
-              setWinner(null);
-              setWinLine([]);
-              setShowWinOverlay(false);
-              setOverlayVisible(false);
-              setMatchOver(false);
-              setSeriesWinner(null);
-            }
+            setRulesMatchGate(true);
+            setRulesShowSheet("7x7");
+            setPhase("playing");
+            setWinner(null);
+            setWinLine([]);
+            setShowWinOverlay(false);
+            setOverlayVisible(false);
+            setMatchOver(false);
+            setSeriesWinner(null);
           } else if (!levelUpSplashActiveRef.current) {
             setRulesShowSheet(null);
             setRulesMatchGate(false);
@@ -1298,7 +1296,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
             setRulesMatchGate(true);
             setShow6x6LevelUp(true);
             setShow7x7LevelUp(false);
-            setRulesShowSheet(null);
+            setRulesShowSheet("6x6");
             setP1LevelUpReady(false);
             setP2LevelUpReady(false);
             if (levelUpSplashTimerRef.current) clearTimeout(levelUpSplashTimerRef.current);
@@ -1308,32 +1306,28 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
               levelUpSplashTimerRef.current = null;
               levelUpSplashActiveRef.current = false;
               setShow6x6LevelUp(false);
-              if (awaiting6x6RulesRef.current) {
-                setRulesShowSheet("6x6");
-              }
             }, 2800);
           } else if ((from55Up && nextBm === "7x7") || (from66Up && nextBm === "7x7")) {
             awaiting7x7RulesRef.current = true;
             awaiting6x6RulesRef.current = false;
             setShow6x6LevelUp(false);
             setRulesMatchGate(true);
-            if (levelUpSplashTimerRef.current) clearTimeout(levelUpSplashTimerRef.current);
-            levelUpSplashActiveRef.current = true;
             setShow7x7LevelUp(true);
-            setRulesShowSheet(null);
+            setRulesShowSheet("7x7");
             setP1LevelUpReady(false);
             setP2LevelUpReady(false);
+            if (levelUpSplashTimerRef.current) clearTimeout(levelUpSplashTimerRef.current);
+            levelUpSplashActiveRef.current = true;
             playTransitionAction?.();
             levelUpSplashTimerRef.current = setTimeout(() => {
               levelUpSplashTimerRef.current = null;
               levelUpSplashActiveRef.current = false;
               setShow7x7LevelUp(false);
-              if (awaiting7x7RulesRef.current) {
-                setRulesShowSheet("7x7");
-              }
             }, 2800);
           } else {
-            awaiting6x6RulesRef.current = false;
+            if (!((msg as { awaiting_6x6_rules_ready?: boolean }).awaiting_6x6_rules_ready && nextBm === "6x6")) {
+              awaiting6x6RulesRef.current = false;
+            }
             setShow6x6LevelUp(false);
           }
           const gs = nextBm === "7x7" ? 7 : nextBm === "6x6" ? 6 : 5;
@@ -1505,6 +1499,31 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
             }
             if (typeof msg.p1_series_points === "number") setP1SeriesPts(msg.p1_series_points);
             if (typeof msg.p2_series_points === "number") setP2SeriesPts(msg.p2_series_points);
+          }
+          if (isMultiplayerGame) {
+            const grAwait = msg as { awaiting_5x5_rules_ready?: boolean; awaiting_6x6_rules_ready?: boolean; awaiting_7x7_rules_ready?: boolean };
+            const skip6Splash = is56LevelUp;
+            const skip7Splash = (from55Up && nextBm === "7x7") || (from66Up && nextBm === "7x7");
+            if (nextBm === "5x5" && grAwait.awaiting_5x5_rules_ready) {
+              setRulesMatchGate(true);
+              setRulesShowSheet("5x5");
+              setP1LevelUpReady(false);
+              setP2LevelUpReady(false);
+            }
+            if (nextBm === "6x6" && grAwait.awaiting_6x6_rules_ready && !skip6Splash) {
+              awaiting6x6RulesRef.current = true;
+              setRulesMatchGate(true);
+              setRulesShowSheet("6x6");
+              setP1LevelUpReady(false);
+              setP2LevelUpReady(false);
+            }
+            if (nextBm === "7x7" && grAwait.awaiting_7x7_rules_ready && !skip7Splash) {
+              awaiting7x7RulesRef.current = true;
+              setRulesMatchGate(true);
+              setRulesShowSheet("7x7");
+              setP1LevelUpReady(false);
+              setP2LevelUpReady(false);
+            }
           }
         } else if (msg.type === "series_resolved") {
           const h = (msg.match_history as any[] | undefined) ?? matchHistoryRef.current;
@@ -3098,12 +3117,8 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
       <div style={{ fontFamily: t.fontBody, fontSize: 14, color: t.textSecondary, marginTop: 24, maxWidth: 420, textAlign: "center", lineHeight: 1.55, padding: "0 20px" }}>Opening the Timebomb leg — confirm rules with your opponent, then play on the 6×6 grid.</div>
     </div>
   );
-  const mpMatchStartedForRules =
-    !isMultiplayerGame ||
-    (matchStartAtMs !== null && Date.now() >= matchStartAtMs);
   const blockMultiRulesOrLevelUp =
     isMultiplayerGame &&
-    mpMatchStartedForRules &&
     (rulesShowSheet !== null || show7x7LevelUp || show6x6LevelUp || rulesMatchGate);
 
   if (blockMultiRulesOrLevelUp) {

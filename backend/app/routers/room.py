@@ -1428,6 +1428,25 @@ def _is_ranked_triple_leg_room(room: dict) -> bool:
     )
 
 
+def _series_g1_had_any_move(room: dict | None) -> bool:
+    """
+    True after any stone was played in game 1 (first 5×5 game of the match).
+    Void abort (no career) only applies when this is False — surrendering later
+    in G2+ or on 6×6/7×7 without moves still counts as surrender if G1 had moves.
+    """
+    if not room:
+        return False
+    if room.get("series_g1_move_played"):
+        return True
+    mh = room.get("match_history") or []
+    if len(mh) > 0:
+        return True
+    gn = int(room.get("game_number") or 1)
+    if gn > 1:
+        return True
+    return int(room.get("moves_played") or 0) > 0
+
+
 @router.post("/queue/join")
 async def queue_join(data: QueueRequest, user_id: str = Depends(get_current_user)):
     db  = get_db()
@@ -1500,21 +1519,32 @@ async def queue_join(data: QueueRequest, user_id: str = Depends(get_current_user
                     "awaiting_5x5_rules_ready": _starting_board_mode(bm) == "5x5",
                     "awaiting_7x7_rules_ready": False,
                 }
-                await db.rooms.update_one({"room_code": room_code}, {"$set": match_update})
-                _reset_rules_gate_runtime(room_code)
-                room = await db.rooms.find_one({"room_code": room_code})
-                if match_update.get("awaiting_5x5_rules_ready"):
-                    _schedule_rules_sheet_timeout(db, room_code)
+                # Atomic match: only if room is still waiting, P1 unchanged, no P2 yet.
+                # If the opponent cancelled (or deleted the room) between queue steal and here, matched_count is 0 — re-queue this joiner.
+                match_filter = {
+                    "room_code": room_code,
+                    "status": "waiting",
+                    "player1_id": opponent_id,
+                    "$or": [{"player2_id": None}, {"player2_id": {"$exists": False}}],
+                }
+                result = await db.rooms.update_one(match_filter, {"$set": match_update})
+                if result.matched_count == 0:
+                    opponent_entry = None
+                else:
+                    _reset_rules_gate_runtime(room_code)
+                    room = await db.rooms.find_one({"room_code": room_code})
+                    if match_update.get("awaiting_5x5_rules_ready"):
+                        _schedule_rules_sheet_timeout(db, room_code)
 
-                conns = _room_connections.get(room_code, {})
-                p1_ws = conns.get("P1")
-                if p1_ws:
-                    try:
-                        await p1_ws.send_json({"type": "player_joined", "room": serialize_room(room)})
-                    except:
-                        pass
+                    conns = _room_connections.get(room_code, {})
+                    p1_ws = conns.get("P1")
+                    if p1_ws:
+                        try:
+                            await p1_ws.send_json({"type": "player_joined", "room": serialize_room(room)})
+                        except:
+                            pass
 
-                return {"matched": True, "room_code": room_code, "player_slot": "P2", "room": serialize_room(room)}
+                    return {"matched": True, "room_code": room_code, "player_slot": "P2", "room": serialize_room(room)}
 
     # No valid opponent — create a new waiting room
     code = await _generate_unique_code(db)
@@ -1572,6 +1602,7 @@ async def queue_join(data: QueueRequest, user_id: str = Depends(get_current_user
         "ranked_triple_leg": fmt == "ranked" and full_board_mode == RANKED_TRIPLE_BOARD_MODE,
         "p1_legs_won": 0,
         "p2_legs_won": 0,
+        "series_g1_move_played": False,
         "created_at":     datetime.utcnow(),
     }
     await db.rooms.insert_one(room)
@@ -1593,14 +1624,25 @@ async def queue_join(data: QueueRequest, user_id: str = Depends(get_current_user
 
 @router.post("/queue/leave")
 async def queue_leave(data: QueueRequest, user_id: str = Depends(get_current_user)):
+    """
+    Leave matchmaking. Always clears ALL queue rows for this user+format (every board_mode).
+
+    Also deletes solo matchmaking waiting rooms owned by this user. That covers the race where
+    another player already consumed this user's queue row (find_one_and_delete) before leave ran,
+    so find_one would have matched nothing and the waiting room would otherwise stay behind.
+    """
     db  = get_db()
     fmt = data.format
-    filt: dict = {"user_id": user_id, "format": fmt}
-    if data.board_mode:
-        filt["board_mode"] = data.board_mode
-    entry = await db.matchmaking_queue.find_one_and_delete(filt)
-    if entry:
-        await db.rooms.delete_one({"room_code": entry["room_code"], "status": "waiting"})
+    await db.matchmaking_queue.delete_many({"user_id": user_id, "format": fmt})
+    await db.rooms.delete_many(
+        {
+            "player1_id": user_id,
+            "format": fmt,
+            "status": "waiting",
+            "source": "matchmaking",
+            "$or": [{"player2_id": None}, {"player2_id": {"$exists": False}}],
+        }
+    )
     return {"ok": True}
 
 
@@ -1693,6 +1735,7 @@ async def create_room(data: CreateRoomRequest, user_id: str = Depends(get_curren
         "ranked_triple_leg": data.format == "ranked" and full_board_mode == RANKED_TRIPLE_BOARD_MODE,
         "p1_legs_won": 0,
         "p2_legs_won": 0,
+        "series_g1_move_played": False,
         "created_at":      datetime.utcnow(),
     }
     await db.rooms.insert_one(room)
@@ -1917,6 +1960,7 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                     and room.get("moves_played", 0) == 0
                 ):
                     game1_patch["game1_first_player"] = player_slot
+                    game1_patch["series_g1_move_played"] = True
 
                 update = {
                     "board":          engine.board,
@@ -2352,6 +2396,7 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                         "selected_patterns_p1": None,
                         "selected_patterns_p2": None,
                         "awaiting_5x5_rules_ready": True,
+                        "awaiting_6x6_rules_ready": False,
                         "awaiting_7x7_rules_ready": False,
                         "suppress_center_opening": False,
                         "rb_extra_turn_token_holder": None,
@@ -2362,6 +2407,7 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                         "rb_banned_pattern": None,
                         "rb6_special_cell": None,
                         "rb6_timer_owner": None,
+                        "series_g1_move_played": False,
                     }
 
                     await db.rooms.update_one({"room_code": room_code}, {"$set": reset})
@@ -2388,11 +2434,10 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
             elif msg["type"] == "quit_match":
                 room_q = await db.rooms.find_one({"room_code": room_code})
                 quitter_slot = msg.get("slot") or player_slot
-                moves = int(room_q.get("moves_played") or 0) if room_q else 0
                 void_no_play = (
                     room_q
                     and room_q.get("game_status") == "playing"
-                    and moves == 0
+                    and not _series_g1_had_any_move(room_q)
                 )
                 if void_no_play:
                     await db.rooms.update_one(
@@ -2909,8 +2954,7 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                     and room_d.get("game_status") not in ("disbanded",)
                     and room_d.get("series_winner") is None
                 ):
-                    moves_d = int(room_d.get("moves_played") or 0)
-                    void_no_play = room_d.get("game_status") == "playing" and moves_d == 0
+                    void_no_play = room_d.get("game_status") == "playing" and not _series_g1_had_any_move(room_d)
                     if void_no_play:
                         await db.rooms.update_one(
                             {"room_code": room_code},
