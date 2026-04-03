@@ -51,21 +51,24 @@ def _cancel_rules_sheet_timeout(room_code: str) -> None:
 
 
 async def _rules_sheet_timeout_worker(db, room_code: str) -> None:
-    """After RULES_SHEET_TIMEOUT_SECONDS, force rules sheet completion (6x6 / 7x7) if gate still active."""
+    """After RULES_SHEET_TIMEOUT_SECONDS, force rules sheet completion (5x5 / 6x6 / 7x7) if gate still active."""
     try:
         await asyncio.sleep(RULES_SHEET_TIMEOUT_SECONDS)
         room = await db.rooms.find_one({"room_code": room_code})
         if not room:
             return
         bm = _effective_board_mode(room)
+        gate_5 = bool(room.get("awaiting_5x5_rules_ready")) and bm == "5x5"
         gate_6 = bool(room.get("awaiting_6x6_rules_ready")) and bm == "6x6"
         gate_7 = bool(room.get("awaiting_7x7_rules_ready")) and bm == "7x7"
-        if not gate_6 and not gate_7:
+        if not gate_5 and not gate_6 and not gate_7:
             return
         rt = _room_runtime.get(room_code)
         if rt is not None:
             rt["levelup_ready"] = {"P1": False, "P2": False}
         clear_doc: dict = {}
+        if gate_5:
+            clear_doc["awaiting_5x5_rules_ready"] = False
         if gate_6:
             clear_doc["awaiting_6x6_rules_ready"] = False
         if gate_7:
@@ -1496,6 +1499,8 @@ async def queue_join(data: QueueRequest, user_id: str = Depends(get_current_user
                 await db.rooms.update_one({"room_code": room_code}, {"$set": match_update})
                 _reset_rules_gate_runtime(room_code)
                 room = await db.rooms.find_one({"room_code": room_code})
+                if match_update.get("awaiting_5x5_rules_ready"):
+                    _schedule_rules_sheet_timeout(db, room_code)
 
                 conns = _room_connections.get(room_code, {})
                 p1_ws = conns.get("P1")
@@ -1772,6 +1777,8 @@ async def join_room(data: JoinRoomRequest, user_id: str = Depends(get_current_us
     await db.rooms.update_one({"room_code": code}, {"$set": update_fields})
     _reset_rules_gate_runtime(code)
     room = await db.rooms.find_one({"room_code": code})
+    if update_fields.get("awaiting_5x5_rules_ready"):
+        _schedule_rules_sheet_timeout(db, code)
 
     conns = _room_connections.get(code, {})
     creator_ws = conns.get(creator_slot)
@@ -2371,6 +2378,8 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                             })
                         except:
                             pass
+
+                    _schedule_rules_sheet_timeout(db, room_code)
 
             elif msg["type"] == "quit_match":
                 room_q = await db.rooms.find_one({"room_code": room_code})

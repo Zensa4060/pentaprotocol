@@ -4,9 +4,9 @@ import {
   PATTERN_METADATA_5,
   PATTERN_METADATA_6,
   PATTERN_METADATA_7,
-  PatternInfo,
 } from "@/lib/patterns_metadata";
 import { MULTIPLAYER_RULE_BLOCKS } from "@/lib/multiplayerRulesNarrative";
+import PatternDiagram from "./PatternDiagram";
 
 export type RuleshowSheet = "5x5" | "6x6" | "7x7";
 
@@ -31,45 +31,6 @@ type RuleshowScreenProps = {
   onToggleReadyAction: (selected?: string[]) => void;
 };
 
-function PatternDiagram({ info, accent, isSelected }: { info: PatternInfo; accent: string; isSelected: boolean }) {
-  const cells = info.cells;
-  const gridSize = info.gridSize;
-  const cellSize = 14;
-  const gap = 2;
-  const cellSet = new Set(cells.map(([r, c]) => `${r},${c}`));
-
-  return (
-    <div
-      style={{
-        display: "grid",
-        gridTemplateRows: `repeat(${gridSize}, ${cellSize}px)`,
-        gridTemplateColumns: `repeat(${gridSize}, ${cellSize}px)`,
-        gap,
-        marginTop: 8,
-      }}
-    >
-      {Array.from({ length: gridSize }, (_, r) =>
-        Array.from({ length: gridSize }, (_, c) => {
-          const filled = cellSet.has(`${r},${c}`);
-          return (
-            <div
-              key={`${r}-${c}`}
-              style={{
-                width: cellSize,
-                height: cellSize,
-                borderRadius: 2,
-                background: filled ? (isSelected ? accent : `${accent}66`) : "rgba(255,255,255,0.04)",
-                border: filled ? `1px solid ${accent}` : "1px solid rgba(255,255,255,0.06)",
-                transition: "all 0.2s",
-              }}
-            />
-          );
-        })
-      )}
-    </div>
-  );
-}
-
 /** +60% vs prior sizing for readiness chips and primary button */
 const RS = 1.6;
 
@@ -86,6 +47,7 @@ export default function RuleshowScreen({
 }: RuleshowScreenProps) {
   const is77 = sheet === "7x7";
   const is66 = sheet === "6x6";
+  const is55 = sheet === "5x5";
 
   const [rulesSecLeft, setRulesSecLeft] = useState(60);
   const selected77Ref = useRef<Set<string>>(new Set());
@@ -109,7 +71,7 @@ export default function RuleshowScreen({
   selected77Ref.current = selected77;
 
   useEffect(() => {
-    if (!is66 && !is77) {
+    if (!is55 && !is66 && !is77) {
       setRulesSecLeft(60);
       return;
     }
@@ -119,10 +81,10 @@ export default function RuleshowScreen({
       setRulesSecLeft(s => (s <= 1 ? 0 : s - 1));
     }, 1000);
     return () => window.clearInterval(id);
-  }, [sheet, is66, is77]);
+  }, [sheet, is55, is66, is77]);
 
   useEffect(() => {
-    if (!is66 && !is77) return;
+    if (!is55 && !is66 && !is77) return;
     if (rulesSecLeft !== 0) return;
     if (autoReadyFiredRef.current) return;
     const myReady = mySlot === "P1" ? p1Ready : p2Ready;
@@ -143,7 +105,7 @@ export default function RuleshowScreen({
     } else {
       onToggleReadyAction(undefined);
     }
-  }, [rulesSecLeft, is66, is77, mySlot, p1Ready, p2Ready, onToggleReadyAction]);
+  }, [rulesSecLeft, is55, is66, is77, mySlot, p1Ready, p2Ready, onToggleReadyAction]);
 
   const kicker = is77 ? "7×7 LEG UNLOCKED" : is66 ? "6×6 LEG UNLOCKED" : "5×5 SERIES";
   const title = "SELECT PATTERNS";
@@ -181,7 +143,7 @@ export default function RuleshowScreen({
         <div style={{ fontFamily: t.fontMono, fontSize: 11, color: t.textMuted, letterSpacing: "0.22em", textAlign: "center" }}>
           {kicker}
         </div>
-        {(is66 || is77) && (
+        {(is55 || is66 || is77) && (
           <div
             style={{
               fontFamily: t.fontMono,
