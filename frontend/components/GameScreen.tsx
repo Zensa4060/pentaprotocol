@@ -140,7 +140,7 @@ const MatchupOverlay = ({ matchupData, showMatchupOverlay, playerSlot, p1Name, u
   const getRankData = (elo: number) => RANKS.find(r => elo >= r.min && elo < r.max) || RANKS[RANKS.length - 1];
 
   const vsStyle: React.CSSProperties = {
-    fontFamily: themeId === "pixel" ? "'Press Start 2P', cursive" : themeId === "space" ? "'Polaris', sans-serif" : "'Press Start 2P', cursive",
+    fontFamily: "'Press Start 2P', cursive",
     fontSize: "clamp(60px,12vw,160px)",
     fontWeight: 950,
     color: t.accent,

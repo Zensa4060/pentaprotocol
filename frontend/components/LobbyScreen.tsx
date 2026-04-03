@@ -236,16 +236,16 @@ export default function LobbyScreen({
   );
 
   const vsStyle: React.CSSProperties = {
-    fontFamily: themeId === "classic_light" || themeId === "classic_dark"
+    fontFamily: themeId === "classic_light" || themeId === "classic_dark" || themeId === "space"
       ? "'Cormorant Garamond', serif"
-      : themeId === "space" ? "'Polaris', sans-serif" : "'Press Start 2P', cursive",
+      : "'Press Start 2P', cursive",
     fontSize: themeId === "pixel" ? "clamp(32px,6vw,64px)" : "clamp(52px,9vw,110px)",
     fontWeight: 900,
     color: t.accent,
     textShadow: `0 0 40px ${t.accentGlow}88, 0 0 80px ${t.accentGlow}44`,
-    letterSpacing: themeId === "space" ? "0.15em" : "0.05em",
+    letterSpacing: "0.05em",
     lineHeight: 1,
-    fontStyle: themeId === "classic_light" || themeId === "classic_dark" ? "italic" : "normal",
+    fontStyle: themeId === "classic_light" || themeId === "classic_dark" || themeId === "space" ? "italic" : "normal",
     userSelect: "none" as const,
   };
 

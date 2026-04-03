@@ -82,8 +82,7 @@ const RULES_BASE: Omit<Rule, "extra">[] = [
     title: "CENTRE RULE (C3)",
     summary: "Playing on C3 on the very first move gives your opponent 2 extra turns.",
     detail: `The centre cell (column C, row 3) is a powerful strategic position. To balance this advantage, if you place your very first piece of the game on C3, your opponent immediately receives 2 consecutive extra turns.\n\nThis rule only applies to the first move of each game. After the first move, C3 can be occupied freely without any penalty.\n\nIn the Rulebreaker phase before Game 3, the toss winner may choose to block C3 entirely — preventing anyone from playing there on the first move.`,
-    screenshot: "/api/proxy-image?url=https://lh3.googleusercontent.com/d/1CQ6sbHUrl_Cu13cmPo6BlZ3T0IQjYrf6",
-    screenshotCaption: "P1 opened on C3 — P2 immediately gets 2 extra turns (moves 2 and 3 both by P2)",
+    screenshot: null,
   },
   {
     id: "win-conditions",
@@ -93,13 +92,6 @@ const RULES_BASE: Omit<Rule, "extra">[] = [
       "Lines, structural patterns, or full-board chain resolution — requirements scale with board size (5×5, 6×6, 7×7).",
     detail: `Lines\nPlace a continuous straight line of your pieces with no gaps — the required length matches the grid: 5 on a 5×5 board, 6 on 6×6, 7 on 7×7. Directions: horizontal, vertical, and both diagonals.\n\nStructural patterns\nEach board size has its own mandatory or selectable shape wins (see diagrams below). All rotations and reflections count unless a mode specifies otherwise.\n\nFull board (no prior win)\nWhen every cell is filled, the game resolves by longest connected chain (pieces adjacent horizontally, vertically, or diagonally): at least 10 on 5×5, 15 on 6×6, 20 on 7×7. If only one player reaches their threshold, that player wins; if both or neither do, the result is a draw as appropriate.`,
     screenshot: null,
-    screenshotCaption: "Example line wins",
-    screenshots: [
-      { src: "/api/proxy-image?url=https://lh3.googleusercontent.com/d/1spemezZ3gcELGbHcQROvdoGzAGdDJhbo", caption: "" },
-      { src: "/api/proxy-image?url=https://lh3.googleusercontent.com/d/1HfqhyZRgU5BwDneeMggblksI9w4_0_On", caption: "" },
-      { src: "/api/proxy-image?url=https://lh3.googleusercontent.com/d/1BeY0og5DBs2i2CTEG_rxCyI9QcWhFcuP", caption: "" },
-      { src: "/api/proxy-image?url=https://lh3.googleusercontent.com/d/1fu3aNx4dkgKGrU3sJDcMTIsDhfnFYboS", caption: "" },
-    ],
   },
   {
     id: "rulebreaker",
@@ -110,13 +102,10 @@ const RULES_BASE: Omit<Rule, "extra">[] = [
     screenshot: null,
     screenshotCaption: "Rulebreaker coin toss and choice screens",
     screenshots: [
-      { src: "/api/proxy-image?url=https://lh3.googleusercontent.com/d/1ruG7o40ffMD6mQL5MrbQ1I8E7OLRmzs6", caption: "" },
-      { src: "/api/proxy-image?url=https://lh3.googleusercontent.com/d/1d13MnJIlZ1Ck9hi58A25-r9-fcpO6b-M", caption: "" },
       { src: "/api/proxy-image?url=https://lh3.googleusercontent.com/d/1fQO_jm0XiOnJuEiQNLdrcMDTC9Fh6Y-L", caption: "" },
       { src: "/api/proxy-image?url=https://lh3.googleusercontent.com/d/1BptPliDW0t-Xr6XcZmiGNScRY-CpPILd", caption: "" },
       { src: "/api/proxy-image?url=https://lh3.googleusercontent.com/d/1hWHJWYh_E1YtoF3dwtBeO2np1U496rOr", caption: "" },
       { src: "/api/proxy-image?url=https://lh3.googleusercontent.com/d/1rOGVSql0QvlzNjTV2ozVTYLGQjO3H-in", caption: "" },
-      { src: "/api/proxy-image?url=https://lh3.googleusercontent.com/d/1zp0kUPrtYCHF0BBq0oCHZjwPGshU2tTz", caption: "" },
     ],
   },
 ];

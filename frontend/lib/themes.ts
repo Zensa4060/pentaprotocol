@@ -51,18 +51,10 @@ export const THEMES: Record<ThemeId, {
     danger: "#FF4080", success: "#00FF9B",
     gold: "#FFD060", boardBg: "#04081A", boardLine: "#1a2a52",
     navBg: "rgba(2,4,15,0.96)", inputBg: "#04081A", overlay: "rgba(2,4,15,0.94)",
-    // ── 3-font system ──────────────────────────────────────────────────────────
-    // Orbitron  → titles, ELO numbers, nav labels, stat badges, coin results
-    // Rajdhani  → nav links, section headings, rule titles, player names
-    // Exo 2     → body copy, descriptions, dates, metadata
-    // Load all three in your layout/root with next/font or a <link> tag:
-    //   https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900
-    //     &family=Rajdhani:wght@400;500;600;700
-    //     &family=Exo+2:ital,wght@0,300;0,400;0,600;0,800;1,300
-    //     &display=swap
-    fontDisplay: "'Orbitron', sans-serif",   // headings, numbers, brand
-    fontBody:    "'Rajdhani', sans-serif",   // nav, section titles, names
-    fontMono:    "'Exo 2', sans-serif",      // body copy, metadata, descriptions
+    // Same type stack as Classic (GuildOf); Space differs by palette only.
+    fontDisplay: "'GuildOf', serif",
+    fontBody: "'GuildOf', serif",
+    fontMono: "'GuildOf', serif",
     pieces: { p1: "α", p2: "Ω" },
   },
 

@@ -167,7 +167,7 @@ export default function HomeScreen({ setScreenAction, themeId, onHoverAction, on
       }}>
 
         <style>{`
-          @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=Orbitron:wght@400;600;700;900&family=Rajdhani:wght@400;500;600;700&family=Exo+2:ital,wght@0,300;0,400;0,600;0,800;1,300&display=swap');
+          @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&display=swap');
           @keyframes starPulse { from { opacity:0.2; transform:scale(0.8); } to { opacity:0.9; transform:scale(1.2); } }
           @keyframes pixelBlink { 0%,100%{opacity:1} 50%{opacity:0.7} }
           @keyframes spaceCardIn { from { opacity:0; transform:translateY(24px); } to { opacity:1; transform:translateY(0); } }
@@ -181,10 +181,10 @@ export default function HomeScreen({ setScreenAction, themeId, onHoverAction, on
         {/* ── Title ── */}
         <div style={{ position: "relative", textAlign: "center", width: "100%" }}>
           <h1 style={{
-            fontFamily: isSp ? "'Orbitron', sans-serif" : "'Courier New', monospace",
+            fontFamily: "'Courier New', monospace",
             fontSize: titleSize,
             fontWeight: 900,
-            letterSpacing: isMobile ? "0.1em" : isSp ? "0.28em" : "0.2em",
+            letterSpacing: isMobile ? "0.1em" : "0.2em",
             textAlign: "center", lineHeight: 1,
             margin: 0,
           }}>
@@ -198,7 +198,7 @@ export default function HomeScreen({ setScreenAction, themeId, onHoverAction, on
           </h1>
 
           {isSp && !isMobile && (
-            <div style={{ fontFamily: "'Rajdhani', sans-serif", fontSize: 13, letterSpacing: "0.4em", color: "rgba(140,180,255,0.45)", textTransform: "uppercase", marginTop: 12 }}>
+            <div style={{ fontFamily: t.fontBody, fontSize: 13, letterSpacing: "0.4em", color: "rgba(140,180,255,0.45)", textTransform: "uppercase", marginTop: 12 }}>
               Best of 3 · 5×5 · Rulebreaker
             </div>
           )}
@@ -236,9 +236,8 @@ export default function HomeScreen({ setScreenAction, themeId, onHoverAction, on
               )}
               <div style={{ flex: isMobile ? 1 : undefined, position: "relative", zIndex: 2 }}>
                 <div style={{
-                  fontFamily: isSp ? "'Orbitron', sans-serif" : (themeId === "classic_light" || themeId === "classic_dark") ? "'Cinzel', serif" : t.fontDisplay,
+                  fontFamily: (themeId === "classic_light" || themeId === "classic_dark" || themeId === "space") ? "'Cinzel', serif" : t.fontDisplay,
                   fontSize: cardTitleSize, fontWeight: 700,
-                  letterSpacing: isSp ? "0.18em" : undefined,
                   color: hovered === card.key ? (card.key === "lobby" ? BLOOD_RED : card.key === "ai" ? AI_PURPLE : t.accent) : t.text,
                   marginBottom: isMobile ? 4 : 8, transition: "color 0.2s",
                   position: "relative", zIndex: 2,
@@ -246,9 +245,8 @@ export default function HomeScreen({ setScreenAction, themeId, onHoverAction, on
                   {card.title}
                 </div>
                 <div style={{
-                  fontFamily: isSp ? "'Rajdhani', sans-serif" : t.fontBody,
+                  fontFamily: t.fontBody,
                   fontSize: cardSubSize,
-                  letterSpacing: isSp ? "0.12em" : undefined,
                   color: isSp ? "rgba(140,180,255,0.5)" : t.textMuted,
                 }}>
                   {card.sub}
