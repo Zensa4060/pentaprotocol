@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useLayoutEffect, useMemo } from "react";
 import { useAuthStore } from "@/lib/store";
 import { THEMES } from "@/lib/themes";
 import type { Screen } from "@/lib/types";
@@ -20,6 +20,197 @@ const CARDS = [
 ];
 
 type Breakpoint = "mobile" | "tablet" | "desktop";
+
+/** Outer frame segments for each shard index (5×2 grid): top/bottom row + left/right column. */
+function aiShardPerimeterBorder(
+  index: number,
+  color: string,
+  width: string,
+  cornerRadius: number,
+): React.CSSProperties {
+  const col = index % 5;
+  const row = index < 5 ? 0 : 1;
+  const side = `${width} solid ${color}`;
+  return {
+    boxSizing: "border-box",
+    borderTop: row === 0 ? side : undefined,
+    borderBottom: row === 1 ? side : undefined,
+    borderLeft: col === 0 ? side : undefined,
+    borderRight: col === 4 ? side : undefined,
+    borderTopLeftRadius: row === 0 && col === 0 ? cornerRadius : 0,
+    borderTopRightRadius: row === 0 && col === 4 ? cornerRadius : 0,
+    borderBottomLeftRadius: row === 1 && col === 0 ? cornerRadius : 0,
+    borderBottomRightRadius: row === 1 && col === 4 ? cornerRadius : 0,
+  };
+}
+
+/** 10 shards: 5×2 grid (full tile coverage; motion is random per shard). */
+const AI_GLASS_CLIPS = [
+  "polygon(0% 0%, 20% 0%, 20% 50%, 0% 50%)",
+  "polygon(20% 0%, 40% 0%, 40% 50%, 20% 50%)",
+  "polygon(40% 0%, 60% 0%, 60% 50%, 40% 50%)",
+  "polygon(60% 0%, 80% 0%, 80% 50%, 60% 50%)",
+  "polygon(80% 0%, 100% 0%, 100% 50%, 80% 50%)",
+  "polygon(0% 50%, 20% 50%, 20% 100%, 0% 100%)",
+  "polygon(20% 50%, 40% 50%, 40% 100%, 20% 100%)",
+  "polygon(40% 50%, 60% 50%, 60% 100%, 40% 100%)",
+  "polygon(60% 50%, 80% 50%, 80% 100%, 60% 100%)",
+  "polygon(80% 50%, 100% 50%, 100% 100%, 80% 100%)",
+] as const;
+
+/** Diagonal strikes (horizontal gradient along the bolt), ~+20% intensity. */
+function trainingDiagonalStrikeStyle(palette: "white" | "blue" | "red"): { background: string; boxShadow: string } {
+  switch (palette) {
+    case "white":
+      return {
+        background:
+          "linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.42) 34%, rgba(255,255,255,1) 50%, rgba(255,255,255,0.42) 66%, transparent 100%)",
+        boxShadow: "0 0 12px rgba(255,255,255,1), 0 0 26px rgba(240,248,255,0.54)",
+      };
+    case "blue":
+      return {
+        background:
+          "linear-gradient(90deg, transparent 0%, rgba(90,160,255,0.42) 38%, rgba(190,235,255,1) 50%, rgba(70,130,255,0.58) 64%, transparent 100%)",
+        boxShadow: "0 0 14px rgba(150,210,255,1), 0 0 31px rgba(70,150,255,0.58)",
+      };
+    case "red":
+      return {
+        background:
+          "linear-gradient(90deg, transparent 0%, rgba(255,130,130,0.54) 36%, rgba(255,85,105,1) 50%, rgba(210,40,60,0.62) 66%, transparent 100%)",
+        boxShadow: "0 0 14px rgba(255,130,130,1), 0 0 31px rgba(255,60,80,0.58)",
+      };
+  }
+}
+
+const TRAINING_DIAGONAL_STRIKES = [
+  { top: "7%", left: "-10%", w: "58%", h: 4, rot: -46, pal: "white" as const, dur: 0.88, delay: 0 },
+  { top: "34%", left: "18%", w: "62%", h: 3, rot: 41, pal: "blue", dur: 1.05, delay: 0.18 },
+  { top: "20%", left: "44%", w: "52%", h: 5, rot: -33, pal: "red", dur: 0.82, delay: 0.42 },
+  { top: "56%", left: "2%", w: "64%", h: 4, rot: 36, pal: "white", dur: 0.95, delay: 0.1 },
+  { top: "72%", left: "28%", w: "55%", h: 3, rot: -28, pal: "blue", dur: 1.12, delay: 0.55 },
+] as const;
+
+function lobbySlashRand(seed: number, salt: number): number {
+  const x = Math.sin(seed * 12.9898 + salt * 78.233 + 2.31) * 43758.5453;
+  return x - Math.floor(x);
+}
+
+/** New random blood sword slashes on each lobby hover (seed bumps in onMouseEnter). */
+function generateLobbySlashes(seed: number): { top: string; left: string; w: string; h: number; rot: number; delay: number; dur: number }[] {
+  const count = 4 + Math.floor(lobbySlashRand(seed, 0) * 3);
+  const out: { top: string; left: string; w: string; h: number; rot: number; delay: number; dur: number }[] = [];
+  for (let i = 0; i < count; i++) {
+    const s = i * 17 + seed;
+    out.push({
+      top: `${10 + lobbySlashRand(seed, s + 1) * 62}%`,
+      left: `${-26 + lobbySlashRand(seed, s + 2) * 24}%`,
+      w: `${112 + lobbySlashRand(seed, s + 3) * 32}%`,
+      h: 2 + Math.floor(lobbySlashRand(seed, s + 4) * 6),
+      rot: -52 + lobbySlashRand(seed, s + 5) * 44,
+      delay: lobbySlashRand(seed, s + 6) * 0.58,
+      dur: 1.95 + lobbySlashRand(seed, s + 7) * 1.45,
+    });
+  }
+  return out;
+}
+
+/** Deterministic pseudo-random scatter so shards fly in varied directions (stable across renders). */
+function aiShardScatter(i: number): { tx: number; ty: number; rot: number; delay: number } {
+  const fract = (x: number) => x - Math.floor(x);
+  const tx = (fract(Math.sin(i * 12.9898) * 43758.5453) - 0.5) * 76;
+  const ty = (fract(Math.sin(i * 78.233 + 3.14159) * 43758.5453) - 0.5) * 76;
+  const rot = (fract(Math.sin(i * 45.164 + 2.71828) * 43758.5453) - 0.5) * 40;
+  const delay = i * 0.011 + fract(Math.sin(i * 91.714) * 43758.5453) * 0.045;
+  return { tx, ty, rot, delay };
+}
+
+function AiGlassShatterLayer(props: {
+  borderRadius: number | string;
+  cornerRadius: number;
+  cardPadding: string;
+  background: string;
+  backdropBlur?: string;
+  isMobile: boolean;
+  titleBlock: React.ReactNode;
+  chevron: React.ReactNode;
+  borderColor: string;
+  borderWidth: string;
+}) {
+  const {
+    borderRadius,
+    cornerRadius,
+    cardPadding,
+    background,
+    backdropBlur,
+    isMobile,
+    titleBlock,
+    chevron,
+    borderColor,
+    borderWidth,
+  } = props;
+  const dur = "0.48s";
+  const easing = "cubic-bezier(0.22, 1, 0.36, 1)";
+  const [burst, setBurst] = useState(false);
+  useLayoutEffect(() => {
+    const id = requestAnimationFrame(() => setBurst(true));
+    return () => cancelAnimationFrame(id);
+  }, []);
+  return (
+    <div
+      aria-hidden
+      style={{
+        position: "absolute",
+        inset: 0,
+        zIndex: 4,
+        pointerEvents: "none",
+        borderRadius,
+        overflow: "visible",
+      }}
+    >
+      {AI_GLASS_CLIPS.map((clip, i) => {
+        const sc = aiShardScatter(i);
+        return (
+        <div
+          key={i}
+          style={{
+            position: "absolute",
+            inset: 0,
+            clipPath: clip,
+            WebkitClipPath: clip,
+            background,
+            backdropFilter: backdropBlur,
+            WebkitBackdropFilter: backdropBlur,
+            ...aiShardPerimeterBorder(i, borderColor, borderWidth, cornerRadius),
+            boxShadow: "inset 0 1px 0 rgba(255,255,255,0.06), inset 0 0 0 1px rgba(255,255,255,0.05)",
+            transition: burst ? `transform ${dur} ${easing} ${sc.delay}s` : "none",
+            transform: burst
+              ? `translate3d(${sc.tx}px, ${sc.ty}px, 0) rotate(${sc.rot}deg)`
+              : "translate3d(0,0,0) rotate(0deg)",
+            willChange: "transform",
+          }}
+        >
+          <div
+            style={{
+              padding: cardPadding,
+              height: "100%",
+              boxSizing: "border-box",
+              display: "flex",
+              flexDirection: isMobile ? "row" : "column",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: isMobile ? 16 : 0,
+              textAlign: "center",
+            }}
+          >
+            <div style={{ flex: isMobile ? 1 : undefined, minWidth: 0 }}>{titleBlock}</div>
+            {chevron}
+          </div>
+        </div>
+        );
+      })}
+    </div>
+  );
+}
 
 function useBreakpoint(): Breakpoint {
   const [bp, setBp] = useState<Breakpoint>("desktop");
@@ -64,6 +255,9 @@ export default function HomeScreen({ setScreenAction, themeId, onHoverAction, on
   const scale = useScale();
   const [hovered, setHovered] = useState<Screen | null>(null);
   const [hovFooter, setHovFooter] = useState<string | null>(null);
+  const [lobbySlashSeed, setLobbySlashSeed] = useState(0);
+
+  const lobbySlashes = useMemo(() => generateLobbySlashes(lobbySlashSeed), [lobbySlashSeed]);
 
   const isMobile = bp === "mobile";
   const isTablet = bp === "tablet";
@@ -109,9 +303,47 @@ export default function HomeScreen({ setScreenAction, themeId, onHoverAction, on
       ? "linear-gradient(145deg, rgba(58,120,212,0.18), rgba(8,15,40,0.72))"
       : "rgba(6,12,34,0.52)";
 
+    /** Sword-slash blood: crimson edges + dark void (no drip) */
+    const lobbySlashAura = [
+      "0 0 28px rgba(255,45,45,0.42)",
+      "0 0 52px rgba(160,0,0,0.38)",
+      "0 0 88px rgba(0,0,0,0.55)",
+      "inset 0 0 36px rgba(0,0,0,0.4)",
+      "inset 0 0 12px rgba(90,0,0,0.22)",
+    ].join(", ");
+
+    let hoverShadow: string;
+    if (isHov && isMulti) {
+      hoverShadow = isSp
+        ? `0 24px 64px rgba(58,120,212,0.35), 0 0 30px rgba(96,168,255,0.15), inset 0 1px 0 rgba(255,255,255,0.08), ${lobbySlashAura}`
+        : `0 24px 64px ${hovCol}38, 0 0 24px ${hovCol}18, ${lobbySlashAura}`;
+    } else if (isHov) {
+      hoverShadow = isSp
+        ? `0 24px 64px rgba(58,120,212,0.35), 0 0 30px rgba(96,168,255,0.15), inset 0 1px 0 rgba(255,255,255,0.08)`
+        : `0 24px 64px ${hovCol}33, 0 0 20px ${hovCol}11`;
+    } else {
+      hoverShadow = isSp ? "inset 0 1px 0 rgba(255,255,255,0.04)" : "none";
+    }
+
+    const aiGlassActive = isHov && key === "ai";
+
     return {
-      background: isSp ? spaceBg : (isHov ? `linear-gradient(145deg, ${hovCol}22, ${t.bgCard}dd)` : t.bgCard),
-      border: `${isMobile ? "1.5px" : "2px"} solid ${isHov ? hovCol : (isSp ? "rgba(58,120,212,0.25)" : t.border)}`,
+      background: aiGlassActive
+        ? "transparent"
+        : isSp
+          ? spaceBg
+          : isHov
+            ? `linear-gradient(145deg, ${hovCol}22, ${t.bgCard}dd)`
+            : t.bgCard,
+      border: `${isMobile ? "1.5px" : "2px"} solid ${
+        aiGlassActive
+          ? "transparent"
+          : isHov
+            ? hovCol
+            : isSp
+              ? "rgba(58,120,212,0.25)"
+              : t.border
+      }`,
       borderRadius: ip ? 2 : isMobile ? 12 : 20,
       padding: cardPadding,
       cursor: "pointer",
@@ -122,20 +354,15 @@ export default function HomeScreen({ setScreenAction, themeId, onHoverAction, on
         : isHov
           ? `translateY(${curveY - 15}px) scale(1.06)`
           : `translateY(${curveY}px)`,
-      boxShadow: isHov
-        ? isSp
-          ? `0 24px 64px rgba(58,120,212,0.35), 0 0 30px rgba(96,168,255,0.15), inset 0 1px 0 rgba(255,255,255,0.08)`
-          : `0 24px 64px ${hovCol}33, 0 0 20px ${hovCol}11`
-        : isSp
-          ? "inset 0 1px 0 rgba(255,255,255,0.04)"
-          : "none",
-      backdropFilter: isSp ? "blur(12px)" : undefined,
-      WebkitBackdropFilter: isSp ? "blur(12px)" : undefined,
+      boxShadow: aiGlassActive ? "none" : hoverShadow,
+      backdropFilter: isSp && !aiGlassActive ? "blur(12px)" : undefined,
+      WebkitBackdropFilter: isSp && !aiGlassActive ? "blur(12px)" : undefined,
       flex: isMobile ? undefined : 1,
       width: isMobile ? "100%" : undefined,
       minWidth: 0,
       position: "relative",
       zIndex: isHov ? 10 : 1,
+      ...(key === "ai" && isHov ? { overflow: "visible" as const } : {}),
       ...(isMobile ? { display: "flex", alignItems: "center", gap: 16, textAlign: "left" as const } : {}),
     };
   };
@@ -171,10 +398,33 @@ export default function HomeScreen({ setScreenAction, themeId, onHoverAction, on
           @keyframes starPulse { from { opacity:0.2; transform:scale(0.8); } to { opacity:0.9; transform:scale(1.2); } }
           @keyframes pixelBlink { 0%,100%{opacity:1} 50%{opacity:0.7} }
           @keyframes spaceCardIn { from { opacity:0; transform:translateY(24px); } to { opacity:1; transform:translateY(0); } }
-          @keyframes purpleSmokeAnim {
-            0% { transform: scale(1) translateY(0) rotate(0deg); opacity: 0; }
-            50% { transform: scale(1.5) translateY(-20px) rotate(180deg); opacity: 0.5; }
-            100% { transform: scale(2) translateY(-40px) rotate(360deg); opacity: 0; }
+          @keyframes purpleSmokeSlashPulse {
+            0%, 100% { opacity: 0.68; filter: brightness(1) blur(0.45px); }
+            50% { opacity: 1; filter: brightness(1.2) blur(0.3px); }
+          }
+          @keyframes lightningFlash {
+            0%, 4%, 100% { opacity: 0; }
+            5% { opacity: 0.95; }
+            6% { opacity: 0.15; }
+            7% { opacity: 0.85; }
+            9% { opacity: 0; }
+            62% { opacity: 0; }
+            63% { opacity: 0.7; }
+            64% { opacity: 0.1; }
+            65% { opacity: 0.55; }
+            68% { opacity: 0; }
+          }
+          @keyframes lightningEdgeGlow {
+            0%, 100% { opacity: 0.35; filter: brightness(1); }
+            50% { opacity: 0.9; filter: brightness(1.15); }
+          }
+          @keyframes bloodSlashPulse {
+            0%, 100% { opacity: 0.72; filter: brightness(1) blur(0.4px); }
+            50% { opacity: 1; filter: brightness(1.18) blur(0.25px); }
+          }
+          @keyframes bloodRiverShift {
+            0% { background-position: 0% 50%; }
+            100% { background-position: 200% 50%; }
           }
         `}</style>
 
@@ -217,24 +467,112 @@ export default function HomeScreen({ setScreenAction, themeId, onHoverAction, on
           {CARDS.map((card, idx) => (
             <button
               key={card.key}
+              type="button"
+              aria-label={card.key === "ai" ? `${card.title}. ${card.sub}` : undefined}
               onClick={() => { onClickAction?.(); setScreenAction(card.key); }}
-              onMouseEnter={() => { onHoverAction?.(); setHovered(card.key); }}
+              onMouseEnter={() => {
+                onHoverAction?.();
+                setHovered(card.key);
+                if (card.key === "lobby") setLobbySlashSeed((s) => s + 1);
+              }}
               onMouseLeave={() => setHovered(null)}
               style={cardStyle(card.key, idx)}
             >
-              {card.key === "ai" && hovered === "ai" && !isMobile && (
-                <div style={{ position:"absolute", inset:0, overflow:"hidden", pointerEvents:"none", borderRadius:20 }}>
-                  {[...Array(6)].map((_, i) => (
-                    <div key={i} style={{
-                      position: "absolute", bottom: "-20%", left: `${15 + i * 15}%`,
-                      width: 60, height: 60, background: `radial-gradient(circle, ${AI_PURPLE}44 0%, transparent 70%)`,
-                      borderRadius: "50%", animation: `purpleSmokeAnim ${2 + i * 0.5}s ease-out infinite`,
-                      animationDelay: `${i * 0.3}s`,
-                    }} />
+              {card.key === "lobby" && hovered === "lobby" && (
+                <div
+                  style={{
+                    position: "absolute",
+                    inset: 0,
+                    pointerEvents: "none",
+                    borderRadius: ip ? 2 : isMobile ? 12 : 20,
+                    overflow: "hidden",
+                    zIndex: 1,
+                  }}
+                >
+                  <div
+                    aria-hidden
+                    style={{
+                      position: "absolute",
+                      inset: 0,
+                      background: "radial-gradient(ellipse 95% 70% at 50% 45%, rgba(90,0,0,0.22) 0%, rgba(0,0,0,0.35) 55%, transparent 72%)",
+                      borderRadius: "inherit",
+                    }}
+                  />
+                  {lobbySlashes.map((s, i) => (
+                    <div
+                      key={`slash-${lobbySlashSeed}-${i}`}
+                      aria-hidden
+                      style={{
+                        position: "absolute",
+                        top: s.top,
+                        left: s.left,
+                        width: s.w,
+                        height: s.h,
+                        transform: `rotate(${s.rot}deg)`,
+                        transformOrigin: "center center",
+                        background:
+                          "linear-gradient(90deg, transparent 0%, rgba(20,0,0,0.65) 8%, #5c0000 22%, #b30000 42%, #ff2a2a 49.5%, #ff6b6b 50%, #c40000 50.8%, #4a0000 78%, rgba(0,0,0,0.55) 94%, transparent 100%)",
+                        backgroundSize: "200% 100%",
+                        animation: `bloodRiverShift ${s.dur}s linear infinite, bloodSlashPulse ${s.dur * 0.85}s ease-in-out infinite`,
+                        animationDelay: `${s.delay}s`,
+                        boxShadow:
+                          "0 0 10px rgba(255,50,50,0.55), 0 0 24px rgba(180,0,0,0.45), 0 1px 0 rgba(255,200,200,0.35)",
+                        filter: "blur(0.45px)",
+                      }}
+                    />
                   ))}
+                  <div
+                    aria-hidden
+                    style={{
+                      position: "absolute",
+                      inset: 0,
+                      borderRadius: "inherit",
+                      boxShadow: "inset 0 0 0 1px rgba(160,0,0,0.35), inset 0 0 28px rgba(0,0,0,0.45)",
+                      pointerEvents: "none",
+                    }}
+                  />
                 </div>
               )}
-              <div style={{ flex: isMobile ? 1 : undefined, position: "relative", zIndex: 2 }}>
+              {card.key === "singleplayer" && hovered === "singleplayer" && (
+                <div style={{ position: "absolute", inset: 0, overflow: "hidden", pointerEvents: "none", borderRadius: ip ? 2 : isMobile ? 12 : 20, zIndex: 1 }}>
+                  {TRAINING_DIAGONAL_STRIKES.map((d, di) => {
+                    const dLook = trainingDiagonalStrikeStyle(d.pal);
+                    return (
+                      <div
+                        key={`train-diag-${di}`}
+                        aria-hidden
+                        style={{
+                          position: "absolute",
+                          top: d.top,
+                          left: d.left,
+                          width: d.w,
+                          height: d.h,
+                          transform: `rotate(${d.rot}deg)`,
+                          transformOrigin: "center center",
+                          borderRadius: 2,
+                          background: dLook.background,
+                          boxShadow: dLook.boxShadow,
+                          filter: "blur(0.3px)",
+                          animation: `lightningFlash ${d.dur}s ease-in-out infinite`,
+                          animationDelay: `${d.delay}s`,
+                          pointerEvents: "none",
+                        }}
+                      />
+                    );
+                  })}
+                </div>
+              )}
+              <div
+                style={{
+                  flex: isMobile ? 1 : undefined,
+                  position: "relative",
+                  zIndex: 2,
+                  opacity: card.key === "ai" && hovered === "ai" ? 0 : 1,
+                  transition: "opacity 0.08s ease",
+                  visibility: card.key === "ai" && hovered === "ai" ? "hidden" : "visible",
+                  pointerEvents: card.key === "ai" && hovered === "ai" ? "none" : "auto",
+                }}
+              >
                 <div style={{
                   fontFamily: (themeId === "classic_light" || themeId === "classic_dark" || themeId === "space") ? "'Cinzel', serif" : t.fontDisplay,
                   fontSize: cardTitleSize, fontWeight: 700,
@@ -252,7 +590,57 @@ export default function HomeScreen({ setScreenAction, themeId, onHoverAction, on
                   {card.sub}
                 </div>
               </div>
-              {isMobile && (
+              {card.key === "ai" && hovered === "ai" && (
+                <AiGlassShatterLayer
+                  borderRadius={ip ? 2 : isMobile ? 12 : 20}
+                  cornerRadius={ip ? 2 : isMobile ? 12 : 20}
+                  cardPadding={cardPadding}
+                  background={
+                    isSp
+                      ? "linear-gradient(145deg, rgba(58,120,212,0.18), rgba(8,15,40,0.72))"
+                      : `linear-gradient(145deg, ${AI_PURPLE}22, ${t.bgCard}dd)`
+                  }
+                  backdropBlur={isSp ? "blur(12px)" : undefined}
+                  isMobile={isMobile}
+                  borderColor={AI_PURPLE}
+                  borderWidth={isMobile ? "1.5px" : "2px"}
+                  titleBlock={
+                    <>
+                      <div
+                        style={{
+                          fontFamily:
+                            themeId === "classic_light" || themeId === "classic_dark" || themeId === "space"
+                              ? "'Cinzel', serif"
+                              : t.fontDisplay,
+                          fontSize: cardTitleSize,
+                          fontWeight: 700,
+                          color: AI_PURPLE,
+                          marginBottom: isMobile ? 4 : 8,
+                          position: "relative",
+                          zIndex: 2,
+                        }}
+                      >
+                        {card.title}
+                      </div>
+                      <div
+                        style={{
+                          fontFamily: t.fontBody,
+                          fontSize: cardSubSize,
+                          color: isSp ? "rgba(140,180,255,0.5)" : t.textMuted,
+                        }}
+                      >
+                        {card.sub}
+                      </div>
+                    </>
+                  }
+                  chevron={
+                    isMobile ? (
+                      <div style={{ fontFamily: t.fontMono, fontSize: 18, color: AI_PURPLE, flexShrink: 0 }}>›</div>
+                    ) : null
+                  }
+                />
+              )}
+              {isMobile && !(card.key === "ai" && hovered === "ai") && (
                 <div style={{ fontFamily: t.fontMono, fontSize: 18, color: hovered === card.key ? (card.key === "lobby" ? BLOOD_RED : card.key === "ai" ? AI_PURPLE : t.accent) : t.textMuted, transition: "color 0.2s, transform 0.2s", transform: hovered === card.key ? "translateX(4px)" : "translateX(0)", flexShrink: 0 }}>›</div>
               )}
             </button>
