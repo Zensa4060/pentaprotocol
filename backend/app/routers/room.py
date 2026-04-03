@@ -1042,6 +1042,12 @@ async def _finalize_rulebreaker_start(
                 await ws.send_json(done)
             except:
                 pass
+        room_fresh = await db.rooms.find_one({"room_code": room_code}) or room
+        asyncio.create_task(
+            _award_match_series_and_notify(
+                db, room_code, room_fresh, {"match_history": list(hist)}, str(leader)
+            )
+        )
         return
 
     if bool(msg.get("resolve_series_draw")):
@@ -1080,6 +1086,12 @@ async def _finalize_rulebreaker_start(
                 await ws.send_json(done)
             except:
                 pass
+        room_fresh = await db.rooms.find_one({"room_code": room_code}) or room
+        asyncio.create_task(
+            _award_match_series_and_notify(
+                db, room_code, room_fresh, {"match_history": list(hist)}, "DRAW"
+            )
+        )
         return
 
     # `first_player` should be authoritative, but tolerate incomplete messages by
@@ -2038,8 +2050,16 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                     except:
                         pass
 
-                    # Award logic moved to the bottom of the loop to handle all series outcomes.
-                    pass
+                if is_finished and update.get("series_winner") is not None:
+                    asyncio.create_task(
+                        _award_match_series_and_notify(
+                            db,
+                            room_code,
+                            room,
+                            update,
+                            str(update["series_winner"]),
+                        )
+                    )
 
             elif msg["type"] == "ready":
                 ready_val   = msg.get("ready", True)
