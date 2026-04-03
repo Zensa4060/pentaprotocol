@@ -19,7 +19,7 @@ function barsToColor(bars: number): string {
 function patternSidebarLabel(pat: string): string {
   if (pat === "zigzag") return "ZZ-7";
   if (pat === "ZZ") return "ZZ-6";
-  if (pat === "J") return "J";
+  if (pat === "P") return "P";
   if (pat === "T") return "T";
   return pat;
 }

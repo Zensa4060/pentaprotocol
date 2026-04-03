@@ -185,7 +185,7 @@ export default function RuleshowScreen({
 
         {is77 && (
           <div style={{ marginTop: 12, fontFamily: t.fontMono, fontSize: selFont, color: selected77.size >= 5 ? "#22C55E" : t.textMuted }}>
-            {selected77.size} / 5–6 SELECTED
+            {selected77.size} / 7 SELECTED
           </div>
         )}
 

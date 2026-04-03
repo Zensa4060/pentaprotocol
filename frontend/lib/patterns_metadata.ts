@@ -48,9 +48,9 @@ export const PATTERN_METADATA_6: Record<string, PatternInfo> = {
     cells: [[0, 0], [1, 1], [0, 2], [1, 3], [0, 4], [1, 5]],
     mirrorCount: 4,
   },
-  J: {
-    id: "J",
-    label: "J-SHAPE",
+  P: {
+    id: "P",
+    label: "P-SHAPE",
     desc: "A hooked formation for strong connectivity.",
     gridSize: 6,
     cells: [[0, 0], [1, 0], [2, 0], [3, 0], [3, 1], [2, 1]],

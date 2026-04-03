@@ -3,8 +3,8 @@ GRID_SIZE_6 = 6
 BASE_PATTERNS_6 = {
     # Zigzag: A1-B2-C1-D2-E1-F2
     "ZZ": [(0, 0), (1, 1), (0, 2), (1, 3), (0, 4), (1, 5)],
-    # J-shape: A1-A2-A3-A4-B4-B3
-    "J": [(0, 0), (1, 0), (2, 0), (3, 0), (3, 1), (2, 1)],
+    # P-shape: A1-A2-A3-A4-B4-B3
+    "P": [(0, 0), (1, 0), (2, 0), (3, 0), (3, 1), (2, 1)],
     # T shape: A1-B1-C1-B2-B3-B4
     "T": [(0, 0), (0, 1), (0, 2), (1, 1), (2, 1), (3, 1)],
     # L shape: A1-B1-C1-C2-C3-B2
@@ -13,7 +13,7 @@ BASE_PATTERNS_6 = {
     "Y": [(0, 0), (1, 1), (2, 0), (1, 2), (1, 3), (1, 4)],
 }
 
-PATTERN_NAMES_6 = ["ZZ", "J", "T", "L", "Y"]
+PATTERN_NAMES_6 = ["ZZ", "P", "T", "L", "Y"]
 
 
 def generate_variants_6(pattern):

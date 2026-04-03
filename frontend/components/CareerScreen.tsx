@@ -17,7 +17,7 @@ const RankBadge = ({ elo, size = 48 }: { elo: number; size?: number }) => {
 
 const CAREER_PATTERN_LABELS: Record<string, string> = {
   Y: "Y-SHAPE", H: "Y-SHAPE", L: "L-SHAPE", W: "W-SHAPE", V: "V-SHAPE", C: "C-SHAPE", 
-  zigzag: "ZIGZAG", ZZ: "ZIGZAG-6", J: "J-SHAPE", T: "T-SHAPE",
+  zigzag: "ZIGZAG", ZZ: "ZIGZAG-6", P: "P-SHAPE", T: "T-SHAPE",
 };
 
 interface MatchRound {
