@@ -28,7 +28,7 @@ const DIFFICULTIES: { id: Difficulty; label: string; sub: string; color: string 
 const DIFFICULTIES_6X6: { id: Difficulty; label: string; sub: string; color: string }[] = [
   { id: "normal", label: "Magnus Dominus Aurelius III", sub: "", color: "#FF0" },
   { id: "hard", label: "Magnus Dominus Aurelius II", sub: "", color: "#000FFF" },
-  { id: "machine_god", label: "Magnus Dominus Aurelius I", sub: "?", color: "#CC0000" },
+  { id: "machine_god", label: "HIM", sub: "?", color: "#CC0000" },
 ];
 
 /** Mini grid diagram component */

@@ -16,7 +16,7 @@ interface Props {
 const CARDS = [
   { key: "singleplayer" as Screen, title: "TRAINING", sub: "" },
   { key: "lobby" as Screen, title: "1 V 1 : ONLINE", sub: "Ranked & Unranked" },
-  { key: "ai" as Screen, title: "GET REKT BOT", sub: "VS BOTS" },
+  { key: "ai" as Screen, title: "CHALLENGE?", sub: "VS ENGINE AI" },
 ];
 
 type Breakpoint = "mobile" | "tablet" | "desktop";
