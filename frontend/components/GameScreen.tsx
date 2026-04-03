@@ -26,7 +26,7 @@ import SpaceGrid from "./SpaceGrid";
 import PixelGrid from "./PixelGrid";
 import type { Phase } from "./GamePieces";
 import { RulebreakerFlow, PHASE_TIMERS } from "./RulebreakerFlow";
-import { LeftPanel, RightPanel, WinOverlay, SurrenderModal, DisconnectModal, ExitModal } from "./MatchSidebar";
+import { LeftPanel, RightPanel, WinOverlay, SurrenderModal, DisconnectModal, ExitModal, MatchAbortedNoPlayModal } from "./MatchSidebar";
 import RuleshowScreen, { type RuleshowSheet } from "./RuleshowScreen";
 import { useAuthStore } from "@/lib/store";
 import { BannerRenderer } from "./BannerRenderer";
@@ -573,6 +573,8 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   const [p1Ready, setP1Ready] = useState(false);
   const [p2Ready, setP2Ready] = useState(false);
   const [showDisconnectModal, setShowDisconnectModal] = useState(false);
+  const [showMatchAbortedNoPlay, setShowMatchAbortedNoPlay] = useState(false);
+  const [matchAbortedBySlot, setMatchAbortedBySlot] = useState<"P1" | "P2" | null>(null);
   const [chatMessages, setChatMessages] = useState<{ from: "P1" | "P2"; text: string; ts: number }[]>([]);
   const [chatInput, setChatInput] = useState("");
   const [chatOpen, setChatOpen] = useState(false);
@@ -1532,6 +1534,10 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
           if (!isMultiplayerGame && !showGameWinScreen && !matchSeriesComplete) setShowRematch(true);
         } else if (msg.type === "rematch_request") {
           setRematchRequested(msg.from);
+        } else if (msg.type === "match_aborted_no_play") {
+          const ab = msg.aborted_by === "P1" || msg.aborted_by === "P2" ? msg.aborted_by : null;
+          setMatchAbortedBySlot(ab);
+          setShowMatchAbortedNoPlay(true);
         } else if (msg.type === "match_disbanded") {
           void useAuthStore.getState().refreshProfile();
           if (typeof window !== "undefined") {
@@ -3092,9 +3098,12 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
       <div style={{ fontFamily: t.fontBody, fontSize: 14, color: t.textSecondary, marginTop: 24, maxWidth: 420, textAlign: "center", lineHeight: 1.55, padding: "0 20px" }}>Opening the Timebomb leg — confirm rules with your opponent, then play on the 6×6 grid.</div>
     </div>
   );
+  const mpMatchStartedForRules =
+    !isMultiplayerGame ||
+    (matchStartAtMs !== null && Date.now() >= matchStartAtMs);
   const blockMultiRulesOrLevelUp =
     isMultiplayerGame &&
-    !showMatchupOverlay &&
+    mpMatchStartedForRules &&
     (rulesShowSheet !== null || show7x7LevelUp || show6x6LevelUp || rulesMatchGate);
 
   if (blockMultiRulesOrLevelUp) {
@@ -3107,7 +3116,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
           left: 0,
           right: 0,
           bottom: 0,
-          zIndex: 2,
+          zIndex: 10001,
           background: shellBg,
           overflow: "hidden",
           userSelect: "none",
@@ -3143,6 +3152,17 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
           t={sidebarT}
           ip={ip}
           onGoHomeAction={() => {
+            if (setScreenAction) setScreenAction("home");
+          }}
+        />
+        <MatchAbortedNoPlayModal
+          show={showMatchAbortedNoPlay}
+          t={sidebarT}
+          ip={ip}
+          isSelfAbort={matchAbortedBySlot !== null && matchAbortedBySlot === (mySlot ?? "P1")}
+          onGoHomeAction={() => {
+            setShowMatchAbortedNoPlay(false);
+            setMatchAbortedBySlot(null);
             if (setScreenAction) setScreenAction("home");
           }}
         />
@@ -3189,6 +3209,17 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
           show={showDisconnectModal}
           t={sidebarT} ip={ip}
           onGoHomeAction={() => { if (setScreenAction) setScreenAction("home"); }}
+        />
+        <MatchAbortedNoPlayModal
+          show={showMatchAbortedNoPlay}
+          t={sidebarT}
+          ip={ip}
+          isSelfAbort={matchAbortedBySlot !== null && matchAbortedBySlot === (mySlot ?? "P1")}
+          onGoHomeAction={() => {
+            setShowMatchAbortedNoPlay(false);
+            setMatchAbortedBySlot(null);
+            if (setScreenAction) setScreenAction("home");
+          }}
         />
 
         {isMultiplayerGame && chatToastVisible && unreadOpponentChat > 0 && (
@@ -3440,7 +3471,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
         />
         {rbOverlay}
 
-        <SurrenderModal show={showSurrender} t={sidebarT} ip={ip} isRankedGame={isRankedGame} onConfirmAction={() => { setShowSurrender(false); if (isMultiplayerGame && wsRef.current?.readyState === WebSocket.OPEN) { wsRef.current.send(JSON.stringify({ type: "quit_match", slot: mySlot })); } if (setScreenAction) setScreenAction("home"); }} onCancelAction={() => { playClickAction?.(); pausedRef.current = false; setShowSurrender(false); }} playHoverAction={playHoverAction} />
+        <SurrenderModal show={showSurrender} t={sidebarT} ip={ip} isRankedGame={isRankedGame} onConfirmAction={() => { setShowSurrender(false); if (isMultiplayerGame && wsRef.current?.readyState === WebSocket.OPEN) { wsRef.current.send(JSON.stringify({ type: "quit_match", slot: mySlot })); } if (!isMultiplayerGame && setScreenAction) setScreenAction("home"); }} onCancelAction={() => { playClickAction?.(); pausedRef.current = false; setShowSurrender(false); }} playHoverAction={playHoverAction} />
         <ExitModal show={showExitConfirm} t={sidebarT} ip={ip} onConfirmAction={() => { setShowExitConfirm(false); if (setScreenAction) setScreenAction("home"); }} onCancelAction={() => { playClickAction?.(); pausedRef.current = false; setShowExitConfirm(false); }} playHoverAction={playHoverAction} />
         {limitbreakerOverlay}
         {showGameWinScreen && matchSeriesComplete && isMultiplayerGame && (
@@ -3573,6 +3604,17 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
         t={sidebarT} ip={ip}
         onGoHomeAction={() => { if (setScreenAction) setScreenAction("home"); }}
       />
+      <MatchAbortedNoPlayModal
+        show={showMatchAbortedNoPlay}
+        t={sidebarT}
+        ip={ip}
+        isSelfAbort={matchAbortedBySlot !== null && matchAbortedBySlot === (mySlot ?? "P1")}
+        onGoHomeAction={() => {
+          setShowMatchAbortedNoPlay(false);
+          setMatchAbortedBySlot(null);
+          if (setScreenAction) setScreenAction("home");
+        }}
+      />
 
       <LeftPanel
         t={sidebarT} ip={ip} p1c={p1c} p2c={p2c} pieceSkin={pieceSkin} p1RttMs={p1RttMs} p2RttMs={p2RttMs} panelW={panelW}
@@ -3618,8 +3660,8 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
         onSoftReset={softReset}
         onDismissOverlayAction={dismissOverlay}
         onRematchAction={() => { wsRef.current?.send(JSON.stringify({ type: "rematch" })); setRematchRequested(mySlot); }}
-        onQuitMatchAction={() => { wsRef.current?.send(JSON.stringify({ type: "quit_match", slot: mySlot })); if (setScreenAction) setScreenAction("home"); }}
-        onSurrenderConfirmAction={() => { setShowSurrender(false); if (isMultiplayerGame && wsRef.current?.readyState === WebSocket.OPEN) { wsRef.current.send(JSON.stringify({ type: "quit_match", slot: mySlot })); } if (setScreenAction) setScreenAction("home"); }}
+        onQuitMatchAction={() => { wsRef.current?.send(JSON.stringify({ type: "quit_match", slot: mySlot })); if (!isMultiplayerGame && setScreenAction) setScreenAction("home"); }}
+        onSurrenderConfirmAction={() => { setShowSurrender(false); if (isMultiplayerGame && wsRef.current?.readyState === WebSocket.OPEN) { wsRef.current.send(JSON.stringify({ type: "quit_match", slot: mySlot })); } if (!isMultiplayerGame && setScreenAction) setScreenAction("home"); }}
         onSurrenderCancelAction={() => { playClickAction?.(); pausedRef.current = false; setShowSurrender(false); }}
         onExitConfirmAction={() => { setShowExitConfirm(false); if (setScreenAction) setScreenAction("home"); }}
         onExitCancelAction={() => { playClickAction?.(); pausedRef.current = false; setShowExitConfirm(false); }}
@@ -3695,7 +3737,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
         playHoverAction={playHoverAction}
       />
 
-        <SurrenderModal show={showSurrender} t={sidebarT} ip={ip} isRankedGame={isRankedGame} onConfirmAction={() => { setShowSurrender(false); if (isMultiplayerGame && wsRef.current?.readyState === WebSocket.OPEN) { wsRef.current.send(JSON.stringify({ type: "quit_match", slot: mySlot })); } if (setScreenAction) setScreenAction("home"); }} onCancelAction={() => { playClickAction?.(); pausedRef.current = false; setShowSurrender(false); }} playHoverAction={playHoverAction} />
+        <SurrenderModal show={showSurrender} t={sidebarT} ip={ip} isRankedGame={isRankedGame} onConfirmAction={() => { setShowSurrender(false); if (isMultiplayerGame && wsRef.current?.readyState === WebSocket.OPEN) { wsRef.current.send(JSON.stringify({ type: "quit_match", slot: mySlot })); } if (!isMultiplayerGame && setScreenAction) setScreenAction("home"); }} onCancelAction={() => { playClickAction?.(); pausedRef.current = false; setShowSurrender(false); }} playHoverAction={playHoverAction} />
       <ExitModal show={showExitConfirm} t={sidebarT} ip={ip} onConfirmAction={() => { setShowExitConfirm(false); if (setScreenAction) setScreenAction("home"); }} onCancelAction={() => { playClickAction?.(); pausedRef.current = false; setShowExitConfirm(false); }} playHoverAction={playHoverAction} />
       {limitbreakerOverlay}
       {showGameWinScreen && matchSeriesComplete && isMultiplayerGame && (

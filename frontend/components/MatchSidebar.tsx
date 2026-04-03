@@ -917,6 +917,54 @@ export function DisconnectModal({ show, t, ip, onGoHomeAction }: { show: boolean
   );
 }
 
+/** Match voided: no stone was played; no career / ELO for either side. */
+export function MatchAbortedNoPlayModal({
+  show,
+  t,
+  ip,
+  isSelfAbort,
+  onGoHomeAction,
+}: {
+  show: boolean;
+  t: MatchSidebarProps["t"];
+  ip: boolean;
+  isSelfAbort: boolean;
+  onGoHomeAction: () => void;
+}) {
+  if (!show) return null;
+  return (
+    <div style={{ position: "fixed", inset: 0, zIndex: 10011, background: "rgba(0,0,0,0.88)", display: "flex", alignItems: "center", justifyContent: "center", animation: "fadeIn 0.2s ease both" }}>
+      <div style={{ background: t.bgPanel, border: `2px solid ${t.textMuted}`, borderRadius: ip ? 2 : 16, padding: "30px", maxWidth: 440, width: "90vw", textAlign: "center", boxShadow: "0 20px 40px rgba(0,0,0,0.75)", animation: "scaleIn 0.3s cubic-bezier(.22,.68,0,1.2) both" }}>
+        <div style={{ fontFamily: t.fontDisplay, fontSize: 20, fontWeight: 800, color: t.text, marginBottom: 14 }}>MATCH ABORTED</div>
+        <div style={{ fontFamily: t.fontBody, fontSize: 15, color: t.textSecondary, marginBottom: 24, lineHeight: 1.55 }}>
+          {isSelfAbort ? (
+            <>You left before playing a move. This game was voided and will not appear in Career.</>
+          ) : (
+            <>Your opponent left before playing a move. The game was voided and will not appear in Career for either player.</>
+          )}
+        </div>
+        <button
+          type="button"
+          onClick={onGoHomeAction}
+          style={{
+            background: `${t.accent}22`,
+            border: `1px solid ${t.accent}`,
+            color: t.accent,
+            padding: "12px 24px",
+            borderRadius: ip ? 2 : 8,
+            fontFamily: t.fontMono,
+            fontSize: 15,
+            fontWeight: 700,
+            cursor: "pointer",
+          }}
+        >
+          RETURN TO HOME
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export function RematchOverlay({ show, isMultiplayerGame, t, ip, p1c, p2c, seriesWinner, mySlot, rematchRequested, winnerDisplayNameAction, lastSeries, segmentStartIndex = 0, onRematchAction, onQuitMatchAction }: {
   show: boolean; isMultiplayerGame: boolean; t: MatchSidebarProps["t"]; ip: boolean;
   p1c: string; p2c: string; seriesWinner: string | null; mySlot: "P1" | "P2";

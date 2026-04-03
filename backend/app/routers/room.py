@@ -763,6 +763,10 @@ async def _award_match_series_and_notify(
             pass
 
 
+# Ranked triple-leg reuses the same series award + notify implementation.
+_award_ranked_triple_and_notify = _award_match_series_and_notify
+
+
 def _aggregate_decisive_games(history: list) -> tuple[int, int]:
     """Count P1 vs P2 wins across the full match_history (DRAW ignored)."""
     p1 = sum(1 for w in history if w == "P1")
@@ -2384,7 +2388,28 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
             elif msg["type"] == "quit_match":
                 room_q = await db.rooms.find_one({"room_code": room_code})
                 quitter_slot = msg.get("slot") or player_slot
-                if (
+                moves = int(room_q.get("moves_played") or 0) if room_q else 0
+                void_no_play = (
+                    room_q
+                    and room_q.get("game_status") == "playing"
+                    and moves == 0
+                )
+                if void_no_play:
+                    await db.rooms.update_one(
+                        {"room_code": room_code},
+                        {"$set": {"game_status": "disbanded"}},
+                    )
+                    for slot, ws in _room_connections.get(room_code, {}).items():
+                        try:
+                            await ws.send_json(
+                                {
+                                    "type": "match_aborted_no_play",
+                                    "aborted_by": quitter_slot,
+                                }
+                            )
+                        except:
+                            pass
+                elif (
                     room_q
                     and room_q.get("format") == "ranked"
                     and _is_ranked_triple_leg_room(room_q)
@@ -2403,6 +2428,15 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                         record_clean_streak=False,
                         surrendered_by=quitter_slot,
                     )
+                    await db.rooms.update_one(
+                        {"room_code": room_code},
+                        {"$set": {"game_status": "disbanded"}},
+                    )
+                    for slot, ws in _room_connections.get(room_code, {}).items():
+                        try:
+                            await ws.send_json({"type": "match_disbanded"})
+                        except:
+                            pass
                 else:
                     # Unranked or other mode quit - also award series to opponent
                     win_slot = "P2" if quitter_slot == "P1" else "P1"
@@ -2415,16 +2449,16 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                         record_clean_streak=True,
                         surrendered_by=quitter_slot,
                     )
-                if room_q:
-                    await db.rooms.update_one(
-                        {"room_code": room_code},
-                        {"$set": {"game_status": "disbanded"}},
-                    )
-                    for slot, ws in _room_connections.get(room_code, {}).items():
-                        try:
-                            await ws.send_json({"type": "match_disbanded"})
-                        except:
-                            pass
+                    if room_q:
+                        await db.rooms.update_one(
+                            {"room_code": room_code},
+                            {"$set": {"game_status": "disbanded"}},
+                        )
+                        for slot, ws in _room_connections.get(room_code, {}).items():
+                            try:
+                                await ws.send_json({"type": "match_disbanded"})
+                            except:
+                                pass
 
             elif msg["type"] == "match_found_ready":
                 rt = _room_runtime.get(room_code)
@@ -2875,6 +2909,24 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                     and room_d.get("game_status") not in ("disbanded",)
                     and room_d.get("series_winner") is None
                 ):
+                    moves_d = int(room_d.get("moves_played") or 0)
+                    void_no_play = room_d.get("game_status") == "playing" and moves_d == 0
+                    if void_no_play:
+                        await db.rooms.update_one(
+                            {"room_code": room_code},
+                            {"$set": {"game_status": "disbanded"}},
+                        )
+                        for slot, ws in peers.items():
+                            try:
+                                await ws.send_json(
+                                    {
+                                        "type": "match_aborted_no_play",
+                                        "aborted_by": player_slot,
+                                    }
+                                )
+                            except:
+                                pass
+                        return
                     winner_slot = "P2" if player_slot == "P1" else "P1"
                     if room_d.get("format") == "ranked" and _is_ranked_triple_leg_room(room_d):
                         quitter_id = room_d.get("player1_id") if player_slot == "P1" else room_d.get("player2_id")
