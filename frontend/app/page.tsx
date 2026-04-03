@@ -15,6 +15,7 @@ import LobbyScreen      from "@/components/LobbyScreen";
 import GameScreen       from "@/components/GameScreen";
 import ProfileScreen    from "@/components/ProfileScreen";
 import RulesScreen      from "@/components/RulesScreen";
+import PatchNotesScreen from "@/components/PatchNotesScreen";
 import AIScreen         from "@/components/AIScreen";
 import SingleplayerScreen from "@/components/SingleplayerScreen";
 import StoreScreen      from "@/components/Storescreen";
@@ -702,6 +703,7 @@ export default function Page() {
       )}
       {screen === "profile"    && <ProfileScreen    setScreenAction={handleSetScreen} themeId={themeId} onHoverAction={sfx.hover} onClickAction={sfx.click} />}
       {screen === "rules"      && <RulesScreen      themeId={themeId} onHoverAction={sfx.hover} onClickAction={sfx.click} />}
+      {screen === "patchNotes" && <PatchNotesScreen themeId={themeId} />}
       {screen === "ai"         && <AIScreen         setScreenAction={handleSetScreen} themeId={themeId} onSelectDifficultyAction={(d) => { sfx.click(); setAiDifficulty(d); handleSetScreen("aiGame"); }} onHoverAction={sfx.hover} onBoardModeAction={(mode, patterns) => { setBoardMode(mode); setSelectedPatterns(patterns || []); }} />}
       {screen === "singleplayer" && <SingleplayerScreen setScreenAction={handleSetScreen} themeId={themeId} onHoverAction={sfx.hover} onBoardModeAction={(mode: BoardMode, patterns?: string[]) => { setBoardMode(mode); setSelectedPatterns(patterns || []); handleSetScreen("game"); }} />}
       {screen === "store"      && <StoreScreen      setScreenAction={handleSetScreen} themeId={themeId} audio={{ pauseBgm: audio.pauseBgm, resumeBgm: audio.resumeBgm }} />}

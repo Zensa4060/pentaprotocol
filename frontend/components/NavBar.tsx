@@ -246,7 +246,7 @@ export default function NavBar({
 
   const getActive = (target: string): boolean => {
     if (target === "home")       return screen === "home";
-    if (target === "rules")      return screen === "rules";
+    if (target === "patchNotes") return screen === "patchNotes";
     if (target === "profile")    return screen === "profile";
     if (target === "store")      return screen === "store";
     if (target === "collection") return screen === "collection";
@@ -357,9 +357,50 @@ export default function NavBar({
   const pentashards = pentashardsBase + missionShardBonus;
   const protocredits = (user as any)?.protocredits ?? 0;
 
+  const RULES_INFO_SZ = isMobile ? 36 : isTablet ? 44 : 52;
+  const rulesInfoButton = (
+    <button
+      type="button"
+      onClick={() => navigate("rules")}
+      title="Game rules — how to play"
+      aria-label="Game rules"
+      onMouseEnter={(e) => {
+        onHoverAction?.();
+        e.currentTarget.style.borderColor = t.accent;
+        e.currentTarget.style.color = t.accent;
+        e.currentTarget.style.background = `${t.accent}18`;
+        e.currentTarget.style.transform = "scale(1.05)";
+      }}
+      onMouseLeave={(e) => {
+        const el = e.currentTarget;
+        el.style.borderColor = `${t.border}66`;
+        el.style.color = t.text;
+        el.style.background = `${t.border}22`;
+        el.style.transform = "scale(1)";
+      }}
+      style={{
+        background: `${t.border}22`,
+        border: `1px solid ${t.border}66`,
+        color: t.text,
+        width: RULES_INFO_SZ,
+        height: RULES_INFO_SZ,
+        borderRadius: "50%",
+        cursor: "pointer",
+        transition: "all 0.3s ease",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        flexShrink: 0,
+        padding: 0,
+      }}
+    >
+      <span style={{ fontFamily: t.fontDisplay, fontSize: RULES_INFO_SZ * 0.42, fontWeight: 800, fontStyle: "italic", lineHeight: 1 }}>i</span>
+    </button>
+  );
+
   // Nav links list for both desktop and hamburger menu
   const navLinks = [
-    { target: "rules",      label: "Game Rules",  screen: "rules"      as Screen },
+    { target: "patchNotes", label: "PATCH NOTES", screen: "patchNotes" as Screen },
     { target: "collection", label: "Collection",  screen: "collection" as Screen },
     { target: "store",      label: "Store",       screen: "store"      as Screen },
     { target: "home",       label: "Home",        screen: "home"       as Screen },
@@ -445,7 +486,10 @@ export default function NavBar({
           </div>
 
           {mounted && (
-            <div style={{ display: "flex", alignItems: "center", gap: 4, fontFamily: t.fontMono, fontSize: CURRENCY_FONT, fontWeight: 700 }}>
+            <div
+              title="PentaShards: earn rewards from missions and events to redeem free skins in the Store."
+              style={{ display: "flex", alignItems: "center", gap: 4, fontFamily: t.fontMono, fontSize: CURRENCY_FONT, fontWeight: 700 }}
+            >
               <div style={{ width: CURRENCY_SZ, height: CURRENCY_SZ, flexShrink: 0 }} dangerouslySetInnerHTML={{ __html: (themeId === "classic_light" ? SHARDS_LIGHT_SVG : SHARDS_DARK_SVG).replace("<svg ", `<svg width="${CURRENCY_SZ}" height="${CURRENCY_SZ}" `) }} />
               <span style={{ color: "#4FC3F7" }}>{pentashards}</span>
             </div>
@@ -458,25 +502,29 @@ export default function NavBar({
             flex: 1, display: "flex", alignItems: "center", justifyContent: "center",
             overflow: "hidden"
           }}>
-            <div style={{ display: "flex", alignItems: "center", flexWrap: "nowrap", gap: "2vw", transform: "translateX(-1%)" }}>
-              {navBtn("rules",      "Game Rules", false, false, undefined, "rules")}
+            <div style={{ display: "flex", alignItems: "center", flexWrap: "nowrap", gap: "2vw" }}>
+              {navBtn("patchNotes", "PATCH NOTES", false, false, undefined, "patchNotes")}
               {navBtn("collection", "Collection", false, false, undefined, "collection")}
               {navBtn("store",      "Store",      false, false, undefined, "store")}
               {navBtn("home",       "Home",       false, false, undefined, "home")}
               {navBtn("career",     "Career",     false, false, undefined, "career",     isGuest)}
               {navBtn("battlepass", "MISSIONS", false, false, undefined, "battlepass", isGuest)}
-              {navBtn("profile",    "Profile",    false, false, undefined, "profile",    isGuest)}
+              <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                {navBtn("profile", "Profile", false, false, undefined, "profile", isGuest)}
+                <div style={{ display: "inline-flex", alignItems: "center", flexShrink: 0 }}>{rulesInfoButton}</div>
+              </div>
             </div>
           </div>
         )}
 
         {isTablet && (
           <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
-            <div style={{ display: "flex", alignItems: "center", flexWrap: "nowrap" }}>
+            <div style={{ display: "flex", alignItems: "center", flexWrap: "nowrap", gap: 6 }}>
               {navBtn("home",    "Home",    false, false, undefined, "home")}
               {navBtn("store",   "Store",   false, false, undefined, "store")}
               {navBtn("profile", "Profile", false, false, undefined, "profile", isGuest)}
               {navBtn("career",  "Career",  false, false, undefined, "career",  isGuest)}
+              <div style={{ display: "inline-flex", alignItems: "center", flexShrink: 0 }}>{rulesInfoButton}</div>
             </div>
           </div>
         )}
@@ -489,10 +537,17 @@ export default function NavBar({
 
           {/* Currencies — show everywhere since sizing is increased */}
           {mounted && (
-            <div style={{ display: "flex", alignItems: "center", gap: 4, fontFamily: t.fontMono, fontSize: CURRENCY_FONT, fontWeight: 700 }}>
+            <div
+              title="ProtoCredits: premium currency to buy skins, themes, and bundles in the Store."
+              style={{ display: "flex", alignItems: "center", gap: 4, fontFamily: t.fontMono, fontSize: CURRENCY_FONT, fontWeight: 700 }}
+            >
               <div style={{ width: CURRENCY_SZ, height: CURRENCY_SZ, flexShrink: 0 }} dangerouslySetInnerHTML={{ __html: (themeId === "classic_light" ? PROTO_LIGHT_SVG : PROTO_DARK_SVG).replace("<svg ", `<svg width="${CURRENCY_SZ}" height="${CURRENCY_SZ}" `) }} />
               <span style={{ color: "#FFD700" }}>{protocredits}</span>
             </div>
+          )}
+
+          {isMobile && (
+            <div style={{ display: "inline-flex", alignItems: "center", flexShrink: 0 }}>{rulesInfoButton}</div>
           )}
 
           {/* Settings button */}
