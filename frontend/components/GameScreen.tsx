@@ -3657,12 +3657,6 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
               textSecondary: t.textSecondary,
               textMuted: t.textMuted,
             }}
-            onRematch={() => {
-              if (wsRef.current?.readyState === WebSocket.OPEN) {
-                wsRef.current.send(JSON.stringify({ type: "rematch" }));
-              }
-              setRematchRequested(mySlot);
-            }}
             onQuit={() => {
               if (wsRef.current?.readyState === WebSocket.OPEN) {
                 wsRef.current.send(JSON.stringify({ type: "quit_match", slot: mySlot }));
@@ -3918,12 +3912,6 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
             text: t.text,
             textSecondary: t.textSecondary,
             textMuted: t.textMuted,
-          }}
-          onRematch={() => {
-            if (wsRef.current?.readyState === WebSocket.OPEN) {
-              wsRef.current.send(JSON.stringify({ type: "rematch" }));
-            }
-            setRematchRequested(mySlot);
           }}
           onQuit={() => {
             if (wsRef.current?.readyState === WebSocket.OPEN) {

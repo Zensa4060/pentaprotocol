@@ -54,7 +54,6 @@ interface MatchResultScreenProps {
     textSecondary: string;
     textMuted: string;
   };
-  onRematch: () => void;
   onQuit: () => void;
 }
 
@@ -65,7 +64,6 @@ export default function MatchResultScreen({
   p2,
   mySlot,
   t,
-  onRematch,
   onQuit,
 }: MatchResultScreenProps) {
   const [showOptions, setShowOptions] = useState(false);
@@ -318,30 +316,7 @@ export default function MatchResultScreen({
               zIndex: 20,
             }}
           >
-            <div style={{ display: "flex", gap: 20 }}>
-               <motion.button
-                 whileHover={{ scale: 1.05, background: winnerColor, color: "#000" }}
-                 whileTap={{ scale: 0.95 }}
-                 onClick={onRematch}
-                 style={{
-                   padding: "20px 48px",
-                   background: `${winnerColor}22`,
-                   border: `1px solid ${winnerColor}AA`,
-                   borderRadius: 12,
-                   color: winnerColor,
-                   fontFamily: t.fontDisplay,
-                   fontSize: 18,
-                   fontWeight: 900,
-                   letterSpacing: "0.2em",
-                   cursor: "pointer",
-                   transition: "all 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
-                   textShadow: `0 0 10px ${winnerColor}44`,
-                   boxShadow: `0 10px 40px rgba(0,0,0,0.4), inset 0 0 20px ${winnerColor}11`,
-                 }}
-               >
-                 REMATCH
-               </motion.button>
-               
+            <div style={{ display: "flex", gap: 20, justifyContent: "center" }}>
                <motion.button
                  whileHover={{ scale: 1.05, background: "rgba(255,255,255,0.1)" }}
                  whileTap={{ scale: 0.95 }}
