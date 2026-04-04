@@ -1,11 +1,23 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useAuthStore } from "@/lib/store";
 import { THEMES } from "@/lib/themes";
 import type { Screen } from "@/lib/types";
 import type { ThemeId } from "@/lib/themes";
 import { SHARDS_LIGHT_SVG, SHARDS_DARK_SVG, PROTO_LIGHT_SVG, PROTO_DARK_SVG } from "@/lib/currencyIcons";
 import { getUserKey, loadMissionState } from "@/lib/missionsClient";
+import { countClaimableMissions } from "@/lib/countClaimableMissions";
+import { getStoreCatalogSignature } from "@/components/Storescreen";
+import {
+  PP_NAV_BADGES_EVENT,
+  clearCareerNavBadge,
+  clearProfileNavBadge,
+  getCareerNavBadgeCount,
+  getCollectionNavBadgeCount,
+  getPatchNavBadgeCount,
+  getProfileNavBadgeCount,
+  getStoreNewCatalogBadgeCount,
+} from "@/lib/navBadgeState";
 
 export const RANKS = [
   { name: "NOVICE",       min: 0,    max: 500,  color: "#9CA3AF", img: "/novice.svg",       scale: 1.3   },
@@ -164,6 +176,10 @@ export default function NavBar({
   const [menuOpen, setMenuOpen]         = useState(false);
   const [vw, setVw]                     = useState(1440);
   const [missionShardBonus, setMissionShardBonus] = useState(0);
+  const [navBadgeTick, setNavBadgeTick] = useState(0);
+  const [badgeNow, setBadgeNow]         = useState(() => Date.now());
+
+  const storeCatalogSig = useMemo(() => getStoreCatalogSignature(), []);
 
   const ip        = themeId === "pixel";
   const isClassic = themeId === "classic_light" || themeId === "classic_dark";
@@ -177,6 +193,103 @@ export default function NavBar({
   }, []);
 
   useEffect(() => { setMounted(true); }, []);
+
+  useEffect(() => {
+    const id = window.setInterval(() => setBadgeNow(Date.now()), 60000);
+    return () => window.clearInterval(id);
+  }, []);
+
+  useEffect(() => {
+    const on = () => setNavBadgeTick((x) => x + 1);
+    window.addEventListener(PP_NAV_BADGES_EVENT, on);
+    window.addEventListener("pp_mission_event", on);
+    window.addEventListener("pp_mission_state_change", on);
+    window.addEventListener("storage", on);
+    return () => {
+      window.removeEventListener(PP_NAV_BADGES_EVENT, on);
+      window.removeEventListener("pp_mission_event", on);
+      window.removeEventListener("pp_mission_state_change", on);
+      window.removeEventListener("storage", on);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (screen === "career") clearCareerNavBadge();
+    if (screen === "profile") clearProfileNavBadge();
+  }, [screen]);
+
+  const missionClaimBadge = useMemo(() => {
+    void navBadgeTick;
+    void badgeNow;
+    if (!user) return 0;
+    try {
+      return countClaimableMissions(getUserKey(user), user as Record<string, unknown>, badgeNow);
+    } catch {
+      return 0;
+    }
+  }, [user, navBadgeTick, badgeNow]);
+
+  const patchNoteBadge = useMemo(() => {
+    void navBadgeTick;
+    return getPatchNavBadgeCount();
+  }, [navBadgeTick]);
+
+  const storeNewBadge = useMemo(() => {
+    void navBadgeTick;
+    return getStoreNewCatalogBadgeCount(storeCatalogSig);
+  }, [storeCatalogSig, navBadgeTick]);
+
+  const careerMpBadge = useMemo(() => {
+    void navBadgeTick;
+    return getCareerNavBadgeCount();
+  }, [navBadgeTick]);
+
+  const profileNotifyBadge = useMemo(() => {
+    void navBadgeTick;
+    return getProfileNavBadgeCount();
+  }, [navBadgeTick]);
+
+  const collectionNotifyBadge = useMemo(() => {
+    void navBadgeTick;
+    return getCollectionNavBadgeCount();
+  }, [navBadgeTick]);
+
+  const mobileNavBadge = (target: string): number => {
+    switch (target) {
+      case "patchNotes": return patchNoteBadge;
+      case "collection": return collectionNotifyBadge;
+      case "store": return storeNewBadge;
+      case "career": return careerMpBadge;
+      case "battlepass": return missionClaimBadge;
+      case "profile": return profileNotifyBadge;
+      default: return 0;
+    }
+  };
+
+  const navCountPill = (n: number) =>
+    n > 0 ? (
+      <span
+        aria-hidden
+        style={{
+          minWidth: 18,
+          height: 18,
+          padding: "0 5px",
+          borderRadius: 999,
+          background: "#dc2626",
+          color: "#fff",
+          fontSize: 10,
+          fontWeight: 800,
+          display: "inline-flex",
+          alignItems: "center",
+          justifyContent: "center",
+          lineHeight: 1,
+          boxShadow: "0 0 0 2px rgba(0,0,0,0.35)",
+          flexShrink: 0,
+        }}
+      >
+        {n > 99 ? "99+" : n}
+      </span>
+    ) : null;
 
   useEffect(() => {
     if (typeof window === "undefined" || !user) {
@@ -281,6 +394,7 @@ export default function NavBar({
     onClick?: () => void,
     targetScreen?: Screen,
     locked = false,
+    badgeCount?: number,
   ) => {
     const isActive  = getActive(target);
     const isHovered = hoveredBtn === target && !disabled;
@@ -292,10 +406,13 @@ export default function NavBar({
       : isDanger ? `${t.danger}CC`
       : `${t.textSecondary}EE`;
 
+    const bc = badgeCount && badgeCount > 0 ? badgeCount : 0;
     return (
       <button
         key={target}
         disabled={disabled}
+        type="button"
+        title={bc ? `${label} — ${bc} notification${bc === 1 ? "" : "s"}` : undefined}
         onClick={() => { if (onClick) { onClick(); return; } if (targetScreen) navigate(targetScreen, locked); }}
         onMouseEnter={() => { onHoverAction?.(); setHoveredBtn(target); }}
         onMouseLeave={() => setHoveredBtn(null)}
@@ -323,7 +440,8 @@ export default function NavBar({
           flexShrink: 0,
         }}
       >
-        <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+        <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          {navCountPill(bc)}
           {label.toUpperCase()}
           {locked && (
             <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.8 }}>
@@ -504,14 +622,14 @@ export default function NavBar({
             overflow: "hidden"
           }}>
             <div style={{ display: "flex", alignItems: "center", flexWrap: "nowrap", gap: "2vw" }}>
-              {navBtn("patchNotes", "PATCH NOTES", false, false, undefined, "patchNotes")}
-              {navBtn("collection", "Collection", false, false, undefined, "collection")}
-              {navBtn("store",      "Store",      false, false, undefined, "store")}
+              {navBtn("patchNotes", "PATCH NOTES", false, false, undefined, "patchNotes", false, patchNoteBadge)}
+              {navBtn("collection", "Collection", false, false, undefined, "collection", false, collectionNotifyBadge)}
+              {navBtn("store",      "Store",      false, false, undefined, "store", false, storeNewBadge)}
               {navBtn("home",       "Home",       false, false, undefined, "home")}
-              {navBtn("career",     "Career",     false, false, undefined, "career",     isGuest)}
-              {navBtn("battlepass", "MISSIONS", false, false, undefined, "battlepass", isGuest)}
+              {navBtn("career",     "Career",     false, false, undefined, "career",     isGuest, careerMpBadge)}
+              {navBtn("battlepass", "MISSIONS", false, false, undefined, "battlepass", isGuest, missionClaimBadge)}
               <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                {navBtn("profile", "Profile", false, false, undefined, "profile", isGuest)}
+                {navBtn("profile", "Profile", false, false, undefined, "profile", isGuest, profileNotifyBadge)}
                 <div style={{ display: "inline-flex", alignItems: "center", flexShrink: 0 }}>{rulesInfoButton}</div>
               </div>
             </div>
@@ -522,9 +640,9 @@ export default function NavBar({
           <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
             <div style={{ display: "flex", alignItems: "center", flexWrap: "nowrap", gap: 6 }}>
               {navBtn("home",    "Home",    false, false, undefined, "home")}
-              {navBtn("store",   "Store",   false, false, undefined, "store")}
-              {navBtn("profile", "Profile", false, false, undefined, "profile", isGuest)}
-              {navBtn("career",  "Career",  false, false, undefined, "career",  isGuest)}
+              {navBtn("store",   "Store",   false, false, undefined, "store", false, storeNewBadge)}
+              {navBtn("profile", "Profile", false, false, undefined, "profile", isGuest, profileNotifyBadge)}
+              {navBtn("career",  "Career",  false, false, undefined, "career",  isGuest, careerMpBadge)}
               <div style={{ display: "inline-flex", alignItems: "center", flexShrink: 0 }}>{rulesInfoButton}</div>
             </div>
           </div>
@@ -606,8 +724,12 @@ export default function NavBar({
           animation: "menuSlideDown 0.2s ease both",
           boxShadow: "0 8px 32px rgba(0,0,0,0.4)",
         }}>
-          {navLinks.map(({ target, label, screen: s, locked }) => (
+          {navLinks.map(({ target, label, screen: s, locked }) => {
+            const mb = mobileNavBadge(target);
+            return (
               <button
+                type="button"
+                key={target}
                 onClick={() => navigate(s, locked)}
               style={{
                 background: getActive(target) ? `${t.accent}18` : "none",
@@ -628,7 +750,11 @@ export default function NavBar({
                 transition: "all 0.15s",
               }}
             >
-              <span>{label}</span>
+              <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                {navCountPill(mb)}
+                {label}
+              </span>
+              <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
               {locked && (
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.7 }}>
                   <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
@@ -636,8 +762,10 @@ export default function NavBar({
                 </svg>
               )}
               {getActive(target) && <span style={{ fontSize: 11, color: t.accent }}>●</span>}
+              </span>
             </button>
-          ))}
+          );
+          })}
 
         </div>
       )}

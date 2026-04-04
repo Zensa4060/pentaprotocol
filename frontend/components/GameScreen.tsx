@@ -38,6 +38,7 @@ const ForgeGridCompat = ForgeGrid as React.ComponentType<any>;
 const VoidGridCompat = VoidGrid as React.ComponentType<any>;
 const TokyoGridCompat = TokyoGrid as React.ComponentType<any>;
 import { getUserKey, pushMissionEvent } from "@/lib/missionsClient";
+import { markCareerAfterMultiplayerSeriesEnd } from "@/lib/navBadgeState";
 import MatchResultScreen from "./MatchResultScreen";
 import GameWinScreen from "./GameWinScreen";
 import { persistLobbyTauntQuote, type LobbyQuoteResult } from "@/lib/lobbyTauntQuote";
@@ -2514,6 +2515,12 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     setScreenAction?.("career", { exitMultiGameToCareer: true });
   }, [matchSeriesComplete?.careerEntryId, isMultiplayerGame, mySlot, setScreenAction]);
 
+  useEffect(() => {
+    if (showGameWinScreen && matchSeriesComplete && isMultiplayerGame) {
+      markCareerAfterMultiplayerSeriesEnd();
+    }
+  }, [showGameWinScreen, matchSeriesComplete, isMultiplayerGame]);
+
   const useRbExtraTurnToken = useCallback(() => {
     if (phase !== "playing" || winner) return;
     if (!rbExtraTurnTokenHolder || rbExtraTurnTokenUsed) return;
@@ -3623,12 +3630,6 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
                   setShowRankedMatchResult(true);
                 }
               : undefined}
-            onRematch={() => {
-              if (wsRef.current?.readyState === WebSocket.OPEN) {
-                wsRef.current.send(JSON.stringify({ type: "rematch" }));
-              }
-              setRematchRequested(mySlot);
-            }}
             onQuit={() => {
               if (wsRef.current?.readyState === WebSocket.OPEN) {
                 wsRef.current.send(JSON.stringify({ type: "quit_match", slot: mySlot }));
@@ -3891,12 +3892,6 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
                 setShowRankedMatchResult(true);
               }
             : undefined}
-          onRematch={() => {
-            if (wsRef.current?.readyState === WebSocket.OPEN) {
-              wsRef.current.send(JSON.stringify({ type: "rematch" }));
-            }
-            setRematchRequested(mySlot);
-          }}
           onQuit={() => {
             if (wsRef.current?.readyState === WebSocket.OPEN) {
               wsRef.current.send(JSON.stringify({ type: "quit_match", slot: mySlot }));

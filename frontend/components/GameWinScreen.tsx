@@ -48,7 +48,6 @@ interface GameWinScreenProps {
     textSecondary: string;
     textMuted: string;
   };
-  onRematch: () => void;
   onQuit: () => void;
   onContinue?: () => void;
   /** Navigate to career with this match highlighted (multiplayer series end). */
@@ -62,7 +61,6 @@ export default function GameWinScreen({
   p2,
   mySlot,
   t,
-  onRematch,
   onQuit,
   onContinue,
   onGoToCareer,
@@ -329,23 +327,6 @@ export default function GameWinScreen({
                     CONTINUE
                   </button>
                 )}
-                <button
-                  onClick={onRematch}
-                  style={{
-                    padding: "16px 28px",
-                    borderRadius: 14,
-                    border: `1px solid ${accentColor}99`,
-                    background: `${accentColor}1c`,
-                    color: accentColor,
-                    fontFamily: t.fontDisplay,
-                    fontSize: 16,
-                    fontWeight: 900,
-                    letterSpacing: "0.16em",
-                    cursor: "pointer",
-                  }}
-                >
-                  REMATCH
-                </button>
                 <button
                   onClick={onQuit}
                   style={{

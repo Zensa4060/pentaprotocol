@@ -1,11 +1,10 @@
 "use client";
 
-import React from "react";
+import React, { useEffect } from "react";
 import type { ThemeId } from "@/lib/themes";
 import { THEMES } from "@/lib/themes";
-
-/** Keep in sync with frontend/package.json version; shown as open beta label. */
-const BETA_VERSION = "0.1.0-beta";
+import { PATCH_NOTES_STAMP } from "@/lib/patchNotesVersion";
+import { recordPatchNotesOpened } from "@/lib/navBadgeState";
 
 const UPDATES: { date: string; items: string[] }[] = [
   {
@@ -25,6 +24,10 @@ interface Props {
 export default function PatchNotesScreen({ themeId }: Props) {
   const t = THEMES[themeId];
   const ip = themeId === "pixel";
+
+  useEffect(() => {
+    recordPatchNotesOpened();
+  }, []);
 
   return (
     <div
@@ -64,7 +67,7 @@ export default function PatchNotesScreen({ themeId }: Props) {
             letterSpacing: "0.06em",
           }}
         >
-          Open beta · v{BETA_VERSION}
+          Open beta · v{PATCH_NOTES_STAMP}
         </p>
 
         <div

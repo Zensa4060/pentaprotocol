@@ -1,6 +1,7 @@
 "use client";
 import { create } from "zustand";
 import API from "./api";
+import { noteProfileProgressAfterMerge } from "./navBadgeState";
 
 // ── Token expiry helpers ──────────────────────────────────────────────────────
 const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
@@ -103,6 +104,7 @@ export const useAuthStore = create<AuthStore>((set, get) => {
         purchased_items: mergeArray("purchased_items"),
       };
 
+      noteProfileProgressAfterMerge(current, updated);
       saveUser(updated);
       set({ user: updated });
     },

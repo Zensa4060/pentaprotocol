@@ -130,10 +130,6 @@ export default function AIScreen({ setScreenAction, themeId, onSelectDifficultyA
             letterSpacing: ip ? "0.08em" : "0.04em",
             lineHeight: 1.1,
           }}>
-            THE GREAT GRID WAR
-          </div>
-
-          <div style={{ fontFamily: t.fontBody, fontSize: 16, color: t.textMuted, textAlign: "center", maxWidth: 440 }}>
             CHOOSE YOUR DEMISE
           </div>
 

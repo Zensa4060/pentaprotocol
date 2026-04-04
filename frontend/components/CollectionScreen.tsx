@@ -4,6 +4,7 @@ import type { ThemeId } from "@/lib/themes";
 import { THEMES } from "@/lib/themes";
 import API from "@/lib/api";
 import { useAuthStore } from "@/lib/store";
+import { clearCollectionNavBadge } from "@/lib/navBadgeState";
 import { TITLES } from "./ProfileScreen";
 import { BannerRenderer } from "./BannerRenderer";
 import { GlacierSigilPiece, GlacierPrismPiece } from "./GamePieces";
@@ -640,6 +641,9 @@ export default function CollectionScreen({ themeId, setThemeIdAction, onHoverAct
   const hoverColor = isClassic ? "#CC0000" : t.accent;
 
   const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    clearCollectionNavBadge();
+  }, []);
   useEffect(() => {
     const update = () => setIsMobile(window.innerWidth < 768);
     update();

@@ -109,10 +109,6 @@ export default function SingleplayerScreen({ setScreenAction, themeId, onHoverAc
             GOT NO ONE TO PLAY WITH?
           </div>
 
-          <div style={{ fontFamily: t.fontBody, fontSize: 16, color: t.textMuted, textAlign: "center", maxWidth: 440 }}>
-            SWEATY TRYHARDS
-          </div>
-
           <div style={{ display: "flex", flexDirection: "column", gap: 14, width: "100%", maxWidth: 480 }}>
             {(["5x5", "6x6", "7x7"] as BoardMode[]).map((mode, i) => {
               const isSelected = boardMode === mode;

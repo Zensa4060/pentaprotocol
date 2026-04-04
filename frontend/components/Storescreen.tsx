@@ -5,6 +5,7 @@ import type { ThemeId } from "@/lib/themes";
 import { THEMES } from "@/lib/themes";
 import API from "@/lib/api";
 import { useAuthStore } from "@/lib/store";
+import { bumpCollectionNavBadge, recordStoreCatalogSeen } from "@/lib/navBadgeState";
 import { PROTO_DARK_SVG, SHARDS_DARK_SVG } from "@/lib/currencyIcons";
 import {
   Embers, HeatOverlay, FrostCrystals, IceOverlay,
@@ -177,6 +178,27 @@ type CoinBundle = { id: string; label: string; tagline: string; desc: string; ac
 const COIN_BUNDLES: CoinBundle[] = [
   { id: "wraith_king_coin", label: "WRAITH KING COIN", tagline: "DOMINION & SERVITUDE — Rulebreaker toss skin", desc: "Crowned skull (PENTA) and soul portal (PROTO), spectral particles, and a full Rulebreaker toss animation. Equip the toss in Collection after unlock.", accentColor: "#aa66ee", bgGradient: "linear-gradient(160deg,#0c0618,#12041c,#06020c)", bundlePrice: 299, shardPrice: 50, purchaseId: "coin_bundle_wraith_king", tags: ["COIN", "RULEBREAKER", "BUNDLE"] },
 ];
+
+/** Sorted signature of purchasable cosmetic ids — bump nav “Store” badge when this string changes. */
+export function getStoreCatalogSignature(): string {
+  const ids = new Set<string>();
+  for (const th of STORE_THEMES) {
+    if (th.purchaseId) ids.add(th.purchaseId);
+    if (th.boardId) ids.add(th.boardId);
+    ids.add(`theme_bundle_${th.id}`);
+  }
+  for (const b of STORE_BANNERS) {
+    if (b.id === "default") continue;
+    ids.add(b.id);
+  }
+  for (const b of BUNDLES) {
+    ids.add(b.boardId);
+    ids.add(b.pieceId);
+    ids.add(`bundle_purchase_${b.id}`);
+  }
+  for (const c of COIN_BUNDLES) ids.add(c.purchaseId);
+  return [...ids].sort().join("|");
+}
 
 type ProfileBundle = { id: string; label: string; tagline: string; accentColor: string; bgGradient: string; tags: string[] };
 const PROFILE_BUNDLES: ProfileBundle[] = [];
@@ -639,6 +661,10 @@ export default function StoreScreen({ setScreenAction, themeId, audio }: Props) 
     if (b && ownsBundle(b)) setOpenBundle(null);
   }, [openBundle, purchasedItems]);
 
+  useEffect(() => {
+    recordStoreCatalogSeen(getStoreCatalogSignature());
+  }, []);
+
   const showError = (text: string) => { setMsg({ text, ok: false }); setTimeout(() => setMsg(null), 1000); };
 
   const cssVars = { "--font-display": t.fontDisplay, "--font-mono": t.fontMono, "--font-body": t.fontBody, "--text": t.text, "--text-muted": t.textMuted, "--border": t.border, "--accent": accent } as React.CSSProperties;
@@ -703,6 +729,7 @@ export default function StoreScreen({ setScreenAction, themeId, audio }: Props) 
         await API.post("/api/store/purchase-item", { item_id: id, price, shard_price: shardPrice ?? 0 }, { headers: { Authorization: `Bearer ${token}` }, timeout: 15000 });
       }
       try { const me = await API.get("/api/profile/me", { headers: { Authorization: `Bearer ${token}` }, timeout: 15000 }); updateUser(me.data); } catch {}
+      bumpCollectionNavBadge(1);
       setMsg({ text: `✓ ${label} unlocked! Equip it in your Collection.`, ok: true }); setOpenBundle(null); setTimeout(() => setMsg(null), 3000);
     } catch (e: any) {
       const detail = e?.response?.data?.detail;
