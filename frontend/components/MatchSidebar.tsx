@@ -138,6 +138,10 @@ interface MatchSidebarProps {
   fmtTimeAction: (ms: number) => string;
   playHoverAction?: () => void;
   playClickAction?: () => void;
+  /** When false, hide inter-game ready controls (multiplayer delay / inter-leg upgrade). Defaults to `phase === "waiting_ready"`. */
+  interGameReadyVisible?: boolean;
+  /** Multiplayer: first ~1s after entering waiting_ready — muted “Get ready…” row. */
+  waitingReadyWarmup?: boolean;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -160,8 +164,11 @@ export function MatchSidebar({
   onSurrenderConfirmAction, onSurrenderCancelAction, onExitConfirmAction, onExitCancelAction,
   onShowSurrenderAction, onShowExitConfirmAction, onShowRematchOverlayAction,
   fmtTimeAction, playHoverAction, playClickAction,
+  interGameReadyVisible, waitingReadyWarmup,
 }: MatchSidebarProps) {
   const getName = (w: string | null) => winnerDisplayNameAction ? winnerDisplayNameAction(w) : (w ?? "");
+  const showInterGameReady = interGameReadyVisible ?? (phase === "waiting_ready");
+  const showWaitingReadyWarmup = Boolean(waitingReadyWarmup);
   const absoluteCurrentGame = historyDisplayStartIndex + gameNumber;
   const useFlameSkull = pieceSkin === "flame_skull";
   const useSnowflakeShard = pieceSkin === "snowflake_shard";
@@ -413,7 +420,12 @@ export function MatchSidebar({
       </div>
 
 
-      {phase === "waiting_ready" && (
+      {showWaitingReadyWarmup && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8, animation: "fadeUp 0.3s ease both" }}>
+          <div style={{ fontFamily: t.fontBody, fontSize: 14, fontWeight: 600, color: t.textMuted, letterSpacing: "0.06em", textAlign: "center" }}>Get ready…</div>
+        </div>
+      )}
+      {showInterGameReady && !showWaitingReadyWarmup && (
         <div style={{ display: "flex", flexDirection: "column", gap: 8, animation: "fadeUp 0.3s ease both" }}>
           <div style={{ fontFamily: t.fontMono, fontSize: 20, fontWeight: 700, color: t.text, letterSpacing: "0.12em" }}>READY TO PLAY</div>
           <div style={{ fontFamily: t.fontMono, fontSize: 28, fontWeight: 700, color: t.accent, textAlign: "center" }}>{Math.ceil(readyTimeout)}s</div>
@@ -519,9 +531,12 @@ export function LeftPanel(props: MatchSidebarProps) {
   chatMessages, chatInput, chatOpen, chatWarning, unreadOpponentChat = 0,
   p1Label, p2Label, p1Banner, p2Banner, winnerDisplayNameAction, lastSeries, segmentStartIndex = 0, historyDisplayStartIndex = 0,
     onReadyToggle, onSendChat, onChatInputChange, onChatKeyDown, onChatOpenToggle,
-    onSoftReset, onShowSurrenderAction, onShowExitConfirmAction, fmtTimeAction, playHoverAction } = props;
+    onSoftReset, onShowSurrenderAction, onShowExitConfirmAction, fmtTimeAction, playHoverAction,
+    interGameReadyVisible, waitingReadyWarmup } = props;
 
   const getName = (w: string | null) => winnerDisplayNameAction ? winnerDisplayNameAction(w) : (w ?? "");
+  const showInterGameReady = interGameReadyVisible ?? (phase === "waiting_ready");
+  const showWaitingReadyWarmup = Boolean(waitingReadyWarmup);
   const absoluteCurrentGame = historyDisplayStartIndex + gameNumber;
   const useFlameSkull = pieceSkin === "flame_skull";
   const useSnowflakeShard = pieceSkin === "snowflake_shard";
@@ -691,7 +706,12 @@ export function LeftPanel(props: MatchSidebarProps) {
       </div>
 
 
-      {phase === "waiting_ready" && (
+      {showWaitingReadyWarmup && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8, animation: "fadeUp 0.3s ease both" }}>
+          <div style={{ fontFamily: t.fontBody, fontSize: 14, fontWeight: 600, color: t.textMuted, letterSpacing: "0.06em", textAlign: "center" }}>Get ready…</div>
+        </div>
+      )}
+      {showInterGameReady && !showWaitingReadyWarmup && (
         <div style={{ display: "flex", flexDirection: "column", gap: 8, animation: "fadeUp 0.3s ease both" }}>
           <div style={{ fontFamily: t.fontMono, fontSize: 20, fontWeight: 700, color: t.text, letterSpacing: "0.12em" }}>READY TO PLAY</div>
           <div style={{ fontFamily: t.fontMono, fontSize: 28, fontWeight: 700, color: t.accent, textAlign: "center" }}>{Math.ceil(readyTimeout)}s</div>
@@ -705,7 +725,7 @@ export function LeftPanel(props: MatchSidebarProps) {
                   style={{ background: rdy ? `${col}22` : "#AA000022", border: `2px solid ${rdy ? col : "#AA0000"}`, color: rdy ? col : "#EE0000", fontFamily: t.fontMono, fontSize: 15, fontWeight: 700, padding: "12px", borderRadius: ip ? 2 : 6, cursor: "pointer", transition: "all 0.2s", boxShadow: rdy ? `0 0 16px ${col}55, 0 0 4px ${col}33` : "none" }}
                   onMouseEnter={e => { playHoverAction?.(); e.currentTarget.style.boxShadow = rdy ? `0 0 24px ${col}88` : "0 0 16px #EE000055"; e.currentTarget.style.borderColor = rdy ? col : "#FF3333"; }}
                   onMouseLeave={e => { e.currentTarget.style.boxShadow = rdy ? `0 0 16px ${col}55` : "none"; e.currentTarget.style.borderColor = rdy ? col : "#AA0000"; }}
-                >{props.matchHistory.length >= 2 ? "START RULEBREAKER" : `START GAME ${gameNumber + 1}`} {rdy ? "READY" : ""}</button>
+                >{matchHistory.length >= 2 ? "START RULEBREAKER" : `START GAME ${gameNumber + 1}`} {rdy ? "READY" : ""}</button>
               );
             })()
           ) : (

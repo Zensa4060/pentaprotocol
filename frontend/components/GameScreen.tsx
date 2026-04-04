@@ -69,6 +69,13 @@ function startingLegFromBoardMode(mode: BoardMode): "5x5" | "6x6" | "7x7" {
   return seg[0] ?? "5x5";
 }
 
+/** Matches backend `_effective_board_mode` — playable size label for a room `board_mode` string. */
+function effectivePlayBoardMode(mode: BoardMode | string | undefined): "5x5" | "6x6" | "7x7" {
+  const m = (mode ?? "5x5") as string;
+  if (m === "5x5" || m === "6x6" || m === "7x7") return m;
+  return startingLegFromBoardMode(m as BoardMode);
+}
+
 function fallbackGridSizeFromMode(mode: BoardMode): PlayGridSize {
   const leg = startingLegFromBoardMode(mode);
   if (leg === "7x7") return 7;
@@ -323,6 +330,16 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   useEffect(() => {
     rulesMatchGateRef.current = rulesMatchGate;
   }, [rulesMatchGate]);
+  const [mpReadyGateOpen, setMpReadyGateOpen] = useState(true);
+  const [interLegUpgradePending, setInterLegUpgradePending] = useState(false);
+  const mpReadyGateOpenRef = useRef(true);
+  const interLegUpgradePendingRef = useRef(false);
+  useEffect(() => {
+    mpReadyGateOpenRef.current = mpReadyGateOpen;
+  }, [mpReadyGateOpen]);
+  useEffect(() => {
+    interLegUpgradePendingRef.current = interLegUpgradePending;
+  }, [interLegUpgradePending]);
   const [matchSeriesComplete, setMatchSeriesComplete] = useState<MatchSeriesCompletePayload | null>(null);
   /** Briefly ignore game_reset clearing the series-complete overlay (race with match_series_complete). */
   const matchSeriesUiLockUntilRef = useRef(0);
@@ -586,6 +603,19 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   const [readyTimeout, setReadyTimeout] = useState(60);
   const [readyTimer, setReadyTimer] = useState(0);
   const [phase, setPhase] = useState<Phase>("playing");
+  useEffect(() => {
+    if (!isMultiplayerGame) {
+      setMpReadyGateOpen(true);
+      return;
+    }
+    if (phase !== "waiting_ready") {
+      setMpReadyGateOpen(true);
+      return;
+    }
+    setMpReadyGateOpen(false);
+    const id = setTimeout(() => setMpReadyGateOpen(true), 1000);
+    return () => clearTimeout(id);
+  }, [phase, isMultiplayerGame]);
   const [showMatchupOverlay, setShowMatchupOverlay] = useState(!!matchupData);
   const [matchupCountdown, setMatchupCountdown] = useState(10.0);
   const [matchStartAtMs, setMatchStartAtMs] = useState<number | null>(null);
@@ -883,9 +913,11 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
                 }
               }
                 if (msg.winner) {
-                const skipDrawOverlay = Boolean(
-                  (msg as { auto_7x7_upgrade_follows?: boolean }).auto_7x7_upgrade_follows,
-                );
+                const mm = msg as { auto_7x7_upgrade_follows?: boolean; auto_6x6_upgrade_follows?: boolean };
+                if (mm.auto_6x6_upgrade_follows || mm.auto_7x7_upgrade_follows) {
+                  setInterLegUpgradePending(true);
+                }
+                const skipDrawOverlay = Boolean(mm.auto_7x7_upgrade_follows || mm.auto_6x6_upgrade_follows);
                 const wl = (msg.win_line ?? []) as [number, number][];
                 setWinLine(wl);
                 setWinner(msg.winner);
@@ -1025,7 +1057,8 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
           }
           awaiting7x7RulesRef.current = r.awaiting_7x7_rules_ready === true;
           const slot = playerSlot ?? "P1";
-          if (r.board_mode === "5x5" && r.awaiting_5x5_rules_ready === true) {
+          const roomEffBm = effectivePlayBoardMode(r.board_mode as BoardMode);
+          if (roomEffBm === "5x5" && r.awaiting_5x5_rules_ready === true) {
             setRulesMatchGate(true);
             setRulesShowSheet("5x5");
             setShow7x7LevelUp(false);
@@ -1036,7 +1069,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
             setOverlayVisible(false);
             setMatchOver(false);
             setSeriesWinner(null);
-          } else if (r.board_mode === "6x6" && (r as { awaiting_6x6_rules_ready?: boolean }).awaiting_6x6_rules_ready === true) {
+          } else if (roomEffBm === "6x6" && (r as { awaiting_6x6_rules_ready?: boolean }).awaiting_6x6_rules_ready === true) {
             setRulesMatchGate(true);
             setShow7x7LevelUp(false);
             setShow6x6LevelUp(false);
@@ -1048,7 +1081,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
             setOverlayVisible(false);
             setMatchOver(false);
             setSeriesWinner(null);
-          } else if (r.board_mode === "7x7" && r.awaiting_7x7_rules_ready === true) {
+          } else if (roomEffBm === "7x7" && r.awaiting_7x7_rules_ready === true) {
             setRulesMatchGate(true);
             setRulesShowSheet("7x7");
             setPhase("playing");
@@ -1143,15 +1176,16 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
             if (r.player1_banner) setP1Banner(String(r.player1_banner));
             if (r.player2_banner) setP2Banner(String(r.player2_banner));
             if (r.board_mode) setLiveBoardMode(r.board_mode as BoardMode);
-            if (r.board_mode === "5x5" && r.awaiting_5x5_rules_ready === true) {
+            const joinedEff = effectivePlayBoardMode(r.board_mode as BoardMode);
+            if (joinedEff === "5x5" && r.awaiting_5x5_rules_ready === true) {
               setRulesMatchGate(true);
               setRulesShowSheet("5x5");
             }
-            if (r.board_mode === "6x6" && (r as { awaiting_6x6_rules_ready?: boolean }).awaiting_6x6_rules_ready === true) {
+            if (joinedEff === "6x6" && (r as { awaiting_6x6_rules_ready?: boolean }).awaiting_6x6_rules_ready === true) {
               setRulesMatchGate(true);
               setRulesShowSheet("6x6");
             }
-            if (r.board_mode === "7x7" && r.awaiting_7x7_rules_ready === true) {
+            if (joinedEff === "7x7" && r.awaiting_7x7_rules_ready === true) {
               setRulesMatchGate(true);
               setRulesShowSheet("7x7");
             }
@@ -1175,6 +1209,8 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
           setShow7x7LevelUp(false);
           setShow6x6LevelUp(false);
           setRulesMatchGate(false);
+          winClickLockRef.current = false;
+          setIsBoardPaused(false);
             } else if (msg.type === "rb_extra_turn_update") {
           const et = asNum(msg.extra_turns);
           if (typeof et === "number") setExtraTurns(et);
@@ -1238,6 +1274,11 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
             next_slot?: string;
             coin_due_ms?: number;
           };
+          setInterLegUpgradePending(false);
+          setShowWinOverlay(false);
+          setOverlayVisible(false);
+          winClickLockRef.current = false;
+          setIsBoardPaused(false);
           const tw = m.toss_winner === "P2" ? "P2" : "P1";
           setPbOverlay({
             tossWinner: tw,
@@ -1279,6 +1320,9 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
             chatToastTimerRef.current = setTimeout(() => setChatToastVisible(false), 4000);
           }
             } else if (msg.type === "game_reset") {
+          winClickLockRef.current = false;
+          setIsBoardPaused(false);
+          setInterLegUpgradePending(false);
           const gr0 = msg as { protocolbreaker_final?: boolean; limitbreaker_final?: boolean };
           if (gr0.protocolbreaker_final || gr0.limitbreaker_final) {
             setPbOverlay(null);
@@ -1286,9 +1330,10 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
           const gr = msg as { from_5x5_draw_upgrade?: boolean; from_5x5_level_up?: boolean; from_6x6_level_up?: boolean };
           const from55Up = Boolean(gr.from_5x5_draw_upgrade || gr.from_5x5_level_up);
           const from66Up = Boolean(gr.from_6x6_level_up);
-          const nextBm = (msg.board_mode as BoardMode | undefined) ?? liveBoardMode;
+          const bmRaw = (msg.board_mode as BoardMode | undefined) ?? liveBoardMode;
+          const nextBmEff = effectivePlayBoardMode(bmRaw);
           const fromLegUpgrade = from55Up || from66Up;
-          const is56LevelUp = from55Up && nextBm === "6x6";
+          const is56LevelUp = from55Up && nextBmEff === "6x6";
 
           if (is56LevelUp) {
             awaiting6x6RulesRef.current = true;
@@ -1307,7 +1352,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
               levelUpSplashActiveRef.current = false;
               setShow6x6LevelUp(false);
             }, 2800);
-          } else if ((from55Up && nextBm === "7x7") || (from66Up && nextBm === "7x7")) {
+          } else if ((from55Up && nextBmEff === "7x7") || (from66Up && nextBmEff === "7x7")) {
             awaiting7x7RulesRef.current = true;
             awaiting6x6RulesRef.current = false;
             setShow6x6LevelUp(false);
@@ -1325,12 +1370,12 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
               setShow7x7LevelUp(false);
             }, 2800);
           } else {
-            if (!((msg as { awaiting_6x6_rules_ready?: boolean }).awaiting_6x6_rules_ready && nextBm === "6x6")) {
+            if (!((msg as { awaiting_6x6_rules_ready?: boolean }).awaiting_6x6_rules_ready && nextBmEff === "6x6")) {
               awaiting6x6RulesRef.current = false;
             }
             setShow6x6LevelUp(false);
           }
-          const gs = nextBm === "7x7" ? 7 : nextBm === "6x6" ? 6 : 5;
+          const gs = nextBmEff === "7x7" ? 7 : nextBmEff === "6x6" ? 6 : 5;
           const emptyB = Array(gs).fill(null).map(() => Array(gs).fill(null)) as (string | null)[][];
           if (msg.board_mode) {
             const bm = msg.board_mode as BoardMode;
@@ -1338,7 +1383,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
             onMultiplayerBoardSync?.(bm, Array.isArray(msg.selected_patterns) ? msg.selected_patterns : liveSelectedPatterns);
           }
           if (Array.isArray(msg.selected_patterns)) setLiveSelectedPatterns(msg.selected_patterns);
-          if (nextBm === "7x7") {
+          if (nextBmEff === "7x7") {
             const m7 = msg as { selected_patterns_p1?: unknown; selected_patterns_p2?: unknown; preserve_rb_hide?: boolean };
             if (Array.isArray(m7.selected_patterns_p1) && Array.isArray(m7.selected_patterns_p2)) {
               setServerStructuralPatternsP1(m7.selected_patterns_p1 as string[]);
@@ -1394,12 +1439,12 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
             }
           }
           setLog([]);
-          const mtm = nextBm === "7x7" ? 300_000 : nextBm === "6x6" ? 240_000 : 180_000;
+          const mtm = nextBmEff === "7x7" ? 300_000 : nextBmEff === "6x6" ? 240_000 : 180_000;
           setP1Time(mtm);
           setP2Time(mtm);
           p1TimeRef.current = mtm;
           p2TimeRef.current = mtm;
-          if (nextBm === "6x6" && (grm.rb6_timer_owner === "P1" || grm.rb6_timer_owner === "P2")) {
+          if (nextBmEff === "6x6" && (grm.rb6_timer_owner === "P1" || grm.rb6_timer_owner === "P2")) {
             setRb6TimerOwner(grm.rb6_timer_owner);
             if (grm.rb6_timer_owner === "P1") {
               setP1Time(120_000);
@@ -1503,21 +1548,21 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
           if (isMultiplayerGame) {
             const grAwait = msg as { awaiting_5x5_rules_ready?: boolean; awaiting_6x6_rules_ready?: boolean; awaiting_7x7_rules_ready?: boolean };
             const skip6Splash = is56LevelUp;
-            const skip7Splash = (from55Up && nextBm === "7x7") || (from66Up && nextBm === "7x7");
-            if (nextBm === "5x5" && grAwait.awaiting_5x5_rules_ready) {
+            const skip7Splash = (from55Up && nextBmEff === "7x7") || (from66Up && nextBmEff === "7x7");
+            if (nextBmEff === "5x5" && grAwait.awaiting_5x5_rules_ready) {
               setRulesMatchGate(true);
               setRulesShowSheet("5x5");
               setP1LevelUpReady(false);
               setP2LevelUpReady(false);
             }
-            if (nextBm === "6x6" && grAwait.awaiting_6x6_rules_ready && !skip6Splash) {
+            if (nextBmEff === "6x6" && grAwait.awaiting_6x6_rules_ready && !skip6Splash) {
               awaiting6x6RulesRef.current = true;
               setRulesMatchGate(true);
               setRulesShowSheet("6x6");
               setP1LevelUpReady(false);
               setP2LevelUpReady(false);
             }
-            if (nextBm === "7x7" && grAwait.awaiting_7x7_rules_ready && !skip7Splash) {
+            if (nextBmEff === "7x7" && grAwait.awaiting_7x7_rules_ready && !skip7Splash) {
               awaiting7x7RulesRef.current = true;
               setRulesMatchGate(true);
               setRulesShowSheet("7x7");
@@ -1981,6 +2026,12 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
           setReadyTimeout(v => {
             const nv = v - dt / 1000;
             if (nv <= 0) {
+              if (
+                isMultiplayerGame &&
+                (!mpReadyGateOpenRef.current || interLegUpgradePendingRef.current)
+              ) {
+                return 0.01;
+              }
               // Multiplayer: send ready via WS so server stays in sync
               if (isMultiplayerGame && wsRef.current?.readyState === WebSocket.OPEN) {
                 wsRef.current.send(JSON.stringify({ type: "ready", ready: true }));
@@ -2914,17 +2965,24 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   );
 
   const onReadyToggle = (player: "P1" | "P2") => {
-    if (isMultiplayerGame && mySlot !== player) return;
-    const newVal = player === "P1" ? !p1Ready : !p2Ready;
-    if (isMultiplayerGame && wsRef.current?.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify({ type: "ready", ready: newVal }));
+    if (isMultiplayerGame) {
+      if (!playerSlot || player !== playerSlot) return;
+      if (phase === "waiting_ready" && !mpReadyGateOpen) return;
+      if (interLegUpgradePending) return;
+      const newVal = playerSlot === "P1" ? !p1Ready : !p2Ready;
+      if (wsRef.current?.readyState === WebSocket.OPEN) {
+        wsRef.current.send(JSON.stringify({ type: "ready", ready: newVal }));
+      }
+      playerSlot === "P1" ? setP1Ready(newVal) : setP2Ready(newVal);
+      return;
     }
+    const newVal = player === "P1" ? !p1Ready : !p2Ready;
     player === "P1" ? setP1Ready(newVal) : setP2Ready(newVal);
     if ((gameMode === "ai" || gameMode === "singleplayer") && player === "P1") setP2Ready(newVal);
   };
   const onLevelUpReadyToggle = (selected?: string[]) => {
-    if (!isMultiplayerGame || !mySlot) return;
-    const isP1 = mySlot === "P1";
+    if (!isMultiplayerGame || !playerSlot) return;
+    const isP1 = playerSlot === "P1";
     const nextVal = isP1 ? !p1LevelUpReady : !p2LevelUpReady;
     if (isP1) setP1LevelUpReady(nextVal);
     else setP2LevelUpReady(nextVal);
@@ -3190,6 +3248,11 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
 
   if (showSplash) return splashScreen;
 
+  const interGameReadyVisible =
+    phase === "waiting_ready" && (!isMultiplayerGame || (mpReadyGateOpen && !interLegUpgradePending));
+  const waitingReadyWarmup =
+    isMultiplayerGame && phase === "waiting_ready" && !mpReadyGateOpen && !interLegUpgradePending;
+
   // ── MOBILE LAYOUT ─────────────────────────────────────────────────────────
   if (isMobile) {
     return (
@@ -3395,10 +3458,20 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
               {chatWarning && (!showMobileLog || mobileTab !== "chat") && <span style={{ position: "absolute", top: 4, right: 8, width: 6, height: 6, background: "#ff3333", borderRadius: "50%" }} />}
             </button>
           )}
-          {phase === "waiting_ready" && (
-            <button onClick={() => onReadyToggle(mySlot === "P1" || !isMultiplayerGame ? "P1" : "P2")} style={{ flex: 2, padding: "8px 0", background: `${t.accent}22`, border: `1px solid ${t.accent}`, borderRadius: 6, color: t.accent, fontFamily: t.fontMono, fontSize: 11, cursor: "pointer", fontWeight: 700 }}>
-              {(mySlot === "P1" ? p1Ready : p2Ready) ? "READY" : "TAP TO READY"}
+          {phase === "waiting_ready" && !isMultiplayerGame && (
+            <button onClick={() => onReadyToggle("P1")} style={{ flex: 2, padding: "8px 0", background: `${t.accent}22`, border: `1px solid ${t.accent}`, borderRadius: 6, color: t.accent, fontFamily: t.fontMono, fontSize: 11, cursor: "pointer", fontWeight: 700 }}>
+              {p1Ready ? "READY" : "TAP TO READY"}
             </button>
+          )}
+          {interGameReadyVisible && isMultiplayerGame && playerSlot && (
+            <button onClick={() => onReadyToggle(playerSlot)} style={{ flex: 2, padding: "8px 0", background: `${t.accent}22`, border: `1px solid ${t.accent}`, borderRadius: 6, color: t.accent, fontFamily: t.fontMono, fontSize: 11, cursor: "pointer", fontWeight: 700 }}>
+              {(playerSlot === "P1" ? p1Ready : p2Ready) ? "READY" : "TAP TO READY"}
+            </button>
+          )}
+          {waitingReadyWarmup && (
+            <div style={{ flex: 2, padding: "8px 0", textAlign: "center", fontFamily: t.fontMono, fontSize: 11, color: t.textMuted, fontWeight: 600, letterSpacing: "0.06em" }}>
+              Get ready…
+            </div>
           )}
           <button onClick={() => { playClickAction?.(); pausedRef.current = true; setShowExitConfirm(true); }} style={{ flex: 1, padding: "8px 0", background: "rgba(255,0,0,0.06)", border: "1px solid rgba(255,0,0,0.2)", borderRadius: 6, color: "#cc3333", fontFamily: t.fontMono, fontSize: 11, cursor: "pointer", letterSpacing: "0.06em" }}>
             EXIT
@@ -3687,6 +3760,8 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
         segmentStartIndex={segmentStartIndex}
         playHoverAction={playHoverAction}
         playClickAction={playClickAction}
+        interGameReadyVisible={interGameReadyVisible}
+        waitingReadyWarmup={waitingReadyWarmup}
       />
 
       {isMultiplayerGame && chatToastVisible && unreadOpponentChat > 0 && (
