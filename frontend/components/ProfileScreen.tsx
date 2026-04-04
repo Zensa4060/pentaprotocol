@@ -32,7 +32,7 @@ import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 export const RANKS = [
   { name: "NOVICE",       min: 0,    max: 500,  color: "#9CA3AF", icon: null, img: "/novice.svg",       scale: 1.3 },
   { name: "ADVANCED",     min: 500,  max: 1000, color: "#60A5FA", icon: null, img: "/advanced.svg",     scale: 1.3 },
-  { name: "PROFESSIONAL", min: 1000, max: 1500, color: "#34D399", icon: null, img: "/professional.svg", scale: 1.3 },
+  { name: "PROFESSIONAL", min: 1000, max: 1500, color: "#A78BFA", icon: null, img: "/professional.png?v=8", scale: 0.741 },
   { name: "EMERALD",      min: 1500, max: 2000, color: "#10B981", icon: null, img: "/emerald.svg",      scale: 1.495 },
   { name: "MASTER",       min: 2000, max: 2500, color: "#FF3333", icon: null, img: "/master.png?v=3" },
   { name: "LEGEND",       min: 2500, max: 1000000, color: "#F59E0B", icon: null, img: "/legend.png?v=3" },
@@ -169,7 +169,7 @@ export const RankIcon = ({ rank, size = 26 }: { rank: typeof RANKS[0]; size?: nu
             <div aria-hidden style={{ position:"absolute", left:"50%", top:"50%", width:"135%", height:"135%", borderRadius:"50%", background:rankHaloGradientForRank(rank.color, rank), pointerEvents:"none", zIndex:0, animation:"rankHaloPulse 2.6s ease-in-out infinite" }} />
           )}
           <img src={rank.img} alt={rank.name} draggable={false} className="rank-emblem-img"
-            style={{ width:imgSize, height:imgSize, objectFit:"contain", userSelect:"none", pointerEvents:"none", position:"relative", zIndex:1, filter:filt }} />
+            style={{ width:imgSize, height:imgSize, objectFit:"contain", userSelect:"none", pointerEvents:"none", position:"relative", zIndex:1, filter:filt, backgroundColor:"transparent" }} />
         </>
       ) : (
         <span style={{ fontSize:size*0.6, color:rank.color, lineHeight:1, userSelect:"none", pointerEvents:"none", position:"relative", zIndex:1,

@@ -9,6 +9,12 @@ import {
   PATTERN_METADATA_7,
   type PatternInfo,
 } from "@/lib/patterns_metadata";
+import {
+  formatRuleshowBlocks,
+  RULESHOW_BLOCKS_6X6,
+  RULESHOW_BLOCKS_7X7,
+  RULESHOW_BLOCKS_PROTOCOLBREAKER,
+} from "@/lib/ruleshowNarrative";
 
 interface Props {
   themeId: ThemeId;
@@ -27,6 +33,235 @@ interface Rule {
   screenshots?: { src: string; caption?: string }[];
   /** Rendered below `detail` (e.g. pattern grids). */
   extra?: React.ReactNode;
+}
+
+/** Generic mini-board: cells in `filled` use accent; optional `ring` cells get a highlight ring (e.g. centre C3). */
+function MiniBoardGrid({
+  size,
+  filled,
+  ring,
+  accent,
+  muted,
+  cellSize,
+  gap = 2,
+}: {
+  size: number;
+  filled: Set<string>;
+  ring?: Set<string>;
+  accent: string;
+  muted: string;
+  cellSize: number;
+  gap?: number;
+}) {
+  return (
+    <div
+      style={{
+        display: "grid",
+        gridTemplateRows: `repeat(${size}, ${cellSize}px)`,
+        gridTemplateColumns: `repeat(${size}, ${cellSize}px)`,
+        gap,
+      }}
+    >
+      {Array.from({ length: size }, (_, r) =>
+        Array.from({ length: size }, (_, c) => {
+          const key = `${r},${c}`;
+          const on = filled.has(key);
+          const isRing = ring?.has(key);
+          return (
+            <div
+              key={key}
+              style={{
+                width: cellSize,
+                height: cellSize,
+                borderRadius: 2,
+                background: on ? accent : "rgba(255,255,255,0.04)",
+                border: isRing
+                  ? `2px solid ${accent}`
+                  : on
+                    ? `1px solid ${accent}`
+                    : `1px solid ${muted}33`,
+                boxShadow: isRing ? `0 0 10px ${accent}44` : undefined,
+              }}
+            />
+          );
+        })
+      )}
+    </div>
+  );
+}
+
+function CentreC3Illustration({ accent, textMuted, fontMono, ip }: { accent: string; textMuted: string; fontMono: string; ip: boolean }) {
+  const n = 5;
+  const cell = ip ? 14 : 18;
+  const centre = new Set<string>([`${Math.floor(n / 2)},${Math.floor(n / 2)}`]);
+  return (
+    <div style={{ marginTop: 20 }}>
+      <div style={{ fontFamily: fontMono, fontSize: 11, letterSpacing: "0.12em", color: textMuted, marginBottom: 10 }}>
+        5×5 · FIRST MOVE ON C3 (CENTRE)
+      </div>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 20, alignItems: "center" }}>
+        <MiniBoardGrid size={n} filled={centre} ring={centre} accent={accent} muted={textMuted} cellSize={cell} />
+        <div style={{ fontFamily: fontMono, fontSize: 11, color: textMuted, maxWidth: 260, lineHeight: 1.55 }}>
+          Highlighted cell = C3. Landing your first stone here gives your opponent two consecutive extra turns (5×5 only).
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function LineWinStrip({ accent, textMuted, fontMono, ip }: { accent: string; textMuted: string; fontMono: string; ip: boolean }) {
+  const cell = ip ? 9 : 11;
+  const rows: { label: string; n: number; lineR: number }[] = [
+    { label: "5 in a row", n: 5, lineR: 2 },
+    { label: "6 in a row", n: 6, lineR: 3 },
+    { label: "7 in a row", n: 7, lineR: 3 },
+  ];
+  return (
+    <div style={{ marginTop: 20 }}>
+      <div style={{ fontFamily: fontMono, fontSize: 11, letterSpacing: "0.12em", color: textMuted, marginBottom: 12 }}>
+        LINE WINS · LENGTH MATCHES GRID
+      </div>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 24, alignItems: "flex-end" }}>
+        {rows.map(({ label, n, lineR }) => {
+          const filled = new Set<string>();
+          for (let c = 0; c < n; c++) filled.add(`${lineR},${c}`);
+          return (
+            <div key={label}>
+              <div style={{ fontFamily: fontMono, fontSize: 10, fontWeight: 700, color: accent, marginBottom: 6 }}>{label}</div>
+              <MiniBoardGrid size={n} filled={filled} accent={accent} muted={textMuted} cellSize={cell} />
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function Rulebreaker5Illustration({ accent, gold, textMuted, fontMono, ip }: { accent: string; gold: string; textMuted: string; fontMono: string; ip: boolean }) {
+  const box = (title: string, body: string) => (
+    <div
+      style={{
+        flex: "1 1 200px",
+        border: `1px solid ${accent}44`,
+        borderRadius: ip ? 2 : 10,
+        padding: "14px 16px",
+        background: `${accent}08`,
+      }}
+    >
+      <div style={{ fontFamily: fontMono, fontSize: 10, fontWeight: 800, color: gold, letterSpacing: "0.14em", marginBottom: 8 }}>{title}</div>
+      <div style={{ fontFamily: fontMono, fontSize: 10, color: textMuted, lineHeight: 1.5 }}>{body}</div>
+    </div>
+  );
+  return (
+    <div style={{ marginTop: 20 }}>
+      <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 14, marginBottom: 14 }}>
+        <div
+          style={{
+            width: 48,
+            height: 48,
+            borderRadius: "50%",
+            border: `2px solid ${gold}`,
+            background: `linear-gradient(135deg, ${gold}33, transparent)`,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontFamily: fontMono,
+            fontSize: 10,
+            fontWeight: 800,
+            color: gold,
+            letterSpacing: "0.08em",
+          }}
+        >
+          COIN
+        </div>
+        <div style={{ fontFamily: fontMono, fontSize: 11, color: textMuted, letterSpacing: "0.1em", maxWidth: 320 }}>
+          Toss winner picks a track before the next 5×5 game (when Rulebreaker runs).
+        </div>
+      </div>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
+        {box("WHO STARTS / C3", "Choose opening priority or block centre for move one — follow in-game prompts.")}
+        {box("PATTERN BANS (7×7 LEG)", "When scheduled, ban paths affect structural patterns — see 7×7 section.")}
+      </div>
+    </div>
+  );
+}
+
+function SingleSizePatternGroup({
+  label,
+  meta,
+  accent,
+  textMuted,
+  fontMono,
+  ip,
+}: {
+  label: string;
+  meta: Record<string, PatternInfo>;
+  accent: string;
+  textMuted: string;
+  fontMono: string;
+  ip: boolean;
+}) {
+  const cellSize = ip ? 10 : 12;
+  return (
+    <div style={{ marginTop: 20 }}>
+      <div style={{ fontFamily: fontMono, fontSize: 11, letterSpacing: "0.14em", color: textMuted, marginBottom: 12 }}>{label}</div>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 20, alignItems: "flex-start" }}>
+        {Object.values(meta).map((p) => (
+          <div key={p.id} style={{ maxWidth: 220 }}>
+            <div style={{ fontFamily: fontMono, fontSize: 11, fontWeight: 700, color: accent, marginBottom: 6 }}>{p.label}</div>
+            <div style={{ fontSize: 11, color: textMuted, marginBottom: 8, lineHeight: 1.45 }}>{p.desc}</div>
+            <PatternDiagram info={p} accent={accent} isSelected={false} cellSize={cellSize} />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function G10LimitbreakerIllustration({ accent, danger, textMuted, fontMono, ip }: { accent: string; danger: string; textMuted: string; fontMono: string; ip: boolean }) {
+  const cell = ip ? 8 : 10;
+  const mini = (n: number, banned: boolean, label: string) => {
+    const filled = new Set<string>();
+    return (
+      <div style={{ textAlign: "center", opacity: banned ? 0.45 : 1 }}>
+        <div style={{ fontFamily: fontMono, fontSize: 9, fontWeight: 700, color: banned ? danger : accent, marginBottom: 6, letterSpacing: "0.1em" }}>
+          {label}
+        </div>
+        <div style={{ position: "relative", display: "inline-block" }}>
+          <MiniBoardGrid size={n} filled={filled} accent={accent} muted={textMuted} cellSize={cell} />
+          {banned && (
+            <div
+              style={{
+                position: "absolute",
+                inset: -4,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                pointerEvents: "none",
+              }}
+            >
+              <span style={{ fontFamily: fontMono, fontSize: ip ? 28 : 34, fontWeight: 900, color: `${danger}CC`, textShadow: "0 0 12px #000" }}>✕</span>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+  return (
+    <div style={{ marginTop: 20 }}>
+      <div style={{ fontFamily: fontMono, fontSize: 11, letterSpacing: "0.12em", color: textMuted, marginBottom: 14 }}>
+        GAME 10 · TWO BANS → ONE SURVIVING BOARD
+      </div>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 20, alignItems: "flex-end", justifyContent: "center" }}>
+        {mini(5, true, "5×5 BAN")}
+        {mini(6, true, "6×6 BAN")}
+        {mini(7, false, "7×7 PLAYS")}
+      </div>
+      <div style={{ fontFamily: fontMono, fontSize: 10, color: textMuted, marginTop: 14, textAlign: "center", lineHeight: 1.55, maxWidth: 480, marginLeft: "auto", marginRight: "auto" }}>
+        Illustrative: which sizes are banned depends on toss choices. One size remains for the sudden-death decider.
+      </div>
+    </div>
+  );
 }
 
 function WinPatternsBlock({
@@ -71,6 +306,7 @@ function WinPatternsBlock({
       {group("5×5 — shape patterns", PATTERN_METADATA_5)}
       {group("6×6 — shape patterns", PATTERN_METADATA_6)}
       {group("7×7 — structural patterns", PATTERN_METADATA_7)}
+      <LineWinStrip accent={accent} textMuted={textMuted} fontMono={fontMono} ip={ip} />
     </div>
   );
 }
@@ -96,17 +332,34 @@ const RULES_BASE: Omit<Rule, "extra">[] = [
   {
     id: "rulebreaker",
     emoji: "",
-    title: "RULEBREAKER",
-    summary: "If a game ends in a DRAW and the overall match points are tied, a tiebreaker mini-game occurs.",
-    detail: `If game 9 ends in a DRAW and the match is still tied, the Limitbreaker phase begins.\n\nA coin is flipped — the toss winner chooses one of two tracks:\n\n1. CHOOSE WHO PLAYS FIRST — the toss winner decides who starts game 10, then the other player bans the first board and the toss winner bans the second.\n\n2. BAN A BOARD FIRST — the toss winner bans the first board, then the other player decides who starts game 10 and also bans the second board.\n\nThe only remaining board size is used for the final deciding game.`,
+    title: "RULEBREAKER (5×5 · BEFORE GAME 3)",
+    summary: "Coin-toss phase before the third game on the 5×5 leg when the match schedule calls for it.",
+    detail: `On ranked triple-leg matches, **Rulebreaker** can run before **game 3** on **5×5**: a coin toss and choices (who starts, C3 block, etc.). Follow the on-screen flow.\n\nSudden death **game 10** when the series is still tied after nine games is covered under **G10 · LIMITBREAKER** below.`,
     screenshot: null,
-    screenshotCaption: "Rulebreaker coin toss and choice screens",
-    screenshots: [
-      { src: "/api/proxy-image?url=https://lh3.googleusercontent.com/d/1fQO_jm0XiOnJuEiQNLdrcMDTC9Fh6Y-L", caption: "" },
-      { src: "/api/proxy-image?url=https://lh3.googleusercontent.com/d/1BptPliDW0t-Xr6XcZmiGNScRY-CpPILd", caption: "" },
-      { src: "/api/proxy-image?url=https://lh3.googleusercontent.com/d/1hWHJWYh_E1YtoF3dwtBeO2np1U496rOr", caption: "" },
-      { src: "/api/proxy-image?url=https://lh3.googleusercontent.com/d/1rOGVSql0QvlzNjTV2ozVTYLGQjO3H-in", caption: "" },
-    ],
+  },
+  {
+    id: "leg-6x6-timebreaker",
+    emoji: "",
+    title: "6×6 · TIMEBREAKER",
+    summary: "Six-in-a-line, fixed shape patterns, chain threshold, and Timebreaker before game 6 on this leg.",
+    detail: formatRuleshowBlocks(RULESHOW_BLOCKS_6X6),
+    screenshot: null,
+  },
+  {
+    id: "leg-7x7-mindbreaker",
+    emoji: "",
+    title: "7×7 · MINDBREAKER",
+    summary: "Structural patterns, chain resolution, extra-turn token, and Mindbreaker before game 9 on this leg.",
+    detail: formatRuleshowBlocks(RULESHOW_BLOCKS_7X7),
+    screenshot: null,
+  },
+  {
+    id: "g10-limitbreaker",
+    emoji: "",
+    title: "G10 · LIMITBREAKER",
+    summary: "Protocolbreaker / Limitbreaker — final deciding game after a tied nine-game series.",
+    detail: formatRuleshowBlocks(RULESHOW_BLOCKS_PROTOCOLBREAKER),
+    screenshot: null,
   },
 ];
 
@@ -115,16 +368,67 @@ export default function RulesScreen({ themeId, onHoverAction, onClickAction }: P
   const ip = themeId === "pixel";
   const [openId, setOpenId] = useState<string | null>(null);
 
-  const rules: Rule[] = RULES_BASE.map((r) =>
-    r.id === "win-conditions"
-      ? {
-          ...r,
-          extra: (
-            <WinPatternsBlock accent={t.accent} textMuted={t.textMuted} fontMono={t.fontMono} ip={ip} />
-          ),
-        }
-      : r
-  );
+  const rules: Rule[] = RULES_BASE.map((r) => {
+    if (r.id === "win-conditions") {
+      return {
+        ...r,
+        extra: <WinPatternsBlock accent={t.accent} textMuted={t.textMuted} fontMono={t.fontMono} ip={ip} />,
+      };
+    }
+    if (r.id === "centre") {
+      return {
+        ...r,
+        extra: <CentreC3Illustration accent={t.accent} textMuted={t.textMuted} fontMono={t.fontMono} ip={ip} />,
+      };
+    }
+    if (r.id === "rulebreaker") {
+      return {
+        ...r,
+        extra: (
+          <Rulebreaker5Illustration accent={t.accent} gold={t.gold} textMuted={t.textMuted} fontMono={t.fontMono} ip={ip} />
+        ),
+      };
+    }
+    if (r.id === "leg-6x6-timebreaker") {
+      return {
+        ...r,
+        extra: (
+          <SingleSizePatternGroup
+            label="6×6 — mandatory shape patterns (same geometry as in-game)"
+            meta={PATTERN_METADATA_6}
+            accent={t.accent}
+            textMuted={t.textMuted}
+            fontMono={t.fontMono}
+            ip={ip}
+          />
+        ),
+      };
+    }
+    if (r.id === "leg-7x7-mindbreaker") {
+      return {
+        ...r,
+        extra: (
+          <SingleSizePatternGroup
+            label="7×7 — structural patterns (reference; ranked set is server-authoritative)"
+            meta={PATTERN_METADATA_7}
+            accent={t.accent}
+            textMuted={t.textMuted}
+            fontMono={t.fontMono}
+            ip={ip}
+          />
+        ),
+      };
+    }
+    if (r.id === "g10-limitbreaker") {
+      return {
+        ...r,
+        extra: (
+          <G10LimitbreakerIllustration accent={t.accent} danger={t.danger} textMuted={t.textMuted} fontMono={t.fontMono} ip={ip} />
+        ),
+      };
+    }
+    return r;
+  });
 
   const toggle = (id: string) => setOpenId((prev) => (prev === id ? null : id));
 
@@ -172,7 +476,13 @@ export default function RulesScreen({ themeId, onHoverAction, onClickAction }: P
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {rules.map((rule) => {
             const isOpen = openId === rule.id;
-            const panelMax = rule.id === "win-conditions" ? "min(88vh, 2800px)" : "520px";
+            const panelMax =
+              rule.id === "win-conditions" ||
+              rule.id === "leg-6x6-timebreaker" ||
+              rule.id === "leg-7x7-mindbreaker" ||
+              rule.id === "g10-limitbreaker"
+                ? "min(88vh, 2800px)"
+                : "520px";
             return (
               <div
                 key={rule.id}
@@ -273,88 +583,73 @@ export default function RulesScreen({ themeId, onHoverAction, onClickAction }: P
 
                     {rule.extra}
 
-                    <div style={{ marginTop: 22 }}>
-                      {rule.screenshots && rule.screenshots.length > 0 ? (
-                        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-                          <div style={{ fontFamily: t.fontMono, fontSize: 11, fontWeight: 700, color: t.textMuted, letterSpacing: "0.12em" }}>
-                            EXAMPLE SCREENSHOTS — {rule.screenshots.length} POSITIONS
+                    {(rule.screenshots && rule.screenshots.length > 0) || rule.screenshot ? (
+                      <div style={{ marginTop: 22 }}>
+                        {rule.screenshots && rule.screenshots.length > 0 ? (
+                          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                            <div style={{ fontFamily: t.fontMono, fontSize: 11, fontWeight: 700, color: t.textMuted, letterSpacing: "0.12em" }}>
+                              EXAMPLE SCREENSHOTS — {rule.screenshots.length} POSITIONS
+                            </div>
+                            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                              {rule.screenshots.map((s, i) => (
+                                <div
+                                  key={i}
+                                  style={{
+                                    borderRadius: ip ? 2 : 10,
+                                    overflow: "hidden",
+                                    border: `1px solid ${t.borderAccent}`,
+                                    background: t.bgCard,
+                                  }}
+                                >
+                                  <img
+                                    src={s.src}
+                                    alt={s.caption ?? `Example ${i + 1}`}
+                                    style={{ width: "100%", display: "block" }}
+                                    onError={(e) => {
+                                      (e.target as HTMLImageElement).style.display = "none";
+                                    }}
+                                  />
+                                  {s.caption && (
+                                    <div
+                                      style={{
+                                        padding: "10px 16px",
+                                        fontFamily: t.fontMono,
+                                        fontSize: ip ? 10 : 12,
+                                        color: t.textSecondary,
+                                        letterSpacing: "0.07em",
+                                        borderTop: `1px solid ${t.border}`,
+                                        background: t.bgPanel,
+                                      }}
+                                    >
+                                      <span style={{ color: t.accent, marginRight: 8 }}>{i + 1}.</span>
+                                      {s.caption}
+                                    </div>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
                           </div>
-                          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-                            {rule.screenshots.map((s, i) => (
+                        ) : rule.screenshot ? (
+                          <div style={{ borderRadius: ip ? 2 : 10, overflow: "hidden", border: `1px solid ${t.border}` }}>
+                            <img src={rule.screenshot} alt={rule.screenshotCaption ?? rule.title} style={{ width: "100%", display: "block" }} />
+                            {rule.screenshotCaption && (
                               <div
-                                key={i}
                                 style={{
-                                  borderRadius: ip ? 2 : 10,
-                                  overflow: "hidden",
-                                  border: `1px solid ${t.borderAccent}`,
+                                  padding: "8px 14px",
                                   background: t.bgCard,
+                                  fontFamily: t.fontMono,
+                                  fontSize: 11,
+                                  color: t.textMuted,
+                                  letterSpacing: "0.08em",
                                 }}
                               >
-                                <img
-                                  src={s.src}
-                                  alt={s.caption ?? `Example ${i + 1}`}
-                                  style={{ width: "100%", display: "block" }}
-                                  onError={(e) => {
-                                    (e.target as HTMLImageElement).style.display = "none";
-                                  }}
-                                />
-                                {s.caption && (
-                                  <div
-                                    style={{
-                                      padding: "10px 16px",
-                                      fontFamily: t.fontMono,
-                                      fontSize: ip ? 10 : 12,
-                                      color: t.textSecondary,
-                                      letterSpacing: "0.07em",
-                                      borderTop: `1px solid ${t.border}`,
-                                      background: t.bgPanel,
-                                    }}
-                                  >
-                                    <span style={{ color: t.accent, marginRight: 8 }}>{i + 1}.</span>
-                                    {s.caption}
-                                  </div>
-                                )}
+                                {rule.screenshotCaption}
                               </div>
-                            ))}
+                            )}
                           </div>
-                        </div>
-                      ) : rule.screenshot ? (
-                        <div style={{ borderRadius: ip ? 2 : 10, overflow: "hidden", border: `1px solid ${t.border}` }}>
-                          <img src={rule.screenshot} alt={rule.screenshotCaption ?? rule.title} style={{ width: "100%", display: "block" }} />
-                          {rule.screenshotCaption && (
-                            <div
-                              style={{
-                                padding: "8px 14px",
-                                background: t.bgCard,
-                                fontFamily: t.fontMono,
-                                fontSize: 11,
-                                color: t.textMuted,
-                                letterSpacing: "0.08em",
-                              }}
-                            >
-                              {rule.screenshotCaption}
-                            </div>
-                          )}
-                        </div>
-                      ) : !rule.screenshots?.length && !rule.extra ? (
-                        <div
-                          style={{
-                            border: `1px dashed ${t.border}`,
-                            borderRadius: ip ? 2 : 8,
-                            padding: "18px 20px",
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 12,
-                            background: `${t.accent}06`,
-                          }}
-                        >
-                          <span style={{ fontSize: 20, opacity: 0.4 }}>🖼</span>
-                          <span style={{ fontFamily: t.fontMono, fontSize: 11, color: t.textMuted, letterSpacing: "0.1em" }}>
-                            SCREENSHOT COMING SOON — {rule.screenshotCaption?.toUpperCase()}
-                          </span>
-                        </div>
-                      ) : null}
-                    </div>
+                        ) : null}
+                      </div>
+                    ) : null}
                   </div>
                 </div>
               </div>
@@ -363,7 +658,7 @@ export default function RulesScreen({ themeId, onHoverAction, onClickAction }: P
         </div>
 
         <div style={{ textAlign: "center", marginTop: 36, fontFamily: t.fontMono, fontSize: 11, color: t.textMuted, letterSpacing: "0.1em" }}>
-          CLICK ANY RULE TO EXPAND · SCREENSHOTS UPLOAD PROGRESSIVELY
+          CLICK ANY RULE TO EXPAND · DIAGRAMS MATCH IN-GAME PATTERN PREVIEWS
         </div>
       </div>
     </div>

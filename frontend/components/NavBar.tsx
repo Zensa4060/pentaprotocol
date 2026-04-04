@@ -10,7 +10,7 @@ import { getUserKey, loadMissionState } from "@/lib/missionsClient";
 export const RANKS = [
   { name: "NOVICE",       min: 0,    max: 500,  color: "#9CA3AF", img: "/novice.svg",       scale: 1.3   },
   { name: "ADVANCED",     min: 500,  max: 1000, color: "#60A5FA", img: "/advanced.svg",     scale: 1.3   },
-  { name: "PROFESSIONAL", min: 1000, max: 1500, color: "#34D399", img: "/professional.svg", scale: 1.3   },
+  { name: "PROFESSIONAL", min: 1000, max: 1500, color: "#A78BFA", img: "/professional.png?v=8", scale: 0.741   },
   { name: "EMERALD",      min: 1500, max: 2000, color: "#10B981", img: "/emerald.svg",      scale: 1.495 },
   { name: "MASTER",       min: 2000, max: 2500, color: "#FF3333", img: "/master.png?v=3"                     },
   { name: "LEGEND",       min: 2500, max: 1000000, color: "#F59E0B", img: "/legend.png?v=3"                     },
@@ -123,6 +123,7 @@ export const NavRankBadge = ({ rank, size = 30 }: { rank: typeof RANKS[0]; size?
           position: "relative",
           zIndex: 1,
           filter: filt,
+          backgroundColor: "transparent",
         }}
       />
     </div>

@@ -282,9 +282,12 @@ interface Props {
   /** Sync lobby `boardMode` / patterns when server upgrades mid-match (e.g. 5×5 → 7×7). */
   onMultiplayerBoardSync?: (mode: BoardMode, patterns: string[]) => void;
   graphicsQuality?: "performance" | "quality";
+  /** Parent seals navigation (back/refresh) after full series ends; resume when a new match/rematch resets the board. */
+  onMultiplayerSeriesSealedAction?: () => void;
+  onMultiplayerSeriesResumedAction?: () => void;
 }
 
-export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, gameMode = "singleplayer", difficulty = "medium", setScreenAction, roomCode, playerSlot, playHoverAction, playPlaceAction, playVictoryAction, playDefeatAction, playRulebreakerAction, playTransitionAction, playClickAction, p1Name, matchupData, boardMode = "5x5", selectedPatterns = [], onMultiplayerBoardSync, graphicsQuality = "quality" }: Props) {
+export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, gameMode = "singleplayer", difficulty = "medium", setScreenAction, roomCode, playerSlot, playHoverAction, playPlaceAction, playVictoryAction, playDefeatAction, playRulebreakerAction, playTransitionAction, playClickAction, p1Name, matchupData, boardMode = "5x5", selectedPatterns = [], onMultiplayerBoardSync, graphicsQuality = "quality", onMultiplayerSeriesSealedAction, onMultiplayerSeriesResumedAction }: Props) {
   const [liveBoardMode, setLiveBoardMode] = useState<BoardMode>(boardMode);
   const [liveSelectedPatterns, setLiveSelectedPatterns] = useState<string[]>(selectedPatterns ?? []);
   useEffect(() => { setLiveBoardMode(boardMode); }, [boardMode]);
@@ -1265,6 +1268,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
               xp_after: z(rm.p2?.xp_after, 0),
             },
           });
+          onMultiplayerSeriesSealedAction?.();
             } else if (msg.type === "limitbreaker_start") {
           const m = msg as {
             toss_winner?: string;
@@ -1479,6 +1483,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
             setShowGameWinScreen(false);
             setShowRankedMatchResult(false);
             setMatchSeriesComplete(null);
+            onMultiplayerSeriesResumedAction?.();
           }
           setPhase("playing");
           const incomingGame = msg.game_number ?? 1;

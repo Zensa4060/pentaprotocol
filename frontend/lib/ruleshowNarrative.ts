@@ -4,6 +4,11 @@
  */
 export type RuleshowRuleBlock = { id: string; title: string; detail: string };
 
+/** Flatten ruleshow blocks into one How-to-Play style body (single source of truth with RuleshowScreen). */
+export function formatRuleshowBlocks(blocks: RuleshowRuleBlock[]): string {
+  return blocks.map(b => `${b.title}\n\n${b.detail}`).join("\n\n—\n\n");
+}
+
 export const RULESHOW_BLOCKS_5X5: RuleshowRuleBlock[] = [
   {
     id: "objective",

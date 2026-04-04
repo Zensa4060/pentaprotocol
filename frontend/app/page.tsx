@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useAuthStore } from "@/lib/store";
 import { useAudio } from "@/hooks/useAudio";
 import API from "@/lib/api";
@@ -32,6 +32,9 @@ THEMES["custom" as ThemeId] = resolveCustomTheme(loadCustomTheme(), THEMES) as a
 
 // Screens blocked for guests (not signed in)
 const GUEST_BLOCKED: Screen[] = ["lobby", "profile", "career", "battlepass"];
+
+/** Set when a multiplayer series ends; blocks restoring `multiGame` on refresh and sends browser Back to home. */
+const PP_MULTI_SERIES_FINISHED_KEY = "pp_multi_series_finished";
 
 export default function Page() {
   const [themeId, setThemeIdRaw]        = useState<ThemeId>("classic_dark");
@@ -92,6 +95,19 @@ export default function Page() {
   rankedRef.current = isRanked;
   aiDiffRef.current = aiDifficulty;
 
+  const sealMultiSeriesNavigation = useCallback(() => {
+    if (typeof window !== "undefined") {
+      sessionStorage.setItem(PP_MULTI_SERIES_FINISHED_KEY, "1");
+    }
+    setScreenHistory(["home"]);
+  }, []);
+
+  const resumeMultiSeriesNavigation = useCallback(() => {
+    if (typeof window !== "undefined") {
+      sessionStorage.removeItem(PP_MULTI_SERIES_FINISHED_KEY);
+    }
+  }, []);
+
   // Keep refs in sync with state so closures always see latest values
   useEffect(() => { queueRoomCodeRef.current   = queueRoomCode;   }, [queueRoomCode]);
   useEffect(() => { queuePlayerSlotRef.current = queuePlayerSlot; }, [queuePlayerSlot]);
@@ -133,8 +149,16 @@ export default function Page() {
       } catch { /* ignore */ }
     }
 
+    let sealedResumeToHome = false;
     if (savedScreen) {
-      if (tok || !GUEST_BLOCKED.includes(savedScreen)) {
+      sealedResumeToHome =
+        savedScreen === "multiGame" &&
+        typeof window !== "undefined" &&
+        sessionStorage.getItem(PP_MULTI_SERIES_FINISHED_KEY) === "1";
+      if (sealedResumeToHome) {
+        sessionStorage.removeItem(PP_MULTI_SERIES_FINISHED_KEY);
+        setScreen("home");
+      } else if (tok || !GUEST_BLOCKED.includes(savedScreen)) {
         setScreen(savedScreen);
         if (savedRoom) setMultiRoomCode(savedRoom);
         if (savedSlot) setMultiPlayerSlot(savedSlot);
@@ -146,8 +170,11 @@ export default function Page() {
       setScreen(tok ? "home" : "auth");
     }
 
+    const historyScreen = sealedResumeToHome
+      ? "home"
+      : savedScreen || (tok ? "home" : "auth");
     window.history.pushState(
-      { screen: savedScreen || (tok ? "home" : "auth") },
+      { screen: historyScreen },
       "",
       window.location.pathname,
     );
@@ -416,6 +443,22 @@ export default function Page() {
         window.history.pushState({ screen: "auth" }, "", window.location.pathname);
         return;
       }
+      if (
+        screenRef.current === "multiGame" &&
+        typeof window !== "undefined" &&
+        sessionStorage.getItem(PP_MULTI_SERIES_FINISHED_KEY) === "1"
+      ) {
+        window.history.pushState({ screen: "home" }, "", window.location.pathname);
+        sessionStorage.removeItem(PP_MULTI_SERIES_FINISHED_KEY);
+        sessionStorage.removeItem("pp_multiRoomCode");
+        sessionStorage.removeItem("pp_multiPlayerSlot");
+        sessionStorage.removeItem("pp_isRanked");
+        setMultiRoomCode("");
+        setMultiPlayerSlot(null);
+        setScreenHistory(["home"]);
+        setScreen("home");
+        return;
+      }
       window.history.pushState({ screen: screenRef.current }, "", window.location.pathname);
       setScreenHistory(prev => {
         if (prev.length === 0) return prev;
@@ -457,12 +500,27 @@ export default function Page() {
       setScreenHistory(prev => [...prev.filter(x => x !== "multiGame"), s]);
       setScreen(s);
       if (typeof window !== "undefined") {
+        sessionStorage.removeItem(PP_MULTI_SERIES_FINISHED_KEY);
         sessionStorage.removeItem("pp_screen");
         sessionStorage.removeItem("pp_multiRoomCode");
         sessionStorage.removeItem("pp_multiPlayerSlot");
         sessionStorage.removeItem("pp_isRanked");
       }
       return;
+    }
+    if (screen === "multiGame" && s !== "multiGame") {
+      if (typeof window !== "undefined") {
+        sessionStorage.removeItem(PP_MULTI_SERIES_FINISHED_KEY);
+      }
+      if (s === "home" || s === "career" || s === "lobby" || s === "auth") {
+        setMultiRoomCode("");
+        setMultiPlayerSlot(null);
+        if (typeof window !== "undefined") {
+          sessionStorage.removeItem("pp_multiRoomCode");
+          sessionStorage.removeItem("pp_multiPlayerSlot");
+          sessionStorage.removeItem("pp_isRanked");
+        }
+      }
     }
     setScreenHistory(prev => [...prev, screen]);
     setScreen(s);
@@ -493,6 +551,9 @@ export default function Page() {
     matchup?: MatchupData,
     roomFromServer?: { board_mode?: string; selected_patterns?: string[] },
   ) => {
+    if (typeof window !== "undefined") {
+      sessionStorage.removeItem(PP_MULTI_SERIES_FINISHED_KEY);
+    }
     if (roomFromServer?.board_mode) setBoardMode(roomFromServer.board_mode as BoardMode);
     if (Array.isArray(roomFromServer?.selected_patterns)) setSelectedPatterns(roomFromServer.selected_patterns);
     setMultiRoomCode(roomCode);
@@ -739,6 +800,8 @@ export default function Page() {
           graphicsQuality={graphicsQuality}
           boardMode={boardMode} selectedPatterns={selectedPatterns}
           onMultiplayerBoardSync={(mode, pats) => { setBoardMode(mode); setSelectedPatterns(pats); }}
+          onMultiplayerSeriesSealedAction={sealMultiSeriesNavigation}
+          onMultiplayerSeriesResumedAction={resumeMultiSeriesNavigation}
           playHoverAction={sfx.hover} playPlaceAction={sfx.place} playVictoryAction={sfx.victory} playDefeatAction={sfx.defeat}
           playRulebreakerAction={sfx.rulebreaker} playTransitionAction={sfx.transition} playClickAction={sfx.click} />
       )}
