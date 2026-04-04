@@ -891,7 +891,8 @@ async def _broadcast_protocolbreaker_tie(
     """Aggregate tie on triple-leg ranked — start Limitbreaker."""
     tw = random.choice(["P1", "P2"])
     p1a, p2a = _aggregate_decisive_games(history)
-    due_ms = int(datetime.utcnow().timestamp() * 1000) + 3500
+    # Extra headroom so the protocol explainer sheet + coin phase stay fair for both players.
+    due_ms = int(datetime.utcnow().timestamp() * 1000) + 12000
     await db.rooms.update_one(
         {"room_code": room_code},
         {

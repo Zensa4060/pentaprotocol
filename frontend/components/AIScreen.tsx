@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import type { Screen, BoardMode } from "@/lib/types";
 import type { ThemeId } from "@/lib/themes";
 import type { Difficulty } from "@/lib/botEngine";
@@ -70,49 +70,16 @@ function PatternDiagram({ info, accent, isSelected }: { info: PatternInfo; accen
 export default function AIScreen({ setScreenAction, themeId, onSelectDifficultyAction, onHoverAction, onBoardModeAction }: Props) {
   const t = THEMES[themeId as keyof typeof THEMES];
   const ip = themeId === "pixel";
-  const [hovered, setHovered] = useState<Difficulty | null>(null);
   const [boardMode, setBoardMode] = useState<BoardMode>("5x5");
   const [step, setStep] = useState<"mode" | "patterns" | "difficulty">("mode");
-  const [selectedPatterns, setSelectedPatterns] = useState<Set<string>>(new Set());
-  const [hoveredPattern, setHoveredPattern] = useState<string | null>(null);
 
   const meta = boardMode === "7x7" ? PATTERN_METADATA_7 : boardMode === "6x6" ? PATTERN_METADATA_6 : PATTERN_METADATA_5;
   const patternNames = Object.keys(meta);
 
-  // Auto-select all patterns for 5x5 and 6x6
-  useEffect(() => {
-    if (boardMode !== "7x7") {
-      setSelectedPatterns(new Set(patternNames));
-    } else {
-      setSelectedPatterns(new Set());
-    }
-  }, [boardMode]);
-
-  const minSelection = boardMode === "7x7" ? 5 : patternNames.length;
-  const maxSelection = boardMode === "7x7" ? 7 : patternNames.length;
-
   const handleSelect = (d: Difficulty) => {
-    onBoardModeAction?.(boardMode, Array.from(selectedPatterns));
+    onBoardModeAction?.(boardMode, [...patternNames]);
     onSelectDifficultyAction(d);
     setScreenAction("aiGame");
-  };
-
-  const togglePattern = (id: string) => {
-    if (boardMode !== "7x7") return; // Patterns are mandatory for 5x5 and 6x6
-    setSelectedPatterns((prev: Set<string>) => {
-      const next = new Set(prev);
-      if (next.has(id)) {
-        next.delete(id);
-      } else if (next.size < maxSelection) {
-        next.add(id);
-      }
-      return next;
-    });
-  };
-
-  const selectAllPatterns = () => {
-    onHoverAction?.();
-    setSelectedPatterns(new Set(patternNames));
   };
 
   const goBack = () => {
@@ -120,7 +87,6 @@ export default function AIScreen({ setScreenAction, themeId, onSelectDifficultyA
       setStep("patterns");
     } else if (step === "patterns") {
       setStep("mode");
-      setSelectedPatterns(new Set());
     } else {
       setScreenAction("home");
     }
@@ -218,7 +184,7 @@ export default function AIScreen({ setScreenAction, themeId, onSelectDifficultyA
         </>
       )}
 
-      {/* ── STEP 2: Pattern Selection (7×7 only) ── */}
+      {/* ── STEP 2: Pattern reference (all patterns in play; view-only) ── */}
       {step === "patterns" && (
         <>
           <div style={{
@@ -229,148 +195,85 @@ export default function AIScreen({ setScreenAction, themeId, onSelectDifficultyA
             letterSpacing: ip ? "0.08em" : "0.04em",
             lineHeight: 1.1,
           }}>
-            SELECT FORMATIONS
+            WIN PATTERNS
           </div>
 
           <div style={{
             fontFamily: t.fontBody, fontSize: 14, color: t.textMuted, textAlign: "center", maxWidth: 500,
             lineHeight: 1.6,
           }}>
-            {boardMode === "7x7" ? (
-              <>Choose <span style={{ color: t.accent, fontWeight: 700 }}>{minSelection} to {maxSelection}</span> special winning patterns for this match.</>
-            ) : (
-              <>All <span style={{ color: t.accent, fontWeight: 700 }}>{patternNames.length} patterns</span> are mandatory for {boardMode} mode.</>
-            )}
-            {" "}These patterns (plus {boardMode === "7x7" ? "7" : boardMode === "6x6" ? "6" : "5"}-in-a-line, diagonals, and chain) will be the win conditions.
+            All <span style={{ color: t.accent, fontWeight: 700 }}>{patternNames.length}</span> patterns for {boardMode} are active in every match (no picking).
+            {" "}Win conditions also include {boardMode === "7x7" ? "7" : boardMode === "6x6" ? "6" : "5"}-in-a-line and full-board chain rules.
           </div>
 
           <div style={{
-            display: boardMode === "7x7" ? "flex" : "none", flexWrap: "wrap", alignItems: "center", justifyContent: "center", gap: 12,
-            width: "100%", maxWidth: 660,
-          }}>
-            <div style={{
-              fontFamily: t.fontMono, fontSize: 12, color: selectedPatterns.size >= minSelection ? "#22C55E" : t.textMuted,
-              letterSpacing: "0.1em", transition: "color 0.2s",
-            }}>
-              {selectedPatterns.size} / {minSelection}–{maxSelection} SELECTED
-            </div>
-            <button
-              type="button"
-              onClick={selectAllPatterns}
-              style={{
-                fontFamily: t.fontDisplay, fontSize: ip ? 11 : 13, fontWeight: 800,
-                letterSpacing: "0.08em",
-                padding: "8px 18px", borderRadius: ip ? 2 : 8,
-                cursor: "pointer",
-                background: `${t.accent}22`,
-                border: `2px solid ${t.accent}`,
-                color: t.accent,
-                transition: "all 0.2s",
-              }}
-              onMouseEnter={e => {
-                e.currentTarget.style.background = t.accent;
-                e.currentTarget.style.color = "#000";
-              }}
-              onMouseLeave={e => {
-                e.currentTarget.style.background = `${t.accent}22`;
-                e.currentTarget.style.color = t.accent;
-              }}
-            >
-              SELECT MAX ({maxSelection})
-            </button>
-          </div>
-
-          <div style={{
-            display: "grid", 
+            display: "grid",
             gridTemplateColumns: boardMode === "7x7" ? "repeat(auto-fit, minmax(180px, 1fr))" : "repeat(auto-fit, minmax(200px, 1fr))",
             gap: 12, width: "100%", maxWidth: boardMode === "7x7" ? 820 : 660,
           }}>
             {patternNames.map((name, i) => {
               const info = meta[name];
-              const isSelected = selectedPatterns.has(name);
-              const isHov = hoveredPattern === name;
-              const patColor = isSelected ? t.accent : isHov ? `${t.accent}AA` : t.textMuted;
 
               return (
-                <button
+                <div
                   key={name}
-                  onClick={() => togglePattern(name)}
-                  onMouseEnter={() => { onHoverAction?.(); setHoveredPattern(name); }}
-                  onMouseLeave={() => setHoveredPattern(null)}
+                  className="ai-card"
                   style={{
-                    background: isSelected
-                      ? `linear-gradient(145deg, ${info.isException ? "#B2222233" : t.accent + "1A"}, ${t.bgCard})`
-                      : t.bgCard,
-                    border: info.isException 
-                      ? `2px solid ${isSelected ? "#FF4444" : isHov ? "#B22222" : "#701A1A"}` 
-                      : `2px solid ${isSelected ? t.accent : isHov ? `${t.accent}55` : t.border}`,
+                    background: t.bgCard,
+                    border: info.isException
+                      ? `2px solid #701A1A`
+                      : `2px solid ${t.border}`,
                     borderRadius: ip ? 2 : 14,
                     padding: "16px 14px",
-                    cursor: boardMode !== "7x7" ? "default" : (selectedPatterns.size >= maxSelection && !isSelected ? "not-allowed" : "pointer"),
+                    cursor: "default",
                     textAlign: "left",
-                    transition: "all 0.25s cubic-bezier(.22,.68,0,1.2)",
-                    transform: isSelected ? "scale(1.03)" : isHov ? "scale(1.01)" : "scale(1)",
-                    boxShadow: isSelected ? `0 8px 32px ${info.isException ? "#B2222244" : t.accent + "22"}` : "none",
-                    opacity: boardMode !== "7x7" ? 1 : (selectedPatterns.size >= maxSelection && !isSelected ? 0.5 : 1),
                     animation: `cardFadeUp 0.4s cubic-bezier(.22,.68,0,1.2) ${i * 0.06}s both`,
                   }}
                 >
-                  <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
-                    {/* Checkbox */}
+                  <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{
-                      width: 20, height: 20, borderRadius: 5, flexShrink: 0, marginTop: 2,
-                      border: `2px solid ${isSelected ? (info.isException ? "#FF4444" : t.accent) : (info.isException ? "#B22222" : t.border)}`,
-                      background: isSelected ? (info.isException ? "#B22222" : t.accent) : "transparent",
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                      transition: "all 0.2s",
+                      fontFamily: t.fontDisplay, fontSize: ip ? 12 : 14, fontWeight: 700,
+                      color: info.isException ? "#B22222" : t.text,
+                      letterSpacing: "0.06em", marginBottom: 4,
                     }}>
-                      {isSelected && <span style={{ color: "#000", fontSize: 12, fontWeight: 900 }}>✓</span>}
+                      {info.label}
                     </div>
-
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{
-                        fontFamily: t.fontDisplay, fontSize: ip ? 12 : 14, fontWeight: 700,
-                        color: isSelected ? (info.isException ? "#FF4444" : t.accent) : (info.isException ? "#B22222" : t.text), 
-                        transition: "color 0.2s",
-                        letterSpacing: "0.06em", marginBottom: 4,
-                      }}>
-                        {info.label}
-                      </div>
-                      <div style={{
-                        fontFamily: t.fontBody, fontSize: ip ? 10 : 11, color: t.textMuted,
-                        lineHeight: 1.4, marginBottom: 4,
-                      }}>
-                        {info.desc}
-                      </div>
-                      <div style={{
-                        fontFamily: t.fontMono, fontSize: 9, fontWeight: 700,
-                        color: info.isException ? "#FF4444" : t.accent,
-                        letterSpacing: "0.08em", marginBottom: 10,
-                        textTransform: "uppercase", opacity: 0.8
-                      }}>
-                        {info.mirrorCount} MIRRORS{info.mirrorCount === 8 ? " HIGHLIGHTED" : ""}
-                      </div>
-                      <PatternDiagram info={info} accent={info.isException ? "#B22222" : t.accent} isSelected={isSelected} />
+                    <div style={{
+                      fontFamily: t.fontBody, fontSize: ip ? 10 : 11, color: t.textMuted,
+                      lineHeight: 1.4, marginBottom: 4,
+                    }}>
+                      {info.desc}
                     </div>
+                    <div style={{
+                      fontFamily: t.fontMono, fontSize: 9, fontWeight: 700,
+                      color: info.isException ? "#FF4444" : t.accent,
+                      letterSpacing: "0.08em", marginBottom: 10,
+                      textTransform: "uppercase", opacity: 0.8
+                    }}>
+                      {info.mirrorCount} MIRRORS{info.mirrorCount === 8 ? " HIGHLIGHTED" : ""}
+                    </div>
+                    <PatternDiagram info={info} accent={info.isException ? "#B22222" : t.accent} isSelected={false} />
                   </div>
-                </button>
+                </div>
               );
             })}
           </div>
 
-          {/* Proceed button */}
           <button
-            onClick={() => selectedPatterns.size >= minSelection && setStep("difficulty")}
-            disabled={selectedPatterns.size < minSelection}
+            type="button"
+            onClick={() => {
+              onHoverAction?.();
+              setStep("difficulty");
+            }}
             style={{
-              background: selectedPatterns.size >= minSelection ? t.accent : `${t.accent}33`,
-              border: `2px solid ${selectedPatterns.size >= minSelection ? t.accent : t.border}`,
-              color: selectedPatterns.size >= minSelection ? "#000" : t.textMuted,
+              background: t.accent,
+              border: `2px solid ${t.accent}`,
+              color: "#000",
               fontFamily: t.fontDisplay, fontSize: 16, fontWeight: 700,
               padding: "14px 52px", borderRadius: ip ? 2 : 10,
-              cursor: selectedPatterns.size >= minSelection ? "pointer" : "not-allowed",
+              cursor: "pointer",
               letterSpacing: "0.06em", transition: "all 0.3s",
-              boxShadow: selectedPatterns.size >= minSelection ? `0 0 24px ${t.accentGlow}44` : "none",
+              boxShadow: `0 0 24px ${t.accentGlow}44`,
             }}
           >
             PROCEED →

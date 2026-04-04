@@ -1291,6 +1291,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
             nextSlot: m.next_slot === "P2" ? "P2" : tw,
             coinDueMs: typeof m.coin_due_ms === "number" ? m.coin_due_ms : null,
           });
+          setRulesShowSheet("protocolbreaker");
             } else if (msg.type === "limitbreaker_update") {
           const m = msg as { bans?: string[]; next_slot?: string; phase?: string; choice?: string | null; first_player?: string | null; toss_winner?: string; p1_aggregate?: number; p2_aggregate?: number; coin_due_ms?: number | null };
           const bans = Array.isArray(m.bans) ? m.bans : [];
@@ -1326,6 +1327,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
           const gr0 = msg as { protocolbreaker_final?: boolean; limitbreaker_final?: boolean };
           if (gr0.protocolbreaker_final || gr0.limitbreaker_final) {
             setPbOverlay(null);
+            setRulesShowSheet(s => (s === "protocolbreaker" ? null : s));
           }
           const gr = msg as { from_5x5_draw_upgrade?: boolean; from_5x5_level_up?: boolean; from_6x6_level_up?: boolean };
           const from55Up = Boolean(gr.from_5x5_draw_upgrade || gr.from_5x5_level_up);
@@ -2980,17 +2982,16 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     player === "P1" ? setP1Ready(newVal) : setP2Ready(newVal);
     if ((gameMode === "ai" || gameMode === "singleplayer") && player === "P1") setP2Ready(newVal);
   };
-  const onLevelUpReadyToggle = (selected?: string[]) => {
+  const onLevelUpReadyToggle = (_selected?: string[]) => {
     if (!isMultiplayerGame || !playerSlot) return;
     const isP1 = playerSlot === "P1";
     const nextVal = isP1 ? !p1LevelUpReady : !p2LevelUpReady;
     if (isP1) setP1LevelUpReady(nextVal);
     else setP2LevelUpReady(nextVal);
     if (wsRef.current?.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify({ 
-        type: "levelup_ready", 
+      wsRef.current.send(JSON.stringify({
+        type: "levelup_ready",
         ready: nextVal,
-        selected_patterns: selected 
       }));
     }
   };
@@ -3198,6 +3199,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
       >
         {levelUp7x7Overlay}
         {levelUp6x6Overlay}
+        {limitbreakerOverlay}
         {rulesShowSheet !== null && (
           <RuleshowScreen
             sheet={rulesShowSheet}
@@ -3218,6 +3220,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
             p2Ready={p2LevelUpReady}
             mySlot={mySlot ?? "P1"}
             onToggleReadyAction={onLevelUpReadyToggle}
+            onDismissSheetAction={rulesShowSheet === "protocolbreaker" ? () => setRulesShowSheet(null) : undefined}
           />
         )}
         <DisconnectModal

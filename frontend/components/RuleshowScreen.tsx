@@ -5,10 +5,10 @@ import {
   PATTERN_METADATA_6,
   PATTERN_METADATA_7,
 } from "@/lib/patterns_metadata";
-import { MULTIPLAYER_RULE_BLOCKS } from "@/lib/multiplayerRulesNarrative";
+import { getRuleshowBlocks, type RuleshowSheetKind } from "@/lib/ruleshowNarrative";
 import PatternDiagram from "./PatternDiagram";
 
-export type RuleshowSheet = "5x5" | "6x6" | "7x7";
+export type RuleshowSheet = RuleshowSheetKind;
 
 type RuleshowScreenProps = {
   sheet: RuleshowSheet;
@@ -28,7 +28,10 @@ type RuleshowScreenProps = {
   p1Ready: boolean;
   p2Ready: boolean;
   mySlot: "P1" | "P2";
+  /** Leg sheets: toggles level-up ready (no pattern payload). Protocol sheet: omit or unused. */
   onToggleReadyAction: (selected?: string[]) => void;
+  /** Protocolbreaker explainer only — clears rules sheet; does not reset limitbreaker overlay. */
+  onDismissSheetAction?: () => void;
 };
 
 /** +60% vs prior sizing for readiness chips and primary button */
@@ -44,76 +47,66 @@ export default function RuleshowScreen({
   p2Ready,
   mySlot,
   onToggleReadyAction,
+  onDismissSheetAction,
 }: RuleshowScreenProps) {
+  const isProtocol = sheet === "protocolbreaker";
   const is77 = sheet === "7x7";
   const is66 = sheet === "6x6";
   const is55 = sheet === "5x5";
+  const legSheet = is55 || is66 || is77;
 
   const [rulesSecLeft, setRulesSecLeft] = useState(60);
-  const selected77Ref = useRef<Set<string>>(new Set());
   const autoReadyFiredRef = useRef(false);
+  const autoDismissFiredRef = useRef(false);
 
   const patterns = is77 ? PATTERN_METADATA_7 : is66 ? PATTERN_METADATA_6 : PATTERN_METADATA_5;
-  const patternList = Object.values(patterns);
-
-  const [selected77, setSelected77] = useState<Set<string>>(new Set(Object.keys(PATTERN_METADATA_7)));
-
-  const toggle77 = (id: string) => {
-    if (!is77) return;
-    setSelected77(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else if (next.size < 6) next.add(id);
-      return next;
-    });
-  };
-
-  selected77Ref.current = selected77;
+  const patternList = legSheet ? Object.values(patterns) : [];
+  const ruleBlocks = getRuleshowBlocks(sheet);
 
   useEffect(() => {
-    if (!is55 && !is66 && !is77) {
-      setRulesSecLeft(60);
-      return;
-    }
+    if (!legSheet && !isProtocol) return;
     autoReadyFiredRef.current = false;
+    autoDismissFiredRef.current = false;
     setRulesSecLeft(60);
     const id = window.setInterval(() => {
       setRulesSecLeft(s => (s <= 1 ? 0 : s - 1));
     }, 1000);
     return () => window.clearInterval(id);
-  }, [sheet, is55, is66, is77]);
+  }, [sheet, legSheet, isProtocol]);
 
   useEffect(() => {
-    if (!is55 && !is66 && !is77) return;
+    if (!legSheet) return;
     if (rulesSecLeft !== 0) return;
     if (autoReadyFiredRef.current) return;
     const myReady = mySlot === "P1" ? p1Ready : p2Ready;
     if (myReady) return;
     autoReadyFiredRef.current = true;
-    if (is77) {
-      let ids = Array.from(selected77Ref.current);
-      if (ids.length < 5) {
-        const all = Object.keys(PATTERN_METADATA_7);
-        const next = new Set(selected77Ref.current);
-        for (const pid of all) {
-          if (next.size >= 5) break;
-          next.add(pid);
-        }
-        ids = Array.from(next);
-      }
-      onToggleReadyAction(ids);
-    } else {
-      onToggleReadyAction(undefined);
-    }
-  }, [rulesSecLeft, is55, is66, is77, mySlot, p1Ready, p2Ready, onToggleReadyAction]);
+    onToggleReadyAction(undefined);
+  }, [rulesSecLeft, legSheet, mySlot, p1Ready, p2Ready, onToggleReadyAction]);
 
-  const kicker = is77 ? "7×7 LEG UNLOCKED" : is66 ? "6×6 LEG UNLOCKED" : "5×5 SERIES";
-  const title = "SELECT PATTERNS";
-  const desc = is77
-    ? "Choose 5 to 6 winning patterns for this high-tier leg."
-    : is66
-      ? "Five mandatory patterns enforced for the 6×6 protocol."
-      : "Standard active patterns for the 5×5 series.";
+  useEffect(() => {
+    if (!isProtocol || !onDismissSheetAction) return;
+    if (rulesSecLeft !== 0) return;
+    if (autoDismissFiredRef.current) return;
+    autoDismissFiredRef.current = true;
+    onDismissSheetAction();
+  }, [rulesSecLeft, isProtocol, onDismissSheetAction]);
+
+  const kicker = isProtocol
+    ? "MATCH TIED AFTER NINE GAMES"
+    : is77
+      ? "7×7 LEG"
+      : is66
+        ? "6×6 LEG"
+        : "5×5 LEG";
+  const title = isProtocol ? "PROTOCOLBREAKER" : "LEG RULES & PATTERNS";
+  const desc = isProtocol
+    ? "How the sudden-death decider works. Continue to the Limitbreaker flow underneath."
+    : is77
+      ? "Reference patterns and leg rules for 7×7 — selection is server-side; this screen is informational."
+      : is66
+        ? "Six-in-a-line, five fixed 6-cell shapes, and Timebreaker before game 6 on this leg."
+        : "First-to-5 series framing, 5×5 centre rule, shapes, chain threshold, and Rulebreaker before game 3 here.";
 
   const chipPadV = Math.round(8 * RS);
   const chipPadH = Math.round(16 * RS);
@@ -121,14 +114,15 @@ export default function RuleshowScreen({
   const btnPadV = Math.round(14 * RS);
   const btnPadH = Math.round(48 * RS);
   const btnFont = Math.round(16 * RS);
-  const selFont = Math.round(12 * RS);
+
+  const overlayZ = isProtocol ? 11650 : 10003;
 
   return (
     <div
       style={{
         position: "absolute",
         inset: 0,
-        zIndex: 10003,
+        zIndex: overlayZ,
         background: "rgba(4,7,14,0.98)",
         display: "flex",
         flexDirection: "column",
@@ -143,7 +137,7 @@ export default function RuleshowScreen({
         <div style={{ fontFamily: t.fontMono, fontSize: 11, color: t.textMuted, letterSpacing: "0.22em", textAlign: "center" }}>
           {kicker}
         </div>
-        {(is55 || is66 || is77) && (
+        {(legSheet || isProtocol) && (
           <div
             style={{
               fontFamily: t.fontMono,
@@ -155,7 +149,8 @@ export default function RuleshowScreen({
               fontWeight: 700,
             }}
           >
-            AUTO-START IN {Math.floor(rulesSecLeft / 60)}:{String(rulesSecLeft % 60).padStart(2, "0")}
+            {isProtocol ? "AUTO-CONTINUE IN " : "AUTO-START IN "}
+            {Math.floor(rulesSecLeft / 60)}:{String(rulesSecLeft % 60).padStart(2, "0")}
           </div>
         )}
         <div
@@ -171,7 +166,7 @@ export default function RuleshowScreen({
         >
           {title}
         </div>
-        <div style={{ fontFamily: t.fontBody, fontSize: 14, color: t.textSecondary, textAlign: "center", marginTop: 8, maxWidth: 500 }}>
+        <div style={{ fontFamily: t.fontBody, fontSize: 14, color: t.textSecondary, textAlign: "center", marginTop: 8, maxWidth: 520 }}>
           {desc}
         </div>
 
@@ -184,14 +179,14 @@ export default function RuleshowScreen({
             borderRadius: ip ? 2 : 14,
             border: `1px solid ${t.border}`,
             background: "rgba(255,255,255,0.02)",
-            maxHeight: "min(42vh, 360px)",
+            maxHeight: isProtocol ? "min(50vh, 420px)" : "min(42vh, 360px)",
             overflowY: "auto",
           }}
         >
           <div style={{ fontFamily: t.fontMono, fontSize: 10, color: t.textMuted, letterSpacing: "0.2em", marginBottom: 12 }}>
-            PROTOCOL RULES · SAME AS HOW TO PLAY
+            LEG SUMMARY · NOT THE FULL “HOW TO PLAY”
           </div>
-          {MULTIPLAYER_RULE_BLOCKS.map(block => (
+          {ruleBlocks.map(block => (
             <div key={block.id} style={{ marginBottom: 14 }}>
               <div style={{ fontFamily: t.fontDisplay, fontSize: 12, fontWeight: 800, color: t.accent, letterSpacing: "0.06em", marginBottom: 6 }}>
                 {block.title}
@@ -203,40 +198,30 @@ export default function RuleshowScreen({
           ))}
         </div>
 
-        {is77 && (
-          <div style={{ marginTop: 12, fontFamily: t.fontMono, fontSize: selFont, color: selected77.size >= 5 ? "#22C55E" : t.textMuted }}>
-            {selected77.size} / 7 SELECTED
-          </div>
-        )}
-
-        {/* Pattern cards — same pattern metadata as single-player */}
-        <div
-          style={{
-            marginTop: 28,
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
-            gap: 16,
-            width: "100%",
-            paddingBottom: 28,
-          }}
-        >
-          {patternList.map(p => {
-            const isSelected = is77 ? selected77.has(p.id) : true;
-            return (
+        {legSheet && (
+          <div
+            style={{
+              marginTop: 28,
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
+              gap: 16,
+              width: "100%",
+              paddingBottom: 28,
+            }}
+          >
+            {patternList.map(p => (
               <div
                 key={p.id}
-                onClick={() => is77 && toggle77(p.id)}
                 style={{
                   background: "rgba(255,255,255,0.03)",
-                  border: `1px solid ${isSelected ? t.accent : t.border}`,
+                  border: `1px solid ${t.border}`,
                   borderRadius: ip ? 2 : 16,
                   padding: 20,
                   display: "flex",
                   flexDirection: "column",
                   gap: 10,
-                  cursor: is77 ? "pointer" : "default",
+                  cursor: "default",
                   transition: "all 0.2s",
-                  boxShadow: isSelected ? `0 0 20px ${t.accent}11` : "none",
                 }}
               >
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -245,97 +230,102 @@ export default function RuleshowScreen({
                       fontFamily: t.fontDisplay,
                       fontSize: 16,
                       fontWeight: 800,
-                      color: isSelected ? t.accent : t.text,
+                      color: t.text,
                       letterSpacing: "0.04em",
                     }}
                   >
                     {p.label}
                   </div>
-                  {is77 && (
-                    <div
-                      style={{
-                        width: 18,
-                        height: 18,
-                        borderRadius: 4,
-                        border: `1.5px solid ${isSelected ? t.accent : t.textMuted}`,
-                        background: isSelected ? t.accent : "transparent",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                      }}
-                    >
-                      {isSelected && (
-                        <span style={{ fontSize: 12, color: "#000", fontWeight: 900 }}>✓</span>
-                      )}
-                    </div>
-                  )}
                 </div>
                 <div style={{ fontFamily: t.fontBody, fontSize: 12, color: t.textSecondary, lineHeight: 1.4, minHeight: 34 }}>
                   {p.desc}
                 </div>
-                <PatternDiagram info={p} accent={t.accent} isSelected={isSelected} />
+                <PatternDiagram info={p} accent={t.accent} isSelected={false} />
               </div>
-            );
-          })}
-        </div>
-
-        {/* Readiness + primary action */}
-        <div style={{ marginTop: 8, display: "flex", justifyContent: "center", gap: Math.round(14 * RS), flexWrap: "wrap" }}>
-          <div
-            style={{
-              padding: `${chipPadV}px ${chipPadH}px`,
-              borderRadius: ip ? 2 : 8,
-              border: `1px solid ${p1Ready ? p1c : t.border}`,
-              color: p1Ready ? p1c : t.textMuted,
-              fontFamily: t.fontMono,
-              fontSize: chipFont,
-              fontWeight: 700,
-              background: p1Ready ? `${p1c}12` : "transparent",
-            }}
-          >
-            P1: {p1Ready ? "READY" : "WAITING"}
+            ))}
           </div>
-          <div
-            style={{
-              padding: `${chipPadV}px ${chipPadH}px`,
-              borderRadius: ip ? 2 : 8,
-              border: `1px solid ${p2Ready ? p2c : t.border}`,
-              color: p2Ready ? p2c : t.textMuted,
-              fontFamily: t.fontMono,
-              fontSize: chipFont,
-              fontWeight: 700,
-              background: p2Ready ? `${p2c}12` : "transparent",
-            }}
-          >
-            P2: {p2Ready ? "READY" : "WAITING"}
-          </div>
-        </div>
+        )}
 
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginTop: Math.round(20 * RS), gap: 12 }}>
-          <button
-            type="button"
-            disabled={is77 && selected77.size < 5}
-            onClick={() => {
-              onToggleReadyAction(is77 ? Array.from(selected77) : undefined);
-            }}
-            style={{
-              padding: `${btnPadV}px ${btnPadH}px`,
-              borderRadius: ip ? 2 : 12,
-              border: `2px solid ${t.accent}`,
-              background: is77 && selected77.size < 5 ? "transparent" : `${t.accent}22`,
-              color: t.accent,
-              fontFamily: t.fontDisplay,
-              fontSize: btnFont,
-              fontWeight: 900,
-              letterSpacing: "0.08em",
-              cursor: is77 && selected77.size < 5 ? "not-allowed" : "pointer",
-              opacity: is77 && selected77.size < 5 ? 0.4 : 1,
-              transition: "all 0.2s",
-            }}
-          >
-            {(mySlot === "P1" ? p1Ready : p2Ready) ? "UNREADY" : "START MATCH →"}
-          </button>
-        </div>
+        {!isProtocol && (
+          <>
+            <div style={{ marginTop: 8, display: "flex", justifyContent: "center", gap: Math.round(14 * RS), flexWrap: "wrap" }}>
+              <div
+                style={{
+                  padding: `${chipPadV}px ${chipPadH}px`,
+                  borderRadius: ip ? 2 : 8,
+                  border: `1px solid ${p1Ready ? p1c : t.border}`,
+                  color: p1Ready ? p1c : t.textMuted,
+                  fontFamily: t.fontMono,
+                  fontSize: chipFont,
+                  fontWeight: 700,
+                  background: p1Ready ? `${p1c}12` : "transparent",
+                }}
+              >
+                P1: {p1Ready ? "READY" : "WAITING"}
+              </div>
+              <div
+                style={{
+                  padding: `${chipPadV}px ${chipPadH}px`,
+                  borderRadius: ip ? 2 : 8,
+                  border: `1px solid ${p2Ready ? p2c : t.border}`,
+                  color: p2Ready ? p2c : t.textMuted,
+                  fontFamily: t.fontMono,
+                  fontSize: chipFont,
+                  fontWeight: 700,
+                  background: p2Ready ? `${p2c}12` : "transparent",
+                }}
+              >
+                P2: {p2Ready ? "READY" : "WAITING"}
+              </div>
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginTop: Math.round(20 * RS), gap: 12 }}>
+              <button
+                type="button"
+                onClick={() => onToggleReadyAction(undefined)}
+                style={{
+                  padding: `${btnPadV}px ${btnPadH}px`,
+                  borderRadius: ip ? 2 : 12,
+                  border: `2px solid ${t.accent}`,
+                  background: `${t.accent}22`,
+                  color: t.accent,
+                  fontFamily: t.fontDisplay,
+                  fontSize: btnFont,
+                  fontWeight: 900,
+                  letterSpacing: "0.08em",
+                  cursor: "pointer",
+                  transition: "all 0.2s",
+                }}
+              >
+                {(mySlot === "P1" ? p1Ready : p2Ready) ? "UNREADY" : "START MATCH →"}
+              </button>
+            </div>
+          </>
+        )}
+
+        {isProtocol && onDismissSheetAction && (
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginTop: Math.round(28 * RS), gap: 12 }}>
+            <button
+              type="button"
+              onClick={() => onDismissSheetAction()}
+              style={{
+                padding: `${btnPadV}px ${btnPadH}px`,
+                borderRadius: ip ? 2 : 12,
+                border: `2px solid ${t.accent}`,
+                background: `${t.accent}22`,
+                color: t.accent,
+                fontFamily: t.fontDisplay,
+                fontSize: btnFont,
+                fontWeight: 900,
+                letterSpacing: "0.08em",
+                cursor: "pointer",
+                transition: "all 0.2s",
+              }}
+            >
+              CONTINUE →
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
