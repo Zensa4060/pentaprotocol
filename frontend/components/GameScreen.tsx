@@ -42,6 +42,7 @@ import MatchResultScreen from "./MatchResultScreen";
 import GameWinScreen from "./GameWinScreen";
 import { persistLobbyTauntQuote, type LobbyQuoteResult } from "@/lib/lobbyTauntQuote";
 import { seriesPointsFromHistory } from "@/lib/seriesPoints";
+import { effectivePlayBoardMode, startingLegFromBoardMode, type MultiplayerRulesBootstrap } from "@/lib/effectiveBoardMode";
 
 const EPS = 1e-9;
 
@@ -61,20 +62,6 @@ function getWsBaseUrl(): string {
 }
 
 type PlayGridSize = 5 | 6 | 7;
-
-/** First leg of compound modes (e.g. 5x5_6x6_7x7) — matches backend _starting_board_mode idea. */
-function startingLegFromBoardMode(mode: BoardMode): "5x5" | "6x6" | "7x7" {
-  if (mode === "5x5" || mode === "6x6" || mode === "7x7") return mode;
-  const seg = mode.split("_").filter((p): p is "5x5" | "6x6" | "7x7" => p === "5x5" || p === "6x6" || p === "7x7");
-  return seg[0] ?? "5x5";
-}
-
-/** Matches backend `_effective_board_mode` — playable size label for a room `board_mode` string. */
-function effectivePlayBoardMode(mode: BoardMode | string | undefined): "5x5" | "6x6" | "7x7" {
-  const m = (mode ?? "5x5") as string;
-  if (m === "5x5" || m === "6x6" || m === "7x7") return m;
-  return startingLegFromBoardMode(m as BoardMode);
-}
 
 function fallbackGridSizeFromMode(mode: BoardMode): PlayGridSize {
   const leg = startingLegFromBoardMode(mode);
@@ -285,9 +272,11 @@ interface Props {
   /** Parent seals navigation (back/refresh) after full series ends; resume when a new match/rematch resets the board. */
   onMultiplayerSeriesSealedAction?: () => void;
   onMultiplayerSeriesResumedAction?: () => void;
+  /** Room snapshot from lobby/queue so first paint can show rules sheet before WS `room_state`. */
+  multiplayerRulesBootstrap?: MultiplayerRulesBootstrap | null;
 }
 
-export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, gameMode = "singleplayer", difficulty = "medium", setScreenAction, roomCode, playerSlot, playHoverAction, playPlaceAction, playVictoryAction, playDefeatAction, playRulebreakerAction, playTransitionAction, playClickAction, p1Name, matchupData, boardMode = "5x5", selectedPatterns = [], onMultiplayerBoardSync, graphicsQuality = "quality", onMultiplayerSeriesSealedAction, onMultiplayerSeriesResumedAction }: Props) {
+export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, gameMode = "singleplayer", difficulty = "medium", setScreenAction, roomCode, playerSlot, playHoverAction, playPlaceAction, playVictoryAction, playDefeatAction, playRulebreakerAction, playTransitionAction, playClickAction, p1Name, matchupData, boardMode = "5x5", selectedPatterns = [], onMultiplayerBoardSync, graphicsQuality = "quality", onMultiplayerSeriesSealedAction, onMultiplayerSeriesResumedAction, multiplayerRulesBootstrap = null }: Props) {
   const [liveBoardMode, setLiveBoardMode] = useState<BoardMode>(boardMode);
   const [liveSelectedPatterns, setLiveSelectedPatterns] = useState<string[]>(selectedPatterns ?? []);
   useEffect(() => { setLiveBoardMode(boardMode); }, [boardMode]);
@@ -309,7 +298,9 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   historyDisplayStartIndexRef.current = historyDisplayStartIndex;
   const [show7x7LevelUp, setShow7x7LevelUp] = useState(false);
   const [show6x6LevelUp, setShow6x6LevelUp] = useState(false);
-  const [rulesShowSheet, setRulesShowSheet] = useState<RuleshowSheet | null>(null);
+  const [rulesShowSheet, setRulesShowSheet] = useState<RuleshowSheet | null>(() =>
+    (gameMode === "ranked" || gameMode === "unranked") && multiplayerRulesBootstrap ? multiplayerRulesBootstrap.sheet : null,
+  );
   const [p1LevelUpReady, setP1LevelUpReady] = useState(false);
   const [p2LevelUpReady, setP2LevelUpReady] = useState(false);
   const levelUpSplashActiveRef = useRef(false);
@@ -328,7 +319,9 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   useEffect(() => {
     show6x6LevelUpRef.current = show6x6LevelUp;
   }, [show6x6LevelUp]);
-  const [rulesMatchGate, setRulesMatchGate] = useState(false);
+  const [rulesMatchGate, setRulesMatchGate] = useState(() =>
+    Boolean((gameMode === "ranked" || gameMode === "unranked") && multiplayerRulesBootstrap?.rulesMatchGate),
+  );
   const rulesMatchGateRef = useRef(false);
   useEffect(() => {
     rulesMatchGateRef.current = rulesMatchGate;

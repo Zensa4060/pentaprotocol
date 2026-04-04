@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import type { MatchupData, Screen } from "@/lib/types";
 import type { ThemeId } from "@/lib/themes";
 import { THEMES } from "@/lib/themes";
@@ -14,6 +14,23 @@ import {
   LOBBY_QUOTE_REFRESH_EVENT,
   type LobbyQuoteRefreshDetail,
 } from "@/lib/lobbyTauntQuote";
+
+function parseRankedBanEndMs(user: { ranked_ban_until?: string | null } | null | undefined): number | null {
+  const raw = user?.ranked_ban_until;
+  if (!raw) return null;
+  const t = Date.parse(String(raw));
+  return Number.isFinite(t) ? t : null;
+}
+
+/** Shorter bans MM:SS; longer bans Xh Ym Zs. */
+function formatRankedBanCountdown(totalSec: number): string {
+  if (totalSec <= 0) return "0:00";
+  const h = Math.floor(totalSec / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  const s = totalSec % 60;
+  if (h > 0) return `${h}h ${m}m ${s}s`;
+  return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+}
 
 interface Props {
   setScreenAction: (s: Screen) => void;
@@ -55,7 +72,7 @@ export default function LobbyScreen({
 }: Props) {
   const t  = THEMES[themeId as keyof typeof THEMES];
   const ip = themeId === "pixel";
-  const { user, token } = useAuthStore();
+  const { user, token, refreshProfile } = useAuthStore();
   const BLOOD_RED = "#FF0000";
 
   const [multiSub,   setMultiSub]   = useState<MultiSub>(null);
@@ -129,6 +146,43 @@ export default function LobbyScreen({
   const [countdown, setCountdown] = useState(3.5);
   const [hovered,   setHovered]   = useState<string | null>(null);
 
+  const banEndMs = useMemo(() => parseRankedBanEndMs(user), [user?.ranked_ban_until]);
+  const rankedBanActive = Boolean(
+    user &&
+      (user.ranked_allowed === false ||
+        (banEndMs !== null && banEndMs > Date.now())),
+  );
+  const [rankedBanRemainingSec, setRankedBanRemainingSec] = useState(0);
+
+  useEffect(() => {
+    if (!rankedBanActive || banEndMs === null) {
+      setRankedBanRemainingSec(0);
+      return;
+    }
+    const tick = () => Math.max(0, Math.ceil((banEndMs - Date.now()) / 1000));
+    setRankedBanRemainingSec(tick());
+    const id = setInterval(() => {
+      const sec = tick();
+      setRankedBanRemainingSec(sec);
+      if (sec <= 0) {
+        clearInterval(id);
+        void refreshProfile();
+      }
+    }, 1000);
+    return () => clearInterval(id);
+  }, [rankedBanActive, banEndMs, refreshProfile]);
+
+  const rankedBanUnknownEndRef = useRef(false);
+  useEffect(() => {
+    if (user?.ranked_allowed !== false || user?.ranked_ban_until) {
+      rankedBanUnknownEndRef.current = false;
+      return;
+    }
+    if (rankedBanUnknownEndRef.current) return;
+    rankedBanUnknownEndRef.current = true;
+    void refreshProfile();
+  }, [user?.ranked_allowed, user?.ranked_ban_until, refreshProfile]);
+
   // ── Room state ────────────────────────────────────────────────────────────
   const [roomSection, setRoomSection] = useState<"none" | "create" | "join" | "waiting">("none");
   const [roomFormat,  setRoomFormat]  = useState<"unranked" | "ranked">("unranked");
@@ -149,6 +203,7 @@ export default function LobbyScreen({
 
   const startSearch = async () => {
     if (!multiSub || !token) return;
+    if (multiSub === "ranked" && rankedBanActive) return;
     onQueueStartAction(multiSub);
   };
 
@@ -471,6 +526,35 @@ export default function LobbyScreen({
         textShadow: "0 0 10px rgba(255,255,255,0.9), 0 0 20px rgba(255,255,255,0.6), 0 0 40px rgba(255,255,255,0.3)",
       }}>{lobbyTitle}</h1>
 
+      {rankedBanActive && (
+        <div
+          style={{
+            width: "100%",
+            maxWidth: 1200,
+            marginBottom: isMobile ? 16 : 20,
+            background: `${t.danger}12`,
+            border: `1px solid ${t.danger}`,
+            borderRadius: ip ? 2 : 12,
+            padding: isMobile ? "14px 16px" : "18px 22px",
+            boxSizing: "border-box",
+          }}
+        >
+          <div style={{ fontFamily: t.fontDisplay, fontSize: ip ? 13 : 16, fontWeight: 800, color: t.danger, letterSpacing: "0.06em", marginBottom: 8 }}>
+            RANKED QUEUE LOCKED
+          </div>
+          <div style={{ fontFamily: t.fontBody, fontSize: ip ? 12 : 14, color: t.textSecondary, lineHeight: 1.55, marginBottom: 10 }}>
+            You have been temporarily blocked from ranked matchmaking for going AFK or idle in too many matches. Finish your games or play unranked until the timer ends.
+          </div>
+          <div style={{ fontFamily: t.fontMono, fontSize: ip ? 13 : 15, color: t.text, letterSpacing: "0.08em" }}>
+            {banEndMs !== null && rankedBanRemainingSec > 0 ? (
+              <>Unban in <span style={{ color: t.accent, fontWeight: 800 }}>{formatRankedBanCountdown(rankedBanRemainingSec)}</span></>
+            ) : (
+              <span style={{ color: t.textMuted }}>Syncing ban status…</span>
+            )}
+          </div>
+        </div>
+      )}
+
       <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr":"1fr 1fr 1fr", gap:isMobile?12:ip?14:20, width:"100%", maxWidth:1200, marginBottom:isMobile?32:0 }}>
 
         {/* ── UNRANKED ── */}
@@ -514,6 +598,11 @@ export default function LobbyScreen({
         >
           <div style={{ fontFamily:t.fontMono, fontSize:10, color:t.textMuted, letterSpacing:"0.18em", marginBottom:12 }}>QUEUE</div>
           <div style={{ fontFamily:t.fontDisplay, fontSize:ip?20:32, fontWeight:700, marginBottom:8, color:multiSub==="ranked"||hovered==="ranked"?BLOOD_RED:t.text, transition:"color 0.28s", textTransform:"uppercase" as const, letterSpacing:"0.08em", textShadow: hovered === "ranked" ? `0 0 20px ${BLOOD_RED}88` : "none" }}>Ranked</div>
+          {rankedBanActive && (
+            <div style={{ position:"absolute", top:11, left:11, background:`${t.danger}EE`, color:"#fff", fontSize:9, padding:"2px 6px", borderRadius:4, fontFamily:t.fontMono, fontWeight:900 }}>
+              LOCKED
+            </div>
+          )}
           <div style={{ fontFamily:t.fontBody, fontSize:ip?12:14, color:t.textMuted, marginBottom:16 }}>ELO · RR · Rank · Season rewards</div>
           <div style={{ marginTop:"auto", width:"100%", display:"flex", flexDirection:"column", gap:6 }}>
             {[{k:"FORMAT",v:"5×5 → 6×6 → 7×7"},{k:"SERIES",v:"First to 5 points"},{k:"ELO",v:"Rating updates"}].map(s => (
@@ -616,12 +705,45 @@ export default function LobbyScreen({
           <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:10 }}>
             <button
               onClick={startSearch}
-              style={{ background:`linear-gradient(135deg,${t.accent},${t.accentGlow})`, border:"none", color:"#0A0A0A", fontFamily:t.fontDisplay, fontSize:18, fontWeight:700, padding:"18px 64px", borderRadius:ip?2:10, cursor:"pointer", boxShadow:`0 0 28px ${t.accentGlow}44`, transition:"transform 0.25s cubic-bezier(.22,.68,0,1.2), box-shadow 0.25s cubic-bezier(.22,.68,0,1.2)" }}
-              onMouseEnter={e => { onHoverAction?.(); e.currentTarget.style.transform="translateY(-3px) scale(1.04)"; e.currentTarget.style.boxShadow=`0 8px 40px ${t.accentGlow}66`; }}
-              onMouseLeave={e => { e.currentTarget.style.transform="translateY(0) scale(1)"; e.currentTarget.style.boxShadow=`0 0 28px ${t.accentGlow}44`; }}
-              onMouseDown={e => { e.currentTarget.style.transform="translateY(0) scale(0.97)"; }}
-              onMouseUp={e   => { e.currentTarget.style.transform="translateY(-3px) scale(1.04)"; }}
+              disabled={multiSub === "ranked" && rankedBanActive}
+              style={{
+                background: multiSub === "ranked" && rankedBanActive ? t.bgCard : `linear-gradient(135deg,${t.accent},${t.accentGlow})`,
+                border: multiSub === "ranked" && rankedBanActive ? `2px solid ${t.border}` : "none",
+                color: multiSub === "ranked" && rankedBanActive ? t.textMuted : "#0A0A0A",
+                fontFamily: t.fontDisplay,
+                fontSize: 18,
+                fontWeight: 700,
+                padding: "18px 64px",
+                borderRadius: ip ? 2 : 10,
+                cursor: multiSub === "ranked" && rankedBanActive ? "not-allowed" : "pointer",
+                opacity: multiSub === "ranked" && rankedBanActive ? 0.72 : 1,
+                boxShadow: multiSub === "ranked" && rankedBanActive ? "none" : `0 0 28px ${t.accentGlow}44`,
+                transition: "transform 0.25s cubic-bezier(.22,.68,0,1.2), box-shadow 0.25s cubic-bezier(.22,.68,0,1.2), opacity 0.2s",
+              }}
+              onMouseEnter={e => {
+                if (multiSub === "ranked" && rankedBanActive) return;
+                onHoverAction?.();
+                e.currentTarget.style.transform = "translateY(-3px) scale(1.04)";
+                e.currentTarget.style.boxShadow = `0 8px 40px ${t.accentGlow}66`;
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.transform = "translateY(0) scale(1)";
+                e.currentTarget.style.boxShadow = multiSub === "ranked" && rankedBanActive ? "none" : `0 0 28px ${t.accentGlow}44`;
+              }}
+              onMouseDown={e => {
+                if (multiSub === "ranked" && rankedBanActive) return;
+                e.currentTarget.style.transform = "translateY(0) scale(0.97)";
+              }}
+              onMouseUp={e => {
+                if (multiSub === "ranked" && rankedBanActive) return;
+                e.currentTarget.style.transform = "translateY(-3px) scale(1.04)";
+              }}
             >FIND MATCH ({boardMode === "5x5_7x7" ? "5×7" : boardMode === "5x5_6x6" ? "5×6" : boardMode === "6x6_7x7" ? "6×7" : boardMode === "5x5_6x6_7x7" ? "5×6×7" : boardMode.toUpperCase()})</button>
+            {multiSub === "ranked" && rankedBanActive && banEndMs !== null && rankedBanRemainingSec > 0 && (
+              <div style={{ fontFamily: t.fontMono, fontSize: 12, color: t.textMuted, letterSpacing: "0.06em", textAlign: "center" }}>
+                Ranked unlocks in {formatRankedBanCountdown(rankedBanRemainingSec)}
+              </div>
+            )}
             {queueError && (
               <div style={{ background:`${t.danger}14`, border:`1px solid ${t.danger}`, borderRadius:8, padding:"8px 12px", color:t.danger, fontFamily:t.fontBody, fontSize:12 }}>
                 {queueError}

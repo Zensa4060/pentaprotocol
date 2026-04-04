@@ -27,6 +27,7 @@ import SettingsModal    from "@/components/SettingsModal";
 import SpaceBg      from "@/components/SpaceBg";
 import PolicyAcceptanceGate from "@/components/PolicyAcceptanceGate";
 import { POLICY_GATE_SESSION_KEY, getUserId, hasAcceptedLegal } from "@/lib/legalAcceptance";
+import { multiplayerRulesBootstrapFromRoom, type MultiplayerRulesBootstrap } from "@/lib/effectiveBoardMode";
 
 THEMES["custom" as ThemeId] = resolveCustomTheme(loadCustomTheme(), THEMES) as any;
 
@@ -54,6 +55,7 @@ export default function Page() {
   const [multiRoomCode,   setMultiRoomCode]   = useState<string>("");
   const [multiPlayerSlot, setMultiPlayerSlot] = useState<"P1" | "P2" | null>(null);
   const [multiMatchup, setMultiMatchup]       = useState<MatchupData | null>(null);
+  const [multiplayerRulesBootstrap, setMultiplayerRulesBootstrap] = useState<MultiplayerRulesBootstrap | null>(null);
   const [customRev, setCustomRev]       = useState(0);
 
   // Matchmaking states
@@ -111,6 +113,10 @@ export default function Page() {
   // Keep refs in sync with state so closures always see latest values
   useEffect(() => { queueRoomCodeRef.current   = queueRoomCode;   }, [queueRoomCode]);
   useEffect(() => { queuePlayerSlotRef.current = queuePlayerSlot; }, [queuePlayerSlot]);
+
+  useEffect(() => {
+    if (screen !== "multiGame") setMultiplayerRulesBootstrap(null);
+  }, [screen]);
 
   const getBgmCtx = (s: Screen, ranked: boolean, aiDiff: Difficulty): "lobby" | "game" | "ranked" => {
     if (s === "aiGame") return aiDiff === "hard" || aiDiff === "danger" || aiDiff === "machine_god" ? "ranked" : "game";
@@ -391,9 +397,13 @@ export default function Page() {
         matchmakingActiveRef.current = false;
         return;
       }
-      // Show a soft error but keep the queue UI alive — don't exit the queue
-      // The user can cancel manually; we don't auto-retry to avoid ghost calls
-      setQueueError("Connection issue — still searching...");
+      const status = err?.response?.status;
+      const detail = err?.response?.data?.detail;
+      const msg =
+        (status === 403 || status === 401) && typeof detail === "string" && detail.trim()
+          ? detail
+          : "Connection issue — still searching...";
+      setQueueError(msg);
       matchmakingActiveRef.current = false;
     }
   };
@@ -549,13 +559,20 @@ export default function Page() {
     playerSlot: "P1" | "P2",
     format: string,
     matchup?: MatchupData,
-    roomFromServer?: { board_mode?: string; selected_patterns?: string[] },
+    roomFromServer?: {
+      board_mode?: string;
+      selected_patterns?: string[];
+      awaiting_5x5_rules_ready?: boolean;
+      awaiting_6x6_rules_ready?: boolean;
+      awaiting_7x7_rules_ready?: boolean;
+    },
   ) => {
     if (typeof window !== "undefined") {
       sessionStorage.removeItem(PP_MULTI_SERIES_FINISHED_KEY);
     }
     if (roomFromServer?.board_mode) setBoardMode(roomFromServer.board_mode as BoardMode);
     if (Array.isArray(roomFromServer?.selected_patterns)) setSelectedPatterns(roomFromServer.selected_patterns);
+    setMultiplayerRulesBootstrap(multiplayerRulesBootstrapFromRoom(roomFromServer));
     setMultiRoomCode(roomCode);
     setMultiPlayerSlot(playerSlot);
     setIsRanked(format === "ranked");
@@ -799,6 +816,7 @@ export default function Page() {
           p1Name={user?.username}
           graphicsQuality={graphicsQuality}
           boardMode={boardMode} selectedPatterns={selectedPatterns}
+          multiplayerRulesBootstrap={multiplayerRulesBootstrap}
           onMultiplayerBoardSync={(mode, pats) => { setBoardMode(mode); setSelectedPatterns(pats); }}
           onMultiplayerSeriesSealedAction={sealMultiSeriesNavigation}
           onMultiplayerSeriesResumedAction={resumeMultiSeriesNavigation}
