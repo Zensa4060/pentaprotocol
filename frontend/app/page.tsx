@@ -143,7 +143,11 @@ export default function Page() {
         setBoardMode(savedBoard);
     }
     if (savedDifficulty) {
-      setAiDifficulty(savedDifficulty);
+      let d: Difficulty = savedDifficulty;
+      if (savedScreen === "aiGame" && savedBoard === "7x7" && d === "medium") {
+        d = "easy";
+      }
+      setAiDifficulty(d);
     }
     if (savedPats) {
       try {
@@ -226,6 +230,12 @@ export default function Page() {
   }, [token]);
 
   useEffect(() => {
+    if (screen === "aiGame" && boardMode === "7x7" && aiDifficulty === "medium") {
+      setAiDifficulty("easy");
+    }
+    const aiDiffPersist =
+      screen === "aiGame" && boardMode === "7x7" && aiDifficulty === "medium" ? "easy" : aiDifficulty;
+
     sessionStorage.setItem("pp_screen", screen);
     sessionStorage.setItem("pp_multiRoomCode", multiRoomCode);
     if (multiPlayerSlot) sessionStorage.setItem("pp_multiPlayerSlot", multiPlayerSlot);
@@ -235,7 +245,8 @@ export default function Page() {
     localStorage.setItem("pp_boardMode", boardMode);
     sessionStorage.setItem("pp_selectedPatterns", JSON.stringify(selectedPatterns));
     localStorage.setItem("pp_selectedPatterns", JSON.stringify(selectedPatterns));
-    localStorage.setItem("pp_ai_difficulty", aiDifficulty);
+    localStorage.setItem("pp_ai_difficulty", aiDiffPersist);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- aiDifficulty read from latest render when any listed dep changes; omitting it avoids a 7th dep (HMR/runtime mismatch with varying array length)
   }, [screen, multiRoomCode, multiPlayerSlot, isRanked, boardMode, selectedPatterns]);
 
   useEffect(() => {

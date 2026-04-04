@@ -54,6 +54,8 @@ class Bot7Engine:
                         self.cell_index[idx].append((pid, cells))
 
     def choose(self, board_2d, bot, human, difficulty, moves_played, c3_blocked):
+        if difficulty == "medium":
+            difficulty = "easy"
         # Convert 2D board to 1D flat for performance
         board = [None] * (GRID * GRID)
         zhash = 0
@@ -105,8 +107,8 @@ class Bot7Engine:
         return _rc(random.choice(empties))
 
     def _idab(self, board, zhash, bot, human, difficulty, empties, moves_played):
-        max_d = {"medium": 4, "hard": 6}.get(difficulty, 4)
-        budget = {"medium": 1.0, "hard": 1.0}.get(difficulty, 1.0)
+        max_d = {"hard": 6}.get(difficulty, 6)
+        budget = {"hard": 1.0}.get(difficulty, 1.0)
         deadline = time.monotonic() + budget
 
         best_mv = empties[0]
@@ -408,6 +410,7 @@ def bot7_move(req: Bot7MoveRequest):
     pat_key = tuple(tuple(p) for p in pats)
     bot = req.current_player
     human = "P2" if bot == "P1" else "P1"
+    py_difficulty = "easy" if req.difficulty == "medium" else req.difficulty
 
     if req.difficulty == "danger":
         if _HAS_RUST:
@@ -441,7 +444,7 @@ def bot7_move(req: Bot7MoveRequest):
             _cached_pats = pat_key
         move = _cached_engine.choose(
             copy.deepcopy(board), bot, human,
-            req.difficulty, moves_played, req.c3_blocked,
+            py_difficulty, moves_played, req.c3_blocked,
         )
 
     if move:

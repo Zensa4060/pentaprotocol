@@ -478,6 +478,8 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   const [mobileTab, setMobileTab] = useState<"log" | "chat">("log");
   const isMultiplayerGame = (gameMode === "ranked" || gameMode === "unranked") && !!roomCode;
   const mySlot = playerSlot ?? "P1";
+  /** Best-of-3 series scoring for singleplayer / bot; ladder + Rulebreaker / Timebreaker / Mindbreaker unchanged. */
+  const isLocalShortSeries = gameMode === "singleplayer" || gameMode === "ai";
 
   // Multiplayer rank icons (Rulebreaker UI) should reflect actual players' ELO.
   // Backend room_state includes player1_elo/player2_elo; we cache them here.
@@ -1906,6 +1908,24 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   };
 
   const checkSeriesWinner = (hist: any[]): string | null => {
+    if (isLocalShortSeries) {
+      let p1w = 0;
+      let p2w = 0;
+      for (const item of hist) {
+        const w = typeof item === "string" ? item : (item as { winner?: string })?.winner;
+        if (w === "P1") p1w += 1;
+        else if (w === "P2") p2w += 1;
+      }
+      if (p1w >= 2) return "P1";
+      if (p2w >= 2) return "P2";
+      if (hist.length >= 3) {
+        if (p1w > p2w) return "P1";
+        if (p2w > p1w) return "P2";
+        return "DRAW";
+      }
+      return null;
+    }
+
     const { p1: p1_pts, p2: p2_pts } = seriesPointsFromHistory(hist);
 
     if (p1_pts + EPS >= 5) return "P1";
@@ -1932,9 +1952,20 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   const lastP1Sec = useRef(-1);
   const lastP2Sec = useRef(-1);
   const lastMatchupSec = useRef(-1);
+  const applyRulebreakerTimeoutPickRef = useRef<(p: Phase) => void>(() => {});
 
   useEffect(() => {
-    const tossChoicePhases: Phase[] = ["rule_choice", "who_first_winner", "c3_choice", "c3_choice_loser", "who_first_loser", "ban_pattern_winner", "ban_pattern_loser", "grid_block_warning", "grid_block_selection", "grid_block_waiting"];
+    const rbChoiceTimerPhases: Phase[] = [
+      "rule_choice",
+      "who_first_winner",
+      "c3_choice",
+      "c3_choice_loser",
+      "who_first_loser",
+      "ban_pattern_winner",
+      "ban_pattern_loser",
+      "grid_block_warning",
+      "grid_block_selection",
+    ];
     const tick = () => {
       rafHandle.current = requestAnimationFrame(tick);
       const now = Date.now();
@@ -1971,10 +2002,19 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
       if (s.winner && !freePhases.includes(s.phase)) return;
       // Rulebreaker choice timers (incl. 6x6 grid cell picker) must tick even when pausedRef is true
       // (e.g. exit modal), so they run before the pause guard below.
-      if (tossChoicePhases.includes(s.phase) && s.choiceTimer > 0) {
+      if (rbChoiceTimerPhases.includes(s.phase) && s.choiceTimer > 0) {
         choiceTimerRef.current -= dt / 1000;
-        if (choiceTimerRef.current <= 0) { choiceTimerRef.current = 0; setChoiceTimer(0); autoPickLeft(s.phase); }
-        else { const sec = Math.ceil(choiceTimerRef.current); if (sec !== lastChoiceSec.current) { lastChoiceSec.current = sec; setChoiceTimer(choiceTimerRef.current); } }
+        if (choiceTimerRef.current <= 0) {
+          choiceTimerRef.current = 0;
+          setChoiceTimer(0);
+          applyRulebreakerTimeoutPickRef.current(s.phase);
+        } else {
+          const sec = Math.ceil(choiceTimerRef.current);
+          if (sec !== lastChoiceSec.current) {
+            lastChoiceSec.current = sec;
+            setChoiceTimer(choiceTimerRef.current);
+          }
+        }
       }
       if (pausedRef.current && !freePhases.includes(s.phase)) return;
 
@@ -2087,11 +2127,14 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
                 if (!_isMP2) {
                   const wr = R.current.winnerPickedRule;
                   const tw = R.current.tossWinner;
-                  const supC = wr === "extra_turn";
+                  const supC = wr === "extra_turn" || wr === "ban";
                   initBoard(fp, s.rbC3Blocked, supC);
                   unstable_batchedUpdates(() => {
-                    if (wr === "extra_turn" && (tw === "P1" || tw === "P2")) {
-                      setRbExtraTurnTokenHolder(tw);
+                    let holder: "P1" | "P2" | null = null;
+                    if (wr === "extra_turn" && (tw === "P1" || tw === "P2")) holder = tw;
+                    else if (wr === "ban" && (tw === "P1" || tw === "P2")) holder = tw === "P1" ? "P2" : "P1";
+                    if (holder) {
+                      setRbExtraTurnTokenHolder(holder);
                       setRbExtraTurnTokenUsed(false);
                     }
                   });
@@ -2110,6 +2153,14 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
                 } else {
                   const wr = R.current.winnerPickedRule;
                   const tw = R.current.tossWinner;
+                  const tl = tw === "P1" ? "P2" : tw === "P2" ? "P1" : null;
+                  const mindbreakerRb7 = wr === "extra_turn" || wr === "ban";
+                  const rbTokenHolder =
+                    wr === "extra_turn" && (tw === "P1" || tw === "P2")
+                      ? tw
+                      : wr === "ban" && tl
+                        ? tl
+                        : null;
                   wsRef.current?.send(JSON.stringify({
                     type: "rb_start_game",
                     first_player: fp,
@@ -2117,8 +2168,8 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
                     selected_patterns: liveSelectedPatternsRef.current,
                     selected_patterns_p1: structuralPatternsP1Ref.current,
                     selected_patterns_p2: structuralPatternsP2Ref.current,
-                    suppress_center_opening: wr === "extra_turn",
-                    rb_extra_turn_token_holder: wr === "extra_turn" && (tw === "P1" || tw === "P2") ? tw : null,
+                    suppress_center_opening: mindbreakerRb7,
+                    rb_extra_turn_token_holder: rbTokenHolder,
                     rb_hide_banned_from_slot: R.current.rbHideBannedPatternFromSlot,
                     rb_patterns_pre_ban: R.current.rbPatternsPreBan,
                     rb_banned_patterns: R.current.rbBannedPatterns,
@@ -2144,83 +2195,6 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     return () => cancelAnimationFrame(rafHandle.current);
   }, []);
 
-  const autoPickLeft = (p: Phase) => {
-    const tw = R.current.tossWinner;
-    const tl = tw === "P1" ? "P2" : "P1";
-    const patList = liveSelectedPatternsRef.current;
-    if (p === "rule_choice") {
-      if (is7x7 && tw) {
-        setWinnerPickedRule("extra_turn");
-        setRbPatternsPreBan([...patList]);
-        setRbHideBannedPatternFromSlot(tw);
-        setPhase("ban_pattern_loser");
-      } else if (is6x6 && tw) {
-        setWinnerPickedRule("timer_half");
-        setRb6TimerOwner(tw);
-        setRb6CellChooser(tw);
-        setPhase("grid_block_warning");
-      } else if (!is7x7 && !is6x6) { setPhase("who_first_winner"); }
-    }
-    else if (p === "grid_block_warning") {
-      setPhase("grid_block_selection");
-    }
-    else if (p === "grid_block_selection") {
-      if (R.current.rb6CellChooser) {
-        const fallbackCell = { r: 2, c: 2, owner: R.current.rb6CellChooser };
-        setRb6SpecialCell(fallbackCell);
-        if (R.current.winnerPickedRule === "timer_half") {
-          if (R.current.rb6CellChooser === "P1") {
-            p1TimeRef.current = 120_000;
-            setP1Time(120_000);
-          } else {
-            p2TimeRef.current = 120_000;
-            setP2Time(120_000);
-          }
-          setPhase("who_first_loser");
-          if (isMultiplayerGame) {
-            broadcastTossPhase("who_first_loser", {
-              rb6_special_cell: fallbackCell,
-              winnerPickedRule: R.current.winnerPickedRule,
-              rb6TimerOwner: R.current.rb6CellChooser,
-            });
-          }
-        } else {
-          setSummaryTimer(5);
-          setPhase("toss_summary");
-          if (isMultiplayerGame) {
-            broadcastTossPhase("toss_summary", {
-              rb6_special_cell: fallbackCell,
-              rb6TimerOwner: R.current.rb6TimerOwner,
-              summaryTimer: 5,
-            });
-          }
-        }
-      }
-    }
-    else if (p === "who_first_winner") {
-      setFirstPlayerChosen(tw);
-      if (is6x6 && tw) {
-        const forcedOther = tw === "P1" ? "P2" : "P1";
-        setRb6TimerOwner(forcedOther);
-        setRb6CellChooser(forcedOther);
-        setWinnerPickedRule("choose_first");
-        setPhase("grid_block_selection");
-      } else {
-        setPhase("c3_choice_loser");
-      }
-    }
-    else if (p === "c3_choice") { setRbC3Blocked(true); setPhase("who_first_loser"); }
-    else if (p === "c3_choice_loser") { setRbC3Blocked(true); setSummaryTimer(5); setPhase("toss_summary"); }
-    else if (p === "who_first_loser") { setFirstPlayerChosen(tl); setSummaryTimer(5); setPhase("toss_summary"); }
-    else if (p === "ban_pattern_winner") {
-      const first = patList[0] ?? null;
-      if (first) onBanPattern(first);
-    }
-    else if (p === "ban_pattern_loser") {
-      const first = patList[0] ?? null;
-      if (first) onBanPattern(first);
-    }
-  };
   const doAdvanceAfterReady = () => {
     const gn = R.current.gameNumber;
     if (R.current.matchOver) return;
@@ -2244,8 +2218,9 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
       return;
     }
 
-    // AI / Singleplayer match flow logic
+    // AI / Singleplayer match flow logic (same leg ladder + RB / Timebreaker / Mindbreaker as multiplayer)
     const nextGameNum = gn + 1;
+
     const isEndOfLeg = gn === 3 || gn === 6;
 
     if (isEndOfLeg) {
@@ -2313,8 +2288,8 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     matchHistoryRef.current = newHist;
     setMatchHistory(newHist);
     const sw = checkSeriesWinner(newHist);
-    const seriesWinnerNow = sw ?? newHist[newHist.length - 1];
-    const isSeriesComplete = newHist.length >= 3 || sw !== null;
+    const isSeriesComplete = sw !== null || newHist.length >= 3;
+    const seriesWinnerNow = sw ?? (newHist.length >= 3 ? "DRAW" : newHist[newHist.length - 1]);
     if (isSeriesComplete) {
       setMatchOver(true);
       setSeriesWinner(seriesWinnerNow);
@@ -2562,9 +2537,6 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   const onGridBlockChoice = useCallback((r: number, c: number) => {
     const chooser = R.current.rb6CellChooser;
     if (!chooser) return;
-    // #region agent log
-    fetch('http://127.0.0.1:7852/ingest/44a3777c-2714-4f08-b3ff-de0caf166408',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'6fad40'},body:JSON.stringify({sessionId:'6fad40',runId:'run1',hypothesisId:'H3',location:'frontend/components/GameScreen.tsx:2245',message:'selected 6x6 special cell',data:{chooser,r,c,winnerPickedRule:R.current.winnerPickedRule,p1Time,p2Time},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
     setRb6SpecialCell({ r, c, owner: chooser });
     if (R.current.winnerPickedRule === "timer_half") {
       setRb6TimerOwner(chooser);
@@ -2713,6 +2685,47 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     }
   }, [broadcastTossPhase, is7x7]);
 
+  applyRulebreakerTimeoutPickRef.current = (p: Phase) => {
+    const mp = isMultiplayerGame;
+    const slot = mySlot;
+    const tw = R.current.tossWinner;
+    const tl = tw === "P1" ? "P2" : tw === "P2" ? "P1" : null;
+    const chooser6: "P1" | "P2" = (R.current.rb6CellChooser ?? tw ?? "P1") as "P1" | "P2";
+
+    if (mp) {
+      if (p === "rule_choice" || p === "who_first_winner" || p === "c3_choice") {
+        if (tw && slot !== tw) return;
+      } else if (p === "c3_choice_loser" || p === "who_first_loser") {
+        if (tl && slot !== tl) return;
+      } else if (p === "ban_pattern_winner") {
+        if (tw && slot !== tw) return;
+      } else if (p === "ban_pattern_loser") {
+        if (tl && slot !== tl) return;
+      } else if (p === "grid_block_warning" || p === "grid_block_selection") {
+        if (slot !== chooser6) return;
+      }
+    }
+
+    if (p === "rule_choice" || p === "who_first_winner" || p === "c3_choice" || p === "c3_choice_loser" || p === "who_first_loser") {
+      if (Math.random() < 0.5) onLeftAction();
+      else onRightAction();
+      return;
+    }
+    if (p === "grid_block_warning") {
+      onLeftAction();
+      return;
+    }
+    if (p === "grid_block_selection") {
+      onGridBlockChoice(Math.floor(Math.random() * 6), Math.floor(Math.random() * 6));
+      return;
+    }
+    if (p === "ban_pattern_winner" || p === "ban_pattern_loser") {
+      const banned = R.current.rbBannedPatterns || [];
+      const avail = liveSelectedPatternsRef.current.filter(x => !banned.includes(x));
+      if (avail.length > 0) onBanPattern(avail[Math.floor(Math.random() * avail.length)]!);
+    }
+  };
+
   // ── Bot auto-picks during Rulebreaker choice phases ───────────────────────
   useEffect(() => {
     if (gameMode !== "ai") return;
@@ -2723,16 +2736,28 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     const isBotWinner = tossWinner === "P2";
     const isBotLoser = tossWinner === "P1";
 
-    const isBotTurn =
+    const chooser6 = rb6CellChooser ?? tossWinner ?? "P1";
+    const isBotGridTurn =
+      (phase === "grid_block_warning" || phase === "grid_block_selection") && chooser6 === "P2";
+
+    const isBotCardTurn =
       (winnerPhases.includes(phase) && isBotWinner) ||
       (loserPhases.includes(phase) && isBotLoser);
 
-    if (!isBotTurn) return;
+    if (!isBotGridTurn && !isBotCardTurn) return;
 
     const delay = 800 + Math.random() * 1200;
     const timer = setTimeout(() => {
+      if (phase === "grid_block_warning") {
+        onLeftAction();
+        return;
+      }
+      if (phase === "grid_block_selection") {
+        onGridBlockChoice(Math.floor(Math.random() * 6), Math.floor(Math.random() * 6));
+        return;
+      }
       if (phase === "ban_pattern_winner" || phase === "ban_pattern_loser") {
-        const available = liveSelectedPatterns.filter(p => !rbBannedPatterns.includes(p));
+        const available = liveSelectedPatterns.filter(pat => !rbBannedPatterns.includes(pat));
         if (available.length === 0) return;
         const rndIdx = Math.floor(Math.random() * available.length);
         const patToBan = available[rndIdx];
@@ -2752,7 +2777,18 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     }, delay);
 
     return () => clearTimeout(timer);
-  }, [phase, tossWinner, gameMode, onLeftAction, onRightAction, onBanPattern, liveSelectedPatterns, rbBannedPatterns]);
+  }, [
+    phase,
+    tossWinner,
+    gameMode,
+    rb6CellChooser,
+    onLeftAction,
+    onRightAction,
+    onBanPattern,
+    onGridBlockChoice,
+    liveSelectedPatterns,
+    rbBannedPatterns,
+  ]);
 
   const cc = current === "P1" ? p1c : p2c;
   const cp = current === "P1" ? t.pieces.p1 : t.pieces.p2;

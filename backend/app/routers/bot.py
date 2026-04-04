@@ -91,8 +91,8 @@ class BotEngine7:
         # Move ordering: center-first
         ordered = sorted(empties, key=lambda x: abs(x[0]-3) + abs(x[1]-3))
         
-        max_d = {"medium": 4, "hard": 6}[difficulty]
-        budget = {"medium": 1.0, "hard": 1.0}[difficulty]
+        max_d = {"hard": 6}.get(difficulty, 6)
+        budget = {"hard": 1.0}.get(difficulty, 1.0)
         deadline = time.monotonic() + budget
         
         best_mv = ordered[0]
@@ -715,7 +715,8 @@ def bot_move(req: BotMoveRequest):
             if _ENGINE7_NEW is None or _LAST_PATS7_NEW != pat_key:
                 _ENGINE7_NEW = _Bot7Engine(pats)
                 _LAST_PATS7_NEW = pat_key
-            move = _ENGINE7_NEW.choose(copy.deepcopy(board), bot, human, req.difficulty, moves_played, req.c3_blocked)
+            diff7 = "easy" if req.difficulty == "medium" else req.difficulty
+            move = _ENGINE7_NEW.choose(copy.deepcopy(board), bot, human, diff7, moves_played, req.c3_blocked)
     elif actual_mode == "6x6":
         pats6 = generate_all_patterns_6()
         pat_key6 = tuple(tuple(p) for p in pats6)

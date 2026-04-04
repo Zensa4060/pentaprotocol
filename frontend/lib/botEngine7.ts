@@ -18,8 +18,8 @@ const DIRS4: Coord[] = [[0, 1], [1, 0], [1, 1], [1, -1]];
 const INF = 1e9;
 
 // Think-time budgets in ms
-const TIME_BUDGET: Record<string, number> = { easy: 0, medium: 1000, hard: 4000 };
-const MAX_DEPTH: Record<string, number> = { easy: 1, medium: 2, hard: 4 };
+const TIME_BUDGET: Record<string, number> = { easy: 0, hard: 4000 };
+const MAX_DEPTH: Record<string, number> = { easy: 1, hard: 4 };
 
 // ── Helpers ──
 
@@ -195,7 +195,7 @@ class BotEngine7 {
     const empties = empty(board);
     if (!empties.length) return null;
 
-    if (difficulty === "easy") return empties[Math.floor(Math.random() * empties.length)];
+    if (difficulty === "easy" || difficulty === "medium") return empties[Math.floor(Math.random() * empties.length)];
 
     // Immediate win/block checks (1-ply)
     for (const [r, c] of empties) {
@@ -205,8 +205,8 @@ class BotEngine7 {
       if (wins7(place(board, r, c, human), r, c, human, this.patterns)) return [r, c];
     }
 
-    const deadline = performance.now() + TIME_BUDGET[difficulty];
-    const depth = MAX_DEPTH[difficulty];
+    const deadline = performance.now() + TIME_BUDGET.hard;
+    const depth = MAX_DEPTH.hard;
 
     let bestMv = empties[0];
     let overallBestScore = -INF;
@@ -255,7 +255,7 @@ class BotEngine7 {
 let _engine7: BotEngine7 | null = null;
 let _lastPatternKey = "";
 
-export function getBotMove7(board: Board, botPlayer: string, humanPlayer: string, difficulty: "easy" | "medium" | "hard", selectedPatternIds: (number | string)[]): Coord | null {
+export function getBotMove7(board: Board, botPlayer: string, humanPlayer: string, difficulty: "easy" | "hard", selectedPatternIds: (number | string)[]): Coord | null {
   const patterns = getSelectedPatterns(selectedPatternIds);
   const key = JSON.stringify(selectedPatternIds);
   if (!_engine7 || key !== _lastPatternKey) {
@@ -265,4 +265,4 @@ export function getBotMove7(board: Board, botPlayer: string, humanPlayer: string
   return _engine7.choose(board, botPlayer, humanPlayer, difficulty);
 }
 
-export const BOT_DELAY_7: Record<string, number> = { easy: 400, medium: 1000, hard: 2000 };
+export const BOT_DELAY_7: Record<string, number> = { easy: 400, hard: 2000 };

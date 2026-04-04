@@ -708,7 +708,7 @@ export function RulebreakerFlow({
               <div style={{ fontFamily: t.fontDisplay, fontSize: 16, fontWeight: 700, color: winCol }}>EXTRA TURN TOKEN (opponent banned a pattern — hidden from you for the full 7×7 game and on the match results screen; Career shows which pattern)</div>
             )}
             {phase === "who_first_loser" && is7x7 && winnerPickedRule === "ban" && mySlot === tossLoser && (
-              <div style={{ fontFamily: t.fontDisplay, fontSize: 16, fontWeight: 700, color: loseCol }}>OPPONENT BANNED A PATTERN (hidden from you for the full 7×7 game and on the results screen; Career shows which pattern)</div>
+              <div style={{ fontFamily: t.fontDisplay, fontSize: 16, fontWeight: 700, color: loseCol }}>EXTRA TURN TOKEN — you also choose who plays first. Opponent banned a pattern hidden from you for the full 7×7 game and on the results screen (Career shows which pattern).</div>
             )}
           </div>
         )}

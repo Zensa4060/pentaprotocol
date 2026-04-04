@@ -32,6 +32,18 @@ function safeWinner(item: any): string {
   return "";
 }
 
+/** P1/P2 win counts only (same as local BO3 checkSeriesWinner). */
+function localBo3WinCounts(matchHistory: string[]): { p1: number; p2: number } {
+  let p1 = 0;
+  let p2 = 0;
+  for (const item of matchHistory) {
+    const w = safeWinner(item);
+    if (w === "P1") p1 += 1;
+    else if (w === "P2") p2 += 1;
+  }
+  return { p1, p2 };
+}
+
 function sidebarDisplayName(raw?: string): string {
   return (raw ?? "PLAYER")
     .replace(/\(([xy])\)/gi, "")
@@ -170,6 +182,9 @@ export function MatchSidebar({
   const showInterGameReady = interGameReadyVisible ?? (phase === "waiting_ready");
   const showWaitingReadyWarmup = Boolean(waitingReadyWarmup);
   const absoluteCurrentGame = historyDisplayStartIndex + gameNumber;
+  const historySlots = gameMode === "ai" || gameMode === "singleplayer" ? 3 : 10;
+  const localBo3 = gameMode === "ai" || gameMode === "singleplayer";
+  const localWins = localBo3 ? localBo3WinCounts(matchHistory) : null;
   const useFlameSkull = pieceSkin === "flame_skull";
   const useSnowflakeShard = pieceSkin === "snowflake_shard";
 
@@ -365,6 +380,17 @@ export function MatchSidebar({
           </div>
         )}
 
+        {localBo3 && localWins && (
+          <div style={{ marginBottom: 12, padding: "10px 12px", background: `${t.accent}0C`, border: `1px solid ${t.accent}33`, borderRadius: ip ? 2 : 10 }}>
+            <div style={{ fontFamily: t.fontMono, fontSize: 9, color: t.textMuted, letterSpacing: "0.2em", marginBottom: 6 }}>SERIES · FIRST TO 2</div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontFamily: t.fontDisplay, fontSize: 18, fontWeight: 800 }}>
+              <span style={{ color: p1c }}>{p1Label ?? "P1"} <span style={{ color: t.text }}>{localWins.p1}</span></span>
+              <span style={{ color: t.textMuted, fontSize: 14 }}>—</span>
+              <span style={{ color: p2c }}>{p2Label ?? "P2"} <span style={{ color: t.text }}>{localWins.p2}</span></span>
+            </div>
+          </div>
+        )}
+
         {/* Last series chip — shown during new series after a rematch */}
         {lastSeries && (
           <div style={{ marginBottom: 12, padding: "8px 10px", background: `${t.gold}0C`, border: `1px solid ${t.gold}33`, borderRadius: ip ? 2 : 8 }}>
@@ -389,7 +415,7 @@ export function MatchSidebar({
         )}
 
         <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0, overflowY: "auto" }}>
-          {Array.from({ length: 10 }).map((_, i) => {
+          {Array.from({ length: historySlots }).map((_, i) => {
             const rawResult = matchHistory[i];
             const result = safeWinner(rawResult);
             const col = result === "P1" ? p1c : result === "P2" ? p2c : result === "DRAW" ? t.gold : t.textMuted;
@@ -438,7 +464,7 @@ export function MatchSidebar({
                   style={{ background: rdy ? `${col}22` : "#AA000022", border: `2px solid ${rdy ? col : "#AA0000"}`, color: rdy ? col : "#EE0000", fontFamily: t.fontMono, fontSize: 15, fontWeight: 700, padding: "12px", borderRadius: ip ? 2 : 6, cursor: "pointer", transition: "all 0.2s", boxShadow: rdy ? `0 0 16px ${col}55, 0 0 4px ${col}33` : "none" }}
                   onMouseEnter={e => { playHoverAction?.(); e.currentTarget.style.boxShadow = rdy ? `0 0 24px ${col}88` : "0 0 16px #EE000055"; e.currentTarget.style.borderColor = rdy ? col : "#FF3333"; }}
                   onMouseLeave={e => { e.currentTarget.style.boxShadow = rdy ? `0 0 16px ${col}55` : "none"; e.currentTarget.style.borderColor = rdy ? col : "#AA0000"; }}
-                >{matchHistory.length >= 2 ? "START RULEBREAKER" : `START GAME ${gameNumber + 1}`} {rdy ? "READY" : ""}</button>
+                >{matchHistory.length >= 2 ? "START GAME 3" : `START GAME ${gameNumber + 1}`} {rdy ? "READY" : ""}</button>
               );
             })()
           ) : (
@@ -538,6 +564,9 @@ export function LeftPanel(props: MatchSidebarProps) {
   const showInterGameReady = interGameReadyVisible ?? (phase === "waiting_ready");
   const showWaitingReadyWarmup = Boolean(waitingReadyWarmup);
   const absoluteCurrentGame = historyDisplayStartIndex + gameNumber;
+  const historySlots = gameMode === "ai" || gameMode === "singleplayer" ? 3 : 10;
+  const localBo3 = gameMode === "ai" || gameMode === "singleplayer";
+  const localWins = localBo3 ? localBo3WinCounts(matchHistory) : null;
   const useFlameSkull = pieceSkin === "flame_skull";
   const useSnowflakeShard = pieceSkin === "snowflake_shard";
 
@@ -651,6 +680,17 @@ export function LeftPanel(props: MatchSidebarProps) {
           </div>
         )}
 
+        {localBo3 && localWins && (
+          <div style={{ marginBottom: 12, padding: "10px 12px", background: `${t.accent}0C`, border: `1px solid ${t.accent}33`, borderRadius: ip ? 2 : 10 }}>
+            <div style={{ fontFamily: t.fontMono, fontSize: 9, color: t.textMuted, letterSpacing: "0.2em", marginBottom: 6 }}>SERIES · FIRST TO 2</div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontFamily: t.fontDisplay, fontSize: 18, fontWeight: 800 }}>
+              <span style={{ color: p1c }}>{p1Label ?? "P1"} <span style={{ color: t.text }}>{localWins.p1}</span></span>
+              <span style={{ color: t.textMuted, fontSize: 14 }}>—</span>
+              <span style={{ color: p2c }}>{p2Label ?? "P2"} <span style={{ color: t.text }}>{localWins.p2}</span></span>
+            </div>
+          </div>
+        )}
+
         {/* Last series chip — shown during new series after a rematch */}
         {lastSeries && (
           <div style={{ marginBottom: 12, padding: "8px 10px", background: `${t.gold}0C`, border: `1px solid ${t.gold}33`, borderRadius: ip ? 2 : 8 }}>
@@ -675,7 +715,7 @@ export function LeftPanel(props: MatchSidebarProps) {
         )}
 
         <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0, overflowY: "auto" }}>
-          {Array.from({ length: 10 }).map((_, i) => {
+          {Array.from({ length: historySlots }).map((_, i) => {
             const rawResult = matchHistory[i];
             const result = safeWinner(rawResult);
             const col = result === "P1" ? p1c : result === "P2" ? p2c : result === "DRAW" ? t.gold : t.textMuted;
@@ -725,7 +765,7 @@ export function LeftPanel(props: MatchSidebarProps) {
                   style={{ background: rdy ? `${col}22` : "#AA000022", border: `2px solid ${rdy ? col : "#AA0000"}`, color: rdy ? col : "#EE0000", fontFamily: t.fontMono, fontSize: 15, fontWeight: 700, padding: "12px", borderRadius: ip ? 2 : 6, cursor: "pointer", transition: "all 0.2s", boxShadow: rdy ? `0 0 16px ${col}55, 0 0 4px ${col}33` : "none" }}
                   onMouseEnter={e => { playHoverAction?.(); e.currentTarget.style.boxShadow = rdy ? `0 0 24px ${col}88` : "0 0 16px #EE000055"; e.currentTarget.style.borderColor = rdy ? col : "#FF3333"; }}
                   onMouseLeave={e => { e.currentTarget.style.boxShadow = rdy ? `0 0 16px ${col}55` : "none"; e.currentTarget.style.borderColor = rdy ? col : "#AA0000"; }}
-                >{matchHistory.length >= 2 ? "START RULEBREAKER" : `START GAME ${gameNumber + 1}`} {rdy ? "READY" : ""}</button>
+                >{matchHistory.length >= 2 ? "START GAME 3" : `START GAME ${gameNumber + 1}`} {rdy ? "READY" : ""}</button>
               );
             })()
           ) : (

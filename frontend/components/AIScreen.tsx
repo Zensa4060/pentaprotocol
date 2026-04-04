@@ -19,16 +19,21 @@ interface Props {
   onBoardModeAction?: (mode: BoardMode, patterns?: string[]) => void;
 }
 
-const DIFFICULTIES: { id: Difficulty; label: string; sub: string; color: string }[] = [
-  { id: "easy", label: "BALTAZAR SALAZAR JR THE III", sub: "", color: "#22C55E" },
-  { id: "medium", label: "BALTAZAR SALAZAR JR THE II", sub: "", color: "#FF0" },
-  { id: "hard", label: "BALTAZAR SALAZAR JR THE I", sub: "", color: "#700B0B" },
-  { id: "danger", label: "BOB", sub: "?", color: "#CC0000" },
+const DIFFICULTIES_5X5: { id: Difficulty; label: string; sub: string; color: string }[] = [
+  { id: "easy", label: "BALTAZAR SALAZAR JR ", sub: "", color: "#22C55E" },
+  { id: "medium", label: "MAGNUS DOMINUS AURELIUS", sub: "", color: "#FF0" },
+  { id: "hard", label: "BOB?", sub: "", color: "#700B0B" },
+];
+/** 7×7 Mindbreaker grid — own roster; no medium tier (no medium search on 7×7). */
+const DIFFICULTIES_7X7: { id: Difficulty; label: string; sub: string; color: string }[] = [
+  { id: "easy", label: "LADY SERAPHINA BLACKWOOD", sub: "", color: "#22C55E" },
+  { id: "hard", label: "THE ARCHIVIST", sub: "", color: "#700B0B" },
+  { id: "danger", label: "???", sub: "", color: "#CC0000" },
 ];
 const DIFFICULTIES_6X6: { id: Difficulty; label: string; sub: string; color: string }[] = [
-  { id: "normal", label: "Magnus Dominus Aurelius III", sub: "", color: "#FF0" },
-  { id: "hard", label: "Magnus Dominus Aurelius II", sub: "", color: "#000FFF" },
-  { id: "machine_god", label: "HIM", sub: "?", color: "#CC0000" },
+  { id: "normal", label: "VISCOUNT ALISTAIR REGINALD", sub: "", color: "#FF0" },
+  { id: "hard", label: "HAROLD FITZGERALD KENSINGTON", sub: "", color: "#000FFF" },
+  { id: "machine_god", label: "HIM??", sub: "", color: "#CC0000" },
 ];
 
 /** Mini grid diagram component */
@@ -305,8 +310,10 @@ export default function AIScreen({ setScreenAction, themeId, onSelectDifficultyA
           <div style={{ display: "flex", flexDirection: "column", gap: 12, width: "100%", maxWidth: 480 }}>
             {(boardMode === "6x6"
               ? DIFFICULTIES_6X6
-              : DIFFICULTIES.filter(d => d.id !== "danger" || boardMode === "7x7")
-            ).map((d: any, i: number) => {
+              : boardMode === "7x7"
+                ? DIFFICULTIES_7X7
+                : DIFFICULTIES_5X5
+            ).map((d, i) => {
               return (
                 <button
                   key={d.id}

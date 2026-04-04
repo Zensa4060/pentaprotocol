@@ -1176,7 +1176,6 @@ async def _finalize_rulebreaker_start(
         sel_patterns_p1 = None
     if not isinstance(sel_patterns_p2, list):
         sel_patterns_p2 = None
-    suppress_center = bool(msg.get("suppress_center_opening", False))
     token_holder = msg.get("rb_extra_turn_token_holder")
     if token_holder not in ("P1", "P2"):
         token_holder = None
@@ -1253,7 +1252,7 @@ async def _finalize_rulebreaker_start(
         "rb_phase_payload": None,
         "rb_summary_started_at_ms": None,
         "rb_auto_start_due_ms": None,
-        "suppress_center_opening": True if (bm == "7x7" and next_gn == 3) else (suppress_center if bm == "7x7" else False),
+        "suppress_center_opening": True if bm == "7x7" else False,
         "rb_extra_turn_token_holder": token_holder if bm == "7x7" else None,
         "rb_extra_turn_token_used": False,
         "rb6_special_cell": rb6_cell_resolved,
@@ -1350,6 +1349,17 @@ async def _auto_finalize_rulebreaker_toss(db, room_code: str, due_ms: int) -> No
         seg_start = room.get("segment_start_index", 0)
         p1p, p2p = compute_segment_points(hist, seg_start)
         series_already_decided = (p1p >= 5 and p1p > p2p) or (p2p >= 5 and p2p > p1p)
+        wr = payload.get("winnerPickedRule")
+        tw = room.get("rb_toss_winner")
+        suppress_auto = False
+        token_holder_auto = None
+        if room.get("board_mode", "5x5") == "7x7":
+            if wr == "extra_turn" and tw in ("P1", "P2"):
+                suppress_auto = True
+                token_holder_auto = tw
+            elif wr == "ban" and tw in ("P1", "P2"):
+                suppress_auto = True
+                token_holder_auto = "P2" if tw == "P1" else "P1"
         auto_msg = {
             "resolve_series_only": series_already_decided,
             "resolve_series_draw": room.get("board_mode", "5x5") == "7x7" and p1p == p2p and not series_already_decided,
@@ -1358,8 +1368,8 @@ async def _auto_finalize_rulebreaker_toss(db, room_code: str, due_ms: int) -> No
             "selected_patterns": room.get("selected_patterns"),
             "selected_patterns_p1": room.get("selected_patterns_p1"),
             "selected_patterns_p2": room.get("selected_patterns_p2"),
-            "suppress_center_opening": bool(payload.get("winnerPickedRule") == "extra_turn"),
-            "rb_extra_turn_token_holder": room.get("rb_toss_winner") if payload.get("winnerPickedRule") == "extra_turn" else None,
+            "suppress_center_opening": suppress_auto,
+            "rb_extra_turn_token_holder": token_holder_auto,
             "rb_hide_banned_from_slot": payload.get("rbHideBannedPatternFromSlot") or room.get("rb_hide_banned_from_slot"),
             "rb_patterns_pre_ban": payload.get("rbPatternsPreBan") or room.get("rb_patterns_pre_ban"),
             "rb_banned_patterns": payload.get("rb_banned_patterns") or room.get("rb_banned_patterns") or [],
