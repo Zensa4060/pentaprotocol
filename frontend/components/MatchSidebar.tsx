@@ -25,7 +25,7 @@ function patternSidebarLabel(pat: string): string {
 }
 
 /** Robust winner extraction regardless if item is a string or an object. */
-function safeWinner(item: any): string {
+export function safeWinner(item: any): string {
   if (!item) return "";
   if (typeof item === "string") return item;
   if (typeof item === "object" && "winner" in item) return String(item.winner);

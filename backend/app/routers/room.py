@@ -181,7 +181,64 @@ def serialize_room(room: dict) -> dict:
         "lb_first_ban_slot": room.get("pb_first_ban_slot"),
         "lb_second_ban_slot": room.get("pb_second_ban_slot"),
         "lb_coin_due_ms": room.get("pb_coin_due_ms"),
+        "rb6_trap_revealed": room.get("rb6_trap_revealed", False),
     }
+
+
+def _should_hide_rb6_coords_from_slot(room: dict, viewer_slot: str) -> bool:
+    """Timebreaker: hide special cell r,c from the non-chooser until the trap is sprung."""
+    if room.get("rb6_trap_revealed"):
+        return False
+    bm = _effective_board_mode(room)
+    if bm != "6x6":
+        return False
+    cell = room.get("rb6_special_cell")
+    if not isinstance(cell, dict):
+        return False
+    if "r" not in cell or "c" not in cell:
+        return False
+    owner = cell.get("owner")
+    if owner not in ("P1", "P2") or viewer_slot not in ("P1", "P2"):
+        return False
+    return viewer_slot != owner
+
+
+def serialize_room_for_slot(room: dict, viewer_slot: str) -> dict:
+    data = serialize_room(room)
+    if _should_hide_rb6_coords_from_slot(room, viewer_slot):
+        data["rb6_special_cell"] = None
+    return data
+
+
+def _redact_ws_payload_for_slot(payload: dict, viewer_slot: str, room: dict) -> dict:
+    """Shallow copy WS payload and strip rb6_special_cell coords for non-chooser when needed."""
+    out = dict(payload)
+    merged = dict(room)
+    if "board_mode" in out:
+        merged["board_mode"] = out["board_mode"]
+    sc = out.get("rb6_special_cell")
+    if sc is not None:
+        merged["rb6_special_cell"] = sc
+    if _should_hide_rb6_coords_from_slot(merged, viewer_slot):
+        out["rb6_special_cell"] = None
+    if "room" in out and isinstance(out["room"], dict):
+        nr = dict(out["room"])
+        rm = dict(room)
+        rm.update(nr)
+        if _should_hide_rb6_coords_from_slot(rm, viewer_slot):
+            nr["rb6_special_cell"] = None
+        out["room"] = nr
+    # Rulebreaker / Timebreaker: rb6 may live under toss_action.payload
+    if out.get("type") == "toss_action" and isinstance(out.get("payload"), dict):
+        pl = dict(out["payload"])
+        m = dict(room)
+        m.update(pl)
+        if isinstance(pl.get("rb6_special_cell"), dict):
+            m["rb6_special_cell"] = pl["rb6_special_cell"]
+        if _should_hide_rb6_coords_from_slot(m, viewer_slot):
+            pl["rb6_special_cell"] = None
+            out["payload"] = pl
+    return out
 
 
 def compute_segment_points(history: list, segment_start: int = 0) -> tuple[float, float]:
@@ -767,10 +824,18 @@ async def _award_match_series_and_notify(
 _award_ranked_triple_and_notify = _award_match_series_and_notify
 
 
+def _history_item_winner(item) -> str:
+    if item is None:
+        return ""
+    if isinstance(item, dict):
+        return str(item.get("winner") or "")
+    return str(item)
+
+
 def _aggregate_decisive_games(history: list) -> tuple[int, int]:
     """Count P1 vs P2 wins across the full match_history (DRAW ignored)."""
-    p1 = sum(1 for w in history if w == "P1")
-    p2 = sum(1 for w in history if w == "P2")
+    p1 = sum(1 for x in history if _history_item_winner(x) == "P1")
+    p2 = sum(1 for x in history if _history_item_winner(x) == "P2")
     return p1, p2
 
 
@@ -850,7 +915,11 @@ async def _start_protocolbreaker_final_game(
         "rb_extra_turn_token_used": False,
         "rb_hide_banned_from_slot": None,
         "rb_patterns_pre_ban": None,
+        "rb_banned_patterns": [],
         "rb_banned_pattern": None,
+        "rb6_special_cell": None,
+        "rb6_timer_owner": None,
+        "rb6_trap_revealed": False,
     }
     await db.rooms.update_one(
         {"room_code": room_code},
@@ -891,6 +960,7 @@ async def _broadcast_protocolbreaker_tie(
     """Aggregate tie on triple-leg ranked — start Limitbreaker."""
     tw = random.choice(["P1", "P2"])
     p1a, p2a = _aggregate_decisive_games(history)
+    p1sp, p2sp = compute_segment_points(history, 0)
     # Extra headroom so the protocol explainer sheet + coin phase stay fair for both players.
     due_ms = int(datetime.utcnow().timestamp() * 1000) + 12000
     await db.rooms.update_one(
@@ -902,6 +972,8 @@ async def _broadcast_protocolbreaker_tie(
                 "pb_bans": [],
                 "pb_p1_aggregate": p1a,
                 "pb_p2_aggregate": p2a,
+                "p1_series_points": p1sp,
+                "p2_series_points": p2sp,
                 "pb_phase": "coin",
                 "pb_choice": None,
                 "pb_first_player": None,
@@ -917,6 +989,8 @@ async def _broadcast_protocolbreaker_tie(
         "toss_winner": tw,
         "p1_aggregate": p1a,
         "p2_aggregate": p2a,
+        "p1_series_points": p1sp,
+        "p2_series_points": p2sp,
         "match_history_snapshot": history,
         "phase": "coin",
         "next_slot": tw,
@@ -940,6 +1014,8 @@ async def _broadcast_limitbreaker_update(room_code: str, room: dict) -> None:
         "toss_winner": room.get("pb_toss_winner"),
         "p1_aggregate": room.get("pb_p1_aggregate", 0),
         "p2_aggregate": room.get("pb_p2_aggregate", 0),
+        "p1_series_points": room.get("p1_series_points", 0),
+        "p2_series_points": room.get("p2_series_points", 0),
         "bans": room.get("pb_bans") or [],
         "choice": room.get("pb_choice"),
         "first_player": room.get("pb_first_player"),
@@ -985,7 +1061,7 @@ async def _advance_limitbreaker_coin(db, room_code: str, due_ms: int) -> None:
 
 
 def compute_series_state(history: list, segment_start: int = 0) -> dict:
-    p1_pts, p2_pts = compute_segment_points(history)
+    p1_pts, p2_pts = compute_segment_points(history, segment_start)
     series_winner = compute_series_winner(history, segment_start, 5)
     
     awaiting_rulebreaker = False
@@ -1257,6 +1333,7 @@ async def _finalize_rulebreaker_start(
         "rb_extra_turn_token_used": False,
         "rb6_special_cell": rb6_cell_resolved,
         "rb6_timer_owner": rb6_to_resolved,
+        "rb6_trap_revealed": False,
     }
     if bm == "7x7" and isinstance(sel_patterns, list) and len(sel_patterns) > 0:
         reset["selected_patterns"] = sel_patterns
@@ -1302,6 +1379,7 @@ async def _finalize_rulebreaker_start(
         "rb_extra_turn_token_used": False,
         "rb6_special_cell": reset.get("rb6_special_cell"),
         "rb6_timer_owner": reset.get("rb6_timer_owner"),
+        "rb6_trap_revealed": reset.get("rb6_trap_revealed", False),
     }
     if sp_out is not None:
         gr_payload["selected_patterns"] = sp_out
@@ -1327,8 +1405,8 @@ async def _finalize_rulebreaker_start(
 
     for slot, ws in _room_connections.get(room_code, {}).items():
         try:
-            await ws.send_json(gr_payload)
-        except:
+            await ws.send_json(_redact_ws_payload_for_slot(gr_payload, slot, merged))
+        except Exception:
             pass
 
 
@@ -1551,11 +1629,18 @@ async def queue_join(data: QueueRequest, user_id: str = Depends(get_current_user
                     p1_ws = conns.get("P1")
                     if p1_ws:
                         try:
-                            await p1_ws.send_json({"type": "player_joined", "room": serialize_room(room)})
-                        except:
+                            await p1_ws.send_json(
+                                {"type": "player_joined", "room": serialize_room_for_slot(room, "P1")}
+                            )
+                        except Exception:
                             pass
 
-                    return {"matched": True, "room_code": room_code, "player_slot": "P2", "room": serialize_room(room)}
+                    return {
+                        "matched": True,
+                        "room_code": room_code,
+                        "player_slot": "P2",
+                        "room": serialize_room_for_slot(room, "P2"),
+                    }
 
     # No valid opponent — create a new waiting room
     code = await _generate_unique_code(db)
@@ -1842,7 +1927,9 @@ async def join_room(data: JoinRoomRequest, user_id: str = Depends(get_current_us
     creator_ws = conns.get(creator_slot)
     if creator_ws:
         try:
-            await creator_ws.send_json({"type": "player_joined", "room": serialize_room(room)})
+            await creator_ws.send_json(
+                {"type": "player_joined", "room": serialize_room_for_slot(room, creator_slot)}
+            )
         except:
             pass
 
@@ -1884,7 +1971,9 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
     try:
         room = await db.rooms.find_one({"room_code": room_code})
         if room:
-            await websocket.send_json({"type": "room_state", "room": serialize_room(room)})
+            await websocket.send_json(
+                {"type": "room_state", "room": serialize_room_for_slot(room, player_slot)}
+            )
             bm0 = _effective_board_mode(room)
             need_sync = (
                 (room.get("awaiting_5x5_rules_ready") and bm0 == "5x5")
@@ -1984,6 +2073,15 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                     "move_log":       move_log,
                     **game1_patch,
                 }
+                if result.get("success"):
+                    rb6_prev = room.get("rb6_special_cell")
+                    if (
+                        eff_bm == "6x6"
+                        and isinstance(rb6_prev, dict)
+                        and rb6_prev.get("r") == row
+                        and rb6_prev.get("c") == col
+                    ):
+                        update["rb6_trap_revealed"] = True
 
                 if is_finished:
                     outcome = result.get("winner")
@@ -2047,9 +2145,12 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                                 room.get("history_display_start_index", 0),
                             ),
                         }
+                        merge_pb = {**room, **update}
                         for slot, ws in _room_connections.get(room_code, {}).items():
                             try:
-                                await ws.send_json(broadcast_pb)
+                                await ws.send_json(
+                                    _redact_ws_payload_for_slot(broadcast_pb, slot, merge_pb)
+                                )
                             except Exception:
                                 pass
                         if sw_pb:
@@ -2122,9 +2223,58 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                             **s_state
                         })
                     elif lh >= 9 and not sw_found:
-                         # Score tied after 9 rounds -> Protocolbreaker
-                         await _broadcast_protocolbreaker_tie(db, room_code, room, new_history)
-                         continue
+                        # Score tied after 9 rounds -> persist game 9 + series points, then Limitbreaker.
+                        # Do not leave awaiting_rulebreaker True (ready handler would start Rulebreaker).
+                        update.update({
+                            "match_history": new_history,
+                            "p1_series_points": s_state["p1_series_points"],
+                            "p2_series_points": s_state["p2_series_points"],
+                            "series_winner": s_state["series_winner"],
+                            "awaiting_rulebreaker": False,
+                        })
+                        update["rb_patterns_pre_ban"] = None
+                        update["rb_banned_pattern"] = None
+                        update["rb_banned_patterns"] = []
+                        await db.rooms.update_one({"room_code": room_code}, {"$set": update})
+                        room_after = await db.rooms.find_one({"room_code": room_code}) or room
+                        broadcast_g9 = {
+                            "type": "move_made",
+                            "row": row,
+                            "col": col,
+                            "board": engine.board,
+                            "current_player": engine.current_player,
+                            "moves_played": engine.moves_played,
+                            "winner": result.get("winner"),
+                            "win_line": [[r, c] for r, c in engine.winner_line]
+                            if engine.winner_line
+                            else [],
+                            "game_status": update["game_status"],
+                            "extra_turns": result.get("extra_turns", 0),
+                            "connectionScores": result.get("connectionScores"),
+                            "match_history": update["match_history"],
+                            "p1_series_points": update["p1_series_points"],
+                            "p2_series_points": update["p2_series_points"],
+                            "series_winner": update["series_winner"],
+                            "awaiting_rulebreaker": update["awaiting_rulebreaker"],
+                            "segment_start_index": update.get(
+                                "segment_start_index", room.get("segment_start_index", 0)
+                            ),
+                            "history_display_start_index": update.get(
+                                "history_display_start_index",
+                                room.get("history_display_start_index", 0),
+                            ),
+                        }
+                        for slot, ws in _room_connections.get(room_code, {}).items():
+                            try:
+                                await ws.send_json(
+                                    _redact_ws_payload_for_slot(broadcast_g9, slot, room_after)
+                                )
+                            except Exception:
+                                pass
+                        await _broadcast_protocolbreaker_tie(
+                            db, room_code, room_after, new_history
+                        )
+                        continue
                     else:
                         update.update({
                             "match_history": new_history,
@@ -2163,10 +2313,11 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                         room.get("history_display_start_index", 0),
                     )
 
+                merge_mv = {**room, **update}
                 for slot, ws in _room_connections.get(room_code, {}).items():
                     try:
-                        await ws.send_json(broadcast)
-                    except:
+                        await ws.send_json(_redact_ws_payload_for_slot(broadcast, slot, merge_mv))
+                    except Exception:
                         pass
 
                 if is_finished and update.get("series_winner") is not None:
@@ -2249,6 +2400,7 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                         "rb_banned_pattern": None,
                         "rb6_special_cell": None,
                         "rb6_timer_owner": None,
+                        "rb6_trap_revealed": False,
                     }
 
                     await db.rooms.update_one({"room_code": room_code}, {"$set": reset})
@@ -2418,6 +2570,7 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                         "rb_banned_pattern": None,
                         "rb6_special_cell": None,
                         "rb6_timer_owner": None,
+                        "rb6_trap_revealed": False,
                         "series_g1_move_played": False,
                     }
 
@@ -2618,6 +2771,7 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                         col = rb6_cell.get("c")
                         if owner in ("P1", "P2") and isinstance(row, int) and isinstance(col, int):
                             timer_patch["rb6_special_cell"] = {"r": row, "c": col, "owner": owner}
+                            timer_patch["rb6_trap_revealed"] = False
                     if rb6_timer_owner in ("P1", "P2"):
                         timer_patch["rb6_timer_owner"] = rb6_timer_owner
                     if timer_patch:
@@ -2626,10 +2780,11 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                             {"$set": timer_patch}
                         )
 
+                room_bc = await db.rooms.find_one({"room_code": room_code}) or room
                 for slot, ws in _room_connections.get(room_code, {}).items():
                     try:
-                        await ws.send_json(broadcast)
-                    except:
+                        await ws.send_json(_redact_ws_payload_for_slot(broadcast, slot, room_bc))
+                    except Exception:
                         pass
 
             elif msg["type"] == "limitbreaker_action":

@@ -1,8 +1,8 @@
 from fastapi import APIRouter, HTTPException, Header, Depends
 from app.core.database import get_db
+from app.core.ids import user_object_id
 from app.core.security import decode_token
 from app.game.ranked_penalties import user_ranked_allowed
-from bson import ObjectId
 from datetime import datetime
 
 router = APIRouter()
@@ -28,7 +28,7 @@ def _serialize_user(user: dict) -> dict:
     return {
         "id":                  str(user["_id"]),
         "username":            user["username"],
-        "email":               user["email"],
+        "email":               user.get("email", ""),
         "level":               user.get("level", 1),
         "xp":                  user.get("xp", 0),
         "coins":               user.get("coins", 0),
@@ -63,7 +63,7 @@ def _serialize_user(user: dict) -> dict:
 @router.get("/me")
 async def get_profile(user_id: str = Depends(get_current_user)):
     db = get_db()
-    user = await db.users.find_one({"_id": ObjectId(user_id)})
+    user = await db.users.find_one({"_id": user_object_id(user_id)})
     if not user:
         raise HTTPException(404, "User not found")
     return _serialize_user(user)
@@ -73,7 +73,8 @@ async def get_profile(user_id: str = Depends(get_current_user)):
 async def get_career(user_id: str = Depends(get_current_user)):
     db = get_db()
     # Support both string and ObjectId for user_id to handle legacy data/migration
-    query = {"user_id": {"$in": [user_id, ObjectId(user_id)]}}
+    oid = user_object_id(user_id)
+    query = {"user_id": {"$in": [user_id, oid]}}
     cursor = db.match_history.find(query).sort("played_at", -1).limit(10)
     matches = []
     async for doc in cursor:
@@ -206,7 +207,8 @@ async def update_profile(
     user_id: str = Depends(get_current_user),
 ):
     db = get_db()
-    user = await db.users.find_one({"_id": ObjectId(user_id)})
+    oid = user_object_id(user_id)
+    user = await db.users.find_one({"_id": oid})
     if not user:
         raise HTTPException(404, "User not found")
 
@@ -233,7 +235,7 @@ async def update_profile(
             raise HTTPException(400, "Emojis are not allowed in usernames")
         if contains_profanity(u):
             raise HTTPException(400, "Username contains inappropriate content")
-        if await db.users.find_one({"username": u, "_id": {"$ne": ObjectId(user_id)}}):
+        if await db.users.find_one({"username": u, "_id": {"$ne": oid}}):
             raise HTTPException(400, "Username already taken")
         last_change = user.get("username_changed_at")
         if last_change:
@@ -291,6 +293,6 @@ async def update_profile(
         # Return current profile instead of failing the request.
         return _serialize_user(user)
 
-    await db.users.update_one({"_id": ObjectId(user_id)}, {"$set": updates})
-    user = await db.users.find_one({"_id": ObjectId(user_id)})
+    await db.users.update_one({"_id": oid}, {"$set": updates})
+    user = await db.users.find_one({"_id": oid})
     return _serialize_user(user)

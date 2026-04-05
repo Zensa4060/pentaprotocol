@@ -29,6 +29,26 @@ import InfernoBanner from "./InfernoBanner";
 // ── Supabase storage client ───────────────────────────────────────────────────
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 
+function apiErrorDetail(e: unknown, fallback: string): string {
+  const err = e as {
+    response?: { data?: { detail?: unknown }; status?: number };
+    code?: string;
+    message?: string;
+  };
+  if (err.response?.status === 500) {
+    return "Something went wrong on the server. Please try again in a moment.";
+  }
+  const d = err.response?.data?.detail;
+  if (typeof d === "string") return d;
+  if (Array.isArray(d) && d.length > 0 && typeof (d[0] as { msg?: string }).msg === "string") {
+    return (d as { msg: string }[]).map((x) => x.msg).join("; ");
+  }
+  if (err.code === "ERR_NETWORK" || err.message === "Network Error") {
+    return "Network error — check your connection and try again.";
+  }
+  return fallback;
+}
+
 export const RANKS = [
   { name: "NOVICE",       min: 0,    max: 500,  color: "#9CA3AF", icon: null, img: "/novice.svg",       scale: 1.3 },
   { name: "ADVANCED",     min: 500,  max: 1000, color: "#60A5FA", icon: null, img: "/advanced.svg",     scale: 1.3 },
@@ -347,8 +367,8 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
       const r = await API.post("/api/auth/2fa/setup", {}, authHeader);
       setQrCode(r.data.qr_code); setSecret(r.data.secret);
       setTwoFASection("setup");
-    } catch (e: any) {
-      setTwoFAMsg({ text: e.response?.data?.detail || "Failed to start setup", ok: false });
+    } catch (e: unknown) {
+      setTwoFAMsg({ text: apiErrorDetail(e, "Failed to start setup"), ok: false });
     } finally { setTwoFALoading(false); }
   };
   const confirm2FA = async () => {
@@ -360,8 +380,8 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
       setTwoFASection("idle");
       setProfile((p: any) => ({ ...p, totp_enabled: true }));
       setTotpInput("");
-    } catch (e: any) {
-      setTwoFAMsg({ text: e.response?.data?.detail || "Invalid code", ok:false });
+    } catch (e: unknown) {
+      setTwoFAMsg({ text: apiErrorDetail(e, "Invalid code"), ok:false });
     } finally { setTwoFALoading(false); }
   };
   const disable2FA = async () => {
@@ -373,8 +393,8 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
       setTwoFASection("idle");
       setProfile((p: any) => ({ ...p, totp_enabled: false }));
       setTotpInput("");
-    } catch (e: any) {
-      setTwoFAMsg({ text: e.response?.data?.detail || "Invalid code", ok:false });
+    } catch (e: unknown) {
+      setTwoFAMsg({ text: apiErrorDetail(e, "Invalid code"), ok:false });
     } finally { setTwoFALoading(false); }
   };
 

@@ -26,7 +26,7 @@ import SpaceGrid from "./SpaceGrid";
 import PixelGrid from "./PixelGrid";
 import type { Phase } from "./GamePieces";
 import { RulebreakerFlow, PHASE_TIMERS } from "./RulebreakerFlow";
-import { LeftPanel, RightPanel, WinOverlay, SurrenderModal, DisconnectModal, ExitModal, MatchAbortedNoPlayModal } from "./MatchSidebar";
+import { LeftPanel, RightPanel, WinOverlay, SurrenderModal, DisconnectModal, ExitModal, MatchAbortedNoPlayModal, safeWinner } from "./MatchSidebar";
 import RuleshowScreen, { type RuleshowSheet } from "./RuleshowScreen";
 import { useAuthStore } from "@/lib/store";
 import { BannerRenderer } from "./BannerRenderer";
@@ -42,7 +42,7 @@ import { markCareerAfterMultiplayerSeriesEnd } from "@/lib/navBadgeState";
 import MatchResultScreen from "./MatchResultScreen";
 import GameWinScreen from "./GameWinScreen";
 import { persistLobbyTauntQuote, type LobbyQuoteResult } from "@/lib/lobbyTauntQuote";
-import { seriesPointsFromHistory } from "@/lib/seriesPoints";
+import { seriesPointsFromHistory, formatSeriesPts } from "@/lib/seriesPoints";
 import { effectivePlayBoardMode, startingLegFromBoardMode, type MultiplayerRulesBootstrap } from "@/lib/effectiveBoardMode";
 
 const EPS = 1e-9;
@@ -347,6 +347,9 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     tossWinner: "P1" | "P2";
     p1Agg: number;
     p2Agg: number;
+    /** First-to-5 series points (incl. half points for draws) for “tied at …” copy */
+    p1SeriesPts: number;
+    p2SeriesPts: number;
     phase: "coin" | "choice" | "choose_first_player" | "ban_first" | "ban_second";
     choice: "choose_first_player" | "ban_first" | null;
     firstPlayer: "P1" | "P2" | null;
@@ -1119,10 +1122,15 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
               const phase = rp.lb_phase === "choice" || rp.lb_phase === "choose_first_player" || rp.lb_phase === "ban_first" || rp.lb_phase === "ban_second" ? rp.lb_phase : "coin";
               const nextSlot: "P1" | "P2" =
                 rp.lb_next_slot === "P2" ? "P2" : "P1";
+              const rpx = r as { p1_series_points?: number; p2_series_points?: number; match_history?: unknown[] };
+              const mh0 = Array.isArray(rpx.match_history) ? rpx.match_history : [];
+              const fb0 = seriesPointsFromHistory(mh0);
               setPbOverlay({
                 tossWinner: tw,
                 p1Agg: typeof rp.pb_p1_aggregate === "number" ? rp.pb_p1_aggregate : 0,
                 p2Agg: typeof rp.pb_p2_aggregate === "number" ? rp.pb_p2_aggregate : 0,
+                p1SeriesPts: typeof rpx.p1_series_points === "number" ? rpx.p1_series_points : fb0.p1,
+                p2SeriesPts: typeof rpx.p2_series_points === "number" ? rpx.p2_series_points : fb0.p2,
                 phase,
                 choice: rp.lb_choice === "ban_first" || rp.lb_choice === "choose_first_player" ? rp.lb_choice : null,
                 firstPlayer: rp.lb_first_player === "P1" || rp.lb_first_player === "P2" ? rp.lb_first_player : null,
@@ -1270,6 +1278,9 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
             toss_winner?: string;
             p1_aggregate?: number;
             p2_aggregate?: number;
+            p1_series_points?: number;
+            p2_series_points?: number;
+            match_history_snapshot?: unknown[];
             phase?: string;
             next_slot?: string;
             coin_due_ms?: number;
@@ -1280,10 +1291,14 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
           winClickLockRef.current = false;
           setIsBoardPaused(false);
           const tw = m.toss_winner === "P2" ? "P2" : "P1";
+          const mhs = Array.isArray(m.match_history_snapshot) ? m.match_history_snapshot : [];
+          const fbs = seriesPointsFromHistory(mhs);
           setPbOverlay({
             tossWinner: tw,
             p1Agg: typeof m.p1_aggregate === "number" ? m.p1_aggregate : 0,
             p2Agg: typeof m.p2_aggregate === "number" ? m.p2_aggregate : 0,
+            p1SeriesPts: typeof m.p1_series_points === "number" ? m.p1_series_points : fbs.p1,
+            p2SeriesPts: typeof m.p2_series_points === "number" ? m.p2_series_points : fbs.p2,
             phase: m.phase === "choice" || m.phase === "choose_first_player" || m.phase === "ban_first" || m.phase === "ban_second" ? m.phase : "coin",
             choice: null,
             firstPlayer: null,
@@ -1293,7 +1308,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
           });
           setRulesShowSheet("protocolbreaker");
             } else if (msg.type === "limitbreaker_update") {
-          const m = msg as { bans?: string[]; next_slot?: string; phase?: string; choice?: string | null; first_player?: string | null; toss_winner?: string; p1_aggregate?: number; p2_aggregate?: number; coin_due_ms?: number | null };
+          const m = msg as { bans?: string[]; next_slot?: string; phase?: string; choice?: string | null; first_player?: string | null; toss_winner?: string; p1_aggregate?: number; p2_aggregate?: number; p1_series_points?: number; p2_series_points?: number; coin_due_ms?: number | null };
           const bans = Array.isArray(m.bans) ? m.bans : [];
           const ns = m.next_slot === "P2" ? "P2" : "P1";
           setPbOverlay(prev =>
@@ -1303,6 +1318,8 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
                   tossWinner: m.toss_winner === "P2" ? "P2" : prev.tossWinner,
                   p1Agg: typeof m.p1_aggregate === "number" ? m.p1_aggregate : prev.p1Agg,
                   p2Agg: typeof m.p2_aggregate === "number" ? m.p2_aggregate : prev.p2Agg,
+                  p1SeriesPts: typeof m.p1_series_points === "number" ? m.p1_series_points : prev.p1SeriesPts,
+                  p2SeriesPts: typeof m.p2_series_points === "number" ? m.p2_series_points : prev.p2SeriesPts,
                   phase: m.phase === "choice" || m.phase === "choose_first_player" || m.phase === "ban_first" || m.phase === "ban_second" ? m.phase : prev.phase,
                   choice: m.choice === "ban_first" || m.choice === "choose_first_player" ? m.choice : null,
                   firstPlayer: m.first_player === "P1" || m.first_player === "P2" ? m.first_player : null,
@@ -3063,9 +3080,10 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
       pbOverlay.phase === "choose_first_player" ? "CHOOSE WHO PLAYS FIRST" :
       pbOverlay.phase === "ban_first" ? "FIRST BOARD BAN" :
       "SECOND BOARD BAN";
+    const tossName = winnerDisplayName(pbOverlay.tossWinner);
     const statusText =
       pbOverlay.phase === "coin"
-        ? `${pbOverlay.tossWinner} won the toss.`
+        ? `${tossName} won the toss.`
         : pbOverlay.phase === "choice"
           ? (isMyTurn ? "Choose what you want to control first." : "Waiting for the toss winner to choose the track.")
           : pbOverlay.phase === "choose_first_player"
@@ -3087,12 +3105,12 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
       >
         <div style={{ fontFamily: t.fontDisplay, fontSize: 22, fontWeight: 900, color: t.gold, marginBottom: 8, letterSpacing: "0.1em" }}>LIMITBREAKER</div>
         <div style={{ fontFamily: t.fontMono, fontSize: 12, color: t.textMuted, marginBottom: 12, textAlign: "center", maxWidth: 520, lineHeight: 1.5 }}>
-          The match is tied at {pbOverlay.p1Agg}-{pbOverlay.p2Agg}. Game 10 will be played on the only board size left after two bans.
+          The match is tied at {formatSeriesPts(pbOverlay.p1SeriesPts)}–{formatSeriesPts(pbOverlay.p2SeriesPts)} (series points). Game 10 will be played on the only board size left after two bans.
         </div>
         <div style={{ fontFamily: t.fontDisplay, fontSize: 18, fontWeight: 800, color: t.accent, marginBottom: 8, letterSpacing: "0.08em", textAlign: "center" }}>{phaseTitle}</div>
         <div style={{ fontFamily: t.fontMono, fontSize: 11, color: t.textSecondary, marginBottom: 18, textAlign: "center", maxWidth: 520 }}>
           {statusText}
-          {pbOverlay.firstPlayer ? ` First player: ${pbOverlay.firstPlayer}.` : ""}
+          {pbOverlay.firstPlayer ? ` First player: ${winnerDisplayName(pbOverlay.firstPlayer)}.` : ""}
           {pbOverlay.choice === "choose_first_player" ? " Toss winner chose to decide the starter first." : pbOverlay.choice === "ban_first" ? " Toss winner chose to ban a board first." : ""}
         </div>
         {pbOverlay.phase === "coin" && (
@@ -3158,7 +3176,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
                   cursor: isMyTurn ? "pointer" : "not-allowed",
                 }}
               >
-                {slot} PLAYS FIRST
+                {winnerDisplayName(slot)} — plays first
               </button>
             ))}
           </div>
@@ -3438,23 +3456,27 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
         <div style={{ position: "absolute", top: 8, right: 8, zIndex: 10, display: "flex", flexDirection: "column", gap: 4, alignItems: "flex-end" }}>
           <div style={{ background: "rgba(0,0,0,0.75)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 8, padding: "4px 10px", backdropFilter: "blur(6px)" }}>
             <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-              {matchHistory.length > 0 ? matchHistory.map((res, i) => {
-                const gNum = i + 1;
-                const g = `G${gNum}`;
-                const col = res === "P1" ? p1c : res === "P2" ? p2c : res === "DRAW" ? t.gold : "#333";
-                const isActive = gNum === historyDisplayStartIndex + gameNumber;
-                return (
-                  <div key={gNum} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
-                    <span style={{ fontFamily: t.fontMono, fontSize: 9, color: isActive ? t.accent : "#444", fontWeight: isActive ? 700 : 400 }}>{g}{isActive ? " ◀" : ""}</span>
-                    <div style={{ width: 16, height: 3, borderRadius: 2, background: res ? col : "#222", border: `1px solid ${res ? col : "#333"}` }} />
-                  </div>
+              {(() => {
+                const rankedCap = isMultiplayerGame && isRankedGame ? 10 : Math.max(matchHistory.length, 1);
+                const slotCount = Math.min(
+                  rankedCap,
+                  Math.max(matchHistory.length, historyDisplayStartIndex + gameNumber, 1),
                 );
-              }) : (
-                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
-                  <span style={{ fontFamily: t.fontMono, fontSize: 9, color: t.accent, fontWeight: 700 }}>G1 ◀</span>
-                  <div style={{ width: 16, height: 3, borderRadius: 2, background: "#222", border: `1px solid #333` }} />
-                </div>
-              )}
+                return Array.from({ length: slotCount }, (_, i) => {
+                  const raw = matchHistory[i];
+                  const w = safeWinner(raw);
+                  const gNum = i + 1;
+                  const g = `G${gNum}`;
+                  const col = w === "P1" ? p1c : w === "P2" ? p2c : w === "DRAW" ? t.gold : "#333";
+                  const isActive = gNum === historyDisplayStartIndex + gameNumber;
+                  return (
+                    <div key={gNum} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
+                      <span style={{ fontFamily: t.fontMono, fontSize: 9, color: isActive ? t.accent : "#444", fontWeight: isActive ? 700 : 400 }}>{g}{isActive ? " ◀" : ""}</span>
+                      <div style={{ width: 16, height: 3, borderRadius: 2, background: w ? col : "#222", border: `1px solid ${w ? col : "#333"}` }} />
+                    </div>
+                  );
+                });
+              })()}
             </div>
           </div>
         </div>

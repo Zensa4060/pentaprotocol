@@ -5,7 +5,10 @@ from app.core.security import hash_password, verify_password, create_access_toke
 from datetime import datetime, timedelta
 from pydantic import BaseModel
 from bson import ObjectId
-import re, secrets, hashlib, pyotp, qrcode, io,os
+from bson.errors import InvalidId
+from app.core.ids import user_object_id
+import base64
+import re, secrets, hashlib, pyotp, qrcode, io, os
 import resend
 
 router = APIRouter()
@@ -15,6 +18,10 @@ FROM_EMAIL = "noreply@pentaprotocol.com"
 
 _reset_codes: dict = {}
 _pending_2fa: dict = {}
+
+
+def _totp_account_label(user: dict) -> str:
+    return user.get("email") or user.get("username") or str(user["_id"])
 
 
 def _safe_bool(v, default=False):
@@ -179,7 +186,8 @@ async def login(data: UserLogin):
 @router.post("/2fa/setup")
 async def setup_2fa(user_id: str = Depends(get_current_user)):
     db   = get_db()
-    user = await db.users.find_one({"_id": ObjectId(user_id)})
+    oid  = user_object_id(user_id)
+    user = await db.users.find_one({"_id": oid})
     if not user:
         raise HTTPException(404, "User not found")
     if user.get("totp_enabled"):
@@ -187,12 +195,12 @@ async def setup_2fa(user_id: str = Depends(get_current_user)):
 
     secret = pyotp.random_base32()
     await db.users.update_one(
-        {"_id": ObjectId(user_id)},
+        {"_id": oid},
         {"$set": {"totp_secret": secret, "totp_enabled": False}}
     )
 
     totp_uri = pyotp.totp.TOTP(secret).provisioning_uri(
-        name=user["email"], issuer_name="PentaProtocol"
+        name=_totp_account_label(user), issuer_name="PentaProtocol"
     )
     qr  = qrcode.make(totp_uri)
     buf = io.BytesIO()
@@ -206,7 +214,8 @@ async def setup_2fa(user_id: str = Depends(get_current_user)):
 @router.post("/2fa/confirm")
 async def confirm_2fa(data: TwoFAVerifySetup, user_id: str = Depends(get_current_user)):
     db   = get_db()
-    user = await db.users.find_one({"_id": ObjectId(user_id)})
+    oid  = user_object_id(user_id)
+    user = await db.users.find_one({"_id": oid})
     if not user or not user.get("totp_secret"):
         raise HTTPException(400, "2FA setup not initiated")
 
@@ -215,7 +224,7 @@ async def confirm_2fa(data: TwoFAVerifySetup, user_id: str = Depends(get_current
         raise HTTPException(400, "Invalid code — check your authenticator app")
 
     await db.users.update_one(
-        {"_id": ObjectId(user_id)},
+        {"_id": oid},
         {"$set": {"totp_enabled": True}}
     )
     return {"detail": "2FA enabled successfully"}
@@ -231,7 +240,13 @@ async def login_2fa(data: TwoFALoginCheck):
         del _pending_2fa[data.temp_token]
         raise HTTPException(400, "Session expired — please sign in again")
 
-    user = await db.users.find_one({"_id": ObjectId(entry["user_id"])})
+    try:
+        pending_oid = ObjectId(entry["user_id"])
+    except InvalidId:
+        del _pending_2fa[data.temp_token]
+        raise HTTPException(400, "Invalid or expired session — please sign in again")
+
+    user = await db.users.find_one({"_id": pending_oid})
     if not user:
         raise HTTPException(404, "User not found")
 
@@ -259,7 +274,8 @@ async def login_2fa(data: TwoFALoginCheck):
 @router.post("/2fa/disable")
 async def disable_2fa(data: TwoFADisable, user_id: str = Depends(get_current_user)):
     db   = get_db()
-    user = await db.users.find_one({"_id": ObjectId(user_id)})
+    oid  = user_object_id(user_id)
+    user = await db.users.find_one({"_id": oid})
     if not user:
         raise HTTPException(404, "User not found")
     if not user.get("totp_enabled"):
@@ -270,7 +286,7 @@ async def disable_2fa(data: TwoFADisable, user_id: str = Depends(get_current_use
         raise HTTPException(400, "Invalid code — confirm with your authenticator app")
 
     await db.users.update_one(
-        {"_id": ObjectId(user_id)},
+        {"_id": oid},
         {"$set": {"totp_enabled": False, "totp_secret": None}}
     )
     return {"detail": "2FA disabled"}
