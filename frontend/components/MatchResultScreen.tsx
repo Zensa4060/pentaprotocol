@@ -2,6 +2,7 @@
 import React, { useEffect, useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Piece } from "./GamePieces";
+import { getRank, NavRankBadge } from "./NavBar";
 
 // Level calculation helpers (synced with backend game.py)
 const xp_for_level = (level: number) => {
@@ -84,6 +85,9 @@ export default function MatchResultScreen({
   const p2c = "#EF4444";
   const winnerColor = seriesWinner === "P1" ? p1c : seriesWinner === "P2" ? p2c : t.gold;
   const winnerName = seriesWinner === "P1" ? p1.name : seriesWinner === "P2" ? p2.name : "DRAW";
+  const winnerEloAfter =
+    seriesWinner === "P1" ? p1.elo_after : seriesWinner === "P2" ? p2.elo_after : 0;
+  const winnerRank = useMemo(() => getRank(winnerEloAfter), [winnerEloAfter]);
 
   useEffect(() => {
     // Delay options for 3.5s to let the animation breathe
@@ -200,12 +204,19 @@ export default function MatchResultScreen({
             filter: [`drop-shadow(0 0 40px ${winnerColor}00)`, `drop-shadow(0 0 40px ${winnerColor}88)`, `drop-shadow(0 0 40px ${winnerColor}00)`],
           }}
           transition={{ duration: 4, repeat: Infinity }}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            minHeight: 160,
+            minWidth: 160,
+          }}
         >
-          <Piece 
-            symbol={seriesWinner === "P1" ? "◆" : seriesWinner === "P2" ? "◈" : "⚖"} 
-            color={winnerColor} 
-            size="160px" 
-          />
+          {isDraw ? (
+            <Piece symbol="⚖" color={winnerColor} size="160px" />
+          ) : (
+            <NavRankBadge rank={winnerRank} size={120} />
+          )}
         </motion.div>
 
         <div style={{ textAlign: "center" }}>

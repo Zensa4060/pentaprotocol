@@ -150,17 +150,16 @@ interface Props {
   onSettingsAction: () => void;
   inQueue: boolean;
   onQueueClickAction: () => void;
-  isRankedGame?: boolean;
   onHoverAction?: () => void;
   queueElapsed?: number;
   onCancelQueueAction?: () => void;
+  /** When true, logo and all nav targets are inert during live multiplayer (Settings stays usable). */
+  lockMultiplayerNav?: boolean;
 }
 
-type LeaveWarning = "unranked" | "ranked" | null;
-
 export default function NavBar({ 
-  screen, setScreenAction, themeId, onSettingsAction, inQueue, isRankedGame = false, onHoverAction,
-  queueElapsed = 0, onCancelQueueAction
+  screen, setScreenAction, themeId, onSettingsAction, inQueue, onHoverAction,
+  queueElapsed = 0, onCancelQueueAction, lockMultiplayerNav = false,
 }: Props) {
   const t = THEMES[themeId as keyof typeof THEMES];
   const { user, logout } = useAuthStore();
@@ -170,8 +169,6 @@ export default function NavBar({
   const [showSignOut, setShowSignOut]   = useState(false);
   const [focusMode, setFocusMode]       = useState(false);
   const [hoveredBtn, setHoveredBtn]     = useState<string | null>(null);
-  const [leaveWarning, setLeaveWarning] = useState<LeaveWarning>(null);
-  const [pendingScreen, setPendingScreen] = useState<Screen | null>(null);
   const [mounted, setMounted]           = useState(false);
   const [menuOpen, setMenuOpen]         = useState(false);
   const [vw, setVw]                     = useState(1440);
@@ -331,31 +328,16 @@ export default function NavBar({
     }
   };
 
-  const inGame  = screen === "game" || screen === "multiGame";
-  const isRanked = screen === "multiGame" && isRankedGame;
-
   const navigate = (target: Screen, isLocked: boolean = false) => {
     setMenuOpen(false);
+    if (lockMultiplayerNav && target !== screen) {
+      return;
+    }
     if (isLocked && isGuest) {
       setScreenAction("auth");
       return;
     }
-    if (inGame && target !== screen) {
-      setPendingScreen(target);
-      setLeaveWarning(isRanked ? "ranked" : "unranked");
-    } else {
-      setScreenAction(target);
-    }
-  };
-
-  const confirmLeave = () => {
-    if (pendingScreen) setScreenAction(pendingScreen);
-    setLeaveWarning(null);
-    setPendingScreen(null);
-  };
-  const cancelLeave = () => {
-    setLeaveWarning(null);
-    setPendingScreen(null);
+    setScreenAction(target);
   };
 
   const getActive = (target: string): boolean => {
@@ -397,10 +379,12 @@ export default function NavBar({
     badgeCount?: number,
   ) => {
     const isActive  = getActive(target);
-    const isHovered = hoveredBtn === target && !disabled;
+    const navHardLocked = lockMultiplayerNav;
+    const effectiveDisabled = disabled || navHardLocked;
+    const isHovered = hoveredBtn === target && !effectiveDisabled;
     const accentCol = isDanger ? t.danger : isClassic ? "#CC2200" : t.accent;
 
-    const fg = disabled
+    const fg = effectiveDisabled
       ? `${t.textMuted}55`
       : (isActive || isHovered) ? accentCol
       : isDanger ? `${t.danger}CC`
@@ -410,7 +394,7 @@ export default function NavBar({
     return (
       <button
         key={target}
-        disabled={disabled}
+        disabled={effectiveDisabled}
         type="button"
         title={bc ? `${label} — ${bc} notification${bc === 1 ? "" : "s"}` : undefined}
         onClick={() => { if (onClick) { onClick(); return; } if (targetScreen) navigate(targetScreen, locked); }}
@@ -425,13 +409,13 @@ export default function NavBar({
           fontSize:      BTN_FONT,
           fontWeight:    isActive ? 800 : isHovered ? 700 : 600,
           padding:       isMobile ? "0 10px" : isTablet ? "0 12px" : "0 16px",
-          cursor:        disabled ? "not-allowed" : "pointer",
+          cursor:        effectiveDisabled ? "not-allowed" : "pointer",
           borderRadius:  0,
           letterSpacing: "0.06em",
           transition:    "color 0.15s, border-color 0.15s, background 0.15s",
           height:        NAV_H,
           display:       "flex", alignItems: "center",
-          opacity:       disabled ? 0.4 : locked ? 0.6 : 1,
+          opacity:       effectiveDisabled ? 0.4 : locked ? 0.6 : 1,
           whiteSpace:    "nowrap" as const,
           textTransform: "uppercase" as const,
           textShadow:    (isActive || isHovered)
@@ -454,24 +438,6 @@ export default function NavBar({
     );
   };
 
-  const overlayBtn = (label: string, col: string, onClick: () => void) => (
-    <button
-      onClick={onClick}
-      className="pp-overlay-btn"
-      style={{
-        background: `${col}18`, border: `2px solid ${col}`, color: col,
-        fontFamily: t.fontDisplay, fontSize: isMobile ? 13 : ip ? 12 : 17, fontWeight: 700,
-        padding: isMobile ? "10px 24px" : ip ? "10px 28px" : "14px 52px",
-        borderRadius: ip ? 2 : 8, cursor: "pointer", letterSpacing: "0.08em",
-        transition: "background 0.26s, color 0.26s, transform 0.22s, box-shadow 0.26s",
-      } as React.CSSProperties}
-      onMouseEnter={e => { onHoverAction?.(); const el = e.currentTarget; el.style.background = col; el.style.color = "#000"; el.style.transform = "scale(1.04)"; el.style.boxShadow = `0 4px 24px ${col}55`; }}
-      onMouseLeave={e => { const el = e.currentTarget; el.style.background = `${col}18`; el.style.color = col; el.style.transform = "scale(1)"; el.style.boxShadow = "none"; }}
-      onMouseDown={e => { e.currentTarget.style.transform = "scale(0.97)"; }}
-      onMouseUp={e => { e.currentTarget.style.transform = "scale(1.04)"; }}
-    >{label}</button>
-  );
-
   const pentashardsBase = (user as any)?.pentashards ?? (user as any)?.shards ?? 0;
   const pentashards = pentashardsBase + missionShardBonus;
   const protocredits = (user as any)?.protocredits ?? 0;
@@ -480,6 +446,7 @@ export default function NavBar({
   const rulesInfoButton = (
     <button
       type="button"
+      disabled={lockMultiplayerNav}
       onClick={() => navigate("rules")}
       title="Game rules — how to play"
       aria-label="Game rules"
@@ -504,7 +471,8 @@ export default function NavBar({
         width: RULES_INFO_SZ,
         height: RULES_INFO_SZ,
         borderRadius: "50%",
-        cursor: "pointer",
+        cursor: lockMultiplayerNav ? "not-allowed" : "pointer",
+        opacity: lockMultiplayerNav ? 0.45 : 1,
         transition: "all 0.3s ease",
         display: "flex",
         alignItems: "center",
@@ -581,10 +549,12 @@ export default function NavBar({
         {/* ── LEFT: Logo + PentaShards ── */}
         <div style={{ display: "flex", alignItems: "center", gap: isTablet ? 12 : 20, flexShrink: 0, minWidth: 0 }}>
           <div
-            onClick={() => navigate("home")}
+            onClick={() => { if (!lockMultiplayerNav) navigate("home"); }}
             title="Home"
             style={{
-              cursor: "pointer",
+              cursor: lockMultiplayerNav ? "not-allowed" : "pointer",
+              opacity: lockMultiplayerNav ? 0.45 : 1,
+              pointerEvents: lockMultiplayerNav ? "none" : "auto",
               display: "flex",
               alignItems: "center",
             }}
@@ -693,13 +663,16 @@ export default function NavBar({
           {/* Hamburger — mobile & tablet */}
           {!isDesktop && (
             <button
-              onClick={() => setMenuOpen(v => !v)}
+              type="button"
+              disabled={lockMultiplayerNav}
+              onClick={() => { if (!lockMultiplayerNav) setMenuOpen(v => !v); }}
               style={{
                 background: menuOpen ? `${t.accent}22` : `${t.border}22`,
                 border: `1px solid ${menuOpen ? t.accent : `${t.border}66`}`,
                 color: menuOpen ? t.accent : t.text,
                 padding: isMobile ? "7px 9px" : "9px 13px",
-                borderRadius: 9, cursor: "pointer",
+                borderRadius: 9, cursor: lockMultiplayerNav ? "not-allowed" : "pointer",
+                opacity: lockMultiplayerNav ? 0.45 : 1,
                 transition: "all 0.2s",
                 display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4,
               }}
@@ -730,6 +703,7 @@ export default function NavBar({
               <button
                 type="button"
                 key={target}
+                disabled={lockMultiplayerNav}
                 onClick={() => navigate(s, locked)}
               style={{
                 background: getActive(target) ? `${t.accent}18` : "none",
@@ -742,7 +716,8 @@ export default function NavBar({
                 fontWeight: getActive(target) ? 800 : 600,
                 padding: isMobile ? "14px 20px" : "16px 24px",
                 textAlign: "left" as const,
-                cursor: "pointer",
+                cursor: lockMultiplayerNav ? "not-allowed" : "pointer",
+                opacity: lockMultiplayerNav ? 0.45 : 1,
                 letterSpacing: "0.08em",
                 textTransform: "uppercase" as const,
                 textShadow: getActive(target) ? `0 0 10px ${t.accent}99` : "none",
@@ -767,35 +742,6 @@ export default function NavBar({
           );
           })}
 
-        </div>
-      )}
-
-      {/* ── Leave warning overlays ── */}
-      {leaveWarning === "unranked" && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 9999, background: "rgba(0,0,0,0.88)", display: "flex", alignItems: "center", justifyContent: "center", animation: "overlayFadeIn 0.22s ease both" }}>
-          <div style={{ background: t.bgPanel, border: `${ip ? 3 : 1}px solid ${t.border}`, borderRadius: ip ? 2 : 20, padding: isMobile ? "28px 24px" : ip ? "32px 36px" : "48px 56px", maxWidth: 520, width: "90vw", textAlign: "center", boxShadow: "0 40px 100px rgba(0,0,0,0.7)", animation: "overlayModalIn 0.28s cubic-bezier(.22,.68,0,1.2) both" }}>
-            <div style={{ fontSize: isMobile ? 32 : 44, marginBottom: 16 }}></div>
-            <div style={{ fontFamily: t.fontDisplay, fontSize: isMobile ? 16 : ip ? 14 : 23, fontWeight: 700, color: t.text, lineHeight: 1.5, marginBottom: 12 }}>Leave the current game?</div>
-            <div style={{ fontFamily: t.fontBody, fontSize: isMobile ? 13 : ip ? 11 : 15, color: t.textMuted, marginBottom: 28, lineHeight: 1.7 }}>Current game progress will be lost.</div>
-            <div style={{ display: "flex", gap: 12, justifyContent: "center" }}>
-              {overlayBtn("YES", t.danger, confirmLeave)}
-              {overlayBtn("NO",  t.accent, cancelLeave)}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {leaveWarning === "ranked" && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 9999, background: "rgba(0,0,0,0.92)", display: "flex", alignItems: "center", justifyContent: "center", animation: "overlayFadeIn 0.22s ease both" }}>
-          <div style={{ background: t.bgPanel, border: `${ip ? 3 : 2}px solid ${t.danger}`, borderRadius: ip ? 2 : 20, padding: isMobile ? "28px 24px" : ip ? "32px 36px" : "48px 56px", maxWidth: 560, width: "90vw", textAlign: "center", boxShadow: `0 40px 100px rgba(0,0,0,0.8),0 0 60px ${t.danger}22`, animation: "overlayModalIn 0.28s cubic-bezier(.22,.68,0,1.2) both" }}>
-            <div style={{ fontSize: isMobile ? 32 : 44, marginBottom: 16 }}>🚨</div>
-            <div style={{ fontFamily: t.fontDisplay, fontSize: isMobile ? 16 : ip ? 14 : 23, fontWeight: 700, color: t.danger, lineHeight: 1.5, marginBottom: 12 }}>Leave ranked game?</div>
-            <div style={{ fontFamily: t.fontBody, fontSize: isMobile ? 13 : ip ? 11 : 15, color: t.textMuted, marginBottom: 28, lineHeight: 1.7 }}>This counts as a <span style={{ color: t.danger, fontWeight: 700 }}>forfeit</span> and will result in <span style={{ color: t.danger, fontWeight: 700 }}>ELO deduction</span>!</div>
-            <div style={{ display: "flex", gap: 12, justifyContent: "center" }}>
-              {overlayBtn("YES, FORFEIT", t.danger, confirmLeave)}
-              {overlayBtn("NO, STAY",     t.accent, cancelLeave)}
-            </div>
-          </div>
         </div>
       )}
 
@@ -835,9 +781,6 @@ export default function NavBar({
         @keyframes overlayModalIn { from{opacity:0;transform:scale(0.92) translateY(16px)} to{opacity:1;transform:scale(1) translateY(0)} }
         @keyframes fadeUp         { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
         @keyframes menuSlideDown  { from{opacity:0;transform:translateY(-8px)} to{opacity:1;transform:translateY(0)} }
-        .pp-overlay-btn { transition: background 0.26s, color 0.26s, transform 0.22s, box-shadow 0.26s !important; }
-        .pp-overlay-btn:hover  { transform: scale(1.06) !important; }
-        .pp-overlay-btn:active { transform: scale(0.97) !important; }
       `}</style>
     </>
   );

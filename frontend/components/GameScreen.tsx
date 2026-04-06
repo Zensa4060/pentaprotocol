@@ -273,11 +273,13 @@ interface Props {
   /** Parent seals navigation (back/refresh) after full series ends; resume when a new match/rematch resets the board. */
   onMultiplayerSeriesSealedAction?: () => void;
   onMultiplayerSeriesResumedAction?: () => void;
+  /** `true` when series end UI is showing (navbar may navigate); `false` during active play. */
+  onMultiplayerNavLockChange?: (unlocked: boolean) => void;
   /** Room snapshot from lobby/queue so first paint can show rules sheet before WS `room_state`. */
   multiplayerRulesBootstrap?: MultiplayerRulesBootstrap | null;
 }
 
-export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, gameMode = "singleplayer", difficulty = "medium", setScreenAction, roomCode, playerSlot, playHoverAction, playPlaceAction, playVictoryAction, playDefeatAction, playRulebreakerAction, playTransitionAction, playClickAction, p1Name, matchupData, boardMode = "5x5", selectedPatterns = [], onMultiplayerBoardSync, graphicsQuality = "quality", onMultiplayerSeriesSealedAction, onMultiplayerSeriesResumedAction, multiplayerRulesBootstrap = null }: Props) {
+export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, gameMode = "singleplayer", difficulty = "medium", setScreenAction, roomCode, playerSlot, playHoverAction, playPlaceAction, playVictoryAction, playDefeatAction, playRulebreakerAction, playTransitionAction, playClickAction, p1Name, matchupData, boardMode = "5x5", selectedPatterns = [], onMultiplayerBoardSync, graphicsQuality = "quality", onMultiplayerSeriesSealedAction, onMultiplayerSeriesResumedAction, onMultiplayerNavLockChange, multiplayerRulesBootstrap = null }: Props) {
   const [liveBoardMode, setLiveBoardMode] = useState<BoardMode>(boardMode);
   const [liveSelectedPatterns, setLiveSelectedPatterns] = useState<string[]>(selectedPatterns ?? []);
   useEffect(() => { setLiveBoardMode(boardMode); }, [boardMode]);
@@ -342,7 +344,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   const matchSeriesUiLockUntilRef = useRef(0);
   const isViewingPostMatchRef = useRef(false);
   const [showGameWinScreen, setShowGameWinScreen] = useState(false);
-  const [showRankedMatchResult, setShowRankedMatchResult] = useState(false);
+  const [showSeriesMatchResult, setShowSeriesMatchResult] = useState(false);
   const [pbOverlay, setPbOverlay] = useState<{
     tossWinner: "P1" | "P2";
     p1Agg: number;
@@ -1254,7 +1256,8 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
           matchSeriesUiLockUntilRef.current = Date.now() + 800;
           isViewingPostMatchRef.current = true;
           setShowGameWinScreen(true);
-          setShowRankedMatchResult(false);
+          setShowSeriesMatchResult(false);
+          onMultiplayerNavLockChange?.(true);
           setShowWinOverlay(false);
           setOverlayVisible(false);
           const rmExt = rm as Partial<MatchSeriesCompletePayload> & { p1_career_entry_id?: string; p2_career_entry_id?: string };
@@ -1507,9 +1510,10 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
           if (Date.now() >= matchSeriesUiLockUntilRef.current) {
             isViewingPostMatchRef.current = false;
             setShowGameWinScreen(false);
-            setShowRankedMatchResult(false);
+            setShowSeriesMatchResult(false);
             setMatchSeriesComplete(null);
             onMultiplayerSeriesResumedAction?.();
+            onMultiplayerNavLockChange?.(false);
           }
           setPhase("playing");
           const incomingGame = msg.game_number ?? 1;
@@ -1928,7 +1932,8 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     setSummaryTimer(5); setOverlayVisible(false); setChoiceTimer(0);
     setShowRematch(false); setRematchRequested(null);
     isViewingPostMatchRef.current = false;
-    setShowGameWinScreen(false); setShowRankedMatchResult(false); setMatchSeriesComplete(null);
+    setShowGameWinScreen(false); setShowSeriesMatchResult(false); setMatchSeriesComplete(null);
+    onMultiplayerNavLockChange?.(false);
     setWinnerPickedRule(null); setWinnerPickedFirst(null); setWinnerPickedC3(null);
     setRbHideBannedPatternFromSlot(null); setRbPatternsPreBan(null);
     setServerStructuralPatternsP1(null); setServerStructuralPatternsP2(null);
@@ -2540,10 +2545,11 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     }
     isViewingPostMatchRef.current = false;
     setShowGameWinScreen(false);
-    setShowRankedMatchResult(false);
+    setShowSeriesMatchResult(false);
     setMatchSeriesComplete(null);
+    onMultiplayerNavLockChange?.(false);
     setScreenAction?.("career", { exitMultiGameToCareer: true });
-  }, [matchSeriesComplete?.careerEntryId, isMultiplayerGame, mySlot, setScreenAction]);
+  }, [matchSeriesComplete?.careerEntryId, isMultiplayerGame, mySlot, setScreenAction, onMultiplayerNavLockChange]);
 
   useEffect(() => {
     if (showGameWinScreen && matchSeriesComplete && isMultiplayerGame) {
@@ -3659,12 +3665,10 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
               textSecondary: t.textSecondary,
               textMuted: t.textMuted,
             }}
-            onContinue={matchSeriesComplete.format === "ranked"
-              ? () => {
-                  setShowGameWinScreen(false);
-                  setShowRankedMatchResult(true);
-                }
-              : undefined}
+            onContinue={() => {
+              setShowGameWinScreen(false);
+              setShowSeriesMatchResult(true);
+            }}
             onQuit={() => {
               if (wsRef.current?.readyState === WebSocket.OPEN) {
                 wsRef.current.send(JSON.stringify({ type: "quit_match", slot: mySlot }));
@@ -3674,7 +3678,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
             onGoToCareer={goToCareerAfterSeries}
           />
         )}
-        {showRankedMatchResult && matchSeriesComplete && matchSeriesComplete.format === "ranked" && (
+        {showSeriesMatchResult && matchSeriesComplete && (
           <MatchResultScreen
             seriesWinner={matchSeriesComplete.series_winner}
             format={matchSeriesComplete.format}
@@ -3915,12 +3919,10 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
             textSecondary: t.textSecondary,
             textMuted: t.textMuted,
           }}
-          onContinue={matchSeriesComplete.format === "ranked"
-            ? () => {
-                setShowGameWinScreen(false);
-                setShowRankedMatchResult(true);
-              }
-            : undefined}
+          onContinue={() => {
+            setShowGameWinScreen(false);
+            setShowSeriesMatchResult(true);
+          }}
           onQuit={() => {
             if (wsRef.current?.readyState === WebSocket.OPEN) {
               wsRef.current.send(JSON.stringify({ type: "quit_match", slot: mySlot }));
@@ -3930,7 +3932,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
           onGoToCareer={goToCareerAfterSeries}
         />
       )}
-      {showRankedMatchResult && matchSeriesComplete && matchSeriesComplete.format === "ranked" && (
+      {showSeriesMatchResult && matchSeriesComplete && (
         <MatchResultScreen
           seriesWinner={matchSeriesComplete.series_winner}
           format={matchSeriesComplete.format}

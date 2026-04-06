@@ -65,6 +65,8 @@ export default function Page() {
   const [queuePlayerSlot, setQueuePlayerSlot] = useState<"P1" | "P2">("P1");
   const [matchupOpponent, setMatchupOpponent] = useState<any>(null);
   const [queueError, setQueueError] = useState<string | null>(null);
+  /** Multiplayer only: false until series end UI (GameWin / MatchResult); then true so navbar works. */
+  const [multiplayerNavUnlocked, setMultiplayerNavUnlocked] = useState(false);
 
   const audioStartedRef    = useRef(false);
   const pendingTheme       = useRef<ThemeId | null>(null);
@@ -117,6 +119,10 @@ export default function Page() {
   useEffect(() => {
     if (screen !== "multiGame") setMultiplayerRulesBootstrap(null);
   }, [screen]);
+
+  useEffect(() => {
+    if (screen === "multiGame") setMultiplayerNavUnlocked(false);
+  }, [screen, multiRoomCode]);
 
   const getBgmCtx = (s: Screen, ranked: boolean, aiDiff: Difficulty): "lobby" | "game" | "ranked" => {
     if (s === "aiGame") return aiDiff === "hard" || aiDiff === "danger" || aiDiff === "machine_god" ? "ranked" : "game";
@@ -769,10 +775,10 @@ export default function Page() {
           onSettingsAction={() => { sfx.click(); setShowSettings(true); }}
           inQueue={inQueue}
           onQueueClickAction={() => setScreen("lobby")}
-          isRankedGame={isRanked}
           onHoverAction={sfx.hover}
           queueElapsed={queueElapsed}
           onCancelQueueAction={cancelMatchmaking}
+          lockMultiplayerNav={screen === "multiGame" && !multiplayerNavUnlocked}
         />
       )}
 
@@ -831,6 +837,7 @@ export default function Page() {
           onMultiplayerBoardSync={(mode, pats) => { setBoardMode(mode); setSelectedPatterns(pats); }}
           onMultiplayerSeriesSealedAction={sealMultiSeriesNavigation}
           onMultiplayerSeriesResumedAction={resumeMultiSeriesNavigation}
+          onMultiplayerNavLockChange={setMultiplayerNavUnlocked}
           playHoverAction={sfx.hover} playPlaceAction={sfx.place} playVictoryAction={sfx.victory} playDefeatAction={sfx.defeat}
           playRulebreakerAction={sfx.rulebreaker} playTransitionAction={sfx.transition} playClickAction={sfx.click} />
       )}

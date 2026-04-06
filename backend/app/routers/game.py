@@ -35,6 +35,32 @@ def xp_for_result(result: str, mode: str = "multiplayer", difficulty: str = "med
     if result == "loss": return 250
     return 0
 
+
+def xp_for_series_outcome(result: str, format: str, num_rounds: int) -> int:
+    """
+    Full-series multiplayer XP: scales with completed rounds (1–9).
+    Unranked/custom: win 3000–4000, loss 1000–2000.
+    Ranked: win 10000–15000, loss 5000–10000.
+    Draw: flat 500 each.
+    """
+    r = (result or "").lower()
+    n = max(1, min(9, int(num_rounds or 1)))
+    t = (n - 1) / 8.0
+    is_ranked = (format or "").lower() == "ranked"
+    if r == "draw":
+        return 500
+    if is_ranked:
+        if r == "win":
+            return int(10000 + round(t * 5000))
+        if r == "loss":
+            return int(5000 + round(t * 5000))
+    else:
+        if r == "win":
+            return int(3000 + round(t * 1000))
+        if r == "loss":
+            return int(1000 + round(t * 1000))
+    return xp_for_result(result, "multiplayer", "medium")
+
 def expected_score(rating_a: int, rating_b: int) -> float:
     return 1 / (1 + 10 ** ((rating_b - rating_a) / 400))
 
@@ -173,19 +199,27 @@ async def award_ranked_match_result(
     p1_user = await db.users.find_one({"_id": ObjectId(p1_id)}) if p1_id else None
     p2_user = await db.users.find_one({"_id": ObjectId(p2_id)}) if p2_id else None
 
+    rounds_list = game.get("match_rounds") or []
+    num_rounds = max(1, min(9, len(rounds_list))) if isinstance(rounds_list, list) else 1
+
     async def update_player(user_id: str, result: str, opponent_id: str | None):
         if not user_id: return
         user = await db.users.find_one({"_id": ObjectId(user_id)})
         if not user: return
         
-        gained_xp = xp_for_result(result, mode, difficulty)
+        gained_xp = xp_for_series_outcome(result, fmt, num_rounds)
         new_total_xp = user.get("xp", 0) + gained_xp
         new_level, _ = compute_level(new_total_xp)
         
         inc = {}
-        if result == "win": inc["wins"] = 1
-        elif result == "loss": inc["losses"] = 1
-        elif result == "draw": inc["draws"] = 1
+        if is_ranked:
+            if result == "win": inc["wins"] = 1
+            elif result == "loss": inc["losses"] = 1
+            elif result == "draw": inc["draws"] = 1
+        else:
+            if result == "win": inc["unranked_wins"] = 1
+            elif result == "loss": inc["unranked_losses"] = 1
+            elif result == "draw": inc["draws"] = 1
         
         updates = {"xp": new_total_xp, "level": new_level}
         

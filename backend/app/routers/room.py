@@ -2697,6 +2697,17 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
 
             elif msg["type"] == "quit_match":
                 room_q = await db.rooms.find_one({"room_code": room_code})
+                if room_q and room_q.get("series_winner") is not None:
+                    await db.rooms.update_one(
+                        {"room_code": room_code},
+                        {"$set": {"game_status": "disbanded"}},
+                    )
+                    for slot, ws in _room_connections.get(room_code, {}).items():
+                        try:
+                            await ws.send_json({"type": "match_disbanded"})
+                        except:
+                            pass
+                    continue
                 quitter_slot = msg.get("slot") or player_slot
                 void_no_play = (
                     room_q
@@ -3249,7 +3260,7 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                             {"series_winner": winner_slot},
                             winner_slot,
                             record_clean_streak=False,
-                            surrendered_by=player_slot,
+                            surrendered_by=None,
                         )
                     else:
                         await _award_match_series_and_notify(
@@ -3259,7 +3270,7 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                             {"series_winner": winner_slot},
                             winner_slot,
                             record_clean_streak=True,
-                            surrendered_by=player_slot,
+                            surrendered_by=None,
                         )
                     await db.rooms.update_one(
                         {"room_code": room_code},
