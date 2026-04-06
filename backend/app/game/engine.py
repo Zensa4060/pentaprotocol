@@ -28,7 +28,13 @@ class GameEngine:
             self.GRID_SIZE = 7
             self.CENTER = 3
             # Asymmetric rulebreaker ban: each player may have a different allowed pattern set.
-            base = selected_pattern_ids or []
+            from app.core.patterns7 import PATTERN_NAMES_7
+
+            base = (
+                list(selected_pattern_ids)
+                if isinstance(selected_pattern_ids, list) and len(selected_pattern_ids) > 0
+                else list(PATTERN_NAMES_7)
+            )
             p1 = (
                 selected_pattern_ids_p1
                 if selected_pattern_ids_p1 is not None

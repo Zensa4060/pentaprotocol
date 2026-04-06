@@ -347,7 +347,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     tossWinner: "P1" | "P2";
     p1Agg: number;
     p2Agg: number;
-    /** First-to-5 series points (incl. half points for draws) for “tied at …” copy */
+    /** First-to-5 series points (draws add 0) for “tied at …” copy */
     p1SeriesPts: number;
     p2SeriesPts: number;
     phase: "coin" | "choice" | "choose_first_player" | "ban_first" | "ban_second";
@@ -729,24 +729,30 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   /** Structural win checks: banned pattern applies only to the opponent of the player who banned. */
   const structuralPatternsP1 = useMemo(() => {
     if (GRID_SIZE !== 7) return liveSelectedPatterns;
-    if (serverStructuralPatternsP1 && serverStructuralPatternsP1.length > 0) return serverStructuralPatternsP1;
-    if (rbBannedPatterns.length === 0 || !rulebreakerBanActorSlot) {
-      return rbBannedPatterns.length > 0 ? liveSelectedPatterns.filter(p => !rbBannedPatterns.includes(p)) : liveSelectedPatterns;
+    if (rbBannedPatterns.length > 0 && rulebreakerBanActorSlot) {
+      return rulebreakerBanActorSlot === "P1"
+        ? liveSelectedPatterns
+        : liveSelectedPatterns.filter(p => !rbBannedPatterns.includes(p));
     }
-    return rulebreakerBanActorSlot === "P1"
-      ? liveSelectedPatterns
-      : liveSelectedPatterns.filter(p => !rbBannedPatterns.includes(p));
+    if (serverStructuralPatternsP1 && serverStructuralPatternsP1.length > 0) return serverStructuralPatternsP1;
+    if (rbBannedPatterns.length > 0) {
+      return liveSelectedPatterns.filter(p => !rbBannedPatterns.includes(p));
+    }
+    return liveSelectedPatterns;
   }, [GRID_SIZE, liveSelectedPatterns, serverStructuralPatternsP1, rbBannedPatterns, rulebreakerBanActorSlot]);
 
   const structuralPatternsP2 = useMemo(() => {
     if (GRID_SIZE !== 7) return liveSelectedPatterns;
-    if (serverStructuralPatternsP2 && serverStructuralPatternsP2.length > 0) return serverStructuralPatternsP2;
-    if (rbBannedPatterns.length === 0 || !rulebreakerBanActorSlot) {
-      return rbBannedPatterns.length > 0 ? liveSelectedPatterns.filter(p => !rbBannedPatterns.includes(p)) : liveSelectedPatterns;
+    if (rbBannedPatterns.length > 0 && rulebreakerBanActorSlot) {
+      return rulebreakerBanActorSlot === "P2"
+        ? liveSelectedPatterns
+        : liveSelectedPatterns.filter(p => !rbBannedPatterns.includes(p));
     }
-    return rulebreakerBanActorSlot === "P2"
-      ? liveSelectedPatterns
-      : liveSelectedPatterns.filter(p => !rbBannedPatterns.includes(p));
+    if (serverStructuralPatternsP2 && serverStructuralPatternsP2.length > 0) return serverStructuralPatternsP2;
+    if (rbBannedPatterns.length > 0) {
+      return liveSelectedPatterns.filter(p => !rbBannedPatterns.includes(p));
+    }
+    return liveSelectedPatterns;
   }, [GRID_SIZE, liveSelectedPatterns, serverStructuralPatternsP2, rbBannedPatterns, rulebreakerBanActorSlot]);
 
   const sidebarPatternList = useMemo(() => {
@@ -907,6 +913,13 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
               setCurrent(msg.current_player);
               setMovesPlayed(msg.moves_played);
               setExtraTurns(msg.extra_turns ?? 0);
+              {
+                const mmp = msg as { selected_patterns_p1?: unknown; selected_patterns_p2?: unknown };
+                if (Array.isArray(mmp.selected_patterns_p1) && Array.isArray(mmp.selected_patterns_p2)) {
+                  setServerStructuralPatternsP1(mmp.selected_patterns_p1 as string[]);
+                  setServerStructuralPatternsP2(mmp.selected_patterns_p2 as string[]);
+                }
+              }
               if (msg.row !== undefined && msg.col !== undefined) {
                 const mover = msg.board[msg.row][msg.col] as string | null;
                 if (mover) {

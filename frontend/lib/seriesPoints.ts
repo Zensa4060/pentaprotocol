@@ -1,4 +1,4 @@
-/** Match server `compute_segment_points` in `backend/app/routers/room.py` (including draws). */
+/** Match server `compute_segment_points` in `backend/app/routers/room.py` (draws add 0 each). */
 export function seriesPointsFromHistory(hist: unknown[] | null | undefined): { p1: number; p2: number } {
   let p1 = 0;
   let p2 = 0;
@@ -7,10 +7,6 @@ export function seriesPointsFromHistory(hist: unknown[] | null | undefined): { p
     const w = typeof item === "string" ? item : (item as { winner?: string })?.winner;
     if (w === "P1") p1 += 1;
     else if (w === "P2") p2 += 1;
-    else if (w === "DRAW") {
-      p1 += 0.5;
-      p2 += 0.5;
-    }
   }
   return { p1, p2 };
 }

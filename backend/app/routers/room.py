@@ -243,7 +243,7 @@ def _redact_ws_payload_for_slot(payload: dict, viewer_slot: str, room: dict) -> 
 
 def compute_segment_points(history: list, segment_start: int = 0) -> tuple[float, float]:
     """
-    Points in match history for first-to-5: win = 1, draw = 0.5 each.
+    Points in match history for first-to-5: win = 1 each; draws award 0 to both.
     Handles string winners and rich history objects ({'winner': 'P1'|'P2'|'DRAW'}).
     """
     p1 = 0.0
@@ -254,15 +254,12 @@ def compute_segment_points(history: list, segment_start: int = 0) -> tuple[float
             p1 += 1.0
         elif w == "P2":
             p2 += 1.0
-        elif w == "DRAW":
-            p1 += 0.5
-            p2 += 0.5
     return p1, p2
 
 
 def compute_series_winner(history: list, start_index: int = 0, target_points: int = 5) -> str | None:
     """
-    First-to-5 total points wins instantly (wins + draw halves).
+    First-to-5 total points wins instantly (wins only; draws add no points).
     If all 9 games are played, the player with the most points wins.
     If points are equal at 9 games, returns None (Protocolbreaker).
     """
@@ -320,6 +317,42 @@ def _effective_board_mode(room: dict) -> str:
     if bm in ("5x5", "6x6", "7x7"):
         return bm
     return _starting_board_mode(bm)
+
+
+def _derive_7x7_ban_shaped_pattern_lists(
+    base: list,
+    banned: list,
+    token_holder: str | None,
+    *,
+    toss_winner: str | None = None,
+    winner_picked_rule: str | None = None,
+) -> tuple[list[str], list[str]]:
+    """
+    Mindbreaker / 7×7: banned patterns are removed from the side that holds the
+    extra-turn token on resolve (matches client rb_start_game semantics).
+    """
+    from app.core.patterns7 import PATTERN_NAMES_7
+
+    names = list(base) if isinstance(base, list) and len(base) > 0 else list(PATTERN_NAMES_7)
+    banned_lower = {str(b).strip().lower() for b in (banned or []) if b is not None}
+
+    def _allowed(seq: list[str]) -> list[str]:
+        return [p for p in seq if str(p).strip().lower() not in banned_lower]
+
+    if not banned_lower:
+        return list(names), list(names)
+
+    th = token_holder if token_holder in ("P1", "P2") else None
+    if th is None and toss_winner in ("P1", "P2"):
+        if winner_picked_rule == "ban":
+            th = "P2" if toss_winner == "P1" else "P1"
+        elif winner_picked_rule == "extra_turn":
+            th = toss_winner
+    if th == "P1":
+        return _allowed(names), list(names)
+    if th == "P2":
+        return list(names), _allowed(names)
+    return list(names), list(names)
 
 
 def should_auto_upgrade_7x7_after_5x5_game3(
@@ -877,7 +910,7 @@ async def _start_protocolbreaker_final_game(
     first = first_player if first_player in ("P1", "P2") else "P1"
     gn = len(room.get("match_history") or []) + 1
     seg_new = room.get("segment_start_index", 0)
-    p1p, p2p = compute_segment_points(room.get("match_history", []), seg_new)
+    p1p, p2p = compute_segment_points(room.get("match_history", []), 0)
     patch = {
         "board": engine.board,
         "board_mode": mode,
@@ -1061,8 +1094,10 @@ async def _advance_limitbreaker_coin(db, room_code: str, due_ms: int) -> None:
 
 
 def compute_series_state(history: list, segment_start: int = 0) -> dict:
-    p1_pts, p2_pts = compute_segment_points(history, segment_start)
-    series_winner = compute_series_winner(history, segment_start, 5)
+    # Triple-leg match uses segment_start_index only for per-leg UI; series score is always full match_history.
+    _ = segment_start
+    p1_pts, p2_pts = compute_segment_points(history, 0)
+    series_winner = compute_series_winner(history, 0, 5)
     
     awaiting_rulebreaker = False
     breaker_type = None
@@ -1143,12 +1178,12 @@ async def _finalize_rulebreaker_start(
 ) -> None:
     hist = room.get("match_history", [])
     seg_start = room.get("segment_start_index", 0)
-    p1p, p2p = compute_segment_points(hist, seg_start)
+    p1p, p2p = compute_segment_points(hist, 0)
 
     if bool(msg.get("resolve_series_only")):
         if not room.get("awaiting_rulebreaker"):
             return
-        leader = compute_series_winner(hist, seg_start, 5)
+        leader = compute_series_winner(hist, 0, 5)
         if leader is None:
             return
         await db.rooms.update_one(
@@ -1303,7 +1338,7 @@ async def _finalize_rulebreaker_start(
     next_gn = gn + 1
     gs = 7 if bm == "7x7" else 5
 
-    seg_pts = compute_segment_points(hist, seg_start)
+    seg_pts = compute_segment_points(hist, 0)
     gs = 5
     if bm == "7x7":
         gs = 7
@@ -1338,10 +1373,24 @@ async def _finalize_rulebreaker_start(
     if bm == "7x7" and isinstance(sel_patterns, list) and len(sel_patterns) > 0:
         reset["selected_patterns"] = sel_patterns
     if bm == "7x7":
+        from app.core.patterns7 import PATTERN_NAMES_7
+
         reset["rb_hide_banned_from_slot"] = hide_slot
         reset["rb_patterns_pre_ban"] = pre_ban
         reset["rb_banned_patterns"] = banned_pats
         reset["rb_banned_pattern"] = None
+        base_pool = (
+            sel_patterns
+            if isinstance(sel_patterns, list) and len(sel_patterns) > 0
+            else room.get("selected_patterns")
+        )
+        if not isinstance(base_pool, list) or len(base_pool) == 0:
+            base_pool = list(PATTERN_NAMES_7)
+        rb_payload = room.get("rb_phase_payload") or {}
+        wr_rule = rb_payload.get("winnerPickedRule") if isinstance(rb_payload, dict) else None
+        tw_room = room.get("rb_toss_winner")
+        tw_ok = tw_room if tw_room in ("P1", "P2") else None
+        wr_ok = wr_rule if isinstance(wr_rule, str) else None
         if (
             sel_patterns_p1 is not None
             and sel_patterns_p2 is not None
@@ -1350,9 +1399,19 @@ async def _finalize_rulebreaker_start(
         ):
             reset["selected_patterns_p1"] = sel_patterns_p1
             reset["selected_patterns_p2"] = sel_patterns_p2
+        elif banned_pats:
+            dp1, dp2 = _derive_7x7_ban_shaped_pattern_lists(
+                base_pool,
+                banned_pats,
+                token_holder,
+                toss_winner=tw_ok,
+                winner_picked_rule=wr_ok,
+            )
+            reset["selected_patterns_p1"] = dp1
+            reset["selected_patterns_p2"] = dp2
         else:
-            reset["selected_patterns_p1"] = None
-            reset["selected_patterns_p2"] = None
+            reset["selected_patterns_p1"] = list(base_pool)
+            reset["selected_patterns_p2"] = list(base_pool)
     else:
         reset["rb_hide_banned_from_slot"] = None
         reset["rb_patterns_pre_ban"] = None
@@ -1424,8 +1483,7 @@ async def _auto_finalize_rulebreaker_toss(db, room_code: str, due_ms: int) -> No
         if not isinstance(payload, dict):
             payload = {}
         hist = room.get("match_history", [])
-        seg_start = room.get("segment_start_index", 0)
-        p1p, p2p = compute_segment_points(hist, seg_start)
+        p1p, p2p = compute_segment_points(hist, 0)
         series_already_decided = (p1p >= 5 and p1p > p2p) or (p2p >= 5 and p2p > p1p)
         wr = payload.get("winnerPickedRule")
         tw = room.get("rb_toss_winner")
@@ -2023,11 +2081,46 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                     # #region agent log
                     open("debug-6fad40.log","a",encoding="utf-8").write(json.dumps({"sessionId":"6fad40","runId":"run1","hypothesisId":"H3","location":"backend/app/routers/room.py:1745","message":"before 6x6 deploy","data":{"player_slot":player_slot,"current_player":room.get("current_player"),"moves_played":room.get("moves_played",0),"rb6_special_cell":room.get("rb6_special_cell"),"row":row,"col":col},"timestamp":int(datetime.utcnow().timestamp()*1000)})+"\n")
                     # #endregion
+                sp_for_engine = room.get("selected_patterns")
+                sp1_for_engine = room.get("selected_patterns_p1")
+                sp2_for_engine = room.get("selected_patterns_p2")
+                persist_7x7_p12 = None
+                if eff_bm == "7x7":
+                    from app.core.patterns7 import PATTERN_NAMES_7
+
+                    banned_live = room.get("rb_banned_patterns") or []
+                    bad_p12 = (
+                        not isinstance(sp1_for_engine, list)
+                        or not isinstance(sp2_for_engine, list)
+                        or len(sp1_for_engine) == 0
+                        or len(sp2_for_engine) == 0
+                    )
+                    base_pool = (
+                        sp_for_engine
+                        if isinstance(sp_for_engine, list) and len(sp_for_engine) > 0
+                        else list(PATTERN_NAMES_7)
+                    )
+                    if bad_p12 and banned_live:
+                        rb_payload = room.get("rb_phase_payload") or {}
+                        wr_rule = rb_payload.get("winnerPickedRule") if isinstance(rb_payload, dict) else None
+                        tw_room = room.get("rb_toss_winner")
+                        sp1_for_engine, sp2_for_engine = _derive_7x7_ban_shaped_pattern_lists(
+                            base_pool,
+                            list(banned_live),
+                            room.get("rb_extra_turn_token_holder"),
+                            toss_winner=tw_room if tw_room in ("P1", "P2") else None,
+                            winner_picked_rule=wr_rule if isinstance(wr_rule, str) else None,
+                        )
+                        persist_7x7_p12 = (list(sp1_for_engine), list(sp2_for_engine))
+                    elif bad_p12:
+                        sp1_for_engine = list(base_pool)
+                        sp2_for_engine = list(base_pool)
+                        persist_7x7_p12 = (list(sp1_for_engine), list(sp2_for_engine))
                 engine = GameEngine(
                     board_mode=eff_bm,
-                    selected_pattern_ids=room.get("selected_patterns"),
-                    selected_pattern_ids_p1=room.get("selected_patterns_p1"),
-                    selected_pattern_ids_p2=room.get("selected_patterns_p2"),
+                    selected_pattern_ids=sp_for_engine,
+                    selected_pattern_ids_p1=sp1_for_engine if eff_bm == "7x7" else None,
+                    selected_pattern_ids_p2=sp2_for_engine if eff_bm == "7x7" else None,
                     rb6_special_cell=room.get("rb6_special_cell"),
                 )
                 engine.board          = room["board"]
@@ -2073,6 +2166,9 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                     "move_log":       move_log,
                     **game1_patch,
                 }
+                if persist_7x7_p12 is not None:
+                    update["selected_patterns_p1"] = persist_7x7_p12[0]
+                    update["selected_patterns_p2"] = persist_7x7_p12[1]
                 if result.get("success"):
                     rb6_prev = room.get("rb6_special_cell")
                     if (
@@ -2105,7 +2201,7 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                     if room.get("protocolbreaker_final") and is_finished:
                         # Protocolbreaker is a single decisive round (sudden death).
                         sw_pb = outcome if outcome in ("P1", "P2") else "DRAW"
-                        p1p_new, p2p_new = compute_segment_points(new_history, seg_start)
+                        p1p_new, p2p_new = compute_segment_points(new_history, 0)
                         update.update(
                             {
                                 "match_history": new_history,
@@ -2313,6 +2409,10 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                         room.get("history_display_start_index", 0),
                     )
 
+                if persist_7x7_p12 is not None:
+                    broadcast["selected_patterns_p1"] = persist_7x7_p12[0]
+                    broadcast["selected_patterns_p2"] = persist_7x7_p12[1]
+
                 merge_mv = {**room, **update}
                 for slot, ws in _room_connections.get(room_code, {}).items():
                     try:
@@ -2417,7 +2517,7 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                     if sp is not None:
                         gr_payload["selected_patterns"] = sp
                     if (
-                        bm == "7x7"
+                        eff_bm == "7x7"
                         and sp1 is not None
                         and sp2 is not None
                     ):
@@ -3046,7 +3146,7 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                     "game_status": "finished",
                     "status":      "finished",
                     "match_history": new_history,
-                    **compute_series_state(new_history, seg_start),
+                    **compute_series_state(new_history, 0),
                 }
                 # No-one won yet? Just proceed.
                 pass
