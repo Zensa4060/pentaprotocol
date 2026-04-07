@@ -3334,6 +3334,9 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   const waitingReadyWarmup =
     isMultiplayerGame && phase === "waiting_ready" && !mpReadyGateOpen && !interLegUpgradePending;
 
+  const surrenderModalVariant =
+    isRankedGame && gameNumber === 1 && movesPlayed === 0 ? "abort" : "forfeit";
+
   // ── MOBILE LAYOUT ─────────────────────────────────────────────────────────
   if (isMobile) {
     return (
@@ -3644,7 +3647,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
         />
         {rbOverlay}
 
-        <SurrenderModal show={showSurrender} t={sidebarT} ip={ip} isRankedGame={isRankedGame} onConfirmAction={() => { setShowSurrender(false); if (isMultiplayerGame && wsRef.current?.readyState === WebSocket.OPEN) { wsRef.current.send(JSON.stringify({ type: "quit_match", slot: mySlot })); } if (!isMultiplayerGame && setScreenAction) setScreenAction("home"); }} onCancelAction={() => { playClickAction?.(); pausedRef.current = false; setShowSurrender(false); }} playHoverAction={playHoverAction} />
+        <SurrenderModal show={showSurrender} t={sidebarT} ip={ip} isRankedGame={isRankedGame} variant={surrenderModalVariant} onConfirmAction={() => { setShowSurrender(false); if (isMultiplayerGame && wsRef.current?.readyState === WebSocket.OPEN) { wsRef.current.send(JSON.stringify({ type: "quit_match", slot: mySlot })); } if (!isMultiplayerGame && setScreenAction) setScreenAction("home"); }} onCancelAction={() => { playClickAction?.(); pausedRef.current = false; setShowSurrender(false); }} playHoverAction={playHoverAction} />
         <ExitModal show={showExitConfirm} t={sidebarT} ip={ip} onConfirmAction={() => { setShowExitConfirm(false); if (setScreenAction) setScreenAction("home"); }} onCancelAction={() => { playClickAction?.(); pausedRef.current = false; setShowExitConfirm(false); }} playHoverAction={playHoverAction} />
         {limitbreakerOverlay}
         {showGameWinScreen && matchSeriesComplete && isMultiplayerGame && (
@@ -3777,7 +3780,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
 
       <LeftPanel
         t={sidebarT} ip={ip} p1c={p1c} p2c={p2c} pieceSkin={pieceSkin} p1RttMs={p1RttMs} p2RttMs={p2RttMs} panelW={panelW}
-        phase={phase} winner={winner} current={current} gameNumber={gameNumber}
+        phase={phase} winner={winner} current={current} gameNumber={gameNumber} movesPlayed={movesPlayed}
         matchHistory={matchHistory} seriesWinner={seriesWinner} matchOver={matchOver}
         gameMode={gameMode} isRankedGame={isRankedGame} isMultiplayerGame={isMultiplayerGame}
         isMultiplayer={isMultiplayerGame} mySlot={mySlot}
@@ -3898,7 +3901,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
         playHoverAction={playHoverAction}
       />
 
-        <SurrenderModal show={showSurrender} t={sidebarT} ip={ip} isRankedGame={isRankedGame} onConfirmAction={() => { setShowSurrender(false); if (isMultiplayerGame && wsRef.current?.readyState === WebSocket.OPEN) { wsRef.current.send(JSON.stringify({ type: "quit_match", slot: mySlot })); } if (!isMultiplayerGame && setScreenAction) setScreenAction("home"); }} onCancelAction={() => { playClickAction?.(); pausedRef.current = false; setShowSurrender(false); }} playHoverAction={playHoverAction} />
+        <SurrenderModal show={showSurrender} t={sidebarT} ip={ip} isRankedGame={isRankedGame} variant={surrenderModalVariant} onConfirmAction={() => { setShowSurrender(false); if (isMultiplayerGame && wsRef.current?.readyState === WebSocket.OPEN) { wsRef.current.send(JSON.stringify({ type: "quit_match", slot: mySlot })); } if (!isMultiplayerGame && setScreenAction) setScreenAction("home"); }} onCancelAction={() => { playClickAction?.(); pausedRef.current = false; setShowSurrender(false); }} playHoverAction={playHoverAction} />
       <ExitModal show={showExitConfirm} t={sidebarT} ip={ip} onConfirmAction={() => { setShowExitConfirm(false); if (setScreenAction) setScreenAction("home"); }} onCancelAction={() => { playClickAction?.(); pausedRef.current = false; setShowExitConfirm(false); }} playHoverAction={playHoverAction} />
       {limitbreakerOverlay}
       {showGameWinScreen && matchSeriesComplete && isMultiplayerGame && (

@@ -315,7 +315,7 @@ const RULES_BASE: Omit<Rule, "extra">[] = [
   {
     id: "centre",
     emoji: "",
-    title: "CENTRE RULE (C3)",
+    title: "CENTRE RULE (C3 AND D4)",
     summary: "Playing on C3 on the very first move gives your opponent 2 extra turns.",
     detail: `The centre cell (column C, row 3) is a powerful strategic position. To balance this advantage, if you place your very first piece of the game on C3, your opponent immediately receives 2 consecutive extra turns.\n\nThis rule only applies to the first move of each game. After the first move, C3 can be occupied freely without any penalty.\n\nIn the Rulebreaker phase before Game 3, the toss winner may choose to block C3 entirely — preventing anyone from playing there on the first move.`,
     screenshot: null,

@@ -75,6 +75,8 @@ interface MatchSidebarProps {
   winner: string | null;
   current: string;
   gameNumber: number;
+  /** Stones placed this game; with gameNumber drives ABORT vs SURRENDER for ranked. */
+  movesPlayed?: number;
   matchHistory: string[];
   seriesWinner: string | null;
   matchOver: boolean;
@@ -160,7 +162,7 @@ interface MatchSidebarProps {
 
 export function MatchSidebar({
   t, p1Banner, p2Banner, ip, p1c, p2c, pieceSkin, p1RttMs, p2RttMs, panelW,
-  phase, winner, current, gameNumber, matchHistory, seriesWinner, matchOver,
+  phase, winner, current, gameNumber, movesPlayed = 0, matchHistory, seriesWinner, matchOver,
   gameMode, isRankedGame, isMultiplayerGame, isMultiplayer, mySlot,
   boardMode, selectedPatterns, rbBannedPatterns = [], patternsAsSecret = false, p1SeriesPts, p2SeriesPts,
   p1Time, p2Time, readyTimeout,
@@ -185,6 +187,7 @@ export function MatchSidebar({
   const historySlots = gameMode === "ai" || gameMode === "singleplayer" ? 3 : 10;
   const localBo3 = gameMode === "ai" || gameMode === "singleplayer";
   const localWins = localBo3 ? localBo3WinCounts(matchHistory) : null;
+  const isPreMoveAbort = isRankedGame && gameNumber === 1 && (movesPlayed ?? 0) === 0;
   const useFlameSkull = pieceSkin === "flame_skull";
   const useSnowflakeShard = pieceSkin === "snowflake_shard";
 
@@ -519,7 +522,7 @@ export function MatchSidebar({
       )}
       {(phase === "playing" || phase === "waiting_ready") && (
         isRankedGame ? (
-          <button onClick={onShowSurrenderAction} style={{ background: `${t.danger}16`, border: `1px solid ${t.danger}`, color: t.danger, fontFamily: t.fontBody, fontSize: 13, padding: 9, borderRadius: ip ? 2 : 6, cursor: "pointer", transition: "all 0.2s" }} onMouseEnter={e => { playHoverAction?.(); e.currentTarget.style.background = `${t.danger}30`; }} onMouseLeave={e => { e.currentTarget.style.background = `${t.danger}16`; }}>SURRENDER</button>
+          <button onClick={onShowSurrenderAction} style={isPreMoveAbort ? { background: `${t.border}22`, border: `1px solid ${t.border}`, color: t.textSecondary, fontFamily: t.fontBody, fontSize: 13, padding: 9, borderRadius: ip ? 2 : 6, cursor: "pointer", transition: "all 0.2s" } : { background: `${t.danger}16`, border: `1px solid ${t.danger}`, color: t.danger, fontFamily: t.fontBody, fontSize: 13, padding: 9, borderRadius: ip ? 2 : 6, cursor: "pointer", transition: "all 0.2s" }} onMouseEnter={e => { playHoverAction?.(); if (isPreMoveAbort) { e.currentTarget.style.background = `${t.border}40`; } else { e.currentTarget.style.background = `${t.danger}30`; } }} onMouseLeave={e => { if (isPreMoveAbort) { e.currentTarget.style.background = `${t.border}22`; } else { e.currentTarget.style.background = `${t.danger}16`; } }}>{isPreMoveAbort ? "ABORT" : "SURRENDER"}</button>
         ) : isMultiplayer ? null : (
           <button onClick={onSoftReset} style={{ background: `${t.danger}16`, border: `1px solid ${t.danger}`, color: t.danger, fontFamily: t.fontBody, fontSize: 13, padding: 9, borderRadius: ip ? 2 : 6, cursor: "pointer", transition: "all 0.2s" }}>RESET</button>
         )
@@ -551,7 +554,7 @@ export function MatchSidebar({
 // ─── Separate named exports so GameScreen can render panels individually ──────
 
 export function LeftPanel(props: MatchSidebarProps) {
-  const { t, ip, p1c, p2c, pieceSkin, p1RttMs, p2RttMs, panelW, phase, current, gameNumber, matchHistory, seriesWinner,
+  const { t, ip, p1c, p2c, pieceSkin, p1RttMs, p2RttMs, panelW, phase, current, gameNumber, movesPlayed = 0, matchHistory, seriesWinner,
     gameMode, isRankedGame, isMultiplayerGame, isMultiplayer, mySlot, boardMode, selectedPatterns, rbBannedPatterns = [], patternsAsSecret = false, p1SeriesPts, p2SeriesPts,
     p1Time, p2Time, readyTimeout, p1Ready, p2Ready,
   chatMessages, chatInput, chatOpen, chatWarning, unreadOpponentChat = 0,
@@ -567,6 +570,7 @@ export function LeftPanel(props: MatchSidebarProps) {
   const historySlots = gameMode === "ai" || gameMode === "singleplayer" ? 3 : 10;
   const localBo3 = gameMode === "ai" || gameMode === "singleplayer";
   const localWins = localBo3 ? localBo3WinCounts(matchHistory) : null;
+  const isPreMoveAbort = isRankedGame && gameNumber === 1 && (movesPlayed ?? 0) === 0;
   const useFlameSkull = pieceSkin === "flame_skull";
   const useSnowflakeShard = pieceSkin === "snowflake_shard";
 
@@ -820,7 +824,7 @@ export function LeftPanel(props: MatchSidebarProps) {
       )}
       {(phase === "playing" || phase === "waiting_ready") && (
         isRankedGame ? (
-          <button onClick={onShowSurrenderAction} style={{ background: `${t.danger}16`, border: `1px solid ${t.danger}`, color: t.danger, fontFamily: t.fontBody, fontSize: 13, padding: 9, borderRadius: ip ? 2 : 6, cursor: "pointer", transition: "all 0.2s" }} onMouseEnter={e => { playHoverAction?.(); e.currentTarget.style.background = `${t.danger}30`; }} onMouseLeave={e => { e.currentTarget.style.background = `${t.danger}16`; }}>SURRENDER</button>
+          <button onClick={onShowSurrenderAction} style={isPreMoveAbort ? { background: `${t.border}22`, border: `1px solid ${t.border}`, color: t.textSecondary, fontFamily: t.fontBody, fontSize: 13, padding: 9, borderRadius: ip ? 2 : 6, cursor: "pointer", transition: "all 0.2s" } : { background: `${t.danger}16`, border: `1px solid ${t.danger}`, color: t.danger, fontFamily: t.fontBody, fontSize: 13, padding: 9, borderRadius: ip ? 2 : 6, cursor: "pointer", transition: "all 0.2s" }} onMouseEnter={e => { playHoverAction?.(); if (isPreMoveAbort) { e.currentTarget.style.background = `${t.border}40`; } else { e.currentTarget.style.background = `${t.danger}30`; } }} onMouseLeave={e => { if (isPreMoveAbort) { e.currentTarget.style.background = `${t.border}22`; } else { e.currentTarget.style.background = `${t.danger}16`; } }}>{isPreMoveAbort ? "ABORT" : "SURRENDER"}</button>
         ) : isMultiplayer ? null : (
           <button onClick={onSoftReset} style={{ background: `${t.danger}16`, border: `1px solid ${t.danger}`, color: t.danger, fontFamily: t.fontBody, fontSize: 13, padding: 9, borderRadius: ip ? 2 : 6, cursor: "pointer", transition: "all 0.2s" }}>RESET</button>
         )
@@ -1100,19 +1104,31 @@ export function RematchOverlay({ show, isMultiplayerGame, t, ip, p1c, p2c, serie
   );
 }
 
-export function SurrenderModal({ show, t, ip, isRankedGame, onConfirmAction, onCancelAction, playHoverAction }: {
+export function SurrenderModal({ show, t, ip, isRankedGame, variant = "forfeit", onConfirmAction, onCancelAction, playHoverAction }: {
   show: boolean; t: MatchSidebarProps["t"]; ip: boolean; isRankedGame: boolean;
+  variant?: "forfeit" | "abort";
   onConfirmAction: () => void; onCancelAction: () => void; playHoverAction?: () => void;
 }) {
   if (!show) return null;
+  const isAbort = variant === "abort";
+  const borderColor = isAbort ? t.border : t.danger;
+  const titleColor = isAbort ? t.text : t.danger;
+  const title = isAbort
+    ? "Are you sure you want to abort this match?"
+    : "Are you sure you want to forfeit this Match?";
+  const body = isAbort ? (
+    <>{"You haven't played a move yet in game 1. Leaving will "}<span style={{ color: t.text, fontWeight: 700 }}>void</span>{" this match — it won't appear in Career and won't affect ELO for either player."}</>
+  ) : (
+    isRankedGame ? <>This counts as a <span style={{ color: t.danger, fontWeight: 700 }}>forfeit</span> and will result in <span style={{ color: t.danger, fontWeight: 700 }}>ELO deduction</span>.</> : "Your opponent will be declared the winner."
+  );
   return (
     <div className="overlay-backdrop" style={{ position: "fixed", inset: 0, zIndex: 9999, background: "rgba(0,0,0,0.92)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 28 }}>
-      <div className="overlay-modal" style={{ background: t.bgPanel, border: `${ip ? 3 : 2}px solid ${t.danger}`, borderRadius: ip ? 2 : 20, padding: ip ? "32px 36px" : "48px 56px", maxWidth: 520, width: "90vw", textAlign: "center", boxShadow: `0 40px 100px rgba(0,0,0,0.8), 0 0 60px ${t.danger}22` }}>
+      <div className="overlay-modal" style={{ background: t.bgPanel, border: `${ip ? 3 : 2}px solid ${borderColor}`, borderRadius: ip ? 2 : 20, padding: ip ? "32px 36px" : "48px 56px", maxWidth: 520, width: "90vw", textAlign: "center", boxShadow: isAbort ? "0 40px 100px rgba(0,0,0,0.8)" : `0 40px 100px rgba(0,0,0,0.8), 0 0 60px ${t.danger}22` }}>
         <div style={{ fontSize: 44, marginBottom: 20 }} />
-        <div style={{ fontFamily: t.fontDisplay, fontSize: ip ? 14 : 23, fontWeight: 700, color: t.danger, lineHeight: 1.5, marginBottom: 12 }}>Are you sure you want to forfeit this Match?</div>
-        <div style={{ fontFamily: t.fontBody, fontSize: ip ? 11 : 15, color: t.textMuted, marginBottom: 36, lineHeight: 1.7 }}>{isRankedGame ? <>This counts as a <span style={{ color: t.danger, fontWeight: 700 }}>forfeit</span> and will result in <span style={{ color: t.danger, fontWeight: 700 }}>ELO deduction</span>.</> : "Your opponent will be declared the winner."}</div>
+        <div style={{ fontFamily: t.fontDisplay, fontSize: ip ? 14 : 23, fontWeight: 700, color: titleColor, lineHeight: 1.5, marginBottom: 12 }}>{title}</div>
+        <div style={{ fontFamily: t.fontBody, fontSize: ip ? 11 : 15, color: t.textMuted, marginBottom: 36, lineHeight: 1.7 }}>{body}</div>
         <div style={{ display: "flex", gap: 16, justifyContent: "center" }}>
-          <button className="action-btn" onClick={onConfirmAction} style={{ background: `${t.danger}18`, border: `2px solid ${t.danger}`, color: t.danger, fontFamily: t.fontDisplay, fontSize: ip ? 12 : 17, fontWeight: 700, padding: ip ? "10px 28px" : "14px 52px", borderRadius: ip ? 2 : 10, cursor: "pointer", letterSpacing: "0.08em" }} onMouseEnter={e => { playHoverAction?.(); e.currentTarget.style.background = t.danger; e.currentTarget.style.color = "#000"; e.currentTarget.style.boxShadow = `0 6px 28px ${t.danger}55`; }} onMouseLeave={e => { e.currentTarget.style.background = `${t.danger}18`; e.currentTarget.style.color = t.danger; e.currentTarget.style.boxShadow = "none"; }}>YES, FORFEIT</button>
+          <button className="action-btn" onClick={onConfirmAction} style={isAbort ? { background: `${t.accent}18`, border: `2px solid ${t.accent}`, color: t.accent, fontFamily: t.fontDisplay, fontSize: ip ? 12 : 17, fontWeight: 700, padding: ip ? "10px 28px" : "14px 52px", borderRadius: ip ? 2 : 10, cursor: "pointer", letterSpacing: "0.08em" } : { background: `${t.danger}18`, border: `2px solid ${t.danger}`, color: t.danger, fontFamily: t.fontDisplay, fontSize: ip ? 12 : 17, fontWeight: 700, padding: ip ? "10px 28px" : "14px 52px", borderRadius: ip ? 2 : 10, cursor: "pointer", letterSpacing: "0.08em" }} onMouseEnter={e => { playHoverAction?.(); e.currentTarget.style.background = isAbort ? t.accent : t.danger; e.currentTarget.style.color = "#000"; e.currentTarget.style.boxShadow = `0 6px 28px ${isAbort ? t.accent : t.danger}55`; }} onMouseLeave={e => { e.currentTarget.style.background = isAbort ? `${t.accent}18` : `${t.danger}18`; e.currentTarget.style.color = isAbort ? t.accent : t.danger; e.currentTarget.style.boxShadow = "none"; }}>{isAbort ? "YES, ABORT" : "YES, FORFEIT"}</button>
           <button className="action-btn" onClick={onCancelAction} style={{ background: `${t.accent}18`, border: `2px solid ${t.accent}`, color: t.accent, fontFamily: t.fontDisplay, fontSize: ip ? 12 : 17, fontWeight: 700, padding: ip ? "10px 28px" : "14px 52px", borderRadius: ip ? 2 : 10, cursor: "pointer", letterSpacing: "0.08em" }} onMouseEnter={e => { playHoverAction?.(); e.currentTarget.style.background = t.accent; e.currentTarget.style.color = "#000"; e.currentTarget.style.boxShadow = `0 6px 28px ${t.accent}55`; }} onMouseLeave={e => { e.currentTarget.style.background = `${t.accent}18`; e.currentTarget.style.color = t.accent; e.currentTarget.style.boxShadow = "none"; }}>NO, STAY</button>
         </div>
       </div>
