@@ -599,6 +599,11 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   const [p1Ready, setP1Ready] = useState(false);
   const [p2Ready, setP2Ready] = useState(false);
   const [showDisconnectModal, setShowDisconnectModal] = useState(false);
+  const [disconnectCountdown, setDisconnectCountdown] = useState<{
+    slot: "P1" | "P2";
+    deadlineMs: number;
+    remainingSeconds: number;
+  } | null>(null);
   const [showMatchAbortedNoPlay, setShowMatchAbortedNoPlay] = useState(false);
   const [matchAbortedBySlot, setMatchAbortedBySlot] = useState<"P1" | "P2" | null>(null);
   const [chatMessages, setChatMessages] = useState<{ from: "P1" | "P2"; text: string; ts: number }[]>([]);
@@ -637,6 +642,19 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   const [showRematch, setShowRematch] = useState(false);
   const [rematchRequested, setRematchRequested] = useState<string | null>(null);
   const [lastSeries, setLastSeries] = useState<{ winner: string | null; history: string[] } | null>(null);
+
+  useEffect(() => {
+    if (!disconnectCountdown) return;
+    const id = setInterval(() => {
+      setDisconnectCountdown((prev) => {
+        if (!prev) return null;
+        const secs = Math.max(0, Math.ceil((prev.deadlineMs - Date.now()) / 1000));
+        if (secs === prev.remainingSeconds) return prev;
+        return { ...prev, remainingSeconds: secs };
+      });
+    }, 250);
+    return () => clearInterval(id);
+  }, [disconnectCountdown?.deadlineMs]);
 
   const [winnerPickedRule, setWinnerPickedRule] = useState<string | null>(null);
   const [winnerPickedFirst, setWinnerPickedFirst] = useState<string | null>(null);
@@ -912,6 +930,13 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
           pingOutstandingRef.current = ts;
           ws.send(JSON.stringify({ type: "ping", ts }));
         }, 2000);
+        ws.send(
+          JSON.stringify({
+            type: "screen_presence",
+            on_game_screen: typeof document !== "undefined" ? !document.hidden : true,
+            ts_ms: Date.now(),
+          })
+        );
       };
 
         ws.onmessage = (e) => {
@@ -1228,6 +1253,24 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
             }
           }
             } else if (msg.type === "opponent_disconnected") {
+          // Backward compatibility with older server payloads.
+          const other: "P1" | "P2" = (mySlot ?? "P1") === "P1" ? "P2" : "P1";
+          const deadlineMs = Date.now() + 30_000;
+          setDisconnectCountdown({ slot: other, deadlineMs, remainingSeconds: 30 });
+            } else if (msg.type === "player_reconnect_countdown") {
+          const slot = msg.slot === "P2" ? "P2" : "P1";
+          const deadlineMs =
+            typeof msg.deadline_ms === "number" ? msg.deadline_ms : Date.now() + 30_000;
+          const remainingSeconds =
+            typeof msg.remaining_seconds === "number"
+              ? Math.max(0, Math.ceil(msg.remaining_seconds))
+              : Math.max(0, Math.ceil((deadlineMs - Date.now()) / 1000));
+          setDisconnectCountdown({ slot, deadlineMs, remainingSeconds });
+            } else if (msg.type === "player_reconnected") {
+          const slot = msg.slot === "P2" ? "P2" : "P1";
+          setDisconnectCountdown((prev) => (prev && prev.slot === slot ? null : prev));
+            } else if (msg.type === "player_disconnect_confirmed") {
+          setDisconnectCountdown(null);
           setPhase("match_over");
           setShowDisconnectModal(true);
             } else if (msg.type === "ready_update") {
@@ -1655,6 +1698,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
           setMatchAbortedBySlot(ab);
           setShowMatchAbortedNoPlay(true);
         } else if (msg.type === "match_disbanded") {
+          setDisconnectCountdown(null);
           void useAuthStore.getState().refreshProfile();
           if (typeof window !== "undefined") {
             window.dispatchEvent(new Event("pp:career-refresh"));
@@ -2259,6 +2303,22 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     rafHandle.current = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(rafHandle.current);
   }, []);
+
+  useEffect(() => {
+    if (!isMultiplayerGame || !playerSlot) return;
+    const onVisibilityChange = () => {
+      if (wsRef.current?.readyState !== WebSocket.OPEN) return;
+      wsRef.current.send(
+        JSON.stringify({
+          type: "screen_presence",
+          on_game_screen: !document.hidden,
+          ts_ms: Date.now(),
+        })
+      );
+    };
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => document.removeEventListener("visibilitychange", onVisibilityChange);
+  }, [isMultiplayerGame, playerSlot]);
 
   const doAdvanceAfterReady = () => {
     const gn = R.current.gameNumber;
@@ -3305,6 +3365,38 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   const blockMultiRulesOrLevelUp =
     isMultiplayerGame &&
     (rulesShowSheet !== null || show7x7LevelUp || show6x6LevelUp || rulesMatchGate);
+  const disconnectCountdownBanner =
+    disconnectCountdown !== null ? (
+      <div
+        style={{
+          position: "fixed",
+          top: isMobile ? 56 : 70,
+          left: "50%",
+          transform: "translateX(-50%)",
+          zIndex: 120_000,
+          padding: isMobile ? "10px 14px" : "12px 18px",
+          borderRadius: ip ? 2 : 12,
+          border: `1px solid ${t.accent}99`,
+          background: "rgba(7,10,20,0.92)",
+          boxShadow: `0 8px 24px ${t.accent}44`,
+          fontFamily: t.fontMono,
+          color: t.text,
+          textAlign: "center",
+          letterSpacing: "0.05em",
+          minWidth: isMobile ? 280 : 360,
+          maxWidth: "92vw",
+          pointerEvents: "none",
+        }}
+      >
+        <div style={{ fontSize: isMobile ? 10 : 11, color: t.textMuted, marginBottom: 4 }}>
+          RECONNECT WINDOW
+        </div>
+        <div style={{ fontSize: isMobile ? 12 : 13, fontWeight: 800 }}>
+          {disconnectCountdown.slot} disconnected. Return within{" "}
+          <span style={{ color: t.accent }}>{disconnectCountdown.remainingSeconds}s</span>
+        </div>
+      </div>
+    ) : null;
 
   if (blockMultiRulesOrLevelUp) {
     const shellBg = t.bg;
@@ -3326,6 +3418,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
         {levelUp7x7Overlay}
         {levelUp6x6Overlay}
         {limitbreakerOverlay}
+        {disconnectCountdownBanner}
         {rulesShowSheet !== null && (
           <RuleshowScreen
             sheet={rulesShowSheet}
@@ -3390,6 +3483,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   if (isMobile) {
     return (
       <div style={{ position: "fixed", top: 52, left: 0, right: 0, bottom: 0, zIndex: 2, background: t.bg, overflow: "hidden", userSelect: "none", WebkitUserSelect: "none" }}>
+        {disconnectCountdownBanner}
 
         <WinOverlay
           showWinOverlay={showWinOverlay} overlayVisible={overlayVisible}
@@ -3784,6 +3878,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   // ── DESKTOP LAYOUT ────────────────────────────────────────────────────────
   return (
     <div style={{ position: "fixed", top: 64, left: 0, right: 0, bottom: 0, zIndex: 2, display: "flex", flexDirection: "row", background: t.bg, overflow: "hidden", userSelect: "none", WebkitUserSelect: "none" }}>
+      {disconnectCountdownBanner}
 
       <WinOverlay
         showWinOverlay={showWinOverlay} overlayVisible={overlayVisible}

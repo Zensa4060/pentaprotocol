@@ -22,8 +22,9 @@ _room_runtime: dict[str, dict] = {}
 _rb_autostart_tasks: dict[str, asyncio.Task] = {}
 _lb_phase_tasks: dict[str, asyncio.Task] = {}
 _rules_sheet_timeout_tasks: dict[str, asyncio.Task] = {}
+_disconnect_confirm_tasks: dict[str, asyncio.Task] = {}
 RULES_SHEET_TIMEOUT_SECONDS = 60.0
-DISCONNECT_GRACE_SECONDS = 3.0
+DISCONNECT_CONFIRM_SECONDS = 30.0
 
 
 def _reset_rules_gate_runtime(room_code: str) -> None:
@@ -48,6 +49,134 @@ def _cancel_rules_sheet_timeout(room_code: str) -> None:
     task = _rules_sheet_timeout_tasks.pop(room_code, None)
     if task and not task.done():
         task.cancel()
+
+
+def _disconnect_task_key(room_code: str, slot: str) -> str:
+    return f"{room_code}:{slot}"
+
+
+def _cancel_disconnect_confirm(room_code: str, slot: str) -> None:
+    task = _disconnect_confirm_tasks.pop(_disconnect_task_key(room_code, slot), None)
+    if task and not task.done():
+        task.cancel()
+
+
+async def _broadcast_disconnect_countdown(room_code: str, slot: str, deadline_ms: int) -> None:
+    remaining = max(0, int((deadline_ms - int(datetime.utcnow().timestamp() * 1000) + 999) / 1000))
+    payload = {
+        "type": "player_reconnect_countdown",
+        "slot": slot,
+        "deadline_ms": deadline_ms,
+        "remaining_seconds": remaining,
+    }
+    peers = _room_connections.get(room_code, {})
+    for _, ws in peers.items():
+        try:
+            await ws.send_json(payload)
+        except Exception:
+            pass
+
+
+async def _resolve_disconnect_forfeit(db, room_code: str, disconnected_slot: str) -> None:
+    peers = _room_connections.get(room_code, {})
+    if not peers:
+        return
+    room_d = await db.rooms.find_one({"room_code": room_code})
+    if not room_d:
+        return
+    if not (
+        room_d.get("player1_id")
+        and room_d.get("player2_id")
+        and room_d.get("game_status") not in ("disbanded",)
+        and room_d.get("series_winner") is None
+    ):
+        return
+
+    void_no_play = room_d.get("game_status") == "playing" and not _series_g1_had_any_move(room_d)
+    if void_no_play:
+        await db.rooms.update_one(
+            {"room_code": room_code},
+            {"$set": {"game_status": "disbanded"}},
+        )
+        for _, ws in peers.items():
+            try:
+                await ws.send_json({"type": "match_aborted_no_play", "aborted_by": disconnected_slot})
+            except Exception:
+                pass
+        return
+
+    winner_slot = "P2" if disconnected_slot == "P1" else "P1"
+    if room_d.get("format") == "ranked" and _is_ranked_triple_leg_room(room_d):
+        quitter_id = room_d.get("player1_id") if disconnected_slot == "P1" else room_d.get("player2_id")
+        if quitter_id:
+            await apply_ranked_quit_penalty(db, quitter_id)
+        await _award_ranked_triple_and_notify(
+            db,
+            room_code,
+            room_d,
+            {"series_winner": winner_slot},
+            winner_slot,
+            record_clean_streak=False,
+            surrendered_by=None,
+        )
+    else:
+        await _award_match_series_and_notify(
+            db,
+            room_code,
+            room_d,
+            {"series_winner": winner_slot},
+            winner_slot,
+            record_clean_streak=True,
+            surrendered_by=None,
+        )
+    await db.rooms.update_one({"room_code": room_code}, {"$set": {"game_status": "disbanded"}})
+    for _, ws in peers.items():
+        try:
+            await ws.send_json(
+                {
+                    "type": "player_disconnect_confirmed",
+                    "slot": disconnected_slot,
+                    "winner_slot": winner_slot,
+                }
+            )
+            await ws.send_json({"type": "match_disbanded"})
+        except Exception:
+            pass
+
+
+async def _disconnect_confirm_worker(db, room_code: str, disconnected_slot: str, deadline_ms: int) -> None:
+    key = _disconnect_task_key(room_code, disconnected_slot)
+    try:
+        while True:
+            now_ms = int(datetime.utcnow().timestamp() * 1000)
+            if now_ms >= deadline_ms:
+                break
+            if _room_connections.get(room_code, {}).get(disconnected_slot) is not None:
+                return
+            rt = _room_runtime.get(room_code)
+            if not rt:
+                return
+            pending = rt.get("pending_disconnect") or {}
+            if pending.get(disconnected_slot) != deadline_ms:
+                return
+            await _broadcast_disconnect_countdown(room_code, disconnected_slot, deadline_ms)
+            await asyncio.sleep(1.0)
+
+        # One final check at expiry
+        if _room_connections.get(room_code, {}).get(disconnected_slot) is not None:
+            return
+        rt = _room_runtime.get(room_code)
+        if not rt:
+            return
+        pending = rt.get("pending_disconnect") or {}
+        if pending.get(disconnected_slot) != deadline_ms:
+            return
+        pending.pop(disconnected_slot, None)
+        await _resolve_disconnect_forfeit(db, room_code, disconnected_slot)
+    except asyncio.CancelledError:
+        raise
+    finally:
+        _disconnect_confirm_tasks.pop(key, None)
 
 
 async def _rules_sheet_timeout_worker(db, room_code: str) -> None:
@@ -2043,6 +2172,8 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
             "ready_since_ms": None,
             "start_at_ms": None,
             "rtt_ms": {"P1": None, "P2": None},
+            "screen_presence": {"P1": True, "P2": True},
+            "pending_disconnect": {},
         }
 
     try:
@@ -2067,6 +2198,30 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                         "p2_ready": bool(lu.get("P2")),
                     }
                 )
+            rt = _room_runtime.get(room_code)
+            if rt:
+                pending = rt.get("pending_disconnect") or {}
+                if player_slot in pending:
+                    pending.pop(player_slot, None)
+                    _cancel_disconnect_confirm(room_code, player_slot)
+                    for _, ws in _room_connections.get(room_code, {}).items():
+                        try:
+                            await ws.send_json({"type": "player_reconnected", "slot": player_slot})
+                        except Exception:
+                            pass
+                for pending_slot, deadline_ms in list(pending.items()):
+                    if pending_slot in ("P1", "P2") and isinstance(deadline_ms, int):
+                        await websocket.send_json(
+                            {
+                                "type": "player_reconnect_countdown",
+                                "slot": pending_slot,
+                                "deadline_ms": deadline_ms,
+                                "remaining_seconds": max(
+                                    0,
+                                    int((deadline_ms - int(datetime.utcnow().timestamp() * 1000) + 999) / 1000),
+                                ),
+                            }
+                        )
 
         while True:
             data = await websocket.receive_text()
@@ -2863,6 +3018,16 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                         except:
                             pass
 
+            elif msg["type"] == "screen_presence":
+                rt = _room_runtime.get(room_code)
+                if not rt:
+                    continue
+                presence = rt.get("screen_presence")
+                if not isinstance(presence, dict):
+                    presence = {"P1": True, "P2": True}
+                    rt["screen_presence"] = presence
+                presence[player_slot] = bool(msg.get("on_game_screen", True))
+
             elif msg["type"] == "toss_action":
                 action  = msg.get("action")
                 payload = msg.get("payload", {})
@@ -3253,75 +3418,17 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                 _room_connections.pop(room_code, None)
                 _room_runtime.pop(room_code, None)
             else:
-                await asyncio.sleep(DISCONNECT_GRACE_SECONDS)
-                # Suppress false disconnects if the same player quickly reconnects.
-                if _room_connections.get(room_code, {}).get(player_slot) is not None:
+                rt = _room_runtime.get(room_code)
+                if rt is None:
                     return
-                peers = _room_connections.get(room_code, {})
-                if not peers:
-                    _room_runtime.pop(room_code, None)
-                    return
-                room_d = await db.rooms.find_one({"room_code": room_code})
-                if (
-                    room_d
-                    and room_d.get("player1_id")
-                    and room_d.get("player2_id")
-                    and room_d.get("game_status") not in ("disbanded",)
-                    and room_d.get("series_winner") is None
-                ):
-                    void_no_play = room_d.get("game_status") == "playing" and not _series_g1_had_any_move(room_d)
-                    if void_no_play:
-                        await db.rooms.update_one(
-                            {"room_code": room_code},
-                            {"$set": {"game_status": "disbanded"}},
-                        )
-                        for slot, ws in peers.items():
-                            try:
-                                await ws.send_json(
-                                    {
-                                        "type": "match_aborted_no_play",
-                                        "aborted_by": player_slot,
-                                    }
-                                )
-                            except:
-                                pass
-                        return
-                    winner_slot = "P2" if player_slot == "P1" else "P1"
-                    if room_d.get("format") == "ranked" and _is_ranked_triple_leg_room(room_d):
-                        quitter_id = room_d.get("player1_id") if player_slot == "P1" else room_d.get("player2_id")
-                        if quitter_id:
-                            await apply_ranked_quit_penalty(db, quitter_id)
-                        await _award_ranked_triple_and_notify(
-                            db,
-                            room_code,
-                            room_d,
-                            {"series_winner": winner_slot},
-                            winner_slot,
-                            record_clean_streak=False,
-                            surrendered_by=None,
-                        )
-                    else:
-                        await _award_match_series_and_notify(
-                            db,
-                            room_code,
-                            room_d,
-                            {"series_winner": winner_slot},
-                            winner_slot,
-                            record_clean_streak=True,
-                            surrendered_by=None,
-                        )
-                    await db.rooms.update_one(
-                        {"room_code": room_code},
-                        {"$set": {"game_status": "disbanded"}},
-                    )
-                    for slot, ws in peers.items():
-                        try:
-                            await ws.send_json({"type": "match_disbanded"})
-                        except:
-                            pass
-                    return
-                for slot, ws in peers.items():
-                    try:
-                        await ws.send_json({"type": "opponent_disconnected"})
-                    except:
-                        pass
+                pending = rt.get("pending_disconnect")
+                if not isinstance(pending, dict):
+                    pending = {}
+                    rt["pending_disconnect"] = pending
+                deadline_ms = int(datetime.utcnow().timestamp() * 1000) + int(DISCONNECT_CONFIRM_SECONDS * 1000)
+                pending[player_slot] = deadline_ms
+                await _broadcast_disconnect_countdown(room_code, player_slot, deadline_ms)
+                _cancel_disconnect_confirm(room_code, player_slot)
+                _disconnect_confirm_tasks[_disconnect_task_key(room_code, player_slot)] = asyncio.create_task(
+                    _disconnect_confirm_worker(db, room_code, player_slot, deadline_ms)
+                )
