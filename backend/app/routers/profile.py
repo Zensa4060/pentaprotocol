@@ -77,6 +77,27 @@ async def get_career(user_id: str = Depends(get_current_user)):
     query = {"user_id": {"$in": [user_id, oid]}}
     cursor = db.match_history.find(query).sort("played_at", -1).limit(10)
     matches = []
+
+    def _normalize_rounds(raw_rounds):
+        if not isinstance(raw_rounds, list):
+            return []
+        normalized = []
+        for round_item in raw_rounds:
+            if not isinstance(round_item, dict):
+                continue
+            board = round_item.get("board")
+            moves = round_item.get("moves")
+            normalized.append(
+                {
+                    "winner": round_item.get("winner"),
+                    "board": board if isinstance(board, list) else [],
+                    "moves": moves if isinstance(moves, list) else [],
+                    "board_mode": round_item.get("board_mode"),
+                    "game_number": round_item.get("game_number"),
+                }
+            )
+        return normalized
+
     async for doc in cursor:
         row = {
             "id": str(doc["_id"]) if doc.get("_id") is not None else "",
@@ -103,8 +124,8 @@ async def get_career(user_id: str = Depends(get_current_user)):
             row["board_mode"] = doc["board_mode"]
         if doc.get("game_number") is not None:
             row["game_number"] = doc["game_number"]
-        if doc.get("match_rounds"):
-            row["match_rounds"] = doc["match_rounds"]
+        if doc.get("match_rounds") is not None:
+            row["match_rounds"] = _normalize_rounds(doc.get("match_rounds"))
         if doc.get("board_mode_full"):
             row["board_mode_full"] = doc["board_mode_full"]
         if doc.get("protocolbreaker_played") is not None:

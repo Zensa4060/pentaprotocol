@@ -742,29 +742,34 @@ export default function CareerScreen({ themeId, onHoverAction }: Props) {
                 </div>
 
                 {nextRank !== rank && (
-                  <div style={{ width: "100%", maxWidth: 340 }}>
+                  <div style={{ width: "100%", maxWidth: 460 }}>
                     <div
                       style={{
                         display: "flex",
                         justifyContent: "space-between",
                         fontFamily: t.fontMono,
-                        fontSize: 10,
-                        color: t.textMuted,
-                        letterSpacing: "0.1em",
-                        marginBottom: 6,
+                        fontSize: 12,
+                        color: t.text,
+                        letterSpacing: "0.12em",
+                        marginBottom: 10,
+                        fontWeight: 800,
+                        textTransform: "uppercase",
                       }}
                     >
-                      <span>{rank.name}</span>
-                      <span style={{ color: nextRank.color }}>
+                      <span style={{ color: rank.color, textShadow: `0 0 12px ${rank.color}44` }}>
+                        {rank.name}
+                      </span>
+                      <span style={{ color: nextRank.color, textShadow: `0 0 14px ${nextRank.color}44` }}>
                         {nextRank.name} in {eloToNext} ELO
                       </span>
                     </div>
                     <div
                       style={{
-                        height: 5,
-                        background: `${t.border}44`,
-                        borderRadius: 3,
+                        height: 10,
+                        background: `${t.border}66`,
+                        borderRadius: 999,
                         overflow: "hidden",
+                        boxShadow: "inset 0 0 10px rgba(0,0,0,0.28)",
                       }}
                     >
                       <div
@@ -772,22 +777,11 @@ export default function CareerScreen({ themeId, onHoverAction }: Props) {
                           height: "100%",
                           width: `${rankProgress}%`,
                           background: `linear-gradient(90deg, ${rank.color}, ${nextRank.color})`,
-                          borderRadius: 3,
-                          boxShadow: `0 0 8px ${rank.color}88`,
+                          borderRadius: 999,
+                          boxShadow: `0 0 14px ${rank.color}aa, 0 0 18px ${nextRank.color}55`,
                           transition: "width 1s ease",
                         }}
                       />
-                    </div>
-                    <div
-                      style={{
-                        textAlign: "center",
-                        fontFamily: t.fontMono,
-                        fontSize: 10,
-                        color: t.textMuted,
-                        marginTop: 4,
-                      }}
-                    >
-                      {rankProgress}% to {nextRank.name}
                     </div>
                   </div>
                 )}
@@ -855,20 +849,7 @@ export default function CareerScreen({ themeId, onHoverAction }: Props) {
                   background: `linear-gradient(90deg, transparent, ${t.border})`,
                 }}
               />
-              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <svg
-                  width="14"
-                  height="14"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke={t.text}
-                  strokeWidth="2.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  style={{ opacity: 0.8 }}
-                >
-                  <path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
+              <div style={{ display: "flex", alignItems: "center" }}>
                 <div
                   style={{
                     fontFamily: t.fontDisplay,
@@ -1114,8 +1095,22 @@ function MatchOverlay({
 }) {
   const t = THEMES[themeId as keyof typeof THEMES];
   const [activeRoundIdx, setActiveRoundIdx] = useState(0);
-  const rounds = match.match_rounds || [];
+  const rounds = Array.isArray(match.match_rounds)
+    ? match.match_rounds.map((round) => {
+        const safeRound = round ?? ({} as MatchRound);
+        return {
+          ...safeRound,
+          board: Array.isArray((safeRound as any).board) ? (safeRound as any).board : [],
+          moves: Array.isArray((safeRound as any).moves) ? (safeRound as any).moves : [],
+        } as MatchRound;
+      })
+    : [];
   const currentRound = rounds[activeRoundIdx];
+  const currentBoard = Array.isArray(currentRound?.board)
+    ? currentRound.board.map((row) => (Array.isArray(row) ? row : []))
+    : [];
+  const currentMoves = Array.isArray(currentRound?.moves) ? currentRound.moves : [];
+  const boardSize = Math.max(1, currentBoard.length);
 
   return (
     <div
@@ -1241,7 +1236,7 @@ function MatchOverlay({
                 </span>
               </div>
               <div style={{ fontFamily: t.fontMono, fontSize: 9, color: t.textMuted, marginTop: 4 }}>
-                {r.board_mode} · {r.moves.length} MOVES
+                {r.board_mode || "UNKNOWN"} · {Array.isArray(r.moves) ? r.moves.length : 0} MOVES
               </div>
             </div>
           ))}
@@ -1276,14 +1271,14 @@ function MatchOverlay({
                     ROUND {activeRoundIdx + 1}
                   </div>
                   <div style={{ fontFamily: t.fontMono, fontSize: 12, color: t.textMuted }}>
-                    {currentRound.board_mode} FIELD
+                    {(currentRound.board_mode || "UNKNOWN")} FIELD
                   </div>
                 </div>
 
                 <div
                   style={{
                     display: "grid",
-                    gridTemplateColumns: `repeat(${currentRound.board.length}, 1fr)`,
+                    gridTemplateColumns: `repeat(${boardSize}, 1fr)`,
                     gap: 4,
                     width: "100%",
                     maxWidth: isMobile ? 420 : 500,
@@ -1295,7 +1290,7 @@ function MatchOverlay({
                     boxShadow: "0 12px 24px rgba(0,0,0,0.24)",
                   }}
                 >
-                  {currentRound.board.map((row, rIdx) =>
+                  {currentBoard.map((row, rIdx) =>
                     row.map((cell, cIdx) => (
                       <div
                         key={`${rIdx}-${cIdx}`}
@@ -1312,7 +1307,7 @@ function MatchOverlay({
                           display: "flex",
                           alignItems: "center",
                           justifyContent: "center",
-                          fontSize: currentRound.board.length > 5 ? 12 : 18,
+                          fontSize: boardSize > 5 ? 12 : 18,
                           fontWeight: 900,
                           color: cell === "P1" ? "#10B981" : "#EF4444",
                         }}
@@ -1340,7 +1335,7 @@ function MatchOverlay({
                   }}
                   className="career-scroll"
                 >
-                  {currentRound.moves.map((m, i) => (
+                  {currentMoves.map((m, i) => (
                     <div
                       key={i}
                       style={{
@@ -1348,7 +1343,7 @@ function MatchOverlay({
                         display: "flex",
                         justifyContent: "space-between",
                         borderBottom:
-                          i < currentRound.moves.length - 1
+                          i < currentMoves.length - 1
                             ? "1px solid rgba(255,255,255,0.03)"
                             : "none",
                       }}
