@@ -182,6 +182,8 @@ def serialize_room(room: dict) -> dict:
         "lb_second_ban_slot": room.get("pb_second_ban_slot"),
         "lb_coin_due_ms": room.get("pb_coin_due_ms"),
         "rb6_trap_revealed": room.get("rb6_trap_revealed", False),
+        "p1_time_used_ms": room.get("p1_time_used_ms", 0),
+        "p2_time_used_ms": room.get("p2_time_used_ms", 0),
     }
 
 
@@ -243,7 +245,7 @@ def _redact_ws_payload_for_slot(payload: dict, viewer_slot: str, room: dict) -> 
 
 def compute_segment_points(history: list, segment_start: int = 0) -> tuple[float, float]:
     """
-    Points in match history for first-to-5: win = 1 each; draws award 0 to both.
+    Points in match history for first-to-3: win = 1 each; draws award 0 to both.
     Handles string winners and rich history objects ({'winner': 'P1'|'P2'|'DRAW'}).
     """
     p1 = 0.0
@@ -257,9 +259,9 @@ def compute_segment_points(history: list, segment_start: int = 0) -> tuple[float
     return p1, p2
 
 
-def compute_series_winner(history: list, start_index: int = 0, target_points: int = 5) -> str | None:
+def compute_series_winner(history: list, start_index: int = 0, target_points: int = 3) -> str | None:
     """
-    First-to-5 total points wins instantly (wins only; draws add no points).
+    First-to-3 total points wins instantly (wins only; draws add no points).
     If all 9 games are played, the player with the most points wins.
     If points are equal at 9 games, returns None (Protocolbreaker).
     """
@@ -294,8 +296,8 @@ def compute_awaiting_rulebreaker(history: list, segment_start: int) -> bool:
     winners = [item["winner"] if isinstance(item, dict) else item for item in seg]
     
     p1_total, p2_total = compute_segment_points(history)
-    # If someone already has 5, no more Rulebreaker
-    if p1_total >= 5 or p2_total >= 5:
+    # If someone already has 3, no more Rulebreaker
+    if p1_total >= 3 or p2_total >= 3:
         return False
 
     if len(seg) >= 3 and all(w == "DRAW" for w in winners):
@@ -414,6 +416,7 @@ async def _apply_5x5_to_7x7_upgrade(
         "selected_patterns_p2": list(PATTERN_NAMES_7),
         "current_player": first_7,
         "moves_played": 0,
+        "turn_started_at_ms": int(datetime.utcnow().timestamp() * 1000),
         "extra_turns": 0,
         "winner": None,
         "game_status": "playing",
@@ -557,6 +560,7 @@ async def _apply_5x5_to_6x6_upgrade(
         "selected_patterns_p2": None,
         "current_player": first_6,
         "moves_played": 0,
+        "turn_started_at_ms": int(datetime.utcnow().timestamp() * 1000),
         "extra_turns": 0,
         "winner": None,
         "game_status": "playing",
@@ -673,6 +677,7 @@ async def _apply_6x6_to_7x7_upgrade(
         "selected_patterns_p2": list(PATTERN_NAMES_7),
         "current_player": first_7,
         "moves_played": 0,
+        "turn_started_at_ms": int(datetime.utcnow().timestamp() * 1000),
         "extra_turns": 0,
         "winner": None,
         "game_status": "playing",
@@ -763,7 +768,7 @@ async def _award_match_series_and_notify(
     record_clean_streak: bool = True,
     surrendered_by: str | None = None,
 ):
-    """General match series outcome (First-to-5) for Ranked, Unranked, and Custom."""
+    """General match series outcome (First-to-3) for Ranked, Unranked, and Custom."""
     hist = list(update.get("match_history") or room.get("match_history") or [])
     room_fresh = await db.rooms.find_one({"room_code": room_code}) or room
     pb_played = bool(room_fresh.get("protocolbreaker_final"))
@@ -780,7 +785,7 @@ async def _award_match_series_and_notify(
             {"$unset": {"protocolbreaker_final": ""}},
         )
     else:
-        agg = compute_series_winner(hist, 0, 5)
+        agg = compute_series_winner(hist, 0, 3)
         if agg is not None:
             effective = agg
         else:
@@ -802,7 +807,10 @@ async def _award_match_series_and_notify(
         "match_rounds": hist,
         "board_mode_full": room.get("board_mode_full"),
         "protocolbreaker_played": pb_played,
+        "p1_time_used_ms": int((update.get("p1_time_used_ms", room.get("p1_time_used_ms", 0)) or 0)),
+        "p2_time_used_ms": int((update.get("p2_time_used_ms", room.get("p2_time_used_ms", 0)) or 0)),
     }
+    game_dict["total_time_ms"] = int(game_dict["p1_time_used_ms"] + game_dict["p2_time_used_ms"])
     
     p1_id, p2_id = room.get("player1_id"), room.get("player2_id")
     u1 = await db.users.find_one({"_id": ObjectId(p1_id)}) if p1_id else None
@@ -916,6 +924,7 @@ async def _start_protocolbreaker_final_game(
         "board_mode": mode,
         "current_player": first,
         "moves_played": 0,
+        "turn_started_at_ms": int(datetime.utcnow().timestamp() * 1000),
         "extra_turns": 0,
         "winner": None,
         "game_status": "playing",
@@ -1097,7 +1106,7 @@ def compute_series_state(history: list, segment_start: int = 0) -> dict:
     # Triple-leg match uses segment_start_index only for per-leg UI; series score is always full match_history.
     _ = segment_start
     p1_pts, p2_pts = compute_segment_points(history, 0)
-    series_winner = compute_series_winner(history, 0, 5)
+    series_winner = compute_series_winner(history, 0, 3)
     
     awaiting_rulebreaker = False
     breaker_type = None
@@ -1183,7 +1192,7 @@ async def _finalize_rulebreaker_start(
     if bool(msg.get("resolve_series_only")):
         if not room.get("awaiting_rulebreaker"):
             return
-        leader = compute_series_winner(hist, 0, 5)
+        leader = compute_series_winner(hist, 0, 3)
         if leader is None:
             return
         await db.rooms.update_one(
@@ -1484,7 +1493,7 @@ async def _auto_finalize_rulebreaker_toss(db, room_code: str, due_ms: int) -> No
             payload = {}
         hist = room.get("match_history", [])
         p1p, p2p = compute_segment_points(hist, 0)
-        series_already_decided = (p1p >= 5 and p1p > p2p) or (p2p >= 5 and p2p > p1p)
+        series_already_decided = (p1p >= 3 and p1p > p2p) or (p2p >= 3 and p2p > p1p)
         wr = payload.get("winnerPickedRule")
         tw = room.get("rb_toss_winner")
         suppress_auto = False
@@ -1603,6 +1612,8 @@ async def queue_join(data: QueueRequest, user_id: str = Depends(get_current_user
     if not user:
         raise HTTPException(404, "User not found")
     if fmt == "ranked":
+        if user.get("level", 1) < 10:
+            raise HTTPException(403, "Ranked queue requires level 10")
         ok, reason = user_ranked_allowed(user)
         if not ok:
             raise HTTPException(403, reason or "Ranked queue unavailable")
@@ -1663,6 +1674,7 @@ async def queue_join(data: QueueRequest, user_id: str = Depends(get_current_user
                     "player2_level":  user.get("level", 1),
                     "status":         "active",
                     "game_status":    "playing",
+                    "turn_started_at_ms": int(datetime.utcnow().timestamp() * 1000),
                     "awaiting_5x5_rules_ready": _starting_board_mode(bm) == "5x5",
                     "awaiting_7x7_rules_ready": False,
                 }
@@ -1757,6 +1769,9 @@ async def queue_join(data: QueueRequest, user_id: str = Depends(get_current_user
         "p1_legs_won": 0,
         "p2_legs_won": 0,
         "series_g1_move_played": False,
+        "p1_time_used_ms": 0,
+        "p2_time_used_ms": 0,
+        "turn_started_at_ms": None,
         "created_at":     datetime.utcnow(),
     }
     await db.rooms.insert_one(room)
@@ -1818,7 +1833,7 @@ async def create_room(data: CreateRoomRequest, user_id: str = Depends(get_curren
     if not user:
         raise HTTPException(404, "User not found")
 
-    if data.format == "ranked" and user.get("level", 1) < 1:
+    if data.format == "ranked" and user.get("level", 1) < 10:
         raise HTTPException(403, "Cannot create ranked room")
 
     # ── Clean up any stale waiting rooms for this user first ──
@@ -1890,6 +1905,9 @@ async def create_room(data: CreateRoomRequest, user_id: str = Depends(get_curren
         "p1_legs_won": 0,
         "p2_legs_won": 0,
         "series_g1_move_played": False,
+        "p1_time_used_ms": 0,
+        "p2_time_used_ms": 0,
+        "turn_started_at_ms": None,
         "created_at":      datetime.utcnow(),
     }
     await db.rooms.insert_one(room)
@@ -1932,7 +1950,7 @@ async def join_room(data: JoinRoomRequest, user_id: str = Depends(get_current_us
     if not user:
         raise HTTPException(404, "User not found")
 
-    if any_room["format"] == "ranked" and user.get("level", 1) < 1:
+    if any_room["format"] == "ranked" and user.get("level", 1) < 10:
         raise HTTPException(403, "Cannot join ranked room")
 
     player_name = user.get("username", "Player 2")
@@ -1944,6 +1962,7 @@ async def join_room(data: JoinRoomRequest, user_id: str = Depends(get_current_us
     update_fields = {
         "status":       "active",
         "game_status":  "playing",
+        "turn_started_at_ms": int(datetime.utcnow().timestamp() * 1000),
         "game_number":  1,
         "match_history": [],
         "p1_series_points": 0,
@@ -2134,6 +2153,16 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                     room.get("suppress_center_opening", False)
                 )
 
+                now_ms = int(datetime.utcnow().timestamp() * 1000)
+                turn_started_at_ms = int(room.get("turn_started_at_ms") or now_ms)
+                elapsed_turn_ms = max(0, now_ms - turn_started_at_ms)
+                p1_used = int(room.get("p1_time_used_ms", 0) or 0)
+                p2_used = int(room.get("p2_time_used_ms", 0) or 0)
+                if player_slot == "P1":
+                    p1_used += elapsed_turn_ms
+                else:
+                    p2_used += elapsed_turn_ms
+
                 result      = engine.deploy(row, col)
                 if eff_bm == "6x6":
                     played_owner = None
@@ -2147,7 +2176,7 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
 
                 # ── Record Move Log ──
                 move_log = list(room.get("move_log") or [])
-                move_log.append({"row": row, "col": col, "player": player_slot, "ext": result.get("extra_turns", 0)})
+                move_log.append({"row": row, "col": col, "player": player_slot, "ext": result.get("extra_turns", 0), "ts_ms": now_ms})
 
                 game1_patch: dict = {}
                 if (
@@ -2166,6 +2195,9 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                     "game_status":    "finished" if is_finished else "playing",
                     "status":         "finished" if is_finished else "active",
                     "move_log":       move_log,
+                    "p1_time_used_ms": p1_used,
+                    "p2_time_used_ms": p2_used,
+                    "turn_started_at_ms": now_ms if not is_finished else None,
                     **game1_patch,
                 }
                 if persist_7x7_p12 is not None:
@@ -2486,6 +2518,7 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                         "board":          new_engine.board,
                         "current_player": first_next,
                         "moves_played":   0,
+                        "turn_started_at_ms": int(datetime.utcnow().timestamp() * 1000),
                         "extra_turns":    0,
                         "winner":         None,
                         "game_status":    "playing",
@@ -2638,6 +2671,7 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                         "board":          new_engine.board,
                         "current_player": "P1",
                         "moves_played":   0,
+                        "turn_started_at_ms": int(datetime.utcnow().timestamp() * 1000),
                         "extra_turns":    0,
                         "winner":         None,
                         "game_status":    "playing",
@@ -2674,6 +2708,8 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                         "rb6_timer_owner": None,
                         "rb6_trap_revealed": False,
                         "series_g1_move_played": False,
+                        "p1_time_used_ms": 0,
+                        "p2_time_used_ms": 0,
                     }
 
                     await db.rooms.update_one({"room_code": room_code}, {"$set": reset})

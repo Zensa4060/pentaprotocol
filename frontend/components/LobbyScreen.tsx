@@ -335,7 +335,7 @@ export default function LobbyScreen({
           </div>
           <div style={{ height:1, background:`linear-gradient(90deg, transparent, ${t.border}, transparent)`, marginBottom:12 }} />
           <div style={{ display:"flex", gap:10, alignItems:"center" }}>
-            <span style={{ fontFamily:t.fontBody, fontSize:14, color:t.textSecondary }}>Competitive Standard · First to 5</span>
+            <span style={{ fontFamily:t.fontBody, fontSize:14, color:t.textSecondary }}>Competitive Standard · First to 3</span>
           </div>
           {queueError && (
             <div style={{ marginTop:12, fontFamily:t.fontMono, fontSize:11, color:t.danger, opacity:0.8, textAlign:"center" }}>
@@ -571,7 +571,7 @@ export default function LobbyScreen({
           <div style={{ fontFamily:t.fontDisplay, fontSize:ip?20:32, fontWeight:700, marginBottom:8, color:multiSub==="unranked"||hovered==="unranked"?t.p1:t.text, transition:"color 0.28s", textTransform:"uppercase" as const, letterSpacing:"0.08em" }}>Unranked</div>
           <div style={{ fontFamily:t.fontBody, fontSize:ip?12:14, color:t.textMuted, marginBottom:16, textTransform:"uppercase", letterSpacing:"0.06em" }}>Casual · Coins + XP</div>
           <div style={{ marginTop:"auto", width:"100%", display:"flex", flexDirection:"column", gap:6 }}>
-            {[{k:"FORMAT",v:"5×5 → 6×6 → 7×7"},{k:"SERIES",v:"First to 5 points"},{k:"COINS",v:"+ XP rewarded"}].map(s => (
+            {[{k:"FORMAT",v:"5×5 → 6×6 → 7×7"},{k:"SERIES",v:"First to 3 points"},{k:"COINS",v:"+ XP rewarded"}].map(s => (
               <div key={s.k} style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
                 <div style={{ fontFamily:t.fontMono, fontSize:10, color:t.textMuted, letterSpacing:"0.1em" }}>{s.k}</div>
                 <div style={{ fontFamily:t.fontBody, fontSize:12, color:t.text }}>{s.v}</div>
@@ -605,7 +605,7 @@ export default function LobbyScreen({
           )}
           <div style={{ fontFamily:t.fontBody, fontSize:ip?12:14, color:t.textMuted, marginBottom:16 }}>ELO · RR · Rank · Season rewards</div>
           <div style={{ marginTop:"auto", width:"100%", display:"flex", flexDirection:"column", gap:6 }}>
-            {[{k:"FORMAT",v:"5×5 → 6×6 → 7×7"},{k:"SERIES",v:"First to 5 points"},{k:"ELO",v:"Rating updates"}].map(s => (
+            {[{k:"FORMAT",v:"5×5 → 6×6 → 7×7"},{k:"SERIES",v:"First to 3 points"},{k:"ELO",v:"Rating updates"}].map(s => (
               <div key={s.k} style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
                 <div style={{ fontFamily:t.fontMono, fontSize:10, color:t.textMuted, letterSpacing:"0.1em" }}>{s.k}</div>
                 <div style={{ fontFamily:t.fontBody, fontSize:12, color:t.text }}>{s.v}</div>

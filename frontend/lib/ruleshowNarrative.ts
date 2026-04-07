@@ -13,7 +13,7 @@ export const RULESHOW_BLOCKS_5X5: RuleshowRuleBlock[] = [
   {
     id: "objective",
     title: "MATCH FORMAT",
-    detail: `Ranked triple-leg matches are first to 5 series points. A game win is 1 point; a draw gives 0.5 to each player. The 5×5 leg is the first segment of the match (games 1–3 on this grid, with Rulebreaker before game 3 when the schedule requires it).`,
+    detail: `Ranked triple-leg matches are first to 3 series points. A game win is 1 point; a draw gives 0 points to both players. The 5×5 leg is the first segment of the match (games 1–3 on this grid, with Rulebreaker before game 3 when the schedule requires it).`,
   },
   {
     id: "turns",
@@ -53,7 +53,7 @@ export const RULESHOW_BLOCKS_6X6: RuleshowRuleBlock[] = [
   {
     id: "leg",
     title: "6×6 LEG",
-    detail: `This segment uses a 6×6 grid. Wins still feed the same first-to-5 series. Games 4–6 of the overall match are typically played here before the next breaker (Timebreaker before game 6 on this leg when applicable).`,
+    detail: `This segment uses a 6×6 grid. Wins still feed the same first-to-3 series. Games 4–6 of the overall match are typically played here before the next breaker (Timebreaker before game 6 on this leg when applicable).`,
   },
   {
     id: "turns",

@@ -47,7 +47,16 @@ interface MatchRecord {
   limitbreaker_played?: boolean;
   my_slot?: "P1" | "P2";
   surrendered_by?: "P1" | "P2";
+  p1_time_used_ms?: number;
+  p2_time_used_ms?: number;
 }
+
+const formatDurationShort = (ms: number) => {
+  const total = Math.max(0, Math.floor((ms || 0) / 1000));
+  const m = Math.floor(total / 60);
+  const s = total % 60;
+  return `${m}m ${String(s).padStart(2, "0")}s`;
+};
 
 const CareerMatchRow = React.memo(({ 
   match, 
@@ -234,6 +243,18 @@ const CareerMatchRow = React.memo(({
                 LIMITBREAKER
               </div>
             ) : null}
+            <div
+              style={{
+                fontFamily: t.fontMono,
+                fontSize: 9,
+                color: t.textMuted,
+                letterSpacing: "0.04em",
+                fontWeight: 600,
+                marginTop: 6,
+              }}
+            >
+              P1 {formatDurationShort(match.p1_time_used_ms || 0)} · P2 {formatDurationShort(match.p2_time_used_ms || 0)}
+            </div>
           </div>
           {activeTab === "ranked" && (
             <div style={{ textAlign: "right", flexShrink: 0 }}>
@@ -374,6 +395,18 @@ const CareerMatchRow = React.memo(({
             LIMITBREAKER
           </div>
         ) : null}
+        <div
+          style={{
+            fontFamily: t.fontMono,
+            fontSize: 9,
+            color: t.textMuted,
+            letterSpacing: "0.04em",
+            fontWeight: 600,
+            marginTop: 6,
+          }}
+        >
+          P1 {formatDurationShort(match.p1_time_used_ms || 0)} · P2 {formatDurationShort(match.p2_time_used_ms || 0)}
+        </div>
       </div>
 
       {/* ELO DELTA */}
@@ -1155,6 +1188,9 @@ function MatchOverlay({
           </div>
           <div style={{ fontFamily: t.fontMono, fontSize: 10, color: t.textMuted }}>
             {new Date(match.played_at).toLocaleDateString()}
+          </div>
+          <div style={{ fontFamily: t.fontMono, fontSize: 10, color: t.textMuted, marginTop: 4 }}>
+            P1 {formatDurationShort(match.p1_time_used_ms || 0)} · P2 {formatDurationShort(match.p2_time_used_ms || 0)}
           </div>
         </div>
       </div>

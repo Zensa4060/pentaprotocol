@@ -313,6 +313,22 @@ function WinPatternsBlock({
 
 const RULES_BASE: Omit<Rule, "extra">[] = [
   {
+    id: "points-model",
+    emoji: "",
+    title: "POINTS MODEL",
+    summary: "Each round win gives 1 point. Draw rounds give 0 points to both players.",
+    detail: `Series score is calculated round-by-round.\n\n• Win a round: +1 point.\n• Draw a round: +0 points.\n\nPoints are tracked continuously across the match and shown in the match UI.`,
+    screenshot: null,
+  },
+  {
+    id: "series-target",
+    emoji: "",
+    title: "MATCH TARGET (FIRST TO 3)",
+    summary: "The first player to reach 3 total points wins the match series.",
+    detail: `All multiplayer modes now use first-to-3 scoring.\n\nAs soon as one player reaches 3 points, the series ends and that player is declared the match winner.\n\nIf later-stage tiebreak flows are needed by schedule, the in-game flow explains the next step automatically.`,
+    screenshot: null,
+  },
+  {
     id: "centre",
     emoji: "",
     title: "CENTRE RULE (C3 AND D4)",

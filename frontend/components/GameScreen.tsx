@@ -41,6 +41,8 @@ import { getUserKey, pushMissionEvent } from "@/lib/missionsClient";
 import { markCareerAfterMultiplayerSeriesEnd } from "@/lib/navBadgeState";
 import MatchResultScreen from "./MatchResultScreen";
 import GameWinScreen from "./GameWinScreen";
+import RankUpScreen from "@/components/RankUpScreen";
+import { getRank } from "./NavBar";
 import { persistLobbyTauntQuote, type LobbyQuoteResult } from "@/lib/lobbyTauntQuote";
 import { seriesPointsFromHistory, formatSeriesPts } from "@/lib/seriesPoints";
 import { effectivePlayBoardMode, startingLegFromBoardMode, type MultiplayerRulesBootstrap } from "@/lib/effectiveBoardMode";
@@ -347,11 +349,12 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   const isViewingPostMatchRef = useRef(false);
   const [showGameWinScreen, setShowGameWinScreen] = useState(false);
   const [showSeriesMatchResult, setShowSeriesMatchResult] = useState(false);
+  const [showRankUpScreen, setShowRankUpScreen] = useState(false);
   const [pbOverlay, setPbOverlay] = useState<{
     tossWinner: "P1" | "P2";
     p1Agg: number;
     p2Agg: number;
-    /** First-to-5 series points (draws add 0) for “tied at …” copy */
+    /** First-to-3 series points (draws add 0) for “tied at …” copy */
     p1SeriesPts: number;
     p2SeriesPts: number;
     phase: "coin" | "choice" | "choose_first_player" | "ban_first" | "ban_second";
@@ -3017,7 +3020,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   const splashScreen = (
     <div style={{ position: "fixed", top: 64, left: 0, right: 0, bottom: 0, zIndex: 2, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: t.bg, gap: 32, userSelect: "none" }}>
       <div style={{ fontFamily: t.fontDisplay, fontSize: "clamp(24px,5vw,72px)", fontWeight: 900, color: t.accent, textShadow: `0 0 60px ${t.accentGlow}55`, letterSpacing: "0.06em", textAlign: "center" }}>SINGLEPLAYER</div>
-      <div style={{ fontFamily: t.fontBody, fontSize: "clamp(13px,1.6vw,18px)", color: t.textSecondary, letterSpacing: "0.04em" }}>Local · Pass & Play · First to 5</div>
+      <div style={{ fontFamily: t.fontBody, fontSize: "clamp(13px,1.6vw,18px)", color: t.textSecondary, letterSpacing: "0.04em" }}>Local · Pass & Play · First to 3</div>
       <button onClick={() => setShowSplash(false)}
         style={{
           marginTop: 8,
@@ -3969,16 +3972,43 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
             textMuted: t.textMuted,
           }}
           onContinue={() => {
+            void useAuthStore.getState().refreshProfile();
+            const me = mySlot === "P1" ? matchSeriesComplete.p1 : matchSeriesComplete.p2;
+            const beforeRank = getRank(me.elo_before);
+            const afterRank = getRank(me.elo_after);
             setShowGameWinScreen(false);
-            setShowSeriesMatchResult(true);
+            if (me.elo_after > me.elo_before && beforeRank.name !== afterRank.name) {
+              setShowRankUpScreen(true);
+            } else {
+              setShowSeriesMatchResult(true);
+            }
           }}
           onQuit={() => {
             if (wsRef.current?.readyState === WebSocket.OPEN) {
               wsRef.current.send(JSON.stringify({ type: "quit_match", slot: mySlot }));
             }
+            void useAuthStore.getState().refreshProfile();
             setScreenAction?.("home");
           }}
           onGoToCareer={goToCareerAfterSeries}
+        />
+      )}
+      {showRankUpScreen && matchSeriesComplete && (
+        <RankUpScreen
+          t={{
+            fontDisplay: t.fontDisplay,
+            fontMono: t.fontMono,
+            accent: t.accent,
+            gold: t.gold,
+            text: t.text,
+            textMuted: t.textMuted,
+          }}
+          beforeElo={(mySlot === "P1" ? matchSeriesComplete.p1 : matchSeriesComplete.p2).elo_before}
+          afterElo={(mySlot === "P1" ? matchSeriesComplete.p1 : matchSeriesComplete.p2).elo_after}
+          onDone={() => {
+            setShowRankUpScreen(false);
+            setShowSeriesMatchResult(true);
+          }}
         />
       )}
       {showSeriesMatchResult && matchSeriesComplete && (
@@ -4003,6 +4033,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
             if (wsRef.current?.readyState === WebSocket.OPEN) {
               wsRef.current.send(JSON.stringify({ type: "quit_match", slot: mySlot }));
             }
+            void useAuthStore.getState().refreshProfile();
             setScreenAction?.("home");
           }}
         />

@@ -36,19 +36,31 @@ def xp_for_result(result: str, mode: str = "multiplayer", difficulty: str = "med
     return 0
 
 
-def xp_for_series_outcome(result: str, format: str, num_rounds: int) -> int:
+def _draw_xp_from_total_time_ms(total_time_ms: int) -> int:
+    # Default draw XP buckets based on total match time consumed by both players.
+    total_seconds = max(0, int(total_time_ms or 0)) // 1000
+    if total_seconds < 4 * 60:
+        return 3700
+    if total_seconds < 8 * 60:
+        return 3850
+    if total_seconds < 12 * 60:
+        return 4000
+    return 4200
+
+
+def xp_for_series_outcome(result: str, format: str, num_rounds: int, total_time_ms: int = 0) -> int:
     """
     Full-series multiplayer XP: scales with completed rounds (1–9).
     Unranked/custom: win 3000–4000, loss 1000–2000.
     Ranked: win 10000–15000, loss 5000–10000.
-    Draw: flat 500 each.
+    Draw: bucketed by total match time consumed.
     """
     r = (result or "").lower()
     n = max(1, min(9, int(num_rounds or 1)))
     t = (n - 1) / 8.0
     is_ranked = (format or "").lower() == "ranked"
     if r == "draw":
-        return 500
+        return _draw_xp_from_total_time_ms(total_time_ms)
     if is_ranked:
         if r == "win":
             return int(10000 + round(t * 5000))
@@ -187,7 +199,7 @@ async def award_ranked_match_result(
 ):
     """
     Standard match outcome for both Ranked and Unranked modes.
-    Follows the "First-to-5" win condition.
+    Follows the "First-to-3" win condition.
     """
     p1_id = game.get("player1_id")
     p2_id = game.get("player2_id")
@@ -201,13 +213,16 @@ async def award_ranked_match_result(
 
     rounds_list = game.get("match_rounds") or []
     num_rounds = max(1, min(9, len(rounds_list))) if isinstance(rounds_list, list) else 1
+    total_time_ms = int(game.get("total_time_ms", 0) or 0)
+    p1_time_used_ms = int(game.get("p1_time_used_ms", 0) or 0)
+    p2_time_used_ms = int(game.get("p2_time_used_ms", 0) or 0)
 
     async def update_player(user_id: str, result: str, opponent_id: str | None):
         if not user_id: return
         user = await db.users.find_one({"_id": ObjectId(user_id)})
         if not user: return
         
-        gained_xp = xp_for_series_outcome(result, fmt, num_rounds)
+        gained_xp = xp_for_series_outcome(result, fmt, num_rounds, total_time_ms)
         new_total_xp = user.get("xp", 0) + gained_xp
         new_level, _ = compute_level(new_total_xp)
         
@@ -284,6 +299,8 @@ async def award_ranked_match_result(
             "protocolbreaker_played": bool(game.get("protocolbreaker_played") or game.get("limitbreaker_played")),
             "limitbreaker_played": bool(game.get("protocolbreaker_played") or game.get("limitbreaker_played")),
             "surrendered_by":         surrendered_by,
+            "p1_time_used_ms":        p1_time_used_ms,
+            "p2_time_used_ms":        p2_time_used_ms,
         }
         ins = await db.match_history.insert_one(doc)
         return str(ins.inserted_id)

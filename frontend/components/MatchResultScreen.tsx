@@ -1,7 +1,6 @@
 "use client";
 import React, { useEffect, useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Piece } from "./GamePieces";
 import { getRank, NavRankBadge } from "./NavBar";
 
 // Level calculation helpers (synced with backend game.py)
@@ -80,6 +79,10 @@ export default function MatchResultScreen({
   
   const levelBefore = useMemo(() => compute_level_stats(myData.xp_before), [myData.xp_before]);
   const levelAfter = useMemo(() => compute_level_stats(myData.xp_after), [myData.xp_after]);
+  const levelUp = levelAfter.level > levelBefore.level;
+  const rankBefore = useMemo(() => getRank(myData.elo_before), [myData.elo_before]);
+  const rankAfter = useMemo(() => getRank(myData.elo_after), [myData.elo_after]);
+  const isDerank = isRanked && rankAfter.name !== rankBefore.name && myData.elo_after < myData.elo_before;
 
   const p1c = "#3B82F6";
   const p2c = "#EF4444";
@@ -212,11 +215,7 @@ export default function MatchResultScreen({
             minWidth: 160,
           }}
         >
-          {isDraw ? (
-            <Piece symbol="⚖" color={winnerColor} size="160px" />
-          ) : (
-            <NavRankBadge rank={winnerRank} size={120} />
-          )}
+          <NavRankBadge rank={isDraw ? rankAfter : winnerRank} size={120} />
         </motion.div>
 
         <div style={{ textAlign: "center" }}>
@@ -305,7 +304,37 @@ export default function MatchResultScreen({
                      }}
                    />
                 </div>
+                {levelUp && (
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: [0, 1, 0.7], scale: [0.9, 1.05, 1] }}
+                    transition={{ duration: 1.2, repeat: Infinity, repeatType: "mirror" }}
+                    style={{
+                      marginTop: 10,
+                      textAlign: "center",
+                      fontFamily: t.fontDisplay,
+                      fontSize: 16,
+                      letterSpacing: "0.1em",
+                      color: t.gold,
+                      textShadow: `0 0 18px ${t.gold}`,
+                    }}
+                  >
+                    LEVEL UP!
+                  </motion.div>
+                )}
              </div>
+             {isDerank && (
+               <div style={{ textAlign: "center" }}>
+                 <div style={{ fontFamily: t.fontMono, fontSize: 12, color: t.textMuted, letterSpacing: "0.16em", marginBottom: 8 }}>
+                   DERANK DETECTED
+                 </div>
+                 <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 14 }}>
+                   <NavRankBadge rank={rankBefore} size={48} />
+                   <span style={{ color: t.danger, fontFamily: t.fontDisplay, fontSize: 24, fontWeight: 900 }}>→</span>
+                   <NavRankBadge rank={rankAfter} size={48} />
+                 </div>
+               </div>
+             )}
           </motion.div>
         )}
       </motion.div>
