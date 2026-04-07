@@ -2100,7 +2100,9 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                         if isinstance(sp_for_engine, list) and len(sp_for_engine) > 0
                         else list(PATTERN_NAMES_7)
                     )
-                    if bad_p12 and banned_live:
+                    # Mindbreaker: always derive asymmetric P1/P2 lists when bans exist — even if the room
+                    # already has two identical full lists (bad_p12 false), or bans would never apply.
+                    if banned_live:
                         rb_payload = room.get("rb_phase_payload") or {}
                         wr_rule = rb_payload.get("winnerPickedRule") if isinstance(rb_payload, dict) else None
                         tw_room = room.get("rb_toss_winner")

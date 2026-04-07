@@ -105,3 +105,28 @@ export function claimMissionReward(args: { userKey: string; period: "daily" | "w
   return true;
 }
 
+/** Claim multiple missions in one save (same rules as repeated claimMissionReward). Returns total shards added. */
+export function claimAllMissionRewards(args: {
+  userKey: string;
+  period: "daily" | "weekly" | "permanent";
+  periodKey: string;
+  claims: { missionId: string; shards: number }[];
+}): number {
+  const { userKey, period, periodKey, claims } = args;
+  if (claims.length === 0) return 0;
+  const st = loadMissionState(userKey);
+  let added = 0;
+  for (const c of claims) {
+    const claimKey = `${period}:${periodKey}:${c.missionId}`;
+    if (st.claimed[claimKey]) continue;
+    st.claimed[claimKey] = true;
+    st.shardBalance += c.shards;
+    added += c.shards;
+  }
+  if (added > 0) {
+    saveMissionState(userKey, st);
+    window.dispatchEvent(new CustomEvent("pp_mission_state_change"));
+  }
+  return added;
+}
+

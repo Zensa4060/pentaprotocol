@@ -12,6 +12,7 @@ import {
   loadMissionEvents,
   loadMissionState,
   claimMissionReward,
+  claimAllMissionRewards,
   type MissionMatchEvent,
   type RewardPlaceholder,
 } from "@/lib/missionsClient";
@@ -28,6 +29,24 @@ import { SHARDS_LIGHT_SVG, SHARDS_DARK_SVG } from "@/lib/currencyIcons";
 
 type Theme = (typeof THEMES)[ThemeId];
 type ProfileLike = Record<string, unknown> & { level?: number; elo?: number };
+
+function collectClaimableShardClaims(
+  period: MissionPeriod,
+  periodKey: string,
+  missions: MissionDef[],
+  events: MissionMatchEvent[],
+  profile: ProfileLike,
+  claimed: Record<string, true>,
+): { missionId: string; shards: number }[] {
+  const out: { missionId: string; shards: number }[] = [];
+  for (const mission of missions) {
+    const claimKey = `${period}:${periodKey}:${mission.id}`;
+    if (claimed[claimKey]) continue;
+    const progress = computeMissionProgress({ mission, events, profile });
+    if (progress >= mission.progress.target) out.push({ missionId: mission.id, shards: mission.shards });
+  }
+  return out;
+}
 
 interface Props {
   themeId: ThemeId;
@@ -118,6 +137,33 @@ export default function MissionsScreen({ themeId }: Props) {
     const progress = computeMissionProgress({ mission, events: mEvents, profile });
     if (progress < mission.progress.target) return;
     claimMissionReward({ userKey, period, periodKey, missionId: mission.id, shards: mission.shards });
+  };
+
+  const dailyMissionDefs = useMemo(
+    () => dailyIds.map(id => missionDefById(id)).filter((m): m is MissionDef => m != null),
+    [dailyIds],
+  );
+  const weeklyMissionDefs = useMemo(
+    () => weeklyIds.map(id => missionDefById(id)).filter((m): m is MissionDef => m != null),
+    [weeklyIds],
+  );
+
+  const dailyClaimAllPayload = useMemo(
+    () => collectClaimableShardClaims("daily", todayKey, dailyMissionDefs, eventsToday, profile, missionState.claimed),
+    [dailyMissionDefs, eventsToday, profile, todayKey, missionState.claimed],
+  );
+  const weeklyClaimAllPayload = useMemo(
+    () => collectClaimableShardClaims("weekly", weekKey, weeklyMissionDefs, eventsWeek, profile, missionState.claimed),
+    [weeklyMissionDefs, eventsWeek, profile, weekKey, missionState.claimed],
+  );
+  const permanentClaimAllPayload = useMemo(
+    () => collectClaimableShardClaims("permanent", "all_time", permanentDefs, eventsAll, profile, missionState.claimed),
+    [permanentDefs, eventsAll, profile, missionState.claimed],
+  );
+
+  const runClaimAll = (period: MissionPeriod, periodKey: string, claims: { missionId: string; shards: number }[]) => {
+    if (isGuest || claims.length === 0) return;
+    claimAllMissionRewards({ userKey, period, periodKey, claims });
   };
 
   return (
@@ -271,6 +317,8 @@ export default function MissionsScreen({ themeId }: Props) {
               profile={profile}
               getClaimed={getClaimed}
               onClaim={(mission) => startClaim("daily", todayKey, mission)}
+              claimAllShards={dailyClaimAllPayload.reduce((s, c) => s + c.shards, 0)}
+              onClaimAll={dailyClaimAllPayload.length > 0 ? () => runClaimAll("daily", todayKey, dailyClaimAllPayload) : undefined}
               t={t}
               shardsSvg={shardsSvg}
             />
@@ -286,6 +334,8 @@ export default function MissionsScreen({ themeId }: Props) {
               profile={profile}
               getClaimed={getClaimed}
               onClaim={(mission) => startClaim("weekly", weekKey, mission)}
+              claimAllShards={weeklyClaimAllPayload.reduce((s, c) => s + c.shards, 0)}
+              onClaimAll={weeklyClaimAllPayload.length > 0 ? () => runClaimAll("weekly", weekKey, weeklyClaimAllPayload) : undefined}
               t={t}
               shardsSvg={shardsSvg}
             />
@@ -296,6 +346,8 @@ export default function MissionsScreen({ themeId }: Props) {
               profile={profile}
               getClaimed={(missionId) => getClaimed("permanent", "all_time", missionId)}
               onClaim={(mission) => startClaim("permanent", "all_time", mission)}
+              claimAllShards={permanentClaimAllPayload.reduce((s, c) => s + c.shards, 0)}
+              onClaimAll={permanentClaimAllPayload.length > 0 ? () => runClaimAll("permanent", "all_time", permanentClaimAllPayload) : undefined}
               t={t}
               shardsSvg={shardsSvg}
             />
@@ -358,10 +410,12 @@ function MissionsList(props: {
   profile: Record<string, unknown>;
   getClaimed: (period: MissionPeriod, periodKey: string, missionId: string) => boolean;
   onClaim: (mission: MissionDef) => void;
+  claimAllShards?: number;
+  onClaimAll?: () => void;
   t: Theme;
   shardsSvg: string;
 }) {
-  const { title, subtitle, timerText, missionIds, events, profile, getClaimed, onClaim, t, shardsSvg } = props;
+  const { title, subtitle, timerText, missionIds, events, profile, getClaimed, onClaim, claimAllShards = 0, onClaimAll, t, shardsSvg } = props;
 
   return (
     <div style={{ paddingBottom: 26 }}>
@@ -372,6 +426,30 @@ function MissionsList(props: {
             <div style={{ fontFamily: t.fontMono, fontSize: 15, fontWeight: 900, color: "#B30000", letterSpacing: "0.08em" }}>
               {timerText}
             </div>
+          )}
+          {onClaimAll && claimAllShards > 0 && (
+            <button
+              type="button"
+              onClick={onClaimAll}
+              style={{
+                background: "rgba(76,175,80,0.22)",
+                border: "2px solid #4CAF50",
+                color: "#4CAF50",
+                borderRadius: 12,
+                padding: "8px 14px",
+                fontFamily: t.fontDisplay,
+                fontSize: 12,
+                fontWeight: 900,
+                cursor: "pointer",
+                letterSpacing: "0.06em",
+              }}
+            >
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                CLAIM ALL
+                <PentaShardsIcon svg={shardsSvg} size={24} />
+                {claimAllShards}
+              </span>
+            </button>
           )}
         </div>
         <div style={{ fontFamily: t.fontBody, fontSize: 13, color: t.textSecondary, marginTop: 4 }}>{subtitle}</div>
@@ -488,10 +566,12 @@ function PermanentMissionsPanel(props: {
   profile: Record<string, unknown>;
   getClaimed: (missionId: string) => boolean;
   onClaim: (mission: MissionDef) => void;
+  claimAllShards?: number;
+  onClaimAll?: () => void;
   t: Theme;
   shardsSvg: string;
 }) {
-  const { permanentDefs, eventsAll, profile, getClaimed, onClaim, t, shardsSvg } = props;
+  const { permanentDefs, eventsAll, profile, getClaimed, onClaim, claimAllShards = 0, onClaimAll, t, shardsSvg } = props;
   const [showAll, setShowAll] = useState(false);
 
   const groups = useMemo(() => {
@@ -601,7 +681,33 @@ function PermanentMissionsPanel(props: {
   return (
     <div style={{ paddingBottom: 30 }}>
       <div style={{ marginBottom: 12 }}>
-        <div style={{ fontFamily: t.fontDisplay, fontSize: 20, fontWeight: 900, color: t.text }}>PERMANENT MISSIONS</div>
+        <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
+          <div style={{ fontFamily: t.fontDisplay, fontSize: 20, fontWeight: 900, color: t.text }}>PERMANENT MISSIONS</div>
+          {onClaimAll && claimAllShards > 0 && (
+            <button
+              type="button"
+              onClick={onClaimAll}
+              style={{
+                background: "rgba(76,175,80,0.22)",
+                border: "2px solid #4CAF50",
+                color: "#4CAF50",
+                borderRadius: 12,
+                padding: "8px 14px",
+                fontFamily: t.fontDisplay,
+                fontSize: 12,
+                fontWeight: 900,
+                cursor: "pointer",
+                letterSpacing: "0.06em",
+              }}
+            >
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                CLAIM ALL
+                <PentaShardsIcon svg={shardsSvg} size={24} />
+                {claimAllShards}
+              </span>
+            </button>
+          )}
+        </div>
         <div style={{ fontFamily: t.fontBody, fontSize: 13, color: t.textSecondary, marginTop: 4 }}>
           COMPLETE PERMANENT MISSIONS TO EARN NOT JUST SHARDS BUT FREE BANNERS AND GRIDS TOO.
         </div>

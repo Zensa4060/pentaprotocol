@@ -736,10 +736,13 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
         ? liveSelectedPatterns
         : liveSelectedPatterns.filter(p => !rbBannedPatterns.includes(p));
     }
-    if (serverStructuralPatternsP1 && serverStructuralPatternsP1.length > 0) return serverStructuralPatternsP1;
+    if (rbBannedPatterns.length > 0 && serverStructuralPatternsP1 && serverStructuralPatternsP1.length > 0) {
+      return serverStructuralPatternsP1;
+    }
     if (rbBannedPatterns.length > 0) {
       return liveSelectedPatterns.filter(p => !rbBannedPatterns.includes(p));
     }
+    if (serverStructuralPatternsP1 && serverStructuralPatternsP1.length > 0) return serverStructuralPatternsP1;
     return liveSelectedPatterns;
   }, [GRID_SIZE, liveSelectedPatterns, serverStructuralPatternsP1, rbBannedPatterns, rulebreakerBanActorSlot]);
 
@@ -750,10 +753,13 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
         ? liveSelectedPatterns
         : liveSelectedPatterns.filter(p => !rbBannedPatterns.includes(p));
     }
-    if (serverStructuralPatternsP2 && serverStructuralPatternsP2.length > 0) return serverStructuralPatternsP2;
+    if (rbBannedPatterns.length > 0 && serverStructuralPatternsP2 && serverStructuralPatternsP2.length > 0) {
+      return serverStructuralPatternsP2;
+    }
     if (rbBannedPatterns.length > 0) {
       return liveSelectedPatterns.filter(p => !rbBannedPatterns.includes(p));
     }
+    if (serverStructuralPatternsP2 && serverStructuralPatternsP2.length > 0) return serverStructuralPatternsP2;
     return liveSelectedPatterns;
   }, [GRID_SIZE, liveSelectedPatterns, serverStructuralPatternsP2, rbBannedPatterns, rulebreakerBanActorSlot]);
 
@@ -1695,6 +1701,9 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
               ) {
                 ph = "grid_block_waiting";
               }
+              if (ph === "rule_choice" && typeof (payload as { choiceTimerRemaining?: unknown }).choiceTimerRemaining === "number") {
+                pendingChoiceTimerRestoreRef.current = Math.max(0, (payload as { choiceTimerRemaining: number }).choiceTimerRemaining);
+              }
               setPhase(ph);
             }
             if (payload.firstPlayerChosen !== undefined) setFirstPlayerChosen(payload.firstPlayerChosen);
@@ -1976,15 +1985,25 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     return null;
   };
 
-  useEffect(() => {
-    const dur = PHASE_TIMERS[phase];
-    if (dur !== undefined) { choiceTimerRef.current = dur; lastChoiceSec.current = dur; setChoiceTimer(dur); }
-  }, [phase]);
-
   const lastTick = useRef(Date.now());
   const rafHandle = useRef(0);
   const choiceTimerRef = useRef(0);
+  /** When set, next phase transition restores this value instead of PHASE_TIMERS[phase] (grid_block go-back). */
+  const pendingChoiceTimerRestoreRef = useRef<number | null>(null);
   const lastChoiceSec = useRef(-1);
+
+  useEffect(() => {
+    if (pendingChoiceTimerRestoreRef.current !== null) {
+      const v = pendingChoiceTimerRestoreRef.current;
+      pendingChoiceTimerRestoreRef.current = null;
+      choiceTimerRef.current = v;
+      lastChoiceSec.current = Math.ceil(Math.max(0, v));
+      setChoiceTimer(v);
+      return;
+    }
+    const dur = PHASE_TIMERS[phase];
+    if (dur !== undefined) { choiceTimerRef.current = dur; lastChoiceSec.current = dur; setChoiceTimer(dur); }
+  }, [phase]);
   const lastP1Sec = useRef(-1);
   const lastP2Sec = useRef(-1);
   const lastMatchupSec = useRef(-1);
@@ -2577,6 +2596,22 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     }
   }, [isMultiplayerGame]);
 
+  const onGridBlockWarningBack = useCallback(() => {
+    if (R.current.phase !== "grid_block_warning") return;
+    const tRem = Math.max(0, choiceTimerRef.current);
+    pendingChoiceTimerRestoreRef.current = tRem;
+    setWinnerPickedRule(null);
+    setRb6TimerOwner(null);
+    setRb6CellChooser(null);
+    setPhase("rule_choice");
+    broadcastTossPhase("rule_choice", {
+      winnerPickedRule: null,
+      rb6TimerOwner: null,
+      rb6CellChooser: null,
+      choiceTimerRemaining: tRem,
+    });
+  }, [broadcastTossPhase]);
+
   const onGridBlockChoice = useCallback((r: number, c: number) => {
     const chooser = R.current.rb6CellChooser;
     if (!chooser) return;
@@ -2656,6 +2691,8 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
       } else { setPhase("c3_choice_loser"); broadcastTossPhase("c3_choice_loser", { firstPlayerChosen: tw, winnerPickedFirst: tw }); }
     }
     else if (p === "grid_block_warning") {
+      const ch = R.current.rb6CellChooser ?? R.current.tossWinner;
+      if (isMultiplayerGame && ch && mySlot !== ch) return;
       setPhase("grid_block_selection");
       broadcastTossPhase("grid_block_selection", {
         rb6TimerOwner: R.current.rb6TimerOwner,
@@ -2666,7 +2703,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     else if (p === "c3_choice") { setRbC3Blocked(true); setWinnerPickedC3(true); setPhase("who_first_loser"); broadcastTossPhase("who_first_loser", { rbC3Blocked: true, winnerPickedC3: true }); }
     else if (p === "c3_choice_loser") { setRbC3Blocked(true); setSummaryTimer(5); setPhase("toss_summary"); broadcastTossPhase("toss_summary", { rbC3Blocked: true, summaryTimer: 5 }); }
     else if (p === "who_first_loser") { setFirstPlayerChosen(tl); setSummaryTimer(5); setPhase("toss_summary"); broadcastTossPhase("toss_summary", { firstPlayerChosen: tl, summaryTimer: 5, rb6_special_cell: R.current.rb6SpecialCell, rb6TimerOwner: R.current.rb6TimerOwner }); }
-  }, [broadcastTossPhase, is7x7, is6x6, liveSelectedPatterns]);
+  }, [broadcastTossPhase, is7x7, is6x6, liveSelectedPatterns, isMultiplayerGame, mySlot]);
 
   const onRightAction = useCallback(() => {
     const p = R.current.phase; const tw = R.current.tossWinner; const tl = tw === "P1" ? "P2" : "P1";
@@ -3039,6 +3076,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
         onLeftAction={onLeftAction} onRightAction={onRightAction} fmtSecAction={fmtSecAction}
         is7x7={is7x7} is6x6={is6x6} selectedPatterns={liveSelectedPatterns} rbBannedPatterns={rbBannedPatterns} onBanPattern={onBanPattern}
         onGridBlockChoice={onGridBlockChoice}
+        onGridBlockWarningBack={onGridBlockWarningBack}
         graphicsQuality={gameplayGraphicsQuality}
       />
   );

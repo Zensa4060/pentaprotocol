@@ -376,7 +376,7 @@ const CareerMatchRow = React.memo(({
         ) : null}
       </div>
 
-      {/* ELO delta */}
+      {/* ELO DELTA */}
       {activeTab === "ranked" && (
         <div style={{ textAlign: "center" }}>
           <span
@@ -926,7 +926,7 @@ export default function CareerScreen({ themeId, onHoverAction }: Props) {
                   <span>RESULT</span>
                   <span>OPPONENT</span>
                   <span>TYPE</span>
-                  {activeTab === "ranked" && <span style={{ textAlign: "center" }}>ELO Δ</span>}
+                  {activeTab === "ranked" && <span style={{ textAlign: "center" }}>ELO</span>}
                   <span style={{ textAlign: "right" }}>DATE</span>
                 </div>
               )}

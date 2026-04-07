@@ -60,6 +60,8 @@ interface RulebreakerFlowProps {
   rbBannedPatterns?: string[];
   /** Called when a player chooses a grid block for 6x6 rulebreaker */
   onGridBlockChoice?: (r: number, c: number) => void;
+  /** Return to rule_choice without resetting the confirm-window timer (6x6 grid_block_warning). */
+  onGridBlockWarningBack?: () => void;
   /** Called when a player bans a pattern */
   onBanPattern?: (patternName: string) => void;
   graphicsQuality?: "performance" | "quality";
@@ -82,6 +84,7 @@ export function RulebreakerFlow({
   selectedPatterns = [],
   rbBannedPatterns = [],
   onGridBlockChoice,
+  onGridBlockWarningBack,
   onBanPattern,
   graphicsQuality = "quality",
 }: RulebreakerFlowProps) {
@@ -500,7 +503,8 @@ export function RulebreakerFlow({
   if (phase === "grid_block_warning" && onGridBlockChoice) {
     const chooser = rb6CellChooser ?? tossWinner ?? "P1";
     const chooserCol = chooser === "P1" ? p1c : p2c;
-    const maxTime = PHASE_TIMERS.grid_block_selection ?? 120;
+    const imChooser = isMultiplayerGame ? mySlot === chooser : true;
+    const maxTime = PHASE_TIMERS.grid_block_warning ?? 30;
     const pct = Math.max(0, choiceTimer / maxTime);
     const urgent = choiceTimer <= 10;
     return (
@@ -512,6 +516,11 @@ export function RulebreakerFlow({
           You chose <span style={{ color: chooserCol, fontWeight: 700 }}>OWN SPECIAL GRID CELL</span>.
           Your timer is reduced to 2:00 in Round 3. Continue to select your secret cell.
         </div>
+        {isMultiplayerGame && !imChooser && (
+          <div style={{ fontFamily: t.fontDisplay, fontSize: 14, fontWeight: 700, color: t.textSecondary, textAlign: "center" }}>
+            Waiting for {nameOf(chooser)} to confirm…
+          </div>
+        )}
         <div style={{ width: "min(420px,92vw)", display: "flex", flexDirection: "column", gap: 6 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <span style={{ fontFamily: t.fontMono, fontSize: 11, color: t.textMuted, letterSpacing: "0.12em" }}>CONFIRM WINDOW</span>
@@ -521,24 +530,48 @@ export function RulebreakerFlow({
             <div style={{ height: "100%", width: `${pct * 100}%`, borderRadius: 3, transition: "width 1.05s linear", background: urgent ? t.danger : `linear-gradient(90deg, ${chooserCol}, ${t.accent})` }} />
           </div>
         </div>
-        <button
-          type="button"
-          onClick={onLeftAction}
-          style={{
-            padding: "14px 28px",
-            borderRadius: ip ? 2 : 12,
-            border: `2px solid ${chooserCol}`,
-            background: `${chooserCol}20`,
-            color: chooserCol,
-            fontFamily: t.fontDisplay,
-            fontSize: 16,
-            fontWeight: 800,
-            letterSpacing: "0.08em",
-            cursor: "pointer",
-          }}
-        >
-          CONTINUE TO CELL SELECT
-        </button>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
+          <button
+            type="button"
+            onClick={onLeftAction}
+            disabled={!imChooser}
+            style={{
+              padding: "14px 28px",
+              borderRadius: ip ? 2 : 12,
+              border: `2px solid ${chooserCol}`,
+              background: imChooser ? `${chooserCol}20` : `${t.border}22`,
+              color: imChooser ? chooserCol : t.textMuted,
+              fontFamily: t.fontDisplay,
+              fontSize: 16,
+              fontWeight: 800,
+              letterSpacing: "0.08em",
+              cursor: imChooser ? "pointer" : "not-allowed",
+              opacity: imChooser ? 1 : 0.65,
+            }}
+          >
+            CONTINUE TO CELL SELECT
+          </button>
+          {imChooser && onGridBlockWarningBack && (
+            <button
+              type="button"
+              onClick={onGridBlockWarningBack}
+              style={{
+                padding: "10px 22px",
+                borderRadius: ip ? 2 : 10,
+                border: `1px solid ${t.border}`,
+                background: "transparent",
+                color: t.textSecondary,
+                fontFamily: t.fontMono,
+                fontSize: 13,
+                fontWeight: 700,
+                letterSpacing: "0.06em",
+                cursor: "pointer",
+              }}
+            >
+              CHANGE RULE CHOICE
+            </button>
+          )}
+        </div>
       </div>
     );
   }
