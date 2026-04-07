@@ -332,7 +332,7 @@ const RULES_BASE: Omit<Rule, "extra">[] = [
   {
     id: "rulebreaker",
     emoji: "",
-    title: "RULEBREAKER (5×5 · BEFORE GAME 3)",
+    title: "5×5 · RULEBREAKER",
     summary: "Coin-toss phase before the third game on the 5×5 leg when the match schedule calls for it.",
     detail: `On ranked triple-leg matches, **Rulebreaker** can run before **game 3** on **5×5**: a coin toss and choices (who starts, C3 block, etc.). Follow the on-screen flow.\n\nSudden death **game 10** when the series is still tied after nine games is covered under **G10 · LIMITBREAKER** below.`,
     screenshot: null,
