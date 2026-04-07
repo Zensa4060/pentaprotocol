@@ -46,6 +46,8 @@ import { seriesPointsFromHistory, formatSeriesPts } from "@/lib/seriesPoints";
 import { effectivePlayBoardMode, startingLegFromBoardMode, type MultiplayerRulesBootstrap } from "@/lib/effectiveBoardMode";
 
 const EPS = 1e-9;
+const PP_HOME_NOTICE_KEY = "pp_home_notice";
+const DISCONNECT_HOME_NOTICE = "last match ended due to connection issues or going afk";
 
 function lobbyQuoteFromSeriesWinner(seriesWinner: string | null | undefined, mySlot: "P1" | "P2"): LobbyQuoteResult {
   if (!seriesWinner || seriesWinner === "DRAW") return null;
@@ -798,6 +800,10 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
 
   const fmtTime = (ms: number) => { const s = Math.max(0, Math.floor(ms / 1000)); return `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`; };
   const fmtSecAction = (s: number) => `${Math.ceil(Math.max(0, s))}`;
+  const markDisconnectHomeNotice = () => {
+    if (typeof window === "undefined") return;
+    sessionStorage.setItem(PP_HOME_NOTICE_KEY, DISCONNECT_HOME_NOTICE);
+  };
 
   const R = useRef({
     phase: "playing" as Phase, current: "P1", winner: null as string | null,
@@ -1651,6 +1657,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
             window.dispatchEvent(new Event("pp:career-refresh"));
           }
           if (!isViewingPostMatchRef.current) {
+            markDisconnectHomeNotice();
             if (setScreenAction) setScreenAction("home");
           }
         } else if (msg.type === "match_start") {
@@ -3344,6 +3351,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
           t={sidebarT}
           ip={ip}
           onGoHomeAction={() => {
+            markDisconnectHomeNotice();
             if (setScreenAction) setScreenAction("home");
           }}
         />
@@ -3408,7 +3416,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
         <DisconnectModal
           show={showDisconnectModal}
           t={sidebarT} ip={ip}
-          onGoHomeAction={() => { if (setScreenAction) setScreenAction("home"); }}
+          onGoHomeAction={() => { markDisconnectHomeNotice(); if (setScreenAction) setScreenAction("home"); }}
         />
         <MatchAbortedNoPlayModal
           show={showMatchAbortedNoPlay}
@@ -3802,7 +3810,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
       <DisconnectModal
         show={showDisconnectModal}
         t={sidebarT} ip={ip}
-        onGoHomeAction={() => { if (setScreenAction) setScreenAction("home"); }}
+        onGoHomeAction={() => { markDisconnectHomeNotice(); if (setScreenAction) setScreenAction("home"); }}
       />
       <MatchAbortedNoPlayModal
         show={showMatchAbortedNoPlay}

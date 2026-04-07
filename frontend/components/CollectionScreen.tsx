@@ -529,7 +529,7 @@ interface ThemesWithCustomizeProps {
 }
 
 function ThemesWithCustomize({ t, ip, themeId, setThemeIdAction, profile, activeTheme, setActiveTheme, showAll, onHoverAction, onClickAction }: ThemesWithCustomizeProps) {
-  const [customizeOpen, setCustomizeOpen] = useState(false);
+  const customizeOpen = false;
   const accentHex = t.accent;
   const ownedThemes = COLLECTION_THEMES.map((x) => ({ ...x, isOwned: x.owned(profile ?? {}) }));
   const themes = showAll ? ownedThemes : ownedThemes.filter(x => x.isOwned || x.comingSoon);
@@ -577,31 +577,32 @@ function ThemesWithCustomize({ t, ip, themeId, setThemeIdAction, profile, active
         ))}
 
         {/* Customize card */}
-        <div className="coll-item"
-          onClick={() => { onClickAction?.(); setCustomizeOpen(v => !v); }}
-          onMouseEnter={() => onHoverAction?.()}
+        <div className="coll-item coll-locked"
+          onClick={() => {}}
+          onMouseEnter={() => {}}
           style={{ 
             borderRadius: 16, overflow: "hidden", 
-            border: `1px solid ${customizeOpen ? accentHex : "rgba(255,b255,255,0.1)"}`, 
-            background: customizeOpen ? `${accentHex}0d` : "rgba(30,30,30,0.4)", 
+            border: `1px solid rgba(255,255,255,0.14)`, 
+            background: "rgba(30,30,30,0.4)", 
             backdropFilter: "blur(12px)",
-            boxShadow: customizeOpen ? `0 0 20px ${accentHex}33` : "0 10px 30px rgba(0,0,0,0.2)", 
-            cursor: "pointer" 
+            boxShadow: "0 10px 30px rgba(0,0,0,0.2)", 
+            cursor: "not-allowed",
+            opacity: 0.9,
           }}>
           <div style={{ height: 90, background: `linear-gradient(135deg, ${accentHex}22, ${accentHex}08)`, display: "flex", alignItems: "center", justifyContent: "center", gap: 10, position: "relative" }}>
             <div style={{ width: 44, height: 44, borderRadius: 12, background: `${accentHex}22`, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: `0 0 15px ${accentHex}33` }}>
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={accentHex} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
             </div>
-            <div style={{ position: "absolute", top: 12, right: 12, background: customizeOpen ? accentHex : "rgba(255,255,255,0.1)", borderRadius: 10, padding: "3px 10px", fontFamily: t.fontMono, fontSize: 9, color: customizeOpen ? "#000" : t.accent, fontWeight: 900, letterSpacing: "0.08em" }}>
-              {customizeOpen ? "OPENED" : "CUSTOM"}
+            <div style={{ position: "absolute", top: 12, right: 12, background: "rgba(0,0,0,0.7)", borderRadius: 10, padding: "3px 10px", fontFamily: t.fontMono, fontSize: 9, color: "#b7b7b7", fontWeight: 900, letterSpacing: "0.08em", border: "1px solid rgba(255,255,255,0.12)" }}>
+              COMING SOON
             </div>
           </div>
           <div style={{ padding: "16px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
             <div>
               <div style={{ fontFamily: t.fontDisplay, fontSize: 18, fontWeight: 800, color: accentHex }}>Customize</div>
-              <div style={{ fontFamily: t.fontBody, fontSize: 13, color: t.textMuted, marginTop: 4, fontWeight: 500 }}>Create your signature style</div>
+              <div style={{ fontFamily: t.fontBody, fontSize: 13, color: t.textMuted, marginTop: 4, fontWeight: 500 }}>Customization options are coming soon</div>
             </div>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={accentHex} strokeWidth="2.5" strokeLinecap="round" style={{ transform: customizeOpen ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 0.2s", flexShrink: 0 }}><polyline points="6 9 12 15 18 9"/></svg>
+            <LockIcon size={14} color="#777" />
           </div>
         </div>
       </div>

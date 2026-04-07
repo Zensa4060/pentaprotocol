@@ -11,6 +11,7 @@ interface Props {
   themeId: ThemeId;
   onHoverAction?: () => void;
   onClickAction?: () => void;
+  homeNotice?: string | null;
 }
 
 const CARDS = [
@@ -245,7 +246,7 @@ function useScale() {
   return scale;
 }
 
-export default function HomeScreen({ setScreenAction, themeId, onHoverAction, onClickAction }: Props) {
+export default function HomeScreen({ setScreenAction, themeId, onHoverAction, onClickAction, homeNotice }: Props) {
   const t = THEMES[themeId];
   const ip = themeId === "pixel";
   const isSp = themeId === "space";
@@ -274,7 +275,7 @@ export default function HomeScreen({ setScreenAction, themeId, onHoverAction, on
   const cardSubSize = isMobile ? 18 : isTablet ? 20 : 22;
   const cardPadding = isMobile ? "32px 26px" : "72px 40px";
   const outerPadding = isMobile ? "30px 16px 30px" : isTablet ? "100px 24px 40px" : "80px 32px 48px";
-  const outerGap = isMobile ? 32 : isTablet ? 40 : 50;
+  const outerGap = isMobile ? 24 : isTablet ? 40 : 50;
 
   const cardsLayout: React.CSSProperties = {
     display: "flex",
@@ -651,7 +652,7 @@ export default function HomeScreen({ setScreenAction, themeId, onHoverAction, on
         {user && (
           <div style={{ 
             display: "flex", flexDirection: "column", alignItems: "center", gap: 8, 
-            animation: "fadeUp 0.8s cubic-bezier(.22,.68,0,1.2) both", marginTop: "2.3vh",
+            animation: "fadeUp 0.8s cubic-bezier(.22,.68,0,1.2) both", marginTop: isMobile ? "0.8vh" : "2.3vh",
             transform: hovered === "lobby" ? "scale(1.08)" : "scale(1)",
             transition: "all 0.4s cubic-bezier(.22,.68,0,1.2)",
             filter: hovered === "lobby" ? `drop-shadow(0 0 25px ${BLOOD_RED}44)` : "none",
@@ -675,13 +676,35 @@ export default function HomeScreen({ setScreenAction, themeId, onHoverAction, on
       </div>
 
       {/* ── Footer legal links ── */}
+      {homeNotice && (
+        <div
+          style={{
+            position: "relative",
+            zIndex: 3,
+            marginTop: isMobile ? -4 : 0,
+            marginBottom: 4,
+            border: `1px solid ${t.border}66`,
+            background: "rgba(0,0,0,0.45)",
+            borderRadius: ip ? 2 : 10,
+            padding: isMobile ? "8px 12px" : "9px 14px",
+            fontFamily: t.fontMono,
+            fontSize: isMobile ? 10 : 11,
+            letterSpacing: "0.06em",
+            color: t.textSecondary,
+            textAlign: "center",
+            maxWidth: "min(92vw, 760px)",
+          }}
+        >
+          {homeNotice}
+        </div>
+      )}
       <div style={{
         position: "relative", zIndex: 2,
         display: "flex", alignItems: "center", justifyContent: "center",
-        gap: isMobile ? 16 : 28,
+        gap: isMobile ? 12 : 28,
         flexWrap: "wrap" as const,
         paddingTop: 12,
-        paddingBottom: isMobile ? 16 : 8,
+        paddingBottom: isMobile ? 10 : 8,
         width: "100%",
         transform: "translateY(100%)",
       }}>

@@ -49,6 +49,7 @@ export default function RuleshowScreen({
   onToggleReadyAction,
   onDismissSheetAction,
 }: RuleshowScreenProps) {
+  const [isNarrow, setIsNarrow] = useState(false);
   const isProtocol = sheet === "protocolbreaker";
   const is77 = sheet === "7x7";
   const is66 = sheet === "6x6";
@@ -62,6 +63,13 @@ export default function RuleshowScreen({
   const patterns = is77 ? PATTERN_METADATA_7 : is66 ? PATTERN_METADATA_6 : PATTERN_METADATA_5;
   const patternList = legSheet ? Object.values(patterns) : [];
   const ruleBlocks = getRuleshowBlocks(sheet);
+
+  useEffect(() => {
+    const update = () => setIsNarrow(window.innerWidth < 768);
+    update();
+    window.addEventListener("resize", update);
+    return () => window.removeEventListener("resize", update);
+  }, []);
 
   useEffect(() => {
     if (!legSheet && !isProtocol) return;
@@ -128,12 +136,12 @@ export default function RuleshowScreen({
         flexDirection: "column",
         alignItems: "center",
         justifyContent: "flex-start",
-        padding: "60px 20px 20px",
+        padding: isNarrow ? "34px 12px 16px" : "56px 20px 20px",
         overflow: "auto",
         backdropFilter: "blur(12px)",
       }}
     >
-      <div style={{ width: "min(1100px, 95vw)", display: "flex", flexDirection: "column", alignItems: "center" }}>
+      <div style={{ width: isNarrow ? "min(1100px, 98vw)" : "min(1100px, 95vw)", display: "flex", flexDirection: "column", alignItems: "center" }}>
         <div style={{ fontFamily: t.fontMono, fontSize: 11, color: t.textMuted, letterSpacing: "0.22em", textAlign: "center" }}>
           {kicker}
         </div>
@@ -174,12 +182,12 @@ export default function RuleshowScreen({
           style={{
             width: "100%",
             maxWidth: 720,
-            marginTop: 24,
-            padding: "16px 18px",
+            marginTop: isNarrow ? 16 : 24,
+            padding: isNarrow ? "12px 12px" : "16px 18px",
             borderRadius: ip ? 2 : 14,
             border: `1px solid ${t.border}`,
             background: "rgba(255,255,255,0.02)",
-            maxHeight: isProtocol ? "min(50vh, 420px)" : "min(42vh, 360px)",
+            maxHeight: isNarrow ? (isProtocol ? "min(46vh, 380px)" : "min(38vh, 320px)") : (isProtocol ? "min(50vh, 420px)" : "min(42vh, 360px)"),
             overflowY: "auto",
           }}
         >
@@ -201,12 +209,12 @@ export default function RuleshowScreen({
         {legSheet && (
           <div
             style={{
-              marginTop: 28,
+              marginTop: isNarrow ? 18 : 28,
               display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
-              gap: 16,
+              gridTemplateColumns: `repeat(auto-fit, minmax(${isNarrow ? 180 : 240}px, 1fr))`,
+              gap: isNarrow ? 10 : 16,
               width: "100%",
-              paddingBottom: 28,
+              paddingBottom: isNarrow ? 18 : 28,
             }}
           >
             {patternList.map(p => (

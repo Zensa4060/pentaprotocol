@@ -36,6 +36,8 @@ const GUEST_BLOCKED: Screen[] = ["lobby", "profile", "career", "battlepass"];
 
 /** Set when a multiplayer series ends; blocks restoring `multiGame` on refresh and sends browser Back to home. */
 const PP_MULTI_SERIES_FINISHED_KEY = "pp_multi_series_finished";
+const PP_HOME_NOTICE_KEY = "pp_home_notice";
+const DISCONNECT_HOME_NOTICE = "last match ended due to connection issues or going afk";
 
 export default function Page() {
   const [themeId, setThemeIdRaw]        = useState<ThemeId>("classic_dark");
@@ -57,6 +59,7 @@ export default function Page() {
   const [multiMatchup, setMultiMatchup]       = useState<MatchupData | null>(null);
   const [multiplayerRulesBootstrap, setMultiplayerRulesBootstrap] = useState<MultiplayerRulesBootstrap | null>(null);
   const [customRev, setCustomRev]       = useState(0);
+  const [homeNotice, setHomeNotice] = useState<string | null>(null);
 
   // Matchmaking states
   const [queuePhase, setQueuePhase] = useState<"none" | "queuing" | "matchup">("none");
@@ -174,6 +177,10 @@ export default function Page() {
       if (sealedResumeToHome) {
         sessionStorage.removeItem(PP_MULTI_SERIES_FINISHED_KEY);
         setScreen("home");
+      } else if (savedScreen === "multiGame") {
+        // Reopen/reconnect safety: do not restore directly into multiplayer match view.
+        sessionStorage.setItem(PP_HOME_NOTICE_KEY, DISCONNECT_HOME_NOTICE);
+        setScreen("home");
       } else if (tok || !GUEST_BLOCKED.includes(savedScreen)) {
         setScreen(savedScreen);
         if (savedRoom) setMultiRoomCode(savedRoom);
@@ -209,6 +216,17 @@ export default function Page() {
     if (!appReady || !token) return;
     useAuthStore.getState().refreshProfile();
   }, [appReady, token]);
+
+  useEffect(() => {
+    if (screen !== "home" || typeof window === "undefined") {
+      if (screen !== "home") setHomeNotice(null);
+      return;
+    }
+    const msg = sessionStorage.getItem(PP_HOME_NOTICE_KEY);
+    if (!msg) return;
+    setHomeNotice(msg);
+    sessionStorage.removeItem(PP_HOME_NOTICE_KEY);
+  }, [screen]);
 
   useEffect(() => {
     if (!token) return;
@@ -782,7 +800,7 @@ export default function Page() {
         />
       )}
 
-      {screen === "home"       && <HomeScreen    setScreenAction={handleSetScreen} themeId={themeId} onHoverAction={sfx.hover} onClickAction={sfx.click} />}
+      {screen === "home"       && <HomeScreen    setScreenAction={handleSetScreen} themeId={themeId} onHoverAction={sfx.hover} onClickAction={sfx.click} homeNotice={homeNotice} />}
       {screen === "auth"       && <AuthScreen    setScreenAction={setScreen}       themeId={themeId} />}
       {screen === "lobby"      && (
         <LobbyScreen
