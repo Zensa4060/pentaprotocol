@@ -12,7 +12,8 @@ import {
   loadMissionEvents,
   loadMissionState,
   claimMissionReward,
-  claimAllMissionRewards,
+  postClaimMissionToServer,
+  syncMissionClaimedLocal,
   type MissionMatchEvent,
   type RewardPlaceholder,
 } from "@/lib/missionsClient";
@@ -22,6 +23,7 @@ import {
   getPermanentMissionDefs,
   getWeeklyMissionIds,
   missionDefById,
+  missionXpForMissionId,
   type MissionDef,
   type MissionPeriod,
 } from "@/lib/missionsDefinitions";
@@ -37,13 +39,15 @@ function collectClaimableShardClaims(
   events: MissionMatchEvent[],
   profile: ProfileLike,
   claimed: Record<string, true>,
-): { missionId: string; shards: number }[] {
-  const out: { missionId: string; shards: number }[] = [];
+): { missionId: string; shards: number; xp: number }[] {
+  const out: { missionId: string; shards: number; xp: number }[] = [];
   for (const mission of missions) {
     const claimKey = `${period}:${periodKey}:${mission.id}`;
     if (claimed[claimKey]) continue;
     const progress = computeMissionProgress({ mission, events, profile });
-    if (progress >= mission.progress.target) out.push({ missionId: mission.id, shards: mission.shards });
+    if (progress >= mission.progress.target) {
+      out.push({ missionId: mission.id, shards: mission.shards, xp: missionXpForMissionId(mission.id) });
+    }
   }
   return out;
 }
@@ -131,12 +135,27 @@ export default function MissionsScreen({ themeId }: Props) {
     return Boolean(missionState.claimed[claimKey]);
   };
 
-  const startClaim = (period: MissionPeriod, periodKey: string, mission: MissionDef) => {
-    if (isGuest) return;
+  const startClaim = async (period: MissionPeriod, periodKey: string, mission: MissionDef) => {
+    if (isGuest || !token) return;
     const mEvents = period === "daily" ? eventsToday : period === "weekly" ? eventsWeek : eventsAll;
     const progress = computeMissionProgress({ mission, events: mEvents, profile });
     if (progress < mission.progress.target) return;
-    claimMissionReward({ userKey, period, periodKey, missionId: mission.id, shards: mission.shards });
+    try {
+      const res = await postClaimMissionToServer({
+        period,
+        periodKey,
+        missionId: mission.id,
+      });
+      if (res.xp_awarded > 0) {
+        claimMissionReward({ userKey, period, periodKey, missionId: mission.id, shards: mission.shards });
+      } else if (res.already_claimed) {
+        syncMissionClaimedLocal({ userKey, period, periodKey, missionId: mission.id });
+      }
+      updateUser?.(res.profile);
+      setProfile(prev => ({ ...prev, ...res.profile }));
+    } catch {
+      /* keep local state unchanged */
+    }
   };
 
   const dailyMissionDefs = useMemo(
@@ -161,9 +180,26 @@ export default function MissionsScreen({ themeId }: Props) {
     [permanentDefs, eventsAll, profile, missionState.claimed],
   );
 
-  const runClaimAll = (period: MissionPeriod, periodKey: string, claims: { missionId: string; shards: number }[]) => {
-    if (isGuest || claims.length === 0) return;
-    claimAllMissionRewards({ userKey, period, periodKey, claims });
+  const runClaimAll = async (period: MissionPeriod, periodKey: string, claims: { missionId: string; shards: number; xp: number }[]) => {
+    if (isGuest || !token || claims.length === 0) return;
+    for (const c of claims) {
+      try {
+        const res = await postClaimMissionToServer({
+          period,
+          periodKey,
+          missionId: c.missionId,
+        });
+        if (res.xp_awarded > 0) {
+          claimMissionReward({ userKey, period, periodKey, missionId: c.missionId, shards: c.shards });
+        } else if (res.already_claimed) {
+          syncMissionClaimedLocal({ userKey, period, periodKey, missionId: c.missionId });
+        }
+        updateUser?.(res.profile);
+        setProfile(prev => ({ ...prev, ...res.profile }));
+      } catch {
+        break;
+      }
+    }
   };
 
   return (
@@ -234,7 +270,7 @@ export default function MissionsScreen({ themeId }: Props) {
                   MISSIONS
                 </div>
                 <div style={{ fontFamily: t.fontMono, fontSize: 12, color: t.textSecondary }}>
-                  Daily / Weekly / Permanent Shard quests
+                  Daily / Weekly / Permanent — shards + account XP
                 </div>
               </div>
             </div>
@@ -308,7 +344,7 @@ export default function MissionsScreen({ themeId }: Props) {
           ) : tab === "daily" ? (
             <MissionsList
               title="DAILY MISSIONS"
-              subtitle="COMPLETE DAILY MISSIONS TO EARN SHARDS."
+              subtitle="COMPLETE DAILY MISSIONS TO EARN SHARDS AND XP (1,000–1,500 PER MISSION)."
               timerText={`RESET IN ${dailyCountdown}`}
               period="daily"
               periodKey={todayKey}
@@ -318,6 +354,7 @@ export default function MissionsScreen({ themeId }: Props) {
               getClaimed={getClaimed}
               onClaim={(mission) => startClaim("daily", todayKey, mission)}
               claimAllShards={dailyClaimAllPayload.reduce((s, c) => s + c.shards, 0)}
+              claimAllXp={dailyClaimAllPayload.reduce((s, c) => s + c.xp, 0)}
               onClaimAll={dailyClaimAllPayload.length > 0 ? () => runClaimAll("daily", todayKey, dailyClaimAllPayload) : undefined}
               t={t}
               shardsSvg={shardsSvg}
@@ -325,7 +362,7 @@ export default function MissionsScreen({ themeId }: Props) {
           ) : tab === "weekly" ? (
             <MissionsList
               title={`WEEKLY MISSIONS`}
-              subtitle="COMPLETE WEEKLY MISSIONS TO EARN EXTRA SHARDS"
+              subtitle="COMPLETE WEEKLY MISSIONS FOR EXTRA SHARDS AND XP (5,000–10,000 PER MISSION)."
               timerText={`RESET IN ${weeklyCountdown}`}
               period="weekly"
               periodKey={weekKey}
@@ -335,6 +372,7 @@ export default function MissionsScreen({ themeId }: Props) {
               getClaimed={getClaimed}
               onClaim={(mission) => startClaim("weekly", weekKey, mission)}
               claimAllShards={weeklyClaimAllPayload.reduce((s, c) => s + c.shards, 0)}
+              claimAllXp={weeklyClaimAllPayload.reduce((s, c) => s + c.xp, 0)}
               onClaimAll={weeklyClaimAllPayload.length > 0 ? () => runClaimAll("weekly", weekKey, weeklyClaimAllPayload) : undefined}
               t={t}
               shardsSvg={shardsSvg}
@@ -347,6 +385,7 @@ export default function MissionsScreen({ themeId }: Props) {
               getClaimed={(missionId) => getClaimed("permanent", "all_time", missionId)}
               onClaim={(mission) => startClaim("permanent", "all_time", mission)}
               claimAllShards={permanentClaimAllPayload.reduce((s, c) => s + c.shards, 0)}
+              claimAllXp={permanentClaimAllPayload.reduce((s, c) => s + c.xp, 0)}
               onClaimAll={permanentClaimAllPayload.length > 0 ? () => runClaimAll("permanent", "all_time", permanentClaimAllPayload) : undefined}
               t={t}
               shardsSvg={shardsSvg}
@@ -411,11 +450,12 @@ function MissionsList(props: {
   getClaimed: (period: MissionPeriod, periodKey: string, missionId: string) => boolean;
   onClaim: (mission: MissionDef) => void;
   claimAllShards?: number;
+  claimAllXp?: number;
   onClaimAll?: () => void;
   t: Theme;
   shardsSvg: string;
 }) {
-  const { title, subtitle, timerText, missionIds, events, profile, getClaimed, onClaim, claimAllShards = 0, onClaimAll, t, shardsSvg } = props;
+  const { title, subtitle, timerText, missionIds, events, profile, getClaimed, onClaim, claimAllShards = 0, claimAllXp = 0, onClaimAll, t, shardsSvg } = props;
 
   return (
     <div style={{ paddingBottom: 26 }}>
@@ -444,10 +484,13 @@ function MissionsList(props: {
                 letterSpacing: "0.06em",
               }}
             >
-              <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                 CLAIM ALL
                 <PentaShardsIcon svg={shardsSvg} size={24} />
                 {claimAllShards}
+                <span style={{ fontFamily: t.fontMono, fontSize: 11, color: t.gold ?? "#D4AF37", fontWeight: 900 }}>
+                  +{claimAllXp.toLocaleString()} XP
+                </span>
               </span>
             </button>
           )}
@@ -463,6 +506,7 @@ function MissionsList(props: {
           const progress = computeMissionProgress({ mission, events, profile });
           const done = progress >= mission.progress.target;
           const progressPct = Math.max(0, Math.min(100, (progress / Math.max(1, mission.progress.target)) * 100));
+          const missionXp = missionXpForMissionId(mission.id);
 
           return (
             <div key={id} style={{
@@ -484,12 +528,15 @@ function MissionsList(props: {
                     </div>
                   </div>
                   <div style={{ textAlign: "right" }}>
-                    <div style={{ fontFamily: t.fontMono, fontSize: 11, color: t.textSecondary, letterSpacing: "0.1em" }}>REWARD</div>
+                    <div style={{ fontFamily: t.fontMono, fontSize: 11, color: t.textSecondary, letterSpacing: "0.1em" }}>REWARDS</div>
                     <div style={{ fontFamily: t.fontDisplay, fontSize: 18, fontWeight: 900, color: t.accent }}>
                       <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
                         <PentaShardsIcon svg={shardsSvg} size={31} />
                         {mission.shards}
                       </span>
+                    </div>
+                    <div style={{ fontFamily: t.fontMono, fontSize: 12, fontWeight: 800, color: "#C9A227", marginTop: 4 }}>
+                      +{missionXp.toLocaleString()} XP
                     </div>
                   </div>
                 </div>
@@ -524,10 +571,11 @@ function MissionsList(props: {
                           boxShadow: `0 0 28px ${t.accent}22`
                         }}
                       >
-                        <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                           CLAIM
                           <PentaShardsIcon svg={shardsSvg} size={28} />
                           {mission.shards}
+                          <span style={{ fontFamily: t.fontMono, fontSize: 11, fontWeight: 900 }}>+{missionXp} XP</span>
                         </span>
                       </button>
                     )
@@ -567,11 +615,12 @@ function PermanentMissionsPanel(props: {
   getClaimed: (missionId: string) => boolean;
   onClaim: (mission: MissionDef) => void;
   claimAllShards?: number;
+  claimAllXp?: number;
   onClaimAll?: () => void;
   t: Theme;
   shardsSvg: string;
 }) {
-  const { permanentDefs, eventsAll, profile, getClaimed, onClaim, claimAllShards = 0, onClaimAll, t, shardsSvg } = props;
+  const { permanentDefs, eventsAll, profile, getClaimed, onClaim, claimAllShards = 0, claimAllXp = 0, onClaimAll, t, shardsSvg } = props;
   const [showAll, setShowAll] = useState(false);
 
   const groups = useMemo(() => {
@@ -599,6 +648,7 @@ function PermanentMissionsPanel(props: {
           const progress = computeMissionProgress({ mission: m, events: eventsAll, profile });
           const done = progress >= m.progress.target;
           const pct = Math.max(0, Math.min(100, (progress / Math.max(1, m.progress.target)) * 100));
+          const mXp = missionXpForMissionId(m.id);
 
           return (
             <div key={m.id} style={{ borderRadius: 16, border: `1px solid ${t.border}66`, background: `${t.bgCard}`, padding: 14 }}>
@@ -608,12 +658,15 @@ function PermanentMissionsPanel(props: {
                   <div style={{ fontFamily: t.fontBody, fontSize: 12, color: t.textSecondary, marginTop: 4 }}>{m.description}</div>
                 </div>
                 <div style={{ textAlign: "right", flexShrink: 0 }}>
-                  <div style={{ fontFamily: t.fontMono, fontSize: 11, color: t.textSecondary, letterSpacing: "0.1em" }}>SHARDS</div>
+                  <div style={{ fontFamily: t.fontMono, fontSize: 11, color: t.textSecondary, letterSpacing: "0.1em" }}>REWARDS</div>
                   <div style={{ fontFamily: t.fontDisplay, fontSize: 18, fontWeight: 900, color: t.accent }}>
                     <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
                       <PentaShardsIcon svg={shardsSvg} size={31} />
                       {m.shards}
                     </span>
+                  </div>
+                  <div style={{ fontFamily: t.fontMono, fontSize: 12, fontWeight: 800, color: "#C9A227", marginTop: 4 }}>
+                    +{mXp.toLocaleString()} XP
                   </div>
                 </div>
               </div>
@@ -655,10 +708,11 @@ function PermanentMissionsPanel(props: {
                         boxShadow: `0 0 28px ${t.accent}22`
                       }}
                     >
-                    <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                       CLAIM
                               <PentaShardsIcon svg={shardsSvg} size={28} />
                       {m.shards}
+                      <span style={{ fontFamily: t.fontMono, fontSize: 11, fontWeight: 900 }}>+{mXp} XP</span>
                     </span>
                     </button>
                   )
@@ -700,16 +754,19 @@ function PermanentMissionsPanel(props: {
                 letterSpacing: "0.06em",
               }}
             >
-              <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                 CLAIM ALL
                 <PentaShardsIcon svg={shardsSvg} size={24} />
                 {claimAllShards}
+                <span style={{ fontFamily: t.fontMono, fontSize: 11, color: "#C9A227", fontWeight: 900 }}>
+                  +{claimAllXp.toLocaleString()} XP
+                </span>
               </span>
             </button>
           )}
         </div>
         <div style={{ fontFamily: t.fontBody, fontSize: 13, color: t.textSecondary, marginTop: 4 }}>
-          COMPLETE PERMANENT MISSIONS TO EARN NOT JUST SHARDS BUT FREE BANNERS AND GRIDS TOO.
+          COMPLETE PERMANENT MISSIONS FOR SHARDS, ACCOUNT XP (5,000–100,000 PER MISSION), AND PLACEHOLDER COSMETICS.
         </div>
       </div>
 

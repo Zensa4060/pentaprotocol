@@ -116,13 +116,22 @@ export function computeMissionProgress(args: {
 }
 
 function hashStringToSeed(input: string) {
-  // tiny deterministic hash
+  // tiny deterministic hash (must match backend app.core.mission_xp)
   let h = 2166136261;
   for (let i = 0; i < input.length; i++) {
     h ^= input.charCodeAt(i);
     h = Math.imul(h, 16777619);
   }
   return h >>> 0;
+}
+
+/** Deterministic mission XP; 0 if mission id is not a known prefix (daily / weekly / permanent). */
+export function missionXpForMissionId(missionId: string): number {
+  const h = hashStringToSeed(missionId);
+  if (missionId.startsWith("d_")) return 1000 + (h % 501);
+  if (missionId.startsWith("w_")) return 5000 + (h % 5001);
+  if (missionId.startsWith("perm_")) return 5000 + (h % 95001);
+  return 0;
 }
 
 function seededRandom(seed: number) {

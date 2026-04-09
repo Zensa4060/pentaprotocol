@@ -2,24 +2,7 @@
 import React, { useEffect, useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { getRank, NavRankBadge } from "./NavBar";
-
-// Level calculation helpers (synced with backend game.py)
-const xp_for_level = (level: number) => {
-  if (level >= 1000) return 999_999_999;
-  return 5000 + Math.floor(1000 * Math.pow(1.1, level - 1)) + (level - 1) * 500;
-};
-
-const compute_level_stats = (total_xp: number) => {
-  let level = 1;
-  let rem = total_xp;
-  while (level < 1000 && rem >= xp_for_level(level)) {
-    rem -= xp_for_level(level);
-    level++;
-  }
-  const nextXp = xp_for_level(level);
-  const progress = (rem / nextXp) * 100;
-  return { level, rem, nextXp, progress };
-};
+import { computeLevelStatsFromTotalXp } from "@/lib/xpLevel";
 
 interface MatchResultScreenProps {
   seriesWinner: string;
@@ -77,8 +60,8 @@ export default function MatchResultScreen({
   const eloDiff = myData.elo_after - myData.elo_before;
   const xpGained = myData.xp_after - myData.xp_before;
   
-  const levelBefore = useMemo(() => compute_level_stats(myData.xp_before), [myData.xp_before]);
-  const levelAfter = useMemo(() => compute_level_stats(myData.xp_after), [myData.xp_after]);
+  const levelBefore = useMemo(() => computeLevelStatsFromTotalXp(myData.xp_before), [myData.xp_before]);
+  const levelAfter = useMemo(() => computeLevelStatsFromTotalXp(myData.xp_after), [myData.xp_after]);
   const levelUp = levelAfter.level > levelBefore.level;
   const rankBefore = useMemo(() => getRank(myData.elo_before), [myData.elo_before]);
   const rankAfter = useMemo(() => getRank(myData.elo_after), [myData.elo_after]);

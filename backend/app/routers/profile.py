@@ -1,8 +1,11 @@
 from fastapi import APIRouter, HTTPException, Header, Depends
+from pydantic import BaseModel, ConfigDict, Field
 from app.core.database import get_db
 from app.core.ids import user_object_id
 from app.core.security import decode_token
+from app.core.mission_xp import mission_xp_for_mission_id
 from app.game.ranked_penalties import user_ranked_allowed
+from app.routers.game import compute_level
 from datetime import datetime
 
 router = APIRouter()
@@ -57,6 +60,59 @@ def _serialize_user(user: dict) -> dict:
         "board_style":         user.get("board_style", "default"),
         "title":               user.get("title", "newcomer"),
         "purchased_items":     user.get("purchased_items", []),
+    }
+
+
+class ClaimMissionBody(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+    period: str
+    period_key: str = Field(..., alias="periodKey")
+    mission_id: str = Field(..., alias="missionId")
+
+
+@router.post("/claim-mission")
+async def claim_mission_reward(data: ClaimMissionBody, user_id: str = Depends(get_current_user)):
+    if data.period not in ("daily", "weekly", "permanent"):
+        raise HTTPException(400, "Invalid period")
+    if not (data.period_key or "").strip() or not (data.mission_id or "").strip():
+        raise HTTPException(400, "periodKey and missionId required")
+
+    xp_gain = mission_xp_for_mission_id(data.mission_id)
+    if xp_gain is None:
+        raise HTTPException(400, "Invalid mission id")
+
+    db = get_db()
+    oid = user_object_id(user_id)
+    user = await db.users.find_one({"_id": oid})
+    if not user:
+        raise HTTPException(404, "User not found")
+
+    claim_key = f"{data.period}:{data.period_key}:{data.mission_id}"
+    claims = user.get("mission_claims") or {}
+    if not isinstance(claims, dict):
+        claims = {}
+
+    if claims.get(claim_key):
+        fresh = await db.users.find_one({"_id": oid}) or user
+        return {
+            "already_claimed": True,
+            "xp_awarded": 0,
+            "profile": _serialize_user(fresh),
+        }
+
+    prev_xp = int(user.get("xp", 0) or 0)
+    new_xp = prev_xp + xp_gain
+    new_level, _ = compute_level(new_xp)
+
+    await db.users.update_one(
+        {"_id": oid},
+        {"$set": {"xp": new_xp, "level": new_level, f"mission_claims.{claim_key}": True}},
+    )
+    fresh = await db.users.find_one({"_id": oid}) or user
+    return {
+        "already_claimed": False,
+        "xp_awarded": xp_gain,
+        "profile": _serialize_user(fresh),
     }
 
 

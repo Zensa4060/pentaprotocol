@@ -1,3 +1,5 @@
+import API from "./api";
+
 export type MissionMatchEvent = {
   id: string;
   at: number; // epoch ms
@@ -14,6 +16,12 @@ export type RewardPlaceholder = { kind: "picture" | "banner" | "border" | "board
 export type MissionClaimState = {
   shardBalance: number;
   claimed: Record<string, true>;
+};
+
+export type MissionClaimApiResponse = {
+  already_claimed: boolean;
+  xp_awarded: number;
+  profile: Record<string, unknown>;
 };
 
 const stateKey = (userKey: string) => `pp_mission_state_${userKey}`;
@@ -89,6 +97,36 @@ export function pushMissionEvent(userKey: string, evt: Omit<MissionMatchEvent, "
   }
 
   window.dispatchEvent(new CustomEvent("pp_mission_event"));
+}
+
+/** Persist mission XP on the server (idempotent). Uses Bearer token from API interceptor. */
+export async function postClaimMissionToServer(args: {
+  period: "daily" | "weekly" | "permanent";
+  periodKey: string;
+  missionId: string;
+}): Promise<MissionClaimApiResponse> {
+  const res = await API.post<MissionClaimApiResponse>("/api/profile/claim-mission", {
+    period: args.period,
+    periodKey: args.periodKey,
+    missionId: args.missionId,
+  });
+  return res.data;
+}
+
+/** Mark mission claimed locally without adding shards (e.g. already claimed on another device). */
+export function syncMissionClaimedLocal(args: {
+  userKey: string;
+  period: "daily" | "weekly" | "permanent";
+  periodKey: string;
+  missionId: string;
+}) {
+  const { userKey, period, periodKey, missionId } = args;
+  const claimKey = `${period}:${periodKey}:${missionId}`;
+  const st = loadMissionState(userKey);
+  if (st.claimed[claimKey]) return;
+  st.claimed[claimKey] = true;
+  saveMissionState(userKey, st);
+  window.dispatchEvent(new CustomEvent("pp_mission_state_change"));
 }
 
 export function claimMissionReward(args: { userKey: string; period: "daily" | "weekly" | "permanent"; periodKey: string; missionId: string; shards: number }) {

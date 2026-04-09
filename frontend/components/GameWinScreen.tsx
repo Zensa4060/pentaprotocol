@@ -3,23 +3,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { RankIcon } from "./ProfileScreen";
 import { getRank } from "./NavBar";
-
-const xpForLevel = (level: number) => {
-  if (level >= 1000) return 999_999_999;
-  return 5000 + Math.floor(1000 * Math.pow(1.1, level - 1)) + (level - 1) * 500;
-};
-
-const computeLevelStats = (totalXp: number) => {
-  let level = 1;
-  let rem = totalXp;
-  while (level < 1000 && rem >= xpForLevel(level)) {
-    rem -= xpForLevel(level);
-    level++;
-  }
-  const nextXp = xpForLevel(level);
-  const progress = (rem / nextXp) * 100;
-  return { level, rem, nextXp, progress };
-};
+import { computeLevelStatsFromTotalXp } from "@/lib/xpLevel";
 
 interface PlayerProgress {
   name: string;
@@ -75,8 +59,8 @@ export default function GameWinScreen({
   const isDraw = seriesWinner === "DRAW";
   const eloDiff = myData.elo_after - myData.elo_before;
   const xpDiff = myData.xp_after - myData.xp_before;
-  const before = useMemo(() => computeLevelStats(myData.xp_before), [myData.xp_before]);
-  const after = useMemo(() => computeLevelStats(myData.xp_after), [myData.xp_after]);
+  const before = useMemo(() => computeLevelStatsFromTotalXp(myData.xp_before), [myData.xp_before]);
+  const after = useMemo(() => computeLevelStatsFromTotalXp(myData.xp_after), [myData.xp_after]);
   const accentColor = isDraw ? t.gold : isWinner ? t.accent : t.danger;
   const viewerRank = useMemo(() => {
     const after = myData.elo_after;

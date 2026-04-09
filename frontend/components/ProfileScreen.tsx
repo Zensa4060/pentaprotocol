@@ -9,6 +9,7 @@ import { SHARDS_LIGHT_SVG, SHARDS_DARK_SVG, PROTO_LIGHT_SVG, PROTO_DARK_SVG } fr
 import { loadCustomTheme, saveCustomTheme } from "@/lib/customTheme";
 import type { Screen } from "@/lib/types";
 import { getUserKey, loadMissionState } from "@/lib/missionsClient";
+import { computeLevelStatsFromTotalXp } from "@/lib/xpLevel";
 import { BannerRenderer } from "./BannerRenderer";
 import { rankGlowVisualStrength, buildRankEmblemGlowFilter, rankHaloGradientForRank } from "./NavBar";
 import VoidRiftBanner from "./VoidRiftBanner";
@@ -782,13 +783,8 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
       {/* ── XP / Level bar ───────────────────────────────────────────────── */}
       {(() => {
         const totalXP: number = profile.xp || 0;
-        const lvl: number     = profile.level || 1;
-        const xpForLvl = (l: number) => 5000 + (l - 1) * 1000;
-        let rem = totalXP;
-        for (let l = 1; l < lvl; l++) rem -= xpForLvl(l);
-        const xpIntoLevel = Math.max(0, rem);
-        const xpNeeded    = xpForLvl(lvl);
-        const pct         = Math.min((xpIntoLevel / xpNeeded) * 100, 100);
+        const { level: lvl, rem: xpIntoLevel, nextXp: xpNeeded, progress } = computeLevelStatsFromTotalXp(totalXP);
+        const pct = Math.min(progress, 100);
         return (
           <div style={{ background:t.bgPanel, border:`1px solid ${t.border}`, borderRadius:12, padding:"16px 22px", marginBottom:18 }}>
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:9 }}>
