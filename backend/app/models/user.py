@@ -1,4 +1,4 @@
-﻿from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field
 from typing import Optional
 from datetime import datetime
 
@@ -17,7 +17,6 @@ class UserResponse(BaseModel):
     email: str
     level: int
     xp: int
-    coins: int
     elo: int
     rank: str
     wins: int

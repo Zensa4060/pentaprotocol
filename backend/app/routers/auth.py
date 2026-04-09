@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field, EmailStr
 from bson import ObjectId
 from bson.errors import InvalidId
 from app.core.ids import user_object_id
-from app.routers.game import compute_level
+
 from app.core.rate_limit import build_rate_key, enforce_rate_limit
 import base64
 import re, secrets, hashlib, pyotp, qrcode, io, os
@@ -70,14 +70,12 @@ def validate_username(username: str):
         raise HTTPException(400, "No special characters allowed")
 
 def serialize_user(user):
-    level_from_xp, _ = compute_level(int(user.get("xp", 0) or 0))
     return {
         "id":                  str(user["_id"]),
         "username":            user["username"],
         "email":               user.get("email", ""),
-        "level":               level_from_xp,
+        "level":               user.get("level", 1),
         "xp":                  user.get("xp", 0),
-        "coins":               user.get("coins", 0),
         "elo":                 user.get("elo", 500),
         "ranked_rating":       int(user.get("ranked_rating", user.get("elo", 500))),
         "wins":                user.get("wins", 0),
@@ -115,7 +113,6 @@ async def register(data: UserRegister):
         "password":            hash_password(data.password),
         "level":               1,
         "xp":                  0,
-        "coins":               0,
         "elo":                 100,
         "ranked_rating":       100,
         "ranked_quit_streak":  0,

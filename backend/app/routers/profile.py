@@ -28,14 +28,12 @@ async def get_current_user(authorization: str = Header(...)):
 
 def _serialize_user(user: dict) -> dict:
     """Single source of truth for what the profile response looks like."""
-    level_from_xp, _ = compute_level(int(user.get("xp", 0) or 0))
     return {
         "id":                  str(user["_id"]),
         "username":            user["username"],
         "email":               user.get("email", ""),
-        "level":               level_from_xp,
+        "level":               user.get("level", 1),
         "xp":                  user.get("xp", 0),
-        "coins":               user.get("coins", 0),
         "shards":              user.get("shards", 0),
         "protocredits":        user.get("protocredits", 0),
         "elo":                 user.get("elo", 100),

@@ -19,9 +19,7 @@ FROM_EMAIL     = os.environ.get("FROM_EMAIL", "noreply@pentaprotocol.com")
 OTP_EXPIRY     = 600  # 10 minutes
 
 # ─── REDIS ────────────────────────────────────────────────
-REDIS_URL = os.environ.get("REDIS_URL", "").strip()
-if not REDIS_URL:
-    raise RuntimeError("REDIS_URL is required")
+REDIS_URL = os.environ.get("REDIS_URL", "redis://localhost:6379").strip()
 r = redis.Redis.from_url(REDIS_URL)
 
 # ─── AUTH HELPER ──────────────────────────────────────────
