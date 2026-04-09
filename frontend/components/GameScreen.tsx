@@ -374,7 +374,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     if (levelUpSplashTimerRef.current) clearTimeout(levelUpSplashTimerRef.current);
   }, []);
 
-  const { user } = useAuthStore();
+  const { user, token } = useAuthStore();
   const t = THEMES[themeId];
   const ip = themeId === "pixel";
   const gameplayGraphicsQuality = graphicsQuality;
@@ -985,7 +985,8 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
 
     const connect = () => {
       if (destroyed) return;
-      const ws = new WebSocket(`${base}/api/room/ws/${roomCode}/${playerSlot}`);
+      if (!token) return;
+      const ws = new WebSocket(`${base}/api/room/ws/${roomCode}/${playerSlot}?token=${encodeURIComponent(token)}`);
       wsRef.current = ws;
 
       ws.onopen = () => {
@@ -1899,7 +1900,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
       if (wsPingRef.current) { clearInterval(wsPingRef.current); wsPingRef.current = null; }
       if (wsRef.current) { wsRef.current.onclose = null; wsRef.current.close(); wsRef.current = null; }
     };
-  }, [isMultiplayerGame, roomCode, playerSlot]);
+  }, [isMultiplayerGame, roomCode, playerSlot, token]);
 
   // Multiplayer match-found synchronization: tell server when we're ready to start.
   useEffect(() => {

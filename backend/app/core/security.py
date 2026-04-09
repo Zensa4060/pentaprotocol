@@ -6,8 +6,10 @@ import os
 
 load_dotenv(os.path.join(os.path.dirname(__file__), "..", "..", ".env"))
 
-SECRET_KEY = os.getenv("SECRET_KEY", "fallback_secret")
+SECRET_KEY = os.getenv("SECRET_KEY", "").strip()
 ALGORITHM  = "HS256"
+if not SECRET_KEY:
+    raise RuntimeError("SECRET_KEY is required")
 
 def hash_password(password: str) -> str:
     return bcrypt.hashpw(password.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")

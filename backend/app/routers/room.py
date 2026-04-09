@@ -2157,6 +2157,20 @@ async def get_room(room_code: str):
 
 @router.websocket("/ws/{room_code}/{player_slot}")
 async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str):
+    token = websocket.query_params.get("token", "")
+    if not token:
+        await websocket.close(code=1008, reason="Missing auth token")
+        return
+    try:
+        payload = decode_token(token)
+        ws_user_id = str(payload.get("sub", ""))
+    except Exception:
+        await websocket.close(code=1008, reason="Invalid auth token")
+        return
+    if player_slot not in ("P1", "P2"):
+        await websocket.close(code=1008, reason="Invalid player slot")
+        return
+
     await websocket.accept()
     room_code = room_code.upper()
 
@@ -2179,6 +2193,11 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
     try:
         room = await db.rooms.find_one({"room_code": room_code})
         if room:
+            expected_user_id = room.get("player1_id") if player_slot == "P1" else room.get("player2_id")
+            if not expected_user_id or str(expected_user_id) != ws_user_id:
+                await websocket.send_json({"type": "error", "message": "Unauthorized room slot"})
+                await websocket.close(code=1008, reason="Unauthorized room slot")
+                return
             await websocket.send_json(
                 {"type": "room_state", "room": serialize_room_for_slot(room, player_slot)}
             )
@@ -2225,11 +2244,28 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
 
         while True:
             data = await websocket.receive_text()
-            msg  = json.loads(data)
+            if len(data) > 32_768:
+                await websocket.send_json({"type": "error", "message": "Payload too large"})
+                continue
+            try:
+                msg = json.loads(data)
+            except Exception:
+                await websocket.send_json({"type": "error", "message": "Malformed JSON"})
+                continue
+            if not isinstance(msg, dict):
+                await websocket.send_json({"type": "error", "message": "Malformed payload"})
+                continue
+            msg_type = msg.get("type")
+            if not isinstance(msg_type, str):
+                await websocket.send_json({"type": "error", "message": "Missing message type"})
+                continue
 
-            if msg["type"] == "move":
-                row = msg["row"]
-                col = msg["col"]
+            if msg_type == "move":
+                row = msg.get("row")
+                col = msg.get("col")
+                if not isinstance(row, int) or not isinstance(col, int):
+                    await websocket.send_json({"type": "error", "message": "Invalid move payload"})
+                    continue
 
                 room = await db.rooms.find_one({"room_code": room_code})
                 if not room or room["game_status"] != "playing":
@@ -2620,7 +2656,7 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                         )
                     )
 
-            elif msg["type"] == "ready":
+            elif msg_type == "ready":
                 ready_val   = msg.get("ready", True)
                 ready_field = "p1_ready" if player_slot == "P1" else "p2_ready"
 
@@ -2719,7 +2755,7 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                         except:
                             pass
 
-            elif msg["type"] == "levelup_ready":
+            elif msg_type == "levelup_ready":
                 room = await db.rooms.find_one({"room_code": room_code})
                 if not room:
                     continue
@@ -2777,7 +2813,7 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                         except:
                             pass
 
-            elif msg["type"] == "chat":
+            elif msg_type == "chat":
                 broadcast = {
                     "type": "chat_message",
                     "from": player_slot,
@@ -2790,14 +2826,14 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                     except:
                         pass
 
-            elif msg["type"] == "match_over_notify":
+            elif msg_type == "match_over_notify":
                 for slot, ws in _room_connections.get(room_code, {}).items():
                     try:
                         await ws.send_json({"type": "match_over"})
                     except:
                         pass
 
-            elif msg["type"] == "rematch":
+            elif msg_type == "rematch":
                 rematch_field = "p1_rematch" if player_slot == "P1" else "p2_rematch"
 
                 await db.rooms.update_one(
@@ -2888,7 +2924,7 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
 
                     _schedule_rules_sheet_timeout(db, room_code)
 
-            elif msg["type"] == "quit_match":
+            elif msg_type == "quit_match":
                 room_q = await db.rooms.find_one({"room_code": room_code})
                 if room_q and room_q.get("series_winner") is not None:
                     await db.rooms.update_one(
@@ -2973,7 +3009,7 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                             except:
                                 pass
 
-            elif msg["type"] == "match_found_ready":
+            elif msg_type == "match_found_ready":
                 rt = _room_runtime.get(room_code)
                 if not rt:
                     continue
@@ -3000,7 +3036,7 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                             except:
                                 pass
 
-            elif msg["type"] == "net_report":
+            elif msg_type == "net_report":
                 rt = _room_runtime.get(room_code)
                 if not rt:
                     continue
@@ -3018,7 +3054,7 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                         except:
                             pass
 
-            elif msg["type"] == "screen_presence":
+            elif msg_type == "screen_presence":
                 rt = _room_runtime.get(room_code)
                 if not rt:
                     continue
@@ -3028,7 +3064,7 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                     rt["screen_presence"] = presence
                 presence[player_slot] = bool(msg.get("on_game_screen", True))
 
-            elif msg["type"] == "toss_action":
+            elif msg_type == "toss_action":
                 action  = msg.get("action")
                 payload = msg.get("payload", {})
                 broadcast = {"type": "toss_action", "action": action, "payload": payload, "from": player_slot}
@@ -3101,7 +3137,7 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                     except Exception:
                         pass
 
-            elif msg["type"] == "limitbreaker_action":
+            elif msg_type == "limitbreaker_action":
                 room_pb = await db.rooms.find_one({"room_code": room_code})
                 if not room_pb or not room_pb.get("protocolbreaker_pending"):
                     continue
@@ -3177,7 +3213,7 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                         if room_pb:
                             await _broadcast_limitbreaker_update(room_code, room_pb)
 
-            elif msg["type"] == "rb_start_game":
+            elif msg_type == "rb_start_game":
                 room = await db.rooms.find_one({"room_code": room_code})
                 if not room:
                     continue
@@ -3187,7 +3223,7 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                 _cancel_rb_autostart(room_code)
                 await _finalize_rulebreaker_start(db, room_code, room, msg)
 
-            elif msg["type"] == "rb_use_extra_turn":
+            elif msg_type == "rb_use_extra_turn":
                 room = await db.rooms.find_one({"room_code": room_code})
                 if not room or room.get("game_status") != "playing":
                     continue
@@ -3227,7 +3263,7 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                     except:
                         pass
 
-            elif msg["type"] == "timeout":
+            elif msg_type == "timeout":
                 winner = msg.get("winner")
                 if winner not in ("P1", "P2"):
                     continue
@@ -3406,7 +3442,7 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                         )
                     )
 
-            elif msg["type"] == "ping":
+            elif msg_type == "ping":
                 ts = msg.get("ts")
                 await websocket.send_json({"type": "pong", "ts": ts})
 

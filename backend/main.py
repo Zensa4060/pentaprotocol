@@ -13,8 +13,10 @@ from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
 from app.routers import auth, game, profile, store, bot, bot7, room, otp, paypal
 from app.core.database import connect_db, disconnect_db, get_db
+import os
 
 app = FastAPI(title="PentaProtocol API")
+MAX_REQUEST_BYTES = int(os.getenv("MAX_REQUEST_BYTES", str(1024 * 1024)))
 
 ALLOWED_ORIGINS = [
     "http://localhost:3000",
@@ -33,6 +35,19 @@ app.add_middleware(
     expose_headers=["*"],
     max_age=3600,
 )
+
+@app.middleware("http")
+async def request_size_guard(request: Request, call_next):
+    if request.method in {"POST", "PUT", "PATCH"}:
+        content_length = request.headers.get("content-length")
+        if content_length:
+            try:
+                if int(content_length) > MAX_REQUEST_BYTES:
+                    return JSONResponse({"detail": "Request payload too large"}, status_code=413)
+            except ValueError:
+                return JSONResponse({"detail": "Malformed Content-Length header"}, status_code=400)
+    return await call_next(request)
+
 
 @app.middleware("http")
 async def force_cors_headers(request: Request, call_next):
@@ -54,6 +69,11 @@ async def force_cors_headers(request: Request, call_next):
         response.headers["Access-Control-Allow-Headers"] = "*"
         response.headers["Vary"] = "Origin"
     return response
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    return JSONResponse(status_code=422, content={"detail": "Malformed request payload"})
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):

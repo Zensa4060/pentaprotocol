@@ -1,13 +1,14 @@
-from fastapi import APIRouter, HTTPException, Header, Depends
+from fastapi import APIRouter, HTTPException, Header, Depends, Request
 from app.models.user import UserRegister
 from app.core.database import get_db
 from app.core.security import hash_password, verify_password, create_access_token, decode_token
 from datetime import datetime, timedelta
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, EmailStr
 from bson import ObjectId
 from bson.errors import InvalidId
 from app.core.ids import user_object_id
 from app.routers.game import compute_level
+from app.core.rate_limit import build_rate_key, enforce_rate_limit
 import base64
 import re, secrets, hashlib, pyotp, qrcode, io, os
 import resend
@@ -15,7 +16,7 @@ import resend
 router = APIRouter()
 
 resend.api_key = os.environ.get("RESEND_API_KEY")
-FROM_EMAIL = "noreply@pentaprotocol.com"
+FROM_EMAIL = os.environ.get("FROM_EMAIL", "noreply@pentaprotocol.com")
 
 _reset_codes: dict = {}
 _pending_2fa: dict = {}
@@ -39,22 +40,22 @@ def _safe_bool(v, default=False):
     return default
 
 class ForgotPasswordRequest(BaseModel):
-    email: str
+    email: EmailStr
 
 class ResetPasswordRequest(BaseModel):
-    email: str
-    code: str
-    new_password: str
+    email: EmailStr
+    code: str = Field(min_length=6, max_length=6)
+    new_password: str = Field(min_length=8, max_length=128)
 
 class TwoFAVerifySetup(BaseModel):
-    code: str
+    code: str = Field(min_length=6, max_length=8)
 
 class TwoFALoginCheck(BaseModel):
-    temp_token: str
-    code: str
+    temp_token: str = Field(min_length=16, max_length=256)
+    code: str = Field(min_length=6, max_length=8)
 
 class TwoFADisable(BaseModel):
-    code: str
+    code: str = Field(min_length=6, max_length=8)
 
 def validate_username(username: str):
     if len(username) < 3:
@@ -139,12 +140,18 @@ async def register(data: UserRegister):
 
 # ── LOGIN ─────────────────────────────────────────────────────────────────────
 class UserLogin(BaseModel):
-    username:     str
-    password:     str
-    device_token: str | None = None
+    username: str = Field(min_length=3, max_length=120)
+    password: str = Field(min_length=1, max_length=256)
+    device_token: str | None = Field(default=None, max_length=256)
 
 @router.post("/login")
-async def login(data: UserLogin):
+async def login(data: UserLogin, request: Request):
+    client_ip = request.client.host if request.client else "unknown"
+    ident = data.username.strip().lower()
+    await enforce_rate_limit(
+        key=build_rate_key("auth_login", client_ip, ident),
+        detail="Too many login attempts.",
+    )
     db   = get_db()
     user = await db.users.find_one({"username": data.username})
     if not user:
@@ -233,7 +240,12 @@ async def confirm_2fa(data: TwoFAVerifySetup, user_id: str = Depends(get_current
 
 # ── 2FA: LOGIN CHECK ──────────────────────────────────────────────────────────
 @router.post("/2fa/login")
-async def login_2fa(data: TwoFALoginCheck):
+async def login_2fa(data: TwoFALoginCheck, request: Request):
+    client_ip = request.client.host if request.client else "unknown"
+    await enforce_rate_limit(
+        key=build_rate_key("auth_2fa_login", client_ip, data.temp_token),
+        detail="Too many 2FA attempts.",
+    )
     db    = get_db()
     entry = _pending_2fa.get(data.temp_token)
     if not entry:
@@ -295,7 +307,12 @@ async def disable_2fa(data: TwoFADisable, user_id: str = Depends(get_current_use
 
 # ── FORGOT PASSWORD ───────────────────────────────────────────────────────────
 @router.post("/forgot-password")
-async def forgot_password(data: ForgotPasswordRequest):
+async def forgot_password(data: ForgotPasswordRequest, request: Request):
+    client_ip = request.client.host if request.client else "unknown"
+    await enforce_rate_limit(
+        key=build_rate_key("auth_forgot_password", client_ip, str(data.email)),
+        detail="Too many reset requests.",
+    )
     db   = get_db()
     user = await db.users.find_one({"email": data.email})
     if not user:
@@ -323,7 +340,12 @@ async def forgot_password(data: ForgotPasswordRequest):
 
 # ── RESET PASSWORD ────────────────────────────────────────────────────────────
 @router.post("/reset-password")
-async def reset_password(data: ResetPasswordRequest):
+async def reset_password(data: ResetPasswordRequest, request: Request):
+    client_ip = request.client.host if request.client else "unknown"
+    await enforce_rate_limit(
+        key=build_rate_key("auth_reset_password", client_ip, str(data.email)),
+        detail="Too many password reset attempts.",
+    )
     db    = get_db()
     entry = _reset_codes.get(data.email)
     if not entry:
@@ -333,8 +355,8 @@ async def reset_password(data: ResetPasswordRequest):
         raise HTTPException(400, "Code has expired — please request a new one")
     if hashlib.sha256(data.code.strip().encode()).hexdigest() != entry["hashed"]:
         raise HTTPException(400, "Invalid code — check and try again")
-    if len(data.new_password) < 6:
-        raise HTTPException(400, "Password must be at least 6 characters")
+    if len(data.new_password) < 8:
+        raise HTTPException(400, "Password must be at least 8 characters")
 
     await db.users.update_one(
         {"email": data.email},

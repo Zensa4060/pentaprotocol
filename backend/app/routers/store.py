@@ -1,10 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException, Request
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from app.core.database import get_db_dep
 from app.routers.auth import get_current_user
 from bson import ObjectId
+from bson.errors import InvalidId
 from datetime import datetime
 import hmac, hashlib, os, aiohttp
+import re
 
 router = APIRouter()
 
@@ -233,10 +235,10 @@ async def instamojo_webhook(request: Request, db=Depends(get_db_dep)):
 # ── UPI / QR Code Payment Submission ─────────────────────────────────────────
 
 class UpiSubmitRequest(BaseModel):
-    utr:           str
-    amount:        float
-    package_id:    str
-    currency_type: str = "protocredits"
+    utr: str = Field(min_length=6, max_length=64)
+    amount: float = Field(gt=0)
+    package_id: str = Field(min_length=2, max_length=32)
+    currency_type: str = Field(default="protocredits", max_length=16)
 
 @router.post("/upi-submit")
 async def upi_submit(
@@ -273,9 +275,43 @@ async def upi_submit(
 # ── Purchase Cosmetic Item ────────────────────────────────────────────────────
 
 class PurchaseItemRequest(BaseModel):
-    item_id:     str
-    price:       int
-    shard_price: int = 0
+    item_id: str = Field(min_length=2, max_length=64)
+    price: int = Field(ge=0, le=50000)
+    shard_price: int = Field(default=0, ge=0, le=50000)
+
+
+_ITEM_PRICE_OVERRIDES: dict[str, tuple[int, int]] = {
+    "void_rift": (299, 0),
+    "blood_moon": (299, 0),
+    "phantom_strike": (199, 0),
+    "solar_flare": (299, 0),
+    "cryo_storm": (299, 0),
+    "neon_circuit": (299, 0),
+    "static_glitch": (299, 0),
+    "golden_nexus": (299, 0),
+    "plasma_core": (299, 0),
+    "toxic_spill": (299, 0),
+    "storm_protocol": (299, 0),
+    "arctic_veil": (299, 0),
+    "starfield": (299, 0),
+    "digital_rain": (299, 0),
+    "inferno": (299, 0),
+    "theme_space": (2099, 700),
+    "theme_pixel": (2099, 700),
+    "space_grid": (900, 300),
+    "pixel_grid": (900, 300),
+    "coin_bundle_wraith_king": (299, 50),
+}
+
+
+def _canonical_item_price(item_id: str) -> tuple[int, int]:
+    if item_id in _ITEM_PRICE_OVERRIDES:
+        return _ITEM_PRICE_OVERRIDES[item_id]
+    if item_id.endswith("_grid"):
+        return (1599, 0)
+    if item_id.startswith("piece_"):
+        return (599, 0)
+    return (-1, -1)
 
 @router.post("/purchase-item")
 async def purchase_item(
@@ -283,7 +319,18 @@ async def purchase_item(
     user_id: str = Depends(get_current_user),
     db=Depends(get_db_dep),
 ):
-    user = await db["users"].find_one({"_id": ObjectId(user_id)})
+    if not re.fullmatch(r"[a-z0-9_]{2,64}", req.item_id):
+        raise HTTPException(status_code=400, detail="Malformed item id.")
+    canonical_price, canonical_shards = _canonical_item_price(req.item_id)
+    if canonical_price < 0:
+        raise HTTPException(status_code=400, detail="Unknown item id.")
+    if req.price != canonical_price or req.shard_price != canonical_shards:
+        raise HTTPException(status_code=400, detail="Invalid price for item.")
+    try:
+        oid = ObjectId(user_id)
+    except InvalidId:
+        raise HTTPException(status_code=400, detail="Malformed user id.")
+    user = await db["users"].find_one({"_id": oid})
     if not user:
         raise HTTPException(status_code=404, detail="User not found.")
 
@@ -296,7 +343,7 @@ async def purchase_item(
         raise HTTPException(status_code=400, detail="Item already owned.")
 
     await db["users"].update_one(
-        {"_id": ObjectId(user_id)},
+        {"_id": oid},
         {
             "$inc":      {"protocredits": -req.price, "shards": -req.shard_price},
             "$addToSet": {"purchased_items": req.item_id},

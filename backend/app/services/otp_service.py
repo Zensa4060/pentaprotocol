@@ -4,19 +4,24 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 import redis
 import json
+import os
 
-GMAIL_USER = "you@pentaprotocol.com"
-GMAIL_APP_PASSWORD = "xxxx xxxx xxxx xxxx"
+GMAIL_USER = os.getenv("OTP_GMAIL_USER", "").strip()
+GMAIL_APP_PASSWORD = os.getenv("OTP_GMAIL_APP_PASSWORD", "").strip()
 OTP_EXPIRY = 600  # 10 minutes in seconds
 
 # Redis to store OTPs temporarily
-import os
-r = redis.Redis.from_url(os.environ.get("redis://default:JdtCPiHGMBKSpXGakdrONjkqthgOpnQO@redis.railway.internal:6379"))
+REDIS_URL = os.getenv("REDIS_URL", "").strip()
+if not REDIS_URL:
+    raise RuntimeError("REDIS_URL is required")
+r = redis.Redis.from_url(REDIS_URL)
 
 def generate_otp():
     return str(random.randint(100000, 999999))
 
 def send_otp_email(to_email: str, otp: str, purpose: str):
+    if not GMAIL_USER or not GMAIL_APP_PASSWORD:
+        raise RuntimeError("OTP_GMAIL_USER and OTP_GMAIL_APP_PASSWORD are required")
     subjects = {
         "signup": "Verify your email - PentaProtocol",
         "forgot_password": "Reset your password - PentaProtocol",

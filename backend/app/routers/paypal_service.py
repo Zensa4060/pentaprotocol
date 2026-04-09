@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Request
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from app.core.database import get_db_dep
 from .auth import get_current_user
 from bson import ObjectId
@@ -81,8 +81,8 @@ async def _paypal_post(path: str, payload: dict, token: str) -> dict:
 # ── Create PayPal Order ───────────────────────────────────────────────────────
 
 class CreatePayPalOrderRequest(BaseModel):
-    package_id:    str
-    currency_type: str = "protocredits"
+    package_id: str = Field(min_length=2, max_length=32)
+    currency_type: str = Field(default="protocredits", max_length=16)
 
 @router.post("/create-order")
 async def create_paypal_order(
@@ -145,9 +145,9 @@ async def create_paypal_order(
 # ── Capture PayPal Order (called after user approves) ────────────────────────
 
 class CapturePayPalOrderRequest(BaseModel):
-    order_id:      str
-    package_id:    str
-    currency_type: str = "protocredits"
+    order_id: str = Field(min_length=6, max_length=128)
+    package_id: str = Field(min_length=2, max_length=32)
+    currency_type: str = Field(default="protocredits", max_length=16)
 
 @router.post("/capture-order")
 async def capture_paypal_order(
@@ -172,11 +172,26 @@ async def capture_paypal_order(
         print("PAYPAL CAPTURE RESPONSE:", data)
         raise HTTPException(status_code=400, detail="Payment not completed.")
 
-    # Extract amount paid
+    # Extract capture details
     try:
-        amount_paid = data["purchase_units"][0]["payments"]["captures"][0]["amount"]["value"]
+        purchase_unit = data["purchase_units"][0]
+        capture_obj = purchase_unit["payments"]["captures"][0]
+        amount_paid = capture_obj["amount"]["value"]
+        reference_id = str(purchase_unit.get("reference_id", ""))
     except (KeyError, IndexError):
-        amount_paid = "0"
+        raise HTTPException(status_code=400, detail="Malformed PayPal capture payload.")
+
+    expected_ref = f"{req.package_id}_{(req.currency_type or 'protocredits').lower()}_{user_id}"
+    if reference_id != expected_ref:
+        raise HTTPException(status_code=400, detail="Capture reference mismatch.")
+
+    currency_type = (req.currency_type or "protocredits").lower()
+    table = SHARD_PACKAGES_USD if currency_type == "shards" else PACKAGES_USD
+    pkg = table.get(req.package_id)
+    if not pkg:
+        raise HTTPException(status_code=400, detail="Invalid package.")
+    if str(pkg["price"]) != str(amount_paid):
+        raise HTTPException(status_code=400, detail="Paid amount mismatch.")
 
     # Credit the user
     return await _credit_user(
@@ -184,7 +199,7 @@ async def capture_paypal_order(
         user_id=user_id,
         order_id=req.order_id,
         package_id=req.package_id,
-        currency_type=req.currency_type,
+        currency_type=currency_type,
         amount_paid=amount_paid,
         gateway="paypal",
     )
