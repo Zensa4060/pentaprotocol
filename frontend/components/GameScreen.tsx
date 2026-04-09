@@ -614,10 +614,14 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   const [chatMessages, setChatMessages] = useState<{ from: "P1" | "P2"; text: string; ts: number }[]>([]);
   const [chatInput, setChatInput] = useState("");
   const [chatOpen, setChatOpen] = useState(false);
+  const [isChatFullscreen, setIsChatFullscreen] = useState(false);
   const [chatWarning, setChatWarning] = useState(false);
   const [unreadOpponentChat, setUnreadOpponentChat] = useState(0);
   const [chatToastVisible, setChatToastVisible] = useState(false);
   const chatToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [poorConnectionToastVisible, setPoorConnectionToastVisible] = useState(false);
+  const poorConnectionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const localBarsRef = useRef<number | null>(null);
   const chatVisibleRef = useRef(false);
   const [readyTimeout, setReadyTimeout] = useState(60);
   const [readyTimer, setReadyTimer] = useState(0);
@@ -640,6 +644,32 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   const [matchStartAtMs, setMatchStartAtMs] = useState<number | null>(null);
   const [p1RttMs, setP1RttMs] = useState<number | null>(null);
   const [p2RttMs, setP2RttMs] = useState<number | null>(null);
+  const rttToBars = (rtt: number | null | undefined) => {
+    if (rtt === null || rtt === undefined) return 0;
+    if (rtt <= 80) return 4;
+    if (rtt <= 150) return 3;
+    if (rtt <= 300) return 2;
+    if (rtt <= 600) return 1;
+    return 0;
+  };
+  const localRtt = mySlot === "P1" ? p1RttMs : p2RttMs;
+  const localBars = rttToBars(localRtt);
+
+  useEffect(() => {
+    if (!isMultiplayerGame) return;
+    const prev = localBarsRef.current;
+    if (prev !== 1 && localBars === 1) {
+      setPoorConnectionToastVisible(true);
+      if (poorConnectionTimerRef.current) clearTimeout(poorConnectionTimerRef.current);
+      poorConnectionTimerRef.current = setTimeout(() => setPoorConnectionToastVisible(false), 3500);
+    }
+    localBarsRef.current = localBars;
+  }, [isMultiplayerGame, localBars]);
+
+  useEffect(() => () => {
+    if (poorConnectionTimerRef.current) clearTimeout(poorConnectionTimerRef.current);
+  }, []);
+
   const sentMatchReadyRef = useRef(false);
   const wsPingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pingOutstandingRef = useRef<number | null>(null);
@@ -3964,10 +3994,14 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
                 clearTimeout(chatToastTimerRef.current);
                 chatToastTimerRef.current = null;
               }
+            } else {
+              setIsChatFullscreen(false);
             }
             return next;
           });
         }}
+        chatFullscreen={isChatFullscreen}
+        onChatFullscreenToggle={() => setIsChatFullscreen(v => !v)}
         onSoftReset={softReset}
         onDismissOverlayAction={dismissOverlay}
         onRematchAction={() => { wsRef.current?.send(JSON.stringify({ type: "rematch" })); setRematchRequested(mySlot); }}
@@ -4009,6 +4043,30 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
           }}
         >
           {unreadOpponentChat} new message{unreadOpponentChat > 1 ? "s" : ""}
+        </div>
+      )}
+      {isMultiplayerGame && poorConnectionToastVisible && (
+        <div
+          style={{
+            position: "fixed",
+            left: panelW + 16,
+            bottom: 72,
+            zIndex: 51,
+            maxWidth: 320,
+            padding: "10px 16px",
+            background: "rgba(20,0,0,0.92)",
+            border: `1px solid ${t.danger}AA`,
+            borderRadius: ip ? 2 : 10,
+            boxShadow: "0 8px 32px rgba(0,0,0,0.5)",
+            fontFamily: t.fontMono,
+            fontSize: 12,
+            fontWeight: 700,
+            color: t.danger,
+            letterSpacing: "0.04em",
+            pointerEvents: "none",
+          }}
+        >
+          Poor internet connection detected
         </div>
       )}
 

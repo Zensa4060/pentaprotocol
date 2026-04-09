@@ -104,6 +104,7 @@ interface MatchSidebarProps {
   chatMessages: { from: "P1" | "P2"; text: string; ts: number }[];
   chatInput: string;
   chatOpen: boolean;
+  chatFullscreen?: boolean;
   chatWarning: boolean;
   /** Opponent messages received while chat panel was collapsed (multiplayer). */
   unreadOpponentChat?: number;
@@ -138,6 +139,7 @@ interface MatchSidebarProps {
   onChatInputChange: (v: string) => void;
   onChatKeyDown: (e: React.KeyboardEvent) => void;
   onChatOpenToggle: () => void;
+  onChatFullscreenToggle?: () => void;
   onSoftReset: () => void;
   onDismissOverlayAction: () => void;
   onRematchAction: () => void;
@@ -167,13 +169,13 @@ export function MatchSidebar({
   boardMode, selectedPatterns, rbBannedPatterns = [], patternsAsSecret = false, p1SeriesPts, p2SeriesPts,
   p1Time, p2Time, readyTimeout,
   p1Ready, p2Ready,
-  chatMessages, chatInput, chatOpen, chatWarning, unreadOpponentChat = 0,
+  chatMessages, chatInput, chatOpen, chatFullscreen = false, chatWarning, unreadOpponentChat = 0,
   log, botThinking,
   showWinOverlay, overlayVisible, winnerColor, winnerPiece, seriesDiffers, seriesColor, seriesPiece,
   showRematch, rematchRequested, lastSeries,
   showSurrender, showExitConfirm, setScreenAction,
   p1Label, p2Label, winnerDisplayNameAction, segmentStartIndex = 0, historyDisplayStartIndex = 0,
-  onReadyToggle, onSendChat, onChatInputChange, onChatKeyDown, onChatOpenToggle,
+  onReadyToggle, onSendChat, onChatInputChange, onChatKeyDown, onChatOpenToggle, onChatFullscreenToggle,
   onSoftReset, onDismissOverlayAction, onRematchAction, onQuitMatchAction,
   onSurrenderConfirmAction, onSurrenderCancelAction, onExitConfirmAction, onExitCancelAction,
   onShowSurrenderAction, onShowExitConfirmAction, onShowRematchOverlayAction,
@@ -190,6 +192,14 @@ export function MatchSidebar({
   const isPreMoveAbort = isRankedGame && gameNumber === 1 && (movesPlayed ?? 0) === 0;
   const useFlameSkull = pieceSkin === "flame_skull";
   const useSnowflakeShard = pieceSkin === "snowflake_shard";
+  const chatListRef = React.useRef<HTMLDivElement | null>(null);
+
+  React.useEffect(() => {
+    if (!chatOpen) return;
+    const el = chatListRef.current;
+    if (!el) return;
+    el.scrollTop = el.scrollHeight;
+  }, [chatOpen, chatMessages.length]);
 
   const renderSidebarPiece = (slot: "P1" | "P2") => {
     const cssSize = ip ? "14px" : "16px";
@@ -338,7 +348,7 @@ export function MatchSidebar({
 
   // ── Left panel ─────────────────────────────────────────────────────────────
   const leftPanel = (
-    <div style={{ width: panelW, minWidth: panelW, maxWidth: panelW * 1.15, resize: "horizontal", overflowX: "hidden", flexShrink: 0, background: t.bgPanel, borderRight: `${ip ? 3 : 1}px solid ${t.border}`, padding: "18px 18px", display: "flex", flexDirection: "column", gap: 14, overflowY: "auto" }}>
+    <div style={{ width: panelW, minWidth: panelW, maxWidth: panelW * 1.15, resize: "horizontal", overflowX: "hidden", flexShrink: 0, background: t.bgPanel, borderRight: `${ip ? 3 : 1}px solid ${t.border}`, padding: "18px 18px", display: "flex", flexDirection: "column", gap: 14, overflowY: "auto", position: "relative" }}>
       <div style={{ fontFamily: t.fontMono, fontSize: 20, fontWeight: 700, color: t.text, letterSpacing: "0.14em" }}>MATCH TIMER</div>
       {(["P1", "P2"] as const).map(p => (
         <div key={p} style={{ position: "relative", padding: "12px 14px", background: phase === "playing" && current === p ? `${p === "P1" ? p1c : p2c}22` : t.bgCard, border: `1px solid ${phase === "playing" && current === p ? (p === "P1" ? p1c : p2c) : t.border}`, borderRadius: ip ? 2 : 8, display: "flex", justifyContent: "space-between", alignItems: "center", transition: "background 0.25s, border-color 0.25s", overflow: "hidden" }}>
@@ -502,22 +512,49 @@ export function MatchSidebar({
                 </span>
               )}
             </div>
-            <button onClick={onChatOpenToggle} style={{ background: "none", border: "none", color: t.text, fontFamily: t.fontMono, fontSize: 16, cursor: "pointer", padding: "2px 6px", flexShrink: 0 }}>{chatOpen ? "▾" : "▸"}</button>
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              {chatOpen && (
+                <button
+                  onClick={onChatFullscreenToggle}
+                  style={{ background: "none", border: `1px solid ${t.border}`, color: chatFullscreen ? t.accent : t.textSecondary, fontFamily: t.fontMono, fontSize: 11, cursor: "pointer", padding: "3px 8px", borderRadius: ip ? 2 : 6, letterSpacing: "0.06em" }}
+                >
+                  {chatFullscreen ? "EXIT FULL" : "FULL"}
+                </button>
+              )}
+              <button onClick={onChatOpenToggle} style={{ background: "none", border: "none", color: t.text, fontFamily: t.fontMono, fontSize: 16, cursor: "pointer", padding: "2px 6px", flexShrink: 0 }}>{chatOpen ? "▾" : "▸"}</button>
+            </div>
           </div>
-          {chatOpen && (
-            <>
-              <div style={{ height: 160, overflowY: "auto", background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: ip ? 2 : 8, padding: "10px 12px", display: "flex", flexDirection: "column", gap: 6 }}>
-                {chatMessages.length === 0 && (<div style={{ fontFamily: t.fontBody, fontSize: 14, color: t.textMuted, textAlign: "center", marginTop: 24 }}>No messages yet</div>)}
-                {chatMessages.map((m, i) => (<div key={i} style={{ display: "flex", gap: 6, alignItems: "flex-start" }}><span style={{ fontFamily: t.fontMono, fontSize: 14, fontWeight: 700, color: m.from === "P1" ? p1c : p2c, flexShrink: 0 }}>{m.from === "P1" ? (p1Label ?? "P1") : (p2Label ?? "P2")}:</span><span style={{ fontFamily: t.fontBody, fontSize: 14, color: t.text, wordBreak: "break-word" as const }}>{m.text}</span></div>))}
-              </div>
-              {chatWarning && (<div style={{ padding: "8px 12px", background: "#F4433618", border: "1px solid #F44336", borderRadius: 6, fontFamily: t.fontBody, fontSize: 13, color: "#F44336" }}>Inappropriate language detected and censored.</div>)}
-              <div style={{ display: "flex", gap: 6 }}>
-                <input value={chatInput} onChange={e => onChatInputChange(e.target.value)} onKeyDown={onChatKeyDown} placeholder="message…" maxLength={60} style={{ flex: 1, background: t.inputBg, border: `1px solid ${t.border}`, borderRadius: ip ? 2 : 6, color: t.text, fontFamily: t.fontBody, fontSize: 14, padding: "8px 10px", outline: "none", minWidth: 0 }} />
-                {(!isMultiplayerGame || mySlot === "P1") && (<button onClick={() => onSendChat("P1")} style={{ background: `${p1c}20`, border: `1px solid ${p1c}`, color: p1c, fontFamily: t.fontMono, fontSize: 14, fontWeight: 700, padding: "8px 12px", borderRadius: ip ? 2 : 6, cursor: "pointer", transition: "all 0.18s", flexShrink: 0 }} onMouseEnter={e => { e.currentTarget.style.background = p1c; e.currentTarget.style.color = "#000"; }} onMouseLeave={e => { e.currentTarget.style.background = `${p1c}20`; e.currentTarget.style.color = p1c; }}>P1</button>)}
-                {(!isMultiplayerGame || mySlot === "P2") && (<button onClick={() => onSendChat("P2")} style={{ background: `${p2c}20`, border: `1px solid ${p2c}`, color: p2c, fontFamily: t.fontMono, fontSize: 14, fontWeight: 700, padding: "8px 12px", borderRadius: ip ? 2 : 6, cursor: "pointer", transition: "all 0.18s", flexShrink: 0 }} onMouseEnter={e => { e.currentTarget.style.background = p2c; e.currentTarget.style.color = "#000"; }} onMouseLeave={e => { e.currentTarget.style.background = `${p2c}20`; e.currentTarget.style.color = p2c; }}>P2</button>)}
-              </div>
-            </>
-          )}
+        </div>
+      )}
+      {isMultiplayerGame && chatOpen && (phase === "playing" || phase === "waiting_ready") && (
+        <div
+          style={{
+            position: "absolute",
+            zIndex: 20,
+            left: chatFullscreen ? 8 : 10,
+            right: chatFullscreen ? -Math.max(120, Math.round(panelW * 0.35)) : 10,
+            top: chatFullscreen ? 8 : "48%",
+            bottom: 66,
+            background: "rgba(0,0,0,0.92)",
+            border: `1px solid ${t.border}`,
+            borderRadius: ip ? 2 : 10,
+            padding: "10px 12px",
+            display: "flex",
+            flexDirection: "column",
+            gap: 8,
+            boxShadow: "0 20px 48px rgba(0,0,0,0.5)",
+          }}
+        >
+          <div ref={chatListRef} style={{ flex: 1, minHeight: 0, overflowY: "auto", background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: ip ? 2 : 8, padding: "10px 12px", display: "flex", flexDirection: "column", gap: 6 }}>
+            {chatMessages.length === 0 && (<div style={{ fontFamily: t.fontBody, fontSize: 14, color: t.textMuted, textAlign: "center", marginTop: 24 }}>No messages yet</div>)}
+            {chatMessages.map((m, i) => (<div key={i} style={{ display: "flex", gap: 6, alignItems: "flex-start" }}><span style={{ fontFamily: t.fontMono, fontSize: 14, fontWeight: 700, color: m.from === "P1" ? p1c : p2c, flexShrink: 0 }}>{m.from === "P1" ? (p1Label ?? "P1") : (p2Label ?? "P2")}:</span><span style={{ fontFamily: t.fontBody, fontSize: 14, color: t.text, wordBreak: "break-word" as const }}>{m.text}</span></div>))}
+          </div>
+          {chatWarning && (<div style={{ padding: "8px 12px", background: "#F4433618", border: "1px solid #F44336", borderRadius: 6, fontFamily: t.fontBody, fontSize: 13, color: "#F44336" }}>Inappropriate language detected and censored.</div>)}
+          <div style={{ display: "flex", gap: 6 }}>
+            <input value={chatInput} onChange={e => onChatInputChange(e.target.value)} onKeyDown={onChatKeyDown} placeholder="message…" maxLength={60} style={{ flex: 1, background: t.inputBg, border: `1px solid ${t.border}`, borderRadius: ip ? 2 : 6, color: t.text, fontFamily: t.fontBody, fontSize: 14, padding: "8px 10px", outline: "none", minWidth: 0 }} />
+            {(!isMultiplayerGame || mySlot === "P1") && (<button onClick={() => onSendChat("P1")} style={{ background: `${p1c}20`, border: `1px solid ${p1c}`, color: p1c, fontFamily: t.fontMono, fontSize: 14, fontWeight: 700, padding: "8px 12px", borderRadius: ip ? 2 : 6, cursor: "pointer", transition: "all 0.18s", flexShrink: 0 }} onMouseEnter={e => { e.currentTarget.style.background = p1c; e.currentTarget.style.color = "#000"; }} onMouseLeave={e => { e.currentTarget.style.background = `${p1c}20`; e.currentTarget.style.color = p1c; }}>P1</button>)}
+            {(!isMultiplayerGame || mySlot === "P2") && (<button onClick={() => onSendChat("P2")} style={{ background: `${p2c}20`, border: `1px solid ${p2c}`, color: p2c, fontFamily: t.fontMono, fontSize: 14, fontWeight: 700, padding: "8px 12px", borderRadius: ip ? 2 : 6, cursor: "pointer", transition: "all 0.18s", flexShrink: 0 }} onMouseEnter={e => { e.currentTarget.style.background = p2c; e.currentTarget.style.color = "#000"; }} onMouseLeave={e => { e.currentTarget.style.background = `${p2c}20`; e.currentTarget.style.color = p2c; }}>P2</button>)}
+          </div>
         </div>
       )}
       {(phase === "playing" || phase === "waiting_ready") && (
@@ -557,9 +594,9 @@ export function LeftPanel(props: MatchSidebarProps) {
   const { t, ip, p1c, p2c, pieceSkin, p1RttMs, p2RttMs, panelW, phase, current, gameNumber, movesPlayed = 0, matchHistory, seriesWinner,
     gameMode, isRankedGame, isMultiplayerGame, isMultiplayer, mySlot, boardMode, selectedPatterns, rbBannedPatterns = [], patternsAsSecret = false, p1SeriesPts, p2SeriesPts,
     p1Time, p2Time, readyTimeout, p1Ready, p2Ready,
-  chatMessages, chatInput, chatOpen, chatWarning, unreadOpponentChat = 0,
+  chatMessages, chatInput, chatOpen, chatFullscreen = false, chatWarning, unreadOpponentChat = 0,
   p1Label, p2Label, p1Banner, p2Banner, winnerDisplayNameAction, lastSeries, segmentStartIndex = 0, historyDisplayStartIndex = 0,
-    onReadyToggle, onSendChat, onChatInputChange, onChatKeyDown, onChatOpenToggle,
+    onReadyToggle, onSendChat, onChatInputChange, onChatKeyDown, onChatOpenToggle, onChatFullscreenToggle,
     onSoftReset, onShowSurrenderAction, onShowExitConfirmAction, fmtTimeAction, playHoverAction,
     interGameReadyVisible, waitingReadyWarmup } = props;
 
@@ -573,6 +610,14 @@ export function LeftPanel(props: MatchSidebarProps) {
   const isPreMoveAbort = isRankedGame && gameNumber === 1 && (movesPlayed ?? 0) === 0;
   const useFlameSkull = pieceSkin === "flame_skull";
   const useSnowflakeShard = pieceSkin === "snowflake_shard";
+  const chatListRef = React.useRef<HTMLDivElement | null>(null);
+
+  React.useEffect(() => {
+    if (!chatOpen) return;
+    const el = chatListRef.current;
+    if (!el) return;
+    el.scrollTop = el.scrollHeight;
+  }, [chatOpen, chatMessages.length]);
 
   const renderSidebarPiece = (slot: "P1" | "P2") => {
     const cssSize = ip ? "14px" : "16px";
@@ -637,7 +682,7 @@ export function LeftPanel(props: MatchSidebarProps) {
   };
 
   return (
-    <div style={{ width: panelW, minWidth: panelW, maxWidth: panelW * 1.15, resize: "horizontal", overflowX: "hidden", flexShrink: 0, background: t.bgPanel, borderRight: `${ip ? 3 : 1}px solid ${t.border}`, padding: "18px 18px", display: "flex", flexDirection: "column", gap: 14, overflowY: "auto" }}>
+    <div style={{ width: panelW, minWidth: panelW, maxWidth: panelW * 1.15, resize: "horizontal", overflowX: "hidden", flexShrink: 0, background: t.bgPanel, borderRight: `${ip ? 3 : 1}px solid ${t.border}`, padding: "18px 18px", display: "flex", flexDirection: "column", gap: 14, overflowY: "auto", position: "relative" }}>
       <div style={{ fontFamily: t.fontMono, fontSize: 20, fontWeight: 700, color: t.text, letterSpacing: "0.14em" }}>MATCH TIMER</div>
       {(["P1", "P2"] as const).map(p => {
         const isCurrentMover = phase === "playing" && current === p;
@@ -804,22 +849,49 @@ export function LeftPanel(props: MatchSidebarProps) {
                 </span>
               )}
             </div>
-            <button onClick={onChatOpenToggle} style={{ background: "none", border: "none", color: t.text, fontFamily: t.fontMono, fontSize: 16, cursor: "pointer", padding: "2px 6px", flexShrink: 0 }}>{chatOpen ? "▾" : "▸"}</button>
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              {chatOpen && (
+                <button
+                  onClick={onChatFullscreenToggle}
+                  style={{ background: "none", border: `1px solid ${t.border}`, color: chatFullscreen ? t.accent : t.textSecondary, fontFamily: t.fontMono, fontSize: 11, cursor: "pointer", padding: "3px 8px", borderRadius: ip ? 2 : 6, letterSpacing: "0.06em" }}
+                >
+                  {chatFullscreen ? "EXIT FULL" : "FULL"}
+                </button>
+              )}
+              <button onClick={onChatOpenToggle} style={{ background: "none", border: "none", color: t.text, fontFamily: t.fontMono, fontSize: 16, cursor: "pointer", padding: "2px 6px", flexShrink: 0 }}>{chatOpen ? "▾" : "▸"}</button>
+            </div>
           </div>
-          {chatOpen && (
-            <>
-              <div style={{ height: 160, overflowY: "auto", background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: ip ? 2 : 8, padding: "10px 12px", display: "flex", flexDirection: "column", gap: 6 }}>
-                {chatMessages.length === 0 && (<div style={{ fontFamily: t.fontBody, fontSize: 14, color: t.textMuted, textAlign: "center", marginTop: 24 }}>No messages yet</div>)}
-                {chatMessages.map((m, i) => (<div key={i} style={{ display: "flex", gap: 6, alignItems: "flex-start" }}><span style={{ fontFamily: t.fontMono, fontSize: 14, fontWeight: 700, color: m.from === "P1" ? p1c : p2c, flexShrink: 0 }}>{m.from === "P1" ? (p1Label ?? "P1") : (p2Label ?? "P2")}:</span><span style={{ fontFamily: t.fontBody, fontSize: 14, color: t.text, wordBreak: "break-word" as const }}>{m.text}</span></div>))}
-              </div>
-              {chatWarning && (<div style={{ padding: "8px 12px", background: "#F4433618", border: "1px solid #F44336", borderRadius: 6, fontFamily: t.fontBody, fontSize: 13, color: "#F44336" }}>Inappropriate language detected and censored.</div>)}
-              <div style={{ display: "flex", gap: 6 }}>
-                <input value={chatInput} onChange={e => onChatInputChange(e.target.value)} onKeyDown={onChatKeyDown} placeholder="message…" maxLength={60} style={{ flex: 1, background: t.inputBg, border: `1px solid ${t.border}`, borderRadius: ip ? 2 : 6, color: t.text, fontFamily: t.fontBody, fontSize: 14, padding: "8px 10px", outline: "none", minWidth: 0 }} />
-                {(!isMultiplayerGame || mySlot === "P1") && (<button onClick={() => onSendChat("P1")} style={{ background: `${p1c}20`, border: `1px solid ${p1c}`, color: p1c, fontFamily: t.fontMono, fontSize: 14, fontWeight: 700, padding: "8px 12px", borderRadius: ip ? 2 : 6, cursor: "pointer", transition: "all 0.18s", flexShrink: 0 }} onMouseEnter={e => { e.currentTarget.style.background = p1c; e.currentTarget.style.color = "#000"; }} onMouseLeave={e => { e.currentTarget.style.background = `${p1c}20`; e.currentTarget.style.color = p1c; }}>P1</button>)}
-                {(!isMultiplayerGame || mySlot === "P2") && (<button onClick={() => onSendChat("P2")} style={{ background: `${p2c}20`, border: `1px solid ${p2c}`, color: p2c, fontFamily: t.fontMono, fontSize: 14, fontWeight: 700, padding: "8px 12px", borderRadius: ip ? 2 : 6, cursor: "pointer", transition: "all 0.18s", flexShrink: 0 }} onMouseEnter={e => { e.currentTarget.style.background = p2c; e.currentTarget.style.color = "#000"; }} onMouseLeave={e => { e.currentTarget.style.background = `${p2c}20`; e.currentTarget.style.color = p2c; }}>P2</button>)}
-              </div>
-            </>
-          )}
+        </div>
+      )}
+      {isMultiplayerGame && chatOpen && (phase === "playing" || phase === "waiting_ready") && (
+        <div
+          style={{
+            position: "absolute",
+            zIndex: 20,
+            left: chatFullscreen ? 8 : 10,
+            right: chatFullscreen ? -Math.max(120, Math.round(panelW * 0.35)) : 10,
+            top: chatFullscreen ? 8 : "48%",
+            bottom: 66,
+            background: "rgba(0,0,0,0.92)",
+            border: `1px solid ${t.border}`,
+            borderRadius: ip ? 2 : 10,
+            padding: "10px 12px",
+            display: "flex",
+            flexDirection: "column",
+            gap: 8,
+            boxShadow: "0 20px 48px rgba(0,0,0,0.5)",
+          }}
+        >
+          <div ref={chatListRef} style={{ flex: 1, minHeight: 0, overflowY: "auto", background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: ip ? 2 : 8, padding: "10px 12px", display: "flex", flexDirection: "column", gap: 6 }}>
+            {chatMessages.length === 0 && (<div style={{ fontFamily: t.fontBody, fontSize: 14, color: t.textMuted, textAlign: "center", marginTop: 24 }}>No messages yet</div>)}
+            {chatMessages.map((m, i) => (<div key={i} style={{ display: "flex", gap: 6, alignItems: "flex-start" }}><span style={{ fontFamily: t.fontMono, fontSize: 14, fontWeight: 700, color: m.from === "P1" ? p1c : p2c, flexShrink: 0 }}>{m.from === "P1" ? (p1Label ?? "P1") : (p2Label ?? "P2")}:</span><span style={{ fontFamily: t.fontBody, fontSize: 14, color: t.text, wordBreak: "break-word" as const }}>{m.text}</span></div>))}
+          </div>
+          {chatWarning && (<div style={{ padding: "8px 12px", background: "#F4433618", border: "1px solid #F44336", borderRadius: 6, fontFamily: t.fontBody, fontSize: 13, color: "#F44336" }}>Inappropriate language detected and censored.</div>)}
+          <div style={{ display: "flex", gap: 6 }}>
+            <input value={chatInput} onChange={e => onChatInputChange(e.target.value)} onKeyDown={onChatKeyDown} placeholder="message…" maxLength={60} style={{ flex: 1, background: t.inputBg, border: `1px solid ${t.border}`, borderRadius: ip ? 2 : 6, color: t.text, fontFamily: t.fontBody, fontSize: 14, padding: "8px 10px", outline: "none", minWidth: 0 }} />
+            {(!isMultiplayerGame || mySlot === "P1") && (<button onClick={() => onSendChat("P1")} style={{ background: `${p1c}20`, border: `1px solid ${p1c}`, color: p1c, fontFamily: t.fontMono, fontSize: 14, fontWeight: 700, padding: "8px 12px", borderRadius: ip ? 2 : 6, cursor: "pointer", transition: "all 0.18s", flexShrink: 0 }} onMouseEnter={e => { e.currentTarget.style.background = p1c; e.currentTarget.style.color = "#000"; }} onMouseLeave={e => { e.currentTarget.style.background = `${p1c}20`; e.currentTarget.style.color = p1c; }}>P1</button>)}
+            {(!isMultiplayerGame || mySlot === "P2") && (<button onClick={() => onSendChat("P2")} style={{ background: `${p2c}20`, border: `1px solid ${p2c}`, color: p2c, fontFamily: t.fontMono, fontSize: 14, fontWeight: 700, padding: "8px 12px", borderRadius: ip ? 2 : 6, cursor: "pointer", transition: "all 0.18s", flexShrink: 0 }} onMouseEnter={e => { e.currentTarget.style.background = p2c; e.currentTarget.style.color = "#000"; }} onMouseLeave={e => { e.currentTarget.style.background = `${p2c}20`; e.currentTarget.style.color = p2c; }}>P2</button>)}
+          </div>
         </div>
       )}
       {(phase === "playing" || phase === "waiting_ready") && (

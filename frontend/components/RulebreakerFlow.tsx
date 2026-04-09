@@ -114,6 +114,60 @@ export function RulebreakerFlow({
     const cloudTone = isSixBySixRb ? "rgba(167,139,250,0.12)" : isFiveByFive ? "rgba(120,230,255,0.1)" : "rgba(200,40,40,0.18)";
     const mistBlurPx = isLowGraphics ? 0 : isBalancedGraphics ? 8 : 11;
 
+    // Keep TIMEBREAKER visuals unchanged; simplify RULEBREAKER and MINDBREAKER.
+    if (!isSixBySixRb) {
+      return (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            zIndex: 10000,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            background: splashBg,
+            userSelect: "none",
+            overflow: "hidden",
+          }}
+        >
+          <style>{`
+            @keyframes rbSimpleTextIn { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: translateY(0); } }
+            @keyframes rbSimpleTextGlow { 0%, 100% { opacity: 0.78; } 50% { opacity: 1; } }
+            @keyframes rbSimpleLineBreath { 0%, 100% { opacity: 0.45; transform: scaleX(0.94); } 50% { opacity: 0.95; transform: scaleX(1); } }
+          `}</style>
+          <div style={{ position: "absolute", inset: 0, background: splashVignette, opacity: 0.72 }} />
+          <div style={{ position: "relative", zIndex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 20, padding: "0 20px", textAlign: "center" }}>
+            <div
+              style={{
+                fontFamily: t.fontDisplay,
+                fontSize: "clamp(36px,7vw,110px)",
+                fontWeight: 950,
+                color: splashColor,
+                letterSpacing: "0.06em",
+                textShadow: `0 0 24px ${splashTitleGlow}, 0 8px 18px rgba(0,0,0,0.52)`,
+                animation: "rbSimpleTextIn 0.9s cubic-bezier(.22,.68,0,1.2) both, rbSimpleTextGlow 3s ease-in-out 1.1s infinite",
+              }}
+            >
+              {splashTitle}
+            </div>
+            <div
+              style={{
+                width: "clamp(240px,52vw,840px)",
+                height: 2,
+                background: `linear-gradient(90deg, transparent, ${splashColor}, transparent)`,
+                boxShadow: `0 0 14px ${splashGlow}`,
+                animation: "rbSimpleLineBreath 3.2s ease-in-out infinite",
+              }}
+            />
+          </div>
+        </div>
+      );
+    }
+
     /** 5×5 — large cyan splashes across the viewport (no micro-drops / drips = fewer layers). */
     const rulebreakerSplatsAll = [
       { l: "50%", t: "46%", s: 980, d: 0 },

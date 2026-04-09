@@ -713,7 +713,6 @@ export default function CareerScreen({ themeId, onHoverAction }: Props) {
                       marginBottom: 4,
                     }}
                   >
-                    CURRENT RANK
                   </div>
                   <div
                     style={{
