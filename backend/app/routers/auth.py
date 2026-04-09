@@ -364,3 +364,130 @@ async def reset_password(data: ResetPasswordRequest, request: Request):
     )
     del _reset_codes[data.email]
     return {"detail": "Password reset successfully"}
+
+# ── ACCEPT LEGAL (server-side consent record) ─────────────────────────────────
+class AcceptLegalRequest(BaseModel):
+    version: int = Field(default=1, ge=1, le=100)
+
+@router.post("/accept-legal")
+async def accept_legal(data: AcceptLegalRequest, request: Request, user_id: str = Depends(get_current_user)):
+    db = get_db()
+    existing = await db.legal_acceptances.find_one({"user_id": user_id, "version": data.version})
+    if existing:
+        return {"detail": "Already accepted", "accepted_at": existing.get("accepted_at", "").isoformat() if existing.get("accepted_at") else None}
+
+    await db.legal_acceptances.insert_one({
+        "user_id":    user_id,
+        "version":    data.version,
+        "ip_address": request.client.host if request.client else "unknown",
+        "user_agent": request.headers.get("user-agent", "unknown"),
+        "accepted_at": datetime.utcnow(),
+    })
+    return {"detail": "Legal acceptance recorded"}
+
+# ── DELETE ACCOUNT (self-service) ─────────────────────────────────────────────
+class DeleteAccountRequest(BaseModel):
+    password: str = Field(min_length=1, max_length=256)
+
+@router.post("/delete-account")
+async def delete_account(data: DeleteAccountRequest, request: Request, user_id: str = Depends(get_current_user)):
+    db  = get_db()
+    oid = user_object_id(user_id)
+    user = await db.users.find_one({"_id": oid})
+    if not user:
+        raise HTTPException(404, "User not found")
+
+    if not verify_password(data.password, user["password"]):
+        raise HTTPException(400, "Incorrect password")
+
+    # Purge all user data across collections
+    await db.users.delete_one({"_id": oid})
+    await db.match_history.delete_many({"user_id": {"$in": [user_id, oid]}})
+    await db.payments.delete_many({"user_id": user_id})
+    await db.upi_payments.delete_many({"user_id": user_id})
+    await db.legal_acceptances.delete_many({"user_id": user_id})
+
+    # Clean up any active matchmaking queue entries
+    try:
+        await db.matchmaking_queue.delete_many({"user_id": user_id})
+    except Exception:
+        pass
+
+    return {"detail": "Account and all associated data have been permanently deleted"}
+
+# ── EXPORT DATA (GDPR data portability) ───────────────────────────────────────
+@router.get("/export-data")
+async def export_data(user_id: str = Depends(get_current_user)):
+    db  = get_db()
+    oid = user_object_id(user_id)
+    user = await db.users.find_one({"_id": oid})
+    if not user:
+        raise HTTPException(404, "User not found")
+
+    # Sanitise user doc — remove sensitive internal fields
+    export_user = {}
+    EXCLUDE = {"password", "totp_secret", "totp_enabled", "_id"}
+    for k, v in user.items():
+        if k in EXCLUDE:
+            continue
+        if hasattr(v, "isoformat"):
+            export_user[k] = v.isoformat()
+        elif isinstance(v, ObjectId):
+            export_user[k] = str(v)
+        else:
+            export_user[k] = v
+    export_user["id"] = str(user["_id"])
+
+    # Gather match history
+    match_history = []
+    async for doc in db.match_history.find({"user_id": {"$in": [user_id, oid]}}):
+        entry = {}
+        for k, v in doc.items():
+            if k == "_id":
+                entry["id"] = str(v)
+            elif hasattr(v, "isoformat"):
+                entry[k] = v.isoformat()
+            elif isinstance(v, ObjectId):
+                entry[k] = str(v)
+            else:
+                entry[k] = v
+        match_history.append(entry)
+
+    # Gather payments
+    payments = []
+    async for doc in db.payments.find({"user_id": user_id}):
+        entry = {}
+        for k, v in doc.items():
+            if k == "_id":
+                entry["id"] = str(v)
+            elif hasattr(v, "isoformat"):
+                entry[k] = v.isoformat()
+            elif isinstance(v, ObjectId):
+                entry[k] = str(v)
+            else:
+                entry[k] = v
+        payments.append(entry)
+
+    # Gather legal acceptances
+    acceptances = []
+    async for doc in db.legal_acceptances.find({"user_id": user_id}):
+        entry = {}
+        for k, v in doc.items():
+            if k == "_id":
+                entry["id"] = str(v)
+            elif hasattr(v, "isoformat"):
+                entry[k] = v.isoformat()
+            elif isinstance(v, ObjectId):
+                entry[k] = str(v)
+            else:
+                entry[k] = v
+        acceptances.append(entry)
+
+    return {
+        "exported_at": datetime.utcnow().isoformat(),
+        "user": export_user,
+        "match_history": match_history,
+        "payments": payments,
+        "legal_acceptances": acceptances,
+    }
+

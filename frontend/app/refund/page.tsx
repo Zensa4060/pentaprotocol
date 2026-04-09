@@ -37,13 +37,13 @@ export default function RefundPage() {
             <div style={{ fontFamily: "monospace", fontSize: 11, color: "#CC0000", letterSpacing: "0.3em", marginBottom: 12 }}>LEGAL</div>
             <h1 style={{ fontSize: 40, fontWeight: 700, color: "#fff", lineHeight: 1.15, marginBottom: 16 }}>Refund &amp; Cancellation Policy</h1>
             <p style={{ fontSize: 14, color: "#555", lineHeight: 1.6 }}>
-              Effective Date: {new Date().toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })} &nbsp;·&nbsp; pentaprotocol.com
+              Effective Date: 9 April 2026 &nbsp;·&nbsp; pentaprotocol.com
             </p>
             <div style={{ height: 2, background: "linear-gradient(to right, #CC0000, transparent)", marginTop: 24 }} />
           </div>
 
           <Section title="1. Overview">
-            All purchases of virtual currency (ProtoCredits and PentaShards) and in-game items on PentaProtocol are generally <strong style={{ color: "#e8e8e8" }}>final and non-refundable</strong>, due to the immediate digital nature of delivery. We have a limited exception for accidental duplicate purchases only. Payments may be made via PayPal or by scanning the creator&apos;s personal payment QR (UPI or other method shown below). We do not use Instamojo. By completing a purchase, you agree to this policy.
+            All purchases of virtual currency (ProtoCredits and PentaShards) and in-game items on PentaProtocol are generally <strong style={{ color: "#e8e8e8" }}>final and non-refundable</strong>, due to the immediate digital nature of delivery. We have a limited exception for accidental duplicate purchases only. Payments may be made via PayPal, Instamojo (where available), or by scanning the creator&apos;s personal payment QR (UPI or other method shown below). By completing a purchase, you agree to this policy.
           </Section>
 
           <Section title="2. Creator payment QR (direct payments)" id="creator-payment-qr">
@@ -111,6 +111,12 @@ export default function RefundPage() {
             <a href="mailto:support@pentaprotocol.com" style={{ color: "#CC0000", textDecoration: "none" }}>support@pentaprotocol.com</a>
           </Section>
 
+          <div style={{ marginTop: 32, paddingTop: 16, borderTop: "1px solid #1e1e2a" }}>
+            <div style={{ fontFamily: "monospace", fontSize: 11, color: "#444", lineHeight: 1.8 }}>
+              Version 1.0 — 9 April 2026 · Initial release
+            </div>
+          </div>
+
           <FooterLinks current="refund" />
         </div>
       </div>
@@ -129,11 +135,12 @@ function Section({ title, children, id }: { title: string; children: React.React
   );
 }
 
-function FooterLinks({ current }: { current: "terms" | "privacy" | "refund" }) {
+function FooterLinks({ current }: { current: "terms" | "privacy" | "refund" | "cookies" }) {
   const links = [
     { label: "Terms & Conditions", href: "/terms" },
     { label: "Privacy Policy",     href: "/privacy" },
     { label: "Refund Policy",      href: "/refund" },
+    { label: "Cookie Policy",      href: "/cookies" },
   ];
   return (
     <div style={{ marginTop: 72, paddingTop: 24, borderTop: "1px solid #1e1e2a", display: "flex", gap: 24, flexWrap: "wrap", justifyContent: "center" }}>

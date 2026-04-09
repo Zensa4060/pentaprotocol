@@ -288,6 +288,14 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
   const [showEmailPw, setShowEmailPw]     = useState(false);
   const [emailTotpStep, setEmailTotpStep] = useState<"idle"|"awaiting_otp">("idle");
   const [emailOtpCode, setEmailOtpCode]   = useState("");
+
+  // ── Delete account ─────────────────────────────────────────────────────────
+  const [showDeleteZone, setShowDeleteZone]   = useState(false);
+  const [deletePw, setDeletePw]               = useState("");
+  const [deleteLoading, setDeleteLoading]     = useState(false);
+  const [deleteMsg, setDeleteMsg]             = useState<{text:string;ok:boolean}|null>(null);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
+
   const resolveAvatar = (p: any): string | null =>
     p?.avatar || p?.avatar_url || p?.profile_avatar || null;
 
@@ -917,8 +925,113 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
               onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor=t.border; (e.currentTarget as HTMLElement).style.color=t.textMuted; }}>
               Change Email
             </button>
+            <button
+              onClick={async () => {
+                onClickAction?.();
+                try {
+                  const res = await API.get("/api/auth/export-data", { headers: { Authorization: `Bearer ${token}` } });
+                  const blob = new Blob([JSON.stringify(res.data, null, 2)], { type: "application/json" });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement("a");
+                  a.href = url;
+                  a.download = `pentaprotocol-data-${new Date().toISOString().split("T")[0]}.json`;
+                  a.click();
+                  URL.revokeObjectURL(url);
+                } catch {}
+              }}
+              style={{ width:"100%", padding:"9px", background:"transparent", border:`1px solid ${t.border}`, borderRadius:8, color:t.textMuted, fontFamily:t.fontDisplay, fontSize:12, fontWeight:600, cursor:"pointer", textAlign:"left" as const, transition:"all 0.15s" }}
+              onMouseEnter={e => { onHoverAction?.(); (e.currentTarget as HTMLElement).style.borderColor="#4CAF50"; (e.currentTarget as HTMLElement).style.color="#4CAF50"; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor=t.border; (e.currentTarget as HTMLElement).style.color=t.textMuted; }}>
+              📥 Download My Data
+            </button>
           </div>
         </div>
+      </div>
+
+      {/* ── Delete Account (Danger Zone) ──────────────────────────────────── */}
+      <div style={{ background:t.bgPanel, border:`1px solid ${t.danger}33`, borderRadius:12, padding:"16px 22px", marginTop:18 }}>
+        <div
+          onClick={() => { onClickAction?.(); setShowDeleteZone(z => !z); setDeleteMsg(null); setDeletePw(""); setDeleteConfirmText(""); }}
+          style={{ display:"flex", alignItems:"center", justifyContent:"space-between", cursor:"pointer", userSelect:"none" }}
+        >
+          <div>
+            <div style={{ fontFamily:t.fontMono, fontSize:13, color:t.danger, letterSpacing:"0.15em", fontWeight:600 }}>DANGER ZONE</div>
+            <div style={{ fontFamily:t.fontBody, fontSize:12, color:t.textMuted, marginTop:3 }}>Permanently delete your account and all associated data</div>
+          </div>
+          <div style={{ fontFamily:t.fontMono, fontSize:16, color:t.textMuted, transition:"transform 0.2s", transform: showDeleteZone ? "rotate(180deg)" : "rotate(0)" }}>▾</div>
+        </div>
+
+        {showDeleteZone && (
+          <div style={{ marginTop:16, paddingTop:14, borderTop:`1px solid ${t.danger}22` }}>
+            <div style={{ background:`${t.danger}0C`, border:`1px solid ${t.danger}33`, borderRadius:8, padding:"12px 16px", marginBottom:14 }}>
+              <div style={{ fontFamily:t.fontBody, fontSize:12, color:t.danger, lineHeight:1.6 }}>
+                ⚠️ This action is <strong>permanent and irreversible</strong>. Deleting your account will:
+              </div>
+              <ul style={{ fontFamily:t.fontBody, fontSize:12, color:t.textMuted, lineHeight:1.8, margin:"8px 0 0", paddingLeft:18 }}>
+                <li>Erase your profile, ELO, level, and match history</li>
+                <li>Forfeit all ProtoCredits and PentaShards</li>
+                <li>Remove all purchased items (boards, banners, cosmetics)</li>
+                <li>Delete payment and transaction records</li>
+              </ul>
+            </div>
+
+            {deleteMsg && (
+              <div style={{ background:deleteMsg.ok?"#4CAF5014":`${t.danger}14`, border:`1px solid ${deleteMsg.ok?"#4CAF50":t.danger}`, borderRadius:6, padding:"8px 12px", marginBottom:12, color:deleteMsg.ok?"#4CAF50":t.danger, fontFamily:t.fontBody, fontSize:12 }}>
+                {deleteMsg.text}
+              </div>
+            )}
+
+            <div style={{ fontFamily:t.fontBody, fontSize:12, color:t.textMuted, marginBottom:8 }}>Enter your password to confirm:</div>
+            <input
+              type="password"
+              value={deletePw}
+              onChange={e => setDeletePw(e.target.value)}
+              placeholder="Your password"
+              style={{ width:"100%", padding:"10px 12px", background:t.inputBg, border:`1px solid ${t.border}`, borderRadius:7, color:t.text, fontFamily:t.fontMono, fontSize:14, boxSizing:"border-box", marginBottom:10 }}
+            />
+
+            <div style={{ fontFamily:t.fontBody, fontSize:12, color:t.textMuted, marginBottom:8 }}>Type <strong style={{ color:t.danger }}>DELETE</strong> to confirm:</div>
+            <input
+              type="text"
+              value={deleteConfirmText}
+              onChange={e => setDeleteConfirmText(e.target.value)}
+              placeholder="DELETE"
+              style={{ width:"100%", padding:"10px 12px", background:t.inputBg, border:`1px solid ${t.border}`, borderRadius:7, color:t.text, fontFamily:t.fontMono, fontSize:14, boxSizing:"border-box", marginBottom:14 }}
+            />
+
+            <button
+              disabled={deleteLoading || !deletePw || deleteConfirmText !== "DELETE"}
+              onClick={async () => {
+                onClickAction?.();
+                setDeleteLoading(true); setDeleteMsg(null);
+                try {
+                  await API.post("/api/auth/delete-account", { password: deletePw });
+                  setDeleteMsg({ text: "Account deleted. You will be signed out.", ok: true });
+                  setTimeout(() => {
+                    localStorage.removeItem("pp_token");
+                    localStorage.removeItem("pp_user");
+                    localStorage.removeItem("pp_expiry");
+                    localStorage.removeItem("pp_legal_accept_v1");
+                    window.location.reload();
+                  }, 1800);
+                } catch (e: any) {
+                  setDeleteMsg({ text: apiErrorDetail(e, "Failed to delete account"), ok: false });
+                } finally { setDeleteLoading(false); }
+              }}
+              style={{
+                width:"100%", padding:"11px",
+                background: (!deletePw || deleteConfirmText !== "DELETE") ? `${t.danger}18` : t.danger,
+                border:`1px solid ${t.danger}`,
+                borderRadius:8, color: (!deletePw || deleteConfirmText !== "DELETE") ? t.danger : "#fff",
+                fontFamily:t.fontDisplay, fontSize:13, fontWeight:700, cursor: (!deletePw || deleteConfirmText !== "DELETE") ? "not-allowed" : "pointer",
+                opacity: deleteLoading ? 0.5 : 1,
+                transition:"all 0.2s",
+              }}
+            >
+              {deleteLoading ? "Deleting…" : "Permanently Delete My Account"}
+            </button>
+          </div>
+        )}
       </div>
 
       {/* ══════════════════════════════════════════════════════════════════════

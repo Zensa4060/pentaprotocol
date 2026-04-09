@@ -37,7 +37,7 @@ export default function PrivacyPage() {
             <div style={{ fontFamily: "monospace", fontSize: 11, color: "#CC0000", letterSpacing: "0.3em", marginBottom: 12 }}>LEGAL</div>
             <h1 style={{ fontSize: 40, fontWeight: 700, color: "#fff", lineHeight: 1.15, marginBottom: 16 }}>Privacy Policy</h1>
             <p style={{ fontSize: 14, color: "#555", lineHeight: 1.6 }}>
-              Effective Date: {new Date().toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })} &nbsp;·&nbsp; pentaprotocol.com
+              Effective Date: 9 April 2026 &nbsp;·&nbsp; pentaprotocol.com
             </p>
             <div style={{ height: 2, background: "linear-gradient(to right, #CC0000, transparent)", marginTop: 24 }} />
           </div>
@@ -60,39 +60,96 @@ export default function PrivacyPage() {
             We do <strong style={{ color: "#e8e8e8" }}>not</strong> sell, rent, or trade your personal information to third parties for marketing purposes.
           </Section>
 
-          <Section title="4. Cookies">
-            We use cookies and similar technologies to maintain your session, remember preferences, and analyse usage. You can control cookie settings through your browser, though disabling certain cookies may affect your ability to use the Platform.
+          <Section title="4. Cookies and Similar Technologies">
+            We use cookies and similar technologies (including localStorage and sessionStorage) to maintain your session, remember preferences, and analyse usage. You can control cookie settings through your browser, though disabling certain cookies may affect your ability to use the Platform. For a full list of stored data, see our <a href="/cookies" style={{ color: "#CC0000", textDecoration: "none" }}>Cookie Policy</a>.
+            <br /><br />
+            <strong style={{ color: "#e8e8e8" }}>Do Not Track:</strong> We do not currently respond to &quot;Do Not Track&quot; browser signals. There is no uniform standard for DNT, so the Platform does not alter its data collection practices when it detects a DNT signal.
           </Section>
 
           <Section title="5. Data Sharing">
-            We may share your information with: <strong style={{ color: "#e8e8e8" }}>PayPal</strong> when you pay through PayPal; <strong style={{ color: "#e8e8e8" }}>infrastructure providers</strong> (Railway for hosting, MongoDB Atlas for database, Redis for session management) who process data under data processing agreements; and <strong style={{ color: "#e8e8e8" }}>law enforcement</strong> where required by law or court order. Direct payments to the creator are between you and the creator&apos;s payment account; we only receive what you choose to send us for verification (e.g. screenshot, UPI reference, email).
+            We may share your information with the following third parties:
+            <br /><br />
+            <strong style={{ color: "#e8e8e8" }}>Payment processors:</strong> <strong style={{ color: "#e8e8e8" }}>PayPal</strong> (when you pay via PayPal) and <strong style={{ color: "#e8e8e8" }}>Instamojo</strong> (when you pay via Instamojo for INR transactions). Direct payments to the creator are between you and the creator&apos;s payment account; we only receive what you choose to send us for verification (e.g. screenshot, UPI reference, email).
+            <br /><br />
+            <strong style={{ color: "#e8e8e8" }}>Infrastructure providers:</strong> <strong style={{ color: "#e8e8e8" }}>Railway</strong> (backend hosting), <strong style={{ color: "#e8e8e8" }}>MongoDB Atlas</strong> (database), <strong style={{ color: "#e8e8e8" }}>Redis</strong> (session and rate-limit management), <strong style={{ color: "#e8e8e8" }}>Vercel</strong> (frontend hosting — receives your IP address, browser headers, and page requests), and <strong style={{ color: "#e8e8e8" }}>Supabase</strong> (file storage for user-uploaded avatars). These providers process data under their standard terms of service and privacy policies.
+            <br /><br />
+            <strong style={{ color: "#e8e8e8" }}>Communication providers:</strong> <strong style={{ color: "#e8e8e8" }}>Resend</strong> (transactional email delivery — receives your email address for OTPs, password resets, and purchase confirmations).
+            <br /><br />
+            <strong style={{ color: "#e8e8e8" }}>External resources:</strong> <strong style={{ color: "#e8e8e8" }}>Google Fonts</strong> (typography loaded from Google servers — your IP address and browser metadata may be transmitted to Google) and <strong style={{ color: "#e8e8e8" }}>Google Drive</strong> (image hosting — your IP address may be transmitted when loading thumbnails).
+            <br /><br />
+            <strong style={{ color: "#e8e8e8" }}>Law enforcement:</strong> We may disclose information where required by law, court order, or governmental regulation.
           </Section>
 
           <Section title="6. Data Retention">
             We retain your personal data for as long as your account is active or as necessary to provide services. If you request account deletion, we will delete or anonymise your data within 30 days, except where retention is required by applicable law.
+            <br /><br />
+            Rate-limiting data (including hashed IP addresses) is automatically purged after 15 minutes. Payment transaction records are retained for a minimum of 8 years to comply with financial and tax regulations.
           </Section>
 
           <Section title="7. Security">
             We implement HTTPS encryption, hashed password storage, token-based authentication, and access controls to protect your data. However, no system is completely secure and we cannot guarantee absolute security.
           </Section>
 
-          <Section title="8. Children's Privacy">
+          <Section title="8. Data Breach Notification">
+            In the event of a personal data breach that poses a risk to your rights and freedoms, we will notify affected users via email and/or a prominent in-platform notification within 72 hours of becoming aware of the breach. The notification will describe the nature of the breach, the data affected, actions we have taken, and steps you can take to protect yourself. We will also notify relevant data protection authorities as required by applicable law.
+          </Section>
+
+          <Section title="9. Children's Privacy">
             The Platform is not directed at children under 13. We do not knowingly collect personal information from children under 13. If we become aware that such data has been collected, we will delete it promptly.
           </Section>
 
-          <Section title="9. Your Rights">
+          <Section title="10. Your Rights">
             You have the right to access the personal data we hold about you; request correction of inaccurate data; request deletion of your account and associated data; and withdraw consent where processing is based on consent. To exercise any of these rights, contact us at{" "}
             <a href="mailto:support@pentaprotocol.com" style={{ color: "#CC0000", textDecoration: "none" }}>support@pentaprotocol.com</a>.
           </Section>
 
-          <Section title="10. Changes to This Policy">
-            We may update this Privacy Policy periodically. Significant changes will be posted on the Platform with an updated effective date. Continued use after changes constitutes acceptance.
+          <Section title="11. Users in the European Economic Area (GDPR)">
+            If you are located in the European Economic Area (EEA), the following additional provisions apply:
+            <br /><br />
+            <strong style={{ color: "#e8e8e8" }}>Legal basis for processing:</strong> We process your personal data based on: your consent (account creation, marketing communications); performance of a contract (providing the Platform and processing purchases); and our legitimate interests (fraud prevention, security, and service improvement).
+            <br /><br />
+            <strong style={{ color: "#e8e8e8" }}>Your rights under GDPR:</strong> In addition to the rights listed in Section 10, you have the right to: restrict processing of your personal data; receive your personal data in a structured, commonly used, and machine-readable format (data portability); object to processing based on legitimate interests; and lodge a complaint with your local EU/EEA data protection supervisory authority.
+            <br /><br />
+            <strong style={{ color: "#e8e8e8" }}>International data transfers:</strong> Your data may be transferred to and processed on servers outside the EEA (including in the United States and India). We ensure that adequate safeguards are in place, including the use of service providers that maintain appropriate data protection standards.
+            <br /><br />
+            <strong style={{ color: "#e8e8e8" }}>Withdrawal of consent:</strong> Where processing is based on consent, you may withdraw your consent at any time by contacting us. Withdrawal does not affect the lawfulness of processing performed prior to withdrawal.
           </Section>
 
-          <Section title="11. Contact">
+          <Section title="12. California Residents (CCPA / CPRA)">
+            If you are a California resident, the following rights apply under the California Consumer Privacy Act (CCPA) and the California Privacy Rights Act (CPRA):
+            <br /><br />
+            <strong style={{ color: "#e8e8e8" }}>Right to know:</strong> You have the right to request information about the categories and specific pieces of personal information we have collected about you, as well as the purposes for which it is used.
+            <br /><br />
+            <strong style={{ color: "#e8e8e8" }}>Right to delete:</strong> You may request deletion of your personal information, subject to certain exceptions required by law.
+            <br /><br />
+            <strong style={{ color: "#e8e8e8" }}>Right to correct:</strong> You may request correction of inaccurate personal information.
+            <br /><br />
+            <strong style={{ color: "#e8e8e8" }}>Right to opt out of sale:</strong> We do <strong style={{ color: "#e8e8e8" }}>not</strong> sell, rent, or trade your personal information to third parties.
+            <br /><br />
+            <strong style={{ color: "#e8e8e8" }}>Non-discrimination:</strong> We will not discriminate against you for exercising any of your CCPA / CPRA rights.
+            <br /><br />
+            To exercise these rights, email us at{" "}
+            <a href="mailto:support@pentaprotocol.com" style={{ color: "#CC0000", textDecoration: "none" }}>support@pentaprotocol.com</a>{" "}
+            with the subject line &quot;California Privacy Request.&quot;
+          </Section>
+
+          <Section title="13. Changes to This Policy">
+            We may update this Privacy Policy periodically. We will notify users of material changes via email or a prominent in-platform notice at least 14 days before changes take effect. An updated effective date will be posted at the top of this page. Continued use of the Platform after the notice period constitutes acceptance of the revised policy. We encourage you to review this page regularly.
+          </Section>
+
+          <Section title="14. Contact">
             Questions about this Privacy Policy? Contact us at:{" "}
             <a href="mailto:support@pentaprotocol.com" style={{ color: "#CC0000", textDecoration: "none" }}>support@pentaprotocol.com</a>
+            <br />
+            For privacy-specific inquiries:{" "}
+            <a href="mailto:privacy@pentaprotocol.com" style={{ color: "#CC0000", textDecoration: "none" }}>privacy@pentaprotocol.com</a>
           </Section>
+
+          <div style={{ marginTop: 32, paddingTop: 16, borderTop: "1px solid #1e1e2a" }}>
+            <div style={{ fontFamily: "monospace", fontSize: 11, color: "#444", lineHeight: 1.8 }}>
+              Version 1.0 — 9 April 2026 · Initial release
+            </div>
+          </div>
 
           <FooterLinks current="privacy" />
         </div>
@@ -112,11 +169,12 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
-function FooterLinks({ current }: { current: "terms" | "privacy" | "refund" }) {
+function FooterLinks({ current }: { current: "terms" | "privacy" | "refund" | "cookies" }) {
   const links = [
     { label: "Terms & Conditions", href: "/terms" },
     { label: "Privacy Policy",     href: "/privacy" },
     { label: "Refund Policy",      href: "/refund" },
+    { label: "Cookie Policy",      href: "/cookies" },
   ];
   return (
     <div style={{ marginTop: 72, paddingTop: 24, borderTop: "1px solid #1e1e2a", display: "flex", gap: 24, flexWrap: "wrap", justifyContent: "center" }}>

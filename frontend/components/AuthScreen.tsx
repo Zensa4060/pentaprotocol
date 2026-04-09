@@ -206,6 +206,17 @@ export default function AuthScreen({ setScreenAction, themeId }: Props) {
     if (tab === "signup") {
       const ue = validateUsername(username); if (ue) e.username = ue;
       if (!email.includes("@") || !email.includes(".")) e.email = "Enter a valid email";
+      const dobVal = (errors as any)?._dob_value;
+      if (!dobVal) {
+        e.dob = "Date of birth is required";
+      } else {
+        const dob = new Date(dobVal);
+        const today = new Date();
+        let age = today.getFullYear() - dob.getFullYear();
+        const mDiff = today.getMonth() - dob.getMonth();
+        if (mDiff < 0 || (mDiff === 0 && today.getDate() < dob.getDate())) age--;
+        if (age < 13) e.dob = "You must be at least 13 years old";
+      }
     } else if (tab === "signin") {
       if (!username.trim()) e.username = "Username or email required";
     }
@@ -710,6 +721,24 @@ export default function AuthScreen({ setScreenAction, themeId }: Props) {
             {field("email", "Email", email, setEmail, errors.email || "", "you@example.com")}
             {passwordField("password", "Password", password, setPassword, errors.password || "", "Min 6 characters", showPassword, setShowPassword)}
             {passwordField("confirm", "Confirm Password", confirm, setConfirm, errors.confirm || "", "Re-enter password", showConfirm, setShowConfirm)}
+            <div style={{ marginBottom: isMobile ? 10 : 14 }}>
+              <label style={labelStyle}>Date of Birth</label>
+              <input
+                type="date"
+                value={(errors as any)._dob_value ?? ""}
+                onChange={e => {
+                  const val = e.target.value;
+                  setErrors(er => ({ ...er, dob: "", _dob_value: val } as any));
+                }}
+                onKeyDown={handleKeyDown}
+                max={new Date(new Date().setFullYear(new Date().getFullYear() - 13)).toISOString().split("T")[0]}
+                style={{ ...inputStyle(!!errors.dob), colorScheme: "dark" }}
+                onFocus={e => { e.target.style.borderColor = ACCENT; e.target.style.boxShadow = `0 0 0 2px ${ACCENT}22`; }}
+                onBlur={e => { e.target.style.borderColor = errors.dob ? ACCENT2 : "rgba(255,255,255,0.1)"; e.target.style.boxShadow = "none"; }}
+              />
+              <div style={{ fontFamily: FONT, fontSize: 11, color: "#555", marginTop: 4 }}>You must be at least 13 years old to use PentaProtocol</div>
+              {errors.dob && <div style={errorStyle}>{errors.dob}</div>}
+            </div>
             <PrimaryBtn label={loading ? "Sending OTP…" : "Continue"} onClick={submit} disabled={loading} />
           </>)}
 

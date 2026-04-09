@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { THEMES } from "@/lib/themes";
 import type { ThemeId } from "@/lib/themes";
+import API from "@/lib/api";
 import {
   clearPolicyGatePending,
   getUserId,
@@ -48,6 +49,8 @@ export default function PolicyAcceptanceGate({
 
   const accept = () => {
     if (!allChecked || !uid) return;
+    // Server-side consent record (fire-and-forget — non-blocking)
+    API.post("/api/auth/accept-legal", { version: 1 }).catch(() => {});
     setLegalAccepted(uid);
     clearPolicyGatePending();
     onAcceptedAction();
