@@ -4,6 +4,7 @@ import type { MatchupData, Screen } from "@/lib/types";
 import type { ThemeId } from "@/lib/themes";
 import { THEMES } from "@/lib/themes";
 import { useAuthStore } from "@/lib/store";
+import { computeLevelStatsFromTotalXp } from "@/lib/xpLevel";
 import API from "@/lib/api";
 import { loadCustomTheme } from "@/lib/customTheme";
 import { NavRankBadge, getRank } from "./NavBar";
@@ -73,6 +74,7 @@ export default function LobbyScreen({
   const t  = THEMES[themeId as keyof typeof THEMES];
   const ip = themeId === "pixel";
   const { user, token, refreshProfile } = useAuthStore();
+  const localLevel = computeLevelStatsFromTotalXp(Number(user?.xp || 0)).level;
   const BLOOD_RED = "#FF0000";
 
   const [multiSub,   setMultiSub]   = useState<MultiSub>(null);
@@ -407,7 +409,7 @@ export default function LobbyScreen({
       <div style={{ textAlign:"center", paddingTop:20, fontFamily:t.fontMono, fontSize:12, color:t.textMuted, letterSpacing:"0.18em", zIndex:2 }}>
         UNRANKED · FIRST TO 5 POINTS
       </div>
-      <PlayerCard name={user?.username ?? "YOU"} elo={user?.elo ?? null} avatar={user?.avatar ?? null} banner={loadCustomTheme().bannerSkin ?? "default"} level={user?.level ?? 1} color={t.p1} direction="top" />
+      <PlayerCard name={user?.username ?? "YOU"} elo={user?.elo ?? null} avatar={user?.avatar ?? null} banner={loadCustomTheme().bannerSkin ?? "default"} level={localLevel} color={t.p1} direction="top" />
       <div style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:50, padding:"20px 0", flexShrink:0, position:"relative", zIndex:10, background:"rgba(0,0,0,0.24)" }}>
         <div style={{ flex:1, height:2, background:`linear-gradient(90deg, transparent, ${t.accent}, transparent)`, opacity:0.6 }} />
         <div style={{...vsStyle, transform:"scale(1.05)", animation:"vsPop 620ms cubic-bezier(.2,.9,.2,1) both, vsPulse 1600ms ease-in-out infinite 700ms", willChange:"transform, opacity" }}>VS</div>

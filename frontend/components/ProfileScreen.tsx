@@ -9,7 +9,7 @@ import { SHARDS_LIGHT_SVG, SHARDS_DARK_SVG, PROTO_LIGHT_SVG, PROTO_DARK_SVG } fr
 import { loadCustomTheme, saveCustomTheme } from "@/lib/customTheme";
 import type { Screen } from "@/lib/types";
 import { getUserKey, loadMissionState } from "@/lib/missionsClient";
-import { computeLevelStatsFromTotalXp } from "@/lib/xpLevel";
+import { computeLevelStatsFromTotalXp, totalXpToReachLevel } from "@/lib/xpLevel";
 import { BannerRenderer } from "./BannerRenderer";
 import { rankGlowVisualStrength, buildRankEmblemGlowFilter, rankHaloGradientForRank } from "./NavBar";
 import VoidRiftBanner from "./VoidRiftBanner";
@@ -603,6 +603,8 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
   const rankedL   = profile.losses          || 0;
   const draws     = profile.draws           || 0;
   const totalGames = rankedW + rankedL + draws;
+  const totalXP = Number(profile.xp || 0);
+  const { level: computedLevelFromXp } = computeLevelStatsFromTotalXp(totalXP);
 
   const stats = [
     { l:"Ranked W",    v: rankedW,   c:"#5BE888" },
@@ -740,7 +742,7 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
               <TitleBadge title={activeTitle} onClick={() => { onClickAction?.(); openEdit("title"); }} />
             </div>
             <div style={{ display:"flex", gap:14, flexWrap:"wrap", alignItems:"center" }}>
-              <div style={{ fontFamily:t.fontMono, fontSize:13, color:t.text, textShadow:"0 1px 4px rgba(0,0,0,0.5)" }}>LVL <span style={{ color:t.accent, fontWeight:700, fontSize:15 }}>{profile.level}</span></div>
+              <div style={{ fontFamily:t.fontMono, fontSize:13, color:t.text, textShadow:"0 1px 4px rgba(0,0,0,0.5)" }}>LVL <span style={{ color:t.accent, fontWeight:700, fontSize:15 }}>{computedLevelFromXp}</span></div>
               <div style={{ display:"flex", alignItems:"center", gap:5, "--rank-col":rank.color } as any}>
                 <RankIcon rank={rank} size={33} />
                 <span style={{ fontFamily:t.fontBody, fontSize:14, color:rank.color, fontWeight:600, textShadow:"0 1px 4px rgba(0,0,0,0.5)" }}>{rank.name}</span>
@@ -782,8 +784,8 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
 
       {/* ── XP / Level bar ───────────────────────────────────────────────── */}
       {(() => {
-        const totalXP: number = profile.xp || 0;
         const { level: lvl, rem: xpIntoLevel, nextXp: xpNeeded, progress } = computeLevelStatsFromTotalXp(totalXP);
+        const nextLevelTotalXp = totalXpToReachLevel(lvl + 1);
         const pct = Math.min(progress, 100);
         return (
           <div style={{ background:t.bgPanel, border:`1px solid ${t.border}`, borderRadius:12, padding:"16px 22px", marginBottom:18 }}>
@@ -796,10 +798,15 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
                 <span style={{ color:t.accent, fontWeight:700 }}>{xpIntoLevel.toLocaleString()}</span>{" / "}{xpNeeded.toLocaleString()} XP
               </div>
             </div>
+            <div style={{ fontFamily:t.fontMono, fontSize:11, color:t.textMuted, marginBottom:8 }}>
+              Total XP: <span style={{ color:t.text, fontWeight:700 }}>{totalXP.toLocaleString()}</span>{" / "}{nextLevelTotalXp.toLocaleString()}
+            </div>
             <div style={{ height:10, background:t.bgCard, borderRadius:5, overflow:"hidden", border:`1px solid ${t.border}` }}>
               <div style={{ height:"100%", width:`${pct}%`, background:`linear-gradient(90deg,${t.accent},${t.p1})`, borderRadius:5, boxShadow:`0 0 10px ${t.accentGlow}55`, transition:"width 1s ease" }} />
             </div>
-            <div style={{ fontFamily:t.fontMono, fontSize:11, color:t.textMuted, marginTop:5, textAlign:"right" }}>{(xpNeeded - xpIntoLevel).toLocaleString()} XP to level {lvl + 1}</div>
+            <div style={{ fontFamily:t.fontMono, fontSize:11, color:t.textMuted, marginTop:5, textAlign:"right" }}>
+              Level Progress: {xpIntoLevel.toLocaleString()} / {xpNeeded.toLocaleString()} · {(xpNeeded - xpIntoLevel).toLocaleString()} XP to level {lvl + 1}
+            </div>
           </div>
         );
       })()}

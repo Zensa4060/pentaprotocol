@@ -42,10 +42,12 @@ import { markCareerAfterMultiplayerSeriesEnd } from "@/lib/navBadgeState";
 import MatchResultScreen from "./MatchResultScreen";
 import GameWinScreen from "./GameWinScreen";
 import RankUpScreen from "@/components/RankUpScreen";
+import XpLevelUpScreen from "@/components/XpLevelUpScreen";
 import { getRank } from "./NavBar";
 import { persistLobbyTauntQuote, type LobbyQuoteResult } from "@/lib/lobbyTauntQuote";
 import { seriesPointsFromHistory, formatSeriesPts } from "@/lib/seriesPoints";
 import { effectivePlayBoardMode, startingLegFromBoardMode, type MultiplayerRulesBootstrap } from "@/lib/effectiveBoardMode";
+import { computeLevelStatsFromTotalXp } from "@/lib/xpLevel";
 
 const EPS = 1e-9;
 const PP_HOME_NOTICE_KEY = "pp_home_notice";
@@ -133,8 +135,9 @@ const MatchupOverlay = ({ matchupData, showMatchupOverlay, playerSlot, p1Name, u
   const _ct = loadCustomTheme();
   const myBanner = _ct.bannerSkin ?? "default";
   const myS = playerSlot || "P1";
-  const p1D = myS === "P1" ? { name: p1Name || "YOU", banner: myBanner, elo: user?.elo || 0, level: user?.level || 1 } : { name: opp.name, banner: opp.banner, elo: opp.elo || 0, level: opp.level || 1 };
-  const p2D = myS === "P2" ? { name: p1Name || "YOU", banner: myBanner, elo: user?.elo || 0, level: user?.level || 1 } : { name: opp.name, banner: opp.banner, elo: opp.elo || 0, level: opp.level || 1 };
+  const myLevel = computeLevelStatsFromTotalXp(Number(user?.xp || 0)).level;
+  const p1D = myS === "P1" ? { name: p1Name || "YOU", banner: myBanner, elo: user?.elo || 0, level: myLevel } : { name: opp.name, banner: opp.banner, elo: opp.elo || 0, level: opp.level || 1 };
+  const p2D = myS === "P2" ? { name: p1Name || "YOU", banner: myBanner, elo: user?.elo || 0, level: myLevel } : { name: opp.name, banner: opp.banner, elo: opp.elo || 0, level: opp.level || 1 };
 
   const getRankData = (elo: number) => RANKS.find(r => elo >= r.min && elo < r.max) || RANKS[RANKS.length - 1];
 
@@ -350,6 +353,9 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   const [showGameWinScreen, setShowGameWinScreen] = useState(false);
   const [showSeriesMatchResult, setShowSeriesMatchResult] = useState(false);
   const [showRankUpScreen, setShowRankUpScreen] = useState(false);
+  const [showXpLevelUpScreen, setShowXpLevelUpScreen] = useState(false);
+  const [xpLevelUpTransition, setXpLevelUpTransition] = useState<{ fromLevel: number; toLevel: number } | null>(null);
+  const [pendingRankUpAfterXp, setPendingRankUpAfterXp] = useState(false);
   const [pbOverlay, setPbOverlay] = useState<{
     tossWinner: "P1" | "P2";
     p1Agg: number;
@@ -621,6 +627,35 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   const chatToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [poorConnectionToastVisible, setPoorConnectionToastVisible] = useState(false);
   const poorConnectionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const continuePostSeriesFlow = useCallback((series: MatchSeriesCompletePayload) => {
+    void useAuthStore.getState().refreshProfile();
+    const me = mySlot === "P1" ? series.p1 : series.p2;
+    const beforeRank = getRank(me.elo_before);
+    const afterRank = getRank(me.elo_after);
+    const shouldShowRankUp = me.elo_after > me.elo_before && beforeRank.name !== afterRank.name;
+    const beforeXpLevel = computeLevelStatsFromTotalXp(Number(me.xp_before || 0)).level;
+    const afterXpLevel = computeLevelStatsFromTotalXp(Number(me.xp_after || 0)).level;
+    const shouldShowXpLevelUp = afterXpLevel > beforeXpLevel;
+
+    setShowGameWinScreen(false);
+    setShowSeriesMatchResult(false);
+    setShowRankUpScreen(false);
+
+    if (shouldShowXpLevelUp) {
+      setXpLevelUpTransition({ fromLevel: beforeXpLevel, toLevel: afterXpLevel });
+      setPendingRankUpAfterXp(shouldShowRankUp);
+      setShowXpLevelUpScreen(true);
+      return;
+    }
+    if (shouldShowRankUp) {
+      setPendingRankUpAfterXp(false);
+      setShowRankUpScreen(true);
+      return;
+    }
+    setPendingRankUpAfterXp(false);
+    setShowSeriesMatchResult(true);
+  }, [mySlot]);
   const localBarsRef = useRef<number | null>(null);
   const chatVisibleRef = useRef(false);
   const [readyTimeout, setReadyTimeout] = useState(60);
@@ -3847,8 +3882,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
               textMuted: t.textMuted,
             }}
             onContinue={() => {
-              setShowGameWinScreen(false);
-              setShowSeriesMatchResult(true);
+              continuePostSeriesFlow(matchSeriesComplete);
             }}
             onQuit={() => {
               if (wsRef.current?.readyState === WebSocket.OPEN) {
@@ -3857,6 +3891,48 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
               setScreenAction?.("home");
             }}
             onGoToCareer={goToCareerAfterSeries}
+          />
+        )}
+        {showXpLevelUpScreen && xpLevelUpTransition && (
+          <XpLevelUpScreen
+            fromLevel={xpLevelUpTransition.fromLevel}
+            toLevel={xpLevelUpTransition.toLevel}
+            t={{
+              fontDisplay: t.fontDisplay,
+              fontMono: t.fontMono,
+              accent: t.accent,
+              gold: t.gold,
+              text: t.text,
+              textMuted: t.textMuted,
+            }}
+            onDone={() => {
+              setShowXpLevelUpScreen(false);
+              setXpLevelUpTransition(null);
+              if (pendingRankUpAfterXp) {
+                setPendingRankUpAfterXp(false);
+                setShowRankUpScreen(true);
+              } else {
+                setShowSeriesMatchResult(true);
+              }
+            }}
+          />
+        )}
+        {showRankUpScreen && matchSeriesComplete && (
+          <RankUpScreen
+            t={{
+              fontDisplay: t.fontDisplay,
+              fontMono: t.fontMono,
+              accent: t.accent,
+              gold: t.gold,
+              text: t.text,
+              textMuted: t.textMuted,
+            }}
+            beforeElo={(mySlot === "P1" ? matchSeriesComplete.p1 : matchSeriesComplete.p2).elo_before}
+            afterElo={(mySlot === "P1" ? matchSeriesComplete.p1 : matchSeriesComplete.p2).elo_after}
+            onDone={() => {
+              setShowRankUpScreen(false);
+              setShowSeriesMatchResult(true);
+            }}
           />
         )}
         {showSeriesMatchResult && matchSeriesComplete && (
@@ -4130,16 +4206,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
             textMuted: t.textMuted,
           }}
           onContinue={() => {
-            void useAuthStore.getState().refreshProfile();
-            const me = mySlot === "P1" ? matchSeriesComplete.p1 : matchSeriesComplete.p2;
-            const beforeRank = getRank(me.elo_before);
-            const afterRank = getRank(me.elo_after);
-            setShowGameWinScreen(false);
-            if (me.elo_after > me.elo_before && beforeRank.name !== afterRank.name) {
-              setShowRankUpScreen(true);
-            } else {
-              setShowSeriesMatchResult(true);
-            }
+            continuePostSeriesFlow(matchSeriesComplete);
           }}
           onQuit={() => {
             if (wsRef.current?.readyState === WebSocket.OPEN) {
@@ -4149,6 +4216,30 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
             setScreenAction?.("home");
           }}
           onGoToCareer={goToCareerAfterSeries}
+        />
+      )}
+      {showXpLevelUpScreen && xpLevelUpTransition && (
+        <XpLevelUpScreen
+          fromLevel={xpLevelUpTransition.fromLevel}
+          toLevel={xpLevelUpTransition.toLevel}
+          t={{
+            fontDisplay: t.fontDisplay,
+            fontMono: t.fontMono,
+            accent: t.accent,
+            gold: t.gold,
+            text: t.text,
+            textMuted: t.textMuted,
+          }}
+          onDone={() => {
+            setShowXpLevelUpScreen(false);
+            setXpLevelUpTransition(null);
+            if (pendingRankUpAfterXp) {
+              setPendingRankUpAfterXp(false);
+              setShowRankUpScreen(true);
+            } else {
+              setShowSeriesMatchResult(true);
+            }
+          }}
         />
       )}
       {showRankUpScreen && matchSeriesComplete && (
@@ -4165,6 +4256,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
           afterElo={(mySlot === "P1" ? matchSeriesComplete.p1 : matchSeriesComplete.p2).elo_after}
           onDone={() => {
             setShowRankUpScreen(false);
+            setPendingRankUpAfterXp(false);
             setShowSeriesMatchResult(true);
           }}
         />

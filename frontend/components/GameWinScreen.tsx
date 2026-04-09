@@ -3,7 +3,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { RankIcon } from "./ProfileScreen";
 import { getRank } from "./NavBar";
-import { computeLevelStatsFromTotalXp } from "@/lib/xpLevel";
+import { computeLevelStatsFromTotalXp, totalXpToReachLevel } from "@/lib/xpLevel";
 
 interface PlayerProgress {
   name: string;
@@ -61,6 +61,7 @@ export default function GameWinScreen({
   const xpDiff = myData.xp_after - myData.xp_before;
   const before = useMemo(() => computeLevelStatsFromTotalXp(myData.xp_before), [myData.xp_before]);
   const after = useMemo(() => computeLevelStatsFromTotalXp(myData.xp_after), [myData.xp_after]);
+  const nextLevelTotalTarget = useMemo(() => totalXpToReachLevel(after.level + 1), [after.level]);
   const accentColor = isDraw ? t.gold : isWinner ? t.accent : t.danger;
   const viewerRank = useMemo(() => {
     const after = myData.elo_after;
@@ -249,6 +250,9 @@ export default function GameWinScreen({
               LVL {before.level}{" -> "}LVL {after.level}
             </span>
           </div>
+          <div style={{ fontFamily: t.fontMono, fontSize: 11, color: t.textSecondary, marginBottom: 8 }}>
+            Total XP: {myData.xp_after.toLocaleString()} / {nextLevelTotalTarget.toLocaleString()}
+          </div>
           <div style={{ height: 10, borderRadius: 999, overflow: "hidden", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.06)" }}>
             <motion.div
               initial={{ width: `${before.progress}%` }}
@@ -260,6 +264,9 @@ export default function GameWinScreen({
                 boxShadow: `0 0 16px ${t.accent}66`,
               }}
             />
+          </div>
+          <div style={{ fontFamily: t.fontMono, fontSize: 11, color: t.textMuted, marginTop: 8, textAlign: "right" }}>
+            Level Progress: {after.rem.toLocaleString()} / {after.nextXp.toLocaleString()}
           </div>
         </div>
 
