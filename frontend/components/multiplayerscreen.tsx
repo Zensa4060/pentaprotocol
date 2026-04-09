@@ -63,7 +63,7 @@ export default function MultiplayerScreen({ setScreen, themeId, onHover, onRoomR
   const handleCreate = async () => {
     if (!token) { setError("Sign in to play multiplayer"); return; }
     if (format === "ranked" && level < 5) {
-      setError("You must be level 5 to play ranked matches");
+      setError("Ranked is unplayable below level 5");
       return;
     }
     setLoading(true); setError(null);
@@ -255,7 +255,7 @@ export default function MultiplayerScreen({ setScreen, themeId, onHover, onRoomR
                           </div>
                         </div>
                         <div style={{ fontFamily: t.fontBody, fontSize: ip ? 12 : 14, color: t.textMuted, lineHeight: 1.5 }}>
-                          {f === "ranked" ? (locked ? "Requires level 5 to unlock" : "Compete for ELO with strong players") : "Casual match with various board sizes"}
+                          {f === "ranked" ? (locked ? "UNPLAYABLE: Reach level 5 to unlock ranked" : "Compete for ELO with strong players") : "Casual match with various board sizes"}
                         </div>
                       </button>
                     );
@@ -274,7 +274,7 @@ export default function MultiplayerScreen({ setScreen, themeId, onHover, onRoomR
                 </div>
                 {level < 5 && (
                   <div style={{ fontFamily: t.fontBody, fontSize: 11, color: t.textMuted, marginLeft: 4 }}>
-                    · Reach level 5 to unlock ranked
+                    · Ranked unplayable until level 5
                   </div>
                 )}
                 {level >= 5 && (

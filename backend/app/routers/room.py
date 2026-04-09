@@ -1741,8 +1741,8 @@ async def queue_join(data: QueueRequest, user_id: str = Depends(get_current_user
     if not user:
         raise HTTPException(404, "User not found")
     if fmt == "ranked":
-        if user.get("level", 1) < 10:
-            raise HTTPException(403, "Ranked queue requires level 10")
+        if user.get("level", 1) < 5:
+            raise HTTPException(403, "Ranked queue requires level 5")
         ok, reason = user_ranked_allowed(user)
         if not ok:
             raise HTTPException(403, reason or "Ranked queue unavailable")
@@ -1962,8 +1962,8 @@ async def create_room(data: CreateRoomRequest, user_id: str = Depends(get_curren
     if not user:
         raise HTTPException(404, "User not found")
 
-    if data.format == "ranked" and user.get("level", 1) < 10:
-        raise HTTPException(403, "Cannot create ranked room")
+    if data.format == "ranked" and user.get("level", 1) < 5:
+        raise HTTPException(403, "Cannot create ranked room below level 5")
 
     # ── Clean up any stale waiting rooms for this user first ──
     await _cleanup_stale_rooms(db, user_id)
@@ -2079,8 +2079,8 @@ async def join_room(data: JoinRoomRequest, user_id: str = Depends(get_current_us
     if not user:
         raise HTTPException(404, "User not found")
 
-    if any_room["format"] == "ranked" and user.get("level", 1) < 10:
-        raise HTTPException(403, "Cannot join ranked room")
+    if any_room["format"] == "ranked" and user.get("level", 1) < 5:
+        raise HTTPException(403, "Cannot join ranked room below level 5")
 
     player_name = user.get("username", "Player 2")
 
