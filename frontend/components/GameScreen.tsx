@@ -489,6 +489,11 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   const [mobileTab, setMobileTab] = useState<"log" | "chat">("log");
   const isMultiplayerGame = (gameMode === "ranked" || gameMode === "unranked") && !!roomCode;
   const mySlot = playerSlot ?? "P1";
+  const playMultiplayerResultSfx = (winnerSlot: string | null | undefined) => {
+    if (winnerSlot !== "P1" && winnerSlot !== "P2") return;
+    if (winnerSlot === mySlot) playVictoryAction?.();
+    else playDefeatAction?.();
+  };
   /** Best-of-3 series scoring for singleplayer / bot; ladder + Rulebreaker / Timebreaker / Mindbreaker unchanged. */
   const isLocalShortSeries = gameMode === "singleplayer" || gameMode === "ai";
 
@@ -978,7 +983,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
                 const wl = (msg.win_line ?? []) as [number, number][];
                 setWinLine(wl);
                 setWinner(msg.winner);
-                if (msg.winner === "P1") playVictoryAction?.(); else if (msg.winner === "P2") playDefeatAction?.();
+                playMultiplayerResultSfx(msg.winner);
                 const newHist = Array.isArray(msg.match_history)
                   ? (msg.match_history as string[])
                   : [...matchHistoryRef.current, msg.winner as string];
@@ -2145,7 +2150,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
             setWinner(w);
             if (isMultiplayerGame) {
               wsRef.current?.send(JSON.stringify({ type: "timeout", winner: w }));
-              playDefeatAction?.();
+              playMultiplayerResultSfx(w);
               requestAnimationFrame(() => { setShowWinOverlay(true); requestAnimationFrame(() => setOverlayVisible(true)); });
               // Authoritative series state arrives on the next `move_made` from the server.
             }
@@ -2162,7 +2167,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
             setWinner(w);
             if (isMultiplayerGame) {
               wsRef.current?.send(JSON.stringify({ type: "timeout", winner: w }));
-              playVictoryAction?.();
+              playMultiplayerResultSfx(w);
               requestAnimationFrame(() => { setShowWinOverlay(true); requestAnimationFrame(() => setOverlayVisible(true)); });
               // Authoritative series state arrives on the next `move_made` from the server.
             }
