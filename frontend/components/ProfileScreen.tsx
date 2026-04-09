@@ -9,7 +9,7 @@ import { SHARDS_LIGHT_SVG, SHARDS_DARK_SVG, PROTO_LIGHT_SVG, PROTO_DARK_SVG } fr
 import { loadCustomTheme, saveCustomTheme } from "@/lib/customTheme";
 import type { Screen } from "@/lib/types";
 import { getUserKey, loadMissionState } from "@/lib/missionsClient";
-import { computeLevelStatsFromTotalXp, totalXpToReachLevel } from "@/lib/xpLevel";
+import { computeLevelProgress } from "@/lib/xpLevel";
 import { BannerRenderer } from "./BannerRenderer";
 import { rankGlowVisualStrength, buildRankEmblemGlowFilter, rankHaloGradientForRank } from "./NavBar";
 import VoidRiftBanner from "./VoidRiftBanner";
@@ -611,8 +611,9 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
   const rankedL   = profile.losses          || 0;
   const draws     = profile.draws           || 0;
   const totalGames = rankedW + rankedL + draws;
-  const totalXP = Number(profile.xp || 0);
-  const { level: computedLevelFromXp } = computeLevelStatsFromTotalXp(totalXP);
+  const userXp = Number(profile.xp || 0);
+  const userLevel = Number(profile.level || 1);
+  const { level: computedLevelFromXp } = computeLevelProgress(userLevel, userXp);
 
   const stats = [
     { l:"Ranked W",    v: rankedW,   c:"#5BE888" },
@@ -621,7 +622,6 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
     { l:"Total Games", v: totalGames, c: t.text },
     { l:"Draws",       v: draws,     c: t.gold },
     { l:"ELO",         v: elo,       c: rank.color },
-    { l:"XP",          v: profile.xp, c: t.p1 },
     { l:"Penta Shards",   v: (profile.pentashards ?? profile.shards ?? 0) + missionShardBonus, c:"#4FC3F7" },
     { l:"Proto Credits",  v: profile.protocredits || 0, c:"#FFD700" },
   ];
@@ -792,8 +792,7 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
 
       {/* ── XP / Level bar ───────────────────────────────────────────────── */}
       {(() => {
-        const { level: lvl, rem: xpIntoLevel, nextXp: xpNeeded, progress } = computeLevelStatsFromTotalXp(totalXP);
-        const nextLevelTotalXp = totalXpToReachLevel(lvl + 1);
+        const { level: lvl, rem: xpIntoLevel, nextXp: xpNeeded, progress } = computeLevelProgress(userLevel, userXp);
         const pct = Math.min(progress, 100);
         return (
           <div style={{ background:t.bgPanel, border:`1px solid ${t.border}`, borderRadius:12, padding:"16px 22px", marginBottom:18 }}>
@@ -805,9 +804,6 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
               <div style={{ fontFamily:t.fontMono, fontSize:12, color:t.textMuted }}>
                 <span style={{ color:t.accent, fontWeight:700 }}>{xpIntoLevel.toLocaleString()}</span>{" / "}{xpNeeded.toLocaleString()} XP
               </div>
-            </div>
-            <div style={{ fontFamily:t.fontMono, fontSize:11, color:t.textMuted, marginBottom:8 }}>
-              Total XP: <span style={{ color:t.text, fontWeight:700 }}>{totalXP.toLocaleString()}</span>{" / "}{nextLevelTotalXp.toLocaleString()}
             </div>
             <div style={{ height:10, background:t.bgCard, borderRadius:5, overflow:"hidden", border:`1px solid ${t.border}` }}>
               <div style={{ height:"100%", width:`${pct}%`, background:`linear-gradient(90deg,${t.accent},${t.p1})`, borderRadius:5, boxShadow:`0 0 10px ${t.accentGlow}55`, transition:"width 1s ease" }} />

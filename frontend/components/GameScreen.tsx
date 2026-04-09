@@ -47,7 +47,7 @@ import { getRank } from "./NavBar";
 import { persistLobbyTauntQuote, type LobbyQuoteResult } from "@/lib/lobbyTauntQuote";
 import { seriesPointsFromHistory, formatSeriesPts } from "@/lib/seriesPoints";
 import { effectivePlayBoardMode, startingLegFromBoardMode, type MultiplayerRulesBootstrap } from "@/lib/effectiveBoardMode";
-import { computeLevelStatsFromTotalXp } from "@/lib/xpLevel";
+import { computeLevelProgress } from "@/lib/xpLevel";
 
 const EPS = 1e-9;
 const PP_HOME_NOTICE_KEY = "pp_home_notice";
@@ -100,6 +100,8 @@ type MatchSeriesCompletePayload = {
     elo_after: number;
     rr_before: number;
     rr_after: number;
+    level_before: number;
+    level_after: number;
     xp_before: number;
     xp_after: number;
   };
@@ -109,6 +111,8 @@ type MatchSeriesCompletePayload = {
     elo_after: number;
     rr_before: number;
     rr_after: number;
+    level_before: number;
+    level_after: number;
     xp_before: number;
     xp_after: number;
   };
@@ -135,7 +139,7 @@ const MatchupOverlay = ({ matchupData, showMatchupOverlay, playerSlot, p1Name, u
   const _ct = loadCustomTheme();
   const myBanner = _ct.bannerSkin ?? "default";
   const myS = playerSlot || "P1";
-  const myLevel = computeLevelStatsFromTotalXp(Number(user?.xp || 0)).level;
+  const myLevel = computeLevelProgress(Number(user?.level || 1), Number(user?.xp || 0)).level;
   const p1D = myS === "P1" ? { name: p1Name || "YOU", banner: myBanner, elo: user?.elo || 0, level: myLevel } : { name: opp.name, banner: opp.banner, elo: opp.elo || 0, level: opp.level || 1 };
   const p2D = myS === "P2" ? { name: p1Name || "YOU", banner: myBanner, elo: user?.elo || 0, level: myLevel } : { name: opp.name, banner: opp.banner, elo: opp.elo || 0, level: opp.level || 1 };
 
@@ -634,8 +638,8 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     const beforeRank = getRank(me.elo_before);
     const afterRank = getRank(me.elo_after);
     const shouldShowRankUp = me.elo_after > me.elo_before && beforeRank.name !== afterRank.name;
-    const beforeXpLevel = computeLevelStatsFromTotalXp(Number(me.xp_before || 0)).level;
-    const afterXpLevel = computeLevelStatsFromTotalXp(Number(me.xp_after || 0)).level;
+    const beforeXpLevel = Number(me.level_before || 1);
+    const afterXpLevel = Number(me.level_after || 1);
     const shouldShowXpLevelUp = afterXpLevel > beforeXpLevel;
 
     setShowGameWinScreen(false);
@@ -1404,6 +1408,8 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
               elo_after: z(rm.p1?.elo_after, 0),
               rr_before: z(rm.p1?.rr_before, 0),
               rr_after: z(rm.p1?.rr_after, 0),
+              level_before: z(rm.p1?.level_before, 1),
+              level_after: z(rm.p1?.level_after, 1),
               xp_before: z(rm.p1?.xp_before, 0),
               xp_after: z(rm.p1?.xp_after, 0),
             },
@@ -1413,6 +1419,8 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
               elo_after: z(rm.p2?.elo_after, 0),
               rr_before: z(rm.p2?.rr_before, 0),
               rr_after: z(rm.p2?.rr_after, 0),
+              level_before: z(rm.p2?.level_before, 1),
+              level_after: z(rm.p2?.level_after, 1),
               xp_before: z(rm.p2?.xp_before, 0),
               xp_after: z(rm.p2?.xp_after, 0),
             },

@@ -5,7 +5,7 @@ from app.core.ids import user_object_id
 from app.core.security import decode_token
 from app.core.mission_xp import mission_xp_for_mission_id
 from app.game.ranked_penalties import user_ranked_allowed
-from app.routers.game import compute_level
+from app.routers.game import add_xp
 from datetime import datetime
 
 router = APIRouter()
@@ -101,9 +101,9 @@ async def claim_mission_reward(data: ClaimMissionBody, user_id: str = Depends(ge
             "profile": _serialize_user(fresh),
         }
 
+    prev_level = int(user.get("level", 1) or 1)
     prev_xp = int(user.get("xp", 0) or 0)
-    new_xp = prev_xp + xp_gain
-    new_level, _ = compute_level(new_xp)
+    new_level, new_xp = add_xp(prev_level, prev_xp, xp_gain)
 
     await db.users.update_one(
         {"_id": oid},

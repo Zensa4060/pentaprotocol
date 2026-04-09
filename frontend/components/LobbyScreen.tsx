@@ -4,7 +4,7 @@ import type { MatchupData, Screen } from "@/lib/types";
 import type { ThemeId } from "@/lib/themes";
 import { THEMES } from "@/lib/themes";
 import { useAuthStore } from "@/lib/store";
-import { computeLevelStatsFromTotalXp } from "@/lib/xpLevel";
+import { computeLevelProgress } from "@/lib/xpLevel";
 import API from "@/lib/api";
 import { loadCustomTheme } from "@/lib/customTheme";
 import { NavRankBadge, getRank } from "./NavBar";
@@ -74,7 +74,7 @@ export default function LobbyScreen({
   const t  = THEMES[themeId as keyof typeof THEMES];
   const ip = themeId === "pixel";
   const { user, token, refreshProfile } = useAuthStore();
-  const localLevel = computeLevelStatsFromTotalXp(Number(user?.xp || 0)).level;
+  const localLevel = computeLevelProgress(Number(user?.level || 1), Number(user?.xp || 0)).level;
   const BLOOD_RED = "#FF0000";
 
   const [multiSub,   setMultiSub]   = useState<MultiSub>(null);

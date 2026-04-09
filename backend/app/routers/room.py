@@ -945,11 +945,13 @@ async def _award_match_series_and_notify(
     u1 = await db.users.find_one({"_id": ObjectId(p1_id)}) if p1_id else None
     u2 = await db.users.find_one({"_id": ObjectId(p2_id)}) if p2_id else None
     
-    # Snapshot ELO for UI report
+    # Snapshot ELO & Level for UI report
     elo1_before = u1.get("elo", 500) if u1 else 500
     elo2_before = u2.get("elo", 500) if u2 else 500
     rr1_before = int(u1.get("ranked_rating", elo1_before)) if u1 else elo1_before
     rr2_before = int(u2.get("ranked_rating", elo2_before)) if u2 else elo2_before
+    lvl1_before = u1.get("level", 1) if u1 else 1
+    lvl2_before = u2.get("level", 1) if u2 else 1
 
     career_ids = await award_ranked_match_result(
         db, game_dict, effective, record_clean_streak=record_clean_streak, surrendered_by=surrendered_by
@@ -968,6 +970,8 @@ async def _award_match_series_and_notify(
             "elo_after": u1a.get("elo", elo1_before) if u1a else elo1_before,
             "rr_before": rr1_before,
             "rr_after": int(u1a.get("ranked_rating", rr1_before)) if u1a else rr1_before,
+            "level_before": lvl1_before,
+            "level_after": u1a.get("level", lvl1_before) if u1a else lvl1_before,
             "xp_before": u1.get("xp", 0) if u1 else 0,
             "xp_after": u1a.get("xp", 0) if u1a else 0,
         },
@@ -977,6 +981,8 @@ async def _award_match_series_and_notify(
             "elo_after": u2a.get("elo", elo2_before) if u2a else elo2_before,
             "rr_before": rr2_before,
             "rr_after": int(u2a.get("ranked_rating", rr2_before)) if u2a else rr2_before,
+            "level_before": lvl2_before,
+            "level_after": u2a.get("level", lvl2_before) if u2a else lvl2_before,
             "xp_before": u2.get("xp", 0) if u2 else 0,
             "xp_after": u2a.get("xp", 0) if u2a else 0,
         },

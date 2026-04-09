@@ -10,16 +10,6 @@ export function xpForLevel(level: number): number {
   return XP_CURVE_LEVELS_1_TO_30[XP_CURVE_LEVELS_1_TO_30.length - 1] + (level - 30) * 50;
 }
 
-/** Cumulative total XP needed to reach a target level from level 1 (0 XP). */
-export function totalXpToReachLevel(targetLevel: number): number {
-  if (targetLevel <= 1) return 0;
-  let total = 0;
-  for (let level = 1; level < targetLevel; level++) {
-    total += xpForLevel(level);
-  }
-  return total;
-}
-
 export type LevelStats = {
   level: number;
   rem: number;
@@ -27,15 +17,12 @@ export type LevelStats = {
   progress: number;
 };
 
-/** XP into current level, XP required for current level, and bar width %. */
-export function computeLevelStatsFromTotalXp(totalXp: number): LevelStats {
-  let level = 1;
-  let rem = totalXp;
-  while (level < 1000 && rem >= xpForLevel(level)) {
-    rem -= xpForLevel(level);
-    level++;
-  }
-  const nextXp = xpForLevel(level);
-  const progress = (rem / nextXp) * 100;
-  return { level, rem, nextXp, progress };
+/** Compute progress toward next level based on current level and current XP */
+export function computeLevelProgress(level: number, currentXp: number): LevelStats {
+  const safeLevel = Math.max(1, Math.min(1000, level));
+  const safeXp = Math.max(0, currentXp);
+  const nextXp = xpForLevel(safeLevel);
+  let progress = (safeXp / nextXp) * 100;
+  if (safeLevel >= 1000) progress = 100;
+  return { level: safeLevel, rem: safeXp, nextXp, progress };
 }

@@ -2,7 +2,7 @@
 import React, { useEffect, useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { getRank, NavRankBadge } from "./NavBar";
-import { computeLevelStatsFromTotalXp, totalXpToReachLevel } from "@/lib/xpLevel";
+import { computeLevelProgress } from "@/lib/xpLevel";
 
 interface MatchResultScreenProps {
   seriesWinner: string;
@@ -13,6 +13,8 @@ interface MatchResultScreenProps {
     elo_after: number;
     rr_before: number;
     rr_after: number;
+    level_before: number;
+    level_after: number;
     xp_before: number;
     xp_after: number;
   };
@@ -22,6 +24,8 @@ interface MatchResultScreenProps {
     elo_after: number;
     rr_before: number;
     rr_after: number;
+    level_before: number;
+    level_after: number;
     xp_before: number;
     xp_after: number;
   };
@@ -60,9 +64,8 @@ export default function MatchResultScreen({
   const eloDiff = myData.elo_after - myData.elo_before;
   const xpGained = myData.xp_after - myData.xp_before;
   
-  const levelBefore = useMemo(() => computeLevelStatsFromTotalXp(myData.xp_before), [myData.xp_before]);
-  const levelAfter = useMemo(() => computeLevelStatsFromTotalXp(myData.xp_after), [myData.xp_after]);
-  const nextLevelTotalTarget = useMemo(() => totalXpToReachLevel(levelAfter.level + 1), [levelAfter.level]);
+  const levelBefore = useMemo(() => computeLevelProgress(myData.level_before, myData.xp_before), [myData.level_before, myData.xp_before]);
+  const levelAfter = useMemo(() => computeLevelProgress(myData.level_after, myData.xp_after), [myData.level_after, myData.xp_after]);
   const levelUp = levelAfter.level > levelBefore.level;
   const rankBefore = useMemo(() => getRank(myData.elo_before), [myData.elo_before]);
   const rankAfter = useMemo(() => getRank(myData.elo_after), [myData.elo_after]);
@@ -271,7 +274,7 @@ export default function MatchResultScreen({
                    <span style={{ fontFamily: t.fontMono, fontSize: 12, color: t.textMuted }}>+{xpGained} XP</span>
                 </div>
                 <div style={{ fontFamily: t.fontMono, fontSize: 11, color: t.textMuted, marginBottom: 8, textAlign: "center" }}>
-                  Total XP: {myData.xp_after.toLocaleString()} / {nextLevelTotalTarget.toLocaleString()}
+                  Rank Progress: {levelAfter.rem.toLocaleString()} / {levelAfter.nextXp.toLocaleString()}
                 </div>
                 <div style={{ 
                   height: 6, 
@@ -291,8 +294,8 @@ export default function MatchResultScreen({
                      }}
                    />
                 </div>
-                <div style={{ fontFamily: t.fontMono, fontSize: 11, color: t.textMuted, marginTop: 8, textAlign: "right" }}>
-                  Level Progress: {levelAfter.rem.toLocaleString()} / {levelAfter.nextXp.toLocaleString()}
+                <div style={{ fontFamily: t.fontMono, fontSize: 11, color: t.textMuted, marginTop: 8, textAlign: "right", opacity: 0 }}>
+                  -
                 </div>
                 {levelUp && (
                   <motion.div

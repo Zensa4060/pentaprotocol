@@ -20,13 +20,16 @@ def xp_for_level(level: int) -> int:
     # Continue the same +50 progression after level 30.
     return _XP_CURVE_LEVELS_1_TO_30[-1] + ((level - 30) * 50)
 
-def compute_level(total_xp: int) -> tuple[int, int]:
-    level = 1
-    remaining = total_xp
-    while level < 1000 and remaining >= xp_for_level(level):
-        remaining -= xp_for_level(level)
+def add_xp(current_level: int, current_xp: int, gained_xp: int) -> tuple[int, int]:
+    level = current_level if current_level else 1
+    rem = current_xp + gained_xp
+    while level < 1000 and rem >= xp_for_level(level):
+        rem -= xp_for_level(level)
         level += 1
-    return min(level, 1000), remaining
+    if level >= 1000:
+        level = 1000
+        rem = 0
+    return min(level, 1000), rem
 
 def xp_for_result(result: str, mode: str = "multiplayer", difficulty: str = "medium") -> int:
     if mode == "bot":
@@ -115,8 +118,7 @@ async def award_game_result(db, game: dict, winner: str | None):
         if not user:
             return
         gained_xp    = xp_for_result(result, mode, difficulty)
-        new_total_xp = user.get("xp", 0) + gained_xp
-        new_level, _ = compute_level(new_total_xp)
+        new_level, new_xp = add_xp(user.get("level", 1), user.get("xp", 0), gained_xp)
         inc = {}
         if career_mode == "unranked":
             if result == "win":  inc["unranked_wins"]   = 1
@@ -128,7 +130,7 @@ async def award_game_result(db, game: dict, winner: str | None):
             if result == "loss": inc["losses"] = 1
             if result == "draw": inc["draws"]  = 1
 
-        updates = {"xp": new_total_xp, "level": new_level}
+        updates = {"xp": new_xp, "level": new_level}
         # ELO changes apply to ranked PvP only; unranked uses unranked_wins/losses without ELO.
         if is_ranked and opponent_id and mode != "bot":
             # Elo updates re-enabled for ranked
@@ -224,8 +226,7 @@ async def award_ranked_match_result(
         if not user: return
         
         gained_xp = xp_for_series_outcome(result, fmt, num_rounds, total_time_ms)
-        new_total_xp = user.get("xp", 0) + gained_xp
-        new_level, _ = compute_level(new_total_xp)
+        new_level, new_xp = add_xp(user.get("level", 1), user.get("xp", 0), gained_xp)
         
         inc = {}
         if is_ranked:
@@ -237,7 +238,7 @@ async def award_ranked_match_result(
             elif result == "loss": inc["unranked_losses"] = 1
             elif result == "draw": inc["draws"] = 1
         
-        updates = {"xp": new_total_xp, "level": new_level}
+        updates = {"xp": new_xp, "level": new_level}
         
         # Only update ELO/RR for ranked matches
         if is_ranked and opponent_id and mode != "bot":

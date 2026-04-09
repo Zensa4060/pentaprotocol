@@ -20,20 +20,20 @@ interface Props {
 }
 
 const DIFFICULTIES_5X5: { id: Difficulty; label: string; sub: string; color: string }[] = [
-  { id: "easy", label: "BALTAZAR SALAZAR JR ", sub: "", color: "#22C55E" },
-  { id: "medium", label: "MAGNUS DOMINUS AURELIUS", sub: "", color: "#FF0" },
-  { id: "hard", label: "BOB?", sub: "", color: "#700B0B" },
+  { id: "easy", label: "BALTAZAR", sub: "LEVEL 1", color: "#22C55E" },
+  { id: "medium", label: "SALAZAR", sub: "LEVEL 10", color: "#FF0" },
+  { id: "hard", label: "IT'S JR.", sub: "LEVEL 100", color: "#700B0B" },
 ];
 /** 7×7 Mindbreaker grid — own roster; no medium tier (no medium search on 7×7). */
 const DIFFICULTIES_7X7: { id: Difficulty; label: string; sub: string; color: string }[] = [
-  { id: "easy", label: "LADY SERAPHINA BLACKWOOD", sub: "", color: "#22C55E" },
-  { id: "hard", label: "THE ARCHIVIST", sub: "", color: "#700B0B" },
-  { id: "danger", label: "???", sub: "", color: "#CC0000" },
+  { id: "easy", label: "SERAPHINA", sub: "LEVEL 1", color: "#22C55E" },
+  { id: "hard", label: "REGINA", sub: "LEVEL 10", color: "#700B0B" },
+  { id: "danger", label: "IT'S HER", sub: "LEVEL 100", color: "#CC0000" },
 ];
 const DIFFICULTIES_6X6: { id: Difficulty; label: string; sub: string; color: string }[] = [
-  { id: "normal", label: "VISCOUNT ALISTAIR REGINALD", sub: "", color: "#FF0" },
-  { id: "hard", label: "HAROLD FITZGERALD KENSINGTON", sub: "", color: "#000FFF" },
-  { id: "machine_god", label: "HIM??", sub: "", color: "#CC0000" },
+  { id: "normal", label: "VALDORIN", sub: "LEVEL 1", color: "#FF0" },
+  { id: "hard", label: "ELDORIN", sub: "LEVEL 10", color: "#000FFF" },
+  { id: "machine_god", label: "IT'S HIM", sub: "LEVEL 100", color: "#CC0000" },
 ];
 
 /** Mini grid diagram component */

@@ -32,5 +32,5 @@ def mission_xp_for_mission_id(mission_id: str) -> Optional[int]:
     if mission_id.startswith("w_"):
         return 5000 + (h % 5001)
     if mission_id.startswith("perm_"):
-        return 5000 + (h % 95001)
+        return 500 + (h % 1500)
     return None
