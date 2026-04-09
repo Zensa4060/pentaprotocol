@@ -25,26 +25,11 @@ async def reset_all():
     print(f"Processing {total_users} users...")
 
     for user in users:
-        unranked_wins   = user.get("unranked_wins", 0)
-        unranked_losses = user.get("unranked_losses", 0)
-        total_unranked  = unranked_wins + unranked_losses
-
-        updates = {
-            "$set": {
-                "wins":   0,
-                "losses": 0,
-                "draws":  0,
-                "elo":    100,
-                "xp":     0,
-                "level":  1,
-            },
-            "$inc": {
-                "unranked_wins":   total_unranked,
-                "unranked_losses": total_unranked,
-            },
-        }
-
-        await db.users.update_one({"_id": user["_id"]}, updates)
+        # XP migration for new level curve: reset progression only.
+        await db.users.update_one(
+            {"_id": user["_id"]},
+            {"$set": {"xp": 0, "level": 1}},
+        )
 
     print(f"Stats reset for {total_users} users.")
 

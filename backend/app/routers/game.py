@@ -6,18 +6,19 @@ from app.game.engine import GameEngine
 from app.game.ranked_penalties import record_ranked_match_completed_clean
 from bson import ObjectId
 from datetime import datetime
-import math
-
 router = APIRouter()
 
+_XP_CURVE_LEVELS_1_TO_30 = [1000 + ((lvl - 1) * 50) for lvl in range(1, 31)]
+
 def xp_for_level(level: int) -> int:
-    # Exponential growth: base 5000 + multiplier * (1.1^level) + linear bonus
-    # This makes it increasingly difficult to level up.
-    if level >= 1000: return 999_999_999 # Effective cap
-    base = 5000
-    curve = int(1000 * (1.1 ** (level - 1)))
-    linear = (level - 1) * 500
-    return base + curve + linear
+    if level >= 1000:
+        return 999_999_999  # Effective cap
+    if level <= 0:
+        return _XP_CURVE_LEVELS_1_TO_30[0]
+    if level <= 30:
+        return _XP_CURVE_LEVELS_1_TO_30[level - 1]
+    # Continue the same +50 progression after level 30.
+    return _XP_CURVE_LEVELS_1_TO_30[-1] + ((level - 30) * 50)
 
 def compute_level(total_xp: int) -> tuple[int, int]:
     level = 1

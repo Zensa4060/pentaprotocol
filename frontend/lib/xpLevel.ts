@@ -1,9 +1,13 @@
 /**
  * Level / XP curve — must match backend app.routers.game.xp_for_level and compute_level.
  */
+const XP_CURVE_LEVELS_1_TO_30 = Array.from({ length: 30 }, (_, i) => 1000 + i * 50);
+
 export function xpForLevel(level: number): number {
   if (level >= 1000) return 999_999_999;
-  return 5000 + Math.floor(1000 * Math.pow(1.1, level - 1)) + (level - 1) * 500;
+  if (level <= 0) return XP_CURVE_LEVELS_1_TO_30[0];
+  if (level <= 30) return XP_CURVE_LEVELS_1_TO_30[level - 1];
+  return XP_CURVE_LEVELS_1_TO_30[XP_CURVE_LEVELS_1_TO_30.length - 1] + (level - 30) * 50;
 }
 
 export type LevelStats = {
