@@ -5,9 +5,11 @@ import sys
 # Re-use the existing xp computation from pentaprotocol
 from app.routers.game import xp_for_level
 from motor.motor_asyncio import AsyncIOMotorClient
+from dotenv import load_dotenv
 
 async def migrate_xp():
-    mongodb_url = os.environ.get("MONGODB_URL", "mongodb://localhost:27017")
+    load_dotenv('.env')
+    mongodb_url = os.environ.get("MONGO_URI", "mongodb://localhost:27017")
     client = AsyncIOMotorClient(mongodb_url)
     db = client.pentaprotocol
     
