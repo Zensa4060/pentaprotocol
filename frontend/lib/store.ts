@@ -126,11 +126,14 @@ export const useAuthStore = create<AuthStore>((set, get) => {
       } catch (err: any) {
         const status = err?.response?.status;
         const detail: string = err?.response?.data?.detail ?? "";
-        // Detect single-session kick from the backend
         if (status === 401 && detail.toLowerCase().includes("session replaced")) {
+          // Kicked because another device logged in
           get().logout("duplicate_session");
+        } else if (status === 404 || status === 401) {
+          // User was deleted from the DB, or token is completely invalid
+          get().logout("user_not_found");
         }
-        // All other errors: silently ignore
+        // Network errors and 5xx: silently ignore (don't log out)
       }
     },
   };

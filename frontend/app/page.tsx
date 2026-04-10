@@ -154,6 +154,17 @@ export default function Page() {
   };
 
   // Before first paint: restore theme, screen, 7×7 board mode / patterns (no AuthScreen flash if logged in)
+  // ── Startup restore ref — filled by useLayoutEffect, consumed by verify effect ──
+  const pendingScreenRestoreRef = useRef<{
+    screen: Screen;
+    multiRoomCode: string;
+    multiPlayerSlot: "P1" | "P2" | null;
+    isRanked: boolean;
+  } | null>(null);
+
+  // Before first paint: restore non-auth settings. If a token exists, we do NOT
+  // call setAppReady yet — the profile-verify effect below will do that after
+  // confirming the token/user is still valid in the DB.
   useLayoutEffect(() => {
     const savedTheme = localStorage.getItem("pp_theme") as ThemeId;
     if (savedTheme && THEMES[savedTheme]) setThemeIdRaw(savedTheme);
@@ -187,41 +198,95 @@ export default function Page() {
       } catch { /* ignore */ }
     }
 
+    if (!tok) {
+      // No token → go straight to AuthScreen immediately (no API call needed)
+      setScreen("auth");
+      window.history.pushState({ screen: "auth" }, "", window.location.pathname);
+      setAppReady(true);
+      return;
+    }
+
+    // Token exists → compute the desired screen but DO NOT apply it yet.
+    // appReady stays false (blank loading div) until the API verifies the user.
+    let targetScreen: Screen = "home";
+    let targetRoom = "";
+    let targetSlot: "P1" | "P2" | null = null;
+    let targetRanked = false;
     let sealedResumeToHome = false;
+
     if (savedScreen) {
       sealedResumeToHome =
         savedScreen === "multiGame" &&
-        typeof window !== "undefined" &&
         sessionStorage.getItem(PP_MULTI_SERIES_FINISHED_KEY) === "1";
       if (sealedResumeToHome) {
         sessionStorage.removeItem(PP_MULTI_SERIES_FINISHED_KEY);
-        setScreen("home");
+        targetScreen = "home";
       } else if (savedScreen === "multiGame") {
-        // Reopen/reconnect safety: do not restore directly into multiplayer match view.
         sessionStorage.setItem(PP_HOME_NOTICE_KEY, DISCONNECT_HOME_NOTICE);
-        setScreen("home");
-      } else if (tok || !GUEST_BLOCKED.includes(savedScreen)) {
-        setScreen(savedScreen);
-        if (savedRoom) setMultiRoomCode(savedRoom);
-        if (savedSlot) setMultiPlayerSlot(savedSlot);
-        setIsRanked(savedRanked);
+        targetScreen = "home";
       } else {
-        setScreen("auth");
+        targetScreen = savedScreen;
+        targetRoom = savedRoom || "";
+        targetSlot = savedSlot;
+        targetRanked = savedRanked;
       }
-    } else {
-      setScreen(tok ? "home" : "auth");
     }
 
     const historyScreen = sealedResumeToHome
       ? "home"
-      : savedScreen || (tok ? "home" : "auth");
-    window.history.pushState(
-      { screen: historyScreen },
-      "",
-      window.location.pathname,
-    );
-    setAppReady(true);
+      : (savedScreen as Screen) || "home";
+    window.history.pushState({ screen: historyScreen }, "", window.location.pathname);
+
+    // Store restore intent — profile-verify effect reads it
+    pendingScreenRestoreRef.current = {
+      screen: targetScreen,
+      multiRoomCode: targetRoom,
+      multiPlayerSlot: targetSlot,
+      isRanked: targetRanked,
+    };
+    // setAppReady(true) intentionally NOT called here when token exists
   }, []);
+
+  // ── Profile verification gate ─────────────────────────────────────────────
+  // Runs once on mount. If a token was found, fetches profile to confirm the
+  // user still exists in the DB before revealing any screen.
+  // This prevents HomeScreen flash for deleted / stale accounts.
+  useEffect(() => {
+    const restore = pendingScreenRestoreRef.current;
+    if (!restore) return; // No token: useLayoutEffect already called setAppReady(true)
+
+    const tok = useAuthStore.getState().token;
+    if (!tok) {
+      setScreen("auth");
+      setAppReady(true);
+      return;
+    }
+
+    API.get("/api/profile/me", {
+      headers: { Authorization: `Bearer ${tok}` },
+      timeout: 10000,
+    })
+      .then((res) => {
+        // User confirmed valid — apply the stored screen restore
+        useAuthStore.getState().updateUser(res.data);
+        setScreen(restore.screen);
+        if (restore.multiRoomCode) setMultiRoomCode(restore.multiRoomCode);
+        if (restore.multiPlayerSlot) setMultiPlayerSlot(restore.multiPlayerSlot);
+        setIsRanked(restore.isRanked);
+        setAppReady(true);
+      })
+      .catch((err: any) => {
+        const status = err?.response?.status;
+        if (status === 404 || status === 401) {
+          // User deleted from DB or token invalid — clear everything
+          useAuthStore.getState().logout();
+        }
+        // Network/5xx errors: still show auth to be safe (token can't be verified)
+        setScreen("auth");
+        setAppReady(true);
+      });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // must only run once on mount
 
   useEffect(() => {
     if (!appReady || !user || !token) return;
@@ -234,6 +299,27 @@ export default function Page() {
   useEffect(() => {
     if (!appReady || !token) return;
     useAuthStore.getState().refreshProfile();
+  }, [appReady, token]);
+
+  // ── Guard: if token is cleared after startup (user deleted, expired, etc.) ──
+  // This fires whenever token changes to null *after* the app has initialised,
+  // so we don't accidentally redirect on the very first render where token
+  // starts as null for guests.
+  useEffect(() => {
+    if (!appReady) return;
+    if (!token && screen !== "auth" && screen !== "policy_gate") {
+      // Clean up any in-progress multiplayer state
+      setMultiRoomCode("");
+      setMultiPlayerSlot(null);
+      setInQueue(false);
+      setQueuePhase("none");
+      if (queuePollRef.current) {
+        clearInterval(queuePollRef.current);
+        queuePollRef.current = null;
+      }
+      setScreen("auth");
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [appReady, token]);
 
   useEffect(() => {
