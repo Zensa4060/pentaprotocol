@@ -1,4 +1,4 @@
-﻿fastapi
+fastapi
 uvicorn[standard]
 motor
 pymongo
@@ -18,3 +18,4 @@ email-validator
 pydantic[email]
 resend
 aiohttp
+google-auth

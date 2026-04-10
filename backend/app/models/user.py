@@ -18,11 +18,17 @@ class UserResponse(BaseModel):
     level: int
     xp: int
     elo: int
-    rank: str
+    ranked_rating: Optional[int] = None
     wins: int
     losses: int
     draws: int
+    totp_enabled: bool = False
+    shards: int = 0
+    protocredits: int = 0
+    bio: str = ""
+    avatar: Optional[str] = None
     created_at: datetime
+
 
 class TokenResponse(BaseModel):
     access_token: str

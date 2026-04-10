@@ -21,6 +21,7 @@ async def ensure_indexes():
         # Critical indexes for room queue/create/join and profile fetch paths.
         await db.db.users.create_index([("username", ASCENDING)], unique=True, background=True)
         await db.db.users.create_index([("email", ASCENDING)], unique=True, background=True)
+        await db.db.users.create_index([("google_id", ASCENDING)], background=True)
         await db.db.rooms.create_index([("room_code", ASCENDING)], unique=True, background=True)
         await db.db.rooms.create_index([("status", ASCENDING), ("format", ASCENDING), ("created_at", DESCENDING)], background=True)
         await db.db.rooms.create_index([("player1_id", ASCENDING)], background=True)

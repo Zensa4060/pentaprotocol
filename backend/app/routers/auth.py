@@ -13,6 +13,7 @@ from app.core.rate_limit import build_rate_key, enforce_rate_limit
 import base64
 import re, secrets, hashlib, pyotp, qrcode, io, os
 import resend
+import httpx
 
 router = APIRouter()
 
@@ -207,6 +208,140 @@ async def login(data: UserLogin, request: Request):
     )
     token = create_access_token({"sub": str(user["_id"])}, sid=new_sid)
     return {"access_token": token, "token_type": "bearer", "user": serialize_user(user)}
+
+
+# ── GOOGLE OAUTH ───────────────────────────────────────────────────────────────
+class GoogleAuthRequest(BaseModel):
+    credential: str  # Can be ID Token (JWT) or Access Token
+    user_info: dict | None = None  # Optional user info from frontend
+
+
+@router.post("/google")
+async def google_auth(data: GoogleAuthRequest):
+    """
+    Verify the Google token server-side and issue a JWT.
+    Supports both ID Tokens (standard GIS) and Access Tokens (custom JS flow).
+    """
+    client_id = os.getenv("GOOGLE_CLIENT_ID", "").strip()
+    if not client_id:
+        raise HTTPException(500, "Google OAuth is not configured on this server")
+
+    google_sub = None
+    email = None
+    name = None
+    picture_url = None
+
+    # 1. Try to verify as ID Token (JWT)
+    try:
+        from google.oauth2 import id_token as google_id_token
+        from google.auth.transport import requests as google_requests
+        id_info = google_id_token.verify_oauth2_token(
+            data.credential,
+            google_requests.Request(),
+            client_id,
+        )
+        google_sub = id_info.get("sub")
+        email = id_info.get("email", "").lower().strip()
+        name = id_info.get("name", "")
+        picture_url = id_info.get("picture")
+    except Exception:
+        # 2. If JWT verification fails, try as Access Token
+        try:
+            async with httpx.AsyncClient() as client:
+                # Verify token with Google's userinfo endpoint
+                resp = await client.get(
+                    "https://www.googleapis.com/oauth2/v3/userinfo",
+                    headers={"Authorization": f"Bearer {data.credential}"}
+                )
+                if resp.status_code != 200:
+                    raise HTTPException(401, "Invalid Google access token")
+                
+                info = resp.json()
+                google_sub = info.get("sub")
+                email = info.get("email", "").lower().strip()
+                name = info.get("name", "")
+                picture_url = info.get("picture")
+        except Exception as e:
+            if isinstance(e, HTTPException): raise e
+            raise HTTPException(401, f"Google verification failed: {str(e)}")
+
+    if not google_sub or not email:
+        raise HTTPException(400, "Google authentication missing required fields")
+
+    db = get_db()
+
+    # ── Find or create user ─────────────────────────────────────────────────
+    user = await db.users.find_one({"google_id": google_sub})
+    if not user:
+        user = await db.users.find_one({"email": email})
+
+    is_new_user = False
+    if user:
+        updates: dict = {}
+        if not user.get("google_id"):
+            updates["google_id"] = google_sub
+        if picture_url and not user.get("avatar"):
+            updates["avatar"] = picture_url
+        if updates:
+            await db.users.update_one({"_id": user["_id"]}, {"$set": updates})
+            user = await db.users.find_one({"_id": user["_id"]}) or user
+    else:
+        is_new_user = True
+        base_username = re.sub(r"[^\w]", "", name.replace(" ", "_"))[:14] or "player"
+        username = base_username
+        suffix = 1
+        while await db.users.find_one({"username": username}):
+            username = f"{base_username}{suffix}"
+            suffix += 1
+
+        new_user_doc = {
+            "username":          username,
+            "email":             email,
+            "google_id":         google_sub,
+            "password":          "",
+            "avatar":            picture_url,
+            "level":             1,
+            "xp":                0,
+            "elo":               500,
+            "ranked_rating":     500,
+            "wins":              0,
+            "losses":            0,
+            "draws":             0,
+            "shards":            0,
+            "protocredits":      0,
+            "totp_enabled":      False,
+            "bio":               "",
+            "created_at":        datetime.utcnow(),
+            "legal_accepted":    False, # New users must accept terms
+        }
+        result = await db.users.insert_one(new_user_doc)
+        user = await db.users.find_one({"_id": result.inserted_id})
+
+    # Check if policy gate is required
+    requires_policy_gate = not user.get("legal_accepted", False)
+    if not requires_policy_gate:
+        # Also check legal_acceptances collection for consistency
+        acceptance = await db.legal_acceptances.find_one({"user_id": str(user["_id"])})
+        if not acceptance:
+            requires_policy_gate = True
+
+    # ── Session Management ─────────────────────────────────────────────────
+    new_sid = secrets.token_hex(32)
+    await ws_manager.kick_user(str(user["_id"]))
+    await db.users.update_one(
+        {"_id": user["_id"]},
+        {"$set": {"current_session_id": new_sid}},
+    )
+    token = create_access_token({"sub": str(user["_id"])}, sid=new_sid)
+    
+    return {
+        "access_token": token,
+        "token_type": "bearer",
+        "user": serialize_user(user),
+        "requires_policy_gate": requires_policy_gate
+    }
+
+
 
 # ── 2FA: SETUP ────────────────────────────────────────────────────────────────
 @router.post("/2fa/setup")

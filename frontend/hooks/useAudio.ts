@@ -147,7 +147,9 @@ export function useAudio() {
     const next = new Audio(`/sounds/${src}`);
     next.loop = true;
     next.volume = 0;
-    next.play().catch(err => console.warn("Audio play failed:", err));
+    next.play().catch(err => {
+      if (err.name !== "AbortError") console.warn("Audio play failed:", err);
+    });
 
     audioRef.current = next;
     currentSrc.current = src;
