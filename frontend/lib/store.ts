@@ -57,12 +57,14 @@ function loadUser(): any | null {
 
 // ── Store ─────────────────────────────────────────────────────────────────────
 interface AuthStore {
-  user:       any | null;
-  token:      string | null;
-  setAuth:    (user: any, token: string, persist?: boolean) => void;
-  logout:     () => void;
-  updateUser: (patch: Partial<any>) => void;
-  refreshProfile: () => Promise<void>;
+  user:            any | null;
+  token:           string | null;
+  logoutReason:    string | null;
+  setAuth:         (user: any, token: string, persist?: boolean) => void;
+  logout:          (reason?: string) => void;
+  setLogoutReason: (reason: string | null) => void;
+  updateUser:      (patch: Partial<any>) => void;
+  refreshProfile:  () => Promise<void>;
 }
 
 export const useAuthStore = create<AuthStore>((set, get) => {
@@ -72,6 +74,7 @@ export const useAuthStore = create<AuthStore>((set, get) => {
   return {
     user,
     token,
+    logoutReason: null,
 
     setAuth: (user, token, persist = false) => {
       saveToken(token, persist);
@@ -79,14 +82,16 @@ export const useAuthStore = create<AuthStore>((set, get) => {
       set({ user, token });
     },
 
-    logout: () => {
+    logout: (reason?: string) => {
       localStorage.removeItem("pp_token");
       localStorage.removeItem("pp_expiry");
       localStorage.removeItem("pp_persist");
       localStorage.removeItem("pp_user");
       localStorage.removeItem("pp_custom_theme");
-      set({ user: null, token: null });
+      set({ user: null, token: null, logoutReason: reason ?? null });
     },
+
+    setLogoutReason: (reason) => set({ logoutReason: reason }),
 
     updateUser: (patch) => {
       const current = get().user;
@@ -118,8 +123,14 @@ export const useAuthStore = create<AuthStore>((set, get) => {
           timeout: 15000,
         });
         get().updateUser(res.data);
-      } catch {
-        /* ignore */
+      } catch (err: any) {
+        const status = err?.response?.status;
+        const detail: string = err?.response?.data?.detail ?? "";
+        // Detect single-session kick from the backend
+        if (status === 401 && detail.toLowerCase().includes("session replaced")) {
+          get().logout("duplicate_session");
+        }
+        // All other errors: silently ignore
       }
     },
   };

@@ -17,9 +17,12 @@ def hash_password(password: str) -> str:
 def verify_password(plain: str, hashed: str) -> bool:
     return bcrypt.checkpw(plain.encode("utf-8"), hashed.encode("utf-8"))
 
-def create_access_token(data: dict) -> str:
+def create_access_token(data: dict, *, sid: str | None = None) -> str:
     expire = datetime.utcnow() + timedelta(minutes=int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", 2880)))
-    return jwt.encode({**data, "exp": expire}, SECRET_KEY, algorithm=ALGORITHM)
+    payload = {**data, "exp": expire}
+    if sid:
+        payload["sid"] = sid
+    return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
 
 def decode_token(token: str) -> dict:
     return jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])

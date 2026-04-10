@@ -1025,6 +1025,14 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
               ws.send(JSON.stringify({ type: "player_info", username: p1Name ?? playerSlot ?? "P1", slot: playerSlot }));
               return;
             }
+            // \u2500\u2500 Single-session enforcement: server kicked us due to new login elsewhere \u2500\u2500
+            if (msg.type === "duplicate_session") {
+              destroyed = true;
+              ws.close();
+              // Trigger store-level logout with reason so page.tsx shows the modal
+              useAuthStore.getState().logout("duplicate_session");
+              return;
+            }
             if (msg.type === "move_made") {
               setBoard(msg.board);
               setCurrent(msg.current_player);

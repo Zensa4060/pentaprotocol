@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect, Header, Depends
 from app.core.database import get_db
 from app.core.security import decode_token
+from app.core.connections import manager as ws_manager
 from app.game.engine import GameEngine
 from app.routers.game import award_game_result, award_ranked_match_result
 from app.game.ranked_penalties import apply_ranked_quit_penalty, record_ranked_match_completed_clean, user_ranked_allowed
@@ -2180,11 +2181,23 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
     await websocket.accept()
     room_code = room_code.upper()
 
+    # ── Single-session enforcement: verify the token's sid still matches DB ──
+    db = get_db()
+    token_sid = payload.get("sid")
+    if token_sid:
+        _user_doc = await db.users.find_one({"_id": ObjectId(ws_user_id)}, {"current_session_id": 1})
+        if not _user_doc or _user_doc.get("current_session_id") != token_sid:
+            await websocket.send_json({"type": "duplicate_session", "reason": "Token no longer valid"})
+            await websocket.close(code=4001)
+            return
+
+    # Register with the global connection manager (enables real-time kick on new login)
+    ws_manager.register(ws_user_id, websocket)
+
     if room_code not in _room_connections:
         _room_connections[room_code] = {}
     _room_connections[room_code][player_slot] = websocket
 
-    db = get_db()
     if room_code not in _room_runtime:
         _room_runtime[room_code] = {
             "match_ready": {"P1": False, "P2": False},
@@ -3453,6 +3466,8 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                 await websocket.send_json({"type": "pong", "ts": ts})
 
     except WebSocketDisconnect:
+        # Unregister from global connection manager
+        ws_manager.unregister(ws_user_id, websocket)
         current_ws = _room_connections.get(room_code, {}).get(player_slot)
         if current_ws is websocket:
             _room_connections[room_code].pop(player_slot, None)

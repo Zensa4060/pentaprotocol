@@ -87,7 +87,7 @@ export default function Page() {
   const [showGuestBlock, setShowGuestBlock]   = useState(false);
   /** Resume legal gate after refresh if signup completed but policies not accepted. */
 
-  const { user, token, logout } = useAuthStore();
+  const { user, token, logout, logoutReason, setLogoutReason } = useAuthStore();
   const audio = useAudio();
   const { sfx } = audio;
 
@@ -126,6 +126,25 @@ export default function Page() {
   useEffect(() => {
     if (screen === "multiGame") setMultiplayerNavUnlocked(false);
   }, [screen, multiRoomCode]);
+
+  // ── React to session-kick from server ───────────────────────────────────
+  // When refreshProfile detects 401 "Session replaced", it calls logout("duplicate_session").
+  // We react here to navigate to auth and show the explanatory modal.
+  useEffect(() => {
+    if (logoutReason === "duplicate_session") {
+      // Clear multiplayer state cleanly before redirecting
+      setMultiRoomCode("");
+      setMultiPlayerSlot(null);
+      setInQueue(false);
+      setQueuePhase("none");
+      if (queuePollRef.current) {
+        clearInterval(queuePollRef.current);
+        queuePollRef.current = null;
+      }
+      if (screen !== "auth") setScreen("auth");
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [logoutReason]);
 
   const getBgmCtx = (s: Screen, ranked: boolean, aiDiff: Difficulty): "lobby" | "game" | "ranked" => {
     if (s === "aiGame") return aiDiff === "hard" || aiDiff === "danger" || aiDiff === "machine_god" ? "ranked" : "game";
@@ -707,6 +726,57 @@ export default function Page() {
       }} />
 
       {showGuestBlock && <GuestBlockModal />}
+
+      {/* ── Duplicate Session (kicked) Modal ─────────────────────────── */}
+      {logoutReason === "duplicate_session" && (
+        <div style={{
+          position: "fixed", inset: 0, zIndex: 999999,
+          background: "rgba(0,0,0,0.92)",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          animation: "fadeIn 0.2s ease both",
+        }}>
+          <div style={{
+            background: t.bgPanel,
+            border: `1px solid ${t.danger}55`,
+            borderRadius: ip ? 2 : 20,
+            padding: ip ? "32px 36px" : "48px 52px",
+            maxWidth: 460, width: "90vw",
+            textAlign: "center",
+            boxShadow: `0 0 60px ${t.danger}22, 0 40px 100px rgba(0,0,0,0.8)`,
+            animation: "scaleIn 0.28s cubic-bezier(.22,.68,0,1.2) both",
+          }}>
+            <div style={{
+              fontFamily: t.fontDisplay, fontSize: ip ? 11 : 12,
+              fontWeight: 700, color: t.danger, letterSpacing: "0.18em",
+              marginBottom: 16, textTransform: "uppercase",
+            }}>Session Terminated</div>
+            <div style={{
+              fontFamily: t.fontDisplay, fontSize: ip ? 16 : 22,
+              fontWeight: 700, color: t.text, marginBottom: 16, lineHeight: 1.4,
+            }}>You were signed in elsewhere</div>
+            <div style={{
+              fontFamily: t.fontBody, fontSize: ip ? 12 : 14,
+              color: t.textMuted, marginBottom: 36, lineHeight: 1.7,
+            }}>
+              Your account was opened on another device or browser tab.{" "}
+              Only one active session is allowed at a time.
+            </div>
+            <button
+              onClick={() => {
+                setLogoutReason(null);
+                setScreen("auth");
+              }}
+              style={{
+                background: t.accent, border: "none", color: "#000",
+                fontFamily: t.fontDisplay, fontSize: ip ? 12 : 15, fontWeight: 800,
+                padding: ip ? "10px 28px" : "13px 44px", borderRadius: ip ? 2 : 10,
+                cursor: "pointer", letterSpacing: "0.08em",
+                boxShadow: `0 0 24px ${t.accentGlow}44`,
+              }}
+            >SIGN IN AGAIN</button>
+          </div>
+        </div>
+      )}
       {screen === "policy_gate" && (
         <PolicyAcceptanceGate
           themeId={themeId}

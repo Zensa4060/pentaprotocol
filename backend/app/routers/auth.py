@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException, Header, Depends, Request
 from app.models.user import UserRegister
 from app.core.database import get_db
 from app.core.security import hash_password, verify_password, create_access_token, decode_token
+from app.core.connections import manager as ws_manager
 from datetime import datetime, timedelta
 from pydantic import BaseModel, Field, EmailStr
 from bson import ObjectId
@@ -94,8 +95,18 @@ async def get_current_user(authorization: str = Header(...)):
     try:
         token = authorization.split(" ")[1]
         payload = decode_token(token)
-        return payload["sub"]
-    except:
+        user_id = payload["sub"]
+        token_sid = payload.get("sid")
+        # If token carries a sid, verify it still matches the DB (single-session enforcement)
+        if token_sid:
+            db = get_db()
+            user = await db.users.find_one({"_id": user_object_id(user_id)}, {"current_session_id": 1})
+            if not user or user.get("current_session_id") != token_sid:
+                raise HTTPException(401, "Session replaced — please sign in again")
+        return user_id
+    except HTTPException:
+        raise
+    except Exception:
         raise HTTPException(401, "Invalid token")
 
 # ── REGISTER ──────────────────────────────────────────────────────────────────
@@ -185,7 +196,16 @@ async def login(data: UserLogin, request: Request):
             }
             return {"requires_2fa": True, "temp_token": temp_token}
 
-    token = create_access_token({"sub": str(user["_id"])})
+    # ── Single-session enforcement ──────────────────────────────────────────
+    new_sid = secrets.token_hex(32)
+    # Kick any existing WebSocket connections for this user immediately
+    await ws_manager.kick_user(str(user["_id"]))
+    # Persist the new session id so future requests can validate it
+    await get_db().users.update_one(
+        {"_id": user["_id"]},
+        {"$set": {"current_session_id": new_sid}},
+    )
+    token = create_access_token({"sub": str(user["_id"])}, sid=new_sid)
     return {"access_token": token, "token_type": "bearer", "user": serialize_user(user)}
 
 # ── 2FA: SETUP ────────────────────────────────────────────────────────────────
@@ -266,7 +286,10 @@ async def login_2fa(data: TwoFALoginCheck, request: Request):
         raise HTTPException(400, "Invalid authenticator code")
 
     del _pending_2fa[data.temp_token]
-    token = create_access_token({"sub": str(user["_id"])})
+
+    # ── Single-session enforcement ──────────────────────────────────────────
+    new_sid = secrets.token_hex(32)
+    await ws_manager.kick_user(str(user["_id"]))
 
     device_token = secrets.token_hex(32)
     expiry       = datetime.utcnow() + timedelta(days=30)
@@ -275,9 +298,10 @@ async def login_2fa(data: TwoFALoginCheck, request: Request):
     existing.append({"token": device_token, "expires_at": expiry})
     await db.users.update_one(
         {"_id": user["_id"]},
-        {"$set": {"device_tokens_list": existing}}
+        {"$set": {"device_tokens_list": existing, "current_session_id": new_sid}}
     )
 
+    token = create_access_token({"sub": str(user["_id"])}, sid=new_sid)
     return {"access_token": token, "token_type": "bearer",
             "user": serialize_user(user), "device_token": device_token}
 
