@@ -36,9 +36,9 @@ def _serialize_user(user: dict) -> dict:
         "xp":                  user.get("xp", 0),
         "shards":              user.get("shards", 0),
         "protocredits":        user.get("protocredits", 0),
-        "elo":                 user.get("elo", 100),
-        "ranked_rating":       int(user.get("ranked_rating", user.get("elo", 100))),
-        "rank":                get_rank(user.get("elo", 100)),
+        "elo":                 user.get("elo"),
+        "ranked_rating":       user.get("ranked_rating"),
+        "rank":                get_rank(user.get("elo") if user.get("elo") is not None else 0),
         "ranked_ban_until":   (
             user.get("ranked_ban_until").isoformat() + "Z"
             if isinstance(user.get("ranked_ban_until"), datetime)
@@ -203,12 +203,12 @@ async def get_career(user_id: str = Depends(get_current_user)):
 async def leaderboard():
     db = get_db()
     players = []
-    async for u in db.users.find().sort("elo", -1).limit(20):
+    async for u in db.users.find({"elo": {"$ne": None, "$exists": True}}).sort("elo", -1).limit(20):
         is_p = u.get("placement_matches", 0) < 5
         players.append({
             "username": u["username"],
-            "elo":      "?" if is_p else u.get("elo", 500),
-            "rank":     "PLACEMENT" if is_p else get_rank(u.get("elo", 500)),
+            "elo":      "?" if is_p else u.get("elo"),
+            "rank":     "PLACEMENT" if is_p else get_rank(u.get("elo") if u.get("elo") is not None else 0),
             "wins":     u.get("wins", 0),
             "is_placement": is_p
         })

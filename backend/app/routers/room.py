@@ -947,10 +947,10 @@ async def _award_match_series_and_notify(
     u2 = await db.users.find_one({"_id": ObjectId(p2_id)}) if p2_id else None
     
     # Snapshot ELO & Level for UI report
-    elo1_before = u1.get("elo", 500) if u1 else 500
-    elo2_before = u2.get("elo", 500) if u2 else 500
-    rr1_before = int(u1.get("ranked_rating", elo1_before)) if u1 else elo1_before
-    rr2_before = int(u2.get("ranked_rating", elo2_before)) if u2 else elo2_before
+    elo1_before = u1.get("elo") if u1 else None
+    elo2_before = u2.get("elo") if u2 else None
+    rr1_before = int(u1.get("ranked_rating", u1.get("hidden_mmr", 500))) if u1 else 500
+    rr2_before = int(u2.get("ranked_rating", u2.get("hidden_mmr", 500))) if u2 else 500
     lvl1_before = u1.get("level", 1) if u1 else 1
     lvl2_before = u2.get("level", 1) if u2 else 1
 
@@ -968,7 +968,7 @@ async def _award_match_series_and_notify(
         "p1": {
             "name": u1.get("username", "P1") if u1 else "P1",
             "elo_before": elo1_before,
-            "elo_after": u1a.get("elo", elo1_before) if u1a else elo1_before,
+            "elo_after": u1a.get("elo") if u1a else elo1_before,
             "rr_before": rr1_before,
             "rr_after": int(u1a.get("ranked_rating", rr1_before)) if u1a else rr1_before,
             "level_before": lvl1_before,
@@ -980,7 +980,7 @@ async def _award_match_series_and_notify(
         "p2": {
             "name": u2.get("username", "P2") if u2 else "P2",
             "elo_before": elo2_before,
-            "elo_after": u2a.get("elo", elo2_before) if u2a else elo2_before,
+            "elo_after": u2a.get("elo") if u2a else elo2_before,
             "rr_before": rr2_before,
             "rr_after": int(u2a.get("ranked_rating", rr2_before)) if u2a else rr2_before,
             "level_before": lvl2_before,
@@ -1763,7 +1763,7 @@ async def queue_join(data: QueueRequest, user_id: str = Depends(get_current_user
     # Remove any existing queue entry for this user (idempotent re-queue)
     await db.matchmaking_queue.delete_many({"user_id": user_id, "format": fmt})
 
-    user_elo = int(user.get("elo", 500))
+    user_elo = int(user.get("hidden_mmr", 500))
 
     # Try to find an opponent already waiting (MongoDB-persisted queue)
     # MUST match on board_mode to ensure queue isolation!
@@ -1804,7 +1804,7 @@ async def queue_join(data: QueueRequest, user_id: str = Depends(get_current_user
                 match_update = {
                     "player2_id":     user_id,
                     "player2_name":   player_name,
-                    "player2_elo":    user.get("elo", 100),
+                    "player2_elo":    user.get("elo"),
                     "player2_avatar": user.get("avatar"),
                     "player2_banner": user.get("banner", "default"),
                     "player2_border": user.get("border_style", "none"),
@@ -1880,7 +1880,7 @@ async def queue_join(data: QueueRequest, user_id: str = Depends(get_current_user
         "source":         "matchmaking",
         "player1_id":     user_id,
         "player1_name":   player_name,
-        "player1_elo":    user.get("elo", 100),
+        "player1_elo":    user.get("elo"),
         "player1_avatar": user.get("avatar"),
         "player1_banner": user.get("banner", "default"),
         "player1_border": user.get("border_style", "none"),

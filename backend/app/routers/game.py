@@ -137,7 +137,7 @@ async def award_game_result(db, game: dict, winner: str | None):
             opponent = await db.users.find_one({"_id": ObjectId(opponent_id)})
             if opponent:
                 score = 1.0 if result == "win" else (0.5 if result == "draw" else 0.0)
-                updates["elo"] = new_elo(user.get("elo", 500), opponent.get("elo", 500), score)
+                updates["hidden_mmr"] = new_elo(user.get("hidden_mmr", 500), opponent.get("hidden_mmr", 500), score)
         await db.users.update_one({"_id": ObjectId(user_id)}, {"$set": updates, "$inc": inc})
 
     w = (winner or "").upper()
@@ -245,16 +245,25 @@ async def award_ranked_match_result(
             opponent = await db.users.find_one({"_id": ObjectId(opponent_id)})
             if opponent:
                 score = 1.0 if result == "win" else (0.5 if result == "draw" else 0.0)
-                elo_old = user.get("elo", 500)
-                rr_old = int(user.get("ranked_rating", elo_old))
-                opp_elo = opponent.get("elo", 500)
-                opp_rr = int(opponent.get("ranked_rating", opp_elo))
+                mmr_old = int(user.get("hidden_mmr", 500))
+                opp_mmr = int(opponent.get("hidden_mmr", 500))
                 
+                pl_matches = user.get("placement_matches", 0)
                 # Placement logic: higher K-factor for first 5 matches
-                k_p1 = 100 if user.get("placement_matches", 0) < 5 else 32
-                updates["elo"] = new_elo(elo_old, opp_elo, score, k=k_p1)
-                updates["ranked_rating"] = new_elo(rr_old, opp_rr, score, k=k_p1)
-                updates["placement_matches"] = user.get("placement_matches", 0) + 1
+                k_p1 = 100 if pl_matches < 5 else 32
+                
+                mmr_new = new_elo(mmr_old, opp_mmr, score, k=k_p1)
+                updates["hidden_mmr"] = mmr_new
+                
+                if pl_matches < 5:
+                    new_pl = pl_matches + 1
+                    updates["placement_matches"] = new_pl
+                    if new_pl == 5:
+                        updates["elo"] = mmr_new
+                        updates["ranked_rating"] = mmr_new
+                else:
+                    updates["elo"] = mmr_new
+                    updates["ranked_rating"] = mmr_new
                 
         await db.users.update_one({"_id": ObjectId(user_id)}, {"$set": updates, "$inc": inc})
 
@@ -282,19 +291,19 @@ async def award_ranked_match_result(
             return None
         
         # Ensure IDs are strings for consistent MongoDB querying (JWT uses string sub)
-        elo_before = user_snap.get("elo", 500)
+        elo_before = user_snap.get("elo")
         updated = await db.users.find_one({"_id": ObjectId(u_id_str)})
-        elo_after = updated.get("elo", elo_before) if updated else elo_before
+        elo_after = updated.get("elo") if updated else elo_before
         
         doc = {
             "user_id":            u_id_str,
             "opponent_id":        o_id_str,
             "opponent_username":  (opp_snap or {}).get("username", "Unknown"),
-            "opponent_elo":       (opp_snap or {}).get("elo", 500),
+            "opponent_elo":       (opp_snap or {}).get("elo") if opp_snap else None,
             "result":             result,
             "elo_before":         elo_before,
             "elo_after":          elo_after,
-            "elo_delta":          elo_after - elo_before if is_ranked else 0,
+            "elo_delta":          ((elo_after or 0) - (elo_before or 0)) if is_ranked else 0,
             "was_placement":      (user_snap.get("placement_matches", 0) < 5) if is_ranked else False,
             "placement_matches":  user_snap.get("placement_matches", 0) if is_ranked else 0,
             "mode":               fmt,
