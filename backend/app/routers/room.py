@@ -1704,7 +1704,8 @@ async def _cleanup_stale_rooms(db, user_id: str):
 
     for room in stale_rooms:
         created = room.get("created_at")
-        if created and created.timestamp() < cutoff:
+        # Ensure 'created' is a datetime object before calling .timestamp()
+        if created and hasattr(created, "timestamp") and created.timestamp() < cutoff:
             await db.rooms.delete_one({"room_code": room["room_code"]})
             await db.matchmaking_queue.delete_many({"room_code": room["room_code"]})
 
@@ -1749,8 +1750,10 @@ async def queue_join(data: QueueRequest, user_id: str = Depends(get_current_user
     user = await db.users.find_one({"_id": ObjectId(user_id)})
     if not user:
         raise HTTPException(404, "User not found")
+    
+    user_level = int(user.get("level") or 1)
     if fmt == "ranked":
-        if user.get("level", 1) < 5:
+        if user_level < 5:
             raise HTTPException(403, "Ranked queue requires level 5")
         ok, reason = user_ranked_allowed(user)
         if not ok:
@@ -1763,7 +1766,7 @@ async def queue_join(data: QueueRequest, user_id: str = Depends(get_current_user
     # Remove any existing queue entry for this user (idempotent re-queue)
     await db.matchmaking_queue.delete_many({"user_id": user_id, "format": fmt})
 
-    user_elo = int(user.get("hidden_mmr", 500))
+    user_elo = int(user.get("hidden_mmr") or 500)
 
     # Try to find an opponent already waiting (MongoDB-persisted queue)
     # MUST match on board_mode to ensure queue isolation!
@@ -1786,7 +1789,7 @@ async def queue_join(data: QueueRequest, user_id: str = Depends(get_current_user
             # Opponent's room disappeared — fall through to create a new one
             opponent_entry = None
         else:
-            p1_elo_room = int(waiting_room.get("player1_elo", 500))
+            p1_elo_room = int(waiting_room.get("player1_elo") or 500)
             if fmt == "ranked" and abs(p1_elo_room - user_elo) > RANKED_ELO_MATCH_RANGE:
                 # Legacy or inconsistent row — put opponent back in queue and keep searching
                 await db.matchmaking_queue.insert_one({
@@ -1804,12 +1807,12 @@ async def queue_join(data: QueueRequest, user_id: str = Depends(get_current_user
                 match_update = {
                     "player2_id":     user_id,
                     "player2_name":   player_name,
-                    "player2_elo":    user.get("elo"),
+                    "player2_elo":    user.get("elo") or 500,
                     "player2_avatar": user.get("avatar"),
                     "player2_banner": user.get("banner", "default"),
                     "player2_border": user.get("border_style", "none"),
                     "player2_title":  user.get("title", "newcomer"),
-                    "player2_level":  user.get("level", 1),
+                    "player2_level":  int(user.get("level") or 1),
                     "status":         "active",
                     "game_status":    "playing",
                     "turn_started_at_ms": int(datetime.utcnow().timestamp() * 1000),
@@ -1880,12 +1883,12 @@ async def queue_join(data: QueueRequest, user_id: str = Depends(get_current_user
         "source":         "matchmaking",
         "player1_id":     user_id,
         "player1_name":   player_name,
-        "player1_elo":    user.get("elo"),
+        "player1_elo":    user.get("elo") or 500,
         "player1_avatar": user.get("avatar"),
         "player1_banner": user.get("banner", "default"),
         "player1_border": user.get("border_style", "none"),
         "player1_title":  user.get("title", "newcomer"),
-        "player1_level":  user.get("level", 1),
+        "player1_level":  int(user.get("level") or 1),
         "board":          engine.board,
         "current_player": "P1",
         "moves_played":   0,

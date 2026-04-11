@@ -825,7 +825,15 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
                     {isUnranked ? (
                       <NavRankBadge rank={r} size={28} isPlacement={true} />
                     ) : (
-                      <img src={r.img!} style={{ width: 28, height: 28, objectFit: "contain", filter: isActive ? `drop-shadow(0 0 8px ${r.color}aa)` : "none" }} />
+                      <img 
+                        src={r.img!} 
+                        style={{ 
+                          width: ["NOVICE", "ADVANCED", "EMERALD"].includes(r.name) ? 34 : 28, 
+                          height: ["NOVICE", "ADVANCED", "EMERALD"].includes(r.name) ? 34 : 28, 
+                          objectFit: "contain", 
+                          filter: isActive ? `drop-shadow(0 0 8px ${r.color}aa)` : "none" 
+                        }} 
+                      />
                     )}
                     <div style={{ fontFamily: t.fontDisplay, fontSize: 15, fontWeight: isActive ? 800 : 700, color: isActive ? r.color : t.textSecondary, letterSpacing: "0.05em" }}>
                       {r.name}

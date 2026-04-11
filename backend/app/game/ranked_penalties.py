@@ -39,8 +39,8 @@ async def apply_ranked_quit_penalty(db, user_id: str) -> dict[str, Any]:
     if not user:
         return {}
 
-    rr = int(user.get("ranked_rating", user.get("elo", 500)))
-    streak = int(user.get("ranked_quit_streak", 0)) + 1
+    rr = int(user.get("ranked_rating") or user.get("elo") or 500)
+    streak = int(user.get("ranked_quit_streak") or 0) + 1
     new_rr = max(0, rr - RR_QUIT_PENALTY)
 
     ban_until: datetime | None = user.get("ranked_ban_until")
@@ -83,7 +83,7 @@ async def record_ranked_match_completed_clean(db, user_id: str) -> None:
     user = await db.users.find_one({"_id": uid})
     if not user:
         return
-    clean = int(user.get("ranked_clean_matches", 0)) + 1
+    clean = int(user.get("ranked_clean_matches") or 0) + 1
     update: dict[str, Any] = {"ranked_clean_matches": clean}
     if clean >= CLEAN_MATCHES_TO_RESET:
         update["ranked_clean_matches"] = 0

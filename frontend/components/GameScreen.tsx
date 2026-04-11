@@ -1380,9 +1380,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
           if (typeof et === "number") setExtraTurns(et);
           if (msg.rb_extra_turn_token_used === true) setRbExtraTurnTokenUsed(true);
             } else if (msg.type === "match_series_complete" || msg.type === "ranked_match_complete") {
-          // #region agent log
-          fetch('http://127.0.0.1:7852/ingest/44a3777c-2714-4f08-b3ff-de0caf166408',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'6fad40'},body:JSON.stringify({sessionId:'6fad40',runId:'run1',hypothesisId:'H2',location:'frontend/components/GameScreen.tsx:1070',message:'received match series complete',data:{phaseBefore:R.current.phase,showRematchBefore:showRematch,hasMatchSeriesComplete:Boolean(matchSeriesComplete)},timestamp:Date.now()})}).catch(()=>{});
-          // #endregion
+
           const rm = msg as unknown as Partial<MatchSeriesCompletePayload> & { series_winner?: string; format?: string };
           const z = (n: unknown, d: number) => (typeof n === "number" && !Number.isNaN(n) ? n : d);
           void useAuthStore.getState().refreshProfile();
@@ -1775,9 +1773,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
           setOverlayVisible(false);
           wsRef.current?.send(JSON.stringify({ type: "match_over_notify" }));
         } else if (msg.type === "match_over") {
-          // #region agent log
-          fetch('http://127.0.0.1:7852/ingest/44a3777c-2714-4f08-b3ff-de0caf166408',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'6fad40'},body:JSON.stringify({sessionId:'6fad40',runId:'run1',hypothesisId:'H1',location:'frontend/components/GameScreen.tsx:1364',message:'received match_over',data:{phaseBefore:R.current.phase,showRematchBefore:showRematch,hasMatchSeriesComplete:Boolean(matchSeriesComplete)},timestamp:Date.now()})}).catch(()=>{});
-          // #endregion
+
           if (!isMultiplayerGame && !showGameWinScreen && !matchSeriesComplete) setShowRematch(true);
         } else if (msg.type === "rematch_request") {
           setRematchRequested(msg.from);
@@ -3275,16 +3271,12 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
 
   useEffect(() => {
     if (!isMultiplayerGame) return;
-    // #region agent log
-    fetch('http://127.0.0.1:7852/ingest/44a3777c-2714-4f08-b3ff-de0caf166408',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'6fad40'},body:JSON.stringify({sessionId:'6fad40',runId:'run1',hypothesisId:'H1',location:'frontend/components/GameScreen.tsx:2616',message:'multiplayer overlay state snapshot',data:{phase,showRematch,hasMatchSeriesComplete:Boolean(matchSeriesComplete),matchOver,showWinOverlay},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
+
   }, [isMultiplayerGame, phase, showRematch, matchSeriesComplete, matchOver, showWinOverlay]);
 
   useEffect(() => {
     if (!isMultiplayerGame || GRID_SIZE !== 6) return;
-    // #region agent log
-    fetch('http://127.0.0.1:7852/ingest/44a3777c-2714-4f08-b3ff-de0caf166408',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'6fad40'},body:JSON.stringify({sessionId:'6fad40',runId:'run1',hypothesisId:'H4',location:'frontend/components/GameScreen.tsx:2622',message:'6x6 timing snapshot',data:{p1Time,p2Time,rb6SpecialCell,rb6CellChooser,winnerPickedRule,phase,current},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
+
   }, [isMultiplayerGame, GRID_SIZE, p1Time, p2Time, rb6SpecialCell, rb6CellChooser, winnerPickedRule, phase, current]);
 
   const limitbreakerOverlay = pbOverlay && isMultiplayerGame && (() => {
