@@ -1,8 +1,8 @@
 "use client";
 import React from "react";
-import { CoinFace, TossCard, Piece as GamePieceComp } from "./GamePieces";
+import { Piece as GamePieceComp, CoinFace, TossCard } from "./GamePieces";
 import type { Phase } from "./GamePieces";
-import { RANKS, RankIcon } from "./ProfileScreen";
+import { RANKS, NavRankBadge, getRank } from "./NavBar";
 import { WraithKingCoinToss } from "./WraithKingCoinToss";
 
 export const PHASE_TIMERS: Partial<Record<Phase, number>> = {
@@ -1075,7 +1075,7 @@ export function RulebreakerFlow({
                 {/* Rank Logo below name */}
                 {rank && (
                   <div style={{ display: "flex", justifyContent: "center", marginBottom: 20 }}>
-                    <RankIcon rank={rank} size={120} />
+                    <NavRankBadge rank={rank} size={120} isPlacement={false} />
                   </div>
                 )}
 

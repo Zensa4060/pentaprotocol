@@ -26,6 +26,7 @@ export const RANKS = [
   { name: "EMERALD",      min: 1500, max: 2000, color: "#10B981", img: "/emerald.svg",      scale: 1.495 },
   { name: "MASTER",       min: 2000, max: 2500, color: "#FF3333", img: "/master.png?v=3"                     },
   { name: "LEGEND",       min: 2500, max: 1000000, color: "#F59E0B", img: "/legend.png?v=3"                     },
+  { name: "UNRANKED",     min: -1,   max: -1,      color: "#FF33FF", img: undefined,        scale: 1     },
 ];
 
 export const getRank = (elo: number) => RANKS.find(r => elo >= r.min && elo < r.max) || RANKS[0];
@@ -87,22 +88,26 @@ export function rankHaloGradientForRank(color: string, rank: { name: string }): 
   return `radial-gradient(circle, ${c}${hx(0x40 * scale)} 0%, ${c}${hx(0x19 * scale)} 38%, transparent 68%)`;
 }
 
-export const NavRankBadge = ({ rank, size = 30 }: { rank: typeof RANKS[0]; size?: number }) => {
+export const NavRankBadge = ({ rank, size = 30, isPlacement = false }: { rank: typeof RANKS[0]; size?: number; isPlacement?: boolean }) => {
   const imgScale = (rank as any).scale ?? 1;
   const imgSize = size * 0.85 * imgScale;
-  const strength = rankGlowVisualStrength(rank);
-  const filt = buildRankEmblemGlowFilter(rank.color, strength);
+  const placementCol = "#FF33FF"; // Vibrant Magenta for placement
+  const strength = isPlacement ? 0.6 : rankGlowVisualStrength(rank);
+  const filt = isPlacement ? buildRankEmblemGlowFilter(placementCol, strength) : buildRankEmblemGlowFilter(rank.color, strength);
   const hasHalo = strength >= 0.0012;
+  const emblemImg = rank.img;
+  
   return (
     <div className="rank-badge-container" style={{
       width: size, height: size, borderRadius: "50%",
-      background: "transparent", flexShrink: 0,
+      background: isPlacement ? "rgba(255,51,255,0.05)" : "transparent", flexShrink: 0,
       display: "flex", alignItems: "center", justifyContent: "center",
       overflow: "visible",
-      boxShadow: "none",
+      boxShadow: isPlacement ? `inset 0 0 15px ${placementCol}22` : "none",
+      border: isPlacement ? `1px solid ${placementCol}44` : "none",
       position: "relative",
       transition: "transform 0.3s ease, filter 0.3s ease",
-      "--rank-col": rank.color
+      "--rank-col": isPlacement ? placementCol : rank.color
     } as any}>
       {hasHalo && (
         <div
@@ -114,30 +119,46 @@ export const NavRankBadge = ({ rank, size = 30 }: { rank: typeof RANKS[0]; size?
             width: "135%",
             height: "135%",
             borderRadius: "50%",
-            background: rankHaloGradientForRank(rank.color, rank),
+            background: rankHaloGradientForRank(isPlacement ? placementCol : rank.color, isPlacement ? { name: "LEGEND" } as any : rank),
             pointerEvents: "none",
             zIndex: 0,
             animation: "rankHaloPulse 2.6s ease-in-out infinite",
           }}
         />
       )}
-      <img
-        src={rank.img}
-        alt={rank.name}
-        draggable={false}
-        className="rank-emblem-img"
-        style={{
-          width: imgSize,
-          height: imgSize,
-          objectFit: "contain",
-          userSelect: "none",
-          pointerEvents: "none",
-          position: "relative",
-          zIndex: 1,
+      
+      {isPlacement ? (
+        <div style={{
+          position: "relative", zIndex: 2,
+          fontFamily: "'Press Start 2P', cursive", fontSize: size * 0.55,
+          color: "#fff", 
+          textShadow: `0 0 10px ${placementCol}, 0 0 20px ${placementCol}aa`,
+          display: "flex", alignItems: "center", justifyContent: "center",
           filter: filt,
-          backgroundColor: "transparent",
-        }}
-      />
+          marginTop: size * 0.05
+        }}>?</div>
+      ) : (
+        emblemImg && (
+          <img
+            src={emblemImg}
+            alt={rank.name}
+            draggable={false}
+            className="rank-emblem-img"
+            style={{
+              width: imgSize,
+              height: imgSize,
+              objectFit: "contain",
+              userSelect: "none",
+              pointerEvents: "none",
+              position: "relative",
+              zIndex: 1,
+              filter: filt,
+              backgroundColor: "transparent",
+              opacity: 1,
+            }}
+          />
+        )
+      )}
     </div>
   );
 };
@@ -164,6 +185,7 @@ export default function NavBar({
   const t = THEMES[themeId as keyof typeof THEMES];
   const { user, logout } = useAuthStore();
   const isGuest = !user;
+  const isPlacement = (user as any)?.placement_matches < 5;
   const rank = getRank(user?.elo ?? 0);
 
   const [showSignOut, setShowSignOut]   = useState(false);
@@ -598,10 +620,8 @@ export default function NavBar({
               {navBtn("home",       "Home",       false, false, undefined, "home")}
               {navBtn("career",     "Career",     false, false, undefined, "career",     isGuest, careerMpBadge)}
               {navBtn("battlepass", "MISSIONS", false, false, undefined, "battlepass", isGuest, missionClaimBadge)}
-              <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
                 {navBtn("profile", "Profile", false, false, undefined, "profile", isGuest, profileNotifyBadge)}
                 <div style={{ display: "inline-flex", alignItems: "center", flexShrink: 0 }}>{rulesInfoButton}</div>
-              </div>
             </div>
           </div>
         )}

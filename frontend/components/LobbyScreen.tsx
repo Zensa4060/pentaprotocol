@@ -74,6 +74,9 @@ export default function LobbyScreen({
   const t  = THEMES[themeId as keyof typeof THEMES];
   const ip = themeId === "pixel";
   const { user, token, refreshProfile } = useAuthStore();
+  const rank = getRank(user?.elo ?? 0);
+  const isPlacement = (user as any)?.placement_matches < 5;
+  const placementCol = "#FF33FF";
   const localLevel = computeLevelProgress(Number(user?.level || 1), Number(user?.xp || 0)).level;
   const BLOOD_RED = "#FF0000";
 
@@ -366,7 +369,7 @@ export default function LobbyScreen({
   const getBanner = (id: string) => BANNERS_DATA[id] || BANNERS_DATA["default"];
 
   const PlayerCard = React.memo(({ name, elo, avatar, banner, level, color, direction }: {
-    name: string; elo: number | null; avatar: string | null; banner: string;
+    name: string; elo: number | null; avatar: string | undefined; banner: string;
     level: number; color: string; direction: "top" | "bottom";
   }) => {
     const anim = direction === "top" ? "dropInTop" : "dropInBottom";
@@ -391,7 +394,7 @@ export default function LobbyScreen({
             <div style={{ display:"inline-flex", alignSelf:"center", flexDirection:"column", alignItems:"center", padding:isMobile ? "14px 24px" : "20px 50px", background:"rgba(0,0,0,0.7)", backdropFilter:"blur(25px)", borderRadius:24, border:`2px solid ${color}44`, boxShadow:`0 20px 50px rgba(0,0,0,0.7), inset 0 0 15px ${color}22`, width:isMobile ? "100%" : "auto", maxWidth:isMobile ? 280 : undefined, boxSizing:"border-box" }}>
               <div style={{ fontFamily:t.fontMono, fontSize:isMobile ? 11 : 14, color:t.textMuted, letterSpacing:"0.3em", marginBottom:6, opacity:0.7 }}>ELO RATING</div>
               <div style={{ fontFamily:t.fontDisplay, fontSize:isMobile ? 48 : 82, fontWeight:950, color:t.accent, textShadow:`0 0 25px ${t.accent}AA, 0 0 50px ${t.accent}44`, letterSpacing:"0.05em", lineHeight:1 }}>
-                {elo ?? "---"}
+                {user?.placement_matches < 5 ? "?" : (elo ?? "---")}
               </div>
             </div>
             <div style={{ fontFamily:t.fontMono, fontSize:isMobile ? 14 : 20, color:t.textSecondary, letterSpacing:"0.2em", opacity:0.9, marginTop:isMobile ? 2 : 10, fontWeight:800 }}>
@@ -409,13 +412,13 @@ export default function LobbyScreen({
       <div style={{ textAlign:"center", paddingTop:20, fontFamily:t.fontMono, fontSize:12, color:t.textMuted, letterSpacing:"0.18em", zIndex:2 }}>
         UNRANKED · FIRST TO 5 POINTS
       </div>
-      <PlayerCard name={user?.username ?? "YOU"} elo={user?.elo ?? null} avatar={user?.avatar ?? null} banner={loadCustomTheme().bannerSkin ?? "default"} level={localLevel} color={t.p1} direction="top" />
+      <PlayerCard name={user?.username ?? "YOU"} elo={user?.elo ?? null} avatar={user?.avatar ?? undefined} banner={loadCustomTheme().bannerSkin ?? "default"} level={localLevel} color={t.p1} direction="top" />
       <div style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:50, padding:"20px 0", flexShrink:0, position:"relative", zIndex:10, background:"rgba(0,0,0,0.24)" }}>
         <div style={{ flex:1, height:2, background:`linear-gradient(90deg, transparent, ${t.accent}, transparent)`, opacity:0.6 }} />
         <div style={{...vsStyle, transform:"scale(1.05)", animation:"vsPop 620ms cubic-bezier(.2,.9,.2,1) both, vsPulse 1600ms ease-in-out infinite 700ms", willChange:"transform, opacity" }}>VS</div>
         <div style={{ flex:1, height:2, background:`linear-gradient(90deg, transparent, ${t.accent}, transparent)`, opacity:0.6 }} />
       </div>
-      <PlayerCard name={propMatchupOpponent?.name ?? "OPPONENT"} elo={propMatchupOpponent?.elo ?? 1000} avatar={propMatchupOpponent?.avatar ?? null} banner={propMatchupOpponent?.banner ?? "default"} level={propMatchupOpponent?.level ?? 1} color={t.p2} direction="bottom" />
+      <PlayerCard name={propMatchupOpponent?.name ?? "OPPONENT"} elo={propMatchupOpponent?.elo ?? 1000} avatar={propMatchupOpponent?.avatar ?? undefined} banner={propMatchupOpponent?.banner ?? "default"} level={propMatchupOpponent?.level ?? 1} color={t.p2} direction="bottom" />
       <div style={{ padding:"12px 20px 20px", flexShrink:0 }}>
         <div style={{ height:4, background:t.border, borderRadius:2, overflow:"hidden", maxWidth:340, margin:"0 auto" }}>
           <div style={{ height:"100%", width:"0%", background:`linear-gradient(90deg,${t.accent},${t.accentGlow})`, borderRadius:2, boxShadow:`0 0 10px ${t.accentGlow}88`, animation:"matchBarShrink 10s linear both" }} />
@@ -842,13 +845,19 @@ export default function LobbyScreen({
               <div style={{ position: "absolute", inset: -40, background: `radial-gradient(circle, ${BLOOD_RED}22 0%, transparent 70%)`, borderRadius: "50%", animation: "rankHoverPulse 1.5s ease-in-out infinite" }} />
             )}
             <div style={{ filter: hovered === "ranked" ? `drop-shadow(0 0 30px ${BLOOD_RED}aa) drop-shadow(0 0 60px ${BLOOD_RED}44)` : "none", transition: "filter 0.4s" }}>
-              <NavRankBadge rank={getRank(user.elo ?? 0) as any} size={isMobile?100:150} />
+              <NavRankBadge rank={rank} size={isMobile?100:150} isPlacement={isPlacement} />
             </div>
-            <div style={{ fontFamily:t.fontDisplay, fontSize:isMobile?16:24, fontWeight:800, color:hovered === "ranked" ? BLOOD_RED : getRank(user.elo??0).color, letterSpacing:"0.1em", textShadow:hovered === "ranked" ? `0 0 25px ${BLOOD_RED}, 0 0 50px ${BLOOD_RED}88` : `0 0 15px ${getRank(user.elo??0).color}55`, transition: "all 0.4s" }}>
-              {getRank(user.elo ?? 0).name}
+            <div style={{ 
+              fontFamily:t.fontDisplay, fontSize:isMobile?16:24, fontWeight:800, 
+              color:hovered === "ranked" ? BLOOD_RED : (isPlacement ? placementCol : rank.color), 
+              letterSpacing:"0.1em", 
+              textShadow:hovered === "ranked" ? `0 0 25px ${BLOOD_RED}, 0 0 50px ${BLOOD_RED}88` : `0 0 15px ${isPlacement ? placementCol : rank.color}55`, 
+              transition: "all 0.4s" 
+            }}>
+              {isPlacement ? "PLACEMENT" : rank.name}
             </div>
             <div style={{ fontFamily:t.fontMono, fontSize:isMobile?12:16, fontWeight:700, color:t.textMuted, transition: "all 0.4s" }}>
-              <span style={{ color:hovered === "ranked" ? BLOOD_RED : t.accent }}>{user.elo ?? 0}</span> ELO
+              <span style={{ color:hovered === "ranked" ? BLOOD_RED : (isPlacement ? placementCol : t.accent) }}>{isPlacement ? "?" : (user?.elo ?? 0)}</span> ELO
             </div>
           </div>
         )}

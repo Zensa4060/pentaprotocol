@@ -17,6 +17,7 @@ interface MatchResultScreenProps {
     level_after: number;
     xp_before: number;
     xp_after: number;
+    was_placement?: boolean;
   };
   p2: {
     name: string;
@@ -28,6 +29,7 @@ interface MatchResultScreenProps {
     level_after: number;
     xp_before: number;
     xp_after: number;
+    was_placement?: boolean;
   };
   mySlot: "P1" | "P2";
   t: {
@@ -69,7 +71,7 @@ export default function MatchResultScreen({
   const levelUp = levelAfter.level > levelBefore.level;
   const rankBefore = useMemo(() => getRank(myData.elo_before), [myData.elo_before]);
   const rankAfter = useMemo(() => getRank(myData.elo_after), [myData.elo_after]);
-  const isDerank = isRanked && rankAfter.name !== rankBefore.name && myData.elo_after < myData.elo_before;
+  const isDerank = !myData.was_placement && isRanked && rankAfter.name !== rankBefore.name && myData.elo_after < myData.elo_before;
 
   const p1c = "#3B82F6";
   const p2c = "#EF4444";
@@ -202,7 +204,11 @@ export default function MatchResultScreen({
             minWidth: 160,
           }}
         >
-          <NavRankBadge rank={isDraw ? rankAfter : winnerRank} size={120} />
+          <NavRankBadge 
+            rank={isDraw ? rankAfter : winnerRank} 
+            size={120} 
+            isPlacement={isDraw ? myData.was_placement : (seriesWinner === "P1" ? p1.was_placement : p2.was_placement)} 
+          />
         </motion.div>
 
         <div style={{ textAlign: "center" }}>
@@ -260,11 +266,16 @@ export default function MatchResultScreen({
                     fontFamily: t.fontDisplay, 
                     fontSize: 80, 
                     fontWeight: 950, 
-                    color: eloDiff >= 0 ? t.accent : t.danger,
-                    textShadow: `0 0 30px ${eloDiff >= 0 ? t.accent : t.danger}44`
+                    color: (myData.was_placement || eloDiff >= 0) ? t.accent : t.danger,
+                    textShadow: `0 0 30px ${(myData.was_placement || eloDiff >= 0) ? t.accent : t.danger}44`
                   }}>
-                    {eloDiff >= 0 ? "+" : ""}{counter}
+                    {myData.was_placement ? "+?" : (eloDiff >= 0 ? "+" : "")}{myData.was_placement ? "" : counter}
                   </div>
+                  {myData.was_placement && (
+                    <div style={{ fontFamily: t.fontMono, fontSize: 13, color: t.textSecondary, letterSpacing: "0.08em", marginTop: -10 }}>
+                      PLACEMENT MATCHES IN PROGRESS
+                    </div>
+                  )}
                </div>
              )}
              

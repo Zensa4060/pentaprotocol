@@ -83,6 +83,8 @@ def serialize_user(user):
         "wins":                user.get("wins", 0),
         "losses":              user.get("losses", 0),
         "draws":               user.get("draws", 0),
+        "placement_matches":   user.get("placement_matches", 0),
+        "is_placement":        user.get("placement_matches", 0) < 5,
         "totp_enabled":        user.get("totp_enabled", False),
         "shards":              user.get("shards", 0),
         "protocredits":        user.get("protocredits", 0),
@@ -133,6 +135,7 @@ async def register(data: UserRegister):
         "wins":                0,
         "losses":              0,
         "draws":               0,
+        "placement_matches":   0,
         "totp_enabled":        False,
         "totp_secret":         None,
         "shards":              0,
@@ -167,6 +170,10 @@ async def login(data: UserLogin, request: Request):
         user = await db.users.find_one({"email": data.username})
     if not user or not verify_password(data.password, user["password"]):
         raise HTTPException(401, "Invalid credentials")
+
+    # If this account is a Google account, block normal login
+    if user.get("google_id"):
+        raise HTTPException(401, "This account is linked to Google. Please Sign In with Google.")
 
     totp_enabled = _safe_bool(user.get("totp_enabled"), False)
     if totp_enabled and user.get("totp_secret"):
@@ -271,21 +278,11 @@ async def google_auth(data: GoogleAuthRequest):
     db = get_db()
 
     # ── Find or create user ─────────────────────────────────────────────────
+    # We find ONLY by google_id now. No email-linking.
     user = await db.users.find_one({"google_id": google_sub})
-    if not user:
-        user = await db.users.find_one({"email": email})
-
+    
     is_new_user = False
-    if user:
-        updates: dict = {}
-        if not user.get("google_id"):
-            updates["google_id"] = google_sub
-        if picture_url and not user.get("avatar"):
-            updates["avatar"] = picture_url
-        if updates:
-            await db.users.update_one({"_id": user["_id"]}, {"$set": updates})
-            user = await db.users.find_one({"_id": user["_id"]}) or user
-    else:
+    if not user:
         is_new_user = True
         base_username = re.sub(r"[^\w]", "", name.replace(" ", "_"))[:14] or "player"
         username = base_username
@@ -304,6 +301,7 @@ async def google_auth(data: GoogleAuthRequest):
             "xp":                0,
             "elo":               500,
             "ranked_rating":     500,
+            "placement_matches": 0,
             "wins":              0,
             "losses":            0,
             "draws":             0,
@@ -316,6 +314,11 @@ async def google_auth(data: GoogleAuthRequest):
         }
         result = await db.users.insert_one(new_user_doc)
         user = await db.users.find_one({"_id": result.inserted_id})
+    else:
+        # Existing Google user - update avatar if missing
+        if picture_url and not user.get("avatar"):
+            await db.users.update_one({"_id": user["_id"]}, {"$set": {"avatar": picture_url}})
+            user = await db.users.find_one({"_id": user["_id"]}) or user
 
     # Check if policy gate is required
     requires_policy_gate = not user.get("legal_accepted", False)

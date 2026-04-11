@@ -37,7 +37,7 @@ export default function PrivacyPage() {
             <div style={{ fontFamily: "monospace", fontSize: 11, color: "#CC0000", letterSpacing: "0.3em", marginBottom: 12 }}>LEGAL</div>
             <h1 style={{ fontSize: 40, fontWeight: 700, color: "#fff", lineHeight: 1.15, marginBottom: 16 }}>Privacy Policy</h1>
             <p style={{ fontSize: 14, color: "#555", lineHeight: 1.6 }}>
-              Effective Date: 9 April 2026 &nbsp;·&nbsp; pentaprotocol.com
+              Effective Date: 10 April 2026 &nbsp;·&nbsp; pentaprotocol.com
             </p>
             <div style={{ height: 2, background: "linear-gradient(to right, #CC0000, transparent)", marginTop: 24 }} />
           </div>
@@ -47,7 +47,7 @@ export default function PrivacyPage() {
           </Section>
 
           <Section title="2. Information We Collect">
-            <strong style={{ color: "#e8e8e8" }}>Information you provide:</strong> Username and email address (required for account creation), profile preferences and collection data, and communications sent to our support team. If you pay via direct UPI or bank transfer to the creator, your payment app or bank may share limited transaction metadata with us when you send proof of payment.
+            <strong style={{ color: "#e8e8e8" }}>Information you provide:</strong> Username and email address (required for account creation), profile preferences, and collection data. If you sign in via a third-party service (e.g., Google), we collect your name, email, and profile picture from that service.
             <br /><br />
             <strong style={{ color: "#e8e8e8" }}>Automatically collected:</strong> Device information (browser, OS, identifiers), log data (IP address, pages visited, timestamps), gameplay data (match history, rankings, activity), and cookie/session data for authentication and preferences.
             <br /><br />
@@ -99,7 +99,7 @@ export default function PrivacyPage() {
           </Section>
 
           <Section title="10. Your Rights">
-            You have the right to access the personal data we hold about you; request correction of inaccurate data; request deletion of your account and associated data; and withdraw consent where processing is based on consent. To exercise any of these rights, contact us at{" "}
+            You have the right to access the personal data we hold about you; request correction of inaccurate data; request deletion of your account and associated data; and withdraw consent where processing is based on consent. For account or privacy queries, contact us at{" "}
             <a href="mailto:support@pentaprotocol.com" style={{ color: "#CC0000", textDecoration: "none" }}>support@pentaprotocol.com</a>.
           </Section>
 
@@ -108,7 +108,7 @@ export default function PrivacyPage() {
             <br /><br />
             <strong style={{ color: "#e8e8e8" }}>Legal basis for processing:</strong> We process your personal data based on: your consent (account creation, marketing communications); performance of a contract (providing the Platform and processing purchases); and our legitimate interests (fraud prevention, security, and service improvement).
             <br /><br />
-            <strong style={{ color: "#e8e8e8" }}>Your rights under GDPR:</strong> In addition to the rights listed in Section 10, you have the right to: restrict processing of your personal data; receive your personal data in a structured, commonly used, and machine-readable format (data portability); object to processing based on legitimate interests; and lodge a complaint with your local EU/EEA data protection supervisory authority.
+            <strong style={{ color: "#e8e8e8" }}>Your rights under GDPR:</strong> In addition to the rights listed in Section 10, you have the right to: restrict processing of your personal data; object to processing based on legitimate interests; and lodge a complaint with your local EU/EEA data protection supervisory authority. Please note that automated direct data export is not provided; contact support for any specific profile data clarifications.
             <br /><br />
             <strong style={{ color: "#e8e8e8" }}>International data transfers:</strong> Your data may be transferred to and processed on servers outside the EEA (including in the United States and India). We ensure that adequate safeguards are in place, including the use of service providers that maintain appropriate data protection standards.
             <br /><br />
@@ -147,7 +147,7 @@ export default function PrivacyPage() {
 
           <div style={{ marginTop: 32, paddingTop: 16, borderTop: "1px solid #1e1e2a" }}>
             <div style={{ fontFamily: "monospace", fontSize: 11, color: "#444", lineHeight: 1.8 }}>
-              Version 1.0 — 9 April 2026 · Initial release
+              Version 1.1 — 10 April 2026 · Updated authentication data and portability procedures
             </div>
           </div>
 

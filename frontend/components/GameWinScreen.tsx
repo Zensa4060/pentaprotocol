@@ -1,7 +1,6 @@
 "use client";
 import React, { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { RankIcon } from "./ProfileScreen";
 import { getRank } from "./NavBar";
 import { computeLevelProgress } from "@/lib/xpLevel";
 
@@ -15,6 +14,7 @@ interface PlayerProgress {
   level_after: number;
   xp_before: number;
   xp_after: number;
+  was_placement?: boolean;
 }
 
 interface GameWinScreenProps {
@@ -182,7 +182,7 @@ export default function GameWinScreen({
               lineHeight: 1,
             }}
           >
-            <RankIcon rank={viewerRank as React.ComponentProps<typeof RankIcon>["rank"]} size={104} />
+            <NavRankBadge rank={viewerRank} size={104} isPlacement={myData.was_placement} />
           </motion.div>
           <div style={{ fontFamily: t.fontMono, fontSize: 12, letterSpacing: "0.3em", color: t.textMuted }}>
             MULTIPLAYER MATCH COMPLETE
@@ -220,11 +220,12 @@ export default function GameWinScreen({
               <div style={{ fontFamily: t.fontMono, fontSize: 11, letterSpacing: "0.18em", color: t.textMuted, marginBottom: 10 }}>
                 ELO CHANGE
               </div>
-              <div style={{ fontFamily: t.fontDisplay, fontSize: 38, fontWeight: 900, color: eloDiff >= 0 ? t.accent : t.danger }}>
-                {eloCounter >= 0 ? "+" : ""}{eloCounter}
+              <div style={{ fontFamily: t.fontDisplay, fontSize: 38, fontWeight: 900, color: (myData.was_placement || eloDiff >= 0) ? t.accent : t.danger }}>
+                {myData.was_placement ? "+?" : (eloCounter >= 0 ? "+" : "")}
+                {myData.was_placement ? "" : eloCounter}
               </div>
-              <div style={{ fontFamily: t.fontMono, fontSize: 12, color: t.textSecondary }}>
-                {myData.elo_before}{" -> "}{myData.elo_after}
+              <div style={{ fontFamily: t.fontMono, fontSize: 12, color: t.textSecondary, letterSpacing: "0.05em" }}>
+                {myData.was_placement ? "PLACEMENT IN PROGRESS" : `${myData.elo_before} -> ${myData.elo_after}`}
               </div>
             </div>
           )}

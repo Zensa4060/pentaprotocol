@@ -22,6 +22,7 @@ class UserResponse(BaseModel):
     wins: int
     losses: int
     draws: int
+    placement_matches: int = 0
     totp_enabled: bool = False
     shards: int = 0
     protocredits: int = 0

@@ -249,8 +249,12 @@ async def award_ranked_match_result(
                 rr_old = int(user.get("ranked_rating", elo_old))
                 opp_elo = opponent.get("elo", 500)
                 opp_rr = int(opponent.get("ranked_rating", opp_elo))
-                updates["elo"] = new_elo(elo_old, opp_elo, score)
-                updates["ranked_rating"] = new_elo(rr_old, opp_rr, score)
+                
+                # Placement logic: higher K-factor for first 5 matches
+                k_p1 = 100 if user.get("placement_matches", 0) < 5 else 32
+                updates["elo"] = new_elo(elo_old, opp_elo, score, k=k_p1)
+                updates["ranked_rating"] = new_elo(rr_old, opp_rr, score, k=k_p1)
+                updates["placement_matches"] = user.get("placement_matches", 0) + 1
                 
         await db.users.update_one({"_id": ObjectId(user_id)}, {"$set": updates, "$inc": inc})
 
@@ -291,6 +295,8 @@ async def award_ranked_match_result(
             "elo_before":         elo_before,
             "elo_after":          elo_after,
             "elo_delta":          elo_after - elo_before if is_ranked else 0,
+            "was_placement":      (user_snap.get("placement_matches", 0) < 5) if is_ranked else False,
+            "placement_matches":  user_snap.get("placement_matches", 0) if is_ranked else 0,
             "mode":               fmt,
             "played_at":          datetime.utcnow(),
             "my_slot":            "P1" if user_id == p1_id else "P2",

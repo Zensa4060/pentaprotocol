@@ -288,6 +288,8 @@ export default function HomeScreen({ setScreenAction, themeId, onHoverAction, on
 
   const { user } = useAuthStore();
   const rank = getRank(user?.elo ?? 0);
+  const isPlacement = (user as any)?.placement_matches < 5;
+  const placementCol = "#FF33FF";
 
   const cardStyle = (key: Screen, index: number): React.CSSProperties => {
     const isHov = hovered === key;
@@ -653,16 +655,33 @@ export default function HomeScreen({ setScreenAction, themeId, onHoverAction, on
           <div style={{ 
             display: "flex", flexDirection: "column", alignItems: "center", gap: 8, 
             animation: "fadeUp 0.8s cubic-bezier(.22,.68,0,1.2) both", marginTop: isMobile ? "0.8vh" : "2.3vh",
-            transform: hovered === "lobby" ? "scale(1.08)" : "scale(1)",
             transition: "all 0.4s cubic-bezier(.22,.68,0,1.2)",
             filter: hovered === "lobby" ? `drop-shadow(0 0 25px ${BLOOD_RED}44)` : "none",
           }}>
-            <NavRankBadge rank={rank} size={isMobile ? 85 : 182} />
+            <NavRankBadge rank={rank} size={isMobile ? 85 : 182} isPlacement={isPlacement} />
+            
+            <div style={{
+              fontFamily: t.fontDisplay, fontSize: isMobile ? 18 : 28, fontWeight: 800,
+              color: isPlacement ? placementCol : rank.color, letterSpacing: "0.1em",
+              textShadow: isPlacement ? `0 0 20px ${placementCol}66` : `0 0 20px ${rank.color}44`,
+              marginTop: isMobile ? 4 : 8,
+              textAlign: "center"
+            }}>
+              {isPlacement ? "PLACEMENT" : rank.name}
+            </div>
+            
+            <div style={{
+              fontFamily: t.fontMono, fontSize: isMobile ? 12 : 16, fontWeight: 700,
+              color: t.textMuted
+            }}>
+              <span style={{ color: isPlacement ? placementCol : t.accent }}>{isPlacement ? "?" : (user?.elo ?? 0)}</span> ELO
+            </div>
+
             {hovered === "lobby" && (
               <div style={{ 
                 fontFamily: t.fontMono, fontSize: 12, color: BLOOD_RED, letterSpacing: "0.2em", 
                 animation: "pixelBlink 1s infinite", fontWeight: 700,
-                position: "absolute", bottom: -20, left: "50%", transform: "translateX(-50%)",
+                position: "absolute", bottom: -24, left: "50%", transform: "translateX(-50%)",
                 width: "max-content",
                 pointerEvents: "none",
                 zIndex: 10,
@@ -672,7 +691,6 @@ export default function HomeScreen({ setScreenAction, themeId, onHoverAction, on
             )}
           </div>
         )}
-
       </div>
 
       {/* ── Footer legal links ── */}

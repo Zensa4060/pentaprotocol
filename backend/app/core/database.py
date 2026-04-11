@@ -20,8 +20,22 @@ async def ensure_indexes():
     try:
         # Critical indexes for room queue/create/join and profile fetch paths.
         await db.db.users.create_index([("username", ASCENDING)], unique=True, background=True)
-        await db.db.users.create_index([("email", ASCENDING)], unique=True, background=True)
-        await db.db.users.create_index([("google_id", ASCENDING)], background=True)
+        # 1. Email is unique ONLY for normal (non-Google) accounts.
+        # This allows multiple Google users with the same email (though google_id is unique)
+        # and exactly one normal user per email.
+        await db.db.users.create_index(
+            [("email", ASCENDING)],
+            unique=True,
+            partialFilterExpression={"google_id": None},
+            background=True
+        )
+        # 2. Google ID is always unique.
+        await db.db.users.create_index(
+            [("google_id", ASCENDING)],
+            unique=True,
+            sparse=True,
+            background=True
+        )
         await db.db.rooms.create_index([("room_code", ASCENDING)], unique=True, background=True)
         await db.db.rooms.create_index([("status", ASCENDING), ("format", ASCENDING), ("created_at", DESCENDING)], background=True)
         await db.db.rooms.create_index([("player1_id", ASCENDING)], background=True)

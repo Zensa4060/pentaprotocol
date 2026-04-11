@@ -48,6 +48,8 @@ def _serialize_user(user: dict) -> dict:
         "wins":                user.get("wins", 0),
         "losses":              user.get("losses", 0),
         "draws":               user.get("draws", 0),
+        "placement_matches":   user.get("placement_matches", 0),
+        "is_placement":        user.get("placement_matches", 0) < 5,
         "rb_wins":             user.get("rb_wins", 0),
         "totp_enabled":        user.get("totp_enabled", False),
         "bio":                 user.get("bio", ""),
@@ -164,6 +166,8 @@ async def get_career(user_id: str = Depends(get_current_user)):
             "elo_delta":         doc.get("elo_delta", 0),
             "mode":              doc.get("mode", "unranked"),
             "played_at":         doc.get("played_at", "").isoformat() if doc.get("played_at") else "",
+            "was_placement":     doc.get("was_placement", False),
+            "placement_matches": doc.get("placement_matches", 0),
         }
         if doc.get("my_slot") in ("P1", "P2"):
             row["my_slot"] = doc["my_slot"]
@@ -200,11 +204,13 @@ async def leaderboard():
     db = get_db()
     players = []
     async for u in db.users.find().sort("elo", -1).limit(20):
+        is_p = u.get("placement_matches", 0) < 5
         players.append({
             "username": u["username"],
-            "elo":      u.get("elo", 500),
-            "rank":     get_rank(u.get("elo", 500)),
+            "elo":      "?" if is_p else u.get("elo", 500),
+            "rank":     "PLACEMENT" if is_p else get_rank(u.get("elo", 500)),
             "wins":     u.get("wins", 0),
+            "is_placement": is_p
         })
     return players
 

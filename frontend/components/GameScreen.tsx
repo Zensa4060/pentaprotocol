@@ -30,7 +30,7 @@ import { LeftPanel, RightPanel, WinOverlay, SurrenderModal, DisconnectModal, Exi
 import RuleshowScreen, { type RuleshowSheet } from "./RuleshowScreen";
 import { useAuthStore } from "@/lib/store";
 import { BannerRenderer } from "./BannerRenderer";
-import { RANKS, RankIcon } from "./ProfileScreen";
+import { RANKS, NavRankBadge, getRank } from "./NavBar";
 
 const GlacierGridCompat = GlacierGrid as React.ComponentType<any>;
 const ArcaneGridCompat = ArcaneGrid as React.ComponentType<any>;
@@ -43,7 +43,6 @@ import MatchResultScreen from "./MatchResultScreen";
 import GameWinScreen from "./GameWinScreen";
 import RankUpScreen from "@/components/RankUpScreen";
 import XpLevelUpScreen from "@/components/XpLevelUpScreen";
-import { getRank } from "./NavBar";
 import { persistLobbyTauntQuote, type LobbyQuoteResult } from "@/lib/lobbyTauntQuote";
 import { seriesPointsFromHistory, formatSeriesPts } from "@/lib/seriesPoints";
 import { effectivePlayBoardMode, startingLegFromBoardMode, type MultiplayerRulesBootstrap } from "@/lib/effectiveBoardMode";
@@ -224,7 +223,7 @@ const MatchupOverlay = ({ matchupData, showMatchupOverlay, playerSlot, p1Name, u
              justifyContent: "center",
              flexShrink: 0
            }}>
-             <RankIcon rank={rank} size={sideBySideSize} />
+             <NavRankBadge rank={rank} size={sideBySideSize} isPlacement={false} />
            </div>
         </div>
       </div>
@@ -637,7 +636,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     const me = mySlot === "P1" ? series.p1 : series.p2;
     const beforeRank = getRank(me.elo_before);
     const afterRank = getRank(me.elo_after);
-    const shouldShowRankUp = me.elo_after > me.elo_before && beforeRank.name !== afterRank.name;
+    const shouldShowRankUp = !me.was_placement && me.elo_after > me.elo_before && beforeRank.name !== afterRank.name;
     const beforeXpLevel = Number(me.level_before || 1);
     const afterXpLevel = Number(me.level_after || 1);
     const shouldShowXpLevelUp = afterXpLevel > beforeXpLevel;

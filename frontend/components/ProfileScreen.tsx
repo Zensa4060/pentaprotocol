@@ -11,7 +11,7 @@ import type { Screen } from "@/lib/types";
 import { getUserKey, loadMissionState } from "@/lib/missionsClient";
 import { computeLevelProgress } from "@/lib/xpLevel";
 import { BannerRenderer } from "./BannerRenderer";
-import { rankGlowVisualStrength, buildRankEmblemGlowFilter, rankHaloGradientForRank } from "./NavBar";
+import { rankGlowVisualStrength, buildRankEmblemGlowFilter, rankHaloGradientForRank, NavRankBadge, getRank, RANKS } from "./NavBar";
 import VoidRiftBanner from "./VoidRiftBanner";
 import BloodMoonBanner from "./BloodMoonBanner";
 import PhantomStrikeBanner from "./PhantomStrikeBanner";
@@ -50,14 +50,6 @@ function apiErrorDetail(e: unknown, fallback: string): string {
   return fallback;
 }
 
-export const RANKS = [
-  { name: "NOVICE",       min: 0,    max: 500,  color: "#9CA3AF", icon: null, img: "/novice.svg",       scale: 1.3 },
-  { name: "ADVANCED",     min: 500,  max: 1000, color: "#60A5FA", icon: null, img: "/advanced.svg",     scale: 1.3 },
-  { name: "PROFESSIONAL", min: 1000, max: 1500, color: "#A78BFA", icon: null, img: "/professional.png?v=8", scale: 0.741 },
-  { name: "EMERALD",      min: 1500, max: 2000, color: "#10B981", icon: null, img: "/emerald.svg",      scale: 1.495 },
-  { name: "MASTER",       min: 2000, max: 2500, color: "#FF3333", icon: null, img: "/master.png?v=3" },
-  { name: "LEGEND",       min: 2500, max: 1000000, color: "#F59E0B", icon: null, img: "/legend.png?v=3" },
-];
 
 export const TITLES: {
   id: string; label: string; color: string; glow: string;
@@ -163,44 +155,7 @@ const TIER_COLOR: Record<string, string> = {
   basic: "#9CA3AF", rare: "#60A5FA", epic: "#A78BFA", legendary: "#F59E0B",
 };
 
-const getRank = (elo: number) => RANKS.find(r => elo >= r.min && elo < r.max) || RANKS[5];
 
-export const RankIcon = ({ rank, size = 26 }: { rank: typeof RANKS[0]; size?: number }) => {
-  const imgScale = (rank as any).scale ?? 1;
-  const imgSize = size * 0.85 * imgScale;
-  const strength = rankGlowVisualStrength(rank);
-  const filt = buildRankEmblemGlowFilter(rank.color, strength);
-  const hasHalo = strength >= 0.0012;
-  const tGlow = strength;
-  return (
-    <div
-      className="rank-badge-container"
-      style={{
-        width: size, height: size, borderRadius: "50%",
-        background: "transparent", flexShrink: 0,
-        display: "flex", alignItems: "center", justifyContent: "center",
-        overflow: "visible", position: "relative",
-        boxShadow: "none", transition: "transform 0.3s ease",
-        "--rank-col": rank.color,
-      } as React.CSSProperties}
-    >
-      {rank.img ? (
-        <>
-          {hasHalo && (
-            <div aria-hidden style={{ position:"absolute", left:"50%", top:"50%", width:"135%", height:"135%", borderRadius:"50%", background:rankHaloGradientForRank(rank.color, rank), pointerEvents:"none", zIndex:0, animation:"rankHaloPulse 2.6s ease-in-out infinite" }} />
-          )}
-          <img src={rank.img} alt={rank.name} draggable={false} className="rank-emblem-img"
-            style={{ width:imgSize, height:imgSize, objectFit:"contain", userSelect:"none", pointerEvents:"none", position:"relative", zIndex:1, filter:filt, backgroundColor:"transparent" }} />
-        </>
-      ) : (
-        <span style={{ fontSize:size*0.6, color:rank.color, lineHeight:1, userSelect:"none", pointerEvents:"none", position:"relative", zIndex:1,
-          textShadow: tGlow >= 0.002 ? `0 0 ${Math.max(1,Math.round(2+14*tGlow))}px ${rank.color}, 0 0 ${Math.max(2,Math.round(4+32*tGlow))}px ${rank.color}${Math.min(255,Math.round(0x99*tGlow)).toString(16).padStart(2,"0")}` : "none" }}>
-          {rank.icon}
-        </span>
-      )}
-    </div>
-  );
-};
 
 function TitleBadge({ title, onClick }: { title: typeof TITLES[0]; onClick?: () => void }) {
   return (
@@ -211,9 +166,8 @@ function TitleBadge({ title, onClick }: { title: typeof TITLES[0]; onClick?: () 
   );
 }
 
-// Resolve avatar URL across possible backend key names.
-function resolveAvatar(p: any): string | null {
-  return p?.avatar || p?.avatar_url || p?.profile_avatar || null;
+function resolveAvatar(p: any): string | undefined {
+  return p?.avatar || p?.avatar_url || p?.profile_avatar || undefined;
 }
 
 function AvatarWithBorder({ profile, size=68, borderDef, accentColor, bgColor, p1, p2 }: {
@@ -296,8 +250,8 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
   const [deleteMsg, setDeleteMsg]             = useState<{text:string;ok:boolean}|null>(null);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
 
-  const resolveAvatar = (p: any): string | null =>
-    p?.avatar || p?.avatar_url || p?.profile_avatar || null;
+  const resolveAvatar = (p: any): string | undefined =>
+    p?.avatar || p?.avatar_url || p?.profile_avatar || undefined;
 
   useEffect(() => {
     if (!user) { setLoading(false); setProfileError(null); return; }
@@ -361,9 +315,15 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
   if (!profile) return null;
 
   const elo      = profile.elo || 500;
+  const placementCount = profile.placement_matches || 0;
+  const isPlacement = placementCount < 5;
+  const placementCol = "#FF33FF";
   const rank     = getRank(elo);
-  const nextRank = RANKS[RANKS.indexOf(rank) + 1];
+  const nextRank = RANKS[RANKS.indexOf(rank) + 1] && RANKS[RANKS.indexOf(rank) + 1].name !== "UNRANKED" ? RANKS[RANKS.indexOf(rank) + 1] : null;
   const progress = nextRank ? ((elo - rank.min) / (rank.max - rank.min)) * 100 : 100;
+  
+  // For placement matches bar
+  const placementPct = (placementCount / 5) * 100;
   const authHeader = { headers: { Authorization: `Bearer ${token}` } };
   const activeTitle     = TITLES.find(ti => ti.id === (profile.title || "newcomer")) || TITLES[0];
   const activeBanner    = BANNERS.find(b => b.id === (profile.banner || "default")) || BANNERS[0];
@@ -621,7 +581,7 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
     { l:"Win Rate",    v: rankedW + rankedL > 0 ? `${Math.round((rankedW/(rankedW+rankedL))*100)}%` : "0%", c: t.accent },
     { l:"Total Games", v: totalGames, c: t.text },
     { l:"Draws",       v: draws,     c: t.gold },
-    { l:"ELO",         v: elo,       c: rank.color },
+    { l:"ELO",         v: isPlacement ? "?" : elo,       c: isPlacement ? placementCol : rank.color },
     { l:"Penta Shards",   v: (profile.pentashards ?? profile.shards ?? 0) + missionShardBonus, c:"#4FC3F7" },
     { l:"Proto Credits",  v: profile.protocredits || 0, c:"#FFD700" },
   ];
@@ -751,9 +711,11 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
             </div>
             <div style={{ display:"flex", gap:14, flexWrap:"wrap", alignItems:"center" }}>
               <div style={{ fontFamily:t.fontMono, fontSize:13, color:t.text, textShadow:"0 1px 4px rgba(0,0,0,0.5)" }}>LVL <span style={{ color:t.accent, fontWeight:700, fontSize:15 }}>{computedLevelFromXp}</span></div>
-              <div style={{ display:"flex", alignItems:"center", gap:5, "--rank-col":rank.color } as any}>
-                <RankIcon rank={rank} size={33} />
-                <span style={{ fontFamily:t.fontBody, fontSize:14, color:rank.color, fontWeight:600, textShadow:"0 1px 4px rgba(0,0,0,0.5)" }}>{rank.name}</span>
+              <div style={{ display:"flex", alignItems:"center", gap:5, "--rank-col": isPlacement ? placementCol : rank.color } as any}>
+                <NavRankBadge rank={rank} size={33} isPlacement={isPlacement} />
+                <span style={{ fontFamily:t.fontBody, fontSize:14, color: isPlacement ? placementCol : rank.color, fontWeight:600, textShadow:"0 1px 4px rgba(0,0,0,0.5)" }}>
+                  {isPlacement ? "PLACEMENT" : rank.name}
+                </span>
               </div>
             </div>
             {profile.bio && <div style={{ fontFamily:t.fontBody, fontSize:13, color:t.textMuted, marginTop:6, fontStyle:"italic", textShadow:"0 1px 4px rgba(0,0,0,0.5)" }}>"{profile.bio}"</div>}
@@ -772,22 +734,30 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
       {/* ── ELO Progress bar ──────────────────────────────────────────────── */}
       <div style={{ background:t.bgPanel, border:`1px solid ${t.border}`, borderRadius:12, padding:"16px 22px", marginBottom:18 }}>
         <div style={{ display:"flex", justifyContent:"space-between", marginBottom:9, flexWrap:"wrap", gap:6, alignItems:"center" }}>
-          <span style={{ display:"flex", alignItems:"center", gap:8, fontFamily:t.fontDisplay, fontSize:17, color:rank.color, fontWeight:800, letterSpacing:"0.05em", "--rank-col":rank.color } as any}>
-            <RankIcon rank={rank} size={42} />{rank.name}
+          <span style={{ display:"flex", alignItems:"center", gap:8, fontFamily:t.fontDisplay, fontSize:17, color: isPlacement ? placementCol : rank.color, fontWeight:800, letterSpacing:"0.05em", "--rank-col": isPlacement ? placementCol : rank.color } as any}>
+            <NavRankBadge rank={rank} size={42} isPlacement={isPlacement} />
+            {isPlacement ? "PLACEMENT IN PROGRESS" : rank.name}
           </span>
-          {nextRank && (
+          {!isPlacement && nextRank && (
             <span style={{ display:"flex", alignItems:"center", gap:7, fontFamily:t.fontDisplay, fontSize:15, color:t.text, fontWeight:700, "--rank-col":nextRank.color } as any}>
-              <RankIcon rank={nextRank} size={36} />{nextRank.name}
+              <NavRankBadge rank={nextRank} size={36} isPlacement={false} />{nextRank.name}
               {rank.name === nextRank.name
                 ? <span style={{ color:t.accent }}>&nbsp;· MAX RANK</span>
                 : <span style={{ color:t.accent }}>&nbsp;· {rank.max - elo} ELO away</span>}
             </span>
           )}
+          {isPlacement && (
+            <span style={{ fontFamily:t.fontDisplay, fontSize:14, color:t.accent, fontWeight:700 }}>
+              {5 - placementCount} MATCHES REMAINING
+            </span>
+          )}
         </div>
         <div style={{ height:10, background:t.bgCard, borderRadius:5, overflow:"hidden", border:`1px solid ${t.border}` }}>
-          <div style={{ height:"100%", width:`${progress}%`, background:`linear-gradient(90deg,${rank.color},${t.accent})`, borderRadius:5, boxShadow:`0 0 10px ${rank.color}55`, transition:"width 1s ease" }} />
+          <div style={{ height:"100%", width:`${isPlacement ? (placementCount/5)*100 : progress}%`, background: isPlacement ? `linear-gradient(90deg, #9CA3AF, ${placementCol})` : `linear-gradient(90deg,${rank.color},${t.accent})`, borderRadius:5, boxShadow:`0 0 10px ${isPlacement ? placementCol : rank.color}55`, transition:"width 1s ease" }} />
         </div>
-        <div style={{ fontFamily:t.fontMono, fontSize:11, color:t.textMuted, marginTop:5, textAlign:"right" }}>{elo} / {nextRank ? rank.max : "MAX"}</div>
+        <div style={{ fontFamily:t.fontMono, fontSize:11, color:t.textMuted, marginTop:5, textAlign:"right" }}>
+          {isPlacement ? `${placementCount} / 5` : `${elo} / ${nextRank ? rank.max : "MAX"}`}
+        </div>
       </div>
 
       {/* ── XP / Level bar ───────────────────────────────────────────────── */}
@@ -839,15 +809,32 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
           <div style={{ fontFamily:t.fontMono, fontSize:13, color:t.text, letterSpacing:"0.15em", marginBottom:12, fontWeight:600 }}>RANK LADDER · SEASON II</div>
           <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
             {RANKS.map((r, i) => {
-              const isCurrent = r.name === rank.name;
+              const isUnranked = r.name === "UNRANKED";
+              const isActive = isPlacement ? isUnranked : (r.name === rank.name);
               return (
-                <div key={i} style={{ display:"flex", alignItems:"center", gap:11, padding:"9px 13px", background:isCurrent?`${r.color}12`:"transparent", border:`1px solid ${isCurrent?r.color:t.border+"44"}`, borderRadius:7 }}>
-                  <RankIcon rank={r} size={45} />
-                  <div style={{ flex:1, fontFamily:t.fontDisplay, fontSize:16, fontWeight:isCurrent?800:600, color:isCurrent?r.color:t.textSecondary, letterSpacing:"0.05em" }}>{r.name}</div>
-                  <div style={{ fontFamily:t.fontMono, fontSize:16, color:isCurrent?t.accent:t.text, fontWeight:isCurrent?800:600 }}>
-                    {r.min >= 2500 ? `${r.min} and greater` : `${r.min} to ${r.max>=1000000?"∞":r.max}`}
+                <div key={r.name} style={{
+                  display: "flex", alignItems: "center", justifyContent: "space-between",
+                  padding: "16px 20px", borderRadius: 12,
+                  background: isActive ? `${r.color}15` : "transparent",
+                  border: `1px solid ${isActive ? r.color + "44" : "rgba(255,255,255,0.06)"}`,
+                  boxShadow: isActive ? `0 0 20px ${r.color}11` : "none",
+                  transition: "all 0.3s ease",
+                  opacity: 1
+                }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+                    {isUnranked ? (
+                      <NavRankBadge rank={r} size={28} isPlacement={true} />
+                    ) : (
+                      <img src={r.img!} style={{ width: 28, height: 28, objectFit: "contain", filter: isActive ? `drop-shadow(0 0 8px ${r.color}aa)` : "none" }} />
+                    )}
+                    <div style={{ fontFamily: t.fontDisplay, fontSize: 15, fontWeight: isActive ? 800 : 700, color: isActive ? r.color : t.textSecondary, letterSpacing: "0.05em" }}>
+                      {r.name}
+                    </div>
                   </div>
-                  {isCurrent && <div style={{ background:`${r.color}18`, border:`1px solid ${r.color}`, color:r.color, fontFamily:t.fontMono, fontSize:11, padding:"3px 10px", borderRadius:10, fontWeight:700 }}>YOU</div>}
+                  <div style={{ fontFamily: t.fontMono, fontSize: 13, fontWeight: 700, color: isActive ? r.color : t.textMuted }}>
+                    {isUnranked ? "?" : (r.max >= 1000000 ? `${r.min} and greater` : `${r.min} to ${r.max}`)}
+                  </div>
+                  {isActive && <div style={{ background:`${r.color}18`, border:`1px solid ${r.color}`, color:r.color, fontFamily:t.fontMono, fontSize:11, padding:"3px 10px", borderRadius:10, fontWeight:700, marginLeft: 12 }}>YOU</div>}
                 </div>
               );
             })}
@@ -920,25 +907,6 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
               onMouseEnter={e => { onHoverAction?.(); (e.currentTarget as HTMLElement).style.borderColor=t.accent; (e.currentTarget as HTMLElement).style.color=t.accent; }}
               onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor=t.border; (e.currentTarget as HTMLElement).style.color=t.textMuted; }}>
               Change Email
-            </button>
-            <button
-              onClick={async () => {
-                onClickAction?.();
-                try {
-                  const res = await API.get("/api/auth/export-data", { headers: { Authorization: `Bearer ${token}` } });
-                  const blob = new Blob([JSON.stringify(res.data, null, 2)], { type: "application/json" });
-                  const url = URL.createObjectURL(blob);
-                  const a = document.createElement("a");
-                  a.href = url;
-                  a.download = `pentaprotocol-data-${new Date().toISOString().split("T")[0]}.json`;
-                  a.click();
-                  URL.revokeObjectURL(url);
-                } catch {}
-              }}
-              style={{ width:"100%", padding:"9px", background:"transparent", border:`1px solid ${t.border}`, borderRadius:8, color:t.textMuted, fontFamily:t.fontDisplay, fontSize:12, fontWeight:600, cursor:"pointer", textAlign:"left" as const, transition:"all 0.15s" }}
-              onMouseEnter={e => { onHoverAction?.(); (e.currentTarget as HTMLElement).style.borderColor="#4CAF50"; (e.currentTarget as HTMLElement).style.color="#4CAF50"; }}
-              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor=t.border; (e.currentTarget as HTMLElement).style.color=t.textMuted; }}>
-              📥 Download My Data
             </button>
           </div>
         </div>

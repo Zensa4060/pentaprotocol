@@ -975,6 +975,7 @@ async def _award_match_series_and_notify(
             "level_after": u1a.get("level", lvl1_before) if u1a else lvl1_before,
             "xp_before": u1.get("xp", 0) if u1 else 0,
             "xp_after": u1a.get("xp", 0) if u1a else 0,
+            "was_placement": (u1.get("placement_matches", 0) < 5) if u1 else False,
         },
         "p2": {
             "name": u2.get("username", "P2") if u2 else "P2",
@@ -986,6 +987,7 @@ async def _award_match_series_and_notify(
             "level_after": u2a.get("level", lvl2_before) if u2a else lvl2_before,
             "xp_before": u2.get("xp", 0) if u2 else 0,
             "xp_after": u2a.get("xp", 0) if u2a else 0,
+            "was_placement": (u2.get("placement_matches", 0) < 5) if u2 else False,
         },
         "p1_career_entry_id": (career_ids or {}).get("p1_career_entry_id"),
         "p2_career_entry_id": (career_ids or {}).get("p2_career_entry_id"),

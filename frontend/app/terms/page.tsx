@@ -53,7 +53,7 @@ export default function TermsPage() {
             <div style={{ fontFamily: "monospace", fontSize: 11, color: "#CC0000", letterSpacing: "0.3em", marginBottom: 12 }}>LEGAL</div>
             <h1 style={{ fontSize: 40, fontWeight: 700, color: "#fff", lineHeight: 1.15, marginBottom: 16 }}>Terms and Conditions</h1>
             <p style={{ fontSize: 14, color: "#555", lineHeight: 1.6 }}>
-              Effective Date: 9 April 2026 &nbsp;·&nbsp; pentaprotocol.com
+              Effective Date: 10 April 2026 &nbsp;·&nbsp; pentaprotocol.com
             </p>
             <div style={{ height: 2, background: "linear-gradient(to right, #CC0000, transparent)", marginTop: 24 }} />
           </div>
@@ -63,7 +63,7 @@ export default function TermsPage() {
           </Section>
 
           <Section title="2. Description of Service">
-            PentaProtocol is a web-based multiplayer gaming platform providing competitive and casual gameplay modes, a virtual goods store (ProtoCredits, PentaShards, cosmetic bundles, boards, banners, and themed content), a ranked ladder system with seasonal progression, and user profile and collection features.
+            PentaProtocol is a web-based multiplayer gaming platform providing competitive (Ranked) and casual (Unranked) gameplay modes, including a "Placement" phase for new competitive players. Features include a virtual goods store (ProtoCredits, PentaShards, cosmetic bundles, boards, banners), a ranked ladder system with seasonal progression, and user profile and collection features.
           </Section>
 
           <Section title="3. Eligibility">
@@ -71,7 +71,7 @@ export default function TermsPage() {
           </Section>
 
           <Section title="4. Account Registration">
-            To access certain features, you must register for an account. You agree to provide accurate and complete information, maintain your account details, keep login credentials confidential, and accept responsibility for all activity under your account. Notify us immediately at support@pentaprotocol.com if you suspect unauthorised access. PentaProtocol reserves the right to suspend or terminate accounts that violate these Terms.
+            To access certain features, you must register for an account using an email and password or a supported third-party authentication method (e.g., Google). You agree to provide accurate and complete information, maintain your account details, keep login credentials confidential, and accept responsibility for all activity under your account. Notify us immediately at support@pentaprotocol.com if you suspect unauthorised access. PentaProtocol reserves the right to suspend or terminate accounts that violate these Terms.
           </Section>
 
           <Section title="5. Virtual Currency and In-Game Items">
@@ -125,7 +125,7 @@ export default function TermsPage() {
 
           <div style={{ marginTop: 32, paddingTop: 16, borderTop: "1px solid #1e1e2a" }}>
             <div style={{ fontFamily: "monospace", fontSize: 11, color: "#444", lineHeight: 1.8 }}>
-              Version 1.0 — 9 April 2026 · Initial release
+              Version 1.1 — 10 April 2026 · Updated authentication and gameplay descriptions
             </div>
           </div>
 

@@ -10,9 +10,9 @@ import { RANKS, getRank, NavRankBadge, rankGlowVisualStrength, buildRankEmblemGl
 import React from "react";
 
 
-const RankBadge = ({ elo, size = 48 }: { elo: number; size?: number }) => {
-  const rank = getRank(elo);
-  return <NavRankBadge rank={rank as any} size={size} />;
+const RankBadge = ({ elo, size = 48, isPlacement = false }: { elo: number | string; size?: number; isPlacement?: boolean }) => {
+  const rank = getRank(typeof elo === "string" ? 0 : elo);
+  return <NavRankBadge rank={rank as any} size={size} isPlacement={isPlacement} />;
 };
 
 const CAREER_PATTERN_LABELS: Record<string, string> = {
@@ -49,6 +49,8 @@ interface MatchRecord {
   surrendered_by?: "P1" | "P2";
   p1_time_used_ms?: number;
   p2_time_used_ms?: number;
+  was_placement?: boolean;
+  placement_matches?: number;
 }
 
 const formatDurationShort = (ms: number) => {
@@ -183,7 +185,7 @@ const CareerMatchRow = React.memo(({
               flexShrink: 0,
             }}
           >
-            <RankBadge elo={match.elo_after} size={22} />
+            <RankBadge elo={match.elo_after} size={22} isPlacement={match.was_placement} />
           </div>
           <div style={{ minWidth: 0 }}>
             <div
@@ -267,8 +269,8 @@ const CareerMatchRow = React.memo(({
                   textShadow: `0 0 12px ${deltaColor}77`,
                 }}
               >
-                {match.elo_delta > 0 ? "+" : ""}
-                {match.elo_delta}
+                {match.was_placement ? "+?" : (match.elo_delta > 0 ? "+" : "")}
+                {match.was_placement ? "" : match.elo_delta}
               </span>
             </div>
           )}
@@ -336,7 +338,7 @@ const CareerMatchRow = React.memo(({
           boxShadow: `0 0 10px ${myRank.color}11`,
         }}
       >
-        <RankBadge elo={match.elo_after} size={24} />
+        <RankBadge elo={match.elo_after} size={24} isPlacement={match.was_placement} />
         </div>
         <div>
           <div
@@ -360,7 +362,7 @@ const CareerMatchRow = React.memo(({
                 opacity: 0.9,
               }}
             >
-              {myRank.name.toUpperCase()} · {match.elo_after}
+              {match.was_placement ? "PLACEMENT" : myRank.name.toUpperCase()} · {match.was_placement ? "?" : match.elo_after}
             </div>
           </div>
         </div>
@@ -421,8 +423,8 @@ const CareerMatchRow = React.memo(({
               textShadow: `0 0 12px ${deltaColor}77`,
             }}
           >
-            {match.elo_delta > 0 ? "+" : ""}
-            {match.elo_delta}
+            {match.was_placement ? "+?" : (match.elo_delta > 0 ? "+" : "")}
+            {match.was_placement ? "" : match.elo_delta}
           </span>
         </div>
       )}
@@ -455,6 +457,8 @@ export default function CareerScreen({ themeId, onHoverAction }: Props) {
   const ip = themeId === "pixel";
 
   const elo = user?.elo ?? 100;
+  const placementCount = (user as any)?.placement_matches || 0;
+  const isPlacement = placementCount < 5;
   const rank = getRank(elo);
   const scale = (rank as any).scale ?? 1;
   const badgeSize = 120;
@@ -685,21 +689,23 @@ export default function CareerScreen({ themeId, onHoverAction }: Props) {
                       }}
                     />
                   )}
-                  <img
-                    src={rank.img}
-                    alt={rank.name}
-                    draggable={false}
-                    style={{
-                      width: imgSize,
-                      height: imgSize,
-                      objectFit: "contain",
-                      userSelect: "none",
-                      pointerEvents: "none",
-                      position: "relative",
-                      zIndex: 1,
-                      filter: buildRankEmblemGlowFilter(rank.color, rankGlowVisualStrength(rank)),
-                    }}
-                  />
+                  {rank.img && (
+                    <img
+                      src={rank.img}
+                      alt={rank.name}
+                      draggable={false}
+                      style={{
+                        width: imgSize,
+                        height: imgSize,
+                        objectFit: "contain",
+                        userSelect: "none",
+                        pointerEvents: "none",
+                        position: "relative",
+                        zIndex: 1,
+                        filter: buildRankEmblemGlowFilter(rank.color, rankGlowVisualStrength(rank)),
+                      }}
+                    />
+                  )}
                 </div>
 
                 <div style={{ textAlign: "center" }}>
@@ -719,12 +725,12 @@ export default function CareerScreen({ themeId, onHoverAction }: Props) {
                       fontFamily: t.fontDisplay,
                       fontSize: ip ? 28 : 42,
                       fontWeight: 800,
-                      color: rank.color,
+                      color: isPlacement ? "#9CA3AF" : rank.color,
                       letterSpacing: "0.08em",
-                      textShadow: `0 0 30px ${rank.color}66`,
+                      textShadow: `0 0 30px ${isPlacement ? "#9CA3AF" : rank.color}66`,
                     }}
                   >
-                    {rank.name}
+                    {isPlacement ? "PLACEMENT" : rank.name}
                   </div>
                   <div
                     style={{
@@ -735,12 +741,12 @@ export default function CareerScreen({ themeId, onHoverAction }: Props) {
                       marginTop: 4,
                     }}
                   >
-                    {elo}{" "}
+                    {isPlacement ? "?" : elo}{" "}
                     <span style={{ fontSize: 12, color: t.textMuted, letterSpacing: "0.1em" }}>ELO</span>
                   </div>
                 </div>
 
-                {nextRank !== rank && (
+                {(isPlacement || nextRank !== rank) && (
                   <div style={{ width: "100%", maxWidth: 460 }}>
                     <div
                       style={{
@@ -755,11 +761,11 @@ export default function CareerScreen({ themeId, onHoverAction }: Props) {
                         textTransform: "uppercase",
                       }}
                     >
-                      <span style={{ color: rank.color, textShadow: `0 0 12px ${rank.color}44` }}>
-                        {rank.name}
+                      <span style={{ color: isPlacement ? "#9CA3AF" : rank.color, textShadow: `0 0 12px ${isPlacement ? "#9CA3AF" : rank.color}44` }}>
+                        {isPlacement ? " PLACEMENT IN PROGRESS " : rank.name}
                       </span>
-                      <span style={{ color: nextRank.color, textShadow: `0 0 14px ${nextRank.color}44` }}>
-                        {nextRank.name} in {eloToNext} ELO
+                      <span style={{ color: isPlacement ? t.accent : nextRank.color, textShadow: `0 0 14px ${isPlacement ? t.accent : nextRank.color}44` }}>
+                        {isPlacement ? `${5 - placementCount} MATCHES REMAINING` : `${nextRank.name} in ${eloToNext} ELO`}
                       </span>
                     </div>
                     <div
@@ -774,10 +780,10 @@ export default function CareerScreen({ themeId, onHoverAction }: Props) {
                       <div
                         style={{
                           height: "100%",
-                          width: `${rankProgress}%`,
-                          background: `linear-gradient(90deg, ${rank.color}, ${nextRank.color})`,
+                          width: `${isPlacement ? (placementCount / 5) * 100 : rankProgress}%`,
+                          background: isPlacement ? `linear-gradient(90deg, #9CA3AF, ${t.accent})` : `linear-gradient(90deg, ${rank.color}, ${nextRank.color})`,
                           borderRadius: 999,
-                          boxShadow: `0 0 14px ${rank.color}aa, 0 0 18px ${nextRank.color}55`,
+                          boxShadow: `0 0 14px ${isPlacement ? "#9CA3AF" : rank.color}aa, 0 0 18px ${isPlacement ? t.accent : nextRank.color}55`,
                           transition: "width 1s ease",
                         }}
                       />

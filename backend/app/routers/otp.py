@@ -61,30 +61,59 @@ def send_otp_email(to_email: str, otp: str, purpose: str):
         "change_password": "Confirm password change - PentaProtocol",
         "change_email":    "Verify your new email - PentaProtocol",
     }
-    resend.Emails.send({
-        "from": FROM_EMAIL,
-        "to": to_email,
-        "subject": subjects.get(purpose, "Your OTP - PentaProtocol"),
-        "text": (
-            f"Your PentaProtocol OTP is: {otp}\n\n"
-            "This code expires in 10 minutes.\n"
-            "If you didn't request this, ignore this email."
-        )
-    })
+    subject = subjects.get(purpose, "Your OTP - PentaProtocol")
+    text = (
+        f"Your PentaProtocol OTP is: {otp}\n\n"
+        "This code expires in 10 minutes.\n"
+        "If you didn't request this, ignore this email."
+    )
+
+    # Developer Fallback / Error Handling
+    if not resend.api_key:
+        print("\n" + "="*50)
+        print(f"DEV MODE: RESEND_API_KEY is missing.")
+        print(f"TO:      {to_email}")
+        print(f"SUBJECT: {subject}")
+        print(f"OTP:     {otp}")
+        print("="*50 + "\n")
+        return
+
+    try:
+        resend.Emails.send({
+            "from": FROM_EMAIL,
+            "to": to_email,
+            "subject": subject,
+            "text": text
+        })
+    except Exception as e:
+        print("\n" + "!"*50)
+        print(f"ERROR: Failed to send email via Resend: {str(e)}")
+        print(f"FALLBACK OTP FOR {to_email}: {otp}")
+        print("!"*50 + "\n")
 
 def store_otp(email: str, purpose: str, otp: str):
-    key = f"otp:{purpose}:{email}"
-    r.setex(key, OTP_EXPIRY, json.dumps({"otp": otp}))
+    try:
+        key = f"otp:{purpose}:{email}"
+        r.setex(key, OTP_EXPIRY, json.dumps({"otp": otp}))
+    except redis.exceptions.ConnectionError:
+        raise HTTPException(status_code=503, detail="OTP storage service is temporarily unavailable (Redis connection failed).")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Unexpected error storing OTP: {str(e)}")
 
 def check_otp(email: str, purpose: str, otp: str) -> bool:
-    key  = f"otp:{purpose}:{email}"
-    data = r.get(key)
-    if not data:
+    try:
+        key  = f"otp:{purpose}:{email}"
+        data = r.get(key)
+        if not data:
+            return False
+        if json.loads(data)["otp"] == otp:
+            r.delete(key)
+            return True
         return False
-    if json.loads(data)["otp"] == otp:
-        r.delete(key)
-        return True
-    return False
+    except redis.exceptions.ConnectionError:
+        raise HTTPException(status_code=503, detail="OTP verification service is temporarily unavailable (Redis connection failed).")
+    except Exception:
+        return False
 
 # ─── SIGNUP ───────────────────────────────────────────────
 @router.post("/signup/send")
