@@ -4,6 +4,9 @@ import {
   PATTERN_METADATA_5,
   PATTERN_METADATA_6,
   PATTERN_METADATA_7,
+  CORE_RULES_METADATA_5,
+  CORE_RULES_METADATA_6,
+  CORE_RULES_METADATA_7,
 } from "@/lib/patterns_metadata";
 import { getRuleshowBlocks, type RuleshowSheetKind } from "@/lib/ruleshowNarrative";
 import PatternDiagram from "./PatternDiagram";
@@ -61,7 +64,9 @@ export default function RuleshowScreen({
   const autoDismissFiredRef = useRef(false);
 
   const patterns = is77 ? PATTERN_METADATA_7 : is66 ? PATTERN_METADATA_6 : PATTERN_METADATA_5;
+  const references = is77 ? CORE_RULES_METADATA_7 : is66 ? CORE_RULES_METADATA_6 : CORE_RULES_METADATA_5;
   const patternList = legSheet ? Object.values(patterns) : [];
+  const referenceList = legSheet ? Object.values(references) : [];
   const ruleBlocks = getRuleshowBlocks(sheet);
 
   useEffect(() => {
@@ -217,40 +222,53 @@ export default function RuleshowScreen({
               paddingBottom: isNarrow ? 18 : 28,
             }}
           >
-            {patternList.map(p => (
-              <div
-                key={p.id}
-                style={{
-                  background: "rgba(255,255,255,0.03)",
-                  border: `1px solid ${t.border}`,
-                  borderRadius: ip ? 2 : 16,
-                  padding: 20,
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: 10,
-                  cursor: "default",
-                  transition: "all 0.2s",
-                }}
-              >
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <div
-                    style={{
-                      fontFamily: t.fontDisplay,
-                      fontSize: 16,
-                      fontWeight: 800,
-                      color: t.text,
-                      letterSpacing: "0.04em",
-                    }}
-                  >
-                    {p.label}
+            {[...patternList, ...referenceList].map((p, i) => {
+              const isReference = i >= patternList.length;
+              return (
+                <div
+                  key={p.id}
+                  style={{
+                    background: isReference ? "rgba(255,255,255,0.015)" : "rgba(255,255,255,0.03)",
+                    border: isReference ? `1px dashed ${t.border}88` : `1px solid ${t.border}`,
+                    borderRadius: ip ? 2 : 16,
+                    padding: 20,
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 10,
+                    cursor: "default",
+                    transition: "all 0.2s",
+                    opacity: isReference ? 0.75 : 1,
+                  }}
+                >
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <div
+                      style={{
+                        fontFamily: t.fontDisplay,
+                        fontSize: 16,
+                        fontWeight: 800,
+                        color: isReference ? t.textSecondary : t.text,
+                        letterSpacing: "0.04em",
+                      }}
+                    >
+                      {p.label}
+                    </div>
+                    {isReference && (
+                      <div style={{
+                        fontFamily: t.fontMono, fontSize: 9, fontWeight: 900,
+                        padding: "2px 8px", borderRadius: 4,
+                        background: `${t.accent}15`, color: t.accent,
+                        border: `1px solid ${t.accent}33`,
+                        letterSpacing: "0.08em"
+                      }}>REFERENCE</div>
+                    )}
                   </div>
+                  <div style={{ fontFamily: t.fontBody, fontSize: 12, color: t.textMuted, lineHeight: 1.4, minHeight: 34 }}>
+                    {p.desc}
+                  </div>
+                  <PatternDiagram info={p} accent={isReference ? t.textMuted : t.accent} isSelected={false} />
                 </div>
-                <div style={{ fontFamily: t.fontBody, fontSize: 12, color: t.textSecondary, lineHeight: 1.4, minHeight: 34 }}>
-                  {p.desc}
-                </div>
-                <PatternDiagram info={p} accent={t.accent} isSelected={false} />
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
 

@@ -7,6 +7,9 @@ import {
   PATTERN_METADATA_5,
   PATTERN_METADATA_6,
   PATTERN_METADATA_7,
+  CORE_RULES_METADATA_5,
+  CORE_RULES_METADATA_6,
+  CORE_RULES_METADATA_7,
   type PatternInfo,
 } from "@/lib/patterns_metadata";
 import {
@@ -202,6 +205,7 @@ function SingleSizePatternGroup({
   ip: boolean;
 }) {
   const cellSize = ip ? 10 : 12;
+  const refs = label.includes("5×5") ? CORE_RULES_METADATA_5 : label.includes("6×6") ? CORE_RULES_METADATA_6 : CORE_RULES_METADATA_7;
   return (
     <div style={{ marginTop: 20 }}>
       <div style={{ fontFamily: fontMono, fontSize: 11, letterSpacing: "0.14em", color: textMuted, marginBottom: 12 }}>{label}</div>
@@ -211,6 +215,16 @@ function SingleSizePatternGroup({
             <div style={{ fontFamily: fontMono, fontSize: 11, fontWeight: 700, color: accent, marginBottom: 6 }}>{p.label}</div>
             <div style={{ fontSize: 11, color: textMuted, marginBottom: 8, lineHeight: 1.45 }}>{p.desc}</div>
             <PatternDiagram info={p} accent={accent} isSelected={false} cellSize={cellSize} />
+          </div>
+        ))}
+        {/* References */}
+        {Object.values(refs).map((p) => (
+          <div key={p.id} style={{ maxWidth: 220, opacity: 0.7 }}>
+            <div style={{ fontFamily: fontMono, fontSize: 11, fontWeight: 700, color: textMuted, marginBottom: 6 }}>
+              {p.label} <span style={{fontSize: 8, verticalAlign: 'middle', border: `1px solid ${accent}44`, padding: '1px 4px', borderRadius: 3, marginLeft: 4}}>REF</span>
+            </div>
+            <div style={{ fontSize: 11, color: textMuted, marginBottom: 8, lineHeight: 1.45 }}>{p.desc}</div>
+            <PatternDiagram info={p} accent={textMuted} isSelected={false} cellSize={cellSize} />
           </div>
         ))}
       </div>
@@ -276,7 +290,7 @@ function WinPatternsBlock({
   ip: boolean;
 }) {
   const cellSize = ip ? 10 : 12;
-  const group = (label: string, meta: Record<string, PatternInfo>) => (
+  const group = (label: string, meta: Record<string, PatternInfo>, refs: Record<string, PatternInfo>) => (
     <div style={{ marginTop: 24 }}>
       <div
         style={{
@@ -297,15 +311,25 @@ function WinPatternsBlock({
             <PatternDiagram info={p} accent={accent} cellSize={cellSize} />
           </div>
         ))}
+        {/* References */}
+        {Object.values(refs).map((p) => (
+          <div key={p.id} style={{ maxWidth: 220, opacity: 0.7 }}>
+            <div style={{ fontFamily: fontMono, fontSize: 11, fontWeight: 700, color: textMuted, marginBottom: 6 }}>
+              {p.label} <span style={{fontSize: 8, verticalAlign: 'middle', border: `1px solid ${accent}44`, padding: '1px 4px', borderRadius: 3, marginLeft: 4}}>REF</span>
+            </div>
+            <div style={{ fontSize: 11, color: textMuted, marginBottom: 8, lineHeight: 1.45 }}>{p.desc}</div>
+            <PatternDiagram info={p} accent={textMuted} cellSize={cellSize} />
+          </div>
+        ))}
       </div>
     </div>
   );
 
   return (
     <div style={{ marginTop: 8 }}>
-      {group("5×5 — shape patterns", PATTERN_METADATA_5)}
-      {group("6×6 — shape patterns", PATTERN_METADATA_6)}
-      {group("7×7 — structural patterns", PATTERN_METADATA_7)}
+      {group("5×5 — shape patterns", PATTERN_METADATA_5, CORE_RULES_METADATA_5)}
+      {group("6×6 — shape patterns", PATTERN_METADATA_6, CORE_RULES_METADATA_6)}
+      {group("7×7 — structural patterns", PATTERN_METADATA_7, CORE_RULES_METADATA_7)}
       <LineWinStrip accent={accent} textMuted={textMuted} fontMono={fontMono} ip={ip} />
     </div>
   );

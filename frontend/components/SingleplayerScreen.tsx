@@ -7,6 +7,9 @@ import {
   PATTERN_METADATA_5, 
   PATTERN_METADATA_6, 
   PATTERN_METADATA_7, 
+  CORE_RULES_METADATA_5,
+  CORE_RULES_METADATA_6,
+  CORE_RULES_METADATA_7,
   PatternInfo 
 } from "@/lib/patterns_metadata";
 
@@ -59,7 +62,9 @@ export default function SingleplayerScreen({ setScreenAction, themeId, onHoverAc
   const [step, setStep] = useState<"mode" | "patterns">("mode");
 
   const meta = boardMode === "7x7" ? PATTERN_METADATA_7 : boardMode === "6x6" ? PATTERN_METADATA_6 : PATTERN_METADATA_5;
+  const references = boardMode === "7x7" ? CORE_RULES_METADATA_7 : boardMode === "6x6" ? CORE_RULES_METADATA_6 : CORE_RULES_METADATA_5;
   const patternNames = Object.keys(meta);
+  const referenceNames = Object.keys(references);
 
   const goBack = () => {
     if (step === "patterns") {
@@ -188,8 +193,9 @@ export default function SingleplayerScreen({ setScreenAction, themeId, onHoverAc
             gridTemplateColumns: boardMode === "7x7" ? "repeat(auto-fit, minmax(180px, 1fr))" : "repeat(auto-fit, minmax(200px, 1fr))",
             gap: 12, width: "100%", maxWidth: boardMode === "7x7" ? 820 : 660,
           }}>
-            {patternNames.map((name, i) => {
-              const info = meta[name];
+            {[...patternNames, ...referenceNames].map((name, i) => {
+              const isReference = referenceNames.includes(name);
+              const info = isReference ? (references as any)[name] : meta[name];
 
               return (
                 <div
@@ -197,28 +203,38 @@ export default function SingleplayerScreen({ setScreenAction, themeId, onHoverAc
                   className="sp-card"
                   style={{
                     background: t.bgCard,
-                    border: info.isException
-                      ? `2px solid #B22222`
-                      : `2px solid ${t.border}`,
+                    border: isReference ? `2px dashed ${t.border}aa` : (info.isException ? `2px solid #B22222` : `2px solid ${t.border}`),
                     borderRadius: ip ? 2 : 14,
                     padding: "16px 14px",
                     cursor: "default",
                     textAlign: "left",
                     animation: `cardFadeUp 0.4s cubic-bezier(.22,.68,0,1.2) ${i * 0.06}s both`,
-                    ["--hover-color" as any]: info.isException ? "#FF4444" : t.accent,
-                    ["--hover-bg" as any]: info.isException ? `#B222221A` : `${t.accent}1A`,
-                    ["--hover-glow" as any]: info.isException ? `#B2222222` : `${t.accent}22`,
+                    ["--hover-color" as any]: isReference ? t.textMuted : (info.isException ? "#FF4444" : t.accent),
+                    ["--hover-bg" as any]: isReference ? `${t.textSecondary}08` : (info.isException ? `#B222221A` : `${t.accent}1A`),
+                    ["--hover-glow" as any]: isReference ? "transparent" : (info.isException ? `#B2222222` : `${t.accent}22`),
                     ["--card-bg" as any]: t.bgCard,
-                    boxShadow: info.isException ? `0 0 20px #B2222222` : "none",
+                    boxShadow: isReference ? "none" : (info.isException ? `0 0 20px #B2222222` : "none"),
+                    opacity: isReference ? 0.8 : 1,
                   } as any}
                 >
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{
-                      fontFamily: t.fontDisplay, fontSize: ip ? 12 : 14, fontWeight: 700,
-                      color: info.isException ? "#B22222" : t.text,
-                      letterSpacing: "0.06em", marginBottom: 4,
-                    }}>
-                      {info.label}
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}>
+                      <div style={{
+                        fontFamily: t.fontDisplay, fontSize: ip ? 12 : 14, fontWeight: 700,
+                        color: isReference ? t.textSecondary : (info.isException ? "#B22222" : t.text),
+                        letterSpacing: "0.06em",
+                      }}>
+                        {info.label}
+                      </div>
+                      {isReference && (
+                        <div style={{
+                          fontFamily: t.fontMono, fontSize: 8, fontWeight: 900,
+                          padding: "2px 6px", borderRadius: 4,
+                          background: `${t.accent}15`, color: t.accent,
+                          border: `1px solid ${t.accent}44`,
+                          letterSpacing: "0.1em"
+                        }}>CORE RULE</div>
+                      )}
                     </div>
                     <div style={{
                       fontFamily: t.fontBody, fontSize: ip ? 10 : 11, color: t.textMuted,
@@ -228,13 +244,13 @@ export default function SingleplayerScreen({ setScreenAction, themeId, onHoverAc
                     </div>
                     <div style={{
                       fontFamily: t.fontMono, fontSize: 9, fontWeight: 700,
-                      color: info.isException ? "#FF4444" : t.accent,
+                      color: isReference ? t.textMuted : (info.isException ? "#FF4444" : t.accent),
                       letterSpacing: "0.08em", marginBottom: 10,
                       textTransform: "uppercase", opacity: 0.8
                     }}>
-                      {info.mirrorCount} MIRRORS{info.mirrorCount === 8 ? " HIGHLIGHTED" : ""}
+                      {isReference ? "FIXED RULE" : `${info.mirrorCount} MIRRORS${info.mirrorCount === 8 ? " HIGHLIGHTED" : ""}`}
                     </div>
-                    <PatternDiagram info={info} accent={info.isException ? "#B22222" : t.accent} isSelected={false} />
+                    <PatternDiagram info={info} accent={isReference ? t.textMuted : (info.isException ? "#B22222" : t.accent)} isSelected={false} />
                   </div>
                 </div>
               );

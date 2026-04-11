@@ -141,3 +141,85 @@ export const PATTERN_METADATA_7: Record<string, PatternInfo> = {
     mirrorCount: 4,
   },
 };
+
+export const CORE_RULES_METADATA_5: Record<string, PatternInfo> = {
+  LINE: {
+    id: "LINE",
+    label: "STRAIGHT LINE",
+    desc: "A continuous row of 5 stones.",
+    gridSize: 5,
+    cells: [[0, 2], [1, 2], [2, 2], [3, 2], [4, 2]],
+    mirrorCount: 4,
+  },
+  DIAGONAL: {
+    id: "DIAGONAL",
+    label: "DIAGONAL",
+    desc: "A corner-to-corner diagonal line.",
+    gridSize: 5,
+    cells: [[0, 0], [1, 1], [2, 2], [3, 3], [4, 4]],
+    mirrorCount: 2,
+  },
+  CHAIN: {
+    id: "CHAIN",
+    label: "FULL BOARD CHAIN",
+    desc: "Fallback win rule: 10+ connected stones.",
+    gridSize: 5,
+    cells: [[1, 1], [1, 2], [1, 3], [2, 1], [2, 2], [2, 3], [3, 1], [3, 2], [4, 1], [4, 2]],
+    mirrorCount: 1,
+  },
+};
+
+export const CORE_RULES_METADATA_6: Record<string, PatternInfo> = {
+  LINE: {
+    id: "LINE",
+    label: "STRAIGHT LINE",
+    desc: "A continuous row of 6 stones.",
+    gridSize: 6,
+    cells: [[0, 2], [1, 2], [2, 2], [3, 2], [4, 2], [5, 2]],
+    mirrorCount: 4,
+  },
+  DIAGONAL: {
+    id: "DIAGONAL",
+    label: "DIAGONAL",
+    desc: "A corner-to-corner diagonal line.",
+    gridSize: 6,
+    cells: [[0, 0], [1, 1], [2, 2], [3, 3], [4, 4], [5, 5]],
+    mirrorCount: 2,
+  },
+  CHAIN: {
+    id: "CHAIN",
+    label: "FULL BOARD CHAIN",
+    desc: "Fallback win rule: 15+ connected stones.",
+    gridSize: 6,
+    cells: [[1, 1], [1, 2], [1, 3], [1, 4], [2, 1], [2, 2], [2, 3], [2, 4], [3, 1], [3, 2], [3, 3], [3, 4], [4, 1], [4, 2], [4, 3]],
+    mirrorCount: 1,
+  },
+};
+
+export const CORE_RULES_METADATA_7: Record<string, PatternInfo> = {
+  LINE: {
+    id: "LINE",
+    label: "STRAIGHT LINE",
+    desc: "A continuous row of 7 stones.",
+    gridSize: 7,
+    cells: [[0, 3], [1, 3], [2, 3], [3, 3], [4, 3], [5, 3], [6, 3]],
+    mirrorCount: 4,
+  },
+  DIAGONAL: {
+    id: "DIAGONAL",
+    label: "DIAGONAL",
+    desc: "A corner-to-corner diagonal line.",
+    gridSize: 7,
+    cells: [[0, 0], [1, 1], [2, 2], [3, 3], [4, 4], [5, 5], [6, 6]],
+    mirrorCount: 2,
+  },
+  CHAIN: {
+    id: "CHAIN",
+    label: "FULL BOARD CHAIN",
+    desc: "Fallback win rule: 20+ connected stones.",
+    gridSize: 7,
+    cells: [[1, 1], [1, 2], [1, 3], [1, 4], [1, 5], [2, 1], [2, 2], [2, 3], [2, 4], [2, 5], [3, 1], [3, 2], [3, 3], [3, 4], [3, 5], [4, 1], [4, 2], [4, 3], [4, 4], [4, 5]],
+    mirrorCount: 1,
+  },
+};
+
