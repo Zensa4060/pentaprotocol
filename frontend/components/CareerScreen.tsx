@@ -751,7 +751,7 @@ export default function CareerScreen({ themeId, onHoverAction }: Props) {
                     <div
                       style={{
                         display: "flex",
-                        justifyContent: "space-between",
+                        justifyContent: isPlacement ? "center" : "space-between",
                         fontFamily: t.fontMono,
                         fontSize: 12,
                         color: t.text,
@@ -761,9 +761,11 @@ export default function CareerScreen({ themeId, onHoverAction }: Props) {
                         textTransform: "uppercase",
                       }}
                     >
-                      <span style={{ color: isPlacement ? "#9CA3AF" : rank.color, textShadow: `0 0 12px ${isPlacement ? "#9CA3AF" : rank.color}44` }}>
-                        {isPlacement ? " PLACEMENT IN PROGRESS " : rank.name}
-                      </span>
+                      {!isPlacement && (
+                        <span style={{ color: rank.color, textShadow: `0 0 12px ${rank.color}44` }}>
+                          {rank.name}
+                        </span>
+                      )}
                       <span style={{ color: isPlacement ? t.accent : nextRank.color, textShadow: `0 0 14px ${isPlacement ? t.accent : nextRank.color}44` }}>
                         {isPlacement ? `${5 - placementCount} MATCHES REMAINING` : `${nextRank.name} in ${eloToNext} ELO`}
                       </span>

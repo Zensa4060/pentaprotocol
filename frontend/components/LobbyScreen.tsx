@@ -78,6 +78,7 @@ export default function LobbyScreen({
   const isPlacement = (user as any)?.placement_matches < 5;
   const placementCol = "#FF33FF";
   const localLevel = computeLevelProgress(Number(user?.level || 1), Number(user?.xp || 0)).level;
+  const rankedLevelLocked = localLevel < 5;
   const BLOOD_RED = "#FF0000";
 
   const [multiSub,   setMultiSub]   = useState<MultiSub>(null);
@@ -591,21 +592,22 @@ export default function LobbyScreen({
         {/* ── RANKED ── */}
         <button
           onClick={() => {
+            if (rankedLevelLocked) return;
             if (multiSub === "ranked") setMultiSub(null);
             else {
               onBoardModeAction?.("5x5_6x6_7x7");
               setMultiSub("ranked");
             }
           }}
-          onMouseEnter={() => { onHoverAction?.(); setHovered("ranked"); }}
+          onMouseEnter={() => { if (!rankedLevelLocked) { onHoverAction?.(); setHovered("ranked"); } }}
           onMouseLeave={() => setHovered(null)}
-          style={{ ...cardStyle("ranked", (hovered === "ranked" || multiSub === "ranked") ? BLOOD_RED : t.gold, false), alignItems:"center", textAlign:"center" as const }}
+          style={{ ...cardStyle("ranked", (hovered === "ranked" || multiSub === "ranked") ? BLOOD_RED : t.gold, rankedBanActive || rankedLevelLocked), alignItems:"center", textAlign:"center" as const, filter: (rankedBanActive || rankedLevelLocked) ? "grayscale(100%) brightness(0.5)" : "none", opacity: (rankedBanActive || rankedLevelLocked) ? 0.35 : 1 }}
         >
           <div style={{ fontFamily:t.fontMono, fontSize:10, color:t.textMuted, letterSpacing:"0.18em", marginBottom:12 }}>QUEUE</div>
           <div style={{ fontFamily:t.fontDisplay, fontSize:ip?20:32, fontWeight:700, marginBottom:8, color:multiSub==="ranked"||hovered==="ranked"?BLOOD_RED:t.text, transition:"color 0.28s", textTransform:"uppercase" as const, letterSpacing:"0.08em", textShadow: hovered === "ranked" ? `0 0 20px ${BLOOD_RED}88` : "none" }}>Ranked</div>
-          {rankedBanActive && (
-            <div style={{ position:"absolute", top:11, left:11, background:`${t.danger}EE`, color:"#fff", fontSize:9, padding:"2px 6px", borderRadius:4, fontFamily:t.fontMono, fontWeight:900 }}>
-              LOCKED
+          {(rankedBanActive || rankedLevelLocked) && (
+            <div style={{ position:"absolute", top:11, left:11, background: rankedLevelLocked ? "#444" : `${t.danger}EE`, color:"#fff", fontSize:9, padding:"2px 6px", borderRadius:4, fontFamily:t.fontMono, fontWeight:900 }}>
+              {rankedLevelLocked ? "LEVEL 5 REQ" : "LOCKED"}
             </div>
           )}
           <div style={{ fontFamily:t.fontBody, fontSize:ip?12:14, color:t.textMuted, marginBottom:16 }}>ELO · RR · Rank · Season rewards</div>
@@ -710,37 +712,37 @@ export default function LobbyScreen({
           <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:10 }}>
             <button
               onClick={startSearch}
-              disabled={multiSub === "ranked" && rankedBanActive}
+              disabled={multiSub === "ranked" && (rankedBanActive || rankedLevelLocked)}
               style={{
-                background: multiSub === "ranked" && rankedBanActive ? t.bgCard : `linear-gradient(135deg,${t.accent},${t.accentGlow})`,
-                border: multiSub === "ranked" && rankedBanActive ? `2px solid ${t.border}` : "none",
-                color: multiSub === "ranked" && rankedBanActive ? t.textMuted : "#0A0A0A",
+                background: multiSub === "ranked" && (rankedBanActive || rankedLevelLocked) ? t.bgCard : `linear-gradient(135deg,${t.accent},${t.accentGlow})`,
+                border: multiSub === "ranked" && (rankedBanActive || rankedLevelLocked) ? `2px solid ${t.border}` : "none",
+                color: multiSub === "ranked" && (rankedBanActive || rankedLevelLocked) ? t.textMuted : "#0A0A0A",
                 fontFamily: t.fontDisplay,
                 fontSize: 18,
                 fontWeight: 700,
                 padding: "18px 64px",
                 borderRadius: ip ? 2 : 10,
-                cursor: multiSub === "ranked" && rankedBanActive ? "not-allowed" : "pointer",
-                opacity: multiSub === "ranked" && rankedBanActive ? 0.72 : 1,
-                boxShadow: multiSub === "ranked" && rankedBanActive ? "none" : `0 0 28px ${t.accentGlow}44`,
+                cursor: multiSub === "ranked" && (rankedBanActive || rankedLevelLocked) ? "not-allowed" : "pointer",
+                opacity: multiSub === "ranked" && (rankedBanActive || rankedLevelLocked) ? 0.72 : 1,
+                boxShadow: multiSub === "ranked" && (rankedBanActive || rankedLevelLocked) ? "none" : `0 0 28px ${t.accentGlow}44`,
                 transition: "transform 0.25s cubic-bezier(.22,.68,0,1.2), box-shadow 0.25s cubic-bezier(.22,.68,0,1.2), opacity 0.2s",
               }}
               onMouseEnter={e => {
-                if (multiSub === "ranked" && rankedBanActive) return;
+                if (multiSub === "ranked" && (rankedBanActive || rankedLevelLocked)) return;
                 onHoverAction?.();
                 e.currentTarget.style.transform = "translateY(-3px) scale(1.04)";
                 e.currentTarget.style.boxShadow = `0 8px 40px ${t.accentGlow}66`;
               }}
               onMouseLeave={e => {
                 e.currentTarget.style.transform = "translateY(0) scale(1)";
-                e.currentTarget.style.boxShadow = multiSub === "ranked" && rankedBanActive ? "none" : `0 0 28px ${t.accentGlow}44`;
+                e.currentTarget.style.boxShadow = multiSub === "ranked" && (rankedBanActive || rankedLevelLocked) ? "none" : `0 0 28px ${t.accentGlow}44`;
               }}
               onMouseDown={e => {
-                if (multiSub === "ranked" && rankedBanActive) return;
+                if (multiSub === "ranked" && (rankedBanActive || rankedLevelLocked)) return;
                 e.currentTarget.style.transform = "translateY(0) scale(0.97)";
               }}
               onMouseUp={e => {
-                if (multiSub === "ranked" && rankedBanActive) return;
+                if (multiSub === "ranked" && (rankedBanActive || rankedLevelLocked)) return;
                 e.currentTarget.style.transform = "translateY(-3px) scale(1.04)";
               }}
             >FIND MATCH ({boardMode === "5x5_7x7" ? "5×7" : boardMode === "5x5_6x6" ? "5×6" : boardMode === "6x6_7x7" ? "6×7" : boardMode === "5x5_6x6_7x7" ? "5×6×7" : boardMode.toUpperCase()})</button>

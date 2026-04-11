@@ -243,13 +243,14 @@ export default function MultiplayerScreen({ setScreen, themeId, onHover, onRoomR
                           color: locked ? t.textMuted : t.text,
                           textAlign: "left",
                           cursor: locked ? "not-allowed" : "pointer",
-                          opacity: locked ? 0.6 : 1,
+                          opacity: locked ? 0.35 : 1,
+                          filter: locked ? "grayscale(100%) brightness(0.5)" : "none",
                           transition: "all 0.3s cubic-bezier(.22,.68,0,1.2)",
                           transform: selected ? "translateY(-4px) scale(1.02)" : "translateY(0) scale(1)",
                           boxShadow: selected ? `0 16px 48px ${dColor}22` : "none",
                         }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-                          <div style={{ width: 10, height: 10, borderRadius: "50%", background: locked ? t.textMuted : dColor, boxShadow: locked ? "none" : `0 0 12px ${dColor}66` }} />
+                          <div style={{ width: 10, height: 10, borderRadius: "50%", background: locked ? "#444" : dColor, boxShadow: locked ? "none" : `0 0 12px ${dColor}66` }} />
                           <div style={{ fontFamily: t.fontDisplay, fontSize: ip ? 16 : isMobile ? 18 : 22, fontWeight: 700, color: locked ? t.textMuted : selected ? dColor : t.text, letterSpacing: "0.06em" }}>
                             {f.toUpperCase()}
                           </div>
