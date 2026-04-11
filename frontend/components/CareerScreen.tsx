@@ -662,17 +662,17 @@ export default function CareerScreen({ themeId, onHoverAction }: Props) {
                     width: badgeSize,
                     height: badgeSize,
                     borderRadius: "50%",
-                    background: "transparent",
+                    background: isPlacement ? "rgba(255,51,255,0.05)" : "transparent",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
                     overflow: "visible",
                     position: "relative",
-                    boxShadow: "none",
-                    border: `1px solid ${rank.color}33`,
+                    boxShadow: isPlacement ? `inset 0 0 15px #FF33FF22` : "none",
+                    border: isPlacement ? `1px solid #FF33FF44` : `1px solid ${rank.color}33`,
                   }}
                 >
-                  {rankGlowVisualStrength(rank) >= 0.0012 && (
+                  {((!isPlacement && rankGlowVisualStrength(rank) >= 0.0012) || isPlacement) && (
                     <div
                       aria-hidden
                       style={{
@@ -682,14 +682,24 @@ export default function CareerScreen({ themeId, onHoverAction }: Props) {
                         width: "135%",
                         height: "135%",
                         borderRadius: "50%",
-                        background: rankHaloGradientForRank(rank.color, rank),
+                        background: rankHaloGradientForRank(isPlacement ? "#FF33FF" : rank.color, isPlacement ? ({ name: "LEGEND" } as any) : rank),
                         pointerEvents: "none",
                         zIndex: 0,
                         animation: "rankHaloPulse 2.6s ease-in-out infinite",
                       }}
                     />
                   )}
-                  {rank.img && (
+                  {isPlacement ? (
+                    <div style={{
+                      position: "relative", zIndex: 2,
+                      fontFamily: "'Press Start 2P', cursive", fontSize: badgeSize * 0.55,
+                      color: "#fff", 
+                      textShadow: `0 0 10px #FF33FF, 0 0 20px #FF33FFaa`,
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      filter: buildRankEmblemGlowFilter("#FF33FF", 0.6),
+                      marginTop: badgeSize * 0.05
+                    }}>?</div>
+                  ) : rank.img ? (
                     <img
                       src={rank.img}
                       alt={rank.name}
@@ -705,7 +715,7 @@ export default function CareerScreen({ themeId, onHoverAction }: Props) {
                         filter: buildRankEmblemGlowFilter(rank.color, rankGlowVisualStrength(rank)),
                       }}
                     />
-                  )}
+                  ) : null}
                 </div>
 
                 <div style={{ textAlign: "center" }}>
