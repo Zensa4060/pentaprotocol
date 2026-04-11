@@ -168,12 +168,16 @@ async def login(data: UserLogin, request: Request):
     user = await db.users.find_one({"username": data.username})
     if not user:
         user = await db.users.find_one({"email": data.username})
-    if not user or not verify_password(data.password, user["password"]):
+        
+    if not user:
         raise HTTPException(401, "Invalid credentials")
 
-    # If this account is a Google account, block normal login
-    if user.get("google_id"):
+    # If this account is a Google account with no password, prompt to use Google Sign-In
+    if user.get("google_id") and not user.get("password"):
         raise HTTPException(401, "This account is linked to Google. Please Sign In with Google.")
+
+    if not verify_password(data.password, user.get("password", "")):
+        raise HTTPException(401, "Invalid credentials")
 
     totp_enabled = _safe_bool(user.get("totp_enabled"), False)
     if totp_enabled and user.get("totp_secret"):
@@ -221,6 +225,7 @@ async def login(data: UserLogin, request: Request):
 class GoogleAuthRequest(BaseModel):
     credential: str  # Can be ID Token (JWT) or Access Token
     user_info: dict | None = None  # Optional user info from frontend
+    confirm_merge: bool = False
 
 
 @router.post("/google")
@@ -278,28 +283,39 @@ async def google_auth(data: GoogleAuthRequest):
     db = get_db()
 
     # ── Find or create user ─────────────────────────────────────────────────
-    # We find ONLY by google_id now. No email-linking.
     user = await db.users.find_one({"google_id": google_sub})
     
-    is_new_user = False
     if not user:
-        is_new_user = True
-        base_username = re.sub(r"[^\w]", "", name.replace(" ", "_"))[:14] or "player"
-        username = base_username
-        suffix = 1
-        while await db.users.find_one({"username": username}):
-            username = f"{base_username}{suffix}"
-            suffix += 1
+        # Check if an account already exists with this email
+        existing_user = await db.users.find_one({"email": email})
+        if existing_user:
+            if not data.confirm_merge:
+                # Return a special JSON payload the frontend will intercept
+                return {"requires_merge_consent": True, "email": email}
+            else:
+                # The user consented to merge. Link the google ID and update avatar if missing
+                update_fields = {"google_id": google_sub}
+                if picture_url and not existing_user.get("avatar"):
+                    update_fields["avatar"] = picture_url
+                await db.users.update_one({"_id": existing_user["_id"]}, {"$set": update_fields})
+                user = await db.users.find_one({"_id": existing_user["_id"]})
+        else:
+            base_username = re.sub(r"[^\w]", "", name.replace(" ", "_"))[:14] or "player"
+            username = base_username
+            suffix = 1
+            while await db.users.find_one({"username": username}):
+                username = f"{base_username}{suffix}"
+                suffix += 1
 
-        new_user_doc = {
-            "username":          username,
-            "email":             email,
-            "google_id":         google_sub,
-            "password":          "",
-            "avatar":            picture_url,
-            "level":             1,
-            "xp":                0,
-            "elo":               500,
+            new_user_doc = {
+                "username":          username,
+                "email":             email,
+                "google_id":         google_sub,
+                "password":          "",
+                "avatar":            picture_url,
+                "level":             1,
+                "xp":                0,
+                "elo":               500,
             "ranked_rating":     500,
             "placement_matches": 0,
             "wins":              0,

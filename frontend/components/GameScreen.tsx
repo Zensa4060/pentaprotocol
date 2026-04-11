@@ -103,6 +103,7 @@ type MatchSeriesCompletePayload = {
     level_after: number;
     xp_before: number;
     xp_after: number;
+    was_placement?: boolean;
   };
   p2: {
     name: string;
@@ -114,6 +115,7 @@ type MatchSeriesCompletePayload = {
     level_after: number;
     xp_before: number;
     xp_after: number;
+    was_placement?: boolean;
   };
 };
 

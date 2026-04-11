@@ -16,7 +16,7 @@ function validateUsername(val: string): string | null {
   return null;
 }
 
-type AuthTab = "signin" | "signup" | "forgot" | "verify_code" | "2fa_check" | "verify_signup";
+type AuthTab = "signin" | "signup" | "forgot" | "verify_code" | "2fa_check" | "verify_signup" | "merge_consent";
 
 interface Props {
   setScreenAction: (s: Screen) => void;
@@ -159,6 +159,7 @@ export default function AuthScreen({ setScreenAction, themeId }: Props) {
   const [signupOtp, setSignupOtp]   = useState("");
   const [totpCode, setTotpCode]     = useState("");
   const [tempToken, setTempToken]   = useState("");
+  const [pendingGoogleCred, setPendingGoogleCred] = useState("");
   const [errors, setErrors]         = useState<Record<string, string>>({});
   const [loading, setLoading]       = useState(false);
   const [shake, setShake]           = useState(false);
@@ -202,6 +203,12 @@ export default function AuthScreen({ setScreenAction, themeId }: Props) {
           const res = await API.post("/api/auth/google", {
             credential: tokenResponse.access_token
           });
+
+          if (res.data.requires_merge_consent) {
+            setPendingGoogleCred(tokenResponse.access_token);
+            setTab("merge_consent");
+            return;
+          }
 
           if (res.data.requires_policy_gate) {
             const uid = getUserId(res.data.user);
@@ -365,6 +372,31 @@ export default function AuthScreen({ setScreenAction, themeId }: Props) {
       setErrors({ totpCode: typeof detail === "string" ? detail : "Invalid code" });
       triggerShake();
     } finally { setLoading(false); }
+  };
+
+  const submitMergeConsent = async () => {
+    setLoading(true); setErrors({}); setSuccessMsg("");
+    try {
+      const res = await API.post("/api/auth/google", {
+        credential: pendingGoogleCred,
+        confirm_merge: true
+      });
+      if (res.data.requires_policy_gate) {
+        const uid = getUserId(res.data.user);
+        if (uid) sessionStorage.setItem(POLICY_GATE_SESSION_KEY, uid);
+        setAuth(res.data.user, res.data.access_token, staySignedIn);
+        setScreenAction("policy_gate");
+      } else {
+        setAuth(res.data.user, res.data.access_token, staySignedIn);
+        setScreenAction("home");
+      }
+    } catch (err: any) {
+      const detail = err.response?.data?.detail;
+      setErrors({ general: typeof detail === "string" ? detail : "Merge failed." });
+      triggerShake();
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -578,6 +610,13 @@ export default function AuthScreen({ setScreenAction, themeId }: Props) {
           </div>
         )}
 
+        {tab === "merge_consent" && (
+          <div style={{ marginBottom: 20 }}>
+            <div style={{ fontFamily: FONT, fontSize: 15, fontWeight: 700, color: ACCENT, letterSpacing: "0.08em", marginBottom: 6 }}>ACCOUNT MERGE</div>
+            <div style={{ fontFamily: FONT, fontSize: 13, color: "#aaa", lineHeight: 1.6 }}>An account with this email already exists.</div>
+          </div>
+        )}
+
         {successMsg && (
           <div style={{ background: "rgba(0,200,80,0.08)", border: "1px solid rgba(0,200,80,0.3)", borderRadius: 7, padding: "10px 13px", marginBottom: 14, fontFamily: FONT, fontSize: 12, color: "#00c850", lineHeight: 1.5 }}>✓ {successMsg}</div>
         )}
@@ -685,6 +724,14 @@ export default function AuthScreen({ setScreenAction, themeId }: Props) {
             </div>
             <PrimaryBtn label={loading ? "Verifying…" : "Verify"} onClick={submit2FA} disabled={loading} />
             <GhostBtn label="← Back to Sign In" onClick={() => { setTab("signin"); setTempToken(""); setTotpCode(""); setErrors({}); }} />
+          </>)}
+
+          {tab === "merge_consent" && (<>
+            <div style={{ fontFamily: FONT, fontSize: 14, color: "#fff", lineHeight: 1.6, marginBottom: 24, textAlign: "justify", background: "rgba(204,0,0,0.05)", padding: 14, borderRadius: 8, border: "1px solid rgba(255,255,255,0.05)" }}>
+              Do you want to link your Google account to your existing PentaProtocol account? Creating two different accounts with the same email is not possible.
+            </div>
+            <PrimaryBtn label={loading ? "Merging…" : "Merge & Sign In"} onClick={submitMergeConsent} disabled={loading} />
+            <GhostBtn label="Cancel" onClick={() => { setTab("signin"); setPendingGoogleCred(""); setErrors({}); }} />
           </>)}
 
         </div>
