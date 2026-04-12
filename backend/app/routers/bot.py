@@ -316,12 +316,19 @@ class BotEngine6:
             return _rc6(random.choice(empties))
 
         # Iterative Deepening Alpha-Beta Search
+        if difficulty == "easy_block":
+            # VALDORIN SPECIAL: Already checked win/block, now just random.
+            return _rc6(random.choice(empties))
+
         budget = None # Will be set based on difficulty
         if difficulty == "normal":
-            depth, budget = 4, 1.0
+            # ELDORIN SPECIAL: Level 10 should be powerful but fast. 
+            # Depth 6 is the previous "hard" setting.
+            depth, budget = 6, 1.0
         elif difficulty == "medium":
             depth, budget = 5, 1.0
         elif difficulty == "hard":
+            # Previous "hard" is now "normal" ELDORIN
             depth, budget = 6, 1.0
         else: # machine_god or default
             depth, budget = 8, 1.0
@@ -740,15 +747,24 @@ def bot_move(req: BotMoveRequest):
 
             if diff6 == "machine_god":
                 move = _RUST_GOD6_ENG.choose(copy.deepcopy(board), bot, human, moves_played)
-            elif diff6 == "hard":
+            elif diff6 == "normal":
+                # ELDORIN (Level 10) - Use Hard Rust logic
                 move = _RUST_HARD6_ENG.choose(copy.deepcopy(board), bot, human, moves_played)
+            elif diff6 == "hard":
+                # VALDORIN (Level 1) - Use Python fallback for easy_block logic
+                if _PYTHON_6_ENG is None or _PYTHON_6_PATS != pat_key6:
+                    _PYTHON_6_ENG = BotEngine6(pats6)
+                    _PYTHON_6_PATS = pat_key6
+                move = _PYTHON_6_ENG.choose(copy.deepcopy(board), bot, human, "easy_block")
             else:
                 move = _RUST_NORMAL6_ENG.choose(copy.deepcopy(board), bot, human, moves_played)
         else:
             if _PYTHON_6_ENG is None or _PYTHON_6_PATS != pat_key6:
                 _PYTHON_6_ENG = BotEngine6(pats6)
                 _PYTHON_6_PATS = pat_key6
-            move = _PYTHON_6_ENG.choose(copy.deepcopy(board), bot, human, diff6)
+            # For Python engine, "hard" mapped to "easy_block" and "normal" mapped to "hard" (depth 6)
+            call_diff = "easy_block" if diff6 == "hard" else ("normal" if diff6 == "normal" else diff6)
+            move = _PYTHON_6_ENG.choose(copy.deepcopy(board), bot, human, call_diff)
     else:
         engine_stub = type("EngineStub", (), {
             "board": board,

@@ -34,8 +34,8 @@ const DIFFICULTIES_7X7: { id: Difficulty; label: string; sub: string; color: str
   { id: "danger", label: "HER", sub: "LEVEL 100", color: "#CC0000" },
 ];
 const DIFFICULTIES_6X6: { id: Difficulty; label: string; sub: string; color: string }[] = [
-  { id: "normal", label: "VALDORIN", sub: "LEVEL 1", color: "#FF0" },
-  { id: "hard", label: "ELDORIN", sub: "LEVEL 10", color: "#000FFF" },
+  { id: "hard", label: "VALDORIN", sub: "LEVEL 1", color: "#000FFF" },
+  { id: "normal", label: "ELDORIN", sub: "LEVEL 10", color: "#FF0" },
   { id: "machine_god", label: "HIM", sub: "LEVEL 100", color: "#CC0000" },
 ];
 

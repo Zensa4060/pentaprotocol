@@ -4,6 +4,7 @@ from app.core.database import get_db
 from app.core.security import hash_password, verify_password, create_access_token, decode_token
 from app.core.connections import manager as ws_manager
 from datetime import datetime, timedelta
+from typing import Optional, List
 from pydantic import BaseModel, Field, EmailStr
 from bson import ObjectId
 from bson.errors import InvalidId
