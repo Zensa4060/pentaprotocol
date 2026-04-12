@@ -603,7 +603,7 @@ function MissionsList(props: {
         })}
       </div>
       <div style={{ marginTop: 50, fontFamily: t.fontMono, fontSize: 30, fontWeight: 900, color: "#CC0000", letterSpacing: "0.06em", textAlign: "center" }}>
-        SINGLEPLAYER MODES DO NOT CONTRIBUTE TO MISSIONS
+        TRAINING MODES DO NOT CONTRIBUTE TO MISSIONS
       </div>
     </div>
   );
