@@ -95,6 +95,7 @@ def serialize_user(user):
         "purchased_items":     user.get("purchased_items", []),
         "has_password":        bool(user.get("password")),
         "google_id":           user.get("google_id", None),
+        "legal_accepted":      user.get("legal_accepted", False),
     }
 
 async def get_current_user(authorization: str = Header(...)):
@@ -145,6 +146,7 @@ async def register(data: UserRegister):
         "bio":                 "",
         "avatar":              None,
         "username_changed_at": None,
+        "legal_accepted":      False,
         "created_at":          datetime.utcnow(),
     }
     result = await db.users.insert_one(user)
@@ -559,6 +561,10 @@ async def accept_legal(data: AcceptLegalRequest, request: Request, user_id: str 
         "user_agent": request.headers.get("user-agent", "unknown"),
         "accepted_at": datetime.utcnow(),
     })
+    
+    # Also update the user document for persistent gate bypass
+    await db.users.update_one({"_id": user_object_id(user_id)}, {"$set": {"legal_accepted": True}})
+
     return {"detail": "Legal acceptance recorded"}
 
 # ── DELETE ACCOUNT (self-service) ─────────────────────────────────────────────

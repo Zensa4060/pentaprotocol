@@ -28,6 +28,7 @@ class UserResponse(BaseModel):
     protocredits: int = 0
     bio: str = ""
     avatar: Optional[str] = None
+    legal_accepted: bool = False
     created_at: datetime
 
 

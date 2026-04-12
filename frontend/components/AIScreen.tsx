@@ -45,7 +45,7 @@ function PatternDiagram({ info, accent, isSelected }: { info: PatternInfo; accen
   const cellSize = gridSize === 7 ? 14 : gridSize === 6 ? 16 : 18;
   const gap = 2;
   const cellSet = new Set(cells.map(([r, c]) => `${r},${c}`));
-
+1
   return (
     <div style={{
       display: "grid",

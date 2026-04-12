@@ -8,6 +8,15 @@ import { recordPatchNotesOpened } from "@/lib/navBadgeState";
 
 const UPDATES: { date: string; items: string[] }[] = [
   {
+    date: "12 April 2026",
+    items: [
+      "Active Match Resumption: Instantly rejoin ongoing games if disconnected.",
+      "Multiplayer Forfeiture: Surrender matches with confirmed ELO outcomes.",
+      "Persistent Terms Acceptance: Legal gate is now synced across all devices.",
+      "Career Perspective: Match history now reflects your POV (Victory/Defeat).",
+    ],
+  },
+  {
     date: "2026",
     items: [
       "Ranked and custom matches with 5×5, 6×6, and 7×7 legs",

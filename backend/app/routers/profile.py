@@ -61,6 +61,7 @@ def _serialize_user(user: dict) -> dict:
         "board_style":         user.get("board_style", "default"),
         "title":               user.get("title", "newcomer"),
         "purchased_items":     user.get("purchased_items", []),
+        "legal_accepted":      user.get("legal_accepted", False),
     }
 
 

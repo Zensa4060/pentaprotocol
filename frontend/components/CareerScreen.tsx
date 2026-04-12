@@ -1246,10 +1246,10 @@ function MatchOverlay({
                     fontFamily: t.fontMono,
                     fontSize: 10,
                     fontWeight: 900,
-                    color: r.winner === "P1" ? "#10B981" : r.winner === "P2" ? "#EF4444" : "#F59E0B",
+                    color: r.winner === "DRAW" ? "#F59E0B" : r.winner === match.my_slot ? "#10B981" : "#EF4444",
                   }}
                 >
-                  {r.winner === "DRAW" ? "TIE" : r.winner === "P1" ? "VICTORY" : "DEFEAT"}
+                  {r.winner === "DRAW" ? "TIE" : r.winner === match.my_slot ? "VICTORY" : "DEFEAT"}
                 </span>
               </div>
               <div style={{ fontFamily: t.fontMono, fontSize: 9, color: t.textMuted, marginTop: 4 }}>
@@ -1313,12 +1313,12 @@ function MatchOverlay({
                         key={`${rIdx}-${cIdx}`}
                         style={{
                           background: cell
-                            ? cell === "P1"
+                            ? cell === match.my_slot
                               ? "#10B98122"
                               : "#EF444422"
                             : "rgba(255,255,255,0.03)",
                           border: `1px solid ${
-                            cell ? (cell === "P1" ? "#10B981" : "#EF4444") : "transparent"
+                            cell ? (cell === match.my_slot ? "#10B981" : "#EF4444") : "transparent"
                           }`,
                           borderRadius: 4,
                           display: "flex",
@@ -1326,10 +1326,10 @@ function MatchOverlay({
                           justifyContent: "center",
                           fontSize: boardSize > 5 ? 12 : 18,
                           fontWeight: 900,
-                          color: cell === "P1" ? "#10B981" : "#EF4444",
+                          color: cell === match.my_slot ? "#10B981" : "#EF4444",
                         }}
                       >
-                        {cell ? (cell === "P1" ? "●" : "✕") : ""}
+                        {cell ? (cell === match.my_slot ? "●" : "✕") : ""}
                       </div>
                     ))
                   )}
@@ -1369,10 +1369,10 @@ function MatchOverlay({
                         style={{
                           fontFamily: t.fontMono,
                           fontSize: 12,
-                          color: m.player === "P1" ? "#10B981" : "#EF4444",
+                          color: m.player === match.my_slot ? "#10B981" : "#EF4444",
                         }}
                       >
-                        {m.player === "P1" ? "P1" : "P2"} ➔ {String.fromCharCode(65 + m.col)}
+                        {m.player === match.my_slot ? "YOU" : "OPP"} ➔ {String.fromCharCode(65 + m.col)}
                         {m.row + 1}
                       </span>
                       <span style={{ fontFamily: t.fontMono, fontSize: 10, color: t.textMuted }}>

@@ -219,7 +219,10 @@ async def award_ranked_match_result(
     p1_id = game.get("player1_id")
     p2_id = game.get("player2_id")
     fmt = game.get("format", "unranked")
+    if game.get("source") == "private":
+        fmt = "custom"
     is_ranked = (fmt == "ranked")
+
     mode = game.get("mode", "multiplayer")
     difficulty = game.get("difficulty", "medium")
     

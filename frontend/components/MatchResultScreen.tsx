@@ -382,19 +382,6 @@ export default function MatchResultScreen({
                  QUIT BATTLE
                </motion.button>
             </div>
-            
-            <div style={{ 
-               fontFamily: t.fontMono, 
-               fontSize: 11, 
-               color: t.textMuted, 
-               letterSpacing: "0.1em",
-               background: "rgba(255,255,255,0.03)",
-               padding: "6px 16px",
-               borderRadius: 20,
-               border: "1px solid rgba(255,255,255,0.05)"
-            }}>
-               THE LEGACY HAS BEEN DOCUMENTED
-            </div>
           </motion.div>
         )}
       </AnimatePresence>

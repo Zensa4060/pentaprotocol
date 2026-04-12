@@ -26,8 +26,11 @@ import NavBar           from "@/components/NavBar";
 import SettingsModal    from "@/components/SettingsModal";
 import SpaceBg      from "@/components/SpaceBg";
 import PolicyAcceptanceGate from "@/components/PolicyAcceptanceGate";
+import SessionReplacedModal from "@/components/SessionReplacedModal";
+import ActiveMatchRejoinModal from "@/components/ActiveMatchRejoinModal";
 import { POLICY_GATE_SESSION_KEY, getUserId, hasAcceptedLegal } from "@/lib/legalAcceptance";
 import { multiplayerRulesBootstrapFromRoom, type MultiplayerRulesBootstrap } from "@/lib/effectiveBoardMode";
+
 
 THEMES["custom" as ThemeId] = resolveCustomTheme(loadCustomTheme(), THEMES) as any;
 
@@ -59,7 +62,26 @@ export default function Page() {
   const [multiMatchup, setMultiMatchup]       = useState<MatchupData | null>(null);
   const [multiplayerRulesBootstrap, setMultiplayerRulesBootstrap] = useState<MultiplayerRulesBootstrap | null>(null);
   const [customRev, setCustomRev]       = useState(0);
+  const [activeMatchData, setActiveMatchData] = useState<any>(null);
+  const [showSessionReplaced, setShowSessionReplaced] = useState(false);
   const [homeNotice, setHomeNotice] = useState<string | null>(null);
+
+  const { user, token, logout, logoutReason, setLogoutReason } = useAuthStore();
+  const audio = useAudio();
+  const { sfx } = audio;
+
+  const handleForfeitMatch = async () => {
+    if (!activeMatchData?.room_code || !token) return;
+    try {
+      await API.post("/api/room/forfeit", { room_code: activeMatchData.room_code }, { headers: { Authorization: `Bearer ${token}` } });
+      setActiveMatchData(null);
+      setHomeNotice("Match forfeited.");
+    } catch (e) {
+      console.error("Forfeit failed", e);
+    }
+  };
+
+  const t = THEMES[themeId];
 
   // Matchmaking states
   const [queuePhase, setQueuePhase] = useState<"none" | "queuing" | "matchup">("none");
@@ -85,13 +107,6 @@ export default function Page() {
   const [pendingScreen, setPendingScreen]     = useState<Screen | null>(null);
   const [showAiExitModal, setShowAiExitModal] = useState(false);
   const [showGuestBlock, setShowGuestBlock]   = useState(false);
-  /** Resume legal gate after refresh if signup completed but policies not accepted. */
-
-  const { user, token, logout, logoutReason, setLogoutReason } = useAuthStore();
-  const audio = useAudio();
-  const { sfx } = audio;
-
-  const t = THEMES[themeId];
 
   const themeRef  = useRef(themeId);
   const screenRef = useRef(screen);
@@ -102,26 +117,32 @@ export default function Page() {
   rankedRef.current = isRanked;
   aiDiffRef.current = aiDifficulty;
 
-  const sealMultiSeriesNavigation = useCallback(() => {
-    if (typeof window !== "undefined") {
-      sessionStorage.setItem(PP_MULTI_SERIES_FINISHED_KEY, "1");
-    }
-    setScreenHistory(["home"]);
-  }, []);
-
-  const resumeMultiSeriesNavigation = useCallback(() => {
+  const handleRoomReady = (
+    roomCode: string,
+    playerSlot: "P1" | "P2",
+    format: string,
+    matchup?: MatchupData,
+    roomFromServer?: {
+      board_mode?: string;
+      selected_patterns?: string[];
+      awaiting_5x5_rules_ready?: boolean;
+      awaiting_6x6_rules_ready?: boolean;
+      awaiting_7x7_rules_ready?: boolean;
+    },
+  ) => {
     if (typeof window !== "undefined") {
       sessionStorage.removeItem(PP_MULTI_SERIES_FINISHED_KEY);
     }
-  }, []);
-
-  // Keep refs in sync with state so closures always see latest values
-  useEffect(() => { queueRoomCodeRef.current   = queueRoomCode;   }, [queueRoomCode]);
-  useEffect(() => { queuePlayerSlotRef.current = queuePlayerSlot; }, [queuePlayerSlot]);
-
-  useEffect(() => {
-    if (screen !== "multiGame") setMultiplayerRulesBootstrap(null);
-  }, [screen]);
+    if (roomFromServer?.board_mode) setBoardMode(roomFromServer.board_mode as BoardMode);
+    if (Array.isArray(roomFromServer?.selected_patterns)) setSelectedPatterns(roomFromServer.selected_patterns);
+    setMultiplayerRulesBootstrap(multiplayerRulesBootstrapFromRoom(roomFromServer));
+    setMultiRoomCode(roomCode);
+    setMultiPlayerSlot(playerSlot);
+    setIsRanked(format === "ranked");
+    if (matchup) setMultiMatchup(matchup);
+    setScreenHistory(prev => [...prev, screen]);
+    setScreen("multiGame");
+  };
 
   useEffect(() => {
     if (screen === "multiGame") setMultiplayerNavUnlocked(false);
@@ -141,10 +162,12 @@ export default function Page() {
         clearInterval(queuePollRef.current);
         queuePollRef.current = null;
       }
+      setShowSessionReplaced(true);
       if (screen !== "auth") setScreen("auth");
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [logoutReason]);
+
 
   const getBgmCtx = (s: Screen, ranked: boolean, aiDiff: Difficulty): "lobby" | "game" | "ranked" => {
     if (s === "aiGame") return aiDiff === "hard" || aiDiff === "danger" || aiDiff === "machine_god" ? "ranked" : "game";
@@ -269,6 +292,20 @@ export default function Page() {
       .then((res) => {
         // User confirmed valid — apply the stored screen restore
         useAuthStore.getState().updateUser(res.data);
+        
+        // After profile is valid, check if there's an ongoing match on the server
+        // This is for "seamless resume" across devices.
+        if (restore.screen === "home" || restore.screen === "auth") {
+          API.get("/api/room/active/check", {
+            headers: { Authorization: `Bearer ${tok}` }
+          })
+          .then(activeRes => {
+            if (activeRes.data.room_code) {
+              setActiveMatchData(activeRes.data);
+            }
+          }).catch(e => console.warn("Active match check failed", e));
+        }
+
         setScreen(restore.screen);
         if (restore.multiRoomCode) setMultiRoomCode(restore.multiRoomCode);
         if (restore.multiPlayerSlot) setMultiPlayerSlot(restore.multiPlayerSlot);
@@ -288,18 +325,56 @@ export default function Page() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // must only run once on mount
 
+
   useEffect(() => {
     if (!appReady || !user || !token) return;
     const uid = getUserId(user);
     if (!uid) return;
     const pending = sessionStorage.getItem(POLICY_GATE_SESSION_KEY);
-    if (pending === uid && !hasAcceptedLegal(uid)) setScreen("policy_gate");
+    if (pending === uid && !hasAcceptedLegal(uid, user)) setScreen("policy_gate");
   }, [appReady, user, token]);
 
   useEffect(() => {
     if (!appReady || !token) return;
     useAuthStore.getState().refreshProfile();
+
+    // ── Global Notify WebSocket ──
+    // This allows the server to instantly kick this session if another device logs in.
+    let ws: WebSocket | null = null;
+    let reconnectTimeout: NodeJS.Timeout | null = null;
+
+    const connect = () => {
+      const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
+      const host = process.env.NEXT_PUBLIC_API_URL?.replace(/^https?:\/\//, "") || window.location.host;
+      ws = new WebSocket(`${proto}//${host}/api/room/ws/global/notify?token=${token}`);
+
+      ws.onmessage = (e) => {
+        try {
+          const msg = JSON.parse(e.data);
+          if (msg.type === "duplicate_session") {
+            useAuthStore.getState().logout("duplicate_session");
+          }
+        } catch {}
+      };
+
+      ws.onclose = () => {
+        if (useAuthStore.getState().token) {
+          reconnectTimeout = setTimeout(connect, 5000);
+        }
+      };
+    };
+
+    connect();
+
+    return () => {
+      if (ws) {
+        ws.onclose = null;
+        ws.close();
+      }
+      if (reconnectTimeout) clearTimeout(reconnectTimeout);
+    };
   }, [appReady, token]);
+
 
   // ── Guard: if token is cleared after startup (user deleted, expired, etc.) ──
   // This fires whenever token changes to null *after* the app has initialised,
@@ -694,32 +769,26 @@ export default function Page() {
 
   const ip = themeId === "pixel";
 
-  const handleRoomReady = (
-    roomCode: string,
-    playerSlot: "P1" | "P2",
-    format: string,
-    matchup?: MatchupData,
-    roomFromServer?: {
-      board_mode?: string;
-      selected_patterns?: string[];
-      awaiting_5x5_rules_ready?: boolean;
-      awaiting_6x6_rules_ready?: boolean;
-      awaiting_7x7_rules_ready?: boolean;
-    },
-  ) => {
+  const sealMultiSeriesNavigation = useCallback(() => {
+    if (typeof window !== "undefined") {
+      sessionStorage.setItem(PP_MULTI_SERIES_FINISHED_KEY, "1");
+    }
+    setScreenHistory(["home"]);
+  }, []);
+
+  const resumeMultiSeriesNavigation = useCallback(() => {
     if (typeof window !== "undefined") {
       sessionStorage.removeItem(PP_MULTI_SERIES_FINISHED_KEY);
     }
-    if (roomFromServer?.board_mode) setBoardMode(roomFromServer.board_mode as BoardMode);
-    if (Array.isArray(roomFromServer?.selected_patterns)) setSelectedPatterns(roomFromServer.selected_patterns);
-    setMultiplayerRulesBootstrap(multiplayerRulesBootstrapFromRoom(roomFromServer));
-    setMultiRoomCode(roomCode);
-    setMultiPlayerSlot(playerSlot);
-    setIsRanked(format === "ranked");
-    if (matchup) setMultiMatchup(matchup);
-    setScreenHistory(prev => [...prev, screen]);
-    setScreen("multiGame");
-  };
+  }, []);
+
+  // Keep refs in sync with state so closures always see latest values
+  useEffect(() => { queueRoomCodeRef.current   = queueRoomCode;   }, [queueRoomCode]);
+  useEffect(() => { queuePlayerSlotRef.current = queuePlayerSlot; }, [queuePlayerSlot]);
+
+  useEffect(() => {
+    if (screen !== "multiGame") setMultiplayerRulesBootstrap(null);
+  }, [screen]);
 
   const GuestBlockModal = () => (
     <div style={{
@@ -989,6 +1058,7 @@ export default function Page() {
           p1Name={user?.username}
           graphicsQuality={graphicsQuality}
           boardMode={boardMode} selectedPatterns={selectedPatterns}
+          setHomeNoticeAction={setHomeNotice}
           playHoverAction={sfx.hover} playPlaceAction={sfx.place} playVictoryAction={sfx.victory} playDefeatAction={sfx.defeat}
           playRulebreakerAction={sfx.rulebreaker} playTransitionAction={sfx.transition} playClickAction={sfx.click} />
       )}
@@ -997,6 +1067,7 @@ export default function Page() {
           p1Name={user?.username}
           graphicsQuality={graphicsQuality}
           boardMode={boardMode} selectedPatterns={selectedPatterns}
+          setHomeNoticeAction={setHomeNotice}
           playHoverAction={sfx.hover} playPlaceAction={sfx.place} playVictoryAction={sfx.victory} playDefeatAction={sfx.defeat}
           playRulebreakerAction={sfx.rulebreaker} playTransitionAction={sfx.transition} playClickAction={sfx.click} />
       )}
@@ -1008,6 +1079,7 @@ export default function Page() {
           graphicsQuality={graphicsQuality}
           boardMode={boardMode} selectedPatterns={selectedPatterns}
           multiplayerRulesBootstrap={multiplayerRulesBootstrap}
+          setHomeNoticeAction={setHomeNotice}
           onMultiplayerBoardSync={(mode, pats) => { setBoardMode(mode); setSelectedPatterns(pats); }}
           onMultiplayerSeriesSealedAction={sealMultiSeriesNavigation}
           onMultiplayerSeriesResumedAction={resumeMultiSeriesNavigation}
@@ -1031,6 +1103,22 @@ export default function Page() {
           onNavigateAuthAction={() => setScreen("auth")}
         />
       )}
+      {showSessionReplaced && (
+        <SessionReplacedModal themeId={themeId} onClose={() => { setShowSessionReplaced(false); setLogoutReason(null); }} />
+      )}
+      {activeMatchData && (
+        <ActiveMatchRejoinModal 
+          themeId={themeId} 
+          isRanked={activeMatchData.format === "ranked"}
+          onRejoin={() => {
+            const data = activeMatchData;
+            setActiveMatchData(null);
+            handleRoomReady(data.room_code, data.player_slot, data.format || (isRanked ? "ranked" : "unranked"));
+          }} 
+          onForfeit={handleForfeitMatch}
+        />
+      )}
+
     </div>
   );
 }

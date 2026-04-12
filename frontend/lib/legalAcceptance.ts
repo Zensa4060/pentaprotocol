@@ -25,8 +25,9 @@ export function readLegalAcceptance(): LegalAcceptRecord | null {
   }
 }
 
-export function hasAcceptedLegal(userId: string): boolean {
+export function hasAcceptedLegal(userId: string, user?: { legal_accepted?: boolean } | null): boolean {
   if (!userId) return false;
+  if (user?.legal_accepted === true) return true;
   const rec = readLegalAcceptance();
   return rec?.userId === userId && rec.v === LEGAL_VERSION;
 }

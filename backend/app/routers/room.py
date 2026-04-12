@@ -2171,7 +2171,120 @@ async def get_room(room_code: str):
     return serialize_room(room)
 
 
+@router.get("/active/check")
+async def get_active_room(user_id: str = Depends(get_current_user)):
+    db = get_db()
+    # Find a room where user is P1 or P2 and it's currently 'playing' or 'waiting' (not disbanded or finished)
+    room = await db.rooms.find_one({
+        "$or": [{"player1_id": user_id}, {"player2_id": user_id}],
+        "game_status": {"$in": ["playing", "waiting"]},
+        "status": {"$ne": "disbanded"}
+    })
+    
+    if not room:
+        return {"room_code": None}
+    
+    pslot = "P1" if str(room.get("player1_id")) == str(user_id) else "P2"
+    return {
+        "room_code": room["room_code"],
+        "player_slot": pslot,
+        "format": room.get("format", "unranked"),
+        "board_mode": room.get("board_mode", "5x5")
+    }
+
+
+@router.post("/forfeit")
+async def forfeit_match(data: dict, user_id: str = Depends(get_current_user)):
+    db = get_db()
+    room_code = data.get("room_code")
+    if not room_code:
+        raise HTTPException(400, "Missing room_code")
+    
+    room = await db.rooms.find_one({"room_code": room_code})
+    if not room:
+        raise HTTPException(404, "Room not found")
+    
+    if str(room.get("player1_id")) != str(user_id) and str(room.get("player2_id")) != str(user_id):
+        raise HTTPException(403, "You are not a participant in this room")
+    
+    if room.get("status") == "finished" or room.get("game_status") == "disbanded":
+        return {"status": "already_finished"}
+
+    player_slot = "P1" if str(room["player1_id"]) == str(user_id) else "P2"
+    winner_slot = "P2" if player_slot == "P1" else "P1"
+    
+    # Award match to opponent
+    hist = list(room.get("match_history") or [])
+    update = {
+        "match_history": hist,
+        "series_winner": winner_slot,
+        "game_status": "disbanded",
+        "status": "finished"
+    }
+    
+    await _award_match_series_and_notify(
+        db, room_code, room, update, winner_slot,
+        record_clean_streak=False,
+        surrendered_by=player_slot
+    )
+    
+    await db.rooms.update_one({"room_code": room_code}, {"$set": {"game_status": "disbanded", "status": "finished"}})
+    
+    # Notify active sockets if any
+    peers = _room_connections.get(room_code, {})
+    for slot, ws in peers.items():
+        try:
+            await ws.send_json({"type": "match_disbanded", "reason": f"Opponent {player_slot} forfeited"})
+        except:
+            pass
+            
+    return {"status": "forfeited", "winner": winner_slot}
+
+
+
+@router.websocket("/ws/global/notify")
+async def global_notify_websocket(websocket: WebSocket):
+    token = websocket.query_params.get("token", "")
+    if not token:
+        await websocket.close(code=1008, reason="Missing auth token")
+        return
+    try:
+        payload = decode_token(token)
+        ws_user_id = str(payload.get("sub", ""))
+    except Exception:
+        await websocket.close(code=1008, reason="Invalid auth token")
+        return
+
+    await websocket.accept()
+    
+    # Check session validity
+    db = get_db()
+    token_sid = payload.get("sid")
+    if token_sid:
+        _user_doc = await db.users.find_one({"_id": ObjectId(ws_user_id)}, {"current_session_id": 1})
+        if not _user_doc or _user_doc.get("current_session_id") != token_sid:
+            await websocket.send_json({"type": "duplicate_session", "reason": "Token no longer valid"})
+            await websocket.close(code=4001)
+            return
+
+    # Register with global connection manager
+    ws_manager.register(ws_user_id, websocket)
+
+    try:
+        while True:
+            # Keep alive
+            data = await websocket.receive_text()
+            msg = json.loads(data)
+            if msg.get("type") == "ping":
+                await websocket.send_json({"type": "pong"})
+    except WebSocketDisconnect:
+        ws_manager.unregister(ws_user_id, websocket)
+    except Exception:
+        ws_manager.unregister(ws_user_id, websocket)
+        
+        
 # ── WebSocket ─────────────────────────────────────────────────────────────────
+
 
 @router.websocket("/ws/{room_code}/{player_slot}")
 async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str):
@@ -3482,6 +3595,29 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
         current_ws = _room_connections.get(room_code, {}).get(player_slot)
         if current_ws is websocket:
             _room_connections[room_code].pop(player_slot, None)
+
+            # Check if we should disband instantly (Queue / Start of game)
+            db = get_db()
+            room = await db.rooms.find_one({"room_code": room_code})
+            is_start = room and (room.get("status") == "waiting" or room.get("moves_played", 0) == 0)
+            
+            if is_start:
+                # Instant disband for queue/start disconnects
+                await db.rooms.update_one({"room_code": room_code}, {"$set": {"game_status": "disbanded", "status": "disbanded"}})
+                other_slot = "P2" if player_slot == "P1" else "P1"
+                other_ws = _room_connections.get(room_code, {}).get(other_slot)
+                if other_ws:
+                    try:
+                        await other_ws.send_json({"type": "match_aborted_no_play", "reason": f"Opponent {player_slot} disconnected"})
+                    except:
+                        pass
+                
+                # Cleanup
+                if not _room_connections.get(room_code):
+                    _room_connections.pop(room_code, None)
+                    _room_runtime.pop(room_code, None)
+                return
+
             if not _room_connections.get(room_code):
                 _room_connections.pop(room_code, None)
                 _room_runtime.pop(room_code, None)
@@ -3500,3 +3636,5 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                 _disconnect_confirm_tasks[_disconnect_task_key(room_code, player_slot)] = asyncio.create_task(
                     _disconnect_confirm_worker(db, room_code, player_slot, deadline_ms)
                 )
+
+

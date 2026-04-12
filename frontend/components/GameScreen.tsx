@@ -291,9 +291,10 @@ interface Props {
   onMultiplayerNavLockChange?: (unlocked: boolean) => void;
   /** Room snapshot from lobby/queue so first paint can show rules sheet before WS `room_state`. */
   multiplayerRulesBootstrap?: MultiplayerRulesBootstrap | null;
+  setHomeNoticeAction?: (notice: string | null) => void;
 }
 
-export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, gameMode = "singleplayer", difficulty = "medium", setScreenAction, roomCode, playerSlot, playHoverAction, playPlaceAction, playVictoryAction, playDefeatAction, playRulebreakerAction, playTransitionAction, playClickAction, p1Name, matchupData, boardMode = "5x5", selectedPatterns = [], onMultiplayerBoardSync, graphicsQuality = "quality", onMultiplayerSeriesSealedAction, onMultiplayerSeriesResumedAction, onMultiplayerNavLockChange, multiplayerRulesBootstrap = null }: Props) {
+export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, gameMode = "singleplayer", difficulty = "medium", setScreenAction, roomCode, playerSlot, playHoverAction, playPlaceAction, playVictoryAction, playDefeatAction, playRulebreakerAction, playTransitionAction, playClickAction, p1Name, matchupData, boardMode = "5x5", selectedPatterns = [], onMultiplayerBoardSync, graphicsQuality = "quality", onMultiplayerSeriesSealedAction, onMultiplayerSeriesResumedAction, onMultiplayerNavLockChange, multiplayerRulesBootstrap = null, setHomeNoticeAction }: Props) {
   const [liveBoardMode, setLiveBoardMode] = useState<BoardMode>(boardMode);
   const [liveSelectedPatterns, setLiveSelectedPatterns] = useState<string[]>(selectedPatterns ?? []);
   useEffect(() => { setLiveBoardMode(boardMode); }, [boardMode]);
@@ -1329,7 +1330,14 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
             }
           }
           ws.send(JSON.stringify({ type: "player_info", username: p1Name ?? playerSlot ?? "P1", slot: playerSlot }));
+            } else if (msg.type === "duplicate_session") {
+          useAuthStore.getState().logout("duplicate_session");
+            } else if (msg.type === "match_aborted_no_play" || msg.type === "match_disbanded") {
+          setPhase("match_over");
+          setHomeNoticeAction?.(msg.reason || "Match aborted — no moves played.");
+          setScreenAction?.("home");
             } else if (msg.type === "player_joined") {
+
           const r = msg.room;
           if (r) {
             const e1 = asNum(r.player1_elo);
