@@ -69,8 +69,8 @@ export default function MatchResultScreen({
   const levelBefore = useMemo(() => computeLevelProgress(myData.level_before, myData.xp_before), [myData.level_before, myData.xp_before]);
   const levelAfter = useMemo(() => computeLevelProgress(myData.level_after, myData.xp_after), [myData.level_after, myData.xp_after]);
   const levelUp = levelAfter.level > levelBefore.level;
-  const rankBefore = useMemo(() => getRank(myData.elo_before), [myData.elo_before]);
-  const rankAfter = useMemo(() => getRank(myData.elo_after), [myData.elo_after]);
+  const rankBefore = useMemo(() => getRank(myData.elo_before, myData.was_placement), [myData.elo_before, myData.was_placement]);
+  const rankAfter = useMemo(() => getRank(myData.elo_after, myData.was_placement), [myData.elo_after, myData.was_placement]);
   const isDerank = !myData.was_placement && isRanked && rankAfter.name !== rankBefore.name && myData.elo_after < myData.elo_before;
 
   const p1c = "#3B82F6";
@@ -79,7 +79,10 @@ export default function MatchResultScreen({
   const winnerName = seriesWinner === "P1" ? p1.name : seriesWinner === "P2" ? p2.name : "DRAW";
   const winnerEloAfter =
     seriesWinner === "P1" ? p1.elo_after : seriesWinner === "P2" ? p2.elo_after : 0;
-  const winnerRank = useMemo(() => getRank(winnerEloAfter), [winnerEloAfter]);
+  const winnerRank = useMemo(() => {
+    const winnerData = seriesWinner === "P1" ? p1 : p2;
+    return getRank(winnerEloAfter, winnerData?.was_placement);
+  }, [winnerEloAfter, seriesWinner, p1, p2]);
 
   useEffect(() => {
     // Delay options for 3.5s to let the animation breathe
@@ -225,9 +228,9 @@ export default function MatchResultScreen({
               textTransform: "uppercase",
             }}
           >
-            {isRanked ? "PROTOCOL" : "SERIES"}
+            {format === "unranked" ? "UNRANKED" : isRanked ? "PROTOCOL" : "SERIES"}
             <br />
-            <span style={{ fontSize: "0.8em" }}>WINNER</span>
+            <span style={{ fontSize: "0.8em" }}>{format === "unranked" ? "MATCH" : "WINNER"}</span>
           </motion.h1>
           <motion.p
             initial={{ opacity: 0 }}
@@ -259,7 +262,7 @@ export default function MatchResultScreen({
               gap: 24,
             }}
           >
-             {isRanked && (
+             {isRanked ? (
                <div style={{ textAlign: "center" }}>
                   <div style={{ fontFamily: t.fontMono, fontSize: 14, color: t.textMuted, letterSpacing: "0.3em" }}>ELO ADJUSTMENT</div>
                   <div style={{ 
@@ -276,6 +279,10 @@ export default function MatchResultScreen({
                       PLACEMENT MATCHES IN PROGRESS
                     </div>
                   )}
+               </div>
+             ) : (
+               <div style={{ textAlign: "center" }}>
+                 <div style={{ fontFamily: t.fontMono, fontSize: 14, color: t.accent, letterSpacing: "0.3em", fontWeight: 800 }}>UNRANKED MATCH</div>
                </div>
              )}
              

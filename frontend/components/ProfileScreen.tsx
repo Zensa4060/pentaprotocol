@@ -318,8 +318,8 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
   const placementCount = profile.placement_matches || 0;
   const isPlacement = placementCount < 5;
   const placementCol = "#FF33FF";
-  const rank     = getRank(elo);
-  const nextRank = RANKS[RANKS.indexOf(rank) + 1] && RANKS[RANKS.indexOf(rank) + 1].name !== "UNRANKED" ? RANKS[RANKS.indexOf(rank) + 1] : null;
+  const rank     = getRank(elo, isPlacement);
+  const nextRank = RANKS[RANKS.indexOf(rank) + 1] || null;
   const progress = nextRank ? ((elo - rank.min) / (rank.max - rank.min)) * 100 : 100;
   
   // For placement matches bar
@@ -828,8 +828,8 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
                       <img 
                         src={r.img!} 
                         style={{ 
-                          width: ["NOVICE", "ADVANCED", "EMERALD"].includes(r.name) ? 34 : 28, 
-                          height: ["NOVICE", "ADVANCED", "EMERALD"].includes(r.name) ? 34 : 28, 
+                          width: ["WOLF", "ADVANCED", "EMERALD"].includes(r.name) ? 34 : 28, 
+                          height: ["WOLF", "ADVANCED", "EMERALD"].includes(r.name) ? 34 : 28, 
                           objectFit: "contain", 
                           filter: isActive ? `drop-shadow(0 0 8px ${r.color}aa)` : "none" 
                         }} 

@@ -1785,12 +1785,19 @@ async def queue_join(data: QueueRequest, user_id: str = Depends(get_current_user
         opponent_id = opponent_entry["user_id"]
         room_code   = opponent_entry["room_code"]
 
-        # Verify the waiting room still exists
-        waiting_room = await db.rooms.find_one({"room_code": room_code, "status": "waiting"})
-        if not waiting_room:
-            # Opponent's room disappeared — fall through to create a new one
+        # [LIVENESS CHECK] Only match if the opponent actually has an active WebSocket connection.
+        # This prevents "ghosting" where players match with offline users.
+        if not ws_manager.has_active_connections(opponent_id):
+            await db.rooms.update_one({"room_code": room_code}, {"$set": {"game_status": "disbanded"}})
+            # Continue as if no opponent was found (will create own room)
             opponent_entry = None
         else:
+            # Verify the waiting room still exists
+            waiting_room = await db.rooms.find_one({"room_code": room_code, "status": "waiting"})
+            if not waiting_room:
+                # Opponent's room disappeared — fall through to create a new one
+                opponent_entry = None
+            else:
             p1_elo_room = int(waiting_room.get("player1_elo") or 500)
             if fmt == "ranked" and abs(p1_elo_room - user_elo) > RANKED_ELO_MATCH_RANGE:
                 # Legacy or inconsistent row — put opponent back in queue and keep searching
@@ -2178,7 +2185,8 @@ async def get_active_room(user_id: str = Depends(get_current_user)):
     room = await db.rooms.find_one({
         "$or": [{"player1_id": user_id}, {"player2_id": user_id}],
         "game_status": {"$in": ["playing", "waiting"]},
-        "status": {"$ne": "disbanded"}
+        "status": {"$nin": ["disbanded", "finished"]},
+        "series_winner": None
     })
     
     if not room:
@@ -3072,7 +3080,7 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                 if room_q and room_q.get("series_winner") is not None:
                     await db.rooms.update_one(
                         {"room_code": room_code},
-                        {"$set": {"game_status": "disbanded"}},
+                        {"$set": {"game_status": "disbanded", "status": "disbanded"}},
                     )
                     for slot, ws in _room_connections.get(room_code, {}).items():
                         try:
@@ -3089,7 +3097,7 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                 if void_no_play:
                     await db.rooms.update_one(
                         {"room_code": room_code},
-                        {"$set": {"game_status": "disbanded"}},
+                        {"$set": {"game_status": "disbanded", "status": "disbanded"}},
                     )
                     for slot, ws in _room_connections.get(room_code, {}).items():
                         try:
@@ -3144,7 +3152,7 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                     if room_q:
                         await db.rooms.update_one(
                             {"room_code": room_code},
-                            {"$set": {"game_status": "disbanded"}},
+                            {"$set": {"game_status": "disbanded", "status": "disbanded"}},
                         )
                         for slot, ws in _room_connections.get(room_code, {}).items():
                             try:
