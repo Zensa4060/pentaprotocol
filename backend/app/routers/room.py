@@ -1798,69 +1798,69 @@ async def queue_join(data: QueueRequest, user_id: str = Depends(get_current_user
                 # Opponent's room disappeared — fall through to create a new one
                 opponent_entry = None
             else:
-            p1_elo_room = int(waiting_room.get("player1_elo") or 500)
-            if fmt == "ranked" and abs(p1_elo_room - user_elo) > RANKED_ELO_MATCH_RANGE:
-                # Legacy or inconsistent row — put opponent back in queue and keep searching
-                await db.matchmaking_queue.insert_one({
-                    "user_id": opponent_id,
-                    "room_code": room_code,
-                    "format": fmt,
-                    "board_mode": opponent_entry.get("board_mode", data.board_mode),
-                    "elo": p1_elo_room,
-                    "created_at": datetime.utcnow(),
-                })
-                opponent_entry = None
-            else:
-                _ = await db.users.find_one({"_id": ObjectId(opponent_id)})
-                bm = waiting_room.get("board_mode", "5x5")
-                match_update = {
-                    "player2_id":     user_id,
-                    "player2_name":   player_name,
-                    "player2_elo":    user.get("elo") or 500,
-                    "player2_avatar": user.get("avatar"),
-                    "player2_banner": user.get("banner", "default"),
-                    "player2_border": user.get("border_style", "none"),
-                    "player2_title":  user.get("title", "newcomer"),
-                    "player2_level":  int(user.get("level") or 1),
-                    "status":         "active",
-                    "game_status":    "playing",
-                    "turn_started_at_ms": int(datetime.utcnow().timestamp() * 1000),
-                    "awaiting_5x5_rules_ready": _starting_board_mode(bm) == "5x5",
-                    "awaiting_7x7_rules_ready": False,
-                }
-                # Atomic match: only if room is still waiting, P1 unchanged, no P2 yet.
-                # If the opponent cancelled (or deleted the room) between queue steal and here, matched_count is 0 — re-queue this joiner.
-                match_filter = {
-                    "room_code": room_code,
-                    "status": "waiting",
-                    "player1_id": opponent_id,
-                    "$or": [{"player2_id": None}, {"player2_id": {"$exists": False}}],
-                }
-                result = await db.rooms.update_one(match_filter, {"$set": match_update})
-                if result.matched_count == 0:
+                p1_elo_room = int(waiting_room.get("player1_elo") or 500)
+                if fmt == "ranked" and abs(p1_elo_room - user_elo) > RANKED_ELO_MATCH_RANGE:
+                    # Legacy or inconsistent row — put opponent back in queue and keep searching
+                    await db.matchmaking_queue.insert_one({
+                        "user_id": opponent_id,
+                        "room_code": room_code,
+                        "format": fmt,
+                        "board_mode": opponent_entry.get("board_mode", data.board_mode),
+                        "elo": p1_elo_room,
+                        "created_at": datetime.utcnow(),
+                    })
                     opponent_entry = None
                 else:
-                    _reset_rules_gate_runtime(room_code)
-                    room = await db.rooms.find_one({"room_code": room_code})
-                    if match_update.get("awaiting_5x5_rules_ready"):
-                        _schedule_rules_sheet_timeout(db, room_code)
-
-                    conns = _room_connections.get(room_code, {})
-                    p1_ws = conns.get("P1")
-                    if p1_ws:
-                        try:
-                            await p1_ws.send_json(
-                                {"type": "player_joined", "room": serialize_room_for_slot(room, "P1")}
-                            )
-                        except Exception:
-                            pass
-
-                    return {
-                        "matched": True,
-                        "room_code": room_code,
-                        "player_slot": "P2",
-                        "room": serialize_room_for_slot(room, "P2"),
+                    _ = await db.users.find_one({"_id": ObjectId(opponent_id)})
+                    bm = waiting_room.get("board_mode", "5x5")
+                    match_update = {
+                        "player2_id":     user_id,
+                        "player2_name":   player_name,
+                        "player2_elo":    user.get("elo") or 500,
+                        "player2_avatar": user.get("avatar"),
+                        "player2_banner": user.get("banner", "default"),
+                        "player2_border": user.get("border_style", "none"),
+                        "player2_title":  user.get("title", "newcomer"),
+                        "player2_level":  int(user.get("level") or 1),
+                        "status":         "active",
+                        "game_status":    "playing",
+                        "turn_started_at_ms": int(datetime.utcnow().timestamp() * 1000),
+                        "awaiting_5x5_rules_ready": _starting_board_mode(bm) == "5x5",
+                        "awaiting_7x7_rules_ready": False,
                     }
+                    # Atomic match: only if room is still waiting, P1 unchanged, no P2 yet.
+                    # If the opponent cancelled (or deleted the room) between queue steal and here, matched_count is 0 — re-queue this joiner.
+                    match_filter = {
+                        "room_code": room_code,
+                        "status": "waiting",
+                        "player1_id": opponent_id,
+                        "$or": [{"player2_id": None}, {"player2_id": {"$exists": False}}],
+                    }
+                    result = await db.rooms.update_one(match_filter, {"$set": match_update})
+                    if result.matched_count == 0:
+                        opponent_entry = None
+                    else:
+                        _reset_rules_gate_runtime(room_code)
+                        room = await db.rooms.find_one({"room_code": room_code})
+                        if match_update.get("awaiting_5x5_rules_ready"):
+                            _schedule_rules_sheet_timeout(db, room_code)
+
+                        conns = _room_connections.get(room_code, {})
+                        p1_ws = conns.get("P1")
+                        if p1_ws:
+                            try:
+                                await p1_ws.send_json(
+                                    {"type": "player_joined", "room": serialize_room_for_slot(room, "P1")}
+                                )
+                            except Exception:
+                                pass
+
+                        return {
+                            "matched": True,
+                            "room_code": room_code,
+                            "player_slot": "P2",
+                            "room": serialize_room_for_slot(room, "P2"),
+                        }
 
     # No valid opponent — create a new waiting room
     code = await _generate_unique_code(db)
