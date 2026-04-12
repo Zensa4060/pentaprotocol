@@ -677,6 +677,7 @@ export default function HomeScreen({ setScreenAction, themeId, onHoverAction, on
               <span style={{ color: isPlacement ? placementCol : t.accent }}>{isPlacement ? "?" : (user?.elo ?? 0)}</span> ELO
             </div>
 
+
             {hovered === "lobby" && (
               <div style={{ 
                 fontFamily: t.fontMono, fontSize: 12, color: BLOOD_RED, letterSpacing: "0.2em", 

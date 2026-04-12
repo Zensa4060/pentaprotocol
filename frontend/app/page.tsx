@@ -30,6 +30,7 @@ import SessionReplacedModal from "@/components/SessionReplacedModal";
 import ActiveMatchRejoinModal from "@/components/ActiveMatchRejoinModal";
 import { POLICY_GATE_SESSION_KEY, getUserId, hasAcceptedLegal } from "@/lib/legalAcceptance";
 import { multiplayerRulesBootstrapFromRoom, type MultiplayerRulesBootstrap } from "@/lib/effectiveBoardMode";
+import GlobalLevelUpShowcase from "@/components/GlobalLevelUpShowcase";
 
 
 THEMES["custom" as ThemeId] = resolveCustomTheme(loadCustomTheme(), THEMES) as any;
@@ -1118,6 +1119,8 @@ export default function Page() {
           onForfeit={handleForfeitMatch}
         />
       )}
+
+      <GlobalLevelUpShowcase themeId={themeId} />
 
     </div>
   );

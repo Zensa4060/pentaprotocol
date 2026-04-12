@@ -65,6 +65,8 @@ interface AuthStore {
   setLogoutReason: (reason: string | null) => void;
   updateUser:      (patch: Partial<any>) => void;
   refreshProfile:  () => Promise<void>;
+  pendingLevelUp:  { from: number; to: number } | null;
+  setPendingLevelUp: (val: { from: number; to: number } | null) => void;
 }
 
 export const useAuthStore = create<AuthStore>((set, get) => {
@@ -75,6 +77,9 @@ export const useAuthStore = create<AuthStore>((set, get) => {
     user,
     token,
     logoutReason: null,
+    pendingLevelUp: null,
+
+    setPendingLevelUp: (val) => set({ pendingLevelUp: val }),
 
     setAuth: (user, token, persist = false) => {
       saveToken(token, persist);
@@ -108,6 +113,12 @@ export const useAuthStore = create<AuthStore>((set, get) => {
         ...patch,
         purchased_items: mergeArray("purchased_items"),
       };
+
+      const oldLevel = Number(current?.level ?? 1);
+      const newLevel = Number(updated?.level ?? oldLevel);
+      if (newLevel > oldLevel) {
+        set({ pendingLevelUp: { from: oldLevel, to: newLevel } });
+      }
 
       noteProfileProgressAfterMerge(current, updated);
       saveUser(updated);
