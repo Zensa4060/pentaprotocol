@@ -99,9 +99,10 @@ export default function MissionsScreen({ themeId }: Props) {
     return () => window.clearInterval(id);
   }, []);
 
-  const todayKey = formatDateKeyLocal(new Date());
-  const weekKey = getWeekKeyLocal(new Date());
-  const weekStart = getWeekStartLocal(new Date());
+  const unifiedNow = new Date(nowMs);
+  const todayKey = formatDateKeyLocal(unifiedNow);
+  const weekKey = getWeekKeyLocal(unifiedNow);
+  const weekStart = getWeekStartLocal(unifiedNow);
   const weekEnd = new Date(weekStart);
   weekEnd.setDate(weekEnd.getDate() + 7);
 
@@ -114,7 +115,7 @@ export default function MissionsScreen({ themeId }: Props) {
   const weeklyIds = getWeeklyMissionIds(weekStart, userKey);
   const permanentDefs = useMemo(() => getPermanentMissionDefs(), []);
 
-  const formatCountdown = (ms: number) => {
+  const formatCountdown = (ms: number, forceDays = false) => {
     const s = Math.max(0, Math.floor(ms / 1000));
     const days = Math.floor(s / 86400);
     const h = Math.floor((s % 86400) / 3600);
@@ -123,12 +124,12 @@ export default function MissionsScreen({ themeId }: Props) {
     const hh = String(h).padStart(2, "0");
     const mm = String(m).padStart(2, "0");
     const ss = String(sec).padStart(2, "0");
-    return days > 0 ? `${days}d ${hh}:${mm}:${ss}` : `${hh}:${mm}:${ss}`;
+    return (days > 0 || forceDays) ? `${days}d ${hh}:${mm}:${ss}` : `${hh}:${mm}:${ss}`;
   };
-  const nextDaily = new Date(nowMs);
+  const nextDaily = new Date(unifiedNow);
   nextDaily.setHours(24, 0, 0, 0);
-  const dailyCountdown = formatCountdown(nextDaily.getTime() - nowMs);
-  const weeklyCountdown = formatCountdown(weekEnd.getTime() - nowMs);
+  const dailyCountdown = formatCountdown(nextDaily.getTime() - unifiedNow.getTime());
+  const weeklyCountdown = formatCountdown(weekEnd.getTime() - unifiedNow.getTime(), true);
 
   const getClaimed = (period: MissionPeriod, periodKey: string, missionId: string) => {
     const claimKey = `${period}:${periodKey}:${missionId}`;
