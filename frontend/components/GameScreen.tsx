@@ -132,17 +132,19 @@ interface MatchupOverlayProps {
   isRankedGame: boolean;
   matchupCountdown: number;
   loadCustomTheme: () => any;
+  p1IsPlacement?: boolean;
+  p2IsPlacement?: boolean;
 }
 
-const MatchupOverlay = ({ matchupData, showMatchupOverlay, playerSlot, p1Name, user, themeId, t, isRankedGame, matchupCountdown, loadCustomTheme }: MatchupOverlayProps) => {
+const MatchupOverlay = ({ matchupData, showMatchupOverlay, playerSlot, p1Name, user, themeId, t, isRankedGame, matchupCountdown, loadCustomTheme, p1IsPlacement = false, p2IsPlacement = false }: MatchupOverlayProps) => {
   if (!matchupData || !showMatchupOverlay) return null;
   const opp = matchupData.opponent;
   const _ct = loadCustomTheme();
   const myBanner = _ct.bannerSkin ?? "default";
   const myS = playerSlot || "P1";
   const myLevel = computeLevelProgress(Number(user?.level || 1), Number(user?.xp || 0)).level;
-  const p1D = myS === "P1" ? { name: p1Name || "YOU", banner: myBanner, elo: user?.elo || 0, level: myLevel } : { name: opp.name, banner: opp.banner, elo: opp.elo || 0, level: opp.level || 1 };
-  const p2D = myS === "P2" ? { name: p1Name || "YOU", banner: myBanner, elo: user?.elo || 0, level: myLevel } : { name: opp.name, banner: opp.banner, elo: opp.elo || 0, level: opp.level || 1 };
+  const p1D = myS === "P1" ? { name: p1Name || "YOU", banner: myBanner, elo: user?.elo || 0, level: myLevel, isPlacement: p1IsPlacement } : { name: opp.name, banner: opp.banner, elo: opp.elo || 0, level: opp.level || 1, isPlacement: p1IsPlacement };
+  const p2D = myS === "P2" ? { name: p1Name || "YOU", banner: myBanner, elo: user?.elo || 0, level: myLevel, isPlacement: p2IsPlacement } : { name: opp.name, banner: opp.banner, elo: opp.elo || 0, level: opp.level || 1, isPlacement: p2IsPlacement };
 
   const getRankData = (elo: number) => RANKS.find(r => elo >= r.min && elo < r.max) || RANKS[RANKS.length - 1];
 
@@ -225,7 +227,7 @@ const MatchupOverlay = ({ matchupData, showMatchupOverlay, playerSlot, p1Name, u
              justifyContent: "center",
              flexShrink: 0
            }}>
-             <NavRankBadge rank={rank} size={sideBySideSize} isPlacement={false} />
+             <NavRankBadge rank={rank} size={sideBySideSize} isPlacement={data.isPlacement} />
            </div>
         </div>
       </div>
@@ -510,25 +512,38 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
 
   // Multiplayer rank icons (Rulebreaker UI) should reflect actual players' ELO.
   // Backend room_state includes player1_elo/player2_elo; we cache them here.
-  const [p1Elo, setP1Elo] = useState<number | undefined>(undefined);
+   const [p1Elo, setP1Elo] = useState<number | undefined>(undefined);
   const [p2Elo, setP2Elo] = useState<number | undefined>(undefined);
+  const [p1IsPlacement, setP1IsPlacement] = useState(false);
+  const [p2IsPlacement, setP2IsPlacement] = useState(false);
   const asNum = (v: any): number | undefined => {
     if (typeof v === "number" && Number.isFinite(v)) return v;
     if (typeof v === "string" && v.trim() !== "" && Number.isFinite(Number(v))) return Number(v);
     return undefined;
   };
   useEffect(() => {
-    if (!isMultiplayerGame) { setP1Elo(undefined); setP2Elo(undefined); return; }
+    if (!isMultiplayerGame) { 
+      setP1Elo(undefined); setP2Elo(undefined); 
+      setP1IsPlacement(false); setP2IsPlacement(false);
+      return; 
+    }
     const myElo = asNum(user?.elo);
     const oppElo = asNum(matchupData?.opponent?.elo);
+    const myIsP = Boolean(user?.placement_matches !== undefined && user.placement_matches < 5);
+    const oppIsP = Boolean(matchupData?.opponent?.placement_matches !== undefined && matchupData.opponent.placement_matches < 5);
+
     if (mySlot === "P1") {
       if (typeof myElo === "number") setP1Elo(myElo);
       if (typeof oppElo === "number") setP2Elo(oppElo);
+      setP1IsPlacement(myIsP);
+      setP2IsPlacement(oppIsP);
     } else {
       if (typeof oppElo === "number") setP1Elo(oppElo);
       if (typeof myElo === "number") setP2Elo(myElo);
+      setP1IsPlacement(oppIsP);
+      setP2IsPlacement(myIsP);
     }
-  }, [isMultiplayerGame, mySlot, user?.elo, matchupData?.opponent?.elo]);
+  }, [isMultiplayerGame, mySlot, user?.elo, matchupData?.opponent?.elo, user?.placement_matches, matchupData?.opponent?.placement_matches]);
   const coinStartTimeRef = useRef<number>(0);
   const [opponentName, setOpponentName] = useState<string | null>(null);
   const [p1Banner, setP1Banner] = useState<string>(mySlot === "P1" ? (_ct.bannerSkin ?? "default") : "default");
@@ -1124,6 +1139,8 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
             const e2 = asNum(r.player2_elo);
             if (typeof e1 === "number") setP1Elo(e1);
             if (typeof e2 === "number") setP2Elo(e2);
+            setP1IsPlacement(Boolean(r.player1_placement_matches !== undefined && r.player1_placement_matches < 5));
+            setP2IsPlacement(Boolean(r.player2_placement_matches !== undefined && r.player2_placement_matches < 5));
           }
           if (r.player1_banner) setP1Banner(String(r.player1_banner));
           if (r.player2_banner) setP2Banner(String(r.player2_banner));
@@ -1319,6 +1336,8 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
             const e2 = asNum(r.player2_elo);
             if (typeof e1 === "number") setP1Elo(e1);
             if (typeof e2 === "number") setP2Elo(e2);
+            setP1IsPlacement(Boolean(r.player1_placement_matches !== undefined && r.player1_placement_matches < 5));
+            setP2IsPlacement(Boolean(r.player2_placement_matches !== undefined && r.player2_placement_matches < 5));
             if (r.player1_banner) setP1Banner(String(r.player1_banner));
             if (r.player2_banner) setP2Banner(String(r.player2_banner));
             if (r.board_mode) setLiveBoardMode(r.board_mode as BoardMode);
@@ -3217,6 +3236,8 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
         phase={phase} t={t} ip={ip} p1c={p1c} p2c={p2c}
         p1Elo={isMultiplayerGame ? p1Elo : undefined}
         p2Elo={isMultiplayerGame ? p2Elo : undefined}
+        p1IsPlacement={isMultiplayerGame ? p1IsPlacement : false}
+        p2IsPlacement={isMultiplayerGame ? p2IsPlacement : false}
         coinResult={coinResult} coinAngle={coinAngle} coinDivRef={coinDivRef} tossWinner={tossWinner}
         summaryTimer={summaryTimer} firstPlayerChosen={firstPlayerChosen} rbC3Blocked={rbC3Blocked}
         choiceTimer={choiceTimer} isMultiplayerGame={isMultiplayerGame} mySlot={mySlot}

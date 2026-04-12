@@ -254,6 +254,8 @@ def serialize_room(room: dict) -> dict:
         "player2_title":  room.get("player2_title"),
         "player1_level":  room.get("player1_level"),
         "player2_level":  room.get("player2_level"),
+        "player1_placement_matches": room.get("player1_placement_matches", 0),
+        "player2_placement_matches": room.get("player2_placement_matches", 0),
         "board":          room.get("board"),
         "board_mode":     room.get("board_mode", "5x5"),
         "selected_patterns": room.get("selected_patterns", []),
@@ -2023,6 +2025,8 @@ async def create_room(data: CreateRoomRequest, user_id: str = Depends(get_curren
         "player2_title":   user.get("title", "newcomer") if creator_slot == "P2" else None,
         "player1_level":   user.get("level", 1)  if creator_slot == "P1" else None,
         "player2_level":   user.get("level", 1)  if creator_slot == "P2" else None,
+        "player1_placement_matches": user.get("placement_matches", 0) if creator_slot == "P1" else 0,
+        "player2_placement_matches": user.get("placement_matches", 0) if creator_slot == "P2" else 0,
         "creator_slot":    creator_slot,
         "board":           engine.board,
         "current_player":  "P1",
@@ -2125,6 +2129,7 @@ async def join_room(data: JoinRoomRequest, user_id: str = Depends(get_current_us
         update_fields["player1_border"] = user.get("border_style", "none")
         update_fields["player1_title"]  = user.get("title", "newcomer")
         update_fields["player1_level"]  = user.get("level", 1)
+        update_fields["player1_placement_matches"] = user.get("placement_matches", 0)
     else:
         update_fields["player2_id"]     = user_id
         update_fields["player2_name"]   = player_name
@@ -2134,6 +2139,7 @@ async def join_room(data: JoinRoomRequest, user_id: str = Depends(get_current_us
         update_fields["player2_border"] = user.get("border_style", "none")
         update_fields["player2_title"]  = user.get("title", "newcomer")
         update_fields["player2_level"]  = user.get("level", 1)
+        update_fields["player2_placement_matches"] = user.get("placement_matches", 0)
 
     await db.rooms.update_one({"room_code": code}, {"$set": update_fields})
     _reset_rules_gate_runtime(code)

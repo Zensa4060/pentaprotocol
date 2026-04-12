@@ -17,5 +17,6 @@ export interface MatchupData {
     avatar: string | null;
     banner: string;
     level: number;
+    placement_matches?: number;
   };
 }

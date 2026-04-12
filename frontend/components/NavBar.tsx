@@ -29,7 +29,10 @@ export const RANKS = [
   { name: "UNRANKED",     min: -1,   max: -1,      color: "#FF33FF", img: undefined,        scale: 1     },
 ];
 
-export const getRank = (elo: number) => RANKS.find(r => elo >= r.min && elo < r.max) || RANKS[0];
+export const getRank = (elo: number, isPlacement: boolean = false) => {
+  if (isPlacement) return RANKS.find(r => r.name === "UNRANKED") || RANKS[0];
+  return RANKS.find(r => elo >= r.min && elo < r.max) || RANKS[0];
+};
 
 /**
  * Glow strength vs Legend (100%). Legend = prior peak × 0.75 (extra −25%).
@@ -43,6 +46,7 @@ export function rankGlowTierFraction(rank: { name: string }): number {
     EMERALD: 0.6,
     MASTER: 0.8,
     LEGEND: 1,
+    UNRANKED: 0.6,
   };
   return T[rank.name] ?? 0.01;
 }

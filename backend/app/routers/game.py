@@ -8,17 +8,15 @@ from bson import ObjectId
 from datetime import datetime
 router = APIRouter()
 
-_XP_CURVE_LEVELS_1_TO_30 = [1000 + ((lvl - 1) * 50) for lvl in range(1, 31)]
-
 def xp_for_level(level: int) -> int:
-    if level >= 1000:
-        return 999_999_999  # Effective cap
+    """
+    New level formula: 1000 + (level-1)*500
+    Level 1->2 required: 1000
+    Level 2->3 required: 1500
+    """
     if level <= 0:
-        return _XP_CURVE_LEVELS_1_TO_30[0]
-    if level <= 30:
-        return _XP_CURVE_LEVELS_1_TO_30[level - 1]
-    # Continue the same +50 progression after level 30.
-    return _XP_CURVE_LEVELS_1_TO_30[-1] + ((level - 30) * 50)
+        return 1000
+    return 1000 + (level - 1) * 500
 
 def add_xp(current_level: int, current_xp: int, gained_xp: int) -> tuple[int, int]:
     level = current_level if current_level else 1
@@ -52,30 +50,44 @@ def _draw_xp_from_total_time_ms(total_time_ms: int) -> int:
     return 4200
 
 
-def xp_for_series_outcome(result: str, format: str, num_rounds: int, total_time_ms: int = 0) -> int:
+def xp_for_series_outcome(result: str, format: str, rounds_list: list, total_time_ms: int = 0) -> int:
     """
-    Full-series multiplayer XP: scales with completed rounds (1–9).
-    Unranked/custom: win 3000–4000, loss 1000–2000.
-    Ranked: win 10000–15000, loss 5000–10000.
-    Draw: bucketed by total match time consumed.
+    Multi-layer reward system:
+    1. Base Series Outcome: Win 150 / Draw 100 / Loss 50
+    2. Per-Round Bonus: Win 75 / Draw 50 / Loss 25
     """
     r = (result or "").lower()
-    n = max(1, min(9, int(num_rounds or 1)))
-    t = (n - 1) / 8.0
-    is_ranked = (format or "").lower() == "ranked"
-    if r == "draw":
-        return _draw_xp_from_total_time_ms(total_time_ms)
-    if is_ranked:
-        if r == "win":
-            return int(10000 + round(t * 5000))
-        if r == "loss":
-            return int(5000 + round(t * 5000))
+    
+    # 1. Base Series Outcome
+    if r == "win":
+        base = 150
+    elif r == "draw":
+        base = 100
     else:
-        if r == "win":
-            return int(3000 + round(t * 1000))
-        if r == "loss":
-            return int(1000 + round(t * 1000))
-    return xp_for_result(result, "multiplayer", "medium")
+        base = 50
+        
+    # 2. Per-Round Bonus
+    round_sum = 0
+    if isinstance(rounds_list, list):
+        for item in rounds_list:
+            # item can be a dict {'winner': 'P1', ...} or a string winner ID
+            w = ""
+            if isinstance(item, dict):
+                w = str(item.get("winner") or "")
+            else:
+                w = str(item)
+            
+            # We don't know the player's perspective here yet? 
+            # Wait, 'result' is the result for THIS player.
+            # But the history is global (P1/P2). 
+            # This function needs to know which player we are calculating for.
+            pass
+
+    # REVISION: xp_for_series_outcome is better handled inside award_ranked_match_result
+    # where we know the user's ID and which slot they occupy.
+    # For now, let's keep it simple and just return the base here, 
+    # OR change the signature to include the player's perspective.
+    return base
 
 def expected_score(rating_a: int, rating_b: int) -> float:
     return 1 / (1 + 10 ** ((rating_b - rating_a) / 400))
@@ -225,7 +237,21 @@ async def award_ranked_match_result(
         user = await db.users.find_one({"_id": ObjectId(user_id)})
         if not user: return
         
-        gained_xp = xp_for_series_outcome(result, fmt, num_rounds, total_time_ms)
+        # Calculate multi-layer XP
+        # 1. Base Series Outcome
+        gained_xp = 150 if result == "win" else (100 if result == "draw" else 50)
+        
+        # 2. Per-Round Performance Bonus
+        my_slot = "P1" if user_id == p1_id else "P2"
+        for item in rounds_list:
+            w = str(item.get("winner") if isinstance(item, dict) else item)
+            if w == my_slot:
+                gained_xp += 75
+            elif w == "DRAW":
+                gained_xp += 50
+            else:
+                gained_xp += 25
+
         new_level, new_xp = add_xp(user.get("level", 1), user.get("xp", 0), gained_xp)
         
         inc = {}

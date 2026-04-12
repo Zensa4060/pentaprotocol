@@ -127,10 +127,11 @@ function hashStringToSeed(input: string) {
 
 /** Deterministic mission XP; 0 if mission id is not a known prefix (daily / weekly / permanent). */
 export function missionXpForMissionId(missionId: string): number {
+  if (missionId === "perm_rank_legend") return 20000;
   const h = hashStringToSeed(missionId);
-  if (missionId.startsWith("d_")) return 1000 + (h % 501);
-  if (missionId.startsWith("w_")) return 5000 + (h % 5001);
-  if (missionId.startsWith("perm_")) return 5000 + (h % 95001);
+  if (missionId.startsWith("d_")) return 250;
+  if (missionId.startsWith("w_")) return 2500;
+  if (missionId.startsWith("perm_")) return 500 + (h % 9501);
   return 0;
 }
 
@@ -307,7 +308,9 @@ export function getPermanentMissionDefs(): MissionDef[] {
   }
 
   for (const r of RANK_MISSIONS) {
-    const shards = r.key === "legend" ? 260 : r.key === "master" ? 240 : r.key === "emerald" ? 220 : 200;
+    let shards = r.key === "legend" ? 260 : r.key === "master" ? 240 : r.key === "emerald" ? 220 : 200;
+    if (r.id === "perm_rank_legend") shards = 10000;
+
     defs.push({
       id: r.id,
       period: "permanent",

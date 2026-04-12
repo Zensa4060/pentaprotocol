@@ -953,14 +953,22 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
               </div>
             )}
 
-            <div style={{ fontFamily:t.fontBody, fontSize:12, color:t.textMuted, marginBottom:8 }}>Enter your password to confirm:</div>
-            <input
-              type="password"
-              value={deletePw}
-              onChange={e => setDeletePw(e.target.value)}
-              placeholder="Your password"
-              style={{ width:"100%", padding:"10px 12px", background:t.inputBg, border:`1px solid ${t.border}`, borderRadius:7, color:t.text, fontFamily:t.fontMono, fontSize:14, boxSizing:"border-box", marginBottom:10 }}
-            />
+            {profile.has_password ? (
+              <>
+                <div style={{ fontFamily:t.fontBody, fontSize:12, color:t.textMuted, marginBottom:8 }}>Enter your password to confirm:</div>
+                <input
+                  type="password"
+                  value={deletePw}
+                  onChange={e => setDeletePw(e.target.value)}
+                  placeholder="Your password"
+                  style={{ width:"100%", padding:"10px 12px", background:t.inputBg, border:`1px solid ${t.border}`, borderRadius:7, color:t.text, fontFamily:t.fontMono, fontSize:14, boxSizing:"border-box", marginBottom:10 }}
+                />
+              </>
+            ) : (
+              <div style={{ background:`${t.accent}0C`, border:`1px solid ${t.accent}33`, borderRadius:8, padding:"10px 14px", marginBottom:14, fontFamily:t.fontBody, fontSize:12, color:t.textMuted }}>
+                ℹ This account is linked to Google. No password is required for deletion.
+              </div>
+            )}
 
             <div style={{ fontFamily:t.fontBody, fontSize:12, color:t.textMuted, marginBottom:8 }}>Type <strong style={{ color:t.danger }}>DELETE</strong> to confirm:</div>
             <input
@@ -972,12 +980,12 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
             />
 
             <button
-              disabled={deleteLoading || !deletePw || deleteConfirmText !== "DELETE"}
+              disabled={deleteLoading || (profile.has_password && !deletePw) || deleteConfirmText !== "DELETE"}
               onClick={async () => {
                 onClickAction?.();
                 setDeleteLoading(true); setDeleteMsg(null);
                 try {
-                  await API.post("/api/auth/delete-account", { password: deletePw });
+                  await API.post("/api/auth/delete-account", { password: profile.has_password ? deletePw : "DELETE" });
                   setDeleteMsg({ text: "Account deleted. You will be signed out.", ok: true });
                   setTimeout(() => {
                     localStorage.removeItem("pp_token");
@@ -992,10 +1000,10 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
               }}
               style={{
                 width:"100%", padding:"11px",
-                background: (!deletePw || deleteConfirmText !== "DELETE") ? `${t.danger}18` : t.danger,
+                background: ((profile.has_password && !deletePw) || deleteConfirmText !== "DELETE") ? `${t.danger}18` : t.danger,
                 border:`1px solid ${t.danger}`,
-                borderRadius:8, color: (!deletePw || deleteConfirmText !== "DELETE") ? t.danger : "#fff",
-                fontFamily:t.fontDisplay, fontSize:13, fontWeight:700, cursor: (!deletePw || deleteConfirmText !== "DELETE") ? "not-allowed" : "pointer",
+                borderRadius:8, color: ((profile.has_password && !deletePw) || deleteConfirmText !== "DELETE") ? t.danger : "#fff",
+                fontFamily:t.fontDisplay, fontSize:13, fontWeight:700, cursor: ((profile.has_password && !deletePw) || deleteConfirmText !== "DELETE") ? "not-allowed" : "pointer",
                 opacity: deleteLoading ? 0.5 : 1,
                 transition:"all 0.2s",
               }}

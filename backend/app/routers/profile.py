@@ -105,10 +105,11 @@ async def claim_mission_reward(data: ClaimMissionBody, user_id: str = Depends(ge
     prev_xp = int(user.get("xp", 0) or 0)
     new_level, new_xp = add_xp(prev_level, prev_xp, xp_gain)
 
-    await db.users.update_one(
-        {"_id": oid},
-        {"$set": {"xp": new_xp, "level": new_level, f"mission_claims.{claim_key}": True}},
-    )
+    update_doc = {"$set": {"xp": new_xp, "level": new_level, f"mission_claims.{claim_key}": True}}
+    if data.mission_id == "perm_rank_legend":
+        update_doc["$inc"] = {"shards": 10000}
+
+    await db.users.update_one({"_id": oid}, update_doc)
     fresh = await db.users.find_one({"_id": oid}) or user
     return {
         "already_claimed": False,

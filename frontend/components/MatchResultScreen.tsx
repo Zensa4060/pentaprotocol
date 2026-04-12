@@ -282,7 +282,7 @@ export default function MatchResultScreen({
              <div style={{ width: 400, maxWidth: "80vw" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
                    <span style={{ fontFamily: t.fontMono, fontSize: 12, color: t.textMuted }}>LVL {levelAfter.level}</span>
-                   <span style={{ fontFamily: t.fontMono, fontSize: 12, color: t.textMuted }}>+{xpGained} XP</span>
+                   <span style={{ fontFamily: t.fontMono, fontSize: 12, color: t.textMuted }}>XP GAINED: {xpGained}</span>
                 </div>
                 <div style={{ fontFamily: t.fontMono, fontSize: 11, color: t.textMuted, marginBottom: 8, textAlign: "center" }}>
                   Rank Progress: {levelAfter.rem.toLocaleString()} / {levelAfter.nextXp.toLocaleString()}

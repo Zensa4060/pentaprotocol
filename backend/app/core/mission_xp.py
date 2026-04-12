@@ -26,11 +26,14 @@ def hash_string_to_seed(s: str) -> int:
 def mission_xp_for_mission_id(mission_id: str) -> Optional[int]:
     if not mission_id or not isinstance(mission_id, str):
         return None
+    if mission_id == "perm_rank_legend":
+        return 20000
     h = hash_string_to_seed(mission_id)
     if mission_id.startswith("d_"):
-        return 1000 + (h % 501)
+        return 250
     if mission_id.startswith("w_"):
-        return 5000 + (h % 5001)
+        return 2500
     if mission_id.startswith("perm_"):
-        return 500 + (h % 1500)
+        # Range: 500 - 10000
+        return 500 + (h % 9501)
     return None

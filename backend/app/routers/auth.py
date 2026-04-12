@@ -92,6 +92,8 @@ def serialize_user(user):
         "avatar":              user.get("avatar", None),
         "username_changed_at": user.get("username_changed_at", None),
         "purchased_items":     user.get("purchased_items", []),
+        "has_password":        bool(user.get("password")),
+        "google_id":           user.get("google_id", None),
     }
 
 async def get_current_user(authorization: str = Header(...)):
@@ -560,7 +562,7 @@ async def accept_legal(data: AcceptLegalRequest, request: Request, user_id: str 
 
 # ── DELETE ACCOUNT (self-service) ─────────────────────────────────────────────
 class DeleteAccountRequest(BaseModel):
-    password: str = Field(min_length=1, max_length=256)
+    password: Optional[str] = Field(None, min_length=1, max_length=256)
 
 @router.post("/delete-account")
 async def delete_account(data: DeleteAccountRequest, request: Request, user_id: str = Depends(get_current_user)):
@@ -570,8 +572,15 @@ async def delete_account(data: DeleteAccountRequest, request: Request, user_id: 
     if not user:
         raise HTTPException(404, "User not found")
 
-    if not verify_password(data.password, user["password"]):
-        raise HTTPException(400, "Incorrect password")
+    # If the user has a password set, they MUST provide it.
+    # Otherwise (Google-only user), they must enter "DELETE" as a confirmation.
+    has_password = bool(user.get("password"))
+    if has_password:
+        if not data.password or not verify_password(data.password, user["password"]):
+            raise HTTPException(400, "Incorrect password")
+    else:
+        if not data.password or data.password.upper() != "DELETE":
+            raise HTTPException(400, "Type 'DELETE' to confirm account closure")
 
     # Purge all user data across collections
     await db.users.delete_one({"_id": oid})

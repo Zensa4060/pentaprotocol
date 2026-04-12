@@ -22,6 +22,8 @@ interface RulebreakerFlowProps {
   p2c: string;
   p1Elo?: number;
   p2Elo?: number;
+  p1IsPlacement?: boolean;
+  p2IsPlacement?: boolean;
   coinResult: "PENTA" | "PROTO" | null;
   coinAngle: number;
   coinDivRef: React.RefObject<HTMLDivElement | null>;
@@ -70,6 +72,8 @@ interface RulebreakerFlowProps {
 export function RulebreakerFlow({
   phase, t, ip, p1c, p2c,
   p1Elo, p2Elo,
+  p1IsPlacement = false,
+  p2IsPlacement = false,
   coinResult, coinAngle, coinDivRef, tossWinner,
   summaryTimer, firstPlayerChosen, rbC3Blocked,
   choiceTimer, isMultiplayerGame, mySlot,
@@ -1075,7 +1079,7 @@ export function RulebreakerFlow({
                 {/* Rank Logo below name */}
                 {rank && (
                   <div style={{ display: "flex", justifyContent: "center", marginBottom: 20 }}>
-                    <NavRankBadge rank={rank} size={120} isPlacement={false} />
+                    <NavRankBadge rank={rank} size={120} isPlacement={p === "P1" ? p1IsPlacement : p2IsPlacement} />
                   </div>
                 )}
 
