@@ -207,11 +207,13 @@ export default function MatchResultScreen({
             minWidth: 160,
           }}
         >
-          <NavRankBadge 
-            rank={isDraw ? rankAfter : winnerRank} 
-            size={120} 
-            isPlacement={isDraw ? myData.was_placement : (seriesWinner === "P1" ? p1.was_placement : p2.was_placement)} 
-          />
+          {isRanked && (
+            <NavRankBadge 
+              rank={isDraw ? rankAfter : winnerRank} 
+              size={120} 
+              isPlacement={isDraw ? myData.was_placement : (seriesWinner === "P1" ? p1.was_placement : p2.was_placement)} 
+            />
+          )}
         </motion.div>
 
         <div style={{ textAlign: "center" }}>

@@ -182,7 +182,9 @@ export default function GameWinScreen({
               lineHeight: 1,
             }}
           >
-            <NavRankBadge rank={viewerRank} size={104} isPlacement={myData.was_placement} />
+            {isRanked && (
+              <NavRankBadge rank={viewerRank} size={104} isPlacement={myData.was_placement} />
+            )}
           </motion.div>
           <div style={{ fontFamily: t.fontMono, fontSize: 12, letterSpacing: "0.3em", color: t.textMuted }}>
             MULTIPLAYER MATCH COMPLETE
