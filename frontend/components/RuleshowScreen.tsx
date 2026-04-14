@@ -141,7 +141,7 @@ export default function RuleshowScreen({
         flexDirection: "column",
         alignItems: "center",
         justifyContent: "flex-start",
-        padding: isNarrow ? "34px 12px 16px" : "56px 20px 20px",
+        padding: isNarrow ? "24px 12px 16px" : "40px 20px 20px",
         overflow: "auto",
         backdropFilter: "blur(12px)",
       }}
@@ -219,7 +219,7 @@ export default function RuleshowScreen({
               gridTemplateColumns: `repeat(auto-fit, minmax(${isNarrow ? 180 : 240}px, 1fr))`,
               gap: isNarrow ? 10 : 16,
               width: "100%",
-              paddingBottom: isNarrow ? 18 : 28,
+              paddingBottom: isNarrow ? 12 : 18,
             }}
           >
             {[...patternList, ...referenceList].map((p, i) => {
@@ -265,7 +265,7 @@ export default function RuleshowScreen({
                   <div style={{ fontFamily: t.fontBody, fontSize: 12, color: t.textMuted, lineHeight: 1.4, minHeight: 34 }}>
                     {p.desc}
                   </div>
-                  <PatternDiagram info={p} accent={isReference ? t.textMuted : t.accent} isSelected={false} />
+                  <PatternDiagram info={p} accent={isReference ? t.textMuted : t.accent} isSelected={false} cellSize={isNarrow ? 10 : 12} />
                 </div>
               );
             })}

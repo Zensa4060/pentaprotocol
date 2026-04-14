@@ -22,7 +22,7 @@ interface Props {
 
 function PatternDiagram({ info, accent, isSelected }: { info: PatternInfo; accent: string; isSelected: boolean }) {
   const { cells, gridSize } = info;
-  const cellSize = gridSize === 7 ? 14 : gridSize === 6 ? 16 : 18;
+  const cellSize = gridSize === 7 ? 11 : gridSize === 6 ? 12 : 13;
   const gap = 2;
   const cellSet = new Set(cells.map(([r, c]) => `${r},${c}`));
 
@@ -82,7 +82,7 @@ export default function SingleplayerScreen({ setScreenAction, themeId, onHoverAc
     <div style={{
       position: "fixed", inset: 0, zIndex: 2, background: themeId === "space" ? "transparent" : t.bg, transition: "background 0.4s",
       display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "space-evenly",
-      padding: "90px 24px 40px", overflowY: "auto",
+      padding: "70px 24px 40px", overflowY: "auto",
     }}>
       <style>{`
         @keyframes cardFadeUp { from{opacity:0;transform:translateY(18px)} to{opacity:1;transform:translateY(0)} }
@@ -190,8 +190,8 @@ export default function SingleplayerScreen({ setScreenAction, themeId, onHoverAc
 
           <div style={{
             display: "grid",
-            gridTemplateColumns: boardMode === "7x7" ? "repeat(auto-fit, minmax(180px, 1fr))" : "repeat(auto-fit, minmax(200px, 1fr))",
-            gap: 12, width: "100%", maxWidth: boardMode === "7x7" ? 820 : 660,
+            gridTemplateColumns: boardMode === "7x7" ? "repeat(auto-fit, minmax(140px, 1fr))" : "repeat(auto-fit, minmax(150px, 1fr))",
+            gap: 8, width: "100%", maxWidth: boardMode === "7x7" ? 800 : 720,
           }}>
             {[...patternNames, ...referenceNames].map((name, i) => {
               const isReference = referenceNames.includes(name);
