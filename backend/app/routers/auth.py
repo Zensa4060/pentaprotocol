@@ -63,8 +63,8 @@ class TwoFADisable(BaseModel):
 def validate_username(username: str):
     if len(username) < 3:
         raise HTTPException(400, "Username must be at least 3 characters")
-    if len(username) > 16:
-        raise HTTPException(400, "Username must be at most 16 characters")
+    if len(username) > 12:
+        raise HTTPException(400, "Username must be at most 12 characters")
     if username.startswith(" ") or username.endswith(" "):
         raise HTTPException(400, "Username cannot start or end with a space")
     if re.search(r"\s{2,}", username):
@@ -304,7 +304,8 @@ async def google_auth(data: GoogleAuthRequest):
                 await db.users.update_one({"_id": existing_user["_id"]}, {"$set": update_fields})
                 user = await db.users.find_one({"_id": existing_user["_id"]})
         else:
-            base_username = re.sub(r"[^\w]", "", name.replace(" ", "_"))[:14] or "player"
+            # Generated usernames must be <= 12 characters. Truncate base to 9 to allow for suffixes.
+            base_username = re.sub(r"[^\w]", "", name.replace(" ", "_"))[:9] or "player"
             username = base_username
             suffix = 1
             while await db.users.find_one({"username": username}):

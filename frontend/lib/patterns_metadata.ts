@@ -37,6 +37,14 @@ export const PATTERN_METADATA_5: Record<string, PatternInfo> = {
     cells: [[0, 0], [1, 1], [2, 0], [3, 1], [4, 0]],
     mirrorCount: 4,
   },
+  T: {
+    id: "T",
+    label: "T-SHAPE",
+    desc: "A balanced T-bracket for anchoring territory.",
+    gridSize: 5,
+    cells: [[0, 0], [0, 1], [0, 2], [1, 1], [2, 1]],
+    mirrorCount: 4,
+  },
 };
 
 export const PATTERN_METADATA_6: Record<string, PatternInfo> = {
@@ -47,15 +55,6 @@ export const PATTERN_METADATA_6: Record<string, PatternInfo> = {
     gridSize: 6,
     cells: [[0, 0], [1, 1], [0, 2], [1, 3], [0, 4], [1, 5]],
     mirrorCount: 4,
-  },
-  P: {
-    id: "P",
-    label: "P-SHAPE",
-    desc: "A hooked formation for strong connectivity.",
-    gridSize: 6,
-    cells: [[0, 0], [1, 0], [2, 0], [3, 0], [3, 1], [2, 1]],
-    mirrorCount: 8,
-    isException: true,
   },
   T: {
     id: "T",

@@ -118,8 +118,8 @@ export default function RuleshowScreen({
     : is77
       ? "Reference patterns and leg rules for 7×7 — selection is server-side; this screen is informational."
       : is66
-        ? "Six-in-a-line, five fixed 6-cell shapes, and Timebreaker before game 6 on this leg."
-        : "First-to-3 series framing, 5×5 centre rule, shapes, chain threshold, and Rulebreaker before game 3 here.";
+        ? "Six-in-a-line, four fixed 6-cell shapes, and Timebreaker before game 6 on this leg."
+        : "First-to-3 series framing, 5×5 centre rule, T-shapes, chain threshold, and Rulebreaker before game 3 here.";
 
   const chipPadV = Math.round(8 * RS);
   const chipPadH = Math.round(16 * RS);

@@ -35,7 +35,7 @@ In Rulebreaker before game 3 on this leg, the toss winner may block C3 for the f
   {
     id: "shapes",
     title: "WIN: SHAPE PATTERNS",
-    detail: `Complete any legal 5-cell shape pattern recognised for this board (V, L, W, etc.). Rotations and reflections count.`,
+    detail: `Complete any legal 5-cell shape pattern recognised for this board (V, L, T, W, etc.). Rotations and reflections count.`,
   },
   {
     id: "chain",
@@ -68,7 +68,7 @@ export const RULESHOW_BLOCKS_6X6: RuleshowRuleBlock[] = [
   {
     id: "shapes",
     title: "WIN: FIXED SHAPE PATTERNS",
-    detail: `Exactly five mandatory 6-cell patterns are always active on 6×6 (Zigzag, P, T, L, Y and their symmetries). Complete any one as your stones — same as in the diagrams below.`,
+    detail: `Exactly four mandatory 6-cell patterns are always active on 6×6 (Zigzag, T, L, Y and their symmetries). Complete any one as your stones — same as in the diagrams below.`,
   },
   {
     id: "chain",

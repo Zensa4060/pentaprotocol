@@ -115,17 +115,42 @@ function generateLobbySlashes(seed: number): { top: string; left: string; w: str
   return out;
 }
 
-/** Deterministic pseudo-random scatter so shards fly in varied directions (stable across renders). */
-function aiShardScatter(i: number): { tx: number; ty: number; rot: number; delay: number } {
+/** 10 shards: 5×2 grid (full tile coverage; motion is tailored per mode). */
+function getShardScatter(i: number, mode: "ai" | "lobby" | "training"): { tx: number; ty: number; rot: number; delay: number } {
   const fract = (x: number) => x - Math.floor(x);
-  const tx = (fract(Math.sin(i * 12.9898) * 43758.5453) - 0.5) * 76;
-  const ty = (fract(Math.sin(i * 78.233 + 3.14159) * 43758.5453) - 0.5) * 76;
-  const rot = (fract(Math.sin(i * 45.164 + 2.71828) * 43758.5453) - 0.5) * 40;
+  const rand1 = fract(Math.sin(i * 12.9898) * 43758.5453);
+  const rand2 = fract(Math.sin(i * 78.233 + 3.14159) * 43758.5453);
+  const rand3 = fract(Math.sin(i * 45.164 + 2.71828) * 43758.5453);
+
+  if (mode === "lobby") {
+    // Red: Explosive outwards
+    const angle = (i / 10) * Math.PI * 2 + (rand1 * 0.5);
+    const dist = 60 + rand2 * 40;
+    return {
+      tx: Math.cos(angle) * dist,
+      ty: Math.sin(angle) * dist,
+      rot: (rand3 - 0.5) * 60,
+      delay: i * 0.012,
+    };
+  } else if (mode === "training") {
+    // Cyan: Falling downwards
+    return {
+      tx: (rand1 - 0.5) * 30,
+      ty: 80 + rand2 * 50,
+      rot: (rand3 - 0.5) * 30,
+      delay: i * 0.015,
+    };
+  }
+  
+  // Challenge (AI): Random chaotic scatter
+  const tx = (rand1 - 0.5) * 76;
+  const ty = (rand2 - 0.5) * 76;
+  const rot = (rand3 - 0.5) * 40;
   const delay = i * 0.011 + fract(Math.sin(i * 91.714) * 43758.5453) * 0.045;
   return { tx, ty, rot, delay };
 }
 
-function AiGlassShatterLayer(props: {
+function HoverShatterLayer(props: {
   borderRadius: number | string;
   cornerRadius: number;
   cardPadding: string;
@@ -136,6 +161,7 @@ function AiGlassShatterLayer(props: {
   chevron: React.ReactNode;
   borderColor: string;
   borderWidth: string;
+  mode: "ai" | "lobby" | "training";
 }) {
   const {
     borderRadius,
@@ -148,6 +174,7 @@ function AiGlassShatterLayer(props: {
     chevron,
     borderColor,
     borderWidth,
+    mode
   } = props;
   const dur = "0.48s";
   const easing = "cubic-bezier(0.22, 1, 0.36, 1)";
@@ -169,7 +196,7 @@ function AiGlassShatterLayer(props: {
       }}
     >
       {AI_GLASS_CLIPS.map((clip, i) => {
-        const sc = aiShardScatter(i);
+        const sc = getShardScatter(i, mode);
         return (
         <div
           key={i}
@@ -330,10 +357,10 @@ export default function HomeScreen({ setScreenAction, themeId, onHoverAction, on
       hoverShadow = isSp ? "inset 0 1px 0 rgba(255,255,255,0.04)" : "none";
     }
 
-    const aiGlassActive = isHov && key === "ai";
+    const shatterActive = isHov;
 
     return {
-      background: aiGlassActive
+      background: shatterActive
         ? "transparent"
         : isSp
           ? spaceBg
@@ -341,7 +368,7 @@ export default function HomeScreen({ setScreenAction, themeId, onHoverAction, on
             ? `linear-gradient(145deg, ${hovCol}22, ${t.bgCard}dd)`
             : t.bgCard,
       border: `${isMobile ? "1.5px" : "2px"} solid ${
-        aiGlassActive
+        shatterActive
           ? "transparent"
           : isHov
             ? hovCol
@@ -359,15 +386,15 @@ export default function HomeScreen({ setScreenAction, themeId, onHoverAction, on
         : isHov
           ? `translateY(${curveY - 15}px) scale(1.06)`
           : `translateY(${curveY}px)`,
-      boxShadow: aiGlassActive ? "none" : hoverShadow,
-      backdropFilter: isSp && !aiGlassActive ? "blur(12px)" : undefined,
-      WebkitBackdropFilter: isSp && !aiGlassActive ? "blur(12px)" : undefined,
+      boxShadow: shatterActive ? "none" : hoverShadow,
+      backdropFilter: isSp && !shatterActive ? "blur(12px)" : undefined,
+      WebkitBackdropFilter: isSp && !shatterActive ? "blur(12px)" : undefined,
       flex: isMobile ? undefined : 1,
       width: isMobile ? "100%" : undefined,
       minWidth: 0,
       position: "relative",
       zIndex: isHov ? 10 : 1,
-      ...(key === "ai" && isHov ? { overflow: "visible" as const } : {}),
+      ...(isHov ? { overflow: "visible" as const } : {}),
       ...(isMobile ? { display: "flex", alignItems: "center", gap: 16, textAlign: "left" as const } : {}),
     };
   };
@@ -484,98 +511,52 @@ export default function HomeScreen({ setScreenAction, themeId, onHoverAction, on
               style={cardStyle(card.key, idx)}
             >
               {card.key === "lobby" && hovered === "lobby" && (
-                <div
-                  style={{
-                    position: "absolute",
-                    inset: 0,
-                    pointerEvents: "none",
-                    borderRadius: ip ? 2 : isMobile ? 12 : 20,
-                    overflow: "hidden",
-                    zIndex: 1,
-                  }}
-                >
-                  <div
-                    aria-hidden
-                    style={{
-                      position: "absolute",
-                      inset: 0,
-                      background: "radial-gradient(ellipse 95% 70% at 50% 45%, rgba(90,0,0,0.22) 0%, rgba(0,0,0,0.35) 55%, transparent 72%)",
-                      borderRadius: "inherit",
-                    }}
-                  />
-                  {lobbySlashes.map((s, i) => (
-                    <div
-                      key={`slash-${lobbySlashSeed}-${i}`}
-                      aria-hidden
-                      style={{
-                        position: "absolute",
-                        top: s.top,
-                        left: s.left,
-                        width: s.w,
-                        height: s.h,
-                        transform: `rotate(${s.rot}deg)`,
-                        transformOrigin: "center center",
-                        background:
-                          "linear-gradient(90deg, transparent 0%, rgba(20,0,0,0.65) 8%, #5c0000 22%, #b30000 42%, #ff2a2a 49.5%, #ff6b6b 50%, #c40000 50.8%, #4a0000 78%, rgba(0,0,0,0.55) 94%, transparent 100%)",
-                        backgroundSize: "200% 100%",
-                        animation: `bloodRiverShift ${s.dur}s linear infinite, bloodSlashPulse ${s.dur * 0.85}s ease-in-out infinite`,
-                        animationDelay: `${s.delay}s`,
-                        boxShadow:
-                          "0 0 10px rgba(255,50,50,0.55), 0 0 24px rgba(180,0,0,0.45), 0 1px 0 rgba(255,200,200,0.35)",
-                        filter: "blur(0.45px)",
-                      }}
-                    />
-                  ))}
-                  <div
-                    aria-hidden
-                    style={{
-                      position: "absolute",
-                      inset: 0,
-                      borderRadius: "inherit",
-                      boxShadow: "inset 0 0 0 1px rgba(160,0,0,0.35), inset 0 0 28px rgba(0,0,0,0.45)",
-                      pointerEvents: "none",
-                    }}
-                  />
-                </div>
+                <HoverShatterLayer
+                  mode="lobby"
+                  borderRadius={ip ? 2 : isMobile ? 12 : 20}
+                  cornerRadius={ip ? 2 : isMobile ? 12 : 20}
+                  cardPadding={cardPadding}
+                  background={`linear-gradient(145deg, ${BLOOD_RED}22, ${t.bgCard}dd)`}
+                  isMobile={isMobile}
+                  borderColor={BLOOD_RED}
+                  borderWidth={isMobile ? "1.5px" : "2px"}
+                  titleBlock={
+                    <>
+                      <div style={{ fontFamily: (themeId === "classic_light" || themeId === "classic_dark" || themeId === "space") ? "'Cinzel', serif" : t.fontDisplay, fontSize: cardTitleSize, fontWeight: 700, color: BLOOD_RED, marginBottom: isMobile ? 4 : 8, position: "relative", zIndex: 2 }}>{card.title}</div>
+                      <div style={{ fontFamily: t.fontBody, fontSize: cardSubSize, color: isSp ? "rgba(140,180,255,0.5)" : t.textMuted }}>{card.sub}</div>
+                    </>
+                  }
+                  chevron={isMobile ? <div style={{ fontFamily: t.fontMono, fontSize: 18, color: BLOOD_RED, flexShrink: 0 }}>›</div> : null}
+                />
               )}
               {card.key === "singleplayer" && hovered === "singleplayer" && (
-                <div style={{ position: "absolute", inset: 0, overflow: "hidden", pointerEvents: "none", borderRadius: ip ? 2 : isMobile ? 12 : 20, zIndex: 1 }}>
-                  {TRAINING_DIAGONAL_STRIKES.map((d, di) => {
-                    const dLook = trainingDiagonalStrikeStyle(d.pal);
-                    return (
-                      <div
-                        key={`train-diag-${di}`}
-                        aria-hidden
-                        style={{
-                          position: "absolute",
-                          top: d.top,
-                          left: d.left,
-                          width: d.w,
-                          height: d.h,
-                          transform: `rotate(${d.rot}deg)`,
-                          transformOrigin: "center center",
-                          borderRadius: 2,
-                          background: dLook.background,
-                          boxShadow: dLook.boxShadow,
-                          filter: "blur(0.3px)",
-                          animation: `lightningFlash ${d.dur}s ease-in-out infinite`,
-                          animationDelay: `${d.delay}s`,
-                          pointerEvents: "none",
-                        }}
-                      />
-                    );
-                  })}
-                </div>
+                <HoverShatterLayer
+                  mode="training"
+                  borderRadius={ip ? 2 : isMobile ? 12 : 20}
+                  cornerRadius={ip ? 2 : isMobile ? 12 : 20}
+                  cardPadding={cardPadding}
+                  background={`linear-gradient(145deg, #00C8FF22, ${t.bgCard}dd)`}
+                  isMobile={isMobile}
+                  borderColor="#00C8FF"
+                  borderWidth={isMobile ? "1.5px" : "2px"}
+                  titleBlock={
+                    <>
+                      <div style={{ fontFamily: (themeId === "classic_light" || themeId === "classic_dark" || themeId === "space") ? "'Cinzel', serif" : t.fontDisplay, fontSize: cardTitleSize, fontWeight: 700, color: "#00C8FF", marginBottom: isMobile ? 4 : 8, position: "relative", zIndex: 2 }}>{card.title}</div>
+                      <div style={{ fontFamily: t.fontBody, fontSize: cardSubSize, color: isSp ? "rgba(140,180,255,0.5)" : t.textMuted }}>{card.sub}</div>
+                    </>
+                  }
+                  chevron={isMobile ? <div style={{ fontFamily: t.fontMono, fontSize: 18, color: "#00C8FF", flexShrink: 0 }}>›</div> : null}
+                />
               )}
               <div
                 style={{
                   flex: isMobile ? 1 : undefined,
                   position: "relative",
                   zIndex: 2,
-                  opacity: card.key === "ai" && hovered === "ai" ? 0 : 1,
+                  opacity: hovered === card.key ? 0 : 1,
                   transition: "opacity 0.08s ease",
-                  visibility: card.key === "ai" && hovered === "ai" ? "hidden" : "visible",
-                  pointerEvents: card.key === "ai" && hovered === "ai" ? "none" : "auto",
+                  visibility: hovered === card.key ? "hidden" : "visible",
+                  pointerEvents: hovered === card.key ? "none" : "auto",
                 }}
               >
                 <div style={{
@@ -596,7 +577,8 @@ export default function HomeScreen({ setScreenAction, themeId, onHoverAction, on
                 </div>
               </div>
               {card.key === "ai" && hovered === "ai" && (
-                <AiGlassShatterLayer
+                <HoverShatterLayer
+                  mode="ai"
                   borderRadius={ip ? 2 : isMobile ? 12 : 20}
                   cornerRadius={ip ? 2 : isMobile ? 12 : 20}
                   cardPadding={cardPadding}

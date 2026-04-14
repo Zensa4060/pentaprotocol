@@ -9,7 +9,7 @@ import API from "@/lib/api";
 
 function validateUsername(val: string): string | null {
   if (val.length < 3) return "Minimum 3 characters";
-  if (val.length > 16) return "Maximum 16 characters";
+  if (val.length > 12) return "Maximum 12 characters";
   if (val.startsWith(" ") || val.endsWith(" ")) return "Cannot start or end with a space";
   if (/\s{2,}/.test(val)) return "Only single spaces allowed";
   if (/[^\w\s]/.test(val)) return "No special characters allowed";
@@ -645,7 +645,7 @@ export default function AuthScreen({ setScreenAction, themeId }: Props) {
           </>)}
 
           {tab === "signup" && (<>
-            {field("username", "Username", username, setUsername, errors.username || "", "3–16 chars, no special chars")}
+            {field("username", "Username", username, setUsername, errors.username || "", "3–12 chars, no special chars")}
             {field("email", "Email", email, setEmail, errors.email || "", "you@example.com")}
             {passwordField("password", "Password", password, setPassword, errors.password || "", "Min 6 characters", showPassword, setShowPassword)}
             {passwordField("confirm", "Confirm Password", confirm, setConfirm, errors.confirm || "", "Re-enter password", showConfirm, setShowConfirm)}

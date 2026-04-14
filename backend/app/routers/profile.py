@@ -315,8 +315,8 @@ async def update_profile(
         u = data.username.strip()
         if len(u) < 3:
             raise HTTPException(400, "Username must be at least 3 characters")
-        if len(u) > 16:
-            raise HTTPException(400, "Username must be at most 16 characters")
+        if len(u) > 12:
+            raise HTTPException(400, "Username must be at most 12 characters")
         if not re.match(r'^[\w@]+$', u):
             raise HTTPException(400, "Only letters, numbers, @ and _ are allowed")
         if re.search(r'[^\x00-\x7F]', u):

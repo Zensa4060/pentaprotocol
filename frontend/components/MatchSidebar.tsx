@@ -650,6 +650,19 @@ export function LeftPanel(props: MatchSidebarProps) {
   const useSnowflakeShard = pieceSkin === "snowflake_shard";
   const chatListRef = React.useRef<HTMLDivElement | null>(null);
 
+  const [vh, setVh] = React.useState(800);
+  React.useEffect(() => {
+    const update = () => setVh(window.innerHeight);
+    update();
+    window.addEventListener("resize", update);
+    return () => window.removeEventListener("resize", update);
+  }, []);
+
+  const isShorter = vh < 850;
+  const isVeryShort = vh < 720;
+  const densityGap = isVeryShort ? 6 : isShorter ? 10 : 14;
+  const headingSize = isVeryShort ? 16 : isShorter ? 18 : 20;
+
   React.useEffect(() => {
     if (!chatOpen) return;
     const el = chatListRef.current;

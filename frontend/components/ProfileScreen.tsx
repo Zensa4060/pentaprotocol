@@ -1073,8 +1073,8 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
                   </div>
                   <div>
                     <div style={{ fontFamily:t.fontMono, fontSize:11, color:t.textMuted, letterSpacing:"0.1em", marginBottom:6 }}>USERNAME</div>
-                    <input value={editUsername} maxLength={16} onChange={e => setEditUsername(e.target.value)} style={inputStyle} />
-                    <div style={{ fontFamily:t.fontBody, fontSize:11, color:t.textMuted, marginTop:4 }}>3–16 chars · letters, numbers, @ and _ only</div>
+                    <input value={editUsername} maxLength={12} onChange={e => setEditUsername(e.target.value)} style={inputStyle} />
+                    <div style={{ fontFamily:t.fontBody, fontSize:11, color:t.textMuted, marginTop:4 }}>3–12 chars · letters, numbers, @ and _ only</div>
                   </div>
                   <div>
                     <div style={{ fontFamily:t.fontMono, fontSize:11, color:t.textMuted, letterSpacing:"0.1em", marginBottom:6 }}>BIO</div>

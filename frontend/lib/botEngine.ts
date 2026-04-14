@@ -14,7 +14,7 @@
 // Public API:
 //   getBotMove(board, botPlayer, humanPlayer, difficulty) → [row, col]
 
-import { check5Line, checkStructuralPatterns, Board, Coord } from "./winChecker";
+import { check5Line, checkStructuralPatterns, Board, Coord, ALL_VARIANTS_5 } from "./winChecker";
 
 // ── Constants ──
 const GRID = 5;
@@ -42,20 +42,7 @@ const MAX_DEPTH: Record<string, number> = { easy: 1, medium: 5, hard: 99 };
 const QSEARCH_DEPTH = 2;
 
 // ── Pattern definitions (mirrored from winChecker.ts) ──
-const ALL_PATTERNS: Coord[][] = [
-    [[0, 2], [1, 1], [2, 0], [3, 1], [4, 2]],
-    [[0, 0], [1, 1], [2, 2], [3, 1], [4, 0]],
-    [[0, 2], [1, 1], [1, 3], [2, 0], [2, 4]],
-    [[0, 0], [0, 4], [1, 1], [1, 3], [2, 2]],
-    [[0, 2], [1, 2], [2, 0], [2, 1], [2, 2]],
-    [[0, 0], [1, 0], [2, 0], [2, 1], [2, 2]],
-    [[0, 0], [0, 1], [0, 2], [1, 2], [2, 2]],
-    [[0, 0], [0, 1], [0, 2], [1, 0], [2, 0]],
-    [[0, 0], [0, 2], [0, 4], [1, 1], [1, 3]],
-    [[0, 0], [1, 1], [2, 0], [3, 1], [4, 0]],
-    [[0, 1], [0, 3], [1, 0], [1, 2], [1, 4]],
-    [[0, 1], [1, 0], [2, 1], [3, 0], [4, 1]],
-];
+const ALL_PATTERNS: Coord[][] = Object.values(ALL_VARIANTS_5).flat();
 
 // ── Helpers ──
 
