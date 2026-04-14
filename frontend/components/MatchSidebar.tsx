@@ -104,7 +104,6 @@ interface MatchSidebarProps {
   chatMessages: { from: "P1" | "P2"; text: string; ts: number }[];
   chatInput: string;
   chatOpen: boolean;
-  chatFullscreen?: boolean;
   chatWarning: boolean;
   /** Opponent messages received while chat panel was collapsed (multiplayer). */
   unreadOpponentChat?: number;
@@ -139,7 +138,6 @@ interface MatchSidebarProps {
   onChatInputChange: (v: string) => void;
   onChatKeyDown: (e: React.KeyboardEvent) => void;
   onChatOpenToggle: () => void;
-  onChatFullscreenToggle?: () => void;
   onSoftReset: () => void;
   onDismissOverlayAction: () => void;
   onRematchAction: () => void;
@@ -169,13 +167,13 @@ export function MatchSidebar({
   boardMode, selectedPatterns, rbBannedPatterns = [], patternsAsSecret = false, p1SeriesPts, p2SeriesPts,
   p1Time, p2Time, readyTimeout,
   p1Ready, p2Ready,
-  chatMessages, chatInput, chatOpen, chatFullscreen = false, chatWarning, unreadOpponentChat = 0,
+  chatMessages, chatInput, chatOpen, chatWarning, unreadOpponentChat = 0,
   log, botThinking,
   showWinOverlay, overlayVisible, winnerColor, winnerPiece, seriesDiffers, seriesColor, seriesPiece,
   showRematch, rematchRequested, lastSeries,
   showSurrender, showExitConfirm, setScreenAction,
   p1Label, p2Label, winnerDisplayNameAction, segmentStartIndex = 0, historyDisplayStartIndex = 0,
-  onReadyToggle, onSendChat, onChatInputChange, onChatKeyDown, onChatOpenToggle, onChatFullscreenToggle,
+  onReadyToggle, onSendChat, onChatInputChange, onChatKeyDown, onChatOpenToggle,
   onSoftReset, onDismissOverlayAction, onRematchAction, onQuitMatchAction,
   onSurrenderConfirmAction, onSurrenderCancelAction, onExitConfirmAction, onExitCancelAction,
   onShowSurrenderAction, onShowExitConfirmAction, onShowRematchOverlayAction,
@@ -364,7 +362,7 @@ export function MatchSidebar({
     <div style={{ 
       width: panelW, 
       minWidth: panelW, 
-      maxWidth: panelW * 1.15, 
+      maxWidth: 300, 
       resize: "horizontal", 
       overflowX: "hidden", 
       flexShrink: 0, 
@@ -559,9 +557,9 @@ export function MatchSidebar({
           style={{
             position: "absolute",
             zIndex: 20,
-            left: chatFullscreen ? 8 : 10,
-            right: chatFullscreen ? -Math.max(120, Math.round(panelW * 0.35)) : 10,
-            top: chatFullscreen ? 8 : "48%",
+            left: 10,
+            right: 10,
+            top: "48%",
             bottom: 66,
             background: "rgba(0,0,0,0.92)",
             border: `1px solid ${t.border}`,
@@ -632,11 +630,11 @@ export function LeftPanel(props: MatchSidebarProps) {
   const { t, ip, p1c, p2c, pieceSkin, p1RttMs, p2RttMs, panelW, phase, current, gameNumber, movesPlayed = 0, matchHistory, seriesWinner,
     gameMode, isRankedGame, isMultiplayerGame, isMultiplayer, mySlot, boardMode, selectedPatterns, rbBannedPatterns = [], patternsAsSecret = false, p1SeriesPts, p2SeriesPts,
     p1Time, p2Time, readyTimeout, p1Ready, p2Ready,
-  chatMessages, chatInput, chatOpen, chatFullscreen = false, chatWarning, unreadOpponentChat = 0,
-  p1Label, p2Label, p1Banner, p2Banner, winnerDisplayNameAction, lastSeries, segmentStartIndex = 0, historyDisplayStartIndex = 0,
-    onReadyToggle, onSendChat, onChatInputChange, onChatKeyDown, onChatOpenToggle, onChatFullscreenToggle,
-    onSoftReset, onShowSurrenderAction, onShowExitConfirmAction, fmtTimeAction, playHoverAction,
-    interGameReadyVisible, waitingReadyWarmup } = props;
+    chatMessages, chatInput, chatOpen, chatWarning, unreadOpponentChat = 0,
+    p1Label, p2Label, p1Banner, p2Banner, winnerDisplayNameAction, lastSeries, segmentStartIndex = 0, historyDisplayStartIndex = 0,
+      onReadyToggle, onSendChat, onChatInputChange, onChatKeyDown, onChatOpenToggle,
+      onSoftReset, onShowSurrenderAction, onShowExitConfirmAction, fmtTimeAction, playHoverAction,
+      interGameReadyVisible, waitingReadyWarmup } = props;
 
   const getName = (w: string | null) => winnerDisplayNameAction ? winnerDisplayNameAction(w) : (w ?? "");
   const showInterGameReady = interGameReadyVisible ?? (phase === "waiting_ready");
@@ -736,7 +734,7 @@ export function LeftPanel(props: MatchSidebarProps) {
     <div style={{ 
       width: panelW, 
       minWidth: panelW, 
-      maxWidth: panelW * 1.15, 
+      maxWidth: 300, 
       resize: "horizontal", 
       overflowX: "hidden", 
       flexShrink: 0, 
@@ -915,14 +913,6 @@ export function LeftPanel(props: MatchSidebarProps) {
               )}
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              {chatOpen && (
-                <button
-                  onClick={onChatFullscreenToggle}
-                  style={{ background: "none", border: `1px solid ${t.border}`, color: chatFullscreen ? t.accent : t.textSecondary, fontFamily: t.fontMono, fontSize: 11, cursor: "pointer", padding: "3px 8px", borderRadius: ip ? 2 : 6, letterSpacing: "0.06em" }}
-                >
-                  {chatFullscreen ? "EXIT FULL" : "FULL"}
-                </button>
-              )}
               <button onClick={onChatOpenToggle} style={{ background: "none", border: "none", color: t.text, fontFamily: t.fontMono, fontSize: 16, cursor: "pointer", padding: "2px 6px", flexShrink: 0 }}>{chatOpen ? "▾" : "▸"}</button>
             </div>
           </div>
@@ -933,9 +923,9 @@ export function LeftPanel(props: MatchSidebarProps) {
           style={{
             position: "absolute",
             zIndex: 20,
-            left: chatFullscreen ? 8 : 10,
-            right: chatFullscreen ? -Math.max(120, Math.round(panelW * 0.35)) : 10,
-            top: chatFullscreen ? 8 : "48%",
+            left: 10,
+            right: 10,
+            top: "48%",
             bottom: 66,
             background: "rgba(0,0,0,0.92)",
             border: `1px solid ${t.border}`,
@@ -976,7 +966,7 @@ export function RightPanel({ t, ip, p1c, p2c, panelW, phase, log, isRankedGame, 
   setScreenAction?: (s: Screen) => void; onShowExitConfirmAction: () => void; playHoverAction?: () => void;
 }) {
   return (
-    <div style={{ width: panelW, minWidth: panelW, maxWidth: panelW * 1.15, resize: "horizontal", overflowX: "hidden", direction: "rtl", flexShrink: 0, background: t.bgPanel, borderLeft: `${ip ? 3 : 1}px solid ${t.border}`, display: "flex", flexDirection: "column" }}>
+    <div style={{ width: panelW, minWidth: panelW, maxWidth: 300, resize: "horizontal", overflowX: "hidden", direction: "rtl", flexShrink: 0, background: t.bgPanel, borderLeft: `${ip ? 3 : 1}px solid ${t.border}`, display: "flex", flexDirection: "column" }}>
       <div style={{ direction: "ltr", padding: "18px 18px", display: "flex", flexDirection: "column", gap: 10, overflowY: "auto", flex: 1 }}>
         <div style={{ fontFamily: t.fontMono, fontSize: 20, fontWeight: 700, color: t.text, letterSpacing: "0.14em" }}>MOVE LOG</div>
         <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 4 }}>

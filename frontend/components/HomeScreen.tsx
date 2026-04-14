@@ -122,27 +122,7 @@ function getShardScatter(i: number, mode: "ai" | "lobby" | "training"): { tx: nu
   const rand2 = fract(Math.sin(i * 78.233 + 3.14159) * 43758.5453);
   const rand3 = fract(Math.sin(i * 45.164 + 2.71828) * 43758.5453);
 
-  if (mode === "lobby") {
-    // Red: Explosive outwards
-    const angle = (i / 10) * Math.PI * 2 + (rand1 * 0.5);
-    const dist = 60 + rand2 * 40;
-    return {
-      tx: Math.cos(angle) * dist,
-      ty: Math.sin(angle) * dist,
-      rot: (rand3 - 0.5) * 60,
-      delay: i * 0.012,
-    };
-  } else if (mode === "training") {
-    // Cyan: Falling downwards
-    return {
-      tx: (rand1 - 0.5) * 30,
-      ty: 80 + rand2 * 50,
-      rot: (rand3 - 0.5) * 30,
-      delay: i * 0.015,
-    };
-  }
-  
-  // Challenge (AI): Random chaotic scatter
+  // Chaotic scatter for all (original challenge behavior)
   const tx = (rand1 - 0.5) * 76;
   const ty = (rand2 - 0.5) * 76;
   const rot = (rand3 - 0.5) * 40;

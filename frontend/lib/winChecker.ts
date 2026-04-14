@@ -160,7 +160,7 @@ export function checkWin(
   if (line5) return { winner: player, line: line5 };
 
   // If no patterns selected (e.g. legacy or not yet initialized), default to standard 5x5 set
-  const activeIds = selectedPatternIds.length > 0 ? selectedPatternIds : ["V", "L", "ZZ-5"];
+  const activeIds = selectedPatternIds.length > 0 ? selectedPatternIds : ["V", "L", "ZZ-5", "T"];
   const lineS = checkStructuralPatterns(board, player, activeIds);
   if (lineS) return { winner: player, line: lineS };
 

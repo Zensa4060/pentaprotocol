@@ -647,7 +647,6 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   const [chatMessages, setChatMessages] = useState<{ from: "P1" | "P2"; text: string; ts: number }[]>([]);
   const [chatInput, setChatInput] = useState("");
   const [chatOpen, setChatOpen] = useState(false);
-  const [isChatFullscreen, setIsChatFullscreen] = useState(false);
   const [chatWarning, setChatWarning] = useState(false);
   const [unreadOpponentChat, setUnreadOpponentChat] = useState(0);
   const [chatToastVisible, setChatToastVisible] = useState(false);
@@ -3068,7 +3067,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   // ── Board sizing — must be before early returns so hooks below are unconditional ──
   const boardGap = ip ? 3 : 4;
   const boardPad = ip ? 3 : 4;
-  const panelW = 240;
+  const panelW = 276;
   const sidebarT = { ...t, pieces: t.pieces };
 
   const mobileCellSize = `calc((min(100vw, calc(100vh - 160px)) - ${(GRID_SIZE - 1) * boardGap + 2 * boardPad + 32}px) / ${GRID_SIZE})`;
@@ -4115,14 +4114,11 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
                 clearTimeout(chatToastTimerRef.current);
                 chatToastTimerRef.current = null;
               }
-            } else {
-              setIsChatFullscreen(false);
             }
             return next;
           });
         }}
-        chatFullscreen={isChatFullscreen}
-        onChatFullscreenToggle={() => setIsChatFullscreen(v => !v)}
+
         onSoftReset={softReset}
         onDismissOverlayAction={dismissOverlay}
         onRematchAction={() => { wsRef.current?.send(JSON.stringify({ type: "rematch" })); setRematchRequested(mySlot); }}

@@ -608,7 +608,7 @@ def _eval_flat(board, player, patterns, grid_size):
     score = 0
     opponent = "P2" if player == "P1" else "P1"
     target = grid_size
-    # Lines
+    # 1. Lines
     for dr, dc in [(0, 1), (1, 0), (1, 1), (1, -1)]:
         for r in range(grid_size):
             for c in range(grid_size):
@@ -618,9 +618,34 @@ def _eval_flat(board, player, patterns, grid_size):
                     v = board[(r + i*dr) * grid_size + (c + i*dc)]
                     if v == player: m += 1
                     elif v == opponent: o += 1
-                if m > 0 and o == 0: score += (m ** 4) * (15 if grid_size == 6 else 10)
-                elif o > 0 and m == 0: score -= (o ** 4) * (22 if grid_size == 6 else 15)
-    # Center
+                if m > 0 and o == 0: score += (m ** 4) * 10
+                elif o > 0 and m == 0: score -= (o ** 4) * 15
+
+    # 2. Structural Patterns
+    # Flattened evaluation for structural patterns
+    seen_groups = set()
+    for i in range(grid_size * grid_size):
+        if board[i] is None: continue
+        # Find which patterns this cell belongs to (approximate for speed in flat eval)
+        # Note: For full accuracy we'd need a cell_uses index like in 7x7, 
+        # but for 5x5 simple iteration over variants is often fast enough if pruned.
+        pass
+
+    # A better way for _eval_flat is to just reuse the _eval logic if possible, 
+    # but _eval expects a 2D board. Let's make _eval_flat more robust.
+    for pat in patterns:
+        max_r = max(dr for dr, _ in pat); max_c = max(dc for _, dc in pat)
+        for br in range(grid_size - max_r):
+            for bc in range(grid_size - max_c):
+                m, o = 0, 0
+                for dr, dc in pat:
+                    v = board[(br + dr) * grid_size + (bc + dc)]
+                    if v == player: m += 1
+                    elif v == opponent: o += 1
+                if m > 0 and o == 0: score += (m ** 4) * 10
+                elif o > 0 and m == 0: score -= (o ** 4) * 15
+
+    # 3. Center Bias
     center = grid_size // 2
     for i in range(grid_size * grid_size):
         if board[i] == player:

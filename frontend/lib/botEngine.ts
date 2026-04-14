@@ -71,7 +71,8 @@ function boardKey(board: Board): string {
 function wins(board: Board, r: number, c: number, player: string): boolean {
     const line5 = check5Line(board, r, c, player);
     if (line5) return true;
-    const lineS = checkStructuralPatterns(board, player, []);
+    const activeIds = Object.keys(ALL_VARIANTS_5);
+    const lineS = checkStructuralPatterns(board, player, activeIds);
     return lineS !== null;
 }
 

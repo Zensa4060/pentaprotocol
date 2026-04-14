@@ -20,9 +20,6 @@ const PATTERNS_6: Record<string, Coord[]> = {
   // Zigzag (ZZ): A1-B2-C1-D2-E1-F2
   ZZ: [[0, 0], [1, 1], [0, 2], [1, 3], [0, 4], [1, 5]],
 
-  // P-shape: A1-A2-A3-A4-B4-B3
-  P: [[0, 0], [1, 0], [2, 0], [3, 0], [3, 1], [2, 1]],
-
   // T shape: A1-B1-C1-B2-B3-B4
   T: [[0, 0], [0, 1], [0, 2], [1, 1], [2, 1], [3, 1]],
 
@@ -173,8 +170,7 @@ export function checkWin6(
   if (line6) return { winner: player, line: line6 };
 
   // If no patterns selected (e.g. legacy), default to standard 6x6 set
-  const rawIds = selectedPatternIds.length > 0 ? selectedPatternIds : ["ZZ", "P", "T", "L", "Y"];
-  const activeIds = rawIds.map((id) => (id === "J" ? "P" : id));
+  const activeIds = selectedPatternIds.length > 0 ? selectedPatternIds : ["ZZ", "T", "L", "Y"];
   const lineS = checkStructuralPatterns6(board, player, activeIds);
   if (lineS) return { winner: player, line: lineS };
 
