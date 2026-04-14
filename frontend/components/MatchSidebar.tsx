@@ -539,14 +539,6 @@ export function MatchSidebar({
               )}
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              {chatOpen && (
-                <button
-                  onClick={onChatFullscreenToggle}
-                  style={{ background: "none", border: `1px solid ${t.border}`, color: chatFullscreen ? t.accent : t.textSecondary, fontFamily: t.fontMono, fontSize: 11, cursor: "pointer", padding: "3px 8px", borderRadius: ip ? 2 : 6, letterSpacing: "0.06em" }}
-                >
-                  {chatFullscreen ? "EXIT FULL" : "FULL"}
-                </button>
-              )}
               <button onClick={onChatOpenToggle} style={{ background: "none", border: "none", color: t.text, fontFamily: t.fontMono, fontSize: 16, cursor: "pointer", padding: "2px 6px", flexShrink: 0 }}>{chatOpen ? "▾" : "▸"}</button>
             </div>
           </div>
