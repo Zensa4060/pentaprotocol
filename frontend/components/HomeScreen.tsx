@@ -235,8 +235,10 @@ function useScale() {
     const update = () => {
       const vw = window.innerWidth;
       const vh = window.innerHeight;
-      const scaleW = vw < 1300 ? vw / 1380 : 1;
-      const scaleH = vh < 850 ? (vh - 100) / 750 : 1;
+      // Fluid scaling: only start shrinking if we're actually running out of space
+      // based on a more reasonable baseline (1280x800)
+      const scaleW = vw < 1280 ? Math.max(0.65, vw / 1340) : 1;
+      const scaleH = vh < 800 ? Math.max(0.65, (vh - 60) / 740) : 1;
       setScale(Math.min(scaleW, scaleH, 1));
     };
     update();
@@ -265,25 +267,25 @@ export default function HomeScreen({ setScreenAction, themeId, onHoverAction, on
 
   const accent = themeId === "classic_light" || themeId === "classic_dark" ? "#CC0000" : t.accent;
 
-  const titleSize = isMobile
-    ? "clamp(35px, 10vw, 49px)"
-    : isTablet
-      ? "clamp(43px, 7vw, 67px)"
-      : ip ? "clamp(43px, 7vw, 95px)" : "clamp(43px, 7vw, 97px)";
-
-  const cardTitleSize = isMobile ? 24 : isTablet ? 28 : 34;
-  const cardSubSize = isMobile ? 18 : isTablet ? 20 : 22;
-  const cardPadding = isMobile ? "32px 26px" : "72px 40px";
-  const outerPadding = isMobile ? "30px 16px 30px" : isTablet ? "100px 24px 40px" : "80px 32px 48px";
-  const outerGap = isMobile ? 24 : isTablet ? 40 : 50;
+  const titleSize = "clamp(32px, 6.5vw, 92px)";
+  const cardTitleSize = "clamp(20px, 2.4vw, 34px)";
+  const cardSubSize = "clamp(15px, 1.4vw, 22px)";
+  
+  // Fluid padding and spacing
+  const cardPadding = isMobile ? "24px 20px" : "clamp(40px, 6vh, 72px) clamp(24px, 2.5vw, 40px)";
+  const outerPadding = isMobile ? "20px 16px" : "clamp(60px, 10vh, 100px) clamp(20px, 3vw, 48px)";
+  const outerGap = "clamp(24px, 5vh, 50px)";
 
   const cardsLayout: React.CSSProperties = {
     display: "flex",
     flexDirection: isMobile ? "column" : "row",
-    gap: isMobile ? 12 : 24,
+    flexWrap: isMobile ? "nowrap" : "wrap",
+    justifyContent: "center",
+    alignItems: "stretch",
+    gap: "clamp(12px, 2vw, 24px)",
     width: "100%",
-    maxWidth: 1380,
-    marginTop: isMobile ? "5vh" : "8vh",
+    maxWidth: 1400,
+    marginTop: isMobile ? "2vh" : "5vh",
   };
 
   const { user } = useAuthStore();

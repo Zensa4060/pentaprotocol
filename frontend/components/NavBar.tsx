@@ -21,7 +21,7 @@ import {
 
 export const RANKS = [
   { name: "UNRANKED",     min: -1,   max: -1,      color: "#FF33FF", img: undefined,        scale: 1     },
-  { name: "WOLF",         min: 0,    max: 500,  color: "#9CA3AF", img: "/novice.svg",       scale: 1.3   },
+  { name: "NOVICE",         min: 0,    max: 500,  color: "#9CA3AF", img: "/novice.svg",       scale: 1.3   },
   { name: "ADVANCED",     min: 500,  max: 1000, color: "#60A5FA", img: "/advanced.svg",     scale: 1.3   },
   { name: "PROFESSIONAL", min: 1000, max: 1500, color: "#A78BFA", img: "/professional.png?v=8", scale: 0.741   },
   { name: "EMERALD",      min: 1500, max: 2000, color: "#10B981", img: "/emerald.svg",      scale: 1.495 },
@@ -40,7 +40,7 @@ export const getRank = (elo: number, isPlacement: boolean = false) => {
  */
 export function rankGlowTierFraction(rank: { name: string }): number {
   const T: Record<string, number> = {
-    WOLF: 0.01,
+    NOVICE: 0.01,
     ADVANCED: 0.2,
     PROFESSIONAL: 0.4,
     EMERALD: 0.6,
@@ -381,6 +381,9 @@ export default function NavBar({
   const isMobile = vw < 640;
   const isTablet = vw >= 640 && vw < 1024;
   const isDesktop = vw >= 1024;
+  const isCompactDesktop = isDesktop && vw < 1320; // Compression zone
+  const isUltraWide = vw >= 2560; // 2K, 4K, 8K support
+
 
   // Scaled sizes
   const NAV_H       = isMobile ? 52 : isTablet ? 60 : 68;
@@ -410,6 +413,9 @@ export default function NavBar({
     const isHovered = hoveredBtn === target && !effectiveDisabled;
     const accentCol = isDanger ? t.danger : isClassic ? "#CC2200" : t.accent;
 
+    // Label Compression: Hide text labels for secondary items on small desktops
+    const hideLabel = isCompactDesktop && ["collection", "store", "patchNotes", "battlepass"].includes(target);
+
     const fg = effectiveDisabled
       ? `${t.textMuted}55`
       : (isActive || isHovered) ? accentCol
@@ -422,7 +428,7 @@ export default function NavBar({
         key={target}
         disabled={effectiveDisabled}
         type="button"
-        title={bc ? `${label} — ${bc} notification${bc === 1 ? "" : "s"}` : undefined}
+        title={bc || hideLabel ? `${label}${bc ? ` — ${bc}` : ""}` : undefined}
         onClick={() => { if (onClick) { onClick(); return; } if (targetScreen) navigate(targetScreen, locked); }}
         onMouseEnter={() => { onHoverAction?.(); setHoveredBtn(target); }}
         onMouseLeave={() => setHoveredBtn(null)}
@@ -434,11 +440,11 @@ export default function NavBar({
           fontFamily:    t.fontBody,
           fontSize:      BTN_FONT,
           fontWeight:    isActive ? 800 : isHovered ? 700 : 600,
-          padding:       isMobile ? "0 10px" : isTablet ? "0 12px" : "0 16px",
+          padding:       isMobile ? "0 10px" : isTablet ? "0 12px" : hideLabel ? "0 14px" : "0 16px",
           cursor:        effectiveDisabled ? "not-allowed" : "pointer",
           borderRadius:  0,
           letterSpacing: "0.06em",
-          transition:    "color 0.15s, border-color 0.15s, background 0.15s",
+          transition:    "color 0.15s, border-color 0.15s, background 0.15s, padding 0.2s",
           height:        NAV_H,
           display:       "flex", alignItems: "center",
           opacity:       effectiveDisabled ? 0.4 : locked ? 0.6 : 1,
@@ -447,12 +453,13 @@ export default function NavBar({
           textShadow:    (isActive || isHovered)
             ? `0 0 10px ${accentCol}, 0 0 20px ${accentCol}99, 0 0 40px ${accentCol}55`
             : `0 0 8px ${t.textSecondary}44`,
-          flexShrink: 0,
+          flexShrink: hideLabel ? 1 : 0,
         }}
       >
         <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
           {navCountPill(bc)}
-          {label.toUpperCase()}
+          {!hideLabel && label.toUpperCase()}
+          {hideLabel && label.charAt(0).toUpperCase()}
           {locked && (
             <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.8 }}>
               <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
@@ -615,9 +622,13 @@ export default function NavBar({
         {isDesktop && (
           <div style={{
             flex: 1, display: "flex", alignItems: "center", justifyContent: "center",
-            overflow: "hidden"
+            overflow: "hidden", minWidth: 0,
           }}>
-            <div style={{ display: "flex", alignItems: "center", flexWrap: "nowrap", gap: "2vw" }}>
+            <div style={{ 
+              display: "flex", alignItems: "center", flexWrap: "nowrap", 
+              gap: isUltraWide ? "3vw" : "clamp(6px, 1.2vw, 24px)",
+              transition: "gap 0.3s ease"
+            }}>
               {navBtn("patchNotes", "PATCH NOTES", false, false, undefined, "patchNotes", false, patchNoteBadge)}
               {navBtn("collection", "Collection", false, false, undefined, "collection", false, collectionNotifyBadge)}
               {navBtn("store",      "Store",      false, false, undefined, "store", false, storeNewBadge)}

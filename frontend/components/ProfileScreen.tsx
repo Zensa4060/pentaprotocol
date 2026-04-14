@@ -828,8 +828,8 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
                       <img 
                         src={r.img!} 
                         style={{ 
-                          width: ["WOLF", "ADVANCED", "EMERALD"].includes(r.name) ? 34 : 28, 
-                          height: ["WOLF", "ADVANCED", "EMERALD"].includes(r.name) ? 34 : 28, 
+                          width: ["NOVICE", "ADVANCED", "EMERALD"].includes(r.name) ? 34 : 28, 
+                          height: ["NOVICE", "ADVANCED", "EMERALD"].includes(r.name) ? 34 : 28, 
                           objectFit: "contain", 
                           filter: isActive ? `drop-shadow(0 0 8px ${r.color}aa)` : "none" 
                         }} 

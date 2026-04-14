@@ -3627,6 +3627,9 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                 return
 
             if not _room_connections.get(room_code):
+                # Both players gone - disband to prevent orphaned matches showing up on refresh/login
+                if room and room.get("game_status") not in ("disbanded", "finished"):
+                    await db.rooms.update_one({"room_code": room_code}, {"$set": {"game_status": "disbanded", "status": "disbanded"}})
                 _room_connections.pop(room_code, None)
                 _room_runtime.pop(room_code, None)
             else:

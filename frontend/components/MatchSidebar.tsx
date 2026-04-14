@@ -194,6 +194,19 @@ export function MatchSidebar({
   const useSnowflakeShard = pieceSkin === "snowflake_shard";
   const chatListRef = React.useRef<HTMLDivElement | null>(null);
 
+  const [vh, setVh] = React.useState(800);
+  React.useEffect(() => {
+    const update = () => setVh(window.innerHeight);
+    update();
+    window.addEventListener("resize", update);
+    return () => window.removeEventListener("resize", update);
+  }, []);
+
+  const isShorter = vh < 850;
+  const isVeryShort = vh < 720;
+  const densityGap = isVeryShort ? 6 : isShorter ? 10 : 14;
+  const headingSize = isVeryShort ? 16 : isShorter ? 18 : 20;
+
   React.useEffect(() => {
     if (!chatOpen) return;
     const el = chatListRef.current;
@@ -348,10 +361,25 @@ export function MatchSidebar({
 
   // ── Left panel ─────────────────────────────────────────────────────────────
   const leftPanel = (
-    <div style={{ width: panelW, minWidth: panelW, maxWidth: panelW * 1.15, resize: "horizontal", overflowX: "hidden", flexShrink: 0, background: t.bgPanel, borderRight: `${ip ? 3 : 1}px solid ${t.border}`, padding: "18px 18px", display: "flex", flexDirection: "column", gap: 14, overflowY: "auto", position: "relative" }}>
-      <div style={{ fontFamily: t.fontMono, fontSize: 20, fontWeight: 700, color: t.text, letterSpacing: "0.14em" }}>MATCH TIMER</div>
+    <div style={{ 
+      width: panelW, 
+      minWidth: panelW, 
+      maxWidth: panelW * 1.15, 
+      resize: "horizontal", 
+      overflowX: "hidden", 
+      flexShrink: 0, 
+      background: t.bgPanel, 
+      borderRight: `${ip ? 3 : 1}px solid ${t.border}`, 
+      padding: isShorter ? "12px 14px" : "18px 18px", 
+      display: "flex", 
+      flexDirection: "column", 
+      gap: densityGap, 
+      overflowY: "auto", 
+      position: "relative" 
+    }}>
+      <div style={{ fontFamily: t.fontMono, fontSize: headingSize, fontWeight: 700, color: t.text, letterSpacing: "0.14em" }}>MATCH TIMER</div>
       {(["P1", "P2"] as const).map(p => (
-        <div key={p} style={{ position: "relative", padding: "12px 14px", background: phase === "playing" && current === p ? `${p === "P1" ? p1c : p2c}22` : t.bgCard, border: `1px solid ${phase === "playing" && current === p ? (p === "P1" ? p1c : p2c) : t.border}`, borderRadius: ip ? 2 : 8, display: "flex", justifyContent: "space-between", alignItems: "center", transition: "background 0.25s, border-color 0.25s", overflow: "hidden" }}>
+        <div key={p} style={{ position: "relative", padding: isShorter ? "8px 10px" : "12px 14px", background: phase === "playing" && current === p ? `${p === "P1" ? p1c : p2c}22` : t.bgCard, border: `1px solid ${phase === "playing" && current === p ? (p === "P1" ? p1c : p2c) : t.border}`, borderRadius: ip ? 2 : 8, display: "flex", justifyContent: "space-between", alignItems: "center", transition: "background 0.25s, border-color 0.25s", overflow: "hidden" }}>
           {/* High-Contrast Banner Background */}
           <div style={{ 
             position: "absolute", inset: 0, opacity: 1, pointerEvents: "none", 
@@ -379,8 +407,8 @@ export function MatchSidebar({
         </div>
       ))}
 
-      <div style={{ borderTop: `1px solid ${t.border}`, paddingTop: 12 }}>
-        <div style={{ fontFamily: t.fontMono, fontSize: 20, fontWeight: 700, color: t.text, letterSpacing: "0.14em", marginBottom: 10 }}>MATCH HISTORY</div>
+      <div style={{ borderTop: `1px solid ${t.border}`, paddingTop: isShorter ? 8 : 12 }}>
+        <div style={{ fontFamily: t.fontMono, fontSize: headingSize, fontWeight: 700, color: t.text, letterSpacing: "0.14em", marginBottom: isShorter ? 6 : 10 }}>MATCH HISTORY</div>
 
         {(isMultiplayerGame || isMultiplayer) && typeof p1SeriesPts === "number" && typeof p2SeriesPts === "number" && (
           <div style={{ marginBottom: 12, padding: "10px 12px", background: `${t.accent}0C`, border: `1px solid ${t.accent}33`, borderRadius: ip ? 2 : 10 }}>
@@ -436,7 +464,7 @@ export function MatchSidebar({
             const isCur = absoluteGame === absoluteCurrentGame && (phase === "playing" || phase === "waiting_ready");
             return (
               <React.Fragment key={i}>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr auto", fontFamily: t.fontBody, fontSize: 22, padding: "6px 0", borderBottom: `1px solid ${t.border}22`, opacity: 1 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr auto", fontFamily: t.fontBody, fontSize: isVeryShort ? 16 : isShorter ? 19 : 22, padding: isShorter ? "4px 0" : "6px 0", borderBottom: `1px solid ${t.border}22`, opacity: 1 }}>
                   <span style={{ color: isCur ? t.accent : t.textMuted, transition: "color 0.2s" }}>G{absoluteGame}{isCur ? " *" : ""}</span>
                   <span style={{ color: col, fontWeight: result ? 700 : 400, transition: "color 0.2s" }}>{result || "—"}</span>
                 </div>
@@ -569,8 +597,18 @@ export function MatchSidebar({
 
   // ── Right panel ────────────────────────────────────────────────────────────
   const rightPanel = (
-    <div style={{ width: panelW, flexShrink: 0, background: t.bgPanel, borderLeft: `${ip ? 3 : 1}px solid ${t.border}`, padding: "18px 18px", display: "flex", flexDirection: "column", gap: 10, overflowY: "auto" }}>
-      <div style={{ fontFamily: t.fontMono, fontSize: 20, fontWeight: 700, color: t.text, letterSpacing: "0.14em" }}>MOVE LOG</div>
+    <div style={{ 
+      width: panelW, 
+      flexShrink: 0, 
+      background: t.bgPanel, 
+      borderLeft: `${ip ? 3 : 1}px solid ${t.border}`, 
+      padding: isShorter ? "12px 14px" : "18px 18px", 
+      display: "flex", 
+      flexDirection: "column", 
+      gap: densityGap, 
+      overflowY: "auto" 
+    }}>
+      <div style={{ fontFamily: t.fontMono, fontSize: headingSize, fontWeight: 700, color: t.text, letterSpacing: "0.14em" }}>MOVE LOG</div>
       <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 4 }}>
         {log.length === 0 ? <div style={{ fontFamily: t.fontBody, fontSize: 14, color: t.textMuted, fontStyle: "italic" }}>No moves yet</div> : log.slice().reverse().map((m, i) => <div key={i} style={{ fontFamily: t.fontMono, fontSize: 15, color: m.player === "P1" ? p1c : p2c, padding: "3px 0", borderBottom: `1px solid ${t.border}22` }}>{m.text}</div>)}
       </div>
@@ -682,8 +720,23 @@ export function LeftPanel(props: MatchSidebarProps) {
   };
 
   return (
-    <div style={{ width: panelW, minWidth: panelW, maxWidth: panelW * 1.15, resize: "horizontal", overflowX: "hidden", flexShrink: 0, background: t.bgPanel, borderRight: `${ip ? 3 : 1}px solid ${t.border}`, padding: "18px 18px", display: "flex", flexDirection: "column", gap: 14, overflowY: "auto", position: "relative" }}>
-      <div style={{ fontFamily: t.fontMono, fontSize: 20, fontWeight: 700, color: t.text, letterSpacing: "0.14em" }}>MATCH TIMER</div>
+    <div style={{ 
+      width: panelW, 
+      minWidth: panelW, 
+      maxWidth: panelW * 1.15, 
+      resize: "horizontal", 
+      overflowX: "hidden", 
+      flexShrink: 0, 
+      background: t.bgPanel, 
+      borderRight: `${ip ? 3 : 1}px solid ${t.border}`, 
+      padding: isShorter ? "12px 14px" : "18px 18px", 
+      display: "flex", 
+      flexDirection: "column", 
+      gap: densityGap, 
+      overflowY: "auto", 
+      position: "relative" 
+    }}>
+      <div style={{ fontFamily: t.fontMono, fontSize: headingSize, fontWeight: 700, color: t.text, letterSpacing: "0.14em" }}>MATCH TIMER</div>
       {(["P1", "P2"] as const).map(p => {
         const isCurrentMover = phase === "playing" && current === p;
         const bannerId = p === "P1" ? (p1Banner || "default") : (p2Banner || "default");
@@ -691,7 +744,6 @@ export function LeftPanel(props: MatchSidebarProps) {
         <div key={p} style={{ position: "relative", overflow: "hidden", borderRadius: ip ? 2 : 8, border: `1px solid ${isCurrentMover ? (p === "P1" ? p1c : p2c) : t.border}`, transition: "border-color 0.25s", background: t.bgCard }}>
           <div style={{ position: "absolute", inset: 0, opacity: 1, zIndex: 0, transition: "opacity 0.5s ease" }}>
             <BannerRenderer bannerId={bannerId} hideLabels={true} />
-            {/* Elegant glass mask to ensure text readability while letting banner colors pop */}
             <div style={{ 
               position: "absolute", 
               inset: 0, 
@@ -699,7 +751,7 @@ export function LeftPanel(props: MatchSidebarProps) {
               zIndex: 1 
             }} />
           </div>
-          <div style={{ position: "relative", zIndex: 2, padding: "12px 14px", background: isCurrentMover ? `${p === "P1" ? p1c : p2c}33` : "transparent", display: "flex", justifyContent: "space-between", alignItems: "center", transition: "background 0.25s" }}>
+          <div style={{ position: "relative", zIndex: 2, padding: isShorter ? "8px 10px" : "12px 14px", background: isCurrentMover ? `${p === "P1" ? p1c : p2c}33` : "transparent", display: "flex", justifyContent: "space-between", alignItems: "center", transition: "background 0.25s" }}>
           <span style={{ fontFamily: t.fontDisplay, fontSize: 13, color: p === "P1" ? p1c : p2c, fontWeight: 800, display: "flex", alignItems: "center", gap: 6, letterSpacing: "0.05em", textShadow: `0 2px 4px rgba(0,0,0,0.8)` }}>
             {
               (() => {
@@ -715,8 +767,8 @@ export function LeftPanel(props: MatchSidebarProps) {
         </div>
       )})}
 
-      <div style={{ borderTop: `1px solid ${t.border}`, paddingTop: 12 }}>
-        <div style={{ fontFamily: t.fontMono, fontSize: 19, fontWeight: 700, color: t.text, letterSpacing: "0.14em", marginBottom: 10 }}>MATCH HISTORY</div>
+      <div style={{ borderTop: `1px solid ${t.border}`, paddingTop: isShorter ? 8 : 12 }}>
+        <div style={{ fontFamily: t.fontMono, fontSize: headingSize - 1, fontWeight: 700, color: t.text, letterSpacing: "0.14em", marginBottom: isShorter ? 6 : 10 }}>MATCH HISTORY</div>
 
         {(isMultiplayerGame || isMultiplayer) && typeof p1SeriesPts === "number" && typeof p2SeriesPts === "number" && (
           <div style={{ marginBottom: 12, padding: "10px 12px", background: `${t.accent}0C`, border: `1px solid ${t.accent}33`, borderRadius: ip ? 2 : 10 }}>

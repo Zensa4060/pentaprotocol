@@ -11,7 +11,7 @@ from datetime import datetime
 router = APIRouter()
 
 def get_rank(elo: int) -> str:
-    if elo < 500:  return "WOLF"
+    if elo < 500:  return "NOVICE"
     if elo < 1000: return "ADVANCED"
     if elo < 1500: return "PROFESSIONAL"
     if elo < 2000: return "EMERALD"

@@ -483,12 +483,18 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
 
   // ── Responsive ───────────────────────────────────────────────────────────
   const [isMobile, setIsMobile] = useState(false);
+  const [vh, setVh] = useState(850);
   useEffect(() => {
-    const check = () => setIsMobile(window.innerWidth < 768);
+    const check = () => {
+      setIsMobile(window.innerWidth < 768);
+      setVh(window.innerHeight);
+    };
     check();
     window.addEventListener("resize", check);
     return () => window.removeEventListener("resize", check);
   }, []);
+  const isShorter = vh < 850;
+
 
   const [showSplash, setShowSplash] = useState(!!isSingleplayer);
 
@@ -4186,14 +4192,14 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
       )}
 
       {/* BOARD */}
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 10, padding: "10px 0", minWidth: 0 }}>
-        <div style={{ height: 36, display: "flex", alignItems: "center", justifyContent: "center", gap: 16, width: "100%", position: "relative", paddingLeft: "2%" }}>
-          <div style={{ fontFamily: t.fontMono, fontSize: 11, letterSpacing: "0.08em", background: c3Blocked ? `${t.danger}10` : `${t.gold}10`, border: `1px solid ${c3Blocked ? t.danger : t.gold}33`, borderRadius: 6, padding: "3px 14px", color: c3Blocked ? t.danger : t.gold, flexShrink: 0, visibility: phase === "playing" && movesPlayed === 0 && !(GRID_SIZE === 7 && suppressCenterOpening) && GRID_SIZE !== 6 ? "visible" : "hidden", opacity: phase === "playing" && movesPlayed === 0 && !(GRID_SIZE === 7 && suppressCenterOpening) && GRID_SIZE !== 6 ? 1 : 0, transition: "opacity 0.4s ease", pointerEvents: "none" }}>
-            {c3Blocked ? "✕ Center (C3) is blocked this game" : "★ Playing center gives opponent 2 extra turns"}
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: isShorter ? 6 : 10, padding: isShorter ? "4px 0" : "10px 0", minWidth: 0 }}>
+        <div style={{ height: isShorter ? 32 : 36, display: "flex", alignItems: "center", justifyContent: "center", gap: 16, width: "100%", position: "relative", paddingLeft: "2%" }}>
+          <div style={{ fontFamily: t.fontMono, fontSize: 11, letterSpacing: "0.08em", background: c3Blocked ? `${t.danger}10` : `${t.gold}10`, border: `1px solid ${c3Blocked ? t.danger : t.gold}33`, borderRadius: 6, padding: isShorter ? "2px 10px" : "3px 14px", color: c3Blocked ? t.danger : t.gold, flexShrink: 0, visibility: phase === "playing" && movesPlayed === 0 && !(GRID_SIZE === 7 && suppressCenterOpening) && GRID_SIZE !== 6 ? "visible" : "hidden", opacity: phase === "playing" && movesPlayed === 0 && !(GRID_SIZE === 7 && suppressCenterOpening) && GRID_SIZE !== 6 ? 1 : 0, transition: "opacity 0.4s ease", pointerEvents: "none" }}>
+            {c3Blocked ? "✕ Center (C3) is blocked" : "★ Center = 2 extra turns"}
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 20px", background: `${winner ? winnerColor : cc}14`, border: `${ip ? 3 : 1}px solid ${winner ? winnerColor : cc}`, borderRadius: ip ? 2 : 24, transition: "background 0.25s, border-color 0.25s", flexShrink: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, padding: isShorter ? "4px 16px" : "8px 20px", background: `${winner ? winnerColor : cc}14`, border: `${ip ? 3 : 1}px solid ${winner ? winnerColor : cc}`, borderRadius: ip ? 2 : 24, transition: "background 0.25s, border-color 0.25s", flexShrink: 0 }}>
             <div style={{ width: 8, height: 8, borderRadius: ip ? 0 : "50%", background: winner ? winnerColor : cc, transition: "background 0.25s" }} />
-            <span style={{ fontFamily: t.fontDisplay, fontSize: ip ? 11 : 15, fontWeight: 700, color: winner ? winnerColor : cc, transition: "color 0.25s" }}>
+            <span style={{ fontFamily: t.fontDisplay, fontSize: isShorter ? 13 : 15, fontWeight: 700, color: winner ? winnerColor : cc, transition: "color 0.25s" }}>
               {winner
                 ? (winner === "DRAW" ? "⚖ DRAW" : `${winnerPiece} ${winnerDisplayName(winner)} WINS`)
                 : extraTurns > 0
