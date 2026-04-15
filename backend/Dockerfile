@@ -74,5 +74,8 @@ ENV PYTHONUNBUFFERED=1 \
 
 EXPOSE 8000
 
-# Railway injects $PORT at runtime. Fall back to 8000 for local docker run.
-CMD ["sh", "-c", "exec uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000}"]
+# Use a startup script so Railway cannot bypass shell expansion by reinterpreting CMD.
+# The script reads $PORT directly from the environment; falls back to 8000 locally.
+COPY start.sh /app/start.sh
+RUN chmod +x /app/start.sh
+CMD ["/app/start.sh"]
