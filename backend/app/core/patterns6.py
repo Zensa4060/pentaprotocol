@@ -36,5 +36,6 @@ def generate_variants_6(pattern):
 def generate_all_patterns_6():
     patterns = []
     for name in PATTERN_NAMES_6:
-        patterns.extend(generate_variants_6(BASE_PATTERNS_6[name]))
+        if name in BASE_PATTERNS_6:
+            patterns.extend(generate_variants_6(BASE_PATTERNS_6[name]))
     return patterns
