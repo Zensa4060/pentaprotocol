@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep -E \"\\\\.\\(md|txt|json|toml\\)$\")",
+      "Bash(find *)"
+    ]
+  }
+}
