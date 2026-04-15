@@ -10,10 +10,12 @@
 FROM python:3.13-slim AS builder
 
 # System build deps:
-#   gcc  → C linker required by maturin to link the .so
-#   curl → needed to download rustup installer
+#   build-essential → gcc + libc6-dev (provides crti.o, crtn.o, Scrt1.o, -lc, -lm, etc.)
+#                     Rust's lld linker needs the C runtime startup files to link PyO3 extensions.
+#                     gcc alone on Debian slim does NOT pull in libc6-dev; build-essential does.
+#   curl            → rustup installer
 RUN apt-get update \
- && apt-get install -y --no-install-recommends gcc curl \
+ && apt-get install -y --no-install-recommends build-essential curl \
  && rm -rf /var/lib/apt/lists/*
 
 # Install Rust stable (minimal profile = rustc + cargo, no docs/clippy/etc.)
