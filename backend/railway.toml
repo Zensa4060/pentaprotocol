@@ -1,6 +1,6 @@
 [build]
 builder = "nixpacks"
-buildCommand = "pip install maturin && pip install rust_engine/"
+buildCommand = ".venv/bin/pip install maturin && .venv/bin/pip install rust_engine/"
 
 [deploy]
 startCommand = "uvicorn main:app --host 0.0.0.0 --port 8080"

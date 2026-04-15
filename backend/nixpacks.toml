@@ -2,10 +2,16 @@
 nixPkgs = ["python313", "python313Packages.pip", "rustc", "cargo", "gcc"]
 
 [phases.install]
-cmds = ["pip install -r requirements.txt"]
+cmds = [
+  "python -m venv .venv",
+  ".venv/bin/pip install -r requirements.txt"
+]
 
 [phases.build]
-cmds = ["pip install maturin && pip install rust_engine/"]
+cmds = [
+  ".venv/bin/pip install maturin",
+  ".venv/bin/pip install rust_engine/"
+]
 
 [start]
-cmd = "uvicorn main:app --host 0.0.0.0 --port 8080"
+cmd = ".venv/bin/uvicorn main:app --host 0.0.0.0 --port 8080"
