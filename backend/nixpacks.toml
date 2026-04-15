@@ -1,13 +1,12 @@
 [phases.setup]
-# Install Rust toolchain + C linker (required by maturin to compile the PyO3 extension)
 nixPkgs = ["rustc", "cargo", "gcc"]
 
 [phases.install]
 cmds = [
-    "pip install -r requirements.txt",
     "pip install maturin",
-    "pip install rust_engine/"
+    "pip install rust_engine/",
+    "pip install -r requirements.txt"
 ]
 
 [start]
-cmd = "uvicorn main:app --host 0.0.0.0 --port $PORT"
+cmd = "uvicorn main:app --host 0.0.0.0 --port 8080"
