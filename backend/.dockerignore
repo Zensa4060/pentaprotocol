@@ -1,0 +1,31 @@
+# Rust build artifacts (187 MB of Windows DLLs — never needed in the image)
+rust_engine/target/
+
+# Python cache
+__pycache__/
+**/__pycache__/
+*.pyc
+*.pyo
+
+# Windows-compiled Rust binaries (wrong platform, would shadow the Linux .so)
+*.dll
+*.pyd
+
+# Local environment files (secrets must come from Railway env vars, not files)
+.env
+.env.local
+.env.*.local
+
+# Dev/test scripts not needed at runtime
+scratch/
+test_results*.txt
+server_log.txt
+debug_*.py
+verify_*.py
+migrate_*.py
+reset.py
+scratch_*.py
+
+# Node artifacts (frontend tooling leaked into backend dir)
+node_modules/
+package-lock.json
