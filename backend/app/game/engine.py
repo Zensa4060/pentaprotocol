@@ -45,29 +45,44 @@ class GameEngine:
                 if selected_pattern_ids_p2 is not None
                 else base
             )
-            self.shiftable_patterns_p1 = generate_all_patterns_7(p1)
-            self.shiftable_patterns_p2 = generate_all_patterns_7(p2)
+            # Generate structural patterns (shapes only — LINE/DIAGONAL are in win_checker)
+            self.shiftable_patterns_p1 = generate_all_patterns_7([x for x in p1 if x not in ("LINE", "DIAGONAL")])
+            self.shiftable_patterns_p2 = generate_all_patterns_7([x for x in p2 if x not in ("LINE", "DIAGONAL")])
             # Back-compat: default structural set (P1) for any code reading .shiftable_patterns
             self.shiftable_patterns = self.shiftable_patterns_p1
-            self.selected_pattern_ids = selected_pattern_ids or []
+            self.selected_pattern_ids = base
             self.selected_pattern_ids_p1 = p1
             self.selected_pattern_ids_p2 = p2
             self.chain_target = 20
         elif board_mode == "6x6":
             self.GRID_SIZE = 6
-            self.CENTER = 2.5 # No single center cell
+            self.CENTER = 2.5  # No single center cell
+            from app.core.patterns6 import PATTERN_NAMES_6
+            base6 = (
+                list(selected_pattern_ids)
+                if isinstance(selected_pattern_ids, list) and len(selected_pattern_ids) > 0
+                else list(PATTERN_NAMES_6)
+            )
+            # Structural patterns only (shapes; LINE/DIAGONAL handled in win_checker)
             self.shiftable_patterns = generate_all_patterns_6()
-            self.selected_pattern_ids = None
-            self.selected_pattern_ids_p1 = None
-            self.selected_pattern_ids_p2 = None
+            self.selected_pattern_ids = base6
+            self.selected_pattern_ids_p1 = base6
+            self.selected_pattern_ids_p2 = base6
             self.chain_target = 15
         else:
             self.GRID_SIZE = 5
             self.CENTER = 2
-            self.shiftable_patterns = generate_all_patterns()
-            self.selected_pattern_ids = None
-            self.selected_pattern_ids_p1 = None
-            self.selected_pattern_ids_p2 = None
+            from app.core.patterns import PATTERN_NAMES_5, generate_all_patterns_5
+            base5 = (
+                list(selected_pattern_ids)
+                if isinstance(selected_pattern_ids, list) and len(selected_pattern_ids) > 0
+                else list(PATTERN_NAMES_5)
+            )
+            # Structural patterns only (shapes; LINE/DIAGONAL handled in win_checker)
+            self.shiftable_patterns = generate_all_patterns_5([x for x in base5 if x not in ("LINE", "DIAGONAL")])
+            self.selected_pattern_ids = base5
+            self.selected_pattern_ids_p1 = base5
+            self.selected_pattern_ids_p2 = base5
             self.chain_target = 10
 
         self.reset()
@@ -120,21 +135,29 @@ class GameEngine:
             self.extra_turns = 2         # opponent gets 2 extra turns
             return {"success": True, "winner": None, "extra_turns": 2}
 
-        # ── Win checks ──
+        # ── Win checks (LINE/DIAGONAL conditional on selected_patterns) ──
         if self.board_mode == "7x7":
+            player_patterns = (
+                self.selected_pattern_ids_p1
+                if stone_owner == "P1"
+                else self.selected_pattern_ids_p2
+            )
             win, line = check_7_line(
                 self.board, row, col, stone_owner,
-                self.DIRECTIONS, self.GRID_SIZE
+                self.DIRECTIONS, self.GRID_SIZE,
+                selected_patterns=player_patterns,
             )
         elif self.board_mode == "6x6":
             win, line = check_6_line(
                 self.board, row, col, stone_owner,
-                self.DIRECTIONS, self.GRID_SIZE
+                self.DIRECTIONS, self.GRID_SIZE,
+                selected_patterns=self.selected_pattern_ids,
             )
         else:
             win, line = check_5_line(
                 self.board, row, col, stone_owner,
-                self.DIRECTIONS, self.GRID_SIZE
+                self.DIRECTIONS, self.GRID_SIZE,
+                selected_patterns=self.selected_pattern_ids,
             )
         if win:
             self.winner = stone_owner

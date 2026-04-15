@@ -14,19 +14,21 @@ const DIRS: Coord[] = [
   [-1, -1], [-1, 1], [1, -1], [1, 1],
 ];
 
-// ── 6 Base Patterns (0-indexed offsets) ──
-// Each pattern has 7 cells.
+const LINE_DIRS: Coord[] = [[1, 0], [0, 1]];   // horizontal + vertical
+const DIAG_DIRS: Coord[] = [[1, 1], [1, -1]];  // both diagonals
+
+// ── Base Patterns (0-indexed offsets) ──
+// Each pattern has 7 cells. W removed (same as zigzag).
 const BASE_PATTERNS_7: Record<string, Coord[]> = {
   Y:      [[0,0],[1,1],[2,2],[2,3],[2,4],[3,1],[4,0]],
   L:      [[0,0],[0,1],[0,2],[0,3],[1,3],[2,3],[3,3]],
-  W:      [[0,0],[1,1],[2,2],[3,1],[4,2],[5,1],[6,0]],
   V:      [[0,0],[1,1],[2,2],[3,3],[4,2],[5,1],[6,0]],
   C:      [[0,0],[0,1],[0,2],[1,0],[2,0],[1,2],[2,2]],
   zigzag: [[0,0],[1,1],[2,0],[3,1],[4,0],[5,1],[6,0]],
   T:      [[0,0],[0,1],[0,2],[0,3],[0,4],[1,2],[2,2]],
 };
 
-export const PATTERN_NAMES_7 = ["Y", "L", "W", "V", "C", "zigzag", "T"] as const;
+export const PATTERN_NAMES_7 = ["Y", "L", "V", "C", "zigzag", "T", "LINE", "DIAGONAL"] as const;
 export type PatternName7 = typeof PATTERN_NAMES_7[number];
 /** Minimum count of special patterns players must enable to start a 7×7 game (max is 6). */
 export const MIN_SELECTED_PATTERNS_7X7 = 5;
@@ -61,10 +63,12 @@ function generateVariants(pattern: Coord[]): Coord[][] {
   return result;
 }
 
-// Pre-generate all variants for all 6 patterns
+// Pre-generate all variants for structural patterns (excludes LINE/DIAGONAL handled separately)
 const ALL_PATTERN_VARIANTS: Record<string, Coord[][]> = {};
 for (const name of PATTERN_NAMES_7) {
-  ALL_PATTERN_VARIANTS[name] = generateVariants(BASE_PATTERNS_7[name]);
+  if (BASE_PATTERNS_7[name]) {
+    ALL_PATTERN_VARIANTS[name] = generateVariants(BASE_PATTERNS_7[name]);
+  }
 }
 
 /** Get pattern variants for selected pattern names/indices */
@@ -80,8 +84,17 @@ export function getSelectedPatterns(selectedIds: (number | string)[]): Coord[][]
 }
 
 // ─── 7-in-a-line ───
-export function check7Line(board: Board, r: number, c: number, player: string): Coord[] | null {
-  for (const [dr, dc] of DIRS) {
+export function check7Line(board: Board, r: number, c: number, player: string, selectedPatterns?: string[]): Coord[] | null {
+  let activeDirs: Coord[];
+  if (!selectedPatterns || selectedPatterns.length === 0) {
+    activeDirs = [...LINE_DIRS, ...DIAG_DIRS];
+  } else {
+    activeDirs = [];
+    if (selectedPatterns.includes("LINE")) activeDirs.push(...LINE_DIRS);
+    if (selectedPatterns.includes("DIAGONAL")) activeDirs.push(...DIAG_DIRS);
+    if (activeDirs.length === 0) return null;
+  }
+  for (const [dr, dc] of activeDirs) {
     const line: Coord[] = [[r, c]];
     for (const sign of [1, -1] as const) {
       let rr = r + sign * dr;
@@ -184,12 +197,17 @@ export function checkWin7(
   movesPlayed: number,
   selectedPatternIds: (number | string)[]
 ): { winner: string; line: Coord[]; connectionScores?: { p1: number; p2: number } } | null {
-  const line7 = check7Line(board, r, c, player);
+  const ids = selectedPatternIds.map(id => typeof id === "number" ? PATTERN_NAMES_7[id] : id) as string[];
+  const line7 = check7Line(board, r, c, player, ids.length > 0 ? ids : undefined);
   if (line7) return { winner: player, line: line7 };
 
   // For 7x7, we check for structural patterns from the provided list.
-  // The caller (GameScreen) is responsible for filtering out banned patterns if in Rulebreaker mode.
-  const patterns = getSelectedPatterns(selectedPatternIds);
+  // LINE and DIAGONAL are handled by check7Line above, not as structural shapes.
+  const structuralIds = selectedPatternIds.filter(id => {
+    const name = typeof id === "number" ? PATTERN_NAMES_7[id] : id;
+    return name !== "LINE" && name !== "DIAGONAL";
+  });
+  const patterns = getSelectedPatterns(structuralIds);
   const lineS = checkStructuralPatterns7(board, player, patterns, r, c);
   if (lineS) return { winner: player, line: lineS };
 

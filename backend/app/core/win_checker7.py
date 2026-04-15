@@ -3,12 +3,31 @@ from app.core.win_checker import find_path
 
 # ================= 7 IN A LINE =================
 
-def check_7_line(board, r, c, player, directions, grid_size=7):
+_LINE_DIRS_7 = [(1, 0), (0, 1)]
+_DIAG_DIRS_7 = [(1, 1), (1, -1)]
+_ALL_DIRS_7  = _LINE_DIRS_7 + _DIAG_DIRS_7
+
+
+def check_7_line(board, r, c, player, directions, grid_size=7, selected_patterns=None):
     """
     Check whether placing at (r, c) completes a 7-in-a-line for player.
+    When selected_patterns is provided, only active directions are checked:
+      - "LINE"     → horizontal and vertical
+      - "DIAGONAL" → both diagonal axes
     Returns (True, line_coords) on win, (False, []) otherwise.
     """
-    for dr, dc in directions:
+    if selected_patterns is None:
+        active = _ALL_DIRS_7
+    else:
+        active = []
+        if "LINE" in selected_patterns:
+            active.extend(_LINE_DIRS_7)
+        if "DIAGONAL" in selected_patterns:
+            active.extend(_DIAG_DIRS_7)
+        if not active:
+            return False, []
+
+    for dr, dc in active:
         count = 1
         line = [(r, c)]
 

@@ -155,6 +155,10 @@ interface MatchSidebarProps {
   interGameReadyVisible?: boolean;
   /** Multiplayer: first ~1s after entering waiting_ready — muted “Get ready…” row. */
   waitingReadyWarmup?: boolean;
+  /** Singleplayer/AI: whether the pattern overlay is currently visible. */
+  showPatternOverlay?: boolean;
+  /** Singleplayer/AI: callback to toggle the pattern overlay. */
+  onTogglePatternOverlay?: () => void;
 }
 
 // ─── Separate named exports so GameScreen can render panels individually ──────
@@ -168,7 +172,8 @@ export function LeftPanel(props: MatchSidebarProps) {
     p1Label, p2Label, p1Banner, p2Banner, winnerDisplayNameAction, lastSeries, segmentStartIndex = 0, historyDisplayStartIndex = 0,
       onReadyToggle, onSendChat, onChatInputChange, onChatKeyDown, onChatOpenToggle,
       onSoftReset, onShowSurrenderAction, onShowExitConfirmAction, fmtTimeAction, playHoverAction,
-      interGameReadyVisible, waitingReadyWarmup } = props;
+      interGameReadyVisible, waitingReadyWarmup,
+      showPatternOverlay, onTogglePatternOverlay } = props;
 
   const getName = (w: string | null) => winnerDisplayNameAction ? winnerDisplayNameAction(w) : (w ?? "");
   const showInterGameReady = interGameReadyVisible ?? (phase === "waiting_ready");
@@ -433,6 +438,29 @@ export function LeftPanel(props: MatchSidebarProps) {
         <div style={{ textAlign: "center", animation: "fadeUp 0.3s ease both" }}>
           <div style={{ fontFamily: t.fontDisplay, fontSize: 16, fontWeight: 700, color: t.gold, marginBottom: 10 }}>{seriesWinner === "DRAW" ? "FULL MATCH DRAW — NO WINNER" : `${getName(seriesWinner)} WINS!`}</div>
           <button onClick={onSoftReset} style={{ background: `${t.accent}18`, border: `1px solid ${t.accent}`, color: t.accent, fontFamily: t.fontMono, fontSize: 13, padding: "10px 18px", borderRadius: ip ? 2 : 6, cursor: "pointer", transition: "all 0.2s" }}>NEW MATCH</button>
+        </div>
+      )}
+      {!isMultiplayerGame && selectedPatterns && selectedPatterns.length > 0 && onTogglePatternOverlay && (
+        <div style={{ marginTop: "auto", borderTop: `1px solid ${t.border}`, paddingTop: 12 }}>
+          <button
+            onClick={onTogglePatternOverlay}
+            style={{
+              width: "100%",
+              background: showPatternOverlay ? `${t.accent}22` : "rgba(255,255,255,0.04)",
+              border: `1px solid ${showPatternOverlay ? t.accent : t.border}`,
+              color: showPatternOverlay ? t.accent : t.textSecondary,
+              fontFamily: t.fontMono,
+              fontSize: 13,
+              fontWeight: 700,
+              letterSpacing: "0.08em",
+              padding: "10px 0",
+              borderRadius: ip ? 2 : 8,
+              cursor: "pointer",
+              transition: "all 0.2s",
+            }}
+          >
+            {showPatternOverlay ? "HIDE PATTERNS" : "SHOW PATTERNS"}
+          </button>
         </div>
       )}
       {isMultiplayerGame && (phase === "playing" || phase === "waiting_ready") && (

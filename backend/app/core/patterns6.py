@@ -11,7 +11,8 @@ BASE_PATTERNS_6 = {
     "Y": [(0, 0), (1, 1), (2, 0), (1, 2), (1, 3), (1, 4)],
 }
 
-PATTERN_NAMES_6 = ["ZZ", "T", "L", "Y"]
+# Full selectable pool for 6×6: 4 shapes + straight-line + diagonal = 6 total (all always selected)
+PATTERN_NAMES_6 = ["ZZ", "T", "L", "Y", "LINE", "DIAGONAL"]
 
 
 def generate_variants_6(pattern):

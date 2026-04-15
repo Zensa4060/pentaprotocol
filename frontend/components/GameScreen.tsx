@@ -1,6 +1,8 @@
 "use client";
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { unstable_batchedUpdates } from "react-dom";
+import { PATTERN_METADATA_5, PATTERN_METADATA_6, PATTERN_METADATA_7, CORE_RULES_METADATA_5, CORE_RULES_METADATA_6, CORE_RULES_METADATA_7 } from "@/lib/patterns_metadata";
+import PatternDiagram from "./PatternDiagram";
 import { ThemeId, THEMES } from "@/lib/themes";
 import { checkWin, Coord } from "@/lib/winChecker";
 import { checkWin7 } from "@/lib/winChecker7";
@@ -615,6 +617,24 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   const [winner, setWinner] = useState<string | null>(null);
   const [winLine, setWinLine] = useState<Coord[]>([]);
   const [showWinOverlay, setShowWinOverlay] = useState(false);
+  // Pattern overlay — show active patterns during game; toggle persisted for session
+  const [showPatternOverlay, setShowPatternOverlay] = useState(() => {
+    try { return sessionStorage.getItem("patternOverlayVisible") === "true"; } catch { return false; }
+  });
+  const togglePatternOverlay = () => setShowPatternOverlay(v => {
+    const next = !v;
+    try { sessionStorage.setItem("patternOverlayVisible", String(next)); } catch {}
+    return next;
+  });
+  // Board zoom — 2× bigger board for multiplayer; toggle persisted for session
+  const [boardZoom, setBoardZoom] = useState(() => {
+    try { return sessionStorage.getItem("boardZoomActive") === "true"; } catch { return false; }
+  });
+  const toggleBoardZoom = () => setBoardZoom(v => {
+    const next = !v;
+    try { sessionStorage.setItem("boardZoomActive", String(next)); } catch {}
+    return next;
+  });
   const [gameId, setGameId] = useState<string | null>(null);
   const [movesPlayed, setMovesPlayed] = useState(0);
   const [extraTurns, setExtraTurns] = useState(0);
@@ -2647,8 +2667,8 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     const result = GRID_SIZE === 7
       ? checkWin7(nb, r, c, stoneOwner, newMoves, patBot)
       : GRID_SIZE === 6
-        ? checkWin6(nb, r, c, stoneOwner, newMoves)
-        : checkWin(nb, r, c, stoneOwner, newMoves);
+        ? checkWin6(nb, r, c, stoneOwner, newMoves, patBot)
+        : checkWin(nb, r, c, stoneOwner, newMoves, patBot);
     setBoard(nb); setMovesPlayed(newMoves); addLog(r, c, playerWhoMoved);
     if (result) { setExtraTurns(0); setWinLine(result.line); setWinner(result.winner); }
     else { setExtraTurns(newExtra); setCurrent(nextPlayer); }
@@ -3073,7 +3093,8 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   const mobileCellSize = `calc((min(100vw, calc(100vh - 160px)) - ${(GRID_SIZE - 1) * boardGap + 2 * boardPad + 32}px) / ${GRID_SIZE})`;
   const panelTotal = panelW * 2;
   const desktopCellSize = `calc((min(calc(100vw - ${panelTotal}px - 34px), calc(100vh - 164px)) - ${(GRID_SIZE - 1) * boardGap + 2 * boardPad + 6}px) / ${GRID_SIZE})`;
-  const bigCs = isMobile ? mobileCellSize : desktopCellSize;
+  const bigCsBase = isMobile ? mobileCellSize : desktopCellSize;
+  const bigCs = isMultiplayerGame && boardZoom ? `calc(${bigCsBase} * 2)` : bigCsBase;
 
   // Memoize the board grid JSX — skips full recompute on timer ticks (p1Time/p2Time changes)
   // Only recomputes when actual board data changes
@@ -3114,7 +3135,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     </div>
     // recompute when board, hover, win state, or skin changes — NOT on timer ticks
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  ), [board, hover, winLine, winner, phase, c3Blocked, movesPlayed, bigCs, GRID_SIZE,
+  ), [board, hover, winLine, winner, phase, c3Blocked, movesPlayed, bigCs, boardZoom, GRID_SIZE,
     p1c, p2c, cc, current, rb6SpecialCell, isRedBoard, isIceBoard, isGlacierBoard, useFlameSkull, useSnowflakeShard, useGlacierSigils,
     rulesShowSheet, show7x7LevelUp, show6x6LevelUp, rulesMatchGate]);
 
@@ -3536,6 +3557,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
         {rulesShowSheet !== null && (
           <RuleshowScreen
             sheet={rulesShowSheet}
+            selectedPatterns={liveSelectedPatterns.length > 0 ? liveSelectedPatterns : undefined}
             t={{
               accent: t.accent,
               border: t.border,
@@ -4136,6 +4158,8 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
         playClickAction={playClickAction}
         interGameReadyVisible={interGameReadyVisible}
         waitingReadyWarmup={waitingReadyWarmup}
+        showPatternOverlay={showPatternOverlay}
+        onTogglePatternOverlay={!isMultiplayerGame ? togglePatternOverlay : undefined}
       />
 
       {isMultiplayerGame && chatToastVisible && unreadOpponentChat > 0 && (
@@ -4188,7 +4212,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
       )}
 
       {/* BOARD */}
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: isShorter ? 6 : 10, padding: isShorter ? "4px 0" : "10px 0", minWidth: 0 }}>
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: isMultiplayerGame && boardZoom ? "flex-start" : "center", gap: isShorter ? 6 : 10, padding: isShorter ? "4px 0" : "10px 0", minWidth: 0, overflow: isMultiplayerGame && boardZoom ? "auto" : "hidden" }}>
         <div style={{ height: isShorter ? 32 : 36, display: "flex", alignItems: "center", justifyContent: "center", gap: 16, width: "100%", position: "relative", paddingLeft: "2%" }}>
           <div style={{ fontFamily: t.fontMono, fontSize: 11, letterSpacing: "0.08em", background: c3Blocked ? `${t.danger}10` : `${t.gold}10`, border: `1px solid ${c3Blocked ? t.danger : t.gold}33`, borderRadius: 6, padding: isShorter ? "2px 10px" : "3px 14px", color: c3Blocked ? t.danger : t.gold, flexShrink: 0, visibility: phase === "playing" && movesPlayed === 0 && !(GRID_SIZE === 7 && suppressCenterOpening) && GRID_SIZE !== 6 ? "visible" : "hidden", opacity: phase === "playing" && movesPlayed === 0 && !(GRID_SIZE === 7 && suppressCenterOpening) && GRID_SIZE !== 6 ? 1 : 0, transition: "opacity 0.4s ease", pointerEvents: "none" }}>
             {c3Blocked ? "✕ Center (C3) is blocked" : "★ Center = 2 extra turns"}
@@ -4224,6 +4248,178 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
         onShowExitConfirmAction={() => { playClickAction?.(); pausedRef.current = true; setShowExitConfirm(true); }}
         playHoverAction={playHoverAction}
       />
+
+      {/* ── Multiplayer: pattern + zoom buttons in the NavBar area ── */}
+      {isMultiplayerGame && liveSelectedPatterns.length > 0 && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: "50%",
+            transform: "translateX(-50%)",
+            height: 64,
+            zIndex: 201,
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            pointerEvents: "auto",
+          }}
+        >
+          <button
+            onClick={togglePatternOverlay}
+            title={showPatternOverlay ? "Hide patterns" : "Show active patterns"}
+            style={{
+              background: showPatternOverlay ? t.accent : "rgba(255,255,255,0.1)",
+              border: `2px solid ${showPatternOverlay ? t.accent : "rgba(255,255,255,0.25)"}`,
+              borderRadius: ip ? 2 : 8,
+              color: showPatternOverlay ? "#000" : t.text,
+              fontFamily: t.fontMono,
+              fontSize: 22,
+              fontWeight: 700,
+              letterSpacing: "0.08em",
+              padding: "10px 26px",
+              cursor: "pointer",
+              transition: "all 0.2s",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {showPatternOverlay ? "HIDE PATTERNS" : "PATTERNS"}
+          </button>
+          <button
+            onClick={toggleBoardZoom}
+            title={boardZoom ? "Zoom out to normal" : "Zoom in 2×"}
+            style={{
+              background: boardZoom ? t.accent : "rgba(255,255,255,0.1)",
+              border: `2px solid ${boardZoom ? t.accent : "rgba(255,255,255,0.25)"}`,
+              borderRadius: ip ? 2 : 8,
+              color: boardZoom ? "#000" : t.text,
+              fontFamily: t.fontMono,
+              fontSize: 22,
+              fontWeight: 700,
+              letterSpacing: "0.08em",
+              padding: "10px 26px",
+              cursor: "pointer",
+              transition: "all 0.2s",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {boardZoom ? "ZOOM ×1" : "ZOOM ×2"}
+          </button>
+        </div>
+      )}
+
+      {/* ── Pattern overlay: translucent full-screen showing active patterns ── */}
+      {showPatternOverlay && liveSelectedPatterns.length > 0 && (() => {
+        const allMeta = GRID_SIZE === 7 ? PATTERN_METADATA_7 : GRID_SIZE === 6 ? PATTERN_METADATA_6 : PATTERN_METADATA_5;
+        const coreRules = GRID_SIZE === 7 ? CORE_RULES_METADATA_7 : GRID_SIZE === 6 ? CORE_RULES_METADATA_6 : CORE_RULES_METADATA_5;
+        const activePatterns = liveSelectedPatterns.map(id => allMeta[id]).filter(Boolean);
+        const coreList = Object.values(coreRules);
+        return (
+          <div
+            onClick={togglePatternOverlay}
+            style={{
+              position: "absolute",
+              inset: 0,
+              zIndex: 9400,
+              background: "rgba(4,7,14,0.88)",
+              backdropFilter: "blur(10px)",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: "24px 16px 48px",
+              overflowY: "auto",
+            }}
+          >
+            <div
+              onClick={e => e.stopPropagation()}
+              style={{ width: "min(900px, 95vw)", display: "flex", flexDirection: "column", alignItems: "center", gap: 20 }}
+            >
+              <div style={{ fontFamily: t.fontMono, fontSize: 10, color: t.textMuted, letterSpacing: "0.22em" }}>
+                ACTIVE PATTERNS THIS GAME
+              </div>
+              <div style={{ fontFamily: t.fontDisplay, fontSize: "clamp(22px,4vw,36px)", fontWeight: 900, color: t.accent, letterSpacing: "0.04em" }}>
+                PATTERN REFERENCE
+              </div>
+
+              {/* Selected patterns grid */}
+              <div style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
+                gap: 12,
+                width: "100%",
+              }}>
+                {activePatterns.map(p => (
+                  <div
+                    key={p.id}
+                    style={{
+                      background: "rgba(255,255,255,0.03)",
+                      border: `1px solid ${t.border}`,
+                      borderRadius: ip ? 2 : 14,
+                      padding: "16px 14px",
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 8,
+                    }}
+                  >
+                    <div style={{ fontFamily: t.fontDisplay, fontSize: 13, fontWeight: 800, color: t.text, letterSpacing: "0.04em" }}>
+                      {p.label}
+                    </div>
+                    <div style={{ fontFamily: t.fontBody, fontSize: 11, color: t.textMuted, lineHeight: 1.4 }}>
+                      {p.desc}
+                    </div>
+                    <PatternDiagram info={p} accent={t.accent} isSelected={true} cellSize={GRID_SIZE === 7 ? 10 : GRID_SIZE === 6 ? 11 : 12} />
+                  </div>
+                ))}
+              </div>
+
+              {/* Core rules (always-on) */}
+              <div style={{ fontFamily: t.fontMono, fontSize: 10, color: t.textMuted, letterSpacing: "0.18em", marginTop: 4 }}>
+                CORE RULES — ALWAYS ACTIVE
+              </div>
+              <div style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
+                gap: 12,
+                width: "100%",
+              }}>
+                {coreList.map(p => (
+                  <div
+                    key={p.id}
+                    style={{
+                      background: "rgba(255,255,255,0.015)",
+                      border: `1px dashed ${t.border}88`,
+                      borderRadius: ip ? 2 : 14,
+                      padding: "16px 14px",
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 8,
+                      opacity: 0.75,
+                    }}
+                  >
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <div style={{ fontFamily: t.fontDisplay, fontSize: 13, fontWeight: 800, color: t.textSecondary, letterSpacing: "0.04em" }}>
+                        {p.label}
+                      </div>
+                      <div style={{ fontFamily: t.fontMono, fontSize: 9, fontWeight: 900, padding: "2px 6px", borderRadius: 4, background: `${t.accent}15`, color: t.accent, border: `1px solid ${t.accent}33`, letterSpacing: "0.08em" }}>
+                        ALWAYS ON
+                      </div>
+                    </div>
+                    <div style={{ fontFamily: t.fontBody, fontSize: 11, color: t.textMuted, lineHeight: 1.4 }}>
+                      {p.desc}
+                    </div>
+                    <PatternDiagram info={p} accent={t.textMuted} isSelected={false} cellSize={GRID_SIZE === 7 ? 10 : GRID_SIZE === 6 ? 11 : 12} />
+                  </div>
+                ))}
+              </div>
+
+              <div style={{ fontFamily: t.fontBody, fontSize: 12, color: t.textMuted, marginTop: 4 }}>
+                Click anywhere outside to close
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
         <SurrenderModal show={showSurrender} t={sidebarT} ip={ip} isRankedGame={isRankedGame} variant={surrenderModalVariant} onConfirmAction={() => { setShowSurrender(false); if (isMultiplayerGame && wsRef.current?.readyState === WebSocket.OPEN) { wsRef.current.send(JSON.stringify({ type: "quit_match", slot: mySlot })); } if (!isMultiplayerGame && setScreenAction) setScreenAction("home"); }} onCancelAction={() => { playClickAction?.(); pausedRef.current = false; setShowSurrender(false); }} playHoverAction={playHoverAction} />
       <ExitModal show={showExitConfirm} t={sidebarT} ip={ip} onConfirmAction={() => { setShowExitConfirm(false); if (setScreenAction) setScreenAction("home"); }} onCancelAction={() => { playClickAction?.(); pausedRef.current = false; setShowExitConfirm(false); }} playHoverAction={playHoverAction} />

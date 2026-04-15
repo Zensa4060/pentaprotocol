@@ -14,6 +14,9 @@ const DIRS: Coord[] = [
   [-1, -1], [-1, 1], [1, -1], [1, 1],
 ];
 
+const LINE_DIRS: Coord[] = [[1, 0], [0, 1]];   // horizontal + vertical
+const DIAG_DIRS: Coord[] = [[1, 1], [1, -1]];  // both diagonals
+
 // ── 4 Patterns for 6x6 (0-indexed offsets) ──
 // These are mandatory and always active in 6x6.
 const PATTERNS_6: Record<string, Coord[]> = {
@@ -67,8 +70,17 @@ for (const name in PATTERNS_6) {
 }
 
 // ─── 6-in-a-line ───
-export function check6Line(board: Board, r: number, c: number, player: string): Coord[] | null {
-  for (const [dr, dc] of DIRS) {
+export function check6Line(board: Board, r: number, c: number, player: string, selectedPatterns?: string[]): Coord[] | null {
+  let activeDirs: Coord[];
+  if (!selectedPatterns || selectedPatterns.length === 0) {
+    activeDirs = [...LINE_DIRS, ...DIAG_DIRS];
+  } else {
+    activeDirs = [];
+    if (selectedPatterns.includes("LINE")) activeDirs.push(...LINE_DIRS);
+    if (selectedPatterns.includes("DIAGONAL")) activeDirs.push(...DIAG_DIRS);
+    if (activeDirs.length === 0) return null;
+  }
+  for (const [dr, dc] of activeDirs) {
     const line: Coord[] = [[r, c]];
     for (const sign of [1, -1] as const) {
       let rr = r + sign * dr;
@@ -166,7 +178,7 @@ export function checkWin6(
   movesPlayed: number,
   selectedPatternIds: string[] = []
 ): { winner: string; line: Coord[]; connectionScores?: { p1: number; p2: number } } | null {
-  const line6 = check6Line(board, r, c, player);
+  const line6 = check6Line(board, r, c, player, selectedPatternIds.length > 0 ? selectedPatternIds : undefined);
   if (line6) return { winner: player, line: line6 };
 
   // If no patterns selected (e.g. legacy), default to standard 6x6 set

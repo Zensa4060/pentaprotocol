@@ -5,12 +5,33 @@
 
 # ================= 5 IN A LINE =================
 
-def check_5_line(board, r, c, player, directions, grid_size):
+# Canonical direction pairs (each covers both signs automatically)
+_LINE_DIRS = [(1, 0), (0, 1)]        # horizontal + vertical
+_DIAG_DIRS = [(1, 1), (1, -1)]       # both diagonals
+_ALL_DIRS_5 = _LINE_DIRS + _DIAG_DIRS
+
+
+def check_5_line(board, r, c, player, directions, grid_size, selected_patterns=None):
     """
     Check whether placing at (r, c) completes a 5-in-a-line for player.
+    When selected_patterns is provided, only checks directions for patterns that are selected:
+      - "LINE"     → horizontal and vertical
+      - "DIAGONAL" → both diagonal axes
+    When selected_patterns is None (legacy), checks all 4 axis directions.
     Returns (True, line_coords) on win, (False, []) otherwise.
     """
-    for dr, dc in directions:
+    if selected_patterns is None:
+        active = _ALL_DIRS_5
+    else:
+        active = []
+        if "LINE" in selected_patterns:
+            active.extend(_LINE_DIRS)
+        if "DIAGONAL" in selected_patterns:
+            active.extend(_DIAG_DIRS)
+        if not active:
+            return False, []
+
+    for dr, dc in active:
 
         count = 1
         line  = [(r, c)]

@@ -31,6 +31,12 @@ type RuleshowScreenProps = {
   p1Ready: boolean;
   p2Ready: boolean;
   mySlot: "P1" | "P2";
+  /**
+   * Which patterns are active for this leg.
+   * When provided, only those patterns are shown (e.g. 5 of 6 for 5×5).
+   * When omitted, all patterns for the board size are shown.
+   */
+  selectedPatterns?: string[];
   /** Leg sheets: toggles level-up ready (no pattern payload). Protocol sheet: omit or unused. */
   onToggleReadyAction: (selected?: string[]) => void;
   /** Protocolbreaker explainer only — clears rules sheet; does not reset limitbreaker overlay. */
@@ -49,6 +55,7 @@ export default function RuleshowScreen({
   p1Ready,
   p2Ready,
   mySlot,
+  selectedPatterns,
   onToggleReadyAction,
   onDismissSheetAction,
 }: RuleshowScreenProps) {
@@ -63,9 +70,14 @@ export default function RuleshowScreen({
   const autoReadyFiredRef = useRef(false);
   const autoDismissFiredRef = useRef(false);
 
-  const patterns = is77 ? PATTERN_METADATA_7 : is66 ? PATTERN_METADATA_6 : PATTERN_METADATA_5;
+  const allPatterns = is77 ? PATTERN_METADATA_7 : is66 ? PATTERN_METADATA_6 : PATTERN_METADATA_5;
   const references = is77 ? CORE_RULES_METADATA_7 : is66 ? CORE_RULES_METADATA_6 : CORE_RULES_METADATA_5;
-  const patternList = legSheet ? Object.values(patterns) : [];
+  // If server provided a selectedPatterns list, show only those; otherwise show all
+  const patternList = legSheet
+    ? (selectedPatterns && selectedPatterns.length > 0
+        ? selectedPatterns.map(id => allPatterns[id]).filter(Boolean)
+        : Object.values(allPatterns))
+    : [];
   const referenceList = legSheet ? Object.values(references) : [];
   const ruleBlocks = getRuleshowBlocks(sheet);
 

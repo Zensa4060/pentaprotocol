@@ -3,12 +3,31 @@
 
 from app.core.win_checker import find_path
 
-def check_6_line(board, r, c, player, directions, grid_size=6):
+_LINE_DIRS_6 = [(1, 0), (0, 1)]
+_DIAG_DIRS_6 = [(1, 1), (1, -1)]
+_ALL_DIRS_6  = _LINE_DIRS_6 + _DIAG_DIRS_6
+
+
+def check_6_line(board, r, c, player, directions, grid_size=6, selected_patterns=None):
     """
     Check whether placing at (r, c) completes a 6-in-a-line for player.
+    When selected_patterns is provided, only active directions are checked:
+      - "LINE"     → horizontal and vertical
+      - "DIAGONAL" → both diagonal axes
     Returns (True, line_coords) on win, (False, []) otherwise.
     """
-    for dr, dc in directions:
+    if selected_patterns is None:
+        active = _ALL_DIRS_6
+    else:
+        active = []
+        if "LINE" in selected_patterns:
+            active.extend(_LINE_DIRS_6)
+        if "DIAGONAL" in selected_patterns:
+            active.extend(_DIAG_DIRS_6)
+        if not active:
+            return False, []
+
+    for dr, dc in active:
         count = 1
         line = [(r, c)]
 

@@ -18,11 +18,6 @@ BASE_PATTERNS_7 = {
         # A1-A2-A3-A4-B4-C4-D4
         (0, 0), (0, 1), (0, 2), (0, 3), (1, 3), (2, 3), (3, 3)
     ],
-    "W": [
-        # W-shape: zigzag going up-down-up-down-up-down
-        # A1-B2-C3-D2-E3-F2-G1
-        (0, 0), (1, 1), (2, 2), (3, 1), (4, 2), (5, 1), (6, 0)
-    ],
     "V": [
         # V-shape: diagonal down then diagonal up
         # A1-B2-C3-D4-E3-F2-G1
@@ -45,8 +40,8 @@ BASE_PATTERNS_7 = {
     ],
 }
 
-# Ordered list of pattern IDs (0-5) for selection
-PATTERN_NAMES_7 = ["Y", "L", "W", "V", "C", "zigzag", "T"]
+# Full selectable pool for 7×7: 6 shapes + straight-line + diagonal = 8 total (all always selected)
+PATTERN_NAMES_7 = ["Y", "L", "V", "C", "zigzag", "T", "LINE", "DIAGONAL"]
 
 
 def generate_variants_7(pattern):

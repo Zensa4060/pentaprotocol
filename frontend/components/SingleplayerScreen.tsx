@@ -3,14 +3,16 @@ import { useState } from "react";
 import type { Screen, BoardMode } from "@/lib/types";
 import type { ThemeId } from "@/lib/themes";
 import { THEMES } from "@/lib/themes";
-import { 
-  PATTERN_METADATA_5, 
-  PATTERN_METADATA_6, 
-  PATTERN_METADATA_7, 
+import {
+  PATTERN_METADATA_5,
+  PATTERN_METADATA_6,
+  PATTERN_METADATA_7,
   CORE_RULES_METADATA_5,
   CORE_RULES_METADATA_6,
   CORE_RULES_METADATA_7,
-  PatternInfo 
+  PatternInfo,
+  DEFAULT_PATTERNS_6,
+  DEFAULT_PATTERNS_7,
 } from "@/lib/patterns_metadata";
 
 interface Props {
@@ -55,16 +57,39 @@ function PatternDiagram({ info, accent, isSelected }: { info: PatternInfo; accen
   );
 }
 
+const ALL_5X5_PATTERNS = Object.keys(PATTERN_METADATA_5);  // 6 total
+
+function randomFive(): string[] {
+  const shuffled = [...ALL_5X5_PATTERNS].sort(() => Math.random() - 0.5);
+  return shuffled.slice(0, 5);
+}
+
 export default function SingleplayerScreen({ setScreenAction, themeId, onHoverAction, onBoardModeAction }: Props) {
   const t = THEMES[themeId as keyof typeof THEMES];
   const ip = themeId === "pixel";
   const [boardMode, setBoardMode] = useState<BoardMode>("5x5");
   const [step, setStep] = useState<"mode" | "patterns">("mode");
+  // 5x5 pattern selection — must pick exactly 5 of 6
+  const [selected5, setSelected5] = useState<string[]>(randomFive);
 
   const meta = boardMode === "7x7" ? PATTERN_METADATA_7 : boardMode === "6x6" ? PATTERN_METADATA_6 : PATTERN_METADATA_5;
   const references = boardMode === "7x7" ? CORE_RULES_METADATA_7 : boardMode === "6x6" ? CORE_RULES_METADATA_6 : CORE_RULES_METADATA_5;
   const patternNames = Object.keys(meta);
   const referenceNames = Object.keys(references);
+
+  const toggle5Pattern = (id: string) => {
+    setSelected5(prev => {
+      if (prev.includes(id)) {
+        // Don't deselect if already at minimum (4)
+        if (prev.length <= 4) return prev;
+        return prev.filter(p => p !== id);
+      } else {
+        // Don't add if already at 5
+        if (prev.length >= 5) return prev;
+        return [...prev, id];
+      }
+    });
+  };
 
   const goBack = () => {
     if (step === "patterns") {
@@ -75,7 +100,13 @@ export default function SingleplayerScreen({ setScreenAction, themeId, onHoverAc
   };
 
   const proceedFromPatterns = () => {
-    onBoardModeAction?.(boardMode, [...patternNames]);
+    if (boardMode === "5x5") {
+      onBoardModeAction?.(boardMode, selected5);
+    } else if (boardMode === "6x6") {
+      onBoardModeAction?.(boardMode, DEFAULT_PATTERNS_6);
+    } else {
+      onBoardModeAction?.(boardMode, DEFAULT_PATTERNS_7);
+    }
   };
 
   return (
@@ -166,7 +197,7 @@ export default function SingleplayerScreen({ setScreenAction, themeId, onHoverAc
         </>
       )}
 
-      {/* ── STEP 2: Pattern reference (all patterns in play; view-only) ── */}
+      {/* ── STEP 2: Pattern selection / reference ── */}
       {step === "patterns" && (
         <>
           <div style={{
@@ -177,101 +208,133 @@ export default function SingleplayerScreen({ setScreenAction, themeId, onHoverAc
             letterSpacing: ip ? "0.08em" : "0.04em",
             lineHeight: 1.1,
           }}>
-            WIN PATTERNS
+            {boardMode === "5x5" ? "PICK YOUR PATTERNS" : "WIN PATTERNS"}
           </div>
 
-          <div style={{
-            fontFamily: t.fontBody, fontSize: 14, color: t.textMuted, textAlign: "center", maxWidth: 500,
-            lineHeight: 1.6,
-          }}>
-            All <span style={{ color: t.accent, fontWeight: 700 }}>{patternNames.length}</span> patterns for {boardMode} are active in every game (no picking).
-            {" "}Win conditions also include {boardMode === "7x7" ? "7" : boardMode === "6x6" ? "6" : "5"}-in-a-line and full-board chain rules.
-          </div>
+          {boardMode === "5x5" ? (
+            /* ── 5×5: interactive picker — select exactly 5 of 6 ── */
+            <>
+              <div style={{ fontFamily: t.fontBody, fontSize: 14, color: t.textMuted, textAlign: "center", maxWidth: 500, lineHeight: 1.6 }}>
+                Choose exactly <span style={{ color: t.accent, fontWeight: 700 }}>5 of 6</span> patterns for this game.
+                {" "}The deselected pattern will not be a win condition.
+              </div>
 
-          <div style={{
-            display: "grid",
-            gridTemplateColumns: boardMode === "7x7" ? "repeat(auto-fit, minmax(140px, 1fr))" : "repeat(auto-fit, minmax(150px, 1fr))",
-            gap: 8, width: "100%", maxWidth: boardMode === "7x7" ? 800 : 720,
-          }}>
-            {[...patternNames, ...referenceNames].map((name, i) => {
-              const isReference = referenceNames.includes(name);
-              const info = isReference ? (references as any)[name] : meta[name];
-
-              return (
-                <div
-                  key={name}
-                  className="sp-card"
-                  style={{
-                    background: t.bgCard,
-                    border: isReference ? `2px dashed ${t.border}aa` : (info.isException ? `2px solid #B22222` : `2px solid ${t.border}`),
-                    borderRadius: ip ? 2 : 14,
-                    padding: "16px 14px",
-                    cursor: "default",
-                    textAlign: "left",
-                    animation: `cardFadeUp 0.4s cubic-bezier(.22,.68,0,1.2) ${i * 0.06}s both`,
-                    ["--hover-color" as any]: isReference ? t.textMuted : (info.isException ? "#FF4444" : t.accent),
-                    ["--hover-bg" as any]: isReference ? `${t.textSecondary}08` : (info.isException ? `#B222221A` : `${t.accent}1A`),
-                    ["--hover-glow" as any]: isReference ? "transparent" : (info.isException ? `#B2222222` : `${t.accent}22`),
-                    ["--card-bg" as any]: t.bgCard,
-                    boxShadow: isReference ? "none" : (info.isException ? `0 0 20px #B2222222` : "none"),
-                    opacity: isReference ? 0.8 : 1,
-                  } as any}
-                >
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}>
-                      <div style={{
-                        fontFamily: t.fontDisplay, fontSize: ip ? 12 : 14, fontWeight: 700,
-                        color: isReference ? t.textSecondary : (info.isException ? "#B22222" : t.text),
-                        letterSpacing: "0.06em",
-                      }}>
-                        {info.label}
-                      </div>
-                      {isReference && (
-                        <div style={{
-                          fontFamily: t.fontMono, fontSize: 8, fontWeight: 900,
-                          padding: "2px 6px", borderRadius: 4,
-                          background: `${t.accent}15`, color: t.accent,
-                          border: `1px solid ${t.accent}44`,
-                          letterSpacing: "0.1em"
-                        }}>CORE RULE</div>
-                      )}
-                    </div>
-                    <div style={{
-                      fontFamily: t.fontBody, fontSize: ip ? 10 : 11, color: t.textMuted,
-                      lineHeight: 1.4, marginBottom: 4,
-                    }}>
-                      {info.desc}
-                    </div>
-                    <div style={{
-                      fontFamily: t.fontMono, fontSize: 9, fontWeight: 700,
-                      color: isReference ? t.textMuted : (info.isException ? "#FF4444" : t.accent),
-                      letterSpacing: "0.08em", marginBottom: 10,
-                      textTransform: "uppercase", opacity: 0.8
-                    }}>
-                      {isReference ? "FIXED RULE" : `${info.mirrorCount} MIRRORS${info.mirrorCount === 8 ? " HIGHLIGHTED" : ""}`}
-                    </div>
-                    <PatternDiagram info={info} accent={isReference ? t.textMuted : (info.isException ? "#B22222" : t.accent)} isSelected={false} />
-                  </div>
+              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <div style={{ fontFamily: t.fontMono, fontSize: 12, color: t.textMuted }}>
+                  SELECTED: <span style={{ color: selected5.length === 5 ? t.accent : "#ef4444", fontWeight: 700 }}>{selected5.length}/5</span>
                 </div>
-              );
-            })}
-          </div>
+                <button
+                  type="button"
+                  onClick={() => setSelected5(randomFive())}
+                  style={{
+                    background: "transparent", border: `1px solid ${t.border}`, borderRadius: ip ? 2 : 6,
+                    color: t.textMuted, fontFamily: t.fontMono, fontSize: 10, padding: "4px 10px",
+                    cursor: "pointer", letterSpacing: "0.08em",
+                  }}
+                >
+                  RANDOMIZE
+                </button>
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 8, width: "100%", maxWidth: 720 }}>
+                {ALL_5X5_PATTERNS.map((name, i) => {
+                  const info = PATTERN_METADATA_5[name];
+                  const isChosen = selected5.includes(name);
+                  const wouldDeselect = isChosen && selected5.length <= 4;
+                  return (
+                    <button
+                      key={name}
+                      type="button"
+                      onClick={() => toggle5Pattern(name)}
+                      disabled={wouldDeselect}
+                      className="sp-card"
+                      style={{
+                        background: isChosen ? `${t.accent}15` : t.bgCard,
+                        border: isChosen ? `2px solid ${t.accent}` : `2px solid ${t.border}`,
+                        borderRadius: ip ? 2 : 14,
+                        padding: "14px 12px",
+                        cursor: wouldDeselect ? "not-allowed" : "pointer",
+                        textAlign: "left",
+                        animation: `cardFadeUp 0.4s cubic-bezier(.22,.68,0,1.2) ${i * 0.06}s both`,
+                        opacity: isChosen ? 1 : 0.5,
+                        transition: "all 0.2s",
+                        ["--hover-color" as any]: t.accent,
+                        ["--hover-bg" as any]: `${t.accent}1A`,
+                        ["--hover-glow" as any]: `${t.accent}22`,
+                        ["--card-bg" as any]: t.bgCard,
+                      } as any}
+                    >
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+                        <div style={{ fontFamily: t.fontDisplay, fontSize: ip ? 11 : 13, fontWeight: 700, color: isChosen ? t.accent : t.textSecondary, letterSpacing: "0.06em" }}>
+                          {info.label}
+                        </div>
+                        <div style={{
+                          width: 14, height: 14, borderRadius: "50%",
+                          border: `2px solid ${isChosen ? t.accent : t.border}`,
+                          background: isChosen ? t.accent : "transparent",
+                          flexShrink: 0,
+                        }} />
+                      </div>
+                      <div style={{ fontFamily: t.fontBody, fontSize: 10, color: t.textMuted, lineHeight: 1.4, marginBottom: 8 }}>
+                        {info.desc}
+                      </div>
+                      <PatternDiagram info={info} accent={isChosen ? t.accent : t.textMuted} isSelected={isChosen} />
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Core rules info row */}
+              <div style={{ fontFamily: t.fontBody, fontSize: 12, color: t.textMuted, textAlign: "center", maxWidth: 480, lineHeight: 1.6 }}>
+                Core rule always active: <span style={{ color: t.accent }}>10+ connected stones wins</span>
+              </div>
+            </>
+          ) : (
+            /* ── 6×6 / 7×7: view-only, all patterns active ── */
+            <>
+              <div style={{ fontFamily: t.fontBody, fontSize: 14, color: t.textMuted, textAlign: "center", maxWidth: 500, lineHeight: 1.6 }}>
+                All <span style={{ color: t.accent, fontWeight: 700 }}>{patternNames.length}</span> patterns are active for {boardMode}.
+                {" "}Core rule: {boardMode === "7x7" ? "20" : "15"}+ connected stones.
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 8, width: "100%", maxWidth: boardMode === "7x7" ? 800 : 720 }}>
+                {[...patternNames, ...referenceNames].map((name, i) => {
+                  const isRef = referenceNames.includes(name);
+                  const info = isRef ? (references as any)[name] : meta[name];
+                  return (
+                    <div key={name} className="sp-card" style={{
+                      background: t.bgCard,
+                      border: isRef ? `2px dashed ${t.border}aa` : `2px solid ${t.border}`,
+                      borderRadius: ip ? 2 : 14, padding: "14px 12px", cursor: "default", textAlign: "left",
+                      animation: `cardFadeUp 0.4s cubic-bezier(.22,.68,0,1.2) ${i * 0.06}s both`, opacity: isRef ? 0.75 : 1,
+                      ["--hover-color" as any]: t.accent, ["--hover-bg" as any]: `${t.accent}1A`,
+                      ["--hover-glow" as any]: `${t.accent}22`, ["--card-bg" as any]: t.bgCard,
+                    } as any}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}>
+                        <div style={{ fontFamily: t.fontDisplay, fontSize: ip ? 11 : 13, fontWeight: 700, color: isRef ? t.textSecondary : t.text, letterSpacing: "0.06em" }}>{info.label}</div>
+                        {isRef && <div style={{ fontFamily: t.fontMono, fontSize: 8, fontWeight: 900, padding: "2px 6px", borderRadius: 4, background: `${t.accent}15`, color: t.accent, border: `1px solid ${t.accent}44`, letterSpacing: "0.1em" }}>CORE</div>}
+                      </div>
+                      <div style={{ fontFamily: t.fontBody, fontSize: 10, color: t.textMuted, lineHeight: 1.4, marginBottom: 8 }}>{info.desc}</div>
+                      <PatternDiagram info={info} accent={isRef ? t.textMuted : t.accent} isSelected={!isRef} />
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          )}
 
           <button
             type="button"
-            onClick={() => {
-              onHoverAction?.();
-              proceedFromPatterns();
-            }}
+            onClick={() => { onHoverAction?.(); proceedFromPatterns(); }}
+            disabled={boardMode === "5x5" && selected5.length !== 5}
             style={{
-              background: t.accent,
-              border: `2px solid ${t.accent}`,
-              color: "#000",
+              background: boardMode === "5x5" && selected5.length !== 5 ? "rgba(255,255,255,0.1)" : t.accent,
+              border: `2px solid ${boardMode === "5x5" && selected5.length !== 5 ? "rgba(255,255,255,0.2)" : t.accent}`,
+              color: boardMode === "5x5" && selected5.length !== 5 ? t.textMuted : "#000",
               fontFamily: t.fontDisplay, fontSize: 16, fontWeight: 700,
               padding: ip ? "12px 32px" : "14px 52px", borderRadius: ip ? 2 : 10,
-              cursor: "pointer",
+              cursor: boardMode === "5x5" && selected5.length !== 5 ? "not-allowed" : "pointer",
               letterSpacing: "0.06em", transition: "all 0.3s",
-              boxShadow: `0 0 24px ${t.accentGlow}44`,
+              boxShadow: boardMode === "5x5" && selected5.length !== 5 ? "none" : `0 0 24px ${t.accentGlow}44`,
             }}
           >
             START MATCH →

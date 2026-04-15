@@ -11,15 +11,16 @@ const DIRS: Coord[] = [
   [-1, -1], [-1, 1], [1, -1], [1, 1],
 ];
 
+// Named shape patterns only — LINE and DIAGONAL are handled by check5Line
 const BASE_PATTERNS_5: Record<string, Coord[]> = {
-  V:        [[0, 0], [1, 1], [2, 2], [1, 3], [0, 4]],
-  L:        [[0, 0], [1, 0], [2, 0], [2, 1], [2, 2]],
-  "ZZ-5":   [[0, 0], [1, 1], [2, 0], [3, 1], [4, 0]],
-  offset_l: [[1, 1], [1, 2], [1, 3], [2, 3], [3, 3]],
-  w:        [[0, 0], [1, 1], [0, 2], [1, 3], [0, 4]],
-  diamond:  [[0, 1], [1, 2], [2, 3], [3, 2], [4, 1]],
-  T:        [[0, 0], [0, 1], [0, 2], [1, 1], [2, 1]],
+  V:      [[0, 0], [1, 1], [2, 2], [1, 3], [0, 4]],
+  L:      [[0, 0], [1, 0], [2, 0], [2, 1], [2, 2]],
+  "ZZ-5": [[0, 0], [1, 1], [2, 0], [3, 1], [4, 0]],
+  T:      [[0, 0], [0, 1], [0, 2], [1, 1], [2, 1]],
 };
+
+const LINE_DIRS: Coord[] = [[1, 0], [0, 1]];       // horizontal + vertical
+const DIAG_DIRS: Coord[] = [[1, 1], [1, -1]];      // both diagonals
 
 // ── Variant Generation ──
 function generateVariants(pattern: Coord[]): Coord[][] {
@@ -57,8 +58,17 @@ for (const name in BASE_PATTERNS_5) {
 }
 
 // ─── 5-in-a-line ───
-export function check5Line(board: Board, r: number, c: number, player: string): Coord[] | null {
-  for (const [dr, dc] of DIRS) {
+export function check5Line(board: Board, r: number, c: number, player: string, selectedPatterns?: string[]): Coord[] | null {
+  let activeDirs: Coord[];
+  if (!selectedPatterns || selectedPatterns.length === 0) {
+    activeDirs = [...LINE_DIRS, ...DIAG_DIRS];
+  } else {
+    activeDirs = [];
+    if (selectedPatterns.includes("LINE")) activeDirs.push(...LINE_DIRS);
+    if (selectedPatterns.includes("DIAGONAL")) activeDirs.push(...DIAG_DIRS);
+    if (activeDirs.length === 0) return null;
+  }
+  for (const [dr, dc] of activeDirs) {
     const line: Coord[] = [[r, c]];
     for (const sign of [1, -1] as const) {
       let rr = r + sign * dr;
@@ -156,7 +166,7 @@ export function checkWin(
   movesPlayed: number,
   selectedPatternIds: string[] = []
 ): { winner: string; line: Coord[]; connectionScores?: { p1: number; p2: number } } | null {
-  const line5 = check5Line(board, r, c, player);
+  const line5 = check5Line(board, r, c, player, selectedPatternIds.length > 0 ? selectedPatternIds : undefined);
   if (line5) return { winner: player, line: line5 };
 
   // If no patterns selected (e.g. legacy or not yet initialized), default to standard 5x5 set

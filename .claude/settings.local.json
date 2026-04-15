@@ -2,7 +2,9 @@
   "permissions": {
     "allow": [
       "Bash(grep -E \"\\\\.\\(md|txt|json|toml\\)$\")",
-      "Bash(find *)"
+      "Bash(find *)",
+      "Bash(xargs grep *)",
+      "Bash(npx tsc *)"
     ]
   }
 }

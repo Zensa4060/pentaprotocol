@@ -1097,7 +1097,7 @@ export default function StoreScreen({ setScreenAction, themeId, audio }: Props) 
                 <div style={{ display: "flex", flexDirection: "column" as const, alignItems: "center", gap: 12, marginBottom: 20 }}>
                   <div style={{ background: "#fff", padding: 12, borderRadius: 12, border: "2px solid #16a34a44" }}>
                     <img
-                      src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(`upi://pay?pa=9773809183@pthdfc&pn=Yagya%20Mishra&am=${pkg.price}&cu=INR&tn=PentaProtocol%20Payment`)}`}
+                      src="/creator-payment-qr.png"
                       alt="UPI QR Code"
                       width={180}
                       height={180}

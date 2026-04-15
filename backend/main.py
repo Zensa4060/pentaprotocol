@@ -11,6 +11,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
+from fastapi.exception_handlers import http_exception_handler
 from app.routers import auth, game, profile, store, bot, bot7, room, otp, paypal
 from app.core.database import connect_db, disconnect_db, get_db
 import os

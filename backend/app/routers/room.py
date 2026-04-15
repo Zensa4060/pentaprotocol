@@ -683,13 +683,14 @@ async def _apply_5x5_to_6x6_upgrade(
     ss = compute_series_state(new_history, seg_new)
     hist_display_start = len(new_history)
 
+    from app.core.patterns6 import PATTERN_NAMES_6 as _PN6
     upgrade_update = {
         **patch,
         "board": [[None] * 6 for _ in range(6)],
         "board_mode": "6x6",
-        "selected_patterns": None,
-        "selected_patterns_p1": None,
-        "selected_patterns_p2": None,
+        "selected_patterns": list(_PN6),
+        "selected_patterns_p1": list(_PN6),
+        "selected_patterns_p2": list(_PN6),
         "current_player": first_6,
         "moves_played": 0,
         "turn_started_at_ms": int(datetime.utcnow().timestamp() * 1000),
@@ -752,6 +753,9 @@ async def _apply_5x5_to_6x6_upgrade(
         "first_player": first_6,
         "game_number": 1,
         "board_mode": "6x6",
+        "selected_patterns": list(_PN6),
+        "selected_patterns_p1": list(_PN6),
+        "selected_patterns_p2": list(_PN6),
         "segment_start_index": seg_new,
         "history_display_start_index": hist_display_start,
         "p1_series_points": ss["p1_series_points"],
@@ -1865,11 +1869,17 @@ async def queue_join(data: QueueRequest, user_id: str = Depends(get_current_user
     # No valid opponent — create a new waiting room
     code = await _generate_unique_code(db)
 
-    # For compound multiplayer, randomize patterns if not provided (if starting on 7x7)
+    # Resolve patterns for starting board mode
     full_board_mode = data.board_mode or "5x5"
     start_mode = _starting_board_mode(full_board_mode)
     selected_patterns = data.selected_patterns
-    if start_mode == "7x7" and not selected_patterns:
+    if start_mode == "5x5" and not selected_patterns:
+        from app.core.patterns import PATTERN_NAMES_5
+        selected_patterns = random.sample(PATTERN_NAMES_5, 5)
+    elif start_mode == "6x6" and not selected_patterns:
+        from app.core.patterns6 import PATTERN_NAMES_6
+        selected_patterns = list(PATTERN_NAMES_6)
+    elif start_mode == "7x7" and not selected_patterns:
         from app.core.patterns7 import PATTERN_NAMES_7
         selected_patterns = list(PATTERN_NAMES_7)
 
@@ -1995,7 +2005,13 @@ async def create_room(data: CreateRoomRequest, user_id: str = Depends(get_curren
     full_board_mode = data.board_mode or "5x5"
     start_mode = _starting_board_mode(full_board_mode)
     selected_patterns = data.selected_patterns
-    if start_mode == "7x7" and not selected_patterns:
+    if start_mode == "5x5" and not selected_patterns:
+        from app.core.patterns import PATTERN_NAMES_5
+        selected_patterns = random.sample(PATTERN_NAMES_5, 5)
+    elif start_mode == "6x6" and not selected_patterns:
+        from app.core.patterns6 import PATTERN_NAMES_6
+        selected_patterns = list(PATTERN_NAMES_6)
+    elif start_mode == "7x7" and not selected_patterns:
         from app.core.patterns7 import PATTERN_NAMES_7
         selected_patterns = list(PATTERN_NAMES_7)
 
@@ -3006,7 +3022,8 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                     }
 
                     bm = "5x5"
-                    sp = None
+                    from app.core.patterns import PATTERN_NAMES_5
+                    sp = random.sample(PATTERN_NAMES_5, 5)
                     new_engine = GameEngine(board_mode=bm, selected_pattern_ids=sp)
 
                     reset = {
