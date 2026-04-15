@@ -43,13 +43,7 @@ RUN pip install --no-cache-dir maturin
 # compile step is only re-run when Cargo.toml or src/ actually changes.
 COPY rust_engine/ rust_engine/
 
-# BuildKit cache mounts keep the Cargo registry and incremental build
-# artifacts warm across rebuilds, cutting subsequent compile times
-# from ~2 min → ~10 s for small changes.
-RUN --mount=type=cache,target=/usr/local/cargo/registry \
-    --mount=type=cache,target=/usr/local/cargo/git \
-    --mount=type=cache,target=/build/rust_engine/target \
-    pip install --no-cache-dir --prefix=/install rust_engine/
+RUN pip install --no-cache-dir --prefix=/install rust_engine/
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Stage 2 · final runtime image
