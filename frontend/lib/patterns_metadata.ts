@@ -64,7 +64,7 @@ export const PATTERN_METADATA_5: Record<string, PatternInfo> = {
   },
 };
 
-// ─── 6×6 Special Patterns (all 6 always selected) ───────────────────────────
+// ─── 6×6 Special Patterns (all 7 always selected) ───────────────────────────
 export const PATTERN_METADATA_6: Record<string, PatternInfo> = {
   ZZ: {
     id: "ZZ",
@@ -113,6 +113,14 @@ export const PATTERN_METADATA_6: Record<string, PatternInfo> = {
     gridSize: 6,
     cells: [[0, 0], [1, 1], [2, 2], [3, 3], [4, 4], [5, 5]],
     mirrorCount: 2,
+  },
+  A: {
+    id: "A",
+    label: "A-SHAPE",
+    desc: "A symmetric arch: two diagonal legs meeting at a peak with a central crossbar.",
+    gridSize: 6,
+    cells: [[0, 2], [1, 1], [2, 0], [2, 1], [3, 1], [4, 2]],
+    mirrorCount: 4,
   },
 };
 
@@ -222,5 +230,5 @@ export const CORE_RULES_METADATA_7: Record<string, PatternInfo> = {
 
 // ─── Default selections (used when no server-provided list) ──────────────────
 export const DEFAULT_PATTERNS_5 = Object.keys(PATTERN_METADATA_5);   // all 6 (picker enforces pick-5)
-export const DEFAULT_PATTERNS_6 = Object.keys(PATTERN_METADATA_6);   // all 6 always selected
+export const DEFAULT_PATTERNS_6 = Object.keys(PATTERN_METADATA_6);   // all 7 always selected
 export const DEFAULT_PATTERNS_7 = Object.keys(PATTERN_METADATA_7);   // all 8 always selected

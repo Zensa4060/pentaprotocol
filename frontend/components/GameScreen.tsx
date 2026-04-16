@@ -626,6 +626,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     try { sessionStorage.setItem("patternOverlayVisible", String(next)); } catch {}
     return next;
   });
+  const [patternsBtnHovered, setPatternsBtnHovered] = useState(false);
   // Board zoom — 2× bigger board for multiplayer; toggle persisted for session
   const [boardZoom, setBoardZoom] = useState(() => {
     try { return sessionStorage.getItem("boardZoomActive") === "true"; } catch { return false; }
@@ -4268,11 +4269,17 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
           <button
             onClick={togglePatternOverlay}
             title={showPatternOverlay ? "Hide patterns" : "Show active patterns"}
+            onMouseEnter={() => setPatternsBtnHovered(true)}
+            onMouseLeave={() => setPatternsBtnHovered(false)}
             style={{
-              background: showPatternOverlay ? t.accent : "rgba(255,255,255,0.1)",
-              border: `2px solid ${showPatternOverlay ? t.accent : "rgba(255,255,255,0.25)"}`,
+              background: showPatternOverlay
+                ? "rgba(0,229,255,0.22)"
+                : patternsBtnHovered
+                  ? "rgba(0,229,255,0.14)"
+                  : "rgba(0,229,255,0.07)",
+              border: `2px solid ${showPatternOverlay || patternsBtnHovered ? "#00e5ff" : "rgba(0,229,255,0.55)"}`,
               borderRadius: ip ? 2 : 8,
-              color: showPatternOverlay ? "#000" : t.text,
+              color: "#00e5ff",
               fontFamily: t.fontMono,
               fontSize: 22,
               fontWeight: 700,
@@ -4281,6 +4288,10 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
               cursor: "pointer",
               transition: "all 0.2s",
               whiteSpace: "nowrap",
+              boxShadow: showPatternOverlay || patternsBtnHovered
+                ? "0 0 10px #00e5ff, 0 0 22px rgba(0,229,255,0.45), 0 0 40px rgba(0,229,255,0.2)"
+                : "0 0 6px rgba(0,229,255,0.35)",
+              textShadow: "0 0 8px rgba(0,229,255,0.7)",
             }}
           >
             {showPatternOverlay ? "HIDE PATTERNS" : "PATTERNS"}

@@ -17,7 +17,7 @@ const DIRS: Coord[] = [
 const LINE_DIRS: Coord[] = [[1, 0], [0, 1]];   // horizontal + vertical
 const DIAG_DIRS: Coord[] = [[1, 1], [1, -1]];  // both diagonals
 
-// ── 4 Patterns for 6x6 (0-indexed offsets) ──
+// ── 5 Patterns for 6x6 (0-indexed offsets) ──
 // These are mandatory and always active in 6x6.
 const PATTERNS_6: Record<string, Coord[]> = {
   // Zigzag (ZZ): A1-B2-C1-D2-E1-F2
@@ -31,6 +31,9 @@ const PATTERNS_6: Record<string, Coord[]> = {
 
   // Y shape: A1-B2-C1-B3-B4-B5
   Y: [[0, 0], [1, 1], [2, 0], [1, 2], [1, 3], [1, 4]],
+
+  // A shape: A3-B2-C1-C2-D2-E3
+  A: [[0, 2], [1, 1], [2, 0], [2, 1], [3, 1], [4, 2]],
 };
 
 // ── Variant Generation ──
@@ -182,7 +185,7 @@ export function checkWin6(
   if (line6) return { winner: player, line: line6 };
 
   // If no patterns selected (e.g. legacy), default to standard 6x6 set
-  const activeIds = selectedPatternIds.length > 0 ? selectedPatternIds : ["ZZ", "T", "L", "Y"];
+  const activeIds = selectedPatternIds.length > 0 ? selectedPatternIds : ["ZZ", "T", "L", "Y", "A"];
   const lineS = checkStructuralPatterns6(board, player, activeIds);
   if (lineS) return { winner: player, line: lineS };
 
