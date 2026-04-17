@@ -1,5 +1,6 @@
 "use client";
 import { useState, useRef, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import type { Screen } from "@/lib/types";
 import type { ThemeId } from "@/lib/themes";
 import { THEMES } from "@/lib/themes";
@@ -61,6 +62,8 @@ function InteractivePreview({ Grid, gridProps }: { Grid: React.ComponentType<any
 interface Props {
   setScreenAction: (s: Screen) => void;
   themeId: ThemeId;
+  initialSection?: string;
+  initialPreview?: string;
   audio?: {
     pauseBgm: () => void;
     resumeBgm: () => void;
@@ -173,6 +176,30 @@ const BUNDLES: Bundle[] = [
   { id: "bundle_pixel", label: "PIXEL BUNDLE", tagline: "8-bit CRT chaos and dither glow", desc: "A chunky pixel grid with dithered tiles, CRT scanlines, and floating sprites. Coins and Hearts pop in with crisp 8-bit punch.", boardId: "pixel_grid", pieceId: "piece_pixel_sigils", boardLabel: "Pixel Board", pieceLabel: "Coin & Heart", accentColor: "#FFDD00", bgGradient: "linear-gradient(160deg,#0a0a18,#0f3460,#2d132c)", bundlePrice: 1999, boardPrice: 1599, piecePrice: 599, tags: ["PIXEL", "CRT", "BOARD + PIECES"], isIce: false, previewKind: "pixel" },
   { id: "bundle_tokyo", label: "TOKYO BUNDLE", tagline: "Neon rain and city glow", desc: "A neon city board with animated rain, glowing signage, reflections, and vivid grid tubes. Dragon seals and katanas flash with every move.", boardId: "tokyo_grid", pieceId: "piece_tokyo_sigils", boardLabel: "Tokyo Board", pieceLabel: "Dragon Seal & Katana", accentColor: "#FF0066", bgGradient: "linear-gradient(160deg,#040008,#070012,#030008)", bundlePrice: 1999, boardPrice: 1599, piecePrice: 599, tags: ["TOKYO", "NEON", "BOARD + PIECES"], isIce: false, previewKind: "tokyo" },
 ];
+
+/**
+ * Canonical URL slug for a bundle. Uses the first word of the bundle label
+ * (e.g. "INFERNO BUNDLE" → "inferno") combined with "grid" suffix so preview
+ * URLs read naturally: /store/preview/infernogrid, /store/preview/glaciergrid,
+ * /store/preview/icegrid, etc.
+ */
+function bundleToSlug(b: Bundle): string {
+  const first = (b.label || "").split(/\s+/)[0] || b.id;
+  const base = first.toLowerCase().replace(/[^a-z0-9]/g, "");
+  return base.endsWith("grid") ? base : `${base}grid`;
+}
+
+/** Inverse of `bundleToSlug`: accepts label-slug, board id, or bundle id variants. */
+function resolveBundleFromSlug(raw: string): Bundle | undefined {
+  const slug = raw.toLowerCase().replace(/[^a-z0-9]/g, "");
+  return (
+    BUNDLES.find((b) => bundleToSlug(b) === slug) ||
+    BUNDLES.find((b) => b.id === slug) ||
+    BUNDLES.find((b) => b.id === `bundle_${slug}`) ||
+    BUNDLES.find((b) => b.boardId === slug) ||
+    BUNDLES.find((b) => b.boardId.replace(/_/g, "") === slug)
+  );
+}
 
 type CoinBundle = { id: string; label: string; tagline: string; desc: string; accentColor: string; bgGradient: string; bundlePrice: number; shardPrice: number; purchaseId: string; tags: string[] };
 const COIN_BUNDLES: CoinBundle[] = [
@@ -605,8 +632,9 @@ function BundleCard({ bundle, purchasedItems, t, onClick }: { bundle: Bundle; pu
     </div>
   );
 }
-export default function StoreScreen({ setScreenAction, themeId, audio }: Props) {
+export default function StoreScreen({ setScreenAction, themeId, audio, initialSection, initialPreview }: Props) {
   const t = THEMES[themeId as keyof typeof THEMES];
+  const router = useRouter();
   const { user, token, updateUser } = useAuthStore();
   const isGuest = !user;
 
@@ -665,13 +693,87 @@ export default function StoreScreen({ setScreenAction, themeId, audio }: Props) 
     recordStoreCatalogSeen(getStoreCatalogSignature());
   }, []);
 
+  // ── URL-driven initial state ─────────────────────────────────────────────
+  // initialSection: "buyps" | "buypc" (and legacy "buypentashards"/"buyprotocredits")
+  // initialPreview: "sptheme" | "pxtheme" | "<bundleSlug>" (e.g. "glaciergrid")
+  useEffect(() => {
+    if (!initialSection) return;
+    const s = initialSection.toLowerCase();
+    if (s === "buyps" || s === "buypentashards" || s === "shards") {
+      setBuyCurrencyType("shards");
+      setShowBuyModal(true);
+    } else if (s === "buypc" || s === "buyprotocredits" || s === "protocredits") {
+      setBuyCurrencyType("protocredits");
+      setShowBuyModal(true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialSection]);
+
+  useEffect(() => {
+    if (!initialPreview) return;
+    const slug = initialPreview.toLowerCase().replace(/\s+/g, "");
+    if (slug === "sptheme" || slug === "spacetheme" || slug === "space") {
+      setOpenThemePreview("space");
+      return;
+    }
+    if (slug === "pxtheme" || slug === "pixeltheme" || slug === "pixel") {
+      setOpenThemePreview("pixel");
+      return;
+    }
+    const resolved = resolveBundleFromSlug(slug);
+    if (resolved) setOpenBundle(resolved.id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialPreview]);
+
+  // ── URL sync helpers ─────────────────────────────────────────────────────
+  // Opening a modal pushes a URL; closing bounces back to /store.
+  const pushStoreUrl = (url: string) => {
+    if (typeof window === "undefined") return;
+    if (window.location.pathname + window.location.search !== url) router.push(url);
+  };
+  const returnToStore = () => {
+    if (typeof window === "undefined") return;
+    if (window.location.pathname !== "/store") router.push("/store");
+  };
+
+  const openBuyModal = (type: "shards" | "protocredits") => {
+    setBuyCurrencyType(type);
+    setShowBuyModal(true);
+    pushStoreUrl(type === "shards" ? "/store/buyps" : "/store/buypc");
+  };
+  const closeBuyModal = () => {
+    setShowBuyModal(false);
+    returnToStore();
+  };
+
+  const openThemePreviewUrl = (id: string) => {
+    setOpenThemePreview(id);
+    const slug = id === "space" ? "sptheme" : id === "pixel" ? "pxtheme" : id;
+    pushStoreUrl(`/store/preview/${slug}`);
+  };
+  const closeThemePreview = () => {
+    setOpenThemePreview(null);
+    returnToStore();
+  };
+
+  const openBundlePreview = (bundleId: string) => {
+    setOpenBundle(bundleId);
+    const b = BUNDLES.find((x) => x.id === bundleId);
+    const slug = b ? bundleToSlug(b) : bundleId;
+    pushStoreUrl(`/store/preview/${slug}`);
+  };
+  const closeBundlePreview = () => {
+    setOpenBundle(null);
+    returnToStore();
+  };
+
   const showError = (text: string) => { setMsg({ text, ok: false }); setTimeout(() => setMsg(null), 1000); };
 
   const cssVars = { "--font-display": t.fontDisplay, "--font-mono": t.fontMono, "--font-body": t.fontBody, "--text": t.text, "--text-muted": t.textMuted, "--border": t.border, "--accent": accent } as React.CSSProperties;
 
   const handleBuyPayPal = async () => {
     if (PAYPAL_COMING_SOON) return;
-    if (isGuest) { setShowBuyModal(false); showError(`Sign in to buy ${buyCurrencyType === "shards" ? "PentaShards" : "ProtoCredits"}.`); return; }
+    if (isGuest) { closeBuyModal(); showError(`Sign in to buy ${buyCurrencyType === "shards" ? "PentaShards" : "ProtoCredits"}.`); return; }
     setPayRedirect("paypal"); setMsg(null);
     try {
       sessionStorage.setItem("pp_paypal_package_id", selectedPackageId);
@@ -689,9 +791,9 @@ export default function StoreScreen({ setScreenAction, themeId, audio }: Props) 
   const handleBuyCosmetic = (id: string, price: number, label: string, shardPrice = 0) => {
     if (isGuest) { showError("Sign in to purchase."); return; }
     if (shardPrice > 0) {
-      if (balance < price || shardBalance < shardPrice) { setOpenBundle(null); setMsg(null); setBuyCurrencyType(balance < price ? "protocredits" : "shards"); setShowBuyModal(true); showError(`Need ${price.toLocaleString()} ProtoCredits and ${shardPrice.toLocaleString()} PentaShards.`); return; }
+      if (balance < price || shardBalance < shardPrice) { setOpenBundle(null); setMsg(null); openBuyModal(balance < price ? "protocredits" : "shards"); showError(`Need ${price.toLocaleString()} ProtoCredits and ${shardPrice.toLocaleString()} PentaShards.`); return; }
     }
-    if (balance < price) { setOpenBundle(null); setMsg(null); setBuyCurrencyType("protocredits"); setShowBuyModal(true); return; }
+    if (balance < price) { setOpenBundle(null); setMsg(null); openBuyModal("protocredits"); return; }
     setConfirmBuy({ id, price, shardPrice, label });
   };
 
@@ -712,7 +814,7 @@ export default function StoreScreen({ setScreenAction, themeId, audio }: Props) 
       };
       if (bundleData) {
         const owned = new Set(purchasedItems); const needBoard = !owned.has(bundleData.boardId); const needPiece = !owned.has(bundleData.pieceId);
-        if (!needBoard && !needPiece) { setMsg({ text: "✓ Bundle already owned.", ok: true }); setOpenBundle(null); setTimeout(() => setMsg(null), 2500); return; }
+        if (!needBoard && !needPiece) { setMsg({ text: "✓ Bundle already owned.", ok: true }); closeBundlePreview(); setTimeout(() => setMsg(null), 2500); return; }
         const boardCharge = needBoard ? (needPiece ? Math.min(bundleData.boardPrice, price) : price) : 0;
         const pieceCharge = needPiece ? (needBoard ? Math.max(0, price - boardCharge) : price) : 0;
         if (needBoard) await postPurchase(bundleData.boardId, boardCharge);
@@ -730,7 +832,7 @@ export default function StoreScreen({ setScreenAction, themeId, audio }: Props) 
       }
       try { const me = await API.get("/api/profile/me", { headers: { Authorization: `Bearer ${token}` }, timeout: 15000 }); updateUser(me.data); } catch {}
       bumpCollectionNavBadge(1);
-      setMsg({ text: `✓ ${label} unlocked! Equip it in your Collection.`, ok: true }); setOpenBundle(null); setTimeout(() => setMsg(null), 3000);
+      setMsg({ text: `✓ ${label} unlocked! Equip it in your Collection.`, ok: true }); closeBundlePreview(); setTimeout(() => setMsg(null), 3000);
     } catch (e: any) {
       const detail = e?.response?.data?.detail;
       if (detail && String(detail).toLowerCase().includes("already owned")) { try { const me = await API.get("/api/profile/me", { headers: { Authorization: `Bearer ${token}` }, timeout: 15000 }); updateUser(me.data); } catch {} }
@@ -773,10 +875,10 @@ export default function StoreScreen({ setScreenAction, themeId, audio }: Props) 
 
       {activeBundleData && (
         <BundleModal bundle={activeBundleData} t={t} isGuest={isGuest} buyingId={buyingId} purchasedItems={purchasedItems} balance={balance}
-          onClose={() => setOpenBundle(null)} onBuy={handleBuyCosmetic}
-          onOpenBuyCredits={() => { setOpenBundle(null); setMsg(null); setBuyCurrencyType("protocredits"); setShowBuyModal(true); }} />
+          onClose={closeBundlePreview} onBuy={handleBuyCosmetic}
+          onOpenBuyCredits={() => { setOpenBundle(null); setMsg(null); openBuyModal("protocredits"); }} />
       )}
-      {activeThemePreview && (<ThemePreviewModal item={activeThemePreview} t={t} onClose={() => setOpenThemePreview(null)} audio={audio} />)}
+      {activeThemePreview && (<ThemePreviewModal item={activeThemePreview} t={t} onClose={closeThemePreview} audio={audio} />)}
 
       <div style={{ maxWidth: 1240, margin: "0 auto", padding: "0 28px 72px" }}>
 
@@ -800,7 +902,7 @@ export default function StoreScreen({ setScreenAction, themeId, audio }: Props) 
             <div style={{ fontFamily: t.fontBody, fontSize: 14, color: t.textMuted, maxWidth: 420 }}>Earn rewards through ranked play and achievements — or top up ProtoCredits to unlock exclusive cosmetics instantly.</div>
           </div>
           <div style={{ display: "flex", gap: 14, flexWrap: "wrap", alignItems: "stretch" }}>
-            <div className="store-card" onClick={() => { if (isGuest) { showError("Sign in to buy PentaShards."); return; } setMsg(null); setBuyCurrencyType("shards"); setShowBuyModal(true); }} style={{ flexShrink: 0, minWidth: 260, maxWidth: 320, background: "linear-gradient(135deg, rgba(79,195,247,0.18), rgba(79,195,247,0.08))", border: `2px solid ${isGuest ? t.border : "#4FC3F755"}`, borderRadius: 18, padding: "22px 24px", boxShadow: "0 0 40px rgba(79,195,247,0.22)", position: "relative", overflow: "hidden", opacity: isGuest ? 0.75 : 1 }}>
+            <div className="store-card" onClick={() => { if (isGuest) { showError("Sign in to buy PentaShards."); return; } setMsg(null); openBuyModal("shards"); }} style={{ flexShrink: 0, minWidth: 260, maxWidth: 320, background: "linear-gradient(135deg, rgba(79,195,247,0.18), rgba(79,195,247,0.08))", border: `2px solid ${isGuest ? t.border : "#4FC3F755"}`, borderRadius: 18, padding: "22px 24px", boxShadow: "0 0 40px rgba(79,195,247,0.22)", position: "relative", overflow: "hidden", opacity: isGuest ? 0.75 : 1 }}>
               <div style={{ position: "absolute", top: -30, right: -30, width: 120, height: 120, borderRadius: "50%", background: "rgba(79,195,247,0.22)", filter: "blur(40px)", pointerEvents: "none" }} />
               <div style={{ fontFamily: t.fontMono, fontSize: 10, color: "#4FC3F7", letterSpacing: "0.25em", marginBottom: 10 }}>PENTASHARDS</div>
               <div style={{ fontFamily: t.fontDisplay, fontSize: 26, fontWeight: 900, color: t.text, marginBottom: 6, lineHeight: 1.1 }}>Buy<br /><span style={{ color: "#4FC3F7" }}>PentaShards</span></div>
@@ -809,7 +911,7 @@ export default function StoreScreen({ setScreenAction, themeId, audio }: Props) 
               <div style={{ display: "flex", alignItems: "center", gap: 8, fontFamily: t.fontDisplay, fontSize: 13, fontWeight: 800, color: isGuest ? t.textMuted : "#000", background: isGuest ? t.bgCard : "#4FC3F7", borderRadius: 8, padding: "9px 16px", justifyContent: "center", border: isGuest ? `1px solid ${t.border}` : "none" }}>{isGuest ? "SIGN IN TO BUY" : (<><ShardSVG size={16} /> OPEN STORE</>)}</div>
               {!isGuest && <div style={{ marginTop: 12, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, fontFamily: t.fontMono, fontSize: 22, color: t.textMuted }}>Balance: <span style={{ color: "#4FC3F7", display: "flex", alignItems: "center", gap: 6 }}>{shardBalance.toLocaleString()} <ShardSVG size={21} /></span></div>}
             </div>
-            <div className="store-card" onClick={() => { if (isGuest) { showError("Sign in to buy ProtoCredits."); return; } setMsg(null); setBuyCurrencyType("protocredits"); setShowBuyModal(true); }} style={{ flexShrink: 0, minWidth: 260, maxWidth: 320, background: `linear-gradient(135deg, ${accent}18, ${accent}08)`, border: `2px solid ${isGuest ? t.border : accent + "55"}`, borderRadius: 18, padding: "22px 24px", boxShadow: `0 0 40px ${accent}22`, position: "relative", overflow: "hidden", opacity: isGuest ? 0.75 : 1 }}>
+            <div className="store-card" onClick={() => { if (isGuest) { showError("Sign in to buy ProtoCredits."); return; } setMsg(null); openBuyModal("protocredits"); }} style={{ flexShrink: 0, minWidth: 260, maxWidth: 320, background: `linear-gradient(135deg, ${accent}18, ${accent}08)`, border: `2px solid ${isGuest ? t.border : accent + "55"}`, borderRadius: 18, padding: "22px 24px", boxShadow: `0 0 40px ${accent}22`, position: "relative", overflow: "hidden", opacity: isGuest ? 0.75 : 1 }}>
               <div style={{ position: "absolute", top: -30, right: -30, width: 120, height: 120, borderRadius: "50%", background: `${accent}22`, filter: "blur(40px)", pointerEvents: "none" }} />
               <div style={{ fontFamily: t.fontMono, fontSize: 10, color: accent, letterSpacing: "0.25em", marginBottom: 10 }}>PROTOCREDITS</div>
               <div style={{ fontFamily: t.fontDisplay, fontSize: 26, fontWeight: 900, color: t.text, marginBottom: 6, lineHeight: 1.1 }}>Buy<br /><span style={{ color: accent }}>ProtoCredits</span></div>
@@ -857,7 +959,7 @@ export default function StoreScreen({ setScreenAction, themeId, audio }: Props) 
                       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                         {owned ? (<div style={{ fontFamily: t.fontMono, fontSize: 12, fontWeight: 900, color: "#4CAF50", letterSpacing: "0.06em" }}>OWNED</div>) : (<div style={{ fontFamily: t.fontMono, fontSize: 12, fontWeight: 900, color: glow, letterSpacing: "0.06em", display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" as const }}>{price.toLocaleString()} <ProtoSVG size={16} /> {shardPrice.toLocaleString()} <ShardSVG size={16} /></div>)}
                         <div style={{ display: "flex", flexDirection: "column", gap: 8, width: "100%" }}>
-                          <button type="button" onClick={() => setOpenThemePreview(item.id)} style={{ width: "100%", boxSizing: "border-box" as const, background: "rgba(0,0,0,0.35)", border: `1.5px solid ${glow}66`, borderRadius: 10, padding: "10px 12px", fontFamily: t.fontDisplay, fontSize: 11, fontWeight: 900, color: glow, cursor: "pointer" }}>VIEW PREVIEW</button>
+                          <button type="button" onClick={() => openThemePreviewUrl(item.id)} style={{ width: "100%", boxSizing: "border-box" as const, background: "rgba(0,0,0,0.35)", border: `1.5px solid ${glow}66`, borderRadius: 10, padding: "10px 12px", fontFamily: t.fontDisplay, fontSize: 11, fontWeight: 900, color: glow, cursor: "pointer" }}>VIEW PREVIEW</button>
                           {owned ? (<button type="button" disabled style={{ width: "100%", boxSizing: "border-box" as const, background: "rgba(255,255,255,0.06)", border: `1px solid ${t.border}`, borderRadius: 10, padding: "10px 14px", fontFamily: t.fontDisplay, fontSize: 12, fontWeight: 900, color: "rgba(255,255,255,0.65)", cursor: "not-allowed" }}>✓</button>) : isGuest ? (<button type="button" onClick={() => setScreenAction("auth")} style={{ width: "100%", boxSizing: "border-box" as const, background: glow, border: "none", borderRadius: 10, padding: "10px 14px", fontFamily: t.fontDisplay, fontSize: 12, fontWeight: 900, color: "#000", cursor: "pointer" }}>SIGN IN</button>) : (<button type="button" onClick={() => handleBuyCosmetic(`theme_bundle_${item.id}`, price, `${item.label} Bundle`, shardPrice)} disabled={!item.purchaseId || price <= 0} style={{ width: "100%", boxSizing: "border-box" as const, background: glow, border: "none", borderRadius: 10, padding: "10px 14px", fontFamily: t.fontDisplay, fontSize: 12, fontWeight: 900, color: "#000", cursor: !item.purchaseId || price <= 0 ? "not-allowed" : "pointer", opacity: !item.purchaseId || price <= 0 ? 0.7 : 1 }}>UNLOCK</button>)}
                         </div>
                       </div>
@@ -872,7 +974,7 @@ export default function StoreScreen({ setScreenAction, themeId, audio }: Props) 
         {/* BOARD BUNDLES */}
         <div style={{ marginBottom: 56 }}>
           <SectionHeader label="BOARD BUNDLES" accent={accent} icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={accent} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2"/><line x1="12" y1="12" x2="12" y2="16"/><line x1="10" y1="14" x2="14" y2="14"/></svg>}/>
-          <InfiniteCarouselRow items={visibleBundles} itemWidth={360} gap={20} renderItem={(bundle) => <BundleCard bundle={bundle} purchasedItems={purchasedItems} t={t} onClick={() => setOpenBundle(bundle.id)} />} />
+          <InfiniteCarouselRow items={visibleBundles} itemWidth={360} gap={20} renderItem={(bundle) => <BundleCard bundle={bundle} purchasedItems={purchasedItems} t={t} onClick={() => openBundlePreview(bundle.id)} />} />
         </div>
 
         {/* COIN BUNDLES */}
@@ -932,9 +1034,9 @@ export default function StoreScreen({ setScreenAction, themeId, audio }: Props) 
       </div>
       {/* ── Currency Buy Modal ── */}
       {showBuyModal && !isGuest && (
-        <div className="modal-backdrop" onClick={e => { if (e.target === e.currentTarget) setShowBuyModal(false); }} style={{ position: "fixed", inset: 0, zIndex: 100, background: "rgba(0,0,0,0.72)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+        <div className="modal-backdrop" onClick={e => { if (e.target === e.currentTarget) closeBuyModal(); }} style={{ position: "fixed", inset: 0, zIndex: 100, background: "rgba(0,0,0,0.72)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
           <div className="modal-panel" style={{ background: t.bg, border: `1px solid ${t.border}`, borderRadius: 20, padding: "32px 28px", width: "100%", maxWidth: 520, maxHeight: "90vh", overflowY: "auto", position: "relative" }}>
-            <button onClick={() => setShowBuyModal(false)} style={{ position: "absolute", top: 16, right: 16, background: `${t.border}44`, border: "none", borderRadius: 8, color: t.textMuted, width: 32, height: 32, cursor: "pointer", fontSize: 16, display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
+            <button onClick={closeBuyModal} style={{ position: "absolute", top: 16, right: 16, background: `${t.border}44`, border: "none", borderRadius: 8, color: t.textMuted, width: 32, height: 32, cursor: "pointer", fontSize: 16, display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
             <div style={{ fontFamily: t.fontMono, fontSize: 11, color: buyCurrencyType === "shards" ? "#4FC3F7" : accent, letterSpacing: "0.25em", marginBottom: 8 }}>PROTOCOL STORE</div>
             <div style={{ fontFamily: t.fontDisplay, fontSize: 28, fontWeight: 900, color: t.text, marginBottom: 4 }}>{buyCurrencyType === "shards" ? (<>BUY PENTA<span style={{ color: "#4FC3F7" }}>SHARDS</span></>) : (<>BUY PROTO<span style={{ color: accent }}>CREDITS</span></>)}</div>
             <div style={{ fontFamily: t.fontBody, fontSize: 13, color: t.textMuted, marginBottom: 24 }}>{buyCurrencyType === "shards" ? "Use PentaShards for shard-based progression rewards." : "Use ProtoCredits to unlock cosmetics and exclusive content."}</div>

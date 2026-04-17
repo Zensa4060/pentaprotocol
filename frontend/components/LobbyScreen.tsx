@@ -1,5 +1,6 @@
 "use client";
 import React, { useState, useEffect, useRef, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import type { MatchupData, Screen } from "@/lib/types";
 import type { ThemeId } from "@/lib/themes";
 import { THEMES } from "@/lib/themes";
@@ -55,6 +56,8 @@ interface Props {
   boardMode?: string;
   onBoardModeAction?: (mode: any) => void;
   lastMatchResult?: "win" | "loss" | null;
+  /** When set, preselects the custom-room sub-view on mount. */
+  initialRoomSection?: "none" | "create" | "join" | "waiting";
 }
 
 type MultiSub = "unranked" | "ranked" | null;
@@ -70,9 +73,11 @@ export default function LobbyScreen({
   boardMode = "5x5",
   onBoardModeAction,
   lastMatchResult = null,
+  initialRoomSection,
 }: Props) {
   const t  = THEMES[themeId as keyof typeof THEMES];
   const ip = themeId === "pixel";
+  const router = useRouter();
   const { user, token, refreshProfile } = useAuthStore();
   const rank = getRank(user?.elo ?? 0);
   const isPlacement = (user as any)?.placement_matches < 5;
@@ -190,7 +195,12 @@ export default function LobbyScreen({
   }, [user?.ranked_allowed, user?.ranked_ban_until, refreshProfile]);
 
   // ── Room state ────────────────────────────────────────────────────────────
-  const [roomSection, setRoomSection] = useState<"none" | "create" | "join" | "waiting">("none");
+  const [roomSection, setRoomSection] = useState<"none" | "create" | "join" | "waiting">(initialRoomSection ?? "none");
+
+  useEffect(() => {
+    if (initialRoomSection && initialRoomSection !== roomSection) setRoomSection(initialRoomSection);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialRoomSection]);
   const [roomFormat,  setRoomFormat]  = useState<"unranked" | "ranked">("unranked");
   const [roomCode,    setRoomCode]    = useState("");
   const [joinCode,    setJoinCode]    = useState("");
@@ -284,6 +294,9 @@ export default function LobbyScreen({
     setRoomCode("");
     setJoinCode("");
     setRoomError(null);
+    if (typeof window !== "undefined" && window.location.pathname.startsWith("/custom/")) {
+      router.push("/play/lobby");
+    }
   };
 
   const Avatar = ({ color }: { color: string }) => (
@@ -690,7 +703,7 @@ export default function LobbyScreen({
           {roomSection === "none" && (
             <div style={{ display:"flex", flexDirection:"column", gap:10, marginTop:"auto", width:"100%", animation:"fadeUp 0.28s cubic-bezier(.22,.68,0,1.2) both" }}>
               <button
-                onClick={() => { setRoomSection("create"); setRoomError(null); }}
+                onClick={() => { setRoomSection("create"); setRoomError(null); router.push("/custom/room/create"); }}
                 onMouseEnter={e => { onHoverAction?.(); e.currentTarget.style.borderColor=t.accent; e.currentTarget.style.color=t.accent; }}
                 onMouseLeave={e => { e.currentTarget.style.borderColor=t.border; e.currentTarget.style.color=t.textMuted; }}
                 style={{ width:"100%", padding:"16px", background:"transparent", border:`2px solid ${t.border}`, borderRadius:ip?2:8, color:t.textMuted, fontFamily:t.fontDisplay, fontSize:14, fontWeight:700, cursor:"pointer", letterSpacing:"0.08em", transition:"all 0.22s" }}

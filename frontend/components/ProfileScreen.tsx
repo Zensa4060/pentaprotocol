@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import type { ThemeId } from "@/lib/themes";
 import { THEMES } from "@/lib/themes";
 import { useAuthStore } from "@/lib/store";
@@ -187,7 +188,7 @@ function AvatarWithBorder({ profile, size=68, borderDef, accentColor, bgColor, p
 }
 
 type EditTab = "profile" | "banner" | "border" | "title" | "password" | "email";
-interface Props { themeId: ThemeId; onHoverAction?: () => void; onClickAction?: () => void; setScreenAction: (s: Screen) => void; }
+interface Props { themeId: ThemeId; onHoverAction?: () => void; onClickAction?: () => void; setScreenAction: (s: Screen) => void; initialEditMode?: boolean; }
 
 const LockSVG = () => (
   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#666" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{flexShrink:0}}>
@@ -196,8 +197,9 @@ const LockSVG = () => (
   </svg>
 );
 
-export default function ProfileScreen({ themeId, onHoverAction, onClickAction, setScreenAction }: Props) {
+export default function ProfileScreen({ themeId, onHoverAction, onClickAction, setScreenAction, initialEditMode }: Props) {
   const t = THEMES[themeId];
+  const router = useRouter();
   const { user, token, updateUser } = useAuthStore();
   const [profile, setProfile]             = useState<any>(null);
   const [missionShardBonus, setMissionShardBonus] = useState(0);
@@ -213,7 +215,7 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
   const [twoFAMsg, setTwoFAMsg]           = useState<{text:string;ok:boolean}|null>(null);
   const [twoFAReady, setTwoFAReady]       = useState(false);
 
-  const [showEdit, setShowEdit]           = useState(false);
+  const [showEdit, setShowEdit]           = useState(!!initialEditMode);
   const [editTab, setEditTab]             = useState<EditTab>("profile");
   const [editMsg, setEditMsg]             = useState<{text:string;ok:boolean}|null>(null);
   const [editLoading, setEditLoading]     = useState(false);
@@ -384,6 +386,16 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
     setEditMsg(null);
     setEditTab(tab);
     setShowEdit(true);
+    if (typeof window !== "undefined" && window.location.pathname !== "/profile/edit") {
+      router.push("/profile/edit");
+    }
+  };
+
+  const closeEdit = () => {
+    closeEdit();
+    if (typeof window !== "undefined" && window.location.pathname === "/profile/edit") {
+      router.push("/profile");
+    }
   };
 
   // ── Avatar file handler — stores File object + blob URL preview only ─────
@@ -448,7 +460,7 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
       if (editBio !== (profile.bio || ""))    payload.bio      = editBio;
       if (avatarUrl)                          payload.avatar   = avatarUrl; // short URL ✅
 
-      if (!Object.keys(payload).length) { setShowEdit(false); return; }
+      if (!Object.keys(payload).length) { closeEdit(); return; }
 
       const res = await API.put("/api/profile/me", payload, authHeader);
       setProfile(res.data);
@@ -458,7 +470,7 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
       if (avatarPreview) URL.revokeObjectURL(avatarPreview);
       setAvatarFile(null);
       setAvatarPreview(null);
-      setTimeout(() => setShowEdit(false), 900);
+      setTimeout(() => closeEdit(), 900);
     } catch (e: any) {
       setEditMsg({ text: e.response?.data?.detail || e.message || "Update failed", ok:false });
     } finally { setEditLoading(false); }
@@ -474,7 +486,7 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
       saveCustomTheme({ ...cur, bannerSkin: editBanner });
       window.dispatchEvent(new Event("pp_custom_theme_changed"));
       setEditMsg({ text:"Banner updated!", ok:true });
-      setTimeout(() => setShowEdit(false), 900);
+      setTimeout(() => closeEdit(), 900);
     } catch(e:any) {
       setEditMsg({ text: e.response?.data?.detail || "Update failed", ok:false });
     } finally { setEditLoading(false); }
@@ -486,7 +498,7 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
       const res = await API.put("/api/profile/me", { border_style: editBorder }, authHeader);
       setProfile(res.data);
       setEditMsg({ text:"Border equipped!", ok:true });
-      setTimeout(() => setShowEdit(false), 900);
+      setTimeout(() => closeEdit(), 900);
     } catch(e:any) {
       setEditMsg({ text: e.response?.data?.detail || "Update failed", ok:false });
     } finally { setEditLoading(false); }
@@ -498,7 +510,7 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
       const res = await API.put("/api/profile/me", { title: editTitle }, authHeader);
       setProfile(res.data);
       setEditMsg({ text:"Badge equipped!", ok:true });
-      setTimeout(() => setShowEdit(false), 900);
+      setTimeout(() => closeEdit(), 900);
     } catch(e:any) {
       setEditMsg({ text: e.response?.data?.detail || "Update failed", ok:false });
     } finally { setEditLoading(false); }
@@ -632,7 +644,7 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
           <div style={{ fontFamily:t.fontBody, fontSize:12, color:t.textMuted, marginTop:2 }}>You must enable Two-Factor Authentication before changing sensitive account details.</div>
         </div>
       </div>
-      <button onClick={() => setShowEdit(false)} style={{ padding:"9px 16px", background:`${t.accent}18`, border:`1px solid ${t.accent}`, borderRadius:8, color:t.accent, fontFamily:t.fontDisplay, fontSize:12, fontWeight:700, cursor:"pointer", alignSelf:"flex-start" }}>
+      <button onClick={() => closeEdit()} style={{ padding:"9px 16px", background:`${t.accent}18`, border:`1px solid ${t.accent}`, borderRadius:8, color:t.accent, fontFamily:t.fontDisplay, fontSize:12, fontWeight:700, cursor:"pointer", alignSelf:"flex-start" }}>
         ← Go enable 2FA first
       </button>
     </div>
@@ -1023,7 +1035,7 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
 
             <div style={{ padding:"20px 26px 0", display:"flex", alignItems:"center", justifyContent:"space-between", flexShrink:0 }}>
               <div style={{ fontFamily:t.fontDisplay, fontSize:18, fontWeight:700, color:t.text }}>Edit Profile</div>
-              <button onClick={() => setShowEdit(false)} style={{ background:"transparent", border:"none", color:t.textMuted, fontSize:20, cursor:"pointer", lineHeight:1, padding:"0 4px" }}>✕</button>
+              <button onClick={() => closeEdit()} style={{ background:"transparent", border:"none", color:t.textMuted, fontSize:20, cursor:"pointer", lineHeight:1, padding:"0 4px" }}>✕</button>
             </div>
 
             <div style={{ display:"flex", gap:4, padding:"14px 26px 0", flexShrink:0, overflowX:"auto" }}>
@@ -1085,7 +1097,7 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
                     <button onClick={submitProfile} disabled={editLoading} style={{ flex:1, padding:"13px", background:t.accent, border:`2px solid ${t.accent}`, borderRadius:8, color:"#fff", fontFamily:t.fontDisplay, fontSize:14, fontWeight:800, cursor:"pointer", letterSpacing:"0.06em", transition:"all 0.18s", boxShadow:`0 0 12px ${t.accentGlow}33` }}>
                       {editLoading ? (avatarFile ? "Uploading to Supabase…" : "Saving…") : "Save Changes"}
                     </button>
-                    <button onClick={() => setShowEdit(false)} style={{ padding:"11px 18px", background:"transparent", border:`1px solid ${t.border}`, borderRadius:8, color:t.textMuted, fontFamily:t.fontDisplay, fontSize:14, cursor:"pointer" }}>Cancel</button>
+                    <button onClick={() => closeEdit()} style={{ padding:"11px 18px", background:"transparent", border:`1px solid ${t.border}`, borderRadius:8, color:t.textMuted, fontFamily:t.fontDisplay, fontSize:14, cursor:"pointer" }}>Cancel</button>
                   </div>
                 </>
               )}
@@ -1140,7 +1152,7 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
                     <button onClick={submitBorder} disabled={editLoading} style={{ flex:1, padding:"13px", background:t.accent, border:`2px solid ${t.accent}`, borderRadius:8, color:"#fff", fontFamily:t.fontDisplay, fontSize:14, fontWeight:800, cursor:"pointer", letterSpacing:"0.06em", transition:"all 0.18s" }}>
                       {editLoading?"Saving…":"Equip Border"}
                     </button>
-                    <button onClick={() => setShowEdit(false)} style={{ padding:"11px 18px", background:"transparent", border:`1px solid ${t.border}`, borderRadius:8, color:t.textMuted, fontFamily:t.fontDisplay, fontSize:14, cursor:"pointer" }}>Cancel</button>
+                    <button onClick={() => closeEdit()} style={{ padding:"11px 18px", background:"transparent", border:`1px solid ${t.border}`, borderRadius:8, color:t.textMuted, fontFamily:t.fontDisplay, fontSize:14, cursor:"pointer" }}>Cancel</button>
                   </div>
                 </>
               )}
@@ -1178,7 +1190,7 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
                     <button onClick={submitTitle} disabled={editLoading} style={{ flex:1, padding:"13px", background:t.accent, border:`2px solid ${t.accent}`, borderRadius:8, color:"#fff", fontFamily:t.fontDisplay, fontSize:14, fontWeight:800, cursor:"pointer", letterSpacing:"0.06em", transition:"all 0.18s" }}>
                       {editLoading?"Saving…":"Equip Badge"}
                     </button>
-                    <button onClick={() => setShowEdit(false)} style={{ padding:"11px 18px", background:"transparent", border:`1px solid ${t.border}`, borderRadius:8, color:t.textMuted, fontFamily:t.fontDisplay, fontSize:14, cursor:"pointer" }}>Cancel</button>
+                    <button onClick={() => closeEdit()} style={{ padding:"11px 18px", background:"transparent", border:`1px solid ${t.border}`, borderRadius:8, color:t.textMuted, fontFamily:t.fontDisplay, fontSize:14, cursor:"pointer" }}>Cancel</button>
                   </div>
                 </>
               )}
@@ -1241,7 +1253,7 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
                         <button onClick={submitPassword} disabled={editLoading} style={{ flex:1, padding:"13px", background:t.accent, border:`2px solid ${t.accent}`, borderRadius:8, color:"#fff", fontFamily:t.fontDisplay, fontSize:14, fontWeight:800, cursor:"pointer", letterSpacing:"0.06em", transition:"all 0.18s" }}>
                           {editLoading?"Saving…":pwTotpStep==="awaiting_otp"?"Confirm & Change Password":"Send OTP & Continue"}
                         </button>
-                        <button onClick={() => setShowEdit(false)} style={{ padding:"11px 18px", background:"transparent", border:`1px solid ${t.border}`, borderRadius:8, color:t.textMuted, fontFamily:t.fontDisplay, fontSize:14, cursor:"pointer" }}>Cancel</button>
+                        <button onClick={() => closeEdit()} style={{ padding:"11px 18px", background:"transparent", border:`1px solid ${t.border}`, borderRadius:8, color:t.textMuted, fontFamily:t.fontDisplay, fontSize:14, cursor:"pointer" }}>Cancel</button>
                       </div>
                     </>
                   )}
@@ -1280,7 +1292,7 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
                         <button onClick={submitEmail} disabled={editLoading} style={{ flex:1, padding:"13px", background:t.accent, border:`2px solid ${t.accent}`, borderRadius:8, color:"#fff", fontFamily:t.fontDisplay, fontSize:14, fontWeight:800, cursor:"pointer", letterSpacing:"0.06em", transition:"all 0.18s" }}>
                           {editLoading?"Saving…":emailTotpStep==="awaiting_otp"?"Confirm & Update Email":"Send OTP & Continue"}
                         </button>
-                        <button onClick={() => setShowEdit(false)} style={{ padding:"11px 18px", background:"transparent", border:`1px solid ${t.border}`, borderRadius:8, color:t.textMuted, fontFamily:t.fontDisplay, fontSize:14, cursor:"pointer" }}>Cancel</button>
+                        <button onClick={() => closeEdit()} style={{ padding:"11px 18px", background:"transparent", border:`1px solid ${t.border}`, borderRadius:8, color:t.textMuted, fontFamily:t.fontDisplay, fontSize:14, cursor:"pointer" }}>Cancel</button>
                       </div>
                     </>
                   )}

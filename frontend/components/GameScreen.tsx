@@ -8,7 +8,7 @@ import { checkWin, Coord } from "@/lib/winChecker";
 import { checkWin7 } from "@/lib/winChecker7";
 import { checkWin6 } from "@/lib/winChecker6";
 import type { BoardMode, Screen, SetScreenOptions } from "@/lib/types";
-import API from "@/lib/api";
+import API, { getWsBaseUrl } from "@/lib/api";
 import { censorText, containsProfanity } from "@/lib/profanity";
 import type { Difficulty } from "@/lib/botEngine";
 import { loadCustomTheme } from "@/lib/customTheme";
@@ -57,16 +57,6 @@ const DISCONNECT_HOME_NOTICE = "last match ended due to connection issues or goi
 function lobbyQuoteFromSeriesWinner(seriesWinner: string | null | undefined, mySlot: "P1" | "P2"): LobbyQuoteResult {
   if (!seriesWinner || seriesWinner === "DRAW") return null;
   return seriesWinner === mySlot ? "win" : "loss";
-}
-
-function getWsBaseUrl(): string {
-  const envBase = process.env.NEXT_PUBLIC_API_URL;
-  if (envBase) return envBase.replace("https://", "wss://").replace("http://", "ws://");
-  if (typeof window !== "undefined") {
-    const proto = window.location.protocol === "https:" ? "wss://" : "ws://";
-    return `${proto}${window.location.host}`;
-  }
-  return "ws://localhost:8000";
 }
 
 type PlayGridSize = 5 | 6 | 7;

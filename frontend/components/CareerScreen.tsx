@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import type { ThemeId } from "@/lib/themes";
 import { THEMES } from "@/lib/themes";
 import { useAuthStore } from "@/lib/store";
@@ -449,9 +450,11 @@ const CareerMatchRow = React.memo(({
 interface Props {
   themeId: ThemeId;
   onHoverAction?: () => void;
+  initialMatchId?: string;
 }
 
-export default function CareerScreen({ themeId, onHoverAction }: Props) {
+export default function CareerScreen({ themeId, onHoverAction, initialMatchId }: Props) {
+  const router = useRouter();
   const t = THEMES[themeId as keyof typeof THEMES];
   const { user } = useAuthStore();
   const ip = themeId === "pixel";
@@ -470,6 +473,13 @@ export default function CareerScreen({ themeId, onHoverAction }: Props) {
   const [selectedMatch, setSelectedMatch] = useState<MatchRecord | null>(null);
   const [isMobile, setIsMobile] = useState(false);
   const [focusHighlightId, setFocusHighlightId] = useState<string | null>(null);
+
+  /** Open a match overlay AND reflect it in the URL as /career/{matchId}. */
+  const selectMatch = (m: MatchRecord | null) => {
+    setSelectedMatch(m);
+    if (m?.id) router.push(`/career/${m.id}`);
+    else router.push("/career");
+  };
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 768);
@@ -491,8 +501,12 @@ export default function CareerScreen({ themeId, onHoverAction }: Props) {
         const rows = (Array.isArray(res.data) ? res.data : []) as MatchRecord[];
         if (cancelled) return;
         setHistory(rows);
-        const focusId =
+        // Priority: URL-based deep link (/career/{matchId}) beats the
+        // sessionStorage focus hint from the post-match flow.
+        const urlMatchId = initialMatchId || null;
+        const sessionFocusId =
           typeof window !== "undefined" ? sessionStorage.getItem("pp_career_focus_match_id") : null;
+        const focusId = urlMatchId || sessionFocusId;
         if (focusId) {
           const m = rows.find((x) => x.id === focusId);
           if (m) {
@@ -500,7 +514,7 @@ export default function CareerScreen({ themeId, onHoverAction }: Props) {
               m.mode === "ranked" ? "ranked" : m.mode === "custom" ? "custom" : "unranked";
             setActiveTab(tab);
             setSelectedMatch(m);
-            sessionStorage.removeItem("pp_career_focus_match_id");
+            if (sessionFocusId) sessionStorage.removeItem("pp_career_focus_match_id");
             setFocusHighlightId(focusId);
             requestAnimationFrame(() => {
               requestAnimationFrame(() => {
@@ -528,6 +542,24 @@ export default function CareerScreen({ themeId, onHoverAction }: Props) {
       window.removeEventListener("pp:career-refresh", handleCareerRefresh);
     };
   }, [user]);
+
+  // Sync selected match with URL-provided initialMatchId (client-side nav).
+  useEffect(() => {
+    if (!history.length) return;
+    if (initialMatchId) {
+      if (selectedMatch?.id === initialMatchId) return;
+      const m = history.find((x) => x.id === initialMatchId);
+      if (m) {
+        const tab: "ranked" | "unranked" | "custom" =
+          m.mode === "ranked" ? "ranked" : m.mode === "custom" ? "custom" : "unranked";
+        setActiveTab(tab);
+        setSelectedMatch(m);
+      }
+    } else if (selectedMatch) {
+      setSelectedMatch(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialMatchId, history]);
 
   useEffect(() => {
     if (!focusHighlightId) return;
@@ -1060,7 +1092,7 @@ export default function CareerScreen({ themeId, onHoverAction }: Props) {
                       i={i}
                       activeTab={activeTab}
                       t={t}
-                      setSelectedMatch={setSelectedMatch}
+                      setSelectedMatch={selectMatch}
                       isMobile={isMobile}
                       highlightId={focusHighlightId}
                     />
@@ -1091,7 +1123,7 @@ export default function CareerScreen({ themeId, onHoverAction }: Props) {
           match={selectedMatch}
           themeId={themeId}
           isMobile={isMobile}
-          onClose={() => setSelectedMatch(null)}
+          onClose={() => selectMatch(null)}
         />
       )}
     </div>

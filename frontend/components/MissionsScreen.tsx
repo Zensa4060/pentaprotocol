@@ -1,5 +1,6 @@
 "use client";
 import React, { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { THEMES } from "@/lib/themes";
 import type { ThemeId } from "@/lib/themes";
 import API from "@/lib/api";
@@ -54,10 +55,12 @@ function collectClaimableShardClaims(
 
 interface Props {
   themeId: ThemeId;
+  initialTab?: "daily" | "weekly" | "permanent";
 }
 
-export default function MissionsScreen({ themeId }: Props) {
+export default function MissionsScreen({ themeId, initialTab }: Props) {
   const t = THEMES[themeId];
+  const router = useRouter();
   const shardsSvg = themeId === "classic_light" ? SHARDS_LIGHT_SVG : SHARDS_DARK_SVG;
 
   const { user, token, updateUser } = useAuthStore();
@@ -65,7 +68,12 @@ export default function MissionsScreen({ themeId }: Props) {
 
   const userKey = getUserKey(user);
 
-  const [tab, setTab] = useState<"daily" | "weekly" | "permanent">("daily");
+  const [tab, setTab] = useState<"daily" | "weekly" | "permanent">(initialTab ?? "daily");
+
+  useEffect(() => {
+    if (initialTab && initialTab !== tab) setTab(initialTab);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialTab]);
   const [profile, setProfile] = useState<ProfileLike>(() => (user ?? {}) as ProfileLike);
   const [nowMs, setNowMs] = useState(() => Date.now());
 
@@ -311,7 +319,7 @@ export default function MissionsScreen({ themeId }: Props) {
             return (
               <button
                 key={x}
-                onClick={() => setTab(x)}
+                onClick={() => { setTab(x); router.push(`/missions/${x}`); }}
                 style={{
                   background: active ? "rgba(179,0,0,0.28)" : "rgba(179,0,0,0.12)",
                   border: active ? "2px solid #B30000" : "1.5px solid rgba(179,0,0,0.65)",

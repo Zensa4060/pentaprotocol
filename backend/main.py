@@ -31,9 +31,21 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-    expose_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    # Explicitly list Authorization: the CORS spec says the "*" wildcard in
+    # Access-Control-Allow-Headers does NOT cover the Authorization header,
+    # so browsers log a warning and may block authed requests.
+    allow_headers=[
+        "Authorization",
+        "Content-Type",
+        "Accept",
+        "Origin",
+        "X-Requested-With",
+        "X-CSRF-Token",
+        "If-None-Match",
+        "If-Modified-Since",
+    ],
+    expose_headers=["Content-Length", "ETag", "X-Request-Id"],
     max_age=3600,
 )
 

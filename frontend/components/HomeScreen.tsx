@@ -390,7 +390,7 @@ export default function HomeScreen({ setScreenAction, themeId, onHoverAction, on
       position: "fixed", inset: 0, zIndex: 2, overflowY: "auto",
       background: t.bg,
       display: "flex", flexDirection: "column",
-      alignItems: "center", justifyContent: "center",
+      alignItems: "center", justifyContent: "flex-start",
       padding: outerPadding, gap: outerGap,
       transition: "background 0.4s",
     }}>
@@ -689,7 +689,7 @@ export default function HomeScreen({ setScreenAction, themeId, onHoverAction, on
         paddingTop: 12,
         paddingBottom: isMobile ? 10 : 8,
         width: "100%",
-        transform: "translateY(100%)",
+        marginTop: "auto",
       }}>
         {FOOTER_LINKS.map((link, i) => (
           <React.Fragment key={link.href}>

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import CookieConsentBanner from "@/components/CookieConsentBanner";
+import AppShell from "@/components/AppShell";
 
 export const metadata: Metadata = {
   title: "PentaProtocol",
@@ -31,7 +32,7 @@ export default function RootLayout({
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
       </head>
       <body>
-        {children}
+        <AppShell>{children}</AppShell>
         <CookieConsentBanner />
       </body>
     </html>

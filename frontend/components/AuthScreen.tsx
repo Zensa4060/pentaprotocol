@@ -410,7 +410,7 @@ export default function AuthScreen({ setScreenAction, themeId }: Props) {
 
   // ── RENDER HELPERS ────────────────────────────────────
   const inputStyle = (error: boolean): React.CSSProperties => ({
-    width: "100%", padding: isMobile ? "12px 13px" : "10px 13px",
+    width: "100%", paddingTop: isMobile ? 12 : 10, paddingBottom: isMobile ? 12 : 10, paddingLeft: 13, paddingRight: 13,
     background: "rgba(255,255,255,0.04)",
     border: `1px solid ${error ? ACCENT2 : "rgba(255,255,255,0.1)"}`,
     borderRadius: 8, color: "#fff",

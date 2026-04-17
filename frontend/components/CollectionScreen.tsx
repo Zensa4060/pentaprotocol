@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import type { ThemeId } from "@/lib/themes";
 import { THEMES } from "@/lib/themes";
 import API from "@/lib/api";
@@ -617,13 +618,34 @@ function ThemesWithCustomize({ t, ip, themeId, setThemeIdAction, profile, active
 }
 
 // ── Main CollectionScreen ─────────────────────────────────────────────────────
-interface Props { themeId: ThemeId; setThemeIdAction?: (id: ThemeId) => void; onHoverAction?: () => void; onClickAction?: () => void; }
+interface Props { themeId: ThemeId; setThemeIdAction?: (id: ThemeId) => void; onHoverAction?: () => void; onClickAction?: () => void; initialTab?: string; }
 
-export default function CollectionScreen({ themeId, setThemeIdAction, onHoverAction, onClickAction }: Props) {
+const CAT_TO_SLUG: Record<CatId, string> = {
+  themes: "themes",
+  board_bundles: "grids",
+  profile_bundles: "banners",
+  coin_bundles: "coins",
+  titles: "badges",
+};
+
+export default function CollectionScreen({ themeId, setThemeIdAction, onHoverAction, onClickAction, initialTab }: Props) {
   const t = THEMES[themeId as keyof typeof THEMES];
+  const router = useRouter();
   const { user, token, updateUser } = useAuthStore();
-  const [activeCat, setActiveCat] = useState<CatId>("themes");
+  const [activeCat, setActiveCat] = useState<CatId>((initialTab as CatId) || "themes");
   const [showAll, setShowAll] = useState(false);
+
+  useEffect(() => {
+    if (initialTab && initialTab !== activeCat) setActiveCat(initialTab as CatId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialTab]);
+
+  const selectCat = (id: CatId) => {
+    setActiveCat(id);
+    setShowAll(false);
+    const slug = CAT_TO_SLUG[id];
+    if (slug) router.push(`/collection/${slug}`);
+  };
   const [activeTheme, setActiveTheme] = useState<string>(themeId);
   const [activeBoard,  setActiveBoard]  = useState<string>(() => loadCustomTheme().boardSkin  ?? (user as any)?.board_style ?? "default");
   const [activePiece,  setActivePiece]  = useState<string>(() => loadCustomTheme().pieceSkin  ?? "default");
@@ -874,7 +896,7 @@ export default function CollectionScreen({ themeId, setThemeIdAction, onHoverAct
                     <button
                       key={cat.id}
                       className="coll-tab"
-                      onClick={() => { onClickAction?.(); setActiveCat(cat.id); setShowAll(false); }}
+                      onClick={() => { onClickAction?.(); selectCat(cat.id); }}
                       onMouseEnter={() => onHoverAction?.()}
                       style={{
                         flexShrink: 0,

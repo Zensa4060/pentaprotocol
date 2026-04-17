@@ -1,0 +1,29 @@
+"use client";
+import { useEffect } from "react";
+import { useApp } from "@/components/AppShell";
+import SingleplayerScreen from "@/components/SingleplayerScreen";
+import type { BoardMode } from "@/lib/types";
+import { buildGameUrl } from "@/lib/routes";
+import { useRouter } from "next/navigation";
+
+export default function Training7x7Page() {
+  const ctx = useApp();
+  const router = useRouter();
+
+  useEffect(() => { ctx.setBoardMode("7x7"); }, []);
+
+  const handleBoardMode = (mode: BoardMode, patterns?: string[]) => {
+    ctx.setBoardMode(mode);
+    ctx.setSelectedPatterns(patterns || []);
+    router.push(buildGameUrl(mode));
+  };
+
+  return (
+    <SingleplayerScreen
+      setScreenAction={ctx.navigate}
+      themeId={ctx.themeId}
+      onHoverAction={ctx.sfx.hover}
+      onBoardModeAction={handleBoardMode}
+    />
+  );
+}
