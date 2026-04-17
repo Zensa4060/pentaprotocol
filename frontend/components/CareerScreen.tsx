@@ -793,7 +793,7 @@ export default function CareerScreen({ themeId, onHoverAction, initialMatchId }:
                     <div
                       style={{
                         display: "flex",
-                        justifyContent: isPlacement ? "center" : "space-between",
+                        justifyContent: "center",
                         fontFamily: t.fontMono,
                         fontSize: 12,
                         color: t.text,
@@ -803,12 +803,7 @@ export default function CareerScreen({ themeId, onHoverAction, initialMatchId }:
                         textTransform: "uppercase",
                       }}
                     >
-                      {!isPlacement && (
-                        <span style={{ color: rank.color, textShadow: `0 0 12px ${rank.color}44` }}>
-                          {rank.name}
-                        </span>
-                      )}
-                      <span style={{ color: isPlacement ? t.accent : nextRank.color, textShadow: `0 0 14px ${isPlacement ? t.accent : nextRank.color}44` }}>
+                      <span style={{ color: isPlacement ? t.accent : nextRank.color, textShadow: `0 0 14px ${isPlacement ? t.accent : nextRank.color}44`, textAlign: "center" }}>
                         {isPlacement ? `${5 - placementCount} MATCHES REMAINING` : `${nextRank.name} in ${eloToNext} ELO`}
                       </span>
                     </div>

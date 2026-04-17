@@ -2197,16 +2197,24 @@ async def get_room(room_code: str):
 @router.get("/active/check")
 async def get_active_room(user_id: str = Depends(get_current_user)):
     db = get_db()
-    # Rejoin battles: ranked / unranked queue matches only (not custom, not SP/bot — those have no room here).
+    # Rejoin battles: ranked / unranked only. Require BOTH players — solo matchmaking "waiting" rooms
+    # (only player1_id) must not surface as a false "rejoin" after refresh.
+    # Include game_status "finished" for between-round series states before the next game starts.
     room = await db.rooms.find_one({
         "$or": [{"player1_id": user_id}, {"player2_id": user_id}],
-        "game_status": {"$in": ["playing", "waiting"]},
+        # Both seats filled — never treat solo matchmaking "waiting" rooms as active.
+        "player1_id": {"$exists": True, "$ne": None},
+        "player2_id": {"$exists": True, "$ne": None},
+        "game_status": {"$in": ["playing", "waiting", "finished"]},
         "status": {"$nin": ["disbanded", "finished"]},
         "series_winner": None,
         "format": {"$in": ["ranked", "unranked"]},
     })
-    
+
     if not room:
+        return {"room_code": None}
+    # $ne: None can still match some edge docs; require non-empty ids.
+    if not room.get("player1_id") or not room.get("player2_id"):
         return {"room_code": None}
     
     pslot = "P1" if str(room.get("player1_id")) == str(user_id) else "P2"

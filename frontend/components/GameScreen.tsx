@@ -2133,6 +2133,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   }, [botTurnKey, phase, winner, gameMode, liveBoardMode, GRID_SIZE, structuralPatternsP2, difficulty]);
 
   const initBoard = async (firstPlayer: string, c3block = false, suppressCenter = false) => {
+    setIsBoardPaused(false);
     setSuppressCenterOpening(suppressCenter);
     setRbExtraTurnTokenHolder(null);
     setRbExtraTurnTokenUsed(false);
@@ -2833,6 +2834,12 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
       winClickLockRef.current = false;
       setPostGameReadyAck(true);
       requestAnimationFrame(() => setOverlayVisible(true));
+      return;
+    }
+    if (phase === "match_over") {
+      setShowWinOverlay(false);
+      setOverlayVisible(false);
+      winClickLockRef.current = false;
       return;
     }
     setShowWinOverlay(false);
@@ -3640,11 +3647,12 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     !matchOver &&
     !showWinOverlay &&
     (postGameReadyAck || pathname.startsWith("/ready/"));
-  const interGameReadyVisible =
+  /** Ready CTAs allowed (MP warmup gate, etc.). Central overlay must not AND this with centralReadyOverlay or buttons never render. */
+  const readyButtonsActive =
     phase === "waiting_ready" &&
     !showWinOverlay &&
-    !centralReadyOverlay &&
     (!isMultiplayerGame || (mpReadyGateOpen && !interLegUpgradePending));
+  const interGameReadyVisible = readyButtonsActive && !centralReadyOverlay;
   const waitingReadyWarmup =
     isMultiplayerGame && phase === "waiting_ready" && !mpReadyGateOpen && !interLegUpgradePending;
 
@@ -3665,7 +3673,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     graphicsQuality: gameplayGraphicsQuality,
     onDismissAction: dismissOverlay,
     centralReadyStep: centralReadyOverlay,
-    interGameReadyVisible,
+    interGameReadyVisible: readyButtonsActive,
     waitingReadyWarmup,
     isMultiplayerGame,
     gameMode,
@@ -3937,7 +3945,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
               {chatWarning && (!showMobileLog || mobileTab !== "chat") && <span style={{ position: "absolute", top: 4, right: 8, width: 6, height: 6, background: "#ff3333", borderRadius: "50%" }} />}
             </button>
           )}
-          {phase === "waiting_ready" && !isMultiplayerGame && (
+          {interGameReadyVisible && !isMultiplayerGame && (
             <button onClick={() => onReadyToggle("P1")} style={{ flex: 2, padding: "8px 0", background: `${t.accent}22`, border: `1px solid ${t.accent}`, borderRadius: 6, color: t.accent, fontFamily: t.fontMono, fontSize: 11, cursor: "pointer", fontWeight: 700 }}>
               {p1Ready ? "READY" : "TAP TO READY"}
             </button>
