@@ -2197,12 +2197,13 @@ async def get_room(room_code: str):
 @router.get("/active/check")
 async def get_active_room(user_id: str = Depends(get_current_user)):
     db = get_db()
-    # Find a room where user is P1 or P2 and it's currently 'playing' or 'waiting' (not disbanded or finished)
+    # Rejoin battles: ranked / unranked queue matches only (not custom, not SP/bot — those have no room here).
     room = await db.rooms.find_one({
         "$or": [{"player1_id": user_id}, {"player2_id": user_id}],
         "game_status": {"$in": ["playing", "waiting"]},
         "status": {"$nin": ["disbanded", "finished"]},
-        "series_winner": None
+        "series_winner": None,
+        "format": {"$in": ["ranked", "unranked"]},
     })
     
     if not room:

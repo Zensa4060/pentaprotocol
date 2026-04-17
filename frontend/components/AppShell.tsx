@@ -324,7 +324,11 @@ export default function AppShell({ children }: { children: ReactNode }) {
             headers: { Authorization: `Bearer ${tok}` },
           })
             .then((activeRes) => {
-              if (activeRes.data.room_code) setActiveMatchData(activeRes.data);
+              const d = activeRes.data;
+              const fmt = String(d?.format ?? "").toLowerCase();
+              if (d?.room_code && (fmt === "ranked" || fmt === "unranked")) {
+                setActiveMatchData(d);
+              }
             })
             .catch(() => {});
         }
@@ -1343,8 +1347,9 @@ export default function AppShell({ children }: { children: ReactNode }) {
           />
         )}
 
-        {/* Active match rejoin modal */}
-        {activeMatchData && (
+        {/* Active match rejoin: ranked / unranked queue only (not custom / SP / bots). */}
+        {activeMatchData &&
+          (activeMatchData.format === "ranked" || activeMatchData.format === "unranked") && (
           <ActiveMatchRejoinModal
             themeId={themeId}
             isRanked={activeMatchData.format === "ranked"}

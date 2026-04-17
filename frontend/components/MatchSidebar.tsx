@@ -542,13 +542,72 @@ export function RightPanel({ t, ip, p1c, p2c, panelW, phase, log, isRankedGame, 
   );
 }
 
-export function WinOverlay({ showWinOverlay, overlayVisible, winner, winnerColor, winnerPiece, seriesDiffers, seriesColor, seriesPiece, seriesWinner, phase, gameNumber, t, winnerDisplayNameAction, onDismissAction, graphicsQuality = "quality" }: {
-  showWinOverlay: boolean; overlayVisible: boolean; winner: string | null; winnerColor: string; winnerPiece: string;
-  seriesDiffers: boolean; seriesColor: string; seriesPiece: string; seriesWinner: string | null;
-  phase: Phase; gameNumber: number; t: { fontDisplay: string; fontMono: string; fontBody: string };
+export function WinOverlay({
+  showWinOverlay,
+  overlayVisible,
+  winner,
+  winnerColor,
+  winnerPiece,
+  seriesDiffers,
+  seriesColor,
+  seriesPiece,
+  seriesWinner,
+  phase,
+  gameNumber,
+  t,
+  winnerDisplayNameAction,
+  onDismissAction,
+  graphicsQuality = "quality",
+  centralReadyStep = false,
+  interGameReadyVisible = true,
+  waitingReadyWarmup = false,
+  isMultiplayerGame = false,
+  gameMode = "singleplayer",
+  p1Ready = false,
+  p2Ready = false,
+  readyTimeoutSec = 60,
+  onReadyToggleAction,
+  p1DisplayName = "P1",
+  p2DisplayName = "P2",
+  accentColor = "#7CFF7C",
+  p1c = "#7CFF7C",
+  p2c = "#FFB84D",
+  textSecondary = "rgba(255,255,255,0.55)",
+  ip = false,
+  mySlot,
+}: {
+  showWinOverlay: boolean;
+  overlayVisible: boolean;
+  winner: string | null;
+  winnerColor: string;
+  winnerPiece: string;
+  seriesDiffers: boolean;
+  seriesColor: string;
+  seriesPiece: string;
+  seriesWinner: string | null;
+  phase: Phase;
+  gameNumber: number;
+  t: { fontDisplay: string; fontMono: string; fontBody: string };
   winnerDisplayNameAction?: (w: string | null) => string;
   onDismissAction: () => void;
   graphicsQuality?: "performance" | "quality";
+  centralReadyStep?: boolean;
+  interGameReadyVisible?: boolean;
+  waitingReadyWarmup?: boolean;
+  isMultiplayerGame?: boolean;
+  gameMode?: string;
+  p1Ready?: boolean;
+  p2Ready?: boolean;
+  readyTimeoutSec?: number;
+  onReadyToggleAction?: (player: "P1" | "P2") => void;
+  p1DisplayName?: string;
+  p2DisplayName?: string;
+  accentColor?: string;
+  p1c?: string;
+  p2c?: string;
+  textSecondary?: string;
+  ip?: boolean;
+  mySlot?: "P1" | "P2";
 }) {
   const [canDismiss, setCanDismiss] = React.useState(false);
   React.useEffect(() => {
@@ -559,95 +618,290 @@ export function WinOverlay({ showWinOverlay, overlayVisible, winner, winnerColor
     }
   }, [showWinOverlay]);
 
-  if (!showWinOverlay || !winner) return null;
-  const getName = (w: string | null) => winnerDisplayNameAction ? winnerDisplayNameAction(w) : (w ?? "");
-  const pulseAnim = "none";
-const glow = "none";
+  const showWinPane = Boolean(showWinOverlay && winner);
+  const showReadyPane = Boolean(centralReadyStep && !showWinOverlay && phase === "waiting_ready");
+  if (!showWinPane && !showReadyPane) return null;
 
-  const handleDismiss = () => { if (canDismiss) onDismissAction(); };
+  const getName = (w: string | null) => (winnerDisplayNameAction ? winnerDisplayNameAction(w) : (w ?? ""));
+  const pulseAnim = "none";
+  const glow = "none";
+  const handleDismiss = () => {
+    if (canDismiss) onDismissAction();
+  };
+
+  const frameColor = showWinPane && winner ? winnerColor : accentColor;
+  const localSpOrAi = gameMode === "ai" || gameMode === "singleplayer";
 
   return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 999, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", willChange: "opacity", opacity: overlayVisible ? 1 : 0, transition: "none", pointerEvents: overlayVisible ? "auto" : "none" }}>
-      <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.85)", zIndex: 0 }} />
-      
-      {/* Proper Box Modal */}
-      <div style={{
-        position: "relative",
-        zIndex: 1,
-        width: "min(600px, 92vw)",
-        background: "rgba(10, 10, 15, 0.95)",
-        border: `1px solid ${winnerColor}55`,
-        borderRadius: 24,
-        padding: "48px 32px",
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 999,
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
-        boxShadow: `0 24px 80px rgba(0,0,0,0.8), 0 0 40px ${winnerColor}22, inset 0 0 20px ${winnerColor}11`,
-        willChange: "transform, opacity",
-        textAlign: "center"
-      }}>
-        {/* Glow Header */}
-        <div style={{ position: "absolute", top: -1, left: "20%", right: "20%", height: 1, background: `linear-gradient(90deg, transparent, ${winnerColor}, transparent)`, opacity: 0.8 }} />
-        
-        <div style={{ fontSize: "clamp(64px, 10vw, 110px)", lineHeight: 1, marginBottom: 12, animation: pulseAnim, filter: `drop-shadow(0 0 20px ${winnerColor}88)` }}>{winnerPiece}</div>
-        <div style={{ fontFamily: t.fontDisplay, fontSize: "clamp(36px, 6vw, 72px)", fontWeight: 900, color: winnerColor, lineHeight: 1, textShadow: `${glow} ${winnerColor}88`, animation: pulseAnim, letterSpacing: "-0.02em", marginBottom: 8 }}>
-          {winner === "DRAW" ? "DRAW" : `${getName(winner)} WINS!`}
-        </div>
-        
-        <div style={{ fontFamily: t.fontMono, fontSize: 13, color: "rgba(255,255,255,0.4)", letterSpacing: "0.2em", marginBottom: 32, textTransform: "uppercase" }}>
-          {phase === "match_over" ? "SERIES COMPLETE" : `GAME ${gameNumber} COMPLETE`}
-        </div>
+        justifyContent: "center",
+        willChange: "opacity",
+        opacity: overlayVisible ? 1 : 0,
+        transition: "none",
+        pointerEvents: overlayVisible ? "auto" : "none",
+      }}
+    >
+      <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.85)", zIndex: 0 }} />
 
-        {seriesDiffers && (
-          <div style={{ 
-            width: "100%", 
-            margin: "0 0 40px 0", 
-            padding: "24px", 
-            background: "rgba(255,255,255,0.03)", 
-            borderRadius: 16, 
-            border: "1px solid rgba(255,255,255,0.05)",
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            gap: 12
-          }}>
-            <div style={{ fontFamily: t.fontMono, fontSize: 11, color: "rgba(255,255,255,0.3)", letterSpacing: "0.15em" }}>OVERALL SERIES WINNER</div>
-            <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-              <span style={{ fontSize: 32 }}>{seriesPiece}</span>
-              <span style={{ fontFamily: t.fontDisplay, fontSize: 32, fontWeight: 800, color: seriesColor }}>{getName(seriesWinner)}</span>
-            </div>
-          </div>
-        )}
-
-        {/* Premium Continue Button */}
-        <button 
-          onClick={handleDismiss}
-          disabled={!canDismiss}
+      <div
+        style={{
+          position: "relative",
+          zIndex: 1,
+          width: "min(640px, 92vw)",
+          background: "rgba(10, 10, 15, 0.95)",
+          border: `1px solid ${frameColor}55`,
+          borderRadius: 24,
+          padding: showReadyPane ? "44px 36px" : "48px 32px",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          boxShadow: `0 24px 80px rgba(0,0,0,0.8), 0 0 40px ${frameColor}22, inset 0 0 20px ${frameColor}11`,
+          willChange: "transform, opacity",
+          textAlign: "center",
+        }}
+      >
+        <div
           style={{
-            marginTop: 8,
-            padding: "16px 48px",
-            background: canDismiss ? winnerColor : "rgba(255,255,255,0.05)",
-            border: "none",
-            borderRadius: 12,
-            color: canDismiss ? "#000" : "rgba(255,255,255,0.2)",
-            fontFamily: t.fontDisplay,
-            fontSize: 16,
-            fontWeight: 900,
-            cursor: canDismiss ? "pointer" : "default",
-            transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-            boxShadow: canDismiss ? `0 8px 32px ${winnerColor}44` : "none",
-            opacity: canDismiss ? 1 : 0.6,
-            display: "flex",
-            alignItems: "center",
-            gap: 12,
-            letterSpacing: "0.05em"
+            position: "absolute",
+            top: -1,
+            left: "20%",
+            right: "20%",
+            height: 1,
+            background: `linear-gradient(90deg, transparent, ${frameColor}, transparent)`,
+            opacity: 0.8,
           }}
-          onMouseEnter={e => { if (canDismiss) { e.currentTarget.style.transform = "translateY(-2px) scale(1.02)"; e.currentTarget.style.boxShadow = `0 12px 48px ${winnerColor}66`; } }}
-          onMouseLeave={e => { if (canDismiss) { e.currentTarget.style.transform = "translateY(0) scale(1)"; e.currentTarget.style.boxShadow = `0 8px 32px ${winnerColor}44`; } }}
-        >
-          CONTINUE
-          <span style={{ fontSize: 18, transition: "transform 0.3s", transform: "translateX(0)" }}>→</span>
-        </button>
+        />
+
+        {showWinPane && winner ? (
+          <>
+            <div
+              style={{
+                fontSize: "clamp(64px, 10vw, 110px)",
+                lineHeight: 1,
+                marginBottom: 12,
+                animation: pulseAnim,
+                filter: `drop-shadow(0 0 20px ${winnerColor}88)`,
+              }}
+            >
+              {winnerPiece}
+            </div>
+            <div
+              style={{
+                fontFamily: t.fontDisplay,
+                fontSize: "clamp(36px, 6vw, 72px)",
+                fontWeight: 900,
+                color: winnerColor,
+                lineHeight: 1,
+                textShadow: `${glow} ${winnerColor}88`,
+                animation: pulseAnim,
+                letterSpacing: "-0.02em",
+                marginBottom: 8,
+              }}
+            >
+              {winner === "DRAW" ? "DRAW" : `${getName(winner)} WINS!`}
+            </div>
+
+            <div
+              style={{
+                fontFamily: t.fontMono,
+                fontSize: 13,
+                color: "rgba(255,255,255,0.4)",
+                letterSpacing: "0.2em",
+                marginBottom: 32,
+                textTransform: "uppercase",
+              }}
+            >
+              {phase === "match_over" ? "SERIES COMPLETE" : `GAME ${gameNumber} COMPLETE`}
+            </div>
+
+            {seriesDiffers && (
+              <div
+                style={{
+                  width: "100%",
+                  margin: "0 0 40px 0",
+                  padding: "24px",
+                  background: "rgba(255,255,255,0.03)",
+                  borderRadius: 16,
+                  border: "1px solid rgba(255,255,255,0.05)",
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  gap: 12,
+                }}
+              >
+                <div
+                  style={{
+                    fontFamily: t.fontMono,
+                    fontSize: 11,
+                    color: "rgba(255,255,255,0.3)",
+                    letterSpacing: "0.15em",
+                  }}
+                >
+                  OVERALL SERIES WINNER
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+                  <span style={{ fontSize: 32 }}>{seriesPiece}</span>
+                  <span style={{ fontFamily: t.fontDisplay, fontSize: 32, fontWeight: 800, color: seriesColor }}>{getName(seriesWinner)}</span>
+                </div>
+              </div>
+            )}
+
+            <button
+              type="button"
+              onClick={handleDismiss}
+              disabled={!canDismiss}
+              style={{
+                marginTop: 8,
+                padding: "16px 48px",
+                background: canDismiss ? winnerColor : "rgba(255,255,255,0.05)",
+                border: "none",
+                borderRadius: 12,
+                color: canDismiss ? "#000" : "rgba(255,255,255,0.2)",
+                fontFamily: t.fontDisplay,
+                fontSize: 16,
+                fontWeight: 900,
+                cursor: canDismiss ? "pointer" : "default",
+                transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                boxShadow: canDismiss ? `0 8px 32px ${winnerColor}44` : "none",
+                opacity: canDismiss ? 1 : 0.6,
+                display: "flex",
+                alignItems: "center",
+                gap: 12,
+                letterSpacing: "0.05em",
+              }}
+              onMouseEnter={(e) => {
+                if (canDismiss) {
+                  e.currentTarget.style.transform = "translateY(-2px) scale(1.02)";
+                  e.currentTarget.style.boxShadow = `0 12px 48px ${winnerColor}66`;
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (canDismiss) {
+                  e.currentTarget.style.transform = "translateY(0) scale(1)";
+                  e.currentTarget.style.boxShadow = `0 8px 32px ${winnerColor}44`;
+                }
+              }}
+            >
+              CONTINUE
+              <span style={{ fontSize: 18, transition: "transform 0.3s", transform: "translateX(0)" }}>→</span>
+            </button>
+          </>
+        ) : null}
+
+        {showReadyPane && onReadyToggleAction ? (
+          <>
+            <div
+              style={{
+                fontFamily: t.fontDisplay,
+                fontSize: "clamp(32px, 5.5vw, 52px)",
+                fontWeight: 900,
+                color: accentColor,
+                letterSpacing: "0.06em",
+                marginBottom: 14,
+              }}
+            >
+              READY TO PLAY
+            </div>
+            <div
+              style={{
+                marginTop: 4,
+                fontFamily: t.fontMono,
+                fontSize: "clamp(14px, 2.2vw, 18px)",
+                color: textSecondary,
+                letterSpacing: "0.08em",
+              }}
+            >
+              Next game starts in {Math.max(0, Math.ceil(readyTimeoutSec))}s
+            </div>
+
+            {waitingReadyWarmup && (
+              <div style={{ marginTop: 20, fontFamily: t.fontBody, fontSize: 16, fontWeight: 600, color: textSecondary, letterSpacing: "0.04em" }}>
+                Get ready…
+              </div>
+            )}
+
+            {!waitingReadyWarmup && interGameReadyVisible && (
+              <div
+                style={{
+                  marginTop: 28,
+                  display: "flex",
+                  justifyContent: "center",
+                  gap: 16,
+                  flexWrap: "wrap",
+                  width: "100%",
+                }}
+              >
+                {localSpOrAi ? (
+                  <button
+                    type="button"
+                    onClick={() => onReadyToggleAction("P1")}
+                    style={{
+                      minWidth: "min(100%, 320px)",
+                      padding: "18px 28px",
+                      borderRadius: ip ? 2 : 14,
+                      border: `2px solid ${p1Ready ? p1c : "rgba(170,0,0,0.7)"}`,
+                      background: p1Ready ? `${p1c}22` : "rgba(170,0,0,0.12)",
+                      color: p1Ready ? p1c : "#ff6b6b",
+                      fontFamily: t.fontDisplay,
+                      fontSize: "clamp(16px, 2.8vw, 22px)",
+                      fontWeight: 900,
+                      letterSpacing: "0.04em",
+                      cursor: "pointer",
+                      transition: "all 0.2s",
+                      boxShadow: p1Ready ? `0 8px 28px ${p1c}44` : "none",
+                    }}
+                  >
+                    {p1DisplayName}
+                    {p1Ready ? " — READY" : " — TAP WHEN READY"}
+                  </button>
+                ) : (
+                  (["P1", "P2"] as const).map((slot) => {
+                    const rdy = slot === "P1" ? p1Ready : p2Ready;
+                    const col = slot === "P1" ? p1c : p2c;
+                    const label = slot === "P1" ? p1DisplayName : p2DisplayName;
+                    const isMine = !mySlot || mySlot === slot;
+                    return (
+                      <button
+                        key={slot}
+                        type="button"
+                        onClick={() => onReadyToggleAction(slot)}
+                        disabled={!isMine}
+                        style={{
+                          minWidth: 200,
+                          flex: "1 1 200px",
+                          maxWidth: 280,
+                          padding: "18px 22px",
+                          borderRadius: ip ? 2 : 14,
+                          border: `2px solid ${rdy ? col : "rgba(255,255,255,0.22)"}`,
+                          background: rdy ? `${col}22` : "rgba(255,255,255,0.04)",
+                          color: rdy ? col : textSecondary,
+                          fontFamily: t.fontDisplay,
+                          fontSize: "clamp(15px, 2.4vw, 20px)",
+                          fontWeight: 900,
+                          letterSpacing: "0.03em",
+                          cursor: isMine ? "pointer" : "default",
+                          opacity: isMine ? 1 : 0.75,
+                          transition: "all 0.2s",
+                          boxShadow: rdy ? `0 8px 24px ${col}33` : "none",
+                        }}
+                      >
+                        {label}
+                        {rdy ? " — READY" : " — READY?"}
+                      </button>
+                    );
+                  })
+                )}
+              </div>
+            )}
+          </>
+        ) : null}
       </div>
     </div>
   );

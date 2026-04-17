@@ -619,6 +619,8 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   const [winner, setWinner] = useState<string | null>(null);
   const [winLine, setWinLine] = useState<Coord[]>([]);
   const [showWinOverlay, setShowWinOverlay] = useState(false);
+  /** After CONTINUE on win overlay, stay on /game URL until true; then /ready. Drives central ready modal. */
+  const [postGameReadyAck, setPostGameReadyAck] = useState(false);
   // Pattern overlay — show active patterns during game; toggle persisted for session
   const [showPatternOverlay, setShowPatternOverlay] = useState(() => {
     try { return sessionStorage.getItem("patternOverlayVisible") === "true"; } catch { return false; }
@@ -723,9 +725,26 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
             : "game");
 
   useEffect(() => {
+    if (showWinOverlay) setPostGameReadyAck(false);
+  }, [showWinOverlay]);
+
+  useEffect(() => {
+    if (phase !== "waiting_ready") setPostGameReadyAck(false);
+  }, [phase]);
+
+  useEffect(() => {
+    if (matchOver) return;
+    if (phase !== "waiting_ready") return;
+    if (showWinOverlay) return;
+    if (postGameReadyAck || pathname.startsWith("/ready/")) {
+      setOverlayVisible(true);
+    }
+  }, [phase, matchOver, showWinOverlay, postGameReadyAck, pathname]);
+
+  useEffect(() => {
     if (!gameId) return;
     const desiredPath = (() => {
-      if (rulesShowSheet || phase === "toss_summary") return buildRulesShowUrl(gameId);
+      if (rulesShowSheet) return buildRulesShowUrl(gameId);
       if (phase === "rb_splash" || phase === "rb_coin" || phase === "rb_initializing") return buildRulebreakerUrl(gameId);
       if (
         [
@@ -739,15 +758,22 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
           "grid_block_warning",
           "grid_block_selection",
           "grid_block_waiting",
+          "toss_summary",
         ].includes(phase)
       ) {
         return buildRuleChoiceUrl(gameId);
       }
-      if (phase === "waiting_ready") return buildReadyUrl(gameId);
+      if (phase === "waiting_ready") {
+        const onReadyPath = pathname.startsWith("/ready/");
+        if (!postGameReadyAck && !onReadyPath) {
+          return buildGameUrl(boardMode, variant).replace(/\/[^/]+$/, `/${gameId}`);
+        }
+        return buildReadyUrl(gameId);
+      }
       return buildGameUrl(boardMode, variant).replace(/\/[^/]+$/, `/${gameId}`);
     })();
     if (pathname !== desiredPath) router.replace(desiredPath);
-  }, [phase, rulesShowSheet, gameId, boardMode, variant, pathname, router]);
+  }, [phase, rulesShowSheet, gameId, boardMode, variant, pathname, router, postGameReadyAck]);
 
   useEffect(() => {
     if (!isMultiplayerGame) {
@@ -2322,6 +2348,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
             const w = "P2";
             setWinner(w);
             if (isMultiplayerGame) {
+              setIsBoardPaused(true);
               wsRef.current?.send(JSON.stringify({ type: "timeout", winner: w }));
               playMultiplayerResultSfx(w);
               requestAnimationFrame(() => { setShowWinOverlay(true); requestAnimationFrame(() => setOverlayVisible(true)); });
@@ -2339,6 +2366,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
             const w = "P1";
             setWinner(w);
             if (isMultiplayerGame) {
+              setIsBoardPaused(true);
               wsRef.current?.send(JSON.stringify({ type: "timeout", winner: w }));
               playMultiplayerResultSfx(w);
               requestAnimationFrame(() => { setShowWinOverlay(true); requestAnimationFrame(() => setOverlayVisible(true)); });
@@ -2504,6 +2532,8 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     setWinner(null);
     setShowWinOverlay(false);
     setOverlayVisible(false);
+    setPostGameReadyAck(false);
+    setIsBoardPaused(false);
 
     if (isMultiplayerGame) {
       if (awaitingRulebreakerRef.current && gn >= 2) {
@@ -2584,6 +2614,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     const _isMP = (gameMode === "ranked" || gameMode === "unranked") && !!roomCode;
     if (_isMP) return;
     if (phase !== "playing") return;
+    setIsBoardPaused(true);
     if (winner === "P1") playVictoryAction?.(); else if (winner === "P2") playDefeatAction?.();
     const newHist = [...R.current.matchHistory, winner];
     // keep ref in sync immediately so checkSeriesWinner sees the updated history
@@ -2797,11 +2828,18 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   };
 
   const dismissOverlay = useCallback(() => {
-  setShowWinOverlay(false);
-  setOverlayVisible(false);
-  setIsBoardPaused(false);
-  winClickLockRef.current = false;
-}, []);
+    if (phase === "waiting_ready" && winner) {
+      setShowWinOverlay(false);
+      winClickLockRef.current = false;
+      setPostGameReadyAck(true);
+      requestAnimationFrame(() => setOverlayVisible(true));
+      return;
+    }
+    setShowWinOverlay(false);
+    setOverlayVisible(false);
+    setIsBoardPaused(false);
+    winClickLockRef.current = false;
+  }, [phase, winner]);
   const goToCareerAfterSeries = useCallback(() => {
     const id = matchSeriesComplete?.careerEntryId;
     if (id && typeof window !== "undefined") {
@@ -3597,10 +3635,53 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     );
   }
 
+  const centralReadyOverlay =
+    phase === "waiting_ready" &&
+    !matchOver &&
+    !showWinOverlay &&
+    (postGameReadyAck || pathname.startsWith("/ready/"));
   const interGameReadyVisible =
-    phase === "waiting_ready" && (!isMultiplayerGame || (mpReadyGateOpen && !interLegUpgradePending));
+    phase === "waiting_ready" &&
+    !showWinOverlay &&
+    !centralReadyOverlay &&
+    (!isMultiplayerGame || (mpReadyGateOpen && !interLegUpgradePending));
   const waitingReadyWarmup =
     isMultiplayerGame && phase === "waiting_ready" && !mpReadyGateOpen && !interLegUpgradePending;
+
+  const winOverlaySharedProps = {
+    showWinOverlay,
+    overlayVisible,
+    winner,
+    winnerColor,
+    winnerPiece,
+    seriesDiffers,
+    seriesColor,
+    seriesPiece,
+    seriesWinner,
+    phase,
+    gameNumber,
+    t: { fontDisplay: t.fontDisplay, fontMono: t.fontMono, fontBody: t.fontBody },
+    winnerDisplayNameAction: winnerDisplayName,
+    graphicsQuality: gameplayGraphicsQuality,
+    onDismissAction: dismissOverlay,
+    centralReadyStep: centralReadyOverlay,
+    interGameReadyVisible,
+    waitingReadyWarmup,
+    isMultiplayerGame,
+    gameMode,
+    p1Ready,
+    p2Ready,
+    readyTimeoutSec: readyTimeout,
+    onReadyToggleAction: onReadyToggle,
+    p1DisplayName,
+    p2DisplayName,
+    accentColor: t.accent,
+    p1c,
+    p2c,
+    textSecondary: t.textSecondary,
+    ip,
+    mySlot,
+  };
 
   if (activePhasePath !== "game") {
     return (
@@ -3620,24 +3701,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
       >
         {disconnectCountdownBanner}
 
-        {activePhasePath === "ready" && (
-          <div style={{ height: "100%", display: "grid", placeItems: "center", padding: 24 }}>
-            <div style={{ width: "min(720px, 92vw)", border: `1px solid ${t.border}`, borderRadius: ip ? 2 : 16, background: "rgba(0,0,0,0.55)", boxShadow: "0 24px 80px rgba(0,0,0,0.5)", padding: isMobile ? "20px 16px" : "28px 24px", textAlign: "center" }}>
-              <div style={{ fontFamily: t.fontDisplay, fontSize: isMobile ? 24 : 34, fontWeight: 900, color: t.accent, letterSpacing: "0.08em" }}>READY TO PLAY</div>
-              <div style={{ marginTop: 10, fontFamily: t.fontMono, fontSize: isMobile ? 12 : 13, color: t.textSecondary, letterSpacing: "0.06em" }}>
-                Next game starts in {Math.max(0, Math.ceil((readyTimer || readyTimeout) / 1))}s
-              </div>
-              <div style={{ marginTop: 18, display: "flex", justifyContent: "center", gap: 10, flexWrap: "wrap" }}>
-                <button onClick={() => onReadyToggle("P1")} style={{ padding: "10px 18px", borderRadius: 10, border: `1px solid ${p1Ready ? p1c : t.border}`, background: p1Ready ? `${p1c}22` : "rgba(255,255,255,0.03)", color: p1Ready ? p1c : t.text, fontFamily: t.fontMono, fontSize: 12, fontWeight: 800, letterSpacing: "0.04em", cursor: "pointer" }}>
-                  {p1Ready ? "P1 READY" : "P1 READY?"}
-                </button>
-                <button onClick={() => onReadyToggle("P2")} style={{ padding: "10px 18px", borderRadius: 10, border: `1px solid ${p2Ready ? p2c : t.border}`, background: p2Ready ? `${p2c}22` : "rgba(255,255,255,0.03)", color: p2Ready ? p2c : t.text, fontFamily: t.fontMono, fontSize: 12, fontWeight: 800, letterSpacing: "0.04em", cursor: "pointer" }}>
-                  {p2Ready ? "P2 READY" : "P2 READY?"}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+        {activePhasePath === "ready" && <WinOverlay {...winOverlaySharedProps} />}
 
         {(activePhasePath === "rulebreaker" || activePhasePath === "rulechoice") && rbOverlay}
 
@@ -3678,16 +3742,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
       <div style={{ position: "fixed", top: 52, left: 0, right: 0, bottom: 0, zIndex: 2, background: t.bg, overflow: "hidden", userSelect: "none", WebkitUserSelect: "none" }}>
         {disconnectCountdownBanner}
 
-        <WinOverlay
-          showWinOverlay={showWinOverlay} overlayVisible={overlayVisible}
-          winner={winner} winnerColor={winnerColor} winnerPiece={winnerPiece}
-          seriesDiffers={seriesDiffers} seriesColor={seriesColor} seriesPiece={seriesPiece}
-          seriesWinner={seriesWinner} phase={phase} gameNumber={gameNumber}
-          t={{ fontDisplay: t.fontDisplay, fontMono: t.fontMono, fontBody: t.fontBody }}
-          winnerDisplayNameAction={winnerDisplayName}
-          graphicsQuality={gameplayGraphicsQuality}
-          onDismissAction={dismissOverlay}
-        />
+        <WinOverlay {...winOverlaySharedProps} />
 
         <MatchupOverlay 
           matchupData={matchupData} 
@@ -4114,16 +4169,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     <div style={{ position: "fixed", top: 64, left: 0, right: 0, bottom: 0, zIndex: 2, display: "flex", flexDirection: "row", background: t.bg, overflow: "hidden", userSelect: "none", WebkitUserSelect: "none" }}>
       {disconnectCountdownBanner}
 
-      <WinOverlay
-        showWinOverlay={showWinOverlay} overlayVisible={overlayVisible}
-        winner={winner} winnerColor={winnerColor} winnerPiece={winnerPiece}
-        seriesDiffers={seriesDiffers} seriesColor={seriesColor} seriesPiece={seriesPiece}
-        seriesWinner={seriesWinner} phase={phase} gameNumber={gameNumber}
-        t={{ fontDisplay: t.fontDisplay, fontMono: t.fontMono, fontBody: t.fontBody }}
-        winnerDisplayNameAction={winnerDisplayName}
-        graphicsQuality={gameplayGraphicsQuality}
-        onDismissAction={dismissOverlay}
-      />
+      <WinOverlay {...winOverlaySharedProps} />
 
       <MatchupOverlay 
         matchupData={matchupData} 
