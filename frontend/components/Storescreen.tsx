@@ -767,11 +767,7 @@ export default function StoreScreen({ setScreenAction, themeId, audio, initialSe
   };
 
   const openBuyModal = (type: "shards" | "protocredits") => {
-    scheduleStoreHeavyOpen(() => {
-      setBuyCurrencyType(type);
-      setShowBuyModal(true);
-      pushStoreUrl(type === "shards" ? "/store/buyps" : "/store/buypc");
-    });
+    pushStoreUrl(type === "shards" ? "/store/buyps" : "/store/buypc");
   };
   const closeBuyModal = () => {
     cancelStoreHeavyOpen();
@@ -780,11 +776,8 @@ export default function StoreScreen({ setScreenAction, themeId, audio, initialSe
   };
 
   const openThemePreviewUrl = (id: string) => {
-    scheduleStoreHeavyOpen(() => {
-      setOpenThemePreview(id);
-      const slug = id === "space" ? "sptheme" : id === "pixel" ? "pxtheme" : id;
-      pushStoreUrl(`/store/preview/${slug}`);
-    });
+    const slug = id === "space" ? "sptheme" : id === "pixel" ? "pxtheme" : id;
+    pushStoreUrl(`/store/preview/${slug}`);
   };
   const closeThemePreview = () => {
     cancelStoreHeavyOpen();
@@ -793,12 +786,9 @@ export default function StoreScreen({ setScreenAction, themeId, audio, initialSe
   };
 
   const openBundlePreview = (bundleId: string) => {
-    scheduleStoreHeavyOpen(() => {
-      setOpenBundle(bundleId);
-      const b = BUNDLES.find((x) => x.id === bundleId);
-      const slug = b ? bundleToSlug(b) : bundleId;
-      pushStoreUrl(`/store/preview/${slug}`);
-    });
+    const b = BUNDLES.find((x) => x.id === bundleId);
+    const slug = b ? bundleToSlug(b) : bundleId;
+    pushStoreUrl(`/store/preview/${slug}`);
   };
   const closeBundlePreview = () => {
     cancelStoreHeavyOpen();

@@ -3696,7 +3696,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     mySlot,
   };
 
-  if (activePhasePath !== "game") {
+  if (activePhasePath !== "game" && phase !== "playing") {
     return (
       <div
         style={{
