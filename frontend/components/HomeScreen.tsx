@@ -280,7 +280,9 @@ export default function HomeScreen({ setScreenAction, themeId, onHoverAction, on
   
   // Fluid padding and spacing
   const cardPadding = isMobile ? "24px 20px" : "clamp(40px, 6vh, 72px) clamp(24px, 2.5vw, 40px)";
-  const outerPadding = isMobile ? "20px 16px" : "clamp(60px, 10vh, 100px) clamp(20px, 3vw, 48px)";
+  const outerPaddingTop = isMobile ? 20 : "clamp(60px, 10vh, 100px)";
+  const outerPaddingX = isMobile ? 16 : "clamp(20px, 3vw, 48px)";
+  const outerPaddingBottom = isMobile ? 8 : 12;
   const outerGap = "clamp(24px, 5vh, 50px)";
 
   const cardsLayout: React.CSSProperties = {
@@ -391,7 +393,11 @@ export default function HomeScreen({ setScreenAction, themeId, onHoverAction, on
       background: t.bg,
       display: "flex", flexDirection: "column",
       alignItems: "center", justifyContent: "flex-start",
-      padding: outerPadding, gap: outerGap,
+      paddingTop: outerPaddingTop,
+      paddingLeft: outerPaddingX,
+      paddingRight: outerPaddingX,
+      paddingBottom: outerPaddingBottom,
+      gap: outerGap,
       transition: "background 0.4s",
     }}>
 
