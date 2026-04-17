@@ -19,7 +19,7 @@ import {
 interface Props {
   setScreenAction: (s: Screen) => void;
   themeId: ThemeId;
-  onSelectDifficultyAction: (d: Difficulty) => void;
+  onSelectDifficultyAction: (d: Difficulty, boardMode: BoardMode) => void;
   onHoverAction?: () => void;
   onBoardModeAction?: (mode: BoardMode, patterns?: string[]) => void;
 }
@@ -114,7 +114,7 @@ export default function AIScreen({ setScreenAction, themeId, onSelectDifficultyA
 
   const handleSelect = (d: Difficulty) => {
     onBoardModeAction?.(boardMode, getSelectedPatterns());
-    onSelectDifficultyAction(d);
+    onSelectDifficultyAction(d, boardMode);
     setScreenAction("aiGame");
   };
 

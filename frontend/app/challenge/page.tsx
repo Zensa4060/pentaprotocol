@@ -11,10 +11,10 @@ export default function ChallengePage() {
     <AIScreen
       setScreenAction={ctx.navigate}
       themeId={ctx.themeId}
-      onSelectDifficultyAction={(d: Difficulty) => {
+      onSelectDifficultyAction={(d: Difficulty, mode: BoardMode) => {
         ctx.sfx.click();
         ctx.setAiDifficulty(d);
-        ctx.navigateToChallenge(ctx.boardMode, d);
+        ctx.navigateToChallenge(mode, d);
       }}
       onHoverAction={ctx.sfx.hover}
       onBoardModeAction={(mode: BoardMode, patterns?: string[]) => {
