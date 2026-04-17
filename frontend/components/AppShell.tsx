@@ -139,6 +139,12 @@ export default function AppShell({ children }: { children: ReactNode }) {
   // When a game URL carries ?bot=<name>, treat the current screen as an AI game.
   // This restores the "exit AI game?" confirmation after the routing restructure
   // moved bot games from /challenge/* to /game/g{n}/{id}?bot={name}.
+  const isMatchPath =
+    pathname.startsWith("/game/") ||
+    pathname.startsWith("/ready/") ||
+    pathname.startsWith("/rulebreaker/") ||
+    pathname.startsWith("/rulechoice/") ||
+    pathname.startsWith("/rulesshow/");
   const isBotGameRoute = !!(pathname?.startsWith("/game/") && searchParams?.get("bot"));
 
   /* ── Theme ──────────────────────────────────────────────────────────────── */
@@ -504,13 +510,13 @@ export default function AppShell({ children }: { children: ReactNode }) {
 
   /* ── Multiplayer nav lock ───────────────────────────────────────────── */
   useEffect(() => {
-    if (currentScreen === "multiGame" || (pathname.startsWith("/game/") && multiRoomCode))
+    if (currentScreen === "multiGame" || (isMatchPath && multiRoomCode))
       setMultiplayerNavUnlocked(false);
-  }, [currentScreen, pathname, multiRoomCode]);
+  }, [currentScreen, isMatchPath, multiRoomCode]);
 
   useEffect(() => {
-    if (!pathname.startsWith("/game/")) setMultiplayerRulesBootstrap(null);
-  }, [pathname]);
+    if (!isMatchPath) setMultiplayerRulesBootstrap(null);
+  }, [isMatchPath]);
 
   /* ── goto-store custom event ────────────────────────────────────────── */
   useEffect(() => {
@@ -553,7 +559,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
       }
 
       // MultiGame cleanup
-      const isOnGame = pathname.startsWith("/game/");
+      const isOnGame = isMatchPath;
       if (isOnGame && multiRoomCode) {
         if (opts?.exitMultiGameToCareer) {
           sessionStorage.removeItem(PP_MULTI_SERIES_FINISHED_KEY);
@@ -587,7 +593,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [pathname, user, multiRoomCode, sfx, router, isBotGameRoute],
+    [pathname, user, multiRoomCode, sfx, router, isBotGameRoute, isMatchPath],
   );
 
   const navigateToGame = useCallback(
@@ -904,8 +910,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
     pathname !== "/" &&
     !showPolicyGate;
 
-  const isGameScreen =
-    pathname.startsWith("/game/") || pathname.startsWith("/challenge/");
+  const isGameScreen = isMatchPath || pathname.startsWith("/challenge/");
 
   const GlobalMatchupOverlay = () => {
     if (queuePhase !== "matchup" || !matchupOpponent) return null;
@@ -1298,7 +1303,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
             queueElapsed={queueElapsed}
             onCancelQueueAction={cancelMatchmaking}
             lockMultiplayerNav={
-              pathname.startsWith("/game/") && multiRoomCode !== "" && !multiplayerNavUnlocked
+              isMatchPath && multiRoomCode !== "" && !multiplayerNavUnlocked
             }
           />
         )}

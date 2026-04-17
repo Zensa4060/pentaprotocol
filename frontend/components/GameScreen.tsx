@@ -49,6 +49,15 @@ import { persistLobbyTauntQuote, type LobbyQuoteResult } from "@/lib/lobbyTauntQ
 import { seriesPointsFromHistory, formatSeriesPts } from "@/lib/seriesPoints";
 import { effectivePlayBoardMode, startingLegFromBoardMode, type MultiplayerRulesBootstrap } from "@/lib/effectiveBoardMode";
 import { computeLevelProgress } from "@/lib/xpLevel";
+import { usePathname, useRouter } from "next/navigation";
+import {
+  buildGameUrl,
+  buildReadyUrl,
+  buildRulebreakerUrl,
+  buildRuleChoiceUrl,
+  buildRulesShowUrl,
+  type MatchPhasePath,
+} from "@/lib/routes";
 
 const EPS = 1e-9;
 const PP_HOME_NOTICE_KEY = "pp_home_notice";
@@ -272,6 +281,9 @@ interface Props {
   p1Name?: string;
   matchupData?: import("@/lib/types").MatchupData;
   boardMode?: BoardMode;
+  variant?: string;
+  gameId?: string;
+  phasePath?: MatchPhasePath;
   selectedPatterns?: string[];
   /** Sync lobby `boardMode` / patterns when server upgrades mid-match (e.g. 5×5 → 7×7). */
   onMultiplayerBoardSync?: (mode: BoardMode, patterns: string[]) => void;
@@ -286,7 +298,9 @@ interface Props {
   setHomeNoticeAction?: (notice: string | null) => void;
 }
 
-export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, gameMode = "singleplayer", difficulty = "medium", setScreenAction, roomCode, playerSlot, playHoverAction, playPlaceAction, playVictoryAction, playDefeatAction, playRulebreakerAction, playTransitionAction, playClickAction, p1Name, matchupData, boardMode = "5x5", selectedPatterns = [], onMultiplayerBoardSync, graphicsQuality = "quality", onMultiplayerSeriesSealedAction, onMultiplayerSeriesResumedAction, onMultiplayerNavLockChange, multiplayerRulesBootstrap = null, setHomeNoticeAction }: Props) {
+export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, gameMode = "singleplayer", difficulty = "medium", setScreenAction, roomCode, playerSlot, playHoverAction, playPlaceAction, playVictoryAction, playDefeatAction, playRulebreakerAction, playTransitionAction, playClickAction, p1Name, matchupData, boardMode = "5x5", variant, gameId: initialGameId, phasePath, selectedPatterns = [], onMultiplayerBoardSync, graphicsQuality = "quality", onMultiplayerSeriesSealedAction, onMultiplayerSeriesResumedAction, onMultiplayerNavLockChange, multiplayerRulesBootstrap = null, setHomeNoticeAction }: Props) {
+  const router = useRouter();
+  const pathname = usePathname();
   const [liveBoardMode, setLiveBoardMode] = useState<BoardMode>(boardMode);
   const [liveSelectedPatterns, setLiveSelectedPatterns] = useState<string[]>(selectedPatterns ?? []);
   useEffect(() => { setLiveBoardMode(boardMode); }, [boardMode]);
@@ -626,7 +640,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     try { sessionStorage.setItem("boardZoomActive", String(next)); } catch {}
     return next;
   });
-  const [gameId, setGameId] = useState<string | null>(null);
+  const [gameId, setGameId] = useState<string | null>(initialGameId ?? null);
   const [movesPlayed, setMovesPlayed] = useState(0);
   const [extraTurns, setExtraTurns] = useState(0);
   const [c3Blocked, setC3Blocked] = useState(false);
@@ -634,6 +648,9 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   const [hover, setHover] = useState<string | null>(null);
   const [botThinking, setBotThinking] = useState(false);
   const [log, setLog] = useState<{ text: string; player: string }[]>([]);
+  useEffect(() => {
+    if (initialGameId) setGameId(initialGameId);
+  }, [initialGameId]);
 
   const [p1Time, setP1Time] = useState(() => matchMsForGridSize(fallbackGridSizeFromMode(boardMode)));
   const [p2Time, setP2Time] = useState(() => matchMsForGridSize(fallbackGridSizeFromMode(boardMode)));
@@ -698,6 +715,45 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   const [readyTimeout, setReadyTimeout] = useState(60);
   const [readyTimer, setReadyTimer] = useState(0);
   const [phase, setPhase] = useState<Phase>("playing");
+  const activePhasePath: MatchPhasePath =
+    phasePath ??
+    (pathname.startsWith("/ready/")
+      ? "ready"
+      : pathname.startsWith("/rulebreaker/")
+        ? "rulebreaker"
+        : pathname.startsWith("/rulechoice/")
+          ? "rulechoice"
+          : pathname.startsWith("/rulesshow/")
+            ? "rulesshow"
+            : "game");
+
+  useEffect(() => {
+    if (!gameId) return;
+    const desiredPath = (() => {
+      if (rulesShowSheet || phase === "toss_summary") return buildRulesShowUrl(gameId);
+      if (phase === "rb_splash" || phase === "rb_coin" || phase === "rb_initializing") return buildRulebreakerUrl(gameId);
+      if (
+        [
+          "rule_choice",
+          "who_first_winner",
+          "c3_choice",
+          "c3_choice_loser",
+          "who_first_loser",
+          "ban_pattern_winner",
+          "ban_pattern_loser",
+          "grid_block_warning",
+          "grid_block_selection",
+          "grid_block_waiting",
+        ].includes(phase)
+      ) {
+        return buildRuleChoiceUrl(gameId);
+      }
+      if (phase === "waiting_ready") return buildReadyUrl(gameId);
+      return buildGameUrl(boardMode, variant).replace(/\/[^/]+$/, `/${gameId}`);
+    })();
+    if (pathname !== desiredPath) router.replace(desiredPath);
+  }, [phase, rulesShowSheet, gameId, boardMode, variant, pathname, router]);
+
   useEffect(() => {
     if (!isMultiplayerGame) {
       setMpReadyGateOpen(true);
@@ -3602,6 +3658,73 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     phase === "waiting_ready" && (!isMultiplayerGame || (mpReadyGateOpen && !interLegUpgradePending));
   const waitingReadyWarmup =
     isMultiplayerGame && phase === "waiting_ready" && !mpReadyGateOpen && !interLegUpgradePending;
+
+  if (activePhasePath !== "game") {
+    return (
+      <div
+        style={{
+          position: "fixed",
+          top: isMobile ? 52 : 64,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          zIndex: 2,
+          background: t.bg,
+          overflow: "hidden",
+          userSelect: "none",
+          WebkitUserSelect: "none",
+        }}
+      >
+        {disconnectCountdownBanner}
+
+        {activePhasePath === "ready" && (
+          <div style={{ height: "100%", display: "grid", placeItems: "center", padding: 24 }}>
+            <div style={{ width: "min(720px, 92vw)", border: `1px solid ${t.border}`, borderRadius: ip ? 2 : 16, background: "rgba(0,0,0,0.55)", boxShadow: "0 24px 80px rgba(0,0,0,0.5)", padding: isMobile ? "20px 16px" : "28px 24px", textAlign: "center" }}>
+              <div style={{ fontFamily: t.fontDisplay, fontSize: isMobile ? 24 : 34, fontWeight: 900, color: t.accent, letterSpacing: "0.08em" }}>READY TO PLAY</div>
+              <div style={{ marginTop: 10, fontFamily: t.fontMono, fontSize: isMobile ? 12 : 13, color: t.textSecondary, letterSpacing: "0.06em" }}>
+                Next game starts in {Math.max(0, Math.ceil((readyTimer || readyTimeout) / 1))}s
+              </div>
+              <div style={{ marginTop: 18, display: "flex", justifyContent: "center", gap: 10, flexWrap: "wrap" }}>
+                <button onClick={() => onReadyToggle("P1")} style={{ padding: "10px 18px", borderRadius: 10, border: `1px solid ${p1Ready ? p1c : t.border}`, background: p1Ready ? `${p1c}22` : "rgba(255,255,255,0.03)", color: p1Ready ? p1c : t.text, fontFamily: t.fontMono, fontSize: 12, fontWeight: 800, letterSpacing: "0.04em", cursor: "pointer" }}>
+                  {p1Ready ? "P1 READY" : "P1 READY?"}
+                </button>
+                <button onClick={() => onReadyToggle("P2")} style={{ padding: "10px 18px", borderRadius: 10, border: `1px solid ${p2Ready ? p2c : t.border}`, background: p2Ready ? `${p2c}22` : "rgba(255,255,255,0.03)", color: p2Ready ? p2c : t.text, fontFamily: t.fontMono, fontSize: 12, fontWeight: 800, letterSpacing: "0.04em", cursor: "pointer" }}>
+                  {p2Ready ? "P2 READY" : "P2 READY?"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {(activePhasePath === "rulebreaker" || activePhasePath === "rulechoice") && rbOverlay}
+
+        {activePhasePath === "rulesshow" && rulesShowSheet !== null && (
+          <RuleshowScreen
+            sheet={rulesShowSheet}
+            selectedPatterns={liveSelectedPatterns.length > 0 ? liveSelectedPatterns : undefined}
+            t={{
+              accent: t.accent,
+              border: t.border,
+              fontDisplay: t.fontDisplay,
+              fontMono: t.fontMono,
+              fontBody: t.fontBody,
+              text: t.text,
+              textSecondary: t.textSecondary,
+              textMuted: t.textMuted,
+            }}
+            ip={ip}
+            p1c={p1c}
+            p2c={p2c}
+            p1Ready={p1LevelUpReady}
+            p2Ready={p2LevelUpReady}
+            mySlot={mySlot ?? "P1"}
+            onToggleReadyAction={onLevelUpReadyToggle}
+            onDismissSheetAction={rulesShowSheet === "protocolbreaker" ? () => setRulesShowSheet(null) : undefined}
+          />
+        )}
+      </div>
+    );
+  }
 
   const surrenderModalVariant =
     isRankedGame && gameNumber === 1 && movesPlayed === 0 ? "abort" : "forfeit";

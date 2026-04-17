@@ -34,6 +34,10 @@ export const ROUTES = {
   STORE_BUY_PC: "/store/buypc",
   PROFILE: "/profile",
   PROFILE_EDIT: "/profile/edit",
+  READY: "/ready",
+  RULEBREAKER: "/rulebreaker",
+  RULECHOICE: "/rulechoice",
+  RULESSHOW: "/rulesshow",
   RULES: "/rules",
   PATCHNOTES: "/patchnotes",
 } as const;
@@ -85,6 +89,22 @@ export function buildGameUrl(boardMode: BoardMode, variant?: string): string {
   const id = generateGameId();
   const sk = boardModeToSizeKey(boardMode);
   return variant ? `/game/${sk}/${variant}/${id}` : `/game/${sk}/${id}`;
+}
+
+export function buildReadyUrl(id: string): string {
+  return `${ROUTES.READY}/${id}`;
+}
+
+export function buildRulebreakerUrl(id: string): string {
+  return `${ROUTES.RULEBREAKER}/${id}`;
+}
+
+export function buildRuleChoiceUrl(id: string): string {
+  return `${ROUTES.RULECHOICE}/${id}`;
+}
+
+export function buildRulesShowUrl(id: string): string {
+  return `${ROUTES.RULESSHOW}/${id}`;
 }
 
 /**
@@ -163,7 +183,15 @@ export function pathnameToScreen(p: string): Screen {
   if (p === "/career" || p.startsWith("/career/")) return "career";
   if (p.startsWith("/play/")) return "lobby";
   if (p.startsWith("/unranked/") || p.startsWith("/ranked/") || p.startsWith("/custom/")) return "lobby";
-  if (p.startsWith("/game/")) return "game";
+  if (
+    p.startsWith("/game/") ||
+    p.startsWith("/ready/") ||
+    p.startsWith("/rulebreaker/") ||
+    p.startsWith("/rulechoice/") ||
+    p.startsWith("/rulesshow/")
+  ) {
+    return "game";
+  }
   if (p === "/training" || p.startsWith("/training/")) return "singleplayer";
   if (p === "/challenge") return "ai";
   if (p.startsWith("/challenge/")) return "aiGame";
@@ -174,6 +202,70 @@ export function pathnameToScreen(p: string): Screen {
   if (p === "/rules") return "rules";
   if (p === "/patchnotes") return "patchNotes";
   return "home";
+}
+
+export type MatchPhasePath = "game" | "ready" | "rulebreaker" | "rulechoice" | "rulesshow";
+
+export interface ParsedMatchPath {
+  phasePath: MatchPhasePath;
+  gameId: string;
+  boardMode: BoardMode | null;
+  sizeKey: "g1" | "g2" | "g3" | null;
+  variant?: string;
+}
+
+/**
+ * Parse active match routes:
+ * - /game/g{n}/{id}
+ * - /game/g{n}/{variant}/{id}
+ * - /ready/{id}
+ * - /rulebreaker/{id}
+ * - /rulechoice/{id}
+ * - /rulesshow/{id}
+ */
+export function parseMatchPath(pathname: string): ParsedMatchPath | null {
+  const [cleanPath] = pathname.split(/[?#]/);
+  const parts = cleanPath.split("/").filter(Boolean);
+  if (!parts.length) return null;
+
+  const phaseHead = parts[0];
+  if (phaseHead === "game") {
+    const sizeKey = parts[1];
+    if (sizeKey !== "g1" && sizeKey !== "g2" && sizeKey !== "g3") return null;
+
+    if (parts.length === 3) {
+      return {
+        phasePath: "game",
+        gameId: parts[2],
+        boardMode: sizeKeyToBoardMode(sizeKey),
+        sizeKey,
+      };
+    }
+
+    if (parts.length >= 4) {
+      return {
+        phasePath: "game",
+        gameId: parts[3],
+        boardMode: sizeKeyToBoardMode(sizeKey),
+        sizeKey,
+        variant: parts[2],
+      };
+    }
+    return null;
+  }
+
+  if (phaseHead === "ready" || phaseHead === "rulebreaker" || phaseHead === "rulechoice" || phaseHead === "rulesshow") {
+    const gameId = parts[1];
+    if (!gameId) return null;
+    return {
+      phasePath: phaseHead,
+      gameId,
+      boardMode: null,
+      sizeKey: null,
+    };
+  }
+
+  return null;
 }
 
 /** Routes that guests (not signed in) are blocked from. */

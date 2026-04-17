@@ -362,15 +362,14 @@ export default function HomeScreen({ setScreenAction, themeId, onHoverAction, on
       padding: cardPadding,
       cursor: "pointer",
       textAlign: "center" as const,
-      transition: "all 0.4s cubic-bezier(.22,.68,0,1.2)",
+      transition:
+        "transform 0.4s cubic-bezier(.22,.68,0,1.2), box-shadow 0.4s cubic-bezier(.22,.68,0,1.2), background 0.2s linear, border-color 0.2s linear, opacity 0.2s linear",
       transform: isMobile
         ? (isHov ? "scale(1.02)" : "scale(1)")
         : isHov
           ? `translateY(${curveY - 15}px) scale(1.06)`
           : `translateY(${curveY}px)`,
       boxShadow: shatterActive ? "none" : hoverShadow,
-      backdropFilter: isSp && !shatterActive ? "blur(12px)" : undefined,
-      WebkitBackdropFilter: isSp && !shatterActive ? "blur(12px)" : undefined,
       flex: isMobile ? undefined : 1,
       width: isMobile ? "100%" : undefined,
       minWidth: 0,
@@ -573,7 +572,7 @@ export default function HomeScreen({ setScreenAction, themeId, onHoverAction, on
                       ? "linear-gradient(145deg, rgba(58,120,212,0.18), rgba(8,15,40,0.72))"
                       : `linear-gradient(145deg, ${AI_PURPLE}22, ${t.bgCard}dd)`
                   }
-                  backdropBlur={isSp ? "blur(12px)" : undefined}
+                  backdropBlur={undefined}
                   isMobile={isMobile}
                   borderColor={AI_PURPLE}
                   borderWidth={isMobile ? "1.5px" : "2px"}
