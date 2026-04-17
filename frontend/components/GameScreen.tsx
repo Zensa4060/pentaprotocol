@@ -502,8 +502,6 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   const isShorter = vh < 850;
 
 
-  const [showSplash, setShowSplash] = useState(!!isSingleplayer);
-
   const isMultiplayer = gameMode === "ranked" || gameMode === "unranked";
   const isRankedGame = gameMode === "ranked";
 
@@ -648,9 +646,6 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   const [hover, setHover] = useState<string | null>(null);
   const [botThinking, setBotThinking] = useState(false);
   const [log, setLog] = useState<{ text: string; player: string }[]>([]);
-  useEffect(() => {
-    if (initialGameId) setGameId(initialGameId);
-  }, [initialGameId]);
 
   const [p1Time, setP1Time] = useState(() => matchMsForGridSize(fallbackGridSizeFromMode(boardMode)));
   const [p2Time, setP2Time] = useState(() => matchMsForGridSize(fallbackGridSizeFromMode(boardMode)));
@@ -3261,56 +3256,6 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     );
   }
 
-  const splashScreen = (
-    <div style={{ position: "fixed", top: 64, left: 0, right: 0, bottom: 0, zIndex: 2, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: t.bg, gap: 32, userSelect: "none" }}>
-      <div style={{ fontFamily: t.fontDisplay, fontSize: "clamp(24px,5vw,72px)", fontWeight: 900, color: t.accent, textShadow: `0 0 60px ${t.accentGlow}55`, letterSpacing: "0.06em", textAlign: "center" }}>SINGLEPLAYER</div>
-      <div style={{ fontFamily: t.fontBody, fontSize: "clamp(13px,1.6vw,18px)", color: t.textSecondary, letterSpacing: "0.04em" }}>Local · Pass & Play · First to 3</div>
-      <button onClick={() => setShowSplash(false)}
-        style={{
-          marginTop: 8,
-          padding: "36px 128px",
-          background: `linear-gradient(135deg,${t.accent},${t.accentGlow})`,
-          border: "none",
-          borderRadius: ip ? 2 : 16,
-          color: "#0A0A0A",
-          fontFamily: t.fontDisplay,
-          fontSize: "clamp(28px,4vw,44px)",
-          fontWeight: 900,
-          cursor: "pointer",
-          letterSpacing: "0.15em",
-          boxShadow: `0 0 64px ${t.accentGlow}55`,
-          transition: "transform 0.15s ease, box-shadow 0.2s ease"
-        }}
-        onMouseEnter={e => { playHoverAction?.(); (e.currentTarget as HTMLElement).style.transform = "scale(1.03)"; (e.currentTarget as HTMLElement).style.boxShadow = `0 0 96px ${t.accentGlow}88`; }}
-        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.transform = "scale(1)"; (e.currentTarget as HTMLElement).style.boxShadow = `0 0 64px ${t.accentGlow}55`; }}
-        onMouseDown={e => { (e.currentTarget as HTMLElement).style.transform = "scale(0.98)"; }}
-        onMouseUp={e => { (e.currentTarget as HTMLElement).style.transform = "scale(1.03)"; }}
-      >PLAY</button>
-      <button onClick={() => setScreenAction?.("home")}
-        style={{
-          padding: "18px 64px",
-          background: "transparent",
-          border: `2px solid ${t.border}`,
-          borderRadius: ip ? 2 : 12,
-          color: t.text,
-          fontFamily: t.fontDisplay,
-          fontSize: "clamp(14px,2vw,22px)",
-          fontWeight: 900,
-          cursor: "pointer",
-          letterSpacing: "0.15em",
-          transition: "all 0.2s cubic-bezier(.22,.68,0,1.2)",
-          boxShadow: `0 0 20px ${t.border}22`
-        }}
-        onMouseEnter={e => { playHoverAction?.(); e.currentTarget.style.borderColor = t.accent; e.currentTarget.style.color = t.accent; e.currentTarget.style.transform = "scale(1.03)"; e.currentTarget.style.boxShadow = `0 0 40px ${t.accent}44`; }}
-        onMouseLeave={e => { e.currentTarget.style.borderColor = t.border; e.currentTarget.style.color = t.text; e.currentTarget.style.transform = "scale(1)"; e.currentTarget.style.boxShadow = `0 0 20px ${t.border}22`; }}
-        onMouseDown={e => { e.currentTarget.style.transform = "scale(0.98)"; }}
-        onMouseUp={e => { e.currentTarget.style.transform = "scale(1.03)"; }}
-      >GO BACK</button>
-      <div style={{ fontFamily: t.fontMono, fontSize: 11, color: t.textMuted, letterSpacing: "0.1em" }}>P1 goes first · Click any cell to begin</div>
-    </div>
-  );
-
-
   const rbPhases: Phase[] = ["rb_splash", "rb_coin", "rule_choice", "who_first_winner", "c3_choice", "c3_choice_loser", "who_first_loser", "ban_pattern_winner", "ban_pattern_loser", "grid_block_warning", "grid_block_selection", "grid_block_waiting", "toss_summary", "rb_initializing"];
   const rbOverlay = rbPhases.includes(phase) && (
       <RulebreakerFlow
@@ -3651,8 +3596,6 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
       </div>
     );
   }
-
-  if (showSplash) return splashScreen;
 
   const interGameReadyVisible =
     phase === "waiting_ready" && (!isMultiplayerGame || (mpReadyGateOpen && !interLegUpgradePending));

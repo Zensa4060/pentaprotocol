@@ -412,14 +412,14 @@ function BundleAnimatedPreview({ bundle, tick }: { bundle: Bundle; tick: number 
 function BundleModal({ bundle, t, isGuest, buyingId, purchasedItems, balance, onClose, onBuy, onOpenBuyCredits }: { bundle: Bundle; t: any; isGuest: boolean; buyingId: string | null; purchasedItems: string[]; balance: number; onClose: () => void; onBuy: (id: string, price: number, label: string) => void; onOpenBuyCredits: () => void }) {
   const [tick, setTick] = useState(0);
   const [hovOpt, setHovOpt] = useState<string | null>(null);
-  useEffect(() => { const iv = setInterval(() => setTick(v => v + 1), 900); return () => clearInterval(iv); }, []);
+  useEffect(() => { const iv = setInterval(() => setTick(v => v + 1), 2500); return () => clearInterval(iv); }, []);
   const ownsBundle = purchasedItems.includes(bundle.boardId) && purchasedItems.includes(bundle.pieceId);
   const ac = bundle.accentColor;
   const options = [{ id: "bundle", label: ownsBundle ? "Bundle Owned" : "Buy Bundle", sublabel: ownsBundle ? "Board + Pieces unlocked" : `Includes ${bundle.boardLabel} + ${bundle.pieceLabel}`, price: bundle.bundlePrice, includes: [bundle.boardLabel, bundle.pieceLabel], disabled: ownsBundle, owned: ownsBundle, highlight: true, purchaseId: "bundle_purchase_" + bundle.id }];
   return (
     <div onClick={e => { if (e.target === e.currentTarget) onClose(); }} style={{ position: "fixed", inset: 0, zIndex: 200, background: "rgba(0,0,0,0.88)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16, animation: "fadeIn 0.16s ease", overflowY: "auto" }}>
       <div style={{ background: bundle.bgGradient, border: `1.5px solid ${ac}44`, borderRadius: 22, width: "100%", maxWidth: 680, position: "relative", animation: "previewSlideUp 0.26s cubic-bezier(.22,.68,0,1.2)", overflow: "hidden", margin: "auto" }}>
-        <div style={{ position: "absolute", top: -60, left: "50%", transform: "translateX(-50%)", width: 400, height: 200, borderRadius: "50%", background: `${ac}14`, filter: "blur(60px)", pointerEvents: "none" }} />
+        <div style={{ position: "absolute", top: -60, left: "50%", transform: "translateX(-50%)", width: 400, height: 200, borderRadius: "50%", background: `${ac}22`, opacity: 0.85, pointerEvents: "none" }} />
         <button onClick={onClose} style={{ position: "absolute", top: 14, right: 14, zIndex: 10, background: "rgba(0,0,0,0.5)", border: `1px solid ${ac}44`, borderRadius: 8, color: "#fff", width: 30, height: 30, cursor: "pointer", fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
         <div style={{ padding: "24px 24px 0" }}>
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap" as const, marginBottom: 12 }}>
@@ -439,7 +439,7 @@ function BundleModal({ bundle, t, isGuest, buyingId, purchasedItems, balance, on
             {options.map(opt => {
               const isHov = hovOpt === opt.id && !opt.disabled; const isBuying = buyingId === opt.purchaseId || buyingId === opt.id; const canAfford = balance >= opt.price;
               return (
-                <div key={opt.id} onMouseEnter={() => !opt.disabled && setHovOpt(opt.id)} onMouseLeave={() => setHovOpt(null)} style={{ background: opt.owned ? "#4CAF5010" : opt.highlight ? `${ac}16` : "rgba(255,255,255,0.04)", border: `1.5px solid ${opt.owned ? "#4CAF5033" : opt.highlight ? `${ac}44` : "rgba(255,255,255,0.09)"}`, borderRadius: 12, padding: "13px 15px", display: "flex", alignItems: "center", gap: 14, transition: "all 0.2s", transform: isHov ? "translateX(4px)" : "none", boxShadow: opt.highlight && !opt.owned ? `0 0 18px ${ac}1E` : "none" }}>
+                <div key={opt.id} onMouseEnter={() => !opt.disabled && setHovOpt(opt.id)} onMouseLeave={() => setHovOpt(null)} style={{ background: opt.owned ? "#4CAF5010" : opt.highlight ? `${ac}16` : "rgba(255,255,255,0.04)", border: `1.5px solid ${opt.owned ? "#4CAF5033" : opt.highlight ? `${ac}44` : "rgba(255,255,255,0.09)"}`, borderRadius: 12, padding: "13px 15px", display: "flex", alignItems: "center", gap: 14, transition: "transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease, border-color 0.2s ease", transform: isHov ? "translateX(4px)" : "none", boxShadow: opt.highlight && !opt.owned ? `0 0 18px ${ac}1E` : "none" }}>
                   <div style={{ flex: 1 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 3 }}>
                       <span style={{ fontFamily: t.fontDisplay, fontSize: 14, fontWeight: 800, color: opt.owned ? "#4CAF50" : "#fff" }}>{opt.label}</span>
@@ -453,7 +453,7 @@ function BundleModal({ bundle, t, isGuest, buyingId, purchasedItems, balance, on
                     <div style={{ display: "flex", flexDirection: "column" as const, alignItems: "flex-end", gap: 4, flexShrink: 0 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 6, fontFamily: t.fontDisplay, fontSize: 18, fontWeight: 900, color: canAfford ? ac : "#EF4444", lineHeight: 1 }}>{opt.price.toLocaleString()}<ProtoSVG size={16} /></div>
                       {!canAfford && <div style={{ fontFamily: "monospace", fontSize: 9, color: "#EF4444" }}>need {(opt.price - balance).toLocaleString()} more</div>}
-                      <button disabled={isBuying} onClick={() => { if (!canAfford) { onOpenBuyCredits(); return; } onBuy(opt.purchaseId, opt.price, opt.label); }} style={{ background: isBuying ? `${ac}44` : canAfford ? ac : "#EF444422", border: `1.5px solid ${canAfford ? ac : "#EF4444"}`, borderRadius: 7, padding: "6px 13px", fontFamily: t.fontDisplay, fontSize: 11, fontWeight: 800, color: isBuying ? "rgba(255,255,255,0.3)" : canAfford ? "#000" : "#EF4444", cursor: isBuying ? "not-allowed" : "pointer", whiteSpace: "nowrap" as const, transition: "all 0.18s" }}>{isBuying ? "..." : canAfford ? "UNLOCK" : "TOP UP"}</button>
+                      <button disabled={isBuying} onClick={() => { if (!canAfford) { onOpenBuyCredits(); return; } onBuy(opt.purchaseId, opt.price, opt.label); }} style={{ background: isBuying ? `${ac}44` : canAfford ? ac : "#EF444422", border: `1.5px solid ${canAfford ? ac : "#EF4444"}`, borderRadius: 7, padding: "6px 13px", fontFamily: t.fontDisplay, fontSize: 11, fontWeight: 800, color: isBuying ? "rgba(255,255,255,0.3)" : canAfford ? "#000" : "#EF4444", cursor: isBuying ? "not-allowed" : "pointer", whiteSpace: "nowrap" as const, transition: "background 0.18s ease, border-color 0.18s ease, color 0.18s ease, opacity 0.18s ease" }}>{isBuying ? "..." : canAfford ? "UNLOCK" : "TOP UP"}</button>
                     </div>
                   )}
                 </div>
@@ -572,14 +572,14 @@ function BundleCard({ bundle, purchasedItems, t, onClick }: { bundle: Bundle; pu
     obs.observe(el); return () => obs.disconnect();
   }, []);
   const previewActive = hov && isVisible;
-  useEffect(() => { if (!previewActive) return; const iv = setInterval(() => setTick(v => v + 1), 650); return () => clearInterval(iv); }, [previewActive]);
+  useEffect(() => { if (!previewActive) return; const iv = setInterval(() => setTick(v => v + 1), 2000); return () => clearInterval(iv); }, [previewActive]);
   const p1Cells = [12, 6, 18, 2, 22]; const p2Cells = [8, 16, 4, 20, 10];
   const totalMoves = p1Cells.length + p2Cells.length; const move = tick % (totalMoves + 4);
   const placedP1 = new Set<number>(); const placedP2 = new Set<number>();
   for (let i = 0; i < move && i < totalMoves; i++) { if (i % 2 === 0) placedP1.add(p1Cells[Math.floor(i / 2)]); else placedP2.add(p2Cells[Math.floor(i / 2)]); }
   return (
-    <div ref={cardRef} onClick={onClick} onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)} style={{ background: bundle.bgGradient, border: `2px solid ${hov ? ac : ac + "33"}`, borderRadius: 18, padding: "24px", cursor: "pointer", position: "relative", overflow: "hidden", transform: hov ? "translateY(-6px) scale(1.01)" : "none", boxShadow: hov ? `0 20px 60px ${ac}30, 0 0 0 1px ${ac}20` : `0 4px 20px ${ac}14`, transition: "all 0.28s cubic-bezier(.22,.68,0,1.2)" }}>
-      <div style={{ position: "absolute", top: -40, right: -40, width: 180, height: 180, borderRadius: "50%", background: `${ac}14`, filter: "blur(50px)", pointerEvents: "none" }} />
+    <div ref={cardRef} onClick={onClick} onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)} style={{ background: bundle.bgGradient, border: `2px solid ${hov ? ac : ac + "33"}`, borderRadius: 18, padding: "24px", cursor: "pointer", position: "relative", overflow: "hidden", transform: hov ? "translateY(-6px) scale(1.01)" : "none", boxShadow: hov ? `0 20px 60px ${ac}30, 0 0 0 1px ${ac}20` : `0 4px 20px ${ac}14`, transition: "transform 0.28s cubic-bezier(.22,.68,0,1.2), box-shadow 0.28s cubic-bezier(.22,.68,0,1.2), border-color 0.28s ease" }}>
+      <div style={{ position: "absolute", top: -40, right: -40, width: 180, height: 180, borderRadius: "50%", background: `${ac}22`, opacity: 0.75, pointerEvents: "none" }} />
       <div style={{ position: "absolute", top: 14, right: 14, display: "flex", gap: 5, flexWrap: "wrap" as const, justifyContent: "flex-end", maxWidth: 160 }}>
         {ownsAll && <span style={{ fontFamily: "monospace", fontSize: 9, fontWeight: 700, color: "#4CAF50", background: "#4CAF5018", border: "1px solid #4CAF5044", padding: "2px 8px", borderRadius: 10 }}>BUNDLE OWNED ✓</span>}
       </div>
@@ -657,6 +657,28 @@ export default function StoreScreen({ setScreenAction, themeId, audio, initialSe
   const [openThemePreview, setOpenThemePreview] = useState<string | null>(null);
   const [confirmBuy,   setConfirmBuy]   = useState<{ id: string, price: number, shardPrice?: number, label: string } | null>(null);
 
+  /** 0.5s delayed open for heavy modals; avoids double-queue + cleans up on unmount. */
+  const STORE_HEAVY_OPEN_MS = 500;
+  const storeHeavyOpenLockRef = useRef(false);
+  const storeHeavyOpenTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const cancelStoreHeavyOpen = () => {
+    if (storeHeavyOpenTimerRef.current != null) {
+      clearTimeout(storeHeavyOpenTimerRef.current);
+      storeHeavyOpenTimerRef.current = null;
+    }
+    storeHeavyOpenLockRef.current = false;
+  };
+  const scheduleStoreHeavyOpen = (fn: () => void) => {
+    if (storeHeavyOpenLockRef.current) return;
+    storeHeavyOpenLockRef.current = true;
+    if (storeHeavyOpenTimerRef.current != null) clearTimeout(storeHeavyOpenTimerRef.current);
+    storeHeavyOpenTimerRef.current = setTimeout(() => {
+      storeHeavyOpenTimerRef.current = null;
+      storeHeavyOpenLockRef.current = false;
+      fn();
+    }, STORE_HEAVY_OPEN_MS);
+  };
+
   const activePackages = buyCurrencyType === "shards" ? SHARD_PACKAGES : PACKAGES;
   const selectedPackageId = buyCurrencyType === "shards" ? selectedShards : selectedProto;
   const pkg = activePackages.find(p => p.id === selectedPackageId)!;
@@ -693,35 +715,43 @@ export default function StoreScreen({ setScreenAction, themeId, audio, initialSe
     recordStoreCatalogSeen(getStoreCatalogSignature());
   }, []);
 
+  useEffect(() => () => cancelStoreHeavyOpen(), []);
+
   // ── URL-driven initial state ─────────────────────────────────────────────
   // initialSection: "buyps" | "buypc" (and legacy "buypentashards"/"buyprotocredits")
   // initialPreview: "sptheme" | "pxtheme" | "<bundleSlug>" (e.g. "glaciergrid")
   useEffect(() => {
     if (!initialSection) return;
-    const s = initialSection.toLowerCase();
-    if (s === "buyps" || s === "buypentashards" || s === "shards") {
-      setBuyCurrencyType("shards");
-      setShowBuyModal(true);
-    } else if (s === "buypc" || s === "buyprotocredits" || s === "protocredits") {
-      setBuyCurrencyType("protocredits");
-      setShowBuyModal(true);
-    }
+    const tid = setTimeout(() => {
+      const s = initialSection.toLowerCase();
+      if (s === "buyps" || s === "buypentashards" || s === "shards") {
+        setBuyCurrencyType("shards");
+        setShowBuyModal(true);
+      } else if (s === "buypc" || s === "buyprotocredits" || s === "protocredits") {
+        setBuyCurrencyType("protocredits");
+        setShowBuyModal(true);
+      }
+    }, STORE_HEAVY_OPEN_MS);
+    return () => clearTimeout(tid);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialSection]);
 
   useEffect(() => {
     if (!initialPreview) return;
-    const slug = initialPreview.toLowerCase().replace(/\s+/g, "");
-    if (slug === "sptheme" || slug === "spacetheme" || slug === "space") {
-      setOpenThemePreview("space");
-      return;
-    }
-    if (slug === "pxtheme" || slug === "pixeltheme" || slug === "pixel") {
-      setOpenThemePreview("pixel");
-      return;
-    }
-    const resolved = resolveBundleFromSlug(slug);
-    if (resolved) setOpenBundle(resolved.id);
+    const tid = setTimeout(() => {
+      const slug = initialPreview.toLowerCase().replace(/\s+/g, "");
+      if (slug === "sptheme" || slug === "spacetheme" || slug === "space") {
+        setOpenThemePreview("space");
+        return;
+      }
+      if (slug === "pxtheme" || slug === "pixeltheme" || slug === "pixel") {
+        setOpenThemePreview("pixel");
+        return;
+      }
+      const resolved = resolveBundleFromSlug(slug);
+      if (resolved) setOpenBundle(resolved.id);
+    }, STORE_HEAVY_OPEN_MS);
+    return () => clearTimeout(tid);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialPreview]);
 
@@ -737,32 +767,41 @@ export default function StoreScreen({ setScreenAction, themeId, audio, initialSe
   };
 
   const openBuyModal = (type: "shards" | "protocredits") => {
-    setBuyCurrencyType(type);
-    setShowBuyModal(true);
-    pushStoreUrl(type === "shards" ? "/store/buyps" : "/store/buypc");
+    scheduleStoreHeavyOpen(() => {
+      setBuyCurrencyType(type);
+      setShowBuyModal(true);
+      pushStoreUrl(type === "shards" ? "/store/buyps" : "/store/buypc");
+    });
   };
   const closeBuyModal = () => {
+    cancelStoreHeavyOpen();
     setShowBuyModal(false);
     returnToStore();
   };
 
   const openThemePreviewUrl = (id: string) => {
-    setOpenThemePreview(id);
-    const slug = id === "space" ? "sptheme" : id === "pixel" ? "pxtheme" : id;
-    pushStoreUrl(`/store/preview/${slug}`);
+    scheduleStoreHeavyOpen(() => {
+      setOpenThemePreview(id);
+      const slug = id === "space" ? "sptheme" : id === "pixel" ? "pxtheme" : id;
+      pushStoreUrl(`/store/preview/${slug}`);
+    });
   };
   const closeThemePreview = () => {
+    cancelStoreHeavyOpen();
     setOpenThemePreview(null);
     returnToStore();
   };
 
   const openBundlePreview = (bundleId: string) => {
-    setOpenBundle(bundleId);
-    const b = BUNDLES.find((x) => x.id === bundleId);
-    const slug = b ? bundleToSlug(b) : bundleId;
-    pushStoreUrl(`/store/preview/${slug}`);
+    scheduleStoreHeavyOpen(() => {
+      setOpenBundle(bundleId);
+      const b = BUNDLES.find((x) => x.id === bundleId);
+      const slug = b ? bundleToSlug(b) : bundleId;
+      pushStoreUrl(`/store/preview/${slug}`);
+    });
   };
   const closeBundlePreview = () => {
+    cancelStoreHeavyOpen();
     setOpenBundle(null);
     returnToStore();
   };
@@ -851,7 +890,7 @@ export default function StoreScreen({ setScreenAction, themeId, audio, initialSe
         .store-card:hover { transform: translateY(-4px) scale(1.02); }
         .store-card.no-lift:hover { transform: none; }
         .store-buy-btn:hover { filter: brightness(1.12); transform: scale(1.01); }
-        .store-buy-btn,.store-pkg { transition: all 0.18s ease; cursor: pointer; }
+        .store-buy-btn,.store-pkg { transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease, border-color 0.18s ease, filter 0.18s ease; cursor: pointer; }
         .store-pkg:hover { filter: brightness(1.08); }
         .modal-backdrop { animation: fadeIn 0.18s ease; }
         @keyframes fadeIn { from{opacity:0} to{opacity:1} }
@@ -903,7 +942,7 @@ export default function StoreScreen({ setScreenAction, themeId, audio, initialSe
           </div>
           <div style={{ display: "flex", gap: 14, flexWrap: "wrap", alignItems: "stretch" }}>
             <div className="store-card" onClick={() => { if (isGuest) { showError("Sign in to buy PentaShards."); return; } setMsg(null); openBuyModal("shards"); }} style={{ flexShrink: 0, minWidth: 260, maxWidth: 320, background: "linear-gradient(135deg, rgba(79,195,247,0.18), rgba(79,195,247,0.08))", border: `2px solid ${isGuest ? t.border : "#4FC3F755"}`, borderRadius: 18, padding: "22px 24px", boxShadow: "0 0 40px rgba(79,195,247,0.22)", position: "relative", overflow: "hidden", opacity: isGuest ? 0.75 : 1 }}>
-              <div style={{ position: "absolute", top: -30, right: -30, width: 120, height: 120, borderRadius: "50%", background: "rgba(79,195,247,0.22)", filter: "blur(40px)", pointerEvents: "none" }} />
+              <div style={{ position: "absolute", top: -30, right: -30, width: 120, height: 120, borderRadius: "50%", background: "rgba(79,195,247,0.35)", opacity: 0.9, pointerEvents: "none" }} />
               <div style={{ fontFamily: t.fontMono, fontSize: 10, color: "#4FC3F7", letterSpacing: "0.25em", marginBottom: 10 }}>PENTASHARDS</div>
               <div style={{ fontFamily: t.fontDisplay, fontSize: 26, fontWeight: 900, color: t.text, marginBottom: 6, lineHeight: 1.1 }}>Buy<br /><span style={{ color: "#4FC3F7" }}>PentaShards</span></div>
               <div style={{ fontFamily: t.fontBody, fontSize: 12, color: t.textMuted, marginBottom: 16 }}>Starting from ₹25 · Instant delivery</div>
@@ -912,7 +951,7 @@ export default function StoreScreen({ setScreenAction, themeId, audio, initialSe
               {!isGuest && <div style={{ marginTop: 12, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, fontFamily: t.fontMono, fontSize: 22, color: t.textMuted }}>Balance: <span style={{ color: "#4FC3F7", display: "flex", alignItems: "center", gap: 6 }}>{shardBalance.toLocaleString()} <ShardSVG size={21} /></span></div>}
             </div>
             <div className="store-card" onClick={() => { if (isGuest) { showError("Sign in to buy ProtoCredits."); return; } setMsg(null); openBuyModal("protocredits"); }} style={{ flexShrink: 0, minWidth: 260, maxWidth: 320, background: `linear-gradient(135deg, ${accent}18, ${accent}08)`, border: `2px solid ${isGuest ? t.border : accent + "55"}`, borderRadius: 18, padding: "22px 24px", boxShadow: `0 0 40px ${accent}22`, position: "relative", overflow: "hidden", opacity: isGuest ? 0.75 : 1 }}>
-              <div style={{ position: "absolute", top: -30, right: -30, width: 120, height: 120, borderRadius: "50%", background: `${accent}22`, filter: "blur(40px)", pointerEvents: "none" }} />
+              <div style={{ position: "absolute", top: -30, right: -30, width: 120, height: 120, borderRadius: "50%", background: `${accent}35`, opacity: 0.9, pointerEvents: "none" }} />
               <div style={{ fontFamily: t.fontMono, fontSize: 10, color: accent, letterSpacing: "0.25em", marginBottom: 10 }}>PROTOCREDITS</div>
               <div style={{ fontFamily: t.fontDisplay, fontSize: 26, fontWeight: 900, color: t.text, marginBottom: 6, lineHeight: 1.1 }}>Buy<br /><span style={{ color: accent }}>ProtoCredits</span></div>
               <div style={{ fontFamily: t.fontBody, fontSize: 12, color: t.textMuted, marginBottom: 16 }}>Starting from ₹49 · Instant delivery</div>
@@ -1027,7 +1066,7 @@ export default function StoreScreen({ setScreenAction, themeId, audio, initialSe
         </div>
 
         <div style={{ textAlign: "center" as const }}>
-          <button onClick={() => setScreenAction("home")} style={{ background: "transparent", border: `1px solid ${t.border}`, color: t.textMuted, fontFamily: t.fontDisplay, fontSize: 13, fontWeight: 700, padding: "10px 28px", borderRadius: 8, cursor: "pointer", letterSpacing: "0.06em", transition: "all 0.2s" }} onMouseEnter={e => { e.currentTarget.style.borderColor = accent; e.currentTarget.style.color = accent; }} onMouseLeave={e => { e.currentTarget.style.borderColor = t.border; e.currentTarget.style.color = t.textMuted; }}>← GO BACK</button>
+          <button onClick={() => setScreenAction("home")} style={{ background: "transparent", border: `1px solid ${t.border}`, color: t.textMuted, fontFamily: t.fontDisplay, fontSize: 13, fontWeight: 700, padding: "10px 28px", borderRadius: 8, cursor: "pointer", letterSpacing: "0.06em", transition: "border-color 0.2s ease, color 0.2s ease" }} onMouseEnter={e => { e.currentTarget.style.borderColor = accent; e.currentTarget.style.color = accent; }} onMouseLeave={e => { e.currentTarget.style.borderColor = t.border; e.currentTarget.style.color = t.textMuted; }}>← GO BACK</button>
         </div>
 
         {msg && (<div style={{ position: "fixed", bottom: 28, left: "50%", transform: "translateX(-50%)", zIndex: 999, background: msg.ok ? "#1a2e1a" : "#2e1a1a", border: `1px solid ${msg.ok ? "#4CAF50" : "#EF4444"}`, borderRadius: 10, padding: "10px 22px", fontFamily: t.fontMono, fontSize: 13, color: msg.ok ? "#4CAF50" : "#EF4444", boxShadow: "0 8px 32px rgba(0,0,0,0.5)", pointerEvents: "none", letterSpacing: "0.06em" }}>{msg.ok ? "✓" : ""} {msg.text}</div>)}
@@ -1174,8 +1213,8 @@ export default function StoreScreen({ setScreenAction, themeId, audio, initialSe
               </div>
             </div>
             <div style={{ display: "flex", gap: 14 }}>
-              <button onClick={() => setConfirmBuy(null)} style={{ flex: 1, padding: "14px", background: "rgba(255,255,255,0.05)", border: `1px solid ${t.border}`, borderRadius: 10, color: t.text, fontFamily: t.fontDisplay, fontSize: 14, fontWeight: 700, cursor: "pointer", transition: "all 0.2s" }} onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,255,255,0.08)"; }} onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.05)"; }}>CANCEL</button>
-              <button onClick={proceedBuyCosmetic} style={{ flex: 1, padding: "14px", background: accent, border: "none", borderRadius: 10, color: "#000", fontFamily: t.fontDisplay, fontSize: 14, fontWeight: 900, cursor: "pointer", boxShadow: `0 0 20px ${accent}44`, transition: "all 0.2s" }} onMouseEnter={e => { e.currentTarget.style.filter = "brightness(1.15)"; e.currentTarget.style.transform = "translateY(-1px)"; }} onMouseLeave={e => { e.currentTarget.style.filter = "none"; e.currentTarget.style.transform = "none"; }}>CONFIRM</button>
+              <button onClick={() => setConfirmBuy(null)} style={{ flex: 1, padding: "14px", background: "rgba(255,255,255,0.05)", border: `1px solid ${t.border}`, borderRadius: 10, color: t.text, fontFamily: t.fontDisplay, fontSize: 14, fontWeight: 700, cursor: "pointer", transition: "background 0.2s ease" }} onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,255,255,0.08)"; }} onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.05)"; }}>CANCEL</button>
+              <button onClick={proceedBuyCosmetic} style={{ flex: 1, padding: "14px", background: accent, border: "none", borderRadius: 10, color: "#000", fontFamily: t.fontDisplay, fontSize: 14, fontWeight: 900, cursor: "pointer", boxShadow: `0 0 20px ${accent}44`, transition: "filter 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease" }} onMouseEnter={e => { e.currentTarget.style.filter = "brightness(1.15)"; e.currentTarget.style.transform = "translateY(-1px)"; }} onMouseLeave={e => { e.currentTarget.style.filter = "none"; e.currentTarget.style.transform = "none"; }}>CONFIRM</button>
             </div>
           </div>
         </div>

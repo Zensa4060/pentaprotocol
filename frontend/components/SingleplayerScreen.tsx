@@ -68,7 +68,7 @@ export default function SingleplayerScreen({ setScreenAction, themeId, onHoverAc
   const t = THEMES[themeId as keyof typeof THEMES];
   const ip = themeId === "pixel";
   const [boardMode, setBoardMode] = useState<BoardMode>("5x5");
-  const [step, setStep] = useState<"mode" | "patterns">("mode");
+  const [step, setStep] = useState<"mode" | "patterns" | "splash">("mode");
   // 5x5 pattern selection — must pick exactly 5 of 6
   const [selected5, setSelected5] = useState<string[]>(randomFive);
 
@@ -92,14 +92,20 @@ export default function SingleplayerScreen({ setScreenAction, themeId, onHoverAc
   };
 
   const goBack = () => {
-    if (step === "patterns") {
+    if (step === "splash") {
+      setStep("patterns");
+    } else if (step === "patterns") {
       setStep("mode");
     } else {
       setScreenAction("home");
     }
   };
 
-  const proceedFromPatterns = () => {
+  const proceedToSplash = () => {
+    setStep("splash");
+  };
+
+  const confirmStartFromSplash = () => {
     if (boardMode === "5x5") {
       onBoardModeAction?.(boardMode, selected5);
     } else if (boardMode === "6x6") {
@@ -130,6 +136,88 @@ export default function SingleplayerScreen({ setScreenAction, themeId, onHoverAc
           box-shadow: 0 16px 48px var(--hover-glow);
         }
       `}</style>
+
+      {/* ── STEP 3: Confirm before navigating to game (was GameScreen splash) ── */}
+      {step === "splash" && (
+        <div style={{
+          position: "fixed", top: 0, left: 0, right: 0, bottom: 0, zIndex: 5, display: "flex", flexDirection: "column",
+          alignItems: "center", justifyContent: "center", background: t.bg, gap: 32, userSelect: "none",
+        }}>
+          <div style={{
+            fontFamily: t.fontDisplay, fontSize: "clamp(24px,5vw,72px)", fontWeight: 900, color: t.accent,
+            textShadow: `0 0 60px ${t.accentGlow}55`, letterSpacing: "0.06em", textAlign: "center",
+          }}>SINGLEPLAYER</div>
+          <div style={{ fontFamily: t.fontBody, fontSize: "clamp(13px,1.6vw,18px)", color: t.textSecondary, letterSpacing: "0.04em" }}>
+            Local · Pass & Play · First to 3
+          </div>
+          <button
+            type="button"
+            onClick={() => { onHoverAction?.(); confirmStartFromSplash(); }}
+            style={{
+              marginTop: 8,
+              padding: "36px 128px",
+              background: `linear-gradient(135deg,${t.accent},${t.accentGlow})`,
+              border: "none",
+              borderRadius: ip ? 2 : 16,
+              color: "#0A0A0A",
+              fontFamily: t.fontDisplay,
+              fontSize: "clamp(28px,4vw,44px)",
+              fontWeight: 900,
+              cursor: "pointer",
+              letterSpacing: "0.15em",
+              boxShadow: `0 0 64px ${t.accentGlow}55`,
+              transition: "transform 0.15s ease, box-shadow 0.2s ease",
+            }}
+            onMouseEnter={e => {
+              onHoverAction?.();
+              (e.currentTarget as HTMLElement).style.transform = "scale(1.03)";
+              (e.currentTarget as HTMLElement).style.boxShadow = `0 0 96px ${t.accentGlow}88`;
+            }}
+            onMouseLeave={e => {
+              (e.currentTarget as HTMLElement).style.transform = "scale(1)";
+              (e.currentTarget as HTMLElement).style.boxShadow = `0 0 64px ${t.accentGlow}55`;
+            }}
+            onMouseDown={e => { (e.currentTarget as HTMLElement).style.transform = "scale(0.98)"; }}
+            onMouseUp={e => { (e.currentTarget as HTMLElement).style.transform = "scale(1.03)"; }}
+          >PLAY</button>
+          <button
+            type="button"
+            onClick={() => { onHoverAction?.(); goBack(); }}
+            style={{
+              padding: "18px 64px",
+              background: "transparent",
+              border: `2px solid ${t.border}`,
+              borderRadius: ip ? 2 : 12,
+              color: t.text,
+              fontFamily: t.fontDisplay,
+              fontSize: "clamp(14px,2vw,22px)",
+              fontWeight: 900,
+              cursor: "pointer",
+              letterSpacing: "0.15em",
+              transition: "transform 0.2s cubic-bezier(.22,.68,0,1.2), box-shadow 0.2s cubic-bezier(.22,.68,0,1.2), border-color 0.2s linear, color 0.2s linear",
+              boxShadow: `0 0 20px ${t.border}22`,
+            }}
+            onMouseEnter={e => {
+              onHoverAction?.();
+              e.currentTarget.style.borderColor = t.accent;
+              e.currentTarget.style.color = t.accent;
+              e.currentTarget.style.transform = "scale(1.03)";
+              e.currentTarget.style.boxShadow = `0 0 40px ${t.accent}44`;
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.borderColor = t.border;
+              e.currentTarget.style.color = t.text;
+              e.currentTarget.style.transform = "scale(1)";
+              e.currentTarget.style.boxShadow = `0 0 20px ${t.border}22`;
+            }}
+            onMouseDown={e => { e.currentTarget.style.transform = "scale(0.98)"; }}
+            onMouseUp={e => { e.currentTarget.style.transform = "scale(1.03)"; }}
+          >GO BACK</button>
+          <div style={{ fontFamily: t.fontMono, fontSize: 11, color: t.textMuted, letterSpacing: "0.1em" }}>
+            P1 goes first · Click any cell to begin
+          </div>
+        </div>
+      )}
 
       {/* ── STEP 1: Board Mode Selection ── */}
       {step === "mode" && (
@@ -324,7 +412,7 @@ export default function SingleplayerScreen({ setScreenAction, themeId, onHoverAc
 
           <button
             type="button"
-            onClick={() => { onHoverAction?.(); proceedFromPatterns(); }}
+            onClick={() => { onHoverAction?.(); proceedToSplash(); }}
             disabled={boardMode === "5x5" && selected5.length !== 5}
             style={{
               background: boardMode === "5x5" && selected5.length !== 5 ? "rgba(255,255,255,0.1)" : t.accent,
@@ -342,18 +430,20 @@ export default function SingleplayerScreen({ setScreenAction, themeId, onHoverAc
         </>
       )}
 
-      {/* Back button */}
-      <button
-        onClick={goBack}
-        style={{
-          background: "transparent", border: "none", color: t.textMuted, fontFamily: t.fontDisplay,
-          fontSize: 16, cursor: "pointer", marginTop: 24, letterSpacing: "0.06em", transition: "color 0.2s",
-        }}
-        onMouseEnter={(e) => { onHoverAction?.(); e.currentTarget.style.color = t.text; }}
-        onMouseLeave={(e) => { e.currentTarget.style.color = t.textMuted; }}
-      >
-        ← GO BACK
-      </button>
+      {/* Back button (hidden on splash — splash has its own GO BACK) */}
+      {step !== "splash" && (
+        <button
+          onClick={goBack}
+          style={{
+            background: "transparent", border: "none", color: t.textMuted, fontFamily: t.fontDisplay,
+            fontSize: 16, cursor: "pointer", marginTop: 24, letterSpacing: "0.06em", transition: "color 0.2s",
+          }}
+          onMouseEnter={(e) => { onHoverAction?.(); e.currentTarget.style.color = t.text; }}
+          onMouseLeave={(e) => { e.currentTarget.style.color = t.textMuted; }}
+        >
+          ← GO BACK
+        </button>
+      )}
     </div>
   );
 }

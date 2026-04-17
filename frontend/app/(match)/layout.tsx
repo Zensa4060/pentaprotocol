@@ -42,7 +42,6 @@ export default function MatchLayout({ children }: { children: React.ReactNode })
   return (
     <AuthGuard>
       <GameScreen
-        key={`match_${matchInfo.gameId}`}
         themeId={ctx.themeId}
         isSingleplayer={!isMulti}
         gameMode={isMulti ? (ctx.isRanked ? "ranked" : "unranked") : isBot ? "ai" : "singleplayer"}
