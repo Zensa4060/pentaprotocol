@@ -49,7 +49,7 @@ import { persistLobbyTauntQuote, type LobbyQuoteResult } from "@/lib/lobbyTauntQ
 import { seriesPointsFromHistory, formatSeriesPts } from "@/lib/seriesPoints";
 import { effectivePlayBoardMode, startingLegFromBoardMode, type MultiplayerRulesBootstrap } from "@/lib/effectiveBoardMode";
 import { computeLevelProgress } from "@/lib/xpLevel";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   buildGameUrl,
   buildReadyUrl,
@@ -301,6 +301,11 @@ interface Props {
 export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, gameMode = "singleplayer", difficulty = "medium", setScreenAction, roomCode, playerSlot, playHoverAction, playPlaceAction, playVictoryAction, playDefeatAction, playRulebreakerAction, playTransitionAction, playClickAction, p1Name, matchupData, boardMode = "5x5", variant, gameId: initialGameId, phasePath, selectedPatterns = [], onMultiplayerBoardSync, graphicsQuality = "quality", onMultiplayerSeriesSealedAction, onMultiplayerSeriesResumedAction, onMultiplayerNavLockChange, multiplayerRulesBootstrap = null, setHomeNoticeAction }: Props) {
   const router = useRouter();
   const pathname = usePathname();
+  const searchParamsHook = useSearchParams();
+  const preservedQueryString = useMemo(() => {
+    const qs = searchParamsHook?.toString() ?? "";
+    return qs ? `?${qs}` : "";
+  }, [searchParamsHook]);
   const [liveBoardMode, setLiveBoardMode] = useState<BoardMode>(boardMode);
   const [liveSelectedPatterns, setLiveSelectedPatterns] = useState<string[]>(selectedPatterns ?? []);
   useEffect(() => { setLiveBoardMode(boardMode); }, [boardMode]);
@@ -772,8 +777,8 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
       }
       return buildGameUrl(boardMode, variant).replace(/\/[^/]+$/, `/${gameId}`);
     })();
-    if (pathname !== desiredPath) router.replace(desiredPath);
-  }, [phase, rulesShowSheet, gameId, boardMode, variant, pathname, router, postGameReadyAck]);
+    if (pathname !== desiredPath) router.replace(desiredPath + preservedQueryString);
+  }, [phase, rulesShowSheet, gameId, boardMode, variant, pathname, router, postGameReadyAck, preservedQueryString]);
 
   useEffect(() => {
     if (!isMultiplayerGame) {
