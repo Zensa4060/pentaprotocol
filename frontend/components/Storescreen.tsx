@@ -6,6 +6,7 @@ import type { ThemeId } from "@/lib/themes";
 import { THEMES } from "@/lib/themes";
 import API from "@/lib/api";
 import { useAuthStore } from "@/lib/store";
+import { readBotRewards } from "@/lib/botRewards";
 import { bumpCollectionNavBadge, recordStoreCatalogSeen } from "@/lib/navBadgeState";
 import { PROTO_DARK_SVG, SHARDS_DARK_SVG } from "@/lib/currencyIcons";
 import {
@@ -558,12 +559,27 @@ function ThemePreviewModal({ item, t, onClose, audio }: { item: any; t: any; onC
     </div>
   );
 }
-function BundleCard({ bundle, purchasedItems, t, onClick }: { bundle: Bundle; purchasedItems: string[]; t: any; onClick: () => void }) {
+function BundleCard({
+  bundle, purchasedItems, t, onClick,
+  freeBoardSkinEligible = false,
+  claimingBoardSkinId = null,
+  onClaimFreeBoardSkin,
+}: {
+  bundle: Bundle; purchasedItems: string[]; t: any; onClick: () => void;
+  freeBoardSkinEligible?: boolean;
+  claimingBoardSkinId?: string | null;
+  onClaimFreeBoardSkin?: () => void;
+}) {
   const [hov, setHov] = useState(false);
   const [tick, setTick] = useState(0);
   const cardRef = useRef<HTMLDivElement | null>(null);
   const [isVisible, setIsVisible] = useState(true);
   const ownsBoard = purchasedItems.includes(bundle.boardId); const ownsPiece = purchasedItems.includes(bundle.pieceId); const ownsAll = ownsBoard && ownsPiece;
+  // Per-reward eligibility: only show the gold CLAIM FREE button when the
+  // user owns neither half yet — once they own the board the reward would
+  // be wasted, and if the bundle is fully owned the card is hidden anyway.
+  const canClaimFreeBoardSkin = freeBoardSkinEligible && !ownsBoard;
+  const isClaimingThisBoard   = claimingBoardSkinId === bundle.boardId;
   const ac = bundle.accentColor;
   useEffect(() => {
     const el = cardRef.current; if (!el) return;
@@ -623,11 +639,32 @@ function BundleCard({ bundle, purchasedItems, t, onClick }: { bundle: Bundle; pu
         <div style={{ flex: 1, background: `${ac}0C`, border: `1px solid ${ac}1A`, borderRadius: 8, padding: "8px 10px" }}><div style={{ fontFamily: "monospace", fontSize: 8, color: `${ac}66`, letterSpacing: "0.1em" }}>BOARD</div><div style={{ fontFamily: t.fontDisplay, fontSize: 12, fontWeight: 700, color: ownsAll ? "#4CAF50" : "#fff" }}>{bundle.boardLabel} {ownsAll ? "✓" : ""}</div></div>
         <div style={{ flex: 1, background: `${ac}0C`, border: `1px solid ${ac}1A`, borderRadius: 8, padding: "8px 10px" }}><div style={{ fontFamily: "monospace", fontSize: 8, color: `${ac}66`, letterSpacing: "0.1em" }}>PIECES</div><div style={{ fontFamily: t.fontDisplay, fontSize: 12, fontWeight: 700, color: ownsAll ? "#4CAF50" : "#fff" }}>{bundle.pieceLabel} {ownsAll ? "✓" : ""}</div></div>
       </div>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
         <div>
           {!ownsAll ? (<><div style={{ fontFamily: "monospace", fontSize: 9, color: `${ac}66`, letterSpacing: "0.15em", marginBottom: 2 }}>BUNDLE PRICE</div><div style={{ display: "flex", alignItems: "center", gap: 6, fontFamily: t.fontDisplay, fontSize: 24, fontWeight: 900, color: ac, lineHeight: 1 }}>{bundle.bundlePrice.toLocaleString()}<ProtoSVG size={20} /></div></>) : (<div style={{ fontFamily: t.fontDisplay, fontSize: 14, fontWeight: 700, color: "#4CAF50" }}>Bundle owned ✓</div>)}
         </div>
-        <div style={{ background: ownsAll ? "#4CAF5018" : ac, border: ownsAll ? "1px solid #4CAF5044" : "none", borderRadius: 10, padding: "9px 18px", fontFamily: t.fontDisplay, fontSize: 12, fontWeight: 800, color: ownsAll ? "#4CAF50" : "#000", letterSpacing: "0.06em" }}>{ownsAll ? "OWNED" : "VIEW BUNDLE →"}</div>
+        <div style={{ display: "flex", gap: 8 }}>
+          {canClaimFreeBoardSkin && onClaimFreeBoardSkin && (
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); onClaimFreeBoardSkin(); }}
+              disabled={!!claimingBoardSkinId}
+              style={{
+                background: "#FCD34D", border: "none", borderRadius: 10,
+                padding: "9px 14px",
+                fontFamily: t.fontDisplay, fontSize: 11, fontWeight: 900,
+                color: "#000", letterSpacing: "0.06em",
+                cursor: claimingBoardSkinId ? "wait" : "pointer",
+                boxShadow: "0 0 16px rgba(252,211,77,0.5)",
+                whiteSpace: "nowrap" as const,
+                opacity: claimingBoardSkinId && !isClaimingThisBoard ? 0.6 : 1,
+              }}
+            >
+              {isClaimingThisBoard ? "CLAIMING…" : "CLAIM BOARD FREE"}
+            </button>
+          )}
+          <div style={{ background: ownsAll ? "#4CAF5018" : ac, border: ownsAll ? "1px solid #4CAF5044" : "none", borderRadius: 10, padding: "9px 18px", fontFamily: t.fontDisplay, fontSize: 12, fontWeight: 800, color: ownsAll ? "#4CAF50" : "#000", letterSpacing: "0.06em" }}>{ownsAll ? "OWNED" : "VIEW BUNDLE →"}</div>
+        </div>
       </div>
     </div>
   );
@@ -687,19 +724,46 @@ export default function StoreScreen({ setScreenAction, themeId, audio, initialSe
   const balance = (user as any)?.protocredits ?? 0;
   const shardBalance = (user as any)?.pentashards ?? (user as any)?.shards ?? 0;
   const purchasedItems: string[] = (user as any)?.purchased_items ?? [];
-  // "pending" after all 9 AI bots are defeated, "claimed" once the player has
-  // redeemed their free banner, anything else = not yet eligible.
-  const botBannerReward: string | null = ((user as any)?.bot_banner_reward as any) ?? null;
-  const canClaimFreeBanner = !isGuest && botBannerReward === "pending";
-  const [claimingBannerId, setClaimingBannerId] = useState<string | null>(null);
+  // Per-tier capstone rewards — each slot is null / "pending" / "claimed".
+  //   banner     ← granted when JR. (5×5 final) is defeated
+  //   coin_toss  ← granted when HIM (6×6 final) is defeated
+  //   board_skin ← granted when HER (7×7 final) is defeated
+  const botRewards = readBotRewards(user);
+  const canClaimFreeBanner   = !isGuest && botRewards.banner     === "pending";
+  const canClaimFreeCoinToss = !isGuest && botRewards.coin_toss  === "pending";
+  const canClaimFreeBoardSkin= !isGuest && botRewards.board_skin === "pending";
+  const [claimingBannerId,    setClaimingBannerId]    = useState<string | null>(null);
+  const [claimingCoinTossId,  setClaimingCoinTossId]  = useState<string | null>(null);
+  const [claimingBoardSkinId, setClaimingBoardSkinId] = useState<string | null>(null);
 
-  const claimFreeBanner = async (bannerId: string, label: string) => {
-    if (!token || !canClaimFreeBanner) return;
-    setClaimingBannerId(bannerId);
+  // Shared claim helper — calls one of the three redeem endpoints and syncs
+  // the profile. Each slot passes its own URL / request body and follow-up UX.
+  const claimFreeReward = async (
+    slot: "banner" | "coin_toss" | "board_skin",
+    itemId: string,
+    label: string,
+  ) => {
+    if (!token) return;
+    const url =
+      slot === "banner"     ? "/api/profile/claim-bot-banner-reward" :
+      slot === "coin_toss"  ? "/api/profile/claim-bot-coin-toss-reward" :
+                               "/api/profile/claim-bot-board-skin-reward";
+    const body: Record<string, string> =
+      slot === "banner"     ? { bannerId:     itemId } :
+      slot === "coin_toss"  ? { coinTossId:   itemId } :
+                               { boardSkinId: itemId };
+    const successText =
+      slot === "banner"     ? `✓ ${label} Banner unlocked — free reward claimed!` :
+      slot === "coin_toss"  ? `✓ ${label} unlocked — free coin-toss skin claimed!` :
+                               `✓ ${label} board skin unlocked — free reward claimed!`;
+    const setBusy =
+      slot === "banner"     ? setClaimingBannerId :
+      slot === "coin_toss"  ? setClaimingCoinTossId :
+                               setClaimingBoardSkinId;
+    setBusy(itemId);
     try {
       const res = await API.post(
-        "/api/profile/claim-bot-banner-reward",
-        { bannerId },
+        url, body,
         { headers: { Authorization: `Bearer ${token}` }, timeout: 15000 },
       );
       if (res?.data?.profile) {
@@ -707,15 +771,19 @@ export default function StoreScreen({ setScreenAction, themeId, audio, initialSe
       } else {
         try { const me = await API.get("/api/profile/me", { headers: { Authorization: `Bearer ${token}` }, timeout: 15000 }); updateUser(me.data); } catch {}
       }
-      setMsg({ text: `✓ ${label} Banner unlocked — free reward claimed!`, ok: true });
+      setMsg({ text: successText, ok: true });
       setTimeout(() => setMsg(null), 3500);
     } catch (e: any) {
       const detail = e?.response?.data?.detail;
       showError(detail || "Could not claim reward. Try again.");
     } finally {
-      setClaimingBannerId(null);
+      setBusy(null);
     }
   };
+
+  const claimFreeBanner    = (bannerId: string, label: string)    => claimFreeReward("banner",     bannerId,    label);
+  const claimFreeCoinToss  = (coinTossId: string, label: string)  => claimFreeReward("coin_toss",  coinTossId,  label);
+  const claimFreeBoardSkin = (boardSkinId: string, label: string) => claimFreeReward("board_skin", boardSkinId, label);
 
   const ownsBundle = (b: Bundle) => purchasedItems.includes(b.boardId) && purchasedItems.includes(b.pieceId);
   const visibleBundles = BUNDLES.filter((b) => b.id !== "bundle_space" && b.id !== "bundle_pixel" && !ownsBundle(b));
@@ -1032,27 +1100,87 @@ export default function StoreScreen({ setScreenAction, themeId, audio, initialSe
         {/* BOARD BUNDLES */}
         <div style={{ marginBottom: 56 }}>
           <SectionHeader label="BOARD BUNDLES" accent={accent} icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={accent} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2"/><line x1="12" y1="12" x2="12" y2="16"/><line x1="10" y1="14" x2="14" y2="14"/></svg>}/>
-          <InfiniteCarouselRow items={visibleBundles} itemWidth={360} gap={20} renderItem={(bundle) => <BundleCard bundle={bundle} purchasedItems={purchasedItems} t={t} onClick={() => openBundlePreview(bundle.id)} />} />
+          {canClaimFreeBoardSkin && (
+            <div style={{
+              marginTop: -8, marginBottom: 20,
+              border: "2px solid #FCD34D",
+              borderRadius: 14,
+              padding: "16px 20px",
+              background: "linear-gradient(135deg, rgba(252,211,77,0.12), rgba(217,119,6,0.22))",
+              boxShadow: "0 0 32px rgba(252,211,77,0.25)",
+              display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap",
+            }}>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontFamily: t.fontDisplay, fontSize: 16, fontWeight: 900, color: "#FCD34D", letterSpacing: "0.06em", marginBottom: 4 }}>
+                  HER DEFEATED — FREE BOARD SKIN UNLOCKED
+                </div>
+                <div style={{ fontFamily: t.fontBody, fontSize: 13, color: "rgba(255,255,255,0.82)", lineHeight: 1.5 }}>
+                  Pick any <b>one</b> bundle&apos;s board skin below to claim for free (board only, pieces sold separately).
+                </div>
+              </div>
+              <div style={{ fontFamily: t.fontMono, fontSize: 11, color: "#FCD34D", letterSpacing: "0.14em", padding: "6px 10px", border: "1px solid #FCD34D88", borderRadius: 8, whiteSpace: "nowrap" as const }}>
+                1 REWARD REMAINING
+              </div>
+            </div>
+          )}
+          <InfiniteCarouselRow items={visibleBundles} itemWidth={360} gap={20} renderItem={(bundle) => (
+            <BundleCard
+              bundle={bundle}
+              purchasedItems={purchasedItems}
+              t={t}
+              onClick={() => openBundlePreview(bundle.id)}
+              freeBoardSkinEligible={canClaimFreeBoardSkin}
+              claimingBoardSkinId={claimingBoardSkinId}
+              onClaimFreeBoardSkin={() => claimFreeBoardSkin(bundle.boardId, bundle.boardLabel)}
+            />
+          )} />
         </div>
 
         {/* COIN BUNDLES */}
         <div style={{ marginBottom: 56 }}>
           <SectionHeader label="COIN BUNDLES" accent={accent} icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={accent} strokeWidth="1.8" strokeLinecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v10M9 10h4.5a1.5 1.5 0 010 3H9"/></svg>}/>
+          {canClaimFreeCoinToss && (
+            <div style={{
+              marginTop: -8, marginBottom: 20,
+              border: "2px solid #FCD34D",
+              borderRadius: 14,
+              padding: "16px 20px",
+              background: "linear-gradient(135deg, rgba(252,211,77,0.12), rgba(217,119,6,0.22))",
+              boxShadow: "0 0 32px rgba(252,211,77,0.25)",
+              display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap",
+            }}>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontFamily: t.fontDisplay, fontSize: 16, fontWeight: 900, color: "#FCD34D", letterSpacing: "0.06em", marginBottom: 4 }}>
+                  HIM DEFEATED — FREE COIN-TOSS SKIN UNLOCKED
+                </div>
+                <div style={{ fontFamily: t.fontBody, fontSize: 13, color: "rgba(255,255,255,0.82)", lineHeight: 1.5 }}>
+                  Claim a coin-toss skin below for free. This choice is permanent.
+                </div>
+              </div>
+              <div style={{ fontFamily: t.fontMono, fontSize: 11, color: "#FCD34D", letterSpacing: "0.14em", padding: "6px 10px", border: "1px solid #FCD34D88", borderRadius: 8, whiteSpace: "nowrap" as const }}>
+                1 REWARD REMAINING
+              </div>
+            </div>
+          )}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(320px,1fr))", gap: 20 }}>
             {COIN_BUNDLES.map(bundle => {
               const owned = purchasedItems.includes(bundle.purchaseId); const glow = bundle.accentColor;
+              const showFreeClaim = canClaimFreeCoinToss && !owned;
+              const isClaiming = claimingCoinTossId === bundle.purchaseId;
+              const cardBorder = owned ? "#4CAF50" : showFreeClaim ? "#FCD34D" : bundle.accentColor + "33";
+              const cardShadow = owned ? "none" : showFreeClaim ? "0 8px 32px rgba(252,211,77,0.35)" : `0 8px 32px ${bundle.accentColor}22`;
               return (
-                <div key={bundle.id} className="store-card" style={{ borderRadius: 18, overflow: "hidden", border: `2px solid ${owned ? "#4CAF50" : bundle.accentColor + "33"}`, background: bundle.bgGradient, padding: "24px", position: "relative", boxShadow: owned ? "none" : `0 8px 32px ${bundle.accentColor}22` }}>
+                <div key={bundle.id} className="store-card" style={{ borderRadius: 18, overflow: "hidden", border: `2px solid ${cardBorder}`, background: bundle.bgGradient, padding: "24px", position: "relative", boxShadow: cardShadow }}>
                   <div style={{ position: "absolute", top: 14, right: 14, zIndex: 2 }}>
-                    {owned ? <UnlockBadge text="Owned" accent="#4CAF50" /> : (<span style={{ fontFamily: "var(--font-mono)", fontSize: 10, fontWeight: 800, color: "#fff", display: "inline-flex", alignItems: "center", gap: 8, background: "rgba(0,0,0,0.45)", border: `1px solid ${glow}55`, padding: "4px 10px", borderRadius: 8 }}>{bundle.bundlePrice.toLocaleString()} <ProtoSVG size={12} /> {bundle.shardPrice.toLocaleString()} <ShardSVG size={12} /></span>)}
+                    {owned ? <UnlockBadge text="Owned" accent="#4CAF50" /> : showFreeClaim ? <UnlockBadge text="Free Reward" accent="#FCD34D" /> : (<span style={{ fontFamily: "var(--font-mono)", fontSize: 10, fontWeight: 800, color: "#fff", display: "inline-flex", alignItems: "center", gap: 8, background: "rgba(0,0,0,0.45)", border: `1px solid ${glow}55`, padding: "4px 10px", borderRadius: 8 }}>{bundle.bundlePrice.toLocaleString()} <ProtoSVG size={12} /> {bundle.shardPrice.toLocaleString()} <ShardSVG size={12} /></span>)}
                   </div>
                   <div style={{ fontFamily: t.fontDisplay, fontSize: 22, fontWeight: 900, color: "#fff", letterSpacing: "0.04em", marginBottom: 3 }}>{bundle.label}</div>
                   <div style={{ fontFamily: t.fontBody, fontSize: 13, color: `${bundle.accentColor}cc`, fontStyle: "italic", marginBottom: 10 }}>{bundle.tagline}</div>
                   <div style={{ fontFamily: t.fontBody, fontSize: 12, color: "rgba(255,255,255,0.72)", marginBottom: 14, lineHeight: 1.45 }}>{bundle.desc}</div>
                   <div style={{ display: "flex", gap: 6, flexWrap: "wrap" as const, marginBottom: 18 }}>{bundle.tags.map(tag => (<span key={tag} style={{ fontFamily: "monospace", fontSize: 9, fontWeight: 700, color: bundle.accentColor, background: `${bundle.accentColor}18`, border: `1px solid ${bundle.accentColor}44`, padding: "2px 7px", borderRadius: 4 }}>{tag}</span>))}</div>
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-                    {owned ? (<span style={{ fontFamily: t.fontMono, fontSize: 12, fontWeight: 900, color: "#4CAF50", letterSpacing: "0.06em" }}>OWNED — equip in Collection</span>) : (<span style={{ fontFamily: t.fontMono, fontSize: 12, fontWeight: 900, color: glow, letterSpacing: "0.06em", display: "inline-flex", alignItems: "center", gap: 6 }}>{bundle.bundlePrice.toLocaleString()} <ProtoSVG size={16} /> + {bundle.shardPrice.toLocaleString()} <ShardSVG size={16} /></span>)}
-                    {owned ? (<button type="button" disabled style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.14)", borderRadius: 10, padding: "10px 14px", fontFamily: t.fontDisplay, fontSize: 12, fontWeight: 900, color: "rgba(255,255,255,0.65)", cursor: "not-allowed" }}>✓</button>) : isGuest ? (<button type="button" onClick={() => setScreenAction("auth")} style={{ background: glow, border: "none", borderRadius: 10, padding: "10px 14px", fontFamily: t.fontDisplay, fontSize: 12, fontWeight: 900, color: "#000", cursor: "pointer" }}>SIGN IN</button>) : (<button type="button" onClick={() => handleBuyCosmetic(bundle.purchaseId, bundle.bundlePrice, bundle.label, bundle.shardPrice)} style={{ background: glow, border: "none", borderRadius: 10, padding: "10px 14px", fontFamily: t.fontDisplay, fontSize: 12, fontWeight: 900, color: "#000", cursor: "pointer", boxShadow: `0 4px 20px ${glow}44` }}>UNLOCK</button>)}
+                    {owned ? (<span style={{ fontFamily: t.fontMono, fontSize: 12, fontWeight: 900, color: "#4CAF50", letterSpacing: "0.06em" }}>OWNED — equip in Collection</span>) : showFreeClaim ? (<span style={{ fontFamily: t.fontMono, fontSize: 12, fontWeight: 900, color: "#FCD34D", letterSpacing: "0.06em" }}>FREE REWARD</span>) : (<span style={{ fontFamily: t.fontMono, fontSize: 12, fontWeight: 900, color: glow, letterSpacing: "0.06em", display: "inline-flex", alignItems: "center", gap: 6 }}>{bundle.bundlePrice.toLocaleString()} <ProtoSVG size={16} /> + {bundle.shardPrice.toLocaleString()} <ShardSVG size={16} /></span>)}
+                    {owned ? (<button type="button" disabled style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.14)", borderRadius: 10, padding: "10px 14px", fontFamily: t.fontDisplay, fontSize: 12, fontWeight: 900, color: "rgba(255,255,255,0.65)", cursor: "not-allowed" }}>✓</button>) : isGuest ? (<button type="button" onClick={() => setScreenAction("auth")} style={{ background: glow, border: "none", borderRadius: 10, padding: "10px 14px", fontFamily: t.fontDisplay, fontSize: 12, fontWeight: 900, color: "#000", cursor: "pointer" }}>SIGN IN</button>) : showFreeClaim ? (<button type="button" onClick={() => claimFreeCoinToss(bundle.purchaseId, bundle.label)} disabled={!!claimingCoinTossId} style={{ background: "#FCD34D", border: "none", borderRadius: 10, padding: "10px 14px", fontFamily: t.fontDisplay, fontSize: 12, fontWeight: 900, color: "#000", cursor: claimingCoinTossId ? "wait" : "pointer", boxShadow: "0 0 16px rgba(252,211,77,0.5)", opacity: claimingCoinTossId && !isClaiming ? 0.6 : 1 }}>{isClaiming ? "CLAIMING…" : "CLAIM FREE"}</button>) : (<button type="button" onClick={() => handleBuyCosmetic(bundle.purchaseId, bundle.bundlePrice, bundle.label, bundle.shardPrice)} style={{ background: glow, border: "none", borderRadius: 10, padding: "10px 14px", fontFamily: t.fontDisplay, fontSize: 12, fontWeight: 900, color: "#000", cursor: "pointer", boxShadow: `0 4px 20px ${glow}44` }}>UNLOCK</button>)}
                   </div>
                 </div>
               );
@@ -1075,7 +1203,7 @@ export default function StoreScreen({ setScreenAction, themeId, audio, initialSe
             }}>
               <div style={{ minWidth: 0 }}>
                 <div style={{ fontFamily: t.fontDisplay, fontSize: 16, fontWeight: 900, color: "#FCD34D", letterSpacing: "0.06em", marginBottom: 4 }}>
-                  AI GAUNTLET CLEARED — FREE BANNER UNLOCKED
+                  JR. DEFEATED — FREE BANNER UNLOCKED
                 </div>
                 <div style={{ fontFamily: t.fontBody, fontSize: 13, color: "rgba(255,255,255,0.82)", lineHeight: 1.5 }}>
                   Pick any <b>one</b> banner below to claim for free. This choice is permanent.

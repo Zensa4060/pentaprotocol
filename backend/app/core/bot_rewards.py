@@ -38,6 +38,25 @@ BOT_XP_REWARD: Dict[str, int] = {
 }
 
 
+# Tier-capstone free-item rewards.
+# Defeating each chain's final bot unlocks a single free-item pick:
+#   jr  → one free banner of choice
+#   him → one free coin-toss skin
+#   her → one free board skin
+# Each reward slot state cycles: None → "pending" → "claimed".
+BOT_REWARD_SLOT: Dict[str, str] = {
+    "jr":  "banner",
+    "him": "coin_toss",
+    "her": "board_skin",
+}
+
+REWARD_SLOTS = ("banner", "coin_toss", "board_skin")
+
+
+def reward_slot_for_bot(bot_id: str) -> Optional[str]:
+    return BOT_REWARD_SLOT.get(bot_id)
+
+
 def prerequisite_bot(bot_id: str) -> Optional[str]:
     for chain in BOT_CHAINS.values():
         if bot_id in chain:

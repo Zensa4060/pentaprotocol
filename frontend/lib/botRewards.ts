@@ -7,7 +7,11 @@
  *   7x7 : seraphina → regina → her   (locked until 6x6 cleared)
  *
  * XP rewards are granted ONCE on the first series victory against each bot.
- * Defeating all 9 bots unlocks a one-time "pick any banner free" store reward.
+ *
+ * Tier-capstone bots also unlock a one-time free-item pick from the store:
+ *   jr  → one banner           (from STORE_BANNERS)
+ *   him → one coin-toss skin   (from COIN_BUNDLES)
+ *   her → one board skin       (from BUNDLES boardIds)
  *
  * The backend (`backend/app/core/bot_rewards.py`) MUST mirror these tables —
  * both are read when awarding XP and validating claims. Keep in sync.
@@ -143,4 +147,61 @@ export function lockedByLabel(botId: BotId): string | null {
 /** Friendly XP reward formatting (e.g. `+1,000 XP`). */
 export function formatXpPrize(botId: BotId): string {
   return `+${BOT_XP_REWARD[botId].toLocaleString()} XP`;
+}
+
+// ── Tier-capstone free-item rewards ────────────────────────────────────────
+/** Per-slot reward state the backend persists on the user profile. */
+export type BotRewardSlot = "banner" | "coin_toss" | "board_skin";
+export type BotRewardState = null | "pending" | "claimed";
+export type BotRewards = Record<BotRewardSlot, BotRewardState>;
+
+/** Which capstone bot awards which reward slot. */
+export const BOT_REWARD_SLOT: Partial<Record<BotId, BotRewardSlot>> = {
+  jr:  "banner",
+  him: "coin_toss",
+  her: "board_skin",
+};
+
+/** Reward slot (if any) awarded for first-time defeat of `botId`. */
+export function rewardSlotForBot(botId: BotId): BotRewardSlot | null {
+  return BOT_REWARD_SLOT[botId] ?? null;
+}
+
+/** Human-friendly headline for each reward slot — shown on bot cards + CTAs. */
+export const REWARD_SLOT_LABEL: Record<BotRewardSlot, string> = {
+  banner:     "Free Banner",
+  coin_toss:  "Free Coin Toss Skin",
+  board_skin: "Free Board Skin",
+};
+
+/** One-line description for the reward unlocked by each capstone bot. */
+export function rewardPrizeLabel(botId: BotId): string | null {
+  const slot = rewardSlotForBot(botId);
+  return slot ? REWARD_SLOT_LABEL[slot] : null;
+}
+
+/**
+ * Read a user's reward slots, tolerating missing field / legacy shape.
+ * Accepts either the new `bot_rewards` dict or the legacy single
+ * `bot_banner_reward` string.
+ */
+export function readBotRewards(user: unknown): BotRewards {
+  const empty: BotRewards = { banner: null, coin_toss: null, board_skin: null };
+  if (!user || typeof user !== "object") return empty;
+  const u = user as Record<string, unknown>;
+  const raw = u.bot_rewards as Record<string, unknown> | undefined;
+  const out: BotRewards = { ...empty };
+  if (raw && typeof raw === "object") {
+    for (const slot of ["banner", "coin_toss", "board_skin"] as BotRewardSlot[]) {
+      const v = raw[slot];
+      if (v === "pending" || v === "claimed") out[slot] = v;
+    }
+  }
+  // Legacy shim: promote the old `bot_banner_reward` into the banner slot
+  // when the new field hasn't been written yet.
+  if (out.banner === null) {
+    const legacy = u.bot_banner_reward;
+    if (legacy === "pending" || legacy === "claimed") out.banner = legacy;
+  }
+  return out;
 }

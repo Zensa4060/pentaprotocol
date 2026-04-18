@@ -175,24 +175,40 @@ class BotEngine:
         self.history = [0] * (GRID5 * GRID5)
         self.zobrist = [[random.getrandbits(64) for _ in range(3)] for _ in range(GRID5 * GRID5)]
 
-    def choose(self, board_2d, bot, human, difficulty):
+    def choose(self, board_2d, bot, human, difficulty, c3_blocked=False):
         board = [None] * (GRID5 * GRID5)
         zhash = 0
         p_map = {bot: 1, human: 2, None: 0}
+        occupied = 0
         for r in range(GRID5):
             for c in range(GRID5):
                 val = board_2d[r][c]
                 idx = r * GRID5 + c
                 board[idx] = val
                 pv = p_map.get(val, 0)
-                if pv > 0: zhash ^= self.zobrist[idx][pv]
+                if pv > 0:
+                    zhash ^= self.zobrist[idx][pv]
+                    occupied += 1
 
         empties = [i for i, v in enumerate(board) if v is None]
         if not empties: return None
+
+        # Rulebreaker: when the center (c3) is blocked, it's illegal for the
+        # FIRST move of the game (matches the human-side rule in GameScreen —
+        # the block clears after the first stone is placed). Remove the center
+        # index from the candidate set so neither the easy-random path nor the
+        # ID-alpha-beta search can pick it.
+        center_idx = _idx5(GRID5 // 2, GRID5 // 2)  # (2,2) → 12
+        if c3_blocked and occupied == 0 and board[center_idx] is None:
+            empties = [i for i in empties if i != center_idx]
+            if not empties: return None
+
         if difficulty == "easy":
             return _rc5(random.choice(empties))
 
-        # Win/Block check
+        # Win/Block check — only considers legal empties (c3 already excluded
+        # above on the blocked-opening turn, so the bot can't "win" by taking
+        # c3 when it's forbidden).
         for i in empties:
             if _wins5_idx(board, i, bot, self.patterns): return _rc5(i)
         for i in empties:
@@ -673,14 +689,14 @@ class BotMoveRequest(BaseModel):
 _ENGINE5 = None
 _LAST_PATS5 = None
 
-def get_bot_move(engine, difficulty):
+def get_bot_move(engine, difficulty, c3_blocked=False):
     global _ENGINE5, _LAST_PATS5
     pats = engine.shiftable_patterns
     if _ENGINE5 is None or pats != _LAST_PATS5:
         _ENGINE5 = BotEngine(pats)
         _LAST_PATS5 = pats
     bot = engine.current_player; human = "P2" if bot == "P1" else "P1"
-    return _ENGINE5.choose(copy.deepcopy(engine.board), bot, human, difficulty)
+    return _ENGINE5.choose(copy.deepcopy(engine.board), bot, human, difficulty, c3_blocked)
 
 from app.routers.bot7 import Bot7Engine as _Bot7Engine
 
@@ -797,5 +813,5 @@ def bot_move(req: BotMoveRequest):
             "moves_played": moves_played,
             "shiftable_patterns": generate_all_patterns()
         })()
-        move = get_bot_move(engine_stub, req.difficulty)
+        move = get_bot_move(engine_stub, req.difficulty, req.c3_blocked)
     return {"row": move[0], "col": move[1]} if move else {"row": None, "col": None}

@@ -7,23 +7,62 @@ from app.core.mission_xp import mission_xp_for_mission_id
 from app.core.bot_rewards import (
     ALL_BOT_IDS,
     BOT_XP_REWARD,
+    REWARD_SLOTS,
     all_bots_defeated,
+    has_defeated,
     is_bot_unlocked,
     is_valid_bot_id,
+    reward_slot_for_bot,
 )
 from app.game.ranked_penalties import user_ranked_allowed
 from app.routers.game import add_xp
 from datetime import datetime
 
-# Banner IDs eligible for the free-banner reward after clearing all AI bots.
-# Must match `STORE_BANNERS`/`BANNERS` in the frontend; kept here as a literal
-# set so we don't have to reach out to another module at request time.
+# Banner IDs eligible for the free-banner reward (awarded on defeating JR).
+# Must match `STORE_BANNERS`/`BANNERS` in the frontend.
 _ELIGIBLE_REWARD_BANNERS: set[str] = {
     "default", "void_rift", "blood_moon", "phantom_strike", "solar_flare",
     "cryo_storm", "neon_circuit", "static_glitch", "golden_nexus",
     "plasma_core", "toxic_spill", "storm_protocol", "arctic_veil",
     "starfield", "digital_rain", "inferno",
 }
+
+# Coin-toss skin bundle IDs eligible for the free-coin-toss reward
+# (awarded on defeating HIM). Currently only the Wraith-King bundle exists.
+_ELIGIBLE_REWARD_COIN_TOSS: set[str] = {
+    "coin_bundle_wraith_king",
+}
+
+# Board-skin IDs eligible for the free-board-skin reward (awarded on defeating
+# HER). Mirrors the `boardId` field of each bundle in the frontend store.
+_ELIGIBLE_REWARD_BOARD_SKINS: set[str] = {
+    "red_grid", "ice_grid", "glacier_grid", "bloodmoon_grid", "egypt_grid",
+    "synthwave_grid", "matrix_grid", "arcane_grid", "bio_grid", "forge_grid",
+    "void_grid", "space_grid", "pixel_grid", "tokyo_grid",
+}
+
+
+def _normalize_bot_rewards(user: dict) -> dict:
+    """Return the per-slot reward state for the given user doc.
+
+    Keeps the legacy `bot_banner_reward` field working for users who earned
+    the banner before the per-tier redesign: we mirror its value into
+    `bot_rewards.banner` if the new field is missing.
+    """
+    raw = user.get("bot_rewards")
+    rewards: dict = {slot: None for slot in REWARD_SLOTS}
+    if isinstance(raw, dict):
+        for slot in REWARD_SLOTS:
+            val = raw.get(slot)
+            if val in ("pending", "claimed"):
+                rewards[slot] = val
+    # Legacy shim: the old single-field system used `bot_banner_reward`
+    # for the "all 9 bots defeated" banner reward. Map it onto the new
+    # `banner` slot so we don't lose in-flight rewards during the rollout.
+    legacy = user.get("bot_banner_reward")
+    if rewards["banner"] is None and legacy in ("pending", "claimed"):
+        rewards["banner"] = legacy
+    return rewards
 
 router = APIRouter()
 
@@ -82,10 +121,15 @@ def _serialize_user(user: dict) -> dict:
         "legal_accepted":      user.get("legal_accepted", False),
         # ── AI bot progression ────────────────────────────────────────────
         # `bot_defeats` is a dict of { bot_id: true } for every bot that has
-        # awarded its first-time XP prize. `bot_banner_reward` cycles through
-        # None → "pending" (all bots cleared) → "claimed" (reward consumed).
+        # awarded its first-time XP prize. `bot_rewards` is a per-slot map
+        # { banner | coin_toss | board_skin: null | "pending" | "claimed" }
+        # where each slot is promoted to "pending" on defeating JR / HIM / HER
+        # respectively and "claimed" once the player consumes the reward.
         "bot_defeats":         user.get("bot_defeats") or {},
-        "bot_banner_reward":   user.get("bot_banner_reward"),
+        "bot_rewards":         _normalize_bot_rewards(user),
+        # Kept for backward compat with any older clients still reading the
+        # single-field banner reward; equals `bot_rewards.banner`.
+        "bot_banner_reward":   _normalize_bot_rewards(user)["banner"],
     }
 
 
@@ -443,12 +487,14 @@ async def claim_bot_defeat(
     if not is_bot_unlocked(defeats, bot_id):
         raise HTTPException(400, "Bot is not unlocked yet")
 
-    # Idempotent: already claimed → return current profile untouched.
+    rewards = _normalize_bot_rewards(user)
+
+    # Idempotent: already defeated → return current profile untouched.
     if defeats.get(bot_id):
         return {
             "already_claimed": True,
             "xp_awarded": 0,
-            "banner_reward_unlocked": user.get("bot_banner_reward") == "pending",
+            "reward_unlocked": None,
             "profile": _serialize_user(user),
         }
 
@@ -457,30 +503,85 @@ async def claim_bot_defeat(
     prev_xp = int(user.get("xp", 0) or 0)
     new_level, new_xp = add_xp(prev_level, prev_xp, xp_gain)
 
-    new_defeats = {**defeats, bot_id: True}
-    set_doc = {
+    set_doc: dict = {
         "xp": new_xp,
         "level": new_level,
         f"bot_defeats.{bot_id}": True,
     }
-    # Promote the banner reward state only on the transition from incomplete
-    # → complete, and never overwrite a "claimed" state back to "pending".
-    banner_reward_unlocked_now = False
-    if all_bots_defeated(new_defeats) and not user.get("bot_banner_reward"):
-        set_doc["bot_banner_reward"] = "pending"
-        banner_reward_unlocked_now = True
+
+    # Capstone-bot free-item rewards: promote the matching slot to "pending"
+    # on first-time defeat, never downgrading a slot that's already "claimed".
+    reward_unlocked: Optional[str] = None
+    slot = reward_slot_for_bot(bot_id)
+    if slot and rewards.get(slot) is None:
+        set_doc[f"bot_rewards.{slot}"] = "pending"
+        # Mirror onto the legacy field so older clients still see the banner.
+        if slot == "banner":
+            set_doc["bot_banner_reward"] = "pending"
+        reward_unlocked = slot
 
     await db.users.update_one({"_id": oid}, {"$set": set_doc})
     fresh = await db.users.find_one({"_id": oid}) or user
     return {
         "already_claimed": False,
         "xp_awarded": xp_gain,
-        "banner_reward_unlocked": banner_reward_unlocked_now or fresh.get("bot_banner_reward") == "pending",
+        "reward_unlocked": reward_unlocked,
         "profile": _serialize_user(fresh),
     }
 
 
-# ── Free banner redemption (one-time, after all bots defeated) ───────────────
+# ── Reward redemption helpers ────────────────────────────────────────────────
+async def _redeem_reward_slot(
+    *,
+    user_id: str,
+    slot: str,
+    gate_bot: str,
+    gate_error: str,
+    claimed_error: str,
+    item_id: str,
+    eligible_items: set[str],
+    unknown_item_error: str,
+) -> dict:
+    """Shared redemption path for the three per-bot reward slots.
+
+    - Checks the user has defeated the gating bot.
+    - Checks the matching reward slot is "pending" (never-claimed).
+    - Marks the slot "claimed" and grants the chosen item via purchased_items.
+    - Returns the fresh serialized profile.
+    """
+    if item_id not in eligible_items:
+        raise HTTPException(400, unknown_item_error)
+
+    db = get_db()
+    oid = user_object_id(user_id)
+    user = await db.users.find_one({"_id": oid})
+    if not user:
+        raise HTTPException(404, "User not found")
+
+    defeats = user.get("bot_defeats") or {}
+    if not isinstance(defeats, dict) or not has_defeated(defeats, gate_bot):
+        raise HTTPException(400, gate_error)
+
+    rewards = _normalize_bot_rewards(user)
+    if rewards.get(slot) != "pending":
+        raise HTTPException(400, claimed_error)
+
+    owned = set(user.get("purchased_items") or [])
+    update_doc: dict = {"$set": {f"bot_rewards.{slot}": "claimed"}}
+    if slot == "banner":
+        # Keep the legacy single-field flag in sync for older clients.
+        update_doc["$set"]["bot_banner_reward"] = "claimed"
+    # The user explicitly picked this item; if they already own it the
+    # reward is still consumed (their choice).
+    if item_id not in owned:
+        update_doc["$addToSet"] = {"purchased_items": item_id}
+
+    await db.users.update_one({"_id": oid}, update_doc)
+    fresh = await db.users.find_one({"_id": oid}) or user
+    return {"ok": True, "profile": _serialize_user(fresh)}
+
+
+# ── Free banner redemption (awarded on defeating JR) ─────────────────────────
 class ClaimBotBannerBody(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
     banner_id: str = Field(..., alias="bannerId")
@@ -491,32 +592,59 @@ async def claim_bot_banner_reward(
     data: ClaimBotBannerBody,
     user_id: str = Depends(get_current_user),
 ):
-    banner_id = (data.banner_id or "").strip().lower()
-    if banner_id not in _ELIGIBLE_REWARD_BANNERS:
-        raise HTTPException(400, "Unknown banner id")
+    return await _redeem_reward_slot(
+        user_id=user_id,
+        slot="banner",
+        gate_bot="jr",
+        gate_error="Defeat JR. (5x5 final) to unlock this reward",
+        claimed_error="Banner reward already claimed",
+        item_id=(data.banner_id or "").strip().lower(),
+        eligible_items=_ELIGIBLE_REWARD_BANNERS,
+        unknown_item_error="Unknown banner id",
+    )
 
-    db = get_db()
-    oid = user_object_id(user_id)
-    user = await db.users.find_one({"_id": oid})
-    if not user:
-        raise HTTPException(404, "User not found")
 
-    # Must have cleared every bot AND have a pending (never-claimed) reward.
-    defeats = user.get("bot_defeats") or {}
-    if not isinstance(defeats, dict) or not all_bots_defeated(defeats):
-        raise HTTPException(400, "Defeat every AI bot to unlock this reward")
-    if user.get("bot_banner_reward") != "pending":
-        raise HTTPException(400, "Banner reward already claimed")
+# ── Free coin-toss-skin redemption (awarded on defeating HIM) ────────────────
+class ClaimBotCoinTossBody(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+    coin_toss_id: str = Field(..., alias="coinTossId")
 
-    owned = set(user.get("purchased_items") or [])
-    update_doc: dict = {
-        "$set": {"bot_banner_reward": "claimed"},
-    }
-    # Only add to the owned set if the player doesn't already own the banner.
-    # If they do, the reward is still consumed (the user explicitly chose it).
-    if banner_id not in owned:
-        update_doc["$addToSet"] = {"purchased_items": banner_id}
 
-    await db.users.update_one({"_id": oid}, update_doc)
-    fresh = await db.users.find_one({"_id": oid}) or user
-    return {"ok": True, "profile": _serialize_user(fresh)}
+@router.post("/claim-bot-coin-toss-reward")
+async def claim_bot_coin_toss_reward(
+    data: ClaimBotCoinTossBody,
+    user_id: str = Depends(get_current_user),
+):
+    return await _redeem_reward_slot(
+        user_id=user_id,
+        slot="coin_toss",
+        gate_bot="him",
+        gate_error="Defeat HIM (6x6 final) to unlock this reward",
+        claimed_error="Coin toss reward already claimed",
+        item_id=(data.coin_toss_id or "").strip().lower(),
+        eligible_items=_ELIGIBLE_REWARD_COIN_TOSS,
+        unknown_item_error="Unknown coin toss id",
+    )
+
+
+# ── Free board-skin redemption (awarded on defeating HER) ────────────────────
+class ClaimBotBoardSkinBody(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+    board_skin_id: str = Field(..., alias="boardSkinId")
+
+
+@router.post("/claim-bot-board-skin-reward")
+async def claim_bot_board_skin_reward(
+    data: ClaimBotBoardSkinBody,
+    user_id: str = Depends(get_current_user),
+):
+    return await _redeem_reward_slot(
+        user_id=user_id,
+        slot="board_skin",
+        gate_bot="her",
+        gate_error="Defeat HER (7x7 final) to unlock this reward",
+        claimed_error="Board skin reward already claimed",
+        item_id=(data.board_skin_id or "").strip().lower(),
+        eligible_items=_ELIGIBLE_REWARD_BOARD_SKINS,
+        unknown_item_error="Unknown board skin id",
+    )

@@ -40,7 +40,7 @@ const ForgeGridCompat = ForgeGrid as React.ComponentType<any>;
 const VoidGridCompat = VoidGrid as React.ComponentType<any>;
 const TokyoGridCompat = TokyoGrid as React.ComponentType<any>;
 import { getUserKey, pushMissionEvent } from "@/lib/missionsClient";
-import { ALL_BOT_IDS, BOT_LABEL, type BotId } from "@/lib/botRewards";
+import { ALL_BOT_IDS, BOT_LABEL, REWARD_SLOT_LABEL, type BotId, type BotRewardSlot } from "@/lib/botRewards";
 import { markCareerAfterMultiplayerSeriesEnd } from "@/lib/navBadgeState";
 import MatchResultScreen from "./MatchResultScreen";
 import GameWinScreen from "./GameWinScreen";
@@ -2736,12 +2736,15 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
           void useAuthStore.getState().refreshProfile();
         }
         const xpAwarded: number = Number(data.xp_awarded || 0);
-        const bannerUnlocked: boolean = !!data.banner_reward_unlocked;
-        if (bannerUnlocked) {
-          setHomeNoticeAction?.("All AI bots defeated — claim a free banner in the Store!");
+        // The backend returns `reward_unlocked: "banner" | "coin_toss" | "board_skin" | null`
+        // whenever this defeat triggered a capstone free-item reward (JR/HIM/HER).
+        // Prefer that messaging over the plain XP toast so the user knows to redeem it.
+        const rewardUnlocked = data.reward_unlocked as BotRewardSlot | null | undefined;
+        const botLabel = BOT_LABEL[botIdLower as BotId] || botIdLower.toUpperCase();
+        if (rewardUnlocked && REWARD_SLOT_LABEL[rewardUnlocked]) {
+          setHomeNoticeAction?.(`${botLabel} defeated — ${REWARD_SLOT_LABEL[rewardUnlocked]} unlocked in the Store!`);
         } else if (xpAwarded > 0) {
-          const label = BOT_LABEL[botIdLower as BotId] || botIdLower.toUpperCase();
-          setHomeNoticeAction?.(`${label} defeated — +${xpAwarded.toLocaleString()} XP`);
+          setHomeNoticeAction?.(`${botLabel} defeated — +${xpAwarded.toLocaleString()} XP`);
         }
       } catch {
         // Re-arm the ref so a later navigation/retry can try again silently.
@@ -2782,6 +2785,19 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     const currentMoves = movesPlayedRef.current;
     const currentExtra = extraTurnsRef.current;
     if (phase !== "playing" || currentBoard[r][c] || winner) return;
+    // Defensive: mirror the human placement rule — when the rulebreaker
+    // blocked C3 for the opening, the bot must not be allowed to play the
+    // center on the first move either. The backend already excludes c3 from
+    // its move generator; this client-side guard ensures a stale/racy
+    // response never renders an illegal stone.
+    if (c3Blocked && currentMoves === 0 && r === CENTER && c === CENTER && GRID_SIZE !== 6) {
+      botApiRetryAfterRef.current = Date.now() + 350;
+      if (!botApiWarnedRef.current) {
+        setLog(l => [...l.slice(-19), { text: "BOT tried blocked C3 — retrying.", player: "BOT" }]);
+        botApiWarnedRef.current = true;
+      }
+      return;
+    }
     playPlaceAction?.();
     const playerWhoMoved = "P2";
     const nb = currentBoard.map(row => [...row]);

@@ -26,6 +26,7 @@ import {
   isBoardModeUnlocked,
   isBotUnlocked,
   lockedByLabel,
+  rewardPrizeLabel,
 } from "@/lib/botRewards";
 
 interface Props {
@@ -379,6 +380,8 @@ export default function AIScreen({ setScreenAction, themeId, onSelectDifficultyA
               const defeated = hasDefeated(defeats, d.botId);
               const prevLabel = lockedByLabel(d.botId);
               const xpLabel = formatXpPrize(d.botId);
+              // Capstone bots (jr / him / her) also unlock a free store item.
+              const prizeLabel = rewardPrizeLabel(d.botId);
               return (
                 <button
                   key={d.id}
@@ -427,17 +430,38 @@ export default function AIScreen({ setScreenAction, themeId, onSelectDifficultyA
                     {d.sub}
                   </div>
                   {defeated ? (
-                    <div style={{ fontFamily: t.fontMono, fontSize: 11, color: "#4CAF50", letterSpacing: "0.05em" }}>
-                      Claimed <span style={{ fontWeight: 800 }}>{xpLabel}</span>
-                    </div>
+                    <>
+                      <div style={{ fontFamily: t.fontMono, fontSize: 11, color: "#4CAF50", letterSpacing: "0.05em" }}>
+                        Claimed <span style={{ fontWeight: 800 }}>{xpLabel}</span>
+                      </div>
+                      {prizeLabel && (
+                        <div style={{ fontFamily: t.fontMono, fontSize: 11, color: "#4CAF50", letterSpacing: "0.05em", marginTop: 3 }}>
+                          + <span style={{ fontWeight: 800 }}>{prizeLabel}</span> unlocked in Store
+                        </div>
+                      )}
+                    </>
                   ) : !unlocked && prevLabel ? (
-                    <div style={{ fontFamily: t.fontMono, fontSize: 11, color: t.textMuted, letterSpacing: "0.05em" }}>
-                      Defeat <span style={{ color: "#FCD34D", fontWeight: 700 }}>{prevLabel}</span> to unlock — reward <span style={{ color: "#FCD34D", fontWeight: 700 }}>{xpLabel}</span>
-                    </div>
+                    <>
+                      <div style={{ fontFamily: t.fontMono, fontSize: 11, color: t.textMuted, letterSpacing: "0.05em" }}>
+                        Defeat <span style={{ color: "#FCD34D", fontWeight: 700 }}>{prevLabel}</span> to unlock — reward <span style={{ color: "#FCD34D", fontWeight: 700 }}>{xpLabel}</span>
+                      </div>
+                      {prizeLabel && (
+                        <div style={{ fontFamily: t.fontMono, fontSize: 11, color: "#FCD34D", letterSpacing: "0.05em", marginTop: 3 }}>
+                          + <span style={{ fontWeight: 700 }}>{prizeLabel}</span>
+                        </div>
+                      )}
+                    </>
                   ) : (
-                    <div style={{ fontFamily: t.fontMono, fontSize: 11, color: "#FCD34D", letterSpacing: "0.06em", fontWeight: 700 }}>
-                      Reward: {xpLabel}
-                    </div>
+                    <>
+                      <div style={{ fontFamily: t.fontMono, fontSize: 11, color: "#FCD34D", letterSpacing: "0.06em", fontWeight: 700 }}>
+                        Reward: {xpLabel}
+                      </div>
+                      {prizeLabel && (
+                        <div style={{ fontFamily: t.fontMono, fontSize: 11, color: "#FCD34D", letterSpacing: "0.06em", fontWeight: 700, marginTop: 3 }}>
+                          + {prizeLabel}
+                        </div>
+                      )}
+                    </>
                   )}
                 </button>
               );
