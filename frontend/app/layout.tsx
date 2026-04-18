@@ -31,6 +31,14 @@ export default function RootLayout({
         <link rel="dns-prefetch" href="https://fonts.gstatic.com" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        {/* Japanese-style sumi-e / ink-brush fonts for the match-found "VS" and
+            similar display moments. `Yuji Boku` is a bold calligraphy brush
+            face; `Yuji Mai` and `Shippori Mincho B1` are stylish serif/brush
+            fallbacks. */}
+        <link
+          href="https://fonts.googleapis.com/css2?family=Yuji+Boku&family=Yuji+Mai&family=Shippori+Mincho+B1:wght@800&display=swap"
+          rel="stylesheet"
+        />
       </head>
       <body>
         <Suspense fallback={null}>

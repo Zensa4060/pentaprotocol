@@ -96,6 +96,30 @@ def new_elo(rating: int, opponent_rating: int, score: float, k: int = 32) -> int
     expected = expected_score(rating, opponent_rating)
     return max(0, round(rating + k * (score - expected)))
 
+# Rank bracket thresholds (kept in sync with frontend RANKS min values and
+# backend get_rank). A loss that would drop a player *across* one of these
+# thresholds for the first time clamps them to the threshold instead of
+# deranking — giving one "buffer loss" per bracket. Rank-ups are unaffected.
+_RANK_THRESHOLDS = (500, 1000, 1500, 2000, 2500)
+
+
+def apply_derank_buffer(elo_old: int, elo_candidate: int, result: str) -> int:
+    """Return the elo to store after a ranked match.
+
+    Rules:
+    - Only applies on losses (result == "loss").
+    - If the player's current elo is *strictly* above a rank threshold and the
+      loss would drop them below it, clamp to the threshold. The next loss,
+      starting from the threshold, deranks normally.
+    - Wins and draws are passed through unchanged.
+    """
+    if result != "loss" or elo_candidate >= elo_old:
+        return elo_candidate
+    for thr in _RANK_THRESHOLDS:
+        if elo_old > thr and elo_candidate < thr:
+            return thr
+    return elo_candidate
+
 async def get_current_user(authorization: str = Header(None)):
     if not authorization:
         return None
@@ -149,7 +173,17 @@ async def award_game_result(db, game: dict, winner: str | None):
             opponent = await db.users.find_one({"_id": ObjectId(opponent_id)})
             if opponent:
                 score = 1.0 if result == "win" else (0.5 if result == "draw" else 0.0)
-                updates["hidden_mmr"] = new_elo(user.get("hidden_mmr", 500), opponent.get("hidden_mmr", 500), score)
+                mmr_old = int(user.get("hidden_mmr", 500))
+                mmr_new = new_elo(mmr_old, int(opponent.get("hidden_mmr", 500)), score)
+                updates["hidden_mmr"] = mmr_new
+                # Displayed ELO applies derank-buffer: a loss that would cross a
+                # rank threshold downward clamps to the threshold first (one
+                # grace loss per bracket). Wins / draws pass through unchanged.
+                elo_old = int(user.get("elo") if user.get("elo") is not None else mmr_old)
+                elo_candidate = elo_old + (mmr_new - mmr_old)
+                elo_new = apply_derank_buffer(elo_old, elo_candidate, result)
+                updates["elo"] = elo_new
+                updates["ranked_rating"] = elo_new
         await db.users.update_one({"_id": ObjectId(user_id)}, {"$set": updates, "$inc": inc})
 
     w = (winner or "").upper()
@@ -283,17 +317,19 @@ async def award_ranked_match_result(
                 
                 mmr_new = new_elo(mmr_old, opp_mmr, score, k=k_p1)
                 updates["hidden_mmr"] = mmr_new
-                
+                # Displayed ELO follows hidden_mmr but with a one-loss "derank
+                # buffer" at each rank threshold (500/1000/.../2500). A loss
+                # that would cross a threshold downward clamps the player to
+                # the threshold first; the next loss actually deranks.
+                elo_old = int(user.get("elo") if user.get("elo") is not None else mmr_old)
+                elo_candidate = elo_old + (mmr_new - mmr_old)
+                elo_new = apply_derank_buffer(elo_old, elo_candidate, result)
+                updates["elo"] = elo_new
+                updates["ranked_rating"] = elo_new
+
                 if pl_matches < 5:
-                    new_pl = pl_matches + 1
-                    updates["placement_matches"] = new_pl
-                    if new_pl == 5:
-                        updates["elo"] = mmr_new
-                        updates["ranked_rating"] = mmr_new
-                else:
-                    updates["elo"] = mmr_new
-                    updates["ranked_rating"] = mmr_new
-                
+                    updates["placement_matches"] = pl_matches + 1
+
         await db.users.update_one({"_id": ObjectId(user_id)}, {"$set": updates, "$inc": inc})
 
     w = (winner or "").upper()

@@ -67,12 +67,12 @@ def _normalize_bot_rewards(user: dict) -> dict:
 router = APIRouter()
 
 def get_rank(elo: int) -> str:
-    if elo < 500:  return "RISING HOUND"
-    if elo < 1000: return "FERAL LYNX"
-    if elo < 1500: return "ANCIENT LION"
-    if elo < 2000: return "MYTHIC SERPENT"
-    if elo < 2500: return "RED DRAGON"
-    return "LEGENDARY EAGLE"
+    if elo < 500:  return "ROOKIE"
+    if elo < 1000: return "SKILLED"
+    if elo < 1500: return "ELITE"
+    if elo < 2000: return "MYTHIC"
+    if elo < 2500: return "CRACKED"
+    return "CHRONICLE"
 
 async def get_current_user(authorization: str = Header(...)):
     try:

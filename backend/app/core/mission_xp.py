@@ -27,7 +27,7 @@ def mission_xp_for_mission_id(mission_id: str) -> Optional[int]:
     if not mission_id or not isinstance(mission_id, str):
         return None
     if mission_id == "perm_rank_legend":
-        return 20000
+        return 200000
     h = hash_string_to_seed(mission_id)
     if mission_id.startswith("d_"):
         return 250

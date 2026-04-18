@@ -930,12 +930,25 @@ export default function AppShell({ children }: { children: ReactNode }) {
     // pages causes a duplicate LobbyScreen to mount, which the user perceives
     // as the queue/matchup screen "showing twice" during route transitions.
     // Only use the overlay as a fallback on unrelated routes.
+    //
+    // We also blacklist every match-flow route (/game, /ready, /rulesshow,
+    // /rulechoice, /rulebreaker). Without this, during the brief moment
+    // between `router.push("/game/...")` firing and React flushing
+    // `setQueuePhase("none")`, a render can land with pathname=/game/... but
+    // queuePhase still "matchup" — which makes the match-found screen
+    // briefly re-appear on top of the rulesshow page, exactly as the user
+    // reported.
     const ownedByRoute =
       pathname === ROUTES.PLAY_MATCHFOUND ||
       pathname === ROUTES.UNRANKED_QUEUE ||
       pathname === ROUTES.RANKED_QUEUE ||
       pathname === ROUTES.CUSTOM_ROOM_CREATE ||
-      pathname === ROUTES.PLAY_LOBBY;
+      pathname === ROUTES.PLAY_LOBBY ||
+      pathname.startsWith("/game/") ||
+      pathname.startsWith("/ready/") ||
+      pathname.startsWith("/rulesshow/") ||
+      pathname.startsWith("/rulechoice/") ||
+      pathname.startsWith("/rulebreaker/");
     if (ownedByRoute) return null;
     return (
       <div style={{ position: "fixed", inset: 0, zIndex: 99999, background: t.bg }}>

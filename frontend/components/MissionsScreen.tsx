@@ -16,7 +16,6 @@ import {
   postClaimMissionToServer,
   syncMissionClaimedLocal,
   type MissionMatchEvent,
-  type RewardPlaceholder,
 } from "@/lib/missionsClient";
 import {
   computeMissionProgress,
@@ -410,30 +409,29 @@ export default function MissionsScreen({ themeId, initialTab }: Props) {
   );
 }
 
-function RewardPlaceholderCard({ p, t }: { p: RewardPlaceholder; t: Theme }) {
-  const label =
-    p.kind === "picture" ? `Picture #${p.slot}` :
-    p.kind === "banner" ? `Banner #${p.slot}` :
-    p.kind === "border" ? `Border #${p.slot}` :
-    p.kind === "boardSkin" ? `Grid Skin #${p.slot}` :
-    `Piece Skin #${p.slot}`;
+function SpecialRewardCard({ reward, t, gold }: { reward: { label: string; description?: string }; t: Theme; gold: string }) {
   return (
     <div style={{
-      borderRadius: 10,
-      padding: "10px 10px",
-      border: `1px solid ${t.border}66`,
-      background: `${t.bgCard}`,
+      borderRadius: 12,
+      padding: "12px 14px",
+      border: `1.5px solid ${gold}`,
+      background: `linear-gradient(135deg, ${gold}22, ${gold}08)`,
       display: "flex",
       flexDirection: "column",
-      gap: 4,
-      minWidth: 160,
-      flex: "0 0 auto"
+      gap: 6,
+      boxShadow: `0 0 22px ${gold}33, inset 0 0 12px ${gold}18`,
     }}>
-        <div style={{ fontFamily: t.fontMono, fontSize: 11, color: t.textSecondary, letterSpacing: "0.08em" }}>REWARD</div>
-      <div style={{ fontFamily: t.fontDisplay, fontSize: 13, fontWeight: 900, color: t.text }}>{label}</div>
-      <div style={{ fontFamily: t.fontBody, fontSize: 12, color: t.textSecondary }}>
-        Placeholder (unlock later)
+      <div style={{ fontFamily: t.fontMono, fontSize: 11, color: gold, letterSpacing: "0.12em", fontWeight: 900 }}>
+        CAPSTONE REWARD
       </div>
+      <div style={{ fontFamily: t.fontDisplay, fontSize: 16, fontWeight: 900, color: gold, letterSpacing: "0.04em", textShadow: `0 0 12px ${gold}66` }}>
+        {reward.label}
+      </div>
+      {reward.description && (
+        <div style={{ fontFamily: t.fontBody, fontSize: 12, color: t.text }}>
+          {reward.description}
+        </div>
+      )}
     </div>
   );
 }
@@ -631,10 +629,15 @@ function PermanentMissionsPanel(props: {
 }) {
   const { permanentDefs, eventsAll, profile, getClaimed, onClaim, claimAllShards = 0, claimAllXp = 0, onClaimAll, t, shardsSvg } = props;
   const [showAll, setShowAll] = useState(false);
+  const gold = t.gold ?? "#D4AF37";
+
+  // Always pin the CHRONICLE (legend) rank mission — the capstone free-theme
+  // reward — to the top of every permanent view.
+  const specialMission = useMemo(() => permanentDefs.find(m => m.id === "perm_rank_legend"), [permanentDefs]);
 
   const groups = useMemo(() => {
     const level = permanentDefs.filter(m => m.progress.kind === "levelAtLeast");
-    const ranks = permanentDefs.filter(m => m.progress.kind === "rankAtLeast");
+    const ranks = permanentDefs.filter(m => m.progress.kind === "rankAtLeast" && m.id !== "perm_rank_legend");
     const winStreak = permanentDefs.filter(m => m.progress.kind === "streakRankedMax");
     const rankedWins = permanentDefs.filter(m => m.progress.kind === "rankedWinsTotalAtLeast");
     const totalWins = permanentDefs.filter(m => m.progress.kind === "totalWinsAtLeast");
@@ -645,6 +648,103 @@ function PermanentMissionsPanel(props: {
   const flattened = useMemo(() => [...groups.level, ...groups.ranks, ...groups.winStreak, ...groups.rankedWins, ...groups.totalWins, ...groups.rankedPlay], [groups]);
   const visible = showAll ? flattened : flattened.slice(0, 30);
 
+  const renderMissionCard = (m: MissionDef) => {
+    const claimed = getClaimed(m.id);
+    const progress = computeMissionProgress({ mission: m, events: eventsAll, profile });
+    const done = progress >= m.progress.target;
+    const pct = Math.max(0, Math.min(100, (progress / Math.max(1, m.progress.target)) * 100));
+    const mXp = missionXpForMissionId(m.id);
+    const isSpecial = !!m.specialReward;
+
+    const cardBorder = isSpecial ? `2px solid ${gold}` : `1px solid ${t.border}66`;
+    const cardBg = isSpecial
+      ? `linear-gradient(135deg, ${gold}14, ${t.bgCard} 55%)`
+      : `${t.bgCard}`;
+    const cardShadow = isSpecial ? `0 0 34px ${gold}33, inset 0 0 18px ${gold}14` : undefined;
+
+    return (
+      <div key={m.id} style={{ borderRadius: 16, border: cardBorder, background: cardBg, padding: 14, boxShadow: cardShadow }}>
+        {isSpecial && (
+          <div style={{ fontFamily: t.fontMono, fontSize: 11, fontWeight: 900, color: gold, letterSpacing: "0.16em", marginBottom: 6, textShadow: `0 0 10px ${gold}66` }}>
+            ★ SPECIAL MISSION ★
+          </div>
+        )}
+        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontFamily: t.fontDisplay, fontSize: isSpecial ? 16 : 14, fontWeight: 900, color: isSpecial ? gold : t.text, textShadow: isSpecial ? `0 0 12px ${gold}55` : undefined }}>{m.title}</div>
+            <div style={{ fontFamily: t.fontBody, fontSize: 12, color: t.textSecondary, marginTop: 4 }}>{m.description}</div>
+          </div>
+          <div style={{ textAlign: "right", flexShrink: 0 }}>
+            <div style={{ fontFamily: t.fontMono, fontSize: 11, color: t.textSecondary, letterSpacing: "0.1em" }}>REWARDS</div>
+            <div style={{ fontFamily: t.fontDisplay, fontSize: 18, fontWeight: 900, color: isSpecial ? gold : t.accent }}>
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                <PentaShardsIcon svg={shardsSvg} size={31} />
+                {m.shards}
+              </span>
+            </div>
+            <div style={{ fontFamily: t.fontMono, fontSize: 12, fontWeight: 800, color: isSpecial ? gold : "#C9A227", marginTop: 4 }}>
+              +{mXp.toLocaleString()} XP
+            </div>
+          </div>
+        </div>
+
+        <div style={{ marginTop: 10 }}>
+          <div style={{ fontFamily: t.fontMono, fontSize: 11, color: t.textSecondary, letterSpacing: "0.08em", display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+            <span>PROGRESS</span>
+            <span>{progress}/{m.progress.target}</span>
+          </div>
+          <div style={{ height: 10, background: t.bg, borderRadius: 999, border: `1px solid ${t.border}44`, overflow: "hidden" }}>
+            <div style={{ height: "100%", width: `${pct}%`, background: isSpecial ? `linear-gradient(90deg, ${gold}, ${t.accent})` : `linear-gradient(90deg, ${t.accent}, ${t.p1})`, boxShadow: `0 0 18px ${isSpecial ? gold : t.accent}44` }} />
+          </div>
+        </div>
+
+        {m.specialReward && (
+          <div style={{ marginTop: 12 }}>
+            <SpecialRewardCard reward={m.specialReward} t={t} gold={gold} />
+          </div>
+        )}
+
+        <div style={{ marginTop: 14, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
+          {done ? (
+            claimed ? (
+              <div style={{ fontFamily: t.fontMono, fontSize: 12, color: "#4CAF50", fontWeight: 900 }}>CLAIMED ✓</div>
+            ) : (
+              <button
+                onClick={() => onClaim(m)}
+                style={{
+                  background: isSpecial ? gold : t.accent,
+                  border: "none",
+                  borderRadius: 12,
+                  padding: "10px 14px",
+                  fontFamily: t.fontDisplay,
+                  fontSize: 12,
+                  fontWeight: 900,
+                  color: "#000",
+                  cursor: "pointer",
+                  boxShadow: `0 0 28px ${isSpecial ? gold : t.accent}44`
+                }}
+              >
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                  CLAIM
+                  <PentaShardsIcon svg={shardsSvg} size={28} />
+                  {m.shards}
+                  <span style={{ fontFamily: t.fontMono, fontSize: 11, fontWeight: 900 }}>+{mXp.toLocaleString()} XP</span>
+                </span>
+              </button>
+            )
+          ) : (
+            <div style={{ fontFamily: t.fontMono, fontSize: 12, color: t.textSecondary }}>Not yet</div>
+          )}
+          {!done && m.difficulty && (
+            <div style={{ fontFamily: t.fontMono, fontSize: 11, color: t.textSecondary, border: `1px solid ${t.border}66`, background: "rgba(255,255,255,0.03)", padding: "8px 10px", borderRadius: 10 }}>
+              {m.difficulty.toUpperCase()}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   const renderGroup = (title: string, defs: MissionDef[]) => (
     <div style={{ marginBottom: 16 }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 10 }}>
@@ -652,91 +752,7 @@ function PermanentMissionsPanel(props: {
         <div style={{ fontFamily: t.fontMono, fontSize: 11, color: t.textSecondary }}>{defs.length} missions</div>
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(300px,1fr))", gap: 12 }}>
-        {defs.map(m => {
-          const claimed = getClaimed(m.id);
-          const progress = computeMissionProgress({ mission: m, events: eventsAll, profile });
-          const done = progress >= m.progress.target;
-          const pct = Math.max(0, Math.min(100, (progress / Math.max(1, m.progress.target)) * 100));
-          const mXp = missionXpForMissionId(m.id);
-
-          return (
-            <div key={m.id} style={{ borderRadius: 16, border: `1px solid ${t.border}66`, background: `${t.bgCard}`, padding: 14 }}>
-              <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontFamily: t.fontDisplay, fontSize: 14, fontWeight: 900, color: t.text }}>{m.title}</div>
-                  <div style={{ fontFamily: t.fontBody, fontSize: 12, color: t.textSecondary, marginTop: 4 }}>{m.description}</div>
-                </div>
-                <div style={{ textAlign: "right", flexShrink: 0 }}>
-                  <div style={{ fontFamily: t.fontMono, fontSize: 11, color: t.textSecondary, letterSpacing: "0.1em" }}>REWARDS</div>
-                  <div style={{ fontFamily: t.fontDisplay, fontSize: 18, fontWeight: 900, color: t.accent }}>
-                    <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-                      <PentaShardsIcon svg={shardsSvg} size={31} />
-                      {m.shards}
-                    </span>
-                  </div>
-                  <div style={{ fontFamily: t.fontMono, fontSize: 12, fontWeight: 800, color: "#C9A227", marginTop: 4 }}>
-                    +{mXp.toLocaleString()} XP
-                  </div>
-                </div>
-              </div>
-
-              <div style={{ marginTop: 10 }}>
-                <div style={{ fontFamily: t.fontMono, fontSize: 11, color: t.textSecondary, letterSpacing: "0.08em", display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-                  <span>PROGRESS</span>
-                  <span>{progress}/{m.progress.target}</span>
-                </div>
-                <div style={{ height: 10, background: t.bg, borderRadius: 999, border: `1px solid ${t.border}44`, overflow: "hidden" }}>
-                  <div style={{ height: "100%", width: `${pct}%`, background: `linear-gradient(90deg, ${t.accent}, ${t.p1})`, boxShadow: `0 0 18px ${t.accent}33` }} />
-                </div>
-              </div>
-
-              <div style={{ marginTop: 12 }}>
-                <div style={{ fontFamily: t.fontMono, fontSize: 11, color: t.textSecondary, letterSpacing: "0.1em", marginBottom: 8 }}>REWARD PLACEHOLDERS</div>
-                <div style={{ display: "flex", gap: 10, overflowX: "auto", paddingBottom: 6 }}>
-                  {(m.rewards ?? []).map((p, idx) => <RewardPlaceholderCard key={`${p.kind}:${p.slot}:${idx}`} p={p} t={t} />)}
-                </div>
-              </div>
-
-              <div style={{ marginTop: 14, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
-                {done ? (
-                  claimed ? (
-                    <div style={{ fontFamily: t.fontMono, fontSize: 12, color: "#4CAF50", fontWeight: 900 }}>CLAIMED ✓</div>
-                  ) : (
-                    <button
-                      onClick={() => onClaim(m)}
-                      style={{
-                        background: t.accent,
-                        border: "none",
-                        borderRadius: 12,
-                        padding: "10px 14px",
-                        fontFamily: t.fontDisplay,
-                        fontSize: 12,
-                        fontWeight: 900,
-                        color: "#000",
-                        cursor: "pointer",
-                        boxShadow: `0 0 28px ${t.accent}22`
-                      }}
-                    >
-                    <span style={{ display: "inline-flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                      CLAIM
-                              <PentaShardsIcon svg={shardsSvg} size={28} />
-                      {m.shards}
-                      <span style={{ fontFamily: t.fontMono, fontSize: 11, fontWeight: 900 }}>+{mXp} XP</span>
-                    </span>
-                    </button>
-                  )
-                ) : (
-                  <div style={{ fontFamily: t.fontMono, fontSize: 12, color: t.textSecondary }}>Not yet</div>
-                )}
-                {!done && m.difficulty && (
-                  <div style={{ fontFamily: t.fontMono, fontSize: 11, color: t.textSecondary, border: `1px solid ${t.border}66`, background: "rgba(255,255,255,0.03)", padding: "8px 10px", borderRadius: 10 }}>
-                    {m.difficulty.toUpperCase()}
-                  </div>
-                )}
-              </div>
-            </div>
-          );
-        })}
+        {defs.map(m => renderMissionCard(m))}
       </div>
     </div>
   );
@@ -775,9 +791,17 @@ function PermanentMissionsPanel(props: {
           )}
         </div>
         <div style={{ fontFamily: t.fontBody, fontSize: 13, color: t.textSecondary, marginTop: 4 }}>
-          COMPLETE PERMANENT MISSIONS FOR SHARDS, ACCOUNT XP (5,000–100,000 PER MISSION), AND PLACEHOLDER COSMETICS.
+          COMPLETE PERMANENT MISSIONS FOR SHARDS AND ACCOUNT XP. THE CAPSTONE CHRONICLE RANK MISSION ALSO GRANTS A FREE THEME OF YOUR CHOICE.
         </div>
       </div>
+
+      {specialMission && (
+        <div style={{ marginBottom: 18 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(320px,1fr))", gap: 12 }}>
+            {renderMissionCard(specialMission)}
+          </div>
+        </div>
+      )}
 
       {!showAll ? (
         <div style={{ display: "flex", gap: 10, marginBottom: 14, alignItems: "center" }}>
@@ -832,82 +856,7 @@ function PermanentMissionsPanel(props: {
         </>
       ) : (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(320px,1fr))", gap: 12 }}>
-          {visible.map(m => (
-            <div key={m.id} style={{ borderRadius: 16, border: `1px solid ${t.border}66`, background: `${t.bgCard}`, padding: 14 }}>
-              <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontFamily: t.fontDisplay, fontSize: 14, fontWeight: 900, color: t.text }}>{m.title}</div>
-                  <div style={{ fontFamily: t.fontBody, fontSize: 12, color: t.textSecondary, marginTop: 4 }}>{m.description}</div>
-                </div>
-                <div style={{ textAlign: "right", flexShrink: 0 }}>
-                  <div style={{ fontFamily: t.fontMono, fontSize: 11, color: t.textSecondary, letterSpacing: "0.1em" }}>SHARDS</div>
-                  <div style={{ fontFamily: t.fontDisplay, fontSize: 18, fontWeight: 900, color: t.accent }}>
-                    <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-                      <PentaShardsIcon svg={shardsSvg} size={31} />
-                      {m.shards}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              <div style={{ marginTop: 10 }}>
-                {(() => {
-                  const claimed = getClaimed(m.id);
-                  const progress = computeMissionProgress({ mission: m, events: eventsAll, profile });
-                  const done = progress >= m.progress.target;
-                  const pct = Math.max(0, Math.min(100, (progress / Math.max(1, m.progress.target)) * 100));
-                  return (
-                    <>
-                      <div style={{ fontFamily: t.fontMono, fontSize: 11, color: t.textSecondary, letterSpacing: "0.08em", display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-                        <span>PROGRESS</span>
-                        <span>{progress}/{m.progress.target}</span>
-                      </div>
-                      <div style={{ height: 10, background: t.bg, borderRadius: 999, border: `1px solid ${t.border}44`, overflow: "hidden" }}>
-                        <div style={{ height: "100%", width: `${pct}%`, background: `linear-gradient(90deg, ${t.accent}, ${t.p1})`, boxShadow: `0 0 18px ${t.accent}33` }} />
-                      </div>
-                      <div style={{ marginTop: 12 }}>
-                        <div style={{ fontFamily: t.fontMono, fontSize: 11, color: t.textSecondary, letterSpacing: "0.1em", marginBottom: 8 }}>REWARD PLACEHOLDERS</div>
-                        <div style={{ display: "flex", gap: 10, overflowX: "auto", paddingBottom: 6 }}>
-                          {(m.rewards ?? []).slice(0, 5).map((p, idx) => <RewardPlaceholderCard key={`${p.kind}:${p.slot}:${idx}`} p={p} t={t} />)}
-                        </div>
-                      </div>
-                      <div style={{ marginTop: 14, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
-                        {done ? (
-                          claimed ? (
-                            <div style={{ fontFamily: t.fontMono, fontSize: 12, color: "#4CAF50", fontWeight: 900 }}>CLAIMED ✓</div>
-                          ) : (
-                            <button
-                              onClick={() => onClaim(m)}
-                              style={{
-                                background: t.accent,
-                                border: "none",
-                                borderRadius: 12,
-                                padding: "10px 14px",
-                                fontFamily: t.fontDisplay,
-                                fontSize: 12,
-                                fontWeight: 900,
-                                color: "#000",
-                                cursor: "pointer",
-                                boxShadow: `0 0 28px ${t.accent}22`
-                              }}
-                            >
-                              <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-                                CLAIM
-                                <PentaShardsIcon svg={shardsSvg} size={28} />
-                                {m.shards}
-                              </span>
-                            </button>
-                          )
-                        ) : (
-                          <div style={{ fontFamily: t.fontMono, fontSize: 12, color: t.textSecondary }}>Not yet</div>
-                        )}
-                      </div>
-                    </>
-                  );
-                })()}
-              </div>
-            </div>
-          ))}
+          {visible.filter(m => m.id !== "perm_rank_legend").map(m => renderMissionCard(m))}
         </div>
       )}
     </div>

@@ -885,8 +885,8 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
                         <img
                           src={r.img!}
                           style={{
-                            width: ["RISING HOUND", "FERAL LYNX", "MYTHIC SERPENT"].includes(r.name) ? 41 : 28,
-                            height: ["RISING HOUND", "FERAL LYNX", "MYTHIC SERPENT"].includes(r.name) ? 41 : 28,
+                            width: ["ROOKIE", "SKILLED", "MYTHIC"].includes(r.name) ? 41 : 28,
+                            height: ["ROOKIE", "SKILLED", "MYTHIC"].includes(r.name) ? 41 : 28,
                             objectFit: "contain",
                             filter: isActive ? `drop-shadow(0 0 8px ${r.color}aa)` : "none",
                             position: "absolute",

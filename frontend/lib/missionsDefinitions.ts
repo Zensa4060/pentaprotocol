@@ -29,7 +29,13 @@ export type MissionDef = {
   description: string;
   shards: number;
   progress: { kind: ProgressKind; target: number; rank?: RankKey };
-  rewards?: RewardPlaceholder[]; // permanent missions only (placeholders)
+  rewards?: RewardPlaceholder[]; // permanent missions only (placeholders, currently unused)
+  /**
+   * One-off hero reward shown for a specific permanent mission (e.g. the
+   * CHRONICLE rank mission grants a free theme of choice). When set, the UI
+   * promotes the mission to the top and renders it with a golden treatment.
+   */
+  specialReward?: { label: string; description?: string };
   // Optional grouping metadata for UI
   difficulty?: "easy" | "medium" | "hard";
 };
@@ -127,7 +133,8 @@ function hashStringToSeed(input: string) {
 
 /** Deterministic mission XP; 0 if mission id is not a known prefix (daily / weekly / permanent). */
 export function missionXpForMissionId(missionId: string): number {
-  if (missionId === "perm_rank_legend") return 20000;
+  // CHRONICLE rank mission is the capstone goal — big XP payout + free theme.
+  if (missionId === "perm_rank_legend") return 200000;
   const h = hashStringToSeed(missionId);
   if (missionId.startsWith("d_")) return 250;
   if (missionId.startsWith("w_")) return 2500;
@@ -262,12 +269,12 @@ export function getWeeklyMissionIds(weekStart: Date, userKey: string): string[] 
 
 const LEVEL_THRESHOLDS: number[] = [5, 10, 15, 20, 25, 30, 40, 50, 60, 75, 90, 100, 125, 150, 180, 200, 250, 300, 350, 400, 450, 500, 600, 700, 800, 900, 1000];
 
-const RANK_MISSIONS: { key: RankKey; id: string }[] = [
-  { key: "advanced", id: "perm_rank_advanced" },
-  { key: "professional", id: "perm_rank_professional" },
-  { key: "emerald", id: "perm_rank_emerald" },
-  { key: "master", id: "perm_rank_master" },
-  { key: "legend", id: "perm_rank_legend" },
+const RANK_MISSIONS: { key: RankKey; id: string; displayName: string }[] = [
+  { key: "advanced",     id: "perm_rank_advanced",     displayName: "SKILLED" },
+  { key: "professional", id: "perm_rank_professional", displayName: "ELITE" },
+  { key: "emerald",      id: "perm_rank_emerald",      displayName: "MYTHIC" },
+  { key: "master",       id: "perm_rank_master",       displayName: "CRACKED" },
+  { key: "legend",       id: "perm_rank_legend",       displayName: "CHRONICLE" },
 ];
 
 const RANKED_WIN_THRESHOLDS = [10, 25, 50, 75, 100, 150, 200, 300, 400, 500];
@@ -277,31 +284,14 @@ const RANKED_PLAY_THRESHOLDS = [25, 50, 100, 150, 200, 300];
 export function getPermanentMissionDefs(): MissionDef[] {
   const defs: MissionDef[] = [];
 
-  let slotCounter = 1;
-  const mkPlaceholders = () => {
-    const picture = slotCounter++;
-    const banner = slotCounter++;
-    const border = slotCounter++;
-    const boardSkin = slotCounter++;
-    const pieceSkin = slotCounter++;
-    return [
-      { kind: "picture", slot: picture },
-      { kind: "banner", slot: banner },
-      { kind: "border", slot: border },
-      { kind: "boardSkin", slot: boardSkin },
-      { kind: "pieceSkin", slot: pieceSkin },
-    ] satisfies RewardPlaceholder[];
-  };
-
   for (const lvl of LEVEL_THRESHOLDS) {
     const shards = Math.min(250, Math.max(15, Math.round(lvl / 4)));
     defs.push({
       id: `perm_level_${lvl}`,
       period: "permanent",
       title: `Reach level ${lvl}`,
-      description: `Level up to ${lvl} for permanent rewards.`,
+      description: `Level up to ${lvl} for a permanent XP + shards reward.`,
       shards,
-      rewards: mkPlaceholders(),
       progress: { kind: "levelAtLeast", target: lvl },
       difficulty: lvl <= 50 ? "easy" : lvl <= 200 ? "medium" : "hard",
     });
@@ -311,26 +301,30 @@ export function getPermanentMissionDefs(): MissionDef[] {
     let shards = r.key === "legend" ? 260 : r.key === "master" ? 240 : r.key === "emerald" ? 220 : 200;
     if (r.id === "perm_rank_legend") shards = 10000;
 
+    const isLegend = r.id === "perm_rank_legend";
     defs.push({
       id: r.id,
       period: "permanent",
-      title: `Reach ${r.key} rank`,
-      description: `Achieve the ${r.key} rank threshold.`,
+      title: `Reach ${r.displayName} rank`,
+      description: isLegend
+        ? `Climb all the way to ${r.displayName} — the apex rank. Capstone reward: free theme of your choice.`
+        : `Achieve the ${r.displayName} rank threshold.`,
       shards,
-      rewards: mkPlaceholders(),
       progress: { kind: "rankAtLeast", target: RANK_THRESHOLDS[r.key], rank: r.key },
-      difficulty: r.key === "legend" ? "hard" : "medium",
+      difficulty: isLegend ? "hard" : "medium",
+      specialReward: isLegend
+        ? { label: "FREE THEME OF CHOICE", description: "Unlock any theme in the game as a permanent reward." }
+        : undefined,
     });
   }
 
-  // Winstreak: user requested “get a 10 ranked winstreak”
+  // Winstreak: user requested "get a 10 ranked winstreak"
   defs.push({
     id: "perm_ranked_winstreak_10",
     period: "permanent",
     title: "Ranked winstreak x10",
     description: "Achieve a 10-win ranked streak (max consecutive wins).",
     shards: 320,
-    rewards: mkPlaceholders(),
     progress: { kind: "streakRankedMax", target: 10 },
     difficulty: "hard",
   });
@@ -344,7 +338,6 @@ export function getPermanentMissionDefs(): MissionDef[] {
       title: `Win ${n} ranked matches`,
       description: `Accumulate ${n} ranked wins total.`,
       shards,
-      rewards: mkPlaceholders(),
       progress: { kind: "rankedWinsTotalAtLeast", target: n },
       difficulty: n <= 50 ? "easy" : n <= 200 ? "medium" : "hard",
     });
@@ -358,7 +351,6 @@ export function getPermanentMissionDefs(): MissionDef[] {
       title: `Win ${n} matches total`,
       description: `Accumulate ${n} wins across any mode.`,
       shards,
-      rewards: mkPlaceholders(),
       progress: { kind: "totalWinsAtLeast", target: n },
       difficulty: n <= 100 ? "easy" : "medium",
     });
@@ -372,7 +364,6 @@ export function getPermanentMissionDefs(): MissionDef[] {
       title: `Play ${n} ranked matches`,
       description: `Complete ${n} ranked matches total.`,
       shards,
-      rewards: mkPlaceholders(),
       progress: { kind: "rankedMatchesAtLeast", target: n },
       difficulty: n <= 100 ? "easy" : "medium",
     });

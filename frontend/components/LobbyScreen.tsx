@@ -308,70 +308,103 @@ export default function LobbyScreen({
     }
   };
 
-  /** Hand-drawn "VS" rendered as if a big black paint brush is writing the
-   *  letters live. Uses stroke-dasharray + stroke-dashoffset to animate each
-   *  path from 0% to 100% (classic "draw-on" effect). The V is drawn first,
-   *  then the S. Colour is locked to pure black so it reads crisply against
-   *  the cream backdrop of the match-found screen. */
+  /** Japanese sumi-e / calligraphy "VS" rendered with the Google Font
+   *  `Yuji Boku` — a bold ink-brush face that looks hand-painted out of the
+   *  box. Each glyph wipes in left-to-right via a clip-path mask to simulate
+   *  the brush laying the ink down in a single sweep. A deep drop-shadow and
+   *  a subtle dark text-shadow emulate ink bleed into paper fibres. */
   const SketchVS = React.memo(({ size }: { size: number }) => {
+    // Font stack: Yuji Boku (bold brush), then Yuji Mai (thinner brush) then
+    // Shippori Mincho B1 (heavy serif with brush edges), then system serifs.
+    const BRUSH_STACK = "'Yuji Boku','Yuji Mai','Shippori Mincho B1','Noto Serif JP',serif";
     const INK = "#0A0A0A";
-    // Dash lengths are tuned to be slightly larger than the actual path
-    // lengths so the entire stroke eventually becomes visible without any
-    // stray remainder at the end.
+
     return (
-      <svg
-        width={size}
-        height={size * 0.66}
-        viewBox="0 0 360 240"
-        fill="none"
-        style={{
-          filter: "drop-shadow(0 4px 6px rgba(0,0,0,0.25))",
-          willChange: "transform",
-          animation: "vsFadeIn 500ms ease both",
-        }}
+      <div
         aria-hidden="true"
+        style={{
+          position: "relative",
+          width: size,
+          height: size * 0.95,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          lineHeight: 1,
+          color: INK,
+          fontFamily: BRUSH_STACK,
+          fontWeight: 900,
+          fontStyle: "italic",
+          letterSpacing: "-0.02em",
+          filter:
+            "drop-shadow(0 6px 10px rgba(0,0,0,0.45)) drop-shadow(0 2px 2px rgba(0,0,0,0.35)) contrast(1.12)",
+          willChange: "transform, opacity",
+        }}
       >
-        {/* V — single thick brush stroke with a slightly rough edge */}
-        <path
-          className="vs-draw vs-draw-v"
-          d="M 30 30 C 48 90, 80 160, 118 210 C 130 226, 150 224, 160 208 C 194 156, 218 90, 236 30"
-          stroke={INK}
-          strokeWidth="26"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          fill="none"
+        {/* Subtle ink splatter dot near the V, hand-drawn sumi-e accent. */}
+        <span
+          className="vs-ink-splat"
+          style={{
+            position: "absolute",
+            left: "18%",
+            top: "8%",
+            width: size * 0.035,
+            height: size * 0.035,
+            borderRadius: "50%",
+            background: INK,
+            opacity: 0.55,
+            transform: "scale(0)",
+          }}
         />
-        {/* V — faint secondary trailing stroke to evoke a bristly brush */}
-        <path
-          className="vs-draw vs-draw-v2"
-          d="M 44 52 C 58 104, 88 160, 118 196"
-          stroke={INK}
-          strokeWidth="6"
-          strokeLinecap="round"
-          fill="none"
-          opacity="0.55"
+        <span
+          className="vs-ink-splat vs-ink-splat-2"
+          style={{
+            position: "absolute",
+            right: "22%",
+            bottom: "12%",
+            width: size * 0.022,
+            height: size * 0.022,
+            borderRadius: "50%",
+            background: INK,
+            opacity: 0.45,
+            transform: "scale(0)",
+          }}
         />
-        {/* S — looping brush stroke in one continuous motion */}
-        <path
-          className="vs-draw vs-draw-s"
-          d="M 330 58 C 314 30, 280 28, 260 52 C 240 78, 278 102, 300 118 C 326 138, 316 182, 278 190 C 246 196, 220 178, 212 150"
-          stroke={INK}
-          strokeWidth="24"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          fill="none"
-        />
-        {/* S — small trailing flick to sell the "paint brush" feel */}
-        <path
-          className="vs-draw vs-draw-s2"
-          d="M 214 160 C 210 176, 220 196, 236 208"
-          stroke={INK}
-          strokeWidth="12"
-          strokeLinecap="round"
-          fill="none"
-          opacity="0.85"
-        />
-      </svg>
+
+        {/* The V — heavy brush italic, wipes in first. */}
+        <span
+          className="vs-glyph vs-glyph-v"
+          style={{
+            fontSize: size * 0.9,
+            fontFamily: BRUSH_STACK,
+            fontWeight: 900,
+            textShadow:
+              `0 0 2px ${INK}, 1px 0 0 ${INK}, -1px 0 0 ${INK}, 0 1px 0 ${INK}, 0 -1px 0 ${INK}`,
+            transform: "rotate(-4deg)",
+            transformOrigin: "50% 70%",
+            marginRight: size * 0.02,
+            display: "inline-block",
+          }}
+        >
+          V
+        </span>
+
+        {/* The S — slightly smaller, flipped-angle, wipes in after. */}
+        <span
+          className="vs-glyph vs-glyph-s"
+          style={{
+            fontSize: size * 0.82,
+            fontFamily: BRUSH_STACK,
+            fontWeight: 900,
+            textShadow:
+              `0 0 2px ${INK}, 1px 0 0 ${INK}, -1px 0 0 ${INK}, 0 1px 0 ${INK}, 0 -1px 0 ${INK}`,
+            transform: "rotate(3deg) translateY(4%)",
+            transformOrigin: "50% 60%",
+            display: "inline-block",
+          }}
+        >
+          S
+        </span>
+      </div>
     );
   });
   SketchVS.displayName = "SketchVS";
@@ -546,14 +579,15 @@ export default function LobbyScreen({
           {name}
         </div>
 
-        {/* Rank logo below username — ranked only */}
+        {/* Rank logo below username — ranked only. Sized +35% versus the
+            previous layout at the user's request. */}
         {ranked && (
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4, marginTop: isMobile ? 2 : 6 }}>
-            <NavRankBadge rank={rankForBadge} size={isMobile ? 54 : 84} isPlacement={isPlacementPlayer} />
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, marginTop: isMobile ? 4 : 10 }}>
+            <NavRankBadge rank={rankForBadge} size={isMobile ? 73 : 113} isPlacement={isPlacementPlayer} />
             <div
               style={{
                 fontFamily: t.fontMono,
-                fontSize: isMobile ? 10 : 12,
+                fontSize: isMobile ? 14 : 16,
                 fontWeight: 800,
                 color: isPlacementPlayer ? "#8E2BB8" : rankForBadge.color,
                 letterSpacing: "0.18em",
@@ -732,22 +766,33 @@ export default function LobbyScreen({
           @keyframes slideInLeft    { from{opacity:0;transform:translate3d(-80px,0,0) scale(.94)} to{opacity:1;transform:translate3d(0,0,0) scale(1)} }
           @keyframes slideInRight   { from{opacity:0;transform:translate3d(80px,0,0)  scale(.94)} to{opacity:1;transform:translate3d(0,0,0) scale(1)} }
           @keyframes matchBarShrink { from{width:100%} to{width:0%} }
-          @keyframes vsFadeIn       { from{opacity:0} to{opacity:1} }
-          /* "Paint brush" draw-on animation: each path is given a long dash
-             that equals its full length, then the dash offset is animated from
-             that length to 0 so the stroke reveals continuously, as if being
-             written live. Paths also have the V drawn first, then the S. */
-          .vs-draw {
-            stroke-dasharray: 900;
-            stroke-dashoffset: 900;
+
+          /* Sumi-e brush "VS": each glyph starts clipped to 0 width and is
+             wiped in left-to-right to feel like a single calligraphy stroke
+             laying ink on paper. The V is painted first, then the S. */
+          .vs-glyph {
+            opacity: 0;
+            clip-path: inset(0 100% 0 0);
+            -webkit-clip-path: inset(0 100% 0 0);
             animation-fill-mode: forwards;
-            animation-timing-function: cubic-bezier(.65,.05,.36,1);
+            animation-timing-function: cubic-bezier(.35,.05,.2,1);
           }
-          .vs-draw-v  { animation: vsDraw 700ms 120ms forwards; }
-          .vs-draw-v2 { animation: vsDraw 500ms 720ms forwards; }
-          .vs-draw-s  { animation: vsDraw 900ms 900ms forwards; }
-          .vs-draw-s2 { animation: vsDraw 500ms 1700ms forwards; }
-          @keyframes vsDraw { to { stroke-dashoffset: 0; } }
+          .vs-glyph-v { animation: vsBrushWipe 520ms 120ms forwards; }
+          .vs-glyph-s { animation: vsBrushWipe 560ms 720ms forwards; }
+          @keyframes vsBrushWipe {
+            0%   { opacity: 0; clip-path: inset(0 100% 0 0); -webkit-clip-path: inset(0 100% 0 0); }
+            15%  { opacity: 1; }
+            100% { opacity: 1; clip-path: inset(0 0 0 0);    -webkit-clip-path: inset(0 0 0 0);    }
+          }
+
+          /* Small ink splatter dots that pop in after the strokes finish. */
+          .vs-ink-splat   { animation: vsSplat 320ms 1200ms cubic-bezier(.34,1.6,.64,1) forwards; }
+          .vs-ink-splat-2 { animation: vsSplat 320ms 1360ms cubic-bezier(.34,1.6,.64,1) forwards; }
+          @keyframes vsSplat {
+            0%   { transform: scale(0);   opacity: 0; }
+            70%  { transform: scale(1.15); opacity: 0.7; }
+            100% { transform: scale(1);   opacity: 0.55; }
+          }
         `}</style>
       </div>
     );

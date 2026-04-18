@@ -21,12 +21,12 @@ import {
 
 export const RANKS = [
   { name: "UNRANKED",     min: -1,   max: -1,      color: "#FF33FF", img: undefined,               scale: 1     },
-  { name: "RISING HOUND", min: 0,    max: 500,     color: "#9CA3AF", img: "/novice.png?v=2",       scale: 1.3   },
-  { name: "FERAL LYNX",   min: 500,  max: 1000,    color: "#60A5FA", img: "/advanced.png?v=2",     scale: 1.3   },
-  { name: "ANCIENT LION", min: 1000, max: 1500,    color: "#A78BFA", img: "/professional.png?v=11", scale: 0.741 },
-  { name: "MYTHIC SERPENT", min: 1500, max: 2000,    color: "#10B981", img: "/emerald.png?v=2",      scale: 1.495 },
-  { name: "RED DRAGON",   min: 2000, max: 2500,    color: "#FF3333", img: "/master.png?v=5"                     },
-  { name: "LEGENDARY EAGLE", min: 2500, max: 1000000, color: "#F59E0B", img: "/legend.png?v=3"                     },
+  { name: "ROOKIE",    min: 0,    max: 500,     color: "#9CA3AF", img: "/novice.png?v=2",       scale: 1.3   },
+  { name: "SKILLED",   min: 500,  max: 1000,    color: "#60A5FA", img: "/advanced.png?v=2",     scale: 1.3   },
+  { name: "ELITE",     min: 1000, max: 1500,    color: "#A78BFA", img: "/professional.png?v=11", scale: 0.741 },
+  { name: "MYTHIC",    min: 1500, max: 2000,    color: "#10B981", img: "/emerald.png?v=2",      scale: 1.495 },
+  { name: "CRACKED",   min: 2000, max: 2500,    color: "#FF3333", img: "/master.png?v=5"                     },
+  { name: "CHRONICLE", min: 2500, max: 1000000, color: "#F59E0B", img: "/legend.png?v=3"                     },
 ];
 
 export const getRank = (elo: number, isPlacement: boolean = false) => {
@@ -40,12 +40,12 @@ export const getRank = (elo: number, isPlacement: boolean = false) => {
  */
 export function rankGlowTierFraction(rank: { name: string }): number {
   const T: Record<string, number> = {
-    "RISING HOUND": 0.01,
-    "FERAL LYNX": 0.2,
-    "ANCIENT LION": 0.4,
-    "MYTHIC SERPENT": 0.6,
-    "RED DRAGON": 0.8,
-    "LEGENDARY EAGLE": 1,
+    ROOKIE: 0.01,
+    SKILLED: 0.2,
+    ELITE: 0.4,
+    MYTHIC: 0.6,
+    CRACKED: 0.8,
+    CHRONICLE: 1,
     UNRANKED: 0.6,
   };
   return T[rank.name] ?? 0.01;
@@ -65,7 +65,7 @@ const TOP_RANK_GLOW_BOOST = 1.2;
 export function rankGlowVisualStrength(rank: { name: string }): number {
   const tier = rankGlowTierFraction(rank);
   let m = LEGEND_GLOW_REF * GLOW_GLOBAL;
-  if (rank.name === "RED DRAGON" || rank.name === "LEGENDARY EAGLE") {
+  if (rank.name === "CRACKED" || rank.name === "CHRONICLE") {
     m *= MASTER_LEGEND_GLOW_HALF * TOP_RANK_GLOW_BOOST;
   }
   return tier * m;
@@ -92,7 +92,7 @@ export function buildRankEmblemGlowFilter(color: string, strength: number): stri
 
 export function rankHaloGradientForRank(color: string, rank: { name: string }): string {
   const tier = rankGlowTierFraction(rank);
-  const isTopRank = rank.name === "RED DRAGON" || rank.name === "LEGENDARY EAGLE";
+  const isTopRank = rank.name === "CRACKED" || rank.name === "CHRONICLE";
   const scale =
     tier *
     GLOW_GLOBAL *
@@ -133,7 +133,7 @@ export const NavRankBadge = ({ rank, size = 30, isPlacement = false }: { rank: t
             width: "135%",
             height: "135%",
             borderRadius: "50%",
-            background: rankHaloGradientForRank(isPlacement ? placementCol : rank.color, isPlacement ? { name: "LEGENDARY EAGLE" } as any : rank),
+            background: rankHaloGradientForRank(isPlacement ? placementCol : rank.color, isPlacement ? { name: "CHRONICLE" } as any : rank),
             pointerEvents: "none",
             zIndex: 0,
             animation: "rankHaloPulse 2.6s ease-in-out infinite",
