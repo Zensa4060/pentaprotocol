@@ -2,6 +2,7 @@
 import type { ThemeId } from "@/lib/themes";
 import { THEMES } from "@/lib/themes";
 import { useAuthStore } from "@/lib/store";
+import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 
 interface AudioControls {
@@ -9,8 +10,6 @@ interface AudioControls {
   setMusicVol: (v: number) => void;
   sfxVol: number;
   setSfxVol: (v: number) => void;
-  voiceVol?: number;
-  setVoiceVol?: (v: number) => void;
   muted: boolean;
   toggleMute: () => void;
 }
@@ -28,8 +27,9 @@ interface Props {
 
 export default function SettingsModal({ onCloseAction, themeId, setThemeIdAction, audio, onNavigateAuthAction, graphicsQuality, setGraphicsQualityAction, currentScreen }: Props) {
   const t = THEMES[themeId];
-  const { musicVol, setMusicVol, sfxVol, setSfxVol, voiceVol = 0.7, setVoiceVol, muted, toggleMute } = audio;
+  const { musicVol, setMusicVol, sfxVol, setSfxVol, muted, toggleMute } = audio;
   const { user, logout } = useAuthStore();
+  const router = useRouter();
   const [focusMode, setFocusMode] = useState(false);
   const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
 
@@ -147,19 +147,19 @@ export default function SettingsModal({ onCloseAction, themeId, setThemeIdAction
               textMuted={t.textSecondary}
             />
 
-            {/* Voice vol */}
-            <SliderRow
-              label="Voice Volume"
-              value={voiceVol}
-              onChange={setVoiceVol ?? (() => {})}
-              disabled={muted}
-              accent={t.accent}
-              fontBody={t.fontBody}
-              fontMono={t.fontMono}
-              textSecondary={t.textSecondary}
-              textMuted={t.textMuted}
-            />
           </div>
+
+          {user && (
+            <>
+              <div style={{ height: 1, background: `${t.border}44`, margin: "24px 0" }} />
+              <AccountSecuritySection
+                t={t}
+                googleLinked={Boolean((user as any)?.google_linked || (user as any)?.google_id)}
+                totpEnabled={Boolean((user as any)?.totp_enabled)}
+                onAction={() => { router.push("/profile#security"); onCloseAction(); }}
+              />
+            </>
+          )}
 
           <div style={{ height: 1, background: `${t.border}44`, margin: "24px 0" }} />
 
@@ -372,6 +372,113 @@ export default function SettingsModal({ onCloseAction, themeId, setThemeIdAction
         }
       `}</style>
     </>
+  );
+}
+
+// ── Account security section ──
+function AccountSecuritySection({ t, googleLinked, totpEnabled, onAction }: {
+  t: (typeof THEMES)[ThemeId];
+  googleLinked: boolean;
+  totpEnabled: boolean;
+  onAction: () => void;
+}) {
+  // Intent priority per product spec:
+  //   1. No Google linked  → show "Connect Google" (regardless of 2FA state)
+  //   2. Google linked, no 2FA → show "Enable 2FA"
+  //   3. Both done → show a completion tick
+  const mode: "connect_google" | "enable_2fa" | "complete" =
+    !googleLinked ? "connect_google"
+    : !totpEnabled ? "enable_2fa"
+    : "complete";
+
+  const copy = {
+    connect_google: {
+      title: "Connect Google",
+      subtitle: "Link your Google account for faster, safer sign-in.",
+      cta: "CONNECT GOOGLE",
+      color: t.accent,
+    },
+    enable_2fa: {
+      title: "Enable Two-Factor Auth",
+      subtitle: "Google is linked — add 2FA to finish securing your login.",
+      cta: "ENABLE 2FA",
+      color: t.accent,
+    },
+    complete: {
+      title: "Login Security Complete",
+      subtitle: "Google is linked and 2FA is enabled — you're fully protected.",
+      cta: "",
+      color: "#4CAF50",
+    },
+  }[mode];
+
+  return (
+    <div>
+      <div style={{ fontFamily: t.fontMono, fontSize: 13, fontWeight: 800, color: t.accent, letterSpacing: "0.16em", marginBottom: 18 }}>
+        ACCOUNT SECURITY
+      </div>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 10, background: t.bgCard, border: `1px solid ${t.border}`, padding: "16px 20px", borderRadius: 12 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <span style={{ fontFamily: t.fontDisplay, fontSize: 16, fontWeight: 700, color: t.text }}>{copy.title}</span>
+          {mode === "complete" && (
+            <span style={{
+              display: "inline-flex", alignItems: "center", justifyContent: "center",
+              width: 22, height: 22, borderRadius: "50%",
+              background: "#4CAF50", color: "#fff",
+              fontSize: 13, fontWeight: 900, lineHeight: 1,
+            }} aria-label="Complete">✓</span>
+          )}
+        </div>
+        <div style={{ fontFamily: t.fontBody, fontSize: 12, color: t.textSecondary, lineHeight: 1.55 }}>
+          {copy.subtitle}
+        </div>
+
+        {/* Status chips */}
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 2 }}>
+          <StatusChip t={t} ok={googleLinked} label="Google" />
+          <StatusChip t={t} ok={totpEnabled} label="2FA" />
+        </div>
+
+        {mode !== "complete" && (
+          <button
+            onClick={onAction}
+            style={{
+              marginTop: 6,
+              width: "100%", padding: "12px 16px",
+              background: `${copy.color}18`,
+              border: `1.5px solid ${copy.color}`,
+              borderRadius: 10, color: copy.color,
+              fontFamily: t.fontDisplay, fontSize: 13, fontWeight: 800,
+              letterSpacing: "0.08em", cursor: "pointer",
+              transition: "all 0.18s",
+            }}
+            onMouseEnter={e => { e.currentTarget.style.background = copy.color; e.currentTarget.style.color = "#000"; e.currentTarget.style.boxShadow = `0 0 14px ${copy.color}55`; }}
+            onMouseLeave={e => { e.currentTarget.style.background = `${copy.color}18`; e.currentTarget.style.color = copy.color; e.currentTarget.style.boxShadow = "none"; }}
+          >
+            {copy.cta}
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function StatusChip({ t, ok, label }: { t: (typeof THEMES)[ThemeId]; ok: boolean; label: string }) {
+  const color = ok ? "#4CAF50" : t.textMuted;
+  return (
+    <span style={{
+      display: "inline-flex", alignItems: "center", gap: 6,
+      padding: "3px 9px",
+      background: ok ? "#4CAF5014" : `${t.border}22`,
+      border: `1px solid ${ok ? "#4CAF50" : t.border}`,
+      borderRadius: 999,
+      fontFamily: t.fontMono, fontSize: 11, fontWeight: 700, letterSpacing: "0.08em",
+      color,
+    }}>
+      <span aria-hidden style={{ fontSize: 11, lineHeight: 1 }}>{ok ? "✓" : "•"}</span>
+      {label}
+    </span>
   );
 }
 

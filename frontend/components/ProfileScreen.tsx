@@ -912,7 +912,7 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
           </div>
         </div>
 
-        <div style={{ background:t.bgPanel, border:`1px solid ${t.border}`, borderRadius:12, padding:"16px 22px" }}>
+        <div id="security" style={{ background:t.bgPanel, border:`1px solid ${t.border}`, borderRadius:12, padding:"16px 22px", scrollMarginTop:80 }}>
           <div style={{ fontFamily:t.fontMono, fontSize:13, color:t.text, letterSpacing:"0.15em", marginBottom:12, fontWeight:600 }}>SECURITY</div>
           <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:14 }}>
             <div>

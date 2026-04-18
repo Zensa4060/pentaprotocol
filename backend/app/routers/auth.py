@@ -95,6 +95,7 @@ def serialize_user(user):
         "purchased_items":     user.get("purchased_items", []),
         "has_password":        bool(user.get("password")),
         "google_id":           user.get("google_id", None),
+        "google_linked":       bool(user.get("google_id")),
         "legal_accepted":      user.get("legal_accepted", False),
     }
 

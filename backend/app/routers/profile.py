@@ -69,6 +69,7 @@ def _serialize_user(user: dict) -> dict:
         "is_placement":        user.get("placement_matches", 0) < 5,
         "rb_wins":             user.get("rb_wins", 0),
         "totp_enabled":        user.get("totp_enabled", False),
+        "google_linked":       bool(user.get("google_id")),
         "bio":                 user.get("bio", ""),
         "avatar":              user.get("avatar", None),
         "username_changed_at": user.get("username_changed_at"),
