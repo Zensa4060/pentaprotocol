@@ -687,6 +687,35 @@ export default function StoreScreen({ setScreenAction, themeId, audio, initialSe
   const balance = (user as any)?.protocredits ?? 0;
   const shardBalance = (user as any)?.pentashards ?? (user as any)?.shards ?? 0;
   const purchasedItems: string[] = (user as any)?.purchased_items ?? [];
+  // "pending" after all 9 AI bots are defeated, "claimed" once the player has
+  // redeemed their free banner, anything else = not yet eligible.
+  const botBannerReward: string | null = ((user as any)?.bot_banner_reward as any) ?? null;
+  const canClaimFreeBanner = !isGuest && botBannerReward === "pending";
+  const [claimingBannerId, setClaimingBannerId] = useState<string | null>(null);
+
+  const claimFreeBanner = async (bannerId: string, label: string) => {
+    if (!token || !canClaimFreeBanner) return;
+    setClaimingBannerId(bannerId);
+    try {
+      const res = await API.post(
+        "/api/profile/claim-bot-banner-reward",
+        { bannerId },
+        { headers: { Authorization: `Bearer ${token}` }, timeout: 15000 },
+      );
+      if (res?.data?.profile) {
+        updateUser(res.data.profile);
+      } else {
+        try { const me = await API.get("/api/profile/me", { headers: { Authorization: `Bearer ${token}` }, timeout: 15000 }); updateUser(me.data); } catch {}
+      }
+      setMsg({ text: `✓ ${label} Banner unlocked — free reward claimed!`, ok: true });
+      setTimeout(() => setMsg(null), 3500);
+    } catch (e: any) {
+      const detail = e?.response?.data?.detail;
+      showError(detail || "Could not claim reward. Try again.");
+    } finally {
+      setClaimingBannerId(null);
+    }
+  };
 
   const ownsBundle = (b: Bundle) => purchasedItems.includes(b.boardId) && purchasedItems.includes(b.pieceId);
   const visibleBundles = BUNDLES.filter((b) => b.id !== "bundle_space" && b.id !== "bundle_pixel" && !ownsBundle(b));
@@ -1034,20 +1063,49 @@ export default function StoreScreen({ setScreenAction, themeId, audio, initialSe
         {/* BANNERS */}
         <div style={{ marginBottom: 56 }}>
           <SectionHeader label="BANNERS" accent={accent} icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={accent} strokeWidth="1.8" strokeLinecap="round"><rect x="3" y="3" width="18" height="13" rx="2"/><path d="M3 18h18"/><path d="M3 21h18"/></svg>}/>
+          {canClaimFreeBanner && (
+            <div style={{
+              marginTop: -8, marginBottom: 20,
+              border: "2px solid #FCD34D",
+              borderRadius: 14,
+              padding: "16px 20px",
+              background: "linear-gradient(135deg, rgba(252,211,77,0.12), rgba(217,119,6,0.22))",
+              boxShadow: "0 0 32px rgba(252,211,77,0.25)",
+              display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap",
+            }}>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontFamily: t.fontDisplay, fontSize: 16, fontWeight: 900, color: "#FCD34D", letterSpacing: "0.06em", marginBottom: 4 }}>
+                  AI GAUNTLET CLEARED — FREE BANNER UNLOCKED
+                </div>
+                <div style={{ fontFamily: t.fontBody, fontSize: 13, color: "rgba(255,255,255,0.82)", lineHeight: 1.5 }}>
+                  Pick any <b>one</b> banner below to claim for free. This choice is permanent.
+                </div>
+              </div>
+              <div style={{ fontFamily: t.fontMono, fontSize: 11, color: "#FCD34D", letterSpacing: "0.14em", padding: "6px 10px", border: "1px solid #FCD34D88", borderRadius: 8, whiteSpace: "nowrap" as const }}>
+                1 REWARD REMAINING
+              </div>
+            </div>
+          )}
           <InfiniteCarouselRow items={STORE_BANNERS} itemWidth={360} gap={20} renderItem={(banner) => {
             const owned = banner.id === "default" || purchasedItems.includes(banner.id); const price = banner.price ?? 0;
+            const showFreeClaim = canClaimFreeBanner && !owned;
+            const isClaiming = claimingBannerId === banner.id;
             return (
-              <div className="store-card" style={{ borderRadius: 18, overflow: "hidden", border: `2px solid ${owned ? "#4CAF50" : accent + "33"}`, background: banner.gradient, padding: "0", position: "relative", boxShadow: owned ? "none" : `0 8px 32px ${accent}22` }}>
+              <div className="store-card" style={{ borderRadius: 18, overflow: "hidden", border: `2px solid ${owned ? "#4CAF50" : showFreeClaim ? "#FCD34D" : accent + "33"}`, background: banner.gradient, padding: "0", position: "relative", boxShadow: owned ? "none" : showFreeClaim ? "0 8px 32px rgba(252,211,77,0.35)" : `0 8px 32px ${accent}22` }}>
                 <div style={{ height: 120, position: "relative" }}>
                   <BannerRenderer banner={banner} style={{ position: "absolute", inset: 0 }} hideLabels={true} />
-                  <div style={{ position: "absolute", top: 10, left: 10, zIndex: 2 }}><UnlockBadge text={owned ? "Owned" : banner.unlock} accent={owned ? "#4CAF50" : accent} /></div>
+                  <div style={{ position: "absolute", top: 10, left: 10, zIndex: 2 }}>
+                    <UnlockBadge text={owned ? "Owned" : showFreeClaim ? "Free Reward" : banner.unlock} accent={owned ? "#4CAF50" : showFreeClaim ? "#FCD34D" : accent} />
+                  </div>
                 </div>
                 <div style={{ padding: 24 }}>
                   <div style={{ fontFamily: t.fontDisplay, fontSize: 22, fontWeight: 900, color: "#fff", letterSpacing: "0.04em", marginBottom: 6 }}>{banner.label}</div>
-                  <div style={{ fontFamily: t.fontBody, fontSize: 13, color: "rgba(255,255,255,0.74)", fontStyle: "italic", marginBottom: 16, display: "flex", alignItems: "center", gap: 6 }}>{banner.unlock === "Free" ? "Free to unlock" : (<><span>Unlock for {price.toLocaleString()}</span><ProtoSVG size={12} /></>)}</div>
+                  <div style={{ fontFamily: t.fontBody, fontSize: 13, color: "rgba(255,255,255,0.74)", fontStyle: "italic", marginBottom: 16, display: "flex", alignItems: "center", gap: 6 }}>
+                    {showFreeClaim ? (<span style={{ color: "#FCD34D", fontWeight: 700 }}>Redeem with AI Gauntlet reward</span>) : banner.unlock === "Free" ? "Free to unlock" : (<><span>Unlock for {price.toLocaleString()}</span><ProtoSVG size={12} /></>)}
+                  </div>
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-                    {owned ? (<div style={{ fontFamily: t.fontMono, fontSize: 12, fontWeight: 900, color: "#4CAF50", letterSpacing: "0.06em" }}>OWNED</div>) : (<div style={{ fontFamily: t.fontMono, fontSize: 12, fontWeight: 900, color: accent, letterSpacing: "0.06em", display: "inline-flex", alignItems: "center", gap: 6 }}><span>{price.toLocaleString()}</span><ProtoSVG size={16} /></div>)}
-                    {owned ? (<button disabled style={{ background: "rgba(255,255,255,0.06)", border: `1px solid rgba(255,255,255,0.14)`, borderRadius: 10, padding: "10px 14px", fontFamily: t.fontDisplay, fontSize: 12, fontWeight: 900, color: "rgba(255,255,255,0.65)", cursor: "not-allowed" }}>✓</button>) : isGuest ? (<button onClick={() => setScreenAction("auth")} style={{ background: accent, border: "none", borderRadius: 10, padding: "10px 14px", fontFamily: t.fontDisplay, fontSize: 12, fontWeight: 900, color: "#000", cursor: "pointer", whiteSpace: "nowrap" as const }}>SIGN IN</button>) : (<button onClick={() => handleBuyCosmetic(banner.id, price, `${banner.label} Banner`)} disabled={price <= 0} style={{ background: accent, border: "none", borderRadius: 10, padding: "10px 14px", fontFamily: t.fontDisplay, fontSize: 12, fontWeight: 900, color: "#000", cursor: price <= 0 ? "not-allowed" : "pointer", whiteSpace: "nowrap" as const, opacity: price <= 0 ? 0.7 : 1 }}>{price <= 0 ? "UNAVAILABLE" : "UNLOCK"}</button>)}
+                    {owned ? (<div style={{ fontFamily: t.fontMono, fontSize: 12, fontWeight: 900, color: "#4CAF50", letterSpacing: "0.06em" }}>OWNED</div>) : showFreeClaim ? (<div style={{ fontFamily: t.fontMono, fontSize: 12, fontWeight: 900, color: "#FCD34D", letterSpacing: "0.06em" }}>FREE</div>) : (<div style={{ fontFamily: t.fontMono, fontSize: 12, fontWeight: 900, color: accent, letterSpacing: "0.06em", display: "inline-flex", alignItems: "center", gap: 6 }}><span>{price.toLocaleString()}</span><ProtoSVG size={16} /></div>)}
+                    {owned ? (<button disabled style={{ background: "rgba(255,255,255,0.06)", border: `1px solid rgba(255,255,255,0.14)`, borderRadius: 10, padding: "10px 14px", fontFamily: t.fontDisplay, fontSize: 12, fontWeight: 900, color: "rgba(255,255,255,0.65)", cursor: "not-allowed" }}>✓</button>) : isGuest ? (<button onClick={() => setScreenAction("auth")} style={{ background: accent, border: "none", borderRadius: 10, padding: "10px 14px", fontFamily: t.fontDisplay, fontSize: 12, fontWeight: 900, color: "#000", cursor: "pointer", whiteSpace: "nowrap" as const }}>SIGN IN</button>) : showFreeClaim ? (<button onClick={() => claimFreeBanner(banner.id, banner.label)} disabled={!!claimingBannerId} style={{ background: "#FCD34D", border: "none", borderRadius: 10, padding: "10px 14px", fontFamily: t.fontDisplay, fontSize: 12, fontWeight: 900, color: "#000", cursor: claimingBannerId ? "wait" : "pointer", whiteSpace: "nowrap" as const, boxShadow: "0 0 16px rgba(252,211,77,0.5)", opacity: claimingBannerId && !isClaiming ? 0.6 : 1 }}>{isClaiming ? "CLAIMING…" : "CLAIM FREE"}</button>) : (<button onClick={() => handleBuyCosmetic(banner.id, price, `${banner.label} Banner`)} disabled={price <= 0} style={{ background: accent, border: "none", borderRadius: 10, padding: "10px 14px", fontFamily: t.fontDisplay, fontSize: 12, fontWeight: 900, color: "#000", cursor: price <= 0 ? "not-allowed" : "pointer", whiteSpace: "nowrap" as const, opacity: price <= 0 ? 0.7 : 1 }}>{price <= 0 ? "UNAVAILABLE" : "UNLOCK"}</button>)}
                   </div>
                 </div>
               </div>

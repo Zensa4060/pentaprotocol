@@ -15,6 +15,18 @@ import {
   DEFAULT_PATTERNS_6,
   DEFAULT_PATTERNS_7,
 } from "@/lib/patterns_metadata";
+import { useAuthStore } from "@/lib/store";
+import {
+  BOT_CHAINS,
+  BOT_LABEL,
+  type BotBoardMode,
+  type BotId,
+  formatXpPrize,
+  hasDefeated,
+  isBoardModeUnlocked,
+  isBotUnlocked,
+  lockedByLabel,
+} from "@/lib/botRewards";
 
 interface Props {
   setScreenAction: (s: Screen) => void;
@@ -24,21 +36,23 @@ interface Props {
   onBoardModeAction?: (mode: BoardMode, patterns?: string[]) => void;
 }
 
-const DIFFICULTIES_5X5: { id: Difficulty; label: string; sub: string; color: string }[] = [
-  { id: "easy", label: "BALTAZAR", sub: "LEVEL 1", color: "#22C55E" },
-  { id: "medium", label: "SALAZAR", sub: "LEVEL 10", color: "#FF0" },
-  { id: "hard", label: "JR.", sub: "LEVEL 100", color: "#700B0B" },
+type DifficultyCard = { id: Difficulty; label: string; sub: string; color: string; botId: BotId };
+
+const DIFFICULTIES_5X5: DifficultyCard[] = [
+  { id: "easy",   label: "BALTAZAR", sub: "LEVEL 1",   color: "#22C55E", botId: "baltazar" },
+  { id: "medium", label: "SALAZAR",  sub: "LEVEL 10",  color: "#FF0",    botId: "salazar"  },
+  { id: "hard",   label: "JR.",      sub: "LEVEL 100", color: "#700B0B", botId: "jr"       },
 ];
 /** 7×7 Mindbreaker grid — own roster; no medium tier (no medium search on 7×7). */
-const DIFFICULTIES_7X7: { id: Difficulty; label: string; sub: string; color: string }[] = [
-  { id: "easy", label: "SERAPHINA", sub: "LEVEL 1", color: "#22C55E" },
-  { id: "hard", label: "REGINA", sub: "LEVEL 10", color: "#700B0B" },
-  { id: "danger", label: "HER", sub: "LEVEL 100", color: "#CC0000" },
+const DIFFICULTIES_7X7: DifficultyCard[] = [
+  { id: "easy",   label: "SERAPHINA", sub: "LEVEL 1",   color: "#22C55E", botId: "seraphina" },
+  { id: "hard",   label: "REGINA",    sub: "LEVEL 10",  color: "#700B0B", botId: "regina"    },
+  { id: "danger", label: "HER",       sub: "LEVEL 100", color: "#CC0000", botId: "her"       },
 ];
-const DIFFICULTIES_6X6: { id: Difficulty; label: string; sub: string; color: string }[] = [
-  { id: "hard", label: "VALDORIN", sub: "LEVEL 1", color: "#000FFF" },
-  { id: "normal", label: "ELDORIN", sub: "LEVEL 10", color: "#FF0" },
-  { id: "machine_god", label: "HIM", sub: "LEVEL 100", color: "#CC0000" },
+const DIFFICULTIES_6X6: DifficultyCard[] = [
+  { id: "hard",        label: "VALDORIN", sub: "LEVEL 1",   color: "#000FFF", botId: "valdorin" },
+  { id: "normal",      label: "ELDORIN",  sub: "LEVEL 10",  color: "#FF0",    botId: "eldorin"  },
+  { id: "machine_god", label: "HIM",      sub: "LEVEL 100", color: "#CC0000", botId: "him"      },
 ];
 
 /** Mini grid diagram component */
@@ -89,6 +103,12 @@ export default function AIScreen({ setScreenAction, themeId, onSelectDifficultyA
   const [step, setStep] = useState<"mode" | "patterns" | "difficulty">("mode");
   const [selected5, setSelected5] = useState<string[]>(randomFiveAI);
 
+  // Server-persisted bot-defeat set. Undefined for guests (all bots locked
+  // behind baltazar) — progression still shows, no XP is ever awarded.
+  const user = useAuthStore((s) => s.user) as any;
+  const defeats: Record<string, boolean> = (user?.bot_defeats as any) || {};
+  const [lockMsg, setLockMsg] = useState<string | null>(null);
+
   const meta = boardMode === "7x7" ? PATTERN_METADATA_7 : boardMode === "6x6" ? PATTERN_METADATA_6 : PATTERN_METADATA_5;
   const references = boardMode === "7x7" ? CORE_RULES_METADATA_7 : boardMode === "6x6" ? CORE_RULES_METADATA_6 : CORE_RULES_METADATA_5;
   const patternNames = Object.keys(meta);
@@ -113,6 +133,15 @@ export default function AIScreen({ setScreenAction, themeId, onSelectDifficultyA
   };
 
   const handleSelect = (d: Difficulty) => {
+    const chain = BOT_CHAINS[boardMode as BotBoardMode];
+    const card = (boardMode === "5x5" ? DIFFICULTIES_5X5 : boardMode === "6x6" ? DIFFICULTIES_6X6 : DIFFICULTIES_7X7).find((c) => c.id === d);
+    const botId = (card?.botId ?? chain[0]) as BotId;
+    if (!isBotUnlocked(defeats, botId)) {
+      const prevLabel = lockedByLabel(botId);
+      setLockMsg(prevLabel ? `Defeat ${prevLabel} to unlock ${BOT_LABEL[botId]}.` : "This bot is locked.");
+      setTimeout(() => setLockMsg(null), 2500);
+      return;
+    }
     onBoardModeAction?.(boardMode, getSelectedPatterns());
     onSelectDifficultyAction(d, boardMode);
     setScreenAction("aiGame");
@@ -168,20 +197,31 @@ export default function AIScreen({ setScreenAction, themeId, onSelectDifficultyA
             {(["5x5", "6x6", "7x7"] as BoardMode[]).map((mode, i) => {
               const isSelected = boardMode === mode;
               const modeColor = mode === "5x5" ? "#60A8FF" : mode === "6x6" ? "#A78BFA" : "#FF6B35";
+              const modeUnlocked = isBoardModeUnlocked(defeats, mode);
+              const gateLabel = mode === "6x6" ? BOT_LABEL.jr : mode === "7x7" ? BOT_LABEL.him : null;
               return (
                 <button
                   key={mode}
                   onClick={() => {
+                    if (!modeUnlocked) {
+                      if (gateLabel) {
+                        setLockMsg(`Defeat ${gateLabel} to unlock ${mode === "6x6" ? "6×6" : "7×7"} bots.`);
+                        setTimeout(() => setLockMsg(null), 2500);
+                      }
+                      return;
+                    }
                     setBoardMode(mode);
                     setStep("patterns");
                   }}
                   className={`ai-card ${isSelected ? "selected" : ""}`}
                   style={{
                     background: t.bgCard,
-                    border: `2px solid ${t.border}`,
+                    border: `2px solid ${modeUnlocked ? t.border : "rgba(255,255,255,0.08)"}`,
                     borderRadius: ip ? 2 : 16,
                     padding: ip ? "28px 24px" : "32px 28px",
-                    cursor: "pointer", textAlign: "left",
+                    cursor: modeUnlocked ? "pointer" : "not-allowed",
+                    textAlign: "left",
+                    opacity: modeUnlocked ? 1 : 0.55,
                     animation: `cardFadeUp 0.45s cubic-bezier(.22,.68,0,1.2) ${i * 0.08}s both`,
                     ["--hover-color" as any]: modeColor,
                     ["--hover-bg" as any]: `${modeColor}18`,
@@ -189,26 +229,30 @@ export default function AIScreen({ setScreenAction, themeId, onSelectDifficultyA
                     ["--card-bg" as any]: t.bgCard,
                   } as any}
                 >
-                  <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-                    <div style={{
-                      width: 10, height: 10, borderRadius: "50%",
-                      background: modeColor, boxShadow: `0 0 12px ${modeColor}66`,
-                    }} />
-                    <div style={{
-                      fontFamily: t.fontDisplay, fontSize: ip ? 20 : 26, fontWeight: 700,
-                      color: isSelected ? modeColor : t.text, transition: "color 0.2s", letterSpacing: "0.06em",
-                    }}>
-                      {mode === "5x5" ? "5 × 5" : mode === "6x6" ? "6 × 6" : "7 × 7"}
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 8 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <div style={{
+                        width: 10, height: 10, borderRadius: "50%",
+                        background: modeColor, boxShadow: `0 0 12px ${modeColor}66`,
+                      }} />
+                      <div style={{
+                        fontFamily: t.fontDisplay, fontSize: ip ? 20 : 26, fontWeight: 700,
+                        color: isSelected ? modeColor : t.text, transition: "color 0.2s", letterSpacing: "0.06em",
+                      }}>
+                        {mode === "5x5" ? "5 × 5" : mode === "6x6" ? "6 × 6" : "7 × 7"}
+                      </div>
                     </div>
+                    {!modeUnlocked && (
+                      <div style={{ fontFamily: t.fontMono, fontSize: 10, fontWeight: 900, color: "#B91C1C", letterSpacing: "0.12em", padding: "3px 8px", border: "1px solid #B91C1C44", borderRadius: 6, background: "#B91C1C18" }}>
+                        LOCKED
+                      </div>
+                    )}
                   </div>
-                  <div style={{ fontFamily: t.fontBody, fontSize: ip ? 12 : 14, color: t.textMuted, lineHeight: 1.5 }}>
-                    {mode === "5x5"
-                      ? ""
-                      : mode === "6x6"
-                        ? ""
-                        : ""
-                    }
-                  </div>
+                  {!modeUnlocked && gateLabel && (
+                    <div style={{ fontFamily: t.fontMono, fontSize: 11, color: t.textMuted, letterSpacing: "0.05em" }}>
+                      Defeat <span style={{ color: "#FCD34D", fontWeight: 700 }}>{gateLabel}</span> to unlock.
+                    </div>
+                  )}
                 </button>
               );
             })}
@@ -331,6 +375,10 @@ export default function AIScreen({ setScreenAction, themeId, onSelectDifficultyA
                 ? DIFFICULTIES_7X7
                 : DIFFICULTIES_5X5
             ).map((d, i) => {
+              const unlocked = isBotUnlocked(defeats, d.botId);
+              const defeated = hasDefeated(defeats, d.botId);
+              const prevLabel = lockedByLabel(d.botId);
+              const xpLabel = formatXpPrize(d.botId);
               return (
                 <button
                   key={d.id}
@@ -339,10 +387,12 @@ export default function AIScreen({ setScreenAction, themeId, onSelectDifficultyA
                   style={{
                     flex: 1, minWidth: 200,
                     background: t.bgCard,
-                    border: `2px solid ${t.border}`,
+                    border: `2px solid ${defeated ? "#4CAF5055" : unlocked ? t.border : "rgba(255,255,255,0.08)"}`,
                     borderRadius: ip ? 2 : 16,
                     padding: ip ? "36px 24px" : "40px 28px",
-                    cursor: "pointer", textAlign: "left",
+                    cursor: unlocked ? "pointer" : "not-allowed",
+                    textAlign: "left",
+                    opacity: unlocked ? 1 : 0.55,
                     animation: `cardFadeUp 0.45s cubic-bezier(.22,.68,0,1.2) ${i * 0.08}s both`,
                     ["--hover-color" as any]: d.color,
                     ["--hover-bg" as any]: `${d.color}18`,
@@ -350,21 +400,45 @@ export default function AIScreen({ setScreenAction, themeId, onSelectDifficultyA
                     ["--card-bg" as any]: t.bgCard,
                   } as any}
                 >
-                  <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
-                    <div style={{
-                      width: 10, height: 10, borderRadius: "50%",
-                      background: d.color, boxShadow: `0 0 12px ${d.color}66`,
-                    }} />
-                    <div style={{
-                      fontFamily: t.fontDisplay, fontSize: ip ? 18 : 22, fontWeight: 700,
-                      color: t.text, transition: "color 0.2s", letterSpacing: "0.06em",
-                    }}>
-                      {d.label}
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 12 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <div style={{
+                        width: 10, height: 10, borderRadius: "50%",
+                        background: d.color, boxShadow: `0 0 12px ${d.color}66`,
+                      }} />
+                      <div style={{
+                        fontFamily: t.fontDisplay, fontSize: ip ? 18 : 22, fontWeight: 700,
+                        color: t.text, transition: "color 0.2s", letterSpacing: "0.06em",
+                      }}>
+                        {d.label}
+                      </div>
                     </div>
+                    {defeated ? (
+                      <div style={{ fontFamily: t.fontMono, fontSize: 10, fontWeight: 900, color: "#4CAF50", letterSpacing: "0.12em", padding: "3px 8px", border: "1px solid #4CAF5055", borderRadius: 6, background: "#4CAF5018" }}>
+                        DEFEATED
+                      </div>
+                    ) : !unlocked ? (
+                      <div style={{ fontFamily: t.fontMono, fontSize: 10, fontWeight: 900, color: "#B91C1C", letterSpacing: "0.12em", padding: "3px 8px", border: "1px solid #B91C1C44", borderRadius: 6, background: "#B91C1C18" }}>
+                        LOCKED
+                      </div>
+                    ) : null}
                   </div>
-                  <div style={{ fontFamily: t.fontBody, fontSize: ip ? 12 : 14, color: t.textMuted, lineHeight: 1.5 }}>
+                  <div style={{ fontFamily: t.fontBody, fontSize: ip ? 12 : 14, color: t.textMuted, lineHeight: 1.5, marginBottom: 8 }}>
                     {d.sub}
                   </div>
+                  {defeated ? (
+                    <div style={{ fontFamily: t.fontMono, fontSize: 11, color: "#4CAF50", letterSpacing: "0.05em" }}>
+                      Claimed <span style={{ fontWeight: 800 }}>{xpLabel}</span>
+                    </div>
+                  ) : !unlocked && prevLabel ? (
+                    <div style={{ fontFamily: t.fontMono, fontSize: 11, color: t.textMuted, letterSpacing: "0.05em" }}>
+                      Defeat <span style={{ color: "#FCD34D", fontWeight: 700 }}>{prevLabel}</span> to unlock — reward <span style={{ color: "#FCD34D", fontWeight: 700 }}>{xpLabel}</span>
+                    </div>
+                  ) : (
+                    <div style={{ fontFamily: t.fontMono, fontSize: 11, color: "#FCD34D", letterSpacing: "0.06em", fontWeight: 700 }}>
+                      Reward: {xpLabel}
+                    </div>
+                  )}
                 </button>
               );
             })}
@@ -391,6 +465,17 @@ export default function AIScreen({ setScreenAction, themeId, onSelectDifficultyA
       >
         GO BACK
       </button>
+
+      {lockMsg && (
+        <div style={{
+          position: "fixed", bottom: 28, left: "50%", transform: "translateX(-50%)", zIndex: 999,
+          background: "#2e1a1a", border: "1px solid #B91C1C", borderRadius: 10,
+          padding: "10px 22px", fontFamily: t.fontMono, fontSize: 13, color: "#FCA5A5",
+          boxShadow: "0 8px 32px rgba(0,0,0,0.5)", pointerEvents: "none", letterSpacing: "0.06em",
+        }}>
+          {lockMsg}
+        </div>
+      )}
     </div>
   );
 }

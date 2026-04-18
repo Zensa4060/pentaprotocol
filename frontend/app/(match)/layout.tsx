@@ -38,6 +38,7 @@ export default function MatchLayout({ children }: { children: React.ReactNode })
   const botEntry = botQuery ? BOT_MAP[botQuery] : undefined;
   const isBot = !isMulti && !!botEntry;
   const difficulty: Difficulty | undefined = botEntry?.difficulty;
+  const botId: string | undefined = isBot ? botQuery : undefined;
 
   return (
     <AuthGuard>
@@ -46,6 +47,7 @@ export default function MatchLayout({ children }: { children: React.ReactNode })
         isSingleplayer={!isMulti}
         gameMode={isMulti ? (ctx.isRanked ? "ranked" : "unranked") : isBot ? "ai" : "singleplayer"}
         difficulty={difficulty}
+        botId={botId}
         setScreenAction={ctx.navigate}
         roomCode={isMulti ? ctx.multiRoomCode : undefined}
         playerSlot={isMulti ? (ctx.multiPlayerSlot ?? undefined) : undefined}

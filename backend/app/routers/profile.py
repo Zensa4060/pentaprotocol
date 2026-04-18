@@ -4,9 +4,26 @@ from app.core.database import get_db
 from app.core.ids import user_object_id
 from app.core.security import decode_token
 from app.core.mission_xp import mission_xp_for_mission_id
+from app.core.bot_rewards import (
+    ALL_BOT_IDS,
+    BOT_XP_REWARD,
+    all_bots_defeated,
+    is_bot_unlocked,
+    is_valid_bot_id,
+)
 from app.game.ranked_penalties import user_ranked_allowed
 from app.routers.game import add_xp
 from datetime import datetime
+
+# Banner IDs eligible for the free-banner reward after clearing all AI bots.
+# Must match `STORE_BANNERS`/`BANNERS` in the frontend; kept here as a literal
+# set so we don't have to reach out to another module at request time.
+_ELIGIBLE_REWARD_BANNERS: set[str] = {
+    "default", "void_rift", "blood_moon", "phantom_strike", "solar_flare",
+    "cryo_storm", "neon_circuit", "static_glitch", "golden_nexus",
+    "plasma_core", "toxic_spill", "storm_protocol", "arctic_veil",
+    "starfield", "digital_rain", "inferno",
+}
 
 router = APIRouter()
 
@@ -62,6 +79,12 @@ def _serialize_user(user: dict) -> dict:
         "title":               user.get("title", "newcomer"),
         "purchased_items":     user.get("purchased_items", []),
         "legal_accepted":      user.get("legal_accepted", False),
+        # ── AI bot progression ────────────────────────────────────────────
+        # `bot_defeats` is a dict of { bot_id: true } for every bot that has
+        # awarded its first-time XP prize. `bot_banner_reward` cycles through
+        # None → "pending" (all bots cleared) → "claimed" (reward consumed).
+        "bot_defeats":         user.get("bot_defeats") or {},
+        "bot_banner_reward":   user.get("bot_banner_reward"),
     }
 
 
@@ -384,3 +407,115 @@ async def update_profile(
     await db.users.update_one({"_id": oid}, {"$set": updates})
     user = await db.users.find_one({"_id": oid})
     return _serialize_user(user)
+
+
+# ── AI bot defeat claim ──────────────────────────────────────────────────────
+# Client calls this once on the first ever series win against a given bot. The
+# endpoint is idempotent: claiming an already-defeated bot returns the current
+# profile with `xp_awarded = 0` and does not error.
+class ClaimBotDefeatBody(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+    bot_id: str = Field(..., alias="botId")
+
+
+@router.post("/claim-bot-defeat")
+async def claim_bot_defeat(
+    data: ClaimBotDefeatBody,
+    user_id: str = Depends(get_current_user),
+):
+    bot_id = (data.bot_id or "").strip().lower()
+    if not is_valid_bot_id(bot_id):
+        raise HTTPException(400, "Unknown bot id")
+
+    db = get_db()
+    oid = user_object_id(user_id)
+    user = await db.users.find_one({"_id": oid})
+    if not user:
+        raise HTTPException(404, "User not found")
+
+    defeats = user.get("bot_defeats") or {}
+    if not isinstance(defeats, dict):
+        defeats = {}
+
+    # Server-side unlock gate: the client UI already hides locked bots, but we
+    # re-check so a tampered request can't skip the chain.
+    if not is_bot_unlocked(defeats, bot_id):
+        raise HTTPException(400, "Bot is not unlocked yet")
+
+    # Idempotent: already claimed → return current profile untouched.
+    if defeats.get(bot_id):
+        return {
+            "already_claimed": True,
+            "xp_awarded": 0,
+            "banner_reward_unlocked": user.get("bot_banner_reward") == "pending",
+            "profile": _serialize_user(user),
+        }
+
+    xp_gain = BOT_XP_REWARD.get(bot_id, 0)
+    prev_level = int(user.get("level", 1) or 1)
+    prev_xp = int(user.get("xp", 0) or 0)
+    new_level, new_xp = add_xp(prev_level, prev_xp, xp_gain)
+
+    new_defeats = {**defeats, bot_id: True}
+    set_doc = {
+        "xp": new_xp,
+        "level": new_level,
+        f"bot_defeats.{bot_id}": True,
+    }
+    # Promote the banner reward state only on the transition from incomplete
+    # → complete, and never overwrite a "claimed" state back to "pending".
+    banner_reward_unlocked_now = False
+    if all_bots_defeated(new_defeats) and not user.get("bot_banner_reward"):
+        set_doc["bot_banner_reward"] = "pending"
+        banner_reward_unlocked_now = True
+
+    await db.users.update_one({"_id": oid}, {"$set": set_doc})
+    fresh = await db.users.find_one({"_id": oid}) or user
+    return {
+        "already_claimed": False,
+        "xp_awarded": xp_gain,
+        "banner_reward_unlocked": banner_reward_unlocked_now or fresh.get("bot_banner_reward") == "pending",
+        "profile": _serialize_user(fresh),
+    }
+
+
+# ── Free banner redemption (one-time, after all bots defeated) ───────────────
+class ClaimBotBannerBody(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+    banner_id: str = Field(..., alias="bannerId")
+
+
+@router.post("/claim-bot-banner-reward")
+async def claim_bot_banner_reward(
+    data: ClaimBotBannerBody,
+    user_id: str = Depends(get_current_user),
+):
+    banner_id = (data.banner_id or "").strip().lower()
+    if banner_id not in _ELIGIBLE_REWARD_BANNERS:
+        raise HTTPException(400, "Unknown banner id")
+
+    db = get_db()
+    oid = user_object_id(user_id)
+    user = await db.users.find_one({"_id": oid})
+    if not user:
+        raise HTTPException(404, "User not found")
+
+    # Must have cleared every bot AND have a pending (never-claimed) reward.
+    defeats = user.get("bot_defeats") or {}
+    if not isinstance(defeats, dict) or not all_bots_defeated(defeats):
+        raise HTTPException(400, "Defeat every AI bot to unlock this reward")
+    if user.get("bot_banner_reward") != "pending":
+        raise HTTPException(400, "Banner reward already claimed")
+
+    owned = set(user.get("purchased_items") or [])
+    update_doc: dict = {
+        "$set": {"bot_banner_reward": "claimed"},
+    }
+    # Only add to the owned set if the player doesn't already own the banner.
+    # If they do, the reward is still consumed (the user explicitly chose it).
+    if banner_id not in owned:
+        update_doc["$addToSet"] = {"purchased_items": banner_id}
+
+    await db.users.update_one({"_id": oid}, update_doc)
+    fresh = await db.users.find_one({"_id": oid}) or user
+    return {"ok": True, "profile": _serialize_user(fresh)}

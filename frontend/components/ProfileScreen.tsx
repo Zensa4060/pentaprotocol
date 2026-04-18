@@ -392,7 +392,8 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
   };
 
   const closeEdit = () => {
-    closeEdit();
+    setShowEdit(false);
+    setEditMsg(null);
     if (typeof window !== "undefined" && window.location.pathname === "/profile/edit") {
       router.push("/profile");
     }

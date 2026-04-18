@@ -40,6 +40,7 @@ const ForgeGridCompat = ForgeGrid as React.ComponentType<any>;
 const VoidGridCompat = VoidGrid as React.ComponentType<any>;
 const TokyoGridCompat = TokyoGrid as React.ComponentType<any>;
 import { getUserKey, pushMissionEvent } from "@/lib/missionsClient";
+import { ALL_BOT_IDS, BOT_LABEL, type BotId } from "@/lib/botRewards";
 import { markCareerAfterMultiplayerSeriesEnd } from "@/lib/navBadgeState";
 import MatchResultScreen from "./MatchResultScreen";
 import GameWinScreen from "./GameWinScreen";
@@ -268,6 +269,8 @@ interface Props {
   isSingleplayer?: boolean;
   gameMode?: GameMode;
   difficulty?: Difficulty;
+  /** The canonical bot ID (e.g. "baltazar") for AI matches. Used to claim XP + unlocks on win. */
+  botId?: string;
   setScreenAction?: (s: Screen, opts?: SetScreenOptions) => void;
   playHoverAction?: () => void;
   playPlaceAction?: () => void;
@@ -298,7 +301,7 @@ interface Props {
   setHomeNoticeAction?: (notice: string | null) => void;
 }
 
-export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, gameMode = "singleplayer", difficulty = "medium", setScreenAction, roomCode, playerSlot, playHoverAction, playPlaceAction, playVictoryAction, playDefeatAction, playRulebreakerAction, playTransitionAction, playClickAction, p1Name, matchupData, boardMode = "5x5", variant, gameId: initialGameId, phasePath, selectedPatterns = [], onMultiplayerBoardSync, graphicsQuality = "quality", onMultiplayerSeriesSealedAction, onMultiplayerSeriesResumedAction, onMultiplayerNavLockChange, multiplayerRulesBootstrap = null, setHomeNoticeAction }: Props) {
+export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, gameMode = "singleplayer", difficulty = "medium", botId, setScreenAction, roomCode, playerSlot, playHoverAction, playPlaceAction, playVictoryAction, playDefeatAction, playRulebreakerAction, playTransitionAction, playClickAction, p1Name, matchupData, boardMode = "5x5", variant, gameId: initialGameId, phasePath, selectedPatterns = [], onMultiplayerBoardSync, graphicsQuality = "quality", onMultiplayerSeriesSealedAction, onMultiplayerSeriesResumedAction, onMultiplayerNavLockChange, multiplayerRulesBootstrap = null, setHomeNoticeAction }: Props) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParamsHook = useSearchParams();
@@ -638,15 +641,6 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     return next;
   });
   const [patternsBtnHovered, setPatternsBtnHovered] = useState(false);
-  // Board zoom — 2× bigger board for multiplayer; toggle persisted for session
-  const [boardZoom, setBoardZoom] = useState(() => {
-    try { return sessionStorage.getItem("boardZoomActive") === "true"; } catch { return false; }
-  });
-  const toggleBoardZoom = () => setBoardZoom(v => {
-    const next = !v;
-    try { sessionStorage.setItem("boardZoomActive", String(next)); } catch {}
-    return next;
-  });
   const [gameId, setGameId] = useState<string | null>(initialGameId ?? null);
   const [movesPlayed, setMovesPlayed] = useState(0);
   const [extraTurns, setExtraTurns] = useState(0);
@@ -665,6 +659,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   const [seriesWinner, setSeriesWinner] = useState<string | null>(null);
   const didRecordMissionRef = useRef(false);
   const didRefreshProfileAfterSeriesRef = useRef(false);
+  const didClaimBotDefeatRef = useRef(false);
   const didPersistLobbyQuoteForSeriesRef = useRef(false);
   const [p1Ready, setP1Ready] = useState(false);
   const [p2Ready, setP2Ready] = useState(false);
@@ -2707,6 +2702,54 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     didRecordMissionRef.current = true;
   }, [matchOver, seriesWinner, phase, mySlot, gameMode, isRankedGame, isMultiplayerGame, p1Elo, p2Elo, difficulty, userKey]);
 
+  // ── AI bot defeat → XP + unlock claim ───────────────────────────────────
+  // Runs exactly once per AI series when the local player wins. The backend
+  // is idempotent (returns xp_awarded=0 on re-claim), but we still gate with
+  // a ref to avoid a pointless extra request.
+  useEffect(() => {
+    if (!matchOver) {
+      didClaimBotDefeatRef.current = false;
+      return;
+    }
+    if (didClaimBotDefeatRef.current) return;
+    if (phase !== "match_over") return;
+    if (gameMode !== "ai") return;
+    if (seriesWinner !== mySlot) return;
+    if (!userKey || userKey === "guest") return;
+    const token = useAuthStore.getState().token;
+    if (!token) return;
+    const botIdLower = (botId || "").toLowerCase();
+    if (!botIdLower || !(ALL_BOT_IDS as string[]).includes(botIdLower)) return;
+
+    didClaimBotDefeatRef.current = true;
+    (async () => {
+      try {
+        const res = await API.post(
+          "/api/profile/claim-bot-defeat",
+          { botId: botIdLower },
+          { headers: { Authorization: `Bearer ${token}` }, timeout: 15000 },
+        );
+        const data = res?.data || {};
+        if (data.profile) {
+          useAuthStore.getState().updateUser(data.profile);
+        } else {
+          void useAuthStore.getState().refreshProfile();
+        }
+        const xpAwarded: number = Number(data.xp_awarded || 0);
+        const bannerUnlocked: boolean = !!data.banner_reward_unlocked;
+        if (bannerUnlocked) {
+          setHomeNoticeAction?.("All AI bots defeated — claim a free banner in the Store!");
+        } else if (xpAwarded > 0) {
+          const label = BOT_LABEL[botIdLower as BotId] || botIdLower.toUpperCase();
+          setHomeNoticeAction?.(`${label} defeated — +${xpAwarded.toLocaleString()} XP`);
+        }
+      } catch {
+        // Re-arm the ref so a later navigation/retry can try again silently.
+        didClaimBotDefeatRef.current = false;
+      }
+    })();
+  }, [matchOver, phase, gameMode, seriesWinner, mySlot, userKey, botId, setHomeNoticeAction]);
+
   useEffect(() => {
     if (!matchOver) {
       didRefreshProfileAfterSeriesRef.current = false;
@@ -3216,8 +3259,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   const mobileCellSize = `calc((min(100vw, calc(100vh - 160px)) - ${(GRID_SIZE - 1) * boardGap + 2 * boardPad + 32}px) / ${GRID_SIZE})`;
   const panelTotal = panelW * 2;
   const desktopCellSize = `calc((min(calc(100vw - ${panelTotal}px - 34px), calc(100vh - 164px)) - ${(GRID_SIZE - 1) * boardGap + 2 * boardPad + 6}px) / ${GRID_SIZE})`;
-  const bigCsBase = isMobile ? mobileCellSize : desktopCellSize;
-  const bigCs = isMultiplayerGame && boardZoom ? `calc(${bigCsBase} * 2)` : bigCsBase;
+  const bigCs = isMobile ? mobileCellSize : desktopCellSize;
 
   // Memoize the board grid JSX — skips full recompute on timer ticks (p1Time/p2Time changes)
   // Only recomputes when actual board data changes
@@ -3258,7 +3300,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     </div>
     // recompute when board, hover, win state, or skin changes — NOT on timer ticks
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  ), [board, hover, winLine, winner, phase, c3Blocked, movesPlayed, bigCs, boardZoom, GRID_SIZE,
+  ), [board, hover, winLine, winner, phase, c3Blocked, movesPlayed, bigCs, GRID_SIZE,
     p1c, p2c, cc, current, rb6SpecialCell, isRedBoard, isIceBoard, isGlacierBoard, useFlameSkull, useSnowflakeShard, useGlacierSigils,
     rulesShowSheet, show7x7LevelUp, show6x6LevelUp, rulesMatchGate]);
 
@@ -4369,7 +4411,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
       )}
 
       {/* BOARD */}
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: isMultiplayerGame && boardZoom ? "flex-start" : "center", gap: isShorter ? 6 : 10, padding: isShorter ? "4px 0" : "10px 0", minWidth: 0, overflow: isMultiplayerGame && boardZoom ? "auto" : "hidden" }}>
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: isShorter ? 6 : 10, padding: isShorter ? "4px 0" : "10px 0", minWidth: 0, overflow: "hidden" }}>
         <div style={{ height: isShorter ? 32 : 36, display: "flex", alignItems: "center", justifyContent: "center", gap: 16, width: "100%", position: "relative", paddingLeft: "2%" }}>
           <div style={{ fontFamily: t.fontMono, fontSize: 11, letterSpacing: "0.08em", background: c3Blocked ? `${t.danger}10` : `${t.gold}10`, border: `1px solid ${c3Blocked ? t.danger : t.gold}33`, borderRadius: 6, padding: isShorter ? "2px 10px" : "3px 14px", color: c3Blocked ? t.danger : t.gold, flexShrink: 0, visibility: phase === "playing" && movesPlayed === 0 && !(GRID_SIZE === 7 && suppressCenterOpening) && GRID_SIZE !== 6 ? "visible" : "hidden", opacity: phase === "playing" && movesPlayed === 0 && !(GRID_SIZE === 7 && suppressCenterOpening) && GRID_SIZE !== 6 ? 1 : 0, transition: "opacity 0.4s ease", pointerEvents: "none" }}>
             {c3Blocked ? "✕ Center (C3) is blocked" : "★ Center = 2 extra turns"}
@@ -4412,11 +4454,11 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
         onSoftResetAction={softReset}
       />
 
-      {/* ── Multiplayer: pattern + zoom buttons in the NavBar area ──
-          Rendered into document.body via a portal so they escape this
-          component's `zIndex: 2` stacking context and sit above the NavBar
+      {/* ── Multiplayer: PATTERNS toggle in the NavBar area ──
+          Rendered into document.body via a portal so it escapes this
+          component's `zIndex: 2` stacking context and sits above the NavBar
           (`zIndex: 200`) rather than being painted under it. */}
-      {isMultiplayerGame && liveSelectedPatterns.length > 0 && typeof document !== "undefined" && createPortal(
+      {isMultiplayerGame && liveSelectedPatterns.length > 0 && !matchOver && phase !== "match_over" && typeof document !== "undefined" && createPortal(
         <div
           style={{
             position: "fixed",
@@ -4427,7 +4469,6 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
             zIndex: 10000,
             display: "flex",
             alignItems: "center",
-            gap: 10,
             pointerEvents: "auto",
           }}
         >
@@ -4461,32 +4502,13 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
           >
             {showPatternOverlay ? "HIDE PATTERNS" : "PATTERNS"}
           </button>
-          <button
-            onClick={toggleBoardZoom}
-            title={boardZoom ? "Zoom out to normal" : "Zoom in 2×"}
-            style={{
-              background: boardZoom ? t.accent : "rgba(255,255,255,0.1)",
-              border: `2px solid ${boardZoom ? t.accent : "rgba(255,255,255,0.25)"}`,
-              borderRadius: ip ? 2 : 8,
-              color: boardZoom ? "#000" : t.text,
-              fontFamily: t.fontMono,
-              fontSize: 22,
-              fontWeight: 700,
-              letterSpacing: "0.08em",
-              padding: "10px 26px",
-              cursor: "pointer",
-              transition: "all 0.2s",
-              whiteSpace: "nowrap",
-            }}
-          >
-            {boardZoom ? "ZOOM ×1" : "ZOOM ×2"}
-          </button>
         </div>,
         document.body
       )}
 
       {/* ── Pattern overlay: translucent full-screen showing active patterns ── */}
-      {showPatternOverlay && liveSelectedPatterns.length > 0 && (() => {
+      {/* Suppressed during the post-match result screen so it doesn't cover the series outcome. */}
+      {showPatternOverlay && liveSelectedPatterns.length > 0 && !matchOver && phase !== "match_over" && (() => {
         const allMeta = GRID_SIZE === 7 ? PATTERN_METADATA_7 : GRID_SIZE === 6 ? PATTERN_METADATA_6 : PATTERN_METADATA_5;
         const coreRules = GRID_SIZE === 7 ? CORE_RULES_METADATA_7 : GRID_SIZE === 6 ? CORE_RULES_METADATA_6 : CORE_RULES_METADATA_5;
         const activePatterns = liveSelectedPatterns.map(id => allMeta[id]).filter(Boolean);
