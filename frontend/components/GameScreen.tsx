@@ -791,7 +791,16 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     const id = setTimeout(() => setMpReadyGateOpen(true), 1000);
     return () => clearTimeout(id);
   }, [phase, isMultiplayerGame]);
-  const [showMatchupOverlay, setShowMatchupOverlay] = useState(!!matchupData);
+  // The dedicated /play/matchfound page (LobbyScreen with forcedPhase="matchup")
+  // already displays the sumi-e "VS" match-found animation for ~10s before
+  // routing here. Showing another copy of the matchup overlay on top of
+  // GameScreen made the match-found screen appear twice, with the second copy
+  // briefly flashing before the rules-show phase. We therefore initialize this
+  // overlay to `false` so the flow is: /play/matchfound → /rulesshow/{id}
+  // directly, with no duplicated animation. The sync state below
+  // (`matchStartAtMs`, `matchupCountdown`) is only read inside the overlay's
+  // render path, so keeping them as harmless state is fine.
+  const [showMatchupOverlay, setShowMatchupOverlay] = useState(false);
   const [matchupCountdown, setMatchupCountdown] = useState(10.0);
   const [matchStartAtMs, setMatchStartAtMs] = useState<number | null>(null);
   const [p1RttMs, setP1RttMs] = useState<number | null>(null);
