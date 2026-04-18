@@ -33,7 +33,7 @@ import {
   pathnameToScreen,
   buildGameUrl,
   buildChallengeUrl,
-  boardModeToSizeKey,
+  buildRulesShowUrl,
   GUEST_BLOCKED_SCREENS,
   ROUTES,
 } from "@/lib/routes";
@@ -633,7 +633,8 @@ export default function AppShell({ children }: { children: ReactNode }) {
       if (roomFromServer?.board_mode) setBoardMode(roomFromServer.board_mode as BoardMode);
       if (Array.isArray(roomFromServer?.selected_patterns))
         setSelectedPatterns(roomFromServer.selected_patterns);
-      setMultiplayerRulesBootstrap(multiplayerRulesBootstrapFromRoom(roomFromServer));
+      const bootstrap = multiplayerRulesBootstrapFromRoom(roomFromServer);
+      setMultiplayerRulesBootstrap(bootstrap);
       setMultiRoomCode(roomCode);
       setMultiPlayerSlot(playerSlot);
       setIsRanked(format === "ranked");
@@ -641,8 +642,19 @@ export default function AppShell({ children }: { children: ReactNode }) {
 
       const bm = (roomFromServer?.board_mode as BoardMode) || boardMode;
       const id = generateGameId();
-      const sk = boardModeToSizeKey(bm);
-      router.push(`/game/${sk}/${id}`);
+      // When the fresh room is awaiting a rules-show acknowledgement (the
+      // normal case for newly matched games) we jump straight to the
+      // `/rulesshow/{id}` URL. Previously we first pushed `/game/{sk}/{id}`
+      // and then relied on GameScreen's URL-sync effect to move the URL to
+      // `/rulesshow/{id}`, which created an extra route flip immediately
+      // after `/play/matchfound`. Some browsers painted one frame of the
+      // intermediate /game/ URL on top of the just-unmounted match-found
+      // screen, giving the appearance of the VS animation briefly
+      // re-appearing before rules-show. Routing directly to
+      // `/rulesshow/{id}` removes the double-hop entirely, so the visible
+      // transition is exactly: /play/matchfound → /rulesshow/{id}.
+      const nextUrl = bootstrap ? buildRulesShowUrl(id) : buildGameUrl(bm, id);
+      router.push(nextUrl);
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [boardMode, router],
@@ -680,6 +692,12 @@ export default function AppShell({ children }: { children: ReactNode }) {
         setTimeout(() => {
           setInQueue(false);
           setQueuePhase("none");
+          // Clear the opponent blob immediately so the GlobalMatchupOverlay
+          // (which only renders while queuePhase === "matchup" && matchupOpponent)
+          // cannot possibly paint one extra frame on the destination route
+          // during the React route-transition commit. This is belt-and-braces
+          // alongside the route blacklist inside GlobalMatchupOverlay.
+          setMatchupOpponent(null);
           matchmakingActiveRef.current = false;
           handleRoomReady(code, slot, mode, undefined, poll.data);
         }, 10000);
@@ -755,6 +773,10 @@ export default function AppShell({ children }: { children: ReactNode }) {
         setTimeout(() => {
           setInQueue(false);
           setQueuePhase("none");
+          // See pollQueueStatus branch above: clearing matchupOpponent here
+          // prevents the GlobalMatchupOverlay from painting a single extra
+          // frame during the route transition to /rulesshow.
+          setMatchupOpponent(null);
           matchmakingActiveRef.current = false;
           handleRoomReady(code, slot, mode, undefined, room);
         }, 10000);

@@ -590,10 +590,14 @@ export default function NavBar({
         <div style={{ display: "flex", alignItems: "center", gap: isTablet ? 12 : 20, flexShrink: 0, minWidth: 0 }}>
           <div
             onClick={() => { if (!lockMultiplayerNav) navigate("home"); }}
-            title="Home"
+            title={lockMultiplayerNav ? "PentaProtocol" : "Home"}
             style={{
-              cursor: lockMultiplayerNav ? "not-allowed" : "pointer",
-              opacity: lockMultiplayerNav ? 0 : 1,
+              // Logo stays fully visible in multiplayer per product direction —
+              // the user wants it always present as a branding anchor even
+              // while the rest of the nav bar is locked. Only the click
+              // target is disabled during an active match.
+              cursor: lockMultiplayerNav ? "default" : "pointer",
+              opacity: 1,
               pointerEvents: lockMultiplayerNav ? "none" : "auto",
               display: "flex",
               alignItems: "center",
