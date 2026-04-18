@@ -25,6 +25,7 @@ export default function PlayLobbyPage() {
         boardMode={ctx.boardMode}
         onBoardModeAction={ctx.setBoardMode}
         forcedPhase="select"
+        isRanked={ctx.isRanked}
       />
     </AuthGuard>
   );

@@ -4428,11 +4428,19 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
 
       {/* BOARD */}
       <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: isShorter ? 6 : 10, padding: isShorter ? "4px 0" : "10px 0", minWidth: 0, overflow: "hidden" }}>
-        <div style={{ height: isShorter ? 32 : 36, display: "flex", alignItems: "center", justifyContent: "center", gap: 16, width: "100%", position: "relative", paddingLeft: "2%" }}>
-          <div style={{ fontFamily: t.fontMono, fontSize: 11, letterSpacing: "0.08em", background: c3Blocked ? `${t.danger}10` : `${t.gold}10`, border: `1px solid ${c3Blocked ? t.danger : t.gold}33`, borderRadius: 6, padding: isShorter ? "2px 10px" : "3px 14px", color: c3Blocked ? t.danger : t.gold, flexShrink: 0, visibility: phase === "playing" && movesPlayed === 0 && !(GRID_SIZE === 7 && suppressCenterOpening) && GRID_SIZE !== 6 ? "visible" : "hidden", opacity: phase === "playing" && movesPlayed === 0 && !(GRID_SIZE === 7 && suppressCenterOpening) && GRID_SIZE !== 6 ? 1 : 0, transition: "opacity 0.4s ease", pointerEvents: "none" }}>
+        {/*
+          Row is a 3-column grid (1fr | auto | 1fr) so the turn indicator in
+          the auto column is perfectly centered relative to the board below,
+          regardless of whether the left hint chip or the right extra-turn
+          token button are rendered / sized differently. Earlier we used a
+          flex row with a mismatched invisible right-side spacer plus a 2%
+          left padding, which visibly pulled the indicator off-center.
+        */}
+        <div style={{ height: isShorter ? 32 : 36, display: "grid", gridTemplateColumns: "1fr auto 1fr", alignItems: "center", columnGap: 16, width: "100%", position: "relative" }}>
+          <div style={{ justifySelf: "end", fontFamily: t.fontMono, fontSize: 11, letterSpacing: "0.08em", background: c3Blocked ? `${t.danger}10` : `${t.gold}10`, border: `1px solid ${c3Blocked ? t.danger : t.gold}33`, borderRadius: 6, padding: isShorter ? "2px 10px" : "3px 14px", color: c3Blocked ? t.danger : t.gold, visibility: phase === "playing" && movesPlayed === 0 && !(GRID_SIZE === 7 && suppressCenterOpening) && GRID_SIZE !== 6 ? "visible" : "hidden", opacity: phase === "playing" && movesPlayed === 0 && !(GRID_SIZE === 7 && suppressCenterOpening) && GRID_SIZE !== 6 ? 1 : 0, transition: "opacity 0.4s ease", pointerEvents: "none", whiteSpace: "nowrap" }}>
             {c3Blocked ? "✕ Center (C3) is blocked" : "★ Center = 2 extra turns"}
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, padding: isShorter ? "4px 16px" : "8px 20px", background: `${winner ? winnerColor : cc}14`, border: `${ip ? 3 : 1}px solid ${winner ? winnerColor : cc}`, borderRadius: ip ? 2 : 24, transition: "background 0.25s, border-color 0.25s", flexShrink: 0 }}>
+          <div style={{ justifySelf: "center", display: "flex", alignItems: "center", gap: 8, padding: isShorter ? "4px 16px" : "8px 20px", background: `${winner ? winnerColor : cc}14`, border: `${ip ? 3 : 1}px solid ${winner ? winnerColor : cc}`, borderRadius: ip ? 2 : 24, transition: "background 0.25s, border-color 0.25s", whiteSpace: "nowrap" }}>
             <div style={{ width: 8, height: 8, borderRadius: ip ? 0 : "50%", background: winner ? winnerColor : cc, transition: "background 0.25s" }} />
             <span style={{ fontFamily: t.fontDisplay, fontSize: isShorter ? 13 : 15, fontWeight: 700, color: winner ? winnerColor : cc, transition: "color 0.25s" }}>
               {winner
@@ -4443,13 +4451,12 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
               }
             </span>
           </div>
-          {GRID_SIZE === 7 && phase === "playing" && !winner && rbExtraTurnTokenHolder && !rbExtraTurnTokenUsed && extraTurns === 0 && (isMultiplayerGame ? mySlot === rbExtraTurnTokenHolder : current === rbExtraTurnTokenHolder) && (
-            <button type="button" onClick={() => { playClickAction?.(); useRbExtraTurnToken(); }} title="Use once: your next move does not end your turn (then turns alternate normally). Center opening rule is off this game." style={{ flexShrink: 0, fontFamily: t.fontMono, fontSize: 10, fontWeight: 800, letterSpacing: "0.06em", padding: "6px 12px", borderRadius: 8, border: `1px solid ${t.accent}88`, background: `${t.accent}22`, color: t.accent, cursor: "pointer" }}>
-              USE EXTRA TURN TOKEN
-            </button>
-          )}
-          <div style={{ fontFamily: t.fontMono, fontSize: 11, letterSpacing: "0.08em", borderRadius: 6, padding: "3px 14px", flexShrink: 0, visibility: "hidden", pointerEvents: "none" }}>
-            {c3Blocked ? "✕ Center (C3) is blocked this game" : "★ Playing center gives opponent 2 extra turns"}
+          <div style={{ justifySelf: "start", display: "flex", alignItems: "center" }}>
+            {GRID_SIZE === 7 && phase === "playing" && !winner && rbExtraTurnTokenHolder && !rbExtraTurnTokenUsed && extraTurns === 0 && (isMultiplayerGame ? mySlot === rbExtraTurnTokenHolder : current === rbExtraTurnTokenHolder) && (
+              <button type="button" onClick={() => { playClickAction?.(); useRbExtraTurnToken(); }} title="Use once: your next move does not end your turn (then turns alternate normally). Center opening rule is off this game." style={{ fontFamily: t.fontMono, fontSize: 10, fontWeight: 800, letterSpacing: "0.06em", padding: "6px 12px", borderRadius: 8, border: `1px solid ${t.accent}88`, background: `${t.accent}22`, color: t.accent, cursor: "pointer", whiteSpace: "nowrap" }}>
+                USE EXTRA TURN TOKEN
+              </button>
+            )}
           </div>
         </div>
         {/* Column labels + board — special boards render their own labels */}

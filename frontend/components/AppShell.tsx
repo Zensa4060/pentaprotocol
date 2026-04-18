@@ -947,6 +947,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
           forcedPhase="matchup"
           boardMode={boardMode}
           onBoardModeAction={setBoardMode}
+          isRanked={isRanked}
         />
       </div>
     );

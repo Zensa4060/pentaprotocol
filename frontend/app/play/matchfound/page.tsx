@@ -22,6 +22,7 @@ export default function MatchFoundPage() {
         forcedPhase="matchup"
         boardMode={ctx.boardMode}
         onBoardModeAction={ctx.setBoardMode}
+        isRanked={ctx.isRanked}
       />
     </AuthGuard>
   );

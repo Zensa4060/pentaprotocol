@@ -34,6 +34,7 @@ export default function UnrankedQueuePage() {
         forcedPhase="queuing"
         boardMode={ctx.boardMode}
         onBoardModeAction={ctx.setBoardMode}
+        isRanked={ctx.isRanked}
       />
     </AuthGuard>
   );

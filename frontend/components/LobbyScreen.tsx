@@ -7,9 +7,7 @@ import { THEMES } from "@/lib/themes";
 import { useAuthStore } from "@/lib/store";
 import { computeLevelProgress } from "@/lib/xpLevel";
 import API from "@/lib/api";
-import { loadCustomTheme } from "@/lib/customTheme";
 import { NavRankBadge, getRank } from "./NavBar";
-import { BannerRenderer, BANNERS_DATA } from "./BannerRenderer";
 import {
   getLobbyQuote,
   LOBBY_QUOTE_STORAGE_KEY,
@@ -58,6 +56,8 @@ interface Props {
   lastMatchResult?: "win" | "loss" | null;
   /** When set, preselects the custom-room sub-view on mount. */
   initialRoomSection?: "none" | "create" | "join" | "waiting";
+  /** Whether the current queue/match is ranked — drives matchup screen styling. */
+  isRanked?: boolean;
 }
 
 type MultiSub = "unranked" | "ranked" | null;
@@ -74,6 +74,7 @@ export default function LobbyScreen({
   onBoardModeAction,
   lastMatchResult = null,
   initialRoomSection,
+  isRanked = false,
 }: Props) {
   const t  = THEMES[themeId as keyof typeof THEMES];
   const ip = themeId === "pixel";
@@ -307,29 +308,64 @@ export default function LobbyScreen({
     }
   };
 
-  const Avatar = ({ color }: { color: string }) => (
-    <svg width="110" height="110" viewBox="0 0 110 110" fill="none">
-      <circle cx="55" cy="55" r="50" stroke={color} strokeWidth="4" fill="none"
-        style={{ filter: `drop-shadow(0 0 12px ${color}88)` }} />
-      <circle cx="55" cy="38" r="14" stroke={color} strokeWidth="3.5" fill="none" />
-      <path d="M20 92 Q20 68 55 68 Q90 68 90 92" stroke={color} strokeWidth="3.5"
-        fill="none" strokeLinecap="round" />
-    </svg>
-  );
-
-  const vsStyle: React.CSSProperties = {
-    fontFamily: themeId === "classic_light" || themeId === "classic_dark" || themeId === "space"
-      ? "'Cormorant Garamond', serif"
-      : "'Press Start 2P', cursive",
-    fontSize: themeId === "pixel" ? "clamp(32px,6vw,64px)" : "clamp(52px,9vw,110px)",
-    fontWeight: 900,
-    color: t.accent,
-    textShadow: `0 0 40px ${t.accentGlow}88, 0 0 80px ${t.accentGlow}44`,
-    letterSpacing: "0.05em",
-    lineHeight: 1,
-    fontStyle: themeId === "classic_light" || themeId === "classic_dark" || themeId === "space" ? "italic" : "normal",
-    userSelect: "none" as const,
-  };
+  /** Sketchy hand-drawn "VS" inspired by the reference art.
+   *  Rendered in pure SVG so it scales crisply on every viewport and can be
+   *  retinted with the ranked/unranked glow color without swapping assets.   */
+  const SketchVS = React.memo(({ color, size }: { color: string; size: number }) => {
+    const hex = color.startsWith("#") ? color : color;
+    return (
+      <svg
+        width={size}
+        height={size}
+        viewBox="0 0 240 240"
+        fill="none"
+        style={{
+          filter: `drop-shadow(0 0 28px ${hex}cc) drop-shadow(0 0 60px ${hex}66)`,
+          animation: "vsPop 620ms cubic-bezier(.2,.9,.2,1) both, vsPulse 2200ms ease-in-out infinite 700ms",
+          willChange: "transform, filter",
+        }}
+        aria-hidden="true"
+      >
+        {/* V — bold hand-drawn strokes that meet in a sharp bottom vertex */}
+        <path
+          d="M 22 28 C 28 70, 45 130, 78 186 C 84 196, 96 196, 104 186 C 128 152, 142 100, 152 48"
+          stroke={hex}
+          strokeWidth="22"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          fill="none"
+        />
+        {/* V — sketchy secondary accent stroke to give the double-pen look */}
+        <path
+          d="M 34 44 C 40 80, 58 130, 82 170"
+          stroke={hex}
+          strokeWidth="6"
+          strokeLinecap="round"
+          fill="none"
+          opacity="0.55"
+        />
+        {/* S — continuous zigzag curve that crosses itself like the reference */}
+        <path
+          d="M 210 58 C 196 34, 170 34, 158 56 C 146 80, 178 96, 196 108 C 214 122, 204 156, 176 160 C 150 164, 132 148, 126 130"
+          stroke={hex}
+          strokeWidth="20"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          fill="none"
+        />
+        {/* S — tapering flick at the tail to echo the brush-stroke feel */}
+        <path
+          d="M 130 138 C 128 152, 134 168, 146 180"
+          stroke={hex}
+          strokeWidth="14"
+          strokeLinecap="round"
+          fill="none"
+          opacity="0.85"
+        />
+      </svg>
+    );
+  });
+  SketchVS.displayName = "SketchVS";
 
   // ── QUEUING ───────────────────────────────────────────────────────────────
   if (phase === "queuing") return (
@@ -388,75 +424,316 @@ export default function LobbyScreen({
     </div>
   );
 
-  const getBanner = (id: string) => BANNERS_DATA[id] || BANNERS_DATA["default"];
-
-  const PlayerCard = React.memo(({ name, elo, avatar, banner, level, color, direction }: {
-    name: string; elo: number | null; avatar: string | undefined; banner: string;
-    level: number; color: string; direction: "top" | "bottom";
+  /** Single side of the match-found screen.
+   *  - Ranked: ELO header above the avatar + rank badge below the username.
+   *  - Unranked: LEVEL header above the avatar, no rank badge.
+   *  - Glow color is driven by `glowColor` (white for unranked, blood red for ranked). */
+  const MatchPlayerCard = React.memo(({
+    name, elo, avatar, level, glowColor, ranked, placementMatches, side,
+  }: {
+    name: string;
+    elo: number | null;
+    avatar: string | undefined;
+    level: number;
+    glowColor: string;
+    ranked: boolean;
+    placementMatches: number;
+    side: "left" | "right";
   }) => {
-    const anim = direction === "top" ? "dropInTop" : "dropInBottom";
-    const sideBySideSize = isMobile ? 132 : 240;
+    const anim = side === "left" ? "slideInLeft" : "slideInRight";
+    const avatarSize = isMobile ? 140 : 230;
+    const isPlacementPlayer = ranked && placementMatches < 5;
+    const displayElo = isPlacementPlayer ? "?" : (elo ?? "---");
+    const rankForBadge = getRank(elo ?? 0);
 
     return (
-      <div style={{ flex:1, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", position:"relative", overflow:"hidden", animation:`${anim} 620ms cubic-bezier(.2,.9,.2,1) both`, willChange:"transform, opacity", transform:"translateZ(0)" }}>
-        <div style={{ position:"absolute", inset:0, opacity:1, zIndex:0 }}>
-          <BannerRenderer bannerId={banner} hideLabels />
-          <div style={{ position:"absolute", inset:0, background:"rgba(0,0,0,0.2)", zIndex:1 }} />
+      <div
+        style={{
+          flex: 1,
+          minWidth: 0,
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: isMobile ? 10 : 18,
+          padding: isMobile ? "0 8px" : "0 20px",
+          textAlign: "center" as const,
+          animation: `${anim} 680ms cubic-bezier(.2,.9,.2,1) both`,
+          willChange: "transform, opacity",
+        }}
+      >
+        {/* Top label: ELO (ranked) or LEVEL (unranked) */}
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
+          <div style={{ fontFamily: t.fontMono, fontSize: isMobile ? 10 : 13, color: t.textMuted, letterSpacing: "0.3em", opacity: 0.8 }}>
+            {ranked ? "ELO RATING" : "LEVEL"}
+          </div>
+          <div
+            style={{
+              fontFamily: t.fontDisplay,
+              fontSize: isMobile ? 34 : 56,
+              fontWeight: 950,
+              color: glowColor,
+              textShadow: `0 0 22px ${glowColor}cc, 0 0 44px ${glowColor}55`,
+              letterSpacing: "0.04em",
+              lineHeight: 1,
+            }}
+          >
+            {ranked ? displayElo : level}
+          </div>
         </div>
 
-        <div style={{ position:"relative", zIndex:5, width:"100%", maxWidth:isMobile ? 560 : 1200, display:"flex", flexDirection:isMobile ? "column" : "row", alignItems:"center", justifyContent:"center", gap:isMobile ? 18 : 40, padding:isMobile ? "0 20px" : "0 60px", textAlign:"center" }}>
-          <div style={{ width:sideBySideSize, height:sideBySideSize, borderRadius:"50%", background:`linear-gradient(135deg, ${color}, ${t.accent})`, border:`8px solid ${color}`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:isMobile ? 60 : 110, color:"#000", boxShadow:`0 20px 60px rgba(0,0,0,0.8), 0 0 40px ${color}66`, flexShrink:0, overflow:"hidden" }}>
-            {avatar ? <img src={avatar} style={{ width:"100%", height:"100%", objectFit:"cover" }} /> : "👤"}
-          </div>
-
-          <div style={{ flex:isMobile ? "0 1 auto" : 1, width:isMobile ? "100%" : "auto", textAlign:"center", display:"flex", flexDirection:"column", gap:isMobile ? 10 : 15, alignItems:"center" }}>
-            <div style={{ fontFamily:t.fontDisplay, fontSize:isMobile ? 28 : 52, fontWeight:950, color:color, textShadow:`0 0 40px ${color}, 0 0 20px rgba(255,255,255,0.4)`, letterSpacing:"0.1em", lineHeight:1.1, wordBreak:"break-word" as const }}>
-              {name.toUpperCase()}
-            </div>
-            <div style={{ display:"inline-flex", alignSelf:"center", flexDirection:"column", alignItems:"center", padding:isMobile ? "14px 24px" : "20px 50px", background:"rgba(0,0,0,0.7)", backdropFilter:"blur(25px)", borderRadius:24, border:`2px solid ${color}44`, boxShadow:`0 20px 50px rgba(0,0,0,0.7), inset 0 0 15px ${color}22`, width:isMobile ? "100%" : "auto", maxWidth:isMobile ? 280 : undefined, boxSizing:"border-box" }}>
-              <div style={{ fontFamily:t.fontMono, fontSize:isMobile ? 11 : 14, color:t.textMuted, letterSpacing:"0.3em", marginBottom:6, opacity:0.7 }}>ELO RATING</div>
-              <div style={{ fontFamily:t.fontDisplay, fontSize:isMobile ? 48 : 82, fontWeight:950, color:t.accent, textShadow:`0 0 25px ${t.accent}AA, 0 0 50px ${t.accent}44`, letterSpacing:"0.05em", lineHeight:1 }}>
-                {user?.placement_matches < 5 ? "?" : (elo ?? "---")}
-              </div>
-            </div>
-            <div style={{ fontFamily:t.fontMono, fontSize:isMobile ? 14 : 20, color:t.textSecondary, letterSpacing:"0.2em", opacity:0.9, marginTop:isMobile ? 2 : 10, fontWeight:800 }}>
-              LEVEL {level}
-            </div>
+        {/* Avatar with themed glow ring */}
+        <div
+          style={{
+            position: "relative",
+            width: avatarSize,
+            height: avatarSize,
+            borderRadius: "50%",
+            padding: 4,
+            background: `radial-gradient(circle, ${glowColor}55 0%, transparent 70%)`,
+          }}
+        >
+          <div
+            style={{
+              width: "100%",
+              height: "100%",
+              borderRadius: "50%",
+              border: `4px solid ${glowColor}`,
+              overflow: "hidden",
+              background: "#0A0A0A",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: isMobile ? 60 : 110,
+              color: glowColor,
+              boxShadow: `0 0 30px ${glowColor}aa, 0 0 70px ${glowColor}55, inset 0 0 18px rgba(0,0,0,0.55)`,
+            }}
+          >
+            {avatar ? (
+              <img src={avatar} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+            ) : (
+              <span style={{ opacity: 0.9 }}>👤</span>
+            )}
           </div>
         </div>
+
+        {/* Username below avatar */}
+        <div
+          style={{
+            fontFamily: t.fontDisplay,
+            fontSize: isMobile ? 18 : 30,
+            fontWeight: 900,
+            color: "#ffffff",
+            textShadow: `0 0 18px ${glowColor}aa, 0 0 4px rgba(0,0,0,0.7)`,
+            letterSpacing: "0.1em",
+            textTransform: "uppercase" as const,
+            wordBreak: "break-word" as const,
+            maxWidth: "100%",
+            lineHeight: 1.15,
+          }}
+        >
+          {name}
+        </div>
+
+        {/* Rank logo below username — ranked only */}
+        {ranked && (
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4, marginTop: isMobile ? 2 : 6 }}>
+            <NavRankBadge rank={rankForBadge} size={isMobile ? 54 : 84} isPlacement={isPlacementPlayer} />
+            <div
+              style={{
+                fontFamily: t.fontMono,
+                fontSize: isMobile ? 10 : 12,
+                fontWeight: 800,
+                color: isPlacementPlayer ? "#FF33FF" : rankForBadge.color,
+                letterSpacing: "0.18em",
+                textShadow: `0 0 10px ${isPlacementPlayer ? "#FF33FF" : rankForBadge.color}88`,
+              }}
+            >
+              {isPlacementPlayer ? "PLACEMENT" : rankForBadge.name}
+            </div>
+          </div>
+        )}
       </div>
     );
   });
+  MatchPlayerCard.displayName = "MatchPlayerCard";
 
   // ── MATCHUP ───────────────────────────────────────────────────────────────
-  if (phase === "matchup") return (
-    <div style={{ position:"fixed", inset:0, zIndex:2, display:"flex", flexDirection:"column", background:t.bg, overflow:"hidden" }}>
-      <div style={{ textAlign:"center", paddingTop:20, fontFamily:t.fontMono, fontSize:12, color:t.textMuted, letterSpacing:"0.18em", zIndex:2 }}>
-        UNRANKED · FIRST TO 5 POINTS
-      </div>
-      <PlayerCard name={user?.username ?? "YOU"} elo={user?.elo ?? null} avatar={user?.avatar ?? undefined} banner={loadCustomTheme().bannerSkin ?? "default"} level={localLevel} color={t.p1} direction="top" />
-      <div style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:50, padding:"20px 0", flexShrink:0, position:"relative", zIndex:10, background:"rgba(0,0,0,0.24)" }}>
-        <div style={{ flex:1, height:2, background:`linear-gradient(90deg, transparent, ${t.accent}, transparent)`, opacity:0.6 }} />
-        <div style={{...vsStyle, transform:"scale(1.05)", animation:"vsPop 620ms cubic-bezier(.2,.9,.2,1) both, vsPulse 1600ms ease-in-out infinite 700ms", willChange:"transform, opacity" }}>VS</div>
-        <div style={{ flex:1, height:2, background:`linear-gradient(90deg, transparent, ${t.accent}, transparent)`, opacity:0.6 }} />
-      </div>
-      <PlayerCard name={propMatchupOpponent?.name ?? "OPPONENT"} elo={propMatchupOpponent?.elo ?? 1000} avatar={propMatchupOpponent?.avatar ?? undefined} banner={propMatchupOpponent?.banner ?? "default"} level={propMatchupOpponent?.level ?? 1} color={t.p2} direction="bottom" />
-      <div style={{ padding:"12px 20px 20px", flexShrink:0 }}>
-        <div style={{ height:4, background:t.border, borderRadius:2, overflow:"hidden", maxWidth:340, margin:"0 auto" }}>
-          <div style={{ height:"100%", width:"0%", background:`linear-gradient(90deg,${t.accent},${t.accentGlow})`, borderRadius:2, boxShadow:`0 0 10px ${t.accentGlow}88`, animation:"matchBarShrink 10s linear both" }} />
+  if (phase === "matchup") {
+    // Blood red for ranked, white for unranked — both header copy + glows.
+    const BLOOD = "#E11D1D";
+    const WHITE = "#F5F5F5";
+    const glow = isRanked ? BLOOD : WHITE;
+    const headerCopy = isRanked ? "RANKED · FIRST TO 5 POINTS" : "UNRANKED · FIRST TO 5 POINTS";
+    const vsSize = isMobile ? 150 : 260;
+
+    return (
+      <div
+        style={{
+          position: "fixed",
+          inset: 0,
+          zIndex: 2,
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          background: t.bg,
+          overflow: "hidden",
+        }}
+      >
+        {/* Ambient glow backdrop — tints the whole screen with the mode color */}
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            background: `radial-gradient(ellipse at 50% 50%, ${glow}22 0%, transparent 60%)`,
+            pointerEvents: "none",
+            zIndex: 0,
+          }}
+        />
+        {/* Subtle grid so the empty space does not read as flat */}
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            opacity: 0.08,
+            backgroundImage: `linear-gradient(${t.border} 1px, transparent 1px), linear-gradient(90deg, ${t.border} 1px, transparent 1px)`,
+            backgroundSize: "80px 80px",
+            pointerEvents: "none",
+            zIndex: 0,
+          }}
+        />
+
+        {/* Header copy */}
+        <div
+          style={{
+            position: "absolute",
+            top: isMobile ? 18 : 28,
+            left: 0,
+            right: 0,
+            textAlign: "center",
+            fontFamily: t.fontMono,
+            fontSize: isMobile ? 11 : 13,
+            color: glow,
+            letterSpacing: "0.3em",
+            fontWeight: 700,
+            textShadow: `0 0 14px ${glow}88`,
+            zIndex: 3,
+          }}
+        >
+          {headerCopy}
         </div>
-        <div style={{ fontFamily:t.fontMono, fontSize:12, color:t.textMuted, textAlign:"center", marginTop:8, letterSpacing:"0.1em" }}>MATCH STARTING...</div>
+
+        {/* Main horizontal row: YOU | VS | OPPONENT */}
+        <div
+          style={{
+            position: "relative",
+            zIndex: 2,
+            width: "100%",
+            maxWidth: 1400,
+            display: "flex",
+            flexDirection: isMobile ? "column" : "row",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: isMobile ? 6 : 24,
+            padding: isMobile ? "60px 16px 80px" : "40px 40px",
+            boxSizing: "border-box",
+          }}
+        >
+          <MatchPlayerCard
+            name={user?.username ?? "YOU"}
+            elo={user?.elo ?? null}
+            avatar={user?.avatar ?? undefined}
+            level={localLevel}
+            glowColor={glow}
+            ranked={isRanked}
+            placementMatches={Number((user as any)?.placement_matches ?? 0)}
+            side="left"
+          />
+
+          <div
+            style={{
+              flex: isMobile ? "0 0 auto" : "0 0 auto",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: isMobile ? "6px 0" : "0 12px",
+            }}
+          >
+            <SketchVS color={glow} size={vsSize} />
+          </div>
+
+          <MatchPlayerCard
+            name={propMatchupOpponent?.name ?? "OPPONENT"}
+            elo={propMatchupOpponent?.elo ?? null}
+            avatar={propMatchupOpponent?.avatar ?? undefined}
+            level={Number(propMatchupOpponent?.level ?? 1)}
+            glowColor={glow}
+            ranked={isRanked}
+            placementMatches={Number(propMatchupOpponent?.placement_matches ?? 0)}
+            side="right"
+          />
+        </div>
+
+        {/* Countdown bar + "MATCH STARTING" */}
+        <div
+          style={{
+            position: "absolute",
+            bottom: isMobile ? 20 : 32,
+            left: 0,
+            right: 0,
+            padding: "0 20px",
+            zIndex: 3,
+          }}
+        >
+          <div
+            style={{
+              height: 4,
+              background: `${glow}22`,
+              borderRadius: 2,
+              overflow: "hidden",
+              maxWidth: 360,
+              margin: "0 auto",
+            }}
+          >
+            <div
+              style={{
+                height: "100%",
+                width: "100%",
+                background: `linear-gradient(90deg, ${glow}, ${glow}aa)`,
+                borderRadius: 2,
+                boxShadow: `0 0 12px ${glow}aa`,
+                animation: "matchBarShrink 10s linear both",
+              }}
+            />
+          </div>
+          <div
+            style={{
+              fontFamily: t.fontMono,
+              fontSize: 12,
+              color: glow,
+              textAlign: "center",
+              marginTop: 10,
+              letterSpacing: "0.25em",
+              opacity: 0.9,
+              textShadow: `0 0 10px ${glow}66`,
+            }}
+          >
+            MATCH STARTING...
+          </div>
+        </div>
+
+        <style>{`
+          @keyframes fadeUp         { from{opacity:0;transform:translateY(24px)} to{opacity:1;transform:translateY(0)} }
+          @keyframes slideInLeft    { from{opacity:0;transform:translate3d(-80px,0,0) scale(.94)} to{opacity:1;transform:translate3d(0,0,0) scale(1)} }
+          @keyframes slideInRight   { from{opacity:0;transform:translate3d(80px,0,0)  scale(.94)} to{opacity:1;transform:translate3d(0,0,0) scale(1)} }
+          @keyframes matchBarShrink { from{width:100%} to{width:0%} }
+          @keyframes vsPop          { from{opacity:0;transform:scale(.6) rotate(-8deg)} to{opacity:1;transform:scale(1) rotate(0)} }
+          @keyframes vsPulse        { 0%,100%{transform:scale(1)} 50%{transform:scale(1.06)} }
+        `}</style>
       </div>
-      <style>{`
-        @keyframes fadeUp       { from{opacity:0;transform:translateY(24px)} to{opacity:1;transform:translateY(0)} }
-        @keyframes dropInTop    { from{opacity:0;transform:translate3d(0,-36px,0) scale(.985)} to{opacity:1;transform:translate3d(0,0,0) scale(1)} }
-        @keyframes dropInBottom { from{opacity:0;transform:translate3d(0,36px,0) scale(.985)}  to{opacity:1;transform:translate3d(0,0,0) scale(1)} }
-        @keyframes matchBarShrink { from{width:100%} to{width:0%} }
-        @keyframes vsPop        { from{opacity:0;transform:translateY(12px) scale(.84)} to{opacity:1;transform:translateY(0) scale(1.05)} }
-        @keyframes vsPulse      { 0%,100%{text-shadow:0 0 26px ${t.accent}66} 50%{text-shadow:0 0 48px ${t.accent}AA} }
-      `}</style>
-    </div>
-  );
+    );
+  }
 
   // ── WAITING FOR P2 (private room) ─────────────────────────────────────────
   if (roomSection === "waiting") return (
