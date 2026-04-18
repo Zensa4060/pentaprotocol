@@ -918,6 +918,18 @@ export default function AppShell({ children }: { children: ReactNode }) {
 
   const GlobalMatchupOverlay = () => {
     if (queuePhase !== "matchup" || !matchupOpponent) return null;
+    // Each matchmaking / match-found route already renders its own LobbyScreen
+    // with the right forcedPhase. Rendering the global overlay on top of those
+    // pages causes a duplicate LobbyScreen to mount, which the user perceives
+    // as the queue/matchup screen "showing twice" during route transitions.
+    // Only use the overlay as a fallback on unrelated routes.
+    const ownedByRoute =
+      pathname === ROUTES.PLAY_MATCHFOUND ||
+      pathname === ROUTES.UNRANKED_QUEUE ||
+      pathname === ROUTES.RANKED_QUEUE ||
+      pathname === ROUTES.CUSTOM_ROOM_CREATE ||
+      pathname === ROUTES.PLAY_LOBBY;
+    if (ownedByRoute) return null;
     return (
       <div style={{ position: "fixed", inset: 0, zIndex: 99999, background: t.bg }}>
         <LobbyScreen

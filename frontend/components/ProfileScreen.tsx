@@ -161,8 +161,8 @@ const TIER_COLOR: Record<string, string> = {
 function TitleBadge({ title, onClick }: { title: typeof TITLES[0]; onClick?: () => void }) {
   return (
     <div onClick={onClick} className={`title-anim-${title.animation}`}
-      style={{ padding:"2px 10px", borderRadius:20, border:`1px solid ${title.color}44`, background:`${title.color}12`, cursor:onClick?"pointer":"default", transition:"all 0.15s", display:"inline-flex", alignItems:"center" }}>
-      <span style={{ fontFamily:"var(--font-mono, monospace)", fontSize:11, fontWeight:700, color:title.color, letterSpacing:"0.08em" }}>{title.label}</span>
+      style={{ padding:"4px 20px", borderRadius:40, border:`2px solid ${title.color}44`, background:`${title.color}12`, cursor:onClick?"pointer":"default", transition:"all 0.15s", display:"inline-flex", alignItems:"center" }}>
+      <span style={{ fontFamily:"var(--font-mono, monospace)", fontSize:22, fontWeight:700, color:title.color, letterSpacing:"0.08em" }}>{title.label}</span>
     </div>
   );
 }
@@ -722,10 +722,10 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
               <TitleBadge title={activeTitle} onClick={() => { onClickAction?.(); openEdit("title"); }} />
             </div>
             <div style={{ display:"flex", gap:14, flexWrap:"wrap", alignItems:"center" }}>
-              <div style={{ fontFamily:t.fontMono, fontSize:13, color:t.text, textShadow:"0 1px 4px rgba(0,0,0,0.5)" }}>LVL <span style={{ color:t.accent, fontWeight:700, fontSize:15 }}>{computedLevelFromXp}</span></div>
-              <div style={{ display:"flex", alignItems:"center", gap:5, "--rank-col": isPlacement ? placementCol : rank.color } as any}>
-                <NavRankBadge rank={rank} size={33} isPlacement={isPlacement} />
-                <span style={{ fontFamily:t.fontBody, fontSize:14, color: isPlacement ? placementCol : rank.color, fontWeight:600, textShadow:"0 1px 4px rgba(0,0,0,0.5)" }}>
+              <div style={{ fontFamily:t.fontMono, fontSize:17, color:t.text, textShadow:"0 1px 4px rgba(0,0,0,0.5)" }}>LVL <span style={{ color:t.accent, fontWeight:700, fontSize:20 }}>{computedLevelFromXp}</span></div>
+              <div style={{ display:"flex", alignItems:"center", gap:7, "--rank-col": isPlacement ? placementCol : rank.color } as any}>
+                <NavRankBadge rank={rank} size={43} isPlacement={isPlacement} />
+                <span style={{ fontFamily:t.fontBody, fontSize:18, color: isPlacement ? placementCol : rank.color, fontWeight:600, textShadow:"0 1px 4px rgba(0,0,0,0.5)" }}>
                   {isPlacement ? "PLACEMENT" : rank.name}
                 </span>
               </div>
@@ -779,18 +779,52 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
         return (
           <div style={{ background:t.bgPanel, border:`1px solid ${t.border}`, borderRadius:12, padding:"16px 22px", marginBottom:18 }}>
             <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:9 }}>
-              <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-                <div style={{ width:34, height:34, borderRadius:"50%", background:`${t.accent}18`, border:`2px solid ${t.accent}`, display:"flex", alignItems:"center", justifyContent:"center", fontFamily:t.fontDisplay, fontSize:14, fontWeight:900, color:t.accent }}>{lvl}</div>
-                <div style={{ fontFamily:t.fontMono, fontSize:13, color:t.text, fontWeight:600, letterSpacing:"0.1em" }}>LEVEL {lvl}</div>
+              <div style={{ display:"flex", alignItems:"center", gap:14 }}>
+                <div
+                  style={{
+                    width: 50,
+                    height: 50,
+                    borderRadius: "50%",
+                    background:
+                      "radial-gradient(circle at 32% 28%, rgba(139,0,0,0.42), rgba(26,5,5,0.92))",
+                    border: "2px solid #8B0000",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontFamily: t.fontDisplay,
+                    fontSize: 22,
+                    fontWeight: 900,
+                    color: "#B91C1C",
+                    boxShadow:
+                      "0 0 12px rgba(139,0,0,0.95), 0 0 26px rgba(91,0,0,0.65), inset 0 0 14px rgba(0,0,0,0.55)",
+                    textShadow:
+                      "0 0 2px #0a0a0a, 0 0 4px #0a0a0a, 0 0 10px rgba(139,0,0,0.95), 0 0 20px rgba(91,0,0,0.75)",
+                  }}
+                >
+                  {lvl}
+                </div>
+                <div
+                  style={{
+                    fontFamily: t.fontMono,
+                    fontSize: 20,
+                    fontWeight: 800,
+                    letterSpacing: "0.14em",
+                    color: "#B91C1C",
+                    textShadow:
+                      "0 0 2px #0a0a0a, 0 0 4px #0a0a0a, 0 0 10px rgba(139,0,0,0.9), 0 0 22px rgba(91,0,0,0.55)",
+                  }}
+                >
+                  LEVEL {lvl}
+                </div>
               </div>
-              <div style={{ fontFamily:t.fontMono, fontSize:12, color:t.textMuted }}>
-                <span style={{ color:t.accent, fontWeight:700 }}>{xpIntoLevel.toLocaleString()}</span>{" / "}{xpNeeded.toLocaleString()} XP
+              <div style={{ fontFamily:t.fontMono, fontSize:18, color:"#FFFFFF", lineHeight:1.1 }}>
+                <span style={{ color:"#FFFFFF", fontWeight:700 }}>{xpIntoLevel.toLocaleString()}</span>{" / "}{xpNeeded.toLocaleString()} XP
               </div>
             </div>
             <div style={{ height:10, background:t.bgCard, borderRadius:5, overflow:"hidden", border:`1px solid ${t.border}` }}>
               <div style={{ height:"100%", width:`${pct}%`, background:`linear-gradient(90deg,${t.accent},${t.p1})`, borderRadius:5, boxShadow:`0 0 10px ${t.accentGlow}55`, transition:"width 1s ease" }} />
             </div>
-            <div style={{ fontFamily:t.fontMono, fontSize:11, color:t.textMuted, marginTop:5, textAlign:"right" }}>
+            <div style={{ fontFamily:t.fontMono, fontSize:17, color:"#FFFFFF", marginTop:10, textAlign:"right", lineHeight:1.15 }}>
               Level Progress: {xpIntoLevel.toLocaleString()} / {xpNeeded.toLocaleString()} · {(xpNeeded - xpIntoLevel).toLocaleString()} XP to level {lvl + 1}
             </div>
           </div>
@@ -837,15 +871,31 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
                     {isUnranked ? (
                       <NavRankBadge rank={r} size={28} isPlacement={true} />
                     ) : (
-                      <img 
-                        src={r.img!} 
-                        style={{ 
-                          width: ["NOVICE", "ADVANCED", "EMERALD"].includes(r.name) ? 34 : 28, 
-                          height: ["NOVICE", "ADVANCED", "EMERALD"].includes(r.name) ? 34 : 28, 
-                          objectFit: "contain", 
-                          filter: isActive ? `drop-shadow(0 0 8px ${r.color}aa)` : "none" 
-                        }} 
-                      />
+                      <div style={{
+                        width: 28,
+                        height: 28,
+                        flexShrink: 0,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        overflow: "visible",
+                        position: "relative",
+                      }}>
+                        <img
+                          src={r.img!}
+                          style={{
+                            width: ["NOVICE", "ADVANCED", "EMERALD"].includes(r.name) ? 41 : 28,
+                            height: ["NOVICE", "ADVANCED", "EMERALD"].includes(r.name) ? 41 : 28,
+                            objectFit: "contain",
+                            filter: isActive ? `drop-shadow(0 0 8px ${r.color}aa)` : "none",
+                            position: "absolute",
+                            left: "50%",
+                            top: "50%",
+                            transform: "translate(-50%, -50%)",
+                            pointerEvents: "none",
+                          }}
+                        />
+                      </div>
                     )}
                     <div style={{ fontFamily: t.fontDisplay, fontSize: 15, fontWeight: isActive ? 800 : 700, color: isActive ? r.color : t.textSecondary, letterSpacing: "0.05em" }}>
                       {r.name}

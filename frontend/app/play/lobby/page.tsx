@@ -24,6 +24,7 @@ export default function PlayLobbyPage() {
         queueError={ctx.queueError}
         boardMode={ctx.boardMode}
         onBoardModeAction={ctx.setBoardMode}
+        forcedPhase="select"
       />
     </AuthGuard>
   );

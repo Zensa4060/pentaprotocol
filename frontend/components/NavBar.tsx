@@ -20,12 +20,12 @@ import {
 } from "@/lib/navBadgeState";
 
 export const RANKS = [
-  { name: "UNRANKED",     min: -1,   max: -1,      color: "#FF33FF", img: undefined,        scale: 1     },
-  { name: "NOVICE",         min: 0,    max: 500,  color: "#9CA3AF", img: "/novice.svg",       scale: 1.3   },
-  { name: "ADVANCED",     min: 500,  max: 1000, color: "#60A5FA", img: "/advanced.svg",     scale: 1.3   },
-  { name: "PROFESSIONAL", min: 1000, max: 1500, color: "#A78BFA", img: "/professional.png?v=8", scale: 0.741   },
-  { name: "EMERALD",      min: 1500, max: 2000, color: "#10B981", img: "/emerald.svg",      scale: 1.495 },
-  { name: "MASTER",       min: 2000, max: 2500, color: "#FF3333", img: "/master.png?v=3"                     },
+  { name: "UNRANKED",     min: -1,   max: -1,      color: "#FF33FF", img: undefined,               scale: 1     },
+  { name: "NOVICE",       min: 0,    max: 500,     color: "#9CA3AF", img: "/novice.png?v=1",       scale: 1.3   },
+  { name: "ADVANCED",     min: 500,  max: 1000,    color: "#60A5FA", img: "/advanced.png?v=1",     scale: 1.3   },
+  { name: "PROFESSIONAL", min: 1000, max: 1500,    color: "#A78BFA", img: "/professional.png?v=10", scale: 0.741 },
+  { name: "EMERALD",      min: 1500, max: 2000,    color: "#10B981", img: "/emerald.png?v=1",      scale: 1.495 },
+  { name: "MASTER",       min: 2000, max: 2500,    color: "#FF3333", img: "/master.png?v=3"                     },
   { name: "LEGEND",       min: 2500, max: 1000000, color: "#F59E0B", img: "/legend.png?v=3"                     },
 ];
 

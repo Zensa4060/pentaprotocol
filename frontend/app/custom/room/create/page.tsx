@@ -26,6 +26,7 @@ export default function CustomRoomCreatePage() {
         boardMode={ctx.boardMode}
         onBoardModeAction={ctx.setBoardMode}
         initialRoomSection="create"
+        forcedPhase="select"
       />
     </AuthGuard>
   );

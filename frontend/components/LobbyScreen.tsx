@@ -51,7 +51,7 @@ interface Props {
   queuePhase?: "none" | "queuing" | "matchup";
   queueElapsed?: number;
   matchupOpponent?: any;
-  forcedPhase?: "none" | "queuing" | "matchup";
+  forcedPhase?: "none" | "queuing" | "matchup" | "select";
   queueError?: string | null;
   boardMode?: string;
   onBoardModeAction?: (mode: any) => void;
@@ -90,7 +90,15 @@ export default function LobbyScreen({
   const [localPhase, setLocalPhase] = useState<Phase>("select");
   const [showUnrankedOptions, setShowUnrankedOptions] = useState(false);
   const [showRankedOptions, setShowRankedOptions] = useState(false);
-  const phase: Phase = forcedPhase !== "none" ? forcedPhase : (propQueuePhase !== "none" ? propQueuePhase : localPhase);
+  // When the route explicitly forces a phase (including "select"), honor it
+  // unconditionally. This prevents short-lived re-renders on the old page
+  // while router navigation is in-flight from flashing the queue/matchup UI
+  // just before unmount, which was visible as a duplicate animation jump.
+  const phase: Phase =
+    forcedPhase === "select"   ? "select"
+    : forcedPhase === "queuing" ? "queuing"
+    : forcedPhase === "matchup" ? "matchup"
+    : (propQueuePhase !== "none" ? propQueuePhase : localPhase);
 
   const elapsed = propQueuePhase === "queuing" ? propQueueElapsed : 0;
   const [isMobile, setIsMobile] = useState(false);
