@@ -51,6 +51,24 @@ function sidebarDisplayName(raw?: string): string {
     .toUpperCase();
 }
 
+/**
+ * Label for game N in the multiplayer 10-game series.
+ * G3 = Rulebreaker, G6 = Timebreaker, G9 = Mindbreaker, G10 = Limitbreaker.
+ * For any non-MP (e.g. SP/AI BO3) series, falls back to plain `G{n}`.
+ */
+function gameSeriesLabel(gameNum: number, totalSlots: number): string {
+  if (totalSlots === 10) {
+    switch (gameNum) {
+      case 3:  return "RULEB";
+      case 6:  return "TIMEB";
+      case 9:  return "MINDB";
+      case 10: return "LIMITB";
+      default: return `G${gameNum}`;
+    }
+  }
+  return `G${gameNum}`;
+}
+
 // ─── Props ────────────────────────────────────────────────────────────────────
 
 interface MatchSidebarProps {
@@ -165,15 +183,18 @@ interface MatchSidebarProps {
 
 
 export function LeftPanel(props: MatchSidebarProps) {
-  const { t, ip, p1c, p2c, pieceSkin, p1RttMs, p2RttMs, panelW, phase, current, gameNumber, movesPlayed = 0, matchHistory, seriesWinner,
+  // SURRENDER / RESET controls and `movesPlayed` were intentionally removed
+  // from this panel — they now live in RightPanel so the chat area can
+  // expand freely and the close toggle stays unobstructed on the left.
+  const { t, ip, p1c, p2c, pieceSkin, p1RttMs, p2RttMs, panelW, phase, current, gameNumber, matchHistory, seriesWinner,
     gameMode, isRankedGame, isMultiplayerGame, isMultiplayer, mySlot, boardMode, selectedPatterns, rbBannedPatterns = [], patternsAsSecret = false, p1SeriesPts, p2SeriesPts,
     p1Time, p2Time, readyTimeout, p1Ready, p2Ready,
     chatMessages, chatInput, chatOpen, chatWarning, unreadOpponentChat = 0,
     p1Label, p2Label, p1Banner, p2Banner, winnerDisplayNameAction, lastSeries, segmentStartIndex = 0, historyDisplayStartIndex = 0,
-      onReadyToggle, onSendChat, onChatInputChange, onChatKeyDown, onChatOpenToggle,
-      onSoftReset, onShowSurrenderAction, onShowExitConfirmAction, fmtTimeAction, playHoverAction,
-      interGameReadyVisible, waitingReadyWarmup,
-      showPatternOverlay, onTogglePatternOverlay } = props;
+    onReadyToggle, onSendChat, onChatInputChange, onChatKeyDown, onChatOpenToggle,
+    fmtTimeAction, playHoverAction,
+    interGameReadyVisible, waitingReadyWarmup,
+    showPatternOverlay, onTogglePatternOverlay } = props;
 
   const getName = (w: string | null) => winnerDisplayNameAction ? winnerDisplayNameAction(w) : (w ?? "");
   const showInterGameReady = interGameReadyVisible ?? (phase === "waiting_ready");
@@ -182,7 +203,6 @@ export function LeftPanel(props: MatchSidebarProps) {
   const historySlots = gameMode === "ai" || gameMode === "singleplayer" ? 3 : 10;
   const localBo3 = gameMode === "ai" || gameMode === "singleplayer";
   const localWins = localBo3 ? localBo3WinCounts(matchHistory) : null;
-  const isPreMoveAbort = isRankedGame && gameNumber === 1 && (movesPlayed ?? 0) === 0;
   const useFlameSkull = pieceSkin === "flame_skull";
   const useSnowflakeShard = pieceSkin === "snowflake_shard";
   const chatListRef = React.useRef<HTMLDivElement | null>(null);
@@ -352,7 +372,7 @@ export function LeftPanel(props: MatchSidebarProps) {
                 const col = r === "P1" ? p1c : r === "P2" ? p2c : r === "DRAW" ? t.gold : t.textMuted;
                 return (
                   <div key={i} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
-                    <div style={{ fontFamily: t.fontMono, fontSize: 9, color: t.textMuted }}>G{i + 1}</div>
+                    <div style={{ fontFamily: t.fontMono, fontSize: 9, color: t.textMuted }}>{gameSeriesLabel(i + 1, lastSeries.history.length)}</div>
                     <div style={{ width: 22, height: 4, borderRadius: 2, background: r ? col : "#222", border: `1px solid ${r ? col : "#333"}`, boxShadow: r ? `0 0 5px ${col}55` : "none" }} />
                     <div style={{ fontFamily: t.fontMono, fontSize: 9, fontWeight: 700, color: r ? col : t.textMuted }}>{r || "—"}</div>
                   </div>
@@ -375,7 +395,7 @@ export function LeftPanel(props: MatchSidebarProps) {
             return (
               <React.Fragment key={i}>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr auto", fontFamily: t.fontBody, fontSize: 22, padding: "6px 0", borderBottom: `1px solid ${t.border}22`, opacity: 1 }}>
-                  <span style={{ color: isCur ? t.accent : t.textMuted, transition: "color 0.2s" }}>G{absoluteGame}{isCur ? " *" : ""}</span>
+                  <span style={{ color: isCur ? t.accent : t.textMuted, transition: "color 0.2s" }}>{gameSeriesLabel(absoluteGame, historySlots)}{isCur ? " *" : ""}</span>
                   <span style={{ color: col, fontWeight: result ? 700 : 400, transition: "color 0.2s" }}>{result || "—"}</span>
                 </div>
               </React.Fragment>
@@ -507,22 +527,59 @@ export function LeftPanel(props: MatchSidebarProps) {
           </div>
         </div>
       )}
-      {(phase === "playing" || phase === "waiting_ready") && (
-        isRankedGame ? (
-          <button onClick={onShowSurrenderAction} style={isPreMoveAbort ? { background: `${t.border}22`, border: `1px solid ${t.border}`, color: t.textSecondary, fontFamily: t.fontBody, fontSize: 13, padding: 9, borderRadius: ip ? 2 : 6, cursor: "pointer", transition: "all 0.2s" } : { background: `${t.danger}16`, border: `1px solid ${t.danger}`, color: t.danger, fontFamily: t.fontBody, fontSize: 13, padding: 9, borderRadius: ip ? 2 : 6, cursor: "pointer", transition: "all 0.2s" }} onMouseEnter={e => { playHoverAction?.(); if (isPreMoveAbort) { e.currentTarget.style.background = `${t.border}40`; } else { e.currentTarget.style.background = `${t.danger}30`; } }} onMouseLeave={e => { if (isPreMoveAbort) { e.currentTarget.style.background = `${t.border}22`; } else { e.currentTarget.style.background = `${t.danger}16`; } }}>{isPreMoveAbort ? "ABORT" : "SURRENDER"}</button>
-        ) : isMultiplayer ? null : (
-          <button onClick={onSoftReset} style={{ background: `${t.danger}16`, border: `1px solid ${t.danger}`, color: t.danger, fontFamily: t.fontBody, fontSize: 13, padding: 9, borderRadius: ip ? 2 : 6, cursor: "pointer", transition: "all 0.2s" }}>RESET</button>
-        )
-      )}
+      {/* SURRENDER / RESET moved to RightPanel so the left panel's CHAT area is free to
+          expand and keep its close/toggle control visible. */}
     </div>
   );
 }
 
-export function RightPanel({ t, ip, p1c, p2c, panelW, phase, log, isRankedGame, setScreenAction, onShowExitConfirmAction, playHoverAction }: {
+export function RightPanel({
+  t, ip, p1c, p2c, panelW, phase, log, isRankedGame, setScreenAction,
+  onShowExitConfirmAction, playHoverAction,
+  isMultiplayer = false, isMultiplayerGame = false,
+  gameNumber = 1, movesPlayed = 0,
+  onShowSurrenderAction, onSoftResetAction,
+}: {
   t: MatchSidebarProps["t"]; ip: boolean; p1c: string; p2c: string; panelW: number;
   phase: Phase; log: { text: string; player: string }[]; isRankedGame: boolean;
   setScreenAction?: (s: Screen) => void; onShowExitConfirmAction: () => void; playHoverAction?: () => void;
+  isMultiplayer?: boolean; isMultiplayerGame?: boolean;
+  gameNumber?: number; movesPlayed?: number;
+  onShowSurrenderAction?: () => void; onSoftResetAction?: () => void;
 }) {
+  const isPreMoveAbort = isRankedGame && gameNumber === 1 && (movesPlayed ?? 0) === 0;
+  const showSurrenderOrReset = phase === "playing" || phase === "waiting_ready";
+  const renderSurrenderOrReset = () => {
+    if (!showSurrenderOrReset) return null;
+    if (isRankedGame) {
+      if (!onShowSurrenderAction) return null;
+      return (
+        <button
+          onClick={onShowSurrenderAction}
+          style={
+            isPreMoveAbort
+              ? { background: `${t.border}22`, border: `1px solid ${t.border}`, color: t.textSecondary, fontFamily: t.fontBody, fontSize: 13, padding: 9, borderRadius: ip ? 2 : 6, cursor: "pointer", transition: "all 0.2s" }
+              : { background: `${t.danger}16`, border: `1px solid ${t.danger}`, color: t.danger, fontFamily: t.fontBody, fontSize: 13, padding: 9, borderRadius: ip ? 2 : 6, cursor: "pointer", transition: "all 0.2s" }
+          }
+          onMouseEnter={e => { playHoverAction?.(); e.currentTarget.style.background = isPreMoveAbort ? `${t.border}40` : `${t.danger}30`; }}
+          onMouseLeave={e => { e.currentTarget.style.background = isPreMoveAbort ? `${t.border}22` : `${t.danger}16`; }}
+        >
+          {isPreMoveAbort ? "ABORT" : "SURRENDER"}
+        </button>
+      );
+    }
+    if (isMultiplayer || isMultiplayerGame) return null;
+    if (!onSoftResetAction) return null;
+    return (
+      <button
+        onClick={onSoftResetAction}
+        style={{ background: `${t.danger}16`, border: `1px solid ${t.danger}`, color: t.danger, fontFamily: t.fontBody, fontSize: 13, padding: 9, borderRadius: ip ? 2 : 6, cursor: "pointer", transition: "all 0.2s" }}
+      >
+        RESET
+      </button>
+    );
+  };
+
   return (
     <div style={{ width: panelW, minWidth: panelW, maxWidth: 300, resize: "horizontal", overflowX: "hidden", direction: "rtl", flexShrink: 0, background: t.bgPanel, borderLeft: `${ip ? 3 : 1}px solid ${t.border}`, display: "flex", flexDirection: "column" }}>
       <div style={{ direction: "ltr", padding: "18px 18px", display: "flex", flexDirection: "column", gap: 10, overflowY: "auto", flex: 1 }}>
@@ -530,6 +587,7 @@ export function RightPanel({ t, ip, p1c, p2c, panelW, phase, log, isRankedGame, 
         <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 4 }}>
           {log.length === 0 ? <div style={{ fontFamily: t.fontBody, fontSize: 14, color: t.textMuted, fontStyle: "italic" }}>No moves yet</div> : log.slice().reverse().map((m, i) => <div key={i} style={{ fontFamily: t.fontMono, fontSize: 15, color: m.player === "P1" ? p1c : p2c, padding: "3px 0", borderBottom: `1px solid ${t.border}22` }}>{m.text}</div>)}
         </div>
+        {renderSurrenderOrReset()}
         {setScreenAction && !isRankedGame && (phase === "playing" || phase === "waiting_ready" || phase === "match_over") && (
           <button onClick={onShowExitConfirmAction} style={{ background: `${t.danger}16`, border: `1px solid ${t.danger}`, color: t.danger, fontFamily: t.fontBody, fontSize: 13, padding: 9, borderRadius: ip ? 2 : 6, cursor: "pointer", transition: "all 0.2s", marginTop: 4 }} onMouseEnter={e => { playHoverAction?.(); e.currentTarget.style.background = `${t.danger}30`; }} onMouseLeave={e => { e.currentTarget.style.background = `${t.danger}16`; }}>EXIT MATCH</button>
         )}
@@ -1104,7 +1162,7 @@ export function RematchOverlay({ show, isMultiplayerGame, t, ip, p1c, p2c, serie
                 const col = r === "P1" ? p1c : r === "P2" ? p2c : r === "DRAW" ? t.gold : "#444";
                 return (
                   <div key={i} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
-                    <div style={{ fontFamily: t.fontMono, fontSize: 9, color: t.textMuted, letterSpacing: "0.1em" }}>G{i + 1}</div>
+                    <div style={{ fontFamily: t.fontMono, fontSize: 9, color: t.textMuted, letterSpacing: "0.1em" }}>{gameSeriesLabel(i + 1, lastSeries.history.length)}</div>
                     <div style={{ width: 28, height: 5, borderRadius: 3, background: r ? col : "#2a2a2a", border: `1px solid ${r ? col : "#3a3a3a"}`, boxShadow: r ? `0 0 7px ${col}66` : "none", transition: "all 0.2s" }} />
                     <div style={{ fontFamily: t.fontMono, fontSize: 10, fontWeight: 700, color: r ? col : "#444" }}>{r || "—"}</div>
                   </div>

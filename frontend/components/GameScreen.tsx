@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { unstable_batchedUpdates } from "react-dom";
+import { unstable_batchedUpdates, createPortal } from "react-dom";
 import { PATTERN_METADATA_5, PATTERN_METADATA_6, PATTERN_METADATA_7, CORE_RULES_METADATA_5, CORE_RULES_METADATA_6, CORE_RULES_METADATA_7 } from "@/lib/patterns_metadata";
 import PatternDiagram from "./PatternDiagram";
 import { ThemeId, THEMES } from "@/lib/themes";
@@ -4404,10 +4404,19 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
         setScreenAction={setScreenAction}
         onShowExitConfirmAction={() => { playClickAction?.(); pausedRef.current = true; setShowExitConfirm(true); }}
         playHoverAction={playHoverAction}
+        isMultiplayer={isMultiplayerGame}
+        isMultiplayerGame={isMultiplayerGame}
+        gameNumber={gameNumber}
+        movesPlayed={movesPlayed}
+        onShowSurrenderAction={() => { playClickAction?.(); pausedRef.current = true; setShowSurrender(true); }}
+        onSoftResetAction={softReset}
       />
 
-      {/* ── Multiplayer: pattern + zoom buttons in the NavBar area ── */}
-      {isMultiplayerGame && liveSelectedPatterns.length > 0 && (
+      {/* ── Multiplayer: pattern + zoom buttons in the NavBar area ──
+          Rendered into document.body via a portal so they escape this
+          component's `zIndex: 2` stacking context and sit above the NavBar
+          (`zIndex: 200`) rather than being painted under it. */}
+      {isMultiplayerGame && liveSelectedPatterns.length > 0 && typeof document !== "undefined" && createPortal(
         <div
           style={{
             position: "fixed",
@@ -4415,7 +4424,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
             left: "50%",
             transform: "translateX(-50%)",
             height: 64,
-            zIndex: 201,
+            zIndex: 10000,
             display: "flex",
             alignItems: "center",
             gap: 10,
@@ -4472,7 +4481,8 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
           >
             {boardZoom ? "ZOOM ×1" : "ZOOM ×2"}
           </button>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ── Pattern overlay: translucent full-screen showing active patterns ── */}

@@ -340,9 +340,8 @@ export default function GameWinScreen({
                   QUIT GAME
                 </button>
               </div>
-              <div style={{ fontFamily: t.fontMono, fontSize: 11, letterSpacing: "0.12em", color: t.textMuted }}>
-                {isRanked ? "ADVANCE FOR FULL RANKED BREAKDOWN OR ACT NOW." : "SERIES RESOLVED. CHOOSE YOUR NEXT MOVE."}
-              </div>
+              {/* Tagline intentionally removed — space reserved below the button row. */}
+              <div style={{ height: 22 }} aria-hidden />
             </motion.div>
           )}
         </AnimatePresence>
