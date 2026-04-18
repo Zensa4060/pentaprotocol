@@ -614,7 +614,7 @@ export default function NavBar({
             />
           </div>
 
-          {mounted && (
+          {mounted && !lockMultiplayerNav && (
             <div
               title="PentaShards: earn rewards from missions and events to redeem free skins in the Store."
               style={{ display: "flex", alignItems: "center", gap: 4, fontFamily: t.fontMono, fontSize: CURRENCY_FONT, fontWeight: 700 }}
@@ -666,8 +666,10 @@ export default function NavBar({
         {/* ── RIGHT: currency + settings + hamburger ── */}
         <div style={{ display: "flex", alignItems: "center", gap: isTablet ? 12 : 20, flexShrink: 0, marginLeft: "auto" }}>
 
-          {/* Currencies — show everywhere since sizing is increased */}
-          {mounted && (
+          {/* Currencies — hidden in multiplayer (lockMultiplayerNav) so the
+              bar shows only the PentaProtocol logo on the left and Settings
+              on the right during a live match. */}
+          {mounted && !lockMultiplayerNav && (
             <div
               title="ProtoCredits: premium currency to buy skins, themes, and bundles in the Store."
               style={{ display: "flex", alignItems: "center", gap: 4, fontFamily: t.fontMono, fontSize: CURRENCY_FONT, fontWeight: 700 }}

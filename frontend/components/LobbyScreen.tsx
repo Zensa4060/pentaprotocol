@@ -308,103 +308,247 @@ export default function LobbyScreen({
     }
   };
 
-  /** Japanese sumi-e / calligraphy "VS" rendered with the Google Font
-   *  `Yuji Boku` — a bold ink-brush face that looks hand-painted out of the
-   *  box. Each glyph wipes in left-to-right via a clip-path mask to simulate
-   *  the brush laying the ink down in a single sweep. A deep drop-shadow and
-   *  a subtle dark text-shadow emulate ink bleed into paper fibres. */
+  /** Sumi-e "VS" — direct port of the canvas animation provided by the user.
+   *  A single 820×480 canvas renders:
+   *    • V as two tapered brush strokes (left + right arm)
+   *    • S as three continuous brush strokes (top, middle, bottom)
+   *    • A handful of small ink drips with teardrop tips
+   *    • A 対決印 ("VS seal") square that pops in with a back-ease
+   *  Everything is painted in pure ink (#080604) with round joins/caps so the
+   *  letters look hand-painted against the cream match-found backdrop. The
+   *  canvas's internal logical size stays at 820×480; display size is driven
+   *  by the `size` prop and preserves aspect ratio. */
   const SketchVS = React.memo(({ size }: { size: number }) => {
-    // Font stack: Yuji Boku (bold brush), then Yuji Mai (thinner brush) then
-    // Shippori Mincho B1 (heavy serif with brush edges), then system serifs.
-    const BRUSH_STACK = "'Yuji Boku','Yuji Mai','Shippori Mincho B1','Noto Serif JP',serif";
-    const INK = "#0A0A0A";
+    const canvasRef = useRef<HTMLCanvasElement | null>(null);
+
+    useEffect(() => {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+
+      const W = 820;
+      const H = 480;
+      const BLACK = "#080604";
+      const dpr = typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1;
+
+      canvas.width = W * dpr;
+      canvas.height = H * dpr;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+      const easeOut3 = (t: number) => 1 - Math.pow(1 - t, 3);
+      const easeInOut = (t: number) =>
+        t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+      const easeOutBack = (t: number) => {
+        const c = 1.70158;
+        const c3 = c + 1;
+        return 1 + c3 * Math.pow(t - 1, 3) + c * Math.pow(t - 1, 2);
+      };
+
+      const cubic = (
+        p0: [number, number],
+        p1: [number, number],
+        p2: [number, number],
+        p3: [number, number],
+        n: number,
+      ): [number, number][] => {
+        const out: [number, number][] = [];
+        for (let i = 0; i <= n; i++) {
+          const t = i / n;
+          const mt = 1 - t;
+          out.push([
+            mt * mt * mt * p0[0] + 3 * mt * mt * t * p1[0] + 3 * mt * t * t * p2[0] + t * t * t * p3[0],
+            mt * mt * mt * p0[1] + 3 * mt * mt * t * p1[1] + 3 * mt * t * t * p2[1] + t * t * t * p3[1],
+          ]);
+        }
+        return out;
+      };
+
+      const drawStroke = (
+        pts: [number, number][],
+        widths: number[],
+        progress: number,
+      ) => {
+        if (pts.length < 2 || progress <= 0) return;
+        const n = Math.max(2, Math.floor(pts.length * progress));
+        const p = pts.slice(0, n);
+        const w = widths.slice(0, n);
+
+        ctx.lineCap = "round";
+        ctx.lineJoin = "round";
+        ctx.strokeStyle = BLACK;
+        ctx.fillStyle = BLACK;
+        ctx.globalAlpha = 0.97;
+        for (let i = 1; i < p.length; i++) {
+          const ww = (w[i - 1] + w[i]) * 0.5;
+          ctx.lineWidth = ww;
+          ctx.beginPath();
+          ctx.moveTo(p[i - 1][0], p[i - 1][1]);
+          ctx.lineTo(p[i][0], p[i][1]);
+          ctx.stroke();
+        }
+      };
+
+      const drips = [
+        { x: 142, y: 310, delay: 1100, dur: 900, len: 28, w: 3.5 },
+        { x: 236, y: 298, delay: 1300, dur: 800, len: 18, w: 2.5 },
+        { x: 190, y: 348, delay: 1500, dur: 700, len: 22, w: 3.0 },
+        { x: 582, y: 285, delay: 1200, dur: 850, len: 20, w: 2.8 },
+        { x: 528, y: 272, delay: 1600, dur: 750, len: 15, w: 2.2 },
+      ];
+
+      const drawDrips = (elapsed: number) => {
+        ctx.save();
+        ctx.fillStyle = BLACK;
+        ctx.strokeStyle = BLACK;
+        ctx.lineCap = "round";
+        drips.forEach((d) => {
+          if (elapsed < d.delay) return;
+          const t = Math.min(1, (elapsed - d.delay) / d.dur);
+          const len = d.len * easeOut3(t);
+          ctx.globalAlpha = 0.72;
+          ctx.lineWidth = d.w;
+          ctx.beginPath();
+          ctx.moveTo(d.x, d.y);
+          ctx.lineTo(d.x, d.y + len);
+          ctx.stroke();
+          const bulb = d.w * 0.9;
+          ctx.globalAlpha = 0.78;
+          ctx.beginPath();
+          ctx.arc(d.x, d.y + len, bulb, 0, Math.PI * 2);
+          ctx.fill();
+        });
+        ctx.restore();
+      };
+
+      // ── V geometry (two tapered arms meeting at the bottom) ───────────────
+      const vLP = cubic([108, 62], [132, 168], [172, 278], [190, 348], 46);
+      const vLW = vLP.map((_, i) => {
+        const t = i / 46;
+        return 74 * (1 - t * 0.63) + 18;
+      });
+      const vRP = cubic([328, 62], [302, 168], [232, 278], [190, 348], 46);
+      const vRW = vRP.map((_, i) => {
+        const t = i / 46;
+        return 74 * (1 - t * 0.63) + 18;
+      });
+
+      // ── S geometry (three brush strokes in one continuous motion) ─────────
+      const OX = 182;
+      const OY = 25;
+      const sTP = cubic([462, 102], [470, 54], [336, 44], [316, 98], 40).map(
+        ([x, y]) => [x + OX, y + OY] as [number, number],
+      );
+      const sTW = sTP.map((_, i) => {
+        const t = i / 40;
+        return 62 * (1 - Math.abs(t - 0.5) * 0.92) + 16;
+      });
+      const sMP = cubic([316, 98], [306, 148], [416, 163], [455, 210], 28).map(
+        ([x, y]) => [x + OX, y + OY] as [number, number],
+      );
+      const sMW = sMP.map((_, i) => {
+        const t = i / 28;
+        return 24 + t * 32;
+      });
+      const sBP = cubic([455, 210], [472, 258], [332, 302], [302, 260], 40).map(
+        ([x, y]) => [x + OX, y + OY] as [number, number],
+      );
+      const sBW = sBP.map((_, i) => {
+        const t = i / 40;
+        return 62 * (1 - Math.abs(t - 0.5) * 0.92) + 16;
+      });
+
+      // ── Seal: 対決印 panel that pops in at the end ─────────────────────────
+      const drawSeal = (alpha: number, scale: number) => {
+        const sx = 664;
+        const sy = 298;
+        const sw = 78;
+        const sh = 78;
+        ctx.save();
+        ctx.globalAlpha = alpha;
+        ctx.translate(sx + sw / 2, sy + sh / 2);
+        ctx.scale(scale, scale);
+        ctx.translate(-(sx + sw / 2), -(sy + sh / 2));
+        ctx.fillStyle = BLACK;
+        // roundRect isn't available in older browsers; fall back to a regular
+        // rect so the seal still renders cleanly on any engine.
+        ctx.beginPath();
+        const rr = (ctx as any).roundRect?.bind(ctx);
+        if (rr) rr(sx, sy, sw, sh, 3);
+        else ctx.rect(sx, sy, sw, sh);
+        ctx.fill();
+        ctx.strokeStyle = "rgba(242,237,228,0.38)";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        if (rr) rr(sx + 5, sy + 5, sw - 10, sh - 10, 2);
+        else ctx.rect(sx + 5, sy + 5, sw - 10, sh - 10);
+        ctx.stroke();
+        ctx.fillStyle = "#f2ede4";
+        ctx.font = '900 13px Georgia,serif';
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        (
+          [
+            ["対", sy + 17],
+            ["決", sy + 39],
+            ["印", sy + 61],
+          ] as const
+        ).forEach(([ch, y]) => ctx.fillText(ch as string, sx + sw / 2, y as number));
+        ctx.restore();
+      };
+
+      // ── Animation loop ───────────────────────────────────────────────────
+      let startTime = 0;
+      let raf = 0;
+      const TOTAL = 2700;
+      const prog = (delay: number, dur: number, elapsed: number) =>
+        elapsed < delay ? 0 : easeInOut(Math.min(1, (elapsed - delay) / dur));
+
+      const frame = (ts: number) => {
+        if (!startTime) startTime = ts;
+        const el = ts - startTime;
+
+        ctx.clearRect(0, 0, W, H);
+
+        ctx.save();
+        // V and the top of S start immediately (t=0), middle S at 720ms,
+        // bottom S at 920ms — mirrors the original snippet exactly.
+        drawStroke(vLP, vLW, prog(0, 940, el));
+        drawStroke(vRP, vRW, prog(0, 940, el));
+        drawStroke(sTP, sTW, prog(0, 940, el));
+        drawStroke(sMP, sMW, prog(720, 400, el));
+        drawStroke(sBP, sBW, prog(920, 940, el));
+        ctx.restore();
+
+        drawDrips(el);
+
+        const st = Math.max(0, Math.min(1, (el - 2200) / 420));
+        if (st > 0) drawSeal(st, easeOutBack(st));
+
+        if (el < TOTAL + 400) raf = requestAnimationFrame(frame);
+      };
+
+      raf = requestAnimationFrame(frame);
+      return () => cancelAnimationFrame(raf);
+    }, []);
+
+    // Preserve the original 820:480 aspect ratio while scaling to the
+    // requested display width. The height derives from the aspect so the
+    // layout never stretches the art.
+    const displayWidth = size;
+    const displayHeight = size * (480 / 820);
 
     return (
-      <div
+      <canvas
+        ref={canvasRef}
         aria-hidden="true"
         style={{
-          position: "relative",
-          width: size,
-          height: size * 0.95,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          lineHeight: 1,
-          color: INK,
-          fontFamily: BRUSH_STACK,
-          fontWeight: 900,
-          fontStyle: "italic",
-          letterSpacing: "-0.02em",
-          filter:
-            "drop-shadow(0 6px 10px rgba(0,0,0,0.45)) drop-shadow(0 2px 2px rgba(0,0,0,0.35)) contrast(1.12)",
-          willChange: "transform, opacity",
+          width: displayWidth,
+          height: displayHeight,
+          display: "block",
+          filter: "drop-shadow(0 8px 14px rgba(0,0,0,0.18))",
         }}
-      >
-        {/* Subtle ink splatter dot near the V, hand-drawn sumi-e accent. */}
-        <span
-          className="vs-ink-splat"
-          style={{
-            position: "absolute",
-            left: "18%",
-            top: "8%",
-            width: size * 0.035,
-            height: size * 0.035,
-            borderRadius: "50%",
-            background: INK,
-            opacity: 0.55,
-            transform: "scale(0)",
-          }}
-        />
-        <span
-          className="vs-ink-splat vs-ink-splat-2"
-          style={{
-            position: "absolute",
-            right: "22%",
-            bottom: "12%",
-            width: size * 0.022,
-            height: size * 0.022,
-            borderRadius: "50%",
-            background: INK,
-            opacity: 0.45,
-            transform: "scale(0)",
-          }}
-        />
-
-        {/* The V — heavy brush italic, wipes in first. */}
-        <span
-          className="vs-glyph vs-glyph-v"
-          style={{
-            fontSize: size * 0.9,
-            fontFamily: BRUSH_STACK,
-            fontWeight: 900,
-            textShadow:
-              `0 0 2px ${INK}, 1px 0 0 ${INK}, -1px 0 0 ${INK}, 0 1px 0 ${INK}, 0 -1px 0 ${INK}`,
-            transform: "rotate(-4deg)",
-            transformOrigin: "50% 70%",
-            marginRight: size * 0.02,
-            display: "inline-block",
-          }}
-        >
-          V
-        </span>
-
-        {/* The S — slightly smaller, flipped-angle, wipes in after. */}
-        <span
-          className="vs-glyph vs-glyph-s"
-          style={{
-            fontSize: size * 0.82,
-            fontFamily: BRUSH_STACK,
-            fontWeight: 900,
-            textShadow:
-              `0 0 2px ${INK}, 1px 0 0 ${INK}, -1px 0 0 ${INK}, 0 1px 0 ${INK}, 0 -1px 0 ${INK}`,
-            transform: "rotate(3deg) translateY(4%)",
-            transformOrigin: "50% 60%",
-            display: "inline-block",
-          }}
-        >
-          S
-        </span>
-      </div>
+      />
     );
   });
   SketchVS.displayName = "SketchVS";
@@ -766,33 +910,6 @@ export default function LobbyScreen({
           @keyframes slideInLeft    { from{opacity:0;transform:translate3d(-80px,0,0) scale(.94)} to{opacity:1;transform:translate3d(0,0,0) scale(1)} }
           @keyframes slideInRight   { from{opacity:0;transform:translate3d(80px,0,0)  scale(.94)} to{opacity:1;transform:translate3d(0,0,0) scale(1)} }
           @keyframes matchBarShrink { from{width:100%} to{width:0%} }
-
-          /* Sumi-e brush "VS": each glyph starts clipped to 0 width and is
-             wiped in left-to-right to feel like a single calligraphy stroke
-             laying ink on paper. The V is painted first, then the S. */
-          .vs-glyph {
-            opacity: 0;
-            clip-path: inset(0 100% 0 0);
-            -webkit-clip-path: inset(0 100% 0 0);
-            animation-fill-mode: forwards;
-            animation-timing-function: cubic-bezier(.35,.05,.2,1);
-          }
-          .vs-glyph-v { animation: vsBrushWipe 520ms 120ms forwards; }
-          .vs-glyph-s { animation: vsBrushWipe 560ms 720ms forwards; }
-          @keyframes vsBrushWipe {
-            0%   { opacity: 0; clip-path: inset(0 100% 0 0); -webkit-clip-path: inset(0 100% 0 0); }
-            15%  { opacity: 1; }
-            100% { opacity: 1; clip-path: inset(0 0 0 0);    -webkit-clip-path: inset(0 0 0 0);    }
-          }
-
-          /* Small ink splatter dots that pop in after the strokes finish. */
-          .vs-ink-splat   { animation: vsSplat 320ms 1200ms cubic-bezier(.34,1.6,.64,1) forwards; }
-          .vs-ink-splat-2 { animation: vsSplat 320ms 1360ms cubic-bezier(.34,1.6,.64,1) forwards; }
-          @keyframes vsSplat {
-            0%   { transform: scale(0);   opacity: 0; }
-            70%  { transform: scale(1.15); opacity: 0.7; }
-            100% { transform: scale(1);   opacity: 0.55; }
-          }
         `}</style>
       </div>
     );
