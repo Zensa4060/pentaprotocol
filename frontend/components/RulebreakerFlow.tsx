@@ -2,7 +2,6 @@
 import React from "react";
 import { Piece as GamePieceComp, CoinFace, TossCard } from "./GamePieces";
 import type { Phase } from "./GamePieces";
-import { RANKS, NavRankBadge, getRank } from "./NavBar";
 import { WraithKingCoinToss } from "./WraithKingCoinToss";
 
 export const PHASE_TIMERS: Partial<Record<Phase, number>> = {
@@ -1055,11 +1054,6 @@ export function RulebreakerFlow({
             const isMe = isMultiplayerGame && p === mySlot;
             const firstSlotFromFp = fp === "P1" || fp === "P2" ? fp : "P1";
 
-            // Only show rank icons in multiplayer, and only when we actually know each player's ELO.
-            const playerElo = isMultiplayerGame ? (p === "P1" ? p1Elo : p2Elo) : undefined;
-            const getRankData = (elo: number) => RANKS.find(r => elo >= r.min && elo < r.max) || RANKS[RANKS.length - 1];
-            const rank = (typeof playerElo === "number") ? getRankData(playerElo) : null;
-
             const isWhoFirst = choice.includes("PLAYS FIRST");
             const isBanned = choice.includes("BANNED");
             const bannedLabelOnly = is7x7 && rbBannedPatterns.length > 0 ? rbBannedPatterns.map(p => PATTERN_LABELS_SUMMARY[p] || p.toUpperCase()).join(", ") : "";
@@ -1076,12 +1070,54 @@ export function RulebreakerFlow({
               }}>
                 <div style={{ fontFamily: t.fontDisplay, fontSize: 64, fontWeight: 950, color: col, marginBottom: 8, textShadow: `0 0 30px ${col}66` }}>{nameOf(p)}</div>
 
-                {/* Rank Logo below name */}
-                {rank && (
-                  <div style={{ display: "flex", justifyContent: "center", marginBottom: 20 }}>
-                    <NavRankBadge rank={rank} size={120} isPlacement={p === "P1" ? p1IsPlacement : p2IsPlacement} />
+                {/* Big rule-name banner replaces the rank logo showcase.
+                    Fills the vertical space with a punchy one-line label so
+                    the card visually advertises *what* each side chose. */}
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "center",
+                    alignItems: "center",
+                    margin: "16px 0 22px",
+                    padding: "14px 20px",
+                    borderRadius: 16,
+                    border: `2px solid ${col}55`,
+                    background: `linear-gradient(135deg, ${col}12, rgba(0,0,0,0.55))`,
+                    boxShadow: `0 0 30px ${col}22, inset 0 0 18px rgba(0,0,0,0.55)`,
+                    minHeight: 96,
+                  }}
+                >
+                  <div
+                    style={{
+                      fontFamily: t.fontDisplay,
+                      fontSize: "clamp(28px, 3.2vw, 46px)",
+                      fontWeight: 950,
+                      letterSpacing: "0.08em",
+                      color: col,
+                      textAlign: "center" as const,
+                      textTransform: "uppercase" as const,
+                      textShadow: `0 0 22px ${col}99, 0 0 4px rgba(0,0,0,0.7)`,
+                      lineHeight: 1.1,
+                    }}
+                  >
+                    {(() => {
+                      if (is7x7) {
+                        if (winnerPickedRule === "extra_turn") {
+                          return isWinner ? "EXTRA TURN TOKEN" : "PLAYS FIRST";
+                        }
+                        if (winnerPickedRule === "ban") {
+                          return isWinner ? "PATTERNS BANNED" : "PLAYS FIRST";
+                        }
+                      }
+                      if (is6x6) {
+                        return isWinner ? "TIMER & SPECIAL CELL" : "PLAYS FIRST";
+                      }
+                      if (isWhoFirst) return "PLAYS FIRST";
+                      if (isBanned) return "CENTER BLOCKED";
+                      return "RULE SELECTED";
+                    })()}
                   </div>
-                )}
+                </div>
 
                 <div style={{ display: "flex", justifyContent: "center", gap: 12, marginBottom: 20 }}>
                   <div style={{ fontFamily: t.fontMono, fontSize: 12, color: t.textMuted, letterSpacing: "0.2em", textTransform: "uppercase" }}>{isWinner ? "Toss Winner" : "Toss Loser"}</div>

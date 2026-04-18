@@ -668,6 +668,10 @@ export default function AppShell({ children }: { children: ReactNode }) {
           avatar: poll.data[`${prefix}_avatar`] ?? null,
           banner: poll.data[`${prefix}_banner`] ?? poll.data[`${prefix}_banner_style`] ?? "default",
           level: poll.data[`${prefix}_level`] ?? 1,
+          // Needed by LobbyScreen to decide whether to hide opponent ELO
+          // (placement period = < 5 ranked games played). Defaulting to a
+          // post-placement value prevents every opponent from showing as "?".
+          placement_matches: poll.data[`${prefix}_placement_matches`] ?? 5,
         };
         setMatchupOpponent(opp);
         setQueuePhase("matchup");
@@ -740,6 +744,9 @@ export default function AppShell({ children }: { children: ReactNode }) {
           avatar: room[`${prefix}_avatar`] ?? null,
           banner: room[`${prefix}_banner`] ?? room[`${prefix}_banner_style`] ?? "default",
           level: room[`${prefix}_level`] ?? 1,
+          // See note above: default to 5 so finished-placement opponents
+          // actually show their real ELO on the match-found screen.
+          placement_matches: room[`${prefix}_placement_matches`] ?? 5,
         };
         setMatchupOpponent(opp);
         setQueuePhase("matchup");

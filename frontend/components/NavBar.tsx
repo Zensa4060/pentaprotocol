@@ -21,12 +21,12 @@ import {
 
 export const RANKS = [
   { name: "UNRANKED",     min: -1,   max: -1,      color: "#FF33FF", img: undefined,               scale: 1     },
-  { name: "NOVICE",       min: 0,    max: 500,     color: "#9CA3AF", img: "/novice.png?v=1",       scale: 1.3   },
-  { name: "ADVANCED",     min: 500,  max: 1000,    color: "#60A5FA", img: "/advanced.png?v=1",     scale: 1.3   },
-  { name: "PROFESSIONAL", min: 1000, max: 1500,    color: "#A78BFA", img: "/professional.png?v=10", scale: 0.741 },
-  { name: "EMERALD",      min: 1500, max: 2000,    color: "#10B981", img: "/emerald.png?v=1",      scale: 1.495 },
-  { name: "MASTER",       min: 2000, max: 2500,    color: "#FF3333", img: "/master.png?v=3"                     },
-  { name: "LEGEND",       min: 2500, max: 1000000, color: "#F59E0B", img: "/legend.png?v=3"                     },
+  { name: "RISING HOUND", min: 0,    max: 500,     color: "#9CA3AF", img: "/novice.png?v=2",       scale: 1.3   },
+  { name: "FERAL LYNX",   min: 500,  max: 1000,    color: "#60A5FA", img: "/advanced.png?v=2",     scale: 1.3   },
+  { name: "ANCIENT LION", min: 1000, max: 1500,    color: "#A78BFA", img: "/professional.png?v=11", scale: 0.741 },
+  { name: "MYTHIC SERPENT", min: 1500, max: 2000,    color: "#10B981", img: "/emerald.png?v=2",      scale: 1.495 },
+  { name: "RED DRAGON",   min: 2000, max: 2500,    color: "#FF3333", img: "/master.png?v=5"                     },
+  { name: "LEGENDARY EAGLE", min: 2500, max: 1000000, color: "#F59E0B", img: "/legend.png?v=3"                     },
 ];
 
 export const getRank = (elo: number, isPlacement: boolean = false) => {
@@ -40,12 +40,12 @@ export const getRank = (elo: number, isPlacement: boolean = false) => {
  */
 export function rankGlowTierFraction(rank: { name: string }): number {
   const T: Record<string, number> = {
-    NOVICE: 0.01,
-    ADVANCED: 0.2,
-    PROFESSIONAL: 0.4,
-    EMERALD: 0.6,
-    MASTER: 0.8,
-    LEGEND: 1,
+    "RISING HOUND": 0.01,
+    "FERAL LYNX": 0.2,
+    "ANCIENT LION": 0.4,
+    "MYTHIC SERPENT": 0.6,
+    "RED DRAGON": 0.8,
+    "LEGENDARY EAGLE": 1,
     UNRANKED: 0.6,
   };
   return T[rank.name] ?? 0.01;
@@ -55,12 +55,19 @@ export function rankGlowTierFraction(rank: { name: string }): number {
 const LEGEND_GLOW_REF = 0.75;
 const GLOW_GLOBAL = 0.95;
 const MASTER_LEGEND_GLOW_HALF = 0.5;
+/** Extra +20% glow applied only to the top two ranks (Master & Legend).
+ *  Multiplies both the drop-shadow filter strength and the halo gradient
+ *  intensity so the effect shows up consistently wherever the rank emblem
+ *  is rendered. */
+const TOP_RANK_GLOW_BOOST = 1.2;
 
-/** Final glow strength for filters / halos (all ranks −5%; Master & Legend −50% more) */
+/** Final glow strength for filters / halos (all ranks −5%; Master & Legend −50% more, then +20% extra). */
 export function rankGlowVisualStrength(rank: { name: string }): number {
   const tier = rankGlowTierFraction(rank);
   let m = LEGEND_GLOW_REF * GLOW_GLOBAL;
-  if (rank.name === "MASTER" || rank.name === "LEGEND") m *= MASTER_LEGEND_GLOW_HALF;
+  if (rank.name === "RED DRAGON" || rank.name === "LEGENDARY EAGLE") {
+    m *= MASTER_LEGEND_GLOW_HALF * TOP_RANK_GLOW_BOOST;
+  }
   return tier * m;
 }
 
@@ -85,8 +92,11 @@ export function buildRankEmblemGlowFilter(color: string, strength: number): stri
 
 export function rankHaloGradientForRank(color: string, rank: { name: string }): string {
   const tier = rankGlowTierFraction(rank);
+  const isTopRank = rank.name === "RED DRAGON" || rank.name === "LEGENDARY EAGLE";
   const scale =
-    tier * GLOW_GLOBAL * (rank.name === "MASTER" || rank.name === "LEGEND" ? MASTER_LEGEND_GLOW_HALF : 1);
+    tier *
+    GLOW_GLOBAL *
+    (isTopRank ? MASTER_LEGEND_GLOW_HALF * TOP_RANK_GLOW_BOOST : 1);
   if (scale < 0.002) return "transparent";
   const c = color.length >= 7 ? color.slice(0, 7) : color;
   return `radial-gradient(circle, ${c}${hx(0x40 * scale)} 0%, ${c}${hx(0x19 * scale)} 38%, transparent 68%)`;
@@ -123,7 +133,7 @@ export const NavRankBadge = ({ rank, size = 30, isPlacement = false }: { rank: t
             width: "135%",
             height: "135%",
             borderRadius: "50%",
-            background: rankHaloGradientForRank(isPlacement ? placementCol : rank.color, isPlacement ? { name: "LEGEND" } as any : rank),
+            background: rankHaloGradientForRank(isPlacement ? placementCol : rank.color, isPlacement ? { name: "LEGENDARY EAGLE" } as any : rank),
             pointerEvents: "none",
             zIndex: 0,
             animation: "rankHaloPulse 2.6s ease-in-out infinite",
@@ -189,8 +199,6 @@ export default function NavBar({
   const t = THEMES[themeId as keyof typeof THEMES];
   const { user, logout } = useAuthStore();
   const isGuest = !user;
-  const isPlacement = (user as any)?.placement_matches < 5;
-  const rank = getRank(user?.elo ?? 0);
 
   const [showSignOut, setShowSignOut]   = useState(false);
   const [focusMode, setFocusMode]       = useState(false);
@@ -390,7 +398,6 @@ export default function NavBar({
   const BTN_FONT    = isMobile ? 13 : isTablet ? 14 : "clamp(14px, 1.25vw, 17.5px)";
   // Setting ICON size directly relative to Nav Base Height (nearly as big as navbar)
   const ICON_SIZE   = Math.floor(NAV_H * 0.85); 
-  const BADGE_SIZE  = isMobile ? 28 : isTablet ? 32 : 38;
   const CURRENCY_SZ = isMobile ? 40 : isTablet ? 48 : 60; // 100% larger
   const CURRENCY_FONT = isMobile ? 18 : isTablet ? 24 : 28; // Increased font size
 
@@ -447,7 +454,7 @@ export default function NavBar({
           transition:    "color 0.15s, border-color 0.15s, background 0.15s, padding 0.2s",
           height:        NAV_H,
           display:       "flex", alignItems: "center",
-          opacity:       effectiveDisabled ? 0.4 : locked ? 0.6 : 1,
+          opacity:       navHardLocked ? 0 : effectiveDisabled ? 0.4 : locked ? 0.6 : 1,
           whiteSpace:    "nowrap" as const,
           textTransform: "uppercase" as const,
           textShadow:    (isActive || isHovered)
@@ -505,7 +512,7 @@ export default function NavBar({
         height: RULES_INFO_SZ,
         borderRadius: "50%",
         cursor: lockMultiplayerNav ? "not-allowed" : "pointer",
-        opacity: lockMultiplayerNav ? 0.45 : 1,
+        opacity: lockMultiplayerNav ? 0 : 1,
         transition: "all 0.3s ease",
         display: "flex",
         alignItems: "center",
@@ -586,7 +593,7 @@ export default function NavBar({
             title="Home"
             style={{
               cursor: lockMultiplayerNav ? "not-allowed" : "pointer",
-              opacity: lockMultiplayerNav ? 0.45 : 1,
+              opacity: lockMultiplayerNav ? 0 : 1,
               pointerEvents: lockMultiplayerNav ? "none" : "auto",
               display: "flex",
               alignItems: "center",
@@ -707,7 +714,7 @@ export default function NavBar({
                 color: menuOpen ? t.accent : t.text,
                 padding: isMobile ? "7px 9px" : "9px 13px",
                 borderRadius: 9, cursor: lockMultiplayerNav ? "not-allowed" : "pointer",
-                opacity: lockMultiplayerNav ? 0.45 : 1,
+                opacity: lockMultiplayerNav ? 0 : 1,
                 transition: "all 0.2s",
                 display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4,
               }}
@@ -752,7 +759,7 @@ export default function NavBar({
                 padding: isMobile ? "14px 20px" : "16px 24px",
                 textAlign: "left" as const,
                 cursor: lockMultiplayerNav ? "not-allowed" : "pointer",
-                opacity: lockMultiplayerNav ? 0.45 : 1,
+                opacity: lockMultiplayerNav ? 0 : 1,
                 letterSpacing: "0.08em",
                 textTransform: "uppercase" as const,
                 textShadow: getActive(target) ? `0 0 10px ${t.accent}99` : "none",

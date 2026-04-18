@@ -308,56 +308,65 @@ export default function LobbyScreen({
     }
   };
 
-  /** Sketchy hand-drawn "VS" inspired by the reference art.
-   *  Rendered in pure SVG so it scales crisply on every viewport and can be
-   *  retinted with the ranked/unranked glow color without swapping assets.   */
-  const SketchVS = React.memo(({ color, size }: { color: string; size: number }) => {
-    const hex = color.startsWith("#") ? color : color;
+  /** Hand-drawn "VS" rendered as if a big black paint brush is writing the
+   *  letters live. Uses stroke-dasharray + stroke-dashoffset to animate each
+   *  path from 0% to 100% (classic "draw-on" effect). The V is drawn first,
+   *  then the S. Colour is locked to pure black so it reads crisply against
+   *  the cream backdrop of the match-found screen. */
+  const SketchVS = React.memo(({ size }: { size: number }) => {
+    const INK = "#0A0A0A";
+    // Dash lengths are tuned to be slightly larger than the actual path
+    // lengths so the entire stroke eventually becomes visible without any
+    // stray remainder at the end.
     return (
       <svg
         width={size}
-        height={size}
-        viewBox="0 0 240 240"
+        height={size * 0.66}
+        viewBox="0 0 360 240"
         fill="none"
         style={{
-          filter: `drop-shadow(0 0 28px ${hex}cc) drop-shadow(0 0 60px ${hex}66)`,
-          animation: "vsPop 620ms cubic-bezier(.2,.9,.2,1) both, vsPulse 2200ms ease-in-out infinite 700ms",
-          willChange: "transform, filter",
+          filter: "drop-shadow(0 4px 6px rgba(0,0,0,0.25))",
+          willChange: "transform",
+          animation: "vsFadeIn 500ms ease both",
         }}
         aria-hidden="true"
       >
-        {/* V — bold hand-drawn strokes that meet in a sharp bottom vertex */}
+        {/* V — single thick brush stroke with a slightly rough edge */}
         <path
-          d="M 22 28 C 28 70, 45 130, 78 186 C 84 196, 96 196, 104 186 C 128 152, 142 100, 152 48"
-          stroke={hex}
-          strokeWidth="22"
+          className="vs-draw vs-draw-v"
+          d="M 30 30 C 48 90, 80 160, 118 210 C 130 226, 150 224, 160 208 C 194 156, 218 90, 236 30"
+          stroke={INK}
+          strokeWidth="26"
           strokeLinecap="round"
           strokeLinejoin="round"
           fill="none"
         />
-        {/* V — sketchy secondary accent stroke to give the double-pen look */}
+        {/* V — faint secondary trailing stroke to evoke a bristly brush */}
         <path
-          d="M 34 44 C 40 80, 58 130, 82 170"
-          stroke={hex}
+          className="vs-draw vs-draw-v2"
+          d="M 44 52 C 58 104, 88 160, 118 196"
+          stroke={INK}
           strokeWidth="6"
           strokeLinecap="round"
           fill="none"
           opacity="0.55"
         />
-        {/* S — continuous zigzag curve that crosses itself like the reference */}
+        {/* S — looping brush stroke in one continuous motion */}
         <path
-          d="M 210 58 C 196 34, 170 34, 158 56 C 146 80, 178 96, 196 108 C 214 122, 204 156, 176 160 C 150 164, 132 148, 126 130"
-          stroke={hex}
-          strokeWidth="20"
+          className="vs-draw vs-draw-s"
+          d="M 330 58 C 314 30, 280 28, 260 52 C 240 78, 278 102, 300 118 C 326 138, 316 182, 278 190 C 246 196, 220 178, 212 150"
+          stroke={INK}
+          strokeWidth="24"
           strokeLinecap="round"
           strokeLinejoin="round"
           fill="none"
         />
-        {/* S — tapering flick at the tail to echo the brush-stroke feel */}
+        {/* S — small trailing flick to sell the "paint brush" feel */}
         <path
-          d="M 130 138 C 128 152, 134 168, 146 180"
-          stroke={hex}
-          strokeWidth="14"
+          className="vs-draw vs-draw-s2"
+          d="M 214 160 C 210 176, 220 196, 236 208"
+          stroke={INK}
+          strokeWidth="12"
           strokeLinecap="round"
           fill="none"
           opacity="0.85"
@@ -445,6 +454,10 @@ export default function LobbyScreen({
     const isPlacementPlayer = ranked && placementMatches < 5;
     const displayElo = isPlacementPlayer ? "?" : (elo ?? "---");
     const rankForBadge = getRank(elo ?? 0);
+    // All page text sits on top of a cream background, so default to deep
+    // ink. The ranked accent (blood red) still comes through `glowColor`.
+    const INK = "#0A0A0A";
+    const INK_SOFT = "#3A2E22";
 
     return (
       <div
@@ -464,7 +477,7 @@ export default function LobbyScreen({
       >
         {/* Top label: ELO (ranked) or LEVEL (unranked) */}
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
-          <div style={{ fontFamily: t.fontMono, fontSize: isMobile ? 10 : 13, color: t.textMuted, letterSpacing: "0.3em", opacity: 0.8 }}>
+          <div style={{ fontFamily: t.fontMono, fontSize: isMobile ? 10 : 13, color: INK_SOFT, letterSpacing: "0.3em", fontWeight: 700, opacity: 0.85 }}>
             {ranked ? "ELO RATING" : "LEVEL"}
           </div>
           <div
@@ -473,7 +486,6 @@ export default function LobbyScreen({
               fontSize: isMobile ? 34 : 56,
               fontWeight: 950,
               color: glowColor,
-              textShadow: `0 0 22px ${glowColor}cc, 0 0 44px ${glowColor}55`,
               letterSpacing: "0.04em",
               lineHeight: 1,
             }}
@@ -490,7 +502,7 @@ export default function LobbyScreen({
             height: avatarSize,
             borderRadius: "50%",
             padding: 4,
-            background: `radial-gradient(circle, ${glowColor}55 0%, transparent 70%)`,
+            background: `radial-gradient(circle, ${glowColor}33 0%, transparent 70%)`,
           }}
         >
           <div
@@ -500,13 +512,13 @@ export default function LobbyScreen({
               borderRadius: "50%",
               border: `4px solid ${glowColor}`,
               overflow: "hidden",
-              background: "#0A0A0A",
+              background: "#1A1410",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
               fontSize: isMobile ? 60 : 110,
               color: glowColor,
-              boxShadow: `0 0 30px ${glowColor}aa, 0 0 70px ${glowColor}55, inset 0 0 18px rgba(0,0,0,0.55)`,
+              boxShadow: `0 8px 24px rgba(0,0,0,0.25), 0 0 18px ${glowColor}55, inset 0 0 18px rgba(0,0,0,0.55)`,
             }}
           >
             {avatar ? (
@@ -523,8 +535,7 @@ export default function LobbyScreen({
             fontFamily: t.fontDisplay,
             fontSize: isMobile ? 18 : 30,
             fontWeight: 900,
-            color: "#ffffff",
-            textShadow: `0 0 18px ${glowColor}aa, 0 0 4px rgba(0,0,0,0.7)`,
+            color: INK,
             letterSpacing: "0.1em",
             textTransform: "uppercase" as const,
             wordBreak: "break-word" as const,
@@ -544,9 +555,8 @@ export default function LobbyScreen({
                 fontFamily: t.fontMono,
                 fontSize: isMobile ? 10 : 12,
                 fontWeight: 800,
-                color: isPlacementPlayer ? "#FF33FF" : rankForBadge.color,
+                color: isPlacementPlayer ? "#8E2BB8" : rankForBadge.color,
                 letterSpacing: "0.18em",
-                textShadow: `0 0 10px ${isPlacementPlayer ? "#FF33FF" : rankForBadge.color}88`,
               }}
             >
               {isPlacementPlayer ? "PLACEMENT" : rankForBadge.name}
@@ -560,12 +570,16 @@ export default function LobbyScreen({
 
   // ── MATCHUP ───────────────────────────────────────────────────────────────
   if (phase === "matchup") {
-    // Blood red for ranked, white for unranked — both header copy + glows.
-    const BLOOD = "#E11D1D";
-    const WHITE = "#F5F5F5";
-    const glow = isRanked ? BLOOD : WHITE;
+    // Cream "canvas" background so the black paint-brush VS pops.
+    // Ranked keeps a blood-red accent; unranked uses deep charcoal (white
+    // was illegible on cream).
+    const CREAM = "#EFE5CF";
+    const CREAM_DEEP = "#E4D6B7";
+    const INK = "#0A0A0A";
+    const BLOOD = "#B31919";
+    const glow = isRanked ? BLOOD : INK;
     const headerCopy = isRanked ? "RANKED · FIRST TO 5 POINTS" : "UNRANKED · FIRST TO 5 POINTS";
-    const vsSize = isMobile ? 150 : 260;
+    const vsSize = isMobile ? 220 : 380;
 
     return (
       <div
@@ -577,27 +591,19 @@ export default function LobbyScreen({
           flexDirection: "column",
           alignItems: "center",
           justifyContent: "center",
-          background: t.bg,
+          background: `radial-gradient(ellipse at 50% 40%, ${CREAM} 0%, ${CREAM_DEEP} 85%)`,
           overflow: "hidden",
         }}
       >
-        {/* Ambient glow backdrop — tints the whole screen with the mode color */}
+        {/* Faint paper-texture grid so the cream backdrop does not read flat */}
         <div
           style={{
             position: "absolute",
             inset: 0,
-            background: `radial-gradient(ellipse at 50% 50%, ${glow}22 0%, transparent 60%)`,
-            pointerEvents: "none",
-            zIndex: 0,
-          }}
-        />
-        {/* Subtle grid so the empty space does not read as flat */}
-        <div
-          style={{
-            position: "absolute",
-            inset: 0,
-            opacity: 0.08,
-            backgroundImage: `linear-gradient(${t.border} 1px, transparent 1px), linear-gradient(90deg, ${t.border} 1px, transparent 1px)`,
+            opacity: 0.12,
+            backgroundImage:
+              `linear-gradient(rgba(60,40,20,0.18) 1px, transparent 1px), ` +
+              `linear-gradient(90deg, rgba(60,40,20,0.18) 1px, transparent 1px)`,
             backgroundSize: "80px 80px",
             pointerEvents: "none",
             zIndex: 0,
@@ -616,8 +622,7 @@ export default function LobbyScreen({
             fontSize: isMobile ? 11 : 13,
             color: glow,
             letterSpacing: "0.3em",
-            fontWeight: 700,
-            textShadow: `0 0 14px ${glow}88`,
+            fontWeight: 800,
             zIndex: 3,
           }}
         >
@@ -660,7 +665,7 @@ export default function LobbyScreen({
               padding: isMobile ? "6px 0" : "0 12px",
             }}
           >
-            <SketchVS color={glow} size={vsSize} />
+            <SketchVS size={vsSize} />
           </div>
 
           <MatchPlayerCard
@@ -689,7 +694,7 @@ export default function LobbyScreen({
           <div
             style={{
               height: 4,
-              background: `${glow}22`,
+              background: `rgba(0,0,0,0.12)`,
               borderRadius: 2,
               overflow: "hidden",
               maxWidth: 360,
@@ -702,7 +707,6 @@ export default function LobbyScreen({
                 width: "100%",
                 background: `linear-gradient(90deg, ${glow}, ${glow}aa)`,
                 borderRadius: 2,
-                boxShadow: `0 0 12px ${glow}aa`,
                 animation: "matchBarShrink 10s linear both",
               }}
             />
@@ -715,8 +719,8 @@ export default function LobbyScreen({
               textAlign: "center",
               marginTop: 10,
               letterSpacing: "0.25em",
+              fontWeight: 800,
               opacity: 0.9,
-              textShadow: `0 0 10px ${glow}66`,
             }}
           >
             MATCH STARTING...
@@ -728,8 +732,22 @@ export default function LobbyScreen({
           @keyframes slideInLeft    { from{opacity:0;transform:translate3d(-80px,0,0) scale(.94)} to{opacity:1;transform:translate3d(0,0,0) scale(1)} }
           @keyframes slideInRight   { from{opacity:0;transform:translate3d(80px,0,0)  scale(.94)} to{opacity:1;transform:translate3d(0,0,0) scale(1)} }
           @keyframes matchBarShrink { from{width:100%} to{width:0%} }
-          @keyframes vsPop          { from{opacity:0;transform:scale(.6) rotate(-8deg)} to{opacity:1;transform:scale(1) rotate(0)} }
-          @keyframes vsPulse        { 0%,100%{transform:scale(1)} 50%{transform:scale(1.06)} }
+          @keyframes vsFadeIn       { from{opacity:0} to{opacity:1} }
+          /* "Paint brush" draw-on animation: each path is given a long dash
+             that equals its full length, then the dash offset is animated from
+             that length to 0 so the stroke reveals continuously, as if being
+             written live. Paths also have the V drawn first, then the S. */
+          .vs-draw {
+            stroke-dasharray: 900;
+            stroke-dashoffset: 900;
+            animation-fill-mode: forwards;
+            animation-timing-function: cubic-bezier(.65,.05,.36,1);
+          }
+          .vs-draw-v  { animation: vsDraw 700ms 120ms forwards; }
+          .vs-draw-v2 { animation: vsDraw 500ms 720ms forwards; }
+          .vs-draw-s  { animation: vsDraw 900ms 900ms forwards; }
+          .vs-draw-s2 { animation: vsDraw 500ms 1700ms forwards; }
+          @keyframes vsDraw { to { stroke-dashoffset: 0; } }
         `}</style>
       </div>
     );
@@ -910,7 +928,7 @@ export default function LobbyScreen({
           )}
           <div style={{ fontFamily:t.fontBody, fontSize:ip?12:14, color:t.textMuted, marginBottom:16 }}>ELO · RR · Rank · Season rewards</div>
           <div style={{ marginTop:"auto", width:"100%", display:"flex", flexDirection:"column", gap:6 }}>
-            {[{k:"FORMAT",v:"5×5 → 6×6 → 7×7"},{k:"SERIES",v:"First to 3 points"},{k:"ELO",v:"Rating updates"}].map(s => (
+            {[{k:"FORMAT",v:"5×5 → 6×6 → 7×7"},{k:"SERIES",v:"First to 3 points"},{k:"ELO",v:"Competitive Standard"}].map(s => (
               <div key={s.k} style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
                 <div style={{ fontFamily:t.fontMono, fontSize:10, color:t.textMuted, letterSpacing:"0.1em" }}>{s.k}</div>
                 <div style={{ fontFamily:t.fontBody, fontSize:12, color:t.text }}>{s.v}</div>

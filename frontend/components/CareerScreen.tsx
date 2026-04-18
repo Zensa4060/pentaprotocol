@@ -714,7 +714,7 @@ export default function CareerScreen({ themeId, onHoverAction, initialMatchId }:
                         width: "135%",
                         height: "135%",
                         borderRadius: "50%",
-                        background: rankHaloGradientForRank(isPlacement ? "#FF33FF" : rank.color, isPlacement ? ({ name: "LEGEND" } as any) : rank),
+                        background: rankHaloGradientForRank(isPlacement ? "#FF33FF" : rank.color, isPlacement ? ({ name: "LEGENDARY EAGLE" } as any) : rank),
                         pointerEvents: "none",
                         zIndex: 0,
                         animation: "rankHaloPulse 2.6s ease-in-out infinite",
