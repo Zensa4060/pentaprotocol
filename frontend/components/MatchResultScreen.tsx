@@ -44,6 +44,7 @@ interface MatchResultScreenProps {
     textMuted: string;
   };
   onQuit: () => void;
+  onFindNewMatch?: () => void;
 }
 
 export default function MatchResultScreen({
@@ -54,6 +55,7 @@ export default function MatchResultScreen({
   mySlot,
   t,
   onQuit,
+  onFindNewMatch,
 }: MatchResultScreenProps) {
   const [showOptions, setShowOptions] = useState(false);
   const [counter, setCounter] = useState(0);
@@ -369,7 +371,30 @@ export default function MatchResultScreen({
               zIndex: 20,
             }}
           >
-            <div style={{ display: "flex", gap: 20, justifyContent: "center" }}>
+            <div style={{ display: "flex", gap: 20, justifyContent: "center", flexWrap: "wrap" }}>
+               {onFindNewMatch && (
+                 <motion.button
+                   whileHover={{ scale: 1.05, background: `${t.accent}22` }}
+                   whileTap={{ scale: 0.95 }}
+                   onClick={onFindNewMatch}
+                   style={{
+                     padding: "20px 48px",
+                     background: `${t.accent}18`,
+                     border: `1px solid ${t.accent}`,
+                     borderRadius: 12,
+                     color: t.accent,
+                     fontFamily: t.fontDisplay,
+                     fontSize: 18,
+                     fontWeight: 900,
+                     letterSpacing: "0.2em",
+                     cursor: "pointer",
+                     transition: "all 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
+                     boxShadow: `0 8px 32px ${t.accent}33`,
+                   }}
+                 >
+                   FIND NEW MATCH
+                 </motion.button>
+               )}
                <motion.button
                  whileHover={{ scale: 1.05, background: "rgba(255,255,255,0.1)" }}
                  whileTap={{ scale: 0.95 }}
@@ -388,7 +413,7 @@ export default function MatchResultScreen({
                    transition: "all 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
                  }}
                >
-                 QUIT BATTLE
+                 QUIT TO HOME
                </motion.button>
             </div>
           </motion.div>

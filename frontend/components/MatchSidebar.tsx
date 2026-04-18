@@ -434,12 +434,8 @@ export function LeftPanel(props: MatchSidebarProps) {
           )}
         </div>
       )}
-      {phase === "match_over" && !isMultiplayerGame && (
-        <div style={{ textAlign: "center", animation: "fadeUp 0.3s ease both" }}>
-          <div style={{ fontFamily: t.fontDisplay, fontSize: 16, fontWeight: 700, color: t.gold, marginBottom: 10 }}>{seriesWinner === "DRAW" ? "FULL MATCH DRAW — NO WINNER" : `${getName(seriesWinner)} WINS!`}</div>
-          <button onClick={onSoftReset} style={{ background: `${t.accent}18`, border: `1px solid ${t.accent}`, color: t.accent, fontFamily: t.fontMono, fontSize: 13, padding: "10px 18px", borderRadius: ip ? 2 : 6, cursor: "pointer", transition: "all 0.2s" }}>NEW MATCH</button>
-        </div>
-      )}
+      {/* SP/AI series-over prompt is shown as a full-screen WinOverlay "match-over" pane
+          (see WinOverlay.showMatchOverPane). The sidebar no longer duplicates the CTA. */}
       {!isMultiplayerGame && selectedPatterns && selectedPatterns.length > 0 && onTogglePatternOverlay && (
         <div style={{ marginTop: "auto", borderTop: `1px solid ${t.border}`, paddingTop: 12 }}>
           <button
@@ -559,6 +555,9 @@ export function WinOverlay({
   onDismissAction,
   graphicsQuality = "quality",
   centralReadyStep = false,
+  centralMatchOverStep = false,
+  onNewMatchAction,
+  onQuitToHomeAction,
   interGameReadyVisible = true,
   waitingReadyWarmup = false,
   isMultiplayerGame = false,
@@ -592,6 +591,9 @@ export function WinOverlay({
   onDismissAction: () => void;
   graphicsQuality?: "performance" | "quality";
   centralReadyStep?: boolean;
+  centralMatchOverStep?: boolean;
+  onNewMatchAction?: () => void;
+  onQuitToHomeAction?: () => void;
   interGameReadyVisible?: boolean;
   waitingReadyWarmup?: boolean;
   isMultiplayerGame?: boolean;
@@ -620,7 +622,8 @@ export function WinOverlay({
 
   const showWinPane = Boolean(showWinOverlay && winner);
   const showReadyPane = Boolean(centralReadyStep && !showWinOverlay && phase === "waiting_ready");
-  if (!showWinPane && !showReadyPane) return null;
+  const showMatchOverPane = Boolean(centralMatchOverStep && !showWinOverlay && phase === "match_over");
+  if (!showWinPane && !showReadyPane && !showMatchOverPane) return null;
 
   const getName = (w: string | null) => (winnerDisplayNameAction ? winnerDisplayNameAction(w) : (w ?? ""));
   const pulseAnim = "none";
@@ -629,7 +632,7 @@ export function WinOverlay({
     if (canDismiss) onDismissAction();
   };
 
-  const frameColor = showWinPane && winner ? winnerColor : accentColor;
+  const frameColor = showWinPane && winner ? winnerColor : (showMatchOverPane && seriesWinner && seriesWinner !== "DRAW" ? (seriesWinner === "P1" ? p1c : p2c) : accentColor);
   const localSpOrAi = gameMode === "ai" || gameMode === "singleplayer";
 
   return (
@@ -900,6 +903,103 @@ export function WinOverlay({
                 )}
               </div>
             )}
+          </>
+        ) : null}
+
+        {showMatchOverPane ? (
+          <>
+            <div
+              style={{
+                fontSize: "clamp(56px, 9vw, 96px)",
+                lineHeight: 1,
+                marginBottom: 10,
+                filter: `drop-shadow(0 0 18px ${frameColor}66)`,
+              }}
+            >
+              {seriesWinner === "DRAW" ? "⚖" : seriesPiece}
+            </div>
+            <div
+              style={{
+                fontFamily: t.fontDisplay,
+                fontSize: "clamp(28px, 5vw, 44px)",
+                fontWeight: 900,
+                color: frameColor,
+                letterSpacing: "0.06em",
+                marginBottom: 4,
+                textAlign: "center",
+              }}
+            >
+              {seriesWinner === "DRAW" ? "SERIES DRAW" : `${getName(seriesWinner)} WINS THE SERIES`}
+            </div>
+            <div
+              style={{
+                fontFamily: t.fontMono,
+                fontSize: 13,
+                color: "rgba(255,255,255,0.4)",
+                letterSpacing: "0.2em",
+                marginBottom: 28,
+                textTransform: "uppercase",
+              }}
+            >
+              SERIES COMPLETE
+            </div>
+            <div
+              style={{
+                width: "100%",
+                display: "flex",
+                flexDirection: "column",
+                gap: 12,
+                alignItems: "center",
+              }}
+            >
+              <button
+                type="button"
+                onClick={() => onNewMatchAction?.()}
+                style={{
+                  minWidth: "min(100%, 320px)",
+                  padding: "18px 28px",
+                  borderRadius: ip ? 2 : 14,
+                  border: `2px solid ${accentColor}`,
+                  background: `${accentColor}22`,
+                  color: accentColor,
+                  fontFamily: t.fontDisplay,
+                  fontSize: "clamp(16px, 2.8vw, 22px)",
+                  fontWeight: 900,
+                  letterSpacing: "0.08em",
+                  cursor: "pointer",
+                  transition: "all 0.2s",
+                  boxShadow: `0 8px 28px ${accentColor}33`,
+                }}
+                onMouseEnter={e => { e.currentTarget.style.background = `${accentColor}33`; e.currentTarget.style.transform = "translateY(-1px)"; }}
+                onMouseLeave={e => { e.currentTarget.style.background = `${accentColor}22`; e.currentTarget.style.transform = "translateY(0)"; }}
+              >
+                NEW MATCH?
+              </button>
+              {onQuitToHomeAction && (
+                <button
+                  type="button"
+                  onClick={() => onQuitToHomeAction()}
+                  style={{
+                    minWidth: "min(100%, 320px)",
+                    padding: "14px 28px",
+                    borderRadius: ip ? 2 : 14,
+                    border: "1px solid rgba(255,255,255,0.18)",
+                    background: "rgba(255,255,255,0.04)",
+                    color: textSecondary,
+                    fontFamily: t.fontDisplay,
+                    fontSize: "clamp(14px, 2.4vw, 18px)",
+                    fontWeight: 800,
+                    letterSpacing: "0.1em",
+                    cursor: "pointer",
+                    transition: "all 0.2s",
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,255,255,0.08)"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.3)"; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.04)"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.18)"; }}
+                >
+                  QUIT TO HOME
+                </button>
+              )}
+            </div>
           </>
         ) : null}
       </div>

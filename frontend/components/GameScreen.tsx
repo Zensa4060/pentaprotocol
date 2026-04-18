@@ -626,6 +626,8 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   const [showWinOverlay, setShowWinOverlay] = useState(false);
   /** After CONTINUE on win overlay, stay on /game URL until true; then /ready. Drives central ready modal. */
   const [postGameReadyAck, setPostGameReadyAck] = useState(false);
+  /** SP/AI only: user dismissed the series-complete win overlay → show central match-over card. */
+  const [matchOverAcked, setMatchOverAcked] = useState(false);
   // Pattern overlay — show active patterns during game; toggle persisted for session
   const [showPatternOverlay, setShowPatternOverlay] = useState(() => {
     try { return sessionStorage.getItem("patternOverlayVisible") === "true"; } catch { return false; }
@@ -735,6 +737,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
 
   useEffect(() => {
     if (phase !== "waiting_ready") setPostGameReadyAck(false);
+    if (phase !== "match_over") setMatchOverAcked(false);
   }, [phase]);
 
   useEffect(() => {
@@ -2175,10 +2178,16 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     setLoading(false);
     setHover(null);
     setBotThinking(false);
-    try {
-      const res = await API.post("/api/game/create", { mode: "solo", format: "bo3" });
-      setGameId(res.data.game_id);
-    } catch { setGameId(null); }
+    // Only multiplayer games need a server-side game record. SP/AI are local-only;
+    // nothing downstream (career, XP, ELO, match_history) uses the solo games-collection
+    // record, so skipping it keeps the URL as the local 15-digit ID instead of being
+    // overwritten by a Mongo ObjectId from /api/game/create.
+    if (isMultiplayerGame) {
+      try {
+        const res = await API.post("/api/game/create", { mode: "solo", format: "bo3" });
+        setGameId(res.data.game_id);
+      } catch { setGameId(null); }
+    }
   };
 
   const sendChat = (from: "P1" | "P2") => {
@@ -2197,6 +2206,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   const softReset = () => {
     matchHistoryRef.current = []; setGameNumber(1); setMatchHistory([]); setMatchOver(false); setSeriesWinner(null);
     setP1SeriesPts(0); setP2SeriesPts(0); awaitingRulebreakerRef.current = false;
+    setMatchOverAcked(false);
     setSegmentStartIndex(0); segmentStartIndexRef.current = 0;
     setHistoryDisplayStartIndex(0); historyDisplayStartIndexRef.current = 0;
     setP1Ready(false); setP2Ready(false); setReadyTimeout(60); setReadyTimer(0);
@@ -2751,7 +2761,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     setBoard(nb); setMovesPlayed(newMoves); addLog(r, c, playerWhoMoved);
     if (result) { setExtraTurns(0); setWinLine(result.line); setWinner(result.winner); }
     else { setExtraTurns(newExtra); setCurrent(nextPlayer); }
-    if (gameId) { try { await API.post("/api/game/move", { game_id: gameId, row: r, col: c }); } catch { } }
+    if (gameId && isMultiplayerGame) { try { await API.post("/api/game/move", { game_id: gameId, row: r, col: c }); } catch { } }
   };
 
   const place = async (r: number, c: number) => {
@@ -2797,7 +2807,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     if (result) { setExtraTurns(0); setWinLine(result.line); setWinner(result.winner); }
     else { setExtraTurns(newExtra); setCurrent(nextPlayer); }
     setLoading(false);
-    if (gameId) { try { await API.post("/api/game/move", { game_id: gameId, row: r, col: c }); } catch { } }
+    if (gameId && isMultiplayerGame) { try { await API.post("/api/game/move", { game_id: gameId, row: r, col: c }); } catch { } }
   };
   // Stable ref so boardJSX memo never holds a stale place closure
   const placeRef = useRef(place);
@@ -2843,15 +2853,22 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     }
     if (phase === "match_over") {
       setShowWinOverlay(false);
-      setOverlayVisible(false);
       winClickLockRef.current = false;
+      // SP/AI: transition to the central ready-style "NEW MATCH?" card instead of dropping
+      // the user back onto the board with a sidebar button.
+      if (!isMultiplayerGame) {
+        setMatchOverAcked(true);
+        requestAnimationFrame(() => setOverlayVisible(true));
+        return;
+      }
+      setOverlayVisible(false);
       return;
     }
     setShowWinOverlay(false);
     setOverlayVisible(false);
     setIsBoardPaused(false);
     winClickLockRef.current = false;
-  }, [phase, winner]);
+  }, [phase, winner, isMultiplayerGame]);
   const goToCareerAfterSeries = useCallback(() => {
     const id = matchSeriesComplete?.careerEntryId;
     if (id && typeof window !== "undefined") {
@@ -2867,6 +2884,20 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     onMultiplayerNavLockChange?.(false);
     setScreenAction?.("career", { exitMultiGameToCareer: true });
   }, [matchSeriesComplete?.careerEntryId, isMultiplayerGame, mySlot, setScreenAction, onMultiplayerNavLockChange]);
+
+  /** Multiplayer: close the match and return the player to the play lobby to queue again. */
+  const findNewMatchAfterSeries = useCallback(() => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ type: "quit_match", slot: mySlot }));
+    }
+    void useAuthStore.getState().refreshProfile();
+    isViewingPostMatchRef.current = false;
+    setShowGameWinScreen(false);
+    setShowSeriesMatchResult(false);
+    setMatchSeriesComplete(null);
+    onMultiplayerNavLockChange?.(false);
+    router.push("/play/lobby");
+  }, [mySlot, onMultiplayerNavLockChange, router]);
 
   useEffect(() => {
     if (showGameWinScreen && matchSeriesComplete && isMultiplayerGame) {
@@ -3652,6 +3683,12 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     !matchOver &&
     !showWinOverlay &&
     (postGameReadyAck || pathname.startsWith("/ready/"));
+  /** SP/AI only: after the series-end win overlay is dismissed, show a ready-style NEW MATCH card. */
+  const centralMatchOverOverlay =
+    !isMultiplayerGame &&
+    phase === "match_over" &&
+    !showWinOverlay &&
+    matchOverAcked;
   /** Ready CTAs allowed (MP warmup gate, etc.). Central overlay must not AND this with centralReadyOverlay or buttons never render. */
   const readyButtonsActive =
     phase === "waiting_ready" &&
@@ -3678,6 +3715,9 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     graphicsQuality: gameplayGraphicsQuality,
     onDismissAction: dismissOverlay,
     centralReadyStep: centralReadyOverlay,
+    centralMatchOverStep: centralMatchOverOverlay,
+    onNewMatchAction: softReset,
+    onQuitToHomeAction: () => { if (setScreenAction) setScreenAction("home"); },
     interGameReadyVisible: readyButtonsActive,
     waitingReadyWarmup,
     isMultiplayerGame,
@@ -4150,6 +4190,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
               }
               setScreenAction?.("home");
             }}
+            onFindNewMatch={isMultiplayerGame ? findNewMatchAfterSeries : undefined}
           />
         )}
 
@@ -4649,6 +4690,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
             void useAuthStore.getState().refreshProfile();
             setScreenAction?.("home");
           }}
+          onFindNewMatch={isMultiplayerGame ? findNewMatchAfterSeries : undefined}
         />
       )}
 
