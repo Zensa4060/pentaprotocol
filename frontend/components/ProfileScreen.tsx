@@ -459,31 +459,33 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
     try {
       let avatarUrl: string | null = null;
 
+      let avatarSkipped = false;
       if (avatarFile) {
         if (!isSupabaseConfigured) {
-          throw new Error("Supabase is not configured in frontend env (NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY).");
+          avatarSkipped = true;
+        } else {
+          // Use user ID as filename so each user always overwrites their own avatar
+          const userId = (user as any)?.id ?? (user as any)?._id ?? Date.now().toString();
+          const ext    = avatarFile.name.split(".").pop() || "jpg";
+          const path   = `${userId}.${ext}`;
+
+          const { data: uploadData, error: uploadError } = await supabase.storage
+            .from("avatars")
+            .upload(path, avatarFile, {
+              upsert: true,           // overwrite existing avatar
+              contentType: avatarFile.type,
+            });
+
+          if (uploadError) throw new Error(`Upload failed: ${uploadError.message}`);
+
+          // Get permanent public URL — just a short string, not base64
+          const { data: urlData } = supabase.storage
+            .from("avatars")
+            .getPublicUrl(uploadData.path);
+
+          // Add cache-busting so the browser picks up the new image immediately
+          avatarUrl = `${urlData.publicUrl}?t=${Date.now()}`;
         }
-        // Use user ID as filename so each user always overwrites their own avatar
-        const userId = (user as any)?.id ?? (user as any)?._id ?? Date.now().toString();
-        const ext    = avatarFile.name.split(".").pop() || "jpg";
-        const path   = `${userId}.${ext}`;
-
-        const { data: uploadData, error: uploadError } = await supabase.storage
-          .from("avatars")
-          .upload(path, avatarFile, {
-            upsert: true,           // overwrite existing avatar
-            contentType: avatarFile.type,
-          });
-
-        if (uploadError) throw new Error(`Upload failed: ${uploadError.message}`);
-
-        // Get permanent public URL — just a short string, not base64
-        const { data: urlData } = supabase.storage
-          .from("avatars")
-          .getPublicUrl(uploadData.path);
-
-        // Add cache-busting so the browser picks up the new image immediately
-        avatarUrl = `${urlData.publicUrl}?t=${Date.now()}`;
       }
 
       const payload: any = {};
@@ -491,12 +493,27 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
       if (editBio !== (profile.bio || ""))    payload.bio      = editBio;
       if (avatarUrl)                          payload.avatar   = avatarUrl; // short URL ✅
 
-      if (!Object.keys(payload).length) { closeEdit(); return; }
+      if (!Object.keys(payload).length) {
+        if (avatarSkipped) {
+          setEditMsg({
+            text: "Photo upload is not set up on this site yet (missing NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY). Nothing was saved — remove the image or change username/bio.",
+            ok: false,
+          });
+          return;
+        }
+        closeEdit();
+        return;
+      }
 
       const res = await API.put("/api/profile/me", payload, authHeader);
       setProfile(res.data);
       updateUser(res.data);
-      setEditMsg({ text:"Profile updated!", ok:true });
+      setEditMsg({
+        text: avatarSkipped
+          ? "Profile updated. New photo was not uploaded — add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY on the host to enable avatars."
+          : "Profile updated!",
+        ok: true,
+      });
       // Clean up local preview
       if (avatarPreview) URL.revokeObjectURL(avatarPreview);
       setAvatarFile(null);
