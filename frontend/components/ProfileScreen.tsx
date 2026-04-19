@@ -29,7 +29,7 @@ import StarfieldBanner from "./StarfieldBanner";
 import DigitalRainBanner from "./DigitalRainBanner";
 import InfernoBanner from "./InfernoBanner";
 // ── Supabase storage client ───────────────────────────────────────────────────
-import { supabase, isSupabaseConfigured } from "@/lib/supabase";
+import { getSupabase, isSupabaseConfigured, formatSupabaseUploadError } from "@/lib/supabase";
 
 function apiErrorDetail(e: unknown, fallback: string): string {
   const err = e as {
@@ -461,7 +461,8 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
 
       let avatarSkipped = false;
       if (avatarFile) {
-        if (!isSupabaseConfigured) {
+        const sb = getSupabase();
+        if (!sb) {
           avatarSkipped = true;
         } else {
           // Use user ID as filename so each user always overwrites their own avatar
@@ -469,22 +470,28 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
           const ext    = avatarFile.name.split(".").pop() || "jpg";
           const path   = `${userId}.${ext}`;
 
-          const { data: uploadData, error: uploadError } = await supabase.storage
-            .from("avatars")
-            .upload(path, avatarFile, {
-              upsert: true,           // overwrite existing avatar
-              contentType: avatarFile.type,
-            });
+          try {
+            const { data: uploadData, error: uploadError } = await sb.storage
+              .from("avatars")
+              .upload(path, avatarFile, {
+                upsert: true,           // overwrite existing avatar
+                contentType: avatarFile.type,
+              });
 
-          if (uploadError) throw new Error(`Upload failed: ${uploadError.message}`);
+            if (uploadError) {
+              throw new Error(`Upload failed: ${formatSupabaseUploadError(uploadError.message)}`);
+            }
 
-          // Get permanent public URL — just a short string, not base64
-          const { data: urlData } = supabase.storage
-            .from("avatars")
-            .getPublicUrl(uploadData.path);
+            // Get permanent public URL — just a short string, not base64
+            const { data: urlData } = sb.storage.from("avatars").getPublicUrl(uploadData.path);
 
-          // Add cache-busting so the browser picks up the new image immediately
-          avatarUrl = `${urlData.publicUrl}?t=${Date.now()}`;
+            // Add cache-busting so the browser picks up the new image immediately
+            avatarUrl = `${urlData.publicUrl}?t=${Date.now()}`;
+          } catch (uploadErr: unknown) {
+            const msg =
+              uploadErr instanceof Error ? uploadErr.message : String(uploadErr);
+            throw new Error(formatSupabaseUploadError(msg));
+          }
         }
       }
 
@@ -1178,7 +1185,19 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
                           </div>
                         )}
                       </div>
-                      <div style={{ fontFamily:t.fontBody, fontSize:11, color:t.textMuted }}>Max 2MB · JPEG/PNG/WebP<br/>Stored on Supabase CDN</div>
+                      <div style={{ fontFamily:t.fontBody, fontSize:11, color:t.textMuted }}>
+                        Max 2MB · JPEG/PNG/WebP
+                        <br />
+                        Stored on Supabase CDN
+                        {!isSupabaseConfigured && (
+                          <>
+                            <br />
+                            <span style={{ color: "#f59e0b" }}>
+                              Avatar upload is off until NEXT_PUBLIC_SUPABASE_URL matches your project (https://…supabase.co).
+                            </span>
+                          </>
+                        )}
+                      </div>
                     </div>
                   </div>
                   <div>
