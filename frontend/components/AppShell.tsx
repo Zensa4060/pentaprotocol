@@ -180,6 +180,16 @@ export default function AppShell({ children }: { children: ReactNode }) {
   const matchmakingActiveRef = useRef(false);
   const queueRoomCodeRef = useRef<string | null>(null);
   const queuePlayerSlotRef = useRef<"P1" | "P2">("P1");
+  /** Prevents overlapping /queue/status polls from each firing the VS screen (race: 2s interval, slow HTTP). */
+  const matchFoundArmRef = useRef(false);
+  const matchFoundPostVsTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const clearMatchFoundPostVsTimer = useCallback(() => {
+    if (matchFoundPostVsTimerRef.current) {
+      clearTimeout(matchFoundPostVsTimerRef.current);
+      matchFoundPostVsTimerRef.current = null;
+    }
+  }, []);
 
   /* ── Board / game state ─────────────────────────────────────────────────── */
   const [boardMode, setBoardMode] = useState<BoardMode>("5x5");
@@ -707,6 +717,45 @@ export default function AppShell({ children }: { children: ReactNode }) {
     [boardMode, router],
   );
 
+  const armMatchFoundSequence = useCallback(
+    (
+      code: string,
+      slot: "P1" | "P2",
+      mode: "ranked" | "unranked",
+      opp: {
+        name: string;
+        elo: number;
+        avatar: string | null;
+        banner: string;
+        level: number;
+        placement_matches: number;
+      },
+      roomPayload: any,
+    ) => {
+      if (matchFoundArmRef.current) return;
+      matchFoundArmRef.current = true;
+      if (queuePollRef.current) {
+        clearInterval(queuePollRef.current);
+        queuePollRef.current = null;
+      }
+      clearMatchFoundPostVsTimer();
+      setMatchupOpponent(opp);
+      setQueuePhase("matchup");
+      sfx.matchFound();
+      router.push(ROUTES.PLAY_MATCHFOUND);
+      matchFoundPostVsTimerRef.current = setTimeout(() => {
+        matchFoundPostVsTimerRef.current = null;
+        setInQueue(false);
+        setQueuePhase("none");
+        setMatchupOpponent(null);
+        matchmakingActiveRef.current = false;
+        matchFoundArmRef.current = false;
+        handleRoomReady(code, slot, mode, undefined, roomPayload);
+      }, 10000);
+    },
+    [clearMatchFoundPostVsTimer, handleRoomReady, router, sfx],
+  );
+
   const pollQueueStatus = async (
     code: string,
     slot: "P1" | "P2",
@@ -716,10 +765,8 @@ export default function AppShell({ children }: { children: ReactNode }) {
     try {
       const poll = await API.get(`/api/room/queue/status/${code}`, { timeout: 10000 });
       if (poll.data.game_status === "playing") {
-        if (queuePollRef.current) {
-          clearInterval(queuePollRef.current);
-          queuePollRef.current = null;
-        }
+        // Second in-flight poll must not re-run VS / sfx / router after the first "playing".
+        if (matchFoundArmRef.current) return;
         const prefix = slot === "P1" ? "player2" : "player1";
         const opp = {
           name: poll.data[`${prefix}_name`] ?? "OPPONENT",
@@ -732,22 +779,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
           // post-placement value prevents every opponent from showing as "?".
           placement_matches: poll.data[`${prefix}_placement_matches`] ?? 5,
         };
-        setMatchupOpponent(opp);
-        setQueuePhase("matchup");
-        sfx.matchFound();
-        router.push(ROUTES.PLAY_MATCHFOUND);
-        setTimeout(() => {
-          setInQueue(false);
-          setQueuePhase("none");
-          // Clear the opponent blob immediately so the GlobalMatchupOverlay
-          // (which only renders while queuePhase === "matchup" && matchupOpponent)
-          // cannot possibly paint one extra frame on the destination route
-          // during the React route-transition commit. This is belt-and-braces
-          // alongside the route blacklist inside GlobalMatchupOverlay.
-          setMatchupOpponent(null);
-          matchmakingActiveRef.current = false;
-          handleRoomReady(code, slot, mode, undefined, poll.data);
-        }, 10000);
+        armMatchFoundSequence(code, slot, mode, opp, poll.data);
       }
     } catch (e: any) {
       const status = e?.response?.status;
@@ -756,6 +788,8 @@ export default function AppShell({ children }: { children: ReactNode }) {
           clearInterval(queuePollRef.current);
           queuePollRef.current = null;
         }
+        matchFoundArmRef.current = false;
+        clearMatchFoundPostVsTimer();
         setInQueue(false);
         setQueuePhase("none");
         matchmakingActiveRef.current = false;
@@ -768,6 +802,8 @@ export default function AppShell({ children }: { children: ReactNode }) {
     if (matchmakingActiveRef.current) return;
     matchmakingActiveRef.current = true;
     queueCancelledRef.current = false;
+    matchFoundArmRef.current = false;
+    clearMatchFoundPostVsTimer();
     setIsRanked(mode === "ranked");
     setInQueue(true);
     setQueuePhase("queuing");
@@ -813,20 +849,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
           // actually show their real ELO on the match-found screen.
           placement_matches: room[`${prefix}_placement_matches`] ?? 5,
         };
-        setMatchupOpponent(opp);
-        setQueuePhase("matchup");
-        sfx.matchFound();
-        router.push(ROUTES.PLAY_MATCHFOUND);
-        setTimeout(() => {
-          setInQueue(false);
-          setQueuePhase("none");
-          // See pollQueueStatus branch above: clearing matchupOpponent here
-          // prevents the GlobalMatchupOverlay from painting a single extra
-          // frame during the route transition to /rulesshow.
-          setMatchupOpponent(null);
-          matchmakingActiveRef.current = false;
-          handleRoomReady(code, slot, mode, undefined, room);
-        }, 10000);
+        armMatchFoundSequence(code, slot, mode, opp, room);
       } else {
         if (queuePollRef.current) clearInterval(queuePollRef.current);
         queuePollRef.current = setInterval(
@@ -845,12 +868,16 @@ export default function AppShell({ children }: { children: ReactNode }) {
           : "Connection issue — still searching...";
       setQueueError(msg);
       matchmakingActiveRef.current = false;
+      matchFoundArmRef.current = false;
+      clearMatchFoundPostVsTimer();
     }
   };
 
   const cancelMatchmaking = async () => {
     queueCancelledRef.current = true;
     matchmakingActiveRef.current = false;
+    matchFoundArmRef.current = false;
+    clearMatchFoundPostVsTimer();
     if (queuePollRef.current) { clearInterval(queuePollRef.current); queuePollRef.current = null; }
     const mode = isRanked ? "ranked" : "unranked";
     const authHeader = { headers: { Authorization: `Bearer ${token}` } };

@@ -699,7 +699,13 @@ export default function LobbyScreen({
             }}
           >
             {avatar ? (
-              <img src={avatar} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+              <img
+                key={avatar}
+                src={avatar}
+                alt=""
+                decoding="async"
+                style={{ width: "100%", height: "100%", objectFit: "cover" }}
+              />
             ) : (
               <span style={{ opacity: 0.9 }}>👤</span>
             )}
