@@ -204,6 +204,10 @@ export default function AppShell({ children }: { children: ReactNode }) {
   const [multiplayerRulesBootstrap, setMultiplayerRulesBootstrap] =
     useState<MultiplayerRulesBootstrap | null>(null);
   const [multiplayerNavUnlocked, setMultiplayerNavUnlocked] = useState(false);
+  const suppressSettingsAccountActions =
+    multiRoomCode !== "" &&
+    !isBotGameRoute &&
+    (isMatchPath || !!pathname?.startsWith("/play/matchfound"));
 
   /* ── Modals / overlays ──────────────────────────────────────────────────── */
   const [showSettings, setShowSettings] = useState(false);
@@ -1497,6 +1501,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
             setGraphicsQualityAction={() => {}}
             currentScreen={currentScreen}
             onNavigateAuthAction={() => router.push("/auth")}
+            suppressAccountActionsDuringMatch={suppressSettingsAccountActions}
           />
         )}
 

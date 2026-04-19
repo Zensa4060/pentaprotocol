@@ -4072,14 +4072,14 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
                 title={showPatternOverlay ? "Hide patterns" : "Show active patterns"}
                 style={{
                   background: showPatternOverlay ? "rgba(0,229,255,0.22)" : "rgba(0,229,255,0.1)",
-                  border: `2px solid ${showPatternOverlay ? "#00e5ff" : "rgba(0,229,255,0.55)"}`,
-                  borderRadius: ip ? 2 : 8,
+                  border: `2.3px solid ${showPatternOverlay ? "#00e5ff" : "rgba(0,229,255,0.55)"}`,
+                  borderRadius: ip ? 2.3 : 9.2,
                   color: "#00e5ff",
                   fontFamily: t.fontMono,
-                  fontSize: 11,
+                  fontSize: 12.65,
                   fontWeight: 700,
-                  letterSpacing: "0.08em",
-                  padding: "6px 14px",
+                  letterSpacing: "0.092em",
+                  padding: "6.9px 16.1px",
                   cursor: "pointer",
                   whiteSpace: "nowrap",
                 }}
@@ -4526,21 +4526,21 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
                   : patternsBtnHovered
                     ? "rgba(0,229,255,0.14)"
                     : "rgba(0,229,255,0.07)",
-                border: `2px solid ${showPatternOverlay || patternsBtnHovered ? "#00e5ff" : "rgba(0,229,255,0.55)"}`,
-                borderRadius: ip ? 2 : 8,
+                border: `2.3px solid ${showPatternOverlay || patternsBtnHovered ? "#00e5ff" : "rgba(0,229,255,0.55)"}`,
+                borderRadius: ip ? 2.3 : 9.2,
                 color: "#00e5ff",
                 fontFamily: t.fontMono,
-                fontSize: isShorter ? 12 : 13,
+                fontSize: isShorter ? 13.8 : 14.95,
                 fontWeight: 700,
-                letterSpacing: "0.08em",
-                padding: isShorter ? "6px 16px" : "8px 20px",
+                letterSpacing: "0.092em",
+                padding: isShorter ? "6.9px 18.4px" : "9.2px 23px",
                 cursor: "pointer",
                 transition: "all 0.2s",
                 whiteSpace: "nowrap",
                 boxShadow: showPatternOverlay || patternsBtnHovered
-                  ? "0 0 10px #00e5ff, 0 0 22px rgba(0,229,255,0.45), 0 0 40px rgba(0,229,255,0.2)"
-                  : "0 0 6px rgba(0,229,255,0.35)",
-                textShadow: "0 0 8px rgba(0,229,255,0.7)",
+                  ? "0 0 11.5px #00e5ff, 0 0 25.3px rgba(0,229,255,0.45), 0 0 46px rgba(0,229,255,0.2)"
+                  : "0 0 6.9px rgba(0,229,255,0.35)",
+                textShadow: "0 0 9.2px rgba(0,229,255,0.7)",
               }}
             >
               {showPatternOverlay ? "HIDE PATTERNS" : "PATTERNS"}

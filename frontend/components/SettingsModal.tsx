@@ -23,9 +23,11 @@ interface Props {
   graphicsQuality: "performance" | "quality";
   setGraphicsQualityAction: (v: "performance" | "quality") => void;
   currentScreen?: string;
+  /** Hide Google/2FA security block and sign-out while in an active human multiplayer session. */
+  suppressAccountActionsDuringMatch?: boolean;
 }
 
-export default function SettingsModal({ onCloseAction, themeId, setThemeIdAction, audio, onNavigateAuthAction, graphicsQuality, setGraphicsQualityAction, currentScreen }: Props) {
+export default function SettingsModal({ onCloseAction, themeId, setThemeIdAction, audio, onNavigateAuthAction, graphicsQuality, setGraphicsQualityAction, currentScreen, suppressAccountActionsDuringMatch }: Props) {
   const t = THEMES[themeId];
   const { musicVol, setMusicVol, sfxVol, setSfxVol, muted, toggleMute } = audio;
   const { user, logout } = useAuthStore();
@@ -149,7 +151,7 @@ export default function SettingsModal({ onCloseAction, themeId, setThemeIdAction
 
           </div>
 
-          {user && (
+          {user && !suppressAccountActionsDuringMatch && (
             <>
               <div style={{ height: 1, background: `${t.border}44`, margin: "24px 0" }} />
               <AccountSecuritySection
@@ -192,22 +194,24 @@ export default function SettingsModal({ onCloseAction, themeId, setThemeIdAction
               </button>
 
               {user ? (
-                <button
-                  onClick={() => setShowSignOutConfirm(true)}
-                  style={{
-                    width: "100%", padding: "16px",
-                    background: `${t.danger}10`,
-                    border: `1.5px solid ${t.danger}55`,
-                    borderRadius: 12, color: t.danger,
-                    fontFamily: t.fontDisplay, fontSize: 15, fontWeight: 700,
-                    cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
-                    transition: "all 0.2s"
-                  }}
-                  onMouseEnter={e => { e.currentTarget.style.background = t.danger; e.currentTarget.style.color = "#fff"; e.currentTarget.style.boxShadow = `0 0 16px ${t.danger}44`; e.currentTarget.style.transform = "scale(1.02)"; }}
-                  onMouseLeave={e => { e.currentTarget.style.background = `${t.danger}10`; e.currentTarget.style.color = t.danger; e.currentTarget.style.boxShadow = "none"; e.currentTarget.style.transform = "scale(1)"; }}
-                >
-                  SIGN OUT
-                </button>
+                suppressAccountActionsDuringMatch ? null : (
+                  <button
+                    onClick={() => setShowSignOutConfirm(true)}
+                    style={{
+                      width: "100%", padding: "16px",
+                      background: `${t.danger}10`,
+                      border: `1.5px solid ${t.danger}55`,
+                      borderRadius: 12, color: t.danger,
+                      fontFamily: t.fontDisplay, fontSize: 15, fontWeight: 700,
+                      cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
+                      transition: "all 0.2s"
+                    }}
+                    onMouseEnter={e => { e.currentTarget.style.background = t.danger; e.currentTarget.style.color = "#fff"; e.currentTarget.style.boxShadow = `0 0 16px ${t.danger}44`; e.currentTarget.style.transform = "scale(1.02)"; }}
+                    onMouseLeave={e => { e.currentTarget.style.background = `${t.danger}10`; e.currentTarget.style.color = t.danger; e.currentTarget.style.boxShadow = "none"; e.currentTarget.style.transform = "scale(1)"; }}
+                  >
+                    SIGN OUT
+                  </button>
+                )
               ) : (
                 <button
                   onClick={() => { if (onNavigateAuthAction) onNavigateAuthAction(); onCloseAction(); }}
