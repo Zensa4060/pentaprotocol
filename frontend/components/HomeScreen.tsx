@@ -466,7 +466,6 @@ export default function HomeScreen({ setScreenAction, themeId, onHoverAction, on
 
           {isSp && !isMobile && (
             <div style={{ fontFamily: t.fontBody, fontSize: 13, letterSpacing: "0.4em", color: "rgba(140,180,255,0.45)", textTransform: "uppercase", marginTop: 12 }}>
-              Best of 3 · 5×5 · Rulebreaker
             </div>
           )}
 
