@@ -79,6 +79,10 @@ export default function MatchLayout({ children }: { children: React.ReactNode })
         playRulebreakerAction={ctx.sfx.rulebreaker}
         playTransitionAction={ctx.sfx.transition}
         playClickAction={ctx.sfx.click}
+        onOpenSettingsAction={() => {
+          ctx.sfx.click();
+          ctx.setShowSettings(true);
+        }}
       />
       {children}
     </AuthGuard>

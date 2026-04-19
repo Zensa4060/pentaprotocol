@@ -539,6 +539,7 @@ export function RightPanel({
   isMultiplayer = false, isMultiplayerGame = false,
   gameNumber = 1, movesPlayed = 0,
   onShowSurrenderAction, onSoftResetAction,
+  onOpenSettingsAction,
 }: {
   t: MatchSidebarProps["t"]; ip: boolean; p1c: string; p2c: string; panelW: number;
   phase: Phase; log: { text: string; player: string }[]; isRankedGame: boolean;
@@ -546,6 +547,7 @@ export function RightPanel({
   isMultiplayer?: boolean; isMultiplayerGame?: boolean;
   gameNumber?: number; movesPlayed?: number;
   onShowSurrenderAction?: () => void; onSoftResetAction?: () => void;
+  onOpenSettingsAction?: () => void;
 }) {
   const isPreMoveAbort = isRankedGame && gameNumber === 1 && (movesPlayed ?? 0) === 0;
   const showSurrenderOrReset = phase === "playing" || phase === "waiting_ready";
@@ -583,7 +585,50 @@ export function RightPanel({
   return (
     <div style={{ width: panelW, minWidth: panelW, maxWidth: 300, resize: "horizontal", overflowX: "hidden", direction: "rtl", flexShrink: 0, background: t.bgPanel, borderLeft: `${ip ? 3 : 1}px solid ${t.border}`, display: "flex", flexDirection: "column" }}>
       <div style={{ direction: "ltr", padding: "18px 18px", display: "flex", flexDirection: "column", gap: 10, overflowY: "auto", flex: 1 }}>
-        <div style={{ fontFamily: t.fontMono, fontSize: 20, fontWeight: 700, color: t.text, letterSpacing: "0.14em" }}>MOVE LOG</div>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "nowrap" }}>
+          <div style={{ fontFamily: t.fontMono, fontSize: 20, fontWeight: 700, color: t.text, letterSpacing: "0.14em" }}>MOVE LOG</div>
+          {onOpenSettingsAction && (
+            <button
+              type="button"
+              title="Settings"
+              aria-label="Settings"
+              onClick={() => {
+                playHoverAction?.();
+                onOpenSettingsAction();
+              }}
+              onMouseEnter={(e) => {
+                playHoverAction?.();
+                e.currentTarget.style.borderColor = t.accent;
+                e.currentTarget.style.color = t.accent;
+                e.currentTarget.style.background = `${t.accent}18`;
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = `${t.border}66`;
+                e.currentTarget.style.color = t.text;
+                e.currentTarget.style.background = `${t.border}22`;
+              }}
+              style={{
+                flexShrink: 0,
+                background: `${t.border}22`,
+                border: `1px solid ${t.border}66`,
+                color: t.text,
+                width: 40,
+                height: 40,
+                borderRadius: "25%",
+                cursor: "pointer",
+                transition: "all 0.2s ease",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <svg width={22} height={22} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="3" />
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+              </svg>
+            </button>
+          )}
+        </div>
         <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 4 }}>
           {log.length === 0 ? <div style={{ fontFamily: t.fontBody, fontSize: 14, color: t.textMuted, fontStyle: "italic" }}>No moves yet</div> : log.slice().reverse().map((m, i) => <div key={i} style={{ fontFamily: t.fontMono, fontSize: 15, color: m.player === "P1" ? p1c : p2c, padding: "3px 0", borderBottom: `1px solid ${t.border}22` }}>{m.text}</div>)}
         </div>

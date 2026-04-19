@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { unstable_batchedUpdates, createPortal } from "react-dom";
+import { unstable_batchedUpdates } from "react-dom";
 import { PATTERN_METADATA_5, PATTERN_METADATA_6, PATTERN_METADATA_7, CORE_RULES_METADATA_5, CORE_RULES_METADATA_6, CORE_RULES_METADATA_7 } from "@/lib/patterns_metadata";
 import PatternDiagram from "./PatternDiagram";
 import { ThemeId, THEMES } from "@/lib/themes";
@@ -299,9 +299,11 @@ interface Props {
   /** Room snapshot from lobby/queue so first paint can show rules sheet before WS `room_state`. */
   multiplayerRulesBootstrap?: MultiplayerRulesBootstrap | null;
   setHomeNoticeAction?: (notice: string | null) => void;
+  /** Opens AppShell settings while the nav bar is hidden on match routes. */
+  onOpenSettingsAction?: () => void;
 }
 
-export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, gameMode = "singleplayer", difficulty = "medium", botId, setScreenAction, roomCode, playerSlot, playHoverAction, playPlaceAction, playVictoryAction, playDefeatAction, playRulebreakerAction, playTransitionAction, playClickAction, p1Name, matchupData, boardMode = "5x5", variant, gameId: initialGameId, phasePath, selectedPatterns = [], onMultiplayerBoardSync, graphicsQuality = "quality", onMultiplayerSeriesSealedAction, onMultiplayerSeriesResumedAction, onMultiplayerNavLockChange, multiplayerRulesBootstrap = null, setHomeNoticeAction }: Props) {
+export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, gameMode = "singleplayer", difficulty = "medium", botId, setScreenAction, roomCode, playerSlot, playHoverAction, playPlaceAction, playVictoryAction, playDefeatAction, playRulebreakerAction, playTransitionAction, playClickAction, p1Name, matchupData, boardMode = "5x5", variant, gameId: initialGameId, phasePath, selectedPatterns = [], onMultiplayerBoardSync, graphicsQuality = "quality", onMultiplayerSeriesSealedAction, onMultiplayerSeriesResumedAction, onMultiplayerNavLockChange, multiplayerRulesBootstrap = null, setHomeNoticeAction, onOpenSettingsAction }: Props) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParamsHook = useSearchParams();
@@ -3295,9 +3297,9 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   const panelW = 276;
   const sidebarT = { ...t, pieces: t.pieces };
 
-  const mobileCellSize = `calc((min(100vw, calc(100vh - 160px)) - ${(GRID_SIZE - 1) * boardGap + 2 * boardPad + 32}px) / ${GRID_SIZE})`;
+  const mobileCellSize = `calc((min(100vw, calc(100vh - 108px)) - ${(GRID_SIZE - 1) * boardGap + 2 * boardPad + 32}px) / ${GRID_SIZE})`;
   const panelTotal = panelW * 2;
-  const desktopCellSize = `calc((min(calc(100vw - ${panelTotal}px - 34px), calc(100vh - 164px)) - ${(GRID_SIZE - 1) * boardGap + 2 * boardPad + 6}px) / ${GRID_SIZE})`;
+  const desktopCellSize = `calc((min(calc(100vw - ${panelTotal}px - 34px), calc(100vh - 108px)) - ${(GRID_SIZE - 1) * boardGap + 2 * boardPad + 6}px) / ${GRID_SIZE})`;
   const bigCs = isMobile ? mobileCellSize : desktopCellSize;
 
   // Memoize the board grid JSX — skips full recompute on timer ticks (p1Time/p2Time changes)
@@ -3659,7 +3661,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
       <div
         style={{
           position: "fixed",
-          top: isMobile ? 56 : 70,
+          top: isMobile ? 8 : 10,
           left: "50%",
           transform: "translateX(-50%)",
           zIndex: 120_000,
@@ -3693,7 +3695,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
       <div
         style={{
           position: "fixed",
-          top: isMobile ? 52 : 64,
+          top: 0,
           left: 0,
           right: 0,
           bottom: 0,
@@ -3822,7 +3824,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
       <div
         style={{
           position: "fixed",
-          top: isMobile ? 52 : 64,
+          top: 0,
           left: 0,
           right: 0,
           bottom: 0,
@@ -3873,7 +3875,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   // ── MOBILE LAYOUT ─────────────────────────────────────────────────────────
   if (isMobile) {
     return (
-      <div style={{ position: "fixed", top: 52, left: 0, right: 0, bottom: 0, zIndex: 2, background: t.bg, overflow: "hidden", userSelect: "none", WebkitUserSelect: "none" }}>
+      <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, zIndex: 2, background: t.bg, overflow: "hidden", userSelect: "none", WebkitUserSelect: "none" }}>
         {disconnectCountdownBanner}
 
         <WinOverlay {...winOverlaySharedProps} />
@@ -3962,7 +3964,36 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
         </div>
 
         {/* Mobile top-right menu buttons */}
-        <div style={{ position: "absolute", top: 8, right: 8, zIndex: 10, display: "flex", gap: 8 }}>
+        <div style={{ position: "absolute", top: 8, right: 8, zIndex: 10, display: "flex", gap: 8, alignItems: "center" }}>
+          {onOpenSettingsAction && (
+            <button
+              type="button"
+              title="Settings"
+              aria-label="Settings"
+              onClick={() => {
+                playClickAction?.();
+                onOpenSettingsAction();
+              }}
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: "25%",
+                border: `1px solid ${t.border}66`,
+                background: "rgba(0,0,0,0.75)",
+                color: t.text,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                cursor: "pointer",
+                backdropFilter: "blur(6px)",
+              }}
+            >
+              <svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="3" />
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+              </svg>
+            </button>
+          )}
           {isMultiplayerGame && (
             <button
               onClick={() => { setMobileTab("chat"); setShowMobileLog(true); setChatWarning(false); }}
@@ -4030,6 +4061,33 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
 
         {/* Turn indicator */}
         <div style={{ position: "absolute", bottom: 52, left: 0, right: 0, zIndex: 10, display: "flex", flexDirection: "column", alignItems: "center", gap: 5, pointerEvents: "none" }}>
+          {isMultiplayerGame && liveSelectedPatterns.length > 0 && !matchOver && phase !== "match_over" && (
+            <div style={{ pointerEvents: "auto", marginBottom: 4 }}>
+              <button
+                type="button"
+                onClick={() => {
+                  playClickAction?.();
+                  togglePatternOverlay();
+                }}
+                title={showPatternOverlay ? "Hide patterns" : "Show active patterns"}
+                style={{
+                  background: showPatternOverlay ? "rgba(0,229,255,0.22)" : "rgba(0,229,255,0.1)",
+                  border: `2px solid ${showPatternOverlay ? "#00e5ff" : "rgba(0,229,255,0.55)"}`,
+                  borderRadius: ip ? 2 : 8,
+                  color: "#00e5ff",
+                  fontFamily: t.fontMono,
+                  fontSize: 11,
+                  fontWeight: 700,
+                  letterSpacing: "0.08em",
+                  padding: "6px 14px",
+                  cursor: "pointer",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {showPatternOverlay ? "HIDE PATTERNS" : "PATTERNS"}
+              </button>
+            </div>
+          )}
           {phase === "playing" && movesPlayed === 0 && !(GRID_SIZE === 7 && suppressCenterOpening) && GRID_SIZE !== 6 && (
             <div style={{ fontFamily: t.fontMono, fontSize: 10, letterSpacing: "0.06em", background: c3Blocked ? `${t.danger}18` : `${t.gold}18`, border: `1px solid ${c3Blocked ? t.danger : t.gold}44`, borderRadius: 6, padding: "3px 12px", color: c3Blocked ? t.danger : t.gold }}>
               {c3Blocked ? "✕ Center blocked" : "★ Center → opponent gets 2 extra turns"}
@@ -4301,7 +4359,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
 
   // ── DESKTOP LAYOUT ────────────────────────────────────────────────────────
   return (
-    <div style={{ position: "fixed", top: 64, left: 0, right: 0, bottom: 0, zIndex: 2, display: "flex", flexDirection: "row", background: t.bg, overflow: "hidden", userSelect: "none", WebkitUserSelect: "none" }}>
+    <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, zIndex: 2, display: "flex", flexDirection: "row", background: t.bg, overflow: "hidden", userSelect: "none", WebkitUserSelect: "none" }}>
       {disconnectCountdownBanner}
 
       <WinOverlay {...winOverlaySharedProps} />
@@ -4451,6 +4509,44 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
 
       {/* BOARD */}
       <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: isShorter ? 6 : 10, padding: isShorter ? "4px 0" : "10px 0", minWidth: 0, overflow: "hidden" }}>
+        {isMultiplayerGame && liveSelectedPatterns.length > 0 && !matchOver && phase !== "match_over" && (
+          <div style={{ display: "flex", justifyContent: "center", width: "100%", marginBottom: isShorter ? 2 : 4, pointerEvents: "auto", flexShrink: 0 }}>
+            <button
+              type="button"
+              onClick={() => {
+                playClickAction?.();
+                togglePatternOverlay();
+              }}
+              title={showPatternOverlay ? "Hide patterns" : "Show active patterns"}
+              onMouseEnter={() => setPatternsBtnHovered(true)}
+              onMouseLeave={() => setPatternsBtnHovered(false)}
+              style={{
+                background: showPatternOverlay
+                  ? "rgba(0,229,255,0.22)"
+                  : patternsBtnHovered
+                    ? "rgba(0,229,255,0.14)"
+                    : "rgba(0,229,255,0.07)",
+                border: `2px solid ${showPatternOverlay || patternsBtnHovered ? "#00e5ff" : "rgba(0,229,255,0.55)"}`,
+                borderRadius: ip ? 2 : 8,
+                color: "#00e5ff",
+                fontFamily: t.fontMono,
+                fontSize: isShorter ? 12 : 13,
+                fontWeight: 700,
+                letterSpacing: "0.08em",
+                padding: isShorter ? "6px 16px" : "8px 20px",
+                cursor: "pointer",
+                transition: "all 0.2s",
+                whiteSpace: "nowrap",
+                boxShadow: showPatternOverlay || patternsBtnHovered
+                  ? "0 0 10px #00e5ff, 0 0 22px rgba(0,229,255,0.45), 0 0 40px rgba(0,229,255,0.2)"
+                  : "0 0 6px rgba(0,229,255,0.35)",
+                textShadow: "0 0 8px rgba(0,229,255,0.7)",
+              }}
+            >
+              {showPatternOverlay ? "HIDE PATTERNS" : "PATTERNS"}
+            </button>
+          </div>
+        )}
         {/*
           Row is a 3-column grid (1fr | auto | 1fr) so the turn indicator in
           the auto column is perfectly centered relative to the board below,
@@ -4498,59 +4594,8 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
         movesPlayed={movesPlayed}
         onShowSurrenderAction={() => { playClickAction?.(); pausedRef.current = true; setShowSurrender(true); }}
         onSoftResetAction={softReset}
+        onOpenSettingsAction={onOpenSettingsAction}
       />
-
-      {/* ── Multiplayer: PATTERNS toggle in the NavBar area ──
-          Rendered into document.body via a portal so it escapes this
-          component's `zIndex: 2` stacking context and sits above the NavBar
-          (`zIndex: 200`) rather than being painted under it. */}
-      {isMultiplayerGame && liveSelectedPatterns.length > 0 && !matchOver && phase !== "match_over" && typeof document !== "undefined" && createPortal(
-        <div
-          style={{
-            position: "fixed",
-            top: 0,
-            left: "50%",
-            transform: "translateX(-50%)",
-            height: 64,
-            zIndex: 10000,
-            display: "flex",
-            alignItems: "center",
-            pointerEvents: "auto",
-          }}
-        >
-          <button
-            onClick={togglePatternOverlay}
-            title={showPatternOverlay ? "Hide patterns" : "Show active patterns"}
-            onMouseEnter={() => setPatternsBtnHovered(true)}
-            onMouseLeave={() => setPatternsBtnHovered(false)}
-            style={{
-              background: showPatternOverlay
-                ? "rgba(0,229,255,0.22)"
-                : patternsBtnHovered
-                  ? "rgba(0,229,255,0.14)"
-                  : "rgba(0,229,255,0.07)",
-              border: `2px solid ${showPatternOverlay || patternsBtnHovered ? "#00e5ff" : "rgba(0,229,255,0.55)"}`,
-              borderRadius: ip ? 2 : 8,
-              color: "#00e5ff",
-              fontFamily: t.fontMono,
-              fontSize: 22,
-              fontWeight: 700,
-              letterSpacing: "0.08em",
-              padding: "10px 26px",
-              cursor: "pointer",
-              transition: "all 0.2s",
-              whiteSpace: "nowrap",
-              boxShadow: showPatternOverlay || patternsBtnHovered
-                ? "0 0 10px #00e5ff, 0 0 22px rgba(0,229,255,0.45), 0 0 40px rgba(0,229,255,0.2)"
-                : "0 0 6px rgba(0,229,255,0.35)",
-              textShadow: "0 0 8px rgba(0,229,255,0.7)",
-            }}
-          >
-            {showPatternOverlay ? "HIDE PATTERNS" : "PATTERNS"}
-          </button>
-        </div>,
-        document.body
-      )}
 
       {/* ── Pattern overlay: translucent full-screen showing active patterns ── */}
       {/* Suppressed during the post-match result screen so it doesn't cover the series outcome. */}

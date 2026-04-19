@@ -1012,12 +1012,16 @@ export default function AppShell({ children }: { children: ReactNode }) {
   /*  Render                                                                */
   /* ═══════════════════════════════════════════════════════════════════════ */
 
+  const isGameScreen = isMatchPath || pathname.startsWith("/challenge/");
+  /** Match-found + live match URLs use full-viewport shells (Lobby / GameScreen) — no top nav. */
+  const hideNavForImmersivePlay =
+    pathname === ROUTES.PLAY_MATCHFOUND || isGameScreen;
+
   const showNavBar =
     pathname !== "/auth" &&
     pathname !== "/" &&
-    !showPolicyGate;
-
-  const isGameScreen = isMatchPath || pathname.startsWith("/challenge/");
+    !showPolicyGate &&
+    !hideNavForImmersivePlay;
 
   const GlobalMatchupOverlay = () => {
     if (queuePhase !== "matchup" || !matchupOpponent) return null;
