@@ -1,21 +1,35 @@
-fastapi
-uvicorn[standard]
-motor
-pymongo
-python-jose[cryptography]
-passlib[bcrypt]
-python-dotenv
-pydantic
-pydantic-settings
-httpx
-bcrypt
-pyotp
-qrcode[pil]
-Pillow
-websockets
-redis
-email-validator
-pydantic[email]
-resend
-aiohttp
-google-auth
+# PentaProtocol backend dependencies.
+#
+# All versions are pinned with the `~=` ("compatible-release") operator:
+# `~=A.B.C` allows patch-level updates (security fixes) but forbids
+# minor or major bumps that could silently break the API. This is the
+# sweet spot between a plain `==` lock (which rots fast on CVEs) and
+# unpinned requirements (which caused the last "works on my machine"
+# Railway incident).
+#
+# To tighten further for a full lockfile, run:
+#   pip install pip-tools && pip-compile requirements.txt -o requirements.lock
+# and commit requirements.lock. Railway can install from either file.
+
+fastapi~=0.115.0
+uvicorn[standard]~=0.30.0
+motor~=3.5.0
+pymongo~=4.8.0
+python-jose[cryptography]~=3.3.0
+passlib[bcrypt]~=1.7.4
+python-dotenv~=1.0.1
+pydantic~=2.9.0
+pydantic-settings~=2.4.0
+pydantic[email]~=2.9.0
+httpx~=0.27.0
+bcrypt~=4.2.0
+pyotp~=2.9.0
+qrcode[pil]~=7.4.2
+Pillow~=10.4.0
+websockets~=12.0
+redis~=5.0.8
+email-validator~=2.2.0
+resend~=2.4.0
+aiohttp~=3.10.0
+google-auth~=2.34.0
+certifi>=2024.7.4

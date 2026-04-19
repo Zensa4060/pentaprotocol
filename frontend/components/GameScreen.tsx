@@ -8,7 +8,7 @@ import { checkWin, Coord } from "@/lib/winChecker";
 import { checkWin7 } from "@/lib/winChecker7";
 import { checkWin6 } from "@/lib/winChecker6";
 import type { BoardMode, Screen, SetScreenOptions } from "@/lib/types";
-import API, { getWsBaseUrl } from "@/lib/api";
+import API, { getWsBaseUrl, openWs } from "@/lib/api";
 import { censorText, containsProfanity } from "@/lib/profanity";
 import type { Difficulty } from "@/lib/botEngine";
 import { loadCustomTheme } from "@/lib/customTheme";
@@ -1109,10 +1109,24 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     let destroyed = false;
     let reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
 
-    const connect = () => {
+    const connect = async () => {
       if (destroyed) return;
       if (!token) return;
-      const ws = new WebSocket(`${base}/api/room/ws/${roomCode}/${playerSlot}?token=${encodeURIComponent(token)}`);
+      // Phase 2.3: mint a short-lived, single-use, room/slot-bound
+      // WS ticket over HTTP before opening the socket. Failure here
+      // (429 reconnect-throttled, 401 expired JWT, etc.) schedules
+      // a retry instead of leaving the player stuck without a ws.
+      let ws: WebSocket;
+      try {
+        ws = await openWs(
+          `/api/room/ws/${roomCode}/${playerSlot}`,
+          { room_code: roomCode ?? undefined, slot: playerSlot as "P1" | "P2" },
+        );
+      } catch {
+        if (!destroyed) reconnectTimeout = setTimeout(connect, 5000);
+        return;
+      }
+      if (destroyed) { ws.close(); return; }
       wsRef.current = ws;
 
       ws.onopen = () => {

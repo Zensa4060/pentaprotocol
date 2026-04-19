@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect, Header, Depends
+from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect, Header, Depends, Request
 from app.core.database import get_db
 from app.core.security import decode_token
 from app.core.connections import manager as ws_manager
@@ -13,6 +13,9 @@ import random
 import string
 import json
 import asyncio
+import logging
+
+logger = logging.getLogger("pentaprotocol.room")
 
 router = APIRouter()
 
@@ -228,6 +231,24 @@ async def get_current_user(authorization: str = Header(...)):
         payload = decode_token(token)
         return payload["sub"]
     except:
+        raise HTTPException(401, "Invalid token")
+
+
+async def _decode_bearer_full(authorization: str) -> dict:
+    """Return the full JWT payload (sub, sid, exp) or raise 401.
+
+    Used by the WS ticket endpoint which needs the session id and
+    expiry carried inside the ticket, not just the user id.
+    """
+    try:
+        if not authorization or not authorization.lower().startswith("bearer "):
+            raise ValueError("no bearer")
+        token = authorization.split(" ", 1)[1].strip()
+        payload = decode_token(token)
+        if not payload.get("sub"):
+            raise ValueError("no sub")
+        return payload
+    except Exception:
         raise HTTPException(401, "Invalid token")
 
 def generate_room_code() -> str:
@@ -904,12 +925,35 @@ async def _award_match_series_and_notify(
     record_clean_streak: bool = True,
     surrendered_by: str | None = None,
 ):
-    """General match series outcome (First-to-3) for Ranked, Unranked, and Custom."""
+    """General match series outcome (First-to-3) for Ranked, Unranked, and Custom.
+
+    This function is called from many paths (timeout, surrender, protocol-
+    breaker, triple-leg upgrades, etc.). To make sure a single series only
+    awards ELO/XP ONCE, we atomically flip a `series_awarded` flag on the
+    room document and bail out if it was already set. Before this guard, a
+    race between two trigger paths (e.g. simultaneous timeout + final move)
+    could double-credit both players.
+    """
+    # Atomic first-writer-wins guard. Any subsequent caller will see
+    # matched_count==0 and abort without touching user records.
+    claim = await db.rooms.update_one(
+        {"room_code": room_code, "series_awarded": {"$ne": True}},
+        {"$set": {"series_awarded": True, "series_awarded_at": datetime.utcnow()}},
+    )
+    if claim.matched_count == 0:
+        return
+
     hist = list(update.get("match_history") or room.get("match_history") or [])
     room_fresh = await db.rooms.find_one({"room_code": room_code}) or room
     pb_played = bool(room_fresh.get("protocolbreaker_final"))
 
     if room_fresh.get("protocolbreaker_pending"):
+        # Protocolbreaker tiebreaker still pending — release the guard so the
+        # real award path can claim it once the tiebreaker resolves.
+        await db.rooms.update_one(
+            {"room_code": room_code},
+            {"$unset": {"series_awarded": "", "series_awarded_at": ""}},
+        )
         return
 
     effective = match_winner
@@ -1003,6 +1047,28 @@ async def _award_match_series_and_notify(
             await ws.send_json(payload)
         except:
             pass
+
+    # Series is over — drop any in-memory anti-cheat counters tied to this room.
+    try:
+        from app.core import anticheat as _ac
+        _ac.reset_room(room_code)
+    except Exception:
+        pass
+
+    # Post-match heuristics (Phase 2.6): compute distribution flags,
+    # bump per-user anticheat_score, possibly flip under_review. Must
+    # never raise — award/notify has already succeeded at this point.
+    try:
+        from app.core import anticheat_heuristics as _ach
+        await _ach.analyse_match(
+            db,
+            room_code=room_code,
+            p1_id=room.get("player1_id"),
+            p2_id=room.get("player2_id"),
+            winner=effective,
+        )
+    except Exception:
+        logger.exception("anticheat heuristics analyse_match failed room=%s", room_code)
 
 
 # Ranked triple-leg reuses the same series award + notify implementation.
@@ -1772,12 +1838,27 @@ async def queue_join(data: QueueRequest, user_id: str = Depends(get_current_user
     # Remove any existing queue entry for this user (idempotent re-queue)
     await db.matchmaking_queue.delete_many({"user_id": user_id, "format": fmt})
 
+    # Phase 2.6 — decay score on queue entry so a user whose flags have
+    # faded naturally re-enters the main pool without admin action.
+    try:
+        from app.core import anticheat_heuristics as _ach
+        user = await _ach.refresh_user_score(db, user)
+    except Exception:
+        pass
+    shadow = bool(user.get("under_review"))
+
     user_elo = int(user.get("hidden_mmr") or 500)
 
     # Try to find an opponent already waiting (MongoDB-persisted queue)
     # MUST match on board_mode to ensure queue isolation!
     # Ranked: also require Elo within ±RANKED_ELO_MATCH_RANGE (queue rows store "elo").
-    queue_query: dict = {"format": fmt, "board_mode": data.board_mode, "user_id": {"$ne": user_id}}
+    # Shadow: under-review players only match with other under-review players.
+    queue_query: dict = {
+        "format": fmt,
+        "board_mode": data.board_mode,
+        "user_id": {"$ne": user_id},
+        "shadow": shadow,
+    }
     if fmt == "ranked":
         queue_query["elo"] = {
             "$gte": user_elo - RANKED_ELO_MATCH_RANGE,
@@ -1811,6 +1892,7 @@ async def queue_join(data: QueueRequest, user_id: str = Depends(get_current_user
                         "format": fmt,
                         "board_mode": opponent_entry.get("board_mode", data.board_mode),
                         "elo": p1_elo_room,
+                        "shadow": bool(opponent_entry.get("shadow", False)),
                         "created_at": datetime.utcnow(),
                     })
                     opponent_entry = None
@@ -1944,6 +2026,7 @@ async def queue_join(data: QueueRequest, user_id: str = Depends(get_current_user
         "room_code":  code,
         "format":     fmt,
         "board_mode": full_board_mode,
+        "shadow":     shadow,
         "created_at": datetime.utcnow(),
     }
     if fmt == "ranked":
@@ -1978,11 +2061,16 @@ async def queue_leave(data: QueueRequest, user_id: str = Depends(get_current_use
 
 
 @router.get("/queue/status/{room_code}")
-async def queue_status(room_code: str):
+async def queue_status(room_code: str, user_id: str = Depends(get_current_user)):
     db   = get_db()
     room = await db.rooms.find_one({"room_code": room_code.upper()})
     if not room:
         raise HTTPException(404, "Room not found")
+    # Only participants (or the creator waiting in queue) may poll queue state.
+    p1 = str(room.get("player1_id")) if room.get("player1_id") is not None else None
+    p2 = str(room.get("player2_id")) if room.get("player2_id") is not None else None
+    if user_id not in {p1, p2}:
+        raise HTTPException(403, "Not a participant in this room")
     return serialize_room(room)
 
 
@@ -2188,11 +2276,19 @@ async def join_room(data: JoinRoomRequest, user_id: str = Depends(get_current_us
 
 
 @router.get("/{room_code}")
-async def get_room(room_code: str):
+async def get_room(room_code: str, user_id: str = Depends(get_current_user)):
     db   = get_db()
     room = await db.rooms.find_one({"room_code": room_code.upper()})
     if not room:
         raise HTTPException(404, "Room not found")
+    # Only the two seated players may read a room document. This prevents
+    # drive-by enumeration of in-flight games and leaks of opponent metadata.
+    # Private (friend) rooms in "waiting" state with only player1_id set also
+    # still only expose the creator to themselves.
+    p1 = str(room.get("player1_id")) if room.get("player1_id") is not None else None
+    p2 = str(room.get("player2_id")) if room.get("player2_id") is not None else None
+    if user_id not in {p1, p2}:
+        raise HTTPException(403, "Not a participant in this room")
     return serialize_room(room)
 
 
@@ -2277,24 +2373,118 @@ async def forfeit_match(data: dict, user_id: str = Depends(get_current_user)):
 
 
 
-@router.websocket("/ws/global/notify")
-async def global_notify_websocket(websocket: WebSocket):
+# ─────────────────────────────────────────────────────────────────────────────
+# WS ticket handshake (Phase 2.3)
+#
+# Frontend flow:
+#   1. POST /api/room/ws-ticket with Bearer <jwt> (+ optional
+#      {room_code, slot} for binding).
+#   2. Response: { ticket: "...", expires_in: 30 }
+#   3. Open WS with ?ticket=... (NO token in URL).
+#
+# We keep the legacy ?token=<jwt> path on both WS endpoints for now so
+# a partial rollout doesn't break in-flight matches, but the audit log
+# records every legacy connect so we can cut it off once the frontend
+# is fully on tickets.
+# ─────────────────────────────────────────────────────────────────────────────
+class WsTicketRequest(BaseModel):
+    room_code: Optional[str] = None
+    slot: Optional[str] = None
+
+
+@router.post("/ws-ticket")
+async def issue_ws_ticket(
+    data: WsTicketRequest,
+    request: Request,
+    authorization: str = Header(...),
+):
+    from app.core import ws_security
+    from app.core.client_ip import get_client_ip
+
+    payload = await _decode_bearer_full(authorization)
+    user_id = str(payload.get("sub", ""))
+    sid = payload.get("sid")
+    exp = payload.get("exp")
+
+    slot = (data.slot or "").upper() or None
+    if slot and slot not in ("P1", "P2"):
+        raise HTTPException(400, "Invalid slot")
+    room_code = (data.room_code or "").upper() or None
+
+    try:
+        ticket = await ws_security.issue_ticket(
+            user_id=user_id,
+            sid=sid,
+            jwt_exp=exp,
+            room_code=room_code,
+            slot=slot,
+            client_ip=get_client_ip(request),
+        )
+    except ws_security.ReconnectThrottled:
+        raise HTTPException(429, "Too many reconnect attempts; try again in a minute")
+    except ws_security.TicketBackendUnavailable:
+        raise HTTPException(503, "WS ticket service unavailable")
+
+    return {"ticket": ticket, "expires_in": ws_security.TICKET_TTL_SECONDS}
+
+
+async def _ws_auth(
+    websocket: WebSocket,
+    *,
+    expected_room_code: Optional[str] = None,
+    expected_slot: Optional[str] = None,
+) -> Optional[tuple[str, Optional[str], Optional[int], bool]]:
+    """Authenticate a WS upgrade via ticket (preferred) or legacy token.
+
+    Returns (user_id, sid, jwt_exp, used_legacy) or None if auth failed.
+    Closes the socket on failure.
+    """
+    from app.core import ws_security
+
+    ticket = websocket.query_params.get("ticket", "")
+    if ticket:
+        try:
+            info = await ws_security.consume_ticket(
+                ticket,
+                expected_room_code=expected_room_code,
+                expected_slot=expected_slot,
+            )
+        except ws_security.TicketInvalid as e:
+            await websocket.close(code=1008, reason=f"Bad ticket: {e}")
+            return None
+        return (info.user_id, info.sid, info.jwt_exp, False)
+
+    # Legacy path — ?token=<jwt>. Supported during the rollout window.
     token = websocket.query_params.get("token", "")
     if not token:
-        await websocket.close(code=1008, reason="Missing auth token")
-        return
+        await websocket.close(code=1008, reason="Missing auth credential")
+        return None
     try:
         payload = decode_token(token)
-        ws_user_id = str(payload.get("sub", ""))
     except Exception:
         await websocket.close(code=1008, reason="Invalid auth token")
+        return None
+    user_id = str(payload.get("sub", ""))
+    if not user_id:
+        await websocket.close(code=1008, reason="Invalid auth token")
+        return None
+    return (user_id, payload.get("sid"), payload.get("exp"), True)
+
+
+@router.websocket("/ws/global/notify")
+async def global_notify_websocket(websocket: WebSocket):
+    from app.core import ws_security
+    from app.models import ws_messages as ws_schema
+
+    auth_res = await _ws_auth(websocket)
+    if auth_res is None:
         return
+    ws_user_id, token_sid, jwt_exp, used_legacy = auth_res
 
     await websocket.accept()
-    
+
     # Check session validity
     db = get_db()
-    token_sid = payload.get("sid")
     if token_sid:
         _user_doc = await db.users.find_one({"_id": ObjectId(ws_user_id)}, {"current_session_id": 1})
         if not _user_doc or _user_doc.get("current_session_id") != token_sid:
@@ -2302,20 +2492,56 @@ async def global_notify_websocket(websocket: WebSocket):
             await websocket.close(code=4001)
             return
 
+    # Schedule a hard close at JWT expiry — protects matches that
+    # outlast their token from the client just silently losing auth.
+    _jwt_watchdog = await ws_security.schedule_jwt_expiry_close(websocket, jwt_exp)
+    _guard = ws_security.ConnectionGuard(user_id=ws_user_id)
+
     # Register with global connection manager
     ws_manager.register(ws_user_id, websocket)
 
     try:
         while True:
-            # Keep alive
             data = await websocket.receive_text()
-            msg = json.loads(data)
-            if msg.get("type") == "ping":
+            # Hard size cap on inbound frames — anything larger is junk.
+            if len(data) > 2048:
+                await websocket.close(code=1009, reason="Frame too large")
+                break
+            # Cross-tab per-user cap.
+            if not ws_security.user_window_check(ws_user_id):
+                await websocket.close(code=1008, reason="User rate exceeded")
+                break
+            # Per-connection token bucket.
+            if not _guard.check_rate(is_chat=False):
+                if _guard.note_strike("rate"):
+                    await websocket.close(code=1008, reason="Too many frames")
+                    break
+                continue
+            try:
+                msg = json.loads(data)
+            except Exception:
+                if _guard.note_strike("json"):
+                    await websocket.close(code=1008, reason="Malformed payload")
+                    break
+                continue
+            env = ws_schema.validate_envelope(msg)
+            if env is None:
+                if _guard.note_strike("envelope"):
+                    await websocket.close(code=1008, reason="Malformed envelope")
+                    break
+                continue
+            # Only ping has meaning on the global-notify socket; any
+            # other type is unexpected but not by itself hostile —
+            # don't strike on it, just drop.
+            if env.type == "ping":
                 await websocket.send_json({"type": "pong"})
     except WebSocketDisconnect:
         ws_manager.unregister(ws_user_id, websocket)
     except Exception:
         ws_manager.unregister(ws_user_id, websocket)
+    finally:
+        if _jwt_watchdog and not _jwt_watchdog.done():
+            _jwt_watchdog.cancel()
         
         
 # ── WebSocket ─────────────────────────────────────────────────────────────────
@@ -2323,32 +2549,39 @@ async def global_notify_websocket(websocket: WebSocket):
 
 @router.websocket("/ws/{room_code}/{player_slot}")
 async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str):
-    token = websocket.query_params.get("token", "")
-    if not token:
-        await websocket.close(code=1008, reason="Missing auth token")
-        return
-    try:
-        payload = decode_token(token)
-        ws_user_id = str(payload.get("sub", ""))
-    except Exception:
-        await websocket.close(code=1008, reason="Invalid auth token")
-        return
+    from app.core import ws_security
+    from app.models import ws_messages as ws_schema
+
     if player_slot not in ("P1", "P2"):
         await websocket.close(code=1008, reason="Invalid player slot")
         return
+
+    auth_res = await _ws_auth(
+        websocket,
+        expected_room_code=room_code.upper(),
+        expected_slot=player_slot,
+    )
+    if auth_res is None:
+        return
+    ws_user_id, token_sid, jwt_exp, used_legacy = auth_res
 
     await websocket.accept()
     room_code = room_code.upper()
 
     # ── Single-session enforcement: verify the token's sid still matches DB ──
     db = get_db()
-    token_sid = payload.get("sid")
     if token_sid:
         _user_doc = await db.users.find_one({"_id": ObjectId(ws_user_id)}, {"current_session_id": 1})
         if not _user_doc or _user_doc.get("current_session_id") != token_sid:
             await websocket.send_json({"type": "duplicate_session", "reason": "Token no longer valid"})
             await websocket.close(code=4001)
             return
+
+    # Close the socket when the underlying JWT expires. For a ticket
+    # path the jwt_exp comes from the issued ticket; for the legacy
+    # ?token= path it comes from the decoded JWT directly.
+    _jwt_watchdog = await ws_security.schedule_jwt_expiry_close(websocket, jwt_exp)
+    _guard = ws_security.ConnectionGuard(user_id=ws_user_id, room_code=room_code)
 
     # Register with the global connection manager (enables real-time kick on new login)
     ws_manager.register(ws_user_id, websocket)
@@ -2424,19 +2657,71 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
             data = await websocket.receive_text()
             if len(data) > 32_768:
                 await websocket.send_json({"type": "error", "message": "Payload too large"})
+                if _guard.note_strike("oversize"):
+                    await websocket.close(code=1009, reason="Oversize frames")
+                    break
                 continue
+
+            # Cross-tab per-user global cap (120 msgs / 10s across all
+            # of this user's connections on this replica).
+            if not ws_security.user_window_check(ws_user_id):
+                await websocket.send_json({"type": "error", "message": "User rate exceeded"})
+                await websocket.close(code=1008, reason="User rate exceeded")
+                break
+
             try:
                 msg = json.loads(data)
             except Exception:
                 await websocket.send_json({"type": "error", "message": "Malformed JSON"})
+                if _guard.note_strike("json"):
+                    await websocket.close(code=1008, reason="Malformed frames")
+                    break
                 continue
             if not isinstance(msg, dict):
                 await websocket.send_json({"type": "error", "message": "Malformed payload"})
+                if _guard.note_strike("envelope"):
+                    await websocket.close(code=1008, reason="Malformed frames")
+                    break
                 continue
             msg_type = msg.get("type")
             if not isinstance(msg_type, str):
                 await websocket.send_json({"type": "error", "message": "Missing message type"})
+                if _guard.note_strike("no_type"):
+                    await websocket.close(code=1008, reason="Missing message type")
+                    break
                 continue
+
+            # Per-connection rate bucket (chat gets a stricter window).
+            if not _guard.check_rate(is_chat=(msg_type == "chat")):
+                await websocket.send_json({"type": "error", "message": "Rate limited"})
+                if _guard.note_strike("rate"):
+                    await websocket.close(code=1008, reason="Too many frames")
+                    break
+                continue
+
+            # Strict-schema validation for the gameplay-critical types.
+            # Unknown types fall through with envelope-only validation
+            # so we don't break any of the 16+ existing message kinds
+            # this handler supports.
+            _parsed = ws_schema.validate_strict(msg, msg_type)
+            if _parsed is None:
+                await websocket.send_json({"type": "error", "message": "Invalid payload"})
+                if _guard.note_strike("schema"):
+                    await websocket.close(code=1008, reason="Schema violation")
+                    break
+                continue
+
+            # Replay guard — seq must strictly increase and client_msg_id
+            # must not repeat. Only enforced when the client supplies
+            # both; during the rollout many older builds won't, so we
+            # treat absence as a passive strike rather than a hard drop.
+            if _parsed.seq is not None and _parsed.client_msg_id is not None:
+                if not _guard.check_replay(_parsed.seq, _parsed.client_msg_id):
+                    await websocket.send_json({"type": "error", "message": "Replay rejected"})
+                    if _guard.note_strike("replay"):
+                        await websocket.close(code=1008, reason="Replay rejected")
+                        break
+                    continue
 
             if msg_type == "move":
                 row = msg.get("row")
@@ -2464,11 +2749,50 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                     await websocket.send_json({"type": "error", "message": "Not your turn"})
                     continue
 
+                # ── Anti-cheat: minimum human move interval + suspicion counter ──
+                from app.core import anticheat as _ac
+                from app.core import anticheat_heuristics as _ach
+                _ac_result = _ac.check_move(
+                    room_code,
+                    player_slot,  # type: ignore[arg-type]
+                    turn_started_at_ms=room.get("turn_started_at_ms"),
+                )
+                if not _ac_result["ok"]:
+                    # Hard reject only for reflex-impossible speed. Anything
+                    # else stays on the audit trail via the suspicion counter.
+                    # Still record the surge for the post-match distribution
+                    # check so repeat offenders accumulate score even if the
+                    # individual moves were rejected.
+                    try:
+                        _ach.record_sample(
+                            room_code,
+                            player_slot,  # type: ignore[arg-type]
+                            think_ms=_ac_result.get("since_turn_start_ms"),
+                            flag_from_phase1=_ac_result.get("flag"),
+                        )
+                    except Exception:
+                        pass
+                    await websocket.send_json(
+                        {
+                            "type": "error",
+                            "message": "Move ignored — timing invalid",
+                        }
+                    )
+                    continue
+
+                # Post-match heuristics (Phase 2.6) see the accepted-move
+                # stream; the live check handled rejections above.
+                try:
+                    _ach.record_sample(
+                        room_code,
+                        player_slot,  # type: ignore[arg-type]
+                        think_ms=_ac_result.get("since_turn_start_ms"),
+                        flag_from_phase1=_ac_result.get("flag"),
+                    )
+                except Exception:
+                    pass
+
                 eff_bm = _effective_board_mode(room)
-                if eff_bm == "6x6":
-                    # #region agent log
-                    open("debug-6fad40.log","a",encoding="utf-8").write(json.dumps({"sessionId":"6fad40","runId":"run1","hypothesisId":"H3","location":"backend/app/routers/room.py:1745","message":"before 6x6 deploy","data":{"player_slot":player_slot,"current_player":room.get("current_player"),"moves_played":room.get("moves_played",0),"rb6_special_cell":room.get("rb6_special_cell"),"row":row,"col":col},"timestamp":int(datetime.utcnow().timestamp()*1000)})+"\n")
-                    # #endregion
                 sp_for_engine = room.get("selected_patterns")
                 sp1_for_engine = room.get("selected_patterns_p1")
                 sp2_for_engine = room.get("selected_patterns_p2")
@@ -2533,13 +2857,6 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                     p2_used += elapsed_turn_ms
 
                 result      = engine.deploy(row, col)
-                if eff_bm == "6x6":
-                    played_owner = None
-                    if 0 <= row < len(engine.board) and 0 <= col < len(engine.board[row]):
-                        played_owner = engine.board[row][col]
-                    # #region agent log
-                    open("debug-6fad40.log","a",encoding="utf-8").write(json.dumps({"sessionId":"6fad40","runId":"run1","hypothesisId":"H3","location":"backend/app/routers/room.py:1762","message":"after 6x6 deploy","data":{"player_slot":player_slot,"played_owner":played_owner,"next_player":engine.current_player,"extra_turns":engine.extra_turns,"winner":result.get("winner"),"rb6_special_cell":room.get("rb6_special_cell")},"timestamp":int(datetime.utcnow().timestamp()*1000)})+"\n")
-                    # #endregion
                 is_finished = bool(result.get("winner"))
                 career_rb_meta = None
 
@@ -2992,11 +3309,38 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                             pass
 
             elif msg_type == "chat":
+                # Sanitise and cap chat payload. Previously we broadcast the
+                # raw text; a malicious client could ship megabyte strings.
+                raw_text = msg.get("text", "")
+                if not isinstance(raw_text, str):
+                    continue
+                text = raw_text.strip()
+                if not text:
+                    continue
+                if len(text) > 300:
+                    text = text[:300]
+                # Per-connection, per-minute chat quota. Burst-tolerant so two
+                # quick replies are fine, but spamming is rate-limited.
+                _chat_state = _room_runtime.setdefault(room_code, {}).setdefault("_chat", {})
+                slot_key = f"chat:{player_slot}"
+                now_sec = int(datetime.utcnow().timestamp())
+                window = _chat_state.setdefault(slot_key, {"window_start": now_sec, "count": 0})
+                if now_sec - window["window_start"] >= 60:
+                    window["window_start"] = now_sec
+                    window["count"] = 0
+                window["count"] += 1
+                if window["count"] > 20:
+                    # Silently drop; the attacker does not need to know the cap.
+                    continue
+                try:
+                    ts_val = int(msg.get("ts", 0) or 0)
+                except Exception:
+                    ts_val = 0
                 broadcast = {
                     "type": "chat_message",
                     "from": player_slot,
-                    "text": msg.get("text", ""),
-                    "ts":   msg.get("ts", 0),
+                    "text": text,
+                    "ts":   ts_val,
                 }
                 for slot, ws in _room_connections.get(room_code, {}).items():
                     try:
@@ -3116,7 +3460,11 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                         except:
                             pass
                     continue
-                quitter_slot = msg.get("slot") or player_slot
+                # The quitter is always the authenticated player on THIS
+                # WebSocket connection. Ignore any `slot` the client sends —
+                # previously the handler fell back on `msg.get("slot")` which
+                # would let P1 claim to be P2 and forfeit the opponent.
+                quitter_slot = player_slot
                 void_no_play = (
                     room_q
                     and room_q.get("game_status") == "playing"
@@ -3443,13 +3791,25 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                         pass
 
             elif msg_type == "timeout":
-                winner = msg.get("winner")
-                if winner not in ("P1", "P2"):
-                    continue
+                # Server-authoritative timeout. Ignore any `winner` or `slot`
+                # provided by the client — the losing player is ALWAYS the one
+                # whose turn is active (`room.current_player`). Previously the
+                # handler trusted `msg.get("winner")` which let a client forge
+                # a match outcome in either direction.
                 room = await db.rooms.find_one({"room_code": room_code})
                 if not room or room.get("game_status") != "playing":
                     continue
                 if room.get("winner"):
+                    continue
+                timed_out_slot = room.get("current_player")
+                if timed_out_slot not in ("P1", "P2"):
+                    continue
+                winner = "P2" if timed_out_slot == "P1" else "P1"
+                # Plausibility check: the player whose clock expired must have
+                # actually consumed their full budget. If the server never even
+                # started a turn (turn_started_at_ms missing), reject the claim
+                # — timeouts should only fire mid-game, not pre-move.
+                if not room.get("turn_started_at_ms"):
                     continue
                 current_history = room.get("match_history", [])
                 new_history     = current_history + [winner]
@@ -3675,5 +4035,11 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                 _disconnect_confirm_tasks[_disconnect_task_key(room_code, player_slot)] = asyncio.create_task(
                     _disconnect_confirm_worker(db, room_code, player_slot, deadline_ms)
                 )
+    finally:
+        # Always cancel the JWT-expiry watchdog when the connection
+        # ends for any reason. Otherwise we'd leak a sleeping task per
+        # WS reconnect across the life of the process.
+        if _jwt_watchdog and not _jwt_watchdog.done():
+            _jwt_watchdog.cancel()
 
 

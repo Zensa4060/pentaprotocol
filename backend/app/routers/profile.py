@@ -119,6 +119,13 @@ def _serialize_user(user: dict) -> dict:
         "title":               user.get("title", "newcomer"),
         "purchased_items":     user.get("purchased_items", []),
         "legal_accepted":      user.get("legal_accepted", False),
+        "legal_accepted_version": int(user.get("legal_accepted_version", 0) or 0),
+        # ── account review (Phase 2.6) ───────────────────────────────────
+        # Surfaced so the client can render a passive "under review" banner.
+        # We deliberately do not expose the raw anticheat_score — the
+        # boolean is enough for UX, and the score is an internal trust
+        # signal we'd rather not teach cheaters to reverse-engineer.
+        "under_review":        bool(user.get("under_review")),
         # ── AI bot progression ────────────────────────────────────────────
         # `bot_defeats` is a dict of { bot_id: true } for every bot that has
         # awarded its first-time XP prize. `bot_rewards` is a per-slot map
@@ -180,6 +187,28 @@ async def claim_mission_reward(data: ClaimMissionBody, user_id: str = Depends(ge
 
     await db.users.update_one({"_id": oid}, update_doc)
     fresh = await db.users.find_one({"_id": oid}) or user
+
+    try:
+        from app.core import economy_watch
+        if xp_gain > 0:
+            await economy_watch.record_award(
+                db,
+                user_id=str(user_id),
+                kind=economy_watch.KIND_XP_EARNED,
+                amount=int(xp_gain),
+                source=f"mission:{data.mission_id}",
+            )
+        if data.mission_id == "perm_rank_legend":
+            await economy_watch.record_award(
+                db,
+                user_id=str(user_id),
+                kind=economy_watch.KIND_SHARDS_EARNED,
+                amount=10000,
+                source="mission:perm_rank_legend",
+            )
+    except Exception:
+        pass
+
     return {
         "already_claimed": False,
         "xp_awarded": xp_gain,
@@ -193,6 +222,14 @@ async def get_profile(user_id: str = Depends(get_current_user)):
     user = await db.users.find_one({"_id": user_object_id(user_id)})
     if not user:
         raise HTTPException(404, "User not found")
+    # Lazy decay of the Phase 2.6 anticheat score on every profile read
+    # so a user whose flags have aged out sees the banner disappear
+    # without requiring admin intervention.
+    try:
+        from app.core import anticheat_heuristics as _ach
+        user = await _ach.refresh_user_score(db, user)
+    except Exception:
+        pass
     return _serialize_user(user)
 
 

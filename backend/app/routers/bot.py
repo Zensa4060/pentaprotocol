@@ -2,8 +2,10 @@ import copy
 import random
 import time
 from typing import List, Optional
-from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
+from fastapi import APIRouter, HTTPException, Header, Depends
+from pydantic import BaseModel, Field, field_validator
+from app.core.security import decode_token
+from app.core.rate_limit import build_rate_key, enforce_rate_limit
 from app.core.patterns import generate_all_patterns
 from app.core.patterns6 import generate_all_patterns_6
 from app.core.patterns7 import generate_all_patterns_7
@@ -678,13 +680,103 @@ def _eval_flat(board, player, patterns, grid_size):
 # =============================================================
 
 class BotMoveRequest(BaseModel):
-    board: List[List[Optional[str]]]
-    difficulty: str
-    current_player: str
-    board_mode: str = "5x5"
-    selected_patterns: Optional[List[str]] = None
+    # Tight bounds on untrusted input:
+    # * outer list must stay under 8 rows (largest supported board is 7x7)
+    # * each row must stay under 8 cells
+    # * cell values must be None, "P1", or "P2"
+    # * difficulty / current_player / board_mode constrained via enums
+    board: List[List[Optional[str]]] = Field(..., min_length=1, max_length=8)
+    difficulty: str = Field(..., min_length=1, max_length=32)
+    current_player: str = Field(..., min_length=2, max_length=2)
+    board_mode: str = Field("5x5", max_length=8)
+    selected_patterns: Optional[List[str]] = Field(None, max_length=64)
     c3_blocked: bool = False
-    moves_played: Optional[int] = None
+    moves_played: Optional[int] = Field(None, ge=0, le=256)
+
+    @field_validator("board")
+    @classmethod
+    def _validate_board(cls, v: List[List[Optional[str]]]) -> List[List[Optional[str]]]:
+        if not isinstance(v, list) or len(v) < 5 or len(v) > 8:
+            raise ValueError("Board must be 5x5, 6x6, or 7x7")
+        for row in v:
+            if not isinstance(row, list) or len(row) != len(v):
+                raise ValueError("Board must be square")
+            if len(row) > 8:
+                raise ValueError("Row too wide")
+            for cell in row:
+                if cell not in (None, "P1", "P2", "", "null"):
+                    raise ValueError("Invalid cell value")
+        return v
+
+    @field_validator("current_player")
+    @classmethod
+    def _validate_cp(cls, v: str) -> str:
+        if v not in ("P1", "P2"):
+            raise ValueError("current_player must be 'P1' or 'P2'")
+        return v
+
+    @field_validator("difficulty")
+    @classmethod
+    def _validate_difficulty(cls, v: str) -> str:
+        allowed = {"easy", "medium", "normal", "hard", "machine_god", "danger"}
+        if v.lower() not in allowed:
+            raise ValueError("Unknown difficulty")
+        return v.lower()
+
+    @field_validator("board_mode")
+    @classmethod
+    def _validate_bm(cls, v: str) -> str:
+        if v not in ("5x5", "6x6", "7x7"):
+            raise ValueError("Unknown board mode")
+        return v
+
+
+async def _bot_auth(authorization: str = Header(None)) -> str:
+    """Require a valid bearer token + current-legal acceptance for /bot/move.
+
+    Previously the endpoint was anonymous, which let attackers burn CPU on our
+    solver — turning the Rust engines into a free compute farm. Each caller
+    must now authenticate; per-user rate limiting lives on top of this dep.
+
+    Also gates on the current legal-policy version: a user who has never
+    accepted (or accepted an older bundle) cannot play vs bots until they
+    re-accept. The client already shows a gate; this stops a modified
+    client from skipping it.
+    """
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(401, "Authentication required")
+    try:
+        token = authorization.split(" ", 1)[1].strip()
+        if not token:
+            raise HTTPException(401, "Authentication required")
+        payload = decode_token(token)
+        sub = payload.get("sub")
+        if not sub:
+            raise HTTPException(401, "Invalid token")
+        # Policy-gate check — lazy import to avoid circular dependency at
+        # module import time (auth.py imports rate_limit which imports
+        # security_audit which imports database, etc.)
+        try:
+            from app.routers.auth import _user_needs_policy_gate
+            from app.core.database import get_db
+            from app.core.ids import user_object_id
+            db = get_db()
+            user = await db.users.find_one(
+                {"_id": user_object_id(sub)},
+                {"legal_accepted": 1, "legal_accepted_version": 1},
+            )
+            if user and _user_needs_policy_gate(user):
+                raise HTTPException(status_code=403, detail="legal_required")
+        except HTTPException:
+            raise
+        except Exception:
+            # Never block gameplay on an advisory check failure.
+            pass
+        return sub
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(401, "Invalid token")
 
 _ENGINE5 = None
 _LAST_PATS5 = None
@@ -716,11 +808,19 @@ _PYTHON_6_ENG = None
 _PYTHON_6_PATS = None
 
 @router.post("/move")
-def bot_move(req: BotMoveRequest):
+async def bot_move(req: BotMoveRequest, user_id: str = Depends(_bot_auth)):
     global _ENGINE7_NEW, _LAST_PATS7_NEW, _DANGER_ENG, _DANGER_PATS
     global _RUST_HARD_ENG, _RUST_HARD_PATS, _RUST_DANGER_ENG, _RUST_DANGER_PATS
     global _RUST_NORMAL6_ENG, _RUST_HARD6_ENG, _RUST_GOD6_ENG, _RUST_6_PATS
     global _PYTHON_6_ENG, _PYTHON_6_PATS
+
+    # Per-user rate limit — prevents a single account from DoSing the solver.
+    await enforce_rate_limit(
+        key=build_rate_key("bot_move", user_id),
+        max_attempts=60,
+        window_seconds=60,
+        detail="Too many bot requests — slow down.",
+    )
     def normalize(cell): return None if cell in [None, "null", ""] else cell
     board = [[normalize(cell) for cell in row] for row in req.board]
     if len(board) >= 7 and len(board[0]) >= 7:

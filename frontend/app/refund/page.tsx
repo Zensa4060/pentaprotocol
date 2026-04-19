@@ -37,13 +37,15 @@ export default function RefundPage() {
             <div style={{ fontFamily: "monospace", fontSize: 11, color: "#CC0000", letterSpacing: "0.3em", marginBottom: 12 }}>LEGAL</div>
             <h1 style={{ fontSize: 40, fontWeight: 700, color: "#fff", lineHeight: 1.15, marginBottom: 16 }}>Refund &amp; Cancellation Policy</h1>
             <p style={{ fontSize: 14, color: "#555", lineHeight: 1.6 }}>
-              Effective Date: 12 April 2026 &nbsp;·&nbsp; pentaprotocol.com
+              Effective Date: 18 April 2026 &nbsp;·&nbsp; pentaprotocol.com
             </p>
             <div style={{ height: 2, background: "linear-gradient(to right, #CC0000, transparent)", marginTop: 24 }} />
           </div>
 
           <Section title="1. Overview">
-            All purchases of virtual currency (ProtoCredits and PentaShards) and in-game items on PentaProtocol are generally <strong style={{ color: "#e8e8e8" }}>final and non-refundable</strong>, due to the immediate digital nature of delivery. We have a limited exception for accidental duplicate purchases only. Payments may be made via PayPal, Instamojo (where available), or by scanning the creator&apos;s personal payment QR (UPI or other method shown below). By completing a purchase, you agree to this policy.
+            All purchases of virtual currency (ProtoCredits and PentaShards) and in-game items on PentaProtocol are generally <strong style={{ color: "#e8e8e8" }}>final and non-refundable</strong>, due to the immediate digital nature of delivery. We have a limited exception for accidental duplicate purchases only. Payments are accepted only via <strong style={{ color: "#e8e8e8" }}>operator-verified UPI / bank-QR</strong> (INR): scan the posted QR, pay with any UPI app, and submit the bank UTR in-app so credits can be reconciled manually. By completing a purchase, you agree to this policy.
+            <br /><br />
+            <strong style={{ color: "#e8e8e8" }}>Beta note:</strong> PentaProtocol is in open beta. Virtual-currency balances and cosmetic items may be adjusted, rebalanced, or reset as part of routine beta iteration; this does not entitle you to a refund unless the adjustment prevents you from using previously-purchased content for an extended period.
           </Section>
 
           <Section title="2. Creator payment QR (direct payments)" id="creator-payment-qr">
@@ -77,17 +79,17 @@ export default function RefundPage() {
           </Section>
 
           <Section title="4. Eligible Refund: Accidental Duplicate Purchases">
-            PentaProtocol will consider a refund <strong style={{ color: "#e8e8e8" }}>solely</strong> where the same package has been purchased more than once within a single session due to a technical error, duplicate PayPal charge, inadvertent double payment to the creator&apos;s QR, or double-click — and the duplicate credits have <strong style={{ color: "#e8e8e8" }}>not been spent</strong>.
+            PentaProtocol will consider a refund <strong style={{ color: "#e8e8e8" }}>solely</strong> where the same package has been paid for more than once within a single session due to a technical error, inadvertent double payment to the same UPI / bank QR, or double-click on the submission button — and the duplicate credits have <strong style={{ color: "#e8e8e8" }}>not been spent</strong>.
             <br /><br />
             <strong style={{ color: "#e8e8e8" }}>To qualify, all of the following must be true:</strong>
             <br />• The duplicate transaction occurred within the same session (within 30 minutes)
             <br />• The duplicate credits have not been used to purchase any in-game item
             <br />• The request is submitted within 48 hours of the transaction
-            <br />• Payment confirmation details (transaction ID or receipt) are provided
+            <br />• Payment confirmation details are provided — both bank UTRs, the approximate times of each UPI transfer, and the in-app username
             <br /><br />
             <strong style={{ color: "#e8e8e8" }}>How to request:</strong> Email{" "}
             <a href="mailto:support@pentaprotocol.com" style={{ color: "#CC0000", textDecoration: "none" }}>support@pentaprotocol.com</a>{" "}
-            with your username, date and time of both transactions, PayPal transaction IDs or UPI / bank references, and a brief description. We aim to respond within 5 business days. Approved refunds for PayPal payments are processed back through PayPal where possible. For direct QR / UPI payments, approved refunds may be returned via UPI or bank transfer at the creator&apos;s discretion within a reasonable time — not guaranteed to be instant.
+            with your username, date and time of both transactions, both bank UTRs, and a brief description. We aim to respond within 5 business days. Approved refunds are returned via UPI or bank transfer to the account that made the original payment within a reasonable time — not guaranteed to be instant.
           </Section>
 
           <Section title="5. Cancellations">
@@ -97,9 +99,9 @@ export default function RefundPage() {
           </Section>
 
           <Section title="6. Failed or Erroneous Transactions">
-            If you were charged for a transaction that failed to deliver the corresponding credits, contact us at{" "}
+            If you submitted a UPI payment and the corresponding credits have not appeared within 24 hours, contact us at{" "}
             <a href="mailto:support@pentaprotocol.com" style={{ color: "#CC0000", textDecoration: "none" }}>support@pentaprotocol.com</a>{" "}
-            within 48 hours with your transaction ID or UPI reference. We will verify with PayPal or your payment proof to the creator&apos;s account and credit your account or arrange a refund within 7 business days if confirmed.
+            within 48 hours with your username and the bank UTR. We will reconcile against our bank statement and either credit your account or arrange a refund within 7 business days if the payment is confirmed.
           </Section>
 
           <Section title="7. Chargebacks">
@@ -113,7 +115,7 @@ export default function RefundPage() {
 
           <div style={{ marginTop: 32, paddingTop: 16, borderTop: "1px solid #1e1e2a" }}>
             <div style={{ fontFamily: "monospace", fontSize: 11, color: "#444", lineHeight: 1.8 }}>
-              Version 1.0 — 9 April 2026 · Initial release
+              Version 2.1 — 18 April 2026 · Removed PayPal and Instamojo references. Payment flow is operator-verified UPI / bank-QR only.
             </div>
           </div>
 

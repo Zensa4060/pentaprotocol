@@ -50,7 +50,7 @@ export default function PolicyAcceptanceGate({
   const accept = () => {
     if (!allChecked || !uid) return;
     // Server-side consent record (fire-and-forget — non-blocking)
-    API.post("/api/auth/accept-legal", { version: 1 }).catch(() => {});
+    API.post("/api/auth/accept-legal", { version: 2 }).catch(() => {});
     setLegalAccepted(uid);
     clearPolicyGatePending();
     onAcceptedAction();

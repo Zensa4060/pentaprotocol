@@ -4,6 +4,7 @@ from app.core.database import get_db
 from app.core.security import decode_token
 from app.game.engine import GameEngine
 from app.game.ranked_penalties import record_ranked_match_completed_clean
+from app.core import economy_watch
 from bson import ObjectId
 from datetime import datetime
 router = APIRouter()
@@ -121,14 +122,49 @@ def apply_derank_buffer(elo_old: int, elo_candidate: int, result: str) -> int:
     return elo_candidate
 
 async def get_current_user(authorization: str = Header(None)):
-    if not authorization:
-        return None
+    """Strict JWT auth. Raises 401 on missing/invalid token instead of silently
+    returning None — previously a missing bearer token dropped the caller into
+    an anonymous path that could still mutate game state."""
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(401, "Authentication required")
     try:
-        token = authorization.split(" ")[1]
+        token = authorization.split(" ", 1)[1].strip()
+        if not token:
+            raise HTTPException(401, "Authentication required")
         payload = decode_token(token)
-        return payload["sub"]
-    except:
-        return None
+        sub = payload.get("sub")
+        if not sub:
+            raise HTTPException(401, "Invalid token")
+        return sub
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(401, "Invalid token")
+
+
+async def require_legal_accepted(user_id: str = Depends(get_current_user)) -> str:
+    """Gate gameplay endpoints on the current legal-policy version.
+
+    The client shows a modal, but a modified or bypassed client could
+    otherwise skip it. We return 403 ``legal_required`` so the frontend
+    can route the user into the acceptance flow exactly like it does on
+    401 session-replaced.
+    """
+    try:
+        from app.routers.auth import _user_needs_policy_gate
+        from app.core.ids import user_object_id
+        db = get_db()
+        user = await db.users.find_one(
+            {"_id": user_object_id(user_id)},
+            {"legal_accepted": 1, "legal_accepted_version": 1},
+        )
+        if user and _user_needs_policy_gate(user):
+            raise HTTPException(status_code=403, detail="legal_required")
+    except HTTPException:
+        raise
+    except Exception:
+        pass
+    return user_id
 
 async def award_game_result(db, game: dict, winner: str | None):
     p1_id      = game.get("player1_id")
@@ -330,7 +366,25 @@ async def award_ranked_match_result(
                 if pl_matches < 5:
                     updates["placement_matches"] = pl_matches + 1
 
+        # Phase 2.6 — if this user is shadow-banned, route ranked deltas to
+        # shadow_rating and freeze their mainline elo / mmr / placement.
+        try:
+            from app.core import anticheat_heuristics as _ach
+            updates = _ach.apply_shadow_rating_policy(user, updates)
+        except Exception:
+            pass
+
         await db.users.update_one({"_id": ObjectId(user_id)}, {"$set": updates, "$inc": inc})
+        try:
+            await economy_watch.record_match_reward(
+                db,
+                user_id=str(user_id),
+                xp=int(gained_xp or 0),
+                shards=0,
+                room_code=None,
+            )
+        except Exception:
+            pass
 
     w = (winner or "").upper()
     if w == "P1":
@@ -416,7 +470,7 @@ async def award_ranked_match_result(
 
 
 @router.post("/create")
-async def create_game(data: CreateGame, user_id: str = Depends(get_current_user)):
+async def create_game(data: CreateGame, user_id: str = Depends(require_legal_accepted)):
     db = get_db()
     engine = GameEngine()
     game = {
@@ -445,11 +499,24 @@ async def create_game(data: CreateGame, user_id: str = Depends(get_current_user)
     }
 
 @router.post("/move")
-async def make_move(data: MakeMove, user_id: str = Depends(get_current_user)):
+async def make_move(data: MakeMove, user_id: str = Depends(require_legal_accepted)):
     db = get_db()
-    game = await db.games.find_one({"_id": ObjectId(data.game_id)})
+    try:
+        game_oid = ObjectId(data.game_id)
+    except Exception:
+        raise HTTPException(400, "Invalid game id")
+    game = await db.games.find_one({"_id": game_oid})
     if not game:
         raise HTTPException(404, "Game not found")
+
+    # Participation check — only the player(s) on the game can make a move.
+    # player1_id is always set; player2_id is None for solo / bot modes.
+    p1 = str(game.get("player1_id")) if game.get("player1_id") is not None else None
+    p2 = str(game.get("player2_id")) if game.get("player2_id") is not None else None
+    participants = {x for x in (p1, p2) if x}
+    if user_id not in participants:
+        raise HTTPException(403, "Not a participant in this game")
+
     if game["status"] != "active":
         return {
             "game_id":        data.game_id,
@@ -482,11 +549,23 @@ async def make_move(data: MakeMove, user_id: str = Depends(get_current_user)):
     return {"game_id": data.game_id, **update, "mode": game["mode"]}
 
 @router.get("/{game_id}")
-async def get_game(game_id: str):
+async def get_game(game_id: str, user_id: str = Depends(get_current_user)):
     db = get_db()
-    game = await db.games.find_one({"_id": ObjectId(game_id)})
+    try:
+        game_oid = ObjectId(game_id)
+    except Exception:
+        raise HTTPException(400, "Invalid game id")
+    game = await db.games.find_one({"_id": game_oid})
     if not game:
         raise HTTPException(404, "Game not found")
+
+    # Participation check — only the player(s) on the game may read it.
+    p1 = str(game.get("player1_id")) if game.get("player1_id") is not None else None
+    p2 = str(game.get("player2_id")) if game.get("player2_id") is not None else None
+    participants = {x for x in (p1, p2) if x}
+    if user_id not in participants:
+        raise HTTPException(403, "Not a participant in this game")
+
     return {
         "game_id":        str(game["_id"]),
         "board":          game["board"],

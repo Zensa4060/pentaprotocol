@@ -1,5 +1,6 @@
 "use client";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/lib/store";
 import { THEMES } from "@/lib/themes";
 import type { Screen } from "@/lib/types";
@@ -18,6 +19,7 @@ import {
   getProfileNavBadgeCount,
   getStoreNewCatalogBadgeCount,
 } from "@/lib/navBadgeState";
+import { screenToUrl, ROUTES } from "@/lib/routes";
 
 export const RANKS = [
   { name: "UNRANKED",     min: -1,   max: -1,      color: "#FF33FF", img: undefined,               scale: 1     },
@@ -199,6 +201,18 @@ export default function NavBar({
   const t = THEMES[themeId as keyof typeof THEMES];
   const { user, logout } = useAuthStore();
   const isGuest = !user;
+  const router = useRouter();
+
+  const prefetchHref = useCallback(
+    (href: string) => {
+      try {
+        router.prefetch(href);
+      } catch {
+        /* noop */
+      }
+    },
+    [router],
+  );
 
   const [showSignOut, setShowSignOut]   = useState(false);
   const [focusMode, setFocusMode]       = useState(false);
@@ -437,7 +451,15 @@ export default function NavBar({
         type="button"
         title={bc || hideLabel ? `${label}${bc ? ` — ${bc}` : ""}` : undefined}
         onClick={() => { if (onClick) { onClick(); return; } if (targetScreen) navigate(targetScreen, locked); }}
-        onMouseEnter={() => { onHoverAction?.(); setHoveredBtn(target); }}
+        onMouseEnter={() => {
+          onHoverAction?.();
+          setHoveredBtn(target);
+          if (target === "patchNotes") prefetchHref(ROUTES.PATCHNOTES);
+          else if (targetScreen) {
+            const href = screenToUrl(targetScreen);
+            if (href) prefetchHref(href);
+          }
+        }}
         onMouseLeave={() => setHoveredBtn(null)}
         style={{
           background:    isActive ? `${accentCol}1A` : isHovered ? `${accentCol}0F` : "none",
@@ -492,6 +514,7 @@ export default function NavBar({
       aria-label="Game rules"
       onMouseEnter={(e) => {
         onHoverAction?.();
+        prefetchHref(ROUTES.RULES);
         e.currentTarget.style.borderColor = t.accent;
         e.currentTarget.style.color = t.accent;
         e.currentTarget.style.background = `${t.accent}18`;
@@ -590,6 +613,9 @@ export default function NavBar({
         <div style={{ display: "flex", alignItems: "center", gap: isTablet ? 12 : 20, flexShrink: 0, minWidth: 0 }}>
           <div
             onClick={() => { if (!lockMultiplayerNav) navigate("home"); }}
+            onMouseEnter={() => {
+              if (!lockMultiplayerNav) prefetchHref(ROUTES.HOME);
+            }}
             title={lockMultiplayerNav ? "PentaProtocol" : "Home"}
             style={{
               // Logo stays fully visible in multiplayer per product direction —

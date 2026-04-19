@@ -3,12 +3,22 @@ from pydantic import BaseModel, EmailStr, Field
 from app.core.database import get_db
 from app.core.security import hash_password, decode_token, verify_password
 from bson import ObjectId
+import logging
 import resend
 import redis
 import json
 import os
 import secrets
-from app.core.rate_limit import build_rate_key, enforce_rate_limit
+
+logger = logging.getLogger("pentaprotocol.otp")
+from app.core.rate_limit import (
+    build_rate_key,
+    enforce_rate_limit,
+    enforce_tier,
+    TIER_FAST,
+    TIER_SENSITIVE,
+)
+from app.core.client_ip import get_client_ip
 from bson.errors import InvalidId
 
 router = APIRouter()
@@ -55,6 +65,14 @@ class ChangePasswordRequest(BaseModel):
 def generate_otp():
     return str(secrets.randbelow(900000) + 100000)
 
+
+def _hash_for_log(value: str) -> str:
+    """Short, stable hash of an email for log correlation without leaking
+    the actual address. We keep just 10 hex chars — enough to group by
+    user in a noisy log but not enough to reverse."""
+    import hashlib as _h
+    return _h.sha256((value or "").strip().lower().encode("utf-8")).hexdigest()[:10]
+
 def send_otp_email(to_email: str, otp: str, purpose: str):
     subjects = {
         "signup":          "Verify your email - PentaProtocol",
@@ -68,14 +86,18 @@ def send_otp_email(to_email: str, otp: str, purpose: str):
         "If you didn't request this, ignore this email."
     )
 
-    # Developer Fallback / Error Handling
+    # Developer Fallback / Error Handling.
+    # IMPORTANT: We deliberately never log the OTP value itself in any
+    # environment — even with the API key missing we'd rather have a
+    # broken dev flow than accidentally leave a plaintext code in a log
+    # pipe (Railway log drains, Loki, stdout captures, etc.). Developers
+    # running locally can set RESEND_API_KEY to an actual test key, or
+    # inspect Redis directly to grab the hashed/unhashed value they need.
     if not resend.api_key:
-        print("\n" + "="*50)
-        print(f"DEV MODE: RESEND_API_KEY is missing.")
-        print(f"TO:      {to_email}")
-        print(f"SUBJECT: {subject}")
-        print(f"OTP:     {otp}")
-        print("="*50 + "\n")
+        logger.warning(
+            "otp.send skipped: RESEND_API_KEY missing to=%s purpose=%s",
+            _hash_for_log(to_email), purpose,
+        )
         return
 
     try:
@@ -86,10 +108,10 @@ def send_otp_email(to_email: str, otp: str, purpose: str):
             "text": text
         })
     except Exception as e:
-        print("\n" + "!"*50)
-        print(f"ERROR: Failed to send email via Resend: {str(e)}")
-        print(f"FALLBACK OTP FOR {to_email}: {otp}")
-        print("!"*50 + "\n")
+        logger.error(
+            "otp.send failed to=%s purpose=%s err=%s",
+            _hash_for_log(to_email), purpose, type(e).__name__,
+        )
 
 def store_otp(email: str, purpose: str, otp: str):
     try:
@@ -118,10 +140,15 @@ def check_otp(email: str, purpose: str, otp: str) -> bool:
 # ─── SIGNUP ───────────────────────────────────────────────
 @router.post("/signup/send")
 async def signup_send_otp(req: EmailRequest, request: Request):
-    # Lightweight anti-abuse cap on OTP generation requests.
-    client_ip = request.client.host if request.client else "unknown"
-    await enforce_rate_limit(
-        key=build_rate_key("otp_signup_send", client_ip, req.email),
+    # OTP generation is expensive (email send cost + inbox pressure) so we use
+    # the sensitive tier (5 per 15 min) to stop spam waves. Typos / resend
+    # buttons inside that window just tell the user to check their inbox.
+    client_ip = get_client_ip(request)
+    await enforce_tier(
+        scope="otp_signup_send",
+        ip=client_ip,
+        identifier=str(req.email),
+        tier=TIER_SENSITIVE,
         detail="Too many OTP requests.",
     )
     db = get_db()
@@ -135,9 +162,12 @@ async def signup_send_otp(req: EmailRequest, request: Request):
 
 @router.post("/signup/verify")
 async def signup_verify_otp(req: OTPVerifyRequest, request: Request):
-    client_ip = request.client.host if request.client else "unknown"
-    await enforce_rate_limit(
-        key=build_rate_key("otp_signup_verify", client_ip, req.email),
+    client_ip = get_client_ip(request)
+    await enforce_tier(
+        scope="otp_signup_verify",
+        ip=client_ip,
+        identifier=str(req.email),
+        tier=TIER_FAST,
         detail="Too many OTP verification attempts.",
     )
     if not check_otp(req.email, "signup", req.otp):
@@ -147,9 +177,12 @@ async def signup_verify_otp(req: OTPVerifyRequest, request: Request):
 # ─── CHANGE EMAIL ─────────────────────────────────────────
 @router.post("/change-email/send")
 async def change_email_send(req: ChangeEmailRequest, request: Request, user_id: str = Depends(get_current_user)):
-    client_ip = request.client.host if request.client else "unknown"
-    await enforce_rate_limit(
-        key=build_rate_key("otp_change_email_send", client_ip, req.new_email),
+    client_ip = get_client_ip(request)
+    await enforce_tier(
+        scope="otp_change_email_send",
+        ip=client_ip,
+        identifier=f"{user_id}:{req.new_email}",
+        tier=TIER_SENSITIVE,
         detail="Too many OTP requests.",
     )
     db = get_db()
@@ -163,9 +196,12 @@ async def change_email_send(req: ChangeEmailRequest, request: Request, user_id: 
 
 @router.post("/change-email/verify")
 async def change_email_verify(req: ChangeEmailVerifyRequest, request: Request, user_id: str = Depends(get_current_user)):
-    client_ip = request.client.host if request.client else "unknown"
-    await enforce_rate_limit(
-        key=build_rate_key("otp_change_email_verify", client_ip, req.new_email),
+    client_ip = get_client_ip(request)
+    await enforce_tier(
+        scope="otp_change_email_verify",
+        ip=client_ip,
+        identifier=f"{user_id}:{req.new_email}",
+        tier=TIER_FAST,
         detail="Too many OTP verification attempts.",
     )
     if not check_otp(req.new_email, "change_email", req.otp):
@@ -184,9 +220,12 @@ async def change_email_verify(req: ChangeEmailVerifyRequest, request: Request, u
 # ─── CHANGE PASSWORD ──────────────────────────────────────
 @router.post("/change-password/send")
 async def change_password_send(request: Request, user_id: str = Depends(get_current_user)):
-    client_ip = request.client.host if request.client else "unknown"
-    await enforce_rate_limit(
-        key=build_rate_key("otp_change_password_send", client_ip, user_id),
+    client_ip = get_client_ip(request)
+    await enforce_tier(
+        scope="otp_change_password_send",
+        ip=client_ip,
+        identifier=user_id,
+        tier=TIER_SENSITIVE,
         detail="Too many OTP requests.",
     )
     db   = get_db()
@@ -204,9 +243,12 @@ async def change_password_send(request: Request, user_id: str = Depends(get_curr
 
 @router.post("/change-password/verify")
 async def change_password_verify(req: ChangePasswordRequest, request: Request, user_id: str = Depends(get_current_user)):
-    client_ip = request.client.host if request.client else "unknown"
-    await enforce_rate_limit(
-        key=build_rate_key("otp_change_password_verify", client_ip, user_id),
+    client_ip = get_client_ip(request)
+    await enforce_tier(
+        scope="otp_change_password_verify",
+        ip=client_ip,
+        identifier=user_id,
+        tier=TIER_FAST,
         detail="Too many password change attempts.",
     )
     db   = get_db()

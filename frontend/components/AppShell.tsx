@@ -12,7 +12,7 @@ import {
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useAuthStore } from "@/lib/store";
 import { useAudio } from "@/hooks/useAudio";
-import API, { getWsBaseUrl } from "@/lib/api";
+import API, { getWsBaseUrl, openWs } from "@/lib/api";
 import { THEMES } from "@/lib/themes";
 import type { ThemeId } from "@/lib/themes";
 import type { Difficulty } from "@/lib/botEngine";
@@ -36,6 +36,7 @@ import {
   buildRulesShowUrl,
   GUEST_BLOCKED_SCREENS,
   ROUTES,
+  MAIN_NAV_PREFETCH_PATHS,
 } from "@/lib/routes";
 
 import NavBar from "@/components/NavBar";
@@ -360,6 +361,37 @@ export default function AppShell({ children }: { children: ReactNode }) {
     if (pending === uid && !hasAcceptedLegal(uid, user)) setShowPolicyGate(true);
   }, [appReady, user, token]);
 
+  /* ── Warm shell routes (navbar) so tab switches use prefetched segments ─ */
+  useEffect(() => {
+    if (!appReady || typeof window === "undefined") return;
+    const prefetchAll = () => {
+      for (const href of MAIN_NAV_PREFETCH_PATHS) {
+        try {
+          router.prefetch(href);
+        } catch {
+          /* noop */
+        }
+      }
+    };
+    const w = window as Window & {
+      requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number;
+      cancelIdleCallback?: (id: number) => void;
+    };
+    let idleId: number | undefined;
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+    if (typeof w.requestIdleCallback === "function") {
+      idleId = w.requestIdleCallback(prefetchAll, { timeout: 3500 });
+    } else {
+      timeoutId = setTimeout(prefetchAll, 500);
+    }
+    return () => {
+      if (idleId !== undefined && typeof w.cancelIdleCallback === "function") {
+        w.cancelIdleCallback(idleId);
+      }
+      if (timeoutId !== undefined) clearTimeout(timeoutId);
+    };
+  }, [appReady, router]);
+
   /* ── Global notify WebSocket ────────────────────────────────────────── */
   useEffect(() => {
     if (!appReady || !token) return;
@@ -367,10 +399,22 @@ export default function AppShell({ children }: { children: ReactNode }) {
 
     let ws: WebSocket | null = null;
     let reconnectTimeout: NodeJS.Timeout | null = null;
+    let cancelled = false;
 
-    const connect = () => {
-      const wsBase = getWsBaseUrl();
-      ws = new WebSocket(`${wsBase}/api/room/ws/global/notify?token=${token}`);
+    const connect = async () => {
+      if (cancelled) return;
+      try {
+        // Phase 2.3: fetch a one-shot ticket instead of putting the
+        // JWT in the WS URL. If the user has spammed reconnects the
+        // server will 429 us; back off 10s and let it try again.
+        ws = await openWs("/api/room/ws/global/notify");
+      } catch {
+        if (!cancelled && useAuthStore.getState().token) {
+          reconnectTimeout = setTimeout(connect, 10000);
+        }
+        return;
+      }
+      if (cancelled) { ws.close(); return; }
       ws.onmessage = (e) => {
         try {
           const msg = JSON.parse(e.data);
@@ -378,11 +422,14 @@ export default function AppShell({ children }: { children: ReactNode }) {
         } catch {}
       };
       ws.onclose = () => {
-        if (useAuthStore.getState().token) reconnectTimeout = setTimeout(connect, 5000);
+        if (!cancelled && useAuthStore.getState().token) {
+          reconnectTimeout = setTimeout(connect, 5000);
+        }
       };
     };
     connect();
     return () => {
+      cancelled = true;
       if (ws) { ws.onclose = null; ws.close(); }
       if (reconnectTimeout) clearTimeout(reconnectTimeout);
     };
@@ -1341,6 +1388,37 @@ export default function AppShell({ children }: { children: ReactNode }) {
           button   { cursor: pointer; }
           button, a, input, select { transition: color 0.15s, background 0.15s, border-color 0.15s, box-shadow 0.15s; }
         `}</style>
+
+        {/* Account-review banner (Phase 2.6): passive notice for users
+            whose anti-cheat score has crossed the shadow-ban threshold.
+            We keep it deliberately understated — no score, no appeal CTA
+            in-product (email support instead), and we don't tell them
+            they're shadow-banned from ranked; the server handles that
+            silently via segregated matchmaking. */}
+        {user?.under_review && (
+          <div
+            style={{
+              position: "fixed",
+              top: 0,
+              left: 0,
+              right: 0,
+              zIndex: 9990,
+              background: "#6b1f1f",
+              color: "#ffe6e6",
+              fontFamily: "var(--font-body, system-ui)",
+              fontSize: 13,
+              letterSpacing: "0.02em",
+              padding: "6px 12px",
+              textAlign: "center",
+              borderBottom: "1px solid #902525",
+              pointerEvents: "none",
+            }}
+          >
+            Your account is under review. Ranked progress is paused while our
+            integrity team investigates. Contact support if you believe this is
+            a mistake.
+          </div>
+        )}
 
         {/* NavBar */}
         {showNavBar && (

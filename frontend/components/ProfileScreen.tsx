@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { ThemeId } from "@/lib/themes";
 import { THEMES } from "@/lib/themes";
@@ -279,6 +279,32 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
     return () => { cancelled = true; };
   }, [user, profileFetchKey]);
 
+  // When Edit Profile opens with `initialEditMode` (/profile/edit), `openEdit`
+  // never runs — so username/bio/banner fields stay empty until we sync from
+  // `profile` once it exists. Same transition logic covers a late API fetch
+  // after the modal is already visible.
+  const editModalSyncedRef = useRef(false);
+  useEffect(() => {
+    if (!showEdit) {
+      editModalSyncedRef.current = false;
+      return;
+    }
+    if (!profile) return;
+
+    const shouldSeed = !editModalSyncedRef.current;
+    if (!shouldSeed) return;
+
+    editModalSyncedRef.current = true;
+    setEditBio(profile.bio || "");
+    const u = profile.username || (user as { username?: string } | null)?.username || "";
+    setEditUsername(u);
+    setAvatarFile(null);
+    setAvatarPreview(null);
+    setEditBanner(profile.banner || "default");
+    setEditBorder(profile.border_style || "none");
+    setEditTitle(profile.title || "newcomer");
+  }, [showEdit, profile, user]);
+
   useEffect(() => {
     if (typeof window === "undefined" || !user) {
       setMissionShardBonus(0);
@@ -372,7 +398,9 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
   // ── Edit helpers ──────────────────────────────────────────────────────────
   const openEdit = (tab: EditTab = "profile") => {
     setEditBio(profile.bio || "");
-    setEditUsername(profile.username || "");
+    setEditUsername(
+      profile.username || (user as { username?: string } | null)?.username || "",
+    );
     // Reset avatar state — never carry over old base64
     setAvatarFile(null);
     setAvatarPreview(null);
@@ -385,6 +413,8 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
     setEmailTotpStep("idle"); setEmailOtpCode("");
     setEditMsg(null);
     setEditTab(tab);
+    // Skip the useEffect duplicate seed on the same tick as setShowEdit(true)
+    editModalSyncedRef.current = true;
     setShowEdit(true);
     if (typeof window !== "undefined" && window.location.pathname !== "/profile/edit") {
       router.push("/profile/edit");

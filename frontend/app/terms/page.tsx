@@ -53,37 +53,63 @@ export default function TermsPage() {
             <div style={{ fontFamily: "monospace", fontSize: 11, color: "#CC0000", letterSpacing: "0.3em", marginBottom: 12 }}>LEGAL</div>
             <h1 style={{ fontSize: 40, fontWeight: 700, color: "#fff", lineHeight: 1.15, marginBottom: 16 }}>Terms and Conditions</h1>
             <p style={{ fontSize: 14, color: "#555", lineHeight: 1.6 }}>
-              Effective Date: 12 April 2026 &nbsp;·&nbsp; pentaprotocol.com
+              Effective Date: 18 April 2026 &nbsp;·&nbsp; pentaprotocol.com
             </p>
             <div style={{ height: 2, background: "linear-gradient(to right, #CC0000, transparent)", marginTop: 24 }} />
           </div>
 
           <Section title="1. Acceptance of Terms">
             By accessing or using PentaProtocol ("the Platform"), available at pentaprotocol.com, you agree to be bound by these Terms and Conditions. If you do not agree, you must not use the Platform. PentaProtocol reserves the right to update these Terms at any time. We will notify users of material changes via email or a prominent in-platform notice at least 14 days before changes take effect. Continued use of the Platform after such notice period constitutes acceptance of the updated Terms.
+            <br /><br />
+            <strong style={{ color: "#e8e8e8" }}>Open-beta clause:</strong> PentaProtocol is currently offered as an open beta. Features, game modes, economies, ranks, missions, stored progression, and virtual currency balances may be modified, reset, rebalanced, or removed at any time during the beta period. You understand and accept that beta access is provided on an experimental basis and that changes may occur without the 14-day notice otherwise required for material Terms changes.
           </Section>
 
           <Section title="2. Description of Service">
-            PentaProtocol is a web-based multiplayer gaming platform providing competitive (Ranked) and casual (Unranked) gameplay modes, including a "Placement" phase for new competitive players. Features include a virtual goods store (ProtoCredits, PentaShards, cosmetic bundles, boards, banners), a ranked ladder system with seasonal progression, and user profile and collection features.
+            PentaProtocol is a web-based multiplayer gaming platform providing competitive (Ranked) and casual (Unranked) gameplay modes, including a &quot;Placement&quot; phase for new competitive players and a single-player AI ladder with difficulty tiers. Features include a virtual goods store (ProtoCredits, PentaShards, cosmetic bundles, boards, banners, themes), a ranked ladder system with seasonal progression, missions and rank-reward progression, and user profile and collection features.
           </Section>
 
           <Section title="3. Eligibility">
-            You must be at least 13 years of age to use the Platform. If you are under 18, you must have consent from a parent or legal guardian. Users in jurisdictions where online gaming platforms or virtual goods are prohibited by law are not permitted to use the Platform.
+            You must be at least 13 years of age to use the Platform. If you are under 18, you must have consent from a parent or legal guardian. The age check presented during registration is a client-side eligibility confirmation; your date of birth is <em>not</em> transmitted to or stored on our servers. You are responsible for providing an accurate confirmation. Users in jurisdictions where online gaming platforms or virtual goods are prohibited by law are not permitted to use the Platform.
           </Section>
 
           <Section title="4. Account Registration">
-            To access certain features, you must register for an account using an email and password or a supported third-party authentication method (e.g., Google). You agree to provide accurate and complete information, maintain your account details, keep login credentials confidential, and accept responsibility for all activity under your account. Notify us immediately at support@pentaprotocol.com if you suspect unauthorised access. PentaProtocol reserves the right to suspend or terminate accounts that violate these Terms.
+            To access certain features, you must register for an account using an email address and a password (minimum 8 characters) or a supported third-party authentication method (e.g., Google). Email signup is verified with a one-time password (OTP) sent to your email. You agree to provide accurate and complete information, maintain your account details, keep login credentials confidential, and accept responsibility for all activity under your account. We strongly recommend enabling two-factor authentication (2FA) from Settings.
+            <br /><br />
+            Notify us immediately at support@pentaprotocol.com if you suspect unauthorised access. PentaProtocol reserves the right to suspend or terminate accounts that violate these Terms, that exhibit signs of fraud or multi-account abuse, or that fail our anti-cheat checks.
           </Section>
 
           <Section title="5. Virtual Currency and In-Game Items">
             <strong style={{ color: "#e8e8e8" }}>ProtoCredits (PC)</strong> are purchased with real money and used to unlock cosmetics and premium content. <strong style={{ color: "#e8e8e8" }}>PentaShards (PS)</strong> may be purchased or earned through gameplay.
             <br /><br />
-            All virtual currency and in-game items are <em>licensed to you, not sold</em>. Virtual goods have no real-world monetary value, are non-transferable, cannot be traded or sold to other users, and may be modified or removed by PentaProtocol at any time. Purchases are processed via <strong style={{ color: "#e8e8e8" }}>PayPal</strong> (USD and international cards/wallets where available), <strong style={{ color: "#e8e8e8" }}>Instamojo</strong> (INR payments for Indian users where available), and, where offered, <strong style={{ color: "#e8e8e8" }}>direct payment to the creator</strong> using the personal UPI / QR code published in our Refund &amp; Cancellation Policy.
+            All virtual currency and in-game items are <em>licensed to you, not sold</em>. Virtual goods have no real-world monetary value, are non-transferable, cannot be traded or sold to other users, and may be modified or removed by PentaProtocol at any time. Purchases are processed by <strong style={{ color: "#e8e8e8" }}>operator-verified UPI / bank-QR transfer</strong> (INR): scan the QR published in the Store or on our Refund &amp; Cancellation Policy page, pay with any UPI app, and submit the bank UTR in-app. Credits are added after manual verification against the bank statement.
           </Section>
 
           <Section title="6. Prohibited Conduct">
-            You agree not to: use cheats, exploits, bots, or unauthorised software; harass or abuse other users; impersonate PentaProtocol staff; attempt unauthorised access to the Platform; reverse engineer any component of the Platform; disrupt normal Platform operation; use the Platform for any unlawful purpose; or manipulate game outcomes through collusion, account sharing, or match-fixing.
+            You agree not to:
             <br /><br />
-            Violations may result in account suspension, forfeiture of virtual currency, and legal action.
+            • use <strong style={{ color: "#e8e8e8" }}>unauthorised third-party automation</strong> — for example external bots, macro scripts, engine-assist overlays, or modified clients — to play the Platform on your behalf or to gain unfair advantage over other players. The official in-app AI ladder (single-player matches against our AI opponents) is not covered by this clause and remains permitted;
+            <br />
+            • use cheats, exploits, glitches, or any technique that bypasses server validation or anti-cheat checks;
+            <br />
+            • harass, threaten, defame, or abuse other users;
+            <br />
+            • impersonate PentaProtocol staff, other users, or any third party;
+            <br />
+            • attempt unauthorised access to the Platform, other users&apos; accounts, or our infrastructure;
+            <br />
+            • reverse engineer, decompile, or disassemble any component of the Platform except to the extent expressly permitted by applicable law;
+            <br />
+            • disrupt normal Platform operation (including denial-of-service attacks, excessive automated requests, or abuse of rate limits);
+            <br />
+            • use the Platform for any unlawful purpose;
+            <br />
+            • manipulate game outcomes through collusion, account sharing, match-fixing, win-trading, or coordinated queueing designed to boost ratings;
+            <br />
+            • create or operate more than one account to circumvent suspensions, evade anti-cheat detections, or farm rewards;
+            <br />
+            • initiate fraudulent payment chargebacks for legitimate purchases.
+            <br /><br />
+            Violations may result in account suspension, shadow restrictions on matchmaking, forfeiture of virtual currency, termination of accounts, and legal action.
           </Section>
 
           <Section title="7. Intellectual Property">
@@ -125,7 +151,7 @@ export default function TermsPage() {
 
           <div style={{ marginTop: 32, paddingTop: 16, borderTop: "1px solid #1e1e2a" }}>
             <div style={{ fontFamily: "monospace", fontSize: 11, color: "#444", lineHeight: 1.8 }}>
-              Version 1.1 — 10 April 2026 · Updated authentication and gameplay descriptions
+              Version 2.0 — 18 April 2026 · Open-beta clause, age-check clarification, prohibited-conduct expansion (anti-cheat, multi-account, chargeback fraud), password minimum aligned to 8 characters.
             </div>
           </div>
 

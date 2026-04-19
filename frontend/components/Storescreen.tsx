@@ -41,9 +41,9 @@ import StarfieldBanner from "./StarfieldBanner";
 import DigitalRainBanner from "./DigitalRainBanner";
 import InfernoBanner from "./InfernoBanner";
 
-// Payment: PayPal + UPI/manual verification; see Refund Policy for creator QR.
-/** Set to `false` to re-enable PayPal checkout in the currency modal. */
-const PAYPAL_COMING_SOON = true;
+// Payment: operator-verified UPI / bank-QR only. Users scan the posted
+// QR, pay via any UPI app, then submit the bank UTR through the UPI
+// modal below. No third-party gateway is integrated.
 
 function InteractivePreview({ Grid, gridProps }: { Grid: React.ComponentType<any>; gridProps?: Record<string, any> }) {
   const [board, setBoard] = useState<(("X" | "O") | null)[][]>(() =>
@@ -82,20 +82,6 @@ const SHARD_PACKAGES = PACKAGES.map((p) => ({
   ...p,
   price: Math.max(1, Math.floor(p.price / 2)),
 }));
-const PACKAGES_USD = [
-  { id: "starter", usdPrice: 0.99 },
-  { id: "plus",    usdPrice: 2.99 },
-  { id: "pro",     usdPrice: 4.99 },
-  { id: "mega",    usdPrice: 7.99 },
-  { id: "elite",   usdPrice: 9.99 },
-];
-const SHARD_PACKAGES_USD = [
-  { id: "starter", usdPrice: 0.49 },
-  { id: "plus",    usdPrice: 1.49 },
-  { id: "pro",     usdPrice: 1.99 },
-  { id: "mega",    usdPrice: 3.99 },
-  { id: "elite",   usdPrice: 4.99 },
-];
 const STORE_THEMES = [
   { id: "space", label: "SPACE THEME", tagline: "Cosmic premium atmosphere", desc: "Deep-space visuals, high-contrast panels, and premium ambient glow.", preview: "linear-gradient(135deg,#020410,#0d1b4b)", unlock: "2,999 PC + 1,000 PS", price: 2999, shardPrice: 1000, purchaseId: "theme_space", boardId: "space_grid", boardLabel: "Space Board", musicLabel: "Space Ranked OST", fontLabel: "Space Font Pack", bgLabel: "Space Backgrounds", accentColor: "#4DA3FF", tags: ["PREMIUM", "THEME + BOARD"] },
   { id: "pixel", label: "PIXEL THEME", tagline: "8-bit premium aesthetic", desc: "Retro pixel visuals, arcade contrast, and upgraded UI glow intensity.", preview: "linear-gradient(135deg,#0d1007,#1a2e0a)", unlock: "2,999 PC + 1,000 PS", price: 2999, shardPrice: 1000, purchaseId: "theme_pixel", boardId: "pixel_grid", boardLabel: "Pixel Board", musicLabel: "Pixel Ranked OST", fontLabel: "Pixel Font Pack", bgLabel: "Pixel Backgrounds", accentColor: "#A4FF3B", tags: ["PREMIUM", "THEME + BOARD"] },
@@ -679,8 +665,6 @@ export default function StoreScreen({ setScreenAction, themeId, audio, initialSe
   const [buyCurrencyType, setBuyCurrencyType] = useState<"protocredits" | "shards">("protocredits");
   const [selectedProto, setSelectedProto] = useState("plus");
   const [selectedShards, setSelectedShards] = useState("plus");
-  const [payRedirect, setPayRedirect] = useState<null | "paypal">(null);
-  const [showPaypalComingSoon, setShowPaypalComingSoon] = useState(false);
   // ── UPI state ──────────────────────────────────────────────────────────────
   const [showUpiModal, setShowUpiModal] = useState(false);
   const [upiStep, setUpiStep]           = useState<"qr" | "utr" | "success">("qr");
@@ -795,12 +779,8 @@ export default function StoreScreen({ setScreenAction, themeId, audio, initialSe
       .then(res => updateUser(res.data)).catch(() => {});
   }, [token]);
 
-  useEffect(() => {
-    if (!showBuyModal) {
-      setPayRedirect(null);
-      setShowPaypalComingSoon(false);
-    }
-  }, [showBuyModal]);
+  // (purchase modal has no transient redirect state now that only the
+  // UPI / bank-QR flow is supported — nothing to reset on close.)
 
   useEffect(() => {
     if (!openBundle) return;
@@ -896,23 +876,6 @@ export default function StoreScreen({ setScreenAction, themeId, audio, initialSe
   const showError = (text: string) => { setMsg({ text, ok: false }); setTimeout(() => setMsg(null), 1000); };
 
   const cssVars = { "--font-display": t.fontDisplay, "--font-mono": t.fontMono, "--font-body": t.fontBody, "--text": t.text, "--text-muted": t.textMuted, "--border": t.border, "--accent": accent } as React.CSSProperties;
-
-  const handleBuyPayPal = async () => {
-    if (PAYPAL_COMING_SOON) return;
-    if (isGuest) { closeBuyModal(); showError(`Sign in to buy ${buyCurrencyType === "shards" ? "PentaShards" : "ProtoCredits"}.`); return; }
-    setPayRedirect("paypal"); setMsg(null);
-    try {
-      sessionStorage.setItem("pp_paypal_package_id", selectedPackageId);
-      sessionStorage.setItem("pp_paypal_currency_type", buyCurrencyType);
-      const res = await API.post("/api/paypal/create-order", { package_id: selectedPackageId, currency_type: buyCurrencyType }, { headers: { Authorization: `Bearer ${token}` }, timeout: 15000 });
-      window.location.href = res.data.approve_url;
-    } catch (e: any) {
-      showError(e?.response?.data?.detail || e?.message || "Payment failed. Please try again.");
-      setPayRedirect(null);
-    }
-  };
-
-  const payBusy = payRedirect !== null;
 
   const handleBuyCosmetic = (id: string, price: number, label: string, shardPrice = 0) => {
     if (isGuest) { showError("Sign in to purchase."); return; }
@@ -1289,89 +1252,20 @@ export default function StoreScreen({ setScreenAction, themeId, audio, initialSe
             </div>
             {msg && <div style={{ background: msg.ok ? "#4CAF5014" : `${t.danger}14`, border: `1px solid ${msg.ok ? "#4CAF50" : t.danger}`, borderRadius: 8, padding: "9px 14px", marginBottom: 12, fontFamily: t.fontBody, fontSize: 13, color: msg.ok ? "#4CAF50" : t.danger }}>{msg.text}</div>}
 
-            <div style={{ fontFamily: t.fontMono, fontSize: 10, color: t.textMuted, letterSpacing: "0.18em", marginBottom: 10 }}>CHOOSE PAYMENT METHOD</div>
+            <div style={{ fontFamily: t.fontMono, fontSize: 10, color: t.textMuted, letterSpacing: "0.18em", marginBottom: 10 }}>PAYMENT METHOD</div>
 
-            {/* PayPal */}
-            <button
-              type="button"
-              onClick={PAYPAL_COMING_SOON ? () => setShowPaypalComingSoon(true) : handleBuyPayPal}
-              disabled={payBusy}
-              className="store-buy-btn"
-              style={{
-                width: "100%",
-                padding: "14px",
-                background: payBusy ? "#00308788" : PAYPAL_COMING_SOON ? "rgba(0,48,135,0.45)" : "#003087",
-                border: `2px solid ${PAYPAL_COMING_SOON ? "rgba(0,48,135,0.55)" : "#003087"}`,
-                borderRadius: 10,
-                color: "#fff",
-                fontFamily: t.fontDisplay,
-                fontSize: PAYPAL_COMING_SOON ? 14 : 15,
-                fontWeight: 900,
-                cursor: payBusy ? "not-allowed" : "pointer",
-                letterSpacing: "0.06em",
-                boxShadow: payBusy || PAYPAL_COMING_SOON ? "none" : "0 0 24px rgba(0,48,135,0.5)",
-                marginBottom: 10,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: 10,
-                opacity: PAYPAL_COMING_SOON ? 0.92 : 1,
-              }}
-            >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="#fff" xmlns="http://www.w3.org/2000/svg"><path d="M20.067 8.478c.492.315.844.825.983 1.39C21.6 12.525 20.2 15 17.5 15H15l-.8 4H10l2.5-13H17c1.657 0 2.757.693 3.067 2.478z" opacity=".6"/><path d="M7 5h7c1.657 0 2.757.693 3.067 2.478.492.315.844.825.983 1.39C18.6 11.525 17.2 14 14.5 14H12l-.8 4H7l2.5-13z"/></svg>
-              {PAYPAL_COMING_SOON
-                ? "PAYPAL (USD) — COMING SOON"
-                : payRedirect === "paypal"
-                  ? "Redirecting to PayPal…"
-                  : `PAY $${(buyCurrencyType === "shards" ? SHARD_PACKAGES_USD : PACKAGES_USD).find(p => p.id === pkg.id)?.usdPrice.toFixed(2) ?? pkg.price} · PAY WITH PAYPAL`}
-            </button>
-
-            <button
-              type="button"
-              onClick={() => window.open("/refund#creator-payment-qr", "_blank", "noopener,noreferrer")}
-              style={{ width: "100%", padding: "14px", background: "rgba(255,255,255,0.06)", border: `2px solid ${t.border}`, borderRadius: 10, color: t.text, fontFamily: t.fontDisplay, fontSize: 14, fontWeight: 800, cursor: "pointer", letterSpacing: "0.05em", marginBottom: 10, display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }}
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h7v7h-7z"/></svg>
-              CREATOR QR (INR) — OPEN REFUND PAGE
-            </button>
-            {/* ── UPI / QR Code button ── */}
+            {/* ── UPI / QR Code button (only supported path) ── */}
             <button
               onClick={() => { setShowBuyModal(false); setUpiStep("qr"); setUpiUtr(""); setShowUpiModal(true); }}
-              disabled={payBusy}
               className="store-buy-btn"
-              style={{ width: "100%", padding: "14px", background: payBusy ? "rgba(255,255,255,0.04)" : "linear-gradient(135deg,#052e16,#166534)", border: `2px solid ${payBusy ? t.border : "#16a34a"}`, borderRadius: 10, color: "#fff", fontFamily: t.fontDisplay, fontSize: 15, fontWeight: 900, cursor: payBusy ? "not-allowed" : "pointer", letterSpacing: "0.06em", boxShadow: payBusy ? "none" : "0 0 20px rgba(22,163,74,0.4)", marginBottom: 10, display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }}>
+              style={{ width: "100%", padding: "14px", background: "linear-gradient(135deg,#052e16,#166534)", border: "2px solid #16a34a", borderRadius: 10, color: "#fff", fontFamily: t.fontDisplay, fontSize: 15, fontWeight: 900, cursor: "pointer", letterSpacing: "0.06em", boxShadow: "0 0 20px rgba(22,163,74,0.4)", marginBottom: 10, display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="3" height="3"/><rect x="19" y="14" width="2" height="2"/><rect x="14" y="19" width="2" height="2"/><rect x="18" y="19" width="3" height="2"/></svg>
               PAY ₹{pkg.price} · UPI / QR CODE
             </button>
 
             <div style={{ fontFamily: t.fontBody, fontSize: 11, color: t.textMuted, textAlign: "center" as const, marginTop: 4, lineHeight: 1.6 }}>
-              {PAYPAL_COMING_SOON
-                ? <>International PayPal (USD) checkout is coming soon. Use UPI / creator QR (INR) on the Refund Policy page in the meantime. {buyCurrencyType === "shards" ? "PentaShards" : "ProtoCredits"} are non-refundable except as stated in the Refund Policy.</>
-                : <>PayPal (USD) for international cards &amp; wallets · UPI / creator QR (INR) as on the Refund Policy page. {buyCurrencyType === "shards" ? "PentaShards" : "ProtoCredits"} are non-refundable except as stated in the Refund Policy.</>}
+              UPI / bank QR (INR) — scan the posted QR, pay with any UPI app, then paste your bank UTR. Credits are verified by ops and applied within a few hours. {buyCurrencyType === "shards" ? "PentaShards" : "ProtoCredits"} are non-refundable except as stated in the Refund Policy.
             </div>
-          </div>
-        </div>
-      )}
-
-      {showPaypalComingSoon && (
-        <div
-          className="modal-backdrop"
-          onClick={(e) => { if (e.target === e.currentTarget) setShowPaypalComingSoon(false); }}
-          style={{ position: "fixed", inset: 0, zIndex: 10010, background: "rgba(0,0,0,0.78)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}
-        >
-          <div className="modal-panel" style={{ background: t.bg, border: `1px solid ${t.border}`, borderRadius: 20, padding: "28px 26px", width: "100%", maxWidth: 420, position: "relative", boxShadow: `0 0 40px ${accent}18` }}>
-            <div style={{ fontFamily: t.fontMono, fontSize: 11, color: accent, letterSpacing: "0.22em", marginBottom: 10 }}>PROTOCOL STORE</div>
-            <div style={{ fontFamily: t.fontDisplay, fontSize: 24, fontWeight: 900, color: t.text, marginBottom: 12 }}>Coming soon</div>
-            <div style={{ fontFamily: t.fontBody, fontSize: 14, color: t.textMuted, lineHeight: 1.65, marginBottom: 24 }}>
-              PayPal checkout for international purchases is not available yet. You can still pay with UPI or the creator QR (INR) from the Refund Policy page.
-            </div>
-            <button
-              type="button"
-              onClick={() => setShowPaypalComingSoon(false)}
-              style={{ width: "100%", padding: "14px", background: accent, border: "none", borderRadius: 10, color: "#000", fontFamily: t.fontDisplay, fontSize: 14, fontWeight: 900, cursor: "pointer", letterSpacing: "0.06em" }}
-            >
-              Got it
-            </button>
           </div>
         </div>
       )}

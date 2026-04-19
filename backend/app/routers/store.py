@@ -1,37 +1,27 @@
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from app.core.database import get_db_dep
-from app.routers.auth import get_current_user
+from app.routers.auth import get_current_user, require_legal_accepted
+from app.core import security_audit as audit
 from bson import ObjectId
 from bson.errors import InvalidId
 from datetime import datetime
-import hmac, hashlib, os, aiohttp
+import logging
 import re
+
+logger = logging.getLogger("pentaprotocol.store")
 
 router = APIRouter()
 
-# ── Instamojo config ──────────────────────────────────────────────────────────
-INSTAMOJO_API_KEY    = os.getenv("INSTAMOJO_API_KEY", "")
-INSTAMOJO_AUTH_TOKEN = os.getenv("INSTAMOJO_AUTH_TOKEN", "")
-INSTAMOJO_SALT       = os.getenv("INSTAMOJO_SALT", "")
-IS_SANDBOX           = os.getenv("INSTAMOJO_SANDBOX", "true").lower() == "true"
-FRONTEND_URL         = os.getenv("FRONTEND_URL", "http://localhost:3000")
-BACKEND_URL          = os.getenv("BACKEND_URL", FRONTEND_URL)
+# ── Package tables (prices in INR) ───────────────────────────────────────────
+#
+# The only payment path after Phase 3 trim-down is the operator-verified
+# UPI / bank-QR flow. Users scan the posted QR, submit their bank UTR here
+# through ``/upi-submit``, and ops manually verifies + credits the account
+# (outside this file). Keeping these tables as the canonical source of
+# truth for amount + package mapping means the manual-credit tooling and
+# this submission endpoint agree on what each pack is worth.
 
-INSTAMOJO_BASE = (
-    "https://test.instamojo.com/api/1.1"
-    if IS_SANDBOX
-    else "https://www.instamojo.com/api/1.1"
-)
-
-def _get_headers() -> dict:
-    """Build headers at request time so env vars are always fresh."""
-    return {
-        "X-Api-Key":    os.getenv("INSTAMOJO_API_KEY", ""),
-        "X-Auth-Token": os.getenv("INSTAMOJO_AUTH_TOKEN", ""),
-    }
-
-# ── Package tables (prices in INR, same as frontend) ─────────────────────────
 PACKAGES = {
     "starter": {"credits": 100,  "bonus": 0,   "price": 49},
     "plus":    {"credits": 500,  "bonus": 50,  "price": 199},
@@ -49,6 +39,14 @@ SHARD_PACKAGES = {
 
 
 async def _purchased_pack_ids_by_lane(db, user_id: str) -> dict[str, list[str]]:
+    """Return the packs the user has ever purchased.
+
+    Reads the legacy ``payments`` collection so that historical rows
+    from earlier gateway integrations still count for 'already owned'
+    UI state. Current UPI flow writes to ``upi_payments`` instead;
+    the ops approval tool is responsible for mirroring a row into
+    ``payments`` if first-purchase bonus tracking matters.
+    """
     pc: set[str] = set()
     sh: set[str] = set()
     async for doc in db["payments"].find(
@@ -66,8 +64,6 @@ async def _purchased_pack_ids_by_lane(db, user_id: str) -> dict[str, list[str]]:
     return {"protocredits": sorted(pc), "shards": sorted(sh)}
 
 
-# ── Purchased packs ───────────────────────────────────────────────────────────
-
 @router.get("/purchased-packs")
 async def get_purchased_packs(
     user_id: str = Depends(get_current_user),
@@ -76,163 +72,15 @@ async def get_purchased_packs(
     return await _purchased_pack_ids_by_lane(db, user_id)
 
 
-# ── Create Instamojo payment request ─────────────────────────────────────────
-
-class CreateOrderRequest(BaseModel):
-    package_id:    str
-    currency_type: str = "protocredits"
-    buyer_name:    str = "Player"
-    email:         str = ""
-    phone:         str = "9999999999"
-
-@router.post("/create-order")
-async def create_order(
-    req: CreateOrderRequest,
-    user_id: str = Depends(get_current_user),
-):
-    currency_type  = (req.currency_type or "protocredits").lower()
-    package_table  = SHARD_PACKAGES if currency_type == "shards" else PACKAGES
-    pkg            = package_table.get(req.package_id)
-    if not pkg:
-        raise HTTPException(status_code=400, detail="Invalid package.")
-
-    label = f"{req.package_id.upper()} {'PentaShards' if currency_type == 'shards' else 'ProtoCredits'}"
-    purpose = f"{label} [ref:{req.package_id}_{currency_type}] [uid:{user_id}]"
-
-    payload = {
-        "purpose":                purpose,
-        "amount":                 str(pkg["price"]),
-        "buyer_name":             req.buyer_name,
-        "email":                  req.email,
-        "phone":                  req.phone,
-        "send_email":             False,
-        "send_sms":               False,
-        "allow_repeated_payments": True,
-        "redirect_url":           f"{FRONTEND_URL}/payment/callback",
-        "webhook":                f"{BACKEND_URL}/api/store/webhook",
-    }
-
-    try:
-        connector = aiohttp.TCPConnector(family=2)
-        async with aiohttp.ClientSession(connector=connector) as session:
-            async with session.post(
-                f"{INSTAMOJO_BASE}/payment-requests/",
-                data=payload,
-                headers=_get_headers(),
-                timeout=aiohttp.ClientTimeout(total=30),
-            ) as resp:
-                data = await resp.json()
-    except Exception as e:
-        import traceback
-        print("INSTAMOJO CREATE-ORDER ERROR:", traceback.format_exc())
-        raise HTTPException(status_code=500, detail=f"Payment gateway error: {str(e)}")
-
-    if not data.get("success"):
-        print("INSTAMOJO RESPONSE:", data)
-        raise HTTPException(
-            status_code=400,
-            detail=data.get("message", "Failed to create payment request"),
-        )
-
-    pr = data["payment_request"]
-    return {
-        "payment_request_id": pr["id"],
-        "redirect_url":       pr["longurl"],
-    }
-
-
-# ── Verify payment (called by frontend after redirect back) ───────────────────
-
-class VerifyPaymentRequest(BaseModel):
-    payment_id:         str
-    payment_request_id: str
-    payment_status:     str
-
-@router.post("/verify-payment")
-async def verify_payment(
-    req: VerifyPaymentRequest,
-    user_id: str = Depends(get_current_user),
-    db=Depends(get_db_dep),
-):
-    if req.payment_status != "Credit":
-        raise HTTPException(status_code=400, detail="Payment not completed.")
-
-    connector = aiohttp.TCPConnector(family=2)
-    async with aiohttp.ClientSession(connector=connector) as session:
-        async with session.get(
-            f"{INSTAMOJO_BASE}/payment-requests/{req.payment_request_id}/{req.payment_id}/",
-            headers=_get_headers(),
-            timeout=aiohttp.ClientTimeout(total=15),
-        ) as resp:
-            data = await resp.json()
-    if not data.get("success"):
-        raise HTTPException(status_code=400, detail="Could not verify payment with Instamojo.")
-
-    payment = data["payment_request"]["payment"]
-    if payment.get("status") != "Credit":
-        raise HTTPException(status_code=400, detail="Payment not confirmed by Instamojo.")
-
-    purpose = data["payment_request"].get("purpose", "")
-    package_id, currency_type = _parse_purpose(purpose)
-    if not package_id:
-        raise HTTPException(status_code=400, detail="Could not parse package from payment.")
-
-    return await _credit_user(
-        db=db,
-        user_id=user_id,
-        payment_id=req.payment_id,
-        payment_request_id=req.payment_request_id,
-        package_id=package_id,
-        currency_type=currency_type,
-    )
-
-
-# ── Webhook (Instamojo POSTs here after every payment) ───────────────────────
-
-@router.post("/webhook")
-async def instamojo_webhook(request: Request, db=Depends(get_db_dep)):
-    form = await request.form()
-    data = dict(form)
-
-    mac_provided = data.get("mac")
-    if not mac_provided:
-        raise HTTPException(status_code=400, detail="Missing MAC")
-
-    if not _verify_mac(data, mac_provided):
-        raise HTTPException(status_code=403, detail="Invalid MAC signature")
-
-    if data.get("status") != "Credit":
-        return {"status": "ignored"}
-
-    payment_id         = data.get("payment_id", "")
-    payment_request_id = data.get("payment_request_id", "")
-    purpose            = data.get("purpose", "")
-
-    existing = await db["payments"].find_one({"payment_id": payment_id, "status": "paid"})
-    if existing:
-        return {"status": "already_processed"}
-
-    package_id, currency_type = _parse_purpose(purpose)
-    if not package_id:
-        return {"status": "unknown_package"}
-
-    user_id = _parse_uid(purpose)
-    if not user_id:
-        return {"status": "unknown_user"}
-
-    await _credit_user(
-        db=db,
-        user_id=user_id,
-        payment_id=payment_id,
-        payment_request_id=payment_request_id,
-        package_id=package_id,
-        currency_type=currency_type,
-    )
-
-    return {"status": "ok"}
-
-
-# ── UPI / QR Code Payment Submission ─────────────────────────────────────────
+# ── UPI / bank-QR payment submission ─────────────────────────────────────────
+#
+# The user scans the posted QR, pays with any UPI app, and returns to the
+# store with a bank reference number (UTR — 6–22 digits depending on bank).
+# We record the submission as ``pending`` here; an ops-side tool then
+# cross-checks against the bank settlement report and credits manually.
+#
+# The duplicate-UTR check is the core anti-fraud guard on this endpoint:
+# two accounts cannot claim the same UTR.
 
 class UpiSubmitRequest(BaseModel):
     utr: str = Field(min_length=6, max_length=64)
@@ -240,39 +88,71 @@ class UpiSubmitRequest(BaseModel):
     package_id: str = Field(min_length=2, max_length=32)
     currency_type: str = Field(default="protocredits", max_length=16)
 
+
 @router.post("/upi-submit")
 async def upi_submit(
     req: UpiSubmitRequest,
-    user_id: str = Depends(get_current_user),
+    user_id: str = Depends(require_legal_accepted),
     db=Depends(get_db_dep),
 ):
-    if not req.utr or len(req.utr.strip()) < 6:
+    utr = req.utr.strip()
+    if not utr or len(utr) < 6:
         raise HTTPException(status_code=400, detail="Invalid UTR.")
 
-    package_table = SHARD_PACKAGES if req.currency_type == "shards" else PACKAGES
+    currency_type = (req.currency_type or "protocredits").lower()
+    package_table = SHARD_PACKAGES if currency_type == "shards" else PACKAGES
     pkg = package_table.get(req.package_id)
     if not pkg:
         raise HTTPException(status_code=400, detail="Invalid package.")
 
-    # Prevent duplicate UTR submissions
-    existing = await db["upi_payments"].find_one({"utr": req.utr.strip()})
+    # Server-side amount check — user-submitted amount must match the
+    # canonical package price. The real verification happens when ops
+    # compares to the bank statement, but rejecting obvious mismatches
+    # now keeps the pending queue clean.
+    if abs(float(req.amount) - float(pkg["price"])) > 0.5:
+        audit.log_event(
+            event_type=audit.EVENT_PAYMENT_FAIL,
+            severity=audit.SEVERITY_WARN,
+            user_id=user_id,
+            meta={
+                "gateway":  "upi",
+                "reason":   "amount_mismatch",
+                "expected": pkg["price"],
+                "got":      req.amount,
+                "package":  req.package_id,
+            },
+        )
+        raise HTTPException(status_code=400, detail="Amount does not match package price.")
+
+    existing = await db["upi_payments"].find_one({"utr": utr})
     if existing:
         raise HTTPException(status_code=400, detail="This UTR has already been submitted.")
 
     await db["upi_payments"].insert_one({
         "user_id":       user_id,
-        "utr":           req.utr.strip(),
+        "utr":           utr,
         "amount":        req.amount,
         "package_id":    req.package_id,
-        "currency_type": req.currency_type,
+        "currency_type": currency_type,
         "status":        "pending",
         "created_at":    datetime.utcnow(),
     })
 
+    audit.log_event(
+        event_type=audit.EVENT_PAYMENT_START,
+        user_id=user_id,
+        meta={
+            "gateway":       "upi",
+            "package_id":    req.package_id,
+            "currency_type": currency_type,
+            "amount":        req.amount,
+        },
+    )
+
     return {"message": "Payment submitted for verification. Credits will be added within a few hours."}
 
 
-# ── Purchase Cosmetic Item ────────────────────────────────────────────────────
+# ── Cosmetic item purchase (pure in-game currency — no gateway) ──────────────
 
 class PurchaseItemRequest(BaseModel):
     item_id: str = Field(min_length=2, max_length=64)
@@ -313,10 +193,11 @@ def _canonical_item_price(item_id: str) -> tuple[int, int]:
         return (599, 0)
     return (-1, -1)
 
+
 @router.post("/purchase-item")
 async def purchase_item(
     req: PurchaseItemRequest,
-    user_id: str = Depends(get_current_user),
+    user_id: str = Depends(require_legal_accepted),
     db=Depends(get_db_dep),
 ):
     if not re.fullmatch(r"[a-z0-9_]{2,64}", req.item_id):
@@ -351,84 +232,3 @@ async def purchase_item(
     )
 
     return {"ok": True}
-
-
-# ── Helpers ───────────────────────────────────────────────────────────────────
-
-def _verify_mac(data: dict, mac_provided: str) -> bool:
-    mac_data = {k: v for k, v in data.items() if k != "mac"}
-    sorted_values = "|".join(
-        str(v) for _, v in sorted(mac_data.items(), key=lambda x: x[0].lower())
-    )
-    mac_calculated = hmac.new(
-        INSTAMOJO_SALT.encode("utf-8"),
-        sorted_values.encode("utf-8"),
-        hashlib.sha1,
-    ).hexdigest()
-    return hmac.compare_digest(mac_calculated, mac_provided)
-
-
-def _parse_purpose(purpose: str):
-    import re
-    match = re.search(r"\[ref:([a-z]+)_(protocredits|shards)\]", purpose)
-    if match:
-        return match.group(1), match.group(2)
-    return None, "protocredits"
-
-
-def _parse_uid(purpose: str):
-    import re
-    match = re.search(r"\[uid:([^\]]+)\]", purpose)
-    return match.group(1) if match else None
-
-
-async def _credit_user(
-    db, user_id: str, payment_id: str, payment_request_id: str,
-    package_id: str, currency_type: str,
-):
-    package_table = SHARD_PACKAGES if currency_type == "shards" else PACKAGES
-    pkg = package_table.get(package_id)
-    if not pkg:
-        raise HTTPException(status_code=400, detail="Invalid package.")
-
-    base  = pkg.get("credits") if currency_type == "protocredits" else pkg.get("shards")
-    bonus = pkg.get("bonus") or 0
-
-    if currency_type == "shards":
-        prior = await db["payments"].count_documents({
-            "user_id": user_id, "package_id": package_id,
-            "currency_type": "shards", "status": "paid",
-        })
-    else:
-        prior = await db["payments"].count_documents({
-            "user_id": user_id, "package_id": package_id,
-            "status": "paid",
-            "$or": [
-                {"currency_type": "protocredits"},
-                {"currency_type": {"$exists": False}},
-            ],
-        })
-
-    bonus_applied  = bonus > 0 and prior == 0
-    amount_to_add  = base + (bonus if bonus_applied else 0)
-    inc_field      = "protocredits" if currency_type == "protocredits" else "shards"
-
-    await db["users"].update_one(
-        {"_id": ObjectId(user_id)},
-        {"$inc": {inc_field: amount_to_add}},
-    )
-
-    await db["payments"].insert_one({
-        "payment_id":         payment_id,
-        "payment_request_id": payment_request_id,
-        "user_id":            user_id,
-        "package_id":         package_id,
-        "currency_type":      currency_type,
-        "amount_added":       amount_to_add,
-        "bonus_applied":      bonus_applied,
-        "status":             "paid",
-    })
-
-    if currency_type == "shards":
-        return {"success": True, "shards_added": amount_to_add, "bonus_applied": bonus_applied}
-    return {"success": True, "credits_added": amount_to_add, "bonus_applied": bonus_applied}

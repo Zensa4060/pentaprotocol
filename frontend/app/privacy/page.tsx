@@ -37,27 +37,43 @@ export default function PrivacyPage() {
             <div style={{ fontFamily: "monospace", fontSize: 11, color: "#CC0000", letterSpacing: "0.3em", marginBottom: 12 }}>LEGAL</div>
             <h1 style={{ fontSize: 40, fontWeight: 700, color: "#fff", lineHeight: 1.15, marginBottom: 16 }}>Privacy Policy</h1>
             <p style={{ fontSize: 14, color: "#555", lineHeight: 1.6 }}>
-              Effective Date: 12 April 2026 &nbsp;·&nbsp; pentaprotocol.com
+              Effective Date: 18 April 2026 &nbsp;·&nbsp; pentaprotocol.com
             </p>
             <div style={{ height: 2, background: "linear-gradient(to right, #CC0000, transparent)", marginTop: 24 }} />
           </div>
 
           <Section title="1. Introduction">
             PentaProtocol is committed to protecting your privacy. This Privacy Policy describes how we collect, use, store, and disclose information when you use our Platform at pentaprotocol.com. By using the Platform, you consent to the practices described here.
+            <br /><br />
+            <strong style={{ color: "#e8e8e8" }}>Beta status:</strong> PentaProtocol is currently operating as an open beta. Features, game economy, rankings, stored data, and virtual currency may be adjusted, reset, or wiped during the beta period. Such changes will be communicated via patch notes and, where material, via email.
           </Section>
 
           <Section title="2. Information We Collect">
-            <strong style={{ color: "#e8e8e8" }}>Information you provide:</strong> Username and email address (required for account creation), profile preferences, and collection data. If you sign in via a third-party service (e.g., Google), we collect your name, email, and profile picture from that service.
+            <strong style={{ color: "#e8e8e8" }}>Information you provide:</strong> Username and email address (required for account creation), profile preferences, collection data, avatar images you upload, and optional theme preferences. If you sign in via a third-party service (e.g., Google), we collect your name, email, and profile picture from that service. During email signup we send a one-time password (OTP) to verify your email address; the OTP is stored in encrypted cache (Redis) with a 10-minute time-to-live and is discarded thereafter.
             <br /><br />
-            <strong style={{ color: "#e8e8e8" }}>Automatically collected:</strong> Device information (browser, OS, identifiers), log data (IP address, pages visited, timestamps), gameplay data (match history, rankings, activity), and cookie/session data for authentication and preferences.
+            <strong style={{ color: "#e8e8e8" }}>Date of birth:</strong> During registration we ask you to confirm that you meet our minimum age requirement. This eligibility check is validated in your browser and is <em>not</em> transmitted to or stored on our servers.
             <br /><br />
-            <strong style={{ color: "#e8e8e8" }}>Payment information:</strong> Payments may be processed by <strong style={{ color: "#e8e8e8" }}>PayPal</strong> or completed via <strong style={{ color: "#e8e8e8" }}>direct transfer to the creator</strong> (e.g. UPI using the QR code on our Refund Policy page). We do not store full card or net-banking credentials on our servers — we may store transaction confirmation metadata you or PayPal provide (amount, reference ID, item purchased).
+            <strong style={{ color: "#e8e8e8" }}>Authentication factors:</strong> If you enable two-factor authentication (2FA), we store a server-side TOTP secret bound to your account; the secret itself is never displayed after initial enrolment. Trusted-device tokens (short random strings stored in a cookie named <code style={{ color: "#e8e8e8" }}>pp_device_token</code>) let you skip the 2FA prompt for 30 days on devices you mark as trusted.
+            <br /><br />
+            <strong style={{ color: "#e8e8e8" }}>Automatically collected:</strong> Device information (browser, operating system, timezone, language, screen dimensions), log data (IP address, pages visited, timestamps, User-Agent string), real-time WebSocket telemetry during matches (connection timestamps, disconnects, ping, move timings), and cookie/session data for authentication and preferences.
+            <br /><br />
+            <strong style={{ color: "#e8e8e8" }}>Device fingerprint:</strong> To prevent multi-account abuse, we compute a lightweight hash of your browser User-Agent, timezone, language, and screen dimensions the first time you authenticate on a given device. The hash is stored with your account (up to five most recent) and used only for fraud-prevention signals. We do <em>not</em> perform canvas, audio, or WebGL fingerprinting, and we do not track you across third-party sites.
+            <br /><br />
+            <strong style={{ color: "#e8e8e8" }}>Gameplay data:</strong> We store detailed match history including the game format, board mode (5×5, 6×6, 7×7, custom), the sequence of moves played, board states per round, surrender flags, quit events, timeouts, ranked vs unranked classification, and the resulting rating changes. Ranked matches additionally record your visible ranked rating and a hidden matchmaking rating (MMR) used for queue balancing.
+            <br /><br />
+            <strong style={{ color: "#e8e8e8" }}>Virtual currency and rewards:</strong> We record purchases, grants, and balances of ProtoCredits (PC) and PentaShards (PS), including currency awarded for completing missions (for example, reaching the CHRONICLE rank grants 200,000 XP and a free theme reward). Transaction records include the source (purchase, mission, rank reward) and the outcome.
+            <br /><br />
+            <strong style={{ color: "#e8e8e8" }}>Security telemetry:</strong> We log authentication events (login success/failure, password reset, 2FA enable/disable, account deletion), anti-cheat flags (move-rate anomalies, disconnect patterns), abuse signals (repeated failed logins from one IP, duplicate device fingerprints), and payment anomalies. Raw values such as IP and User-Agent in this security log are stored as salted SHA-256 hashes so they cannot be reversed to plaintext. Entries expire automatically after 90 days.
+            <br /><br />
+            <strong style={{ color: "#e8e8e8" }}>Payment information:</strong> Payments are accepted only via <strong style={{ color: "#e8e8e8" }}>operator-verified UPI / bank-QR transfer</strong> (INR). No third-party payment gateway processes your card or wallet on our behalf. When you submit a UPI transaction reference (UTR) in-app after paying, we store the UTR, the claimed amount, the selected package, and a timestamp so we can reconcile against the bank statement and credit your account. We do not store card numbers, bank-account details, or UPI PINs at any point.
+            <br /><br />
+            <strong style={{ color: "#e8e8e8" }}>Legal-acceptance audit trail:</strong> When you accept our Terms, Privacy Policy, and Refund Policy via the in-app gate, we store the policy version, acceptance timestamp, the IP address, and the User-Agent string as an audit record.
           </Section>
 
           <Section title="3. How We Use Your Information">
-            We use collected information to: create and manage your account; process payments and deliver virtual goods; provide customer support; detect and prevent fraud, cheating, and security incidents; improve and personalise the Platform; send transactional emails (purchase confirmations, OTPs, password resets); and comply with legal obligations.
+            We use collected information to: create and manage your account; process payments and deliver virtual goods; provide customer support; detect and prevent fraud, cheating, and security incidents (including anti-cheat heuristics such as move-timing analysis and duplicate-fingerprint detection); match you with opponents of similar skill; improve and personalise the Platform; send transactional emails (purchase confirmations, OTPs, password resets, security alerts); and comply with legal obligations.
             <br /><br />
-            We do <strong style={{ color: "#e8e8e8" }}>not</strong> sell, rent, or trade your personal information to third parties for marketing purposes.
+            We do <strong style={{ color: "#e8e8e8" }}>not</strong> send promotional or marketing emails, and we do <strong style={{ color: "#e8e8e8" }}>not</strong> sell, rent, or trade your personal information to third parties.
           </Section>
 
           <Section title="4. Cookies and Similar Technologies">
@@ -69,7 +85,7 @@ export default function PrivacyPage() {
           <Section title="5. Data Sharing">
             We may share your information with the following third parties:
             <br /><br />
-            <strong style={{ color: "#e8e8e8" }}>Payment processors:</strong> <strong style={{ color: "#e8e8e8" }}>PayPal</strong> (when you pay via PayPal) and <strong style={{ color: "#e8e8e8" }}>Instamojo</strong> (when you pay via Instamojo for INR transactions). Direct payments to the creator are between you and the creator&apos;s payment account; we only receive what you choose to send us for verification (e.g. screenshot, UPI reference, email).
+            <strong style={{ color: "#e8e8e8" }}>Payment processors:</strong> None. Payments are made directly by you to our operating bank account via UPI. Your bank and UPI app are the only third parties that see your payment details; we receive only the UTR and the amount you voluntarily submit in-app for reconciliation.
             <br /><br />
             <strong style={{ color: "#e8e8e8" }}>Infrastructure providers:</strong> <strong style={{ color: "#e8e8e8" }}>Railway</strong> (backend hosting), <strong style={{ color: "#e8e8e8" }}>MongoDB Atlas</strong> (database), <strong style={{ color: "#e8e8e8" }}>Redis</strong> (session and rate-limit management), <strong style={{ color: "#e8e8e8" }}>Vercel</strong> (frontend hosting — receives your IP address, browser headers, and page requests), and <strong style={{ color: "#e8e8e8" }}>Supabase</strong> (file storage for user-uploaded avatars). These providers process data under their standard terms of service and privacy policies.
             <br /><br />
@@ -80,10 +96,14 @@ export default function PrivacyPage() {
             <strong style={{ color: "#e8e8e8" }}>Law enforcement:</strong> We may disclose information where required by law, court order, or governmental regulation.
           </Section>
 
+          <Section title="5a. Google Sign-In and Account Linking">
+            If you choose to sign in with Google, we receive your Google-verified email, display name, and profile picture URL from Google. If that email is already associated with an existing PentaProtocol account created with email-and-password, the system will ask you to confirm a one-time <strong style={{ color: "#e8e8e8" }}>account-merge consent</strong> before linking the two. Until merge consent is granted, the accounts remain separate. You can disconnect Google at any time by contacting support.
+          </Section>
+
           <Section title="6. Data Retention">
-            We retain your personal data for as long as your account is active or as necessary to provide services. If you request account deletion, we will delete or anonymise your data within 30 days, except where retention is required by applicable law.
+            We retain your personal data for as long as your account is active or as necessary to provide services. If you request account deletion, we will delete or anonymise your data within 30 days, except where retention is required by applicable law. Account deletion removes your user record, match history, rooms, unfulfilled mission claims, device-fingerprint hashes, 2FA secrets, and trusted-device tokens.
             <br /><br />
-            Rate-limiting data (including hashed IP addresses) is automatically purged after 15 minutes. Payment transaction records are retained for a minimum of 8 years to comply with financial and tax regulations.
+            Rate-limiting data (including hashed IP addresses) is automatically purged after 15 minutes to 1 hour depending on the endpoint tier. One-time passwords (OTPs) expire after 10 minutes. Password-reset and 2FA-pending state expire after 15 and 5 minutes respectively. Security-event audit logs (hashed identifiers only) expire after 90 days. Payment transaction records are retained for a minimum of 8 years to comply with financial and tax regulations; these records do not contain full card or bank-account numbers.
           </Section>
 
           <Section title="7. Security">
@@ -103,14 +123,15 @@ export default function PrivacyPage() {
             <a href="mailto:support@pentaprotocol.com" style={{ color: "#CC0000", textDecoration: "none" }}>support@pentaprotocol.com</a>.
           </Section>
 
-          <Section title="11. Users in the European Economic Area (GDPR)">
-            If you are located in the European Economic Area (EEA), the following additional provisions apply:
+          <Section title="11. Users in the European Economic Area and the United Kingdom (GDPR / UK GDPR)">
+            If you are located in the European Economic Area (EEA), the United Kingdom, or Switzerland, the following additional provisions apply:
             <br /><br />
-            <strong style={{ color: "#e8e8e8" }}>Legal basis for processing:</strong> We process your personal data based on: your consent (account creation, marketing communications); performance of a contract (providing the Platform and processing purchases); and our legitimate interests (fraud prevention, security, and service improvement).
+            <strong style={{ color: "#e8e8e8" }}>Legal basis for processing:</strong> We process your personal data based on: your consent (account creation and cookie-based preferences); performance of a contract (providing the Platform and processing purchases); compliance with legal obligations (tax records, law-enforcement requests); and our legitimate interests (fraud prevention, anti-cheat enforcement, service security, and service improvement).
             <br /><br />
-            <strong style={{ color: "#e8e8e8" }}>Your rights under GDPR:</strong> In addition to the rights listed in Section 10, you have the right to: restrict processing of your personal data; object to processing based on legitimate interests; and lodge a complaint with your local EU/EEA data protection supervisory authority. Please note that automated direct data export is not provided; contact support for any specific profile data clarifications.
+            <strong style={{ color: "#e8e8e8" }}>Your rights under GDPR / UK GDPR:</strong> In addition to the rights listed in Section 10, you have the right to: restrict processing of your personal data; object to processing based on legitimate interests; request data portability; and lodge a complaint with your local EU/EEA data protection supervisory authority (or the UK Information Commissioner&apos;s Office for UK residents). An <strong style={{ color: "#e8e8e8" }}>automated data export</strong> of your account and related records is available from the in-app Settings page or directly via the endpoint <code style={{ color: "#e8e8e8" }}>GET /api/auth/export-data</code>; for anything not covered by that export, contact{" "}
+            <a href="mailto:privacy@pentaprotocol.com" style={{ color: "#CC0000", textDecoration: "none" }}>privacy@pentaprotocol.com</a>.
             <br /><br />
-            <strong style={{ color: "#e8e8e8" }}>International data transfers:</strong> Your data may be transferred to and processed on servers outside the EEA (including in the United States and India). We ensure that adequate safeguards are in place, including the use of service providers that maintain appropriate data protection standards.
+            <strong style={{ color: "#e8e8e8" }}>International data transfers:</strong> Your data may be transferred to and processed on servers outside the EEA/UK (including in the United States and India). We ensure that adequate safeguards are in place, including the use of service providers that maintain appropriate data protection standards.
             <br /><br />
             <strong style={{ color: "#e8e8e8" }}>Withdrawal of consent:</strong> Where processing is based on consent, you may withdraw your consent at any time by contacting us. Withdrawal does not affect the lawfulness of processing performed prior to withdrawal.
           </Section>
@@ -147,7 +168,7 @@ export default function PrivacyPage() {
 
           <div style={{ marginTop: 32, paddingTop: 16, borderTop: "1px solid #1e1e2a" }}>
             <div style={{ fontFamily: "monospace", fontSize: 11, color: "#444", lineHeight: 1.8 }}>
-              Version 1.1 — 10 April 2026 · Updated authentication data and portability procedures
+              Version 2.0 — 18 April 2026 · Beta-launch disclosures: device fingerprint, gameplay telemetry, virtual-currency grants, security event logging, data portability endpoint, UK GDPR.
             </div>
           </div>
 

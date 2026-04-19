@@ -6,11 +6,40 @@ import { noteProfileProgressAfterMerge } from "./navBadgeState";
 // ── Token expiry helpers ──────────────────────────────────────────────────────
 const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
 
+// Companion presence cookie used by the Next.js edge proxy
+// (frontend/proxy.ts) to gate protected routes before the RSC
+// payload renders. It only stores the expiry timestamp — the real JWT
+// stays in localStorage as before. This is defense-in-depth: a user
+// whose cookie is missing/expired is bounced to /auth without the
+// page ever touching the network. The backend still enforces the JWT
+// on every API call, so forging the cookie gains nothing.
+const AUTH_COOKIE_NAME = "pp_auth";
+
+function writeAuthCookie(expiryMs: number) {
+  if (typeof document === "undefined") return;
+  const maxAgeSeconds = Math.max(0, Math.floor((expiryMs - Date.now()) / 1000));
+  const isHttps = typeof window !== "undefined" && window.location?.protocol === "https:";
+  const parts = [
+    `${AUTH_COOKIE_NAME}=${expiryMs}`,
+    "Path=/",
+    `Max-Age=${maxAgeSeconds}`,
+    "SameSite=Lax",
+  ];
+  if (isHttps) parts.push("Secure");
+  document.cookie = parts.join("; ");
+}
+
+function clearAuthCookie() {
+  if (typeof document === "undefined") return;
+  document.cookie = `${AUTH_COOKIE_NAME}=; Path=/; Max-Age=0; SameSite=Lax`;
+}
+
 function saveToken(token: string, persist: boolean) {
   const expiry = Date.now() + THIRTY_DAYS_MS;
   localStorage.setItem("pp_token",  token);
   localStorage.setItem("pp_expiry", String(expiry));
   localStorage.setItem("pp_persist", persist ? "1" : "0");
+  writeAuthCookie(expiry);
 }
 
 function loadToken(): string | null {
@@ -25,8 +54,12 @@ function loadToken(): string | null {
     localStorage.removeItem("pp_expiry");
     localStorage.removeItem("pp_persist");
     localStorage.removeItem("pp_user");
+    clearAuthCookie();
     return null;
   }
+  // Keep the edge-gate cookie in sync if localStorage was populated by a
+  // previous session (e.g. user returned in a new tab before any login).
+  if (expiry) writeAuthCookie(expiry);
   return token;
 }
 
@@ -93,6 +126,7 @@ export const useAuthStore = create<AuthStore>((set, get) => {
       localStorage.removeItem("pp_persist");
       localStorage.removeItem("pp_user");
       localStorage.removeItem("pp_custom_theme");
+      clearAuthCookie();
       set({ user: null, token: null, logoutReason: reason ?? null });
     },
 

@@ -42,6 +42,27 @@ export const ROUTES = {
   PATCHNOTES: "/patchnotes",
 } as const;
 
+/**
+ * Shell navbar destinations — prefetch these after boot so `router.push`
+ * hits a warm cache and tab switches feel instant (no 2–3s cold load).
+ */
+export const MAIN_NAV_PREFETCH_PATHS: readonly string[] = [
+  ROUTES.HOME,
+  ROUTES.CAREER,
+  ROUTES.PLAY_LOBBY,
+  ROUTES.TRAINING,
+  ROUTES.CHALLENGE,
+  ROUTES.STORE,
+  ROUTES.COLLECTION_THEMES,
+  ROUTES.PROFILE,
+  ROUTES.RULES,
+  ROUTES.MISSIONS_DAILY,
+  ROUTES.PATCHNOTES,
+  ROUTES.RANKED_QUEUE,
+  ROUTES.UNRANKED_QUEUE,
+  ROUTES.CUSTOM_ROOM_CREATE,
+];
+
 /* ── Bot-name ↔ (boardMode, difficulty) mapping ───────────────────────────── */
 
 export const BOT_MAP: Record<string, { boardMode: "5x5" | "6x6" | "7x7"; difficulty: Difficulty }> = {

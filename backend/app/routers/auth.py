@@ -10,7 +10,18 @@ from bson import ObjectId
 from bson.errors import InvalidId
 from app.core.ids import user_object_id
 
-from app.core.rate_limit import build_rate_key, enforce_rate_limit
+from app.core.rate_limit import (
+    build_rate_key,
+    enforce_rate_limit,
+    enforce_tier,
+    TIER_FAST,
+    TIER_SENSITIVE,
+    TIER_POLL,
+)
+from app.core import auth_state
+from app.core import security_audit as audit
+from app.core import abuse as abuse_detect
+from app.core.client_ip import get_client_ip
 import base64
 import re, secrets, hashlib, pyotp, qrcode, io, os
 import resend
@@ -21,8 +32,38 @@ router = APIRouter()
 resend.api_key = os.environ.get("RESEND_API_KEY")
 FROM_EMAIL = os.environ.get("FROM_EMAIL", "noreply@pentaprotocol.com")
 
-_reset_codes: dict = {}
-_pending_2fa: dict = {}
+# NOTE: password-reset codes and 2FA pending-login tickets are stored in
+# Redis via ``app.core.auth_state`` — a previous in-memory implementation
+# silently lost state across workers / redeploys. Do not reintroduce local
+# dicts here without understanding the horizontal-scale implications.
+
+# Current policy document version. Bump when any of Terms / Privacy / Refund
+# changes materially; legacy acceptances below this require a re-accept.
+CURRENT_LEGAL_VERSION = 2
+
+
+def _fingerprint_from_request(request: Request) -> str:
+    """Collect the header-only fingerprint the abuse detector needs.
+
+    Kept deliberately minimal — see app.core.abuse.compute_fingerprint
+    for the privacy rationale."""
+    h = request.headers if request else {}
+    return abuse_detect.compute_fingerprint(
+        user_agent=h.get("user-agent", "") if h else "",
+        accept_language=h.get("accept-language", "") if h else "",
+        accept_encoding=h.get("accept-encoding", "") if h else "",
+    )
+
+
+def _user_needs_policy_gate(user: dict) -> bool:
+    """True iff this user must re-accept the legal bundle before gameplay."""
+    if not user.get("legal_accepted", False):
+        return True
+    try:
+        accepted_v = int(user.get("legal_accepted_version", 0) or 0)
+    except Exception:
+        accepted_v = 0
+    return accepted_v < CURRENT_LEGAL_VERSION
 
 
 def _totp_account_label(user: dict) -> str:
@@ -97,6 +138,7 @@ def serialize_user(user):
         "google_id":           user.get("google_id", None),
         "google_linked":       bool(user.get("google_id")),
         "legal_accepted":      user.get("legal_accepted", False),
+        "legal_accepted_version": int(user.get("legal_accepted_version", 0) or 0),
     }
 
 async def get_current_user(authorization: str = Header(...)):
@@ -117,9 +159,46 @@ async def get_current_user(authorization: str = Header(...)):
     except Exception:
         raise HTTPException(401, "Invalid token")
 
+
+async def require_legal_accepted(user_id: str = Depends(get_current_user)) -> str:
+    """Dependency for gameplay / store endpoints: requires an authenticated
+    user who has accepted the *current* legal bundle (Terms / Privacy /
+    Refund).
+
+    This exists because the policy gate cannot be a client-only concern
+    — a user who skips the modal (modified client, direct API call)
+    would otherwise happily play and pay while technically never having
+    agreed to anything. A ``403 legal_required`` from the server makes
+    the client fall back through the same gate.
+    """
+    db = get_db()
+    user = await db.users.find_one(
+        {"_id": user_object_id(user_id)},
+        {"legal_accepted": 1, "legal_accepted_version": 1},
+    )
+    if not user:
+        raise HTTPException(401, "Invalid token")
+    if _user_needs_policy_gate(user):
+        raise HTTPException(
+            status_code=403,
+            detail="legal_required",
+        )
+    return user_id
+
 # ── REGISTER ──────────────────────────────────────────────────────────────────
 @router.post("/register")
-async def register(data: UserRegister):
+async def register(data: UserRegister, request: Request):
+    # Per-IP + per-email registration throttle. Without this a single host can
+    # mass-create accounts to farm missions / bypass bans. The per-account
+    # companion key (identifier = email) also catches VPN rotations.
+    client_ip = get_client_ip(request)
+    await enforce_tier(
+        scope="auth_register",
+        ip=client_ip,
+        identifier=str(data.email),
+        tier=TIER_FAST,
+        detail="Too many registration attempts.",
+    )
     db = get_db()
     validate_username(data.username)
     if await db.users.find_one({"username": data.username}):
@@ -153,6 +232,20 @@ async def register(data: UserRegister):
     result = await db.users.insert_one(user)
     user["_id"] = result.inserted_id
     token = create_access_token({"sub": str(result.inserted_id)})
+    audit.log_event(
+        event_type=audit.EVENT_REGISTER,
+        user_id=str(result.inserted_id),
+        ip=client_ip,
+        email=data.email,
+    )
+    # Abuse signal: register is the biggest farming surface. Record the
+    # (ip, fingerprint) -> account_id edge so we can warn on fanout.
+    await abuse_detect.note_account_activity(
+        user_id=str(result.inserted_id),
+        ip=client_ip,
+        fingerprint=_fingerprint_from_request(request),
+        source="register",
+    )
     return {"access_token": token, "token_type": "bearer", "user": serialize_user(user)}
 
 # ── LOGIN ─────────────────────────────────────────────────────────────────────
@@ -163,10 +256,14 @@ class UserLogin(BaseModel):
 
 @router.post("/login")
 async def login(data: UserLogin, request: Request):
-    client_ip = request.client.host if request.client else "unknown"
+    client_ip = get_client_ip(request)
     ident = data.username.strip().lower()
-    await enforce_rate_limit(
-        key=build_rate_key("auth_login", client_ip, ident),
+    # 5 per minute per (IP, username) and 15 per minute per username across IPs.
+    await enforce_tier(
+        scope="auth_login",
+        ip=client_ip,
+        identifier=ident,
+        tier=TIER_FAST,
         detail="Too many login attempts.",
     )
     db   = get_db()
@@ -175,6 +272,16 @@ async def login(data: UserLogin, request: Request):
         user = await db.users.find_one({"email": data.username})
         
     if not user:
+        # Log failed login with the identifier the attacker tried — helpful
+        # for detecting credential-stuffing patterns without ever storing
+        # plaintext usernames (hashed in audit).
+        audit.log_event(
+            event_type=audit.EVENT_LOGIN_FAIL,
+            severity=audit.SEVERITY_WARN,
+            ip=client_ip,
+            email=ident,
+            meta={"reason": "unknown_account"},
+        )
         raise HTTPException(401, "Invalid credentials")
 
     # If this account is a Google account with no password, prompt to use Google Sign-In
@@ -182,7 +289,32 @@ async def login(data: UserLogin, request: Request):
         raise HTTPException(401, "This account is linked to Google. Please Sign In with Google.")
 
     if not verify_password(data.password, user.get("password", "")):
+        audit.log_event(
+            event_type=audit.EVENT_LOGIN_FAIL,
+            severity=audit.SEVERITY_WARN,
+            user_id=str(user["_id"]),
+            ip=client_ip,
+            email=ident,
+            meta={"reason": "bad_password"},
+        )
         raise HTTPException(401, "Invalid credentials")
+
+    # Enforce admin-issued hard bans (Phase 2.7). Distinct from
+    # ranked_ban_until, which only blocks the ranked queue — banned_until
+    # blocks login entirely.
+    bu = user.get("banned_until")
+    if isinstance(bu, datetime) and bu > datetime.utcnow():
+        audit.log_event(
+            event_type=audit.EVENT_LOGIN_FAIL,
+            severity=audit.SEVERITY_ALERT,
+            user_id=str(user["_id"]),
+            ip=client_ip,
+            meta={"reason": "banned", "until": bu.isoformat() + "Z"},
+        )
+        raise HTTPException(
+            403,
+            "Account suspended. Contact support if you believe this is a mistake.",
+        )
 
     totp_enabled = _safe_bool(user.get("totp_enabled"), False)
     if totp_enabled and user.get("totp_secret"):
@@ -207,10 +339,7 @@ async def login(data: UserLogin, request: Request):
 
         if not skip_2fa:
             temp_token = secrets.token_hex(32)
-            _pending_2fa[temp_token] = {
-                "user_id":    str(user["_id"]),
-                "expires_at": datetime.utcnow() + timedelta(minutes=5),
-            }
+            await auth_state.store_pending_2fa(temp_token, str(user["_id"]))
             return {"requires_2fa": True, "temp_token": temp_token}
 
     # ── Single-session enforcement ──────────────────────────────────────────
@@ -223,6 +352,17 @@ async def login(data: UserLogin, request: Request):
         {"$set": {"current_session_id": new_sid}},
     )
     token = create_access_token({"sub": str(user["_id"])}, sid=new_sid)
+    audit.log_event(
+        event_type=audit.EVENT_LOGIN_SUCCESS,
+        user_id=str(user["_id"]),
+        ip=client_ip,
+    )
+    await abuse_detect.note_account_activity(
+        user_id=str(user["_id"]),
+        ip=client_ip,
+        fingerprint=_fingerprint_from_request(request),
+        source="login",
+    )
     return {"access_token": token, "token_type": "bearer", "user": serialize_user(user)}
 
 
@@ -234,11 +374,20 @@ class GoogleAuthRequest(BaseModel):
 
 
 @router.post("/google")
-async def google_auth(data: GoogleAuthRequest):
+async def google_auth(data: GoogleAuthRequest, request: Request):
     """
     Verify the Google token server-side and issue a JWT.
     Supports both ID Tokens (standard GIS) and Access Tokens (custom JS flow).
     """
+    # Fast-tier throttle by IP. We don't know the account until after Google
+    # verification, so the per-account companion gate runs once we have `email`.
+    client_ip = get_client_ip(request)
+    await enforce_rate_limit(
+        key=build_rate_key("auth_google_ip", client_ip, ""),
+        max_attempts=int(TIER_FAST["max_attempts"]) * 2,  # a page full of OAuth retries
+        window_seconds=int(TIER_FAST["window_seconds"]),
+        detail="Too many Google sign-in attempts.",
+    )
     client_id = os.getenv("GOOGLE_CLIENT_ID", "").strip()
     if not client_id:
         raise HTTPException(500, "Google OAuth is not configured on this server")
@@ -341,13 +490,33 @@ async def google_auth(data: GoogleAuthRequest):
             await db.users.update_one({"_id": user["_id"]}, {"$set": {"avatar": picture_url}})
             user = await db.users.find_one({"_id": user["_id"]}) or user
 
-    # Check if policy gate is required
-    requires_policy_gate = not user.get("legal_accepted", False)
+    # Check if policy gate is required (version-aware — any policy bump forces
+    # a re-accept for existing users).
+    requires_policy_gate = _user_needs_policy_gate(user)
     if not requires_policy_gate:
-        # Also check legal_acceptances collection for consistency
-        acceptance = await db.legal_acceptances.find_one({"user_id": str(user["_id"])})
+        # Belt-and-braces: confirm the legal_acceptances row exists for the
+        # CURRENT version. If the user doc says accepted=true@v2 but the row
+        # is gone (e.g. pruned), force re-accept.
+        acceptance = await db.legal_acceptances.find_one(
+            {"user_id": str(user["_id"]), "version": CURRENT_LEGAL_VERSION},
+        )
         if not acceptance:
             requires_policy_gate = True
+
+    # Phase 2.7 — enforce admin-issued hard ban on the Google login path too.
+    bu = user.get("banned_until")
+    if isinstance(bu, datetime) and bu > datetime.utcnow():
+        audit.log_event(
+            event_type=audit.EVENT_LOGIN_FAIL,
+            severity=audit.SEVERITY_ALERT,
+            user_id=str(user["_id"]),
+            ip=client_ip,
+            meta={"reason": "banned", "via": "google", "until": bu.isoformat() + "Z"},
+        )
+        raise HTTPException(
+            403,
+            "Account suspended. Contact support if you believe this is a mistake.",
+        )
 
     # ── Session Management ─────────────────────────────────────────────────
     new_sid = secrets.token_hex(32)
@@ -357,7 +526,20 @@ async def google_auth(data: GoogleAuthRequest):
         {"$set": {"current_session_id": new_sid}},
     )
     token = create_access_token({"sub": str(user["_id"])}, sid=new_sid)
-    
+
+    audit.log_event(
+        event_type=audit.EVENT_LOGIN_SUCCESS,
+        user_id=str(user["_id"]),
+        ip=client_ip,
+        meta={"via": "google"},
+    )
+    await abuse_detect.note_account_activity(
+        user_id=str(user["_id"]),
+        ip=client_ip,
+        fingerprint=_fingerprint_from_request(request),
+        source="google",
+    )
+
     return {
         "access_token": token,
         "token_type": "bearer",
@@ -417,23 +599,26 @@ async def confirm_2fa(data: TwoFAVerifySetup, user_id: str = Depends(get_current
 # ── 2FA: LOGIN CHECK ──────────────────────────────────────────────────────────
 @router.post("/2fa/login")
 async def login_2fa(data: TwoFALoginCheck, request: Request):
-    client_ip = request.client.host if request.client else "unknown"
-    await enforce_rate_limit(
-        key=build_rate_key("auth_2fa_login", client_ip, data.temp_token),
+    client_ip = get_client_ip(request)
+    # 2FA is the final step in an auth chain, so tight limits are safe.
+    await enforce_tier(
+        scope="auth_2fa_login",
+        ip=client_ip,
+        identifier=data.temp_token,
+        tier=TIER_FAST,
         detail="Too many 2FA attempts.",
+        per_account=False,  # temp_token already identifies the attempt
     )
     db    = get_db()
-    entry = _pending_2fa.get(data.temp_token)
+    entry = await auth_state.get_pending_2fa(data.temp_token)
     if not entry:
+        # Redis TTL already evicted the entry, or it never existed.
         raise HTTPException(400, "Invalid or expired session — please sign in again")
-    if datetime.utcnow() > entry["expires_at"]:
-        del _pending_2fa[data.temp_token]
-        raise HTTPException(400, "Session expired — please sign in again")
 
     try:
         pending_oid = ObjectId(entry["user_id"])
     except InvalidId:
-        del _pending_2fa[data.temp_token]
+        await auth_state.consume_pending_2fa(data.temp_token)
         raise HTTPException(400, "Invalid or expired session — please sign in again")
 
     user = await db.users.find_one({"_id": pending_oid})
@@ -442,9 +627,30 @@ async def login_2fa(data: TwoFALoginCheck, request: Request):
 
     totp = pyotp.TOTP(user["totp_secret"])
     if not totp.verify(data.code, valid_window=1):
+        audit.log_event(
+            event_type=audit.EVENT_LOGIN_2FA_FAIL,
+            severity=audit.SEVERITY_WARN,
+            user_id=str(user["_id"]),
+            ip=client_ip,
+        )
         raise HTTPException(400, "Invalid authenticator code")
 
-    del _pending_2fa[data.temp_token]
+    await auth_state.consume_pending_2fa(data.temp_token)
+
+    # Phase 2.7 — enforce admin-issued hard ban at the tail of the 2FA chain.
+    bu = user.get("banned_until")
+    if isinstance(bu, datetime) and bu > datetime.utcnow():
+        audit.log_event(
+            event_type=audit.EVENT_LOGIN_FAIL,
+            severity=audit.SEVERITY_ALERT,
+            user_id=str(user["_id"]),
+            ip=client_ip,
+            meta={"reason": "banned", "via": "2fa", "until": bu.isoformat() + "Z"},
+        )
+        raise HTTPException(
+            403,
+            "Account suspended. Contact support if you believe this is a mistake.",
+        )
 
     # ── Single-session enforcement ──────────────────────────────────────────
     new_sid = secrets.token_hex(32)
@@ -458,6 +664,18 @@ async def login_2fa(data: TwoFALoginCheck, request: Request):
     await db.users.update_one(
         {"_id": user["_id"]},
         {"$set": {"device_tokens_list": existing, "current_session_id": new_sid}}
+    )
+    audit.log_event(
+        event_type=audit.EVENT_LOGIN_SUCCESS,
+        user_id=str(user["_id"]),
+        ip=client_ip,
+        meta={"via": "2fa"},
+    )
+    await abuse_detect.note_account_activity(
+        user_id=str(user["_id"]),
+        ip=client_ip,
+        fingerprint=_fingerprint_from_request(request),
+        source="login_2fa",
     )
 
     token = create_access_token({"sub": str(user["_id"])}, sid=new_sid)
@@ -488,9 +706,13 @@ async def disable_2fa(data: TwoFADisable, user_id: str = Depends(get_current_use
 # ── FORGOT PASSWORD ───────────────────────────────────────────────────────────
 @router.post("/forgot-password")
 async def forgot_password(data: ForgotPasswordRequest, request: Request):
-    client_ip = request.client.host if request.client else "unknown"
-    await enforce_rate_limit(
-        key=build_rate_key("auth_forgot_password", client_ip, str(data.email)),
+    client_ip = get_client_ip(request)
+    # Destructive flow — tight 5/15min cap with per-account companion.
+    await enforce_tier(
+        scope="auth_forgot_password",
+        ip=client_ip,
+        identifier=str(data.email),
+        tier=TIER_SENSITIVE,
         detail="Too many reset requests.",
     )
     db   = get_db()
@@ -498,12 +720,17 @@ async def forgot_password(data: ForgotPasswordRequest, request: Request):
     if not user:
         return {"detail": "If that email is registered, a reset code has been sent."}
 
-    code       = str(secrets.randbelow(900000) + 100000)
-    expires_at = datetime.utcnow() + timedelta(minutes=15)
-    _reset_codes[data.email] = {
-        "hashed":     hashlib.sha256(code.encode()).hexdigest(),
-        "expires_at": expires_at,
-    }
+    code = str(secrets.randbelow(900000) + 100000)
+    await auth_state.store_reset_code(
+        data.email,
+        hashlib.sha256(code.encode()).hexdigest(),
+    )
+    audit.log_event(
+        event_type=audit.EVENT_PASSWORD_RESET_REQ,
+        user_id=str(user["_id"]),
+        ip=client_ip,
+        email=data.email,
+    )
 
     resend.Emails.send({
         "from": FROM_EMAIL,
@@ -521,19 +748,35 @@ async def forgot_password(data: ForgotPasswordRequest, request: Request):
 # ── RESET PASSWORD ────────────────────────────────────────────────────────────
 @router.post("/reset-password")
 async def reset_password(data: ResetPasswordRequest, request: Request):
-    client_ip = request.client.host if request.client else "unknown"
-    await enforce_rate_limit(
-        key=build_rate_key("auth_reset_password", client_ip, str(data.email)),
+    client_ip = get_client_ip(request)
+    await enforce_tier(
+        scope="auth_reset_password",
+        ip=client_ip,
+        identifier=str(data.email),
+        tier=TIER_SENSITIVE,
         detail="Too many password reset attempts.",
     )
     db    = get_db()
-    entry = _reset_codes.get(data.email)
+    entry = await auth_state.get_reset_code(data.email)
+    # TTL expiry is implicit: if the 15-minute window passed, Redis already
+    # evicted the key and we land here with entry=None.
     if not entry:
+        audit.log_event(
+            event_type=audit.EVENT_PASSWORD_RESET_FAIL,
+            severity=audit.SEVERITY_WARN,
+            ip=client_ip,
+            email=data.email,
+            meta={"reason": "no_request"},
+        )
         raise HTTPException(400, "No reset request found — please request a new code")
-    if datetime.utcnow() > entry["expires_at"]:
-        del _reset_codes[data.email]
-        raise HTTPException(400, "Code has expired — please request a new one")
     if hashlib.sha256(data.code.strip().encode()).hexdigest() != entry["hashed"]:
+        audit.log_event(
+            event_type=audit.EVENT_PASSWORD_RESET_FAIL,
+            severity=audit.SEVERITY_WARN,
+            ip=client_ip,
+            email=data.email,
+            meta={"reason": "bad_code"},
+        )
         raise HTTPException(400, "Invalid code — check and try again")
     if len(data.new_password) < 8:
         raise HTTPException(400, "Password must be at least 8 characters")
@@ -542,7 +785,12 @@ async def reset_password(data: ResetPasswordRequest, request: Request):
         {"email": data.email},
         {"$set": {"password": hash_password(data.new_password)}}
     )
-    del _reset_codes[data.email]
+    await auth_state.consume_reset_code(data.email)
+    audit.log_event(
+        event_type=audit.EVENT_PASSWORD_RESET_OK,
+        ip=client_ip,
+        email=data.email,
+    )
     return {"detail": "Password reset successfully"}
 
 # ── ACCEPT LEGAL (server-side consent record) ─────────────────────────────────
@@ -559,13 +807,28 @@ async def accept_legal(data: AcceptLegalRequest, request: Request, user_id: str 
     await db.legal_acceptances.insert_one({
         "user_id":    user_id,
         "version":    data.version,
-        "ip_address": request.client.host if request.client else "unknown",
+        "ip_address": get_client_ip(request),
         "user_agent": request.headers.get("user-agent", "unknown"),
         "accepted_at": datetime.utcnow(),
     })
     
-    # Also update the user document for persistent gate bypass
-    await db.users.update_one({"_id": user_object_id(user_id)}, {"$set": {"legal_accepted": True}})
+    # Also update the user document for persistent gate bypass, and stamp the
+    # exact version that was accepted so that future policy bumps can force a
+    # re-accept without losing the boolean convenience flag.
+    await db.users.update_one(
+        {"_id": user_object_id(user_id)},
+        {"$set": {
+            "legal_accepted": True,
+            "legal_accepted_version": data.version,
+            "legal_accepted_at": datetime.utcnow(),
+        }},
+    )
+    audit.log_event(
+        event_type=audit.EVENT_LEGAL_ACCEPTED,
+        user_id=user_id,
+        ip=get_client_ip(request),
+        meta={"version": data.version},
+    )
 
     return {"detail": "Legal acceptance recorded"}
 
@@ -575,6 +838,16 @@ class DeleteAccountRequest(BaseModel):
 
 @router.post("/delete-account")
 async def delete_account(data: DeleteAccountRequest, request: Request, user_id: str = Depends(get_current_user)):
+    # Irreversible + destructive — tight sensitive-tier cap per account so an
+    # attacker who steals a session token can't burn through password guesses.
+    client_ip = get_client_ip(request)
+    await enforce_tier(
+        scope="auth_delete_account",
+        ip=client_ip,
+        identifier=user_id,
+        tier=TIER_SENSITIVE,
+        detail="Too many account deletion attempts.",
+    )
     db  = get_db()
     oid = user_object_id(user_id)
     user = await db.users.find_one({"_id": oid})
@@ -591,7 +864,27 @@ async def delete_account(data: DeleteAccountRequest, request: Request, user_id: 
         if not data.password or data.password.upper() != "DELETE":
             raise HTTPException(400, "Type 'DELETE' to confirm account closure")
 
-    # Purge all user data across collections
+    # Log BEFORE wiping so the audit retains the actor identity even after
+    # the user record disappears. The audit row's own TTL handles retention.
+    audit.log_event(
+        event_type=audit.EVENT_ACCOUNT_DELETE,
+        severity=audit.SEVERITY_ALERT,
+        user_id=user_id,
+        ip=client_ip,
+        email=user.get("email"),
+    )
+
+    # Purge user-owned data. The set of collections below was audited
+    # against every `insert_one` / `user_id` / `player?_id` / `creator_id`
+    # reference in the backend. If you add a new collection that stores
+    # PII or can be traced back to a user, add it here too.
+    #
+    # Collections intentionally NOT hard-deleted:
+    #   * security_events — anonymised instead (audit trail must survive
+    #     a deletion to support abuse investigations on repeat offenders).
+    #   * rooms / games    — these carry opponent data too, so we blank
+    #     only the deleting user's slot rather than deleting the whole
+    #     room document; the opponent's match history stays intact.
     await db.users.delete_one({"_id": oid})
     await db.match_history.delete_many({"user_id": {"$in": [user_id, oid]}})
     await db.payments.delete_many({"user_id": user_id})
@@ -601,6 +894,48 @@ async def delete_account(data: DeleteAccountRequest, request: Request, user_id: 
     # Clean up any active matchmaking queue entries
     try:
         await db.matchmaking_queue.delete_many({"user_id": user_id})
+    except Exception:
+        pass
+
+    # Blank the deleting user's slot on any rooms they were part of so
+    # opponents still see a valid match record ("Unknown Player") instead
+    # of a dangling ObjectId pointing at a deleted user.
+    try:
+        await db.rooms.update_many(
+            {"player1_id": user_id},
+            {"$set": {"player1_id": None, "player1_name": "Deleted Player"}},
+        )
+        await db.rooms.update_many(
+            {"player2_id": user_id},
+            {"$set": {"player2_id": None, "player2_name": "Deleted Player"}},
+        )
+    except Exception:
+        pass
+
+    # Same idea for the standalone games collection (solo / bot / early
+    # PvP games stored outside rooms).
+    try:
+        await db.games.update_many(
+            {"player1_id": user_id},
+            {"$set": {"player1_id": None}},
+        )
+        await db.games.update_many(
+            {"player2_id": user_id},
+            {"$set": {"player2_id": None}},
+        )
+    except Exception:
+        pass
+
+    # Anonymise — not delete — security audit rows. We want the ability
+    # to notice "same device hash that got a previous account banned
+    # created a new one", which means we cannot simply drop the history.
+    # Clearing user_id + email_hash breaks the personal link while
+    # preserving the behavioural signal.
+    try:
+        await db.security_events.update_many(
+            {"user_id": user_id},
+            {"$set": {"user_id": None, "email_hash": None}},
+        )
     except Exception:
         pass
 
@@ -681,4 +1016,4 @@ async def export_data(user_id: str = Depends(get_current_user)):
         "payments": payments,
         "legal_acceptances": acceptances,
     }
-
+

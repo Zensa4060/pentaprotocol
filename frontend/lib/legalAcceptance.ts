@@ -1,8 +1,8 @@
 /** Session flag: user id string after signup until policies are accepted or user declines. */
 export const POLICY_GATE_SESSION_KEY = "pp_policy_gate_pending";
 
-const LEGAL_ACCEPT_KEY = "pp_legal_accept_v1";
-const LEGAL_VERSION = 1;
+const LEGAL_ACCEPT_KEY = "pp_legal_accept_v2";
+const LEGAL_VERSION = 2;
 
 export type LegalAcceptRecord = { userId: string; v: number; at: number };
 
@@ -25,9 +25,23 @@ export function readLegalAcceptance(): LegalAcceptRecord | null {
   }
 }
 
-export function hasAcceptedLegal(userId: string, user?: { legal_accepted?: boolean } | null): boolean {
+export function hasAcceptedLegal(
+  userId: string,
+  user?: { legal_accepted?: boolean; legal_accepted_version?: number } | null,
+): boolean {
   if (!userId) return false;
-  if (user?.legal_accepted === true) return true;
+  // If the backend reports acceptance at the CURRENT version, trust it — this
+  // survives a fresh install / cleared storage on a different device.
+  if (
+    user?.legal_accepted === true &&
+    typeof user.legal_accepted_version === "number" &&
+    user.legal_accepted_version >= LEGAL_VERSION
+  ) {
+    return true;
+  }
+  // If the backend still reports the boolean without a version (legacy users
+  // who accepted v1), fall back to the local device record. This forces a
+  // re-accept on a policy bump while not locking out brand-new accounts.
   const rec = readLegalAcceptance();
   return rec?.userId === userId && rec.v === LEGAL_VERSION;
 }

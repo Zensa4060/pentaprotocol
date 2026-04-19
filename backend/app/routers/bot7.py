@@ -3,8 +3,10 @@ import time
 import random
 from typing import List, Optional
 from collections import deque
-from fastapi import APIRouter
-from pydantic import BaseModel
+from fastapi import APIRouter, HTTPException, Header, Depends
+from pydantic import BaseModel, Field, field_validator
+from app.core.security import decode_token
+from app.core.rate_limit import build_rate_key, enforce_rate_limit
 from app.core.patterns7 import generate_all_patterns_7
 
 try:
@@ -364,12 +366,67 @@ def _largest_connected(board, player):
 
 
 class Bot7MoveRequest(BaseModel):
-    board: List[List[Optional[str]]]
-    difficulty: str
-    current_player: str
-    selected_patterns: Optional[List[str]] = None
+    board: List[List[Optional[str]]] = Field(..., min_length=7, max_length=7)
+    difficulty: str = Field(..., min_length=1, max_length=32)
+    current_player: str = Field(..., min_length=2, max_length=2)
+    selected_patterns: Optional[List[str]] = Field(None, max_length=64)
     c3_blocked: bool = False
-    moves_played: Optional[int] = None
+    moves_played: Optional[int] = Field(None, ge=0, le=256)
+
+    @field_validator("board")
+    @classmethod
+    def _v_board(cls, v: List[List[Optional[str]]]) -> List[List[Optional[str]]]:
+        if len(v) != 7:
+            raise ValueError("7x7 board required")
+        for row in v:
+            if len(row) != 7:
+                raise ValueError("7x7 board required")
+            for cell in row:
+                if cell not in (None, "P1", "P2", "", "null"):
+                    raise ValueError("Invalid cell value")
+        return v
+
+    @field_validator("current_player")
+    @classmethod
+    def _v_cp(cls, v: str) -> str:
+        if v not in ("P1", "P2"):
+            raise ValueError("current_player must be 'P1' or 'P2'")
+        return v
+
+
+async def _bot7_auth(authorization: str = Header(None)) -> str:
+    """Auth + current-legal acceptance for /bot7/move. Same rationale as
+    the 5x5/6x6 bot dep in bot.py."""
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(401, "Authentication required")
+    try:
+        token = authorization.split(" ", 1)[1].strip()
+        if not token:
+            raise HTTPException(401, "Authentication required")
+        payload = decode_token(token)
+        sub = payload.get("sub")
+        if not sub:
+            raise HTTPException(401, "Invalid token")
+        try:
+            from app.routers.auth import _user_needs_policy_gate
+            from app.core.database import get_db
+            from app.core.ids import user_object_id
+            db = get_db()
+            user = await db.users.find_one(
+                {"_id": user_object_id(sub)},
+                {"legal_accepted": 1, "legal_accepted_version": 1},
+            )
+            if user and _user_needs_policy_gate(user):
+                raise HTTPException(status_code=403, detail="legal_required")
+        except HTTPException:
+            raise
+        except Exception:
+            pass
+        return sub
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(401, "Invalid token")
 
 
 _cached_engine: Optional[Bot7Engine] = None
@@ -392,11 +449,18 @@ class _DangerRef:
 
 
 @router.post("/move")
-def bot7_move(req: Bot7MoveRequest):
+async def bot7_move(req: Bot7MoveRequest, user_id: str = Depends(_bot7_auth)):
     global _cached_engine, _cached_pats
     global _cached_danger, _cached_danger_pats
     global _cached_rust_hard, _cached_rust_hard_pats
     global _cached_rust_danger, _cached_rust_danger_pats
+
+    await enforce_rate_limit(
+        key=build_rate_key("bot7_move", user_id),
+        max_attempts=60,
+        window_seconds=60,
+        detail="Too many bot requests — slow down.",
+    )
 
     def normalize(cell):
         return None if cell in [None, "null", ""] else cell

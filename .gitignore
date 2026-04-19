@@ -6,10 +6,27 @@ node_modules/
 .next/
 out/
 
-# Environment variables
+# Environment variables — NEVER commit real secrets.
+# Only .env.example files (which contain placeholders) are tracked.
 .env
 .env.local
 .env.production
+.env.*.local
+.env.development.local
+.env.test.local
+backend/.env
+frontend/.env
+frontend/.env.local
+# Catch any file named with a .env extension except the templates.
+*.env
+!.env.example
+!backend/.env.example
+!frontend/.env.example
+
+# Python virtual envs
+.venv/
+venv/
+env/
 
 # VS Code
 .vscode/
@@ -27,3 +44,23 @@ __pycache__/
 *.pyc
 *.pyo
 .pyre_configuration
+
+# Ad-hoc debug captures (we used to have `debug-6fad40.log` checked in by
+# accident; keep this glob so it never happens again).
+debug-*.log
+*.log
+
+# Editor / tooling caches
+.cursor/
+.ruff_cache/
+.mypy_cache/
+.pytest_cache/
+
+# Local ops / secret dumps (defensive — if anyone generates one of these
+# files during debugging they must not land in git).
+secrets.json
+credentials.json
+service-account*.json
+*.pem
+*.key
+*.p12

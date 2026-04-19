@@ -2,8 +2,11 @@ from motor.motor_asyncio import AsyncIOMotorClient
 from dotenv import load_dotenv
 import os
 import certifi
+import logging
 from pymongo import ASCENDING, DESCENDING
 import asyncio
+
+logger = logging.getLogger("pentaprotocol.db")
 
 
 
@@ -52,15 +55,89 @@ async def ensure_indexes():
         await db.db.matchmaking_queue.create_index(
             [("created_at", ASCENDING)], expireAfterSeconds=7200, background=True
         )
-        print("MongoDB indexes ensured")
+        # Payment idempotency guards on the legacy ``payments`` collection.
+        # Historical gateway integrations wrote rows here keyed on
+        # ``payment_id`` / ``order_id``; we retain the unique
+        # indexes so that any stale retry still can't double-credit. The
+        # UPI flow uses ``upi_payments`` and is guarded separately below.
+        await db.db.payments.create_index(
+            [("payment_id", ASCENDING)],
+            unique=True,
+            partialFilterExpression={"payment_id": {"$type": "string"}},
+            background=True,
+        )
+        await db.db.payments.create_index(
+            [("order_id", ASCENDING)],
+            unique=True,
+            partialFilterExpression={"order_id": {"$type": "string"}},
+            background=True,
+        )
+        # UPI UTR unique-per-submission. The app already checks in code;
+        # the DB index is the authoritative guard against race conditions
+        # (two parallel submissions of the same UTR by different users).
+        await db.db.upi_payments.create_index(
+            [("utr", ASCENDING)], unique=True, background=True
+        )
+        # Anti-cheat matches retention — 90 days matches security_events.
+        await db.db.anticheat_matches.create_index(
+            [("at", ASCENDING)],
+            expireAfterSeconds=90 * 24 * 60 * 60,
+            background=True,
+        )
+        await db.db.anticheat_matches.create_index(
+            [("per_slot.P1.user_id", ASCENDING), ("at", DESCENDING)], background=True
+        )
+        await db.db.anticheat_matches.create_index(
+            [("per_slot.P2.user_id", ASCENDING), ("at", DESCENDING)], background=True
+        )
+        # Economy events (Phase 3). Detection only — never read on a
+        # hot request path, so the TTL can be generous and indexes
+        # kept minimal. 90 days matches anticheat_matches so staff
+        # investigating a funnel can cross-reference gameplay.
+        await db.db.economy_events.create_index(
+            [("at", ASCENDING)],
+            expireAfterSeconds=90 * 24 * 60 * 60,
+            background=True,
+        )
+        await db.db.economy_events.create_index(
+            [("user_id", ASCENDING), ("kind", ASCENDING), ("at", DESCENDING)],
+            background=True,
+        )
+        await db.db.economy_events.create_index(
+            [("ip_hash", ASCENDING), ("at", DESCENDING)],
+            background=True,
+            sparse=True,
+        )
+        await db.db.economy_events.create_index(
+            [("device_hash", ASCENDING), ("at", DESCENDING)],
+            background=True,
+            sparse=True,
+        )
+        # Secret rotation ledger (Phase 3). One row per secret name;
+        # we upsert on rotation events. Small collection (<50 rows),
+        # so a unique index on ``name`` is plenty.
+        await db.db.secrets_ledger.create_index(
+            [("name", ASCENDING)], unique=True, background=True
+        )
+        # Audit log indexes (TTL + lookup) — imported lazily to avoid a
+        # circular import via app.core.security_audit -> get_db -> here.
+        try:
+            from app.core import security_audit
+            await security_audit.ensure_indexes()
+        except Exception as e:
+            logger.warning("security_events index ensure warning: %s", e)
+        logger.info("MongoDB indexes ensured")
     except Exception as e:
-        print(f"Index ensure warning: {e}")
+        logger.warning("Index ensure warning: %s", e)
 
 async def connect_db():
     uri = os.getenv("MONGO_URI") or os.getenv("MONGODB_URL")
     if not uri:
         raise ValueError("No MongoDB URI found! Set MONGO_URI environment variable.")
-    print(f"Connecting to MongoDB: {uri[:40]}...")
+    # Never log the URI (even truncated). Mongo connection strings can leak
+    # the cluster host, database name, and — on misconfigured envs — the
+    # credentials embedded as "mongodb+srv://user:pass@host/...".
+    logger.info("Connecting to MongoDB cluster")
     name = os.getenv("DATABASE_NAME", "pentaprotocol")
 
     db.client = AsyncIOMotorClient(
@@ -79,12 +156,12 @@ async def connect_db():
     await db.client.admin.command("ping")
     # Don't block startup on index operations.
     asyncio.create_task(ensure_indexes())
-    print("Connected to MongoDB Atlas successfully")
+    logger.info("Connected to MongoDB successfully")
 
 async def disconnect_db():
     if db.client:
         db.client.close()
-    print("Disconnected from MongoDB")
+    logger.info("Disconnected from MongoDB")
 
 def get_db():
     """Direct call — use this in routers that call get_db() manually."""
