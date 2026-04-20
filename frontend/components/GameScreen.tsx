@@ -673,6 +673,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   } | null>(null);
   const [showMatchAbortedNoPlay, setShowMatchAbortedNoPlay] = useState(false);
   const [matchAbortedBySlot, setMatchAbortedBySlot] = useState<"P1" | "P2" | null>(null);
+  const [matchAbortReason, setMatchAbortReason] = useState<string | null>(null);
   const [chatMessages, setChatMessages] = useState<{ from: "P1" | "P2"; text: string; ts: number }[]>([]);
   const [chatInput, setChatInput] = useState("");
   const [chatOpen, setChatOpen] = useState(false);
@@ -1451,12 +1452,6 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
             }
           }
           ws.send(JSON.stringify({ type: "player_info", username: p1Name ?? playerSlot ?? "P1", slot: playerSlot }));
-            } else if (msg.type === "duplicate_session") {
-          useAuthStore.getState().logout("duplicate_session");
-            } else if (msg.type === "match_aborted_no_play") {
-          setPhase("match_over");
-          setHomeNoticeAction?.(msg.reason || "Match aborted — no moves played.");
-          setScreenAction?.("home");
             } else if (msg.type === "player_joined") {
 
           const r = msg.room;
@@ -1934,6 +1929,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
         } else if (msg.type === "match_aborted_no_play") {
           const ab = msg.aborted_by === "P1" || msg.aborted_by === "P2" ? msg.aborted_by : null;
           setMatchAbortedBySlot(ab);
+          setMatchAbortReason(typeof msg.reason === "string" && msg.reason.trim() ? msg.reason.trim() : null);
           setShowMatchAbortedNoPlay(true);
         } else if (msg.type === "match_disbanded") {
           setDisconnectCountdown(null);
@@ -3770,9 +3766,11 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
           t={sidebarT}
           ip={ip}
           isSelfAbort={matchAbortedBySlot !== null && matchAbortedBySlot === (mySlot ?? "P1")}
+          detailReason={matchAbortReason}
           onGoHomeAction={() => {
             setShowMatchAbortedNoPlay(false);
             setMatchAbortedBySlot(null);
+            setMatchAbortReason(null);
             if (setScreenAction) setScreenAction("home");
           }}
         />
@@ -3967,9 +3965,11 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
           t={sidebarT}
           ip={ip}
           isSelfAbort={matchAbortedBySlot !== null && matchAbortedBySlot === (mySlot ?? "P1")}
+          detailReason={matchAbortReason}
           onGoHomeAction={() => {
             setShowMatchAbortedNoPlay(false);
             setMatchAbortedBySlot(null);
+            setMatchAbortReason(null);
             if (setScreenAction) setScreenAction("home");
           }}
         />
@@ -4451,9 +4451,11 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
         t={sidebarT}
         ip={ip}
         isSelfAbort={matchAbortedBySlot !== null && matchAbortedBySlot === (mySlot ?? "P1")}
+        detailReason={matchAbortReason}
         onGoHomeAction={() => {
           setShowMatchAbortedNoPlay(false);
           setMatchAbortedBySlot(null);
+          setMatchAbortReason(null);
           if (setScreenAction) setScreenAction("home");
         }}
       />

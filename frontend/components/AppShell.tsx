@@ -231,6 +231,43 @@ export default function AppShell({ children }: { children: ReactNode }) {
   useEffect(() => { queueRoomCodeRef.current = queueRoomCode; }, [queueRoomCode]);
   useEffect(() => { queuePlayerSlotRef.current = queuePlayerSlot; }, [queuePlayerSlot]);
 
+  /* While both players see match-found (no room WS yet), poll so a tab close / queue cancel on the peer disbands the room and we surface "opponent aborted". */
+  useEffect(() => {
+    if (queuePhase !== "matchup" || !queueRoomCode || !token) return;
+    let stopped = false;
+    const authHeader = { headers: { Authorization: `Bearer ${token}` } };
+    const tick = async () => {
+      if (stopped || queueCancelledRef.current) return;
+      try {
+        const poll = await API.get(`/api/room/queue/status/${queueRoomCode}`, { ...authHeader, timeout: 10000 });
+        if (stopped || queueCancelledRef.current) return;
+        if (poll.data?.game_status === "disbanded") {
+          stopped = true;
+          clearMatchFoundPostVsTimer();
+          matchFoundArmRef.current = false;
+          matchmakingActiveRef.current = false;
+          setMatchupOpponent(null);
+          setInQueue(false);
+          setQueuePhase("none");
+          setQueueRoomCode(null);
+          setQueuePlayerSlot("P1");
+          setQueueError("Your opponent aborted this match.");
+          if (typeof window !== "undefined" && window.location.pathname.startsWith("/play/matchfound")) {
+            router.replace(ROUTES.PLAY_LOBBY);
+          }
+        }
+      } catch {
+        /* ignore */
+      }
+    };
+    const id = window.setInterval(tick, 2000);
+    void tick();
+    return () => {
+      stopped = true;
+      window.clearInterval(id);
+    };
+  }, [queuePhase, queueRoomCode, token, clearMatchFoundPostVsTimer, router]);
+
   /* ── Derived ────────────────────────────────────────────────────────────── */
   const currentScreen: Screen = isBotGameRoute ? "aiGame" : pathnameToScreen(pathname);
   const t = THEMES[themeId];
@@ -829,7 +866,16 @@ export default function AppShell({ children }: { children: ReactNode }) {
       if (queueCancelledRef.current) {
         matchmakingActiveRef.current = false;
         try {
-          await API.post("/api/room/queue/leave", { format: mode, board_mode: boardModeForQueue }, { ...authHeader, timeout: 10000 });
+          const leaveCodeEarly = res.data?.room_code as string | undefined;
+          await API.post(
+            "/api/room/queue/leave",
+            {
+              format: mode,
+              board_mode: boardModeForQueue,
+              ...(leaveCodeEarly ? { room_code: leaveCodeEarly } : {}),
+            },
+            { ...authHeader, timeout: 10000 },
+          );
         } catch { /* ignore */ }
         return;
       }
@@ -890,7 +936,15 @@ export default function AppShell({ children }: { children: ReactNode }) {
     const boardModeForQueue = mode === "ranked" ? "5x5_6x6_7x7" : boardMode;
     if (code) {
       try {
-        await API.post("/api/room/queue/leave", { format: mode, board_mode: boardModeForQueue }, { ...authHeader, timeout: 10000 });
+        await API.post(
+          "/api/room/queue/leave",
+          {
+            format: mode,
+            board_mode: boardModeForQueue,
+            room_code: code,
+          },
+          { ...authHeader, timeout: 10000 },
+        );
       } catch { /* ignore */ }
     }
     setInQueue(false);

@@ -100,11 +100,17 @@ async def _resolve_disconnect_forfeit(db, room_code: str, disconnected_slot: str
     if void_no_play:
         await db.rooms.update_one(
             {"room_code": room_code},
-            {"$set": {"game_status": "disbanded"}},
+            {"$set": {"game_status": "disbanded", "status": "disbanded"}},
         )
         for _, ws in peers.items():
             try:
-                await ws.send_json({"type": "match_aborted_no_play", "aborted_by": disconnected_slot})
+                await ws.send_json(
+                    {
+                        "type": "match_aborted_no_play",
+                        "aborted_by": disconnected_slot,
+                        "reason": f"Opponent {disconnected_slot} disconnected or closed the game.",
+                    }
+                )
             except Exception:
                 pass
         return
@@ -1742,6 +1748,8 @@ class QueueRequest(BaseModel):
     format: str = "unranked"
     board_mode: str = "5x5_6x6_7x7"
     selected_patterns: Optional[list[str]] = None
+    # When set, void an in-flight matchmaking duel (match-found / rules / pre-move) and notify the peer.
+    room_code: Optional[str] = None
 
 class CreateRoomRequest(BaseModel):
     format: str = "unranked"
@@ -1812,6 +1820,54 @@ def _series_g1_had_any_move(room: dict | None) -> bool:
     if gn > 1:
         return True
     return int(room.get("moves_played") or 0) > 0
+
+
+def _void_early_matchmaking_room(room: dict | None) -> bool:
+    """Both players seated, matchmaking source, series not decided, no G1 stone yet — safe to void."""
+    if not room or room.get("source") != "matchmaking":
+        return False
+    if room.get("series_winner") is not None:
+        return False
+    if not room.get("player1_id") or not room.get("player2_id"):
+        return False
+    if room.get("game_status") == "disbanded":
+        return False
+    return not _series_g1_had_any_move(room)
+
+
+async def _disband_void_early_match_and_notify(db, room_code: str, quitter_user_id: str) -> bool:
+    """
+    Used when a player leaves queue (HTTP) while a matched room still has no G1 moves.
+    Marks the room disbanded and tells any connected room WebSockets (peer on rulesshow/game).
+    """
+    room = await db.rooms.find_one({"room_code": room_code})
+    if not _void_early_matchmaking_room(room):
+        return False
+    p1 = room.get("player1_id")
+    p2 = room.get("player2_id")
+    if str(p1) == str(quitter_user_id):
+        aborted_by = "P1"
+    elif str(p2) == str(quitter_user_id):
+        aborted_by = "P2"
+    else:
+        return False
+    res = await db.rooms.update_one(
+        {"room_code": room_code, "game_status": {"$ne": "disbanded"}},
+        {"$set": {"game_status": "disbanded", "status": "disbanded"}},
+    )
+    if res.matched_count == 0:
+        return False
+    payload = {
+        "type": "match_aborted_no_play",
+        "aborted_by": aborted_by,
+        "reason": "Your opponent left the queue or cancelled before the match started.",
+    }
+    for _, ws in _room_connections.get(room_code, {}).items():
+        try:
+            await ws.send_json(payload)
+        except Exception:
+            pass
+    return True
 
 
 @router.post("/queue/join")
@@ -2057,6 +2113,9 @@ async def queue_leave(data: QueueRequest, user_id: str = Depends(get_current_use
             "$or": [{"player2_id": None}, {"player2_id": {"$exists": False}}],
         }
     )
+    rc = (data.room_code or "").strip().upper() if getattr(data, "room_code", None) else ""
+    if rc:
+        await _disband_void_early_match_and_notify(db, rc, user_id)
     return {"ok": True}
 
 
@@ -3481,6 +3540,7 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                                 {
                                     "type": "match_aborted_no_play",
                                     "aborted_by": quitter_slot,
+                                    "reason": "Your opponent aborted the match (forfeit / exit).",
                                 }
                             )
                         except:
@@ -4004,7 +4064,13 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                 other_ws = _room_connections.get(room_code, {}).get(other_slot)
                 if other_ws:
                     try:
-                        await other_ws.send_json({"type": "match_aborted_no_play", "reason": f"Opponent {player_slot} disconnected"})
+                        await other_ws.send_json(
+                            {
+                                "type": "match_aborted_no_play",
+                                "aborted_by": player_slot,
+                                "reason": f"Opponent {player_slot} disconnected or closed the game.",
+                            }
+                        )
                     except:
                         pass
                 

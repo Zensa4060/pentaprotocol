@@ -1156,24 +1156,34 @@ export function MatchAbortedNoPlayModal({
   t,
   ip,
   isSelfAbort,
+  detailReason,
   onGoHomeAction,
 }: {
   show: boolean;
   t: MatchSidebarProps["t"];
   ip: boolean;
   isSelfAbort: boolean;
+  detailReason?: string | null;
   onGoHomeAction: () => void;
 }) {
   if (!show) return null;
+  const title = isSelfAbort ? "MATCH ABORTED" : "OPPONENT ABORTED THE MATCH";
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 10011, background: "rgba(0,0,0,0.88)", display: "flex", alignItems: "center", justifyContent: "center", animation: "fadeIn 0.2s ease both" }}>
       <div style={{ background: t.bgPanel, border: `2px solid ${t.textMuted}`, borderRadius: ip ? 2 : 16, padding: "30px", maxWidth: 440, width: "90vw", textAlign: "center", boxShadow: "0 20px 40px rgba(0,0,0,0.75)", animation: "scaleIn 0.3s cubic-bezier(.22,.68,0,1.2) both" }}>
-        <div style={{ fontFamily: t.fontDisplay, fontSize: 20, fontWeight: 800, color: t.text, marginBottom: 14 }}>MATCH ABORTED</div>
+        <div style={{ fontFamily: t.fontDisplay, fontSize: 20, fontWeight: 800, color: t.text, marginBottom: 14 }}>{title}</div>
         <div style={{ fontFamily: t.fontBody, fontSize: 15, color: t.textSecondary, marginBottom: 24, lineHeight: 1.55 }}>
           {isSelfAbort ? (
             <>You left before any move in game 1. This match was voided and will not appear in Career.</>
           ) : (
-            <>Your opponent left before any move in game 1. The match was voided and will not appear in Career for either player.</>
+            <>
+              {detailReason ? (
+                <span style={{ display: "block", marginBottom: 12, color: t.text, fontWeight: 600 }}>{detailReason}</span>
+              ) : null}
+              <span style={{ color: t.textSecondary }}>
+                The match was voided before any move in game 1 and will not appear in Career for either player.
+              </span>
+            </>
           )}
         </div>
         <button
