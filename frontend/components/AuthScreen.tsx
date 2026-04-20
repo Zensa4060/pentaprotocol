@@ -23,7 +23,23 @@ interface Props {
   themeId: ThemeId;
 }
 
-function ParticleCanvas() {
+type ParticleSettings = {
+  count: number;
+  connect: number;
+  attractRadius: number;
+  attractForce: number;
+  maxSpeed: number;
+};
+
+const DEFAULT_PARTICLE_SETTINGS: ParticleSettings = {
+  count: 500,
+  connect: 100,
+  attractRadius: 100,
+  attractForce: 250,
+  maxSpeed: 10,
+};
+
+function ParticleCanvas({ settings }: { settings: ParticleSettings }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -53,9 +69,9 @@ function ParticleCanvas() {
     window.addEventListener("mousemove", onMouseMove);
     resize();
 
-    const COUNT = 110, CONNECT = 100, ATTRACT_RADIUS = 500, ATTRACT_FORCE = 65, MAX_SPEED = 40.0;
+    const { count, connect, attractRadius, attractForce, maxSpeed } = settings;
     type Pt = { x: number; y: number; vx: number; vy: number; r: number; bright: boolean };
-    const pts: Pt[] = Array.from({ length: COUNT }, () => ({
+    const pts: Pt[] = Array.from({ length: count }, () => ({
       x: Math.random() * W, y: Math.random() * H,
       vx: (Math.random() - 0.5) * 0.79, vy: (Math.random() - 0.5) * 0.79,
       r: 1.2 + Math.random() * 2.2, bright: Math.random() < 0.15,
@@ -71,14 +87,14 @@ function ParticleCanvas() {
       pts.forEach(p => {
         const dx = mouse.x - p.x, dy = mouse.y - p.y;
         const dist = Math.sqrt(dx * dx + dy * dy);
-        if (dist < ATTRACT_RADIUS && dist > 0) {
-          const force = (1 - dist / ATTRACT_RADIUS) * ATTRACT_FORCE;
+        if (dist < attractRadius && dist > 0) {
+          const force = (1 - dist / attractRadius) * attractForce;
           p.vx += (dx / dist) * force;
           p.vy += (dy / dist) * force;
         }
         p.vx *= 0.98; p.vy *= 0.98;
         const speed = Math.sqrt(p.vx * p.vx + p.vy * p.vy);
-        if (speed > MAX_SPEED) { p.vx = (p.vx / speed) * MAX_SPEED; p.vy = (p.vy / speed) * MAX_SPEED; }
+        if (speed > maxSpeed) { p.vx = (p.vx / speed) * maxSpeed; p.vy = (p.vy / speed) * maxSpeed; }
         p.x += p.vx; p.y += p.vy;
         if (p.x < 0) p.x = W; if (p.x > W) p.x = 0;
         if (p.y < 0) p.y = H; if (p.y > H) p.y = 0;
@@ -90,8 +106,8 @@ function ParticleCanvas() {
           const a = pts[i], b = pts[j];
           const dx = a.x - b.x, dy = a.y - b.y;
           const d = Math.sqrt(dx * dx + dy * dy);
-          if (d < CONNECT) {
-            ctx.globalAlpha = (1 - d / CONNECT) * 0.55;
+          if (d < connect) {
+            ctx.globalAlpha = (1 - d / connect) * 0.55;
             ctx.strokeStyle = "#CC0000"; ctx.lineWidth = 0.8;
             ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
           }
@@ -116,7 +132,7 @@ function ParticleCanvas() {
       canvas.removeEventListener("mousemove", onMouseMove);
       canvas.removeEventListener("mouseleave", onMouseLeave);
     };
-  }, []);
+  }, [settings]);
 
   return (
     <canvas ref={canvasRef} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", display: "block" }} />
@@ -168,6 +184,8 @@ export default function AuthScreen({ setScreenAction, themeId }: Props) {
   const [isMobile, setIsMobile]     = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [googleReady, setGoogleReady]     = useState(false);
+  const [particleSettings, setParticleSettings] = useState<ParticleSettings>(DEFAULT_PARTICLE_SETTINGS);
+  const [showParticleControls, setShowParticleControls] = useState(false);
 
   // ── UTILITIES ─────────────────────────────────────────
   const triggerShake = useCallback(() => {
@@ -425,6 +443,11 @@ export default function AuthScreen({ setScreenAction, themeId }: Props) {
   };
 
   const errorStyle: React.CSSProperties = { color: ACCENT2, fontSize: 12, marginTop: 4, fontFamily: FONT };
+  const sliderValueStyle: React.CSSProperties = { minWidth: 52, textAlign: "right", color: "#ddd", fontSize: 12, fontFamily: FONT };
+
+  const updateParticleSetting = (key: keyof ParticleSettings, value: number) => {
+    setParticleSettings(prev => ({ ...prev, [key]: value }));
+  };
 
   const field = (key: string, label: string, value: string, onChange: (v: string) => void, error: string, placeholder: string, type = "text") => (
     <div style={{ marginBottom: isMobile ? 10 : 14 }}>
@@ -541,10 +564,69 @@ export default function AuthScreen({ setScreenAction, themeId }: Props) {
 
       {/* ── LEFT PANEL ── */}
       <div className="pp-left" style={{ flex: isMobile ? "0 0 auto" : "0 0 70%", height: isMobile ? 130 : "100%", position: "relative", overflow: "hidden", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
-        <ParticleCanvas />
+        <ParticleCanvas settings={particleSettings} />
         <div style={{ position: "absolute", inset: 0, zIndex: 1, background: "radial-gradient(ellipse at center, transparent 30%, rgba(3,3,3,0.7) 100%)", pointerEvents: "none" }} />
         {isMobile && <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 80, zIndex: 2, background: "linear-gradient(to bottom, transparent, #0d0d0d)", pointerEvents: "none" }} />}
         {!isMobile && <div style={{ position: "absolute", top: 0, right: 0, bottom: 0, width: 120, zIndex: 2, background: "linear-gradient(to right, transparent, #0d0d0d)", pointerEvents: "none" }} />}
+        <div style={{ position: "absolute", top: 12, right: 12, zIndex: 4 }}>
+          <button
+            type="button"
+            onClick={() => setShowParticleControls(s => !s)}
+            style={{ background: "rgba(10,10,10,0.85)", border: "1px solid rgba(255,255,255,0.22)", borderRadius: 8, color: "#fff", fontFamily: FONT, fontSize: 12, padding: "8px 10px", letterSpacing: "0.08em", cursor: "pointer" }}
+          >
+            Particle Settings
+          </button>
+          {showParticleControls && (
+            <div style={{ marginTop: 8, width: 260, background: "rgba(8,8,8,0.95)", border: "1px solid rgba(255,255,255,0.18)", borderRadius: 10, padding: 12, backdropFilter: "blur(3px)" }}>
+              <div style={{ fontFamily: FONT, fontSize: 11, color: "#aaa", textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 10 }}>
+              </div>
+              <div style={{ display: "grid", gap: 8 }}>
+                <div>
+                  <div style={{ ...labelStyle, marginBottom: 4 }}>Count (100 - 500)</div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <input type="range" min={100} max={500} step={10} value={particleSettings.count} onChange={e => updateParticleSetting("count", Number(e.target.value))} style={{ width: "100%" }} />
+                    <span style={sliderValueStyle}>{particleSettings.count}</span>
+                  </div>
+                </div>
+                <div>
+                  <div style={{ ...labelStyle, marginBottom: 4 }}>Connect (60 - 100)</div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <input type="range" min={60} max={100} step={5} value={particleSettings.connect} onChange={e => updateParticleSetting("connect", Number(e.target.value))} style={{ width: "100%" }} />
+                    <span style={sliderValueStyle}>{particleSettings.connect}</span>
+                  </div>
+                </div>
+                <div>
+                  <div style={{ ...labelStyle, marginBottom: 4 }}>Attract Radius (40 - 150)</div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <input type="range" min={40} max={150} step={5} value={particleSettings.attractRadius} onChange={e => updateParticleSetting("attractRadius", Number(e.target.value))} style={{ width: "100%" }} />
+                    <span style={sliderValueStyle}>{particleSettings.attractRadius}</span>
+                  </div>
+                </div>
+                <div>
+                  <div style={{ ...labelStyle, marginBottom: 4 }}>Attract Force (100 - 250)</div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <input type="range" min={100} max={250} step={10} value={particleSettings.attractForce} onChange={e => updateParticleSetting("attractForce", Number(e.target.value))} style={{ width: "100%" }} />
+                    <span style={sliderValueStyle}>{particleSettings.attractForce}</span>
+                  </div>
+                </div>
+                <div>
+                  <div style={{ ...labelStyle, marginBottom: 4 }}>Max Speed (2 - 14)</div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <input type="range" min={2} max={14} step={0.5} value={particleSettings.maxSpeed} onChange={e => updateParticleSetting("maxSpeed", Number(e.target.value))} style={{ width: "100%" }} />
+                    <span style={sliderValueStyle}>{particleSettings.maxSpeed.toFixed(1)}</span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setParticleSettings(DEFAULT_PARTICLE_SETTINGS)}
+                  style={{ marginTop: 4, width: "100%", padding: "8px 10px", background: "transparent", border: "1px solid rgba(255,255,255,0.18)", borderRadius: 7, color: "#bbb", fontFamily: FONT, fontSize: 12, letterSpacing: "0.06em", cursor: "pointer", textTransform: "uppercase" }}
+                >
+                  Reset Defaults
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
         <div style={{ position: "relative", zIndex: 3, display: "flex", flexDirection: isMobile ? "row" : "column", alignItems: "center", gap: isMobile ? 16 : 28, userSelect: "none", padding: isMobile ? "0 24px" : 0 }}>
           <img src="/Pentaprotocol_Logo_Transparent.png" alt="PentaProtocol Logo" style={{ width: isMobile ? 50 : 220, height: isMobile ? 50 : 220, objectFit: "contain", filter: "drop-shadow(0 0 32px rgba(255,100,30,0.55)) drop-shadow(0 0 80px rgba(200,60,0,0.3))" }} />
           <div style={{ textAlign: isMobile ? "left" : "center" }}>
