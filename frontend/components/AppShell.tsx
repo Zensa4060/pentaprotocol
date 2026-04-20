@@ -153,6 +153,10 @@ export default function AppShell({ children }: { children: ReactNode }) {
     pathname === "/terms" ||
     pathname === "/privacy" ||
     pathname === "/refund";
+  const isClassicForcedLegalPage =
+    pathname === "/terms" ||
+    pathname === "/privacy" ||
+    pathname === "/refund";
 
   /* ── Theme ──────────────────────────────────────────────────────────────── */
   const [themeId, setThemeIdRaw] = useState<ThemeId>("classic_dark");
@@ -275,8 +279,9 @@ export default function AppShell({ children }: { children: ReactNode }) {
 
   /* ── Derived ────────────────────────────────────────────────────────────── */
   const currentScreen: Screen = isBotGameRoute ? "aiGame" : pathnameToScreen(pathname);
-  const t = THEMES[themeId];
-  const ip = themeId === "pixel";
+  const routeThemeId: ThemeId = isClassicForcedLegalPage ? "classic_dark" : themeId;
+  const t = THEMES[routeThemeId];
+  const ip = routeThemeId === "pixel";
 
   const getBgmCtx = (
     scr: Screen,
@@ -1080,7 +1085,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
   /* ═══════════════════════════════════════════════════════════════════════ */
 
   const ctx: AppContextType = {
-    themeId,
+    themeId: routeThemeId,
     setThemeId,
     fadingOut,
     audio,
@@ -1130,7 +1135,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
     return (
       <AppContext.Provider value={ctx}>
         <div
-          style={{ minHeight: "100vh", background: themeId === "space" ? "#02040F" : t.bg }}
+          style={{ minHeight: "100vh", background: routeThemeId === "space" ? "#02040F" : t.bg }}
           aria-busy="true"
         />
       </AppContext.Provider>
@@ -1184,7 +1189,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
       <div style={{ position: "fixed", inset: 0, zIndex: 99999, background: t.bg }}>
         <LobbyScreen
           setScreenAction={navigate}
-          themeId={themeId}
+          themeId={routeThemeId}
           onQueueStartAction={startMatchmaking}
           onQueueCancelAction={cancelMatchmaking}
           onHoverAction={sfx.hover}
@@ -1208,12 +1213,12 @@ export default function AppShell({ children }: { children: ReactNode }) {
       <div
         style={{
           minHeight: "100vh",
-          background: themeId === "space" ? "transparent" : t.bg,
+          background: routeThemeId === "space" ? "transparent" : t.bg,
           color: t.text,
           fontFamily: t.fontBody,
         }}
       >
-        {themeId === "space" && !isGameScreen && pathname !== "/home" && <SpaceBg />}
+        {routeThemeId === "space" && !isGameScreen && pathname !== "/home" && <SpaceBg />}
 
         {/* Theme fade overlay */}
         <div
@@ -1415,7 +1420,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
         {/* Policy acceptance gate */}
         {showPolicyGate && (
           <PolicyAcceptanceGate
-            themeId={themeId}
+            themeId={routeThemeId}
             user={user}
             onAcceptedAction={() => {
               const u = useAuthStore.getState().user;
@@ -1542,7 +1547,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
           * { user-select: none !important; -webkit-user-select: none !important; }
           @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400;1,700&family=EB+Garamond:wght@400;500;600&family=Courier+Prime&family=Fira+Code:wght@400;500;700&family=VT323&family=Audiowide&family=Jura:wght@400;600;700&family=Share+Tech+Mono&display=swap');
           *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-          body { background: ${themeId === "space" ? "#02040F" : t.bg}; }
+          body { background: ${routeThemeId === "space" ? "#02040F" : t.bg}; }
           ::-webkit-scrollbar { width: 4px; background: ${t.bgPanel}; }
           ::-webkit-scrollbar-thumb { background: ${t.border}; border-radius: 2px; }
           input { outline: none; }
@@ -1595,7 +1600,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
           <NavBar
             screen={currentScreen}
             setScreenAction={navigate}
-            themeId={themeId}
+            themeId={routeThemeId}
             onSettingsAction={() => {
               sfx.click();
               setShowSettings(true);
@@ -1622,7 +1627,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
         {showSettings && (
           <SettingsModal
             onCloseAction={() => setShowSettings(false)}
-            themeId={themeId}
+            themeId={routeThemeId}
             setThemeIdAction={setThemeId}
             audio={{
               musicVol: audio.musicVol,
@@ -1643,7 +1648,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
         {/* Session replaced modal */}
         {showSessionReplaced && (
           <SessionReplacedModal
-            themeId={themeId}
+            themeId={routeThemeId}
             onClose={() => {
               setShowSessionReplaced(false);
               setLogoutReason(null);
@@ -1655,7 +1660,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
         {activeMatchData &&
           (activeMatchData.format === "ranked" || activeMatchData.format === "unranked") && (
           <ActiveMatchRejoinModal
-            themeId={themeId}
+            themeId={routeThemeId}
             isRanked={activeMatchData.format === "ranked"}
             onRejoin={() => {
               const data = activeMatchData;
@@ -1670,7 +1675,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
           />
         )}
 
-        <GlobalLevelUpShowcase themeId={themeId} />
+        <GlobalLevelUpShowcase themeId={routeThemeId} />
       </div>
     </AppContext.Provider>
   );

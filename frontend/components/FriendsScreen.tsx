@@ -68,6 +68,7 @@ interface Props {
 
 export default function FriendsScreen({ themeId, onHoverAction }: Props) {
   const t = THEMES[themeId as keyof typeof THEMES];
+  const isSpace = themeId === "space";
   const router = useRouter();
   const { user, token } = useAuthStore();
   const meId = (user as any)?.id || (user as any)?._id || "";
@@ -436,7 +437,9 @@ export default function FriendsScreen({ themeId, onHoverAction }: Props) {
     <div
       style={{
         minHeight: "100vh",
-        background: t.bg,
+        position: "relative",
+        zIndex: 2,
+        background: isSpace ? "rgba(2,4,15,0.86)" : t.bg,
         color: t.text,
         padding: "90px 24px 40px",
         fontFamily: t.fontBody,
