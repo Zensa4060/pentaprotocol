@@ -1533,9 +1533,10 @@ export function RematchOverlay({ show, isMultiplayerGame, t, ip, p1c, p2c, serie
   );
 }
 
-export function SurrenderModal({ show, t, ip, isRankedGame, variant = "forfeit", onConfirmAction, onCancelAction, playHoverAction }: {
+export function SurrenderModal({ show, t, ip, isRankedGame, variant = "forfeit", modalZIndex = 9999, onConfirmAction, onCancelAction, playHoverAction }: {
   show: boolean; t: MatchSidebarProps["t"]; ip: boolean; isRankedGame: boolean;
   variant?: "forfeit" | "abort";
+  modalZIndex?: number;
   onConfirmAction: () => void; onCancelAction: () => void; playHoverAction?: () => void;
 }) {
   if (!show) return null;
@@ -1551,7 +1552,7 @@ export function SurrenderModal({ show, t, ip, isRankedGame, variant = "forfeit",
     isRankedGame ? <>This counts as a <span style={{ color: t.danger, fontWeight: 700 }}>forfeit</span> and will result in <span style={{ color: t.danger, fontWeight: 700 }}>ELO deduction</span>.</> : "Your opponent will be declared the winner."
   );
   return (
-    <div className="overlay-backdrop" style={{ position: "fixed", inset: 0, zIndex: 9999, background: "rgba(0,0,0,0.92)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 28 }}>
+    <div className="overlay-backdrop" style={{ position: "fixed", inset: 0, zIndex: modalZIndex, background: "rgba(0,0,0,0.92)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 28 }}>
       <div className="overlay-modal" style={{ background: t.bgPanel, border: `${ip ? 3 : 2}px solid ${borderColor}`, borderRadius: ip ? 2 : 20, padding: ip ? "32px 36px" : "48px 56px", maxWidth: 520, width: "90vw", textAlign: "center", boxShadow: isAbort ? "0 40px 100px rgba(0,0,0,0.8)" : `0 40px 100px rgba(0,0,0,0.8), 0 0 60px ${t.danger}22` }}>
         <div style={{ fontSize: 44, marginBottom: 20 }} />
         <div style={{ fontFamily: t.fontDisplay, fontSize: ip ? 14 : 23, fontWeight: 700, color: titleColor, lineHeight: 1.5, marginBottom: 12 }}>{title}</div>

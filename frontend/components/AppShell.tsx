@@ -898,7 +898,6 @@ export default function AppShell({ children }: { children: ReactNode }) {
         matchFoundPostVsTimerRef.current = null;
         setInQueue(false);
         setQueuePhase("none");
-        setMatchupOpponent(null);
         matchmakingActiveRef.current = false;
         matchFoundArmRef.current = false;
         handleRoomReady(code, slot, mode, undefined, roomPayload);

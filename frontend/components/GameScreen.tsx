@@ -3796,6 +3796,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
             ip={ip}
             isRankedGame={isRankedGame}
             variant={surrenderModalVariant}
+            modalZIndex={130001}
             onConfirmAction={() => {
               setShowSurrender(false);
               if (isMultiplayerGame && wsRef.current?.readyState === WebSocket.OPEN) {
@@ -3929,6 +3930,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
             ip={ip}
             isRankedGame={isRankedGame}
             variant={surrenderModalVariant}
+            modalZIndex={130001}
             onConfirmAction={() => {
               setShowSurrender(false);
               if (isMultiplayerGame && wsRef.current?.readyState === WebSocket.OPEN) {
