@@ -577,7 +577,7 @@ export default function FriendsScreen({ themeId, onHoverAction }: Props) {
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "minmax(0,1fr) minmax(0,1fr)",
+            gridTemplateColumns: "minmax(0,1fr)",
             gap: 16,
             marginBottom: 24,
           }}
@@ -638,17 +638,6 @@ export default function FriendsScreen({ themeId, onHoverAction }: Props) {
                 {addMsg.text}
               </div>
             )}
-          </div>
-
-          <div style={{ background: t.bgPanel, border: `1px solid ${t.border}`, borderRadius: 12, padding: 16 }}>
-            <div style={{ fontFamily: t.fontMono, fontSize: 11, color: t.textMuted, letterSpacing: "0.2em", marginBottom: 10 }}>INVITE BUDGET · 24H</div>
-            <div style={{ display: "flex", alignItems: "baseline", gap: 12 }}>
-              <div style={{ fontFamily: t.fontDisplay, fontSize: 40, fontWeight: 900, color: t.accent }}>UNLIMITED</div>
-              <div style={{ fontFamily: t.fontMono, fontSize: 12, color: t.textMuted }}>unranked invites available</div>
-            </div>
-            <div style={{ marginTop: 8, fontFamily: t.fontBody, fontSize: 12, color: t.textMuted, lineHeight: 1.4 }}>
-              Invite an online friend to an unranked match. Budget resets on a rolling 24-hour window.
-            </div>
           </div>
         </div>
 

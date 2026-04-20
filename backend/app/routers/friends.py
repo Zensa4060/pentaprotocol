@@ -774,10 +774,9 @@ async def accept_invite(invite_id: str, user_id: str = Depends(get_current_user)
         selected = list(PATTERN_NAMES_7)
 
     engine = GameEngine(board_mode=start_mode, selected_pattern_ids=selected)
-    room_code = await room_mod._generate_unique_code(db)  # type: ignore[attr-defined]
 
     room = {
-        "room_code":      room_code,
+        "room_code":      "",
         "status":         "active",
         "format":         "unranked",
         "board_mode":     full_board_mode,
@@ -826,22 +825,37 @@ async def accept_invite(invite_id: str, user_id: str = Depends(get_current_user)
         "turn_started_at_ms": int(datetime.utcnow().timestamp() * 1000),
         "created_at":     datetime.utcnow(),
     }
-    try:
-        await db.rooms.insert_one(room)
-    except Exception:
-        # Rare duplicate room code collision or transient insert issue.
+    room_code = ""
+    inserted = False
+    for _ in range(6):
         room_code = await room_mod._generate_unique_code(db)  # type: ignore[attr-defined]
         room["room_code"] = room_code
-        await db.rooms.insert_one(room)
+        try:
+            await db.rooms.insert_one(room)
+            inserted = True
+            break
+        except Exception as e:
+            # Retry duplicate-key collisions; bubble up anything else.
+            if "E11000" in str(e):
+                continue
+            raise
+    if not inserted:
+        raise HTTPException(503, "Could not reserve room code for invite")
 
-    await db.friend_invites.update_one(
-        {"_id": oid},
+    res = await db.friend_invites.update_one(
+        {"_id": oid, "to_user": invite.get("to_user"), "status": "pending"},
         {"$set": {
             "status": "accepted",
             "accepted_at": datetime.utcnow(),
             "room_code": room_code,
         }},
     )
+    if getattr(res, "modified_count", 0) == 0:
+        try:
+            await db.rooms.delete_one({"room_code": room_code})
+        except Exception:
+            pass
+        raise HTTPException(409, "Invite already handled")
     await _push_social_event(user_id, {"type": "friend_invite_updated", "status": "accepted"})
     await _push_social_event(host_id, {"type": "friend_invite_updated", "status": "accepted"})
 
