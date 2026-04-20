@@ -538,8 +538,6 @@ export default function LobbyScreen({
     const glow = isRanked ? pal.rankedAccent : pal.unrankedAccent;
     const headerCopy = isRanked ? "RANKED · FIRST TO 5 POINTS" : "UNRANKED · FIRST TO 5 POINTS";
     const vsSize = isMobile ? 220 : 380;
-    const vsH = vsSize * (480 / 820);
-    const bannerW = isMobile ? Math.min(168, Math.floor(vsSize * 0.5)) : 178;
     const ct = loadCustomTheme();
     const myMatchBanner = String((user as any)?.banner || ct.bannerSkin || "default");
     const oppMatchBanner = String(propMatchupOpponent?.banner || "default");
@@ -554,48 +552,47 @@ export default function LobbyScreen({
     }) => (
       <div
         style={{
-          width: bannerW,
-          height: vsH,
-          position: "relative",
-          borderRadius: ip ? 2 : 12,
+          position: "absolute",
+          top: 0,
+          bottom: 0,
+          left: side === "left" ? 0 : "50%",
+          right: side === "left" ? "50%" : 0,
           overflow: "hidden",
-          border: `1px solid ${glow}55`,
-          flexShrink: 0,
-          boxShadow: `0 10px 32px rgba(0,0,0,0.35)`,
-          background: pal.avatarInnerBg,
+          borderRight: side === "left" ? `1px solid ${glow}33` : "none",
+          borderLeft: side === "right" ? `1px solid ${glow}33` : "none",
+          pointerEvents: "none",
+          zIndex: 1,
         }}
       >
-        <div style={{ position: "absolute", inset: 0, opacity: 1, zIndex: 0 }}>
+        <div style={{ position: "absolute", inset: 0 }}>
           <BannerRenderer bannerId={bannerId} hideLabels />
+        </div>
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            background:
+              side === "left"
+                ? `linear-gradient(to right, ${pal.pageBgOuter}cc 0%, ${pal.pageBgOuter}55 45%, ${pal.pageBgOuter}aa 100%)`
+                : `linear-gradient(to left, ${pal.pageBgOuter}cc 0%, ${pal.pageBgOuter}55 45%, ${pal.pageBgOuter}aa 100%)`,
+            pointerEvents: "none",
+          }}
+        />
+        {bannerShineEnabled && (
           <div
             style={{
               position: "absolute",
-              inset: 0,
+              top: 0,
+              left: "-150%",
+              width: "200%",
+              height: "100%",
               background:
-                side === "left"
-                  ? "linear-gradient(to right, rgba(0,0,0,0.72) 0%, rgba(0,0,0,0.15) 55%, transparent 100%)"
-                  : "linear-gradient(to left, rgba(0,0,0,0.72) 0%, rgba(0,0,0,0.15) 55%, transparent 100%)",
-              zIndex: 1,
+                "linear-gradient(120deg, rgba(255,255,255,0) 30%, rgba(255,255,255,0.08) 38%, rgba(255,255,255,0.18) 40%, rgba(255,255,255,0.08) 42%, rgba(255,255,255,0) 50%)",
+              animation: "matchFoundShine 4s infinite linear",
               pointerEvents: "none",
             }}
           />
-          {bannerShineEnabled && (
-            <div
-              style={{
-                position: "absolute",
-                top: 0,
-                left: "-150%",
-                width: "200%",
-                height: "100%",
-                background:
-                  "linear-gradient(120deg, rgba(255,255,255,0) 30%, rgba(255,255,255,0.1) 38%, rgba(255,255,255,0.22) 40%, rgba(255,255,255,0.1) 42%, rgba(255,255,255,0) 50%)",
-                zIndex: 2,
-                animation: "matchFoundShine 4s infinite linear",
-                pointerEvents: "none",
-              }}
-            />
-          )}
-        </div>
+        )}
       </div>
     );
 
@@ -645,6 +642,9 @@ export default function LobbyScreen({
           {headerCopy}
         </div>
 
+        <MatchBannerShowcase bannerId={myMatchBanner} side="left" />
+        <MatchBannerShowcase bannerId={oppMatchBanner} side="right" />
+
         <div
           style={{
             position: "relative",
@@ -654,7 +654,7 @@ export default function LobbyScreen({
             display: "flex",
             flexDirection: isMobile ? "column" : "row",
             alignItems: "center",
-            justifyContent: "center",
+            justifyContent: "space-between",
             gap: isMobile ? 14 : 20,
             padding: isMobile ? "60px 16px 80px" : "40px 28px",
             boxSizing: "border-box",
@@ -677,14 +677,11 @@ export default function LobbyScreen({
           <div
             style={{
               display: "flex",
-              flexDirection: isMobile ? "row" : "row",
               alignItems: "center",
               justifyContent: "center",
-              gap: isMobile ? 8 : 14,
-              flexWrap: "wrap",
+              flexShrink: 0,
             }}
           >
-            <MatchBannerShowcase bannerId={myMatchBanner} side="left" />
             <MatchFoundSketchVS
               size={vsSize}
               ink={pal.vsInk}
@@ -693,7 +690,6 @@ export default function LobbyScreen({
               sealText={pal.sealText}
               dropShadow={pal.vsDropShadow}
             />
-            <MatchBannerShowcase bannerId={oppMatchBanner} side="right" />
           </div>
 
           <MatchPlayerCard

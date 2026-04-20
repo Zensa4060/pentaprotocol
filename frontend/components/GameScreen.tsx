@@ -683,6 +683,9 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   const chatToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [poorConnectionToastVisible, setPoorConnectionToastVisible] = useState(false);
   const poorConnectionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [friendPeerStatus, setFriendPeerStatus] = useState<
+    "idle" | "pending" | "sent" | "friends"
+  >("idle");
 
   const continuePostSeriesFlow = useCallback((series: MatchSeriesCompletePayload) => {
     void useAuthStore.getState().refreshProfile();
@@ -1931,6 +1934,15 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
           setMatchAbortedBySlot(ab);
           setMatchAbortReason(typeof msg.reason === "string" && msg.reason.trim() ? msg.reason.trim() : null);
           setShowMatchAbortedNoPlay(true);
+        } else if (msg.type === "friend_request_ack") {
+          const s = String(msg.status || "");
+          if (s === "already_friends") setFriendPeerStatus("friends");
+          else if (s === "accepted") setFriendPeerStatus("friends");
+          else if (s === "pending") setFriendPeerStatus("sent");
+        } else if (msg.type === "report_peer_ack") {
+          // UI state for the "REPORTED" badge lives inside MatchSidebar;
+          // the ack here is advisory only (logging path in devtools).
+          void msg;
         } else if (msg.type === "match_disbanded") {
           setDisconnectCountdown(null);
           void useAuthStore.getState().refreshProfile();
@@ -4521,6 +4533,38 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
         waitingReadyWarmup={waitingReadyWarmup}
         showPatternOverlay={showPatternOverlay}
         onTogglePatternOverlay={!isMultiplayerGame ? togglePatternOverlay : undefined}
+        onAddFriendPeerAction={
+          isMultiplayerGame
+            ? () => {
+                try {
+                  wsRef.current?.send(
+                    JSON.stringify({ type: "friend_request_peer" }),
+                  );
+                  setFriendPeerStatus("sent");
+                } catch {
+                  /* socket closed — ignored */
+                }
+              }
+            : undefined
+        }
+        onReportPeerAction={
+          isMultiplayerGame
+            ? (reason: string, category: string) => {
+                try {
+                  wsRef.current?.send(
+                    JSON.stringify({
+                      type: "report_peer",
+                      reason,
+                      category,
+                    }),
+                  );
+                } catch {
+                  /* socket closed — ignored */
+                }
+              }
+            : undefined
+        }
+        friendPeerStatus={friendPeerStatus}
       />
 
       {isMultiplayerGame && chatToastVisible && unreadOpponentChat > 0 && (

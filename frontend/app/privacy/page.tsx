@@ -37,7 +37,7 @@ export default function PrivacyPage() {
             <div style={{ fontFamily: "monospace", fontSize: 11, color: "#CC0000", letterSpacing: "0.3em", marginBottom: 12 }}>LEGAL</div>
             <h1 style={{ fontSize: 40, fontWeight: 700, color: "#fff", lineHeight: 1.15, marginBottom: 16 }}>Privacy Policy</h1>
             <p style={{ fontSize: 14, color: "#555", lineHeight: 1.6 }}>
-              Effective Date: 18 April 2026 &nbsp;·&nbsp; pentaprotocol.com
+              Effective Date: 20 April 2026 &nbsp;·&nbsp; pentaprotocol.com
             </p>
             <div style={{ height: 2, background: "linear-gradient(to right, #CC0000, transparent)", marginTop: 24 }} />
           </div>
@@ -68,12 +68,26 @@ export default function PrivacyPage() {
             <strong style={{ color: "#e8e8e8" }}>Payment information:</strong> Payments are accepted only via <strong style={{ color: "#e8e8e8" }}>operator-verified UPI / bank-QR transfer</strong> (INR). No third-party payment gateway processes your card or wallet on our behalf. When you submit a UPI transaction reference (UTR) in-app after paying, we store the UTR, the claimed amount, the selected package, and a timestamp so we can reconcile against the bank statement and credit your account. We do not store card numbers, bank-account details, or UPI PINs at any point.
             <br /><br />
             <strong style={{ color: "#e8e8e8" }}>Legal-acceptance audit trail:</strong> When you accept our Terms, Privacy Policy, and Refund Policy via the in-app gate, we store the policy version, acceptance timestamp, the IP address, and the User-Agent string as an audit record.
+            <br /><br />
+            <strong style={{ color: "#e8e8e8" }}>Social graph and messages:</strong> If you use the in-app social features, we store: your 8-character friend code; the list of user IDs on your friends list and your block list; pending and historical friend requests, match invites, and their status (pending / accepted / declined / expired); the text content of any direct messages (DMs) you send to friends, with sender ID, recipient ID, and timestamp; and a rolling counter of friend match invites sent per 24-hour window used to enforce the invite rate limit. DMs are stored in plaintext in our database so they can be displayed to the intended recipient; they are <em>not</em> end-to-end encrypted.
+            <br /><br />
+            <strong style={{ color: "#e8e8e8" }}>Player reports:</strong> When you report another player via the in-match report tool, we store the reporter user ID, the reported user ID, the category you selected (abuse / harassment / cheating / other), the free-text reason you provided (up to 400 characters), the room code, and the timestamp. A copy of the report is also emailed to our operations alias so a human reviewer can act on it. Reports persist even after the reported account is deleted so that historical moderation decisions remain reviewable.
           </Section>
 
           <Section title="3. How We Use Your Information">
-            We use collected information to: create and manage your account; process payments and deliver virtual goods; provide customer support; detect and prevent fraud, cheating, and security incidents (including anti-cheat heuristics such as move-timing analysis and duplicate-fingerprint detection); match you with opponents of similar skill; improve and personalise the Platform; send transactional emails (purchase confirmations, OTPs, password resets, security alerts); and comply with legal obligations.
+            We use collected information to: create and manage your account; process payments and deliver virtual goods; provide customer support; detect and prevent fraud, cheating, and security incidents (including anti-cheat heuristics such as move-timing analysis and duplicate-fingerprint detection); match you with opponents of similar skill; improve and personalise the Platform; send transactional emails (purchase confirmations, OTPs, password resets, security alerts); operate the in-app social features (friends, direct messages, match invites, blocks, and reports) and act on player reports; and comply with legal obligations.
             <br /><br />
             We do <strong style={{ color: "#e8e8e8" }}>not</strong> send promotional or marketing emails, and we do <strong style={{ color: "#e8e8e8" }}>not</strong> sell, rent, or trade your personal information to third parties.
+          </Section>
+
+          <Section title="3a. Social Features — Visibility and Sharing of Your Data">
+            When you add another user as a friend or accept their request, a limited public slice of your profile becomes visible to that user inside the in-app Friends screen: your username, avatar, banner, rank badge, ELO, level, placement status, current online/offline status, and your profile bio (if set). Friends can also open a read-only view of your public match history (the same data already visible on your own Career page).
+            <br /><br />
+            Direct messages you send are visible only to you and the recipient inside the app. Staff may access the text of a DM when a related report is filed or when required by law. Do not use DMs to transmit payment details, passwords, government IDs, or other sensitive data.
+            <br /><br />
+            Reports you file are visible to PentaProtocol staff only. The reported user is <em>not</em> notified that a specific user filed a report; we may aggregate signals across reports when taking action.
+            <br /><br />
+            Blocking a user stores that user&apos;s ID on your block list so the matchmaking and social routes can exclude them from your queue, friend search, and incoming DMs/invites. The blocked user is not notified that they were blocked; they simply stop appearing in your queue and social surfaces. Unblocking removes the exclusion but does <em>not</em> automatically re-add the user as a friend.
           </Section>
 
           <Section title="4. Cookies and Similar Technologies">
@@ -101,9 +115,9 @@ export default function PrivacyPage() {
           </Section>
 
           <Section title="6. Data Retention">
-            We retain your personal data for as long as your account is active or as necessary to provide services. If you request account deletion, we will delete or anonymise your data within 30 days, except where retention is required by applicable law. Account deletion removes your user record, match history, rooms, unfulfilled mission claims, device-fingerprint hashes, 2FA secrets, and trusted-device tokens.
+            We retain your personal data for as long as your account is active or as necessary to provide services. If you request account deletion, we will delete or anonymise your data within 30 days, except where retention is required by applicable law. Account deletion removes your user record, match history, rooms, unfulfilled mission claims, device-fingerprint hashes, 2FA secrets, trusted-device tokens, your friends list, your block list, your friend-code, and the DMs you sent or received (recipients will see the conversation disappear from their view).
             <br /><br />
-            Rate-limiting data (including hashed IP addresses) is automatically purged after 15 minutes to 1 hour depending on the endpoint tier. One-time passwords (OTPs) expire after 10 minutes. Password-reset and 2FA-pending state expire after 15 and 5 minutes respectively. Security-event audit logs (hashed identifiers only) expire after 90 days. Payment transaction records are retained for a minimum of 8 years to comply with financial and tax regulations; these records do not contain full card or bank-account numbers.
+            Rate-limiting data (including hashed IP addresses) is automatically purged after 15 minutes to 1 hour depending on the endpoint tier. One-time passwords (OTPs) expire after 10 minutes. Password-reset and 2FA-pending state expire after 15 and 5 minutes respectively. Security-event audit logs (hashed identifiers only) expire after 90 days. Unranked match invites auto-expire after their stated TTL (currently 60 seconds). Player reports are retained for up to 3 years from the date of filing so that repeat-abuse patterns can be evaluated, even if the reporter or the reported user later deletes their account (the report record in that case retains only the account ID, not additional profile data). Payment transaction records are retained for a minimum of 8 years to comply with financial and tax regulations; these records do not contain full card or bank-account numbers.
           </Section>
 
           <Section title="7. Security">
@@ -168,7 +182,7 @@ export default function PrivacyPage() {
 
           <div style={{ marginTop: 32, paddingTop: 16, borderTop: "1px solid #1e1e2a" }}>
             <div style={{ fontFamily: "monospace", fontSize: 11, color: "#444", lineHeight: 1.8 }}>
-              Version 2.0 — 18 April 2026 · Beta-launch disclosures: device fingerprint, gameplay telemetry, virtual-currency grants, security event logging, data portability endpoint, UK GDPR.
+              Version 3.0 — 20 April 2026 · Social-feature disclosures: friends graph, friend codes, direct messages, player reports (reviewed by staff and emailed to operations), blocks, and match-invite budget. Retention updated to cover DMs and player reports.
             </div>
           </div>
 

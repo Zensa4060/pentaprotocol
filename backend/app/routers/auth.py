@@ -39,7 +39,7 @@ FROM_EMAIL = os.environ.get("FROM_EMAIL", "noreply@pentaprotocol.com")
 
 # Current policy document version. Bump when any of Terms / Privacy / Refund
 # changes materially; legacy acceptances below this require a re-accept.
-CURRENT_LEGAL_VERSION = 2
+CURRENT_LEGAL_VERSION = 3
 
 
 def _fingerprint_from_request(request: Request) -> str:

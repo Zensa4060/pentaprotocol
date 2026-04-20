@@ -3,7 +3,7 @@ export const POLICY_GATE_SESSION_KEY = "pp_policy_gate_pending";
 
 const LEGAL_ACCEPT_KEY = "pp_legal_accept_v2";
 /** Bump with backend `CURRENT_LEGAL_VERSION` when policies change. */
-export const LEGAL_VERSION = 2;
+export const LEGAL_VERSION = 3;
 
 export type LegalAcceptRecord = { userId: string; v: number; at: number };
 

@@ -179,6 +179,12 @@ interface MatchSidebarProps {
   showPatternOverlay?: boolean;
   /** Singleplayer/AI: callback to toggle the pattern overlay. */
   onTogglePatternOverlay?: () => void;
+  /** Multiplayer only: send a friend request to the opponent currently in this match. */
+  onAddFriendPeerAction?: () => void;
+  /** Multiplayer only: report the opponent for abusive chat or disrespectful behaviour. */
+  onReportPeerAction?: (reason: string, category: string) => void;
+  /** Multiplayer only: UI state for the "add friend" button (pending / sent / already friends). */
+  friendPeerStatus?: "idle" | "pending" | "sent" | "friends";
 }
 
 // ─── Separate named exports so GameScreen can render panels individually ──────
@@ -196,7 +202,40 @@ export function LeftPanel(props: MatchSidebarProps) {
     onReadyToggle, onSendChat, onChatInputChange, onChatKeyDown, onChatOpenToggle,
     fmtTimeAction, playHoverAction,
     interGameReadyVisible, waitingReadyWarmup,
-    showPatternOverlay, onTogglePatternOverlay } = props;
+    showPatternOverlay, onTogglePatternOverlay,
+    onAddFriendPeerAction, onReportPeerAction, friendPeerStatus = "idle" } = props;
+
+  const opponentSlot: "P1" | "P2" = mySlot === "P1" ? "P2" : "P1";
+  const socialEligible = Boolean(
+    (isMultiplayer || isMultiplayerGame) &&
+    onAddFriendPeerAction !== undefined &&
+    onReportPeerAction !== undefined,
+  );
+  const [reportOpen, setReportOpen] = React.useState(false);
+  const [reportReason, setReportReason] = React.useState("");
+  const [reportCategory, setReportCategory] = React.useState<"abuse" | "harassment" | "cheating" | "other">("abuse");
+  const [reportBusy, setReportBusy] = React.useState(false);
+  const [reportSent, setReportSent] = React.useState(false);
+
+  const closeReport = () => {
+    setReportOpen(false);
+    setReportBusy(false);
+    setReportReason("");
+    setReportCategory("abuse");
+  };
+  const submitReport = () => {
+    const trimmed = reportReason.trim();
+    if (trimmed.length < 4) return;
+    setReportBusy(true);
+    try {
+      onReportPeerAction?.(trimmed, reportCategory);
+    } finally {
+      setReportBusy(false);
+      setReportSent(true);
+      setTimeout(() => setReportSent(false), 3500);
+      closeReport();
+    }
+  };
 
   const accountId = useAuthStore((s) => (s.user as any)?.id ?? (s.user as any)?._id ?? null);
   const bannerShineEnabled = useBannerShineEnabled(accountId);
@@ -358,6 +397,217 @@ export function LeftPanel(props: MatchSidebarProps) {
         </div>
         </div>
       )})}
+
+      {socialEligible && (
+        <div
+          style={{
+            marginTop: -4,
+            padding: "8px 10px",
+            background: `${t.accent}08`,
+            border: `1px dashed ${t.border}`,
+            borderRadius: ip ? 2 : 8,
+            display: "flex",
+            flexDirection: "column",
+            gap: 6,
+          }}
+        >
+          <div
+            style={{
+              fontFamily: t.fontMono,
+              fontSize: 10,
+              color: t.textMuted,
+              letterSpacing: "0.16em",
+            }}
+          >
+            OPPONENT · {sidebarDisplayName(opponentSlot === "P1" ? p1Label : p2Label)}
+          </div>
+          <div style={{ display: "flex", gap: 6 }}>
+            <button
+              disabled={friendPeerStatus === "sent" || friendPeerStatus === "friends" || friendPeerStatus === "pending"}
+              onMouseEnter={playHoverAction}
+              onClick={() => onAddFriendPeerAction?.()}
+              style={{
+                flex: 1,
+                padding: "7px 8px",
+                background:
+                  friendPeerStatus === "friends"
+                    ? `${t.accent}22`
+                    : friendPeerStatus === "sent"
+                    ? `${t.accent}14`
+                    : "transparent",
+                border: `1px solid ${friendPeerStatus === "friends" ? t.accent : `${t.border}AA`}`,
+                borderRadius: ip ? 2 : 6,
+                color: friendPeerStatus === "friends" ? t.accent : t.textSecondary,
+                fontFamily: t.fontMono,
+                fontSize: 10,
+                fontWeight: 700,
+                letterSpacing: "0.1em",
+                cursor:
+                  friendPeerStatus === "sent" || friendPeerStatus === "friends" || friendPeerStatus === "pending"
+                    ? "default"
+                    : "pointer",
+              }}
+            >
+              {friendPeerStatus === "friends"
+                ? "FRIENDS"
+                : friendPeerStatus === "sent"
+                ? "REQUEST SENT"
+                : friendPeerStatus === "pending"
+                ? "SENDING…"
+                : "ADD FRIEND"}
+            </button>
+            <button
+              onMouseEnter={playHoverAction}
+              onClick={() => { setReportOpen(true); setReportSent(false); }}
+              style={{
+                flex: 1,
+                padding: "7px 8px",
+                background: "transparent",
+                border: `1px solid ${t.danger}88`,
+                borderRadius: ip ? 2 : 6,
+                color: t.danger,
+                fontFamily: t.fontMono,
+                fontSize: 10,
+                fontWeight: 700,
+                letterSpacing: "0.1em",
+                cursor: "pointer",
+              }}
+            >
+              {reportSent ? "REPORTED" : "REPORT"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {reportOpen && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.72)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 400,
+          }}
+          onClick={closeReport}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: "min(440px, 92vw)",
+              background: t.bgPanel,
+              border: `1px solid ${t.danger}`,
+              borderRadius: ip ? 2 : 12,
+              padding: "18px 20px",
+              boxShadow: "0 20px 80px rgba(0,0,0,0.6)",
+            }}
+          >
+            <div
+              style={{
+                fontFamily: t.fontDisplay,
+                fontSize: 16,
+                fontWeight: 900,
+                color: t.danger,
+                letterSpacing: "0.12em",
+                marginBottom: 4,
+              }}
+            >
+              REPORT PLAYER
+            </div>
+            <div
+              style={{
+                fontFamily: t.fontBody,
+                fontSize: 12,
+                color: t.textSecondary,
+                marginBottom: 14,
+              }}
+            >
+              Reports go straight to PentaProtocol staff. False reports may get your own account actioned — please only file one if the behaviour is genuinely abusive or rule-breaking.
+            </div>
+            <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
+              {(["abuse", "harassment", "cheating", "other"] as const).map((c) => (
+                <button
+                  key={c}
+                  onClick={() => setReportCategory(c)}
+                  style={{
+                    flex: 1,
+                    padding: "6px 4px",
+                    background: reportCategory === c ? `${t.danger}22` : "transparent",
+                    border: `1px solid ${reportCategory === c ? t.danger : t.border}AA`,
+                    borderRadius: ip ? 2 : 6,
+                    color: reportCategory === c ? t.danger : t.textMuted,
+                    fontFamily: t.fontMono,
+                    fontSize: 10,
+                    fontWeight: 700,
+                    letterSpacing: "0.08em",
+                    cursor: "pointer",
+                    textTransform: "uppercase",
+                  }}
+                >
+                  {c}
+                </button>
+              ))}
+            </div>
+            <textarea
+              value={reportReason}
+              onChange={(e) => setReportReason(e.target.value.slice(0, 400))}
+              placeholder="Briefly describe what happened (4–400 chars)"
+              autoFocus
+              rows={4}
+              style={{
+                width: "100%",
+                padding: "10px",
+                background: t.inputBg,
+                border: `1px solid ${t.border}`,
+                borderRadius: ip ? 2 : 6,
+                color: t.text,
+                fontFamily: t.fontBody,
+                fontSize: 13,
+                resize: "vertical",
+                boxSizing: "border-box",
+                marginBottom: 12,
+              }}
+            />
+            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+              <button
+                onClick={closeReport}
+                style={{
+                  padding: "8px 14px",
+                  background: "transparent",
+                  border: `1px solid ${t.border}`,
+                  borderRadius: ip ? 2 : 6,
+                  color: t.textMuted,
+                  fontFamily: t.fontDisplay,
+                  fontSize: 12,
+                  fontWeight: 700,
+                  cursor: "pointer",
+                }}
+              >
+                CANCEL
+              </button>
+              <button
+                onClick={submitReport}
+                disabled={reportReason.trim().length < 4 || reportBusy}
+                style={{
+                  padding: "8px 14px",
+                  background: reportReason.trim().length < 4 ? `${t.danger}33` : t.danger,
+                  border: `1px solid ${t.danger}`,
+                  borderRadius: ip ? 2 : 6,
+                  color: "#fff",
+                  fontFamily: t.fontDisplay,
+                  fontSize: 12,
+                  fontWeight: 800,
+                  cursor: reportReason.trim().length < 4 || reportBusy ? "default" : "pointer",
+                  letterSpacing: "0.08em",
+                }}
+              >
+                {reportBusy ? "SUBMITTING…" : "SUBMIT REPORT"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div style={{ borderTop: `1px solid ${t.border}`, paddingTop: isShorter ? 8 : 12 }}>
         <div style={{ fontFamily: t.fontMono, fontSize: headingSize - 1, fontWeight: 700, color: t.text, letterSpacing: "0.14em", marginBottom: isShorter ? 6 : 10 }}>MATCH HISTORY</div>

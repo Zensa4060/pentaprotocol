@@ -13,8 +13,10 @@ import {
   PP_NAV_BADGES_EVENT,
   clearCareerNavBadge,
   clearProfileNavBadge,
+  clearFriendsNavBadge,
   getCareerNavBadgeCount,
   getCollectionNavBadgeCount,
+  getFriendsNavBadgeCount,
   getPatchNavBadgeCount,
   getProfileNavBadgeCount,
   getStoreNewCatalogBadgeCount,
@@ -261,6 +263,7 @@ export default function NavBar({
   useEffect(() => {
     if (screen === "career") clearCareerNavBadge();
     if (screen === "profile") clearProfileNavBadge();
+    if (screen === "friends") clearFriendsNavBadge();
   }, [screen]);
 
   const missionClaimBadge = useMemo(() => {
@@ -299,6 +302,11 @@ export default function NavBar({
     return getCollectionNavBadgeCount();
   }, [navBadgeTick]);
 
+  const friendsNotifyBadge = useMemo(() => {
+    void navBadgeTick;
+    return getFriendsNavBadgeCount();
+  }, [navBadgeTick]);
+
   const mobileNavBadge = (target: string): number => {
     switch (target) {
       case "patchNotes": return patchNoteBadge;
@@ -307,6 +315,7 @@ export default function NavBar({
       case "career": return careerMpBadge;
       case "battlepass": return missionClaimBadge;
       case "profile": return profileNotifyBadge;
+      case "friends": return friendsNotifyBadge;
       default: return 0;
     }
   };
@@ -550,7 +559,7 @@ export default function NavBar({
 
   // Nav links list for both desktop and hamburger menu
   const navLinks = [
-    { target: "patchNotes", label: "PATCH NOTES", screen: "patchNotes" as Screen },
+    { target: "friends",    label: "FRIENDS",     screen: "friends"    as Screen, locked: isGuest },
     { target: "collection", label: "Collection",  screen: "collection" as Screen },
     { target: "store",      label: "Store",       screen: "store"      as Screen },
     { target: "home",       label: "Home",        screen: "home"       as Screen },
@@ -666,7 +675,7 @@ export default function NavBar({
               gap: isUltraWide ? "3vw" : "clamp(6px, 1.2vw, 24px)",
               transition: "gap 0.3s ease"
             }}>
-              {navBtn("patchNotes", "PATCH NOTES", false, false, undefined, "patchNotes", false, patchNoteBadge)}
+              {navBtn("friends", "FRIENDS", false, false, undefined, "friends", isGuest, friendsNotifyBadge)}
               {navBtn("collection", "Collection", false, false, undefined, "collection", false, collectionNotifyBadge)}
               {navBtn("store",      "Store",      false, false, undefined, "store", false, storeNewBadge)}
               {navBtn("home",       "Home",       false, false, undefined, "home")}

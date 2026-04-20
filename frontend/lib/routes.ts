@@ -40,6 +40,7 @@ export const ROUTES = {
   RULESSHOW: "/rulesshow",
   RULES: "/rules",
   PATCHNOTES: "/patchnotes",
+  FRIENDS: "/friends",
 } as const;
 
 /**
@@ -58,6 +59,7 @@ export const MAIN_NAV_PREFETCH_PATHS: readonly string[] = [
   ROUTES.RULES,
   ROUTES.MISSIONS_DAILY,
   ROUTES.PATCHNOTES,
+  ROUTES.FRIENDS,
   ROUTES.RANKED_QUEUE,
   ROUTES.UNRANKED_QUEUE,
   ROUTES.CUSTOM_ROOM_CREATE,
@@ -189,6 +191,8 @@ export function screenToUrl(screen: Screen): string | null {
       return ROUTES.MISSIONS_DAILY;
     case "patchNotes":
       return null; // new-tab
+    case "friends":
+      return ROUTES.FRIENDS;
     case "game":
     case "aiGame":
     case "multiGame":
@@ -222,6 +226,7 @@ export function pathnameToScreen(p: string): Screen {
   if (p === "/profile" || p.startsWith("/profile/")) return "profile";
   if (p === "/rules") return "rules";
   if (p === "/patchnotes") return "patchNotes";
+  if (p === "/friends" || p.startsWith("/friends/")) return "friends";
   return "home";
 }
 
@@ -290,4 +295,4 @@ export function parseMatchPath(pathname: string): ParsedMatchPath | null {
 }
 
 /** Routes that guests (not signed in) are blocked from. */
-export const GUEST_BLOCKED_SCREENS: Screen[] = ["lobby", "profile", "career", "battlepass"];
+export const GUEST_BLOCKED_SCREENS: Screen[] = ["lobby", "profile", "career", "battlepass", "friends"];

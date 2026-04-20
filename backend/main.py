@@ -14,7 +14,7 @@ from fastapi.middleware.httpsredirect import HTTPSRedirectMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
 from fastapi.exception_handlers import http_exception_handler
-from app.routers import auth, game, profile, store, bot, bot7, room, otp, admin
+from app.routers import auth, game, profile, store, bot, bot7, room, otp, admin, friends
 from app.core.database import connect_db, disconnect_db, get_db
 import logging
 import os
@@ -204,6 +204,7 @@ app.include_router(bot7,    prefix="/api/bot7",    tags=["bot7"])
 app.include_router(room,    prefix="/api/room",    tags=["room"])
 app.include_router(otp,     prefix="/api/otp",     tags=["otp"])
 app.include_router(admin,   prefix="/api/admin",   tags=["admin"])
+app.include_router(friends, prefix="/api/friends", tags=["friends"])
 
 # ── Single startup — connect DB (matchmaking TTL lives in database.ensure_indexes) ─
 @app.on_event("startup")

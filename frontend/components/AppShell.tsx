@@ -551,6 +551,50 @@ export default function AppShell({ children }: { children: ReactNode }) {
     };
   }, [token]);
 
+  /* ── Friends nav badge poller ───────────────────────────────────────── */
+  useEffect(() => {
+    if (!token) return;
+    let cancelled = false;
+    let lastSeen = 0;
+
+    const tick = async () => {
+      try {
+        const [reqRes, invRes] = await Promise.all([
+          API.get("/api/friends/requests"),
+          API.get("/api/friends/invites"),
+        ]);
+        if (cancelled) return;
+        const n = (reqRes.data?.requests?.length ?? 0) + (invRes.data?.invites?.length ?? 0);
+        const { setFriendsNavBadgeCount } = await import("@/lib/navBadgeState");
+        setFriendsNavBadgeCount(n);
+
+        // Post-match nudge: if we're on home/lobby/career and new pendings
+        // appeared since the last tick, surface a gentle home-notice banner.
+        if (
+          n > lastSeen &&
+          (pathname === "/home" || pathname === "/play/lobby" || pathname === "/career") &&
+          pathname === "/home" // only home has the notice chrome hooked up today
+        ) {
+          setHomeNotice(
+            n === 1
+              ? "You have a new friend request or match invite."
+              : `You have ${n} pending friend requests / invites.`,
+          );
+        }
+        lastSeen = n;
+      } catch {
+        /* transient — next tick will retry */
+      }
+    };
+
+    tick();
+    const id = window.setInterval(tick, 30_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
+  }, [token, pathname]);
+
   /* ── Persist board mode / patterns / difficulty ─────────────────────── */
   useEffect(() => {
     sessionStorage.setItem("pp_multiRoomCode", multiRoomCode);

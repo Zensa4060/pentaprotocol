@@ -1905,6 +1905,21 @@ async def queue_join(data: QueueRequest, user_id: str = Depends(get_current_user
 
     user_elo = int(user.get("hidden_mmr") or 500)
 
+    # ── Friends-system block filter ──
+    # Exclude anyone this user has blocked, AND anyone who has blocked
+    # this user. The second leg needs a reverse lookup since we store
+    # blocks on the blocker's own document. We pull the union once here
+    # to avoid paying per-candidate round-trips in the matchmaker.
+    my_blocks: list[str] = list(user.get("blocked") or [])
+    blocked_me_cursor = db.users.find(
+        {"blocked": user_id}, {"_id": 1}
+    )
+    blockers: list[str] = []
+    async for bdoc in blocked_me_cursor:
+        blockers.append(str(bdoc["_id"]))
+    excluded_ids = {uid for uid in my_blocks + blockers if uid}
+    excluded_ids.add(user_id)
+
     # Try to find an opponent already waiting (MongoDB-persisted queue)
     # MUST match on board_mode to ensure queue isolation!
     # Ranked: also require Elo within ±RANKED_ELO_MATCH_RANGE (queue rows store "elo").
@@ -1912,7 +1927,7 @@ async def queue_join(data: QueueRequest, user_id: str = Depends(get_current_user
     queue_query: dict = {
         "format": fmt,
         "board_mode": data.board_mode,
-        "user_id": {"$ne": user_id},
+        "user_id": {"$nin": list(excluded_ids)},
         "shadow": shadow,
     }
     if fmt == "ranked":
@@ -3650,6 +3665,145 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                     presence = {"P1": True, "P2": True}
                     rt["screen_presence"] = presence
                 presence[player_slot] = bool(msg.get("on_game_screen", True))
+
+            elif msg_type == "friend_request_peer":
+                # In-match "Add Friend" button on the opponent card.
+                # We write through the friends HTTP helpers so the
+                # dedup / block-checks / auto-accept semantics stay
+                # identical to the REST path. The request becomes
+                # visible to the recipient only after they reach a
+                # calm screen (home/lobby/career) and their client
+                # polls GET /api/friends/requests.
+                room_fr = await db.rooms.find_one({"room_code": room_code})
+                if not room_fr:
+                    continue
+                opp_slot = "P2" if player_slot == "P1" else "P1"
+                opp_id = (
+                    room_fr.get("player2_id") if opp_slot == "P2"
+                    else room_fr.get("player1_id")
+                )
+                me_id = (
+                    room_fr.get("player1_id") if player_slot == "P1"
+                    else room_fr.get("player2_id")
+                )
+                if not opp_id or not me_id or opp_id == me_id:
+                    continue
+                try:
+                    from app.routers.friends import (
+                        _is_blocked_either_way,
+                        _accept_mutual,
+                    )
+                    if await _is_blocked_either_way(db, me_id, opp_id):
+                        await websocket.send_json({
+                            "type": "friend_request_ack",
+                            "status": "pending",
+                        })
+                        continue
+                    # Already friends?
+                    me_doc = await db.users.find_one({"_id": ObjectId(me_id)})
+                    if me_doc and opp_id in (me_doc.get("friends") or []):
+                        await websocket.send_json({
+                            "type": "friend_request_ack",
+                            "status": "already_friends",
+                        })
+                        continue
+                    # Reverse request already open → auto-accept.
+                    reverse = await db.friend_requests.find_one({
+                        "from_user": opp_id,
+                        "to_user":   me_id,
+                        "status":    "pending",
+                    })
+                    if reverse:
+                        await _accept_mutual(db, opp_id, me_id, reverse["_id"])
+                        await websocket.send_json({
+                            "type": "friend_request_ack",
+                            "status": "accepted",
+                        })
+                        continue
+                    existing = await db.friend_requests.find_one({
+                        "from_user": me_id,
+                        "to_user":   opp_id,
+                        "status":    "pending",
+                    })
+                    if not existing:
+                        await db.friend_requests.insert_one({
+                            "from_user":   me_id,
+                            "to_user":     opp_id,
+                            "created_at":  datetime.utcnow(),
+                            "status":      "pending",
+                            "source":      "in_match",
+                            "room_code":   room_code,
+                        })
+                    await websocket.send_json({
+                        "type": "friend_request_ack",
+                        "status": "pending",
+                    })
+                except Exception:
+                    # Never let a social write crash the game loop.
+                    pass
+
+            elif msg_type == "report_peer":
+                # In-match report button. Same storage + alerting
+                # path as POST /api/friends/report, but we avoid a
+                # round-trip through HTTP.
+                room_rp = await db.rooms.find_one({"room_code": room_code})
+                if not room_rp:
+                    continue
+                opp_slot = "P2" if player_slot == "P1" else "P1"
+                opp_id = (
+                    room_rp.get("player2_id") if opp_slot == "P2"
+                    else room_rp.get("player1_id")
+                )
+                me_id = (
+                    room_rp.get("player1_id") if player_slot == "P1"
+                    else room_rp.get("player2_id")
+                )
+                if not opp_id or not me_id or opp_id == me_id:
+                    continue
+                reason_raw = msg.get("reason") or ""
+                category_raw = msg.get("category") or "abuse"
+                try:
+                    reason = str(reason_raw).strip()[:400]
+                    category = str(category_raw).strip().lower()[:48] or "abuse"
+                    if len(reason) < 3:
+                        await websocket.send_json({
+                            "type": "report_peer_ack",
+                            "status": "rejected",
+                            "error": "reason_required",
+                        })
+                        continue
+                    await db.player_reports.insert_one({
+                        "from_user":  me_id,
+                        "to_user":    opp_id,
+                        "reason":     reason,
+                        "category":   category,
+                        "room_code":  room_code,
+                        "created_at": datetime.utcnow(),
+                    })
+                    try:
+                        from app.core import alerting as _alerting
+                        _alerting.maybe_alert({
+                            "event_type": "user.report",
+                            "severity":   "alert",
+                            "at":         datetime.utcnow(),
+                            "user_id":    opp_id,
+                            "meta": {
+                                "reporter_id": me_id,
+                                "reported_id": opp_id,
+                                "reason":      reason[:300],
+                                "category":    category,
+                                "room_code":   room_code,
+                                "source":      "in_match",
+                            },
+                        })
+                    except Exception:
+                        pass
+                    await websocket.send_json({
+                        "type": "report_peer_ack",
+                        "status": "received",
+                    })
+                except Exception:
+                    pass
 
             elif msg_type == "toss_action":
                 action  = msg.get("action")

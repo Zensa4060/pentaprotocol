@@ -8,6 +8,7 @@ const LS = {
   careerPending: "pp_nav_career_mp_pending",
   profileCount: "pp_nav_profile_notify_count",
   collectionCount: "pp_nav_collection_unviewed",
+  friendsCount: "pp_nav_friends_notify_count",
 } as const;
 
 function dispatchNavBadgesRefresh() {
@@ -103,5 +104,31 @@ export function getCollectionNavBadgeCount(): number {
 export function clearCollectionNavBadge() {
   if (typeof window === "undefined") return;
   localStorage.removeItem(LS.collectionCount);
+  dispatchNavBadgesRefresh();
+}
+
+/* ── Friends nav badge ───────────────────────────────────────────────────── */
+
+/**
+ * Number of pending friend requests + friend invites the user has not
+ * handled yet. Set by AppShell's friends poller; read by NavBar.
+ */
+export function setFriendsNavBadgeCount(n: number) {
+  if (typeof window === "undefined") return;
+  const clamped = Math.max(0, Math.min(999, Math.floor(n)));
+  const prev = parseInt(localStorage.getItem(LS.friendsCount) || "0", 10) || 0;
+  if (prev === clamped) return;
+  localStorage.setItem(LS.friendsCount, String(clamped));
+  dispatchNavBadgesRefresh();
+}
+
+export function getFriendsNavBadgeCount(): number {
+  if (typeof window === "undefined") return 0;
+  return Math.min(99, parseInt(localStorage.getItem(LS.friendsCount) || "0", 10) || 0);
+}
+
+export function clearFriendsNavBadge() {
+  if (typeof window === "undefined") return;
+  localStorage.removeItem(LS.friendsCount);
   dispatchNavBadgesRefresh();
 }

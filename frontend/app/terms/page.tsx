@@ -53,7 +53,7 @@ export default function TermsPage() {
             <div style={{ fontFamily: "monospace", fontSize: 11, color: "#CC0000", letterSpacing: "0.3em", marginBottom: 12 }}>LEGAL</div>
             <h1 style={{ fontSize: 40, fontWeight: 700, color: "#fff", lineHeight: 1.15, marginBottom: 16 }}>Terms and Conditions</h1>
             <p style={{ fontSize: 14, color: "#555", lineHeight: 1.6 }}>
-              Effective Date: 18 April 2026 &nbsp;·&nbsp; pentaprotocol.com
+              Effective Date: 20 April 2026 &nbsp;·&nbsp; pentaprotocol.com
             </p>
             <div style={{ height: 2, background: "linear-gradient(to right, #CC0000, transparent)", marginTop: 24 }} />
           </div>
@@ -112,6 +112,20 @@ export default function TermsPage() {
             Violations may result in account suspension, shadow restrictions on matchmaking, forfeiture of virtual currency, termination of accounts, and legal action.
           </Section>
 
+          <Section title="6a. Social Features (Friends, Messages, Reports, Blocks)">
+            The Platform includes opt-in social features: a friends list (with an 8-character friend code you can share), direct messages (DMs) between friends, unranked match invitations, a block list, and an in-app report tool that notifies PentaProtocol staff about abusive opponents during multiplayer matches.
+            <br /><br />
+            <strong style={{ color: "#e8e8e8" }}>Acceptable use:</strong> By sending friend requests, DMs, match invites, or reports you agree that the content you submit will not: contain hate speech, threats, sexual content involving minors, personal data of third parties, or spam; harass, impersonate, or dox another user; or be used to coordinate cheating, collusion, win-trading, account sharing, or any other Prohibited Conduct listed in Section&nbsp;6. DMs and reports are not private channels for illegal activity and may be reviewed by PentaProtocol staff when a report is filed.
+            <br /><br />
+            <strong style={{ color: "#e8e8e8" }}>Reports:</strong> The in-match report tool is provided to help us moderate abuse. You agree to use it in good faith. Filing <em>knowingly false</em> reports, mass-reporting, or using reports to harass another user is itself a violation of these Terms and may result in sanctions against the reporter&apos;s account.
+            <br /><br />
+            <strong style={{ color: "#e8e8e8" }}>Invites and rate limits:</strong> Friend match invites are rate-limited (currently five invites per rolling 24-hour window per sender). We may change or remove this limit at any time without notice.
+            <br /><br />
+            <strong style={{ color: "#e8e8e8" }}>Blocks:</strong> Blocking another user is a self-service matchmaking and messaging exclusion. Once you block someone, you will not be matched against them in future queues, they will not appear in your friend search, and existing friendship/invites between you are removed. Blocking does <em>not</em> delete prior match history already recorded by the server.
+            <br /><br />
+            <strong style={{ color: "#e8e8e8" }}>Staff action:</strong> Based on reports and automated abuse signals, PentaProtocol may issue warnings, mute social features, suspend matchmaking privileges, revoke virtual currency earned through abusive behaviour, or terminate accounts. We aim to be proportionate but reserve full discretion over moderation outcomes.
+          </Section>
+
           <Section title="7. Intellectual Property">
             All content on PentaProtocol — including game assets, artwork, animations, music, board designs, banners, logos, and software — is the exclusive property of PentaProtocol. You are granted a limited, non-exclusive, revocable licence for personal, non-commercial use only. You may not reproduce, distribute, or commercially exploit any Platform content without prior written consent.
           </Section>
@@ -151,7 +165,7 @@ export default function TermsPage() {
 
           <div style={{ marginTop: 32, paddingTop: 16, borderTop: "1px solid #1e1e2a" }}>
             <div style={{ fontFamily: "monospace", fontSize: 11, color: "#444", lineHeight: 1.8 }}>
-              Version 2.0 — 18 April 2026 · Open-beta clause, age-check clarification, prohibited-conduct expansion (anti-cheat, multi-account, chargeback fraud), password minimum aligned to 8 characters.
+              Version 3.0 — 20 April 2026 · Social-features clause: friends, direct messages, match invites, in-match reports, and blocks, with acceptable-use and moderation commitments.
             </div>
           </div>
 

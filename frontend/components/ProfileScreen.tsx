@@ -1054,6 +1054,40 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
               </div>
             </>
           )}
+          <div style={{ marginTop: 14 }}>
+            <button
+              onClick={() => {
+                onClickAction?.();
+                if (typeof window !== "undefined") {
+                  window.open("/patchnotes", "_blank", "noopener,noreferrer");
+                }
+              }}
+              onMouseEnter={e => { onHoverAction?.(); (e.currentTarget as HTMLElement).style.borderColor=t.accent; (e.currentTarget as HTMLElement).style.color=t.accent; (e.currentTarget as HTMLElement).style.background=`${t.accent}12`; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor=t.border; (e.currentTarget as HTMLElement).style.color=t.textSecondary; (e.currentTarget as HTMLElement).style.background="transparent"; }}
+              style={{
+                width: "100%",
+                padding: "10px",
+                background: "transparent",
+                border: `1px solid ${t.border}`,
+                borderRadius: 8,
+                color: t.textSecondary,
+                fontFamily: t.fontDisplay,
+                fontSize: 12,
+                fontWeight: 700,
+                cursor: "pointer",
+                letterSpacing: "0.08em",
+                textTransform: "uppercase",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 8,
+                transition: "all 0.15s",
+              }}
+            >
+              <span>PATCH NOTES</span>
+              <span style={{ opacity: 0.6, fontSize: 10 }}>↗</span>
+            </button>
+          </div>
           <div style={{ marginTop:16, paddingTop:14, borderTop:`1px solid ${t.border}44`, display:"flex", flexDirection:"column", gap:7 }}>
             <button onClick={() => { onClickAction?.(); openEdit("password"); }}
               style={{ width:"100%", padding:"9px", background:"transparent", border:`1px solid ${t.border}`, borderRadius:8, color:t.textMuted, fontFamily:t.fontDisplay, fontSize:12, fontWeight:600, cursor:"pointer", textAlign:"left" as const, transition:"all 0.15s" }}

@@ -1,6 +1,7 @@
 export type Screen =
   | "home" | "auth" | "policy_gate" | "lobby" | "game" | "aiGame" | "multiGame"
-  | "profile" | "rules" | "patchNotes" | "ai" | "singleplayer" | "store" | "collection" | "career" | "battlepass";
+  | "profile" | "rules" | "patchNotes" | "ai" | "singleplayer" | "store" | "collection" | "career" | "battlepass"
+  | "friends";
 
 export type SetScreenOptions = {
   /** After a finished match, avoid leaving multiGame on the browser history stack so Back does not return to the board. */

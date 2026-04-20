@@ -137,6 +137,12 @@ def _serialize_user(user: dict) -> dict:
         # Kept for backward compat with any older clients still reading the
         # single-field banner reward; equals `bot_rewards.banner`.
         "bot_banner_reward":   _normalize_bot_rewards(user)["banner"],
+        # ── social (friends system) ─────────────────────────────────────
+        # Surfaced on /me so the client can render the "Friend Code" copy
+        # pill on the profile/friends screen without a second request.
+        # Nullable for legacy accounts that haven't hit the friends
+        # router yet; GET /api/friends/me/code will back-fill one.
+        "friend_code":         user.get("friend_code"),
     }
 
 
