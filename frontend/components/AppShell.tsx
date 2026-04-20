@@ -334,7 +334,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
     }
 
     if (!tok) {
-      if (pathname !== ROUTES.AUTH && pathname !== "/auth") {
+      if (pathname !== ROUTES.AUTH && pathname !== "/") {
         router.replace(ROUTES.AUTH);
       }
       setAppReady(true);
@@ -361,7 +361,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
 
     const tok = useAuthStore.getState().token;
     if (!tok) {
-      if (pathname !== ROUTES.AUTH && pathname !== "/auth") router.replace(ROUTES.AUTH);
+      if (pathname !== ROUTES.AUTH && pathname !== "/") router.replace(ROUTES.AUTH);
       setAppReady(true);
       return;
     }
@@ -493,7 +493,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
   /* ── Token-cleared guard ────────────────────────────────────────────── */
   useEffect(() => {
     if (!appReady) return;
-    if (!token && pathname !== ROUTES.AUTH && pathname !== "/auth") {
+    if (!token && pathname !== ROUTES.AUTH && pathname !== "/") {
       setMultiRoomCode("");
       setMultiPlayerSlot(null);
       setInQueue(false);

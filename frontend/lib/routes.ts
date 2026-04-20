@@ -6,7 +6,7 @@ import type { Difficulty } from "./botEngine";
 
 export const ROUTES = {
   ROOT: "/",
-  AUTH: "/login",
+  AUTH: "/auth",
   HOME: "/home",
   CAREER: "/career",
   PLAY_LOBBY: "/play/lobby",
@@ -203,7 +203,7 @@ export function screenToUrl(screen: Screen): string | null {
 }
 
 export function pathnameToScreen(p: string): Screen {
-  if (p === "/login" || p === "/auth") return "auth";
+  if (p === "/" || p === "/auth") return "auth";
   if (p === "/home") return "home";
   if (p === "/career" || p.startsWith("/career/")) return "career";
   if (p.startsWith("/play/")) return "lobby";

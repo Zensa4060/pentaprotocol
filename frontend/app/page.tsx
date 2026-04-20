@@ -1,9 +1,22 @@
-import { redirect } from "next/navigation";
+"use client";
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { useApp } from "@/components/AppShell";
+import AuthScreen from "@/components/AuthScreen";
 
 /**
- * Root `/` — dedicated redirect endpoint.
- * We keep auth UI on `/login` only to avoid mounting heavy auth visuals on `/`.
+ * Root `/` — shows auth screen when not logged in; redirects to /home when authenticated.
  */
 export default function RootPage() {
-  redirect("/login");
+  const { token, appReady, navigate, themeId } = useApp();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (appReady && token) router.replace("/home");
+  }, [appReady, token, router]);
+
+  if (!appReady) return null;
+  if (token) return null;
+
+  return <AuthScreen setScreenAction={navigate} themeId={themeId} />;
 }
