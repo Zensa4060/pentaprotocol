@@ -227,12 +227,14 @@ export default function AppShell({ children }: { children: ReactNode }) {
   const [showSessionReplaced, setShowSessionReplaced] = useState(false);
   const [activeMatchData, setActiveMatchData] = useState<any>(null);
   const [homeNotice, setHomeNotice] = useState<string | null>(null);
+  const [socialToast, setSocialToast] = useState<string | null>(null);
 
   /* ── Refs ────────────────────────────────────────────────────────────────── */
   const themeRef = useRef(themeId);
   const rankedRef = useRef(isRanked);
   const aiDiffRef = useRef(aiDifficulty);
   const profileRefreshDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const socialToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   themeRef.current = themeId;
   rankedRef.current = isRanked;
   aiDiffRef.current = aiDifficulty;
@@ -466,6 +468,30 @@ export default function AppShell({ children }: { children: ReactNode }) {
     let reconnectTimeout: NodeJS.Timeout | null = null;
     let cancelled = false;
 
+    const refreshSocialBadge = async () => {
+      try {
+        const [reqRes, invRes, listRes] = await Promise.all([
+          API.get("/api/friends/requests"),
+          API.get("/api/friends/invites"),
+          API.get("/api/friends/list"),
+        ]);
+        const n =
+          (reqRes.data?.requests?.length ?? 0) +
+          (invRes.data?.invites?.length ?? 0) +
+          Number(listRes.data?.unread_dm_count ?? 0);
+        const { setFriendsNavBadgeCount } = await import("@/lib/navBadgeState");
+        setFriendsNavBadgeCount(n);
+      } catch {
+        /* transient */
+      }
+    };
+
+    const pushSocialToast = (msg: string) => {
+      setSocialToast(msg);
+      if (socialToastTimerRef.current) clearTimeout(socialToastTimerRef.current);
+      socialToastTimerRef.current = setTimeout(() => setSocialToast(null), 3000);
+    };
+
     const connect = async () => {
       if (cancelled) return;
       try {
@@ -484,6 +510,27 @@ export default function AppShell({ children }: { children: ReactNode }) {
         try {
           const msg = JSON.parse(e.data);
           if (msg.type === "duplicate_session") useAuthStore.getState().logout("duplicate_session");
+          if (
+            msg.type === "friend_request_created" ||
+            msg.type === "friend_request_updated" ||
+            msg.type === "friend_invite_created" ||
+            msg.type === "friend_invite_updated" ||
+            msg.type === "friend_dm_received" ||
+            msg.type === "friend_dm_sent"
+          ) {
+            void refreshSocialBadge();
+            if (typeof window !== "undefined") {
+              window.dispatchEvent(new CustomEvent("pp_social_refresh", { detail: msg }));
+            }
+          }
+          if (msg.type === "friend_invite_created") {
+            pushSocialToast("New match invite received.");
+            setHomeNotice("You received a match invite.");
+          } else if (msg.type === "friend_request_created") {
+            pushSocialToast("New friend request received.");
+          } else if (msg.type === "friend_dm_received") {
+            pushSocialToast("New message received.");
+          }
         } catch {}
       };
       ws.onclose = () => {
@@ -497,6 +544,10 @@ export default function AppShell({ children }: { children: ReactNode }) {
       cancelled = true;
       if (ws) { ws.onclose = null; ws.close(); }
       if (reconnectTimeout) clearTimeout(reconnectTimeout);
+      if (socialToastTimerRef.current) {
+        clearTimeout(socialToastTimerRef.current);
+        socialToastTimerRef.current = null;
+      }
     };
   }, [appReady, token]);
 
@@ -572,12 +623,16 @@ export default function AppShell({ children }: { children: ReactNode }) {
 
     const tick = async () => {
       try {
-        const [reqRes, invRes] = await Promise.all([
+        const [reqRes, invRes, listRes] = await Promise.all([
           API.get("/api/friends/requests"),
           API.get("/api/friends/invites"),
+          API.get("/api/friends/list"),
         ]);
         if (cancelled) return;
-        const n = (reqRes.data?.requests?.length ?? 0) + (invRes.data?.invites?.length ?? 0);
+        const n =
+          (reqRes.data?.requests?.length ?? 0) +
+          (invRes.data?.invites?.length ?? 0) +
+          Number(listRes.data?.unread_dm_count ?? 0);
         const { setFriendsNavBadgeCount } = await import("@/lib/navBadgeState");
         setFriendsNavBadgeCount(n);
 
@@ -1659,6 +1714,27 @@ export default function AppShell({ children }: { children: ReactNode }) {
 
         {/* Route page content */}
         {children}
+
+        {socialToast && (
+          <div
+            style={{
+              position: "fixed",
+              right: 16,
+              bottom: 16,
+              zIndex: 12050,
+              background: "rgba(0,0,0,0.9)",
+              border: `1px solid ${t.accent}`,
+              borderRadius: 8,
+              color: t.text,
+              fontFamily: t.fontMono,
+              fontSize: 12,
+              letterSpacing: "0.04em",
+              padding: "8px 12px",
+            }}
+          >
+            {socialToast}
+          </div>
+        )}
 
         {/* Settings modal */}
         {showSettings && (

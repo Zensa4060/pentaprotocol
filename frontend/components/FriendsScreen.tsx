@@ -112,8 +112,9 @@ export default function FriendsScreen({ themeId, onHoverAction }: Props) {
       setRequests(reqRes.data?.requests ?? []);
       setInvites(invRes.data?.invites ?? []);
       setFriendCode(String(codeRes.data?.friend_code ?? ""));
+      const unreadDm = Number(listRes.data?.unread_dm_count ?? 0);
       setFriendsNavBadgeCount(
-        (reqRes.data?.requests?.length ?? 0) + (invRes.data?.invites?.length ?? 0),
+        (reqRes.data?.requests?.length ?? 0) + (invRes.data?.invites?.length ?? 0) + unreadDm,
       );
     } catch {
       /* transient — the poller will retry */
@@ -126,6 +127,14 @@ export default function FriendsScreen({ themeId, onHoverAction }: Props) {
     fetchAll();
     const id = window.setInterval(fetchAll, 30_000);
     return () => window.clearInterval(id);
+  }, [fetchAll]);
+
+  useEffect(() => {
+    const onSocialRefresh = () => {
+      void fetchAll();
+    };
+    window.addEventListener("pp_social_refresh", onSocialRefresh);
+    return () => window.removeEventListener("pp_social_refresh", onSocialRefresh);
   }, [fetchAll]);
 
   useEffect(() => {

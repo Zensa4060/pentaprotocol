@@ -81,6 +81,16 @@ async def _dm_ws_broadcast(user_id: str, payload: dict) -> None:
         except Exception:
             _dm_ws_unregister(user_id, ws)
 
+
+async def _push_social_event(user_id: str, payload: dict) -> None:
+    """Send a social event to all active sockets for a user."""
+    sockets = list(getattr(ws_manager, "_connections", {}).get(user_id, set()))
+    for ws in sockets:
+        try:
+            await ws.send_json(payload)
+        except Exception:
+            pass
+
 # ── Auth helper (same contract as profile.get_current_user) ──────────────────
 
 
@@ -314,11 +324,25 @@ async def list_friends(user_id: str = Depends(get_current_user)):
     recent = [t for t in used if isinstance(t, datetime) and (now - t) < timedelta(hours=24)]
     invites_remaining = max(0, 5 - len(recent))
 
+    user_oid = None
+    try:
+        user_oid = ObjectId(user_id)
+    except Exception:
+        user_oid = None
+    to_user_values = [user_id]
+    if user_oid is not None:
+        to_user_values.append(user_oid)
+    unread_dm_count = await db.dm_messages.count_documents({
+        "to_user": {"$in": to_user_values},
+        "read_at": None,
+    })
+
     return {
         "friends":           out,
         "blocked":           blocked_ids,
         "invites_remaining": invites_remaining,
         "invites_limit":     5,
+        "unread_dm_count":   int(unread_dm_count or 0),
     }
 
 
@@ -379,6 +403,10 @@ async def send_friend_request(
         "to_user":    target_id,
         "created_at": datetime.utcnow(),
         "status":     "pending",
+    })
+    await _push_social_event(target_id, {
+        "type": "friend_request_created",
+        "from_user": user_id,
     })
     return {"ok": True, "status": "pending"}
 
@@ -456,6 +484,11 @@ async def send_peer_request_from_match(
         "status":      "pending",
         "source":      "in_match",
     })
+    await _push_social_event(opp_id, {
+        "type": "friend_request_created",
+        "from_user": user_id,
+        "source": "in_match",
+    })
     return {"ok": True, "status": "pending"}
 
 
@@ -492,7 +525,10 @@ async def accept_friend_request(req_id: str, user_id: str = Depends(get_current_
     doc = await db.friend_requests.find_one({"_id": oid})
     if not doc or not _same_user(doc.get("to_user"), user_id) or doc.get("status") != "pending":
         raise HTTPException(404, "Request not found")
-    await _accept_mutual(db, _id_to_str(doc["from_user"]), user_id, oid)
+    from_id = _id_to_str(doc["from_user"])
+    await _accept_mutual(db, from_id, user_id, oid)
+    await _push_social_event(user_id, {"type": "friend_request_updated", "status": "accepted"})
+    await _push_social_event(from_id, {"type": "friend_request_updated", "status": "accepted"})
     return {"ok": True}
 
 
@@ -503,12 +539,20 @@ async def decline_friend_request(req_id: str, user_id: str = Depends(get_current
         oid = ObjectId(req_id)
     except Exception:
         raise HTTPException(400, "Invalid request id")
+    try:
+        before = await db.friend_requests.find_one({"_id": oid}, {"from_user": 1})
+    except Exception:
+        before = None
     res = await db.friend_requests.update_one(
         {"_id": oid, "to_user": user_id, "status": "pending"},
         {"$set": {"status": "declined", "declined_at": datetime.utcnow()}},
     )
     if res.modified_count == 0:
         raise HTTPException(404, "Request not found")
+    from_id = _id_to_str((before or {}).get("from_user") or "")
+    await _push_social_event(user_id, {"type": "friend_request_updated", "status": "declined"})
+    if from_id:
+        await _push_social_event(from_id, {"type": "friend_request_updated", "status": "declined"})
     return {"ok": True}
 
 
@@ -658,6 +702,11 @@ async def send_friend_invite(
         {"_id": user_object_id(user_id)},
         {"$set": {"friend_invites_used": recent}},
     )
+    await _push_social_event(target_id, {
+        "type": "friend_invite_created",
+        "from_user": user_id,
+        "board_mode": body.board_mode or "5x5_6x6_7x7",
+    })
 
     return {"ok": True, "invite_id": str(result.inserted_id), "status": "pending"}
 
@@ -799,6 +848,8 @@ async def accept_invite(invite_id: str, user_id: str = Depends(get_current_user)
             "room_code": room_code,
         }},
     )
+    await _push_social_event(user_id, {"type": "friend_invite_updated", "status": "accepted"})
+    await _push_social_event(host_id, {"type": "friend_invite_updated", "status": "accepted"})
 
     # Nudge the host: if their socket is up, push a `friend_invite_accepted`
     # message so their client can jump straight into the match-found flow.
@@ -829,12 +880,20 @@ async def decline_invite(invite_id: str, user_id: str = Depends(get_current_user
         oid = ObjectId(invite_id)
     except Exception:
         raise HTTPException(400, "Invalid invite id")
+    try:
+        before = await db.friend_invites.find_one({"_id": oid}, {"from_user": 1})
+    except Exception:
+        before = None
     res = await db.friend_invites.update_one(
         {"_id": oid, "to_user": user_id, "status": "pending"},
         {"$set": {"status": "declined", "declined_at": datetime.utcnow()}},
     )
     if res.modified_count == 0:
         raise HTTPException(404, "Invite not found")
+    from_id = _id_to_str((before or {}).get("from_user") or "")
+    await _push_social_event(user_id, {"type": "friend_invite_updated", "status": "declined"})
+    if from_id:
+        await _push_social_event(from_id, {"type": "friend_invite_updated", "status": "declined"})
     return {"ok": True}
 
 
@@ -1001,6 +1060,14 @@ async def send_message(body: MessageBody, user_id: str = Depends(get_current_use
     }
     await _dm_ws_broadcast(user_id, payload)
     await _dm_ws_broadcast(target, payload)
+    await _push_social_event(target, {
+        "type": "friend_dm_received",
+        "from_user": user_id,
+    })
+    await _push_social_event(user_id, {
+        "type": "friend_dm_sent",
+        "to_user": target,
+    })
     return {"ok": True}
 
 
