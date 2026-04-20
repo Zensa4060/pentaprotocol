@@ -405,6 +405,9 @@ export default function AppShell({ children }: { children: ReactNode }) {
 
   /* ── Policy gate ────────────────────────────────────────────────────── */
   const [showPolicyGate, setShowPolicyGate] = useState(false);
+  const showPolicyGateRef = useRef(false);
+  showPolicyGateRef.current = showPolicyGate;
+
   useEffect(() => {
     if (!appReady || !user || !token) return;
     const uid = getUserId(user);
@@ -624,10 +627,15 @@ export default function AppShell({ children }: { children: ReactNode }) {
       if (audioStartedRef.current) return;
       audioStartedRef.current = true;
       setAudioStarted(true);
-      audio.playBgm(
-        themeRef.current,
-        getBgmCtx(pathnameToScreen(window.location.pathname), rankedRef.current, aiDiffRef.current),
-      );
+      const scr = pathnameToScreen(window.location.pathname);
+      if (scr === "auth" || showPolicyGateRef.current) {
+        audio.playAuthBgm(themeRef.current);
+      } else {
+        audio.playBgm(
+          themeRef.current,
+          getBgmCtx(scr, rankedRef.current, aiDiffRef.current),
+        );
+      }
     };
     start();
     window.addEventListener("click", start, { once: true });
@@ -644,9 +652,13 @@ export default function AppShell({ children }: { children: ReactNode }) {
   /* ── BGM context switching ──────────────────────────────────────────── */
   useEffect(() => {
     if (!audioStarted) return;
-    audio.playBgm(themeId, getBgmCtx(currentScreen, isRanked, aiDifficulty));
+    if (currentScreen === "auth" || showPolicyGate) {
+      audio.playAuthBgm(themeId);
+    } else {
+      audio.playBgm(themeId, getBgmCtx(currentScreen, isRanked, aiDifficulty));
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [themeId, currentScreen, isRanked, aiDifficulty, audioStarted]);
+  }, [themeId, currentScreen, isRanked, aiDifficulty, audioStarted, showPolicyGate]);
 
   /* ── Queue elapsed timer ────────────────────────────────────────────── */
   useEffect(() => {

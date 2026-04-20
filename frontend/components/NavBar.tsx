@@ -673,7 +673,8 @@ export default function NavBar({
             <div style={{ 
               display: "flex", alignItems: "center", flexWrap: "nowrap", 
               gap: isUltraWide ? "3vw" : "clamp(6px, 1.2vw, 24px)",
-              transition: "gap 0.3s ease"
+              transition: "gap 0.3s ease",
+              marginLeft: "5%",
             }}>
               {navBtn("friends", "FRIENDS", false, false, undefined, "friends", isGuest, friendsNotifyBadge)}
               {navBtn("collection", "Collection", false, false, undefined, "collection", false, collectionNotifyBadge)}

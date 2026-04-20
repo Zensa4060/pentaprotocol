@@ -2,6 +2,9 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { THEMES } from "@/lib/themes";
 import type { ThemeId } from "@/lib/themes";
 
+/** Dedicated auth / legal-acceptance BGM — not tied to theme lobby packs. */
+export const AUTH_BGM_FILE = "auth.mp3";
+
 const BGM_MAP: Record<string, Record<string, string>> = {
   classic_light: { lobby: "classic_lobby.mp3", game: "classic_game.mp3", ranked: "classic_ranked.mp3" },
   classic_dark: { lobby: "classic_lobby.mp3", game: "classic_game.mp3", ranked: "classic_ranked.mp3" },
@@ -198,6 +201,15 @@ export function useAudio() {
     if (src) switchTo(src);
   }, [switchTo]);
 
+  /** Auth page + policy acceptance gate: always `auth.mp3`; SFX pack still follows `themeId`. */
+  const playAuthBgm = useCallback(
+    (themeId: string) => {
+      setTheme(themeId);
+      switchTo(AUTH_BGM_FILE);
+    },
+    [switchTo],
+  );
+
   const playSfx = useCallback((src: string) => {
     if (mutedRef.current) return;
     const a = new Audio(`/sounds/${src}`);
@@ -244,5 +256,5 @@ export function useAudio() {
 
   useEffect(() => () => hardStop(), []);
 
-  return { musicVol, setMusicVol, sfxVol, setSfxVol, muted, toggleMute, playSfx, playBgm, pauseBgm, resumeBgm, sfx };
+  return { musicVol, setMusicVol, sfxVol, setSfxVol, muted, toggleMute, playSfx, playBgm, playAuthBgm, pauseBgm, resumeBgm, sfx };
 }
