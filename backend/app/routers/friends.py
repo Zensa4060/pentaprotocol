@@ -747,7 +747,7 @@ async def accept_invite(invite_id: str, user_id: str = Depends(get_current_user)
     # Delegate room creation to room.py helpers without importing
     # cyclically: we construct the minimal starting doc ourselves
     # using the same public utilities room.py already uses.
-    from app.routers import room as room_mod
+    from app.routers.room import _starting_board_mode, _generate_unique_code
     from app.game.engine import GameEngine  # type: ignore
 
     host_id = _id_to_str(invite["from_user"])
@@ -757,7 +757,7 @@ async def accept_invite(invite_id: str, user_id: str = Depends(get_current_user)
         raise HTTPException(404, "Players not found")
 
     full_board_mode = invite.get("board_mode") or "5x5_6x6_7x7"
-    start_mode = room_mod._starting_board_mode(full_board_mode)  # type: ignore[attr-defined]
+    start_mode = _starting_board_mode(full_board_mode)
 
     if start_mode == "5x5":
         from app.core.patterns import PATTERN_NAMES_5
@@ -828,7 +828,7 @@ async def accept_invite(invite_id: str, user_id: str = Depends(get_current_user)
     room_code = ""
     inserted = False
     for _ in range(6):
-        room_code = await room_mod._generate_unique_code(db)  # type: ignore[attr-defined]
+        room_code = await _generate_unique_code(db)
         room["room_code"] = room_code
         try:
             await db.rooms.insert_one(room)
