@@ -35,7 +35,7 @@ from datetime import datetime, timedelta
 from typing import Optional
 
 from bson import ObjectId
-from fastapi import APIRouter, Depends, Header, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel, Field
 
 from app.core.connections import manager as ws_manager
@@ -44,6 +44,7 @@ from app.core.ids import user_object_id
 from app.core.security import decode_token
 
 router = APIRouter()
+_dm_ws_connections: dict[str, set[WebSocket]] = {}
 
 
 def _id_to_str(value: object) -> str:
@@ -58,6 +59,28 @@ def _id_to_str(value: object) -> str:
 def _same_user(a: object, b: object) -> bool:
     return _id_to_str(a) == _id_to_str(b)
 
+
+def _dm_ws_register(user_id: str, ws: WebSocket) -> None:
+    _dm_ws_connections.setdefault(user_id, set()).add(ws)
+
+
+def _dm_ws_unregister(user_id: str, ws: WebSocket) -> None:
+    conns = _dm_ws_connections.get(user_id)
+    if not conns:
+        return
+    conns.discard(ws)
+    if not conns:
+        _dm_ws_connections.pop(user_id, None)
+
+
+async def _dm_ws_broadcast(user_id: str, payload: dict) -> None:
+    conns = list(_dm_ws_connections.get(user_id, set()))
+    for ws in conns:
+        try:
+            await ws.send_json(payload)
+        except Exception:
+            _dm_ws_unregister(user_id, ws)
+
 # ── Auth helper (same contract as profile.get_current_user) ──────────────────
 
 
@@ -68,6 +91,35 @@ async def get_current_user(authorization: str = Header(...)) -> str:
         return payload["sub"]
     except Exception:
         raise HTTPException(401, "Invalid token")
+
+
+async def _ws_auth(websocket: WebSocket) -> Optional[tuple[str, Optional[str], Optional[int]]]:
+    """Authenticate websocket via ticket (preferred) or legacy token."""
+    from app.core import ws_security
+
+    ticket = websocket.query_params.get("ticket", "")
+    if ticket:
+        try:
+            info = await ws_security.consume_ticket(ticket)
+        except ws_security.TicketInvalid:
+            await websocket.close(code=1008, reason="Bad ticket")
+            return None
+        return (info.user_id, info.sid, info.jwt_exp)
+
+    token = websocket.query_params.get("token", "")
+    if not token:
+        await websocket.close(code=1008, reason="Missing auth credential")
+        return None
+    try:
+        payload = decode_token(token)
+    except Exception:
+        await websocket.close(code=1008, reason="Invalid auth token")
+        return None
+    user_id = str(payload.get("sub", ""))
+    if not user_id:
+        await websocket.close(code=1008, reason="Invalid auth token")
+        return None
+    return (user_id, payload.get("sid"), payload.get("exp"))
 
 
 # ── Rank lookup (local copy to avoid circular import with profile.py) ────────
@@ -929,13 +981,26 @@ async def send_message(body: MessageBody, user_id: str = Depends(get_current_use
     if not text:
         raise HTTPException(400, "Message required")
 
+    now = datetime.utcnow()
     await db.dm_messages.insert_one({
         "from_user":  user_id,
         "to_user":    target,
         "text":       text[:500],
-        "created_at": datetime.utcnow(),
+        "created_at": now,
         "read_at":    None,
     })
+
+    payload = {
+        "type": "dm_message",
+        "message": {
+            "from_user": user_id,
+            "to_user": target,
+            "text": text[:500],
+            "created_at": now.isoformat() + "Z",
+        },
+    }
+    await _dm_ws_broadcast(user_id, payload)
+    await _dm_ws_broadcast(target, payload)
     return {"ok": True}
 
 
@@ -999,3 +1064,48 @@ async def list_messages(target_id: str, user_id: str = Depends(get_current_user)
 
     asyncio.create_task(_mark_inbound_read())
     return {"messages": rows}
+
+
+@router.websocket("/ws/dm")
+async def dm_websocket(websocket: WebSocket):
+    from app.core import ws_security
+
+    auth_res = await _ws_auth(websocket)
+    if auth_res is None:
+        return
+    ws_user_id, token_sid, jwt_exp = auth_res
+
+    await websocket.accept()
+    db = get_db()
+
+    if token_sid:
+        try:
+            user_doc = await db.users.find_one({"_id": ObjectId(ws_user_id)}, {"current_session_id": 1})
+        except Exception:
+            user_doc = None
+        if not user_doc or user_doc.get("current_session_id") != token_sid:
+            await websocket.send_json({"type": "duplicate_session", "reason": "Token no longer valid"})
+            await websocket.close(code=4001)
+            return
+
+    jwt_watchdog = await ws_security.schedule_jwt_expiry_close(websocket, jwt_exp)
+    _dm_ws_register(ws_user_id, websocket)
+    ws_manager.register(ws_user_id, websocket)
+
+    try:
+        while True:
+            data = await websocket.receive_text()
+            if len(data) > 2048:
+                await websocket.close(code=1009, reason="Frame too large")
+                break
+            if data.strip().lower() == "ping":
+                await websocket.send_json({"type": "pong"})
+    except WebSocketDisconnect:
+        pass
+    except Exception:
+        pass
+    finally:
+        _dm_ws_unregister(ws_user_id, websocket)
+        ws_manager.unregister(ws_user_id, websocket)
+        if jwt_watchdog and not jwt_watchdog.done():
+            jwt_watchdog.cancel()

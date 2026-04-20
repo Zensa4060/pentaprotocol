@@ -3,12 +3,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { ThemeId } from "@/lib/themes";
 import { THEMES } from "@/lib/themes";
-import API from "@/lib/api";
+import API, { openWs } from "@/lib/api";
 import { useAuthStore } from "@/lib/store";
 import { BannerRenderer } from "./BannerRenderer";
 import { NavRankBadge, RANKS, getRank } from "./NavBar";
 import { clearFriendsNavBadge, setFriendsNavBadgeCount } from "@/lib/navBadgeState";
 import { useApp } from "@/components/AppShell";
+import { censorText, containsProfanity } from "@/lib/profanity";
 
 interface Friend {
   id: string;
@@ -88,6 +89,8 @@ export default function FriendsScreen({ themeId, onHoverAction }: Props) {
   const [dmModal, setDmModal] = useState<DMModalState>(null);
   const [toast, setToast] = useState<string | null>(null);
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const dmMessagesScrollRef = useRef<HTMLDivElement | null>(null);
+  const dmWsRef = useRef<WebSocket | null>(null);
 
   const showToast = useCallback((msg: string) => {
     setToast(msg);
@@ -261,15 +264,95 @@ export default function FriendsScreen({ themeId, onHoverAction }: Props) {
     if (!dmModal) return;
     const text = dmModal.draft.trim();
     if (!text) return;
+    if (containsProfanity(text)) {
+      showToast("Message filtered for inappropriate language.");
+    }
+    const filtered = censorText(text);
     setDmModal((d) => d && { ...d, sending: true });
     try {
-      await API.post("/api/friends/messages", { to_user: dmModal.friend.id, text });
-      const res = await API.get(`/api/friends/messages/${dmModal.friend.id}`);
-      setDmModal((d) => d && { ...d, sending: false, draft: "", messages: res.data?.messages ?? [] });
+      await API.post("/api/friends/messages", { to_user: dmModal.friend.id, text: filtered });
+      setDmModal((d) => d && { ...d, sending: false, draft: "" });
     } catch {
       setDmModal((d) => d && { ...d, sending: false });
     }
-  }, [dmModal]);
+  }, [dmModal, showToast]);
+
+  // Live websocket updates while DM modal is open.
+  useEffect(() => {
+    if (!dmModal || !token) return;
+    const friendId = String(dmModal.friend.id);
+    const selfId = String(meId);
+    let closed = false;
+
+    const connect = async () => {
+      try {
+        const ws = await openWs("/api/friends/ws/dm");
+        if (closed) {
+          try { ws.close(); } catch {}
+          return;
+        }
+        dmWsRef.current = ws;
+        ws.onmessage = (event) => {
+          let data: any = null;
+          try {
+            data = JSON.parse(event.data);
+          } catch {
+            return;
+          }
+          if (data?.type !== "dm_message" || !data?.message) return;
+          const msg = data.message;
+          const fromId = String(msg.from_user ?? "");
+          const toId = String(msg.to_user ?? "");
+          const activeFriend = friendId;
+          const isForActiveThread =
+            (fromId === selfId && toId === activeFriend) ||
+            (fromId === activeFriend && toId === selfId);
+          if (!isForActiveThread) return;
+          setDmModal((d) => {
+            if (!d || String(d.friend.id) !== activeFriend) return d;
+            return {
+              ...d,
+              messages: [...d.messages, {
+                from_user: fromId,
+                to_user: toId,
+                text: String(msg.text ?? ""),
+                created_at: msg.created_at ? String(msg.created_at) : null,
+              }].slice(-500),
+            };
+          });
+        };
+        ws.onclose = () => {
+          if (dmWsRef.current === ws) dmWsRef.current = null;
+        };
+      } catch {
+        // Socket may fail during transient network/deploy events.
+      }
+    };
+    connect();
+
+    return () => {
+      closed = true;
+      const ws = dmWsRef.current;
+      dmWsRef.current = null;
+      if (ws) {
+        try {
+          ws.close();
+        } catch {}
+      }
+    };
+  }, [dmModal?.friend.id, meId, token]);
+
+  // Always open and stay pinned to latest chat at the bottom.
+  useEffect(() => {
+    if (!dmModal || dmModal.loading) return;
+    const el = dmMessagesScrollRef.current;
+    if (!el) return;
+    window.requestAnimationFrame(() => {
+      if (dmMessagesScrollRef.current) {
+        dmMessagesScrollRef.current.scrollTop = dmMessagesScrollRef.current.scrollHeight;
+      }
+    });
+  }, [dmModal?.loading, dmModal?.messages.length]);
 
   const copyFriendCode = useCallback(async () => {
     if (!friendCode) return;
@@ -807,7 +890,10 @@ export default function FriendsScreen({ themeId, onHoverAction }: Props) {
               <div style={{ fontFamily: t.fontDisplay, fontSize: 18, fontWeight: 800, color: t.text }}>Chat · {dmModal.friend.username}</div>
               <button onClick={() => setDmModal(null)} style={{ background: "transparent", border: `1px solid ${t.border}`, color: t.textMuted, padding: "4px 10px", borderRadius: 6, fontFamily: t.fontMono, fontSize: 11, cursor: "pointer" }}>CLOSE</button>
             </div>
-            <div style={{ flex: 1, overflowY: "auto", border: `1px solid ${t.border}`, borderRadius: 8, padding: 10, marginBottom: 10, minHeight: 180, maxHeight: 380 }}>
+            <div
+              ref={dmMessagesScrollRef}
+              style={{ flex: 1, overflowY: "auto", border: `1px solid ${t.border}`, borderRadius: 8, padding: 10, marginBottom: 10, minHeight: 180, maxHeight: 380 }}
+            >
               {dmModal.loading ? (
                 <div style={{ color: t.textMuted, fontFamily: t.fontMono }}>Loading…</div>
               ) : dmModal.messages.length === 0 ? (
