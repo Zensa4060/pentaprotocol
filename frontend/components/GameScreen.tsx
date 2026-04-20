@@ -399,6 +399,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   }, []);
 
   const { user, token } = useAuthStore();
+  const meId = String((user as any)?.id || (user as any)?._id || "");
   const t = THEMES[themeId];
   const ip = themeId === "pixel";
   const gameplayGraphicsQuality = graphicsQuality;
@@ -686,6 +687,11 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   const [friendPeerStatus, setFriendPeerStatus] = useState<
     "idle" | "pending" | "sent" | "friends"
   >("idle");
+  const [inGameDmFriendId, setInGameDmFriendId] = useState<string | null>(null);
+  const [inGameDmMessages, setInGameDmMessages] = useState<{ from_user: string; to_user: string; text: string; created_at: string | null }[]>([]);
+  const [inGameDmDraft, setInGameDmDraft] = useState("");
+  const [inGameDmLoading, setInGameDmLoading] = useState(false);
+  const [inGameDmSending, setInGameDmSending] = useState(false);
 
   const continuePostSeriesFlow = useCallback((series: MatchSeriesCompletePayload) => {
     void useAuthStore.getState().refreshProfile();
@@ -715,6 +721,61 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     setPendingRankUpAfterXp(false);
     setShowSeriesMatchResult(true);
   }, [mySlot]);
+
+  const refreshInGameDm = useCallback(async (friendId: string) => {
+    try {
+      const res = await API.get(`/api/friends/messages/${friendId}`);
+      setInGameDmMessages(res.data?.messages ?? []);
+    } catch {
+      /* ignore transient */
+    }
+  }, []);
+
+  useEffect(() => {
+    const onOpenFriendChat = (e: Event) => {
+      const detail = (e as CustomEvent)?.detail || {};
+      const friendId = String(detail.friendId || "");
+      if (!friendId) return;
+      setInGameDmFriendId(friendId);
+      setInGameDmDraft("");
+      setInGameDmLoading(true);
+      void (async () => {
+        await refreshInGameDm(friendId);
+        setInGameDmLoading(false);
+      })();
+    };
+    window.addEventListener("pp_open_friend_chat", onOpenFriendChat);
+    return () => window.removeEventListener("pp_open_friend_chat", onOpenFriendChat);
+  }, [refreshInGameDm]);
+
+  useEffect(() => {
+    if (!inGameDmFriendId) return;
+    const id = window.setInterval(() => {
+      void refreshInGameDm(inGameDmFriendId);
+    }, 2500);
+    return () => window.clearInterval(id);
+  }, [inGameDmFriendId, refreshInGameDm]);
+
+  const sendInGameDm = useCallback(async () => {
+    const friendId = inGameDmFriendId;
+    const text = inGameDmDraft.trim();
+    if (!friendId || !text) return;
+    if (containsProfanity(text)) {
+      setChatWarning(true);
+      setTimeout(() => setChatWarning(false), 3000);
+    }
+    const filtered = censorText(text);
+    setInGameDmSending(true);
+    try {
+      await API.post("/api/friends/messages", { to_user: friendId, text: filtered });
+      setInGameDmDraft("");
+      await refreshInGameDm(friendId);
+    } catch {
+      /* ignore */
+    } finally {
+      setInGameDmSending(false);
+    }
+  }, [inGameDmDraft, inGameDmFriendId, refreshInGameDm]);
   const localBarsRef = useRef<number | null>(null);
   const chatVisibleRef = useRef(false);
   const [readyTimeout, setReadyTimeout] = useState(60);
@@ -4929,6 +4990,84 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
           }}
           onFindNewMatch={isMultiplayerGame ? findNewMatchAfterSeries : undefined}
         />
+      )}
+
+      {inGameDmFriendId && (
+        <div
+          style={{
+            position: "fixed",
+            right: 16,
+            bottom: 18,
+            width: "min(360px, 92vw)",
+            background: t.bgPanel,
+            border: `1px solid ${t.border}`,
+            borderRadius: 10,
+            boxShadow: "0 18px 40px rgba(0,0,0,0.55)",
+            zIndex: 12040,
+            padding: 10,
+            display: "flex",
+            flexDirection: "column",
+            gap: 8,
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <div style={{ fontFamily: t.fontMono, fontSize: 11, color: t.accent, letterSpacing: "0.1em" }}>
+              FRIEND CHAT
+            </div>
+            <button
+              onClick={() => setInGameDmFriendId(null)}
+              style={{ background: "transparent", border: `1px solid ${t.border}`, color: t.textMuted, borderRadius: 6, padding: "2px 8px", fontFamily: t.fontMono, fontSize: 10 }}
+            >
+              CLOSE
+            </button>
+          </div>
+          <div style={{ maxHeight: 180, overflowY: "auto", border: `1px solid ${t.border}`, borderRadius: 8, padding: 8 }}>
+            {inGameDmLoading ? (
+              <div style={{ color: t.textMuted, fontFamily: t.fontMono, fontSize: 11 }}>Loading…</div>
+            ) : inGameDmMessages.length === 0 ? (
+              <div style={{ color: t.textMuted, fontFamily: t.fontMono, fontSize: 11 }}>No messages yet.</div>
+            ) : (
+              inGameDmMessages.map((m, i) => {
+                const mine = String(m.from_user) === meId;
+                return (
+                  <div key={i} style={{ display: "flex", justifyContent: mine ? "flex-end" : "flex-start", marginBottom: 6 }}>
+                    <div
+                      style={{
+                        maxWidth: "82%",
+                        padding: "5px 8px",
+                        background: mine ? `${t.accent}20` : t.bgCard,
+                        border: `1px solid ${mine ? t.accent : t.border}`,
+                        borderRadius: 8,
+                        color: t.text,
+                        fontFamily: t.fontBody,
+                        fontSize: 12,
+                        wordBreak: "break-word",
+                      }}
+                    >
+                      {m.text}
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+          <div style={{ display: "flex", gap: 6 }}>
+            <input
+              value={inGameDmDraft}
+              onChange={(e) => setInGameDmDraft(e.target.value.slice(0, 500))}
+              onKeyDown={(e) => e.key === "Enter" && !inGameDmSending && sendInGameDm()}
+              placeholder="Message..."
+              style={{ flex: 1, padding: "8px 10px", background: t.inputBg, border: `1px solid ${t.border}`, borderRadius: 8, color: t.text, fontFamily: t.fontBody, fontSize: 12 }}
+            />
+            <button
+              onClick={sendInGameDm}
+              disabled={!inGameDmDraft.trim() || inGameDmSending}
+              style={{ padding: "8px 10px", background: inGameDmDraft.trim() ? t.accent : `${t.accent}44`, border: `1px solid ${t.accent}`, borderRadius: 8, color: "#fff", fontFamily: t.fontMono, fontSize: 11, fontWeight: 700 }}
+            >
+              SEND
+            </button>
+          </div>
+        </div>
       )}
 
       <style>{`

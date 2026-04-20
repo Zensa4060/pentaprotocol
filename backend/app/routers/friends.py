@@ -584,6 +584,8 @@ async def remove_friend(friend_id: str, user_id: str = Depends(get_current_user)
         },
         {"$set": {"status": "cancelled", "cancelled_at": datetime.utcnow()}},
     )
+    await _push_social_event(user_id, {"type": "friend_removed", "friend_id": friend_id})
+    await _push_social_event(friend_id, {"type": "friend_removed", "friend_id": user_id})
     return {"ok": True}
 
 

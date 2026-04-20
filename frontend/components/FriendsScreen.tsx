@@ -130,12 +130,26 @@ export default function FriendsScreen({ themeId, onHoverAction }: Props) {
   }, [fetchAll]);
 
   useEffect(() => {
-    const onSocialRefresh = () => {
+    const onSocialRefresh = (e: Event) => {
+      const msg = (e as CustomEvent)?.detail;
+      if (msg?.type === "friend_removed" && dmModal && String(msg.friend_id || "") === String(dmModal.friend.id)) {
+        setDmModal(null);
+        showToast("This friend was removed.");
+      }
       void fetchAll();
     };
     window.addEventListener("pp_social_refresh", onSocialRefresh);
     return () => window.removeEventListener("pp_social_refresh", onSocialRefresh);
-  }, [fetchAll]);
+  }, [fetchAll, dmModal, showToast]);
+
+  useEffect(() => {
+    const pendingFriendId = sessionStorage.getItem("pp_open_dm_friend_id");
+    if (!pendingFriendId || friends.length === 0) return;
+    const friend = friends.find((f) => String(f.id) === String(pendingFriendId));
+    if (!friend) return;
+    sessionStorage.removeItem("pp_open_dm_friend_id");
+    void openDM(friend);
+  }, [friends, openDM]);
 
   useEffect(() => {
     clearFriendsNavBadge();

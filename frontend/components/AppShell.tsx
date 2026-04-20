@@ -227,7 +227,11 @@ export default function AppShell({ children }: { children: ReactNode }) {
   const [showSessionReplaced, setShowSessionReplaced] = useState(false);
   const [activeMatchData, setActiveMatchData] = useState<any>(null);
   const [homeNotice, setHomeNotice] = useState<string | null>(null);
-  const [socialToast, setSocialToast] = useState<string | null>(null);
+  const [socialToast, setSocialToast] = useState<{
+    text: string;
+    friendId?: string;
+    actionLabel?: string;
+  } | null>(null);
 
   /* ── Refs ────────────────────────────────────────────────────────────────── */
   const themeRef = useRef(themeId);
@@ -486,10 +490,22 @@ export default function AppShell({ children }: { children: ReactNode }) {
       }
     };
 
-    const pushSocialToast = (msg: string) => {
-      setSocialToast(msg);
+    const pushSocialToast = (msg: string, opts: { friendId?: string; actionLabel?: string } = {}) => {
+      setSocialToast({ text: msg, ...opts });
       if (socialToastTimerRef.current) clearTimeout(socialToastTimerRef.current);
       socialToastTimerRef.current = setTimeout(() => setSocialToast(null), 3000);
+    };
+
+    const openFriendChat = (friendId: string) => {
+      if (!friendId) return;
+      if (isMatchPath) {
+        window.dispatchEvent(new CustomEvent("pp_open_friend_chat", { detail: { friendId } }));
+        return;
+      }
+      try {
+        sessionStorage.setItem("pp_open_dm_friend_id", friendId);
+      } catch {}
+      router.push(ROUTES.FRIENDS);
     };
 
     const connect = async () => {
@@ -516,7 +532,8 @@ export default function AppShell({ children }: { children: ReactNode }) {
             msg.type === "friend_invite_created" ||
             msg.type === "friend_invite_updated" ||
             msg.type === "friend_dm_received" ||
-            msg.type === "friend_dm_sent"
+            msg.type === "friend_dm_sent" ||
+            msg.type === "friend_removed"
           ) {
             void refreshSocialBadge();
             if (typeof window !== "undefined") {
@@ -529,7 +546,15 @@ export default function AppShell({ children }: { children: ReactNode }) {
           } else if (msg.type === "friend_request_created") {
             pushSocialToast("New friend request received.");
           } else if (msg.type === "friend_dm_received") {
-            pushSocialToast("New message received.");
+            const fid = String(msg.from_user || "");
+            pushSocialToast("New message received.", { friendId: fid, actionLabel: "Open Chat" });
+          } else if (msg.type === "friend_dm_sent") {
+            const fid = String(msg.to_user || "");
+            pushSocialToast("Message sent.", { friendId: fid, actionLabel: "Open Chat" });
+          } else if (msg.type === "friend_removed") {
+            pushSocialToast("A friend was removed.");
+          } else if (msg.type === "open_chat" && msg.friend_id) {
+            openFriendChat(String(msg.friend_id));
           }
         } catch {}
       };
@@ -549,7 +574,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
         socialToastTimerRef.current = null;
       }
     };
-  }, [appReady, token]);
+  }, [appReady, token, isMatchPath, router]);
 
   /* ── Token-cleared guard ────────────────────────────────────────────── */
   useEffect(() => {
@@ -1730,9 +1755,41 @@ export default function AppShell({ children }: { children: ReactNode }) {
               fontSize: 12,
               letterSpacing: "0.04em",
               padding: "8px 12px",
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
             }}
           >
-            {socialToast}
+            <span>{socialToast.text}</span>
+            {socialToast.friendId && socialToast.actionLabel && (
+              <button
+                onClick={() => {
+                  const friendId = socialToast.friendId || "";
+                  setSocialToast(null);
+                  if (!friendId) return;
+                  if (isMatchPath) {
+                    window.dispatchEvent(new CustomEvent("pp_open_friend_chat", { detail: { friendId } }));
+                    return;
+                  }
+                  try {
+                    sessionStorage.setItem("pp_open_dm_friend_id", friendId);
+                  } catch {}
+                  router.push(ROUTES.FRIENDS);
+                }}
+                style={{
+                  background: `${t.accent}22`,
+                  border: `1px solid ${t.accent}`,
+                  color: t.accent,
+                  borderRadius: 6,
+                  padding: "4px 8px",
+                  fontFamily: t.fontMono,
+                  fontSize: 11,
+                  fontWeight: 700,
+                }}
+              >
+                {socialToast.actionLabel}
+              </button>
+            )}
           </div>
         )}
 
