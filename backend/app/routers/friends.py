@@ -318,12 +318,6 @@ async def list_friends(user_id: str = Depends(get_current_user)):
         # Sort: online first, then alphabetical
         out.sort(key=lambda r: (not r["online"], r["username"].lower()))
 
-    # Invite budget — 5 per rolling 24h
-    used = me.get("friend_invites_used") or []
-    now = datetime.utcnow()
-    recent = [t for t in used if isinstance(t, datetime) and (now - t) < timedelta(hours=24)]
-    invites_remaining = max(0, 5 - len(recent))
-
     user_oid = None
     try:
         user_oid = ObjectId(user_id)
@@ -340,8 +334,8 @@ async def list_friends(user_id: str = Depends(get_current_user)):
     return {
         "friends":           out,
         "blocked":           blocked_ids,
-        "invites_remaining": invites_remaining,
-        "invites_limit":     5,
+        "invites_remaining": -1,
+        "invites_limit":     -1,
         "unread_dm_count":   int(unread_dm_count or 0),
     }
 
@@ -671,12 +665,7 @@ async def send_friend_invite(
     if not ws_manager.has_active_connections(target_id):
         raise HTTPException(409, "Your friend is offline")
 
-    # Rate limit — 5 invites per rolling 24h.
-    used = me.get("friend_invites_used") or []
     now = datetime.utcnow()
-    recent = [t for t in used if isinstance(t, datetime) and (now - t) < timedelta(hours=24)]
-    if len(recent) >= 5:
-        raise HTTPException(429, "Daily invite limit reached (5 / 24h)")
 
     # Dedup — at most one pending invite at a time between two users.
     existing = await db.friend_invites.find_one({
@@ -698,12 +687,6 @@ async def send_friend_invite(
     }
     result = await db.friend_invites.insert_one(doc)
 
-    # Record the invite against the sender's rolling 24h budget.
-    recent.append(now)
-    await db.users.update_one(
-        {"_id": user_object_id(user_id)},
-        {"$set": {"friend_invites_used": recent}},
-    )
     await _push_social_event(target_id, {
         "type": "friend_invite_created",
         "from_user": user_id,
@@ -779,7 +762,10 @@ async def accept_invite(invite_id: str, user_id: str = Depends(get_current_user)
     if start_mode == "5x5":
         from app.core.patterns import PATTERN_NAMES_5
         import random as _rnd
-        selected = _rnd.sample(PATTERN_NAMES_5, 5)
+        if len(PATTERN_NAMES_5) >= 5:
+            selected = _rnd.sample(PATTERN_NAMES_5, 5)
+        else:
+            selected = list(PATTERN_NAMES_5)
     elif start_mode == "6x6":
         from app.core.patterns6 import PATTERN_NAMES_6
         selected = list(PATTERN_NAMES_6)
@@ -840,7 +826,13 @@ async def accept_invite(invite_id: str, user_id: str = Depends(get_current_user)
         "turn_started_at_ms": int(datetime.utcnow().timestamp() * 1000),
         "created_at":     datetime.utcnow(),
     }
-    await db.rooms.insert_one(room)
+    try:
+        await db.rooms.insert_one(room)
+    except Exception:
+        # Rare duplicate room code collision or transient insert issue.
+        room_code = await room_mod._generate_unique_code(db)  # type: ignore[attr-defined]
+        room["room_code"] = room_code
+        await db.rooms.insert_one(room)
 
     await db.friend_invites.update_one(
         {"_id": oid},

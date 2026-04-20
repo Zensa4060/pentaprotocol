@@ -76,7 +76,6 @@ export default function FriendsScreen({ themeId, onHoverAction }: Props) {
   const { handleRoomReady } = useApp();
 
   const [friends, setFriends] = useState<Friend[]>([]);
-  const [invitesRemaining, setInvitesRemaining] = useState<number>(5);
   const [requests, setRequests] = useState<FriendRequest[]>([]);
   const [invites, setInvites] = useState<FriendInvite[]>([]);
   const [friendCode, setFriendCode] = useState<string>("");
@@ -108,7 +107,6 @@ export default function FriendsScreen({ themeId, onHoverAction }: Props) {
         API.get("/api/friends/me/code"),
       ]);
       setFriends(listRes.data?.friends ?? []);
-      setInvitesRemaining(Number(listRes.data?.invites_remaining ?? 5));
       setRequests(reqRes.data?.requests ?? []);
       setInvites(invRes.data?.invites ?? []);
       setFriendCode(String(codeRes.data?.friend_code ?? ""));
@@ -141,15 +139,6 @@ export default function FriendsScreen({ themeId, onHoverAction }: Props) {
     window.addEventListener("pp_social_refresh", onSocialRefresh);
     return () => window.removeEventListener("pp_social_refresh", onSocialRefresh);
   }, [fetchAll, dmModal, showToast]);
-
-  useEffect(() => {
-    const pendingFriendId = sessionStorage.getItem("pp_open_dm_friend_id");
-    if (!pendingFriendId || friends.length === 0) return;
-    const friend = friends.find((f) => String(f.id) === String(pendingFriendId));
-    if (!friend) return;
-    sessionStorage.removeItem("pp_open_dm_friend_id");
-    void openDM(friend);
-  }, [friends, openDM]);
 
   useEffect(() => {
     clearFriendsNavBadge();
@@ -239,10 +228,6 @@ export default function FriendsScreen({ themeId, onHoverAction }: Props) {
       showToast("Friend is offline — invites disabled.");
       return;
     }
-    if (invitesRemaining <= 0) {
-      showToast("Daily invite limit reached (5 / 24h).");
-      return;
-    }
     try {
       await API.post("/api/friends/invite", { friend_id: f.id });
       showToast(`Invite sent to ${f.username}.`);
@@ -251,7 +236,7 @@ export default function FriendsScreen({ themeId, onHoverAction }: Props) {
       const msg = err?.response?.data?.detail || "Could not send invite.";
       showToast(String(msg));
     }
-  }, [invitesRemaining, fetchAll, showToast]);
+  }, [fetchAll, showToast]);
 
   const openProfile = useCallback(async (f: Friend) => {
     setProfileModal({ mode: "profile", friend: f, loading: true, error: null, data: null });
@@ -282,6 +267,15 @@ export default function FriendsScreen({ themeId, onHoverAction }: Props) {
       setDmModal((d) => d && { ...d, loading: false });
     }
   }, []);
+
+  useEffect(() => {
+    const pendingFriendId = sessionStorage.getItem("pp_open_dm_friend_id");
+    if (!pendingFriendId || friends.length === 0) return;
+    const friend = friends.find((f) => String(f.id) === String(pendingFriendId));
+    if (!friend) return;
+    sessionStorage.removeItem("pp_open_dm_friend_id");
+    void openDM(friend);
+  }, [friends, openDM]);
 
   const sendDM = useCallback(async () => {
     if (!dmModal) return;
@@ -649,8 +643,8 @@ export default function FriendsScreen({ themeId, onHoverAction }: Props) {
           <div style={{ background: t.bgPanel, border: `1px solid ${t.border}`, borderRadius: 12, padding: 16 }}>
             <div style={{ fontFamily: t.fontMono, fontSize: 11, color: t.textMuted, letterSpacing: "0.2em", marginBottom: 10 }}>INVITE BUDGET · 24H</div>
             <div style={{ display: "flex", alignItems: "baseline", gap: 12 }}>
-              <div style={{ fontFamily: t.fontDisplay, fontSize: 40, fontWeight: 900, color: t.accent }}>{invitesRemaining}</div>
-              <div style={{ fontFamily: t.fontMono, fontSize: 12, color: t.textMuted }}>of 5 unranked invites left</div>
+              <div style={{ fontFamily: t.fontDisplay, fontSize: 40, fontWeight: 900, color: t.accent }}>UNLIMITED</div>
+              <div style={{ fontFamily: t.fontMono, fontSize: 12, color: t.textMuted }}>unranked invites available</div>
             </div>
             <div style={{ marginTop: 8, fontFamily: t.fontBody, fontSize: 12, color: t.textMuted, lineHeight: 1.4 }}>
               Invite an online friend to an unranked match. Budget resets on a rolling 24-hour window.
@@ -787,10 +781,10 @@ export default function FriendsScreen({ themeId, onHoverAction }: Props) {
             {
               key: "invite",
               label: contextMenu.friend.online
-                ? `Invite to unranked (${invitesRemaining} left)`
+                ? "Invite to unranked"
                 : "Friend is offline — invite disabled",
               onClick: () => sendInvite(contextMenu.friend),
-              disabled: !contextMenu.friend.online || invitesRemaining <= 0,
+              disabled: !contextMenu.friend.online,
             },
             { key: "message", label: "Send message", onClick: () => openDM(contextMenu.friend) },
             { key: "career", label: "View career", onClick: () => openCareer(contextMenu.friend) },
