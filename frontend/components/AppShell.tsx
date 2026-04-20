@@ -19,6 +19,7 @@ import type { Difficulty } from "@/lib/botEngine";
 import type { MatchupData, BoardMode, Screen, SetScreenOptions } from "@/lib/types";
 import { loadCustomTheme, resolveCustomTheme } from "@/lib/customTheme";
 import {
+  LEGAL_VERSION,
   POLICY_GATE_SESSION_KEY,
   getUserId,
   hasAcceptedLegal,
@@ -900,7 +901,11 @@ export default function AppShell({ children }: { children: ReactNode }) {
     // Return the user to the main lobby URL when queue is abandoned.
     if (typeof window !== "undefined") {
       const p = window.location.pathname;
-      if (p.startsWith("/unranked/") || p.startsWith("/ranked/")) {
+      if (
+        p.startsWith("/unranked/") ||
+        p.startsWith("/ranked/") ||
+        p.startsWith("/play/matchfound")
+      ) {
         router.push(ROUTES.PLAY_LOBBY);
       }
     }
@@ -1292,8 +1297,17 @@ export default function AppShell({ children }: { children: ReactNode }) {
             themeId={themeId}
             user={user}
             onAcceptedAction={() => {
+              const u = useAuthStore.getState().user;
+              const uid = getUserId(u);
+              if (uid) {
+                useAuthStore.getState().updateUser({
+                  legal_accepted: true,
+                  legal_accepted_version: LEGAL_VERSION,
+                });
+              }
+              router.replace("/home");
               setShowPolicyGate(false);
-              router.push("/home");
+              void useAuthStore.getState().refreshProfile();
             }}
             onDeclinedAction={() => {
               logout();

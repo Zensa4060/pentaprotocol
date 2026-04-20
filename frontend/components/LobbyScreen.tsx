@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useEffect, useRef, useMemo } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import type { MatchupData, Screen } from "@/lib/types";
 import type { ThemeId } from "@/lib/themes";
 import { THEMES } from "@/lib/themes";
@@ -19,6 +19,7 @@ import { getMatchFoundPalette, resolveMatchFoundSkin } from "@/lib/matchFoundVis
 import { useBannerShineEnabled } from "@/lib/bannerShinePreference";
 import { BannerRenderer } from "./BannerRenderer";
 import MatchFoundSketchVS from "./MatchFoundSketchVS";
+import { SurrenderModal } from "./MatchSidebar";
 
 function parseRankedBanEndMs(user: { ranked_ban_until?: string | null } | null | undefined): number | null {
   const raw = user?.ranked_ban_until;
@@ -84,6 +85,7 @@ export default function LobbyScreen({
   const t  = THEMES[themeId as keyof typeof THEMES];
   const ip = themeId === "pixel";
   const router = useRouter();
+  const pathname = usePathname();
   const { user, token, refreshProfile } = useAuthStore();
   const bannerShineEnabled = useBannerShineEnabled((user as any)?.id ?? (user as any)?._id ?? null);
   const rank = getRank(user?.elo ?? 0);
@@ -109,6 +111,7 @@ export default function LobbyScreen({
 
   const elapsed = propQueuePhase === "queuing" ? propQueueElapsed : 0;
   const [isMobile, setIsMobile] = useState(false);
+  const [matchFoundBackModal, setMatchFoundBackModal] = useState(false);
 
   // ── Taunt quote — pool selected by last ranked match result ───────────────
   // If lastMatchResult is set (returning from ranked), always pick fresh from the right pool.
@@ -168,6 +171,21 @@ export default function LobbyScreen({
     window.addEventListener("resize", check);
     return () => window.removeEventListener("resize", check);
   }, []);
+
+  useEffect(() => {
+    if (phase !== "matchup" || !pathname?.startsWith("/play/matchfound")) {
+      setMatchFoundBackModal(false);
+      return;
+    }
+    const mark = { pp_matchfound_back_guard: 1 };
+    window.history.pushState(mark, "", window.location.href);
+    const onPopState = () => {
+      window.history.pushState(mark, "", window.location.href);
+      setMatchFoundBackModal(true);
+    };
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, [phase, pathname]);
 
   const [countdown, setCountdown] = useState(3.5);
   const [hovered,   setHovered]   = useState<string | null>(null);
@@ -746,6 +764,23 @@ export default function LobbyScreen({
           @keyframes matchBarShrink { from{width:100%} to{width:0%} }
           @keyframes matchFoundShine { from { transform: translateX(-50%); } to { transform: translateX(100%); } }
         `}</style>
+
+        <SurrenderModal
+          show={matchFoundBackModal}
+          t={{ ...t, pieces: t.pieces }}
+          ip={ip}
+          isRankedGame={isRanked}
+          variant="abort"
+          onConfirmAction={() => {
+            setMatchFoundBackModal(false);
+            onQueueCancelAction();
+          }}
+          onCancelAction={() => {
+            setMatchFoundBackModal(false);
+            onClickAction?.();
+          }}
+          playHoverAction={onHoverAction}
+        />
       </div>
     );
   }

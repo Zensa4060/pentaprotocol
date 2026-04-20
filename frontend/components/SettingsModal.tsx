@@ -28,7 +28,19 @@ interface Props {
   suppressAccountActionsDuringMatch?: boolean;
 }
 
-export default function SettingsModal({ onCloseAction, themeId, setThemeIdAction, audio, onNavigateAuthAction, graphicsQuality, setGraphicsQualityAction, currentScreen, suppressAccountActionsDuringMatch }: Props) {
+type SettingsSection = "audio" | "account" | "system";
+
+export default function SettingsModal({
+  onCloseAction,
+  themeId,
+  setThemeIdAction: _setThemeIdAction,
+  audio,
+  onNavigateAuthAction,
+  graphicsQuality: _graphicsQuality,
+  setGraphicsQualityAction: _setGraphicsQualityAction,
+  currentScreen: _currentScreen,
+  suppressAccountActionsDuringMatch,
+}: Props) {
   const t = THEMES[themeId];
   const { musicVol, setMusicVol, sfxVol, setSfxVol, muted, toggleMute } = audio;
   const { user, logout } = useAuthStore();
@@ -36,6 +48,9 @@ export default function SettingsModal({ onCloseAction, themeId, setThemeIdAction
   const router = useRouter();
   const [focusMode, setFocusMode] = useState(false);
   const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
+  const [activeSection, setActiveSection] = useState<SettingsSection>("audio");
+  const [narrowLayout, setNarrowLayout] = useState(false);
+  const showAccountNav = Boolean(user && !suppressAccountActionsDuringMatch);
 
   useEffect(() => {
     const handleFS = () => setFocusMode(!!document.fullscreenElement);
@@ -44,224 +59,447 @@ export default function SettingsModal({ onCloseAction, themeId, setThemeIdAction
     return () => document.removeEventListener("fullscreenchange", handleFS);
   }, []);
 
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      if (showSignOutConfirm) setShowSignOutConfirm(false);
+      else onCloseAction();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onCloseAction, showSignOutConfirm]);
+
+  useEffect(() => {
+    const q = () => setNarrowLayout(window.innerWidth < 760);
+    q();
+    window.addEventListener("resize", q);
+    return () => window.removeEventListener("resize", q);
+  }, []);
+
+  useEffect(() => {
+    if (activeSection === "account" && !showAccountNav) setActiveSection("audio");
+  }, [activeSection, showAccountNav]);
+
   const toggleFocus = async () => {
     if (!document.fullscreenElement) {
-      try { await document.documentElement.requestFullscreen(); } catch {}
+      try {
+        await document.documentElement.requestFullscreen();
+      } catch {
+        /* noop */
+      }
     } else {
-      try { await document.exitFullscreen(); } catch {}
+      try {
+        await document.exitFullscreen();
+      } catch {
+        /* noop */
+      }
     }
+  };
+
+  const ip = themeId === "pixel";
+  const navBtn = (id: SettingsSection, label: string) => {
+    const on = activeSection === id;
+    return (
+      <button
+        key={id}
+        type="button"
+        onClick={() => setActiveSection(id)}
+        style={{
+          fontFamily: t.fontDisplay,
+          fontSize: narrowLayout ? 13 : 15,
+          fontWeight: 700,
+          letterSpacing: "0.06em",
+          textAlign: narrowLayout ? "center" : "left",
+          padding: narrowLayout ? "10px 16px" : "14px 18px",
+          borderRadius: ip ? 2 : 10,
+          border: `1px solid ${on ? t.accent : t.border}`,
+          background: on ? `${t.accent}22` : "transparent",
+          color: on ? t.accent : t.textMuted,
+          cursor: "pointer",
+          transition: "border-color 0.18s, background 0.18s, color 0.18s",
+          flex: narrowLayout ? "1 1 auto" : undefined,
+          minWidth: narrowLayout ? 0 : undefined,
+          whiteSpace: narrowLayout ? "nowrap" : undefined,
+        }}
+      >
+        {label}
+      </button>
+    );
   };
 
   return (
     <>
-      {/* Backdrop */}
+      {/* Full-screen settings shell: sidebar + scrollable panel */}
       <div
-        onClick={onCloseAction}
         style={{
-          position:"fixed", inset:0, zIndex:999,
-          background:"rgba(0,0,0,0.82)",
-          animation:"settingsFadeIn 0.22s ease both",
-          display:"flex", alignItems:"center", justifyContent:"center", padding:24,
+          position: "fixed",
+          inset: 0,
+          zIndex: 10020,
+          display: "flex",
+          flexDirection: "column",
+          background: t.bg,
+          border: ip ? `3px solid ${t.border}` : `1px solid ${t.accent}33`,
+          boxShadow: "inset 0 0 120px rgba(0,0,0,0.35)",
+          animation: "settingsFadeIn 0.22s ease both",
         }}
       >
-        <div
-          onClick={e => e.stopPropagation()}
+        <header
           style={{
-            background:t.bgPanel, border:`1px solid ${t.accent}44`,
-            borderRadius:16, padding:"32px 36px",
-            width:"min(460px,92vw)",
-            boxShadow:"0 32px 96px rgba(0,0,0,0.72)",
-            animation:"settingsSlideIn 0.36s cubic-bezier(.22,.68,0,1.2) both",
-            transition:"background 0.4s",
+            flexShrink: 0,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: 16,
+            padding: narrowLayout ? "14px 16px" : "18px 28px",
+            borderBottom: `1px solid ${t.border}`,
+            background: t.bgPanel,
           }}
         >
-          {/* Header */}
-          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:28 }}>
-            <div style={{ fontFamily:t.fontDisplay, fontSize:22, fontWeight:700, color:t.text }}>Settings</div>
-            <button
-              onClick={onCloseAction}
-              className="settings-close-btn"
-              style={{
-                background:"none", border:`1px solid ${t.border}`,
-                color:t.textMuted, fontSize:18, padding:"2px 10px",
-                borderRadius:6, cursor:"pointer",
-                transition:"border-color 0.18s, color 0.18s, background 0.18s",
-                "--accent": t.accent,
-              } as React.CSSProperties}
-            >✕</button>
+          <div style={{ fontFamily: t.fontDisplay, fontSize: narrowLayout ? 18 : 24, fontWeight: 800, color: t.text }}>
+            Settings
           </div>
+          <button
+            type="button"
+            onClick={onCloseAction}
+            className="settings-close-btn"
+            style={{
+              background: "none",
+              border: `1px solid ${t.border}`,
+              color: t.textMuted,
+              fontSize: 20,
+              padding: "4px 14px",
+              borderRadius: ip ? 2 : 8,
+              cursor: "pointer",
+              transition: "border-color 0.18s, color 0.18s, background 0.18s",
+              "--accent": t.accent,
+            } as React.CSSProperties}
+          >
+            ✕
+          </button>
+        </header>
 
-          {/* Audio section */}
-          <div>
-            <div style={{ fontFamily:t.fontMono, fontSize:13, fontWeight: 800, color:t.accent, letterSpacing:"0.16em", marginBottom:18 }}>AUDIO SETTINGS</div>
+        <div
+          style={{
+            flex: 1,
+            minHeight: 0,
+            display: "flex",
+            flexDirection: narrowLayout ? "column" : "row",
+          }}
+        >
+          <nav
+            style={{
+              flexShrink: 0,
+              display: "flex",
+              flexDirection: narrowLayout ? "row" : "column",
+              gap: narrowLayout ? 8 : 10,
+              padding: narrowLayout ? "12px 16px" : "20px 18px",
+              width: narrowLayout ? "100%" : 248,
+              borderRight: narrowLayout ? "none" : `1px solid ${t.border}`,
+              borderBottom: narrowLayout ? `1px solid ${t.border}` : "none",
+              background: narrowLayout ? t.bgPanel : `${t.bgPanel}cc`,
+              overflowX: narrowLayout ? "auto" : "visible",
+            }}
+          >
+            {navBtn("audio", "Audio")}
+            {showAccountNav ? navBtn("account", "Account") : null}
+            {navBtn("system", "System")}
+          </nav>
 
-            {/* Mute toggle */}
-            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:26, background: `${t.bgCard}`, border: `1px solid ${t.border}`, padding: "16px 20px", borderRadius: 12 }}>
-              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                <span style={{ fontFamily:t.fontDisplay, fontSize:17, fontWeight: 700, color:t.text }}>
-                  Master Audio
-                </span>
-                <span style={{ fontFamily:t.fontBody, fontSize:12, color:t.textSecondary }}>
-                  {muted ? "All sounds are currently muted" : "Audio is currently enabled"}
-                </span>
-              </div>
-              <button
-                onClick={toggleMute}
-                className="settings-mute-btn"
-                style={{
-                  background: muted ? `${t.danger}18` : `${t.accent}18`,
-                  border: `2px solid ${muted ? t.danger : t.accent}`,
-                  color: muted ? t.danger : t.accent,
-                  fontFamily:t.fontDisplay, fontSize:14, fontWeight: 800,
-                  padding:"12px 28px", borderRadius:8,
-                  letterSpacing:"0.06em", cursor:"pointer",
-                  transition:"all 0.18s",
-                  textTransform: "uppercase",
-                  flexShrink: 0,
-                  "--hover-bg": muted ? t.danger : t.accent,
-                } as React.CSSProperties}
-              >
-                {muted ? "Unmute" : "Mute"}
-              </button>
-            </div>
+          <main
+            style={{
+              flex: 1,
+              minWidth: 0,
+              overflowY: "auto",
+              padding: narrowLayout ? "20px 18px 28px" : "28px 40px 40px",
+              WebkitOverflowScrolling: "touch",
+            }}
+          >
+            {activeSection === "audio" && (
+              <div style={{ maxWidth: 720 }}>
+                <div
+                  style={{
+                    fontFamily: t.fontMono,
+                    fontSize: 12,
+                    fontWeight: 800,
+                    color: t.accent,
+                    letterSpacing: "0.16em",
+                    marginBottom: 20,
+                  }}
+                >
+                  AUDIO SETTINGS
+                </div>
 
-            {/* Music vol */}
-            <SliderRow
-              label="Music Volume"
-              value={musicVol}
-              onChange={setMusicVol}
-              disabled={muted}
-              accent={t.accent}
-              fontBody={t.fontBody}
-              fontMono={t.fontMono}
-              textSecondary={t.text}
-              textMuted={t.textSecondary}
-            />
+                <div
+                  style={{
+                    display: "flex",
+                    flexWrap: "wrap",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    gap: 16,
+                    marginBottom: 28,
+                    background: t.bgCard,
+                    border: `1px solid ${t.border}`,
+                    padding: "18px 22px",
+                    borderRadius: ip ? 2 : 12,
+                  }}
+                >
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6, minWidth: 200, flex: "1 1 220px" }}>
+                    <span style={{ fontFamily: t.fontDisplay, fontSize: 17, fontWeight: 700, color: t.text }}>
+                      Master Audio
+                    </span>
+                    <span style={{ fontFamily: t.fontBody, fontSize: 13, color: t.textSecondary }}>
+                      {muted ? "All sounds are currently muted" : "Audio is currently enabled"}
+                    </span>
+                  </div>
+                  <button
+                    onClick={toggleMute}
+                    className="settings-mute-btn"
+                    style={{
+                      background: muted ? `${t.danger}18` : `${t.accent}18`,
+                      border: `2px solid ${muted ? t.danger : t.accent}`,
+                      color: muted ? t.danger : t.accent,
+                      fontFamily: t.fontDisplay,
+                      fontSize: 14,
+                      fontWeight: 800,
+                      padding: "12px 28px",
+                      borderRadius: ip ? 2 : 8,
+                      letterSpacing: "0.06em",
+                      cursor: "pointer",
+                      transition: "all 0.18s",
+                      textTransform: "uppercase",
+                      flexShrink: 0,
+                      "--hover-bg": muted ? t.danger : t.accent,
+                    } as React.CSSProperties}
+                  >
+                    {muted ? "Unmute" : "Mute"}
+                  </button>
+                </div>
 
-            {/* SFX vol */}
-            <SliderRow
-              label="SFX Volume"
-              value={sfxVol}
-              onChange={setSfxVol}
-              disabled={muted}
-              accent={t.accent}
-              fontBody={t.fontBody}
-              fontMono={t.fontMono}
-              textSecondary={t.text}
-              textMuted={t.textSecondary}
-            />
-
-          </div>
-
-          {user && !suppressAccountActionsDuringMatch && (
-            <>
-              <div style={{ height: 1, background: `${t.border}44`, margin: "24px 0" }} />
-              <AccountSecuritySection
-                t={t}
-                googleLinked={Boolean((user as any)?.google_linked || (user as any)?.google_id)}
-                totpEnabled={Boolean((user as any)?.totp_enabled)}
-                onAction={() => { router.push("/profile#security"); onCloseAction(); }}
-              />
-            </>
-          )}
-
-          <div style={{ height: 1, background: `${t.border}44`, margin: "24px 0" }} />
-
-          {/* System section */}
-          <div>
-            <div style={{ fontFamily:t.fontMono, fontSize:13, fontWeight: 800, color:t.accent, letterSpacing:"0.16em", marginBottom:18 }}>SYSTEM SETTINGS</div>
-
-            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", gap:12, marginBottom:18, background: `${t.bgCard}`, border: `1px solid ${t.border}`, padding: "14px 18px", borderRadius: 12, flexWrap:"wrap" }}>
-              <div>
-                <div style={{ fontFamily:t.fontDisplay, fontSize:15, fontWeight: 700, color:t.text }}>Banner shine</div>
-                <div style={{ fontFamily:t.fontBody, fontSize:12, color:t.textSecondary, marginTop:4, maxWidth:320 }}>
-                  Gloss sweep on profile, career, match-found, and match sidebar banners.
+                <div style={{ display: "grid", gridTemplateColumns: narrowLayout ? "1fr" : "1fr 1fr", gap: narrowLayout ? 8 : 28 }}>
+                  <SliderRow
+                    label="Music Volume"
+                    value={musicVol}
+                    onChange={setMusicVol}
+                    disabled={muted}
+                    accent={t.accent}
+                    fontBody={t.fontBody}
+                    fontMono={t.fontMono}
+                    textSecondary={t.text}
+                    textMuted={t.textSecondary}
+                  />
+                  <SliderRow
+                    label="SFX Volume"
+                    value={sfxVol}
+                    onChange={setSfxVol}
+                    disabled={muted}
+                    accent={t.accent}
+                    fontBody={t.fontBody}
+                    fontMono={t.fontMono}
+                    textSecondary={t.text}
+                    textMuted={t.textSecondary}
+                  />
                 </div>
               </div>
-              <button
-                type="button"
-                onClick={() => saveBannerShineEnabled(!bannerShineEnabled)}
-                style={{
-                  padding:"10px 20px",
-                  borderRadius:8,
-                  border:`2px solid ${bannerShineEnabled ? t.accent : t.border}`,
-                  background: bannerShineEnabled ? `${t.accent}22` : "transparent",
-                  color: bannerShineEnabled ? t.accent : t.textMuted,
-                  fontFamily:t.fontDisplay,
-                  fontSize:12,
-                  fontWeight:800,
-                  cursor:"pointer",
-                  letterSpacing:"0.06em",
-                  flexShrink:0,
-                }}
-              >
-                {bannerShineEnabled ? "ON" : "OFF"}
-              </button>
-            </div>
-            
-            <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
-              <button
-                onClick={toggleFocus}
-                style={{
-                  width: "100%", padding: "16px",
-                  background: focusMode ? `${t.accent}22` : `${t.accent}0A`,
-                  border: `1.5px solid ${focusMode ? t.accent : `${t.accent}55`}`,
-                  borderRadius: 12, color: t.accent,
-                  fontFamily: t.fontDisplay, fontSize: 15, fontWeight: 700,
-                  cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
-                  transition: "all 0.2s"
-                }}
-                onMouseEnter={e => { e.currentTarget.style.background = `${t.accent}22`; e.currentTarget.style.boxShadow = `0 0 16px ${t.accent}33`; e.currentTarget.style.transform = "scale(1.02)"; }}
-                onMouseLeave={e => { e.currentTarget.style.background = focusMode ? `${t.accent}22` : `${t.accent}0A`; e.currentTarget.style.boxShadow = "none"; e.currentTarget.style.transform = "scale(1)"; }}
-              >
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  {focusMode
-                    ? <><polyline points="8 3 3 3 3 8"/><polyline points="21 8 21 3 16 3"/><polyline points="3 16 3 21 8 21"/><polyline points="16 21 21 21 21 16"/></>
-                    : <><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></>
-                  }
-                </svg>
-                {focusMode ? "EXIT FOCUS MODE" : "ENTER FOCUS MODE"}
-              </button>
+            )}
 
-              {user ? (
-                suppressAccountActionsDuringMatch ? null : (
-                  <button
-                    onClick={() => setShowSignOutConfirm(true)}
-                    style={{
-                      width: "100%", padding: "16px",
-                      background: `${t.danger}10`,
-                      border: `1.5px solid ${t.danger}55`,
-                      borderRadius: 12, color: t.danger,
-                      fontFamily: t.fontDisplay, fontSize: 15, fontWeight: 700,
-                      cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
-                      transition: "all 0.2s"
-                    }}
-                    onMouseEnter={e => { e.currentTarget.style.background = t.danger; e.currentTarget.style.color = "#fff"; e.currentTarget.style.boxShadow = `0 0 16px ${t.danger}44`; e.currentTarget.style.transform = "scale(1.02)"; }}
-                    onMouseLeave={e => { e.currentTarget.style.background = `${t.danger}10`; e.currentTarget.style.color = t.danger; e.currentTarget.style.boxShadow = "none"; e.currentTarget.style.transform = "scale(1)"; }}
-                  >
-                    SIGN OUT
-                  </button>
-                )
-              ) : (
-                <button
-                  onClick={() => { if (onNavigateAuthAction) onNavigateAuthAction(); onCloseAction(); }}
-                  style={{
-                    width: "100%", padding: "16px",
-                    background: `${t.accent}10`,
-                    border: `1.5px solid ${t.accent}55`,
-                    borderRadius: 12, color: t.accent,
-                    fontFamily: t.fontDisplay, fontSize: 15, fontWeight: 700,
-                    cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
-                    transition: "all 0.2s"
+            {activeSection === "account" && showAccountNav && (
+              <div style={{ maxWidth: 640 }}>
+                <AccountSecuritySection
+                  t={t}
+                  googleLinked={Boolean((user as any)?.google_linked || (user as any)?.google_id)}
+                  totpEnabled={Boolean((user as any)?.totp_enabled)}
+                  onAction={() => {
+                    router.push("/profile#security");
+                    onCloseAction();
                   }}
-                  onMouseEnter={e => { e.currentTarget.style.background = t.accent; e.currentTarget.style.color = "#000"; e.currentTarget.style.boxShadow = `0 0 16px ${t.accent}44`; e.currentTarget.style.transform = "scale(1.02)"; }}
-                  onMouseLeave={e => { e.currentTarget.style.background = `${t.accent}10`; e.currentTarget.style.color = t.accent; e.currentTarget.style.boxShadow = "none"; e.currentTarget.style.transform = "scale(1)"; }}
+                />
+              </div>
+            )}
+
+            {activeSection === "system" && (
+              <div style={{ maxWidth: 900 }}>
+                <div
+                  style={{
+                    fontFamily: t.fontMono,
+                    fontSize: 12,
+                    fontWeight: 800,
+                    color: t.accent,
+                    letterSpacing: "0.16em",
+                    marginBottom: 20,
+                  }}
                 >
-                  SIGN IN
-                </button>
-              )}
-            </div>
-          </div>
+                  SYSTEM SETTINGS
+                </div>
+
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: narrowLayout ? "1fr" : "1fr 1fr",
+                    gap: 20,
+                    marginBottom: 24,
+                    alignItems: "stretch",
+                  }}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      gap: 16,
+                      background: t.bgCard,
+                      border: `1px solid ${t.border}`,
+                      padding: "16px 20px",
+                      borderRadius: ip ? 2 : 12,
+                      flexWrap: "wrap",
+                    }}
+                  >
+                    <div style={{ flex: "1 1 200px", minWidth: 0 }}>
+                      <div style={{ fontFamily: t.fontDisplay, fontSize: 16, fontWeight: 700, color: t.text }}>
+                        Banner shine
+                      </div>
+                      <div style={{ fontFamily: t.fontBody, fontSize: 13, color: t.textSecondary, marginTop: 6, lineHeight: 1.5 }}>
+                        Gloss sweep on profile, career, match-found, and match sidebar banners.
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => saveBannerShineEnabled(!bannerShineEnabled)}
+                      style={{
+                        padding: "10px 22px",
+                        borderRadius: ip ? 2 : 8,
+                        border: `2px solid ${bannerShineEnabled ? t.accent : t.border}`,
+                        background: bannerShineEnabled ? `${t.accent}22` : "transparent",
+                        color: bannerShineEnabled ? t.accent : t.textMuted,
+                        fontFamily: t.fontDisplay,
+                        fontSize: 12,
+                        fontWeight: 800,
+                        cursor: "pointer",
+                        letterSpacing: "0.06em",
+                        flexShrink: 0,
+                      }}
+                    >
+                      {bannerShineEnabled ? "ON" : "OFF"}
+                    </button>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={toggleFocus}
+                    style={{
+                      padding: "18px 20px",
+                      background: focusMode ? `${t.accent}22` : `${t.accent}0A`,
+                      border: `1.5px solid ${focusMode ? t.accent : `${t.accent}55`}`,
+                      borderRadius: ip ? 2 : 12,
+                      color: t.accent,
+                      fontFamily: t.fontDisplay,
+                      fontSize: 15,
+                      fontWeight: 700,
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: 10,
+                      transition: "all 0.2s",
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = `${t.accent}22`;
+                      e.currentTarget.style.boxShadow = `0 0 16px ${t.accent}33`;
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = focusMode ? `${t.accent}22` : `${t.accent}0A`;
+                      e.currentTarget.style.boxShadow = "none";
+                    }}
+                  >
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      {focusMode ? (
+                        <>
+                          <polyline points="8 3 3 3 3 8" />
+                          <polyline points="21 8 21 3 16 3" />
+                          <polyline points="3 16 3 21 8 21" />
+                          <polyline points="16 21 21 21 21 16" />
+                        </>
+                      ) : (
+                        <>
+                          <polyline points="15 3 21 3 21 9" />
+                          <polyline points="9 21 3 21 3 15" />
+                          <line x1="21" y1="3" x2="14" y2="10" />
+                          <line x1="3" y1="21" x2="10" y2="14" />
+                        </>
+                      )}
+                    </svg>
+                    {focusMode ? "EXIT FOCUS MODE" : "ENTER FOCUS MODE"}
+                  </button>
+                </div>
+
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 14 }}>
+                  {user ? (
+                    suppressAccountActionsDuringMatch ? null : (
+                      <button
+                        type="button"
+                        onClick={() => setShowSignOutConfirm(true)}
+                        style={{
+                          minWidth: 200,
+                          flex: narrowLayout ? "1 1 100%" : "0 1 auto",
+                          padding: "16px 28px",
+                          background: `${t.danger}10`,
+                          border: `1.5px solid ${t.danger}55`,
+                          borderRadius: ip ? 2 : 12,
+                          color: t.danger,
+                          fontFamily: t.fontDisplay,
+                          fontSize: 15,
+                          fontWeight: 700,
+                          cursor: "pointer",
+                          transition: "all 0.2s",
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.background = t.danger;
+                          e.currentTarget.style.color = "#fff";
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.background = `${t.danger}10`;
+                          e.currentTarget.style.color = t.danger;
+                        }}
+                      >
+                        SIGN OUT
+                      </button>
+                    )
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (onNavigateAuthAction) onNavigateAuthAction();
+                        onCloseAction();
+                      }}
+                      style={{
+                        minWidth: 200,
+                        flex: narrowLayout ? "1 1 100%" : "0 1 auto",
+                        padding: "16px 28px",
+                        background: `${t.accent}10`,
+                        border: `1.5px solid ${t.accent}55`,
+                        borderRadius: ip ? 2 : 12,
+                        color: t.accent,
+                        fontFamily: t.fontDisplay,
+                        fontSize: 15,
+                        fontWeight: 700,
+                        cursor: "pointer",
+                        transition: "all 0.2s",
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.background = t.accent;
+                        e.currentTarget.style.color = "#000";
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.background = `${t.accent}10`;
+                        e.currentTarget.style.color = t.accent;
+                      }}
+                    >
+                      SIGN IN
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+          </main>
         </div>
       </div>
 
@@ -272,7 +510,7 @@ export default function SettingsModal({ onCloseAction, themeId, setThemeIdAction
           style={{
             position: "fixed",
             inset: 0,
-            zIndex: 1001,
+            zIndex: 10030,
             background: "rgba(0,0,0,0.85)",
             display: "flex",
             alignItems: "center",

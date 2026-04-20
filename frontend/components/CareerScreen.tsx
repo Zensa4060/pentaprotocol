@@ -571,7 +571,6 @@ export default function CareerScreen({ themeId, onHoverAction, initialMatchId }:
 
   const wins = history.filter((m) => m.result === "win").length;
   const losses = history.filter((m) => m.result === "loss").length;
-  const eloGained = history.filter((m) => m.elo_delta > 0).reduce((s, m) => s + m.elo_delta, 0);
   const winRate = history.length > 0 ? Math.round((wins / history.length) * 100) : 0;
 
   const nextRank = RANKS[Math.min(RANKS.indexOf(rank) + 1, RANKS.length - 1)];
@@ -788,7 +787,20 @@ export default function CareerScreen({ themeId, onHoverAction, initialMatchId }:
                     }}
                   >
                     {isPlacement ? "?" : elo}{" "}
-                    <span style={{ fontSize: 12, color: t.textMuted, letterSpacing: "0.1em" }}>ELO</span>
+                    <span
+                      style={{
+                        fontSize: 18,
+                        fontWeight: 900,
+                        color: isPlacement ? "#D1D5DB" : rank.color,
+                        letterSpacing: "0.14em",
+                        textTransform: "uppercase",
+                        textShadow: isPlacement
+                          ? "0 0 14px rgba(209,213,219,0.55), 0 0 28px rgba(209,213,219,0.25)"
+                          : `0 0 14px ${rank.color}aa, 0 0 28px ${rank.color}55, 0 1px 0 rgba(0,0,0,0.5)`,
+                      }}
+                    >
+                      ELO
+                    </span>
                   </div>
                 </div>
 
@@ -846,19 +858,38 @@ export default function CareerScreen({ themeId, onHoverAction, initialMatchId }:
                     maxWidth: 480,
                   }}
                 >
-                  {[
-                    { label: "WINS", value: wins, color: "#34D399" },
-                    { label: "LOSSES", value: losses, color: "#FF4444" },
-                    { label: "WIN RATE", value: `${winRate}%`, color: t.accent },
-                    { label: "ELO GAIN", value: `+${eloGained}`, color: "#34D399" },
-                  ].map((s, i) => (
+                  {(
+                    [
+                      {
+                        label: "WINS",
+                        value: wins,
+                        valueColor: "#34D399",
+                        labelColor: "#34D399",
+                        labelGlow: "0 0 12px rgba(52,211,153,0.65), 0 0 24px rgba(52,211,153,0.35), 0 1px 0 rgba(0,0,0,0.45)",
+                      },
+                      {
+                        label: "WIN RATE",
+                        value: `${winRate}%`,
+                        valueColor: "#F8FAFC",
+                        labelColor: "#FFFFFF",
+                        labelGlow: "0 0 10px rgba(255,255,255,0.45), 0 0 22px rgba(255,255,255,0.2), 0 1px 0 rgba(0,0,0,0.5)",
+                      },
+                      {
+                        label: "LOSSES",
+                        value: losses,
+                        valueColor: "#FF4444",
+                        labelColor: "#FF4444",
+                        labelGlow: "0 0 12px rgba(255,68,68,0.6), 0 0 24px rgba(255,68,68,0.32), 0 1px 0 rgba(0,0,0,0.45)",
+                      },
+                    ] as const
+                  ).map((s, i) => (
                     <div
                       key={s.label}
                       style={{
                         flex: 1,
                         padding: "14px 8px",
                         textAlign: "center",
-                        borderRight: i < 3 ? `1px solid ${t.border}` : "none",
+                        borderRight: i < 2 ? `1px solid ${t.border}` : "none",
                       }}
                     >
                       <div
@@ -866,7 +897,7 @@ export default function CareerScreen({ themeId, onHoverAction, initialMatchId }:
                           fontFamily: t.fontMono,
                           fontSize: 18,
                           fontWeight: 800,
-                          color: s.color,
+                          color: s.valueColor,
                         }}
                       >
                         {s.value}
@@ -874,10 +905,13 @@ export default function CareerScreen({ themeId, onHoverAction, initialMatchId }:
                       <div
                         style={{
                           fontFamily: t.fontMono,
-                          fontSize: 9,
-                          color: t.textMuted,
-                          letterSpacing: "0.12em",
-                          marginTop: 3,
+                          fontSize: 14,
+                          fontWeight: 900,
+                          color: s.labelColor,
+                          letterSpacing: "0.14em",
+                          marginTop: 6,
+                          textTransform: "uppercase",
+                          textShadow: s.labelGlow,
                         }}
                       >
                         {s.label}

@@ -1453,7 +1453,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
           ws.send(JSON.stringify({ type: "player_info", username: p1Name ?? playerSlot ?? "P1", slot: playerSlot }));
             } else if (msg.type === "duplicate_session") {
           useAuthStore.getState().logout("duplicate_session");
-            } else if (msg.type === "match_aborted_no_play" || msg.type === "match_disbanded") {
+            } else if (msg.type === "match_aborted_no_play") {
           setPhase("match_over");
           setHomeNoticeAction?.(msg.reason || "Match aborted — no moves played.");
           setScreenAction?.("home");
@@ -1485,26 +1485,32 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
             }
           }
             } else if (msg.type === "opponent_disconnected") {
-          // Backward compatibility with older server payloads.
-          const other: "P1" | "P2" = (mySlot ?? "P1") === "P1" ? "P2" : "P1";
-          const deadlineMs = Date.now() + 30_000;
-          setDisconnectCountdown({ slot: other, deadlineMs, remainingSeconds: 30 });
+          if (!isViewingPostMatchRef.current) {
+            // Backward compatibility with older server payloads.
+            const other: "P1" | "P2" = (mySlot ?? "P1") === "P1" ? "P2" : "P1";
+            const deadlineMs = Date.now() + 30_000;
+            setDisconnectCountdown({ slot: other, deadlineMs, remainingSeconds: 30 });
+          }
             } else if (msg.type === "player_reconnect_countdown") {
-          const slot = msg.slot === "P2" ? "P2" : "P1";
-          const deadlineMs =
-            typeof msg.deadline_ms === "number" ? msg.deadline_ms : Date.now() + 30_000;
-          const remainingSeconds =
-            typeof msg.remaining_seconds === "number"
-              ? Math.max(0, Math.ceil(msg.remaining_seconds))
-              : Math.max(0, Math.ceil((deadlineMs - Date.now()) / 1000));
-          setDisconnectCountdown({ slot, deadlineMs, remainingSeconds });
+          if (!isViewingPostMatchRef.current) {
+            const slot = msg.slot === "P2" ? "P2" : "P1";
+            const deadlineMs =
+              typeof msg.deadline_ms === "number" ? msg.deadline_ms : Date.now() + 30_000;
+            const remainingSeconds =
+              typeof msg.remaining_seconds === "number"
+                ? Math.max(0, Math.ceil(msg.remaining_seconds))
+                : Math.max(0, Math.ceil((deadlineMs - Date.now()) / 1000));
+            setDisconnectCountdown({ slot, deadlineMs, remainingSeconds });
+          }
             } else if (msg.type === "player_reconnected") {
           const slot = msg.slot === "P2" ? "P2" : "P1";
           setDisconnectCountdown((prev) => (prev && prev.slot === slot ? null : prev));
             } else if (msg.type === "player_disconnect_confirmed") {
-          setDisconnectCountdown(null);
-          setPhase("match_over");
-          setShowDisconnectModal(true);
+          if (!isViewingPostMatchRef.current) {
+            setDisconnectCountdown(null);
+            setPhase("match_over");
+            setShowDisconnectModal(true);
+          }
             } else if (msg.type === "ready_update") {
           if (msg.player === "P1") setP1Ready(msg.ready);
           else setP2Ready(msg.ready);
@@ -3689,6 +3695,22 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
       </div>
     ) : null;
 
+  const surrenderModalVariant =
+    isMultiplayerGame && gameNumber === 1 && movesPlayed === 0 ? "abort" : "forfeit";
+
+  useEffect(() => {
+    if (!isMultiplayerGame || rulesShowSheet == null) return;
+    if (gameNumber !== 1 || movesPlayed !== 0) return;
+    const mark = { pp_rules_back_guard: 1 };
+    window.history.pushState(mark, "", window.location.href);
+    const onPopState = () => {
+      window.history.pushState(mark, "", window.location.href);
+      setShowSurrender(true);
+    };
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, [isMultiplayerGame, rulesShowSheet, gameNumber, movesPlayed]);
+
   if (blockMultiRulesOrLevelUp) {
     const shellBg = t.bg;
     return (
@@ -3754,6 +3776,28 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
             if (setScreenAction) setScreenAction("home");
           }}
         />
+        {rulesShowSheet !== null && (
+          <SurrenderModal
+            show={showSurrender}
+            t={sidebarT}
+            ip={ip}
+            isRankedGame={isRankedGame}
+            variant={surrenderModalVariant}
+            onConfirmAction={() => {
+              setShowSurrender(false);
+              if (isMultiplayerGame && wsRef.current?.readyState === WebSocket.OPEN) {
+                wsRef.current.send(JSON.stringify({ type: "quit_match", slot: mySlot }));
+              }
+              if (!isMultiplayerGame && setScreenAction) setScreenAction("home");
+            }}
+            onCancelAction={() => {
+              playClickAction?.();
+              pausedRef.current = false;
+              setShowSurrender(false);
+            }}
+            playHoverAction={playHoverAction}
+          />
+        )}
         <style>{`
         @keyframes levelUpPulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.05);opacity:0.9}}
       `}</style>
@@ -3865,12 +3909,31 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
             onDismissSheetAction={rulesShowSheet === "protocolbreaker" ? () => setRulesShowSheet(null) : undefined}
           />
         )}
+        {activePhasePath === "rulesshow" && rulesShowSheet !== null && (
+          <SurrenderModal
+            show={showSurrender}
+            t={sidebarT}
+            ip={ip}
+            isRankedGame={isRankedGame}
+            variant={surrenderModalVariant}
+            onConfirmAction={() => {
+              setShowSurrender(false);
+              if (isMultiplayerGame && wsRef.current?.readyState === WebSocket.OPEN) {
+                wsRef.current.send(JSON.stringify({ type: "quit_match", slot: mySlot }));
+              }
+              if (!isMultiplayerGame && setScreenAction) setScreenAction("home");
+            }}
+            onCancelAction={() => {
+              playClickAction?.();
+              pausedRef.current = false;
+              setShowSurrender(false);
+            }}
+            playHoverAction={playHoverAction}
+          />
+        )}
       </div>
     );
   }
-
-  const surrenderModalVariant =
-    isRankedGame && gameNumber === 1 && movesPlayed === 0 ? "abort" : "forfeit";
 
   // ── MOBILE LAYOUT ─────────────────────────────────────────────────────────
   if (isMobile) {

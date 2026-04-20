@@ -975,21 +975,21 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
           <div style={{ fontFamily:t.fontMono, fontSize:13, color:t.text, letterSpacing:"0.15em", marginBottom:12, fontWeight:600 }}>DISPLAY</div>
           <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:12, flexWrap:"wrap" }}>
             <div>
-              <div style={{ fontFamily:t.fontDisplay, fontSize:14, fontWeight:700, color:t.text, marginBottom:3 }}>Banner shine</div>
-              <div style={{ fontFamily:t.fontBody, fontSize:12, color:t.textMuted }}>Diagonal highlight on profile, career, match-found, and in-match banners.</div>
+              <div style={{ fontFamily:t.fontDisplay, fontSize:16, fontWeight:700, color:t.text, marginBottom:3 }}>Banner shine</div>
+              <div style={{ fontFamily:t.fontBody, fontSize:14, color:t.textMuted }}>Diagonal highlight on profile, career, match-found, and in-match banners.</div>
             </div>
             <button
               type="button"
               onClick={() => { onClickAction?.(); saveBannerShineEnabled(!bannerShineEnabled); }}
               style={{
                 padding:"10px 18px",
-                borderRadius:8,
+                borderRadius:10,
                 border:`2px solid ${bannerShineEnabled ? t.accent : t.border}`,
                 background: bannerShineEnabled ? `${t.accent}22` : "transparent",
                 color: bannerShineEnabled ? t.accent : t.textMuted,
                 fontFamily:t.fontDisplay,
-                fontSize:12,
-                fontWeight:800,
+                fontSize:14,
+                fontWeight:900,
                 cursor:"pointer",
                 flexShrink:0,
                 letterSpacing:"0.06em",
@@ -1079,8 +1079,8 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
           style={{ display:"flex", alignItems:"center", justifyContent:"space-between", cursor:"pointer", userSelect:"none" }}
         >
           <div>
-            <div style={{ fontFamily:t.fontMono, fontSize:13, color:t.danger, letterSpacing:"0.15em", fontWeight:600 }}>DANGER ZONE</div>
-            <div style={{ fontFamily:t.fontBody, fontSize:12, color:t.textMuted, marginTop:3 }}>Permanently delete your account and all associated data</div>
+            <div style={{ fontFamily:t.fontMono, fontSize:18, color:t.danger, letterSpacing:"0.15em", fontWeight:1000 }}>DANGER ZONE</div>
+            <div style={{ fontFamily:t.fontBody, fontSize:14, color:t.danger, marginTop:3 }}>Permanently delete your account and all associated data</div>
           </div>
           <div style={{ fontFamily:t.fontMono, fontSize:16, color:t.textMuted, transition:"transform 0.2s", transform: showDeleteZone ? "rotate(180deg)" : "rotate(0)" }}>▾</div>
         </div>
