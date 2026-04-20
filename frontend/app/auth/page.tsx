@@ -1,6 +1,6 @@
 "use client";
 import { useEffect } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useApp } from "@/components/AppShell";
 import AuthScreen from "@/components/AuthScreen";
 import { useAuthStore } from "@/lib/store";
@@ -15,13 +15,21 @@ export default function AuthPage() {
   const { token, appReady, navigate, themeId } = useApp();
   const router = useRouter();
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const user = useAuthStore((s) => s.user);
 
   useEffect(() => {
-    if (!appReady || !token || pathname !== "/auth") return;
+    if (!appReady || !token) return;
+    const isAuthEntry = pathname === "/auth" || pathname === "/";
+    if (!isAuthEntry) return;
     const uid = getUserId(user);
+    const nextRaw = searchParams?.get("next") || "";
+    const nextPath =
+      nextRaw.startsWith("/") && !nextRaw.startsWith("/auth")
+        ? nextRaw
+        : "/home";
     if (!uid) {
-      router.replace("/home");
+      router.replace(nextPath);
       return;
     }
     try {
@@ -30,8 +38,8 @@ export default function AuthPage() {
     } catch {
       /* sessionStorage blocked */
     }
-    router.replace("/home");
-  }, [appReady, token, router, pathname, user]);
+    router.replace(nextPath);
+  }, [appReady, token, router, pathname, user, searchParams]);
 
   if (!appReady) return null;
   if (token) {
