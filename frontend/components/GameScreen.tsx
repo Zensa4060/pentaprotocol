@@ -3704,11 +3704,14 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     ) : null;
 
   const surrenderModalVariant =
-    isMultiplayerGame && gameNumber === 1 && movesPlayed === 0 ? "abort" : "forfeit";
+    isMultiplayerGame && rulesShowSheet != null
+      ? "abort"
+      : isMultiplayerGame && gameNumber === 1 && movesPlayed === 0
+        ? "abort"
+        : "forfeit";
 
   useEffect(() => {
     if (!isMultiplayerGame || rulesShowSheet == null) return;
-    if (gameNumber !== 1 || movesPlayed !== 0) return;
     const mark = { pp_rules_back_guard: 1 };
     window.history.pushState(mark, "", window.location.href);
     const onPopState = () => {
@@ -3717,7 +3720,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     };
     window.addEventListener("popstate", onPopState);
     return () => window.removeEventListener("popstate", onPopState);
-  }, [isMultiplayerGame, rulesShowSheet, gameNumber, movesPlayed]);
+  }, [isMultiplayerGame, rulesShowSheet]);
 
   if (blockMultiRulesOrLevelUp) {
     const shellBg = t.bg;
