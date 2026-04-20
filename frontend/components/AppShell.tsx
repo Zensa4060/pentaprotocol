@@ -941,7 +941,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
       // re-appearing before rules-show. Routing directly to
       // `/rulesshow/{id}` removes the double-hop entirely, so the visible
       // transition is exactly: /play/matchfound → /rulesshow/{id}.
-      const nextUrl = bootstrap ? buildRulesShowUrl(id) : buildGameUrl(bm, id);
+      const nextUrl = bootstrap ? buildRulesShowUrl(id) : buildGameUrl(bm);
       router.push(nextUrl);
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
