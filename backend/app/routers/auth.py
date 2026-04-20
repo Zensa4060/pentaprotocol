@@ -56,14 +56,13 @@ def _fingerprint_from_request(request: Request) -> str:
 
 
 def _user_needs_policy_gate(user: dict) -> bool:
-    """True iff this user must re-accept the legal bundle before gameplay."""
-    if not user.get("legal_accepted", False):
-        return True
-    try:
-        accepted_v = int(user.get("legal_accepted_version", 0) or 0)
-    except Exception:
-        accepted_v = 0
-    return accepted_v < CURRENT_LEGAL_VERSION
+    """True iff this user must accept the legal bundle before gameplay.
+
+    Only accounts that have *never* accepted (`legal_accepted` false) are
+    gated. Existing players who already accepted an earlier policy bundle are
+    not forced through the modal again on version bumps.
+    """
+    return not _safe_bool(user.get("legal_accepted"), False)
 
 
 def _totp_account_label(user: dict) -> str:
@@ -490,18 +489,7 @@ async def google_auth(data: GoogleAuthRequest, request: Request):
             await db.users.update_one({"_id": user["_id"]}, {"$set": {"avatar": picture_url}})
             user = await db.users.find_one({"_id": user["_id"]}) or user
 
-    # Check if policy gate is required (version-aware — any policy bump forces
-    # a re-accept for existing users).
     requires_policy_gate = _user_needs_policy_gate(user)
-    if not requires_policy_gate:
-        # Belt-and-braces: confirm the legal_acceptances row exists for the
-        # CURRENT version. If the user doc says accepted=true@v2 but the row
-        # is gone (e.g. pruned), force re-accept.
-        acceptance = await db.legal_acceptances.find_one(
-            {"user_id": str(user["_id"]), "version": CURRENT_LEGAL_VERSION},
-        )
-        if not acceptance:
-            requires_policy_gate = True
 
     # Phase 2.7 — enforce admin-issued hard ban on the Google login path too.
     bu = user.get("banned_until")

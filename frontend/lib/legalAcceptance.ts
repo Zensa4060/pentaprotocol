@@ -31,18 +31,10 @@ export function hasAcceptedLegal(
   user?: { legal_accepted?: boolean; legal_accepted_version?: number } | null,
 ): boolean {
   if (!userId) return false;
-  // If the backend reports acceptance at the CURRENT version, trust it — this
-  // survives a fresh install / cleared storage on a different device.
-  if (
-    user?.legal_accepted === true &&
-    typeof user.legal_accepted_version === "number" &&
-    user.legal_accepted_version >= LEGAL_VERSION
-  ) {
-    return true;
-  }
-  // If the backend still reports the boolean without a version (legacy users
-  // who accepted v1), fall back to the local device record. This forces a
-  // re-accept on a policy bump while not locking out brand-new accounts.
+  // Server says they already accepted — trust it for any version (existing
+  // accounts are not re-prompted on policy bumps).
+  if (user?.legal_accepted === true) return true;
+  // Device record before /me refresh (e.g. right after accept-legal).
   const rec = readLegalAcceptance();
   return rec?.userId === userId && rec.v === LEGAL_VERSION;
 }
