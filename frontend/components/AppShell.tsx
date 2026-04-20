@@ -660,6 +660,44 @@ export default function AppShell({ children }: { children: ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [audio, isStaticSilentPage]);
 
+  /* ── Recover from stale-chunk deploy mismatch ─────────────────────────── */
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const RELOAD_FLAG = "pp_chunk_reload_once";
+    const shouldRecover = (value: unknown): boolean => {
+      const msg = String(value ?? "");
+      return (
+        msg.includes("ChunkLoadError") ||
+        msg.includes("Loading chunk") ||
+        msg.includes("Failed to fetch dynamically imported module")
+      );
+    };
+    const reloadOnce = () => {
+      if (sessionStorage.getItem(RELOAD_FLAG) === "1") return;
+      sessionStorage.setItem(RELOAD_FLAG, "1");
+      window.location.reload();
+    };
+
+    const onError = (e: ErrorEvent) => {
+      if (shouldRecover(e.message) || shouldRecover((e as any).error?.message)) {
+        reloadOnce();
+      }
+    };
+    const onUnhandled = (e: PromiseRejectionEvent) => {
+      const reason = (e as any).reason;
+      if (shouldRecover(reason?.message ?? reason)) {
+        reloadOnce();
+      }
+    };
+
+    window.addEventListener("error", onError);
+    window.addEventListener("unhandledrejection", onUnhandled);
+    return () => {
+      window.removeEventListener("error", onError);
+      window.removeEventListener("unhandledrejection", onUnhandled);
+    };
+  }, []);
+
   /* ── BGM context switching ──────────────────────────────────────────── */
   useEffect(() => {
     if (!audioStarted) return;
