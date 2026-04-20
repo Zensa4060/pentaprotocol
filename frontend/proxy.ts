@@ -8,7 +8,7 @@ import type { NextRequest } from "next/server";
  * protected page's React Server Component payload, we check a
  * lightweight presence cookie (`pp_auth`) that the client writes
  * whenever a valid JWT is saved to localStorage. If the cookie is
- * missing or expired, the user is redirected to /auth.
+ * missing or expired, the user is redirected to /login.
  *
  * This is **defense in depth only**. The cookie is NOT the auth
  * credential — it only stores the token's expiry timestamp. Actual
@@ -44,10 +44,10 @@ const PROTECTED_PREFIXES = [
   "/patchnotes",
 ];
 
-// Public surface: /auth (login/register), legal pages, static assets,
+// Public surface: /login (login/register), legal pages, static assets,
 // cookie notice, root marketing page. Anything not explicitly in
 // PROTECTED_PREFIXES falls through untouched.
-const AUTH_PATH = "/auth";
+const AUTH_PATH = "/login";
 const COOKIE_NAME = "pp_auth";
 
 function isProtected(pathname: string): boolean {
@@ -64,7 +64,7 @@ export function proxy(req: NextRequest) {
   const cookie = req.cookies.get(COOKIE_NAME)?.value;
   const expiryMs = cookie ? Number(cookie) : 0;
 
-  // Missing, malformed, or expired cookie → bounce to /auth with a
+  // Missing, malformed, or expired cookie → bounce to /login with a
   // `next` param so we can return the user where they tried to go.
   if (!expiryMs || Number.isNaN(expiryMs) || expiryMs < Date.now()) {
     const url = req.nextUrl.clone();

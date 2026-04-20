@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useApp } from "./AppShell";
 
 /**
- * Wrap a page component to redirect guests (no token) to /auth.
+ * Wrap a page component to redirect guests (no token) to /login.
  * Renders children only when the user is authenticated.
  */
 export default function AuthGuard({ children }: { children: React.ReactNode }) {
@@ -12,7 +12,7 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
   const router = useRouter();
 
   useEffect(() => {
-    if (appReady && !token) router.replace("/auth");
+    if (appReady && !token) router.replace("/login");
   }, [appReady, token, router]);
 
   if (!appReady || !token) return null;

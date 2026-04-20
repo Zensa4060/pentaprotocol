@@ -334,8 +334,8 @@ export default function AppShell({ children }: { children: ReactNode }) {
     }
 
     if (!tok) {
-      if (pathname !== "/auth" && pathname !== "/") {
-        router.replace("/auth");
+      if (pathname !== ROUTES.AUTH && pathname !== "/auth") {
+        router.replace(ROUTES.AUTH);
       }
       setAppReady(true);
       return;
@@ -361,7 +361,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
 
     const tok = useAuthStore.getState().token;
     if (!tok) {
-      if (pathname !== "/auth" && pathname !== "/") router.replace("/auth");
+      if (pathname !== ROUTES.AUTH && pathname !== "/auth") router.replace(ROUTES.AUTH);
       setAppReady(true);
       return;
     }
@@ -389,7 +389,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
         if (restore.multiPlayerSlot) setMultiPlayerSlot(restore.multiPlayerSlot);
         setIsRanked(restore.isRanked);
 
-        if (pathname === "/" || pathname === "/auth") {
+        if (pathname === "/" || pathname === ROUTES.AUTH || pathname === "/auth") {
           router.replace("/home");
         }
         setAppReady(true);
@@ -397,7 +397,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
       .catch((err: any) => {
         const status = err?.response?.status;
         if (status === 404 || status === 401) useAuthStore.getState().logout();
-        router.replace("/auth");
+        router.replace(ROUTES.AUTH);
         setAppReady(true);
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -493,13 +493,13 @@ export default function AppShell({ children }: { children: ReactNode }) {
   /* ── Token-cleared guard ────────────────────────────────────────────── */
   useEffect(() => {
     if (!appReady) return;
-    if (!token && pathname !== "/auth" && pathname !== "/") {
+    if (!token && pathname !== ROUTES.AUTH && pathname !== "/auth") {
       setMultiRoomCode("");
       setMultiPlayerSlot(null);
       setInQueue(false);
       setQueuePhase("none");
       if (queuePollRef.current) { clearInterval(queuePollRef.current); queuePollRef.current = null; }
-      router.replace("/auth");
+      router.replace(ROUTES.AUTH);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [appReady, token]);
@@ -513,7 +513,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
       setQueuePhase("none");
       if (queuePollRef.current) { clearInterval(queuePollRef.current); queuePollRef.current = null; }
       setShowSessionReplaced(true);
-      router.replace("/auth");
+      router.replace(ROUTES.AUTH);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [logoutReason]);
@@ -1137,6 +1137,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
     pathname === ROUTES.PLAY_MATCHFOUND || isGameScreen;
 
   const showNavBar =
+    pathname !== ROUTES.AUTH &&
     pathname !== "/auth" &&
     pathname !== "/" &&
     !showPolicyGate &&
@@ -1272,7 +1273,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
                 <button
                   onClick={() => {
                     setShowGuestBlock(false);
-                    router.push("/auth");
+                    router.push(ROUTES.AUTH);
                   }}
                   style={{
                     background: t.accent,
@@ -1379,7 +1380,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
               <button
                 onClick={() => {
                   setLogoutReason(null);
-                  router.push("/auth");
+                  router.push(ROUTES.AUTH);
                 }}
                 style={{
                   background: t.accent,
@@ -1422,7 +1423,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
             onDeclinedAction={() => {
               logout();
               setShowPolicyGate(false);
-              router.push("/auth");
+              router.push(ROUTES.AUTH);
             }}
           />
         )}
@@ -1624,7 +1625,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
             graphicsQuality={graphicsQuality}
             setGraphicsQualityAction={() => {}}
             currentScreen={currentScreen}
-            onNavigateAuthAction={() => router.push("/auth")}
+            onNavigateAuthAction={() => router.push(ROUTES.AUTH)}
             suppressAccountActionsDuringMatch={suppressSettingsAccountActions}
           />
         )}
