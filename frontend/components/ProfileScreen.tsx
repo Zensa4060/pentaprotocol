@@ -8,6 +8,7 @@ import API from "@/lib/api";
 import { containsProfanity, validateUsername } from "@/lib/profanity";
 import { SHARDS_LIGHT_SVG, SHARDS_DARK_SVG, PROTO_LIGHT_SVG, PROTO_DARK_SVG } from "@/lib/currencyIcons";
 import { loadCustomTheme, saveCustomTheme } from "@/lib/customTheme";
+import { useBannerShineEnabled, saveBannerShineEnabled } from "@/lib/bannerShinePreference";
 import type { Screen } from "@/lib/types";
 import { getUserKey, loadMissionState } from "@/lib/missionsClient";
 import { computeLevelProgress } from "@/lib/xpLevel";
@@ -201,6 +202,7 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
   const t = THEMES[themeId];
   const router = useRouter();
   const { user, token, updateUser } = useAuthStore();
+  const bannerShineEnabled = useBannerShineEnabled((user as any)?.id ?? (user as any)?._id ?? null);
   const [profile, setProfile]             = useState<any>(null);
   const [missionShardBonus, setMissionShardBonus] = useState(0);
   const [loading, setLoading]             = useState(true);
@@ -757,7 +759,9 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
       <div style={{ background:t.bgPanel, border:`1px solid ${t.border}`, borderRadius:16, marginBottom:18, overflow:"hidden", position:"relative", minHeight:200 }}>
         <div style={{ position:"absolute", inset:0, zIndex:0, opacity:1.0 }}>
           <BannerRenderer bannerId={activeBanner.id} />
-          <div style={{ position:"absolute", top:0, left:"-150%", width:"200%", height:"100%", background:"linear-gradient(120deg, rgba(255,255,255,0) 30%, rgba(255,255,255,0.1) 38%, rgba(255,255,255,0.2) 40%, rgba(255,255,255,0.1) 42%, rgba(255,255,255,0) 50%)", zIndex:1, animation:"shineSweep 4s infinite linear" }} />
+          {bannerShineEnabled && (
+            <div style={{ position:"absolute", top:0, left:"-150%", width:"200%", height:"100%", background:"linear-gradient(120deg, rgba(255,255,255,0) 30%, rgba(255,255,255,0.1) 38%, rgba(255,255,255,0.2) 40%, rgba(255,255,255,0.1) 42%, rgba(255,255,255,0) 50%)", zIndex:1, animation:"shineSweep 4s infinite linear" }} />
+          )}
         </div>
         <div onClick={() => { onClickAction?.(); openEdit("banner"); }} style={{ height:100, cursor:"pointer", position:"relative", zIndex:2, overflow:"hidden" }} title="Change banner">
           <div style={{ position:"absolute", inset:0, display:"flex", alignItems:"center", justifyContent:"flex-end", padding:"0 16px", opacity:0, transition:"opacity 0.2s" }}
@@ -966,6 +970,36 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
           </div>
         </div>
 
+        <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
+        <div id="display" style={{ background:t.bgPanel, border:`1px solid ${t.border}`, borderRadius:12, padding:"16px 22px", scrollMarginTop:80 }}>
+          <div style={{ fontFamily:t.fontMono, fontSize:13, color:t.text, letterSpacing:"0.15em", marginBottom:12, fontWeight:600 }}>DISPLAY</div>
+          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", gap:12, flexWrap:"wrap" }}>
+            <div>
+              <div style={{ fontFamily:t.fontDisplay, fontSize:14, fontWeight:700, color:t.text, marginBottom:3 }}>Banner shine</div>
+              <div style={{ fontFamily:t.fontBody, fontSize:12, color:t.textMuted }}>Diagonal highlight on profile, career, match-found, and in-match banners.</div>
+            </div>
+            <button
+              type="button"
+              onClick={() => { onClickAction?.(); saveBannerShineEnabled(!bannerShineEnabled); }}
+              style={{
+                padding:"10px 18px",
+                borderRadius:8,
+                border:`2px solid ${bannerShineEnabled ? t.accent : t.border}`,
+                background: bannerShineEnabled ? `${t.accent}22` : "transparent",
+                color: bannerShineEnabled ? t.accent : t.textMuted,
+                fontFamily:t.fontDisplay,
+                fontSize:12,
+                fontWeight:800,
+                cursor:"pointer",
+                flexShrink:0,
+                letterSpacing:"0.06em",
+              }}
+            >
+              {bannerShineEnabled ? "ON" : "OFF"}
+            </button>
+          </div>
+        </div>
+
         <div id="security" style={{ background:t.bgPanel, border:`1px solid ${t.border}`, borderRadius:12, padding:"16px 22px", scrollMarginTop:80 }}>
           <div style={{ fontFamily:t.fontMono, fontSize:13, color:t.text, letterSpacing:"0.15em", marginBottom:12, fontWeight:600 }}>SECURITY</div>
           <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:14 }}>
@@ -1034,6 +1068,7 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
               Change Email
             </button>
           </div>
+        </div>
         </div>
       </div>
 

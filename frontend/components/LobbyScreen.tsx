@@ -14,6 +14,11 @@ import {
   LOBBY_QUOTE_REFRESH_EVENT,
   type LobbyQuoteRefreshDetail,
 } from "@/lib/lobbyTauntQuote";
+import { loadCustomTheme } from "@/lib/customTheme";
+import { getMatchFoundPalette, resolveMatchFoundSkin } from "@/lib/matchFoundVisual";
+import { useBannerShineEnabled } from "@/lib/bannerShinePreference";
+import { BannerRenderer } from "./BannerRenderer";
+import MatchFoundSketchVS from "./MatchFoundSketchVS";
 
 function parseRankedBanEndMs(user: { ranked_ban_until?: string | null } | null | undefined): number | null {
   const raw = user?.ranked_ban_until;
@@ -80,6 +85,7 @@ export default function LobbyScreen({
   const ip = themeId === "pixel";
   const router = useRouter();
   const { user, token, refreshProfile } = useAuthStore();
+  const bannerShineEnabled = useBannerShineEnabled((user as any)?.id ?? (user as any)?._id ?? null);
   const rank = getRank(user?.elo ?? 0);
   const isPlacement = (user as any)?.placement_matches < 5;
   const placementCol = "#FF33FF";
@@ -308,251 +314,6 @@ export default function LobbyScreen({
     }
   };
 
-  /** Sumi-e "VS" — direct port of the canvas animation provided by the user.
-   *  A single 820×480 canvas renders:
-   *    • V as two tapered brush strokes (left + right arm)
-   *    • S as three continuous brush strokes (top, middle, bottom)
-   *    • A handful of small ink drips with teardrop tips
-   *    • A 対決印 ("VS seal") square that pops in with a back-ease
-   *  Everything is painted in pure ink (#080604) with round joins/caps so the
-   *  letters look hand-painted against the cream match-found backdrop. The
-   *  canvas's internal logical size stays at 820×480; display size is driven
-   *  by the `size` prop and preserves aspect ratio. */
-  const SketchVS = React.memo(({ size }: { size: number }) => {
-    const canvasRef = useRef<HTMLCanvasElement | null>(null);
-
-    useEffect(() => {
-      const canvas = canvasRef.current;
-      if (!canvas) return;
-      const ctx = canvas.getContext("2d");
-      if (!ctx) return;
-
-      const W = 820;
-      const H = 480;
-      const BLACK = "#080604";
-      const dpr = typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1;
-
-      canvas.width = W * dpr;
-      canvas.height = H * dpr;
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-
-      const easeOut3 = (t: number) => 1 - Math.pow(1 - t, 3);
-      const easeInOut = (t: number) =>
-        t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
-      const easeOutBack = (t: number) => {
-        const c = 1.70158;
-        const c3 = c + 1;
-        return 1 + c3 * Math.pow(t - 1, 3) + c * Math.pow(t - 1, 2);
-      };
-
-      const cubic = (
-        p0: [number, number],
-        p1: [number, number],
-        p2: [number, number],
-        p3: [number, number],
-        n: number,
-      ): [number, number][] => {
-        const out: [number, number][] = [];
-        for (let i = 0; i <= n; i++) {
-          const t = i / n;
-          const mt = 1 - t;
-          out.push([
-            mt * mt * mt * p0[0] + 3 * mt * mt * t * p1[0] + 3 * mt * t * t * p2[0] + t * t * t * p3[0],
-            mt * mt * mt * p0[1] + 3 * mt * mt * t * p1[1] + 3 * mt * t * t * p2[1] + t * t * t * p3[1],
-          ]);
-        }
-        return out;
-      };
-
-      const drawStroke = (
-        pts: [number, number][],
-        widths: number[],
-        progress: number,
-      ) => {
-        if (pts.length < 2 || progress <= 0) return;
-        const n = Math.max(2, Math.floor(pts.length * progress));
-        const p = pts.slice(0, n);
-        const w = widths.slice(0, n);
-
-        ctx.lineCap = "round";
-        ctx.lineJoin = "round";
-        ctx.strokeStyle = BLACK;
-        ctx.fillStyle = BLACK;
-        ctx.globalAlpha = 0.97;
-        for (let i = 1; i < p.length; i++) {
-          const ww = (w[i - 1] + w[i]) * 0.5;
-          ctx.lineWidth = ww;
-          ctx.beginPath();
-          ctx.moveTo(p[i - 1][0], p[i - 1][1]);
-          ctx.lineTo(p[i][0], p[i][1]);
-          ctx.stroke();
-        }
-      };
-
-      const drips = [
-        { x: 142, y: 310, delay: 1100, dur: 900, len: 28, w: 3.5 },
-        { x: 236, y: 298, delay: 1300, dur: 800, len: 18, w: 2.5 },
-        { x: 190, y: 348, delay: 1500, dur: 700, len: 22, w: 3.0 },
-        { x: 582, y: 285, delay: 1200, dur: 850, len: 20, w: 2.8 },
-        { x: 528, y: 272, delay: 1600, dur: 750, len: 15, w: 2.2 },
-      ];
-
-      const drawDrips = (elapsed: number) => {
-        ctx.save();
-        ctx.fillStyle = BLACK;
-        ctx.strokeStyle = BLACK;
-        ctx.lineCap = "round";
-        drips.forEach((d) => {
-          if (elapsed < d.delay) return;
-          const t = Math.min(1, (elapsed - d.delay) / d.dur);
-          const len = d.len * easeOut3(t);
-          ctx.globalAlpha = 0.72;
-          ctx.lineWidth = d.w;
-          ctx.beginPath();
-          ctx.moveTo(d.x, d.y);
-          ctx.lineTo(d.x, d.y + len);
-          ctx.stroke();
-          const bulb = d.w * 0.9;
-          ctx.globalAlpha = 0.78;
-          ctx.beginPath();
-          ctx.arc(d.x, d.y + len, bulb, 0, Math.PI * 2);
-          ctx.fill();
-        });
-        ctx.restore();
-      };
-
-      // ── V geometry (two tapered arms meeting at the bottom) ───────────────
-      const vLP = cubic([108, 62], [132, 168], [172, 278], [190, 348], 46);
-      const vLW = vLP.map((_, i) => {
-        const t = i / 46;
-        return 74 * (1 - t * 0.63) + 18;
-      });
-      const vRP = cubic([328, 62], [302, 168], [232, 278], [190, 348], 46);
-      const vRW = vRP.map((_, i) => {
-        const t = i / 46;
-        return 74 * (1 - t * 0.63) + 18;
-      });
-
-      // ── S geometry (three brush strokes in one continuous motion) ─────────
-      const OX = 182;
-      const OY = 25;
-      const sTP = cubic([462, 102], [470, 54], [336, 44], [316, 98], 40).map(
-        ([x, y]) => [x + OX, y + OY] as [number, number],
-      );
-      const sTW = sTP.map((_, i) => {
-        const t = i / 40;
-        return 62 * (1 - Math.abs(t - 0.5) * 0.92) + 16;
-      });
-      const sMP = cubic([316, 98], [306, 148], [416, 163], [455, 210], 28).map(
-        ([x, y]) => [x + OX, y + OY] as [number, number],
-      );
-      const sMW = sMP.map((_, i) => {
-        const t = i / 28;
-        return 24 + t * 32;
-      });
-      const sBP = cubic([455, 210], [472, 258], [332, 302], [302, 260], 40).map(
-        ([x, y]) => [x + OX, y + OY] as [number, number],
-      );
-      const sBW = sBP.map((_, i) => {
-        const t = i / 40;
-        return 62 * (1 - Math.abs(t - 0.5) * 0.92) + 16;
-      });
-
-      // ── Seal: 対決印 panel that pops in at the end ─────────────────────────
-      const drawSeal = (alpha: number, scale: number) => {
-        const sx = 664;
-        const sy = 298;
-        const sw = 78;
-        const sh = 78;
-        ctx.save();
-        ctx.globalAlpha = alpha;
-        ctx.translate(sx + sw / 2, sy + sh / 2);
-        ctx.scale(scale, scale);
-        ctx.translate(-(sx + sw / 2), -(sy + sh / 2));
-        ctx.fillStyle = BLACK;
-        // roundRect isn't available in older browsers; fall back to a regular
-        // rect so the seal still renders cleanly on any engine.
-        ctx.beginPath();
-        const rr = (ctx as any).roundRect?.bind(ctx);
-        if (rr) rr(sx, sy, sw, sh, 3);
-        else ctx.rect(sx, sy, sw, sh);
-        ctx.fill();
-        ctx.strokeStyle = "rgba(242,237,228,0.38)";
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        if (rr) rr(sx + 5, sy + 5, sw - 10, sh - 10, 2);
-        else ctx.rect(sx + 5, sy + 5, sw - 10, sh - 10);
-        ctx.stroke();
-        ctx.fillStyle = "#f2ede4";
-        ctx.font = '900 13px Georgia,serif';
-        ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
-        (
-          [
-            ["対", sy + 17],
-            ["決", sy + 39],
-            ["印", sy + 61],
-          ] as const
-        ).forEach(([ch, y]) => ctx.fillText(ch as string, sx + sw / 2, y as number));
-        ctx.restore();
-      };
-
-      // ── Animation loop ───────────────────────────────────────────────────
-      let startTime = 0;
-      let raf = 0;
-      const TOTAL = 2700;
-      const prog = (delay: number, dur: number, elapsed: number) =>
-        elapsed < delay ? 0 : easeInOut(Math.min(1, (elapsed - delay) / dur));
-
-      const frame = (ts: number) => {
-        if (!startTime) startTime = ts;
-        const el = ts - startTime;
-
-        ctx.clearRect(0, 0, W, H);
-
-        ctx.save();
-        // V and the top of S start immediately (t=0), middle S at 720ms,
-        // bottom S at 920ms — mirrors the original snippet exactly.
-        drawStroke(vLP, vLW, prog(0, 940, el));
-        drawStroke(vRP, vRW, prog(0, 940, el));
-        drawStroke(sTP, sTW, prog(0, 940, el));
-        drawStroke(sMP, sMW, prog(720, 400, el));
-        drawStroke(sBP, sBW, prog(920, 940, el));
-        ctx.restore();
-
-        drawDrips(el);
-
-        const st = Math.max(0, Math.min(1, (el - 2200) / 420));
-        if (st > 0) drawSeal(st, easeOutBack(st));
-
-        if (el < TOTAL + 400) raf = requestAnimationFrame(frame);
-      };
-
-      raf = requestAnimationFrame(frame);
-      return () => cancelAnimationFrame(raf);
-    }, []);
-
-    // Preserve the original 820:480 aspect ratio while scaling to the
-    // requested display width. The height derives from the aspect so the
-    // layout never stretches the art.
-    const displayWidth = size;
-    const displayHeight = size * (480 / 820);
-
-    return (
-      <canvas
-        ref={canvasRef}
-        aria-hidden="true"
-        style={{
-          width: displayWidth,
-          height: displayHeight,
-          display: "block",
-          filter: "drop-shadow(0 8px 14px rgba(0,0,0,0.18))",
-        }}
-      />
-    );
-  });
-  SketchVS.displayName = "SketchVS";
-
   // ── QUEUING ───────────────────────────────────────────────────────────────
   if (phase === "queuing") return (
     <div style={{ position:"fixed", inset:0, zIndex:10, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", background:t.bg, overflow:"hidden" }}>
@@ -616,6 +377,7 @@ export default function LobbyScreen({
    *  - Glow color is driven by `glowColor` (white for unranked, blood red for ranked). */
   const MatchPlayerCard = React.memo(({
     name, elo, avatar, level, glowColor, ranked, placementMatches, side,
+    cardInk, cardInkSoft, avatarInnerBg,
   }: {
     name: string;
     elo: number | null;
@@ -625,16 +387,15 @@ export default function LobbyScreen({
     ranked: boolean;
     placementMatches: number;
     side: "left" | "right";
+    cardInk: string;
+    cardInkSoft: string;
+    avatarInnerBg: string;
   }) => {
     const anim = side === "left" ? "slideInLeft" : "slideInRight";
     const avatarSize = isMobile ? 140 : 230;
     const isPlacementPlayer = ranked && placementMatches < 5;
     const displayElo = isPlacementPlayer ? "?" : (elo ?? "---");
     const rankForBadge = getRank(elo ?? 0);
-    // All page text sits on top of a cream background, so default to deep
-    // ink. The ranked accent (blood red) still comes through `glowColor`.
-    const INK = "#0A0A0A";
-    const INK_SOFT = "#3A2E22";
 
     return (
       <div
@@ -654,7 +415,7 @@ export default function LobbyScreen({
       >
         {/* Top label: ELO (ranked) or LEVEL (unranked) */}
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
-          <div style={{ fontFamily: t.fontMono, fontSize: isMobile ? 10 : 13, color: INK_SOFT, letterSpacing: "0.3em", fontWeight: 700, opacity: 0.85 }}>
+          <div style={{ fontFamily: t.fontMono, fontSize: isMobile ? 10 : 13, color: cardInkSoft, letterSpacing: "0.3em", fontWeight: 700, opacity: 0.85 }}>
             {ranked ? "ELO RATING" : "LEVEL"}
           </div>
           <div
@@ -689,7 +450,7 @@ export default function LobbyScreen({
               borderRadius: "50%",
               border: `4px solid ${glowColor}`,
               overflow: "hidden",
-              background: "#1A1410",
+              background: avatarInnerBg,
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -718,7 +479,7 @@ export default function LobbyScreen({
             fontFamily: t.fontDisplay,
             fontSize: isMobile ? 18 : 30,
             fontWeight: 900,
-            color: INK,
+            color: cardInk,
             letterSpacing: "0.1em",
             textTransform: "uppercase" as const,
             wordBreak: "break-word" as const,
@@ -754,16 +515,71 @@ export default function LobbyScreen({
 
   // ── MATCHUP ───────────────────────────────────────────────────────────────
   if (phase === "matchup") {
-    // Cream "canvas" background so the black paint-brush VS pops.
-    // Ranked keeps a blood-red accent; unranked uses deep charcoal (white
-    // was illegible on cream).
-    const CREAM = "#EFE5CF";
-    const CREAM_DEEP = "#E4D6B7";
-    const INK = "#0A0A0A";
-    const BLOOD = "#B31919";
-    const glow = isRanked ? BLOOD : INK;
+    const mfSkin = resolveMatchFoundSkin(themeId);
+    const pal = getMatchFoundPalette(mfSkin);
+    const glow = isRanked ? pal.rankedAccent : pal.unrankedAccent;
     const headerCopy = isRanked ? "RANKED · FIRST TO 5 POINTS" : "UNRANKED · FIRST TO 5 POINTS";
     const vsSize = isMobile ? 220 : 380;
+    const vsH = vsSize * (480 / 820);
+    const bannerW = isMobile ? Math.min(168, Math.floor(vsSize * 0.5)) : 178;
+    const ct = loadCustomTheme();
+    const myMatchBanner = String((user as any)?.banner || ct.bannerSkin || "default");
+    const oppMatchBanner = String(propMatchupOpponent?.banner || "default");
+    const barTrack = mfSkin === "classic_light" ? "rgba(0,0,0,0.14)" : "rgba(255,255,255,0.12)";
+
+    const MatchBannerShowcase = ({
+      bannerId,
+      side,
+    }: {
+      bannerId: string;
+      side: "left" | "right";
+    }) => (
+      <div
+        style={{
+          width: bannerW,
+          height: vsH,
+          position: "relative",
+          borderRadius: ip ? 2 : 12,
+          overflow: "hidden",
+          border: `1px solid ${glow}55`,
+          flexShrink: 0,
+          boxShadow: `0 10px 32px rgba(0,0,0,0.35)`,
+          background: pal.avatarInnerBg,
+        }}
+      >
+        <div style={{ position: "absolute", inset: 0, opacity: 1, zIndex: 0 }}>
+          <BannerRenderer bannerId={bannerId} hideLabels />
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              background:
+                side === "left"
+                  ? "linear-gradient(to right, rgba(0,0,0,0.72) 0%, rgba(0,0,0,0.15) 55%, transparent 100%)"
+                  : "linear-gradient(to left, rgba(0,0,0,0.72) 0%, rgba(0,0,0,0.15) 55%, transparent 100%)",
+              zIndex: 1,
+              pointerEvents: "none",
+            }}
+          />
+          {bannerShineEnabled && (
+            <div
+              style={{
+                position: "absolute",
+                top: 0,
+                left: "-150%",
+                width: "200%",
+                height: "100%",
+                background:
+                  "linear-gradient(120deg, rgba(255,255,255,0) 30%, rgba(255,255,255,0.1) 38%, rgba(255,255,255,0.22) 40%, rgba(255,255,255,0.1) 42%, rgba(255,255,255,0) 50%)",
+                zIndex: 2,
+                animation: "matchFoundShine 4s infinite linear",
+                pointerEvents: "none",
+              }}
+            />
+          )}
+        </div>
+      </div>
+    );
 
     return (
       <div
@@ -775,26 +591,24 @@ export default function LobbyScreen({
           flexDirection: "column",
           alignItems: "center",
           justifyContent: "center",
-          background: `radial-gradient(ellipse at 50% 40%, ${CREAM} 0%, ${CREAM_DEEP} 85%)`,
+          background: `radial-gradient(ellipse at 50% 40%, ${pal.pageBg} 0%, ${pal.pageBgOuter} 88%)`,
           overflow: "hidden",
         }}
       >
-        {/* Faint paper-texture grid so the cream backdrop does not read flat */}
         <div
           style={{
             position: "absolute",
             inset: 0,
-            opacity: 0.12,
+            opacity: 0.14,
             backgroundImage:
-              `linear-gradient(rgba(60,40,20,0.18) 1px, transparent 1px), ` +
-              `linear-gradient(90deg, rgba(60,40,20,0.18) 1px, transparent 1px)`,
+              `linear-gradient(${pal.gridLine} 1px, transparent 1px), ` +
+              `linear-gradient(90deg, ${pal.gridLine} 1px, transparent 1px)`,
             backgroundSize: "80px 80px",
             pointerEvents: "none",
             zIndex: 0,
           }}
         />
 
-        {/* Header copy */}
         <div
           style={{
             position: "absolute",
@@ -813,19 +627,18 @@ export default function LobbyScreen({
           {headerCopy}
         </div>
 
-        {/* Main horizontal row: YOU | VS | OPPONENT */}
         <div
           style={{
             position: "relative",
             zIndex: 2,
             width: "100%",
-            maxWidth: 1400,
+            maxWidth: 1480,
             display: "flex",
             flexDirection: isMobile ? "column" : "row",
             alignItems: "center",
             justifyContent: "center",
-            gap: isMobile ? 6 : 24,
-            padding: isMobile ? "60px 16px 80px" : "40px 40px",
+            gap: isMobile ? 14 : 20,
+            padding: isMobile ? "60px 16px 80px" : "40px 28px",
             boxSizing: "border-box",
           }}
         >
@@ -838,18 +651,31 @@ export default function LobbyScreen({
             ranked={isRanked}
             placementMatches={Number((user as any)?.placement_matches ?? 0)}
             side="left"
+            cardInk={pal.cardInk}
+            cardInkSoft={pal.cardInkSoft}
+            avatarInnerBg={pal.avatarInnerBg}
           />
 
           <div
             style={{
-              flex: isMobile ? "0 0 auto" : "0 0 auto",
               display: "flex",
+              flexDirection: isMobile ? "row" : "row",
               alignItems: "center",
               justifyContent: "center",
-              padding: isMobile ? "6px 0" : "0 12px",
+              gap: isMobile ? 8 : 14,
+              flexWrap: "wrap",
             }}
           >
-            <SketchVS size={vsSize} />
+            <MatchBannerShowcase bannerId={myMatchBanner} side="left" />
+            <MatchFoundSketchVS
+              size={vsSize}
+              ink={pal.vsInk}
+              sealBg={pal.sealBg}
+              sealStroke={pal.sealStroke}
+              sealText={pal.sealText}
+              dropShadow={pal.vsDropShadow}
+            />
+            <MatchBannerShowcase bannerId={oppMatchBanner} side="right" />
           </div>
 
           <MatchPlayerCard
@@ -861,10 +687,12 @@ export default function LobbyScreen({
             ranked={isRanked}
             placementMatches={Number(propMatchupOpponent?.placement_matches ?? 0)}
             side="right"
+            cardInk={pal.cardInk}
+            cardInkSoft={pal.cardInkSoft}
+            avatarInnerBg={pal.avatarInnerBg}
           />
         </div>
 
-        {/* Countdown bar + "MATCH STARTING" */}
         <div
           style={{
             position: "absolute",
@@ -878,7 +706,7 @@ export default function LobbyScreen({
           <div
             style={{
               height: 4,
-              background: `rgba(0,0,0,0.12)`,
+              background: barTrack,
               borderRadius: 2,
               overflow: "hidden",
               maxWidth: 360,
@@ -916,6 +744,7 @@ export default function LobbyScreen({
           @keyframes slideInLeft    { from{opacity:0;transform:translate3d(-80px,0,0) scale(.94)} to{opacity:1;transform:translate3d(0,0,0) scale(1)} }
           @keyframes slideInRight   { from{opacity:0;transform:translate3d(80px,0,0)  scale(.94)} to{opacity:1;transform:translate3d(0,0,0) scale(1)} }
           @keyframes matchBarShrink { from{width:100%} to{width:0%} }
+          @keyframes matchFoundShine { from { transform: translateX(-50%); } to { transform: translateX(100%); } }
         `}</style>
       </div>
     );

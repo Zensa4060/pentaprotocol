@@ -6,6 +6,7 @@ import { THEMES } from "@/lib/themes";
 import { useAuthStore } from "@/lib/store";
 import API from "@/lib/api";
 import { loadCustomTheme } from "@/lib/customTheme";
+import { useBannerShineEnabled } from "@/lib/bannerShinePreference";
 import { BannerRenderer } from "./BannerRenderer";
 import { RANKS, getRank, NavRankBadge, rankGlowVisualStrength, buildRankEmblemGlowFilter, rankHaloGradientForRank } from "./NavBar";
 import React from "react";
@@ -457,6 +458,7 @@ export default function CareerScreen({ themeId, onHoverAction, initialMatchId }:
   const router = useRouter();
   const t = THEMES[themeId as keyof typeof THEMES];
   const { user } = useAuthStore();
+  const bannerShineEnabled = useBannerShineEnabled((user as any)?.id ?? (user as any)?._id ?? null);
   const ip = themeId === "pixel";
 
   const elo = user?.elo ?? 100;
@@ -657,19 +659,21 @@ export default function CareerScreen({ themeId, onHoverAction, initialMatchId }:
             >
               <div style={{ position: "absolute", inset: 0, opacity: 1.0, zIndex: 0 }}>
                 <BannerRenderer bannerId={loadCustomTheme().bannerSkin ?? "default"} />
-                <div
-                  style={{
-                    position: "absolute",
-                    top: 0,
-                    left: "-150%",
-                    width: "200%",
-                    height: "100%",
-                    background:
-                      "linear-gradient(120deg, rgba(255,255,255,0) 30%, rgba(255,255,255,0.1) 38%, rgba(255,255,255,0.2) 40%, rgba(255,255,255,0.1) 42%, rgba(255,255,255,0) 50%)",
-                    zIndex: 1,
-                    animation: "shineSweep 4s infinite linear",
-                  }}
-                />
+                {bannerShineEnabled && (
+                  <div
+                    style={{
+                      position: "absolute",
+                      top: 0,
+                      left: "-150%",
+                      width: "200%",
+                      height: "100%",
+                      background:
+                        "linear-gradient(120deg, rgba(255,255,255,0) 30%, rgba(255,255,255,0.1) 38%, rgba(255,255,255,0.2) 40%, rgba(255,255,255,0.1) 42%, rgba(255,255,255,0) 50%)",
+                      zIndex: 1,
+                      animation: "shineSweep 4s infinite linear",
+                    }}
+                  />
+                )}
               </div>
 
               <style>{`

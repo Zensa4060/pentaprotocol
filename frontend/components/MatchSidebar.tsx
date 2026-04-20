@@ -6,6 +6,8 @@ import type { Phase } from "./GamePieces";
 import type { Screen } from "@/lib/types";
 import BloodMoonBanner from "./BloodMoonBanner";
 import { BannerRenderer, BANNERS_DATA } from "./BannerRenderer";
+import { useBannerShineEnabled } from "@/lib/bannerShinePreference";
+import { useAuthStore } from "@/lib/store";
 
 function barsToColor(bars: number): string {
   if (bars >= 3) return "#22c55e";
@@ -196,6 +198,9 @@ export function LeftPanel(props: MatchSidebarProps) {
     interGameReadyVisible, waitingReadyWarmup,
     showPatternOverlay, onTogglePatternOverlay } = props;
 
+  const accountId = useAuthStore((s) => (s.user as any)?.id ?? (s.user as any)?._id ?? null);
+  const bannerShineEnabled = useBannerShineEnabled(accountId);
+
   const getName = (w: string | null) => winnerDisplayNameAction ? winnerDisplayNameAction(w) : (w ?? "");
   const showInterGameReady = interGameReadyVisible ?? (phase === "waiting_ready");
   const showWaitingReadyWarmup = Boolean(waitingReadyWarmup);
@@ -320,6 +325,23 @@ export function LeftPanel(props: MatchSidebarProps) {
               background: "linear-gradient(to right, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0.4) 50%, rgba(0,0,0,0.8) 100%)", 
               zIndex: 1 
             }} />
+            {bannerShineEnabled && (
+              <div
+                aria-hidden
+                style={{
+                  position: "absolute",
+                  top: 0,
+                  left: "-150%",
+                  width: "200%",
+                  height: "100%",
+                  background:
+                    "linear-gradient(120deg, rgba(255,255,255,0) 30%, rgba(255,255,255,0.08) 38%, rgba(255,255,255,0.16) 40%, rgba(255,255,255,0.08) 42%, rgba(255,255,255,0) 50%)",
+                  zIndex: 2,
+                  animation: "matchSidebarBannerShine 4s infinite linear",
+                  pointerEvents: "none",
+                }}
+              />
+            )}
           </div>
           <div style={{ position: "relative", zIndex: 2, padding: isShorter ? "8px 10px" : "12px 14px", background: isCurrentMover ? `${p === "P1" ? p1c : p2c}33` : "transparent", display: "flex", justifyContent: "space-between", alignItems: "center", transition: "background 0.25s" }}>
           <span style={{ fontFamily: t.fontDisplay, fontSize: 13, color: p === "P1" ? p1c : p2c, fontWeight: 800, display: "flex", alignItems: "center", gap: 6, letterSpacing: "0.05em", textShadow: `0 2px 4px rgba(0,0,0,0.8)` }}>
@@ -529,6 +551,7 @@ export function LeftPanel(props: MatchSidebarProps) {
       )}
       {/* SURRENDER / RESET moved to RightPanel so the left panel's CHAT area is free to
           expand and keep its close/toggle control visible. */}
+      <style>{`@keyframes matchSidebarBannerShine { from { transform: translateX(-50%); } to { transform: translateX(100%); } }`}</style>
     </div>
   );
 }

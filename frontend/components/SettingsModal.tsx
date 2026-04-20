@@ -2,6 +2,7 @@
 import type { ThemeId } from "@/lib/themes";
 import { THEMES } from "@/lib/themes";
 import { useAuthStore } from "@/lib/store";
+import { useBannerShineEnabled, saveBannerShineEnabled } from "@/lib/bannerShinePreference";
 import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 
@@ -31,6 +32,7 @@ export default function SettingsModal({ onCloseAction, themeId, setThemeIdAction
   const t = THEMES[themeId];
   const { musicVol, setMusicVol, sfxVol, setSfxVol, muted, toggleMute } = audio;
   const { user, logout } = useAuthStore();
+  const bannerShineEnabled = useBannerShineEnabled((user as any)?.id ?? (user as any)?._id ?? null);
   const router = useRouter();
   const [focusMode, setFocusMode] = useState(false);
   const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
@@ -168,6 +170,34 @@ export default function SettingsModal({ onCloseAction, themeId, setThemeIdAction
           {/* System section */}
           <div>
             <div style={{ fontFamily:t.fontMono, fontSize:13, fontWeight: 800, color:t.accent, letterSpacing:"0.16em", marginBottom:18 }}>SYSTEM SETTINGS</div>
+
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", gap:12, marginBottom:18, background: `${t.bgCard}`, border: `1px solid ${t.border}`, padding: "14px 18px", borderRadius: 12, flexWrap:"wrap" }}>
+              <div>
+                <div style={{ fontFamily:t.fontDisplay, fontSize:15, fontWeight: 700, color:t.text }}>Banner shine</div>
+                <div style={{ fontFamily:t.fontBody, fontSize:12, color:t.textSecondary, marginTop:4, maxWidth:320 }}>
+                  Gloss sweep on profile, career, match-found, and match sidebar banners.
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => saveBannerShineEnabled(!bannerShineEnabled)}
+                style={{
+                  padding:"10px 20px",
+                  borderRadius:8,
+                  border:`2px solid ${bannerShineEnabled ? t.accent : t.border}`,
+                  background: bannerShineEnabled ? `${t.accent}22` : "transparent",
+                  color: bannerShineEnabled ? t.accent : t.textMuted,
+                  fontFamily:t.fontDisplay,
+                  fontSize:12,
+                  fontWeight:800,
+                  cursor:"pointer",
+                  letterSpacing:"0.06em",
+                  flexShrink:0,
+                }}
+              >
+                {bannerShineEnabled ? "ON" : "OFF"}
+              </button>
+            </div>
             
             <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
               <button
