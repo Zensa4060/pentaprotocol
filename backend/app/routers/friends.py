@@ -984,9 +984,11 @@ async def list_messages(target_id: str, user_id: str = Depends(get_current_user)
             "created_at": doc["created_at"].isoformat() + "Z" if isinstance(doc.get("created_at"), datetime) else None,
         })
 
-    # Mark inbound messages as read.
-    asyncio.create_task(
-        db.dm_messages.update_many(
+    # Mark inbound messages as read in the background.
+    # Motor may return a Future-like awaitable here; wrap it inside a real
+    # coroutine so asyncio.create_task receives a coroutine object.
+    async def _mark_inbound_read() -> None:
+        await db.dm_messages.update_many(
             {
                 "from_user": {"$in": to_user_values},
                 "to_user": {"$in": from_user_values},
@@ -994,5 +996,6 @@ async def list_messages(target_id: str, user_id: str = Depends(get_current_user)
             },
             {"$set": {"read_at": datetime.utcnow()}},
         )
-    )
+
+    asyncio.create_task(_mark_inbound_read())
     return {"messages": rows}
