@@ -186,6 +186,13 @@ export default function FriendsScreen({ themeId, onHoverAction }: Props) {
       const roomCode = String(res.data?.room_code || "");
       const slot = (res.data?.player_slot || "P2") as "P1" | "P2";
       const boardMode = String(res.data?.board_mode || "5x5_6x6_7x7");
+      let roomPayload: any = { board_mode: boardMode, source: "friend_invite" };
+      try {
+        const roomRes = await API.get(`/api/room/queue/status/${roomCode}`);
+        roomPayload = roomRes?.data ?? roomPayload;
+      } catch {
+        /* fallback to minimal payload */
+      }
       showToast(`Joining ${inv.from.username}'s match…`);
       handleRoomReady(roomCode, slot, "unranked", {
         opponent: {
@@ -196,7 +203,7 @@ export default function FriendsScreen({ themeId, onHoverAction }: Props) {
           level: inv.from.level,
           placement_matches: inv.from.placement_matches,
         },
-      }, { board_mode: boardMode });
+      }, roomPayload);
     } catch (err: any) {
       const msg = err?.response?.data?.detail || "Could not join match.";
       showToast(String(msg));

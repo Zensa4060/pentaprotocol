@@ -543,6 +543,10 @@ export default function AppShell({ children }: { children: ReactNode }) {
           if (msg.type === "friend_invite_created") {
             pushSocialToast("New match invite received.");
             setHomeNotice("You received a match invite.");
+          } else if (msg.type === "friend_invite_accepted") {
+            if (typeof window !== "undefined") {
+              window.dispatchEvent(new CustomEvent("pp_friend_invite_accepted", { detail: msg }));
+            }
           } else if (msg.type === "friend_request_created") {
             pushSocialToast("New friend request received.");
           } else if (msg.type === "friend_dm_received") {
@@ -941,12 +945,45 @@ export default function AppShell({ children }: { children: ReactNode }) {
       // re-appearing before rules-show. Routing directly to
       // `/rulesshow/{id}` removes the double-hop entirely, so the visible
       // transition is exactly: /play/matchfound → /rulesshow/{id}.
-      const nextUrl = bootstrap ? buildRulesShowUrl(id) : buildGameUrl(bm);
+      const forceRulesShow = roomFromServer?.source === "friend_invite";
+      const nextUrl = (forceRulesShow || bootstrap) ? buildRulesShowUrl(id) : buildGameUrl(bm);
       router.push(nextUrl);
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [boardMode, router],
   );
+
+  useEffect(() => {
+    const onFriendInviteAccepted = async (ev: Event) => {
+      const msg = (ev as CustomEvent)?.detail || {};
+      const roomCode = String(msg.room_code || "");
+      const slot = (msg.slot === "P2" ? "P2" : "P1") as "P1" | "P2";
+      if (!roomCode) return;
+      try {
+        const roomRes = await API.get(`/api/room/queue/status/${roomCode}`);
+        const roomPayload = roomRes?.data ?? null;
+        const opp = msg?.opponent
+          ? {
+              opponent: {
+                name: String(msg.opponent.username || msg.opponent.name || "Opponent"),
+                elo: Number(msg.opponent.elo || 0),
+                avatar: msg.opponent.avatar ?? null,
+                banner: msg.opponent.banner || "default",
+                level: Number(msg.opponent.level || 1),
+                placement_matches: Number(msg.opponent.placement_matches || 0),
+              },
+            }
+          : undefined;
+        handleRoomReady(roomCode, slot, "unranked", opp as any, roomPayload);
+      } catch {
+        handleRoomReady(roomCode, slot, "unranked");
+      }
+    };
+    window.addEventListener("pp_friend_invite_accepted", onFriendInviteAccepted);
+    return () => window.removeEventListener("pp_friend_invite_accepted", onFriendInviteAccepted);
+    // handleRoomReady intentionally omitted to avoid effect churn.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const armMatchFoundSequence = useCallback(
     (
