@@ -394,6 +394,10 @@ export default function NavBar({
       setScreenAction("auth");
       return;
     }
+    if (target === "friends") {
+      router.push(ROUTES.FRIENDS);
+      return;
+    }
     setScreenAction(target);
   };
 

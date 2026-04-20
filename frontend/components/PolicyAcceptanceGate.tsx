@@ -33,7 +33,11 @@ export default function PolicyAcceptanceGate({
 
   const allChecked = terms && privacy && refund;
   const openDoc = (path: string) => {
-    window.open(path, "_blank", "noopener,noreferrer");
+    const a = document.createElement("a");
+    a.href = path;
+    a.target = "_blank";
+    a.rel = "noopener noreferrer";
+    a.click();
   };
 
   const acceptAll = () => {

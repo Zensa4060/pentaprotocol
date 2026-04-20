@@ -386,6 +386,14 @@ export default function HomeScreen({ setScreenAction, themeId, onHoverAction, on
     { label: "Refund Policy",      href: "/refund" },
   ];
 
+  const openFooterDoc = (href: string) => {
+    const a = document.createElement("a");
+    a.href = href;
+    a.target = "_blank";
+    a.rel = "noopener noreferrer";
+    a.click();
+  };
+
   return (
     <div style={{
       position: "fixed", inset: 0, zIndex: 2, overflowY: "auto",
@@ -697,10 +705,9 @@ export default function HomeScreen({ setScreenAction, themeId, onHoverAction, on
       }}>
         {FOOTER_LINKS.map((link, i) => (
           <React.Fragment key={link.href}>
-            <a
-              href={link.href}
-              target="_blank"
-              rel="noopener noreferrer"
+            <button
+              type="button"
+              onClick={() => openFooterDoc(link.href)}
               onMouseEnter={() => setHovFooter(link.href)}
               onMouseLeave={() => setHovFooter(null)}
               style={{
@@ -719,10 +726,12 @@ export default function HomeScreen({ setScreenAction, themeId, onHoverAction, on
                 textTransform: "uppercase" as const,
                 whiteSpace: "nowrap" as const,
                 cursor: "pointer",
+                background: "transparent",
+                border: "none",
               }}
             >
               {link.label}
-            </a>
+            </button>
             {i < FOOTER_LINKS.length - 1 && (
               <span style={{
                 color: isSp ? "rgba(140,180,255,0.2)" : t.border,

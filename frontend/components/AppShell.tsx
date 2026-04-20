@@ -148,6 +148,11 @@ export default function AppShell({ children }: { children: ReactNode }) {
     pathname.startsWith("/rulechoice/") ||
     pathname.startsWith("/rulesshow/");
   const isBotGameRoute = !!(pathname?.startsWith("/game/") && searchParams?.get("bot"));
+  const isStaticSilentPage =
+    pathname === "/patchnotes" ||
+    pathname === "/terms" ||
+    pathname === "/privacy" ||
+    pathname === "/refund";
 
   /* ── Theme ──────────────────────────────────────────────────────────────── */
   const [themeId, setThemeIdRaw] = useState<ThemeId>("classic_dark");
@@ -627,6 +632,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
       if (audioStartedRef.current) return;
       audioStartedRef.current = true;
       setAudioStarted(true);
+      if (isStaticSilentPage) return;
       const scr = pathnameToScreen(window.location.pathname);
       if (scr === "auth" || showPolicyGateRef.current) {
         audio.playAuthBgm(themeRef.current);
@@ -647,18 +653,22 @@ export default function AppShell({ children }: { children: ReactNode }) {
       window.removeEventListener("touchstart", start);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [audio, isStaticSilentPage]);
 
   /* ── BGM context switching ──────────────────────────────────────────── */
   useEffect(() => {
     if (!audioStarted) return;
+    if (isStaticSilentPage) {
+      audio.pauseBgm();
+      return;
+    }
     if (currentScreen === "auth" || showPolicyGate) {
       audio.playAuthBgm(themeId);
     } else {
       audio.playBgm(themeId, getBgmCtx(currentScreen, isRanked, aiDifficulty));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [themeId, currentScreen, isRanked, aiDifficulty, audioStarted, showPolicyGate]);
+  }, [themeId, currentScreen, isRanked, aiDifficulty, audioStarted, showPolicyGate, isStaticSilentPage]);
 
   /* ── Queue elapsed timer ────────────────────────────────────────────── */
   useEffect(() => {
