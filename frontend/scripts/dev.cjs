@@ -1,16 +1,15 @@
 /**
- * Windows: `next dev --webpack` — avoids Turbopack's persistent dev cache
- * (.sst / compaction errors with Defender / OneDrive / dual dev servers).
- * Other platforms: default `next dev` (Turbopack).
+ * Always `next dev --webpack` so static assets like bundled `.mp3` BGM resolve
+ * the same as production (`next build --webpack`). Turbopack does not yet
+ * treat `.mp3` as file assets without extra rules.
  *
- * Use `npm run dev:turbo` to force Turbopack on Windows when needed.
+ * Use `npm run dev:turbo` when you explicitly want Turbopack.
  */
 const { spawn } = require("child_process");
 const path = require("path");
 
 const root = path.join(__dirname, "..");
-const isWin = process.platform === "win32";
-const args = ["next", "dev", ...(isWin ? ["--webpack"] : [])];
+const args = ["next", "dev", "--webpack"];
 
 const child = spawn("npx", args, {
   cwd: root,

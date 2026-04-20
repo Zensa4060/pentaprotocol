@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { THEMES } from "@/lib/themes";
 import type { ThemeId } from "@/lib/themes";
+import authBgmBundled from "../assets/bgm/auth.mp3";
 
-/** Dedicated auth / legal-acceptance BGM — not tied to theme lobby packs. */
+/** Logical id for auth BGM (internal); actual URL is webpack-emitted from `assets/bgm`. */
 export const AUTH_BGM_FILE = "auth.mp3";
 
 const BGM_MAP: Record<string, Record<string, string>> = {
@@ -147,7 +148,8 @@ export function useAudio() {
     const old = audioRef.current;
     const downStep = old ? old.volume / STEPS : 0;
 
-    const next = new Audio(`/sounds/${src}`);
+    const url = src === AUTH_BGM_FILE ? authBgmBundled : `/sounds/${src}`;
+    const next = new Audio(url);
     next.loop = true;
     next.volume = 0;
     next.play().catch(err => {

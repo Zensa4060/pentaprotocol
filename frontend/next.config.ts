@@ -9,6 +9,16 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: __dirname,
   },
+  webpack(config) {
+    config.module.rules.push({
+      test: /\.mp3$/i,
+      type: "asset/resource",
+      generator: {
+        filename: "static/media/[name].[hash][ext]",
+      },
+    });
+    return config;
+  },
   // Hide the Next.js dev overlay indicator that shows "compiling" / "rendering"
   // in the bottom-left during local development. Production never shows it.
   devIndicators: false,
