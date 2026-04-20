@@ -90,6 +90,7 @@ export default function FriendsScreen({ themeId, onHoverAction }: Props) {
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dmMessagesScrollRef = useRef<HTMLDivElement | null>(null);
   const dmWsRef = useRef<WebSocket | null>(null);
+  const pendingOpenDmFriendIdRef = useRef<string | null>(null);
 
   const showToast = useCallback((msg: string) => {
     setToast(msg);
@@ -276,13 +277,42 @@ export default function FriendsScreen({ themeId, onHoverAction }: Props) {
   }, []);
 
   useEffect(() => {
+    const openById = async (friendId: string) => {
+      const existing = friends.find((f) => String(f.id) === String(friendId));
+      if (existing) {
+        pendingOpenDmFriendIdRef.current = null;
+        void openDM(existing);
+        return;
+      }
+      pendingOpenDmFriendIdRef.current = friendId;
+      try {
+        await fetchAll();
+      } catch {
+        /* ignore */
+      }
+    };
+
+    const onOpenFriendChat = (e: Event) => {
+      const friendId = String((e as CustomEvent)?.detail?.friendId || "");
+      if (!friendId) return;
+      void openById(friendId);
+    };
+
+    window.addEventListener("pp_open_friend_chat", onOpenFriendChat);
+
     const pendingFriendId = sessionStorage.getItem("pp_open_dm_friend_id");
-    if (!pendingFriendId || friends.length === 0) return;
-    const friend = friends.find((f) => String(f.id) === String(pendingFriendId));
-    if (!friend) return;
-    sessionStorage.removeItem("pp_open_dm_friend_id");
-    void openDM(friend);
-  }, [friends, openDM]);
+    if (pendingFriendId) {
+      sessionStorage.removeItem("pp_open_dm_friend_id");
+      void openById(pendingFriendId);
+    } else if (pendingOpenDmFriendIdRef.current) {
+      const friend = friends.find((f) => String(f.id) === String(pendingOpenDmFriendIdRef.current));
+      if (friend) {
+        pendingOpenDmFriendIdRef.current = null;
+        void openDM(friend);
+      }
+    }
+    return () => window.removeEventListener("pp_open_friend_chat", onOpenFriendChat);
+  }, [friends, openDM, fetchAll]);
 
   const sendDM = useCallback(async () => {
     if (!dmModal) return;

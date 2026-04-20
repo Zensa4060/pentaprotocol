@@ -239,6 +239,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
   const aiDiffRef = useRef(aiDifficulty);
   const profileRefreshDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const socialToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastSocialToastRef = useRef<{ key: string; at: number } | null>(null);
   themeRef.current = themeId;
   rankedRef.current = isRanked;
   aiDiffRef.current = aiDifficulty;
@@ -490,10 +491,19 @@ export default function AppShell({ children }: { children: ReactNode }) {
       }
     };
 
-    const pushSocialToast = (msg: string, opts: { friendId?: string; actionLabel?: string } = {}) => {
+    const pushSocialToast = (
+      msg: string,
+      opts: { friendId?: string; actionLabel?: string } = {},
+      toastKey?: string,
+    ) => {
+      const key = toastKey || `${msg}|${opts.friendId || ""}|${opts.actionLabel || ""}`;
+      const now = Date.now();
+      const last = lastSocialToastRef.current;
+      if (last && last.key === key && now - last.at < 1500) return;
+      lastSocialToastRef.current = { key, at: now };
       setSocialToast({ text: msg, ...opts });
       if (socialToastTimerRef.current) clearTimeout(socialToastTimerRef.current);
-      socialToastTimerRef.current = setTimeout(() => setSocialToast(null), 3000);
+      socialToastTimerRef.current = setTimeout(() => setSocialToast(null), 2500);
     };
 
     const openFriendChat = (friendId: string) => {
@@ -505,7 +515,11 @@ export default function AppShell({ children }: { children: ReactNode }) {
       try {
         sessionStorage.setItem("pp_open_dm_friend_id", friendId);
       } catch {}
+      window.dispatchEvent(new CustomEvent("pp_open_friend_chat", { detail: { friendId } }));
       router.push(ROUTES.FRIENDS);
+      window.setTimeout(() => {
+        window.dispatchEvent(new CustomEvent("pp_open_friend_chat", { detail: { friendId } }));
+      }, 120);
     };
 
     const connect = async () => {
@@ -541,22 +555,22 @@ export default function AppShell({ children }: { children: ReactNode }) {
             }
           }
           if (msg.type === "friend_invite_created") {
-            pushSocialToast("New match invite received.");
+            pushSocialToast("New match invite received.", {}, `invite:${String(msg.from_user || "")}`);
             setHomeNotice("You received a match invite.");
           } else if (msg.type === "friend_invite_accepted") {
             if (typeof window !== "undefined") {
               window.dispatchEvent(new CustomEvent("pp_friend_invite_accepted", { detail: msg }));
             }
           } else if (msg.type === "friend_request_created") {
-            pushSocialToast("New friend request received.");
+            pushSocialToast("New friend request received.", {}, `request:${String(msg.from_user || "")}`);
           } else if (msg.type === "friend_dm_received") {
             const fid = String(msg.from_user || "");
-            pushSocialToast("New message received.", { friendId: fid, actionLabel: "Open Chat" });
+            pushSocialToast("New message received.", { friendId: fid, actionLabel: "Open Chat" }, `dm_recv:${fid}`);
           } else if (msg.type === "friend_dm_sent") {
             const fid = String(msg.to_user || "");
-            pushSocialToast("Message sent.", { friendId: fid, actionLabel: "Open Chat" });
+            pushSocialToast("Message sent.", { friendId: fid, actionLabel: "Open Chat" }, `dm_sent:${fid}`);
           } else if (msg.type === "friend_removed") {
-            pushSocialToast("A friend was removed.");
+            pushSocialToast("A friend was removed.", {}, `removed:${String(msg.friend_id || "")}`);
           } else if (msg.type === "open_chat" && msg.friend_id) {
             openFriendChat(String(msg.friend_id));
           }
