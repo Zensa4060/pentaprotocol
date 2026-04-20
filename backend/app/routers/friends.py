@@ -45,6 +45,19 @@ from app.core.security import decode_token
 
 router = APIRouter()
 
+
+def _id_to_str(value: object) -> str:
+    """Normalize user-id-like values to plain string ids."""
+    if isinstance(value, ObjectId):
+        return str(value)
+    if isinstance(value, str):
+        return value.strip()
+    return str(value).strip()
+
+
+def _same_user(a: object, b: object) -> bool:
+    return _id_to_str(a) == _id_to_str(b)
+
 # ── Auth helper (same contract as profile.get_current_user) ──────────────────
 
 
@@ -137,7 +150,8 @@ def _public_user_slice(user: dict, online: bool) -> dict:
 
 async def _load_user(db, user_id: str) -> Optional[dict]:
     try:
-        return await db.users.find_one({"_id": user_object_id(user_id)})
+        uid = _id_to_str(user_id)
+        return await db.users.find_one({"_id": user_object_id(uid)})
     except Exception:
         return None
 
@@ -146,14 +160,16 @@ async def _is_blocked_either_way(db, a: str, b: str) -> bool:
     """True if either user has blocked the other. Cheap: one Mongo
     round-trip per side, but we only need to read the (small) blocked
     arrays on each doc."""
+    a_id = _id_to_str(a)
+    b_id = _id_to_str(b)
     docs = db.users.find(
-        {"_id": {"$in": [user_object_id(a), user_object_id(b)]}},
+        {"_id": {"$in": [user_object_id(a_id), user_object_id(b_id)]}},
         {"blocked": 1, "_id": 1},
     )
     async for doc in docs:
-        blocked = doc.get("blocked") or []
+        blocked = {_id_to_str(x) for x in (doc.get("blocked") or [])}
         uid = str(doc["_id"])
-        other = b if uid == a else a
+        other = b_id if uid == a_id else a_id
         if other in blocked:
             return True
     return False
@@ -214,8 +230,8 @@ async def list_friends(user_id: str = Depends(get_current_user)):
     if not me:
         raise HTTPException(404, "User not found")
 
-    friends_ids: list[str] = list(me.get("friends") or [])
-    blocked_ids: list[str] = list(me.get("blocked") or [])
+    friends_ids: list[str] = [_id_to_str(x) for x in (me.get("friends") or [])]
+    blocked_ids: list[str] = [_id_to_str(x) for x in (me.get("blocked") or [])]
 
     out: list[dict] = []
     if friends_ids:
@@ -422,9 +438,9 @@ async def accept_friend_request(req_id: str, user_id: str = Depends(get_current_
     except Exception:
         raise HTTPException(400, "Invalid request id")
     doc = await db.friend_requests.find_one({"_id": oid})
-    if not doc or doc.get("to_user") != user_id or doc.get("status") != "pending":
+    if not doc or not _same_user(doc.get("to_user"), user_id) or doc.get("status") != "pending":
         raise HTTPException(404, "Request not found")
-    await _accept_mutual(db, doc["from_user"], user_id, oid)
+    await _accept_mutual(db, _id_to_str(doc["from_user"]), user_id, oid)
     return {"ok": True}
 
 
@@ -548,7 +564,7 @@ async def send_friend_invite(
     if not target_id or target_id == user_id:
         raise HTTPException(400, "Invalid friend id")
 
-    if target_id not in (me.get("friends") or []):
+    if target_id not in {_id_to_str(x) for x in (me.get("friends") or [])}:
         raise HTTPException(403, "You can only invite friends")
 
     if await _is_blocked_either_way(db, user_id, target_id):
@@ -607,7 +623,7 @@ async def list_invites(user_id: str = Depends(get_current_user)):
     ).sort("created_at", -1).limit(20)
     rows: list[dict] = []
     async for doc in cursor:
-        sender = await _load_user(db, doc.get("from_user") or "")
+        sender = await _load_user(db, _id_to_str(doc.get("from_user") or ""))
         if not sender:
             continue
         rows.append({
@@ -636,7 +652,7 @@ async def accept_invite(invite_id: str, user_id: str = Depends(get_current_user)
         raise HTTPException(400, "Invalid invite id")
 
     invite = await db.friend_invites.find_one({"_id": oid})
-    if not invite or invite.get("to_user") != user_id or invite.get("status") != "pending":
+    if not invite or not _same_user(invite.get("to_user"), user_id) or invite.get("status") != "pending":
         raise HTTPException(404, "Invite not found")
     if isinstance(invite.get("expires_at"), datetime) and invite["expires_at"] < datetime.utcnow():
         await db.friend_invites.update_one({"_id": oid}, {"$set": {"status": "expired"}})
@@ -648,7 +664,7 @@ async def accept_invite(invite_id: str, user_id: str = Depends(get_current_user)
     from app.routers import room as room_mod
     from app.game.engine import GameEngine  # type: ignore
 
-    host_id = invite["from_user"]
+    host_id = _id_to_str(invite["from_user"])
     host = await _load_user(db, host_id)
     guest = await _load_user(db, user_id)
     if not host or not guest:
@@ -929,21 +945,41 @@ async def list_messages(target_id: str, user_id: str = Depends(get_current_user)
     me = await _load_user(db, user_id)
     if not me:
         raise HTTPException(404, "User not found")
-    if target_id not in (me.get("friends") or []):
+    if target_id not in {_id_to_str(x) for x in (me.get("friends") or [])}:
         raise HTTPException(403, "You can only read messages from friends")
+
+    user_oid = None
+    target_oid = None
+    try:
+        user_oid = ObjectId(user_id)
+    except Exception:
+        user_oid = None
+    try:
+        target_oid = ObjectId(target_id)
+    except Exception:
+        target_oid = None
+
+    from_user_values = [user_id]
+    to_user_values = [target_id]
+    if user_oid is not None:
+        from_user_values.append(user_oid)
+        to_user_values.append(user_oid)
+    if target_oid is not None:
+        from_user_values.append(target_oid)
+        to_user_values.append(target_oid)
 
     cursor = db.dm_messages.find({
         "$or": [
-            {"from_user": user_id, "to_user": target_id},
-            {"from_user": target_id, "to_user": user_id},
+            {"from_user": {"$in": from_user_values}, "to_user": {"$in": to_user_values}},
+            {"from_user": {"$in": to_user_values}, "to_user": {"$in": from_user_values}},
         ],
     }).sort("created_at", 1).limit(200)
 
     rows: list[dict] = []
     async for doc in cursor:
         rows.append({
-            "from_user":  doc.get("from_user"),
-            "to_user":    doc.get("to_user"),
+            "from_user":  _id_to_str(doc.get("from_user")),
+            "to_user":    _id_to_str(doc.get("to_user")),
             "text":       doc.get("text", ""),
             "created_at": doc["created_at"].isoformat() + "Z" if isinstance(doc.get("created_at"), datetime) else None,
         })
@@ -951,7 +987,11 @@ async def list_messages(target_id: str, user_id: str = Depends(get_current_user)
     # Mark inbound messages as read.
     asyncio.create_task(
         db.dm_messages.update_many(
-            {"from_user": target_id, "to_user": user_id, "read_at": None},
+            {
+                "from_user": {"$in": to_user_values},
+                "to_user": {"$in": from_user_values},
+                "read_at": None,
+            },
             {"$set": {"read_at": datetime.utcnow()}},
         )
     )

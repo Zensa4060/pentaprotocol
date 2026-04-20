@@ -75,7 +75,6 @@ export default function FriendsScreen({ themeId, onHoverAction }: Props) {
   const { handleRoomReady } = useApp();
 
   const [friends, setFriends] = useState<Friend[]>([]);
-  const [blocked, setBlocked] = useState<string[]>([]);
   const [invitesRemaining, setInvitesRemaining] = useState<number>(5);
   const [requests, setRequests] = useState<FriendRequest[]>([]);
   const [invites, setInvites] = useState<FriendInvite[]>([]);
@@ -106,7 +105,6 @@ export default function FriendsScreen({ themeId, onHoverAction }: Props) {
         API.get("/api/friends/me/code"),
       ]);
       setFriends(listRes.data?.friends ?? []);
-      setBlocked(listRes.data?.blocked ?? []);
       setInvitesRemaining(Number(listRes.data?.invites_remaining ?? 5));
       setRequests(reqRes.data?.requests ?? []);
       setInvites(invRes.data?.invites ?? []);
@@ -207,16 +205,6 @@ export default function FriendsScreen({ themeId, onHoverAction }: Props) {
       await fetchAll();
     } catch {
       showToast("Could not remove friend.");
-    }
-  }, [fetchAll, showToast]);
-
-  const blockFriend = useCallback(async (f: Friend) => {
-    try {
-      await API.post("/api/friends/block", { user_id: f.id });
-      showToast(`${f.username} blocked.`);
-      await fetchAll();
-    } catch {
-      showToast("Could not block.");
     }
   }, [fetchAll, showToast]);
 
@@ -669,36 +657,6 @@ export default function FriendsScreen({ themeId, onHoverAction }: Props) {
           </>
         )}
 
-        {blocked.length > 0 && (
-          <div style={{ marginTop: 40, fontFamily: t.fontMono, fontSize: 11, color: t.textMuted }}>
-            <div style={{ letterSpacing: "0.2em", marginBottom: 8 }}>BLOCKED · {blocked.length}</div>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-              {blocked.map((id) => (
-                <button
-                  key={id}
-                  onClick={async () => {
-                    await API.delete(`/api/friends/block/${id}`);
-                    showToast("Unblocked.");
-                    fetchAll();
-                  }}
-                  style={{
-                    padding: "4px 10px",
-                    background: "transparent",
-                    border: `1px solid ${t.border}`,
-                    borderRadius: 6,
-                    color: t.textMuted,
-                    fontFamily: t.fontMono,
-                    fontSize: 10,
-                    letterSpacing: "0.08em",
-                    cursor: "pointer",
-                  }}
-                >
-                  UNBLOCK {id.slice(-6)}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Context menu */}
@@ -731,7 +689,6 @@ export default function FriendsScreen({ themeId, onHoverAction }: Props) {
             { key: "message", label: "Send message", onClick: () => openDM(contextMenu.friend) },
             { key: "career", label: "View career", onClick: () => openCareer(contextMenu.friend) },
             { key: "remove", label: "Remove friend", onClick: () => removeFriend(contextMenu.friend), danger: true },
-            { key: "block", label: "Block player", onClick: () => blockFriend(contextMenu.friend), danger: true },
           ] as const).map((item) => (
             <button
               key={item.key}
