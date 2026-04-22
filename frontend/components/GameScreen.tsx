@@ -947,7 +947,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   const [rbExtraTurnTokenUsed, setRbExtraTurnTokenUsed] = useState(false);
   /** Round 3 (6×6): chosen special cell owner; stone always counts as this symbol. */
   const [rb6SpecialCell, setRb6SpecialCell] = useState<{ r: number; c: number; owner: "P1" | "P2" } | null>(null);
-  /** Round 3 (6×6): whose timer is reduced to 2:00. */
+  /** Round 3 (6×6): whose timer is reduced to 1:00. */
   const [rb6TimerOwner, setRb6TimerOwner] = useState<"P1" | "P2" | null>(null);
   /** Round 3 (6×6): who must pick the special grid cell. */
   const [rb6CellChooser, setRb6CellChooser] = useState<"P1" | "P2" | null>(null);
@@ -1350,11 +1350,11 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
             setRb6TimerOwner(r.rb6_timer_owner);
             if (r.board_mode === "6x6" && (r.moves_played ?? 0) === 0) {
               if (r.rb6_timer_owner === "P1") {
-                p1TimeRef.current = 120_000;
-                setP1Time(120_000);
+                p1TimeRef.current = 60_000;
+                setP1Time(60_000);
               } else {
-                p2TimeRef.current = 120_000;
-                setP2Time(120_000);
+                p2TimeRef.current = 60_000;
+                setP2Time(60_000);
               }
             }
           } else if (r.rb6_timer_owner === null) {
@@ -1839,11 +1839,11 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
           if (nextBmEff === "6x6" && (grm.rb6_timer_owner === "P1" || grm.rb6_timer_owner === "P2")) {
             setRb6TimerOwner(grm.rb6_timer_owner);
             if (grm.rb6_timer_owner === "P1") {
-              setP1Time(120_000);
-              p1TimeRef.current = 120_000;
+              setP1Time(60_000);
+              p1TimeRef.current = 60_000;
             } else {
-              setP2Time(120_000);
-              p2TimeRef.current = 120_000;
+              setP2Time(60_000);
+              p2TimeRef.current = 60_000;
             }
           } else {
             setRb6TimerOwner(null);
@@ -2078,11 +2078,11 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
             if (payload.rb6TimerOwner === "P1" || payload.rb6TimerOwner === "P2" || payload.rb6TimerOwner === null) {
               setRb6TimerOwner(payload.rb6TimerOwner);
               if (payload.rb6TimerOwner === "P1") {
-                p1TimeRef.current = 120_000;
-                setP1Time(120_000);
+                p1TimeRef.current = 60_000;
+                setP1Time(60_000);
               } else if (payload.rb6TimerOwner === "P2") {
-                p2TimeRef.current = 120_000;
-                setP2Time(120_000);
+                p2TimeRef.current = 60_000;
+                setP2Time(60_000);
               }
             }
             if (payload.rb6CellChooser === "P1" || payload.rb6CellChooser === "P2" || payload.rb6CellChooser === null) setRb6CellChooser(payload.rb6CellChooser);
@@ -2263,11 +2263,11 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     setP2Time(matchTimeMs);
     if (GRID_SIZE === 6 && R.current.gameNumber === 3 && R.current.rb6TimerOwner) {
       if (R.current.rb6TimerOwner === "P1") {
-        p1TimeRef.current = 120_000;
-        setP1Time(120_000);
+        p1TimeRef.current = 60_000;
+        setP1Time(60_000);
       } else {
-        p2TimeRef.current = 120_000;
-        setP2Time(120_000);
+        p2TimeRef.current = 60_000;
+        setP2Time(60_000);
       }
     }
     setLoading(false);
@@ -3107,11 +3107,11 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     if (R.current.winnerPickedRule === "timer_half") {
       setRb6TimerOwner(chooser);
       if (chooser === "P1") {
-        p1TimeRef.current = 120_000;
-        setP1Time(120_000);
+        p1TimeRef.current = 60_000;
+        setP1Time(60_000);
       } else {
-        p2TimeRef.current = 120_000;
-        setP2Time(120_000);
+        p2TimeRef.current = 60_000;
+        setP2Time(60_000);
       }
       setPhase("who_first_loser");
       if (isMultiplayerGame) {

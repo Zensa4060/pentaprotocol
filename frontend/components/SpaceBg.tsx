@@ -23,6 +23,7 @@ export default function SpaceBg() {
     }
     interface MWstar {
       x: number; y: number; r: number; a: number; col: string;
+      twink: number; phase: number;
     }
     interface Nebula {
       cx: number; cy: number; rx: number; ry: number; hue: string; a: number;
@@ -96,7 +97,7 @@ export default function SpaceBg() {
         const col = hv > 0.7 ? "#d0e8ff"   // blue-white
                   : hv > 0.4 ? "#ffe8d0"   // warm
                   : "#f0f4ff";             // white
-        mwStars.push({ x, y, r, a, col });
+        mwStars.push({ x, y, r, a, col, twink: rnd(0.3, 0.8), phase: Math.random() * Math.PI * 2 });
       }
 
       nebulae = [
@@ -168,7 +169,7 @@ export default function SpaceBg() {
 
       // 2. Dense Milky Way micro-stars
       for (const s of mwStars) {
-        const tw = 0.85 + 0.15 * Math.sin(t * rnd(0.3, 0.8) + s.x * 0.01);
+        const tw = 0.85 + 0.15 * Math.sin(t * s.twink + s.phase);
         ctx.globalAlpha = s.a * tw;
         ctx.fillStyle = s.col;
         ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2); ctx.fill();
@@ -301,21 +302,30 @@ export default function SpaceBg() {
       H = canvas.height = window.innerHeight;
       buildScene();
     };
+    const onVisibility = () => {
+      if (document.hidden) {
+        if (animId) { cancelAnimationFrame(animId); animId = 0 as unknown as number; }
+      } else if (!animId) {
+        animId = requestAnimationFrame(frame);
+      }
+    };
 
     window.addEventListener("mousemove",  onMove);
     window.addEventListener("mouseleave", onLeave);
     window.addEventListener("resize",     onResize);
+    document.addEventListener("visibilitychange", onVisibility);
 
     W = canvas.width  = window.innerWidth;
     H = canvas.height = window.innerHeight;
     buildScene();
-    frame();
+    if (!document.hidden) frame();
 
     return () => {
-      cancelAnimationFrame(animId);
+      if (animId) cancelAnimationFrame(animId);
       window.removeEventListener("mousemove",  onMove);
       window.removeEventListener("mouseleave", onLeave);
       window.removeEventListener("resize",     onResize);
+      document.removeEventListener("visibilitychange", onVisibility);
     };
   }, []);
 

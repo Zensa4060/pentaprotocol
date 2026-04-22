@@ -78,7 +78,7 @@ export const RULESHOW_BLOCKS_6X6: RuleshowRuleBlock[] = [
   {
     id: "timebreaker",
     title: "TIMEBREAKER (GAME 6 ON THIS LEG)",
-    detail: `Before the third game on 6×6, Timebreaker runs: a coin toss picks a toss winner. They choose between (A) assigning the halved match clock (2:00) to one player for that game, or (B) entering the secret “special cell” path where the chooser picks a trapped cell — playing there transfers ownership of the stone to the trap owner. Follow the on-screen flow for exact picks.`,
+    detail: `Before the third game on 6×6, Timebreaker runs: a coin toss picks a toss winner. They choose between (A) assigning the reduced match clock (1:00) to one player for that game, or (B) entering the secret “special cell” path where the chooser picks a trapped cell — playing there transfers ownership of the stone to the trap owner. Follow the on-screen flow for exact picks.`,
   },
 ];
 

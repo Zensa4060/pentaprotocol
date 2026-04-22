@@ -6,7 +6,7 @@ import { WraithKingCoinToss } from "./WraithKingCoinToss";
 
 export const PHASE_TIMERS: Partial<Record<Phase, number>> = {
   rule_choice: 30, who_first_winner: 30, c3_choice: 30, c3_choice_loser: 30, who_first_loser: 30,
-  ban_pattern_winner: 30, ban_pattern_loser: 30, grid_block_warning: 30, grid_block_selection: 120, grid_block_waiting: 120,
+  ban_pattern_winner: 30, ban_pattern_loser: 30, grid_block_warning: 30, grid_block_selection: 60, grid_block_waiting: 60,
 };
 
 interface RulebreakerFlowProps {
@@ -36,7 +36,7 @@ interface RulebreakerFlowProps {
   winnerPickedRule: string | null;
   winnerPickedFirst: string | null;
   winnerPickedC3: boolean | null;
-  /** 6x6 round-3 timer owner (2:00). */
+  /** 6x6 round-3 timer owner (1:00). */
   rb6TimerOwner?: "P1" | "P2" | null;
   /** 6x6 special-cell chooser. */
   rb6CellChooser?: "P1" | "P2" | null;
@@ -567,11 +567,11 @@ export function RulebreakerFlow({
     return (
       <div className="phase-screen" style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, zIndex: 10000, overflowY: "auto", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: t.bg, padding: "32px 20px", gap: 20, userSelect: "none" }}>
         <div style={{ fontFamily: t.fontDisplay, fontSize: "clamp(18px,2.4vw,30px)", fontWeight: 800, color: chooserCol, textAlign: "center", maxWidth: 760 }}>
-          WARNING — {nameOf(chooser)} WILL PLAY WITH 2:00 TIMER
+          WARNING — {nameOf(chooser)} WILL PLAY WITH 1:00 TIMER
         </div>
         <div style={{ fontFamily: t.fontBody, fontSize: 14, color: t.textMuted, textAlign: "center", maxWidth: 600, lineHeight: 1.6 }}>
           You chose <span style={{ color: chooserCol, fontWeight: 700 }}>OWN SPECIAL GRID CELL</span>.
-          Your timer is reduced to 2:00 in Round 3. Continue to select your secret cell.
+          Your timer is reduced to 1:00 in Round 3. Continue to select your secret cell.
         </div>
         {isMultiplayerGame && !imChooser && (
           <div style={{ fontFamily: t.fontDisplay, fontSize: 14, fontWeight: 700, color: t.textSecondary, textAlign: "center" }}>
@@ -651,7 +651,7 @@ export function RulebreakerFlow({
   if (phase === "grid_block_selection" && onGridBlockChoice) {
     const chooser = rb6CellChooser ?? tossWinner ?? "P1";
     const chooserCol = chooser === "P1" ? p1c : p2c;
-    const maxTime = PHASE_TIMERS.grid_block_selection ?? 120;
+    const maxTime = PHASE_TIMERS.grid_block_selection ?? 60;
     const pct = Math.max(0, choiceTimer / maxTime);
     const urgent = choiceTimer <= 10;
     const cols = "ABCDEF".split("");
@@ -1025,7 +1025,7 @@ export function RulebreakerFlow({
     } else if (is6x6) {
       const timerOwner = rb6TimerOwner ? nameOf(rb6TimerOwner) : "—";
       const cellOwner = rb6CellChooser ? nameOf(rb6CellChooser) : "—";
-      winnerChoice = `TIMER 2:00:\n${timerOwner}\nSPECIAL CELL:\n${cellOwner}`;
+      winnerChoice = `TIMER 1:00:\n${timerOwner}\nSPECIAL CELL:\n${cellOwner}`;
       loserChoice = `PLAYS FIRST:\n${nameOf(fp)}\nSPECIAL CELL:\n${cellOwner}`;
     } else {
       winnerChoice = winnerPickedFirstTurn
