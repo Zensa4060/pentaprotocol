@@ -481,7 +481,7 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
               });
 
             if (uploadError) {
-              throw new Error(`Upload failed: ${formatSupabaseUploadError(uploadError.message)}`);
+              throw new Error(formatSupabaseUploadError(uploadError.message));
             }
 
             // Get permanent public URL — just a short string, not base64
@@ -505,7 +505,7 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
       if (!Object.keys(payload).length) {
         if (avatarSkipped) {
           setEditMsg({
-            text: "Photo upload is not set up on this site yet (missing NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY). Nothing was saved — remove the image or change username/bio.",
+            text: "Photo uploads aren’t available on this site yet. Remove the new image or save your other changes (username / bio).",
             ok: false,
           });
           return;
@@ -519,7 +519,7 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
       updateUser(res.data);
       setEditMsg({
         text: avatarSkipped
-          ? "Profile updated. New photo was not uploaded — add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY on the host to enable avatars."
+          ? "Profile updated. Your new photo couldn’t be saved — photo uploads aren’t enabled on this deployment yet."
           : "Profile updated!",
         ok: true,
       });
@@ -1250,19 +1250,19 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
                         </label>
                         {avatarFile && (
                           <div style={{ fontFamily:t.fontMono, fontSize:10, color:"#4CAF50" }}>
-                            ✓ {avatarFile.name} ({(avatarFile.size/1024).toFixed(0)}KB) — ready to upload
+                            ✓ {avatarFile.name} ({(avatarFile.size/1024).toFixed(0)}KB) — ready when you save
                           </div>
                         )}
                       </div>
                       <div style={{ fontFamily:t.fontBody, fontSize:11, color:t.textMuted }}>
                         Max 2MB · JPEG/PNG/WebP
                         <br />
-                        Stored on Supabase CDN
+                        Saved with your profile and shown wherever your avatar appears
                         {!isSupabaseConfigured && (
                           <>
                             <br />
                             <span style={{ color: "#f59e0b" }}>
-                              Avatar upload is off until NEXT_PUBLIC_SUPABASE_URL matches your project (https://…supabase.co).
+                              Photo uploads aren&apos;t available on this deployment yet. You can still update username and bio, or try again later.
                             </span>
                           </>
                         )}
@@ -1281,7 +1281,7 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
                   </div>
                   <div style={{ display:"flex", gap:10 }}>
                     <button onClick={submitProfile} disabled={editLoading} style={{ flex:1, padding:"13px", background:t.accent, border:`2px solid ${t.accent}`, borderRadius:8, color:"#fff", fontFamily:t.fontDisplay, fontSize:14, fontWeight:800, cursor:"pointer", letterSpacing:"0.06em", transition:"all 0.18s", boxShadow:`0 0 12px ${t.accentGlow}33` }}>
-                      {editLoading ? (avatarFile ? "Uploading to Supabase…" : "Saving…") : "Save Changes"}
+                      {editLoading ? (avatarFile ? "Uploading your pfp…" : "Saving…") : "Save Changes"}
                     </button>
                     <button onClick={() => closeEdit()} style={{ padding:"11px 18px", background:"transparent", border:`1px solid ${t.border}`, borderRadius:8, color:t.textMuted, fontFamily:t.fontDisplay, fontSize:14, cursor:"pointer" }}>Cancel</button>
                   </div>

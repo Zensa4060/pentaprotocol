@@ -1315,6 +1315,12 @@ export default function AppShell({ children }: { children: ReactNode }) {
   /* ═══════════════════════════════════════════════════════════════════════ */
 
   const isGameScreen = isMatchPath || pathname.startsWith("/challenge/");
+  /** Space parallax canvas: skip entry shells (same idea as /home — no animated bg behind full UI). */
+  const noSpaceParallaxBg =
+    pathname === ROUTES.HOME ||
+    pathname === ROUTES.ROOT ||
+    pathname === ROUTES.AUTH ||
+    pathname === "/auth";
   /** Match-found + live match URLs use full-viewport shells (Lobby / GameScreen) — no top nav. */
   const hideNavForImmersivePlay =
     pathname === ROUTES.PLAY_MATCHFOUND || isGameScreen;
@@ -1386,7 +1392,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
           fontFamily: t.fontBody,
         }}
       >
-        {routeThemeId === "space" && !isGameScreen && pathname !== "/home" && <SpaceBg />}
+        {routeThemeId === "space" && !isGameScreen && !noSpaceParallaxBg && <SpaceBg />}
 
         {/* Theme fade overlay */}
         <div
@@ -1788,8 +1794,17 @@ export default function AppShell({ children }: { children: ReactNode }) {
           />
         )}
 
-        {/* Route page content */}
-        {children}
+        {/* Route page content — sits above SpaceBg; solid space fallback when children are null (AuthGuard / redirects). */}
+        <div
+          style={{
+            position: "relative",
+            zIndex: 1,
+            minHeight: "100vh",
+            ...(routeThemeId === "space" ? { background: t.bg } : {}),
+          }}
+        >
+          {children}
+        </div>
 
         {socialToast && (
           <div

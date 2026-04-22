@@ -35,7 +35,7 @@ export function getSupabase(): SupabaseClient | null {
   return client;
 }
 
-/** Map generic fetch/DNS failures to something actionable in the UI. */
+/** Map storage upload failures to player-facing copy (no vendor or env names). */
 export function formatSupabaseUploadError(raw: string): string {
   const lower = raw.toLowerCase();
   if (
@@ -45,11 +45,10 @@ export function formatSupabaseUploadError(raw: string): string {
     lower.includes("name_not_resolved") ||
     lower.includes("err_name_not_resolved")
   ) {
-    return (
-      "Cannot reach your Supabase project (network/DNS). " +
-      "Copy Project URL exactly from Supabase → Settings → API into NEXT_PUBLIC_SUPABASE_URL " +
-      "(format https://<ref>.supabase.co, no trailing path), redeploy the frontend, and try again."
-    );
+    return "We couldn’t reach the upload service. Check your internet connection and try again.";
   }
-  return raw;
+  if (lower.includes("payload too large") || lower.includes("entity too large") || lower.includes("413")) {
+    return "That image is too large. Use a smaller file (max 2MB) and try again.";
+  }
+  return "Something went wrong while uploading your photo. Please try again.";
 }

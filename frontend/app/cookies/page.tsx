@@ -102,7 +102,7 @@ export default function CookiePolicyPage() {
             <br /><br />
             <strong style={{ color: "#e8e8e8" }}>Google Fonts</strong> — Loaded from fonts.googleapis.com. Your IP address and browser metadata are transmitted to Google when fonts are fetched.<br />
             <strong style={{ color: "#e8e8e8" }}>Google Drive</strong> — Image thumbnails may be loaded from Google Drive, transmitting your IP to Google.<br />
-            <strong style={{ color: "#e8e8e8" }}>Supabase</strong> — Avatar images are hosted on Supabase storage.
+            <strong style={{ color: "#e8e8e8" }}>Profile avatars</strong> — Uploaded profile pictures are served from third-party file storage; your IP address may be transmitted when those images load.
           </Section>
 
           <Section title="6. Managing Your Preferences">
