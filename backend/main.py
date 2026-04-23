@@ -10,7 +10,6 @@ socket.getaddrinfo = _patched
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
-from fastapi.middleware.httpsredirect import HTTPSRedirectMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
 from fastapi.exception_handlers import http_exception_handler
@@ -56,12 +55,27 @@ else:
 
 app.add_middleware(TrustedHostMiddleware, allowed_hosts=ALLOWED_HOSTS)
 
-# HTTPS redirect only in production — Railway terminates TLS at the
-# edge and forwards as HTTP internally, but if any misconfigured
-# routing lands a cleartext HTTP request on the app we bounce it to
-# HTTPS immediately instead of processing it. Dev needs HTTP.
-if ENV == "production":
-    app.add_middleware(HTTPSRedirectMiddleware)
+# HTTPS redirect is intentionally NOT installed, even in production.
+#
+# Railway (and every other managed-TLS platform we plausibly deploy
+# behind — Fly, Render, Cloud Run, Vercel Edge, etc.) terminates TLS
+# at its edge router and forwards the decrypted request to the app
+# over plain HTTP. ``HTTPSRedirectMiddleware`` only looks at
+# ``request.url.scheme`` — without an explicit ``--proxy-headers``
+# uvicorn flag AND a trusted ``X-Forwarded-Proto`` header it will
+# always see ``http`` here, issue a 307 to the ``https://`` URL,
+# which the edge then forwards to the app as HTTP again, producing
+# an infinite ``ERR_TOO_MANY_REDIRECTS`` loop (observed in prod on
+# Google sign-in).
+#
+# The redirect is also unnecessary: Railway's ingress only exposes
+# this service over HTTPS publicly, so a cleartext browser request
+# can never actually arrive at the app. HTTPS is enforced at three
+# other layers in our stack:
+#   1. Railway's own edge (public port 443 only).
+#   2. HSTS header below (pins browsers to HTTPS for 2 years).
+#   3. The Next.js edge proxy's ``enforceHttps`` (frontend/proxy.ts).
+# That is sufficient defence-in-depth without the loop risk.
 
 app.add_middleware(
     CORSMiddleware,
