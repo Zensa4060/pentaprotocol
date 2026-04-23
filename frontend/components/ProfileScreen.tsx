@@ -744,6 +744,15 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
       .rank-badge-container { position: relative; overflow: visible; }
       .rank-badge-container:hover { transform: scale(1.08); }
       @keyframes shineSweep { from { transform: translateX(-50%); } to { transform: translateX(100%); } }
+      /* Mobile-only currency strip at the top of the Profile page. The
+         NavBar hides its currency pills on mobile (see NavBar.tsx) so
+         this block gives phone users a prominent, always-in-view
+         balance without scrolling through the stats grid. Hidden on
+         ≥ 640px so the desktop / tablet layout is untouched. */
+      .pp-prof-mobile-currencies { display: none; }
+      @media (max-width: 639px) {
+        .pp-prof-mobile-currencies { display: grid !important; }
+      }
     `}</style>
 
     <div style={{ position:"fixed", inset:0, zIndex:2, padding:"84px 24px 48px", overflowY:"auto", background: themeId === "space" ? "transparent" : t.bg, transition:"background 0.4s" }}>
@@ -828,6 +837,40 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
         </div>
         <div style={{ fontFamily:t.fontMono, fontSize:11, color:t.textMuted, marginTop:5, textAlign:"right" }}>
           {isPlacement ? `${placementCount} / 5` : `${elo} / ${nextRank ? rank.max : "MAX"}`}
+        </div>
+      </div>
+
+      {/* ── Mobile-only currency strip ─────────────────────────────────────
+          Shown only on narrow viewports (see ``.pp-prof-mobile-currencies``
+          in the <style> block above). Duplicates the Penta Shards / Proto
+          Credits balances that now live in the stats grid below so mobile
+          users see them at a glance. The nav bar's currency pills are
+          hidden on mobile to keep the top bar uncluttered. */}
+      <div
+        className="pp-prof-mobile-currencies"
+        style={{
+          gridTemplateColumns: "1fr 1fr",
+          gap: 10,
+          marginBottom: 14,
+        }}
+      >
+        <div style={{ background: t.bgPanel, border: `1px solid ${t.border}`, borderRadius: 10, padding: "10px 12px", display: "flex", alignItems: "center", gap: 10 }}>
+          <div style={{ width: 36, height: 36, flexShrink: 0 }} dangerouslySetInnerHTML={{ __html: (themeId === "classic_light" ? SHARDS_LIGHT_SVG : SHARDS_DARK_SVG).replace('<svg ', '<svg width="36" height="36" ') }} />
+          <div style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
+            <div style={{ fontFamily: t.fontDisplay, fontSize: 18, fontWeight: 800, color: "#4FC3F7", lineHeight: 1.1 }}>
+              {((profile.pentashards ?? profile.shards ?? 0) + missionShardBonus).toLocaleString()}
+            </div>
+            <div style={{ fontFamily: t.fontMono, fontSize: 10, color: t.textMuted, letterSpacing: "0.12em", fontWeight: 600 }}>PENTA SHARDS</div>
+          </div>
+        </div>
+        <div style={{ background: t.bgPanel, border: `1px solid ${t.border}`, borderRadius: 10, padding: "10px 12px", display: "flex", alignItems: "center", gap: 10 }}>
+          <div style={{ width: 36, height: 36, flexShrink: 0 }} dangerouslySetInnerHTML={{ __html: (themeId === "classic_light" ? PROTO_LIGHT_SVG : PROTO_DARK_SVG).replace('<svg ', '<svg width="36" height="36" ') }} />
+          <div style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
+            <div style={{ fontFamily: t.fontDisplay, fontSize: 18, fontWeight: 800, color: "#FFD700", lineHeight: 1.1 }}>
+              {(profile.protocredits || 0).toLocaleString()}
+            </div>
+            <div style={{ fontFamily: t.fontMono, fontSize: 10, color: t.textMuted, letterSpacing: "0.12em", fontWeight: 600 }}>PROTO CREDITS</div>
+          </div>
         </div>
       </div>
 

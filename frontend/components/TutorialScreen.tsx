@@ -167,23 +167,30 @@ export default function TutorialScreen({
         fontFamily: t.fontBody,
       }}
     >
-      {/* Top rail */}
+      {/* Top rail. On narrow viewports the title was colliding with the
+          ``STEP 5 / 39`` counter + SKIP button and the counter text was
+          wrapping mid-number ("STE" / "5 /" / "39"). Clamping the title
+          font-size and allowing the rail to wrap keeps every element on
+          screen at ≤ 400px widths without touching the desktop layout. */}
       <div
         style={{
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
-          padding: "14px 22px",
+          padding: "14px clamp(12px, 4vw, 22px)",
           borderBottom: `1px solid ${t.border}`,
           background: t.bgPanel,
+          flexWrap: "wrap",
+          rowGap: 8,
+          columnGap: 10,
         }}
       >
-        <div style={{ fontFamily: t.fontDisplay, fontWeight: 800, letterSpacing: "0.1em", color: BLOOD_RED, fontSize: 33 }}>
+        <div style={{ fontFamily: t.fontDisplay, fontWeight: 800, letterSpacing: "0.08em", color: BLOOD_RED, fontSize: "clamp(16px, 4.2vw, 33px)", overflowWrap: "anywhere" }}>
           PENTAPROTOCOL · TUTORIAL
         </div>
         {stepIdx >= 0 && (
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div style={{ fontFamily: t.fontMono, fontSize: 22, color: BLOOD_RED_SOFT, letterSpacing: "0.1em" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
+            <div style={{ fontFamily: t.fontMono, fontSize: "clamp(12px, 3vw, 22px)", color: BLOOD_RED_SOFT, letterSpacing: "0.08em", whiteSpace: "nowrap" }}>
               STEP {stepIdx + 1} / {totalSteps}
             </div>
             <button
@@ -593,55 +600,75 @@ function PatternGallery({
   const dict: Record<string, PatternInfo> =
     size === 5 ? PATTERN_METADATA_5 : size === 6 ? PATTERN_METADATA_6 : PATTERN_METADATA_7;
   const items = Object.values(dict);
-  /* Pack every pattern into one row — the cell size shrinks as the
-     pattern count grows so 5×5 (6 patterns), 6×6 (7) and 7×7 (8) each
-     fit on a single horizontal line at typical viewport widths. */
   const count = items.length;
   /* 6×6 / 7×7 grids +10% vs prior sizing so pattern cards read larger. */
   const cellPx = size === 5 ? 22 : size === 6 ? 20 : 17;
+  /* Mobile story: packing 6–8 pattern cards in a single CSS-grid row at
+     viewports < 480px squashed each column to ~45px, which forced the
+     label ("V-SHAPE", "ZIGZAG-5", etc.) to break character-by-character
+     (see user bug report showing "V- SH AP" stacks). We now render the
+     gallery as a horizontally-scrollable flex strip on narrow screens so
+     every card keeps its natural width (≈ 120px) and the label renders
+     on a single line. Desktop / tablet viewports still see the full
+     side-by-side grid thanks to the ``pp-pat-gallery-desktop`` media
+     query. */
   return (
-    <div
-      style={{
-        display: "grid",
-        gridTemplateColumns: `repeat(${count}, minmax(0, 1fr))`,
-        gap: 10,
-        width: "100%",
-      }}
-    >
-      {items.map((p) => (
-        <div
-          key={p.id}
-          style={{
-            border: `1px solid ${themeT.border}`,
-            background: themeT.bgCard,
-            borderRadius: 10,
-            padding: 10,
-            display: "flex",
-            flexDirection: "column",
-            gap: 8,
-            alignItems: "center",
-            textAlign: "center",
-            minWidth: 0,
-          }}
-        >
-          <PatternGrid size={p.gridSize} cells={p.cells} themeT={themeT} cellPx={cellPx} />
+    <>
+      <style>{`
+        .pp-pat-gallery { display: flex; gap: 10px; overflow-x: auto; overflow-y: hidden; padding-bottom: 6px; scroll-snap-type: x proximity; -webkit-overflow-scrolling: touch; width: 100%; }
+        .pp-pat-gallery::-webkit-scrollbar { height: 4px; }
+        .pp-pat-gallery::-webkit-scrollbar-thumb { background: rgba(204,0,0,0.35); border-radius: 2px; }
+        .pp-pat-gallery > div { flex: 0 0 auto; width: 120px; scroll-snap-align: start; }
+        @media (min-width: 640px) {
+          .pp-pat-gallery { display: grid; grid-template-columns: repeat(var(--pp-pat-count, ${count}), minmax(0, 1fr)); overflow: visible; padding-bottom: 0; }
+          .pp-pat-gallery > div { width: auto; flex: unset; }
+        }
+      `}</style>
+      <div
+        className="pp-pat-gallery"
+        style={{
+          // CSS custom property picks up the dynamic pattern count for the
+          // desktop grid without inlining a stringified template column.
+          ["--pp-pat-count" as string]: String(count),
+        }}
+      >
+        {items.map((p) => (
           <div
+            key={p.id}
             style={{
-              fontFamily: themeT.fontDisplay,
-              fontSize: 20,
-              fontWeight: 700,
-              color: BLOOD_RED,
-              letterSpacing: "0.06em",
-              textTransform: "uppercase",
-              lineHeight: 1.15,
-              wordBreak: "break-word",
+              border: `1px solid ${themeT.border}`,
+              background: themeT.bgCard,
+              borderRadius: 10,
+              padding: 10,
+              display: "flex",
+              flexDirection: "column",
+              gap: 8,
+              alignItems: "center",
+              textAlign: "center",
+              minWidth: 0,
             }}
           >
-            {p.label}
+            <PatternGrid size={p.gridSize} cells={p.cells} themeT={themeT} cellPx={cellPx} />
+            <div
+              style={{
+                fontFamily: themeT.fontDisplay,
+                // Slightly smaller + no forced letter-spacing stretches the
+                // label so "STRAIGHT" / "ZIGZAG-5" still fit a 120px card.
+                fontSize: "clamp(13px, 3.2vw, 20px)",
+                fontWeight: 700,
+                color: BLOOD_RED,
+                letterSpacing: "0.04em",
+                textTransform: "uppercase",
+                lineHeight: 1.15,
+                whiteSpace: "nowrap",
+              }}
+            >
+              {p.label}
+            </div>
           </div>
-        </div>
-      ))}
-    </div>
+        ))}
+      </div>
+    </>
   );
 }
 

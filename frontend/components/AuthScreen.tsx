@@ -633,10 +633,51 @@ export default function AuthScreen({ setScreenAction, themeId }: Props) {
             </div>
           )}
         </div>
-        <div style={{ position: "relative", zIndex: 3, display: "flex", flexDirection: isMobile ? "row" : "column", alignItems: "center", gap: isMobile ? 16 : 28, userSelect: "none", padding: isMobile ? "0 24px" : 0 }}>
-          <img src="/Pentaprotocol_Logo_Transparent.png" alt="PentaProtocol Logo" style={{ width: isMobile ? 50 : 220, height: isMobile ? 50 : 220, objectFit: "contain", filter: "drop-shadow(0 0 32px rgba(255,100,30,0.55)) drop-shadow(0 0 80px rgba(200,60,0,0.3))" }} />
-          <div style={{ textAlign: isMobile ? "left" : "center" }}>
-            <div style={{ fontFamily: "'Courier New', monospace", fontSize: isMobile ? 18 : 42, fontWeight: 900, letterSpacing: isMobile ? "0.1em" : "0.22em", lineHeight: 1 }}>
+        <div
+          style={{
+            position: "relative",
+            zIndex: 3,
+            display: "flex",
+            flexDirection: isMobile ? "row" : "column",
+            alignItems: "center",
+            gap: isMobile ? 12 : 28,
+            userSelect: "none",
+            padding: isMobile ? "0 16px" : 0,
+            width: isMobile ? "100%" : "auto",
+            maxWidth: "100%",
+            boxSizing: "border-box",
+          }}
+        >
+          <img src="/Pentaprotocol_Logo_Transparent.png" alt="PentaProtocol Logo" style={{ width: isMobile ? 44 : 220, height: isMobile ? 44 : 220, objectFit: "contain", flexShrink: 0, filter: "drop-shadow(0 0 32px rgba(255,100,30,0.55)) drop-shadow(0 0 80px rgba(200,60,0,0.3))" }} />
+          <div
+            style={{
+              textAlign: isMobile ? "left" : "center",
+              // On mobile the title sits in a flex row next to the logo.
+              // Without ``min-width: 0`` the text block refuses to shrink
+              // below its intrinsic inline width, so "PENTAPROTOCOL" spills
+              // past the right edge and the visual shows only "PENTA…".
+              // Allowing the flex child to shrink + letting the gradient
+              // spans be inline-block with word-break lets the title stay
+              // fully visible on narrow phones.
+              minWidth: 0,
+              flex: isMobile ? "1 1 0" : "0 0 auto",
+              overflow: "hidden",
+            }}
+          >
+            <div
+              style={{
+                fontFamily: "'Courier New', monospace",
+                // clamp() keeps the title readable on very small phones
+                // (320px viewports) without touching the desktop 42px.
+                fontSize: isMobile ? "clamp(15px, 4.6vw, 20px)" : 42,
+                fontWeight: 900,
+                letterSpacing: isMobile ? "0.06em" : "0.22em",
+                lineHeight: 1.05,
+                whiteSpace: "nowrap",
+                overflow: "hidden",
+                textOverflow: "clip",
+              }}
+            >
               <span style={{ background: "linear-gradient(to bottom, #ffffff 0%, #999999 50%, #ffffff 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text", filter: "drop-shadow(0 0 8px rgba(255,255,255,0.4))", display: "inline" }}>PENTA</span>
               <span style={{ background: "linear-gradient(to bottom, #FF2200 0%, #8B0000 45%, #FF1100 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text", filter: "drop-shadow(0 0 12px rgba(255,30,0,0.7))", display: "inline" }}>PROTOCOL</span>
             </div>

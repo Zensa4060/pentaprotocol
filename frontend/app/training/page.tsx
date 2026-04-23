@@ -40,7 +40,7 @@ export default function TrainingPage() {
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        padding: "24px",
+        padding: "24px 16px",
         fontFamily: t.fontBody,
         position: "relative",
       }}
@@ -48,7 +48,12 @@ export default function TrainingPage() {
       <div
         style={{
           position: "absolute",
-          top: 150,
+          // On mobile the nav bar eats ~52px of vertical space and the title
+          // was colliding with it at top:150 once the viewport became narrow.
+          // Using a responsive offset keeps the desktop layout untouched
+          // while pulling the title up on phones so the cards don't get
+          // pushed off-screen below the fold.
+          top: "clamp(80px, 14vh, 150px)",
           left: "50%",
           transform: "translateX(-50%)",
           width: "min(900px, 96vw)",
@@ -60,7 +65,10 @@ export default function TrainingPage() {
       >
           <div style={{
             fontFamily: t.fontDisplay,
-            fontSize: 70,
+            // clamp keeps the desktop 70px look intact at ≥ 900px viewport
+            // width, but scales down to ~34px on a 360px phone so the heading
+            // never triggers horizontal scroll.
+            fontSize: "clamp(34px, 9vw, 70px)",
             fontWeight: 800,
             color: "#ffffff",
             letterSpacing: "0.04em",
@@ -71,7 +79,11 @@ export default function TrainingPage() {
       </div>
 
       <div style={{ width: "min(900px, 96vw)", display: "flex", flexDirection: "column", gap: 18 }}>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 24 }}>
+        {/* ``minmax(min(300px, 100%), 1fr)`` (rather than a fixed 300px) lets
+            the card column collapse on viewports < 300px wide — which
+            happens on very narrow phones in landscape-to-portrait rotation —
+            instead of overflowing the grid track. */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(300px, 100%), 1fr))", gap: 24 }}>
           <button
             onMouseEnter={() => { ctx.sfx.hover?.(); setHoveredCard("tutorial"); }}
             onMouseLeave={() => setHoveredCard(null)}
@@ -91,20 +103,27 @@ export default function TrainingPage() {
               transform: hoveredCard === "tutorial" ? "translateY(-2px) scale(1.01)" : "translateY(0) scale(1)",
               boxShadow: hoveredCard === "tutorial" ? "0 0 20px rgba(120,0,0,0.78)" : "none",
               transition: "all 0.2s ease",
+              // overflow:hidden prevents the hover shadow from being clipped
+              // on narrow screens and also stops the oversize card title
+              // from spilling past the rounded border.
+              overflow: "hidden",
             }}
           >
             <div style={{
               fontFamily: t.fontMono,
               fontWeight: 700,
               letterSpacing: "0.08em",
-              fontSize: 44,
+              // clamp preserves the 44px desktop title while shrinking to
+              // ~22px on a 360px phone so "SINGLEPLAYER" stops clipping.
+              fontSize: "clamp(22px, 6.6vw, 44px)",
               color: hoveredCard === "tutorial" ? "#ff3a3a" : t.accent,
               textShadow: hoveredCard === "tutorial" ? "0 0 10px rgba(140,0,0,0.95), 0 0 22px rgba(90,0,0,0.9)" : "none",
               transition: "all 0.2s ease",
+              overflowWrap: "anywhere",
             }}>
               TUTORIAL
             </div>
-            <div style={{ marginTop: 8, color: t.textSecondary, lineHeight: 1.5, fontSize: 23 }}>
+            <div style={{ marginTop: 8, color: t.textSecondary, lineHeight: 1.5, fontSize: "clamp(14px, 3.2vw, 23px)" }}>
               Replay the guided walkthrough.
             </div>
           </button>
@@ -124,20 +143,22 @@ export default function TrainingPage() {
               transform: hoveredCard === "singleplayer" ? "translateY(-2px) scale(1.01)" : "translateY(0) scale(1)",
               boxShadow: hoveredCard === "singleplayer" ? "0 0 20px rgba(120,0,0,0.78)" : "none",
               transition: "all 0.2s ease",
+              overflow: "hidden",
             }}
           >
             <div style={{
               fontFamily: t.fontMono,
               fontWeight: 700,
               letterSpacing: "0.08em",
-              fontSize: 44,
+              fontSize: "clamp(22px, 6.6vw, 44px)",
               color: hoveredCard === "singleplayer" ? "#ff3a3a" : t.text,
               textShadow: hoveredCard === "singleplayer" ? "0 0 10px rgba(140,0,0,0.95), 0 0 22px rgba(90,0,0,0.9)" : "none",
               transition: "all 0.2s ease",
+              overflowWrap: "anywhere",
             }}>
               SINGLEPLAYER
             </div>
-            <div style={{ marginTop: 8, color: t.textMuted, lineHeight: 1.5, fontSize: 23 }}>
+            <div style={{ marginTop: 8, color: t.textMuted, lineHeight: 1.5, fontSize: "clamp(14px, 3.2vw, 23px)" }}>
               PRACTICE MODE
             </div>
           </button>

@@ -120,8 +120,24 @@ export default function TutorialDemoBoard({ demo, themeT, compact = false }: Tut
     : t.textMuted;
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
-      <svg width={W} height={W} style={{ border: `1px solid ${t.border}`, borderRadius: 8, background: t.boardBg, display: "block" }}>
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12, width: "100%" }}>
+      {/* ``viewBox`` + percentage width lets the SVG scale down on narrow
+          phone viewports (360–390px) instead of overflowing the tutorial
+          card and forcing horizontal scroll. Desktop keeps the intended
+          pixel size via maxWidth capping. */}
+      <svg
+        viewBox={`0 0 ${W} ${W}`}
+        width="100%"
+        height="auto"
+        preserveAspectRatio="xMidYMid meet"
+        style={{
+          maxWidth: W,
+          border: `1px solid ${t.border}`,
+          borderRadius: 8,
+          background: t.boardBg,
+          display: "block",
+        }}
+      >
         <rect x={0} y={0} width={W} height={W} fill={t.boardBg} />
 
         {/* Grid */}

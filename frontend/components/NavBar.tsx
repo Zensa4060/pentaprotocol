@@ -658,7 +658,11 @@ export default function NavBar({
             />
           </div>
 
-          {mounted && !lockMultiplayerNav && (
+          {/* Currency pill (PentaShards) — desktop/tablet only. On mobile the
+              same balances are rendered inline on the Profile screen to free
+              up nav-bar width for the logo, settings, and hamburger. See the
+              ProfileScreen mobile currency section. */}
+          {mounted && !lockMultiplayerNav && !isMobile && (
             <div
               title="PentaShards: earn rewards from missions and events to redeem free skins in the Store."
               style={{ display: "flex", alignItems: "center", gap: 4, fontFamily: t.fontMono, fontSize: CURRENCY_FONT, fontWeight: 700 }}
@@ -713,8 +717,10 @@ export default function NavBar({
 
           {/* Currencies — hidden in multiplayer (lockMultiplayerNav) so the
               bar shows only the PentaProtocol logo on the left and Settings
-              on the right during a live match. */}
-          {mounted && !lockMultiplayerNav && (
+              on the right during a live match. Also hidden on mobile (see
+              ProfileScreen for the mobile currency pill) to prevent the nav
+              bar from overflowing on narrow viewports. */}
+          {mounted && !lockMultiplayerNav && !isMobile && (
             <div
               title="ProtoCredits: premium currency to buy skins, themes, and bundles in the Store."
               style={{ display: "flex", alignItems: "center", gap: 4, fontFamily: t.fontMono, fontSize: CURRENCY_FONT, fontWeight: 700 }}

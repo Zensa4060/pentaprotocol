@@ -455,10 +455,29 @@ export function RulebreakerFlow({
             <span><span style={{ color: "#88aadd", fontWeight: 900, letterSpacing: "0.06em" }}>SERVITUDE</span> <span style={{ color: t.textMuted }}>(PROTO)</span> = {p2Name}</span>
           </div>
         ) : (
-          <div style={{ display: "flex", gap: 28, fontFamily: t.fontMono, fontSize: 39, color: t.textMuted, marginBottom: 20, animation: "fadeUp 0.5s cubic-bezier(.22,.68,0,1.2) 0.12s both" }}>
-            <span style={{ display: "flex", alignItems: "center", gap: 8 }}><CoinFace type="PENTA" size={26} /><span>PENTA = {p1Name}</span></span>
+          <div
+            style={{
+              display: "flex",
+              gap: "clamp(12px, 3vw, 28px)",
+              flexWrap: "wrap" as const,
+              justifyContent: "center",
+              alignItems: "center",
+              fontFamily: t.fontMono,
+              // Original 39px overflowed even laptop widths for long player
+              // names; clamp() caps it for phones while preserving the bold
+              // display size at ≥ 1200px viewports.
+              fontSize: "clamp(16px, 4.2vw, 39px)",
+              color: t.textMuted,
+              marginBottom: 20,
+              padding: "0 16px",
+              maxWidth: "100%",
+              textAlign: "center" as const,
+              animation: "fadeUp 0.5s cubic-bezier(.22,.68,0,1.2) 0.12s both",
+            }}
+          >
+            <span style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}><CoinFace type="PENTA" size={26} /><span style={{ overflowWrap: "anywhere" }}>PENTA = {p1Name}</span></span>
             <span style={{ color: t.border }}>|</span>
-            <span style={{ display: "flex", alignItems: "center", gap: 8 }}><CoinFace type="PROTO" size={26} /><span>PROTO = {p2Name}</span></span>
+            <span style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}><CoinFace type="PROTO" size={26} /><span style={{ overflowWrap: "anywhere" }}>PROTO = {p2Name}</span></span>
           </div>
         )}
 
@@ -1037,16 +1056,26 @@ export function RulebreakerFlow({
     }
 
     return (
-      <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, zIndex: 10000, overflowY: "auto", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: t.bg, padding: "40px 24px", gap: 32, userSelect: "none", animation: "fadeUp 0.35s ease both" }}>
+      <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, zIndex: 10000, overflowY: "auto", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: t.bg, padding: "clamp(16px, 4vw, 40px) clamp(12px, 4vw, 24px)", gap: "clamp(16px, 3vw, 32px)", userSelect: "none", animation: "fadeUp 0.35s ease both" }}>
         {/* Background Atmosphere */}
         <div style={{ position: "absolute", inset: 0, background: `radial-gradient(circle at 50% 50%, ${t.accent}08 0%, transparent 70%)`, pointerEvents: "none" }} />
 
-        <div style={{ textAlign: "center", position: "relative" }}>
-          <div style={{ fontFamily: t.fontDisplay, fontSize: "clamp(32px,5vw,64px)", fontWeight: 950, color: t.accent, textShadow: `0 0 40px ${t.accentGlow}66`, letterSpacing: "0.05em" }}>ROUND 3 RULES</div>
-          <div style={{ fontFamily: t.fontMono, fontSize: 18, color: t.textMuted, letterSpacing: "0.2em", marginTop: 8 }}>PREPARING FOR COMMENCEMENT...</div>
+        <style>{`
+          /* Stack the two toss-winner / toss-loser cards on narrow
+             viewports so they don't overflow horizontally. On desktop
+             (≥ 720px) the original side-by-side layout is preserved. */
+          @media (max-width: 719px) {
+            .pp-rb-summary-cards { flex-direction: column !important; align-items: stretch !important; gap: 16px !important; }
+            .pp-rb-summary-card  { transform: none !important; }
+          }
+        `}</style>
+
+        <div style={{ textAlign: "center", position: "relative", maxWidth: "100%", paddingLeft: 8, paddingRight: 8 }}>
+          <div style={{ fontFamily: t.fontDisplay, fontSize: "clamp(26px,5vw,64px)", fontWeight: 950, color: t.accent, textShadow: `0 0 40px ${t.accentGlow}66`, letterSpacing: "0.05em" }}>ROUND 3 RULES</div>
+          <div style={{ fontFamily: t.fontMono, fontSize: "clamp(11px, 2.4vw, 18px)", color: t.textMuted, letterSpacing: "0.2em", marginTop: 8 }}>PREPARING FOR COMMENCEMENT...</div>
         </div>
 
-        <div style={{ display: "flex", gap: 32, width: "100%", maxWidth: 1100, position: "relative" }}>
+        <div className="pp-rb-summary-cards" style={{ display: "flex", gap: 32, width: "100%", maxWidth: 1100, position: "relative" }}>
           {(["P1", "P2"] as const).map(p => {
             const col = p === "P1" ? p1c : p2c;
             const isWinner = p === tossWinner;
@@ -1061,14 +1090,17 @@ export function RulebreakerFlow({
             const displayBannedLabel = secretBan ? "?" : bannedLabelOnly;
 
             return (
-              <div key={p} style={{
-                flex: 1, background: "rgba(0,0,0,0.6)", backdropFilter: "blur(40px)",
+              <div
+                key={p}
+                className="pp-rb-summary-card"
+                style={{
+                flex: 1, minWidth: 0, background: "rgba(0,0,0,0.6)", backdropFilter: "blur(40px)",
                 border: `3px solid ${col}${isMe ? "" : "44"}`, borderRadius: ip ? 2 : 24,
-                padding: "40px 32px", textAlign: "center", opacity: isMe ? 1 : 0.75,
+                padding: "clamp(20px, 4vw, 40px) clamp(16px, 3vw, 32px)", textAlign: "center", opacity: isMe ? 1 : 0.75,
                 boxShadow: isMe ? `0 30px 100px rgba(0,0,0,0.8), 0 0 50px ${col}33` : "none",
                 transform: isMe ? "scale(1.05)" : "scale(1)", transition: "all 0.4s cubic-bezier(.22,.68,0,1.2)"
               }}>
-                <div style={{ fontFamily: t.fontDisplay, fontSize: 64, fontWeight: 950, color: col, marginBottom: 8, textShadow: `0 0 30px ${col}66` }}>{nameOf(p)}</div>
+                <div style={{ fontFamily: t.fontDisplay, fontSize: "clamp(32px, 8vw, 64px)", fontWeight: 950, color: col, marginBottom: 8, textShadow: `0 0 30px ${col}66`, overflowWrap: "anywhere" }}>{nameOf(p)}</div>
 
                 {/* Big rule-name banner replaces the rank logo showcase.
                     Fills the vertical space with a punchy one-line label so
@@ -1090,14 +1122,18 @@ export function RulebreakerFlow({
                   <div
                     style={{
                       fontFamily: t.fontDisplay,
-                      fontSize: "clamp(28px, 3.2vw, 46px)",
+                      // Shrink min to 18px for narrow phones so
+                      // "PATTERNS BANNED" / "EXTRA TURN TOKEN" never clip
+                      // the card border on a 360px viewport.
+                      fontSize: "clamp(18px, 4.8vw, 46px)",
                       fontWeight: 950,
-                      letterSpacing: "0.08em",
+                      letterSpacing: "0.06em",
                       color: col,
                       textAlign: "center" as const,
                       textTransform: "uppercase" as const,
                       textShadow: `0 0 22px ${col}99, 0 0 4px rgba(0,0,0,0.7)`,
                       lineHeight: 1.1,
+                      overflowWrap: "anywhere",
                     }}
                   >
                     {(() => {

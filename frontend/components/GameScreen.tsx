@@ -4289,7 +4289,14 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
 
         {/* Turn indicator */}
         <div style={{ position: "absolute", bottom: 52, left: 0, right: 0, zIndex: 10, display: "flex", flexDirection: "column", alignItems: "center", gap: 5, pointerEvents: "none" }}>
-          {isMultiplayerGame && liveSelectedPatterns.length > 0 && !matchOver && phase !== "match_over" && (
+          {/* Pattern-overlay toggle — desktop has this button in the
+              RightPanel sidebar, but on mobile the sidebar isn't rendered
+              so we surface the same control above the turn indicator.
+              Previously gated by ``isMultiplayerGame`` which meant the
+              SP/AI training flow could never reveal active patterns on a
+              phone; guarding only on ``liveSelectedPatterns.length > 0``
+              now keeps parity with the desktop sidebar for every mode. */}
+          {liveSelectedPatterns.length > 0 && !matchOver && phase !== "match_over" && (
             <div style={{ pointerEvents: "auto", marginBottom: 4 }}>
               <button
                 type="button"
