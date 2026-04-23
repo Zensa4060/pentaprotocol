@@ -74,14 +74,41 @@ def _cookie_kwargs(
     http_only: bool,
 ) -> dict:
     """Shared cookie attributes. Starlette's ``set_cookie`` accepts these
-    as kwargs. ``samesite="lax"`` is the strongest value that still lets
-    users land on the site from external links (email, Google sign-in
-    redirect) while blocking the worst CSRF patterns."""
+    as kwargs.
+
+    ``SameSite`` is environment-dependent:
+
+    - **Production**: the frontend (pentaprotocol.com / *.vercel.app) and
+      the API (*.up.railway.app or api.pentaprotocol.com) live on
+      **different eTLD+1 sites**, so the browser treats every API call
+      as cross-site. ``SameSite=Lax`` would therefore block the cookie
+      from ever being sent on XHR/fetch — which is exactly the 401
+      storm we hit after the F-03 cookie migration went live. We must
+      use ``SameSite=None`` so the browser includes the cookie on
+      cross-site requests. ``None`` is only honoured together with
+      ``Secure``, which we already set in production.
+
+    - **Development**: frontend (localhost:3000) and API (localhost:8000)
+      share ``localhost`` as their site, so ``SameSite=Lax`` works and is
+      the stronger default. ``SameSite=None`` additionally mandates
+      ``Secure``, which browsers refuse to honour on plain ``http://``
+      origins, so we would lose cookies entirely in dev if we flipped
+      to ``None`` unconditionally.
+
+    CSRF note: we compensate for the weaker cross-site semantics of
+    ``SameSite=None`` with the Origin-check middleware in
+    ``backend/main.py`` (``csrf_origin_guard``), which rejects mutating
+    verbs whose ``Origin`` header is not in ``ALLOWED_ORIGINS``. That
+    keeps the CSRF blast-radius of ``SameSite=None`` negligible.
+    """
+    production = _is_production()
     return {
         "max_age": max_age_seconds,
         "httponly": http_only,
-        "secure": _is_production(),
-        "samesite": "lax",
+        # ``SameSite=None`` requires ``Secure``; both must be set
+        # together or browsers reject the cookie outright.
+        "secure": production,
+        "samesite": "none" if production else "lax",
         "path": "/",
     }
 
@@ -130,8 +157,26 @@ def set_session_cookies(
 
 
 def clear_session_cookies(response: Response) -> None:
-    """Used by /auth/logout. Browsers clear a cookie when we set it with
-    a past Max-Age (we use ``delete_cookie`` which does this cleanly)."""
-    response.delete_cookie(ACCESS_TOKEN_COOKIE, path="/")
-    response.delete_cookie(DEVICE_TOKEN_COOKIE, path="/")
-    response.delete_cookie(PRESENCE_COOKIE, path="/")
+    """Used by /auth/logout. Browsers only accept a ``Set-Cookie`` that
+    clears an existing cookie when its ``Path``, ``Secure`` and
+    ``SameSite`` attributes match the ones used when the cookie was
+    originally set — otherwise the browser treats the clear as a
+    *different* cookie and the original remains live. We therefore
+    re-emit ``Set-Cookie: <name>=; Max-Age=0`` with the same attribute
+    set as ``set_cookie``."""
+    production = _is_production()
+    samesite = "none" if production else "lax"
+    for name, http_only in (
+        (ACCESS_TOKEN_COOKIE, True),
+        (DEVICE_TOKEN_COOKIE, True),
+        (PRESENCE_COOKIE, False),
+    ):
+        response.set_cookie(
+            name,
+            "",
+            max_age=0,
+            httponly=http_only,
+            secure=production,
+            samesite=samesite,
+            path="/",
+        )
