@@ -550,7 +550,7 @@ export default function FriendsSidePanel({ themeId, onHoverAction, forceSolidBac
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               {sortedFriends.map((f) => {
-                const rank = (RANKS as Array<{ name: string; color: string }>).find((r) => r.name === f.rank) || RANKS[1];
+                const rank = RANKS.find((r) => r.name === f.rank) || RANKS[1];
                 const dim = !f.online;
                 return (
                   <div
