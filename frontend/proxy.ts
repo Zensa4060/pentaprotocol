@@ -195,7 +195,18 @@ function withNonceAndCsp(req: NextRequest, nonce: string) {
       headers: requestHeaders,
     },
   });
+  // Echo nonce on the response too for observability/debugging and for
+  // framework/runtime paths that inspect response headers.
+  res.headers.set("x-nonce", nonce);
   res.headers.set("Content-Security-Policy", csp);
+  // Nonce-based CSP must stay request-bound: serving cached HTML with a
+  // stale nonce but a fresh CSP nonce causes hydration inline scripts to
+  // be blocked (white screen + CSP errors). Keep document responses out
+  // of intermediary caches.
+  res.headers.set("Cache-Control", "no-store");
+  // Hint Next/Vercel middleware cache to avoid reusing prior middleware
+  // output when nonce changes per request.
+  res.headers.set("x-middleware-cache", "no-cache");
   return res;
 }
 
