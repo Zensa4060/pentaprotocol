@@ -9,6 +9,7 @@ import { loadCustomTheme } from "@/lib/customTheme";
 import { useBannerShineEnabled } from "@/lib/bannerShinePreference";
 import { BannerRenderer } from "./BannerRenderer";
 import { RANKS, getRank, NavRankBadge, rankGlowVisualStrength, buildRankEmblemGlowFilter, rankHaloGradientForRank } from "./NavBar";
+import FriendsSidePanel from "./FriendsSidePanel";
 import React from "react";
 
 
@@ -610,6 +611,8 @@ export default function CareerScreen({ themeId, onHoverAction, initialMatchId }:
         } as React.CSSProperties
       }
     >
+      <FriendsSidePanel themeId={themeId} onHoverAction={onHoverAction} />
+
       <style>{`
         .career-row {
           transition: background-color 0.12s ease, border-color 0.12s ease;

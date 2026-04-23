@@ -120,6 +120,10 @@ def _serialize_user(user: dict) -> dict:
         "purchased_items":     user.get("purchased_items", []),
         "legal_accepted":      user.get("legal_accepted", False),
         "legal_accepted_version": int(user.get("legal_accepted_version", 0) or 0),
+        # Onboarding tutorial state: "none" | "skipped" | "completed".
+        # Legacy users (created before this field existed) are surfaced as
+        # "completed" so the first-run gate does not trigger for them.
+        "onboarding_tutorial": user.get("onboarding_tutorial") or "completed",
         # ── account review (Phase 2.6) ───────────────────────────────────
         # Surfaced so the client can render a passive "under review" banner.
         # We deliberately do not expose the raw anticheat_score — the
@@ -220,6 +224,43 @@ async def claim_mission_reward(data: ClaimMissionBody, user_id: str = Depends(ge
         "xp_awarded": xp_gain,
         "profile": _serialize_user(fresh),
     }
+
+
+_VALID_TUTORIAL_STATES = {"none", "skipped", "completed"}
+
+
+class TutorialStateBody(BaseModel):
+    state: str = Field(..., description='"none" | "skipped" | "completed"')
+
+
+@router.post("/tutorial-state")
+async def set_tutorial_state(
+    data: TutorialStateBody,
+    user_id: str = Depends(get_current_user),
+):
+    """Record the user's first-run tutorial decision.
+
+    The frontend calls this when the player either picks "Skip tutorial"
+    on the gate screen or completes the full walkthrough. "none" is kept
+    as a legal value so an admin tool could reset a user back to the
+    onboarding flow, but normal clients should only send skipped/completed.
+    """
+    state = (data.state or "").strip().lower()
+    if state not in _VALID_TUTORIAL_STATES:
+        raise HTTPException(400, "Invalid tutorial state")
+    db = get_db()
+    oid = user_object_id(user_id)
+    res = await db.users.update_one(
+        {"_id": oid},
+        {"$set": {
+            "onboarding_tutorial": state,
+            "onboarding_tutorial_updated_at": datetime.utcnow(),
+        }},
+    )
+    if res.matched_count == 0:
+        raise HTTPException(404, "User not found")
+    fresh = await db.users.find_one({"_id": oid})
+    return {"ok": True, "profile": _serialize_user(fresh) if fresh else None}
 
 
 @router.get("/me")

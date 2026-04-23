@@ -119,8 +119,8 @@ class GameState:
     # ============================================================
 
     def reset_timers(self):
-        self.p1_time = 180000   # 3 minutes in ms
-        self.p2_time = 180000
+        self.p1_time = 120000   # 2 minutes in ms (5x5 default)
+        self.p2_time = 120000
 
     def update_timer(self, dt):
         if (self.show_splash or

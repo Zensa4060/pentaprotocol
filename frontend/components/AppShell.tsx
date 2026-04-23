@@ -44,6 +44,8 @@ import NavBar from "@/components/NavBar";
 import SettingsModal from "@/components/SettingsModal";
 import SpaceBg from "@/components/SpaceBg";
 import PolicyAcceptanceGate from "@/components/PolicyAcceptanceGate";
+import TutorialScreen from "@/components/TutorialScreen";
+import { shouldShowTutorialGate, normalizeTutorialState } from "@/lib/tutorialState";
 import SessionReplacedModal from "@/components/SessionReplacedModal";
 import ActiveMatchRejoinModal from "@/components/ActiveMatchRejoinModal";
 import GlobalLevelUpShowcase from "@/components/GlobalLevelUpShowcase";
@@ -433,6 +435,36 @@ export default function AppShell({ children }: { children: ReactNode }) {
     if (pending === uid && !hasAcceptedLegal(uid, user)) setShowPolicyGate(true);
   }, [appReady, user, token]);
 
+  /* ── First-run tutorial gate ───────────────────────────────────────────
+   *
+   * Shown after a user has accepted the legal policies but has not yet
+   * decided on the tutorial. Also reopens when Profile fires a
+   * "pp_replay_tutorial" custom event ("replay" mode — does not re-persist).
+   */
+  const [tutorialOpen, setTutorialOpen] = useState(false);
+  const [tutorialMode, setTutorialMode] = useState<"gate" | "replay">("gate");
+  const tutorialOpenRef = useRef(false);
+  tutorialOpenRef.current = tutorialOpen;
+
+  useEffect(() => {
+    if (!appReady || !user || !token) return;
+    if (showPolicyGate) return;
+    if (!shouldShowTutorialGate(user)) return;
+    if (tutorialOpenRef.current) return;
+    setTutorialMode("gate");
+    setTutorialOpen(true);
+  }, [appReady, user, token, showPolicyGate]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const onReplay = () => {
+      setTutorialMode("replay");
+      setTutorialOpen(true);
+    };
+    window.addEventListener("pp_replay_tutorial", onReplay);
+    return () => window.removeEventListener("pp_replay_tutorial", onReplay);
+  }, []);
+
   /* ── Warm shell routes (navbar) so tab switches use prefetched segments ─ */
   useEffect(() => {
     if (!appReady || typeof window === "undefined") return;
@@ -737,7 +769,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
       setAudioStarted(true);
       if (isStaticSilentPage) return;
       const scr = pathnameToScreen(window.location.pathname);
-      if (scr === "auth" || showPolicyGateRef.current) {
+      if (scr === "auth" || showPolicyGateRef.current || tutorialOpenRef.current) {
         audio.playAuthBgm(themeRef.current);
       } else {
         audio.playBgm(
@@ -803,13 +835,16 @@ export default function AppShell({ children }: { children: ReactNode }) {
       audio.pauseBgm();
       return;
     }
-    if (currentScreen === "auth" || showPolicyGate) {
+    // Tutorial (first-run gate or Training→Tutorial replay) shares the auth
+    // BGM — same "intro / instructional" mood and keeps music continuous
+    // across the policy-gate → tutorial → lobby handoff on new accounts.
+    if (currentScreen === "auth" || showPolicyGate || tutorialOpen) {
       audio.playAuthBgm(themeId);
     } else {
       audio.playBgm(themeId, getBgmCtx(currentScreen, isRanked, aiDifficulty));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [themeId, currentScreen, isRanked, aiDifficulty, audioStarted, showPolicyGate, isStaticSilentPage]);
+  }, [themeId, currentScreen, isRanked, aiDifficulty, audioStarted, showPolicyGate, isStaticSilentPage, tutorialOpen]);
 
   /* ── Queue elapsed timer ────────────────────────────────────────────── */
   useEffect(() => {
@@ -1330,6 +1365,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
     pathname !== "/auth" &&
     pathname !== "/" &&
     !showPolicyGate &&
+    !tutorialOpen &&
     !hideNavForImmersivePlay;
 
   const GlobalMatchupOverlay = () => {
@@ -1589,6 +1625,31 @@ export default function AppShell({ children }: { children: ReactNode }) {
               </button>
             </div>
           </div>
+        )}
+
+        {/* First-run / replay tutorial overlay — sits above everything
+         *   except the PolicyAcceptanceGate (which gates the tutorial
+         *   gate itself). */}
+        {tutorialOpen && user && token && (
+          <TutorialScreen
+            themeId={routeThemeId}
+            userId={getUserId(user)}
+            token={token}
+            mode={tutorialMode}
+            onDoneAction={(result) => {
+              setTutorialOpen(false);
+              if (tutorialMode === "gate") {
+                // Reflect the decision on the in-memory user so other
+                // `shouldShowTutorialGate` checks (e.g. remount) stop firing.
+                useAuthStore.getState().updateUser({
+                  onboarding_tutorial: normalizeTutorialState(result),
+                });
+                // Kick a profile refresh so any stale cached fields converge
+                // with the server-side write that TutorialScreen just made.
+                void useAuthStore.getState().refreshProfile();
+              }
+            }}
+          />
         )}
 
         {/* Policy acceptance gate */}

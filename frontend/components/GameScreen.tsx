@@ -87,7 +87,7 @@ function inferGridSizeFromBoard(board: (string | null)[][]): PlayGridSize | null
 }
 
 function matchMsForGridSize(s: PlayGridSize): number {
-  return s === 7 ? 300_000 : s === 6 ? 240_000 : 180_000;
+  return s === 7 ? 300_000 : s === 6 ? 180_000 : 120_000;
 }
 
 type MatchSeriesCompletePayload = {
@@ -778,7 +778,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   }, [inGameDmDraft, inGameDmFriendId, refreshInGameDm]);
   const localBarsRef = useRef<number | null>(null);
   const chatVisibleRef = useRef(false);
-  const [readyTimeout, setReadyTimeout] = useState(60);
+  const [readyTimeout, setReadyTimeout] = useState(30);
   const [readyTimer, setReadyTimer] = useState(0);
   const [phase, setPhase] = useState<Phase>("playing");
   const activePhasePath: MatchPhasePath =
@@ -1091,7 +1091,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
 
   const R = useRef({
     phase: "playing" as Phase, current: "P1", winner: null as string | null,
-    p1Ready: false, p2Ready: false, readyTimeout: 60, readyTimer: 0,
+    p1Ready: false, p2Ready: false, readyTimeout: 30, readyTimer: 0,
     coinResult: null as "PENTA" | "PROTO" | null, matchOver: false, gameNumber: 1,
     matchHistory: [] as string[], firstPlayerChosen: null as string | null,
     tossWinner: null as "P1" | "P2" | null, rbC3Blocked: false, rbBannedPatterns: [] as string[], summaryTimer: 5, choiceTimer: 0,
@@ -1313,7 +1313,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
                       requestAnimationFrame(() => setOverlayVisible(true));
                     });
                   }, 300);
-                  setP1Ready(false); setP2Ready(false); setReadyTimeout(60); setReadyTimer(0); setPhase("waiting_ready");
+                  setP1Ready(false); setP2Ready(false); setReadyTimeout(30); setReadyTimer(0); setPhase("waiting_ready");
                 }
               }
             } else if (msg.type === "room_state") {
@@ -1831,7 +1831,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
             }
           }
           setLog([]);
-          const mtm = nextBmEff === "7x7" ? 300_000 : nextBmEff === "6x6" ? 240_000 : 180_000;
+          const mtm = nextBmEff === "7x7" ? 300_000 : nextBmEff === "6x6" ? 180_000 : 120_000;
           setP1Time(mtm);
           setP2Time(mtm);
           p1TimeRef.current = mtm;
@@ -2236,6 +2236,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   }, [botTurnKey, phase, winner, gameMode, liveBoardMode, GRID_SIZE, structuralPatternsP2, difficulty]);
 
   const initBoard = async (firstPlayer: string, c3block = false, suppressCenter = false) => {
+    clearUndoStack();
     setIsBoardPaused(false);
     setSuppressCenterOpening(suppressCenter);
     setRbExtraTurnTokenHolder(null);
@@ -2298,13 +2299,64 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     setChatInput("");
   };
 
+  /**
+   * Singleplayer-only move undo history.
+   *
+   * Before every local placement in `place()`, a snapshot of the
+   * pre-move board + bookkeeping state is pushed here. `undoMove` pops
+   * the top and restores the state, reverting exactly one stone (the
+   * most recent one). The stack is cleared on every new game
+   * (`initBoard`) and on `softReset` so undo never crosses a game
+   * boundary.
+   *
+   * Gated to `gameMode === "singleplayer"` (training): multiplayer is
+   * authoritative on the server and ai/bots mode is out of scope per
+   * product spec.
+   */
+  type UndoSnapshot = {
+    board: (string | null)[][];
+    movesPlayed: number;
+    current: string;
+    extraTurns: number;
+    c3Blocked: boolean;
+    winner: string | null;
+    winLine: Coord[];
+    logLength: number;
+  };
+  const undoStackRef = useRef<UndoSnapshot[]>([]);
+  const [undoCount, setUndoCount] = useState(0);
+
+  const clearUndoStack = () => {
+    undoStackRef.current = [];
+    setUndoCount(0);
+  };
+
+  const undoMove = () => {
+    if (gameMode !== "singleplayer") return;
+    const snap = undoStackRef.current.pop();
+    if (!snap) return;
+    setBoard(snap.board);
+    setMovesPlayed(snap.movesPlayed);
+    setCurrent(snap.current);
+    setExtraTurns(snap.extraTurns);
+    setC3Blocked(snap.c3Blocked);
+    setWinner(snap.winner);
+    setWinLine(snap.winLine);
+    setLog(l => l.slice(0, snap.logLength));
+    setShowWinOverlay(false);
+    setOverlayVisible(false);
+    setLoading(false);
+    setUndoCount(undoStackRef.current.length);
+  };
+
   const softReset = () => {
+    clearUndoStack();
     matchHistoryRef.current = []; setGameNumber(1); setMatchHistory([]); setMatchOver(false); setSeriesWinner(null);
     setP1SeriesPts(0); setP2SeriesPts(0); awaitingRulebreakerRef.current = false;
     setMatchOverAcked(false);
     setSegmentStartIndex(0); segmentStartIndexRef.current = 0;
     setHistoryDisplayStartIndex(0); historyDisplayStartIndexRef.current = 0;
-    setP1Ready(false); setP2Ready(false); setReadyTimeout(60); setReadyTimer(0);
+    setP1Ready(false); setP2Ready(false); setReadyTimeout(30); setReadyTimer(0);
     setRbSplashTimer(5); setCoinFlipTimer(rbCoinFlipSeconds); setCoinRevealTimer(0); setCoinResult(null);
     setCoinAngle(0); setTossWinner(null); setFirstPlayerChosen(null); setRbC3Blocked(false); setRbBannedPatterns([]);
     setSummaryTimer(5); setOverlayVisible(false); setChoiceTimer(0);
@@ -2752,7 +2804,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
           requestAnimationFrame(() => setOverlayVisible(true));
         });
       }, 300);
-      setP1Ready(false); setP2Ready(false); setReadyTimeout(60); setReadyTimer(0); setPhase("waiting_ready");
+      setP1Ready(false); setP2Ready(false); setReadyTimeout(30); setReadyTimer(0); setPhase("waiting_ready");
     }
   }, [winner]);
 
@@ -2943,6 +2995,19 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     }
     playPlaceAction?.();
     setLoading(true);
+    if (gameMode === "singleplayer") {
+      undoStackRef.current.push({
+        board: board.map(row => [...row]),
+        movesPlayed,
+        current,
+        extraTurns,
+        c3Blocked,
+        winner,
+        winLine: winLine.map(([wr, wc]) => [wr, wc] as Coord),
+        logLength: log.length,
+      });
+      setUndoCount(undoStackRef.current.length);
+    }
     const playerWhoMoved = current;
     const nb = board.map(row => [...row]);
     const rbTrap = GRID_SIZE === 6 && rb6SpecialCell && rb6SpecialCell.r === r && rb6SpecialCell.c === c;
@@ -3936,6 +4001,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     textSecondary: t.textSecondary,
     ip,
     mySlot,
+    reviewGridNode: boardJSX,
   };
 
   if (activePhasePath !== "game" && phase !== "playing") {
@@ -4082,24 +4148,45 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
         {/* Board fills entire screen */}
         <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "8px" }}>
           {gameMode === "singleplayer" && (
-            <button
-              onClick={softReset}
-              style={{
-                marginBottom: 12,
-                padding: "6px 16px",
-                background: "rgba(255, 0, 0, 0.08)",
-                border: `1px solid ${t.danger}66`,
-                borderRadius: 8,
-                color: t.danger,
-                fontFamily: t.fontMono,
-                fontSize: 10,
-                fontWeight: 700,
-                letterSpacing: "0.05em",
-                backdropFilter: "blur(4px)"
-              }}
-            >
-              ↺ RESET MATCH
-            </button>
+            <div style={{ marginBottom: 12, display: "flex", gap: 8 }}>
+              <button
+                onClick={undoMove}
+                disabled={undoCount === 0}
+                style={{
+                  padding: "6px 16px",
+                  background: undoCount === 0 ? "rgba(255,255,255,0.04)" : `${t.accent}14`,
+                  border: `1px solid ${undoCount === 0 ? t.border : t.accent}66`,
+                  borderRadius: 8,
+                  color: undoCount === 0 ? t.textMuted : t.accent,
+                  fontFamily: t.fontMono,
+                  fontSize: 10,
+                  fontWeight: 700,
+                  letterSpacing: "0.05em",
+                  backdropFilter: "blur(4px)",
+                  cursor: undoCount === 0 ? "default" : "pointer",
+                  opacity: undoCount === 0 ? 0.55 : 1,
+                }}
+              >
+                ↶ UNDO MOVE
+              </button>
+              <button
+                onClick={softReset}
+                style={{
+                  padding: "6px 16px",
+                  background: "rgba(255, 0, 0, 0.08)",
+                  border: `1px solid ${t.danger}66`,
+                  borderRadius: 8,
+                  color: t.danger,
+                  fontFamily: t.fontMono,
+                  fontSize: 10,
+                  fontWeight: 700,
+                  letterSpacing: "0.05em",
+                  backdropFilter: "blur(4px)"
+                }}
+              >
+                ↺ RESET MATCH
+              </button>
+            </div>
           )}
           {renderMainBoard("mobile")}
         </div>
@@ -4769,6 +4856,8 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
         movesPlayed={movesPlayed}
         onShowSurrenderAction={() => { playClickAction?.(); pausedRef.current = true; setShowSurrender(true); }}
         onSoftResetAction={softReset}
+        onUndoAction={gameMode === "singleplayer" ? undoMove : undefined}
+        canUndo={gameMode === "singleplayer" && undoCount > 0}
         onOpenSettingsAction={onOpenSettingsAction}
       />
 

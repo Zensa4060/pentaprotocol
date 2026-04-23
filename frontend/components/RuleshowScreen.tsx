@@ -66,7 +66,7 @@ export default function RuleshowScreen({
   const is55 = sheet === "5x5";
   const legSheet = is55 || is66 || is77;
 
-  const [rulesSecLeft, setRulesSecLeft] = useState(60);
+  const [rulesSecLeft, setRulesSecLeft] = useState(30);
   const autoReadyFiredRef = useRef(false);
   const autoDismissFiredRef = useRef(false);
 
@@ -92,7 +92,7 @@ export default function RuleshowScreen({
     if (!legSheet && !isProtocol) return;
     autoReadyFiredRef.current = false;
     autoDismissFiredRef.current = false;
-    setRulesSecLeft(60);
+    setRulesSecLeft(30);
     const id = window.setInterval(() => {
       setRulesSecLeft(s => (s <= 1 ? 0 : s - 1));
     }, 1000);

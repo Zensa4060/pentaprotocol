@@ -8,6 +8,7 @@ import { useAuthStore } from "@/lib/store";
 import { computeLevelProgress } from "@/lib/xpLevel";
 import API from "@/lib/api";
 import { NavRankBadge, getRank } from "./NavBar";
+import FriendsSidePanel from "./FriendsSidePanel";
 import {
   getLobbyQuote,
   LOBBY_QUOTE_STORAGE_KEY,
@@ -861,6 +862,8 @@ export default function LobbyScreen({
 
   return (
     <div style={{ position:"fixed", inset:0, zIndex:2, overflowY:"auto", background:t.bg, padding:isMobile?"70px 16px 40px":"90px 24px 40px", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:isMobile?"flex-start":"space-evenly", transition:"background 0.4s" }}>
+
+      <FriendsSidePanel themeId={themeId} onHoverAction={onHoverAction} />
 
       <h1 style={{
         fontFamily: t.fontDisplay,

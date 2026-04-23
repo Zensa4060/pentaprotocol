@@ -5,6 +5,7 @@ import { THEMES } from "@/lib/themes";
 import type { Screen } from "@/lib/types";
 import type { ThemeId } from "@/lib/themes";
 import { getRank, NavRankBadge } from "./NavBar";
+import FriendsSidePanel from "./FriendsSidePanel";
 
 interface Props {
   setScreenAction: (s: Screen) => void;
@@ -407,6 +408,8 @@ export default function HomeScreen({ setScreenAction, themeId, onHoverAction, on
       gap: outerGap,
       transition: "background 0.4s",
     }}>
+
+      <FriendsSidePanel themeId={themeId} onHoverAction={onHoverAction} />
 
       {/* ── Main content ── */}
       <div style={{

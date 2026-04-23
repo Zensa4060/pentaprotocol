@@ -812,6 +812,7 @@ export function RightPanel({
   isMultiplayer = false, isMultiplayerGame = false,
   gameNumber = 1, movesPlayed = 0,
   onShowSurrenderAction, onSoftResetAction,
+  onUndoAction, canUndo = false,
   onOpenSettingsAction,
 }: {
   t: MatchSidebarProps["t"]; ip: boolean; p1c: string; p2c: string; panelW: number;
@@ -820,6 +821,9 @@ export function RightPanel({
   isMultiplayer?: boolean; isMultiplayerGame?: boolean;
   gameNumber?: number; movesPlayed?: number;
   onShowSurrenderAction?: () => void; onSoftResetAction?: () => void;
+  /** Training-mode undo: pops the most recent stone. Button hidden when absent. */
+  onUndoAction?: () => void;
+  canUndo?: boolean;
   onOpenSettingsAction?: () => void;
 }) {
   const isPreMoveAbort = isRankedGame && gameNumber === 1 && (movesPlayed ?? 0) === 0;
@@ -846,12 +850,42 @@ export function RightPanel({
     if (isMultiplayer || isMultiplayerGame) return null;
     if (!onSoftResetAction) return null;
     return (
-      <button
-        onClick={onSoftResetAction}
-        style={{ background: `${t.danger}16`, border: `1px solid ${t.danger}`, color: t.danger, fontFamily: t.fontBody, fontSize: 13, padding: 9, borderRadius: ip ? 2 : 6, cursor: "pointer", transition: "all 0.2s" }}
-      >
-        RESET
-      </button>
+      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+        {onUndoAction && (
+          <button
+            onClick={canUndo ? onUndoAction : undefined}
+            disabled={!canUndo}
+            onMouseEnter={e => {
+              if (!canUndo) return;
+              playHoverAction?.();
+              e.currentTarget.style.background = `${t.accent}2a`;
+            }}
+            onMouseLeave={e => { e.currentTarget.style.background = canUndo ? `${t.accent}16` : `${t.border}14`; }}
+            style={{
+              background: canUndo ? `${t.accent}16` : `${t.border}14`,
+              border: `1px solid ${canUndo ? t.accent : t.border}`,
+              color: canUndo ? t.accent : t.textMuted,
+              fontFamily: t.fontBody,
+              fontSize: 13,
+              padding: 9,
+              borderRadius: ip ? 2 : 6,
+              cursor: canUndo ? "pointer" : "default",
+              opacity: canUndo ? 1 : 0.55,
+              transition: "all 0.2s",
+            }}
+          >
+            ↶ UNDO MOVE
+          </button>
+        )}
+        <button
+          onClick={onSoftResetAction}
+          style={{ background: `${t.danger}16`, border: `1px solid ${t.danger}`, color: t.danger, fontFamily: t.fontBody, fontSize: 13, padding: 9, borderRadius: ip ? 2 : 6, cursor: "pointer", transition: "all 0.2s" }}
+          onMouseEnter={e => { playHoverAction?.(); e.currentTarget.style.background = `${t.danger}30`; }}
+          onMouseLeave={e => { e.currentTarget.style.background = `${t.danger}16`; }}
+        >
+          RESET
+        </button>
+      </div>
     );
   };
 
@@ -940,7 +974,7 @@ export function WinOverlay({
   gameMode = "singleplayer",
   p1Ready = false,
   p2Ready = false,
-  readyTimeoutSec = 60,
+  readyTimeoutSec = 30,
   onReadyToggleAction,
   p1DisplayName = "P1",
   p2DisplayName = "P2",
@@ -950,6 +984,7 @@ export function WinOverlay({
   textSecondary = "rgba(255,255,255,0.55)",
   ip = false,
   mySlot,
+  reviewGridNode,
 }: {
   showWinOverlay: boolean;
   overlayVisible: boolean;
@@ -986,6 +1021,7 @@ export function WinOverlay({
   textSecondary?: string;
   ip?: boolean;
   mySlot?: "P1" | "P2";
+  reviewGridNode?: React.ReactNode;
 }) {
   const [canDismiss, setCanDismiss] = React.useState(false);
   React.useEffect(() => {
@@ -999,6 +1035,22 @@ export function WinOverlay({
   const showWinPane = Boolean(showWinOverlay && winner);
   const showReadyPane = Boolean(centralReadyStep && !showWinOverlay && phase === "waiting_ready");
   const showMatchOverPane = Boolean(centralMatchOverStep && !showWinOverlay && phase === "match_over");
+
+  /* "Review grid" lets the user peek at the final board + win animation
+     between games in training / bot modes. Tapping the button hides the
+     whole overlay; a small floating pill lets them bring it back before the
+     auto-ready timer elapses. Reset whenever we change panes so the next
+     inter-game cycle starts with the overlay visible. */
+  const [isReviewingGrid, setIsReviewingGrid] = React.useState(false);
+  const localSpOrAi = gameMode === "ai" || gameMode === "singleplayer";
+  const canReviewGrid = showReadyPane && localSpOrAi;
+  React.useEffect(() => {
+    if (!showReadyPane) setIsReviewingGrid(false);
+  }, [showReadyPane]);
+  React.useEffect(() => {
+    if (!canReviewGrid) setIsReviewingGrid(false);
+  }, [canReviewGrid]);
+
   if (!showWinPane && !showReadyPane && !showMatchOverPane) return null;
 
   const getName = (w: string | null) => (winnerDisplayNameAction ? winnerDisplayNameAction(w) : (w ?? ""));
@@ -1009,7 +1061,88 @@ export function WinOverlay({
   };
 
   const frameColor = showWinPane && winner ? winnerColor : (showMatchOverPane && seriesWinner && seriesWinner !== "DRAW" ? (seriesWinner === "P1" ? p1c : p2c) : accentColor);
-  const localSpOrAi = gameMode === "ai" || gameMode === "singleplayer";
+
+  /* Grid-review mode: the full-screen modal is swapped for the resolved
+     board (win line + highlights) rendered full-screen, with a tiny floating
+     pill to return to the ready pane. Countdown keeps ticking. */
+  if (isReviewingGrid) {
+    return (
+      <div
+        style={{
+          position: "fixed",
+          inset: 0,
+          zIndex: 999,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          background: "rgba(5,5,10,0.96)",
+          pointerEvents: "auto",
+        }}
+      >
+        {reviewGridNode ? (
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: "100%",
+              height: "100%",
+              padding: "48px 24px 110px",
+              boxSizing: "border-box",
+            }}
+          >
+            {reviewGridNode}
+          </div>
+        ) : null}
+        <div
+          style={{
+            position: "fixed",
+            left: "50%",
+            bottom: 24,
+            transform: "translateX(-50%)",
+            display: "flex",
+            alignItems: "center",
+            gap: 12,
+            padding: "10px 16px",
+            background: "rgba(10,10,15,0.92)",
+            border: `1px solid ${accentColor}66`,
+            borderRadius: 999,
+            boxShadow: `0 10px 32px rgba(0,0,0,0.55), 0 0 20px ${accentColor}33`,
+          }}
+        >
+          <div
+            style={{
+              fontFamily: t.fontMono,
+              fontSize: 12,
+              letterSpacing: "0.14em",
+              color: textSecondary,
+              textTransform: "uppercase",
+            }}
+          >
+            Reviewing grid · {Math.max(0, Math.ceil(readyTimeoutSec))}s
+          </div>
+          <button
+            type="button"
+            onClick={() => setIsReviewingGrid(false)}
+            style={{
+              padding: "8px 18px",
+              borderRadius: 999,
+              border: `1px solid ${accentColor}`,
+              background: `${accentColor}22`,
+              color: accentColor,
+              fontFamily: t.fontDisplay,
+              fontSize: 13,
+              fontWeight: 800,
+              letterSpacing: "0.1em",
+              cursor: "pointer",
+            }}
+          >
+            BACK TO READY
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -1211,12 +1344,21 @@ export function WinOverlay({
                 style={{
                   marginTop: 28,
                   display: "flex",
-                  justifyContent: "center",
-                  gap: 16,
-                  flexWrap: "wrap",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  gap: 12,
                   width: "100%",
                 }}
               >
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "center",
+                    gap: 16,
+                    flexWrap: "wrap",
+                    width: "100%",
+                  }}
+                >
                 {localSpOrAi ? (
                   <button
                     type="button"
@@ -1276,6 +1418,38 @@ export function WinOverlay({
                       </button>
                     );
                   })
+                )}
+                </div>
+
+                {canReviewGrid && (
+                  <button
+                    type="button"
+                    onClick={() => setIsReviewingGrid(true)}
+                    style={{
+                      padding: "10px 22px",
+                      borderRadius: ip ? 2 : 999,
+                      border: `1px solid ${accentColor}66`,
+                      background: "transparent",
+                      color: accentColor,
+                      fontFamily: t.fontMono,
+                      fontSize: 13,
+                      fontWeight: 700,
+                      letterSpacing: "0.14em",
+                      textTransform: "uppercase",
+                      cursor: "pointer",
+                      transition: "all 0.2s",
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = `${accentColor}15`;
+                      e.currentTarget.style.borderColor = accentColor;
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = "transparent";
+                      e.currentTarget.style.borderColor = `${accentColor}66`;
+                    }}
+                  >
+                    Review Grid
+                  </button>
                 )}
               </div>
             )}

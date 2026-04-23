@@ -86,5 +86,5 @@ def process_game_end(ui):
         ui.waiting_ready = True
         ui.p1_ready      = False
         ui.p2_ready      = False
-        ui.ready_timeout = 60
-        ui.ready_timer   = 2
+        ui.ready_timeout = 30
+        ui.ready_timer   = 2

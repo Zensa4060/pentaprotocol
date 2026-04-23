@@ -138,6 +138,12 @@ def serialize_user(user):
         "google_linked":       bool(user.get("google_id")),
         "legal_accepted":      user.get("legal_accepted", False),
         "legal_accepted_version": int(user.get("legal_accepted_version", 0) or 0),
+        # Onboarding tutorial state: "none" | "skipped" | "completed".
+        # New users start at "none"; the frontend shows the tutorial gate
+        # once policy acceptance completes. Legacy accounts (missing field)
+        # are reported as "completed" so we don't surprise existing players
+        # with an onboarding flow they never opted into.
+        "onboarding_tutorial":  user.get("onboarding_tutorial") or "completed",
     }
 
 async def get_current_user(authorization: str = Header(...)):
@@ -226,6 +232,7 @@ async def register(data: UserRegister, request: Request):
         "avatar":              None,
         "username_changed_at": None,
         "legal_accepted":      False,
+        "onboarding_tutorial": "none",
         "created_at":          datetime.utcnow(),
     }
     result = await db.users.insert_one(user)
@@ -480,6 +487,7 @@ async def google_auth(data: GoogleAuthRequest, request: Request):
             "bio":               "",
             "created_at":        datetime.utcnow(),
             "legal_accepted":    False, # New users must accept terms
+            "onboarding_tutorial": "none", # First-run tutorial gate state
         }
         result = await db.users.insert_one(new_user_doc)
         user = await db.users.find_one({"_id": result.inserted_id})
