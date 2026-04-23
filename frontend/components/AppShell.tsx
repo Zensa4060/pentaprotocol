@@ -934,7 +934,16 @@ export default function AppShell({ children }: { children: ReactNode }) {
 
       const url = screenToUrl(s);
       if (url) {
-        router.push(url);
+        try {
+          router.push(url);
+        } catch {
+          // Rare Next.js dev/runtime edge case: client-side RSC fetch for
+          // the target route fails (network hiccup, stale dev cache, etc.).
+          // Fall back to a full document navigation so the user still moves.
+          if (typeof window !== "undefined") {
+            window.location.assign(url);
+          }
+        }
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
