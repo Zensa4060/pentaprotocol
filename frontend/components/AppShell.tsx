@@ -338,6 +338,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
     multiPlayerSlot: "P1" | "P2" | null;
     isRanked: boolean;
   } | null>(null);
+  const startupNeedsSessionProbeRef = useRef(false);
 
   useLayoutEffect(() => {
     const savedTheme = localStorage.getItem("pp_theme") as ThemeId;
@@ -375,13 +376,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
     }
 
     if (!tok) {
-      if (
-        pathname !== ROUTES.AUTH &&
-        pathname !== "/" &&
-        !isPublicPath(pathname)
-      ) {
-        router.replace(ROUTES.AUTH);
-      }
+      startupNeedsSessionProbeRef.current = !isPublicPath(pathname);
       setAppReady(true);
       return;
     }
@@ -402,17 +397,28 @@ export default function AppShell({ children }: { children: ReactNode }) {
   /* ── Profile verification gate ──────────────────────────────────────── */
   useEffect(() => {
     const restore = pendingScreenRestoreRef.current;
-    if (!restore) return;
+    const shouldProbeSession = startupNeedsSessionProbeRef.current;
+    if (!restore && !shouldProbeSession) return;
+    startupNeedsSessionProbeRef.current = false;
 
     const tok = useAuthStore.getState().token;
     if (!tok) {
-      if (
-        pathname !== ROUTES.AUTH &&
-        pathname !== "/" &&
-        !isPublicPath(pathname)
-      ) {
-        router.replace(ROUTES.AUTH);
+      if (shouldProbeSession) {
+        API.get("/api/profile/me", { timeout: 10000 })
+          .then((res) => {
+            useAuthStore.getState().setAuth(res.data);
+            setAppReady(true);
+          })
+          .catch(() => {
+            router.replace(ROUTES.AUTH);
+            setAppReady(true);
+          });
+        return;
       }
+      setAppReady(true);
+      return;
+    }
+    if (!restore) {
       setAppReady(true);
       return;
     }

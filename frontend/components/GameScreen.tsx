@@ -4879,7 +4879,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
           <div
             onClick={togglePatternOverlay}
             style={{
-              position: "absolute",
+              position: "fixed",
               inset: 0,
               zIndex: 9400,
               background: "rgba(4,7,14,0.88)",
