@@ -1,7 +1,7 @@
-from fastapi import APIRouter, HTTPException, Header, Depends, Request
+from fastapi import APIRouter, HTTPException, Depends, Request, Response, Cookie
 from app.models.user import UserRegister
 from app.core.database import get_db
-from app.core.security import hash_password, verify_password, create_access_token, decode_token
+from app.core.security import hash_password, verify_password, create_access_token
 from app.core.connections import manager as ws_manager
 from datetime import datetime, timedelta
 from typing import Optional, List
@@ -9,6 +9,16 @@ from pydantic import BaseModel, Field, EmailStr
 from bson import ObjectId
 from bson.errors import InvalidId
 from app.core.ids import user_object_id
+# Shared auth dependency — cookie-first with Authorization-header
+# fallback (Phase 3 / review finding F-03). Replaces the per-router
+# copies that each decoded the token and checked the session id.
+from app.core.auth_dep import get_current_user
+from app.core.session_cookies import (
+    ACCESS_TOKEN_COOKIE,
+    DEVICE_TOKEN_COOKIE,
+    set_session_cookies,
+    clear_session_cookies,
+)
 
 from app.core.rate_limit import (
     build_rate_key,
@@ -53,6 +63,49 @@ def _fingerprint_from_request(request: Request) -> str:
         accept_language=h.get("accept-language", "") if h else "",
         accept_encoding=h.get("accept-encoding", "") if h else "",
     )
+
+
+def _hash_device_token(token: str) -> str:
+    """One-way SHA-256 of a trusted-device token.
+
+    Security-review finding F-03: device tokens (which bypass 2FA for
+    30 days) are stored in browser localStorage and were previously
+    persisted server-side in plaintext. If the database were ever
+    leaked, every stored token would be directly usable to skip 2FA.
+    We now store the hash and compare hashes on the login path, so a
+    DB leak yields tokens that are not directly usable against a live
+    account (attacker still needs the raw token from the user's
+    browser). The token returned to the client is unchanged.
+
+    SHA-256 is appropriate here because the input has 128 bits of
+    entropy (``secrets.token_hex(32)`` = 32 bytes = 64 hex chars) — it
+    is not a user-chosen secret, so a fast hash is fine and a slow KDF
+    (bcrypt/argon2) would only add CPU cost for no real gain."""
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+
+def _device_token_matches(stored_entry: dict, presented_token: str) -> bool:
+    """Check a presented device token against a stored token record.
+
+    Supports both the new hashed storage (``token_hash``) and legacy
+    plaintext storage (``token``) so existing trusted devices keep
+    working across the migration. Legacy plaintext entries will age
+    out naturally as the 30-day device-token lifetime expires; at
+    that point the ``token`` field becomes dead code and can be
+    removed."""
+    if not isinstance(stored_entry, dict):
+        return False
+    token_hash = stored_entry.get("token_hash")
+    if isinstance(token_hash, str) and token_hash:
+        try:
+            presented_hash = _hash_device_token(presented_token)
+        except Exception:
+            return False
+        return secrets.compare_digest(token_hash, presented_hash)
+    legacy = stored_entry.get("token")
+    if isinstance(legacy, str) and legacy:
+        return secrets.compare_digest(legacy, presented_token)
+    return False
 
 
 def _user_needs_policy_gate(user: dict) -> bool:
@@ -146,25 +199,6 @@ def serialize_user(user):
         "onboarding_tutorial":  user.get("onboarding_tutorial") or "completed",
     }
 
-async def get_current_user(authorization: str = Header(...)):
-    try:
-        token = authorization.split(" ")[1]
-        payload = decode_token(token)
-        user_id = payload["sub"]
-        token_sid = payload.get("sid")
-        # If token carries a sid, verify it still matches the DB (single-session enforcement)
-        if token_sid:
-            db = get_db()
-            user = await db.users.find_one({"_id": user_object_id(user_id)}, {"current_session_id": 1})
-            if not user or user.get("current_session_id") != token_sid:
-                raise HTTPException(401, "Session replaced — please sign in again")
-        return user_id
-    except HTTPException:
-        raise
-    except Exception:
-        raise HTTPException(401, "Invalid token")
-
-
 async def require_legal_accepted(user_id: str = Depends(get_current_user)) -> str:
     """Dependency for gameplay / store endpoints: requires an authenticated
     user who has accepted the *current* legal bundle (Terms / Privacy /
@@ -190,9 +224,36 @@ async def require_legal_accepted(user_id: str = Depends(get_current_user)) -> st
         )
     return user_id
 
+# ── SESSION: ME / LOGOUT ──────────────────────────────────────────────────────
+# Post-migration the frontend boots without a JWT in hand (the JWT lives
+# in the HttpOnly pp_token cookie). ``/auth/me`` lets it pull the current
+# user record using the cookie so the in-memory auth store can
+# populate on reload. ``/auth/logout`` clears all three session cookies.
+@router.get("/me")
+async def me(user_id: str = Depends(get_current_user)):
+    db = get_db()
+    try:
+        oid = user_object_id(user_id)
+    except Exception:
+        raise HTTPException(401, "Invalid session")
+    user = await db.users.find_one({"_id": oid})
+    if not user:
+        raise HTTPException(404, "User not found")
+    return {"user": serialize_user(user)}
+
+
+@router.post("/logout")
+async def logout(response: Response):
+    # Deliberately does not require auth — a user with an expired or
+    # invalid cookie should still be able to call /auth/logout to have
+    # the browser clean up any stale cookies.
+    clear_session_cookies(response)
+    return {"ok": True}
+
+
 # ── REGISTER ──────────────────────────────────────────────────────────────────
 @router.post("/register")
-async def register(data: UserRegister, request: Request):
+async def register(data: UserRegister, request: Request, response: Response):
     # Per-IP + per-email registration throttle. Without this a single host can
     # mass-create accounts to farm missions / bypass bans. The per-account
     # companion key (identifier = email) also catches VPN rotations.
@@ -252,6 +313,10 @@ async def register(data: UserRegister, request: Request):
         fingerprint=_fingerprint_from_request(request),
         source="register",
     )
+    # F-03: set HttpOnly session cookie. Response still includes the
+    # JWT for a short transitional period so older cached clients keep
+    # working; new clients ignore the body field and rely on the cookie.
+    set_session_cookies(response, access_token=token)
     return {"access_token": token, "token_type": "bearer", "user": serialize_user(user)}
 
 # ── LOGIN ─────────────────────────────────────────────────────────────────────
@@ -261,7 +326,12 @@ class UserLogin(BaseModel):
     device_token: str | None = Field(default=None, max_length=256)
 
 @router.post("/login")
-async def login(data: UserLogin, request: Request):
+async def login(
+    data: UserLogin,
+    request: Request,
+    response: Response,
+    pp_device_token_cookie: str | None = Cookie(default=None, alias=DEVICE_TOKEN_COOKIE),
+):
     client_ip = get_client_ip(request)
     ident = data.username.strip().lower()
     # 5 per minute per (IP, username) and 15 per minute per username across IPs.
@@ -325,7 +395,12 @@ async def login(data: UserLogin, request: Request):
     totp_enabled = _safe_bool(user.get("totp_enabled"), False)
     if totp_enabled and user.get("totp_secret"):
         skip_2fa = False
-        if data.device_token:
+        # Prefer the HttpOnly cookie over any body field. ``data.device_token``
+        # remains in the schema for transitional clients still shipping the
+        # legacy localStorage-based flow; once the cookie is available we
+        # treat it as authoritative.
+        presented_device_token = pp_device_token_cookie or data.device_token
+        if presented_device_token:
             now        = datetime.utcnow()
             token_list = user.get("device_tokens_list", [])
             if not isinstance(token_list, list):
@@ -339,7 +414,11 @@ async def login(data: UserLogin, request: Request):
                         exp = datetime.fromisoformat(exp.replace("Z", "+00:00")).replace(tzinfo=None)
                     except Exception:
                         exp = None
-                if isinstance(exp, datetime) and t.get("token") == data.device_token and exp > now:
+                if (
+                    isinstance(exp, datetime)
+                    and exp > now
+                    and _device_token_matches(t, presented_device_token)
+                ):
                     skip_2fa = True
                     break
 
@@ -369,6 +448,7 @@ async def login(data: UserLogin, request: Request):
         fingerprint=_fingerprint_from_request(request),
         source="login",
     )
+    set_session_cookies(response, access_token=token)
     return {"access_token": token, "token_type": "bearer", "user": serialize_user(user)}
 
 
@@ -380,7 +460,7 @@ class GoogleAuthRequest(BaseModel):
 
 
 @router.post("/google")
-async def google_auth(data: GoogleAuthRequest, request: Request):
+async def google_auth(data: GoogleAuthRequest, request: Request, response: Response):
     """
     Verify the Google token server-side and issue a JWT.
     Supports both ID Tokens (standard GIS) and Access Tokens (custom JS flow).
@@ -536,6 +616,7 @@ async def google_auth(data: GoogleAuthRequest, request: Request):
         source="google",
     )
 
+    set_session_cookies(response, access_token=token)
     return {
         "access_token": token,
         "token_type": "bearer",
@@ -594,7 +675,7 @@ async def confirm_2fa(data: TwoFAVerifySetup, user_id: str = Depends(get_current
 
 # ── 2FA: LOGIN CHECK ──────────────────────────────────────────────────────────
 @router.post("/2fa/login")
-async def login_2fa(data: TwoFALoginCheck, request: Request):
+async def login_2fa(data: TwoFALoginCheck, request: Request, response: Response):
     client_ip = get_client_ip(request)
     # 2FA is the final step in an auth chain, so tight limits are safe.
     await enforce_tier(
@@ -652,11 +733,22 @@ async def login_2fa(data: TwoFALoginCheck, request: Request):
     new_sid = secrets.token_hex(32)
     await ws_manager.kick_user(str(user["_id"]))
 
-    device_token = secrets.token_hex(32)
-    expiry       = datetime.utcnow() + timedelta(days=30)
-    now          = datetime.utcnow()
-    existing     = [t for t in user.get("device_tokens_list", []) if t.get("expires_at", now) > now]
-    existing.append({"token": device_token, "expires_at": expiry})
+    # ── Trusted-device token issuance ────────────────────────────────────
+    # Security-review finding F-03: persist only the SHA-256 of the
+    # device token — never the raw value — so a DB leak does not hand
+    # the attacker a ready-to-use 2FA-bypass credential. The raw token
+    # is then written to the browser as an HttpOnly cookie
+    # (pp_device_token) by set_session_cookies() below, so JavaScript
+    # running in the page origin cannot exfiltrate it via an XSS
+    # primitive. Clients still receive ``device_token`` in the JSON
+    # response for transitional compatibility but should ignore it —
+    # the cookie is authoritative.
+    device_token      = secrets.token_hex(32)
+    device_token_hash = _hash_device_token(device_token)
+    expiry            = datetime.utcnow() + timedelta(days=30)
+    now               = datetime.utcnow()
+    existing          = [t for t in user.get("device_tokens_list", []) if t.get("expires_at", now) > now]
+    existing.append({"token_hash": device_token_hash, "expires_at": expiry})
     await db.users.update_one(
         {"_id": user["_id"]},
         {"$set": {"device_tokens_list": existing, "current_session_id": new_sid}}
@@ -675,6 +767,7 @@ async def login_2fa(data: TwoFALoginCheck, request: Request):
     )
 
     token = create_access_token({"sub": str(user["_id"])}, sid=new_sid)
+    set_session_cookies(response, access_token=token, device_token=device_token)
     return {"access_token": token, "token_type": "bearer",
             "user": serialize_user(user), "device_token": device_token}
 

@@ -1,7 +1,6 @@
-from fastapi import APIRouter, HTTPException, Header, Depends
+from fastapi import APIRouter, HTTPException, Depends
 from app.models.game import CreateGame, MakeMove
 from app.core.database import get_db
-from app.core.security import decode_token
 from app.game.engine import GameEngine
 from app.game.ranked_penalties import record_ranked_match_completed_clean
 from app.core import economy_watch
@@ -121,25 +120,12 @@ def apply_derank_buffer(elo_old: int, elo_candidate: int, result: str) -> int:
             return thr
     return elo_candidate
 
-async def get_current_user(authorization: str = Header(None)):
-    """Strict JWT auth. Raises 401 on missing/invalid token instead of silently
-    returning None — previously a missing bearer token dropped the caller into
-    an anonymous path that could still mutate game state."""
-    if not authorization or not authorization.startswith("Bearer "):
-        raise HTTPException(401, "Authentication required")
-    try:
-        token = authorization.split(" ", 1)[1].strip()
-        if not token:
-            raise HTTPException(401, "Authentication required")
-        payload = decode_token(token)
-        sub = payload.get("sub")
-        if not sub:
-            raise HTTPException(401, "Invalid token")
-        return sub
-    except HTTPException:
-        raise
-    except Exception:
-        raise HTTPException(401, "Invalid token")
+# Cookie-first shared dependency (review F-03). Replaces the previous
+# strict-Bearer-only implementation — the shared version still rejects
+# missing / invalid tokens, and additionally accepts the HttpOnly
+# ``pp_token`` cookie so callers don't need to attach an Authorization
+# header when logged-in via cookie session.
+from app.core.auth_dep import get_current_user  # noqa: F401 — re-exported
 
 
 async def require_legal_accepted(user_id: str = Depends(get_current_user)) -> str:

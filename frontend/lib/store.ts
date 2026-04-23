@@ -3,30 +3,42 @@ import { create } from "zustand";
 import API from "./api";
 import { noteProfileProgressAfterMerge } from "./navBadgeState";
 
-// ── Token expiry helpers ──────────────────────────────────────────────────────
-const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
+// ── HttpOnly session migration (Phase 3 / security review F-03) ─────────────
+// Prior to this migration the JWT lived in ``localStorage["pp_token"]`` —
+// reachable by any script in the origin, and therefore a one-XSS-primitive
+// away from a full account takeover. The JWT now lives exclusively in the
+// ``pp_token`` HttpOnly + Secure + SameSite=Lax cookie set by the backend
+// (see backend/app/core/session_cookies.py). Because this file can no
+// longer *read* the token, the Zustand "token" field has changed meaning:
+// it is now a non-secret sentinel — either ``null`` (logged out) or the
+// string ``"cookie"`` (logged in; real token lives in the HttpOnly cookie).
+//
+// All existing call sites that still pass ``Authorization: Bearer ${token}``
+// end up sending ``Bearer cookie``, which the backend harmlessly ignores
+// in favour of the real cookie (cookie-first auth dependency — see
+// backend/app/core/auth_dep.get_current_user). Those manual headers will
+// be cleaned up over time; leaving them in place does not weaken
+// security because the backend never trusts them when the cookie is
+// present.
+//
+// The non-HttpOnly ``pp_auth`` companion cookie still exists. It carries
+// ONLY the session expiry timestamp (in ms) so the edge proxy and this
+// module can decide synchronously — without a network roundtrip —
+// whether a session is active. Forging it accomplishes nothing because
+// the real JWT validation still runs on every backend call.
 
-// Companion presence cookie used by the Next.js edge proxy
-// (frontend/proxy.ts) to gate protected routes before the RSC
-// payload renders. It only stores the expiry timestamp — the real JWT
-// stays in localStorage as before. This is defense-in-depth: a user
-// whose cookie is missing/expired is bounced to /auth without the
-// page ever touching the network. The backend still enforces the JWT
-// on every API call, so forging the cookie gains nothing.
+export const SESSION_SENTINEL = "cookie";
+
 const AUTH_COOKIE_NAME = "pp_auth";
 
-function writeAuthCookie(expiryMs: number) {
-  if (typeof document === "undefined") return;
-  const maxAgeSeconds = Math.max(0, Math.floor((expiryMs - Date.now()) / 1000));
-  const isHttps = typeof window !== "undefined" && window.location?.protocol === "https:";
-  const parts = [
-    `${AUTH_COOKIE_NAME}=${expiryMs}`,
-    "Path=/",
-    `Max-Age=${maxAgeSeconds}`,
-    "SameSite=Lax",
-  ];
-  if (isHttps) parts.push("Secure");
-  document.cookie = parts.join("; ");
+function readPresenceCookie(): number {
+  if (typeof document === "undefined") return 0;
+  const match = document.cookie.match(
+    new RegExp("(?:^|; )" + AUTH_COOKIE_NAME + "=([^;]*)"),
+  );
+  if (!match) return 0;
+  const raw = Number(decodeURIComponent(match[1]));
+  return Number.isFinite(raw) ? raw : 0;
 }
 
 function clearAuthCookie() {
@@ -34,50 +46,35 @@ function clearAuthCookie() {
   document.cookie = `${AUTH_COOKIE_NAME}=; Path=/; Max-Age=0; SameSite=Lax`;
 }
 
-function saveToken(token: string, persist: boolean) {
-  const expiry = Date.now() + THIRTY_DAYS_MS;
-  localStorage.setItem("pp_token",  token);
-  localStorage.setItem("pp_expiry", String(expiry));
-  localStorage.setItem("pp_persist", persist ? "1" : "0");
-  writeAuthCookie(expiry);
+function hasActiveSession(): boolean {
+  const expiry = readPresenceCookie();
+  return expiry > 0 && expiry > Date.now();
 }
 
-function loadToken(): string | null {
-  if (typeof window === "undefined") return null;
-  const token  = localStorage.getItem("pp_token");
-  const expiry = Number(localStorage.getItem("pp_expiry") || "0");
-
-  if (!token || token === "null" || token === "undefined") return null;
-
-  if (expiry && Date.now() > expiry) {
+// One-time cleanup of legacy localStorage entries written by the
+// previous release line. Safe to call on every boot — it no-ops if
+// the keys are already absent. We deliberately keep ``pp_user`` (the
+// non-secret cached profile) because it's still read synchronously to
+// render the UI before /auth/me resolves.
+function cleanupLegacyLocalStorage() {
+  if (typeof window === "undefined") return;
+  try {
     localStorage.removeItem("pp_token");
     localStorage.removeItem("pp_expiry");
     localStorage.removeItem("pp_persist");
-    localStorage.removeItem("pp_user");
-    clearAuthCookie();
-    return null;
+    localStorage.removeItem("pp_device_token");
+  } catch {
+    // localStorage unavailable (SSR, privacy mode) — nothing to do.
   }
-  // Keep the edge-gate cookie in sync if localStorage was populated by a
-  // previous session (e.g. user returned in a new tab before any login).
-  if (expiry) writeAuthCookie(expiry);
-  return token;
 }
 
 function saveUser(user: any) {
-  localStorage.setItem("pp_user", JSON.stringify(user));
-}
-
-export function saveDeviceToken(token: string) {
-  localStorage.setItem("pp_device_token", token);
-}
-
-export function loadDeviceToken(): string | null {
-  if (typeof window === "undefined") return null;
-  return localStorage.getItem("pp_device_token");
-}
-
-export function clearDeviceToken() {
-  localStorage.removeItem("pp_device_token");
+  try {
+    localStorage.setItem("pp_user", JSON.stringify(user));
+  } catch {
+    // Quota / private mode — the user will simply be re-fetched on
+    // next /auth/me call. Not a fatal error.
+  }
 }
 
 function loadUser(): any | null {
@@ -85,7 +82,27 @@ function loadUser(): any | null {
   try {
     const raw = localStorage.getItem("pp_user");
     return raw ? JSON.parse(raw) : null;
-  } catch { return null; }
+  } catch {
+    return null;
+  }
+}
+
+// Device-token helpers retained so existing callers don't error on
+// import; they are now no-ops because the raw token lives in the
+// HttpOnly ``pp_device_token`` cookie set by the backend at 2FA login.
+// They return ``null`` so any fallback logic treats the client as
+// "no trusted device" — the backend checks the cookie independently.
+export function saveDeviceToken(_token: string) {
+  // Intentional no-op: backend writes the HttpOnly pp_device_token cookie.
+}
+
+export function loadDeviceToken(): string | null {
+  return null;
+}
+
+export function clearDeviceToken() {
+  // Kept for parity with the pre-migration API. The actual cookie is
+  // cleared server-side on /auth/logout.
 }
 
 // ── Store ─────────────────────────────────────────────────────────────────────
@@ -93,7 +110,7 @@ interface AuthStore {
   user:            any | null;
   token:           string | null;
   logoutReason:    string | null;
-  setAuth:         (user: any, token: string, persist?: boolean) => void;
+  setAuth:         (user: any, token?: string, persist?: boolean) => void;
   logout:          (reason?: string) => void;
   setLogoutReason: (reason: string | null) => void;
   updateUser:      (patch: Partial<any>) => void;
@@ -103,8 +120,10 @@ interface AuthStore {
 }
 
 export const useAuthStore = create<AuthStore>((set, get) => {
-  const token = loadToken();
-  const user = token ? loadUser() : null;
+  cleanupLegacyLocalStorage();
+  const active = hasActiveSession();
+  const token = active ? SESSION_SENTINEL : null;
+  const user = active ? loadUser() : null;
 
   return {
     user,
@@ -114,19 +133,28 @@ export const useAuthStore = create<AuthStore>((set, get) => {
 
     setPendingLevelUp: (val) => set({ pendingLevelUp: val }),
 
-    setAuth: (user, token, persist = false) => {
-      saveToken(token, persist);
+    // ``token`` param is ignored — retained only so existing callers
+    // (AuthScreen, Google sign-in) compile without refactoring. The
+    // backend has already set pp_token + pp_auth cookies before the
+    // response reached the client.
+    setAuth: (user, _token = SESSION_SENTINEL, _persist = false) => {
       saveUser(user);
-      set({ user, token });
+      set({ user, token: SESSION_SENTINEL });
     },
 
     logout: (reason?: string) => {
-      localStorage.removeItem("pp_token");
-      localStorage.removeItem("pp_expiry");
-      localStorage.removeItem("pp_persist");
       localStorage.removeItem("pp_user");
       localStorage.removeItem("pp_custom_theme");
       clearAuthCookie();
+      // Fire-and-forget backend logout so the HttpOnly cookies get
+      // cleared too. Any network failure here is non-fatal — the
+      // cookies expire naturally after the JWT TTL (12h).
+      try {
+        API.post("/api/auth/logout").catch(() => {});
+      } catch {
+        // API may not be fully initialised in some edge cases (SSR);
+        // ignore — cookies expire on their own.
+      }
       set({ user: null, token: null, logoutReason: reason ?? null });
     },
 
@@ -160,25 +188,19 @@ export const useAuthStore = create<AuthStore>((set, get) => {
     },
 
     refreshProfile: async () => {
-      const token = get().token;
-      if (!token) return;
+      if (!get().token) return;
       try {
-        const res = await API.get("/api/profile/me", {
-          headers: { Authorization: `Bearer ${token}` },
-          timeout: 15000,
-        });
+        const res = await API.get("/api/profile/me", { timeout: 15000 });
         get().updateUser(res.data);
       } catch (err: any) {
         const status = err?.response?.status;
         const detail: string = err?.response?.data?.detail ?? "";
         if (status === 401 && detail.toLowerCase().includes("session replaced")) {
-          // Kicked because another device logged in
           get().logout("duplicate_session");
         } else if (status === 404 || status === 401) {
-          // User was deleted from the DB, or token is completely invalid
           get().logout("user_not_found");
         }
-        // Network errors and 5xx: silently ignore (don't log out)
+        // Network errors and 5xx: silently ignore (don't log out).
       }
     },
   };

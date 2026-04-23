@@ -35,7 +35,7 @@ from typing import Optional
 
 from bson import ObjectId
 from bson.errors import InvalidId
-from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
+from fastapi import APIRouter, Cookie, Depends, Header, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 
 from app.core import security_audit as audit
@@ -72,11 +72,13 @@ def _user_has_role(user: dict, *, required: str) -> bool:
     return role == "admin"
 
 
-async def _resolve_caller(authorization: str) -> dict:
-    if not authorization or not authorization.lower().startswith("bearer "):
+async def _resolve_caller(authorization: str | None, pp_token: str | None = None) -> dict:
+    # F-03: accept session cookie as well as Authorization header.
+    from app.core.auth_dep import extract_session_token
+    token = extract_session_token(authorization, pp_token)
+    if not token:
         raise HTTPException(401, "Missing token")
     try:
-        token = authorization.split(" ", 1)[1]
         payload = decode_token(token)
         user_id = payload["sub"]
     except Exception:
@@ -94,9 +96,10 @@ async def _resolve_caller(authorization: str) -> dict:
 def require_mod():
     async def _dep(
         request: Request,
-        authorization: str = Header(..., alias="Authorization"),
+        authorization: str | None = Header(default=None, alias="Authorization"),
+        pp_token: str | None = Cookie(default=None, alias="pp_token"),
     ) -> dict:
-        caller = await _resolve_caller(authorization)
+        caller = await _resolve_caller(authorization, pp_token)
         caller_id = str(caller["_id"])
         is_bootstrap = caller_id in _env_admin_ids()
         if not (is_bootstrap or _user_has_role(caller, required="mod")):
@@ -126,9 +129,10 @@ def require_mod():
 def require_admin():
     async def _dep(
         request: Request,
-        authorization: str = Header(..., alias="Authorization"),
+        authorization: str | None = Header(default=None, alias="Authorization"),
+        pp_token: str | None = Cookie(default=None, alias="pp_token"),
     ) -> dict:
-        caller = await _resolve_caller(authorization)
+        caller = await _resolve_caller(authorization, pp_token)
         caller_id = str(caller["_id"])
         is_bootstrap = caller_id in _env_admin_ids()
         if not (is_bootstrap or _user_has_role(caller, required="admin")):

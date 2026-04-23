@@ -311,12 +311,16 @@ export default function AuthScreen({ setScreenAction, themeId }: Props) {
         setTab("verify_signup");
         return;
       }
+      // Device-token is now carried in the HttpOnly pp_device_token
+      // cookie — the browser attaches it automatically. We still send
+      // the body field for transitional backends, but it's null post
+      // F-03 (the localStorage entry no longer exists).
       const res = await API.post("/api/auth/login", {
         username, password,
-        device_token: localStorage.getItem("pp_device_token"),
       });
       if (res.data.requires_2fa) { setTempToken(res.data.temp_token); setTab("2fa_check"); return; }
-      if (res.data.device_token) localStorage.setItem("pp_device_token", res.data.device_token);
+      // F-03: backend has already set pp_token + pp_device_token
+      // HttpOnly cookies on the response. Nothing to persist locally.
       setAuth(res.data.user, res.data.access_token, staySignedIn);
       setScreenAction("home");
     } catch (err: any) {
@@ -382,7 +386,9 @@ export default function AuthScreen({ setScreenAction, themeId }: Props) {
     setErrors({}); setSuccessMsg(""); setLoading(true);
     try {
       const res = await API.post("/api/auth/2fa/login", { temp_token: tempToken, code: totpCode.trim() });
-      if (res.data.device_token) localStorage.setItem("pp_device_token", res.data.device_token);
+      // F-03: device_token is returned in the body for legacy clients
+      // but the server has already set it as an HttpOnly cookie, so
+      // we deliberately do NOT write it to localStorage.
       setAuth(res.data.user, res.data.access_token, staySignedIn);
       setScreenAction("home");
     } catch (err: any) {

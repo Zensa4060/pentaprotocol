@@ -110,6 +110,40 @@ async def security_headers(request: Request, call_next):
     return response
 
 @app.middleware("http")
+async def csrf_origin_guard(request: Request, call_next):
+    """Reject state-changing cross-origin requests with a mismatched
+    ``Origin`` header.
+
+    Once session tokens moved to HttpOnly cookies (security-review F-03)
+    every authenticated request automatically carries the session — so a
+    CSRF primitive (malicious site makes the user's browser POST to our
+    API) could trigger privileged actions without ever seeing the token.
+    The browser's CORS preflight catches most attempts (application/json
+    requests are non-simple, so the OPTIONS fails with a disallowed
+    origin), but "simple" requests (form-encoded / text/plain) bypass
+    preflight and hit the backend; CORS only blocks the *response read*
+    in that case, not the state change.
+
+    Defence: reject mutating verbs (POST/PUT/PATCH/DELETE) when the
+    ``Origin`` header is present and not in ALLOWED_ORIGINS. Same-origin
+    requests (Origin header absent — as sent by curl, server-to-server,
+    or same-origin fetches in some browsers) pass through.
+    """
+    if request.method in {"POST", "PUT", "PATCH", "DELETE"}:
+        origin = request.headers.get("origin")
+        # Browsers always send Origin on cross-origin requests; missing
+        # Origin means same-origin (safe) or non-browser (which doesn't
+        # have cookies anyway). We only reject when Origin is present
+        # AND not in the allowlist.
+        if origin and origin not in ALLOWED_ORIGINS:
+            return JSONResponse(
+                {"detail": "Cross-origin request blocked"},
+                status_code=403,
+            )
+    return await call_next(request)
+
+
+@app.middleware("http")
 async def request_size_guard(request: Request, call_next):
     if request.method in {"POST", "PUT", "PATCH"}:
         content_length = request.headers.get("content-length")

@@ -1,7 +1,7 @@
-from fastapi import APIRouter, HTTPException, Depends, Header, Request
+from fastapi import APIRouter, HTTPException, Depends, Request
 from pydantic import BaseModel, EmailStr, Field
 from app.core.database import get_db
-from app.core.security import hash_password, decode_token, verify_password
+from app.core.security import hash_password, verify_password
 from bson import ObjectId
 import logging
 import resend
@@ -33,13 +33,8 @@ REDIS_URL = os.environ.get("REDIS_URL", "redis://localhost:6379").strip()
 r = redis.Redis.from_url(REDIS_URL)
 
 # ─── AUTH HELPER ──────────────────────────────────────────
-async def get_current_user(authorization: str = Header(...)):
-    try:
-        token   = authorization.split(" ")[1]
-        payload = decode_token(token)
-        return payload["sub"]
-    except:
-        raise HTTPException(401, "Invalid token")
+# Cookie-first shared dependency (review F-03).
+from app.core.auth_dep import get_current_user  # noqa: F401 — re-exported
 
 # ─── REQUEST MODELS ───────────────────────────────────────
 class EmailRequest(BaseModel):

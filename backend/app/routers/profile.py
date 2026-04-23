@@ -1,8 +1,7 @@
-from fastapi import APIRouter, HTTPException, Header, Depends
+from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel, ConfigDict, Field
 from app.core.database import get_db
 from app.core.ids import user_object_id
-from app.core.security import decode_token
 from app.core.mission_xp import mission_xp_for_mission_id
 from app.core.bot_rewards import (
     ALL_BOT_IDS,
@@ -74,13 +73,10 @@ def get_rank(elo: int) -> str:
     if elo < 2500: return "CRACKED"
     return "CHRONICLE"
 
-async def get_current_user(authorization: str = Header(...)):
-    try:
-        token = authorization.split(" ")[1]
-        payload = decode_token(token)
-        return payload["sub"]
-    except:
-        raise HTTPException(401, "Invalid token")
+# Cookie-first shared auth dependency (review F-03). Re-exported so
+# existing ``Depends(get_current_user)`` call sites in this module keep
+# resolving without further changes.
+from app.core.auth_dep import get_current_user  # noqa: F401 — re-exported
 
 def _serialize_user(user: dict) -> dict:
     """Single source of truth for what the profile response looks like."""

@@ -3,8 +3,8 @@ import type { ThemeId } from "@/lib/themes";
 import { THEMES } from "@/lib/themes";
 import { useAuthStore } from "@/lib/store";
 import { useBannerShineEnabled, saveBannerShineEnabled } from "@/lib/bannerShinePreference";
-import { useRouter } from "next/navigation";
-import { useState, useEffect } from "react";
+import { useRouter, usePathname } from "next/navigation";
+import { useState, useEffect, useRef } from "react";
 
 interface AudioControls {
   musicVol: number;
@@ -46,6 +46,13 @@ export default function SettingsModal({
   const { user, logout } = useAuthStore();
   const bannerShineEnabled = useBannerShineEnabled((user as any)?.id ?? (user as any)?._id ?? null);
   const router = useRouter();
+  const pathname = usePathname();
+  // Captured once on mount so the history-placeholder cleanup (see the
+  // `useEffect` below) can tell when the user has navigated away from
+  // the page the modal was opened on. If they have, we must NOT call
+  // `history.back()` — it would rewind past the newly-pushed route
+  // (e.g. /auth after clicking SIGN IN) and dump them back on /home.
+  const openPathnameRef = useRef(pathname);
   const [focusMode, setFocusMode] = useState(false);
   const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
   const [activeSection, setActiveSection] = useState<SettingsSection>("audio");
@@ -68,6 +75,73 @@ export default function SettingsModal({
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [onCloseAction, showSignOutConfirm]);
+
+  /* Hook the settings shell into the browser history so the user can
+   *   press the hardware / browser back button to dismiss the modal and
+   *   return to the screen they opened it from, instead of navigating
+   *   away from the current route entirely.
+   *
+   *   On mount we push a placeholder history entry tagged `pp_settings`.
+   *   A popstate listener treats any back-navigation away from that
+   *   entry as a "close" action. When the user closes the modal by some
+   *   other means (✕, Esc, nav action that then calls onCloseAction),
+   *   we call history.back() ourselves on unmount to drop our
+   *   placeholder entry.
+   *
+   *   The pushState is deferred one animation frame so React 18
+   *   StrictMode's synchronous mount→cleanup→mount cycle doesn't leave
+   *   a dangling history entry whose async popstate event would then be
+   *   caught by the second mount's listener and immediately close the
+   *   modal (the "split-second flash" symptom). */
+  const closeRef = useRef(onCloseAction);
+  const skipHistoryCleanupRef = useRef(false);
+  closeRef.current = onCloseAction;
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    let pushed = false;
+    let popped = false;
+    let cancelled = false;
+
+    const onPop = () => {
+      popped = true;
+      closeRef.current();
+    };
+
+    const frameId = window.requestAnimationFrame(() => {
+      if (cancelled) return;
+      try {
+        window.history.pushState({ pp_settings: true }, "");
+        pushed = true;
+      } catch {
+        /* history API unavailable — fall back to plain close-only. */
+      }
+      window.addEventListener("popstate", onPop);
+    });
+
+    return () => {
+      cancelled = true;
+      window.cancelAnimationFrame(frameId);
+      window.removeEventListener("popstate", onPop);
+      if (pushed && !popped && !skipHistoryCleanupRef.current) {
+        // If the app has navigated to a different route in the meantime
+        // (e.g. SIGN IN button pushed /auth), history.back() would pop
+        // that fresh entry and bounce the user back to the page they
+        // opened settings on. Only rewind our placeholder when we're
+        // still sitting on the same pathname we mounted with.
+        const samePath =
+          typeof window !== "undefined" &&
+          window.location.pathname === openPathnameRef.current;
+        if (samePath) {
+          try {
+            window.history.back();
+          } catch {
+            /* noop */
+          }
+        }
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     const q = () => setNarrowLayout(window.innerWidth < 760);
@@ -106,15 +180,16 @@ export default function SettingsModal({
         onClick={() => setActiveSection(id)}
         style={{
           fontFamily: t.fontDisplay,
-          fontSize: narrowLayout ? 13 : 15,
+          fontSize: narrowLayout ? 20 : 23,
           fontWeight: 700,
           letterSpacing: "0.06em",
           textAlign: narrowLayout ? "center" : "left",
+          textTransform: "uppercase",
           padding: narrowLayout ? "10px 16px" : "14px 18px",
           borderRadius: ip ? 2 : 10,
           border: `1px solid ${on ? t.accent : t.border}`,
           background: on ? `${t.accent}22` : "transparent",
-          color: on ? t.accent : t.textMuted,
+          color: t.text,
           cursor: "pointer",
           transition: "border-color 0.18s, background 0.18s, color 0.18s",
           flex: narrowLayout ? "1 1 auto" : undefined,
@@ -467,6 +542,7 @@ export default function SettingsModal({
                     <button
                       type="button"
                       onClick={() => {
+                        skipHistoryCleanupRef.current = true;
                         if (onNavigateAuthAction) onNavigateAuthAction();
                         onCloseAction();
                       }}
@@ -543,8 +619,9 @@ export default function SettingsModal({
                 onClick={() => {
                   logout();
                   setShowSignOutConfirm(false);
-                  onCloseAction();
+                  skipHistoryCleanupRef.current = true;
                   onNavigateAuthAction?.();
+                  onCloseAction();
                 }}
                 style={{
                   flex: 1,

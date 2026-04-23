@@ -35,7 +35,7 @@ from datetime import datetime, timedelta
 from typing import Optional
 
 from bson import ObjectId
-from fastapi import APIRouter, Depends, Header, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel, Field
 
 from app.core.connections import manager as ws_manager
@@ -91,16 +91,11 @@ async def _push_social_event(user_id: str, payload: dict) -> None:
         except Exception:
             pass
 
-# ── Auth helper (same contract as profile.get_current_user) ──────────────────
-
-
-async def get_current_user(authorization: str = Header(...)) -> str:
-    try:
-        token = authorization.split(" ")[1]
-        payload = decode_token(token)
-        return payload["sub"]
-    except Exception:
-        raise HTTPException(401, "Invalid token")
+# ── Auth helper ──────────────────────────────────────────────────────────────
+# Re-exported from the shared cookie-first dependency. The local helper
+# used to decode the JWT directly from ``Authorization: Bearer ...``;
+# now it supports the HttpOnly ``pp_token`` cookie too (review F-03).
+from app.core.auth_dep import get_current_user  # noqa: F401 — re-exported for callers
 
 
 async def _ws_auth(websocket: WebSocket) -> Optional[tuple[str, Optional[str], Optional[int]]]:

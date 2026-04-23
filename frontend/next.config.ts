@@ -35,6 +35,60 @@ const nextConfig: NextConfig = {
     ],
   },
   async headers() {
+    // CSP is emitted from the edge proxy (frontend/proxy.ts) so that a
+    // cryptographically random per-request nonce can be threaded into
+    // `script-src` and `'unsafe-inline'` can be dropped from scripts
+    // entirely (Phase 3 hardening — review finding F-01). Everything
+    // else that is safe to set statically stays here so we get CSP-less
+    // pages (e.g. /_next/static asset responses) covered too.
+    //
+    // `connect-src` dev origins (localhost / 127.0.0.1 on port 8000)
+    // are intentionally only emitted in non-production builds —
+    // production traffic always goes to the real API origin via
+    // `NEXT_PUBLIC_API_URL` or same-origin rewrites (review finding F-02).
+    const connectSources = [
+      "'self'",
+      ...(isProd
+        ? []
+        : [
+            "http://localhost:8000",
+            "ws://localhost:8000",
+            "http://127.0.0.1:8000",
+            "ws://127.0.0.1:8000",
+          ]),
+      "https://accounts.google.com",
+      "https://www.googleapis.com",
+      "https://*.supabase.co",
+      "wss://*.railway.app",
+      "https://*.railway.app",
+    ].join(" ");
+
+    // Fallback CSP for responses that slip past the edge proxy (static
+    // assets, API-less routes without a matcher hit). Script-src here
+    // still allows `'unsafe-inline'` because we cannot mint a nonce in
+    // a static config — the proxy overrides this with a nonce-only
+    // policy on every document response.
+    const fallbackCsp = [
+      "default-src 'self'",
+      [
+        "script-src 'self' 'unsafe-inline'",
+        ...(isProd ? [] : ["'unsafe-eval'"]),
+        "https://accounts.google.com",
+        "https://static.cloudflareinsights.com",
+      ].join(" "),
+      "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://accounts.google.com",
+      "font-src 'self' https://fonts.gstatic.com",
+      "media-src 'self'",
+      "img-src 'self' data: blob: https://lh3.googleusercontent.com https://drive.google.com https://*.supabase.co",
+      `connect-src ${connectSources}`,
+      "frame-src 'self' https://accounts.google.com",
+      "frame-ancestors 'none'",
+      "object-src 'none'",
+      "base-uri 'self'",
+      "form-action 'self'",
+      "upgrade-insecure-requests",
+    ].join("; ");
+
     return [
       {
         source: "/(.*)",
@@ -68,50 +122,7 @@ const nextConfig: NextConfig = {
           },
           {
             key: "Content-Security-Policy",
-            // CSP notes (Phase 2.4):
-            //
-            // - `unsafe-eval` is OMITTED in production. In `next dev` we
-            //   must allow it or React throws (eval() for dev-only stack
-            //   / Fast Refresh). Production never ships eval().
-            //
-            // - `unsafe-inline` on script-src is INTENTIONALLY KEPT
-            //   for this release. Moving to a nonce-based CSP with
-            //   `strict-dynamic` requires threading a per-request
-            //   nonce through Next's proxy layer and every inline
-            //   <Script> / framework boot fragment. That is a big
-            //   refactor relative to the marginal win here — tracked
-            //   for Phase 3. The rest of the policy below still cuts
-            //   off the common attack classes (base-uri tampering,
-            //   object/form injection, frame-ancestors clickjacking).
-            //
-            // - `object-src 'none'` blocks <embed>/<object>/<applet>,
-            //   common malware vectors we never use.
-            // - `base-uri 'self'` stops an XSS payload from rewriting
-            //   the <base href> to phish tokens.
-            // - `form-action 'self'` stops forms from POST-ing to
-            //   attacker domains (we never submit forms cross-origin).
-            // - `upgrade-insecure-requests` forces any lingering
-            //   http:// asset URLs onto https:// in prod.
-            value: [
-              "default-src 'self'",
-              [
-                "script-src 'self' 'unsafe-inline'",
-                ...(isProd ? [] : ["'unsafe-eval'"]),
-                "https://accounts.google.com",
-                "https://static.cloudflareinsights.com",
-              ].join(" "),
-              "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://accounts.google.com",
-              "font-src 'self' https://fonts.gstatic.com",
-              "media-src 'self'",
-              "img-src 'self' data: blob: https://lh3.googleusercontent.com https://drive.google.com https://*.supabase.co",
-              "connect-src 'self' http://localhost:8000 ws://localhost:8000 http://127.0.0.1:8000 ws://127.0.0.1:8000 https://accounts.google.com https://www.googleapis.com https://*.supabase.co wss://*.railway.app https://*.railway.app",
-              "frame-src 'self' https://accounts.google.com",
-              "frame-ancestors 'none'",
-              "object-src 'none'",
-              "base-uri 'self'",
-              "form-action 'self'",
-              "upgrade-insecure-requests",
-            ].join("; "),
+            value: fallbackCsp,
           },
         ],
       },

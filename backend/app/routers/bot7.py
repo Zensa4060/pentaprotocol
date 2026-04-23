@@ -3,7 +3,7 @@ import time
 import random
 from typing import List, Optional
 from collections import deque
-from fastapi import APIRouter, HTTPException, Header, Depends
+from fastapi import APIRouter, HTTPException, Header, Depends, Cookie
 from pydantic import BaseModel, Field, field_validator
 from app.core.security import decode_token
 from app.core.rate_limit import build_rate_key, enforce_rate_limit
@@ -394,15 +394,17 @@ class Bot7MoveRequest(BaseModel):
         return v
 
 
-async def _bot7_auth(authorization: str = Header(None)) -> str:
+async def _bot7_auth(
+    authorization: str = Header(None),
+    pp_token: str | None = Cookie(default=None, alias="pp_token"),
+) -> str:
     """Auth + current-legal acceptance for /bot7/move. Same rationale as
-    the 5x5/6x6 bot dep in bot.py."""
-    if not authorization or not authorization.startswith("Bearer "):
+    the 5x5/6x6 bot dep in bot.py. Accepts cookie or header per F-03."""
+    from app.core.auth_dep import extract_session_token
+    token = extract_session_token(authorization, pp_token)
+    if not token:
         raise HTTPException(401, "Authentication required")
     try:
-        token = authorization.split(" ", 1)[1].strip()
-        if not token:
-            raise HTTPException(401, "Authentication required")
         payload = decode_token(token)
         sub = payload.get("sub")
         if not sub:

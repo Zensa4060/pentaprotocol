@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect, Header, Depends, Request
+from fastapi import APIRouter, Cookie, HTTPException, WebSocket, WebSocketDisconnect, Header, Depends, Request
 from app.core.database import get_db
 from app.core.security import decode_token
 from app.core.connections import manager as ws_manager
@@ -231,29 +231,32 @@ def _schedule_rules_sheet_timeout(db, room_code: str) -> None:
     )
 
 
-async def get_current_user(authorization: str = Header(...)):
-    try:
-        token = authorization.split(" ")[1]
-        payload = decode_token(token)
-        return payload["sub"]
-    except:
-        raise HTTPException(401, "Invalid token")
+# Cookie-first shared dependency (review F-03).
+from app.core.auth_dep import get_current_user  # noqa: F401 — re-exported
 
 
-async def _decode_bearer_full(authorization: str) -> dict:
+async def _decode_session_full(
+    authorization: str | None,
+    pp_token: str | None,
+) -> dict:
     """Return the full JWT payload (sub, sid, exp) or raise 401.
 
     Used by the WS ticket endpoint which needs the session id and
-    expiry carried inside the ticket, not just the user id.
+    expiry carried inside the ticket, not just the user id. Accepts
+    either the HttpOnly cookie (preferred post F-03) or a legacy
+    ``Authorization: Bearer`` header.
     """
+    from app.core.auth_dep import extract_session_token
+    token = extract_session_token(authorization, pp_token)
+    if not token:
+        raise HTTPException(401, "Invalid token")
     try:
-        if not authorization or not authorization.lower().startswith("bearer "):
-            raise ValueError("no bearer")
-        token = authorization.split(" ", 1)[1].strip()
         payload = decode_token(token)
         if not payload.get("sub"):
-            raise ValueError("no sub")
+            raise HTTPException(401, "Invalid token")
         return payload
+    except HTTPException:
+        raise
     except Exception:
         raise HTTPException(401, "Invalid token")
 
@@ -2470,12 +2473,13 @@ class WsTicketRequest(BaseModel):
 async def issue_ws_ticket(
     data: WsTicketRequest,
     request: Request,
-    authorization: str = Header(...),
+    authorization: str | None = Header(default=None),
+    pp_token: str | None = Cookie(default=None, alias="pp_token"),
 ):
     from app.core import ws_security
     from app.core.client_ip import get_client_ip
 
-    payload = await _decode_bearer_full(authorization)
+    payload = await _decode_session_full(authorization, pp_token)
     user_id = str(payload.get("sub", ""))
     sid = payload.get("sid")
     exp = payload.get("exp")

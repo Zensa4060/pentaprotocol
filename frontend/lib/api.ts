@@ -30,29 +30,32 @@ export function getWsBaseUrl(): string {
   return "ws://localhost:8000";
 }
 
+// ── Session cookie migration (Phase 3 / review F-03) ─────────────────────────
+// `withCredentials: true` tells the browser to attach the HttpOnly
+// ``pp_token`` cookie on every request, including cross-origin ones
+// against the Railway backend. Without it the cookie would be stripped
+// and requests would come back 401.
+//
+// We also drop the legacy request interceptor that read ``pp_token``
+// from localStorage and attached it as ``Authorization: Bearer …``.
+// The JWT no longer lives in localStorage — the HttpOnly cookie is the
+// sole source of truth for authentication, and passing a Bearer header
+// would re-expose the token to any script that wrapped `fetch` / read
+// axios config.
 const API = axios.create({
   baseURL: getApiBaseUrl(),
-});
-
-API.interceptors.request.use((config) => {
-  const token = localStorage.getItem("pp_token");
-  if (token && token !== "null" && token !== "undefined") {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-  return config;
+  withCredentials: true,
 });
 
 API.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      localStorage.removeItem("pp_token");
+      // The HttpOnly cookie is cleared server-side (/auth/logout) or
+      // has simply expired. Clear the readable presence hint plus any
+      // non-secret cached profile so the next render bounces the user
+      // to /auth without flashing protected content.
       localStorage.removeItem("pp_user");
-      localStorage.removeItem("pp_expiry");
-      // Clear the edge-gate presence cookie so the Next.js proxy
-      // bounces the user to /auth on the next navigation instead of
-      // rendering a protected route and getting another 401 in the
-      // background.
       if (typeof document !== "undefined") {
         document.cookie = "pp_auth=; Path=/; Max-Age=0; SameSite=Lax";
       }

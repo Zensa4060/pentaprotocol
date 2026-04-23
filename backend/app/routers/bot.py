@@ -2,7 +2,7 @@ import copy
 import random
 import time
 from typing import List, Optional
-from fastapi import APIRouter, HTTPException, Header, Depends
+from fastapi import APIRouter, HTTPException, Header, Depends, Cookie
 from pydantic import BaseModel, Field, field_validator
 from app.core.security import decode_token
 from app.core.rate_limit import build_rate_key, enforce_rate_limit
@@ -731,24 +731,31 @@ class BotMoveRequest(BaseModel):
         return v
 
 
-async def _bot_auth(authorization: str = Header(None)) -> str:
-    """Require a valid bearer token + current-legal acceptance for /bot/move.
+async def _bot_auth(
+    authorization: str = Header(None),
+    pp_token: str | None = Cookie(default=None, alias="pp_token"),
+) -> str:
+    """Require a valid session + current-legal acceptance for /bot/move.
 
     Previously the endpoint was anonymous, which let attackers burn CPU on our
     solver — turning the Rust engines into a free compute farm. Each caller
     must now authenticate; per-user rate limiting lives on top of this dep.
+
+    Post F-03 the session is carried either by the HttpOnly ``pp_token``
+    cookie (preferred — unreadable by JavaScript) or by a legacy
+    ``Authorization: Bearer`` header (transitional fallback for clients
+    that still have a JWT in hand).
 
     Also gates on the current legal-policy version: a user who has never
     accepted (or accepted an older bundle) cannot play vs bots until they
     re-accept. The client already shows a gate; this stops a modified
     client from skipping it.
     """
-    if not authorization or not authorization.startswith("Bearer "):
+    from app.core.auth_dep import extract_session_token
+    token = extract_session_token(authorization, pp_token)
+    if not token:
         raise HTTPException(401, "Authentication required")
     try:
-        token = authorization.split(" ", 1)[1].strip()
-        if not token:
-            raise HTTPException(401, "Authentication required")
         payload = decode_token(token)
         sub = payload.get("sub")
         if not sub:

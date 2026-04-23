@@ -1174,9 +1174,11 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
                   await API.post("/api/auth/delete-account", { password: profile.has_password ? deletePw : "DELETE" });
                   setDeleteMsg({ text: "Account deleted. You will be signed out.", ok: true });
                   setTimeout(() => {
-                    localStorage.removeItem("pp_token");
+                    // Post F-03 the JWT + device token are HttpOnly cookies
+                    // cleared by the backend's /auth/logout; we only have
+                    // non-secret entries to wipe client-side.
+                    try { API.post("/api/auth/logout").catch(() => {}); } catch {}
                     localStorage.removeItem("pp_user");
-                    localStorage.removeItem("pp_expiry");
                     localStorage.removeItem("pp_legal_accept_v1");
                     window.location.reload();
                   }, 1800);

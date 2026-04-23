@@ -44,11 +44,10 @@ export default function CookiePolicyPage() {
             </thead>
             <tbody>
               {[
-                ["pp_token", "localStorage", "Authentication JWT token", "Until logout / 48 hrs expiry"],
-                ["pp_user", "localStorage", "Cached user profile data", "Until logout"],
-                ["pp_expiry", "localStorage", "Token expiration timestamp", "Until logout"],
-                ["pp_persist", "localStorage", "Stay signed in preference", "Until logout"],
-                ["pp_device_token", "localStorage", "Trusted device token for 2FA bypass", "Persistent"],
+                ["pp_token", "HttpOnly cookie", "Authentication JWT token — unreadable from JavaScript", "12 hrs from issue"],
+                ["pp_device_token", "HttpOnly cookie", "Trusted-device token for 2FA bypass — unreadable from JavaScript", "30 days"],
+                ["pp_auth", "Cookie (readable)", "Session expiry timestamp for synchronous logged-in check", "12 hrs from issue"],
+                ["pp_user", "localStorage", "Cached user profile data (non-secret)", "Until logout"],
                 ["pp_legal_accept_v1", "localStorage", "Legal policy acceptance record", "Persistent"],
                 ["pp_cookie_consent_v1", "localStorage", "Cookie consent choice", "Persistent"],
               ].map(([key, type, purpose, duration], i) => (
@@ -112,7 +111,7 @@ export default function CookiePolicyPage() {
             <strong style={{ color: "#e8e8e8" }}>DevTools:</strong> Open your browser&apos;s Developer Tools → Application → Local Storage to view and delete individual keys.<br />
             <strong style={{ color: "#e8e8e8" }}>Cookie banner:</strong> You can reset your cookie consent by clearing localStorage and reloading the page.
             <br /><br />
-            Note: Clearing essential storage (pp_token, pp_user) will sign you out.
+            Note: Clearing the pp_token / pp_auth cookies or the pp_user localStorage entry will sign you out.
           </Section>
 
           <Section title="7. Contact">
