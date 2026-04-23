@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
 /**
- * Edge proxy — server-side route gate + per-request CSP nonce
+ * Edge proxy — server-side route gate + HTTPS enforcement
  * (Next.js 16+ `proxy.ts` convention).
  *
  * Phase 2.1 — route gate:
@@ -28,19 +28,21 @@ import type { NextRequest } from "next/server";
  *   already carries the expiry timestamp we need for the "is the
  *   session still active?" decision without decoding the JWT.
  *
- * Phase 3 hardening — CSP nonce (review finding F-01):
- *   We mint a cryptographically random nonce per request and inject it
- *   into `script-src`, which lets us drop `'unsafe-inline'` from
- *   script sources entirely. Next.js automatically reads the
- *   `x-nonce` request header and attaches the nonce attribute to its
- *   own injected hydration / Flight / framework `<script>` tags, so
- *   no changes to `app/layout.tsx` are required.
- *
- *   `'unsafe-inline'` is still permitted in `style-src` — this is an
- *   accepted risk per the security review, since style-based injection
- *   has a much smaller blast radius than script execution and styled-jsx
- *   / Next inline critical CSS make a style nonce migration significantly
- *   more invasive for negligible additional security.
+ * CSP note (F-01 trade-off):
+ *   We used to mint a per-request nonce here and emit a nonce-only
+ *   `script-src`. In practice Next.js 16's streaming RSC pipeline
+ *   does not reliably propagate the middleware nonce onto every
+ *   inline `<script>` chunk it emits — edge caches, Vercel's render
+ *   path, and streaming boundaries can all drop the nonce attribute
+ *   on individual bootstrap fragments, producing the exact CSP
+ *   violations we observed in production (blank page, hydration
+ *   aborted, `Connection closed` errors). We therefore delegate CSP
+ *   entirely to the static header config in `next.config.ts`, which
+ *   uses `'unsafe-inline'` for `script-src`. This is a known,
+ *   documented regression from F-01 until Next.js nonce propagation
+ *   is reliable across streaming responses. All other hardening
+ *   (`object-src 'none'`, `frame-ancestors 'none'`, tight host
+ *   allowlists, `upgrade-insecure-requests`, HSTS) stays in place.
  */
 
 // Routes that require a live account. The AppShell has its own
@@ -92,125 +94,6 @@ function isProtected(pathname: string): boolean {
 }
 
 /**
- * Edge-runtime-safe random nonce generator. 16 bytes of entropy is
- * the OWASP-recommended minimum for a CSP nonce and is base64-encoded
- * to produce a ~22-char token. `crypto.getRandomValues` and `btoa` are
- * both available in Next.js's Edge runtime.
- */
-function generateNonce(): string {
-  const bytes = new Uint8Array(16);
-  crypto.getRandomValues(bytes);
-  let binary = "";
-  for (let i = 0; i < bytes.length; i++) {
-    binary += String.fromCharCode(bytes[i]);
-  }
-  return btoa(binary);
-}
-
-function buildCsp(nonce: string): string {
-  // Dev origins (localhost / 127.0.0.1 on port 8000) are only emitted
-  // in non-production builds. Production always reaches the backend
-  // via `NEXT_PUBLIC_API_URL` or same-origin — never localhost
-  // (review finding F-02).
-  const connectSources = [
-    "'self'",
-    ...(IS_PROD
-      ? []
-      : [
-          "http://localhost:8000",
-          "ws://localhost:8000",
-          "http://127.0.0.1:8000",
-          "ws://127.0.0.1:8000",
-        ]),
-    "https://accounts.google.com",
-    "https://www.googleapis.com",
-    "https://*.supabase.co",
-    "wss://*.railway.app",
-    "https://*.railway.app",
-  ].join(" ");
-
-  // Script sources:
-  //   - 'self' covers Next's same-origin chunks
-  //   - nonce-<random> permits Next's own inline hydration / Flight
-  //     bootstraps (Next auto-applies this nonce when it sees the
-  //     x-nonce request header)
-  //   - Host allowlist covers dynamically-loaded third-party libs
-  //     (Google GIS, Cloudflare Insights beacon). We intentionally do
-  //     NOT use 'strict-dynamic' — it makes the host allowlist a no-op
-  //     in CSP3-compliant browsers, which would break any third-party
-  //     script that does not chain cleanly from a nonce-bearing root.
-  //
-  //   Dev also needs 'unsafe-eval' (React Fast Refresh / stack
-  //   reconstruction) and 'unsafe-inline' (Turbopack HMR injects
-  //   inline scripts that do not receive the nonce).
-  const scriptSrc = IS_PROD
-    ? [
-        "script-src 'self'",
-        `'nonce-${nonce}'`,
-        "https://accounts.google.com",
-        "https://static.cloudflareinsights.com",
-      ].join(" ")
-    : [
-        "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
-        `'nonce-${nonce}'`,
-        "https://accounts.google.com",
-        "https://static.cloudflareinsights.com",
-      ].join(" ");
-
-  return [
-    "default-src 'self'",
-    scriptSrc,
-    // 'unsafe-inline' is intentionally retained for style-src per the
-    // security review's explicit guidance (F-01 recommendation: "Leaving
-    // 'unsafe-inline' in style-src is acceptable in the short term as
-    // style-injection has a much smaller blast radius").
-    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://accounts.google.com",
-    "font-src 'self' https://fonts.gstatic.com",
-    "media-src 'self'",
-    "img-src 'self' data: blob: https://lh3.googleusercontent.com https://drive.google.com https://*.supabase.co",
-    `connect-src ${connectSources}`,
-    "frame-src 'self' https://accounts.google.com",
-    "frame-ancestors 'none'",
-    "object-src 'none'",
-    "base-uri 'self'",
-    "form-action 'self'",
-    "upgrade-insecure-requests",
-  ].join("; ");
-}
-
-/** Build the NextResponse.next() that carries the nonce on both the
- *  request (for Next's renderer) and the response (for the browser). */
-function withNonceAndCsp(req: NextRequest, nonce: string) {
-  const csp = buildCsp(nonce);
-
-  const requestHeaders = new Headers(req.headers);
-  requestHeaders.set("x-nonce", nonce);
-  // Some Next.js versions also read the CSP from the request header
-  // to decide whether to emit nonce-tagged script tags at all. Setting
-  // it is harmless when they don't.
-  requestHeaders.set("content-security-policy", csp);
-
-  const res = NextResponse.next({
-    request: {
-      headers: requestHeaders,
-    },
-  });
-  // Echo nonce on the response too for observability/debugging and for
-  // framework/runtime paths that inspect response headers.
-  res.headers.set("x-nonce", nonce);
-  res.headers.set("Content-Security-Policy", csp);
-  // Nonce-based CSP must stay request-bound: serving cached HTML with a
-  // stale nonce but a fresh CSP nonce causes hydration inline scripts to
-  // be blocked (white screen + CSP errors). Keep document responses out
-  // of intermediary caches.
-  res.headers.set("Cache-Control", "no-store");
-  // Hint Next/Vercel middleware cache to avoid reusing prior middleware
-  // output when nonce changes per request.
-  res.headers.set("x-middleware-cache", "no-cache");
-  return res;
-}
-
-/**
  * Force HTTPS in production. Vercel normally terminates TLS and
  * redirects http:// → https:// at the edge, but we've seen users land
  * on the plain-HTTP interstitial when the request path arrived via a
@@ -239,10 +122,9 @@ export function proxy(req: NextRequest) {
   if (httpsRedirect) return httpsRedirect;
 
   const { pathname } = req.nextUrl;
-  const nonce = generateNonce();
 
   if (!isProtected(pathname)) {
-    return withNonceAndCsp(req, nonce);
+    return NextResponse.next();
   }
 
   const cookie = req.cookies.get(COOKIE_NAME)?.value;
@@ -266,7 +148,7 @@ export function proxy(req: NextRequest) {
     return res;
   }
 
-  return withNonceAndCsp(req, nonce);
+  return NextResponse.next();
 }
 
 // Match every path except Next's internals, API routes (handled by the
