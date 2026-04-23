@@ -866,7 +866,12 @@ export default function AppShell({ children }: { children: ReactNode }) {
       } else {
         audio.playBgm(
           themeRef.current,
-          getBgmCtx(scr, rankedRef.current, aiDiffRef.current, isMatchPath),
+          getBgmCtx(
+            scr,
+            rankedRef.current,
+            aiDiffRef.current,
+            isMatchPath && !isBotGameRoute,
+          ),
         );
       }
     };
@@ -933,10 +938,18 @@ export default function AppShell({ children }: { children: ReactNode }) {
     if (currentScreen === "auth" || showPolicyGate || tutorialOpen) {
       audio.playAuthBgm(themeId);
     } else {
-      audio.playBgm(themeId, getBgmCtx(currentScreen, isRanked, aiDifficulty, isMatchPath));
+      audio.playBgm(
+        themeId,
+        getBgmCtx(
+          currentScreen,
+          isRanked,
+          aiDifficulty,
+          isMatchPath && currentScreen !== "aiGame",
+        ),
+      );
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [themeId, currentScreen, isRanked, aiDifficulty, audioStarted, showPolicyGate, isStaticSilentPage, tutorialOpen, isMatchPath]);
+  }, [themeId, currentScreen, isRanked, aiDifficulty, audioStarted, showPolicyGate, isStaticSilentPage, tutorialOpen, isMatchPath, isBotGameRoute]);
 
   /* ── Queue elapsed timer ────────────────────────────────────────────── */
   useEffect(() => {
