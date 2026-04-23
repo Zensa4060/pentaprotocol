@@ -1037,16 +1037,15 @@ export function WinOverlay({
   const showMatchOverPane = Boolean(centralMatchOverStep && !showWinOverlay && phase === "match_over");
 
   /* "Review grid" lets the user peek at the final board + win animation
-     between games in training / bot modes. Tapping the button hides the
-     whole overlay; a small floating pill lets them bring it back before the
-     auto-ready timer elapses. Reset whenever we change panes so the next
-     inter-game cycle starts with the overlay visible. */
+     between games in training / bot modes, and also at the end of the
+     full series (after "X WINS THE SERIES"). Tapping the button hides
+     the whole overlay; a small floating pill lets them bring it back.
+     Reset whenever both eligible panes go away so the next cycle starts
+     with the overlay visible again. */
   const [isReviewingGrid, setIsReviewingGrid] = React.useState(false);
   const localSpOrAi = gameMode === "ai" || gameMode === "singleplayer";
-  const canReviewGrid = showReadyPane && localSpOrAi;
-  React.useEffect(() => {
-    if (!showReadyPane) setIsReviewingGrid(false);
-  }, [showReadyPane]);
+  const canReviewGrid = (showReadyPane || showMatchOverPane) && localSpOrAi;
+  const reviewingFromMatchOver = isReviewingGrid && showMatchOverPane;
   React.useEffect(() => {
     if (!canReviewGrid) setIsReviewingGrid(false);
   }, [canReviewGrid]);
@@ -1119,7 +1118,9 @@ export function WinOverlay({
               textTransform: "uppercase",
             }}
           >
-            Reviewing grid · {Math.max(0, Math.ceil(readyTimeoutSec))}s
+            {reviewingFromMatchOver
+              ? "Reviewing grid · series complete"
+              : `Reviewing grid · ${Math.max(0, Math.ceil(readyTimeoutSec))}s`}
           </div>
           <button
             type="button"
@@ -1137,7 +1138,7 @@ export function WinOverlay({
               cursor: "pointer",
             }}
           >
-            BACK TO READY
+            {reviewingFromMatchOver ? "BACK TO RESULTS" : "BACK TO READY"}
           </button>
         </div>
       </div>
@@ -1525,6 +1526,30 @@ export function WinOverlay({
               >
                 NEW MATCH?
               </button>
+              {canReviewGrid && reviewGridNode && (
+                <button
+                  type="button"
+                  onClick={() => setIsReviewingGrid(true)}
+                  style={{
+                    minWidth: "min(100%, 320px)",
+                    padding: "14px 28px",
+                    borderRadius: ip ? 2 : 14,
+                    border: `1px solid ${accentColor}66`,
+                    background: "transparent",
+                    color: accentColor,
+                    fontFamily: t.fontDisplay,
+                    fontSize: "clamp(14px, 2.4vw, 18px)",
+                    fontWeight: 800,
+                    letterSpacing: "0.1em",
+                    cursor: "pointer",
+                    transition: "all 0.2s",
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.background = `${accentColor}15`; e.currentTarget.style.borderColor = accentColor; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.borderColor = `${accentColor}66`; }}
+                >
+                  REVIEW GRID
+                </button>
+              )}
               {onQuitToHomeAction && (
                 <button
                   type="button"

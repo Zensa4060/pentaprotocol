@@ -375,7 +375,11 @@ export default function AppShell({ children }: { children: ReactNode }) {
     }
 
     if (!tok) {
-      if (pathname !== ROUTES.AUTH && pathname !== "/") {
+      if (
+        pathname !== ROUTES.AUTH &&
+        pathname !== "/" &&
+        !isPublicPath(pathname)
+      ) {
         router.replace(ROUTES.AUTH);
       }
       setAppReady(true);
@@ -402,7 +406,13 @@ export default function AppShell({ children }: { children: ReactNode }) {
 
     const tok = useAuthStore.getState().token;
     if (!tok) {
-      if (pathname !== ROUTES.AUTH && pathname !== "/") router.replace(ROUTES.AUTH);
+      if (
+        pathname !== ROUTES.AUTH &&
+        pathname !== "/" &&
+        !isPublicPath(pathname)
+      ) {
+        router.replace(ROUTES.AUTH);
+      }
       setAppReady(true);
       return;
     }
@@ -438,7 +448,13 @@ export default function AppShell({ children }: { children: ReactNode }) {
       .catch((err: any) => {
         const status = err?.response?.status;
         if (status === 404 || status === 401) useAuthStore.getState().logout();
-        router.replace(ROUTES.AUTH);
+        // Public legal/info pages (/terms, /privacy, /refund, /patchnotes,
+        // /cookies, /rules, ...) must remain reachable even if the logged-in
+        // profile fetch fails — we silently drop the session and keep the
+        // user on the page they requested.
+        if (!isPublicPath(pathname)) {
+          router.replace(ROUTES.AUTH);
+        }
         setAppReady(true);
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -690,7 +706,12 @@ export default function AppShell({ children }: { children: ReactNode }) {
   /* ── Token-cleared guard ────────────────────────────────────────────── */
   useEffect(() => {
     if (!appReady) return;
-    if (!token && pathname !== ROUTES.AUTH && pathname !== "/") {
+    if (
+      !token &&
+      pathname !== ROUTES.AUTH &&
+      pathname !== "/" &&
+      !isPublicPath(pathname)
+    ) {
       setMultiRoomCode("");
       setMultiPlayerSlot(null);
       setInQueue(false);
