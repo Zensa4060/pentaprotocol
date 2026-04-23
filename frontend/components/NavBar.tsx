@@ -202,7 +202,6 @@ export default function NavBar({
 }: Props) {
   const t = THEMES[themeId as keyof typeof THEMES];
   const { user, logout } = useAuthStore();
-  const isGuest = !user;
   const router = useRouter();
 
   const prefetchHref = useCallback(
@@ -385,13 +384,14 @@ export default function NavBar({
     }
   };
 
-  const navigate = (target: Screen, isLocked: boolean = false) => {
+  // ``_isLocked`` kept as an unused parameter so all existing call sites
+  // (which still pass a 2nd argument from the pre-guest-removal era)
+  // compile without modification. Guest mode was removed — the NavBar is
+  // never rendered to an unauthenticated user — so we no longer need to
+  // intercept "locked" navigations.
+  const navigate = (target: Screen, _isLocked: boolean = false) => {
     setMenuOpen(false);
     if (lockMultiplayerNav && target !== screen) {
-      return;
-    }
-    if (isLocked && isGuest) {
-      setScreenAction("auth");
       return;
     }
     if (target === "friends") {
@@ -561,15 +561,16 @@ export default function NavBar({
     </button>
   );
 
-  // Nav links list for both desktop and hamburger menu
+  // Nav links list for both desktop and hamburger menu. Guest mode is
+  // gone, so nothing is locked here anymore.
   const navLinks = [
-    { target: "friends",    label: "FRIENDS",     screen: "friends"    as Screen, locked: isGuest },
-    { target: "collection", label: "Collection",  screen: "collection" as Screen },
-    { target: "store",      label: "Store",       screen: "store"      as Screen },
-    { target: "home",       label: "Home",        screen: "home"       as Screen },
-    { target: "career",     label: "Career",      screen: "career"     as Screen, locked: isGuest },
-    { target: "battlepass", label: "MISSIONS",  screen: "battlepass" as Screen, locked: isGuest },
-    { target: "profile",    label: "Profile",     screen: "profile"    as Screen, locked: isGuest },
+    { target: "friends",    label: "FRIENDS",    screen: "friends"    as Screen },
+    { target: "collection", label: "Collection", screen: "collection" as Screen },
+    { target: "store",      label: "Store",      screen: "store"      as Screen },
+    { target: "home",       label: "Home",       screen: "home"       as Screen },
+    { target: "career",     label: "Career",     screen: "career"     as Screen },
+    { target: "battlepass", label: "MISSIONS",   screen: "battlepass" as Screen },
+    { target: "profile",    label: "Profile",    screen: "profile"    as Screen },
   ];
 
   return (
@@ -680,13 +681,13 @@ export default function NavBar({
               transition: "gap 0.3s ease",
               marginLeft: "5%",
             }}>
-              {navBtn("friends", "FRIENDS", false, false, undefined, "friends", isGuest, friendsNotifyBadge)}
+              {navBtn("friends", "FRIENDS", false, false, undefined, "friends", false, friendsNotifyBadge)}
               {navBtn("collection", "Collection", false, false, undefined, "collection", false, collectionNotifyBadge)}
               {navBtn("store",      "Store",      false, false, undefined, "store", false, storeNewBadge)}
               {navBtn("home",       "Home",       false, false, undefined, "home")}
-              {navBtn("career",     "Career",     false, false, undefined, "career",     isGuest, careerMpBadge)}
-              {navBtn("battlepass", "MISSIONS", false, false, undefined, "battlepass", isGuest, missionClaimBadge)}
-                {navBtn("profile", "Profile", false, false, undefined, "profile", isGuest, profileNotifyBadge)}
+              {navBtn("career",     "Career",     false, false, undefined, "career",     false, careerMpBadge)}
+              {navBtn("battlepass", "MISSIONS", false, false, undefined, "battlepass", false, missionClaimBadge)}
+                {navBtn("profile", "Profile", false, false, undefined, "profile", false, profileNotifyBadge)}
                 <div style={{ display: "inline-flex", alignItems: "center", flexShrink: 0 }}>{rulesInfoButton}</div>
             </div>
           </div>
@@ -697,8 +698,8 @@ export default function NavBar({
             <div style={{ display: "flex", alignItems: "center", flexWrap: "nowrap", gap: 6 }}>
               {navBtn("home",    "Home",    false, false, undefined, "home")}
               {navBtn("store",   "Store",   false, false, undefined, "store", false, storeNewBadge)}
-              {navBtn("profile", "Profile", false, false, undefined, "profile", isGuest, profileNotifyBadge)}
-              {navBtn("career",  "Career",  false, false, undefined, "career",  isGuest, careerMpBadge)}
+              {navBtn("profile", "Profile", false, false, undefined, "profile", false, profileNotifyBadge)}
+              {navBtn("career",  "Career",  false, false, undefined, "career",  false, careerMpBadge)}
               <div style={{ display: "inline-flex", alignItems: "center", flexShrink: 0 }}>{rulesInfoButton}</div>
             </div>
           </div>

@@ -104,8 +104,9 @@ export default function AIScreen({ setScreenAction, themeId, onSelectDifficultyA
   const [step, setStep] = useState<"mode" | "patterns" | "difficulty">("mode");
   const [selected5, setSelected5] = useState<string[]>(randomFiveAI);
 
-  // Server-persisted bot-defeat set. Undefined for guests (all bots locked
-  // behind baltazar) — progression still shows, no XP is ever awarded.
+  // Server-persisted bot-defeat set, fetched from the logged-in user's
+  // profile. Progression still renders — XP is awarded server-side on
+  // first-defeat events via the mission claim flow.
   const user = useAuthStore((s) => s.user) as any;
   const defeats: Record<string, boolean> = (user?.bot_defeats as any) || {};
   const [lockMsg, setLockMsg] = useState<string | null>(null);

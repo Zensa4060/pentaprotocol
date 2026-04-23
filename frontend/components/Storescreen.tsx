@@ -396,7 +396,7 @@ function BundleAnimatedPreview({ bundle, tick }: { bundle: Bundle; tick: number 
     </div>
   );
 }
-function BundleModal({ bundle, t, isGuest, buyingId, purchasedItems, balance, onClose, onBuy, onOpenBuyCredits }: { bundle: Bundle; t: any; isGuest: boolean; buyingId: string | null; purchasedItems: string[]; balance: number; onClose: () => void; onBuy: (id: string, price: number, label: string) => void; onOpenBuyCredits: () => void }) {
+function BundleModal({ bundle, t, buyingId, purchasedItems, balance, onClose, onBuy, onOpenBuyCredits }: { bundle: Bundle; t: any; buyingId: string | null; purchasedItems: string[]; balance: number; onClose: () => void; onBuy: (id: string, price: number, label: string) => void; onOpenBuyCredits: () => void }) {
   const [tick, setTick] = useState(0);
   const [hovOpt, setHovOpt] = useState<string | null>(null);
   useEffect(() => { const iv = setInterval(() => setTick(v => v + 1), 2500); return () => clearInterval(iv); }, []);
@@ -436,7 +436,7 @@ function BundleModal({ bundle, t, isGuest, buyingId, purchasedItems, balance, on
                     <div style={{ fontFamily: t.fontBody, fontSize: 11, color: "rgba(255,255,255,0.38)", marginBottom: 5 }}>{opt.sublabel}</div>
                     <div style={{ display: "flex", gap: 5, flexWrap: "wrap" as const }}>{opt.includes.map(inc => (<span key={inc} style={{ fontFamily: "monospace", fontSize: 9, color: opt.owned ? "#4CAF5077" : `${ac}88`, background: opt.owned ? "#4CAF5010" : `${ac}0C`, border: `1px solid ${opt.owned ? "#4CAF5022" : ac + "22"}`, padding: "1px 6px", borderRadius: 4 }}>+ {inc}</span>))}</div>
                   </div>
-                  {opt.owned ? (<div style={{ fontFamily: "monospace", fontSize: 20, color: "#4CAF50" }}>✓</div>) : isGuest ? (<button onClick={onClose} style={{ flexShrink: 0, background: ac, border: "none", borderRadius: 8, padding: "8px 14px", fontFamily: t.fontDisplay, fontSize: 11, fontWeight: 800, color: "#000", cursor: "pointer", whiteSpace: "nowrap" as const }}>SIGN IN</button>) : (
+                  {opt.owned ? (<div style={{ fontFamily: "monospace", fontSize: 20, color: "#4CAF50" }}>✓</div>) : (
                     <div style={{ display: "flex", flexDirection: "column" as const, alignItems: "flex-end", gap: 4, flexShrink: 0 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 6, fontFamily: t.fontDisplay, fontSize: 18, fontWeight: 900, color: canAfford ? ac : "#EF4444", lineHeight: 1 }}>{opt.price.toLocaleString()}<ProtoSVG size={16} /></div>
                       {!canAfford && <div style={{ fontFamily: "monospace", fontSize: 9, color: "#EF4444" }}>need {(opt.price - balance).toLocaleString()} more</div>}
@@ -447,7 +447,7 @@ function BundleModal({ bundle, t, isGuest, buyingId, purchasedItems, balance, on
               );
             })}
           </div>
-          {!isGuest && (<div style={{ marginTop: 12, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, fontFamily: "monospace", fontSize: 11, color: "rgba(255,255,255,0.28)" }}>Your balance: <span style={{ color: ac, display: "flex", alignItems: "center", gap: 4 }}>{balance.toLocaleString()} <ProtoSVG size={14} /></span></div>)}
+          <div style={{ marginTop: 12, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, fontFamily: "monospace", fontSize: 11, color: "rgba(255,255,255,0.28)" }}>Your balance: <span style={{ color: ac, display: "flex", alignItems: "center", gap: 4 }}>{balance.toLocaleString()} <ProtoSVG size={14} /></span></div>
         </div>
       </div>
     </div>
@@ -659,7 +659,6 @@ export default function StoreScreen({ setScreenAction, themeId, audio, initialSe
   const t = THEMES[themeId as keyof typeof THEMES];
   const router = useRouter();
   const { user, token, updateUser } = useAuthStore();
-  const isGuest = !user;
 
   const [showBuyModal, setShowBuyModal] = useState(false);
   const [buyCurrencyType, setBuyCurrencyType] = useState<"protocredits" | "shards">("protocredits");
@@ -713,9 +712,9 @@ export default function StoreScreen({ setScreenAction, themeId, audio, initialSe
   //   coin_toss  ← granted when HIM (6×6 final) is defeated
   //   board_skin ← granted when HER (7×7 final) is defeated
   const botRewards = readBotRewards(user);
-  const canClaimFreeBanner   = !isGuest && botRewards.banner     === "pending";
-  const canClaimFreeCoinToss = !isGuest && botRewards.coin_toss  === "pending";
-  const canClaimFreeBoardSkin= !isGuest && botRewards.board_skin === "pending";
+  const canClaimFreeBanner   = botRewards.banner     === "pending";
+  const canClaimFreeCoinToss = botRewards.coin_toss  === "pending";
+  const canClaimFreeBoardSkin= botRewards.board_skin === "pending";
   const [claimingBannerId,    setClaimingBannerId]    = useState<string | null>(null);
   const [claimingCoinTossId,  setClaimingCoinTossId]  = useState<string | null>(null);
   const [claimingBoardSkinId, setClaimingBoardSkinId] = useState<string | null>(null);
@@ -878,7 +877,6 @@ export default function StoreScreen({ setScreenAction, themeId, audio, initialSe
   const cssVars = { "--font-display": t.fontDisplay, "--font-mono": t.fontMono, "--font-body": t.fontBody, "--text": t.text, "--text-muted": t.textMuted, "--border": t.border, "--accent": accent } as React.CSSProperties;
 
   const handleBuyCosmetic = (id: string, price: number, label: string, shardPrice = 0) => {
-    if (isGuest) { showError("Sign in to purchase."); return; }
     if (shardPrice > 0) {
       if (balance < price || shardBalance < shardPrice) { setOpenBundle(null); setMsg(null); openBuyModal(balance < price ? "protocredits" : "shards"); showError(`Need ${price.toLocaleString()} ProtoCredits and ${shardPrice.toLocaleString()} PentaShards.`); return; }
     }
@@ -928,8 +926,6 @@ export default function StoreScreen({ setScreenAction, themeId, audio, initialSe
     } finally { setBuyingId(null); }
   };
 
-  const GuestBuyBtn = () => (<button onClick={() => setScreenAction("auth")} style={{ flexShrink: 0, background: t.accent, border: "none", borderRadius: 8, padding: "6px 12px", fontFamily: t.fontDisplay, fontSize: 11, fontWeight: 800, color: "#000", cursor: "pointer", whiteSpace: "nowrap" as const, display: "flex", alignItems: "center", gap: 4 }}>SIGN IN</button>);
-
   const activeBundleData = openBundle ? BUNDLES.find(b => b.id === openBundle) : null;
   const activeThemePreview = openThemePreview ? STORE_THEMES.find(ti => ti.id === openThemePreview) : null;
   return (
@@ -962,26 +958,13 @@ export default function StoreScreen({ setScreenAction, themeId, audio, initialSe
       `}</style>
 
       {activeBundleData && (
-        <BundleModal bundle={activeBundleData} t={t} isGuest={isGuest} buyingId={buyingId} purchasedItems={purchasedItems} balance={balance}
+        <BundleModal bundle={activeBundleData} t={t} buyingId={buyingId} purchasedItems={purchasedItems} balance={balance}
           onClose={closeBundlePreview} onBuy={handleBuyCosmetic}
           onOpenBuyCredits={() => { setOpenBundle(null); setMsg(null); openBuyModal("protocredits"); }} />
       )}
       {activeThemePreview && (<ThemePreviewModal item={activeThemePreview} t={t} onClose={closeThemePreview} audio={audio} />)}
 
       <div style={{ maxWidth: 1240, margin: "0 auto", padding: "0 28px 72px" }}>
-
-        {isGuest && (
-          <div style={{ background: `${accent}10`, border: `1px solid ${accent}44`, borderRadius: 10, padding: "12px 18px", marginBottom: 28, display: "flex", alignItems: "center", gap: 12 }}>
-            <div style={{ width: 24, height: 24, borderRadius: "50%", background: `${accent}18`, display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={accent} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>
-            </div>
-            <div>
-              <div style={{ fontFamily: t.fontDisplay, fontSize: 14, fontWeight: 700, color: accent }}>Browsing as Guest</div>
-              <div style={{ fontFamily: t.fontBody, fontSize: 13, color: t.textMuted }}>Sign in to purchase ProtoCredits and unlock premium equipment.</div>
-            </div>
-            <button onClick={() => setScreenAction("auth")} style={{ marginLeft: "auto", flexShrink: 0, background: accent, border: "none", color: "#000", fontFamily: t.fontDisplay, fontSize: 12, fontWeight: 800, padding: "7px 16px", borderRadius: 7, cursor: "pointer", letterSpacing: "0.06em" }}>SIGN IN</button>
-          </div>
-        )}
 
         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 48, gap: 24, flexWrap: "wrap" as const }}>
           <div>
@@ -990,23 +973,23 @@ export default function StoreScreen({ setScreenAction, themeId, audio, initialSe
             <div style={{ fontFamily: t.fontBody, fontSize: 14, color: t.textMuted, maxWidth: 420 }}>Earn rewards through ranked play and achievements — or top up ProtoCredits to unlock exclusive cosmetics instantly.</div>
           </div>
           <div style={{ display: "flex", gap: 14, flexWrap: "wrap", alignItems: "stretch" }}>
-            <div className="store-card" onClick={() => { if (isGuest) { showError("Sign in to buy PentaShards."); return; } setMsg(null); openBuyModal("shards"); }} style={{ flexShrink: 0, minWidth: 260, maxWidth: 320, background: "linear-gradient(135deg, rgba(79,195,247,0.18), rgba(79,195,247,0.08))", border: `2px solid ${isGuest ? t.border : "#4FC3F755"}`, borderRadius: 18, padding: "22px 24px", boxShadow: "0 0 40px rgba(79,195,247,0.22)", position: "relative", overflow: "hidden", opacity: isGuest ? 0.75 : 1 }}>
+            <div className="store-card" onClick={() => { setMsg(null); openBuyModal("shards"); }} style={{ flexShrink: 0, minWidth: 260, maxWidth: 320, background: "linear-gradient(135deg, rgba(79,195,247,0.18), rgba(79,195,247,0.08))", border: `2px solid #4FC3F755`, borderRadius: 18, padding: "22px 24px", boxShadow: "0 0 40px rgba(79,195,247,0.22)", position: "relative", overflow: "hidden" }}>
               <div style={{ position: "absolute", top: -30, right: -30, width: 120, height: 120, borderRadius: "50%", background: "rgba(79,195,247,0.35)", opacity: 0.9, pointerEvents: "none" }} />
               <div style={{ fontFamily: t.fontMono, fontSize: 10, color: "#4FC3F7", letterSpacing: "0.25em", marginBottom: 10 }}>PENTASHARDS</div>
               <div style={{ fontFamily: t.fontDisplay, fontSize: 26, fontWeight: 900, color: t.text, marginBottom: 6, lineHeight: 1.1 }}>Buy<br /><span style={{ color: "#4FC3F7" }}>PentaShards</span></div>
               <div style={{ fontFamily: t.fontBody, fontSize: 12, color: t.textMuted, marginBottom: 16 }}>Starting from ₹25 · Instant delivery</div>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" as const, marginBottom: 18 }}>{SHARD_PACKAGES.map(p => (<div key={`shard_${p.id}`} style={{ fontFamily: t.fontMono, fontSize: 10, color: "#4FC3F7", background: "rgba(79,195,247,0.14)", border: "1px solid rgba(79,195,247,0.33)", borderRadius: 6, padding: "3px 8px" }}>{p.credits + p.bonus}</div>))}</div>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, fontFamily: t.fontDisplay, fontSize: 13, fontWeight: 800, color: isGuest ? t.textMuted : "#000", background: isGuest ? t.bgCard : "#4FC3F7", borderRadius: 8, padding: "9px 16px", justifyContent: "center", border: isGuest ? `1px solid ${t.border}` : "none" }}>{isGuest ? "SIGN IN TO BUY" : (<><ShardSVG size={16} /> OPEN STORE</>)}</div>
-              {!isGuest && <div style={{ marginTop: 12, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, fontFamily: t.fontMono, fontSize: 22, color: t.textMuted }}>Balance: <span style={{ color: "#4FC3F7", display: "flex", alignItems: "center", gap: 6 }}>{shardBalance.toLocaleString()} <ShardSVG size={21} /></span></div>}
+              <div style={{ display: "flex", alignItems: "center", gap: 8, fontFamily: t.fontDisplay, fontSize: 13, fontWeight: 800, color: "#000", background: "#4FC3F7", borderRadius: 8, padding: "9px 16px", justifyContent: "center" }}><ShardSVG size={16} /> OPEN STORE</div>
+              <div style={{ marginTop: 12, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, fontFamily: t.fontMono, fontSize: 22, color: t.textMuted }}>Balance: <span style={{ color: "#4FC3F7", display: "flex", alignItems: "center", gap: 6 }}>{shardBalance.toLocaleString()} <ShardSVG size={21} /></span></div>
             </div>
-            <div className="store-card" onClick={() => { if (isGuest) { showError("Sign in to buy ProtoCredits."); return; } setMsg(null); openBuyModal("protocredits"); }} style={{ flexShrink: 0, minWidth: 260, maxWidth: 320, background: `linear-gradient(135deg, ${accent}18, ${accent}08)`, border: `2px solid ${isGuest ? t.border : accent + "55"}`, borderRadius: 18, padding: "22px 24px", boxShadow: `0 0 40px ${accent}22`, position: "relative", overflow: "hidden", opacity: isGuest ? 0.75 : 1 }}>
+            <div className="store-card" onClick={() => { setMsg(null); openBuyModal("protocredits"); }} style={{ flexShrink: 0, minWidth: 260, maxWidth: 320, background: `linear-gradient(135deg, ${accent}18, ${accent}08)`, border: `2px solid ${accent}55`, borderRadius: 18, padding: "22px 24px", boxShadow: `0 0 40px ${accent}22`, position: "relative", overflow: "hidden" }}>
               <div style={{ position: "absolute", top: -30, right: -30, width: 120, height: 120, borderRadius: "50%", background: `${accent}35`, opacity: 0.9, pointerEvents: "none" }} />
               <div style={{ fontFamily: t.fontMono, fontSize: 10, color: accent, letterSpacing: "0.25em", marginBottom: 10 }}>PROTOCREDITS</div>
               <div style={{ fontFamily: t.fontDisplay, fontSize: 26, fontWeight: 900, color: t.text, marginBottom: 6, lineHeight: 1.1 }}>Buy<br /><span style={{ color: accent }}>ProtoCredits</span></div>
               <div style={{ fontFamily: t.fontBody, fontSize: 12, color: t.textMuted, marginBottom: 16 }}>Starting from ₹49 · Instant delivery</div>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" as const, marginBottom: 18 }}>{PACKAGES.map(p => (<div key={p.id} style={{ fontFamily: t.fontMono, fontSize: 10, color: accent, background: `${accent}14`, border: `1px solid ${accent}33`, borderRadius: 6, padding: "3px 8px" }}>{p.credits + p.bonus}</div>))}</div>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, fontFamily: t.fontDisplay, fontSize: 13, fontWeight: 800, color: isGuest ? t.textMuted : "#000", background: isGuest ? t.bgCard : accent, borderRadius: 8, padding: "9px 16px", justifyContent: "center", border: isGuest ? `1px solid ${t.border}` : "none" }}>{isGuest ? "SIGN IN TO BUY" : (<><ProtoSVG size={16} /> OPEN STORE</>)}</div>
-              {!isGuest && <div style={{ marginTop: 12, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, fontFamily: t.fontMono, fontSize: 22, color: t.textMuted }}>Balance: <span style={{ color: accent, display: "flex", alignItems: "center", gap: 6 }}>{balance.toLocaleString()} <ProtoSVG size={21}/></span></div>}
+              <div style={{ display: "flex", alignItems: "center", gap: 8, fontFamily: t.fontDisplay, fontSize: 13, fontWeight: 800, color: "#000", background: accent, borderRadius: 8, padding: "9px 16px", justifyContent: "center" }}><ProtoSVG size={16} /> OPEN STORE</div>
+              <div style={{ marginTop: 12, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, fontFamily: t.fontMono, fontSize: 22, color: t.textMuted }}>Balance: <span style={{ color: accent, display: "flex", alignItems: "center", gap: 6 }}>{balance.toLocaleString()} <ProtoSVG size={21}/></span></div>
             </div>
           </div>
         </div>
@@ -1048,7 +1031,7 @@ export default function StoreScreen({ setScreenAction, themeId, audio, initialSe
                         {owned ? (<div style={{ fontFamily: t.fontMono, fontSize: 12, fontWeight: 900, color: "#4CAF50", letterSpacing: "0.06em" }}>OWNED</div>) : (<div style={{ fontFamily: t.fontMono, fontSize: 12, fontWeight: 900, color: glow, letterSpacing: "0.06em", display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" as const }}>{price.toLocaleString()} <ProtoSVG size={16} /> {shardPrice.toLocaleString()} <ShardSVG size={16} /></div>)}
                         <div style={{ display: "flex", flexDirection: "column", gap: 8, width: "100%" }}>
                           <button type="button" onClick={() => openThemePreviewUrl(item.id)} style={{ width: "100%", boxSizing: "border-box" as const, background: "rgba(0,0,0,0.35)", border: `1.5px solid ${glow}66`, borderRadius: 10, padding: "10px 12px", fontFamily: t.fontDisplay, fontSize: 11, fontWeight: 900, color: glow, cursor: "pointer" }}>VIEW PREVIEW</button>
-                          {owned ? (<button type="button" disabled style={{ width: "100%", boxSizing: "border-box" as const, background: "rgba(255,255,255,0.06)", border: `1px solid ${t.border}`, borderRadius: 10, padding: "10px 14px", fontFamily: t.fontDisplay, fontSize: 12, fontWeight: 900, color: "rgba(255,255,255,0.65)", cursor: "not-allowed" }}>✓</button>) : isGuest ? (<button type="button" onClick={() => setScreenAction("auth")} style={{ width: "100%", boxSizing: "border-box" as const, background: glow, border: "none", borderRadius: 10, padding: "10px 14px", fontFamily: t.fontDisplay, fontSize: 12, fontWeight: 900, color: "#000", cursor: "pointer" }}>SIGN IN</button>) : (<button type="button" onClick={() => handleBuyCosmetic(`theme_bundle_${item.id}`, price, `${item.label} Bundle`, shardPrice)} disabled={!item.purchaseId || price <= 0} style={{ width: "100%", boxSizing: "border-box" as const, background: glow, border: "none", borderRadius: 10, padding: "10px 14px", fontFamily: t.fontDisplay, fontSize: 12, fontWeight: 900, color: "#000", cursor: !item.purchaseId || price <= 0 ? "not-allowed" : "pointer", opacity: !item.purchaseId || price <= 0 ? 0.7 : 1 }}>UNLOCK</button>)}
+                          {owned ? (<button type="button" disabled style={{ width: "100%", boxSizing: "border-box" as const, background: "rgba(255,255,255,0.06)", border: `1px solid ${t.border}`, borderRadius: 10, padding: "10px 14px", fontFamily: t.fontDisplay, fontSize: 12, fontWeight: 900, color: "rgba(255,255,255,0.65)", cursor: "not-allowed" }}>✓</button>) : (<button type="button" onClick={() => handleBuyCosmetic(`theme_bundle_${item.id}`, price, `${item.label} Bundle`, shardPrice)} disabled={!item.purchaseId || price <= 0} style={{ width: "100%", boxSizing: "border-box" as const, background: glow, border: "none", borderRadius: 10, padding: "10px 14px", fontFamily: t.fontDisplay, fontSize: 12, fontWeight: 900, color: "#000", cursor: !item.purchaseId || price <= 0 ? "not-allowed" : "pointer", opacity: !item.purchaseId || price <= 0 ? 0.7 : 1 }}>UNLOCK</button>)}
                         </div>
                       </div>
                     </div>
@@ -1142,7 +1125,7 @@ export default function StoreScreen({ setScreenAction, themeId, audio, initialSe
                   <div style={{ display: "flex", gap: 6, flexWrap: "wrap" as const, marginBottom: 18 }}>{bundle.tags.map(tag => (<span key={tag} style={{ fontFamily: "monospace", fontSize: 9, fontWeight: 700, color: bundle.accentColor, background: `${bundle.accentColor}18`, border: `1px solid ${bundle.accentColor}44`, padding: "2px 7px", borderRadius: 4 }}>{tag}</span>))}</div>
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
                     {owned ? (<span style={{ fontFamily: t.fontMono, fontSize: 12, fontWeight: 900, color: "#4CAF50", letterSpacing: "0.06em" }}>OWNED — equip in Collection</span>) : showFreeClaim ? (<span style={{ fontFamily: t.fontMono, fontSize: 12, fontWeight: 900, color: "#FCD34D", letterSpacing: "0.06em" }}>FREE REWARD</span>) : (<span style={{ fontFamily: t.fontMono, fontSize: 12, fontWeight: 900, color: glow, letterSpacing: "0.06em", display: "inline-flex", alignItems: "center", gap: 6 }}>{bundle.bundlePrice.toLocaleString()} <ProtoSVG size={16} /> + {bundle.shardPrice.toLocaleString()} <ShardSVG size={16} /></span>)}
-                    {owned ? (<button type="button" disabled style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.14)", borderRadius: 10, padding: "10px 14px", fontFamily: t.fontDisplay, fontSize: 12, fontWeight: 900, color: "rgba(255,255,255,0.65)", cursor: "not-allowed" }}>✓</button>) : isGuest ? (<button type="button" onClick={() => setScreenAction("auth")} style={{ background: glow, border: "none", borderRadius: 10, padding: "10px 14px", fontFamily: t.fontDisplay, fontSize: 12, fontWeight: 900, color: "#000", cursor: "pointer" }}>SIGN IN</button>) : showFreeClaim ? (<button type="button" onClick={() => claimFreeCoinToss(bundle.purchaseId, bundle.label)} disabled={!!claimingCoinTossId} style={{ background: "#FCD34D", border: "none", borderRadius: 10, padding: "10px 14px", fontFamily: t.fontDisplay, fontSize: 12, fontWeight: 900, color: "#000", cursor: claimingCoinTossId ? "wait" : "pointer", boxShadow: "0 0 16px rgba(252,211,77,0.5)", opacity: claimingCoinTossId && !isClaiming ? 0.6 : 1 }}>{isClaiming ? "CLAIMING…" : "CLAIM FREE"}</button>) : (<button type="button" onClick={() => handleBuyCosmetic(bundle.purchaseId, bundle.bundlePrice, bundle.label, bundle.shardPrice)} style={{ background: glow, border: "none", borderRadius: 10, padding: "10px 14px", fontFamily: t.fontDisplay, fontSize: 12, fontWeight: 900, color: "#000", cursor: "pointer", boxShadow: `0 4px 20px ${glow}44` }}>UNLOCK</button>)}
+                    {owned ? (<button type="button" disabled style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.14)", borderRadius: 10, padding: "10px 14px", fontFamily: t.fontDisplay, fontSize: 12, fontWeight: 900, color: "rgba(255,255,255,0.65)", cursor: "not-allowed" }}>✓</button>) : showFreeClaim ? (<button type="button" onClick={() => claimFreeCoinToss(bundle.purchaseId, bundle.label)} disabled={!!claimingCoinTossId} style={{ background: "#FCD34D", border: "none", borderRadius: 10, padding: "10px 14px", fontFamily: t.fontDisplay, fontSize: 12, fontWeight: 900, color: "#000", cursor: claimingCoinTossId ? "wait" : "pointer", boxShadow: "0 0 16px rgba(252,211,77,0.5)", opacity: claimingCoinTossId && !isClaiming ? 0.6 : 1 }}>{isClaiming ? "CLAIMING…" : "CLAIM FREE"}</button>) : (<button type="button" onClick={() => handleBuyCosmetic(bundle.purchaseId, bundle.bundlePrice, bundle.label, bundle.shardPrice)} style={{ background: glow, border: "none", borderRadius: 10, padding: "10px 14px", fontFamily: t.fontDisplay, fontSize: 12, fontWeight: 900, color: "#000", cursor: "pointer", boxShadow: `0 4px 20px ${glow}44` }}>UNLOCK</button>)}
                   </div>
                 </div>
               );
@@ -1195,7 +1178,7 @@ export default function StoreScreen({ setScreenAction, themeId, audio, initialSe
                   </div>
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
                     {owned ? (<div style={{ fontFamily: t.fontMono, fontSize: 12, fontWeight: 900, color: "#4CAF50", letterSpacing: "0.06em" }}>OWNED</div>) : showFreeClaim ? (<div style={{ fontFamily: t.fontMono, fontSize: 12, fontWeight: 900, color: "#FCD34D", letterSpacing: "0.06em" }}>FREE</div>) : (<div style={{ fontFamily: t.fontMono, fontSize: 12, fontWeight: 900, color: accent, letterSpacing: "0.06em", display: "inline-flex", alignItems: "center", gap: 6 }}><span>{price.toLocaleString()}</span><ProtoSVG size={16} /></div>)}
-                    {owned ? (<button disabled style={{ background: "rgba(255,255,255,0.06)", border: `1px solid rgba(255,255,255,0.14)`, borderRadius: 10, padding: "10px 14px", fontFamily: t.fontDisplay, fontSize: 12, fontWeight: 900, color: "rgba(255,255,255,0.65)", cursor: "not-allowed" }}>✓</button>) : isGuest ? (<button onClick={() => setScreenAction("auth")} style={{ background: accent, border: "none", borderRadius: 10, padding: "10px 14px", fontFamily: t.fontDisplay, fontSize: 12, fontWeight: 900, color: "#000", cursor: "pointer", whiteSpace: "nowrap" as const }}>SIGN IN</button>) : showFreeClaim ? (<button onClick={() => claimFreeBanner(banner.id, banner.label)} disabled={!!claimingBannerId} style={{ background: "#FCD34D", border: "none", borderRadius: 10, padding: "10px 14px", fontFamily: t.fontDisplay, fontSize: 12, fontWeight: 900, color: "#000", cursor: claimingBannerId ? "wait" : "pointer", whiteSpace: "nowrap" as const, boxShadow: "0 0 16px rgba(252,211,77,0.5)", opacity: claimingBannerId && !isClaiming ? 0.6 : 1 }}>{isClaiming ? "CLAIMING…" : "CLAIM FREE"}</button>) : (<button onClick={() => handleBuyCosmetic(banner.id, price, `${banner.label} Banner`)} disabled={price <= 0} style={{ background: accent, border: "none", borderRadius: 10, padding: "10px 14px", fontFamily: t.fontDisplay, fontSize: 12, fontWeight: 900, color: "#000", cursor: price <= 0 ? "not-allowed" : "pointer", whiteSpace: "nowrap" as const, opacity: price <= 0 ? 0.7 : 1 }}>{price <= 0 ? "UNAVAILABLE" : "UNLOCK"}</button>)}
+                    {owned ? (<button disabled style={{ background: "rgba(255,255,255,0.06)", border: `1px solid rgba(255,255,255,0.14)`, borderRadius: 10, padding: "10px 14px", fontFamily: t.fontDisplay, fontSize: 12, fontWeight: 900, color: "rgba(255,255,255,0.65)", cursor: "not-allowed" }}>✓</button>) : showFreeClaim ? (<button onClick={() => claimFreeBanner(banner.id, banner.label)} disabled={!!claimingBannerId} style={{ background: "#FCD34D", border: "none", borderRadius: 10, padding: "10px 14px", fontFamily: t.fontDisplay, fontSize: 12, fontWeight: 900, color: "#000", cursor: claimingBannerId ? "wait" : "pointer", whiteSpace: "nowrap" as const, boxShadow: "0 0 16px rgba(252,211,77,0.5)", opacity: claimingBannerId && !isClaiming ? 0.6 : 1 }}>{isClaiming ? "CLAIMING…" : "CLAIM FREE"}</button>) : (<button onClick={() => handleBuyCosmetic(banner.id, price, `${banner.label} Banner`)} disabled={price <= 0} style={{ background: accent, border: "none", borderRadius: 10, padding: "10px 14px", fontFamily: t.fontDisplay, fontSize: 12, fontWeight: 900, color: "#000", cursor: price <= 0 ? "not-allowed" : "pointer", whiteSpace: "nowrap" as const, opacity: price <= 0 ? 0.7 : 1 }}>{price <= 0 ? "UNAVAILABLE" : "UNLOCK"}</button>)}
                   </div>
                 </div>
               </div>
@@ -1210,7 +1193,7 @@ export default function StoreScreen({ setScreenAction, themeId, audio, initialSe
         {msg && (<div style={{ position: "fixed", bottom: 28, left: "50%", transform: "translateX(-50%)", zIndex: 999, background: msg.ok ? "#1a2e1a" : "#2e1a1a", border: `1px solid ${msg.ok ? "#4CAF50" : "#EF4444"}`, borderRadius: 10, padding: "10px 22px", fontFamily: t.fontMono, fontSize: 13, color: msg.ok ? "#4CAF50" : "#EF4444", boxShadow: "0 8px 32px rgba(0,0,0,0.5)", pointerEvents: "none", letterSpacing: "0.06em" }}>{msg.ok ? "✓" : ""} {msg.text}</div>)}
       </div>
       {/* ── Currency Buy Modal ── */}
-      {showBuyModal && !isGuest && (
+      {showBuyModal && (
         <div className="modal-backdrop" onClick={e => { if (e.target === e.currentTarget) closeBuyModal(); }} style={{ position: "fixed", inset: 0, zIndex: 100, background: "rgba(0,0,0,0.72)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
           <div className="modal-panel" style={{ background: t.bg, border: `1px solid ${t.border}`, borderRadius: 20, padding: "32px 28px", width: "100%", maxWidth: 520, maxHeight: "90vh", overflowY: "auto", position: "relative" }}>
             <button onClick={closeBuyModal} style={{ position: "absolute", top: 16, right: 16, background: `${t.border}44`, border: "none", borderRadius: 8, color: t.textMuted, width: 32, height: 32, cursor: "pointer", fontSize: 16, display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>

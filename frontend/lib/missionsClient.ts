@@ -28,9 +28,13 @@ const stateKey = (userKey: string) => `pp_mission_state_${userKey}`;
 const eventsKey = (userKey: string) => `pp_mission_events_${userKey}`;
 
 export function getUserKey(user: unknown): string {
+  // Guest mode was removed — this should only ever be called with a
+  // logged-in user. The empty-string fallback keeps callers safe during
+  // the brief pre-/auth-me hydration window when the store may still
+  // expose ``null`` before AppShell's auth gate has redirected.
   const u = user as { _id?: unknown; id?: unknown } | null | undefined;
   const id = u?._id ?? u?.id;
-  return id !== undefined && id !== null ? String(id) : "guest";
+  return id !== undefined && id !== null ? String(id) : "";
 }
 
 export function formatDateKeyLocal(d: Date): string {

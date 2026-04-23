@@ -824,14 +824,6 @@ export default function AuthScreen({ setScreenAction, themeId }: Props) {
 
         </div>
 
-        <div style={{ marginTop: isMobile ? 16 : 24, paddingTop: 20, borderTop: "1px solid rgba(255,255,255,0.05)" }}>
-          <button onClick={() => setScreenAction("home")}
-            style={{ width: "100%", padding: isMobile ? "13px" : "10px", background: "transparent", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 8, color: "#999", fontFamily: FONT, fontSize: 13.7, fontWeight: 600, letterSpacing: "0.08em", cursor: "pointer", textTransform: "uppercase", transition: "all 0.18s" }}
-            onMouseEnter={e => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.5)"; e.currentTarget.style.color = "#ffffff"; e.currentTarget.style.background = "#1e1e1e"; }}
-            onMouseLeave={e => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.12)"; e.currentTarget.style.color = "#999"; e.currentTarget.style.background = "transparent"; }}
-          >Continue as Guest</button>
-        </div>
-
         <div style={{ marginTop: 28, display: "flex", alignItems: "center", gap: 12 }}>
           <div style={{ flex: 1, height: 1, background: "rgba(204,0,0,0.15)" }} />
           <div style={{ fontFamily: FONT, fontSize: isMobile ? 14 : 20, fontWeight: 700, color: "#FFFFFF", letterSpacing: "0.15em", lineHeight: 1 }}>PENTAPROTOCOL</div>

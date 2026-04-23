@@ -294,5 +294,3 @@ export function parseMatchPath(pathname: string): ParsedMatchPath | null {
   return null;
 }
 
-/** Routes that guests (not signed in) are blocked from. */
-export const GUEST_BLOCKED_SCREENS: Screen[] = ["lobby", "profile", "career", "battlepass", "friends"];

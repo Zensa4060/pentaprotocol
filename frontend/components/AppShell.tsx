@@ -35,10 +35,33 @@ import {
   buildGameUrl,
   buildChallengeUrl,
   buildRulesShowUrl,
-  GUEST_BLOCKED_SCREENS,
   ROUTES,
   MAIN_NAV_PREFETCH_PATHS,
 } from "@/lib/routes";
+
+/**
+ * Paths that do NOT require an authenticated session. Everything else
+ * is app gameplay surface — if the user isn't logged in when we mount
+ * one of those, we bounce them to /auth. Guest mode was removed, so
+ * this list is the single source of truth for "public" routes.
+ */
+const PUBLIC_PATH_PREFIXES = [
+  "/auth",
+  "/privacy",
+  "/cookies",
+  "/terms",
+  "/refund",
+  "/rules",
+  "/patchnotes",
+];
+
+function isPublicPath(pathname: string | null | undefined): boolean {
+  if (!pathname) return false;
+  if (pathname === "/") return true;
+  return PUBLIC_PATH_PREFIXES.some(
+    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
+  );
+}
 
 import NavBar from "@/components/NavBar";
 import SettingsModal from "@/components/SettingsModal";
@@ -223,7 +246,6 @@ export default function AppShell({ children }: { children: ReactNode }) {
 
   /* ── Modals / overlays ──────────────────────────────────────────────────── */
   const [showSettings, setShowSettings] = useState(false);
-  const [showGuestBlock, setShowGuestBlock] = useState(false);
   const [showAiExitModal, setShowAiExitModal] = useState(false);
   const [pendingNavTarget, setPendingNavTarget] = useState<Screen | null>(null);
   const [showSessionReplaced, setShowSessionReplaced] = useState(false);
@@ -421,6 +443,45 @@ export default function AppShell({ children }: { children: ReactNode }) {
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  /* ── Global auth gate ──────────────────────────────────────────────────
+   *
+   * With guest mode removed, every gameplay route (``/home``, ``/career``,
+   * ``/play/*``, ``/game/*``, ``/store``, ``/collection/*``, ``/profile``,
+   * ``/missions/*``, ``/friends``, ``/training/*``, ``/challenge/*``, ...)
+   * requires an authenticated user. The small public surface —
+   * ``PUBLIC_PATH_PREFIXES`` at the top of this file — still renders for
+   * unauthenticated visitors (``/auth`` itself, legal pages, rules,
+   * patchnotes).
+   *
+   * We deliberately wait until ``appReady`` so we don't redirect during
+   * the brief window between mount and the /auth/me bootstrap — that
+   * would bounce a freshly-logged-in user back to /auth because their
+   * Zustand state hadn't hydrated yet.
+   *
+   * Why this is all client-side: the backend and frontend live on
+   * different origins in production (Railway vs. Vercel), so the
+   * ``pp_auth`` presence cookie set by the backend is NOT visible to
+   * the frontend origin — the Next.js edge proxy cannot read it and
+   * any server-side gate would always false-negative. See the comment
+   * block at the top of ``frontend/proxy.ts`` for the full history.
+   */
+  useEffect(() => {
+    if (!appReady) return;
+    if (user && token) return;
+    if (isPublicPath(pathname)) return;
+    const target =
+      pathname && pathname !== "/" && !pathname.startsWith("/auth")
+        ? `${ROUTES.AUTH}?next=${encodeURIComponent(pathname)}`
+        : ROUTES.AUTH;
+    try {
+      router.replace(target);
+    } catch {
+      if (typeof window !== "undefined") {
+        window.location.replace(target);
+      }
+    }
+  }, [appReady, user, token, pathname, router]);
 
   /* ── Policy gate ────────────────────────────────────────────────────── */
   const [showPolicyGate, setShowPolicyGate] = useState(false);
@@ -887,11 +948,6 @@ export default function AppShell({ children }: { children: ReactNode }) {
 
   const navigate = useCallback(
     (s: Screen, opts?: SetScreenOptions) => {
-      if (!user && GUEST_BLOCKED_SCREENS.includes(s)) {
-        setShowGuestBlock(true);
-        return;
-      }
-
       const rawCur = pathnameToScreen(pathname);
       // A /game/g{n}/{id}?bot={name} route is really an AI game for exit-modal purposes.
       const cur = isBotGameRoute ? "aiGame" : rawCur;
@@ -1451,101 +1507,6 @@ export default function AppShell({ children }: { children: ReactNode }) {
             transition: fadingOut ? "opacity 0.28s ease" : "opacity 0.32s ease",
           }}
         />
-
-        {/* Guest block modal */}
-        {showGuestBlock && (
-          <div
-            style={{
-              position: "fixed",
-              inset: 0,
-              zIndex: 99999,
-              background: "rgba(0,0,0,0.88)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              animation: "fadeIn 0.2s ease both",
-            }}
-          >
-            <div
-              style={{
-                background: t.bgPanel,
-                border: `${ip ? 3 : 1}px solid ${t.border}`,
-                borderRadius: ip ? 2 : 20,
-                padding: ip ? "32px 36px" : "48px 52px",
-                maxWidth: 460,
-                width: "90vw",
-                textAlign: "center",
-                boxShadow: "0 40px 100px rgba(0,0,0,0.8)",
-                animation: "scaleIn 0.28s cubic-bezier(.22,.68,0,1.2) both",
-              }}
-            >
-              <div
-                style={{
-                  fontFamily: t.fontDisplay,
-                  fontSize: ip ? 14 : 22,
-                  fontWeight: 700,
-                  color: t.text,
-                  marginBottom: 10,
-                  lineHeight: 1.4,
-                }}
-              >
-                Sign in to access this
-              </div>
-              <div
-                style={{
-                  fontFamily: t.fontBody,
-                  fontSize: ip ? 12 : 14,
-                  color: t.textMuted,
-                  marginBottom: 32,
-                  lineHeight: 1.7,
-                }}
-              >
-                Create a free account to play multiplayer, track your career, access your
-                profile, and more.
-              </div>
-              <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
-                <button
-                  onClick={() => {
-                    setShowGuestBlock(false);
-                    router.push(ROUTES.AUTH);
-                  }}
-                  style={{
-                    background: t.accent,
-                    border: "none",
-                    color: "#000",
-                    fontFamily: t.fontDisplay,
-                    fontSize: ip ? 12 : 15,
-                    fontWeight: 800,
-                    padding: ip ? "10px 28px" : "13px 36px",
-                    borderRadius: ip ? 2 : 10,
-                    cursor: "pointer",
-                    letterSpacing: "0.08em",
-                    boxShadow: `0 0 24px ${t.accentGlow}44`,
-                  }}
-                >
-                  SIGN IN / SIGN UP
-                </button>
-                <button
-                  onClick={() => setShowGuestBlock(false)}
-                  style={{
-                    background: "transparent",
-                    border: `1px solid ${t.border}`,
-                    color: t.textMuted,
-                    fontFamily: t.fontDisplay,
-                    fontSize: ip ? 12 : 14,
-                    fontWeight: 700,
-                    padding: ip ? "10px 24px" : "13px 28px",
-                    borderRadius: ip ? 2 : 10,
-                    cursor: "pointer",
-                    letterSpacing: "0.06em",
-                  }}
-                >
-                  CANCEL
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
 
         {/* Duplicate session modal */}
         {logoutReason === "duplicate_session" && (

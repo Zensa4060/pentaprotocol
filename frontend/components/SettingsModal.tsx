@@ -506,54 +506,24 @@ export default function SettingsModal({
                   </button>
                 </div>
 
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 14 }}>
-                  {user ? (
-                    suppressAccountActionsDuringMatch ? null : (
-                      <button
-                        type="button"
-                        onClick={() => setShowSignOutConfirm(true)}
-                        style={{
-                          minWidth: 200,
-                          flex: narrowLayout ? "1 1 100%" : "0 1 auto",
-                          padding: "16px 28px",
-                          background: `${t.danger}10`,
-                          border: `1.5px solid ${t.danger}55`,
-                          borderRadius: ip ? 2 : 12,
-                          color: t.danger,
-                          fontFamily: t.fontDisplay,
-                          fontSize: 15,
-                          fontWeight: 700,
-                          cursor: "pointer",
-                          transition: "all 0.2s",
-                        }}
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.background = t.danger;
-                          e.currentTarget.style.color = "#fff";
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.background = `${t.danger}10`;
-                          e.currentTarget.style.color = t.danger;
-                        }}
-                      >
-                        SIGN OUT
-                      </button>
-                    )
-                  ) : (
+                {/* Guest mode was removed — a user opening this modal is
+                    always authenticated, so only the SIGN OUT action is
+                    offered here. We still suppress the button mid-match
+                    so players can't accidentally log themselves out of a
+                    live game from the settings overlay. */}
+                {user && !suppressAccountActionsDuringMatch && (
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 14 }}>
                     <button
                       type="button"
-                      onClick={() => {
-                        skipHistoryCleanupRef.current = true;
-                        if (onNavigateAuthAction) onNavigateAuthAction();
-                        onCloseAction();
-                      }}
+                      onClick={() => setShowSignOutConfirm(true)}
                       style={{
                         minWidth: 200,
                         flex: narrowLayout ? "1 1 100%" : "0 1 auto",
                         padding: "16px 28px",
-                        background: `${t.accent}10`,
-                        border: `1.5px solid ${t.accent}55`,
+                        background: `${t.danger}10`,
+                        border: `1.5px solid ${t.danger}55`,
                         borderRadius: ip ? 2 : 12,
-                        color: t.accent,
+                        color: t.danger,
                         fontFamily: t.fontDisplay,
                         fontSize: 15,
                         fontWeight: 700,
@@ -561,18 +531,18 @@ export default function SettingsModal({
                         transition: "all 0.2s",
                       }}
                       onMouseEnter={(e) => {
-                        e.currentTarget.style.background = t.accent;
-                        e.currentTarget.style.color = "#000";
+                        e.currentTarget.style.background = t.danger;
+                        e.currentTarget.style.color = "#fff";
                       }}
                       onMouseLeave={(e) => {
-                        e.currentTarget.style.background = `${t.accent}10`;
-                        e.currentTarget.style.color = t.accent;
+                        e.currentTarget.style.background = `${t.danger}10`;
+                        e.currentTarget.style.color = t.danger;
                       }}
                     >
-                      SIGN IN
+                      SIGN OUT
                     </button>
-                  )}
-                </div>
+                  </div>
+                )}
               </div>
             )}
           </main>
@@ -611,7 +581,7 @@ export default function SettingsModal({
               Sign out?
             </div>
             <div style={{ fontFamily: t.fontBody, fontSize: 13, color: t.textSecondary, lineHeight: 1.6, marginBottom: 18 }}>
-              Choose where you want to go after signing out.
+              You will be returned to the login screen.
             </div>
 
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
@@ -641,34 +611,7 @@ export default function SettingsModal({
                 onMouseEnter={(e) => { e.currentTarget.style.background = t.accent; e.currentTarget.style.color = "#000"; }}
                 onMouseLeave={(e) => { e.currentTarget.style.background = `${t.accent}18`; e.currentTarget.style.color = t.accent; }}
               >
-                GO TO LOGIN PORTAL
-              </button>
-
-              <button
-                onClick={() => {
-                  logout();
-                  setShowSignOutConfirm(false);
-                  onCloseAction();
-                }}
-                style={{
-                  flex: 1,
-                  minWidth: 220,
-                  padding: "14px 16px",
-                  background: `${t.gold}10`,
-                  border: `2px solid ${t.gold}55`,
-                  borderRadius: 12,
-                  color: t.gold,
-                  fontFamily: t.fontDisplay,
-                  fontSize: 14,
-                  fontWeight: 800,
-                  cursor: "pointer",
-                  letterSpacing: "0.06em",
-                  transition: "all 0.18s",
-                }}
-                onMouseEnter={(e) => { e.currentTarget.style.background = `${t.gold}22`; e.currentTarget.style.borderColor = t.gold; }}
-                onMouseLeave={(e) => { e.currentTarget.style.background = `${t.gold}10`; e.currentTarget.style.borderColor = `${t.gold}55`; }}
-              >
-                CONTINUE AS GUEST
+                SIGN OUT
               </button>
             </div>
 

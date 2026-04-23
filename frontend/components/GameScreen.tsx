@@ -2817,7 +2817,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     }
     if (didRecordMissionRef.current) return;
     if (!seriesWinner) return;
-    if (!userKey || userKey === "guest") return;
+    if (!userKey) return;
     if (phase !== "match_over") return;
     if (seriesWinner !== "P1" && seriesWinner !== "P2") return;
     // Singleplayer mode should never affect mission progress.
@@ -2867,7 +2867,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     if (phase !== "match_over") return;
     if (gameMode !== "ai") return;
     if (seriesWinner !== mySlot) return;
-    if (!userKey || userKey === "guest") return;
+    if (!userKey) return;
     const token = useAuthStore.getState().token;
     if (!token) return;
     const botIdLower = (botId || "").toLowerCase();
@@ -2919,7 +2919,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
         persistLobbyTauntQuote(lobbyQuoteFromSeriesWinner(seriesWinner, mySlot));
       }
     }
-    if (!userKey || userKey === "guest") return;
+    if (!userKey) return;
     if (didRefreshProfileAfterSeriesRef.current) return;
     didRefreshProfileAfterSeriesRef.current = true;
     void useAuthStore.getState().refreshProfile();

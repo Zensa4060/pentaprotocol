@@ -63,7 +63,6 @@ export default function MissionsScreen({ themeId, initialTab }: Props) {
   const shardsSvg = themeId === "classic_light" ? SHARDS_LIGHT_SVG : SHARDS_DARK_SVG;
 
   const { user, token, updateUser } = useAuthStore();
-  const isGuest = !user || !token;
 
   const userKey = getUserKey(user);
 
@@ -77,7 +76,7 @@ export default function MissionsScreen({ themeId, initialTab }: Props) {
   const [nowMs, setNowMs] = useState(() => Date.now());
 
   useEffect(() => {
-    if (isGuest) return;
+    if (!token) return;
     let cancelled = false;
     API.get("/api/profile/me", { headers: { Authorization: `Bearer ${token}` }, timeout: 15000 })
       .then(res => {
@@ -87,7 +86,7 @@ export default function MissionsScreen({ themeId, initialTab }: Props) {
       })
       .catch(() => {});
     return () => { cancelled = true; };
-  }, [isGuest, token, updateUser]);
+  }, [token, updateUser]);
 
   // Re-render when mission localStorage changes (from GameScreen or this screen).
   const [, setRev] = useState(0);
@@ -144,7 +143,7 @@ export default function MissionsScreen({ themeId, initialTab }: Props) {
   };
 
   const startClaim = async (period: MissionPeriod, periodKey: string, mission: MissionDef) => {
-    if (isGuest || !token) return;
+    if (!token) return;
     const mEvents = period === "daily" ? eventsToday : period === "weekly" ? eventsWeek : eventsAll;
     const progress = computeMissionProgress({ mission, events: mEvents, profile });
     if (progress < mission.progress.target) return;
@@ -189,7 +188,7 @@ export default function MissionsScreen({ themeId, initialTab }: Props) {
   );
 
   const runClaimAll = async (period: MissionPeriod, periodKey: string, claims: { missionId: string; shards: number; xp: number }[]) => {
-    if (isGuest || !token || claims.length === 0) return;
+    if (!token || claims.length === 0) return;
     for (const c of claims) {
       try {
         const res = await postClaimMissionToServer({
@@ -340,16 +339,7 @@ export default function MissionsScreen({ themeId, initialTab }: Props) {
         </div>
 
         <div style={{ paddingRight: 6 }}>
-          {isGuest ? (
-            <div style={{ padding: 18, background: `${t.bgCard}`, border: `1px solid ${t.border}55`, borderRadius: 14 }}>
-              <div style={{ fontFamily: t.fontDisplay, fontSize: 18, fontWeight: 900, color: t.text, marginBottom: 6 }}>
-                Sign in required
-              </div>
-              <div style={{ fontFamily: t.fontBody, fontSize: 13, color: t.textSecondary }}>
-                Missions are only available for signed-in players.
-              </div>
-            </div>
-          ) : tab === "daily" ? (
+          {tab === "daily" ? (
             <MissionsList
               title="DAILY MISSIONS"
               subtitle="COMPLETE DAILY MISSIONS TO EARN SHARDS AND XP (1,000–1,500 PER MISSION)."
