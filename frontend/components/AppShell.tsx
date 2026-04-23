@@ -318,7 +318,11 @@ export default function AppShell({ children }: { children: ReactNode }) {
     scr: Screen,
     ranked: boolean,
     aiDiff: Difficulty,
+    inActiveMatchPath = false,
   ): "lobby" | "game" | "ranked" => {
+    // Keep the active match soundtrack continuous across /game, /ready,
+    // /rulebreaker, /rulechoice and /rulesshow route hops.
+    if (inActiveMatchPath) return ranked ? "ranked" : "game";
     if (scr === "aiGame")
       return aiDiff === "hard" || aiDiff === "danger" || aiDiff === "machine_god"
         ? "ranked"
@@ -862,7 +866,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
       } else {
         audio.playBgm(
           themeRef.current,
-          getBgmCtx(scr, rankedRef.current, aiDiffRef.current),
+          getBgmCtx(scr, rankedRef.current, aiDiffRef.current, isMatchPath),
         );
       }
     };
@@ -929,10 +933,10 @@ export default function AppShell({ children }: { children: ReactNode }) {
     if (currentScreen === "auth" || showPolicyGate || tutorialOpen) {
       audio.playAuthBgm(themeId);
     } else {
-      audio.playBgm(themeId, getBgmCtx(currentScreen, isRanked, aiDifficulty));
+      audio.playBgm(themeId, getBgmCtx(currentScreen, isRanked, aiDifficulty, isMatchPath));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [themeId, currentScreen, isRanked, aiDifficulty, audioStarted, showPolicyGate, isStaticSilentPage, tutorialOpen]);
+  }, [themeId, currentScreen, isRanked, aiDifficulty, audioStarted, showPolicyGate, isStaticSilentPage, tutorialOpen, isMatchPath]);
 
   /* ── Queue elapsed timer ────────────────────────────────────────────── */
   useEffect(() => {
