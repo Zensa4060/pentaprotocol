@@ -786,20 +786,20 @@ export default function NavBar({
           animation: "menuSlideDown 0.2s ease both",
           boxShadow: "0 8px 32px rgba(0,0,0,0.4)",
         }}>
-          {navLinks.map(({ target, label, screen: s, locked }) => {
+          {navLinks.map(({ target, label, screen: s }) => {
             const mb = mobileNavBadge(target);
             return (
               <button
                 type="button"
                 key={target}
                 disabled={lockMultiplayerNav}
-                onClick={() => navigate(s, locked)}
+                onClick={() => navigate(s)}
               style={{
                 background: getActive(target) ? `${t.accent}18` : "none",
                 border: "none",
                 borderBottom: `1px solid ${t.border}22`,
                 borderLeft: `3px solid ${getActive(target) ? t.accent : "transparent"}`,
-                color: getActive(target) ? t.accent : locked ? `${t.textSecondary}88` : `${t.textSecondary}EE`,
+                color: getActive(target) ? t.accent : `${t.textSecondary}EE`,
                 fontFamily: t.fontBody,
                 fontSize: isMobile ? 13 : 15,
                 fontWeight: getActive(target) ? 800 : 600,
@@ -819,12 +819,6 @@ export default function NavBar({
                 {label}
               </span>
               <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              {locked && (
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.7 }}>
-                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-                  <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-                </svg>
-              )}
               {getActive(target) && <span style={{ fontSize: 11, color: t.accent }}>●</span>}
               </span>
             </button>
