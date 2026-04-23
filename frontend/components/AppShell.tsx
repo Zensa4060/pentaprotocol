@@ -35,6 +35,7 @@ import {
   buildGameUrl,
   buildChallengeUrl,
   buildRulesShowUrl,
+  difficultyToBotName,
   ROUTES,
   MAIN_NAV_PREFETCH_PATHS,
 } from "@/lib/routes";
@@ -172,7 +173,8 @@ export default function AppShell({ children }: { children: ReactNode }) {
     pathname.startsWith("/rulebreaker/") ||
     pathname.startsWith("/rulechoice/") ||
     pathname.startsWith("/rulesshow/");
-  const isBotGameRoute = !!(pathname?.startsWith("/game/") && searchParams?.get("bot"));
+  const botQueryName = (searchParams?.get("bot") || "").toLowerCase();
+  const isBotGameRoute = !!(pathname?.startsWith("/game/") && botQueryName);
   const isStaticSilentPage =
     pathname === "/patchnotes" ||
     pathname === "/terms" ||
@@ -230,6 +232,8 @@ export default function AppShell({ children }: { children: ReactNode }) {
   const [boardMode, setBoardMode] = useState<BoardMode>("5x5");
   const [selectedPatterns, setSelectedPatterns] = useState<string[]>([]);
   const [aiDifficulty, setAiDifficulty] = useState<Difficulty>("medium");
+  const [aiMatchBgmCtx, setAiMatchBgmCtx] = useState<"game" | "ranked" | null>(null);
+  const [aiMatchBotName, setAiMatchBotName] = useState<string | null>(null);
   const graphicsQuality: "quality" = "quality";
 
   /* ── Multiplayer ────────────────────────────────────────────────────────── */
@@ -318,19 +322,43 @@ export default function AppShell({ children }: { children: ReactNode }) {
     scr: Screen,
     ranked: boolean,
     aiDiff: Difficulty,
-    inActiveMatchPath = false,
+    lockedMatchCtx: "game" | "ranked" | null = null,
   ): "lobby" | "game" | "ranked" => {
-    // Keep the active match soundtrack continuous across /game, /ready,
-    // /rulebreaker, /rulechoice and /rulesshow route hops.
-    if (inActiveMatchPath) return ranked ? "ranked" : "game";
-    if (scr === "aiGame")
-      return aiDiff === "hard" || aiDiff === "danger" || aiDiff === "machine_god"
-        ? "ranked"
-        : "game";
+    if (lockedMatchCtx) return lockedMatchCtx;
+    if (scr === "aiGame") {
+      const rankedBotNames = new Set(["jr", "him", "her"]);
+      const inferredBotName = difficultyToBotName(boardMode, aiDiff).toLowerCase();
+      return rankedBotNames.has(inferredBotName) ? "ranked" : "game";
+    }
     if (scr === "game") return "game";
     if (scr === "multiGame") return ranked ? "ranked" : "game";
     return "lobby";
   };
+
+  useEffect(() => {
+    if (isBotGameRoute && isMatchPath && botQueryName) {
+      setAiMatchBotName(prev => (prev === botQueryName ? prev : botQueryName));
+      return;
+    }
+    if (!isMatchPath) {
+      setAiMatchBotName(prev => (prev === null ? prev : null));
+    }
+  }, [isBotGameRoute, isMatchPath, botQueryName]);
+
+  useEffect(() => {
+    const rankedBotNames = new Set(["jr", "him", "her"]);
+    if (isBotGameRoute && isMatchPath) {
+      const activeBotName = (aiMatchBotName || "").toLowerCase();
+      const inferredBotName = difficultyToBotName(boardMode, aiDifficulty).toLowerCase();
+      const botName = activeBotName || inferredBotName;
+      const next: "game" | "ranked" = rankedBotNames.has(botName) ? "ranked" : "game";
+      setAiMatchBgmCtx(prev => (prev === next ? prev : next));
+      return;
+    }
+    if (!isMatchPath) {
+      setAiMatchBgmCtx(prev => (prev === null ? prev : null));
+    }
+  }, [isBotGameRoute, isMatchPath, aiDifficulty, aiMatchBotName, boardMode]);
 
   /* ═══════════════════════════════════════════════════════════════════════ */
   /*  Startup restore (pre-paint)                                           */
@@ -864,14 +892,12 @@ export default function AppShell({ children }: { children: ReactNode }) {
       if (scr === "auth" || showPolicyGateRef.current || tutorialOpenRef.current) {
         audio.playAuthBgm(themeRef.current);
       } else {
+        const lockedMatchCtx: "game" | "ranked" | null = isMatchPath
+          ? (multiRoomCode ? (rankedRef.current ? "ranked" : "game") : aiMatchBgmCtx)
+          : null;
         audio.playBgm(
           themeRef.current,
-          getBgmCtx(
-            scr,
-            rankedRef.current,
-            aiDiffRef.current,
-            isMatchPath && !isBotGameRoute,
-          ),
+          getBgmCtx(scr, rankedRef.current, aiDiffRef.current, lockedMatchCtx),
         );
       }
     };
@@ -938,18 +964,16 @@ export default function AppShell({ children }: { children: ReactNode }) {
     if (currentScreen === "auth" || showPolicyGate || tutorialOpen) {
       audio.playAuthBgm(themeId);
     } else {
+      const lockedMatchCtx: "game" | "ranked" | null = isMatchPath
+        ? (multiRoomCode ? (isRanked ? "ranked" : "game") : aiMatchBgmCtx)
+        : null;
       audio.playBgm(
         themeId,
-        getBgmCtx(
-          currentScreen,
-          isRanked,
-          aiDifficulty,
-          isMatchPath && currentScreen !== "aiGame",
-        ),
+        getBgmCtx(currentScreen, isRanked, aiDifficulty, lockedMatchCtx),
       );
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [themeId, currentScreen, isRanked, aiDifficulty, audioStarted, showPolicyGate, isStaticSilentPage, tutorialOpen, isMatchPath, isBotGameRoute]);
+  }, [themeId, currentScreen, isRanked, aiDifficulty, audioStarted, showPolicyGate, isStaticSilentPage, tutorialOpen, isMatchPath, isBotGameRoute, multiRoomCode, aiMatchBgmCtx]);
 
   /* ── Queue elapsed timer ────────────────────────────────────────────── */
   useEffect(() => {
