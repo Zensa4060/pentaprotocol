@@ -8,7 +8,7 @@ import AuthScreen from "@/components/AuthScreen";
  * Root `/` — shows auth screen when not logged in; redirects to /home when authenticated.
  */
 export default function RootPage() {
-  const { token, appReady, navigate, themeId } = useApp();
+  const { token, appReady, navigate, themeId, audio } = useApp();
   const router = useRouter();
 
   useEffect(() => {
@@ -18,5 +18,5 @@ export default function RootPage() {
   if (!appReady) return null;
   if (token) return null;
 
-  return <AuthScreen setScreenAction={navigate} themeId={themeId} />;
+  return <AuthScreen setScreenAction={navigate} themeId={themeId} audio={audio} />;
 }

@@ -18,9 +18,18 @@ function validateUsername(val: string): string | null {
 
 type AuthTab = "signin" | "signup" | "forgot" | "verify_code" | "2fa_check" | "verify_signup" | "merge_consent";
 
+/** Subset of `useAudio()` passed from AppShell so auth can tune BGM before sign-in. */
+export type AuthScreenAudio = {
+  musicVol: number;
+  setMusicVol: (v: number) => void;
+  muted: boolean;
+  toggleMute: () => void;
+};
+
 interface Props {
   setScreenAction: (s: Screen) => void;
   themeId: ThemeId;
+  audio?: AuthScreenAudio;
 }
 
 type ParticleSettings = {
@@ -151,7 +160,7 @@ function GoogleIcon() {
   );
 }
 
-export default function AuthScreen({ setScreenAction, themeId }: Props) {
+export default function AuthScreen({ setScreenAction, themeId, audio }: Props) {
   const t = THEMES[themeId];
   const { setAuth } = useAuthStore();
 
@@ -706,6 +715,64 @@ export default function AuthScreen({ setScreenAction, themeId }: Props) {
           <span>AUTHENTICATION PORTAL</span>
           <div style={{ flex: 1, height: 1, background: "rgba(204,0,0,0.3)" }} />
         </div>
+
+        {audio && (
+          <div
+            style={{
+              marginBottom: isMobile ? 14 : 18,
+              padding: "12px 14px",
+              background: "rgba(255,255,255,0.03)",
+              borderRadius: 8,
+              border: "1px solid rgba(255,255,255,0.1)",
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8, gap: 10, flexWrap: "wrap" }}>
+              <span style={{ ...labelStyle, marginBottom: 0, letterSpacing: "0.14em" }}>Music volume</span>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <span style={{ ...sliderValueStyle, minWidth: 40, color: audio.muted ? "#777" : "#ddd" }}>
+                  {audio.muted ? "—" : `${Math.round(audio.musicVol * 100)}%`}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => audio.toggleMute()}
+                  style={{
+                    padding: "4px 10px",
+                    background: "rgba(255,255,255,0.06)",
+                    border: `1px solid ${audio.muted ? ACCENT : "rgba(255,255,255,0.2)"}`,
+                    borderRadius: 6,
+                    color: audio.muted ? ACCENT2 : "#aaa",
+                    fontFamily: FONT,
+                    fontSize: 11,
+                    letterSpacing: "0.12em",
+                    textTransform: "uppercase",
+                    cursor: "pointer",
+                  }}
+                >
+                  {audio.muted ? "Unmute" : "Mute"}
+                </button>
+              </div>
+            </div>
+            <input
+              type="range"
+              min={0}
+              max={1}
+              step={0.01}
+              value={audio.musicVol}
+              disabled={audio.muted}
+              onChange={(e) => audio.setMusicVol(parseFloat(e.target.value))}
+              style={{
+                width: "100%",
+                accentColor: ACCENT,
+                opacity: audio.muted ? 0.38 : 1,
+                cursor: audio.muted ? "not-allowed" : "pointer",
+              }}
+            />
+            <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4 }}>
+              <span style={{ fontFamily: FONT, fontSize: 10, color: "#555", letterSpacing: "0.06em" }}>0%</span>
+              <span style={{ fontFamily: FONT, fontSize: 10, color: "#555", letterSpacing: "0.06em" }}>100%</span>
+            </div>
+          </div>
+        )}
 
         {(tab === "signin" || tab === "signup") && (
           <div style={{ display: "flex", marginBottom: isMobile ? 12 : 24, border: "1px solid rgba(255,255,255,0.28)", borderRadius: 8, overflow: "hidden", background: "#1c1c1c" }}>

@@ -6,7 +6,7 @@ import AuthScreen from "@/components/AuthScreen";
 import { useAuthStore } from "@/lib/store";
 
 export default function AuthPage() {
-  const { token, appReady, navigate, themeId } = useApp();
+  const { token, appReady, navigate, themeId, audio } = useApp();
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -66,5 +66,5 @@ export default function AuthPage() {
   // the previous content stays painted until /home mounts.
   if (token) return null;
 
-  return <AuthScreen setScreenAction={navigate} themeId={themeId} />;
+  return <AuthScreen setScreenAction={navigate} themeId={themeId} audio={audio} />;
 }

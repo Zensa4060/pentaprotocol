@@ -85,9 +85,9 @@ export function useAudio() {
   const [musicVol, setMusicVol] = useState(() => {
     if (typeof window !== "undefined") {
       const saved = localStorage.getItem("pp_music_vol");
-      return saved !== null ? parseFloat(saved) : 0.4;
+      return saved !== null ? parseFloat(saved) : 0.5;
     }
-    return 0.4;
+    return 0.5;
   });
   const [sfxVol, setSfxVol] = useState(() => {
     if (typeof window !== "undefined") {
@@ -106,7 +106,7 @@ export function useAudio() {
 
   const mutedRef = useRef(false);
   const sfxVolRef = useRef(0.6);
-  const musicVolRef = useRef(0.4);
+  const musicVolRef = useRef(0.5);
   const themeRef = useRef("classic_dark");
   const currentSrc = useRef("");
   const audioRef = useRef<HTMLAudioElement | null>(null);
