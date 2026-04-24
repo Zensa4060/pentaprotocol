@@ -297,6 +297,7 @@ export const TUTORIAL_SECTIONS: TutorialSection[] = [
         body:
           "On 5×5 you can win by placing five stones in a straight line — row, column, or full diagonal. Watch P1 (dark) build a row while P2 plays elsewhere.",
         size: 5,
+        moveDelayMs: 375,
         moves: [
           { r: 2, c: 0, p: "P1" }, { r: 0, c: 0, p: "P2" },
           { r: 2, c: 1, p: "P1" }, { r: 4, c: 4, p: "P2" },
@@ -336,6 +337,7 @@ export const TUTORIAL_SECTIONS: TutorialSection[] = [
         body:
           "Pattern wins don't need a straight line — matching the geometry alone wins the game. Here P1 completes the V-SHAPE pattern.",
         size: 5,
+        moveDelayMs: 375,
         moves: [
           { r: 0, c: 0, p: "P1" }, { r: 4, c: 0, p: "P2" },
           { r: 1, c: 1, p: "P1" }, { r: 3, c: 0, p: "P2" },
@@ -425,6 +427,7 @@ export const TUTORIAL_SECTIONS: TutorialSection[] = [
         body:
           "A full 5×5 game that ends with no line or pattern completed. P2's stones form an 11-cell chain linked through diagonals and edges — the engine finds a path of more than 10 and awards the game to P2 on the connection rule.",
         size: 5,
+        moveDelayMs: 75,
         moves: interleaveMoves(
           /* P1 (13 cells) — scattered so no 5-in-line, no L / V / T / ZZ-5 / DIAGONAL
              emerges mid-game; board fills and resolution falls to the chain rule. */
@@ -472,6 +475,7 @@ export const TUTORIAL_SECTIONS: TutorialSection[] = [
         body:
           "Draw case 1 — BOTH players finish with a 10+ connected chain. The engine runs the chain search for each player; both succeed, so the game is declared a DRAW (neither side gets priority).",
         size: 5,
+        moveDelayMs: 75,
         moves: interleaveMoves(
           /* P1 plays the X stones from the reference game (12 cells). */
           [
@@ -500,6 +504,7 @@ export const TUTORIAL_SECTIONS: TutorialSection[] = [
         body:
           "Draw case 2 — NEITHER player finishes with a 10-cell chain. Stones are too fragmented across the board, so no simple 8-way path of length 10 exists for either side. The engine declares DRAW.",
         size: 5,
+        moveDelayMs: 75,
         moves: interleaveMoves(
           /* P1 plays the X stones (12 cells). */
           [
@@ -522,6 +527,7 @@ export const TUTORIAL_SECTIONS: TutorialSection[] = [
         body:
           "Straight-line wins on 6×6 need six consecutive stones. P1 builds a full middle row while P2 plays corners.",
         size: 6,
+        moveDelayMs: 375,
         moves: [
           { r: 3, c: 0, p: "P1" }, { r: 0, c: 0, p: "P2" },
           { r: 3, c: 1, p: "P1" }, { r: 5, c: 5, p: "P2" },
@@ -597,8 +603,8 @@ export const TUTORIAL_SECTIONS: TutorialSection[] = [
         body:
           "Bots replay a real full 6×6 fill from your reference: no six-in-a-line and no structural pattern wins. When the last cell fills, path resolution looks for a 15-cell king-connected chain — here neither side reaches 15, so the game is a DRAW.",
         size: 6,
-        /* 500% faster than default tutorial demo pacing (5× speed). */
-        moveDelayMs: 150,
+        /* 650% faster than default tutorial demo pacing (6.5× speed). */
+        moveDelayMs: 100,
         loopPauseMs: 480,
         moves: interleaveMoves(
           [
@@ -619,6 +625,7 @@ export const TUTORIAL_SECTIONS: TutorialSection[] = [
         body:
           "On 7×7 straight-line wins need seven consecutive stones. Note P1 avoids the centre on move 1 — playing centre first on 7×7 grants the opponent two extra turns.",
         size: 7,
+        moveDelayMs: 300,
         moves: [
           { r: 3, c: 0, p: "P1" }, { r: 0, c: 0, p: "P2" },
           { r: 3, c: 1, p: "P1" }, { r: 6, c: 6, p: "P2" },
@@ -707,8 +714,8 @@ export const TUTORIAL_SECTIONS: TutorialSection[] = [
         body:
           "Bots replay a real full 7×7 fill from your reference: no seven-in-a-line and no structural pattern wins. After the last stone, path resolution needs a 20-cell chain — here neither player reaches 20, so the game is a DRAW.",
         size: 7,
-        /* 500% faster than default tutorial demo pacing (5× speed). */
-        moveDelayMs: 150,
+        /* 650% faster than default tutorial demo pacing (6.5× speed). */
+        moveDelayMs: 100,
         loopPauseMs: 480,
         moves: interleaveMoves(
           [

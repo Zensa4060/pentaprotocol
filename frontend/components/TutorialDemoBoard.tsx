@@ -81,8 +81,10 @@ export default function TutorialDemoBoard({ demo, themeT, compact = false }: Tut
   // Derived: each cell's current owner accounting for the trap cell.
   const stones = useMemo(() => {
     const out: Array<{ r: number; c: number; p: "P1" | "P2"; trapped?: boolean }> = [];
-    for (let i = 0; i < shown; i++) {
+    const visibleCount = Math.min(shown, total);
+    for (let i = 0; i < visibleCount; i++) {
       const m = demo.moves[i];
+      if (!m) continue;
       if (
         demo.specialCell &&
         m.r === demo.specialCell.r &&
@@ -95,7 +97,7 @@ export default function TutorialDemoBoard({ demo, themeT, compact = false }: Tut
       }
     }
     return out;
-  }, [demo, shown]);
+  }, [demo, shown, total]);
 
   const finished = shown >= total;
   const sz = demo.size;
@@ -104,7 +106,8 @@ export default function TutorialDemoBoard({ demo, themeT, compact = false }: Tut
     : (sz === 5 ? 60 : sz === 6 ? 52 : 46);
   const W = CELL * sz;
 
-  const lastMove = shown > 0 ? demo.moves[shown - 1] : null;
+  const safeShown = Math.min(shown, total);
+  const lastMove = safeShown > 0 ? demo.moves[safeShown - 1] ?? null : null;
   const patternCells = finished && demo.patternHighlight ? new Set(demo.patternHighlight.map(([r, c]) => `${r},${c}`)) : null;
   const pathCells = finished && demo.path ? new Set(demo.path.map(([r, c]) => `${r},${c}`)) : null;
 
