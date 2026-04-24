@@ -128,10 +128,10 @@ export default function TutorialDemoBoard({ demo, themeT, compact = false }: Tut
       <svg
         viewBox={`0 0 ${W} ${W}`}
         width="100%"
-        height="auto"
         preserveAspectRatio="xMidYMid meet"
         style={{
           maxWidth: W,
+          height: "auto",
           border: `1px solid ${t.border}`,
           borderRadius: 8,
           background: t.boardBg,
