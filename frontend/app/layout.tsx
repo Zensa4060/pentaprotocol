@@ -4,10 +4,42 @@ import "./globals.css";
 import CookieConsentBanner from "@/components/CookieConsentBanner";
 import AppShell from "@/components/AppShell";
 
+const siteUrl = (
+  process.env.NEXT_PUBLIC_SITE_URL?.trim().replace(/\/$/, "") || "https://pentaprotocol.com"
+) as string;
+
 export const metadata: Metadata = {
-  title: "PentaProtocol",
-  description: "5x5 Ranked Strategy Game",
+  metadataBase: new URL(siteUrl),
+  title: {
+    default: "PentaProtocol",
+    template: "%s | PentaProtocol",
+  },
+  description:
+    "Welcome to PentaProtocol — the 5×5 ranked strategy game. Matchmaking, seasons, ladders, and competitive play.",
   manifest: "/manifest.json",
+  keywords: [
+    "PentaProtocol",
+    "strategy game",
+    "5x5",
+    "ranked",
+    "online multiplayer",
+    "board game",
+  ],
+  openGraph: {
+    title: "PentaProtocol — 5×5 ranked strategy",
+    description:
+      "Welcome to PentaProtocol. Matchmaking, seasons, and competitive play on the grid.",
+    url: "/",
+    siteName: "PentaProtocol",
+    locale: "en_US",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "PentaProtocol — 5×5 ranked strategy",
+    description:
+      "Welcome to PentaProtocol. Matchmaking, seasons, and competitive play on the grid.",
+  },
   icons: {
     icon: [
       { url: "/Pentaprotocol_Logo_Transparent.png" },
