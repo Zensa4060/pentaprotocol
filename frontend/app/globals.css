@@ -1,14 +1,36 @@
+/* PixPixls is missing renderable glyphs for several ASCII punctuation
+ * marks (notably U+002B '+', U+002D '-', U+003E '>', U+0028 '(' and a
+ * few others). Without a `unicode-range`, the browser still picks
+ * PixPixls for those code points and renders the empty / zero-width
+ * glyph the font ships with — which made result cards display
+ * "  125" instead of "+125", and "10218 10343" instead of
+ * "10218 -> 10343" in the pixel theme.
+ *
+ * Restricting the @font-face to the glyphs PixPixls actually has
+ * (digits, A-Z / a-z, space, and a small set of punctuation that
+ * does ship correctly) forces the browser to fall through to the
+ * next font in the stack for everything else. The pixel theme's
+ * font stack now lists 'VT323' as the immediate fallback (see
+ * `frontend/lib/themes.ts`), so missing glyphs render with VT323's
+ * matching retro look instead of vanishing.
+ */
 @font-face {
   font-family: 'PixPixls';
   src: url('/fonts/PixPixls-Regular.ttf') format('truetype');
   font-weight: normal;
   font-style: normal;
+  unicode-range: U+0020, U+0030-0039, U+0041-005A, U+0061-007A,
+                 U+002C, U+002E, U+003A, U+003B, U+003F, U+0021,
+                 U+0022, U+0027, U+002F, U+005F;
 }
 @font-face {
   font-family: 'PixPixls';
   src: url('/fonts/PixPixls-Italic.ttf') format('truetype');
   font-weight: normal;
   font-style: italic;
+  unicode-range: U+0020, U+0030-0039, U+0041-005A, U+0061-007A,
+                 U+002C, U+002E, U+003A, U+003B, U+003F, U+0021,
+                 U+0022, U+0027, U+002F, U+005F;
 }
 @font-face {
   font-family: 'grabstein';

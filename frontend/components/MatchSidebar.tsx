@@ -1548,7 +1548,12 @@ export function LeftPanel(props: MatchSidebarProps) {
             <div style={{ borderTop: `1px solid ${t.border}`, paddingTop: 12, display: "flex", flexDirection: "column", gap: 8 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
                 <div style={{ fontFamily: t.fontMono, fontSize: 13, fontWeight: 700, color: t.text, letterSpacing: "0.16em" }}>HISTORY</div>
-                <div style={{ fontFamily: t.fontMono, fontSize: 11, color: t.textMuted, letterSpacing: "0.1em" }}>{headToHead.total} {headToHead.total === 1 ? "MATCH" : "MATCHES"}</div>
+                {/* Total-matches counter: bumped from 11px / textMuted to
+                  * 14px / text + bold so the "6 MATCHES" label reads at
+                  * a glance instead of being the smallest, dimmest thing
+                  * in the card. Letter-spacing slightly tightened so
+                  * larger text doesn't overrun the right edge. */}
+                <div style={{ fontFamily: t.fontMono, fontSize: 14, fontWeight: 800, color: t.text, letterSpacing: "0.08em" }}>{headToHead.total} {headToHead.total === 1 ? "MATCH" : "MATCHES"}</div>
               </div>
               {/* Last 5 outcomes — newest on the left, blank slots fill
                 * the row up to 5 so the strip width stays constant. */}
