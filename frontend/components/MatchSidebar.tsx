@@ -1395,33 +1395,44 @@ export function LeftPanel(props: MatchSidebarProps) {
               block. User-requested visual only (non-interactive) so the
               empty band does not look dead on taller viewports. */}
           {isMultiplayerGame && (
-            <button
-              type="button"
-              disabled
-              aria-label="MYTHOS Analysis Coming soon"
+            <div
               style={{
                 marginTop: "auto",
-                marginBottom: 6,
-                padding: "10px 12px",
-                borderRadius: ip ? 3 : 9,
-                border: "1px solid rgba(196, 106, 255, 0.62)",
-                background:
-                  "linear-gradient(135deg, rgba(46,10,68,0.88) 0%, rgba(76,14,102,0.9) 45%, rgba(112,18,72,0.9) 75%, rgba(145,24,24,0.88) 100%)",
-                color: "#F5D8FF",
-                fontFamily: t.fontMono,
-                fontSize: 12,
-                fontWeight: 800,
-                letterSpacing: "0.08em",
-                textTransform: "none",
-                boxShadow:
-                  "0 0 0 1px rgba(255,115,225,0.22) inset, 0 0 14px rgba(167,59,255,0.35), 0 0 20px rgba(176,22,53,0.22)",
-                textShadow: "0 0 10px rgba(245,150,255,0.45)",
-                opacity: 0.95,
-                cursor: "default",
+                marginBottom: "auto",
+                minHeight: 120,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
               }}
             >
-              MYTHOS Analysis Coming soon
-            </button>
+              <button
+                type="button"
+                disabled
+                aria-label="MYTHOS Analysis Coming soon"
+                style={{
+                  width: "100%",
+                  minHeight: 84,
+                  padding: "20px 24px",
+                  borderRadius: ip ? 4 : 12,
+                  border: "1px solid rgba(196, 106, 255, 0.62)",
+                  background:
+                    "linear-gradient(135deg, rgba(46,10,68,0.88) 0%, rgba(76,14,102,0.9) 45%, rgba(112,18,72,0.9) 75%, rgba(145,24,24,0.88) 100%)",
+                  color: "#F5D8FF",
+                  fontFamily: t.fontMono,
+                  fontSize: 22,
+                  fontWeight: 800,
+                  letterSpacing: "0.08em",
+                  textTransform: "none",
+                  boxShadow:
+                    "0 0 0 1px rgba(255,115,225,0.22) inset, 0 0 14px rgba(167,59,255,0.35), 0 0 20px rgba(176,22,53,0.22)",
+                  textShadow: "0 0 10px rgba(245,150,255,0.45)",
+                  opacity: 0.95,
+                  cursor: "default",
+                }}
+              >
+                MYTHOS Analysis Coming soon
+              </button>
+            </div>
           )}
         </div>
         {seriesWinner && (
