@@ -1399,7 +1399,7 @@ export function LeftPanel(props: MatchSidebarProps) {
               style={{
                 marginTop: "auto",
                 marginBottom: "auto",
-                minHeight: 120,
+                minHeight: 78,
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
@@ -1411,15 +1411,15 @@ export function LeftPanel(props: MatchSidebarProps) {
                 aria-label="MYTHOS Analysis Coming soon"
                 style={{
                   width: "100%",
-                  minHeight: 84,
-                  padding: "20px 24px",
+                  minHeight: 55,
+                  padding: "13px 16px",
                   borderRadius: ip ? 4 : 12,
                   border: "1px solid rgba(196, 106, 255, 0.62)",
                   background:
                     "linear-gradient(135deg, rgba(46,10,68,0.88) 0%, rgba(76,14,102,0.9) 45%, rgba(112,18,72,0.9) 75%, rgba(145,24,24,0.88) 100%)",
                   color: "#F5D8FF",
                   fontFamily: t.fontMono,
-                  fontSize: 22,
+                  fontSize: 13,
                   fontWeight: 800,
                   letterSpacing: "0.08em",
                   textTransform: "none",
