@@ -395,12 +395,17 @@ export default function LobbyScreen({
    *  - Unranked: LEVEL header above the avatar, no rank badge.
    *  - Glow color is driven by `glowColor` (white for unranked, blood red for ranked). */
   const MatchPlayerCard = React.memo(({
-    name, elo, avatar, level, glowColor, ranked, placementMatches, side,
-    cardInk, cardInkSoft, avatarInnerBg,
+    name, elo, avatar, avatarEmoji, level, glowColor, ranked, placementMatches, side,
+    cardInk, cardInkSoft, avatarInnerBg, tierLabel, tierColor, tierGlowBoost,
   }: {
     name: string;
     elo: number | null;
     avatar: string | undefined;
+    /** Fallback "profile picture" used when no image `avatar` is available —
+     *  rendered as a large centred glyph inside the glow ring. We use this
+     *  for unranked filler bots so each picked opponent has a distinct
+     *  animal-ish face instead of the generic silhouette. */
+    avatarEmoji?: string | null;
     level: number;
     glowColor: string;
     ranked: boolean;
@@ -409,12 +414,22 @@ export default function LobbyScreen({
     cardInk: string;
     cardInkSoft: string;
     avatarInnerBg: string;
+    /** When set (e.g. unranked filler bot), the "LEVEL" numeric readout is
+     *  replaced with this tier name ("CHRONICLE"/"MYTHOS") and the glow ring
+     *  switches to `tierColor`. */
+    tierLabel?: string;
+    tierColor?: string;
+    /** >0 → stronger ring glow for top tiers like MYTHOS. */
+    tierGlowBoost?: number;
   }) => {
     const anim = side === "left" ? "slideInLeft" : "slideInRight";
     const avatarSize = isMobile ? 140 : 230;
     const isPlacementPlayer = ranked && placementMatches < 5;
     const displayElo = isPlacementPlayer ? "?" : (elo ?? "---");
     const rankForBadge = getRank(elo ?? 0);
+    const effectiveGlow = tierLabel && tierColor ? tierColor : glowColor;
+    const hasTier = !!tierLabel;
+    const boost = Math.max(0, tierGlowBoost ?? 0);
 
     return (
       <div
@@ -432,7 +447,16 @@ export default function LobbyScreen({
           willChange: "transform, opacity",
         }}
       >
-        {/* Top label: ELO (ranked) or LEVEL (unranked) */}
+        {/* Top label: ELO (ranked) or LEVEL (unranked).
+            For unranked filler bots we surface the NUMERIC level
+            that was picked at queue time (ROOKIE 1–10, SKILLED
+            10–25, ELITE 25–50, MYTHIC 50–75, CRACKED 75–99,
+            CHRONICLE 100–500, MYTHOS 1000). Previously the card
+            rendered the tier NAME in the number slot, which made
+            the match-found screen feel like it was advertising a
+            "rank" to the player in an unrated match. The glow /
+            outline colour still tracks the tier via `tierColor`
+            so the visual difficulty hint is preserved. */}
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
           <div style={{ fontFamily: t.fontMono, fontSize: isMobile ? 10 : 13, color: cardInkSoft, letterSpacing: "0.3em", fontWeight: 700, opacity: 0.85 }}>
             {ranked ? "ELO RATING" : "LEVEL"}
@@ -442,16 +466,24 @@ export default function LobbyScreen({
               fontFamily: t.fontDisplay,
               fontSize: isMobile ? 34 : 56,
               fontWeight: 950,
-              color: glowColor,
+              color: effectiveGlow,
               letterSpacing: "0.04em",
               lineHeight: 1,
+              textShadow: hasTier && boost > 0
+                ? `0 0 ${Math.round(12 * boost)}px ${effectiveGlow}, 0 0 ${Math.round(28 * boost)}px ${effectiveGlow}88`
+                : undefined,
             }}
           >
             {ranked ? displayElo : level}
           </div>
         </div>
 
-        {/* Avatar with themed glow ring */}
+        {/* Avatar with themed glow ring. MYTHOS gets an extra
+            slow-pulse violet halo painted behind the avatar (in
+            addition to the static glow on the inner border), so the
+            VS card mirrors the in-game MatchSidebar's `mythosPfpAura`
+            cadence and the boss-tier presence reads consistently
+            across screens. */}
         <div
           style={{
             position: "relative",
@@ -459,23 +491,42 @@ export default function LobbyScreen({
             height: avatarSize,
             borderRadius: "50%",
             padding: 4,
-            background: `radial-gradient(circle, ${glowColor}33 0%, transparent 70%)`,
+            background: `radial-gradient(circle, ${effectiveGlow}33 0%, transparent 70%)`,
           }}
         >
+          {boost >= 1 && (
+            <>
+              <div
+                aria-hidden
+                style={{
+                  position: "absolute",
+                  inset: -16,
+                  borderRadius: "50%",
+                  pointerEvents: "none",
+                  background: `radial-gradient(circle, ${effectiveGlow}33 0%, ${effectiveGlow}00 70%)`,
+                  filter: "blur(6px)",
+                  animation: "mythosCardAuraPulse 2.6s ease-in-out infinite",
+                }}
+              />
+              <style>{`@keyframes mythosCardAuraPulse{0%,100%{opacity:0.55;transform:scale(0.96)}50%{opacity:1;transform:scale(1.06)}}`}</style>
+            </>
+          )}
           <div
             style={{
               width: "100%",
               height: "100%",
               borderRadius: "50%",
-              border: `4px solid ${glowColor}`,
+              border: `4px solid ${effectiveGlow}`,
               overflow: "hidden",
               background: avatarInnerBg,
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
               fontSize: isMobile ? 60 : 110,
-              color: glowColor,
-              boxShadow: `0 8px 24px rgba(0,0,0,0.25), 0 0 18px ${glowColor}55, inset 0 0 18px rgba(0,0,0,0.55)`,
+              color: effectiveGlow,
+              boxShadow: boost > 0
+                ? `0 8px 24px rgba(0,0,0,0.25), 0 0 ${Math.round(24 + 24 * boost)}px ${effectiveGlow}aa, 0 0 ${Math.round(48 * boost)}px ${effectiveGlow}66, inset 0 0 18px rgba(0,0,0,0.55)`
+                : `0 8px 24px rgba(0,0,0,0.25), 0 0 18px ${effectiveGlow}55, inset 0 0 18px rgba(0,0,0,0.55)`,
             }}
           >
             {avatar ? (
@@ -486,6 +537,16 @@ export default function LobbyScreen({
                 decoding="async"
                 style={{ width: "100%", height: "100%", objectFit: "cover" }}
               />
+            ) : avatarEmoji ? (
+              <span
+                style={{
+                  fontSize: isMobile ? 90 : 160,
+                  lineHeight: 1,
+                  filter: `drop-shadow(0 0 14px ${effectiveGlow}66)`,
+                }}
+              >
+                {avatarEmoji}
+              </span>
             ) : (
               <span style={{ opacity: 0.9 }}>👤</span>
             )}
@@ -534,10 +595,51 @@ export default function LobbyScreen({
 
   // ── MATCHUP ───────────────────────────────────────────────────────────────
   if (phase === "matchup") {
+    // Guard: when the match-found page mounts (via `forcedPhase="matchup"`
+    // or `queuePhase="matchup"`), context propagation from AppShell can
+    // lag the route change by a paint — `propMatchupOpponent` is briefly
+    // null before `armUnrankedBotMatchSequence` / `armMatchFoundSequence`
+    // commits the real opponent object. Rendering the VS cards in that
+    // intermediate frame shows the fallback "OPPONENT" name (and, for
+    // bots, only the tier label like "MYTHIC" since `name` is missing).
+    // We wait until at least the opponent's `name` string is populated
+    // before mounting the VS layout. Until then we render an inert dark
+    // placeholder that matches the VS background so the transition from
+    // queuing → matchup still feels instant with no visible flicker.
+    const hasValidOpponent =
+      !!propMatchupOpponent &&
+      typeof propMatchupOpponent?.name === "string" &&
+      propMatchupOpponent.name.trim().length > 0;
+    if (!hasValidOpponent) {
+      return (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 2,
+            background: "#05060a",
+          }}
+        />
+      );
+    }
     const mfSkin = resolveMatchFoundSkin(themeId);
     const pal = getMatchFoundPalette(mfSkin);
-    const glow = isRanked ? pal.rankedAccent : pal.unrankedAccent;
-    const headerCopy = isRanked ? "RANKED · FIRST TO 5 POINTS" : "UNRANKED · FIRST TO 5 POINTS";
+    // MYTHOS gets a distinct VS scene: violet accent, bespoke header, and
+    // an extra radial glow behind the cards. Everything else (banners,
+    // VS sketch, card grid) inherits the normal palette so the layout
+    // stays visually consistent with the regular match-found screen.
+    const isMythosMatchup = Boolean(propMatchupOpponent?.botIsMythos);
+    const mythosAccent = "#C084FC";
+    const glow = isMythosMatchup
+      ? mythosAccent
+      : isRanked
+        ? pal.rankedAccent
+        : pal.unrankedAccent;
+    const headerCopy = isMythosMatchup
+      ? "MYTHOS · THE GAME BENEATH THE GAME"
+      : isRanked
+        ? "RANKED · FIRST TO 5 POINTS"
+        : "UNRANKED · FIRST TO 5 POINTS";
     const vsSize = isMobile ? 220 : 380;
     const ct = loadCustomTheme();
     const myMatchBanner = String((user as any)?.banner || ct.bannerSkin || "default");
@@ -625,6 +727,20 @@ export default function LobbyScreen({
           }}
         />
 
+        {isMythosMatchup && (
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              pointerEvents: "none",
+              zIndex: 1,
+              background:
+                "radial-gradient(ellipse at 72% 50%, rgba(147,51,234,0.34) 0%, rgba(147,51,234,0.14) 22%, rgba(0,0,0,0) 55%)",
+              mixBlendMode: "screen",
+            }}
+          />
+        )}
+
         <div
           style={{
             position: "absolute",
@@ -638,6 +754,9 @@ export default function LobbyScreen({
             letterSpacing: "0.3em",
             fontWeight: 800,
             zIndex: 3,
+            textShadow: isMythosMatchup
+              ? "0 0 12px rgba(192,132,252,0.75), 0 0 28px rgba(147,51,234,0.55)"
+              : undefined,
           }}
         >
           {headerCopy}
@@ -697,6 +816,7 @@ export default function LobbyScreen({
             name={propMatchupOpponent?.name ?? "OPPONENT"}
             elo={propMatchupOpponent?.elo ?? null}
             avatar={propMatchupOpponent?.avatar ?? undefined}
+            avatarEmoji={propMatchupOpponent?.avatarEmoji ?? undefined}
             level={Number(propMatchupOpponent?.level ?? 1)}
             glowColor={glow}
             ranked={isRanked}
@@ -705,6 +825,17 @@ export default function LobbyScreen({
             cardInk={pal.cardInk}
             cardInkSoft={pal.cardInkSoft}
             avatarInnerBg={pal.avatarInnerBg}
+            tierLabel={
+              propMatchupOpponent?.isBot
+                ? String(propMatchupOpponent?.botLevel ?? "")
+                : undefined
+            }
+            tierColor={
+              propMatchupOpponent?.isBot
+                ? String(propMatchupOpponent?.botLevelColor ?? "")
+                : undefined
+            }
+            tierGlowBoost={propMatchupOpponent?.botIsMythos ? 1.2 : 0.4}
           />
         </div>
 
@@ -783,10 +914,21 @@ export default function LobbyScreen({
   }
 
   // ── WAITING FOR P2 (private room) ─────────────────────────────────────────
+  // The friends side panel is mounted here so the host can chat with a
+  // friend to share the room code in a single tap (match invites were
+  // removed in favour of the custom-room-code + DM flow). We pass the
+  // current room code through so the panel can surface a "share this
+  // code" prefill action inside its DM modal.
   if (roomSection === "waiting") return (
     <div style={{ position:"fixed", inset:0, zIndex:10, background:t.bg, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", overflow:"hidden" }}>
       <div style={{ position:"absolute", inset:0, background:`radial-gradient(circle at 50% 50%, ${t.accent}08 0%, transparent 70%)`, pointerEvents:"none" }} />
       <div style={{ position:"absolute", inset:0, opacity:0.1, backgroundImage:`linear-gradient(${t.border} 1px, transparent 1px), linear-gradient(90deg, ${t.border} 1px, transparent 1px)`, backgroundSize:"60px 60px", animation:"gridScan 30s linear infinite" }} />
+
+      <FriendsSidePanel
+        themeId={themeId}
+        onHoverAction={onHoverAction}
+        roomCodeToShare={roomCode}
+      />
 
       <div style={{ position:"relative", zIndex:1, display:"flex", flexDirection:"column", alignItems:"center", gap:32, animation:"fadeUp 0.6s cubic-bezier(.22,.68,0,1.2) both" }}>
         <div style={{ position:"relative", width:140, height:140 }}>
@@ -811,11 +953,32 @@ export default function LobbyScreen({
           <div style={{ fontFamily:t.fontMono, fontSize:11, color:t.accent, marginTop:6, fontWeight:700 }}>{roomFormat.toUpperCase()} · WAITING</div>
         </div>
 
-        <button onClick={cancelRoom}
-          style={{ background:"transparent", border:`2px solid ${t.border}`, color:t.textMuted, fontFamily:t.fontDisplay, fontSize:14, fontWeight:700, padding:"12px 36px", borderRadius:ip?2:10, cursor:"pointer", transition:"all 0.2s" }}
-          onMouseEnter={e => { e.currentTarget.style.borderColor=t.accent; e.currentTarget.style.color=t.accent; }}
-          onMouseLeave={e => { e.currentTarget.style.borderColor=t.border; e.currentTarget.style.color=t.textMuted; }}
-        >CANCEL</button>
+        <div style={{ display:"flex", gap:12, alignItems:"center" }}>
+          {/* Quick copy of the room code — the DM chat in the friends side
+              panel is the preferred sharing path, but a bare clipboard
+              copy still helps for sharing via external apps (Discord,
+              WhatsApp, etc.). Falls back gracefully if the Clipboard API
+              is unavailable (older browsers, non-secure contexts). */}
+          <button
+            onClick={async () => {
+              try {
+                if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+                  await navigator.clipboard.writeText(roomCode);
+                }
+              } catch {
+                /* clipboard may be unavailable — silently ignore */
+              }
+            }}
+            style={{ background:t.accent, border:`2px solid ${t.accent}`, color:"#fff", fontFamily:t.fontDisplay, fontSize:14, fontWeight:800, padding:"12px 28px", borderRadius:ip?2:10, cursor:"pointer", letterSpacing:"0.12em", transition:"all 0.2s", boxShadow:`0 0 22px ${t.accentGlow}66` }}
+            onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-1px)"; }}
+            onMouseLeave={e => { e.currentTarget.style.transform = "translateY(0)"; }}
+          >COPY CODE</button>
+          <button onClick={cancelRoom}
+            style={{ background:"transparent", border:`2px solid ${t.border}`, color:t.textMuted, fontFamily:t.fontDisplay, fontSize:14, fontWeight:700, padding:"12px 36px", borderRadius:ip?2:10, cursor:"pointer", transition:"all 0.2s" }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor=t.accent; e.currentTarget.style.color=t.accent; }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor=t.border; e.currentTarget.style.color=t.textMuted; }}
+          >CANCEL</button>
+        </div>
       </div>
 
       <style>{`

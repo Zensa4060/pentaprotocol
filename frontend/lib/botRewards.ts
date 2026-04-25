@@ -150,8 +150,16 @@ export function formatXpPrize(botId: BotId): string {
 }
 
 // ── Tier-capstone free-item rewards ────────────────────────────────────────
-/** Per-slot reward state the backend persists on the user profile. */
-export type BotRewardSlot = "banner" | "coin_toss" | "board_skin";
+/** Per-slot reward state the backend persists on the user profile.
+ *  `mythos_skin` is the boss-tier filler-bot reward awarded the FIRST time
+ *  a player defeats MYTHOS in the unranked queue. It uses the same
+ *  board-skin store catalog as the HER reward but is tracked on its own
+ *  slot so a player can claim BOTH rewards independently. */
+export type BotRewardSlot =
+  | "banner"
+  | "coin_toss"
+  | "board_skin"
+  | "mythos_skin";
 export type BotRewardState = null | "pending" | "claimed";
 export type BotRewards = Record<BotRewardSlot, BotRewardState>;
 
@@ -169,9 +177,10 @@ export function rewardSlotForBot(botId: BotId): BotRewardSlot | null {
 
 /** Human-friendly headline for each reward slot — shown on bot cards + CTAs. */
 export const REWARD_SLOT_LABEL: Record<BotRewardSlot, string> = {
-  banner:     "Free Banner",
-  coin_toss:  "Free Coin Toss Skin",
-  board_skin: "Free Board Skin",
+  banner:      "Free Banner",
+  coin_toss:   "Free Coin Toss Skin",
+  board_skin:  "Free Board Skin",
+  mythos_skin: "Free Board Skin (MYTHOS)",
 };
 
 /** One-line description for the reward unlocked by each capstone bot. */
@@ -186,13 +195,23 @@ export function rewardPrizeLabel(botId: BotId): string | null {
  * `bot_banner_reward` string.
  */
 export function readBotRewards(user: unknown): BotRewards {
-  const empty: BotRewards = { banner: null, coin_toss: null, board_skin: null };
+  const empty: BotRewards = {
+    banner: null,
+    coin_toss: null,
+    board_skin: null,
+    mythos_skin: null,
+  };
   if (!user || typeof user !== "object") return empty;
   const u = user as Record<string, unknown>;
   const raw = u.bot_rewards as Record<string, unknown> | undefined;
   const out: BotRewards = { ...empty };
   if (raw && typeof raw === "object") {
-    for (const slot of ["banner", "coin_toss", "board_skin"] as BotRewardSlot[]) {
+    for (const slot of [
+      "banner",
+      "coin_toss",
+      "board_skin",
+      "mythos_skin",
+    ] as BotRewardSlot[]) {
       const v = raw[slot];
       if (v === "pending" || v === "claimed") out[slot] = v;
     }

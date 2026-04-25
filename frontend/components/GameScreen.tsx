@@ -12,6 +12,14 @@ import API, { getWsBaseUrl, openWs } from "@/lib/api";
 import { censorText, containsProfanity } from "@/lib/profanity";
 import type { Difficulty } from "@/lib/botEngine";
 import { loadCustomTheme } from "@/lib/customTheme";
+import {
+  MYTHOS_PFP_URL,
+  UNRANKED_BOT_LEVELS,
+  difficultyForLevel,
+  mythosTauntForMove,
+  simpleSizeFromBoardMode,
+  type UnrankedBotLevel,
+} from "@/lib/unrankedBots";
 
 import { Piece, Embers, HeatOverlay, Flame, Skull, FrostCrystals, IceOverlay, GlacierAurora, GlacierSnow, GlacierGridLines, SnowflakePiece, IceShardPiece, GlacierSigilPiece, GlacierPrismPiece, RedCell, IceCell } from "./GamePieces";
 import GlacierGrid from "./GlacierGrid";
@@ -119,6 +127,16 @@ type MatchSeriesCompletePayload = {
     xp_after: number;
     was_placement?: boolean;
   };
+  /**
+   * MYTHOS encounter metadata — only ever set on filler-bot series where
+   * the opponent is MYTHOS. The result screen uses these fields to swap
+   * in the boss-tier visuals (PFP, taunt line, first-defeat reward
+   * banner). Plumbed via the `claim-unranked-bot-series` response;
+   * multiplayer / non-MYTHOS bot matches leave them undefined.
+   */
+  isMythos?: boolean;
+  mythosFirstDefeat?: boolean;
+  mythosXpBonus?: number;
 };
 
 // MatchResultOverlay removed in favor of MatchCompleteOverlay.tsx
@@ -301,9 +319,22 @@ interface Props {
   setHomeNoticeAction?: (notice: string | null) => void;
   /** Opens AppShell settings while the nav bar is hidden on match routes. */
   onOpenSettingsAction?: () => void;
+  /** Unranked filler-bot only: banner id the VS card already showed for
+   *  the bot. Wired through so the in-match sidebar renders the same
+   *  banner behind P2 instead of the generic "default" strip. Ignored
+   *  for multiplayer / singleplayer / capstone-bot paths. */
+  unrankedBotBanner?: string;
+  /** Unranked filler-bot only: numeric level shown on the VS card
+   *  (e.g. 342 for CHRONICLE). Pinned on the URL so a refresh doesn't
+   *  reroll the value; GameScreen doesn't use it for engine strength
+   *  (that comes from `difficulty`), only for HUD display. */
+  unrankedBotNumericLevel?: number;
+  /** Unranked filler-bot only: fallback avatar emoji picked at queue
+   *  time for non-MYTHOS bots (MYTHOS uses its bespoke PFP). */
+  unrankedBotEmoji?: string;
 }
 
-export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, gameMode = "singleplayer", difficulty = "medium", botId, setScreenAction, roomCode, playerSlot, playHoverAction, playPlaceAction, playVictoryAction, playDefeatAction, playRulebreakerAction, playTransitionAction, playClickAction, p1Name, matchupData, boardMode = "5x5", variant, gameId: initialGameId, phasePath, selectedPatterns = [], onMultiplayerBoardSync, graphicsQuality = "quality", onMultiplayerSeriesSealedAction, onMultiplayerSeriesResumedAction, onMultiplayerNavLockChange, multiplayerRulesBootstrap = null, setHomeNoticeAction, onOpenSettingsAction }: Props) {
+export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, gameMode = "singleplayer", difficulty = "medium", botId, setScreenAction, roomCode, playerSlot, playHoverAction, playPlaceAction, playVictoryAction, playDefeatAction, playRulebreakerAction, playTransitionAction, playClickAction, p1Name, matchupData, boardMode = "5x5", variant, gameId: initialGameId, phasePath, selectedPatterns = [], onMultiplayerBoardSync, graphicsQuality = "quality", onMultiplayerSeriesSealedAction, onMultiplayerSeriesResumedAction, onMultiplayerNavLockChange, multiplayerRulesBootstrap = null, setHomeNoticeAction, onOpenSettingsAction, unrankedBotBanner, unrankedBotNumericLevel: _unrankedBotNumericLevel, unrankedBotEmoji: _unrankedBotEmoji }: Props) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParamsHook = useSearchParams();
@@ -311,13 +342,86 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     const qs = searchParamsHook?.toString() ?? "";
     return qs ? `?${qs}` : "";
   }, [searchParamsHook]);
+
+  /* ── Unranked filler bot (from queue race) ─────────────────────────────
+   * Activated when the game URL carries ?unranked_bot=1. We use `botId`
+   * (set by the match layout) as the display name and light up the MYTHOS
+   * taunt overlay when ?mythos=1. None of this affects rank/elo — the
+   * game runs through the normal `gameMode === "ai"` code path but uses
+   * the full unranked series rules (first-to-5 points, 9 games + game 10
+   * Limitbreaker decider) instead of the local BO3 short series. */
+  const unrankedBotLevelParam = searchParamsHook?.get("level") || "";
+  const isUnrankedBotFiller =
+    searchParamsHook?.get("unranked_bot") === "1" &&
+    !!botId &&
+    gameMode === "ai";
+  const isMythosBot =
+    isUnrankedBotFiller &&
+    searchParamsHook?.get("mythos") === "1" &&
+    unrankedBotLevelParam === "MYTHOS";
+  const unrankedBotDisplayName = isUnrankedBotFiller && botId
+    ? botId.toUpperCase()
+    : null;
   const [liveBoardMode, setLiveBoardMode] = useState<BoardMode>(boardMode);
   const [liveSelectedPatterns, setLiveSelectedPatterns] = useState<string[]>(selectedPatterns ?? []);
-  useEffect(() => { setLiveBoardMode(boardMode); }, [boardMode]);
-  useEffect(() => { setLiveSelectedPatterns(selectedPatterns ?? []); }, [selectedPatterns]);
+  /* Unranked filler-bot ladder is self-driven: the client flips
+   * `liveBoardMode` / `liveSelectedPatterns` locally at each leg boundary
+   * (5×5→6×6→7×7). Re-running these prop-sync effects after a filler
+   * leg has already advanced would silently drag the board back down to
+   * the URL's starting size (`?size=5x5`) — exactly the "G4 on 6×6, G5
+   * on 5×5" regression the user reported. We gate both effects on
+   * `isUnrankedBotFiller` so multiplayer / custom / capstone-bot paths
+   * keep their normal prop-follows-layout behaviour while filler bots
+   * own their live state end-to-end after mount. The initial mount
+   * hydration still runs because `useState` seeds from the prop once. */
+  useEffect(() => {
+    if (isUnrankedBotFiller) return;
+    setLiveBoardMode(boardMode);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [boardMode]);
+  useEffect(() => {
+    if (isUnrankedBotFiller) return;
+    setLiveSelectedPatterns(selectedPatterns ?? []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedPatterns]);
 
   const liveBoardModeRef = useRef(boardMode);
   liveBoardModeRef.current = liveBoardMode;
+
+  /* Unranked filler-bot safety net: 6×6 and 7×7 legs ALWAYS use their full
+   * pattern pool (7 / 8 patterns respectively — no random sampling). If the
+   * leg transition's `setLiveSelectedPatterns` call gets clobbered by a late
+   * `selectedPatterns` prop sync (e.g. stale 5×5 URL picks bleeding through),
+   * this effect re-asserts the correct pool whenever `liveBoardMode` flips
+   * to 6×6 / 7×7 so the SHOW-PATTERNS overlay renders every pattern. 5×5
+   * still uses the URL-pinned random 5-of-6 from the match layout. */
+  useEffect(() => {
+    const ub =
+      searchParamsHook?.get("unranked_bot") === "1" &&
+      !!botId &&
+      gameMode === "ai";
+    if (!ub) return;
+    if (liveBoardMode === "6x6") {
+      setLiveSelectedPatterns(Object.keys(PATTERN_METADATA_6));
+    } else if (liveBoardMode === "7x7") {
+      setLiveSelectedPatterns(Object.keys(PATTERN_METADATA_7));
+    }
+  }, [liveBoardMode, gameMode, botId, searchParamsHook]);
+
+  /* For unranked filler bots, the engine difficulty depends on the
+   * CURRENT board size (5×5 → 6×6 → 7×7 each use their own engine
+   * mapping). `difficulty` is set once at layout mount from the URL's
+   * `?size=` param, so without this override the bot would keep playing
+   * with 5×5-calibrated difficulty even after escalation. */
+  const effectiveBotDifficulty: Difficulty = useMemo(() => {
+    if (!isUnrankedBotFiller) return difficulty;
+    const levelKey = (unrankedBotLevelParam || "").toUpperCase();
+    if (!(UNRANKED_BOT_LEVELS as readonly string[]).includes(levelKey)) {
+      return difficulty;
+    }
+    const size = simpleSizeFromBoardMode(liveBoardMode);
+    return difficultyForLevel(levelKey as UnrankedBotLevel, size);
+  }, [isUnrankedBotFiller, unrankedBotLevelParam, liveBoardMode, difficulty]);
 
   const [p1SeriesPts, setP1SeriesPts] = useState(0);
   const [p2SeriesPts, setP2SeriesPts] = useState(0);
@@ -332,11 +436,59 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   historyDisplayStartIndexRef.current = historyDisplayStartIndex;
   const [show7x7LevelUp, setShow7x7LevelUp] = useState(false);
   const [show6x6LevelUp, setShow6x6LevelUp] = useState(false);
-  const [rulesShowSheet, setRulesShowSheet] = useState<RuleshowSheet | null>(() =>
-    (gameMode === "ranked" || gameMode === "unranked") && multiplayerRulesBootstrap ? multiplayerRulesBootstrap.sheet : null,
-  );
+  const [rulesShowSheet, setRulesShowSheet] = useState<RuleshowSheet | null>(() => {
+    if ((gameMode === "ranked" || gameMode === "unranked") && multiplayerRulesBootstrap) {
+      return multiplayerRulesBootstrap.sheet;
+    }
+    // Unranked filler-bot matches should feel like a real multiplayer bout,
+    // so we reveal the leg's rules & patterns before the first stone drops.
+    // The derived `isUnrankedBotFiller` isn't in scope yet at mount init,
+    // so re-derive the minimal flag straight from props + query here.
+    if (gameMode === "ai" && searchParamsHook?.get("unranked_bot") === "1") {
+      const size = simpleSizeFromBoardMode(boardMode);
+      if (size === "5x5") return "5x5";
+      if (size === "6x6") return "6x6";
+      if (size === "7x7") return "7x7";
+    }
+    return null;
+  });
   const [p1LevelUpReady, setP1LevelUpReady] = useState(false);
   const [p2LevelUpReady, setP2LevelUpReady] = useState(false);
+
+  /* Defensive mount-time guarantee: if the useState initializer above raced
+   * ahead of `useSearchParams()` (Next.js client routing can, rarely, hand
+   * an initially-empty snapshot on the first client render), we re-evaluate
+   * here one time and open the rules sheet so it is NEVER skipped on the
+   * first leg for an unranked filler-bot match. Guarded by a ref so this
+   * can't reopen the sheet after the user dismisses it mid-game. */
+  const rulesShowMountGateRef = useRef(false);
+  useEffect(() => {
+    if (rulesShowMountGateRef.current) return;
+    rulesShowMountGateRef.current = true;
+    if (rulesShowSheet !== null) return;
+    const isUbFiller =
+      gameMode === "ai" &&
+      searchParamsHook?.get("unranked_bot") === "1";
+    if (!isUbFiller) return;
+    const size = simpleSizeFromBoardMode(boardMode);
+    if (size === "5x5") setRulesShowSheet("5x5");
+    else if (size === "6x6") setRulesShowSheet("6x6");
+    else if (size === "7x7") setRulesShowSheet("7x7");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  /* Unranked filler bot: the synthetic opponent has no live client to toggle
+   * its ready state, so we pre-mark P2 as READY the moment the rules-show
+   * sheet opens. This mirrors how a human opponent would ready up almost
+   * instantly on their end — the user sees "P2 READY" in the overlay from
+   * frame one, and a single READY click on their side starts the game.
+   * Cleared along with the sheet via `onLevelUpReadyToggle`. */
+  useEffect(() => {
+    if (!isUnrankedBotFiller) return;
+    if (rulesShowSheet === null) return;
+    setP2LevelUpReady(true);
+  }, [isUnrankedBotFiller, rulesShowSheet]);
+
   const levelUpSplashActiveRef = useRef(false);
   const awaiting7x7RulesRef = useRef(false);
   const awaiting6x6RulesRef = useRef(false);
@@ -530,7 +682,11 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     else playDefeatAction?.();
   };
   /** Best-of-3 series scoring for singleplayer / bot; ladder + Rulebreaker / Timebreaker / Mindbreaker unchanged. */
-  const isLocalShortSeries = gameMode === "singleplayer" || gameMode === "ai";
+  /* Unranked queue filler bots play the FULL unranked series locally
+   * (first-to-5 points, 9 games + game-10 Limitbreaker on ties). All
+   * other AI / singleplayer sessions keep the BO3 short-series shape. */
+  const isLocalShortSeries =
+    (gameMode === "singleplayer" || gameMode === "ai") && !isUnrankedBotFiller;
 
   // Multiplayer rank icons (Rulebreaker UI) should reflect actual players' ELO.
   // Backend room_state includes player1_elo/player2_elo; we cache them here.
@@ -584,17 +740,38 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     }
   }, [matchupData, isMultiplayerGame, playerSlot]);
 
+  /* Unranked filler-bot banner wire-up.
+   *
+   * `armUnrankedBotMatchSequence` picks a random banner for the bot when
+   * it shows the VS card, then clears `matchupOpponent` as it navigates
+   * into the rules-show route — by the time we land here, there's no
+   * context to pull the banner from. The id is instead piped via
+   * `?banner=<id>` through the (match) layout and lands in this prop.
+   *
+   * We push it into `p2Banner` so the in-match MATCH TIMER card renders
+   * the same animated banner strip the user just saw behind the bot on
+   * the match-found screen. MP / SP paths are untouched — their own
+   * `matchupData` effect above fires first for MP, and SP never sets
+   * an opponent banner at all. */
+  useEffect(() => {
+    if (!unrankedBotBanner) return;
+    if (isMultiplayerGame) return;
+    setP2Banner(unrankedBotBanner);
+  }, [unrankedBotBanner, isMultiplayerGame]);
+
   const p1DisplayName = isMultiplayerGame
     ? (mySlot === "P1" ? myDisplayName : oppDisplayName)
     : (p1Name ?? "P1");
   const p2DisplayName = isMultiplayerGame
     ? (mySlot === "P2" ? myDisplayName : oppDisplayName)
-    : gameMode === "ai" ? "BOT" : "P2";
+    : gameMode === "ai"
+      ? (unrankedBotDisplayName ?? "BOT")
+      : "P2";
 
   const p1Label = `${p1DisplayName}`;
 
   const p2Label = gameMode === "ai"
-    ? `BOT`
+    ? (unrankedBotDisplayName ?? `BOT`)
     : `${p2DisplayName}`;
 
   const winnerDisplayName = (w: string | null): string => {
@@ -663,6 +840,51 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   const didRecordMissionRef = useRef(false);
   const didRefreshProfileAfterSeriesRef = useRef(false);
   const didClaimBotDefeatRef = useRef(false);
+  /** Gate for the one-shot unranked filler-bot series XP claim. */
+  const didClaimUnrankedBotSeriesRef = useRef(false);
+  /**
+   * Live mirror of `user` / `p1Name` / `seriesWinner` for the filler-bot
+   * series claim effect below. We read these three values inside the
+   * async claim callback (to snapshot pre-claim XP, to label the match,
+   * and to build the payload's series_winner) but we deliberately keep
+   * them OUT of the effect's deps list — they each change mid-match and
+   * would re-fire the effect body during otherwise-irrelevant renders,
+   * plus extending the deps array breaks React Fast Refresh with
+   * "useEffect changed size between renders". Refs give the effect the
+   * freshest value at the moment it actually fires without touching the
+   * deps length. See: Unranked filler-bot series → XP claim effect.
+   */
+  const userForSeriesClaimRef = useRef<unknown>(null);
+  const p1NameForSeriesClaimRef = useRef<string | undefined>(undefined);
+  const seriesWinnerForSeriesClaimRef = useRef<string | null>(null);
+  /**
+   * Structured per-game log for unranked filler-bot series. `match_history`
+   * is just an array of winners ("P1"/"P2"/"DRAW"), which isn't enough for
+   * the career screen to render each round's board + move-log. We build
+   * up a parallel list here as games conclude so the final claim call can
+   * ship a fully-formed `match_rounds` payload.
+   *
+   *   - `currentGameMovesRef`: the in-progress game's ordered move list
+   *     (includes every legal placement, both from the human and the
+   *     bot). Reset in `initBoard` so new legs start empty.
+   *   - `matchRoundsDetailRef`: completed games, in order. Each entry
+   *     captures the final board state, full move list, board mode, and
+   *     winner — exactly the shape `CareerScreen.MatchRound` expects.
+   *
+   * Both refs are AI-path-only (gated by `gameMode === "ai"` in
+   * `push` sites). Multiplayer matches get their career rows via the
+   * server's `award_ranked_match_result` codepath and don't need this.
+   */
+  type RoundMoveDetail = { row: number; col: number; player: string };
+  type RoundDetail = {
+    game_number: number;
+    board_mode: BoardMode;
+    winner: string;
+    moves: RoundMoveDetail[];
+    board: (string | null)[][];
+  };
+  const currentGameMovesRef = useRef<RoundMoveDetail[]>([]);
+  const matchRoundsDetailRef = useRef<RoundDetail[]>([]);
   const didPersistLobbyQuoteForSeriesRef = useRef(false);
   const [p1Ready, setP1Ready] = useState(false);
   const [p2Ready, setP2Ready] = useState(false);
@@ -810,6 +1032,31 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
       setOverlayVisible(true);
     }
   }, [phase, matchOver, showWinOverlay, postGameReadyAck, pathname]);
+
+  /* Auto-ready the filler bot as soon as we enter `waiting_ready`.
+   *
+   * For multiplayer, both sides toggle `p2Ready` independently over the
+   * socket. AI/SP mirrors the P1 toggle onto P2 inside `onReadyToggle`,
+   * but that only fires when the user actually clicks — which meant the
+   * inter-game READY pane showed a single button labelled "START GAME N"
+   * with no indication that the bot was waiting. The user reported this
+   * as "only one ready option if you notice from the image, make it
+   * like unranked proper — keep 2 ready with the bot name and bot ready
+   * instantly".
+   *
+   * We now:
+   *   1. Render a two-up ready widget for filler matches (see
+   *      MatchSidebar.treatAsMultiplayer branch).
+   *   2. Flip `p2Ready=true` the moment we enter `waiting_ready`
+   *      (or mount into an existing waiting_ready), so the bot's row
+   *      always reads "READY" before the human clicks anything.
+   * The user's own click still controls `p1Ready`. A draw/resign returns
+   * us to `waiting_ready` and we re-assert the bot's ready state. */
+  useEffect(() => {
+    if (!isUnrankedBotFiller) return;
+    if (phase !== "waiting_ready") return;
+    setP2Ready(true);
+  }, [isUnrankedBotFiller, phase]);
 
   useEffect(() => {
     if (!gameId) return;
@@ -2148,6 +2395,26 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     sentMatchReadyRef.current = true;
   }, [isMultiplayerGame, showMatchupOverlay]);
 
+  /* ── MYTHOS commentary ─────────────────────────────────────────────────
+   * The previous version of this block ran a per-move RNG (~60 %
+   * fire rate) and stashed the picked taunt in `mythosTaunt` so a
+   * top-center bubble could float over the board for ~2.5 s. The
+   * player asked us to stop drawing commentary on the play surface
+   * (image 1: "the analysis is over the board which does not look
+   * nice"), so the bubble — and its short-lived taunt state — were
+   * removed.
+   *
+   * MYTHOS commentary now lives exclusively in the LeftPanel
+   * ANALYSIS card and is framed as a "live chat" feed from MYTHOS
+   * itself. That card is driven directly by `movesPlayed` via
+   * `mythosTauntForMove(...)` (see the `<LeftPanel>` props below),
+   * which auto-rotates a fresh taunt every 3 placements so the
+   * encounter feels actively trash-talked rather than passively
+   * narrated. Non-MYTHOS unranked bots use the same slot for a
+   * blood-red "MYTHOS ANALYSING…" card with a 7-move-gated GET
+   * ANALYSIS button (handled inside MatchSidebar). No standalone
+   * top-center taunt state is needed here. */
+
   // ── Bot move trigger ──────────────────────────────────────────────────────
   const botTurnKey = `${current}-${extraTurns}-${movesPlayed}`;
 
@@ -2184,9 +2451,18 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
         let p2Stones = 0;
         for (const row of b) for (const cell of row) if (cell === "P2") p2Stones++;
         const is77 = b?.length === 7;
+        // The backend `/api/bot/move` validator only accepts the concrete
+        // single-leg strings "5x5" | "6x6" | "7x7". Unranked filler-bot
+        // matches can have `liveBoardMode` briefly hydrated as a compound
+        // queue mode (e.g. "5x5_6x6_7x7") before the first leg transition
+        // runs — sending that to the server returned 422. Always derive
+        // the payload mode from the ACTUAL board dimensions so the request
+        // shape can never drift from what the server expects.
+        const backendBoardMode: "5x5" | "6x6" | "7x7" =
+          b?.length === 7 ? "7x7" : b?.length === 6 ? "6x6" : "5x5";
         const res = await API.post("/api/bot/move", {
-          board: b, difficulty, current_player: "P2",
-          board_mode: liveBoardMode || (b?.length === 7 ? "7x7" : "5x5"),
+          board: b, difficulty: effectiveBotDifficulty, current_player: "P2",
+          board_mode: backendBoardMode,
           selected_patterns: structuralPatternsP2,
           c3_blocked: c3Blocked,
           moves_played: movesPlayedRef.current,
@@ -2235,7 +2511,12 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [botTurnKey, phase, winner, gameMode, liveBoardMode, GRID_SIZE, structuralPatternsP2, difficulty]);
 
-  const initBoard = async (firstPlayer: string, c3block = false, suppressCenter = false) => {
+  const initBoard = async (
+    firstPlayer: string,
+    c3block = false,
+    suppressCenter = false,
+    gridSizeOverride?: PlayGridSize,
+  ) => {
     clearUndoStack();
     setIsBoardPaused(false);
     setSuppressCenterOpening(suppressCenter);
@@ -2246,7 +2527,16 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
       setRb6TimerOwner(null);
       setRb6CellChooser(null);
     }
-    setBoard(emptyBoard());
+    // `GRID_SIZE` is derived from the *current* board, so after a leg
+    // transition (e.g. 5×5 → 6×6) the old 5×5 board would still dictate
+    // the size here and `emptyBoard()` would allocate a 5×5 grid on the
+    // new leg. `gridSizeOverride` lets the caller pin the freshly-entered
+    // leg's size atomically, fixing the "G4 stuck on 5×5" bug for the
+    // local AI / filler-bot series ladder.
+    const targetSize: PlayGridSize = gridSizeOverride ?? GRID_SIZE;
+    setBoard(
+      Array(targetSize).fill(null).map(() => Array(targetSize).fill(null)),
+    );
     setCurrent(firstPlayer);
     setWinner(null);
     setWinLine([]);
@@ -2256,13 +2546,14 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     setExtraTurns(0);
     setC3Blocked(c3block);
     setLog([]);
-    p1TimeRef.current = matchTimeMs;
-    p2TimeRef.current = matchTimeMs;
+    const targetMatchMs = matchMsForGridSize(targetSize);
+    p1TimeRef.current = targetMatchMs;
+    p2TimeRef.current = targetMatchMs;
     lastP1Sec.current = -1;
     lastP2Sec.current = -1;
-    setP1Time(matchTimeMs);
-    setP2Time(matchTimeMs);
-    if (GRID_SIZE === 6 && R.current.gameNumber === 3 && R.current.rb6TimerOwner) {
+    setP1Time(targetMatchMs);
+    setP2Time(targetMatchMs);
+    if (targetSize === 6 && R.current.gameNumber === 3 && R.current.rb6TimerOwner) {
       if (R.current.rb6TimerOwner === "P1") {
         p1TimeRef.current = 60_000;
         setP1Time(60_000);
@@ -2274,6 +2565,9 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     setLoading(false);
     setHover(null);
     setBotThinking(false);
+    // Reset per-game move tracker — the career-export payload only wants
+    // moves played inside each leg (not carried across games).
+    currentGameMovesRef.current = [];
     // Only multiplayer games need a server-side game record. SP/AI are local-only;
     // nothing downstream (career, XP, ELO, match_history) uses the solo games-collection
     // record, so skipping it keeps the URL as the local 15-digit ID instead of being
@@ -2352,6 +2646,10 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   const softReset = () => {
     clearUndoStack();
     matchHistoryRef.current = []; setGameNumber(1); setMatchHistory([]); setMatchOver(false); setSeriesWinner(null);
+    // Career export buffer mirrors `matchHistoryRef` — wipe the completed
+    // rounds too so a fresh series starts with an empty move log.
+    matchRoundsDetailRef.current = [];
+    currentGameMovesRef.current = [];
     setP1SeriesPts(0); setP2SeriesPts(0); awaitingRulebreakerRef.current = false;
     setMatchOverAcked(false);
     setSegmentStartIndex(0); segmentStartIndexRef.current = 0;
@@ -2394,8 +2692,12 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
 
     const { p1: p1_pts, p2: p2_pts } = seriesPointsFromHistory(hist);
 
-    if (p1_pts + EPS >= 5) return "P1";
-    if (p2_pts + EPS >= 5) return "P2";
+    // Unranked filler-bot series mirrors the ranked/multiplayer ladder:
+    // first-to-3 game wins ends the series immediately (compute_series_winner
+    // default `target_points=3` in backend/app/routers/room.py). Games 4-10
+    // are only played when neither side has yet reached 3 wins.
+    if (p1_pts + EPS >= 3) return "P1";
+    if (p2_pts + EPS >= 3) return "P2";
 
     if (hist.length >= 9) {
       if (p1_pts > p2_pts + EPS) return "P1";
@@ -2443,7 +2745,6 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
       "grid_block_selection",
     ];
     const tick = () => {
-      rafHandle.current = requestAnimationFrame(tick);
       const now = Date.now();
       const dt = now - lastTick.current;
       lastTick.current = now;
@@ -2495,11 +2796,19 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
       if (pausedRef.current && !freePhases.includes(s.phase)) return;
 
       if (s.phase === "playing" && !s.winner) {
-        const blockMpClock =
-          isMultiplayerGame &&
-          (rulesShowSheetRef.current !== null || show7x7LevelUpRef.current || show6x6LevelUpRef.current || rulesMatchGateRef.current);
-        if (blockMpClock) {
-          /* multiplayer rules gate or level-up splash — clocks stay frozen */
+        // Freeze the match clocks whenever the rules-show / level-up splash
+        // is visible. This used to be gated on `isMultiplayerGame`, but
+        // unranked filler-bot matches ride the AI code path AND open the
+        // rules sheet at match start (so the user can review the pattern
+        // pool before game 1). Without this branch the clock kept ticking
+        // during the intro overlay, eating into the human's bank.
+        const blockClock =
+          rulesShowSheetRef.current !== null ||
+          show7x7LevelUpRef.current ||
+          show6x6LevelUpRef.current ||
+          rulesMatchGateRef.current;
+        if (blockClock) {
+          /* rules gate or level-up splash — clocks stay frozen */
         } else if (s.current === "P1") {
           p1TimeRef.current = Math.max(0, p1TimeRef.current - dt);
           const p1Sec = Math.ceil(p1TimeRef.current / 1000);
@@ -2606,7 +2915,14 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
                   const wr = R.current.winnerPickedRule;
                   const tw = R.current.tossWinner;
                   const supC = wr === "extra_turn" || wr === "ban";
-                  initBoard(fp, s.rbC3Blocked, supC);
+                  // Pin to the current leg's `liveBoardMode` so RB / Timebreaker
+                  // / Mindbreaker (G3/G6/G9) always allocate the correct board
+                  // size regardless of the previous `GRID_SIZE` memo value.
+                  const legGridSize: PlayGridSize =
+                    liveBoardModeRef.current === "7x7" ? 7
+                      : liveBoardModeRef.current === "6x6" ? 6
+                        : 5;
+                  initBoard(fp, s.rbC3Blocked, supC, legGridSize);
                   unstable_batchedUpdates(() => {
                     let holder: "P1" | "P2" | null = null;
                     if (wr === "extra_turn" && (tw === "P1" || tw === "P2")) holder = tw;
@@ -2669,8 +2985,83 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
         });
       }
     };
-    rafHandle.current = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(rafHandle.current);
+
+    /* Render-aligned ticker. Smooth for on-screen clock animation,
+     * but Chrome/Safari/Firefox all throttle `requestAnimationFrame`
+     * to 0 Hz when the tab goes to the background. That throttling
+     * used to visibly stall the match clock, the inter-game ready
+     * timer, and the rulebreaker choice timers whenever the user
+     * tabbed away to e.g. YouTube — the expiration wouldn't fire
+     * until they returned.
+     *
+     * `tick()` deliberately reads its delta from `Date.now()` rather
+     * than accumulating frame time, so calling it from multiple
+     * sources is idempotent: the first call consumes the real
+     * elapsed wall-clock delta, subsequent back-to-back calls see
+     * dt ≈ 0 and are a no-op. That lets us safely drive the same
+     * function from a Web Worker heartbeat below. */
+    const rafTick = () => {
+      tick();
+      rafHandle.current = requestAnimationFrame(rafTick);
+    };
+    rafHandle.current = requestAnimationFrame(rafTick);
+
+    /* Background-safe heartbeat.
+     *
+     * Web Workers run on a dedicated thread and — unlike RAF or
+     * heavily-throttled `setInterval` on the main thread — continue
+     * posting messages at roughly their requested cadence even when
+     * the owning page is hidden. We spawn a tiny inline worker that
+     * does `setInterval(250ms) → postMessage('tick')`; the main
+     * thread runs the same `tick()` on each message, so game timers
+     * keep counting down, ready-state auto-advances fire, and
+     * rulebreaker choice timeouts resolve, all without the user
+     * having to bring the tab back to the foreground. A player who
+     * stays on YouTube past the clock will now automatically lose
+     * on time instead of having the game silently freeze.
+     *
+     * Workers are gated behind a `typeof Worker !== "undefined"`
+     * guard + try/catch so strict CSPs or SSR pre-render never
+     * crash the component — in that pathological case we fall back
+     * to RAF-only (the pre-fix behaviour). */
+    let worker: Worker | null = null;
+    let workerBlobUrl: string | null = null;
+    try {
+      if (typeof Worker !== "undefined" && typeof Blob !== "undefined") {
+        const workerSrc = `
+          let id = null;
+          self.onmessage = (e) => {
+            if (e.data === 'start') {
+              if (id !== null) return;
+              id = setInterval(() => { self.postMessage('tick'); }, 250);
+            } else if (e.data === 'stop') {
+              if (id !== null) { clearInterval(id); id = null; }
+            }
+          };
+        `;
+        const blob = new Blob([workerSrc], { type: "application/javascript" });
+        workerBlobUrl = URL.createObjectURL(blob);
+        worker = new Worker(workerBlobUrl);
+        worker.onmessage = () => {
+          try { tick(); } catch { /* defensive: never let a tick error kill the heartbeat */ }
+        };
+        worker.postMessage("start");
+      }
+    } catch {
+      /* Worker unavailable (strict CSP / old environment) — RAF-only
+       * fallback still runs; timers resume on visibility return. */
+    }
+
+    return () => {
+      cancelAnimationFrame(rafHandle.current);
+      if (worker) {
+        try { worker.postMessage("stop"); } catch { /* ignore */ }
+        try { worker.terminate(); } catch { /* ignore */ }
+      }
+      if (workerBlobUrl) {
+        try { URL.revokeObjectURL(workerBlobUrl); } catch { /* ignore */ }
+      }
+    };
   }, []);
 
   useEffect(() => {
@@ -2720,19 +3111,64 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     const isEndOfLeg = gn === 3 || gn === 6;
 
     if (isEndOfLeg) {
-      // Escalate board size
-      const currentBm = liveBoardMode;
+      // Escalate board size. The local AI / filler-bot flow runs entirely
+      // client-side (no WS `game_reset` to hand us a fresh board), so we
+      // must: (1) flip `liveBoardMode`, (2) rewrite `liveSelectedPatterns`
+      // to the new leg's full pattern pool (6×6 and 7×7 always use all
+      // patterns — no random sampling), (3) clear any RB ban carried
+      // from the previous leg, and (4) seed a correctly-sized empty
+      // board via `initBoard(..., targetGridSize)`.
+      //
+      // ⚠️  Read `liveBoardMode` through its ref, NOT the closure. This
+      // function is called from the RAF tick which was registered once
+      // at mount (`useEffect(..., [])`), so the closure's `liveBoardMode`
+      // is FROZEN at the initial render's value ("5x5"). Without the ref
+      // read, G6 → G7 would escalate to 6×6 again instead of 7×7 because
+      // the closure never sees the committed 6×6 state from the earlier
+      // G3 → G4 transition.
+      const currentBm = liveBoardModeRef.current;
       const nextBm: BoardMode = currentBm === "5x5" ? "6x6" : "7x7";
+      const nextGridSize: PlayGridSize = nextBm === "6x6" ? 6 : 7;
+      const nextLegPatterns =
+        nextBm === "6x6"
+          ? Object.keys(PATTERN_METADATA_6)
+          : Object.keys(PATTERN_METADATA_7);
       setLiveBoardMode(nextBm);
+      setLiveSelectedPatterns(nextLegPatterns);
+      setRbBannedPatterns([]);
+      setRbPatternsPreBan(null);
+      setRbHideBannedPatternFromSlot(null);
       setGameNumber(nextGameNum);
 
-      if (nextBm === "6x6") {
+      if (isUnrankedBotFiller) {
+        // Unranked filler bots used to mirror the multiplayer leg
+        // transition with a "LEVEL UP · 6×6 / 7×7" splash overlaid on
+        // top of the RulesShowScreen for ~2.8 s. The user asked to
+        // remove that splash entirely for bot games — only the
+        // RulesShowScreen should show, then straight into the new
+        // leg's board. We still set `setP2LevelUpReady(true)` so the
+        // bot is implicitly ready, gate the board with
+        // `rulesShowSheet`, and let `blockMultiRulesOrLevelUp` keep
+        // the game UI suspended until the human clicks READY.
+        const sheet: RuleshowSheet = nextBm === "6x6" ? "6x6" : "7x7";
+        setP1LevelUpReady(false);
+        setP2LevelUpReady(true);
+        setRulesShowSheet(sheet);
+        // Explicitly DO NOT call setShow6x6LevelUp / setShow7x7LevelUp
+        // here. Belt-and-braces: clear them in case a previous leg's
+        // splash somehow lingered.
+        setShow6x6LevelUp(false);
+        setShow7x7LevelUp(false);
+        playTransitionAction?.();
+        setPhase("playing");
+        initBoard("P1", false, false, nextGridSize);
+      } else if (nextBm === "6x6") {
         setShow6x6LevelUp(true);
         playTransitionAction?.();
         setTimeout(() => {
           setShow6x6LevelUp(false);
           setPhase("playing");
-          initBoard("P1");
+          initBoard("P1", false, false, nextGridSize);
         }, 2800);
       } else {
         setShow7x7LevelUp(true);
@@ -2740,7 +3176,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
         setTimeout(() => {
           setShow7x7LevelUp(false);
           setPhase("playing");
-          initBoard("P1");
+          initBoard("P1", false, false, nextGridSize);
         }, 2800);
       }
     } else if (gn === 2 || gn === 5 || gn === 8) {
@@ -2765,10 +3201,25 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
       setRbPatternsPreBan(null);
     } else {
       // Next normal game (e.g., G1 -> G2, G4 -> G5, G7 -> G8)
+      // Pin the grid size to the current leg's `liveBoardMode` so the new
+      // board can't collapse back to 5×5 because of a stale `GRID_SIZE`
+      // memo (e.g. if the post-G3 leg flip re-fired `setBoard(emptyBoard())`
+      // after `liveBoardMode` committed but before this advance ran).
+      // Multiplayer `game_reset` writes board + board_mode + patterns in
+      // one atomic handler — this mirrors that behaviour for the local AI
+      // / unranked-filler ladder.
+      //
+      // ⚠️  Must read through `liveBoardModeRef.current` — the closure
+      // variant is captured from the initial render (see comment above
+      // in the `isEndOfLeg` branch) and would always report "5x5",
+      // causing G4→G5 and G7→G8 to collapse back to the starting leg.
+      const legGridSize: PlayGridSize =
+        liveBoardModeRef.current === "7x7" ? 7
+          : liveBoardModeRef.current === "6x6" ? 6
+            : 5;
       setGameNumber(nextGameNum);
       setPhase("playing");
-      // Alternate starting player for normal games in the same leg
-      initBoard(gn % 2 === 1 ? "P2" : "P1");
+      initBoard(gn % 2 === 1 ? "P2" : "P1", false, false, legGridSize);
     }
   };
 
@@ -2784,9 +3235,34 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     R.current.matchHistory = newHist;
     matchHistoryRef.current = newHist;
     setMatchHistory(newHist);
+    if (isUnrankedBotFiller) {
+      // Snapshot the round so the career-export payload can reproduce
+      // this game's board + move-log. We capture AFTER the winner stone
+      // is committed but BEFORE `doAdvanceAfterReady` wipes the board
+      // for the next game. The snapshot is deep-copied so later mutations
+      // of `board` / `currentGameMovesRef` can't leak backwards.
+      const gameIndex = R.current.gameNumber;
+      const winnerValue = typeof winner === "string" ? winner : String(winner);
+      matchRoundsDetailRef.current = [
+        ...matchRoundsDetailRef.current,
+        {
+          game_number: gameIndex,
+          board_mode: liveBoardModeRef.current,
+          winner: winnerValue,
+          moves: currentGameMovesRef.current.map((m) => ({ ...m })),
+          board: board.map((row) => [...row]),
+        },
+      ];
+    }
     const sw = checkSeriesWinner(newHist);
-    const isSeriesComplete = sw !== null || newHist.length >= 3;
-    const seriesWinnerNow = sw ?? (newHist.length >= 3 ? "DRAW" : newHist[newHist.length - 1]);
+    // BO3 for local AI/solo; full unranked series (first-to-5 points with
+    // a 9-game regulation plus a game-10 decider on ties) for filler-bot
+    // matches. Other non-MP flows (none today) fall back to 9.
+    const seriesGameCap = isLocalShortSeries ? 3 : isUnrankedBotFiller ? 10 : 9;
+    const isSeriesComplete = sw !== null || newHist.length >= seriesGameCap;
+    const seriesWinnerNow =
+      sw ??
+      (newHist.length >= seriesGameCap ? "DRAW" : newHist[newHist.length - 1]);
     if (isSeriesComplete) {
       setMatchOver(true);
       setSeriesWinner(seriesWinnerNow);
@@ -2905,6 +3381,191 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     })();
   }, [matchOver, phase, gameMode, seriesWinner, mySlot, userKey, botId, setHomeNoticeAction]);
 
+  // Keep the three always-fresh values available to the claim effect via
+  // refs so the deps array stays stable across renders (see ref-block
+  // comment above).
+  userForSeriesClaimRef.current = user;
+  p1NameForSeriesClaimRef.current = p1Name;
+  seriesWinnerForSeriesClaimRef.current = seriesWinner;
+
+  // ── Unranked filler-bot series → XP claim + post-series flow ────────────
+  // Fires exactly once when a queue-filler bot series ends (win/loss/draw
+  // all grant XP, mirroring a normal unranked match). The backend is
+  // idempotent on `seriesId`, but the ref prevents redundant requests.
+  // On success we build a `MatchSeriesCompletePayload` (same shape as the
+  // multiplayer WS `match_series_complete` message) and hand control to
+  // the shared GameWinScreen → MatchResultScreen flow so bot bouts show
+  // the same XP animation / level-up celebration that human matches do.
+  useEffect(() => {
+    if (!matchOver) {
+      didClaimUnrankedBotSeriesRef.current = false;
+      return;
+    }
+    if (didClaimUnrankedBotSeriesRef.current) return;
+    if (phase !== "match_over") return;
+    if (gameMode !== "ai") return;
+    if (!isUnrankedBotFiller) return;
+    if (isLocalShortSeries) return;
+    if (!userKey) return;
+    const token = useAuthStore.getState().token;
+    if (!token) return;
+    const seriesId = (gameId || "").trim();
+    if (!seriesId) return;
+    const levelParam = (searchParamsHook?.get("level") || "").toUpperCase();
+    if (!levelParam) return;
+    const rounds = (matchHistoryRef.current || [])
+      .map((item: unknown) => {
+        const raw = typeof item === "string"
+          ? item
+          : String((item as { winner?: string })?.winner ?? "");
+        return raw.toUpperCase();
+      })
+      .filter((r) => r === "P1" || r === "P2" || r === "DRAW");
+    if (rounds.length === 0) return;
+
+    // Snapshot the player's pre-claim stats so we can animate XP/level deltas
+    // in MatchResultScreen even though `useAuthStore.updateUser(...)` below
+    // will overwrite `user` the moment the server responds. Read from refs
+    // so the deps array stays stable (avoids the "useEffect changed size
+    // between renders" Fast Refresh warning).
+    const u = (userForSeriesClaimRef.current as Record<string, unknown> | null) ?? {};
+    const currentSeriesWinner = seriesWinnerForSeriesClaimRef.current;
+    const currentP1Name = p1NameForSeriesClaimRef.current;
+    const prevLevel = Number(u.level ?? 1) || 1;
+    const prevXp = Math.max(0, Number(u.xp ?? 0) || 0);
+    const prevElo = Number(u.elo ?? 0) || 0;
+    const prevRr = Number(u.ranked_rating ?? 0) || 0;
+    const myDisplayName = String(u.username ?? currentP1Name ?? "YOU");
+    const opponentName = (botId || "BOT").toUpperCase();
+    const seriesWinnerForPayload: "P1" | "P2" | "DRAW" =
+      currentSeriesWinner === "P1" ? "P1" : currentSeriesWinner === "P2" ? "P2" : "DRAW";
+
+    // Rich per-game details (board_mode, moves, final board) so the
+    // career archive can render board + move-log for each round just
+    // like multiplayer matches. Only include rounds we actually
+    // captured (up to `rounds.length`); the backend validates shape
+    // and falls back to a winner-only history if this is missing.
+    const roundDetails = matchRoundsDetailRef.current
+      .slice(0, rounds.length)
+      .map((r) => ({
+        game_number: r.game_number,
+        board_mode: r.board_mode,
+        winner: r.winner,
+        moves: r.moves,
+        board: r.board,
+      }));
+
+    didClaimUnrankedBotSeriesRef.current = true;
+    (async () => {
+      try {
+        const res = await API.post(
+          "/api/profile/claim-unranked-bot-series",
+          {
+            seriesId,
+            botName: opponentName,
+            level: levelParam,
+            rounds,
+            isMythos: isMythosBot,
+            roundDetails,
+          },
+          { headers: { Authorization: `Bearer ${token}` }, timeout: 15000 },
+        );
+        const data = res?.data || {};
+        const profile = (data.profile ?? {}) as Record<string, unknown>;
+        if (data.profile) {
+          useAuthStore.getState().updateUser(data.profile);
+        } else {
+          void useAuthStore.getState().refreshProfile();
+        }
+        const xpAwarded: number = Number(data.xp_awarded || 0);
+        // MYTHOS first-defeat surface — surfaced on the response so the
+        // MatchResultScreen can render the +100k XP / free board skin
+        // celebration banner. The home-notice copy upgrades to a
+        // boss-tier line so the badge that briefly flashes on /home
+        // mentions the bonus too.
+        const mythosFirstDefeat = !!data.mythos_first_defeat;
+        const mythosXpBonus: number = Number(data.mythos_xp_bonus || 0);
+        if (xpAwarded > 0) {
+          if (mythosFirstDefeat) {
+            setHomeNoticeAction?.(
+              `MYTHOS defeated — +${xpAwarded.toLocaleString()} XP and a free board skin claimable in the Store!`,
+            );
+          } else {
+            setHomeNoticeAction?.(`Unranked match vs ${opponentName} — +${xpAwarded.toLocaleString()} XP`);
+          }
+        }
+
+        const newLevel = Number(profile.level ?? prevLevel) || prevLevel;
+        const newXp = Math.max(0, Number(profile.xp ?? prevXp) || 0);
+
+        // Filler bots play an "unranked" format — elo/rr never move, so the
+        // MatchResultScreen hides those panes automatically.
+        const payload: MatchSeriesCompletePayload = {
+          series_winner: seriesWinnerForPayload,
+          format: "unranked",
+          careerEntryId: null,
+          p1: {
+            name: myDisplayName,
+            elo_before: prevElo,
+            elo_after: prevElo,
+            rr_before: prevRr,
+            rr_after: prevRr,
+            level_before: prevLevel,
+            level_after: newLevel,
+            xp_before: prevXp,
+            xp_after: newXp,
+          },
+          p2: {
+            name: opponentName,
+            elo_before: 0,
+            elo_after: 0,
+            rr_before: 0,
+            rr_after: 0,
+            level_before: 1,
+            level_after: 1,
+            xp_before: 0,
+            xp_after: 0,
+          },
+          isMythos: isMythosBot,
+          mythosFirstDefeat,
+          mythosXpBonus,
+        };
+
+        matchSeriesUiLockUntilRef.current = Date.now() + 800;
+        isViewingPostMatchRef.current = true;
+        unstable_batchedUpdates(() => {
+          setShowWinOverlay(false);
+          setOverlayVisible(false);
+          setMatchOverAcked(false);
+          setMatchSeriesComplete(payload);
+          setShowSeriesMatchResult(false);
+          setShowGameWinScreen(true);
+        });
+      } catch {
+        // Let a later render retry silently (profile refresh still runs
+        // via the multiplayer-path effect on next mount).
+        didClaimUnrankedBotSeriesRef.current = false;
+      }
+    })();
+  }, [
+    matchOver,
+    phase,
+    gameMode,
+    isUnrankedBotFiller,
+    isLocalShortSeries,
+    isMythosBot,
+    userKey,
+    botId,
+    gameId,
+    searchParamsHook,
+    setHomeNoticeAction,
+    // NOTE: `user`, `p1Name` and `seriesWinner` are intentionally omitted
+    // from this dependency list — they're read via the refs assigned just
+    // above the effect so the deps length stays constant across renders
+    // (otherwise React's Fast Refresh reports "useEffect changed size
+    // between renders" every time one of those values changes).
+  ]);
+
   useEffect(() => {
     if (!matchOver) {
       didRefreshProfileAfterSeriesRef.current = false;
@@ -2970,6 +3631,14 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
         ? checkWin6(nb, r, c, stoneOwner, newMoves, patBot)
         : checkWin(nb, r, c, stoneOwner, newMoves, patBot);
     setBoard(nb); setMovesPlayed(newMoves); addLog(r, c, playerWhoMoved);
+    if (isUnrankedBotFiller) {
+      // Structured move capture for the career-export payload. Record
+      // the stone's owner (not the slot that clicked) so the career-
+      // screen renderer — which colours cells by the `player` key —
+      // stays in sync with the final `board` state (e.g. the 6×6
+      // rulebreaker trap cell flips ownership when played).
+      currentGameMovesRef.current.push({ row: r, col: c, player: stoneOwner });
+    }
     if (result) { setExtraTurns(0); setWinLine(result.line); setWinner(result.winner); }
     else { setExtraTurns(newExtra); setCurrent(nextPlayer); }
     if (gameId && isMultiplayerGame) { try { await API.post("/api/game/move", { game_id: gameId, row: r, col: c }); } catch { } }
@@ -3028,6 +3697,10 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
         ? checkWin6(nb, r, c, stoneOwner, newMoves, activePatterns)
         : checkWin(nb, r, c, stoneOwner, newMoves, activePatterns);
     setBoard(nb); setMovesPlayed(newMoves); addLog(r, c, playerWhoMoved);
+    if (isUnrankedBotFiller) {
+      // Mirror of the bot-side capture in `placeBot` — see comment there.
+      currentGameMovesRef.current.push({ row: r, col: c, player: stoneOwner });
+    }
     if (result) { setExtraTurns(0); setWinLine(result.line); setWinner(result.winner); }
     else { setExtraTurns(newExtra); setCurrent(nextPlayer); }
     setLoading(false);
@@ -3603,6 +4276,16 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     if ((gameMode === "ai" || gameMode === "singleplayer") && player === "P1") setP2Ready(newVal);
   };
   const onLevelUpReadyToggle = (_selected?: string[]) => {
+    // Unranked filler-bot: no remote opponent to wait on, so READY immediately
+    // dismisses the rules-show sheet and hands control back to the game.
+    if (isUnrankedBotFiller) {
+      if (rulesShowSheet !== null) {
+        setP1LevelUpReady(true);
+        setP2LevelUpReady(true);
+        setRulesShowSheet(null);
+      }
+      return;
+    }
     if (!isMultiplayerGame || !playerSlot) return;
     const isP1 = playerSlot === "P1";
     const nextVal = isP1 ? !p1LevelUpReady : !p2LevelUpReady;
@@ -3793,8 +4476,18 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
       <div style={{ fontFamily: t.fontBody, fontSize: 14, color: t.textSecondary, marginTop: 24, maxWidth: 420, textAlign: "center", lineHeight: 1.55, padding: "0 20px" }}>Opening the Timebomb leg — confirm rules with your opponent, then play on the 6×6 grid.</div>
     </div>
   );
+  // Gate used by the top-level render to swap the in-game UI for the
+  // dedicated rules-show / level-up overlay shell. Originally multiplayer-only
+  // because singleplayer/AI historically rendered rules as an in-game overlay
+  // with `phase === "playing"`. Unranked filler-bot matches are supposed to
+  // feel like a real multiplayer bout (rules-show page AFTER match-found,
+  // before the first stone), so we extend the gate to cover them too.
+  // Without this, the useState initializer that opens `rulesShowSheet="5x5"`
+  // fired but the overlay branch below never rendered — the player landed
+  // straight on the game board and only saw the rules sheet later when it
+  // was forced back open mid-game.
   const blockMultiRulesOrLevelUp =
-    isMultiplayerGame &&
+    (isMultiplayerGame || isUnrankedBotFiller) &&
     (rulesShowSheet !== null || show7x7LevelUp || show6x6LevelUp || rulesMatchGate);
   const disconnectCountdownBanner =
     disconnectCountdown !== null ? (
@@ -3950,9 +4643,14 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     !matchOver &&
     !showWinOverlay &&
     (postGameReadyAck || pathname.startsWith("/ready/"));
-  /** SP/AI only: after the series-end win overlay is dismissed, show a ready-style NEW MATCH card. */
+  /** SP/AI only: after the series-end win overlay is dismissed, show a ready-style NEW MATCH card.
+   *  Unranked filler-bot matches skip this pane entirely — their post-series
+   *  flow uses GameWinScreen + XpLevelUpScreen + MatchResultScreen to mirror
+   *  the full multiplayer XP / level-up celebration (triggered by the
+   *  claim-unranked-bot-series effect above). */
   const centralMatchOverOverlay =
     !isMultiplayerGame &&
+    !isUnrankedBotFiller &&
     phase === "match_over" &&
     !showWinOverlay &&
     matchOverAcked;
@@ -3983,12 +4681,20 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     onDismissAction: dismissOverlay,
     centralReadyStep: centralReadyOverlay,
     centralMatchOverStep: centralMatchOverOverlay,
-    onNewMatchAction: softReset,
+    onNewMatchAction: isUnrankedBotFiller ? undefined : softReset,
     onQuitToHomeAction: () => { if (setScreenAction) setScreenAction("home"); },
     interGameReadyVisible: readyButtonsActive,
     waitingReadyWarmup,
     isMultiplayerGame,
     gameMode,
+    /* Unranked filler-bot matches must be presented to the player as
+     * ordinary unranked matchmaking — they should NOT see "TAP TO
+     * READY" alone with no opponent card. The shared ready pane
+     * supports a `treatAsMultiplayer` mode that renders the two-up
+     * READY layout with the bot slot already "READY" (parent flips
+     * `p2Ready` on `waiting_ready` entry), so the inter-game ready
+     * card looks identical to a real human unranked bout. */
+    treatAsMultiplayer: isUnrankedBotFiller,
     p1Ready,
     p2Ready,
     readyTimeoutSec: readyTimeout,
@@ -4468,7 +5174,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
         <SurrenderModal show={showSurrender} t={sidebarT} ip={ip} isRankedGame={isRankedGame} variant={surrenderModalVariant} onConfirmAction={() => { setShowSurrender(false); if (isMultiplayerGame && wsRef.current?.readyState === WebSocket.OPEN) { wsRef.current.send(JSON.stringify({ type: "quit_match", slot: mySlot })); } if (!isMultiplayerGame && setScreenAction) setScreenAction("home"); }} onCancelAction={() => { playClickAction?.(); pausedRef.current = false; setShowSurrender(false); }} playHoverAction={playHoverAction} />
         <ExitModal show={showExitConfirm} t={sidebarT} ip={ip} onConfirmAction={() => { setShowExitConfirm(false); if (setScreenAction) setScreenAction("home"); }} onCancelAction={() => { playClickAction?.(); pausedRef.current = false; setShowExitConfirm(false); }} playHoverAction={playHoverAction} />
         {limitbreakerOverlay}
-        {showGameWinScreen && matchSeriesComplete && isMultiplayerGame && (
+        {showGameWinScreen && matchSeriesComplete && (isMultiplayerGame || isUnrankedBotFiller) && (
           <GameWinScreen
             seriesWinner={matchSeriesComplete.series_winner}
             format={matchSeriesComplete.format}
@@ -4495,7 +5201,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
               }
               setScreenAction?.("home");
             }}
-            onGoToCareer={goToCareerAfterSeries}
+            onGoToCareer={isMultiplayerGame ? goToCareerAfterSeries : undefined}
           />
         )}
         {showXpLevelUpScreen && xpLevelUpTransition && (
@@ -4565,8 +5271,127 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
               setScreenAction?.("home");
             }}
             onFindNewMatch={isMultiplayerGame ? findNewMatchAfterSeries : undefined}
+            playerAvatarUrl={(user as { avatar?: string | null })?.avatar ?? null}
+            isMythos={!!matchSeriesComplete.isMythos}
+            mythosPfpUrl={matchSeriesComplete.isMythos ? MYTHOS_PFP_URL : null}
+            mythosFirstDefeat={!!matchSeriesComplete.mythosFirstDefeat}
+            mythosXpBonus={matchSeriesComplete.mythosXpBonus ?? 0}
           />
         )}
+
+        {/* Mobile also needs the patterns popup; previously this overlay was
+            only rendered in the desktop return path, so the phone button
+            toggled state but had no visible modal to show. */}
+        {showPatternOverlay && liveSelectedPatterns.length > 0 && !matchOver && phase !== "match_over" && (() => {
+          const allMeta = GRID_SIZE === 7 ? PATTERN_METADATA_7 : GRID_SIZE === 6 ? PATTERN_METADATA_6 : PATTERN_METADATA_5;
+          const coreRules = GRID_SIZE === 7 ? CORE_RULES_METADATA_7 : GRID_SIZE === 6 ? CORE_RULES_METADATA_6 : CORE_RULES_METADATA_5;
+          const activePatterns = liveSelectedPatterns.map(id => allMeta[id]).filter(Boolean);
+          const coreList = Object.values(coreRules);
+          return (
+            <div
+              onClick={togglePatternOverlay}
+              style={{
+                position: "fixed",
+                inset: 0,
+                zIndex: 9400,
+                background: "rgba(4,7,14,0.88)",
+                backdropFilter: "blur(10px)",
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                justifyContent: "center",
+                padding: "24px 16px 48px",
+                overflowY: "auto",
+              }}
+            >
+              <div
+                onClick={e => e.stopPropagation()}
+                style={{ width: "min(900px, 95vw)", display: "flex", flexDirection: "column", alignItems: "center", gap: 20 }}
+              >
+                <div style={{ fontFamily: t.fontMono, fontSize: 10, color: t.textMuted, letterSpacing: "0.22em" }}>
+                  ACTIVE PATTERNS THIS GAME
+                </div>
+                <div style={{ fontFamily: t.fontDisplay, fontSize: "clamp(22px,4vw,36px)", fontWeight: 900, color: t.accent, letterSpacing: "0.04em" }}>
+                  PATTERN REFERENCE
+                </div>
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
+                    gap: 12,
+                    width: "100%",
+                  }}
+                >
+                  {activePatterns.map(p => (
+                    <div
+                      key={p.id}
+                      style={{
+                        background: "rgba(255,255,255,0.03)",
+                        border: `1px solid ${t.border}`,
+                        borderRadius: ip ? 2 : 14,
+                        padding: "16px 14px",
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: 8,
+                      }}
+                    >
+                      <div style={{ fontFamily: t.fontDisplay, fontSize: 13, fontWeight: 800, color: t.text, letterSpacing: "0.04em" }}>
+                        {p.label}
+                      </div>
+                      <div style={{ fontFamily: t.fontBody, fontSize: 11, color: t.textMuted, lineHeight: 1.4 }}>
+                        {p.desc}
+                      </div>
+                      <PatternDiagram info={p} accent={t.accent} isSelected={true} cellSize={GRID_SIZE === 7 ? 10 : GRID_SIZE === 6 ? 11 : 12} />
+                    </div>
+                  ))}
+                </div>
+                <div style={{ fontFamily: t.fontMono, fontSize: 10, color: t.textMuted, letterSpacing: "0.18em", marginTop: 4 }}>
+                  CORE RULES — ALWAYS ACTIVE
+                </div>
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
+                    gap: 12,
+                    width: "100%",
+                  }}
+                >
+                  {coreList.map(p => (
+                    <div
+                      key={p.id}
+                      style={{
+                        background: "rgba(255,255,255,0.015)",
+                        border: `1px dashed ${t.border}88`,
+                        borderRadius: ip ? 2 : 14,
+                        padding: "16px 14px",
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: 8,
+                        opacity: 0.75,
+                      }}
+                    >
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <div style={{ fontFamily: t.fontDisplay, fontSize: 13, fontWeight: 800, color: t.textSecondary, letterSpacing: "0.04em" }}>
+                          {p.label}
+                        </div>
+                        <div style={{ fontFamily: t.fontMono, fontSize: 9, fontWeight: 900, padding: "2px 6px", borderRadius: 4, background: `${t.accent}15`, color: t.accent, border: `1px solid ${t.accent}33`, letterSpacing: "0.08em" }}>
+                          ALWAYS ON
+                        </div>
+                      </div>
+                      <div style={{ fontFamily: t.fontBody, fontSize: 11, color: t.textMuted, lineHeight: 1.4 }}>
+                        {p.desc}
+                      </div>
+                      <PatternDiagram info={p} accent={t.textMuted} isSelected={false} cellSize={GRID_SIZE === 7 ? 10 : GRID_SIZE === 6 ? 11 : 12} />
+                    </div>
+                  ))}
+                </div>
+                <div style={{ fontFamily: t.fontBody, fontSize: 12, color: t.textMuted, marginTop: 4 }}>
+                  Click anywhere outside to close
+                </div>
+              </div>
+            </div>
+          );
+        })()}
 
         <style>{`
           @keyframes heatDrift0{from{transform:translate(0,0) scale(1)}to{transform:translate(12px,18px) scale(1.1)}}
@@ -4596,6 +5421,13 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   return (
     <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, zIndex: 2, display: "flex", flexDirection: "row", background: t.bg, overflow: "hidden", userSelect: "none", WebkitUserSelect: "none" }}>
       {disconnectCountdownBanner}
+
+      {/* MYTHOS taunts used to render here as a top-center floating
+          bubble. Per the player's feedback (image 1: "the analysis is
+          over the board which does not look nice"), commentary now
+          lives exclusively in the LeftPanel ANALYSIS card so it never
+          obscures the board. The taunt-cadence state is kept upstream
+          for future use, but we no longer paint it on the play surface. */}
 
       <WinOverlay {...winOverlaySharedProps} />
 
@@ -4636,7 +5468,12 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
         t={sidebarT} ip={ip} p1c={p1c} p2c={p2c} pieceSkin={pieceSkin} p1RttMs={p1RttMs} p2RttMs={p2RttMs} panelW={panelW}
         phase={phase} winner={winner} current={current} gameNumber={gameNumber} movesPlayed={movesPlayed}
         matchHistory={matchHistory} seriesWinner={seriesWinner} matchOver={matchOver}
-        gameMode={gameMode} isRankedGame={isRankedGame} isMultiplayerGame={isMultiplayerGame}
+        gameMode={gameMode} isShortSeries={isLocalShortSeries}
+        isMythosBot={isMythosBot}
+        isUnrankedFillerBot={isUnrankedBotFiller}
+        mythosAnalysisText={isUnrankedBotFiller && isMythosBot ? mythosTauntForMove(movesPlayed, 3, gameId ?? undefined) : undefined}
+        isRankedGame={isRankedGame} isMultiplayerGame={isMultiplayerGame}
+        treatAsMultiplayer={isUnrankedBotFiller}
         isMultiplayer={isMultiplayerGame} mySlot={mySlot}
         boardMode={liveBoardMode} selectedPatterns={sidebarPatternList} rbBannedPatterns={sidebarRbBannedPatterns} patternsAsSecret={patternsSidebarSecret}
         p1SeriesPts={isMultiplayerGame ? p1SeriesPts : undefined} p2SeriesPts={isMultiplayerGame ? p2SeriesPts : undefined}
@@ -4692,7 +5529,14 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
         interGameReadyVisible={interGameReadyVisible}
         waitingReadyWarmup={waitingReadyWarmup}
         showPatternOverlay={showPatternOverlay}
-        onTogglePatternOverlay={!isMultiplayerGame ? togglePatternOverlay : undefined}
+        // Filler-bot matches already expose a PATTERNS button at the top
+        // of the board (see mobile/desktop main-area render paths). The
+        // legacy sidebar "SHOW PATTERNS" button was a singleplayer-era
+        // remnant; hiding it for unranked filler matches keeps the UI
+        // aligned with a proper multiplayer layout (banner + chat stub
+        // + surrender), per the user's feedback that bot games should
+        // not keep singleplayer-only affordances.
+        onTogglePatternOverlay={!isMultiplayerGame && !isUnrankedBotFiller ? togglePatternOverlay : undefined}
         onAddFriendPeerAction={
           isMultiplayerGame
             ? () => {
@@ -4777,45 +5621,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
       )}
 
       {/* BOARD */}
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: isShorter ? 6 : 10, padding: isShorter ? "4px 0" : "10px 0", minWidth: 0, overflow: "hidden" }}>
-        {isMultiplayerGame && liveSelectedPatterns.length > 0 && !matchOver && phase !== "match_over" && (
-          <div style={{ display: "flex", justifyContent: "center", width: "100%", marginBottom: isShorter ? 2 : 4, pointerEvents: "auto", flexShrink: 0 }}>
-            <button
-              type="button"
-              onClick={() => {
-                playClickAction?.();
-                togglePatternOverlay();
-              }}
-              title={showPatternOverlay ? "Hide patterns" : "Show active patterns"}
-              onMouseEnter={() => setPatternsBtnHovered(true)}
-              onMouseLeave={() => setPatternsBtnHovered(false)}
-              style={{
-                background: showPatternOverlay
-                  ? "rgba(0,229,255,0.22)"
-                  : patternsBtnHovered
-                    ? "rgba(0,229,255,0.14)"
-                    : "rgba(0,229,255,0.07)",
-                border: `2.3px solid ${showPatternOverlay || patternsBtnHovered ? "#00e5ff" : "rgba(0,229,255,0.55)"}`,
-                borderRadius: ip ? 2.3 : 9.2,
-                color: "#00e5ff",
-                fontFamily: t.fontMono,
-                fontSize: isShorter ? 13.8 : 14.95,
-                fontWeight: 700,
-                letterSpacing: "0.092em",
-                padding: isShorter ? "6.9px 18.4px" : "9.2px 23px",
-                cursor: "pointer",
-                transition: "all 0.2s",
-                whiteSpace: "nowrap",
-                boxShadow: showPatternOverlay || patternsBtnHovered
-                  ? "0 0 11.5px #00e5ff, 0 0 25.3px rgba(0,229,255,0.45), 0 0 46px rgba(0,229,255,0.2)"
-                  : "0 0 6.9px rgba(0,229,255,0.35)",
-                textShadow: "0 0 9.2px rgba(0,229,255,0.7)",
-              }}
-            >
-              {showPatternOverlay ? "HIDE PATTERNS" : "PATTERNS"}
-            </button>
-          </div>
-        )}
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: isShorter ? 6 : 10, padding: isShorter ? "2px 0" : "6px 0", minWidth: 0, overflow: "hidden" }}>
         {/*
           Row is a 3-column grid (1fr | auto | 1fr) so the turn indicator in
           the auto column is perfectly centered relative to the board below,
@@ -4839,7 +5645,43 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
               }
             </span>
           </div>
-          <div style={{ justifySelf: "start", display: "flex", alignItems: "center" }}>
+          <div style={{ justifySelf: "start", display: "flex", alignItems: "center", gap: 8 }}>
+            {liveSelectedPatterns.length > 0 && !matchOver && phase !== "match_over" && (
+              <button
+                type="button"
+                onClick={() => {
+                  playClickAction?.();
+                  togglePatternOverlay();
+                }}
+                title={showPatternOverlay ? "Hide patterns" : "Show active patterns"}
+                onMouseEnter={() => setPatternsBtnHovered(true)}
+                onMouseLeave={() => setPatternsBtnHovered(false)}
+                style={{
+                  background: showPatternOverlay
+                    ? "rgba(0,229,255,0.22)"
+                    : patternsBtnHovered
+                      ? "rgba(0,229,255,0.14)"
+                      : "rgba(0,229,255,0.07)",
+                  border: `2px solid ${showPatternOverlay || patternsBtnHovered ? "#00e5ff" : "rgba(0,229,255,0.55)"}`,
+                  borderRadius: ip ? 2.3 : 9.2,
+                  color: "#00e5ff",
+                  fontFamily: t.fontMono,
+                  fontSize: isShorter ? 11.5 : 12,
+                  fontWeight: 700,
+                  letterSpacing: "0.08em",
+                  padding: isShorter ? "5px 10px" : "6px 12px",
+                  cursor: "pointer",
+                  transition: "all 0.2s",
+                  whiteSpace: "nowrap",
+                  boxShadow: showPatternOverlay || patternsBtnHovered
+                    ? "0 0 10px #00e5ff, 0 0 22px rgba(0,229,255,0.4)"
+                    : "0 0 6px rgba(0,229,255,0.3)",
+                  textShadow: "0 0 8px rgba(0,229,255,0.65)",
+                }}
+              >
+                {showPatternOverlay ? "HIDE PATTERNS" : "PATTERNS"}
+              </button>
+            )}
             {GRID_SIZE === 7 && phase === "playing" && !winner && rbExtraTurnTokenHolder && !rbExtraTurnTokenUsed && extraTurns === 0 && (isMultiplayerGame ? mySlot === rbExtraTurnTokenHolder : current === rbExtraTurnTokenHolder) && (
               <button type="button" onClick={() => { playClickAction?.(); useRbExtraTurnToken(); }} title="Use once: your next move does not end your turn (then turns alternate normally). Center opening rule is off this game." style={{ fontFamily: t.fontMono, fontSize: 10, fontWeight: 800, letterSpacing: "0.06em", padding: "6px 12px", borderRadius: 8, border: `1px solid ${t.accent}88`, background: `${t.accent}22`, color: t.accent, cursor: "pointer", whiteSpace: "nowrap" }}>
                 USE EXTRA TURN TOKEN
@@ -4862,7 +5704,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
         gameNumber={gameNumber}
         movesPlayed={movesPlayed}
         onShowSurrenderAction={() => { playClickAction?.(); pausedRef.current = true; setShowSurrender(true); }}
-        onSoftResetAction={softReset}
+        onSoftResetAction={isUnrankedBotFiller ? undefined : softReset}
         onUndoAction={gameMode === "singleplayer" ? undoMove : undefined}
         canUndo={gameMode === "singleplayer" && undoCount > 0}
         onOpenSettingsAction={onOpenSettingsAction}
@@ -4985,7 +5827,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
         <SurrenderModal show={showSurrender} t={sidebarT} ip={ip} isRankedGame={isRankedGame} variant={surrenderModalVariant} onConfirmAction={() => { setShowSurrender(false); if (isMultiplayerGame && wsRef.current?.readyState === WebSocket.OPEN) { wsRef.current.send(JSON.stringify({ type: "quit_match", slot: mySlot })); } if (!isMultiplayerGame && setScreenAction) setScreenAction("home"); }} onCancelAction={() => { playClickAction?.(); pausedRef.current = false; setShowSurrender(false); }} playHoverAction={playHoverAction} />
       <ExitModal show={showExitConfirm} t={sidebarT} ip={ip} onConfirmAction={() => { setShowExitConfirm(false); if (setScreenAction) setScreenAction("home"); }} onCancelAction={() => { playClickAction?.(); pausedRef.current = false; setShowExitConfirm(false); }} playHoverAction={playHoverAction} />
       {limitbreakerOverlay}
-      {showGameWinScreen && matchSeriesComplete && isMultiplayerGame && (
+      {showGameWinScreen && matchSeriesComplete && (isMultiplayerGame || isUnrankedBotFiller) && (
         <GameWinScreen
           seriesWinner={matchSeriesComplete.series_winner}
           format={matchSeriesComplete.format}
@@ -5013,7 +5855,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
             void useAuthStore.getState().refreshProfile();
             setScreenAction?.("home");
           }}
-          onGoToCareer={goToCareerAfterSeries}
+          onGoToCareer={isMultiplayerGame ? goToCareerAfterSeries : undefined}
         />
       )}
       {showXpLevelUpScreen && xpLevelUpTransition && (
@@ -5085,6 +5927,11 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
             setScreenAction?.("home");
           }}
           onFindNewMatch={isMultiplayerGame ? findNewMatchAfterSeries : undefined}
+          playerAvatarUrl={(user as { avatar?: string | null })?.avatar ?? null}
+          isMythos={!!matchSeriesComplete.isMythos}
+          mythosPfpUrl={matchSeriesComplete.isMythos ? MYTHOS_PFP_URL : null}
+          mythosFirstDefeat={!!matchSeriesComplete.mythosFirstDefeat}
+          mythosXpBonus={matchSeriesComplete.mythosXpBonus ?? 0}
         />
       )}
 

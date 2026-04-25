@@ -2,6 +2,21 @@ import { PATCH_NOTES_STAMP } from "./patchNotesVersion";
 
 export const PP_NAV_BADGES_EVENT = "pp_nav_badges_refresh";
 
+/**
+ * Fired when a user action (opening a DM thread, accepting/declining a
+ * friend request) requires the friends social badge + home-notice banner
+ * to be recomputed immediately. AppShell listens to this event and
+ * re-fetches the counts; without it the badge would only refresh on the
+ * 30s poller, so the red dot would linger after the user has already
+ * acknowledged the notification.
+ */
+export const PP_FRIENDS_BADGE_REFRESH_EVENT = "pp_friends_badge_refresh";
+
+export function requestFriendsBadgeRefresh() {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new Event(PP_FRIENDS_BADGE_REFRESH_EVENT));
+}
+
 const LS = {
   patchSeen: "pp_nav_patch_seen_stamp",
   storeCatalogSeen: "pp_nav_store_catalog_sig",

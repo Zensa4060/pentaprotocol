@@ -6,6 +6,7 @@ from app.core.mission_xp import mission_xp_for_mission_id
 from app.core.bot_rewards import (
     ALL_BOT_IDS,
     BOT_XP_REWARD,
+    MYTHOS_FIRST_DEFEAT_XP_BONUS,
     REWARD_SLOTS,
     all_bots_defeated,
     has_defeated,
@@ -610,6 +611,346 @@ async def claim_bot_defeat(
     }
 
 
+# ── Unranked queue filler-bot series claim ──────────────────────────────────
+# Bots that pop out of the unranked matchmaking queue play a full first-to-5
+# series (5×5 → 6×6 → 7×7, 9 games + game-10 Limitbreaker). Completing one
+# grants the same XP layering as a real unranked match:
+#   base: win=150 / draw=100 / loss=50
+#   +   : 75 per round won / 50 per draw / 25 per round lost
+# No ELO, no placement, no rank progression — these matches are flagged as
+# the user's own `unranked_wins` / `unranked_losses` / `draws` and awarded
+# XP + level only, mirroring `award_ranked_match_result` for the unranked
+# branch. Series ids are single-use per user (idempotent replay guard).
+
+_UNRANKED_BOT_LEVELS: set[str] = {
+    "ROOKIE", "SKILLED", "MYTHIC", "CRACKED", "CHRONICLE", "MYTHOS",
+}
+# Standard unranked series is 9 games + a single Limitbreaker decider (game
+# 10), so we accept up to 10 round entries.
+_MAX_UNRANKED_BOT_ROUNDS: int = 10
+# Keep the claimed-ids list on the user doc bounded — the trailing slice
+# protects against a malicious client spamming junk ids that would bloat
+# the user document indefinitely.
+_UNRANKED_BOT_CLAIM_HISTORY: int = 200
+
+
+class ClaimUnrankedBotMoveDetail(BaseModel):
+    """Single stone placement inside a game. `player` is the stone's
+    owner (P1 / P2), which on the 6×6 rulebreaker trap cell may differ
+    from the slot that physically clicked — the career renderer colours
+    cells by this field, so it has to match the final board state."""
+
+    row: int = Field(..., ge=0, le=6)
+    col: int = Field(..., ge=0, le=6)
+    player: str = Field(..., min_length=1, max_length=4)
+
+
+class ClaimUnrankedBotRoundDetail(BaseModel):
+    """Per-game snapshot for the career `match_rounds` export. Optional —
+    the server falls back to the `rounds` winner-only history if this is
+    missing or malformed, so older clients still claim XP successfully."""
+
+    model_config = ConfigDict(populate_by_name=True)
+    game_number: int = Field(..., ge=1, le=_MAX_UNRANKED_BOT_ROUNDS)
+    board_mode: str = Field(..., min_length=2, max_length=8)
+    winner: str = Field(..., min_length=1, max_length=8)
+    moves: list[ClaimUnrankedBotMoveDetail] = Field(default_factory=list, max_length=100)
+    board: list[list[Optional[str]]] = Field(default_factory=list, max_length=8)
+
+
+class ClaimUnrankedBotSeriesBody(BaseModel):
+    """Payload for an unranked filler-bot series claim.
+
+    `series_id` is a client-generated unique token for the match (e.g. the
+    game URL's id). `rounds` is the list of per-game winners in order, each
+    one of "P1" / "P2" / "DRAW". The server recomputes the series outcome
+    locally from `rounds`, so the client can't forge a win.
+
+    `round_details` is an optional per-game snapshot (board_mode / moves /
+    final board state) used by the career archive to render each round's
+    field + move-log. It is strictly additive: the XP grant logic ignores
+    it entirely; only the `match_history` document's `match_rounds`
+    field is richer when it is provided.
+    """
+
+    model_config = ConfigDict(populate_by_name=True)
+    series_id: str = Field(..., alias="seriesId", min_length=4, max_length=64)
+    bot_name: str = Field(..., alias="botName", min_length=1, max_length=32)
+    level: str = Field(..., min_length=3, max_length=16)
+    rounds: list[str] = Field(..., min_length=1, max_length=_MAX_UNRANKED_BOT_ROUNDS)
+    is_mythos: bool = Field(False, alias="isMythos")
+    round_details: Optional[list[ClaimUnrankedBotRoundDetail]] = Field(
+        default=None,
+        alias="roundDetails",
+        max_length=_MAX_UNRANKED_BOT_ROUNDS,
+    )
+
+
+def _unranked_bot_series_outcome(rounds: list[str]) -> str:
+    """Return "win" / "loss" / "draw" from the perspective of the human
+    (P1). Mirrors the frontend's `checkSeriesWinner` multi-branch (first to
+    5 points, 9 games max, tie → Limitbreaker game 10 decides)."""
+
+    p1 = sum(1 for r in rounds if r == "P1")
+    p2 = sum(1 for r in rounds if r == "P2")
+
+    # Instant-win branch: 5 points reached.
+    if p1 >= 5 and p1 > p2:
+        return "win"
+    if p2 >= 5 and p2 > p1:
+        return "loss"
+
+    # Game 10 Limitbreaker: exactly the 10th round decides if 9-game totals
+    # were tied. We only honour it when a 10th game is actually present.
+    if len(rounds) >= 10:
+        last = rounds[9]
+        if last == "P1":
+            return "win"
+        if last == "P2":
+            return "loss"
+        # Limitbreaker draw is impossible by design, but guard anyway.
+        return "draw"
+
+    # Regulation ended (up to 9 games) without a 5-point leader → totals
+    # decide. Equal totals without a Limitbreaker = draw (should only
+    # happen on an abbreviated / abandoned series).
+    if p1 > p2:
+        return "win"
+    if p2 > p1:
+        return "loss"
+    return "draw"
+
+
+@router.post("/claim-unranked-bot-series")
+async def claim_unranked_bot_series(
+    data: ClaimUnrankedBotSeriesBody,
+    user_id: str = Depends(get_current_user),
+):
+    level = (data.level or "").upper().strip()
+    if level not in _UNRANKED_BOT_LEVELS:
+        raise HTTPException(400, "Unknown level")
+
+    # Sanitise round entries: only "P1" / "P2" / "DRAW" are accepted. We
+    # silently coerce case but reject anything else so a client can't stuff
+    # in junk that would inflate the XP bonus.
+    rounds: list[str] = []
+    for raw in data.rounds:
+        val = (raw or "").upper().strip()
+        if val not in {"P1", "P2", "DRAW"}:
+            raise HTTPException(400, "Invalid round winner")
+        rounds.append(val)
+    if not rounds:
+        raise HTTPException(400, "Empty series")
+
+    result = _unranked_bot_series_outcome(rounds)
+    series_id = data.series_id.strip()
+
+    db = get_db()
+    oid = user_object_id(user_id)
+    user = await db.users.find_one({"_id": oid})
+    if not user:
+        raise HTTPException(404, "User not found")
+
+    # Idempotent replay guard: every series id can only ever be claimed
+    # once per user.
+    claimed_ids = user.get("claimed_unranked_bot_series") or []
+    if not isinstance(claimed_ids, list):
+        claimed_ids = []
+    if series_id in claimed_ids:
+        return {
+            "already_claimed": True,
+            "xp_awarded": 0,
+            "result": result,
+            "mythos_first_defeat": False,
+            "mythos_xp_bonus": 0,
+            "profile": _serialize_user(user),
+        }
+
+    # XP formula — intentionally identical to the unranked branch of
+    # `award_ranked_match_result` so "plays just like a normal match".
+    gained_xp = 150 if result == "win" else (100 if result == "draw" else 50)
+    for w in rounds:
+        if w == "P1":
+            gained_xp += 75
+        elif w == "DRAW":
+            gained_xp += 50
+        else:
+            gained_xp += 25
+
+    # ── MYTHOS first-defeat bonus ────────────────────────────────────────
+    # Defeating MYTHOS for the FIRST TIME grants a flat +100,000 XP bonus
+    # plus a free board-skin pick (the boss-tier capstone reward). The
+    # bonus is layered on top of the regular unranked XP so the
+    # MatchResultScreen still animates the level-up curve naturally.
+    # Subsequent MYTHOS wins fall back to the standard unranked XP only.
+    prior_defeats = user.get("bot_defeats") or {}
+    if not isinstance(prior_defeats, dict):
+        prior_defeats = {}
+    mythos_first_defeat = (
+        bool(data.is_mythos)
+        and result == "win"
+        and not bool(prior_defeats.get("mythos"))
+    )
+    mythos_xp_bonus = MYTHOS_FIRST_DEFEAT_XP_BONUS if mythos_first_defeat else 0
+    gained_xp += mythos_xp_bonus
+
+    prev_level = int(user.get("level", 1) or 1)
+    prev_xp = int(user.get("xp", 0) or 0)
+    new_level, new_xp = add_xp(prev_level, prev_xp, gained_xp)
+
+    inc: dict = {}
+    if result == "win":
+        inc["unranked_wins"] = 1
+    elif result == "loss":
+        inc["unranked_losses"] = 1
+    else:
+        inc["draws"] = 1
+
+    # MYTHOS first-defeat side-effects: flag the kill and promote the
+    # `mythos_skin` reward slot to "pending" so the player can redeem the
+    # free board skin from the store. We do this in the same atomic
+    # update as the XP grant so the bonus, the defeat flag, and the
+    # reward slot all commit together (or none at all if a concurrent
+    # claim wins the race below).
+    set_doc: dict = {"xp": new_xp, "level": new_level}
+    if mythos_first_defeat:
+        set_doc["bot_defeats.mythos"] = True
+        set_doc["bot_rewards.mythos_skin"] = "pending"
+
+    # Atomic first-writer-wins claim: if another request on the same series
+    # id sneaks in concurrently, only one will modify the doc.
+    claim = await db.users.update_one(
+        {"_id": oid, "claimed_unranked_bot_series": {"$ne": series_id}},
+        {
+            "$set": set_doc,
+            "$push": {
+                "claimed_unranked_bot_series": {
+                    "$each": [series_id],
+                    "$slice": -_UNRANKED_BOT_CLAIM_HISTORY,
+                }
+            },
+            "$inc": inc,
+        },
+    )
+
+    fresh = await db.users.find_one({"_id": oid}) or user
+    if claim.modified_count == 0:
+        return {
+            "already_claimed": True,
+            "xp_awarded": 0,
+            "result": result,
+            "mythos_first_defeat": False,
+            "mythos_xp_bonus": 0,
+            "profile": _serialize_user(fresh),
+        }
+
+    # ── Match history record for career / profile match log ─────────────
+    # Mirror the "custom" multiplayer series schema so bot bouts show up
+    # in the player's career timeline alongside real matches. Bot opponents
+    # have no user_id, so `opponent_id` is null; `opponent_username` carries
+    # the bot display name and `bot_level` lets the UI badge the row. We
+    # stamp `mode="bot_unranked"` so the career tab can filter / label these
+    # rows distinctly from genuine unranked multiplayer matches when needed.
+    history_result = "win" if result == "win" else ("loss" if result == "loss" else "draw")
+    # Translate the per-round winners into the same shape ranked/unranked
+    # multiplayer uses in `match_rounds` so the career row can render an
+    # identical per-game breakdown. The series id doubles as the game id.
+    #
+    # When the client shipped `round_details` (board_mode / moves / final
+    # board), merge them in so the archive dialog shows the replay. We
+    # defensively index by `game_number` and only accept detail rows
+    # whose winner matches the authoritative `rounds` list — a mismatch
+    # means the two payloads disagree, in which case we fall back to
+    # winner-only (safer than rendering a fabricated replay).
+    valid_winner_codes = {"P1", "P2", "DRAW"}
+    detail_by_game: dict[int, ClaimUnrankedBotRoundDetail] = {}
+    if data.round_details:
+        for det in data.round_details:
+            det_winner = (det.winner or "").upper().strip()
+            if det_winner not in valid_winner_codes:
+                continue
+            detail_by_game[det.game_number] = det
+
+    match_rounds_doc: list[dict] = []
+    for idx, winner in enumerate(rounds):
+        game_number = idx + 1
+        base: dict = {
+            "game_number": game_number,
+            "winner": winner,
+        }
+        det = detail_by_game.get(game_number)
+        if det and (det.winner or "").upper().strip() == winner:
+            # Normalise the move list: the career renderer only reads
+            # {row, col, player}; anything else is dropped.
+            base["board_mode"] = (det.board_mode or "").lower().strip() or "5x5"
+            base["moves"] = [
+                {"row": m.row, "col": m.col, "player": m.player}
+                for m in det.moves
+            ]
+            # Stringify cells defensively — Mongo accepts None + strings
+            # directly but rejects arbitrary classes, and we want the
+            # frontend's `Array.isArray(currentRound.board)` check to
+            # pass unconditionally.
+            base["board"] = [
+                [cell if (cell is None or isinstance(cell, str)) else str(cell)
+                 for cell in row]
+                for row in det.board
+            ]
+        match_rounds_doc.append(base)
+    # Starting leg is always 5×5 for the filler ladder; we tag the full
+    # board_mode_full so the history card can show "5×5 → 6×6 → 7×7".
+    history_doc = {
+        "user_id":            str(oid),
+        "opponent_id":        None,
+        "opponent_username":  (data.bot_name or "BOT").upper()[:32],
+        "opponent_elo":       None,
+        "result":             history_result,
+        "elo_before":         int(user.get("elo", 0) or 0),
+        "elo_after":          int(user.get("elo", 0) or 0),
+        "elo_delta":          0,
+        "was_placement":      False,
+        "placement_matches":  0,
+        # Bot matches still ride the "unranked" bucket so they surface in the
+        # career Unranked tab alongside real unranked matches. Downstream
+        # consumers can detect bot bouts via `bot_level` / `opponent_id=null`.
+        "mode":               "unranked",
+        "played_at":          datetime.utcnow(),
+        "my_slot":            "P1",
+        "match_scope":        "full_match",
+        "board_mode":         "5x5",
+        "board_mode_full":    "5x5_6x6_7x7",
+        "match_rounds":       match_rounds_doc,
+        "protocolbreaker_played": len(rounds) >= 10,
+        "limitbreaker_played":    len(rounds) >= 10,
+        "surrendered_by":     None,
+        "bot_level":          level,
+        "bot_is_mythos":      bool(data.is_mythos),
+        "series_id":          series_id,
+    }
+    try:
+        await db.match_history.insert_one(history_doc)
+    except Exception:
+        # Career recording is best-effort; a storage error should not prevent
+        # the XP grant from succeeding (the claim has already committed).
+        pass
+
+    return {
+        "already_claimed": False,
+        "xp_awarded": gained_xp,
+        "result": result,
+        # MYTHOS-specific surface for the post-match UI. `mythos_first_defeat`
+        # is True only on the very first MYTHOS win this user has ever
+        # claimed; the frontend uses it to gate the boss-tier reward
+        # callout (free board skin + +100k XP bonus banner) on the
+        # MatchResultScreen. `mythos_xp_bonus` is the flat addition so
+        # the screen can call out the chunk separately from the regular
+        # unranked-match XP.
+        "mythos_first_defeat": bool(mythos_first_defeat),
+        "mythos_xp_bonus": int(mythos_xp_bonus),
+        "profile": _serialize_user(fresh),
+    }
+
+
 # ── Reward redemption helpers ────────────────────────────────────────────────
 async def _redeem_reward_slot(
     *,
@@ -724,6 +1065,35 @@ async def claim_bot_board_skin_reward(
         gate_bot="her",
         gate_error="Defeat HER (7x7 final) to unlock this reward",
         claimed_error="Board skin reward already claimed",
+        item_id=(data.board_skin_id or "").strip().lower(),
+        eligible_items=_ELIGIBLE_REWARD_BOARD_SKINS,
+        unknown_item_error="Unknown board skin id",
+    )
+
+
+# ── Free board-skin redemption (awarded on defeating MYTHOS) ─────────────────
+# Mirrors the HER redemption above but is gated by the special `mythos`
+# defeat flag instead of a chain bot. Uses its own `mythos_skin` slot so
+# a player who has both the HER reward AND the MYTHOS reward can pick TWO
+# free board skins independently. Eligible item pool is intentionally the
+# same (`_ELIGIBLE_REWARD_BOARD_SKINS`) — both rewards grant board-style
+# unlocks from the same store catalog.
+class ClaimMythosBoardSkinBody(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+    board_skin_id: str = Field(..., alias="boardSkinId")
+
+
+@router.post("/claim-mythos-board-skin-reward")
+async def claim_mythos_board_skin_reward(
+    data: ClaimMythosBoardSkinBody,
+    user_id: str = Depends(get_current_user),
+):
+    return await _redeem_reward_slot(
+        user_id=user_id,
+        slot="mythos_skin",
+        gate_bot="mythos",
+        gate_error="Defeat MYTHOS in the unranked queue to unlock this reward",
+        claimed_error="MYTHOS board skin reward already claimed",
         item_id=(data.board_skin_id or "").strip().lower(),
         eligible_items=_ELIGIBLE_REWARD_BOARD_SKINS,
         unknown_item_error="Unknown board skin id",

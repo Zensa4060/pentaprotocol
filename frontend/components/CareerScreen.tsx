@@ -84,7 +84,7 @@ const CareerMatchRow = React.memo(({
   const isWin = match.result === "win";
   const isDraw = match.result === "draw";
   const deltaColor = isWin ? "#34D399" : isDraw ? "#F59E0B" : "#FF4444";
-  
+
   let resultLabel = isWin ? "VICTORY" : isDraw ? "DRAW" : "DEFEAT";
   let resultColor = isWin ? "#10B981" : isDraw ? "#F5960B" : "#EF4444";
 
@@ -97,6 +97,22 @@ const CareerMatchRow = React.memo(({
       resultColor = "#10B981";
     }
   }
+  // MYTHOS career row: detected by opponent name (the boss-tier filler
+  // bot is the only entity that ever surfaces under the literal "MYTHOS"
+  // moniker — every other unranked filler bot uses a roster name like
+  // SARAH / KEVIN / etc.). When true, the row is decorated with the
+  // animated blood-red boss treatment defined in the shared <style>
+  // block on the CareerScreen root: a pulsing crimson glow, a vertical
+  // hot stripe on the left edge, and a slow diagonal sheen.
+  const isMythosOpponent =
+    String(match.opponent_username || "").toUpperCase() === "MYTHOS";
+  const mythosRowCls = isMythosOpponent ? " mythos-row" : "";
+  const mythosOpponentNameStyle: React.CSSProperties | undefined = isMythosOpponent
+    ? {
+        color: "#FCA5A5",
+        textShadow: "0 0 14px rgba(220,38,38,0.7), 0 0 4px rgba(220,38,38,0.85)",
+      }
+    : undefined;
   const hasRounds = Array.isArray(match.match_rounds) && match.match_rounds.length > 0;
   const rowDomId = match.id ? `career-match-${match.id}` : undefined;
   const rowHighlight = Boolean(highlightId && match.id && highlightId === match.id);
@@ -123,7 +139,7 @@ const CareerMatchRow = React.memo(({
     return (
       <div
         id={rowDomId}
-        className="career-row"
+        className={`career-row${mythosRowCls}`}
         onClick={() => {
           if (hasRounds) setSelectedMatch(match);
         }}
@@ -199,6 +215,7 @@ const CareerMatchRow = React.memo(({
                 color: t.text,
                 letterSpacing: "0.03em",
                 wordBreak: "break-word",
+                ...(mythosOpponentNameStyle ?? {}),
               }}
             >
               {match.opponent_username}
@@ -285,7 +302,7 @@ const CareerMatchRow = React.memo(({
   return (
     <div
       id={rowDomId}
-      className="career-row"
+      className={`career-row${mythosRowCls}`}
       onClick={() => {
         if (hasRounds) setSelectedMatch(match);
       }}
@@ -351,6 +368,7 @@ const CareerMatchRow = React.memo(({
               fontWeight: 800,
               color: t.text,
               letterSpacing: "0.03em",
+              ...(mythosOpponentNameStyle ?? {}),
             }}
           >
             {match.opponent_username}
@@ -620,6 +638,56 @@ export default function CareerScreen({ themeId, onHoverAction, initialMatchId }:
         }
         .career-row:hover {
           background: rgba(255,255,255,0.025) !important;
+        }
+        /* Career rows whose opponent was MYTHOS get an animated blood-red
+         * boss-tier treatment to call them out at a glance. The row body
+         * pulses a subtle crimson wash + box-shadow halo, the left edge
+         * carries a hot vertical stripe, and a slow diagonal sheen sweeps
+         * across to mark them as "rare encounter" entries. The hover
+         * styling above is overridden so the animation continues to read
+         * even while the cursor is over the row. */
+        .career-row.mythos-row {
+          position: relative;
+          background: rgba(127,29,29,0.08) !important;
+          border-bottom: 1px solid rgba(220,38,38,0.45) !important;
+          animation: careerMythosGlow 2.4s ease-in-out infinite;
+        }
+        .career-row.mythos-row:hover {
+          background: rgba(127,29,29,0.16) !important;
+        }
+        .career-row.mythos-row::before {
+          content: "";
+          position: absolute;
+          left: 0;
+          top: 0;
+          bottom: 0;
+          width: 3px;
+          background: linear-gradient(180deg, rgba(220,38,38,0) 0%, rgba(220,38,38,1) 25%, rgba(239,68,68,1) 50%, rgba(220,38,38,1) 75%, rgba(220,38,38,0) 100%);
+          box-shadow: 0 0 12px rgba(220,38,38,0.85), 0 0 20px rgba(220,38,38,0.55);
+          animation: careerMythosStripe 1.6s ease-in-out infinite;
+          pointer-events: none;
+        }
+        .career-row.mythos-row::after {
+          content: "";
+          position: absolute;
+          inset: 0;
+          background: linear-gradient(120deg, rgba(220,38,38,0) 30%, rgba(220,38,38,0.18) 50%, rgba(220,38,38,0) 70%);
+          background-size: 220% 100%;
+          background-repeat: no-repeat;
+          animation: careerMythosSheen 3.2s linear infinite;
+          pointer-events: none;
+        }
+        @keyframes careerMythosGlow {
+          0%,100% { box-shadow: inset 0 0 0 1px rgba(220,38,38,0.18), 0 0 16px rgba(220,38,38,0.10); }
+          50%     { box-shadow: inset 0 0 0 1px rgba(220,38,38,0.55), 0 0 28px rgba(220,38,38,0.32); }
+        }
+        @keyframes careerMythosStripe {
+          0%,100% { opacity: 0.7; transform: scaleY(0.92); }
+          50%     { opacity: 1;   transform: scaleY(1);    }
+        }
+        @keyframes careerMythosSheen {
+          0%   { background-position: -200% 0; }
+          100% { background-position: 200% 0;  }
         }
         .career-scroll::-webkit-scrollbar { width: 5px; }
         .career-scroll::-webkit-scrollbar-track { background: transparent; }

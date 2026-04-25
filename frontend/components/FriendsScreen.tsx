@@ -7,8 +7,11 @@ import API, { openWs } from "@/lib/api";
 import { useAuthStore } from "@/lib/store";
 import { BannerRenderer } from "./BannerRenderer";
 import { NavRankBadge, RANKS, getRank } from "./NavBar";
-import { clearFriendsNavBadge, setFriendsNavBadgeCount } from "@/lib/navBadgeState";
-import { useApp } from "@/components/AppShell";
+import {
+  clearFriendsNavBadge,
+  requestFriendsBadgeRefresh,
+  setFriendsNavBadgeCount,
+} from "@/lib/navBadgeState";
 import { censorText, containsProfanity } from "@/lib/profanity";
 
 interface Friend {
@@ -31,13 +34,6 @@ interface FriendRequest {
   from: Friend;
   created_at: string | null;
   source?: string;
-}
-
-interface FriendInvite {
-  id: string;
-  from: Friend;
-  board_mode: string;
-  expires_at: string;
 }
 
 type ContextMenuState = {
@@ -73,11 +69,9 @@ export default function FriendsScreen({ themeId, onHoverAction }: Props) {
   const router = useRouter();
   const { user, token } = useAuthStore();
   const meId = (user as any)?.id || (user as any)?._id || "";
-  const { handleRoomReady } = useApp();
 
   const [friends, setFriends] = useState<Friend[]>([]);
   const [requests, setRequests] = useState<FriendRequest[]>([]);
-  const [invites, setInvites] = useState<FriendInvite[]>([]);
   const [friendCode, setFriendCode] = useState<string>("");
   const [addCodeInput, setAddCodeInput] = useState<string>("");
   const [addMsg, setAddMsg] = useState<{ ok: boolean; text: string } | null>(null);
@@ -101,19 +95,19 @@ export default function FriendsScreen({ themeId, onHoverAction }: Props) {
   const fetchAll = useCallback(async () => {
     if (!token) return;
     try {
-      const [listRes, reqRes, invRes, codeRes] = await Promise.all([
+      // Match-invite endpoint removed from the client — players now
+      // share custom-room codes through DM instead of in-app invites.
+      const [listRes, reqRes, codeRes] = await Promise.all([
         API.get("/api/friends/list"),
         API.get("/api/friends/requests"),
-        API.get("/api/friends/invites"),
         API.get("/api/friends/me/code"),
       ]);
       setFriends(listRes.data?.friends ?? []);
       setRequests(reqRes.data?.requests ?? []);
-      setInvites(invRes.data?.invites ?? []);
       setFriendCode(String(codeRes.data?.friend_code ?? ""));
       const unreadDm = Number(listRes.data?.unread_dm_count ?? 0);
       setFriendsNavBadgeCount(
-        (reqRes.data?.requests?.length ?? 0) + (invRes.data?.invites?.length ?? 0) + unreadDm,
+        (reqRes.data?.requests?.length ?? 0) + unreadDm,
       );
     } catch {
       /* transient — the poller will retry */
@@ -167,6 +161,7 @@ export default function FriendsScreen({ themeId, onHoverAction }: Props) {
       await API.post(`/api/friends/requests/${r.id}/accept`);
       showToast(`${r.from.username} added.`);
       await fetchAll();
+      requestFriendsBadgeRefresh();
     } catch {
       showToast("Could not accept.");
     }
@@ -176,46 +171,7 @@ export default function FriendsScreen({ themeId, onHoverAction }: Props) {
     try {
       await API.post(`/api/friends/requests/${r.id}/decline`);
       await fetchAll();
-    } catch {
-      /* ignore */
-    }
-  }, [fetchAll]);
-
-  const acceptInvite = useCallback(async (inv: FriendInvite) => {
-    try {
-      const res = await API.post(`/api/friends/invites/${inv.id}/accept`);
-      const roomCode = String(res.data?.room_code || "");
-      const slot = (res.data?.player_slot || "P2") as "P1" | "P2";
-      const boardMode = String(res.data?.board_mode || "5x5_6x6_7x7");
-      let roomPayload: any = { board_mode: boardMode, source: "friend_invite" };
-      try {
-        const roomRes = await API.get(`/api/room/queue/status/${roomCode}`);
-        roomPayload = roomRes?.data ?? roomPayload;
-      } catch {
-        /* fallback to minimal payload */
-      }
-      showToast(`Joining ${inv.from.username}'s match…`);
-      handleRoomReady(roomCode, slot, "unranked", {
-        opponent: {
-          name: inv.from.username,
-          elo: inv.from.elo,
-          avatar: inv.from.avatar,
-          banner: inv.from.banner,
-          level: inv.from.level,
-          placement_matches: inv.from.placement_matches,
-        },
-      }, roomPayload);
-    } catch (err: any) {
-      const msg = err?.response?.data?.detail || "Could not join match.";
-      showToast(String(msg));
-      fetchAll();
-    }
-  }, [handleRoomReady, showToast, fetchAll]);
-
-  const declineInvite = useCallback(async (inv: FriendInvite) => {
-    try {
-      await API.post(`/api/friends/invites/${inv.id}/decline`);
-      await fetchAll();
+      requestFriendsBadgeRefresh();
     } catch {
       /* ignore */
     }
@@ -228,21 +184,6 @@ export default function FriendsScreen({ themeId, onHoverAction }: Props) {
       await fetchAll();
     } catch {
       showToast("Could not remove friend.");
-    }
-  }, [fetchAll, showToast]);
-
-  const sendInvite = useCallback(async (f: Friend) => {
-    if (!f.online) {
-      showToast("Friend is offline — invites disabled.");
-      return;
-    }
-    try {
-      await API.post("/api/friends/invite", { friend_id: f.id });
-      showToast(`Invite sent to ${f.username}.`);
-      await fetchAll();
-    } catch (err: any) {
-      const msg = err?.response?.data?.detail || "Could not send invite.";
-      showToast(String(msg));
     }
   }, [fetchAll, showToast]);
 
@@ -271,6 +212,12 @@ export default function FriendsScreen({ themeId, onHoverAction }: Props) {
     try {
       const res = await API.get(`/api/friends/messages/${f.id}`);
       setDmModal((d) => d && { ...d, loading: false, messages: res.data?.messages ?? [] });
+      // `/api/friends/messages/{id}` marks inbound messages as read
+      // server-side. Without this nudge, the nav badge + home-notice
+      // banner would keep showing stale unread counts until the 30s
+      // poller catches up. AppShell listens for this event and
+      // immediately recomputes pending requests + unread DM totals.
+      requestFriendsBadgeRefresh();
     } catch {
       setDmModal((d) => d && { ...d, loading: false });
     }
@@ -678,11 +625,12 @@ export default function FriendsScreen({ themeId, onHoverAction }: Props) {
           </div>
         </div>
 
-        {/* Pending requests */}
-        {(requests.length > 0 || invites.length > 0) && (
+        {/* Pending friend requests — match-invites were removed from the client;
+            players now share custom-room codes via DM chat instead. */}
+        {requests.length > 0 && (
           <div style={{ background: t.bgPanel, border: `1px solid ${t.border}`, borderRadius: 12, padding: 16, marginBottom: 24 }}>
             <div style={{ fontFamily: t.fontMono, fontSize: 11, color: t.textMuted, letterSpacing: "0.2em", marginBottom: 10 }}>
-              PENDING · {requests.length} REQUEST{requests.length === 1 ? "" : "S"} · {invites.length} INVITE{invites.length === 1 ? "" : "S"}
+              PENDING · {requests.length} REQUEST{requests.length === 1 ? "" : "S"}
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               {requests.map((r) => (
@@ -700,28 +648,6 @@ export default function FriendsScreen({ themeId, onHoverAction }: Props) {
                     </button>
                     <button
                       onClick={() => declineRequest(r)}
-                      style={{ padding: "5px 10px", background: "transparent", border: `1px solid ${t.border}`, borderRadius: 6, color: t.textMuted, fontFamily: t.fontMono, fontSize: 11, fontWeight: 700, cursor: "pointer" }}
-                    >
-                      DECLINE
-                    </button>
-                  </div>
-                </div>
-              ))}
-              {invites.map((inv) => (
-                <div key={inv.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: 8, border: `1px solid ${t.accent}55`, borderRadius: 8, background: `${t.accent}08` }}>
-                  <span style={{ fontFamily: t.fontMono, fontSize: 11, color: t.accent, letterSpacing: "0.1em" }}>MATCH INVITE</span>
-                  <span style={{ fontFamily: t.fontDisplay, fontWeight: 700, color: t.text }}>{inv.from.username}</span>
-                  <span style={{ fontFamily: t.fontMono, fontSize: 11, color: t.textMuted }}>{inv.board_mode}</span>
-                  <div style={{ marginLeft: "auto", display: "flex", gap: 6 }}>
-                    <button
-                      onClick={() => acceptInvite(inv)}
-                      onMouseEnter={onHoverAction}
-                      style={{ padding: "5px 10px", background: t.accent, border: `1px solid ${t.accent}`, borderRadius: 6, color: "#fff", fontFamily: t.fontMono, fontSize: 11, fontWeight: 800, cursor: "pointer" }}
-                    >
-                      JOIN
-                    </button>
-                    <button
-                      onClick={() => declineInvite(inv)}
                       style={{ padding: "5px 10px", background: "transparent", border: `1px solid ${t.border}`, borderRadius: 6, color: t.textMuted, fontFamily: t.fontMono, fontSize: 11, fontWeight: 700, cursor: "pointer" }}
                     >
                       DECLINE
@@ -803,15 +729,9 @@ export default function FriendsScreen({ themeId, onHoverAction }: Props) {
           onClick={(e) => e.stopPropagation()}
         >
           {([
+            // Match-invite action intentionally removed — players now
+            // share custom-room codes through DM chat instead.
             { key: "profile", label: "Show profile", onClick: () => openProfile(contextMenu.friend) },
-            {
-              key: "invite",
-              label: contextMenu.friend.online
-                ? "Invite to unranked"
-                : "Friend is offline — invite disabled",
-              onClick: () => sendInvite(contextMenu.friend),
-              disabled: !contextMenu.friend.online,
-            },
             { key: "message", label: "Send message", onClick: () => openDM(contextMenu.friend) },
             { key: "career", label: "View career", onClick: () => openCareer(contextMenu.friend) },
             { key: "remove", label: "Remove friend", onClick: () => removeFriend(contextMenu.friend), danger: true },

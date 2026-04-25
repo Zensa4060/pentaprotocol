@@ -45,6 +45,26 @@ interface MatchResultScreenProps {
   };
   onQuit: () => void;
   onFindNewMatch?: () => void;
+  /**
+   * Unranked / bot matches swap the ranked-tier emblem at the top of the
+   * result banner for the viewer's own profile picture. The caller can
+   * pass either a URL (served image) or an emoji / unicode glyph; if both
+   * are null the section simply collapses so layout stays symmetric.
+   */
+  playerAvatarUrl?: string | null;
+  playerAvatarEmoji?: string | null;
+  /**
+   * MYTHOS encounter wiring (boss-tier filler bot). When `isMythos` is
+   * true the screen swaps the focal emblem for the MYTHOS PFP, prints
+   * a win/loss flavor line, and — on the player's first-ever MYTHOS
+   * defeat — surfaces the boss-tier reward banner (+100k XP + free
+   * board skin). The bonus / first-defeat fields originate in the
+   * `/api/profile/claim-unranked-bot-series` response.
+   */
+  isMythos?: boolean;
+  mythosPfpUrl?: string | null;
+  mythosFirstDefeat?: boolean;
+  mythosXpBonus?: number;
 }
 
 export default function MatchResultScreen({
@@ -56,6 +76,12 @@ export default function MatchResultScreen({
   t,
   onQuit,
   onFindNewMatch,
+  playerAvatarUrl,
+  playerAvatarEmoji,
+  isMythos = false,
+  mythosPfpUrl = null,
+  mythosFirstDefeat = false,
+  mythosXpBonus = 0,
 }: MatchResultScreenProps) {
   const [showOptions, setShowOptions] = useState(false);
   const [counter, setCounter] = useState(0);
@@ -77,8 +103,29 @@ export default function MatchResultScreen({
 
   const p1c = "#3B82F6";
   const p2c = "#EF4444";
-  const winnerColor = seriesWinner === "P1" ? p1c : seriesWinner === "P2" ? p2c : t.gold;
+  // MYTHOS encounters override the standard P1/P2 winner palette with a
+  // boss-tier reading:
+  //   • Player BEAT MYTHOS  → violet "victory" wash (the player just
+  //     toppled a boss, treat it as a celebratory moment).
+  //   • MYTHOS BEAT player  → blood-red wash (MYTHOS taunt-tier loss).
+  //   • DRAW                → keep the gold neutral tint.
+  // The flavor quote below mirrors the same colour so the title + line
+  // read as a single beat instead of two clashing palettes.
+  const mythosVictoryViolet = "#C084FC";
+  const mythosBossCrimson  = "#DC2626";
+  const mythosWonMatch = !!(isMythos && !isDraw && seriesWinner !== mySlot);
+  const playerBeatMythos = !!(isMythos && !isDraw && seriesWinner === mySlot);
+  const winnerColor = isMythos
+    ? (isDraw ? t.gold : (mythosWonMatch ? mythosBossCrimson : mythosVictoryViolet))
+    : (seriesWinner === "P1" ? p1c : seriesWinner === "P2" ? p2c : t.gold);
   const winnerName = seriesWinner === "P1" ? p1.name : seriesWinner === "P2" ? p2.name : "DRAW";
+  // Verbatim quotes — keep the user-supplied wording (including the
+  // intentional "you better me" phrasing) so the in-game tone is exact.
+  const mythosQuote = mythosWonMatch
+    ? "until next time mortal..."
+    : playerBeatMythos
+      ? "you better me, you have grown."
+      : null;
   const winnerEloAfter =
     seriesWinner === "P1" ? p1.elo_after : seriesWinner === "P2" ? p2.elo_after : 0;
   const winnerRank = useMemo(() => {
@@ -209,13 +256,105 @@ export default function MatchResultScreen({
             minWidth: 160,
           }}
         >
-          {isRanked && (
+          {isRanked ? (
             <NavRankBadge 
               rank={isDraw ? rankAfter : winnerRank} 
               size={120} 
               isPlacement={isDraw ? myData.was_placement : (seriesWinner === "P1" ? p1.was_placement : p2.was_placement)} 
             />
-          )}
+          ) : isMythos && mythosPfpUrl ? (
+            /* MYTHOS focal emblem — boss-tier purple aura mirrors the
+             * MatchPlayerCard / MatchSidebar treatment so the recap feels
+             * continuous with the in-game presence. The pulsing halo is
+             * defined inline (no global CSS file) so the screen renders
+             * standalone outside its parent layout. */
+            <div
+              style={{
+                width: 140,
+                height: 140,
+                borderRadius: "50%",
+                position: "relative",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <style>{`@keyframes mythosResultHalo{0%,100%{box-shadow:0 0 28px rgba(192,132,252,0.55),0 0 56px rgba(76,29,149,0.45),inset 0 0 14px rgba(76,29,149,0.45)}50%{box-shadow:0 0 44px rgba(192,132,252,0.85),0 0 92px rgba(76,29,149,0.65),inset 0 0 18px rgba(76,29,149,0.6)}}`}</style>
+              <div
+                style={{
+                  position: "absolute",
+                  inset: -6,
+                  borderRadius: "50%",
+                  pointerEvents: "none",
+                  background: "radial-gradient(circle at 50% 50%, rgba(192,132,252,0.35), rgba(76,29,149,0.15) 60%, transparent 80%)",
+                  filter: "blur(6px)",
+                }}
+              />
+              <div
+                style={{
+                  width: 120,
+                  height: 120,
+                  borderRadius: "50%",
+                  background: "#0B0514",
+                  border: "2px solid rgba(192,132,252,0.95)",
+                  overflow: "hidden",
+                  position: "relative",
+                  animation: "mythosResultHalo 2.4s ease-in-out infinite",
+                }}
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={mythosPfpUrl}
+                  alt="MYTHOS"
+                  style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                />
+              </div>
+            </div>
+          ) : (playerAvatarUrl || playerAvatarEmoji) ? (
+            /* Unranked / bot series swap the tier emblem for the viewer's
+             * own PFP so the banner still has a strong focal centrepiece.
+             * The ring + drop-shadow mirror the NavRankBadge's presence
+             * (120px wrapper, winner-tinted glow) so the transition feels
+             * symmetric to a ranked-match result. */
+            <div
+              style={{
+                width: 120,
+                height: 120,
+                borderRadius: "50%",
+                background: "#0B0514",
+                border: `2px solid ${winnerColor}AA`,
+                boxShadow: `0 0 32px ${winnerColor}66, inset 0 0 12px ${winnerColor}22`,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                overflow: "hidden",
+                position: "relative",
+              }}
+            >
+              {playerAvatarUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={playerAvatarUrl}
+                  alt="You"
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    objectFit: "cover",
+                  }}
+                />
+              ) : (
+                <div
+                  style={{
+                    fontSize: 68,
+                    lineHeight: 1,
+                    filter: `drop-shadow(0 0 8px ${winnerColor}66)`,
+                  }}
+                >
+                  {playerAvatarEmoji}
+                </div>
+              )}
+            </div>
+          ) : null}
         </motion.div>
 
         <div style={{ textAlign: "center" }}>
@@ -251,6 +390,32 @@ export default function MatchResultScreen({
           >
             {winnerName.toUpperCase()}
           </motion.p>
+          {isMythos && mythosQuote && (
+            /* MYTHOS taunt / concession line — italic with the boss-tier
+             * accent. Verbatim from the user spec; the wording itself is
+             * the brand identity here so we don't normalise it. */
+            <motion.p
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 1.6, duration: 0.8 }}
+              style={{
+                fontFamily: t.fontDisplay,
+                fontSize: "clamp(16px, 2.6vw, 28px)",
+                fontStyle: "italic",
+                fontWeight: 700,
+                color: winnerColor,
+                textShadow: `0 0 18px ${winnerColor}88`,
+                letterSpacing: "0.04em",
+                marginTop: 14,
+                opacity: 0.96,
+                maxWidth: "min(680px, 92vw)",
+                marginInline: "auto",
+                lineHeight: 1.4,
+              }}
+            >
+              &ldquo;{mythosQuote}&rdquo;
+            </motion.p>
+          )}
         </div>
 
         {/* Dynamic Showcase (ELO/XP) */}
@@ -369,8 +534,136 @@ export default function MatchResultScreen({
               alignItems: "center",
               gap: 24,
               zIndex: 20,
+              maxWidth: "min(720px, 92vw)",
+              padding: "0 16px",
             }}
           >
+            {isMythos && mythosFirstDefeat && (
+              /* First-time MYTHOS defeat reward callout — boss-tier
+               * crimson + gold treatment so the +100k XP and free
+               * board-skin grant feel ceremonial. The banner sits
+               * above the QUIT / FIND NEW MATCH buttons so the player
+               * actually reads it before navigating away. */
+              <motion.div
+                initial={{ opacity: 0, scale: 0.9, y: 12 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                transition={{ delay: 0.15, duration: 0.55, ease: "easeOut" }}
+                style={{
+                  width: "100%",
+                  border: "2px solid #DC2626",
+                  borderRadius: 16,
+                  padding: "18px 22px",
+                  background: "linear-gradient(135deg, rgba(127,29,29,0.55), rgba(76,29,149,0.42))",
+                  boxShadow: "0 0 38px rgba(220,38,38,0.45), inset 0 0 22px rgba(192,132,252,0.18)",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 16,
+                  flexWrap: "wrap",
+                  justifyContent: "center",
+                  textAlign: "left",
+                }}
+              >
+                {mythosPfpUrl && (
+                  <div
+                    style={{
+                      width: 56,
+                      height: 56,
+                      borderRadius: "50%",
+                      overflow: "hidden",
+                      border: "2px solid rgba(192,132,252,0.95)",
+                      background: "#0B0514",
+                      boxShadow: "0 0 18px rgba(192,132,252,0.55)",
+                      flexShrink: 0,
+                    }}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={mythosPfpUrl}
+                      alt="MYTHOS"
+                      style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                    />
+                  </div>
+                )}
+                <div style={{ minWidth: 0, flex: "1 1 280px" }}>
+                  <div
+                    style={{
+                      fontFamily: t.fontMono,
+                      fontSize: 11,
+                      color: "#FCA5A5",
+                      letterSpacing: "0.28em",
+                      fontWeight: 800,
+                      marginBottom: 4,
+                    }}
+                  >
+                    BOSS-TIER REWARD · FIRST DEFEAT
+                  </div>
+                  <div
+                    style={{
+                      fontFamily: t.fontDisplay,
+                      fontSize: "clamp(20px, 2.4vw, 26px)",
+                      fontWeight: 900,
+                      color: "#FFFFFF",
+                      letterSpacing: "0.04em",
+                      lineHeight: 1.15,
+                      textShadow: "0 0 14px rgba(220,38,38,0.55)",
+                    }}
+                  >
+                    MYTHOS FELLED
+                  </div>
+                  <div
+                    style={{
+                      marginTop: 8,
+                      display: "flex",
+                      gap: 10,
+                      flexWrap: "wrap",
+                    }}
+                  >
+                    <span
+                      style={{
+                        fontFamily: t.fontMono,
+                        fontSize: 12,
+                        fontWeight: 800,
+                        letterSpacing: "0.12em",
+                        color: "#FCD34D",
+                        background: "rgba(252,211,77,0.12)",
+                        border: "1px solid rgba(252,211,77,0.55)",
+                        borderRadius: 8,
+                        padding: "5px 10px",
+                      }}
+                    >
+                      +{(mythosXpBonus || 100000).toLocaleString()} XP
+                    </span>
+                    <span
+                      style={{
+                        fontFamily: t.fontMono,
+                        fontSize: 12,
+                        fontWeight: 800,
+                        letterSpacing: "0.12em",
+                        color: "#C084FC",
+                        background: "rgba(192,132,252,0.12)",
+                        border: "1px solid rgba(192,132,252,0.55)",
+                        borderRadius: 8,
+                        padding: "5px 10px",
+                      }}
+                    >
+                      FREE BOARD SKIN
+                    </span>
+                  </div>
+                  <div
+                    style={{
+                      marginTop: 8,
+                      fontFamily: t.fontMono,
+                      fontSize: 12.5,
+                      color: "rgba(255,255,255,0.78)",
+                      lineHeight: 1.45,
+                      letterSpacing: "0.02em",
+                    }}
+                  >
+                    Claim your free board skin from the Store — board bundles section.
+                  </div>
+                </div>
+              </motion.div>
+            )}
             <div style={{ display: "flex", gap: 20, justifyContent: "center", flexWrap: "wrap" }}>
                {onFindNewMatch && (
                  <motion.button

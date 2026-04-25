@@ -1,34 +1,37 @@
 "use client";
 
 /**
- * FriendsSidePanel — lightweight left-edge drawer rendered on the Home,
- * Lobby and Career screens so the player can peek at their friends list
- * and invite them to an unranked game without opening the full Friends
- * tab. Mirrors the core data / endpoints used by {@link FriendsScreen}:
+ * FriendsSidePanel — lightweight left-edge drawer rendered on Home, Lobby,
+ * Career and (notably) the private-room waiting screen so the player can
+ * peek at their friends list and, more importantly, chat with them to
+ * share a custom-room code. The UI deliberately no longer exposes the
+ * legacy "Invite to unranked" button — match invites were removed from
+ * the client in favour of sharing custom-room codes through chat.
  *
- *   - GET  /api/friends/list        → friends + blocked (blocked unused here)
- *   - GET  /api/friends/invites     → incoming match invites (pending)
- *   - POST /api/friends/invite      → sends an unranked invite
- *   - POST /api/friends/invites/:id/(accept|decline) → inbox actions
+ *   - GET  /api/friends/list               → friends roster
+ *   - GET  /api/friends/messages/:friendId → existing chat log (for DM modal)
+ *   - POST /api/friends/messages           → send DM
+ *   - WS   /api/friends/ws/dm              → live DM push while modal open
+ *   - DELETE /api/friends/:id              → unfriend
  *
  * A shared `pp_social_refresh` CustomEvent (dispatched from AppShell's
- * notify WebSocket) drives live refreshes so the mini list stays in sync
- * with the main Friends tab and navbar badge.
+ * notify WebSocket) drives live refreshes so this mini list stays in
+ * sync with the full Friends tab and navbar badge.
  *
- * The drawer is closed by default — the user opens it via a small edge
- * tab (kept on the left side of the viewport just below the NavBar).
- * Last-seen open/closed preference is persisted in localStorage so the
- * choice survives client-side route changes inside the current session.
+ * Panel opens via an edge tab (kept on the left side of the viewport
+ * just below the NavBar). Open/closed preference is persisted in
+ * localStorage so the choice survives client-side route changes.
  */
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { THEMES, type ThemeId } from "@/lib/themes";
-import API from "@/lib/api";
+import API, { openWs } from "@/lib/api";
 import { useAuthStore } from "@/lib/store";
 import { NavRankBadge, RANKS } from "./NavBar";
 import { BannerRenderer } from "./BannerRenderer";
-import { useApp } from "@/components/AppShell";
+import { censorText, containsProfanity } from "@/lib/profanity";
+import { requestFriendsBadgeRefresh } from "@/lib/navBadgeState";
 
 /** Shape parroted from FriendsScreen so the row visual lines up. */
 interface Friend {
@@ -46,17 +49,18 @@ interface Friend {
   online: boolean;
 }
 
-interface FriendInvite {
-  id: string;
-  from: Friend;
-  board_mode: string;
-  expires_at: string;
-}
-
 type ContextMenuState = {
   x: number;
   y: number;
   friend: Friend;
+} | null;
+
+type DMState = {
+  friend: Friend;
+  loading: boolean;
+  messages: { from_user: string; to_user: string; text: string; created_at: string | null }[];
+  draft: string;
+  sending: boolean;
 } | null;
 
 const STORAGE_KEY = "pp_friends_side_panel_open";
@@ -70,22 +74,32 @@ interface Props {
    *  starfield — callers can force that via this flag if they like,
    *  otherwise the component picks a sensible default per-theme. */
   forceSolidBackdrop?: boolean;
+  /**
+   * When the player is sitting in a private-room waiting screen, the
+   * caller can hand us the room code so we can prefill the DM draft
+   * with "Join my match: ABCDEF". Lets the player share in one click.
+   */
+  roomCodeToShare?: string;
 }
 
-export default function FriendsSidePanel({ themeId, onHoverAction, forceSolidBackdrop }: Props) {
+export default function FriendsSidePanel({ themeId, onHoverAction, forceSolidBackdrop, roomCodeToShare }: Props) {
   const t = THEMES[themeId as keyof typeof THEMES] ?? THEMES.classic_dark;
   const router = useRouter();
-  const { token } = useAuthStore();
-  const { handleRoomReady } = useApp();
+  const { user, token } = useAuthStore();
+  const meId = String((user as unknown as { id?: string; _id?: string })?.id
+    ?? (user as unknown as { id?: string; _id?: string })?._id
+    ?? "");
 
   const [open, setOpen] = useState<boolean>(false);
   const [friends, setFriends] = useState<Friend[]>([]);
-  const [invites, setInvites] = useState<FriendInvite[]>([]);
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState<string | null>(null);
   const [contextMenu, setContextMenu] = useState<ContextMenuState>(null);
   const [search, setSearch] = useState("");
+  const [dm, setDm] = useState<DMState>(null);
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const dmScrollRef = useRef<HTMLDivElement | null>(null);
+  const dmWsRef = useRef<WebSocket | null>(null);
 
   /* Hydrate open/closed state from localStorage on mount so the pref
      survives navigation between Home/Lobby/Career (all separate mounts). */
@@ -117,12 +131,8 @@ export default function FriendsSidePanel({ themeId, onHoverAction, forceSolidBac
   const fetchAll = useCallback(async () => {
     if (!token) return;
     try {
-      const [listRes, invRes] = await Promise.all([
-        API.get("/api/friends/list"),
-        API.get("/api/friends/invites"),
-      ]);
+      const listRes = await API.get("/api/friends/list");
       setFriends(listRes.data?.friends ?? []);
-      setInvites(invRes.data?.invites ?? []);
     } catch {
       /* silent — polling will retry */
     } finally {
@@ -159,60 +169,132 @@ export default function FriendsSidePanel({ themeId, onHoverAction, forceSolidBac
     };
   }, [contextMenu]);
 
-  const sendInvite = useCallback(async (f: Friend) => {
-    if (!f.online) {
-      showToast("Friend is offline — invites disabled.");
-      return;
-    }
-    try {
-      await API.post("/api/friends/invite", { friend_id: f.id });
-      showToast(`Invite sent to ${f.username}.`);
-      await fetchAll();
-    } catch (err) {
-      const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
-      showToast(String(msg || "Could not send invite."));
-    }
-  }, [fetchAll, showToast]);
+  /* ── Chat (DM) modal ────────────────────────────────────────────────── */
 
-  const acceptInvite = useCallback(async (inv: FriendInvite) => {
+  const openDM = useCallback(async (f: Friend, prefillCode?: string) => {
+    const prefill = prefillCode ? `Join my match: ${prefillCode}` : "";
+    setDm({ friend: f, loading: true, messages: [], draft: prefill, sending: false });
+    // Make sure the panel is open so the modal actually shows to the user.
+    persistOpen(true);
     try {
-      const res = await API.post(`/api/friends/invites/${inv.id}/accept`);
-      const roomCode = String(res.data?.room_code || "");
-      const slot = (res.data?.player_slot || "P2") as "P1" | "P2";
-      const boardMode = String(res.data?.board_mode || "5x5_6x6_7x7");
-      let roomPayload: Record<string, unknown> = { board_mode: boardMode, source: "friend_invite" };
+      const res = await API.get(`/api/friends/messages/${f.id}`);
+      setDm((d) => d && { ...d, loading: false, messages: res.data?.messages ?? [] });
+      // Opening the thread marks the inbound messages as read on the
+      // server. Nudge AppShell to refresh the friends badge + clear any
+      // stale "new message" home-notice banner immediately instead of
+      // waiting for the 30s poller.
+      requestFriendsBadgeRefresh();
+    } catch {
+      setDm((d) => d && { ...d, loading: false });
+    }
+  }, [persistOpen]);
+
+  const closeDM = useCallback(() => {
+    setDm(null);
+  }, []);
+
+  const sendDM = useCallback(async () => {
+    if (!dm) return;
+    const text = dm.draft.trim();
+    if (!text) return;
+    if (containsProfanity(text)) {
+      showToast("Message filtered for inappropriate language.");
+    }
+    const filtered = censorText(text);
+    setDm((d) => d && { ...d, sending: true });
+    try {
+      await API.post("/api/friends/messages", { to_user: dm.friend.id, text: filtered });
+      setDm((d) => d && { ...d, sending: false, draft: "" });
+    } catch {
+      setDm((d) => d && { ...d, sending: false });
+    }
+  }, [dm, showToast]);
+
+  /* Live DM websocket — identical pattern to FriendsScreen. Only active
+     while the DM modal is open. */
+  useEffect(() => {
+    if (!dm || !token) return;
+    const friendId = String(dm.friend.id);
+    const selfId = meId;
+    let closed = false;
+
+    const connect = async () => {
       try {
-        const roomRes = await API.get(`/api/room/queue/status/${roomCode}`);
-        roomPayload = roomRes?.data ?? roomPayload;
+        const ws = await openWs("/api/friends/ws/dm");
+        if (closed) { try { ws.close(); } catch {} return; }
+        dmWsRef.current = ws;
+        ws.onmessage = (event) => {
+          let data: unknown = null;
+          try { data = JSON.parse(event.data); } catch { return; }
+          const d = data as { type?: string; message?: { from_user?: string; to_user?: string; text?: string; created_at?: string } };
+          if (d?.type !== "dm_message" || !d?.message) return;
+          const msg = d.message;
+          const fromId = String(msg.from_user ?? "");
+          const toId = String(msg.to_user ?? "");
+          const isForActiveThread =
+            (fromId === selfId && toId === friendId) ||
+            (fromId === friendId && toId === selfId);
+          if (!isForActiveThread) return;
+          setDm((cur) => {
+            if (!cur || String(cur.friend.id) !== friendId) return cur;
+            return {
+              ...cur,
+              messages: [...cur.messages, {
+                from_user: fromId,
+                to_user: toId,
+                text: String(msg.text ?? ""),
+                created_at: msg.created_at ? String(msg.created_at) : null,
+              }].slice(-500),
+            };
+          });
+        };
+        ws.onclose = () => {
+          if (dmWsRef.current === ws) dmWsRef.current = null;
+        };
       } catch {
-        /* fall back to minimal payload */
+        /* fall back to post-only — messages still send via HTTP */
       }
-      showToast(`Joining ${inv.from.username}'s match…`);
-      handleRoomReady(roomCode, slot, "unranked", {
-        opponent: {
-          name: inv.from.username,
-          elo: inv.from.elo,
-          avatar: inv.from.avatar,
-          banner: inv.from.banner,
-          level: inv.from.level,
-          placement_matches: inv.from.placement_matches,
-        },
-      }, roomPayload);
-    } catch (err) {
-      const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
-      showToast(String(msg || "Could not join match."));
-      void fetchAll();
-    }
-  }, [fetchAll, handleRoomReady, showToast]);
+    };
 
-  const declineInvite = useCallback(async (inv: FriendInvite) => {
+    connect();
+
+    return () => {
+      closed = true;
+      const ws = dmWsRef.current;
+      dmWsRef.current = null;
+      if (ws) { try { ws.close(); } catch {} }
+    };
+  }, [dm?.friend.id, meId, token]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  /* Keep scroll pinned to the latest message. */
+  useEffect(() => {
+    if (!dm || dm.loading) return;
+    const el = dmScrollRef.current;
+    if (!el) return;
+    window.requestAnimationFrame(() => {
+      if (dmScrollRef.current) {
+        dmScrollRef.current.scrollTop = dmScrollRef.current.scrollHeight;
+      }
+    });
+  }, [dm?.loading, dm?.messages.length]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  /* ── Friend actions ─────────────────────────────────────────────────── */
+
+  const removeFriend = useCallback(async (f: Friend) => {
     try {
-      await API.post(`/api/friends/invites/${inv.id}/decline`);
+      await API.delete(`/api/friends/${f.id}`);
+      showToast(`${f.username} removed.`);
+      if (dm && String(dm.friend.id) === String(f.id)) setDm(null);
       await fetchAll();
     } catch {
-      /* ignore */
+      showToast("Could not remove friend.");
     }
-  }, [fetchAll]);
+  }, [dm, fetchAll, showToast]);
+
+  const goToFullTab = useCallback((params?: string) => {
+    onHoverAction?.();
+    router.push(params ? `/friends${params}` : "/friends");
+  }, [onHoverAction, router]);
 
   /* Online friends first, then offline; within each group alphabetically. */
   const sortedFriends = useMemo(() => {
@@ -378,7 +460,7 @@ export default function FriendsSidePanel({ themeId, onHoverAction, forceSolidBac
           <div style={{ display: "flex", gap: 6 }}>
             <button
               type="button"
-              onClick={() => { onHoverAction?.(); router.push("/friends"); }}
+              onClick={() => goToFullTab()}
               onMouseEnter={onHoverAction}
               title="Open full Friends tab"
               style={{
@@ -417,6 +499,29 @@ export default function FriendsSidePanel({ themeId, onHoverAction, forceSolidBac
           </div>
         </div>
 
+        {/* Room-code share hint — only shown while the caller is in a
+            private waiting room. Helps users understand the intended
+            flow now that match-invites were removed. */}
+        {roomCodeToShare && !dm && (
+          <div
+            style={{
+              padding: "10px 14px",
+              borderBottom: `1px solid ${t.accent}33`,
+              background: `${t.accent}10`,
+              fontFamily: t.fontMono,
+              fontSize: 11,
+              color: t.text,
+              letterSpacing: "0.06em",
+              lineHeight: 1.45,
+            }}
+          >
+            <div style={{ color: t.accent, fontWeight: 800, letterSpacing: "0.16em", marginBottom: 4 }}>
+              ROOM · {roomCodeToShare.toUpperCase()}
+            </div>
+            Right-click a friend → <span style={{ color: t.accent }}>Send message</span> to share this code.
+          </div>
+        )}
+
         {/* Search. */}
         <div style={{ padding: "10px 14px", borderBottom: `1px solid ${t.border}44` }}>
           <input
@@ -440,102 +545,6 @@ export default function FriendsSidePanel({ themeId, onHoverAction, forceSolidBac
 
         {/* Scroll area. */}
         <div style={{ flex: 1, overflowY: "auto", padding: "10px 12px 16px" }}>
-          {/* Incoming match invites — shown first because they're short-TTL. */}
-          {invites.length > 0 && (
-            <div style={{ marginBottom: 14 }}>
-              <div
-                style={{
-                  fontFamily: t.fontMono,
-                  fontSize: 10,
-                  letterSpacing: "0.14em",
-                  color: t.accent,
-                  textTransform: "uppercase",
-                  marginBottom: 6,
-                }}
-              >
-                Match invites · {invites.length}
-              </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                {invites.map((inv) => (
-                  <div
-                    key={inv.id}
-                    style={{
-                      padding: "8px 10px",
-                      background: `${t.accent}10`,
-                      border: `1px solid ${t.accent}55`,
-                      borderRadius: 8,
-                      display: "flex",
-                      flexDirection: "column",
-                      gap: 6,
-                    }}
-                  >
-                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div
-                          style={{
-                            fontFamily: t.fontDisplay,
-                            fontSize: 13,
-                            fontWeight: 800,
-                            color: t.text,
-                            overflow: "hidden",
-                            textOverflow: "ellipsis",
-                            whiteSpace: "nowrap",
-                          }}
-                        >
-                          {inv.from.username}
-                        </div>
-                        <div style={{ fontFamily: t.fontMono, fontSize: 9, color: t.textMuted, letterSpacing: "0.08em" }}>
-                          WANTS TO PLAY · {inv.board_mode.toUpperCase()}
-                        </div>
-                      </div>
-                    </div>
-                    <div style={{ display: "flex", gap: 6 }}>
-                      <button
-                        type="button"
-                        onClick={() => acceptInvite(inv)}
-                        onMouseEnter={onHoverAction}
-                        style={{
-                          flex: 1,
-                          padding: "6px 10px",
-                          background: `${t.success}33`,
-                          border: `1px solid ${t.success}`,
-                          borderRadius: 6,
-                          color: t.success,
-                          fontFamily: t.fontMono,
-                          fontSize: 11,
-                          fontWeight: 800,
-                          letterSpacing: "0.08em",
-                          cursor: "pointer",
-                        }}
-                      >
-                        JOIN
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => declineInvite(inv)}
-                        onMouseEnter={onHoverAction}
-                        style={{
-                          padding: "6px 10px",
-                          background: "transparent",
-                          border: `1px solid ${t.border}`,
-                          borderRadius: 6,
-                          color: t.textMuted,
-                          fontFamily: t.fontMono,
-                          fontSize: 11,
-                          fontWeight: 800,
-                          letterSpacing: "0.08em",
-                          cursor: "pointer",
-                        }}
-                      >
-                        DECLINE
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
           {/* Friend list. */}
           {loading ? (
             <div style={{ color: t.textMuted, fontFamily: t.fontMono, fontSize: 11, padding: "12px 4px" }}>
@@ -560,8 +569,15 @@ export default function FriendsSidePanel({ themeId, onHoverAction, forceSolidBac
                       e.stopPropagation();
                       setContextMenu({ x: e.clientX, y: e.clientY, friend: f });
                     }}
+                    onClick={() => {
+                      // Single-click opens the chat. Sharing a room code is
+                      // the primary reason the waiting-screen player opened
+                      // this panel in the first place, so getting them into
+                      // a thread with one tap is the UX we want.
+                      void openDM(f, roomCodeToShare);
+                    }}
                     onMouseEnter={onHoverAction}
-                    title="Right-click for options"
+                    title="Click to chat · right-click for more"
                     style={{
                       position: "relative",
                       display: "flex",
@@ -571,7 +587,7 @@ export default function FriendsSidePanel({ themeId, onHoverAction, forceSolidBac
                       background: t.bgPanel,
                       border: `1px solid ${f.online ? `${t.accent}44` : `${t.border}66`}`,
                       borderRadius: 8,
-                      cursor: "context-menu",
+                      cursor: "pointer",
                       overflow: "hidden",
                       opacity: dim ? 0.55 : 1,
                       filter: dim ? "grayscale(0.85)" : "none",
@@ -689,11 +705,11 @@ export default function FriendsSidePanel({ themeId, onHoverAction, forceSolidBac
             textTransform: "uppercase",
           }}
         >
-          Right-click a friend for options
+          Click to chat · right-click for options
         </div>
       </aside>
 
-      {/* Context menu — reuses the same actions as the full Friends tab. */}
+      {/* Context menu — lean post-invite-removal: profile / message / career / remove. */}
       {contextMenu && (
         <div
           onMouseDown={(e) => e.stopPropagation()}
@@ -713,25 +729,33 @@ export default function FriendsSidePanel({ themeId, onHoverAction, forceSolidBac
         >
           {([
             {
-              key: "invite",
-              label: contextMenu.friend.online
-                ? "Invite to unranked"
-                : "Friend is offline — invite disabled",
-              onClick: () => sendInvite(contextMenu.friend),
-              disabled: !contextMenu.friend.online,
+              key: "message",
+              label: roomCodeToShare ? "Send message · share code" : "Send message",
+              onClick: () => void openDM(contextMenu.friend, roomCodeToShare),
+              danger: false,
             },
             {
-              key: "open-tab",
-              label: "Open friends tab",
-              onClick: () => router.push("/friends"),
-              disabled: false,
+              key: "profile",
+              label: "Open profile in Friends tab",
+              onClick: () => goToFullTab(`?profile=${contextMenu.friend.id}`),
+              danger: false,
+            },
+            {
+              key: "career",
+              label: "View career",
+              onClick: () => goToFullTab(`?career=${contextMenu.friend.id}`),
+              danger: false,
+            },
+            {
+              key: "remove",
+              label: "Remove friend",
+              onClick: () => removeFriend(contextMenu.friend),
+              danger: true,
             },
           ] as const).map((item) => (
             <button
               key={item.key}
-              disabled={item.disabled}
               onClick={() => {
-                if (item.disabled) return;
                 setContextMenu(null);
                 item.onClick();
               }}
@@ -743,11 +767,10 @@ export default function FriendsSidePanel({ themeId, onHoverAction, forceSolidBac
                 background: "transparent",
                 border: "none",
                 borderBottom: `1px solid ${t.border}33`,
-                color: t.text,
+                color: item.danger ? t.danger : t.text,
                 fontFamily: t.fontBody,
                 fontSize: 13,
-                cursor: item.disabled ? "default" : "pointer",
-                opacity: item.disabled ? 0.45 : 1,
+                cursor: "pointer",
                 transition: "background 0.15s",
               }}
               onMouseOver={(e) => { (e.currentTarget as HTMLElement).style.background = `${t.accent}10`; }}
@@ -756,6 +779,124 @@ export default function FriendsSidePanel({ themeId, onHoverAction, forceSolidBac
               {item.label}
             </button>
           ))}
+        </div>
+      )}
+
+      {/* Inline DM chat modal — centered, no route change, so a player who
+          opened this on the private-room waiting screen doesn't lose their
+          place. Mirrors the chat UI used by FriendsScreen's dmModal. */}
+      {dm && (
+        <div
+          onClick={closeDM}
+          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.72)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 600 }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: "min(520px, 92vw)",
+              maxHeight: "80vh",
+              display: "flex",
+              flexDirection: "column",
+              background: t.bgPanel,
+              border: `1px solid ${t.border}`,
+              borderRadius: 14,
+              padding: 18,
+              overflow: "hidden",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+              <div style={{ fontFamily: t.fontDisplay, fontSize: 18, fontWeight: 800, color: t.text }}>
+                Chat · {dm.friend.username}
+              </div>
+              <button onClick={closeDM} style={{ background: "transparent", border: `1px solid ${t.border}`, color: t.textMuted, padding: "4px 10px", borderRadius: 6, fontFamily: t.fontMono, fontSize: 11, cursor: "pointer" }}>CLOSE</button>
+            </div>
+
+            {/* Quick-share strip — only shown when the caller gave us a
+                room code to offer. One click inserts the template. */}
+            {roomCodeToShare && (
+              <button
+                type="button"
+                onClick={() => setDm((d) => d && { ...d, draft: `Join my match: ${roomCodeToShare.toUpperCase()}` })}
+                onMouseEnter={onHoverAction}
+                style={{
+                  marginBottom: 10,
+                  padding: "8px 12px",
+                  background: `${t.accent}14`,
+                  border: `1px dashed ${t.accent}88`,
+                  borderRadius: 8,
+                  color: t.accent,
+                  fontFamily: t.fontMono,
+                  fontSize: 11,
+                  fontWeight: 800,
+                  letterSpacing: "0.12em",
+                  cursor: "pointer",
+                  textAlign: "center",
+                }}
+              >
+                INSERT ROOM CODE · {roomCodeToShare.toUpperCase()}
+              </button>
+            )}
+
+            <div
+              ref={dmScrollRef}
+              style={{ flex: 1, overflowY: "auto", border: `1px solid ${t.border}`, borderRadius: 8, padding: 10, marginBottom: 10, minHeight: 180, maxHeight: 380 }}
+            >
+              {dm.loading ? (
+                <div style={{ color: t.textMuted, fontFamily: t.fontMono }}>Loading…</div>
+              ) : dm.messages.length === 0 ? (
+                <div style={{ color: t.textMuted, fontFamily: t.fontMono, textAlign: "center", padding: 20 }}>No messages yet.</div>
+              ) : (
+                dm.messages.map((m, i) => {
+                  const mine = String(m.from_user) === meId;
+                  return (
+                    <div key={i} style={{ display: "flex", justifyContent: mine ? "flex-end" : "flex-start", marginBottom: 6 }}>
+                      <div
+                        style={{
+                          maxWidth: "78%",
+                          padding: "6px 10px",
+                          background: mine ? `${t.accent}22` : t.bgCard,
+                          border: `1px solid ${mine ? t.accent : t.border}`,
+                          borderRadius: 8,
+                          fontFamily: t.fontBody,
+                          fontSize: 13,
+                          color: t.text,
+                          wordBreak: "break-word",
+                        }}
+                      >
+                        {m.text}
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <input
+                value={dm.draft}
+                onChange={(e) => setDm((d) => d && { ...d, draft: e.target.value.slice(0, 500) })}
+                placeholder="Write a message…"
+                onKeyDown={(e) => { if (e.key === "Enter" && !dm.sending) void sendDM(); }}
+                style={{ flex: 1, padding: "10px 12px", background: t.inputBg, border: `1px solid ${t.border}`, borderRadius: 8, color: t.text, fontFamily: t.fontBody, fontSize: 13 }}
+              />
+              <button
+                onClick={sendDM}
+                disabled={!dm.draft.trim() || dm.sending}
+                style={{
+                  padding: "10px 16px",
+                  background: dm.draft.trim() ? t.accent : `${t.accent}44`,
+                  border: `1px solid ${t.accent}`,
+                  borderRadius: 8,
+                  color: "#fff",
+                  fontFamily: t.fontDisplay,
+                  fontSize: 12,
+                  fontWeight: 800,
+                  cursor: dm.draft.trim() ? "pointer" : "default",
+                }}
+              >
+                SEND
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

@@ -914,11 +914,28 @@ async def bot_move(req: BotMoveRequest, user_id: str = Depends(_bot_auth)):
             call_diff = "easy_block" if diff6 == "hard" else ("normal" if diff6 == "normal" else diff6)
             move = _PYTHON_6_ENG.choose(copy.deepcopy(board), bot, human, call_diff)
     else:
+        # 5×5 branch — honour `selected_patterns` the same way 7×7 does so
+        # unranked / filler-bot matches can pin the engine to the (up to)
+        # 5-of-6 pool chosen at queue time (LINE and DIAGONAL are handled
+        # by the straight-line win checker and intentionally stripped out
+        # of the structural pattern list here).
+        from app.core.patterns import generate_all_patterns_5
+        structural_ids = None
+        if isinstance(req.selected_patterns, list) and req.selected_patterns:
+            structural_ids = [
+                p for p in req.selected_patterns
+                if isinstance(p, str) and p not in ("LINE", "DIAGONAL")
+            ]
+        pats5 = (
+            generate_all_patterns_5(structural_ids)
+            if structural_ids is not None
+            else generate_all_patterns()
+        )
         engine_stub = type("EngineStub", (), {
             "board": board,
             "current_player": req.current_player,
             "moves_played": moves_played,
-            "shiftable_patterns": generate_all_patterns()
+            "shiftable_patterns": pats5,
         })()
         move = get_bot_move(engine_stub, req.difficulty, req.c3_blocked)
     return {"row": move[0], "col": move[1]} if move else {"row": None, "col": None}

@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useAuthStore } from "@/lib/store";
 import { POLICY_GATE_SESSION_KEY, getUserId } from "@/lib/legalAcceptance";
 import { THEMES } from "@/lib/themes";
@@ -193,6 +193,37 @@ export default function AuthScreen({ setScreenAction, themeId, audio }: Props) {
   const [isMobile, setIsMobile]     = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [googleReady, setGoogleReady]     = useState(false);
+  /**
+   * iOS Safari (and every in-app WKWebView like Instagram / Facebook / X)
+   * breaks the classic `oauth2.initTokenClient` popup flow because:
+   *   1) Safari's popup blocker kills `window.open` when GIS does any async
+   *      work between the user tap and the popup — the gesture token expires.
+   *   2) ITP strips third-party cookies for `accounts.google.com`, so even
+   *      if the popup opens, the session cannot post back.
+   *   3) Google returns `disallowed_useragent` inside in-app browsers.
+   * For real iOS Safari we hand the sign-in off to the modern Google Identity
+   * Services ID-token flow (`accounts.id.initialize` + `renderButton`), which
+   * uses FedCM / postMessage instead of a popup and returns a JWT credential
+   * the backend already accepts (see `POST /api/auth/google`). For in-app
+   * browsers we short-circuit with a "open in Safari" hint because no client
+   * fix can work around Google's WKWebView block.
+   */
+  const isIosSafari = useMemo(() => {
+    if (typeof navigator === "undefined") return false;
+    const ua = navigator.userAgent || "";
+    const platform = navigator.platform || "";
+    const iOSLegacy = /iPad|iPhone|iPod/.test(ua);
+    // iPadOS 13+ reports as "MacIntel" + touch — treat as iOS Safari too.
+    const iPadOS = platform === "MacIntel" && (navigator as Navigator & { maxTouchPoints?: number }).maxTouchPoints! > 1;
+    return iOSLegacy || iPadOS;
+  }, []);
+  const isInAppBrowser = useMemo(() => {
+    if (typeof navigator === "undefined") return false;
+    const ua = navigator.userAgent || "";
+    return /FBAN|FBAV|Instagram|Twitter|TikTok|Line\/|MicroMessenger|Snapchat|LinkedInApp/i.test(ua);
+  }, []);
+  const googleButtonSlotRef = useRef<HTMLDivElement | null>(null);
+  const [googleIdInitialized, setGoogleIdInitialized] = useState(false);
   const [particleSettings, setParticleSettings] = useState<ParticleSettings>(DEFAULT_PARTICLE_SETTINGS);
   const [showParticleControls, setShowParticleControls] = useState(false);
 
@@ -203,8 +234,75 @@ export default function AuthScreen({ setScreenAction, themeId, audio }: Props) {
   }, []);
 
   // ── GOOGLE AUTH ───────────────────────────────────────
+  /**
+   * Shared post-exchange handler. Given either an OAuth access token (popup
+   * flow) or an ID-token JWT (iOS Safari / FedCM flow), hit the backend and
+   * drive the UI through merge-consent / policy-gate / home. The backend
+   * accepts both shapes under `credential` (see `auth.py::google_auth`).
+   */
+  const exchangeGoogleCredential = useCallback(async (credential: string) => {
+    setGoogleLoading(true);
+    setErrors({});
+    setSuccessMsg("");
+    try {
+      const res = await API.post("/api/auth/google", { credential });
+
+      if (res.data.requires_merge_consent) {
+        setPendingGoogleCred(credential);
+        setTab("merge_consent");
+        return;
+      }
+
+      if (res.data.requires_policy_gate) {
+        const uid = getUserId(res.data.user);
+        if (uid) sessionStorage.setItem(POLICY_GATE_SESSION_KEY, uid);
+        setAuth(res.data.user, res.data.access_token, staySignedIn);
+        setScreenAction("policy_gate");
+      } else {
+        setAuth(res.data.user, res.data.access_token, staySignedIn);
+        setScreenAction("home");
+      }
+    } catch (err: any) {
+      const detail = err.response?.data?.detail;
+      setErrors({ general: typeof detail === "string" ? detail : "Google sign-in failed." });
+      triggerShake();
+    } finally {
+      setGoogleLoading(false);
+    }
+  }, [setAuth, setScreenAction, staySignedIn, triggerShake]);
+
   const triggerGoogleSignIn = useCallback(() => {
     if (!GOOGLE_CLIENT_ID || googleLoading) return;
+
+    // In-app browsers (Instagram, Facebook, X, TikTok, etc.) are blocked by
+    // Google with `disallowed_useragent`. No OAuth flow we can run here will
+    // succeed — tell the user to open in their real browser.
+    if (isInAppBrowser) {
+      setErrors({
+        general: "Google sign-in is blocked inside in-app browsers. Please tap the ••• menu and choose \"Open in Safari\" (or your default browser) to continue.",
+      });
+      return;
+    }
+
+    // iOS Safari path: programmatically click Google's hidden rendered
+    // button so FedCM / postMessage handles the flow instead of a popup.
+    // The click is dispatched synchronously from this user-gesture handler,
+    // which preserves activation through to Google's iframe.
+    if (isIosSafari) {
+      const slot = googleButtonSlotRef.current;
+      const gbtn = slot?.querySelector('div[role="button"]') as HTMLElement | null;
+      if (gbtn) {
+        gbtn.click();
+        return;
+      }
+      // GIS script not ready yet — fall through to surface the loading
+      // state rather than blow up silently.
+      setErrors({ general: "Google Sign-In is still loading — please try again." });
+      return;
+    }
+
+    // Desktop / Android path: the popup OAuth2 flow works fine and gives
+    // us an access token, which the backend accepts equivalently.
     const win = window as any;
     if (!win.google?.accounts?.oauth2) {
       setErrors({ general: "Google Sign-In is still loading — please try again." });
@@ -219,45 +317,12 @@ export default function AuthScreen({ setScreenAction, themeId, audio }: Props) {
           setErrors({ general: "Google sign-in was cancelled or failed." });
           return;
         }
-
-        setGoogleLoading(true);
-        setErrors({});
-        setSuccessMsg("");
-
-        try {
-          // Send only the access_token (credential) to the backend.
-          // The backend will securely verify it and fetch user info.
-          const res = await API.post("/api/auth/google", {
-            credential: tokenResponse.access_token
-          });
-
-          if (res.data.requires_merge_consent) {
-            setPendingGoogleCred(tokenResponse.access_token);
-            setTab("merge_consent");
-            return;
-          }
-
-          if (res.data.requires_policy_gate) {
-            const uid = getUserId(res.data.user);
-            if (uid) sessionStorage.setItem(POLICY_GATE_SESSION_KEY, uid);
-            setAuth(res.data.user, res.data.access_token, staySignedIn);
-            setScreenAction("policy_gate");
-          } else {
-            setAuth(res.data.user, res.data.access_token, staySignedIn);
-            setScreenAction("home");
-          }
-        } catch (err: any) {
-          const detail = err.response?.data?.detail;
-          setErrors({ general: typeof detail === "string" ? detail : "Google sign-in failed." });
-          triggerShake();
-        } finally {
-          setGoogleLoading(false);
-        }
+        await exchangeGoogleCredential(tokenResponse.access_token);
       },
     });
 
     client.requestAccessToken({ prompt: "select_account" });
-  }, [GOOGLE_CLIENT_ID, googleLoading, setAuth, setScreenAction, staySignedIn, triggerShake]);
+  }, [GOOGLE_CLIENT_ID, googleLoading, isIosSafari, isInAppBrowser, exchangeGoogleCredential]);
 
   // ── EFFECTS ───────────────────────────────────────────
   useEffect(() => {
@@ -281,6 +346,76 @@ export default function AuthScreen({ setScreenAction, themeId, audio }: Props) {
     script.onerror = () => console.warn("Google GIS script failed to load");
     document.head.appendChild(script);
   }, [GOOGLE_CLIENT_ID]);
+
+  /**
+   * Initialize the Google Identity Services ID-token flow exactly once, as
+   * soon as the GIS script is ready. The `callback` receives a JWT credential
+   * which our backend verifies via `google-auth` (access-token path still
+   * works, so we haven't broken the desktop popup flow above). We render an
+   * invisible-but-interactive Google button into `googleButtonSlotRef` so we
+   * can synthesize a click from our styled iOS button — FedCM / the GIS
+   * iframe accepts that as a trusted gesture and completes without a popup.
+   */
+  useEffect(() => {
+    if (!GOOGLE_CLIENT_ID) return;
+    if (!googleReady) return;
+    if (googleIdInitialized) return;
+    const g = (window as any).google;
+    if (!g?.accounts?.id) return;
+    try {
+      g.accounts.id.initialize({
+        client_id: GOOGLE_CLIENT_ID,
+        callback: (resp: { credential?: string; error?: string }) => {
+          if (!resp?.credential) {
+            if (resp?.error) {
+              setErrors({ general: "Google sign-in was cancelled or failed." });
+            }
+            return;
+          }
+          void exchangeGoogleCredential(resp.credential);
+        },
+        auto_select: false,
+        use_fedcm_for_prompt: true,
+        itp_support: true,
+        ux_mode: "popup",
+        context: "signin",
+      });
+      setGoogleIdInitialized(true);
+    } catch (e) {
+      console.warn("Google Identity Services init failed", e);
+    }
+  }, [GOOGLE_CLIENT_ID, googleReady, googleIdInitialized, exchangeGoogleCredential]);
+
+  /**
+   * Render Google's official sign-in button into the hidden slot whenever
+   * GIS is initialized *and* we're on iOS Safari (where we need it as the
+   * real click target). We keep it visually offscreen so our own styled
+   * button stays the UI — but still interactive so `.click()` dispatches
+   * through to Google's handler. Re-runs if the slot remounts (e.g. when
+   * the user switches between signin / signup tabs).
+   */
+  useEffect(() => {
+    if (!googleIdInitialized) return;
+    if (!isIosSafari) return;
+    const slot = googleButtonSlotRef.current;
+    if (!slot) return;
+    const g = (window as any).google;
+    if (!g?.accounts?.id) return;
+    slot.innerHTML = "";
+    try {
+      g.accounts.id.renderButton(slot, {
+        type: "standard",
+        theme: "filled_blue",
+        size: "large",
+        shape: "rectangular",
+        text: "continue_with",
+        logo_alignment: "left",
+        width: 280,
+      });
+    } catch (e) {
+      console.warn("Google Identity Services renderButton failed", e);
+    }
+  }, [googleIdInitialized, isIosSafari, tab]);
 
   // ── HANDLERS ──────────────────────────────────────────
   const validate = () => {
@@ -529,27 +664,69 @@ export default function AuthScreen({ setScreenAction, themeId, audio }: Props) {
 
   // ── Reusable Google Button ─────────────────────────────
   const GoogleBtn = ({ label }: { label: string }) => (
-    <button
-      onClick={triggerGoogleSignIn}
-      disabled={googleLoading || !googleReady}
-      style={{
-        width: "100%", padding: isMobile ? "13px 16px" : "10px 16px",
-        background: (googleLoading || !googleReady) ? "#1a1a1a" : "#ffffff",
-        border: `1px solid ${(googleLoading || !googleReady) ? "rgba(255,255,255,0.1)" : "rgba(255,255,255,0.18)"}`,
-        borderRadius: 8,
-        cursor: (googleLoading || !googleReady) ? "not-allowed" : "pointer",
-        display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
-        transition: "all 0.18s", boxShadow: "0 2px 8px rgba(0,0,0,0.4)",
-        marginTop: 6,
-      }}
-      onMouseEnter={e => { if (!googleLoading && googleReady) e.currentTarget.style.boxShadow = "0 4px 16px rgba(0,0,0,0.6)"; }}
-      onMouseLeave={e => { e.currentTarget.style.boxShadow = "0 2px 8px rgba(0,0,0,0.4)"; }}
-    >
-      {!googleLoading && googleReady && <GoogleIcon />}
-      <span style={{ fontFamily: FONT, fontSize: isMobile ? 14 : 13, fontWeight: 600, color: (googleLoading || !googleReady) ? "#555" : "#333", letterSpacing: "0.05em" }}>
-        {googleLoading ? "Please wait…" : !googleReady ? "Loading Google…" : label}
-      </span>
-    </button>
+    <>
+      <button
+        onClick={triggerGoogleSignIn}
+        disabled={googleLoading || !googleReady}
+        style={{
+          width: "100%", padding: isMobile ? "13px 16px" : "10px 16px",
+          background: (googleLoading || !googleReady) ? "#1a1a1a" : "#ffffff",
+          border: `1px solid ${(googleLoading || !googleReady) ? "rgba(255,255,255,0.1)" : "rgba(255,255,255,0.18)"}`,
+          borderRadius: 8,
+          cursor: (googleLoading || !googleReady) ? "not-allowed" : "pointer",
+          display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
+          transition: "all 0.18s", boxShadow: "0 2px 8px rgba(0,0,0,0.4)",
+          marginTop: 6,
+        }}
+        onMouseEnter={e => { if (!googleLoading && googleReady) e.currentTarget.style.boxShadow = "0 4px 16px rgba(0,0,0,0.6)"; }}
+        onMouseLeave={e => { e.currentTarget.style.boxShadow = "0 2px 8px rgba(0,0,0,0.4)"; }}
+      >
+        {!googleLoading && googleReady && <GoogleIcon />}
+        <span style={{ fontFamily: FONT, fontSize: isMobile ? 14 : 13, fontWeight: 600, color: (googleLoading || !googleReady) ? "#555" : "#333", letterSpacing: "0.05em" }}>
+          {googleLoading ? "Please wait…" : !googleReady ? "Loading Google…" : label}
+        </span>
+      </button>
+      {/*
+        Hidden Google Identity Services button (iOS Safari only). It must
+        remain in the DOM, sized non-zero, and interactive so `.click()`
+        from our styled button above dispatches as a real user gesture
+        through to Google's FedCM / postMessage handlers. Visibility is
+        driven only by offset + opacity — `display: none` and
+        `visibility: hidden` would disable the embedded iframe.
+      */}
+      {isIosSafari && (
+        <div
+          aria-hidden="true"
+          style={{
+            position: "absolute",
+            left: -9999,
+            top: -9999,
+            width: 280,
+            height: 50,
+            opacity: 0,
+            pointerEvents: "none",
+            overflow: "hidden",
+          }}
+        >
+          <div ref={googleButtonSlotRef} style={{ pointerEvents: "auto" }} />
+        </div>
+      )}
+      {isInAppBrowser && (
+        <div
+          style={{
+            marginTop: 6,
+            fontFamily: FONT,
+            fontSize: 12,
+            color: "#ffb199",
+            textAlign: "center",
+            lineHeight: 1.4,
+          }}
+        >
+          Using Instagram / Facebook / X in-app browser? Google blocks sign-in
+          here — tap the ••• menu and choose &quot;Open in Safari&quot; first.
+        </div>
+      )}
+    </>
   );
 
   const OrDivider = ({ text = "or" }: { text?: string }) => (

@@ -39,6 +39,20 @@ import {
   ROUTES,
   MAIN_NAV_PREFETCH_PATHS,
 } from "@/lib/routes";
+import {
+  MYTHOS_PFP_URL,
+  buildUnrankedBotGameUrl,
+  buildUnrankedBotRulesShowUrl,
+  numericLevelForTier,
+  pickQueueWaitMs,
+  pickRandomPatterns5x5,
+  pickUnrankedBot,
+  pickUnrankedBotBanner,
+  pickUnrankedBotEmoji,
+  simpleSizeFromBoardMode,
+  styleForLevel,
+  type PickedBot,
+} from "@/lib/unrankedBots";
 
 /**
  * Paths that do NOT require an authenticated session. Everything else
@@ -74,6 +88,7 @@ import SessionReplacedModal from "@/components/SessionReplacedModal";
 import ActiveMatchRejoinModal from "@/components/ActiveMatchRejoinModal";
 import GlobalLevelUpShowcase from "@/components/GlobalLevelUpShowcase";
 import LobbyScreen from "@/components/LobbyScreen";
+import MythosIntroScreen from "@/components/MythosIntroScreen";
 
 THEMES["custom" as ThemeId] = resolveCustomTheme(loadCustomTheme(), THEMES) as any;
 
@@ -175,6 +190,23 @@ export default function AppShell({ children }: { children: ReactNode }) {
     pathname.startsWith("/rulesshow/");
   const botQueryName = (searchParams?.get("bot") || "").toLowerCase();
   const isBotGameRoute = !!(pathname?.startsWith("/game/") && botQueryName);
+  /* MYTHOS filler-bot sessions carry `?unranked_bot=1&mythos=1&level=MYTHOS`.
+   * We surface them here so BGM selection can promote the match to the
+   * ranked track without changing any routing.
+   *
+   * Detection is anchored to `isMatchPath` (covers /game/, /rulesshow/,
+   * /ready/, /rulebreaker/, /rulechoice/) rather than `isBotGameRoute`
+   * alone — otherwise the rules-show interlude that runs BEFORE /game/
+   * mounts plays the regular "game" track for ~5 s and then snaps to
+   * the ranked track once the game URL takes over. Promoting the whole
+   * match flow to ranked keeps the boss-tier soundtrack continuous from
+   * the moment the player lands on /rulesshow/. */
+  const isMythosBotRoute =
+    isMatchPath &&
+    !!botQueryName &&
+    searchParams?.get("unranked_bot") === "1" &&
+    searchParams?.get("mythos") === "1" &&
+    (searchParams?.get("level") || "").toUpperCase() === "MYTHOS";
   const isStaticSilentPage =
     pathname === "/patchnotes" ||
     pathname === "/terms" ||
@@ -220,11 +252,35 @@ export default function AppShell({ children }: { children: ReactNode }) {
   /** Prevents overlapping /queue/status polls from each firing the VS screen (race: 2s interval, slow HTTP). */
   const matchFoundArmRef = useRef(false);
   const matchFoundPostVsTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** Show the bespoke "PREPARING MYTHOS..." charging overlay before the
+   *  matchup VS card on a MYTHOS roll. Lives in AppShell rather than
+   *  LobbyScreen so it can sit above the queue route and survive the
+   *  router.push to /play/matchfound. Cleared once the intro's onDone
+   *  fires (or on cancel/unmount). */
+  const [mythosIntroVisible, setMythosIntroVisible] = useState(false);
+  const mythosIntroTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const clearMythosIntroTimer = useCallback(() => {
+    if (mythosIntroTimerRef.current) {
+      clearTimeout(mythosIntroTimerRef.current);
+      mythosIntroTimerRef.current = null;
+    }
+  }, []);
+
+  /* Unranked filler-bot race timer (1–10 s). Fires only if no real match
+   * has been found yet. Cleared on real match, cancel, and unmount. */
+  const unrankedBotTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const clearMatchFoundPostVsTimer = useCallback(() => {
     if (matchFoundPostVsTimerRef.current) {
       clearTimeout(matchFoundPostVsTimerRef.current);
       matchFoundPostVsTimerRef.current = null;
+    }
+  }, []);
+
+  const clearUnrankedBotTimer = useCallback(() => {
+    if (unrankedBotTimerRef.current) {
+      clearTimeout(unrankedBotTimerRef.current);
+      unrankedBotTimerRef.current = null;
     }
   }, []);
 
@@ -325,6 +381,13 @@ export default function AppShell({ children }: { children: ReactNode }) {
     lockedMatchCtx: "game" | "ranked" | null = null,
   ): "lobby" | "game" | "ranked" => {
     if (lockedMatchCtx) return lockedMatchCtx;
+    // MYTHOS encounters always play the ranked track, regardless of which
+    // segment of the match flow we're currently on (lobby → matchfound →
+    // /rulesshow/ → /ready/ → /game/ → /rulebreaker/...). The `scr`
+    // resolution treats /rulesshow/ etc. as `"game"` rather than
+    // `"aiGame"` because the path doesn't start with `/game/`, so we
+    // gate on `isMythosBotRoute` ahead of the per-screen branches.
+    if (isMythosBotRoute) return "ranked";
     if (scr === "aiGame") {
       const rankedBotNames = new Set(["jr", "him", "her"]);
       const inferredBotName = difficultyToBotName(boardMode, aiDiff).toLowerCase();
@@ -351,14 +414,17 @@ export default function AppShell({ children }: { children: ReactNode }) {
       const activeBotName = (aiMatchBotName || "").toLowerCase();
       const inferredBotName = difficultyToBotName(boardMode, aiDifficulty).toLowerCase();
       const botName = activeBotName || inferredBotName;
-      const next: "game" | "ranked" = rankedBotNames.has(botName) ? "ranked" : "game";
+      // MYTHOS filler-bot sessions are pinned to the ranked BGM track even
+      // though their bot name (NADAF / SARAH / …) isn't in the ranked set.
+      const next: "game" | "ranked" =
+        isMythosBotRoute || rankedBotNames.has(botName) ? "ranked" : "game";
       setAiMatchBgmCtx(prev => (prev === next ? prev : next));
       return;
     }
     if (!isMatchPath) {
       setAiMatchBgmCtx(prev => (prev === null ? prev : null));
     }
-  }, [isBotGameRoute, isMatchPath, aiDifficulty, aiMatchBotName, boardMode]);
+  }, [isBotGameRoute, isMatchPath, isMythosBotRoute, aiDifficulty, aiMatchBotName, boardMode]);
 
   /* ═══════════════════════════════════════════════════════════════════════ */
   /*  Startup restore (pre-paint)                                           */
@@ -622,14 +688,14 @@ export default function AppShell({ children }: { children: ReactNode }) {
 
     const refreshSocialBadge = async () => {
       try {
-        const [reqRes, invRes, listRes] = await Promise.all([
+        // Match-invite endpoint no longer polled — invites were removed
+        // from the client in favour of sharing custom-room codes via DM.
+        const [reqRes, listRes] = await Promise.all([
           API.get("/api/friends/requests"),
-          API.get("/api/friends/invites"),
           API.get("/api/friends/list"),
         ]);
         const n =
           (reqRes.data?.requests?.length ?? 0) +
-          (invRes.data?.invites?.length ?? 0) +
           Number(listRes.data?.unread_dm_count ?? 0);
         const { setFriendsNavBadgeCount } = await import("@/lib/navBadgeState");
         setFriendsNavBadgeCount(n);
@@ -690,8 +756,6 @@ export default function AppShell({ children }: { children: ReactNode }) {
           if (
             msg.type === "friend_request_created" ||
             msg.type === "friend_request_updated" ||
-            msg.type === "friend_invite_created" ||
-            msg.type === "friend_invite_updated" ||
             msg.type === "friend_dm_received" ||
             msg.type === "friend_dm_sent" ||
             msg.type === "friend_removed"
@@ -701,14 +765,12 @@ export default function AppShell({ children }: { children: ReactNode }) {
               window.dispatchEvent(new CustomEvent("pp_social_refresh", { detail: msg }));
             }
           }
-          if (msg.type === "friend_invite_created") {
-            pushSocialToast("New match invite received.", {}, `invite:${String(msg.from_user || "")}`);
-            setHomeNotice("You received a match invite.");
-          } else if (msg.type === "friend_invite_accepted") {
-            if (typeof window !== "undefined") {
-              window.dispatchEvent(new CustomEvent("pp_friend_invite_accepted", { detail: msg }));
-            }
-          } else if (msg.type === "friend_request_created") {
+          // `friend_invite_*` WS events are ignored — match invites were
+          // removed from the client; players share custom-room codes via
+          // DM instead. The server may still emit these for legacy reasons
+          // but we deliberately drop them rather than surfacing a UI for
+          // a flow the app no longer supports.
+          if (msg.type === "friend_request_created") {
             pushSocialToast("New friend request received.", {}, `request:${String(msg.from_user || "")}`);
           } else if (msg.type === "friend_dm_received") {
             const fid = String(msg.from_user || "");
@@ -816,17 +878,26 @@ export default function AppShell({ children }: { children: ReactNode }) {
     let cancelled = false;
     let lastSeen = 0;
 
+    // Ref-free dedupe so the home-notice banner doesn't flash the SAME
+    // "friend request" line on every tick while the count stays put. We
+    // only surface it when the count rises; we clear it the moment the
+    // user drops it back to zero by opening the chat / accepting the
+    // request (see the `pp_friends_badge_refresh` listener below which
+    // is fired by the components that perform those actions).
+    const isFriendNoticeText = (text: string | null) =>
+      !!text && /\bfriend\b/i.test(text);
+
     const tick = async () => {
       try {
-        const [reqRes, invRes, listRes] = await Promise.all([
+        // Match-invite endpoint removed from the client — the badge now
+        // counts pending friend requests + unread DMs only.
+        const [reqRes, listRes] = await Promise.all([
           API.get("/api/friends/requests"),
-          API.get("/api/friends/invites"),
           API.get("/api/friends/list"),
         ]);
         if (cancelled) return;
         const n =
           (reqRes.data?.requests?.length ?? 0) +
-          (invRes.data?.invites?.length ?? 0) +
           Number(listRes.data?.unread_dm_count ?? 0);
         const { setFriendsNavBadgeCount } = await import("@/lib/navBadgeState");
         setFriendsNavBadgeCount(n);
@@ -840,9 +911,14 @@ export default function AppShell({ children }: { children: ReactNode }) {
         ) {
           setHomeNotice(
             n === 1
-              ? "You have a new friend request or match invite."
-              : `You have ${n} pending friend requests / invites.`,
+              ? "You have a new friend request or message."
+              : `You have ${n} pending friend notifications.`,
           );
+        } else if (n === 0) {
+          // User has cleared everything (read all DMs / accepted all
+          // requests). Retire the friend-related home banner so the
+          // homescreen stops showing stale notifications.
+          setHomeNotice((prev) => (isFriendNoticeText(prev) ? null : prev));
         }
         lastSeen = n;
       } catch {
@@ -852,9 +928,19 @@ export default function AppShell({ children }: { children: ReactNode }) {
 
     tick();
     const id = window.setInterval(tick, 30_000);
+
+    // Instant-refresh hook: FriendsScreen / FriendsSidePanel dispatch
+    // `pp_friends_badge_refresh` after the user opens a DM thread
+    // (which marks inbound messages as read server-side) or acts on a
+    // friend request. Listening here lets us recompute the badge +
+    // home-notice without waiting for the 30s poller to catch up.
+    const onForceRefresh = () => { void tick(); };
+    window.addEventListener("pp_friends_badge_refresh", onForceRefresh);
+
     return () => {
       cancelled = true;
       window.clearInterval(id);
+      window.removeEventListener("pp_friends_badge_refresh", onForceRefresh);
     };
   }, [token, pathname]);
 
@@ -1127,45 +1213,197 @@ export default function AppShell({ children }: { children: ReactNode }) {
       // re-appearing before rules-show. Routing directly to
       // `/rulesshow/{id}` removes the double-hop entirely, so the visible
       // transition is exactly: /play/matchfound → /rulesshow/{id}.
-      const forceRulesShow = roomFromServer?.source === "friend_invite";
-      const nextUrl = (forceRulesShow || bootstrap) ? buildRulesShowUrl(id) : buildGameUrl(bm);
+      // `friend_invite` source is legacy — match invites were removed from
+      // the client, so this branch is effectively unused now. Kept only so
+      // a `bootstrap` request still skips straight to the rules-show URL.
+      const nextUrl = bootstrap ? buildRulesShowUrl(id) : buildGameUrl(bm);
       router.push(nextUrl);
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [boardMode, router],
   );
 
-  useEffect(() => {
-    const onFriendInviteAccepted = async (ev: Event) => {
-      const msg = (ev as CustomEvent)?.detail || {};
-      const roomCode = String(msg.room_code || "");
-      const slot = (msg.slot === "P2" ? "P2" : "P1") as "P1" | "P2";
-      if (!roomCode) return;
-      try {
-        const roomRes = await API.get(`/api/room/queue/status/${roomCode}`);
-        const roomPayload = roomRes?.data ?? null;
-        const opp = msg?.opponent
-          ? {
-              opponent: {
-                name: String(msg.opponent.username || msg.opponent.name || "Opponent"),
-                elo: Number(msg.opponent.elo || 0),
-                avatar: msg.opponent.avatar ?? null,
-                banner: msg.opponent.banner || "default",
-                level: Number(msg.opponent.level || 1),
-                placement_matches: Number(msg.opponent.placement_matches || 0),
-              },
-            }
-          : undefined;
-        handleRoomReady(roomCode, slot, "unranked", opp as any, roomPayload);
-      } catch {
-        handleRoomReady(roomCode, slot, "unranked");
+  // `pp_friend_invite_accepted` listener removed: match invites are no
+  // longer a client feature. Players share custom-room codes via DM and
+  // the joiner enters the room via the regular room-code flow instead.
+
+  /**
+   * Arm the VS → bot-game sequence when the 1–10 s unranked filler timer
+   * fires before a real opponent is found. Mirrors `armMatchFoundSequence`
+   * but instead of calling `handleRoomReady` (which would need a Mongo
+   * room + WS), it navigates into `/game/...?unranked_bot=1&...` so the
+   * existing AI code path takes over.
+   */
+  const armUnrankedBotMatchSequence = useCallback(
+    (code: string | null, bot: PickedBot, mode: "unranked", bMode: BoardMode) => {
+      if (matchFoundArmRef.current) return;
+      matchFoundArmRef.current = true;
+      if (queuePollRef.current) {
+        clearInterval(queuePollRef.current);
+        queuePollRef.current = null;
       }
-    };
-    window.addEventListener("pp_friend_invite_accepted", onFriendInviteAccepted);
-    return () => window.removeEventListener("pp_friend_invite_accepted", onFriendInviteAccepted);
-    // handleRoomReady intentionally omitted to avoid effect churn.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+      clearMatchFoundPostVsTimer();
+      clearUnrankedBotTimer();
+
+      const style = styleForLevel(bot.level);
+      // Shape the opponent object for LobbyScreen.MatchPlayerCard. Unranked
+      // filler bots don't carry an ELO, so the VS card shows "LEVEL NNN"
+      // instead. The numeric level is sampled once from the tier's range
+      // (ROOKIE 1–10, SKILLED 10–25, ELITE 25–50, MYTHIC 50–75, CRACKED
+      // 75–99, CHRONICLE 100–500, MYTHOS 1000) and pinned onto the match
+      // URL so a refresh / route transition doesn't re-roll it.
+      //
+      // Cosmetics: MYTHOS always wears its bespoke dark devil-cat PFP and a
+      // plasma_core banner for consistent branding. Regular filler bots get
+      // a freshly-randomised animal emoji (shown instead of an <img>) and a
+      // random animated banner from the store pool, so every queue pairs you
+      // with a visually-distinct opponent rather than the generic silhouette.
+      const botEmoji = bot.isMythos ? null : pickUnrankedBotEmoji();
+      const botBanner = bot.isMythos ? "plasma_core" : pickUnrankedBotBanner();
+      const botNumericLevel = numericLevelForTier(bot.level);
+
+      // Quietly leave the real queue room we were parked in — the bot match
+      // runs entirely client-side via the AI flow. Fire-and-forget.
+      const authHeader = { headers: { Authorization: `Bearer ${token}` } };
+      if (code) {
+        API.post(
+          "/api/room/queue/leave",
+          { format: mode, board_mode: bMode, room_code: code },
+          { ...authHeader, timeout: 10000 },
+        ).catch(() => { /* ignore — cleanup only */ });
+      }
+      setQueueRoomCode(null);
+
+      // Minimum VS-card display for filler-bot matches. Because the bot
+      // side has no real network, the previous 2–3.5 s reveal felt
+      // jarringly short compared to multiplayer. We clamp to a 5 s floor
+      // so the MATCH FOUND reveal, banner animation and level badge have
+      // time to land; a human-side network hiccup would only extend this,
+      // never shorten it. Applies equally to MYTHOS — the boss intro
+      // deserves the extra breathing room.
+      const vsDurationMs = 5000;
+      const boardSize = simpleSizeFromBoardMode(bMode);
+      const gameId = generateGameId();
+
+      // Mirror the server's unranked 5×5 behaviour: pick 5-of-6 patterns
+      // at queue time so the rules-show page has a real list to reveal
+      // and `/api/bot/move` gets the pool through the `selected_patterns`
+      // field. 6×6 / 7×7 already have all-pattern engines, so we leave
+      // their selection untouched.
+      //
+      // We pin the picked list on the match URL (as `patterns=V,L,T,...`)
+      // so the (match) layout can hydrate `selectedPatterns` directly from
+      // the URL. That sidesteps a React state race where the setter below
+      // hadn't flushed yet by the time GameScreen mounted, which left the
+      // SHOW-PATTERNS overlay showing only 4 of the 5 picks.
+      const pickedPatterns5x5 =
+        boardSize === "5x5" ? pickRandomPatterns5x5(5) : undefined;
+      if (pickedPatterns5x5) {
+        setSelectedPatterns(pickedPatterns5x5);
+      }
+
+      // Align ctx.boardMode so the (match) layout's `inferredBoardMode`
+      // fallback resolves correctly when we land on /rulesshow/<id> (which
+      // has no size segment).
+      setBoardMode(bMode);
+
+      // Route DIRECTLY into /rulesshow/<id>?… to mirror the multiplayer
+      // handshake. Previously we landed on /game/g{n}/<id> first and let
+      // GameScreen's URL-sync effect flip the address to /rulesshow/<id>,
+      // which left one frame where the game view was visible before the
+      // rules overlay mounted — some users saw that flicker as "rules
+      // appeared AFTER G1". Jumping straight to the rules URL removes the
+      // intermediate hop entirely, so the transition is exactly:
+      // /play/matchfound → /rulesshow/<id>?unranked_bot=1&… → READY → game.
+      const url = buildUnrankedBotRulesShowUrl({
+        gameId,
+        bot,
+        boardSize,
+        patterns: pickedPatterns5x5,
+        // Pin cosmetics + numeric level onto the URL so the (match)
+        // layout can reconstruct the bot's VS identity after
+        // `setMatchupOpponent(null)` clears context below. Without
+        // this, GameScreen falls back to the generic BOT silhouette
+        // and the sidebar shows a default banner instead of the one
+        // the user just saw on the VS card.
+        botBanner,
+        botLevel: botNumericLevel,
+        botEmoji: botEmoji ?? undefined,
+      });
+
+      // `buildUnrankedBotGameUrl` is still used by legacy call sites; keep
+      // the import pinned so tree-shaking doesn't drop it.
+      void buildUnrankedBotGameUrl;
+
+      // Closure that lights up the matchup VS card and schedules the
+      // hand-off into /rulesshow. Identical for both regular and MYTHOS
+      // encounters — the only difference is that MYTHOS waits for the
+      // PREPARING-MYTHOS overlay to finish before this fires.
+      const runMatchupReveal = () => {
+        setMatchupOpponent({
+          name: bot.name,
+          elo: null,
+          avatar: bot.isMythos ? MYTHOS_PFP_URL : null,
+          avatarEmoji: botEmoji,
+          banner: botBanner,
+          level: botNumericLevel,
+          placement_matches: 5,
+          isBot: true,
+          botLevel: bot.level,
+          botLevelColor: style.color,
+          botIsMythos: bot.isMythos,
+        });
+        setQueuePhase("matchup");
+        sfx.matchFound();
+        router.push(ROUTES.PLAY_MATCHFOUND);
+
+        matchFoundPostVsTimerRef.current = setTimeout(() => {
+          matchFoundPostVsTimerRef.current = null;
+          setInQueue(false);
+          setQueuePhase("none");
+          setMatchupOpponent(null);
+          matchmakingActiveRef.current = false;
+          matchFoundArmRef.current = false;
+          router.push(url);
+        }, vsDurationMs);
+      };
+
+      // MYTHOS gets a dedicated "PREPARING MYTHOS..." charging overlay
+      // BEFORE the standard match-found VS card. The overlay reuses the
+      // level-up component's blood-red ascension beats (radial flare +
+      // rotating spinner) plus a violet halo so MYTHOS feels like a
+      // boss arrival rather than a normal queue pop. We hold the matchup
+      // setter behind a setTimeout so the VS card doesn't peek through
+      // the intro: render order is intro overlay (zIndex 120000) > VS
+      // card (rendered into the matchfound route below).
+      if (bot.isMythos) {
+        clearMythosIntroTimer();
+        setMythosIntroVisible(true);
+        // Slightly longer than the MythosIntroScreen default (3000 ms)
+        // to give the violet halo + headline a beat to settle before
+        // the VS card animates in. The intro screen also calls
+        // `onDoneAction` itself; this timer is the safety net.
+        const introHoldMs = 3200;
+        mythosIntroTimerRef.current = setTimeout(() => {
+          mythosIntroTimerRef.current = null;
+          setMythosIntroVisible(false);
+          runMatchupReveal();
+        }, introHoldMs);
+      } else {
+        runMatchupReveal();
+      }
+    },
+    [
+      clearMatchFoundPostVsTimer,
+      clearMythosIntroTimer,
+      clearUnrankedBotTimer,
+      router,
+      sfx,
+      token,
+      setBoardMode,
+      setSelectedPatterns,
+    ],
+  );
 
   const armMatchFoundSequence = useCallback(
     (
@@ -1188,6 +1426,8 @@ export default function AppShell({ children }: { children: ReactNode }) {
         clearInterval(queuePollRef.current);
         queuePollRef.current = null;
       }
+      // Real opponent beat the bot timer — cancel the filler.
+      clearUnrankedBotTimer();
       clearMatchFoundPostVsTimer();
       setMatchupOpponent(opp);
       setQueuePhase("matchup");
@@ -1314,6 +1554,21 @@ export default function AppShell({ children }: { children: ReactNode }) {
           () => pollQueueStatus(code, slot, mode),
           2000,
         );
+
+        // Unranked queues race a 1–10 s filler-bot timer. If the real
+        // matchmaker pairs the user with a human before the timer fires,
+        // `armMatchFoundSequence` clears this and takes over naturally.
+        if (mode === "unranked") {
+          clearUnrankedBotTimer();
+          const waitMs = pickQueueWaitMs();
+          unrankedBotTimerRef.current = setTimeout(() => {
+            unrankedBotTimerRef.current = null;
+            if (queueCancelledRef.current) return;
+            if (matchFoundArmRef.current) return;
+            const bot = pickUnrankedBot();
+            armUnrankedBotMatchSequence(code, bot, "unranked", boardModeForQueue);
+          }, waitMs);
+        }
       }
     } catch (err: any) {
       console.error("Matchmaking error:", err);
@@ -1336,6 +1591,9 @@ export default function AppShell({ children }: { children: ReactNode }) {
     matchmakingActiveRef.current = false;
     matchFoundArmRef.current = false;
     clearMatchFoundPostVsTimer();
+    clearUnrankedBotTimer();
+    clearMythosIntroTimer();
+    setMythosIntroVisible(false);
     if (queuePollRef.current) { clearInterval(queuePollRef.current); queuePollRef.current = null; }
     const mode = isRanked ? "ranked" : "unranked";
     const authHeader = { headers: { Authorization: `Bearer ${token}` } };
@@ -1718,8 +1976,43 @@ export default function AppShell({ children }: { children: ReactNode }) {
 
         <GlobalMatchupOverlay />
 
-        {/* AI exit confirmation modal */}
-        {showAiExitModal && (
+        {/* PREPARING MYTHOS… overlay. Spawned only when the unranked
+            filler timer rolls a MYTHOS encounter, BEFORE the matchup VS
+            card is shown. Sits at zIndex 120000 (defined inside the
+            component) so it covers the lobby AND the just-pushed
+            /play/matchfound route. The component manages its own
+            auto-complete timer; the parent's safety-net setTimeout
+            (`mythosIntroTimerRef`) is the source of truth for switching
+            to the matchup state, so even if the component never fires
+            its callback we still proceed cleanly. */}
+        {mythosIntroVisible && (
+          <MythosIntroScreen
+            durationMs={3000}
+            fontDisplay={t.fontDisplay}
+            fontMono={t.fontMono}
+            onDoneAction={() => { /* AppShell timer drives the swap */ }}
+          />
+        )}
+
+        {/* AI exit confirmation modal.
+         *
+         * Unranked filler-bot sessions (`?unranked_bot=1`) and explicit
+         * AI matches (the AI screen → bot picker flow) both route through
+         * `isBotGameRoute === true`, so this same modal fires for both.
+         * The unranked queue is supposed to feel like ordinary
+         * matchmaking — i.e. the player should not be told the
+         * opponent is a bot — so we swap the title + body copy to a
+         * generic "Leave Match?" wording when the route carries the
+         * `unranked_bot` flag. Explicit AI matches keep the existing
+         * "Leave AI Match?" copy because the player chose a bot
+         * intentionally there. */}
+        {showAiExitModal && (() => {
+          const isUnrankedBotExit = searchParams?.get("unranked_bot") === "1";
+          const exitTitle = isUnrankedBotExit ? "Leave Match?" : "Leave AI Match?";
+          const exitBody = isUnrankedBotExit
+            ? "Your current match will be lost."
+            : "Your current game against the bot will be lost.";
+          return (
           <div
             style={{
               position: "fixed",
@@ -1755,7 +2048,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
                   lineHeight: 1.5,
                 }}
               >
-                Leave AI Match?
+                {exitTitle}
               </div>
               <div
                 style={{
@@ -1766,7 +2059,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
                   lineHeight: 1.7,
                 }}
               >
-                Your current game against the bot will be lost.
+                {exitBody}
               </div>
               <div style={{ display: "flex", gap: 16, justifyContent: "center" }}>
                 <button
@@ -1808,7 +2101,8 @@ export default function AppShell({ children }: { children: ReactNode }) {
               </div>
             </div>
           </div>
-        )}
+          );
+        })()}
 
         {/* Global CSS */}
         <style>{`
