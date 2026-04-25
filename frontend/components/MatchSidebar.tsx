@@ -1564,18 +1564,20 @@ export function LeftPanel(props: MatchSidebarProps) {
             * prior data yet. Without the stub, first-time matchups
             * showed a confusing dead band where the card should be. */}
           {headToHead && headToHead.total > 0 && (
-            /* Head-to-head card: chips and stats sized for legibility
-             * without bloating the column. The "X MATCHES" counter
-             * keeps the same weight as HISTORY so the card header
-             * reads as a balanced pair. */
-            <div style={{ borderTop: `1px solid ${t.border}`, paddingTop: 10, display: "flex", flexDirection: "column", gap: 8 }}>
+            /* Head-to-head card: every dimension and font scaled up
+             * uniformly by ~15% from the previous compact pass —
+             * gap 8→9, paddingTop 10→12, header font 13→15, chip
+             * height 24→28 / font 12→14, stat-card padding 5/6→6/7
+             * with value font 16→18, label 9→10. Card retains its
+             * proportions, just reads larger overall. */
+            <div style={{ borderTop: `1px solid ${t.border}`, paddingTop: 12, display: "flex", flexDirection: "column", gap: 9 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-                <div style={{ fontFamily: t.fontMono, fontSize: 13, fontWeight: 700, color: t.text, letterSpacing: "0.16em" }}>HISTORY</div>
-                <div style={{ fontFamily: t.fontMono, fontSize: 13, fontWeight: 800, color: t.text, letterSpacing: "0.08em" }}>{headToHead.total} {headToHead.total === 1 ? "MATCH" : "MATCHES"}</div>
+                <div style={{ fontFamily: t.fontMono, fontSize: 15, fontWeight: 700, color: t.text, letterSpacing: "0.16em" }}>HISTORY</div>
+                <div style={{ fontFamily: t.fontMono, fontSize: 15, fontWeight: 800, color: t.text, letterSpacing: "0.08em" }}>{headToHead.total} {headToHead.total === 1 ? "MATCH" : "MATCHES"}</div>
               </div>
               {/* Last 5 outcomes — newest on the left, blank slots fill
                 * the row up to 5 so the strip width stays constant. */}
-              <div style={{ display: "flex", gap: 5, alignItems: "center" }}>
+              <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
                 {Array.from({ length: 5 }).map((_, i) => {
                   const r = headToHead.recent[i];
                   const col = r === "win" ? p1c : r === "loss" ? p2c : r === "draw" ? t.gold : "transparent";
@@ -1586,18 +1588,18 @@ export function LeftPanel(props: MatchSidebarProps) {
                       key={i}
                       style={{
                         flex: 1,
-                        height: 24,
-                        borderRadius: ip ? 2 : 6,
+                        height: 28,
+                        borderRadius: ip ? 2 : 7,
                         background: filled ? `${col}22` : "transparent",
                         border: `1px solid ${filled ? `${col}AA` : `${t.border}88`}`,
                         color: filled ? col : t.textMuted,
                         fontFamily: t.fontMono,
-                        fontSize: 12,
+                        fontSize: 14,
                         fontWeight: 800,
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "center",
-                        boxShadow: filled ? `0 0 6px ${col}33` : "none",
+                        boxShadow: filled ? `0 0 7px ${col}33` : "none",
                       }}
                     >
                       {lbl}
@@ -1605,24 +1607,24 @@ export function LeftPanel(props: MatchSidebarProps) {
                   );
                 })}
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 5 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6 }}>
                 {([
                   { lbl: "WIN",  v: headToHead.wins,   c: p1c },
                   { lbl: "DRAW", v: headToHead.draws,  c: t.gold },
                   { lbl: "LOSE", v: headToHead.losses, c: p2c },
                 ] as const).map(item => (
                   <div key={item.lbl} style={{
-                    padding: "5px 6px",
+                    padding: "6px 7px",
                     background: `${item.c}10`,
                     border: `1px solid ${item.c}33`,
-                    borderRadius: ip ? 2 : 6,
+                    borderRadius: ip ? 2 : 7,
                     display: "flex",
                     flexDirection: "column",
                     alignItems: "center",
                     gap: 1,
                   }}>
-                    <span style={{ fontFamily: t.fontMono, fontSize: 9, color: t.textMuted, letterSpacing: "0.14em" }}>{item.lbl}</span>
-                    <span style={{ fontFamily: t.fontDisplay, fontSize: 16, fontWeight: 800, color: item.c, lineHeight: 1.1 }}>{item.v}</span>
+                    <span style={{ fontFamily: t.fontMono, fontSize: 10, color: t.textMuted, letterSpacing: "0.14em" }}>{item.lbl}</span>
+                    <span style={{ fontFamily: t.fontDisplay, fontSize: 18, fontWeight: 800, color: item.c, lineHeight: 1.1 }}>{item.v}</span>
                   </div>
                 ))}
               </div>
@@ -1632,20 +1634,22 @@ export function LeftPanel(props: MatchSidebarProps) {
             * but reports zero prior matches between these two
             * players. Replaces the old behaviour of hiding the
             * section entirely, which left a confusing dead band
-            * where the card should be. */}
+            * where the card should be. Sized to match the +15%
+            * pass on the populated card so the section reads at
+            * the same scale either way. */}
           {headToHead && headToHead.total === 0 && (
-            <div style={{ borderTop: `1px solid ${t.border}`, paddingTop: 10, display: "flex", flexDirection: "column", gap: 6 }}>
+            <div style={{ borderTop: `1px solid ${t.border}`, paddingTop: 12, display: "flex", flexDirection: "column", gap: 7 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-                <div style={{ fontFamily: t.fontMono, fontSize: 13, fontWeight: 700, color: t.text, letterSpacing: "0.16em" }}>HISTORY</div>
-                <div style={{ fontFamily: t.fontMono, fontSize: 11, fontWeight: 700, color: t.textMuted, letterSpacing: "0.12em" }}>FIRST MEETING</div>
+                <div style={{ fontFamily: t.fontMono, fontSize: 15, fontWeight: 700, color: t.text, letterSpacing: "0.16em" }}>HISTORY</div>
+                <div style={{ fontFamily: t.fontMono, fontSize: 13, fontWeight: 700, color: t.textMuted, letterSpacing: "0.12em" }}>FIRST MEETING</div>
               </div>
               <div style={{
-                padding: "8px 10px",
+                padding: "9px 12px",
                 background: `${t.accent}0A`,
                 border: `1px dashed ${t.border}`,
-                borderRadius: ip ? 2 : 6,
+                borderRadius: ip ? 2 : 7,
                 fontFamily: t.fontMono,
-                fontSize: 11,
+                fontSize: 13,
                 color: t.textMuted,
                 letterSpacing: "0.08em",
                 textAlign: "center",
