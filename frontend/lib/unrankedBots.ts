@@ -221,10 +221,10 @@ export function styleForLevel(level: UnrankedBotLevel): LevelStyle {
 
 /* ── Random selection ───────────────────────────────────────────────────── */
 
-/** Probability MYTHOS is picked as the level on a given queue.
- *  Temporarily bumped to 0.5 (50%) for testing — restore to 0.1 (10%)
- *  before shipping so MYTHOS stays a rare boss-tier encounter. */
-export const MYTHOS_CHANCE = 0.5;
+/** Probability MYTHOS is picked as the level on a given queue. Kept low
+ *  so MYTHOS stays a rare, memorable boss-tier encounter rather than a
+ *  routine opponent. */
+export const MYTHOS_CHANCE = 0.1;
 
 /** Non-MYTHOS tiers, roughly descending in weight so Rookie/Skilled appear
  *  more often than Chronicle. */

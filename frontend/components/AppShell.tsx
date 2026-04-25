@@ -324,6 +324,21 @@ export default function AppShell({ children }: { children: ReactNode }) {
   const profileRefreshDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const socialToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastSocialToastRef = useRef<{ key: string; at: number } | null>(null);
+  /** Highest "friend notification count" the user has acknowledged.
+   *  Persists across re-renders and useEffect re-runs (which the old
+   *  closure-local `lastSeen` did NOT — every pathname change reset it
+   *  to 0, so the home banner would silently re-appear the moment the
+   *  user came back to /home with `n > 0`).
+   *
+   *  Updated in two places:
+   *    • The friends-poller `tick`: after an explicit "fire banner" or
+   *      after the queue empties (`n === 0`, reset to 0 so the next
+   *      arrival still triggers a fresh banner).
+   *    • The pathname watcher below: visiting `/friends` snapshots the
+   *      current count as acknowledged, so coming back to /home does
+   *      NOT re-surface a banner for notifications the user has
+   *      already seen on the friends tab. */
+  const friendsBadgeAcknowledgedRef = useRef(0);
   themeRef.current = themeId;
   rankedRef.current = isRanked;
   aiDiffRef.current = aiDifficulty;
@@ -876,14 +891,16 @@ export default function AppShell({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!token) return;
     let cancelled = false;
-    let lastSeen = 0;
 
     // Ref-free dedupe so the home-notice banner doesn't flash the SAME
     // "friend request" line on every tick while the count stays put. We
-    // only surface it when the count rises; we clear it the moment the
-    // user drops it back to zero by opening the chat / accepting the
-    // request (see the `pp_friends_badge_refresh` listener below which
-    // is fired by the components that perform those actions).
+    // only surface it when the count rises ABOVE the baseline the user
+    // has already acknowledged (see `friendsBadgeAcknowledgedRef`); we
+    // clear it the moment the user drops it back to zero by opening the
+    // chat / accepting the request (see the `pp_friends_badge_refresh`
+    // listener below which is fired by the components that perform
+    // those actions), and we also clear it whenever the user visits the
+    // /friends tab (the dedicated effect after this one).
     const isFriendNoticeText = (text: string | null) =>
       !!text && /\bfriend\b/i.test(text);
 
@@ -902,12 +919,23 @@ export default function AppShell({ children }: { children: ReactNode }) {
         const { setFriendsNavBadgeCount } = await import("@/lib/navBadgeState");
         setFriendsNavBadgeCount(n);
 
-        // Post-match nudge: if we're on home/lobby/career and new pendings
-        // appeared since the last tick, surface a gentle home-notice banner.
+        // Reset acknowledged baseline whenever the queue empties so a
+        // future arrival still triggers a fresh home banner. Without
+        // this reset, if the user acknowledged a count of 3 and then
+        // cleared everything, the next single notification (n=1)
+        // wouldn't fire because 1 is not > 3.
+        if (n === 0) friendsBadgeAcknowledgedRef.current = 0;
+
+        // Post-match nudge: if we're on home/lobby/career and new
+        // notifications appeared since the user last acknowledged the
+        // friends tab, surface a gentle home-notice banner. The
+        // `pathname === "/home"` guard is duplicated intentionally —
+        // only home has the notice chrome hooked up today, but the
+        // outer disjunction documents the intended target screens.
         if (
-          n > lastSeen &&
+          n > friendsBadgeAcknowledgedRef.current &&
           (pathname === "/home" || pathname === "/play/lobby" || pathname === "/career") &&
-          pathname === "/home" // only home has the notice chrome hooked up today
+          pathname === "/home"
         ) {
           setHomeNotice(
             n === 1
@@ -920,7 +948,6 @@ export default function AppShell({ children }: { children: ReactNode }) {
           // homescreen stops showing stale notifications.
           setHomeNotice((prev) => (isFriendNoticeText(prev) ? null : prev));
         }
-        lastSeen = n;
       } catch {
         /* transient — next tick will retry */
       }
@@ -943,6 +970,36 @@ export default function AppShell({ children }: { children: ReactNode }) {
       window.removeEventListener("pp_friends_badge_refresh", onForceRefresh);
     };
   }, [token, pathname]);
+
+  /* ── Acknowledge friend notifications on /friends visit ─────────────── */
+  /* Visiting the friends tab is treated as the user explicitly viewing
+   * the social queue — even if they don't open every individual DM
+   * thread or act on every request, they have *seen* what's there.
+   *
+   * We:
+   *   1. Snapshot the current friends-badge count into the
+   *      "acknowledged" baseline ref so the poller above will only
+   *      re-surface the home banner when NEW notifications arrive
+   *      (i.e. the count rises above this snapshot).
+   *   2. Eagerly clear any active friend-related home notice so the
+   *      moment the user navigates back to /home the banner is gone,
+   *      regardless of the 30s poller cadence.
+   *
+   * This fixes the user-reported case where the homescreen banner
+   * "You have a new friend request or message" persisted even after
+   * the user had visited /friends and handled their pending requests
+   * (the residual was an unread DM they hadn't manually opened —
+   * visiting the tab now counts as acknowledgement). */
+  useEffect(() => {
+    if (pathname !== "/friends") return;
+    (async () => {
+      const { getFriendsNavBadgeCount } = await import("@/lib/navBadgeState");
+      friendsBadgeAcknowledgedRef.current = getFriendsNavBadgeCount();
+    })();
+    setHomeNotice((prev) =>
+      prev && /\bfriend\b/i.test(prev) ? null : prev,
+    );
+  }, [pathname]);
 
   /* ── Persist board mode / patterns / difficulty ─────────────────────── */
   useEffect(() => {
