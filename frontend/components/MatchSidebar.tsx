@@ -1555,12 +1555,14 @@ export function LeftPanel(props: MatchSidebarProps) {
       )}
       {isMultiplayerGame && (phase === "playing" || phase === "waiting_ready") && (
         <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: "auto" }}>
-          {/* Head-to-head record vs the current opponent. Fills the
-            * formerly-empty band between the MATCH HISTORY card and
-            * the CHAT row. Only renders for genuine multiplayer
-            * matches where we have both a peer id and a non-zero
-            * total — first-time encounters skip it so the panel
-            * doesn't show a meaningless "0 — 0 — 0" stub. */}
+          {/* Head-to-head record vs the current opponent. Always
+            * rendered for multiplayer once we've fetched the H2H
+            * payload — `total > 0` shows the rich card with last-5
+            * outcomes + W/D/L breakdown; `total === 0` falls back
+            * to a compact "FIRST MEETING" stub so the user can
+            * tell at a glance that the section *exists* but has no
+            * prior data yet. Without the stub, first-time matchups
+            * showed a confusing dead band where the card should be. */}
           {headToHead && headToHead.total > 0 && (
             /* Head-to-head card: chips and stats sized for legibility
              * without bloating the column. The "X MATCHES" counter
@@ -1623,6 +1625,33 @@ export function LeftPanel(props: MatchSidebarProps) {
                     <span style={{ fontFamily: t.fontDisplay, fontSize: 16, fontWeight: 800, color: item.c, lineHeight: 1.1 }}>{item.v}</span>
                   </div>
                 ))}
+              </div>
+            </div>
+          )}
+          {/* First-meeting stub: shown when the H2H payload arrived
+            * but reports zero prior matches between these two
+            * players. Replaces the old behaviour of hiding the
+            * section entirely, which left a confusing dead band
+            * where the card should be. */}
+          {headToHead && headToHead.total === 0 && (
+            <div style={{ borderTop: `1px solid ${t.border}`, paddingTop: 10, display: "flex", flexDirection: "column", gap: 6 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+                <div style={{ fontFamily: t.fontMono, fontSize: 13, fontWeight: 700, color: t.text, letterSpacing: "0.16em" }}>HISTORY</div>
+                <div style={{ fontFamily: t.fontMono, fontSize: 11, fontWeight: 700, color: t.textMuted, letterSpacing: "0.12em" }}>FIRST MEETING</div>
+              </div>
+              <div style={{
+                padding: "8px 10px",
+                background: `${t.accent}0A`,
+                border: `1px dashed ${t.border}`,
+                borderRadius: ip ? 2 : 6,
+                fontFamily: t.fontMono,
+                fontSize: 11,
+                color: t.textMuted,
+                letterSpacing: "0.08em",
+                textAlign: "center",
+                lineHeight: 1.4,
+              }}>
+                NO PRIOR MATCHES.<br />THIS GAME WILL BE LOGGED.
               </div>
             </div>
           )}
