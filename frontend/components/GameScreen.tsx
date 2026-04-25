@@ -362,6 +362,48 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   const unrankedBotDisplayName = isUnrankedBotFiller && botId
     ? botId.toUpperCase()
     : null;
+
+  /* Bot games (AI / unranked filler) used to always hand the human (P1)
+   * the first move on G1 — that broke the multiplayer feel the user
+   * asked for, where the opening side is decided 50/50 and then alternates
+   * every game. We freeze a random anchor per match here (stable across
+   * re-renders thanks to the lazy initializer + ref) and derive every
+   * subsequent game's starter via `expectedAiStarter(...)` below. The
+   * anchor is only consulted on the bot-game code paths; multiplayer
+   * stays server-driven and untouched. */
+  const aiG1StarterRef = useRef<"P1" | "P2">(
+    typeof window === "undefined" || Math.random() < 0.5 ? "P1" : "P2",
+  );
+  /** Derive the expected first player of a non-Rulebreaker game from the
+   *  match's G1 anchor. The mapping mirrors a real multiplayer series:
+   *  - G1: anchor (random)
+   *  - G2: flip(anchor)              ← alternation
+   *  - G4: flip(anchor)              ← new leg, "second mover of prev leg's G1"
+   *  - G5: anchor                    ← alternation from G4
+   *  - G7: anchor                    ← new leg, "second mover of prev leg's G4"
+   *  - G8: flip(anchor)              ← alternation from G7
+   *  G3 / G6 / G9 are Rulebreakers (toss-driven) and are not handled here. */
+  const expectedAiStarter = useCallback(
+    (gameNum: number): "P1" | "P2" => {
+      const anchor = aiG1StarterRef.current;
+      const flip = (p: "P1" | "P2") => (p === "P1" ? "P2" : "P1");
+      switch (gameNum) {
+        case 1:
+        case 5:
+        case 7:
+          return anchor;
+        case 2:
+        case 4:
+        case 8:
+        case 10:
+          return flip(anchor);
+        default:
+          return anchor;
+      }
+    },
+    [],
+  );
+
   const [liveBoardMode, setLiveBoardMode] = useState<BoardMode>(boardMode);
   const [liveSelectedPatterns, setLiveSelectedPatterns] = useState<string[]>(selectedPatterns ?? []);
   /* Unranked filler-bot ladder is self-driven: the client flips
@@ -1407,7 +1449,16 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     setRbCoinPendingResult(r);
   }, [phase, coinResult, isMultiplayerGame, mySlot]);
 
-  useEffect(() => { initBoard("P1"); }, []);
+  useEffect(() => {
+    // Unranked filler bot games randomize G1 first-mover for a multiplayer
+    // feel. All other paths (multiplayer / local SP / explicit AI BO3) keep
+    // the historical "P1 always opens" behaviour untouched.
+    const initialStarter: "P1" | "P2" = isUnrankedBotFiller
+      ? aiG1StarterRef.current
+      : "P1";
+    initBoard(initialStarter);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (board.length !== GRID_SIZE || (board[0] && board[0].length !== GRID_SIZE)) {
@@ -3161,7 +3212,11 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
         setShow7x7LevelUp(false);
         playTransitionAction?.();
         setPhase("playing");
-        initBoard("P1", false, false, nextGridSize);
+        // Leg-start first-mover follows the multiplayer convention:
+        // the player who had SECOND move in the previous leg's first
+        // game opens the new leg. With a random G1 anchor that means
+        // G4 = flip(anchor), G7 = anchor — see `expectedAiStarter`.
+        initBoard(expectedAiStarter(nextGameNum), false, false, nextGridSize);
       } else if (nextBm === "6x6") {
         setShow6x6LevelUp(true);
         playTransitionAction?.();
@@ -3219,7 +3274,16 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
             : 5;
       setGameNumber(nextGameNum);
       setPhase("playing");
-      initBoard(gn % 2 === 1 ? "P2" : "P1", false, false, legGridSize);
+      // For unranked filler bots, derive the next game's first mover
+      // from the random G1 anchor so the alternation matches a real
+      // multiplayer series (G2/G5/G8 are computed against the anchor;
+      // RB games G3/G6/G9 are toss-driven and not handled here). All
+      // other AI / SP paths keep the legacy "P2 on odd, P1 on even"
+      // alternation that assumed P1 always opened G1.
+      const aiNextStarter: "P1" | "P2" = isUnrankedBotFiller
+        ? expectedAiStarter(nextGameNum)
+        : (gn % 2 === 1 ? "P2" : "P1");
+      initBoard(aiNextStarter, false, false, legGridSize);
     }
   };
 
@@ -3564,6 +3628,107 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     // above the effect so the deps length stays constant across renders
     // (otherwise React's Fast Refresh reports "useEffect changed size
     // between renders" every time one of those values changes).
+  ]);
+
+  /* ── Unranked filler-bot MatchResultScreen failsafe ─────────────────────
+   * The API claim above is the canonical post-series flow (it grants XP
+   * + drives MYTHOS first-defeat rewards), but if the request 422s, times
+   * out, or the user dismisses the WinOverlay before it returns, the
+   * shared GameWinScreen → MatchResultScreen flow never fires and the
+   * player is stranded on the bare game board with nothing but an EXIT
+   * button. The user reported exactly that.
+   *
+   * This failsafe fires ~3 s after `matchOver` becomes true on a non-
+   * MYTHOS unranked filler series and forces the multiplayer-style
+   * post-series UI with locally-computed values (XP / level deltas
+   * inferred from the current `user` snapshot). MYTHOS games are
+   * intentionally excluded so the special boss-tier reward banner only
+   * ever appears when the server confirmed the first defeat.
+   *
+   * Note: the canonical claim effect ALSO writes `setMatchSeriesComplete`
+   * + `setShowGameWinScreen(true)`, so a normal successful claim races
+   * this failsafe and wins (we re-check `matchSeriesComplete` inside
+   * the timeout to avoid double-firing the overlay). */
+  useEffect(() => {
+    if (!isUnrankedBotFiller) return;
+    if (isMythosBot) return;
+    if (!matchOver) return;
+    if (phase !== "match_over") return;
+    if (matchSeriesComplete) return;
+    if (showGameWinScreen) return;
+
+    const timer = window.setTimeout(() => {
+      // The canonical claim may have completed during the timeout — bail
+      // if it did, we don't want to step on its richer payload.
+      if (matchSeriesUiLockUntilRef.current > Date.now()) return;
+      const u =
+        (userForSeriesClaimRef.current as Record<string, unknown> | null) ?? {};
+      const currentSeriesWinner = seriesWinnerForSeriesClaimRef.current;
+      const currentP1Name = p1NameForSeriesClaimRef.current;
+      const prevLevel = Number(u.level ?? 1) || 1;
+      const prevXp = Math.max(0, Number(u.xp ?? 0) || 0);
+      const prevElo = Number(u.elo ?? 0) || 0;
+      const prevRr = Number(u.ranked_rating ?? 0) || 0;
+      const myDisplayName = String(u.username ?? currentP1Name ?? "YOU");
+      const opponentName = (botId || "BOT").toUpperCase();
+      const seriesWinnerForPayload: "P1" | "P2" | "DRAW" =
+        currentSeriesWinner === "P1"
+          ? "P1"
+          : currentSeriesWinner === "P2"
+            ? "P2"
+            : "DRAW";
+
+      const fallbackPayload: MatchSeriesCompletePayload = {
+        series_winner: seriesWinnerForPayload,
+        format: "unranked",
+        careerEntryId: null,
+        p1: {
+          name: myDisplayName,
+          elo_before: prevElo,
+          elo_after: prevElo,
+          rr_before: prevRr,
+          rr_after: prevRr,
+          level_before: prevLevel,
+          level_after: prevLevel,
+          xp_before: prevXp,
+          xp_after: prevXp,
+        },
+        p2: {
+          name: opponentName,
+          elo_before: 0,
+          elo_after: 0,
+          rr_before: 0,
+          rr_after: 0,
+          level_before: 1,
+          level_after: 1,
+          xp_before: 0,
+          xp_after: 0,
+        },
+        isMythos: false,
+        mythosFirstDefeat: false,
+        mythosXpBonus: 0,
+      };
+
+      isViewingPostMatchRef.current = true;
+      unstable_batchedUpdates(() => {
+        setShowWinOverlay(false);
+        setOverlayVisible(false);
+        setMatchOverAcked(false);
+        setMatchSeriesComplete(fallbackPayload);
+        setShowSeriesMatchResult(false);
+        setShowGameWinScreen(true);
+      });
+    }, 3000);
+
+    return () => window.clearTimeout(timer);
+  }, [
+    isUnrankedBotFiller,
+    isMythosBot,
+    matchOver,
+    phase,
+    matchSeriesComplete,
+    showGameWinScreen,
+    botId,
   ]);
 
   useEffect(() => {

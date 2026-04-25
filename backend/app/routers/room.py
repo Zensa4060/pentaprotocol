@@ -27,8 +27,34 @@ _rb_autostart_tasks: dict[str, asyncio.Task] = {}
 _lb_phase_tasks: dict[str, asyncio.Task] = {}
 _rules_sheet_timeout_tasks: dict[str, asyncio.Task] = {}
 _disconnect_confirm_tasks: dict[str, asyncio.Task] = {}
+# Background timeout that auto-advances a room from the inter-game
+# "READY TO PLAY" pane to the next game (or Rulebreaker / Timebreaker /
+# Mindbreaker phase) when one or both clients fail to send `ready`.
+# This guarantees the match keeps moving forward even when a player's
+# tab is backgrounded, hidden, or disconnected — they will return to a
+# game already in progress rather than the entire room sitting frozen
+# on the ready pane forever.
+_inter_game_ready_tasks: dict[str, asyncio.Task] = {}
+# Stall-watchdog tasks for the Rulebreaker / Timebreaker / Mindbreaker
+# multi-phase flow (rb_splash → rb_coin → rule_choice → bans →
+# toss_summary). Fires if clients stop driving the flow forward.
+_rb_stall_tasks: dict[str, asyncio.Task] = {}
 RULES_SHEET_TIMEOUT_SECONDS = 60.0
 DISCONNECT_CONFIRM_SECONDS = 30.0
+# Server-side ceiling on the inter-game ready phase. The client UI shows a
+# 30-second countdown ("Next game starts in Ns") and tries to broadcast a
+# `ready: true` WS message when it hits zero, but throttled background tabs
+# (Chrome / Safari aggressively pause `requestAnimationFrame` and even our
+# Web-Worker fallback under battery-saver / heavy-throttling modes) can
+# silently miss that send. We give the clients a small grace window past
+# the on-screen 30 s countdown, then auto-advance authoritatively.
+INTER_GAME_READY_TIMEOUT_SECONDS = 40.0
+# Outer ceiling on the entire Rulebreaker / Timebreaker / Mindbreaker
+# pre-game flow. The client-side timeline is roughly: 5 s splash + 3.5 s
+# coin reveal + ~10 s for the rule choice + ~10 s for any bans +
+# 3.5 s toss summary ≈ 32 s in the worst case. We give it 50 s of grace
+# before force-finalising with sensible defaults.
+RB_STALL_TIMEOUT_SECONDS = 50.0
 
 
 def _reset_rules_gate_runtime(room_code: str) -> None:
@@ -51,6 +77,18 @@ def _cancel_lb_phase_task(room_code: str) -> None:
 
 def _cancel_rules_sheet_timeout(room_code: str) -> None:
     task = _rules_sheet_timeout_tasks.pop(room_code, None)
+    if task and not task.done():
+        task.cancel()
+
+
+def _cancel_inter_game_ready_timeout(room_code: str) -> None:
+    task = _inter_game_ready_tasks.pop(room_code, None)
+    if task and not task.done():
+        task.cancel()
+
+
+def _cancel_rb_stall_watchdog(room_code: str) -> None:
+    task = _rb_stall_tasks.pop(room_code, None)
     if task and not task.done():
         task.cancel()
 
@@ -1397,6 +1435,306 @@ async def _broadcast_rulebreaker_start(db, room_code: str, room: dict, history: 
         except:
             pass
 
+    # Arm a server-side watchdog: if neither client drives the rulebreaker
+    # flow to completion within `RB_STALL_TIMEOUT_SECONDS` (typical: a
+    # backgrounded P1 tab whose `requestAnimationFrame` is paused so its
+    # coin-flip tick never fires the `coin_result` toss_action) we force
+    # the room into `toss_summary` so the existing
+    # `_auto_finalize_rulebreaker_toss` worker can resolve the rest with
+    # sensible defaults.
+    _cancel_rb_stall_watchdog(room_code)
+    _rb_stall_tasks[room_code] = asyncio.create_task(
+        _rb_stall_watchdog_worker(db, room_code)
+    )
+
+
+async def _rb_stall_watchdog_worker(db, room_code: str) -> None:
+    """Failsafe driver for a stalled Rulebreaker / Timebreaker / Mindbreaker phase.
+
+    After `RB_STALL_TIMEOUT_SECONDS` from the rulebreaker_start broadcast,
+    if the room is still parked in any of the early RB phases
+    (`rb_splash` / `rb_coin` / `rule_choice` / `ban_first` / `ban_second` /
+    `choose_first_player`) we fast-forward straight to `toss_summary` with
+    safe defaults: a server-picked coin result, the toss winner taking
+    the extra-turn token, no pattern bans, and the toss winner playing
+    first. The existing `_auto_finalize_rulebreaker_toss` worker then
+    completes the transition into the next game's board.
+
+    This complements `_auto_finalize_rulebreaker_toss` (which only fires
+    *after* a client has reached `toss_summary`); together the two
+    watchdogs guarantee the match keeps progressing even if one or both
+    clients are backgrounded long enough for their main-thread schedulers
+    and our Web-Worker tick fallback to miss firing the necessary
+    `toss_action` WS sends.
+    """
+    try:
+        await asyncio.sleep(RB_STALL_TIMEOUT_SECONDS)
+        room = await db.rooms.find_one({"room_code": room_code})
+        if not room:
+            return
+        if room.get("game_status") in ("disbanded",):
+            return
+        if room.get("status") in ("disbanded", "finished"):
+            return
+        if room.get("series_winner"):
+            return
+        phase = room.get("phase")
+        if phase not in (
+            "rb_splash",
+            "rb_coin",
+            "rule_choice",
+            "ban_first",
+            "ban_second",
+            "choose_first_player",
+        ):
+            # Already at toss_summary or beyond — `_auto_finalize_rulebreaker_toss`
+            # owns the rest of the flow.
+            return
+
+        tw = room.get("rb_toss_winner") or random.choice(["P1", "P2"])
+        coin_result = room.get("rb_coin_result") or ("PENTA" if tw == "P1" else "PROTO")
+        existing_payload = room.get("rb_phase_payload") or {}
+        if not isinstance(existing_payload, dict):
+            existing_payload = {}
+        # Default rule choice: the toss winner takes the extra-turn token.
+        # `_auto_finalize_rulebreaker_toss` understands this convention.
+        merged_payload = {
+            **existing_payload,
+            "winnerPickedRule": existing_payload.get("winnerPickedRule") or "extra_turn",
+            "firstPlayerChosen": existing_payload.get("firstPlayerChosen") or tw,
+            "rb_banned_patterns": existing_payload.get("rb_banned_patterns")
+            or room.get("rb_banned_patterns")
+            or [],
+        }
+        due_ms = int(datetime.utcnow().timestamp() * 1000) + 3500
+        await db.rooms.update_one(
+            {"room_code": room_code},
+            {
+                "$set": {
+                    "phase": "toss_summary",
+                    "rb_toss_winner": tw,
+                    "rb_coin_result": coin_result,
+                    "rb_phase_payload": merged_payload,
+                    "rb_summary_started_at_ms": due_ms - 3500,
+                    "rb_auto_start_due_ms": due_ms,
+                }
+            },
+        )
+        # Notify clients of the synthesized toss_summary so any peer that
+        # is foregrounded transitions visually instead of being teleported
+        # straight into the next board.
+        synth_broadcast = {
+            "type": "toss_action",
+            "action": "phase_choice",
+            "payload": {
+                "phase": "toss_summary",
+                "toss_winner": tw,
+                "result": coin_result,
+                "firstPlayerChosen": merged_payload["firstPlayerChosen"],
+                "winnerPickedRule": merged_payload["winnerPickedRule"],
+                "rb_banned_patterns": merged_payload.get("rb_banned_patterns") or [],
+                "coin_due_ms": due_ms,
+            },
+            "from": "SERVER",
+        }
+        for _slot, ws in _room_connections.get(room_code, {}).items():
+            try:
+                await ws.send_json(synth_broadcast)
+            except Exception:
+                pass
+        # Hand off to the existing toss-summary auto-finaliser.
+        _cancel_rb_autostart(room_code)
+        _rb_autostart_tasks[room_code] = asyncio.create_task(
+            _auto_finalize_rulebreaker_toss(db, room_code, due_ms)
+        )
+    except asyncio.CancelledError:
+        raise
+    except Exception:
+        logger.exception(
+            "RB stall watchdog: failed to recover stalled rulebreaker for %s",
+            room_code,
+        )
+    finally:
+        _rb_stall_tasks.pop(room_code, None)
+
+
+async def _advance_after_both_ready(db, room_code: str) -> bool:
+    """Run the post-`waiting_ready` advance.
+
+    Mirrors the inline branch inside the `msg_type == "ready"` WS handler:
+    if both `p1_ready` & `p2_ready` are now true, transition the room to
+    its next phase — either:
+      • clear the ready flags after the series ended, or
+      • broadcast the Rulebreaker / Timebreaker / Mindbreaker start, or
+      • build a fresh `GameEngine` and broadcast `game_reset` to start
+        the next game.
+
+    Extracted so the inter-game ready timeout worker can drive the same
+    advance authoritatively when one or both clients fail to send their
+    `ready` WS message (e.g. backgrounded tab missed the auto-ready
+    deadline). Returns True if any advance happened, False otherwise.
+    """
+    room = await db.rooms.find_one({"room_code": room_code})
+    if not room:
+        return False
+    if room.get("game_status") in ("disbanded",):
+        return False
+    if room.get("status") == "disbanded":
+        return False
+    if not (room.get("p1_ready") and room.get("p2_ready")):
+        return False
+
+    if room.get("series_winner"):
+        await db.rooms.update_one(
+            {"room_code": room_code},
+            {"$set": {"p1_ready": False, "p2_ready": False}},
+        )
+        return True
+
+    if room.get("awaiting_rulebreaker"):
+        await _broadcast_rulebreaker_start(
+            db, room_code, room, room.get("match_history", [])
+        )
+        return True
+
+    current_game = room.get("game_number", 1)
+    eff_bm = _effective_board_mode(room)
+    sp = room.get("selected_patterns")
+    sp1 = room.get("selected_patterns_p1")
+    sp2 = room.get("selected_patterns_p2")
+    new_engine = GameEngine(
+        board_mode=eff_bm,
+        selected_pattern_ids=sp,
+        selected_pattern_ids_p1=sp1 if eff_bm == "7x7" else None,
+        selected_pattern_ids_p2=sp2 if eff_bm == "7x7" else None,
+    )
+    next_game = current_game + 1
+    g1f = room.get("game1_first_player") or "P1"
+    first_next = g1f if next_game % 2 == 1 else ("P2" if g1f == "P1" else "P1")
+
+    reset = {
+        "board":          new_engine.board,
+        "current_player": first_next,
+        "moves_played":   0,
+        "turn_started_at_ms": int(datetime.utcnow().timestamp() * 1000),
+        "extra_turns":    0,
+        "winner":         None,
+        "game_status":    "playing",
+        "status":         "active",
+        "p1_ready":       False,
+        "p2_ready":       False,
+        "game_number":    next_game,
+        "suppress_center_opening": bool(next_game == 9 and eff_bm == "7x7"),
+        "rb_extra_turn_token_holder": None,
+        "rb_extra_turn_token_used": False,
+        "rb_hide_banned_from_slot": None,
+        "rb_patterns_pre_ban": None,
+        "rb_banned_patterns": [],
+        "rb_banned_pattern": None,
+        "rb6_special_cell": None,
+        "rb6_timer_owner": None,
+        "rb6_trap_revealed": False,
+    }
+
+    await db.rooms.update_one({"room_code": room_code}, {"$set": reset})
+
+    gr_payload = {
+        "type":         "game_reset",
+        "first_player": reset["current_player"],
+        "game_number":  reset["game_number"],
+        "board_mode":   eff_bm,
+        "suppress_center_opening": False,
+        "rb_extra_turn_token_used": False,
+        "preserve_rb_hide": False,
+    }
+    if sp is not None:
+        gr_payload["selected_patterns"] = sp
+    if eff_bm == "7x7" and sp1 is not None and sp2 is not None:
+        gr_payload["selected_patterns_p1"] = sp1
+        gr_payload["selected_patterns_p2"] = sp2
+    for _slot, ws in _room_connections.get(room_code, {}).items():
+        try:
+            await ws.send_json(gr_payload)
+        except Exception:
+            pass
+    return True
+
+
+async def _inter_game_ready_timeout_worker(db, room_code: str) -> None:
+    """Force-advance a stalled inter-game ready phase.
+
+    Sleeps for `INTER_GAME_READY_TIMEOUT_SECONDS` after a game finishes
+    with no series winner, then — if the room is still waiting for one
+    or both players' `ready` messages — flips both ready flags to true
+    in the DB, broadcasts `ready_update` for any slot that hadn't
+    locally readied yet (so peer UIs sync correctly), and runs
+    `_advance_after_both_ready`. This guarantees the multiplayer
+    timeline keeps moving even when a player's tab has been
+    backgrounded long enough for `requestAnimationFrame` and the Web
+    Worker fallback to miss firing the auto-ready WS send.
+    """
+    try:
+        await asyncio.sleep(INTER_GAME_READY_TIMEOUT_SECONDS)
+        room = await db.rooms.find_one({"room_code": room_code})
+        if not room:
+            return
+        if room.get("game_status") not in ("finished", "playing"):
+            return
+        # Only fire when we are genuinely stuck on the inter-game ready
+        # pane: a game has finished, no series winner has been recorded,
+        # and we are not currently inside a Rulebreaker phase that drives
+        # its own server-side timing.
+        if room.get("series_winner"):
+            return
+        if room.get("status") == "finished":
+            return
+        # If the room has already advanced (game_status == playing and
+        # ready flags reset), nothing to do.
+        if room.get("game_status") == "playing" and not (
+            room.get("p1_ready") or room.get("p2_ready")
+        ):
+            return
+
+        prev_p1 = bool(room.get("p1_ready"))
+        prev_p2 = bool(room.get("p2_ready"))
+        if prev_p1 and prev_p2:
+            # Both already ready — somebody else is handling the advance.
+            return
+
+        await db.rooms.update_one(
+            {"room_code": room_code},
+            {"$set": {"p1_ready": True, "p2_ready": True}},
+        )
+        peers = _room_connections.get(room_code, {})
+        for slot in ("P1", "P2"):
+            already = prev_p1 if slot == "P1" else prev_p2
+            if already:
+                continue
+            broadcast = {"type": "ready_update", "player": slot, "ready": True}
+            for _peer_slot, ws in peers.items():
+                try:
+                    await ws.send_json(broadcast)
+                except Exception:
+                    pass
+        try:
+            await _advance_after_both_ready(db, room_code)
+        except Exception:
+            logger.exception(
+                "Inter-game ready timeout: advance failed for %s", room_code
+            )
+    except asyncio.CancelledError:
+        raise
+    finally:
+        _inter_game_ready_tasks.pop(room_code, None)
+
+
+def _schedule_inter_game_ready_timeout(db, room_code: str) -> None:
+    """Replace any existing inter-game ready timeout with a fresh one."""
+    _cancel_inter_game_ready_timeout(room_code)
+    _inter_game_ready_tasks[room_code] = asyncio.create_task(
+        _inter_game_ready_timeout_worker(db, room_code)
+    )
+
 
 async def _finalize_rulebreaker_start(
     db,
@@ -1404,6 +1742,12 @@ async def _finalize_rulebreaker_start(
     room: dict,
     msg: dict,
 ) -> None:
+    # Either the clients have driven the rulebreaker to completion, or our
+    # watchdog forced toss_summary and `_auto_finalize_rulebreaker_toss`
+    # is now invoking us. Either way, the early-phase stall watchdog is
+    # no longer needed and must be cancelled before we transition the
+    # room into the next game's playable state.
+    _cancel_rb_stall_watchdog(room_code)
     hist = room.get("match_history", [])
     seg_start = room.get("segment_start_index", 0)
     p1p, p2p = compute_segment_points(hist, 0)
@@ -1803,6 +2147,27 @@ RANKED_ELO_MATCH_RANGE = 500
 def _is_ranked_triple_leg_room(room: dict) -> bool:
     return room.get("format") == "ranked" and (
         room.get("ranked_triple_leg") is True or room.get("board_mode_full") == RANKED_TRIPLE_BOARD_MODE
+    )
+
+
+def _is_triple_leg_room(room: dict | None) -> bool:
+    """
+    True for any 5×5 → 6×6 → 7×7 triple-leg room (ranked OR unranked).
+
+    The historical `ranked_triple_leg` flag is only stamped on ranked
+    matchmaking rooms; unranked custom rooms in the same triple-leg flow
+    only carry `board_mode_full == "5x5_6x6_7x7"`. Code that decides
+    whether to advance the leg (5×5 → 6×6 → 7×7) MUST use this helper
+    instead of `room.get("ranked_triple_leg")` so unranked rooms don't
+    accidentally skip the 6×6 leg and jump straight to 7×7.
+    """
+    if not room:
+        return False
+    if room.get("ranked_triple_leg") is True:
+        return True
+    return (
+        room.get("board_mode_full") == RANKED_TRIPLE_BOARD_MODE
+        or room.get("board_mode") == RANKED_TRIPLE_BOARD_MODE
     )
 
 
@@ -3229,6 +3594,18 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                         )
                     )
 
+                # Schedule a server-side ceiling on the inter-game ready
+                # phase whenever a game just finished without ending the
+                # series. This guarantees the match continues even if a
+                # client's tab is backgrounded/throttled hard enough that
+                # its auto-ready WS send never fires. The worker
+                # additionally covers the awaiting_rulebreaker bridge
+                # (G3 / G6 / G9 transitions) — both branches re-use
+                # `_advance_after_both_ready`. When the series itself
+                # ended, no further ready advance is required.
+                if is_finished and not update.get("series_winner"):
+                    _schedule_inter_game_ready_timeout(db, room_code)
+
             elif msg_type == "ready":
                 ready_val   = msg.get("ready", True)
                 ready_field = "p1_ready" if player_slot == "P1" else "p2_ready"
@@ -3249,84 +3626,13 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                     except:
                         pass
 
-                room = await db.rooms.find_one({"room_code": room_code})
-                if room and room.get("p1_ready") and room.get("p2_ready"):
-                    if room.get("series_winner"):
-                        await db.rooms.update_one(
-                            {"room_code": room_code},
-                            {"$set": {"p1_ready": False, "p2_ready": False}},
-                        )
-                        continue
-
-                    if room.get("awaiting_rulebreaker"):
-                        await _broadcast_rulebreaker_start(db, room_code, room, room.get("match_history", []))
-                        continue
-
-                    current_game = room.get("game_number", 1)
-                    bm = room.get("board_mode", "5x5")
-                    eff_bm = _effective_board_mode(room)
-                    sp = room.get("selected_patterns")
-                    sp1 = room.get("selected_patterns_p1")
-                    sp2 = room.get("selected_patterns_p2")
-                    new_engine = GameEngine(
-                        board_mode=eff_bm,
-                        selected_pattern_ids=sp,
-                        selected_pattern_ids_p1=sp1 if eff_bm == "7x7" else None,
-                        selected_pattern_ids_p2=sp2 if eff_bm == "7x7" else None,
-                    )
-                    next_game = current_game + 1
-                    g1f = room.get("game1_first_player") or "P1"
-                    first_next = g1f if next_game % 2 == 1 else ("P2" if g1f == "P1" else "P1")
-
-                    reset = {
-                        "board":          new_engine.board,
-                        "current_player": first_next,
-                        "moves_played":   0,
-                        "turn_started_at_ms": int(datetime.utcnow().timestamp() * 1000),
-                        "extra_turns":    0,
-                        "winner":         None,
-                        "game_status":    "playing",
-                        "status":         "active",
-                        "p1_ready":       False,
-                        "p2_ready":       False,
-                        "game_number":    next_game,
-                        "suppress_center_opening": bool(next_game == 9 and eff_bm == "7x7"),
-                        "rb_extra_turn_token_holder": None,
-                        "rb_extra_turn_token_used": False,
-                        "rb_hide_banned_from_slot": None,
-                        "rb_patterns_pre_ban": None,
-                        "rb_banned_patterns": [],
-                        "rb_banned_pattern": None,
-                        "rb6_special_cell": None,
-                        "rb6_timer_owner": None,
-                        "rb6_trap_revealed": False,
-                    }
-
-                    await db.rooms.update_one({"room_code": room_code}, {"$set": reset})
-
-                    gr_payload = {
-                        "type":         "game_reset",
-                        "first_player": reset["current_player"],
-                        "game_number":  reset["game_number"],
-                        "board_mode":   eff_bm,
-                        "suppress_center_opening": False,
-                        "rb_extra_turn_token_used": False,
-                        "preserve_rb_hide": False,
-                    }
-                    if sp is not None:
-                        gr_payload["selected_patterns"] = sp
-                    if (
-                        eff_bm == "7x7"
-                        and sp1 is not None
-                        and sp2 is not None
-                    ):
-                        gr_payload["selected_patterns_p1"] = sp1
-                        gr_payload["selected_patterns_p2"] = sp2
-                    for slot, ws in _room_connections.get(room_code, {}).items():
-                        try:
-                            await ws.send_json(gr_payload)
-                        except:
-                            pass
+                # If both clients have now reported ready, take the
+                # authoritative advance path (mirrors the inter-game
+                # ready timeout fallback). The helper handles
+                # series-end / Rulebreaker / regular game-reset cases.
+                advanced = await _advance_after_both_ready(db, room_code)
+                if advanced:
+                    _cancel_inter_game_ready_timeout(room_code)
 
             elif msg_type == "levelup_ready":
                 room = await db.rooms.find_one({"room_code": room_code})
@@ -3848,6 +4154,11 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                             due_ms = int(datetime.utcnow().timestamp() * 1000) + 3500
                             phase_patch["rb_summary_started_at_ms"] = due_ms - 3500
                             phase_patch["rb_auto_start_due_ms"] = due_ms
+                            # Clients have driven the rulebreaker far enough
+                            # that the existing `_auto_finalize_rulebreaker_toss`
+                            # worker will handle finalisation; the RB stall
+                            # watchdog is no longer needed.
+                            _cancel_rb_stall_watchdog(room_code)
                             _cancel_rb_autostart(room_code)
                             _rb_autostart_tasks[room_code] = asyncio.create_task(
                                 _auto_finalize_rulebreaker_toss(db, room_code, due_ms)
@@ -4079,9 +4390,20 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                     )
                     continue
 
+                # Triple-leg flow (5×5 → 6×6 → 7×7) covers BOTH ranked
+                # and unranked rooms. Previously this branch only fired
+                # when `room.get("ranked_triple_leg")` was true, which
+                # caused unranked custom triple-leg matches that ended
+                # G3 (or G6) on a clock timeout to skip 6×6 entirely
+                # and jump straight to the 7×7 fallback below — so G4
+                # would render as a 7×7 board instead of 6×6. Use the
+                # broader `_is_triple_leg_room` helper that also
+                # recognises `board_mode_full == "5x5_6x6_7x7"` rooms.
+                _triple_leg = _is_triple_leg_room(room)
+
                 if should_auto_upgrade_7x7_after_6x6_game3(
                     new_history, seg_start, bm, gn
-                ) and room.get("ranked_triple_leg"):
+                ) and _triple_leg:
                     fb = room.get("board", [])
                     finished = [list(r) for r in fb] if fb else []
                     await _apply_6x6_to_7x7_upgrade(
@@ -4104,7 +4426,7 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
 
                 if should_auto_upgrade_7x7_after_5x5_game3(
                     new_history, seg_start, bm, gn
-                ) and room.get("ranked_triple_leg"):
+                ) and _triple_leg:
                     fb = room.get("board", [])
                     finished = [list(r) for r in fb] if fb else []
                     await _apply_5x5_to_6x6_upgrade(
@@ -4125,6 +4447,9 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                     )
                     continue
 
+                # Legacy non-triple-leg fallback: rooms that started in
+                # 5×5 but were never set up as a 5x5_6x6_7x7 series jump
+                # straight from 5×5 to 7×7 after G3.
                 if should_auto_upgrade_7x7_after_5x5_game3(
                     new_history, seg_start, bm, gn
                 ):

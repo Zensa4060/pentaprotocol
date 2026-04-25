@@ -76,6 +76,15 @@ const nextConfig: NextConfig = {
         "https://accounts.google.com",
         "https://static.cloudflareinsights.com",
       ].join(" "),
+      // Web Workers — the in-game timer uses a Blob-URL Worker so the
+      // tick keeps firing in background tabs (browsers throttle main-
+      // thread setTimeout / requestAnimationFrame to >=1s in hidden
+      // tabs, which froze our server-driven timers and stalled the
+      // multiplayer flow). Without an explicit `worker-src` directive
+      // browsers fall back to `script-src`, which does NOT allow
+      // `blob:` and silently blocked the worker in production. Allow
+      // same-origin Workers and Blob-URL Workers explicitly.
+      "worker-src 'self' blob:",
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://accounts.google.com",
       "font-src 'self' https://fonts.gstatic.com",
       "media-src 'self'",
