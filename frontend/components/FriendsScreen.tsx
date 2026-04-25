@@ -85,6 +85,36 @@ export default function FriendsScreen({ themeId, onHoverAction }: Props) {
   const dmMessagesScrollRef = useRef<HTMLDivElement | null>(null);
   const dmWsRef = useRef<WebSocket | null>(null);
   const pendingOpenDmFriendIdRef = useRef<string | null>(null);
+  // Click-to-copy feedback for friend DM messages.
+  const [copiedDmIdx, setCopiedDmIdx] = useState<number | null>(null);
+  const copiedDmTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => {
+    if (copiedDmTimerRef.current) clearTimeout(copiedDmTimerRef.current);
+  }, []);
+  const handleCopyDm = useCallback((text: string, idx: number) => {
+    if (!text) return;
+    const fallback = () => {
+      try {
+        const ta = document.createElement("textarea");
+        ta.value = text;
+        ta.setAttribute("readonly", "");
+        ta.style.position = "fixed";
+        ta.style.opacity = "0";
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand("copy");
+        document.body.removeChild(ta);
+      } catch { /* ignore */ }
+    };
+    try {
+      if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+        void navigator.clipboard.writeText(text).catch(fallback);
+      } else fallback();
+    } catch { fallback(); }
+    setCopiedDmIdx(idx);
+    if (copiedDmTimerRef.current) clearTimeout(copiedDmTimerRef.current);
+    copiedDmTimerRef.current = setTimeout(() => setCopiedDmIdx(null), 1200);
+  }, []);
 
   const showToast = useCallback((msg: string) => {
     setToast(msg);
@@ -864,8 +894,19 @@ export default function FriendsScreen({ themeId, onHoverAction }: Props) {
               ) : (
                 dmModal.messages.map((m, i) => {
                   const mine = String(m.from_user) === String(meId);
+                  const isCopied = copiedDmIdx === i;
                   return (
-                    <div key={i} style={{ display: "flex", justifyContent: mine ? "flex-end" : "flex-start", marginBottom: 6 }}>
+                    <div
+                      key={i}
+                      style={{
+                        display: "flex",
+                        justifyContent: mine ? "flex-end" : "flex-start",
+                        marginBottom: 6,
+                        gap: 6,
+                        alignItems: "flex-end",
+                        flexDirection: mine ? "row-reverse" : "row",
+                      }}
+                    >
                       <div
                         style={{
                           maxWidth: "78%",
@@ -877,10 +918,36 @@ export default function FriendsScreen({ themeId, onHoverAction }: Props) {
                           fontSize: 13,
                           color: t.text,
                           wordBreak: "break-word",
+                          userSelect: "text",
                         }}
                       >
                         {m.text}
                       </div>
+                      {/* Inline COPY pill — one-tap shortcut for the
+                        * whole message text. The bubble itself stays
+                        * selectable so partial drag-selects still work
+                        * for users who only want a slice. */}
+                      <button
+                        type="button"
+                        onClick={() => handleCopyDm(m.text, i)}
+                        aria-label={isCopied ? "Copied" : "Copy message"}
+                        style={{
+                          flexShrink: 0,
+                          background: isCopied ? `${t.accent}22` : "transparent",
+                          border: `1px solid ${isCopied ? t.accent : `${t.border}AA`}`,
+                          color: isCopied ? t.accent : t.textMuted,
+                          fontFamily: t.fontMono,
+                          fontSize: 9,
+                          fontWeight: 700,
+                          letterSpacing: "0.1em",
+                          padding: "2px 6px",
+                          borderRadius: 4,
+                          cursor: "pointer",
+                          transition: "all 0.15s",
+                        }}
+                      >
+                        {isCopied ? "COPIED" : "COPY"}
+                      </button>
                     </div>
                   );
                 })

@@ -745,6 +745,17 @@ interface MatchSidebarProps {
   onReportPeerAction?: (reason: string, category: string) => void;
   /** Multiplayer only: UI state for the "add friend" button (pending / sent / already friends). */
   friendPeerStatus?: "idle" | "pending" | "sent" | "friends";
+  /** Multiplayer only: head-to-head record vs the current opponent.
+   *  `wins`/`losses`/`draws` are from the requesting user's POV;
+   *  `recent` is at most 5 entries, latest-first. Renders a HISTORY
+   *  card between MATCH HISTORY and the CHAT row. */
+  headToHead?: {
+    wins: number;
+    losses: number;
+    draws: number;
+    total: number;
+    recent: ("win" | "loss" | "draw")[];
+  } | null;
 }
 
 // ─── Separate named exports so GameScreen can render panels individually ──────
@@ -763,7 +774,8 @@ export function LeftPanel(props: MatchSidebarProps) {
     fmtTimeAction, playHoverAction,
     interGameReadyVisible, waitingReadyWarmup,
     showPatternOverlay, onTogglePatternOverlay,
-    onAddFriendPeerAction, onReportPeerAction, friendPeerStatus = "idle" } = props;
+    onAddFriendPeerAction, onReportPeerAction, friendPeerStatus = "idle",
+    headToHead = null } = props;
 
   const opponentSlot: "P1" | "P2" = mySlot === "P1" ? "P2" : "P1";
   const socialEligible = Boolean(
@@ -815,6 +827,39 @@ export function LeftPanel(props: MatchSidebarProps) {
   const useFlameSkull = pieceSkin === "flame_skull";
   const useSnowflakeShard = pieceSkin === "snowflake_shard";
   const chatListRef = React.useRef<HTMLDivElement | null>(null);
+
+  // Click-to-copy feedback for in-game chat. Stores the index of the
+  // message that was just copied so we can briefly flip its row to
+  // show "COPIED" instead of the COPY pill.
+  const [copiedChatIdx, setCopiedChatIdx] = React.useState<number | null>(null);
+  const copiedChatTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const handleCopyChat = React.useCallback((text: string, idx: number) => {
+    if (!text) return;
+    const fallback = () => {
+      try {
+        const ta = document.createElement("textarea");
+        ta.value = text;
+        ta.setAttribute("readonly", "");
+        ta.style.position = "fixed";
+        ta.style.opacity = "0";
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand("copy");
+        document.body.removeChild(ta);
+      } catch { /* ignore — clipboard simply unavailable */ }
+    };
+    try {
+      if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+        void navigator.clipboard.writeText(text).catch(fallback);
+      } else fallback();
+    } catch { fallback(); }
+    setCopiedChatIdx(idx);
+    if (copiedChatTimerRef.current) clearTimeout(copiedChatTimerRef.current);
+    copiedChatTimerRef.current = setTimeout(() => setCopiedChatIdx(null), 1200);
+  }, []);
+  React.useEffect(() => () => {
+    if (copiedChatTimerRef.current) clearTimeout(copiedChatTimerRef.current);
+  }, []);
 
   const [vh, setVh] = React.useState(800);
   React.useEffect(() => {
@@ -1107,40 +1152,44 @@ export function LeftPanel(props: MatchSidebarProps) {
             OPPONENT · {sidebarDisplayName(opponentSlot === "P1" ? p1Label : p2Label)}
           </div>
           <div style={{ display: "flex", gap: 6 }}>
-            <button
-              disabled={friendPeerStatus === "sent" || friendPeerStatus === "friends" || friendPeerStatus === "pending"}
-              onMouseEnter={playHoverAction}
-              onClick={() => onAddFriendPeerAction?.()}
-              style={{
-                flex: 1,
-                padding: "7px 8px",
-                background:
-                  friendPeerStatus === "friends"
-                    ? `${t.accent}22`
-                    : friendPeerStatus === "sent"
-                    ? `${t.accent}14`
-                    : "transparent",
-                border: `1px solid ${friendPeerStatus === "friends" ? t.accent : `${t.border}AA`}`,
-                borderRadius: ip ? 2 : 6,
-                color: friendPeerStatus === "friends" ? t.accent : t.textSecondary,
-                fontFamily: t.fontMono,
-                fontSize: 10,
-                fontWeight: 700,
-                letterSpacing: "0.1em",
-                cursor:
-                  friendPeerStatus === "sent" || friendPeerStatus === "friends" || friendPeerStatus === "pending"
-                    ? "default"
-                    : "pointer",
-              }}
-            >
-              {friendPeerStatus === "friends"
-                ? "FRIENDS"
-                : friendPeerStatus === "sent"
-                ? "REQUEST SENT"
-                : friendPeerStatus === "pending"
-                ? "SENDING…"
-                : "ADD FRIEND"}
-            </button>
+            {/* Hide the Add Friend button entirely once we know the
+              * opponent is already a friend — keeping a disabled
+              * "FRIENDS" pill alongside REPORT is noise (you can't
+              * un-friend from in-match anyway). For not-yet-friends
+              * the button still renders so the user can issue a
+              * request without leaving the match. */}
+            {friendPeerStatus !== "friends" && (
+              <button
+                disabled={friendPeerStatus === "sent" || friendPeerStatus === "pending"}
+                onMouseEnter={playHoverAction}
+                onClick={() => onAddFriendPeerAction?.()}
+                style={{
+                  flex: 1,
+                  padding: "7px 8px",
+                  background:
+                    friendPeerStatus === "sent"
+                      ? `${t.accent}14`
+                      : "transparent",
+                  border: `1px solid ${t.border}AA`,
+                  borderRadius: ip ? 2 : 6,
+                  color: t.textSecondary,
+                  fontFamily: t.fontMono,
+                  fontSize: 10,
+                  fontWeight: 700,
+                  letterSpacing: "0.1em",
+                  cursor:
+                    friendPeerStatus === "sent" || friendPeerStatus === "pending"
+                      ? "default"
+                      : "pointer",
+                }}
+              >
+                {friendPeerStatus === "sent"
+                  ? "REQUEST SENT"
+                  : friendPeerStatus === "pending"
+                  ? "SENDING…"
+                  : "ADD FRIEND"}
+              </button>
+            )}
             <button
               onMouseEnter={playHoverAction}
               onClick={() => { setReportOpen(true); setReportSent(false); }}
@@ -1521,20 +1570,108 @@ export function LeftPanel(props: MatchSidebarProps) {
         </div>
       )}
       {isMultiplayerGame && (phase === "playing" || phase === "waiting_ready") && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: "auto", borderTop: `1px solid ${t.border}`, paddingTop: 12 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
-              <div style={{ fontFamily: t.fontMono, fontSize: 17, fontWeight: 700, color: t.text, letterSpacing: "0.12em" }}>CHAT</div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: "auto" }}>
+          {/* Head-to-head record vs the current opponent. Fills the
+            * formerly-empty band between the MATCH HISTORY card and
+            * the CHAT row. Only renders for genuine multiplayer
+            * matches where we have both a peer id and a non-zero
+            * total — first-time encounters skip it so the panel
+            * doesn't show a meaningless "0 — 0 — 0" stub. */}
+          {headToHead && headToHead.total > 0 && (
+            <div style={{ borderTop: `1px solid ${t.border}`, paddingTop: 12, display: "flex", flexDirection: "column", gap: 8 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+                <div style={{ fontFamily: t.fontMono, fontSize: 13, fontWeight: 700, color: t.text, letterSpacing: "0.16em" }}>HISTORY</div>
+                <div style={{ fontFamily: t.fontMono, fontSize: 11, color: t.textMuted, letterSpacing: "0.1em" }}>{headToHead.total} {headToHead.total === 1 ? "MATCH" : "MATCHES"}</div>
+              </div>
+              {/* Last 5 outcomes — newest on the left, blank slots fill
+                * the row up to 5 so the strip width stays constant. */}
+              <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                {Array.from({ length: 5 }).map((_, i) => {
+                  const r = headToHead.recent[i];
+                  const col = r === "win" ? p1c : r === "loss" ? p2c : r === "draw" ? t.gold : "transparent";
+                  const lbl = r === "win" ? "W" : r === "loss" ? "L" : r === "draw" ? "D" : "·";
+                  const filled = !!r;
+                  return (
+                    <div
+                      key={i}
+                      style={{
+                        flex: 1,
+                        height: 26,
+                        borderRadius: ip ? 2 : 6,
+                        background: filled ? `${col}22` : "transparent",
+                        border: `1px solid ${filled ? `${col}AA` : `${t.border}88`}`,
+                        color: filled ? col : t.textMuted,
+                        fontFamily: t.fontMono,
+                        fontSize: 12,
+                        fontWeight: 800,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        boxShadow: filled ? `0 0 6px ${col}33` : "none",
+                      }}
+                    >
+                      {lbl}
+                    </div>
+                  );
+                })}
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6 }}>
+                {([
+                  { lbl: "WIN",  v: headToHead.wins,   c: p1c },
+                  { lbl: "DRAW", v: headToHead.draws,  c: t.gold },
+                  { lbl: "LOSE", v: headToHead.losses, c: p2c },
+                ] as const).map(item => (
+                  <div key={item.lbl} style={{
+                    padding: "6px 8px",
+                    background: `${item.c}10`,
+                    border: `1px solid ${item.c}33`,
+                    borderRadius: ip ? 2 : 6,
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    gap: 2,
+                  }}>
+                    <span style={{ fontFamily: t.fontMono, fontSize: 9, color: t.textMuted, letterSpacing: "0.16em" }}>{item.lbl}</span>
+                    <span style={{ fontFamily: t.fontDisplay, fontSize: 18, fontWeight: 800, color: item.c }}>{item.v}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* CHAT row — full-width clickable button so any tap on the
+            * row opens / collapses the chat panel. The previous design
+            * forced users to hit the small ▸ chevron, which was
+            * uncomfortable on mobile. */}
+          <button
+            type="button"
+            onClick={onChatOpenToggle}
+            onMouseEnter={playHoverAction}
+            style={{
+              all: "unset",
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              gap: 8,
+              padding: "10px 4px 0",
+              borderTop: `1px solid ${t.border}`,
+              cursor: "pointer",
+              boxSizing: "border-box",
+              width: "100%",
+            }}
+            aria-expanded={chatOpen}
+            aria-label={chatOpen ? "Close chat" : "Open chat"}
+          >
+            <span style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+              <span style={{ fontFamily: t.fontMono, fontSize: 17, fontWeight: 700, color: t.text, letterSpacing: "0.12em" }}>CHAT</span>
               {!chatOpen && unreadOpponentChat > 0 && (
                 <span style={{ minWidth: 22, height: 22, borderRadius: 11, background: t.accent, color: "#000", fontFamily: t.fontMono, fontSize: 12, fontWeight: 800, display: "inline-flex", alignItems: "center", justifyContent: "center", padding: "0 6px" }}>
                   {unreadOpponentChat > 9 ? "9+" : unreadOpponentChat}
                 </span>
               )}
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <button onClick={onChatOpenToggle} style={{ background: "none", border: "none", color: t.text, fontFamily: t.fontMono, fontSize: 16, cursor: "pointer", padding: "2px 6px", flexShrink: 0 }}>{chatOpen ? "▾" : "▸"}</button>
-            </div>
-          </div>
+            </span>
+            <span style={{ color: t.text, fontFamily: t.fontMono, fontSize: 16, padding: "2px 6px", flexShrink: 0 }} aria-hidden="true">{chatOpen ? "▾" : "▸"}</span>
+          </button>
         </div>
       )}
       {isMultiplayerGame && chatOpen && (phase === "playing" || phase === "waiting_ready") && (
@@ -1558,7 +1695,43 @@ export function LeftPanel(props: MatchSidebarProps) {
         >
           <div ref={chatListRef} style={{ flex: 1, minHeight: 0, overflowY: "auto", background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: ip ? 2 : 8, padding: "10px 12px", display: "flex", flexDirection: "column", gap: 6 }}>
             {chatMessages.length === 0 && (<div style={{ fontFamily: t.fontBody, fontSize: 14, color: t.textMuted, textAlign: "center", marginTop: 24 }}>No messages yet</div>)}
-            {chatMessages.map((m, i) => (<div key={i} style={{ display: "flex", gap: 6, alignItems: "flex-start" }}><span style={{ fontFamily: t.fontMono, fontSize: 14, fontWeight: 700, color: m.from === "P1" ? p1c : p2c, flexShrink: 0 }}>{m.from === "P1" ? (p1Label ?? "P1") : (p2Label ?? "P2")}:</span><span style={{ fontFamily: t.fontBody, fontSize: 14, color: t.text, wordBreak: "break-word" as const }}>{m.text}</span></div>))}
+            {chatMessages.map((m, i) => {
+              const isCopied = copiedChatIdx === i;
+              return (
+                <div
+                  key={i}
+                  style={{ display: "flex", gap: 6, alignItems: "flex-start", position: "relative" }}
+                >
+                  <span style={{ fontFamily: t.fontMono, fontSize: 14, fontWeight: 700, color: m.from === "P1" ? p1c : p2c, flexShrink: 0 }}>{m.from === "P1" ? (p1Label ?? "P1") : (p2Label ?? "P2")}:</span>
+                  {/* The message text is selectable so the user can drag-
+                    * select for partial copies; the inline COPY pill on
+                    * the right is a one-tap shortcut for the whole text
+                    * (room codes, etc.). */}
+                  <span style={{ fontFamily: t.fontBody, fontSize: 14, color: t.text, wordBreak: "break-word" as const, userSelect: "text", flex: 1 }}>{m.text}</span>
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); handleCopyChat(m.text, i); }}
+                    aria-label={isCopied ? "Copied" : "Copy message"}
+                    style={{
+                      flexShrink: 0,
+                      background: isCopied ? `${t.accent}22` : "transparent",
+                      border: `1px solid ${isCopied ? t.accent : `${t.border}AA`}`,
+                      color: isCopied ? t.accent : t.textMuted,
+                      fontFamily: t.fontMono,
+                      fontSize: 9,
+                      fontWeight: 700,
+                      letterSpacing: "0.1em",
+                      padding: "2px 6px",
+                      borderRadius: ip ? 2 : 4,
+                      cursor: "pointer",
+                      transition: "all 0.15s",
+                    }}
+                  >
+                    {isCopied ? "COPIED" : "COPY"}
+                  </button>
+                </div>
+              );
+            })}
           </div>
           {chatWarning && (<div style={{ padding: "8px 12px", background: "#F4433618", border: "1px solid #F44336", borderRadius: 6, fontFamily: t.fontBody, fontSize: 13, color: "#F44336" }}>Inappropriate language detected and censored.</div>)}
           <div style={{ display: "flex", gap: 6 }}>

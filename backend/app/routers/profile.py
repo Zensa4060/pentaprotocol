@@ -350,6 +350,82 @@ async def get_career(user_id: str = Depends(get_current_user)):
     return matches
 
 
+@router.get("/head-to-head/{opponent_id}")
+async def head_to_head(
+    opponent_id: str,
+    user_id: str = Depends(get_current_user),
+):
+    """Return the head-to-head record between the requesting user and
+    `opponent_id`. Only counts genuine player-vs-player matches — bot /
+    AI rows in `match_history` are filtered out so the sidebar never
+    shows bogus history against a queued opponent who happens to share
+    a username with a previously played bot.
+
+    Returns:
+        {
+            "wins": int,           # # times *requester* won
+            "losses": int,         # # times *requester* lost
+            "draws": int,
+            "total": int,
+            "recent": [str, ...],  # latest-first, max 5, values "win"/"loss"/"draw"
+        }
+    """
+    db = get_db()
+    if not opponent_id or opponent_id == user_id:
+        return {"wins": 0, "losses": 0, "draws": 0, "total": 0, "recent": []}
+
+    # Support both string and ObjectId IDs for legacy rows.
+    user_oid = user_object_id(user_id)
+    opp_oid = user_object_id(opponent_id)
+    user_vals: list = [user_id]
+    if user_oid is not None:
+        user_vals.append(user_oid)
+    opp_vals: list = [opponent_id]
+    if opp_oid is not None:
+        opp_vals.append(opp_oid)
+
+    # Exclude AI / bot rows. The career writer stamps these with a
+    # `bot_*` mode (e.g. "bot_unranked", "bot_singleplayer", "bot").
+    query = {
+        "user_id":     {"$in": user_vals},
+        "opponent_id": {"$in": opp_vals},
+        "$nor": [
+            {"mode": {"$regex": r"^bot"}},
+        ],
+    }
+
+    wins = 0
+    losses = 0
+    draws = 0
+    recent: list[str] = []
+    cursor = (
+        db.match_history
+          .find(query, {"result": 1, "played_at": 1})
+          .sort("played_at", -1)
+    )
+    async for doc in cursor:
+        r = (doc.get("result") or "").lower()
+        if r == "win":
+            wins += 1
+        elif r in ("loss", "lose"):
+            losses += 1
+        elif r == "draw":
+            draws += 1
+        else:
+            continue
+        if len(recent) < 5:
+            recent.append("draw" if r == "draw" else ("win" if r == "win" else "loss"))
+
+    total = wins + losses + draws
+    return {
+        "wins":   int(wins),
+        "losses": int(losses),
+        "draws":  int(draws),
+        "total":  int(total),
+        "recent": recent,
+    }
+
+
 @router.get("/leaderboard")
 async def leaderboard():
     db = get_db()

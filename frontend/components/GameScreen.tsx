@@ -766,6 +766,15 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   }, [isMultiplayerGame, mySlot, user?.elo, matchupData?.opponent?.elo, user?.placement_matches, matchupData?.opponent?.placement_matches]);
   const coinStartTimeRef = useRef<number>(0);
   const [opponentName, setOpponentName] = useState<string | null>(null);
+  // Opponent's user id (multiplayer only). Captured from `room_state.player1_id` /
+  // `player2_id` on first paint; drives the head-to-head sidebar widget and the
+  // pre-checked "FRIENDS" status so the Add Friend button hides immediately for
+  // opponents who are already in your friends list.
+  const [opponentUserId, setOpponentUserId] = useState<string | null>(null);
+  // Head-to-head record vs the current opponent (multiplayer only).
+  const [headToHead, setHeadToHead] = useState<{
+    wins: number; losses: number; draws: number; total: number; recent: ("win" | "loss" | "draw")[];
+  } | null>(null);
   const [p1Banner, setP1Banner] = useState<string>(mySlot === "P1" ? (_ct.bannerSkin ?? "default") : "default");
   const [p2Banner, setP2Banner] = useState<string>(mySlot === "P2" ? (_ct.bannerSkin ?? "default") : "default");
 
@@ -951,11 +960,97 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   const [friendPeerStatus, setFriendPeerStatus] = useState<
     "idle" | "pending" | "sent" | "friends"
   >("idle");
+
+  // Pre-check friend status for the multiplayer opponent so the sidebar
+  // can hide the "ADD FRIEND" button immediately when this player is
+  // already in our friends list — without waiting for the user to click
+  // it and receive a `friend_request_ack` with `already_friends`.
+  useEffect(() => {
+    if (!isMultiplayerGame) return;
+    if (!opponentUserId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await API.get("/api/friends/list");
+        const friends = (res.data?.friends ?? []) as { id?: string; user_id?: string; _id?: string }[];
+        const isFriend = friends.some(f => {
+          const fid = f.id ?? f.user_id ?? f._id ?? "";
+          return String(fid) === String(opponentUserId);
+        });
+        if (!cancelled && isFriend) setFriendPeerStatus("friends");
+      } catch {
+        // best-effort precheck — fall back to the WS-driven flow
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [isMultiplayerGame, opponentUserId]);
+
+  // Fetch head-to-head record vs the current multiplayer opponent.
+  // Refresh once when the opponent is identified; the sidebar uses
+  // this to render a HISTORY · WIN/LOSS/DRAW summary above the chat.
+  useEffect(() => {
+    if (!isMultiplayerGame) { setHeadToHead(null); return; }
+    if (!opponentUserId) { setHeadToHead(null); return; }
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await API.get(`/api/profile/head-to-head/${opponentUserId}`);
+        if (cancelled) return;
+        const d = res.data || {};
+        const recent = Array.isArray(d.recent)
+          ? (d.recent as string[])
+              .map(x => (x === "win" || x === "loss" || x === "draw" ? x : null))
+              .filter((x): x is "win" | "loss" | "draw" => !!x)
+          : [];
+        setHeadToHead({
+          wins:   Number(d.wins ?? 0),
+          losses: Number(d.losses ?? 0),
+          draws:  Number(d.draws ?? 0),
+          total:  Number(d.total ?? 0),
+          recent,
+        });
+      } catch {
+        if (!cancelled) setHeadToHead(null);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [isMultiplayerGame, opponentUserId]);
+
   const [inGameDmFriendId, setInGameDmFriendId] = useState<string | null>(null);
   const [inGameDmMessages, setInGameDmMessages] = useState<{ from_user: string; to_user: string; text: string; created_at: string | null }[]>([]);
   const [inGameDmDraft, setInGameDmDraft] = useState("");
   const [inGameDmLoading, setInGameDmLoading] = useState(false);
   const [inGameDmSending, setInGameDmSending] = useState(false);
+  // Click-to-copy feedback for the in-game friend-chat dock.
+  const [copiedInGameDmIdx, setCopiedInGameDmIdx] = useState<number | null>(null);
+  const copiedInGameDmTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => {
+    if (copiedInGameDmTimerRef.current) clearTimeout(copiedInGameDmTimerRef.current);
+  }, []);
+  const handleCopyInGameDm = useCallback((text: string, idx: number) => {
+    if (!text) return;
+    const fallback = () => {
+      try {
+        const ta = document.createElement("textarea");
+        ta.value = text;
+        ta.setAttribute("readonly", "");
+        ta.style.position = "fixed";
+        ta.style.opacity = "0";
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand("copy");
+        document.body.removeChild(ta);
+      } catch { /* ignore */ }
+    };
+    try {
+      if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+        void navigator.clipboard.writeText(text).catch(fallback);
+      } else fallback();
+    } catch { fallback(); }
+    setCopiedInGameDmIdx(idx);
+    if (copiedInGameDmTimerRef.current) clearTimeout(copiedInGameDmTimerRef.current);
+    copiedInGameDmTimerRef.current = setTimeout(() => setCopiedInGameDmIdx(null), 1200);
+  }, []);
 
   const continuePostSeriesFlow = useCallback((series: MatchSeriesCompletePayload) => {
     void useAuthStore.getState().refreshProfile();
@@ -1632,6 +1727,19 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
           // Extract opponent name from room data
           if (playerSlot === "P1" && r.player2_name) setOpponentName(r.player2_name);
           if (playerSlot === "P2" && r.player1_name) setOpponentName(r.player1_name);
+          {
+            // Capture opponent user id once. This drives the sidebar
+            // head-to-head widget and the upfront "FRIENDS" status check
+            // (so the Add Friend button hides immediately for opponents
+            // already in your friends list).
+            const rRaw = r as { player1_id?: unknown; player2_id?: unknown };
+            const oppRaw = playerSlot === "P1" ? rRaw.player2_id : rRaw.player1_id;
+            const oppStr =
+              typeof oppRaw === "string"
+                ? oppRaw
+                : oppRaw != null ? String(oppRaw) : "";
+            if (oppStr && oppStr !== opponentUserId) setOpponentUserId(oppStr);
+          }
           if (r.board_mode) setLiveBoardMode(r.board_mode as BoardMode);
           if (Array.isArray(r.selected_patterns)) setLiveSelectedPatterns(r.selected_patterns);
           {
@@ -5734,6 +5842,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
             : undefined
         }
         friendPeerStatus={friendPeerStatus}
+        headToHead={isMultiplayerGame ? headToHead : null}
       />
 
       {isMultiplayerGame && chatToastVisible && unreadOpponentChat > 0 && (
@@ -6137,8 +6246,19 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
             ) : (
               inGameDmMessages.map((m, i) => {
                 const mine = String(m.from_user) === meId;
+                const isCopied = copiedInGameDmIdx === i;
                 return (
-                  <div key={i} style={{ display: "flex", justifyContent: mine ? "flex-end" : "flex-start", marginBottom: 6 }}>
+                  <div
+                    key={i}
+                    style={{
+                      display: "flex",
+                      justifyContent: mine ? "flex-end" : "flex-start",
+                      marginBottom: 6,
+                      gap: 6,
+                      alignItems: "flex-end",
+                      flexDirection: mine ? "row-reverse" : "row",
+                    }}
+                  >
                     <div
                       style={{
                         maxWidth: "82%",
@@ -6150,10 +6270,32 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
                         fontFamily: t.fontBody,
                         fontSize: 12,
                         wordBreak: "break-word",
+                        userSelect: "text",
                       }}
                     >
                       {m.text}
                     </div>
+                    <button
+                      type="button"
+                      onClick={() => handleCopyInGameDm(m.text, i)}
+                      aria-label={isCopied ? "Copied" : "Copy message"}
+                      style={{
+                        flexShrink: 0,
+                        background: isCopied ? `${t.accent}22` : "transparent",
+                        border: `1px solid ${isCopied ? t.accent : `${t.border}AA`}`,
+                        color: isCopied ? t.accent : t.textMuted,
+                        fontFamily: t.fontMono,
+                        fontSize: 9,
+                        fontWeight: 700,
+                        letterSpacing: "0.1em",
+                        padding: "2px 6px",
+                        borderRadius: 4,
+                        cursor: "pointer",
+                        transition: "all 0.15s",
+                      }}
+                    >
+                      {isCopied ? "COPIED" : "COPY"}
+                    </button>
                   </div>
                 );
               })
