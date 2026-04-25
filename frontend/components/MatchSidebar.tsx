@@ -1381,10 +1381,10 @@ export function LeftPanel(props: MatchSidebarProps) {
                   * blew past the viewport once the H2H card was
                   * added; the previous "compact" 14 px + 3 px went
                   * too far the other way and left a dead band. The
-                  * 17 px + 5 px combination below reads at-a-glance
-                  * and keeps the panel a single non-scrolling
-                  * column on standard 800-1000 px viewports. */}
-                <div style={{ display: "grid", gridTemplateColumns: "1fr auto", fontFamily: t.fontBody, fontSize: 17, padding: "5px 0", borderBottom: `1px solid ${t.border}22`, opacity: 1 }}>
+                  * current baseline is 17 px + 5 px, then we apply a
+                  * small +2% text bump (17 -> 17.34) per request
+                  * without changing row padding / layout footprint. */}
+                <div style={{ display: "grid", gridTemplateColumns: "1fr auto", fontFamily: t.fontBody, fontSize: 17.34, padding: "5px 0", borderBottom: `1px solid ${t.border}22`, opacity: 1 }}>
                   <span style={{ color: isCur ? t.accent : t.textMuted, transition: "color 0.2s" }}>{gameSeriesLabel(absoluteGame, historySlots)}{isCur ? " *" : ""}</span>
                   <span style={{ color: col, fontWeight: result ? 700 : 400, transition: "color 0.2s" }}>{result || "—"}</span>
                 </div>
