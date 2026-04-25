@@ -828,39 +828,6 @@ export function LeftPanel(props: MatchSidebarProps) {
   const useSnowflakeShard = pieceSkin === "snowflake_shard";
   const chatListRef = React.useRef<HTMLDivElement | null>(null);
 
-  // Click-to-copy feedback for in-game chat. Stores the index of the
-  // message that was just copied so we can briefly flip its row to
-  // show "COPIED" instead of the COPY pill.
-  const [copiedChatIdx, setCopiedChatIdx] = React.useState<number | null>(null);
-  const copiedChatTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
-  const handleCopyChat = React.useCallback((text: string, idx: number) => {
-    if (!text) return;
-    const fallback = () => {
-      try {
-        const ta = document.createElement("textarea");
-        ta.value = text;
-        ta.setAttribute("readonly", "");
-        ta.style.position = "fixed";
-        ta.style.opacity = "0";
-        document.body.appendChild(ta);
-        ta.select();
-        document.execCommand("copy");
-        document.body.removeChild(ta);
-      } catch { /* ignore — clipboard simply unavailable */ }
-    };
-    try {
-      if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
-        void navigator.clipboard.writeText(text).catch(fallback);
-      } else fallback();
-    } catch { fallback(); }
-    setCopiedChatIdx(idx);
-    if (copiedChatTimerRef.current) clearTimeout(copiedChatTimerRef.current);
-    copiedChatTimerRef.current = setTimeout(() => setCopiedChatIdx(null), 1200);
-  }, []);
-  React.useEffect(() => () => {
-    if (copiedChatTimerRef.current) clearTimeout(copiedChatTimerRef.current);
-  }, []);
-
   const [vh, setVh] = React.useState(800);
   React.useEffect(() => {
     const update = () => setVh(window.innerHeight);
@@ -1695,43 +1662,12 @@ export function LeftPanel(props: MatchSidebarProps) {
         >
           <div ref={chatListRef} style={{ flex: 1, minHeight: 0, overflowY: "auto", background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: ip ? 2 : 8, padding: "10px 12px", display: "flex", flexDirection: "column", gap: 6 }}>
             {chatMessages.length === 0 && (<div style={{ fontFamily: t.fontBody, fontSize: 14, color: t.textMuted, textAlign: "center", marginTop: 24 }}>No messages yet</div>)}
-            {chatMessages.map((m, i) => {
-              const isCopied = copiedChatIdx === i;
-              return (
-                <div
-                  key={i}
-                  style={{ display: "flex", gap: 6, alignItems: "flex-start", position: "relative" }}
-                >
-                  <span style={{ fontFamily: t.fontMono, fontSize: 14, fontWeight: 700, color: m.from === "P1" ? p1c : p2c, flexShrink: 0 }}>{m.from === "P1" ? (p1Label ?? "P1") : (p2Label ?? "P2")}:</span>
-                  {/* The message text is selectable so the user can drag-
-                    * select for partial copies; the inline COPY pill on
-                    * the right is a one-tap shortcut for the whole text
-                    * (room codes, etc.). */}
-                  <span style={{ fontFamily: t.fontBody, fontSize: 14, color: t.text, wordBreak: "break-word" as const, userSelect: "text", flex: 1 }}>{m.text}</span>
-                  <button
-                    type="button"
-                    onClick={(e) => { e.stopPropagation(); handleCopyChat(m.text, i); }}
-                    aria-label={isCopied ? "Copied" : "Copy message"}
-                    style={{
-                      flexShrink: 0,
-                      background: isCopied ? `${t.accent}22` : "transparent",
-                      border: `1px solid ${isCopied ? t.accent : `${t.border}AA`}`,
-                      color: isCopied ? t.accent : t.textMuted,
-                      fontFamily: t.fontMono,
-                      fontSize: 9,
-                      fontWeight: 700,
-                      letterSpacing: "0.1em",
-                      padding: "2px 6px",
-                      borderRadius: ip ? 2 : 4,
-                      cursor: "pointer",
-                      transition: "all 0.15s",
-                    }}
-                  >
-                    {isCopied ? "COPIED" : "COPY"}
-                  </button>
-                </div>
-              );
-            })}
+            {/* Message body uses `userSelect: text` so the user can
+              * drag-select any chat line and copy it via the standard
+              * OS clipboard gesture. No explicit copy button — that
+              * was rejected as visual noise; native selection is
+              * sufficient for room codes and short lines alike. */}
+            {chatMessages.map((m, i) => (<div key={i} style={{ display: "flex", gap: 6, alignItems: "flex-start" }}><span style={{ fontFamily: t.fontMono, fontSize: 14, fontWeight: 700, color: m.from === "P1" ? p1c : p2c, flexShrink: 0 }}>{m.from === "P1" ? (p1Label ?? "P1") : (p2Label ?? "P2")}:</span><span style={{ fontFamily: t.fontBody, fontSize: 14, color: t.text, wordBreak: "break-word" as const, userSelect: "text" }}>{m.text}</span></div>))}
           </div>
           {chatWarning && (<div style={{ padding: "8px 12px", background: "#F4433618", border: "1px solid #F44336", borderRadius: 6, fontFamily: t.fontBody, fontSize: 13, color: "#F44336" }}>Inappropriate language detected and censored.</div>)}
           <div style={{ display: "flex", gap: 6 }}>

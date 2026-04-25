@@ -1021,36 +1021,6 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   const [inGameDmDraft, setInGameDmDraft] = useState("");
   const [inGameDmLoading, setInGameDmLoading] = useState(false);
   const [inGameDmSending, setInGameDmSending] = useState(false);
-  // Click-to-copy feedback for the in-game friend-chat dock.
-  const [copiedInGameDmIdx, setCopiedInGameDmIdx] = useState<number | null>(null);
-  const copiedInGameDmTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(() => () => {
-    if (copiedInGameDmTimerRef.current) clearTimeout(copiedInGameDmTimerRef.current);
-  }, []);
-  const handleCopyInGameDm = useCallback((text: string, idx: number) => {
-    if (!text) return;
-    const fallback = () => {
-      try {
-        const ta = document.createElement("textarea");
-        ta.value = text;
-        ta.setAttribute("readonly", "");
-        ta.style.position = "fixed";
-        ta.style.opacity = "0";
-        document.body.appendChild(ta);
-        ta.select();
-        document.execCommand("copy");
-        document.body.removeChild(ta);
-      } catch { /* ignore */ }
-    };
-    try {
-      if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
-        void navigator.clipboard.writeText(text).catch(fallback);
-      } else fallback();
-    } catch { fallback(); }
-    setCopiedInGameDmIdx(idx);
-    if (copiedInGameDmTimerRef.current) clearTimeout(copiedInGameDmTimerRef.current);
-    copiedInGameDmTimerRef.current = setTimeout(() => setCopiedInGameDmIdx(null), 1200);
-  }, []);
 
   const continuePostSeriesFlow = useCallback((series: MatchSeriesCompletePayload) => {
     void useAuthStore.getState().refreshProfile();
@@ -6246,19 +6216,10 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
             ) : (
               inGameDmMessages.map((m, i) => {
                 const mine = String(m.from_user) === meId;
-                const isCopied = copiedInGameDmIdx === i;
                 return (
-                  <div
-                    key={i}
-                    style={{
-                      display: "flex",
-                      justifyContent: mine ? "flex-end" : "flex-start",
-                      marginBottom: 6,
-                      gap: 6,
-                      alignItems: "flex-end",
-                      flexDirection: mine ? "row-reverse" : "row",
-                    }}
-                  >
+                  <div key={i} style={{ display: "flex", justifyContent: mine ? "flex-end" : "flex-start", marginBottom: 6 }}>
+                    {/* Native text selection: drag-select inside the
+                      * bubble, then use the OS copy gesture. */}
                     <div
                       style={{
                         maxWidth: "82%",
@@ -6275,27 +6236,6 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
                     >
                       {m.text}
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => handleCopyInGameDm(m.text, i)}
-                      aria-label={isCopied ? "Copied" : "Copy message"}
-                      style={{
-                        flexShrink: 0,
-                        background: isCopied ? `${t.accent}22` : "transparent",
-                        border: `1px solid ${isCopied ? t.accent : `${t.border}AA`}`,
-                        color: isCopied ? t.accent : t.textMuted,
-                        fontFamily: t.fontMono,
-                        fontSize: 9,
-                        fontWeight: 700,
-                        letterSpacing: "0.1em",
-                        padding: "2px 6px",
-                        borderRadius: 4,
-                        cursor: "pointer",
-                        transition: "all 0.15s",
-                      }}
-                    >
-                      {isCopied ? "COPIED" : "COPY"}
-                    </button>
                   </div>
                 );
               })
