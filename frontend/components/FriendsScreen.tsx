@@ -866,11 +866,15 @@ export default function FriendsScreen({ themeId, onHoverAction }: Props) {
                   const mine = String(m.from_user) === String(meId);
                   return (
                     <div key={i} style={{ display: "flex", justifyContent: mine ? "flex-end" : "flex-start", marginBottom: 6 }}>
-                      {/* Native text selection: drag-select inside the
-                        * bubble, then use the OS copy gesture. No
-                        * explicit COPY button is rendered — that was
-                        * rejected as visual noise. */}
+                      {/* `pp-selectable` re-enables native text
+                        * selection inside this bubble — without it
+                        * the global `user-select: none !important`
+                        * rule in AppShell suppresses drag-selects
+                        * everywhere except inputs. No explicit COPY
+                        * button: native OS selection + Ctrl/Cmd-C
+                        * (or long-press → Copy on mobile) is enough. */}
                       <div
+                        className="pp-selectable"
                         style={{
                           maxWidth: "78%",
                           padding: "6px 10px",
@@ -881,7 +885,6 @@ export default function FriendsScreen({ themeId, onHoverAction }: Props) {
                           fontSize: 13,
                           color: t.text,
                           wordBreak: "break-word",
-                          userSelect: "text",
                         }}
                       >
                         {m.text}

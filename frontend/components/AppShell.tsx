@@ -2238,6 +2238,12 @@ export default function AppShell({ children }: { children: ReactNode }) {
             --font-mono: 'GuildOf', serif;
           }
           * { user-select: none !important; -webkit-user-select: none !important; }
+          /* Opt-in escape hatch for surfaces that must allow native text
+             selection (chat bubbles, room codes, etc.) without exposing
+             the rest of the UI to drag-selects. Apply the pp-selectable
+             class on the element and any descendants whose text the
+             user might want to copy. */
+          .pp-selectable, .pp-selectable * { user-select: text !important; -webkit-user-select: text !important; }
           @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400;1,700&family=EB+Garamond:wght@400;500;600&family=Courier+Prime&family=Fira+Code:wght@400;500;700&family=VT323&family=Audiowide&family=Jura:wght@400;600;700&family=Share+Tech+Mono&display=swap');
           *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
           body { background: ${routeThemeId === "space" ? "#02040F" : t.bg}; }

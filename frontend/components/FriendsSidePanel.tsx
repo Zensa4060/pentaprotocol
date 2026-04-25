@@ -850,9 +850,12 @@ export default function FriendsSidePanel({ themeId, onHoverAction, forceSolidBac
                   const mine = String(m.from_user) === meId;
                   return (
                     <div key={i} style={{ display: "flex", justifyContent: mine ? "flex-end" : "flex-start", marginBottom: 6 }}>
-                      {/* Native text selection: drag-select inside the
-                        * bubble, then use the OS copy gesture. */}
+                      {/* `pp-selectable` opts this bubble out of the
+                        * AppShell global `user-select: none` rule so
+                        * users can drag-select and copy via the
+                        * native OS gesture. */}
                       <div
+                        className="pp-selectable"
                         style={{
                           maxWidth: "78%",
                           padding: "6px 10px",
@@ -863,7 +866,6 @@ export default function FriendsSidePanel({ themeId, onHoverAction, forceSolidBac
                           fontSize: 13,
                           color: t.text,
                           wordBreak: "break-word",
-                          userSelect: "text",
                         }}
                       >
                         {m.text}

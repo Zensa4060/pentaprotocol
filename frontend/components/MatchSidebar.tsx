@@ -1667,7 +1667,7 @@ export function LeftPanel(props: MatchSidebarProps) {
               * OS clipboard gesture. No explicit copy button — that
               * was rejected as visual noise; native selection is
               * sufficient for room codes and short lines alike. */}
-            {chatMessages.map((m, i) => (<div key={i} style={{ display: "flex", gap: 6, alignItems: "flex-start" }}><span style={{ fontFamily: t.fontMono, fontSize: 14, fontWeight: 700, color: m.from === "P1" ? p1c : p2c, flexShrink: 0 }}>{m.from === "P1" ? (p1Label ?? "P1") : (p2Label ?? "P2")}:</span><span style={{ fontFamily: t.fontBody, fontSize: 14, color: t.text, wordBreak: "break-word" as const, userSelect: "text" }}>{m.text}</span></div>))}
+            {chatMessages.map((m, i) => (<div key={i} style={{ display: "flex", gap: 6, alignItems: "flex-start" }}><span style={{ fontFamily: t.fontMono, fontSize: 14, fontWeight: 700, color: m.from === "P1" ? p1c : p2c, flexShrink: 0 }}>{m.from === "P1" ? (p1Label ?? "P1") : (p2Label ?? "P2")}:</span><span className="pp-selectable" style={{ fontFamily: t.fontBody, fontSize: 14, color: t.text, wordBreak: "break-word" as const }}>{m.text}</span></div>))}
           </div>
           {chatWarning && (<div style={{ padding: "8px 12px", background: "#F4433618", border: "1px solid #F44336", borderRadius: 6, fontFamily: t.fontBody, fontSize: 13, color: "#F44336" }}>Inappropriate language detected and censored.</div>)}
           <div style={{ display: "flex", gap: 6 }}>

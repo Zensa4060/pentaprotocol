@@ -6218,9 +6218,12 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
                 const mine = String(m.from_user) === meId;
                 return (
                   <div key={i} style={{ display: "flex", justifyContent: mine ? "flex-end" : "flex-start", marginBottom: 6 }}>
-                    {/* Native text selection: drag-select inside the
-                      * bubble, then use the OS copy gesture. */}
+                    {/* `pp-selectable` opts this bubble out of the
+                      * AppShell global `user-select: none` rule so
+                      * users can drag-select and copy via the native
+                      * OS gesture. */}
                     <div
+                      className="pp-selectable"
                       style={{
                         maxWidth: "82%",
                         padding: "5px 8px",
@@ -6231,7 +6234,6 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
                         fontFamily: t.fontBody,
                         fontSize: 12,
                         wordBreak: "break-word",
-                        userSelect: "text",
                       }}
                     >
                       {m.text}
