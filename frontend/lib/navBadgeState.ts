@@ -24,6 +24,14 @@ const LS = {
   profileCount: "pp_nav_profile_notify_count",
   collectionCount: "pp_nav_collection_unviewed",
   friendsCount: "pp_nav_friends_notify_count",
+  // Per-user "I have seen all notifications up to this many" baseline
+  // for the friends badge. When the user explicitly dismisses the home
+  // notice banner ("You have a new friend request or message.") we
+  // record the live count here. The friends-badge poller then suppresses
+  // the nav-bar dot AND the home banner until a *new* notification
+  // pushes the live count above this baseline. Persisted in
+  // localStorage so a refresh doesn't re-flash the dismissed banner.
+  friendsDismissedAt: "pp_nav_friends_dismissed_count",
 } as const;
 
 function dispatchNavBadgesRefresh() {
@@ -146,4 +154,33 @@ export function clearFriendsNavBadge() {
   if (typeof window === "undefined") return;
   localStorage.removeItem(LS.friendsCount);
   dispatchNavBadgesRefresh();
+}
+
+/**
+ * Snapshot the current friends notification count as the "user has
+ * acknowledged everything up to here" baseline. Call this when the
+ * user explicitly dismisses the home-notice banner. The friends-badge
+ * poller in AppShell respects this baseline — it only re-arms the
+ * nav-bar dot + home banner when the live count rises ABOVE the
+ * dismissed baseline (i.e. a fresh notification has arrived).
+ */
+export function dismissFriendsNotificationsAt(currentCount: number) {
+  if (typeof window === "undefined") return;
+  const safe = Math.max(0, Math.floor(currentCount) || 0);
+  localStorage.setItem(LS.friendsDismissedAt, String(safe));
+  localStorage.removeItem(LS.friendsCount);
+  dispatchNavBadgesRefresh();
+}
+
+export function getFriendsNotificationsDismissedAt(): number {
+  if (typeof window === "undefined") return 0;
+  const raw = localStorage.getItem(LS.friendsDismissedAt);
+  if (!raw) return 0;
+  const n = parseInt(raw, 10);
+  return Number.isFinite(n) && n >= 0 ? n : 0;
+}
+
+export function resetFriendsNotificationsDismissed() {
+  if (typeof window === "undefined") return;
+  localStorage.removeItem(LS.friendsDismissedAt);
 }

@@ -278,12 +278,61 @@ export function pickUnrankedBot(): PickedBot {
   return { name, level, isMythos: false };
 }
 
-/** Queue-wait time in ms, uniformly distributed in [1s, 10s]. */
+/**
+ * Minimum time (ms) the unranked queue waits before falling back to a
+ * filler bot. Below this window we always favour real human matchmaking
+ * — only after 10s without a human pairing does the bot timer fire.
+ * Kept as a named constant so the lobby UI can show a consistent
+ * "after ~10 seconds" hint to the player.
+ */
+export const UNRANKED_BOT_MIN_WAIT_MS = 10_000;
+
+/**
+ * Queue-wait time in ms before falling back to a filler bot, uniformly
+ * distributed in [10s, 15s]. The window starts at the user-visible
+ * 10-second floor so a real human still has the full 10s to be paired
+ * before any bot is considered, and we stagger the upper bound up to
+ * 15s so simultaneous filler timers don't all fire at the exact same
+ * instant in load-test scenarios.
+ */
 export function pickQueueWaitMs(): number {
-  const min = 1000;
-  const max = 10000;
+  const min = UNRANKED_BOT_MIN_WAIT_MS;
+  const max = 15_000;
   return Math.floor(min + Math.random() * (max - min + 1));
 }
+
+/* ── User preference: allow filler bots in unranked queue ─────────────────── */
+
+const PP_UNRANKED_BOTS_ENABLED_KEY = "pp_unranked_allow_bots";
+
+/**
+ * Whether the user has opted into bot fillers for unranked matchmaking.
+ * Persisted in localStorage. Defaults to TRUE so first-time visitors
+ * get the historic "queue auto-fills with a bot" behaviour without
+ * having to discover the toggle. Setting this to false makes the
+ * unranked queue wait indefinitely for a real human opponent — the
+ * filler-bot timer in AppShell short-circuits when this returns false.
+ */
+export function isUnrankedBotsAllowed(): boolean {
+  if (typeof window === "undefined") return true;
+  const raw = window.localStorage.getItem(PP_UNRANKED_BOTS_ENABLED_KEY);
+  if (raw === null) return true;
+  return raw === "1" || raw === "true";
+}
+
+export function setUnrankedBotsAllowed(allowed: boolean): void {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(
+    PP_UNRANKED_BOTS_ENABLED_KEY,
+    allowed ? "1" : "0",
+  );
+  // Broadcast to any listening component so the lobby toggle and
+  // matchmaking logic can react instantly to changes from other tabs
+  // or remote storage events.
+  window.dispatchEvent(new Event(PP_UNRANKED_BOTS_PREF_EVENT));
+}
+
+export const PP_UNRANKED_BOTS_PREF_EVENT = "pp_unranked_bots_pref_change";
 
 /* ── Cosmetic profile assignment ────────────────────────────────────────── */
 

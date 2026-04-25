@@ -15,6 +15,12 @@ import {
   LOBBY_QUOTE_REFRESH_EVENT,
   type LobbyQuoteRefreshDetail,
 } from "@/lib/lobbyTauntQuote";
+import {
+  isUnrankedBotsAllowed,
+  setUnrankedBotsAllowed,
+  PP_UNRANKED_BOTS_PREF_EVENT,
+  UNRANKED_BOT_MIN_WAIT_MS,
+} from "@/lib/unrankedBots";
 import { loadCustomTheme } from "@/lib/customTheme";
 import { getMatchFoundPalette, resolveMatchFoundSkin } from "@/lib/matchFoundVisual";
 import { useBannerShineEnabled } from "@/lib/bannerShinePreference";
@@ -100,6 +106,30 @@ export default function LobbyScreen({
   const [localPhase, setLocalPhase] = useState<Phase>("select");
   const [showUnrankedOptions, setShowUnrankedOptions] = useState(false);
   const [showRankedOptions, setShowRankedOptions] = useState(false);
+
+  // ── Unranked filler-bot opt-in ──────────────────────────────────────────
+  // Persistent user preference stored in localStorage. When ON the
+  // unranked queue spawns a filler bot if no human is found within
+  // ~10 s; when OFF the queue waits indefinitely for a real human.
+  // Initialised from storage once on mount and kept in sync with
+  // cross-tab updates via the dispatched event.
+  const [allowBots, setAllowBots] = useState<boolean>(true);
+  useEffect(() => {
+    setAllowBots(isUnrankedBotsAllowed());
+    const sync = () => setAllowBots(isUnrankedBotsAllowed());
+    window.addEventListener(PP_UNRANKED_BOTS_PREF_EVENT, sync);
+    window.addEventListener("storage", sync);
+    return () => {
+      window.removeEventListener(PP_UNRANKED_BOTS_PREF_EVENT, sync);
+      window.removeEventListener("storage", sync);
+    };
+  }, []);
+  const toggleAllowBots = (next: boolean) => {
+    setAllowBots(next);
+    setUnrankedBotsAllowed(next);
+    onClickAction?.();
+  };
+  const unrankedBotMinWaitSec = Math.round(UNRANKED_BOT_MIN_WAIT_MS / 1000);
   // When the route explicitly forces a phase (including "select"), honor it
   // unconditionally. This prevents short-lived re-renders on the old page
   // while router navigation is in-flight from flashing the queue/matchup UI
@@ -1215,6 +1245,130 @@ export default function LobbyScreen({
           )}
         </div>
       </div>
+
+      {/* ── Unranked filler-bot opt-in ──────────────────────────────────
+          Only shown when the user has the Unranked card selected. The
+          toggle persists in localStorage and is read both here and by
+          AppShell's matchmaking logic when the unranked queue starts.
+          When ON the queue auto-fills with an AI opponent after ~10s
+          of failed human matchmaking; when OFF it waits indefinitely
+          until a real human is paired. */}
+      {multiSub === "unranked" && (
+        <div
+          style={{
+            width: "100%",
+            maxWidth: 1200,
+            display: "flex",
+            justifyContent: "center",
+            marginBottom: isMobile ? 16 : 12,
+            animation: "fadeUp 0.32s cubic-bezier(.22,.68,0,1.2) 0.04s both",
+          }}
+        >
+          <button
+            type="button"
+            onClick={() => toggleAllowBots(!allowBots)}
+            onMouseEnter={onHoverAction}
+            aria-pressed={allowBots}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: isMobile ? 12 : 16,
+              width: "100%",
+              maxWidth: 720,
+              padding: isMobile ? "12px 14px" : "14px 18px",
+              background: allowBots
+                ? `linear-gradient(145deg, ${t.p1}14, ${t.bgCard})`
+                : t.bgCard,
+              border: `1.5px solid ${allowBots ? `${t.p1}88` : `${t.border}`}`,
+              borderRadius: ip ? 2 : 10,
+              cursor: "pointer",
+              transition: "background 0.24s, border-color 0.24s, box-shadow 0.24s",
+              boxShadow: allowBots ? `0 4px 20px ${t.p1}1A` : "none",
+              textAlign: "left" as const,
+              font: "inherit",
+              color: t.text,
+            }}
+            onFocus={(e) => {
+              e.currentTarget.style.borderColor = `${t.p1}cc`;
+            }}
+            onBlur={(e) => {
+              e.currentTarget.style.borderColor = allowBots
+                ? `${t.p1}88`
+                : t.border;
+            }}
+          >
+            {/* Toggle pill (visual only — entire button is the click target) */}
+            <span
+              aria-hidden="true"
+              style={{
+                position: "relative" as const,
+                display: "inline-block",
+                width: isMobile ? 36 : 42,
+                height: isMobile ? 20 : 22,
+                borderRadius: 999,
+                background: allowBots ? t.p1 : t.border,
+                transition: "background 0.24s",
+                flexShrink: 0,
+              }}
+            >
+              <span
+                style={{
+                  position: "absolute" as const,
+                  top: 2,
+                  left: allowBots ? (isMobile ? 18 : 22) : 2,
+                  width: isMobile ? 16 : 18,
+                  height: isMobile ? 16 : 18,
+                  borderRadius: "50%",
+                  background: "#0A0A0A",
+                  transition: "left 0.24s cubic-bezier(.22,.68,0,1.2)",
+                  boxShadow: "0 1px 4px rgba(0,0,0,0.4)",
+                }}
+              />
+            </span>
+            <div style={{ display: "flex", flexDirection: "column" as const, gap: 3, flex: 1, minWidth: 0 }}>
+              <div
+                style={{
+                  fontFamily: t.fontDisplay,
+                  fontSize: isMobile ? 12 : 14,
+                  fontWeight: 800,
+                  letterSpacing: "0.08em",
+                  textTransform: "uppercase" as const,
+                  color: allowBots ? t.p1 : t.text,
+                  transition: "color 0.24s",
+                }}
+              >
+                {allowBots ? "BOT FILLERS · ON" : "BOT FILLERS · OFF"}
+              </div>
+              <div
+                style={{
+                  fontFamily: t.fontMono,
+                  fontSize: isMobile ? 10 : 11,
+                  color: t.textMuted,
+                  letterSpacing: "0.04em",
+                  lineHeight: 1.4,
+                }}
+              >
+                {allowBots
+                  ? `If no human is found within ~${unrankedBotMinWaitSec} seconds, an AI opponent fills the queue.`
+                  : "Queue waits indefinitely for a real human opponent."}
+              </div>
+            </div>
+            <span
+              aria-hidden="true"
+              style={{
+                fontFamily: t.fontMono,
+                fontSize: isMobile ? 9 : 10,
+                color: allowBots ? t.p1 : t.textMuted,
+                letterSpacing: "0.12em",
+                opacity: 0.75,
+                flexShrink: 0,
+              }}
+            >
+              TAP TO TOGGLE
+            </span>
+          </button>
+        </div>
+      )}
 
       {/* FIND MATCH button */}
       {multiSub && (

@@ -3,7 +3,7 @@ import { useApp } from "@/components/AppShell";
 import HomeScreen from "@/components/HomeScreen";
 
 export default function HomePage() {
-  const { navigate, themeId, sfx, homeNotice } = useApp();
+  const { navigate, themeId, sfx, homeNotice, dismissHomeNotice } = useApp();
   return (
     <HomeScreen
       setScreenAction={navigate}
@@ -11,6 +11,7 @@ export default function HomePage() {
       onHoverAction={sfx.hover}
       onClickAction={sfx.click}
       homeNotice={homeNotice}
+      onNoticeClickAction={dismissHomeNotice}
     />
   );
 }

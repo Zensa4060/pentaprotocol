@@ -13,6 +13,13 @@ interface Props {
   onHoverAction?: () => void;
   onClickAction?: () => void;
   homeNotice?: string | null;
+  /**
+   * Optional handler invoked when the user clicks the home-notice
+   * banner. Wired from AppShell — it persists the dismissal baseline,
+   * clears the nav-bar friends badge, and hides the banner. We also
+   * navigate the user to /friends so they can act on whatever was new.
+   */
+  onNoticeClickAction?: () => void;
 }
 
 const CARDS = [
@@ -256,7 +263,7 @@ function useScale() {
   return scale;
 }
 
-export default function HomeScreen({ setScreenAction, themeId, onHoverAction, onClickAction, homeNotice }: Props) {
+export default function HomeScreen({ setScreenAction, themeId, onHoverAction, onClickAction, homeNotice, onNoticeClickAction }: Props) {
   const t = THEMES[themeId];
   const ip = themeId === "pixel";
   const isSp = themeId === "space";
@@ -673,9 +680,30 @@ export default function HomeScreen({ setScreenAction, themeId, onHoverAction, on
         )}
       </div>
 
-      {/* ── Footer legal links ── */}
+      {/* ── Home-notice banner ──────────────────────────────────────────
+          Rendered as a real <button> so it is clickable + keyboard
+          accessible. Clicking it (a) dismisses the banner immediately,
+          (b) clears the friends nav-bar badge and persists a baseline
+          so it won't re-arm until a *new* notification arrives, and
+          (c) navigates the user to /friends so they can act on
+          whatever was new. The dismiss work is done by the parent
+          (`onNoticeClickAction`); see `dismissHomeNotice` in
+          AppShell.tsx. */}
       {homeNotice && (
-        <div
+        <button
+          type="button"
+          onClick={() => {
+            onClickAction?.();
+            onNoticeClickAction?.();
+            // Friend-related notices route to /friends so the user
+            // can see what triggered the banner. Other notices just
+            // dismiss in place.
+            if (/\bfriend\b|\bmessage\b/i.test(homeNotice)) {
+              setScreenAction("friends");
+            }
+          }}
+          onMouseEnter={onHoverAction}
+          aria-label={`${homeNotice} Click to dismiss and view friends.`}
           style={{
             position: "relative",
             zIndex: 3,
@@ -684,17 +712,54 @@ export default function HomeScreen({ setScreenAction, themeId, onHoverAction, on
             border: `1px solid ${t.border}66`,
             background: "rgba(0,0,0,0.45)",
             borderRadius: ip ? 2 : 10,
-            padding: isMobile ? "8px 12px" : "9px 14px",
+            padding: isMobile ? "8px 14px" : "9px 16px",
             fontFamily: t.fontMono,
             fontSize: isMobile ? 10 : 11,
             letterSpacing: "0.06em",
             color: t.textSecondary,
             textAlign: "center",
             maxWidth: "min(92vw, 760px)",
+            cursor: "pointer",
+            transition:
+              "background-color 160ms ease, border-color 160ms ease, color 160ms ease, transform 160ms ease",
+            outline: "none",
+            font: "inherit",
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 8,
+          }}
+          onFocus={(e) => {
+            e.currentTarget.style.borderColor = `${t.accent}cc`;
+            e.currentTarget.style.color = t.accent;
+          }}
+          onBlur={(e) => {
+            e.currentTarget.style.borderColor = `${t.border}66`;
+            e.currentTarget.style.color = t.textSecondary;
+          }}
+          onMouseOver={(e) => {
+            e.currentTarget.style.background = "rgba(0,0,0,0.6)";
+            e.currentTarget.style.borderColor = `${t.accent}cc`;
+            e.currentTarget.style.color = t.accent;
+          }}
+          onMouseOut={(e) => {
+            e.currentTarget.style.background = "rgba(0,0,0,0.45)";
+            e.currentTarget.style.borderColor = `${t.border}66`;
+            e.currentTarget.style.color = t.textSecondary;
           }}
         >
-          {homeNotice}
-        </div>
+          <span>{homeNotice}</span>
+          <span
+            aria-hidden="true"
+            style={{
+              fontSize: isMobile ? 9 : 10,
+              opacity: 0.6,
+              letterSpacing: "0.08em",
+            }}
+          >
+            ▸
+          </span>
+        </button>
       )}
       <div style={{
         position: "relative", zIndex: 2,

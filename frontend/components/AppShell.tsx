@@ -150,6 +150,14 @@ export interface AppContextType {
   graphicsQuality: "quality";
   homeNotice: string | null;
   setHomeNotice: (v: string | null) => void;
+  /**
+   * Dismiss the home-notice banner. Call this when the user explicitly
+   * acknowledges the notification (e.g. by clicking the banner). Hides
+   * the banner immediately, clears the nav-bar friends badge, and
+   * persists a baseline so the banner won't re-appear until a fresh
+   * notification arrives.
+   */
+  dismissHomeNotice: () => void;
 
   showSettings: boolean;
   setShowSettings: (v: boolean) => void;
@@ -916,36 +924,53 @@ export default function AppShell({ children }: { children: ReactNode }) {
         const n =
           (reqRes.data?.requests?.length ?? 0) +
           Number(listRes.data?.unread_dm_count ?? 0);
-        const { setFriendsNavBadgeCount } = await import("@/lib/navBadgeState");
-        setFriendsNavBadgeCount(n);
+        const {
+          setFriendsNavBadgeCount,
+          getFriendsNotificationsDismissedAt,
+          resetFriendsNotificationsDismissed,
+        } = await import("@/lib/navBadgeState");
 
-        // Reset acknowledged baseline whenever the queue empties so a
-        // future arrival still triggers a fresh home banner. Without
-        // this reset, if the user acknowledged a count of 3 and then
-        // cleared everything, the next single notification (n=1)
-        // wouldn't fire because 1 is not > 3.
-        if (n === 0) friendsBadgeAcknowledgedRef.current = 0;
+        // Persistent dismissal baseline (set when the user clicks the
+        // home-notice banner). The nav-bar dot AND home banner only
+        // re-arm when the live count rises ABOVE this baseline — i.e.
+        // a *new* friend request / DM has arrived since dismissal. We
+        // never inflate the badge beyond reality: visibleN is clamped
+        // to n so the user never sees a stale count.
+        const dismissedAt = getFriendsNotificationsDismissedAt();
+        const visibleN = n > dismissedAt ? n : 0;
+        setFriendsNavBadgeCount(visibleN);
 
-        // Post-match nudge: if we're on home/lobby/career and new
-        // notifications appeared since the user last acknowledged the
-        // friends tab, surface a gentle home-notice banner. The
-        // `pathname === "/home"` guard is duplicated intentionally —
-        // only home has the notice chrome hooked up today, but the
-        // outer disjunction documents the intended target screens.
-        if (
-          n > friendsBadgeAcknowledgedRef.current &&
-          (pathname === "/home" || pathname === "/play/lobby" || pathname === "/career") &&
-          pathname === "/home"
-        ) {
+        // Reset BOTH the in-memory acknowledged baseline AND the
+        // persistent dismissal floor whenever the queue empties.
+        // Otherwise the next single notification (n=1) wouldn't fire
+        // because 1 ≤ a stale dismissal of e.g. 3.
+        if (n === 0) {
+          friendsBadgeAcknowledgedRef.current = 0;
+          resetFriendsNotificationsDismissed();
+        }
+
+        // Effective floor for "have I already shown this banner?": the
+        // higher of the in-memory ack ref (set on /friends visit) and
+        // the persistent dismissal baseline (set on banner click).
+        const ackFloor = Math.max(
+          friendsBadgeAcknowledgedRef.current,
+          dismissedAt,
+        );
+
+        // Post-match nudge: if we're on home and new notifications
+        // appeared since the user last acknowledged or dismissed,
+        // surface a gentle home-notice banner.
+        if (n > ackFloor && pathname === "/home") {
           setHomeNotice(
             n === 1
               ? "You have a new friend request or message."
               : `You have ${n} pending friend notifications.`,
           );
-        } else if (n === 0) {
-          // User has cleared everything (read all DMs / accepted all
-          // requests). Retire the friend-related home banner so the
-          // homescreen stops showing stale notifications.
+        } else if (n <= ackFloor) {
+          // Either the queue is empty (n=0) or the user has already
+          // acknowledged at least this many — retire any lingering
+          // friend-related home banner so the homescreen stops
+          // showing stale notifications.
           setHomeNotice((prev) => (isFriendNoticeText(prev) ? null : prev));
         }
       } catch {
@@ -1000,6 +1025,38 @@ export default function AppShell({ children }: { children: ReactNode }) {
       prev && /\bfriend\b/i.test(prev) ? null : prev,
     );
   }, [pathname]);
+
+  /* ── Dismiss the home-notice banner on click ────────────────────────── */
+  /* Wired into HomeScreen via the AppContext. Clicking the banner is the
+   * user explicitly saying "I have seen these notifications, stop nagging
+   * me until something NEW arrives". We:
+   *   1. Snapshot the live count into both the in-memory ack ref AND the
+   *      persistent dismissal baseline (localStorage). The poller above
+   *      only re-arms the nav-bar dot + banner when n > this floor.
+   *   2. Clear the nav-bar friends badge immediately so the dot vanishes
+   *      without waiting for the next 30s tick.
+   *   3. Hide the home banner immediately for instant feedback. */
+  const dismissHomeNotice = useCallback(async () => {
+    if (typeof window === "undefined") {
+      setHomeNotice(null);
+      return;
+    }
+    try {
+      const {
+        getFriendsNavBadgeCount,
+        dismissFriendsNotificationsAt,
+      } = await import("@/lib/navBadgeState");
+      const live = getFriendsNavBadgeCount();
+      friendsBadgeAcknowledgedRef.current = Math.max(
+        friendsBadgeAcknowledgedRef.current,
+        live,
+      );
+      dismissFriendsNotificationsAt(live);
+    } catch {
+      /* best-effort — banner still hides below */
+    }
+    setHomeNotice(null);
+  }, []);
 
   /* ── Persist board mode / patterns / difficulty ─────────────────────── */
   useEffect(() => {
@@ -1612,19 +1669,30 @@ export default function AppShell({ children }: { children: ReactNode }) {
           2000,
         );
 
-        // Unranked queues race a 1–10 s filler-bot timer. If the real
+        // Unranked queues race a 10–15 s filler-bot timer. If the real
         // matchmaker pairs the user with a human before the timer fires,
         // `armMatchFoundSequence` clears this and takes over naturally.
+        //
+        // The user can opt out of bot fillers from the lobby toggle
+        // (`isUnrankedBotsAllowed()` -> false). When opted out we never
+        // schedule the timer, so the unranked queue waits indefinitely
+        // for a real human opponent.
         if (mode === "unranked") {
           clearUnrankedBotTimer();
-          const waitMs = pickQueueWaitMs();
-          unrankedBotTimerRef.current = setTimeout(() => {
-            unrankedBotTimerRef.current = null;
-            if (queueCancelledRef.current) return;
-            if (matchFoundArmRef.current) return;
-            const bot = pickUnrankedBot();
-            armUnrankedBotMatchSequence(code, bot, "unranked", boardModeForQueue);
-          }, waitMs);
+          const { isUnrankedBotsAllowed } = await import("@/lib/unrankedBots");
+          if (isUnrankedBotsAllowed()) {
+            const waitMs = pickQueueWaitMs();
+            unrankedBotTimerRef.current = setTimeout(() => {
+              unrankedBotTimerRef.current = null;
+              if (queueCancelledRef.current) return;
+              if (matchFoundArmRef.current) return;
+              // Re-check the preference at fire time so a user toggling
+              // bots off mid-queue still gets a human-only wait.
+              if (!isUnrankedBotsAllowed()) return;
+              const bot = pickUnrankedBot();
+              armUnrankedBotMatchSequence(code, bot, "unranked", boardModeForQueue);
+            }, waitMs);
+          }
         }
       }
     } catch (err: any) {
@@ -1770,6 +1838,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
     graphicsQuality,
     homeNotice,
     setHomeNotice,
+    dismissHomeNotice,
     showSettings,
     setShowSettings,
     sealMultiSeriesNavigation,
