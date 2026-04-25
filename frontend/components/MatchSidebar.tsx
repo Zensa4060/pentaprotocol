@@ -838,8 +838,15 @@ export function LeftPanel(props: MatchSidebarProps) {
 
   const isShorter = vh < 850;
   const isVeryShort = vh < 720;
-  const densityGap = isVeryShort ? 6 : isShorter ? 10 : 14;
-  const headingSize = isVeryShort ? 16 : isShorter ? 18 : 20;
+  // Density tuning: the addition of the head-to-head HISTORY card
+  // between LIMITB and CHAT pushed the panel past the typical
+  // viewport height, forcing the user to scroll to reach the chat
+  // toggle. Tightening the gap, heading size, and section
+  // sub-element heights (below) reclaims ~80–110 px of vertical
+  // real estate so the panel fits in one screen at every common
+  // viewport height while keeping the structure readable.
+  const densityGap = isVeryShort ? 5 : isShorter ? 8 : 10;
+  const headingSize = isVeryShort ? 13 : isShorter ? 14 : 15;
 
   React.useEffect(() => {
     if (!chatOpen) return;
@@ -1078,7 +1085,7 @@ export function LeftPanel(props: MatchSidebarProps) {
                 />
               )}
             </div>
-            <div style={{ position: "relative", zIndex: 2, padding: isShorter ? "8px 10px" : "12px 14px", background: isCurrentMover ? `${p === "P1" ? p1c : p2c}33` : "transparent", display: "flex", justifyContent: "space-between", alignItems: "center", transition: "background 0.25s" }}>
+            <div style={{ position: "relative", zIndex: 2, padding: isShorter ? "6px 10px" : "8px 12px", background: isCurrentMover ? `${p === "P1" ? p1c : p2c}33` : "transparent", display: "flex", justifyContent: "space-between", alignItems: "center", transition: "background 0.25s" }}>
               <span style={{ fontFamily: t.fontDisplay, fontSize: 13, color: p === "P1" ? p1c : p2c, fontWeight: 800, display: "flex", alignItems: "center", gap: 6, letterSpacing: "0.05em", textShadow: `0 2px 4px rgba(0,0,0,0.8)` }}>
                 {
                   (() => {
@@ -1310,26 +1317,31 @@ export function LeftPanel(props: MatchSidebarProps) {
         </div>
       )}
 
-      <div style={{ borderTop: `1px solid ${t.border}`, paddingTop: isShorter ? 8 : 12 }}>
-        <div style={{ fontFamily: t.fontMono, fontSize: headingSize - 1, fontWeight: 700, color: t.text, letterSpacing: "0.14em", marginBottom: isShorter ? 6 : 10 }}>MATCH HISTORY</div>
+      <div style={{ borderTop: `1px solid ${t.border}`, paddingTop: isShorter ? 6 : 8 }}>
+        <div style={{ fontFamily: t.fontMono, fontSize: headingSize - 1, fontWeight: 700, color: t.text, letterSpacing: "0.14em", marginBottom: isShorter ? 4 : 6 }}>MATCH HISTORY</div>
 
+        {/* SERIES POINTS / SERIES cards: padding + font sizes tightened
+          * (10/12 → 6/10, font 18 → 14, marginBottom 12 → 8) so the
+          * card occupies ~half its previous footprint. Visual
+          * hierarchy is preserved — P1/P2 score is still the
+          * brightest line in the card — just on a smaller scale. */}
         {(isMultiplayerGame || isMultiplayer) && typeof p1SeriesPts === "number" && typeof p2SeriesPts === "number" && (
-          <div style={{ marginBottom: 12, padding: "10px 12px", background: `${t.accent}0C`, border: `1px solid ${t.accent}33`, borderRadius: ip ? 2 : 10 }}>
-            <div style={{ fontFamily: t.fontMono, fontSize: 9, color: t.textMuted, letterSpacing: "0.2em", marginBottom: 6 }}>SERIES POINTS · FIRST TO 3</div>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontFamily: t.fontDisplay, fontSize: 18, fontWeight: 800 }}>
+          <div style={{ marginBottom: 8, padding: "6px 10px", background: `${t.accent}0C`, border: `1px solid ${t.accent}33`, borderRadius: ip ? 2 : 8 }}>
+            <div style={{ fontFamily: t.fontMono, fontSize: 9, color: t.textMuted, letterSpacing: "0.18em", marginBottom: 4 }}>SERIES POINTS · FIRST TO 3</div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontFamily: t.fontDisplay, fontSize: 14, fontWeight: 800 }}>
               <span style={{ color: p1c }}>{p1Label ?? "P1"} <span style={{ color: t.text }}>{formatSeriesPts(p1SeriesPts)}</span></span>
-              <span style={{ color: t.textMuted, fontSize: 14 }}>—</span>
+              <span style={{ color: t.textMuted, fontSize: 12 }}>—</span>
               <span style={{ color: p2c }}>{p2Label ?? "P2"} <span style={{ color: t.text }}>{formatSeriesPts(p2SeriesPts)}</span></span>
             </div>
           </div>
         )}
 
         {localBo3 && localWins && (
-          <div style={{ marginBottom: 12, padding: "10px 12px", background: `${t.accent}0C`, border: `1px solid ${t.accent}33`, borderRadius: ip ? 2 : 10 }}>
-            <div style={{ fontFamily: t.fontMono, fontSize: 9, color: t.textMuted, letterSpacing: "0.2em", marginBottom: 6 }}>SERIES · FIRST TO 2</div>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontFamily: t.fontDisplay, fontSize: 18, fontWeight: 800 }}>
+          <div style={{ marginBottom: 8, padding: "6px 10px", background: `${t.accent}0C`, border: `1px solid ${t.accent}33`, borderRadius: ip ? 2 : 8 }}>
+            <div style={{ fontFamily: t.fontMono, fontSize: 9, color: t.textMuted, letterSpacing: "0.18em", marginBottom: 4 }}>SERIES · FIRST TO 2</div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontFamily: t.fontDisplay, fontSize: 14, fontWeight: 800 }}>
               <span style={{ color: p1c }}>{p1Label ?? "P1"} <span style={{ color: t.text }}>{localWins.p1}</span></span>
-              <span style={{ color: t.textMuted, fontSize: 14 }}>—</span>
+              <span style={{ color: t.textMuted, fontSize: 12 }}>—</span>
               <span style={{ color: p2c }}>{p2Label ?? "P2"} <span style={{ color: t.text }}>{localWins.p2}</span></span>
             </div>
           </div>
@@ -1367,7 +1379,12 @@ export function LeftPanel(props: MatchSidebarProps) {
             const isCur = absoluteGame === absoluteCurrentGame && (phase === "playing" || phase === "waiting_ready");
             return (
               <React.Fragment key={i}>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr auto", fontFamily: t.fontBody, fontSize: 22, padding: "6px 0", borderBottom: `1px solid ${t.border}22`, opacity: 1 }}>
+                {/* Slot row compacted: was fontSize 22 + 6px vertical
+                  * padding (≈34px per row × 10 rows = 340px). Dropping
+                  * to fontSize 14 + 3px padding saves ~140px of
+                  * panel height — most of what we needed to absorb
+                  * the H2H card below without forcing scroll. */}
+                <div style={{ display: "grid", gridTemplateColumns: "1fr auto", fontFamily: t.fontBody, fontSize: 14, padding: "3px 0", borderBottom: `1px solid ${t.border}22`, opacity: 1 }}>
                   <span style={{ color: isCur ? t.accent : t.textMuted, transition: "color 0.2s" }}>{gameSeriesLabel(absoluteGame, historySlots)}{isCur ? " *" : ""}</span>
                   <span style={{ color: col, fontWeight: result ? 700 : 400, transition: "color 0.2s" }}>{result || "—"}</span>
                 </div>
@@ -1545,19 +1562,21 @@ export function LeftPanel(props: MatchSidebarProps) {
             * total — first-time encounters skip it so the panel
             * doesn't show a meaningless "0 — 0 — 0" stub. */}
           {headToHead && headToHead.total > 0 && (
-            <div style={{ borderTop: `1px solid ${t.border}`, paddingTop: 12, display: "flex", flexDirection: "column", gap: 8 }}>
+            /* Compact H2H card: gaps and card paddings tightened so
+             * the section adds ~70 px instead of ~110 px to the
+             * sidebar, keeping the CHAT row visible without scroll
+             * even on shorter laptop viewports. The "X MATCHES"
+             * counter still reads prominently (bold, t.text) — just
+             * at 12 px instead of 14 px so it pairs with the
+             * shrunk HISTORY label beside it. */
+            <div style={{ borderTop: `1px solid ${t.border}`, paddingTop: 8, display: "flex", flexDirection: "column", gap: 6 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-                <div style={{ fontFamily: t.fontMono, fontSize: 13, fontWeight: 700, color: t.text, letterSpacing: "0.16em" }}>HISTORY</div>
-                {/* Total-matches counter: bumped from 11px / textMuted to
-                  * 14px / text + bold so the "6 MATCHES" label reads at
-                  * a glance instead of being the smallest, dimmest thing
-                  * in the card. Letter-spacing slightly tightened so
-                  * larger text doesn't overrun the right edge. */}
-                <div style={{ fontFamily: t.fontMono, fontSize: 14, fontWeight: 800, color: t.text, letterSpacing: "0.08em" }}>{headToHead.total} {headToHead.total === 1 ? "MATCH" : "MATCHES"}</div>
+                <div style={{ fontFamily: t.fontMono, fontSize: 11, fontWeight: 700, color: t.text, letterSpacing: "0.16em" }}>HISTORY</div>
+                <div style={{ fontFamily: t.fontMono, fontSize: 12, fontWeight: 800, color: t.text, letterSpacing: "0.08em" }}>{headToHead.total} {headToHead.total === 1 ? "MATCH" : "MATCHES"}</div>
               </div>
               {/* Last 5 outcomes — newest on the left, blank slots fill
                 * the row up to 5 so the strip width stays constant. */}
-              <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+              <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
                 {Array.from({ length: 5 }).map((_, i) => {
                   const r = headToHead.recent[i];
                   const col = r === "win" ? p1c : r === "loss" ? p2c : r === "draw" ? t.gold : "transparent";
@@ -1568,18 +1587,18 @@ export function LeftPanel(props: MatchSidebarProps) {
                       key={i}
                       style={{
                         flex: 1,
-                        height: 26,
-                        borderRadius: ip ? 2 : 6,
+                        height: 20,
+                        borderRadius: ip ? 2 : 5,
                         background: filled ? `${col}22` : "transparent",
                         border: `1px solid ${filled ? `${col}AA` : `${t.border}88`}`,
                         color: filled ? col : t.textMuted,
                         fontFamily: t.fontMono,
-                        fontSize: 12,
+                        fontSize: 11,
                         fontWeight: 800,
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "center",
-                        boxShadow: filled ? `0 0 6px ${col}33` : "none",
+                        boxShadow: filled ? `0 0 5px ${col}33` : "none",
                       }}
                     >
                       {lbl}
@@ -1587,24 +1606,24 @@ export function LeftPanel(props: MatchSidebarProps) {
                   );
                 })}
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 4 }}>
                 {([
                   { lbl: "WIN",  v: headToHead.wins,   c: p1c },
                   { lbl: "DRAW", v: headToHead.draws,  c: t.gold },
                   { lbl: "LOSE", v: headToHead.losses, c: p2c },
                 ] as const).map(item => (
                   <div key={item.lbl} style={{
-                    padding: "6px 8px",
+                    padding: "3px 6px",
                     background: `${item.c}10`,
                     border: `1px solid ${item.c}33`,
-                    borderRadius: ip ? 2 : 6,
+                    borderRadius: ip ? 2 : 5,
                     display: "flex",
                     flexDirection: "column",
                     alignItems: "center",
-                    gap: 2,
+                    gap: 0,
                   }}>
-                    <span style={{ fontFamily: t.fontMono, fontSize: 9, color: t.textMuted, letterSpacing: "0.16em" }}>{item.lbl}</span>
-                    <span style={{ fontFamily: t.fontDisplay, fontSize: 18, fontWeight: 800, color: item.c }}>{item.v}</span>
+                    <span style={{ fontFamily: t.fontMono, fontSize: 8, color: t.textMuted, letterSpacing: "0.14em" }}>{item.lbl}</span>
+                    <span style={{ fontFamily: t.fontDisplay, fontSize: 14, fontWeight: 800, color: item.c, lineHeight: 1.1 }}>{item.v}</span>
                   </div>
                 ))}
               </div>
