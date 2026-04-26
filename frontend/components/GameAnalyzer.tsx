@@ -7,6 +7,7 @@ import { THEMES, type ThemeId } from "@/lib/themes";
 import { checkWin } from "@/lib/winChecker";
 import { checkWin6 } from "@/lib/winChecker6";
 import { checkWin7 } from "@/lib/winChecker7";
+import { SYROS_PFP_URL } from "@/lib/unrankedBots";
 
 type Slot = "P1" | "P2";
 type Quality = "best" | "good" | "inaccuracy" | "mistake" | "blunder";
@@ -400,8 +401,34 @@ export default function GameAnalyzer({
       }}
     >
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-        <div style={{ fontFamily: t.fontMono, fontSize: 16, fontWeight: 800, color: t.text, letterSpacing: "0.08em" }}>
-          GAME ANALYZER
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            fontFamily: t.fontMono,
+            fontSize: 16,
+            fontWeight: 800,
+            color: t.text,
+            letterSpacing: "0.08em",
+          }}
+        >
+          <img
+            src={SYROS_PFP_URL}
+            alt=""
+            width={28}
+            height={28}
+            style={{
+              width: 28,
+              height: 28,
+              borderRadius: "50%",
+              objectFit: "cover",
+              flexShrink: 0,
+              border: "1.5px solid rgba(192,132,252,0.85)",
+              boxShadow: "0 0 10px rgba(124,58,237,0.35)",
+            }}
+          />
+          SYROS ANALYZER
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <button
@@ -826,4 +853,5 @@ export default function GameAnalyzer({
     </div>
   );
 }
+
 

@@ -1408,7 +1408,7 @@ export function LeftPanel(props: MatchSidebarProps) {
               <button
                 type="button"
                 disabled
-                aria-label="SYROS Analysis Coming soon"
+                aria-label="SYROS analysis in process..."
                 style={{
                   width: "100%",
                   minHeight: 55,
@@ -1430,7 +1430,7 @@ export function LeftPanel(props: MatchSidebarProps) {
                   cursor: "default",
                 }}
               >
-                SYROS Analysis Coming soon
+                SYROS analysis in process...
               </button>
             </div>
           )}

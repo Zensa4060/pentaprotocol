@@ -11,6 +11,7 @@ import { BannerRenderer } from "./BannerRenderer";
 import { RANKS, getRank, NavRankBadge, rankGlowVisualStrength, buildRankEmblemGlowFilter, rankHaloGradientForRank } from "./NavBar";
 import FriendsSidePanel from "./FriendsSidePanel";
 import React from "react";
+import { SYROS_PFP_URL } from "@/lib/unrankedBots";
 
 
 const RankBadge = ({ elo, size = 48, isPlacement = false }: { elo: number | string; size?: number; isPlacement?: boolean }) => {
@@ -1294,6 +1295,7 @@ function MatchOverlay({
           alignItems: isMobile ? "flex-start" : "center",
           flexWrap: isMobile ? "wrap" as const : "nowrap" as const,
           gap: isMobile ? 12 : 0,
+          position: "relative",
         }}
       >
         <div style={{ display: "flex", alignItems: isMobile ? "flex-start" : "center", gap: isMobile ? 12 : 20, minWidth: 0 }}>
@@ -1378,11 +1380,15 @@ function MatchOverlay({
               );
             }}
             style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 8,
               fontFamily: t.fontMono,
               fontSize: 11,
               fontWeight: 800,
               letterSpacing: "0.12em",
-              padding: "10px 20px",
+              padding: "8px 16px",
               borderRadius: 8,
               border: `1px solid ${canAnalyzeRound ? t.accent || "#6366f1" : t.border}66`,
               background: canAnalyzeRound ? "rgba(99, 102, 241, 0.15)" : "rgba(255,255,255,0.04)",
@@ -1390,7 +1396,22 @@ function MatchOverlay({
               cursor: canAnalyzeRound ? "pointer" : "not-allowed",
             }}
           >
-            ANALYZE THIS ROUND
+            <img
+              src={SYROS_PFP_URL}
+              alt=""
+              width={22}
+              height={22}
+              style={{
+                width: 22,
+                height: 22,
+                borderRadius: "50%",
+                objectFit: "cover",
+                flexShrink: 0,
+                border: "1px solid rgba(192,132,252,0.75)",
+                opacity: canAnalyzeRound ? 1 : 0.45,
+              }}
+            />
+            SYROS ANALYZER
           </button>
         </div>
       ) : null}
