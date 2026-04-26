@@ -1943,6 +1943,7 @@ export function WinOverlay({
   centralMatchOverStep = false,
   onNewMatchAction,
   onQuitToHomeAction,
+  onAnalyzeAction,
   interGameReadyVisible = true,
   waitingReadyWarmup = false,
   isMultiplayerGame = false,
@@ -1981,6 +1982,7 @@ export function WinOverlay({
   centralMatchOverStep?: boolean;
   onNewMatchAction?: () => void;
   onQuitToHomeAction?: () => void;
+  onAnalyzeAction?: () => void;
   interGameReadyVisible?: boolean;
   waitingReadyWarmup?: boolean;
   isMultiplayerGame?: boolean;
@@ -2550,6 +2552,36 @@ export function WinOverlay({
                   onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.borderColor = `${accentColor}66`; }}
                 >
                   REVIEW GRID
+                </button>
+              )}
+              {onAnalyzeAction && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    // Close this modal layer first so the analyzer pane
+                    // behind it is immediately visible to the user.
+                    onDismissAction();
+                    onAnalyzeAction();
+                  }}
+                  style={{
+                    minWidth: "min(100%, 320px)",
+                    padding: "14px 28px",
+                    borderRadius: ip ? 2 : 14,
+                    border: `1px solid ${accentColor}AA`,
+                    background: `${accentColor}18`,
+                    color: accentColor,
+                    fontFamily: t.fontDisplay,
+                    fontSize: "clamp(14px, 2.4vw, 18px)",
+                    fontWeight: 900,
+                    letterSpacing: "0.1em",
+                    cursor: "pointer",
+                    transition: "all 0.2s",
+                    boxShadow: `0 8px 28px ${accentColor}33`,
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.background = `${accentColor}2E`; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = `${accentColor}18`; }}
+                >
+                  ANALYZE GAME
                 </button>
               )}
               {onQuitToHomeAction && (

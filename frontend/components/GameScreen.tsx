@@ -862,6 +862,12 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   const [postGameReadyAck, setPostGameReadyAck] = useState(false);
   /** SP/AI only: user dismissed the series-complete win overlay → show central match-over card. */
   const [matchOverAcked, setMatchOverAcked] = useState(false);
+  /** Preserves the just-finished leg move list for analyzer navigation.
+   *  currentGameMovesRef can be reset by inter-leg transitions before the
+   *  player taps ANALYZE GAME, so keep a stable winner-time snapshot. */
+  const analyzerMovesSnapshotRef = useRef<{ row: number; col: number; player: "P1" | "P2" }[]>([]);
+  /** Multiplayer: clear structured move log when the server advances `game_number`. */
+  const mpAnalyzerLegGameNumberRef = useRef<number | null>(null);
   // Pattern overlay — show active patterns during game; toggle persisted for session
   const [showPatternOverlay, setShowPatternOverlay] = useState(() => {
     try { return sessionStorage.getItem("patternOverlayVisible") === "true"; } catch { return false; }
@@ -922,9 +928,9 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
    *     captures the final board state, full move list, board mode, and
    *     winner — exactly the shape `CareerScreen.MatchRound` expects.
    *
-   * Both refs are AI-path-only (gated by `gameMode === "ai"` in
-   * `push` sites). Multiplayer matches get their career rows via the
-   * server's `award_ranked_match_result` codepath and don't need this.
+   * `matchRoundsDetailRef` is AI-path-only (career export). `currentGameMovesRef`
+   * is filled for all local games + multiplayer `move_made` so the analyzer
+   * can reconstruct the last leg.
    */
   type RoundMoveDetail = { row: number; col: number; player: string };
   type RoundDetail = {
@@ -1605,6 +1611,15 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
               setMovesPlayed(msg.moves_played);
               setExtraTurns(msg.extra_turns ?? 0);
               {
+                const mgn = (msg as { game_number?: unknown }).game_number;
+                if (typeof mgn === "number") {
+                  if (mpAnalyzerLegGameNumberRef.current !== mgn) {
+                    mpAnalyzerLegGameNumberRef.current = mgn;
+                    currentGameMovesRef.current = [];
+                  }
+                }
+              }
+              {
                 const mmp = msg as { selected_patterns_p1?: unknown; selected_patterns_p2?: unknown };
                 if (Array.isArray(mmp.selected_patterns_p1) && Array.isArray(mmp.selected_patterns_p2)) {
                   setServerStructuralPatternsP1(mmp.selected_patterns_p1 as string[]);
@@ -1613,6 +1628,9 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
               }
               if (msg.row !== undefined && msg.col !== undefined) {
                 const mover = msg.board[msg.row][msg.col] as string | null;
+                if (mover === "P1" || mover === "P2") {
+                  currentGameMovesRef.current.push({ row: msg.row, col: msg.col, player: mover });
+                }
                 if (mover) {
                   const _piece = mover === "P1" ? t.pieces.p1 : t.pieces.p2;
                   setLog(l => [...l, { text: `${l.length + 1}. ${_piece}→${String.fromCharCode(65 + msg.col)}${msg.row + 1} (${mover})`, player: mover }]);
@@ -1684,6 +1702,12 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
           setBoard(r.board ?? emptyBoard());
           setCurrent(r.current_player ?? "P1");
           setMovesPlayed(r.moves_played ?? 0);
+          if (typeof r.game_number === "number") {
+            if (mpAnalyzerLegGameNumberRef.current !== r.game_number) {
+              mpAnalyzerLegGameNumberRef.current = r.game_number;
+              currentGameMovesRef.current = [];
+            }
+          }
           {
             const e1 = asNum(r.player1_elo);
             const e2 = asNum(r.player2_elo);
@@ -3367,6 +3391,9 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
 
   useEffect(() => {
     if (!winner) return;
+    analyzerMovesSnapshotRef.current = currentGameMovesRef.current
+      .filter((m): m is { row: number; col: number; player: "P1" | "P2" } => m.player === "P1" || m.player === "P2")
+      .map((m) => ({ row: m.row, col: m.col, player: m.player }));
     const _isMP = (gameMode === "ranked" || gameMode === "unranked") && !!roomCode;
     if (_isMP) return;
     if (phase !== "playing") return;
@@ -3874,12 +3901,10 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
         ? checkWin6(nb, r, c, stoneOwner, newMoves, patBot)
         : checkWin(nb, r, c, stoneOwner, newMoves, patBot);
     setBoard(nb); setMovesPlayed(newMoves); addLog(r, c, playerWhoMoved);
-    if (isUnrankedBotFiller) {
-      // Structured move capture for the career-export payload. Record
-      // the stone's owner (not the slot that clicked) so the career-
-      // screen renderer — which colours cells by the `player` key —
-      // stays in sync with the final `board` state (e.g. the 6×6
-      // rulebreaker trap cell flips ownership when played).
+    if (stoneOwner === "P1" || stoneOwner === "P2") {
+      // Structured move capture: career export (filler bots) + game analyzer.
+      // Record the stone's owner (not the slot that clicked) so trap-cell
+      // ownership matches the final `board` state.
       currentGameMovesRef.current.push({ row: r, col: c, player: stoneOwner });
     }
     if (result) { setExtraTurns(0); setWinLine(result.line); setWinner(result.winner); }
@@ -3940,8 +3965,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
         ? checkWin6(nb, r, c, stoneOwner, newMoves, activePatterns)
         : checkWin(nb, r, c, stoneOwner, newMoves, activePatterns);
     setBoard(nb); setMovesPlayed(newMoves); addLog(r, c, playerWhoMoved);
-    if (isUnrankedBotFiller) {
-      // Mirror of the bot-side capture in `placeBot` — see comment there.
+    if (stoneOwner === "P1" || stoneOwner === "P2") {
       currentGameMovesRef.current.push({ row: r, col: c, player: stoneOwner });
     }
     if (result) { setExtraTurns(0); setWinLine(result.line); setWinner(result.winner); }
@@ -3982,6 +4006,33 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     const piece = player === "P1" ? t.pieces.p1 : t.pieces.p2;
     setLog(l => [...l, { text: `${l.length + 1}. ${piece}→${String.fromCharCode(65 + c)}${r + 1} (${player})`, player }]);
   };
+
+  const goToAnalysisPage = useCallback(() => {
+    if (!winner) return;
+    const liveMoves = currentGameMovesRef.current
+      .filter((m): m is { row: number; col: number; player: "P1" | "P2" } =>
+        m.player === "P1" || m.player === "P2",
+      )
+      .map((m) => ({ row: m.row, col: m.col, player: m.player }));
+    const moves = liveMoves.length > 0 ? liveMoves : analyzerMovesSnapshotRef.current;
+    const id = ((gameId ?? "").trim()) || `local-${Date.now()}`;
+    const payload = {
+      boardSize: GRID_SIZE,
+      selectedPatterns: liveSelectedPatterns,
+      moveHistory: moves,
+      p1Label: p1Name ?? "P1",
+      p2Label: p2Label ?? "P2",
+      themeId,
+    };
+    try {
+      sessionStorage.setItem(`pp_analysis_${id}`, JSON.stringify(payload));
+      sessionStorage.setItem("pp_analysis_last_id", id);
+    } catch {
+      // ignore storage failures (quota, private mode); navigation still works
+      // and the page will show the empty-state message.
+    }
+    router.push(`/analysis/${encodeURIComponent(id)}`);
+  }, [winner, gameId, GRID_SIZE, liveSelectedPatterns, p1Name, p2Label, themeId, router]);
 
   const dismissOverlay = useCallback(() => {
     if (phase === "waiting_ready" && winner) {
@@ -4926,6 +4977,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     centralMatchOverStep: centralMatchOverOverlay,
     onNewMatchAction: isUnrankedBotFiller ? undefined : softReset,
     onQuitToHomeAction: () => { if (setScreenAction) setScreenAction("home"); },
+    onAnalyzeAction: winner ? () => goToAnalysisPage() : undefined,
     interGameReadyVisible: readyButtonsActive,
     waitingReadyWarmup,
     isMultiplayerGame,
@@ -5295,6 +5347,25 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
               }
             </span>
           </div>
+          {winner && (
+            <button
+              onClick={goToAnalysisPage}
+              style={{
+                pointerEvents: "auto",
+                background: "transparent",
+                border: `1px solid ${t.accent}`,
+                color: t.accent,
+                fontFamily: t.fontMono,
+                fontSize: 12,
+                padding: "6px 14px",
+                borderRadius: 4,
+                cursor: "pointer",
+                marginTop: 8,
+              }}
+            >
+              ANALYZE GAME
+            </button>
+          )}
         </div>
 
         {/* Bottom action bar */}
@@ -5399,7 +5470,6 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
             </div>
           </div>
         )}
-
         <MatchupOverlay 
           matchupData={matchupData} 
           showMatchupOverlay={showMatchupOverlay} 
@@ -5445,6 +5515,11 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
               setScreenAction?.("home");
             }}
             onGoToCareer={isMultiplayerGame ? goToCareerAfterSeries : undefined}
+            onAnalyzeGame={winner ? () => {
+              setShowGameWinScreen(false);
+              setShowSeriesMatchResult(false);
+              goToAnalysisPage();
+            } : undefined}
           />
         )}
         {showXpLevelUpScreen && xpLevelUpTransition && (
@@ -5519,6 +5594,10 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
             mythosPfpUrl={matchSeriesComplete.isMythos ? MYTHOS_PFP_URL : null}
             mythosFirstDefeat={!!matchSeriesComplete.mythosFirstDefeat}
             mythosXpBonus={matchSeriesComplete.mythosXpBonus ?? 0}
+            onAnalyzeGame={winner ? () => {
+              setShowSeriesMatchResult(false);
+              goToAnalysisPage();
+            } : undefined}
           />
         )}
 
@@ -5933,6 +6012,23 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
             )}
           </div>
         </div>
+        {winner && (
+          <button
+            onClick={goToAnalysisPage}
+            style={{
+              background: "transparent",
+              border: `1px solid ${t.accent}`,
+              color: t.accent,
+              fontFamily: t.fontMono,
+              fontSize: 12,
+              padding: "6px 14px",
+              borderRadius: 4,
+              cursor: "pointer",
+            }}
+          >
+            ANALYZE GAME
+          </button>
+        )}
         {/* Column labels + board — special boards render their own labels */}
         {renderMainBoard("desktop")}
       </div>
@@ -6100,6 +6196,11 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
             setScreenAction?.("home");
           }}
           onGoToCareer={isMultiplayerGame ? goToCareerAfterSeries : undefined}
+          onAnalyzeGame={winner ? () => {
+            setShowGameWinScreen(false);
+            setShowSeriesMatchResult(false);
+            goToAnalysisPage();
+          } : undefined}
         />
       )}
       {showXpLevelUpScreen && xpLevelUpTransition && (
@@ -6176,6 +6277,10 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
           mythosPfpUrl={matchSeriesComplete.isMythos ? MYTHOS_PFP_URL : null}
           mythosFirstDefeat={!!matchSeriesComplete.mythosFirstDefeat}
           mythosXpBonus={matchSeriesComplete.mythosXpBonus ?? 0}
+          onAnalyzeGame={winner ? () => {
+            setShowSeriesMatchResult(false);
+            goToAnalysisPage();
+          } : undefined}
         />
       )}
 

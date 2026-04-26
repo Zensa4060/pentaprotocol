@@ -1,6 +1,5 @@
 /**
  * Rules copy for RuleshowScreen only — per leg / breaker, aligned with engine behaviour.
- * (RulesScreen.tsx remains the long-form “How to play”.)
  */
 export type RuleshowRuleBlock = { id: string; title: string; detail: string };
 

@@ -1246,6 +1246,7 @@ function MatchOverlay({
   isMobile: boolean;
   onClose: () => void;
 }) {
+  const router = useRouter();
   const t = THEMES[themeId as keyof typeof THEMES];
   const [activeRoundIdx, setActiveRoundIdx] = useState(0);
   const rounds = Array.isArray(match.match_rounds)
@@ -1264,6 +1265,13 @@ function MatchOverlay({
     : [];
   const currentMoves = Array.isArray(currentRound?.moves) ? currentRound.moves : [];
   const boardSize = Math.max(1, currentBoard.length);
+  const analyzableMoveCount = currentMoves.filter((m) => {
+    const p = String(m?.player || "").toUpperCase();
+    return p === "P1" || p === "P2";
+  }).length;
+  const careerMatchId = (match.id || "").trim();
+  const canAnalyzeRound = Boolean(careerMatchId) && analyzableMoveCount >= 2;
+  const analyzeGameNumber = currentRound?.game_number ?? activeRoundIdx + 1;
 
   return (
     <div
@@ -1342,6 +1350,50 @@ function MatchOverlay({
           </div>
         </div>
       </div>
+
+      {careerMatchId ? (
+        <div
+          style={{
+            padding: "10px 16px",
+            borderBottom: `1px solid ${t.border}44`,
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            gap: 12,
+            flexWrap: "wrap",
+          }}
+        >
+          <button
+            type="button"
+            disabled={!canAnalyzeRound}
+            title={
+              !canAnalyzeRound
+                ? "This round has no stored P1/P2 move list (older matches may be summary-only)."
+                : "Open pattern analysis for this round"
+            }
+            onClick={() => {
+              if (!canAnalyzeRound) return;
+              router.push(
+                `/analysis/career/${encodeURIComponent(careerMatchId)}?game=${encodeURIComponent(String(analyzeGameNumber))}`,
+              );
+            }}
+            style={{
+              fontFamily: t.fontMono,
+              fontSize: 11,
+              fontWeight: 800,
+              letterSpacing: "0.12em",
+              padding: "10px 20px",
+              borderRadius: 8,
+              border: `1px solid ${canAnalyzeRound ? t.accent || "#6366f1" : t.border}66`,
+              background: canAnalyzeRound ? "rgba(99, 102, 241, 0.15)" : "rgba(255,255,255,0.04)",
+              color: canAnalyzeRound ? t.text : t.textMuted,
+              cursor: canAnalyzeRound ? "pointer" : "not-allowed",
+            }}
+          >
+            ANALYZE THIS ROUND
+          </button>
+        </div>
+      ) : null}
 
       <div style={{ flex: 1, display: "flex", flexDirection: isMobile ? "column" : "row", overflow: "hidden" }}>
         {/* Sidebar: Rounds List */}

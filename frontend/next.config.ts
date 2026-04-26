@@ -137,6 +137,23 @@ const nextConfig: NextConfig = {
       },
     ];
   },
+  /**
+   * When the browser uses same-origin API calls (`getApiBaseUrl()` → "" because
+   * `NEXT_PUBLIC_API_URL` is unset), these rewrites forward `/api/*` to the real
+   * FastAPI host. Set `NEXT_PUBLIC_API_URL` or `BACKEND_REWRITE_ORIGIN` (e.g.
+   * `https://your-api.up.railway.app`) in Vercel/host env at build time.
+   */
+  async rewrites() {
+    const origin = (
+      process.env.BACKEND_REWRITE_ORIGIN ||
+      process.env.NEXT_PUBLIC_API_URL ||
+      ""
+    )
+      .trim()
+      .replace(/\/$/, "");
+    if (!origin) return [];
+    return [{ source: "/api/:path*", destination: `${origin}/api/:path*` }];
+  },
 };
 
 export default nextConfig;

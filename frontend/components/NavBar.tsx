@@ -517,50 +517,6 @@ export default function NavBar({
   const pentashards = pentashardsBase + missionShardBonus;
   const protocredits = (user as any)?.protocredits ?? 0;
 
-  const RULES_INFO_SZ = isMobile ? 36 : isTablet ? 44 : 52;
-  const rulesInfoButton = (
-    <button
-      type="button"
-      disabled={lockMultiplayerNav}
-      onClick={() => navigate("rules")}
-      title="Game rules — how to play"
-      aria-label="Game rules"
-      onMouseEnter={(e) => {
-        onHoverAction?.();
-        prefetchHref(ROUTES.RULES);
-        e.currentTarget.style.borderColor = t.accent;
-        e.currentTarget.style.color = t.accent;
-        e.currentTarget.style.background = `${t.accent}18`;
-        e.currentTarget.style.transform = "scale(1.05)";
-      }}
-      onMouseLeave={(e) => {
-        const el = e.currentTarget;
-        el.style.borderColor = `${t.border}66`;
-        el.style.color = t.text;
-        el.style.background = `${t.border}22`;
-        el.style.transform = "scale(1)";
-      }}
-      style={{
-        background: `${t.border}22`,
-        border: `1px solid ${t.border}66`,
-        color: t.text,
-        width: RULES_INFO_SZ,
-        height: RULES_INFO_SZ,
-        borderRadius: "50%",
-        cursor: lockMultiplayerNav ? "not-allowed" : "pointer",
-        opacity: lockMultiplayerNav ? 0 : 1,
-        transition: "all 0.3s ease",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        flexShrink: 0,
-        padding: 0,
-      }}
-    >
-      <span style={{ fontFamily: t.fontDisplay, fontSize: RULES_INFO_SZ * 0.42, fontWeight: 800, fontStyle: "italic", lineHeight: 1 }}>i</span>
-    </button>
-  );
-
   // Nav links list for both desktop and hamburger menu. Guest mode is
   // gone, so nothing is locked here anymore.
   const navLinks = [
@@ -683,7 +639,7 @@ export default function NavBar({
               display: "flex", alignItems: "center", flexWrap: "nowrap", 
               gap: isUltraWide ? "3vw" : "clamp(6px, 1.2vw, 24px)",
               transition: "gap 0.3s ease",
-              marginLeft: "5%",
+              marginLeft: "1%",
             }}>
               {navBtn("friends", "FRIENDS", false, false, undefined, "friends", false, friendsNotifyBadge)}
               {navBtn("collection", "Collection", false, false, undefined, "collection", false, collectionNotifyBadge)}
@@ -691,8 +647,7 @@ export default function NavBar({
               {navBtn("home",       "Home",       false, false, undefined, "home")}
               {navBtn("career",     "Career",     false, false, undefined, "career",     false, careerMpBadge)}
               {navBtn("battlepass", "MISSIONS", false, false, undefined, "battlepass", false, missionClaimBadge)}
-                {navBtn("profile", "Profile", false, false, undefined, "profile", false, profileNotifyBadge)}
-                <div style={{ display: "inline-flex", alignItems: "center", flexShrink: 0 }}>{rulesInfoButton}</div>
+              {navBtn("profile", "Profile", false, false, undefined, "profile", false, profileNotifyBadge)}
             </div>
           </div>
         )}
@@ -704,7 +659,6 @@ export default function NavBar({
               {navBtn("store",   "Store",   false, false, undefined, "store", false, storeNewBadge)}
               {navBtn("profile", "Profile", false, false, undefined, "profile", false, profileNotifyBadge)}
               {navBtn("career",  "Career",  false, false, undefined, "career",  false, careerMpBadge)}
-              <div style={{ display: "inline-flex", alignItems: "center", flexShrink: 0 }}>{rulesInfoButton}</div>
             </div>
           </div>
         )}
@@ -728,10 +682,6 @@ export default function NavBar({
               <div style={{ width: CURRENCY_SZ, height: CURRENCY_SZ, flexShrink: 0 }} dangerouslySetInnerHTML={{ __html: (themeId === "classic_light" ? PROTO_LIGHT_SVG : PROTO_DARK_SVG).replace("<svg ", `<svg width="${CURRENCY_SZ}" height="${CURRENCY_SZ}" `) }} />
               <span style={{ color: "#FFD700" }}>{protocredits}</span>
             </div>
-          )}
-
-          {isMobile && (
-            <div style={{ display: "inline-flex", alignItems: "center", flexShrink: 0 }}>{rulesInfoButton}</div>
           )}
 
           {/* Settings button */}

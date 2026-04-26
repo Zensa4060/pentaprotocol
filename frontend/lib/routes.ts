@@ -38,7 +38,6 @@ export const ROUTES = {
   RULEBREAKER: "/rulebreaker",
   RULECHOICE: "/rulechoice",
   RULESSHOW: "/rulesshow",
-  RULES: "/rules",
   PATCHNOTES: "/patchnotes",
   FRIENDS: "/friends",
 } as const;
@@ -56,7 +55,6 @@ export const MAIN_NAV_PREFETCH_PATHS: readonly string[] = [
   ROUTES.STORE,
   ROUTES.COLLECTION_THEMES,
   ROUTES.PROFILE,
-  ROUTES.RULES,
   ROUTES.MISSIONS_DAILY,
   ROUTES.PATCHNOTES,
   ROUTES.FRIENDS,
@@ -184,8 +182,6 @@ export function screenToUrl(screen: Screen): string | null {
       return ROUTES.COLLECTION_THEMES;
     case "profile":
       return ROUTES.PROFILE;
-    case "rules":
-      return ROUTES.RULES;
     case "battlepass":
       // Missions has no standalone index; always land on /missions/daily.
       return ROUTES.MISSIONS_DAILY;
@@ -224,7 +220,6 @@ export function pathnameToScreen(p: string): Screen {
   if (p === "/collection" || p.startsWith("/collection/")) return "collection";
   if (p === "/store" || p.startsWith("/store/")) return "store";
   if (p === "/profile" || p.startsWith("/profile/")) return "profile";
-  if (p === "/rules") return "rules";
   if (p === "/patchnotes") return "patchNotes";
   if (p === "/friends" || p.startsWith("/friends/")) return "friends";
   return "home";

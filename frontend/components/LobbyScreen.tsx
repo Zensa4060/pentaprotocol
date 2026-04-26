@@ -385,6 +385,20 @@ export default function LobbyScreen({
             Establishing Protocol
           </div>
           <div style={{ fontFamily:t.fontMono, fontSize:16, color:t.textMuted, letterSpacing:"0.25em", opacity:0.8 }}>SEARCHING FOR OPPONENT...</div>
+          {!isRanked && allowBots && (
+            <div
+              style={{
+                marginTop: 10,
+                fontFamily: t.fontMono,
+                fontSize: 12,
+                color: t.gold,
+                letterSpacing: "0.06em",
+                opacity: 0.95,
+              }}
+            >
+              BOTS COMPILE AFTER MINIMUM 10 SECONDS..
+            </div>
+          )}
         </div>
 
         <div style={{ background:"rgba(0,0,0,0.5)", backdropFilter:"blur(20px)", border:`1px solid ${t.border}`, borderRadius:20, padding:"24px 40px", boxShadow:"0 20px 50px rgba(0,0,0,0.5)", width:320 }}>

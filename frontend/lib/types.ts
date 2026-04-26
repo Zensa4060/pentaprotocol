@@ -1,6 +1,6 @@
 export type Screen =
   | "home" | "auth" | "policy_gate" | "lobby" | "game" | "aiGame" | "multiGame"
-  | "profile" | "rules" | "patchNotes" | "ai" | "singleplayer" | "store" | "collection" | "career" | "battlepass"
+  | "profile" | "patchNotes" | "ai" | "singleplayer" | "store" | "collection" | "career" | "battlepass"
   | "friends";
 
 export type SetScreenOptions = {

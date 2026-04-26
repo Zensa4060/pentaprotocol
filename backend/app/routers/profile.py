@@ -1,5 +1,7 @@
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel, ConfigDict, Field
+from bson import ObjectId
+from bson.errors import InvalidId
 from app.core.database import get_db
 from app.core.ids import user_object_id
 from app.core.mission_xp import mission_xp_for_mission_id
@@ -277,6 +279,71 @@ async def get_profile(user_id: str = Depends(get_current_user)):
     return _serialize_user(user)
 
 
+def _normalize_match_rounds(raw_rounds):
+    if not isinstance(raw_rounds, list):
+        return []
+    normalized = []
+    for round_item in raw_rounds:
+        if not isinstance(round_item, dict):
+            continue
+        board = round_item.get("board")
+        moves = round_item.get("moves")
+        normalized.append(
+            {
+                "winner": round_item.get("winner"),
+                "board": board if isinstance(board, list) else [],
+                "moves": moves if isinstance(moves, list) else [],
+                "board_mode": round_item.get("board_mode"),
+                "game_number": round_item.get("game_number"),
+            }
+        )
+    return normalized
+
+
+def _career_row_from_doc(doc: dict) -> dict:
+    row = {
+        "id": str(doc["_id"]) if doc.get("_id") is not None else "",
+        "opponent_username": doc.get("opponent_username", "Unknown"),
+        "opponent_elo": doc.get("opponent_elo", 100),
+        "result": doc.get("result", "loss"),
+        "elo_before": doc.get("elo_before", 100),
+        "elo_after": doc.get("elo_after", 100),
+        "elo_delta": doc.get("elo_delta", 0),
+        "mode": doc.get("mode", "unranked"),
+        "played_at": doc.get("played_at", "").isoformat() if doc.get("played_at") else "",
+        "was_placement": doc.get("was_placement", False),
+        "placement_matches": doc.get("placement_matches", 0),
+    }
+    if doc.get("my_slot") in ("P1", "P2"):
+        row["my_slot"] = doc["my_slot"]
+    if doc.get("surrendered_by") in ("P1", "P2"):
+        row["surrendered_by"] = doc["surrendered_by"]
+    if doc.get("match_scope"):
+        row["match_scope"] = doc["match_scope"]
+    if doc.get("banned_pattern_7x7"):
+        bp = doc["banned_pattern_7x7"]
+        if bp == "H":
+            bp = "Y"
+        row["banned_pattern_7x7"] = bp
+    if doc.get("board_mode"):
+        row["board_mode"] = doc["board_mode"]
+    if doc.get("game_number") is not None:
+        row["game_number"] = doc["game_number"]
+    if doc.get("match_rounds") is not None:
+        row["match_rounds"] = _normalize_match_rounds(doc.get("match_rounds"))
+    if doc.get("board_mode_full"):
+        row["board_mode_full"] = doc["board_mode_full"]
+    if doc.get("protocolbreaker_played") is not None:
+        row["protocolbreaker_played"] = doc["protocolbreaker_played"]
+    if doc.get("limitbreaker_played") is not None:
+        row["limitbreaker_played"] = doc["limitbreaker_played"]
+    if doc.get("p1_time_used_ms") is not None:
+        row["p1_time_used_ms"] = int(doc.get("p1_time_used_ms") or 0)
+    if doc.get("p2_time_used_ms") is not None:
+        row["p2_time_used_ms"] = int(doc.get("p2_time_used_ms") or 0)
+    return row
+
+
 @router.get("/career")
 async def get_career(user_id: str = Depends(get_current_user)):
     db = get_db()
@@ -286,68 +353,24 @@ async def get_career(user_id: str = Depends(get_current_user)):
     cursor = db.match_history.find(query).sort("played_at", -1).limit(10)
     matches = []
 
-    def _normalize_rounds(raw_rounds):
-        if not isinstance(raw_rounds, list):
-            return []
-        normalized = []
-        for round_item in raw_rounds:
-            if not isinstance(round_item, dict):
-                continue
-            board = round_item.get("board")
-            moves = round_item.get("moves")
-            normalized.append(
-                {
-                    "winner": round_item.get("winner"),
-                    "board": board if isinstance(board, list) else [],
-                    "moves": moves if isinstance(moves, list) else [],
-                    "board_mode": round_item.get("board_mode"),
-                    "game_number": round_item.get("game_number"),
-                }
-            )
-        return normalized
-
     async for doc in cursor:
-        row = {
-            "id": str(doc["_id"]) if doc.get("_id") is not None else "",
-            "opponent_username": doc.get("opponent_username", "Unknown"),
-            "opponent_elo":      doc.get("opponent_elo", 100),
-            "result":            doc.get("result", "loss"),
-            "elo_before":        doc.get("elo_before", 100),
-            "elo_after":         doc.get("elo_after", 100),
-            "elo_delta":         doc.get("elo_delta", 0),
-            "mode":              doc.get("mode", "unranked"),
-            "played_at":         doc.get("played_at", "").isoformat() if doc.get("played_at") else "",
-            "was_placement":     doc.get("was_placement", False),
-            "placement_matches": doc.get("placement_matches", 0),
-        }
-        if doc.get("my_slot") in ("P1", "P2"):
-            row["my_slot"] = doc["my_slot"]
-        if doc.get("surrendered_by") in ("P1", "P2"):
-            row["surrendered_by"] = doc["surrendered_by"]
-        if doc.get("match_scope"):
-            row["match_scope"] = doc["match_scope"]
-        if doc.get("banned_pattern_7x7"):
-            bp = doc["banned_pattern_7x7"]
-            if bp == "H": bp = "Y"
-            row["banned_pattern_7x7"] = bp
-        if doc.get("board_mode"):
-            row["board_mode"] = doc["board_mode"]
-        if doc.get("game_number") is not None:
-            row["game_number"] = doc["game_number"]
-        if doc.get("match_rounds") is not None:
-            row["match_rounds"] = _normalize_rounds(doc.get("match_rounds"))
-        if doc.get("board_mode_full"):
-            row["board_mode_full"] = doc["board_mode_full"]
-        if doc.get("protocolbreaker_played") is not None:
-            row["protocolbreaker_played"] = doc["protocolbreaker_played"]
-        if doc.get("limitbreaker_played") is not None:
-            row["limitbreaker_played"] = doc["limitbreaker_played"]
-        if doc.get("p1_time_used_ms") is not None:
-            row["p1_time_used_ms"] = int(doc.get("p1_time_used_ms") or 0)
-        if doc.get("p2_time_used_ms") is not None:
-            row["p2_time_used_ms"] = int(doc.get("p2_time_used_ms") or 0)
-        matches.append(row)
+        matches.append(_career_row_from_doc(doc))
     return matches
+
+
+@router.get("/career-match/{entry_id}")
+async def get_career_match(entry_id: str, user_id: str = Depends(get_current_user)):
+    """Return one career row for the authenticated user (for deep-links / analysis)."""
+    try:
+        eid = ObjectId(entry_id)
+    except InvalidId:
+        raise HTTPException(404, "Match not found")
+    db = get_db()
+    oid = user_object_id(user_id)
+    doc = await db.match_history.find_one({"_id": eid, "user_id": {"$in": [user_id, oid]}})
+    if not doc:
+        raise HTTPException(404, "Match not found")
+    return _career_row_from_doc(doc)
 
 
 @router.get("/head-to-head/{opponent_id}")

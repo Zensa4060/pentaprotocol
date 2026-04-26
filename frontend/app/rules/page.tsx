@@ -1,8 +1,7 @@
-"use client";
-import { useApp } from "@/components/AppShell";
-import RulesScreen from "@/components/RulesScreen";
+import { redirect } from "next/navigation";
+import { ROUTES } from "@/lib/routes";
 
+/** Long-form rules page removed — tutorial & training cover gameplay. */
 export default function RulesPage() {
-  const { themeId, sfx } = useApp();
-  return <RulesScreen themeId={themeId} onHoverAction={sfx.hover} onClickAction={sfx.click} />;
+  redirect(ROUTES.TRAINING);
 }

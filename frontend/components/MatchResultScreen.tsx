@@ -45,6 +45,7 @@ interface MatchResultScreenProps {
   };
   onQuit: () => void;
   onFindNewMatch?: () => void;
+  onAnalyzeGame?: () => void;
   /**
    * Unranked / bot matches swap the ranked-tier emblem at the top of the
    * result banner for the viewer's own profile picture. The caller can
@@ -76,6 +77,7 @@ export default function MatchResultScreen({
   t,
   onQuit,
   onFindNewMatch,
+  onAnalyzeGame,
   playerAvatarUrl,
   playerAvatarEmoji,
   isMythos = false,
@@ -665,6 +667,29 @@ export default function MatchResultScreen({
               </motion.div>
             )}
             <div style={{ display: "flex", gap: 20, justifyContent: "center", flexWrap: "wrap" }}>
+              {onAnalyzeGame && (
+                <motion.button
+                  whileHover={{ scale: 1.05, background: `${t.accent}22` }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={onAnalyzeGame}
+                  style={{
+                    padding: "20px 48px",
+                    background: `${t.accent}18`,
+                    border: `1px solid ${t.accent}`,
+                    borderRadius: 12,
+                    color: t.accent,
+                    fontFamily: t.fontDisplay,
+                    fontSize: 24,
+                    fontWeight: 900,
+                    letterSpacing: "0.1em",
+                    cursor: "pointer",
+                    textTransform: "uppercase",
+                    boxShadow: `0 0 20px ${t.accent}44`,
+                  }}
+                >
+                  Analyze Game
+                </motion.button>
+              )}
                {onFindNewMatch && (
                  <motion.button
                    whileHover={{ scale: 1.05, background: `${t.accent}22` }}

@@ -66,7 +66,6 @@ const PUBLIC_PATH_PREFIXES = [
   "/cookies",
   "/terms",
   "/refund",
-  "/rules",
   "/patchnotes",
 ];
 
@@ -576,7 +575,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
         const status = err?.response?.status;
         if (status === 404 || status === 401) useAuthStore.getState().logout();
         // Public legal/info pages (/terms, /privacy, /refund, /patchnotes,
-        // /cookies, /rules, ...) must remain reachable even if the logged-in
+        // /cookies, …) must remain reachable even if the logged-in
         // profile fetch fails — we silently drop the session and keep the
         // user on the page they requested.
         if (!isPublicPath(pathname)) {
@@ -594,8 +593,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
    * ``/missions/*``, ``/friends``, ``/training/*``, ``/challenge/*``, ...)
    * requires an authenticated user. The small public surface —
    * ``PUBLIC_PATH_PREFIXES`` at the top of this file — still renders for
-   * unauthenticated visitors (``/auth`` itself, legal pages, rules,
-   * patchnotes).
+   * unauthenticated visitors (``/auth`` itself, legal pages, patchnotes).
    *
    * We deliberately wait until ``appReady`` so we don't redirect during
    * the brief window between mount and the /auth/me bootstrap — that
@@ -1292,8 +1290,9 @@ export default function AppShell({ children }: { children: ReactNode }) {
   /*  Matchmaking                                                           */
   /* ═══════════════════════════════════════════════════════════════════════ */
 
+  /** Queue join can exceed 15s on cold API/DB; allow override via `config.timeout`. */
   const postOnce = async (url: string, data: any, config: any) =>
-    API.post(url, data, { ...config, timeout: 15000 });
+    API.post(url, data, { timeout: 60000, ...config });
 
   const handleRoomReady = useCallback(
     (
@@ -1622,7 +1621,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
       const res = await postOnce(
         "/api/room/queue/join",
         { format: mode, board_mode: boardModeForQueue },
-        authHeader,
+        { ...authHeader, timeout: 60000 },
       );
       if (queueCancelledRef.current) {
         matchmakingActiveRef.current = false;
@@ -1696,14 +1695,23 @@ export default function AppShell({ children }: { children: ReactNode }) {
         }
       }
     } catch (err: any) {
-      console.error("Matchmaking error:", err);
       if (queueCancelledRef.current) { matchmakingActiveRef.current = false; return; }
       const status = err?.response?.status;
       const detail = err?.response?.data?.detail;
+      const isTimeout =
+        err?.code === "ECONNABORTED" ||
+        (typeof err?.message === "string" && err.message.toLowerCase().includes("timeout"));
+      if (!isTimeout) {
+        console.error("Matchmaking error:", err);
+      } else {
+        console.warn("Matchmaking join timed out:", err?.message || err);
+      }
       const msg =
-        (status === 403 || status === 401) && typeof detail === "string" && detail.trim()
-          ? detail
-          : "Connection issue — still searching...";
+        isTimeout
+          ? "Request timed out — the server may be waking up or your link is slow. Try again."
+          : (status === 403 || status === 401) && typeof detail === "string" && detail.trim()
+            ? detail
+            : "Connection issue — still searching...";
       setQueueError(msg);
       matchmakingActiveRef.current = false;
       matchFoundArmRef.current = false;
@@ -1875,7 +1883,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
     pathname === "/auth";
   /** Match-found + live match URLs use full-viewport shells (Lobby / GameScreen) — no top nav. */
   const hideNavForImmersivePlay =
-    pathname === ROUTES.PLAY_MATCHFOUND || isGameScreen;
+    pathname === ROUTES.PLAY_MATCHFOUND || isGameScreen || pathname.startsWith("/analysis/");
 
   const showNavBar =
     pathname !== ROUTES.AUTH &&
@@ -1910,7 +1918,8 @@ export default function AppShell({ children }: { children: ReactNode }) {
       pathname.startsWith("/ready/") ||
       pathname.startsWith("/rulesshow/") ||
       pathname.startsWith("/rulechoice/") ||
-      pathname.startsWith("/rulebreaker/");
+      pathname.startsWith("/rulebreaker/") ||
+      pathname.startsWith("/analysis/");
     if (ownedByRoute) return null;
     return (
       <div style={{ position: "fixed", inset: 0, zIndex: 99999, background: t.bg }}>

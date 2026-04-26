@@ -13,7 +13,7 @@ from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
 from fastapi.exception_handlers import http_exception_handler
-from app.routers import auth, game, profile, store, bot, bot7, room, otp, admin, friends
+from app.routers import auth, game, profile, store, bot, analyze, bot7, room, otp, admin, friends, mythos
 from app.core.database import connect_db, disconnect_db, get_db
 import logging
 import os
@@ -248,11 +248,13 @@ app.include_router(game,    prefix="/api/game",    tags=["game"])
 app.include_router(profile, prefix="/api/profile", tags=["profile"])
 app.include_router(store,   prefix="/api/store",   tags=["store"])
 app.include_router(bot,     prefix="/api/bot",     tags=["bot"])
+app.include_router(analyze, prefix="/api/analyze", tags=["analyze"])
 app.include_router(bot7,    prefix="/api/bot7",    tags=["bot7"])
 app.include_router(room,    prefix="/api/room",    tags=["room"])
 app.include_router(otp,     prefix="/api/otp",     tags=["otp"])
 app.include_router(admin,   prefix="/api/admin",   tags=["admin"])
 app.include_router(friends, prefix="/api/friends", tags=["friends"])
+app.include_router(mythos, prefix="/api/mythos", tags=["mythos"])
 
 # ── Single startup — connect DB (matchmaking TTL lives in database.ensure_indexes) ─
 @app.on_event("startup")
