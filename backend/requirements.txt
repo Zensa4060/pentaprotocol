@@ -33,4 +33,5 @@ resend~=2.4.0
 aiohttp~=3.10.0
 google-auth~=2.34.0
 google-generativeai~=0.8.0
+groq~=1.2.0
 certifi>=2024.7.4

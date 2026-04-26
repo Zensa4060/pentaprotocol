@@ -7,7 +7,6 @@ import logging
 import os
 
 from fastapi import APIRouter, HTTPException
-from groq import Groq
 from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
@@ -58,6 +57,18 @@ class SyrosAskResponse(BaseModel):
 
 @router.post("/ask", response_model=SyrosAskResponse)
 async def syros_ask(body: SyrosAskRequest) -> SyrosAskResponse:
+    try:
+        from groq import Groq
+    except ImportError:
+        logger.error(
+            "groq is not installed; run: pip install -r requirements.txt "
+            "(or: pip install groq)",
+        )
+        raise HTTPException(
+            status_code=503,
+            detail="Syros is unavailable — install dependency: pip install groq",
+        )
+
     api_key = (os.getenv("GROQ_API_KEY") or "").strip()
     if not api_key:
         logger.error("GROQ_API_KEY is not set")
@@ -90,5 +101,5 @@ async def syros_ask(body: SyrosAskRequest) -> SyrosAskResponse:
         if raw:
             detail = f"Syros upstream error: {raw}"
         else:
-            detail = "Syros upstream error. Check GEMINI_API_KEY and model access."
+            detail = "Syros upstream error. Check GROQ_API_KEY and model access."
         raise HTTPException(status_code=502, detail=detail)
