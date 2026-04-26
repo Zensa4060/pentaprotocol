@@ -205,16 +205,19 @@ export interface CentreCompareStep {
   }>;
 }
 
+/** Optional Syros-voiced epigraph (ancient observer; not tutorial helper copy). */
+export type WithSyrosQuote = { syrosQuote?: string };
+
 export type TutorialStep =
-  | MessageStep
-  | PatternGalleryStep
-  | BoardStep
-  | DemoGameStep
-  | InteractiveStep
-  | ScreenMockStep
-  | BreakerDiagramStep
-  | RankLadderStep
-  | CentreCompareStep;
+  | (MessageStep & WithSyrosQuote)
+  | (PatternGalleryStep & WithSyrosQuote)
+  | (BoardStep & WithSyrosQuote)
+  | (DemoGameStep & WithSyrosQuote)
+  | (InteractiveStep & WithSyrosQuote)
+  | (ScreenMockStep & WithSyrosQuote)
+  | (BreakerDiagramStep & WithSyrosQuote)
+  | (RankLadderStep & WithSyrosQuote)
+  | (CentreCompareStep & WithSyrosQuote);
 
 /**
  * Interleave two player-specific cell lists into a P1-first alternating
@@ -272,6 +275,8 @@ export const TUTORIAL_SECTIONS: TutorialSection[] = [
         bullets: [
           "You can replay it any time from Training → Tutorial.",
         ],
+        syrosQuote:
+          "I have recorded every match played here. This sequence defines how outcomes are measured.",
       },
     ],
   },
@@ -289,6 +294,8 @@ export const TUTORIAL_SECTIONS: TutorialSection[] = [
           "Each leg has one \"breaker\" game with special rules.",
           "Game 3 = Rulebreaker · Game 6 = Timebreaker · Game 9 = Mindbreaker · Game 10 = Limitbreaker.",
         ],
+        syrosQuote:
+          "Board size changes the pressure, not the standard of play. The result still comes from execution under fixed rules.",
       },
       {
         kind: "demo-game",
@@ -308,6 +315,8 @@ export const TUTORIAL_SECTIONS: TutorialSection[] = [
         winLine: { from: [2, 0], to: [2, 4] },
         outcome: "P1_WIN",
         caption: "Five in a row across the middle — P1 wins.",
+        syrosQuote:
+          "A five-stone line is a completed condition, not an opinion. Most line wins are decided several turns before the final placement.",
       },
     ],
   },
@@ -321,6 +330,8 @@ export const TUTORIAL_SECTIONS: TutorialSection[] = [
         title: "Patterns, not just lines",
         body:
           "Besides lines, each board size recognises a fixed catalogue of geometric patterns. Matching any selected pattern with your own stones instantly wins that game. The shapes are the same regardless of theme — only the visuals change.",
+        syrosQuote:
+          "Pattern play is pre-commitment under uncertainty. Once the shape closes, the game ends immediately.",
       },
       {
         kind: "pattern-gallery",
@@ -329,6 +340,8 @@ export const TUTORIAL_SECTIONS: TutorialSection[] = [
         body:
           "On 5×5 you pick five of these six patterns before every leg. The ones you pick are the ones the server will accept as a win condition against you.",
         size: 5,
+        syrosQuote:
+          "On 5x5, pattern selection changes both attack options and liabilities. I have seen players lose from choices made before move one.",
       },
       {
         kind: "demo-game",
@@ -348,6 +361,8 @@ export const TUTORIAL_SECTIONS: TutorialSection[] = [
         patternHighlight: [[0, 0], [1, 1], [2, 2], [1, 3], [0, 4]],
         outcome: "P1_WIN",
         caption: "V-SHAPE completed — P1 wins on a pattern match.",
+        syrosQuote:
+          "A pattern win has the same authority as a line win. Opponents often recognize the threat one turn too late.",
       },
       {
         kind: "demo-game",
@@ -367,6 +382,8 @@ export const TUTORIAL_SECTIONS: TutorialSection[] = [
         ],
         caption:
           "Move 1 (P1) lands on C3 → P2 earns 2 extra turns (moves 2 & 3). From move 4 the turn order is normal again.",
+        syrosQuote:
+          "The centre opening on 5x5 triggers a defined penalty. The extra turns are a direct consequence, not a tactical guess.",
       },
       {
         kind: "centre-compare",
@@ -384,6 +401,8 @@ export const TUTORIAL_SECTIONS: TutorialSection[] = [
           { size: 6, supported: false, label: "6×6", note: "No single centre" },
           { size: 7, supported: true, label: "7×7", note: "Centre = D4" },
         ],
+        syrosQuote:
+          "Only odd boards contain a single centre cell. Rule scope follows board geometry, not player preference.",
       },
       {
         kind: "pattern-gallery",
@@ -392,6 +411,8 @@ export const TUTORIAL_SECTIONS: TutorialSection[] = [
         body:
           "On 6×6 all seven patterns are always live — no picking phase. The line length for a straight-line win is also increased to six.",
         size: 6,
+        syrosQuote:
+          "On 6x6, all listed patterns remain active throughout the leg. Line completion requires six aligned stones.",
       },
       {
         kind: "pattern-gallery",
@@ -400,6 +421,8 @@ export const TUTORIAL_SECTIONS: TutorialSection[] = [
         body:
           "On 7×7 all eight structural patterns are always live. Straight-line wins require seven in a row. 7×7 also carries the \"extra-turn\" token from the centre rule.",
         size: 7,
+        syrosQuote:
+          "On 7x7, pattern pressure and centre consequences both persist. Errors expand because the board holds more unresolved threats.",
       },
     ],
   },
@@ -419,6 +442,8 @@ export const TUTORIAL_SECTIONS: TutorialSection[] = [
           "7×7 · needs a chain of 20 connected cells — winner takes the game.",
           "If neither player hits the threshold, the game is a DRAW.",
         ],
+        syrosQuote:
+          "A full board does not automatically resolve as a draw. Connected-path thresholds determine whether either side converts the position.",
       },
       {
         kind: "demo-game",
@@ -448,6 +473,8 @@ export const TUTORIAL_SECTIONS: TutorialSection[] = [
         ],
         outcome: "P2_WIN",
         caption: "P2's 11-cell chain — diagonals and edges both count. Threshold met, P2 wins.",
+        syrosQuote:
+          "This 5x5 finish is decided by connectivity count. Diagonal and edge adjacency both contribute to the final chain.",
       },
       {
         kind: "interactive",
@@ -467,6 +494,8 @@ export const TUTORIAL_SECTIONS: TutorialSection[] = [
         winLine: { from: [2, 0], to: [2, 4] },
         successLabel: "Nicely done — you built a 5-in-a-row.",
         caption: "Follow the hint ring to complete your middle row.",
+        syrosQuote:
+          "Execution under turn order is the only requirement here. Correct placements produce a deterministic line finish.",
       },
       {
         kind: "demo-game",
@@ -496,6 +525,8 @@ export const TUTORIAL_SECTIONS: TutorialSection[] = [
         ],
         outcome: "DRAW",
         caption: "P1 has a 12-cell chain (shown). P2 also has a 12-cell chain through Y. Both ≥ 10 → DRAW.",
+        syrosQuote:
+          "Both sides can satisfy the full-board threshold in the same game. In that case, no side is awarded the win.",
       },
       {
         kind: "demo-game",
@@ -519,6 +550,8 @@ export const TUTORIAL_SECTIONS: TutorialSection[] = [
         ),
         outcome: "DRAW",
         caption: "Longest chain is 9 (P2) and 8 (P1). Neither hits 10 → DRAW.",
+        syrosQuote:
+          "If neither player reaches the threshold chain, the engine returns a draw. Fragmented structure is the common cause.",
       },
       {
         kind: "demo-game",
@@ -539,6 +572,8 @@ export const TUTORIAL_SECTIONS: TutorialSection[] = [
         winLine: { from: [3, 0], to: [3, 5] },
         outcome: "P1_WIN",
         caption: "Six in a row — P1 wins on 6×6.",
+        syrosQuote:
+          "Six in a row is mandatory on 6x6 line resolution. Partial files carry no value at game end.",
       },
       {
         kind: "board",
@@ -595,6 +630,8 @@ export const TUTORIAL_SECTIONS: TutorialSection[] = [
           caption:
             "Both players reach a 15-cell chain with no pattern wins — full-board path resolution is a DRAW. One valid P1 15-chain is highlighted.",
         },
+        syrosQuote:
+          "The 6x6 threshold is fifteen connected cells after full fill. Loose spacing reduces conversion probability in late turns.",
       },
       {
         kind: "demo-game",
@@ -617,6 +654,8 @@ export const TUTORIAL_SECTIONS: TutorialSection[] = [
         outcome: "DRAW",
         caption:
           "Full board with no pattern wins — longest chains stay below 15, so the engine declares DRAW.",
+        syrosQuote:
+          "This replay reaches a full board without pattern conversion. With both chains under fifteen, the result is a draw.",
       },
       {
         kind: "demo-game",
@@ -638,6 +677,8 @@ export const TUTORIAL_SECTIONS: TutorialSection[] = [
         winLine: { from: [3, 0], to: [3, 6] },
         outcome: "P1_WIN",
         caption: "Seven in a row across 7×7 — P1 wins.",
+        syrosQuote:
+          "On 7x7, line completion requires seven aligned stones. Centre-rule penalties still apply when the opening move triggers them.",
       },
       {
         kind: "board",
@@ -706,6 +747,8 @@ export const TUTORIAL_SECTIONS: TutorialSection[] = [
           caption:
             "P1 completes a 20-cell king-connected chain with no pattern wins — path resolution awards the game to P1.",
         },
+        syrosQuote:
+          "The 7x7 full-board threshold is twenty connected cells. Reaching it overrides stalemate assumptions immediately.",
       },
       {
         kind: "demo-game",
@@ -728,6 +771,8 @@ export const TUTORIAL_SECTIONS: TutorialSection[] = [
         outcome: "DRAW",
         caption:
           "Full board with no pattern wins — neither side builds a 20-cell chain, so the engine declares DRAW.",
+        syrosQuote:
+          "A full 7x7 board can still end drawn. If both chains remain below twenty, no winner is assigned.",
       },
     ],
   },
@@ -747,6 +792,8 @@ export const TUTORIAL_SECTIONS: TutorialSection[] = [
           "Option B — Force first turn: the chooser picks which player plays first instead of it being random.",
           "The loser of the toss picks the remaining modifier.",
         ],
+        syrosQuote:
+          "Rulebreaker modifies control variables, not core victory definitions. Coin outcome determines which constraints apply in game three.",
       },
       {
         kind: "message",
@@ -758,6 +805,8 @@ export const TUTORIAL_SECTIONS: TutorialSection[] = [
           "Option A — Reduced clock: one player's match clock is cut from the normal 3:00 all the way down to 1:00 for this game.",
           "Option B — Special cell: the chooser secretly marks one cell on the board; any stone that lands on it counts as theirs.",
         ],
+        syrosQuote:
+          "Timebreaker introduces asymmetric pressure through clock or cell control. Both options alter decision windows immediately.",
       },
       {
         kind: "demo-game",
@@ -774,6 +823,8 @@ export const TUTORIAL_SECTIONS: TutorialSection[] = [
         ],
         specialCell: { r: 2, c: 2, owner: "P1" },
         caption: "P2 plays (2,2) — because it's P1's trap, the stone is P1's.",
+        syrosQuote:
+          "The marked trap cell follows declared ownership rules. Placement input does not override that assignment.",
       },
       {
         kind: "breaker-diagram",
@@ -786,6 +837,8 @@ export const TUTORIAL_SECTIONS: TutorialSection[] = [
           "Option A — Pick two extra patterns: mid-game the chooser adds two bonus win patterns only they can complete.",
           "Option B — Ban a pattern: one normally-valid pattern is removed; if the opponent completes it, nothing happens.",
         ],
+        syrosQuote:
+          "Mindbreaker changes available pattern logic for one side. Recognition errors increase when expected shapes are removed or added.",
       },
       {
         kind: "breaker-diagram",
@@ -798,6 +851,8 @@ export const TUTORIAL_SECTIONS: TutorialSection[] = [
           "Only one of 5×5 / 6×6 / 7×7 is played; the other two legs are locked out.",
           "Toss winner chooses which player plays first on the surviving board.",
         ],
+        syrosQuote:
+          "Limitbreaker is a single-game resolution at 4-4. First-turn control and board selection decide the final leverage.",
       },
     ],
   },
@@ -817,6 +872,8 @@ export const TUTORIAL_SECTIONS: TutorialSection[] = [
           "Lose → 0 game-points.",
           "Match winner takes the elo / ranked points delta for the leg.",
         ],
+        syrosQuote:
+          "Match scoring is discrete and non-cumulative beyond game points. Draws do not move the scoreline.",
       },
       {
         kind: "rank-ladder",
@@ -829,6 +886,8 @@ export const TUTORIAL_SECTIONS: TutorialSection[] = [
           "Ranks climb from the bottom — each tier glows brighter than the last.",
           "Unranked, training, bot and custom games never touch your rank.",
         ],
+        syrosQuote:
+          "Ranked rating reflects match outcomes under the ladder rules. XP progression is cosmetic and independent of ranked standing.",
       },
     ],
   },
@@ -851,6 +910,8 @@ export const TUTORIAL_SECTIONS: TutorialSection[] = [
           { label: "Privacy Policy", desc: "What data we store and how we use it.", x: 50, y: 88 },
           { label: "Refund Policy", desc: "Store / cosmetic purchase refund rules.", x: 82, y: 88 },
         ],
+        syrosQuote:
+          "Home screen actions map directly to distinct game flows. Incorrect entry choice produces predictable friction later.",
       },
       {
         kind: "screen-mock",
@@ -864,6 +925,8 @@ export const TUTORIAL_SECTIONS: TutorialSection[] = [
           { label: "Singleplayer", desc: "Pick a board size and play offline practice matches.", x: 70, y: 45 },
           { label: "No stakes", desc: "No elo, no mission contribution, no bot rewards.", x: 50, y: 82 },
         ],
+        syrosQuote:
+          "Training isolates mechanics from ranking consequences. Repetition here improves precision without rating loss.",
       },
       {
         kind: "screen-mock",
@@ -878,6 +941,8 @@ export const TUTORIAL_SECTIONS: TutorialSection[] = [
           { label: "Tier 3 — Seraphina / Regina / HER", desc: "7×7 ladder. HER is the tier boss.", x: 80, y: 38 },
           { label: "Rewards", desc: "Tier-boss wins queue a claimable reward on this screen.", x: 50, y: 82 },
         ],
+        syrosQuote:
+          "Bot ladders are structured progression tests with fixed rewards. Cosmetic unlocks do not change board strength.",
       },
       {
         kind: "screen-mock",
@@ -890,6 +955,8 @@ export const TUTORIAL_SECTIONS: TutorialSection[] = [
           { label: "Queue", desc: "Finds a live opponent; cancel any time.", x: 50, y: 35 },
           { label: "Cancel", desc: "Leaves the queue instantly and returns here.", x: 50, y: 70 },
         ],
+        syrosQuote:
+          "Unranked queue preserves match structure without rating impact. It is the standard environment for low-risk pattern testing.",
       },
       {
         kind: "screen-mock",
@@ -903,6 +970,8 @@ export const TUTORIAL_SECTIONS: TutorialSection[] = [
           { label: "Queue", desc: "Starts a full BO9 with Rulebreaker / Timebreaker / Mindbreaker baked in.", x: 50, y: 55 },
           { label: "Placement note", desc: "Visible when you still have placement matches remaining.", x: 50, y: 82 },
         ],
+        syrosQuote:
+          "Ranked queue applies full competitive accounting after resolution. Variance remains, but rating movement is rule-bound.",
       },
       {
         kind: "screen-mock",
@@ -916,6 +985,8 @@ export const TUTORIAL_SECTIONS: TutorialSection[] = [
           { label: "Item card", desc: "Shows name, preview, price and unlock requirement.", x: 30, y: 55 },
           { label: "Currency", desc: "Shards and Protocredits are shown in the top-right.", x: 85, y: 18 },
         ],
+        syrosQuote:
+          "Store inventory changes presentation only. Purchase state has no effect on legal move outcomes.",
       },
       {
         kind: "screen-mock",
@@ -928,6 +999,8 @@ export const TUTORIAL_SECTIONS: TutorialSection[] = [
           { label: "Category rail", desc: "Themes · Grids · Banners · Coins · Badges.", x: 15, y: 40 },
           { label: "Item state", desc: "\"Equipped\" / \"Owned\" / \"Locked\" badge on each card.", x: 55, y: 55 },
         ],
+        syrosQuote:
+          "Collection controls equipped cosmetics across surfaces. Ownership status does not alter game-state evaluation.",
       },
       {
         kind: "screen-mock",
@@ -941,6 +1014,8 @@ export const TUTORIAL_SECTIONS: TutorialSection[] = [
           { label: "Online rail", desc: "Friends who are online right now.", x: 25, y: 60 },
           { label: "DMs", desc: "Direct messages with friends — blocked users disappear here.", x: 75, y: 60 },
         ],
+        syrosQuote:
+          "Friends tools control communication and direct challenge access. Block state enforces immediate interaction limits.",
       },
       {
         kind: "screen-mock",
@@ -953,6 +1028,8 @@ export const TUTORIAL_SECTIONS: TutorialSection[] = [
           { label: "Elo curve", desc: "Your recent ranked trajectory.", x: 50, y: 25 },
           { label: "Match row", desc: "Tap a row for the full game-by-game breakdown.", x: 50, y: 62 },
         ],
+        syrosQuote:
+          "Career history exposes outcome patterns over time. Repeated errors are visible long before rank collapse.",
       },
       {
         kind: "screen-mock",
@@ -965,6 +1042,8 @@ export const TUTORIAL_SECTIONS: TutorialSection[] = [
           { label: "Avatar + bio", desc: "Uploaded photo is used across the app wherever your avatar appears.", x: 25, y: 28 },
           { label: "Security", desc: "2FA, password, Google link, delete account.", x: 75, y: 35 },
         ],
+        syrosQuote:
+          "Profile settings govern identity, security, and account controls. These settings persist independently of match context.",
       },
     ],
   },
@@ -982,6 +1061,8 @@ export const TUTORIAL_SECTIONS: TutorialSection[] = [
           "Need a refresher? Training → Tutorial.",
           "Good luck out there.",
         ],
+        syrosQuote:
+          "This tutorial defines the operating rules and interfaces. I have seen the same mistakes repeated when players skip these constraints.",
       },
     ],
   },

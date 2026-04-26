@@ -7,7 +7,7 @@ import { THEMES } from "@/lib/themes";
 import API from "@/lib/api";
 import { useAuthStore } from "@/lib/store";
 import { readBotRewards } from "@/lib/botRewards";
-import { MYTHOS_PFP_URL } from "@/lib/unrankedBots";
+import { SYROS_PFP_URL } from "@/lib/unrankedBots";
 import { bumpCollectionNavBadge, recordStoreCatalogSeen } from "@/lib/navBadgeState";
 import { PROTO_DARK_SVG, SHARDS_DARK_SVG } from "@/lib/currencyIcons";
 import {
@@ -712,17 +712,17 @@ export default function StoreScreen({ setScreenAction, themeId, audio, initialSe
   //   banner       ← granted when JR. (5×5 final) is defeated
   //   coin_toss    ← granted when HIM (6×6 final) is defeated
   //   board_skin   ← granted when HER (7×7 final) is defeated
-  //   mythos_skin  ← granted on FIRST MYTHOS defeat in the unranked queue
+  //   syros_skin  ← granted on FIRST SYROS defeat in the unranked queue
   const botRewards = readBotRewards(user);
   const canClaimFreeBanner    = botRewards.banner      === "pending";
   const canClaimFreeCoinToss  = botRewards.coin_toss   === "pending";
   const canClaimFreeBoardSkin = botRewards.board_skin  === "pending";
-  const canClaimFreeMythosSkin= botRewards.mythos_skin === "pending";
+  const canClaimFreeSyrosSkin= botRewards.syros_skin === "pending";
   // Combined eligibility — drives the BundleCard's "claim free" affordance.
-  // Either MYTHOS or HER pending is enough to enable the per-bundle button;
-  // the click handler below picks which slot to consume (MYTHOS first so
+  // Either SYROS or HER pending is enough to enable the per-bundle button;
+  // the click handler below picks which slot to consume (SYROS first so
   // the boss-tier reward isn't deferred behind the HER one).
-  const canClaimAnyFreeBoardSkin = canClaimFreeBoardSkin || canClaimFreeMythosSkin;
+  const canClaimAnyFreeBoardSkin = canClaimFreeBoardSkin || canClaimFreeSyrosSkin;
   const [claimingBannerId,    setClaimingBannerId]    = useState<string | null>(null);
   const [claimingCoinTossId,  setClaimingCoinTossId]  = useState<string | null>(null);
   const [claimingBoardSkinId, setClaimingBoardSkinId] = useState<string | null>(null);
@@ -730,7 +730,7 @@ export default function StoreScreen({ setScreenAction, themeId, audio, initialSe
   // Shared claim helper — calls one of the four redeem endpoints and syncs
   // the profile. Each slot passes its own URL / request body and follow-up UX.
   const claimFreeReward = async (
-    slot: "banner" | "coin_toss" | "board_skin" | "mythos_skin",
+    slot: "banner" | "coin_toss" | "board_skin" | "syros_skin",
     itemId: string,
     label: string,
   ) => {
@@ -738,7 +738,7 @@ export default function StoreScreen({ setScreenAction, themeId, audio, initialSe
     const url =
       slot === "banner"      ? "/api/profile/claim-bot-banner-reward" :
       slot === "coin_toss"   ? "/api/profile/claim-bot-coin-toss-reward" :
-      slot === "mythos_skin" ? "/api/profile/claim-mythos-board-skin-reward" :
+      slot === "syros_skin" ? "/api/profile/claim-syros-board-skin-reward" :
                                 "/api/profile/claim-bot-board-skin-reward";
     const body: Record<string, string> =
       slot === "banner"      ? { bannerId:     itemId } :
@@ -747,7 +747,7 @@ export default function StoreScreen({ setScreenAction, themeId, audio, initialSe
     const successText =
       slot === "banner"      ? `✓ ${label} Banner unlocked — free reward claimed!` :
       slot === "coin_toss"   ? `✓ ${label} unlocked — free coin-toss skin claimed!` :
-      slot === "mythos_skin" ? `✓ ${label} board skin unlocked — MYTHOS reward claimed!` :
+      slot === "syros_skin" ? `✓ ${label} board skin unlocked — SYROS reward claimed!` :
                                 `✓ ${label} board skin unlocked — free reward claimed!`;
     const setBusy =
       slot === "banner"      ? setClaimingBannerId :
@@ -777,13 +777,13 @@ export default function StoreScreen({ setScreenAction, themeId, audio, initialSe
   const claimFreeBanner    = (bannerId: string, label: string)    => claimFreeReward("banner",     bannerId,    label);
   const claimFreeCoinToss  = (coinTossId: string, label: string)  => claimFreeReward("coin_toss",  coinTossId,  label);
   // Free board-skin claim resolver: when both the HER reward AND the
-  // MYTHOS reward are pending we prefer to consume the MYTHOS slot first
+  // SYROS reward are pending we prefer to consume the SYROS slot first
   // so the boss-tier reward gets celebrated immediately and the player
   // still has the HER reward parked for a future pick. If only one of
   // the two slots is pending, we route to whichever it is.
   const claimFreeBoardSkin = (boardSkinId: string, label: string) => {
-    const slot: "mythos_skin" | "board_skin" =
-      canClaimFreeMythosSkin ? "mythos_skin" : "board_skin";
+    const slot: "syros_skin" | "board_skin" =
+      canClaimFreeSyrosSkin ? "syros_skin" : "board_skin";
     return claimFreeReward(slot, boardSkinId, label);
   };
 
@@ -1064,11 +1064,11 @@ export default function StoreScreen({ setScreenAction, themeId, audio, initialSe
         {/* BOARD BUNDLES */}
         <div style={{ marginBottom: 56 }}>
           <SectionHeader label="BOARD BUNDLES" accent={accent} icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={accent} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2"/><line x1="12" y1="12" x2="12" y2="16"/><line x1="10" y1="14" x2="14" y2="14"/></svg>}/>
-          {canClaimFreeMythosSkin && (
-            /* MYTHOS first-defeat reward — boss-tier crimson banner that
+          {canClaimFreeSyrosSkin && (
+            /* SYROS first-defeat reward — boss-tier crimson banner that
              * sits above the regular HER banner so the player notices it
              * immediately. The same per-bundle "claim free" button is
-             * used for both rewards; the click handler picks the MYTHOS
+             * used for both rewards; the click handler picks the SYROS
              * slot first when both are pending (see `claimFreeBoardSkin`
              * resolver above). */
             <div style={{
@@ -1092,14 +1092,14 @@ export default function StoreScreen({ setScreenAction, themeId, audio, initialSe
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
-                    src={MYTHOS_PFP_URL}
-                    alt="MYTHOS"
+                    src={SYROS_PFP_URL}
+                    alt="SYROS"
                     style={{ width: "100%", height: "100%", objectFit: "cover" }}
                   />
                 </div>
                 <div style={{ minWidth: 0 }}>
                   <div style={{ fontFamily: t.fontDisplay, fontSize: 16, fontWeight: 900, color: "#FCA5A5", letterSpacing: "0.06em", marginBottom: 4 }}>
-                    MYTHOS DEFEATED — FREE BOARD SKIN UNLOCKED
+                    SYROS DEFEATED — FREE BOARD SKIN UNLOCKED
                   </div>
                   <div style={{ fontFamily: t.fontBody, fontSize: 13, color: "rgba(255,255,255,0.82)", lineHeight: 1.5 }}>
                     Boss-tier reward. Pick any <b>one</b> bundle&apos;s board skin below to claim for free.
@@ -1107,7 +1107,7 @@ export default function StoreScreen({ setScreenAction, themeId, audio, initialSe
                 </div>
               </div>
               <div style={{ fontFamily: t.fontMono, fontSize: 11, color: "#FCA5A5", letterSpacing: "0.14em", padding: "6px 10px", border: "1px solid #DC262688", borderRadius: 8, whiteSpace: "nowrap" as const }}>
-                MYTHOS REWARD
+                SYROS REWARD
               </div>
             </div>
           )}
@@ -1130,7 +1130,7 @@ export default function StoreScreen({ setScreenAction, themeId, audio, initialSe
                 </div>
               </div>
               <div style={{ fontFamily: t.fontMono, fontSize: 11, color: "#FCD34D", letterSpacing: "0.14em", padding: "6px 10px", border: "1px solid #FCD34D88", borderRadius: 8, whiteSpace: "nowrap" as const }}>
-                {canClaimFreeMythosSkin ? "2 REWARDS REMAINING" : "1 REWARD REMAINING"}
+                {canClaimFreeSyrosSkin ? "2 REWARDS REMAINING" : "1 REWARD REMAINING"}
               </div>
             </div>
           )}

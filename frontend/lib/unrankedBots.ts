@@ -8,7 +8,7 @@
  * a normal AI game with that bot as P2.
  *
  * The filler bot pool uses the user-supplied roster. Each bot is shown
- * with a random *level* (Rookie → Chronicle, plus a special Mythos tier
+ * with a random *level* (Rookie → Chronicle, plus a special Syros tier
  * at ~10 % weight) which drives the underlying engine difficulty per
  * board size. Levels intentionally reuse the rank palette (NavBar.RANKS)
  * so the VS card / in-game HUD can reuse the same badge styling.
@@ -60,7 +60,7 @@ export const UNRANKED_BOT_LEVELS = [
   "MYTHIC",
   "CRACKED",
   "CHRONICLE",
-  "MYTHOS",
+  "SYROS",
 ] as const;
 
 export type UnrankedBotLevel = (typeof UNRANKED_BOT_LEVELS)[number];
@@ -78,7 +78,7 @@ export type UnrankedBotLevel = (typeof UNRANKED_BOT_LEVELS)[number];
  *   MYTHIC     → LEVEL 50 – 75   (high-level)
  *   CRACKED    → LEVEL 75 – 99   (sweaty)
  *   CHRONICLE  → LEVEL 100 – 500 (engine ceiling)
- *   MYTHOS     → LEVEL 1000      (fixed, boss tier)
+ *   SYROS     → LEVEL 1000      (fixed, boss tier)
  */
 const LEVEL_NUMERIC_RANGE: Record<UnrankedBotLevel, [number, number]> = {
   ROOKIE:    [1, 10],
@@ -87,11 +87,11 @@ const LEVEL_NUMERIC_RANGE: Record<UnrankedBotLevel, [number, number]> = {
   MYTHIC:    [50, 75],
   CRACKED:   [75, 99],
   CHRONICLE: [100, 500],
-  MYTHOS:    [1000, 1000],
+  SYROS:    [1000, 1000],
 };
 
 /** Pick a numeric level for a tier, uniformly distributed in that tier's range.
- *  Both endpoints inclusive. MYTHOS always returns 1000. */
+ *  Both endpoints inclusive. SYROS always returns 1000. */
 export function numericLevelForTier(level: UnrankedBotLevel): number {
   const [min, max] = LEVEL_NUMERIC_RANGE[level];
   if (min >= max) return min;
@@ -111,7 +111,7 @@ export function numericLevelForTier(level: UnrankedBotLevel): number {
  *                 flagged "chronicle" for future sharpening (reduced
  *                 think delay, aggressive openings) — the engine cap on
  *                 each board is already the hardest available today.
- *    MYTHOS     ← same top engines, but with a visibly faster think
+ *    SYROS     ← same top engines, but with a visibly faster think
  *                 animation and taunt bubbles (hidden boss tier).
  */
 const LEVEL_DIFFICULTY_5X5: Record<UnrankedBotLevel, Difficulty> = {
@@ -121,7 +121,7 @@ const LEVEL_DIFFICULTY_5X5: Record<UnrankedBotLevel, Difficulty> = {
   MYTHIC:    "hard",        // JR (depth-8 αβ)
   CRACKED:   "hard",        // JR (series peak)
   CHRONICLE: "hard",        // engine ceiling on 5×5 (→ depth-8 αβ)
-  MYTHOS:    "hard",        // same engine, visibly faster
+  SYROS:    "hard",        // same engine, visibly faster
 };
 
 const LEVEL_DIFFICULTY_6X6: Record<UnrankedBotLevel, Difficulty> = {
@@ -131,7 +131,7 @@ const LEVEL_DIFFICULTY_6X6: Record<UnrankedBotLevel, Difficulty> = {
   MYTHIC:    "normal",      // ELDORIN+ (Rust hard)
   CRACKED:   "machine_god", // HIM (Rust machine god)
   CHRONICLE: "machine_god", // engine ceiling on 6×6
-  MYTHOS:    "machine_god", // same engine, visibly faster
+  SYROS:    "machine_god", // same engine, visibly faster
 };
 
 const LEVEL_DIFFICULTY_7X7: Record<UnrankedBotLevel, Difficulty> = {
@@ -141,7 +141,7 @@ const LEVEL_DIFFICULTY_7X7: Record<UnrankedBotLevel, Difficulty> = {
   MYTHIC:    "hard",        // REGINA+ (Rust hard)
   CRACKED:   "danger",      // HER (Rust danger)
   CHRONICLE: "danger",      // engine ceiling on 7×7
-  MYTHOS:    "danger",      // same engine, visibly faster
+  SYROS:    "danger",      // same engine, visibly faster
 };
 
 export type CoreBoardSize = "5x5" | "6x6" | "7x7";
@@ -199,7 +199,7 @@ export function pickRandomPatterns5x5(count: number = 5): string[] {
 export interface LevelStyle {
   /** Hex color used for VS glow, avatar ring, tier label. */
   color: string;
-  /** Relative glow intensity (0 → none, 1 → Chronicle, >1 → Mythos). */
+  /** Relative glow intensity (0 → none, 1 → Chronicle, >1 → Syros). */
   glow: number;
   /** Short human label drawn above the VS card avatar. */
   label: UnrankedBotLevel;
@@ -212,7 +212,7 @@ const LEVEL_STYLE: Record<UnrankedBotLevel, LevelStyle> = {
   MYTHIC:    { color: "#10B981", glow: 0.65, label: "MYTHIC" },
   CRACKED:   { color: "#FF3333", glow: 0.85, label: "CRACKED" },
   CHRONICLE: { color: "#F59E0B", glow: 1.0, label: "CHRONICLE" },
-  MYTHOS:    { color: "#9333EA", glow: 1.3, label: "MYTHOS" },
+  SYROS:    { color: "#9333EA", glow: 1.3, label: "SYROS" },
 };
 
 export function styleForLevel(level: UnrankedBotLevel): LevelStyle {
@@ -221,12 +221,12 @@ export function styleForLevel(level: UnrankedBotLevel): LevelStyle {
 
 /* ── Random selection ───────────────────────────────────────────────────── */
 
-/** Probability MYTHOS is picked as the level on a given queue. Kept low
- *  so MYTHOS stays a rare, memorable boss-tier encounter rather than a
+/** Probability SYROS is picked as the level on a given queue. Kept low
+ *  so SYROS stays a rare, memorable boss-tier encounter rather than a
  *  routine opponent. */
-export const MYTHOS_CHANCE = 0.1;
+export const SYROS_CHANCE = 0.1;
 
-/** Non-MYTHOS tiers, roughly descending in weight so Rookie/Skilled appear
+/** Non-SYROS tiers, roughly descending in weight so Rookie/Skilled appear
  *  more often than Chronicle. */
 const NORMAL_LEVEL_WEIGHTS: Array<{ level: UnrankedBotLevel; weight: number }> = [
   { level: "ROOKIE",    weight: 4 },
@@ -249,33 +249,33 @@ function pickWeighted<T extends { weight: number }>(opts: T[]): T {
 
 export interface PickedBot {
   /** Display name for the VS card / in-game HUD. Regular filler bots
-   *  pull from `UNRANKED_BOT_NAMES`; the boss-tier MYTHOS overrides
-   *  this to the literal string "MYTHOS" so it never inherits a
+   *  pull from `UNRANKED_BOT_NAMES`; the boss-tier SYROS overrides
+   *  this to the literal string "SYROS" so it never inherits a
    *  human-roster name on the match-found screen. */
-  name: UnrankedBotName | "MYTHOS";
+  name: UnrankedBotName | "SYROS";
   level: UnrankedBotLevel;
-  /** Convenience: true iff `level === "MYTHOS"`. */
-  isMythos: boolean;
+  /** Convenience: true iff `level === "SYROS"`. */
+  isSyros: boolean;
 }
 
-/** Pick a random filler bot. ~MYTHOS_CHANCE of queues spawn the
- *  boss-tier MYTHOS instead of a normal roster name; everything else
+/** Pick a random filler bot. ~SYROS_CHANCE of queues spawn the
+ *  boss-tier SYROS instead of a normal roster name; everything else
  *  draws a name from `UNRANKED_BOT_NAMES` and a tier from the weighted
  *  pool. Safe to call repeatedly — pure RNG, no state. */
 export function pickUnrankedBot(): PickedBot {
-  const isMythos = Math.random() < MYTHOS_CHANCE;
-  if (isMythos) {
-    // MYTHOS is its own identity, not a roster member. Hard-coding the
+  const isSyros = Math.random() < SYROS_CHANCE;
+  if (isSyros) {
+    // SYROS is its own identity, not a roster member. Hard-coding the
     // name here keeps the VS card / sidebar / URL all consistent —
-    // upstream code doesn't have to special-case "use MYTHOS instead
-    // of the picked name". The literal "MYTHOS" widens
+    // upstream code doesn't have to special-case "use SYROS instead
+    // of the picked name". The literal "SYROS" widens
     // `PickedBot.name`'s type accordingly.
-    return { name: "MYTHOS", level: "MYTHOS", isMythos: true };
+    return { name: "SYROS", level: "SYROS", isSyros: true };
   }
   const name =
     UNRANKED_BOT_NAMES[Math.floor(Math.random() * UNRANKED_BOT_NAMES.length)];
   const level = pickWeighted(NORMAL_LEVEL_WEIGHTS).level;
-  return { name, level, isMythos: false };
+  return { name, level, isSyros: false };
 }
 
 /**
@@ -336,7 +336,7 @@ export const PP_UNRANKED_BOTS_PREF_EVENT = "pp_unranked_bots_pref_change";
 
 /* ── Cosmetic profile assignment ────────────────────────────────────────── */
 
-/** Fallback "profile picture" pool used for regular (non-MYTHOS) filler bots
+/** Fallback "profile picture" pool used for regular (non-SYROS) filler bots
  *  on the match-found screen. Filler bots don't have uploaded avatars, so we
  *  pick a random animal-ish emoji and render it in place of an <img>. The
  *  MatchPlayerCard honours a new `avatarEmoji` prop — see LobbyScreen.tsx. */
@@ -353,7 +353,7 @@ export function pickUnrankedBotEmoji(): string {
 }
 
 /** Pool of banner ids (keys of `BannerRenderer.BANNERS_DATA`) assigned to
- *  non-MYTHOS filler bots. Keep this list in sync with the real store —
+ *  non-SYROS filler bots. Keep this list in sync with the real store —
  *  every id here must resolve in `BANNERS_DATA`. We intentionally skip
  *  "default" so filler bots always show a vivid animated banner. */
 export const UNRANKED_BOT_BANNER_POOL: readonly string[] = [
@@ -405,7 +405,7 @@ function buildUnrankedBotQueryString(params: {
    *  so a refresh on the rules-show / game page preserves the same level
    *  shown on the VS card — otherwise a remount would re-randomise it. */
   botLevel?: number;
-  /** Emoji picked at queue time (non-MYTHOS filler bots only). Same
+  /** Emoji picked at queue time (non-SYROS filler bots only). Same
    *  rationale as `botBanner`: survive navigation. */
   botEmoji?: string;
 }): string {
@@ -414,7 +414,7 @@ function buildUnrankedBotQueryString(params: {
     bot: params.bot.name.toLowerCase(),
     level: params.bot.level,
     size: params.boardSize,
-    mythos: params.bot.isMythos ? "1" : "0",
+    syros: params.bot.isSyros ? "1" : "0",
   });
   if (params.patterns && params.patterns.length > 0) {
     qs.set("patterns", params.patterns.join(","));
@@ -457,13 +457,13 @@ export function buildUnrankedBotRulesShowUrl(params: {
   return `/rulesshow/${params.gameId}?${buildUnrankedBotQueryString(params)}`;
 }
 
-/* ── MYTHOS taunts ─────────────────────────────────────────────────────── */
+/* ── SYROS taunts ─────────────────────────────────────────────────────── */
 
-/** Full MYTHOS taunt pool — one is picked uniformly at random each time
+/** Full SYROS taunt pool — one is picked uniformly at random each time
  *  a taunt fires. A future upgrade can replace the uniform RNG with a
  *  real move-quality heuristic (harsher lines after blunders, softer
  *  lines after decent moves). */
-export const MYTHOS_TAUNTS: readonly string[] = [
+export const SYROS_TAUNTS: readonly string[] = [
   "Are you sure I'm the bot here?",
   "That move had confidence. Not accuracy.",
   "Interesting strategy. Not a good one, but interesting.",
@@ -504,26 +504,26 @@ export const MYTHOS_TAUNTS: readonly string[] = [
   "Acceptable. Don't get used to hearing that.",
 ] as const;
 
-/** Probability a MYTHOS taunt fires after a given player move (cosmetic
+/** Probability a SYROS taunt fires after a given player move (cosmetic
  *  flavor — not every move should get a bubble). */
-export const MYTHOS_TAUNT_FIRE_RATE = 0.6;
+export const SYROS_TAUNT_FIRE_RATE = 0.6;
 
-/** Pick a MYTHOS taunt uniformly at random from the pool. */
-export function pickMythosTaunt(): string {
-  return MYTHOS_TAUNTS[Math.floor(Math.random() * MYTHOS_TAUNTS.length)];
+/** Pick a SYROS taunt uniformly at random from the pool. */
+export function pickSyrosTaunt(): string {
+  return SYROS_TAUNTS[Math.floor(Math.random() * SYROS_TAUNTS.length)];
 }
 
-/* ── MYTHOS presence ───────────────────────────────────────────────────── */
+/* ── SYROS presence ───────────────────────────────────────────────────── */
 
-/** Public URL of the MYTHOS profile picture (served from
- *  `frontend/public/mythos-pfp.png`). */
-export const MYTHOS_PFP_URL = "/mythos-pfp.png";
+/** Public URL of the SYROS profile picture (served from
+ *  `frontend/public/syros-pfp.png`). */
+export const SYROS_PFP_URL = "/syros-pfp.png";
 
-/** Longer in-match "analysis" lines narrated by MYTHOS. Unlike the quick
+/** Longer in-match "analysis" lines narrated by SYROS. Unlike the quick
  *  taunts above, these read as detached philosophical commentary and are
  *  designed to rotate in the sidebar analysis card every few placements.
  *  Pure flavour — no game-state coupling. */
-export const MYTHOS_ANALYSIS_LINES: readonly string[] = [
+export const SYROS_ANALYSIS_LINES: readonly string[] = [
   "From above, their movements form patterns they themselves cannot see. What they call strategy is often just instinct dressed in confidence.",
   "They hesitate at the wrong moments and rush when patience would crown them. Mortals rarely lose to opponents. They lose to themselves.",
   "They pray for fortune, yet ignore the discipline that shapes it. Luck is merely the shadow cast by preparation.",
@@ -541,7 +541,7 @@ export const MYTHOS_ANALYSIS_LINES: readonly string[] = [
  *       window don't flicker to a different line mid-bucket,
  *   (b) varied across buckets — a simple `bucket % N` modulo lands on the
  *       same line repeatedly for small N, which is exactly what the
- *       product was pushing back on ("analysis of mythos always shows this
+ *       product was pushing back on ("analysis of syros always shows this
  *       statement first"). A plain hash smears the index across the full
  *       pool so consecutive buckets feel independent.
  *
@@ -561,7 +561,7 @@ function hashBucket(bucket: number): number {
  *  don't burn entropy at module-load (and so the first call always
  *  happens client-side, where `Math.random()` is fine). The salt only
  *  matters when a caller doesn't provide its own `seed`; with a salt
- *  in play, every browser tab/session sees a different MYTHOS opener
+ *  in play, every browser tab/session sees a different SYROS opener
  *  even if the caller forgot to pass a per-match seed. */
 let _sessionSalt: number | null = null;
 function getSessionSalt(): number {
@@ -602,42 +602,42 @@ function resolveSeedSalt(seed: string | number | undefined): number {
  *  lines and progress through different orderings. Without a seed the
  *  function falls back to a per-tab `getSessionSalt()` so even a stale
  *  caller still varies across sessions. */
-export function mythosAnalysisForMove(
+export function syrosAnalysisForMove(
   movesPlayed: number,
   cadence: number = 5,
   seed?: string | number,
 ): string {
-  if (MYTHOS_ANALYSIS_LINES.length === 0) return "";
+  if (SYROS_ANALYSIS_LINES.length === 0) return "";
   const step = Math.max(1, Math.floor(cadence));
   const bucket = Math.floor(Math.max(0, movesPlayed) / step);
   const salt = resolveSeedSalt(seed);
-  const idx = hashBucket(bucket + salt) % MYTHOS_ANALYSIS_LINES.length;
-  return MYTHOS_ANALYSIS_LINES[idx];
+  const idx = hashBucket(bucket + salt) % SYROS_ANALYSIS_LINES.length;
+  return SYROS_ANALYSIS_LINES[idx];
 }
 
-/** Same idea as `mythosAnalysisForMove`, but pulls from the short-form
- *  taunt pool (`MYTHOS_TAUNTS`). Used in MYTHOS encounters to power the
+/** Same idea as `syrosAnalysisForMove`, but pulls from the short-form
+ *  taunt pool (`SYROS_TAUNTS`). Used in SYROS encounters to power the
  *  in-sidebar "live chat" feed — the card rotates a fresh taunt every
- *  `cadence` placements so it reads like MYTHOS is actively trash-talking
+ *  `cadence` placements so it reads like SYROS is actively trash-talking
  *  the player rather than narrating philosophical analysis.
  *
  *  We salt the bucket index (`+ 7919`) so the taunt rotation never
- *  aligns with `mythosAnalysisForMove`'s sequence — keeps the two feeds
+ *  aligns with `syrosAnalysisForMove`'s sequence — keeps the two feeds
  *  visually independent if both are ever surfaced together.
  *
  *  `seed` (per-match identifier) randomises the opener and the entire
  *  rotation order on a per-match basis. Without it, the function used to
  *  always open with the same taunt because `hashBucket(0 + 7919)` is a
  *  constant. With a per-`gameId` seed, every match's chat looks fresh. */
-export function mythosTauntForMove(
+export function syrosTauntForMove(
   movesPlayed: number,
   cadence: number = 3,
   seed?: string | number,
 ): string {
-  if (MYTHOS_TAUNTS.length === 0) return "";
+  if (SYROS_TAUNTS.length === 0) return "";
   const step = Math.max(1, Math.floor(cadence));
   const bucket = Math.floor(Math.max(0, movesPlayed) / step);
   const salt = resolveSeedSalt(seed);
-  const idx = hashBucket(bucket + 7919 + salt) % MYTHOS_TAUNTS.length;
-  return MYTHOS_TAUNTS[idx];
+  const idx = hashBucket(bucket + 7919 + salt) % SYROS_TAUNTS.length;
+  return SYROS_TAUNTS[idx];
 }

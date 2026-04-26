@@ -1,5 +1,7 @@
 export type ThemeId = "classic_light" | "classic_dark" | "space" | "pixel" | "custom";
 
+export type Theme = (typeof THEMES)[ThemeId];
+
 export const THEMES: Record<ThemeId, {
   bg: string; bgPanel: string; bgCard: string;
   border: string; borderAccent: string;

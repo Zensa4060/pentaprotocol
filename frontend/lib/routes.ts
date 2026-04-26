@@ -40,6 +40,8 @@ export const ROUTES = {
   RULESSHOW: "/rulesshow",
   PATCHNOTES: "/patchnotes",
   FRIENDS: "/friends",
+  /** Syros lore / chat surface (navbar). */
+  SYROS: "/syros",
 } as const;
 
 /**
@@ -58,6 +60,7 @@ export const MAIN_NAV_PREFETCH_PATHS: readonly string[] = [
   ROUTES.MISSIONS_DAILY,
   ROUTES.PATCHNOTES,
   ROUTES.FRIENDS,
+  ROUTES.SYROS,
   ROUTES.RANKED_QUEUE,
   ROUTES.UNRANKED_QUEUE,
   ROUTES.CUSTOM_ROOM_CREATE,
@@ -189,6 +192,8 @@ export function screenToUrl(screen: Screen): string | null {
       return null; // new-tab
     case "friends":
       return ROUTES.FRIENDS;
+    case "syros":
+      return ROUTES.SYROS;
     case "game":
     case "aiGame":
     case "multiGame":
@@ -222,6 +227,7 @@ export function pathnameToScreen(p: string): Screen {
   if (p === "/profile" || p.startsWith("/profile/")) return "profile";
   if (p === "/patchnotes") return "patchNotes";
   if (p === "/friends" || p.startsWith("/friends/")) return "friends";
+  if (p === ROUTES.SYROS || p.startsWith(`${ROUTES.SYROS}/`)) return "syros";
   return "home";
 }
 

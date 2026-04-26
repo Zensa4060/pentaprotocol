@@ -55,17 +55,17 @@ interface MatchResultScreenProps {
   playerAvatarUrl?: string | null;
   playerAvatarEmoji?: string | null;
   /**
-   * MYTHOS encounter wiring (boss-tier filler bot). When `isMythos` is
-   * true the screen swaps the focal emblem for the MYTHOS PFP, prints
-   * a win/loss flavor line, and — on the player's first-ever MYTHOS
+   * SYROS encounter wiring (boss-tier filler bot). When `isSyros` is
+   * true the screen swaps the focal emblem for the SYROS PFP, prints
+   * a win/loss flavor line, and — on the player's first-ever SYROS
    * defeat — surfaces the boss-tier reward banner (+100k XP + free
    * board skin). The bonus / first-defeat fields originate in the
    * `/api/profile/claim-unranked-bot-series` response.
    */
-  isMythos?: boolean;
-  mythosPfpUrl?: string | null;
-  mythosFirstDefeat?: boolean;
-  mythosXpBonus?: number;
+  isSyros?: boolean;
+  syrosPfpUrl?: string | null;
+  syrosFirstDefeat?: boolean;
+  syrosXpBonus?: number;
 }
 
 export default function MatchResultScreen({
@@ -80,10 +80,10 @@ export default function MatchResultScreen({
   onAnalyzeGame,
   playerAvatarUrl,
   playerAvatarEmoji,
-  isMythos = false,
-  mythosPfpUrl = null,
-  mythosFirstDefeat = false,
-  mythosXpBonus = 0,
+  isSyros = false,
+  syrosPfpUrl = null,
+  syrosFirstDefeat = false,
+  syrosXpBonus = 0,
 }: MatchResultScreenProps) {
   const [showOptions, setShowOptions] = useState(false);
   const [counter, setCounter] = useState(0);
@@ -105,27 +105,27 @@ export default function MatchResultScreen({
 
   const p1c = "#3B82F6";
   const p2c = "#EF4444";
-  // MYTHOS encounters override the standard P1/P2 winner palette with a
+  // SYROS encounters override the standard P1/P2 winner palette with a
   // boss-tier reading:
-  //   • Player BEAT MYTHOS  → violet "victory" wash (the player just
+  //   • Player BEAT SYROS  → violet "victory" wash (the player just
   //     toppled a boss, treat it as a celebratory moment).
-  //   • MYTHOS BEAT player  → blood-red wash (MYTHOS taunt-tier loss).
+  //   • SYROS BEAT player  → blood-red wash (SYROS taunt-tier loss).
   //   • DRAW                → keep the gold neutral tint.
   // The flavor quote below mirrors the same colour so the title + line
   // read as a single beat instead of two clashing palettes.
-  const mythosVictoryViolet = "#C084FC";
-  const mythosBossCrimson  = "#DC2626";
-  const mythosWonMatch = !!(isMythos && !isDraw && seriesWinner !== mySlot);
-  const playerBeatMythos = !!(isMythos && !isDraw && seriesWinner === mySlot);
-  const winnerColor = isMythos
-    ? (isDraw ? t.gold : (mythosWonMatch ? mythosBossCrimson : mythosVictoryViolet))
+  const syrosVictoryViolet = "#C084FC";
+  const syrosBossCrimson  = "#DC2626";
+  const syrosWonMatch = !!(isSyros && !isDraw && seriesWinner !== mySlot);
+  const playerBeatSyros = !!(isSyros && !isDraw && seriesWinner === mySlot);
+  const winnerColor = isSyros
+    ? (isDraw ? t.gold : (syrosWonMatch ? syrosBossCrimson : syrosVictoryViolet))
     : (seriesWinner === "P1" ? p1c : seriesWinner === "P2" ? p2c : t.gold);
   const winnerName = seriesWinner === "P1" ? p1.name : seriesWinner === "P2" ? p2.name : "DRAW";
   // Verbatim quotes — keep the user-supplied wording (including the
   // intentional "you better me" phrasing) so the in-game tone is exact.
-  const mythosQuote = mythosWonMatch
+  const syrosQuote = syrosWonMatch
     ? "until next time mortal..."
-    : playerBeatMythos
+    : playerBeatSyros
       ? "you better me, you have grown."
       : null;
   const winnerEloAfter =
@@ -264,8 +264,8 @@ export default function MatchResultScreen({
               size={120} 
               isPlacement={isDraw ? myData.was_placement : (seriesWinner === "P1" ? p1.was_placement : p2.was_placement)} 
             />
-          ) : isMythos && mythosPfpUrl ? (
-            /* MYTHOS focal emblem — boss-tier purple aura mirrors the
+          ) : isSyros && syrosPfpUrl ? (
+            /* SYROS focal emblem — boss-tier purple aura mirrors the
              * MatchPlayerCard / MatchSidebar treatment so the recap feels
              * continuous with the in-game presence. The pulsing halo is
              * defined inline (no global CSS file) so the screen renders
@@ -281,7 +281,7 @@ export default function MatchResultScreen({
                 justifyContent: "center",
               }}
             >
-              <style>{`@keyframes mythosResultHalo{0%,100%{box-shadow:0 0 28px rgba(192,132,252,0.55),0 0 56px rgba(76,29,149,0.45),inset 0 0 14px rgba(76,29,149,0.45)}50%{box-shadow:0 0 44px rgba(192,132,252,0.85),0 0 92px rgba(76,29,149,0.65),inset 0 0 18px rgba(76,29,149,0.6)}}`}</style>
+              <style>{`@keyframes syrosResultHalo{0%,100%{box-shadow:0 0 28px rgba(192,132,252,0.55),0 0 56px rgba(76,29,149,0.45),inset 0 0 14px rgba(76,29,149,0.45)}50%{box-shadow:0 0 44px rgba(192,132,252,0.85),0 0 92px rgba(76,29,149,0.65),inset 0 0 18px rgba(76,29,149,0.6)}}`}</style>
               <div
                 style={{
                   position: "absolute",
@@ -301,13 +301,13 @@ export default function MatchResultScreen({
                   border: "2px solid rgba(192,132,252,0.95)",
                   overflow: "hidden",
                   position: "relative",
-                  animation: "mythosResultHalo 2.4s ease-in-out infinite",
+                  animation: "syrosResultHalo 2.4s ease-in-out infinite",
                 }}
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src={mythosPfpUrl}
-                  alt="MYTHOS"
+                  src={syrosPfpUrl}
+                  alt="SYROS"
                   style={{ width: "100%", height: "100%", objectFit: "cover" }}
                 />
               </div>
@@ -392,8 +392,8 @@ export default function MatchResultScreen({
           >
             {winnerName.toUpperCase()}
           </motion.p>
-          {isMythos && mythosQuote && (
-            /* MYTHOS taunt / concession line — italic with the boss-tier
+          {isSyros && syrosQuote && (
+            /* SYROS taunt / concession line — italic with the boss-tier
              * accent. Verbatim from the user spec; the wording itself is
              * the brand identity here so we don't normalise it. */
             <motion.p
@@ -415,7 +415,7 @@ export default function MatchResultScreen({
                 lineHeight: 1.4,
               }}
             >
-              &ldquo;{mythosQuote}&rdquo;
+              &ldquo;{syrosQuote}&rdquo;
             </motion.p>
           )}
         </div>
@@ -540,8 +540,8 @@ export default function MatchResultScreen({
               padding: "0 16px",
             }}
           >
-            {isMythos && mythosFirstDefeat && (
-              /* First-time MYTHOS defeat reward callout — boss-tier
+            {isSyros && syrosFirstDefeat && (
+              /* First-time SYROS defeat reward callout — boss-tier
                * crimson + gold treatment so the +100k XP and free
                * board-skin grant feel ceremonial. The banner sits
                * above the QUIT / FIND NEW MATCH buttons so the player
@@ -565,7 +565,7 @@ export default function MatchResultScreen({
                   textAlign: "left",
                 }}
               >
-                {mythosPfpUrl && (
+                {syrosPfpUrl && (
                   <div
                     style={{
                       width: 56,
@@ -580,8 +580,8 @@ export default function MatchResultScreen({
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
-                      src={mythosPfpUrl}
-                      alt="MYTHOS"
+                      src={syrosPfpUrl}
+                      alt="SYROS"
                       style={{ width: "100%", height: "100%", objectFit: "cover" }}
                     />
                   </div>
@@ -610,7 +610,7 @@ export default function MatchResultScreen({
                       textShadow: "0 0 14px rgba(220,38,38,0.55)",
                     }}
                   >
-                    MYTHOS FELLED
+                    SYROS FELLED
                   </div>
                   <div
                     style={{
@@ -633,7 +633,7 @@ export default function MatchResultScreen({
                         padding: "5px 10px",
                       }}
                     >
-                      +{(mythosXpBonus || 100000).toLocaleString()} XP
+                      +{(syrosXpBonus || 100000).toLocaleString()} XP
                     </span>
                     <span
                       style={{

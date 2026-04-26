@@ -459,11 +459,11 @@ export default function LobbyScreen({
     cardInkSoft: string;
     avatarInnerBg: string;
     /** When set (e.g. unranked filler bot), the "LEVEL" numeric readout is
-     *  replaced with this tier name ("CHRONICLE"/"MYTHOS") and the glow ring
+     *  replaced with this tier name ("CHRONICLE"/"SYROS") and the glow ring
      *  switches to `tierColor`. */
     tierLabel?: string;
     tierColor?: string;
-    /** >0 → stronger ring glow for top tiers like MYTHOS. */
+    /** >0 → stronger ring glow for top tiers like SYROS. */
     tierGlowBoost?: number;
   }) => {
     const anim = side === "left" ? "slideInLeft" : "slideInRight";
@@ -495,7 +495,7 @@ export default function LobbyScreen({
             For unranked filler bots we surface the NUMERIC level
             that was picked at queue time (ROOKIE 1–10, SKILLED
             10–25, ELITE 25–50, MYTHIC 50–75, CRACKED 75–99,
-            CHRONICLE 100–500, MYTHOS 1000). Previously the card
+            CHRONICLE 100–500, SYROS 1000). Previously the card
             rendered the tier NAME in the number slot, which made
             the match-found screen feel like it was advertising a
             "rank" to the player in an unrated match. The glow /
@@ -522,10 +522,10 @@ export default function LobbyScreen({
           </div>
         </div>
 
-        {/* Avatar with themed glow ring. MYTHOS gets an extra
+        {/* Avatar with themed glow ring. SYROS gets an extra
             slow-pulse violet halo painted behind the avatar (in
             addition to the static glow on the inner border), so the
-            VS card mirrors the in-game MatchSidebar's `mythosPfpAura`
+            VS card mirrors the in-game MatchSidebar's `syrosPfpAura`
             cadence and the boss-tier presence reads consistently
             across screens. */}
         <div
@@ -549,10 +549,10 @@ export default function LobbyScreen({
                   pointerEvents: "none",
                   background: `radial-gradient(circle, ${effectiveGlow}33 0%, ${effectiveGlow}00 70%)`,
                   filter: "blur(6px)",
-                  animation: "mythosCardAuraPulse 2.6s ease-in-out infinite",
+                  animation: "syrosCardAuraPulse 2.6s ease-in-out infinite",
                 }}
               />
-              <style>{`@keyframes mythosCardAuraPulse{0%,100%{opacity:0.55;transform:scale(0.96)}50%{opacity:1;transform:scale(1.06)}}`}</style>
+              <style>{`@keyframes syrosCardAuraPulse{0%,100%{opacity:0.55;transform:scale(0.96)}50%{opacity:1;transform:scale(1.06)}}`}</style>
             </>
           )}
           <div
@@ -668,19 +668,19 @@ export default function LobbyScreen({
     }
     const mfSkin = resolveMatchFoundSkin(themeId);
     const pal = getMatchFoundPalette(mfSkin);
-    // MYTHOS gets a distinct VS scene: violet accent, bespoke header, and
+    // SYROS gets a distinct VS scene: violet accent, bespoke header, and
     // an extra radial glow behind the cards. Everything else (banners,
     // VS sketch, card grid) inherits the normal palette so the layout
     // stays visually consistent with the regular match-found screen.
-    const isMythosMatchup = Boolean(propMatchupOpponent?.botIsMythos);
-    const mythosAccent = "#C084FC";
-    const glow = isMythosMatchup
-      ? mythosAccent
+    const isSyrosMatchup = Boolean(propMatchupOpponent?.botIsSyros);
+    const syrosAccent = "#C084FC";
+    const glow = isSyrosMatchup
+      ? syrosAccent
       : isRanked
         ? pal.rankedAccent
         : pal.unrankedAccent;
-    const headerCopy = isMythosMatchup
-      ? "MYTHOS · THE GAME BENEATH THE GAME"
+    const headerCopy = isSyrosMatchup
+      ? "SYROS · THE GAME BENEATH THE GAME"
       : isRanked
         ? "RANKED · FIRST TO 5 POINTS"
         : "UNRANKED · FIRST TO 5 POINTS";
@@ -771,7 +771,7 @@ export default function LobbyScreen({
           }}
         />
 
-        {isMythosMatchup && (
+        {isSyrosMatchup && (
           <div
             style={{
               position: "absolute",
@@ -798,7 +798,7 @@ export default function LobbyScreen({
             letterSpacing: "0.3em",
             fontWeight: 800,
             zIndex: 3,
-            textShadow: isMythosMatchup
+            textShadow: isSyrosMatchup
               ? "0 0 12px rgba(192,132,252,0.75), 0 0 28px rgba(147,51,234,0.55)"
               : undefined,
           }}
@@ -879,7 +879,7 @@ export default function LobbyScreen({
                 ? String(propMatchupOpponent?.botLevelColor ?? "")
                 : undefined
             }
-            tierGlowBoost={propMatchupOpponent?.botIsMythos ? 1.2 : 0.4}
+            tierGlowBoost={propMatchupOpponent?.botIsSyros ? 1.2 : 0.4}
           />
         </div>
 

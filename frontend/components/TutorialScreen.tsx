@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { THEMES, type ThemeId } from "@/lib/themes";
+import { THEMES, type Theme, type ThemeId } from "@/lib/themes";
 import {
   PATTERN_METADATA_5,
   PATTERN_METADATA_6,
@@ -32,6 +32,7 @@ import {
   writeLocalTutorialState,
   type TutorialState,
 } from "@/lib/tutorialState";
+import { SYROS_PFP_URL } from "@/lib/unrankedBots";
 
 /**
  * First-run tutorial overlay.
@@ -483,6 +484,11 @@ function StepView({
               ))}
             </ul>
           ) : null}
+          {step.syrosQuote ? (
+            <div style={{ maxWidth: 820, width: "100%", marginTop: 28 }}>
+              <SyrosBlock quote={step.syrosQuote} themeT={themeT} />
+            </div>
+          ) : null}
         </div>
         <div
           style={{
@@ -583,6 +589,12 @@ function StepView({
           <ScreenMock step={step} themeT={themeT} />
         </div>
       )}
+
+      {step.syrosQuote ? (
+        <div style={{ maxWidth: 820, width: "100%", marginTop: 28 }}>
+          <SyrosBlock quote={step.syrosQuote} themeT={themeT} />
+        </div>
+      ) : null}
 
     </div>
   );
@@ -1799,6 +1811,177 @@ function ProgressPips({
         />
       ))}
     </div>
+  );
+}
+
+/* ── Syros epigraph (tutorial quotes) ───────────────────────────────────── */
+
+const SYROS_TUTORIAL_VIOLET = "#C084FC";
+const SYROS_TUTORIAL_DEEP = "#4C1D95";
+const SYROS_TUTORIAL_MID = "#7C3AED";
+const SYROS_TUTORIAL_MIST = "#E9D5FE";
+
+function SyrosBlock({ quote, themeT }: { quote: string; themeT: Theme }) {
+  return (
+    <>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@600;700&family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500;1,600&display=swap');
+        @keyframes pp-tutorial-syros-fade {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+        @keyframes pp-syros-laser-flow {
+          0% { background-position: 0% 50%; }
+          50% { background-position: 100% 50%; }
+          100% { background-position: 0% 50%; }
+        }
+        @keyframes pp-syros-aura-breathe {
+          0%, 100% {
+            box-shadow:
+              0 0 22px rgba(192,132,252,0.55),
+              0 0 48px rgba(124,58,237,0.35),
+              0 0 72px rgba(76,29,149,0.25),
+              inset 0 0 40px rgba(30,10,60,0.5);
+          }
+          50% {
+            box-shadow:
+              0 0 36px rgba(192,132,252,0.85),
+              0 0 72px rgba(167,139,250,0.45),
+              0 0 96px rgba(124,58,237,0.35),
+              inset 0 0 52px rgba(45,15,90,0.55);
+          }
+        }
+        @keyframes pp-syros-pfp-orbit {
+          0%, 100% {
+            box-shadow:
+              0 0 14px rgba(192,132,252,0.85),
+              0 0 28px rgba(124,58,237,0.55),
+              inset 0 0 10px rgba(192,132,252,0.25);
+          }
+          50% {
+            box-shadow:
+              0 0 22px rgba(233,213,254,0.95),
+              0 0 40px rgba(192,132,252,0.65),
+              inset 0 0 14px rgba(167,139,250,0.35);
+          }
+        }
+        @keyframes pp-syros-scanline {
+          0% { transform: translateY(-100%); opacity: 0.06; }
+          100% { transform: translateY(100%); opacity: 0.12; }
+        }
+      `}</style>
+      <div
+        style={{
+          marginTop: 0,
+          borderRadius: 14,
+          padding: 3,
+          background: `linear-gradient(
+            105deg,
+            ${SYROS_TUTORIAL_VIOLET},
+            ${SYROS_TUTORIAL_MID},
+            #A78BFA,
+            ${SYROS_TUTORIAL_MIST},
+            ${SYROS_TUTORIAL_MID},
+            ${SYROS_TUTORIAL_VIOLET},
+            ${SYROS_TUTORIAL_DEEP}
+          )`,
+          backgroundSize: "400% 400%",
+          animation: "pp-syros-laser-flow 3.2s ease-in-out infinite, pp-syros-aura-breathe 4s ease-in-out infinite",
+        }}
+      >
+        <div
+          style={{
+            borderRadius: 11,
+            position: "relative",
+            overflow: "hidden",
+            padding: "22px 26px",
+            background: `radial-gradient(ellipse 130% 90% at 50% -20%, rgba(192,132,252,0.35), transparent 55%),
+              radial-gradient(ellipse 100% 70% at 80% 120%, rgba(124,58,237,0.28), transparent 50%),
+              linear-gradient(165deg, rgba(24,8,48,0.98) 0%, rgba(8,2,18,0.99) 45%, rgba(18,6,40,0.98) 100%)`,
+            border: "1px solid rgba(192,132,252,0.35)",
+          }}
+        >
+          <div
+            aria-hidden
+            style={{
+              position: "absolute",
+              left: 0,
+              right: 0,
+              top: 0,
+              height: "42%",
+              background: "linear-gradient(180deg, rgba(192,132,252,0.14), transparent)",
+              pointerEvents: "none",
+              animation: "pp-syros-scanline 5.5s linear infinite",
+            }}
+          />
+          <div
+            key={quote}
+            style={{
+              position: "relative",
+              animation: "pp-tutorial-syros-fade 0.35s ease forwards",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 16,
+                marginBottom: 18,
+              }}
+            >
+              <div
+                style={{
+                  width: 56,
+                  height: 56,
+                  borderRadius: "50%",
+                  overflow: "hidden",
+                  flexShrink: 0,
+                  border: `2px solid ${SYROS_TUTORIAL_MIST}`,
+                  background: "#0B0514",
+                  animation: "pp-syros-pfp-orbit 2.6s ease-in-out infinite",
+                }}
+              >
+                <img
+                  src={SYROS_PFP_URL}
+                  alt="SYROS"
+                  width={56}
+                  height={56}
+                  style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                />
+              </div>
+              <div
+                style={{
+                  fontFamily: "'Orbitron', system-ui, sans-serif",
+                  fontSize: 17,
+                  fontWeight: 700,
+                  letterSpacing: "0.28em",
+                  color: SYROS_TUTORIAL_MIST,
+                  textTransform: "uppercase",
+                  textShadow:
+                    "0 0 12px rgba(192,132,252,0.9), 0 0 28px rgba(124,58,237,0.65), 0 0 2px rgba(0,0,0,0.8)",
+                  lineHeight: 1.25,
+                }}
+              >
+                SYROS
+              </div>
+            </div>
+            <div
+              style={{
+                fontFamily: `'Cormorant Garamond', 'Palatino Linotype', ${themeT.fontBody}, Georgia, serif`,
+                fontSize: "clamp(22px, 2.4vw, 28px)",
+                fontWeight: 600,
+                fontStyle: "italic",
+                color: "rgba(237, 233, 254, 0.94)",
+                lineHeight: 1.55,
+                textShadow: "0 0 20px rgba(192,132,252,0.25), 0 1px 0 rgba(0,0,0,0.5)",
+              }}
+            >
+              {quote}
+            </div>
+          </div>
+        </div>
+      </div>
+    </>
   );
 }
 

@@ -8,7 +8,7 @@ from app.core.mission_xp import mission_xp_for_mission_id
 from app.core.bot_rewards import (
     ALL_BOT_IDS,
     BOT_XP_REWARD,
-    MYTHOS_FIRST_DEFEAT_XP_BONUS,
+    SYROS_FIRST_DEFEAT_XP_BONUS,
     REWARD_SLOTS,
     all_bots_defeated,
     has_defeated,
@@ -722,7 +722,7 @@ async def claim_bot_defeat(
 # branch. Series ids are single-use per user (idempotent replay guard).
 
 _UNRANKED_BOT_LEVELS: set[str] = {
-    "ROOKIE", "SKILLED", "MYTHIC", "CRACKED", "CHRONICLE", "MYTHOS",
+    "ROOKIE", "SKILLED", "MYTHIC", "CRACKED", "CHRONICLE", "SYROS",
 }
 # Standard unranked series is 9 games + a single Limitbreaker decider (game
 # 10), so we accept up to 10 round entries.
@@ -777,7 +777,7 @@ class ClaimUnrankedBotSeriesBody(BaseModel):
     bot_name: str = Field(..., alias="botName", min_length=1, max_length=32)
     level: str = Field(..., min_length=3, max_length=16)
     rounds: list[str] = Field(..., min_length=1, max_length=_MAX_UNRANKED_BOT_ROUNDS)
-    is_mythos: bool = Field(False, alias="isMythos")
+    is_syros: bool = Field(False, alias="isSyros")
     round_details: Optional[list[ClaimUnrankedBotRoundDetail]] = Field(
         default=None,
         alias="roundDetails",
@@ -860,8 +860,8 @@ async def claim_unranked_bot_series(
             "already_claimed": True,
             "xp_awarded": 0,
             "result": result,
-            "mythos_first_defeat": False,
-            "mythos_xp_bonus": 0,
+            "syros_first_defeat": False,
+            "syros_xp_bonus": 0,
             "profile": _serialize_user(user),
         }
 
@@ -876,22 +876,22 @@ async def claim_unranked_bot_series(
         else:
             gained_xp += 25
 
-    # ── MYTHOS first-defeat bonus ────────────────────────────────────────
-    # Defeating MYTHOS for the FIRST TIME grants a flat +100,000 XP bonus
+    # ── SYROS first-defeat bonus ────────────────────────────────────────
+    # Defeating SYROS for the FIRST TIME grants a flat +100,000 XP bonus
     # plus a free board-skin pick (the boss-tier capstone reward). The
     # bonus is layered on top of the regular unranked XP so the
     # MatchResultScreen still animates the level-up curve naturally.
-    # Subsequent MYTHOS wins fall back to the standard unranked XP only.
+    # Subsequent SYROS wins fall back to the standard unranked XP only.
     prior_defeats = user.get("bot_defeats") or {}
     if not isinstance(prior_defeats, dict):
         prior_defeats = {}
-    mythos_first_defeat = (
-        bool(data.is_mythos)
+    syros_first_defeat = (
+        bool(data.is_syros)
         and result == "win"
-        and not bool(prior_defeats.get("mythos"))
+        and not bool(prior_defeats.get("syros"))
     )
-    mythos_xp_bonus = MYTHOS_FIRST_DEFEAT_XP_BONUS if mythos_first_defeat else 0
-    gained_xp += mythos_xp_bonus
+    syros_xp_bonus = SYROS_FIRST_DEFEAT_XP_BONUS if syros_first_defeat else 0
+    gained_xp += syros_xp_bonus
 
     prev_level = int(user.get("level", 1) or 1)
     prev_xp = int(user.get("xp", 0) or 0)
@@ -905,16 +905,16 @@ async def claim_unranked_bot_series(
     else:
         inc["draws"] = 1
 
-    # MYTHOS first-defeat side-effects: flag the kill and promote the
-    # `mythos_skin` reward slot to "pending" so the player can redeem the
+    # SYROS first-defeat side-effects: flag the kill and promote the
+    # `syros_skin` reward slot to "pending" so the player can redeem the
     # free board skin from the store. We do this in the same atomic
     # update as the XP grant so the bonus, the defeat flag, and the
     # reward slot all commit together (or none at all if a concurrent
     # claim wins the race below).
     set_doc: dict = {"xp": new_xp, "level": new_level}
-    if mythos_first_defeat:
-        set_doc["bot_defeats.mythos"] = True
-        set_doc["bot_rewards.mythos_skin"] = "pending"
+    if syros_first_defeat:
+        set_doc["bot_defeats.syros"] = True
+        set_doc["bot_rewards.syros_skin"] = "pending"
 
     # Atomic first-writer-wins claim: if another request on the same series
     # id sneaks in concurrently, only one will modify the doc.
@@ -938,8 +938,8 @@ async def claim_unranked_bot_series(
             "already_claimed": True,
             "xp_awarded": 0,
             "result": result,
-            "mythos_first_defeat": False,
-            "mythos_xp_bonus": 0,
+            "syros_first_defeat": False,
+            "syros_xp_bonus": 0,
             "profile": _serialize_user(fresh),
         }
 
@@ -1023,7 +1023,7 @@ async def claim_unranked_bot_series(
         "limitbreaker_played":    len(rounds) >= 10,
         "surrendered_by":     None,
         "bot_level":          level,
-        "bot_is_mythos":      bool(data.is_mythos),
+        "bot_is_syros":      bool(data.is_syros),
         "series_id":          series_id,
     }
     try:
@@ -1037,15 +1037,15 @@ async def claim_unranked_bot_series(
         "already_claimed": False,
         "xp_awarded": gained_xp,
         "result": result,
-        # MYTHOS-specific surface for the post-match UI. `mythos_first_defeat`
-        # is True only on the very first MYTHOS win this user has ever
+        # SYROS-specific surface for the post-match UI. `syros_first_defeat`
+        # is True only on the very first SYROS win this user has ever
         # claimed; the frontend uses it to gate the boss-tier reward
         # callout (free board skin + +100k XP bonus banner) on the
-        # MatchResultScreen. `mythos_xp_bonus` is the flat addition so
+        # MatchResultScreen. `syros_xp_bonus` is the flat addition so
         # the screen can call out the chunk separately from the regular
         # unranked-match XP.
-        "mythos_first_defeat": bool(mythos_first_defeat),
-        "mythos_xp_bonus": int(mythos_xp_bonus),
+        "syros_first_defeat": bool(syros_first_defeat),
+        "syros_xp_bonus": int(syros_xp_bonus),
         "profile": _serialize_user(fresh),
     }
 
@@ -1170,29 +1170,29 @@ async def claim_bot_board_skin_reward(
     )
 
 
-# ── Free board-skin redemption (awarded on defeating MYTHOS) ─────────────────
-# Mirrors the HER redemption above but is gated by the special `mythos`
-# defeat flag instead of a chain bot. Uses its own `mythos_skin` slot so
-# a player who has both the HER reward AND the MYTHOS reward can pick TWO
+# ── Free board-skin redemption (awarded on defeating SYROS) ─────────────────
+# Mirrors the HER redemption above but is gated by the special `syros`
+# defeat flag instead of a chain bot. Uses its own `syros_skin` slot so
+# a player who has both the HER reward AND the SYROS reward can pick TWO
 # free board skins independently. Eligible item pool is intentionally the
 # same (`_ELIGIBLE_REWARD_BOARD_SKINS`) — both rewards grant board-style
 # unlocks from the same store catalog.
-class ClaimMythosBoardSkinBody(BaseModel):
+class ClaimSyrosBoardSkinBody(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
     board_skin_id: str = Field(..., alias="boardSkinId")
 
 
-@router.post("/claim-mythos-board-skin-reward")
-async def claim_mythos_board_skin_reward(
-    data: ClaimMythosBoardSkinBody,
+@router.post("/claim-syros-board-skin-reward")
+async def claim_syros_board_skin_reward(
+    data: ClaimSyrosBoardSkinBody,
     user_id: str = Depends(get_current_user),
 ):
     return await _redeem_reward_slot(
         user_id=user_id,
-        slot="mythos_skin",
-        gate_bot="mythos",
-        gate_error="Defeat MYTHOS in the unranked queue to unlock this reward",
-        claimed_error="MYTHOS board skin reward already claimed",
+        slot="syros_skin",
+        gate_bot="syros",
+        gate_error="Defeat SYROS in the unranked queue to unlock this reward",
+        claimed_error="SYROS board skin reward already claimed",
         item_id=(data.board_skin_id or "").strip().lower(),
         eligible_items=_ELIGIBLE_REWARD_BOARD_SKINS,
         unknown_item_error="Unknown board skin id",

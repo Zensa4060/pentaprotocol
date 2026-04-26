@@ -13,10 +13,10 @@ import { censorText, containsProfanity } from "@/lib/profanity";
 import type { Difficulty } from "@/lib/botEngine";
 import { loadCustomTheme } from "@/lib/customTheme";
 import {
-  MYTHOS_PFP_URL,
+  SYROS_PFP_URL,
   UNRANKED_BOT_LEVELS,
   difficultyForLevel,
-  mythosTauntForMove,
+  syrosTauntForMove,
   simpleSizeFromBoardMode,
   type UnrankedBotLevel,
 } from "@/lib/unrankedBots";
@@ -128,15 +128,15 @@ type MatchSeriesCompletePayload = {
     was_placement?: boolean;
   };
   /**
-   * MYTHOS encounter metadata — only ever set on filler-bot series where
-   * the opponent is MYTHOS. The result screen uses these fields to swap
+   * SYROS encounter metadata — only ever set on filler-bot series where
+   * the opponent is SYROS. The result screen uses these fields to swap
    * in the boss-tier visuals (PFP, taunt line, first-defeat reward
    * banner). Plumbed via the `claim-unranked-bot-series` response;
-   * multiplayer / non-MYTHOS bot matches leave them undefined.
+   * multiplayer / non-SYROS bot matches leave them undefined.
    */
-  isMythos?: boolean;
-  mythosFirstDefeat?: boolean;
-  mythosXpBonus?: number;
+  isSyros?: boolean;
+  syrosFirstDefeat?: boolean;
+  syrosXpBonus?: number;
 };
 
 // MatchResultOverlay removed in favor of MatchCompleteOverlay.tsx
@@ -330,7 +330,7 @@ interface Props {
    *  (that comes from `difficulty`), only for HUD display. */
   unrankedBotNumericLevel?: number;
   /** Unranked filler-bot only: fallback avatar emoji picked at queue
-   *  time for non-MYTHOS bots (MYTHOS uses its bespoke PFP). */
+   *  time for non-SYROS bots (SYROS uses its bespoke PFP). */
   unrankedBotEmoji?: string;
 }
 
@@ -345,8 +345,8 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
 
   /* ── Unranked filler bot (from queue race) ─────────────────────────────
    * Activated when the game URL carries ?unranked_bot=1. We use `botId`
-   * (set by the match layout) as the display name and light up the MYTHOS
-   * taunt overlay when ?mythos=1. None of this affects rank/elo — the
+   * (set by the match layout) as the display name and light up the SYROS
+   * taunt overlay when ?syros=1. None of this affects rank/elo — the
    * game runs through the normal `gameMode === "ai"` code path but uses
    * the full unranked series rules (first-to-5 points, 9 games + game 10
    * Limitbreaker decider) instead of the local BO3 short series. */
@@ -355,10 +355,10 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     searchParamsHook?.get("unranked_bot") === "1" &&
     !!botId &&
     gameMode === "ai";
-  const isMythosBot =
+  const isSyrosBot =
     isUnrankedBotFiller &&
-    searchParamsHook?.get("mythos") === "1" &&
-    unrankedBotLevelParam === "MYTHOS";
+    searchParamsHook?.get("syros") === "1" &&
+    unrankedBotLevelParam === "SYROS";
   const unrankedBotDisplayName = isUnrankedBotFiller && botId
     ? botId.toUpperCase()
     : null;
@@ -2548,23 +2548,23 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     sentMatchReadyRef.current = true;
   }, [isMultiplayerGame, showMatchupOverlay]);
 
-  /* ── MYTHOS commentary ─────────────────────────────────────────────────
+  /* ── SYROS commentary ─────────────────────────────────────────────────
    * The previous version of this block ran a per-move RNG (~60 %
-   * fire rate) and stashed the picked taunt in `mythosTaunt` so a
+   * fire rate) and stashed the picked taunt in `syrosTaunt` so a
    * top-center bubble could float over the board for ~2.5 s. The
    * player asked us to stop drawing commentary on the play surface
    * (image 1: "the analysis is over the board which does not look
    * nice"), so the bubble — and its short-lived taunt state — were
    * removed.
    *
-   * MYTHOS commentary now lives exclusively in the LeftPanel
-   * ANALYSIS card and is framed as a "live chat" feed from MYTHOS
+   * SYROS commentary now lives exclusively in the LeftPanel
+   * ANALYSIS card and is framed as a "live chat" feed from SYROS
    * itself. That card is driven directly by `movesPlayed` via
-   * `mythosTauntForMove(...)` (see the `<LeftPanel>` props below),
+   * `syrosTauntForMove(...)` (see the `<LeftPanel>` props below),
    * which auto-rotates a fresh taunt every 3 placements so the
    * encounter feels actively trash-talked rather than passively
-   * narrated. Non-MYTHOS unranked bots use the same slot for a
-   * blood-red "MYTHOS ANALYSING…" card with a 7-move-gated GET
+   * narrated. Non-SYROS unranked bots use the same slot for a
+   * blood-red "SYROS ANALYSING…" card with a 7-move-gated GET
    * ANALYSIS button (handled inside MatchSidebar). No standalone
    * top-center taunt state is needed here. */
 
@@ -3634,7 +3634,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
             botName: opponentName,
             level: levelParam,
             rounds,
-            isMythos: isMythosBot,
+            isSyros: isSyrosBot,
             roundDetails,
           },
           { headers: { Authorization: `Bearer ${token}` }, timeout: 15000 },
@@ -3647,17 +3647,17 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
           void useAuthStore.getState().refreshProfile();
         }
         const xpAwarded: number = Number(data.xp_awarded || 0);
-        // MYTHOS first-defeat surface — surfaced on the response so the
+        // SYROS first-defeat surface — surfaced on the response so the
         // MatchResultScreen can render the +100k XP / free board skin
         // celebration banner. The home-notice copy upgrades to a
         // boss-tier line so the badge that briefly flashes on /home
         // mentions the bonus too.
-        const mythosFirstDefeat = !!data.mythos_first_defeat;
-        const mythosXpBonus: number = Number(data.mythos_xp_bonus || 0);
+        const syrosFirstDefeat = !!data.syros_first_defeat;
+        const syrosXpBonus: number = Number(data.syros_xp_bonus || 0);
         if (xpAwarded > 0) {
-          if (mythosFirstDefeat) {
+          if (syrosFirstDefeat) {
             setHomeNoticeAction?.(
-              `MYTHOS defeated — +${xpAwarded.toLocaleString()} XP and a free board skin claimable in the Store!`,
+              `SYROS defeated — +${xpAwarded.toLocaleString()} XP and a free board skin claimable in the Store!`,
             );
           } else {
             setHomeNoticeAction?.(`Unranked match vs ${opponentName} — +${xpAwarded.toLocaleString()} XP`);
@@ -3695,9 +3695,9 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
             xp_before: 0,
             xp_after: 0,
           },
-          isMythos: isMythosBot,
-          mythosFirstDefeat,
-          mythosXpBonus,
+          isSyros: isSyrosBot,
+          syrosFirstDefeat,
+          syrosXpBonus,
         };
 
         matchSeriesUiLockUntilRef.current = Date.now() + 800;
@@ -3722,7 +3722,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     gameMode,
     isUnrankedBotFiller,
     isLocalShortSeries,
-    isMythosBot,
+    isSyrosBot,
     userKey,
     botId,
     gameId,
@@ -3737,16 +3737,16 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
 
   /* ── Unranked filler-bot MatchResultScreen failsafe ─────────────────────
    * The API claim above is the canonical post-series flow (it grants XP
-   * + drives MYTHOS first-defeat rewards), but if the request 422s, times
+   * + drives SYROS first-defeat rewards), but if the request 422s, times
    * out, or the user dismisses the WinOverlay before it returns, the
    * shared GameWinScreen → MatchResultScreen flow never fires and the
    * player is stranded on the bare game board with nothing but an EXIT
    * button. The user reported exactly that.
    *
    * This failsafe fires ~3 s after `matchOver` becomes true on a non-
-   * MYTHOS unranked filler series and forces the multiplayer-style
+   * SYROS unranked filler series and forces the multiplayer-style
    * post-series UI with locally-computed values (XP / level deltas
-   * inferred from the current `user` snapshot). MYTHOS games are
+   * inferred from the current `user` snapshot). SYROS games are
    * intentionally excluded so the special boss-tier reward banner only
    * ever appears when the server confirmed the first defeat.
    *
@@ -3756,7 +3756,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
    * the timeout to avoid double-firing the overlay). */
   useEffect(() => {
     if (!isUnrankedBotFiller) return;
-    if (isMythosBot) return;
+    if (isSyrosBot) return;
     if (!matchOver) return;
     if (phase !== "match_over") return;
     if (matchSeriesComplete) return;
@@ -3809,9 +3809,9 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
           xp_before: 0,
           xp_after: 0,
         },
-        isMythos: false,
-        mythosFirstDefeat: false,
-        mythosXpBonus: 0,
+        isSyros: false,
+        syrosFirstDefeat: false,
+        syrosXpBonus: 0,
       };
 
       isViewingPostMatchRef.current = true;
@@ -3828,7 +3828,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     return () => window.clearTimeout(timer);
   }, [
     isUnrankedBotFiller,
-    isMythosBot,
+    isSyrosBot,
     matchOver,
     phase,
     matchSeriesComplete,
@@ -5590,10 +5590,10 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
             }}
             onFindNewMatch={isMultiplayerGame ? findNewMatchAfterSeries : undefined}
             playerAvatarUrl={(user as { avatar?: string | null })?.avatar ?? null}
-            isMythos={!!matchSeriesComplete.isMythos}
-            mythosPfpUrl={matchSeriesComplete.isMythos ? MYTHOS_PFP_URL : null}
-            mythosFirstDefeat={!!matchSeriesComplete.mythosFirstDefeat}
-            mythosXpBonus={matchSeriesComplete.mythosXpBonus ?? 0}
+            isSyros={!!matchSeriesComplete.isSyros}
+            syrosPfpUrl={matchSeriesComplete.isSyros ? SYROS_PFP_URL : null}
+            syrosFirstDefeat={!!matchSeriesComplete.syrosFirstDefeat}
+            syrosXpBonus={matchSeriesComplete.syrosXpBonus ?? 0}
             onAnalyzeGame={winner ? () => {
               setShowSeriesMatchResult(false);
               goToAnalysisPage();
@@ -5744,7 +5744,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, zIndex: 2, display: "flex", flexDirection: "row", background: t.bg, overflow: "hidden", userSelect: "none", WebkitUserSelect: "none" }}>
       {disconnectCountdownBanner}
 
-      {/* MYTHOS taunts used to render here as a top-center floating
+      {/* SYROS taunts used to render here as a top-center floating
           bubble. Per the player's feedback (image 1: "the analysis is
           over the board which does not look nice"), commentary now
           lives exclusively in the LeftPanel ANALYSIS card so it never
@@ -5791,9 +5791,9 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
         phase={phase} winner={winner} current={current} gameNumber={gameNumber} movesPlayed={movesPlayed}
         matchHistory={matchHistory} seriesWinner={seriesWinner} matchOver={matchOver}
         gameMode={gameMode} isShortSeries={isLocalShortSeries}
-        isMythosBot={isMythosBot}
+        isSyrosBot={isSyrosBot}
         isUnrankedFillerBot={isUnrankedBotFiller}
-        mythosAnalysisText={isUnrankedBotFiller && isMythosBot ? mythosTauntForMove(movesPlayed, 3, gameId ?? undefined) : undefined}
+        syrosAnalysisText={isUnrankedBotFiller && isSyrosBot ? syrosTauntForMove(movesPlayed, 3, gameId ?? undefined) : undefined}
         isRankedGame={isRankedGame} isMultiplayerGame={isMultiplayerGame}
         treatAsMultiplayer={isUnrankedBotFiller}
         isMultiplayer={isMultiplayerGame} mySlot={mySlot}
@@ -6273,10 +6273,10 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
           }}
           onFindNewMatch={isMultiplayerGame ? findNewMatchAfterSeries : undefined}
           playerAvatarUrl={(user as { avatar?: string | null })?.avatar ?? null}
-          isMythos={!!matchSeriesComplete.isMythos}
-          mythosPfpUrl={matchSeriesComplete.isMythos ? MYTHOS_PFP_URL : null}
-          mythosFirstDefeat={!!matchSeriesComplete.mythosFirstDefeat}
-          mythosXpBonus={matchSeriesComplete.mythosXpBonus ?? 0}
+          isSyros={!!matchSeriesComplete.isSyros}
+          syrosPfpUrl={matchSeriesComplete.isSyros ? SYROS_PFP_URL : null}
+          syrosFirstDefeat={!!matchSeriesComplete.syrosFirstDefeat}
+          syrosXpBonus={matchSeriesComplete.syrosXpBonus ?? 0}
           onAnalyzeGame={winner ? () => {
             setShowSeriesMatchResult(false);
             goToAnalysisPage();

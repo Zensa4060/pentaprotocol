@@ -50,20 +50,20 @@ BOT_REWARD_SLOT: Dict[str, str] = {
     "her": "board_skin",
 }
 
-# Note: `mythos_skin` is the boss-tier filler-bot reward awarded the FIRST
-# time a player defeats MYTHOS in the unranked filler queue. It is granted
+# Note: `syros_skin` is the boss-tier filler-bot reward awarded the FIRST
+# time a player defeats SYROS in the unranked filler queue. It is granted
 # directly by `claim_unranked_bot_series` (see profile.py) rather than via
-# the standard chain progression, so MYTHOS does not appear in
+# the standard chain progression, so SYROS does not appear in
 # BOT_REWARD_SLOT / BOT_CHAINS / BOT_XP_REWARD above. The slot is included
 # here so `_normalize_bot_rewards` round-trips a stable shape across all
 # four reward types.
-REWARD_SLOTS = ("banner", "coin_toss", "board_skin", "mythos_skin")
+REWARD_SLOTS = ("banner", "coin_toss", "board_skin", "syros_skin")
 
-# MYTHOS first-defeat bonus, layered on top of the standard unranked-bot XP
+# SYROS first-defeat bonus, layered on top of the standard unranked-bot XP
 # formula (per-game + per-result XP from `claim_unranked_bot_series`). Only
-# granted once per user — subsequent MYTHOS wins fall back to the regular
+# granted once per user — subsequent SYROS wins fall back to the regular
 # unranked XP only.
-MYTHOS_FIRST_DEFEAT_XP_BONUS: int = 100_000
+SYROS_FIRST_DEFEAT_XP_BONUS: int = 100_000
 
 
 def reward_slot_for_bot(bot_id: str) -> Optional[str]:

@@ -7,10 +7,10 @@ from .bot import router as bot
 from .bot7 import router as bot7
 from .friends import router as friends
 from .game import router as game
-from .mythos import router as mythos
+from .syros import router as syros
 from .otp import router as otp
 from .profile import router as profile
 from .room import router as room
 from .store import router as store
 
-__all__ = ['admin', 'analyze', 'auth', 'bot', 'bot7', 'friends', 'game', 'mythos', 'otp', 'profile', 'room', 'store']
+__all__ = ['admin', 'analyze', 'auth', 'bot', 'bot7', 'friends', 'game', 'syros', 'otp', 'profile', 'room', 'store']

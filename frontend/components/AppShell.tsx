@@ -40,7 +40,7 @@ import {
   MAIN_NAV_PREFETCH_PATHS,
 } from "@/lib/routes";
 import {
-  MYTHOS_PFP_URL,
+  SYROS_PFP_URL,
   buildUnrankedBotGameUrl,
   buildUnrankedBotRulesShowUrl,
   numericLevelForTier,
@@ -87,7 +87,7 @@ import SessionReplacedModal from "@/components/SessionReplacedModal";
 import ActiveMatchRejoinModal from "@/components/ActiveMatchRejoinModal";
 import GlobalLevelUpShowcase from "@/components/GlobalLevelUpShowcase";
 import LobbyScreen from "@/components/LobbyScreen";
-import MythosIntroScreen from "@/components/MythosIntroScreen";
+import SyrosIntroScreen from "@/components/SyrosIntroScreen";
 
 THEMES["custom" as ThemeId] = resolveCustomTheme(loadCustomTheme(), THEMES) as any;
 
@@ -197,7 +197,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
     pathname.startsWith("/rulesshow/");
   const botQueryName = (searchParams?.get("bot") || "").toLowerCase();
   const isBotGameRoute = !!(pathname?.startsWith("/game/") && botQueryName);
-  /* MYTHOS filler-bot sessions carry `?unranked_bot=1&mythos=1&level=MYTHOS`.
+  /* SYROS filler-bot sessions carry `?unranked_bot=1&syros=1&level=SYROS`.
    * We surface them here so BGM selection can promote the match to the
    * ranked track without changing any routing.
    *
@@ -208,12 +208,12 @@ export default function AppShell({ children }: { children: ReactNode }) {
    * the ranked track once the game URL takes over. Promoting the whole
    * match flow to ranked keeps the boss-tier soundtrack continuous from
    * the moment the player lands on /rulesshow/. */
-  const isMythosBotRoute =
+  const isSyrosBotRoute =
     isMatchPath &&
     !!botQueryName &&
     searchParams?.get("unranked_bot") === "1" &&
-    searchParams?.get("mythos") === "1" &&
-    (searchParams?.get("level") || "").toUpperCase() === "MYTHOS";
+    searchParams?.get("syros") === "1" &&
+    (searchParams?.get("level") || "").toUpperCase() === "SYROS";
   const isStaticSilentPage =
     pathname === "/patchnotes" ||
     pathname === "/terms" ||
@@ -259,17 +259,17 @@ export default function AppShell({ children }: { children: ReactNode }) {
   /** Prevents overlapping /queue/status polls from each firing the VS screen (race: 2s interval, slow HTTP). */
   const matchFoundArmRef = useRef(false);
   const matchFoundPostVsTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  /** Show the bespoke "PREPARING MYTHOS..." charging overlay before the
-   *  matchup VS card on a MYTHOS roll. Lives in AppShell rather than
+  /** Show the bespoke "PREPARING SYROS..." charging overlay before the
+   *  matchup VS card on a SYROS roll. Lives in AppShell rather than
    *  LobbyScreen so it can sit above the queue route and survive the
    *  router.push to /play/matchfound. Cleared once the intro's onDone
    *  fires (or on cancel/unmount). */
-  const [mythosIntroVisible, setMythosIntroVisible] = useState(false);
-  const mythosIntroTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const clearMythosIntroTimer = useCallback(() => {
-    if (mythosIntroTimerRef.current) {
-      clearTimeout(mythosIntroTimerRef.current);
-      mythosIntroTimerRef.current = null;
+  const [syrosIntroVisible, setSyrosIntroVisible] = useState(false);
+  const syrosIntroTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const clearSyrosIntroTimer = useCallback(() => {
+    if (syrosIntroTimerRef.current) {
+      clearTimeout(syrosIntroTimerRef.current);
+      syrosIntroTimerRef.current = null;
     }
   }, []);
 
@@ -403,13 +403,13 @@ export default function AppShell({ children }: { children: ReactNode }) {
     lockedMatchCtx: "game" | "ranked" | null = null,
   ): "lobby" | "game" | "ranked" => {
     if (lockedMatchCtx) return lockedMatchCtx;
-    // MYTHOS encounters always play the ranked track, regardless of which
+    // SYROS encounters always play the ranked track, regardless of which
     // segment of the match flow we're currently on (lobby → matchfound →
     // /rulesshow/ → /ready/ → /game/ → /rulebreaker/...). The `scr`
     // resolution treats /rulesshow/ etc. as `"game"` rather than
     // `"aiGame"` because the path doesn't start with `/game/`, so we
-    // gate on `isMythosBotRoute` ahead of the per-screen branches.
-    if (isMythosBotRoute) return "ranked";
+    // gate on `isSyrosBotRoute` ahead of the per-screen branches.
+    if (isSyrosBotRoute) return "ranked";
     if (scr === "aiGame") {
       const rankedBotNames = new Set(["jr", "him", "her"]);
       const inferredBotName = difficultyToBotName(boardMode, aiDiff).toLowerCase();
@@ -436,17 +436,17 @@ export default function AppShell({ children }: { children: ReactNode }) {
       const activeBotName = (aiMatchBotName || "").toLowerCase();
       const inferredBotName = difficultyToBotName(boardMode, aiDifficulty).toLowerCase();
       const botName = activeBotName || inferredBotName;
-      // MYTHOS filler-bot sessions are pinned to the ranked BGM track even
+      // SYROS filler-bot sessions are pinned to the ranked BGM track even
       // though their bot name (NADAF / SARAH / …) isn't in the ranked set.
       const next: "game" | "ranked" =
-        isMythosBotRoute || rankedBotNames.has(botName) ? "ranked" : "game";
+        isSyrosBotRoute || rankedBotNames.has(botName) ? "ranked" : "game";
       setAiMatchBgmCtx(prev => (prev === next ? prev : next));
       return;
     }
     if (!isMatchPath) {
       setAiMatchBgmCtx(prev => (prev === null ? prev : null));
     }
-  }, [isBotGameRoute, isMatchPath, isMythosBotRoute, aiDifficulty, aiMatchBotName, boardMode]);
+  }, [isBotGameRoute, isMatchPath, isSyrosBotRoute, aiDifficulty, aiMatchBotName, boardMode]);
 
   /* ═══════════════════════════════════════════════════════════════════════ */
   /*  Startup restore (pre-paint)                                           */
@@ -1234,7 +1234,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
           sessionStorage.removeItem("pp_multiPlayerSlot");
           sessionStorage.removeItem("pp_isRanked");
         }
-        if (s === "home" || s === "career" || s === "lobby" || s === "auth") {
+        if (s === "home" || s === "career" || s === "lobby" || s === "auth" || s === "syros") {
           setMultiRoomCode("");
           setMultiPlayerSlot(null);
           sessionStorage.removeItem(PP_MULTI_SERIES_FINISHED_KEY);
@@ -1363,16 +1363,16 @@ export default function AppShell({ children }: { children: ReactNode }) {
       // filler bots don't carry an ELO, so the VS card shows "LEVEL NNN"
       // instead. The numeric level is sampled once from the tier's range
       // (ROOKIE 1–10, SKILLED 10–25, ELITE 25–50, MYTHIC 50–75, CRACKED
-      // 75–99, CHRONICLE 100–500, MYTHOS 1000) and pinned onto the match
+      // 75–99, CHRONICLE 100–500, SYROS 1000) and pinned onto the match
       // URL so a refresh / route transition doesn't re-roll it.
       //
-      // Cosmetics: MYTHOS always wears its bespoke dark devil-cat PFP and a
+      // Cosmetics: SYROS always wears its bespoke dark devil-cat PFP and a
       // plasma_core banner for consistent branding. Regular filler bots get
       // a freshly-randomised animal emoji (shown instead of an <img>) and a
       // random animated banner from the store pool, so every queue pairs you
       // with a visually-distinct opponent rather than the generic silhouette.
-      const botEmoji = bot.isMythos ? null : pickUnrankedBotEmoji();
-      const botBanner = bot.isMythos ? "plasma_core" : pickUnrankedBotBanner();
+      const botEmoji = bot.isSyros ? null : pickUnrankedBotEmoji();
+      const botBanner = bot.isSyros ? "plasma_core" : pickUnrankedBotBanner();
       const botNumericLevel = numericLevelForTier(bot.level);
 
       // Quietly leave the real queue room we were parked in — the bot match
@@ -1392,7 +1392,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
       // jarringly short compared to multiplayer. We clamp to a 5 s floor
       // so the MATCH FOUND reveal, banner animation and level badge have
       // time to land; a human-side network hiccup would only extend this,
-      // never shorten it. Applies equally to MYTHOS — the boss intro
+      // never shorten it. Applies equally to SYROS — the boss intro
       // deserves the extra breathing room.
       const vsDurationMs = 5000;
       const boardSize = simpleSizeFromBoardMode(bMode);
@@ -1449,14 +1449,14 @@ export default function AppShell({ children }: { children: ReactNode }) {
       void buildUnrankedBotGameUrl;
 
       // Closure that lights up the matchup VS card and schedules the
-      // hand-off into /rulesshow. Identical for both regular and MYTHOS
-      // encounters — the only difference is that MYTHOS waits for the
-      // PREPARING-MYTHOS overlay to finish before this fires.
+      // hand-off into /rulesshow. Identical for both regular and SYROS
+      // encounters — the only difference is that SYROS waits for the
+      // PREPARING-SYROS overlay to finish before this fires.
       const runMatchupReveal = () => {
         setMatchupOpponent({
           name: bot.name,
           elo: null,
-          avatar: bot.isMythos ? MYTHOS_PFP_URL : null,
+          avatar: bot.isSyros ? SYROS_PFP_URL : null,
           avatarEmoji: botEmoji,
           banner: botBanner,
           level: botNumericLevel,
@@ -1464,7 +1464,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
           isBot: true,
           botLevel: bot.level,
           botLevelColor: style.color,
-          botIsMythos: bot.isMythos,
+          botIsSyros: bot.isSyros,
         });
         setQueuePhase("matchup");
         sfx.matchFound();
@@ -1481,25 +1481,25 @@ export default function AppShell({ children }: { children: ReactNode }) {
         }, vsDurationMs);
       };
 
-      // MYTHOS gets a dedicated "PREPARING MYTHOS..." charging overlay
+      // SYROS gets a dedicated "PREPARING SYROS..." charging overlay
       // BEFORE the standard match-found VS card. The overlay reuses the
       // level-up component's blood-red ascension beats (radial flare +
-      // rotating spinner) plus a violet halo so MYTHOS feels like a
+      // rotating spinner) plus a violet halo so SYROS feels like a
       // boss arrival rather than a normal queue pop. We hold the matchup
       // setter behind a setTimeout so the VS card doesn't peek through
       // the intro: render order is intro overlay (zIndex 120000) > VS
       // card (rendered into the matchfound route below).
-      if (bot.isMythos) {
-        clearMythosIntroTimer();
-        setMythosIntroVisible(true);
-        // Slightly longer than the MythosIntroScreen default (3000 ms)
+      if (bot.isSyros) {
+        clearSyrosIntroTimer();
+        setSyrosIntroVisible(true);
+        // Slightly longer than the SyrosIntroScreen default (3000 ms)
         // to give the violet halo + headline a beat to settle before
         // the VS card animates in. The intro screen also calls
         // `onDoneAction` itself; this timer is the safety net.
         const introHoldMs = 3200;
-        mythosIntroTimerRef.current = setTimeout(() => {
-          mythosIntroTimerRef.current = null;
-          setMythosIntroVisible(false);
+        syrosIntroTimerRef.current = setTimeout(() => {
+          syrosIntroTimerRef.current = null;
+          setSyrosIntroVisible(false);
           runMatchupReveal();
         }, introHoldMs);
       } else {
@@ -1508,7 +1508,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
     },
     [
       clearMatchFoundPostVsTimer,
-      clearMythosIntroTimer,
+      clearSyrosIntroTimer,
       clearUnrankedBotTimer,
       router,
       sfx,
@@ -1725,8 +1725,8 @@ export default function AppShell({ children }: { children: ReactNode }) {
     matchFoundArmRef.current = false;
     clearMatchFoundPostVsTimer();
     clearUnrankedBotTimer();
-    clearMythosIntroTimer();
-    setMythosIntroVisible(false);
+    clearSyrosIntroTimer();
+    setSyrosIntroVisible(false);
     if (queuePollRef.current) { clearInterval(queuePollRef.current); queuePollRef.current = null; }
     const mode = isRanked ? "ranked" : "unranked";
     const authHeader = { headers: { Authorization: `Bearer ${token}` } };
@@ -2111,17 +2111,17 @@ export default function AppShell({ children }: { children: ReactNode }) {
 
         <GlobalMatchupOverlay />
 
-        {/* PREPARING MYTHOS… overlay. Spawned only when the unranked
-            filler timer rolls a MYTHOS encounter, BEFORE the matchup VS
+        {/* PREPARING SYROS… overlay. Spawned only when the unranked
+            filler timer rolls a SYROS encounter, BEFORE the matchup VS
             card is shown. Sits at zIndex 120000 (defined inside the
             component) so it covers the lobby AND the just-pushed
             /play/matchfound route. The component manages its own
             auto-complete timer; the parent's safety-net setTimeout
-            (`mythosIntroTimerRef`) is the source of truth for switching
+            (`syrosIntroTimerRef`) is the source of truth for switching
             to the matchup state, so even if the component never fires
             its callback we still proceed cleanly. */}
-        {mythosIntroVisible && (
-          <MythosIntroScreen
+        {syrosIntroVisible && (
+          <SyrosIntroScreen
             durationMs={3000}
             fontDisplay={t.fontDisplay}
             fontMono={t.fontMono}

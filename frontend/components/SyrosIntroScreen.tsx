@@ -5,9 +5,9 @@ import { motion } from "framer-motion";
 
 /**
  * Pre-match-found intro screen that fires only when the unranked filler
- * timer rolls a MYTHOS encounter. Visually mirrors the charging phase of
+ * timer rolls a SYROS encounter. Visually mirrors the charging phase of
  * `XpLevelUpScreen` (radial blood-red glow, rotating spinner, dense
- * letter-spacing on the headline) so MYTHOS feels like a level-up-grade
+ * letter-spacing on the headline) so SYROS feels like a level-up-grade
  * "ascension" moment rather than a normal queue pop. Adds a violet outer
  * halo on top of the red core to brand it as the boss-tier opponent.
  *
@@ -15,7 +15,7 @@ import { motion } from "framer-motion";
  * calls `onDoneAction` once the dwell time has elapsed. The caller (AppShell)
  * is responsible for swapping in the `LobbyScreen` matchup overlay
  * immediately afterwards so the transition lands on the bespoke
- * "MYTHOS · THE GAME BENEATH THE GAME" VS card without a visible gap.
+ * "SYROS · THE GAME BENEATH THE GAME" VS card without a visible gap.
  *
  * Implementation notes:
  *   - We deliberately do NOT mount our own audio — the parent already
@@ -26,7 +26,7 @@ import { motion } from "framer-motion";
  *     INTRO → MATCHFOUND → /rulesshow without the total flow ballooning
  *     past ~8 s of pre-game animation.
  */
-export default function MythosIntroScreen({
+export default function SyrosIntroScreen({
   onDoneAction,
   durationMs = 3000,
   fontDisplay = "var(--font-display)",
@@ -67,8 +67,8 @@ export default function MythosIntroScreen({
         overflow: "hidden",
       }}
     >
-      {/* Outer violet halo — keeps a faint MYTHOS-purple wash on the
-          edges of the screen so the framing reads as "MYTHOS arrival"
+      {/* Outer violet halo — keeps a faint SYROS-purple wash on the
+          edges of the screen so the framing reads as "SYROS arrival"
           even before the headline text resolves. Sits below the red
           core glow so the centre still feels blood-red on landing. */}
       <motion.div
@@ -86,7 +86,7 @@ export default function MythosIntroScreen({
       />
 
       {/* Core red→white→red flare — adapted directly from
-          XpLevelUpScreen's charging phase so MYTHOS borrows the same
+          XpLevelUpScreen's charging phase so SYROS borrows the same
           "blood-red ascension" beats the user already associates with
           a level-up. Animated background-position keeps the gradient
           breathing for the full intro. */}
@@ -123,7 +123,7 @@ export default function MythosIntroScreen({
       >
         {/* Spinner — same dimensions as the level-up charging spinner so
             the silhouette matches. Border is a faded violet on the ring
-            and a bright white-violet "head" so MYTHOS reads as the
+            and a bright white-violet "head" so SYROS reads as the
             boss-tier signature without losing the level-up cue. */}
         <motion.div
           animate={{ rotate: 360 }}
@@ -161,7 +161,7 @@ export default function MythosIntroScreen({
               "0 0 16px rgba(255,255,255,0.45), 0 0 36px rgba(192,132,252,0.55)",
           }}
         >
-          PREPARING MYTHOS...
+          PREPARING SYROS...
         </div>
         <div
           style={{

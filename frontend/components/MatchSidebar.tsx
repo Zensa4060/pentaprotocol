@@ -8,7 +8,7 @@ import BloodMoonBanner from "./BloodMoonBanner";
 import { BannerRenderer, BANNERS_DATA } from "./BannerRenderer";
 import { useBannerShineEnabled } from "@/lib/bannerShinePreference";
 import { useAuthStore } from "@/lib/store";
-import { MYTHOS_ANALYSIS_LINES } from "@/lib/unrankedBots";
+import { SYROS_ANALYSIS_LINES } from "@/lib/unrankedBots";
 
 function barsToColor(bars: number): string {
   if (bars >= 3) return "#22c55e";
@@ -78,12 +78,12 @@ function gameSeriesLabel(gameNum: number, totalSlots: number): string {
 // / chat block. Stretches to fill the available vertical space (`flex: 1`)
 // so the panel never carries a dead band below LIMITB. Two modes:
 //
-//   • MYTHOS  → "MYTHOS · LIVE CHAT" feed. The body auto-rotates short
-//     taunts from `MYTHOS_TAUNTS` (`mythosAnalysisText` upstream is
-//     wired to `mythosTauntForMove(...)`), giving the impression that
-//     MYTHOS is actively trash-talking the player. PFP + violet aura
+//   • SYROS  → "SYROS · LIVE CHAT" feed. The body auto-rotates short
+//     taunts from `SYROS_TAUNTS` (`syrosAnalysisText` upstream is
+//     wired to `syrosTauntForMove(...)`), giving the impression that
+//     SYROS is actively trash-talking the player. PFP + violet aura
 //     mirror the VS card.
-//   • Any other unranked filler bot → "MYTHOS ANALYSING…" panel. Blood-
+//   • Any other unranked filler bot → "SYROS ANALYSING…" panel. Blood-
 //     red theme so the analysis reads as a third-party tactical
 //     observer rather than the opponent itself. The "GET ANALYSIS"
 //     button is rate-limited: gated to one pull per `COOLDOWN_MOVES` so
@@ -116,17 +116,17 @@ const ACTIVE_MOVES = 5;
 function UnrankedAnalysisCard({
   t,
   ip,
-  isMythosBot,
-  mythosAnalysisText,
+  isSyrosBot,
+  syrosAnalysisText,
   movesPlayed,
   gameNumber,
 }: {
   t: UnrankedAnalysisCardTheme;
   ip: boolean;
-  isMythosBot: boolean;
-  mythosAnalysisText: string | undefined;
+  isSyrosBot: boolean;
+  syrosAnalysisText: string | undefined;
   /** Total stones placed in the current game. Drives the GET ANALYSIS
-   *  cooldown gate for non-MYTHOS bots (button unlocks every
+   *  cooldown gate for non-SYROS bots (button unlocks every
    *  `COOLDOWN_MOVES` placements). Optional — falls back to 0. */
   movesPlayed?: number;
   /** Current game number in the series. Whenever the game advances we
@@ -134,7 +134,7 @@ function UnrankedAnalysisCard({
    *  5×5 → 6×6 → 7×7 progression starts with a fresh cooldown. */
   gameNumber?: number;
 }) {
-  // Manual-mode quote (non-MYTHOS bots only). MYTHOS uses the upstream
+  // Manual-mode quote (non-SYROS bots only). SYROS uses the upstream
   // auto-rotated string instead. Reset on bot-type changes / new game so
   // a quote pulled in a previous match never bleeds into a new opponent.
   const [manualQuote, setManualQuote] = React.useState<string | null>(null);
@@ -147,23 +147,23 @@ function UnrankedAnalysisCard({
   React.useEffect(() => {
     setManualQuote(null);
     setLastClaimedAt(null);
-  }, [isMythosBot, gameNumber]);
+  }, [isSyrosBot, gameNumber]);
 
   // Blood-red palette for the analysis card. Matches the user's
-  // "MYTHOS ANALYSING…" framing — keeps the boss-tier MYTHOS purple
-  // exclusive to actual MYTHOS encounters while still branding the
-  // tactical-read panel as a MYTHOS product.
+  // "SYROS ANALYSING…" framing — keeps the boss-tier SYROS purple
+  // exclusive to actual SYROS encounters while still branding the
+  // tactical-read panel as a SYROS product.
   const blood = "#DC2626";
   const purple = "#C084FC";
-  const accentRing = isMythosBot ? purple : blood;
-  const headerLabel = isMythosBot ? "MYTHOS · LIVE CHAT" : "MYTHOS ANALYSING…";
-  const subheading = isMythosBot ? "TRANSMISSION" : "POSITIONAL READ";
-  const bodyText = isMythosBot
-    ? (mythosAnalysisText ?? "")
+  const accentRing = isSyrosBot ? purple : blood;
+  const headerLabel = isSyrosBot ? "SYROS · LIVE CHAT" : "SYROS ANALYSING…";
+  const subheading = isSyrosBot ? "TRANSMISSION" : "POSITIONAL READ";
+  const bodyText = isSyrosBot
+    ? (syrosAnalysisText ?? "")
     : (manualQuote ?? "");
   const showQuote = bodyText.trim().length > 0;
 
-  // Cooldown gate (non-MYTHOS only). MYTHOS auto-rotates so the gate is
+  // Cooldown gate (non-SYROS only). SYROS auto-rotates so the gate is
   // bypassed entirely. We compute the next unlock target relative to
   // `lastClaimedAt`: null → first unlock at COOLDOWN_MOVES; otherwise
   // lastClaimedAt + COOLDOWN_MOVES. The visible "ANALYSIS UNLOCKS IN N
@@ -172,7 +172,7 @@ function UnrankedAnalysisCard({
   const nextUnlockAt =
     lastClaimedAt === null ? COOLDOWN_MOVES : lastClaimedAt + COOLDOWN_MOVES;
   const movesUntilUnlock = Math.max(0, nextUnlockAt - moves);
-  const canClaim = !isMythosBot && movesUntilUnlock === 0;
+  const canClaim = !isSyrosBot && movesUntilUnlock === 0;
 
   // "Analysis active" window: we keep the most recently claimed quote
   // visible for exactly `ACTIVE_MOVES` placements after the click.
@@ -182,7 +182,7 @@ function UnrankedAnalysisCard({
   const movesSinceClaim =
     lastClaimedAt === null ? null : Math.max(0, moves - lastClaimedAt);
   const analysisActive =
-    !isMythosBot &&
+    !isSyrosBot &&
     manualQuote !== null &&
     movesSinceClaim !== null &&
     movesSinceClaim < ACTIVE_MOVES;
@@ -196,25 +196,25 @@ function UnrankedAnalysisCard({
   // ticking against `lastClaimedAt + COOLDOWN_MOVES` — only the
   // visible body resets here.
   React.useEffect(() => {
-    if (isMythosBot) return;
+    if (isSyrosBot) return;
     if (manualQuote === null || lastClaimedAt === null) return;
     if (moves - lastClaimedAt >= ACTIVE_MOVES) {
       setManualQuote(null);
     }
-  }, [moves, isMythosBot, manualQuote, lastClaimedAt]);
+  }, [moves, isSyrosBot, manualQuote, lastClaimedAt]);
 
   const handleGetAnalysis = () => {
-    if (isMythosBot) return;
+    if (isSyrosBot) return;
     if (!canClaim) return;
-    if (MYTHOS_ANALYSIS_LINES.length === 0) return;
+    if (SYROS_ANALYSIS_LINES.length === 0) return;
     let next = manualQuote;
     // Roll until we get a different line — keeps the button feeling
     // responsive even on a small pool. Bail after a few attempts so
     // a degenerate pool (1 entry) still resolves.
     for (let i = 0; i < 6; i += 1) {
       const candidate =
-        MYTHOS_ANALYSIS_LINES[
-          Math.floor(Math.random() * MYTHOS_ANALYSIS_LINES.length)
+        SYROS_ANALYSIS_LINES[
+          Math.floor(Math.random() * SYROS_ANALYSIS_LINES.length)
         ];
       if (candidate !== manualQuote) {
         next = candidate;
@@ -228,21 +228,21 @@ function UnrankedAnalysisCard({
 
   // Body-text color tokens for the two themes — kept here so the JSX
   // below stays readable.
-  const cardBorder = isMythosBot
+  const cardBorder = isSyrosBot
     ? "rgba(147,51,234,0.55)"
     : "rgba(220,38,38,0.55)";
-  const cardBg = isMythosBot
+  const cardBg = isSyrosBot
     ? "radial-gradient(ellipse at 15% 15%, rgba(147,51,234,0.22) 0%, rgba(6,3,14,0.82) 72%)"
     : "radial-gradient(ellipse at 15% 15%, rgba(127,29,29,0.32) 0%, rgba(8,2,2,0.92) 72%)";
-  const cardShadow = isMythosBot
+  const cardShadow = isSyrosBot
     ? "0 0 24px rgba(147,51,234,0.18), inset 0 0 18px rgba(147,51,234,0.08)"
     : "0 0 18px rgba(220,38,38,0.16), inset 0 0 16px rgba(220,38,38,0.08)";
-  const quoteBorder = isMythosBot
+  const quoteBorder = isSyrosBot
     ? "rgba(147,51,234,0.55)"
     : "rgba(220,38,38,0.55)";
-  const quoteText = isMythosBot ? "#E9D5FFDD" : "#FECACA";
-  const subheadingColor = isMythosBot ? "#E9D5FF" : "#FEE2E2";
-  const headerLabelColor = isMythosBot
+  const quoteText = isSyrosBot ? "#E9D5FFDD" : "#FECACA";
+  const subheadingColor = isSyrosBot ? "#E9D5FF" : "#FEE2E2";
+  const headerLabelColor = isSyrosBot
     ? "rgba(192,132,252,0.85)"
     : "rgba(220,38,38,0.95)";
   const buttonBgIdle = `rgba(220,38,38,${canClaim ? 0.14 : 0.06})`;
@@ -288,12 +288,12 @@ function UnrankedAnalysisCard({
         overflow: "hidden",
       }}
     >
-      {isMythosBot && (
+      {isSyrosBot && (
         <>
-          {/* Outer dark-purple wash so the MYTHOS card reads as a
+          {/* Outer dark-purple wash so the SYROS card reads as a
               "presence" panel rather than a passive sidebar tile. The
               radial sits behind everything and pulses very slowly via
-              `mythosPfpAura`, mirroring the aura on the MatchPlayerCard
+              `syrosPfpAura`, mirroring the aura on the MatchPlayerCard
               avatar over on the VS screen. */}
           <div
             style={{
@@ -304,10 +304,10 @@ function UnrankedAnalysisCard({
                 "radial-gradient(circle at 90% 110%, rgba(192,132,252,0.22) 0%, rgba(0,0,0,0) 55%), radial-gradient(circle at 0% 0%, rgba(76,29,149,0.32) 0%, rgba(0,0,0,0) 60%)",
             }}
           />
-          <style>{`@keyframes mythosPfpAura{0%,100%{box-shadow:0 0 16px rgba(192,132,252,0.55),0 0 32px rgba(76,29,149,0.45),inset 0 0 8px rgba(76,29,149,0.45)}50%{box-shadow:0 0 26px rgba(192,132,252,0.78),0 0 52px rgba(76,29,149,0.6),inset 0 0 10px rgba(76,29,149,0.55)}}`}</style>
+          <style>{`@keyframes syrosPfpAura{0%,100%{box-shadow:0 0 16px rgba(192,132,252,0.55),0 0 32px rgba(76,29,149,0.45),inset 0 0 8px rgba(76,29,149,0.45)}50%{box-shadow:0 0 26px rgba(192,132,252,0.78),0 0 52px rgba(76,29,149,0.6),inset 0 0 10px rgba(76,29,149,0.55)}}`}</style>
         </>
       )}
-      {!isMythosBot && (
+      {!isSyrosBot && (
         <>
           {/* Faint blood-red wash + scanline shimmer. Painted behind the
               content so the card reads as an active analytic surface
@@ -322,14 +322,14 @@ function UnrankedAnalysisCard({
                 "radial-gradient(circle at 90% 110%, rgba(220,38,38,0.18) 0%, rgba(0,0,0,0) 55%), radial-gradient(circle at 0% 0%, rgba(127,29,29,0.30) 0%, rgba(0,0,0,0) 60%)",
             }}
           />
-          <style>{`@keyframes mythosAnalysingPulse{0%,100%{opacity:0.7}50%{opacity:1}}`}</style>
+          <style>{`@keyframes syrosAnalysingPulse{0%,100%{opacity:0.7}50%{opacity:1}}`}</style>
         </>
       )}
-      {/* Standard header (PFP + label). For MYTHOS this always shows.
-          For non-MYTHOS bots we hide it during the active analysis
+      {/* Standard header (PFP + label). For SYROS this always shows.
+          For non-SYROS bots we hide it during the active analysis
           window so the long quote can own the card without bleeding
           behind the header text. */}
-      {(isMythosBot || !analysisActive) && (
+      {(isSyrosBot || !analysisActive) && (
         <div
           style={{
             display: "flex",
@@ -343,7 +343,7 @@ function UnrankedAnalysisCard({
             flexShrink: 0,
           }}
         >
-          {isMythosBot ? (
+          {isSyrosBot ? (
             <div
               style={{
                 width: 46,
@@ -353,12 +353,12 @@ function UnrankedAnalysisCard({
                 border: "2px solid rgba(192,132,252,0.95)",
                 flexShrink: 0,
                 background: "#0B0514",
-                animation: "mythosPfpAura 2.4s ease-in-out infinite",
+                animation: "syrosPfpAura 2.4s ease-in-out infinite",
               }}
             >
               <img
-                src="/mythos-pfp.png"
-                alt="MYTHOS"
+                src="/syros-pfp.png"
+                alt="SYROS"
                 style={{ width: "100%", height: "100%", objectFit: "cover" }}
               />
             </div>
@@ -401,8 +401,8 @@ function UnrankedAnalysisCard({
                 letterSpacing: "0.18em",
                 color: headerLabelColor,
                 fontWeight: 700,
-                animation: !isMythosBot
-                  ? "mythosAnalysingPulse 2.2s ease-in-out infinite"
+                animation: !isSyrosBot
+                  ? "syrosAnalysingPulse 2.2s ease-in-out infinite"
                   : undefined,
               }}
             >
@@ -455,7 +455,7 @@ function UnrankedAnalysisCard({
             boxShadow: "0 0 14px rgba(220,38,38,0.35), inset 0 0 10px rgba(220,38,38,0.18)",
             position: "relative",
             flexShrink: 0,
-            animation: "mythosAnalysingPulse 2.2s ease-in-out infinite",
+            animation: "syrosAnalysingPulse 2.2s ease-in-out infinite",
           }}
         >
           <span
@@ -478,10 +478,10 @@ function UnrankedAnalysisCard({
                 borderRadius: "50%",
                 background: "#EF4444",
                 boxShadow: "0 0 8px rgba(239,68,68,0.85)",
-                animation: "mythosAnalysingPulse 1s ease-in-out infinite",
+                animation: "syrosAnalysingPulse 1s ease-in-out infinite",
               }}
             />
-            MYTHOS · ANALYSIS ACTIVE
+            SYROS · ANALYSIS ACTIVE
           </span>
           <span
             style={{
@@ -530,14 +530,14 @@ function UnrankedAnalysisCard({
               paddingLeft: 16,
               borderLeft: `3px solid ${quoteBorder}`,
               fontWeight: 500,
-              textShadow: isMythosBot
+              textShadow: isSyrosBot
                 ? "0 0 14px rgba(192,132,252,0.35)"
                 : "0 0 14px rgba(220,38,38,0.30)",
             }}
           >
             {bodyText}
           </div>
-        ) : !isMythosBot ? (
+        ) : !isSyrosBot ? (
           <div
             style={{
               fontFamily: t.fontBody,
@@ -559,11 +559,11 @@ function UnrankedAnalysisCard({
         ) : null}
       </div>
 
-      {/* GET ANALYSIS button (non-MYTHOS only). Hidden while an
+      {/* GET ANALYSIS button (non-SYROS only). Hidden while an
           analysis is currently active so the takeover layout stays
           clean — re‑appears as soon as the active window expires
           (`ACTIVE_MOVES` placements after the previous click). */}
-      {!isMythosBot && !analysisActive && (
+      {!isSyrosBot && !analysisActive && (
         <button
           type="button"
           onClick={handleGetAnalysis}
@@ -639,20 +639,20 @@ interface MatchSidebarProps {
    *  7×7 progression is visible). Defaults to the legacy behaviour
    *  (AI/singleplayer = short BO3). */
   isShortSeries?: boolean;
-  /** When true, the sidebar renders the MYTHOS analysis card (devil-cat
+  /** When true, the sidebar renders the SYROS analysis card (devil-cat
    *  avatar + rotating in-character commentary) between the match history
-   *  and the SHOW PATTERNS button. Used only for the MYTHOS filler bot. */
-  isMythosBot?: boolean;
-  /** Current analysis line to render inside the MYTHOS card — computed
-   *  upstream from `movesPlayed` via `mythosAnalysisForMove(...)`. */
-  mythosAnalysisText?: string;
+   *  and the SHOW PATTERNS button. Used only for the SYROS filler bot. */
+  isSyrosBot?: boolean;
+  /** Current analysis line to render inside the SYROS card — computed
+   *  upstream from `movesPlayed` via `syrosAnalysisForMove(...)`. */
+  syrosAnalysisText?: string;
   /** When true, render the bottom-of-sidebar ANALYSIS panel even for
-   *  non-MYTHOS unranked filler bots. The panel shows a "GET ANALYSIS"
-   *  button that pulls a random quote from `MYTHOS_ANALYSIS_LINES`,
+   *  non-SYROS unranked filler bots. The panel shows a "GET ANALYSIS"
+   *  button that pulls a random quote from `SYROS_ANALYSIS_LINES`,
    *  giving every filler-bot match an in-character read on the position
-   *  without forcing the auto-rotate cadence MYTHOS gets. Distinct from
-   *  `isMythosBot` because the visual treatment differs (cyan accent
-   *  + manual refresh, vs MYTHOS's purple aura + auto-rotate). */
+   *  without forcing the auto-rotate cadence SYROS gets. Distinct from
+   *  `isSyrosBot` because the visual treatment differs (cyan accent
+   *  + manual refresh, vs SYROS's purple aura + auto-rotate). */
   isUnrankedFillerBot?: boolean;
   isRankedGame: boolean;
   isMultiplayerGame: boolean;
@@ -766,7 +766,7 @@ export function LeftPanel(props: MatchSidebarProps) {
   // from this panel — they now live in RightPanel so the chat area can
   // expand freely and the close toggle stays unobstructed on the left.
   const { t, ip, p1c, p2c, pieceSkin, p1RttMs, p2RttMs, panelW, phase, current, gameNumber, movesPlayed, matchHistory, seriesWinner,
-    gameMode, isShortSeries, isMythosBot, mythosAnalysisText, isUnrankedFillerBot = false, isRankedGame, isMultiplayerGame, treatAsMultiplayer = false, isMultiplayer, mySlot, boardMode, selectedPatterns, rbBannedPatterns = [], patternsAsSecret = false, p1SeriesPts, p2SeriesPts,
+    gameMode, isShortSeries, isSyrosBot, syrosAnalysisText, isUnrankedFillerBot = false, isRankedGame, isMultiplayerGame, treatAsMultiplayer = false, isMultiplayer, mySlot, boardMode, selectedPatterns, rbBannedPatterns = [], patternsAsSecret = false, p1SeriesPts, p2SeriesPts,
     p1Time, p2Time, readyTimeout, p1Ready, p2Ready,
     chatMessages, chatInput, chatOpen, chatWarning, unreadOpponentChat = 0,
     p1Label, p2Label, p1Banner, p2Banner, winnerDisplayNameAction, lastSeries, segmentStartIndex = 0, historyDisplayStartIndex = 0,
@@ -938,17 +938,17 @@ export function LeftPanel(props: MatchSidebarProps) {
       {(["P1", "P2"] as const).map(p => {
         const isCurrentMover = phase === "playing" && current === p;
         const bannerId = p === "P1" ? (p1Banner || "default") : (p2Banner || "default");
-        // MYTHOS encounter? In every unranked-filler-bot path the bot
+        // SYROS encounter? In every unranked-filler-bot path the bot
         // sits in P2, so we paint the flame ring exclusively on the P2
         // timer card. Keeps the player's own slot clean and lets the
         // boss-tier presence read on the opponent side.
-        const isMythosTimer = !!isMythosBot && p === "P2";
+        const isSyrosTimer = !!isSyrosBot && p === "P2";
         return (
         <div
           key={p}
           style={{
             // Outer wrapper exists for both slots so the panel's flex gap
-            // stays symmetric. Only the MYTHOS slot paints the flame
+            // stays symmetric. Only the SYROS slot paints the flame
             // halo + tongues — they live OUTSIDE the timer card's
             // overflow:hidden so the flame can lick past the card edge.
             position: "relative",
@@ -958,7 +958,7 @@ export function LeftPanel(props: MatchSidebarProps) {
             isolation: "isolate",
           }}
         >
-          {isMythosTimer && (
+          {isSyrosTimer && (
             <>
               {/* Outer pulsing violet aura. Sits behind the card and
                   pulses softly so the slot reads as actively "burning"
@@ -973,7 +973,7 @@ export function LeftPanel(props: MatchSidebarProps) {
                   background:
                     "radial-gradient(ellipse at 50% 0%, rgba(192,132,252,0.55) 0%, rgba(0,0,0,0) 60%), radial-gradient(ellipse at 50% 100%, rgba(124,58,237,0.45) 0%, rgba(0,0,0,0) 60%), radial-gradient(ellipse at 0% 50%, rgba(168,85,247,0.35) 0%, rgba(0,0,0,0) 55%), radial-gradient(ellipse at 100% 50%, rgba(168,85,247,0.35) 0%, rgba(0,0,0,0) 55%)",
                   filter: "blur(8px)",
-                  animation: "mythosTimerHalo 1.6s ease-in-out infinite",
+                  animation: "syrosTimerHalo 1.6s ease-in-out infinite",
                   zIndex: 0,
                 }}
               />
@@ -993,7 +993,7 @@ export function LeftPanel(props: MatchSidebarProps) {
                   background:
                     "radial-gradient(ellipse 22px 16px at 18% 100%, rgba(217,70,239,0.85) 0%, rgba(217,70,239,0) 65%), radial-gradient(ellipse 28px 22px at 50% 100%, rgba(192,132,252,0.95) 0%, rgba(192,132,252,0) 65%), radial-gradient(ellipse 22px 16px at 82% 100%, rgba(168,85,247,0.85) 0%, rgba(168,85,247,0) 65%)",
                   filter: "blur(2px)",
-                  animation: "mythosTimerFlame 0.55s ease-in-out infinite alternate",
+                  animation: "syrosTimerFlame 0.55s ease-in-out infinite alternate",
                   transformOrigin: "50% 100%",
                 }}
               />
@@ -1013,16 +1013,16 @@ export function LeftPanel(props: MatchSidebarProps) {
                   background:
                     "radial-gradient(ellipse 22px 16px at 18% 0%, rgba(168,85,247,0.85) 0%, rgba(168,85,247,0) 65%), radial-gradient(ellipse 28px 22px at 50% 0%, rgba(192,132,252,0.95) 0%, rgba(192,132,252,0) 65%), radial-gradient(ellipse 22px 16px at 82% 0%, rgba(217,70,239,0.85) 0%, rgba(217,70,239,0) 65%)",
                   filter: "blur(2px)",
-                  animation: "mythosTimerFlame 0.7s ease-in-out infinite alternate",
+                  animation: "syrosTimerFlame 0.7s ease-in-out infinite alternate",
                   transformOrigin: "50% 0%",
                 }}
               />
               <style>{`
-                @keyframes mythosTimerHalo {
+                @keyframes syrosTimerHalo {
                   0%,100% { opacity: 0.72; transform: scale(1); }
                   50%     { opacity: 1;    transform: scale(1.05); }
                 }
-                @keyframes mythosTimerFlame {
+                @keyframes syrosTimerFlame {
                   0%   { transform: translateY(2px) scaleY(0.85) scaleX(0.95); opacity: 0.65; }
                   35%  { transform: translateY(-1px) scaleY(1.15) scaleX(1.05); opacity: 0.95; }
                   70%  { transform: translateY(-3px) scaleY(1.3)  scaleX(0.9);  opacity: 1; }
@@ -1035,8 +1035,8 @@ export function LeftPanel(props: MatchSidebarProps) {
             position: "relative",
             overflow: "hidden",
             borderRadius: ip ? 2 : 8,
-            border: `1px solid ${isCurrentMover ? (p === "P1" ? p1c : p2c) : (isMythosTimer ? "#C084FC" : t.border)}`,
-            boxShadow: isMythosTimer
+            border: `1px solid ${isCurrentMover ? (p === "P1" ? p1c : p2c) : (isSyrosTimer ? "#C084FC" : t.border)}`,
+            boxShadow: isSyrosTimer
               ? "0 0 14px rgba(192,132,252,0.55), inset 0 0 12px rgba(76,29,149,0.45)"
               : undefined,
             transition: "border-color 0.25s",
@@ -1068,9 +1068,9 @@ export function LeftPanel(props: MatchSidebarProps) {
                   }}
                 />
               )}
-              {isMythosTimer && (
+              {isSyrosTimer && (
                 /* Inner violet wash so the banner's underlying art reads
-                   as MYTHOS-tinted rather than its base banner colour.
+                   as SYROS-tinted rather than its base banner colour.
                    Sits above the dark gradient but below the content. */
                 <div
                   aria-hidden
@@ -1408,7 +1408,7 @@ export function LeftPanel(props: MatchSidebarProps) {
               <button
                 type="button"
                 disabled
-                aria-label="MYTHOS Analysis Coming soon"
+                aria-label="SYROS Analysis Coming soon"
                 style={{
                   width: "100%",
                   minHeight: 55,
@@ -1430,7 +1430,7 @@ export function LeftPanel(props: MatchSidebarProps) {
                   cursor: "default",
                 }}
               >
-                MYTHOS Analysis Coming soon
+                SYROS Analysis Coming soon
               </button>
             </div>
           )}
@@ -1454,34 +1454,34 @@ export function LeftPanel(props: MatchSidebarProps) {
           matches. Two visually-distinct modes — both anchored to the
           same slot so the layout stays consistent regardless of who
           the opponent is:
-            • MYTHOS: auto-rotating commentary driven by
-              `mythosAnalysisForMove` upstream. PFP + violet glow
+            • SYROS: auto-rotating commentary driven by
+              `syrosAnalysisForMove` upstream. PFP + violet glow
               brand it as the boss-tier observer.
             • Other unranked filler bots: a "GET ANALYSIS" button the
               user clicks to pull a random in-character read from the
               same quote pool. Cyan accent so it doesn't impersonate
-              the MYTHOS treatment.
+              the SYROS treatment.
           Non-filler / multiplayer / ranked games skip the entire
           block — `shouldRenderAnalysis` is the single gate. */}
       {(() => {
-        // Only the MYTHOS encounter renders the analysis card now —
+        // Only the SYROS encounter renders the analysis card now —
         // it is the live-chat / taunt feed that brands the boss
         // fight. Every other unranked filler bot used to show a
-        // "MYTHOS ANALYSING…" panel with a GET ANALYSIS button, but
-        // exposing a "MYTHOS analysing your moves" card while you
-        // are NOT playing MYTHOS leaks the bot fiction (the queue
+        // "SYROS ANALYSING…" panel with a GET ANALYSIS button, but
+        // exposing a "SYROS analysing your moves" card while you
+        // are NOT playing SYROS leaks the bot fiction (the queue
         // is supposed to feel like ordinary unranked matchmaking).
-        // Keeping the gate isMythosBot-only means: MYTHOS games
+        // Keeping the gate isSyrosBot-only means: SYROS games
         // get the live-chat card; every other unranked bot sidebar
         // looks identical to a real human match.
-        const shouldRenderAnalysis = !!isMythosBot && !isMultiplayerGame;
+        const shouldRenderAnalysis = !!isSyrosBot && !isMultiplayerGame;
         if (!shouldRenderAnalysis) return null;
         return (
           <UnrankedAnalysisCard
             t={t}
             ip={ip}
-            isMythosBot={!!isMythosBot}
-            mythosAnalysisText={mythosAnalysisText}
+            isSyrosBot={!!isSyrosBot}
+            syrosAnalysisText={syrosAnalysisText}
             movesPlayed={movesPlayed}
             gameNumber={gameNumber}
           />

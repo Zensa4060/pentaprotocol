@@ -151,15 +151,15 @@ export function formatXpPrize(botId: BotId): string {
 
 // ── Tier-capstone free-item rewards ────────────────────────────────────────
 /** Per-slot reward state the backend persists on the user profile.
- *  `mythos_skin` is the boss-tier filler-bot reward awarded the FIRST time
- *  a player defeats MYTHOS in the unranked queue. It uses the same
+ *  `syros_skin` is the boss-tier filler-bot reward awarded the FIRST time
+ *  a player defeats SYROS in the unranked queue. It uses the same
  *  board-skin store catalog as the HER reward but is tracked on its own
  *  slot so a player can claim BOTH rewards independently. */
 export type BotRewardSlot =
   | "banner"
   | "coin_toss"
   | "board_skin"
-  | "mythos_skin";
+  | "syros_skin";
 export type BotRewardState = null | "pending" | "claimed";
 export type BotRewards = Record<BotRewardSlot, BotRewardState>;
 
@@ -180,7 +180,7 @@ export const REWARD_SLOT_LABEL: Record<BotRewardSlot, string> = {
   banner:      "Free Banner",
   coin_toss:   "Free Coin Toss Skin",
   board_skin:  "Free Board Skin",
-  mythos_skin: "Free Board Skin (MYTHOS)",
+  syros_skin: "Free Board Skin (SYROS)",
 };
 
 /** One-line description for the reward unlocked by each capstone bot. */
@@ -199,7 +199,7 @@ export function readBotRewards(user: unknown): BotRewards {
     banner: null,
     coin_toss: null,
     board_skin: null,
-    mythos_skin: null,
+    syros_skin: null,
   };
   if (!user || typeof user !== "object") return empty;
   const u = user as Record<string, unknown>;
@@ -210,7 +210,7 @@ export function readBotRewards(user: unknown): BotRewards {
       "banner",
       "coin_toss",
       "board_skin",
-      "mythos_skin",
+      "syros_skin",
     ] as BotRewardSlot[]) {
       const v = raw[slot];
       if (v === "pending" || v === "claimed") out[slot] = v;

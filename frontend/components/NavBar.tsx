@@ -409,6 +409,7 @@ export default function NavBar({
     if (target === "collection") return screen === "collection";
     if (target === "career")     return screen === "career";
     if (target === "battlepass") return screen === "battlepass";
+    if (target === "syros") return screen === "syros";
     return false;
   };
 
@@ -445,16 +446,31 @@ export default function NavBar({
     const navHardLocked = lockMultiplayerNav;
     const effectiveDisabled = disabled || navHardLocked;
     const isHovered = hoveredBtn === target && !effectiveDisabled;
-    const accentCol = isDanger ? t.danger : isClassic ? "#CC2200" : t.accent;
+    const isSyrosNav = target === "syros";
+    const syrosViolet = "#C084FC";
+    const syrosVioletMid = "#A78BFA";
+    const syrosMist = "#E9D5FE";
+    const accentCol = isDanger ? t.danger : isSyrosNav ? syrosViolet : isClassic ? "#CC2200" : t.accent;
 
     // Label Compression: Hide text labels for secondary items on small desktops
     const hideLabel = isCompactDesktop && ["collection", "store", "patchNotes", "battlepass"].includes(target);
 
     const fg = effectiveDisabled
       ? `${t.textMuted}55`
-      : (isActive || isHovered) ? accentCol
-      : isDanger ? `${t.danger}CC`
-      : `${t.textSecondary}EE`;
+      : isSyrosNav
+        ? (isActive || isHovered ? syrosMist : "rgba(221,214,254,0.88)")
+        : (isActive || isHovered) ? accentCol
+        : isDanger ? `${t.danger}CC`
+        : `${t.textSecondary}EE`;
+
+    const syrosBg = isSyrosNav
+      ? (isActive ? "rgba(124,58,237,0.32)" : isHovered ? "rgba(124,58,237,0.22)" : "rgba(124,58,237,0.14)")
+      : undefined;
+    const syrosShadow = isSyrosNav
+      ? (isActive || isHovered
+        ? `0 0 12px ${syrosViolet}, 0 0 28px rgba(167,139,250,0.95), 0 0 52px rgba(124,58,237,0.55)`
+        : `0 0 10px rgba(168,85,247,0.55), 0 0 24px rgba(124,58,237,0.4), 0 0 40px rgba(76,29,149,0.25)`)
+      : null;
 
     const bc = badgeCount && badgeCount > 0 ? badgeCount : 0;
     return (
@@ -475,9 +491,11 @@ export default function NavBar({
         }}
         onMouseLeave={() => setHoveredBtn(null)}
         style={{
-          background:    isActive ? `${accentCol}1A` : isHovered ? `${accentCol}0F` : "none",
+          background:    isSyrosNav
+            ? syrosBg
+            : (isActive ? `${accentCol}1A` : isHovered ? `${accentCol}0F` : "none"),
           borderTop: "none", borderLeft: "none", borderRight: "none",
-          borderBottom:  `2px solid ${(isActive || isHovered) ? accentCol : "transparent"}`,
+          borderBottom:  `2px solid ${(isActive || isHovered) ? (isSyrosNav ? syrosVioletMid : accentCol) : "transparent"}`,
           color:         fg,
           fontFamily:    t.fontBody,
           fontSize:      BTN_FONT,
@@ -486,15 +504,21 @@ export default function NavBar({
           cursor:        effectiveDisabled ? "not-allowed" : "pointer",
           borderRadius:  0,
           letterSpacing: "0.06em",
-          transition:    "color 0.15s, border-color 0.15s, background 0.15s, padding 0.2s",
+          transition:    "color 0.15s, border-color 0.15s, background 0.15s, padding 0.2s, text-shadow 0.2s, box-shadow 0.2s",
           height:        NAV_H,
           display:       "flex", alignItems: "center",
           opacity:       navHardLocked ? 0 : effectiveDisabled ? 0.4 : locked ? 0.6 : 1,
           whiteSpace:    "nowrap" as const,
           textTransform: "uppercase" as const,
-          textShadow:    (isActive || isHovered)
-            ? `0 0 10px ${accentCol}, 0 0 20px ${accentCol}99, 0 0 40px ${accentCol}55`
-            : `0 0 8px ${t.textSecondary}44`,
+          textShadow:    syrosShadow
+            ?? ((isActive || isHovered)
+              ? `0 0 10px ${accentCol}, 0 0 20px ${accentCol}99, 0 0 40px ${accentCol}55`
+              : `0 0 8px ${t.textSecondary}44`),
+          boxShadow:     isSyrosNav && (isActive || isHovered)
+            ? `inset 0 0 20px rgba(192,132,252,0.12)`
+            : isSyrosNav
+              ? `inset 0 0 14px rgba(124,58,237,0.08)`
+              : undefined,
           flexShrink: hideLabel ? 1 : 0,
         }}
       >
@@ -525,6 +549,7 @@ export default function NavBar({
     { target: "store",      label: "Store",      screen: "store"      as Screen },
     { target: "home",       label: "Home",       screen: "home"       as Screen },
     { target: "career",     label: "Career",     screen: "career"     as Screen },
+    { target: "syros",     label: "SYROS",     screen: "syros"     as Screen },
     { target: "battlepass", label: "MISSIONS",   screen: "battlepass" as Screen },
     { target: "profile",    label: "Profile",    screen: "profile"    as Screen },
   ];
@@ -646,6 +671,7 @@ export default function NavBar({
               {navBtn("store",      "Store",      false, false, undefined, "store", false, storeNewBadge)}
               {navBtn("home",       "Home",       false, false, undefined, "home")}
               {navBtn("career",     "Career",     false, false, undefined, "career",     false, careerMpBadge)}
+              {navBtn("syros",     "SYROS",     false, false, undefined, "syros",     false, undefined)}
               {navBtn("battlepass", "MISSIONS", false, false, undefined, "battlepass", false, missionClaimBadge)}
               {navBtn("profile", "Profile", false, false, undefined, "profile", false, profileNotifyBadge)}
             </div>
@@ -659,6 +685,7 @@ export default function NavBar({
               {navBtn("store",   "Store",   false, false, undefined, "store", false, storeNewBadge)}
               {navBtn("profile", "Profile", false, false, undefined, "profile", false, profileNotifyBadge)}
               {navBtn("career",  "Career",  false, false, undefined, "career",  false, careerMpBadge)}
+              {navBtn("syros",  "SYROS", false, false, undefined, "syros", false, undefined)}
             </div>
           </div>
         )}
@@ -744,6 +771,12 @@ export default function NavBar({
         }}>
           {navLinks.map(({ target, label, screen: s }) => {
             const mb = mobileNavBadge(target);
+            const rowActive = getActive(target);
+            const rowSyros = target === "syros";
+            const rowAccent = rowSyros ? "#A78BFA" : t.accent;
+            const rowGlow = rowSyros
+              ? (rowActive ? "0 0 14px rgba(192,132,252,0.85), 0 0 28px rgba(124,58,237,0.45)" : "0 0 10px rgba(168,85,247,0.35)")
+              : (rowActive ? `0 0 10px ${t.accent}99` : "none");
             return (
               <button
                 type="button"
@@ -751,21 +784,25 @@ export default function NavBar({
                 disabled={lockMultiplayerNav}
                 onClick={() => navigate(s)}
               style={{
-                background: getActive(target) ? `${t.accent}18` : "none",
+                background: rowActive
+                  ? (rowSyros ? "rgba(124,58,237,0.22)" : `${t.accent}18`)
+                  : rowSyros
+                    ? "rgba(124,58,237,0.08)"
+                    : "none",
                 border: "none",
                 borderBottom: `1px solid ${t.border}22`,
-                borderLeft: `3px solid ${getActive(target) ? t.accent : "transparent"}`,
-                color: getActive(target) ? t.accent : `${t.textSecondary}EE`,
+                borderLeft: `3px solid ${rowActive ? rowAccent : "transparent"}`,
+                color: rowActive ? (rowSyros ? "#E9D5FE" : t.accent) : (rowSyros ? "rgba(221,214,254,0.9)" : `${t.textSecondary}EE`),
                 fontFamily: t.fontBody,
                 fontSize: isMobile ? 13 : 15,
-                fontWeight: getActive(target) ? 800 : 600,
+                fontWeight: rowActive ? 800 : 600,
                 padding: isMobile ? "14px 20px" : "16px 24px",
                 textAlign: "left" as const,
                 cursor: lockMultiplayerNav ? "not-allowed" : "pointer",
                 opacity: lockMultiplayerNav ? 0 : 1,
                 letterSpacing: "0.08em",
                 textTransform: "uppercase" as const,
-                textShadow: getActive(target) ? `0 0 10px ${t.accent}99` : "none",
+                textShadow: rowGlow,
                 display: "flex", alignItems: "center", justifyContent: "space-between",
                 transition: "all 0.15s",
               }}
@@ -775,7 +812,7 @@ export default function NavBar({
                 {label}
               </span>
               <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              {getActive(target) && <span style={{ fontSize: 11, color: t.accent }}>●</span>}
+              {rowActive && <span style={{ fontSize: 11, color: rowAccent }}>●</span>}
               </span>
             </button>
           );
