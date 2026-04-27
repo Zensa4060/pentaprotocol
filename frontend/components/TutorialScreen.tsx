@@ -50,6 +50,7 @@ import { SYROS_PFP_URL } from "@/lib/unrankedBots";
 export interface TutorialScreenProps {
   themeId: ThemeId;
   userId: string;
+  username?: string;
   token: string;
   mode: "gate" | "replay";
   onDoneAction: (result: TutorialState) => void;
@@ -58,10 +59,14 @@ export interface TutorialScreenProps {
 const Z = 12060;
 const BLOOD_RED = "#a30000";
 const BLOOD_RED_SOFT = "#7a0000";
+const SYROS_TYPED_STEP_NUMBERS = new Set([
+  1, 2, 4, 7, 8, 11, 12, 14, 15, 17, 18, 20, 21, 22, 24, 25, 26,
+]);
 
 export default function TutorialScreen({
   themeId,
   userId,
+  username,
   token,
   mode,
   onDoneAction,
@@ -222,7 +227,7 @@ export default function TutorialScreen({
             submitting={submitting}
           />
         ) : (
-          <StepView step={steps[stepIdx].step} themeT={t} />
+          <StepView step={steps[stepIdx].step} stepNumber={stepIdx + 1} themeT={t} username={username} />
         )}
       </div>
 
@@ -402,11 +407,38 @@ function SkipConfirmModal({
 
 function StepView({
   step,
+  stepNumber,
   themeT,
+  username,
 }: {
   step: TutorialStep;
+  stepNumber: number;
   themeT: (typeof THEMES)[ThemeId];
+  username?: string;
 }) {
+  const useSyrosTypedNarration = SYROS_TYPED_STEP_NUMBERS.has(stepNumber);
+  const isIntroStep = step.kind === "message" && step.id === "intro-1";
+  const resolvedUsername = (username ?? "").trim() || "Player";
+  const syrosNarration = useMemo(() => {
+    if (!useSyrosTypedNarration) return "";
+    const segments: string[] = [];
+    if (isIntroStep) {
+      segments.push(`Welcome to PentaProtocol, ${resolvedUsername}.`);
+    }
+    if (step.body.trim()) segments.push(step.body.trim());
+    if (
+      (step.kind === "message" ||
+        step.kind === "breaker-diagram" ||
+        step.kind === "rank-ladder" ||
+        step.kind === "centre-compare") &&
+      step.bullets?.length
+    ) {
+      segments.push(step.bullets.map((b) => `- ${b}`).join("\n"));
+    }
+    if (step.syrosQuote?.trim()) segments.push(step.syrosQuote.trim());
+    return segments.filter(Boolean).join("\n\n");
+  }, [isIntroStep, resolvedUsername, step, useSyrosTypedNarration]);
+
   /* Use a side-by-side layout for any step that pairs descriptive text
      with a visual — description reads on the left while the visual sits
      on the right. This keeps the step on a single screen without
@@ -476,19 +508,22 @@ function StepView({
           }}
         >
           <div style={splitHeadingStyle}>{step.title}</div>
-          <div style={splitBodyStyle}>{step.body}</div>
-          {hasBullets ? (
-            <ul style={splitBulletStyle}>
-              {(step as { bullets?: string[] }).bullets!.map((b, i) => (
-                <li key={i} style={{ marginTop: i === 0 ? 0 : 10 }}>{b}</li>
-              ))}
-            </ul>
-          ) : null}
-          {step.syrosQuote ? (
-            <div style={{ maxWidth: 820, width: "100%", marginTop: 28 }}>
-              <SyrosBlock quote={step.syrosQuote} themeT={themeT} />
+          {useSyrosTypedNarration ? (
+            <div style={{ maxWidth: 900, width: "100%" }}>
+              <SyrosBlockContent quote={syrosNarration} themeT={themeT} useTypewriter typingSpeedMs={12} />
             </div>
-          ) : null}
+          ) : (
+            <>
+              <div style={splitBodyStyle}>{step.body}</div>
+              {hasBullets ? (
+                <ul style={splitBulletStyle}>
+                  {(step as { bullets?: string[] }).bullets!.map((b, i) => (
+                    <li key={i} style={{ marginTop: i === 0 ? 0 : 10 }}>{b}</li>
+                  ))}
+                </ul>
+              ) : null}
+            </>
+          )}
         </div>
         <div
           style={{
@@ -562,15 +597,22 @@ function StepView({
       }}
     >
       <div style={headingStyle}>{step.title}</div>
-      <div style={bodyStyle}>{step.body}</div>
-
-      {hasBullets ? (
-        <ul style={bulletWrap}>
-          {(step as { bullets?: string[] }).bullets!.map((b, i) => (
-            <li key={i} style={{ marginTop: i === 0 ? 0 : 8 }}>{b}</li>
-          ))}
-        </ul>
-      ) : null}
+      {useSyrosTypedNarration ? (
+        <div style={{ maxWidth: 980, width: "100%" }}>
+          <SyrosBlockContent quote={syrosNarration} themeT={themeT} useTypewriter typingSpeedMs={12} />
+        </div>
+      ) : (
+        <>
+          <div style={bodyStyle}>{step.body}</div>
+          {hasBullets ? (
+            <ul style={bulletWrap}>
+              {(step as { bullets?: string[] }).bullets!.map((b, i) => (
+                <li key={i} style={{ marginTop: i === 0 ? 0 : 8 }}>{b}</li>
+              ))}
+            </ul>
+          ) : null}
+        </>
+      )}
 
       {step.kind === "centre-compare" && (
         <div style={{ marginTop: 28, width: "100%", maxWidth: 1100, marginLeft: "auto", marginRight: "auto" }}>
@@ -589,13 +631,6 @@ function StepView({
           <ScreenMock step={step} themeT={themeT} />
         </div>
       )}
-
-      {step.syrosQuote ? (
-        <div style={{ maxWidth: 820, width: "100%", marginTop: 28 }}>
-          <SyrosBlock quote={step.syrosQuote} themeT={themeT} />
-        </div>
-      ) : null}
-
     </div>
   );
 }
@@ -1822,6 +1857,43 @@ const SYROS_TUTORIAL_MID = "#7C3AED";
 const SYROS_TUTORIAL_MIST = "#E9D5FE";
 
 function SyrosBlock({ quote, themeT }: { quote: string; themeT: Theme }) {
+  return <SyrosBlockContent quote={quote} themeT={themeT} useTypewriter={false} />;
+}
+
+function SyrosBlockContent({
+  quote,
+  themeT,
+  useTypewriter,
+  typingSpeedMs = 16,
+}: {
+  quote: string;
+  themeT: Theme;
+  useTypewriter?: boolean;
+  typingSpeedMs?: number;
+}) {
+  const [typedLength, setTypedLength] = useState<number>(useTypewriter ? 0 : quote.length);
+  const safeSpeed = Math.max(8, typingSpeedMs);
+  const displayQuote = useTypewriter ? quote.slice(0, typedLength) : quote;
+
+  useEffect(() => {
+    if (!useTypewriter) {
+      setTypedLength(quote.length);
+      return;
+    }
+    setTypedLength(0);
+    if (!quote.length) return;
+    const intervalId = window.setInterval(() => {
+      setTypedLength((n) => {
+        if (n >= quote.length) {
+          window.clearInterval(intervalId);
+          return n;
+        }
+        return n + 1;
+      });
+    }, safeSpeed);
+    return () => window.clearInterval(intervalId);
+  }, [quote, safeSpeed, useTypewriter]);
+
   return (
     <>
       <style>{`
@@ -1974,9 +2046,23 @@ function SyrosBlock({ quote, themeT }: { quote: string; themeT: Theme }) {
                 color: "rgba(237, 233, 254, 0.94)",
                 lineHeight: 1.55,
                 textShadow: "0 0 20px rgba(192,132,252,0.25), 0 1px 0 rgba(0,0,0,0.5)",
+                whiteSpace: "pre-line",
               }}
             >
-              {quote}
+              {displayQuote}
+              {useTypewriter && typedLength < quote.length ? (
+                <span
+                  aria-hidden="true"
+                  style={{
+                    marginLeft: 2,
+                    color: SYROS_TUTORIAL_MIST,
+                    opacity: 0.92,
+                    animation: "pp-tutorial-syros-fade 0.25s ease-in-out infinite alternate",
+                  }}
+                >
+                  |
+                </span>
+              ) : null}
             </div>
           </div>
         </div>

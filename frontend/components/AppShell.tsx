@@ -2065,6 +2065,9 @@ export default function AppShell({ children }: { children: ReactNode }) {
           <TutorialScreen
             themeId={routeThemeId}
             userId={getUserId(user)}
+            username={typeof (user as { username?: unknown })?.username === "string"
+              ? (user as { username?: string }).username
+              : undefined}
             token={token}
             mode={tutorialMode}
             onDoneAction={(result) => {
