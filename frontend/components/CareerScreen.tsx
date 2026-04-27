@@ -1187,8 +1187,9 @@ export default function CareerScreen({ themeId, onHoverAction, initialMatchId }:
                 history
                   .filter((m) => {
                     if (activeTab === "ranked") return m.mode === "ranked";
-                    if (activeTab === "unranked") return m.mode === "unranked" || !m.mode;
-                    return m.mode === "custom";
+                    // Non-ranked archive is intentionally merged:
+                    // both UNRANKED and CUSTOM tabs show unranked + custom rows.
+                    return m.mode === "unranked" || m.mode === "custom" || !m.mode;
                   })
                   .map((match, i) => (
                     <CareerMatchRow 

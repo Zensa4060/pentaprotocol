@@ -376,6 +376,7 @@ async def get_career_match(entry_id: str, user_id: str = Depends(get_current_use
 @router.get("/head-to-head/{opponent_id}")
 async def head_to_head(
     opponent_id: str,
+    mode: str | None = None,
     user_id: str = Depends(get_current_user),
 ):
     """Return the head-to-head record between the requesting user and
@@ -416,6 +417,20 @@ async def head_to_head(
             {"mode": {"$regex": r"^bot"}},
         ],
     }
+    # Optional mode filter for in-match sidebar history:
+    # - ranked   => ranked only
+    # - unranked => unranked + custom (+ legacy empty mode)
+    mode_norm = (mode or "").strip().lower()
+    if mode_norm == "ranked":
+        query["mode"] = "ranked"
+    elif mode_norm == "unranked":
+        query["$or"] = [
+            {"mode": "unranked"},
+            {"mode": "custom"},
+            {"mode": {"$exists": False}},
+            {"mode": None},
+            {"mode": ""},
+        ]
 
     wins = 0
     losses = 0

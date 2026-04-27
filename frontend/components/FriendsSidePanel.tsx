@@ -709,7 +709,7 @@ export default function FriendsSidePanel({ themeId, onHoverAction, forceSolidBac
         </div>
       </aside>
 
-      {/* Context menu — lean post-invite-removal: profile / message / career / remove. */}
+      {/* Context menu — profile / message / career + mode-specific history / remove. */}
       {contextMenu && (
         <div
           onMouseDown={(e) => e.stopPropagation()}
@@ -744,6 +744,18 @@ export default function FriendsSidePanel({ themeId, onHoverAction, forceSolidBac
               key: "career",
               label: "View career",
               onClick: () => goToFullTab(`?career=${contextMenu.friend.id}`),
+              danger: false,
+            },
+            {
+              key: "career-ranked",
+              label: "Ranked history",
+              onClick: () => goToFullTab(`?career=${contextMenu.friend.id}&history=ranked`),
+              danger: false,
+            },
+            {
+              key: "career-unranked",
+              label: "Unranked history",
+              onClick: () => goToFullTab(`?career=${contextMenu.friend.id}&history=unranked`),
               danger: false,
             },
             {

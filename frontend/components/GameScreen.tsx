@@ -1000,7 +1000,10 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     let cancelled = false;
     (async () => {
       try {
-        const res = await API.get(`/api/profile/head-to-head/${opponentUserId}`);
+        const historyMode = isRankedGame ? "ranked" : "unranked";
+        const res = await API.get(`/api/profile/head-to-head/${opponentUserId}`, {
+          params: { mode: historyMode },
+        });
         if (cancelled) return;
         const d = res.data || {};
         const recent = Array.isArray(d.recent)
@@ -1020,7 +1023,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
       }
     })();
     return () => { cancelled = true; };
-  }, [isMultiplayerGame, opponentUserId]);
+  }, [isMultiplayerGame, opponentUserId, isRankedGame]);
 
   const [inGameDmFriendId, setInGameDmFriendId] = useState<string | null>(null);
   const [inGameDmMessages, setInGameDmMessages] = useState<{ from_user: string; to_user: string; text: string; created_at: string | null }[]>([]);

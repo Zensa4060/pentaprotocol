@@ -1,6 +1,6 @@
 "use client";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import type { ThemeId } from "@/lib/themes";
 import { THEMES } from "@/lib/themes";
 import API, { openWs } from "@/lib/api";
@@ -44,6 +44,7 @@ type ContextMenuState = {
 
 type ProfileModalState = {
   mode: "profile" | "career";
+  careerFilter?: "all" | "ranked" | "unranked";
   friend: Friend;
   loading: boolean;
   error: string | null;
@@ -67,6 +68,7 @@ export default function FriendsScreen({ themeId, onHoverAction }: Props) {
   const t = THEMES[themeId as keyof typeof THEMES];
   const isSpace = themeId === "space";
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { user, token } = useAuthStore();
   const meId = (user as any)?.id || (user as any)?._id || "";
 
@@ -85,6 +87,7 @@ export default function FriendsScreen({ themeId, onHoverAction }: Props) {
   const dmMessagesScrollRef = useRef<HTMLDivElement | null>(null);
   const dmWsRef = useRef<WebSocket | null>(null);
   const pendingOpenDmFriendIdRef = useRef<string | null>(null);
+  const handledDeepLinkRef = useRef<string | null>(null);
 
   const showToast = useCallback((msg: string) => {
     setToast(msg);
@@ -197,15 +200,37 @@ export default function FriendsScreen({ themeId, onHoverAction }: Props) {
     }
   }, []);
 
-  const openCareer = useCallback(async (f: Friend) => {
-    setProfileModal({ mode: "career", friend: f, loading: true, error: null, data: null });
+  const openCareer = useCallback(async (f: Friend, careerFilter: "all" | "ranked" | "unranked" = "all") => {
+    setProfileModal({ mode: "career", careerFilter, friend: f, loading: true, error: null, data: null });
     try {
       const res = await API.get(`/api/friends/career/${f.id}`);
-      setProfileModal((p) => p && { ...p, loading: false, data: res.data?.history ?? [] });
+      setProfileModal((p) => p && { ...p, careerFilter, loading: false, data: res.data?.history ?? [] });
     } catch {
       setProfileModal((p) => p && { ...p, loading: false, error: "Could not load career." });
     }
   }, []);
+
+  useEffect(() => {
+    const profileId = (searchParams.get("profile") || "").trim();
+    const careerId = (searchParams.get("career") || "").trim();
+    const historyModeRaw = (searchParams.get("history") || "").trim().toLowerCase();
+    const historyMode: "all" | "ranked" | "unranked" =
+      historyModeRaw === "ranked" ? "ranked" : historyModeRaw === "unranked" ? "unranked" : "all";
+    const targetKey = `profile:${profileId}|career:${careerId}|history:${historyMode}`;
+    if (!profileId && !careerId) {
+      handledDeepLinkRef.current = null;
+      return;
+    }
+    if (handledDeepLinkRef.current === targetKey) return;
+    if (!friends.length) return;
+
+    const targetId = careerId || profileId;
+    const friend = friends.find((f) => String(f.id) === String(targetId));
+    if (!friend) return;
+    handledDeepLinkRef.current = targetKey;
+    if (careerId) void openCareer(friend, historyMode);
+    else void openProfile(friend);
+  }, [friends, openCareer, openProfile, searchParams]);
 
   const openDM = useCallback(async (f: Friend) => {
     setDmModal({ friend: f, loading: true, messages: [], draft: "", sending: false });
@@ -733,7 +758,9 @@ export default function FriendsScreen({ themeId, onHoverAction }: Props) {
             // share custom-room codes through DM chat instead.
             { key: "profile", label: "Show profile", onClick: () => openProfile(contextMenu.friend) },
             { key: "message", label: "Send message", onClick: () => openDM(contextMenu.friend) },
-            { key: "career", label: "View career", onClick: () => openCareer(contextMenu.friend) },
+            { key: "career", label: "View career", onClick: () => openCareer(contextMenu.friend, "all") },
+            { key: "career-ranked", label: "Ranked history", onClick: () => openCareer(contextMenu.friend, "ranked") },
+            { key: "career-unranked", label: "Unranked history", onClick: () => openCareer(contextMenu.friend, "unranked") },
             { key: "remove", label: "Remove friend", onClick: () => removeFriend(contextMenu.friend), danger: true },
           ] as const).map((item) => (
             <button
@@ -781,7 +808,13 @@ export default function FriendsScreen({ themeId, onHoverAction }: Props) {
           >
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
               <div style={{ fontFamily: t.fontDisplay, fontSize: 22, fontWeight: 900, color: t.text }}>
-                {profileModal.friend.username} · {profileModal.mode === "profile" ? "Profile" : "Career"}
+                {profileModal.friend.username} · {profileModal.mode === "profile"
+                  ? "Profile"
+                  : profileModal.careerFilter === "ranked"
+                    ? "Ranked History"
+                    : profileModal.careerFilter === "unranked"
+                      ? "Unranked History"
+                      : "Career"}
               </div>
               <button onClick={() => setProfileModal(null)} style={{ background: "transparent", border: `1px solid ${t.border}`, color: t.textMuted, padding: "4px 10px", borderRadius: 6, fontFamily: t.fontMono, fontSize: 11, cursor: "pointer" }}>CLOSE</button>
             </div>
@@ -807,10 +840,17 @@ export default function FriendsScreen({ themeId, onHoverAction }: Props) {
             )}
             {!profileModal.loading && !profileModal.error && profileModal.mode === "career" && Array.isArray(profileModal.data) && (
               <div>
-                {profileModal.data.length === 0 ? (
+                {(() => {
+                  const filteredCareer = (profileModal.data as any[]).filter((m: any) => {
+                    const mm = String(m?.mode || "").toLowerCase();
+                    if (profileModal.careerFilter === "ranked") return mm === "ranked";
+                    if (profileModal.careerFilter === "unranked") return mm === "unranked" || mm === "custom" || !mm;
+                    return true;
+                  });
+                  return filteredCareer.length === 0 ? (
                   <div style={{ color: t.textMuted, fontFamily: t.fontMono, textAlign: "center", padding: 20 }}>No matches recorded yet.</div>
                 ) : (
-                  profileModal.data.map((m: any) => (
+                  filteredCareer.map((m: any) => (
                     <div key={m.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: `1px solid ${t.border}33` }}>
                       <div style={{ display: "flex", flexDirection: "column" }}>
                         <span style={{ fontFamily: t.fontMono, color: t.textMuted, fontSize: 11 }}>{new Date(m.played_at).toLocaleString()}</span>
@@ -832,7 +872,8 @@ export default function FriendsScreen({ themeId, onHoverAction }: Props) {
                       </div>
                     </div>
                   ))
-                )}
+                );
+                })()}
               </div>
             )}
           </div>
