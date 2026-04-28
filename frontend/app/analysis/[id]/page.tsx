@@ -17,6 +17,12 @@ interface AnalysisPayload {
   rbExtraTurnTokenHolder?: "P1" | "P2" | null;
   rbBannedPatterns?: string[];
   moveHistory: AnalyzerMove[];
+  rounds?: {
+    gameNumber: number;
+    boardMode?: string;
+    boardSize: 5 | 6 | 7;
+    moveHistory: AnalyzerMove[];
+  }[];
   p1Label: string;
   p2Label: string;
   themeId?: ThemeId;
@@ -52,11 +58,16 @@ export default function AnalysisPage() {
   const { themeId: ctxThemeId } = useApp();
   const [payload, setPayload] = useState<AnalysisPayload | null>(null);
   const [hydrated, setHydrated] = useState(false);
+  const [activeRoundIdx, setActiveRoundIdx] = useState(0);
 
   useEffect(() => {
     setPayload(readPayload(id));
     setHydrated(true);
   }, [id]);
+
+  useEffect(() => {
+    setActiveRoundIdx(0);
+  }, [id, payload?.rounds?.length]);
 
   const themeId: ThemeId = (payload?.themeId as ThemeId) || ctxThemeId;
   const t = THEMES[themeId as keyof typeof THEMES];
@@ -65,6 +76,21 @@ export default function AnalysisPage() {
     () => (payload?.moveHistory?.length ?? 0),
     [payload],
   );
+  const analysisRounds = useMemo(
+    () =>
+      (Array.isArray(payload?.rounds) ? payload!.rounds! : [])
+        .filter((r) => (Array.isArray(r.moveHistory) ? r.moveHistory.length : 0) >= 2),
+    [payload],
+  );
+  const selectedRound =
+    analysisRounds.length > 0
+      ? analysisRounds[Math.min(activeRoundIdx, analysisRounds.length - 1)]
+      : null;
+  const selectedBoardSize = selectedRound?.boardSize ?? payload?.boardSize ?? 5;
+  const selectedMoveHistory = selectedRound?.moveHistory ?? payload?.moveHistory ?? [];
+  const selectedRoundLabel = selectedRound
+    ? `Round ${selectedRound.gameNumber}${selectedRound.boardMode ? ` · ${selectedRound.boardMode}` : ""}`
+    : null;
 
   return (
     <AuthGuard>
@@ -128,7 +154,8 @@ export default function AnalysisPage() {
                     letterSpacing: "0.05em",
                   }}
                 >
-                  {payload.boardSize}×{payload.boardSize} · {moveCount} moves ·{" "}
+                  {selectedBoardSize}×{selectedBoardSize} · {(selectedMoveHistory?.length ?? moveCount)} moves
+                  {selectedRoundLabel ? ` · ${selectedRoundLabel}` : ""} ·{" "}
                   {payload.p1Label} vs {payload.p2Label}
                 </div>
               )}
@@ -188,21 +215,73 @@ export default function AnalysisPage() {
           )}
 
           {payload && (
-            <GameAnalyzer
-              boardSize={payload.boardSize}
-              selectedPatterns={payload.selectedPatterns}
-              selectedPatternsP1={payload.selectedPatternsP1}
-              selectedPatternsP2={payload.selectedPatternsP2}
-              openingC3Blocked={Boolean(payload.openingC3Blocked)}
-              suppressCenterOpening={Boolean(payload.suppressCenterOpening)}
-              rbExtraTurnTokenHolder={payload.rbExtraTurnTokenHolder ?? null}
-              rbBannedPatterns={payload.rbBannedPatterns}
-              moveHistory={payload.moveHistory}
-              isGameOver={true}
-              t={t}
-              p1Label={payload.p1Label}
-              p2Label={payload.p2Label}
-            />
+            <>
+              {analysisRounds.length > 1 && (
+                <div
+                  style={{
+                    border: `1px solid ${t.border}`,
+                    background: t.bgPanel,
+                    borderRadius: 10,
+                    padding: 12,
+                    display: "flex",
+                    flexWrap: "wrap",
+                    gap: 8,
+                    alignItems: "center",
+                  }}
+                >
+                  <div
+                    style={{
+                      fontFamily: t.fontMono,
+                      fontSize: 11,
+                      color: t.textMuted,
+                      letterSpacing: "0.12em",
+                      marginRight: 8,
+                    }}
+                  >
+                    SELECT ROUND
+                  </div>
+                  {analysisRounds.map((r, i) => {
+                    const active = i === activeRoundIdx;
+                    return (
+                      <button
+                        key={`${r.gameNumber}-${i}`}
+                        type="button"
+                        onClick={() => setActiveRoundIdx(i)}
+                        style={{
+                          padding: "6px 12px",
+                          borderRadius: 8,
+                          border: `1px solid ${active ? t.accent : t.border}`,
+                          background: active ? `${t.accent}22` : "transparent",
+                          color: active ? t.accent : t.textSecondary,
+                          fontFamily: t.fontMono,
+                          fontSize: 12,
+                          fontWeight: 700,
+                          letterSpacing: "0.06em",
+                          cursor: "pointer",
+                        }}
+                      >
+                        R{r.gameNumber}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+              <GameAnalyzer
+                boardSize={selectedBoardSize as 5 | 6 | 7}
+                selectedPatterns={payload.selectedPatterns}
+                selectedPatternsP1={payload.selectedPatternsP1}
+                selectedPatternsP2={payload.selectedPatternsP2}
+                openingC3Blocked={Boolean(payload.openingC3Blocked)}
+                suppressCenterOpening={Boolean(payload.suppressCenterOpening)}
+                rbExtraTurnTokenHolder={payload.rbExtraTurnTokenHolder ?? null}
+                rbBannedPatterns={payload.rbBannedPatterns}
+                moveHistory={selectedMoveHistory}
+                isGameOver={true}
+                t={t}
+                p1Label={payload.p1Label}
+                p2Label={payload.p2Label}
+              />
+            </>
           )}
         </div>
       </div>

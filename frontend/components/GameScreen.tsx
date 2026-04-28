@@ -3407,12 +3407,13 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     R.current.matchHistory = newHist;
     matchHistoryRef.current = newHist;
     setMatchHistory(newHist);
-    if (isUnrankedBotFiller) {
-      // Snapshot the round so the career-export payload can reproduce
-      // this game's board + move-log. We capture AFTER the winner stone
-      // is committed but BEFORE `doAdvanceAfterReady` wipes the board
-      // for the next game. The snapshot is deep-copied so later mutations
-      // of `board` / `currentGameMovesRef` can't leak backwards.
+    if (!_isMP) {
+      // Snapshot every completed local round (singleplayer + bot-filler)
+      // so post-match analysis can target any specific round without
+      // persisting server-side state. For filler-bot matches this same
+      // snapshot also powers the optional career export payload.
+      // We capture AFTER the winner stone is committed but BEFORE
+      // `doAdvanceAfterReady` wipes the board for the next game.
       const gameIndex = R.current.gameNumber;
       const winnerValue = typeof winner === "string" ? winner : String(winner);
       matchRoundsDetailRef.current = [
@@ -4019,6 +4020,32 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
       .map((m) => ({ row: m.row, col: m.col, player: m.player }));
     const moves = liveMoves.length > 0 ? liveMoves : analyzerMovesSnapshotRef.current;
     const id = ((gameId ?? "").trim()) || `local-${Date.now()}`;
+    const roundsFromSnapshot = matchRoundsDetailRef.current
+      .map((r) => {
+        const n = Array.isArray(r.board) ? r.board.length : 0;
+        const boardSize = n === 7 || n === 6 || n === 5
+          ? n
+          : r.board_mode === "7x7"
+            ? 7
+            : r.board_mode === "6x6"
+              ? 6
+              : 5;
+        const mh = (Array.isArray(r.moves) ? r.moves : [])
+          .filter((m): m is { row: number; col: number; player: "P1" | "P2" } =>
+            typeof m?.row === "number" &&
+            typeof m?.col === "number" &&
+            (m?.player === "P1" || m?.player === "P2"),
+          )
+          .map((m) => ({ row: m.row, col: m.col, player: m.player }));
+        return {
+          gameNumber: r.game_number,
+          boardMode: r.board_mode,
+          boardSize: boardSize as 5 | 6 | 7,
+          moveHistory: mh,
+        };
+      })
+      .filter((r) => r.moveHistory.length >= 2);
+
     const payload = {
       boardSize: GRID_SIZE,
       selectedPatterns: liveSelectedPatterns,
@@ -4029,6 +4056,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
       rbExtraTurnTokenHolder: rbExtraTurnTokenHolder,
       rbBannedPatterns: rbBannedPatterns,
       moveHistory: moves,
+      rounds: roundsFromSnapshot,
       p1Label: p1Name ?? "P1",
       p2Label: p2Label ?? "P2",
       themeId,
