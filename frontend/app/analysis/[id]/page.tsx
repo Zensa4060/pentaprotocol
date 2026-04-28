@@ -10,6 +10,12 @@ import { THEMES, type ThemeId } from "@/lib/themes";
 interface AnalysisPayload {
   boardSize: 5 | 6 | 7;
   selectedPatterns: string[];
+  selectedPatternsP1?: string[];
+  selectedPatternsP2?: string[];
+  openingC3Blocked?: boolean;
+  suppressCenterOpening?: boolean;
+  rbExtraTurnTokenHolder?: "P1" | "P2" | null;
+  rbBannedPatterns?: string[];
   moveHistory: AnalyzerMove[];
   p1Label: string;
   p2Label: string;
@@ -185,6 +191,12 @@ export default function AnalysisPage() {
             <GameAnalyzer
               boardSize={payload.boardSize}
               selectedPatterns={payload.selectedPatterns}
+              selectedPatternsP1={payload.selectedPatternsP1}
+              selectedPatternsP2={payload.selectedPatternsP2}
+              openingC3Blocked={Boolean(payload.openingC3Blocked)}
+              suppressCenterOpening={Boolean(payload.suppressCenterOpening)}
+              rbExtraTurnTokenHolder={payload.rbExtraTurnTokenHolder ?? null}
+              rbBannedPatterns={payload.rbBannedPatterns}
               moveHistory={payload.moveHistory}
               isGameOver={true}
               t={t}

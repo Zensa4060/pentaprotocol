@@ -94,8 +94,20 @@ class _EngineAdapter:
     board_size: int
     selected_patterns: list[str]
 
-    def best_move(self, board: list[list[str | None]], player: str, depth: int = 4) -> list[int] | None:
-        move = _pick_best_move(self.board_size, self.selected_patterns, board, player)
+    def best_move(
+        self,
+        board: list[list[str | None]],
+        player: str,
+        depth: int = 4,
+        c3_blocked: bool = False,
+    ) -> list[int] | None:
+        move = _pick_best_move(
+            self.board_size,
+            self.selected_patterns,
+            board,
+            player,
+            c3_blocked=c3_blocked,
+        )
         if move is None:
             return None
         return [int(move[0]), int(move[1])]
@@ -106,6 +118,7 @@ def _pick_best_move(
     selected_patterns: list[str],
     board: list[list[str | None]],
     player: str,
+    c3_blocked: bool = False,
 ) -> tuple[int, int] | None:
     """
     Mirror bot.py engine-selection branches by board size.
@@ -126,7 +139,7 @@ def _pick_best_move(
                 bot_router._RUST_HARD_ENG = bot_router.RustHardBot7(pats)
                 bot_router._RUST_HARD_PATS = pat_key
             return bot_router._RUST_HARD_ENG.choose(
-                copy.deepcopy(board), bot, human, "hard", moves_played, False
+                copy.deepcopy(board), bot, human, "hard", moves_played, c3_blocked
             )
 
         # Python fallback branch used by bot.py for non-Rust 7x7.
@@ -134,7 +147,7 @@ def _pick_best_move(
             bot_router._ENGINE7_NEW = bot_router._Bot7Engine(pats)
             bot_router._LAST_PATS7_NEW = pat_key
         return bot_router._ENGINE7_NEW.choose(
-            copy.deepcopy(board), bot, human, "hard", moves_played, False
+            copy.deepcopy(board), bot, human, "hard", moves_played, c3_blocked
         )
 
     if board_size == 6:
@@ -193,19 +206,71 @@ def _pick_best_move(
             "shiftable_patterns": pats5,
         },
     )()
-    return bot_router.get_bot_move(engine_stub, "hard", False)
+    return bot_router.get_bot_move(engine_stub, "hard", c3_blocked)
 
 
 def analyze_game(
     board_size: int,
     selected_patterns: list[str],
     move_history: list[dict],
+    selected_patterns_p1: list[str] | None = None,
+    selected_patterns_p2: list[str] | None = None,
+    opening_c3_blocked: bool = False,
+    suppress_center_opening: bool = False,
+    rb_extra_turn_token_holder: str | None = None,
+    rb_banned_patterns: list[str] | None = None,
 ) -> dict:
-    evaluator = PentaEvaluator(board_size, selected_patterns)
-    engine = _EngineAdapter(board_size=board_size, selected_patterns=selected_patterns)
     board: list[list[str | None]] = [[None for _ in range(board_size)] for _ in range(board_size)]
 
     annotations: list[dict] = []
+    evaluators: dict[tuple[str, ...], PentaEvaluator] = {}
+    engines: dict[tuple[str, ...], _EngineAdapter] = {}
+
+    def _normalize_patterns(raw: list[str] | None) -> list[str]:
+        if isinstance(raw, list) and raw:
+            return list(raw)
+        return list(selected_patterns)
+
+    banned = set(rb_banned_patterns or [])
+    if banned:
+        p1_raw = _normalize_patterns(selected_patterns_p1)
+        p2_raw = _normalize_patterns(selected_patterns_p2)
+        p1_eff = [p for p in p1_raw if p not in banned] or p1_raw
+        p2_eff = [p for p in p2_raw if p not in banned] or p2_raw
+    else:
+        p1_eff = _normalize_patterns(selected_patterns_p1)
+        p2_eff = _normalize_patterns(selected_patterns_p2)
+
+    patterns_by_player = {
+        "P1": p1_eff,
+        "P2": p2_eff,
+    }
+
+    token_holder = (
+        rb_extra_turn_token_holder
+        if rb_extra_turn_token_holder in ("P1", "P2")
+        else None
+    )
+    token_trigger_index: int | None = None
+    if token_holder:
+        for j in range(len(move_history) - 1):
+            a = str(move_history[j].get("player", ""))
+            b = str(move_history[j + 1].get("player", ""))
+            if a == token_holder and b == token_holder:
+                token_trigger_index = j
+                break
+
+    def _get_eval_engine(patterns: list[str]) -> tuple[PentaEvaluator, _EngineAdapter]:
+        key = tuple(patterns)
+        ev = evaluators.get(key)
+        if ev is None:
+            ev = PentaEvaluator(board_size, patterns)
+            evaluators[key] = ev
+        eng = engines.get(key)
+        if eng is None:
+            eng = _EngineAdapter(board_size=board_size, selected_patterns=patterns)
+            engines[key] = eng
+        return ev, eng
 
     for i, move in enumerate(move_history):
         player = str(move["player"])
@@ -217,13 +282,27 @@ def analyze_game(
         if not (0 <= row < board_size and 0 <= col < board_size):
             raise ValueError(f"Move {i} out of bounds: ({row}, {col})")
         if board[row][col] is not None:
+            # Tolerate duplicated echoed moves (same coordinate + same stone owner),
+            # which can appear in some realtime replays due to WS/client race.
+            if board[row][col] == player:
+                continue
             raise ValueError(f"Illegal move {i}: cell already occupied at ({row}, {col})")
+
+        move_patterns = patterns_by_player[player]
+        evaluator, engine = _get_eval_engine(move_patterns)
+        c3_blocked_now = (
+            bool(opening_c3_blocked)
+            and board_size != 6
+            and i == 0
+            and board[board_size // 2][board_size // 2] is None
+        )
+        token_window = bool(token_holder and token_trigger_index is not None and i == token_trigger_index and player == token_holder)
 
         # a) score_before
         score_before = evaluator.score(board, player)
 
         # b) engine_best from THIS position
-        engine_best = engine.best_move(board, player, depth=4)
+        engine_best = engine.best_move(board, player, depth=4, c3_blocked=c3_blocked_now)
 
         # c) simulate engine-best move on a deep-copied board to compute
         # engine-relative quality delta without mutating the real board.
@@ -262,6 +341,7 @@ def analyze_game(
                 "score_before": round(score_before, 3),
                 "score_after": round(score_after, 3),
                 "score_delta": round(delta, 3),
+                "token_window": token_window,
             }
         )
 

@@ -4022,6 +4022,12 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     const payload = {
       boardSize: GRID_SIZE,
       selectedPatterns: liveSelectedPatterns,
+      selectedPatternsP1: structuralPatternsP1Ref.current,
+      selectedPatternsP2: structuralPatternsP2Ref.current,
+      openingC3Blocked: Boolean(rbC3Blocked),
+      suppressCenterOpening: Boolean(suppressCenterOpening),
+      rbExtraTurnTokenHolder: rbExtraTurnTokenHolder,
+      rbBannedPatterns: rbBannedPatterns,
       moveHistory: moves,
       p1Label: p1Name ?? "P1",
       p2Label: p2Label ?? "P2",
@@ -4035,7 +4041,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
       // and the page will show the empty-state message.
     }
     router.push(`/analysis/${encodeURIComponent(id)}`);
-  }, [winner, gameId, GRID_SIZE, liveSelectedPatterns, p1Name, p2Label, themeId, router]);
+  }, [winner, gameId, GRID_SIZE, liveSelectedPatterns, p1Name, p2Label, themeId, router, rbC3Blocked, suppressCenterOpening, rbExtraTurnTokenHolder, rbBannedPatterns]);
 
   const dismissOverlay = useCallback(() => {
     if (phase === "waiting_ready" && winner) {

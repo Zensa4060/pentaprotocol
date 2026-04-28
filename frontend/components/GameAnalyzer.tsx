@@ -51,6 +51,12 @@ type ThemeT = (typeof THEMES)[ThemeId];
 export interface GameAnalyzerProps {
   boardSize: 5 | 6 | 7;
   selectedPatterns: string[];
+  selectedPatternsP1?: string[];
+  selectedPatternsP2?: string[];
+  openingC3Blocked?: boolean;
+  suppressCenterOpening?: boolean;
+  rbExtraTurnTokenHolder?: "P1" | "P2" | null;
+  rbBannedPatterns?: string[];
   moveHistory: AnalyzerMove[];
   isGameOver: boolean;
   t: ThemeT;
@@ -286,6 +292,12 @@ function FallbackReplayBoard({
 export default function GameAnalyzer({
   boardSize,
   selectedPatterns,
+  selectedPatternsP1,
+  selectedPatternsP2,
+  openingC3Blocked = false,
+  suppressCenterOpening = false,
+  rbExtraTurnTokenHolder = null,
+  rbBannedPatterns,
   moveHistory,
   isGameOver,
   t,
@@ -326,6 +338,12 @@ export default function GameAnalyzer({
       const payload = {
         board_size: boardSize,
         selected_patterns: safePatterns,
+        selected_patterns_p1: Array.isArray(selectedPatternsP1) && selectedPatternsP1.length > 0 ? selectedPatternsP1 : undefined,
+        selected_patterns_p2: Array.isArray(selectedPatternsP2) && selectedPatternsP2.length > 0 ? selectedPatternsP2 : undefined,
+        opening_c3_blocked: Boolean(openingC3Blocked),
+        suppress_center_opening: Boolean(suppressCenterOpening),
+        rb_extra_turn_token_holder: rbExtraTurnTokenHolder || undefined,
+        rb_banned_patterns: Array.isArray(rbBannedPatterns) && rbBannedPatterns.length > 0 ? rbBannedPatterns : undefined,
         move_history: moveHistory,
       };
       const res = await API.post<AnalyzerResponse>("/api/analyze/game", payload, { timeout: 120000 });
