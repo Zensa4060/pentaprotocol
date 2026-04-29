@@ -164,6 +164,7 @@ export default function AuthScreen({ setScreenAction, themeId, audio }: Props) {
   const t = THEMES[themeId];
   const { setAuth, logout } = useAuthStore();
   const debugSentRef = useRef(0);
+  const apiFallbackBase = (process.env.NEXT_PUBLIC_API_URL ?? "").trim().replace(/\/$/, "");
   const authDebug = (...args: unknown[]) => {
     // Temporary diagnostics for mobile-login failures. Remove after investigation.
     console.log("[AuthScreen]", ...args);
@@ -177,6 +178,34 @@ export default function AuthScreen({ setScreenAction, themeId, audio }: Props) {
       page: typeof window !== "undefined" ? window.location.pathname : "n/a",
       details: details ?? null,
     }, { timeout: 4000 }).catch(() => {});
+  };
+  const shouldRetryWithFallbackBase = (err: any) => {
+    const status = err?.response?.status;
+    const isLikelyRouteMiss = status === 404 || status === 405;
+    const isNetworkish =
+      !err?.response &&
+      (err?.code === "ERR_NETWORK" ||
+        err?.code === "ECONNABORTED" ||
+        /network|fetch|timeout/i.test(String(err?.message ?? "")));
+    return !!apiFallbackBase && (isLikelyRouteMiss || isNetworkish);
+  };
+  const postWithApiFallback = async (url: string, data?: any, config?: any) => {
+    try {
+      return await API.post(url, data, config);
+    } catch (err: any) {
+      if (!shouldRetryWithFallbackBase(err)) throw err;
+      authDebug("api:fallback:post", { url, fallbackBase: apiFallbackBase, code: err?.code, status: err?.response?.status });
+      return await API.post(url, data, { ...(config ?? {}), baseURL: apiFallbackBase });
+    }
+  };
+  const getWithApiFallback = async (url: string, config?: any) => {
+    try {
+      return await API.get(url, config);
+    } catch (err: any) {
+      if (!shouldRetryWithFallbackBase(err)) throw err;
+      authDebug("api:fallback:get", { url, fallbackBase: apiFallbackBase, code: err?.code, status: err?.response?.status });
+      return await API.get(url, { ...(config ?? {}), baseURL: apiFallbackBase });
+    }
   };
 
   const ACCENT  = "#CC0000";
@@ -277,7 +306,7 @@ export default function AuthScreen({ setScreenAction, themeId, audio }: Props) {
     });
 
     try {
-      const profileRes = await API.get("/api/profile/me", { timeout: 10000 });
+      const profileRes = await getWithApiFallback("/api/profile/me", { timeout: 10000 });
       authDebug("finalizeSession:profile verification OK", {
         status: profileRes?.status,
         hasUser: !!profileRes?.data,
@@ -325,7 +354,7 @@ export default function AuthScreen({ setScreenAction, themeId, audio }: Props) {
     setErrors({});
     setSuccessMsg("");
     try {
-      const res = await API.post("/api/auth/google", { credential });
+      const res = await postWithApiFallback("/api/auth/google", { credential });
       authDebug("google:exchange:response", {
         status: res?.status,
         requiresMergeConsent: !!res?.data?.requires_merge_consent,
@@ -352,7 +381,12 @@ export default function AuthScreen({ setScreenAction, themeId, audio }: Props) {
         code: err?.code,
         message: err?.message,
       });
-      setErrors({ general: typeof detail === "string" ? detail : "Google sign-in failed." });
+      setErrors({
+        general:
+          typeof detail === "string"
+            ? detail
+            : "Google sign-in failed. Network or API routing issue detected (check NEXT_PUBLIC_API_URL / rewrite).",
+      });
       triggerShake();
     } finally {
       setGoogleLoading(false);
