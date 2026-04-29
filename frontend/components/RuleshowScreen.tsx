@@ -78,6 +78,12 @@ export default function RuleshowScreen({
         ? selectedPatterns.map(id => allPatterns[id]).filter(Boolean)
         : Object.values(allPatterns))
     : [];
+  const showInactiveVCard = legSheet
+    && Array.isArray(selectedPatterns)
+    && selectedPatterns.length > 0
+    && !selectedPatterns.includes("V")
+    && !!allPatterns["V"];
+  const inactiveVPattern = showInactiveVCard ? allPatterns["V"] : null;
   const referenceList = legSheet ? Object.values(references) : [];
   const ruleBlocks = getRuleshowBlocks(sheet);
 
@@ -281,6 +287,52 @@ export default function RuleshowScreen({
                 </div>
               );
             })}
+
+            {inactiveVPattern && (
+              <div
+                style={{
+                  background: "linear-gradient(165deg, rgba(80,0,0,0.45), rgba(24,0,0,0.65))",
+                  border: "1px solid rgba(255,60,60,0.9)",
+                  borderRadius: ip ? 2 : 16,
+                  padding: 20,
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 10,
+                  boxShadow: "0 0 16px rgba(220,38,38,0.5), inset 0 0 26px rgba(180,0,0,0.25)",
+                }}
+              >
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div
+                    style={{
+                      fontFamily: t.fontDisplay,
+                      fontSize: 16,
+                      fontWeight: 900,
+                      color: "#ff9a9a",
+                      letterSpacing: "0.04em",
+                    }}
+                  >
+                    {inactiveVPattern.label}
+                  </div>
+                  <div style={{
+                    fontFamily: t.fontMono,
+                    fontSize: 9,
+                    fontWeight: 900,
+                    padding: "2px 8px",
+                    borderRadius: 4,
+                    background: "rgba(255,40,40,0.2)",
+                    color: "#ffb4b4",
+                    border: "1px solid rgba(255,80,80,0.65)",
+                    letterSpacing: "0.08em",
+                  }}>
+                    INACTIVE
+                  </div>
+                </div>
+                <div style={{ fontFamily: t.fontBody, fontSize: 12, color: "#ffb7b7", lineHeight: 1.4, minHeight: 34 }}>
+                  This pattern is not active this match.
+                </div>
+                <PatternDiagram info={inactiveVPattern} accent={"#ef4444"} isSelected={false} cellSize={isNarrow ? 10 : 12} />
+              </div>
+            )}
           </div>
         )}
 

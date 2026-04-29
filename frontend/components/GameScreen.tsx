@@ -1971,7 +1971,15 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
           if (!isViewingPostMatchRef.current) {
             setDisconnectCountdown(null);
             setPhase("match_over");
-            setShowDisconnectModal(true);
+            // Countdown expired: opponent did not return in time.
+            // Route the remaining player home immediately (no extra click).
+            markDisconnectHomeNotice();
+            if (setScreenAction) {
+              setScreenAction("home");
+            } else {
+              // Fallback for contexts without screen navigation callback.
+              setShowDisconnectModal(true);
+            }
           }
             } else if (msg.type === "ready_update") {
           if (msg.player === "P1") setP1Ready(msg.ready);
