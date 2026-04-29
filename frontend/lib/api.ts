@@ -11,14 +11,24 @@ export function getApiBaseUrl(): string {
     return "http://localhost:8000";
   }
 
+  // Production browser path: always use same-origin `/api/*` and rely on
+  // Next rewrites/proxy to forward to the backend origin. This keeps auth
+  // cookies first-party on iOS/WebKit where cross-site cookie delivery is
+  // aggressively restricted and caused login -> immediate 401 on /profile/me.
+  if (typeof window !== "undefined") return "";
   if (envUrl) return envUrl;
-  if (typeof window !== "undefined")
-    return ""; // production: same origin (use rewrites/proxy so /api goes to backend)
   return "http://localhost:8000";
 }
 
 /** Convert the API base URL into a WebSocket base URL (http:// → ws://, https:// → wss://). */
 export function getWsBaseUrl(): string {
+  const envUrl = typeof process !== "undefined" ? process.env.NEXT_PUBLIC_API_URL : undefined;
+  // Keep WebSocket on backend origin when configured. WS auth uses short-lived
+  // tickets, so we do not depend on browser cookies at upgrade-time.
+  if (envUrl) {
+    if (envUrl.startsWith("https://")) return envUrl.replace("https://", "wss://");
+    if (envUrl.startsWith("http://")) return envUrl.replace("http://", "ws://");
+  }
   const base = getApiBaseUrl();
   if (base.startsWith("https://")) return base.replace("https://", "wss://");
   if (base.startsWith("http://")) return base.replace("http://", "ws://");
