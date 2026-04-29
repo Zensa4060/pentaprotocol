@@ -59,7 +59,39 @@ const API = axios.create({
 
 API.interceptors.response.use(
   (response) => response,
-  (error) => {
+  async (error) => {
+    const envUrl = typeof process !== "undefined" ? process.env.NEXT_PUBLIC_API_URL : undefined;
+    const cfg = (error?.config ?? {}) as any;
+    const reqUrl: string = String(cfg?.url ?? "");
+    const canRetryToEnv =
+      typeof window !== "undefined" &&
+      !!envUrl &&
+      envUrl.startsWith("http") &&
+      !cfg?._retryToEnvApi &&
+      API.defaults.baseURL === "" &&
+      reqUrl.startsWith("/api/");
+
+    // Production safety net: if same-origin /api rewrites are missing/misconfigured
+    // on a deploy, retry once against NEXT_PUBLIC_API_URL so auth does not hard-fail.
+    if (canRetryToEnv) {
+      const status = error?.response?.status;
+      const isLikelyRouteMiss = status === 404 || status === 405;
+      const isNetworkish =
+        !error?.response &&
+        (error?.code === "ERR_NETWORK" ||
+          error?.code === "ECONNABORTED" ||
+          /network|fetch|timeout/i.test(String(error?.message ?? "")));
+      if (isLikelyRouteMiss || isNetworkish) {
+        cfg._retryToEnvApi = true;
+        cfg.baseURL = envUrl;
+        try {
+          return await API.request(cfg);
+        } catch (retryErr) {
+          return Promise.reject(retryErr);
+        }
+      }
+    }
+
     if (error.response?.status === 401) {
       // The HttpOnly cookie is cleared server-side (/auth/logout) or
       // has simply expired. Clear the readable presence hint plus any
