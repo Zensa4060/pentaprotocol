@@ -11,6 +11,8 @@ import {
   setLegalAccepted,
 } from "@/lib/legalAcceptance";
 
+const COOKIE_CONSENT_KEY = "pp_cookie_consent_v1";
+
 type Props = {
   themeId: ThemeId;
   user: { _id?: string; id?: string; username?: string } | null;
@@ -29,9 +31,21 @@ export default function PolicyAcceptanceGate({
   const [terms, setTerms] = useState(false);
   const [privacy, setPrivacy] = useState(false);
   const [refund, setRefund] = useState(false);
+  const [cookieConsent, setCookieConsent] = useState(false);
   const uid = getUserId(user);
 
-  const allChecked = terms && privacy && refund;
+  React.useEffect(() => {
+    try {
+      const raw = localStorage.getItem(COOKIE_CONSENT_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw) as { accepted?: unknown };
+      if (parsed?.accepted === true) setCookieConsent(true);
+    } catch {
+      // Keep unchecked if localStorage is unavailable.
+    }
+  }, []);
+
+  const allChecked = terms && privacy && refund && cookieConsent;
   const openDoc = (path: string) => {
     const a = document.createElement("a");
     a.href = path;
@@ -44,18 +58,25 @@ export default function PolicyAcceptanceGate({
     setTerms(true);
     setPrivacy(true);
     setRefund(true);
+    setCookieConsent(true);
   };
 
   const rejectAll = () => {
     setTerms(false);
     setPrivacy(false);
     setRefund(false);
+    setCookieConsent(false);
   };
 
   const accept = () => {
     if (!allChecked || !uid) return;
     // Server-side consent record (fire-and-forget — non-blocking)
     API.post("/api/auth/accept-legal", { version: LEGAL_VERSION }).catch(() => {});
+    try {
+      localStorage.setItem(COOKIE_CONSENT_KEY, JSON.stringify({ accepted: true, at: Date.now() }));
+    } catch {
+      // Non-fatal; consent remains reflected in current UI state.
+    }
     setLegalAccepted(uid);
     clearPolicyGatePending();
     onAcceptedAction();
@@ -244,6 +265,30 @@ export default function PolicyAcceptanceGate({
               style={{ color: t.accent, textDecoration: "underline", cursor: "pointer" }}
             >
               Refund &amp; Cancellation Policy
+            </span>
+            .
+          </>
+        ))}
+        {row(cookieConsent, setCookieConsent, (
+          <>
+            I accept required cookies/storage for authentication and gameplay as described in the{" "}
+            <span
+              role="link"
+              tabIndex={0}
+              onClick={e => {
+                e.stopPropagation();
+                openDoc("/cookies");
+              }}
+              onKeyDown={e => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  openDoc("/cookies");
+                }
+              }}
+              style={{ color: t.accent, textDecoration: "underline", cursor: "pointer" }}
+            >
+              Cookie Policy
             </span>
             .
           </>
