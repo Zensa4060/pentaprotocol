@@ -4605,6 +4605,32 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                 rt = _room_runtime.get(room_code)
                 if rt is None:
                     return
+                # Rulebreaker-flow disconnects should NOT run reconnect countdown.
+                # If a player quits/disconnects during these phases, immediately
+                # award the other player as winner.
+                rb_instant_forfeit_phases = {
+                    "rb_splash",
+                    "rb_coin",
+                    "rule_choice",
+                    "who_first_winner",
+                    "c3_choice",
+                    "c3_choice_loser",
+                    "who_first_loser",
+                    "ban_pattern_winner",
+                    "ban_pattern_loser",
+                    "grid_block_warning",
+                    "grid_block_selection",
+                    "grid_block_waiting",
+                    "toss_summary",
+                    "rb_initializing",
+                }
+                if phase_now in rb_instant_forfeit_phases:
+                    pending = rt.get("pending_disconnect")
+                    if isinstance(pending, dict):
+                        pending.pop(player_slot, None)
+                    _cancel_disconnect_confirm(room_code, player_slot)
+                    await _resolve_disconnect_forfeit(db, room_code, player_slot)
+                    return
                 pending = rt.get("pending_disconnect")
                 if not isinstance(pending, dict):
                     pending = {}
