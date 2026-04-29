@@ -70,7 +70,8 @@ import {
 
 const EPS = 1e-9;
 const PP_HOME_NOTICE_KEY = "pp_home_notice";
-const DISCONNECT_HOME_NOTICE = "last match ended due to connection issues or going afk";
+const DISCONNECT_HOME_NOTICE =
+  "your opponent disconnected or left the game. repeated disconnecting/quitting is a bannable offense.";
 
 function lobbyQuoteFromSeriesWinner(seriesWinner: string | null | undefined, mySlot: "P1" | "P2"): LobbyQuoteResult {
   if (!seriesWinner || seriesWinner === "DRAW") return null;
@@ -1451,6 +1452,23 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     if (typeof window === "undefined") return;
     sessionStorage.setItem(PP_HOME_NOTICE_KEY, DISCONNECT_HOME_NOTICE);
   };
+  const goHomeAfterDisconnect = () => {
+    markDisconnectHomeNotice();
+    if (setHomeNoticeAction) {
+      setHomeNoticeAction(DISCONNECT_HOME_NOTICE);
+    }
+    if (setScreenAction) {
+      setScreenAction("home");
+      return;
+    }
+    try {
+      router.replace("/home");
+    } catch {
+      if (typeof window !== "undefined") {
+        window.location.assign("/home");
+      }
+    }
+  };
 
   const R = useRef({
     phase: "playing" as Phase, current: "P1", winner: null as string | null,
@@ -1973,13 +1991,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
             setPhase("match_over");
             // Countdown expired: opponent did not return in time.
             // Route the remaining player home immediately (no extra click).
-            markDisconnectHomeNotice();
-            if (setScreenAction) {
-              setScreenAction("home");
-            } else {
-              // Fallback for contexts without screen navigation callback.
-              setShowDisconnectModal(true);
-            }
+            goHomeAfterDisconnect();
           }
             } else if (msg.type === "ready_update") {
           if (msg.player === "P1") setP1Ready(msg.ready);
@@ -2422,8 +2434,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
             window.dispatchEvent(new Event("pp:career-refresh"));
           }
           if (!isViewingPostMatchRef.current) {
-            markDisconnectHomeNotice();
-            if (setScreenAction) setScreenAction("home");
+            goHomeAfterDisconnect();
           }
         } else if (msg.type === "match_start") {
           const sa = asNum(msg.start_at_ms);
