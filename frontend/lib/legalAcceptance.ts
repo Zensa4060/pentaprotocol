@@ -42,10 +42,19 @@ export function hasAcceptedLegal(
 export function setLegalAccepted(userId: string): void {
   if (!userId || typeof window === "undefined") return;
   const payload: LegalAcceptRecord = { userId, v: LEGAL_VERSION, at: Date.now() };
-  localStorage.setItem(LEGAL_ACCEPT_KEY, JSON.stringify(payload));
+  try {
+    localStorage.setItem(LEGAL_ACCEPT_KEY, JSON.stringify(payload));
+  } catch {
+    // Mobile browsers/in-app webviews can block Web Storage.
+    // This cache is best-effort only; server state remains the source of truth.
+  }
 }
 
 export function clearPolicyGatePending(): void {
   if (typeof window === "undefined") return;
-  sessionStorage.removeItem(POLICY_GATE_SESSION_KEY);
+  try {
+    sessionStorage.removeItem(POLICY_GATE_SESSION_KEY);
+  } catch {
+    // Non-fatal: failure to clear this hint should not block policy-gate exit.
+  }
 }
