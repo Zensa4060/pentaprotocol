@@ -952,6 +952,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     deadlineMs: number;
     remainingSeconds: number;
   } | null>(null);
+  const disconnectRedirectedRef = useRef(false);
   const [showMatchAbortedNoPlay, setShowMatchAbortedNoPlay] = useState(false);
   const [matchAbortedBySlot, setMatchAbortedBySlot] = useState<"P1" | "P2" | null>(null);
   const [matchAbortReason, setMatchAbortReason] = useState<string | null>(null);
@@ -1283,6 +1284,24 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     return () => clearInterval(id);
   }, [disconnectCountdown?.deadlineMs]);
 
+  // Safety net: if the server-side confirm event is delayed/missed, do not
+  // leave players stranded on rule-choice / breaker overlays at "0s".
+  useEffect(() => {
+    if (!disconnectCountdown) return;
+    if (disconnectCountdown.remainingSeconds > 0) return;
+    if (disconnectRedirectedRef.current) return;
+    disconnectRedirectedRef.current = true;
+    setDisconnectCountdown(null);
+    setPhase("match_over");
+    showDisconnectForfeitResult();
+  }, [disconnectCountdown?.remainingSeconds, showDisconnectForfeitResult]);
+
+  useEffect(() => {
+    if (!disconnectCountdown) {
+      disconnectRedirectedRef.current = false;
+    }
+  }, [disconnectCountdown]);
+
   const [winnerPickedRule, setWinnerPickedRule] = useState<string | null>(null);
   const [winnerPickedFirst, setWinnerPickedFirst] = useState<string | null>(null);
   const [winnerPickedC3, setWinnerPickedC3] = useState<boolean | null>(null);
@@ -1319,6 +1338,46 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   const [choiceTimer, setChoiceTimer] = useState(0);
   const [overlayVisible, setOverlayVisible] = useState(false);
   const [botPickedSide, setBotPickedSide] = useState<"left" | "right" | null>(null);
+
+  // Back-navigation guard: during volatile toss/rulebreaker/disconnect states,
+  // browser back can land on stale route snapshots ("random screens").
+  // Keep the user on the current match route and use in-app controls instead.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!isMultiplayerGame) return;
+    const volatilePhase =
+      phase === "rb_splash" ||
+      phase === "rb_coin" ||
+      phase === "rule_choice" ||
+      phase === "who_first_winner" ||
+      phase === "c3_choice" ||
+      phase === "c3_choice_loser" ||
+      phase === "who_first_loser" ||
+      phase === "ban_pattern_winner" ||
+      phase === "ban_pattern_loser" ||
+      phase === "grid_block_warning" ||
+      phase === "grid_block_selection" ||
+      phase === "grid_block_waiting" ||
+      phase === "toss_summary" ||
+      phase === "rb_initializing";
+    if (!volatilePhase && !disconnectCountdown) return;
+    const marker = { pp_match_back_guard: 1 };
+    try {
+      window.history.pushState(marker, "", window.location.href);
+    } catch {
+      /* noop */
+    }
+    const onPopState = () => {
+      try {
+        window.history.pushState(marker, "", window.location.href);
+      } catch {
+        /* noop */
+      }
+      setShowSurrender(true);
+    };
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, [isMultiplayerGame, phase, disconnectCountdown]);
 
   const [isBoardPaused, setIsBoardPaused] = useState(false);
   const winClickLockRef = useRef(false);
@@ -1469,6 +1528,59 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
       }
     }
   };
+  function showDisconnectForfeitResult() {
+    if (isViewingPostMatchRef.current) return;
+    const u = (user as Record<string, unknown> | null) ?? {};
+    const myName = String(u.username ?? p1Name ?? "YOU");
+    const oppName = String(opponentName ?? (mySlot === "P1" ? "P2" : "P1"));
+    const myElo = Number(u.elo ?? (mySlot === "P1" ? p1Elo : p2Elo) ?? 0) || 0;
+    const oppElo = Number((mySlot === "P1" ? p2Elo : p1Elo) ?? 0) || 0;
+    const myRr = Number(u.ranked_rating ?? 0) || 0;
+    const myLevel = Math.max(1, Number(u.level ?? 1) || 1);
+    const myXp = Math.max(0, Number(u.xp ?? 0) || 0);
+    const winnerSlot: "P1" | "P2" = mySlot === "P2" ? "P2" : "P1";
+    const p1IsMe = winnerSlot === "P1";
+    const payload: MatchSeriesCompletePayload = {
+      series_winner: winnerSlot,
+      format: isRankedGame ? "ranked" : "unranked",
+      careerEntryId: null,
+      p1: {
+        name: p1IsMe ? myName : oppName,
+        elo_before: p1IsMe ? myElo : oppElo,
+        elo_after: p1IsMe ? myElo : oppElo,
+        rr_before: p1IsMe ? myRr : 0,
+        rr_after: p1IsMe ? myRr : 0,
+        level_before: p1IsMe ? myLevel : 1,
+        level_after: p1IsMe ? myLevel : 1,
+        xp_before: p1IsMe ? myXp : 0,
+        xp_after: p1IsMe ? myXp : 0,
+        was_placement: p1IsPlacement,
+      },
+      p2: {
+        name: p1IsMe ? oppName : myName,
+        elo_before: p1IsMe ? oppElo : myElo,
+        elo_after: p1IsMe ? oppElo : myElo,
+        rr_before: p1IsMe ? 0 : myRr,
+        rr_after: p1IsMe ? 0 : myRr,
+        level_before: p1IsMe ? 1 : myLevel,
+        level_after: p1IsMe ? 1 : myLevel,
+        xp_before: p1IsMe ? 0 : myXp,
+        xp_after: p1IsMe ? 0 : myXp,
+        was_placement: p2IsPlacement,
+      },
+    };
+    setHomeNoticeAction?.("Opponent disconnected — win awarded.");
+    isViewingPostMatchRef.current = true;
+    unstable_batchedUpdates(() => {
+      setDisconnectCountdown(null);
+      setShowDisconnectModal(false);
+      setPhase("match_over");
+      setMatchSeriesComplete(payload);
+      setShowGameWinScreen(false);
+      setShowRankUpScreen(false);
+      setShowSeriesMatchResult(true);
+    });
+  }
 
   const R = useRef({
     phase: "playing" as Phase, current: "P1", winner: null as string | null,
@@ -1991,7 +2103,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
             setPhase("match_over");
             // Countdown expired: opponent did not return in time.
             // Route the remaining player home immediately (no extra click).
-            goHomeAfterDisconnect();
+            showDisconnectForfeitResult();
           }
             } else if (msg.type === "ready_update") {
           if (msg.player === "P1") setP1Ready(msg.ready);
