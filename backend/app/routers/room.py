@@ -4538,7 +4538,39 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
             # Check if we should disband instantly (Queue / Start of game)
             db = get_db()
             room = await db.rooms.find_one({"room_code": room_code})
-            is_start = room and (room.get("status") == "waiting" or room.get("moves_played", 0) == 0)
+            phase_now = str(room.get("phase") or "") if room else ""
+            # Rulebreaker / Mindbreaker / Timebreaker / Limitbreaker staging screens
+            # happen before the first placement of a leg (`moves_played == 0`), but
+            # we still want reconnect countdown semantics there instead of an instant
+            # "no-play abort" so the opponent can rejoin mid-choice.
+            reconnect_sensitive_preplay_phases = {
+                "rb_splash",
+                "rb_coin",
+                "rule_choice",
+                "who_first_winner",
+                "c3_choice",
+                "c3_choice_loser",
+                "who_first_loser",
+                "ban_pattern_winner",
+                "ban_pattern_loser",
+                "grid_block_warning",
+                "grid_block_selection",
+                "grid_block_waiting",
+                "toss_summary",
+                "rb_initializing",
+                "lb_coin",
+                "lb_choice",
+                "lb_ban_first",
+                "lb_ban_second",
+                "lb_choose_first",
+            }
+            is_start = room and (
+                room.get("status") == "waiting"
+                or (
+                    room.get("moves_played", 0) == 0
+                    and phase_now not in reconnect_sensitive_preplay_phases
+                )
+            )
             
             if is_start:
                 # Instant disband for queue/start disconnects

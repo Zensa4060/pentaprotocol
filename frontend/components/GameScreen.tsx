@@ -5111,6 +5111,29 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
             playHoverAction={playHoverAction}
           />
         )}
+
+        <DisconnectModal
+          show={showDisconnectModal}
+          t={sidebarT}
+          ip={ip}
+          onGoHomeAction={() => {
+            markDisconnectHomeNotice();
+            if (setScreenAction) setScreenAction("home");
+          }}
+        />
+        <MatchAbortedNoPlayModal
+          show={showMatchAbortedNoPlay}
+          t={sidebarT}
+          ip={ip}
+          isSelfAbort={matchAbortedBySlot !== null && matchAbortedBySlot === (mySlot ?? "P1")}
+          detailReason={matchAbortReason}
+          onGoHomeAction={() => {
+            setShowMatchAbortedNoPlay(false);
+            setMatchAbortedBySlot(null);
+            setMatchAbortReason(null);
+            if (setScreenAction) setScreenAction("home");
+          }}
+        />
       </div>
     );
   }

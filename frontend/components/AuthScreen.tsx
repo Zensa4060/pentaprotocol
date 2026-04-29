@@ -162,7 +162,7 @@ function GoogleIcon() {
 
 export default function AuthScreen({ setScreenAction, themeId, audio }: Props) {
   const t = THEMES[themeId];
-  const { setAuth } = useAuthStore();
+  const { setAuth, logout } = useAuthStore();
 
   const ACCENT  = "#CC0000";
   const ACCENT2 = "#ffffff";
@@ -233,6 +233,41 @@ export default function AuthScreen({ setScreenAction, themeId, audio }: Props) {
     setTimeout(() => setShake(false), 420);
   }, []);
 
+  const finalizeSession = useCallback(async (
+    userPayload: any,
+    accessToken: string,
+    requiresPolicyGate: boolean,
+  ) => {
+    const uid = getUserId(userPayload);
+    if (requiresPolicyGate && uid) {
+      try {
+        sessionStorage.setItem(POLICY_GATE_SESSION_KEY, uid);
+      } catch {
+        // Storage can fail on some mobile/privacy contexts.
+      }
+    }
+
+    setAuth(userPayload, accessToken, staySignedIn);
+
+    try {
+      await API.get("/api/profile/me", { timeout: 10000 });
+    } catch (err: any) {
+      const status = err?.response?.status;
+      if (status === 401 || status === 403) {
+        logout();
+        setErrors({
+          general:
+            "Sign-in succeeded, but this browser blocked the session cookie. Please open in Safari/Chrome (not an in-app browser) and try again.",
+        });
+        triggerShake();
+        return false;
+      }
+    }
+
+    setScreenAction(requiresPolicyGate ? "policy_gate" : "home");
+    return true;
+  }, [logout, setAuth, setScreenAction, staySignedIn, triggerShake]);
+
   // ── GOOGLE AUTH ───────────────────────────────────────
   /**
    * Shared post-exchange handler. Given either an OAuth access token (popup
@@ -254,13 +289,9 @@ export default function AuthScreen({ setScreenAction, themeId, audio }: Props) {
       }
 
       if (res.data.requires_policy_gate) {
-        const uid = getUserId(res.data.user);
-        if (uid) sessionStorage.setItem(POLICY_GATE_SESSION_KEY, uid);
-        setAuth(res.data.user, res.data.access_token, staySignedIn);
-        setScreenAction("policy_gate");
+        await finalizeSession(res.data.user, res.data.access_token, true);
       } else {
-        setAuth(res.data.user, res.data.access_token, staySignedIn);
-        setScreenAction("home");
+        await finalizeSession(res.data.user, res.data.access_token, false);
       }
     } catch (err: any) {
       const detail = err.response?.data?.detail;
@@ -465,8 +496,7 @@ export default function AuthScreen({ setScreenAction, themeId, audio }: Props) {
       if (res.data.requires_2fa) { setTempToken(res.data.temp_token); setTab("2fa_check"); return; }
       // F-03: backend has already set pp_token + pp_device_token
       // HttpOnly cookies on the response. Nothing to persist locally.
-      setAuth(res.data.user, res.data.access_token, staySignedIn);
-      setScreenAction("home");
+      await finalizeSession(res.data.user, res.data.access_token, false);
     } catch (err: any) {
       const detail = err.response?.data?.detail;
       setErrors({ general: typeof detail === "string" ? detail : "Invalid credentials or server error" });
@@ -481,10 +511,7 @@ export default function AuthScreen({ setScreenAction, themeId, audio }: Props) {
       await API.post("/api/otp/signup/verify", { email, otp: signupOtp.trim() });
       const res = await API.post("/api/auth/register", { username, email, password });
       const newUser = res.data.user;
-      const uid = getUserId(newUser);
-      if (uid) sessionStorage.setItem(POLICY_GATE_SESSION_KEY, uid);
-      setAuth(newUser, res.data.access_token, staySignedIn);
-      setScreenAction("policy_gate");
+      await finalizeSession(newUser, res.data.access_token, true);
     } catch (err: any) {
       const detail = err.response?.data?.detail;
       setErrors({ signupOtp: typeof detail === "string" ? detail : "Invalid or expired code" });
@@ -533,8 +560,7 @@ export default function AuthScreen({ setScreenAction, themeId, audio }: Props) {
       // F-03: device_token is returned in the body for legacy clients
       // but the server has already set it as an HttpOnly cookie, so
       // we deliberately do NOT write it to localStorage.
-      setAuth(res.data.user, res.data.access_token, staySignedIn);
-      setScreenAction("home");
+      await finalizeSession(res.data.user, res.data.access_token, false);
     } catch (err: any) {
       const detail = err.response?.data?.detail;
       setErrors({ totpCode: typeof detail === "string" ? detail : "Invalid code" });
@@ -550,13 +576,9 @@ export default function AuthScreen({ setScreenAction, themeId, audio }: Props) {
         confirm_merge: true
       });
       if (res.data.requires_policy_gate) {
-        const uid = getUserId(res.data.user);
-        if (uid) sessionStorage.setItem(POLICY_GATE_SESSION_KEY, uid);
-        setAuth(res.data.user, res.data.access_token, staySignedIn);
-        setScreenAction("policy_gate");
+        await finalizeSession(res.data.user, res.data.access_token, true);
       } else {
-        setAuth(res.data.user, res.data.access_token, staySignedIn);
-        setScreenAction("home");
+        await finalizeSession(res.data.user, res.data.access_token, false);
       }
     } catch (err: any) {
       const detail = err.response?.data?.detail;
