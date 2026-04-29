@@ -163,6 +163,10 @@ function GoogleIcon() {
 export default function AuthScreen({ setScreenAction, themeId, audio }: Props) {
   const t = THEMES[themeId];
   const { setAuth, logout } = useAuthStore();
+  const authDebug = (...args: unknown[]) => {
+    // Temporary diagnostics for mobile-login failures. Remove after investigation.
+    console.log("[AuthScreen]", ...args);
+  };
 
   const ACCENT  = "#CC0000";
   const ACCENT2 = "#ffffff";
@@ -238,21 +242,45 @@ export default function AuthScreen({ setScreenAction, themeId, audio }: Props) {
     accessToken: string,
     requiresPolicyGate: boolean,
   ) => {
+    authDebug("finalizeSession:start", {
+      requiresPolicyGate,
+      hasUserId: !!getUserId(userPayload),
+      hasAccessToken: typeof accessToken === "string" && accessToken.length > 0,
+      userAgent: typeof navigator !== "undefined" ? navigator.userAgent : "n/a",
+    });
     const uid = getUserId(userPayload);
     if (requiresPolicyGate && uid) {
       try {
         sessionStorage.setItem(POLICY_GATE_SESSION_KEY, uid);
+        authDebug("finalizeSession:sessionStorage policy gate set", { uid });
       } catch {
         // Storage can fail on some mobile/privacy contexts.
+        authDebug("finalizeSession:sessionStorage policy gate FAILED");
       }
     }
 
     setAuth(userPayload, accessToken, staySignedIn);
+    authDebug("finalizeSession:setAuth called", {
+      ppAuthCookiePresent:
+        typeof document !== "undefined" ? document.cookie.includes("pp_auth=") : false,
+    });
 
     try {
-      await API.get("/api/profile/me", { timeout: 10000 });
+      const profileRes = await API.get("/api/profile/me", { timeout: 10000 });
+      authDebug("finalizeSession:profile verification OK", {
+        status: profileRes?.status,
+        hasUser: !!profileRes?.data,
+      });
     } catch (err: any) {
       const status = err?.response?.status;
+      authDebug("finalizeSession:profile verification FAILED", {
+        status,
+        detail: err?.response?.data?.detail,
+        code: err?.code,
+        message: err?.message,
+        ppAuthCookiePresent:
+          typeof document !== "undefined" ? document.cookie.includes("pp_auth=") : false,
+      });
       if (status === 401 || status === 403) {
         logout();
         setErrors({
@@ -264,6 +292,9 @@ export default function AuthScreen({ setScreenAction, themeId, audio }: Props) {
       }
     }
 
+    authDebug("finalizeSession:navigating", {
+      destination: requiresPolicyGate ? "policy_gate" : "home",
+    });
     setScreenAction(requiresPolicyGate ? "policy_gate" : "home");
     return true;
   }, [logout, setAuth, setScreenAction, staySignedIn, triggerShake]);
@@ -276,15 +307,24 @@ export default function AuthScreen({ setScreenAction, themeId, audio }: Props) {
    * accepts both shapes under `credential` (see `auth.py::google_auth`).
    */
   const exchangeGoogleCredential = useCallback(async (credential: string) => {
+    authDebug("google:exchange:start", {
+      credentialLength: typeof credential === "string" ? credential.length : 0,
+    });
     setGoogleLoading(true);
     setErrors({});
     setSuccessMsg("");
     try {
       const res = await API.post("/api/auth/google", { credential });
+      authDebug("google:exchange:response", {
+        status: res?.status,
+        requiresMergeConsent: !!res?.data?.requires_merge_consent,
+        requiresPolicyGate: !!res?.data?.requires_policy_gate,
+      });
 
       if (res.data.requires_merge_consent) {
         setPendingGoogleCred(credential);
         setTab("merge_consent");
+        authDebug("google:exchange:requires merge consent");
         return;
       }
 
@@ -295,6 +335,12 @@ export default function AuthScreen({ setScreenAction, themeId, audio }: Props) {
       }
     } catch (err: any) {
       const detail = err.response?.data?.detail;
+      authDebug("google:exchange:FAILED", {
+        status: err?.response?.status,
+        detail,
+        code: err?.code,
+        message: err?.message,
+      });
       setErrors({ general: typeof detail === "string" ? detail : "Google sign-in failed." });
       triggerShake();
     } finally {
@@ -303,6 +349,13 @@ export default function AuthScreen({ setScreenAction, themeId, audio }: Props) {
   }, [setAuth, setScreenAction, staySignedIn, triggerShake]);
 
   const triggerGoogleSignIn = useCallback(() => {
+    authDebug("google:trigger", {
+      googleReady,
+      googleLoading,
+      isIosSafari,
+      isInAppBrowser,
+      hasClientId: !!GOOGLE_CLIENT_ID,
+    });
     if (!GOOGLE_CLIENT_ID || googleLoading) return;
 
     // In-app browsers (Instagram, Facebook, X, TikTok, etc.) are blocked by
@@ -476,6 +529,7 @@ export default function AuthScreen({ setScreenAction, themeId, audio }: Props) {
   };
 
   const submit = async () => {
+    authDebug("submit:start", { tab, usernameLength: username.length, hasPassword: password.length > 0 });
     const e = validate();
     if (Object.keys(e).length > 0) { setErrors(e); triggerShake(); return; }
     setErrors({}); setSuccessMsg(""); setLoading(true);
@@ -493,12 +547,22 @@ export default function AuthScreen({ setScreenAction, themeId, audio }: Props) {
       const res = await API.post("/api/auth/login", {
         username, password,
       });
+      authDebug("submit:login response", {
+        status: res?.status,
+        requires2fa: !!res?.data?.requires_2fa,
+      });
       if (res.data.requires_2fa) { setTempToken(res.data.temp_token); setTab("2fa_check"); return; }
       // F-03: backend has already set pp_token + pp_device_token
       // HttpOnly cookies on the response. Nothing to persist locally.
       await finalizeSession(res.data.user, res.data.access_token, false);
     } catch (err: any) {
       const detail = err.response?.data?.detail;
+      authDebug("submit:FAILED", {
+        status: err?.response?.status,
+        detail,
+        code: err?.code,
+        message: err?.message,
+      });
       setErrors({ general: typeof detail === "string" ? detail : "Invalid credentials or server error" });
       triggerShake();
     } finally { setLoading(false); }
