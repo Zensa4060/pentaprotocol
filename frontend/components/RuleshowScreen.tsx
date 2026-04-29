@@ -78,12 +78,11 @@ export default function RuleshowScreen({
         ? selectedPatterns.map(id => allPatterns[id]).filter(Boolean)
         : Object.values(allPatterns))
     : [];
-  const showInactiveVCard = legSheet
+  const inactivePatternList = legSheet
     && Array.isArray(selectedPatterns)
     && selectedPatterns.length > 0
-    && !selectedPatterns.includes("V")
-    && !!allPatterns["V"];
-  const inactiveVPattern = showInactiveVCard ? allPatterns["V"] : null;
+    ? Object.values(allPatterns).filter((p) => !selectedPatterns.includes(p.id))
+    : [];
   const referenceList = legSheet ? Object.values(references) : [];
   const ruleBlocks = getRuleshowBlocks(sheet);
 
@@ -288,17 +287,18 @@ export default function RuleshowScreen({
               );
             })}
 
-            {inactiveVPattern && (
+            {inactivePatternList.map((p) => (
               <div
+                key={`inactive-${p.id}`}
                 style={{
-                  background: "linear-gradient(165deg, rgba(80,0,0,0.45), rgba(24,0,0,0.65))",
-                  border: "1px solid rgba(255,60,60,0.9)",
+                  background: "linear-gradient(165deg, rgba(96,0,0,0.5), rgba(28,0,0,0.75))",
+                  border: "1px solid rgba(255,70,70,0.92)",
                   borderRadius: ip ? 2 : 16,
                   padding: 20,
                   display: "flex",
                   flexDirection: "column",
                   gap: 10,
-                  boxShadow: "0 0 16px rgba(220,38,38,0.5), inset 0 0 26px rgba(180,0,0,0.25)",
+                  boxShadow: "0 0 18px rgba(220,38,38,0.55), 0 0 34px rgba(127,29,29,0.35), inset 0 0 22px rgba(185,28,28,0.25)",
                 }}
               >
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -307,11 +307,11 @@ export default function RuleshowScreen({
                       fontFamily: t.fontDisplay,
                       fontSize: 16,
                       fontWeight: 900,
-                      color: "#ff9a9a",
+                      color: "#ffb0b0",
                       letterSpacing: "0.04em",
                     }}
                   >
-                    {inactiveVPattern.label}
+                    {p.label}
                   </div>
                   <div style={{
                     fontFamily: t.fontMono,
@@ -319,20 +319,20 @@ export default function RuleshowScreen({
                     fontWeight: 900,
                     padding: "2px 8px",
                     borderRadius: 4,
-                    background: "rgba(255,40,40,0.2)",
-                    color: "#ffb4b4",
-                    border: "1px solid rgba(255,80,80,0.65)",
+                    background: "rgba(255,40,40,0.22)",
+                    color: "#ffd2d2",
+                    border: "1px solid rgba(255,100,100,0.72)",
                     letterSpacing: "0.08em",
                   }}>
                     INACTIVE
                   </div>
                 </div>
-                <div style={{ fontFamily: t.fontBody, fontSize: 12, color: "#ffb7b7", lineHeight: 1.4, minHeight: 34 }}>
-                  This pattern is not active this match.
+                <div style={{ fontFamily: t.fontBody, fontSize: 12, color: "#ffc0c0", lineHeight: 1.4, minHeight: 34 }}>
+                  This pattern is inactive this match.
                 </div>
-                <PatternDiagram info={inactiveVPattern} accent={"#ef4444"} isSelected={false} cellSize={isNarrow ? 10 : 12} />
+                <PatternDiagram info={p} accent={"#ef4444"} isSelected={false} cellSize={isNarrow ? 10 : 12} />
               </div>
-            )}
+            ))}
           </div>
         )}
 

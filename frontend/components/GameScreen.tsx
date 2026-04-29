@@ -5676,6 +5676,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
           const allMeta = GRID_SIZE === 7 ? PATTERN_METADATA_7 : GRID_SIZE === 6 ? PATTERN_METADATA_6 : PATTERN_METADATA_5;
           const coreRules = GRID_SIZE === 7 ? CORE_RULES_METADATA_7 : GRID_SIZE === 6 ? CORE_RULES_METADATA_6 : CORE_RULES_METADATA_5;
           const activePatterns = liveSelectedPatterns.map(id => allMeta[id]).filter(Boolean);
+          const inactivePatterns = Object.values(allMeta).filter((p) => !liveSelectedPatterns.includes(p.id));
           const coreList = Object.values(coreRules);
           return (
             <div
@@ -5732,6 +5733,34 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
                         {p.desc}
                       </div>
                       <PatternDiagram info={p} accent={t.accent} isSelected={true} cellSize={GRID_SIZE === 7 ? 10 : GRID_SIZE === 6 ? 11 : 12} />
+                    </div>
+                  ))}
+                  {inactivePatterns.map((p) => (
+                    <div
+                      key={`inactive-mobile-${p.id}`}
+                      style={{
+                        background: "linear-gradient(165deg, rgba(96,0,0,0.5), rgba(28,0,0,0.75))",
+                        border: "1px solid rgba(255,70,70,0.92)",
+                        borderRadius: ip ? 2 : 14,
+                        padding: "16px 14px",
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: 8,
+                        boxShadow: "0 0 14px rgba(220,38,38,0.55), 0 0 26px rgba(127,29,29,0.35), inset 0 0 18px rgba(185,28,28,0.25)",
+                      }}
+                    >
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <div style={{ fontFamily: t.fontDisplay, fontSize: 13, fontWeight: 800, color: "#ffb0b0", letterSpacing: "0.04em" }}>
+                          {p.label}
+                        </div>
+                        <div style={{ fontFamily: t.fontMono, fontSize: 9, fontWeight: 900, padding: "2px 6px", borderRadius: 4, background: "rgba(255,40,40,0.22)", color: "#ffd2d2", border: "1px solid rgba(255,100,100,0.72)", letterSpacing: "0.08em" }}>
+                          INACTIVE
+                        </div>
+                      </div>
+                      <div style={{ fontFamily: t.fontBody, fontSize: 11, color: "#ffc0c0", lineHeight: 1.4 }}>
+                        This pattern is inactive this match.
+                      </div>
+                      <PatternDiagram info={p} accent={"#ef4444"} isSelected={false} cellSize={GRID_SIZE === 7 ? 10 : GRID_SIZE === 6 ? 11 : 12} />
                     </div>
                   ))}
                 </div>
@@ -6124,6 +6153,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
         const allMeta = GRID_SIZE === 7 ? PATTERN_METADATA_7 : GRID_SIZE === 6 ? PATTERN_METADATA_6 : PATTERN_METADATA_5;
         const coreRules = GRID_SIZE === 7 ? CORE_RULES_METADATA_7 : GRID_SIZE === 6 ? CORE_RULES_METADATA_6 : CORE_RULES_METADATA_5;
         const activePatterns = liveSelectedPatterns.map(id => allMeta[id]).filter(Boolean);
+        const inactivePatterns = Object.values(allMeta).filter((p) => !liveSelectedPatterns.includes(p.id));
         const coreList = Object.values(coreRules);
         return (
           <div
@@ -6180,6 +6210,34 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
                       {p.desc}
                     </div>
                     <PatternDiagram info={p} accent={t.accent} isSelected={true} cellSize={GRID_SIZE === 7 ? 10 : GRID_SIZE === 6 ? 11 : 12} />
+                  </div>
+                ))}
+                {inactivePatterns.map((p) => (
+                  <div
+                    key={`inactive-desktop-${p.id}`}
+                    style={{
+                      background: "linear-gradient(165deg, rgba(96,0,0,0.5), rgba(28,0,0,0.75))",
+                      border: "1px solid rgba(255,70,70,0.92)",
+                      borderRadius: ip ? 2 : 14,
+                      padding: "16px 14px",
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 8,
+                      boxShadow: "0 0 14px rgba(220,38,38,0.55), 0 0 26px rgba(127,29,29,0.35), inset 0 0 18px rgba(185,28,28,0.25)",
+                    }}
+                  >
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <div style={{ fontFamily: t.fontDisplay, fontSize: 13, fontWeight: 800, color: "#ffb0b0", letterSpacing: "0.04em" }}>
+                        {p.label}
+                      </div>
+                      <div style={{ fontFamily: t.fontMono, fontSize: 9, fontWeight: 900, padding: "2px 6px", borderRadius: 4, background: "rgba(255,40,40,0.22)", color: "#ffd2d2", border: "1px solid rgba(255,100,100,0.72)", letterSpacing: "0.08em" }}>
+                        INACTIVE
+                      </div>
+                    </div>
+                    <div style={{ fontFamily: t.fontBody, fontSize: 11, color: "#ffc0c0", lineHeight: 1.4 }}>
+                      This pattern is inactive this match.
+                    </div>
+                    <PatternDiagram info={p} accent={"#ef4444"} isSelected={false} cellSize={GRID_SIZE === 7 ? 10 : GRID_SIZE === 6 ? 11 : 12} />
                   </div>
                 ))}
               </div>
