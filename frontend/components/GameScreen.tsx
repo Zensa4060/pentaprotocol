@@ -4720,6 +4720,52 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
         graphicsQuality={gameplayGraphicsQuality}
       />
   );
+  const rbRouteActive = activePhasePath === "rulebreaker" || activePhasePath === "rulechoice";
+  const rbOverlayFallback = rbRouteActive && !rbPhases.includes(phase) && (
+    <RulebreakerFlow
+      phase="rb_splash"
+      t={t}
+      ip={ip}
+      p1c={p1c}
+      p2c={p2c}
+      p1Elo={isMultiplayerGame ? p1Elo : undefined}
+      p2Elo={isMultiplayerGame ? p2Elo : undefined}
+      p1IsPlacement={isMultiplayerGame ? p1IsPlacement : false}
+      p2IsPlacement={isMultiplayerGame ? p2IsPlacement : false}
+      coinResult={coinResult}
+      coinAngle={coinAngle}
+      coinDivRef={coinDivRef}
+      tossWinner={tossWinner}
+      summaryTimer={summaryTimer}
+      firstPlayerChosen={firstPlayerChosen}
+      rbC3Blocked={rbC3Blocked}
+      choiceTimer={choiceTimer}
+      isMultiplayerGame={isMultiplayerGame}
+      mySlot={mySlot}
+      winnerPickedRule={winnerPickedRule}
+      winnerPickedFirst={winnerPickedFirst}
+      winnerPickedC3={winnerPickedC3}
+      rb6TimerOwner={rb6TimerOwner}
+      rb6CellChooser={rb6CellChooser}
+      botPickedSide={botPickedSide}
+      gameMode={gameMode}
+      p1Label={p1Label}
+      p2Label={p2Label}
+      wraithKingToss={wraithKingTossActive}
+      rbCoinPendingResult={rbCoinPendingResult}
+      onLeftAction={onLeftAction}
+      onRightAction={onRightAction}
+      fmtSecAction={fmtSecAction}
+      is7x7={is7x7}
+      is6x6={is6x6}
+      selectedPatterns={liveSelectedPatterns}
+      rbBannedPatterns={rbBannedPatterns}
+      onBanPattern={onBanPattern}
+      onGridBlockChoice={onGridBlockChoice}
+      onGridBlockWarningBack={onGridBlockWarningBack}
+      graphicsQuality={gameplayGraphicsQuality}
+    />
+  );
 
   const onReadyToggle = (player: "P1" | "P2") => {
     if (isMultiplayerGame) {
@@ -5193,7 +5239,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
 
         {activePhasePath === "ready" && <WinOverlay {...winOverlaySharedProps} />}
 
-        {(activePhasePath === "rulebreaker" || activePhasePath === "rulechoice") && rbOverlay}
+        {(activePhasePath === "rulebreaker" || activePhasePath === "rulechoice") && (rbOverlay || rbOverlayFallback)}
 
         {activePhasePath === "rulesshow" && rulesShowSheet !== null && (
           <RuleshowScreen
