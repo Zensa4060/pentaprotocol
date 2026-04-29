@@ -163,9 +163,20 @@ function GoogleIcon() {
 export default function AuthScreen({ setScreenAction, themeId, audio }: Props) {
   const t = THEMES[themeId];
   const { setAuth, logout } = useAuthStore();
+  const debugSentRef = useRef(0);
   const authDebug = (...args: unknown[]) => {
     // Temporary diagnostics for mobile-login failures. Remove after investigation.
     console.log("[AuthScreen]", ...args);
+    if (debugSentRef.current >= 60) return;
+    debugSentRef.current += 1;
+    const [stage, details] = args;
+    const stageText = typeof stage === "string" ? stage : "event";
+    void API.post("/api/auth/client-debug", {
+      stage: stageText,
+      ts_ms: Date.now(),
+      page: typeof window !== "undefined" ? window.location.pathname : "n/a",
+      details: details ?? null,
+    }, { timeout: 4000 }).catch(() => {});
   };
 
   const ACCENT  = "#CC0000";

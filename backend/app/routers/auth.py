@@ -36,8 +36,10 @@ import base64
 import re, secrets, hashlib, pyotp, qrcode, io, os
 import resend
 import httpx
+import logging
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 resend.api_key = os.environ.get("RESEND_API_KEY")
 FROM_EMAIL = os.environ.get("FROM_EMAIL", "noreply@pentaprotocol.com")
@@ -457,6 +459,35 @@ class GoogleAuthRequest(BaseModel):
     credential: str  # Can be ID Token (JWT) or Access Token
     user_info: dict | None = None  # Optional user info from frontend
     confirm_merge: bool = False
+
+
+class ClientAuthDebugEvent(BaseModel):
+    stage: str = Field(min_length=1, max_length=80)
+    ts_ms: int | None = None
+    details: dict | None = None
+    page: str | None = Field(default=None, max_length=200)
+
+
+@router.post("/client-debug")
+async def client_auth_debug(event: ClientAuthDebugEvent, request: Request):
+    """Temporary mobile-auth diagnostics visible in Railway logs.
+
+    This endpoint is intentionally unauthenticated so users who fail to
+    establish a session cookie can still report client-side auth stages.
+    Remove once mobile-login investigation is complete.
+    """
+    ip = get_client_ip(request)
+    ua = request.headers.get("user-agent", "")
+    logger.warning(
+        "auth_client_debug stage=%s ts_ms=%s ip=%s ua=%s page=%s details=%s",
+        event.stage,
+        event.ts_ms,
+        ip,
+        ua[:220],
+        event.page,
+        event.details,
+    )
+    return {"ok": True}
 
 
 @router.post("/google")
