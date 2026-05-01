@@ -3304,8 +3304,11 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                 career_rb_meta = None
 
                 # ── Record Move Log ──
+                # Use the actual stone owner from the engine board (handles
+                # 6x6 trap cells where the stone flips to the other player).
+                stone_owner = engine.board[row][col] if engine.board[row][col] else player_slot
                 move_log = list(room.get("move_log") or [])
-                move_log.append({"row": row, "col": col, "player": player_slot, "ext": result.get("extra_turns", 0), "ts_ms": now_ms})
+                move_log.append({"row": row, "col": col, "player": stone_owner, "ext": result.get("extra_turns", 0), "ts_ms": now_ms})
 
                 game1_patch: dict = {}
                 if (
@@ -3557,6 +3560,7 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                     "game_status":    update["game_status"],
                     "extra_turns":    result.get("extra_turns", 0),
                     "connectionScores": result.get("connectionScores"),
+                    "game_number":    room.get("game_number", 1),
                 }
                 if is_finished:
                     broadcast["match_history"] = update["match_history"]

@@ -2143,6 +2143,13 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
           winClickLockRef.current = false;
           setIsBoardPaused(false);
           setInterLegUpgradePending(false);
+          {
+            const grGn = (msg as { game_number?: unknown }).game_number;
+            if (typeof grGn === "number" && mpAnalyzerLegGameNumberRef.current !== grGn) {
+              mpAnalyzerLegGameNumberRef.current = grGn;
+              currentGameMovesRef.current = [];
+            }
+          }
           const gr0 = msg as { protocolbreaker_final?: boolean; limitbreaker_final?: boolean };
           if (gr0.protocolbreaker_final || gr0.limitbreaker_final) {
             setPbOverlay(null);

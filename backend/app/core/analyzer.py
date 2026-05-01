@@ -286,7 +286,10 @@ def analyze_game(
             # which can appear in some realtime replays due to WS/client race.
             if board[row][col] == player:
                 continue
-            raise ValueError(f"Illegal move {i}: cell already occupied at ({row}, {col})")
+            # Legacy data or 6x6 trap cell: the move_log may record
+            # the placing player instead of the stone owner. Trust the
+            # existing board state and skip rather than crashing.
+            continue
 
         move_patterns = patterns_by_player[player]
         evaluator, engine = _get_eval_engine(move_patterns)
