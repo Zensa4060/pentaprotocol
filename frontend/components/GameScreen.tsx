@@ -1238,10 +1238,10 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   const [p2RttMs, setP2RttMs] = useState<number | null>(null);
   const rttToBars = (rtt: number | null | undefined) => {
     if (rtt === null || rtt === undefined) return 0;
-    if (rtt <= 80) return 4;
-    if (rtt <= 150) return 3;
-    if (rtt <= 300) return 2;
-    if (rtt <= 600) return 1;
+    if (rtt <= 100) return 4;
+    if (rtt <= 400) return 3;
+    if (rtt <= 800) return 2;
+    if (rtt <= 1500) return 1;
     return 0;
   };
   const localRtt = mySlot === "P1" ? p1RttMs : p2RttMs;

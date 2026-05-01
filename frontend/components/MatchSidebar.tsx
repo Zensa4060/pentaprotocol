@@ -1428,7 +1428,8 @@ export function LeftPanel(props: MatchSidebarProps) {
               <button
                 type="button"
                 onClick={onChatOpenToggle}
-                onMouseEnter={playHoverAction}
+                onMouseEnter={e => { playHoverAction?.(); e.currentTarget.style.background = "linear-gradient(135deg, rgba(120,30,30,0.96) 0%, rgba(170,50,50,0.97) 50%, rgba(200,65,65,0.95) 100%)"; e.currentTarget.style.color = "#fff"; e.currentTarget.style.boxShadow = "0 0 16px rgba(220,38,38,0.5), 0 0 30px rgba(153,27,27,0.35), inset 0 0 10px rgba(255,255,255,0.08)"; }}
+                onMouseLeave={e => { e.currentTarget.style.background = ctaBaseStyle.background as string; e.currentTarget.style.color = ctaBaseStyle.color as string; e.currentTarget.style.boxShadow = ctaBaseStyle.boxShadow as string; }}
                 style={ctaBaseStyle}
               >
                 <span style={{ position: "relative", zIndex: 1 }}>CHAT</span>
@@ -1449,7 +1450,8 @@ export function LeftPanel(props: MatchSidebarProps) {
                 <button
                   type="button"
                   onClick={onTogglePatternOverlay}
-                  onMouseEnter={playHoverAction}
+                  onMouseEnter={e => { playHoverAction?.(); e.currentTarget.style.background = "linear-gradient(135deg, rgba(120,30,30,0.96) 0%, rgba(170,50,50,0.97) 50%, rgba(200,65,65,0.95) 100%)"; e.currentTarget.style.color = "#fff"; e.currentTarget.style.boxShadow = "0 0 16px rgba(220,38,38,0.5), 0 0 30px rgba(153,27,27,0.35), inset 0 0 10px rgba(255,255,255,0.08)"; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = ctaBaseStyle.background as string; e.currentTarget.style.color = ctaBaseStyle.color as string; e.currentTarget.style.boxShadow = ctaBaseStyle.boxShadow as string; }}
                   style={ctaBaseStyle}
                 >
                   <span style={{ position: "relative", zIndex: 1 }}>
