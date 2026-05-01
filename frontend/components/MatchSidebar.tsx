@@ -1391,81 +1391,75 @@ export function LeftPanel(props: MatchSidebarProps) {
               </React.Fragment>
             );
           })}
-          {/* CHAT + PATTERNS triggers — stacked blood-red CTAs that fill
-              the gap between match-history rows and the H2H / ready block.
-              Replaces the old "SYROS analysis in process..." placeholder
-              AND the cyan PATTERNS button that used to sit at the top of
-              the board / in the SP sidebar. The CHAT button only appears
-              in multiplayer; the PATTERNS button appears for any mode that
-              has active selectedPatterns. */}
-          {isMultiplayerGame && (() => {
-            const ctaBaseStyle: React.CSSProperties = {
-              width: "100%",
-              minHeight: 46,
-              padding: "12px 14px",
-              borderRadius: ip ? 4 : 10,
-              border: "1px solid rgba(220,38,38,0.7)",
-              background: "linear-gradient(135deg, rgba(127,29,29,0.92) 0%, rgba(185,28,28,0.94) 50%, rgba(220,38,38,0.9) 100%)",
-              color: "#FEE2E2",
-              fontFamily: t.fontMono,
-              fontSize: 13,
-              fontWeight: 800,
-              letterSpacing: "0.1em",
-              textTransform: "uppercase" as const,
-              boxShadow: "0 0 12px rgba(220,38,38,0.4), 0 0 24px rgba(185,28,28,0.25), inset 0 0 8px rgba(252,165,165,0.12)",
-              textShadow: "0 0 10px rgba(252,165,165,0.5)",
-              cursor: "pointer",
-              transition: "all 0.2s",
-              position: "relative" as const,
-              overflow: "hidden" as const,
-            };
-            return (
-              <div
-                style={{
-                  flex: 1,
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: 10,
-                }}
+        </div>
+        {isMultiplayerGame && (() => {
+          const ctaBaseStyle: React.CSSProperties = {
+            width: "100%",
+            minHeight: 46,
+            padding: "12px 14px",
+            borderRadius: ip ? 4 : 10,
+            border: "1px solid rgba(153,27,27,0.7)",
+            background: "linear-gradient(135deg, rgba(69,10,10,0.94) 0%, rgba(127,29,29,0.95) 50%, rgba(153,27,27,0.92) 100%)",
+            color: "#FECACA",
+            fontFamily: t.fontMono,
+            fontSize: 13,
+            fontWeight: 800,
+            letterSpacing: "0.1em",
+            textTransform: "uppercase" as const,
+            boxShadow: "0 0 10px rgba(153,27,27,0.35), 0 0 20px rgba(127,29,29,0.2), inset 0 0 8px rgba(220,38,38,0.1)",
+            textShadow: "0 0 8px rgba(220,38,38,0.4)",
+            cursor: "pointer",
+            transition: "all 0.2s",
+            position: "relative" as const,
+            overflow: "hidden" as const,
+          };
+          return (
+            <div
+              style={{
+                flex: 1,
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "stretch",
+                justifyContent: "center",
+                gap: 10,
+                padding: "8px 0",
+              }}
+            >
+              <button
+                type="button"
+                onClick={onChatOpenToggle}
+                onMouseEnter={playHoverAction}
+                style={ctaBaseStyle}
               >
+                <span style={{ position: "relative", zIndex: 1 }}>CHAT</span>
+                {!chatOpen && unreadOpponentChat > 0 && (
+                  <span style={{
+                    position: "absolute", top: 4, right: 8, minWidth: 18, height: 18,
+                    borderRadius: 9, background: "#fff", color: "#991B1B",
+                    fontFamily: t.fontMono, fontSize: 10, fontWeight: 900,
+                    display: "inline-flex", alignItems: "center", justifyContent: "center",
+                    padding: "0 5px", zIndex: 2,
+                    animation: "msChatUnreadPulse 0.45s cubic-bezier(.22,.68,0,1.2) both",
+                  }}>
+                    {unreadOpponentChat > 9 ? "9+" : unreadOpponentChat}
+                  </span>
+                )}
+              </button>
+              {selectedPatterns && selectedPatterns.length > 0 && onTogglePatternOverlay && (
                 <button
                   type="button"
-                  onClick={onChatOpenToggle}
+                  onClick={onTogglePatternOverlay}
                   onMouseEnter={playHoverAction}
                   style={ctaBaseStyle}
                 >
-                  <span style={{ position: "relative", zIndex: 1 }}>CHAT</span>
-                  {!chatOpen && unreadOpponentChat > 0 && (
-                    <span style={{
-                      position: "absolute", top: 4, right: 8, minWidth: 18, height: 18,
-                      borderRadius: 9, background: "#fff", color: "#DC2626",
-                      fontFamily: t.fontMono, fontSize: 10, fontWeight: 900,
-                      display: "inline-flex", alignItems: "center", justifyContent: "center",
-                      padding: "0 5px", zIndex: 2,
-                      animation: "msChatUnreadPulse 0.45s cubic-bezier(.22,.68,0,1.2) both",
-                    }}>
-                      {unreadOpponentChat > 9 ? "9+" : unreadOpponentChat}
-                    </span>
-                  )}
+                  <span style={{ position: "relative", zIndex: 1 }}>
+                    {showPatternOverlay ? "HIDE PATTERNS" : "PATTERNS"}
+                  </span>
                 </button>
-                {selectedPatterns && selectedPatterns.length > 0 && onTogglePatternOverlay && (
-                  <button
-                    type="button"
-                    onClick={onTogglePatternOverlay}
-                    onMouseEnter={playHoverAction}
-                    style={ctaBaseStyle}
-                  >
-                    <span style={{ position: "relative", zIndex: 1 }}>
-                      {showPatternOverlay ? "HIDE PATTERNS" : "PATTERNS"}
-                    </span>
-                  </button>
-                )}
-              </div>
-            );
-          })()}
-        </div>
+              )}
+            </div>
+          );
+        })()}
         {seriesWinner && (
           <div style={{ marginTop: 10, fontFamily: t.fontMono, fontSize: 20, color: t.gold, textAlign: "center", fontWeight: 700 }}>
             {seriesWinner === "DRAW" ? (
