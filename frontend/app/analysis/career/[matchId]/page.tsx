@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import AuthGuard from "@/components/AuthGuard";
 import { useApp } from "@/components/AppShell";
@@ -55,7 +55,7 @@ function normalizeCareerMoves(moves: MatchRound["moves"]): AnalyzerMove[] {
   return out;
 }
 
-export default function CareerAnalysisPage() {
+function CareerAnalysisPageInner() {
   const router = useRouter();
   const params = useParams<{ matchId: string }>();
   const searchParams = useSearchParams();
@@ -310,5 +310,13 @@ export default function CareerAnalysisPage() {
         </div>
       </div>
     </AuthGuard>
+  );
+}
+
+export default function CareerAnalysisPage() {
+  return (
+    <Suspense fallback={null}>
+      <CareerAnalysisPageInner />
+    </Suspense>
   );
 }
