@@ -5427,7 +5427,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
               SP/AI training flow could never reveal active patterns on a
               phone; guarding only on ``liveSelectedPatterns.length > 0``
               now keeps parity with the desktop sidebar for every mode. */}
-          {liveSelectedPatterns.length > 0 && !matchOver && phase !== "match_over" && (
+          {liveSelectedPatterns.length > 0 && !matchOver && phase !== "match_over" && !isMultiplayerGame && (
             <div style={{ pointerEvents: "auto", marginBottom: 4 }}>
               <button
                 type="button"
@@ -6010,14 +6010,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
         interGameReadyVisible={interGameReadyVisible}
         waitingReadyWarmup={waitingReadyWarmup}
         showPatternOverlay={showPatternOverlay}
-        // Filler-bot matches already expose a PATTERNS button at the top
-        // of the board (see mobile/desktop main-area render paths). The
-        // legacy sidebar "SHOW PATTERNS" button was a singleplayer-era
-        // remnant; hiding it for unranked filler matches keeps the UI
-        // aligned with a proper multiplayer layout (banner + chat stub
-        // + surrender), per the user's feedback that bot games should
-        // not keep singleplayer-only affordances.
-        onTogglePatternOverlay={!isMultiplayerGame && !isUnrankedBotFiller ? togglePatternOverlay : undefined}
+        onTogglePatternOverlay={togglePatternOverlay}
         onAddFriendPeerAction={
           isMultiplayerGame
             ? () => {
@@ -6128,7 +6121,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
             </span>
           </div>
           <div style={{ justifySelf: "start", display: "flex", alignItems: "center", gap: 8 }}>
-            {liveSelectedPatterns.length > 0 && !matchOver && phase !== "match_over" && (
+            {liveSelectedPatterns.length > 0 && !matchOver && phase !== "match_over" && !isMultiplayerGame && (
               <button
                 type="button"
                 onClick={() => {
