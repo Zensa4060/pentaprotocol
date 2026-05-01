@@ -2036,6 +2036,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
           setRematchRequested(null);
           matchSeriesUiLockUntilRef.current = Date.now() + 800;
           isViewingPostMatchRef.current = true;
+          setPhase("match_over");
           setShowGameWinScreen(true);
           setShowSeriesMatchResult(false);
           onMultiplayerNavLockChange?.(true);
@@ -4589,7 +4590,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   }
 
   const rbPhases: Phase[] = ["rb_splash", "rb_coin", "rule_choice", "who_first_winner", "c3_choice", "c3_choice_loser", "who_first_loser", "ban_pattern_winner", "ban_pattern_loser", "grid_block_warning", "grid_block_selection", "grid_block_waiting", "toss_summary", "rb_initializing"];
-  const rbOverlay = rbPhases.includes(phase) && (
+  const rbOverlay = rbPhases.includes(phase) && !matchSeriesComplete && (
       <RulebreakerFlow
         phase={phase} t={t} ip={ip} p1c={p1c} p2c={p2c}
         p1Elo={isMultiplayerGame ? p1Elo : undefined}
@@ -4614,7 +4615,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
       />
   );
   const rbRouteActive = activePhasePath === "rulebreaker" || activePhasePath === "rulechoice";
-  const rbOverlayFallback = rbRouteActive && !rbPhases.includes(phase) && (
+  const rbOverlayFallback = rbRouteActive && !rbPhases.includes(phase) && !matchSeriesComplete && (
     <RulebreakerFlow
       phase="rb_splash"
       t={t}
