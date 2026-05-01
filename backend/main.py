@@ -197,7 +197,12 @@ async def force_cors_headers(request: Request, call_next):
 
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
-    return JSONResponse(status_code=422, content={"detail": "Malformed request payload"})
+    errors = []
+    for e in exc.errors():
+        loc = " → ".join(str(x) for x in e.get("loc", []))
+        errors.append(f"{loc}: {e.get('msg', '')}")
+    detail = "; ".join(errors) if errors else "Malformed request payload"
+    return JSONResponse(status_code=422, content={"detail": detail})
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):

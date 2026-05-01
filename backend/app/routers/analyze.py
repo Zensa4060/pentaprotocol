@@ -38,7 +38,7 @@ class AnalyzeRequest(BaseModel):
     suppress_center_opening: bool = False
     rb_extra_turn_token_holder: str | None = Field(default=None, min_length=2, max_length=2)
     rb_banned_patterns: list[str] | None = Field(default=None, max_length=32)
-    move_history: list[MoveEntry] = Field(..., min_length=2, max_length=128)
+    move_history: list[MoveEntry] = Field(..., min_length=2, max_length=512)
 
     @field_validator("board_size")
     @classmethod
