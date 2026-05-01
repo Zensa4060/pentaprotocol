@@ -1391,49 +1391,82 @@ export function LeftPanel(props: MatchSidebarProps) {
               </React.Fragment>
             );
           })}
-          {/* Gap-filler CTA between LIMITB rows and the bottom HISTORY/H2H
-              block. User-requested visual only (non-interactive) so the
-              empty band does not look dead on taller viewports. */}
-          {isMultiplayerGame && (
-            <div
-              style={{
-                marginTop: "auto",
-                marginBottom: "auto",
-                minHeight: 78,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <button
-                type="button"
-                disabled
-                aria-label="SYROS analysis in process..."
+          {/* CHAT + PATTERNS triggers — stacked blood-red CTAs that fill
+              the gap between match-history rows and the H2H / ready block.
+              Replaces the old "SYROS analysis in process..." placeholder
+              AND the cyan PATTERNS button that used to sit at the top of
+              the board / in the SP sidebar. The CHAT button only appears
+              in multiplayer; the PATTERNS button appears for any mode that
+              has active selectedPatterns. */}
+          {isMultiplayerGame && (() => {
+            const ctaBaseStyle: React.CSSProperties = {
+              width: "100%",
+              minHeight: 42,
+              padding: "10px 14px",
+              borderRadius: ip ? 4 : 10,
+              border: "1px solid rgba(220,38,38,0.7)",
+              background: "linear-gradient(135deg, rgba(127,29,29,0.92) 0%, rgba(185,28,28,0.94) 50%, rgba(220,38,38,0.9) 100%)",
+              color: "#FEE2E2",
+              fontFamily: t.fontMono,
+              fontSize: 12,
+              fontWeight: 800,
+              letterSpacing: "0.1em",
+              textTransform: "uppercase" as const,
+              boxShadow: "0 0 12px rgba(220,38,38,0.4), 0 0 24px rgba(185,28,28,0.25), inset 0 0 8px rgba(252,165,165,0.12)",
+              textShadow: "0 0 10px rgba(252,165,165,0.5)",
+              cursor: "pointer",
+              transition: "all 0.2s",
+              position: "relative" as const,
+              overflow: "hidden" as const,
+            };
+            return (
+              <div
                 style={{
-                  width: "100%",
-                  minHeight: 55,
-                  padding: "13px 16px",
-                  borderRadius: ip ? 4 : 12,
-                  border: "1px solid rgba(196, 106, 255, 0.62)",
-                  background:
-                    "linear-gradient(135deg, rgba(46,10,68,0.88) 0%, rgba(76,14,102,0.9) 45%, rgba(112,18,72,0.9) 75%, rgba(145,24,24,0.88) 100%)",
-                  color: "#F5D8FF",
-                  fontFamily: t.fontMono,
-                  fontSize: 13,
-                  fontWeight: 800,
-                  letterSpacing: "0.08em",
-                  textTransform: "none",
-                  boxShadow:
-                    "0 0 0 1px rgba(255,115,225,0.22) inset, 0 0 14px rgba(167,59,255,0.35), 0 0 20px rgba(176,22,53,0.22)",
-                  textShadow: "0 0 10px rgba(245,150,255,0.45)",
-                  opacity: 0.95,
-                  cursor: "default",
+                  marginTop: "auto",
+                  marginBottom: "auto",
+                  minHeight: 78,
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 8,
                 }}
               >
-                SYROS analysis in process...
-              </button>
-            </div>
-          )}
+                <button
+                  type="button"
+                  onClick={onChatOpenToggle}
+                  onMouseEnter={playHoverAction}
+                  style={ctaBaseStyle}
+                >
+                  <span style={{ position: "relative", zIndex: 1 }}>CHAT</span>
+                  {!chatOpen && unreadOpponentChat > 0 && (
+                    <span style={{
+                      position: "absolute", top: 4, right: 8, minWidth: 18, height: 18,
+                      borderRadius: 9, background: "#fff", color: "#DC2626",
+                      fontFamily: t.fontMono, fontSize: 10, fontWeight: 900,
+                      display: "inline-flex", alignItems: "center", justifyContent: "center",
+                      padding: "0 5px", zIndex: 2,
+                      animation: "msChatUnreadPulse 0.45s cubic-bezier(.22,.68,0,1.2) both",
+                    }}>
+                      {unreadOpponentChat > 9 ? "9+" : unreadOpponentChat}
+                    </span>
+                  )}
+                </button>
+                {selectedPatterns && selectedPatterns.length > 0 && onTogglePatternOverlay && (
+                  <button
+                    type="button"
+                    onClick={onTogglePatternOverlay}
+                    onMouseEnter={playHoverAction}
+                    style={ctaBaseStyle}
+                  >
+                    <span style={{ position: "relative", zIndex: 1 }}>
+                      {showPatternOverlay ? "HIDE PATTERNS" : "PATTERNS"}
+                    </span>
+                  </button>
+                )}
+              </div>
+            );
+          })()}
         </div>
         {seriesWinner && (
           <div style={{ marginTop: 10, fontFamily: t.fontMono, fontSize: 20, color: t.gold, textAlign: "center", fontWeight: 700 }}>
@@ -1703,39 +1736,8 @@ export function LeftPanel(props: MatchSidebarProps) {
             </div>
           )}
 
-          {/* CHAT row — full-width clickable button so any tap on the
-            * row opens / collapses the chat panel. The previous design
-            * forced users to hit the small ▸ chevron, which was
-            * uncomfortable on mobile. */}
-          <button
-            type="button"
-            onClick={onChatOpenToggle}
-            onMouseEnter={playHoverAction}
-            style={{
-              all: "unset",
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              gap: 8,
-              padding: "10px 4px 0",
-              borderTop: `1px solid ${t.border}`,
-              cursor: "pointer",
-              boxSizing: "border-box",
-              width: "100%",
-            }}
-            aria-expanded={chatOpen}
-            aria-label={chatOpen ? "Close chat" : "Open chat"}
-          >
-            <span style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
-              <span style={{ fontFamily: t.fontMono, fontSize: 17, fontWeight: 700, color: t.text, letterSpacing: "0.12em" }}>CHAT</span>
-              {!chatOpen && unreadOpponentChat > 0 && (
-                <span style={{ minWidth: 22, height: 22, borderRadius: 11, background: t.accent, color: "#000", fontFamily: t.fontMono, fontSize: 12, fontWeight: 800, display: "inline-flex", alignItems: "center", justifyContent: "center", padding: "0 6px" }}>
-                  {unreadOpponentChat > 9 ? "9+" : unreadOpponentChat}
-                </span>
-              )}
-            </span>
-            <span style={{ color: t.text, fontFamily: t.fontMono, fontSize: 16, padding: "2px 6px", flexShrink: 0 }} aria-hidden="true">{chatOpen ? "▾" : "▸"}</span>
-          </button>
+          {/* The bottom CHAT row was removed; the blood-red CHAT CTA above
+              now handles toggling the chat panel open/closed. */}
         </div>
       )}
       {isMultiplayerGame && chatOpen && (phase === "playing" || phase === "waiting_ready") && (
@@ -1757,6 +1759,31 @@ export function LeftPanel(props: MatchSidebarProps) {
             boxShadow: "0 20px 48px rgba(0,0,0,0.5)",
           }}
         >
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span style={{ fontFamily: t.fontMono, fontSize: 13, fontWeight: 700, color: t.textMuted, letterSpacing: "0.12em" }}>
+              CHAT
+            </span>
+            <button
+              type="button"
+              onClick={onChatOpenToggle}
+              style={{
+                all: "unset",
+                cursor: "pointer",
+                fontFamily: t.fontMono,
+                fontSize: 18,
+                fontWeight: 700,
+                color: t.textMuted,
+                padding: "2px 6px",
+                borderRadius: 4,
+                transition: "color 0.15s",
+              }}
+              onMouseEnter={e => { e.currentTarget.style.color = t.text; }}
+              onMouseLeave={e => { e.currentTarget.style.color = t.textMuted; }}
+              aria-label="Close chat"
+            >
+              ✕
+            </button>
+          </div>
           <div ref={chatListRef} style={{ flex: 1, minHeight: 0, overflowY: "auto", background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: ip ? 2 : 8, padding: "10px 12px", display: "flex", flexDirection: "column", gap: 6 }}>
             {chatMessages.length === 0 && (<div style={{ fontFamily: t.fontBody, fontSize: 14, color: t.textMuted, textAlign: "center", marginTop: 24 }}>No messages yet</div>)}
             {/* Message body uses `userSelect: text` so the user can
@@ -1776,7 +1803,12 @@ export function LeftPanel(props: MatchSidebarProps) {
       )}
       {/* SURRENDER / RESET moved to RightPanel so the left panel's CHAT area is free to
           expand and keep its close/toggle control visible. */}
-      <style>{`@keyframes matchSidebarBannerShine { from { transform: translateX(-50%); } to { transform: translateX(100%); } }`}</style>
+      <style>{`@keyframes matchSidebarBannerShine { from { transform: translateX(-50%); } to { transform: translateX(100%); } }
+        @keyframes msChatUnreadPulse {
+          0% { transform: scale(0.5); opacity: 0; }
+          60% { transform: scale(1.15); opacity: 1; }
+          100% { transform: scale(1); opacity: 1; }
+        }`}</style>
     </div>
   );
 }

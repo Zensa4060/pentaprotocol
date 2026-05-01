@@ -191,8 +191,10 @@ export default function MatchResultScreen({
         flexDirection: "column",
         alignItems: "center",
         justifyContent: "center",
+        gap: "clamp(20px, 4vh, 40px)",
+        padding: "max(env(safe-area-inset-top, 0px), 24px) 16px max(env(safe-area-inset-bottom, 0px), 24px)",
+        overflowY: "auto",
         color: t.text,
-        overflow: "hidden",
       }}
     >
       {/* Background Ambience */}
@@ -363,7 +365,7 @@ export default function MatchResultScreen({
           <motion.h1
             style={{
               fontFamily: t.fontDisplay,
-              fontSize: "clamp(48px, 10vw, 120px)",
+              fontSize: "clamp(32px, min(8vw, 10vh), 100px)",
               fontWeight: 950,
               letterSpacing: "0.08em",
               color: winnerColor,
@@ -383,10 +385,10 @@ export default function MatchResultScreen({
             transition={{ delay: 1.2 }}
             style={{
               fontFamily: t.fontMono,
-              fontSize: "clamp(18px, 3vw, 40px)",
+              fontSize: "clamp(16px, min(2.5vw, 3.5vh), 36px)",
               color: t.textSecondary,
               letterSpacing: "0.2em",
-              marginTop: 16,
+              marginTop: "clamp(6px, 1.5vh, 16px)",
               fontWeight: 800,
             }}
           >
@@ -529,15 +531,15 @@ export default function MatchResultScreen({
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.9 }}
             style={{
-              position: "absolute",
-              bottom: "10%",
               display: "flex",
               flexDirection: "column",
               alignItems: "center",
-              gap: 24,
+              gap: "clamp(12px, 2vh, 24px)",
               zIndex: 20,
+              width: "100%",
               maxWidth: "min(720px, 92vw)",
               padding: "0 16px",
+              flexShrink: 0,
             }}
           >
             {isSyros && syrosFirstDefeat && (
@@ -666,25 +668,28 @@ export default function MatchResultScreen({
                 </div>
               </motion.div>
             )}
-            <div style={{ display: "flex", gap: 20, justifyContent: "center", flexWrap: "wrap" }}>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 14, justifyContent: "center", width: "100%" }}>
               {onAnalyzeGame && (
                 <motion.button
                   whileHover={{ scale: 1.05, background: `${t.accent}22` }}
                   whileTap={{ scale: 0.95 }}
                   onClick={onAnalyzeGame}
                   style={{
-                    padding: "20px 48px",
+                    flex: "1 1 220px",
+                    minWidth: 0,
+                    padding: "clamp(12px, 2vh, 18px) clamp(18px, 4vw, 36px)",
                     background: `${t.accent}18`,
                     border: `1px solid ${t.accent}`,
                     borderRadius: 12,
                     color: t.accent,
                     fontFamily: t.fontDisplay,
-                    fontSize: 24,
+                    fontSize: "clamp(14px, 2vw, 20px)",
                     fontWeight: 900,
-                    letterSpacing: "0.1em",
+                    letterSpacing: "0.12em",
                     cursor: "pointer",
                     textTransform: "uppercase",
                     boxShadow: `0 0 20px ${t.accent}44`,
+                    whiteSpace: "nowrap",
                   }}
                 >
                   Analyze Game
@@ -696,44 +701,48 @@ export default function MatchResultScreen({
                    whileTap={{ scale: 0.95 }}
                    onClick={onFindNewMatch}
                    style={{
-                     padding: "20px 48px",
+                     flex: "1 1 220px",
+                     minWidth: 0,
+                     padding: "clamp(12px, 2vh, 18px) clamp(18px, 4vw, 36px)",
                      background: `${t.accent}18`,
                      border: `1px solid ${t.accent}`,
                      borderRadius: 12,
                      color: t.accent,
                      fontFamily: t.fontDisplay,
-                     fontSize: 18,
+                     fontSize: "clamp(14px, 2vw, 18px)",
                      fontWeight: 900,
-                     letterSpacing: "0.2em",
+                     letterSpacing: "0.18em",
                      cursor: "pointer",
                      transition: "all 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
                      boxShadow: `0 8px 32px ${t.accent}33`,
+                     whiteSpace: "nowrap",
                    }}
                  >
                    FIND NEW MATCH
                  </motion.button>
                )}
-               <motion.button
-                 whileHover={{ scale: 1.05, background: "rgba(255,255,255,0.1)" }}
-                 whileTap={{ scale: 0.95 }}
-                 onClick={onQuit}
-                 style={{
-                   padding: "20px 48px",
-                   background: "rgba(255,255,255,0.03)",
-                   border: "1px solid rgba(255,255,255,0.1)",
-                   borderRadius: 12,
-                   color: t.text,
-                   fontFamily: t.fontDisplay,
-                   fontSize: 18,
-                   fontWeight: 900,
-                   letterSpacing: "0.2em",
-                   cursor: "pointer",
-                   transition: "all 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
-                 }}
-               >
-                 QUIT TO HOME
-               </motion.button>
             </div>
+            <motion.button
+              whileHover={{ scale: 1.05, background: "rgba(255,255,255,0.1)" }}
+              whileTap={{ scale: 0.95 }}
+              onClick={onQuit}
+              style={{
+                padding: "clamp(12px, 2vh, 18px) clamp(28px, 6vw, 48px)",
+                background: "rgba(255,255,255,0.03)",
+                border: "1px solid rgba(255,255,255,0.1)",
+                borderRadius: 12,
+                color: t.text,
+                fontFamily: t.fontDisplay,
+                fontSize: "clamp(14px, 2vw, 18px)",
+                fontWeight: 900,
+                letterSpacing: "0.18em",
+                cursor: "pointer",
+                transition: "all 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
+                whiteSpace: "nowrap",
+              }}
+            >
+              QUIT TO HOME
+            </motion.button>
           </motion.div>
         )}
       </AnimatePresence>
