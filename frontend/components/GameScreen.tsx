@@ -617,7 +617,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   const tossSkin = _ct.tossSkin ?? "default";
   const purchasedItems = ((user as { purchased_items?: string[] } | null)?.purchased_items ?? []) as string[];
   const wraithKingTossActive = tossSkin === "wraith_king" && purchasedItems.includes("coin_bundle_wraith_king");
-  const rbCoinFlipSeconds = wraithKingTossActive ? 5.15 : 4;
+  const rbCoinFlipSeconds = wraithKingTossActive ? 4.15 : 3;
 
   // Bundle boards should always use their matching pieces (no mixing).
   const effectivePieceSkin = (
@@ -1939,7 +1939,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
               if (Array.isArray(rbPayload.rbPatternsPreBan)) setRbPatternsPreBan(rbPayload.rbPatternsPreBan as string[]);
               if (restoredPhase === "toss_summary") {
                 const dueMs = typeof rp.rb_auto_start_due_ms === "number" ? rp.rb_auto_start_due_ms : null;
-                setSummaryTimer(dueMs ? Math.max(0, (dueMs - Date.now()) / 1000) : 3.5);
+                setSummaryTimer(dueMs ? Math.max(0, (dueMs - Date.now()) / 1000) : 2.5);
               }
             }
           }
@@ -2473,7 +2473,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
             // Only start reveal timer if we are already in rb_coin or further.
             // If we are still in rb_splash, the tick function will start it when we enter rb_coin.
             if (R.current.phase === "rb_coin") {
-              setCoinRevealTimer(3.5);
+              setCoinRevealTimer(2.5);
             }
             coinAngleRef.current = 0;
             setCoinAngle(0);
@@ -3065,7 +3065,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
                 setRbCoinPendingResult(null);
                 setCoinResult(r);
                 setTossWinner(r === "PENTA" ? "P1" : "P2");
-                setCoinRevealTimer(3.5);
+                setCoinRevealTimer(2.5);
                 coinAngleRef.current = 0;
                 setCoinAngle(0);
                 if (isMultiplayerGame && wsRef.current?.readyState === WebSocket.OPEN) {
@@ -3078,7 +3078,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
           }
         } else {
           if (coinFlipTimer === 0 && coinRevealTimer === 0) {
-            setCoinRevealTimer(3.5);
+            setCoinRevealTimer(2.5);
           }
           setCoinRevealTimer(v => { const nv = v - dt / 1000; if (nv <= 0) { setPhase("rule_choice"); return 0; } return nv; });
         }

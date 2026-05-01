@@ -1401,14 +1401,14 @@ export function LeftPanel(props: MatchSidebarProps) {
           {isMultiplayerGame && (() => {
             const ctaBaseStyle: React.CSSProperties = {
               width: "100%",
-              minHeight: 42,
-              padding: "10px 14px",
+              minHeight: 46,
+              padding: "12px 14px",
               borderRadius: ip ? 4 : 10,
               border: "1px solid rgba(220,38,38,0.7)",
               background: "linear-gradient(135deg, rgba(127,29,29,0.92) 0%, rgba(185,28,28,0.94) 50%, rgba(220,38,38,0.9) 100%)",
               color: "#FEE2E2",
               fontFamily: t.fontMono,
-              fontSize: 12,
+              fontSize: 13,
               fontWeight: 800,
               letterSpacing: "0.1em",
               textTransform: "uppercase" as const,
@@ -1422,14 +1422,12 @@ export function LeftPanel(props: MatchSidebarProps) {
             return (
               <div
                 style={{
-                  marginTop: "auto",
-                  marginBottom: "auto",
-                  minHeight: 78,
+                  flex: 1,
                   display: "flex",
                   flexDirection: "column",
                   alignItems: "center",
                   justifyContent: "center",
-                  gap: 8,
+                  gap: 10,
                 }}
               >
                 <button

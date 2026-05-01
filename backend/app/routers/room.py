@@ -50,9 +50,9 @@ DISCONNECT_CONFIRM_SECONDS = 30.0
 # the on-screen 30 s countdown, then auto-advance authoritatively.
 INTER_GAME_READY_TIMEOUT_SECONDS = 40.0
 # Outer ceiling on the entire Rulebreaker / Timebreaker / Mindbreaker
-# pre-game flow. The client-side timeline is roughly: 5 s splash + 3.5 s
+# pre-game flow. The client-side timeline is roughly: 5 s splash + 2.5 s
 # coin reveal + ~10 s for the rule choice + ~10 s for any bans +
-# 3.5 s toss summary ≈ 32 s in the worst case. We give it 50 s of grace
+# 2.5 s toss summary ≈ 30 s in the worst case. We give it 50 s of grace
 # before force-finalising with sensible defaults.
 RB_STALL_TIMEOUT_SECONDS = 50.0
 
@@ -1506,7 +1506,7 @@ async def _rb_stall_watchdog_worker(db, room_code: str) -> None:
             or room.get("rb_banned_patterns")
             or [],
         }
-        due_ms = int(datetime.utcnow().timestamp() * 1000) + 3500
+        due_ms = int(datetime.utcnow().timestamp() * 1000) + 2500
         await db.rooms.update_one(
             {"room_code": room_code},
             {
@@ -1515,7 +1515,7 @@ async def _rb_stall_watchdog_worker(db, room_code: str) -> None:
                     "rb_toss_winner": tw,
                     "rb_coin_result": coin_result,
                     "rb_phase_payload": merged_payload,
-                    "rb_summary_started_at_ms": due_ms - 3500,
+                    "rb_summary_started_at_ms": due_ms - 2500,
                     "rb_auto_start_due_ms": due_ms,
                 }
             },
@@ -4151,8 +4151,8 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                             "rb_auto_start_due_ms": None,
                         }
                         if payload.get("phase") == "toss_summary":
-                            due_ms = int(datetime.utcnow().timestamp() * 1000) + 3500
-                            phase_patch["rb_summary_started_at_ms"] = due_ms - 3500
+                            due_ms = int(datetime.utcnow().timestamp() * 1000) + 2500
+                            phase_patch["rb_summary_started_at_ms"] = due_ms - 2500
                             phase_patch["rb_auto_start_due_ms"] = due_ms
                             # Clients have driven the rulebreaker far enough
                             # that the existing `_auto_finalize_rulebreaker_toss`
