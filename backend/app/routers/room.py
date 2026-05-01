@@ -4539,11 +4539,11 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
             db = get_db()
             room = await db.rooms.find_one({"room_code": room_code})
             phase_now = str(room.get("phase") or "") if room else ""
-            # Rulebreaker / Mindbreaker / Timebreaker / Limitbreaker staging screens
-            # happen before the first placement of a leg (`moves_played == 0`), but
-            # we still want reconnect countdown semantics there instead of an instant
-            # "no-play abort" so the opponent can rejoin mid-choice.
-            reconnect_sensitive_preplay_phases = {
+
+            # Rulebreaker / Timebreaker / Mindbreaker / Limitbreaker phases:
+            # disconnecting here counts as an instant loss for the
+            # disconnecting player. The other player sees MatchResultScreen.
+            rulebreaker_instant_loss_phases = {
                 "rb_splash",
                 "rb_coin",
                 "rule_choice",
@@ -4564,11 +4564,19 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                 "lb_ban_second",
                 "lb_choose_first",
             }
+
+            if room and phase_now in rulebreaker_instant_loss_phases and room.get("series_winner") is None:
+                await _resolve_disconnect_forfeit(db, room_code, player_slot)
+                if not _room_connections.get(room_code):
+                    _room_connections.pop(room_code, None)
+                    _room_runtime.pop(room_code, None)
+                return
+
             is_start = room and (
                 room.get("status") == "waiting"
                 or (
                     room.get("moves_played", 0) == 0
-                    and phase_now not in reconnect_sensitive_preplay_phases
+                    and phase_now not in rulebreaker_instant_loss_phases
                 )
             )
             
