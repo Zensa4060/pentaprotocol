@@ -14,6 +14,7 @@ import { getUserKey, loadMissionState } from "@/lib/missionsClient";
 import { computeLevelProgress } from "@/lib/xpLevel";
 import { BannerRenderer } from "./BannerRenderer";
 import { rankGlowVisualStrength, buildRankEmblemGlowFilter, rankHaloGradientForRank, NavRankBadge, getRank, RANKS } from "./NavBar";
+import { openDiscordInvite } from "@/lib/community";
 import VoidRiftBanner from "./VoidRiftBanner";
 import BloodMoonBanner from "./BloodMoonBanner";
 import PhantomStrikeBanner from "./PhantomStrikeBanner";
@@ -809,6 +810,82 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
             </button>
           </div>
         </div>
+      </div>
+
+      {/* ── Discord community CTA ──────────────────────────────────────────
+          Mirrors the home and community-screen Discord buttons so the
+          invite is reachable from anywhere a logged-in player normally
+          ends up. URL lives in lib/community.ts. */}
+      <div style={{
+        background: "linear-gradient(135deg, rgba(88,101,242,0.18), rgba(88,101,242,0.06))",
+        border: "1px solid rgba(88,101,242,0.55)",
+        borderRadius: 12,
+        padding: "14px 18px",
+        marginBottom: 18,
+        display: "flex",
+        alignItems: "center",
+        gap: 14,
+        flexWrap: "wrap",
+        boxShadow: "0 0 18px rgba(88,101,242,0.18)",
+      }}>
+        <div style={{
+          width: 44,
+          height: 44,
+          borderRadius: 10,
+          background: "rgba(88,101,242,0.28)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          flexShrink: 0,
+          color: "#fff",
+          boxShadow: "inset 0 0 12px rgba(88,101,242,0.45)",
+        }}>
+          <svg aria-hidden="true" width="24" height="18" viewBox="0 0 71 55" fill="currentColor">
+            <path d="M60.1 4.9A58.6 58.6 0 0 0 45.5.5l-.6 1c-1.6.3-3.2.7-4.7 1.2 1.5-.4 3-.8 4.6-1.1l.7-.1c-.3-.4-.4-.4-.4-.4-5.6 1.5-10.7 4-10.7 4S29.3 2.6 24 1.1c0 0-.1 0-.4.4l.7.1c1.6.3 3.1.7 4.6 1.1-1.5-.5-3.1-.9-4.7-1.2l-.6-1A58.6 58.6 0 0 0 9 4.9C2.7 14.4.5 23.7.6 32.8c0 0 4.4 6.1 14.7 6.1l3.2-3.9c-5.6-1.7-7.7-5.2-7.7-5.2l1.5.9.2.1.2.1c2 1.1 4 2 5.9 2.7 3.4 1.3 7.5 2.6 12.4 3.5 6.4 1.1 13.9 1.5 22.2-.1 4-.7 8.2-2 12.5-3.4 3-1 6.3-2.5 9.7-4.6 0 0-2.2 3.5-7.9 5.2l3.3 3.9c10.3 0 14.7-6 14.7-6 0-9.1-2.2-18.3-8.5-27.9zM23.7 35c-2.7 0-5-2.5-5-5.5s2.2-5.5 5-5.5 5 2.5 5 5.5-2.2 5.5-5 5.5zm23.6 0c-2.7 0-5-2.5-5-5.5s2.2-5.5 5-5.5 5 2.5 5 5.5-2.2 5.5-5 5.5z" />
+          </svg>
+        </div>
+        <div style={{ flex: 1, minWidth: 180 }}>
+          <div style={{ fontFamily: t.fontDisplay, fontSize: 15, fontWeight: 800, color: t.text, letterSpacing: "0.05em" }}>
+            Join the PentaProtocol community
+          </div>
+          <div style={{ fontFamily: t.fontBody, fontSize: 12, color: t.textMuted, marginTop: 2 }}>
+            Hop into Discord to find squadmates, get patch notes, and chat with the devs.
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={openDiscordInvite}
+          onMouseEnter={(e) => {
+            onHoverAction?.();
+            e.currentTarget.style.background = "#5865F2";
+            e.currentTarget.style.boxShadow = "0 0 22px rgba(88,101,242,0.7)";
+            e.currentTarget.style.transform = "translateY(-1px)";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = "rgba(88,101,242,0.92)";
+            e.currentTarget.style.boxShadow = "0 0 14px rgba(88,101,242,0.45)";
+            e.currentTarget.style.transform = "translateY(0)";
+          }}
+          style={{
+            padding: "10px 18px",
+            background: "rgba(88,101,242,0.92)",
+            border: "1px solid #5865F2",
+            borderRadius: 9,
+            color: "#fff",
+            fontFamily: t.fontDisplay,
+            fontSize: 12,
+            fontWeight: 800,
+            letterSpacing: "0.12em",
+            textTransform: "uppercase",
+            cursor: "pointer",
+            boxShadow: "0 0 14px rgba(88,101,242,0.45)",
+            transition: "background 160ms ease, box-shadow 160ms ease, transform 160ms ease",
+            flexShrink: 0,
+          }}
+          aria-label="Join the PentaProtocol Discord community (opens in a new tab)"
+        >
+          Join Discord ↗
+        </button>
       </div>
 
       {/* ── ELO Progress bar ──────────────────────────────────────────────── */}

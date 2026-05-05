@@ -6,6 +6,7 @@ import type { Screen } from "@/lib/types";
 import type { ThemeId } from "@/lib/themes";
 import { getRank, NavRankBadge } from "./NavBar";
 import FriendsSidePanel from "./FriendsSidePanel";
+import { openDiscordInvite } from "@/lib/community";
 
 interface Props {
   setScreenAction: (s: Screen) => void;
@@ -273,6 +274,7 @@ export default function HomeScreen({ setScreenAction, themeId, onHoverAction, on
   const scale = useScale();
   const [hovered, setHovered] = useState<Screen | null>(null);
   const [hovFooter, setHovFooter] = useState<string | null>(null);
+  const [hovDiscord, setHovDiscord] = useState(false);
   const [lobbySlashSeed, setLobbySlashSeed] = useState(0);
 
   const lobbySlashes = useMemo(() => generateLobbySlashes(lobbySlashSeed), [lobbySlashSeed]);
@@ -761,6 +763,69 @@ export default function HomeScreen({ setScreenAction, themeId, onHoverAction, on
           </span>
         </button>
       )}
+      {/* ── Discord community CTA ──────────────────────────────────────────
+          Surfaced on the home screen so every player who lands here sees
+          the invite. Mirrored on the Profile and Community pages and the
+          NAV bar's COMMUNITY entry; the URL lives in lib/community.ts so
+          all entry points stay in sync. */}
+      <button
+        type="button"
+        onClick={() => { onClickAction?.(); openDiscordInvite(); }}
+        onMouseEnter={() => { onHoverAction?.(); setHovDiscord(true); }}
+        onMouseLeave={() => setHovDiscord(false)}
+        aria-label="Join the PentaProtocol Discord community (opens in a new tab)"
+        style={{
+          position: "relative",
+          zIndex: 3,
+          marginTop: "auto",
+          marginBottom: 4,
+          display: "inline-flex",
+          alignItems: "center",
+          gap: isMobile ? 8 : 12,
+          padding: isMobile ? "10px 16px" : "12px 22px",
+          background: hovDiscord ? "#5865F2" : "rgba(88,101,242,0.92)",
+          border: `1px solid ${hovDiscord ? "#7983F5" : "#5865F2"}`,
+          borderRadius: ip ? 2 : 12,
+          color: "#fff",
+          fontFamily: t.fontDisplay,
+          fontSize: isMobile ? 12 : 14,
+          fontWeight: 800,
+          letterSpacing: "0.12em",
+          textTransform: "uppercase" as const,
+          cursor: "pointer",
+          boxShadow: hovDiscord
+            ? "0 0 24px rgba(88,101,242,0.65), 0 6px 20px rgba(0,0,0,0.45)"
+            : "0 0 14px rgba(88,101,242,0.4), 0 4px 14px rgba(0,0,0,0.35)",
+          transform: hovDiscord ? "translateY(-1px)" : "translateY(0)",
+          transition:
+            "background 160ms ease, border-color 160ms ease, transform 160ms ease, box-shadow 160ms ease",
+        }}
+      >
+        <svg
+          aria-hidden="true"
+          width={isMobile ? 18 : 22}
+          height={isMobile ? 14 : 17}
+          viewBox="0 0 71 55"
+          fill="currentColor"
+          style={{ flexShrink: 0 }}
+        >
+          <path d="M60.1 4.9A58.6 58.6 0 0 0 45.5.5l-.6 1c-1.6.3-3.2.7-4.7 1.2 1.5-.4 3-.8 4.6-1.1l.7-.1c-.3-.4-.4-.4-.4-.4-5.6 1.5-10.7 4-10.7 4S29.3 2.6 24 1.1c0 0-.1 0-.4.4l.7.1c1.6.3 3.1.7 4.6 1.1-1.5-.5-3.1-.9-4.7-1.2l-.6-1A58.6 58.6 0 0 0 9 4.9C2.7 14.4.5 23.7.6 32.8c0 0 4.4 6.1 14.7 6.1l3.2-3.9c-5.6-1.7-7.7-5.2-7.7-5.2l1.5.9.2.1.2.1c2 1.1 4 2 5.9 2.7 3.4 1.3 7.5 2.6 12.4 3.5 6.4 1.1 13.9 1.5 22.2-.1 4-.7 8.2-2 12.5-3.4 3-1 6.3-2.5 9.7-4.6 0 0-2.2 3.5-7.9 5.2l3.3 3.9c10.3 0 14.7-6 14.7-6 0-9.1-2.2-18.3-8.5-27.9zM23.7 35c-2.7 0-5-2.5-5-5.5s2.2-5.5 5-5.5 5 2.5 5 5.5-2.2 5.5-5 5.5zm23.6 0c-2.7 0-5-2.5-5-5.5s2.2-5.5 5-5.5 5 2.5 5 5.5-2.2 5.5-5 5.5z" />
+        </svg>
+        <span style={{ display: "inline-flex", flexDirection: "column", alignItems: "flex-start", lineHeight: 1.15 }}>
+          <span>Join the PentaProtocol Discord</span>
+          <span style={{
+            fontSize: isMobile ? 9 : 10,
+            fontWeight: 600,
+            opacity: 0.85,
+            letterSpacing: "0.08em",
+            textTransform: "none" as const,
+          }}>
+            Find squadmates · Get patch notes · Talk to the devs
+          </span>
+        </span>
+        <span aria-hidden="true" style={{ fontSize: isMobile ? 12 : 14, opacity: 0.85, letterSpacing: "0.08em" }}>↗</span>
+      </button>
+
       <div style={{
         position: "relative", zIndex: 2,
         display: "flex", alignItems: "center", justifyContent: "center",
@@ -769,7 +834,6 @@ export default function HomeScreen({ setScreenAction, themeId, onHoverAction, on
         paddingTop: 12,
         paddingBottom: isMobile ? 10 : 8,
         width: "100%",
-        marginTop: "auto",
       }}>
         {FOOTER_LINKS.map((link, i) => (
           <React.Fragment key={link.href}>

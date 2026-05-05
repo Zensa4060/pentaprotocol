@@ -13,6 +13,7 @@ import {
   setFriendsNavBadgeCount,
 } from "@/lib/navBadgeState";
 import { censorText, containsProfanity } from "@/lib/profanity";
+import { openDiscordInvite } from "@/lib/community";
 
 interface Friend {
   id: string;
@@ -546,7 +547,7 @@ export default function FriendsScreen({ themeId, onHoverAction }: Props) {
         <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 16, marginBottom: 24, flexWrap: "wrap" }}>
           <div>
             <div style={{ fontFamily: t.fontMono, fontSize: 11, color: t.textMuted, letterSpacing: "0.3em" }}>SOCIAL · PROTOCOL</div>
-            <div style={{ fontFamily: t.fontDisplay, fontSize: 32, fontWeight: 900, color: t.text, letterSpacing: "0.02em" }}>Friends</div>
+            <div style={{ fontFamily: t.fontDisplay, fontSize: 32, fontWeight: 900, color: t.text, letterSpacing: "0.02em" }}>Community</div>
           </div>
           <div
             style={{
@@ -580,6 +581,93 @@ export default function FriendsScreen({ themeId, onHoverAction }: Props) {
               COPY
             </button>
           </div>
+        </div>
+
+        {/* ── Discord community hero ──────────────────────────────────────
+            Top-of-page invite so anyone landing on the Community tab sees
+            the Discord. Same URL is mirrored on Home and Profile via
+            lib/community.ts so updates only need to happen in one place. */}
+        <div
+          style={{
+            background: "linear-gradient(135deg, rgba(88,101,242,0.22), rgba(88,101,242,0.06))",
+            border: "1px solid rgba(88,101,242,0.6)",
+            borderRadius: 14,
+            padding: 18,
+            marginBottom: 20,
+            display: "flex",
+            alignItems: "center",
+            gap: 16,
+            flexWrap: "wrap",
+            boxShadow: "0 0 22px rgba(88,101,242,0.22)",
+          }}
+        >
+          <div
+            style={{
+              width: 52,
+              height: 52,
+              borderRadius: 12,
+              background: "rgba(88,101,242,0.32)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              flexShrink: 0,
+              color: "#fff",
+              boxShadow: "inset 0 0 14px rgba(88,101,242,0.55)",
+            }}
+          >
+            <svg aria-hidden="true" width="28" height="22" viewBox="0 0 71 55" fill="currentColor">
+              <path d="M60.1 4.9A58.6 58.6 0 0 0 45.5.5l-.6 1c-1.6.3-3.2.7-4.7 1.2 1.5-.4 3-.8 4.6-1.1l.7-.1c-.3-.4-.4-.4-.4-.4-5.6 1.5-10.7 4-10.7 4S29.3 2.6 24 1.1c0 0-.1 0-.4.4l.7.1c1.6.3 3.1.7 4.6 1.1-1.5-.5-3.1-.9-4.7-1.2l-.6-1A58.6 58.6 0 0 0 9 4.9C2.7 14.4.5 23.7.6 32.8c0 0 4.4 6.1 14.7 6.1l3.2-3.9c-5.6-1.7-7.7-5.2-7.7-5.2l1.5.9.2.1.2.1c2 1.1 4 2 5.9 2.7 3.4 1.3 7.5 2.6 12.4 3.5 6.4 1.1 13.9 1.5 22.2-.1 4-.7 8.2-2 12.5-3.4 3-1 6.3-2.5 9.7-4.6 0 0-2.2 3.5-7.9 5.2l3.3 3.9c10.3 0 14.7-6 14.7-6 0-9.1-2.2-18.3-8.5-27.9zM23.7 35c-2.7 0-5-2.5-5-5.5s2.2-5.5 5-5.5 5 2.5 5 5.5-2.2 5.5-5 5.5zm23.6 0c-2.7 0-5-2.5-5-5.5s2.2-5.5 5-5.5 5 2.5 5 5.5-2.2 5.5-5 5.5z" />
+            </svg>
+          </div>
+          <div style={{ flex: 1, minWidth: 200 }}>
+            <div style={{ fontFamily: t.fontMono, fontSize: 11, color: "#A8B0FF", letterSpacing: "0.22em", marginBottom: 4 }}>
+              OFFICIAL DISCORD
+            </div>
+            <div style={{ fontFamily: t.fontDisplay, fontSize: 18, fontWeight: 800, color: t.text, letterSpacing: "0.04em" }}>
+              Join the PentaProtocol community
+            </div>
+            <div style={{ fontFamily: t.fontBody, fontSize: 12, color: t.textMuted, marginTop: 4, lineHeight: 1.5 }}>
+              Find squadmates, hear about events first, share clips, and talk to the devs.
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={openDiscordInvite}
+            onMouseEnter={(e) => {
+              onHoverAction?.();
+              e.currentTarget.style.background = "#5865F2";
+              e.currentTarget.style.boxShadow = "0 0 24px rgba(88,101,242,0.7)";
+              e.currentTarget.style.transform = "translateY(-1px)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = "rgba(88,101,242,0.92)";
+              e.currentTarget.style.boxShadow = "0 0 16px rgba(88,101,242,0.5)";
+              e.currentTarget.style.transform = "translateY(0)";
+            }}
+            style={{
+              padding: "11px 20px",
+              background: "rgba(88,101,242,0.92)",
+              border: "1px solid #5865F2",
+              borderRadius: 10,
+              color: "#fff",
+              fontFamily: t.fontDisplay,
+              fontSize: 13,
+              fontWeight: 800,
+              letterSpacing: "0.12em",
+              textTransform: "uppercase",
+              cursor: "pointer",
+              boxShadow: "0 0 16px rgba(88,101,242,0.5)",
+              transition: "background 160ms ease, box-shadow 160ms ease, transform 160ms ease",
+              flexShrink: 0,
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 8,
+            }}
+            aria-label="Join the PentaProtocol Discord community (opens in a new tab)"
+          >
+            Join Discord
+            <span aria-hidden="true" style={{ opacity: 0.85 }}>↗</span>
+          </button>
         </div>
 
         {/* Add friend + counters strip */}
