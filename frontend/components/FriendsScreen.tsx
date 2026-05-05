@@ -13,7 +13,7 @@ import {
   setFriendsNavBadgeCount,
 } from "@/lib/navBadgeState";
 import { censorText, containsProfanity } from "@/lib/profanity";
-import { openDiscordInvite, openRedditCommunity } from "@/lib/community";
+import { openDiscordInvite, openRedditCommunity, openItchIoPage } from "@/lib/community";
 
 interface Friend {
   id: string;
@@ -754,6 +754,98 @@ export default function FriendsScreen({ themeId, onHoverAction }: Props) {
             aria-label="Visit r/PentaProtocol on Reddit (opens in a new tab)"
           >
             Visit Reddit
+            <span aria-hidden="true" style={{ opacity: 0.85 }}>↗</span>
+          </button>
+        </div>
+
+        {/* ── itch.io page block ────────────────────────────────────────
+            Sits under the Reddit block to give players a clear path to
+            the official itch.io listing — handy for ratings, follows,
+            and surfacing the dev's other titles. itch.io's brand colour
+            is #FA5C5C; we keep the same card pattern as the Discord and
+            Reddit blocks so the trio reads as one community shelf. */}
+        <div
+          style={{
+            background: "linear-gradient(135deg, rgba(250,92,92,0.22), rgba(250,92,92,0.06))",
+            border: "1px solid rgba(250,92,92,0.6)",
+            borderRadius: 14,
+            padding: 18,
+            marginBottom: 20,
+            display: "flex",
+            alignItems: "center",
+            gap: 16,
+            flexWrap: "wrap",
+            boxShadow: "0 0 22px rgba(250,92,92,0.18)",
+          }}
+        >
+          <div
+            style={{
+              width: 52,
+              height: 52,
+              borderRadius: 12,
+              background: "rgba(250,92,92,0.32)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              flexShrink: 0,
+              color: "#fff",
+              boxShadow: "inset 0 0 14px rgba(250,92,92,0.55)",
+              fontFamily: t.fontDisplay,
+              fontWeight: 900,
+              fontSize: 22,
+              letterSpacing: "0.02em",
+            }}
+            aria-hidden="true"
+          >
+            ▶
+          </div>
+          <div style={{ flex: 1, minWidth: 200 }}>
+            <div style={{ fontFamily: t.fontMono, fontSize: 11, color: "#FFB088", letterSpacing: "0.22em", marginBottom: 4 }}>
+              ITCH.IO · OFFICIAL PAGE
+            </div>
+            <div style={{ fontFamily: t.fontDisplay, fontSize: 18, fontWeight: 800, color: t.text, letterSpacing: "0.04em" }}>
+              Rate, follow, and download
+            </div>
+            <div style={{ fontFamily: t.fontBody, fontSize: 12, color: t.textMuted, marginTop: 4, lineHeight: 1.5 }}>
+              Visit our itch.io listing to leave a rating, follow for updates, and check out the dev's other releases.
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={openItchIoPage}
+            onMouseEnter={(e) => {
+              onHoverAction?.();
+              e.currentTarget.style.background = "#FA5C5C";
+              e.currentTarget.style.boxShadow = "0 0 24px rgba(250,92,92,0.7)";
+              e.currentTarget.style.transform = "translateY(-1px)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = "rgba(250,92,92,0.92)";
+              e.currentTarget.style.boxShadow = "0 0 16px rgba(250,92,92,0.5)";
+              e.currentTarget.style.transform = "translateY(0)";
+            }}
+            style={{
+              padding: "11px 20px",
+              background: "rgba(250,92,92,0.92)",
+              border: "1px solid #FA5C5C",
+              borderRadius: 10,
+              color: "#fff",
+              fontFamily: t.fontDisplay,
+              fontSize: 13,
+              fontWeight: 800,
+              letterSpacing: "0.12em",
+              textTransform: "uppercase",
+              cursor: "pointer",
+              boxShadow: "0 0 16px rgba(250,92,92,0.5)",
+              transition: "background 160ms ease, box-shadow 160ms ease, transform 160ms ease",
+              flexShrink: 0,
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 8,
+            }}
+            aria-label="View PentaProtocol on itch.io (opens in a new tab)"
+          >
+            View on itch.io
             <span aria-hidden="true" style={{ opacity: 0.85 }}>↗</span>
           </button>
         </div>

@@ -6,7 +6,7 @@ import type { Screen } from "@/lib/types";
 import type { ThemeId } from "@/lib/themes";
 import { getRank, NavRankBadge } from "./NavBar";
 import FriendsSidePanel from "./FriendsSidePanel";
-import { openDiscordInvite, openRedditCommunity, openFeedbackEmail } from "@/lib/community";
+import { openDiscordInvite, openRedditCommunity, openFeedbackEmail, openItchIoPage } from "@/lib/community";
 
 interface Props {
   setScreenAction: (s: Screen) => void;
@@ -274,7 +274,7 @@ export default function HomeScreen({ setScreenAction, themeId, onHoverAction, on
   const scale = useScale();
   const [hovered, setHovered] = useState<Screen | null>(null);
   const [hovFooter, setHovFooter] = useState<string | null>(null);
-  const [hovCommunity, setHovCommunity] = useState<"reddit" | "discord" | "feedback" | null>(null);
+  const [hovCommunity, setHovCommunity] = useState<"itch" | "reddit" | "discord" | "feedback" | null>(null);
   const [lobbySlashSeed, setLobbySlashSeed] = useState(0);
 
   const lobbySlashes = useMemo(() => generateLobbySlashes(lobbySlashSeed), [lobbySlashSeed]);
@@ -764,12 +764,11 @@ export default function HomeScreen({ setScreenAction, themeId, onHoverAction, on
         </button>
       )}
       {/* ── Community CTA row ──────────────────────────────────────────────
-          Reddit (left) · Discord (center) · Feedback email (right). All
-          three open in a new tab / launch the OS mail client; URLs live
-          in lib/community.ts so every entry point stays in sync. The
-          Discord button is intentionally the visual anchor (slightly
-          taller, brand colour fill) — Reddit and Feedback flank it as
-          ghost / tinted variants so they're clearly secondary. */}
+          itch.io · Reddit · Discord (anchor) · Feedback email. All four
+          open in a new tab / launch the OS mail client; URLs live in
+          lib/community.ts so every entry point stays in sync. The
+          Discord button is the visual anchor (brand colour fill); the
+          others are ghost / tinted variants so they read as secondary. */}
       <div
         style={{
           position: "relative",
@@ -782,10 +781,65 @@ export default function HomeScreen({ setScreenAction, themeId, onHoverAction, on
           gap: isMobile ? 8 : 12,
           flexWrap: "wrap" as const,
           width: "100%",
-          maxWidth: 760,
+          maxWidth: 880,
         }}
       >
-        {/* Reddit (left) */}
+        {/* itch.io (far left) — links out to the public itch.io page so
+            external visitors can rate / follow / find the dev's other
+            games. itch.io's brand red is #FA5C5C. */}
+        <button
+          type="button"
+          onClick={() => { onClickAction?.(); openItchIoPage(); }}
+          onMouseEnter={() => { onHoverAction?.(); setHovCommunity("itch"); }}
+          onMouseLeave={() => setHovCommunity(null)}
+          aria-label="View PentaProtocol on itch.io (opens in a new tab)"
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 8,
+            padding: isMobile ? "10px 14px" : "12px 18px",
+            background: hovCommunity === "itch" ? "#FA5C5C" : "rgba(250,92,92,0.14)",
+            border: `1px solid ${hovCommunity === "itch" ? "#FF7A7A" : "rgba(250,92,92,0.65)"}`,
+            borderRadius: ip ? 2 : 12,
+            color: hovCommunity === "itch" ? "#fff" : "#FF8585",
+            fontFamily: t.fontDisplay,
+            fontSize: isMobile ? 11 : 13,
+            fontWeight: 800,
+            letterSpacing: "0.12em",
+            textTransform: "uppercase" as const,
+            cursor: "pointer",
+            boxShadow: hovCommunity === "itch"
+              ? "0 0 22px rgba(250,92,92,0.55), 0 4px 14px rgba(0,0,0,0.4)"
+              : "0 0 10px rgba(250,92,92,0.18)",
+            transform: hovCommunity === "itch" ? "translateY(-1px)" : "translateY(0)",
+            transition: "background 160ms ease, color 160ms ease, border-color 160ms ease, transform 160ms ease, box-shadow 160ms ease",
+          }}
+        >
+          {/* No SVG path — itch.io's mascot logo is fiddly and easy to
+              corrupt at small sizes. The wordmark itself is the brand,
+              so we render a styled pill instead: a small "►" play
+              chevron (indie-game shorthand) + the literal "itch.io"
+              text in itch.io's brand red. */}
+          <span
+            aria-hidden="true"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              width: isMobile ? 18 : 20,
+              height: isMobile ? 18 : 20,
+              fontSize: isMobile ? 11 : 13,
+              fontWeight: 900,
+              lineHeight: 1,
+              flexShrink: 0,
+            }}
+          >
+            ▶
+          </span>
+          <span>itch.io</span>
+        </button>
+
+        {/* Reddit */}
         <button
           type="button"
           onClick={() => { onClickAction?.(); openRedditCommunity(); }}

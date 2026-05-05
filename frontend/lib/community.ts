@@ -7,6 +7,7 @@
  */
 export const DISCORD_INVITE_URL = "https://discord.gg/DFA6tm7E";
 export const REDDIT_URL         = "https://www.reddit.com/r/PentaProtocol/";
+export const ITCH_IO_URL        = "https://zensa4070.itch.io/pentaprotocol";
 
 /**
  * Address used for the in-game "Send Feedback" surface. Same inbox as
@@ -35,6 +36,10 @@ export function openDiscordInvite(): void {
 
 export function openRedditCommunity(): void {
   openExternal(REDDIT_URL);
+}
+
+export function openItchIoPage(): void {
+  openExternal(ITCH_IO_URL);
 }
 
 /**
