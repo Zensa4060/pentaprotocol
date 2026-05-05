@@ -857,6 +857,25 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   );
   const [current, setCurrent] = useState("P1");
   const [winner, setWinner] = useState<string | null>(null);
+  /**
+   * Why the current `winner` was decided. Distinguishes a normal pattern
+   * win from a clock timeout so the WinOverlay can render a dedicated
+   * "TIME'S UP" pane instead of the generic "X WINS!" splash. Mirrors
+   * `winner`'s lifecycle — must be reset to null wherever winner is.
+   *
+   * "pattern": connected the winning shape on the board (default).
+   * "timeout": the loser's match clock hit zero.
+   */
+  const [winReason, setWinReason] = useState<"pattern" | "timeout" | null>(null);
+  // Mirror `winner`'s clear so every reset path (rules-sheet gate, soft
+  // reset, doAdvanceAfterReady, rb_splash entry, etc.) implicitly clears
+  // `winReason` too. Cheaper than threading a `setWinReason(null)` next
+  // to each `setWinner(null)` call, and impossible to forget on new
+  // reset paths. Set sites (timeout detection, server move_made) take
+  // care of the `setWinReason("timeout")` flip explicitly.
+  useEffect(() => {
+    if (winner === null && winReason !== null) setWinReason(null);
+  }, [winner, winReason]);
   const [winLine, setWinLine] = useState<Coord[]>([]);
   const [showWinOverlay, setShowWinOverlay] = useState(false);
   /** After CONTINUE on win overlay, stay on /game URL until true; then /ready. Drives central ready modal. */
@@ -1673,6 +1692,20 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
                 const wl = (msg.win_line ?? []) as [number, number][];
                 setWinLine(wl);
                 setWinner(msg.winner);
+                // Timeout detection on the *winning* side (and an
+                // idempotent confirmation on the losing side, which has
+                // already flipped this locally). Server sends an empty
+                // `win_line` for clock-loss move_made payloads and a
+                // populated one for pattern wins; surrender / forfeit
+                // / disconnect take other code paths (match_disbanded,
+                // match_aborted_no_play) so they don't reach here.
+                // Drawn legs (no P1/P2 winner) are also out of scope.
+                if (
+                  (msg.winner === "P1" || msg.winner === "P2") &&
+                  wl.length === 0
+                ) {
+                  setWinReason("timeout");
+                }
                 playMultiplayerResultSfx(msg.winner);
                 const newHist = Array.isArray(msg.match_history)
                   ? (msg.match_history as string[])
@@ -3007,6 +3040,12 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
           if (p1TimeRef.current <= 0 && !s.winner) {
             const w = "P2";
             setWinner(w);
+            // Tag this win as a timeout so the WinOverlay renders the
+            // dedicated TIME'S UP pane instead of the generic "WINS!"
+            // splash — players (especially the one who lost on clock)
+            // need an unambiguous signal it was a clock loss, not a
+            // pattern loss.
+            setWinReason("timeout");
             if (isMultiplayerGame) {
               setIsBoardPaused(true);
               wsRef.current?.send(JSON.stringify({ type: "timeout", winner: w }));
@@ -3025,6 +3064,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
           if (p2TimeRef.current <= 0 && !s.winner) {
             const w = "P1";
             setWinner(w);
+            setWinReason("timeout");
             if (isMultiplayerGame) {
               setIsBoardPaused(true);
               wsRef.current?.send(JSON.stringify({ type: "timeout", winner: w }));
@@ -5076,6 +5116,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     showWinOverlay,
     overlayVisible,
     winner,
+    winReason,
     winnerColor,
     winnerPiece,
     seriesDiffers,

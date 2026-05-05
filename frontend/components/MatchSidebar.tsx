@@ -1953,6 +1953,7 @@ export function WinOverlay({
   showWinOverlay,
   overlayVisible,
   winner,
+  winReason = null,
   winnerColor,
   winnerPiece,
   seriesDiffers,
@@ -1992,6 +1993,14 @@ export function WinOverlay({
   showWinOverlay: boolean;
   overlayVisible: boolean;
   winner: string | null;
+  /**
+   * Why the current `winner` was decided. When "timeout" the overlay
+   * swaps in a dedicated TIME'S UP pane (clock icon + amber palette +
+   * "ran out of time" sub-copy) so players can clearly distinguish a
+   * clock loss from a pattern loss. `null` / "pattern" render the
+   * normal "X WINS!" splash.
+   */
+  winReason?: "pattern" | "timeout" | null;
   winnerColor: string;
   winnerPiece: string;
   seriesDiffers: boolean;
@@ -2205,45 +2214,129 @@ export function WinOverlay({
 
         {showWinPane && winner ? (
           <>
-            <div
-              style={{
-                fontSize: "clamp(64px, 10vw, 110px)",
-                lineHeight: 1,
-                marginBottom: 12,
-                animation: pulseAnim,
-                filter: `drop-shadow(0 0 20px ${winnerColor}88)`,
-              }}
-            >
-              {winnerPiece}
-            </div>
-            <div
-              style={{
-                fontFamily: t.fontDisplay,
-                fontSize: "clamp(36px, 6vw, 72px)",
-                fontWeight: 900,
-                color: winnerColor,
-                lineHeight: 1,
-                textShadow: `${glow} ${winnerColor}88`,
-                animation: pulseAnim,
-                letterSpacing: "-0.02em",
-                marginBottom: 8,
-              }}
-            >
-              {winner === "DRAW" ? "DRAW" : `${getName(winner)} WINS!`}
-            </div>
+            {/* TIME'S UP variant — shown when this game ended on the
+                clock instead of a pattern. The `loserSlot` is whichever
+                slot is *not* the winner; for a DRAW (impossible from a
+                timeout, since the server's timeout handler always
+                produces a P1/P2 winner) this branch never fires. We
+                lean on an amber/red palette + a stopwatch glyph so it
+                reads as urgency, and render the loser's name above the
+                "ran out of time" copy so the player who lost on time
+                gets unambiguous feedback. */}
+            {winReason === "timeout" && winner !== "DRAW" ? (() => {
+              const TIMEOUT_AMBER = "#F59E0B";
+              const loserSlot = winner === "P1" ? "P2" : "P1";
+              const loserName = getName(loserSlot);
+              return (
+                <>
+                  <div
+                    style={{
+                      fontSize: "clamp(72px, 11vw, 120px)",
+                      lineHeight: 1,
+                      marginBottom: 12,
+                      filter: `drop-shadow(0 0 24px ${TIMEOUT_AMBER}99)`,
+                      animation: pulseAnim,
+                    }}
+                    aria-hidden="true"
+                  >
+                    ⏱
+                  </div>
+                  <div
+                    style={{
+                      fontFamily: t.fontDisplay,
+                      fontSize: "clamp(36px, 6vw, 72px)",
+                      fontWeight: 900,
+                      color: TIMEOUT_AMBER,
+                      lineHeight: 1,
+                      textShadow: `${glow} ${TIMEOUT_AMBER}88`,
+                      animation: pulseAnim,
+                      letterSpacing: "-0.02em",
+                      marginBottom: 10,
+                    }}
+                  >
+                    TIME&apos;S UP!
+                  </div>
+                  <div
+                    style={{
+                      fontFamily: t.fontDisplay,
+                      fontSize: "clamp(15px, 2.2vw, 20px)",
+                      fontWeight: 700,
+                      color: "rgba(255,255,255,0.85)",
+                      letterSpacing: "0.04em",
+                      marginBottom: 6,
+                    }}
+                  >
+                    {loserName} ran out of time
+                  </div>
+                  <div
+                    style={{
+                      fontFamily: t.fontMono,
+                      fontSize: 13,
+                      color: winnerColor,
+                      letterSpacing: "0.18em",
+                      textTransform: "uppercase",
+                      marginBottom: 32,
+                    }}
+                  >
+                    {getName(winner)} advances
+                    <span
+                      style={{
+                        marginLeft: 10,
+                        color: "rgba(255,255,255,0.35)",
+                        letterSpacing: "0.2em",
+                      }}
+                    >
+                      ·{" "}
+                      {phase === "match_over"
+                        ? "SERIES COMPLETE"
+                        : `GAME ${gameNumber} COMPLETE`}
+                    </span>
+                  </div>
+                </>
+              );
+            })() : (
+              <>
+                <div
+                  style={{
+                    fontSize: "clamp(64px, 10vw, 110px)",
+                    lineHeight: 1,
+                    marginBottom: 12,
+                    animation: pulseAnim,
+                    filter: `drop-shadow(0 0 20px ${winnerColor}88)`,
+                  }}
+                >
+                  {winnerPiece}
+                </div>
+                <div
+                  style={{
+                    fontFamily: t.fontDisplay,
+                    fontSize: "clamp(36px, 6vw, 72px)",
+                    fontWeight: 900,
+                    color: winnerColor,
+                    lineHeight: 1,
+                    textShadow: `${glow} ${winnerColor}88`,
+                    animation: pulseAnim,
+                    letterSpacing: "-0.02em",
+                    marginBottom: 8,
+                  }}
+                >
+                  {winner === "DRAW" ? "DRAW" : `${getName(winner)} WINS!`}
+                </div>
 
-            <div
-              style={{
-                fontFamily: t.fontMono,
-                fontSize: 13,
-                color: "rgba(255,255,255,0.4)",
-                letterSpacing: "0.2em",
-                marginBottom: 32,
-                textTransform: "uppercase",
-              }}
-            >
-              {phase === "match_over" ? "SERIES COMPLETE" : `GAME ${gameNumber} COMPLETE`}
-            </div>
+                <div
+                  style={{
+                    fontFamily: t.fontMono,
+                    fontSize: 13,
+                    color: "rgba(255,255,255,0.4)",
+                    letterSpacing: "0.2em",
+                    marginBottom: 32,
+                    textTransform: "uppercase",
+                  }}
+                >
+                  {phase === "match_over" ? "SERIES COMPLETE" : `GAME ${gameNumber} COMPLETE`}
+                </div>
+              </>
+            )}
 
             {seriesDiffers && (
               <div
