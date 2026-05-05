@@ -13,7 +13,7 @@ import {
   setFriendsNavBadgeCount,
 } from "@/lib/navBadgeState";
 import { censorText, containsProfanity } from "@/lib/profanity";
-import { openDiscordInvite } from "@/lib/community";
+import { openDiscordInvite, openRedditCommunity } from "@/lib/community";
 
 interface Friend {
   id: string;
@@ -666,6 +666,94 @@ export default function FriendsScreen({ themeId, onHoverAction }: Props) {
             aria-label="Join the PentaProtocol Discord community (opens in a new tab)"
           >
             Join Discord
+            <span aria-hidden="true" style={{ opacity: 0.85 }}>↗</span>
+          </button>
+        </div>
+
+        {/* ── Reddit community block ──────────────────────────────────────
+            Sits directly under the Discord hero so the two community
+            destinations are presented together. Same layout / sizing as
+            the Discord card — only the brand colours change so the
+            sibling relationship is obvious. */}
+        <div
+          style={{
+            background: "linear-gradient(135deg, rgba(255,69,0,0.22), rgba(255,69,0,0.06))",
+            border: "1px solid rgba(255,69,0,0.6)",
+            borderRadius: 14,
+            padding: 18,
+            marginBottom: 20,
+            display: "flex",
+            alignItems: "center",
+            gap: 16,
+            flexWrap: "wrap",
+            boxShadow: "0 0 22px rgba(255,69,0,0.18)",
+          }}
+        >
+          <div
+            style={{
+              width: 52,
+              height: 52,
+              borderRadius: 12,
+              background: "rgba(255,69,0,0.32)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              flexShrink: 0,
+              color: "#fff",
+              boxShadow: "inset 0 0 14px rgba(255,69,0,0.55)",
+            }}
+          >
+            <svg aria-hidden="true" width="28" height="28" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.01 4.744c.688 0 1.25.561 1.25 1.249a1.25 1.25 0 0 1-2.498.056l-2.597-.547-.8 3.747c1.824.07 3.48.632 4.674 1.488.308-.309.73-.491 1.207-.491.968 0 1.754.786 1.754 1.754 0 .716-.435 1.333-1.04 1.604a3.4 3.4 0 0 1 .045.572c0 2.908-3.358 5.265-7.502 5.265-4.144 0-7.502-2.357-7.502-5.265 0-.193.015-.386.045-.572-.605-.271-1.04-.888-1.04-1.604 0-.968.786-1.754 1.754-1.754.477 0 .898.182 1.207.491 1.207-.864 2.879-1.42 4.74-1.488l.885-4.182a.342.342 0 0 1 .14-.197.35.35 0 0 1 .238-.042l2.906.617a1.214 1.214 0 0 1 1.111-.701zM9.25 12C8.561 12 8 12.562 8 13.25c0 .687.561 1.248 1.25 1.248.687 0 1.248-.561 1.248-1.249 0-.688-.561-1.249-1.249-1.249zm5.5 0c-.687 0-1.248.561-1.248 1.25 0 .687.561 1.248 1.249 1.248.688 0 1.249-.561 1.249-1.249 0-.687-.562-1.249-1.25-1.249zm-5.466 3.99a.327.327 0 0 0-.231.094.33.33 0 0 0 0 .463c.842.842 2.484.913 2.961.913.477 0 2.105-.056 2.961-.913a.361.361 0 0 0 .029-.463.33.33 0 0 0-.464 0c-.547.533-1.684.73-2.512.73-.828 0-1.979-.196-2.512-.73a.326.326 0 0 0-.232-.095z" />
+            </svg>
+          </div>
+          <div style={{ flex: 1, minWidth: 200 }}>
+            <div style={{ fontFamily: t.fontMono, fontSize: 11, color: "#FFB088", letterSpacing: "0.22em", marginBottom: 4 }}>
+              REDDIT · r/PentaProtocol
+            </div>
+            <div style={{ fontFamily: t.fontDisplay, fontSize: 18, fontWeight: 800, color: t.text, letterSpacing: "0.04em" }}>
+              Discuss strategies and share clips
+            </div>
+            <div style={{ fontFamily: t.fontBody, fontSize: 12, color: t.textMuted, marginTop: 4, lineHeight: 1.5 }}>
+              Subscribe to r/PentaProtocol for deep-dive threads, meta discussion, fan art, and announcements.
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={openRedditCommunity}
+            onMouseEnter={(e) => {
+              onHoverAction?.();
+              e.currentTarget.style.background = "#FF4500";
+              e.currentTarget.style.boxShadow = "0 0 24px rgba(255,69,0,0.7)";
+              e.currentTarget.style.transform = "translateY(-1px)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = "rgba(255,69,0,0.92)";
+              e.currentTarget.style.boxShadow = "0 0 16px rgba(255,69,0,0.5)";
+              e.currentTarget.style.transform = "translateY(0)";
+            }}
+            style={{
+              padding: "11px 20px",
+              background: "rgba(255,69,0,0.92)",
+              border: "1px solid #FF4500",
+              borderRadius: 10,
+              color: "#fff",
+              fontFamily: t.fontDisplay,
+              fontSize: 13,
+              fontWeight: 800,
+              letterSpacing: "0.12em",
+              textTransform: "uppercase",
+              cursor: "pointer",
+              boxShadow: "0 0 16px rgba(255,69,0,0.5)",
+              transition: "background 160ms ease, box-shadow 160ms ease, transform 160ms ease",
+              flexShrink: 0,
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 8,
+            }}
+            aria-label="Visit r/PentaProtocol on Reddit (opens in a new tab)"
+          >
+            Visit Reddit
             <span aria-hidden="true" style={{ opacity: 0.85 }}>↗</span>
           </button>
         </div>

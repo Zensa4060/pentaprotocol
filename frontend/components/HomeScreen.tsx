@@ -6,7 +6,7 @@ import type { Screen } from "@/lib/types";
 import type { ThemeId } from "@/lib/themes";
 import { getRank, NavRankBadge } from "./NavBar";
 import FriendsSidePanel from "./FriendsSidePanel";
-import { openDiscordInvite } from "@/lib/community";
+import { openDiscordInvite, openRedditCommunity, openFeedbackEmail } from "@/lib/community";
 
 interface Props {
   setScreenAction: (s: Screen) => void;
@@ -274,7 +274,7 @@ export default function HomeScreen({ setScreenAction, themeId, onHoverAction, on
   const scale = useScale();
   const [hovered, setHovered] = useState<Screen | null>(null);
   const [hovFooter, setHovFooter] = useState<string | null>(null);
-  const [hovDiscord, setHovDiscord] = useState(false);
+  const [hovCommunity, setHovCommunity] = useState<"reddit" | "discord" | "feedback" | null>(null);
   const [lobbySlashSeed, setLobbySlashSeed] = useState(0);
 
   const lobbySlashes = useMemo(() => generateLobbySlashes(lobbySlashSeed), [lobbySlashSeed]);
@@ -763,68 +763,174 @@ export default function HomeScreen({ setScreenAction, themeId, onHoverAction, on
           </span>
         </button>
       )}
-      {/* ── Discord community CTA ──────────────────────────────────────────
-          Surfaced on the home screen so every player who lands here sees
-          the invite. Mirrored on the Profile and Community pages and the
-          NAV bar's COMMUNITY entry; the URL lives in lib/community.ts so
-          all entry points stay in sync. */}
-      <button
-        type="button"
-        onClick={() => { onClickAction?.(); openDiscordInvite(); }}
-        onMouseEnter={() => { onHoverAction?.(); setHovDiscord(true); }}
-        onMouseLeave={() => setHovDiscord(false)}
-        aria-label="Join the PentaProtocol Discord community (opens in a new tab)"
+      {/* ── Community CTA row ──────────────────────────────────────────────
+          Reddit (left) · Discord (center) · Feedback email (right). All
+          three open in a new tab / launch the OS mail client; URLs live
+          in lib/community.ts so every entry point stays in sync. The
+          Discord button is intentionally the visual anchor (slightly
+          taller, brand colour fill) — Reddit and Feedback flank it as
+          ghost / tinted variants so they're clearly secondary. */}
+      <div
         style={{
           position: "relative",
           zIndex: 3,
           marginTop: "auto",
           marginBottom: 4,
-          display: "inline-flex",
-          alignItems: "center",
+          display: "flex",
+          alignItems: "stretch",
+          justifyContent: "center",
           gap: isMobile ? 8 : 12,
-          padding: isMobile ? "10px 16px" : "12px 22px",
-          background: hovDiscord ? "#5865F2" : "rgba(88,101,242,0.92)",
-          border: `1px solid ${hovDiscord ? "#7983F5" : "#5865F2"}`,
-          borderRadius: ip ? 2 : 12,
-          color: "#fff",
-          fontFamily: t.fontDisplay,
-          fontSize: isMobile ? 12 : 14,
-          fontWeight: 800,
-          letterSpacing: "0.12em",
-          textTransform: "uppercase" as const,
-          cursor: "pointer",
-          boxShadow: hovDiscord
-            ? "0 0 24px rgba(88,101,242,0.65), 0 6px 20px rgba(0,0,0,0.45)"
-            : "0 0 14px rgba(88,101,242,0.4), 0 4px 14px rgba(0,0,0,0.35)",
-          transform: hovDiscord ? "translateY(-1px)" : "translateY(0)",
-          transition:
-            "background 160ms ease, border-color 160ms ease, transform 160ms ease, box-shadow 160ms ease",
+          flexWrap: "wrap" as const,
+          width: "100%",
+          maxWidth: 760,
         }}
       >
-        <svg
-          aria-hidden="true"
-          width={isMobile ? 18 : 22}
-          height={isMobile ? 14 : 17}
-          viewBox="0 0 71 55"
-          fill="currentColor"
-          style={{ flexShrink: 0 }}
+        {/* Reddit (left) */}
+        <button
+          type="button"
+          onClick={() => { onClickAction?.(); openRedditCommunity(); }}
+          onMouseEnter={() => { onHoverAction?.(); setHovCommunity("reddit"); }}
+          onMouseLeave={() => setHovCommunity(null)}
+          aria-label="Visit r/PentaProtocol on Reddit (opens in a new tab)"
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 8,
+            padding: isMobile ? "10px 14px" : "12px 18px",
+            background: hovCommunity === "reddit" ? "#FF4500" : "rgba(255,69,0,0.14)",
+            border: `1px solid ${hovCommunity === "reddit" ? "#FF6A33" : "rgba(255,69,0,0.65)"}`,
+            borderRadius: ip ? 2 : 12,
+            color: hovCommunity === "reddit" ? "#fff" : "#FF7A45",
+            fontFamily: t.fontDisplay,
+            fontSize: isMobile ? 11 : 13,
+            fontWeight: 800,
+            letterSpacing: "0.12em",
+            textTransform: "uppercase" as const,
+            cursor: "pointer",
+            boxShadow: hovCommunity === "reddit"
+              ? "0 0 22px rgba(255,69,0,0.55), 0 4px 14px rgba(0,0,0,0.4)"
+              : "0 0 10px rgba(255,69,0,0.18)",
+            transform: hovCommunity === "reddit" ? "translateY(-1px)" : "translateY(0)",
+            transition: "background 160ms ease, color 160ms ease, border-color 160ms ease, transform 160ms ease, box-shadow 160ms ease",
+          }}
         >
-          <path d="M60.1 4.9A58.6 58.6 0 0 0 45.5.5l-.6 1c-1.6.3-3.2.7-4.7 1.2 1.5-.4 3-.8 4.6-1.1l.7-.1c-.3-.4-.4-.4-.4-.4-5.6 1.5-10.7 4-10.7 4S29.3 2.6 24 1.1c0 0-.1 0-.4.4l.7.1c1.6.3 3.1.7 4.6 1.1-1.5-.5-3.1-.9-4.7-1.2l-.6-1A58.6 58.6 0 0 0 9 4.9C2.7 14.4.5 23.7.6 32.8c0 0 4.4 6.1 14.7 6.1l3.2-3.9c-5.6-1.7-7.7-5.2-7.7-5.2l1.5.9.2.1.2.1c2 1.1 4 2 5.9 2.7 3.4 1.3 7.5 2.6 12.4 3.5 6.4 1.1 13.9 1.5 22.2-.1 4-.7 8.2-2 12.5-3.4 3-1 6.3-2.5 9.7-4.6 0 0-2.2 3.5-7.9 5.2l3.3 3.9c10.3 0 14.7-6 14.7-6 0-9.1-2.2-18.3-8.5-27.9zM23.7 35c-2.7 0-5-2.5-5-5.5s2.2-5.5 5-5.5 5 2.5 5 5.5-2.2 5.5-5 5.5zm23.6 0c-2.7 0-5-2.5-5-5.5s2.2-5.5 5-5.5 5 2.5 5 5.5-2.2 5.5-5 5.5z" />
-        </svg>
-        <span style={{ display: "inline-flex", flexDirection: "column", alignItems: "flex-start", lineHeight: 1.15 }}>
-          <span>Join the PentaProtocol Discord</span>
-          <span style={{
-            fontSize: isMobile ? 9 : 10,
-            fontWeight: 600,
-            opacity: 0.85,
-            letterSpacing: "0.08em",
-            textTransform: "none" as const,
-          }}>
-            Find squadmates · Get patch notes · Talk to the devs
+          <svg
+            aria-hidden="true"
+            width={isMobile ? 18 : 20}
+            height={isMobile ? 18 : 20}
+            viewBox="0 0 24 24"
+            fill="currentColor"
+            style={{ flexShrink: 0 }}
+          >
+            <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.01 4.744c.688 0 1.25.561 1.25 1.249a1.25 1.25 0 0 1-2.498.056l-2.597-.547-.8 3.747c1.824.07 3.48.632 4.674 1.488.308-.309.73-.491 1.207-.491.968 0 1.754.786 1.754 1.754 0 .716-.435 1.333-1.04 1.604a3.4 3.4 0 0 1 .045.572c0 2.908-3.358 5.265-7.502 5.265-4.144 0-7.502-2.357-7.502-5.265 0-.193.015-.386.045-.572-.605-.271-1.04-.888-1.04-1.604 0-.968.786-1.754 1.754-1.754.477 0 .898.182 1.207.491 1.207-.864 2.879-1.42 4.74-1.488l.885-4.182a.342.342 0 0 1 .14-.197.35.35 0 0 1 .238-.042l2.906.617a1.214 1.214 0 0 1 1.111-.701zM9.25 12C8.561 12 8 12.562 8 13.25c0 .687.561 1.248 1.25 1.248.687 0 1.248-.561 1.248-1.249 0-.688-.561-1.249-1.249-1.249zm5.5 0c-.687 0-1.248.561-1.248 1.25 0 .687.561 1.248 1.249 1.248.688 0 1.249-.561 1.249-1.249 0-.687-.562-1.249-1.25-1.249zm-5.466 3.99a.327.327 0 0 0-.231.094.33.33 0 0 0 0 .463c.842.842 2.484.913 2.961.913.477 0 2.105-.056 2.961-.913a.361.361 0 0 0 .029-.463.33.33 0 0 0-.464 0c-.547.533-1.684.73-2.512.73-.828 0-1.979-.196-2.512-.73a.326.326 0 0 0-.232-.095z" />
+          </svg>
+          <span>Reddit</span>
+        </button>
+
+        {/* Discord (center) — visual anchor */}
+        <button
+          type="button"
+          onClick={() => { onClickAction?.(); openDiscordInvite(); }}
+          onMouseEnter={() => { onHoverAction?.(); setHovCommunity("discord"); }}
+          onMouseLeave={() => setHovCommunity(null)}
+          aria-label="Join the PentaProtocol Discord community (opens in a new tab)"
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: isMobile ? 8 : 10,
+            padding: isMobile ? "10px 16px" : "12px 22px",
+            background: hovCommunity === "discord" ? "#5865F2" : "rgba(88,101,242,0.92)",
+            border: `1px solid ${hovCommunity === "discord" ? "#7983F5" : "#5865F2"}`,
+            borderRadius: ip ? 2 : 12,
+            color: "#fff",
+            fontFamily: t.fontDisplay,
+            fontSize: isMobile ? 12 : 14,
+            fontWeight: 800,
+            letterSpacing: "0.12em",
+            textTransform: "uppercase" as const,
+            cursor: "pointer",
+            boxShadow: hovCommunity === "discord"
+              ? "0 0 24px rgba(88,101,242,0.65), 0 6px 20px rgba(0,0,0,0.45)"
+              : "0 0 14px rgba(88,101,242,0.4), 0 4px 14px rgba(0,0,0,0.35)",
+            transform: hovCommunity === "discord" ? "translateY(-1px)" : "translateY(0)",
+            transition: "background 160ms ease, border-color 160ms ease, transform 160ms ease, box-shadow 160ms ease",
+          }}
+        >
+          <svg
+            aria-hidden="true"
+            width={isMobile ? 18 : 22}
+            height={isMobile ? 14 : 17}
+            viewBox="0 0 71 55"
+            fill="currentColor"
+            style={{ flexShrink: 0 }}
+          >
+            <path d="M60.1 4.9A58.6 58.6 0 0 0 45.5.5l-.6 1c-1.6.3-3.2.7-4.7 1.2 1.5-.4 3-.8 4.6-1.1l.7-.1c-.3-.4-.4-.4-.4-.4-5.6 1.5-10.7 4-10.7 4S29.3 2.6 24 1.1c0 0-.1 0-.4.4l.7.1c1.6.3 3.1.7 4.6 1.1-1.5-.5-3.1-.9-4.7-1.2l-.6-1A58.6 58.6 0 0 0 9 4.9C2.7 14.4.5 23.7.6 32.8c0 0 4.4 6.1 14.7 6.1l3.2-3.9c-5.6-1.7-7.7-5.2-7.7-5.2l1.5.9.2.1.2.1c2 1.1 4 2 5.9 2.7 3.4 1.3 7.5 2.6 12.4 3.5 6.4 1.1 13.9 1.5 22.2-.1 4-.7 8.2-2 12.5-3.4 3-1 6.3-2.5 9.7-4.6 0 0-2.2 3.5-7.9 5.2l3.3 3.9c10.3 0 14.7-6 14.7-6 0-9.1-2.2-18.3-8.5-27.9zM23.7 35c-2.7 0-5-2.5-5-5.5s2.2-5.5 5-5.5 5 2.5 5 5.5-2.2 5.5-5 5.5zm23.6 0c-2.7 0-5-2.5-5-5.5s2.2-5.5 5-5.5 5 2.5 5 5.5-2.2 5.5-5 5.5z" />
+          </svg>
+          <span style={{ display: "inline-flex", flexDirection: "column", alignItems: "flex-start", lineHeight: 1.15 }}>
+            <span>Join the PentaProtocol Discord</span>
+            <span style={{
+              fontSize: isMobile ? 9 : 10,
+              fontWeight: 600,
+              opacity: 0.85,
+              letterSpacing: "0.08em",
+              textTransform: "none" as const,
+            }}>
+              Find squadmates · Talk to the devs
+            </span>
           </span>
-        </span>
-        <span aria-hidden="true" style={{ fontSize: isMobile ? 12 : 14, opacity: 0.85, letterSpacing: "0.08em" }}>↗</span>
-      </button>
+          <span aria-hidden="true" style={{ fontSize: isMobile ? 12 : 14, opacity: 0.85, letterSpacing: "0.08em" }}>↗</span>
+        </button>
+
+        {/* Feedback email (right) — uses the PentaProtocol logo as its
+            icon, since this opens a direct line to the dev team. Uses the
+            theme accent so it visually reads as "ours" (vs. Reddit /
+            Discord which use external brand colours). */}
+        <button
+          type="button"
+          onClick={() => { onClickAction?.(); openFeedbackEmail(); }}
+          onMouseEnter={() => { onHoverAction?.(); setHovCommunity("feedback"); }}
+          onMouseLeave={() => setHovCommunity(null)}
+          aria-label="Send feedback to the PentaProtocol team via email"
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 8,
+            padding: isMobile ? "10px 14px" : "12px 18px",
+            background: hovCommunity === "feedback" ? `${accent}26` : `${accent}14`,
+            border: `1px solid ${hovCommunity === "feedback" ? accent : `${accent}88`}`,
+            borderRadius: ip ? 2 : 12,
+            color: hovCommunity === "feedback" ? accent : t.text,
+            fontFamily: t.fontDisplay,
+            fontSize: isMobile ? 11 : 13,
+            fontWeight: 800,
+            letterSpacing: "0.12em",
+            textTransform: "uppercase" as const,
+            cursor: "pointer",
+            boxShadow: hovCommunity === "feedback"
+              ? `0 0 22px ${accent}66, 0 4px 14px rgba(0,0,0,0.4)`
+              : `0 0 10px ${accent}22`,
+            transform: hovCommunity === "feedback" ? "translateY(-1px)" : "translateY(0)",
+            transition: "background 160ms ease, color 160ms ease, border-color 160ms ease, transform 160ms ease, box-shadow 160ms ease",
+          }}
+        >
+          <img
+            src="/Pentaprotocol_Logo_Transparent.png"
+            alt=""
+            aria-hidden="true"
+            draggable={false}
+            style={{
+              width: isMobile ? 20 : 24,
+              height: isMobile ? 20 : 24,
+              objectFit: "contain",
+              filter: "drop-shadow(0 0 8px rgba(255,100,30,0.45))",
+              flexShrink: 0,
+              userSelect: "none",
+              pointerEvents: "none",
+            }}
+          />
+          <span>Feedback</span>
+        </button>
+      </div>
 
       <div style={{
         position: "relative", zIndex: 2,
