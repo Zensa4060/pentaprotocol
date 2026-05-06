@@ -6,7 +6,7 @@ import type { Screen } from "@/lib/types";
 import type { ThemeId } from "@/lib/themes";
 import { getRank, NavRankBadge } from "./NavBar";
 import FriendsSidePanel from "./FriendsSidePanel";
-import { openDiscordInvite, openRedditCommunity, openFeedbackEmail, openItchIoPage } from "@/lib/community";
+import { openDiscordInvite, openRedditCommunity, openFeedbackEmail, openItchIoPage, openInstagramPage } from "@/lib/community";
 
 interface Props {
   setScreenAction: (s: Screen) => void;
@@ -274,7 +274,7 @@ export default function HomeScreen({ setScreenAction, themeId, onHoverAction, on
   const scale = useScale();
   const [hovered, setHovered] = useState<Screen | null>(null);
   const [hovFooter, setHovFooter] = useState<string | null>(null);
-  const [hovCommunity, setHovCommunity] = useState<"itch" | "reddit" | "discord" | "feedback" | null>(null);
+  const [hovCommunity, setHovCommunity] = useState<"itch" | "reddit" | "discord" | "feedback" | "instagram" | null>(null);
   const [lobbySlashSeed, setLobbySlashSeed] = useState(0);
 
   const lobbySlashes = useMemo(() => generateLobbySlashes(lobbySlashSeed), [lobbySlashSeed]);
@@ -764,11 +764,12 @@ export default function HomeScreen({ setScreenAction, themeId, onHoverAction, on
         </button>
       )}
       {/* ── Community CTA row ──────────────────────────────────────────────
-          itch.io · Reddit · Discord (anchor) · Feedback email. All four
-          open in a new tab / launch the OS mail client; URLs live in
-          lib/community.ts so every entry point stays in sync. The
-          Discord button is the visual anchor (brand colour fill); the
-          others are ghost / tinted variants so they read as secondary. */}
+          itch.io · Reddit · Discord (anchor) · Feedback email · Instagram.
+          All five open in a new tab / launch the OS mail client; URLs
+          live in lib/community.ts so every entry point stays in sync.
+          The Discord button is the visual anchor (brand colour fill);
+          the others are ghost / tinted variants so they read as
+          secondary. */}
       <div
         style={{
           position: "relative",
@@ -983,6 +984,54 @@ export default function HomeScreen({ setScreenAction, themeId, onHoverAction, on
             }}
           />
           <span>Feedback</span>
+        </button>
+
+        {/* Instagram (far right) — sits to the right of Feedback so the
+            row reads itch.io · Reddit · Discord · Feedback · Instagram.
+            We use Instagram's signature pink #E1306C; on hover the fill
+            shifts to the brand gradient (purple → pink → orange) so the
+            button visibly comes "alive" the way the IG app icon does. */}
+        <button
+          type="button"
+          onClick={() => { onClickAction?.(); openInstagramPage(); }}
+          onMouseEnter={() => { onHoverAction?.(); setHovCommunity("instagram"); }}
+          onMouseLeave={() => setHovCommunity(null)}
+          aria-label="Follow @pentaprotocol on Instagram (opens in a new tab)"
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 8,
+            padding: isMobile ? "10px 14px" : "12px 18px",
+            background: hovCommunity === "instagram"
+              ? "linear-gradient(45deg, #F58529 0%, #DD2A7B 50%, #8134AF 100%)"
+              : "rgba(225,48,108,0.14)",
+            border: `1px solid ${hovCommunity === "instagram" ? "#E1306C" : "rgba(225,48,108,0.65)"}`,
+            borderRadius: ip ? 2 : 12,
+            color: hovCommunity === "instagram" ? "#fff" : "#F26499",
+            fontFamily: t.fontDisplay,
+            fontSize: isMobile ? 11 : 13,
+            fontWeight: 800,
+            letterSpacing: "0.12em",
+            textTransform: "uppercase" as const,
+            cursor: "pointer",
+            boxShadow: hovCommunity === "instagram"
+              ? "0 0 22px rgba(225,48,108,0.55), 0 4px 14px rgba(0,0,0,0.4)"
+              : "0 0 10px rgba(225,48,108,0.18)",
+            transform: hovCommunity === "instagram" ? "translateY(-1px)" : "translateY(0)",
+            transition: "background 160ms ease, color 160ms ease, border-color 160ms ease, transform 160ms ease, box-shadow 160ms ease",
+          }}
+        >
+          <svg
+            aria-hidden="true"
+            width={isMobile ? 18 : 20}
+            height={isMobile ? 18 : 20}
+            viewBox="0 0 24 24"
+            fill="currentColor"
+            style={{ flexShrink: 0 }}
+          >
+            <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 1 0 0 12.324 6.162 6.162 0 0 0 0-12.324zM12 16a4 4 0 1 1 0-8 4 4 0 0 1 0 8zm6.406-11.845a1.44 1.44 0 1 0 0 2.881 1.44 1.44 0 0 0 0-2.881z" />
+          </svg>
+          <span>Instagram</span>
         </button>
       </div>
 

@@ -13,7 +13,7 @@ import {
   setFriendsNavBadgeCount,
 } from "@/lib/navBadgeState";
 import { censorText, containsProfanity } from "@/lib/profanity";
-import { openDiscordInvite, openRedditCommunity, openItchIoPage } from "@/lib/community";
+import { openDiscordInvite, openRedditCommunity, openItchIoPage, openInstagramPage } from "@/lib/community";
 
 interface Friend {
   id: string;
@@ -846,6 +846,98 @@ export default function FriendsScreen({ themeId, onHoverAction }: Props) {
             aria-label="View PentaProtocol on itch.io (opens in a new tab)"
           >
             View on itch.io
+            <span aria-hidden="true" style={{ opacity: 0.85 }}>↗</span>
+          </button>
+        </div>
+
+        {/* ── Instagram block ───────────────────────────────────────────
+            Closes out the social shelf (Discord → Reddit → itch.io →
+            Instagram). Same card pattern as the others; the icon tile
+            uses Instagram's signature warm gradient (yellow → pink →
+            purple) so it visually mirrors the IG app icon, and the CTA
+            uses the brand pink #E1306C with a hover gradient for
+            polish. */}
+        <div
+          style={{
+            background: "linear-gradient(135deg, rgba(225,48,108,0.22), rgba(131,58,180,0.06))",
+            border: "1px solid rgba(225,48,108,0.6)",
+            borderRadius: 14,
+            padding: 18,
+            marginBottom: 20,
+            display: "flex",
+            alignItems: "center",
+            gap: 16,
+            flexWrap: "wrap",
+            boxShadow: "0 0 22px rgba(225,48,108,0.18)",
+          }}
+        >
+          <div
+            style={{
+              width: 52,
+              height: 52,
+              borderRadius: 12,
+              background:
+                "linear-gradient(45deg, #F58529 0%, #DD2A7B 50%, #8134AF 100%)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              flexShrink: 0,
+              color: "#fff",
+              boxShadow: "inset 0 0 14px rgba(0,0,0,0.25), 0 0 12px rgba(225,48,108,0.45)",
+            }}
+          >
+            <svg aria-hidden="true" width="28" height="28" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 1 0 0 12.324 6.162 6.162 0 0 0 0-12.324zM12 16a4 4 0 1 1 0-8 4 4 0 0 1 0 8zm6.406-11.845a1.44 1.44 0 1 0 0 2.881 1.44 1.44 0 0 0 0-2.881z" />
+            </svg>
+          </div>
+          <div style={{ flex: 1, minWidth: 200 }}>
+            <div style={{ fontFamily: t.fontMono, fontSize: 11, color: "#F8A2C4", letterSpacing: "0.22em", marginBottom: 4 }}>
+              INSTAGRAM · @pentaprotocol
+            </div>
+            <div style={{ fontFamily: t.fontDisplay, fontSize: 18, fontWeight: 800, color: t.text, letterSpacing: "0.04em" }}>
+              Follow for screenshots and clips
+            </div>
+            <div style={{ fontFamily: t.fontBody, fontSize: 12, color: t.textMuted, marginTop: 4, lineHeight: 1.5 }}>
+              See behind-the-scenes art, gameplay highlights, and event teasers on Instagram.
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={openInstagramPage}
+            onMouseEnter={(e) => {
+              onHoverAction?.();
+              e.currentTarget.style.background =
+                "linear-gradient(45deg, #F58529 0%, #DD2A7B 50%, #8134AF 100%)";
+              e.currentTarget.style.boxShadow = "0 0 24px rgba(225,48,108,0.7)";
+              e.currentTarget.style.transform = "translateY(-1px)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = "rgba(225,48,108,0.92)";
+              e.currentTarget.style.boxShadow = "0 0 16px rgba(225,48,108,0.5)";
+              e.currentTarget.style.transform = "translateY(0)";
+            }}
+            style={{
+              padding: "11px 20px",
+              background: "rgba(225,48,108,0.92)",
+              border: "1px solid #E1306C",
+              borderRadius: 10,
+              color: "#fff",
+              fontFamily: t.fontDisplay,
+              fontSize: 13,
+              fontWeight: 800,
+              letterSpacing: "0.12em",
+              textTransform: "uppercase",
+              cursor: "pointer",
+              boxShadow: "0 0 16px rgba(225,48,108,0.5)",
+              transition: "background 160ms ease, box-shadow 160ms ease, transform 160ms ease",
+              flexShrink: 0,
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 8,
+            }}
+            aria-label="Follow @pentaprotocol on Instagram (opens in a new tab)"
+          >
+            Follow on Instagram
             <span aria-hidden="true" style={{ opacity: 0.85 }}>↗</span>
           </button>
         </div>
