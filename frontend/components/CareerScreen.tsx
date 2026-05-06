@@ -480,6 +480,20 @@ export default function CareerScreen({ themeId, onHoverAction, initialMatchId }:
   const { user } = useAuthStore();
   const bannerShineEnabled = useBannerShineEnabled((user as any)?.id ?? (user as any)?._id ?? null);
   const ip = themeId === "pixel";
+  /**
+   * The match-history shell + tab strip + empty-state hero used to be
+   * styled with `rgba(25,25,25,…)` and `rgba(255,255,255,…)` accents
+   * baked for the dark theme. On the light palette those produce a
+   * washed-out grey-on-grey table. Flip them to subtle dark-on-light
+   * surfaces when the active theme is `classic_light`.
+   */
+  const isLight = themeId === "classic_light";
+  const careerShellBg = isLight ? "rgba(255,255,255,0.96)" : "rgba(25,25,25,0.4)";
+  const careerShellShadow = isLight ? "0 18px 36px rgba(0,0,0,0.10)" : "0 18px 36px rgba(0,0,0,0.32)";
+  const careerHeaderBg = isLight ? "rgba(0,0,0,0.04)" : "rgba(255,255,255,0.03)";
+  const careerTabActiveBg = isLight ? "rgba(0,0,0,0.08)" : "rgba(255,255,255,0.08)";
+  const careerEmptyHeroBg = isLight ? "rgba(0,0,0,0.02)" : "rgba(255,255,255,0.01)";
+  const careerEmptyIconBg = isLight ? "rgba(0,0,0,0.05)" : "rgba(255,255,255,0.03)";
 
   const elo = user?.elo ?? 100;
   const placementCount = (user as any)?.placement_matches || 0;
@@ -1048,7 +1062,7 @@ export default function CareerScreen({ themeId, onHoverAction, initialMatchId }:
                   style={{
                     flex: 1,
                     padding: "10px 0",
-                    background: activeTab === tab ? "rgba(255,255,255,0.08)" : "transparent",
+                    background: activeTab === tab ? careerTabActiveBg : "transparent",
                     border: "none",
                     borderRadius: 8,
                     color: activeTab === tab ? t.text : t.textMuted,
@@ -1067,11 +1081,11 @@ export default function CareerScreen({ themeId, onHoverAction, initialMatchId }:
 
             <div
               style={{
-                background: "rgba(25,25,25,0.4)",
+                background: careerShellBg,
                 border: `1px solid ${t.border}`,
                 borderRadius: 20,
                 overflow: "hidden",
-                boxShadow: `0 18px 36px rgba(0,0,0,0.32)`,
+                boxShadow: careerShellShadow,
               }}
             >
               {/* Header */}
@@ -1082,7 +1096,7 @@ export default function CareerScreen({ themeId, onHoverAction, initialMatchId }:
                     gridTemplateColumns:
                       activeTab === "ranked" ? "100px 1fr 140px 100px 100px" : "100px 1fr 140px 100px",
                     padding: "16px 24px",
-                    background: "rgba(255,255,255,0.03)",
+                    background: careerHeaderBg,
                     borderBottom: `1px solid ${t.border}`,
                     fontFamily: t.fontMono,
                     fontSize: 10,
@@ -1121,7 +1135,7 @@ export default function CareerScreen({ themeId, onHoverAction, initialMatchId }:
                   style={{
                     padding: "80px 24px",
                     textAlign: "center",
-                    background: "rgba(255,255,255,0.01)",
+                    background: careerEmptyHeroBg,
                   }}
                 >
                   <div
@@ -1129,7 +1143,7 @@ export default function CareerScreen({ themeId, onHoverAction, initialMatchId }:
                       width: 64,
                       height: 64,
                       borderRadius: "50%",
-                      background: "rgba(255,255,255,0.03)",
+                      background: careerEmptyIconBg,
                       margin: "0 auto 24px",
                       display: "flex",
                       alignItems: "center",

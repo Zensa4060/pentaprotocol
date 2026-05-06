@@ -12,21 +12,34 @@ export const THEMES: Record<ThemeId, {
   navBg: string; inputBg: string; overlay: string;
   fontDisplay: string; fontBody: string; fontMono: string;
   pieces: { p1: string; p2: string };
+  /**
+   * `true` only for "true light-mode" palettes (classic_light). Used by
+   * components to flip hardcoded dark backgrounds / shadows into light-
+   * theme equivalents without needing the full ThemeId enum threaded
+   * through. Defaults to `false` so existing dark/space/pixel/custom
+   * themes are unaffected.
+   */
+  isLight: boolean;
 }> = {
 
+  // ── True light theme. Cards/panels are white so they read crisply on
+  // the soft off-white page background (was previously a wall of greys).
+  // Branded accent / status / gold are now real colors instead of greys
+  // so important UI states are actually visible.
   classic_light: {
-    bg: "#F4F4F4", bgPanel: "#E8E8E8", bgCard: "#DEDEDE",
-    border: "#BBBBBB", borderAccent: "#555555",
-    text: "#111111", textSecondary: "#444444", textMuted: "#888888",
-    accent: "#333333", accentGlow: "#666666",
-    p1: "#111111", p2: "#8B0000",
-    danger: "#555555", success: "#444444",
-    gold: "#999999", boardBg: "#D8D8D8", boardLine: "#AAAAAA",
-    navBg: "rgba(244,244,244,0.96)", inputBg: "#E4E4E4", overlay: "rgba(0,0,0,0.72)",
+    bg: "#F2F2F4", bgPanel: "#FFFFFF", bgCard: "#FFFFFF",
+    border: "#D8D8DC", borderAccent: "#A00000",
+    text: "#0A0A0A", textSecondary: "#3A3A3A", textMuted: "#6A6A6A",
+    accent: "#A00000", accentGlow: "#CC0000",
+    p1: "#0A0A0A", p2: "#A00000",
+    danger: "#C00000", success: "#1F7A3A",
+    gold: "#B8860B", boardBg: "#FFFFFF", boardLine: "#C8C8CC",
+    navBg: "rgba(255,255,255,0.96)", inputBg: "#FFFFFF", overlay: "rgba(0,0,0,0.45)",
     fontDisplay: "'GuildOf', serif",
     fontBody: "'GuildOf', serif",
     fontMono: "'GuildOf', serif",
     pieces: { p1: "X", p2: "Y" },
+    isLight: true,
   },
 
   classic_dark: {
@@ -42,6 +55,7 @@ export const THEMES: Record<ThemeId, {
     fontBody: "'GuildOf', serif",
     fontMono: "'GuildOf', serif",
     pieces: { p1: "X", p2: "Y" },
+    isLight: false,
   },
 
   space: {
@@ -58,6 +72,7 @@ export const THEMES: Record<ThemeId, {
     fontBody: "'GuildOf', serif",
     fontMono: "'GuildOf', serif",
     pieces: { p1: "α", p2: "Ω" },
+    isLight: false,
   },
 
   pixel: {
@@ -80,6 +95,7 @@ export const THEMES: Record<ThemeId, {
     fontBody: "'PixPixls', 'VT323', monospace",
     fontMono: "'PixPixls', 'VT323', monospace",
     pieces: { p1: "⚔", p2: "🛡" },
+    isLight: false,
   },
 
   custom: {
@@ -95,5 +111,6 @@ export const THEMES: Record<ThemeId, {
     fontBody: "'GuildOf', serif",
     fontMono: "'GuildOf', serif",
     pieces: { p1: "X", p2: "Y" },
+    isLight: false,
   },
 };

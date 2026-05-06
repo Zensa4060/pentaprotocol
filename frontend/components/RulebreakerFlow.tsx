@@ -15,6 +15,10 @@ interface RulebreakerFlowProps {
     bg: string; accent: string; accentGlow: string; fontDisplay: string; fontMono: string;
     fontBody: string; textMuted: string; textSecondary: string; text: string; border: string;
     bgCard: string; gold: string; danger: string;
+    /** Optional light-theme flag — when true, hardcoded dark card surfaces
+     *  in the rb_summary "ROUND N RULES" pane are flipped to white-on-light
+     *  equivalents so the cards stay readable on a light page background. */
+    isLight?: boolean;
   };
   ip: boolean;
   p1c: string;
@@ -1089,15 +1093,36 @@ export function RulebreakerFlow({
             const secretBan = hideBannedNameForViewer(p);
             const displayBannedLabel = secretBan ? "?" : bannedLabelOnly;
 
+            const rbIsLight = t.isLight === true;
+            // Light-theme equivalents of the originally hardcoded dark surfaces.
+            const cardBg = rbIsLight ? "rgba(255,255,255,0.96)" : "rgba(0,0,0,0.6)";
+            const pillBgGradient = rbIsLight
+              ? `linear-gradient(135deg, ${col}18, rgba(0,0,0,0.04))`
+              : `linear-gradient(135deg, ${col}12, rgba(0,0,0,0.55))`;
+            const pillInsetShadow = rbIsLight
+              ? `0 0 30px ${col}22, inset 0 0 18px rgba(0,0,0,0.04)`
+              : `0 0 30px ${col}22, inset 0 0 18px rgba(0,0,0,0.55)`;
+            const innerPanelBg = rbIsLight ? "rgba(0,0,0,0.04)" : "rgba(0,0,0,0.4)";
+            const innerPanelShadow = rbIsLight
+              ? "inset 0 0 20px rgba(0,0,0,0.04)"
+              : "inset 0 0 20px rgba(0,0,0,0.5)";
+            const pillTextShadow = rbIsLight
+              ? `0 0 22px ${col}55`
+              : `0 0 22px ${col}99, 0 0 4px rgba(0,0,0,0.7)`;
+            const cardElevation = isMe
+              ? (rbIsLight
+                  ? `0 24px 60px rgba(0,0,0,0.18), 0 0 50px ${col}33`
+                  : `0 30px 100px rgba(0,0,0,0.8), 0 0 50px ${col}33`)
+              : "none";
             return (
               <div
                 key={p}
                 className="pp-rb-summary-card"
                 style={{
-                flex: 1, minWidth: 0, background: "rgba(0,0,0,0.6)", backdropFilter: "blur(40px)",
+                flex: 1, minWidth: 0, background: cardBg, backdropFilter: "blur(40px)",
                 border: `3px solid ${col}${isMe ? "" : "44"}`, borderRadius: ip ? 2 : 24,
                 padding: "clamp(20px, 4vw, 40px) clamp(16px, 3vw, 32px)", textAlign: "center", opacity: isMe ? 1 : 0.75,
-                boxShadow: isMe ? `0 30px 100px rgba(0,0,0,0.8), 0 0 50px ${col}33` : "none",
+                boxShadow: cardElevation,
                 transform: isMe ? "scale(1.05)" : "scale(1)", transition: "all 0.4s cubic-bezier(.22,.68,0,1.2)"
               }}>
                 <div style={{ fontFamily: t.fontDisplay, fontSize: "clamp(32px, 8vw, 64px)", fontWeight: 950, color: col, marginBottom: 8, textShadow: `0 0 30px ${col}66`, overflowWrap: "anywhere" }}>{nameOf(p)}</div>
@@ -1114,8 +1139,8 @@ export function RulebreakerFlow({
                     padding: "14px 20px",
                     borderRadius: 16,
                     border: `2px solid ${col}55`,
-                    background: `linear-gradient(135deg, ${col}12, rgba(0,0,0,0.55))`,
-                    boxShadow: `0 0 30px ${col}22, inset 0 0 18px rgba(0,0,0,0.55)`,
+                    background: pillBgGradient,
+                    boxShadow: pillInsetShadow,
                     minHeight: 96,
                   }}
                 >
@@ -1131,7 +1156,7 @@ export function RulebreakerFlow({
                       color: col,
                       textAlign: "center" as const,
                       textTransform: "uppercase" as const,
-                      textShadow: `0 0 22px ${col}99, 0 0 4px rgba(0,0,0,0.7)`,
+                      textShadow: pillTextShadow,
                       lineHeight: 1.1,
                       overflowWrap: "anywhere",
                     }}
@@ -1161,9 +1186,9 @@ export function RulebreakerFlow({
                 </div>
 
                 <div style={{
-                  background: "rgba(0,0,0,0.4)", border: `1px solid ${col}22`, borderRadius: 16,
+                  background: innerPanelBg, border: `1px solid ${col}22`, borderRadius: 16,
                   padding: "24px", minHeight: 180, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-                  boxShadow: "inset 0 0 20px rgba(0,0,0,0.5)", gap: 12
+                  boxShadow: innerPanelShadow, gap: 12
                 }}>
                   <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
                     {is7x7 && winnerPickedRule === "extra_turn" && isWinner ? (
@@ -1259,7 +1284,7 @@ export function RulebreakerFlow({
           })}
         </div>
 
-        <div style={{ fontFamily: t.fontMono, fontSize: 20, fontWeight: 900, color: t.accent, background: "rgba(0,0,0,0.5)", padding: "12px 40px", borderRadius: 40, border: `1px solid ${t.accent}44` }}>
+        <div style={{ fontFamily: t.fontMono, fontSize: 20, fontWeight: 900, color: t.accent, background: t.isLight ? "rgba(255,255,255,0.9)" : "rgba(0,0,0,0.5)", padding: "12px 40px", borderRadius: 40, border: `1px solid ${t.accent}44` }}>
           BATTLE STARTS IN {Math.max(1, Math.ceil(summaryTimer))}S
         </div>
       </div>

@@ -613,6 +613,10 @@ interface MatchSidebarProps {
     fontBody: string; textMuted: string; textSecondary: string; text: string; border: string;
     bgCard: string; bgPanel: string; gold: string; danger: string; inputBg: string;
     pieces: { p1: string; p2: string };
+    /** Optional light-theme flag — when true the sidebar's hardcoded dark
+     *  banner washes / dark text shadows flip to light-on-light equivalents
+     *  so timer cards read as light surfaces in `classic_light`. */
+    isLight?: boolean;
   };
   p1Banner?: string;
   p2Banner?: string;
@@ -1048,7 +1052,14 @@ export function LeftPanel(props: MatchSidebarProps) {
               <div style={{
                 position: "absolute",
                 inset: 0,
-                background: "linear-gradient(to right, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0.4) 50%, rgba(0,0,0,0.8) 100%)",
+                // Banner art needs a contrast wash so the player name + time
+                // text on top stays readable. Dark theme: dark wash → white-ish
+                // text reads. Light theme: light wash → dark text reads. Without
+                // this flip the timer cards looked like black bars dropped onto
+                // a white sidebar.
+                background: t.isLight
+                  ? "linear-gradient(to right, rgba(255,255,255,0.86) 0%, rgba(255,255,255,0.6) 50%, rgba(255,255,255,0.86) 100%)"
+                  : "linear-gradient(to right, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0.4) 50%, rgba(0,0,0,0.8) 100%)",
                 zIndex: 1
               }} />
               {bannerShineEnabled && (
@@ -1086,7 +1097,7 @@ export function LeftPanel(props: MatchSidebarProps) {
               )}
             </div>
             <div style={{ position: "relative", zIndex: 2, padding: isShorter ? "7px 11px" : "10px 13px", background: isCurrentMover ? `${p === "P1" ? p1c : p2c}33` : "transparent", display: "flex", justifyContent: "space-between", alignItems: "center", transition: "background 0.25s" }}>
-              <span style={{ fontFamily: t.fontDisplay, fontSize: 13, color: p === "P1" ? p1c : p2c, fontWeight: 800, display: "flex", alignItems: "center", gap: 6, letterSpacing: "0.05em", textShadow: `0 2px 4px rgba(0,0,0,0.8)` }}>
+              <span style={{ fontFamily: t.fontDisplay, fontSize: 13, color: p === "P1" ? p1c : p2c, fontWeight: 800, display: "flex", alignItems: "center", gap: 6, letterSpacing: "0.05em", textShadow: t.isLight ? "0 1px 2px rgba(255,255,255,0.85)" : "0 2px 4px rgba(0,0,0,0.8)" }}>
                 {
                   (() => {
                     const raw = p === "P1" ? p1Label : p2Label;
@@ -1096,7 +1107,7 @@ export function LeftPanel(props: MatchSidebarProps) {
                   })()
                 }
               </span>
-              <span style={{ fontFamily: t.fontMono, fontSize: 16, color: t.text, fontWeight: 700, textShadow: "0 1px 3px rgba(0,0,0,0.8)" }}>{p === "P1" ? fmtTimeAction(p1Time) : fmtTimeAction(p2Time)}</span>
+              <span style={{ fontFamily: t.fontMono, fontSize: 16, color: t.text, fontWeight: 700, textShadow: t.isLight ? "0 1px 2px rgba(255,255,255,0.85)" : "0 1px 3px rgba(0,0,0,0.8)" }}>{p === "P1" ? fmtTimeAction(p1Time) : fmtTimeAction(p2Time)}</span>
             </div>
           </div>
         </div>
@@ -2009,7 +2020,14 @@ export function WinOverlay({
   seriesWinner: string | null;
   phase: Phase;
   gameNumber: number;
-  t: { fontDisplay: string; fontMono: string; fontBody: string };
+  /**
+   * `isLight` flips the overlay's hardcoded dark surfaces (modal card,
+   * subtle white-on-dark hints, disabled-button tints) into white-on-
+   * light equivalents so the per-game / ready / series-complete panes
+   * are readable when the rest of the app is rendered in `classic_light`.
+   * Defaults to dark behaviour so older callers are unaffected.
+   */
+  t: { fontDisplay: string; fontMono: string; fontBody: string; isLight?: boolean };
   winnerDisplayNameAction?: (w: string | null) => string;
   onDismissAction: () => void;
   graphicsQuality?: "performance" | "quality";
@@ -2079,6 +2097,31 @@ export function WinOverlay({
     if (canDismiss) onDismissAction();
   };
 
+  /**
+   * Light-theme overlay surface tokens. The original overlay was authored
+   * for the dark theme — its modal card, subtle text shades and disabled
+   * button states all assumed white-on-near-black. In light theme those
+   * read as a wall of grey on white, so we flip them to a clean white card
+   * with dark accents while keeping the dark-backdrop dim (works in both
+   * themes for a modal).
+   */
+  const isLight = t.isLight === true;
+  const overlayBackdrop = isLight ? "rgba(0,0,0,0.42)" : "rgba(0,0,0,0.85)";
+  const modalCardBg = isLight ? "rgba(255,255,255,0.98)" : "rgba(10, 10, 15, 0.95)";
+  // Subtle on-card surfaces: tints of black on white, tints of white on dark.
+  const subtleSurface = isLight ? "rgba(0,0,0,0.04)" : "rgba(255,255,255,0.04)";
+  const subtleSurfaceStrong = isLight ? "rgba(0,0,0,0.06)" : "rgba(255,255,255,0.05)";
+  const subtleBorder = isLight ? "rgba(0,0,0,0.08)" : "rgba(255,255,255,0.18)";
+  const subtleBorderStrong = isLight ? "rgba(0,0,0,0.14)" : "rgba(255,255,255,0.3)";
+  const subtleHover = isLight ? "rgba(0,0,0,0.08)" : "rgba(255,255,255,0.08)";
+  // Soft text tints: 0.4-alpha white on dark → mid-grey on light card.
+  const softText = isLight ? "rgba(0,0,0,0.55)" : "rgba(255,255,255,0.4)";
+  const softerText = isLight ? "rgba(0,0,0,0.42)" : "rgba(255,255,255,0.3)";
+  const dimText = isLight ? "rgba(0,0,0,0.35)" : "rgba(255,255,255,0.35)";
+  const strongOnCard = isLight ? "#0A0A0A" : "rgba(255,255,255,0.85)";
+  const dismissDisabledBg = isLight ? "rgba(0,0,0,0.06)" : "rgba(255,255,255,0.05)";
+  const dismissDisabledText = isLight ? "rgba(0,0,0,0.35)" : "rgba(255,255,255,0.2)";
+
   const frameColor = showWinPane && winner ? winnerColor : (showMatchOverPane && seriesWinner && seriesWinner !== "DRAW" ? (seriesWinner === "P1" ? p1c : p2c) : accentColor);
 
   /* Grid-review mode: the full-screen modal is swapped for the resolved
@@ -2094,7 +2137,7 @@ export function WinOverlay({
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          background: "rgba(5,5,10,0.96)",
+          background: isLight ? "rgba(242,242,244,0.97)" : "rgba(5,5,10,0.96)",
           pointerEvents: "auto",
         }}
       >
@@ -2123,10 +2166,12 @@ export function WinOverlay({
             alignItems: "center",
             gap: 12,
             padding: "10px 16px",
-            background: "rgba(10,10,15,0.92)",
+            background: isLight ? "rgba(255,255,255,0.97)" : "rgba(10,10,15,0.92)",
             border: `1px solid ${accentColor}66`,
             borderRadius: 999,
-            boxShadow: `0 10px 32px rgba(0,0,0,0.55), 0 0 20px ${accentColor}33`,
+            boxShadow: isLight
+              ? `0 10px 32px rgba(0,0,0,0.18), 0 0 20px ${accentColor}33`
+              : `0 10px 32px rgba(0,0,0,0.55), 0 0 20px ${accentColor}33`,
           }}
         >
           <div
@@ -2181,21 +2226,23 @@ export function WinOverlay({
         pointerEvents: overlayVisible ? "auto" : "none",
       }}
     >
-      <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.85)", zIndex: 0 }} />
+      <div style={{ position: "absolute", inset: 0, background: overlayBackdrop, zIndex: 0 }} />
 
       <div
         style={{
           position: "relative",
           zIndex: 1,
           width: "min(640px, 92vw)",
-          background: "rgba(10, 10, 15, 0.95)",
+          background: modalCardBg,
           border: `1px solid ${frameColor}55`,
           borderRadius: 24,
           padding: showReadyPane ? "44px 36px" : "48px 32px",
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
-          boxShadow: `0 24px 80px rgba(0,0,0,0.8), 0 0 40px ${frameColor}22, inset 0 0 20px ${frameColor}11`,
+          boxShadow: isLight
+            ? `0 24px 80px rgba(0,0,0,0.22), 0 0 40px ${frameColor}22, inset 0 0 20px ${frameColor}0A`
+            : `0 24px 80px rgba(0,0,0,0.8), 0 0 40px ${frameColor}22, inset 0 0 20px ${frameColor}11`,
           willChange: "transform, opacity",
           textAlign: "center",
         }}
@@ -2261,7 +2308,7 @@ export function WinOverlay({
                       fontFamily: t.fontDisplay,
                       fontSize: "clamp(15px, 2.2vw, 20px)",
                       fontWeight: 700,
-                      color: "rgba(255,255,255,0.85)",
+                      color: strongOnCard,
                       letterSpacing: "0.04em",
                       marginBottom: 6,
                     }}
@@ -2282,7 +2329,7 @@ export function WinOverlay({
                     <span
                       style={{
                         marginLeft: 10,
-                        color: "rgba(255,255,255,0.35)",
+                        color: dimText,
                         letterSpacing: "0.2em",
                       }}
                     >
@@ -2327,7 +2374,7 @@ export function WinOverlay({
                   style={{
                     fontFamily: t.fontMono,
                     fontSize: 13,
-                    color: "rgba(255,255,255,0.4)",
+                    color: softText,
                     letterSpacing: "0.2em",
                     marginBottom: 32,
                     textTransform: "uppercase",
@@ -2344,9 +2391,9 @@ export function WinOverlay({
                   width: "100%",
                   margin: "0 0 40px 0",
                   padding: "24px",
-                  background: "rgba(255,255,255,0.03)",
+                  background: subtleSurface,
                   borderRadius: 16,
-                  border: "1px solid rgba(255,255,255,0.05)",
+                  border: `1px solid ${subtleSurfaceStrong}`,
                   display: "flex",
                   flexDirection: "column",
                   alignItems: "center",
@@ -2357,7 +2404,7 @@ export function WinOverlay({
                   style={{
                     fontFamily: t.fontMono,
                     fontSize: 11,
-                    color: "rgba(255,255,255,0.3)",
+                    color: softerText,
                     letterSpacing: "0.15em",
                   }}
                 >
@@ -2377,10 +2424,10 @@ export function WinOverlay({
               style={{
                 marginTop: 8,
                 padding: "16px 48px",
-                background: canDismiss ? winnerColor : "rgba(255,255,255,0.05)",
+                background: canDismiss ? winnerColor : dismissDisabledBg,
                 border: "none",
                 borderRadius: 12,
-                color: canDismiss ? "#000" : "rgba(255,255,255,0.2)",
+                color: canDismiss ? "#000" : dismissDisabledText,
                 fontFamily: t.fontDisplay,
                 fontSize: 16,
                 fontWeight: 900,
@@ -2522,8 +2569,8 @@ export function WinOverlay({
                           maxWidth: 280,
                           padding: "18px 22px",
                           borderRadius: ip ? 2 : 14,
-                          border: `2px solid ${rdy ? col : "rgba(255,255,255,0.22)"}`,
-                          background: rdy ? `${col}22` : "rgba(255,255,255,0.04)",
+                          border: `2px solid ${rdy ? col : (isLight ? "rgba(0,0,0,0.18)" : "rgba(255,255,255,0.22)")}`,
+                          background: rdy ? `${col}22` : subtleSurface,
                           color: rdy ? col : textSecondary,
                           fontFamily: t.fontDisplay,
                           fontSize: "clamp(15px, 2.4vw, 20px)",
@@ -2607,7 +2654,7 @@ export function WinOverlay({
               style={{
                 fontFamily: t.fontMono,
                 fontSize: 13,
-                color: "rgba(255,255,255,0.4)",
+                color: softText,
                 letterSpacing: "0.2em",
                 marginBottom: 28,
                 textTransform: "uppercase",
@@ -2711,8 +2758,8 @@ export function WinOverlay({
                     minWidth: "min(100%, 320px)",
                     padding: "14px 28px",
                     borderRadius: ip ? 2 : 14,
-                    border: "1px solid rgba(255,255,255,0.18)",
-                    background: "rgba(255,255,255,0.04)",
+                    border: `1px solid ${subtleBorder}`,
+                    background: subtleSurface,
                     color: textSecondary,
                     fontFamily: t.fontDisplay,
                     fontSize: "clamp(14px, 2.4vw, 18px)",
@@ -2721,8 +2768,8 @@ export function WinOverlay({
                     cursor: "pointer",
                     transition: "all 0.2s",
                   }}
-                  onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,255,255,0.08)"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.3)"; }}
-                  onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.04)"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.18)"; }}
+                  onMouseEnter={e => { e.currentTarget.style.background = subtleHover; e.currentTarget.style.borderColor = subtleBorderStrong; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = subtleSurface; e.currentTarget.style.borderColor = subtleBorder; }}
                 >
                   QUIT TO HOME
                 </button>

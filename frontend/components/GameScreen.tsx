@@ -5125,7 +5125,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     seriesWinner,
     phase,
     gameNumber,
-    t: { fontDisplay: t.fontDisplay, fontMono: t.fontMono, fontBody: t.fontBody },
+    t: { fontDisplay: t.fontDisplay, fontMono: t.fontMono, fontBody: t.fontBody, isLight: t.isLight },
     winnerDisplayNameAction: winnerDisplayName,
     graphicsQuality: gameplayGraphicsQuality,
     onDismissAction: dismissOverlay,
@@ -5683,6 +5683,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
               text: t.text,
               textSecondary: t.textSecondary,
               textMuted: t.textMuted,
+              isLight: t.isLight,
             }}
             onContinue={() => {
               continuePostSeriesFlow(matchSeriesComplete);
@@ -5760,6 +5761,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
               text: t.text,
               textSecondary: t.textSecondary,
               textMuted: t.textMuted,
+              isLight: t.isLight,
             }}
             onQuit={() => {
               if (wsRef.current?.readyState === WebSocket.OPEN) {
@@ -6414,6 +6416,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
             text: t.text,
             textSecondary: t.textSecondary,
             textMuted: t.textMuted,
+            isLight: t.isLight,
           }}
           onContinue={() => {
             continuePostSeriesFlow(matchSeriesComplete);
@@ -6493,6 +6496,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
             text: t.text,
             textSecondary: t.textSecondary,
             textMuted: t.textMuted,
+            isLight: t.isLight,
           }}
           onQuit={() => {
             if (wsRef.current?.readyState === WebSocket.OPEN) {

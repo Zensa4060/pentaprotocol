@@ -42,6 +42,10 @@ interface MatchResultScreenProps {
     text: string;
     textSecondary: string;
     textMuted: string;
+    /** Optional light-theme flag — flips the full-screen backdrop and a
+     *  few SYROS-reward surfaces into light-on-light equivalents so the
+     *  series-result celebration is readable in `classic_light`. */
+    isLight?: boolean;
   };
   onQuit: () => void;
   onFindNewMatch?: () => void;
@@ -186,7 +190,9 @@ export default function MatchResultScreen({
         position: "fixed",
         inset: 0,
         zIndex: 100000,
-        background: "radial-gradient(circle at center, #0a0a0f 0%, #000000 100%)",
+        background: t.isLight
+          ? "radial-gradient(circle at center, rgba(255,255,255,0.96) 0%, rgba(232,232,236,1) 100%)"
+          : "radial-gradient(circle at center, #0a0a0f 0%, #000000 100%)",
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
