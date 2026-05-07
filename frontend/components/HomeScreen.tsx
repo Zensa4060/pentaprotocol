@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect, useLayoutEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useAuthStore } from "@/lib/store";
 import { THEMES } from "@/lib/themes";
 import type { Screen } from "@/lib/types";
@@ -31,200 +31,306 @@ const CARDS = [
 
 type Breakpoint = "mobile" | "tablet" | "desktop";
 
-/** Outer frame segments for each shard index (5×2 grid): top/bottom row + left/right column. */
-function aiShardPerimeterBorder(
-  index: number,
-  color: string,
-  width: string,
-  cornerRadius: number,
-): React.CSSProperties {
-  const col = index % 5;
-  const row = index < 5 ? 0 : 1;
-  const side = `${width} solid ${color}`;
-  return {
-    boxSizing: "border-box",
-    borderTop: row === 0 ? side : undefined,
-    borderBottom: row === 1 ? side : undefined,
-    borderLeft: col === 0 ? side : undefined,
-    borderRight: col === 4 ? side : undefined,
-    borderTopLeftRadius: row === 0 && col === 0 ? cornerRadius : 0,
-    borderTopRightRadius: row === 0 && col === 4 ? cornerRadius : 0,
-    borderBottomLeftRadius: row === 1 && col === 0 ? cornerRadius : 0,
-    borderBottomRightRadius: row === 1 && col === 4 ? cornerRadius : 0,
-  };
-}
-
-/** 10 shards: 5×2 grid (full tile coverage; motion is random per shard). */
-const AI_GLASS_CLIPS = [
-  "polygon(0% 0%, 20% 0%, 20% 50%, 0% 50%)",
-  "polygon(20% 0%, 40% 0%, 40% 50%, 20% 50%)",
-  "polygon(40% 0%, 60% 0%, 60% 50%, 40% 50%)",
-  "polygon(60% 0%, 80% 0%, 80% 50%, 60% 50%)",
-  "polygon(80% 0%, 100% 0%, 100% 50%, 80% 50%)",
-  "polygon(0% 50%, 20% 50%, 20% 100%, 0% 100%)",
-  "polygon(20% 50%, 40% 50%, 40% 100%, 20% 100%)",
-  "polygon(40% 50%, 60% 50%, 60% 100%, 40% 100%)",
-  "polygon(60% 50%, 80% 50%, 80% 100%, 60% 100%)",
-  "polygon(80% 50%, 100% 50%, 100% 100%, 80% 100%)",
-] as const;
-
-/** Diagonal strikes (horizontal gradient along the bolt), ~+20% intensity. */
-function trainingDiagonalStrikeStyle(palette: "white" | "blue" | "red"): { background: string; boxShadow: string } {
-  switch (palette) {
-    case "white":
-      return {
-        background:
-          "linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.42) 34%, rgba(255,255,255,1) 50%, rgba(255,255,255,0.42) 66%, transparent 100%)",
-        boxShadow: "0 0 12px rgba(255,255,255,1), 0 0 26px rgba(240,248,255,0.54)",
-      };
-    case "blue":
-      return {
-        background:
-          "linear-gradient(90deg, transparent 0%, rgba(90,160,255,0.42) 38%, rgba(190,235,255,1) 50%, rgba(70,130,255,0.58) 64%, transparent 100%)",
-        boxShadow: "0 0 14px rgba(150,210,255,1), 0 0 31px rgba(70,150,255,0.58)",
-      };
-    case "red":
-      return {
-        background:
-          "linear-gradient(90deg, transparent 0%, rgba(255,130,130,0.54) 36%, rgba(255,85,105,1) 50%, rgba(210,40,60,0.62) 66%, transparent 100%)",
-        boxShadow: "0 0 14px rgba(255,130,130,1), 0 0 31px rgba(255,60,80,0.58)",
-      };
-  }
-}
-
-const TRAINING_DIAGONAL_STRIKES = [
-  { top: "7%", left: "-10%", w: "58%", h: 4, rot: -46, pal: "white" as const, dur: 0.88, delay: 0 },
-  { top: "34%", left: "18%", w: "62%", h: 3, rot: 41, pal: "blue", dur: 1.05, delay: 0.18 },
-  { top: "20%", left: "44%", w: "52%", h: 5, rot: -33, pal: "red", dur: 0.82, delay: 0.42 },
-  { top: "56%", left: "2%", w: "64%", h: 4, rot: 36, pal: "white", dur: 0.95, delay: 0.1 },
-  { top: "72%", left: "28%", w: "55%", h: 3, rot: -28, pal: "blue", dur: 1.12, delay: 0.55 },
-] as const;
-
-function lobbySlashRand(seed: number, salt: number): number {
+/** Deterministic 0..1 random helper used by the three hover-effect generators. */
+function fxRand(seed: number, salt: number): number {
   const x = Math.sin(seed * 12.9898 + salt * 78.233 + 2.31) * 43758.5453;
   return x - Math.floor(x);
 }
 
-/** New random blood sword slashes on each lobby hover (seed bumps in onMouseEnter). */
-function generateLobbySlashes(seed: number): { top: string; left: string; w: string; h: number; rot: number; delay: number; dur: number }[] {
-  const count = 4 + Math.floor(lobbySlashRand(seed, 0) * 3);
-  const out: { top: string; left: string; w: string; h: number; rot: number; delay: number; dur: number }[] = [];
+// ─── MULTIPLAYER: blood-red laser slashes ──────────────────────────────────
+type LaserSlash = {
+  top: string; left: string; w: string; h: number;
+  rot: number; delay: number; dur: number; bright: boolean;
+};
+
+function generateLaserSlashes(seed: number): LaserSlash[] {
+  const count = 5 + Math.floor(fxRand(seed, 0) * 3);
+  const out: LaserSlash[] = [];
   for (let i = 0; i < count; i++) {
     const s = i * 17 + seed;
     out.push({
-      top: `${10 + lobbySlashRand(seed, s + 1) * 62}%`,
-      left: `${-26 + lobbySlashRand(seed, s + 2) * 24}%`,
-      w: `${112 + lobbySlashRand(seed, s + 3) * 32}%`,
-      h: 2 + Math.floor(lobbySlashRand(seed, s + 4) * 6),
-      rot: -52 + lobbySlashRand(seed, s + 5) * 44,
-      delay: lobbySlashRand(seed, s + 6) * 0.58,
-      dur: 1.95 + lobbySlashRand(seed, s + 7) * 1.45,
+      top: `${5 + fxRand(seed, s + 1) * 78}%`,
+      left: `${-26 + fxRand(seed, s + 2) * 28}%`,
+      w: `${118 + fxRand(seed, s + 3) * 32}%`,
+      h: 1 + Math.floor(fxRand(seed, s + 4) * 4),
+      rot: -52 + fxRand(seed, s + 5) * 50,
+      delay: fxRand(seed, s + 6) * 0.42,
+      dur: 0.85 + fxRand(seed, s + 7) * 0.7,
+      bright: fxRand(seed, s + 8) > 0.55,
     });
   }
   return out;
 }
 
-/** 10 shards: 5×2 grid (full tile coverage; motion is tailored per mode). */
-function getShardScatter(i: number, mode: "ai" | "lobby" | "training"): { tx: number; ty: number; rot: number; delay: number } {
-  const fract = (x: number) => x - Math.floor(x);
-  const rand1 = fract(Math.sin(i * 12.9898) * 43758.5453);
-  const rand2 = fract(Math.sin(i * 78.233 + 3.14159) * 43758.5453);
-  const rand3 = fract(Math.sin(i * 45.164 + 2.71828) * 43758.5453);
-
-  // Chaotic scatter for all (original challenge behavior)
-  const tx = (rand1 - 0.5) * 76;
-  const ty = (rand2 - 0.5) * 76;
-  const rot = (rand3 - 0.5) * 40;
-  const delay = i * 0.011 + fract(Math.sin(i * 91.714) * 43758.5453) * 0.045;
-  return { tx, ty, rot, delay };
-}
-
-function HoverShatterLayer(props: {
+function LobbyLaserLayer({
+  borderRadius,
+  slashes,
+}: {
   borderRadius: number | string;
-  cornerRadius: number;
-  cardPadding: string;
-  background: string;
-  backdropBlur?: string;
-  isMobile: boolean;
-  titleBlock: React.ReactNode;
-  chevron: React.ReactNode;
-  borderColor: string;
-  borderWidth: string;
-  mode: "ai" | "lobby" | "training";
+  slashes: LaserSlash[];
 }) {
-  const {
-    borderRadius,
-    cornerRadius,
-    cardPadding,
-    background,
-    backdropBlur,
-    isMobile,
-    titleBlock,
-    chevron,
-    borderColor,
-    borderWidth,
-    mode
-  } = props;
-  const dur = "0.48s";
-  const easing = "cubic-bezier(0.22, 1, 0.36, 1)";
-  const [burst, setBurst] = useState(false);
-  useLayoutEffect(() => {
-    const id = requestAnimationFrame(() => setBurst(true));
-    return () => cancelAnimationFrame(id);
-  }, []);
   return (
     <div
       aria-hidden
       style={{
         position: "absolute",
         inset: 0,
-        zIndex: 4,
+        zIndex: 1,
         pointerEvents: "none",
         borderRadius,
-        overflow: "visible",
+        overflow: "hidden",
       }}
     >
-      {AI_GLASS_CLIPS.map((clip, i) => {
-        const sc = getShardScatter(i, mode);
-        return (
+      {/* Soft red wash so the tile reads as "laser-charged" even between strikes. */}
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          background:
+            "radial-gradient(ellipse at 50% 50%, rgba(255,30,30,0.18) 0%, rgba(120,0,0,0.12) 42%, transparent 78%)",
+        }}
+      />
+      {slashes.map((s, i) => (
         <div
           key={i}
           style={{
             position: "absolute",
-            inset: 0,
-            clipPath: clip,
-            WebkitClipPath: clip,
-            background,
-            backdropFilter: backdropBlur,
-            WebkitBackdropFilter: backdropBlur,
-            ...aiShardPerimeterBorder(i, borderColor, borderWidth, cornerRadius),
-            boxShadow: "inset 0 1px 0 rgba(255,255,255,0.06), inset 0 0 0 1px rgba(255,255,255,0.05)",
-            transition: burst ? `transform ${dur} ${easing} ${sc.delay}s` : "none",
-            transform: burst
-              ? `translate3d(${sc.tx}px, ${sc.ty}px, 0) rotate(${sc.rot}deg)`
-              : "translate3d(0,0,0) rotate(0deg)",
-            willChange: "transform",
+            top: s.top,
+            left: s.left,
+            width: s.w,
+            height: `${s.h}px`,
+            transform: `rotate(${s.rot}deg)`,
+            transformOrigin: "left center",
+            background: s.bright
+              ? "linear-gradient(90deg, transparent 0%, rgba(255,80,80,0.55) 18%, rgba(255,255,255,1) 50%, rgba(255,40,40,0.6) 82%, transparent 100%)"
+              : "linear-gradient(90deg, transparent 0%, rgba(255,40,40,0.55) 22%, rgba(255,28,28,1) 50%, rgba(170,0,0,0.62) 78%, transparent 100%)",
+            boxShadow: s.bright
+              ? "0 0 16px rgba(255,80,80,1), 0 0 38px rgba(255,0,0,0.7), 0 0 8px #ffffff"
+              : "0 0 14px rgba(255,30,30,1), 0 0 32px rgba(180,0,0,0.6)",
+            opacity: 0.95,
+            animation: `laserSlashPulse ${s.dur}s ease-in-out ${s.delay}s infinite`,
+            filter: "drop-shadow(0 0 4px rgba(255,40,40,0.95))",
           }}
-        >
-          <div
-            style={{
-              padding: cardPadding,
-              height: "100%",
-              boxSizing: "border-box",
-              display: "flex",
-              flexDirection: isMobile ? "row" : "column",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: isMobile ? 16 : 0,
-              textAlign: "center",
-            }}
+        />
+      ))}
+    </div>
+  );
+}
+
+// ─── TRAINING: heavy blue + yellow lightning bolts ─────────────────────────
+type LightningBolt = {
+  d: string; color: string; w: number;
+  delay: number; dur: number; opacity: number;
+};
+
+function generateLightningBolts(seed: number): LightningBolt[] {
+  const bolts: LightningBolt[] = [];
+  const count = 6;
+  for (let i = 0; i < count; i++) {
+    const yellow = fxRand(seed + i, 100) > 0.5;
+    const startX = 8 + fxRand(seed + i, 1) * 84;
+    const endX = 8 + fxRand(seed + i, 2) * 84;
+    let d = `M ${startX} -8`;
+    const segments = 9;
+    for (let j = 1; j <= segments; j++) {
+      const t = j / segments;
+      const baseX = startX + (endX - startX) * t;
+      const baseY = -8 + 116 * t;
+      const jx = (fxRand(seed + i, 10 + j) - 0.5) * 18;
+      const jy = (fxRand(seed + i, 50 + j) - 0.5) * 4;
+      const nx = baseX + jx;
+      const ny = baseY + jy;
+      d += ` L ${nx} ${ny}`;
+      // Branch off mid-bolt and (sometimes) near the tail to give it a
+      // proper "heavy lightning" silhouette instead of a single zigzag.
+      if (j === Math.floor(segments / 2) || (j === segments - 2 && fxRand(seed + i, 200) > 0.55)) {
+        const bx = nx + (fxRand(seed + i, 300 + j) - 0.5) * 28;
+        const by = ny + (4 + fxRand(seed + i, 400 + j) * 8) * (fxRand(seed + i, 500 + j) > 0.5 ? 1 : -1);
+        d += ` M ${nx} ${ny} L ${bx} ${by} M ${nx} ${ny}`;
+      }
+    }
+    bolts.push({
+      d,
+      color: yellow ? "#FFE600" : "#3B9CFF",
+      w: 1.4 + fxRand(seed + i, 700) * 1.5,
+      delay: fxRand(seed + i, 800) * 0.5,
+      dur: 0.65 + fxRand(seed + i, 900) * 0.7,
+      opacity: 0.78 + fxRand(seed + i, 1000) * 0.22,
+    });
+  }
+  return bolts;
+}
+
+function TrainingLightningLayer({
+  borderRadius,
+  bolts,
+}: {
+  borderRadius: number | string;
+  bolts: LightningBolt[];
+}) {
+  return (
+    <div
+      aria-hidden
+      style={{
+        position: "absolute",
+        inset: 0,
+        zIndex: 1,
+        pointerEvents: "none",
+        borderRadius,
+        overflow: "hidden",
+      }}
+    >
+      {/* Blue+yellow haze so the tile feels like the storm is right behind it. */}
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          background:
+            "radial-gradient(circle at 50% 50%, rgba(80,160,255,0.22) 0%, rgba(255,225,90,0.12) 35%, rgba(20,40,90,0.18) 60%, transparent 80%)",
+          animation: "lightningBgFlash 1.5s ease-in-out infinite",
+        }}
+      />
+      <svg
+        width="100%"
+        height="100%"
+        viewBox="0 0 100 100"
+        preserveAspectRatio="none"
+        style={{ position: "absolute", inset: 0 }}
+      >
+        {bolts.map((b, i) => (
+          <g
+            key={i}
+            style={{ animation: `lightningBoltFlicker ${b.dur}s ease-in-out ${b.delay}s infinite` }}
           >
-            <div style={{ flex: isMobile ? 1 : undefined, minWidth: 0 }}>{titleBlock}</div>
-            {chevron}
-          </div>
-        </div>
-        );
-      })}
+            {/* Outer halo (blurred), colored core, then a thin white-hot center. */}
+            <path
+              d={b.d}
+              fill="none"
+              stroke={b.color}
+              strokeWidth={b.w * 2.4}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              opacity={0.4}
+              vectorEffect="non-scaling-stroke"
+              style={{ filter: "blur(2.5px)" }}
+            />
+            <path
+              d={b.d}
+              fill="none"
+              stroke={b.color}
+              strokeWidth={b.w}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              opacity={b.opacity}
+              vectorEffect="non-scaling-stroke"
+              style={{ filter: `drop-shadow(0 0 6px ${b.color}) drop-shadow(0 0 12px ${b.color})` }}
+            />
+            <path
+              d={b.d}
+              fill="none"
+              stroke="#FFFFFF"
+              strokeWidth={Math.max(0.4, b.w * 0.45)}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              opacity={0.95}
+              vectorEffect="non-scaling-stroke"
+            />
+          </g>
+        ))}
+      </svg>
+    </div>
+  );
+}
+
+// ─── AI ENGINE: purple cosmic-void backdrop ───────────────────────────────
+type VoidStar = {
+  top: string; left: string; size: number;
+  color: string; delay: number; dur: number;
+};
+
+function generateVoidStars(seed: number): VoidStar[] {
+  const count = 22;
+  const palette = ["#FFFFFF", "#E9D5FF", "#C084FC", "#A855F7", "#F0ABFC"];
+  const stars: VoidStar[] = [];
+  for (let i = 0; i < count; i++) {
+    stars.push({
+      top: `${fxRand(seed + i, 1) * 92 + 4}%`,
+      left: `${fxRand(seed + i, 2) * 92 + 4}%`,
+      size: 1 + fxRand(seed + i, 3) * 3,
+      color: palette[Math.floor(fxRand(seed + i, 4) * palette.length)],
+      delay: fxRand(seed + i, 5) * 2.4,
+      dur: 1.3 + fxRand(seed + i, 6) * 2.4,
+    });
+  }
+  return stars;
+}
+
+function AIVoidLayer({
+  borderRadius,
+  stars,
+}: {
+  borderRadius: number | string;
+  stars: VoidStar[];
+}) {
+  return (
+    <div
+      aria-hidden
+      style={{
+        position: "absolute",
+        inset: 0,
+        zIndex: 1,
+        pointerEvents: "none",
+        borderRadius,
+        overflow: "hidden",
+      }}
+    >
+      {/* Deep void: violet core fading into near-black at the edges. */}
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          background:
+            "radial-gradient(ellipse at 50% 50%, rgba(76,29,149,0.55) 0%, rgba(46,16,101,0.78) 38%, rgba(15,5,30,0.95) 78%)",
+        }}
+      />
+      {/* Slow conic spiral evokes the gravitational swirl of a singularity. */}
+      <div
+        style={{
+          position: "absolute",
+          inset: "-25%",
+          background:
+            "conic-gradient(from 0deg, transparent 0deg, rgba(168,85,247,0.22) 70deg, transparent 130deg, rgba(126,34,206,0.2) 200deg, transparent 270deg, rgba(217,70,239,0.18) 330deg, transparent 360deg)",
+          animation: "voidSpiral 10s linear infinite",
+          filter: "blur(10px)",
+        }}
+      />
+      {/* Two pulsing nebula clouds offset asymmetrically for depth. */}
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          background:
+            "radial-gradient(circle at 70% 28%, rgba(217,70,239,0.32) 0%, transparent 38%), radial-gradient(circle at 25% 75%, rgba(96,38,158,0.28) 0%, transparent 42%)",
+          filter: "blur(14px)",
+          animation: "voidNebulaPulse 5.5s ease-in-out infinite",
+        }}
+      />
+      {stars.map((s, i) => (
+        <div
+          key={i}
+          style={{
+            position: "absolute",
+            top: s.top,
+            left: s.left,
+            width: s.size,
+            height: s.size,
+            borderRadius: "50%",
+            background: s.color,
+            boxShadow: `0 0 ${s.size * 3}px ${s.color}, 0 0 ${s.size * 6}px ${s.color}`,
+            animation: `voidStarTwinkle ${s.dur}s ease-in-out ${s.delay}s infinite`,
+          }}
+        />
+      ))}
     </div>
   );
 }
@@ -275,9 +381,16 @@ export default function HomeScreen({ setScreenAction, themeId, onHoverAction, on
   const [hovered, setHovered] = useState<Screen | null>(null);
   const [hovFooter, setHovFooter] = useState<string | null>(null);
   const [hovCommunity, setHovCommunity] = useState<"itch" | "reddit" | "discord" | "feedback" | "instagram" | null>(null);
+  // Each card bumps its own seed on mouse-enter so the effect re-shuffles
+  // every time you hover — keeps the interaction feeling alive instead of
+  // showing the exact same slashes/bolts/stars on repeat hovers.
   const [lobbySlashSeed, setLobbySlashSeed] = useState(0);
+  const [trainingBoltSeed, setTrainingBoltSeed] = useState(0);
+  const [aiVoidSeed, setAiVoidSeed] = useState(0);
 
-  const lobbySlashes = useMemo(() => generateLobbySlashes(lobbySlashSeed), [lobbySlashSeed]);
+  const lobbySlashes = useMemo(() => generateLaserSlashes(lobbySlashSeed), [lobbySlashSeed]);
+  const trainingBolts = useMemo(() => generateLightningBolts(trainingBoltSeed), [trainingBoltSeed]);
+  const aiVoidStars = useMemo(() => generateVoidStars(aiVoidSeed), [aiVoidSeed]);
 
   const isMobile = bp === "mobile";
   const isTablet = bp === "tablet";
@@ -312,61 +425,65 @@ export default function HomeScreen({ setScreenAction, themeId, onHoverAction, on
   const isPlacement = (user as any)?.placement_matches < 5;
   const placementCol = "#FF33FF";
 
-  const cardStyle = (key: Screen, index: number): React.CSSProperties => {
+  const cardStyle = (key: Screen, _index: number): React.CSSProperties => {
     const isHov = hovered === key;
     const isMulti = key === "lobby";
     const isAI = key === "ai";
     const hovCol = isMulti ? BLOOD_RED : isAI ? AI_PURPLE : t.accent;
-    let curveY = 0;
-    if (!isMobile) {
-      if (index === 0) curveY = 60;
-      if (index === 2) curveY = 60;
-    }
 
     const spaceBg = isHov
       ? "linear-gradient(145deg, rgba(58,120,212,0.18), rgba(8,15,40,0.72))"
       : "rgba(6,12,34,0.52)";
 
-    /** Sword-slash blood: crimson edges + dark void (no drip) */
-    const lobbySlashAura = [
-      "0 0 28px rgba(255,45,45,0.42)",
-      "0 0 52px rgba(160,0,0,0.38)",
-      "0 0 88px rgba(0,0,0,0.55)",
-      "inset 0 0 36px rgba(0,0,0,0.4)",
-      "inset 0 0 12px rgba(90,0,0,0.22)",
+    // Per-mode hover aura — gives each card a distinct outer glow that
+    // matches its in-card effect (blood-red lasers / blue-yellow lightning /
+    // purple cosmic void).
+    const lobbyAura = [
+      "0 0 28px rgba(255,45,45,0.45)",
+      "0 0 60px rgba(180,0,0,0.4)",
+      "inset 0 0 36px rgba(0,0,0,0.42)",
+      "inset 0 0 14px rgba(90,0,0,0.22)",
+    ].join(", ");
+    const trainingAura = [
+      "0 0 28px rgba(80,160,255,0.45)",
+      "0 0 60px rgba(255,225,90,0.32)",
+      "inset 0 0 32px rgba(0,0,0,0.38)",
+      "inset 0 0 12px rgba(20,40,90,0.25)",
+    ].join(", ");
+    const aiAura = [
+      "0 0 28px rgba(168,85,247,0.5)",
+      "0 0 60px rgba(126,34,206,0.4)",
+      "inset 0 0 36px rgba(0,0,0,0.42)",
+      "inset 0 0 14px rgba(46,16,101,0.28)",
     ].join(", ");
 
     let hoverShadow: string;
     if (isHov && isMulti) {
       hoverShadow = isSp
-        ? `0 24px 64px rgba(58,120,212,0.35), 0 0 30px rgba(96,168,255,0.15), inset 0 1px 0 rgba(255,255,255,0.08), ${lobbySlashAura}`
-        : `0 24px 64px ${hovCol}38, 0 0 24px ${hovCol}18, ${lobbySlashAura}`;
-    } else if (isHov) {
+        ? `0 24px 64px rgba(58,120,212,0.35), 0 0 30px rgba(96,168,255,0.15), inset 0 1px 0 rgba(255,255,255,0.08), ${lobbyAura}`
+        : `0 24px 64px ${hovCol}38, 0 0 24px ${hovCol}18, ${lobbyAura}`;
+    } else if (isHov && isAI) {
       hoverShadow = isSp
-        ? `0 24px 64px rgba(58,120,212,0.35), 0 0 30px rgba(96,168,255,0.15), inset 0 1px 0 rgba(255,255,255,0.08)`
-        : `0 24px 64px ${hovCol}33, 0 0 20px ${hovCol}11`;
+        ? `0 24px 64px rgba(58,120,212,0.35), 0 0 30px rgba(96,168,255,0.15), inset 0 1px 0 rgba(255,255,255,0.08), ${aiAura}`
+        : `0 24px 64px ${hovCol}38, 0 0 24px ${hovCol}18, ${aiAura}`;
+    } else if (isHov) {
+      // training (singleplayer) — no theme-accent fallback so lightning aura
+      // shows in every theme.
+      hoverShadow = isSp
+        ? `0 24px 64px rgba(58,120,212,0.35), 0 0 30px rgba(96,168,255,0.15), inset 0 1px 0 rgba(255,255,255,0.08), ${trainingAura}`
+        : `0 24px 64px ${hovCol}33, 0 0 20px ${hovCol}11, ${trainingAura}`;
     } else {
       hoverShadow = isSp ? "inset 0 1px 0 rgba(255,255,255,0.04)" : "none";
     }
 
-    const shatterActive = isHov;
-
     return {
-      background: shatterActive
-        ? "transparent"
-        : isSp
-          ? spaceBg
-          : isHov
-            ? `linear-gradient(145deg, ${hovCol}22, ${t.bgCard}dd)`
-            : t.bgCard,
+      background: isSp
+        ? spaceBg
+        : isHov
+          ? `linear-gradient(145deg, ${hovCol}22, ${t.bgCard}dd)`
+          : t.bgCard,
       border: `${isMobile ? "1.5px" : "2px"} solid ${
-        shatterActive
-          ? "transparent"
-          : isHov
-            ? hovCol
-            : isSp
-              ? "rgba(58,120,212,0.25)"
-              : t.border
+        isHov ? hovCol : isSp ? "rgba(58,120,212,0.25)" : t.border
       }`,
       borderRadius: ip ? 2 : isMobile ? 12 : 20,
       padding: cardPadding,
@@ -374,18 +491,28 @@ export default function HomeScreen({ setScreenAction, themeId, onHoverAction, on
       textAlign: "center" as const,
       transition:
         "transform 0.4s cubic-bezier(.22,.68,0,1.2), box-shadow 0.4s cubic-bezier(.22,.68,0,1.2), background 0.2s linear, border-color 0.2s linear, opacity 0.2s linear",
+      // All three cards now share the same baseline so they sit on a
+      // single horizontal line (previously training + AI engine were
+      // pushed down 60px to form a curve, which left multiplayer
+      // visually offset).
       transform: isMobile
-        ? (isHov ? "scale(1.02)" : "scale(1)")
+        ? isHov
+          ? "scale(1.02)"
+          : "scale(1)"
         : isHov
-          ? `translateY(${curveY - 15}px) scale(1.06)`
-          : `translateY(${curveY}px)`,
-      boxShadow: shatterActive ? "none" : hoverShadow,
+          ? "translateY(-15px) scale(1.06)"
+          : "translateY(0)",
+      boxShadow: hoverShadow,
       flex: isMobile ? undefined : 1,
       width: isMobile ? "100%" : undefined,
       minWidth: 0,
       position: "relative",
+      // Hovered card stays slightly above siblings so its glow isn't
+      // clipped by the next card's z-stack.
       zIndex: isHov ? 10 : 1,
-      ...(isHov ? { overflow: "visible" as const } : {}),
+      // Effect layers paint inside the card; keep the box clipped so
+      // slashes/bolts/stars don't bleed past the rounded corners.
+      overflow: "hidden" as const,
       ...(isMobile ? { display: "flex", alignItems: "center", gap: 16, textAlign: "left" as const } : {}),
     };
   };
@@ -435,33 +562,37 @@ export default function HomeScreen({ setScreenAction, themeId, onHoverAction, on
           @keyframes starPulse { from { opacity:0.2; transform:scale(0.8); } to { opacity:0.9; transform:scale(1.2); } }
           @keyframes pixelBlink { 0%,100%{opacity:1} 50%{opacity:0.7} }
           @keyframes spaceCardIn { from { opacity:0; transform:translateY(24px); } to { opacity:1; transform:translateY(0); } }
-          @keyframes purpleSmokeSlashPulse {
-            0%, 100% { opacity: 0.68; filter: brightness(1) blur(0.45px); }
-            50% { opacity: 1; filter: brightness(1.2) blur(0.3px); }
+          /* MULTIPLAYER laser-slash pulse: bright at the peak, dim between cuts. */
+          @keyframes laserSlashPulse {
+            0%, 100% { opacity: 0.78; filter: brightness(1); }
+            50% { opacity: 1; filter: brightness(1.45); }
           }
-          @keyframes lightningFlash {
-            0%, 4%, 100% { opacity: 0; }
-            5% { opacity: 0.95; }
-            6% { opacity: 0.15; }
-            7% { opacity: 0.85; }
-            9% { opacity: 0; }
-            62% { opacity: 0; }
-            63% { opacity: 0.7; }
-            64% { opacity: 0.1; }
-            65% { opacity: 0.55; }
-            68% { opacity: 0; }
+          /* TRAINING storm haze breathes so the tile looks electrically charged. */
+          @keyframes lightningBgFlash {
+            0%, 100% { opacity: 0.55; }
+            50% { opacity: 1; }
           }
-          @keyframes lightningEdgeGlow {
-            0%, 100% { opacity: 0.35; filter: brightness(1); }
-            50% { opacity: 0.9; filter: brightness(1.15); }
+          /* TRAINING bolts flicker on/off twice per cycle for a stuttering strike. */
+          @keyframes lightningBoltFlicker {
+            0%, 18%, 30%, 60%, 100% { opacity: 1; }
+            22% { opacity: 0.15; }
+            64% { opacity: 0.4; }
+            68% { opacity: 1; }
           }
-          @keyframes bloodSlashPulse {
-            0%, 100% { opacity: 0.72; filter: brightness(1) blur(0.4px); }
-            50% { opacity: 1; filter: brightness(1.18) blur(0.25px); }
+          /* AI ENGINE conic spiral rotates slowly for the singularity look. */
+          @keyframes voidSpiral {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
           }
-          @keyframes bloodRiverShift {
-            0% { background-position: 0% 50%; }
-            100% { background-position: 200% 50%; }
+          /* AI ENGINE nebula clouds breathe in/out over a few seconds. */
+          @keyframes voidNebulaPulse {
+            0%, 100% { opacity: 0.7; }
+            50% { opacity: 1; }
+          }
+          /* AI ENGINE stars twinkle with an offset delay per star. */
+          @keyframes voidStarTwinkle {
+            0%, 100% { opacity: 0.3; transform: scale(0.8); }
+            50% { opacity: 1; transform: scale(1.18); }
           }
         `}</style>
 
@@ -509,66 +640,72 @@ export default function HomeScreen({ setScreenAction, themeId, onHoverAction, on
               onMouseEnter={() => {
                 onHoverAction?.();
                 setHovered(card.key);
+                // Re-roll the effect's RNG seed each time the card is
+                // entered so the slashes / bolts / star field never look
+                // identical between hovers.
                 if (card.key === "lobby") setLobbySlashSeed((s) => s + 1);
+                else if (card.key === "singleplayer") setTrainingBoltSeed((s) => s + 1);
+                else if (card.key === "ai") setAiVoidSeed((s) => s + 1);
               }}
               onMouseLeave={() => setHovered(null)}
               style={cardStyle(card.key, idx)}
             >
+              {/* Hover effect layers — each card has its own backdrop:
+                    - lobby: blood-red laser slashes
+                    - singleplayer (training): blue+yellow heavy lightning
+                    - ai: purple cosmic-void with twinkling stars
+                  All are absolutely positioned at zIndex 1 so the title
+                  div (zIndex 2) sits cleanly on top.  */}
               {card.key === "lobby" && hovered === "lobby" && (
-                <HoverShatterLayer
-                  mode="lobby"
+                <LobbyLaserLayer
                   borderRadius={ip ? 2 : isMobile ? 12 : 20}
-                  cornerRadius={ip ? 2 : isMobile ? 12 : 20}
-                  cardPadding={cardPadding}
-                  background={`linear-gradient(145deg, ${BLOOD_RED}22, ${t.bgCard}dd)`}
-                  isMobile={isMobile}
-                  borderColor={BLOOD_RED}
-                  borderWidth={isMobile ? "1.5px" : "2px"}
-                  titleBlock={
-                    <>
-                      <div style={{ fontFamily: (themeId === "classic_light" || themeId === "classic_dark" || themeId === "space") ? "'Cinzel', serif" : t.fontDisplay, fontSize: cardTitleSize, fontWeight: 700, color: BLOOD_RED, marginBottom: isMobile ? 4 : 8, position: "relative", zIndex: 2 }}>{card.title}</div>
-                      <div style={{ fontFamily: t.fontBody, fontSize: cardSubSize, color: isSp ? "rgba(140,180,255,0.5)" : t.textMuted }}>{card.sub}</div>
-                    </>
-                  }
-                  chevron={isMobile ? <div style={{ fontFamily: t.fontMono, fontSize: 18, color: BLOOD_RED, flexShrink: 0 }}>›</div> : null}
+                  slashes={lobbySlashes}
                 />
               )}
               {card.key === "singleplayer" && hovered === "singleplayer" && (
-                <HoverShatterLayer
-                  mode="training"
+                <TrainingLightningLayer
                   borderRadius={ip ? 2 : isMobile ? 12 : 20}
-                  cornerRadius={ip ? 2 : isMobile ? 12 : 20}
-                  cardPadding={cardPadding}
-                  background={`linear-gradient(145deg, #00C8FF22, ${t.bgCard}dd)`}
-                  isMobile={isMobile}
-                  borderColor="#00C8FF"
-                  borderWidth={isMobile ? "1.5px" : "2px"}
-                  titleBlock={
-                    <>
-                      <div style={{ fontFamily: (themeId === "classic_light" || themeId === "classic_dark" || themeId === "space") ? "'Cinzel', serif" : t.fontDisplay, fontSize: cardTitleSize, fontWeight: 700, color: "#00C8FF", marginBottom: isMobile ? 4 : 8, position: "relative", zIndex: 2 }}>{card.title}</div>
-                      <div style={{ fontFamily: t.fontBody, fontSize: cardSubSize, color: isSp ? "rgba(140,180,255,0.5)" : t.textMuted }}>{card.sub}</div>
-                    </>
-                  }
-                  chevron={isMobile ? <div style={{ fontFamily: t.fontMono, fontSize: 18, color: "#00C8FF", flexShrink: 0 }}>›</div> : null}
+                  bolts={trainingBolts}
                 />
               )}
+              {card.key === "ai" && hovered === "ai" && (
+                <AIVoidLayer
+                  borderRadius={ip ? 2 : isMobile ? 12 : 20}
+                  stars={aiVoidStars}
+                />
+              )}
+
+              {/* Title block — stays visible at all times now that the
+                  break/shatter swap-out is gone. Its color shifts to the
+                  card's accent on hover so the effect layer behind it
+                  reads as "powering up" the label. */}
               <div
                 style={{
                   flex: isMobile ? 1 : undefined,
                   position: "relative",
                   zIndex: 2,
-                  opacity: hovered === card.key ? 0 : 1,
-                  transition: "opacity 0.08s ease",
-                  visibility: hovered === card.key ? "hidden" : "visible",
-                  pointerEvents: hovered === card.key ? "none" : "auto",
                 }}
               >
                 <div style={{
                   fontFamily: (themeId === "classic_light" || themeId === "classic_dark" || themeId === "space") ? "'Cinzel', serif" : t.fontDisplay,
                   fontSize: cardTitleSize, fontWeight: 700,
                   color: hovered === card.key ? (card.key === "lobby" ? BLOOD_RED : card.key === "ai" ? AI_PURPLE : t.accent) : t.text,
-                  marginBottom: isMobile ? 4 : 8, transition: "color 0.2s",
+                  marginBottom: isMobile ? 4 : 8,
+                  transition: "color 0.2s, text-shadow 0.2s",
                   position: "relative", zIndex: 2,
+                  // Two-stage shadow: a tight dark halo (~3px) keeps the
+                  // colored letters legible against the busy effect
+                  // backdrop, then a wider colored bloom matches each
+                  // card's palette so the label looks "charged" on
+                  // hover (red lasers / blue+yellow lightning / purple
+                  // cosmic glow).
+                  textShadow: hovered === card.key
+                    ? card.key === "lobby"
+                      ? "0 0 3px rgba(0,0,0,0.95), 0 0 14px rgba(255,30,30,1), 0 0 28px rgba(255,30,30,0.55)"
+                      : card.key === "ai"
+                        ? "0 0 3px rgba(0,0,0,0.95), 0 0 14px rgba(192,132,252,1), 0 0 28px rgba(168,85,247,0.55)"
+                        : "0 0 3px rgba(0,0,0,0.95), 0 0 14px rgba(150,210,255,1), 0 0 28px rgba(255,225,90,0.5)"
+                    : "none",
                 }}>
                   {card.title}
                 </div>
@@ -576,63 +713,23 @@ export default function HomeScreen({ setScreenAction, themeId, onHoverAction, on
                   fontFamily: t.fontBody,
                   fontSize: cardSubSize,
                   color: isSp ? "rgba(140,180,255,0.5)" : t.textMuted,
+                  position: "relative", zIndex: 2,
                 }}>
                   {card.sub}
                 </div>
               </div>
-              {card.key === "ai" && hovered === "ai" && (
-                <HoverShatterLayer
-                  mode="ai"
-                  borderRadius={ip ? 2 : isMobile ? 12 : 20}
-                  cornerRadius={ip ? 2 : isMobile ? 12 : 20}
-                  cardPadding={cardPadding}
-                  background={
-                    isSp
-                      ? "linear-gradient(145deg, rgba(58,120,212,0.18), rgba(8,15,40,0.72))"
-                      : `linear-gradient(145deg, ${AI_PURPLE}22, ${t.bgCard}dd)`
-                  }
-                  backdropBlur={undefined}
-                  isMobile={isMobile}
-                  borderColor={AI_PURPLE}
-                  borderWidth={isMobile ? "1.5px" : "2px"}
-                  titleBlock={
-                    <>
-                      <div
-                        style={{
-                          fontFamily:
-                            themeId === "classic_light" || themeId === "classic_dark" || themeId === "space"
-                              ? "'Cinzel', serif"
-                              : t.fontDisplay,
-                          fontSize: cardTitleSize,
-                          fontWeight: 700,
-                          color: AI_PURPLE,
-                          marginBottom: isMobile ? 4 : 8,
-                          position: "relative",
-                          zIndex: 2,
-                        }}
-                      >
-                        {card.title}
-                      </div>
-                      <div
-                        style={{
-                          fontFamily: t.fontBody,
-                          fontSize: cardSubSize,
-                          color: isSp ? "rgba(140,180,255,0.5)" : t.textMuted,
-                        }}
-                      >
-                        {card.sub}
-                      </div>
-                    </>
-                  }
-                  chevron={
-                    isMobile ? (
-                      <div style={{ fontFamily: t.fontMono, fontSize: 18, color: AI_PURPLE, flexShrink: 0 }}>›</div>
-                    ) : null
-                  }
-                />
-              )}
-              {isMobile && !(card.key === "ai" && hovered === "ai") && (
-                <div style={{ fontFamily: t.fontMono, fontSize: 18, color: hovered === card.key ? (card.key === "lobby" ? BLOOD_RED : card.key === "ai" ? AI_PURPLE : t.accent) : t.textMuted, transition: "color 0.2s, transform 0.2s", transform: hovered === card.key ? "translateX(4px)" : "translateX(0)", flexShrink: 0 }}>›</div>
+
+              {isMobile && (
+                <div style={{
+                  fontFamily: t.fontMono, fontSize: 18,
+                  color: hovered === card.key
+                    ? (card.key === "lobby" ? BLOOD_RED : card.key === "ai" ? AI_PURPLE : t.accent)
+                    : t.textMuted,
+                  transition: "color 0.2s, transform 0.2s",
+                  transform: hovered === card.key ? "translateX(4px)" : "translateX(0)",
+                  flexShrink: 0,
+                  position: "relative", zIndex: 2,
+                }}>›</div>
               )}
             </button>
           ))}
