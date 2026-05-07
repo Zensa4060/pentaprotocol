@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import AuthGuard from "@/components/AuthGuard";
 import { useApp } from "@/components/AppShell";
@@ -55,7 +55,7 @@ function normalizeCareerMoves(moves: MatchRound["moves"]): AnalyzerMove[] {
   return out;
 }
 
-export default function CareerAnalysisPage() {
+function CareerAnalysisPageInner() {
   const router = useRouter();
   const params = useParams<{ matchId: string }>();
   const searchParams = useSearchParams();
@@ -71,6 +71,7 @@ export default function CareerAnalysisPage() {
   const [match, setMatch] = useState<CareerMatchPayload | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [activeRoundIdx, setActiveRoundIdx] = useState(0);
 
   const load = useCallback(async () => {
     if (!matchId) {
@@ -95,34 +96,39 @@ export default function CareerAnalysisPage() {
     void load();
   }, [load]);
 
-  const { round, moveHistory, boardSize, p1Label, p2Label } = useMemo(() => {
+  const analysisRounds = useMemo(() => {
     const rounds = Array.isArray(match?.match_rounds) ? match!.match_rounds! : [];
-    let picked: MatchRound | null = null;
-    if (Number.isFinite(parsedGame) && parsedGame >= 1) {
-      picked = rounds.find((r) => r.game_number === parsedGame) ?? null;
-    }
-    if (!picked) {
-      picked = rounds.find((r) => normalizeCareerMoves(r.moves).length >= 2) ?? rounds[0] ?? null;
-    }
-    if (!picked) {
-      return {
-        round: null as MatchRound | null,
-        moveHistory: [] as AnalyzerMove[],
-        boardSize: 5 as 5 | 6 | 7,
-        p1Label: "P1",
-        p2Label: "P2",
-      };
-    }
-    const sz = boardSizeFromRound(picked);
-    const mh = normalizeCareerMoves(picked.moves);
-    const me = String(user?.username || "You").trim() || "You";
-    const opp = String(match?.opponent_username || "Opponent").trim() || "Opponent";
-    const p1Label = match?.my_slot === "P2" ? opp : me;
-    const p2Label = match?.my_slot === "P2" ? me : opp;
-    return { round: picked, moveHistory: mh, boardSize: sz, p1Label, p2Label };
-  }, [match, parsedGame, user?.username]);
+    return rounds
+      .map((r, idx) => ({ ...r, _idx: idx }))
+      .filter((r) => normalizeCareerMoves(r.moves).length >= 2);
+  }, [match]);
 
-  const patterns = useMemo(() => defaultPatternsForSize(boardSize), [boardSize]);
+  useEffect(() => {
+    if (analysisRounds.length === 0) return;
+    if (Number.isFinite(parsedGame) && parsedGame >= 1) {
+      const idx = analysisRounds.findIndex(
+        (r) => Number(r.game_number) === parsedGame,
+      );
+      if (idx >= 0) {
+        setActiveRoundIdx(idx);
+        return;
+      }
+    }
+    setActiveRoundIdx(0);
+  }, [analysisRounds, parsedGame]);
+
+  const selectedRound = analysisRounds.length > 0
+    ? analysisRounds[Math.min(activeRoundIdx, analysisRounds.length - 1)]
+    : null;
+
+  const boardSize = selectedRound ? boardSizeFromRound(selectedRound) : 5;
+  const moveHistory = selectedRound ? normalizeCareerMoves(selectedRound.moves) : [];
+  const me = String(user?.username || "You").trim() || "You";
+  const opp = String(match?.opponent_username || "Opponent").trim() || "Opponent";
+  const p1Label = match?.my_slot === "P2" ? opp : me;
+  const p2Label = match?.my_slot === "P2" ? me : opp;
+
+  const patterns = useMemo(() => defaultPatternsForSize(boardSize as 5 | 6 | 7), [boardSize]);
 
   return (
     <AuthGuard>
@@ -170,9 +176,9 @@ export default function CareerAnalysisPage() {
               >
                 vs {String(match?.opponent_username || "—").toUpperCase()}
               </div>
-              {round && (
+              {selectedRound && (
                 <div style={{ fontFamily: t.fontMono, fontSize: 12, color: t.textSecondary, letterSpacing: "0.05em" }}>
-                  Game {round.game_number ?? "—"} · {boardSize}×{boardSize} · {moveHistory.length} moves
+                  Game {selectedRound.game_number ?? "—"} · {boardSize}×{boardSize} · {moveHistory.length} moves
                 </div>
               )}
             </div>
@@ -219,7 +225,7 @@ export default function CareerAnalysisPage() {
             </div>
           )}
 
-          {!loading && !loadError && match && moveHistory.length < 2 && (
+          {!loading && !loadError && match && analysisRounds.length === 0 && (
             <div
               style={{
                 border: `1px solid ${t.border}`,
@@ -237,19 +243,80 @@ export default function CareerAnalysisPage() {
             </div>
           )}
 
-          {!loading && !loadError && match && moveHistory.length >= 2 && (
-            <GameAnalyzer
-              boardSize={boardSize}
-              selectedPatterns={patterns}
-              moveHistory={moveHistory}
-              isGameOver={true}
-              t={t}
-              p1Label={p1Label}
-              p2Label={p2Label}
-            />
+          {!loading && !loadError && match && analysisRounds.length > 0 && (
+            <>
+              {analysisRounds.length > 1 && (
+                <div
+                  style={{
+                    border: `1px solid ${t.border}`,
+                    background: t.bgPanel,
+                    borderRadius: 10,
+                    padding: 12,
+                    display: "flex",
+                    flexWrap: "wrap",
+                    gap: 8,
+                    alignItems: "center",
+                  }}
+                >
+                  <div
+                    style={{
+                      fontFamily: t.fontMono,
+                      fontSize: 11,
+                      color: t.textMuted,
+                      letterSpacing: "0.12em",
+                      marginRight: 8,
+                    }}
+                  >
+                    SELECT ROUND
+                  </div>
+                  {analysisRounds.map((r, i) => {
+                    const active = i === activeRoundIdx;
+                    const sz = boardSizeFromRound(r);
+                    return (
+                      <button
+                        key={`${r.game_number}-${i}`}
+                        type="button"
+                        onClick={() => setActiveRoundIdx(i)}
+                        style={{
+                          padding: "6px 12px",
+                          borderRadius: 8,
+                          border: `1px solid ${active ? t.accent : t.border}`,
+                          background: active ? `${t.accent}22` : "transparent",
+                          color: active ? t.accent : t.textSecondary,
+                          fontFamily: t.fontMono,
+                          fontSize: 12,
+                          fontWeight: 700,
+                          letterSpacing: "0.06em",
+                          cursor: "pointer",
+                        }}
+                      >
+                        G{r.game_number ?? i + 1} · {sz}×{sz}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+              <GameAnalyzer
+                boardSize={boardSize as 5 | 6 | 7}
+                selectedPatterns={patterns}
+                moveHistory={moveHistory}
+                isGameOver={true}
+                t={t}
+                p1Label={p1Label}
+                p2Label={p2Label}
+              />
+            </>
           )}
         </div>
       </div>
     </AuthGuard>
+  );
+}
+
+export default function CareerAnalysisPage() {
+  return (
+    <Suspense fallback={null}>
+      <CareerAnalysisPageInner />
+    </Suspense>
   );
 }

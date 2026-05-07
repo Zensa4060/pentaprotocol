@@ -14,6 +14,7 @@ import { getUserKey, loadMissionState } from "@/lib/missionsClient";
 import { computeLevelProgress } from "@/lib/xpLevel";
 import { BannerRenderer } from "./BannerRenderer";
 import { rankGlowVisualStrength, buildRankEmblemGlowFilter, rankHaloGradientForRank, NavRankBadge, getRank, RANKS } from "./NavBar";
+import { openDiscordInvite } from "@/lib/community";
 import VoidRiftBanner from "./VoidRiftBanner";
 import BloodMoonBanner from "./BloodMoonBanner";
 import PhantomStrikeBanner from "./PhantomStrikeBanner";
@@ -809,6 +810,82 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
             </button>
           </div>
         </div>
+      </div>
+
+      {/* ── Discord community CTA ──────────────────────────────────────────
+          Mirrors the home and community-screen Discord buttons so the
+          invite is reachable from anywhere a logged-in player normally
+          ends up. URL lives in lib/community.ts. */}
+      <div style={{
+        background: "linear-gradient(135deg, rgba(88,101,242,0.18), rgba(88,101,242,0.06))",
+        border: "1px solid rgba(88,101,242,0.55)",
+        borderRadius: 12,
+        padding: "14px 18px",
+        marginBottom: 18,
+        display: "flex",
+        alignItems: "center",
+        gap: 14,
+        flexWrap: "wrap",
+        boxShadow: "0 0 18px rgba(88,101,242,0.18)",
+      }}>
+        <div style={{
+          width: 44,
+          height: 44,
+          borderRadius: 10,
+          background: "rgba(88,101,242,0.28)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          flexShrink: 0,
+          color: "#fff",
+          boxShadow: "inset 0 0 12px rgba(88,101,242,0.45)",
+        }}>
+          <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M20.317 4.3698a19.7913 19.7913 0 00-4.8851-1.5152.0741.0741 0 00-.0785.0371c-.211.3753-.4447.8648-.6083 1.2495-1.8447-.2762-3.68-.2762-5.4868 0-.1636-.3933-.4058-.8742-.6177-1.2495a.077.077 0 00-.0785-.037 19.7363 19.7363 0 00-4.8852 1.515.0699.0699 0 00-.0321.0277C.5334 9.0458-.319 13.5799.0992 18.0578a.0824.0824 0 00.0312.0561c2.0528 1.5076 4.0413 2.4228 5.9929 3.0294a.0777.0777 0 00.0842-.0276c.4616-.6304.8731-1.2952 1.226-1.9942a.076.076 0 00-.0416-.1057c-.6528-.2476-1.2743-.5495-1.8722-.8923a.077.077 0 01-.0076-.1277c.1258-.0943.2517-.1923.3718-.2914a.0743.0743 0 01.0776-.0105c3.9278 1.7933 8.18 1.7933 12.0614 0a.0739.0739 0 01.0785.0095c.1202.099.246.1981.3728.2924a.077.077 0 01-.0066.1276 12.2986 12.2986 0 01-1.873.8914.0766.0766 0 00-.0407.1067c.3604.698.7719 1.3628 1.225 1.9932a.076.076 0 00.0842.0286c1.961-.6067 3.9495-1.5219 6.0023-3.0294a.077.077 0 00.0313-.0552c.5004-5.177-.8382-9.6739-3.5485-13.6604a.061.061 0 00-.0312-.0286zM8.02 15.3312c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9555-2.4189 2.157-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.9555 2.4189-2.1569 2.4189zm7.9748 0c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9554-2.4189 2.1569-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.946 2.4189-2.1568 2.4189Z" />
+          </svg>
+        </div>
+        <div style={{ flex: 1, minWidth: 180 }}>
+          <div style={{ fontFamily: t.fontDisplay, fontSize: 15, fontWeight: 800, color: t.text, letterSpacing: "0.05em" }}>
+            Join the PentaProtocol community
+          </div>
+          <div style={{ fontFamily: t.fontBody, fontSize: 12, color: t.textMuted, marginTop: 2 }}>
+            Hop into Discord to find squadmates, get patch notes, and chat with the devs.
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={openDiscordInvite}
+          onMouseEnter={(e) => {
+            onHoverAction?.();
+            e.currentTarget.style.background = "#5865F2";
+            e.currentTarget.style.boxShadow = "0 0 22px rgba(88,101,242,0.7)";
+            e.currentTarget.style.transform = "translateY(-1px)";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = "rgba(88,101,242,0.92)";
+            e.currentTarget.style.boxShadow = "0 0 14px rgba(88,101,242,0.45)";
+            e.currentTarget.style.transform = "translateY(0)";
+          }}
+          style={{
+            padding: "10px 18px",
+            background: "rgba(88,101,242,0.92)",
+            border: "1px solid #5865F2",
+            borderRadius: 9,
+            color: "#fff",
+            fontFamily: t.fontDisplay,
+            fontSize: 12,
+            fontWeight: 800,
+            letterSpacing: "0.12em",
+            textTransform: "uppercase",
+            cursor: "pointer",
+            boxShadow: "0 0 14px rgba(88,101,242,0.45)",
+            transition: "background 160ms ease, box-shadow 160ms ease, transform 160ms ease",
+            flexShrink: 0,
+          }}
+          aria-label="Join the PentaProtocol Discord community (opens in a new tab)"
+        >
+          Join Discord ↗
+        </button>
       </div>
 
       {/* ── ELO Progress bar ──────────────────────────────────────────────── */}

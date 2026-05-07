@@ -662,6 +662,27 @@ export default function CollectionScreen({ themeId, setThemeIdAction, onHoverAct
   const ip = themeId === "pixel";
   const isClassic = themeId === "classic_light" || themeId === "classic_dark";
   const hoverColor = isClassic ? "#CC0000" : t.accent;
+  /**
+   * Light-theme card surfaces. Every card in this screen used to be a
+   * hardcoded `rgba(30,30,30,0.6)` (dark translucent) panel — fine on a
+   * dark page but it produced grey-on-grey blobs once the light palette's
+   * white background showed through. These tokens flip to a soft white
+   * card with subtle dark borders/locks so the cards read clearly in
+   * light theme while leaving dark themes untouched.
+   */
+  const isLight = themeId === "classic_light";
+  const cardBg = isLight ? "rgba(255,255,255,0.96)" : "rgba(30,30,30,0.6)";
+  const cardBorderOwned = isLight ? "rgba(0,0,0,0.08)" : "rgba(255,255,255,0.1)";
+  const cardBorderLocked = isLight ? "rgba(0,0,0,0.05)" : "rgba(255,255,255,0.05)";
+  const lockChipBg = isLight ? "rgba(255,255,255,0.92)" : "rgba(0,0,0,0.8)";
+  const lockChipBorder = isLight ? "rgba(0,0,0,0.12)" : "rgba(255,255,255,0.15)";
+  const lockChipText = isLight ? "#6A6A6A" : "#888";
+  const lockIconColor = isLight ? "#6A6A6A" : "#888";
+  const lockIconColorDeep = isLight ? "#9A9A9A" : "#555";
+  const coinPlaceholderBg = isLight ? "#EDEDF0" : "#1a1a1a";
+  const coinPlaceholderIcon = isLight ? "#9A9A9A" : "#555";
+  const tossUnownedRingStroke = isLight ? "#9A9A9A" : "#333";
+  const dividerColor = isLight ? "rgba(0,0,0,0.08)" : "rgba(255,255,255,0.1)";
 
   const [isMobile, setIsMobile] = useState(false);
   useEffect(() => {
@@ -1111,8 +1132,8 @@ export default function CollectionScreen({ themeId, setThemeIdAction, onHoverAct
                     return (
                       <div key={`${item.id}-${idx}`} className={`coll-item ${!owned ? "coll-locked" : ""}`}
                         onClick={() => { if (owned && !isActive) { onClickAction?.(); equipBanner(item.id); } }}
-                        style={{ minWidth: 230, maxWidth: 230, flex: "0 0 230px", scrollSnapAlign: "start", borderRadius: 16, overflow: "hidden", border: `1px solid ${owned ? (isActive ? hoverColor : "rgba(255,255,255,0.1)") : "rgba(255,255,255,0.05)"}`, background: "rgba(30,30,30,0.6)", backdropFilter: "blur(12px)", cursor: owned && !isActive ? "pointer" : "default", boxShadow: isActive ? `0 0 20px ${hoverColor}33` : "none" }}>
-                        {!owned && (<div className="coll-locked-overlay"><div style={{ background: "rgba(0,0,0,0.8)", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 12, padding: "8px 16px", display: "flex", alignItems: "center", gap: 8 }}><LockIcon size={14} color="#888" /><span style={{ fontFamily: t.fontMono, fontSize: 10, color: "#888", fontWeight: 800, letterSpacing: "0.1em" }}>LOCKED</span></div></div>)}
+                        style={{ minWidth: 230, maxWidth: 230, flex: "0 0 230px", scrollSnapAlign: "start", borderRadius: 16, overflow: "hidden", border: `1px solid ${owned ? (isActive ? hoverColor : cardBorderOwned) : cardBorderLocked}`, background: cardBg, backdropFilter: "blur(12px)", cursor: owned && !isActive ? "pointer" : "default", boxShadow: isActive ? `0 0 20px ${hoverColor}33` : "none" }}>
+                        {!owned && (<div className="coll-locked-overlay"><div style={{ background: lockChipBg, border: `1px solid ${lockChipBorder}`, borderRadius: 12, padding: "8px 16px", display: "flex", alignItems: "center", gap: 8 }}><LockIcon size={14} color={lockIconColor} /><span style={{ fontFamily: t.fontMono, fontSize: 10, color: lockChipText, fontWeight: 800, letterSpacing: "0.1em" }}>LOCKED</span></div></div>)}
                         <div style={{ height: 110, overflow: "hidden", position: "relative" }}>
                           <BannerRenderer bannerId={item.id} />
                           {owned && isActive && (<><div style={{ position: "absolute", top: 12, right: 12, background: hoverColor, borderRadius: 12, padding: "4px 12px", fontFamily: t.fontMono, fontSize: 10, color: "#fff", fontWeight: 900, letterSpacing: "0.05em", zIndex: 3, boxShadow: "0 4px 12px rgba(0,0,0,0.3)" }}>EQUIPPED</div><div style={{ position: "absolute", inset: 0, background: "linear-gradient(110deg, transparent 40%, rgba(255,255,255,0.1) 45%, rgba(255,255,255,0.2) 50%, rgba(255,255,255,0.1) 55%, transparent 60%)", backgroundSize: "200% 100%", animation: "bannerShine 3s infinite linear", zIndex: 2, pointerEvents: "none" }} /></>)}
@@ -1135,8 +1156,8 @@ export default function CollectionScreen({ themeId, setThemeIdAction, onHoverAct
                     const isRainbow = item.id === "rainbow_halo";
                     return (
                       <div key={`${item.id}-${idx}`} className={`coll-item ${!owned ? "coll-locked" : ""}`}
-                        style={{ minWidth: 210, maxWidth: 210, flex: "0 0 210px", scrollSnapAlign: "start", borderRadius: 16, padding: "24px 16px", border: `1px solid ${owned ? (item.id === "none" ? "rgba(255,255,255,0.1)" : tc + "aa") : "rgba(255,255,255,0.05)"}`, background: "rgba(30,30,30,0.6)", backdropFilter: "blur(12px)", display: "flex", flexDirection: "column", alignItems: "center", gap: 16, boxShadow: owned && item.id !== "none" ? `0 0 25px ${tc}22` : "none" }}>
-                        <div style={{ width: 72, height: 72, borderRadius: "50%", background: `linear-gradient(135deg,${t.p1},${t.p2})`, boxShadow: owned && item.id !== "none" ? (isRainbow ? "0 0 0 4px #FF6B6B, 0 0 0 8px #FFD700, 0 0 30px #FF6B6BAA" : item.css) : "none", border: item.id === "none" ? `1px dashed ${t.border}` : "none", display: "flex", alignItems: "center", justifyContent: "center" }}>{!owned && <LockIcon size={20} color="#555" />}</div>
+                        style={{ minWidth: 210, maxWidth: 210, flex: "0 0 210px", scrollSnapAlign: "start", borderRadius: 16, padding: "24px 16px", border: `1px solid ${owned ? (item.id === "none" ? cardBorderOwned : tc + "aa") : cardBorderLocked}`, background: cardBg, backdropFilter: "blur(12px)", display: "flex", flexDirection: "column", alignItems: "center", gap: 16, boxShadow: owned && item.id !== "none" ? `0 0 25px ${tc}22` : "none" }}>
+                        <div style={{ width: 72, height: 72, borderRadius: "50%", background: `linear-gradient(135deg,${t.p1},${t.p2})`, boxShadow: owned && item.id !== "none" ? (isRainbow ? "0 0 0 4px #FF6B6B, 0 0 0 8px #FFD700, 0 0 30px #FF6B6BAA" : item.css) : "none", border: item.id === "none" ? `1px dashed ${t.border}` : "none", display: "flex", alignItems: "center", justifyContent: "center" }}>{!owned && <LockIcon size={20} color={lockIconColorDeep} />}</div>
                         <div style={{ textAlign: "center" as const }}>
                           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4, marginBottom: 8 }}>
                             <span style={{ fontFamily: t.fontDisplay, fontSize: 16, fontWeight: 800, color: owned ? t.text : t.textMuted }}>{item.label}</span>
@@ -1245,12 +1266,12 @@ export default function CollectionScreen({ themeId, setThemeIdAction, onHoverAct
                     const skinOwned = item.condition ? item.condition(profile) : !!item.owned;
                     return (
                     <div key={`${item.id}-${idx}`} className={`coll-item ${!skinOwned ? "coll-locked" : ""}`}
-                      style={{ minWidth: 190, maxWidth: 190, flex: "0 0 190px", scrollSnapAlign: "start", borderRadius: 16, padding: "24px 16px", border: `1px solid ${skinOwned ? item.c1 + "44" : "rgba(255,255,255,0.05)"}`, background: "rgba(30,30,30,0.6)", backdropFilter: "blur(12px)", display: "flex", flexDirection: "column", alignItems: "center", gap: 16, position: "relative", boxShadow: skinOwned ? `0 0 20px ${item.c1}11` : "none" }}>
+                      style={{ minWidth: 190, maxWidth: 190, flex: "0 0 190px", scrollSnapAlign: "start", borderRadius: 16, padding: "24px 16px", border: `1px solid ${skinOwned ? item.c1 + "44" : cardBorderLocked}`, background: cardBg, backdropFilter: "blur(12px)", display: "flex", flexDirection: "column", alignItems: "center", gap: 16, position: "relative", boxShadow: skinOwned ? `0 0 20px ${item.c1}11` : "none" }}>
                       <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
                         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
-                          <div style={{ width: 52, height: 52, borderRadius: "50%", background: skinOwned ? `radial-gradient(circle at 35% 35%, ${item.c1}FF, ${item.c1}88)` : "#1a1a1a", boxShadow: skinOwned ? `0 0 15px ${item.c1}55` : "none", display: "flex", alignItems: "center", justifyContent: "center", position: "relative", overflow: "hidden" }}>
+                          <div style={{ width: 52, height: 52, borderRadius: "50%", background: skinOwned ? `radial-gradient(circle at 35% 35%, ${item.c1}FF, ${item.c1}88)` : coinPlaceholderBg, boxShadow: skinOwned ? `0 0 15px ${item.c1}55` : "none", display: "flex", alignItems: "center", justifyContent: "center", position: "relative", overflow: "hidden" }}>
                             {item.id === "wraith_king" ? (
-                              <DominionMark size={26} color={skinOwned ? item.c1 : "#555"} />
+                              <DominionMark size={26} color={skinOwned ? item.c1 : coinPlaceholderIcon} />
                             ) : (
                               <img src={item.img1} alt="penta" style={{ width: 32, height: 32, objectFit: "contain", opacity: skinOwned ? 1 : 0.15 }} />
                             )}
@@ -1260,11 +1281,11 @@ export default function CollectionScreen({ themeId, setThemeIdAction, onHoverAct
                           </div>
                           <span style={{ fontFamily: t.fontMono, fontSize: 9, color: skinOwned ? item.c1 : t.textMuted, letterSpacing: "0.1em", fontWeight: 800 }}>{item.id === "wraith_king" ? "DOMINION" : "PENTA"}</span>
                         </div>
-                        <div style={{ width: 1, height: 44, background: "rgba(255,255,255,0.1)", flexShrink: 0 }} />
+                        <div style={{ width: 1, height: 44, background: dividerColor, flexShrink: 0 }} />
                         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
-                          <div style={{ width: 52, height: 52, borderRadius: "50%", background: skinOwned ? `radial-gradient(circle at 35% 35%, ${item.c2}FF, ${item.c2}88)` : "#1a1a1a", boxShadow: skinOwned ? `0 0 15px ${item.c2}55` : "none", display: "flex", alignItems: "center", justifyContent: "center", position: "relative", overflow: "hidden" }}>
+                          <div style={{ width: 52, height: 52, borderRadius: "50%", background: skinOwned ? `radial-gradient(circle at 35% 35%, ${item.c2}FF, ${item.c2}88)` : coinPlaceholderBg, boxShadow: skinOwned ? `0 0 15px ${item.c2}55` : "none", display: "flex", alignItems: "center", justifyContent: "center", position: "relative", overflow: "hidden" }}>
                             {item.id === "wraith_king" ? (
-                              <ServitudeMark size={26} color={skinOwned ? item.c2 : "#555"} />
+                              <ServitudeMark size={26} color={skinOwned ? item.c2 : coinPlaceholderIcon} />
                             ) : (
                               <img src={item.img2} alt="proto" style={{ width: 32, height: 32, objectFit: "contain", opacity: skinOwned ? 1 : 0.15 }} />
                             )}
@@ -1283,7 +1304,7 @@ export default function CollectionScreen({ themeId, setThemeIdAction, onHoverAct
                           </div>
                         </div>
                       )}
-                      {!skinOwned && (<div className="coll-locked-overlay"><LockIcon size={16} color="#666" /></div>)}
+                      {!skinOwned && (<div className="coll-locked-overlay"><LockIcon size={16} color={lockIconColor} /></div>)}
                     </div>
                   );})}
                 </div>
@@ -1299,10 +1320,10 @@ export default function CollectionScreen({ themeId, setThemeIdAction, onHoverAct
                       <div key={`${item.id}-${idx}`} className={`coll-item ${!owned ? "coll-locked" : ""}`}
                         onClick={() => { if (owned && activeToss !== item.id) { onClickAction?.(); equipToss(item.id); } }}
                         onMouseEnter={() => { if (owned) onHoverAction?.(); }}
-                        style={{ minWidth: 210, maxWidth: 210, flex: "0 0 210px", scrollSnapAlign: "start", borderRadius: 16, padding: "20px 16px", border: `1px solid ${owned ? (activeToss === item.id ? ac : "rgba(255,255,255,0.1)") : "rgba(255,255,255,0.05)"}`, background: "rgba(30,30,30,0.6)", backdropFilter: "blur(12px)", display: "flex", alignItems: "center", gap: 16, position: "relative", boxShadow: activeToss === item.id ? `0 0 20px ${ac}33` : "none", cursor: owned && activeToss !== item.id ? "pointer" : "default" }}>
-                        {!owned && (<div className="coll-locked-overlay"><div style={{ background: "rgba(0,0,0,0.8)", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 12, padding: "6px 14px", display: "flex", alignItems: "center", gap: 6 }}><LockIcon size={12} color="#888" /><span style={{ fontFamily: t.fontMono, fontSize: 9, color: "#888", fontWeight: 800, letterSpacing: "0.1em" }}>LOCKED</span></div></div>)}
-                        <div style={{ width: 48, height: 48, borderRadius: "50%", background: owned ? `linear-gradient(135deg,${ac},${ac}88)` : "#1a1a1a", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, boxShadow: owned ? `0 0 15px ${ac}44` : "none", position: "relative", overflow: "hidden" }}>
-                          {owned ? <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg> : <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#333" strokeWidth="2.5" strokeLinecap="round"><circle cx="12" cy="12" r="9"/></svg>}
+                        style={{ minWidth: 210, maxWidth: 210, flex: "0 0 210px", scrollSnapAlign: "start", borderRadius: 16, padding: "20px 16px", border: `1px solid ${owned ? (activeToss === item.id ? ac : cardBorderOwned) : cardBorderLocked}`, background: cardBg, backdropFilter: "blur(12px)", display: "flex", alignItems: "center", gap: 16, position: "relative", boxShadow: activeToss === item.id ? `0 0 20px ${ac}33` : "none", cursor: owned && activeToss !== item.id ? "pointer" : "default" }}>
+                        {!owned && (<div className="coll-locked-overlay"><div style={{ background: lockChipBg, border: `1px solid ${lockChipBorder}`, borderRadius: 12, padding: "6px 14px", display: "flex", alignItems: "center", gap: 6 }}><LockIcon size={12} color={lockIconColor} /><span style={{ fontFamily: t.fontMono, fontSize: 9, color: lockChipText, fontWeight: 800, letterSpacing: "0.1em" }}>LOCKED</span></div></div>)}
+                        <div style={{ width: 48, height: 48, borderRadius: "50%", background: owned ? `linear-gradient(135deg,${ac},${ac}88)` : coinPlaceholderBg, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, boxShadow: owned ? `0 0 15px ${ac}44` : "none", position: "relative", overflow: "hidden" }}>
+                          {owned ? <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg> : <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={tossUnownedRingStroke} strokeWidth="2.5" strokeLinecap="round"><circle cx="12" cy="12" r="9"/></svg>}
                           {owned && activeToss === item.id && <div style={{ position: "absolute", inset: 0, background: "linear-gradient(110deg, transparent 40%, rgba(255,255,255,0.3) 45%, rgba(255,255,255,0.6) 50%, rgba(255,255,255,0.3) 55%, transparent 60%)", backgroundSize: "200% 100%", animation: "bannerShine 2s infinite linear" }} />}
                         </div>
                         <div style={{ flex: 1 }}>

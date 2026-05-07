@@ -1082,8 +1082,15 @@ export default function LobbyScreen({
         maxWidth: 800,
         lineHeight: 1.3,
         textTransform: "uppercase",
-        color: "#ffffff",
-        textShadow: "0 0 10px rgba(255,255,255,0.9), 0 0 20px rgba(255,255,255,0.6), 0 0 40px rgba(255,255,255,0.3)",
+        // Use the theme's primary text color so the taunt reads as bold
+        // dark-on-light in `classic_light` instead of white-on-white. The
+        // glowing white halo only made sense over a dark page bg, so we
+        // swap it for a soft accent halo in light mode and keep the
+        // original neon-white halo on every dark theme.
+        color: t.text,
+        textShadow: t.isLight
+          ? `0 1px 2px rgba(0,0,0,0.08), 0 0 18px ${t.accent}26`
+          : "0 0 10px rgba(255,255,255,0.9), 0 0 20px rgba(255,255,255,0.6), 0 0 40px rgba(255,255,255,0.3)",
       }}>{lobbyTitle}</h1>
 
       {rankedBanActive && (

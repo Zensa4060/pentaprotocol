@@ -613,6 +613,10 @@ interface MatchSidebarProps {
     fontBody: string; textMuted: string; textSecondary: string; text: string; border: string;
     bgCard: string; bgPanel: string; gold: string; danger: string; inputBg: string;
     pieces: { p1: string; p2: string };
+    /** Optional light-theme flag — when true the sidebar's hardcoded dark
+     *  banner washes / dark text shadows flip to light-on-light equivalents
+     *  so timer cards read as light surfaces in `classic_light`. */
+    isLight?: boolean;
   };
   p1Banner?: string;
   p2Banner?: string;
@@ -1048,7 +1052,14 @@ export function LeftPanel(props: MatchSidebarProps) {
               <div style={{
                 position: "absolute",
                 inset: 0,
-                background: "linear-gradient(to right, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0.4) 50%, rgba(0,0,0,0.8) 100%)",
+                // Banner art needs a contrast wash so the player name + time
+                // text on top stays readable. Dark theme: dark wash → white-ish
+                // text reads. Light theme: light wash → dark text reads. Without
+                // this flip the timer cards looked like black bars dropped onto
+                // a white sidebar.
+                background: t.isLight
+                  ? "linear-gradient(to right, rgba(255,255,255,0.86) 0%, rgba(255,255,255,0.6) 50%, rgba(255,255,255,0.86) 100%)"
+                  : "linear-gradient(to right, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0.4) 50%, rgba(0,0,0,0.8) 100%)",
                 zIndex: 1
               }} />
               {bannerShineEnabled && (
@@ -1086,7 +1097,7 @@ export function LeftPanel(props: MatchSidebarProps) {
               )}
             </div>
             <div style={{ position: "relative", zIndex: 2, padding: isShorter ? "7px 11px" : "10px 13px", background: isCurrentMover ? `${p === "P1" ? p1c : p2c}33` : "transparent", display: "flex", justifyContent: "space-between", alignItems: "center", transition: "background 0.25s" }}>
-              <span style={{ fontFamily: t.fontDisplay, fontSize: 13, color: p === "P1" ? p1c : p2c, fontWeight: 800, display: "flex", alignItems: "center", gap: 6, letterSpacing: "0.05em", textShadow: `0 2px 4px rgba(0,0,0,0.8)` }}>
+              <span style={{ fontFamily: t.fontDisplay, fontSize: 13, color: p === "P1" ? p1c : p2c, fontWeight: 800, display: "flex", alignItems: "center", gap: 6, letterSpacing: "0.05em", textShadow: t.isLight ? "0 1px 2px rgba(255,255,255,0.85)" : "0 2px 4px rgba(0,0,0,0.8)" }}>
                 {
                   (() => {
                     const raw = p === "P1" ? p1Label : p2Label;
@@ -1096,7 +1107,7 @@ export function LeftPanel(props: MatchSidebarProps) {
                   })()
                 }
               </span>
-              <span style={{ fontFamily: t.fontMono, fontSize: 16, color: t.text, fontWeight: 700, textShadow: "0 1px 3px rgba(0,0,0,0.8)" }}>{p === "P1" ? fmtTimeAction(p1Time) : fmtTimeAction(p2Time)}</span>
+              <span style={{ fontFamily: t.fontMono, fontSize: 16, color: t.text, fontWeight: 700, textShadow: t.isLight ? "0 1px 2px rgba(255,255,255,0.85)" : "0 1px 3px rgba(0,0,0,0.8)" }}>{p === "P1" ? fmtTimeAction(p1Time) : fmtTimeAction(p2Time)}</span>
             </div>
           </div>
         </div>
@@ -1391,50 +1402,77 @@ export function LeftPanel(props: MatchSidebarProps) {
               </React.Fragment>
             );
           })}
-          {/* Gap-filler CTA between LIMITB rows and the bottom HISTORY/H2H
-              block. User-requested visual only (non-interactive) so the
-              empty band does not look dead on taller viewports. */}
-          {isMultiplayerGame && (
+        </div>
+        {isMultiplayerGame && (() => {
+          const ctaBaseStyle: React.CSSProperties = {
+            width: "100%",
+            minHeight: 46,
+            padding: "12px 14px",
+            borderRadius: ip ? 4 : 10,
+            border: "1px solid rgba(153,27,27,0.7)",
+            background: "linear-gradient(135deg, rgba(69,10,10,0.94) 0%, rgba(127,29,29,0.95) 50%, rgba(153,27,27,0.92) 100%)",
+            color: "#FECACA",
+            fontFamily: t.fontMono,
+            fontSize: 13,
+            fontWeight: 800,
+            letterSpacing: "0.1em",
+            textTransform: "uppercase" as const,
+            boxShadow: "0 0 10px rgba(153,27,27,0.35), 0 0 20px rgba(127,29,29,0.2), inset 0 0 8px rgba(220,38,38,0.1)",
+            textShadow: "0 0 8px rgba(220,38,38,0.4)",
+            cursor: "pointer",
+            transition: "all 0.2s",
+            position: "relative" as const,
+            overflow: "hidden" as const,
+          };
+          return (
             <div
               style={{
-                marginTop: "auto",
-                marginBottom: "auto",
-                minHeight: 78,
+                flex: 1,
                 display: "flex",
-                alignItems: "center",
+                flexDirection: "column",
+                alignItems: "stretch",
                 justifyContent: "center",
+                gap: 10,
+                padding: "8px 0",
               }}
             >
               <button
                 type="button"
-                disabled
-                aria-label="SYROS analysis in process..."
-                style={{
-                  width: "100%",
-                  minHeight: 55,
-                  padding: "13px 16px",
-                  borderRadius: ip ? 4 : 12,
-                  border: "1px solid rgba(196, 106, 255, 0.62)",
-                  background:
-                    "linear-gradient(135deg, rgba(46,10,68,0.88) 0%, rgba(76,14,102,0.9) 45%, rgba(112,18,72,0.9) 75%, rgba(145,24,24,0.88) 100%)",
-                  color: "#F5D8FF",
-                  fontFamily: t.fontMono,
-                  fontSize: 13,
-                  fontWeight: 800,
-                  letterSpacing: "0.08em",
-                  textTransform: "none",
-                  boxShadow:
-                    "0 0 0 1px rgba(255,115,225,0.22) inset, 0 0 14px rgba(167,59,255,0.35), 0 0 20px rgba(176,22,53,0.22)",
-                  textShadow: "0 0 10px rgba(245,150,255,0.45)",
-                  opacity: 0.95,
-                  cursor: "default",
-                }}
+                onClick={onChatOpenToggle}
+                onMouseEnter={e => { playHoverAction?.(); e.currentTarget.style.background = "linear-gradient(135deg, rgba(120,30,30,0.96) 0%, rgba(170,50,50,0.97) 50%, rgba(200,65,65,0.95) 100%)"; e.currentTarget.style.color = "#fff"; e.currentTarget.style.boxShadow = "0 0 16px rgba(220,38,38,0.5), 0 0 30px rgba(153,27,27,0.35), inset 0 0 10px rgba(255,255,255,0.08)"; }}
+                onMouseLeave={e => { e.currentTarget.style.background = ctaBaseStyle.background as string; e.currentTarget.style.color = ctaBaseStyle.color as string; e.currentTarget.style.boxShadow = ctaBaseStyle.boxShadow as string; }}
+                style={ctaBaseStyle}
               >
-                SYROS analysis in process...
+                <span style={{ position: "relative", zIndex: 1 }}>CHAT</span>
+                {!chatOpen && unreadOpponentChat > 0 && (
+                  <span style={{
+                    position: "absolute", top: 4, right: 8, minWidth: 18, height: 18,
+                    borderRadius: 9, background: "#fff", color: "#991B1B",
+                    fontFamily: t.fontMono, fontSize: 10, fontWeight: 900,
+                    display: "inline-flex", alignItems: "center", justifyContent: "center",
+                    padding: "0 5px", zIndex: 2,
+                    animation: "msChatUnreadPulse 0.45s cubic-bezier(.22,.68,0,1.2) both",
+                  }}>
+                    {unreadOpponentChat > 9 ? "9+" : unreadOpponentChat}
+                  </span>
+                )}
               </button>
+              {selectedPatterns && selectedPatterns.length > 0 && onTogglePatternOverlay && (
+                <button
+                  type="button"
+                  onClick={onTogglePatternOverlay}
+                  onMouseEnter={e => { playHoverAction?.(); e.currentTarget.style.background = "linear-gradient(135deg, rgba(120,30,30,0.96) 0%, rgba(170,50,50,0.97) 50%, rgba(200,65,65,0.95) 100%)"; e.currentTarget.style.color = "#fff"; e.currentTarget.style.boxShadow = "0 0 16px rgba(220,38,38,0.5), 0 0 30px rgba(153,27,27,0.35), inset 0 0 10px rgba(255,255,255,0.08)"; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = ctaBaseStyle.background as string; e.currentTarget.style.color = ctaBaseStyle.color as string; e.currentTarget.style.boxShadow = ctaBaseStyle.boxShadow as string; }}
+                  style={ctaBaseStyle}
+                >
+                  <span style={{ position: "relative", zIndex: 1 }}>
+                    {showPatternOverlay ? "HIDE PATTERNS" : "PATTERNS"}
+                  </span>
+                </button>
+              )}
             </div>
-          )}
-        </div>
+          );
+        })()}
         {seriesWinner && (
           <div style={{ marginTop: 10, fontFamily: t.fontMono, fontSize: 20, color: t.gold, textAlign: "center", fontWeight: 700 }}>
             {seriesWinner === "DRAW" ? (
@@ -1703,39 +1741,8 @@ export function LeftPanel(props: MatchSidebarProps) {
             </div>
           )}
 
-          {/* CHAT row — full-width clickable button so any tap on the
-            * row opens / collapses the chat panel. The previous design
-            * forced users to hit the small ▸ chevron, which was
-            * uncomfortable on mobile. */}
-          <button
-            type="button"
-            onClick={onChatOpenToggle}
-            onMouseEnter={playHoverAction}
-            style={{
-              all: "unset",
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              gap: 8,
-              padding: "10px 4px 0",
-              borderTop: `1px solid ${t.border}`,
-              cursor: "pointer",
-              boxSizing: "border-box",
-              width: "100%",
-            }}
-            aria-expanded={chatOpen}
-            aria-label={chatOpen ? "Close chat" : "Open chat"}
-          >
-            <span style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
-              <span style={{ fontFamily: t.fontMono, fontSize: 17, fontWeight: 700, color: t.text, letterSpacing: "0.12em" }}>CHAT</span>
-              {!chatOpen && unreadOpponentChat > 0 && (
-                <span style={{ minWidth: 22, height: 22, borderRadius: 11, background: t.accent, color: "#000", fontFamily: t.fontMono, fontSize: 12, fontWeight: 800, display: "inline-flex", alignItems: "center", justifyContent: "center", padding: "0 6px" }}>
-                  {unreadOpponentChat > 9 ? "9+" : unreadOpponentChat}
-                </span>
-              )}
-            </span>
-            <span style={{ color: t.text, fontFamily: t.fontMono, fontSize: 16, padding: "2px 6px", flexShrink: 0 }} aria-hidden="true">{chatOpen ? "▾" : "▸"}</span>
-          </button>
+          {/* The bottom CHAT row was removed; the blood-red CHAT CTA above
+              now handles toggling the chat panel open/closed. */}
         </div>
       )}
       {isMultiplayerGame && chatOpen && (phase === "playing" || phase === "waiting_ready") && (
@@ -1757,6 +1764,31 @@ export function LeftPanel(props: MatchSidebarProps) {
             boxShadow: "0 20px 48px rgba(0,0,0,0.5)",
           }}
         >
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span style={{ fontFamily: t.fontMono, fontSize: 13, fontWeight: 700, color: t.textMuted, letterSpacing: "0.12em" }}>
+              CHAT
+            </span>
+            <button
+              type="button"
+              onClick={onChatOpenToggle}
+              style={{
+                all: "unset",
+                cursor: "pointer",
+                fontFamily: t.fontMono,
+                fontSize: 18,
+                fontWeight: 700,
+                color: t.textMuted,
+                padding: "2px 6px",
+                borderRadius: 4,
+                transition: "color 0.15s",
+              }}
+              onMouseEnter={e => { e.currentTarget.style.color = t.text; }}
+              onMouseLeave={e => { e.currentTarget.style.color = t.textMuted; }}
+              aria-label="Close chat"
+            >
+              ✕
+            </button>
+          </div>
           <div ref={chatListRef} style={{ flex: 1, minHeight: 0, overflowY: "auto", background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: ip ? 2 : 8, padding: "10px 12px", display: "flex", flexDirection: "column", gap: 6 }}>
             {chatMessages.length === 0 && (<div style={{ fontFamily: t.fontBody, fontSize: 14, color: t.textMuted, textAlign: "center", marginTop: 24 }}>No messages yet</div>)}
             {/* Message body uses `userSelect: text` so the user can
@@ -1776,7 +1808,12 @@ export function LeftPanel(props: MatchSidebarProps) {
       )}
       {/* SURRENDER / RESET moved to RightPanel so the left panel's CHAT area is free to
           expand and keep its close/toggle control visible. */}
-      <style>{`@keyframes matchSidebarBannerShine { from { transform: translateX(-50%); } to { transform: translateX(100%); } }`}</style>
+      <style>{`@keyframes matchSidebarBannerShine { from { transform: translateX(-50%); } to { transform: translateX(100%); } }
+        @keyframes msChatUnreadPulse {
+          0% { transform: scale(0.5); opacity: 0; }
+          60% { transform: scale(1.15); opacity: 1; }
+          100% { transform: scale(1); opacity: 1; }
+        }`}</style>
     </div>
   );
 }
@@ -1927,6 +1964,7 @@ export function WinOverlay({
   showWinOverlay,
   overlayVisible,
   winner,
+  winReason = null,
   winnerColor,
   winnerPiece,
   seriesDiffers,
@@ -1966,6 +2004,14 @@ export function WinOverlay({
   showWinOverlay: boolean;
   overlayVisible: boolean;
   winner: string | null;
+  /**
+   * Why the current `winner` was decided. When "timeout" the overlay
+   * swaps in a dedicated TIME'S UP pane (clock icon + amber palette +
+   * "ran out of time" sub-copy) so players can clearly distinguish a
+   * clock loss from a pattern loss. `null` / "pattern" render the
+   * normal "X WINS!" splash.
+   */
+  winReason?: "pattern" | "timeout" | null;
   winnerColor: string;
   winnerPiece: string;
   seriesDiffers: boolean;
@@ -1974,7 +2020,14 @@ export function WinOverlay({
   seriesWinner: string | null;
   phase: Phase;
   gameNumber: number;
-  t: { fontDisplay: string; fontMono: string; fontBody: string };
+  /**
+   * `isLight` flips the overlay's hardcoded dark surfaces (modal card,
+   * subtle white-on-dark hints, disabled-button tints) into white-on-
+   * light equivalents so the per-game / ready / series-complete panes
+   * are readable when the rest of the app is rendered in `classic_light`.
+   * Defaults to dark behaviour so older callers are unaffected.
+   */
+  t: { fontDisplay: string; fontMono: string; fontBody: string; isLight?: boolean };
   winnerDisplayNameAction?: (w: string | null) => string;
   onDismissAction: () => void;
   graphicsQuality?: "performance" | "quality";
@@ -2044,6 +2097,31 @@ export function WinOverlay({
     if (canDismiss) onDismissAction();
   };
 
+  /**
+   * Light-theme overlay surface tokens. The original overlay was authored
+   * for the dark theme — its modal card, subtle text shades and disabled
+   * button states all assumed white-on-near-black. In light theme those
+   * read as a wall of grey on white, so we flip them to a clean white card
+   * with dark accents while keeping the dark-backdrop dim (works in both
+   * themes for a modal).
+   */
+  const isLight = t.isLight === true;
+  const overlayBackdrop = isLight ? "rgba(0,0,0,0.42)" : "rgba(0,0,0,0.85)";
+  const modalCardBg = isLight ? "rgba(255,255,255,0.98)" : "rgba(10, 10, 15, 0.95)";
+  // Subtle on-card surfaces: tints of black on white, tints of white on dark.
+  const subtleSurface = isLight ? "rgba(0,0,0,0.04)" : "rgba(255,255,255,0.04)";
+  const subtleSurfaceStrong = isLight ? "rgba(0,0,0,0.06)" : "rgba(255,255,255,0.05)";
+  const subtleBorder = isLight ? "rgba(0,0,0,0.08)" : "rgba(255,255,255,0.18)";
+  const subtleBorderStrong = isLight ? "rgba(0,0,0,0.14)" : "rgba(255,255,255,0.3)";
+  const subtleHover = isLight ? "rgba(0,0,0,0.08)" : "rgba(255,255,255,0.08)";
+  // Soft text tints: 0.4-alpha white on dark → mid-grey on light card.
+  const softText = isLight ? "rgba(0,0,0,0.55)" : "rgba(255,255,255,0.4)";
+  const softerText = isLight ? "rgba(0,0,0,0.42)" : "rgba(255,255,255,0.3)";
+  const dimText = isLight ? "rgba(0,0,0,0.35)" : "rgba(255,255,255,0.35)";
+  const strongOnCard = isLight ? "#0A0A0A" : "rgba(255,255,255,0.85)";
+  const dismissDisabledBg = isLight ? "rgba(0,0,0,0.06)" : "rgba(255,255,255,0.05)";
+  const dismissDisabledText = isLight ? "rgba(0,0,0,0.35)" : "rgba(255,255,255,0.2)";
+
   const frameColor = showWinPane && winner ? winnerColor : (showMatchOverPane && seriesWinner && seriesWinner !== "DRAW" ? (seriesWinner === "P1" ? p1c : p2c) : accentColor);
 
   /* Grid-review mode: the full-screen modal is swapped for the resolved
@@ -2059,7 +2137,7 @@ export function WinOverlay({
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          background: "rgba(5,5,10,0.96)",
+          background: isLight ? "rgba(242,242,244,0.97)" : "rgba(5,5,10,0.96)",
           pointerEvents: "auto",
         }}
       >
@@ -2088,10 +2166,12 @@ export function WinOverlay({
             alignItems: "center",
             gap: 12,
             padding: "10px 16px",
-            background: "rgba(10,10,15,0.92)",
+            background: isLight ? "rgba(255,255,255,0.97)" : "rgba(10,10,15,0.92)",
             border: `1px solid ${accentColor}66`,
             borderRadius: 999,
-            boxShadow: `0 10px 32px rgba(0,0,0,0.55), 0 0 20px ${accentColor}33`,
+            boxShadow: isLight
+              ? `0 10px 32px rgba(0,0,0,0.18), 0 0 20px ${accentColor}33`
+              : `0 10px 32px rgba(0,0,0,0.55), 0 0 20px ${accentColor}33`,
           }}
         >
           <div
@@ -2146,21 +2226,23 @@ export function WinOverlay({
         pointerEvents: overlayVisible ? "auto" : "none",
       }}
     >
-      <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.85)", zIndex: 0 }} />
+      <div style={{ position: "absolute", inset: 0, background: overlayBackdrop, zIndex: 0 }} />
 
       <div
         style={{
           position: "relative",
           zIndex: 1,
           width: "min(640px, 92vw)",
-          background: "rgba(10, 10, 15, 0.95)",
+          background: modalCardBg,
           border: `1px solid ${frameColor}55`,
           borderRadius: 24,
           padding: showReadyPane ? "44px 36px" : "48px 32px",
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
-          boxShadow: `0 24px 80px rgba(0,0,0,0.8), 0 0 40px ${frameColor}22, inset 0 0 20px ${frameColor}11`,
+          boxShadow: isLight
+            ? `0 24px 80px rgba(0,0,0,0.22), 0 0 40px ${frameColor}22, inset 0 0 20px ${frameColor}0A`
+            : `0 24px 80px rgba(0,0,0,0.8), 0 0 40px ${frameColor}22, inset 0 0 20px ${frameColor}11`,
           willChange: "transform, opacity",
           textAlign: "center",
         }}
@@ -2179,45 +2261,129 @@ export function WinOverlay({
 
         {showWinPane && winner ? (
           <>
-            <div
-              style={{
-                fontSize: "clamp(64px, 10vw, 110px)",
-                lineHeight: 1,
-                marginBottom: 12,
-                animation: pulseAnim,
-                filter: `drop-shadow(0 0 20px ${winnerColor}88)`,
-              }}
-            >
-              {winnerPiece}
-            </div>
-            <div
-              style={{
-                fontFamily: t.fontDisplay,
-                fontSize: "clamp(36px, 6vw, 72px)",
-                fontWeight: 900,
-                color: winnerColor,
-                lineHeight: 1,
-                textShadow: `${glow} ${winnerColor}88`,
-                animation: pulseAnim,
-                letterSpacing: "-0.02em",
-                marginBottom: 8,
-              }}
-            >
-              {winner === "DRAW" ? "DRAW" : `${getName(winner)} WINS!`}
-            </div>
+            {/* TIME'S UP variant — shown when this game ended on the
+                clock instead of a pattern. The `loserSlot` is whichever
+                slot is *not* the winner; for a DRAW (impossible from a
+                timeout, since the server's timeout handler always
+                produces a P1/P2 winner) this branch never fires. We
+                lean on an amber/red palette + a stopwatch glyph so it
+                reads as urgency, and render the loser's name above the
+                "ran out of time" copy so the player who lost on time
+                gets unambiguous feedback. */}
+            {winReason === "timeout" && winner !== "DRAW" ? (() => {
+              const TIMEOUT_AMBER = "#F59E0B";
+              const loserSlot = winner === "P1" ? "P2" : "P1";
+              const loserName = getName(loserSlot);
+              return (
+                <>
+                  <div
+                    style={{
+                      fontSize: "clamp(72px, 11vw, 120px)",
+                      lineHeight: 1,
+                      marginBottom: 12,
+                      filter: `drop-shadow(0 0 24px ${TIMEOUT_AMBER}99)`,
+                      animation: pulseAnim,
+                    }}
+                    aria-hidden="true"
+                  >
+                    ⏱
+                  </div>
+                  <div
+                    style={{
+                      fontFamily: t.fontDisplay,
+                      fontSize: "clamp(36px, 6vw, 72px)",
+                      fontWeight: 900,
+                      color: TIMEOUT_AMBER,
+                      lineHeight: 1,
+                      textShadow: `${glow} ${TIMEOUT_AMBER}88`,
+                      animation: pulseAnim,
+                      letterSpacing: "-0.02em",
+                      marginBottom: 10,
+                    }}
+                  >
+                    TIME&apos;S UP!
+                  </div>
+                  <div
+                    style={{
+                      fontFamily: t.fontDisplay,
+                      fontSize: "clamp(15px, 2.2vw, 20px)",
+                      fontWeight: 700,
+                      color: strongOnCard,
+                      letterSpacing: "0.04em",
+                      marginBottom: 6,
+                    }}
+                  >
+                    {loserName} ran out of time
+                  </div>
+                  <div
+                    style={{
+                      fontFamily: t.fontMono,
+                      fontSize: 13,
+                      color: winnerColor,
+                      letterSpacing: "0.18em",
+                      textTransform: "uppercase",
+                      marginBottom: 32,
+                    }}
+                  >
+                    {getName(winner)} advances
+                    <span
+                      style={{
+                        marginLeft: 10,
+                        color: dimText,
+                        letterSpacing: "0.2em",
+                      }}
+                    >
+                      ·{" "}
+                      {phase === "match_over"
+                        ? "SERIES COMPLETE"
+                        : `GAME ${gameNumber} COMPLETE`}
+                    </span>
+                  </div>
+                </>
+              );
+            })() : (
+              <>
+                <div
+                  style={{
+                    fontSize: "clamp(64px, 10vw, 110px)",
+                    lineHeight: 1,
+                    marginBottom: 12,
+                    animation: pulseAnim,
+                    filter: `drop-shadow(0 0 20px ${winnerColor}88)`,
+                  }}
+                >
+                  {winnerPiece}
+                </div>
+                <div
+                  style={{
+                    fontFamily: t.fontDisplay,
+                    fontSize: "clamp(36px, 6vw, 72px)",
+                    fontWeight: 900,
+                    color: winnerColor,
+                    lineHeight: 1,
+                    textShadow: `${glow} ${winnerColor}88`,
+                    animation: pulseAnim,
+                    letterSpacing: "-0.02em",
+                    marginBottom: 8,
+                  }}
+                >
+                  {winner === "DRAW" ? "DRAW" : `${getName(winner)} WINS!`}
+                </div>
 
-            <div
-              style={{
-                fontFamily: t.fontMono,
-                fontSize: 13,
-                color: "rgba(255,255,255,0.4)",
-                letterSpacing: "0.2em",
-                marginBottom: 32,
-                textTransform: "uppercase",
-              }}
-            >
-              {phase === "match_over" ? "SERIES COMPLETE" : `GAME ${gameNumber} COMPLETE`}
-            </div>
+                <div
+                  style={{
+                    fontFamily: t.fontMono,
+                    fontSize: 13,
+                    color: softText,
+                    letterSpacing: "0.2em",
+                    marginBottom: 32,
+                    textTransform: "uppercase",
+                  }}
+                >
+                  {phase === "match_over" ? "SERIES COMPLETE" : `GAME ${gameNumber} COMPLETE`}
+                </div>
+              </>
+            )}
 
             {seriesDiffers && (
               <div
@@ -2225,9 +2391,9 @@ export function WinOverlay({
                   width: "100%",
                   margin: "0 0 40px 0",
                   padding: "24px",
-                  background: "rgba(255,255,255,0.03)",
+                  background: subtleSurface,
                   borderRadius: 16,
-                  border: "1px solid rgba(255,255,255,0.05)",
+                  border: `1px solid ${subtleSurfaceStrong}`,
                   display: "flex",
                   flexDirection: "column",
                   alignItems: "center",
@@ -2238,7 +2404,7 @@ export function WinOverlay({
                   style={{
                     fontFamily: t.fontMono,
                     fontSize: 11,
-                    color: "rgba(255,255,255,0.3)",
+                    color: softerText,
                     letterSpacing: "0.15em",
                   }}
                 >
@@ -2258,10 +2424,10 @@ export function WinOverlay({
               style={{
                 marginTop: 8,
                 padding: "16px 48px",
-                background: canDismiss ? winnerColor : "rgba(255,255,255,0.05)",
+                background: canDismiss ? winnerColor : dismissDisabledBg,
                 border: "none",
                 borderRadius: 12,
-                color: canDismiss ? "#000" : "rgba(255,255,255,0.2)",
+                color: canDismiss ? "#000" : dismissDisabledText,
                 fontFamily: t.fontDisplay,
                 fontSize: 16,
                 fontWeight: 900,
@@ -2403,8 +2569,8 @@ export function WinOverlay({
                           maxWidth: 280,
                           padding: "18px 22px",
                           borderRadius: ip ? 2 : 14,
-                          border: `2px solid ${rdy ? col : "rgba(255,255,255,0.22)"}`,
-                          background: rdy ? `${col}22` : "rgba(255,255,255,0.04)",
+                          border: `2px solid ${rdy ? col : (isLight ? "rgba(0,0,0,0.18)" : "rgba(255,255,255,0.22)")}`,
+                          background: rdy ? `${col}22` : subtleSurface,
                           color: rdy ? col : textSecondary,
                           fontFamily: t.fontDisplay,
                           fontSize: "clamp(15px, 2.4vw, 20px)",
@@ -2488,7 +2654,7 @@ export function WinOverlay({
               style={{
                 fontFamily: t.fontMono,
                 fontSize: 13,
-                color: "rgba(255,255,255,0.4)",
+                color: softText,
                 letterSpacing: "0.2em",
                 marginBottom: 28,
                 textTransform: "uppercase",
@@ -2592,8 +2758,8 @@ export function WinOverlay({
                     minWidth: "min(100%, 320px)",
                     padding: "14px 28px",
                     borderRadius: ip ? 2 : 14,
-                    border: "1px solid rgba(255,255,255,0.18)",
-                    background: "rgba(255,255,255,0.04)",
+                    border: `1px solid ${subtleBorder}`,
+                    background: subtleSurface,
                     color: textSecondary,
                     fontFamily: t.fontDisplay,
                     fontSize: "clamp(14px, 2.4vw, 18px)",
@@ -2602,8 +2768,8 @@ export function WinOverlay({
                     cursor: "pointer",
                     transition: "all 0.2s",
                   }}
-                  onMouseEnter={e => { e.currentTarget.style.background = "rgba(255,255,255,0.08)"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.3)"; }}
-                  onMouseLeave={e => { e.currentTarget.style.background = "rgba(255,255,255,0.04)"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.18)"; }}
+                  onMouseEnter={e => { e.currentTarget.style.background = subtleHover; e.currentTarget.style.borderColor = subtleBorderStrong; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = subtleSurface; e.currentTarget.style.borderColor = subtleBorder; }}
                 >
                   QUIT TO HOME
                 </button>

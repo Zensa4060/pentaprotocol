@@ -50,9 +50,9 @@ DISCONNECT_CONFIRM_SECONDS = 30.0
 # the on-screen 30 s countdown, then auto-advance authoritatively.
 INTER_GAME_READY_TIMEOUT_SECONDS = 40.0
 # Outer ceiling on the entire Rulebreaker / Timebreaker / Mindbreaker
-# pre-game flow. The client-side timeline is roughly: 5 s splash + 3.5 s
+# pre-game flow. The client-side timeline is roughly: 5 s splash + 2.5 s
 # coin reveal + ~10 s for the rule choice + ~10 s for any bans +
-# 3.5 s toss summary ≈ 32 s in the worst case. We give it 50 s of grace
+# 2.5 s toss summary ≈ 30 s in the worst case. We give it 50 s of grace
 # before force-finalising with sensible defaults.
 RB_STALL_TIMEOUT_SECONDS = 50.0
 
@@ -1506,7 +1506,7 @@ async def _rb_stall_watchdog_worker(db, room_code: str) -> None:
             or room.get("rb_banned_patterns")
             or [],
         }
-        due_ms = int(datetime.utcnow().timestamp() * 1000) + 3500
+        due_ms = int(datetime.utcnow().timestamp() * 1000) + 2500
         await db.rooms.update_one(
             {"room_code": room_code},
             {
@@ -1515,7 +1515,7 @@ async def _rb_stall_watchdog_worker(db, room_code: str) -> None:
                     "rb_toss_winner": tw,
                     "rb_coin_result": coin_result,
                     "rb_phase_payload": merged_payload,
-                    "rb_summary_started_at_ms": due_ms - 3500,
+                    "rb_summary_started_at_ms": due_ms - 2500,
                     "rb_auto_start_due_ms": due_ms,
                 }
             },
@@ -3304,8 +3304,11 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                 career_rb_meta = None
 
                 # ── Record Move Log ──
+                # Use the actual stone owner from the engine board (handles
+                # 6x6 trap cells where the stone flips to the other player).
+                stone_owner = engine.board[row][col] if engine.board[row][col] else player_slot
                 move_log = list(room.get("move_log") or [])
-                move_log.append({"row": row, "col": col, "player": player_slot, "ext": result.get("extra_turns", 0), "ts_ms": now_ms})
+                move_log.append({"row": row, "col": col, "player": stone_owner, "ext": result.get("extra_turns", 0), "ts_ms": now_ms})
 
                 game1_patch: dict = {}
                 if (
@@ -3557,6 +3560,7 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                     "game_status":    update["game_status"],
                     "extra_turns":    result.get("extra_turns", 0),
                     "connectionScores": result.get("connectionScores"),
+                    "game_number":    room.get("game_number", 1),
                 }
                 if is_finished:
                     broadcast["match_history"] = update["match_history"]
@@ -4151,8 +4155,8 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                             "rb_auto_start_due_ms": None,
                         }
                         if payload.get("phase") == "toss_summary":
-                            due_ms = int(datetime.utcnow().timestamp() * 1000) + 3500
-                            phase_patch["rb_summary_started_at_ms"] = due_ms - 3500
+                            due_ms = int(datetime.utcnow().timestamp() * 1000) + 2500
+                            phase_patch["rb_summary_started_at_ms"] = due_ms - 2500
                             phase_patch["rb_auto_start_due_ms"] = due_ms
                             # Clients have driven the rulebreaker far enough
                             # that the existing `_auto_finalize_rulebreaker_toss`
@@ -4539,11 +4543,11 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
             db = get_db()
             room = await db.rooms.find_one({"room_code": room_code})
             phase_now = str(room.get("phase") or "") if room else ""
-            # Rulebreaker / Mindbreaker / Timebreaker / Limitbreaker staging screens
-            # happen before the first placement of a leg (`moves_played == 0`), but
-            # we still want reconnect countdown semantics there instead of an instant
-            # "no-play abort" so the opponent can rejoin mid-choice.
-            reconnect_sensitive_preplay_phases = {
+
+            # Rulebreaker / Timebreaker / Mindbreaker / Limitbreaker phases:
+            # disconnecting here counts as an instant loss for the
+            # disconnecting player. The other player sees MatchResultScreen.
+            rulebreaker_instant_loss_phases = {
                 "rb_splash",
                 "rb_coin",
                 "rule_choice",
@@ -4564,11 +4568,19 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                 "lb_ban_second",
                 "lb_choose_first",
             }
+
+            if room and phase_now in rulebreaker_instant_loss_phases and room.get("series_winner") is None:
+                await _resolve_disconnect_forfeit(db, room_code, player_slot)
+                if not _room_connections.get(room_code):
+                    _room_connections.pop(room_code, None)
+                    _room_runtime.pop(room_code, None)
+                return
+
             is_start = room and (
                 room.get("status") == "waiting"
                 or (
                     room.get("moves_played", 0) == 0
-                    and phase_now not in reconnect_sensitive_preplay_phases
+                    and phase_now not in rulebreaker_instant_loss_phases
                 )
             )
             

@@ -33,6 +33,11 @@ interface GameWinScreenProps {
     text: string;
     textSecondary: string;
     textMuted: string;
+    /** Optional light-theme flag — when true the screen's hardcoded
+     *  near-black backdrop, dark card surface and white-tinted stat
+     *  blocks flip to light-on-light equivalents so the multiplayer-
+     *  match-complete celebration is readable in `classic_light`. */
+    isLight?: boolean;
   };
   onQuit: () => void;
   onContinue?: () => void;
@@ -94,6 +99,30 @@ export default function GameWinScreen({
     return () => clearTimeout(actionTimer);
   }, [eloDiff, xpDiff]);
 
+  // ── Light-theme surface tokens. The original screen baked the dark
+  // backdrop, near-black card and white-on-dark stat tints directly into
+  // styles. In light theme those land on top of the white shell as a
+  // huge dark slab; flip the backdrop to a tinted-white wash, the card
+  // to a white panel, and stat tints to subtle dark-on-light.
+  const isLight = t.isLight === true;
+  const backdrop = isLight
+    ? (isWinner
+        ? "radial-gradient(circle at center, rgba(255,255,255,0.96) 0%, rgba(232,236,244,1) 100%)"
+        : "radial-gradient(circle at center, rgba(255,255,255,0.96) 0%, rgba(244,232,232,1) 100%)")
+    : (isWinner
+        ? "radial-gradient(circle at center, rgba(16,24,40,0.96) 0%, #02050a 100%)"
+        : "radial-gradient(circle at center, rgba(28,10,14,0.96) 0%, #050203 100%)");
+  const cardBg = isLight ? "rgba(255,255,255,0.92)" : "rgba(8,10,18,0.82)";
+  const cardShadow = isLight
+    ? `0 30px 80px rgba(0,0,0,0.18), 0 0 80px ${accentColor}22`
+    : `0 30px 100px rgba(0,0,0,0.55), 0 0 80px ${accentColor}22`;
+  const statBg = isLight ? "rgba(0,0,0,0.04)" : "rgba(255,255,255,0.03)";
+  const statBorder = isLight ? "rgba(0,0,0,0.08)" : "rgba(255,255,255,0.06)";
+  const progressTrackBg = isLight ? "rgba(0,0,0,0.06)" : "rgba(255,255,255,0.06)";
+  const progressTrackBorder = isLight ? "rgba(0,0,0,0.06)" : "rgba(255,255,255,0.06)";
+  const quitBg = isLight ? "rgba(0,0,0,0.04)" : "rgba(255,255,255,0.04)";
+  const quitBorder = isLight ? "rgba(0,0,0,0.12)" : "rgba(255,255,255,0.12)";
+
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -103,9 +132,7 @@ export default function GameWinScreen({
         position: "fixed",
         inset: 0,
         zIndex: 100000,
-        background: isWinner
-          ? "radial-gradient(circle at center, rgba(16,24,40,0.96) 0%, #02050a 100%)"
-          : "radial-gradient(circle at center, rgba(28,10,14,0.96) 0%, #050203 100%)",
+        background: backdrop,
         overflow: "hidden",
         display: "flex",
         alignItems: "center",
@@ -161,9 +188,9 @@ export default function GameWinScreen({
           width: "min(920px, 100%)",
           borderRadius: 28,
           border: `1px solid ${accentColor}55`,
-          background: "rgba(8,10,18,0.82)",
+          background: cardBg,
           backdropFilter: "blur(18px)",
-          boxShadow: `0 30px 100px rgba(0,0,0,0.55), 0 0 80px ${accentColor}22`,
+          boxShadow: cardShadow,
           padding: "40px 32px 32px",
           display: "flex",
           flexDirection: "column",
@@ -207,7 +234,7 @@ export default function GameWinScreen({
             alignItems: "stretch",
           }}
         >
-          <div style={{ padding: 18, borderRadius: 18, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}>
+          <div style={{ padding: 18, borderRadius: 18, background: statBg, border: `1px solid ${statBorder}` }}>
             <div style={{ fontFamily: t.fontMono, fontSize: 11, letterSpacing: "0.18em", color: t.textMuted, marginBottom: 10 }}>
               PLAYER STATUS
             </div>
@@ -220,7 +247,7 @@ export default function GameWinScreen({
           </div>
 
           {isRanked && (
-            <div style={{ padding: 18, borderRadius: 18, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}>
+            <div style={{ padding: 18, borderRadius: 18, background: statBg, border: `1px solid ${statBorder}` }}>
               <div style={{ fontFamily: t.fontMono, fontSize: 11, letterSpacing: "0.18em", color: t.textMuted, marginBottom: 10 }}>
                 ELO CHANGE
               </div>
@@ -234,7 +261,7 @@ export default function GameWinScreen({
             </div>
           )}
 
-          <div style={{ padding: 18, borderRadius: 18, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}>
+          <div style={{ padding: 18, borderRadius: 18, background: statBg, border: `1px solid ${statBorder}` }}>
             <div style={{ fontFamily: t.fontMono, fontSize: 11, letterSpacing: "0.18em", color: t.textMuted, marginBottom: 10 }}>
               XP GAIN
             </div>
@@ -247,7 +274,7 @@ export default function GameWinScreen({
           </div>
         </div>
 
-        <div style={{ padding: 18, borderRadius: 18, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}>
+        <div style={{ padding: 18, borderRadius: 18, background: statBg, border: `1px solid ${statBorder}` }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10, gap: 16 }}>
             <span style={{ fontFamily: t.fontMono, fontSize: 11, letterSpacing: "0.18em", color: t.textMuted }}>
               LEVEL PROGRESS
@@ -259,7 +286,7 @@ export default function GameWinScreen({
           <div style={{ fontFamily: t.fontMono, fontSize: 11, color: t.textSecondary, marginBottom: 8 }}>
             Rank Progress: {after.rem.toLocaleString()} / {after.nextXp.toLocaleString()}
           </div>
-          <div style={{ height: 10, borderRadius: 999, overflow: "hidden", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.06)" }}>
+          <div style={{ height: 10, borderRadius: 999, overflow: "hidden", background: progressTrackBg, border: `1px solid ${progressTrackBorder}` }}>
             <motion.div
               initial={{ width: `${before.progress}%` }}
               animate={{ width: `${after.progress}%` }}
@@ -349,8 +376,8 @@ export default function GameWinScreen({
                   style={{
                     padding: "16px 28px",
                     borderRadius: 14,
-                    border: "1px solid rgba(255,255,255,0.12)",
-                    background: "rgba(255,255,255,0.04)",
+                    border: `1px solid ${quitBorder}`,
+                    background: quitBg,
                     color: t.text,
                     fontFamily: t.fontDisplay,
                     fontSize: 16,

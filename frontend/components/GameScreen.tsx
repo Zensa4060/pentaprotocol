@@ -617,7 +617,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   const tossSkin = _ct.tossSkin ?? "default";
   const purchasedItems = ((user as { purchased_items?: string[] } | null)?.purchased_items ?? []) as string[];
   const wraithKingTossActive = tossSkin === "wraith_king" && purchasedItems.includes("coin_bundle_wraith_king");
-  const rbCoinFlipSeconds = wraithKingTossActive ? 5.15 : 4;
+  const rbCoinFlipSeconds = wraithKingTossActive ? 4.15 : 3;
 
   // Bundle boards should always use their matching pieces (no mixing).
   const effectivePieceSkin = (
@@ -857,6 +857,25 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   );
   const [current, setCurrent] = useState("P1");
   const [winner, setWinner] = useState<string | null>(null);
+  /**
+   * Why the current `winner` was decided. Distinguishes a normal pattern
+   * win from a clock timeout so the WinOverlay can render a dedicated
+   * "TIME'S UP" pane instead of the generic "X WINS!" splash. Mirrors
+   * `winner`'s lifecycle — must be reset to null wherever winner is.
+   *
+   * "pattern": connected the winning shape on the board (default).
+   * "timeout": the loser's match clock hit zero.
+   */
+  const [winReason, setWinReason] = useState<"pattern" | "timeout" | null>(null);
+  // Mirror `winner`'s clear so every reset path (rules-sheet gate, soft
+  // reset, doAdvanceAfterReady, rb_splash entry, etc.) implicitly clears
+  // `winReason` too. Cheaper than threading a `setWinReason(null)` next
+  // to each `setWinner(null)` call, and impossible to forget on new
+  // reset paths. Set sites (timeout detection, server move_made) take
+  // care of the `setWinReason("timeout")` flip explicitly.
+  useEffect(() => {
+    if (winner === null && winReason !== null) setWinReason(null);
+  }, [winner, winReason]);
   const [winLine, setWinLine] = useState<Coord[]>([]);
   const [showWinOverlay, setShowWinOverlay] = useState(false);
   /** After CONTINUE on win overlay, stay on /game URL until true; then /ready. Drives central ready modal. */
@@ -1238,10 +1257,10 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   const [p2RttMs, setP2RttMs] = useState<number | null>(null);
   const rttToBars = (rtt: number | null | undefined) => {
     if (rtt === null || rtt === undefined) return 0;
-    if (rtt <= 80) return 4;
-    if (rtt <= 150) return 3;
-    if (rtt <= 300) return 2;
-    if (rtt <= 600) return 1;
+    if (rtt <= 100) return 4;
+    if (rtt <= 400) return 3;
+    if (rtt <= 800) return 2;
+    if (rtt <= 1500) return 1;
     return 0;
   };
   const localRtt = mySlot === "P1" ? p1RttMs : p2RttMs;
@@ -1673,6 +1692,20 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
                 const wl = (msg.win_line ?? []) as [number, number][];
                 setWinLine(wl);
                 setWinner(msg.winner);
+                // Timeout detection on the *winning* side (and an
+                // idempotent confirmation on the losing side, which has
+                // already flipped this locally). Server sends an empty
+                // `win_line` for clock-loss move_made payloads and a
+                // populated one for pattern wins; surrender / forfeit
+                // / disconnect take other code paths (match_disbanded,
+                // match_aborted_no_play) so they don't reach here.
+                // Drawn legs (no P1/P2 winner) are also out of scope.
+                if (
+                  (msg.winner === "P1" || msg.winner === "P2") &&
+                  wl.length === 0
+                ) {
+                  setWinReason("timeout");
+                }
                 playMultiplayerResultSfx(msg.winner);
                 const newHist = Array.isArray(msg.match_history)
                   ? (msg.match_history as string[])
@@ -1939,7 +1972,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
               if (Array.isArray(rbPayload.rbPatternsPreBan)) setRbPatternsPreBan(rbPayload.rbPatternsPreBan as string[]);
               if (restoredPhase === "toss_summary") {
                 const dueMs = typeof rp.rb_auto_start_due_ms === "number" ? rp.rb_auto_start_due_ms : null;
-                setSummaryTimer(dueMs ? Math.max(0, (dueMs - Date.now()) / 1000) : 3.5);
+                setSummaryTimer(dueMs ? Math.max(0, (dueMs - Date.now()) / 1000) : 2.5);
               }
             }
           }
@@ -2036,6 +2069,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
           setRematchRequested(null);
           matchSeriesUiLockUntilRef.current = Date.now() + 800;
           isViewingPostMatchRef.current = true;
+          setPhase("match_over");
           setShowGameWinScreen(true);
           setShowSeriesMatchResult(false);
           onMultiplayerNavLockChange?.(true);
@@ -2142,6 +2176,13 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
           winClickLockRef.current = false;
           setIsBoardPaused(false);
           setInterLegUpgradePending(false);
+          {
+            const grGn = (msg as { game_number?: unknown }).game_number;
+            if (typeof grGn === "number" && mpAnalyzerLegGameNumberRef.current !== grGn) {
+              mpAnalyzerLegGameNumberRef.current = grGn;
+              currentGameMovesRef.current = [];
+            }
+          }
           const gr0 = msg as { protocolbreaker_final?: boolean; limitbreaker_final?: boolean };
           if (gr0.protocolbreaker_final || gr0.limitbreaker_final) {
             setPbOverlay(null);
@@ -2473,7 +2514,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
             // Only start reveal timer if we are already in rb_coin or further.
             // If we are still in rb_splash, the tick function will start it when we enter rb_coin.
             if (R.current.phase === "rb_coin") {
-              setCoinRevealTimer(3.5);
+              setCoinRevealTimer(2.5);
             }
             coinAngleRef.current = 0;
             setCoinAngle(0);
@@ -2999,6 +3040,12 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
           if (p1TimeRef.current <= 0 && !s.winner) {
             const w = "P2";
             setWinner(w);
+            // Tag this win as a timeout so the WinOverlay renders the
+            // dedicated TIME'S UP pane instead of the generic "WINS!"
+            // splash — players (especially the one who lost on clock)
+            // need an unambiguous signal it was a clock loss, not a
+            // pattern loss.
+            setWinReason("timeout");
             if (isMultiplayerGame) {
               setIsBoardPaused(true);
               wsRef.current?.send(JSON.stringify({ type: "timeout", winner: w }));
@@ -3017,6 +3064,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
           if (p2TimeRef.current <= 0 && !s.winner) {
             const w = "P1";
             setWinner(w);
+            setWinReason("timeout");
             if (isMultiplayerGame) {
               setIsBoardPaused(true);
               wsRef.current?.send(JSON.stringify({ type: "timeout", winner: w }));
@@ -3065,7 +3113,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
                 setRbCoinPendingResult(null);
                 setCoinResult(r);
                 setTossWinner(r === "PENTA" ? "P1" : "P2");
-                setCoinRevealTimer(3.5);
+                setCoinRevealTimer(2.5);
                 coinAngleRef.current = 0;
                 setCoinAngle(0);
                 if (isMultiplayerGame && wsRef.current?.readyState === WebSocket.OPEN) {
@@ -3078,7 +3126,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
           }
         } else {
           if (coinFlipTimer === 0 && coinRevealTimer === 0) {
-            setCoinRevealTimer(3.5);
+            setCoinRevealTimer(2.5);
           }
           setCoinRevealTimer(v => { const nv = v - dt / 1000; if (nv <= 0) { setPhase("rule_choice"); return 0; } return nv; });
         }
@@ -4589,7 +4637,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   }
 
   const rbPhases: Phase[] = ["rb_splash", "rb_coin", "rule_choice", "who_first_winner", "c3_choice", "c3_choice_loser", "who_first_loser", "ban_pattern_winner", "ban_pattern_loser", "grid_block_warning", "grid_block_selection", "grid_block_waiting", "toss_summary", "rb_initializing"];
-  const rbOverlay = rbPhases.includes(phase) && (
+  const rbOverlay = rbPhases.includes(phase) && !matchSeriesComplete && (
       <RulebreakerFlow
         phase={phase} t={t} ip={ip} p1c={p1c} p2c={p2c}
         p1Elo={isMultiplayerGame ? p1Elo : undefined}
@@ -4614,7 +4662,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
       />
   );
   const rbRouteActive = activePhasePath === "rulebreaker" || activePhasePath === "rulechoice";
-  const rbOverlayFallback = rbRouteActive && !rbPhases.includes(phase) && (
+  const rbOverlayFallback = rbRouteActive && !rbPhases.includes(phase) && !matchSeriesComplete && (
     <RulebreakerFlow
       phase="rb_splash"
       t={t}
@@ -5068,6 +5116,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     showWinOverlay,
     overlayVisible,
     winner,
+    winReason,
     winnerColor,
     winnerPiece,
     seriesDiffers,
@@ -5076,7 +5125,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     seriesWinner,
     phase,
     gameNumber,
-    t: { fontDisplay: t.fontDisplay, fontMono: t.fontMono, fontBody: t.fontBody },
+    t: { fontDisplay: t.fontDisplay, fontMono: t.fontMono, fontBody: t.fontBody, isLight: t.isLight },
     winnerDisplayNameAction: winnerDisplayName,
     graphicsQuality: gameplayGraphicsQuality,
     onDismissAction: dismissOverlay,
@@ -5427,7 +5476,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
               SP/AI training flow could never reveal active patterns on a
               phone; guarding only on ``liveSelectedPatterns.length > 0``
               now keeps parity with the desktop sidebar for every mode. */}
-          {liveSelectedPatterns.length > 0 && !matchOver && phase !== "match_over" && (
+          {liveSelectedPatterns.length > 0 && !matchOver && phase !== "match_over" && !isMultiplayerGame && (
             <div style={{ pointerEvents: "auto", marginBottom: 4 }}>
               <button
                 type="button"
@@ -5634,6 +5683,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
               text: t.text,
               textSecondary: t.textSecondary,
               textMuted: t.textMuted,
+              isLight: t.isLight,
             }}
             onContinue={() => {
               continuePostSeriesFlow(matchSeriesComplete);
@@ -5711,6 +5761,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
               text: t.text,
               textSecondary: t.textSecondary,
               textMuted: t.textMuted,
+              isLight: t.isLight,
             }}
             onQuit={() => {
               if (wsRef.current?.readyState === WebSocket.OPEN) {
@@ -6010,14 +6061,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
         interGameReadyVisible={interGameReadyVisible}
         waitingReadyWarmup={waitingReadyWarmup}
         showPatternOverlay={showPatternOverlay}
-        // Filler-bot matches already expose a PATTERNS button at the top
-        // of the board (see mobile/desktop main-area render paths). The
-        // legacy sidebar "SHOW PATTERNS" button was a singleplayer-era
-        // remnant; hiding it for unranked filler matches keeps the UI
-        // aligned with a proper multiplayer layout (banner + chat stub
-        // + surrender), per the user's feedback that bot games should
-        // not keep singleplayer-only affordances.
-        onTogglePatternOverlay={!isMultiplayerGame && !isUnrankedBotFiller ? togglePatternOverlay : undefined}
+        onTogglePatternOverlay={togglePatternOverlay}
         onAddFriendPeerAction={
           isMultiplayerGame
             ? () => {
@@ -6128,7 +6172,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
             </span>
           </div>
           <div style={{ justifySelf: "start", display: "flex", alignItems: "center", gap: 8 }}>
-            {liveSelectedPatterns.length > 0 && !matchOver && phase !== "match_over" && (
+            {liveSelectedPatterns.length > 0 && !matchOver && phase !== "match_over" && !isMultiplayerGame && (
               <button
                 type="button"
                 onClick={() => {
@@ -6372,6 +6416,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
             text: t.text,
             textSecondary: t.textSecondary,
             textMuted: t.textMuted,
+            isLight: t.isLight,
           }}
           onContinue={() => {
             continuePostSeriesFlow(matchSeriesComplete);
@@ -6451,6 +6496,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
             text: t.text,
             textSecondary: t.textSecondary,
             textMuted: t.textMuted,
+            isLight: t.isLight,
           }}
           onQuit={() => {
             if (wsRef.current?.readyState === WebSocket.OPEN) {

@@ -50,6 +50,9 @@ const DEFAULT_PARTICLE_SETTINGS: ParticleSettings = {
 
 function ParticleCanvas({ settings }: { settings: ParticleSettings }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  // Live ref so slider changes don't tear down + reseed the whole RAF loop.
+  const settingsRef = useRef(settings);
+  useEffect(() => { settingsRef.current = settings; }, [settings]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -57,13 +60,23 @@ function ParticleCanvas({ settings }: { settings: ParticleSettings }) {
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    let animId: number;
+    // Cap DPR so high-DPI displays don't allocate giant backbuffers
+    // (the main reason the canvas progressively bogged down on retina/4K).
+    const dpr = Math.min(typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1, 1.5);
     let W = 0, H = 0;
+    let animId = 0;
+    let running = true;
+    let visible = typeof document !== "undefined" ? !document.hidden : true;
     const mouse = { x: -9999, y: -9999 };
 
     const resize = () => {
-      W = canvas.width  = canvas.offsetWidth;
-      H = canvas.height = canvas.offsetHeight;
+      const w = canvas.offsetWidth, h = canvas.offsetHeight;
+      W = w; H = h;
+      canvas.width  = Math.max(1, Math.floor(w * dpr));
+      canvas.height = Math.max(1, Math.floor(h * dpr));
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.fillStyle = "#030303";
+      ctx.fillRect(0, 0, W, H);
     };
     const onMouseMove = (e: MouseEvent) => {
       const rect = canvas.getBoundingClientRect();
@@ -71,77 +84,161 @@ function ParticleCanvas({ settings }: { settings: ParticleSettings }) {
       mouse.y = e.clientY - rect.top;
     };
     const onMouseLeave = () => { mouse.x = -9999; mouse.y = -9999; };
+    const onVisibility = () => { visible = !document.hidden; };
 
     window.addEventListener("resize", resize);
-    canvas.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("mousemove", onMouseMove, { passive: true });
     canvas.addEventListener("mouseleave", onMouseLeave);
-    window.addEventListener("mousemove", onMouseMove);
+    document.addEventListener("visibilitychange", onVisibility);
     resize();
 
-    const { count, connect, attractRadius, attractForce, maxSpeed } = settings;
-    type Pt = { x: number; y: number; vx: number; vy: number; r: number; bright: boolean };
-    const pts: Pt[] = Array.from({ length: count }, () => ({
-      x: Math.random() * W, y: Math.random() * H,
-      vx: (Math.random() - 0.5) * 0.79, vy: (Math.random() - 0.5) * 0.79,
-      r: 1.2 + Math.random() * 2.2, bright: Math.random() < 0.15,
-    }));
+    // Pre-render glow sprites once. Blitting a cached sprite via drawImage is
+    // ~100x cheaper than ctx.shadowBlur on every particle, every frame.
+    const makeGlow = (core: string, mid: string, radius: number) => {
+      const size = Math.ceil(radius * 4);
+      const off = document.createElement("canvas");
+      off.width = off.height = size;
+      const g = off.getContext("2d");
+      if (!g) return off;
+      const cx = size / 2;
+      const grad = g.createRadialGradient(cx, cx, 0, cx, cx, cx);
+      grad.addColorStop(0, core);
+      grad.addColorStop(0.35, mid);
+      grad.addColorStop(1, "rgba(0,0,0,0)");
+      g.fillStyle = grad;
+      g.fillRect(0, 0, size, size);
+      return off;
+    };
+    const glowNormal = makeGlow("rgba(204,0,0,1)",   "rgba(204,0,0,0.55)", 5);
+    const glowBright = makeGlow("rgba(255,90,90,1)", "rgba(255,68,68,0.6)", 7);
+    const gnHalf = glowNormal.width / 2;
+    const gbHalf = glowBright.width / 2;
 
-    ctx.fillStyle = "#030303";
-    ctx.fillRect(0, 0, W, H);
+    type Pt = { x: number; y: number; vx: number; vy: number; r: number; bright: boolean };
+    let pts: Pt[] = [];
+    let currentCount = -1;
+    const seed = (count: number) => {
+      currentCount = count;
+      pts = new Array(count);
+      for (let i = 0; i < count; i++) {
+        pts[i] = {
+          x: Math.random() * W, y: Math.random() * H,
+          vx: (Math.random() - 0.5) * 0.79, vy: (Math.random() - 0.5) * 0.79,
+          r: 1.2 + Math.random() * 2.2, bright: Math.random() < 0.15,
+        };
+      }
+    };
+
+    // Reusable spatial-hash grid → connection check goes from O(n²) to ~O(n).
+    const cellMap = new Map<number, number[]>();
+    const KEY_OFFSET = 8192;
+    const KEY_STRIDE = 16384;
 
     const draw = () => {
+      if (!running) return;
+      if (!visible) { animId = requestAnimationFrame(draw); return; }
+
+      const s = settingsRef.current;
+      const count = s.count;
+      const connect = s.connect;
+      const attractRadius = s.attractRadius;
+      const attractForce = s.attractForce;
+      const maxSpeed = s.maxSpeed;
+      if (count !== currentCount) seed(count);
+
       ctx.fillStyle = "rgba(3,3,3,0.22)";
       ctx.fillRect(0, 0, W, H);
 
-      pts.forEach(p => {
+      const ar2 = attractRadius * attractRadius;
+      const ms2 = maxSpeed * maxSpeed;
+      const ptsLen = pts.length;
+      for (let i = 0; i < ptsLen; i++) {
+        const p = pts[i];
         const dx = mouse.x - p.x, dy = mouse.y - p.y;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-        if (dist < attractRadius && dist > 0) {
+        const d2 = dx * dx + dy * dy;
+        if (d2 < ar2 && d2 > 0) {
+          const dist = Math.sqrt(d2);
           const force = (1 - dist / attractRadius) * attractForce;
           p.vx += (dx / dist) * force;
           p.vy += (dy / dist) * force;
         }
         p.vx *= 0.98; p.vy *= 0.98;
-        const speed = Math.sqrt(p.vx * p.vx + p.vy * p.vy);
-        if (speed > maxSpeed) { p.vx = (p.vx / speed) * maxSpeed; p.vy = (p.vy / speed) * maxSpeed; }
+        const sp2 = p.vx * p.vx + p.vy * p.vy;
+        if (sp2 > ms2) {
+          const sp = Math.sqrt(sp2);
+          p.vx = (p.vx / sp) * maxSpeed;
+          p.vy = (p.vy / sp) * maxSpeed;
+        }
         p.x += p.vx; p.y += p.vy;
-        if (p.x < 0) p.x = W; if (p.x > W) p.x = 0;
-        if (p.y < 0) p.y = H; if (p.y > H) p.y = 0;
-      });
+        if (p.x < 0) p.x = W; else if (p.x > W) p.x = 0;
+        if (p.y < 0) p.y = H; else if (p.y > H) p.y = 0;
+      }
 
-      ctx.globalAlpha = 1;
-      for (let i = 0; i < pts.length; i++) {
-        for (let j = i + 1; j < pts.length; j++) {
-          const a = pts[i], b = pts[j];
-          const dx = a.x - b.x, dy = a.y - b.y;
-          const d = Math.sqrt(dx * dx + dy * dy);
-          if (d < connect) {
-            ctx.globalAlpha = (1 - d / connect) * 0.55;
-            ctx.strokeStyle = "#CC0000"; ctx.lineWidth = 0.8;
-            ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+      // Bin particles into a uniform grid sized to the connection radius.
+      const cell = Math.max(1, connect);
+      cellMap.clear();
+      for (let i = 0; i < ptsLen; i++) {
+        const p = pts[i];
+        const cx = (p.x / cell) | 0;
+        const cy = (p.y / cell) | 0;
+        const k = (cx + KEY_OFFSET) * KEY_STRIDE + (cy + KEY_OFFSET);
+        let bucket = cellMap.get(k);
+        if (!bucket) { bucket = []; cellMap.set(k, bucket); }
+        bucket.push(i);
+      }
+
+      // Single batched stroke for all connection lines (was a stroke per pair).
+      const conn2 = connect * connect;
+      ctx.beginPath();
+      for (let i = 0; i < ptsLen; i++) {
+        const a = pts[i];
+        const cx = (a.x / cell) | 0;
+        const cy = (a.y / cell) | 0;
+        for (let oy = -1; oy <= 1; oy++) {
+          for (let ox = -1; ox <= 1; ox++) {
+            const bucket = cellMap.get((cx + ox + KEY_OFFSET) * KEY_STRIDE + (cy + oy + KEY_OFFSET));
+            if (!bucket) continue;
+            for (let bi = 0; bi < bucket.length; bi++) {
+              const j = bucket[bi];
+              if (j <= i) continue; // each pair once
+              const b = pts[j];
+              const ddx = a.x - b.x, ddy = a.y - b.y;
+              const dd = ddx * ddx + ddy * ddy;
+              if (dd < conn2) {
+                ctx.moveTo(a.x, a.y);
+                ctx.lineTo(b.x, b.y);
+              }
+            }
           }
         }
       }
-      ctx.globalAlpha = 1;
-      pts.forEach(p => {
-        ctx.shadowBlur  = p.bright ? 18 : 8;
-        ctx.shadowColor = p.bright ? "#ff4444" : "#CC0000";
-        ctx.fillStyle   = p.bright ? "#ff3333" : "#CC0000";
-        ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill();
-      });
-      ctx.shadowBlur = 0;
+      ctx.strokeStyle = "rgba(204,0,0,0.45)";
+      ctx.lineWidth = 0.8;
+      ctx.stroke();
+
+      // Particles via cached glow sprites (no shadowBlur → no GPU back-pressure).
+      for (let i = 0; i < ptsLen; i++) {
+        const p = pts[i];
+        if (p.bright) {
+          ctx.drawImage(glowBright, p.x - gbHalf, p.y - gbHalf);
+        } else {
+          ctx.drawImage(glowNormal, p.x - gnHalf, p.y - gnHalf);
+        }
+      }
+
       animId = requestAnimationFrame(draw);
     };
 
-    draw();
+    animId = requestAnimationFrame(draw);
     return () => {
+      running = false;
       cancelAnimationFrame(animId);
       window.removeEventListener("resize", resize);
       window.removeEventListener("mousemove", onMouseMove);
-      canvas.removeEventListener("mousemove", onMouseMove);
       canvas.removeEventListener("mouseleave", onMouseLeave);
+      document.removeEventListener("visibilitychange", onVisibility);
     };
-  }, [settings]);
+  }, []);
 
   return (
     <canvas ref={canvasRef} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", display: "block" }} />

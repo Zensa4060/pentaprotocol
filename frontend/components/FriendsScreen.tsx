@@ -13,6 +13,7 @@ import {
   setFriendsNavBadgeCount,
 } from "@/lib/navBadgeState";
 import { censorText, containsProfanity } from "@/lib/profanity";
+import { openDiscordInvite, openRedditCommunity, openItchIoPage, openInstagramPage } from "@/lib/community";
 
 interface Friend {
   id: string;
@@ -546,7 +547,7 @@ export default function FriendsScreen({ themeId, onHoverAction }: Props) {
         <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 16, marginBottom: 24, flexWrap: "wrap" }}>
           <div>
             <div style={{ fontFamily: t.fontMono, fontSize: 11, color: t.textMuted, letterSpacing: "0.3em" }}>SOCIAL · PROTOCOL</div>
-            <div style={{ fontFamily: t.fontDisplay, fontSize: 32, fontWeight: 900, color: t.text, letterSpacing: "0.02em" }}>Friends</div>
+            <div style={{ fontFamily: t.fontDisplay, fontSize: 32, fontWeight: 900, color: t.text, letterSpacing: "0.02em" }}>Community</div>
           </div>
           <div
             style={{
@@ -580,6 +581,365 @@ export default function FriendsScreen({ themeId, onHoverAction }: Props) {
               COPY
             </button>
           </div>
+        </div>
+
+        {/* ── Discord community hero ──────────────────────────────────────
+            Top-of-page invite so anyone landing on the Community tab sees
+            the Discord. Same URL is mirrored on Home and Profile via
+            lib/community.ts so updates only need to happen in one place. */}
+        <div
+          style={{
+            background: "linear-gradient(135deg, rgba(88,101,242,0.22), rgba(88,101,242,0.06))",
+            border: "1px solid rgba(88,101,242,0.6)",
+            borderRadius: 14,
+            padding: 18,
+            marginBottom: 20,
+            display: "flex",
+            alignItems: "center",
+            gap: 16,
+            flexWrap: "wrap",
+            boxShadow: "0 0 22px rgba(88,101,242,0.22)",
+          }}
+        >
+          <div
+            style={{
+              width: 52,
+              height: 52,
+              borderRadius: 12,
+              background: "rgba(88,101,242,0.32)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              flexShrink: 0,
+              color: "#fff",
+              boxShadow: "inset 0 0 14px rgba(88,101,242,0.55)",
+            }}
+          >
+            <svg aria-hidden="true" width="26" height="26" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M20.317 4.3698a19.7913 19.7913 0 00-4.8851-1.5152.0741.0741 0 00-.0785.0371c-.211.3753-.4447.8648-.6083 1.2495-1.8447-.2762-3.68-.2762-5.4868 0-.1636-.3933-.4058-.8742-.6177-1.2495a.077.077 0 00-.0785-.037 19.7363 19.7363 0 00-4.8852 1.515.0699.0699 0 00-.0321.0277C.5334 9.0458-.319 13.5799.0992 18.0578a.0824.0824 0 00.0312.0561c2.0528 1.5076 4.0413 2.4228 5.9929 3.0294a.0777.0777 0 00.0842-.0276c.4616-.6304.8731-1.2952 1.226-1.9942a.076.076 0 00-.0416-.1057c-.6528-.2476-1.2743-.5495-1.8722-.8923a.077.077 0 01-.0076-.1277c.1258-.0943.2517-.1923.3718-.2914a.0743.0743 0 01.0776-.0105c3.9278 1.7933 8.18 1.7933 12.0614 0a.0739.0739 0 01.0785.0095c.1202.099.246.1981.3728.2924a.077.077 0 01-.0066.1276 12.2986 12.2986 0 01-1.873.8914.0766.0766 0 00-.0407.1067c.3604.698.7719 1.3628 1.225 1.9932a.076.076 0 00.0842.0286c1.961-.6067 3.9495-1.5219 6.0023-3.0294a.077.077 0 00.0313-.0552c.5004-5.177-.8382-9.6739-3.5485-13.6604a.061.061 0 00-.0312-.0286zM8.02 15.3312c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9555-2.4189 2.157-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.9555 2.4189-2.1569 2.4189zm7.9748 0c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9554-2.4189 2.1569-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.946 2.4189-2.1568 2.4189Z" />
+            </svg>
+          </div>
+          <div style={{ flex: 1, minWidth: 200 }}>
+            <div style={{ fontFamily: t.fontMono, fontSize: 11, color: "#A8B0FF", letterSpacing: "0.22em", marginBottom: 4 }}>
+              OFFICIAL DISCORD
+            </div>
+            <div style={{ fontFamily: t.fontDisplay, fontSize: 18, fontWeight: 800, color: t.text, letterSpacing: "0.04em" }}>
+              Join the PentaProtocol community
+            </div>
+            <div style={{ fontFamily: t.fontBody, fontSize: 12, color: t.textMuted, marginTop: 4, lineHeight: 1.5 }}>
+              Find squadmates, hear about events first, share clips, and talk to the devs.
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={openDiscordInvite}
+            onMouseEnter={(e) => {
+              onHoverAction?.();
+              e.currentTarget.style.background = "#5865F2";
+              e.currentTarget.style.boxShadow = "0 0 24px rgba(88,101,242,0.7)";
+              e.currentTarget.style.transform = "translateY(-1px)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = "rgba(88,101,242,0.92)";
+              e.currentTarget.style.boxShadow = "0 0 16px rgba(88,101,242,0.5)";
+              e.currentTarget.style.transform = "translateY(0)";
+            }}
+            style={{
+              padding: "11px 20px",
+              background: "rgba(88,101,242,0.92)",
+              border: "1px solid #5865F2",
+              borderRadius: 10,
+              color: "#fff",
+              fontFamily: t.fontDisplay,
+              fontSize: 13,
+              fontWeight: 800,
+              letterSpacing: "0.12em",
+              textTransform: "uppercase",
+              cursor: "pointer",
+              boxShadow: "0 0 16px rgba(88,101,242,0.5)",
+              transition: "background 160ms ease, box-shadow 160ms ease, transform 160ms ease",
+              flexShrink: 0,
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 8,
+            }}
+            aria-label="Join the PentaProtocol Discord community (opens in a new tab)"
+          >
+            Join Discord
+            <span aria-hidden="true" style={{ opacity: 0.85 }}>↗</span>
+          </button>
+        </div>
+
+        {/* ── Reddit community block ──────────────────────────────────────
+            Sits directly under the Discord hero so the two community
+            destinations are presented together. Same layout / sizing as
+            the Discord card — only the brand colours change so the
+            sibling relationship is obvious. */}
+        <div
+          style={{
+            background: "linear-gradient(135deg, rgba(255,69,0,0.22), rgba(255,69,0,0.06))",
+            border: "1px solid rgba(255,69,0,0.6)",
+            borderRadius: 14,
+            padding: 18,
+            marginBottom: 20,
+            display: "flex",
+            alignItems: "center",
+            gap: 16,
+            flexWrap: "wrap",
+            boxShadow: "0 0 22px rgba(255,69,0,0.18)",
+          }}
+        >
+          <div
+            style={{
+              width: 52,
+              height: 52,
+              borderRadius: 12,
+              background: "rgba(255,69,0,0.32)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              flexShrink: 0,
+              color: "#fff",
+              boxShadow: "inset 0 0 14px rgba(255,69,0,0.55)",
+            }}
+          >
+            <svg aria-hidden="true" width="28" height="28" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.01 4.744c.688 0 1.25.561 1.25 1.249a1.25 1.25 0 0 1-2.498.056l-2.597-.547-.8 3.747c1.824.07 3.48.632 4.674 1.488.308-.309.73-.491 1.207-.491.968 0 1.754.786 1.754 1.754 0 .716-.435 1.333-1.04 1.604a3.4 3.4 0 0 1 .045.572c0 2.908-3.358 5.265-7.502 5.265-4.144 0-7.502-2.357-7.502-5.265 0-.193.015-.386.045-.572-.605-.271-1.04-.888-1.04-1.604 0-.968.786-1.754 1.754-1.754.477 0 .898.182 1.207.491 1.207-.864 2.879-1.42 4.74-1.488l.885-4.182a.342.342 0 0 1 .14-.197.35.35 0 0 1 .238-.042l2.906.617a1.214 1.214 0 0 1 1.111-.701zM9.25 12C8.561 12 8 12.562 8 13.25c0 .687.561 1.248 1.25 1.248.687 0 1.248-.561 1.248-1.249 0-.688-.561-1.249-1.249-1.249zm5.5 0c-.687 0-1.248.561-1.248 1.25 0 .687.561 1.248 1.249 1.248.688 0 1.249-.561 1.249-1.249 0-.687-.562-1.249-1.25-1.249zm-5.466 3.99a.327.327 0 0 0-.231.094.33.33 0 0 0 0 .463c.842.842 2.484.913 2.961.913.477 0 2.105-.056 2.961-.913a.361.361 0 0 0 .029-.463.33.33 0 0 0-.464 0c-.547.533-1.684.73-2.512.73-.828 0-1.979-.196-2.512-.73a.326.326 0 0 0-.232-.095z" />
+            </svg>
+          </div>
+          <div style={{ flex: 1, minWidth: 200 }}>
+            <div style={{ fontFamily: t.fontMono, fontSize: 11, color: "#FFB088", letterSpacing: "0.22em", marginBottom: 4 }}>
+              REDDIT · r/PentaProtocol
+            </div>
+            <div style={{ fontFamily: t.fontDisplay, fontSize: 18, fontWeight: 800, color: t.text, letterSpacing: "0.04em" }}>
+              Discuss strategies and share clips
+            </div>
+            <div style={{ fontFamily: t.fontBody, fontSize: 12, color: t.textMuted, marginTop: 4, lineHeight: 1.5 }}>
+              Subscribe to r/PentaProtocol for deep-dive threads, meta discussion, fan art, and announcements.
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={openRedditCommunity}
+            onMouseEnter={(e) => {
+              onHoverAction?.();
+              e.currentTarget.style.background = "#FF4500";
+              e.currentTarget.style.boxShadow = "0 0 24px rgba(255,69,0,0.7)";
+              e.currentTarget.style.transform = "translateY(-1px)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = "rgba(255,69,0,0.92)";
+              e.currentTarget.style.boxShadow = "0 0 16px rgba(255,69,0,0.5)";
+              e.currentTarget.style.transform = "translateY(0)";
+            }}
+            style={{
+              padding: "11px 20px",
+              background: "rgba(255,69,0,0.92)",
+              border: "1px solid #FF4500",
+              borderRadius: 10,
+              color: "#fff",
+              fontFamily: t.fontDisplay,
+              fontSize: 13,
+              fontWeight: 800,
+              letterSpacing: "0.12em",
+              textTransform: "uppercase",
+              cursor: "pointer",
+              boxShadow: "0 0 16px rgba(255,69,0,0.5)",
+              transition: "background 160ms ease, box-shadow 160ms ease, transform 160ms ease",
+              flexShrink: 0,
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 8,
+            }}
+            aria-label="Visit r/PentaProtocol on Reddit (opens in a new tab)"
+          >
+            Visit Reddit
+            <span aria-hidden="true" style={{ opacity: 0.85 }}>↗</span>
+          </button>
+        </div>
+
+        {/* ── itch.io page block ────────────────────────────────────────
+            Sits under the Reddit block to give players a clear path to
+            the official itch.io listing — handy for ratings, follows,
+            and surfacing the dev's other titles. itch.io's brand colour
+            is #FA5C5C; we keep the same card pattern as the Discord and
+            Reddit blocks so the trio reads as one community shelf. */}
+        <div
+          style={{
+            background: "linear-gradient(135deg, rgba(250,92,92,0.22), rgba(250,92,92,0.06))",
+            border: "1px solid rgba(250,92,92,0.6)",
+            borderRadius: 14,
+            padding: 18,
+            marginBottom: 20,
+            display: "flex",
+            alignItems: "center",
+            gap: 16,
+            flexWrap: "wrap",
+            boxShadow: "0 0 22px rgba(250,92,92,0.18)",
+          }}
+        >
+          <div
+            style={{
+              width: 52,
+              height: 52,
+              borderRadius: 12,
+              background: "rgba(250,92,92,0.32)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              flexShrink: 0,
+              color: "#fff",
+              boxShadow: "inset 0 0 14px rgba(250,92,92,0.55)",
+              fontFamily: t.fontDisplay,
+              fontWeight: 900,
+              fontSize: 22,
+              letterSpacing: "0.02em",
+            }}
+            aria-hidden="true"
+          >
+            ▶
+          </div>
+          <div style={{ flex: 1, minWidth: 200 }}>
+            <div style={{ fontFamily: t.fontMono, fontSize: 11, color: "#FFB088", letterSpacing: "0.22em", marginBottom: 4 }}>
+              ITCH.IO · OFFICIAL PAGE
+            </div>
+            <div style={{ fontFamily: t.fontDisplay, fontSize: 18, fontWeight: 800, color: t.text, letterSpacing: "0.04em" }}>
+              Rate, follow, and download
+            </div>
+            <div style={{ fontFamily: t.fontBody, fontSize: 12, color: t.textMuted, marginTop: 4, lineHeight: 1.5 }}>
+              Visit our itch.io listing to leave a rating, follow for updates, and check out the dev's other releases.
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={openItchIoPage}
+            onMouseEnter={(e) => {
+              onHoverAction?.();
+              e.currentTarget.style.background = "#FA5C5C";
+              e.currentTarget.style.boxShadow = "0 0 24px rgba(250,92,92,0.7)";
+              e.currentTarget.style.transform = "translateY(-1px)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = "rgba(250,92,92,0.92)";
+              e.currentTarget.style.boxShadow = "0 0 16px rgba(250,92,92,0.5)";
+              e.currentTarget.style.transform = "translateY(0)";
+            }}
+            style={{
+              padding: "11px 20px",
+              background: "rgba(250,92,92,0.92)",
+              border: "1px solid #FA5C5C",
+              borderRadius: 10,
+              color: "#fff",
+              fontFamily: t.fontDisplay,
+              fontSize: 13,
+              fontWeight: 800,
+              letterSpacing: "0.12em",
+              textTransform: "uppercase",
+              cursor: "pointer",
+              boxShadow: "0 0 16px rgba(250,92,92,0.5)",
+              transition: "background 160ms ease, box-shadow 160ms ease, transform 160ms ease",
+              flexShrink: 0,
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 8,
+            }}
+            aria-label="View PentaProtocol on itch.io (opens in a new tab)"
+          >
+            View on itch.io
+            <span aria-hidden="true" style={{ opacity: 0.85 }}>↗</span>
+          </button>
+        </div>
+
+        {/* ── Instagram block ───────────────────────────────────────────
+            Closes out the social shelf (Discord → Reddit → itch.io →
+            Instagram). Same card pattern as the others; the icon tile
+            uses Instagram's signature warm gradient (yellow → pink →
+            purple) so it visually mirrors the IG app icon, and the CTA
+            uses the brand pink #E1306C with a hover gradient for
+            polish. */}
+        <div
+          style={{
+            background: "linear-gradient(135deg, rgba(225,48,108,0.22), rgba(131,58,180,0.06))",
+            border: "1px solid rgba(225,48,108,0.6)",
+            borderRadius: 14,
+            padding: 18,
+            marginBottom: 20,
+            display: "flex",
+            alignItems: "center",
+            gap: 16,
+            flexWrap: "wrap",
+            boxShadow: "0 0 22px rgba(225,48,108,0.18)",
+          }}
+        >
+          <div
+            style={{
+              width: 52,
+              height: 52,
+              borderRadius: 12,
+              background:
+                "linear-gradient(45deg, #F58529 0%, #DD2A7B 50%, #8134AF 100%)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              flexShrink: 0,
+              color: "#fff",
+              boxShadow: "inset 0 0 14px rgba(0,0,0,0.25), 0 0 12px rgba(225,48,108,0.45)",
+            }}
+          >
+            <svg aria-hidden="true" width="28" height="28" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 1 0 0 12.324 6.162 6.162 0 0 0 0-12.324zM12 16a4 4 0 1 1 0-8 4 4 0 0 1 0 8zm6.406-11.845a1.44 1.44 0 1 0 0 2.881 1.44 1.44 0 0 0 0-2.881z" />
+            </svg>
+          </div>
+          <div style={{ flex: 1, minWidth: 200 }}>
+            <div style={{ fontFamily: t.fontMono, fontSize: 11, color: "#F8A2C4", letterSpacing: "0.22em", marginBottom: 4 }}>
+              INSTAGRAM · @pentaprotocol
+            </div>
+            <div style={{ fontFamily: t.fontDisplay, fontSize: 18, fontWeight: 800, color: t.text, letterSpacing: "0.04em" }}>
+              Follow for screenshots and clips
+            </div>
+            <div style={{ fontFamily: t.fontBody, fontSize: 12, color: t.textMuted, marginTop: 4, lineHeight: 1.5 }}>
+              See behind-the-scenes art, gameplay highlights, and event teasers on Instagram.
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={openInstagramPage}
+            onMouseEnter={(e) => {
+              onHoverAction?.();
+              e.currentTarget.style.background =
+                "linear-gradient(45deg, #F58529 0%, #DD2A7B 50%, #8134AF 100%)";
+              e.currentTarget.style.boxShadow = "0 0 24px rgba(225,48,108,0.7)";
+              e.currentTarget.style.transform = "translateY(-1px)";
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = "rgba(225,48,108,0.92)";
+              e.currentTarget.style.boxShadow = "0 0 16px rgba(225,48,108,0.5)";
+              e.currentTarget.style.transform = "translateY(0)";
+            }}
+            style={{
+              padding: "11px 20px",
+              background: "rgba(225,48,108,0.92)",
+              border: "1px solid #E1306C",
+              borderRadius: 10,
+              color: "#fff",
+              fontFamily: t.fontDisplay,
+              fontSize: 13,
+              fontWeight: 800,
+              letterSpacing: "0.12em",
+              textTransform: "uppercase",
+              cursor: "pointer",
+              boxShadow: "0 0 16px rgba(225,48,108,0.5)",
+              transition: "background 160ms ease, box-shadow 160ms ease, transform 160ms ease",
+              flexShrink: 0,
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 8,
+            }}
+            aria-label="Follow @pentaprotocol on Instagram (opens in a new tab)"
+          >
+            Follow on Instagram
+            <span aria-hidden="true" style={{ opacity: 0.85 }}>↗</span>
+          </button>
         </div>
 
         {/* Add friend + counters strip */}

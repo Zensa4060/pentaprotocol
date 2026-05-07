@@ -544,7 +544,7 @@ export default function NavBar({
   // Nav links list for both desktop and hamburger menu. Guest mode is
   // gone, so nothing is locked here anymore.
   const navLinks = [
-    { target: "friends",    label: "FRIENDS",    screen: "friends"    as Screen },
+    { target: "friends",    label: "COMMUNITY",  screen: "friends"    as Screen },
     { target: "collection", label: "Collection", screen: "collection" as Screen },
     { target: "store",      label: "Store",      screen: "store"      as Screen },
     { target: "home",       label: "Home",       screen: "home"       as Screen },
@@ -666,7 +666,7 @@ export default function NavBar({
               transition: "gap 0.3s ease",
               marginLeft: "1%",
             }}>
-              {navBtn("friends", "FRIENDS", false, false, undefined, "friends", false, friendsNotifyBadge)}
+              {navBtn("friends", "COMMUNITY", false, false, undefined, "friends", false, friendsNotifyBadge)}
               {navBtn("collection", "Collection", false, false, undefined, "collection", false, collectionNotifyBadge)}
               {navBtn("store",      "Store",      false, false, undefined, "store", false, storeNewBadge)}
               {navBtn("home",       "Home",       false, false, undefined, "home")}
