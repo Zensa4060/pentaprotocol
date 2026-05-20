@@ -1112,69 +1112,82 @@ export default function AuthScreen({ setScreenAction, themeId, audio }: Props) {
 
       {/* ── LEFT PANEL ── */}
       <div className="pp-left" style={{ flex: isMobile ? "0 0 auto" : "0 0 70%", height: isMobile ? 130 : "100%", position: "relative", overflow: "hidden", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
-        <ParticleCanvas settings={particleSettings} />
+        {/*
+          Particle canvas is desktop-only. The mobile auth strip is just
+          130 px tall and is also the surface that ships inside the
+          Google Play Store wrapper (TWA / Capacitor) — every battery-
+          watt the particle loop burns there comes straight out of the
+          user's first-launch experience. On mobile we fall back to the
+          dark base + radial vignette + edge-fade, which still reads as
+          intentional and keeps the logo + title as the focal point.
+          The "Particle Settings" dev overlay is hidden for the same
+          reason: there's nothing to configure when nothing is rendering.
+        */}
+        {!isMobile && <ParticleCanvas settings={particleSettings} />}
         <div style={{ position: "absolute", inset: 0, zIndex: 1, background: "radial-gradient(ellipse at center, transparent 30%, rgba(3,3,3,0.7) 100%)", pointerEvents: "none" }} />
         {isMobile && <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 80, zIndex: 2, background: "linear-gradient(to bottom, transparent, #0d0d0d)", pointerEvents: "none" }} />}
         {!isMobile && <div style={{ position: "absolute", top: 0, right: 0, bottom: 0, width: 120, zIndex: 2, background: "linear-gradient(to right, transparent, #0d0d0d)", pointerEvents: "none" }} />}
-        <div style={{ position: "absolute", top: 12, right: 12, zIndex: 4 }}>
-          <button
-            type="button"
-            onClick={() => setShowParticleControls(s => !s)}
-            style={{ background: "rgba(10,10,10,0.85)", border: "1px solid rgba(255,255,255,0.22)", borderRadius: 8, color: "#fff", fontFamily: FONT, fontSize: 12, padding: "8px 10px", letterSpacing: "0.08em", cursor: "pointer" }}
-          >
-            Particle Settings
-          </button>
-          {showParticleControls && (
-            <div style={{ marginTop: 8, width: 260, background: "rgba(8,8,8,0.95)", border: "1px solid rgba(255,255,255,0.18)", borderRadius: 10, padding: 12, backdropFilter: "blur(3px)" }}>
-              <div style={{ fontFamily: FONT, fontSize: 11, color: "#aaa", textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 10 }}>
+        {!isMobile && (
+          <div style={{ position: "absolute", top: 12, right: 12, zIndex: 4 }}>
+            <button
+              type="button"
+              onClick={() => setShowParticleControls(s => !s)}
+              style={{ background: "rgba(10,10,10,0.85)", border: "1px solid rgba(255,255,255,0.22)", borderRadius: 8, color: "#fff", fontFamily: FONT, fontSize: 12, padding: "8px 10px", letterSpacing: "0.08em", cursor: "pointer" }}
+            >
+              Particle Settings
+            </button>
+            {showParticleControls && (
+              <div style={{ marginTop: 8, width: 260, background: "rgba(8,8,8,0.95)", border: "1px solid rgba(255,255,255,0.18)", borderRadius: 10, padding: 12, backdropFilter: "blur(3px)" }}>
+                <div style={{ fontFamily: FONT, fontSize: 11, color: "#aaa", textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 10 }}>
+                </div>
+                <div style={{ display: "grid", gap: 8 }}>
+                  <div>
+                    <div style={{ ...labelStyle, marginBottom: 4 }}>Count (100 - 500)</div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <input type="range" min={100} max={500} step={10} value={particleSettings.count} onChange={e => updateParticleSetting("count", Number(e.target.value))} style={{ width: "100%" }} />
+                      <span style={sliderValueStyle}>{particleSettings.count}</span>
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ ...labelStyle, marginBottom: 4 }}>Connect (60 - 100)</div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <input type="range" min={60} max={100} step={5} value={particleSettings.connect} onChange={e => updateParticleSetting("connect", Number(e.target.value))} style={{ width: "100%" }} />
+                      <span style={sliderValueStyle}>{particleSettings.connect}</span>
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ ...labelStyle, marginBottom: 4 }}>Attract Radius (40 - 150)</div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <input type="range" min={40} max={150} step={5} value={particleSettings.attractRadius} onChange={e => updateParticleSetting("attractRadius", Number(e.target.value))} style={{ width: "100%" }} />
+                      <span style={sliderValueStyle}>{particleSettings.attractRadius}</span>
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ ...labelStyle, marginBottom: 4 }}>Attract Force (100 - 250)</div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <input type="range" min={100} max={250} step={10} value={particleSettings.attractForce} onChange={e => updateParticleSetting("attractForce", Number(e.target.value))} style={{ width: "100%" }} />
+                      <span style={sliderValueStyle}>{particleSettings.attractForce}</span>
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ ...labelStyle, marginBottom: 4 }}>Max Speed (2 - 14)</div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <input type="range" min={2} max={14} step={0.5} value={particleSettings.maxSpeed} onChange={e => updateParticleSetting("maxSpeed", Number(e.target.value))} style={{ width: "100%" }} />
+                      <span style={sliderValueStyle}>{particleSettings.maxSpeed.toFixed(1)}</span>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setParticleSettings(DEFAULT_PARTICLE_SETTINGS)}
+                    style={{ marginTop: 4, width: "100%", padding: "8px 10px", background: "transparent", border: "1px solid rgba(255,255,255,0.18)", borderRadius: 7, color: "#bbb", fontFamily: FONT, fontSize: 12, letterSpacing: "0.06em", cursor: "pointer", textTransform: "uppercase" }}
+                  >
+                    Reset Defaults
+                  </button>
+                </div>
               </div>
-              <div style={{ display: "grid", gap: 8 }}>
-                <div>
-                  <div style={{ ...labelStyle, marginBottom: 4 }}>Count (100 - 500)</div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <input type="range" min={100} max={500} step={10} value={particleSettings.count} onChange={e => updateParticleSetting("count", Number(e.target.value))} style={{ width: "100%" }} />
-                    <span style={sliderValueStyle}>{particleSettings.count}</span>
-                  </div>
-                </div>
-                <div>
-                  <div style={{ ...labelStyle, marginBottom: 4 }}>Connect (60 - 100)</div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <input type="range" min={60} max={100} step={5} value={particleSettings.connect} onChange={e => updateParticleSetting("connect", Number(e.target.value))} style={{ width: "100%" }} />
-                    <span style={sliderValueStyle}>{particleSettings.connect}</span>
-                  </div>
-                </div>
-                <div>
-                  <div style={{ ...labelStyle, marginBottom: 4 }}>Attract Radius (40 - 150)</div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <input type="range" min={40} max={150} step={5} value={particleSettings.attractRadius} onChange={e => updateParticleSetting("attractRadius", Number(e.target.value))} style={{ width: "100%" }} />
-                    <span style={sliderValueStyle}>{particleSettings.attractRadius}</span>
-                  </div>
-                </div>
-                <div>
-                  <div style={{ ...labelStyle, marginBottom: 4 }}>Attract Force (100 - 250)</div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <input type="range" min={100} max={250} step={10} value={particleSettings.attractForce} onChange={e => updateParticleSetting("attractForce", Number(e.target.value))} style={{ width: "100%" }} />
-                    <span style={sliderValueStyle}>{particleSettings.attractForce}</span>
-                  </div>
-                </div>
-                <div>
-                  <div style={{ ...labelStyle, marginBottom: 4 }}>Max Speed (2 - 14)</div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <input type="range" min={2} max={14} step={0.5} value={particleSettings.maxSpeed} onChange={e => updateParticleSetting("maxSpeed", Number(e.target.value))} style={{ width: "100%" }} />
-                    <span style={sliderValueStyle}>{particleSettings.maxSpeed.toFixed(1)}</span>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setParticleSettings(DEFAULT_PARTICLE_SETTINGS)}
-                  style={{ marginTop: 4, width: "100%", padding: "8px 10px", background: "transparent", border: "1px solid rgba(255,255,255,0.18)", borderRadius: 7, color: "#bbb", fontFamily: FONT, fontSize: 12, letterSpacing: "0.06em", cursor: "pointer", textTransform: "uppercase" }}
-                >
-                  Reset Defaults
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
+            )}
+          </div>
+        )}
         <div
           style={{
             position: "relative",
