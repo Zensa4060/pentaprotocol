@@ -24,6 +24,7 @@
 import { isAxiosError } from "axios";
 
 import API from "./api";
+import { logout } from "./auth";
 import { useAuthStore } from "./store";
 import type { User } from "./types";
 
@@ -51,6 +52,36 @@ function toApiError(err: unknown, fallback: string): ApiError {
   }
   if (err instanceof Error) return new ApiError(err.message);
   return new ApiError(fallback);
+}
+
+// ─── Read: fetch the authoritative profile from the server ─────────────────
+
+/**
+ * Fetch ``GET /api/profile/me`` and patch the zustand cache with
+ * the response. Returns the fresh ``User``.
+ *
+ * Use this when:
+ *   - The profile screen mounts and wants to refresh the cached
+ *     value (or hydrate it for the first time when the cached
+ *     ``user`` is null but ``isAuthenticated`` is true).
+ *   - A pull-to-refresh gesture wants a fresh snapshot.
+ *
+ * A 401 here means our cached JWT has been invalidated server-side
+ * (rotated, banned, account deleted). We force a logout so the
+ * next render bounces the user to the login screen instead of
+ * leaving them stuck on an empty profile.
+ */
+export async function fetchProfile(): Promise<User> {
+  try {
+    const res = await API.get<User>("/api/profile/me");
+    useAuthStore.getState().setProfile(res.data);
+    return res.data;
+  } catch (err) {
+    if (isAxiosError(err) && err.response?.status === 401) {
+      await logout();
+    }
+    throw toApiError(err, "Could not load your profile.");
+  }
 }
 
 // ─── Legal acceptance ────────────────────────────────────────────────────────

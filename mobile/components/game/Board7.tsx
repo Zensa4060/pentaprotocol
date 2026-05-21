@@ -21,7 +21,7 @@
  *   - The board is uncontrolled visually — it just renders what
  *     it's handed. Move legality, turn switching, win detection,
  *     bot scheduling, etc. all live in the parent controller
- *     (``useTrainingMatch``).
+ *     (``usePracticeMatch`` / ``useEngineMatch``).
  *
  * NO web cosmetics. NO themes, banners, board skins, border
  * styles, board mode glyphs, AI bot avatars. Those are future

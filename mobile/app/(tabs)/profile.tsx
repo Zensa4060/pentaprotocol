@@ -1,17 +1,34 @@
 /**
- * Profile tab — view-only, with logout.
+ * Profile tab — view of the authoritative server-side profile.
  *
- * Phase 2 scope: surface the cached profile so the user can see
- * who they're signed in as, their stats, and sign out. Editing
- * (avatar, bio, password change, 2FA, account deletion) lands in
- * later phases — each on its own modal screen reached from here.
+ * Self-sufficient fetcher: on mount we hit ``GET /api/profile/me``
+ * and surface whatever happens — loading, success, or error with
+ * a retry. This screen used to rely on whatever the global
+ * ``useProfileSync`` hook had populated the store with; that hook
+ * swallows errors so a one-time fetch failure left the user
+ * stranded on a "No profile loaded" message forever.
  *
- * Information density mirrors the web profile page but stays
- * vertical: phones hate side-by-side multi-column layouts.
+ * Now:
+ *   - Cached profile from the store (if any) paints instantly so
+ *     a returning user never sees a spinner for data we already
+ *     have.
+ *   - A background refresh always fires anyway, so the cached
+ *     copy can never drift past one screen mount.
+ *   - Pull-to-refresh gives the user an explicit re-pull.
+ *   - On error we render the offline cache if we have one, or
+ *     a clean error panel with a Retry / Sign out pair if we don't.
  */
 
 import { router } from "expo-router";
-import { Alert, StyleSheet, Text, View } from "react-native";
+import { useCallback, useEffect, useState } from "react";
+import {
+  ActivityIndicator,
+  Alert,
+  RefreshControl,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 
 import {
   Avatar,
@@ -28,12 +45,47 @@ import {
   Title,
 } from "@/components/ui";
 import { logout } from "@/lib/auth";
+import { ApiError, fetchProfile } from "@/lib/profile";
 import { useAuthStore } from "@/lib/store";
 import { winRate } from "@/lib/types";
 import { colors, radii, space } from "@/theme/tokens";
 
+type FetchState = "idle" | "loading" | "error";
+
 export default function ProfileScreen() {
   const user = useAuthStore((s) => s.user);
+  const [state, setState] = useState<FetchState>(user ? "idle" : "loading");
+  const [error, setError] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+
+  /** Force-refresh from the server. Updates the zustand cache as a side effect. */
+  const refresh = useCallback(async (mode: "mount" | "pull") => {
+    if (mode === "pull") setRefreshing(true);
+    if (mode === "mount" && !user) setState("loading");
+    setError(null);
+    try {
+      await fetchProfile();
+      setState("idle");
+    } catch (err) {
+      const msg =
+        err instanceof ApiError && err.detail ? err.detail : "Could not load your profile.";
+      setError(msg);
+      // If we already have cached data, keep showing it and just
+      // flash a non-blocking warning; if we have nothing at all,
+      // surface the dedicated error panel.
+      setState(useAuthStore.getState().user ? "idle" : "error");
+    } finally {
+      setRefreshing(false);
+    }
+  }, [user]);
+
+  // Fire once on mount. We always refresh (even when cache exists)
+  // so the user's wins/ELO/etc. can't be stale on a returning visit.
+  useEffect(() => {
+    void refresh("mount");
+    // Run once per mount; pull-to-refresh handles subsequent pulls.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleLogout = () => {
     Alert.alert("Sign out", "Are you sure you want to sign out of this device?", [
@@ -49,6 +101,41 @@ export default function ProfileScreen() {
     ]);
   };
 
+  // ── Loading: no cache, no data, just fetching ─────────────────
+  if (state === "loading" && !user) {
+    return (
+      <Screen padded>
+        <Stack gap={4} fill align="center" justify="center">
+          <ActivityIndicator color={colors.accent} />
+          <Caption tone="muted">Loading profile…</Caption>
+        </Stack>
+      </Screen>
+    );
+  }
+
+  // ── Error: fetch failed AND we had nothing cached ────────────
+  if (state === "error" && !user) {
+    return (
+      <Screen padded>
+        <Stack gap={4} fill align="center" justify="center">
+          <Title center>Couldn&apos;t load profile</Title>
+          <Caption tone="muted" center>
+            {error ?? "Check your connection and try again."}
+          </Caption>
+          <Btn variant="primary" onPress={() => refresh("mount")}>
+            Try again
+          </Btn>
+          <Btn variant="ghost" onPress={handleLogout}>
+            Sign out
+          </Btn>
+        </Stack>
+      </Screen>
+    );
+  }
+
+  // After loading + error branches, ``user`` is guaranteed non-null
+  // because the only way to land here is either cache-hit or
+  // post-fetch success.
   if (!user) {
     return (
       <Screen padded>
@@ -67,8 +154,33 @@ export default function ProfileScreen() {
   const totalGames = user.wins + user.losses + user.draws;
 
   return (
-    <Screen scrollable padded contentContainerStyle={{ paddingBottom: space[10] }}>
+    <Screen
+      scrollable
+      padded
+      contentContainerStyle={{ paddingBottom: space[10] }}
+      scrollViewProps={{
+        refreshControl: (
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => refresh("pull")}
+            tintColor={colors.accent}
+            colors={[colors.accent]}
+          />
+        ),
+      }}
+    >
       <View style={{ height: space[3] }} />
+
+      {/* Soft warning banner — we have a cached copy but the last
+          refresh failed. Lets the user know they may be looking at
+          stale data without blowing up the whole screen. */}
+      {error ? (
+        <View style={styles.warnBanner}>
+          <Caption tone="warn">
+            Could not refresh — showing cached data. {error}
+          </Caption>
+        </View>
+      ) : null}
 
       {/* ── Identity ────────────────────────────────────────────── */}
       <Stack gap={4} align="center" style={{ marginVertical: space[5] }}>
@@ -281,5 +393,13 @@ const styles = StyleSheet.create({
     paddingVertical: space[3],
     alignItems: "center",
     justifyContent: "center",
+  },
+  warnBanner: {
+    backgroundColor: "rgba(255,176,32,0.10)",
+    borderRadius: radii.md,
+    borderWidth: 1,
+    borderColor: colors.warn,
+    padding: space[3],
+    marginTop: space[3],
   },
 });

@@ -1,8 +1,8 @@
 /**
- * Training practice match — local alternating play, no bot.
+ * AI Engine match — human vs server bot (``/api/bot/move``).
  */
 
-import { router, Stack } from "expo-router";
+import { router, Stack, useLocalSearchParams } from "expo-router";
 import { useMemo } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
 
@@ -13,37 +13,59 @@ import {
   Eyebrow,
   Row,
   Screen,
+  Spinner,
   Title,
 } from "@/components/ui";
 import { Board7 } from "@/components/game/Board7";
-import { usePracticeMatch } from "@/lib/hooks/usePracticeMatch";
+import type { EngineDifficulty } from "@/lib/botApi/botMove";
+import { useEngineMatch } from "@/lib/hooks/useEngineMatch";
 import { colors, radii, space } from "@/theme/tokens";
 
-export default function TrainingPracticeScreen() {
-  const match = usePracticeMatch();
+export default function EngineMatchScreen() {
+  const params = useLocalSearchParams<{ difficulty?: string; label?: string }>();
+  const difficulty: EngineDifficulty =
+    params.difficulty === "easy" || params.difficulty === "danger"
+      ? params.difficulty
+      : "hard";
+  const botName = (params.label ?? "BOT").toUpperCase();
+
+  const match = useEngineMatch({ difficulty });
 
   const status = useMemo(() => {
     if (match.result.status === "won") {
-      return match.result.winner === "P1" ? "P1 WINS" : "P2 WINS";
+      return match.result.winner === "P1" ? "YOU WIN" : `${botName} WINS`;
     }
     if (match.result.status === "draw") return "DRAW";
-    return `${match.current} TO PLAY`;
-  }, [match.current, match.result.status, match.result.winner]);
+    if (match.botThinking) return "ENGINE THINKING…";
+    if (match.botError) return match.botError;
+    return match.current === "P1" ? "YOUR TURN" : `${botName} TURN`;
+  }, [
+    botName,
+    match.botError,
+    match.botThinking,
+    match.current,
+    match.result.status,
+    match.result.winner,
+  ]);
 
   const statusTone: "default" | "accent" | "info" | "muted" | "warn" =
-    match.result.status === "won"
+    match.botError
+      ? "warn"
+      : match.result.status === "won"
       ? match.result.winner === "P1"
         ? "accent"
         : "info"
       : match.result.status === "draw"
       ? "warn"
+      : match.botThinking
+      ? "muted"
       : match.current === "P1"
       ? "accent"
       : "info";
 
   const goBack = () => {
     if (router.canGoBack()) router.back();
-    else router.replace("/training");
+    else router.replace("/engine");
   };
 
   return (
@@ -54,16 +76,21 @@ export default function TrainingPracticeScreen() {
         <Pressable onPress={goBack} hitSlop={12} accessibilityRole="button">
           <Caption tone="muted">← BACK</Caption>
         </Pressable>
-        <Caption tone="muted">PRACTICE · {match.movesPlayed} MV</Caption>
+        <Caption tone="muted">
+          {botName} · {match.movesPlayed} MV
+        </Caption>
       </Row>
 
       <Row justify="between" align="center" style={{ marginTop: space[5] }}>
-        <PlayerTile label="P1" color={colors.accent} active={match.current === "P1" && match.result.status === "playing"} />
-        <PlayerTile label="P2" color={colors.info} active={match.current === "P2" && match.result.status === "playing"} />
+        <PlayerTile label="YOU" color={colors.accent} active={match.current === "P1" && match.result.status === "playing"} />
+        <PlayerTile label={botName} color={colors.info} active={match.current === "P2" && match.result.status === "playing"} />
       </Row>
 
       <Row gap={2} align="center" justify="center" style={{ marginTop: space[3] }}>
-        <Eyebrow tone={statusTone}>{status}</Eyebrow>
+        {match.botThinking ? <Spinner tone="muted" /> : null}
+        <Eyebrow tone={statusTone} center>
+          {status}
+        </Eyebrow>
       </Row>
 
       <View style={{ marginTop: space[4], flex: 1, justifyContent: "center" }}>
@@ -72,7 +99,7 @@ export default function TrainingPracticeScreen() {
           lastMove={match.lastMove}
           winningLine={match.result.line}
           disabled={!match.inputEnabled}
-          onCellPress={match.place}
+          onCellPress={match.placeHuman}
         />
       </View>
 
@@ -81,25 +108,28 @@ export default function TrainingPracticeScreen() {
           <Body>
             {match.result.status === "draw"
               ? "Draw — neither chain reached 20."
-              : `${match.result.winner} took the game.`}
+              : match.result.winner === "P1"
+              ? "Well played."
+              : `${botName} took it. Try again?`}
           </Body>
+          {match.result.connectionScores ? (
+            <Caption tone="muted" style={{ marginTop: space[2] }}>
+              Chain · YOU {match.result.connectionScores.p1} · {botName}{" "}
+              {match.result.connectionScores.p2}
+            </Caption>
+          ) : null}
         </View>
       ) : null}
 
       <Row gap={3} style={{ marginTop: space[4], marginBottom: space[3] }}>
         <View style={{ flex: 1 }}>
-          <Btn variant="secondary" onPress={match.undo} disabled={!match.canUndo}>
-            Undo
-          </Btn>
-        </View>
-        <View style={{ flex: 1 }}>
-          <Btn variant="secondary" onPress={() => router.replace("/training")}>
-            Back
+          <Btn variant="secondary" onPress={() => router.replace("/engine")}>
+            Pick again
           </Btn>
         </View>
         <View style={{ flex: 1 }}>
           <Btn variant="primary" onPress={match.reset}>
-            Reset
+            Rematch
           </Btn>
         </View>
       </Row>
@@ -124,13 +154,17 @@ function PlayerTile({
       ]}
     >
       <View style={[styles.swatch, { backgroundColor: color }]} />
-      <Title style={{ color: active ? colors.text : colors.textMuted }}>{label}</Title>
+      <Title style={{ color: active ? colors.text : colors.textMuted }} numberOfLines={1}>
+        {label}
+      </Title>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   playerTile: {
+    flex: 1,
+    maxWidth: "48%",
     flexDirection: "row",
     alignItems: "center",
     gap: space[2],
@@ -149,7 +183,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.bgCard,
     borderRadius: radii.md,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: colors.borderAccent,
     padding: space[4],
     marginTop: space[3],
   },

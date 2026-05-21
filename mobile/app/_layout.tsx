@@ -95,6 +95,12 @@ function AuthSyncedTree() {
       <Stack.Screen name="index" />
       <Stack.Screen name="(auth)" />
       <Stack.Screen name="(tabs)" />
+      <Stack.Screen name="training" />
+      <Stack.Screen name="engine" />
+      <Stack.Screen name="multiplayer" />
+      <Stack.Screen name="profile" />
+      <Stack.Screen name="legal-gate" />
+      <Stack.Screen name="onboarding" />
     </Stack>
   );
 }

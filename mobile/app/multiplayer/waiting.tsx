@@ -24,7 +24,6 @@ import {
   StyleSheet,
   View,
 } from "react-native";
-import * as Clipboard from "expo-clipboard";
 
 import {
   Body,
@@ -83,10 +82,18 @@ export default function MultiplayerWaiting() {
     );
   }, [disbanded]);
 
+  // The native share sheet on both iOS and Android exposes a
+  // "Copy" action, so we route the dedicated "Copy code" button
+  // through Share as well. This lets us avoid the ``expo-clipboard``
+  // native module dependency (which requires a fresh dev build to
+  // be available — Expo Go and stale dev clients crash on require).
   const onCopy = async () => {
     if (!code) return;
-    await Clipboard.setStringAsync(code);
-    Alert.alert("Copied", "Room code copied to clipboard.");
+    try {
+      await Share.share({ message: code });
+    } catch {
+      // Share sheet dismissed.
+    }
   };
 
   const onShare = async () => {

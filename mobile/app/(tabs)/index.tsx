@@ -73,13 +73,13 @@ const MODES: ModeDef[] = [
   {
     key: "training",
     title: "TRAINING",
-    description: "Solo board work against AI difficulty tiers.",
+    description: "Tutorial replay and local practice — no bot, no rating.",
     accent: colors.info,
   },
   {
     key: "ai",
     title: "AI ENGINE",
-    description: "Probe the engine — analysis, drills, scenarios.",
+    description: "Named server opponents — SERAPHINA, REGINA, HER.",
     accent: "#A065FF",
   },
 ];
@@ -96,11 +96,8 @@ export default function HomeScreen() {
       router.push("/multiplayer");
       return;
     }
-    // AI Engine is wired in a later phase. Its tile stays tappable
-    // (so the affordance reads correctly) but we just leave a dev
-    // breadcrumb until that screen lands.
-    if (__DEV__) {
-      console.log("[home] mode not yet wired", mode);
+    if (mode === "ai") {
+      router.push("/engine");
     }
   };
 
