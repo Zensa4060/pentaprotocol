@@ -1,0 +1,443 @@
+/**
+ * Multiplayer match screen.
+ *
+ * Reused renderer: ``<Board7 />`` from training. The match
+ * controller is different though — every state transition lives
+ * on the server, not the client. Move → send WS frame → server
+ * validates → broadcasts ``move_made`` to both sockets → both
+ * clients paint identically.
+ *
+ * v1 surface ceiling (per Phase-4 scoping):
+ *   - 7×7 board only (the only mode the create flow ships).
+ *   - Best-of-N series with auto-ready between games.
+ *   - No ProtocolBreaker UI. If a server-side RB triggers (after
+ *     every pair of games when the score is sub-3), we show an
+ *     "open in web app" panel and the user can either wait for
+ *     their opponent to bail or hit "Forfeit and exit". Full RB
+ *     port is a follow-up phase.
+ *   - No chat, no rematch consent, no spectator view. After a
+ *     series ends the user navigates back to the lobby — a new
+ *     match means a new room.
+ */
+
+import { router, Stack, useLocalSearchParams } from "expo-router";
+import { useEffect } from "react";
+import { Alert, BackHandler, Pressable, StyleSheet, View } from "react-native";
+
+import {
+  Body,
+  Btn,
+  Caption,
+  Card,
+  Eyebrow,
+  Heading,
+  Row,
+  Screen,
+  Spinner,
+  Title,
+} from "@/components/ui";
+import { Board7 } from "@/components/game/Board7";
+import type { Coord } from "@/lib/game/winChecker7";
+import type {
+  PlayerSlot,
+  Room,
+} from "@/lib/multiplayer/types";
+import { useMatchSocket } from "@/lib/multiplayer/useMatchSocket";
+import { colors, radii, space } from "@/theme/tokens";
+
+export default function MultiplayerMatch() {
+  const params = useLocalSearchParams<{ code?: string; slot?: string }>();
+  const code = (params.code ?? "").toUpperCase();
+  const slot: PlayerSlot = params.slot === "P2" ? "P2" : "P1";
+
+  const {
+    room,
+    status,
+    lastError,
+    disbanded,
+    placeStone,
+    readyForNextGame,
+    quitMatch,
+    setOnGameScreen,
+    dismissError,
+  } = useMatchSocket({ roomCode: code, slot });
+
+  // ── Android hardware-back guard ───────────────────────────
+  // Mid-match back press is a really common foot-gun on Android.
+  // We intercept and route through the same "quit" confirm dialog
+  // as the on-screen back button, so back never silently abandons
+  // the opponent.
+  useEffect(() => {
+    const sub = BackHandler.addEventListener("hardwareBackPress", () => {
+      if (room?.game_status === "playing") {
+        confirmQuit();
+        return true;
+      }
+      return false;
+    });
+    return () => sub.remove();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [room?.game_status]);
+
+  // ── Server-side disband ─────────────────────────────────────
+  useEffect(() => {
+    if (!disbanded) return;
+    Alert.alert(
+      "Match ended",
+      disbanded.reason ?? "The match ended.",
+      [{ text: "Back to lobby", onPress: () => router.replace("/multiplayer") }],
+    );
+  }, [disbanded]);
+
+  // ── Pop a server error toast briefly ────────────────────────
+  useEffect(() => {
+    if (!lastError) return;
+    const id = setTimeout(dismissError, 2400);
+    return () => clearTimeout(id);
+  }, [lastError, dismissError]);
+
+  const confirmQuit = () => {
+    Alert.alert(
+      "Forfeit match?",
+      "You'll lose this series and your opponent will be credited the win.",
+      [
+        { text: "Stay", style: "cancel" },
+        {
+          text: "Forfeit",
+          style: "destructive",
+          onPress: () => {
+            quitMatch("user_forfeit");
+            // Server will broadcast match_disbanded shortly; in the
+            // meantime, bounce. The "match ended" alert above is
+            // suppressed because we leave before the frame arrives.
+            router.replace("/multiplayer");
+          },
+        },
+      ],
+    );
+  };
+
+  // ── Loading state ───────────────────────────────────────────
+  if (!room) {
+    return (
+      <Screen padded>
+        <Stack.Screen options={{ headerShown: false }} />
+        <Row gap={3} align="center" justify="center" fill>
+          <Spinner tone="muted" />
+          <Body tone="muted">
+            {status === "reconnecting" ? "Reconnecting…" : "Loading match…"}
+          </Body>
+        </Row>
+      </Screen>
+    );
+  }
+
+  const isMyTurn = room.current_player === slot && room.game_status === "playing";
+  const gameOver = room.game_status === "finished";
+  const seriesOver = room.series_winner !== null;
+  const needsProtocolBreaker = room.awaiting_rulebreaker && !seriesOver;
+
+  return (
+    <Screen padded>
+      <Stack.Screen options={{ headerShown: false }} />
+
+      {/* ── Top bar ───────────────────────────────────────────── */}
+      <Row justify="between" align="center" style={{ marginTop: space[3] }}>
+        <Pressable onPress={confirmQuit} hitSlop={12} accessibilityRole="button">
+          <Caption tone="muted">← QUIT</Caption>
+        </Pressable>
+        <Caption tone="muted">
+          ROOM {room.room_code} · G{room.game_number}
+        </Caption>
+      </Row>
+
+      {/* ── Scoreboard ────────────────────────────────────────── */}
+      <Row gap={3} style={{ marginTop: space[4] }}>
+        <PlayerCard
+          slot="P1"
+          self={slot === "P1"}
+          name={room.player1_name}
+          elo={room.player1_elo}
+          points={room.p1_series_points}
+          active={room.current_player === "P1" && !gameOver}
+          color={colors.accent}
+        />
+        <PlayerCard
+          slot="P2"
+          self={slot === "P2"}
+          name={room.player2_name}
+          elo={room.player2_elo}
+          points={room.p2_series_points}
+          active={room.current_player === "P2" && !gameOver}
+          color={colors.info}
+        />
+      </Row>
+
+      {/* ── Status banner ─────────────────────────────────────── */}
+      <View style={styles.statusBar}>
+        <Eyebrow tone={statusToneFor(room, slot, status)}>
+          {statusLabelFor(room, slot, status)}
+        </Eyebrow>
+      </View>
+
+      {/* ── Server error toast (non-blocking) ─────────────────── */}
+      {lastError ? (
+        <View style={styles.errorToast}>
+          <Caption tone="danger">{lastError}</Caption>
+        </View>
+      ) : null}
+
+      {/* ── Board ─────────────────────────────────────────────── */}
+      <View style={{ marginTop: space[4], flex: 1, justifyContent: "center" }}>
+        <Board7
+          board={room.board ?? emptyBoard()}
+          lastMove={lastMoveOf(room)}
+          winningLine={null /* server doesn't currently send a stable line for the seated state */}
+          disabled={!isMyTurn || gameOver}
+          onCellPress={(r, c) => {
+            if (!isMyTurn) return;
+            placeStone(r, c);
+          }}
+        />
+      </View>
+
+      {/* ── Bottom panels ─────────────────────────────────────── */}
+      {seriesOver ? (
+        <SeriesEndPanel room={room} mySlot={slot} />
+      ) : needsProtocolBreaker ? (
+        <ProtocolBreakerPanel
+          onForfeit={confirmQuit}
+          onScreenBack={() => {
+            // The user picked "open in web app" — we just leave.
+            // Their progress is preserved server-side; web GameScreen
+            // can pick up the same room.
+            router.replace("/multiplayer");
+          }}
+        />
+      ) : gameOver ? (
+        <GameEndPanel
+          room={room}
+          mySlot={slot}
+          onReady={() => {
+            // Local UX: hide the panel + show a "advancing" hint;
+            // the server's game_reset broadcast clears state.
+            readyForNextGame();
+            setOnGameScreen(true);
+          }}
+        />
+      ) : null}
+    </Screen>
+  );
+}
+
+// ─── Sub-panels ──────────────────────────────────────────────────────────────
+
+function PlayerCard({
+  slot,
+  self,
+  name,
+  elo,
+  points,
+  active,
+  color,
+}: {
+  slot: PlayerSlot;
+  self: boolean;
+  name: string | null;
+  elo: number | null;
+  points: number;
+  active: boolean;
+  color: string;
+}) {
+  return (
+    <View
+      style={[
+        styles.playerCard,
+        { borderColor: active ? color : colors.border, opacity: active ? 1 : 0.75 },
+      ]}
+    >
+      <Row gap={2} align="center">
+        <View style={[styles.playerSwatch, { backgroundColor: color }]} />
+        <Caption tone="muted">{slot}{self ? " · YOU" : ""}</Caption>
+      </Row>
+      <Heading numberOfLines={1}>{name ?? "—"}</Heading>
+      <Row gap={3} align="baseline">
+        <Caption tone="muted">{elo !== null ? `${elo} ELO` : "—"}</Caption>
+        <Caption tone="accent" style={{ fontWeight: "800" }}>
+          {points} pt
+        </Caption>
+      </Row>
+    </View>
+  );
+}
+
+function GameEndPanel({
+  room,
+  mySlot,
+  onReady,
+}: {
+  room: Room;
+  mySlot: PlayerSlot;
+  onReady: () => void;
+}) {
+  const winnerLabel =
+    room.winner === "DRAW"
+      ? "Draw"
+      : room.winner === mySlot
+      ? "You won"
+      : "Opponent won";
+  const winnerTone = room.winner === "DRAW" ? "warn" : room.winner === mySlot ? "accent" : "info";
+  return (
+    <Card variant="surface" padding="lg" style={{ marginTop: space[3] }}>
+      <Eyebrow tone={winnerTone}>GAME {room.game_number}</Eyebrow>
+      <View style={{ height: space[2] }} />
+      <Title>{winnerLabel}</Title>
+      <View style={{ height: space[2] }} />
+      <Body tone="muted">
+        Series at {room.p1_series_points} — {room.p2_series_points}. First to 3 wins the match.
+      </Body>
+      <View style={{ height: space[3] }} />
+      <Btn variant="primary" onPress={onReady}>
+        Ready for next game
+      </Btn>
+    </Card>
+  );
+}
+
+function SeriesEndPanel({
+  room,
+  mySlot,
+}: {
+  room: Room;
+  mySlot: PlayerSlot;
+}) {
+  const won = room.series_winner === mySlot;
+  const headline = won ? "Series win" : "Series lost";
+  const tone = won ? "accent" : "info";
+  return (
+    <Card variant="surface" padding="lg" style={{ marginTop: space[3] }}>
+      <Eyebrow tone={tone}>FINAL · {room.p1_series_points} — {room.p2_series_points}</Eyebrow>
+      <View style={{ height: space[2] }} />
+      <Title>{headline}</Title>
+      <View style={{ height: space[3] }} />
+      <Btn variant="primary" onPress={() => router.replace("/multiplayer")}>
+        Back to lobby
+      </Btn>
+    </Card>
+  );
+}
+
+function ProtocolBreakerPanel({
+  onForfeit,
+  onScreenBack,
+}: {
+  onForfeit: () => void;
+  onScreenBack: () => void;
+}) {
+  return (
+    <Card variant="surface" padding="lg" style={{ marginTop: space[3] }}>
+      <Eyebrow tone="warn">PROTOCOL BREAKER</Eyebrow>
+      <View style={{ height: space[2] }} />
+      <Title>Open in web to continue</Title>
+      <View style={{ height: space[3] }} />
+      <Body tone="muted">
+        After every two games the series goes through ProtocolBreaker — a rule-modification
+        phase. The mobile app doesn&apos;t ship that flow yet (landing in a follow-up), so to
+        keep playing you&apos;ll need to switch to the web app on the same account.
+      </Body>
+      <View style={{ height: space[4] }} />
+      <Btn variant="secondary" onPress={onScreenBack}>
+        I&apos;ll open on web
+      </Btn>
+      <View style={{ height: space[2] }} />
+      <Btn variant="ghost" onPress={onForfeit}>
+        Forfeit instead
+      </Btn>
+    </Card>
+  );
+}
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+function emptyBoard() {
+  return Array.from({ length: 7 }, () => Array.from({ length: 7 }, () => null));
+}
+
+/**
+ * Pull the most-recent move's coord off the room's ``move_log`` if
+ * we have it. ``move_log`` isn't always populated on every
+ * ``move_made`` frame (the broadcast omits it for size reasons),
+ * so we fall back to ``null`` when missing — board still renders
+ * fine, just without the last-move ring.
+ */
+function lastMoveOf(_room: Room): Coord | null {
+  // The ``move_made`` broadcast carries the row/col of the latest
+  // move, but our typed Room shape doesn't store it separately
+  // (we only mirror the bigger fields). For v1 we accept "no
+  // last-move ring on MP" and leave the helper as a hook for
+  // adding it later via a parallel local cache.
+  return null;
+}
+
+function statusLabelFor(room: Room, mySlot: PlayerSlot, conn: string): string {
+  if (room.series_winner) return room.series_winner === mySlot ? "YOU WIN THE SERIES" : "SERIES OVER";
+  if (room.awaiting_rulebreaker) return "PROTOCOL BREAKER PENDING";
+  if (room.game_status === "finished") {
+    return room.winner === "DRAW"
+      ? "GAME DRAW"
+      : room.winner === mySlot
+      ? "GAME WIN"
+      : "GAME LOSS";
+  }
+  if (conn === "reconnecting") return "RECONNECTING…";
+  if (conn === "connecting") return "CONNECTING…";
+  return room.current_player === mySlot ? "YOUR TURN" : "OPPONENT TURN";
+}
+
+function statusToneFor(
+  room: Room,
+  mySlot: PlayerSlot,
+  conn: string,
+): "default" | "accent" | "muted" | "info" | "warn" | "danger" {
+  if (room.series_winner) return room.series_winner === mySlot ? "accent" : "info";
+  if (room.awaiting_rulebreaker) return "warn";
+  if (room.game_status === "finished") {
+    return room.winner === "DRAW"
+      ? "warn"
+      : room.winner === mySlot
+      ? "accent"
+      : "info";
+  }
+  if (conn === "reconnecting" || conn === "connecting") return "muted";
+  return room.current_player === mySlot ? "accent" : "info";
+}
+
+const styles = StyleSheet.create({
+  statusBar: {
+    marginTop: space[3],
+    alignItems: "center",
+  },
+  errorToast: {
+    marginTop: space[2],
+    paddingVertical: space[2],
+    paddingHorizontal: space[3],
+    backgroundColor: colors.bgCard,
+    borderColor: colors.danger,
+    borderWidth: 1,
+    borderRadius: radii.md,
+    alignSelf: "center",
+  },
+  playerCard: {
+    flex: 1,
+    backgroundColor: colors.bgCard,
+    borderRadius: radii.md,
+    borderWidth: 2,
+    padding: space[3],
+    gap: space[1],
+  },
+  playerSwatch: {
+    width: 10,
+    height: 10,
+    borderRadius: radii.pill,
+  },
+});

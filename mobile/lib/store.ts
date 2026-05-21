@@ -49,7 +49,15 @@ interface AuthState {
    */
   setUser: (user: User, token: string) => Promise<void>;
 
-  /** Overwrite the cached profile only — e.g. after a /profile/me refresh. */
+  /**
+   * Replace the cached profile wholesale. Use after a fresh
+   * ``/profile/me`` fetch where you have the authoritative
+   * server-side shape and want to drop the local copy. Does NOT
+   * touch the JWT — auth flag stays as-is.
+   */
+  setProfile: (user: User) => void;
+
+  /** Shallow-merge a partial onto the cached profile. */
   patchUser: (patch: Partial<User>) => void;
 
   /** Clear JWT + profile + auth flag. Safe to call from anywhere. */
@@ -68,6 +76,10 @@ export const useAuthStore = create<AuthState>()(
       setUser: async (user, token) => {
         await setToken(token);
         set({ user, isAuthenticated: true });
+      },
+
+      setProfile: (user) => {
+        set({ user });
       },
 
       patchUser: (patch) => {

@@ -30,6 +30,7 @@ import "react-native-reanimated";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { TamaguiProvider } from "tamagui";
 
+import { useProfileSync } from "@/lib/hooks/useProfileSync";
 import { useAuthStore } from "@/lib/store";
 import { tamaguiConfig } from "@/theme/tamagui.config";
 
@@ -70,13 +71,30 @@ export default function RootLayout() {
       <SafeAreaProvider>
         <TamaguiProvider config={tamaguiConfig} defaultTheme="dark">
           <StatusBar style="light" backgroundColor="#030303" translucent={false} />
-          <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: "#030303" } }}>
-            <Stack.Screen name="index" />
-            <Stack.Screen name="(auth)" />
-            <Stack.Screen name="(tabs)" />
-          </Stack>
+          <AuthSyncedTree />
         </TamaguiProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
+  );
+}
+
+/**
+ * Mounts ``useProfileSync`` inside the providers (so it can hit the
+ * API + read the auth store), then renders the actual navigator.
+ *
+ * Pulled into its own component because hooks have to be called
+ * unconditionally and we only want the sync to start *after* the
+ * hydration gate above resolves. Without this split the hook
+ * would either flash a request before AsyncStorage hydrates, or we'd
+ * have to add a "skip if not hydrated" branch to the hook itself.
+ */
+function AuthSyncedTree() {
+  useProfileSync();
+  return (
+    <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: "#030303" } }}>
+      <Stack.Screen name="index" />
+      <Stack.Screen name="(auth)" />
+      <Stack.Screen name="(tabs)" />
+    </Stack>
   );
 }

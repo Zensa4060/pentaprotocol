@@ -1,0 +1,239 @@
+/**
+ * Multiplayer lobby.
+ *
+ * Three actions:
+ *   - **Create room**: spins up a private 7×7 unranked room and
+ *     navigates to the waiting screen (showing the joinable code).
+ *   - **Join by code**: prompts for the 4-char code and joins.
+ *   - **Rejoin**: surfaces when ``/api/room/active/check`` finds
+ *     the user is mid-match — bypasses the lobby entirely.
+ *
+ * v1 deliberately ships a private-rooms-only flow (no public
+ * matchmaking, no ranked queue, no chat). Most invites in the wild
+ * happen through a friend channel anyway (share the 4-char code
+ * over messages), and the queue server-side is more complex to
+ * surface honestly without skin-level cosmetics.
+ */
+
+import { router, Stack, useFocusEffect } from "expo-router";
+import { useCallback, useState } from "react";
+import { Alert, Pressable, StyleSheet, View } from "react-native";
+
+import {
+  Body,
+  Btn,
+  Caption,
+  Eyebrow,
+  Row,
+  Screen,
+  Spinner,
+  Stack as VStack,
+  TextField,
+  Title,
+} from "@/components/ui";
+import {
+  createRoom,
+  getActiveRoom,
+  joinRoom,
+  RoomError,
+} from "@/lib/multiplayer/rooms";
+import type { ActiveRoomCheck } from "@/lib/multiplayer/types";
+import { colors, radii, space } from "@/theme/tokens";
+
+export default function MultiplayerLobby() {
+  const [code, setCode] = useState("");
+  const [active, setActive] = useState<ActiveRoomCheck | null>(null);
+  const [activeChecking, setActiveChecking] = useState(true);
+  const [creating, setCreating] = useState(false);
+  const [joining, setJoining] = useState(false);
+
+  // ── Active-room probe ───────────────────────────────────────
+  // Run on every focus so a backgrounded app that comes back has
+  // a fresh state — a match that timed out in the meantime
+  // shouldn't leave a stale "rejoin" banner up.
+  useFocusEffect(
+    useCallback(() => {
+      let cancelled = false;
+      setActiveChecking(true);
+      getActiveRoom()
+        .then((res) => {
+          if (cancelled) return;
+          setActive(res.room_code ? res : null);
+        })
+        .catch(() => {
+          if (cancelled) return;
+          setActive(null);
+        })
+        .finally(() => {
+          if (cancelled) return;
+          setActiveChecking(false);
+        });
+      return () => {
+        cancelled = true;
+      };
+    }, []),
+  );
+
+  const goBack = () => {
+    if (router.canGoBack()) router.back();
+    else router.replace("/(tabs)");
+  };
+
+  const onCreate = async () => {
+    if (creating) return;
+    setCreating(true);
+    try {
+      const room = await createRoom();
+      router.replace({
+        pathname: "/multiplayer/waiting",
+        params: {
+          code: room.room_code,
+          slot: room.player_slot ?? "P1",
+        },
+      });
+    } catch (err) {
+      const msg = err instanceof RoomError && err.detail ? err.detail : "Could not create room.";
+      Alert.alert("Try again", msg);
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const onJoin = async () => {
+    if (joining) return;
+    const cleaned = code.trim().toUpperCase();
+    if (cleaned.length < 4) {
+      Alert.alert("Bad code", "Enter the room code your opponent shared.");
+      return;
+    }
+    setJoining(true);
+    try {
+      const room = await joinRoom(cleaned);
+      // After joining, the server flips status to "active". Go
+      // straight to the match screen.
+      router.replace({
+        pathname: "/multiplayer/match",
+        params: {
+          code: room.room_code,
+          slot: room.player_slot ?? "P2",
+        },
+      });
+    } catch (err) {
+      const msg = err instanceof RoomError && err.detail ? err.detail : "Could not join room.";
+      Alert.alert("Couldn't join", msg);
+    } finally {
+      setJoining(false);
+    }
+  };
+
+  const onRejoin = () => {
+    if (!active?.room_code || !active.player_slot) return;
+    router.push({
+      pathname: "/multiplayer/match",
+      params: { code: active.room_code, slot: active.player_slot },
+    });
+  };
+
+  return (
+    <Screen scrollable padded contentContainerStyle={{ paddingBottom: space[10] }}>
+      <Stack.Screen options={{ headerShown: false }} />
+
+      <View style={{ height: space[3] }} />
+      <Pressable onPress={goBack} hitSlop={12} accessibilityRole="button">
+        <Caption tone="muted">← BACK</Caption>
+      </Pressable>
+
+      <VStack gap={3} style={{ marginTop: space[6] }}>
+        <Eyebrow tone="muted">MULTIPLAYER · 7 × 7</Eyebrow>
+        <Title>Play a friend</Title>
+        <Body tone="muted">
+          Create a room and share the code, or join one you&apos;ve been given. Private rooms only
+          in v1 — ranked queue lands in a later update.
+        </Body>
+      </VStack>
+
+      {/* ── Active match banner ────────────────────────────────── */}
+      {activeChecking ? (
+        <Row gap={2} align="center" style={{ marginTop: space[6] }}>
+          <Spinner tone="muted" />
+          <Caption tone="muted">Checking for active matches…</Caption>
+        </Row>
+      ) : active ? (
+        <View style={styles.activeBanner}>
+          <Eyebrow tone="accent">REJOIN</Eyebrow>
+          <View style={{ height: space[2] }} />
+          <Body>
+            You have an active match in room {" "}
+            <Body tone="accent" style={{ fontWeight: "800" }}>
+              {active.room_code}
+            </Body>
+            .
+          </Body>
+          <View style={{ height: space[3] }} />
+          <Btn variant="primary" onPress={onRejoin}>
+            Rejoin match
+          </Btn>
+        </View>
+      ) : null}
+
+      {/* ── Create ─────────────────────────────────────────────── */}
+      <Eyebrow tone="muted" style={{ marginTop: space[8], marginBottom: space[3] }}>
+        CREATE A ROOM
+      </Eyebrow>
+      <View style={styles.actionCard}>
+        <Body tone="muted">
+          Generates a fresh 4-character code your opponent can use to join.
+        </Body>
+        <View style={{ height: space[4] }} />
+        <Btn variant="primary" size="lg" loading={creating} onPress={onCreate}>
+          Create room
+        </Btn>
+      </View>
+
+      {/* ── Join ───────────────────────────────────────────────── */}
+      <Eyebrow tone="muted" style={{ marginTop: space[7], marginBottom: space[3] }}>
+        JOIN BY CODE
+      </Eyebrow>
+      <View style={styles.actionCard}>
+        <TextField
+          label="Room code"
+          value={code}
+          onChangeText={(t) => setCode(t.replace(/[^A-Za-z0-9]/g, "").toUpperCase())}
+          autoCapitalize="characters"
+          autoCorrect={false}
+          maxLength={6}
+          placeholder="ABCD"
+          characterCount={{ current: code.length, max: 4 }}
+        />
+        <View style={{ height: space[4] }} />
+        <Btn
+          variant="secondary"
+          size="lg"
+          loading={joining}
+          disabled={code.length < 4 || joining}
+          onPress={onJoin}
+        >
+          Join
+        </Btn>
+      </View>
+    </Screen>
+  );
+}
+
+const styles = StyleSheet.create({
+  actionCard: {
+    backgroundColor: colors.bgCard,
+    borderRadius: radii.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: space[5],
+  },
+  activeBanner: {
+    marginTop: space[6],
+    backgroundColor: colors.bgCard,
+    borderRadius: radii.lg,
+    borderWidth: 2,
+    borderColor: colors.borderAccent,
+    padding: space[5],
+  },
+});
