@@ -41,7 +41,17 @@ import { getToken } from "./secureStore";
  */
 export function getApiBaseUrl(): string {
   const fromEnv = process.env.EXPO_PUBLIC_API_URL;
-  if (fromEnv && fromEnv.length > 0) return fromEnv.replace(/\/$/, "");
+  if (fromEnv && fromEnv.length > 0) {
+    const base = fromEnv.replace(/\/$/, "");
+    if (__DEV__ && base.startsWith("http://") && !base.includes("10.0.2.2") && !/192\.168\.|10\.\d+\./.test(base)) {
+      // eslint-disable-next-line no-console
+      console.warn(
+        "[API] EXPO_PUBLIC_API_URL uses http:// — physical Android devices block cleartext and show ERR_NETWORK. Use https:// or your LAN IP.",
+        base,
+      );
+    }
+    return base;
+  }
   // Local dev fallback. Android emulators talk to the host machine
   // via 10.0.2.2; iOS simulators use localhost directly. We default
   // to localhost and tell the user (in README) to switch when they
