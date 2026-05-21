@@ -17,21 +17,17 @@
  *   - All errors are inline + scoped (per field + general banner)
  *     so the user never has to scroll back up to find what's wrong.
  *
- * Google Sign-In is temporarily stubbed (see ``onGoogle`` below).
- * The native module ``@react-native-google-signin/google-signin``
- * requires a development build, so until we cut that EAS dev build
- * the button just surfaces an ``Alert`` telling the user to fall
- * back to email login. All Google wiring — binding loader,
- * webClientId config, idToken extraction — is intentionally
- * stripped from this file and will be reintroduced in one piece
- * when the dev build lands.
+ * Google Sign-In runs the native flow when the app is launched from
+ * a development / production build, and falls back to a clear
+ * "needs dev build" message when running inside Expo Go (the SDK
+ * isn't bundled in the Go client). See ``lib/googleAuth.ts`` for
+ * the wrapper.
  */
 
 import { Stack, router } from "expo-router";
 import { useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -43,7 +39,8 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { AuthError, signInWithPassword } from "@/lib/auth";
+import { AuthError, signInWithGoogle, signInWithPassword } from "@/lib/auth";
+import { GoogleAuthError, signInWithGoogleNative } from "@/lib/googleAuth";
 import { colors, fontSizes, radii, space } from "@/theme/tokens";
 
 export default function LoginScreen() {
@@ -53,8 +50,11 @@ export default function LoginScreen() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [generalError, setGeneralError] = useState("");
   const [fieldErrors, setFieldErrors] = useState<{ username?: string; password?: string }>({});
+
+  const busy = loading || googleLoading;
 
   const validate = (): boolean => {
     const next: typeof fieldErrors = {};
@@ -80,13 +80,26 @@ export default function LoginScreen() {
     }
   };
 
-  // Temporary stub — restored once we cut the EAS dev build.
-  // See the file header for the full restoration plan.
   const onGoogle = async () => {
-    Alert.alert(
-      "Coming Soon",
-      "Google Sign-In requires a development build. Use email login for now.",
-    );
+    if (busy) return;
+    setGeneralError("");
+    setGoogleLoading(true);
+    try {
+      const idToken = await signInWithGoogleNative();
+      await signInWithGoogle({ credential: idToken });
+      router.replace("/(tabs)");
+    } catch (err) {
+      if (err instanceof GoogleAuthError) {
+        // User cancelling shouldn't look like an error — just reset.
+        if (err.code !== "cancelled") setGeneralError(err.message);
+      } else if (err instanceof AuthError) {
+        setGeneralError(err.message);
+      } else {
+        setGeneralError("Google sign-in failed. Try again.");
+      }
+    } finally {
+      setGoogleLoading(false);
+    }
   };
 
   return (
@@ -129,7 +142,7 @@ export default function LoginScreen() {
               keyboardType="email-address"
               returnKeyType="next"
               style={[styles.input, fieldErrors.username && styles.inputError]}
-              editable={!loading}
+              editable={!busy}
             />
             {fieldErrors.username ? <Text style={styles.fieldError}>{fieldErrors.username}</Text> : null}
           </View>
@@ -154,7 +167,7 @@ export default function LoginScreen() {
                 returnKeyType="go"
                 onSubmitEditing={onSubmit}
                 style={[styles.input, styles.passwordInput, fieldErrors.password && styles.inputError]}
-                editable={!loading}
+                editable={!busy}
               />
               <Pressable
                 onPress={() => setShowPassword((s) => !s)}
@@ -179,15 +192,15 @@ export default function LoginScreen() {
           {/* ── Primary CTA ─────────────────────────────────────────── */}
           <Pressable
             onPress={onSubmit}
-            disabled={loading}
+            disabled={busy}
             android_ripple={{ color: colors.accentDeep }}
             style={({ pressed }) => [
               styles.primaryBtn,
               pressed && styles.primaryBtnPressed,
-              loading && styles.primaryBtnDisabled,
+              busy && styles.primaryBtnDisabled,
             ]}
             accessibilityRole="button"
-            accessibilityState={{ disabled: loading, busy: loading }}
+            accessibilityState={{ disabled: busy, busy: loading }}
           >
             {loading ? (
               <ActivityIndicator color={colors.text} />
@@ -203,20 +216,24 @@ export default function LoginScreen() {
             <View style={styles.dividerLine} />
           </View>
 
-          {/* ── Google (temporarily stubbed, see onGoogle) ─────────── */}
+          {/* ── Google sign-in ─────────────────────────────────────── */}
           <Pressable
             onPress={onGoogle}
-            disabled={loading}
+            disabled={busy}
             android_ripple={{ color: "rgba(0,0,0,0.1)" }}
             style={({ pressed }) => [
               styles.googleBtn,
               pressed && styles.googleBtnPressed,
-              loading && styles.googleBtnDisabled,
+              busy && styles.googleBtnDisabled,
             ]}
             accessibilityRole="button"
-            accessibilityState={{ disabled: loading }}
+            accessibilityState={{ disabled: busy, busy: googleLoading }}
           >
-            <Text style={styles.googleBtnLabel}>Continue with Google</Text>
+            {googleLoading ? (
+              <ActivityIndicator color={colors.textInverse} />
+            ) : (
+              <Text style={styles.googleBtnLabel}>Continue with Google</Text>
+            )}
           </Pressable>
 
           {/* ── Footer ──────────────────────────────────────────────── */}
