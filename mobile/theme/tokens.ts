@@ -44,6 +44,10 @@ export const colors = {
   danger: "#FF4D4D",
   info: "#4DA3FF",
 
+  /** Classic board pieces (web ``themes.classic_dark.pieces``). */
+  p1: "#FFFFFF",
+  p2: "#CC0000",
+
   // Borders & hairlines.
   border: "rgba(255,255,255,0.10)",
   borderStrong: "rgba(255,255,255,0.22)",

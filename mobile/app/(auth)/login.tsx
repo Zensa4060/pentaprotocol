@@ -25,7 +25,7 @@
  */
 
 import { Stack, router } from "expo-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -39,12 +39,19 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { useGameAudio } from "@/lib/audio/AudioProvider";
+import { getApiBaseUrl } from "@/lib/api";
 import { AuthError, signInWithGoogle, signInWithPassword } from "@/lib/auth";
-import { GoogleAuthError, signInWithGoogleNative } from "@/lib/googleAuth";
+import { GoogleAuthError, isGoogleSignInAvailable, signInWithGoogleNative } from "@/lib/googleAuth";
 import { colors, fontSizes, radii, space } from "@/theme/tokens";
 
 export default function LoginScreen() {
   const insets = useSafeAreaInsets();
+  const audio = useGameAudio();
+
+  useEffect(() => {
+    audio.playAuthBgm();
+  }, [audio]);
 
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -123,6 +130,12 @@ export default function LoginScreen() {
             <View style={styles.brandRule} />
             <Text style={styles.brandTag}>SIGN IN</Text>
           </View>
+
+          {__DEV__ ? (
+            <Text style={styles.devApiHint} selectable>
+              API: {getApiBaseUrl()}
+            </Text>
+          ) : null}
 
           {/* ── Username / email field ──────────────────────────────── */}
           <View style={styles.field}>
@@ -209,32 +222,34 @@ export default function LoginScreen() {
             )}
           </Pressable>
 
-          {/* ── Divider ─────────────────────────────────────────────── */}
-          <View style={styles.divider}>
-            <View style={styles.dividerLine} />
-            <Text style={styles.dividerText}>or</Text>
-            <View style={styles.dividerLine} />
-          </View>
+          {isGoogleSignInAvailable() ? (
+            <>
+              <View style={styles.divider}>
+                <View style={styles.dividerLine} />
+                <Text style={styles.dividerText}>or</Text>
+                <View style={styles.dividerLine} />
+              </View>
 
-          {/* ── Google sign-in ─────────────────────────────────────── */}
-          <Pressable
-            onPress={onGoogle}
-            disabled={busy}
-            android_ripple={{ color: "rgba(0,0,0,0.1)" }}
-            style={({ pressed }) => [
-              styles.googleBtn,
-              pressed && styles.googleBtnPressed,
-              busy && styles.googleBtnDisabled,
-            ]}
-            accessibilityRole="button"
-            accessibilityState={{ disabled: busy, busy: googleLoading }}
-          >
-            {googleLoading ? (
-              <ActivityIndicator color={colors.textInverse} />
-            ) : (
-              <Text style={styles.googleBtnLabel}>Continue with Google</Text>
-            )}
-          </Pressable>
+              <Pressable
+                onPress={onGoogle}
+                disabled={busy}
+                android_ripple={{ color: "rgba(0,0,0,0.1)" }}
+                style={({ pressed }) => [
+                  styles.googleBtn,
+                  pressed && styles.googleBtnPressed,
+                  busy && styles.googleBtnDisabled,
+                ]}
+                accessibilityRole="button"
+                accessibilityState={{ disabled: busy, busy: googleLoading }}
+              >
+                {googleLoading ? (
+                  <ActivityIndicator color={colors.textInverse} />
+                ) : (
+                  <Text style={styles.googleBtnLabel}>Continue with Google</Text>
+                )}
+              </Pressable>
+            </>
+          ) : null}
 
           {/* ── Footer ──────────────────────────────────────────────── */}
           <View style={styles.footer}>
@@ -296,6 +311,13 @@ const styles = StyleSheet.create({
     fontSize: fontSizes.xs,
     letterSpacing: 4,
     textTransform: "uppercase",
+  },
+  devApiHint: {
+    color: colors.textDim,
+    fontSize: fontSizes.xs,
+    textAlign: "center",
+    marginBottom: space[4],
+    fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace",
   },
 
   field: {

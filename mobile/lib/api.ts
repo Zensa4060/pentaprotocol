@@ -115,14 +115,20 @@ API.interceptors.response.use(
   (response) => response,
   (error: AxiosError<{ detail?: string }>) => {
     if (__DEV__) {
+      const base = getApiBaseUrl();
+      const path = error.config?.url ?? "";
       // eslint-disable-next-line no-console
       console.warn(
         "[API]",
         error.config?.method?.toUpperCase(),
-        error.config?.url,
+        path,
         "→",
         error.response?.status ?? error.code ?? "no-status",
         error.response?.data?.detail ?? error.message,
+        "| base:",
+        base,
+        "| full:",
+        path.startsWith("http") ? path : `${base}${path}`,
       );
     }
     return Promise.reject(error);

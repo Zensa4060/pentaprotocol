@@ -1,14 +1,15 @@
 /**
- * Training practice match — local only, no bot, no API.
- *
- * Mirrors web ``gameMode === "singleplayer"``: you alternate P1 / P2
- * on the same device to learn patterns. Optional undo stack like the
- * web training flow.
+ * Training practice match — local only, no bot.
  */
 
 import { useCallback, useRef, useState } from "react";
 
 import { DEFAULT_PATTERNS_7 } from "@/lib/game/patterns7";
+import {
+  buildMoveLogEntry,
+  resolveTurnAfterMove,
+  type MoveLogEntry,
+} from "@/lib/game/matchRules7";
 import {
   checkWin7,
   type Board,
@@ -33,6 +34,10 @@ export interface PracticeMatch {
   movesPlayed: number;
   lastMove: Coord | null;
   result: MatchResult;
+  extraTurns: number;
+  extraTurnsHolder: Player | null;
+  moveLog: MoveLogEntry[];
+  centerRuleHint: boolean;
   inputEnabled: boolean;
   canUndo: boolean;
   place: (row: number, col: number) => void;
@@ -46,6 +51,9 @@ type Snapshot = {
   movesPlayed: number;
   lastMove: Coord | null;
   result: MatchResult;
+  extraTurns: number;
+  moveLog: MoveLogEntry[];
+  centerRuleHint: boolean;
 };
 
 function emptyBoard(): Board {
@@ -60,6 +68,9 @@ export function usePracticeMatch(patterns = DEFAULT_PATTERNS_7): PracticeMatch {
   const [movesPlayed, setMovesPlayed] = useState(0);
   const [lastMove, setLastMove] = useState<Coord | null>(null);
   const [result, setResult] = useState<MatchResult>(INITIAL_RESULT);
+  const [extraTurns, setExtraTurns] = useState(0);
+  const [moveLog, setMoveLog] = useState<MoveLogEntry[]>([]);
+  const [centerRuleHint, setCenterRuleHint] = useState(true);
   const undoStack = useRef<Snapshot[]>([]);
 
   const place = useCallback(
@@ -73,6 +84,9 @@ export function usePracticeMatch(patterns = DEFAULT_PATTERNS_7): PracticeMatch {
         movesPlayed,
         lastMove,
         result,
+        extraTurns,
+        moveLog: [...moveLog],
+        centerRuleHint,
       });
 
       const newBoard = board.map((row) => [...row]);
@@ -99,15 +113,32 @@ export function usePracticeMatch(patterns = DEFAULT_PATTERNS_7): PracticeMatch {
         }
       }
 
+      let next = current;
+      let newExtra = 0;
+      if (nextResult.status === "playing") {
+        const turn = resolveTurnAfterMove(current, newMoves, r, c, extraTurns);
+        next = turn.next;
+        newExtra = turn.extraTurns;
+        if (turn.centerBonus) setCenterRuleHint(false);
+      }
+
+      const logEntry = buildMoveLogEntry(
+        newMoves,
+        r,
+        c,
+        current,
+        newMoves === 1 && r === 3 && c === 3,
+      );
+
       setBoard(newBoard);
       setMovesPlayed(newMoves);
       setLastMove([r, c]);
       setResult(nextResult);
-      if (nextResult.status === "playing") {
-        setCurrent(current === "P1" ? "P2" : "P1");
-      }
+      setExtraTurns(newExtra);
+      setMoveLog((l) => [...l, logEntry]);
+      if (nextResult.status === "playing") setCurrent(next);
     },
-    [board, current, lastMove, movesPlayed, patterns, result],
+    [board, centerRuleHint, current, extraTurns, lastMove, moveLog, movesPlayed, patterns, result],
   );
 
   const undo = useCallback(() => {
@@ -118,17 +149,25 @@ export function usePracticeMatch(patterns = DEFAULT_PATTERNS_7): PracticeMatch {
     setMovesPlayed(snap.movesPlayed);
     setLastMove(snap.lastMove);
     setResult(snap.result);
+    setExtraTurns(snap.extraTurns);
+    setMoveLog(snap.moveLog);
+    setCenterRuleHint(snap.centerRuleHint);
   }, []);
 
   const reset = useCallback(() => {
-    const fresh = emptyBoard();
-    setBoard(fresh);
+    setBoard(emptyBoard());
     setCurrent("P1");
     setMovesPlayed(0);
     setLastMove(null);
     setResult(INITIAL_RESULT);
+    setExtraTurns(0);
+    setMoveLog([]);
+    setCenterRuleHint(true);
     undoStack.current = [];
   }, []);
+
+  const extraTurnsHolder =
+    result.status === "playing" && extraTurns > 0 ? current : null;
 
   return {
     board,
@@ -136,6 +175,10 @@ export function usePracticeMatch(patterns = DEFAULT_PATTERNS_7): PracticeMatch {
     movesPlayed,
     lastMove,
     result,
+    extraTurns,
+    extraTurnsHolder,
+    moveLog,
+    centerRuleHint,
     inputEnabled: result.status === "playing",
     canUndo: undoStack.current.length > 0 && result.status === "playing",
     place,

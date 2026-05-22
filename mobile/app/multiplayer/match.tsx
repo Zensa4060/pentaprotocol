@@ -21,7 +21,7 @@
  */
 
 import { router, Stack, useLocalSearchParams } from "expo-router";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { Alert, BackHandler, Pressable, StyleSheet, View } from "react-native";
 
 import {
@@ -37,7 +37,18 @@ import {
   Title,
 } from "@/components/ui";
 import { Board7 } from "@/components/game/Board7";
+import { useGameAudio } from "@/lib/audio/AudioProvider";
+import {
+  breakerDisplayName,
+  breakerKindForGame,
+  legBoardLabel,
+  legGameIndex,
+} from "@/lib/audio/series";
 import type { Coord } from "@/lib/game/winChecker7";
+import {
+  useMatchGameBgm,
+  useRulebreakerPendingSound,
+} from "@/lib/hooks/useMatchSounds";
 import type {
   PlayerSlot,
   Room,
@@ -61,6 +72,10 @@ export default function MultiplayerMatch() {
     setOnGameScreen,
     dismissError,
   } = useMatchSocket({ roomCode: code, slot });
+
+  const audio = useGameAudio();
+  useMatchGameBgm();
+  const prevGameStatus = useRef<string | null>(null);
 
   // ── Android hardware-back guard ───────────────────────────
   // Mid-match back press is a really common foot-gun on Android.
@@ -95,6 +110,22 @@ export default function MultiplayerMatch() {
     const id = setTimeout(dismissError, 2400);
     return () => clearTimeout(id);
   }, [lastError, dismissError]);
+
+  const needsProtocolBreaker =
+    room?.awaiting_rulebreaker && room?.series_winner === null;
+
+  useRulebreakerPendingSound(!!needsProtocolBreaker);
+
+  useEffect(() => {
+    if (!room) return;
+    const wasPlaying = prevGameStatus.current === "playing";
+    if (wasPlaying && room.game_status === "finished" && room.winner) {
+      if (room.winner === "DRAW") return;
+      if (room.winner === slot) audio.sfx.victory();
+      else audio.sfx.defeat();
+    }
+    prevGameStatus.current = room.game_status;
+  }, [room, slot, audio]);
 
   const confirmQuit = () => {
     Alert.alert(
@@ -135,7 +166,8 @@ export default function MultiplayerMatch() {
   const isMyTurn = room.current_player === slot && room.game_status === "playing";
   const gameOver = room.game_status === "finished";
   const seriesOver = room.series_winner !== null;
-  const needsProtocolBreaker = room.awaiting_rulebreaker && !seriesOver;
+  const breakerKind = breakerKindForGame(room.game_number, room.board_mode);
+  const legLabel = `G${legGameIndex(room.game_number)} · ${legBoardLabel(room.board_mode)}`;
 
   return (
     <Screen padded>
@@ -147,7 +179,7 @@ export default function MultiplayerMatch() {
           <Caption tone="muted">← QUIT</Caption>
         </Pressable>
         <Caption tone="muted">
-          ROOM {room.room_code} · G{room.game_number}
+          {room.room_code} · {legLabel}
         </Caption>
       </Row>
 
@@ -196,6 +228,7 @@ export default function MultiplayerMatch() {
           disabled={!isMyTurn || gameOver}
           onCellPress={(r, c) => {
             if (!isMyTurn) return;
+            audio.sfx.place();
             placeStone(r, c);
           }}
         />
@@ -206,6 +239,8 @@ export default function MultiplayerMatch() {
         <SeriesEndPanel room={room} mySlot={slot} />
       ) : needsProtocolBreaker ? (
         <ProtocolBreakerPanel
+          breakerKind={breakerKind}
+          gameNumber={room.game_number}
           onForfeit={confirmQuit}
           onScreenBack={() => {
             // The user picked "open in web app" — we just leave.
@@ -328,22 +363,33 @@ function SeriesEndPanel({
 }
 
 function ProtocolBreakerPanel({
+  breakerKind,
+  gameNumber,
   onForfeit,
   onScreenBack,
 }: {
+  breakerKind: ReturnType<typeof breakerKindForGame>;
+  gameNumber: number;
   onForfeit: () => void;
   onScreenBack: () => void;
 }) {
+  const name =
+    breakerKind !== null
+      ? breakerDisplayName(breakerKind)
+      : "Protocol Breaker";
   return (
     <Card variant="surface" padding="lg" style={{ marginTop: space[3] }}>
-      <Eyebrow tone="warn">PROTOCOL BREAKER</Eyebrow>
+      <Eyebrow tone="warn">
+        {name.toUpperCase()} · GAME {gameNumber}
+      </Eyebrow>
       <View style={{ height: space[2] }} />
       <Title>Open in web to continue</Title>
       <View style={{ height: space[3] }} />
       <Body tone="muted">
-        After every two games the series goes through ProtocolBreaker — a rule-modification
-        phase. The mobile app doesn&apos;t ship that flow yet (landing in a follow-up), so to
-        keep playing you&apos;ll need to switch to the web app on the same account.
+        After G1 the series runs {name} (coin toss, rule pick, pattern ban on 7×7, grid
+        block + timer on 6×6, etc.). That full flow is on web today — mobile shows the board
+        for G1/G3 but not the breaker UI yet. Sign in on the same account at pentaprotocol.com
+        to finish this game.
       </Body>
       <View style={{ height: space[4] }} />
       <Btn variant="secondary" onPress={onScreenBack}>

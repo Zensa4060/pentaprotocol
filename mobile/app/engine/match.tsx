@@ -3,9 +3,17 @@
  */
 
 import { router, Stack, useLocalSearchParams } from "expo-router";
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
 
+import { Board7 } from "@/components/game/Board7";
+import {
+  CenterRuleBanner,
+  ExtraTurnsBadge,
+  MatchClockRow,
+  MoveLogPanel,
+  WinOverlay,
+} from "@/components/game/MatchExtras";
 import {
   Body,
   Btn,
@@ -14,11 +22,15 @@ import {
   Row,
   Screen,
   Spinner,
-  Title,
 } from "@/components/ui";
-import { Board7 } from "@/components/game/Board7";
+import { useGameAudio } from "@/lib/audio/AudioProvider";
 import type { EngineDifficulty } from "@/lib/botApi/botMove";
 import { useEngineMatch } from "@/lib/hooks/useEngineMatch";
+import { useMatchClock } from "@/lib/hooks/useMatchClock";
+import {
+  useGameEndSounds,
+  useMatchGameBgm,
+} from "@/lib/hooks/useMatchSounds";
 import { colors, radii, space } from "@/theme/tokens";
 
 export default function EngineMatchScreen() {
@@ -30,6 +42,18 @@ export default function EngineMatchScreen() {
   const botName = (params.label ?? "BOT").toUpperCase();
 
   const match = useEngineMatch({ difficulty });
+  const clock = useMatchClock(match.current, match.result.status === "playing");
+  const audio = useGameAudio();
+  useMatchGameBgm();
+  useGameEndSounds(match.result.status, match.result.winner, "P1");
+
+  const onCellPress = useCallback(
+    (row: number, col: number) => {
+      if (match.inputEnabled) audio.sfx.place();
+      match.placeHuman(row, col);
+    },
+    [audio, match],
+  );
 
   const status = useMemo(() => {
     if (match.result.status === "won") {
@@ -63,9 +87,24 @@ export default function EngineMatchScreen() {
       ? "accent"
       : "info";
 
+  const winTitle =
+    match.result.status === "won"
+      ? match.result.winner === "P1"
+        ? "VICTORY"
+        : "DEFEAT"
+      : match.result.status === "draw"
+      ? "DRAW"
+      : "";
+
   const goBack = () => {
     if (router.canGoBack()) router.back();
     else router.replace("/engine");
+  };
+
+  const onRematch = () => {
+    audio.sfx.transition();
+    match.reset();
+    clock.reset();
   };
 
   return (
@@ -81,45 +120,52 @@ export default function EngineMatchScreen() {
         </Caption>
       </Row>
 
-      <Row justify="between" align="center" style={{ marginTop: space[5] }}>
-        <PlayerTile label="YOU" color={colors.accent} active={match.current === "P1" && match.result.status === "playing"} />
-        <PlayerTile label={botName} color={colors.info} active={match.current === "P2" && match.result.status === "playing"} />
+      <View style={{ marginTop: space[3] }}>
+        <MatchClockRow
+          p1Label={clock.p1Label}
+          p2Label={clock.p2Label}
+          active={clock.active}
+          p1Name="X"
+          p2Name="Y"
+        />
+      </View>
+
+      <Row justify="between" align="center" style={{ marginTop: space[4] }}>
+        <PlayerTile label="YOU · X" color={colors.p1} active={match.current === "P1" && match.result.status === "playing"} />
+        <PlayerTile label={`${botName} · Y`} color={colors.p2} active={match.current === "P2" && match.result.status === "playing"} />
       </Row>
 
-      <Row gap={2} align="center" justify="center" style={{ marginTop: space[3] }}>
+      <CenterRuleBanner visible={match.centerRuleHint && match.movesPlayed === 0} />
+      <ExtraTurnsBadge count={match.extraTurns} player={match.extraTurnsHolder} />
+
+      <Row gap={2} align="center" justify="center" style={{ marginTop: space[2] }}>
         {match.botThinking ? <Spinner tone="muted" /> : null}
         <Eyebrow tone={statusTone} center>
           {status}
         </Eyebrow>
       </Row>
 
-      <View style={{ marginTop: space[4], flex: 1, justifyContent: "center" }}>
+      <View style={{ marginTop: space[3], flex: 1, justifyContent: "center", minHeight: 280 }}>
         <Board7
           board={match.board}
           lastMove={match.lastMove}
           winningLine={match.result.line}
           disabled={!match.inputEnabled}
-          onCellPress={match.placeHuman}
+          onCellPress={onCellPress}
         />
       </View>
 
-      {match.result.status !== "playing" ? (
-        <View style={styles.resultCard}>
-          <Body>
-            {match.result.status === "draw"
-              ? "Draw — neither chain reached 20."
-              : match.result.winner === "P1"
-              ? "Well played."
-              : `${botName} took it. Try again?`}
-          </Body>
-          {match.result.connectionScores ? (
-            <Caption tone="muted" style={{ marginTop: space[2] }}>
-              Chain · YOU {match.result.connectionScores.p1} · {botName}{" "}
-              {match.result.connectionScores.p2}
-            </Caption>
-          ) : null}
-        </View>
-      ) : null}
+      <WinOverlay
+        visible={match.result.status !== "playing"}
+        title={winTitle}
+        subtitle={
+          match.result.connectionScores
+            ? `Chains · X ${match.result.connectionScores.p1} · Y ${match.result.connectionScores.p2}`
+            : undefined
+        }
+      />
+
+      <MoveLogPanel entries={match.moveLog} />
 
       <Row gap={3} style={{ marginTop: space[4], marginBottom: space[3] }}>
         <View style={{ flex: 1 }}>
@@ -128,7 +174,7 @@ export default function EngineMatchScreen() {
           </Btn>
         </View>
         <View style={{ flex: 1 }}>
-          <Btn variant="primary" onPress={match.reset}>
+          <Btn variant="primary" onPress={onRematch}>
             Rematch
           </Btn>
         </View>
@@ -153,10 +199,7 @@ function PlayerTile({
         { borderColor: active ? color : colors.border, opacity: active ? 1 : 0.6 },
       ]}
     >
-      <View style={[styles.swatch, { backgroundColor: color }]} />
-      <Title style={{ color: active ? colors.text : colors.textMuted }} numberOfLines={1}>
-        {label}
-      </Title>
+      <Caption style={{ color, fontWeight: "800" }}>{label}</Caption>
     </View>
   );
 }
@@ -165,26 +208,11 @@ const styles = StyleSheet.create({
   playerTile: {
     flex: 1,
     maxWidth: "48%",
-    flexDirection: "row",
-    alignItems: "center",
-    gap: space[2],
     paddingVertical: space[2],
     paddingHorizontal: space[3],
     borderRadius: radii.md,
     borderWidth: 2,
     backgroundColor: colors.bgCard,
-  },
-  swatch: {
-    width: 14,
-    height: 14,
-    borderRadius: radii.sm,
-  },
-  resultCard: {
-    backgroundColor: colors.bgCard,
-    borderRadius: radii.md,
-    borderWidth: 1,
-    borderColor: colors.borderAccent,
-    padding: space[4],
-    marginTop: space[3],
+    alignItems: "center",
   },
 });

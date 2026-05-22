@@ -11,10 +11,8 @@
  *     each cell becomes ``floor((width - paddings) / 7) - gap``.
  *     This auto-fits portrait phones (the most common case) and
  *     tablets without us guessing breakpoints.
- *   - Players: P1 = blood-red, P2 = info-blue. Both flat squares
- *     with a faint inner glow on the **last** move so the user
- *     never loses track of the bot's reply. Pure RN, no animation
- *     primitive other than ``Pressable``'s native press feedback.
+ *   - Players: P1 = **X** (white), P2 = **Y** (red) — classic skin.
+ *     Winning cells pulse; last move gets a ring.
  *   - Winning line is highlighted with a 2-px accent ring drawn
  *     on top of the player marker for any cell ``coord`` passed in
  *     ``winningLine``.
@@ -28,8 +26,9 @@
  * Phase-6 mobile-native assets per user direction.
  */
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
+  Animated,
   Pressable,
   StyleSheet,
   View,
@@ -38,6 +37,7 @@ import {
   type ViewStyle,
 } from "react-native";
 
+import { pieceGlyph } from "@/lib/game/matchRules7";
 import { colors, radii } from "@/theme/tokens";
 
 import type { Board, Coord } from "@/lib/game/winChecker7";
@@ -130,6 +130,23 @@ interface CellProps {
 }
 
 function Cell({ size, owner, isLast, isWinning, disabled, onPress }: CellProps) {
+  const pulse = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    if (!isWinning) {
+      pulse.setValue(1);
+      return;
+    }
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulse, { toValue: 1.08, duration: 450, useNativeDriver: true }),
+        Animated.timing(pulse, { toValue: 1, duration: 450, useNativeDriver: true }),
+      ]),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [isWinning, pulse]);
+
   const baseStyle: ViewStyle = {
     width: size,
     height: size,
@@ -142,14 +159,10 @@ function Cell({ size, owner, isLast, isWinning, disabled, onPress }: CellProps) 
     justifyContent: "center",
   };
 
-  const ownerStyle: ViewStyle | null = owner
-    ? {
-        width: Math.max(8, Math.floor(size * 0.72)),
-        height: Math.max(8, Math.floor(size * 0.72)),
-        borderRadius: radii.sm,
-        backgroundColor: owner === "P1" ? colors.accent : colors.info,
-      }
-    : null;
+  const glyph =
+    owner === "P1" || owner === "P2" ? pieceGlyph(owner) : owner === "X" || owner === "O" ? owner : null;
+  const pieceColor =
+    owner === "P1" || owner === "X" ? colors.p1 : owner === "P2" || owner === "O" || owner === "Y" ? colors.p2 : colors.textMuted;
 
   const winningOverlay: ViewStyle | null = isWinning
     ? {
@@ -157,7 +170,7 @@ function Cell({ size, owner, isLast, isWinning, disabled, onPress }: CellProps) 
         left: 0, right: 0, top: 0, bottom: 0,
         borderRadius: radii.xs,
         borderWidth: 2,
-        borderColor: colors.warn,
+        borderColor: colors.accentHot,
       }
     : null;
 
@@ -181,7 +194,18 @@ function Cell({ size, owner, isLast, isWinning, disabled, onPress }: CellProps) 
         pressed && !disabled ? { backgroundColor: colors.bgCard } : null,
       ]}
     >
-      {ownerStyle ? <View style={ownerStyle} /> : null}
+      {glyph ? (
+        <Animated.Text
+          style={{
+            fontSize: Math.max(14, Math.floor(size * 0.42)),
+            fontWeight: "800",
+            color: pieceColor,
+            transform: isWinning ? [{ scale: pulse }] : undefined,
+          }}
+        >
+          {glyph}
+        </Animated.Text>
+      ) : null}
       {lastMoveRing ? <View style={lastMoveRing} pointerEvents="none" /> : null}
       {winningOverlay ? <View style={winningOverlay} pointerEvents="none" /> : null}
     </Pressable>

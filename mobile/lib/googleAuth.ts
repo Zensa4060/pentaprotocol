@@ -1,27 +1,11 @@
 /**
  * Native Google Sign-In wrapper.
  *
- * Centralises every interaction with
- * ``@react-native-google-signin/google-signin`` so screens don't have
- * to know about the SDK directly. We expose two functions:
- *
- *   - ``isGoogleSignInAvailable()`` — false in Expo Go (the SDK is a
- *     native module and isn't bundled into the Go client).
- *   - ``signInWithGoogleNative()`` — runs the configure + hasPlayServices
- *     + signIn flow, returns the Google ID-token string the backend
- *     accepts at ``POST /api/auth/google``.
- *
- * The matching backend exchange (``credential`` → app JWT + user) lives
- * in ``signInWithGoogle()`` inside ``./auth.ts``; this file is *only*
- * about getting the ID token out of Google.
+ * The SDK is loaded lazily so Expo Go can boot without
+ * ``RNGoogleSignin`` in the native binary. Dev/production builds
+ * load the module on first sign-in attempt.
  */
 import Constants, { ExecutionEnvironment } from "expo-constants";
-import {
-  GoogleSignin,
-  isErrorWithCode,
-  isSuccessResponse,
-  statusCodes,
-} from "@react-native-google-signin/google-signin";
 
 /** Thrown for any non-success path callers should surface to the user. */
 export class GoogleAuthError extends Error {
@@ -33,21 +17,26 @@ export class GoogleAuthError extends Error {
   }
 }
 
-/**
- * Expo Go ships without third-party native modules. In SDK 54
- * ``Constants.executionEnvironment === "storeClient"`` is the
- * canonical way to detect the Expo Go client (the older
- * ``appOwnership`` field is deprecated). Dev builds report
- * ``"bare"`` and production builds ``"standalone"``.
- * We gate on this before touching the SDK so we can show a friendly
- * "needs dev build" message instead of crashing on the TurboModule.
- */
 export function isGoogleSignInAvailable(): boolean {
   return Constants.executionEnvironment !== ExecutionEnvironment.StoreClient;
 }
 
+type GoogleSigninModule = typeof import("@react-native-google-signin/google-signin");
+
+function loadGoogleSignin(): GoogleSigninModule {
+  if (!isGoogleSignInAvailable()) {
+    throw new GoogleAuthError(
+      "Google Sign-In requires a development build. Use email login in Expo Go, or install your EAS dev APK.",
+      "expo_go",
+    );
+  }
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  return require("@react-native-google-signin/google-signin") as GoogleSigninModule;
+}
+
 let configured = false;
-function ensureConfigured(): void {
+
+function ensureConfigured(GoogleSignin: GoogleSigninModule["GoogleSignin"]): void {
   if (configured) return;
   const webClientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
   if (!webClientId) {
@@ -56,26 +45,13 @@ function ensureConfigured(): void {
       "missing_config",
     );
   }
-  // ``webClientId`` is the OAuth 2.0 Web client ID — required so the
-  // native SDK can hand us back an ``idToken`` that our FastAPI
-  // backend can verify with the same audience.
   GoogleSignin.configure({ webClientId, offlineAccess: false });
   configured = true;
 }
 
-/**
- * Run the full native Google Sign-In flow and return the Google
- * ID-token JWT. Caller is expected to forward it to
- * ``signInWithGoogle({ credential })`` from ``./auth.ts``.
- */
 export async function signInWithGoogleNative(): Promise<string> {
-  if (!isGoogleSignInAvailable()) {
-    throw new GoogleAuthError(
-      "Google Sign-In requires a development build. Use email login for now or run `npx expo run:android` / `run:ios`.",
-      "expo_go",
-    );
-  }
-  ensureConfigured();
+  const { GoogleSignin, isErrorWithCode, isSuccessResponse, statusCodes } = loadGoogleSignin();
+  ensureConfigured(GoogleSignin);
 
   try {
     await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
@@ -89,9 +65,6 @@ export async function signInWithGoogleNative(): Promise<string> {
   try {
     const response = await GoogleSignin.signIn();
     if (!isSuccessResponse(response)) {
-      // ``cancelled`` and ``noSavedCredentialFound`` both arrive as
-      // non-success types. Either way the user didn't complete the
-      // flow — surface as cancellation so the UI just resets.
       throw new GoogleAuthError("Sign-in cancelled.", "cancelled");
     }
     const idToken = response.data.idToken;

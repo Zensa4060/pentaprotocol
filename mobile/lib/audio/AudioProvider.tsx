@@ -1,0 +1,245 @@
+/**
+ * Mobile audio — classic / pixel / space SFX + auth BGM.
+ * Volume + mute persist via AsyncStorage (same keys as web localStorage).
+ */
+
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { Audio, type AVPlaybackSource } from "expo-av";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
+
+import {
+  AUTH_BGM,
+  resolveSfxPack,
+  SFX_BY_PACK,
+  type SfxKey,
+  type SfxPack,
+} from "./assets";
+
+const STORAGE_MUSIC = "pp_music_vol";
+const STORAGE_SFX = "pp_sfx_vol";
+const STORAGE_MUTED = "pp_muted";
+
+export type BgmContext = "lobby" | "game" | "ranked";
+
+export interface GameAudioContextValue {
+  musicVol: number;
+  setMusicVol: (v: number) => void;
+  sfxVol: number;
+  setSfxVol: (v: number) => void;
+  muted: boolean;
+  toggleMute: () => void;
+  sfxPack: SfxPack;
+  setSfxPack: (pack: SfxPack) => void;
+  playAuthBgm: () => void;
+  playBgm: (_context: BgmContext) => void;
+  pauseBgm: () => void;
+  resumeBgm: () => void;
+  sfx: {
+    hover: () => void;
+    click: () => void;
+    place: () => void;
+    transition: () => void;
+    matchFound: () => void;
+    rulebreaker: () => void;
+    victory: () => void;
+    defeat: () => void;
+  };
+}
+
+const GameAudioContext = createContext<GameAudioContextValue | null>(null);
+
+export function useGameAudio(): GameAudioContextValue {
+  const ctx = useContext(GameAudioContext);
+  if (!ctx) throw new Error("useGameAudio must be used within AudioProvider");
+  return ctx;
+}
+
+/** Safe when audio provider is not mounted (e.g. tests). */
+export function useGameAudioOptional(): GameAudioContextValue | null {
+  return useContext(GameAudioContext);
+}
+
+export function AudioProvider({ children }: { children: ReactNode }) {
+  const [musicVol, setMusicVolState] = useState(0.5);
+  const [sfxVol, setSfxVolState] = useState(0.6);
+  const [muted, setMuted] = useState(false);
+  const [sfxPack, setSfxPackState] = useState<SfxPack>("classic");
+
+  const mutedRef = useRef(false);
+  const musicVolRef = useRef(0.5);
+  const sfxVolRef = useRef(0.6);
+  const sfxPackRef = useRef<SfxPack>("classic");
+  const bgmRef = useRef<Audio.Sound | null>(null);
+  const readyRef = useRef(false);
+
+  mutedRef.current = muted;
+  musicVolRef.current = musicVol;
+  sfxVolRef.current = sfxVol;
+  sfxPackRef.current = sfxPack;
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        await Audio.setAudioModeAsync({
+          playsInSilentModeIOS: true,
+          staysActiveInBackground: false,
+          shouldDuckAndroid: true,
+        });
+        const [m, s, mu] = await Promise.all([
+          AsyncStorage.getItem(STORAGE_MUSIC),
+          AsyncStorage.getItem(STORAGE_SFX),
+          AsyncStorage.getItem(STORAGE_MUTED),
+        ]);
+        if (cancelled) return;
+        if (m !== null) setMusicVolState(parseFloat(m));
+        if (s !== null) setSfxVolState(parseFloat(s));
+        if (mu !== null) setMuted(mu === "true");
+        readyRef.current = true;
+      } catch {
+        readyRef.current = true;
+      }
+    })();
+    return () => {
+      cancelled = true;
+      bgmRef.current?.unloadAsync().catch(() => undefined);
+    };
+  }, []);
+
+  const setMusicVol = useCallback((v: number) => {
+    setMusicVolState(v);
+    musicVolRef.current = v;
+    AsyncStorage.setItem(STORAGE_MUSIC, String(v)).catch(() => undefined);
+    if (bgmRef.current && !mutedRef.current) {
+      bgmRef.current.setVolumeAsync(v).catch(() => undefined);
+    }
+  }, []);
+
+  const setSfxVol = useCallback((v: number) => {
+    setSfxVolState(v);
+    sfxVolRef.current = v;
+    AsyncStorage.setItem(STORAGE_SFX, String(v)).catch(() => undefined);
+  }, []);
+
+  const toggleMute = useCallback(() => {
+    setMuted((prev) => {
+      const next = !prev;
+      mutedRef.current = next;
+      AsyncStorage.setItem(STORAGE_MUTED, String(next)).catch(() => undefined);
+      if (bgmRef.current) {
+        bgmRef.current.setVolumeAsync(next ? 0 : musicVolRef.current).catch(() => undefined);
+      }
+      return next;
+    });
+  }, []);
+
+  const setSfxPack = useCallback((pack: SfxPack) => {
+    sfxPackRef.current = pack;
+    setSfxPackState(pack);
+  }, []);
+
+  const playOneShot = useCallback(async (key: SfxKey) => {
+    if (!readyRef.current || mutedRef.current) return;
+    try {
+      const src = SFX_BY_PACK[sfxPackRef.current][key] as AVPlaybackSource;
+      const { sound } = await Audio.Sound.createAsync(src, {
+        volume: sfxVolRef.current,
+        shouldPlay: true,
+      });
+      sound.setOnPlaybackStatusUpdate((status) => {
+        if (status.isLoaded && status.didJustFinish) {
+          sound.unloadAsync().catch(() => undefined);
+        }
+      });
+    } catch {
+      /* ignore — device mute / focus loss */
+    }
+  }, []);
+
+  const switchBgm = useCallback(async (source: AVPlaybackSource) => {
+    if (!readyRef.current) return;
+    try {
+      if (bgmRef.current) {
+        await bgmRef.current.stopAsync();
+        await bgmRef.current.unloadAsync();
+        bgmRef.current = null;
+      }
+      const { sound } = await Audio.Sound.createAsync(source, {
+        isLooping: true,
+        volume: mutedRef.current ? 0 : musicVolRef.current,
+        shouldPlay: true,
+      });
+      bgmRef.current = sound;
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  const playAuthBgm = useCallback(() => {
+    switchBgm(AUTH_BGM);
+  }, [switchBgm]);
+
+  /** Lobby/game/ranked loop MP3s are not bundled yet — auth only for now. */
+  const playBgm = useCallback((_context: BgmContext) => {
+    /* no-op until classic_lobby.mp3 etc. are added under assets/bgm */
+  }, []);
+
+  const pauseBgm = useCallback(() => {
+    bgmRef.current?.pauseAsync().catch(() => undefined);
+  }, []);
+
+  const resumeBgm = useCallback(() => {
+    if (!bgmRef.current) return;
+    bgmRef.current
+      .setVolumeAsync(mutedRef.current ? 0 : musicVolRef.current)
+      .then(() => bgmRef.current?.playAsync())
+      .catch(() => undefined);
+  }, []);
+
+  const sfx = {
+    hover: () => playOneShot("hover"),
+    click: () => playOneShot("click"),
+    place: () => playOneShot("place"),
+    transition: () => playOneShot("transition"),
+    matchFound: () => playOneShot("matchFound"),
+    rulebreaker: () => playOneShot("rulebreaker"),
+    victory: () => playOneShot("victory"),
+    defeat: () => playOneShot("defeat"),
+  };
+
+  const value: GameAudioContextValue = {
+    musicVol,
+    setMusicVol,
+    sfxVol,
+    setSfxVol,
+    muted,
+    toggleMute,
+    sfxPack,
+    setSfxPack,
+    playAuthBgm,
+    playBgm,
+    pauseBgm,
+    resumeBgm,
+    sfx,
+  };
+
+  return (
+    <GameAudioContext.Provider value={value}>{children}</GameAudioContext.Provider>
+  );
+}
+
+/** Sync SFX pack from profile theme id (call from screens with profile data). */
+export function useSyncAudioTheme(themeId: string | null | undefined) {
+  const audio = useGameAudio();
+  useEffect(() => {
+    audio.setSfxPack(resolveSfxPack(themeId));
+  }, [themeId, audio]);
+}

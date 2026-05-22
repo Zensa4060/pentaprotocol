@@ -58,8 +58,8 @@ export default function TrainingHubScreen() {
           onPress={() => router.push("/onboarding")}
         />
         <HubCard
-          title="PRACTICE"
-          subtitle="7×7 board · alternate P1 / P2 · undo moves."
+          title="PRACTICE · 7×7"
+          subtitle="X vs Y · center rule · clocks · move log · win line."
           accent={colors.info}
           onPress={() => router.push("/training/match")}
         />

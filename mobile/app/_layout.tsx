@@ -30,6 +30,7 @@ import "react-native-reanimated";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { TamaguiProvider } from "tamagui";
 
+import { AudioProvider } from "@/lib/audio/AudioProvider";
 import { useProfileSync } from "@/lib/hooks/useProfileSync";
 import { useAuthStore } from "@/lib/store";
 import { tamaguiConfig } from "@/theme/tamagui.config";
@@ -70,8 +71,10 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
         <TamaguiProvider config={tamaguiConfig} defaultTheme="dark">
-          <StatusBar style="light" backgroundColor="#030303" translucent={false} />
-          <AuthSyncedTree />
+          <AudioProvider>
+            <StatusBar style="light" backgroundColor="#030303" translucent={false} />
+            <AuthSyncedTree />
+          </AudioProvider>
         </TamaguiProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
