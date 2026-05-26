@@ -58,10 +58,22 @@ export default function TrainingHubScreen() {
           onPress={() => router.push("/onboarding")}
         />
         <HubCard
-          title="PRACTICE · 7×7"
-          subtitle="X vs Y · center rule · clocks · move log · win line."
+          title="PRACTICE · 5×5"
+          subtitle="Classic leg · lines & shapes · 2:00 per player."
           accent={colors.info}
-          onPress={() => router.push("/training/match")}
+          onPress={() => router.push({ pathname: "/training/match", params: { grid: "5" } })}
+        />
+        <HubCard
+          title="PRACTICE · 6×6"
+          subtitle="Mid leg · six-in-a-row & fixed shapes · 3:00 per player."
+          accent={colors.info}
+          onPress={() => router.push({ pathname: "/training/match", params: { grid: "6" } })}
+        />
+        <HubCard
+          title="PRACTICE · 7×7"
+          subtitle="Top leg · center rule · clocks · move log · win line."
+          accent={colors.info}
+          onPress={() => router.push({ pathname: "/training/match", params: { grid: "7" } })}
         />
       </VStack>
 

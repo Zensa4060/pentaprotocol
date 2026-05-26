@@ -6,7 +6,7 @@ import { router, Stack, useLocalSearchParams } from "expo-router";
 import { useCallback, useMemo } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
 
-import { Board7 } from "@/components/game/Board7";
+import { BoardGrid } from "@/components/game/BoardGrid";
 import {
   CenterRuleBanner,
   ExtraTurnsBadge,
@@ -25,6 +25,7 @@ import {
 } from "@/components/ui";
 import { useGameAudio } from "@/lib/audio/AudioProvider";
 import type { EngineDifficulty } from "@/lib/botApi/botMove";
+import { matchMsForGrid, parseGridParam } from "@/lib/game/boardConfig";
 import { useEngineMatch } from "@/lib/hooks/useEngineMatch";
 import { useMatchClock } from "@/lib/hooks/useMatchClock";
 import {
@@ -34,15 +35,24 @@ import {
 import { colors, radii, space } from "@/theme/tokens";
 
 export default function EngineMatchScreen() {
-  const params = useLocalSearchParams<{ difficulty?: string; label?: string }>();
+  const params = useLocalSearchParams<{
+    difficulty?: string;
+    label?: string;
+    grid?: string;
+  }>();
   const difficulty: EngineDifficulty =
     params.difficulty === "easy" || params.difficulty === "danger"
       ? params.difficulty
       : "hard";
   const botName = (params.label ?? "BOT").toUpperCase();
+  const gridSize = parseGridParam(params.grid);
 
-  const match = useEngineMatch({ difficulty });
-  const clock = useMatchClock(match.current, match.result.status === "playing");
+  const match = useEngineMatch({ difficulty, gridSize });
+  const clock = useMatchClock(
+    match.current,
+    match.result.status === "playing",
+    matchMsForGrid(gridSize),
+  );
   const audio = useGameAudio();
   useMatchGameBgm();
   useGameEndSounds(match.result.status, match.result.winner, "P1");
@@ -116,7 +126,7 @@ export default function EngineMatchScreen() {
           <Caption tone="muted">← BACK</Caption>
         </Pressable>
         <Caption tone="muted">
-          {botName} · {match.movesPlayed} MV
+          {botName} · {gridSize}×{gridSize} · {match.movesPlayed} MV
         </Caption>
       </Row>
 
@@ -135,7 +145,10 @@ export default function EngineMatchScreen() {
         <PlayerTile label={`${botName} · Y`} color={colors.p2} active={match.current === "P2" && match.result.status === "playing"} />
       </Row>
 
-      <CenterRuleBanner visible={match.centerRuleHint && match.movesPlayed === 0} />
+      <CenterRuleBanner
+        visible={match.centerRuleHint && match.movesPlayed === 0}
+        gridSize={gridSize}
+      />
       <ExtraTurnsBadge count={match.extraTurns} player={match.extraTurnsHolder} />
 
       <Row gap={2} align="center" justify="center" style={{ marginTop: space[2] }}>
@@ -146,7 +159,8 @@ export default function EngineMatchScreen() {
       </Row>
 
       <View style={{ marginTop: space[3], flex: 1, justifyContent: "center", minHeight: 280 }}>
-        <Board7
+        <BoardGrid
+          gridSize={gridSize}
           board={match.board}
           lastMove={match.lastMove}
           winningLine={match.result.line}

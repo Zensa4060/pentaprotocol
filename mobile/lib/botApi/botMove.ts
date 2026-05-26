@@ -9,7 +9,8 @@
 import { isAxiosError } from "axios";
 
 import API from "@/lib/api";
-import type { Board } from "@/lib/game/winChecker7";
+import type { BoardMode } from "@/lib/game/boardConfig";
+import type { Board } from "@/lib/game/winCheck";
 import { DEFAULT_PATTERNS_7 } from "@/lib/game/patterns7";
 
 export type EngineDifficulty = "easy" | "hard" | "danger";
@@ -19,7 +20,7 @@ export interface BotMoveRequest {
   difficulty: EngineDifficulty;
   /** Whose turn the server should move for — always ``P2`` in v1. */
   current_player: "P1" | "P2";
-  board_mode: "7x7";
+  board_mode: BoardMode;
   selected_patterns?: string[];
   c3_blocked?: boolean;
   moves_played?: number;

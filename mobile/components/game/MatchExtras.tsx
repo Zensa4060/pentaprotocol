@@ -13,7 +13,8 @@ import {
 } from "react-native";
 
 import { Body, Caption, Eyebrow } from "@/components/ui";
-import { CENTER_7, type MoveLogEntry, type Player7 } from "@/lib/game/matchRules7";
+import { centerCell, type GridSize } from "@/lib/game/boardConfig";
+import { type MoveLogEntry, type Player7 } from "@/lib/game/matchRules";
 import { colors, radii, space } from "@/theme/tokens";
 
 export function MatchClockRow({
@@ -57,12 +58,19 @@ function ClockChip({
   );
 }
 
-export function CenterRuleBanner({ visible }: { visible: boolean }) {
+export function CenterRuleBanner({
+  visible,
+  gridSize = 7,
+}: {
+  visible: boolean;
+  gridSize?: GridSize;
+}) {
   if (!visible) return null;
+  const c = centerCell(gridSize);
   return (
     <View style={styles.centerBanner}>
       <Caption tone="accent" center>
-        Center ({String.fromCharCode(65 + CENTER_7)}{CENTER_7 + 1}) — opener grants opponent 2 extra turns
+        Center ({String.fromCharCode(65 + c)}{c + 1}) — opener grants opponent 2 extra turns
       </Caption>
     </View>
   );

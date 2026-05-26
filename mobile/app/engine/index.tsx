@@ -6,7 +6,7 @@
  */
 
 import { router, Stack } from "expo-router";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Alert, Pressable, StyleSheet, View } from "react-native";
 
 import {
@@ -26,6 +26,7 @@ import {
   lockedByLabel,
   type BotId,
 } from "@/lib/botRewards";
+import type { GridSize } from "@/lib/game/boardConfig";
 import { useAuthStore } from "@/lib/store";
 import { colors, radii, space } from "@/theme/tokens";
 
@@ -33,6 +34,17 @@ export default function EnginePickerScreen() {
   const user = useAuthStore((s) => s.user);
   const defeats = user?.bot_defeats ?? {};
   const [selected, setSelected] = useState<BotId>("seraphina");
+  const [gridSize, setGridSize] = useState<GridSize>(7);
+
+  const gridOptions = useMemo(
+    () =>
+      [
+        { size: 5 as GridSize, label: "5×5", sub: "2:00 · classic" },
+        { size: 6 as GridSize, label: "6×6", sub: "3:00 · mid leg" },
+        { size: 7 as GridSize, label: "7×7", sub: "5:00 · top leg" },
+      ] as const,
+    [],
+  );
 
   const goBack = () => {
     if (router.canGoBack()) router.back();
@@ -52,7 +64,12 @@ export default function EnginePickerScreen() {
     }
     router.push({
       pathname: "/engine/match",
-      params: { botId: card.id, difficulty: card.difficulty, label: card.label },
+      params: {
+        botId: card.id,
+        difficulty: card.difficulty,
+        label: card.label,
+        grid: String(gridSize),
+      },
     });
   };
 
@@ -66,14 +83,38 @@ export default function EnginePickerScreen() {
       </Pressable>
 
       <VStack gap={3} style={{ marginTop: space[6] }}>
-        <Eyebrow tone="muted">AI ENGINE · 7 × 7</Eyebrow>
+        <Eyebrow tone="muted">AI ENGINE</Eyebrow>
         <Title>Choose your demise</Title>
         <Body tone="muted">
-          Server-backed opponents. Wins can grant XP and unlock the next bot in the chain.
+          Server-backed opponents on 5×5, 6×6, or 7×7. Wins can grant XP and unlock the next bot.
         </Body>
       </VStack>
 
       <Eyebrow tone="muted" style={{ marginTop: space[7], marginBottom: space[2] }}>
+        BOARD SIZE
+      </Eyebrow>
+      <Row gap={2}>
+        {gridOptions.map((g) => {
+          const on = gridSize === g.size;
+          return (
+            <Pressable
+              key={g.size}
+              onPress={() => setGridSize(g.size)}
+              style={[
+                styles.gridChip,
+                on && { borderColor: colors.accent, backgroundColor: colors.bgRaised },
+              ]}
+            >
+              <Caption tone={on ? "accent" : "muted"} style={{ fontWeight: "800" }}>
+                {g.label}
+              </Caption>
+              <Caption tone="dim">{g.sub}</Caption>
+            </Pressable>
+          );
+        })}
+      </Row>
+
+      <Eyebrow tone="muted" style={{ marginTop: space[6], marginBottom: space[2] }}>
         OPPONENTS
       </Eyebrow>
 
@@ -135,6 +176,17 @@ export default function EnginePickerScreen() {
 }
 
 const styles = StyleSheet.create({
+  gridChip: {
+    flex: 1,
+    paddingVertical: space[3],
+    paddingHorizontal: space[2],
+    borderRadius: radii.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.bgCard,
+    alignItems: "center",
+    gap: 2,
+  },
   option: {
     flexDirection: "row",
     alignItems: "center",

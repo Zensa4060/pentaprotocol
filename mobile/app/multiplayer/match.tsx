@@ -36,7 +36,7 @@ import {
   Spinner,
   Title,
 } from "@/components/ui";
-import { Board7 } from "@/components/game/Board7";
+import { BoardGrid } from "@/components/game/BoardGrid";
 import { useGameAudio } from "@/lib/audio/AudioProvider";
 import {
   breakerDisplayName,
@@ -44,7 +44,8 @@ import {
   legBoardLabel,
   legGameIndex,
 } from "@/lib/audio/series";
-import type { Coord } from "@/lib/game/winChecker7";
+import { emptyBoard, gridFromBoardMode } from "@/lib/game/boardConfig";
+import type { Coord } from "@/lib/game/winCheck";
 import {
   useMatchGameBgm,
   useRulebreakerPendingSound,
@@ -168,6 +169,7 @@ export default function MultiplayerMatch() {
   const seriesOver = room.series_winner !== null;
   const breakerKind = breakerKindForGame(room.game_number, room.board_mode);
   const legLabel = `G${legGameIndex(room.game_number)} · ${legBoardLabel(room.board_mode)}`;
+  const gridSize = gridFromBoardMode(room.board_mode);
 
   return (
     <Screen padded>
@@ -221,8 +223,9 @@ export default function MultiplayerMatch() {
 
       {/* ── Board ─────────────────────────────────────────────── */}
       <View style={{ marginTop: space[4], flex: 1, justifyContent: "center" }}>
-        <Board7
-          board={room.board ?? emptyBoard()}
+        <BoardGrid
+          gridSize={gridSize}
+          board={room.board ?? emptyBoard(gridSize)}
           lastMove={lastMoveOf(room)}
           winningLine={null /* server doesn't currently send a stable line for the seated state */}
           disabled={!isMyTurn || gameOver}
@@ -404,10 +407,6 @@ function ProtocolBreakerPanel({
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
-
-function emptyBoard() {
-  return Array.from({ length: 7 }, () => Array.from({ length: 7 }, () => null));
-}
 
 /**
  * Pull the most-recent move's coord off the room's ``move_log`` if

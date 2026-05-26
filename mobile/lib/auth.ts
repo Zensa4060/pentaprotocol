@@ -121,3 +121,38 @@ export async function signInWithGoogle(input: {
 export async function logout(): Promise<void> {
   await useAuthStore.getState().logout();
 }
+
+/** Step 1 — email OTP for new account (same as web signup). */
+export async function sendSignupOtp(email: string): Promise<void> {
+  try {
+    await API.post("/api/otp/signup/send", { email: email.trim().toLowerCase() });
+  } catch (err) {
+    throw toAuthError(err, "Could not send verification code.");
+  }
+}
+
+/** Step 2 — verify OTP then register; stores session like login. */
+export async function verifySignupOtpAndRegister(input: {
+  email: string;
+  otp: string;
+  username: string;
+  password: string;
+}): Promise<User> {
+  const email = input.email.trim().toLowerCase();
+  try {
+    await API.post("/api/otp/signup/verify", { email, otp: input.otp.trim() });
+    const res = await API.post<LoginResponse>("/api/auth/register", {
+      username: input.username.trim(),
+      email,
+      password: input.password,
+    });
+    if (!res.data.access_token || !res.data.user) {
+      throw new AuthError("Server returned an incomplete signup response.");
+    }
+    await useAuthStore.getState().setUser(res.data.user, res.data.access_token);
+    return res.data.user;
+  } catch (err) {
+    if (err instanceof AuthError) throw err;
+    throw toAuthError(err, "Invalid or expired code.");
+  }
+}

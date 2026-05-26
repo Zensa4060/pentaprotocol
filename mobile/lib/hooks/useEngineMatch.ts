@@ -1,25 +1,26 @@
 /**
- * AI Engine match — human P1 vs server bot P2 via ``/api/bot/move``.
+ * AI Engine match — human P1 vs server bot P2 via ``POST /api/bot/move``.
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { InteractionManager } from "react-native";
 
 import { BotMoveError, requestBotMove, type EngineDifficulty } from "@/lib/botApi/botMove";
-import { DEFAULT_PATTERNS_7 } from "@/lib/game/patterns7";
+import {
+  boardModeFromGrid,
+  centerCell,
+  defaultPatternsForGrid,
+  emptyBoard,
+  type GridSize,
+} from "@/lib/game/boardConfig";
 import {
   buildMoveLogEntry,
   isBlockedCenterOpening,
   resolveTurnAfterMove,
   type MoveLogEntry,
-} from "@/lib/game/matchRules7";
-import {
-  checkWin7,
-  type Board,
-  type Coord,
-} from "@/lib/game/winChecker7";
+} from "@/lib/game/matchRules";
+import { checkWinForGrid, type Board, type Coord } from "@/lib/game/winCheck";
 
-const GRID = 7;
 const BOT_RETRY_MS = 1200;
 
 export type Player = "P1" | "P2";
@@ -34,10 +35,12 @@ export interface MatchResult {
 
 export interface UseEngineMatchOptions {
   difficulty: EngineDifficulty;
+  gridSize?: GridSize;
   patterns?: string[];
 }
 
 export interface EngineMatch {
+  gridSize: GridSize;
   board: Board;
   current: Player;
   movesPlayed: number;
@@ -55,17 +58,18 @@ export interface EngineMatch {
   dismissBotError: () => void;
 }
 
-function emptyBoard(): Board {
-  return Array.from({ length: GRID }, () => Array.from({ length: GRID }, () => null));
-}
-
 const INITIAL_RESULT: MatchResult = { status: "playing", winner: null, line: null };
 
 export function useEngineMatch({
   difficulty,
-  patterns = DEFAULT_PATTERNS_7,
+  gridSize = 7,
+  patterns: patternsProp,
 }: UseEngineMatchOptions): EngineMatch {
-  const [board, setBoard] = useState<Board>(emptyBoard);
+  const patterns = patternsProp ?? defaultPatternsForGrid(gridSize);
+  const center = centerCell(gridSize);
+  const boardMode = boardModeFromGrid(gridSize);
+
+  const [board, setBoard] = useState<Board>(() => emptyBoard(gridSize));
   const [current, setCurrent] = useState<Player>("P1");
   const [movesPlayed, setMovesPlayed] = useState(0);
   const [lastMove, setLastMove] = useState<Coord | null>(null);
@@ -80,11 +84,13 @@ export function useEngineMatch({
   const boardRef = useRef(board);
   const movesRef = useRef(movesPlayed);
   const extraRef = useRef(extraTurns);
+  const currentRef = useRef(current);
   const statusRef = useRef<MatchStatus>("playing");
   const retryAfterRef = useRef(0);
   boardRef.current = board;
   movesRef.current = movesPlayed;
   extraRef.current = extraTurns;
+  currentRef.current = current;
   statusRef.current = result.status;
 
   const commitState = useCallback(
@@ -107,6 +113,7 @@ export function useEngineMatch({
       boardRef.current = newBoard;
       movesRef.current = newMoves;
       extraRef.current = newExtra;
+      currentRef.current = next;
       statusRef.current = nextResult.status;
     },
     [],
@@ -117,7 +124,15 @@ export function useEngineMatch({
       const newBoard = boardRef.current.map((row) => [...row]);
       newBoard[r][c] = player;
       const newMoves = movesRef.current + 1;
-      const winRes = checkWin7(newBoard, r, c, player, newMoves, patterns);
+      const winRes = checkWinForGrid(
+        gridSize,
+        newBoard,
+        r,
+        c,
+        player,
+        newMoves,
+        patterns,
+      );
 
       let nextResult: MatchResult;
       if (winRes) {
@@ -149,6 +164,7 @@ export function useEngineMatch({
           r,
           c,
           extraRef.current,
+          gridSize,
         );
         next = turn.next;
         newExtra = turn.extraTurns;
@@ -160,12 +176,12 @@ export function useEngineMatch({
         r,
         c,
         player,
-        newMoves === 1 && r === 3 && c === 3,
+        newMoves === 1 && r === center && c === center,
       );
       commitState(newBoard, newMoves, [r, c], nextResult, next, newExtra, logEntry);
       return nextResult;
     },
-    [commitState, patterns],
+    [center, commitState, gridSize, patterns],
   );
 
   const placeHuman = useCallback(
@@ -195,26 +211,25 @@ export function useEngineMatch({
         if (cancelled) return;
       }
 
-      if (isBlockedCenterOpening(movesRef.current, 3, 3, false)) {
-        /* rulebreaker C3 block — not used on mobile v1 */
-      }
-
       try {
         const mv = await requestBotMove({
           board: boardRef.current,
           difficulty,
           current_player: "P2",
-          board_mode: "7x7",
+          board_mode: boardMode,
           selected_patterns: patterns,
           moves_played: movesRef.current,
         });
         if (cancelled) return;
 
-        if (mv && isBlockedCenterOpening(movesRef.current, mv.row, mv.col, false)) {
+        if (
+          mv &&
+          isBlockedCenterOpening(movesRef.current, mv.row, mv.col, false, gridSize)
+        ) {
           retryAfterRef.current = Date.now() + 350;
           setMoveLog((l) => [
             ...l.slice(-18),
-            { text: "BOT tried blocked C3 — retrying.", player: "P2" },
+            { text: "BOT tried blocked center — retrying.", player: "P2" },
           ]);
           setTimeout(() => setBotRetryTick((n) => n + 1), 350);
           return;
@@ -224,6 +239,14 @@ export function useEngineMatch({
         setBotError(null);
         if (mv) {
           applyMove("P2", mv.row, mv.col);
+          if (
+            statusRef.current === "playing" &&
+            currentRef.current === "P2" &&
+            extraRef.current > 0
+          ) {
+            setTimeout(() => setBotRetryTick((n) => n + 1), 120);
+            return;
+          }
         } else {
           retryAfterRef.current = Date.now() + BOT_RETRY_MS;
           setBotError("Engine returned no move. Retrying…");
@@ -252,10 +275,21 @@ export function useEngineMatch({
       handle.cancel();
       setBotThinking(false);
     };
-  }, [applyMove, botRetryTick, current, difficulty, patterns, result.status]);
+  }, [
+    applyMove,
+    boardMode,
+    botRetryTick,
+    current,
+    difficulty,
+    extraTurns,
+    gridSize,
+    movesPlayed,
+    patterns,
+    result.status,
+  ]);
 
   const reset = useCallback(() => {
-    const fresh = emptyBoard();
+    const fresh = emptyBoard(gridSize);
     setBoard(fresh);
     setCurrent("P1");
     setMovesPlayed(0);
@@ -271,8 +305,9 @@ export function useEngineMatch({
     boardRef.current = fresh;
     movesRef.current = 0;
     extraRef.current = 0;
+    currentRef.current = "P1";
     statusRef.current = "playing";
-  }, []);
+  }, [gridSize]);
 
   const dismissBotError = useCallback(() => setBotError(null), []);
 
@@ -282,6 +317,7 @@ export function useEngineMatch({
   const inputEnabled = !botThinking && result.status === "playing" && current === "P1";
 
   return {
+    gridSize,
     board,
     current,
     movesPlayed,

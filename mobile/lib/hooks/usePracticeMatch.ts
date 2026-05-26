@@ -1,22 +1,21 @@
 /**
- * Training practice match — local only, no bot.
+ * Training practice match — local only, 5×5 / 6×6 / 7×7.
  */
 
 import { useCallback, useRef, useState } from "react";
 
-import { DEFAULT_PATTERNS_7 } from "@/lib/game/patterns7";
+import {
+  centerCell,
+  defaultPatternsForGrid,
+  emptyBoard,
+  type GridSize,
+} from "@/lib/game/boardConfig";
 import {
   buildMoveLogEntry,
   resolveTurnAfterMove,
   type MoveLogEntry,
-} from "@/lib/game/matchRules7";
-import {
-  checkWin7,
-  type Board,
-  type Coord,
-} from "@/lib/game/winChecker7";
-
-const GRID = 7;
+} from "@/lib/game/matchRules";
+import { checkWinForGrid, type Board, type Coord } from "@/lib/game/winCheck";
 
 export type Player = "P1" | "P2";
 export type MatchStatus = "playing" | "won" | "draw";
@@ -29,6 +28,7 @@ export interface MatchResult {
 }
 
 export interface PracticeMatch {
+  gridSize: GridSize;
   board: Board;
   current: Player;
   movesPlayed: number;
@@ -45,6 +45,11 @@ export interface PracticeMatch {
   reset: () => void;
 }
 
+export interface UsePracticeMatchOptions {
+  gridSize?: GridSize;
+  patterns?: string[];
+}
+
 type Snapshot = {
   board: Board;
   current: Player;
@@ -56,14 +61,16 @@ type Snapshot = {
   centerRuleHint: boolean;
 };
 
-function emptyBoard(): Board {
-  return Array.from({ length: GRID }, () => Array.from({ length: GRID }, () => null));
-}
-
 const INITIAL_RESULT: MatchResult = { status: "playing", winner: null, line: null };
 
-export function usePracticeMatch(patterns = DEFAULT_PATTERNS_7): PracticeMatch {
-  const [board, setBoard] = useState<Board>(emptyBoard);
+export function usePracticeMatch({
+  gridSize = 7,
+  patterns: patternsProp,
+}: UsePracticeMatchOptions = {}): PracticeMatch {
+  const patterns = patternsProp ?? defaultPatternsForGrid(gridSize);
+  const center = centerCell(gridSize);
+
+  const [board, setBoard] = useState<Board>(() => emptyBoard(gridSize));
   const [current, setCurrent] = useState<Player>("P1");
   const [movesPlayed, setMovesPlayed] = useState(0);
   const [lastMove, setLastMove] = useState<Coord | null>(null);
@@ -92,7 +99,7 @@ export function usePracticeMatch(patterns = DEFAULT_PATTERNS_7): PracticeMatch {
       const newBoard = board.map((row) => [...row]);
       newBoard[r][c] = current;
       const newMoves = movesPlayed + 1;
-      const winRes = checkWin7(newBoard, r, c, current, newMoves, patterns);
+      const winRes = checkWinForGrid(gridSize, newBoard, r, c, current, newMoves, patterns);
 
       let nextResult: MatchResult = INITIAL_RESULT;
       if (winRes) {
@@ -116,7 +123,14 @@ export function usePracticeMatch(patterns = DEFAULT_PATTERNS_7): PracticeMatch {
       let next = current;
       let newExtra = 0;
       if (nextResult.status === "playing") {
-        const turn = resolveTurnAfterMove(current, newMoves, r, c, extraTurns);
+        const turn = resolveTurnAfterMove(
+          current,
+          newMoves,
+          r,
+          c,
+          extraTurns,
+          gridSize,
+        );
         next = turn.next;
         newExtra = turn.extraTurns;
         if (turn.centerBonus) setCenterRuleHint(false);
@@ -127,7 +141,7 @@ export function usePracticeMatch(patterns = DEFAULT_PATTERNS_7): PracticeMatch {
         r,
         c,
         current,
-        newMoves === 1 && r === 3 && c === 3,
+        newMoves === 1 && r === center && c === center,
       );
 
       setBoard(newBoard);
@@ -138,7 +152,19 @@ export function usePracticeMatch(patterns = DEFAULT_PATTERNS_7): PracticeMatch {
       setMoveLog((l) => [...l, logEntry]);
       if (nextResult.status === "playing") setCurrent(next);
     },
-    [board, centerRuleHint, current, extraTurns, lastMove, moveLog, movesPlayed, patterns, result],
+    [
+      board,
+      center,
+      centerRuleHint,
+      current,
+      extraTurns,
+      gridSize,
+      lastMove,
+      moveLog,
+      movesPlayed,
+      patterns,
+      result,
+    ],
   );
 
   const undo = useCallback(() => {
@@ -155,7 +181,7 @@ export function usePracticeMatch(patterns = DEFAULT_PATTERNS_7): PracticeMatch {
   }, []);
 
   const reset = useCallback(() => {
-    setBoard(emptyBoard());
+    setBoard(emptyBoard(gridSize));
     setCurrent("P1");
     setMovesPlayed(0);
     setLastMove(null);
@@ -164,12 +190,13 @@ export function usePracticeMatch(patterns = DEFAULT_PATTERNS_7): PracticeMatch {
     setMoveLog([]);
     setCenterRuleHint(true);
     undoStack.current = [];
-  }, []);
+  }, [gridSize]);
 
   const extraTurnsHolder =
     result.status === "playing" && extraTurns > 0 ? current : null;
 
   return {
+    gridSize,
     board,
     current,
     movesPlayed,

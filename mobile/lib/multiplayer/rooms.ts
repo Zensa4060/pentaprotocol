@@ -8,14 +8,14 @@
  * All endpoints return the normalized ``Room`` shape so the lobby
  * + match screens can read fields without a per-endpoint adapter.
  *
- * Mobile v1 only creates single-leg 7×7 unranked rooms. The server
- * supports many board modes and ranked / private formats; we just
- * don't expose UI for them yet.
+ * Create/join supports 5×5, 6×6, and 7×7 unranked private rooms.
  */
 
 import { isAxiosError } from "axios";
 
 import API from "@/lib/api";
+
+import type { BoardMode } from "@/lib/game/boardConfig";
 
 import type { ActiveRoomCheck, Room } from "./types";
 
@@ -52,11 +52,11 @@ function toRoomError(err: unknown, fallback: string): RoomError {
  * open the WS — the room exists in "waiting" status until P2
  * joins via ``joinRoom``.
  */
-export async function createRoom(): Promise<Room> {
+export async function createRoom(boardMode: BoardMode = "7x7"): Promise<Room> {
   try {
     const res = await API.post<Room>("/api/room/create", {
       format: "unranked",
-      board_mode: "7x7",
+      board_mode: boardMode,
     });
     return res.data;
   } catch (err) {

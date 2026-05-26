@@ -38,6 +38,7 @@ import {
   RoomError,
 } from "@/lib/multiplayer/rooms";
 import type { ActiveRoomCheck } from "@/lib/multiplayer/types";
+import type { BoardMode } from "@/lib/game/boardConfig";
 import { colors, radii, space } from "@/theme/tokens";
 
 export default function MultiplayerLobby() {
@@ -46,6 +47,7 @@ export default function MultiplayerLobby() {
   const [activeChecking, setActiveChecking] = useState(true);
   const [creating, setCreating] = useState(false);
   const [joining, setJoining] = useState(false);
+  const [boardMode, setBoardMode] = useState<BoardMode>("7x7");
 
   // ── Active-room probe ───────────────────────────────────────
   // Run on every focus so a backgrounded app that comes back has
@@ -83,7 +85,7 @@ export default function MultiplayerLobby() {
     if (creating) return;
     setCreating(true);
     try {
-      const room = await createRoom();
+      const room = await createRoom(boardMode);
       router.replace({
         pathname: "/multiplayer/waiting",
         params: {
@@ -144,13 +146,34 @@ export default function MultiplayerLobby() {
       </Pressable>
 
       <VStack gap={3} style={{ marginTop: space[6] }}>
-        <Eyebrow tone="muted">MULTIPLAYER · 7 × 7</Eyebrow>
+        <Eyebrow tone="muted">MULTIPLAYER</Eyebrow>
         <Title>Play a friend</Title>
         <Body tone="muted">
-          Create a room and share the code, or join one you&apos;ve been given. Private rooms only
-          in v1 — ranked queue lands in a later update.
+          Create a private room (5×5, 6×6, or 7×7) and share the code, or join one you&apos;ve been
+          given.
         </Body>
       </VStack>
+
+      <Eyebrow tone="muted" style={{ marginTop: space[6], marginBottom: space[2] }}>
+        BOARD SIZE (CREATE)
+      </Eyebrow>
+      <Row gap={2}>
+        {(["5x5", "6x6", "7x7"] as BoardMode[]).map((mode) => {
+          const on = boardMode === mode;
+          const label = mode.replace("x", "×");
+          return (
+            <Pressable
+              key={mode}
+              onPress={() => setBoardMode(mode)}
+              style={[styles.sizeChip, on && styles.sizeChipOn]}
+            >
+              <Caption tone={on ? "accent" : "muted"} style={{ fontWeight: "800" }}>
+                {label}
+              </Caption>
+            </Pressable>
+          );
+        })}
+      </Row>
 
       {/* ── Active match banner ────────────────────────────────── */}
       {activeChecking ? (
@@ -182,7 +205,7 @@ export default function MultiplayerLobby() {
       </Eyebrow>
       <View style={styles.actionCard}>
         <Body tone="muted">
-          Generates a fresh 4-character code your opponent can use to join.
+          Creates a {boardMode.replace("x", "×")} room — opponent must join the same board size.
         </Body>
         <View style={{ height: space[4] }} />
         <Btn variant="primary" size="lg" loading={creating} onPress={onCreate}>
@@ -221,6 +244,19 @@ export default function MultiplayerLobby() {
 }
 
 const styles = StyleSheet.create({
+  sizeChip: {
+    flex: 1,
+    paddingVertical: space[3],
+    borderRadius: radii.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.bgCard,
+    alignItems: "center",
+  },
+  sizeChipOn: {
+    borderColor: colors.accent,
+    backgroundColor: colors.bgRaised,
+  },
   actionCard: {
     backgroundColor: colors.bgCard,
     borderRadius: radii.lg,

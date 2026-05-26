@@ -2,11 +2,11 @@
  * Training practice match — local alternating play, no bot.
  */
 
-import { router, Stack } from "expo-router";
+import { router, Stack, useLocalSearchParams } from "expo-router";
 import { useCallback, useMemo } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
 
-import { Board7 } from "@/components/game/Board7";
+import { BoardGrid } from "@/components/game/BoardGrid";
 import {
   CenterRuleBanner,
   ExtraTurnsBadge,
@@ -22,7 +22,8 @@ import {
   Screen,
 } from "@/components/ui";
 import { useGameAudio } from "@/lib/audio/AudioProvider";
-import { pieceGlyph } from "@/lib/game/matchRules7";
+import { matchMsForGrid, parseGridParam } from "@/lib/game/boardConfig";
+import { pieceGlyph } from "@/lib/game/matchRules";
 import { useMatchClock } from "@/lib/hooks/useMatchClock";
 import {
   useGameEndSounds,
@@ -32,8 +33,14 @@ import { usePracticeMatch } from "@/lib/hooks/usePracticeMatch";
 import { colors, radii, space } from "@/theme/tokens";
 
 export default function TrainingPracticeScreen() {
-  const match = usePracticeMatch();
-  const clock = useMatchClock(match.current, match.result.status === "playing");
+  const params = useLocalSearchParams<{ grid?: string }>();
+  const gridSize = parseGridParam(params.grid);
+  const match = usePracticeMatch({ gridSize });
+  const clock = useMatchClock(
+    match.current,
+    match.result.status === "playing",
+    matchMsForGrid(gridSize),
+  );
   const audio = useGameAudio();
   useMatchGameBgm();
   useGameEndSounds(match.result.status, match.result.winner, "any");
@@ -84,7 +91,9 @@ export default function TrainingPracticeScreen() {
         <Pressable onPress={goBack} hitSlop={12} accessibilityRole="button">
           <Caption tone="muted">← BACK</Caption>
         </Pressable>
-        <Caption tone="muted">PRACTICE · {match.movesPlayed} MV</Caption>
+        <Caption tone="muted">
+          PRACTICE · {gridSize}×{gridSize} · {match.movesPlayed} MV
+        </Caption>
       </Row>
 
       <View style={{ marginTop: space[3] }}>
@@ -100,7 +109,10 @@ export default function TrainingPracticeScreen() {
         <PlayerTile label="Y" color={colors.p2} active={match.current === "P2" && match.result.status === "playing"} />
       </Row>
 
-      <CenterRuleBanner visible={match.centerRuleHint && match.movesPlayed === 0} />
+      <CenterRuleBanner
+        visible={match.centerRuleHint && match.movesPlayed === 0}
+        gridSize={gridSize}
+      />
       <ExtraTurnsBadge count={match.extraTurns} player={match.extraTurnsHolder} />
 
       <Row gap={2} align="center" justify="center" style={{ marginTop: space[2] }}>
@@ -108,7 +120,8 @@ export default function TrainingPracticeScreen() {
       </Row>
 
       <View style={{ marginTop: space[3], flex: 1, justifyContent: "center", minHeight: 280 }}>
-        <Board7
+        <BoardGrid
+          gridSize={gridSize}
           board={match.board}
           lastMove={match.lastMove}
           winningLine={match.result.line}

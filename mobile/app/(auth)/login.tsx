@@ -254,14 +254,7 @@ export default function LoginScreen() {
           {/* ── Footer ──────────────────────────────────────────────── */}
           <View style={styles.footer}>
             <Text style={styles.footerText}>Don&apos;t have an account?</Text>
-            <Pressable
-              onPress={() => {
-                // Signup lands in a later phase; for now the user goes
-                // to the web app to register.
-                setGeneralError("Account creation is in the web app for now. Native sign-up screen coming next.");
-              }}
-              hitSlop={8}
-            >
+            <Pressable onPress={() => router.push("/(auth)/signup")} hitSlop={8}>
               <Text style={styles.footerLink}>Sign up</Text>
             </Pressable>
           </View>
