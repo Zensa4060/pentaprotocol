@@ -66,8 +66,15 @@ export interface Room {
   series_winner: PlayerSlot | null;
   match_history: MatchHistoryEntry[];
 
-  // ── rule gates (mobile only needs to know the bit) ─────────
+  // ── rule gates / protocol breaker ───────────────────────────
   awaiting_rulebreaker: boolean;
+  phase?: string | null;
+  selected_patterns?: string[];
+  rb_toss_winner?: PlayerSlot | null;
+  rb_coin_result?: "PENTA" | "PROTO" | null;
+  rb_phase_payload?: Record<string, unknown> | null;
+  rb6_timer_owner?: PlayerSlot | null;
+  rb6_special_cell?: { r: number; c: number; owner: PlayerSlot } | null;
   awaiting_5x5_rules_ready: boolean;
   awaiting_6x6_rules_ready: boolean;
   awaiting_7x7_rules_ready: boolean;
@@ -147,7 +154,17 @@ export type InboundMessage =
   // ProtocolBreaker / Mindbreaker / Timebreaker — we don't render
   // these on mobile v1; we surface "open in web app" when we see
   // the awaiting_rulebreaker flag in a move_made tail.
-  | { type: "rulebreaker_start"; [key: string]: unknown }
+  | {
+      type: "rulebreaker_start";
+      toss_winner?: PlayerSlot;
+      board_mode?: string;
+    }
+  | {
+      type: "toss_action";
+      action: string;
+      payload?: Record<string, unknown>;
+      from?: PlayerSlot;
+    }
   | { type: "limitbreaker_start"; [key: string]: unknown };
 
 /**
@@ -162,4 +179,6 @@ export type OutboundMessage =
   | { type: "match_found_ready" }
   | { type: "screen_presence"; on_game_screen: boolean }
   | { type: "ping"; ts: number }
-  | { type: "quit_match"; reason?: string };
+  | { type: "quit_match"; reason?: string }
+  | { type: "toss_action"; action: string; payload?: Record<string, unknown> }
+  | { type: "rb_start_game"; first_player?: PlayerSlot; resolve_series_only?: boolean };

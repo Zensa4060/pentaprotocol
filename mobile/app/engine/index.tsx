@@ -39,9 +39,9 @@ export default function EnginePickerScreen() {
   const gridOptions = useMemo(
     () =>
       [
-        { size: 5 as GridSize, label: "5×5", sub: "2:00 · classic" },
-        { size: 6 as GridSize, label: "6×6", sub: "3:00 · mid leg" },
-        { size: 7 as GridSize, label: "7×7", sub: "5:00 · top leg" },
+        { size: 5 as GridSize, label: "5×5", sub: "5:00 · classic" },
+        { size: 6 as GridSize, label: "6×6", sub: "8:00 · mid leg" },
+        { size: 7 as GridSize, label: "7×7", sub: "10:00 · top leg" },
       ] as const,
     [],
   );

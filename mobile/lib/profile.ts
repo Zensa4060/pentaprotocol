@@ -147,6 +147,10 @@ export async function setTutorialState(state: TutorialState): Promise<void> {
 export interface ProfilePatchInput {
   username?: string;
   bio?: string;
+  banner?: string;
+  board_style?: string;
+  /** Active UI theme (classic_dark, space, pixel, …). */
+  theme?: string;
 }
 
 export async function updateProfile(patch: ProfilePatchInput): Promise<User> {

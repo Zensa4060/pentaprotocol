@@ -44,6 +44,7 @@ import {
   Stack,
   Title,
 } from "@/components/ui";
+import { RankBadge } from "@/components/RankBadge";
 import { logout } from "@/lib/auth";
 import { ApiError, fetchProfile } from "@/lib/profile";
 import { useAuthStore } from "@/lib/store";
@@ -192,7 +193,7 @@ export default function ProfileScreen() {
           </Caption>
         </Stack>
         <Row gap={2} align="center">
-          <Pill label={user.rank} tone="accent" />
+          <RankBadge elo={user.elo ?? 0} isPlacement={user.is_placement} size={40} showLabel />
           {user.title ? <Pill label={user.title.toUpperCase()} tone="muted" /> : null}
           {user.under_review ? <Pill label="UNDER REVIEW" tone="warn" /> : null}
         </Row>

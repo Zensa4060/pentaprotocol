@@ -104,6 +104,8 @@ function AuthSyncedTree() {
       <Stack.Screen name="profile" />
       <Stack.Screen name="legal-gate" />
       <Stack.Screen name="onboarding" />
+      <Stack.Screen name="store" />
+      <Stack.Screen name="collection" />
     </Stack>
   );
 }

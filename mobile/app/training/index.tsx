@@ -59,19 +59,19 @@ export default function TrainingHubScreen() {
         />
         <HubCard
           title="PRACTICE · 5×5"
-          subtitle="Classic leg · lines & shapes · 2:00 per player."
+          subtitle="Classic leg · lines & shapes · 5:00 per player."
           accent={colors.info}
           onPress={() => router.push({ pathname: "/training/match", params: { grid: "5" } })}
         />
         <HubCard
           title="PRACTICE · 6×6"
-          subtitle="Mid leg · six-in-a-row & fixed shapes · 3:00 per player."
+          subtitle="Mid leg · six-in-a-row & fixed shapes · 8:00 per player."
           accent={colors.info}
           onPress={() => router.push({ pathname: "/training/match", params: { grid: "6" } })}
         />
         <HubCard
           title="PRACTICE · 7×7"
-          subtitle="Top leg · center rule · clocks · move log · win line."
+          subtitle="Top leg · center rule · 10:00 per player · move log · win line."
           accent={colors.info}
           onPress={() => router.push({ pathname: "/training/match", params: { grid: "7" } })}
         />

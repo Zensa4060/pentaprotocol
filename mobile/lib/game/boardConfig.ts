@@ -33,10 +33,13 @@ export function centerCell(grid: GridSize): number {
 
 /** Per-player match clock (ms), same as web ``matchMsForGridSize``. */
 export function matchMsForGrid(grid: GridSize): number {
-  if (grid === 7) return 300_000;
-  if (grid === 6) return 180_000;
-  return 120_000;
+  if (grid === 7) return 10 * 60 * 1000;
+  if (grid === 6) return 8 * 60 * 1000;
+  return 5 * 60 * 1000;
 }
+
+/** Timebreaker cut clock (unchanged). */
+export const TIMEBREAKER_CUT_MS = 60 * 1000;
 
 export function emptyBoard(grid: GridSize): Board {
   return Array.from({ length: grid }, () =>

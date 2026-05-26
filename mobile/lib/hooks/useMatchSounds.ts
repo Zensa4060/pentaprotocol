@@ -16,6 +16,16 @@ export function useMatchGameBgm() {
   }, [audio]);
 }
 
+export function useLobbyBgm() {
+  const audio = useGameAudio();
+  useEffect(() => {
+    audio.playBgm("lobby");
+    return () => {
+      audio.pauseBgm();
+    };
+  }, [audio]);
+}
+
 export function useGameEndSounds(
   status: "playing" | "won" | "draw",
   winner: "P1" | "P2" | null,

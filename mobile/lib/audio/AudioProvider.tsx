@@ -16,18 +16,19 @@ import {
 } from "react";
 
 import {
-  AUTH_BGM,
-  resolveSfxPack,
-  SFX_BY_PACK,
-  type SfxKey,
-  type SfxPack,
-} from "./assets";
+  bgmRemoteUri,
+  BGM_FALLBACK,
+  resolveBgmPack,
+  type BgmContext,
+  type BgmPack,
+} from "./bgm";
+import { AUTH_BGM, resolveSfxPack, SFX_BY_PACK, type SfxKey, type SfxPack } from "./assets";
 
 const STORAGE_MUSIC = "pp_music_vol";
 const STORAGE_SFX = "pp_sfx_vol";
 const STORAGE_MUTED = "pp_muted";
 
-export type BgmContext = "lobby" | "game" | "ranked";
+export type { BgmContext } from "./bgm";
 
 export interface GameAudioContextValue {
   musicVol: number;
@@ -38,8 +39,10 @@ export interface GameAudioContextValue {
   toggleMute: () => void;
   sfxPack: SfxPack;
   setSfxPack: (pack: SfxPack) => void;
+  bgmPack: BgmPack;
+  setBgmPack: (pack: BgmPack) => void;
   playAuthBgm: () => void;
-  playBgm: (_context: BgmContext) => void;
+  playBgm: (context: BgmContext) => void;
   pauseBgm: () => void;
   resumeBgm: () => void;
   sfx: {
@@ -72,11 +75,14 @@ export function AudioProvider({ children }: { children: ReactNode }) {
   const [sfxVol, setSfxVolState] = useState(0.6);
   const [muted, setMuted] = useState(false);
   const [sfxPack, setSfxPackState] = useState<SfxPack>("classic");
+  const [bgmPack, setBgmPackState] = useState<BgmPack>("classic");
 
   const mutedRef = useRef(false);
   const musicVolRef = useRef(0.5);
   const sfxVolRef = useRef(0.6);
   const sfxPackRef = useRef<SfxPack>("classic");
+  const bgmPackRef = useRef<BgmPack>("classic");
+  const bgmContextRef = useRef<BgmContext>("lobby");
   const bgmRef = useRef<Audio.Sound | null>(null);
   const readyRef = useRef(false);
 
@@ -84,6 +90,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
   musicVolRef.current = musicVol;
   sfxVolRef.current = sfxVol;
   sfxPackRef.current = sfxPack;
+  bgmPackRef.current = bgmPack;
 
   useEffect(() => {
     let cancelled = false;
@@ -179,7 +186,9 @@ export function AudioProvider({ children }: { children: ReactNode }) {
       });
       bgmRef.current = sound;
     } catch {
-      /* ignore */
+      if (source !== BGM_FALLBACK && source !== AUTH_BGM) {
+        switchBgm(BGM_FALLBACK).catch(() => undefined);
+      }
     }
   }, []);
 
@@ -187,10 +196,19 @@ export function AudioProvider({ children }: { children: ReactNode }) {
     switchBgm(AUTH_BGM);
   }, [switchBgm]);
 
-  /** Lobby/game/ranked loop MP3s are not bundled yet — auth only for now. */
-  const playBgm = useCallback((_context: BgmContext) => {
-    /* no-op until classic_lobby.mp3 etc. are added under assets/bgm */
-  }, []);
+  const setBgmPack = useCallback((pack: BgmPack) => {
+    bgmPackRef.current = pack;
+    setBgmPackState(pack);
+    switchBgm(bgmRemoteUri(pack, bgmContextRef.current)).catch(() => undefined);
+  }, [switchBgm]);
+
+  const playBgm = useCallback(
+    (context: BgmContext) => {
+      bgmContextRef.current = context;
+      switchBgm(bgmRemoteUri(bgmPackRef.current, context));
+    },
+    [switchBgm],
+  );
 
   const pauseBgm = useCallback(() => {
     bgmRef.current?.pauseAsync().catch(() => undefined);
@@ -224,6 +242,8 @@ export function AudioProvider({ children }: { children: ReactNode }) {
     toggleMute,
     sfxPack,
     setSfxPack,
+    bgmPack,
+    setBgmPack,
     playAuthBgm,
     playBgm,
     pauseBgm,
@@ -241,5 +261,6 @@ export function useSyncAudioTheme(themeId: string | null | undefined) {
   const audio = useGameAudio();
   useEffect(() => {
     audio.setSfxPack(resolveSfxPack(themeId));
+    audio.setBgmPack(resolveBgmPack(themeId));
   }, [themeId, audio]);
 }

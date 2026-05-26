@@ -7,6 +7,7 @@ import { useCallback, useMemo } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
 
 import { BoardGrid } from "@/components/game/BoardGrid";
+import { PatternsToggle } from "@/components/game/PatternsToggle";
 import {
   CenterRuleBanner,
   ExtraTurnsBadge,
@@ -91,9 +92,15 @@ export default function TrainingPracticeScreen() {
         <Pressable onPress={goBack} hitSlop={12} accessibilityRole="button">
           <Caption tone="muted">← BACK</Caption>
         </Pressable>
-        <Caption tone="muted">
-          PRACTICE · {gridSize}×{gridSize} · {match.movesPlayed} MV
-        </Caption>
+        <Row gap={2} align="center">
+          <PatternsToggle
+            gridSize={gridSize}
+            enabled={match.result.status === "playing"}
+          />
+          <Caption tone="muted">
+            {gridSize}×{gridSize} · {match.movesPlayed} MV
+          </Caption>
+        </Row>
       </Row>
 
       <View style={{ marginTop: space[3] }}>

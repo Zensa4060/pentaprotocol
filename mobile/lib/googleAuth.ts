@@ -45,7 +45,13 @@ function ensureConfigured(GoogleSignin: GoogleSigninModule["GoogleSignin"]): voi
       "missing_config",
     );
   }
-  GoogleSignin.configure({ webClientId, offlineAccess: false });
+  const androidClientId = process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID;
+  GoogleSignin.configure({
+    webClientId,
+    ...(androidClientId ? { androidClientId } : {}),
+    offlineAccess: false,
+    forceCodeForRefreshToken: false,
+  });
   configured = true;
 }
 
@@ -90,9 +96,13 @@ export async function signInWithGoogleNative(): Promise<string> {
           );
       }
     }
-    throw new GoogleAuthError(
-      err instanceof Error ? err.message : "Google sign-in failed.",
-      "unknown",
-    );
+    const msg = err instanceof Error ? err.message : "Google sign-in failed.";
+    if (/DEVELOPER_ERROR/i.test(msg)) {
+      throw new GoogleAuthError(
+        "Google Sign-In DEVELOPER_ERROR: add your EAS production SHA-1 to Google Cloud → Credentials → Android OAuth client (package com.pentaprotocol.app). Run: eas credentials -p android",
+        "unknown",
+      );
+    }
+    throw new GoogleAuthError(msg, "unknown");
   }
 }

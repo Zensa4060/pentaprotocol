@@ -19,7 +19,7 @@ import {
 } from "./matchRules";
 
 export const CENTER_7 = 3;
-export const MATCH_MS_7 = 300_000;
+export const MATCH_MS_7 = 10 * 60 * 1000;
 
 export function resolveTurnAfterMove(
   mover: "P1" | "P2",

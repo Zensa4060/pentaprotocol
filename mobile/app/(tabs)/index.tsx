@@ -32,7 +32,8 @@
  * because the bar can scroll off on certain ROM tweaks.
  */
 
-import { router } from "expo-router";
+import { router, type Href } from "expo-router";
+import { useEffect, useState } from "react";
 
 import {
   Avatar,
@@ -48,6 +49,10 @@ import {
   Stack,
   Title,
 } from "@/components/ui";
+import { RankBadge } from "@/components/RankBadge";
+import { useSyncAudioTheme } from "@/lib/audio/AudioProvider";
+import { useLobbyBgm } from "@/lib/hooks/useMatchSounds";
+import { loadThemePreference } from "@/lib/themePreference";
 import { useAuthStore } from "@/lib/store";
 import { winRate } from "@/lib/types";
 import { colors, radii, space } from "@/theme/tokens";
@@ -86,6 +91,12 @@ const MODES: ModeDef[] = [
 
 export default function HomeScreen() {
   const user = useAuthStore((s) => s.user);
+  const [themeId, setThemeId] = useState("classic_dark");
+  useEffect(() => {
+    loadThemePreference().then(setThemeId).catch(() => undefined);
+  }, []);
+  useSyncAudioTheme(themeId);
+  useLobbyBgm();
 
   const handleModePress = (mode: ModeKey) => {
     if (mode === "training") {
@@ -127,9 +138,12 @@ export default function HomeScreen() {
           <Stack gap={1} fill>
             <Title numberOfLines={1}>{user?.username ?? "—"}</Title>
             <Row gap={2} align="center">
-              <View style={styles.rankPill}>
-                <Text style={styles.rankPillLabel}>{user?.rank ?? "UNRANKED"}</Text>
-              </View>
+              <RankBadge
+                elo={user?.elo ?? 0}
+                isPlacement={user?.is_placement}
+                size={32}
+                showLabel
+              />
               <Caption tone="muted">
                 ELO {user?.elo ?? "—"}
                 {user?.is_placement ? "  · placement" : null}
@@ -144,6 +158,20 @@ export default function HomeScreen() {
         <StatTile label="WINS" value={user?.wins ?? 0} tone="success" />
         <StatTile label="LOSSES" value={user?.losses ?? 0} tone="danger" />
         <StatTile label="WIN RATE" value={`${wr}%`} tone="accent" />
+      </Row>
+
+      <SectionHeader label="EXTRAS" />
+      <Row gap={3}>
+        <ExtraTile
+          title="STORE"
+          subtitle="Themes & currency"
+          onPress={() => router.push("/store" as Href)}
+        />
+        <ExtraTile
+          title="COLLECTION"
+          subtitle="Owned cosmetics"
+          onPress={() => router.push("/collection" as Href)}
+        />
       </Row>
 
       {/* ── Modes ───────────────────────────────────────────────── */}
@@ -211,6 +239,27 @@ function StatTile({
   );
 }
 
+function ExtraTile({
+  title,
+  subtitle,
+  onPress,
+}: {
+  title: string;
+  subtitle: string;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [styles.extraTile, pressed && styles.modeTilePressed]}
+      accessibilityRole="button"
+    >
+      <Text style={styles.extraTitle}>{title}</Text>
+      <Caption tone="muted">{subtitle}</Caption>
+    </Pressable>
+  );
+}
+
 function ModeTile({ mode, onPress }: { mode: ModeDef; onPress: () => void }) {
   return (
     <Pressable
@@ -249,19 +298,20 @@ const styles = StyleSheet.create({
     letterSpacing: 3,
   },
 
-  rankPill: {
-    backgroundColor: colors.bgRaised,
-    paddingHorizontal: space[2],
-    paddingVertical: 2,
-    borderRadius: radii.sm,
+  extraTile: {
+    flex: 1,
+    backgroundColor: colors.bgCard,
+    borderRadius: radii.md,
     borderWidth: 1,
     borderColor: colors.border,
+    padding: space[3],
   },
-  rankPillLabel: {
+  extraTitle: {
     color: colors.text,
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: "800",
     letterSpacing: 1.4,
+    marginBottom: 4,
   },
 
   statTile: {

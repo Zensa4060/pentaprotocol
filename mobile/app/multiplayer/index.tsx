@@ -15,7 +15,7 @@
  * surface honestly without skin-level cosmetics.
  */
 
-import { router, Stack, useFocusEffect } from "expo-router";
+import { router, Stack, useFocusEffect, type Href } from "expo-router";
 import { useCallback, useState } from "react";
 import { Alert, Pressable, StyleSheet, View } from "react-native";
 
@@ -31,6 +31,8 @@ import {
   TextField,
   Title,
 } from "@/components/ui";
+import { useLobbyBgm } from "@/lib/hooks/useMatchSounds";
+import { useAuthStore } from "@/lib/store";
 import {
   createRoom,
   getActiveRoom,
@@ -42,6 +44,8 @@ import type { BoardMode } from "@/lib/game/boardConfig";
 import { colors, radii, space } from "@/theme/tokens";
 
 export default function MultiplayerLobby() {
+  const user = useAuthStore((s) => s.user);
+  useLobbyBgm();
   const [code, setCode] = useState("");
   const [active, setActive] = useState<ActiveRoomCheck | null>(null);
   const [activeChecking, setActiveChecking] = useState(true);
@@ -147,15 +151,52 @@ export default function MultiplayerLobby() {
 
       <VStack gap={3} style={{ marginTop: space[6] }}>
         <Eyebrow tone="muted">MULTIPLAYER</Eyebrow>
-        <Title>Play a friend</Title>
+        <Title>Multiplayer</Title>
         <Body tone="muted">
-          Create a private room (5×5, 6×6, or 7×7) and share the code, or join one you&apos;ve been
-          given.
+          Queue for ranked or unranked matches, or create a private room for a friend.
         </Body>
       </VStack>
 
       <Eyebrow tone="muted" style={{ marginTop: space[6], marginBottom: space[2] }}>
-        BOARD SIZE (CREATE)
+        MATCHMAKING
+      </Eyebrow>
+      <Row gap={3}>
+        <View style={{ flex: 1 }}>
+          <Btn
+            variant="primary"
+            onPress={() =>
+              router.push({
+                pathname: "/multiplayer/queue",
+                params: { format: "unranked", board: boardMode },
+              } as unknown as Href)
+            }
+          >
+            Unranked queue
+          </Btn>
+        </View>
+        <View style={{ flex: 1 }}>
+          <Btn
+            variant="secondary"
+            disabled={(user?.level ?? 1) < 5 || !user?.ranked_allowed}
+            onPress={() =>
+              router.push({
+                pathname: "/multiplayer/queue",
+                params: { format: "ranked" },
+              } as unknown as Href)
+            }
+          >
+            Ranked queue
+          </Btn>
+        </View>
+      </Row>
+      {(user?.level ?? 1) < 5 ? (
+        <Caption tone="warn" style={{ marginTop: space[2] }}>
+          Ranked unlocks at account level 5.
+        </Caption>
+      ) : null}
+
+      <Eyebrow tone="muted" style={{ marginTop: space[6], marginBottom: space[2] }}>
+        BOARD SIZE (PRIVATE CREATE)
       </Eyebrow>
       <Row gap={2}>
         {(["5x5", "6x6", "7x7"] as BoardMode[]).map((mode) => {

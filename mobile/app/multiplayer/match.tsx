@@ -37,6 +37,9 @@ import {
   Title,
 } from "@/components/ui";
 import { BoardGrid } from "@/components/game/BoardGrid";
+import { PatternsToggle } from "@/components/game/PatternsToggle";
+import { RulebreakerOverlay } from "@/components/game/RulebreakerOverlay";
+import { isRbPhase } from "@/lib/multiplayer/rulebreakerPhases";
 import { useGameAudio } from "@/lib/audio/AudioProvider";
 import {
   breakerDisplayName,
@@ -72,6 +75,8 @@ export default function MultiplayerMatch() {
     quitMatch,
     setOnGameScreen,
     dismissError,
+    rbPhase,
+    sendTossAction,
   } = useMatchSocket({ roomCode: code, slot });
 
   const audio = useGameAudio();
@@ -112,10 +117,8 @@ export default function MultiplayerMatch() {
     return () => clearTimeout(id);
   }, [lastError, dismissError]);
 
-  const needsProtocolBreaker =
-    room?.awaiting_rulebreaker && room?.series_winner === null;
-
-  useRulebreakerPendingSound(!!needsProtocolBreaker);
+  const inRulebreaker = rbPhase !== null && isRbPhase(rbPhase);
+  useRulebreakerPendingSound(inRulebreaker || !!room?.awaiting_rulebreaker);
 
   useEffect(() => {
     if (!room) return;
@@ -180,9 +183,12 @@ export default function MultiplayerMatch() {
         <Pressable onPress={confirmQuit} hitSlop={12} accessibilityRole="button">
           <Caption tone="muted">← QUIT</Caption>
         </Pressable>
-        <Caption tone="muted">
-          {room.room_code} · {legLabel}
-        </Caption>
+        <Row gap={2} align="center">
+          <PatternsToggle gridSize={gridSize} enabled={!gameOver && !seriesOver} />
+          <Caption tone="muted">
+            {room.room_code} · {legLabel}
+          </Caption>
+        </Row>
       </Row>
 
       {/* ── Scoreboard ────────────────────────────────────────── */}
@@ -240,28 +246,31 @@ export default function MultiplayerMatch() {
       {/* ── Bottom panels ─────────────────────────────────────── */}
       {seriesOver ? (
         <SeriesEndPanel room={room} mySlot={slot} />
-      ) : needsProtocolBreaker ? (
-        <ProtocolBreakerPanel
-          breakerKind={breakerKind}
-          gameNumber={room.game_number}
-          onForfeit={confirmQuit}
-          onScreenBack={() => {
-            // The user picked "open in web app" — we just leave.
-            // Their progress is preserved server-side; web GameScreen
-            // can pick up the same room.
-            router.replace("/multiplayer");
-          }}
-        />
       ) : gameOver ? (
         <GameEndPanel
           room={room}
           mySlot={slot}
           onReady={() => {
-            // Local UX: hide the panel + show a "advancing" hint;
-            // the server's game_reset broadcast clears state.
             readyForNextGame();
             setOnGameScreen(true);
+            if (room.awaiting_rulebreaker && slot === "P1") {
+              sendTossAction("start_rb", {});
+            }
           }}
+        />
+      ) : null}
+
+      {inRulebreaker && rbPhase ? (
+        <RulebreakerOverlay
+          visible
+          phase={rbPhase}
+          boardMode={room.board_mode}
+          gameNumber={room.game_number}
+          mySlot={slot}
+          tossWinner={room.rb_toss_winner ?? null}
+          coinResult={room.rb_coin_result ?? null}
+          gridSize={gridSize}
+          onTossAction={sendTossAction}
         />
       ) : null}
     </Screen>

@@ -20,6 +20,7 @@ export default function MultiplayerLayout() {
       <Stack.Screen name="index" />
       <Stack.Screen name="waiting" />
       <Stack.Screen name="match" />
+      <Stack.Screen name="queue" />
     </Stack>
   );
 }

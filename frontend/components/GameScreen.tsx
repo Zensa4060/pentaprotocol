@@ -67,6 +67,7 @@ import {
   buildRulesShowUrl,
   type MatchPhasePath,
 } from "@/lib/routes";
+import { matchMsForGridSize } from "@/lib/matchClock";
 
 const EPS = 1e-9;
 const PP_HOME_NOTICE_KEY = "pp_home_notice";
@@ -93,10 +94,6 @@ function inferGridSizeFromBoard(board: (string | null)[][]): PlayGridSize | null
   const row0 = board[0];
   if (!Array.isArray(row0) || row0.length !== n) return null;
   return n as PlayGridSize;
-}
-
-function matchMsForGridSize(s: PlayGridSize): number {
-  return s === 7 ? 300_000 : s === 6 ? 180_000 : 120_000;
 }
 
 type MatchSeriesCompletePayload = {
@@ -2300,7 +2297,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
             }
           }
           setLog([]);
-          const mtm = nextBmEff === "7x7" ? 300_000 : nextBmEff === "6x6" ? 180_000 : 120_000;
+          const mtm = matchMsForGridSize(nextBmEff === "7x7" ? 7 : nextBmEff === "6x6" ? 6 : 5);
           setP1Time(mtm);
           setP2Time(mtm);
           p1TimeRef.current = mtm;

@@ -30,6 +30,7 @@ import {
   type WsConnectionStatus,
 } from "./ws";
 
+import { isRbPhase, type RbPhase } from "./rulebreakerPhases";
 import type {
   InboundMessage,
   PlayerSlot,
@@ -65,6 +66,9 @@ export interface UseMatchSocketResult {
   setOnGameScreen: (on: boolean) => void;
   /** Clear ``lastError`` so the UI banner dismisses. */
   dismissError: () => void;
+  /** Active protocol-breaker phase, if any. */
+  rbPhase: RbPhase | null;
+  sendTossAction: (action: string, payload?: Record<string, unknown>) => void;
 }
 
 export function useMatchSocket({
@@ -77,6 +81,9 @@ export function useMatchSocket({
   const [lastError, setLastError] = useState<string | null>(null);
   const [disbanded, setDisbanded] = useState<{ reason?: string } | null>(null);
   const [matchStarted, setMatchStarted] = useState(false);
+  const [rbPhase, setRbPhase] = useState<RbPhase | null>(null);
+  const [rbTossWinner, setRbTossWinner] = useState<PlayerSlot | null>(null);
+  const [rbCoinResult, setRbCoinResult] = useState<"PENTA" | "PROTO" | null>(null);
 
   const socketRef = useRef<MatchSocket | null>(null);
   // We need stable references to the callbacks inside ``openMatchSocket``
@@ -95,6 +102,31 @@ export function useMatchSocket({
         case "room_state":
         case "player_joined": {
           setRoom(msg.room);
+          if (isRbPhase(msg.room.phase)) setRbPhase(msg.room.phase);
+          else if (!msg.room.awaiting_rulebreaker) setRbPhase(null);
+          if (msg.room.rb_toss_winner) setRbTossWinner(msg.room.rb_toss_winner);
+          if (msg.room.rb_coin_result) setRbCoinResult(msg.room.rb_coin_result);
+          break;
+        }
+        case "rulebreaker_start": {
+          setRbPhase("rb_splash");
+          if (msg.toss_winner) setRbTossWinner(msg.toss_winner);
+          setRbCoinResult(null);
+          break;
+        }
+        case "toss_action": {
+          const payload = msg.payload ?? {};
+          if (msg.action === "coin_result") {
+            const r = payload.result as "PENTA" | "PROTO" | undefined;
+            if (r) setRbCoinResult(r);
+            const tw = payload.toss_winner as PlayerSlot | undefined;
+            if (tw) setRbTossWinner(tw);
+            setRbPhase("rb_coin");
+          } else if (msg.action === "start_rb") {
+            setRbPhase("rb_splash");
+          } else if (msg.action === "phase_choice" && typeof payload.phase === "string") {
+            if (isRbPhase(payload.phase)) setRbPhase(payload.phase);
+          }
           break;
         }
         case "move_made": {
@@ -148,8 +180,10 @@ export function useMatchSocket({
               game_number: msg.game_number,
               board_mode: msg.board_mode,
               awaiting_rulebreaker: false,
+              phase: undefined,
             };
           });
+          setRbPhase(null);
           break;
         }
         case "match_start": {
@@ -249,6 +283,10 @@ export function useMatchSocket({
     setLastError(null);
   }, []);
 
+  const sendTossAction = useCallback((action: string, payload?: Record<string, unknown>) => {
+    socketRef.current?.send({ type: "toss_action", action, payload });
+  }, []);
+
   return {
     room,
     status,
@@ -260,5 +298,7 @@ export function useMatchSocket({
     quitMatch,
     setOnGameScreen,
     dismissError,
+    rbPhase,
+    sendTossAction,
   };
 }

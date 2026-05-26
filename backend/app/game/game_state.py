@@ -123,8 +123,8 @@ class GameState:
     # ============================================================
 
     def reset_timers(self):
-        self.p1_time = 120000   # 2 minutes in ms (5x5 default)
-        self.p2_time = 120000
+        self.p1_time = 300000   # 5 minutes in ms (5x5 default; 6x6/7x7 set client-side)
+        self.p2_time = 300000
 
     def update_timer(self, dt):
         if (self.show_splash or

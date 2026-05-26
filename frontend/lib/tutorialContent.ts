@@ -802,7 +802,7 @@ export const TUTORIAL_SECTIONS: TutorialSection[] = [
         body:
           "Before game 6 on the 6×6 leg a coin toss picks a toss winner. They choose between two pressure mechanics. Game 6 still follows normal 6×6 patterns and path resolution.",
         bullets: [
-          "Option A — Reduced clock: one player's match clock is cut from the normal 3:00 all the way down to 1:00 for this game.",
+          "Option A — Reduced clock: one player's match clock is cut from the normal 8:00 all the way down to 1:00 for this game.",
           "Option B — Special cell: the chooser secretly marks one cell on the board; any stone that lands on it counts as theirs.",
         ],
         syrosQuote:
@@ -813,7 +813,7 @@ export const TUTORIAL_SECTIONS: TutorialSection[] = [
         id: "demo-timebreaker-trap",
         title: "Timebreaker · special-cell trap",
         body:
-          "P1 picks option B and marks (2,2) as their trap. The trap is hidden from P2 in a real game; we draw it with a dashed ring here so you can follow. When P2 plays on the trap cell, the placed stone counts as P1's. (Note: if option A had been chosen instead, one player's clock would drop from 3:00 to 1:00 — no trap on the board.)",
+          "P1 picks option B and marks (2,2) as their trap. The trap is hidden from P2 in a real game; we draw it with a dashed ring here so you can follow. When P2 plays on the trap cell, the placed stone counts as P1's. (Note: if option A had been chosen instead, one player's clock would drop from 8:00 to 1:00 — no trap on the board.)",
         size: 6,
         moves: [
           { r: 0, c: 0, p: "P1" },
