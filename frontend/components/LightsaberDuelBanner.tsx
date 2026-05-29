@@ -80,7 +80,7 @@ function draw(ctx: CanvasRenderingContext2D, t: number, W: number, H: number, s:
     }
     const sg = ctx.createRadialGradient(sp.x, sp.y, 0, sp.x, sp.y, Math.max(0.01, 3 * p));
     sg.addColorStop(0, `rgba(255,255,220,${p})`); sg.addColorStop(1, "rgba(0,0,0,0)");
-    ctx.fillStyle = sg; ctx.beginPath(); ctx.arc(sp.x, sp.y, 3 * p, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+    const r = Math.max(0, 3 * p); ctx.fillStyle = sg; ctx.beginPath(); ctx.arc(sp.x, sp.y, r, 0, Math.PI * 2); ctx.fill(); ctx.restore();
   });
 
   ctx.save(); ctx.globalCompositeOperation = "screen";

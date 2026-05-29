@@ -47,7 +47,12 @@ export function useBannerCanvas(drawFn: DrawFn, fps: number = 30) {
         const ctx = cv.getContext("2d");
         if (ctx) {
           ctx.setTransform(D, 0, 0, D, 0, 0);
-          fnRef.current(ctx, t, W, H, stRef.current);
+          try {
+            fnRef.current(ctx, t, W, H, stRef.current);
+          } catch {
+            // A single bad frame (e.g. zero-radius gradient) should never
+            // kill the loop — just skip this frame and keep animating.
+          }
         }
       }
       t += 1 / fps;

@@ -25,13 +25,13 @@ function draw(ctx: CanvasRenderingContext2D, t: number, W: number, H: number, s:
     const px2 = cx+Math.cos(p.angle)*r, py2 = cy+Math.sin(p.angle)*r*0.38;
     const trailR = Math.max(0,(p.dist-p.trail))*maxR;
     const tx2 = cx+Math.cos(p.angle-p.speed*8)*trailR, ty2 = cy+Math.sin(p.angle-p.speed*8)*trailR*0.38;
-    const brightness = Math.min(1,(1-p.dist+0.1)*1.8);
+    const brightness = Math.max(0, Math.min(1,(1-p.dist+0.1)*1.8));
     ctx.save(); ctx.globalCompositeOperation = "screen";
     const tg = ctx.createLinearGradient(tx2, ty2, px2, py2);
     tg.addColorStop(0, `hsla(${p.hue},90%,70%,0)`); tg.addColorStop(1, `hsla(${p.hue},92%,75%,${brightness*0.65})`);
     ctx.beginPath(); ctx.moveTo(tx2, ty2); ctx.lineTo(px2, py2);
-    ctx.strokeStyle = tg; ctx.lineWidth = p.size*brightness; ctx.stroke();
-    ctx.beginPath(); ctx.arc(px2, py2, p.size*0.6*brightness, 0, Math.PI*2);
+    ctx.strokeStyle = tg; ctx.lineWidth = Math.max(0, p.size*brightness); ctx.stroke();
+    ctx.beginPath(); ctx.arc(px2, py2, Math.max(0, p.size*0.6*brightness), 0, Math.PI*2);
     ctx.fillStyle = `hsla(${p.hue},100%,85%,${brightness*0.7})`; ctx.fill(); ctx.restore();
   });
   const coreR = Math.min(W*0.035, H*0.2);
