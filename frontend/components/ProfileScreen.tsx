@@ -15,21 +15,6 @@ import { computeLevelProgress } from "@/lib/xpLevel";
 import { BannerRenderer } from "./BannerRenderer";
 import { rankGlowVisualStrength, buildRankEmblemGlowFilter, rankHaloGradientForRank, NavRankBadge, getRank, RANKS } from "./NavBar";
 import { openDiscordInvite } from "@/lib/community";
-import VoidRiftBanner from "./VoidRiftBanner";
-import BloodMoonBanner from "./BloodMoonBanner";
-import PhantomStrikeBanner from "./PhantomStrikeBanner";
-import SolarFlareBanner from "./SolarFlareBanner";
-import CryoStormBanner from "./CryoStormBanner";
-import NeonCircuitBanner from "./NeonCircuitBanner";
-import StaticGlitchBanner from "./StaticGlitchBanner";
-import GoldenNexusBanner from "./GoldenNexusBanner";
-import PlasmaCoreBanner from "./PlasmaCoreBanner";
-import ToxicSpillBanner from "./ToxicSpillBanner";
-import StormProtocolBanner from "./StormProtocolBanner";
-import ArcticVeilBanner from "./ArcticVeilBanner";
-import StarfieldBanner from "./StarfieldBanner";
-import DigitalRainBanner from "./DigitalRainBanner";
-import InfernoBanner from "./InfernoBanner";
 // ── Supabase storage client ───────────────────────────────────────────────────
 import { getSupabase, isSupabaseConfigured, formatSupabaseUploadError } from "@/lib/supabase";
 
@@ -86,58 +71,53 @@ export const TITLES: {
     unlockDesc: "Reach level 50",        condition: p => (p.level || 0) >= 50,                   animation: "rainbow" },
 ];
 
+import DigitalRainBanner    from "./DigitalRainBanner";
+import LightsaberDuelBanner from "./LightsaberDuelBanner";
+import ArcadeBanner         from "./ArcadeBanner";
+import HyperdriveBanner     from "./HyperdriveBanner";
+import NorthernLightsBanner from "./NorthernLightsBanner";
+import VoidCollapseBanner   from "./VoidCollapseBanner";
+import LavaFlowBanner       from "./LavaFlowBanner";
+import ParticleWebBanner    from "./ParticleWebBanner";
+import InkDropBanner        from "./InkDropBanner";
+import ThunderStormBanner   from "./ThunderStormBanner";
+import NeonPulseBanner      from "./NeonPulseBanner";
+import DeepSeaBanner        from "./DeepSeaBanner";
+import PrismaticLightBanner from "./PrismaticLightBanner";
+import SandDunesBanner      from "./SandDunesBanner";
+import EmberPhoenixBanner   from "./EmberPhoenixBanner";
+import CrystalCaveBanner    from "./CrystalCaveBanner";
+import HackerTerminalBanner from "./HackerTerminalBanner";
+import TidalSurgeBanner     from "./TidalSurgeBanner";
+import SolarWindBanner      from "./SolarWindBanner";
+import LavaLampBanner       from "./LavaLampBanner";
+
 const BANNERS: {
   id: string; label: string; gradient: string;
   component?: React.ComponentType<{ style?: React.CSSProperties }>;
   unlockDesc: string; condition: (p: any) => boolean;
 }[] = [
-  { id: "default",    label: "Default",         gradient: "linear-gradient(135deg,#1a1a2e,#16213e)",
-    unlockDesc: "Default banner", condition: () => true },
-  { id: "void_rift",  label: "Void Rift",       gradient: "linear-gradient(135deg,#0e0020,#020005)",
-    component: VoidRiftBanner,
-    unlockDesc: "Purchase for 299 PC", condition: p => (p.purchased_items || []).includes("void_rift") },
-  { id: "blood_moon",  label: "Blood Moon",       gradient: "linear-gradient(135deg,#000008,#180008)",
-    component: BloodMoonBanner,
-    unlockDesc: "Purchase for 299 PC", condition: p => (p.purchased_items || []).includes("blood_moon") },
-  { id: "phantom_strike", label: "Phantom Strike", gradient: "linear-gradient(135deg,#060010,#110028)",
-    component: PhantomStrikeBanner,
-    unlockDesc: "Purchase for 199 PC", condition: p => (p.purchased_items || []).includes("phantom_strike") },
-  { id: "solar_flare", label: "Solar Flare", gradient: "linear-gradient(135deg,#060200,#f97316)",
-    component: SolarFlareBanner,
-    unlockDesc: "Purchase for 299 PC", condition: p => (p.purchased_items || []).includes("solar_flare") },
-  { id: "cryo_storm", label: "Cryo Storm", gradient: "linear-gradient(135deg,#030c20,#081840)",
-    component: CryoStormBanner,
-    unlockDesc: "Purchase for 299 PC", condition: p => (p.purchased_items || []).includes("cryo_storm") },
-  { id: "neon_circuit", label: "Neon Circuit", gradient: "linear-gradient(135deg,#020a04,#00ff66)",
-    component: NeonCircuitBanner,
-    unlockDesc: "Purchase for 299 PC", condition: p => (p.purchased_items || []).includes("neon_circuit") },
-  { id: "static_glitch", label: "Static Glitch", gradient: "linear-gradient(135deg,#050505,#a00038)",
-    component: StaticGlitchBanner,
-    unlockDesc: "Purchase for 299 PC", condition: p => (p.purchased_items || []).includes("static_glitch") },
-  { id: "golden_nexus", label: "Golden Nexus", gradient: "linear-gradient(135deg,#060200,#fbbf24)",
-    component: GoldenNexusBanner,
-    unlockDesc: "Purchase for 299 PC", condition: p => (p.purchased_items || []).includes("golden_nexus") },
-  { id: "plasma_core", label: "Plasma Core", gradient: "linear-gradient(135deg,#12082a,#6d28d9)",
-    component: PlasmaCoreBanner,
-    unlockDesc: "Purchase for 299 PC", condition: p => (p.purchased_items || []).includes("plasma_core") },
-  { id: "toxic_spill", label: "Toxic Spill", gradient: "linear-gradient(135deg,#010d03,#0a3d22)",
-    component: ToxicSpillBanner,
-    unlockDesc: "Purchase for 299 PC", condition: p => (p.purchased_items || []).includes("toxic_spill") },
-  { id: "storm_protocol", label: "Storm Protocol", gradient: "linear-gradient(135deg,#060810,#0b1a3b)",
-    component: StormProtocolBanner,
-    unlockDesc: "Purchase for 299 PC", condition: p => (p.purchased_items || []).includes("storm_protocol") },
-  { id: "arctic_veil", label: "Arctic Veil", gradient: "linear-gradient(135deg,#d8f0fc,#c5e8fb)",
-    component: ArcticVeilBanner,
-    unlockDesc: "Purchase for 299 PC", condition: p => (p.purchased_items || []).includes("arctic_veil") },
-  { id: "starfield", label: "Starfield", gradient: "linear-gradient(135deg,#050210,#312e81)",
-    component: StarfieldBanner,
-    unlockDesc: "Purchase for 299 PC", condition: p => (p.purchased_items || []).includes("starfield") },
-  { id: "digital_rain", label: "Digital Rain", gradient: "linear-gradient(135deg,#000702,#14532d)",
-    component: DigitalRainBanner,
-    unlockDesc: "Purchase for 299 PC", condition: p => (p.purchased_items || []).includes("digital_rain") },
-  { id: "inferno", label: "Inferno", gradient: "linear-gradient(135deg,#070100,#ea580c)",
-    component: InfernoBanner,
-    unlockDesc: "Purchase for 299 PC", condition: p => (p.purchased_items || []).includes("inferno") },
+  { id: "default",         label: "Default",         gradient: "linear-gradient(135deg,#1a1a2e,#16213e)", unlockDesc: "Default banner",       condition: () => true },
+  { id: "digital_rain",    label: "Digital Rain",    gradient: "linear-gradient(135deg,#000702,#14532d)", unlockDesc: "Purchase for 299 PC",  condition: (p:any) => (p?.purchased_items||[]).includes("digital_rain"),    component: DigitalRainBanner },
+  { id: "lightsaber_duel", label: "Lightsaber Duel", gradient: "linear-gradient(135deg,#06020e,#0d0520)", unlockDesc: "Purchase for 299 PC",  condition: (p:any) => (p?.purchased_items||[]).includes("lightsaber_duel"), component: LightsaberDuelBanner },
+  { id: "arcade",          label: "Arcade",          gradient: "linear-gradient(135deg,#000010,#000520)", unlockDesc: "Purchase for 299 PC",  condition: (p:any) => (p?.purchased_items||[]).includes("arcade"),          component: ArcadeBanner },
+  { id: "hyperdrive",      label: "Hyperdrive",      gradient: "linear-gradient(135deg,#02030e,#05041a)", unlockDesc: "Purchase for 299 PC",  condition: (p:any) => (p?.purchased_items||[]).includes("hyperdrive"),      component: HyperdriveBanner },
+  { id: "northern_lights", label: "Northern Lights", gradient: "linear-gradient(135deg,#000c12,#010f18)", unlockDesc: "Purchase for 299 PC",  condition: (p:any) => (p?.purchased_items||[]).includes("northern_lights"), component: NorthernLightsBanner },
+  { id: "void_collapse",   label: "Void Collapse",   gradient: "linear-gradient(135deg,#02010c,#0a0518)", unlockDesc: "Purchase for 299 PC",  condition: (p:any) => (p?.purchased_items||[]).includes("void_collapse"),   component: VoidCollapseBanner },
+  { id: "lava_flow",       label: "Lava Flow",       gradient: "linear-gradient(135deg,#060100,#200400)", unlockDesc: "Purchase for 299 PC",  condition: (p:any) => (p?.purchased_items||[]).includes("lava_flow"),       component: LavaFlowBanner },
+  { id: "particle_web",    label: "Particle Web",    gradient: "linear-gradient(135deg,#060810,#0b1030)", unlockDesc: "Purchase for 299 PC",  condition: (p:any) => (p?.purchased_items||[]).includes("particle_web"),    component: ParticleWebBanner },
+  { id: "ink_drop",        label: "Ink Drop",        gradient: "linear-gradient(135deg,#f6f4f0,#fafaf7)", unlockDesc: "Purchase for 299 PC",  condition: (p:any) => (p?.purchased_items||[]).includes("ink_drop"),        component: InkDropBanner },
+  { id: "thunder_storm",   label: "Thunder Storm",   gradient: "linear-gradient(135deg,#060810,#080e20)", unlockDesc: "Purchase for 299 PC",  condition: (p:any) => (p?.purchased_items||[]).includes("thunder_storm"),   component: ThunderStormBanner },
+  { id: "neon_pulse",      label: "Neon Pulse",      gradient: "linear-gradient(135deg,#04020c,#0c0520)", unlockDesc: "Purchase for 299 PC",  condition: (p:any) => (p?.purchased_items||[]).includes("neon_pulse"),      component: NeonPulseBanner },
+  { id: "deep_sea",        label: "Deep Sea",        gradient: "linear-gradient(135deg,#00020a,#00061a)", unlockDesc: "Purchase for 299 PC",  condition: (p:any) => (p?.purchased_items||[]).includes("deep_sea"),        component: DeepSeaBanner },
+  { id: "prismatic_light", label: "Prismatic Light", gradient: "linear-gradient(135deg,#f0f2f8,#f8fafc)", unlockDesc: "Purchase for 299 PC",  condition: (p:any) => (p?.purchased_items||[]).includes("prismatic_light"), component: PrismaticLightBanner },
+  { id: "sand_dunes",      label: "Sand Dunes",      gradient: "linear-gradient(135deg,#c47820,#e8a830)", unlockDesc: "Purchase for 299 PC",  condition: (p:any) => (p?.purchased_items||[]).includes("sand_dunes"),      component: SandDunesBanner },
+  { id: "ember_phoenix",   label: "Ember Phoenix",   gradient: "linear-gradient(135deg,#040100,#1c0400)", unlockDesc: "Purchase for 299 PC",  condition: (p:any) => (p?.purchased_items||[]).includes("ember_phoenix"),   component: EmberPhoenixBanner },
+  { id: "crystal_cave",    label: "Crystal Cave",    gradient: "linear-gradient(135deg,#080515,#0e0820)", unlockDesc: "Purchase for 299 PC",  condition: (p:any) => (p?.purchased_items||[]).includes("crystal_cave"),    component: CrystalCaveBanner },
+  { id: "hacker_terminal", label: "Hacker Terminal", gradient: "linear-gradient(135deg,#010804,#021408)", unlockDesc: "Purchase for 299 PC",  condition: (p:any) => (p?.purchased_items||[]).includes("hacker_terminal"), component: HackerTerminalBanner },
+  { id: "tidal_surge",     label: "Tidal Surge",     gradient: "linear-gradient(135deg,#010c1a,#002040)", unlockDesc: "Purchase for 299 PC",  condition: (p:any) => (p?.purchased_items||[]).includes("tidal_surge"),     component: TidalSurgeBanner },
+  { id: "solar_wind",      label: "Solar Wind",      gradient: "linear-gradient(135deg,#060200,#130500)", unlockDesc: "Purchase for 299 PC",  condition: (p:any) => (p?.purchased_items||[]).includes("solar_wind"),      component: SolarWindBanner },
+  { id: "lava_lamp",       label: "Lava Lamp",       gradient: "linear-gradient(135deg,#0e0500,#1c0800)", unlockDesc: "Purchase for 299 PC",  condition: (p:any) => (p?.purchased_items||[]).includes("lava_lamp"),       component: LavaLampBanner },
 ];
 
 export const PROFILE_BORDERS: {

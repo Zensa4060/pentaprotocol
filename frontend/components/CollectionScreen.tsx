@@ -145,25 +145,30 @@ const PIECE_SKINS: { id: string; label: string; desc: string; condition: (p: any
 ];
 
 const BANNERS: { id: string; label: string; gradient: string; condition: (p: any) => boolean }[] = [
-  { id: "default",   label: "Default",   gradient: "linear-gradient(135deg,#1a1a2e,#16213e)", condition: () => true },
-  { id: "void_rift", label: "Void Rift", gradient: "linear-gradient(135deg,#0e0020,#020005)", condition: (p: any) => (p?.purchased_items ?? []).includes("void_rift") },
-  { id: "blood_moon", label: "Blood Moon", gradient: "linear-gradient(135deg,#000008,#180008)", condition: (p: any) => (p?.purchased_items ?? []).includes("blood_moon") },
-  { id: "phantom_strike", label: "Phantom Strike", gradient: "linear-gradient(135deg,#060010,#110028)", condition: (p: any) => (p?.purchased_items ?? []).includes("phantom_strike") },
-  { id: "solar_flare", label: "Solar Flare", gradient: "linear-gradient(135deg,#060200,#f97316)", condition: (p: any) => (p?.purchased_items ?? []).includes("solar_flare") },
-  { id: "cryo_storm", label: "Cryo Storm", gradient: "linear-gradient(135deg,#030c20,#081840)", condition: (p: any) => (p?.purchased_items ?? []).includes("cryo_storm") },
-  { id: "neon_circuit", label: "Neon Circuit", gradient: "linear-gradient(135deg,#020a04,#00ff66)", condition: (p: any) => (p?.purchased_items ?? []).includes("neon_circuit") },
-  { id: "static_glitch", label: "Static Glitch", gradient: "linear-gradient(135deg,#050505,#a00038)", condition: (p: any) => (p?.purchased_items ?? []).includes("static_glitch") },
-  { id: "golden_nexus", label: "Golden Nexus", gradient: "linear-gradient(135deg,#060200,#fbbf24)", condition: (p: any) => (p?.purchased_items ?? []).includes("golden_nexus") },
-  { id: "plasma_core", label: "Plasma Core", gradient: "linear-gradient(135deg,#12082a,#6d28d9)", condition: (p: any) => (p?.purchased_items ?? []).includes("plasma_core") },
-  { id: "toxic_spill", label: "Toxic Spill", gradient: "linear-gradient(135deg,#010d03,#0a3d22)", condition: (p: any) => (p?.purchased_items ?? []).includes("toxic_spill") },
-  { id: "storm_protocol", label: "Storm Protocol", gradient: "linear-gradient(135deg,#060810,#0b1a3b)", condition: (p: any) => (p?.purchased_items ?? []).includes("storm_protocol") },
-  { id: "arctic_veil", label: "Arctic Veil", gradient: "linear-gradient(135deg,#d8f0fc,#c5e8fb)", condition: (p: any) => (p?.purchased_items ?? []).includes("arctic_veil") },
-  { id: "starfield", label: "Starfield", gradient: "linear-gradient(135deg,#050210,#312e81)", condition: (p: any) => (p?.purchased_items ?? []).includes("starfield") },
-  { id: "digital_rain", label: "Digital Rain", gradient: "linear-gradient(135deg,#000702,#14532d)", condition: (p: any) => (p?.purchased_items ?? []).includes("digital_rain") },
-  { id: "inferno", label: "Inferno", gradient: "linear-gradient(135deg,#070100,#ea580c)", condition: (p: any) => (p?.purchased_items ?? []).includes("inferno") },
+  { id: "default",         label: "Default",         gradient: "linear-gradient(135deg,#1a1a2e,#16213e)", condition: () => true },
+  { id: "digital_rain",    label: "Digital Rain",    gradient: "linear-gradient(135deg,#000702,#14532d)", condition: (p: any) => (p?.purchased_items ?? []).includes("digital_rain") },
+  { id: "lightsaber_duel", label: "Lightsaber Duel", gradient: "linear-gradient(135deg,#06020e,#0d0520)", condition: (p: any) => (p?.purchased_items ?? []).includes("lightsaber_duel") },
+  { id: "arcade",          label: "Arcade",          gradient: "linear-gradient(135deg,#000010,#000520)", condition: (p: any) => (p?.purchased_items ?? []).includes("arcade") },
+  { id: "hyperdrive",      label: "Hyperdrive",      gradient: "linear-gradient(135deg,#02030e,#05041a)", condition: (p: any) => (p?.purchased_items ?? []).includes("hyperdrive") },
+  { id: "northern_lights", label: "Northern Lights", gradient: "linear-gradient(135deg,#000c12,#010f18)", condition: (p: any) => (p?.purchased_items ?? []).includes("northern_lights") },
+  { id: "void_collapse",   label: "Void Collapse",   gradient: "linear-gradient(135deg,#02010c,#0a0518)", condition: (p: any) => (p?.purchased_items ?? []).includes("void_collapse") },
+  { id: "lava_flow",       label: "Lava Flow",       gradient: "linear-gradient(135deg,#060100,#200400)", condition: (p: any) => (p?.purchased_items ?? []).includes("lava_flow") },
+  { id: "particle_web",    label: "Particle Web",    gradient: "linear-gradient(135deg,#060810,#0b1030)", condition: (p: any) => (p?.purchased_items ?? []).includes("particle_web") },
+  { id: "ink_drop",        label: "Ink Drop",        gradient: "linear-gradient(135deg,#f6f4f0,#fafaf7)", condition: (p: any) => (p?.purchased_items ?? []).includes("ink_drop") },
+  { id: "thunder_storm",   label: "Thunder Storm",   gradient: "linear-gradient(135deg,#060810,#080e20)", condition: (p: any) => (p?.purchased_items ?? []).includes("thunder_storm") },
+  { id: "neon_pulse",      label: "Neon Pulse",      gradient: "linear-gradient(135deg,#04020c,#0c0520)", condition: (p: any) => (p?.purchased_items ?? []).includes("neon_pulse") },
+  { id: "deep_sea",        label: "Deep Sea",        gradient: "linear-gradient(135deg,#00020a,#00061a)", condition: (p: any) => (p?.purchased_items ?? []).includes("deep_sea") },
+  { id: "prismatic_light", label: "Prismatic Light", gradient: "linear-gradient(135deg,#f0f2f8,#f8fafc)", condition: (p: any) => (p?.purchased_items ?? []).includes("prismatic_light") },
+  { id: "sand_dunes",      label: "Sand Dunes",      gradient: "linear-gradient(135deg,#c47820,#e8a830)", condition: (p: any) => (p?.purchased_items ?? []).includes("sand_dunes") },
+  { id: "ember_phoenix",   label: "Ember Phoenix",   gradient: "linear-gradient(135deg,#040100,#1c0400)", condition: (p: any) => (p?.purchased_items ?? []).includes("ember_phoenix") },
+  { id: "crystal_cave",    label: "Crystal Cave",    gradient: "linear-gradient(135deg,#080515,#0e0820)", condition: (p: any) => (p?.purchased_items ?? []).includes("crystal_cave") },
+  { id: "hacker_terminal", label: "Hacker Terminal", gradient: "linear-gradient(135deg,#010804,#021408)", condition: (p: any) => (p?.purchased_items ?? []).includes("hacker_terminal") },
+  { id: "tidal_surge",     label: "Tidal Surge",     gradient: "linear-gradient(135deg,#010c1a,#002040)", condition: (p: any) => (p?.purchased_items ?? []).includes("tidal_surge") },
+  { id: "solar_wind",      label: "Solar Wind",      gradient: "linear-gradient(135deg,#060200,#130500)", condition: (p: any) => (p?.purchased_items ?? []).includes("solar_wind") },
+  { id: "lava_lamp",       label: "Lava Lamp",       gradient: "linear-gradient(135deg,#0e0500,#1c0800)", condition: (p: any) => (p?.purchased_items ?? []).includes("lava_lamp") },
 ];
 
-const STORE_BANNER_ITEM_IDS = ["void_rift", "blood_moon", "phantom_strike", "solar_flare", "cryo_storm", "neon_circuit", "static_glitch", "golden_nexus", "plasma_core", "toxic_spill", "storm_protocol", "arctic_veil", "starfield", "digital_rain", "inferno"] as const;
+const STORE_BANNER_ITEM_IDS: readonly string[] = ["digital_rain","lightsaber_duel","arcade","hyperdrive","northern_lights","void_collapse","lava_flow","particle_web","ink_drop","thunder_storm","neon_pulse","deep_sea","prismatic_light","sand_dunes","ember_phoenix","crystal_cave","hacker_terminal","tidal_surge","solar_wind","lava_lamp"];
 
 // Sound pack options
 const SFX_PACKS: { id: SfxPack; label: string; desc: string; owned: boolean; color: string }[] = [

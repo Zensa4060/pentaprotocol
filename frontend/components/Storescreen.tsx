@@ -26,21 +26,6 @@ import VoidGrid from "./VoidGrid";
 import TokyoGrid from "./TokyoGrid";
 import SpaceGrid from "./SpaceGrid";
 import PixelGrid from "./PixelGrid";
-import VoidRiftBanner from "./VoidRiftBanner";
-import BloodMoonBanner from "./BloodMoonBanner";
-import PhantomStrikeBanner from "./PhantomStrikeBanner";
-import SolarFlareBanner from "./SolarFlareBanner";
-import CryoStormBanner from "./CryoStormBanner";
-import NeonCircuitBanner from "./NeonCircuitBanner";
-import StaticGlitchBanner from "./StaticGlitchBanner";
-import GoldenNexusBanner from "./GoldenNexusBanner";
-import PlasmaCoreBanner from "./PlasmaCoreBanner";
-import ToxicSpillBanner from "./ToxicSpillBanner";
-import StormProtocolBanner from "./StormProtocolBanner";
-import ArcticVeilBanner from "./ArcticVeilBanner";
-import StarfieldBanner from "./StarfieldBanner";
-import DigitalRainBanner from "./DigitalRainBanner";
-import InfernoBanner from "./InfernoBanner";
 
 // Payment: operator-verified UPI / bank-QR only. Users scan the posted
 // QR, pay via any UPI app, then submit the bank UTR through the UPI
@@ -107,23 +92,48 @@ const THEME_MUSIC_PREVIEWS: Record<string, { key: "lobby" | "game" | "ranked"; l
   ],
 };
 
-const STORE_BANNERS: { id: string; label: string; gradient: string; unlock: string; price?: number; component?: any }[] = [
-  { id: "default",   label: "Default",   gradient: "linear-gradient(135deg,#1a1a2e,#16213e)", unlock: "Free" },
-  { id: "void_rift", label: "Void Rift", gradient: "linear-gradient(135deg,#0e0020,#020005)", unlock: "299 PC", price: 299, component: VoidRiftBanner },
-  { id: "blood_moon", label: "Blood Moon", gradient: "linear-gradient(135deg,#000008,#180008)", unlock: "299 PC", price: 299, component: BloodMoonBanner },
-  { id: "phantom_strike", label: "Phantom Strike", gradient: "linear-gradient(135deg,#060010,#110028)", unlock: "199 PC", price: 199, component: PhantomStrikeBanner },
-  { id: "solar_flare", label: "Solar Flare", gradient: "linear-gradient(135deg,#060200,#f97316)", unlock: "299 PC", price: 299, component: SolarFlareBanner },
-  { id: "cryo_storm", label: "Cryo Storm", gradient: "linear-gradient(135deg,#030c20,#081840)", unlock: "299 PC", price: 299, component: CryoStormBanner },
-  { id: "neon_circuit", label: "Neon Circuit", gradient: "linear-gradient(135deg,#020a04,#00ff66)", unlock: "299 PC", price: 299, component: NeonCircuitBanner },
-  { id: "static_glitch", label: "Static Glitch", gradient: "linear-gradient(135deg,#050505,#a00038)", unlock: "299 PC", price: 299, component: StaticGlitchBanner },
-  { id: "golden_nexus", label: "Golden Nexus", gradient: "linear-gradient(135deg,#060200,#fbbf24)", unlock: "299 PC", price: 299, component: GoldenNexusBanner },
-  { id: "plasma_core", label: "Plasma Core", gradient: "linear-gradient(135deg,#12082a,#6d28d9)", unlock: "299 PC", price: 299, component: PlasmaCoreBanner },
-  { id: "toxic_spill", label: "Toxic Spill", gradient: "linear-gradient(135deg,#010d03,#0a3d22)", unlock: "299 PC", price: 299, component: ToxicSpillBanner },
-  { id: "storm_protocol", label: "Storm Protocol", gradient: "linear-gradient(135deg,#060810,#0b1a3b)", unlock: "299 PC", price: 299, component: StormProtocolBanner },
-  { id: "arctic_veil", label: "Arctic Veil", gradient: "linear-gradient(135deg,#d8f0fc,#c5e8fb)", unlock: "299 PC", price: 299, component: ArcticVeilBanner },
-  { id: "starfield", label: "Starfield", gradient: "linear-gradient(135deg,#050210,#312e81)", unlock: "299 PC", price: 299, component: StarfieldBanner },
-  { id: "digital_rain", label: "Digital Rain", gradient: "linear-gradient(135deg,#000702,#14532d)", unlock: "299 PC", price: 299, component: DigitalRainBanner },
-  { id: "inferno", label: "Inferno", gradient: "linear-gradient(135deg,#070100,#ea580c)", unlock: "299 PC", price: 299, component: InfernoBanner },
+import DigitalRainBanner    from "./DigitalRainBanner";
+import LightsaberDuelBanner from "./LightsaberDuelBanner";
+import ArcadeBanner         from "./ArcadeBanner";
+import HyperdriveBanner     from "./HyperdriveBanner";
+import NorthernLightsBanner from "./NorthernLightsBanner";
+import VoidCollapseBanner   from "./VoidCollapseBanner";
+import LavaFlowBanner       from "./LavaFlowBanner";
+import ParticleWebBanner    from "./ParticleWebBanner";
+import InkDropBanner        from "./InkDropBanner";
+import ThunderStormBanner   from "./ThunderStormBanner";
+import NeonPulseBanner      from "./NeonPulseBanner";
+import DeepSeaBanner        from "./DeepSeaBanner";
+import PrismaticLightBanner from "./PrismaticLightBanner";
+import SandDunesBanner      from "./SandDunesBanner";
+import EmberPhoenixBanner   from "./EmberPhoenixBanner";
+import CrystalCaveBanner    from "./CrystalCaveBanner";
+import HackerTerminalBanner from "./HackerTerminalBanner";
+import TidalSurgeBanner     from "./TidalSurgeBanner";
+import SolarWindBanner      from "./SolarWindBanner";
+import LavaLampBanner       from "./LavaLampBanner";
+
+const STORE_BANNERS: { id: string; label: string; gradient: string; unlock: string; price?: number; component?: any; lightTheme?: boolean }[] = [
+  { id: "digital_rain",    label: "Digital Rain",     gradient: "linear-gradient(135deg,#000702,#14532d)", unlock: "299 PC", price: 299, component: DigitalRainBanner },
+  { id: "lightsaber_duel", label: "Lightsaber Duel",  gradient: "linear-gradient(135deg,#06020e,#0d0520)", unlock: "299 PC", price: 299, component: LightsaberDuelBanner },
+  { id: "arcade",          label: "Arcade",           gradient: "linear-gradient(135deg,#000010,#000520)", unlock: "299 PC", price: 299, component: ArcadeBanner },
+  { id: "hyperdrive",      label: "Hyperdrive",       gradient: "linear-gradient(135deg,#02030e,#05041a)", unlock: "299 PC", price: 299, component: HyperdriveBanner },
+  { id: "northern_lights", label: "Northern Lights",  gradient: "linear-gradient(135deg,#000c12,#010f18)", unlock: "299 PC", price: 299, component: NorthernLightsBanner },
+  { id: "void_collapse",   label: "Void Collapse",    gradient: "linear-gradient(135deg,#02010c,#0a0518)", unlock: "299 PC", price: 299, component: VoidCollapseBanner },
+  { id: "lava_flow",       label: "Lava Flow",        gradient: "linear-gradient(135deg,#060100,#200400)", unlock: "299 PC", price: 299, component: LavaFlowBanner },
+  { id: "particle_web",    label: "Particle Web",     gradient: "linear-gradient(135deg,#060810,#0b1030)", unlock: "299 PC", price: 299, component: ParticleWebBanner },
+  { id: "ink_drop",        label: "Ink Drop",         gradient: "linear-gradient(135deg,#f6f4f0,#fafaf7)", unlock: "299 PC", price: 299, component: InkDropBanner, lightTheme: true },
+  { id: "thunder_storm",   label: "Thunder Storm",    gradient: "linear-gradient(135deg,#060810,#080e20)", unlock: "299 PC", price: 299, component: ThunderStormBanner },
+  { id: "neon_pulse",      label: "Neon Pulse",       gradient: "linear-gradient(135deg,#04020c,#0c0520)", unlock: "299 PC", price: 299, component: NeonPulseBanner },
+  { id: "deep_sea",        label: "Deep Sea",         gradient: "linear-gradient(135deg,#00020a,#00061a)", unlock: "299 PC", price: 299, component: DeepSeaBanner },
+  { id: "prismatic_light", label: "Prismatic Light",  gradient: "linear-gradient(135deg,#f0f2f8,#f8fafc)", unlock: "299 PC", price: 299, component: PrismaticLightBanner, lightTheme: true },
+  { id: "sand_dunes",      label: "Sand Dunes",       gradient: "linear-gradient(135deg,#c47820,#e8a830)", unlock: "299 PC", price: 299, component: SandDunesBanner },
+  { id: "ember_phoenix",   label: "Ember Phoenix",    gradient: "linear-gradient(135deg,#040100,#1c0400)", unlock: "299 PC", price: 299, component: EmberPhoenixBanner },
+  { id: "crystal_cave",    label: "Crystal Cave",     gradient: "linear-gradient(135deg,#080515,#0e0820)", unlock: "299 PC", price: 299, component: CrystalCaveBanner },
+  { id: "hacker_terminal", label: "Hacker Terminal",  gradient: "linear-gradient(135deg,#010804,#021408)", unlock: "299 PC", price: 299, component: HackerTerminalBanner },
+  { id: "tidal_surge",     label: "Tidal Surge",      gradient: "linear-gradient(135deg,#010c1a,#002040)", unlock: "299 PC", price: 299, component: TidalSurgeBanner },
+  { id: "solar_wind",      label: "Solar Wind",       gradient: "linear-gradient(135deg,#060200,#130500)", unlock: "299 PC", price: 299, component: SolarWindBanner },
+  { id: "lava_lamp",       label: "Lava Lamp",        gradient: "linear-gradient(135deg,#0e0500,#1c0800)", unlock: "299 PC", price: 299, component: LavaLampBanner },
 ];
 
 const STORE_BORDERS = [
@@ -1229,6 +1239,13 @@ export default function StoreScreen({ setScreenAction, themeId, audio, initialSe
             const owned = banner.id === "default" || purchasedItems.includes(banner.id); const price = banner.price ?? 0;
             const showFreeClaim = canClaimFreeBanner && !owned;
             const isClaiming = claimingBannerId === banner.id;
+            const lt = !!banner.lightTheme;
+            const tc   = lt ? "#111"              : "#fff";
+            const tc2  = lt ? "rgba(0,0,0,0.6)"  : "rgba(255,255,255,0.74)";
+            const ownedBtnBg     = lt ? "rgba(0,0,0,0.07)" : "rgba(255,255,255,0.06)";
+            const ownedBtnBorder = lt ? "rgba(0,0,0,0.18)" : "rgba(255,255,255,0.14)";
+            const ownedBtnColor  = lt ? "rgba(0,0,0,0.45)"  : "rgba(255,255,255,0.65)";
+            const infoBg         = lt ? "rgba(0,0,0,0.06)"  : "rgba(0,0,0,0.35)";
             return (
               <div className="store-card" style={{ borderRadius: 18, overflow: "hidden", border: `2px solid ${owned ? "#4CAF50" : showFreeClaim ? "#FCD34D" : accent + "33"}`, background: banner.gradient, padding: "0", position: "relative", boxShadow: owned ? "none" : showFreeClaim ? "0 8px 32px rgba(252,211,77,0.35)" : `0 8px 32px ${accent}22` }}>
                 <div style={{ height: 120, position: "relative" }}>
@@ -1237,14 +1254,14 @@ export default function StoreScreen({ setScreenAction, themeId, audio, initialSe
                     <UnlockBadge text={owned ? "Owned" : showFreeClaim ? "Free Reward" : banner.unlock} accent={owned ? "#4CAF50" : showFreeClaim ? "#FCD34D" : accent} />
                   </div>
                 </div>
-                <div style={{ padding: 24 }}>
-                  <div style={{ fontFamily: t.fontDisplay, fontSize: 22, fontWeight: 900, color: "#fff", letterSpacing: "0.04em", marginBottom: 6 }}>{banner.label}</div>
-                  <div style={{ fontFamily: t.fontBody, fontSize: 13, color: "rgba(255,255,255,0.74)", fontStyle: "italic", marginBottom: 16, display: "flex", alignItems: "center", gap: 6 }}>
+                <div style={{ padding: 24, background: infoBg }}>
+                  <div style={{ fontFamily: t.fontDisplay, fontSize: 22, fontWeight: 900, color: tc, letterSpacing: "0.04em", marginBottom: 6 }}>{banner.label}</div>
+                  <div style={{ fontFamily: t.fontBody, fontSize: 13, color: tc2, fontStyle: "italic", marginBottom: 16, display: "flex", alignItems: "center", gap: 6 }}>
                     {showFreeClaim ? (<span style={{ color: "#FCD34D", fontWeight: 700 }}>Redeem with AI Gauntlet reward</span>) : banner.unlock === "Free" ? "Free to unlock" : (<><span>Unlock for {price.toLocaleString()}</span><ProtoSVG size={12} /></>)}
                   </div>
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-                    {owned ? (<div style={{ fontFamily: t.fontMono, fontSize: 12, fontWeight: 900, color: "#4CAF50", letterSpacing: "0.06em" }}>OWNED</div>) : showFreeClaim ? (<div style={{ fontFamily: t.fontMono, fontSize: 12, fontWeight: 900, color: "#FCD34D", letterSpacing: "0.06em" }}>FREE</div>) : (<div style={{ fontFamily: t.fontMono, fontSize: 12, fontWeight: 900, color: accent, letterSpacing: "0.06em", display: "inline-flex", alignItems: "center", gap: 6 }}><span>{price.toLocaleString()}</span><ProtoSVG size={16} /></div>)}
-                    {owned ? (<button disabled style={{ background: "rgba(255,255,255,0.06)", border: `1px solid rgba(255,255,255,0.14)`, borderRadius: 10, padding: "10px 14px", fontFamily: t.fontDisplay, fontSize: 12, fontWeight: 900, color: "rgba(255,255,255,0.65)", cursor: "not-allowed" }}>✓</button>) : showFreeClaim ? (<button onClick={() => claimFreeBanner(banner.id, banner.label)} disabled={!!claimingBannerId} style={{ background: "#FCD34D", border: "none", borderRadius: 10, padding: "10px 14px", fontFamily: t.fontDisplay, fontSize: 12, fontWeight: 900, color: "#000", cursor: claimingBannerId ? "wait" : "pointer", whiteSpace: "nowrap" as const, boxShadow: "0 0 16px rgba(252,211,77,0.5)", opacity: claimingBannerId && !isClaiming ? 0.6 : 1 }}>{isClaiming ? "CLAIMING…" : "CLAIM FREE"}</button>) : (<button onClick={() => handleBuyCosmetic(banner.id, price, `${banner.label} Banner`)} disabled={price <= 0} style={{ background: accent, border: "none", borderRadius: 10, padding: "10px 14px", fontFamily: t.fontDisplay, fontSize: 12, fontWeight: 900, color: "#000", cursor: price <= 0 ? "not-allowed" : "pointer", whiteSpace: "nowrap" as const, opacity: price <= 0 ? 0.7 : 1 }}>{price <= 0 ? "UNAVAILABLE" : "UNLOCK"}</button>)}
+                    {owned ? (<div style={{ fontFamily: t.fontMono, fontSize: 12, fontWeight: 900, color: "#4CAF50", letterSpacing: "0.06em" }}>OWNED</div>) : showFreeClaim ? (<div style={{ fontFamily: t.fontMono, fontSize: 12, fontWeight: 900, color: "#FCD34D", letterSpacing: "0.06em" }}>FREE</div>) : (<div style={{ fontFamily: t.fontMono, fontSize: 12, fontWeight: 900, color: lt ? "#CC0000" : accent, letterSpacing: "0.06em", display: "inline-flex", alignItems: "center", gap: 6 }}><span>{price.toLocaleString()}</span><ProtoSVG size={16} /></div>)}
+                    {owned ? (<button disabled style={{ background: ownedBtnBg, border: `1px solid ${ownedBtnBorder}`, borderRadius: 10, padding: "10px 14px", fontFamily: t.fontDisplay, fontSize: 12, fontWeight: 900, color: ownedBtnColor, cursor: "not-allowed" }}>✓</button>) : showFreeClaim ? (<button onClick={() => claimFreeBanner(banner.id, banner.label)} disabled={!!claimingBannerId} style={{ background: "#FCD34D", border: "none", borderRadius: 10, padding: "10px 14px", fontFamily: t.fontDisplay, fontSize: 12, fontWeight: 900, color: "#000", cursor: claimingBannerId ? "wait" : "pointer", whiteSpace: "nowrap" as const, boxShadow: "0 0 16px rgba(252,211,77,0.5)", opacity: claimingBannerId && !isClaiming ? 0.6 : 1 }}>{isClaiming ? "CLAIMING…" : "CLAIM FREE"}</button>) : (<button onClick={() => handleBuyCosmetic(banner.id, price, `${banner.label} Banner`)} disabled={price <= 0} style={{ background: accent, border: "none", borderRadius: 10, padding: "10px 14px", fontFamily: t.fontDisplay, fontSize: 12, fontWeight: 900, color: "#000", cursor: price <= 0 ? "not-allowed" : "pointer", whiteSpace: "nowrap" as const, opacity: price <= 0 ? 0.7 : 1 }}>{price <= 0 ? "UNAVAILABLE" : "UNLOCK"}</button>)}
                   </div>
                 </div>
               </div>

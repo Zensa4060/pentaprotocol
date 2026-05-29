@@ -1,48 +1,58 @@
 "use client";
 import React from "react";
-import VoidRiftBanner from "./VoidRiftBanner";
-import BloodMoonBanner from "./BloodMoonBanner";
-import PhantomStrikeBanner from "./PhantomStrikeBanner";
-import SolarFlareBanner from "./SolarFlareBanner";
-import CryoStormBanner from "./CryoStormBanner";
-import NeonCircuitBanner from "./NeonCircuitBanner";
-import StaticGlitchBanner from "./StaticGlitchBanner";
-import GoldenNexusBanner from "./GoldenNexusBanner";
-import PlasmaCoreBanner from "./PlasmaCoreBanner";
-import ToxicSpillBanner from "./ToxicSpillBanner";
-import StormProtocolBanner from "./StormProtocolBanner";
-import ArcticVeilBanner from "./ArcticVeilBanner";
-import StarfieldBanner from "./StarfieldBanner";
-import DigitalRainBanner from "./DigitalRainBanner";
-import InfernoBanner from "./InfernoBanner";
+import DigitalRainBanner     from "./DigitalRainBanner";
+import LightsaberDuelBanner  from "./LightsaberDuelBanner";
+import ArcadeBanner          from "./ArcadeBanner";
+import HyperdriveBanner      from "./HyperdriveBanner";
+import NorthernLightsBanner  from "./NorthernLightsBanner";
+import VoidCollapseBanner    from "./VoidCollapseBanner";
+import LavaFlowBanner        from "./LavaFlowBanner";
+import ParticleWebBanner     from "./ParticleWebBanner";
+import InkDropBanner         from "./InkDropBanner";
+import ThunderStormBanner    from "./ThunderStormBanner";
+import NeonPulseBanner       from "./NeonPulseBanner";
+import DeepSeaBanner         from "./DeepSeaBanner";
+import PrismaticLightBanner  from "./PrismaticLightBanner";
+import SandDunesBanner       from "./SandDunesBanner";
+import EmberPhoenixBanner    from "./EmberPhoenixBanner";
+import CrystalCaveBanner     from "./CrystalCaveBanner";
+import HackerTerminalBanner  from "./HackerTerminalBanner";
+import TidalSurgeBanner      from "./TidalSurgeBanner";
+import SolarWindBanner       from "./SolarWindBanner";
+import LavaLampBanner        from "./LavaLampBanner";
 
 export const BANNERS_DATA: Record<string, any> = {
-  default: { id: "default", gradient: "linear-gradient(135deg,#1a1a2e,#16213e)" },
-  void_rift: { id: "void_rift", gradient: "linear-gradient(135deg,#0e0020,#020005)", component: VoidRiftBanner },
-  blood_moon: { id: "blood_moon", gradient: "linear-gradient(135deg,#000008,#180008)", component: BloodMoonBanner },
-  phantom_strike: { id: "phantom_strike", gradient: "linear-gradient(135deg,#060010,#110028)", component: PhantomStrikeBanner },
-  solar_flare: { id: "solar_flare", gradient: "linear-gradient(135deg,#060200,#f97316)", component: SolarFlareBanner },
-  cryo_storm: { id: "cryo_storm", gradient: "linear-gradient(135deg,#030c20,#081840)", component: CryoStormBanner },
-  neon_circuit: { id: "neon_circuit", gradient: "linear-gradient(135deg,#020a04,#00ff66)", component: NeonCircuitBanner },
-  static_glitch: { id: "static_glitch", gradient: "linear-gradient(135deg,#050505,#a00038)", component: StaticGlitchBanner },
-  golden_nexus: { id: "golden_nexus", gradient: "linear-gradient(135deg,#060200,#fbbf24)", component: GoldenNexusBanner },
-  plasma_core: { id: "plasma_core", gradient: "linear-gradient(135deg,#12082a,#6d28d9)", component: PlasmaCoreBanner },
-  toxic_spill: { id: "toxic_spill", gradient: "linear-gradient(135deg,#010d03,#0a3d22)", component: ToxicSpillBanner },
-  storm_protocol: { id: "storm_protocol", gradient: "linear-gradient(135deg,#060810,#0b1a3b)", component: StormProtocolBanner },
-  arctic_veil: { id: "arctic_veil", gradient: "linear-gradient(135deg,#d8f0fc,#c5e8fb)", component: ArcticVeilBanner },
-  starfield: { id: "starfield", gradient: "linear-gradient(135deg,#050210,#312e81)", component: StarfieldBanner },
-  digital_rain: { id: "digital_rain", gradient: "linear-gradient(135deg,#000702,#14532d)", component: DigitalRainBanner },
-  inferno: { id: "inferno", gradient: "linear-gradient(135deg,#070100,#ea580c)", component: InfernoBanner },
+  default:          { id: "default",          gradient: "linear-gradient(135deg,#1a1a2e,#16213e)" },
+  digital_rain:     { id: "digital_rain",     gradient: "linear-gradient(135deg,#000702,#14532d)", component: DigitalRainBanner },
+  lightsaber_duel:  { id: "lightsaber_duel",  gradient: "linear-gradient(135deg,#06020e,#0d0520)", component: LightsaberDuelBanner },
+  arcade:           { id: "arcade",           gradient: "linear-gradient(135deg,#000010,#000520)", component: ArcadeBanner },
+  hyperdrive:       { id: "hyperdrive",       gradient: "linear-gradient(135deg,#02030e,#05041a)", component: HyperdriveBanner },
+  northern_lights:  { id: "northern_lights",  gradient: "linear-gradient(135deg,#000c12,#010f18)", component: NorthernLightsBanner },
+  void_collapse:    { id: "void_collapse",    gradient: "linear-gradient(135deg,#02010c,#0a0518)", component: VoidCollapseBanner },
+  lava_flow:        { id: "lava_flow",        gradient: "linear-gradient(135deg,#060100,#200400)", component: LavaFlowBanner },
+  particle_web:     { id: "particle_web",     gradient: "linear-gradient(135deg,#060810,#0b1030)", component: ParticleWebBanner },
+  ink_drop:         { id: "ink_drop",         gradient: "linear-gradient(135deg,#f6f4f0,#fafaf7)", component: InkDropBanner },
+  thunder_storm:    { id: "thunder_storm",    gradient: "linear-gradient(135deg,#060810,#080e20)", component: ThunderStormBanner },
+  neon_pulse:       { id: "neon_pulse",       gradient: "linear-gradient(135deg,#04020c,#0c0520)", component: NeonPulseBanner },
+  deep_sea:         { id: "deep_sea",         gradient: "linear-gradient(135deg,#00020a,#00061a)", component: DeepSeaBanner },
+  prismatic_light:  { id: "prismatic_light",  gradient: "linear-gradient(135deg,#f0f2f8,#f8fafc)", component: PrismaticLightBanner },
+  sand_dunes:       { id: "sand_dunes",       gradient: "linear-gradient(135deg,#c47820,#e8a830)", component: SandDunesBanner },
+  ember_phoenix:    { id: "ember_phoenix",    gradient: "linear-gradient(135deg,#040100,#1c0400)", component: EmberPhoenixBanner },
+  crystal_cave:     { id: "crystal_cave",     gradient: "linear-gradient(135deg,#080515,#0e0820)", component: CrystalCaveBanner },
+  hacker_terminal:  { id: "hacker_terminal",  gradient: "linear-gradient(135deg,#010804,#021408)", component: HackerTerminalBanner },
+  tidal_surge:      { id: "tidal_surge",      gradient: "linear-gradient(135deg,#010c1a,#002040)", component: TidalSurgeBanner },
+  solar_wind:       { id: "solar_wind",       gradient: "linear-gradient(135deg,#060200,#130500)", component: SolarWindBanner },
+  lava_lamp:        { id: "lava_lamp",        gradient: "linear-gradient(135deg,#0e0500,#1c0800)", component: LavaLampBanner },
 };
 
 const normalizeId = (id: string) => id?.toLowerCase().replace(/\s+/g, "_") || "default";
 
-export function BannerRenderer({ bannerId, style = {}, hideLabels = false }: { bannerId: string; style?: React.CSSProperties; hideLabels?: boolean }) {
+export function BannerRenderer({ bannerId, style = {}, hideLabels: _hideLabels = false }: { bannerId: string; style?: React.CSSProperties; hideLabels?: boolean }) {
   const nid = normalizeId(bannerId);
   const banner = BANNERS_DATA[nid] || BANNERS_DATA.default;
   if (banner.component) {
     const BannerComp = banner.component;
-    return <BannerComp style={{ width: "100%", height: "100%", ...style }} hideLabels={hideLabels} />;
+    return <BannerComp style={{ width: "100%", height: "100%", ...style }} />;
   }
   return <div style={{ width: "100%", height: "100%", background: banner.gradient, ...style }} />;
 }

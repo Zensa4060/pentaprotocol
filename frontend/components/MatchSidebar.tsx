@@ -4,7 +4,6 @@ import { formatSeriesPts } from "@/lib/seriesPoints";
 import { Piece, Flame, Skull, SnowflakePiece, IceShardPiece } from "./GamePieces";
 import type { Phase } from "./GamePieces";
 import type { Screen } from "@/lib/types";
-import BloodMoonBanner from "./BloodMoonBanner";
 import { BannerRenderer, BANNERS_DATA } from "./BannerRenderer";
 import { useBannerShineEnabled } from "@/lib/bannerShinePreference";
 import { useAuthStore } from "@/lib/store";
