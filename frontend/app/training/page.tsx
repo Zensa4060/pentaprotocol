@@ -156,10 +156,10 @@ export default function TrainingPage() {
               transition: "all 0.2s ease",
               overflowWrap: "anywhere",
             }}>
-              SINGLEPLAYER
+              SOLO
             </div>
             <div style={{ marginTop: 8, color: t.textMuted, lineHeight: 1.5, fontSize: "clamp(14px, 3.2vw, 23px)" }}>
-              PRACTICE MODE
+              PASS & PLAY
             </div>
           </button>
         </div>
