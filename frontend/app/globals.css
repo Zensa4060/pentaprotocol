@@ -22,9 +22,9 @@
   font-style: normal;
 }
 @font-face {
-  font-family: 'PentaOrbit';
-  src: url('/fonts/PentaOrbit-Regular.ttf') format('truetype');
-  font-weight: normal;
+  font-family: 'Orbitron';
+  src: url('/fonts/Orbitron-Variable.ttf') format('truetype');
+  font-weight: 100 900;
   font-style: normal;
 }
 

@@ -67,10 +67,10 @@ export const THEMES: Record<ThemeId, {
     danger: "#FF4080", success: "#00FF9B",
     gold: "#FFD060", boardBg: "#04081A", boardLine: "#1a2a52",
     navBg: "rgba(2,4,15,0.96)", inputBg: "#04081A", overlay: "rgba(2,4,15,0.94)",
-    // PentaOrbit: custom geometric space font designed for this theme.
-    fontDisplay: "'PentaOrbit', 'GuildOf', sans-serif",
-    fontBody: "'PentaOrbit', 'GuildOf', sans-serif",
-    fontMono: "'PentaOrbit', 'GuildOf', monospace",
+    // Orbitron: geometric space font, locally hosted, perfectly matches this theme.
+    fontDisplay: "'Orbitron', 'GuildOf', sans-serif",
+    fontBody: "'Orbitron', 'GuildOf', sans-serif",
+    fontMono: "'Orbitron', monospace",
     pieces: { p1: "α", p2: "Ω" },
     isLight: false,
   },
