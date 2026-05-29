@@ -24,7 +24,7 @@ interface Props {
 }
 
 const CARDS = [
-  { key: "singleplayer" as Screen, title: "1V1: OFFLINE", sub: "" },
+  { key: "singleplayer" as Screen, title: "PASS & PLAY", sub: "" },
   { key: "lobby" as Screen, title: "1V1: ONLINE", sub: "" },
   { key: "ai" as Screen, title: "TRAINING BOT", sub: "" },
 ];
