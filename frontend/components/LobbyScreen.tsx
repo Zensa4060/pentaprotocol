@@ -203,6 +203,22 @@ export default function LobbyScreen({
     return () => window.removeEventListener("resize", check);
   }, []);
 
+  // ── My banner — localStorage is source of truth ──────────────────────────
+  const [myBannerSkin, setMyBannerSkin] = useState<string>(() => {
+    if (typeof window === "undefined") return "default";
+    const ct = loadCustomTheme();
+    return ct.bannerSkin || (user as any)?.banner || "default";
+  });
+  useEffect(() => {
+    const sync = () => {
+      const ct = loadCustomTheme();
+      setMyBannerSkin(ct.bannerSkin || (user as any)?.banner || "default");
+    };
+    sync();
+    window.addEventListener("pp_custom_theme_changed", sync);
+    return () => window.removeEventListener("pp_custom_theme_changed", sync);
+  }, []);
+
   useEffect(() => {
     if (phase !== "matchup" || !pathname?.startsWith("/play/matchfound")) {
       setMatchFoundBackModal(false);
@@ -685,8 +701,7 @@ export default function LobbyScreen({
         ? "RANKED · FIRST TO 5 POINTS"
         : "UNRANKED · FIRST TO 5 POINTS";
     const vsSize = isMobile ? 220 : 380;
-    const ct = loadCustomTheme();
-    const myMatchBanner = String((user as any)?.banner || ct.bannerSkin || "default");
+    const myMatchBanner = myBannerSkin;
     const oppMatchBanner = String(propMatchupOpponent?.banner || "default");
     const barTrack = mfSkin === "classic_light" ? "rgba(0,0,0,0.14)" : "rgba(255,255,255,0.12)";
 

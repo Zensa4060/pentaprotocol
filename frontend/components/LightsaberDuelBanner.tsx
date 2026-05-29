@@ -78,7 +78,7 @@ function draw(ctx: CanvasRenderingContext2D, t: number, W: number, H: number, s:
       tg.addColorStop(1, `rgba(${sp.col[0]},${sp.col[1]},${sp.col[2]},0)`);
       ctx.strokeStyle = tg; ctx.lineWidth = 1.2 * p; ctx.stroke();
     }
-    const sg = ctx.createRadialGradient(sp.x, sp.y, 0, sp.x, sp.y, 3 * p);
+    const sg = ctx.createRadialGradient(sp.x, sp.y, 0, sp.x, sp.y, Math.max(0.01, 3 * p));
     sg.addColorStop(0, `rgba(255,255,220,${p})`); sg.addColorStop(1, "rgba(0,0,0,0)");
     ctx.fillStyle = sg; ctx.beginPath(); ctx.arc(sp.x, sp.y, 3 * p, 0, Math.PI * 2); ctx.fill(); ctx.restore();
   });
