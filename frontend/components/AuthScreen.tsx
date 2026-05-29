@@ -97,13 +97,19 @@ export const PARTICLE_COLOR_PALETTES: ParticleColorPalette[] = [
 
 const PARTICLE_PALETTE_COUNT = PARTICLE_COLOR_PALETTES.length;
 
+function clampParticlePalette(mode: number): number {
+  if (!Number.isFinite(mode) || mode < 0) return 0;
+  if (mode >= PARTICLE_PALETTE_COUNT) return PARTICLE_PALETTE_COUNT - 1;
+  return mode | 0;
+}
+
 type ParticleSettings = {
   count: number;
   connect: number;
   attractRadius: number;
   attractForce: number;
   maxSpeed: number;
-  /** -1 = each particle picks a random palette; 0–49 = single color for all */
+  /** 0–49 palette index (0 = Blood Red) */
   colorMode: number;
 };
 
@@ -113,7 +119,7 @@ const DEFAULT_PARTICLE_SETTINGS: ParticleSettings = {
   attractRadius: 100,
   attractForce: 250,
   maxSpeed: 10,
-  colorMode: -1,
+  colorMode: 0,
 };
 
 function ParticleCanvas({ settings }: { settings: ParticleSettings }) {
@@ -214,10 +220,8 @@ function ParticleCanvas({ settings }: { settings: ParticleSettings }) {
     let vxs = new Float32Array(0);
     let vys = new Float32Array(0);
     let bright = new Uint8Array(0);
-    let colorIdx = new Uint8Array(0);
     let nextLink = new Int32Array(0); // particle → next-in-bucket index
     let currentCount = -1;
-    let lastColorMode = -999;
 
     const ensureCapacity = (count: number) => {
       if (count <= capacity) return;
@@ -228,7 +232,6 @@ function ParticleCanvas({ settings }: { settings: ParticleSettings }) {
       const nVxs = new Float32Array(cap);  nVxs.set(vxs);  vxs = nVxs;
       const nVys = new Float32Array(cap);  nVys.set(vys);  vys = nVys;
       const nBright = new Uint8Array(cap); nBright.set(bright); bright = nBright;
-      const nColor = new Uint8Array(cap); nColor.set(colorIdx); colorIdx = nColor;
       nextLink = new Int32Array(cap);
       capacity = cap;
     };
@@ -236,21 +239,12 @@ function ParticleCanvas({ settings }: { settings: ParticleSettings }) {
     const seed = (count: number) => {
       ensureCapacity(count);
       currentCount = count;
-      const mode = settingsRef.current.colorMode;
-      const fixed =
-        mode >= 0 && mode < PARTICLE_PALETTE_COUNT
-          ? mode
-          : -1;
       for (let i = 0; i < count; i++) {
         xs[i]  = Math.random() * W;
         ys[i]  = Math.random() * H;
         vxs[i] = (Math.random() - 0.5) * 0.79;
         vys[i] = (Math.random() - 0.5) * 0.79;
         bright[i] = Math.random() < 0.15 ? 1 : 0;
-        colorIdx[i] =
-          fixed >= 0
-            ? fixed
-            : (Math.random() * PARTICLE_PALETTE_COUNT) | 0;
       }
     };
 
@@ -314,10 +308,7 @@ function ParticleCanvas({ settings }: { settings: ParticleSettings }) {
       const attractRadius = s.attractRadius;
       const attractForce = s.attractForce;
       const maxSpeed = s.maxSpeed;
-      if (count !== currentCount || s.colorMode !== lastColorMode) {
-        lastColorMode = s.colorMode;
-        seed(count);
-      }
+      if (count !== currentCount) seed(count);
 
       // Trail fade every other frame. At 60 fps the strobe is well
       // below perceptual threshold (the eye averages over ~33 ms), but
@@ -379,65 +370,45 @@ function ParticleCanvas({ settings }: { settings: ParticleSettings }) {
       // linked list per neighbour cell keeps the hot loop branch-light
       // and cache-friendly.
       const conn2 = connect * connect;
+      const palette = clampParticlePalette(s.colorMode);
       ctx.lineWidth = 0.8;
-
-      const drawConnectionsForPalette = (p: number) => {
-        ctx.beginPath();
-        let hasLine = false;
-        for (let i = 0; i < ptsLen; i++) {
-          if (colorIdx[i] !== p) continue;
-          const ax = xs[i], ay = ys[i];
-          let cx = (ax / cell) | 0;
-          let cy = (ay / cell) | 0;
-          if (cx < 0) cx = 0; else if (cx >= cols) cx = cols - 1;
-          if (cy < 0) cy = 0; else if (cy >= rows) cy = rows - 1;
-          for (let oy = -1; oy <= 1; oy++) {
-            const ny = cy + oy;
-            if (ny < 0 || ny >= rows) continue;
-            for (let ox = -1; ox <= 1; ox++) {
-              const nx = cx + ox;
-              if (nx < 0 || nx >= cols) continue;
-              let j = bucketHead[nx + ny * cols];
-              while (j !== -1) {
-                if (j > i && colorIdx[j] === p) {
-                  const ddx = ax - xs[j];
-                  const ddy = ay - ys[j];
-                  if (ddx * ddx + ddy * ddy < conn2) {
-                    ctx.moveTo(ax, ay);
-                    ctx.lineTo(xs[j], ys[j]);
-                    hasLine = true;
-                  }
+      ctx.beginPath();
+      for (let i = 0; i < ptsLen; i++) {
+        const ax = xs[i], ay = ys[i];
+        let cx = (ax / cell) | 0;
+        let cy = (ay / cell) | 0;
+        if (cx < 0) cx = 0; else if (cx >= cols) cx = cols - 1;
+        if (cy < 0) cy = 0; else if (cy >= rows) cy = rows - 1;
+        for (let oy = -1; oy <= 1; oy++) {
+          const ny = cy + oy;
+          if (ny < 0 || ny >= rows) continue;
+          for (let ox = -1; ox <= 1; ox++) {
+            const nx = cx + ox;
+            if (nx < 0 || nx >= cols) continue;
+            let j = bucketHead[nx + ny * cols];
+            while (j !== -1) {
+              if (j > i) {
+                const ddx = ax - xs[j];
+                const ddy = ay - ys[j];
+                if (ddx * ddx + ddy * ddy < conn2) {
+                  ctx.moveTo(ax, ay);
+                  ctx.lineTo(xs[j], ys[j]);
                 }
-                j = nextLink[j];
               }
+              j = nextLink[j];
             }
           }
         }
-        if (hasLine) {
-          ctx.strokeStyle = PARTICLE_COLOR_PALETTES[p].line;
-          ctx.stroke();
-        }
-      };
-
-      const fixedPalette =
-        s.colorMode >= 0 && s.colorMode < PARTICLE_PALETTE_COUNT
-          ? s.colorMode
-          : -1;
-      if (fixedPalette >= 0) {
-        drawConnectionsForPalette(fixedPalette);
-      } else {
-        for (let p = 0; p < PARTICLE_PALETTE_COUNT; p++) {
-          drawConnectionsForPalette(p);
-        }
       }
+      ctx.strokeStyle = PARTICLE_COLOR_PALETTES[palette].line;
+      ctx.stroke();
 
       // Particles via cached glow sprites (no shadowBlur → no GPU back-pressure).
       for (let i = 0; i < ptsLen; i++) {
-        const p = colorIdx[i];
         if (bright[i]) {
-          ctx.drawImage(glowBrights[p], xs[i] - gbHalf, ys[i] - gbHalf);
+          ctx.drawImage(glowBrights[palette], xs[i] - gbHalf, ys[i] - gbHalf);
         } else {
-          ctx.drawImage(glowNormals[p], xs[i] - gnHalf, ys[i] - gnHalf);
+          ctx.drawImage(glowNormals[palette], xs[i] - gnHalf, ys[i] - gnHalf);
         }
       }
     };
@@ -1295,7 +1266,6 @@ export default function AuthScreen({ setScreenAction, themeId, audio }: Props) {
                         fontSize: 12,
                       }}
                     >
-                      <option value={-1}>Rainbow (all 50)</option>
                       {PARTICLE_COLOR_PALETTES.map((palette, idx) => (
                         <option key={palette.name} value={idx}>
                           {palette.name}
