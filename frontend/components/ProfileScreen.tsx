@@ -189,6 +189,11 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
   const [loading, setLoading]             = useState(true);
   const [profileError, setProfileError]   = useState<string | null>(null);
   const [profileFetchKey, setProfileFetchKey] = useState(0);
+  // Single source of truth for the displayed banner — always driven by
+  // localStorage so it stays in sync with CareerScreen, GameScreen, etc.
+  const [displayBannerId, setDisplayBannerId] = useState<string>(
+    () => loadCustomTheme().bannerSkin || "default"
+  );
 
   const [twoFASection, setTwoFASection]   = useState<"idle"|"setup"|"disable">("idle");
   const [qrCode, setQrCode]               = useState("");
@@ -252,6 +257,20 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
         setProfile(res.data);
         updateUser(res.data);
         setTwoFAReady(true);
+        // Keep localStorage in sync with the API value.
+        // If the user has never equipped a banner locally (still "default"),
+        // adopt the API value so all screens agree on first load.
+        // If localStorage already has a custom value, trust it (it's more recent).
+        const ct = loadCustomTheme();
+        const localSkin = ct.bannerSkin || "default";
+        const apiSkin   = res.data?.banner || "default";
+        if (localSkin === "default" && apiSkin !== "default") {
+          saveCustomTheme({ ...ct, bannerSkin: apiSkin });
+          setDisplayBannerId(apiSkin);
+          window.dispatchEvent(new Event("pp_custom_theme_changed"));
+        } else {
+          setDisplayBannerId(localSkin);
+        }
       } catch (e: any) {
         if (cancelled) return;
         const msg = e?.code === "ECONNABORTED" ? "Request timed out." : e?.message || "Could not load profile.";
@@ -313,6 +332,19 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
     };
   }, [user]);
 
+  // Sync banner whenever CollectionScreen or any other screen equips
+  // something — they all fire "pp_custom_theme_changed".
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const sync = () => {
+      const skin = loadCustomTheme().bannerSkin || "default";
+      setDisplayBannerId(skin);
+      setProfile((p: any) => p ? { ...p, banner: skin } : p);
+    };
+    window.addEventListener("pp_custom_theme_changed", sync);
+    return () => window.removeEventListener("pp_custom_theme_changed", sync);
+  }, []);
+
   if (loading) return (
     <div style={{ minHeight:"100vh", display:"flex", alignItems:"center", justifyContent:"center", background: themeId === "space" ? "transparent" : t.bg }}>
       <div style={{ fontFamily:t.fontMono, fontSize:14, color:t.textMuted }}>Loading…</div>
@@ -337,7 +369,7 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
   const placementPct = (placementCount / 5) * 100;
   const authHeader = { headers: { Authorization: `Bearer ${token}` } };
   const activeTitle     = TITLES.find(ti => ti.id === (profile.title || "newcomer")) || TITLES[0];
-  const activeBanner    = BANNERS.find(b => b.id === (profile.banner || "default")) || BANNERS[0];
+  const activeBanner    = BANNERS.find(b => b.id === displayBannerId) || BANNERS[0];
   const activeBorderDef = PROFILE_BORDERS.find(b => b.id === (profile.border_style || "none")) || PROFILE_BORDERS[0];
 
   // ── 2FA helpers ───────────────────────────────────────────────────────────
