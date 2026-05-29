@@ -32,12 +32,79 @@ interface Props {
   audio?: AuthScreenAudio;
 }
 
+type ParticleColorPalette = {
+  name: string;
+  core: string;
+  mid: string;
+  brightCore: string;
+  brightMid: string;
+  line: string;
+};
+
+/** 50 distinct particle themes (index 0 = classic blood red). */
+export const PARTICLE_COLOR_PALETTES: ParticleColorPalette[] = [
+  { name: "Blood Red", core: "rgba(204,0,0,1)", mid: "rgba(204,0,0,0.55)", brightCore: "rgba(255,90,90,1)", brightMid: "rgba(255,68,68,0.6)", line: "rgba(204,0,0,0.45)" },
+  { name: "Crimson", core: "rgba(220,20,60,1)", mid: "rgba(220,20,60,0.55)", brightCore: "rgba(255,100,120,1)", brightMid: "rgba(255,80,100,0.6)", line: "rgba(220,20,60,0.45)" },
+  { name: "Orange", core: "rgba(255,140,0,1)", mid: "rgba(255,140,0,0.55)", brightCore: "rgba(255,190,80,1)", brightMid: "rgba(255,170,60,0.6)", line: "rgba(255,140,0,0.45)" },
+  { name: "Amber", core: "rgba(255,191,0,1)", mid: "rgba(255,191,0,0.55)", brightCore: "rgba(255,220,100,1)", brightMid: "rgba(255,210,80,0.6)", line: "rgba(255,191,0,0.45)" },
+  { name: "Gold", core: "rgba(255,215,0,1)", mid: "rgba(255,215,0,0.55)", brightCore: "rgba(255,240,130,1)", brightMid: "rgba(255,230,110,0.6)", line: "rgba(255,215,0,0.45)" },
+  { name: "Lime", core: "rgba(124,252,0,1)", mid: "rgba(124,252,0,0.55)", brightCore: "rgba(180,255,100,1)", brightMid: "rgba(160,255,80,0.6)", line: "rgba(124,252,0,0.45)" },
+  { name: "Green", core: "rgba(0,200,80,1)", mid: "rgba(0,200,80,0.55)", brightCore: "rgba(80,255,140,1)", brightMid: "rgba(60,255,120,0.6)", line: "rgba(0,200,80,0.45)" },
+  { name: "Emerald", core: "rgba(16,185,129,1)", mid: "rgba(16,185,129,0.55)", brightCore: "rgba(80,230,180,1)", brightMid: "rgba(60,220,160,0.6)", line: "rgba(16,185,129,0.45)" },
+  { name: "Teal", core: "rgba(0,180,170,1)", mid: "rgba(0,180,170,0.55)", brightCore: "rgba(80,230,220,1)", brightMid: "rgba(60,220,210,0.6)", line: "rgba(0,180,170,0.45)" },
+  { name: "Cyan", core: "rgba(0,229,255,1)", mid: "rgba(0,229,255,0.55)", brightCore: "rgba(120,245,255,1)", brightMid: "rgba(100,240,255,0.6)", line: "rgba(0,229,255,0.45)" },
+  { name: "Sky", core: "rgba(56,189,248,1)", mid: "rgba(56,189,248,0.55)", brightCore: "rgba(140,220,255,1)", brightMid: "rgba(120,210,255,0.6)", line: "rgba(56,189,248,0.45)" },
+  { name: "Blue", core: "rgba(59,130,246,1)", mid: "rgba(59,130,246,0.55)", brightCore: "rgba(140,190,255,1)", brightMid: "rgba(120,180,255,0.6)", line: "rgba(59,130,246,0.45)" },
+  { name: "Indigo", core: "rgba(99,102,241,1)", mid: "rgba(99,102,241,0.55)", brightCore: "rgba(160,165,255,1)", brightMid: "rgba(140,150,255,0.6)", line: "rgba(99,102,241,0.45)" },
+  { name: "Violet", core: "rgba(139,92,246,1)", mid: "rgba(139,92,246,0.55)", brightCore: "rgba(190,160,255,1)", brightMid: "rgba(175,145,255,0.6)", line: "rgba(139,92,246,0.45)" },
+  { name: "Purple", core: "rgba(168,85,247,1)", mid: "rgba(168,85,247,0.55)", brightCore: "rgba(210,160,255,1)", brightMid: "rgba(195,145,255,0.6)", line: "rgba(168,85,247,0.45)" },
+  { name: "Fuchsia", core: "rgba(217,70,239,1)", mid: "rgba(217,70,239,0.55)", brightCore: "rgba(240,150,255,1)", brightMid: "rgba(230,130,255,0.6)", line: "rgba(217,70,239,0.45)" },
+  { name: "Pink", core: "rgba(236,72,153,1)", mid: "rgba(236,72,153,0.55)", brightCore: "rgba(255,150,200,1)", brightMid: "rgba(255,130,190,0.6)", line: "rgba(236,72,153,0.45)" },
+  { name: "Rose", core: "rgba(244,63,94,1)", mid: "rgba(244,63,94,0.55)", brightCore: "rgba(255,140,170,1)", brightMid: "rgba(255,120,160,0.6)", line: "rgba(244,63,94,0.45)" },
+  { name: "Coral", core: "rgba(255,127,80,1)", mid: "rgba(255,127,80,0.55)", brightCore: "rgba(255,180,140,1)", brightMid: "rgba(255,165,125,0.6)", line: "rgba(255,127,80,0.45)" },
+  { name: "Peach", core: "rgba(255,160,122,1)", mid: "rgba(255,160,122,0.55)", brightCore: "rgba(255,200,170,1)", brightMid: "rgba(255,185,155,0.6)", line: "rgba(255,160,122,0.45)" },
+  { name: "Mint", core: "rgba(152,251,152,1)", mid: "rgba(152,251,152,0.55)", brightCore: "rgba(200,255,200,1)", brightMid: "rgba(185,255,185,0.6)", line: "rgba(152,251,152,0.45)" },
+  { name: "Jade", core: "rgba(0,168,107,1)", mid: "rgba(0,168,107,0.55)", brightCore: "rgba(80,220,160,1)", brightMid: "rgba(60,210,145,0.6)", line: "rgba(0,168,107,0.45)" },
+  { name: "Aqua", core: "rgba(0,255,255,1)", mid: "rgba(0,255,255,0.55)", brightCore: "rgba(150,255,255,1)", brightMid: "rgba(120,255,255,0.6)", line: "rgba(0,255,255,0.45)" },
+  { name: "Azure", core: "rgba(0,127,255,1)", mid: "rgba(0,127,255,0.55)", brightCore: "rgba(100,180,255,1)", brightMid: "rgba(80,170,255,0.6)", line: "rgba(0,127,255,0.45)" },
+  { name: "Navy", core: "rgba(30,58,138,1)", mid: "rgba(30,58,138,0.55)", brightCore: "rgba(90,120,200,1)", brightMid: "rgba(70,105,190,0.6)", line: "rgba(30,58,138,0.45)" },
+  { name: "Lavender", core: "rgba(180,160,255,1)", mid: "rgba(180,160,255,0.55)", brightCore: "rgba(220,210,255,1)", brightMid: "rgba(210,200,255,0.6)", line: "rgba(180,160,255,0.45)" },
+  { name: "Magenta", core: "rgba(255,0,255,1)", mid: "rgba(255,0,255,0.55)", brightCore: "rgba(255,140,255,1)", brightMid: "rgba(255,100,255,0.6)", line: "rgba(255,0,255,0.45)" },
+  { name: "Scarlet", core: "rgba(255,36,0,1)", mid: "rgba(255,36,0,0.55)", brightCore: "rgba(255,120,80,1)", brightMid: "rgba(255,100,60,0.6)", line: "rgba(255,36,0,0.45)" },
+  { name: "Maroon", core: "rgba(128,0,32,1)", mid: "rgba(128,0,32,0.55)", brightCore: "rgba(180,60,90,1)", brightMid: "rgba(165,45,75,0.6)", line: "rgba(128,0,32,0.45)" },
+  { name: "Olive", core: "rgba(128,128,0,1)", mid: "rgba(128,128,0,0.55)", brightCore: "rgba(180,180,80,1)", brightMid: "rgba(165,165,65,0.6)", line: "rgba(128,128,0,0.45)" },
+  { name: "Chartreuse", core: "rgba(127,255,0,1)", mid: "rgba(127,255,0,0.55)", brightCore: "rgba(180,255,100,1)", brightMid: "rgba(165,255,80,0.6)", line: "rgba(127,255,0,0.45)" },
+  { name: "Turquoise", core: "rgba(64,224,208,1)", mid: "rgba(64,224,208,0.55)", brightCore: "rgba(140,255,240,1)", brightMid: "rgba(120,250,230,0.6)", line: "rgba(64,224,208,0.45)" },
+  { name: "Periwinkle", core: "rgba(204,204,255,1)", mid: "rgba(204,204,255,0.55)", brightCore: "rgba(235,235,255,1)", brightMid: "rgba(225,225,255,0.6)", line: "rgba(204,204,255,0.45)" },
+  { name: "Plum", core: "rgba(142,69,133,1)", mid: "rgba(142,69,133,0.55)", brightCore: "rgba(190,120,180,1)", brightMid: "rgba(175,105,170,0.6)", line: "rgba(142,69,133,0.45)" },
+  { name: "Bronze", core: "rgba(205,127,50,1)", mid: "rgba(205,127,50,0.55)", brightCore: "rgba(235,180,100,1)", brightMid: "rgba(225,165,85,0.6)", line: "rgba(205,127,50,0.45)" },
+  { name: "Copper", core: "rgba(184,115,51,1)", mid: "rgba(184,115,51,0.55)", brightCore: "rgba(220,165,100,1)", brightMid: "rgba(210,150,85,0.6)", line: "rgba(184,115,51,0.45)" },
+  { name: "Silver", core: "rgba(192,192,192,1)", mid: "rgba(192,192,192,0.55)", brightCore: "rgba(230,230,230,1)", brightMid: "rgba(220,220,220,0.6)", line: "rgba(192,192,192,0.45)" },
+  { name: "White", core: "rgba(255,255,255,1)", mid: "rgba(255,255,255,0.45)", brightCore: "rgba(255,255,255,1)", brightMid: "rgba(255,255,255,0.65)", line: "rgba(255,255,255,0.35)" },
+  { name: "Ice", core: "rgba(200,240,255,1)", mid: "rgba(200,240,255,0.55)", brightCore: "rgba(235,250,255,1)", brightMid: "rgba(225,245,255,0.6)", line: "rgba(200,240,255,0.45)" },
+  { name: "Neon Green", core: "rgba(57,255,20,1)", mid: "rgba(57,255,20,0.55)", brightCore: "rgba(150,255,120,1)", brightMid: "rgba(130,255,100,0.6)", line: "rgba(57,255,20,0.45)" },
+  { name: "Neon Pink", core: "rgba(255,16,240,1)", mid: "rgba(255,16,240,0.55)", brightCore: "rgba(255,120,245,1)", brightMid: "rgba(255,90,240,0.6)", line: "rgba(255,16,240,0.45)" },
+  { name: "Neon Blue", core: "rgba(28,100,255,1)", mid: "rgba(28,100,255,0.55)", brightCore: "rgba(120,170,255,1)", brightMid: "rgba(100,155,255,0.6)", line: "rgba(28,100,255,0.45)" },
+  { name: "Sunset", core: "rgba(255,94,77,1)", mid: "rgba(255,94,77,0.55)", brightCore: "rgba(255,160,140,1)", brightMid: "rgba(255,145,125,0.6)", line: "rgba(255,94,77,0.45)" },
+  { name: "Dusk", core: "rgba(120,80,180,1)", mid: "rgba(120,80,180,0.55)", brightCore: "rgba(170,140,220,1)", brightMid: "rgba(155,125,210,0.6)", line: "rgba(120,80,180,0.45)" },
+  { name: "Forest", core: "rgba(34,139,34,1)", mid: "rgba(34,139,34,0.55)", brightCore: "rgba(90,190,90,1)", brightMid: "rgba(75,175,75,0.6)", line: "rgba(34,139,34,0.45)" },
+  { name: "Wine", core: "rgba(114,47,55,1)", mid: "rgba(114,47,55,0.55)", brightCore: "rgba(165,95,105,1)", brightMid: "rgba(150,80,90,0.6)", line: "rgba(114,47,55,0.45)" },
+  { name: "Rust", core: "rgba(183,65,14,1)", mid: "rgba(183,65,14,0.55)", brightCore: "rgba(225,130,70,1)", brightMid: "rgba(215,115,55,0.6)", line: "rgba(183,65,14,0.45)" },
+  { name: "Slate", core: "rgba(100,116,139,1)", mid: "rgba(100,116,139,0.55)", brightCore: "rgba(150,165,185,1)", brightMid: "rgba(135,150,175,0.6)", line: "rgba(100,116,139,0.45)" },
+  { name: "Charcoal", core: "rgba(80,80,80,1)", mid: "rgba(80,80,80,0.55)", brightCore: "rgba(140,140,140,1)", brightMid: "rgba(125,125,125,0.6)", line: "rgba(80,80,80,0.45)" },
+  { name: "Honey", core: "rgba(235,180,52,1)", mid: "rgba(235,180,52,0.55)", brightCore: "rgba(255,220,120,1)", brightMid: "rgba(255,210,100,0.6)", line: "rgba(235,180,52,0.45)" },
+];
+
+const PARTICLE_PALETTE_COUNT = PARTICLE_COLOR_PALETTES.length;
+
 type ParticleSettings = {
   count: number;
   connect: number;
   attractRadius: number;
   attractForce: number;
   maxSpeed: number;
+  /** -1 = each particle picks a random palette; 0–49 = single color for all */
+  colorMode: number;
 };
 
 const DEFAULT_PARTICLE_SETTINGS: ParticleSettings = {
@@ -46,6 +113,7 @@ const DEFAULT_PARTICLE_SETTINGS: ParticleSettings = {
   attractRadius: 100,
   attractForce: 250,
   maxSpeed: 10,
+  colorMode: -1,
 };
 
 function ParticleCanvas({ settings }: { settings: ParticleSettings }) {
@@ -128,10 +196,10 @@ function ParticleCanvas({ settings }: { settings: ParticleSettings }) {
       g.fillRect(0, 0, size, size);
       return off;
     };
-    const glowNormal = makeGlow("rgba(204,0,0,1)",   "rgba(204,0,0,0.55)", 5);
-    const glowBright = makeGlow("rgba(255,90,90,1)", "rgba(255,68,68,0.6)", 7);
-    const gnHalf = glowNormal.width / 2;
-    const gbHalf = glowBright.width / 2;
+    const glowNormals = PARTICLE_COLOR_PALETTES.map(p => makeGlow(p.core, p.mid, 5));
+    const glowBrights = PARTICLE_COLOR_PALETTES.map(p => makeGlow(p.brightCore, p.brightMid, 7));
+    const gnHalf = glowNormals[0].width / 2;
+    const gbHalf = glowBrights[0].width / 2;
 
     // ── Particle state in parallel typed arrays ──────────────────────
     // Hot-path reads (`p.x`, `p.vx`, …) on objects-in-an-array each go
@@ -146,8 +214,10 @@ function ParticleCanvas({ settings }: { settings: ParticleSettings }) {
     let vxs = new Float32Array(0);
     let vys = new Float32Array(0);
     let bright = new Uint8Array(0);
+    let colorIdx = new Uint8Array(0);
     let nextLink = new Int32Array(0); // particle → next-in-bucket index
     let currentCount = -1;
+    let lastColorMode = -999;
 
     const ensureCapacity = (count: number) => {
       if (count <= capacity) return;
@@ -158,6 +228,7 @@ function ParticleCanvas({ settings }: { settings: ParticleSettings }) {
       const nVxs = new Float32Array(cap);  nVxs.set(vxs);  vxs = nVxs;
       const nVys = new Float32Array(cap);  nVys.set(vys);  vys = nVys;
       const nBright = new Uint8Array(cap); nBright.set(bright); bright = nBright;
+      const nColor = new Uint8Array(cap); nColor.set(colorIdx); colorIdx = nColor;
       nextLink = new Int32Array(cap);
       capacity = cap;
     };
@@ -165,12 +236,21 @@ function ParticleCanvas({ settings }: { settings: ParticleSettings }) {
     const seed = (count: number) => {
       ensureCapacity(count);
       currentCount = count;
+      const mode = settingsRef.current.colorMode;
+      const fixed =
+        mode >= 0 && mode < PARTICLE_PALETTE_COUNT
+          ? mode
+          : -1;
       for (let i = 0; i < count; i++) {
         xs[i]  = Math.random() * W;
         ys[i]  = Math.random() * H;
         vxs[i] = (Math.random() - 0.5) * 0.79;
         vys[i] = (Math.random() - 0.5) * 0.79;
         bright[i] = Math.random() < 0.15 ? 1 : 0;
+        colorIdx[i] =
+          fixed >= 0
+            ? fixed
+            : (Math.random() * PARTICLE_PALETTE_COUNT) | 0;
       }
     };
 
@@ -234,7 +314,10 @@ function ParticleCanvas({ settings }: { settings: ParticleSettings }) {
       const attractRadius = s.attractRadius;
       const attractForce = s.attractForce;
       const maxSpeed = s.maxSpeed;
-      if (count !== currentCount) seed(count);
+      if (count !== currentCount || s.colorMode !== lastColorMode) {
+        lastColorMode = s.colorMode;
+        seed(count);
+      }
 
       // Trail fade every other frame. At 60 fps the strobe is well
       // below perceptual threshold (the eye averages over ~33 ms), but
@@ -296,45 +379,65 @@ function ParticleCanvas({ settings }: { settings: ParticleSettings }) {
       // linked list per neighbour cell keeps the hot loop branch-light
       // and cache-friendly.
       const conn2 = connect * connect;
-      ctx.beginPath();
-      for (let i = 0; i < ptsLen; i++) {
-        const ax = xs[i], ay = ys[i];
-        let cx = (ax / cell) | 0;
-        let cy = (ay / cell) | 0;
-        if (cx < 0) cx = 0; else if (cx >= cols) cx = cols - 1;
-        if (cy < 0) cy = 0; else if (cy >= rows) cy = rows - 1;
-        for (let oy = -1; oy <= 1; oy++) {
-          const ny = cy + oy;
-          if (ny < 0 || ny >= rows) continue;
-          for (let ox = -1; ox <= 1; ox++) {
-            const nx = cx + ox;
-            if (nx < 0 || nx >= cols) continue;
-            let j = bucketHead[nx + ny * cols];
-            while (j !== -1) {
-              if (j > i) {
-                const ddx = ax - xs[j];
-                const ddy = ay - ys[j];
-                const dd = ddx * ddx + ddy * ddy;
-                if (dd < conn2) {
-                  ctx.moveTo(ax, ay);
-                  ctx.lineTo(xs[j], ys[j]);
+      ctx.lineWidth = 0.8;
+
+      const drawConnectionsForPalette = (p: number) => {
+        ctx.beginPath();
+        let hasLine = false;
+        for (let i = 0; i < ptsLen; i++) {
+          if (colorIdx[i] !== p) continue;
+          const ax = xs[i], ay = ys[i];
+          let cx = (ax / cell) | 0;
+          let cy = (ay / cell) | 0;
+          if (cx < 0) cx = 0; else if (cx >= cols) cx = cols - 1;
+          if (cy < 0) cy = 0; else if (cy >= rows) cy = rows - 1;
+          for (let oy = -1; oy <= 1; oy++) {
+            const ny = cy + oy;
+            if (ny < 0 || ny >= rows) continue;
+            for (let ox = -1; ox <= 1; ox++) {
+              const nx = cx + ox;
+              if (nx < 0 || nx >= cols) continue;
+              let j = bucketHead[nx + ny * cols];
+              while (j !== -1) {
+                if (j > i && colorIdx[j] === p) {
+                  const ddx = ax - xs[j];
+                  const ddy = ay - ys[j];
+                  if (ddx * ddx + ddy * ddy < conn2) {
+                    ctx.moveTo(ax, ay);
+                    ctx.lineTo(xs[j], ys[j]);
+                    hasLine = true;
+                  }
                 }
+                j = nextLink[j];
               }
-              j = nextLink[j];
             }
           }
         }
+        if (hasLine) {
+          ctx.strokeStyle = PARTICLE_COLOR_PALETTES[p].line;
+          ctx.stroke();
+        }
+      };
+
+      const fixedPalette =
+        s.colorMode >= 0 && s.colorMode < PARTICLE_PALETTE_COUNT
+          ? s.colorMode
+          : -1;
+      if (fixedPalette >= 0) {
+        drawConnectionsForPalette(fixedPalette);
+      } else {
+        for (let p = 0; p < PARTICLE_PALETTE_COUNT; p++) {
+          drawConnectionsForPalette(p);
+        }
       }
-      ctx.strokeStyle = "rgba(204,0,0,0.45)";
-      ctx.lineWidth = 0.8;
-      ctx.stroke();
 
       // Particles via cached glow sprites (no shadowBlur → no GPU back-pressure).
       for (let i = 0; i < ptsLen; i++) {
+        const p = colorIdx[i];
         if (bright[i]) {
-          ctx.drawImage(glowBright, xs[i] - gbHalf, ys[i] - gbHalf);
+          ctx.drawImage(glowBrights[p], xs[i] - gbHalf, ys[i] - gbHalf);
         } else {
-          ctx.drawImage(glowNormal, xs[i] - gnHalf, ys[i] - gnHalf);
+          ctx.drawImage(glowNormals[p], xs[i] - gnHalf, ys[i] - gnHalf);
         }
       }
     };
@@ -1175,6 +1278,30 @@ export default function AuthScreen({ setScreenAction, themeId, audio }: Props) {
                       <input type="range" min={2} max={14} step={0.5} value={particleSettings.maxSpeed} onChange={e => updateParticleSetting("maxSpeed", Number(e.target.value))} style={{ width: "100%" }} />
                       <span style={sliderValueStyle}>{particleSettings.maxSpeed.toFixed(1)}</span>
                     </div>
+                  </div>
+                  <div>
+                    <div style={{ ...labelStyle, marginBottom: 4 }}>Particle Color</div>
+                    <select
+                      value={particleSettings.colorMode}
+                      onChange={e => updateParticleSetting("colorMode", Number(e.target.value))}
+                      style={{
+                        width: "100%",
+                        padding: "7px 8px",
+                        background: "rgba(0,0,0,0.5)",
+                        border: "1px solid rgba(255,255,255,0.18)",
+                        borderRadius: 7,
+                        color: "#eee",
+                        fontFamily: FONT,
+                        fontSize: 12,
+                      }}
+                    >
+                      <option value={-1}>Rainbow (all 50)</option>
+                      {PARTICLE_COLOR_PALETTES.map((palette, idx) => (
+                        <option key={palette.name} value={idx}>
+                          {palette.name}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                   <button
                     type="button"

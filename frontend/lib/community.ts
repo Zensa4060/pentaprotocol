@@ -5,7 +5,7 @@
  * Community page, etc.) so we centralise the URLs here to keep every
  * entry point in sync. Update these constants whenever a link rotates.
  */
-export const DISCORD_INVITE_URL = "https://discord.gg/DFA6tm7E";
+export const DISCORD_INVITE_URL = "https://discord.gg/W6prvWmrR3";
 export const REDDIT_URL         = "https://www.reddit.com/r/PentaProtocol/";
 export const ITCH_IO_URL        = "https://zensa4070.itch.io/pentaprotocol";
 export const INSTAGRAM_URL      = "https://www.instagram.com/pentaprotocol";
