@@ -67,10 +67,10 @@ export const THEMES: Record<ThemeId, {
     danger: "#FF4080", success: "#00FF9B",
     gold: "#FFD060", boardBg: "#04081A", boardLine: "#1a2a52",
     navBg: "rgba(2,4,15,0.96)", inputBg: "#04081A", overlay: "rgba(2,4,15,0.94)",
-    // Same type stack as Classic (GuildOf); Space differs by palette only.
-    fontDisplay: "'GuildOf', serif",
-    fontBody: "'GuildOf', serif",
-    fontMono: "'GuildOf', serif",
+    // PentaOrbit: custom geometric space font designed for this theme.
+    fontDisplay: "'PentaOrbit', 'GuildOf', sans-serif",
+    fontBody: "'PentaOrbit', 'GuildOf', sans-serif",
+    fontMono: "'PentaOrbit', 'GuildOf', monospace",
     pieces: { p1: "α", p2: "Ω" },
     isLight: false,
   },
@@ -84,16 +84,11 @@ export const THEMES: Record<ThemeId, {
     danger: "#CC4444", success: "#879A77",
     gold: "#C8D870", boardBg: "#0E1209", boardLine: "#3d4d35",
     navBg: "rgba(16,20,11,0.97)", inputBg: "#0E1209", overlay: "rgba(10,13,7,0.95)",
-    // PixPixls ships with empty glyphs for several ASCII punctuation
-    // marks (`+`, `-`, `>`, `(`, etc.), so we layer 'VT323' (loaded
-    // via the global @import in AppShell) right after it. Combined
-    // with the `unicode-range` constraint on PixPixls's @font-face
-    // in `app/globals.css`, this makes missing glyphs fall through
-    // to VT323 — which has the full ASCII set and the same retro
-    // pixel feel — instead of rendering as invisible blanks.
-    fontDisplay: "'PixPixls', 'VT323', monospace",
-    fontBody: "'PixPixls', 'VT323', monospace",
-    fontMono: "'PixPixls', 'VT323', monospace",
+    // PentaPixel: custom 5×7 dot-matrix font with full ASCII coverage,
+    // designed to match the pixel-art theme. No fallback needed.
+    fontDisplay: "'PentaPixel', monospace",
+    fontBody: "'PentaPixel', monospace",
+    fontMono: "'PentaPixel', monospace",
     pieces: { p1: "⚔", p2: "🛡" },
     isLight: false,
   },

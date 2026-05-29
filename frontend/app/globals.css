@@ -14,6 +14,21 @@
  * `frontend/lib/themes.ts`), so missing glyphs render with VT323's
  * matching retro look instead of vanishing.
  */
+/* ── Custom PentaProtocol fonts ─────────────────────────────────────────────*/
+@font-face {
+  font-family: 'PentaPixel';
+  src: url('/fonts/PentaPixel-Regular.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+}
+@font-face {
+  font-family: 'PentaOrbit';
+  src: url('/fonts/PentaOrbit-Regular.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+}
+
+/* ── Legacy PixPixls (kept for backwards-compat, no longer used by themes) ─ */
 @font-face {
   font-family: 'PixPixls';
   src: url('/fonts/PixPixls-Regular.ttf') format('truetype');
