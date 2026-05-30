@@ -25,22 +25,22 @@ export const THEMES: Record<ThemeId, {
   // ── Classic Light — Warm Brown, ~25% lighter than the previous sage.
   // Mid-dark warm brown — clearly brighter than classic dark, brown personality.
   classic_light: {
-    bg:            "#6E5030",  // same brown hue, 50% lighter — warm medium-dark
-    bgPanel:       "#7E5E3A",  // elevated panel
-    bgCard:        "#8E6C44",  // card surface
-    border:        "#A47E54",  // warm brown border
+    bg:            "#9E774C",  // warm medium tan-brown, 50% lighter + gentler
+    bgPanel:       "#A8825A",  // elevated panel
+    bgCard:        "#B28E68",  // card surface
+    border:        "#C4A07A",  // warm border
     borderAccent:  "#CC4422",  // burnt orange-red
     text:          "#FAF0E0",  // warm near-white
-    textSecondary: "#E0BC88",  // warm tan secondary
-    textMuted:     "#C09A6A",  // warm muted
+    textSecondary: "#F0D4A8",  // warm tan secondary
+    textMuted:     "#D4AE80",  // warm muted
     accent:        "#CC4422",  // burnt orange-red
     accentGlow:    "#E05A30",
     p1: "#FAF0E0", p2: "#CC4422",
     danger: "#E04040", success: "#48A858",
     gold: "#D4A020",
-    boardBg: "#5C4022", boardLine: "#7A5A38",
-    navBg: "rgba(110,80,48,0.97)",
-    inputBg: "#5C4022", overlay: "rgba(0,0,0,0.68)",
+    boardBg: "#8A6638", boardLine: "#A07850",
+    navBg: "rgba(158,119,76,0.97)",
+    inputBg: "#8A6638", overlay: "rgba(0,0,0,0.65)",
     fontDisplay: "'Cinzel', 'GuildOf', serif",
     fontBody:    "'Cinzel', 'GuildOf', serif",
     fontMono:    "'Cinzel', serif",
