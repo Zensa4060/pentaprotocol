@@ -656,7 +656,7 @@ export default function NavBar({
               title="PentaShards: earn rewards from missions and events to redeem free skins in the Store."
               style={{ display: "flex", alignItems: "center", gap: 3, fontFamily: t.fontMono, fontSize: CURRENCY_FONT, fontWeight: 700, letterSpacing: "0.02em" }}
             >
-              <div style={{ width: CURRENCY_SZ, height: CURRENCY_SZ, flexShrink: 0 }} dangerouslySetInnerHTML={{ __html: (themeId === "classic_light" ? SHARDS_LIGHT_SVG : SHARDS_DARK_SVG).replace("<svg ", `<svg width="${CURRENCY_SZ}" height="${CURRENCY_SZ}" `) }} />
+              <div style={{ width: CURRENCY_SZ, height: CURRENCY_SZ, flexShrink: 0 }} dangerouslySetInnerHTML={{ __html: (t.isLight ? SHARDS_LIGHT_SVG : SHARDS_DARK_SVG).replace("<svg ", `<svg width="${CURRENCY_SZ}" height="${CURRENCY_SZ}" `) }} />
               <span style={{ color: "#4FC3F7" }}>{pentashards}</span>
             </div>
           )}
@@ -710,7 +710,7 @@ export default function NavBar({
               title="ProtoCredits: premium currency to buy skins, themes, and bundles in the Store."
               style={{ display: "flex", alignItems: "center", gap: 4, fontFamily: t.fontMono, fontSize: CURRENCY_FONT, fontWeight: 700 }}
             >
-              <div style={{ width: CURRENCY_SZ, height: CURRENCY_SZ, flexShrink: 0 }} dangerouslySetInnerHTML={{ __html: (themeId === "classic_light" ? PROTO_LIGHT_SVG : PROTO_DARK_SVG).replace("<svg ", `<svg width="${CURRENCY_SZ}" height="${CURRENCY_SZ}" `) }} />
+              <div style={{ width: CURRENCY_SZ, height: CURRENCY_SZ, flexShrink: 0 }} dangerouslySetInnerHTML={{ __html: (t.isLight ? PROTO_LIGHT_SVG : PROTO_DARK_SVG).replace("<svg ", `<svg width="${CURRENCY_SZ}" height="${CURRENCY_SZ}" `) }} />
               <span style={{ color: "#FFD700" }}>{protocredits}</span>
             </div>
           )}
@@ -765,7 +765,7 @@ export default function NavBar({
       {!isDesktop && menuOpen && (
         <div style={{
           position: "fixed", top: NAV_H, left: 0, right: 0, zIndex: 199,
-          background: t.isLight ? `rgba(196,184,160,0.97)` : `${t.bg}F5`,
+          background: t.isLight ? `rgba(212,218,230,0.97)` : `${t.bg}F5`,
           backdropFilter: "blur(16px)",
           WebkitBackdropFilter: "blur(16px)",
           display: "flex", flexDirection: "column",

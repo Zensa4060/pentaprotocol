@@ -614,9 +614,9 @@ export default function HomeScreen({ setScreenAction, themeId, onHoverAction, on
         <div style={{
           position: "fixed", inset: 0, zIndex: 0, pointerEvents: "none",
           background: isLight
-            ? `radial-gradient(ellipse at 50% -4%, rgba(200,160,90,0.14) 0%, transparent 50%),
-               radial-gradient(ellipse at 92% 100%, rgba(139,30,30,0.08) 0%, transparent 42%),
-               radial-gradient(ellipse at 3% 78%, rgba(160,130,80,0.06) 0%, transparent 38%),
+            ? `radial-gradient(ellipse at 50% -6%, rgba(100,130,200,0.10) 0%, transparent 52%),
+               radial-gradient(ellipse at 92% 96%, rgba(139,30,30,0.07) 0%, transparent 42%),
+               radial-gradient(ellipse at 4% 82%, rgba(80,110,170,0.05) 0%, transparent 38%),
                ${t.bg}`
             : t.bg,
         }} />
@@ -689,14 +689,14 @@ export default function HomeScreen({ setScreenAction, themeId, onHoverAction, on
               filter: isSp
                 ? "drop-shadow(0 0 18px rgba(80,140,255,0.55))"
                 : isLight
-                  ? "drop-shadow(0 0 4px rgba(28,22,16,0.12))"
+                  ? "drop-shadow(0 0 4px rgba(15,22,35,0.12))"
                   : "drop-shadow(0 0 8px rgba(255,255,255,0.4))",
             }}>
               <span style={{
                 background: isSp
                   ? "linear-gradient(to bottom, #ffffff 0%, #a0c8ff 45%, #6090ff 100%)"
                   : isLight
-                    ? "linear-gradient(to bottom, #1C1408 0%, #4A3824 55%, #281C0E 100%)"
+                    ? "linear-gradient(to bottom, #0F1623 0%, #2C3A50 55%, #18253A 100%)"
                     : "linear-gradient(to bottom, #ffffff 0%, #999999 50%, #ffffff 100%)",
                 WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", display: "inline",
               }}>PENTA</span>
@@ -854,7 +854,7 @@ export default function HomeScreen({ setScreenAction, themeId, onHoverAction, on
               background: isSp
                 ? "rgba(6,12,34,0.65)"
                 : isLight
-                  ? "rgba(246,238,216,0.97)"
+                  ? "rgba(242,245,250,0.97)"
                   : "rgba(255,255,255,0.04)",
               border: `1px solid ${isLight
                 ? (isPlacement ? `${placementCol}55` : `${rank.color}40`)
@@ -1049,7 +1049,7 @@ export default function HomeScreen({ setScreenAction, themeId, onHoverAction, on
             e.currentTarget.style.color = t.textSecondary;
           }}
           onMouseOver={(e) => {
-            e.currentTarget.style.background = isLight ? "rgba(250,244,230,0.99)" : "rgba(0,0,0,0.6)";
+            e.currentTarget.style.background = isLight ? "rgba(248,251,255,0.99)" : "rgba(0,0,0,0.6)";
             e.currentTarget.style.borderColor = `${t.accent}cc`;
             e.currentTarget.style.color = t.accent;
           }}

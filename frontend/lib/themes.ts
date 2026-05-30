@@ -22,34 +22,30 @@ export const THEMES: Record<ThemeId, {
   isLight: boolean;
 }> = {
 
-  // ── Classic Light — Deep Linen palette.
-  // bg is a genuine warm tan/burlap — clearly NOT white.
-  // bgCard is light cream — floats ~40 lightness units above bg.
-  // That contrast gives cards real visual depth without any dark tones.
-  // Deep wine-red accent ties to the game brand.
-  // All text tokens verified ≥ 4.5:1 on bgCard surface.
+  // ── Classic Light — Warm Brown, ~25% lighter than the previous sage.
+  // Mid-dark warm brown — clearly brighter than classic dark, brown personality.
   classic_light: {
-    bg:            "#C4B8A0",  // warm burlap/tan — unmistakably coloured
-    bgPanel:       "#D8CEBC",  // mid-linen panel — sits between bg and card
-    bgCard:        "#F6EED8",  // parchment cream — clearly floats above bg
-    border:        "#AEA488",  // warm tan border, visible but not harsh
-    borderAccent:  "#8B1E1E",  // deep wine red
-    text:          "#1C1408",  // very dark brown-black ~13:1 on card ✓
-    textSecondary: "#3A2A18",  // warm dark brown ~7.5:1 on card ✓
-    textMuted:     "#6A5640",  // medium warm brown ~4.8:1 on card ✓ AA
-    accent:        "#8B1E1E",  // deep wine red
-    accentGlow:    "#A82828",  // brighter wine for glows / hover
-    p1: "#1C1408", p2: "#8B1E1E",
-    danger: "#8B1010", success: "#2A5A30",
-    gold: "#8A6E18",           // antique gold — beautiful on parchment
-    boardBg: "#BEB49C", boardLine: "#A69E88",
-    navBg: "rgba(196,184,160,0.97)",  // matches bg exactly
-    inputBg: "#BEB49C", overlay: "rgba(0,0,0,0.38)",
+    bg:            "#6E5030",  // same brown hue, 50% lighter — warm medium-dark
+    bgPanel:       "#7E5E3A",  // elevated panel
+    bgCard:        "#8E6C44",  // card surface
+    border:        "#A47E54",  // warm brown border
+    borderAccent:  "#CC4422",  // burnt orange-red
+    text:          "#FAF0E0",  // warm near-white
+    textSecondary: "#E0BC88",  // warm tan secondary
+    textMuted:     "#C09A6A",  // warm muted
+    accent:        "#CC4422",  // burnt orange-red
+    accentGlow:    "#E05A30",
+    p1: "#FAF0E0", p2: "#CC4422",
+    danger: "#E04040", success: "#48A858",
+    gold: "#D4A020",
+    boardBg: "#5C4022", boardLine: "#7A5A38",
+    navBg: "rgba(110,80,48,0.97)",
+    inputBg: "#5C4022", overlay: "rgba(0,0,0,0.68)",
     fontDisplay: "'Cinzel', 'GuildOf', serif",
     fontBody:    "'Cinzel', 'GuildOf', serif",
     fontMono:    "'Cinzel', serif",
     pieces: { p1: "X", p2: "Y" },
-    isLight: true,
+    isLight: false,
   },
 
   classic_dark: {

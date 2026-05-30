@@ -181,7 +181,7 @@ const LockSVG = () => (
 
 export default function ProfileScreen({ themeId, onHoverAction, onClickAction, setScreenAction, initialEditMode }: Props) {
   const t = THEMES[themeId];
-  const isLight = themeId === "classic_light";
+  const isLight = t.isLight;
   const router = useRouter();
   const { user, token, updateUser } = useAuthStore();
   const bannerShineEnabled = useBannerShineEnabled((user as any)?.id ?? (user as any)?._id ?? null);
@@ -945,7 +945,7 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
         }}
       >
         <div style={{ background: t.bgPanel, border: `1px solid ${t.border}`, borderRadius: 10, padding: "10px 12px", display: "flex", alignItems: "center", gap: 10 }}>
-          <div style={{ width: 36, height: 36, flexShrink: 0 }} dangerouslySetInnerHTML={{ __html: (themeId === "classic_light" ? SHARDS_LIGHT_SVG : SHARDS_DARK_SVG).replace('<svg ', '<svg width="36" height="36" ') }} />
+          <div style={{ width: 36, height: 36, flexShrink: 0 }} dangerouslySetInnerHTML={{ __html: (t.isLight ? SHARDS_LIGHT_SVG : SHARDS_DARK_SVG).replace('<svg ', '<svg width="36" height="36" ') }} />
           <div style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
             <div style={{ fontFamily: t.fontDisplay, fontSize: 18, fontWeight: 800, color: "#4FC3F7", lineHeight: 1.1 }}>
               {((profile.pentashards ?? profile.shards ?? 0) + missionShardBonus).toLocaleString()}
@@ -954,7 +954,7 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
           </div>
         </div>
         <div style={{ background: t.bgPanel, border: `1px solid ${t.border}`, borderRadius: 10, padding: "10px 12px", display: "flex", alignItems: "center", gap: 10 }}>
-          <div style={{ width: 36, height: 36, flexShrink: 0 }} dangerouslySetInnerHTML={{ __html: (themeId === "classic_light" ? PROTO_LIGHT_SVG : PROTO_DARK_SVG).replace('<svg ', '<svg width="36" height="36" ') }} />
+          <div style={{ width: 36, height: 36, flexShrink: 0 }} dangerouslySetInnerHTML={{ __html: (t.isLight ? PROTO_LIGHT_SVG : PROTO_DARK_SVG).replace('<svg ', '<svg width="36" height="36" ') }} />
           <div style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
             <div style={{ fontFamily: t.fontDisplay, fontSize: 18, fontWeight: 800, color: "#FFD700", lineHeight: 1.1 }}>
               {(profile.protocredits || 0).toLocaleString()}
