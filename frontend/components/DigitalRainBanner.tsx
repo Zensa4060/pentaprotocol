@@ -31,7 +31,7 @@ function draw(
     s.trail = TRAIL;
     s.c     = Array.from({ length: NCOLS }, () => ({
       y:      -(Math.random() * H * 0.8),
-      spd:    (0.6 + Math.random() * 1.2) * (CW / 13),
+      spd:    (2.2 + Math.random() * 3.5) * (CW / 13),
       chars:  Array.from({ length: TRAIL + 5 }, () =>
         String.fromCharCode(0x30a0 + Math.floor(Math.random() * 96)),
       ),
@@ -60,7 +60,7 @@ function draw(
     }
     if (col.y - TRAIL * CW > H + 20) {
       col.y      = -(CW * (1 + Math.random() * 3));
-      col.spd    = (0.6 + Math.random() * 1.2) * (CW / 13);
+      col.spd    = (2.2 + Math.random() * 3.5) * (CW / 13);
       col.bright = Math.random() > 0.8;
     }
 
@@ -108,7 +108,7 @@ export default function DigitalRainBanner({
   style?: CSSProperties;
   hideLabels?: boolean;
 }) {
-  const { wrapRef, cvRef } = useBannerCanvas(draw, 30);
+  const { wrapRef, cvRef } = useBannerCanvas(draw, 60);
   return (
     <div
       ref={wrapRef}

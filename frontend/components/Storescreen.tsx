@@ -229,10 +229,13 @@ type ProfileBundle = { id: string; label: string; tagline: string; accentColor: 
 const PROFILE_BUNDLES: ProfileBundle[] = [];
 function SectionHeader({ label, icon, accent }: { label: string; icon: React.ReactNode; accent: string }) {
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 18 }}>
-      <div style={{ width: 36, height: 36, borderRadius: 10, background: `${accent}18`, border: `1px solid ${accent}33`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{icon}</div>
-      <span style={{ fontFamily: "var(--font-display)", fontSize: 18, fontWeight: 800, color: "var(--text)", letterSpacing: "0.04em" }}>{label}</span>
-      <div style={{ flex: 1, height: 1, background: "var(--border)", marginLeft: 8 }} />
+    <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 22 }}>
+      <div style={{ width: 38, height: 38, borderRadius: 11, background: `${accent}18`, border: `1px solid ${accent}44`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, boxShadow: `0 0 16px ${accent}22` }}>{icon}</div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
+        <span style={{ fontFamily: "var(--font-display)", fontSize: 20, fontWeight: 900, color: "var(--text)", letterSpacing: "0.04em", lineHeight: 1 }}>{label}</span>
+        <div style={{ height: 2, width: 32, borderRadius: 1, background: accent, opacity: 0.7 }} />
+      </div>
+      <div style={{ flex: 1, height: 1, background: `linear-gradient(90deg, ${accent}44, transparent)`, marginLeft: 4 }} />
     </div>
   );
 }
@@ -983,6 +986,7 @@ export default function StoreScreen({ setScreenAction, themeId, audio, initialSe
         @keyframes redWinCellPulse{0%,100%{box-shadow:0 0 10px rgba(255,80,0,0.3)}50%{box-shadow:0 0 28px rgba(255,80,0,0.7)}}
         @keyframes iceWinCellPulse{0%,100%{box-shadow:0 0 10px rgba(100,200,255,0.3)}50%{box-shadow:0 0 28px rgba(100,200,255,0.7)}}
         .modal-panel { animation: slideUp 0.22s cubic-bezier(.22,.68,0,1.2); }
+        @keyframes storePulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.5;transform:scale(0.85)} }
         * { -webkit-font-smoothing: antialiased; }
       `}</style>
 
@@ -995,30 +999,68 @@ export default function StoreScreen({ setScreenAction, themeId, audio, initialSe
 
       <div style={{ maxWidth: 1240, margin: "0 auto", padding: "0 28px 72px" }}>
 
-        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 48, gap: 24, flexWrap: "wrap" as const }}>
+        {/* ── Hero ── */}
+        <div style={{ paddingTop: 52, paddingBottom: 56, display: "grid", gridTemplateColumns: "1fr auto", gap: 32, alignItems: "center", flexWrap: "wrap" as const }}>
           <div>
-            <div style={{ fontFamily: t.fontMono, fontSize: 11, color: accent, letterSpacing: "0.3em", marginBottom: 10 }}>PROTOCOL STORE</div>
-            <div style={{ fontFamily: t.fontDisplay, fontSize: "clamp(28px,5vw,52px)", fontWeight: 900, color: t.text, lineHeight: 1.05, marginBottom: 10 }}>UNLOCK YOUR<br /><span style={{ color: accent }}>ARSENAL</span></div>
-            <div style={{ fontFamily: t.fontBody, fontSize: 14, color: t.textMuted, maxWidth: 420 }}>Earn rewards through ranked play and achievements — or top up ProtoCredits to unlock exclusive cosmetics instantly.</div>
-          </div>
-          <div style={{ display: "flex", gap: 14, flexWrap: "wrap", alignItems: "stretch" }}>
-            <div className="store-card" onClick={() => { setMsg(null); openBuyModal("shards"); }} style={{ flexShrink: 0, minWidth: 260, maxWidth: 320, background: "linear-gradient(135deg, rgba(79,195,247,0.18), rgba(79,195,247,0.08))", border: `2px solid #4FC3F755`, borderRadius: 18, padding: "22px 24px", boxShadow: "0 0 40px rgba(79,195,247,0.22)", position: "relative", overflow: "hidden" }}>
-              <div style={{ position: "absolute", top: -30, right: -30, width: 120, height: 120, borderRadius: "50%", background: "rgba(79,195,247,0.35)", opacity: 0.9, pointerEvents: "none" }} />
-              <div style={{ fontFamily: t.fontMono, fontSize: 10, color: "#4FC3F7", letterSpacing: "0.25em", marginBottom: 10 }}>PENTASHARDS</div>
-              <div style={{ fontFamily: t.fontDisplay, fontSize: 26, fontWeight: 900, color: t.text, marginBottom: 6, lineHeight: 1.1 }}>Buy<br /><span style={{ color: "#4FC3F7" }}>PentaShards</span></div>
-              <div style={{ fontFamily: t.fontBody, fontSize: 12, color: t.textMuted, marginBottom: 16 }}>Starting from ₹25 · Instant delivery</div>
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" as const, marginBottom: 18 }}>{SHARD_PACKAGES.map(p => (<div key={`shard_${p.id}`} style={{ fontFamily: t.fontMono, fontSize: 10, color: "#4FC3F7", background: "rgba(79,195,247,0.14)", border: "1px solid rgba(79,195,247,0.33)", borderRadius: 6, padding: "3px 8px" }}>{p.credits + p.bonus}</div>))}</div>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, fontFamily: t.fontDisplay, fontSize: 13, fontWeight: 800, color: "#000", background: "#4FC3F7", borderRadius: 8, padding: "9px 16px", justifyContent: "center" }}><ShardSVG size={16} /> OPEN STORE</div>
-              <div style={{ marginTop: 12, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, fontFamily: t.fontMono, fontSize: 22, color: t.textMuted }}>Balance: <span style={{ color: "#4FC3F7", display: "flex", alignItems: "center", gap: 6 }}>{shardBalance.toLocaleString()} <ShardSVG size={21} /></span></div>
+            <div style={{ display: "inline-flex", alignItems: "center", gap: 8, background: `${accent}12`, border: `1px solid ${accent}30`, borderRadius: 999, padding: "5px 16px", marginBottom: 18 }}>
+              <span style={{ width: 6, height: 6, borderRadius: "50%", background: accent, boxShadow: `0 0 8px ${accent}`, animation: "storePulse 2s ease-in-out infinite" }} />
+              <span style={{ fontFamily: t.fontMono, fontSize: 10, color: accent, letterSpacing: "0.2em", fontWeight: 700 }}>LIVE CATALOG</span>
             </div>
-            <div className="store-card" onClick={() => { setMsg(null); openBuyModal("protocredits"); }} style={{ flexShrink: 0, minWidth: 260, maxWidth: 320, background: `linear-gradient(135deg, ${accent}18, ${accent}08)`, border: `2px solid ${accent}55`, borderRadius: 18, padding: "22px 24px", boxShadow: `0 0 40px ${accent}22`, position: "relative", overflow: "hidden" }}>
-              <div style={{ position: "absolute", top: -30, right: -30, width: 120, height: 120, borderRadius: "50%", background: `${accent}35`, opacity: 0.9, pointerEvents: "none" }} />
-              <div style={{ fontFamily: t.fontMono, fontSize: 10, color: accent, letterSpacing: "0.25em", marginBottom: 10 }}>PROTOCREDITS</div>
-              <div style={{ fontFamily: t.fontDisplay, fontSize: 26, fontWeight: 900, color: t.text, marginBottom: 6, lineHeight: 1.1 }}>Buy<br /><span style={{ color: accent }}>ProtoCredits</span></div>
-              <div style={{ fontFamily: t.fontBody, fontSize: 12, color: t.textMuted, marginBottom: 16 }}>Starting from ₹49 · Instant delivery</div>
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" as const, marginBottom: 18 }}>{PACKAGES.map(p => (<div key={p.id} style={{ fontFamily: t.fontMono, fontSize: 10, color: accent, background: `${accent}14`, border: `1px solid ${accent}33`, borderRadius: 6, padding: "3px 8px" }}>{p.credits + p.bonus}</div>))}</div>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, fontFamily: t.fontDisplay, fontSize: 13, fontWeight: 800, color: "#000", background: accent, borderRadius: 8, padding: "9px 16px", justifyContent: "center" }}><ProtoSVG size={16} /> OPEN STORE</div>
-              <div style={{ marginTop: 12, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, fontFamily: t.fontMono, fontSize: 22, color: t.textMuted }}>Balance: <span style={{ color: accent, display: "flex", alignItems: "center", gap: 6 }}>{balance.toLocaleString()} <ProtoSVG size={21}/></span></div>
+            <h1 style={{ fontFamily: t.fontDisplay, fontSize: "clamp(32px,5.5vw,58px)", fontWeight: 900, color: t.text, lineHeight: 1, margin: "0 0 16px", letterSpacing: "0.02em" }}>
+              UNLOCK YOUR<br /><span style={{ color: accent, textShadow: `0 0 40px ${accent}55` }}>ARSENAL</span>
+            </h1>
+            <p style={{ fontFamily: t.fontBody, fontSize: 14, color: t.textMuted, maxWidth: 440, lineHeight: 1.75, margin: 0 }}>
+              Earn rewards through ranked play — or top up to unlock exclusive board skins, themes, and cosmetics instantly.
+            </p>
+          </div>
+
+          {/* ── Currency cards (vertical stack) ── */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 12, minWidth: 230 }}>
+            {/* ProtoCredits card */}
+            <div className="store-card" onClick={() => { setMsg(null); openBuyModal("protocredits"); }}
+              style={{ background: `linear-gradient(135deg, ${accent}22, ${accent}08)`, border: `2px solid ${accent}55`, borderRadius: 16, padding: "18px 20px", position: "relative", overflow: "hidden", boxShadow: `0 8px 32px ${accent}22` }}>
+              <div style={{ position: "absolute", top: -20, right: -20, width: 90, height: 90, borderRadius: "50%", background: `${accent}30`, pointerEvents: "none" }} />
+              <div style={{ position: "absolute", bottom: -30, left: -10, width: 70, height: 70, borderRadius: "50%", background: `${accent}15`, pointerEvents: "none" }} />
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
+                <div>
+                  <div style={{ fontFamily: t.fontMono, fontSize: 9, color: accent, letterSpacing: "0.22em", marginBottom: 3 }}>PROTOCREDITS</div>
+                  <div style={{ fontFamily: t.fontDisplay, fontSize: 22, fontWeight: 900, color: t.text }}>ProtoCredits</div>
+                </div>
+                <div style={{ background: `${accent}22`, border: `1px solid ${accent}44`, borderRadius: 8, padding: "4px 8px", display: "flex", alignItems: "center", gap: 4 }}>
+                  <ProtoSVG size={14} />
+                  <span style={{ fontFamily: t.fontMono, fontSize: 13, fontWeight: 800, color: accent }}>{balance.toLocaleString()}</span>
+                </div>
+              </div>
+              <div style={{ fontFamily: t.fontBody, fontSize: 11, color: t.textMuted, marginBottom: 12 }}>From ₹49 · Unlock cosmetics instantly</div>
+              <div style={{ display: "flex", gap: 5, flexWrap: "wrap" as const, marginBottom: 14 }}>
+                {PACKAGES.map(p => (<div key={p.id} style={{ fontFamily: t.fontMono, fontSize: 9, color: accent, background: `${accent}14`, border: `1px solid ${accent}28`, borderRadius: 5, padding: "2px 6px" }}>{(p.credits + p.bonus).toLocaleString()}</div>))}
+              </div>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 7, background: accent, borderRadius: 9, padding: "9px 0", fontFamily: t.fontDisplay, fontSize: 12, fontWeight: 900, color: "#000", letterSpacing: "0.06em" }}>
+                <ProtoSVG size={14} /> BUY PC
+              </div>
+            </div>
+
+            {/* PentaShards card */}
+            <div className="store-card" onClick={() => { setMsg(null); openBuyModal("shards"); }}
+              style={{ background: "linear-gradient(135deg, rgba(79,195,247,0.18), rgba(79,195,247,0.06))", border: "2px solid rgba(79,195,247,0.45)", borderRadius: 16, padding: "18px 20px", position: "relative", overflow: "hidden", boxShadow: "0 8px 32px rgba(79,195,247,0.18)" }}>
+              <div style={{ position: "absolute", top: -20, right: -20, width: 90, height: 90, borderRadius: "50%", background: "rgba(79,195,247,0.22)", pointerEvents: "none" }} />
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
+                <div>
+                  <div style={{ fontFamily: t.fontMono, fontSize: 9, color: "#4FC3F7", letterSpacing: "0.22em", marginBottom: 3 }}>PENTASHARDS</div>
+                  <div style={{ fontFamily: t.fontDisplay, fontSize: 22, fontWeight: 900, color: t.text }}>PentaShards</div>
+                </div>
+                <div style={{ background: "rgba(79,195,247,0.18)", border: "1px solid rgba(79,195,247,0.4)", borderRadius: 8, padding: "4px 8px", display: "flex", alignItems: "center", gap: 4 }}>
+                  <ShardSVG size={14} />
+                  <span style={{ fontFamily: t.fontMono, fontSize: 13, fontWeight: 800, color: "#4FC3F7" }}>{shardBalance.toLocaleString()}</span>
+                </div>
+              </div>
+              <div style={{ fontFamily: t.fontBody, fontSize: 11, color: t.textMuted, marginBottom: 12 }}>From ₹25 · Shard-based rewards</div>
+              <div style={{ display: "flex", gap: 5, flexWrap: "wrap" as const, marginBottom: 14 }}>
+                {SHARD_PACKAGES.map(p => (<div key={`s_${p.id}`} style={{ fontFamily: t.fontMono, fontSize: 9, color: "#4FC3F7", background: "rgba(79,195,247,0.12)", border: "1px solid rgba(79,195,247,0.26)", borderRadius: 5, padding: "2px 6px" }}>{(p.credits + p.bonus).toLocaleString()}</div>))}
+              </div>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 7, background: "#4FC3F7", borderRadius: 9, padding: "9px 0", fontFamily: t.fontDisplay, fontSize: 12, fontWeight: 900, color: "#000", letterSpacing: "0.06em" }}>
+                <ShardSVG size={14} /> BUY PS
+              </div>
             </div>
           </div>
         </div>

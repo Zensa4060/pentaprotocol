@@ -171,6 +171,25 @@ export default function SettingsModal({
   };
 
   const ip = themeId === "pixel";
+  const NAV_ICONS: Record<SettingsSection, React.ReactNode> = {
+    audio: (
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+        <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+        <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
+      </svg>
+    ),
+    account: (
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+      </svg>
+    ),
+    system: (
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="12" r="3"/>
+        <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+      </svg>
+    ),
+  };
   const navBtn = (id: SettingsSection, label: string) => {
     const on = activeSection === id;
     return (
@@ -179,25 +198,27 @@ export default function SettingsModal({
         type="button"
         onClick={() => setActiveSection(id)}
         style={{
-          fontFamily: t.fontDisplay,
-          fontSize: narrowLayout ? 20 : 23,
-          fontWeight: 700,
-          letterSpacing: "0.06em",
-          textAlign: narrowLayout ? "center" : "left",
-          textTransform: "uppercase",
-          padding: narrowLayout ? "10px 16px" : "14px 18px",
+          display: "flex",
+          alignItems: "center",
+          gap: narrowLayout ? 6 : 10,
+          padding: narrowLayout ? "9px 14px" : "12px 16px",
           borderRadius: ip ? 2 : 10,
-          border: `1px solid ${on ? t.accent : t.border}`,
-          background: on ? `${t.accent}22` : "transparent",
-          color: t.text,
+          border: narrowLayout ? `1.5px solid ${on ? t.accent : t.border}` : "none",
+          borderLeft: narrowLayout ? undefined : `3px solid ${on ? t.accent : "transparent"}`,
+          background: on ? `${t.accent}18` : "transparent",
+          color: on ? t.accent : t.textMuted,
           cursor: "pointer",
-          transition: "border-color 0.18s, background 0.18s, color 0.18s",
+          width: "100%",
+          textAlign: "left" as const,
+          transition: "background 0.18s, color 0.18s, border-color 0.18s",
           flex: narrowLayout ? "1 1 auto" : undefined,
           minWidth: narrowLayout ? 0 : undefined,
-          whiteSpace: narrowLayout ? "nowrap" : undefined,
+          whiteSpace: narrowLayout ? "nowrap" as const : undefined,
         }}
       >
-        {label}
+        <span style={{ flexShrink: 0, opacity: on ? 1 : 0.5, transition: "opacity 0.18s" }}>{NAV_ICONS[id]}</span>
+        <span style={{ fontFamily: t.fontDisplay, fontSize: narrowLayout ? 12 : 13, fontWeight: on ? 800 : 600, letterSpacing: "0.08em", textTransform: "uppercase" as const }}>{label}</span>
+        {!narrowLayout && on && <span style={{ marginLeft: "auto", width: 6, height: 6, borderRadius: "50%", background: t.accent, flexShrink: 0 }} />}
       </button>
     );
   };
@@ -225,13 +246,23 @@ export default function SettingsModal({
             alignItems: "center",
             justifyContent: "space-between",
             gap: 16,
-            padding: narrowLayout ? "14px 16px" : "18px 28px",
+            padding: narrowLayout ? "14px 16px" : "16px 28px",
             borderBottom: `1px solid ${t.border}`,
             background: t.bgPanel,
+            position: "relative",
           }}
         >
-          <div style={{ fontFamily: t.fontDisplay, fontSize: narrowLayout ? 18 : 24, fontWeight: 800, color: t.text }}>
-            Settings
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <div style={{ width: 36, height: 36, borderRadius: ip ? 2 : 10, background: `${t.accent}18`, border: `1px solid ${t.accent}33`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={t.accent} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="3"/>
+                <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+              </svg>
+            </div>
+            <div>
+              <div style={{ fontFamily: t.fontDisplay, fontSize: narrowLayout ? 16 : 20, fontWeight: 800, color: t.text, lineHeight: 1.2 }}>Settings</div>
+              <div style={{ fontFamily: t.fontMono, fontSize: 10, color: t.textMuted, letterSpacing: "0.12em" }}>PREFERENCES & ACCOUNT</div>
+            </div>
           </div>
           <button
             type="button"
@@ -241,16 +272,22 @@ export default function SettingsModal({
               background: "none",
               border: `1px solid ${t.border}`,
               color: t.textMuted,
-              fontSize: 20,
-              padding: "4px 14px",
+              fontSize: 16,
+              width: 34,
+              height: 34,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
               borderRadius: ip ? 2 : 8,
               cursor: "pointer",
               transition: "border-color 0.18s, color 0.18s, background 0.18s",
               "--accent": t.accent,
+              flexShrink: 0,
             } as React.CSSProperties}
           >
             ✕
           </button>
+          <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 2, background: `linear-gradient(90deg, ${t.accent}88, ${t.accent}22, transparent)` }} />
         </header>
 
         <div
@@ -266,18 +303,32 @@ export default function SettingsModal({
               flexShrink: 0,
               display: "flex",
               flexDirection: narrowLayout ? "row" : "column",
-              gap: narrowLayout ? 8 : 10,
-              padding: narrowLayout ? "12px 16px" : "20px 18px",
-              width: narrowLayout ? "100%" : 248,
+              gap: narrowLayout ? 6 : 4,
+              padding: narrowLayout ? "10px 14px" : "20px 12px",
+              width: narrowLayout ? "100%" : 220,
               borderRight: narrowLayout ? "none" : `1px solid ${t.border}`,
               borderBottom: narrowLayout ? `1px solid ${t.border}` : "none",
-              background: narrowLayout ? t.bgPanel : `${t.bgPanel}cc`,
+              background: narrowLayout ? t.bgPanel : t.bgPanel,
               overflowX: narrowLayout ? "auto" : "visible",
             }}
           >
+            {!narrowLayout && (
+              <div style={{ fontFamily: t.fontMono, fontSize: 9, color: t.textMuted, letterSpacing: "0.18em", padding: "4px 16px 10px", opacity: 0.6 }}>NAVIGATION</div>
+            )}
             {navBtn("audio", "Audio")}
             {showAccountNav ? navBtn("account", "Account") : null}
             {navBtn("system", "System")}
+            {!narrowLayout && user && (
+              <div style={{ marginTop: "auto", padding: "16px 16px 8px", borderTop: `1px solid ${t.border}`, display: "flex", alignItems: "center", gap: 10 }}>
+                <div style={{ width: 30, height: 30, borderRadius: "50%", background: `${t.accent}22`, border: `1px solid ${t.accent}44`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={t.accent} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                </div>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontFamily: t.fontDisplay, fontSize: 11, fontWeight: 700, color: t.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{(user as any)?.username ?? "Player"}</div>
+                  <div style={{ fontFamily: t.fontMono, fontSize: 9, color: t.textMuted, letterSpacing: "0.06em" }}>LOGGED IN</div>
+                </div>
+              </div>
+            )}
           </nav>
 
           <main
@@ -291,17 +342,14 @@ export default function SettingsModal({
           >
             {activeSection === "audio" && (
               <div style={{ maxWidth: 720 }}>
-                <div
-                  style={{
-                    fontFamily: t.fontMono,
-                    fontSize: 12,
-                    fontWeight: 800,
-                    color: t.accent,
-                    letterSpacing: "0.16em",
-                    marginBottom: 20,
-                  }}
-                >
-                  AUDIO SETTINGS
+                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 24 }}>
+                  <div style={{ width: 32, height: 32, borderRadius: ip ? 2 : 8, background: `${t.accent}18`, border: `1px solid ${t.accent}33`, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={t.accent} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>
+                  </div>
+                  <div>
+                    <div style={{ fontFamily: t.fontDisplay, fontSize: 16, fontWeight: 800, color: t.text }}>Audio Settings</div>
+                    <div style={{ fontFamily: t.fontMono, fontSize: 10, color: t.textMuted, letterSpacing: "0.12em" }}>MUSIC · SFX · MASTER</div>
+                  </div>
                 </div>
 
                 <div
@@ -311,46 +359,53 @@ export default function SettingsModal({
                     justifyContent: "space-between",
                     alignItems: "center",
                     gap: 16,
-                    marginBottom: 28,
-                    background: t.bgCard,
-                    border: `1px solid ${t.border}`,
-                    padding: "18px 22px",
-                    borderRadius: ip ? 2 : 12,
+                    marginBottom: 24,
+                    background: muted ? `${t.danger}0A` : `${t.accent}0A`,
+                    border: `1.5px solid ${muted ? t.danger + "44" : t.accent + "33"}`,
+                    padding: "20px 24px",
+                    borderRadius: ip ? 2 : 14,
+                    transition: "background 0.22s, border-color 0.22s",
                   }}
                 >
-                  <div style={{ display: "flex", flexDirection: "column", gap: 6, minWidth: 200, flex: "1 1 220px" }}>
-                    <span style={{ fontFamily: t.fontDisplay, fontSize: 17, fontWeight: 700, color: t.text }}>
-                      Master Audio
-                    </span>
-                    <span style={{ fontFamily: t.fontBody, fontSize: 13, color: t.textSecondary }}>
-                      {muted ? "All sounds are currently muted" : "Audio is currently enabled"}
-                    </span>
+                  <div style={{ display: "flex", alignItems: "center", gap: 14, flex: "1 1 220px" }}>
+                    <div style={{ width: 42, height: 42, borderRadius: ip ? 2 : 10, background: muted ? `${t.danger}18` : `${t.accent}18`, border: `1px solid ${muted ? t.danger + "44" : t.accent + "33"}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                      {muted
+                        ? <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={t.danger} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
+                        : <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={t.accent} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>
+                      }
+                    </div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                      <span style={{ fontFamily: t.fontDisplay, fontSize: 15, fontWeight: 700, color: t.text }}>Master Audio</span>
+                      <span style={{ fontFamily: t.fontBody, fontSize: 12, color: t.textSecondary }}>
+                        {muted ? "All sounds muted" : "Audio enabled"}
+                      </span>
+                    </div>
                   </div>
                   <button
                     onClick={toggleMute}
                     className="settings-mute-btn"
                     style={{
-                      background: muted ? `${t.danger}18` : `${t.accent}18`,
+                      background: muted ? `${t.danger}20` : `${t.accent}20`,
                       border: `2px solid ${muted ? t.danger : t.accent}`,
                       color: muted ? t.danger : t.accent,
                       fontFamily: t.fontDisplay,
-                      fontSize: 14,
+                      fontSize: 12,
                       fontWeight: 800,
-                      padding: "12px 28px",
+                      padding: "10px 24px",
                       borderRadius: ip ? 2 : 8,
-                      letterSpacing: "0.06em",
+                      letterSpacing: "0.08em",
                       cursor: "pointer",
                       transition: "background 0.18s, border-color 0.18s, box-shadow 0.18s",
-                      textTransform: "uppercase",
+                      textTransform: "uppercase" as const,
                       flexShrink: 0,
                       "--hover-bg": muted ? t.danger : t.accent,
                     } as React.CSSProperties}
                   >
-                    {muted ? "Unmute" : "Mute"}
+                    {muted ? "Unmute" : "Mute All"}
                   </button>
                 </div>
 
-                <div style={{ display: "grid", gridTemplateColumns: narrowLayout ? "1fr" : "1fr 1fr", gap: narrowLayout ? 8 : 28 }}>
+                <div style={{ display: "grid", gridTemplateColumns: narrowLayout ? "1fr" : "1fr 1fr", gap: narrowLayout ? 12 : 20 }}>
                   <SliderRow
                     label="Music Volume"
                     value={musicVol}
@@ -361,6 +416,9 @@ export default function SettingsModal({
                     fontMono={t.fontMono}
                     textSecondary={t.text}
                     textMuted={t.textSecondary}
+                    bgCard={t.bgCard}
+                    border={t.border}
+                    ip={ip}
                   />
                   <SliderRow
                     label="SFX Volume"
@@ -372,6 +430,9 @@ export default function SettingsModal({
                     fontMono={t.fontMono}
                     textSecondary={t.text}
                     textMuted={t.textSecondary}
+                    bgCard={t.bgCard}
+                    border={t.border}
+                    ip={ip}
                   />
                 </div>
               </div>
@@ -393,154 +454,113 @@ export default function SettingsModal({
 
             {activeSection === "system" && (
               <div style={{ maxWidth: 900 }}>
-                <div
-                  style={{
-                    fontFamily: t.fontMono,
-                    fontSize: 12,
-                    fontWeight: 800,
-                    color: t.accent,
-                    letterSpacing: "0.16em",
-                    marginBottom: 20,
-                  }}
-                >
-                  SYSTEM SETTINGS
+                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 24 }}>
+                  <div style={{ width: 32, height: 32, borderRadius: ip ? 2 : 8, background: `${t.accent}18`, border: `1px solid ${t.accent}33`, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={t.accent} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+                  </div>
+                  <div>
+                    <div style={{ fontFamily: t.fontDisplay, fontSize: 16, fontWeight: 800, color: t.text }}>System Settings</div>
+                    <div style={{ fontFamily: t.fontMono, fontSize: 10, color: t.textMuted, letterSpacing: "0.12em" }}>DISPLAY · PERFORMANCE</div>
+                  </div>
                 </div>
 
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: narrowLayout ? "1fr" : "1fr 1fr",
-                    gap: 20,
-                    marginBottom: 24,
-                    alignItems: "stretch",
-                  }}
-                >
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      gap: 16,
-                      background: t.bgCard,
-                      border: `1px solid ${t.border}`,
-                      padding: "16px 20px",
-                      borderRadius: ip ? 2 : 12,
-                      flexWrap: "wrap",
-                    }}
-                  >
-                    <div style={{ flex: "1 1 200px", minWidth: 0 }}>
-                      <div style={{ fontFamily: t.fontDisplay, fontSize: 16, fontWeight: 700, color: t.text }}>
-                        Banner shine
+                <div style={{ display: "grid", gridTemplateColumns: narrowLayout ? "1fr" : "1fr 1fr", gap: 16, marginBottom: 24, alignItems: "stretch" }}>
+                  {/* Banner Shine toggle */}
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16, background: t.bgCard, border: `1.5px solid ${bannerShineEnabled ? t.accent + "44" : t.border}`, padding: "18px 20px", borderRadius: ip ? 2 : 14, flexWrap: "wrap" as const, transition: "border-color 0.22s" }}>
+                    <div style={{ flex: "1 1 160px", minWidth: 0 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={bannerShineEnabled ? t.accent : t.textMuted} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                        <div style={{ fontFamily: t.fontDisplay, fontSize: 14, fontWeight: 700, color: t.text }}>Banner Shine</div>
                       </div>
-                      <div style={{ fontFamily: t.fontBody, fontSize: 13, color: t.textSecondary, marginTop: 6, lineHeight: 1.5 }}>
-                        Gloss sweep on profile, career, match-found, and match sidebar banners.
-                      </div>
+                      <div style={{ fontFamily: t.fontBody, fontSize: 12, color: t.textSecondary, lineHeight: 1.5 }}>Gloss sweep on banners and sidebars.</div>
                     </div>
+                    {/* Toggle switch */}
                     <button
                       type="button"
                       onClick={() => saveBannerShineEnabled(!bannerShineEnabled)}
+                      aria-pressed={bannerShineEnabled}
                       style={{
-                        padding: "10px 22px",
-                        borderRadius: ip ? 2 : 8,
+                        position: "relative", width: 50, height: 26,
+                        borderRadius: 13, padding: 0, flexShrink: 0,
+                        background: bannerShineEnabled ? t.accent : `${t.border}`,
                         border: `2px solid ${bannerShineEnabled ? t.accent : t.border}`,
-                        background: bannerShineEnabled ? `${t.accent}22` : "transparent",
-                        color: bannerShineEnabled ? t.accent : t.textMuted,
-                        fontFamily: t.fontDisplay,
-                        fontSize: 12,
-                        fontWeight: 800,
                         cursor: "pointer",
-                        letterSpacing: "0.06em",
-                        flexShrink: 0,
+                        transition: "background 0.22s, border-color 0.22s",
                       }}
                     >
-                      {bannerShineEnabled ? "ON" : "OFF"}
+                      <span style={{
+                        position: "absolute", top: 2,
+                        left: bannerShineEnabled ? 22 : 2,
+                        width: 18, height: 18, borderRadius: "50%",
+                        background: "#fff",
+                        transition: "left 0.22s cubic-bezier(.22,.68,0,1.2)",
+                        boxShadow: "0 1px 4px rgba(0,0,0,0.35)",
+                      }} />
                     </button>
                   </div>
 
+                  {/* Focus mode */}
                   <button
                     type="button"
                     onClick={toggleFocus}
                     style={{
                       padding: "18px 20px",
                       background: focusMode ? `${t.accent}22` : `${t.accent}0A`,
-                      border: `1.5px solid ${focusMode ? t.accent : `${t.accent}55`}`,
-                      borderRadius: ip ? 2 : 12,
+                      border: `1.5px solid ${focusMode ? t.accent : `${t.accent}44`}`,
+                      borderRadius: ip ? 2 : 14,
                       color: t.accent,
                       fontFamily: t.fontDisplay,
-                      fontSize: 15,
+                      fontSize: 14,
                       fontWeight: 700,
                       cursor: "pointer",
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
                       gap: 10,
-                      transition: "background 0.2s, border-color 0.2s, opacity 0.2s, box-shadow 0.2s",
+                      transition: "background 0.2s, border-color 0.2s, box-shadow 0.2s",
+                      letterSpacing: "0.04em",
                     }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.background = `${t.accent}22`;
-                      e.currentTarget.style.boxShadow = `0 0 16px ${t.accent}33`;
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.background = focusMode ? `${t.accent}22` : `${t.accent}0A`;
-                      e.currentTarget.style.boxShadow = "none";
-                    }}
+                    onMouseEnter={(e) => { e.currentTarget.style.background = `${t.accent}22`; e.currentTarget.style.boxShadow = `0 0 16px ${t.accent}33`; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.background = focusMode ? `${t.accent}22` : `${t.accent}0A`; e.currentTarget.style.boxShadow = "none"; }}
                   >
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                      {focusMode ? (
-                        <>
-                          <polyline points="8 3 3 3 3 8" />
-                          <polyline points="21 8 21 3 16 3" />
-                          <polyline points="3 16 3 21 8 21" />
-                          <polyline points="16 21 21 21 21 16" />
-                        </>
-                      ) : (
-                        <>
-                          <polyline points="15 3 21 3 21 9" />
-                          <polyline points="9 21 3 21 3 15" />
-                          <line x1="21" y1="3" x2="14" y2="10" />
-                          <line x1="3" y1="21" x2="10" y2="14" />
-                        </>
-                      )}
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      {focusMode ? (<><polyline points="8 3 3 3 3 8"/><polyline points="21 8 21 3 16 3"/><polyline points="3 16 3 21 8 21"/><polyline points="16 21 21 21 21 16"/></>) : (<><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></>)}
                     </svg>
                     {focusMode ? "EXIT FOCUS MODE" : "ENTER FOCUS MODE"}
                   </button>
                 </div>
 
-                {/* Guest mode was removed — a user opening this modal is
-                    always authenticated, so only the SIGN OUT action is
-                    offered here. We still suppress the button mid-match
-                    so players can't accidentally log themselves out of a
-                    live game from the settings overlay. */}
                 {user && !suppressAccountActionsDuringMatch && (
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 14 }}>
-                    <button
-                      type="button"
-                      onClick={() => setShowSignOutConfirm(true)}
-                      style={{
-                        minWidth: 200,
-                        flex: narrowLayout ? "1 1 100%" : "0 1 auto",
-                        padding: "16px 28px",
-                        background: `${t.danger}10`,
-                        border: `1.5px solid ${t.danger}55`,
-                        borderRadius: ip ? 2 : 12,
-                        color: t.danger,
-                        fontFamily: t.fontDisplay,
-                        fontSize: 15,
-                        fontWeight: 700,
-                        cursor: "pointer",
-                        transition: "background 0.2s, border-color 0.2s, opacity 0.2s, box-shadow 0.2s",
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.background = t.danger;
-                        e.currentTarget.style.color = "#fff";
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.background = `${t.danger}10`;
-                        e.currentTarget.style.color = t.danger;
-                      }}
-                    >
-                      SIGN OUT
-                    </button>
+                  <div style={{ borderTop: `1px solid ${t.border}`, paddingTop: 20, marginTop: 8 }}>
+                    <div style={{ fontFamily: t.fontMono, fontSize: 10, color: t.textMuted, letterSpacing: "0.14em", marginBottom: 14 }}>DANGER ZONE</div>
+                    <div style={{ background: `${t.danger}08`, border: `1.5px solid ${t.danger}33`, borderRadius: ip ? 2 : 14, padding: "18px 20px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap" as const }}>
+                      <div>
+                        <div style={{ fontFamily: t.fontDisplay, fontSize: 14, fontWeight: 700, color: t.text, marginBottom: 3 }}>Sign Out</div>
+                        <div style={{ fontFamily: t.fontBody, fontSize: 12, color: t.textSecondary }}>You will be returned to the login screen.</div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setShowSignOutConfirm(true)}
+                        style={{
+                          padding: "10px 22px",
+                          background: `${t.danger}14`,
+                          border: `1.5px solid ${t.danger}66`,
+                          borderRadius: ip ? 2 : 10,
+                          color: t.danger,
+                          fontFamily: t.fontDisplay,
+                          fontSize: 12,
+                          fontWeight: 800,
+                          cursor: "pointer",
+                          letterSpacing: "0.06em",
+                          flexShrink: 0,
+                          transition: "background 0.2s, color 0.2s",
+                        }}
+                        onMouseEnter={(e) => { e.currentTarget.style.background = t.danger; e.currentTarget.style.color = "#fff"; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.background = `${t.danger}14`; e.currentTarget.style.color = t.danger; }}
+                      >
+                        SIGN OUT
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>
@@ -775,30 +795,41 @@ function StatusChip({ t, ok, label }: { t: (typeof THEMES)[ThemeId]; ok: boolean
 }
 
 // ── Extracted slider row ──
-function SliderRow({ label, value, onChange, disabled, accent, fontBody, fontMono, textSecondary, textMuted }: {
+function SliderRow({ label, value, onChange, disabled, accent, fontBody, fontMono, textSecondary, textMuted, bgCard, border, ip }: {
   label: string; value: number; onChange: (v: number) => void;
   disabled: boolean; accent: string;
   fontBody: string; fontMono: string;
   textSecondary: string; textMuted: string;
+  bgCard?: string; border?: string; ip?: boolean;
 }) {
+  const pct = Math.round(value * 100);
   return (
-    <div style={{ marginBottom:22 }}>
-      <div style={{ display:"flex", justifyContent:"space-between", marginBottom:9, alignItems: "center" }}>
-        <span style={{ fontFamily:fontBody, fontSize:15, fontWeight: 600, color:textSecondary }}>{label}</span>
-        <span style={{ fontFamily:fontMono, fontSize:15, fontWeight: 800, color:accent, transition:"color 0.2s" }}>
-          {Math.round(value * 100)}%
-        </span>
+    <div style={{ background: bgCard ?? "transparent", border: `1.5px solid ${border ?? "transparent"}`, borderRadius: ip ? 2 : 14, padding: "18px 20px" }}>
+      <div style={{ display:"flex", justifyContent:"space-between", marginBottom: 14, alignItems: "center" }}>
+        <span style={{ fontFamily: fontBody, fontSize: 13, fontWeight: 600, color: textSecondary }}>{label}</span>
+        <span style={{
+          fontFamily: fontMono, fontSize: 13, fontWeight: 800,
+          color: disabled ? textMuted : accent,
+          background: disabled ? "transparent" : `${accent}14`,
+          border: `1px solid ${disabled ? "transparent" : accent + "33"}`,
+          borderRadius: 6, padding: "2px 10px",
+          transition: "color 0.2s, background 0.2s",
+        }}>{pct}%</span>
+      </div>
+      {/* Visual track */}
+      <div style={{ position: "relative", height: 4, borderRadius: 2, background: `${accent}20`, marginBottom: 10, overflow: "hidden" }}>
+        <div style={{ position: "absolute", top: 0, left: 0, height: "100%", width: `${pct}%`, background: disabled ? textMuted : accent, borderRadius: 2, transition: "width 0.05s, background 0.22s" }} />
       </div>
       <input
         type="range" min="0" max="1" step="0.01"
         value={value}
         onChange={e => onChange(parseFloat(e.target.value))}
         disabled={disabled}
-        style={{ width:"100%", opacity:disabled?0.35:1, accentColor:accent, transition:"opacity 0.2s", cursor:disabled?"not-allowed":"pointer" }}
+        style={{ width:"100%", opacity: disabled ? 0.3 : 1, accentColor: accent, transition:"opacity 0.22s", cursor: disabled ? "not-allowed" : "pointer", marginTop: -2 }}
       />
-      <div style={{ display:"flex", justifyContent:"space-between", marginTop:4 }}>
-        <span style={{ fontFamily:fontMono, fontSize:11, fontWeight: 700, color:textMuted }}>0%</span>
-        <span style={{ fontFamily:fontMono, fontSize:11, fontWeight: 700, color:textMuted }}>100%</span>
+      <div style={{ display:"flex", justifyContent:"space-between", marginTop: 4 }}>
+        <span style={{ fontFamily: fontMono, fontSize: 10, fontWeight: 700, color: textMuted }}>0%</span>
+        <span style={{ fontFamily: fontMono, fontSize: 10, fontWeight: 700, color: textMuted }}>100%</span>
       </div>
     </div>
   );

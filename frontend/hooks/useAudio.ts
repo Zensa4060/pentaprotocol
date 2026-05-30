@@ -153,7 +153,7 @@ export function useAudio() {
     next.loop = true;
     next.volume = 0;
     next.play().catch(err => {
-      if (err.name !== "AbortError") console.warn("Audio play failed:", err);
+      if (err.name !== "AbortError" && err.name !== "NotAllowedError") console.warn("Audio play failed:", err);
     });
 
     audioRef.current = next;

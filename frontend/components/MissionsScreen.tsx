@@ -357,6 +357,7 @@ export default function MissionsScreen({ themeId, initialTab }: Props) {
               onClaimAll={dailyClaimAllPayload.length > 0 ? () => runClaimAll("daily", todayKey, dailyClaimAllPayload) : undefined}
               t={t}
               shardsSvg={shardsSvg}
+              isLight={isLight}
             />
           ) : tab === "weekly" ? (
             <MissionsList
@@ -375,6 +376,7 @@ export default function MissionsScreen({ themeId, initialTab }: Props) {
               onClaimAll={weeklyClaimAllPayload.length > 0 ? () => runClaimAll("weekly", weekKey, weeklyClaimAllPayload) : undefined}
               t={t}
               shardsSvg={shardsSvg}
+              isLight={isLight}
             />
           ) : (
             <PermanentMissionsPanel
@@ -388,6 +390,7 @@ export default function MissionsScreen({ themeId, initialTab }: Props) {
               onClaimAll={permanentClaimAllPayload.length > 0 ? () => runClaimAll("permanent", "all_time", permanentClaimAllPayload) : undefined}
               t={t}
               shardsSvg={shardsSvg}
+              isLight={isLight}
             />
           )}
         </div>
@@ -452,8 +455,9 @@ function MissionsList(props: {
   onClaimAll?: () => void;
   t: Theme;
   shardsSvg: string;
+  isLight: boolean;
 }) {
-  const { title, subtitle, timerText, missionIds, events, profile, getClaimed, onClaim, claimAllShards = 0, claimAllXp = 0, onClaimAll, t, shardsSvg } = props;
+  const { title, subtitle, timerText, missionIds, events, profile, getClaimed, onClaim, claimAllShards = 0, claimAllXp = 0, onClaimAll, t, shardsSvg, isLight } = props;
 
   return (
     <div style={{ paddingBottom: 26 }}>
@@ -617,8 +621,9 @@ function PermanentMissionsPanel(props: {
   onClaimAll?: () => void;
   t: Theme;
   shardsSvg: string;
+  isLight: boolean;
 }) {
-  const { permanentDefs, eventsAll, profile, getClaimed, onClaim, claimAllShards = 0, claimAllXp = 0, onClaimAll, t, shardsSvg } = props;
+  const { permanentDefs, eventsAll, profile, getClaimed, onClaim, claimAllShards = 0, claimAllXp = 0, onClaimAll, t, shardsSvg, isLight } = props;
   const [showAll, setShowAll] = useState(false);
   const gold = t.gold ?? "#D4AF37";
 
