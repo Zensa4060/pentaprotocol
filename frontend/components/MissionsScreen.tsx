@@ -582,7 +582,7 @@ function MissionsList(props: {
                   )}
                   {mission.difficulty && (
                     <div style={{
-                      background: mission.difficulty === "hard" ? `${t.accent}22` : mission.difficulty === "medium" ? (isLight ? "rgba(0,0,0,0.05)" : "rgba(255,255,255,0.06)") : "rgba(76,175,80,0.10)",
+                      background: mission.difficulty === "hard" ? `${t.accent}22` : mission.difficulty === "medium" ? (t.isLight ? "rgba(0,0,0,0.05)" : "rgba(255,255,255,0.06)") : "rgba(76,175,80,0.10)",
                       border: `1px solid ${t.border}66`,
                       borderRadius: 10,
                       padding: "8px 10px",
@@ -727,7 +727,7 @@ function PermanentMissionsPanel(props: {
             <div style={{ fontFamily: t.fontMono, fontSize: 12, color: t.textSecondary }}>Not yet</div>
           )}
           {!done && m.difficulty && (
-            <div style={{ fontFamily: t.fontMono, fontSize: 11, color: t.textSecondary, border: `1px solid ${t.border}66`, background: isLight ? "rgba(0,0,0,0.04)" : "rgba(255,255,255,0.03)", padding: "8px 10px", borderRadius: 10 }}>
+            <div style={{ fontFamily: t.fontMono, fontSize: 11, color: t.textSecondary, border: `1px solid ${t.border}66`, background: t.isLight ? "rgba(0,0,0,0.04)" : "rgba(255,255,255,0.03)", padding: "8px 10px", borderRadius: 10 }}>
               {m.difficulty.toUpperCase()}
             </div>
           )}
@@ -819,7 +819,7 @@ function PermanentMissionsPanel(props: {
           <button
             onClick={() => setShowAll(false)}
             style={{
-              background: isLight ? "rgba(0,0,0,0.04)" : "rgba(255,255,255,0.03)",
+              background: t.isLight ? "rgba(0,0,0,0.04)" : "rgba(255,255,255,0.03)",
               border: `1px solid ${t.border}66`,
               color: t.textSecondary,
               borderRadius: 12,
