@@ -398,7 +398,9 @@ export default function HomeScreen({ setScreenAction, themeId, onHoverAction, on
   const isMobile = bp === "mobile";
   const isTablet = bp === "tablet";
 
-  const accent = themeId === "classic_light" || themeId === "classic_dark" ? "#CC0000" : t.accent;
+  // classic_dark has a near-grey t.accent so override to a visible red;
+  // classic_light now has a proper wine-red t.accent so just use it.
+  const accent = themeId === "classic_dark" ? "#CC0000" : t.accent;
 
   // Banner skin: read from localStorage. Only show the hero strip when
   // the player has equipped a non-default animated banner.
@@ -484,12 +486,12 @@ export default function HomeScreen({ setScreenAction, themeId, onHoverAction, on
     ].join(", ");
 
     // Light theme: cards have a permanent drop-shadow (they sit on ivory, not dark bg)
-    const lightRest  = "0 2px 14px rgba(0,0,0,0.07), 0 1px 4px rgba(0,0,0,0.04)";
+    const lightRest  = "0 2px 16px rgba(0,0,0,0.09), 0 1px 4px rgba(0,0,0,0.05)";
     const lightHover = isMulti
-      ? `0 14px 44px rgba(154,16,16,0.18), 0 4px 18px rgba(154,16,16,0.10), ${lightRest}`
+      ? `0 16px 48px rgba(122,30,30,0.18), 0 4px 18px rgba(122,30,30,0.10), ${lightRest}`
       : isAI
-        ? `0 14px 44px rgba(168,85,247,0.18), 0 4px 18px rgba(168,85,247,0.10), ${lightRest}`
-        : `0 14px 44px rgba(60,130,255,0.15), 0 4px 18px rgba(255,210,70,0.10), ${lightRest}`;
+        ? `0 16px 48px rgba(168,85,247,0.16), 0 4px 18px rgba(168,85,247,0.09), ${lightRest}`
+        : `0 16px 48px rgba(50,120,255,0.14), 0 4px 18px rgba(200,200,80,0.08), ${lightRest}`;
 
     let hoverShadow: string;
     if (isLight && !showBannerHero) {
@@ -612,9 +614,9 @@ export default function HomeScreen({ setScreenAction, themeId, onHoverAction, on
         <div style={{
           position: "fixed", inset: 0, zIndex: 0, pointerEvents: "none",
           background: isLight
-            ? `radial-gradient(ellipse at 50% -5%, rgba(190,150,110,0.10) 0%, transparent 52%),
-               radial-gradient(ellipse at 92% 95%, rgba(154,16,16,0.05) 0%, transparent 42%),
-               radial-gradient(ellipse at 4% 80%, rgba(100,80,60,0.04) 0%, transparent 38%),
+            ? `radial-gradient(ellipse at 50% -4%, rgba(200,160,90,0.14) 0%, transparent 50%),
+               radial-gradient(ellipse at 92% 100%, rgba(139,30,30,0.08) 0%, transparent 42%),
+               radial-gradient(ellipse at 3% 78%, rgba(160,130,80,0.06) 0%, transparent 38%),
                ${t.bg}`
             : t.bg,
         }} />
@@ -687,14 +689,14 @@ export default function HomeScreen({ setScreenAction, themeId, onHoverAction, on
               filter: isSp
                 ? "drop-shadow(0 0 18px rgba(80,140,255,0.55))"
                 : isLight
-                  ? "drop-shadow(0 0 4px rgba(26,14,10,0.12))"
+                  ? "drop-shadow(0 0 4px rgba(28,22,16,0.12))"
                   : "drop-shadow(0 0 8px rgba(255,255,255,0.4))",
             }}>
               <span style={{
                 background: isSp
                   ? "linear-gradient(to bottom, #ffffff 0%, #a0c8ff 45%, #6090ff 100%)"
                   : isLight
-                    ? "linear-gradient(to bottom, #1A0E0A 0%, #5A3C32 50%, #2C1A14 100%)"
+                    ? "linear-gradient(to bottom, #1C1408 0%, #4A3824 55%, #281C0E 100%)"
                     : "linear-gradient(to bottom, #ffffff 0%, #999999 50%, #ffffff 100%)",
                 WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", display: "inline",
               }}>PENTA</span>
@@ -703,12 +705,12 @@ export default function HomeScreen({ setScreenAction, themeId, onHoverAction, on
             <span style={{
               display: "inline",
               filter: isLight
-                ? "drop-shadow(0 0 10px rgba(154,16,16,0.35))"
+                ? "drop-shadow(0 0 10px rgba(122,30,30,0.28))"
                 : "drop-shadow(0 0 12px rgba(255,30,0,0.7))",
             }}>
               <span style={{
                 background: isLight
-                  ? "linear-gradient(to bottom, #C41818 0%, #7A0000 45%, #C41818 100%)"
+                  ? "linear-gradient(to bottom, #A82828 0%, #620E0E 45%, #A82828 100%)"
                   : "linear-gradient(to bottom, #FF2200 0%, #8B0000 45%, #FF1100 100%)",
                 WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", display: "inline",
               }}>PROTOCOL</span>
@@ -852,7 +854,7 @@ export default function HomeScreen({ setScreenAction, themeId, onHoverAction, on
               background: isSp
                 ? "rgba(6,12,34,0.65)"
                 : isLight
-                  ? "rgba(253,250,247,0.92)"
+                  ? "rgba(246,238,216,0.97)"
                   : "rgba(255,255,255,0.04)",
               border: `1px solid ${isLight
                 ? (isPlacement ? `${placementCol}55` : `${rank.color}40`)
@@ -1018,7 +1020,7 @@ export default function HomeScreen({ setScreenAction, themeId, onHoverAction, on
             marginTop: isMobile ? -4 : 0,
             marginBottom: 4,
             border: `1px solid ${t.border}88`,
-            background: isLight ? "rgba(253,250,247,0.92)" : "rgba(0,0,0,0.45)",
+            background: isLight ? "rgba(255,255,255,0.95)" : "rgba(0,0,0,0.45)",
             boxShadow: isLight ? "0 2px 10px rgba(0,0,0,0.06)" : undefined,
             borderRadius: ip ? 2 : 10,
             padding: isMobile ? "8px 14px" : "9px 16px",
@@ -1047,7 +1049,7 @@ export default function HomeScreen({ setScreenAction, themeId, onHoverAction, on
             e.currentTarget.style.color = t.textSecondary;
           }}
           onMouseOver={(e) => {
-            e.currentTarget.style.background = isLight ? "rgba(255,252,249,0.98)" : "rgba(0,0,0,0.6)";
+            e.currentTarget.style.background = isLight ? "rgba(250,244,230,0.99)" : "rgba(0,0,0,0.6)";
             e.currentTarget.style.borderColor = `${t.accent}cc`;
             e.currentTarget.style.color = t.accent;
           }}

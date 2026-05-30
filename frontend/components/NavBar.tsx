@@ -601,25 +601,13 @@ export default function NavBar({
       <nav style={{
         position: "fixed", top: 0, left: 0, right: 0, zIndex: 200,
         height: NAV_H,
-        // Background matches the page theme exactly so it blends seamlessly — no hard
-        // horizontal line between the nav and the content below.
-        background: themeId === "classic_light"
-          ? "rgba(242,242,244,0.97)"
-          : themeId === "space"
-            ? "rgba(2,4,15,0.92)"
-            : themeId === "pixel"
-              ? "rgba(16,20,11,0.96)"
-              : "rgba(10,10,10,0.96)",
-        // Only an ambient downward shadow — no 1px top line at all so the
-        // nav blends flush into the page background underneath.
-        boxShadow: themeId === "classic_light"
-          ? "0 4px 20px rgba(0,0,0,0.08)"
-          : "0 6px 32px rgba(0,0,0,0.6)",
+        // Fully transparent — banner and page background show straight through.
+        background: "transparent",
+        boxShadow: "none",
+        borderBottom: "none",
         display: "flex", alignItems: "center",
         padding: isMobile ? "0 10px" : "0 16px",
         gap: isMobile ? 6 : 10,
-        backdropFilter: "blur(16px)",
-        WebkitBackdropFilter: "blur(16px)",
       }}>
 
         {/* ── LEFT: Logo + PentaShards ── */}
@@ -777,13 +765,13 @@ export default function NavBar({
       {!isDesktop && menuOpen && (
         <div style={{
           position: "fixed", top: NAV_H, left: 0, right: 0, zIndex: 199,
-          background: themeId === "classic_light" ? "#FFFFFF" : "rgba(10,10,10,0.97)",
-          borderBottom: `1px solid ${t.border}44`,
+          background: t.isLight ? `rgba(196,184,160,0.97)` : `${t.bg}F5`,
           backdropFilter: "blur(16px)",
           WebkitBackdropFilter: "blur(16px)",
           display: "flex", flexDirection: "column",
           animation: "menuSlideDown 0.2s ease both",
-          boxShadow: "0 8px 32px rgba(0,0,0,0.4)",
+          boxShadow: "none",
+          borderTop: `1px solid ${t.border}33`,
         }}>
           {navLinks.map(({ target, label, screen: s }) => {
             const mb = mobileNavBadge(target);

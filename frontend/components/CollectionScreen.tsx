@@ -100,7 +100,7 @@ type CollectionTheme = {
 };
 
 const COLLECTION_THEMES: CollectionTheme[] = [
-  { id: "classic_light", label: "Classic Light", desc: "The original light aesthetic", comingSoon: false, preview: "linear-gradient(135deg,#f5f0e8,#e8e0d0)", owned: () => true },
+  { id: "classic_light", label: "Classic Light", desc: "Warm linen — elegant and timeless", comingSoon: false, preview: "linear-gradient(135deg,#C4B8A0,#F6EED8)", owned: () => true },
   { id: "classic_dark",  label: "Classic Dark",  desc: "Dark mode classic",            comingSoon: false, preview: "linear-gradient(135deg,#1a1a1a,#2a2a2a)", owned: () => true },
   { id: "space",         label: "Space",         desc: "Deep space atmosphere",       comingSoon: false, preview: "linear-gradient(135deg,#020410,#0d1b4b)", owned: (p) => (p?.purchased_items ?? []).includes("theme_space") },
   { id: "pixel",         label: "Pixel",         desc: "Retro pixel art style",        comingSoon: false, preview: "linear-gradient(135deg,#0d1007,#1a2e0a)", owned: (p) => (p?.purchased_items ?? []).includes("theme_pixel") },
@@ -179,7 +179,7 @@ const SFX_PACKS: { id: SfxPack; label: string; desc: string; owned: boolean; col
 
 // Background sources
 const BG_SOURCES: { id: BgSource; label: string; preview: string; owned: boolean }[] = [
-  { id: "classic_light", label: "Classic Light", preview: "linear-gradient(135deg,#f5f0e8,#e8e0d0)", owned: true },
+  { id: "classic_light", label: "Classic Light", preview: "linear-gradient(135deg,#C4B8A0,#F6EED8)", owned: true },
   { id: "classic_dark",  label: "Classic Dark",  preview: "linear-gradient(135deg,#1a1a1a,#2a2a2a)", owned: true },
   { id: "space",         label: "Space",         preview: "linear-gradient(135deg,#020410,#0d1b4b)", owned: true },
   { id: "pixel",         label: "Pixel",         preview: "linear-gradient(135deg,#0d1007,#1a2e0a)", owned: true },
@@ -676,18 +676,18 @@ export default function CollectionScreen({ themeId, setThemeIdAction, onHoverAct
    * light theme while leaving dark themes untouched.
    */
   const isLight = themeId === "classic_light";
-  const cardBg = isLight ? "rgba(255,255,255,0.96)" : "rgba(30,30,30,0.6)";
-  const cardBorderOwned = isLight ? "rgba(0,0,0,0.08)" : "rgba(255,255,255,0.1)";
-  const cardBorderLocked = isLight ? "rgba(0,0,0,0.05)" : "rgba(255,255,255,0.05)";
-  const lockChipBg = isLight ? "rgba(255,255,255,0.92)" : "rgba(0,0,0,0.8)";
-  const lockChipBorder = isLight ? "rgba(0,0,0,0.12)" : "rgba(255,255,255,0.15)";
-  const lockChipText = isLight ? "#6A6A6A" : "#888";
-  const lockIconColor = isLight ? "#6A6A6A" : "#888";
-  const lockIconColorDeep = isLight ? "#9A9A9A" : "#555";
-  const coinPlaceholderBg = isLight ? "#EDEDF0" : "#1a1a1a";
-  const coinPlaceholderIcon = isLight ? "#9A9A9A" : "#555";
-  const tossUnownedRingStroke = isLight ? "#9A9A9A" : "#333";
-  const dividerColor = isLight ? "rgba(0,0,0,0.08)" : "rgba(255,255,255,0.1)";
+  const cardBg = isLight ? "rgba(246,238,216,0.97)" : "rgba(30,30,30,0.6)";
+  const cardBorderOwned = isLight ? "rgba(28,20,8,0.16)" : "rgba(255,255,255,0.1)";
+  const cardBorderLocked = isLight ? "rgba(28,20,8,0.09)" : "rgba(255,255,255,0.05)";
+  const lockChipBg = isLight ? "rgba(216,206,188,0.96)" : "rgba(0,0,0,0.8)";
+  const lockChipBorder = isLight ? "rgba(28,20,8,0.20)" : "rgba(255,255,255,0.15)";
+  const lockChipText = isLight ? "#6A5640" : "#888";
+  const lockIconColor = isLight ? "#6A5640" : "#888";
+  const lockIconColorDeep = isLight ? "#8A7458" : "#555";
+  const coinPlaceholderBg = isLight ? "#C8BA9C" : "#1a1a1a";
+  const coinPlaceholderIcon = isLight ? "#8A7458" : "#555";
+  const tossUnownedRingStroke = isLight ? "#8A7458" : "#333";
+  const dividerColor = isLight ? "rgba(28,20,8,0.13)" : "rgba(255,255,255,0.1)";
 
   const [isMobile, setIsMobile] = useState(false);
   useEffect(() => {

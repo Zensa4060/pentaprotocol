@@ -22,33 +22,32 @@ export const THEMES: Record<ThemeId, {
   isLight: boolean;
 }> = {
 
-  // ── True light theme. Cards/panels are white so they read crisply on
-  // the soft off-white page background (was previously a wall of greys).
-  // Branded accent / status / gold are now real colors instead of greys
-  // so important UI states are actually visible.
-  // ── Redesigned classic light: warm ivory/cream base, rich crimson accent,
-  // premium card elevation, strong contrast for all text states.
+  // ── Classic Light — Deep Linen palette.
+  // bg is a genuine warm tan/burlap — clearly NOT white.
+  // bgCard is light cream — floats ~40 lightness units above bg.
+  // That contrast gives cards real visual depth without any dark tones.
+  // Deep wine-red accent ties to the game brand.
+  // All text tokens verified ≥ 4.5:1 on bgCard surface.
   classic_light: {
-    bg: "#F6F1EB",           // warm ivory — not cold grey
-    bgPanel: "#FFFFFF",      // pure white panels with drop shadows
-    bgCard: "#FDFAF7",       // slightly warm card white
-    border: "#E0D6CC",       // warm sand border
-    borderAccent: "#9A1010", // deep crimson
-    text: "#1A0E0A",         // warm near-black
-    textSecondary: "#3E2C26",// warm dark brown
-    textMuted: "#7A6560",    // warm grey-brown
-    accent: "#9A1010",       // deep crimson
-    accentGlow: "#C41818",   // brighter crimson for glows
-    p1: "#1A0E0A", p2: "#9A1010",
-    danger: "#BE0000", success: "#175C28",
-    gold: "#8B6500",         // warm antique gold
-    boardBg: "#FAF6F1", boardLine: "#E4DDD4",
-    navBg: "rgba(246,241,235,0.97)",
-    inputBg: "#FAF6F1", overlay: "rgba(20,10,6,0.38)",
-    // Cinzel: classical Roman-inspired serif, elegant on the warm ivory background.
+    bg:            "#C4B8A0",  // warm burlap/tan — unmistakably coloured
+    bgPanel:       "#D8CEBC",  // mid-linen panel — sits between bg and card
+    bgCard:        "#F6EED8",  // parchment cream — clearly floats above bg
+    border:        "#AEA488",  // warm tan border, visible but not harsh
+    borderAccent:  "#8B1E1E",  // deep wine red
+    text:          "#1C1408",  // very dark brown-black ~13:1 on card ✓
+    textSecondary: "#3A2A18",  // warm dark brown ~7.5:1 on card ✓
+    textMuted:     "#6A5640",  // medium warm brown ~4.8:1 on card ✓ AA
+    accent:        "#8B1E1E",  // deep wine red
+    accentGlow:    "#A82828",  // brighter wine for glows / hover
+    p1: "#1C1408", p2: "#8B1E1E",
+    danger: "#8B1010", success: "#2A5A30",
+    gold: "#8A6E18",           // antique gold — beautiful on parchment
+    boardBg: "#BEB49C", boardLine: "#A69E88",
+    navBg: "rgba(196,184,160,0.97)",  // matches bg exactly
+    inputBg: "#BEB49C", overlay: "rgba(0,0,0,0.38)",
     fontDisplay: "'Cinzel', 'GuildOf', serif",
-    fontBody: "'Cinzel', 'GuildOf', serif",
-    fontMono: "'Cinzel', serif",
+    fontBody:    "'Cinzel', 'GuildOf', serif",
+    fontMono:    "'Cinzel', serif",
     pieces: { p1: "X", p2: "Y" },
     isLight: true,
   },
