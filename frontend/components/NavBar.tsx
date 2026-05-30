@@ -421,17 +421,18 @@ export default function NavBar({
   const isMobile = vw < 640;
   const isTablet = vw >= 640 && vw < 1024;
   const isDesktop = vw >= 1024;
-  const isCompactDesktop = isDesktop && vw < 1320; // Compression zone
+  // Compression zone: most laptop screens are 1366–1440px wide, so push the
+  // threshold up to 1500px so those devices get abbreviated labels.
+  const isCompactDesktop = isDesktop && vw < 1500;
   const isUltraWide = vw >= 2560; // 2K, 4K, 8K support
 
-
   // Scaled sizes
-  const NAV_H       = isMobile ? 52 : isTablet ? 60 : 68;
-  const BTN_FONT    = isMobile ? 13 : isTablet ? 14 : "clamp(14px, 1.25vw, 17.5px)";
-  // Setting ICON size directly relative to Nav Base Height (nearly as big as navbar)
-  const ICON_SIZE   = Math.floor(NAV_H * 0.85); 
-  const CURRENCY_SZ = isMobile ? 40 : isTablet ? 48 : 60; // 100% larger
-  const CURRENCY_FONT = isMobile ? 18 : isTablet ? 24 : 28; // Increased font size
+  const NAV_H         = isMobile ? 52 : isTablet ? 60 : 64;
+  const BTN_FONT      = isMobile ? 12 : isTablet ? 13 : "clamp(12px, 1.05vw, 15px)";
+  const ICON_SIZE     = Math.floor(NAV_H * 0.5);
+  // Currency display: compact, non-intrusive — just large enough to read
+  const CURRENCY_SZ   = isMobile ? 22 : isTablet ? 24 : 26;
+  const CURRENCY_FONT = isMobile ? 13 : isTablet ? 14 : 15;
 
   const fmt = (s: number) =>
     `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
@@ -456,8 +457,9 @@ export default function NavBar({
     const syrosMist = "#E9D5FE";
     const accentCol = isDanger ? t.danger : isSyrosNav ? syrosViolet : isClassic ? "#CC2200" : t.accent;
 
-    // Label Compression: Hide text labels for secondary items on small desktops
-    const hideLabel = isCompactDesktop && ["collection", "store", "patchNotes", "battlepass"].includes(target);
+    // Label Compression: Show icon/initial only for secondary items on compact desktops.
+    // "profile" and "friends"/"community" are included so the center group fits at 1366–1440px.
+    const hideLabel = isCompactDesktop && ["collection", "store", "patchNotes", "battlepass", "profile", "friends"].includes(target);
 
     const fg = effectiveDisabled
       ? `${t.textMuted}55`
@@ -599,17 +601,29 @@ export default function NavBar({
       <nav style={{
         position: "fixed", top: 0, left: 0, right: 0, zIndex: 200,
         height: NAV_H,
-        background: themeId === "classic_light" ? "#FFFFFF" : themeId === "space" ? "rgba(4,8,24,0.85)" : "rgba(10,10,10,0.92)",
-        borderBottom: `1px solid ${t.border}33`,
+        // Background matches the page theme exactly so it blends seamlessly — no hard
+        // horizontal line between the nav and the content below.
+        background: themeId === "classic_light"
+          ? "rgba(242,242,244,0.97)"
+          : themeId === "space"
+            ? "rgba(2,4,15,0.92)"
+            : themeId === "pixel"
+              ? "rgba(16,20,11,0.96)"
+              : "rgba(10,10,10,0.96)",
+        // Only an ambient downward shadow — no 1px top line at all so the
+        // nav blends flush into the page background underneath.
+        boxShadow: themeId === "classic_light"
+          ? "0 4px 20px rgba(0,0,0,0.08)"
+          : "0 6px 32px rgba(0,0,0,0.6)",
         display: "flex", alignItems: "center",
         padding: isMobile ? "0 10px" : "0 16px",
         gap: isMobile ? 6 : 10,
-        backdropFilter: "blur(12px)",
-        WebkitBackdropFilter: "blur(12px)",
+        backdropFilter: "blur(16px)",
+        WebkitBackdropFilter: "blur(16px)",
       }}>
 
         {/* ── LEFT: Logo + PentaShards ── */}
-        <div style={{ display: "flex", alignItems: "center", gap: isTablet ? 12 : 20, flexShrink: 0, minWidth: 0 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: isTablet ? 8 : 12, flexShrink: 0, minWidth: 0 }}>
           <div
             onClick={() => { if (!lockMultiplayerNav) navigate("home"); }}
             onMouseEnter={() => {
@@ -634,10 +648,10 @@ export default function NavBar({
               decoding="sync"
               fetchPriority="high"
               style={{
-                width: isMobile ? 36 : isTablet ? 44 : 52,
-                height: isMobile ? 36 : isTablet ? 44 : 52,
+                width: isMobile ? 32 : isTablet ? 38 : 44,
+                height: isMobile ? 32 : isTablet ? 38 : 44,
                 objectFit: "contain",
-                filter: "drop-shadow(0 0 12px rgba(255,100,30,0.4))",
+                filter: "drop-shadow(0 0 10px rgba(255,100,30,0.35))",
                 transition: "transform 0.2s ease",
               }}
               onMouseEnter={e => e.currentTarget.style.transform = "scale(1.05)"}
@@ -652,7 +666,7 @@ export default function NavBar({
           {mounted && !lockMultiplayerNav && !isMobile && (
             <div
               title="PentaShards: earn rewards from missions and events to redeem free skins in the Store."
-              style={{ display: "flex", alignItems: "center", gap: 4, fontFamily: t.fontMono, fontSize: CURRENCY_FONT, fontWeight: 700 }}
+              style={{ display: "flex", alignItems: "center", gap: 3, fontFamily: t.fontMono, fontSize: CURRENCY_FONT, fontWeight: 700, letterSpacing: "0.02em" }}
             >
               <div style={{ width: CURRENCY_SZ, height: CURRENCY_SZ, flexShrink: 0 }} dangerouslySetInnerHTML={{ __html: (themeId === "classic_light" ? SHARDS_LIGHT_SVG : SHARDS_DARK_SVG).replace("<svg ", `<svg width="${CURRENCY_SZ}" height="${CURRENCY_SZ}" `) }} />
               <span style={{ color: "#4FC3F7" }}>{pentashards}</span>
@@ -664,13 +678,13 @@ export default function NavBar({
         {isDesktop && (
           <div style={{
             flex: 1, display: "flex", alignItems: "center", justifyContent: "center",
-            overflow: "hidden", minWidth: 0,
+            // overflow:visible so no button label ever gets clipped
+            overflow: "visible", minWidth: 0,
           }}>
-            <div style={{ 
-              display: "flex", alignItems: "center", flexWrap: "nowrap", 
-              gap: isUltraWide ? "3vw" : "clamp(6px, 1.2vw, 24px)",
+            <div style={{
+              display: "flex", alignItems: "center", flexWrap: "nowrap",
+              gap: isUltraWide ? "3vw" : "clamp(2px, 0.8vw, 16px)",
               transition: "gap 0.3s ease",
-              marginLeft: "1%",
             }}>
               {navBtn("friends", "COMMUNITY", false, false, undefined, "friends", false, friendsNotifyBadge)}
               {navBtn("collection", "Collection", false, false, undefined, "collection", false, collectionNotifyBadge)}
@@ -685,8 +699,8 @@ export default function NavBar({
         )}
 
         {isTablet && (
-          <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
-            <div style={{ display: "flex", alignItems: "center", flexWrap: "nowrap", gap: 6 }}>
+          <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", overflow: "visible" }}>
+            <div style={{ display: "flex", alignItems: "center", flexWrap: "nowrap", gap: 4 }}>
               {navBtn("home",    "Home",    false, false, undefined, "home")}
               {navBtn("store",   "Store",   false, false, undefined, "store", false, storeNewBadge)}
               {navBtn("profile", "Profile", false, false, undefined, "profile", false, profileNotifyBadge)}
@@ -700,13 +714,9 @@ export default function NavBar({
         {!isDesktop && <div style={{ flex: 1 }} />}
 
         {/* ── RIGHT: currency + settings + hamburger ── */}
-        <div style={{ display: "flex", alignItems: "center", gap: isTablet ? 12 : 20, flexShrink: 0, marginLeft: "auto" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: isTablet ? 8 : 12, flexShrink: 0, marginLeft: "auto" }}>
 
-          {/* Currencies — hidden in multiplayer (lockMultiplayerNav) so the
-              bar shows only the PentaProtocol logo on the left and Settings
-              on the right during a live match. Also hidden on mobile (see
-              ProfileScreen for the mobile currency pill) to prevent the nav
-              bar from overflowing on narrow viewports. */}
+          {/* ProtoCredits — hidden during multiplayer and on mobile */}
           {mounted && !lockMultiplayerNav && !isMobile && (
             <div
               title="ProtoCredits: premium currency to buy skins, themes, and bundles in the Store."
@@ -724,15 +734,15 @@ export default function NavBar({
             onMouseEnter={e => { onHoverAction?.(); e.currentTarget.style.borderColor = t.accent; e.currentTarget.style.color = t.accent; e.currentTarget.style.background = `${t.accent}18`; e.currentTarget.style.transform = "scale(1.05)"; }}
             onMouseLeave={e => { e.currentTarget.style.borderColor = `${t.border}66`; e.currentTarget.style.color = t.text; e.currentTarget.style.background = `${t.border}22`; e.currentTarget.style.transform = "scale(1)"; }}
             style={{
-              background: `${t.border}22`, border: `1px solid ${t.border}66`, color: t.text,
-              width: isMobile ? 36 : isTablet ? 44 : 52, 
-              height: isMobile ? 36 : isTablet ? 44 : 52, 
-              borderRadius: "25%", cursor: "pointer",
-              transition: "background 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease",
+              background: `${t.border}22`, border: `1px solid ${t.border}55`, color: t.text,
+              width: isMobile ? 32 : isTablet ? 36 : 38,
+              height: isMobile ? 32 : isTablet ? 36 : 38,
+              borderRadius: 10, cursor: "pointer",
+              transition: "background 0.2s, border-color 0.2s, box-shadow 0.2s",
               display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0
             }}
           >
-            <svg width={(isMobile ? 36 : isTablet ? 44 : 52) * 0.6} height={(isMobile ? 36 : isTablet ? 44 : 52) * 0.6} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="12" cy="12" r="3" />
               <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
             </svg>

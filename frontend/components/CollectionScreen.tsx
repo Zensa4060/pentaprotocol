@@ -899,7 +899,81 @@ export default function CollectionScreen({ themeId, setThemeIdAction, onHoverAct
         @keyframes fadeIn { from{opacity:0} to{opacity:1} }
       `}</style>
 
-      <div style={{ maxWidth: 1600, margin: "0 auto", padding: isMobile ? "0 20px 60px" : "0 40px 60px" }}>
+      <div style={{ maxWidth: 1600, margin: "0 auto", padding: isMobile ? "0 16px 60px" : "0 40px 60px" }}>
+
+        {/* ── HERO SECTION ── */}
+        <div style={{
+          position: "relative",
+          width: "100%",
+          height: isMobile ? 148 : 192,
+          overflow: "hidden",
+          borderRadius: isMobile ? 16 : 22,
+          marginBottom: isMobile ? 18 : 24,
+        }}>
+          {/* Banner as background */}
+          <div style={{ position: "absolute", inset: 0, zIndex: 0 }}>
+            <BannerRenderer bannerId={activeBanner} style={{ width: "100%", height: "100%" }} />
+          </div>
+          {/* Layered overlays for depth + legibility */}
+          <div style={{ position: "absolute", inset: 0, zIndex: 1, background: "linear-gradient(135deg, rgba(0,0,0,0.70) 0%, rgba(0,0,0,0.15) 55%, rgba(0,0,0,0.50) 100%)" }} />
+          <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: "60%", zIndex: 1, background: "linear-gradient(to top, rgba(0,0,0,0.82) 0%, transparent 100%)" }} />
+          {/* Top-right shimmer accent */}
+          <div style={{ position: "absolute", top: -40, right: -40, width: 200, height: 200, zIndex: 1, background: `radial-gradient(circle, ${hoverColor}22 0%, transparent 65%)`, pointerEvents: "none" }} />
+
+          {/* Content */}
+          <div style={{
+            position: "relative", zIndex: 2,
+            height: "100%",
+            display: "flex", flexDirection: "column", justifyContent: "flex-end",
+            padding: isMobile ? "14px 18px" : "20px 32px",
+            gap: isMobile ? 6 : 8,
+          }}>
+            {/* Title + stats row */}
+            <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between" }}>
+              <div>
+                <div style={{ fontFamily: t.fontMono, fontSize: 9, fontWeight: 800, letterSpacing: "0.42em", textTransform: "uppercase" as const, color: "rgba(255,255,255,0.38)", marginBottom: 3 }}>YOUR ARSENAL</div>
+                <div style={{ fontFamily: t.fontDisplay, fontSize: isMobile ? 24 : 34, fontWeight: 950, color: "#ffffff", letterSpacing: "0.06em", textShadow: "0 2px 24px rgba(0,0,0,0.9)", lineHeight: 1 }}>COLLECTION</div>
+              </div>
+              {!isMobile && (
+                <div style={{ display: "flex", gap: 20, alignItems: "flex-end" }}>
+                  {CATEGORIES.map(cat => {
+                    const owned = cat.count(profile);
+                    const total = totalForCat(cat.id);
+                    const isAct = activeCat === cat.id;
+                    return (
+                      <button key={cat.id} onClick={() => { onClickAction?.(); selectCat(cat.id); }}
+                        style={{ textAlign: "center", background: "transparent", border: "none", cursor: "pointer", padding: "0 4px", opacity: isAct ? 1 : 0.42, transition: "opacity 0.2s" }}>
+                        <div style={{ fontFamily: t.fontDisplay, fontWeight: 900, fontSize: 22, color: isAct ? hoverColor : "#fff", textShadow: isAct ? `0 0 18px ${hoverColor}66` : "none", lineHeight: 1 }}>{owned}</div>
+                        <div style={{ fontFamily: t.fontMono, fontSize: 7, color: "rgba(255,255,255,0.38)", letterSpacing: "0.12em", marginTop: 4, fontWeight: 700 }}>{cat.label}</div>
+                        <div style={{ fontFamily: t.fontMono, fontSize: 7, color: "rgba(255,255,255,0.22)", letterSpacing: "0.06em", marginTop: 1 }}>/{total}</div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Equipped pills */}
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" as const, alignItems: "center" }}>
+              {[
+                { label: "THEME",  value: COLLECTION_THEMES.find(x => x.id === activeTheme)?.label ?? activeTheme },
+                { label: "GRID",   value: BOARD_BUNDLES.find(b => b.boardId === activeBoard)?.boardLabel ?? activeBoard },
+                { label: "BANNER", value: BANNERS.find(b => b.id === activeBanner)?.label ?? activeBanner },
+              ].map(chip => (
+                <div key={chip.label} style={{
+                  display: "inline-flex", alignItems: "center", gap: 5,
+                  background: "rgba(255,255,255,0.09)", backdropFilter: "blur(10px)",
+                  border: "1px solid rgba(255,255,255,0.14)", borderRadius: 20,
+                  padding: "3px 10px",
+                }}>
+                  <span style={{ fontFamily: t.fontMono, fontSize: 7, color: "rgba(255,255,255,0.38)", letterSpacing: "0.12em", fontWeight: 700, textTransform: "uppercase" as const }}>{chip.label}</span>
+                  <span style={{ width: 1, height: 9, background: "rgba(255,255,255,0.18)", flexShrink: 0 }} />
+                  <span style={{ fontFamily: t.fontMono, fontSize: 9, color: "rgba(255,255,255,0.82)", fontWeight: 800, letterSpacing: "0.02em" }}>{chip.value}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
 
         {/* ── Main content ── */}
         <div style={{ minWidth: 0 }}>
@@ -918,64 +992,112 @@ export default function CollectionScreen({ themeId, setThemeIdAction, onHoverAct
             </div>
           )}
           {!isMobile && (
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, marginBottom: 18, paddingBottom: 14, borderBottom: `1px solid ${t.border}44` }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "nowrap", overflowX: "auto", paddingBottom: 2 }}>
-                {CATEGORIES.map(cat => {
-                  const isActive = activeCat === cat.id;
-                  return (
-                    <button
-                      key={cat.id}
-                      className="coll-tab"
-                      onClick={() => { onClickAction?.(); selectCat(cat.id); }}
-                      onMouseEnter={() => onHoverAction?.()}
-                      style={{
-                        flexShrink: 0,
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: 10,
-                        padding: "10px 14px",
-                        borderRadius: 12,
-                        background: isActive ? `${t.accent}18` : "rgba(255,255,255,0.02)",
-                        border: `1px solid ${isActive ? `${t.accent}55` : "rgba(255,255,255,0.06)"}`,
-                        color: isActive ? t.accent : t.textMuted,
-                        fontFamily: t.fontDisplay,
-                        fontSize: 13,
-                        fontWeight: isActive ? 950 : 800,
-                        letterSpacing: "0.12em",
-                        textTransform: "uppercase" as const,
-                        cursor: "pointer",
-                        whiteSpace: "nowrap",
-                        boxShadow: isActive ? `0 0 18px ${t.accent}22, inset 0 0 18px ${t.accent}10` : "none",
-                        transition: "background 0.2s, border-color 0.2s, opacity 0.2s, box-shadow 0.2s",
-                      }}
-                    >
-                      <CatIcon id={cat.icon} size={16} color={isActive ? t.accent : t.textMuted} />
-                      <span>{cat.label}</span>
-                    </button>
-                  );
-                })}
+            <div style={{ marginBottom: 20 }}>
+              {/* Tab bar */}
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, paddingBottom: 0 }}>
+                <div style={{ display: "flex", alignItems: "stretch", gap: 4, flexWrap: "nowrap", overflowX: "auto",
+                  background: isLight ? "rgba(0,0,0,0.04)" : "rgba(255,255,255,0.03)",
+                  border: `1px solid ${isLight ? "rgba(0,0,0,0.08)" : "rgba(255,255,255,0.06)"}`,
+                  borderRadius: 14, padding: "4px",
+                }}>
+                  {CATEGORIES.map(cat => {
+                    const isActive = activeCat === cat.id;
+                    const ownedCnt = cat.count(profile);
+                    const totalCnt = totalForCat(cat.id);
+                    return (
+                      <button
+                        key={cat.id}
+                        className="coll-tab"
+                        onClick={() => { onClickAction?.(); selectCat(cat.id); }}
+                        onMouseEnter={() => onHoverAction?.()}
+                        style={{
+                          flexShrink: 0,
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: 8,
+                          padding: "9px 14px",
+                          borderRadius: 10,
+                          background: isActive ? (isLight ? `${hoverColor}12` : `${hoverColor}18`) : "transparent",
+                          border: `1px solid ${isActive ? `${hoverColor}44` : "transparent"}`,
+                          color: isActive ? hoverColor : t.textMuted,
+                          fontFamily: t.fontDisplay,
+                          fontSize: 12,
+                          fontWeight: isActive ? 950 : 700,
+                          letterSpacing: "0.1em",
+                          textTransform: "uppercase" as const,
+                          cursor: "pointer",
+                          whiteSpace: "nowrap",
+                          boxShadow: isActive ? `0 0 16px ${hoverColor}18` : "none",
+                          transition: "background 0.18s, border-color 0.18s, color 0.18s, box-shadow 0.18s",
+                        }}
+                      >
+                        <CatIcon id={cat.icon} size={15} color={isActive ? hoverColor : t.textMuted} />
+                        <span>{cat.label}</span>
+                        {/* Owned count badge */}
+                        <span style={{
+                          fontFamily: t.fontMono, fontSize: 9, fontWeight: 900,
+                          lineHeight: 1,
+                          color: isActive ? hoverColor : t.textMuted,
+                          background: isActive ? `${hoverColor}20` : (isLight ? "rgba(0,0,0,0.06)" : "rgba(255,255,255,0.06)"),
+                          border: `1px solid ${isActive ? hoverColor + "35" : (isLight ? "rgba(0,0,0,0.08)" : "rgba(255,255,255,0.08)")}`,
+                          borderRadius: 20, padding: "1px 6px",
+                          letterSpacing: "0.02em",
+                        }}>
+                          {ownedCnt}<span style={{ opacity: 0.45 }}>/{totalCnt}</span>
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <button
+                  onClick={() => { onClickAction?.(); setShowAll(v => !v); }}
+                  onMouseEnter={() => onHoverAction?.()}
+                  style={{
+                    flexShrink: 0,
+                    background: showAll ? hoverColor : (isLight ? "rgba(0,0,0,0.04)" : "rgba(255,255,255,0.03)"),
+                    border: `1px solid ${showAll ? hoverColor : (isLight ? "rgba(0,0,0,0.1)" : t.border)}`,
+                    borderRadius: 10,
+                    padding: "9px 16px",
+                    fontFamily: t.fontMono,
+                    fontSize: 10,
+                    fontWeight: 800,
+                    color: showAll ? "#fff" : t.textMuted,
+                    cursor: "pointer",
+                    letterSpacing: "0.06em",
+                    transition: "background 0.2s, border-color 0.2s, opacity 0.2s, box-shadow 0.2s",
+                  }}
+                >
+                  {showAll ? "ALL ITEMS" : "OWNED ONLY"}
+                </button>
               </div>
 
-              <button
-                onClick={() => { onClickAction?.(); setShowAll(v => !v); }}
-                onMouseEnter={() => onHoverAction?.()}
-                style={{
-                  flexShrink: 0,
-                  background: showAll ? t.accent : "rgba(255,255,255,0.03)",
-                  border: `1px solid ${showAll ? t.accent : t.border}`,
-                  borderRadius: 10,
-                  padding: "8px 16px",
-                  fontFamily: t.fontMono,
-                  fontSize: 11,
-                  fontWeight: 800,
-                  color: showAll ? "#000" : t.textMuted,
-                  cursor: "pointer",
-                  letterSpacing: "0.05em",
-                  transition: "background 0.2s, border-color 0.2s, opacity 0.2s, box-shadow 0.2s",
-                }}
-              >
-                {showAll ? "SHOWING ALL" : "FILTER OWNED"}
-              </button>
+              {/* Section header: active category name + owned progress bar */}
+              <div style={{
+                marginTop: 16, marginBottom: 6,
+                display: "flex", alignItems: "center", gap: 14,
+              }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <CatIcon id={catData.icon} size={14} color={hoverColor} />
+                  <span style={{ fontFamily: t.fontMono, fontSize: 10, fontWeight: 800, color: hoverColor, letterSpacing: "0.22em", textTransform: "uppercase" as const }}>{catData.label}</span>
+                </div>
+                {/* Progress indicator */}
+                {(() => {
+                  const owned = catData.count(profile);
+                  const total = totalForCat(activeCat);
+                  const pct = total > 0 ? (owned / total) * 100 : 0;
+                  return (
+                    <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 10 }}>
+                      <div style={{ flex: 1, height: 3, background: isLight ? "rgba(0,0,0,0.08)" : "rgba(255,255,255,0.06)", borderRadius: 99, overflow: "hidden" }}>
+                        <div style={{ height: "100%", width: `${pct}%`, background: `linear-gradient(90deg, ${hoverColor}99, ${hoverColor})`, borderRadius: 99, transition: "width 0.5s cubic-bezier(.22,.68,0,1.2)" }} />
+                      </div>
+                      <span style={{ fontFamily: t.fontMono, fontSize: 9, color: t.textMuted, fontWeight: 700, letterSpacing: "0.06em", whiteSpace: "nowrap" as const }}>
+                        {owned} <span style={{ opacity: 0.4 }}>/ {total}</span>
+                      </span>
+                    </div>
+                  );
+                })()}
+              </div>
             </div>
           )}
 
