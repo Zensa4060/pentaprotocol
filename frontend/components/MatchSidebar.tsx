@@ -1419,7 +1419,7 @@ export function LeftPanel(props: MatchSidebarProps) {
             boxShadow: "0 0 10px rgba(153,27,27,0.35), 0 0 20px rgba(127,29,29,0.2), inset 0 0 8px rgba(220,38,38,0.1)",
             textShadow: "0 0 8px rgba(220,38,38,0.4)",
             cursor: "pointer",
-            transition: "all 0.2s",
+            transition: "background 0.2s, border-color 0.2s, opacity 0.2s, box-shadow 0.2s",
             position: "relative" as const,
             overflow: "hidden" as const,
           };
@@ -1567,7 +1567,7 @@ export function LeftPanel(props: MatchSidebarProps) {
                       padding: "12px",
                       borderRadius: ip ? 2 : 6,
                       cursor: isBotRow ? "default" : "pointer",
-                      transition: "all 0.2s",
+                      transition: "background 0.2s, border-color 0.2s, opacity 0.2s, box-shadow 0.2s",
                       boxShadow: rdy ? `0 0 16px ${col}55, 0 0 4px ${col}33` : "none",
                       opacity: isBotRow ? 0.92 : 1,
                     }}
@@ -1586,7 +1586,7 @@ export function LeftPanel(props: MatchSidebarProps) {
                 return (
                   <button onClick={() => onReadyToggle("P1")}
                     className={!rdy ? "thump-anim" : ""}
-                    style={{ background: rdy ? `${col}22` : "#AA000022", border: `2px solid ${rdy ? col : "#AA0000"}`, color: rdy ? col : "#EE0000", fontFamily: t.fontMono, fontSize: 15, fontWeight: 700, padding: "12px", borderRadius: ip ? 2 : 6, cursor: "pointer", transition: "all 0.2s", boxShadow: rdy ? `0 0 16px ${col}55, 0 0 4px ${col}33` : "none" }}
+                    style={{ background: rdy ? `${col}22` : "#AA000022", border: `2px solid ${rdy ? col : "#AA0000"}`, color: rdy ? col : "#EE0000", fontFamily: t.fontMono, fontSize: 15, fontWeight: 700, padding: "12px", borderRadius: ip ? 2 : 6, cursor: "pointer", transition: "background 0.2s, border-color 0.2s, opacity 0.2s, box-shadow 0.2s", boxShadow: rdy ? `0 0 16px ${col}55, 0 0 4px ${col}33` : "none" }}
                     onMouseEnter={e => { playHoverAction?.(); e.currentTarget.style.boxShadow = rdy ? `0 0 24px ${col}88` : "0 0 16px #EE000055"; e.currentTarget.style.borderColor = rdy ? col : "#FF3333"; }}
                     onMouseLeave={e => { e.currentTarget.style.boxShadow = rdy ? `0 0 16px ${col}55` : "none"; e.currentTarget.style.borderColor = rdy ? col : "#AA0000"; }}
                   >{label} {rdy ? "READY" : ""}</button>
@@ -1598,7 +1598,7 @@ export function LeftPanel(props: MatchSidebarProps) {
                 const col = p === "P1" ? p1c : p2c;
                 return (
                   <button key={p} onClick={() => onReadyToggle(p)}
-                    style={{ background: rdy ? `${col}22` : "#AA000022", border: `2px solid ${rdy ? col : "#AA0000"}`, color: rdy ? col : "#EE0000", fontFamily: t.fontMono, fontSize: 15, fontWeight: 700, padding: "12px", borderRadius: ip ? 2 : 6, cursor: "pointer", transition: "all 0.2s", boxShadow: rdy ? `0 0 16px ${col}55, 0 0 4px ${col}33` : "none" }}
+                    style={{ background: rdy ? `${col}22` : "#AA000022", border: `2px solid ${rdy ? col : "#AA0000"}`, color: rdy ? col : "#EE0000", fontFamily: t.fontMono, fontSize: 15, fontWeight: 700, padding: "12px", borderRadius: ip ? 2 : 6, cursor: "pointer", transition: "background 0.2s, border-color 0.2s, opacity 0.2s, box-shadow 0.2s", boxShadow: rdy ? `0 0 16px ${col}55, 0 0 4px ${col}33` : "none" }}
                     onMouseEnter={e => { playHoverAction?.(); e.currentTarget.style.boxShadow = rdy ? `0 0 24px ${col}88` : "0 0 16px #EE000055"; e.currentTarget.style.borderColor = rdy ? col : "#FF3333"; }}
                     onMouseLeave={e => { e.currentTarget.style.boxShadow = rdy ? `0 0 16px ${col}55` : "none"; e.currentTarget.style.borderColor = rdy ? col : "#AA0000"; }}
                   >{p === "P1" ? (p1Label ?? p) : (p2Label ?? p)} {rdy ? "READY" : "NOT READY"}</button>
@@ -1626,7 +1626,7 @@ export function LeftPanel(props: MatchSidebarProps) {
               padding: "10px 0",
               borderRadius: ip ? 2 : 8,
               cursor: "pointer",
-              transition: "all 0.2s",
+              transition: "background 0.2s, border-color 0.2s, opacity 0.2s, box-shadow 0.2s",
             }}
           >
             {showPatternOverlay ? "HIDE PATTERNS" : "SHOW PATTERNS"}
@@ -1800,8 +1800,8 @@ export function LeftPanel(props: MatchSidebarProps) {
           {chatWarning && (<div style={{ padding: "8px 12px", background: "#F4433618", border: "1px solid #F44336", borderRadius: 6, fontFamily: t.fontBody, fontSize: 13, color: "#F44336" }}>Inappropriate language detected and censored.</div>)}
           <div style={{ display: "flex", gap: 6 }}>
             <input value={chatInput} onChange={e => onChatInputChange(e.target.value)} onKeyDown={onChatKeyDown} placeholder="message…" maxLength={60} style={{ flex: 1, background: t.inputBg, border: `1px solid ${t.border}`, borderRadius: ip ? 2 : 6, color: t.text, fontFamily: t.fontBody, fontSize: 14, padding: "8px 10px", outline: "none", minWidth: 0 }} />
-            {(!isMultiplayerGame || mySlot === "P1") && (<button onClick={() => onSendChat("P1")} style={{ background: `${p1c}20`, border: `1px solid ${p1c}`, color: p1c, fontFamily: t.fontMono, fontSize: 14, fontWeight: 700, padding: "8px 12px", borderRadius: ip ? 2 : 6, cursor: "pointer", transition: "all 0.18s", flexShrink: 0 }} onMouseEnter={e => { e.currentTarget.style.background = p1c; e.currentTarget.style.color = "#000"; }} onMouseLeave={e => { e.currentTarget.style.background = `${p1c}20`; e.currentTarget.style.color = p1c; }}>P1</button>)}
-            {(!isMultiplayerGame || mySlot === "P2") && (<button onClick={() => onSendChat("P2")} style={{ background: `${p2c}20`, border: `1px solid ${p2c}`, color: p2c, fontFamily: t.fontMono, fontSize: 14, fontWeight: 700, padding: "8px 12px", borderRadius: ip ? 2 : 6, cursor: "pointer", transition: "all 0.18s", flexShrink: 0 }} onMouseEnter={e => { e.currentTarget.style.background = p2c; e.currentTarget.style.color = "#000"; }} onMouseLeave={e => { e.currentTarget.style.background = `${p2c}20`; e.currentTarget.style.color = p2c; }}>P2</button>)}
+            {(!isMultiplayerGame || mySlot === "P1") && (<button onClick={() => onSendChat("P1")} style={{ background: `${p1c}20`, border: `1px solid ${p1c}`, color: p1c, fontFamily: t.fontMono, fontSize: 14, fontWeight: 700, padding: "8px 12px", borderRadius: ip ? 2 : 6, cursor: "pointer", transition: "background 0.18s, border-color 0.18s, box-shadow 0.18s", flexShrink: 0 }} onMouseEnter={e => { e.currentTarget.style.background = p1c; e.currentTarget.style.color = "#000"; }} onMouseLeave={e => { e.currentTarget.style.background = `${p1c}20`; e.currentTarget.style.color = p1c; }}>P1</button>)}
+            {(!isMultiplayerGame || mySlot === "P2") && (<button onClick={() => onSendChat("P2")} style={{ background: `${p2c}20`, border: `1px solid ${p2c}`, color: p2c, fontFamily: t.fontMono, fontSize: 14, fontWeight: 700, padding: "8px 12px", borderRadius: ip ? 2 : 6, cursor: "pointer", transition: "background 0.18s, border-color 0.18s, box-shadow 0.18s", flexShrink: 0 }} onMouseEnter={e => { e.currentTarget.style.background = p2c; e.currentTarget.style.color = "#000"; }} onMouseLeave={e => { e.currentTarget.style.background = `${p2c}20`; e.currentTarget.style.color = p2c; }}>P2</button>)}
           </div>
         </div>
       )}
@@ -1848,8 +1848,8 @@ export function RightPanel({
           onClick={onShowSurrenderAction}
           style={
             isPreMoveAbort
-              ? { background: `${t.border}22`, border: `1px solid ${t.border}`, color: t.textSecondary, fontFamily: t.fontBody, fontSize: 13, padding: 9, borderRadius: ip ? 2 : 6, cursor: "pointer", transition: "all 0.2s" }
-              : { background: `${t.danger}16`, border: `1px solid ${t.danger}`, color: t.danger, fontFamily: t.fontBody, fontSize: 13, padding: 9, borderRadius: ip ? 2 : 6, cursor: "pointer", transition: "all 0.2s" }
+              ? { background: `${t.border}22`, border: `1px solid ${t.border}`, color: t.textSecondary, fontFamily: t.fontBody, fontSize: 13, padding: 9, borderRadius: ip ? 2 : 6, cursor: "pointer", transition: "background 0.2s, border-color 0.2s, opacity 0.2s, box-shadow 0.2s" }
+              : { background: `${t.danger}16`, border: `1px solid ${t.danger}`, color: t.danger, fontFamily: t.fontBody, fontSize: 13, padding: 9, borderRadius: ip ? 2 : 6, cursor: "pointer", transition: "background 0.2s, border-color 0.2s, opacity 0.2s, box-shadow 0.2s" }
           }
           onMouseEnter={e => { playHoverAction?.(); e.currentTarget.style.background = isPreMoveAbort ? `${t.border}40` : `${t.danger}30`; }}
           onMouseLeave={e => { e.currentTarget.style.background = isPreMoveAbort ? `${t.border}22` : `${t.danger}16`; }}
@@ -1882,7 +1882,7 @@ export function RightPanel({
               borderRadius: ip ? 2 : 6,
               cursor: canUndo ? "pointer" : "default",
               opacity: canUndo ? 1 : 0.55,
-              transition: "all 0.2s",
+              transition: "background 0.2s, border-color 0.2s, opacity 0.2s, box-shadow 0.2s",
             }}
           >
             ↶ UNDO MOVE
@@ -1890,7 +1890,7 @@ export function RightPanel({
         )}
         <button
           onClick={onSoftResetAction}
-          style={{ background: `${t.danger}16`, border: `1px solid ${t.danger}`, color: t.danger, fontFamily: t.fontBody, fontSize: 13, padding: 9, borderRadius: ip ? 2 : 6, cursor: "pointer", transition: "all 0.2s" }}
+          style={{ background: `${t.danger}16`, border: `1px solid ${t.danger}`, color: t.danger, fontFamily: t.fontBody, fontSize: 13, padding: 9, borderRadius: ip ? 2 : 6, cursor: "pointer", transition: "background 0.2s, border-color 0.2s, opacity 0.2s, box-shadow 0.2s" }}
           onMouseEnter={e => { playHoverAction?.(); e.currentTarget.style.background = `${t.danger}30`; }}
           onMouseLeave={e => { e.currentTarget.style.background = `${t.danger}16`; }}
         >
@@ -1934,7 +1934,7 @@ export function RightPanel({
                 height: 40,
                 borderRadius: "25%",
                 cursor: "pointer",
-                transition: "all 0.2s ease",
+                transition: "background 0.2s ease, border-color 0.2s ease, opacity 0.2s ease",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
@@ -1952,7 +1952,7 @@ export function RightPanel({
         </div>
         {renderSurrenderOrReset()}
         {setScreenAction && !isRankedGame && (phase === "playing" || phase === "waiting_ready" || phase === "match_over") && (
-          <button onClick={onShowExitConfirmAction} style={{ background: `${t.danger}16`, border: `1px solid ${t.danger}`, color: t.danger, fontFamily: t.fontBody, fontSize: 13, padding: 9, borderRadius: ip ? 2 : 6, cursor: "pointer", transition: "all 0.2s", marginTop: 4 }} onMouseEnter={e => { playHoverAction?.(); e.currentTarget.style.background = `${t.danger}30`; }} onMouseLeave={e => { e.currentTarget.style.background = `${t.danger}16`; }}>EXIT MATCH</button>
+          <button onClick={onShowExitConfirmAction} style={{ background: `${t.danger}16`, border: `1px solid ${t.danger}`, color: t.danger, fontFamily: t.fontBody, fontSize: 13, padding: 9, borderRadius: ip ? 2 : 6, cursor: "pointer", transition: "background 0.2s, border-color 0.2s, opacity 0.2s, box-shadow 0.2s", marginTop: 4 }} onMouseEnter={e => { playHoverAction?.(); e.currentTarget.style.background = `${t.danger}30`; }} onMouseLeave={e => { e.currentTarget.style.background = `${t.danger}16`; }}>EXIT MATCH</button>
         )}
       </div>
     </div>
@@ -2431,7 +2431,7 @@ export function WinOverlay({
                 fontSize: 16,
                 fontWeight: 900,
                 cursor: canDismiss ? "pointer" : "default",
-                transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                transition: "background 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
                 boxShadow: canDismiss ? `0 8px 32px ${winnerColor}44` : "none",
                 opacity: canDismiss ? 1 : 0.6,
                 display: "flex",
@@ -2538,7 +2538,7 @@ export function WinOverlay({
                       fontWeight: 900,
                       letterSpacing: "0.04em",
                       cursor: "pointer",
-                      transition: "all 0.2s",
+                      transition: "background 0.2s, border-color 0.2s, opacity 0.2s, box-shadow 0.2s",
                       boxShadow: p1Ready ? `0 8px 28px ${p1c}44` : "none",
                     }}
                   >
@@ -2577,7 +2577,7 @@ export function WinOverlay({
                           letterSpacing: "0.03em",
                           cursor: isMine ? "pointer" : "default",
                           opacity: isMine ? 1 : 0.75,
-                          transition: "all 0.2s",
+                          transition: "background 0.2s, border-color 0.2s, opacity 0.2s, box-shadow 0.2s",
                           boxShadow: rdy ? `0 8px 24px ${col}33` : "none",
                         }}
                       >
@@ -2605,7 +2605,7 @@ export function WinOverlay({
                       letterSpacing: "0.14em",
                       textTransform: "uppercase",
                       cursor: "pointer",
-                      transition: "all 0.2s",
+                      transition: "background 0.2s, border-color 0.2s, opacity 0.2s, box-shadow 0.2s",
                     }}
                     onMouseEnter={(e) => {
                       e.currentTarget.style.background = `${accentColor}15`;
@@ -2686,7 +2686,7 @@ export function WinOverlay({
                     fontWeight: 900,
                     letterSpacing: "0.08em",
                     cursor: "pointer",
-                    transition: "all 0.2s",
+                    transition: "background 0.2s, border-color 0.2s, opacity 0.2s, box-shadow 0.2s",
                     boxShadow: `0 8px 28px ${accentColor}33`,
                   }}
                   onMouseEnter={e => { e.currentTarget.style.background = `${accentColor}33`; e.currentTarget.style.transform = "translateY(-1px)"; }}
@@ -2711,7 +2711,7 @@ export function WinOverlay({
                     fontWeight: 800,
                     letterSpacing: "0.1em",
                     cursor: "pointer",
-                    transition: "all 0.2s",
+                    transition: "background 0.2s, border-color 0.2s, opacity 0.2s, box-shadow 0.2s",
                   }}
                   onMouseEnter={e => { e.currentTarget.style.background = `${accentColor}15`; e.currentTarget.style.borderColor = accentColor; }}
                   onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.borderColor = `${accentColor}66`; }}
@@ -2740,7 +2740,7 @@ export function WinOverlay({
                     fontWeight: 900,
                     letterSpacing: "0.1em",
                     cursor: "pointer",
-                    transition: "all 0.2s",
+                    transition: "background 0.2s, border-color 0.2s, opacity 0.2s, box-shadow 0.2s",
                     boxShadow: `0 8px 28px ${accentColor}33`,
                   }}
                   onMouseEnter={e => { e.currentTarget.style.background = `${accentColor}2E`; }}
@@ -2765,7 +2765,7 @@ export function WinOverlay({
                     fontWeight: 800,
                     letterSpacing: "0.1em",
                     cursor: "pointer",
-                    transition: "all 0.2s",
+                    transition: "background 0.2s, border-color 0.2s, opacity 0.2s, box-shadow 0.2s",
                   }}
                   onMouseEnter={e => { e.currentTarget.style.background = subtleHover; e.currentTarget.style.borderColor = subtleBorderStrong; }}
                   onMouseLeave={e => { e.currentTarget.style.background = subtleSurface; e.currentTarget.style.borderColor = subtleBorder; }}
@@ -2790,7 +2790,7 @@ export function DisconnectModal({ show, t, ip, onGoHomeAction }: { show: boolean
         <div style={{ fontFamily: t.fontBody, fontSize: 15, color: t.textSecondary, marginBottom: 24, lineHeight: 1.5 }}>
           Your opponent left the match. The game has been ended.
         </div>
-        <button onClick={onGoHomeAction} style={{ background: `${t.danger}22`, border: `1px solid ${t.danger}`, color: t.danger, padding: "12px 24px", borderRadius: ip ? 2 : 8, fontFamily: t.fontMono, fontSize: 15, fontWeight: 700, cursor: "pointer", transition: "all 0.2s" }}>
+        <button onClick={onGoHomeAction} style={{ background: `${t.danger}22`, border: `1px solid ${t.danger}`, color: t.danger, padding: "12px 24px", borderRadius: ip ? 2 : 8, fontFamily: t.fontMono, fontSize: 15, fontWeight: 700, cursor: "pointer", transition: "background 0.2s, border-color 0.2s, opacity 0.2s, box-shadow 0.2s" }}>
           RETURN TO HOME
         </button>
       </div>
@@ -2889,7 +2889,7 @@ export function RematchOverlay({ show, isMultiplayerGame, t, ip, p1c, p2c, serie
                 return (
                   <div key={i} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
                     <div style={{ fontFamily: t.fontMono, fontSize: 9, color: t.textMuted, letterSpacing: "0.1em" }}>{gameSeriesLabel(i + 1, lastSeries.history.length)}</div>
-                    <div style={{ width: 28, height: 5, borderRadius: 3, background: r ? col : "#2a2a2a", border: `1px solid ${r ? col : "#3a3a3a"}`, boxShadow: r ? `0 0 7px ${col}66` : "none", transition: "all 0.2s" }} />
+                    <div style={{ width: 28, height: 5, borderRadius: 3, background: r ? col : "#2a2a2a", border: `1px solid ${r ? col : "#3a3a3a"}`, boxShadow: r ? `0 0 7px ${col}66` : "none", transition: "background 0.2s, border-color 0.2s, opacity 0.2s, box-shadow 0.2s" }} />
                     <div style={{ fontFamily: t.fontMono, fontSize: 10, fontWeight: 700, color: r ? col : "#444" }}>{r || "—"}</div>
                   </div>
                 );
@@ -2915,13 +2915,13 @@ export function RematchOverlay({ show, isMultiplayerGame, t, ip, p1c, p2c, serie
           <button
             onClick={onRematchAction}
             disabled={rematchRequested === mySlot}
-            style={{ background: rematchRequested === mySlot ? `${t.accent}10` : `${t.accent}18`, border: `2px solid ${t.accent}`, color: t.accent, fontFamily: t.fontDisplay, fontSize: 16, fontWeight: 700, padding: "14px 36px", borderRadius: ip ? 2 : 10, cursor: rematchRequested === mySlot ? "default" : "pointer", opacity: rematchRequested === mySlot ? 0.5 : 1, transition: "all 0.2s" }}
+            style={{ background: rematchRequested === mySlot ? `${t.accent}10` : `${t.accent}18`, border: `2px solid ${t.accent}`, color: t.accent, fontFamily: t.fontDisplay, fontSize: 16, fontWeight: 700, padding: "14px 36px", borderRadius: ip ? 2 : 10, cursor: rematchRequested === mySlot ? "default" : "pointer", opacity: rematchRequested === mySlot ? 0.5 : 1, transition: "background 0.2s, border-color 0.2s, opacity 0.2s, box-shadow 0.2s" }}
             onMouseEnter={e => { if (rematchRequested !== mySlot) { e.currentTarget.style.background = t.accent; e.currentTarget.style.color = "#000"; } }}
             onMouseLeave={e => { e.currentTarget.style.background = `${t.accent}18`; e.currentTarget.style.color = t.accent; }}
           >REMATCH</button>
           <button
             onClick={onQuitMatchAction}
-            style={{ background: `${t.danger}18`, border: `2px solid ${t.danger}`, color: t.danger, fontFamily: t.fontDisplay, fontSize: 16, fontWeight: 700, padding: "14px 36px", borderRadius: ip ? 2 : 10, cursor: "pointer", transition: "all 0.2s" }}
+            style={{ background: `${t.danger}18`, border: `2px solid ${t.danger}`, color: t.danger, fontFamily: t.fontDisplay, fontSize: 16, fontWeight: 700, padding: "14px 36px", borderRadius: ip ? 2 : 10, cursor: "pointer", transition: "background 0.2s, border-color 0.2s, opacity 0.2s, box-shadow 0.2s" }}
             onMouseEnter={e => { e.currentTarget.style.background = t.danger; e.currentTarget.style.color = "#000"; }}
             onMouseLeave={e => { e.currentTarget.style.background = `${t.danger}18`; e.currentTarget.style.color = t.danger; }}
           >QUIT</button>

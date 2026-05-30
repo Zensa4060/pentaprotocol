@@ -740,7 +740,7 @@ export default function HomeScreen({ setScreenAction, themeId, onHoverAction, on
           <div style={{ 
             display: "flex", flexDirection: "column", alignItems: "center", gap: 8, 
             animation: "fadeUp 0.8s cubic-bezier(.22,.68,0,1.2) both", marginTop: isMobile ? "0.8vh" : "2.3vh",
-            transition: "all 0.4s cubic-bezier(.22,.68,0,1.2)",
+            transition: "transform 0.4s cubic-bezier(.22,.68,0,1.2), opacity 0.4s cubic-bezier(.22,.68,0,1.2)",
             filter: hovered === "lobby" ? `drop-shadow(0 0 25px ${BLOOD_RED}44)` : "none",
           }}>
             <NavRankBadge rank={rank} size={isMobile ? 85 : 182} isPlacement={isPlacement} />

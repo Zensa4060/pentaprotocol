@@ -9,7 +9,7 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: __dirname,
   },
-  webpack(config) {
+  webpack(config, { isServer }) {
     config.module.rules.push({
       test: /\.mp3$/i,
       type: "asset/resource",
@@ -17,6 +17,39 @@ const nextConfig: NextConfig = {
         filename: "static/media/[name].[hash][ext]",
       },
     });
+
+    // Production client bundle optimizations
+    if (!isServer && isProd) {
+      // Deterministic chunk IDs for long-term caching
+      config.optimization = {
+        ...config.optimization,
+        moduleIds: "deterministic",
+        chunkIds: "deterministic",
+        // Keep runtime chunk separate so page chunks can be cached independently
+        runtimeChunk: "single",
+        splitChunks: {
+          chunks: "all",
+          cacheGroups: {
+            // Vendor: stable third-party code rarely changes → long cache TTL
+            vendor: {
+              test: /[\\/]node_modules[\\/]/,
+              name: "vendor",
+              chunks: "all",
+              priority: 10,
+              reuseExistingChunk: true,
+            },
+            // Framer-motion is large (~100KB) and only used on 5 screens
+            framerMotion: {
+              test: /[\\/]node_modules[\\/]framer-motion[\\/]/,
+              name: "framer-motion",
+              chunks: "all",
+              priority: 20,
+            },
+          },
+        },
+      };
+    }
+
     return config;
   },
   // Hide the Next.js dev overlay indicator that shows "compiling" / "rendering"

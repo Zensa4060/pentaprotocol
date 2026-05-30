@@ -1,6 +1,6 @@
 "use client";
-import { useEffect, useRef } from "react";
 import type { CSSProperties } from "react";
+import { useBannerCanvas } from "./useBannerCanvas";
 
 type DrawState = {
   nc?: number;
@@ -22,21 +22,21 @@ function draw(
   H: number,
   s: DrawState,
 ) {
-  const CW = Math.max(10, Math.min(18, W / 48));
+  const CW    = Math.max(10, Math.min(18, W / 48));
   const NCOLS = Math.ceil(W / CW);
   const TRAIL = Math.max(8, Math.ceil(H / CW) + 3);
 
   if (!s.c || s.nc !== NCOLS || s.trail !== TRAIL) {
-    s.nc = NCOLS;
+    s.nc    = NCOLS;
     s.trail = TRAIL;
-    s.c = Array.from({ length: NCOLS }, () => ({
-      y: -(Math.random() * H * 0.8),
-      spd: (0.6 + Math.random() * 1.2) * (CW / 13),
-      chars: Array.from({ length: TRAIL + 5 }, () =>
+    s.c     = Array.from({ length: NCOLS }, () => ({
+      y:      -(Math.random() * H * 0.8),
+      spd:    (0.6 + Math.random() * 1.2) * (CW / 13),
+      chars:  Array.from({ length: TRAIL + 5 }, () =>
         String.fromCharCode(0x30a0 + Math.floor(Math.random() * 96)),
       ),
-      ct: 0,
-      cs: 2 + Math.floor(Math.random() * 4),
+      ct:     0,
+      cs:     2 + Math.floor(Math.random() * 4),
       bright: Math.random() > 0.8,
     }));
   }
@@ -45,7 +45,7 @@ function draw(
   ctx.fillRect(0, 0, W, H);
 
   const fz = CW - 1;
-  ctx.font = `${fz}px 'Courier New',monospace`;
+  ctx.font      = `${fz}px 'Courier New',monospace`;
   ctx.textAlign = "center";
 
   s.c.forEach((col, i) => {
@@ -59,8 +59,8 @@ function draw(
       );
     }
     if (col.y - TRAIL * CW > H + 20) {
-      col.y = -(CW * (1 + Math.random() * 3));
-      col.spd = (0.6 + Math.random() * 1.2) * (CW / 13);
+      col.y      = -(CW * (1 + Math.random() * 3));
+      col.spd    = (0.6 + Math.random() * 1.2) * (CW / 13);
       col.bright = Math.random() > 0.8;
     }
 
@@ -108,55 +108,7 @@ export default function DigitalRainBanner({
   style?: CSSProperties;
   hideLabels?: boolean;
 }) {
-  const wrapRef = useRef<HTMLDivElement>(null);
-  const cvRef  = useRef<HTMLCanvasElement>(null);
-  const rafRef = useRef<number>(0);
-  const dimRef = useRef({ W: 1, H: 1, D: 1 });
-  const stRef  = useRef<DrawState>({});
-
-  useEffect(() => {
-    const wrap = wrapRef.current;
-    const cv   = cvRef.current;
-    if (!wrap || !cv) return;
-
-    let t = 0;
-
-    const resize = () => {
-      const D = Math.min(window.devicePixelRatio || 1, 2);
-      const W = wrap.offsetWidth;
-      const H = wrap.offsetHeight;
-      dimRef.current  = { W, H, D };
-      cv.width        = W * D;
-      cv.height       = H * D;
-      cv.style.width  = W + "px";
-      cv.style.height = H + "px";
-      stRef.current   = {}; // reset columns so they re-fit the new size
-    };
-
-    resize();
-    const ro = new ResizeObserver(resize);
-    ro.observe(wrap);
-
-    const loop = () => {
-      const { W, H, D } = dimRef.current;
-      if (W > 1 && H > 1) {
-        const ctx = cv.getContext("2d");
-        if (ctx) {
-          ctx.setTransform(D, 0, 0, D, 0, 0);
-          draw(ctx, t, W, H, stRef.current);
-        }
-      }
-      t += 1 / 30;
-      rafRef.current = requestAnimationFrame(loop);
-    };
-
-    loop();
-    return () => {
-      cancelAnimationFrame(rafRef.current);
-      ro.disconnect();
-    };
-  }, []);
-
+  const { wrapRef, cvRef } = useBannerCanvas(draw, 30);
   return (
     <div
       ref={wrapRef}

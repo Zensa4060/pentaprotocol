@@ -463,7 +463,7 @@ export default function FriendsScreen({ themeId, onHoverAction }: Props) {
             }}
           >
             {f.avatar ? (
-              <img src={f.avatar} alt={f.username} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+              <img src={f.avatar} alt={f.username} loading="lazy" decoding="async" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
             ) : (
               <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: t.fontDisplay, fontWeight: 900, color: t.text, fontSize: 16 }}>
                 {(f.username[0] || "?").toUpperCase()}

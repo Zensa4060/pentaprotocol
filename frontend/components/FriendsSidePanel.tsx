@@ -623,7 +623,7 @@ export default function FriendsSidePanel({ themeId, onHoverAction, forceSolidBac
                       >
                         {f.avatar ? (
                           // eslint-disable-next-line @next/next/no-img-element
-                          <img src={f.avatar} alt={f.username} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                          <img src={f.avatar} alt={f.username} loading="lazy" decoding="async" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
                         ) : (
                           <span
                             style={{

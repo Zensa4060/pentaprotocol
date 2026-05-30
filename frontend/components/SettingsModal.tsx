@@ -340,7 +340,7 @@ export default function SettingsModal({
                       borderRadius: ip ? 2 : 8,
                       letterSpacing: "0.06em",
                       cursor: "pointer",
-                      transition: "all 0.18s",
+                      transition: "background 0.18s, border-color 0.18s, box-shadow 0.18s",
                       textTransform: "uppercase",
                       flexShrink: 0,
                       "--hover-bg": muted ? t.danger : t.accent,
@@ -474,7 +474,7 @@ export default function SettingsModal({
                       alignItems: "center",
                       justifyContent: "center",
                       gap: 10,
-                      transition: "all 0.2s",
+                      transition: "background 0.2s, border-color 0.2s, opacity 0.2s, box-shadow 0.2s",
                     }}
                     onMouseEnter={(e) => {
                       e.currentTarget.style.background = `${t.accent}22`;
@@ -528,7 +528,7 @@ export default function SettingsModal({
                         fontSize: 15,
                         fontWeight: 700,
                         cursor: "pointer",
-                        transition: "all 0.2s",
+                        transition: "background 0.2s, border-color 0.2s, opacity 0.2s, box-shadow 0.2s",
                       }}
                       onMouseEnter={(e) => {
                         e.currentTarget.style.background = t.danger;
@@ -606,7 +606,7 @@ export default function SettingsModal({
                   fontWeight: 800,
                   cursor: "pointer",
                   letterSpacing: "0.06em",
-                  transition: "all 0.18s",
+                  transition: "background 0.18s, border-color 0.18s, box-shadow 0.18s",
                 }}
                 onMouseEnter={(e) => { e.currentTarget.style.background = t.accent; e.currentTarget.style.color = "#000"; }}
                 onMouseLeave={(e) => { e.currentTarget.style.background = `${t.accent}18`; e.currentTarget.style.color = t.accent; }}
@@ -743,7 +743,7 @@ function AccountSecuritySection({ t, googleLinked, totpEnabled, onAction }: {
               borderRadius: 10, color: copy.color,
               fontFamily: t.fontDisplay, fontSize: 13, fontWeight: 800,
               letterSpacing: "0.08em", cursor: "pointer",
-              transition: "all 0.18s",
+              transition: "background 0.18s, border-color 0.18s, box-shadow 0.18s",
             }}
             onMouseEnter={e => { e.currentTarget.style.background = copy.color; e.currentTarget.style.color = "#000"; e.currentTarget.style.boxShadow = `0 0 14px ${copy.color}55`; }}
             onMouseLeave={e => { e.currentTarget.style.background = `${copy.color}18`; e.currentTarget.style.color = copy.color; e.currentTarget.style.boxShadow = "none"; }}

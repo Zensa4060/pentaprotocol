@@ -1,27 +1,39 @@
 "use client";
-import React from "react";
-import DigitalRainBanner     from "./DigitalRainBanner";
-import LightsaberDuelBanner  from "./LightsaberDuelBanner";
-import ArcadeBanner          from "./ArcadeBanner";
-import HyperdriveBanner      from "./HyperdriveBanner";
-import NorthernLightsBanner  from "./NorthernLightsBanner";
-import VoidCollapseBanner    from "./VoidCollapseBanner";
-import LavaFlowBanner        from "./LavaFlowBanner";
-import ParticleWebBanner     from "./ParticleWebBanner";
-import InkDropBanner         from "./InkDropBanner";
-import ThunderStormBanner    from "./ThunderStormBanner";
-import NeonPulseBanner       from "./NeonPulseBanner";
-import DeepSeaBanner         from "./DeepSeaBanner";
-import PrismaticLightBanner  from "./PrismaticLightBanner";
-import SandDunesBanner       from "./SandDunesBanner";
-import EmberPhoenixBanner    from "./EmberPhoenixBanner";
-import CrystalCaveBanner     from "./CrystalCaveBanner";
-import HackerTerminalBanner  from "./HackerTerminalBanner";
-import TidalSurgeBanner      from "./TidalSurgeBanner";
-import SolarWindBanner       from "./SolarWindBanner";
-import LavaLampBanner        from "./LavaLampBanner";
+import React, { Suspense } from "react";
+import dynamic from "next/dynamic";
 
-export const BANNERS_DATA: Record<string, any> = {
+// ── Lazy-load every banner component ────────────────────────────────────────
+// Each banner is a separate JS chunk.  The file is only fetched the first time
+// that specific banner is actually rendered — not at app boot.  This keeps the
+// initial bundle lean and every subsequent banner load instant (cached).
+//
+// `loading: () => null` lets the gradient wrapper show through while the chunk
+// downloads, giving a seamless static-→-animated transition with no blank flash.
+const DigitalRainBanner    = dynamic(() => import("./DigitalRainBanner"),    { ssr: false, loading: () => null });
+const LightsaberDuelBanner = dynamic(() => import("./LightsaberDuelBanner"), { ssr: false, loading: () => null });
+const ArcadeBanner         = dynamic(() => import("./ArcadeBanner"),         { ssr: false, loading: () => null });
+const HyperdriveBanner     = dynamic(() => import("./HyperdriveBanner"),     { ssr: false, loading: () => null });
+const NorthernLightsBanner = dynamic(() => import("./NorthernLightsBanner"), { ssr: false, loading: () => null });
+const VoidCollapseBanner   = dynamic(() => import("./VoidCollapseBanner"),   { ssr: false, loading: () => null });
+const LavaFlowBanner       = dynamic(() => import("./LavaFlowBanner"),       { ssr: false, loading: () => null });
+const ParticleWebBanner    = dynamic(() => import("./ParticleWebBanner"),    { ssr: false, loading: () => null });
+const InkDropBanner        = dynamic(() => import("./InkDropBanner"),        { ssr: false, loading: () => null });
+const ThunderStormBanner   = dynamic(() => import("./ThunderStormBanner"),   { ssr: false, loading: () => null });
+const NeonPulseBanner      = dynamic(() => import("./NeonPulseBanner"),      { ssr: false, loading: () => null });
+const DeepSeaBanner        = dynamic(() => import("./DeepSeaBanner"),        { ssr: false, loading: () => null });
+const PrismaticLightBanner = dynamic(() => import("./PrismaticLightBanner"), { ssr: false, loading: () => null });
+const SandDunesBanner      = dynamic(() => import("./SandDunesBanner"),      { ssr: false, loading: () => null });
+const EmberPhoenixBanner   = dynamic(() => import("./EmberPhoenixBanner"),   { ssr: false, loading: () => null });
+const CrystalCaveBanner    = dynamic(() => import("./CrystalCaveBanner"),    { ssr: false, loading: () => null });
+const HackerTerminalBanner = dynamic(() => import("./HackerTerminalBanner"), { ssr: false, loading: () => null });
+const TidalSurgeBanner     = dynamic(() => import("./TidalSurgeBanner"),     { ssr: false, loading: () => null });
+const SolarWindBanner      = dynamic(() => import("./SolarWindBanner"),      { ssr: false, loading: () => null });
+const LavaLampBanner       = dynamic(() => import("./LavaLampBanner"),       { ssr: false, loading: () => null });
+
+// ── Banner registry ──────────────────────────────────────────────────────────
+// The gradient is shown immediately (no JS required) and the animated canvas
+// mounts over it once the chunk is ready.
+export const BANNERS_DATA: Record<string, { id: string; gradient: string; component?: React.ComponentType<any> }> = {
   default:          { id: "default",          gradient: "linear-gradient(135deg,#1a1a2e,#16213e)" },
   digital_rain:     { id: "digital_rain",     gradient: "linear-gradient(135deg,#000702,#14532d)", component: DigitalRainBanner },
   lightsaber_duel:  { id: "lightsaber_duel",  gradient: "linear-gradient(135deg,#06020e,#0d0520)", component: LightsaberDuelBanner },
@@ -47,12 +59,28 @@ export const BANNERS_DATA: Record<string, any> = {
 
 const normalizeId = (id: string) => id?.toLowerCase().replace(/\s+/g, "_") || "default";
 
-export function BannerRenderer({ bannerId, style = {}, hideLabels: _hideLabels = false }: { bannerId: string; style?: React.CSSProperties; hideLabels?: boolean }) {
-  const nid = normalizeId(bannerId);
+export function BannerRenderer({
+  bannerId,
+  style = {},
+  hideLabels: _hideLabels = false,
+}: {
+  bannerId: string;
+  style?: React.CSSProperties;
+  hideLabels?: boolean;
+}) {
+  const nid    = normalizeId(bannerId);
   const banner = BANNERS_DATA[nid] || BANNERS_DATA.default;
+
+  // The outer div always shows the gradient immediately.
+  // If there is an animated component, it mounts on top once its chunk loads.
   if (banner.component) {
     const BannerComp = banner.component;
-    return <BannerComp style={{ width: "100%", height: "100%", ...style }} />;
+    return (
+      <div style={{ position: "relative", width: "100%", height: "100%", background: banner.gradient, ...style }}>
+        <BannerComp style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }} />
+      </div>
+    );
   }
+
   return <div style={{ width: "100%", height: "100%", background: banner.gradient, ...style }} />;
 }

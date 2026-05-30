@@ -162,6 +162,10 @@ export const NavRankBadge = ({ rank, size = 30, isPlacement = false }: { rank: t
             alt={rank.name}
             draggable={false}
             className="rank-emblem-img"
+            // Rank badge is above-the-fold — decode synchronously so it
+            // appears immediately and fetch with high priority for LCP.
+            decoding="sync"
+            fetchPriority="high"
             style={{
               width: imgSize,
               height: imgSize,
@@ -585,7 +589,7 @@ export default function NavBar({
           <button 
             onClick={onCancelQueueAction}
             onMouseEnter={onHoverAction}
-            style={{ background: "none", border: `1px solid ${t.danger}88`, color: t.danger, fontFamily: t.fontMono, fontSize: 10, padding: "2px 8px", borderRadius: 4, cursor: "pointer", transition: "all 0.2s" }}
+            style={{ background: "none", border: `1px solid ${t.danger}88`, color: t.danger, fontFamily: t.fontMono, fontSize: 10, padding: "2px 8px", borderRadius: 4, cursor: "pointer", transition: "background 0.2s, border-color 0.2s, opacity 0.2s, box-shadow 0.2s" }}
             onMouseOver={e => { e.currentTarget.style.background = t.danger; e.currentTarget.style.color = "#000"; }}
             onMouseOut={e => { e.currentTarget.style.background = "none"; e.currentTarget.style.color = t.danger; }}
           >CANCEL</button>
@@ -627,6 +631,8 @@ export default function NavBar({
             <img
               src="/Pentaprotocol_Logo_Transparent.png"
               alt="PentaProtocol Logo"
+              decoding="sync"
+              fetchPriority="high"
               style={{
                 width: isMobile ? 36 : isTablet ? 44 : 52,
                 height: isMobile ? 36 : isTablet ? 44 : 52,
@@ -722,7 +728,7 @@ export default function NavBar({
               width: isMobile ? 36 : isTablet ? 44 : 52, 
               height: isMobile ? 36 : isTablet ? 44 : 52, 
               borderRadius: "25%", cursor: "pointer",
-              transition: "all 0.3s ease",
+              transition: "background 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease",
               display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0
             }}
           >
@@ -745,7 +751,7 @@ export default function NavBar({
                 padding: isMobile ? "7px 9px" : "9px 13px",
                 borderRadius: 9, cursor: lockMultiplayerNav ? "not-allowed" : "pointer",
                 opacity: lockMultiplayerNav ? 0 : 1,
-                transition: "all 0.2s",
+                transition: "background 0.2s, border-color 0.2s, opacity 0.2s, box-shadow 0.2s",
                 display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4,
               }}
             >
@@ -804,7 +810,7 @@ export default function NavBar({
                 textTransform: "uppercase" as const,
                 textShadow: rowGlow,
                 display: "flex", alignItems: "center", justifyContent: "space-between",
-                transition: "all 0.15s",
+                transition: "background 0.15s, border-color 0.15s, opacity 0.15s",
               }}
             >
               <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -839,13 +845,13 @@ export default function NavBar({
                 onClick={() => { logout(); setShowSignOut(false); }}
                 onMouseEnter={e => { onHoverAction?.(); e.currentTarget.style.background = t.danger; e.currentTarget.style.color = "#fff"; }}
                 onMouseLeave={e => { e.currentTarget.style.background = `${t.danger}14`; e.currentTarget.style.color = t.danger; }}
-                style={{ flex: 1, padding: "11px 0", background: `${t.danger}14`, border: `1px solid ${t.danger}66`, color: t.danger, fontFamily: t.fontDisplay, fontSize: 13, fontWeight: 700, borderRadius: ip ? 2 : 9, cursor: "pointer", transition: "all 0.18s", letterSpacing: "0.06em", textTransform: "uppercase" as const }}
+                style={{ flex: 1, padding: "11px 0", background: `${t.danger}14`, border: `1px solid ${t.danger}66`, color: t.danger, fontFamily: t.fontDisplay, fontSize: 13, fontWeight: 700, borderRadius: ip ? 2 : 9, cursor: "pointer", transition: "background 0.18s, border-color 0.18s, box-shadow 0.18s", letterSpacing: "0.06em", textTransform: "uppercase" as const }}
               >Sign Out</button>
               <button
                 onClick={() => setShowSignOut(false)}
                 onMouseEnter={e => { onHoverAction?.(); e.currentTarget.style.background = `${t.accent}14`; e.currentTarget.style.borderColor = t.accent; e.currentTarget.style.color = t.accent; }}
                 onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.borderColor = `${t.border}66`; e.currentTarget.style.color = t.textSecondary; }}
-                style={{ flex: 1, padding: "11px 0", background: "transparent", border: `1px solid ${t.border}66`, color: t.textSecondary, fontFamily: t.fontDisplay, fontSize: 13, fontWeight: 700, borderRadius: ip ? 2 : 9, cursor: "pointer", transition: "all 0.18s", letterSpacing: "0.06em", textTransform: "uppercase" as const }}
+                style={{ flex: 1, padding: "11px 0", background: "transparent", border: `1px solid ${t.border}66`, color: t.textSecondary, fontFamily: t.fontDisplay, fontSize: 13, fontWeight: 700, borderRadius: ip ? 2 : 9, cursor: "pointer", transition: "background 0.18s, border-color 0.18s, box-shadow 0.18s", letterSpacing: "0.06em", textTransform: "uppercase" as const }}
               >Stay</button>
             </div>
           </div>

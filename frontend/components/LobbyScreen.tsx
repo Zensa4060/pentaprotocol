@@ -434,7 +434,7 @@ export default function LobbyScreen({
         </div>
 
         <button onClick={cancelSearch}
-          style={{ background:"transparent", border:`1px solid ${t.danger}44`, color:t.danger, fontFamily:t.fontDisplay, fontSize:12, fontWeight:800, padding:"12px 32px", borderRadius:10, cursor:"pointer", transition:"all 0.2s", letterSpacing:"0.1em" }}
+          style={{ background:"transparent", border:`1px solid ${t.danger}44`, color:t.danger, fontFamily:t.fontDisplay, fontSize:12, fontWeight:800, padding:"12px 32px", borderRadius:10, cursor:"pointer", transition:"background 0.2s, border-color 0.2s, opacity 0.2s, box-shadow 0.2s", letterSpacing:"0.1em" }}
           onMouseEnter={e => { onHoverAction?.(); e.currentTarget.style.background=`${t.danger}18`; e.currentTarget.style.borderColor=t.danger; }}
           onMouseLeave={e => { e.currentTarget.style.background="transparent"; e.currentTarget.style.borderColor=`${t.danger}44`; }}
         >TERMINATE SEARCH</button>
@@ -1028,12 +1028,12 @@ export default function LobbyScreen({
                 /* clipboard may be unavailable — silently ignore */
               }
             }}
-            style={{ background:t.accent, border:`2px solid ${t.accent}`, color:"#fff", fontFamily:t.fontDisplay, fontSize:14, fontWeight:800, padding:"12px 28px", borderRadius:ip?2:10, cursor:"pointer", letterSpacing:"0.12em", transition:"all 0.2s", boxShadow:`0 0 22px ${t.accentGlow}66` }}
+            style={{ background:t.accent, border:`2px solid ${t.accent}`, color:"#fff", fontFamily:t.fontDisplay, fontSize:14, fontWeight:800, padding:"12px 28px", borderRadius:ip?2:10, cursor:"pointer", letterSpacing:"0.12em", transition:"background 0.2s, border-color 0.2s, opacity 0.2s, box-shadow 0.2s", boxShadow:`0 0 22px ${t.accentGlow}66` }}
             onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-1px)"; }}
             onMouseLeave={e => { e.currentTarget.style.transform = "translateY(0)"; }}
           >COPY CODE</button>
           <button onClick={cancelRoom}
-            style={{ background:"transparent", border:`2px solid ${t.border}`, color:t.textMuted, fontFamily:t.fontDisplay, fontSize:14, fontWeight:700, padding:"12px 36px", borderRadius:ip?2:10, cursor:"pointer", transition:"all 0.2s" }}
+            style={{ background:"transparent", border:`2px solid ${t.border}`, color:t.textMuted, fontFamily:t.fontDisplay, fontSize:14, fontWeight:700, padding:"12px 36px", borderRadius:ip?2:10, cursor:"pointer", transition:"background 0.2s, border-color 0.2s, opacity 0.2s, box-shadow 0.2s" }}
             onMouseEnter={e => { e.currentTarget.style.borderColor=t.accent; e.currentTarget.style.color=t.accent; }}
             onMouseLeave={e => { e.currentTarget.style.borderColor=t.border; e.currentTarget.style.color=t.textMuted; }}
           >CANCEL</button>
@@ -1230,7 +1230,7 @@ export default function LobbyScreen({
             <div style={{ display:"flex", flexDirection:"column", gap:10, width:"100%", animation:"fadeUp 0.28s cubic-bezier(.22,.68,0,1.2) both" }}>
               <div style={{ display:"flex", gap:8 }}>
                 <button onClick={handleCreateRoom} disabled={roomLoading}
-                  style={{ flex:1, padding:"16px", background:t.accent, border:`2px solid ${t.accent}`, borderRadius:ip?2:7, color:"#000", fontFamily:t.fontDisplay, fontSize:14, fontWeight:800, cursor:roomLoading?"wait":"pointer", letterSpacing:"0.06em", transition:"all 0.2s" }}>
+                  style={{ flex:1, padding:"16px", background:t.accent, border:`2px solid ${t.accent}`, borderRadius:ip?2:7, color:"#000", fontFamily:t.fontDisplay, fontSize:14, fontWeight:800, cursor:roomLoading?"wait":"pointer", letterSpacing:"0.06em", transition:"background 0.2s, border-color 0.2s, opacity 0.2s, box-shadow 0.2s" }}>
                   {roomLoading ? "CREATING..." : "CREATE"}
                 </button>
                 <button onClick={cancelRoom}
@@ -1254,7 +1254,7 @@ export default function LobbyScreen({
               <div style={{ fontFamily:t.fontBody, fontSize:11, color:t.textMuted, textAlign:"center" }}>6-character code from your friend</div>
               <div style={{ display:"flex", gap:8 }}>
                 <button onClick={handleJoinRoom} disabled={roomLoading || joinCode.length !== 6}
-                  style={{ flex:1, padding:"16px", background:joinCode.length===6?t.accent:t.bgCard, border:`2px solid ${joinCode.length===6?t.accent:t.border}`, borderRadius:ip?2:7, color:joinCode.length===6?"#000":t.textMuted, fontFamily:t.fontDisplay, fontSize:14, fontWeight:800, cursor:joinCode.length===6&&!roomLoading?"pointer":"not-allowed", letterSpacing:"0.06em", transition:"all 0.2s" }}>
+                  style={{ flex:1, padding:"16px", background:joinCode.length===6?t.accent:t.bgCard, border:`2px solid ${joinCode.length===6?t.accent:t.border}`, borderRadius:ip?2:7, color:joinCode.length===6?"#000":t.textMuted, fontFamily:t.fontDisplay, fontSize:14, fontWeight:800, cursor:joinCode.length===6&&!roomLoading?"pointer":"not-allowed", letterSpacing:"0.06em", transition:"background 0.2s, border-color 0.2s, opacity 0.2s, box-shadow 0.2s" }}>
                   {roomLoading ? "JOINING..." : "JOIN"}
                 </button>
                 <button onClick={cancelRoom}
@@ -1269,13 +1269,13 @@ export default function LobbyScreen({
                 onClick={() => { setRoomSection("create"); setRoomError(null); router.push("/custom/room/create"); }}
                 onMouseEnter={e => { onHoverAction?.(); e.currentTarget.style.borderColor=t.accent; e.currentTarget.style.color=t.accent; }}
                 onMouseLeave={e => { e.currentTarget.style.borderColor=t.border; e.currentTarget.style.color=t.textMuted; }}
-                style={{ width:"100%", padding:"16px", background:"transparent", border:`2px solid ${t.border}`, borderRadius:ip?2:8, color:t.textMuted, fontFamily:t.fontDisplay, fontSize:14, fontWeight:700, cursor:"pointer", letterSpacing:"0.08em", transition:"all 0.22s" }}
+                style={{ width:"100%", padding:"16px", background:"transparent", border:`2px solid ${t.border}`, borderRadius:ip?2:8, color:t.textMuted, fontFamily:t.fontDisplay, fontSize:14, fontWeight:700, cursor:"pointer", letterSpacing:"0.08em", transition:"background 0.22s, border-color 0.22s, opacity 0.22s" }}
               >+ CREATE ROOM</button>
               <button
                 onClick={() => { setRoomSection("join"); setRoomError(null); }}
                 onMouseEnter={e => { onHoverAction?.(); e.currentTarget.style.borderColor=t.accent; e.currentTarget.style.color=t.accent; }}
                 onMouseLeave={e => { e.currentTarget.style.borderColor=t.border; e.currentTarget.style.color=t.textMuted; }}
-                style={{ width:"100%", padding:"16px", background:"transparent", border:`2px solid ${t.border}`, borderRadius:ip?2:8, color:t.textMuted, fontFamily:t.fontDisplay, fontSize:14, fontWeight:700, cursor:"pointer", letterSpacing:"0.08em", transition:"all 0.22s" }}
+                style={{ width:"100%", padding:"16px", background:"transparent", border:`2px solid ${t.border}`, borderRadius:ip?2:8, color:t.textMuted, fontFamily:t.fontDisplay, fontSize:14, fontWeight:700, cursor:"pointer", letterSpacing:"0.08em", transition:"background 0.22s, border-color 0.22s, opacity 0.22s" }}
               >→ JOIN ROOM</button>
             </div>
           )}
@@ -1487,7 +1487,7 @@ export default function LobbyScreen({
               <button key={opt.id}
                 onClick={() => { onBoardModeAction?.(opt.id); setMultiSub("unranked"); setShowUnrankedOptions(false); }}
                 className="protocol-card"
-                style={{ background: t.bgCard, border: `2px solid rgba(255,255,255,0.15)`, borderRadius: ip ? 2 : 16, padding: "24px 28px", textAlign: "left", cursor: "pointer", transition: "all 0.2s ease-out", position: "relative", overflow: "hidden", ["--hover-color" as any]: "#ffffff" } as any}
+                style={{ background: t.bgCard, border: `2px solid rgba(255,255,255,0.15)`, borderRadius: ip ? 2 : 16, padding: "24px 28px", textAlign: "left", cursor: "pointer", transition: "background 0.2s ease-out, border-color 0.2s ease-out, box-shadow 0.2s ease-out", position: "relative", overflow: "hidden", ["--hover-color" as any]: "#ffffff" } as any}
               >
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
                   <div style={{ fontFamily: t.fontDisplay, fontSize: 22, fontWeight: 800, color: "#fff" }}>{opt.label}</div>
@@ -1521,7 +1521,7 @@ export default function LobbyScreen({
             <button
               onClick={() => { onBoardModeAction?.("5x5_6x6_7x7"); setMultiSub("ranked"); setShowRankedOptions(false); }}
               className="protocol-card"
-              style={{ background: t.bgCard, border: `2px solid ${t.gold}44`, borderRadius: ip ? 2 : 16, padding: "32px 28px", textAlign: "left", cursor: "pointer", transition: "all 0.2s ease-out", position: "relative", overflow: "hidden", ["--hover-color" as any]: t.gold } as any}
+              style={{ background: t.bgCard, border: `2px solid ${t.gold}44`, borderRadius: ip ? 2 : 16, padding: "32px 28px", textAlign: "left", cursor: "pointer", transition: "background 0.2s ease-out, border-color 0.2s ease-out, box-shadow 0.2s ease-out", position: "relative", overflow: "hidden", ["--hover-color" as any]: t.gold } as any}
             >
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
                 <div style={{ fontFamily: t.fontDisplay, fontSize: 24, fontWeight: 800, color: t.gold }}>MAIN PROTOCOL</div>
@@ -1542,7 +1542,7 @@ export default function LobbyScreen({
       {/* Rank Showcase */}
       <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:8 }}>
         {user && (
-          <div style={{ position:"relative", transition: "all 0.4s cubic-bezier(.22,.68,0,1.2)", transform: hovered === "ranked" ? "scale(1.1)" : "scale(1)", display: "flex", flexDirection: "column", alignItems: "center" }}>
+          <div style={{ position:"relative", transition: "transform 0.4s cubic-bezier(.22,.68,0,1.2)", transform: hovered === "ranked" ? "scale(1.1)" : "scale(1)", display: "flex", flexDirection: "column", alignItems: "center" }}>
             {hovered === "ranked" && (
               <div style={{ position: "absolute", inset: -40, background: `radial-gradient(circle, ${BLOOD_RED}22 0%, transparent 70%)`, borderRadius: "50%", animation: "rankHoverPulse 1.5s ease-in-out infinite" }} />
             )}
@@ -1554,11 +1554,11 @@ export default function LobbyScreen({
               color:hovered === "ranked" ? BLOOD_RED : (isPlacement ? placementCol : rank.color), 
               letterSpacing:"0.1em", 
               textShadow:hovered === "ranked" ? `0 0 25px ${BLOOD_RED}, 0 0 50px ${BLOOD_RED}88` : `0 0 15px ${isPlacement ? placementCol : rank.color}55`, 
-              transition: "all 0.4s" 
+              transition: "background 0.4s, border-color 0.4s, opacity 0.4s" 
             }}>
               {isPlacement ? "PLACEMENT" : rank.name}
             </div>
-            <div style={{ fontFamily:t.fontMono, fontSize:isMobile?12:16, fontWeight:700, color:t.textMuted, transition: "all 0.4s" }}>
+            <div style={{ fontFamily:t.fontMono, fontSize:isMobile?12:16, fontWeight:700, color:t.textMuted, transition: "background 0.4s, border-color 0.4s, opacity 0.4s" }}>
               <span style={{ color:hovered === "ranked" ? BLOOD_RED : (isPlacement ? placementCol : t.accent) }}>{isPlacement ? "?" : (user?.elo ?? 0)}</span> ELO
             </div>
           </div>
@@ -1566,7 +1566,7 @@ export default function LobbyScreen({
       </div>
 
       <button onClick={() => setScreenAction("home")}
-        style={{ background:`${t.accent}18`, border:`2px solid ${t.accent}`, color:t.accent, fontFamily:t.fontDisplay, fontSize:16, fontWeight:700, padding:"14px 44px", borderRadius:ip?2:10, cursor:"pointer", letterSpacing:"0.06em", transition:"all 0.2s", marginBottom:isMobile?30:0, marginTop:isMobile?20:0 }}
+        style={{ background:`${t.accent}18`, border:`2px solid ${t.accent}`, color:t.accent, fontFamily:t.fontDisplay, fontSize:16, fontWeight:700, padding:"14px 44px", borderRadius:ip?2:10, cursor:"pointer", letterSpacing:"0.06em", transition:"background 0.2s, border-color 0.2s, opacity 0.2s, box-shadow 0.2s", marginBottom:isMobile?30:0, marginTop:isMobile?20:0 }}
         onMouseEnter={e => { onHoverAction?.(); e.currentTarget.style.background=t.accent; e.currentTarget.style.color="#000"; }}
         onMouseLeave={e => { e.currentTarget.style.background=`${t.accent}18`; e.currentTarget.style.color=t.accent; }}
       >GO BACK</button>

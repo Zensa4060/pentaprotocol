@@ -424,7 +424,7 @@ function CustomThemeSection({ t, ip, themeId, profile, setThemeIdAction, onHover
            <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
              {saved && <div style={{ fontFamily: t.fontMono, fontSize: 11, color: accentHex, fontWeight: 800, animation: "fadeIn 0.2s" }}>✓ SAVED</div>}
              <button onClick={() => { onClickAction?.(); reset(); }}
-               style={{ background: "rgba(255,b255,255,0.05)", border: `1px solid rgba(255,255,255,0.1)`, borderRadius: 12, color: t.textMuted, fontFamily: t.fontMono, fontSize: 11, fontWeight: 800, padding: "10px 18px", cursor: "pointer", transition: "all 0.2s" }}>
+               style={{ background: "rgba(255,b255,255,0.05)", border: `1px solid rgba(255,255,255,0.1)`, borderRadius: 12, color: t.textMuted, fontFamily: t.fontMono, fontSize: 11, fontWeight: 800, padding: "10px 18px", cursor: "pointer", transition: "background 0.2s, border-color 0.2s, opacity 0.2s, box-shadow 0.2s" }}>
                RESET
              </button>
              {setThemeIdAction && (
@@ -436,7 +436,7 @@ function CustomThemeSection({ t, ip, themeId, profile, setThemeIdAction, onHover
                    fontFamily: t.fontDisplay, fontSize: 14, fontWeight: 800, 
                    padding: "10px 28px", cursor: "pointer", 
                    boxShadow: isActive ? `0 0 20px ${accentHex}44` : "none",
-                   transition: "all 0.2s" 
+                   transition: "background 0.2s, border-color 0.2s, opacity 0.2s, box-shadow 0.2s" 
                  }}>
                  {isActive ? "LIVE" : "APPLY ENGINE"}
                </button>
@@ -455,7 +455,7 @@ function CustomThemeSection({ t, ip, themeId, profile, setThemeIdAction, onHover
             <div key={slot.key} style={{ 
               borderRadius: 20, border: `1px solid ${isOpen ? accentHex : "rgba(255,255,255,0.08)"}`, 
               background: isOpen ? "rgba(255,b255,255,0.03)" : "rgba(255,255,255,0.01)", 
-              overflow: "hidden", transition: "all 0.3s cubic-bezier(.2,.8,.2,1)",
+              overflow: "hidden", transition: "border-color 0.3s cubic-bezier(.2,.8,.2,1), background 0.3s cubic-bezier(.2,.8,.2,1), box-shadow 0.3s cubic-bezier(.2,.8,.2,1)",
               backdropFilter: "blur(10px)"
             }}>
               <button 
@@ -467,7 +467,7 @@ function CustomThemeSection({ t, ip, themeId, profile, setThemeIdAction, onHover
                   background: isOpen ? `${accentHex}22` : "rgba(255,255,255,0.03)", 
                   display: "flex", alignItems: "center", justifyContent: "center",
                   boxShadow: isOpen ? `0 0 15px ${accentHex}22` : "none",
-                  fontSize: 20, transition: "all 0.3s"
+                  fontSize: 20, transition: "background 0.3s, box-shadow 0.3s, border-color 0.3s"
                 }}>
                   {slot.icon}
                 </div>
@@ -496,7 +496,7 @@ function CustomThemeSection({ t, ip, themeId, profile, setThemeIdAction, onHover
                           borderRadius: 14, border: `1.5px solid ${isSelected ? accentHex : locked ? "rgba(255,255,255,0.03)" : "rgba(255,255,255,0.08)"}`, 
                           background: isSelected ? `${accentHex}14` : "rgba(255,255,255,0.02)", 
                           padding: "12px", cursor: locked ? "default" : "pointer", 
-                          opacity: locked ? 0.4 : 1, position: "relative", transition: "all 0.2s" 
+                          opacity: locked ? 0.4 : 1, position: "relative", transition: "background 0.2s, border-color 0.2s, opacity 0.2s, box-shadow 0.2s" 
                         }}>
                         {opt.preview && <div style={{ height: 32, borderRadius: 6, background: opt.preview, marginBottom: 8, boxShadow: "0 4px 10px rgba(0,0,0,0.2)" }} />}
                         {!opt.preview && opt.color && <div style={{ width: 20, height: 20, borderRadius: "50%", background: opt.color, marginBottom: 6, boxShadow: `0 0 10px ${opt.color}44` }} />}
@@ -946,7 +946,7 @@ export default function CollectionScreen({ themeId, setThemeIdAction, onHoverAct
                         cursor: "pointer",
                         whiteSpace: "nowrap",
                         boxShadow: isActive ? `0 0 18px ${t.accent}22, inset 0 0 18px ${t.accent}10` : "none",
-                        transition: "all 0.2s",
+                        transition: "background 0.2s, border-color 0.2s, opacity 0.2s, box-shadow 0.2s",
                       }}
                     >
                       <CatIcon id={cat.icon} size={16} color={isActive ? t.accent : t.textMuted} />
@@ -971,7 +971,7 @@ export default function CollectionScreen({ themeId, setThemeIdAction, onHoverAct
                   color: showAll ? "#000" : t.textMuted,
                   cursor: "pointer",
                   letterSpacing: "0.05em",
-                  transition: "all 0.2s",
+                  transition: "background 0.2s, border-color 0.2s, opacity 0.2s, box-shadow 0.2s",
                 }}
               >
                 {showAll ? "SHOWING ALL" : "FILTER OWNED"}
@@ -1114,7 +1114,7 @@ export default function CollectionScreen({ themeId, setThemeIdAction, onHoverAct
                       </div>
                       {isPurchasable && (
                         <button onClick={e => { e.stopPropagation(); handleBuyItem(item.id, item.label, item.price!); }}
-                          style={{ flexShrink: 0, background: `${hoverColor}22`, border: `1px solid ${hoverColor}44`, borderRadius: 10, padding: "8px 14px", fontFamily: t.fontMono, fontSize: 11, fontWeight: 800, color: hoverColor, cursor: "pointer", whiteSpace: "nowrap", transition: "all 0.2s" }}>
+                          style={{ flexShrink: 0, background: `${hoverColor}22`, border: `1px solid ${hoverColor}44`, borderRadius: 10, padding: "8px 14px", fontFamily: t.fontMono, fontSize: 11, fontWeight: 800, color: hoverColor, cursor: "pointer", whiteSpace: "nowrap", transition: "background 0.2s, border-color 0.2s, opacity 0.2s, box-shadow 0.2s" }}>
                           {item.price!.toLocaleString()} ⬡
                         </button>
                       )}
@@ -1534,7 +1534,7 @@ export default function CollectionScreen({ themeId, setThemeIdAction, onHoverAct
                       </div>
                       {isPurchasable && (
                         <button onClick={e => { e.stopPropagation(); handleBuyItem(`piece_${item.id}`, item.label, item.price!); }}
-                          style={{ flexShrink: 0, background: `${hoverColor}22`, border: `1px solid ${hoverColor}44`, borderRadius: 10, padding: "8px 14px", fontFamily: t.fontMono, fontSize: 11, fontWeight: 800, color: hoverColor, cursor: "pointer", whiteSpace: "nowrap", transition: "all 0.2s" }}>
+                          style={{ flexShrink: 0, background: `${hoverColor}22`, border: `1px solid ${hoverColor}44`, borderRadius: 10, padding: "8px 14px", fontFamily: t.fontMono, fontSize: 11, fontWeight: 800, color: hoverColor, cursor: "pointer", whiteSpace: "nowrap", transition: "background 0.2s, border-color 0.2s, opacity 0.2s, box-shadow 0.2s" }}>
                           {item.price!.toLocaleString()} ⬡
                         </button>
                       )}

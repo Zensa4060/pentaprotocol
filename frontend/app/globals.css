@@ -20,12 +20,14 @@
   src: url('/fonts/PentaPixel-Regular.ttf') format('truetype');
   font-weight: normal;
   font-style: normal;
+  font-display: swap;
 }
 @font-face {
   font-family: 'Orbitron';
   src: url('/fonts/Orbitron-Variable.ttf') format('truetype');
   font-weight: 100 900;
   font-style: normal;
+  font-display: swap;
 }
 /* Cinzel: classical Roman-inspired serif. Perfect for classic light/dark themes. */
 @font-face {
@@ -33,6 +35,7 @@
   src: url('/fonts/Cinzel-Variable.ttf') format('truetype');
   font-weight: 400 900;
   font-style: normal;
+  font-display: swap;
 }
 
 /* ── Legacy PixPixls (kept for backwards-compat, no longer used by themes) ─ */
