@@ -156,7 +156,7 @@ export default function TrainingPage() {
               transition: "all 0.2s ease",
               overflowWrap: "anywhere",
             }}>
-              SOLO
+              SINGLEPLAYER
             </div>
             <div style={{ marginTop: 8, color: t.textMuted, lineHeight: 1.5, fontSize: "clamp(14px, 3.2vw, 23px)" }}>
               PASS & PLAY
