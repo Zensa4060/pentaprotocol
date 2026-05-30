@@ -27,6 +27,13 @@
   font-weight: 100 900;
   font-style: normal;
 }
+/* Cinzel: classical Roman-inspired serif. Perfect for classic light/dark themes. */
+@font-face {
+  font-family: 'Cinzel';
+  src: url('/fonts/Cinzel-Variable.ttf') format('truetype');
+  font-weight: 400 900;
+  font-style: normal;
+}
 
 /* ── Legacy PixPixls (kept for backwards-compat, no longer used by themes) ─ */
 @font-face {
