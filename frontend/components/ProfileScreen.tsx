@@ -181,6 +181,7 @@ const LockSVG = () => (
 
 export default function ProfileScreen({ themeId, onHoverAction, onClickAction, setScreenAction, initialEditMode }: Props) {
   const t = THEMES[themeId];
+  const isLight = themeId === "classic_light";
   const router = useRouter();
   const { user, token, updateUser } = useAuthStore();
   const bannerShineEnabled = useBannerShineEnabled((user as any)?.id ?? (user as any)?._id ?? null);
@@ -1053,7 +1054,7 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
                   display: "flex", alignItems: "center", justifyContent: "space-between",
                   padding: "16px 20px", borderRadius: 12,
                   background: isActive ? `${r.color}15` : "transparent",
-                  border: `1px solid ${isActive ? r.color + "44" : "rgba(255,255,255,0.06)"}`,
+                  border: `1px solid ${isActive ? r.color + "44" : (isLight ? "rgba(0,0,0,0.08)" : "rgba(255,255,255,0.06)")}`,
                   boxShadow: isActive ? `0 0 20px ${r.color}11` : "none",
                   transition: "all 0.3s ease",
                   opacity: 1

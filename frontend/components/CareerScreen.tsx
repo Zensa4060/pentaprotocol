@@ -147,11 +147,12 @@ const CareerMatchRow = React.memo(({
         style={{
           display: "flex",
           flexDirection: "column",
-          gap: 12,
-          padding: "16px",
+          gap: 10,
+          padding: "14px 16px 14px 18px",
           background: "transparent",
           cursor: hasRounds ? "pointer" : "default",
-          borderBottom: `1px solid ${t.border}22`,
+          borderBottom: `1px solid ${t.border}18`,
+          borderLeft: `3px solid ${deltaColor}55`,
           ...highlightStyle,
         }}
       >
@@ -196,7 +197,7 @@ const CareerMatchRow = React.memo(({
               width: 34,
               height: 34,
               borderRadius: "50%",
-              background: "rgba(255,255,255,0.03)",
+              background: "transparent",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -313,11 +314,12 @@ const CareerMatchRow = React.memo(({
           activeTab === "ranked"
             ? "100px 1fr 140px 100px 100px"
             : "100px 1fr 140px 100px",
-        padding: "16px 24px",
+        padding: "14px 24px 14px 21px",
         alignItems: "center",
         background: "transparent",
         cursor: hasRounds ? "pointer" : "default",
-        borderBottom: `1px solid ${t.border}22`,
+        borderBottom: `1px solid ${t.border}18`,
+        borderLeft: `3px solid ${deltaColor}55`,
         ...highlightStyle,
       }}
     >
@@ -328,16 +330,17 @@ const CareerMatchRow = React.memo(({
             display: "inline-flex",
             alignItems: "center",
             justifyContent: "center",
-            padding: "4px 10px",
-            borderRadius: 6,
-            background: `${resultColor}15`,
-            border: `1px solid ${resultColor}33`,
+            padding: "5px 10px",
+            borderRadius: 7,
+            background: `${resultColor}14`,
+            border: `1px solid ${resultColor}44`,
             fontFamily: t.fontMono,
-            fontSize: 10,
+            fontSize: 9,
             fontWeight: 900,
             color: resultColor,
-            letterSpacing: "0.08em",
-            boxShadow: `0 0 15px ${resultColor}22`,
+            letterSpacing: "0.1em",
+            boxShadow: `0 0 14px ${resultColor}22`,
+            textTransform: "uppercase" as const,
           }}
         >
           {resultLabel}
@@ -436,15 +439,11 @@ const CareerMatchRow = React.memo(({
       {/* ELO DELTA */}
       {activeTab === "ranked" && (
         <div style={{ textAlign: "center" }}>
-          <span
-            style={{
-              fontFamily: t.fontMono,
-              fontSize: 16,
-              fontWeight: 900,
-              color: deltaColor,
-              textShadow: `0 0 12px ${deltaColor}77`,
-            }}
-          >
+          <span style={{
+            fontFamily: t.fontMono, fontSize: 18, fontWeight: 900,
+            color: deltaColor, textShadow: `0 0 16px ${deltaColor}88`,
+            letterSpacing: "0.02em",
+          }}>
             {match.was_placement ? "+?" : (match.elo_delta > 0 ? "+" : "")}
             {match.was_placement ? "" : match.elo_delta}
           </span>
@@ -607,6 +606,20 @@ export default function CareerScreen({ themeId, onHoverAction, initialMatchId }:
   const losses = history.filter((m) => m.result === "loss").length;
   const winRate = history.length > 0 ? Math.round((wins / history.length) * 100) : 0;
 
+  // Compute current win/loss streak from most recent matches
+  const rankHistory = history.filter((m) => m.mode === "ranked");
+  let streakCount = 0;
+  let streakType: "W" | "L" | "" = "";
+  for (const m of rankHistory) {
+    const t2: "W" | "L" | "" = m.result === "win" ? "W" : m.result === "loss" ? "L" : "";
+    if (!t2) break;
+    if (streakCount === 0) { streakType = t2; streakCount = 1; }
+    else if (t2 === streakType) streakCount++;
+    else break;
+  }
+  const streakLabel = streakCount >= 2 ? `${streakType}${streakCount}` : streakCount === 1 ? streakType : "—";
+  const streakColor = streakType === "W" ? "#34D399" : streakType === "L" ? "#FF5555" : "#9CA3AF";
+
   const nextRank = RANKS[Math.min(RANKS.indexOf(rank) + 1, RANKS.length - 1)];
   const isMaxRank = rank === nextRank;
   const eloToNext = isMaxRank ? 0 : nextRank.min - elo;
@@ -652,7 +665,7 @@ export default function CareerScreen({ themeId, onHoverAction, initialMatchId }:
           cursor: default;
         }
         .career-row:hover {
-          background: rgba(255,255,255,0.025) !important;
+          background: ${isLight ? "rgba(0,0,0,0.025)" : "rgba(255,255,255,0.025)"} !important;
         }
         /* Career rows whose opponent was SYROS get an animated blood-red
          * boss-tier treatment to call them out at a glance. The row body
@@ -714,8 +727,8 @@ export default function CareerScreen({ themeId, onHoverAction, initialMatchId }:
           background: rgba(255,255,255,0.22);
         }
         @keyframes overlayIn { from { opacity: 0; transform: scale(1.05); } to { opacity: 1; transform: scale(1); } }
-        .round-card { transition: background-color 0.12s ease, border-color 0.12s ease; border: 1px solid rgba(255,255,255,0.05); cursor: pointer; }
-        .round-card:hover { background: rgba(255,255,255,0.04); }
+        .round-card { transition: background-color 0.12s ease, border-color 0.12s ease; border: 1px solid ${isLight ? "rgba(0,0,0,0.08)" : "rgba(255,255,255,0.05)"}; cursor: pointer; }
+        .round-card:hover { background: ${isLight ? "rgba(0,0,0,0.04)" : "rgba(255,255,255,0.04)"}; }
         .round-card.active { border-color: ${t.accent}; background: ${t.accent}15; }
       `}</style>
 
@@ -768,315 +781,210 @@ export default function CareerScreen({ themeId, onHoverAction, initialMatchId }:
                 }
               `}</style>
 
-              <div
-                style={{
-                  position: "relative",
-                  zIndex: 1,
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: "center",
-                  gap: 16,
-                }}
-              >
-                <div
-                  style={{
-                    width: badgeSize,
-                    height: badgeSize,
-                    borderRadius: "50%",
+              {/* Readability overlay — dark gradient over the banner */}
+              <div style={{
+                position: "absolute", inset: 0, zIndex: 0, pointerEvents: "none",
+                background: "linear-gradient(180deg, rgba(0,0,0,0.38) 0%, rgba(0,0,0,0.62) 55%, rgba(0,0,0,0.80) 100%)",
+              }} />
+
+              {/* Content: two-column on desktop, single column on mobile */}
+              <div style={{
+                position: "relative", zIndex: 1,
+                display: "flex",
+                flexDirection: isMobile ? "column" : "row",
+                alignItems: "center",
+                gap: isMobile ? 20 : 48,
+                padding: isMobile ? "0 16px" : "0 clamp(40px, 8vw, 120px)",
+                width: "100%", maxWidth: 1280, margin: "0 auto",
+              }}>
+
+                {/* LEFT: Rank badge + name + ELO */}
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12, flexShrink: 0 }}>
+                  <div style={{
+                    width: badgeSize, height: badgeSize, borderRadius: "50%",
                     background: isPlacement ? "rgba(255,51,255,0.05)" : "transparent",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    overflow: "visible",
-                    position: "relative",
-                    boxShadow: isPlacement ? `inset 0 0 15px #FF33FF22` : "none",
-                    border: isPlacement ? `1px solid #FF33FF44` : `1px solid ${rank.color}33`,
-                  }}
-                >
-                  {((!isPlacement && rankGlowVisualStrength(rank) >= 0.0012) || isPlacement) && (
-                    <div
-                      aria-hidden
-                      style={{
-                        position: "absolute",
-                        left: "50%",
-                        top: "50%",
-                        width: "135%",
-                        height: "135%",
-                        borderRadius: "50%",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    overflow: "visible", position: "relative",
+                    boxShadow: isPlacement ? "inset 0 0 15px #FF33FF22" : "none",
+                    border: isPlacement ? "1px solid #FF33FF44" : `1px solid ${rank.color}33`,
+                  }}>
+                    {((!isPlacement && rankGlowVisualStrength(rank) >= 0.0012) || isPlacement) && (
+                      <div aria-hidden style={{
+                        position: "absolute", left: "50%", top: "50%",
+                        width: "135%", height: "135%", borderRadius: "50%",
                         background: rankHaloGradientForRank(isPlacement ? "#FF33FF" : rank.color, isPlacement ? ({ name: "CHRONICLE" } as any) : rank),
-                        pointerEvents: "none",
-                        zIndex: 0,
+                        pointerEvents: "none", zIndex: 0,
                         animation: "rankHaloPulse 2.6s ease-in-out infinite",
-                      }}
-                    />
-                  )}
-                  {isPlacement ? (
-                    <div style={{
-                      position: "relative", zIndex: 2,
-                      fontFamily: "'Press Start 2P', cursive", fontSize: badgeSize * 0.55,
-                      color: "#fff", 
-                      textShadow: `0 0 10px #FF33FF, 0 0 20px #FF33FFaa`,
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                      filter: buildRankEmblemGlowFilter("#FF33FF", 0.6),
-                      marginTop: badgeSize * 0.05
-                    }}>?</div>
-                  ) : rank.img ? (
-                    <img
-                      src={rank.img}
-                      alt={rank.name}
-                      draggable={false}
-                      style={{
-                        width: imgSize,
-                        height: imgSize,
-                        objectFit: "contain",
-                        userSelect: "none",
-                        pointerEvents: "none",
-                        position: "relative",
-                        zIndex: 1,
+                      }} />
+                    )}
+                    {isPlacement ? (
+                      <div style={{
+                        position: "relative", zIndex: 2,
+                        fontFamily: "'Press Start 2P', cursive", fontSize: badgeSize * 0.55,
+                        color: "#fff", textShadow: "0 0 10px #FF33FF, 0 0 20px #FF33FFaa",
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        filter: buildRankEmblemGlowFilter("#FF33FF", 0.6),
+                        marginTop: badgeSize * 0.05,
+                      }}>?</div>
+                    ) : rank.img ? (
+                      <img src={rank.img} alt={rank.name} draggable={false} style={{
+                        width: imgSize, height: imgSize, objectFit: "contain",
+                        userSelect: "none", pointerEvents: "none",
+                        position: "relative", zIndex: 1,
                         filter: buildRankEmblemGlowFilter(rank.color, rankGlowVisualStrength(rank)),
-                      }}
-                    />
-                  ) : null}
-                </div>
-
-                <div style={{ textAlign: "center" }}>
-                  <div
-                    style={{
-                      fontFamily: t.fontMono,
-                      fontSize: 11,
-                      letterSpacing: "0.22em",
-                      color: rank.color,
-                      opacity: 0.8,
-                      marginBottom: 4,
-                    }}
-                  >
+                      }} />
+                    ) : null}
                   </div>
-                  <div
-                    style={{
-                      fontFamily: t.fontDisplay,
-                      fontSize: ip ? 28 : 42,
-                      fontWeight: 800,
-                      color: isPlacement ? "#9CA3AF" : rank.color,
-                      letterSpacing: "0.08em",
+
+                  <div style={{ textAlign: "center" }}>
+                    <div style={{
+                      fontFamily: t.fontDisplay, fontSize: ip ? 22 : 34, fontWeight: 900,
+                      color: isPlacement ? "#9CA3AF" : rank.color, letterSpacing: "0.08em",
                       textShadow: `0 0 30px ${isPlacement ? "#9CA3AF" : rank.color}66`,
-                    }}
-                  >
-                    {isPlacement ? "PLACEMENT" : rank.name}
-                  </div>
-                  <div
-                    style={{
-                      fontFamily: t.fontMono,
-                      fontSize: 22,
-                      fontWeight: 700,
-                      color: t.text,
-                      marginTop: 4,
-                    }}
-                  >
-                    {isPlacement ? "?" : elo}{" "}
-                    <span
-                      style={{
-                        fontSize: 18,
-                        fontWeight: 900,
-                        color: isPlacement ? "#D1D5DB" : rank.color,
-                        letterSpacing: "0.14em",
-                        textTransform: "uppercase",
-                        textShadow: isPlacement
-                          ? "0 0 14px rgba(209,213,219,0.55), 0 0 28px rgba(209,213,219,0.25)"
-                          : `0 0 14px ${rank.color}aa, 0 0 28px ${rank.color}55, 0 1px 0 rgba(0,0,0,0.5)`,
-                      }}
-                    >
-                      ELO
-                    </span>
+                    }}>{isPlacement ? "PLACEMENT" : rank.name}</div>
+                    <div style={{ fontFamily: t.fontMono, fontSize: 20, fontWeight: 700, color: "#fff", marginTop: 4 }}>
+                      {isPlacement ? "?" : elo}{" "}
+                      <span style={{
+                        fontSize: 15, fontWeight: 900,
+                        color: isPlacement ? "#D1D5DB" : rank.color, letterSpacing: "0.14em",
+                        textShadow: isPlacement ? "0 0 14px rgba(209,213,219,0.55)" : `0 0 14px ${rank.color}aa, 0 0 28px ${rank.color}55`,
+                      }}>ELO</span>
+                    </div>
+                    {(user as any)?.username && (
+                      <div style={{ fontFamily: t.fontMono, fontSize: 10, color: "rgba(255,255,255,0.42)", letterSpacing: "0.2em", marginTop: 5, fontWeight: 700 }}>
+                        {(user as any).username}
+                      </div>
+                    )}
                   </div>
                 </div>
 
-                {(isPlacement || nextRank !== rank) && (
-                  <div style={{ width: "100%", maxWidth: 460 }}>
-                    <div
-                      style={{
-                        display: "flex",
-                        justifyContent: "center",
-                        fontFamily: t.fontMono,
-                        fontSize: 12,
-                        color: t.text,
-                        letterSpacing: "0.12em",
-                        marginBottom: 10,
-                        fontWeight: 800,
-                        textTransform: "uppercase",
-                      }}
-                    >
-                      <span style={{ color: isPlacement ? t.accent : nextRank.color, textShadow: `0 0 14px ${isPlacement ? t.accent : nextRank.color}44`, textAlign: "center" }}>
-                        {isPlacement ? `${5 - placementCount} MATCHES REMAINING` : `${nextRank.name} in ${eloToNext} ELO`}
-                      </span>
-                    </div>
-                    <div
-                      style={{
-                        height: 10,
-                        background: `${t.border}66`,
-                        borderRadius: 999,
-                        overflow: "hidden",
-                        boxShadow: "inset 0 0 10px rgba(0,0,0,0.28)",
-                      }}
-                    >
-                      <div
-                        style={{
+                {/* RIGHT: Progress bar + Stats grid */}
+                <div style={{
+                  flex: 1, display: "flex", flexDirection: "column", gap: 14,
+                  alignItems: isMobile ? "center" : "stretch",
+                  width: isMobile ? "100%" : "auto", maxWidth: isMobile ? 480 : "none",
+                }}>
+
+                  {/* Progress to next rank */}
+                  {(isPlacement || nextRank !== rank) && (
+                    <div>
+                      <div style={{
+                        display: "flex", justifyContent: "space-between",
+                        fontFamily: t.fontMono, fontSize: 10, letterSpacing: "0.1em",
+                        marginBottom: 8, fontWeight: 800, textTransform: "uppercase" as const,
+                      }}>
+                        <span style={{ color: isPlacement ? "rgba(255,255,255,0.5)" : `${rank.color}cc` }}>
+                          {isPlacement ? "PLACEMENT" : rank.name}
+                        </span>
+                        <span style={{ color: isPlacement ? t.accent : nextRank.color, textShadow: `0 0 12px ${isPlacement ? t.accent : nextRank.color}44` }}>
+                          {isPlacement ? `${5 - placementCount} matches left` : `${eloToNext} ELO → ${nextRank.name}`}
+                        </span>
+                      </div>
+                      <div style={{
+                        height: 8, background: "rgba(255,255,255,0.12)", borderRadius: 999,
+                        overflow: "hidden", boxShadow: "inset 0 0 10px rgba(0,0,0,0.4)",
+                      }}>
+                        <div style={{
                           height: "100%",
                           width: `${isPlacement ? (placementCount / 5) * 100 : rankProgress}%`,
-                          background: isPlacement ? `linear-gradient(90deg, #9CA3AF, ${t.accent})` : `linear-gradient(90deg, ${rank.color}, ${nextRank.color})`,
+                          background: isPlacement ? `linear-gradient(90deg,#9CA3AF,${t.accent})` : `linear-gradient(90deg,${rank.color},${nextRank.color})`,
                           borderRadius: 999,
-                          boxShadow: `0 0 14px ${isPlacement ? "#9CA3AF" : rank.color}aa, 0 0 18px ${isPlacement ? t.accent : nextRank.color}55`,
+                          boxShadow: `0 0 14px ${isPlacement ? "#9CA3AF" : rank.color}aa`,
                           transition: "width 1s ease",
-                        }}
-                      />
+                        }} />
+                      </div>
                     </div>
+                  )}
+
+                  {/* Stats cards: wins / win-rate / losses / streak */}
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: isMobile ? 6 : 10 }}>
+                    {[
+                      { label: "WINS",     value: wins,          color: "#34D399", bg: "rgba(52,211,153,0.10)",  border: "rgba(52,211,153,0.22)" },
+                      { label: "WIN RATE", value: `${winRate}%`, color: isLight ? t.text : "#F0F4FF", bg: isLight ? "rgba(0,0,0,0.06)" : "rgba(255,255,255,0.07)", border: isLight ? "rgba(0,0,0,0.12)" : "rgba(255,255,255,0.16)" },
+                      { label: "LOSSES",   value: losses,        color: "#FF5555", bg: "rgba(255,68,68,0.10)",   border: "rgba(255,68,68,0.22)" },
+                      { label: "STREAK",   value: streakLabel,   color: streakColor, bg: isLight ? "rgba(0,0,0,0.05)" : "rgba(0,0,0,0.2)", border: `${streakColor}33` },
+                    ].map((s) => (
+                      <div key={s.label} style={{
+                        textAlign: "center", background: s.bg,
+                        border: `1px solid ${s.border}`,
+                        borderRadius: ip ? 2 : 14,
+                        padding: isMobile ? "12px 6px" : "16px 8px",
+                        backdropFilter: "blur(14px)",
+                      }}>
+                        <div style={{
+                          fontFamily: t.fontMono, fontSize: isMobile ? 20 : 26, fontWeight: 900,
+                          color: s.color, lineHeight: 1, textShadow: `0 0 18px ${s.color}44`,
+                        }}>{s.value}</div>
+                        <div style={{
+                          fontFamily: t.fontMono, fontSize: 8, fontWeight: 800,
+                          color: s.color, letterSpacing: "0.14em", opacity: 0.6, marginTop: 5,
+                          textTransform: "uppercase" as const,
+                        }}>{s.label}</div>
+                      </div>
+                    ))}
                   </div>
-                )}
-                <div
-                  style={{
-                    display: "flex",
-                    gap: 0,
-                    background: t.bgCard,
-                    border: `1px solid ${t.border}`,
-                    borderRadius: ip ? 2 : 12,
-                    overflow: "hidden",
-                    marginTop: 4,
-                    width: "100%",
-                    maxWidth: 480,
-                  }}
-                >
-                  {(
-                    [
-                      {
-                        label: "WINS",
-                        value: wins,
-                        valueColor: "#34D399",
-                        labelColor: "#34D399",
-                        labelGlow: "0 0 12px rgba(52,211,153,0.65), 0 0 24px rgba(52,211,153,0.35), 0 1px 0 rgba(0,0,0,0.45)",
-                      },
-                      {
-                        label: "WIN RATE",
-                        value: `${winRate}%`,
-                        valueColor: "#F8FAFC",
-                        labelColor: "#FFFFFF",
-                        labelGlow: "0 0 10px rgba(255,255,255,0.45), 0 0 22px rgba(255,255,255,0.2), 0 1px 0 rgba(0,0,0,0.5)",
-                      },
-                      {
-                        label: "LOSSES",
-                        value: losses,
-                        valueColor: "#FF4444",
-                        labelColor: "#FF4444",
-                        labelGlow: "0 0 12px rgba(255,68,68,0.6), 0 0 24px rgba(255,68,68,0.32), 0 1px 0 rgba(0,0,0,0.45)",
-                      },
-                    ] as const
-                  ).map((s, i) => (
-                    <div
-                      key={s.label}
-                      style={{
-                        flex: 1,
-                        padding: "14px 8px",
-                        textAlign: "center",
-                        borderRight: i < 2 ? `1px solid ${t.border}` : "none",
-                      }}
-                    >
-                      <div
-                        style={{
-                          fontFamily: t.fontMono,
-                          fontSize: 18,
-                          fontWeight: 800,
-                          color: s.valueColor,
-                        }}
-                      >
-                        {s.value}
-                      </div>
-                      <div
-                        style={{
-                          fontFamily: t.fontMono,
-                          fontSize: 14,
-                          fontWeight: 900,
-                          color: s.labelColor,
-                          letterSpacing: "0.14em",
-                          marginTop: 6,
-                          textTransform: "uppercase",
-                          textShadow: s.labelGlow,
-                        }}
-                      >
-                        {s.label}
-                      </div>
-                    </div>
-                  ))}
                 </div>
               </div>
             </div>
 
-            {/* ── MATCH HISTORY ─────────────────────────────────────────────────── */}
-            <div style={{ marginBottom: 16, display: "flex", alignItems: "center", gap: 12 }}>
-              <div
-                style={{
-                  height: 1,
-                  flex: 1,
-                  background: `linear-gradient(90deg, transparent, ${t.border})`,
-                }}
-              />
-              <div style={{ display: "flex", alignItems: "center" }}>
-                <div
-                  style={{
-                    fontFamily: t.fontDisplay,
-                    fontSize: 13,
-                    fontWeight: 900,
-                    color: t.text,
-                    letterSpacing: "0.25em",
-                    opacity: 0.9,
-                  }}
-                >
-                  BATTLE ARCHIVE
-                </div>
+            {/* ── MATCH HISTORY header ───────────────────────────────────────────── */}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, marginBottom: 14 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <div style={{
+                  width: 3, height: 18, borderRadius: 99,
+                  background: `linear-gradient(180deg, ${t.accent}, ${t.accent}44)`,
+                  boxShadow: `0 0 8px ${t.accent}66`,
+                }} />
+                <span style={{
+                  fontFamily: t.fontDisplay, fontSize: 13, fontWeight: 900,
+                  color: t.text, letterSpacing: "0.22em", textTransform: "uppercase" as const,
+                }}>Battle Archive</span>
+                <span style={{
+                  fontFamily: t.fontMono, fontSize: 9, color: t.accent,
+                  background: `${t.accent}18`, border: `1px solid ${t.accent}33`,
+                  borderRadius: 20, padding: "2px 8px", fontWeight: 800, letterSpacing: "0.04em",
+                }}>{history.length}</span>
               </div>
-              <div
-                style={{
-                  height: 1,
-                  flex: 1,
-                  background: `linear-gradient(90deg, ${t.border}, transparent)`,
-                }}
-              />
+              <div style={{ flex: 1, height: 1, background: `linear-gradient(90deg, ${t.border}66, transparent)` }} />
             </div>
 
             {/* Tabs */}
-            <div
-              style={{
-                display: "flex",
-                gap: 8,
-                marginBottom: 16,
-                padding: "4px",
-                background: "rgba(255,255,255,0.03)",
-                borderRadius: 12,
-                border: `1px solid ${t.border}44`,
-              }}
-            >
-              {(["ranked", "unranked", "custom"] as const).map((tab) => (
-                <button
-                  key={tab}
-                  onClick={() => {
-                    setActiveTab(tab);
-                    setSelectedMatch(null);
-                  }}
-                  style={{
-                    flex: 1,
-                    padding: "10px 0",
-                    background: activeTab === tab ? careerTabActiveBg : "transparent",
-                    border: "none",
-                    borderRadius: 8,
-                    color: activeTab === tab ? t.text : t.textMuted,
-                    fontFamily: t.fontMono,
-                    fontSize: 11,
-                    fontWeight: 700,
-                    letterSpacing: "0.1em",
-                    cursor: "pointer",
-                    transition: "all 0.2s ease",
-                  }}
-                >
-                  {tab.toUpperCase()}
-                </button>
-              ))}
+            <div style={{
+              display: "flex", gap: 4, marginBottom: 16, padding: "4px",
+              background: isLight ? "rgba(0,0,0,0.04)" : "rgba(255,255,255,0.03)",
+              borderRadius: 14, border: `1px solid ${t.border}44`,
+            }}>
+              {(["ranked", "unranked", "custom"] as const).map((tab) => {
+                const tabCount = history.filter((m) =>
+                  tab === "ranked" ? m.mode === "ranked" : (m.mode === "unranked" || m.mode === "custom" || !m.mode)
+                ).length;
+                const isAct = activeTab === tab;
+                return (
+                  <button key={tab} onClick={() => { setActiveTab(tab); setSelectedMatch(null); }}
+                    style={{
+                      flex: 1, padding: "9px 4px 10px",
+                      background: isAct ? careerTabActiveBg : "transparent",
+                      border: `1px solid ${isAct ? t.accent + "44" : "transparent"}`,
+                      borderRadius: 10,
+                      color: isAct ? t.text : t.textMuted,
+                      fontFamily: t.fontDisplay, fontSize: 11,
+                      fontWeight: isAct ? 900 : 700,
+                      letterSpacing: "0.1em", cursor: "pointer",
+                      boxShadow: isAct ? `0 0 14px ${t.accent}14` : "none",
+                      transition: "background 0.18s, border-color 0.18s, color 0.18s, box-shadow 0.18s",
+                    }}
+                  >
+                    <div style={{ textTransform: "uppercase" as const }}>{tab}</div>
+                    {tabCount > 0 && (
+                      <div style={{
+                        fontFamily: t.fontMono, fontSize: 9,
+                        color: isAct ? t.accent : t.textMuted,
+                        letterSpacing: "0.02em", marginTop: 2, opacity: 0.65,
+                      }}>{tabCount}</div>
+                    )}
+                  </button>
+                );
+              })}
             </div>
 
             <div
@@ -1095,20 +1003,22 @@ export default function CareerScreen({ themeId, onHoverAction, initialMatchId }:
                     display: "grid",
                     gridTemplateColumns:
                       activeTab === "ranked" ? "100px 1fr 140px 100px 100px" : "100px 1fr 140px 100px",
-                    padding: "16px 24px",
+                    padding: "12px 24px",
+                    borderLeft: "3px solid transparent",
                     background: careerHeaderBg,
-                    borderBottom: `1px solid ${t.border}`,
+                    borderBottom: `1px solid ${t.border}44`,
                     fontFamily: t.fontMono,
-                    fontSize: 10,
-                    letterSpacing: "0.2em",
+                    fontSize: 9,
+                    letterSpacing: "0.22em",
                     color: t.textMuted,
-                    fontWeight: 800,
+                    fontWeight: 900,
+                    textTransform: "uppercase" as const,
                   }}
                 >
                   <span>RESULT</span>
                   <span>OPPONENT</span>
                   <span>TYPE</span>
-                  {activeTab === "ranked" && <span style={{ textAlign: "center" }}>ELO</span>}
+                  {activeTab === "ranked" && <span style={{ textAlign: "center" }}>ΔELO</span>}
                   <span style={{ textAlign: "right" }}>DATE</span>
                 </div>
               )}
@@ -1131,67 +1041,40 @@ export default function CareerScreen({ themeId, onHoverAction, initialMatchId }:
 
               {/* Empty state */}
               {!loading && history.length === 0 && (
-                <div
-                  style={{
-                    padding: "80px 24px",
-                    textAlign: "center",
-                    background: careerEmptyHeroBg,
-                  }}
-                >
-                  <div
-                    style={{
-                      width: 64,
-                      height: 64,
-                      borderRadius: "50%",
-                      background: careerEmptyIconBg,
-                      margin: "0 auto 24px",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      border: `1px solid ${t.border}`,
-                    }}
-                  >
-                    <svg
-                      width="24"
-                      height="24"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke={t.textMuted}
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      style={{ opacity: 0.5 }}
-                    >
-                      <circle cx="12" cy="12" r="10" />
-                      <line x1="12" y1="8" x2="12" y2="12" />
-                      <line x1="12" y1="16" x2="12.01" y2="16" />
+                <div style={{
+                  padding: isMobile ? "60px 20px" : "80px 40px",
+                  textAlign: "center", background: careerEmptyHeroBg,
+                }}>
+                  <div style={{
+                    width: 72, height: 72, borderRadius: "50%",
+                    background: careerEmptyIconBg,
+                    margin: "0 auto 24px",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    border: `1px solid ${t.border}44`,
+                    boxShadow: `0 0 30px ${t.accent}0D`,
+                  }}>
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke={t.textMuted} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.4 }}>
+                      <path d="M14.5 10c-.83 0-1.5-.67-1.5-1.5v-5c0-.83.67-1.5 1.5-1.5s1.5.67 1.5 1.5v5c0 .83-.67 1.5-1.5 1.5z"/>
+                      <path d="M20.5 10H19V8.5c0-.83.67-1.5 1.5-1.5s1.5.67 1.5 1.5-.67 1.5-1.5 1.5z"/>
+                      <path d="M9.5 14c.83 0 1.5.67 1.5 1.5v5c0 .83-.67 1.5-1.5 1.5S8 21.33 8 20.5v-5c0-.83.67-1.5 1.5-1.5z"/>
+                      <path d="M3.5 14H5v1.5c0 .83-.67 1.5-1.5 1.5S2 16.33 2 15.5 2.67 14 3.5 14z"/>
+                      <path d="M14 14.5c0-.83.67-1.5 1.5-1.5h5c.83 0 1.5.67 1.5 1.5s-.67 1.5-1.5 1.5h-5c-.83 0-1.5-.67-1.5-1.5z"/>
+                      <path d="M15.5 19H14v1.5c0 .83.67 1.5 1.5 1.5s1.5-.67 1.5-1.5-.67-1.5-1.5-1.5z"/>
+                      <path d="M10 9.5C10 8.67 9.33 8 8.5 8h-5C2.67 8 2 8.67 2 9.5S2.67 11 3.5 11h5c.83 0 1.5-.67 1.5-1.5z"/>
+                      <path d="M8.5 5H10V3.5C10 2.67 9.33 2 8.5 2S7 2.67 7 3.5 7.67 5 8.5 5z"/>
                     </svg>
                   </div>
-                  <div
-                    style={{
-                      fontFamily: t.fontDisplay,
-                      fontSize: 18,
-                      fontWeight: 800,
-                      color: t.text,
-                      letterSpacing: "0.1em",
-                      marginBottom: 8,
-                    }}
-                  >
-                    NO BATTLES RECORDED
-                  </div>
-                  <div
-                    style={{
-                      fontFamily: t.fontMono,
-                      fontSize: 11,
-                      color: t.textMuted,
-                      opacity: 0.6,
-                      letterSpacing: "0.06em",
-                      maxWidth: 280,
-                      margin: "0 auto",
-                      lineHeight: 1.6,
-                    }}
-                  >
-                    Play matches to begin documenting your legendary career archive
+                  <div style={{
+                    fontFamily: t.fontDisplay, fontSize: 20, fontWeight: 900,
+                    color: t.text, letterSpacing: "0.12em", marginBottom: 10,
+                    textTransform: "uppercase" as const,
+                  }}>No Battles Yet</div>
+                  <div style={{
+                    fontFamily: t.fontMono, fontSize: 11, color: t.textMuted,
+                    opacity: 0.55, letterSpacing: "0.06em", maxWidth: 300,
+                    margin: "0 auto", lineHeight: 1.7,
+                  }}>
+                    Play ranked matches to begin writing your legend. Every match tells a story.
                   </div>
                 </div>
               )}
