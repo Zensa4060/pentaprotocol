@@ -114,7 +114,7 @@ export default function TrainingPage() {
               fontWeight: 700,
               letterSpacing: "0.08em",
               // clamp preserves the 44px desktop title while shrinking to
-              // ~22px on a 360px phone so "SINGLEPLAYER" stops clipping.
+              // ~22px on a 360px phone so "SOLO" stops clipping.
               fontSize: "clamp(22px, 6.6vw, 44px)",
               color: hoveredCard === "tutorial" ? "#ff3a3a" : t.accent,
               textShadow: hoveredCard === "tutorial" ? "0 0 10px rgba(140,0,0,0.95), 0 0 22px rgba(90,0,0,0.9)" : "none",
@@ -156,7 +156,7 @@ export default function TrainingPage() {
               transition: "all 0.2s ease",
               overflowWrap: "anywhere",
             }}>
-              SINGLEPLAYER
+              SOLO
             </div>
             <div style={{ marginTop: 8, color: t.textMuted, lineHeight: 1.5, fontSize: "clamp(14px, 3.2vw, 23px)" }}>
               PASS & PLAY

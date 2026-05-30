@@ -146,7 +146,7 @@ export default function SingleplayerScreen({ setScreenAction, themeId, onHoverAc
           <div style={{
             fontFamily: t.fontDisplay, fontSize: "clamp(24px,5vw,72px)", fontWeight: 900, color: t.accent,
             textShadow: `0 0 60px ${t.accentGlow}55`, letterSpacing: "0.06em", textAlign: "center",
-          }}>SINGLEPLAYER</div>
+          }}>SOLO</div>
           <div style={{ fontFamily: t.fontBody, fontSize: "clamp(13px,1.6vw,18px)", color: t.textSecondary, letterSpacing: "0.04em" }}>
             Local · Pass & Play · First to 3
           </div>
