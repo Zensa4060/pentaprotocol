@@ -225,18 +225,33 @@ export default function SettingsModal({
 
   return (
     <>
-      {/* Full-screen settings shell: sidebar + scrollable panel */}
+      {/* Backdrop */}
+      <div
+        onClick={onCloseAction}
+        style={{
+          position: "fixed", inset: 0,
+          zIndex: 10018,
+          background: "rgba(0,0,0,0.72)",
+          animation: "settingsFadeIn 0.18s ease both",
+        }}
+      />
+      {/* Popup modal */}
       <div
         style={{
           position: "fixed",
-          inset: 0,
+          top: "50%", left: "50%",
+          transform: "translate(-50%, -50%)",
+          width: "min(820px, 95vw)",
+          maxHeight: "88vh",
           zIndex: 10020,
           display: "flex",
           flexDirection: "column",
           background: t.bg,
-          border: ip ? `3px solid ${t.border}` : `1px solid ${t.accent}33`,
-          boxShadow: "inset 0 0 120px rgba(0,0,0,0.35)",
-          animation: "settingsFadeIn 0.22s ease both",
+          border: ip ? `3px solid ${t.border}` : `1px solid ${t.accent}44`,
+          borderRadius: ip ? 2 : 18,
+          boxShadow: `0 32px 96px rgba(0,0,0,0.75), 0 0 0 1px ${t.accent}22`,
+          animation: "settingsPopIn 0.28s cubic-bezier(.22,.68,0,1.2) both",
+          overflow: "hidden",
         }}
       >
         <header
@@ -658,6 +673,7 @@ export default function SettingsModal({
 
       <style>{`
         @keyframes settingsFadeIn   { from{opacity:0} to{opacity:1} }
+        @keyframes settingsPopIn    { from{opacity:0;transform:translate(-50%,-50%) scale(0.90)} to{opacity:1;transform:translate(-50%,-50%) scale(1)} }
         @keyframes settingsSlideIn  { from{opacity:0;transform:translateY(28px) scale(0.93)} to{opacity:1;transform:translateY(0) scale(1)} }
 
         .settings-close-btn {

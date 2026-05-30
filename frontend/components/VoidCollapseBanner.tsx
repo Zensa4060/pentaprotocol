@@ -7,7 +7,9 @@ function draw(ctx: CanvasRenderingContext2D, t: number, W: number, H: number, s:
   if (!s.p) {
     s.p = Array.from({ length: N }, () => ({ angle: Math.random()*Math.PI*2, dist: 0.55+Math.random()*0.5, speed: -(0.004+Math.random()*0.01), inward: 0.001+Math.random()*0.0025, hue: 210+Math.random()*130, size: 0.6+Math.random()*2, trail: 0.08+Math.random()*0.15 }));
   }
-  ctx.fillStyle = "rgba(2,1,12,0.82)"; ctx.fillRect(0, 0, W, H);
+  // Adaptive trail alpha: same visual fade duration at any refresh rate.
+  const trailA = Math.min(0.99, 1 - Math.pow(1 - 0.82, (s._dt as number) ?? 1));
+  ctx.fillStyle = `rgba(2,1,12,${trailA.toFixed(3)})`; ctx.fillRect(0, 0, W, H);
   ctx.save(); ctx.globalCompositeOperation = "screen";
   for (let i = 0; i < 4; i++) {
     const nx = W*(0.15+i*0.25), ny = H*(0.2+(i%2)*0.55);
@@ -16,10 +18,11 @@ function draw(ctx: CanvasRenderingContext2D, t: number, W: number, H: number, s:
     ctx.fillStyle = ng; ctx.fillRect(0, 0, W, H);
   }
   ctx.restore();
+  const dt = (s._dt as number) ?? 1;
   const maxR = Math.hypot(W/2, H/2);
   s.p.forEach((p: any) => {
-    p.angle += p.speed / Math.max(0.08, p.dist*p.dist);
-    p.dist = Math.max(0.03, p.dist - p.inward);
+    p.angle += (p.speed / Math.max(0.08, p.dist*p.dist)) * dt;
+    p.dist = Math.max(0.03, p.dist - p.inward * dt);
     if (p.dist < 0.04) { p.dist = 0.5+Math.random()*0.5; p.angle = Math.random()*Math.PI*2; }
     const r = p.dist*maxR;
     const px2 = cx+Math.cos(p.angle)*r, py2 = cy+Math.sin(p.angle)*r*0.38;

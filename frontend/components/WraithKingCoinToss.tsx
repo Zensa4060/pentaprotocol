@@ -217,6 +217,12 @@ export function WraithKingCoinToss({
 
     let lastPaint = 0;
     const step = (now: number) => {
+      // Adaptive delta-time: normalised to 60fps baseline so the coin
+      // physics run at the same speed on 60/90/120/144 Hz displays.
+      const rawDelta = lastPaint > 0 ? now - lastPaint : 16.667;
+      const dt = Math.min(rawDelta, 100) / 16.667;
+      lastPaint = now;
+
       if (forceDoneRef.current && !settled) {
         settled = true;
         settleTime = now;
@@ -231,9 +237,8 @@ export function WraithKingCoinToss({
 
       if (settled) {
         const st = Math.min(1, (now - settleTime) / 400);
-        if (now - lastPaint > 33) {
+        {
           setScl(1 + 0.04 * Math.sin(st * Math.PI * 3) * (1 - st));
-          lastPaint = now;
         }
         if (st >= 1) {
           setScl(1);
@@ -246,8 +251,8 @@ export function WraithKingCoinToss({
         return;
       }
 
-      velY += grav;
-      posY += velY;
+      velY += grav * dt;
+      posY += velY * dt;
 
       const hN = Math.min(1, Math.abs(posY) / 340);
       const nextScl = 1 - hN * 0.08;
@@ -288,12 +293,9 @@ export function WraithKingCoinToss({
         }
       }
 
-      if (now - lastPaint > 33) {
-        setScl(nextScl);
-        setGlow(nextGlow);
-        setYOff(posY);
-        lastPaint = now;
-      }
+      setScl(nextScl);
+      setGlow(nextGlow);
+      setYOff(posY);
       raf.current = requestAnimationFrame(step);
     };
 

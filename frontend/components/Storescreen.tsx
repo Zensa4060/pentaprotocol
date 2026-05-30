@@ -114,26 +114,26 @@ import SolarWindBanner      from "./SolarWindBanner";
 import LavaLampBanner       from "./LavaLampBanner";
 
 const STORE_BANNERS: { id: string; label: string; gradient: string; unlock: string; price?: number; component?: any; lightTheme?: boolean }[] = [
-  { id: "digital_rain",    label: "Digital Rain",     gradient: "linear-gradient(135deg,#000702,#14532d)", unlock: "299 PC", price: 299, component: DigitalRainBanner },
-  { id: "lightsaber_duel", label: "Lightsaber Duel",  gradient: "linear-gradient(135deg,#06020e,#0d0520)", unlock: "299 PC", price: 299, component: LightsaberDuelBanner },
-  { id: "arcade",          label: "Arcade",           gradient: "linear-gradient(135deg,#000010,#000520)", unlock: "299 PC", price: 299, component: ArcadeBanner },
-  { id: "hyperdrive",      label: "Hyperdrive",       gradient: "linear-gradient(135deg,#02030e,#05041a)", unlock: "299 PC", price: 299, component: HyperdriveBanner },
-  { id: "northern_lights", label: "Northern Lights",  gradient: "linear-gradient(135deg,#000c12,#010f18)", unlock: "299 PC", price: 299, component: NorthernLightsBanner },
-  { id: "void_collapse",   label: "Void Collapse",    gradient: "linear-gradient(135deg,#02010c,#0a0518)", unlock: "299 PC", price: 299, component: VoidCollapseBanner },
-  { id: "lava_flow",       label: "Lava Flow",        gradient: "linear-gradient(135deg,#060100,#200400)", unlock: "299 PC", price: 299, component: LavaFlowBanner },
-  { id: "particle_web",    label: "Particle Web",     gradient: "linear-gradient(135deg,#060810,#0b1030)", unlock: "299 PC", price: 299, component: ParticleWebBanner },
-  { id: "ink_drop",        label: "Ink Drop",         gradient: "linear-gradient(135deg,#f6f4f0,#fafaf7)", unlock: "299 PC", price: 299, component: InkDropBanner, lightTheme: true },
-  { id: "thunder_storm",   label: "Thunder Storm",    gradient: "linear-gradient(135deg,#060810,#080e20)", unlock: "299 PC", price: 299, component: ThunderStormBanner },
-  { id: "neon_pulse",      label: "Neon Pulse",       gradient: "linear-gradient(135deg,#04020c,#0c0520)", unlock: "299 PC", price: 299, component: NeonPulseBanner },
-  { id: "deep_sea",        label: "Deep Sea",         gradient: "linear-gradient(135deg,#00020a,#00061a)", unlock: "299 PC", price: 299, component: DeepSeaBanner },
-  { id: "prismatic_light", label: "Prismatic Light",  gradient: "linear-gradient(135deg,#f0f2f8,#f8fafc)", unlock: "299 PC", price: 299, component: PrismaticLightBanner, lightTheme: true },
-  { id: "sand_dunes",      label: "Sand Dunes",       gradient: "linear-gradient(135deg,#c47820,#e8a830)", unlock: "299 PC", price: 299, component: SandDunesBanner },
-  { id: "ember_phoenix",   label: "Ember Phoenix",    gradient: "linear-gradient(135deg,#040100,#1c0400)", unlock: "299 PC", price: 299, component: EmberPhoenixBanner },
-  { id: "crystal_cave",    label: "Crystal Cave",     gradient: "linear-gradient(135deg,#080515,#0e0820)", unlock: "299 PC", price: 299, component: CrystalCaveBanner },
-  { id: "hacker_terminal", label: "Hacker Terminal",  gradient: "linear-gradient(135deg,#010804,#021408)", unlock: "299 PC", price: 299, component: HackerTerminalBanner },
-  { id: "tidal_surge",     label: "Tidal Surge",      gradient: "linear-gradient(135deg,#010c1a,#002040)", unlock: "299 PC", price: 299, component: TidalSurgeBanner },
-  { id: "solar_wind",      label: "Solar Wind",       gradient: "linear-gradient(135deg,#060200,#130500)", unlock: "299 PC", price: 299, component: SolarWindBanner },
-  { id: "lava_lamp",       label: "Lava Lamp",        gradient: "linear-gradient(135deg,#0e0500,#1c0800)", unlock: "299 PC", price: 299, component: LavaLampBanner },
+  { id: "digital_rain",    label: "Digital Rain",     gradient: "linear-gradient(135deg,#000702,#14532d)", unlock: "499 PC", price: 499, component: DigitalRainBanner },
+  { id: "lightsaber_duel", label: "Neon City",          gradient: "linear-gradient(135deg,#02020c,#06041a)", unlock: "499 PC", price: 499, component: LightsaberDuelBanner },
+  { id: "arcade",          label: "Arcade",           gradient: "linear-gradient(135deg,#000010,#000520)", unlock: "499 PC", price: 499, component: ArcadeBanner },
+  { id: "hyperdrive",      label: "Hyperdrive",       gradient: "linear-gradient(135deg,#02030e,#05041a)", unlock: "499 PC", price: 499, component: HyperdriveBanner },
+  { id: "northern_lights", label: "Northern Lights",  gradient: "linear-gradient(135deg,#000c12,#010f18)", unlock: "499 PC", price: 499, component: NorthernLightsBanner },
+  { id: "void_collapse",   label: "Void Collapse",    gradient: "linear-gradient(135deg,#02010c,#0a0518)", unlock: "499 PC", price: 499, component: VoidCollapseBanner },
+  { id: "lava_flow",       label: "Lava Flow",        gradient: "linear-gradient(135deg,#060100,#200400)", unlock: "499 PC", price: 499, component: LavaFlowBanner },
+  { id: "particle_web",    label: "Particle Web",     gradient: "linear-gradient(135deg,#060810,#0b1030)", unlock: "499 PC", price: 499, component: ParticleWebBanner },
+  { id: "ink_drop",        label: "Ink Drop",         gradient: "linear-gradient(135deg,#010408,#020810)", unlock: "499 PC", price: 499, component: InkDropBanner },
+  { id: "thunder_storm",   label: "Thunder Storm",    gradient: "linear-gradient(135deg,#060810,#080e20)", unlock: "499 PC", price: 499, component: ThunderStormBanner },
+  { id: "neon_pulse",      label: "Neon Pulse",       gradient: "linear-gradient(135deg,#04020c,#0c0520)", unlock: "499 PC", price: 499, component: NeonPulseBanner },
+  { id: "deep_sea",        label: "Deep Sea",         gradient: "linear-gradient(135deg,#00020a,#00061a)", unlock: "499 PC", price: 499, component: DeepSeaBanner },
+  { id: "prismatic_light", label: "Prismatic Light",  gradient: "linear-gradient(135deg,#04020e,#0a0520)", unlock: "499 PC", price: 499, component: PrismaticLightBanner },
+  { id: "sand_dunes",      label: "Sand Dunes",       gradient: "linear-gradient(135deg,#c47820,#e8a830)", unlock: "499 PC", price: 499, component: SandDunesBanner },
+  { id: "ember_phoenix",   label: "Ember Phoenix",    gradient: "linear-gradient(135deg,#040100,#1c0400)", unlock: "499 PC", price: 499, component: EmberPhoenixBanner },
+  { id: "crystal_cave",    label: "Crystal Cave",     gradient: "linear-gradient(135deg,#080515,#0e0820)", unlock: "499 PC", price: 499, component: CrystalCaveBanner },
+  { id: "hacker_terminal", label: "Hacker Terminal",  gradient: "linear-gradient(135deg,#010804,#021408)", unlock: "499 PC", price: 499, component: HackerTerminalBanner },
+  { id: "tidal_surge",     label: "Tidal Surge",      gradient: "linear-gradient(135deg,#010c1a,#002040)", unlock: "499 PC", price: 499, component: TidalSurgeBanner },
+  { id: "solar_wind",      label: "Solar Wind",       gradient: "linear-gradient(135deg,#060200,#130500)", unlock: "499 PC", price: 499, component: SolarWindBanner },
+  { id: "lava_lamp",       label: "Lava Lamp",        gradient: "linear-gradient(135deg,#0e0500,#1c0800)", unlock: "499 PC", price: 499, component: LavaLampBanner },
 ];
 
 const STORE_BORDERS = [
@@ -1299,7 +1299,7 @@ export default function StoreScreen({ setScreenAction, themeId, audio, initialSe
                 <div style={{ padding: 24, background: infoBg }}>
                   <div style={{ fontFamily: t.fontDisplay, fontSize: 22, fontWeight: 900, color: tc, letterSpacing: "0.04em", marginBottom: 6 }}>{banner.label}</div>
                   <div style={{ fontFamily: t.fontBody, fontSize: 13, color: tc2, fontStyle: "italic", marginBottom: 16, display: "flex", alignItems: "center", gap: 6 }}>
-                    {showFreeClaim ? (<span style={{ color: "#FCD34D", fontWeight: 700 }}>Redeem with AI Gauntlet reward</span>) : banner.unlock === "Free" ? "Free to unlock" : (<><span>Unlock for {price.toLocaleString()}</span><ProtoSVG size={12} /></>)}
+                    {owned ? (<span style={{ color: "#4CAF50", fontWeight: 700, fontStyle: "normal" }}>In your collection</span>) : showFreeClaim ? (<span style={{ color: "#FCD34D", fontWeight: 700 }}>Redeem with AI Gauntlet reward</span>) : banner.unlock === "Free" ? "Free to unlock" : (<><span>Unlock for {price.toLocaleString()}</span><ProtoSVG size={12} /></>)}
                   </div>
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
                     {owned ? (<div style={{ fontFamily: t.fontMono, fontSize: 12, fontWeight: 900, color: "#4CAF50", letterSpacing: "0.06em" }}>OWNED</div>) : showFreeClaim ? (<div style={{ fontFamily: t.fontMono, fontSize: 12, fontWeight: 900, color: "#FCD34D", letterSpacing: "0.06em" }}>FREE</div>) : (<div style={{ fontFamily: t.fontMono, fontSize: 12, fontWeight: 900, color: lt ? "#CC0000" : accent, letterSpacing: "0.06em", display: "inline-flex", alignItems: "center", gap: 6 }}><span>{price.toLocaleString()}</span><ProtoSVG size={16} /></div>)}

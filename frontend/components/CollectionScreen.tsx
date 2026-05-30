@@ -147,14 +147,14 @@ const PIECE_SKINS: { id: string; label: string; desc: string; condition: (p: any
 const BANNERS: { id: string; label: string; gradient: string; condition: (p: any) => boolean }[] = [
   { id: "default",         label: "Default",         gradient: "linear-gradient(135deg,#1a1a2e,#16213e)", condition: () => true },
   { id: "digital_rain",    label: "Digital Rain",    gradient: "linear-gradient(135deg,#000702,#14532d)", condition: (p: any) => (p?.purchased_items ?? []).includes("digital_rain") },
-  { id: "lightsaber_duel", label: "Lightsaber Duel", gradient: "linear-gradient(135deg,#06020e,#0d0520)", condition: (p: any) => (p?.purchased_items ?? []).includes("lightsaber_duel") },
+  { id: "lightsaber_duel", label: "Neon City",        gradient: "linear-gradient(135deg,#02020c,#06041a)", condition: (p: any) => (p?.purchased_items ?? []).includes("lightsaber_duel") },
   { id: "arcade",          label: "Arcade",          gradient: "linear-gradient(135deg,#000010,#000520)", condition: (p: any) => (p?.purchased_items ?? []).includes("arcade") },
   { id: "hyperdrive",      label: "Hyperdrive",      gradient: "linear-gradient(135deg,#02030e,#05041a)", condition: (p: any) => (p?.purchased_items ?? []).includes("hyperdrive") },
   { id: "northern_lights", label: "Northern Lights", gradient: "linear-gradient(135deg,#000c12,#010f18)", condition: (p: any) => (p?.purchased_items ?? []).includes("northern_lights") },
   { id: "void_collapse",   label: "Void Collapse",   gradient: "linear-gradient(135deg,#02010c,#0a0518)", condition: (p: any) => (p?.purchased_items ?? []).includes("void_collapse") },
   { id: "lava_flow",       label: "Lava Flow",       gradient: "linear-gradient(135deg,#060100,#200400)", condition: (p: any) => (p?.purchased_items ?? []).includes("lava_flow") },
   { id: "particle_web",    label: "Particle Web",    gradient: "linear-gradient(135deg,#060810,#0b1030)", condition: (p: any) => (p?.purchased_items ?? []).includes("particle_web") },
-  { id: "ink_drop",        label: "Ink Drop",        gradient: "linear-gradient(135deg,#f6f4f0,#fafaf7)", condition: (p: any) => (p?.purchased_items ?? []).includes("ink_drop") },
+  { id: "ink_drop",        label: "Ink Drop",        gradient: "linear-gradient(135deg,#010408,#020810)", condition: (p: any) => (p?.purchased_items ?? []).includes("ink_drop") },
   { id: "thunder_storm",   label: "Thunder Storm",   gradient: "linear-gradient(135deg,#060810,#080e20)", condition: (p: any) => (p?.purchased_items ?? []).includes("thunder_storm") },
   { id: "neon_pulse",      label: "Neon Pulse",      gradient: "linear-gradient(135deg,#04020c,#0c0520)", condition: (p: any) => (p?.purchased_items ?? []).includes("neon_pulse") },
   { id: "deep_sea",        label: "Deep Sea",        gradient: "linear-gradient(135deg,#00020a,#00061a)", condition: (p: any) => (p?.purchased_items ?? []).includes("deep_sea") },
@@ -1261,9 +1261,9 @@ export default function CollectionScreen({ themeId, setThemeIdAction, onHoverAct
                         onClick={() => { if (owned && !isActive) { onClickAction?.(); equipBanner(item.id); } }}
                         style={{ minWidth: 230, maxWidth: 230, flex: "0 0 230px", scrollSnapAlign: "start", borderRadius: 16, overflow: "hidden", border: `1px solid ${owned ? (isActive ? hoverColor : cardBorderOwned) : cardBorderLocked}`, background: cardBg, backdropFilter: "blur(12px)", cursor: owned && !isActive ? "pointer" : "default", boxShadow: isActive ? `0 0 20px ${hoverColor}33` : "none" }}>
                         {!owned && (<div className="coll-locked-overlay"><div style={{ background: lockChipBg, border: `1px solid ${lockChipBorder}`, borderRadius: 12, padding: "8px 16px", display: "flex", alignItems: "center", gap: 8 }}><LockIcon size={14} color={lockIconColor} /><span style={{ fontFamily: t.fontMono, fontSize: 10, color: lockChipText, fontWeight: 800, letterSpacing: "0.1em" }}>LOCKED</span></div></div>)}
-                        <div style={{ height: 132, overflow: "hidden", position: "relative" }}>
-                          <BannerRenderer bannerId={item.id} preview />
-                          {owned && isActive && (<><div style={{ position: "absolute", top: 12, right: 12, background: hoverColor, borderRadius: 12, padding: "4px 12px", fontFamily: t.fontMono, fontSize: 10, color: "#fff", fontWeight: 900, letterSpacing: "0.05em", zIndex: 3, boxShadow: "0 4px 12px rgba(0,0,0,0.3)" }}>EQUIPPED</div><div style={{ position: "absolute", inset: 0, background: "linear-gradient(110deg, transparent 40%, rgba(255,255,255,0.08) 45%, rgba(255,255,255,0.14) 50%, rgba(255,255,255,0.08) 55%, transparent 60%)", backgroundSize: "200% 100%", animation: "bannerShine 3s infinite linear", zIndex: 2, pointerEvents: "none" }} /></>)}
+                        <div style={{ height: 160, overflow: "hidden", position: "relative", filter: "brightness(1.35) saturate(1.15)" }}>
+                          <BannerRenderer bannerId={item.id} />
+                          {owned && isActive && (<><div style={{ position: "absolute", top: 12, right: 12, background: hoverColor, borderRadius: 12, padding: "4px 12px", fontFamily: t.fontMono, fontSize: 10, color: "#fff", fontWeight: 900, letterSpacing: "0.05em", zIndex: 3, boxShadow: "0 4px 12px rgba(0,0,0,0.3)" }}>EQUIPPED</div><div style={{ position: "absolute", inset: 0, background: "linear-gradient(110deg, transparent 40%, rgba(255,255,255,0.1) 45%, rgba(255,255,255,0.2) 50%, rgba(255,255,255,0.1) 55%, transparent 60%)", backgroundSize: "200% 100%", animation: "bannerShine 3s infinite linear", zIndex: 2, pointerEvents: "none" }} /></>)}
                         </div>
                         <div style={{ padding: "16px" }}>
                           <div style={{ fontFamily: t.fontDisplay, fontSize: 18, fontWeight: 800, color: isActive ? hoverColor : t.text }}>{item.label}</div>

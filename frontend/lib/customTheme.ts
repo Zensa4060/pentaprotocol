@@ -82,6 +82,8 @@ export function saveCustomTheme(cfg: CustomThemeConfig) {
     if (!userId) return;
     const userKey = `${CUSTOM_THEME_STORAGE_KEY}:${userId}`;
     localStorage.setItem(userKey, JSON.stringify(cfg));
+    // Notify components that listen for custom theme changes (e.g. HomeScreen banner hero).
+    try { window.dispatchEvent(new Event("pp_custom_theme_change")); } catch { /* noop */ }
   } catch {
     // ignore
   }

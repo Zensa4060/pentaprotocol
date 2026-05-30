@@ -10,7 +10,8 @@
       "PowerShell(Expand-Archive -Path \"$env:TEMP\\\\node.zip\" -DestinationPath \"C:\\\\tools\" -Force; Write-Host \"Extracted\"; Get-ChildItem \"C:\\\\tools\\\\\" | Select-Object Name)",
       "PowerShell(try { $r = Invoke-WebRequest -Uri \"http://localhost:8000/docs\" -UseBasicParsing -TimeoutSec 5; \"Backend up: $\\($r.StatusCode\\)\" } catch { \"Backend DOWN: $_\" })",
       "PowerShell($py = \"C:\\\\Users\\\\sushr\\\\AppData\\\\Local\\\\Programs\\\\Python\\\\Python311\\\\python.exe\"; Set-Location \"C:\\\\Users\\\\sushr\\\\OneDrive\\\\Documents\\\\pentaprotocol\\\\backend\"; & $py -m uvicorn main:app --host 0.0.0.0 --port 8000 2>&1 | Select-Object -First 30)",
-      "PowerShell(cmd /c \"C:\\\\Users\\\\sushr\\\\OneDrive\\\\Desktop\\\\Start PentaProtocol.bat\" 2>&1)"
+      "PowerShell(cmd /c \"C:\\\\Users\\\\sushr\\\\OneDrive\\\\Desktop\\\\Start PentaProtocol.bat\" 2>&1)",
+      "Bash(python -m py_compile app/routers/room.py app/routers/profile.py)"
     ]
   }
 }

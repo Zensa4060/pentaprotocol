@@ -4528,6 +4528,40 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                         )
                     )
 
+            elif msg_type == "player_info":
+                # The client sends this immediately on WS open with its
+                # current bannerId from localStorage (which may be more
+                # up-to-date than the value stored in the room doc when
+                # the queue was created — e.g. the user changed their
+                # banner after joining the queue).
+                # We validate the bannerId, persist it to the room doc,
+                # and broadcast a `banner_update` event to BOTH players
+                # so each side always sees the live banner.
+                raw_banner = str(msg.get("bannerId") or "default").strip().lower()
+                from app.routers.profile import VALID_BANNERS as _VB
+                banner_to_set = raw_banner if raw_banner in _VB else "default"
+                banner_field  = "player1_banner" if player_slot == "P1" else "player2_banner"
+                try:
+                    await db.rooms.update_one(
+                        {"room_code": room_code},
+                        {"$set": {banner_field: banner_to_set}},
+                    )
+                except Exception:
+                    pass
+                # Relay to both connections so each player sees the
+                # updated banner immediately without waiting for a
+                # full room_state refresh.
+                broadcast_banner = {
+                    "type":   "banner_update",
+                    "slot":   player_slot,
+                    "banner": banner_to_set,
+                }
+                for _, ws in _room_connections.get(room_code, {}).items():
+                    try:
+                        await ws.send_json(broadcast_banner)
+                    except Exception:
+                        pass
+
             elif msg_type == "ping":
                 ts = msg.get("ts")
                 await websocket.send_json({"type": "pong", "ts": ts})

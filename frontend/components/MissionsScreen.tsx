@@ -52,6 +52,15 @@ function collectClaimableShardClaims(
   return out;
 }
 
+function ShardIcon({ svg, size }: { svg: string; size: number }) {
+  return (
+    <span
+      style={{ width: size, height: size, display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}
+      dangerouslySetInnerHTML={{ __html: svg.replace("<svg ", `<svg width="${size}" height="${size}" `) }}
+    />
+  );
+}
+
 interface Props {
   themeId: ThemeId;
   initialTab?: "daily" | "weekly" | "permanent";
@@ -59,20 +68,18 @@ interface Props {
 
 export default function MissionsScreen({ themeId, initialTab }: Props) {
   const t = THEMES[themeId];
-  const isLight = themeId === "classic_light";
   const router = useRouter();
   const shardsSvg = themeId === "classic_light" ? SHARDS_LIGHT_SVG : SHARDS_DARK_SVG;
 
   const { user, token, updateUser } = useAuthStore();
-
   const userKey = getUserKey(user);
 
   const [tab, setTab] = useState<"daily" | "weekly" | "permanent">(initialTab ?? "daily");
-
   useEffect(() => {
     if (initialTab && initialTab !== tab) setTab(initialTab);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialTab]);
+
   const [profile, setProfile] = useState<ProfileLike>(() => (user ?? {}) as ProfileLike);
   const [nowMs, setNowMs] = useState(() => Date.now());
 
@@ -80,25 +87,17 @@ export default function MissionsScreen({ themeId, initialTab }: Props) {
     if (!token) return;
     let cancelled = false;
     API.get("/api/profile/me", { headers: { Authorization: `Bearer ${token}` }, timeout: 15000 })
-      .then(res => {
-        if (cancelled) return;
-        setProfile(res.data as ProfileLike);
-        updateUser?.(res.data);
-      })
+      .then(res => { if (!cancelled) { setProfile(res.data as ProfileLike); updateUser?.(res.data); } })
       .catch(() => {});
     return () => { cancelled = true; };
   }, [token, updateUser]);
 
-  // Re-render when mission localStorage changes (from GameScreen or this screen).
   const [, setRev] = useState(0);
   useEffect(() => {
     const on = () => setRev(r => r + 1);
     window.addEventListener("pp_mission_event", on);
     window.addEventListener("pp_mission_state_change", on);
-    return () => {
-      window.removeEventListener("pp_mission_event", on);
-      window.removeEventListener("pp_mission_state_change", on);
-    };
+    return () => { window.removeEventListener("pp_mission_event", on); window.removeEventListener("pp_mission_state_change", on); };
   }, []);
 
   useEffect(() => {
@@ -122,26 +121,20 @@ export default function MissionsScreen({ themeId, initialTab }: Props) {
   const weeklyIds = getWeeklyMissionIds(weekStart, userKey);
   const permanentDefs = useMemo(() => getPermanentMissionDefs(), []);
 
-  const formatCountdown = (ms: number, forceDays = false) => {
+  const fmt = (ms: number, forceDays = false) => {
     const s = Math.max(0, Math.floor(ms / 1000));
     const days = Math.floor(s / 86400);
-    const h = Math.floor((s % 86400) / 3600);
-    const m = Math.floor((s % 3600) / 60);
-    const sec = s % 60;
-    const hh = String(h).padStart(2, "0");
-    const mm = String(m).padStart(2, "0");
-    const ss = String(sec).padStart(2, "0");
-    return (days > 0 || forceDays) ? `${days}d ${hh}:${mm}:${ss}` : `${hh}:${mm}:${ss}`;
+    const h = String(Math.floor((s % 86400) / 3600)).padStart(2, "0");
+    const m = String(Math.floor((s % 3600) / 60)).padStart(2, "0");
+    const sec = String(s % 60).padStart(2, "0");
+    return (days > 0 || forceDays) ? `${days}d ${h}:${m}:${sec}` : `${h}:${m}:${sec}`;
   };
-  const nextDaily = new Date(unifiedNow);
-  nextDaily.setHours(24, 0, 0, 0);
-  const dailyCountdown = formatCountdown(nextDaily.getTime() - unifiedNow.getTime());
-  const weeklyCountdown = formatCountdown(weekEnd.getTime() - unifiedNow.getTime(), true);
+  const nextDaily = new Date(unifiedNow); nextDaily.setHours(24, 0, 0, 0);
+  const dailyCountdown = fmt(nextDaily.getTime() - unifiedNow.getTime());
+  const weeklyCountdown = fmt(weekEnd.getTime() - unifiedNow.getTime(), true);
 
-  const getClaimed = (period: MissionPeriod, periodKey: string, missionId: string) => {
-    const claimKey = `${period}:${periodKey}:${missionId}`;
-    return Boolean(missionState.claimed[claimKey]);
-  };
+  const getClaimed = (period: MissionPeriod, periodKey: string, missionId: string) =>
+    Boolean(missionState.claimed[`${period}:${periodKey}:${missionId}`]);
 
   const startClaim = async (period: MissionPeriod, periodKey: string, mission: MissionDef) => {
     if (!token) return;
@@ -149,713 +142,514 @@ export default function MissionsScreen({ themeId, initialTab }: Props) {
     const progress = computeMissionProgress({ mission, events: mEvents, profile });
     if (progress < mission.progress.target) return;
     try {
-      const res = await postClaimMissionToServer({
-        period,
-        periodKey,
-        missionId: mission.id,
-      });
-      if (res.xp_awarded > 0) {
-        claimMissionReward({ userKey, period, periodKey, missionId: mission.id, shards: mission.shards });
-      } else if (res.already_claimed) {
-        syncMissionClaimedLocal({ userKey, period, periodKey, missionId: mission.id });
-      }
+      const res = await postClaimMissionToServer({ period, periodKey, missionId: mission.id });
+      if (res.xp_awarded > 0) claimMissionReward({ userKey, period, periodKey, missionId: mission.id, shards: mission.shards });
+      else if (res.already_claimed) syncMissionClaimedLocal({ userKey, period, periodKey, missionId: mission.id });
       updateUser?.(res.profile);
       setProfile(prev => ({ ...prev, ...res.profile }));
-    } catch {
-      /* keep local state unchanged */
-    }
+    } catch { /* noop */ }
   };
 
-  const dailyMissionDefs = useMemo(
-    () => dailyIds.map(id => missionDefById(id)).filter((m): m is MissionDef => m != null),
-    [dailyIds],
-  );
-  const weeklyMissionDefs = useMemo(
-    () => weeklyIds.map(id => missionDefById(id)).filter((m): m is MissionDef => m != null),
-    [weeklyIds],
-  );
+  const dailyMissionDefs = useMemo(() => dailyIds.map(id => missionDefById(id)).filter((m): m is MissionDef => m != null), [dailyIds]);
+  const weeklyMissionDefs = useMemo(() => weeklyIds.map(id => missionDefById(id)).filter((m): m is MissionDef => m != null), [weeklyIds]);
 
-  const dailyClaimAllPayload = useMemo(
-    () => collectClaimableShardClaims("daily", todayKey, dailyMissionDefs, eventsToday, profile, missionState.claimed),
-    [dailyMissionDefs, eventsToday, profile, todayKey, missionState.claimed],
-  );
-  const weeklyClaimAllPayload = useMemo(
-    () => collectClaimableShardClaims("weekly", weekKey, weeklyMissionDefs, eventsWeek, profile, missionState.claimed),
-    [weeklyMissionDefs, eventsWeek, profile, weekKey, missionState.claimed],
-  );
-  const permanentClaimAllPayload = useMemo(
-    () => collectClaimableShardClaims("permanent", "all_time", permanentDefs, eventsAll, profile, missionState.claimed),
-    [permanentDefs, eventsAll, profile, missionState.claimed],
-  );
+  const dailyClaimAll = useMemo(() => collectClaimableShardClaims("daily", todayKey, dailyMissionDefs, eventsToday, profile, missionState.claimed), [dailyMissionDefs, eventsToday, profile, todayKey, missionState.claimed]);
+  const weeklyClaimAll = useMemo(() => collectClaimableShardClaims("weekly", weekKey, weeklyMissionDefs, eventsWeek, profile, missionState.claimed), [weeklyMissionDefs, eventsWeek, profile, weekKey, missionState.claimed]);
+  const permClaimAll = useMemo(() => collectClaimableShardClaims("permanent", "all_time", permanentDefs, eventsAll, profile, missionState.claimed), [permanentDefs, eventsAll, profile, missionState.claimed]);
 
   const runClaimAll = async (period: MissionPeriod, periodKey: string, claims: { missionId: string; shards: number; xp: number }[]) => {
     if (!token || claims.length === 0) return;
     for (const c of claims) {
       try {
-        const res = await postClaimMissionToServer({
-          period,
-          periodKey,
-          missionId: c.missionId,
-        });
-        if (res.xp_awarded > 0) {
-          claimMissionReward({ userKey, period, periodKey, missionId: c.missionId, shards: c.shards });
-        } else if (res.already_claimed) {
-          syncMissionClaimedLocal({ userKey, period, periodKey, missionId: c.missionId });
-        }
+        const res = await postClaimMissionToServer({ period, periodKey, missionId: c.missionId });
+        if (res.xp_awarded > 0) claimMissionReward({ userKey, period, periodKey, missionId: c.missionId, shards: c.shards });
+        else if (res.already_claimed) syncMissionClaimedLocal({ userKey, period, periodKey, missionId: c.missionId });
         updateUser?.(res.profile);
         setProfile(prev => ({ ...prev, ...res.profile }));
-      } catch {
-        break;
-      }
+      } catch { break; }
     }
   };
 
+  const ip = themeId === "pixel";
+  const accent = "#B30000";
+
+  const tabs = [
+    { id: "daily" as const, label: "Daily", timer: `Resets in ${dailyCountdown}`, claimable: dailyClaimAll.length },
+    { id: "weekly" as const, label: "Weekly", timer: `Resets in ${weeklyCountdown}`, claimable: weeklyClaimAll.length },
+    { id: "permanent" as const, label: "Permanent", timer: "Never expires", claimable: permClaimAll.length },
+  ];
+
   return (
     <div style={{
-      position: "fixed",
-      inset: 0,
+      position: "fixed", inset: 0,
       background: themeId === "space" ? "transparent" : t.bg,
-      display: "flex",
-      flexDirection: "column",
-      alignItems: "center",
-      justifyContent: "flex-start",
-      padding: "84px 18px 28px",
-      zIndex: 1,
-      overflowY: "auto",
-      overflowX: "hidden",
-      // Scale back down (was zoom:2).
-      zoom: 1,
-      transformOrigin: "top center",
-      width: "100%"
+      display: "flex", flexDirection: "column",
+      padding: "72px 0 0",
+      zIndex: 1, overflow: "hidden",
     }}>
-      {/* Background Glows */}
+      {/* Header bar */}
       <div style={{
-        position: "absolute",
-        width: "60vw",
-        height: "60vw",
-        background: `radial-gradient(circle, ${t.accent}15 0%, transparent 70%)`,
-        top: "25%",
-        left: "50%",
-        transform: "translate(-50%, -50%)",
-        pointerEvents: "none",
-        zIndex: 0
-      }} />
-
-      <div style={{ position: "relative", zIndex: 2, width: "calc(100vw - 36px)", maxWidth: 1600, overflow: "visible" }}>
-        <div style={{
-          display: "flex",
-          alignItems: "flex-start",
-          justifyContent: "space-between",
-          gap: 12,
-          marginBottom: 14,
-          flexWrap: "wrap"
-        }}>
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            <div style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 12,
-            }}>
-              <div style={{
-                width: 62,
-                height: 62,
-                borderRadius: 12,
-                background: `${t.accent}18`,
-                border: `1px solid ${t.accent}44`,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                boxShadow: `0 0 20px ${t.accent}20`,
-              }}>
-                <img
-                  src="/Pentaprotocol_Logo_Transparent.png"
-                  alt="PentaProtocol"
-                  style={{ width: 42, height: 42, objectFit: "contain", filter: "drop-shadow(0 0 8px rgba(179,0,0,0.45))" }}
-                />
-              </div>
-              <div>
-                <div style={{ fontFamily: t.fontDisplay, fontSize: 24, fontWeight: 900, color: t.text, letterSpacing: "0.08em" }}>
-                  MISSIONS
-                </div>
-                <div style={{ fontFamily: t.fontMono, fontSize: 12, color: t.textSecondary }}>
-                  Daily / Weekly / Permanent — shards + account XP
-                </div>
-              </div>
-            </div>
-          </div>
-
+        flexShrink: 0,
+        padding: "16px 24px 0",
+        display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap",
+      }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <div style={{
-            display: "flex",
-            flexDirection: "column",
-            gap: 6,
-            alignItems: "flex-end"
+            width: 44, height: 44, borderRadius: ip ? 2 : 10,
+            background: `${accent}18`, border: `1.5px solid ${accent}44`,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            boxShadow: `0 0 18px ${accent}22`,
           }}>
-            <div style={{ fontFamily: t.fontMono, fontSize: 18, color: t.textSecondary }}>
-              Available Mission Shards
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={accent} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+            </svg>
+          </div>
+          <div>
+            <div style={{ fontFamily: t.fontDisplay, fontSize: 22, fontWeight: 900, color: t.text, letterSpacing: "0.06em" }}>
+              MISSIONS
             </div>
-            <div style={{
-              fontFamily: t.fontDisplay,
-              fontSize: 32,
-              fontWeight: 900,
-              color: t.accent,
-              display: "flex",
-              alignItems: "center",
-              gap: 10
-            }}>
-              <span
-                style={{ width: 51, height: 51, display: "inline-flex", alignItems: "center", justifyContent: "center" }}
-                dangerouslySetInnerHTML={{ __html: shardsSvg.replace("<svg ", `<svg width="51" height="51" `) }}
-              />{" "}
-              {missionState.shardBalance.toLocaleString()}
+            <div style={{ fontFamily: t.fontMono, fontSize: 11, color: t.textSecondary }}>
+              Earn Shards &amp; XP — ranked matches only
             </div>
           </div>
         </div>
-
-        {/* Tabs */}
-        <div style={{ display: "flex", gap: 54, marginBottom: 14, flexWrap: "wrap", justifyContent: "center" }}>
-          {(["daily", "weekly", "permanent"] as const).map(x => {
-            const active = tab === x;
-            return (
-              <button
-                key={x}
-                onClick={() => { setTab(x); router.push(`/missions/${x}`); }}
-                style={{
-                  background: active ? "rgba(179,0,0,0.28)" : "rgba(179,0,0,0.12)",
-                  border: active ? "2px solid #B30000" : "1.5px solid rgba(179,0,0,0.65)",
-                  color: "#B30000",
-                  borderRadius: 12,
-                  padding: "11px 18px",
-                  fontFamily: t.fontDisplay,
-                  fontSize: 18,
-                  fontWeight: 900,
-                  cursor: "pointer",
-                  boxShadow: active ? "0 0 20px rgba(179,0,0,0.35)" : "0 0 10px rgba(179,0,0,0.2)",
-                  textShadow: "0 0 8px rgba(179,0,0,0.35)"
-                }}
-              >
-                {x.toUpperCase()}
-              </button>
-            );
-          })}
-        </div>
-
-        <div style={{ paddingRight: 6 }}>
-          {tab === "daily" ? (
-            <MissionsList
-              title="DAILY MISSIONS"
-              subtitle="COMPLETE DAILY MISSIONS TO EARN SHARDS AND XP (1,000–1,500 PER MISSION)."
-              timerText={`RESET IN ${dailyCountdown}`}
-              period="daily"
-              periodKey={todayKey}
-              missionIds={dailyIds}
-              events={eventsToday}
-              profile={profile}
-              getClaimed={getClaimed}
-              onClaim={(mission) => startClaim("daily", todayKey, mission)}
-              claimAllShards={dailyClaimAllPayload.reduce((s, c) => s + c.shards, 0)}
-              claimAllXp={dailyClaimAllPayload.reduce((s, c) => s + c.xp, 0)}
-              onClaimAll={dailyClaimAllPayload.length > 0 ? () => runClaimAll("daily", todayKey, dailyClaimAllPayload) : undefined}
-              t={t}
-              shardsSvg={shardsSvg}
-              isLight={isLight}
-            />
-          ) : tab === "weekly" ? (
-            <MissionsList
-              title={`WEEKLY MISSIONS`}
-              subtitle="COMPLETE WEEKLY MISSIONS FOR EXTRA SHARDS AND XP (5,000–10,000 PER MISSION)."
-              timerText={`RESET IN ${weeklyCountdown}`}
-              period="weekly"
-              periodKey={weekKey}
-              missionIds={weeklyIds}
-              events={eventsWeek}
-              profile={profile}
-              getClaimed={getClaimed}
-              onClaim={(mission) => startClaim("weekly", weekKey, mission)}
-              claimAllShards={weeklyClaimAllPayload.reduce((s, c) => s + c.shards, 0)}
-              claimAllXp={weeklyClaimAllPayload.reduce((s, c) => s + c.xp, 0)}
-              onClaimAll={weeklyClaimAllPayload.length > 0 ? () => runClaimAll("weekly", weekKey, weeklyClaimAllPayload) : undefined}
-              t={t}
-              shardsSvg={shardsSvg}
-              isLight={isLight}
-            />
-          ) : (
-            <PermanentMissionsPanel
-              permanentDefs={permanentDefs}
-              eventsAll={eventsAll}
-              profile={profile}
-              getClaimed={(missionId) => getClaimed("permanent", "all_time", missionId)}
-              onClaim={(mission) => startClaim("permanent", "all_time", mission)}
-              claimAllShards={permanentClaimAllPayload.reduce((s, c) => s + c.shards, 0)}
-              claimAllXp={permanentClaimAllPayload.reduce((s, c) => s + c.xp, 0)}
-              onClaimAll={permanentClaimAllPayload.length > 0 ? () => runClaimAll("permanent", "all_time", permanentClaimAllPayload) : undefined}
-              t={t}
-              shardsSvg={shardsSvg}
-              isLight={isLight}
-            />
-          )}
-        </div>
       </div>
 
-      <style>{`
-        * { -webkit-font-smoothing: antialiased; }
-      `}</style>
-    </div>
-  );
-}
-
-function SpecialRewardCard({ reward, t, gold }: { reward: { label: string; description?: string }; t: Theme; gold: string }) {
-  return (
-    <div style={{
-      borderRadius: 12,
-      padding: "12px 14px",
-      border: `1.5px solid ${gold}`,
-      background: `linear-gradient(135deg, ${gold}22, ${gold}08)`,
-      display: "flex",
-      flexDirection: "column",
-      gap: 6,
-      boxShadow: `0 0 22px ${gold}33, inset 0 0 12px ${gold}18`,
-    }}>
-      <div style={{ fontFamily: t.fontMono, fontSize: 11, color: gold, letterSpacing: "0.12em", fontWeight: 900 }}>
-        CAPSTONE REWARD
-      </div>
-      <div style={{ fontFamily: t.fontDisplay, fontSize: 16, fontWeight: 900, color: gold, letterSpacing: "0.04em", textShadow: `0 0 12px ${gold}66` }}>
-        {reward.label}
-      </div>
-      {reward.description && (
-        <div style={{ fontFamily: t.fontBody, fontSize: 12, color: t.text }}>
-          {reward.description}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function PentaShardsIcon({ svg, size }: { svg: string; size: number }) {
-  return (
-    <span
-      style={{ width: size, height: size, display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}
-      dangerouslySetInnerHTML={{ __html: svg.replace("<svg ", `<svg width="${size}" height="${size}" `) }}
-    />
-  );
-}
-
-function MissionsList(props: {
-  title: string;
-  subtitle: string;
-  timerText?: string;
-  period: "daily" | "weekly";
-  periodKey: string;
-  missionIds: string[];
-  events: MissionMatchEvent[];
-  profile: Record<string, unknown>;
-  getClaimed: (period: MissionPeriod, periodKey: string, missionId: string) => boolean;
-  onClaim: (mission: MissionDef) => void;
-  claimAllShards?: number;
-  claimAllXp?: number;
-  onClaimAll?: () => void;
-  t: Theme;
-  shardsSvg: string;
-  isLight: boolean;
-}) {
-  const { title, subtitle, timerText, missionIds, events, profile, getClaimed, onClaim, claimAllShards = 0, claimAllXp = 0, onClaimAll, t, shardsSvg, isLight } = props;
-
-  return (
-    <div style={{ paddingBottom: 26 }}>
-      <div style={{ marginBottom: 14 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
-          <div style={{ fontFamily: t.fontDisplay, fontSize: 20, fontWeight: 900, color: t.text }}>{title}</div>
-          {timerText && (
-            <div style={{ fontFamily: t.fontMono, fontSize: 15, fontWeight: 900, color: "#B30000", letterSpacing: "0.08em" }}>
-              {timerText}
-            </div>
-          )}
-          {onClaimAll && claimAllShards > 0 && (
+      {/* Tab bar */}
+      <div style={{
+        flexShrink: 0, display: "flex", gap: 0,
+        padding: "14px 24px 0",
+        borderBottom: `1px solid ${t.border}`,
+        marginTop: 4,
+      }}>
+        {tabs.map(({ id, label, timer, claimable }) => {
+          const active = tab === id;
+          return (
             <button
-              type="button"
-              onClick={onClaimAll}
+              key={id}
+              onClick={() => { setTab(id); router.push(`/missions/${id}`); }}
               style={{
-                background: "rgba(76,175,80,0.22)",
-                border: "2px solid #4CAF50",
-                color: "#4CAF50",
-                borderRadius: 12,
-                padding: "8px 14px",
-                fontFamily: t.fontDisplay,
-                fontSize: 12,
-                fontWeight: 900,
+                background: "none", border: "none",
+                borderBottom: active ? `3px solid ${accent}` : "3px solid transparent",
+                padding: "10px 20px 12px",
                 cursor: "pointer",
-                letterSpacing: "0.06em",
+                display: "flex", flexDirection: "column", alignItems: "center", gap: 3,
+                marginBottom: -1,
+                transition: "border-color 0.18s",
               }}
             >
-              <span style={{ display: "inline-flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                CLAIM ALL
-                <PentaShardsIcon svg={shardsSvg} size={24} />
-                {claimAllShards}
-                <span style={{ fontFamily: t.fontMono, fontSize: 11, color: t.gold ?? "#D4AF37", fontWeight: 900 }}>
-                  +{claimAllXp.toLocaleString()} XP
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <span style={{ fontFamily: t.fontDisplay, fontSize: 14, fontWeight: active ? 800 : 600, color: active ? accent : t.textSecondary, letterSpacing: "0.06em", transition: "color 0.18s" }}>
+                  {label.toUpperCase()}
                 </span>
+                {claimable > 0 && (
+                  <span style={{ width: 18, height: 18, borderRadius: "50%", background: "#4CAF50", display: "inline-flex", alignItems: "center", justifyContent: "center", fontFamily: t.fontMono, fontSize: 10, fontWeight: 900, color: "#fff" }}>
+                    {claimable}
+                  </span>
+                )}
+              </div>
+              <span style={{ fontFamily: t.fontMono, fontSize: 9, color: active ? `${accent}aa` : t.textSecondary, letterSpacing: "0.08em" }}>
+                {timer.toUpperCase()}
               </span>
             </button>
-          )}
-        </div>
-        <div style={{ fontFamily: t.fontBody, fontSize: 13, color: t.textSecondary, marginTop: 4 }}>{subtitle}</div>
-      </div>
-
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(320px,1fr))", gap: 12 }}>
-        {missionIds.map(id => {
-          const mission = missionDefById(id);
-          if (!mission) return null;
-          const claimed = getClaimed(props.period, props.periodKey, mission.id);
-          const progress = computeMissionProgress({ mission, events, profile });
-          const done = progress >= mission.progress.target;
-          const progressPct = Math.max(0, Math.min(100, (progress / Math.max(1, mission.progress.target)) * 100));
-          const missionXp = missionXpForMissionId(mission.id);
-
-          return (
-            <div key={id} style={{
-              borderRadius: 16,
-              border: `1px solid ${t.border}66`,
-              background: `${t.bgCard}`,
-              padding: 14,
-              position: "relative",
-              overflow: "hidden",
-              minHeight: 285
-            }}>
-              <div style={{ position: "absolute", inset: 0, background: `radial-gradient(circle at 20% 10%, ${t.accent}18, transparent 45%)`, pointerEvents: "none" }} />
-              <div style={{ position: "relative", zIndex: 2, display: "flex", flexDirection: "column", height: "100%" }}>
-                <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
-                  <div>
-                    <div style={{ fontFamily: t.fontDisplay, fontSize: 14, fontWeight: 900, color: t.text }}>{mission.title}</div>
-                    <div style={{ fontFamily: t.fontBody, fontSize: 12, color: t.textSecondary, marginTop: 4 }}>
-                      {mission.description}
-                    </div>
-                  </div>
-                  <div style={{ textAlign: "right" }}>
-                    <div style={{ fontFamily: t.fontMono, fontSize: 11, color: t.textSecondary, letterSpacing: "0.1em" }}>REWARDS</div>
-                    <div style={{ fontFamily: t.fontDisplay, fontSize: 18, fontWeight: 900, color: t.accent }}>
-                      <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-                        <PentaShardsIcon svg={shardsSvg} size={31} />
-                        {mission.shards}
-                      </span>
-                    </div>
-                    <div style={{ fontFamily: t.fontMono, fontSize: 12, fontWeight: 800, color: "#C9A227", marginTop: 4 }}>
-                      +{missionXp.toLocaleString()} XP
-                    </div>
-                  </div>
-                </div>
-
-                <div style={{ marginTop: 12 }}>
-                  <div style={{ fontFamily: t.fontMono, fontSize: 11, color: t.textSecondary, letterSpacing: "0.08em", display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-                    <span>PROGRESS</span>
-                    <span>{progress}/{mission.progress.target}</span>
-                  </div>
-                  <div style={{ height: 10, background: t.bg, borderRadius: 999, border: `1px solid ${t.border}44`, overflow: "hidden" }}>
-                    <div style={{ height: "100%", width: `${progressPct}%`, background: `linear-gradient(90deg, ${t.accent}, ${t.p1})`, boxShadow: `0 0 18px ${t.accent}33` }} />
-                  </div>
-                </div>
-
-                <div style={{ marginTop: "auto", paddingTop: 18, display: "flex", gap: 10, alignItems: "center", justifyContent: "space-between" }}>
-                  {done ? (
-                    claimed ? (
-                      <div style={{ fontFamily: t.fontMono, fontSize: 12, color: "#4CAF50", fontWeight: 900 }}>CLAIMED ✓</div>
-                    ) : (
-                      <button
-                        onClick={() => onClaim(mission)}
-                        style={{
-                          background: t.accent,
-                          border: "none",
-                          borderRadius: 12,
-                          padding: "10px 14px",
-                          fontFamily: t.fontDisplay,
-                          fontSize: 12,
-                          fontWeight: 900,
-                          color: "#000",
-                          cursor: "pointer",
-                          boxShadow: `0 0 28px ${t.accent}22`
-                        }}
-                      >
-                        <span style={{ display: "inline-flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                          CLAIM
-                          <PentaShardsIcon svg={shardsSvg} size={28} />
-                          {mission.shards}
-                          <span style={{ fontFamily: t.fontMono, fontSize: 11, fontWeight: 900 }}>+{missionXp} XP</span>
-                        </span>
-                      </button>
-                    )
-                  ) : (
-                    <div style={{ fontFamily: t.fontMono, fontSize: 12, color: t.text }}>Keep going…</div>
-                  )}
-                  {mission.difficulty && (
-                    <div style={{
-                      background: mission.difficulty === "hard" ? `${t.accent}22` : mission.difficulty === "medium" ? (t.isLight ? "rgba(0,0,0,0.05)" : "rgba(255,255,255,0.06)") : "rgba(76,175,80,0.10)",
-                      border: `1px solid ${t.border}66`,
-                      borderRadius: 10,
-                      padding: "8px 10px",
-                      fontFamily: t.fontMono,
-                      fontSize: 11,
-                      color: t.textSecondary
-                    }}>
-                      {mission.difficulty.toUpperCase()}
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
           );
         })}
       </div>
-      <div style={{ marginTop: 50, fontFamily: t.fontMono, fontSize: 30, fontWeight: 900, color: "#CC0000", letterSpacing: "0.06em", textAlign: "center" }}>
-        TRAINING MODES DO NOT CONTRIBUTE TO MISSIONS
+
+      {/* Content */}
+      <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "20px 24px 32px" }}>
+        {tab === "daily" && (
+          <MissionGrid
+            period="daily" periodKey={todayKey}
+            missionIds={dailyIds} events={eventsToday} profile={profile}
+            getClaimed={getClaimed} onClaim={(m) => startClaim("daily", todayKey, m)}
+            claimAll={dailyClaimAll} onClaimAll={dailyClaimAll.length > 0 ? () => runClaimAll("daily", todayKey, dailyClaimAll) : undefined}
+            t={t} shardsSvg={shardsSvg} ip={ip}
+          />
+        )}
+        {tab === "weekly" && (
+          <MissionGrid
+            period="weekly" periodKey={weekKey}
+            missionIds={weeklyIds} events={eventsWeek} profile={profile}
+            getClaimed={getClaimed} onClaim={(m) => startClaim("weekly", weekKey, m)}
+            claimAll={weeklyClaimAll} onClaimAll={weeklyClaimAll.length > 0 ? () => runClaimAll("weekly", weekKey, weeklyClaimAll) : undefined}
+            t={t} shardsSvg={shardsSvg} ip={ip}
+          />
+        )}
+        {tab === "permanent" && (
+          <PermanentPanel
+            permanentDefs={permanentDefs} eventsAll={eventsAll} profile={profile}
+            getClaimed={(id) => getClaimed("permanent", "all_time", id)}
+            onClaim={(m) => startClaim("permanent", "all_time", m)}
+            claimAll={permClaimAll} onClaimAll={permClaimAll.length > 0 ? () => runClaimAll("permanent", "all_time", permClaimAll) : undefined}
+            t={t} shardsSvg={shardsSvg} ip={ip}
+          />
+        )}
+
+        <div style={{
+          marginTop: 32, padding: "12px 20px",
+          background: `${t.bgCard}`,
+          border: `1px solid #B3000033`,
+          borderLeft: `3px solid #B30000`,
+          borderRadius: ip ? 2 : 10,
+          fontFamily: t.fontMono, fontSize: 12, color: "#CC0000", fontWeight: 700, letterSpacing: "0.04em",
+        }}>
+          Training modes do not contribute to mission progress.
+        </div>
+      </div>
+
+      <style>{`* { -webkit-font-smoothing: antialiased; }`}</style>
+    </div>
+  );
+}
+
+// ── Mission card grid ────────────────────────────────────────────────────────
+
+function MissionGrid({ period, periodKey, missionIds, events, profile, getClaimed, onClaim, claimAll, onClaimAll, t, shardsSvg, ip }: {
+  period: "daily" | "weekly"; periodKey: string;
+  missionIds: string[]; events: MissionMatchEvent[]; profile: Record<string, unknown>;
+  getClaimed: (period: MissionPeriod, periodKey: string, missionId: string) => boolean;
+  onClaim: (mission: MissionDef) => void;
+  claimAll: { missionId: string; shards: number; xp: number }[];
+  onClaimAll?: () => void;
+  t: Theme; shardsSvg: string; ip: boolean;
+}) {
+  const totalShards = claimAll.reduce((s, c) => s + c.shards, 0);
+  const totalXp = claimAll.reduce((s, c) => s + c.xp, 0);
+
+  return (
+    <div>
+      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 16 }}>
+        <button
+          type="button"
+          onClick={totalShards > 0 ? onClaimAll : undefined}
+          disabled={totalShards === 0}
+          style={{
+            display: "flex", alignItems: "center", gap: 8,
+            background: totalShards > 0 ? "#4CAF5018" : `${t.bgCard}`,
+            border: `2px solid ${totalShards > 0 ? "#4CAF50" : t.border}`,
+            color: totalShards > 0 ? "#4CAF50" : t.textSecondary,
+            borderRadius: ip ? 2 : 10,
+            padding: "9px 16px",
+            fontFamily: t.fontDisplay, fontSize: 12, fontWeight: 800,
+            cursor: totalShards > 0 ? "pointer" : "default",
+            letterSpacing: "0.06em",
+            opacity: totalShards === 0 ? 0.45 : 1,
+            transition: "all 0.2s",
+          }}
+        >
+          CLAIM ALL
+          {totalShards > 0 && (
+            <>
+              <ShardIcon svg={shardsSvg} size={18} />
+              <span>{totalShards}</span>
+              <span style={{ fontFamily: t.fontMono, fontSize: 10, color: "#C9A227", fontWeight: 900 }}>+{totalXp.toLocaleString()} XP</span>
+            </>
+          )}
+        </button>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 12 }}>
+        {missionIds.map(id => {
+          const mission = missionDefById(id);
+          if (!mission) return null;
+          const claimed = getClaimed(period, periodKey, mission.id);
+          const progress = computeMissionProgress({ mission, events, profile });
+          const done = progress >= mission.progress.target;
+          const pct = Math.min(100, (progress / Math.max(1, mission.progress.target)) * 100);
+          const xp = missionXpForMissionId(mission.id);
+
+          return (
+            <MissionCard
+              key={id}
+              mission={mission}
+              claimed={claimed}
+              done={done}
+              progress={progress}
+              progressPct={pct}
+              xp={xp}
+              onClaim={() => onClaim(mission)}
+              t={t}
+              shardsSvg={shardsSvg}
+              ip={ip}
+            />
+          );
+        })}
       </div>
     </div>
   );
 }
 
-function PermanentMissionsPanel(props: {
-  permanentDefs: MissionDef[];
-  eventsAll: MissionMatchEvent[];
-  profile: Record<string, unknown>;
-  getClaimed: (missionId: string) => boolean;
-  onClaim: (mission: MissionDef) => void;
-  claimAllShards?: number;
-  claimAllXp?: number;
-  onClaimAll?: () => void;
-  t: Theme;
-  shardsSvg: string;
-  isLight: boolean;
+// ── Single mission card ──────────────────────────────────────────────────────
+
+function MissionCard({ mission, claimed, done, progress, progressPct, xp, onClaim, t, shardsSvg, ip, gold }: {
+  mission: MissionDef; claimed: boolean; done: boolean; progress: number; progressPct: number;
+  xp: number; onClaim: () => void; t: Theme; shardsSvg: string; ip: boolean; gold?: string;
 }) {
-  const { permanentDefs, eventsAll, profile, getClaimed, onClaim, claimAllShards = 0, claimAllXp = 0, onClaimAll, t, shardsSvg, isLight } = props;
+  const isSpecial = !!mission.specialReward;
+  const color = isSpecial ? (gold ?? "#D4AF37") : t.accent;
+  const accent = "#B30000";
+
+  return (
+    <div style={{
+      borderRadius: ip ? 2 : 14,
+      border: `1.5px solid ${claimed ? "#4CAF5030" : done ? `${accent}55` : `${t.border}66`}`,
+      background: t.bgCard,
+      padding: "16px 18px",
+      display: "flex", flexDirection: "column", gap: 10,
+      position: "relative", overflow: "hidden",
+      opacity: claimed ? 0.65 : 1,
+      transition: "opacity 0.2s",
+    }}>
+      {/* Glow if done */}
+      {done && !claimed && (
+        <div style={{ position: "absolute", inset: 0, background: `radial-gradient(ellipse at top left, ${accent}0A, transparent 60%)`, pointerEvents: "none" }} />
+      )}
+
+      {/* Top row: title + reward */}
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          {isSpecial && (
+            <div style={{ fontFamily: t.fontMono, fontSize: 9, color, letterSpacing: "0.14em", fontWeight: 900, marginBottom: 3 }}>★ SPECIAL</div>
+          )}
+          <div style={{ fontFamily: t.fontDisplay, fontSize: 14, fontWeight: 800, color: isSpecial ? color : t.text, lineHeight: 1.3 }}>
+            {mission.title}
+          </div>
+          <div style={{ fontFamily: t.fontBody, fontSize: 12, color: t.textSecondary, marginTop: 3, lineHeight: 1.4 }}>
+            {mission.description}
+          </div>
+        </div>
+        <div style={{ textAlign: "right", flexShrink: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 4, justifyContent: "flex-end" }}>
+            <ShardIcon svg={shardsSvg} size={20} />
+            <span style={{ fontFamily: t.fontDisplay, fontSize: 16, fontWeight: 900, color }}>{mission.shards}</span>
+          </div>
+          <div style={{ fontFamily: t.fontMono, fontSize: 10, color: "#C9A227", fontWeight: 800, marginTop: 2 }}>
+            +{xp.toLocaleString()} XP
+          </div>
+        </div>
+      </div>
+
+      {/* Progress bar */}
+      <div>
+        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 5 }}>
+          <span style={{ fontFamily: t.fontMono, fontSize: 10, color: t.textSecondary, letterSpacing: "0.06em" }}>PROGRESS</span>
+          <span style={{ fontFamily: t.fontMono, fontSize: 10, color: done ? "#4CAF50" : t.textSecondary, fontWeight: 700 }}>
+            {progress}/{mission.progress.target}
+          </span>
+        </div>
+        <div style={{ height: 6, background: `${t.border}44`, borderRadius: 999, overflow: "hidden" }}>
+          <div style={{
+            height: "100%", width: `${progressPct}%`,
+            background: done ? "#4CAF50" : `linear-gradient(90deg, ${accent}, ${t.p1 ?? accent})`,
+            borderRadius: 999, transition: "width 0.4s ease",
+          }} />
+        </div>
+      </div>
+
+      {/* Special reward */}
+      {isSpecial && mission.specialReward && (
+        <div style={{
+          background: `${color}10`, border: `1px solid ${color}33`,
+          borderRadius: ip ? 2 : 8, padding: "8px 10px",
+        }}>
+          <div style={{ fontFamily: t.fontMono, fontSize: 9, color, letterSpacing: "0.1em", marginBottom: 2 }}>CAPSTONE REWARD</div>
+          <div style={{ fontFamily: t.fontDisplay, fontSize: 13, fontWeight: 800, color }}>{mission.specialReward.label}</div>
+          {mission.specialReward.description && (
+            <div style={{ fontFamily: t.fontBody, fontSize: 11, color: t.textSecondary, marginTop: 2 }}>{mission.specialReward.description}</div>
+          )}
+        </div>
+      )}
+
+      {/* Bottom row */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginTop: 2 }}>
+        {claimed ? (
+          <div style={{ display: "flex", alignItems: "center", gap: 6, fontFamily: t.fontMono, fontSize: 12, color: "#4CAF50", fontWeight: 800 }}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#4CAF50" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            CLAIMED
+          </div>
+        ) : done ? (
+          <button
+            onClick={onClaim}
+            style={{
+              display: "flex", alignItems: "center", gap: 6,
+              background: isSpecial ? color : accent,
+              border: "none", borderRadius: ip ? 2 : 8,
+              padding: "8px 14px",
+              fontFamily: t.fontDisplay, fontSize: 12, fontWeight: 800,
+              color: "#000", cursor: "pointer",
+              letterSpacing: "0.04em",
+            }}
+          >
+            CLAIM
+            <ShardIcon svg={shardsSvg} size={18} />
+            {mission.shards}
+          </button>
+        ) : (
+          <div style={{ fontFamily: t.fontMono, fontSize: 11, color: t.textSecondary }}>
+            {Math.round(progressPct)}% complete
+          </div>
+        )}
+        {mission.difficulty && !claimed && (
+          <span style={{
+            fontFamily: t.fontMono, fontSize: 10, color: t.textSecondary,
+            background: t.bgPanel ?? t.bg,
+            border: `1px solid ${t.border}44`,
+            borderRadius: 6, padding: "3px 8px",
+          }}>
+            {mission.difficulty.toUpperCase()}
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Permanent missions panel ─────────────────────────────────────────────────
+
+function PermanentPanel({ permanentDefs, eventsAll, profile, getClaimed, onClaim, claimAll, onClaimAll, t, shardsSvg, ip }: {
+  permanentDefs: MissionDef[]; eventsAll: MissionMatchEvent[]; profile: Record<string, unknown>;
+  getClaimed: (id: string) => boolean;
+  onClaim: (mission: MissionDef) => void;
+  claimAll: { missionId: string; shards: number; xp: number }[];
+  onClaimAll?: () => void;
+  t: Theme; shardsSvg: string; ip: boolean;
+}) {
   const [showAll, setShowAll] = useState(false);
   const gold = t.gold ?? "#D4AF37";
 
-  // Always pin the CHRONICLE (legend) rank mission — the capstone free-theme
-  // reward — to the top of every permanent view.
   const specialMission = useMemo(() => permanentDefs.find(m => m.id === "perm_rank_legend"), [permanentDefs]);
+  const groups = useMemo(() => ({
+    level:       permanentDefs.filter(m => m.progress.kind === "levelAtLeast"),
+    ranks:       permanentDefs.filter(m => m.progress.kind === "rankAtLeast" && m.id !== "perm_rank_legend"),
+    winStreak:   permanentDefs.filter(m => m.progress.kind === "streakRankedMax"),
+    rankedWins:  permanentDefs.filter(m => m.progress.kind === "rankedWinsTotalAtLeast"),
+    totalWins:   permanentDefs.filter(m => m.progress.kind === "totalWinsAtLeast"),
+    rankedPlay:  permanentDefs.filter(m => m.progress.kind === "rankedMatchesAtLeast"),
+  }), [permanentDefs]);
 
-  const groups = useMemo(() => {
-    const level = permanentDefs.filter(m => m.progress.kind === "levelAtLeast");
-    const ranks = permanentDefs.filter(m => m.progress.kind === "rankAtLeast" && m.id !== "perm_rank_legend");
-    const winStreak = permanentDefs.filter(m => m.progress.kind === "streakRankedMax");
-    const rankedWins = permanentDefs.filter(m => m.progress.kind === "rankedWinsTotalAtLeast");
-    const totalWins = permanentDefs.filter(m => m.progress.kind === "totalWinsAtLeast");
-    const rankedPlay = permanentDefs.filter(m => m.progress.kind === "rankedMatchesAtLeast");
-    return { level, ranks, winStreak, rankedWins, totalWins, rankedPlay };
-  }, [permanentDefs]);
-
-  const flattened = useMemo(() => [...groups.level, ...groups.ranks, ...groups.winStreak, ...groups.rankedWins, ...groups.totalWins, ...groups.rankedPlay], [groups]);
+  const flattened = useMemo(() => [
+    ...groups.level, ...groups.ranks, ...groups.winStreak,
+    ...groups.rankedWins, ...groups.totalWins, ...groups.rankedPlay,
+  ], [groups]);
   const visible = showAll ? flattened : flattened.slice(0, 30);
 
-  const renderMissionCard = (m: MissionDef) => {
+  const totalShards = claimAll.reduce((s, c) => s + c.shards, 0);
+  const totalXp = claimAll.reduce((s, c) => s + c.xp, 0);
+
+  const renderCard = (m: MissionDef) => {
     const claimed = getClaimed(m.id);
     const progress = computeMissionProgress({ mission: m, events: eventsAll, profile });
     const done = progress >= m.progress.target;
-    const pct = Math.max(0, Math.min(100, (progress / Math.max(1, m.progress.target)) * 100));
-    const mXp = missionXpForMissionId(m.id);
-    const isSpecial = !!m.specialReward;
-
-    const cardBorder = isSpecial ? `2px solid ${gold}` : `1px solid ${t.border}66`;
-    const cardBg = isSpecial
-      ? `linear-gradient(135deg, ${gold}14, ${t.bgCard} 55%)`
-      : `${t.bgCard}`;
-    const cardShadow = isSpecial ? `0 0 34px ${gold}33, inset 0 0 18px ${gold}14` : undefined;
-
+    const pct = Math.min(100, (progress / Math.max(1, m.progress.target)) * 100);
+    const xp = missionXpForMissionId(m.id);
     return (
-      <div key={m.id} style={{ borderRadius: 16, border: cardBorder, background: cardBg, padding: 14, boxShadow: cardShadow }}>
-        {isSpecial && (
-          <div style={{ fontFamily: t.fontMono, fontSize: 11, fontWeight: 900, color: gold, letterSpacing: "0.16em", marginBottom: 6, textShadow: `0 0 10px ${gold}66` }}>
-            ★ SPECIAL MISSION ★
-          </div>
-        )}
-        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontFamily: t.fontDisplay, fontSize: isSpecial ? 16 : 14, fontWeight: 900, color: isSpecial ? gold : t.text, textShadow: isSpecial ? `0 0 12px ${gold}55` : undefined }}>{m.title}</div>
-            <div style={{ fontFamily: t.fontBody, fontSize: 12, color: t.textSecondary, marginTop: 4 }}>{m.description}</div>
-          </div>
-          <div style={{ textAlign: "right", flexShrink: 0 }}>
-            <div style={{ fontFamily: t.fontMono, fontSize: 11, color: t.textSecondary, letterSpacing: "0.1em" }}>REWARDS</div>
-            <div style={{ fontFamily: t.fontDisplay, fontSize: 18, fontWeight: 900, color: isSpecial ? gold : t.accent }}>
-              <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-                <PentaShardsIcon svg={shardsSvg} size={31} />
-                {m.shards}
-              </span>
-            </div>
-            <div style={{ fontFamily: t.fontMono, fontSize: 12, fontWeight: 800, color: isSpecial ? gold : "#C9A227", marginTop: 4 }}>
-              +{mXp.toLocaleString()} XP
-            </div>
-          </div>
-        </div>
-
-        <div style={{ marginTop: 10 }}>
-          <div style={{ fontFamily: t.fontMono, fontSize: 11, color: t.textSecondary, letterSpacing: "0.08em", display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
-            <span>PROGRESS</span>
-            <span>{progress}/{m.progress.target}</span>
-          </div>
-          <div style={{ height: 10, background: t.bg, borderRadius: 999, border: `1px solid ${t.border}44`, overflow: "hidden" }}>
-            <div style={{ height: "100%", width: `${pct}%`, background: isSpecial ? `linear-gradient(90deg, ${gold}, ${t.accent})` : `linear-gradient(90deg, ${t.accent}, ${t.p1})`, boxShadow: `0 0 18px ${isSpecial ? gold : t.accent}44` }} />
-          </div>
-        </div>
-
-        {m.specialReward && (
-          <div style={{ marginTop: 12 }}>
-            <SpecialRewardCard reward={m.specialReward} t={t} gold={gold} />
-          </div>
-        )}
-
-        <div style={{ marginTop: 14, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
-          {done ? (
-            claimed ? (
-              <div style={{ fontFamily: t.fontMono, fontSize: 12, color: "#4CAF50", fontWeight: 900 }}>CLAIMED ✓</div>
-            ) : (
-              <button
-                onClick={() => onClaim(m)}
-                style={{
-                  background: isSpecial ? gold : t.accent,
-                  border: "none",
-                  borderRadius: 12,
-                  padding: "10px 14px",
-                  fontFamily: t.fontDisplay,
-                  fontSize: 12,
-                  fontWeight: 900,
-                  color: "#000",
-                  cursor: "pointer",
-                  boxShadow: `0 0 28px ${isSpecial ? gold : t.accent}44`
-                }}
-              >
-                <span style={{ display: "inline-flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                  CLAIM
-                  <PentaShardsIcon svg={shardsSvg} size={28} />
-                  {m.shards}
-                  <span style={{ fontFamily: t.fontMono, fontSize: 11, fontWeight: 900 }}>+{mXp.toLocaleString()} XP</span>
-                </span>
-              </button>
-            )
-          ) : (
-            <div style={{ fontFamily: t.fontMono, fontSize: 12, color: t.textSecondary }}>Not yet</div>
-          )}
-          {!done && m.difficulty && (
-            <div style={{ fontFamily: t.fontMono, fontSize: 11, color: t.textSecondary, border: `1px solid ${t.border}66`, background: t.isLight ? "rgba(0,0,0,0.04)" : "rgba(255,255,255,0.03)", padding: "8px 10px", borderRadius: 10 }}>
-              {m.difficulty.toUpperCase()}
-            </div>
-          )}
-        </div>
-      </div>
+      <MissionCard
+        key={m.id}
+        mission={m}
+        claimed={claimed}
+        done={done}
+        progress={progress}
+        progressPct={pct}
+        xp={xp}
+        onClaim={() => onClaim(m)}
+        t={t}
+        shardsSvg={shardsSvg}
+        ip={ip}
+        gold={gold}
+      />
     );
   };
 
-  const renderGroup = (title: string, defs: MissionDef[]) => (
-    <div style={{ marginBottom: 16 }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 10 }}>
-        <div style={{ fontFamily: t.fontDisplay, fontWeight: 900, fontSize: 14, color: t.text }}>{title}</div>
-        <div style={{ fontFamily: t.fontMono, fontSize: 11, color: t.textSecondary }}>{defs.length} missions</div>
+  const renderGroup = (title: string, defs: MissionDef[]) => defs.length === 0 ? null : (
+    <div style={{ marginBottom: 24 }} key={title}>
+      <div style={{ fontFamily: t.fontMono, fontSize: 11, color: t.textSecondary, letterSpacing: "0.14em", fontWeight: 700, marginBottom: 10 }}>
+        {title.toUpperCase()} <span style={{ opacity: 0.6 }}>({defs.length})</span>
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(300px,1fr))", gap: 12 }}>
-        {defs.map(m => renderMissionCard(m))}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 10 }}>
+        {defs.map(m => renderCard(m))}
       </div>
     </div>
   );
 
   return (
-    <div style={{ paddingBottom: 30 }}>
-      <div style={{ marginBottom: 12 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
-          <div style={{ fontFamily: t.fontDisplay, fontSize: 20, fontWeight: 900, color: t.text }}>PERMANENT MISSIONS</div>
-          {onClaimAll && claimAllShards > 0 && (
-            <button
-              type="button"
-              onClick={onClaimAll}
-              style={{
-                background: "rgba(76,175,80,0.22)",
-                border: "2px solid #4CAF50",
-                color: "#4CAF50",
-                borderRadius: 12,
-                padding: "8px 14px",
-                fontFamily: t.fontDisplay,
-                fontSize: 12,
-                fontWeight: 900,
-                cursor: "pointer",
-                letterSpacing: "0.06em",
-              }}
-            >
-              <span style={{ display: "inline-flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                CLAIM ALL
-                <PentaShardsIcon svg={shardsSvg} size={24} />
-                {claimAllShards}
-                <span style={{ fontFamily: t.fontMono, fontSize: 11, color: "#C9A227", fontWeight: 900 }}>
-                  +{claimAllXp.toLocaleString()} XP
-                </span>
-              </span>
-            </button>
+    <div>
+      {/* Claim all */}
+      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 16 }}>
+        <button
+          type="button"
+          onClick={totalShards > 0 ? onClaimAll : undefined}
+          disabled={totalShards === 0}
+          style={{
+            display: "flex", alignItems: "center", gap: 8,
+            background: totalShards > 0 ? "#4CAF5018" : `${t.bgCard}`,
+            border: `2px solid ${totalShards > 0 ? "#4CAF50" : t.border}`,
+            color: totalShards > 0 ? "#4CAF50" : t.textSecondary,
+            borderRadius: ip ? 2 : 10,
+            padding: "9px 16px",
+            fontFamily: t.fontDisplay, fontSize: 12, fontWeight: 800,
+            cursor: totalShards > 0 ? "pointer" : "default",
+            letterSpacing: "0.06em",
+            opacity: totalShards === 0 ? 0.45 : 1,
+            transition: "all 0.2s",
+          }}
+        >
+          CLAIM ALL
+          {totalShards > 0 && (
+            <>
+              <ShardIcon svg={shardsSvg} size={18} />
+              <span>{totalShards}</span>
+              <span style={{ fontFamily: t.fontMono, fontSize: 10, color: "#C9A227", fontWeight: 900 }}>+{totalXp.toLocaleString()} XP</span>
+            </>
           )}
-        </div>
-        <div style={{ fontFamily: t.fontBody, fontSize: 13, color: t.textSecondary, marginTop: 4 }}>
-          COMPLETE PERMANENT MISSIONS FOR SHARDS AND ACCOUNT XP. THE CAPSTONE CHRONICLE RANK MISSION ALSO GRANTS A FREE THEME OF YOUR CHOICE.
-        </div>
+        </button>
       </div>
 
+      {/* Special mission (Chronicle/Legend) pinned at top */}
       {specialMission && (
-        <div style={{ marginBottom: 18 }}>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(320px,1fr))", gap: 12 }}>
-            {renderMissionCard(specialMission)}
+        <div style={{ marginBottom: 24 }}>
+          <div style={{ fontFamily: t.fontMono, fontSize: 11, color: gold, letterSpacing: "0.14em", fontWeight: 700, marginBottom: 10 }}>
+            ★ SPECIAL MISSION
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 10 }}>
+            {renderCard(specialMission)}
           </div>
         </div>
       )}
 
-      {!showAll ? (
-        <div style={{ display: "flex", gap: 10, marginBottom: 14, alignItems: "center" }}>
-          <button
-            onClick={() => setShowAll(true)}
-            style={{
-              background: `${t.accent}18`,
-              border: `1px solid ${t.accent}66`,
-              color: t.accent,
-              borderRadius: 12,
-              padding: "10px 14px",
-              fontFamily: t.fontDisplay,
-              fontSize: 12,
-              fontWeight: 900,
-              cursor: "pointer"
-            }}
-          >
-            Show more missions
-          </button>
-          <div style={{ fontFamily: t.fontMono, fontSize: 12, color: t.textSecondary }}>Showing first 30 missions</div>
-        </div>
-      ) : (
-        <div style={{ display: "flex", gap: 10, marginBottom: 14, alignItems: "center" }}>
-          <button
-            onClick={() => setShowAll(false)}
-            style={{
-              background: t.isLight ? "rgba(0,0,0,0.04)" : "rgba(255,255,255,0.03)",
-              border: `1px solid ${t.border}66`,
-              color: t.textSecondary,
-              borderRadius: 12,
-              padding: "10px 14px",
-              fontFamily: t.fontDisplay,
-              fontSize: 12,
-              fontWeight: 900,
-              cursor: "pointer"
-            }}
-          >
-            Collapse
-          </button>
-          <div style={{ fontFamily: t.fontMono, fontSize: 12, color: t.textSecondary }}>Showing all missions</div>
-        </div>
-      )}
+      {/* Show more / collapse */}
+      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
+        <button
+          onClick={() => setShowAll(v => !v)}
+          style={{
+            background: `${t.accent ?? "#B30000"}12`, border: `1px solid ${t.accent ?? "#B30000"}44`,
+            color: t.accent ?? "#B30000", borderRadius: ip ? 2 : 8,
+            padding: "7px 14px",
+            fontFamily: t.fontDisplay, fontSize: 11, fontWeight: 800,
+            cursor: "pointer", letterSpacing: "0.06em",
+          }}
+        >
+          {showAll ? "COLLAPSE" : "SHOW ALL MISSIONS"}
+        </button>
+        <span style={{ fontFamily: t.fontMono, fontSize: 11, color: t.textSecondary }}>
+          {showAll ? `All ${flattened.length} missions` : `Showing first 30 of ${flattened.length}`}
+        </span>
+      </div>
 
       {showAll ? (
         <>
           {renderGroup("Level Milestones", groups.level)}
           {renderGroup("Rank Milestones", groups.ranks)}
-          {renderGroup("Winstreak", groups.winStreak)}
-          {renderGroup("Ranked Wins Totals", groups.rankedWins)}
-          {renderGroup("Total Wins Totals", groups.totalWins)}
-          {renderGroup("Ranked Play Totals", groups.rankedPlay)}
+          {renderGroup("Win Streak", groups.winStreak)}
+          {renderGroup("Ranked Wins", groups.rankedWins)}
+          {renderGroup("Total Wins", groups.totalWins)}
+          {renderGroup("Ranked Matches", groups.rankedPlay)}
         </>
       ) : (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(320px,1fr))", gap: 12 }}>
-          {visible.filter(m => m.id !== "perm_rank_legend").map(m => renderMissionCard(m))}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 10 }}>
+          {visible.filter(m => m.id !== "perm_rank_legend").map(m => renderCard(m))}
         </div>
       )}
     </div>
   );
 }
-

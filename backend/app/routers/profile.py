@@ -496,6 +496,7 @@ def contains_profanity(text: str) -> bool:
 
 # ── Valid cosmetic IDs (must match frontend definitions) ──────────────────────
 VALID_BANNERS = {
+    # Legacy / gradient-only banners
     "default", "crimson", "emerald", "ocean", "void", "gold", "aurora", "nebula",
     "void_rift", "blood_moon", "phantom_strike", "solar_flare", "cryo_storm", "neon_circuit",
     "static_glitch", "golden_nexus",
@@ -504,8 +505,28 @@ VALID_BANNERS = {
     "storm_protocol",
     "arctic_veil",
     "starfield",
-    "digital_rain",
     "inferno",
+    # Animated canvas banners — must stay in sync with BannerRenderer.tsx BANNERS_DATA keys
+    "digital_rain",
+    "lightsaber_duel",
+    "arcade",
+    "hyperdrive",
+    "northern_lights",
+    "void_collapse",
+    "lava_flow",
+    "particle_web",
+    "ink_drop",
+    "thunder_storm",
+    "neon_pulse",
+    "deep_sea",
+    "prismatic_light",
+    "sand_dunes",
+    "ember_phoenix",
+    "crystal_cave",
+    "hacker_terminal",
+    "tidal_surge",
+    "solar_wind",
+    "lava_lamp",
 }
 VALID_BORDERS = {
     "none", "silver", "blue_pulse", "emerald_veil",

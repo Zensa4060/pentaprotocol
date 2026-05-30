@@ -66,9 +66,10 @@ function draw(ctx: CanvasRenderingContext2D, t: number, W: number, H: number, s:
     const b = s.bullets.find((b: any) => !b.active);
     if (b) { b.x = Math.random() * W; b.y = H; b.active = true; b.col = rowColors[Math.floor(Math.random() * rowColors.length)]; }
   }
+  const dt = (s._dt as number) ?? 1;
   s.bullets.forEach((b: any) => {
     if (!b.active) return;
-    b.y -= H * 0.025;
+    b.y -= H * 0.025 * dt;
     if (b.y < -8) { b.active = false; return; }
     ctx.save(); ctx.globalCompositeOperation = "screen";
     ctx.fillStyle = b.col; ctx.fillRect(Math.round(b.x - PX * 0.3), Math.round(b.y), Math.round(PX * 0.6), PX * 2);
@@ -76,12 +77,6 @@ function draw(ctx: CanvasRenderingContext2D, t: number, W: number, H: number, s:
     bg2.addColorStop(0, b.col + "88"); bg2.addColorStop(1, "rgba(0,0,0,0)");
     ctx.fillStyle = bg2; ctx.fillRect(b.x - PX * 2, b.y - PX * 2, PX * 4, PX * 4); ctx.restore();
   });
-  ctx.fillStyle = "rgba(0,0,0,0.6)"; ctx.fillRect(0, H - PX * 2.5, W, PX * 2.5);
-  const score = (Math.floor(t * 120) % 99999).toString().padStart(5, "0");
-  ctx.font = `bold ${PX * 1.4}px 'Courier New',monospace`;
-  ctx.fillStyle = "#ffcc00"; ctx.textAlign = "left"; ctx.fillText(`SCORE: ${score}`, PX, H - PX * 0.8);
-  ctx.fillStyle = "#00ff88"; ctx.textAlign = "right";
-  ctx.fillText(`${Array(Math.floor((t * 0.5) % 4) + 1).fill("♥").join("")}`, W - PX, H - PX * 0.8);
 }
 
 export default function ArcadeBanner({ style = {}, hideLabels: _h = false }: { style?: CSSProperties; hideLabels?: boolean }) {

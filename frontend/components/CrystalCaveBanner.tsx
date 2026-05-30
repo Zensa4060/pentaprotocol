@@ -14,7 +14,7 @@ function draw(ctx: CanvasRenderingContext2D, t: number, W: number, H: number, s:
   const rng=(seed: number)=>{let x=Math.sin(seed)*10000;return x-Math.floor(x);};
   if(!s.crystals||s.W!==W){s.W=W;const count=Math.max(12,Math.min(28,Math.floor(W/42)));s.crystals=Array.from({length:count},(_: any,i: number)=>({x:rng(i*17)*W,y:rng(i*19)*H,size:Math.min(W,H*2.5)*(0.04+rng(i*23)*0.08),hue:240+rng(i*29)*80,tilt:rng(i*31)*Math.PI,phase:rng(i*37)*Math.PI*2,rotSpd:(rng(i*41)-0.5)*0.004}));}
   const bg=ctx.createRadialGradient(W/2,H/2,0,W/2,H/2,Math.hypot(W/2,H/2));bg.addColorStop(0,"#0e0820");bg.addColorStop(0.5,"#080515");bg.addColorStop(1,"#040210");ctx.fillStyle=bg;ctx.fillRect(0,0,W,H);
-  s.crystals.forEach((c: any)=>{c.tilt+=c.rotSpd;drawCrystal(ctx,c.x,c.y,c.size,c.hue,c.tilt,c.phase,t);});
+  const dt=(s._dt as number)??1; s.crystals.forEach((c: any)=>{c.tilt+=c.rotSpd*dt;drawCrystal(ctx,c.x,c.y,c.size,c.hue,c.tilt,c.phase,t);});
   const ceil=ctx.createLinearGradient(0,0,0,H*0.15);ceil.addColorStop(0,"rgba(2,1,8,0.9)");ceil.addColorStop(1,"rgba(0,0,0,0)");ctx.fillStyle=ceil;ctx.fillRect(0,0,W,H*0.15);
   const floor=ctx.createLinearGradient(0,H*0.85,0,H);floor.addColorStop(0,"rgba(0,0,0,0)");floor.addColorStop(1,"rgba(2,1,8,0.9)");ctx.fillStyle=floor;ctx.fillRect(0,H*0.85,W,H*0.15);
   ctx.save();ctx.globalCompositeOperation="screen";const atm=ctx.createRadialGradient(W/2,H/2,0,W/2,H/2,Math.max(W,H)*0.5);atm.addColorStop(0,`rgba(60,28,120,${0.04+Math.sin(t*0.5)*0.02})`);atm.addColorStop(1,"rgba(0,0,0,0)");ctx.fillStyle=atm;ctx.fillRect(0,0,W,H);ctx.restore();

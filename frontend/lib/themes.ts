@@ -26,16 +26,26 @@ export const THEMES: Record<ThemeId, {
   // the soft off-white page background (was previously a wall of greys).
   // Branded accent / status / gold are now real colors instead of greys
   // so important UI states are actually visible.
+  // ── Redesigned classic light: warm ivory/cream base, rich crimson accent,
+  // premium card elevation, strong contrast for all text states.
   classic_light: {
-    bg: "#F2F2F4", bgPanel: "#FFFFFF", bgCard: "#FFFFFF",
-    border: "#D8D8DC", borderAccent: "#A00000",
-    text: "#0A0A0A", textSecondary: "#3A3A3A", textMuted: "#6A6A6A",
-    accent: "#A00000", accentGlow: "#CC0000",
-    p1: "#0A0A0A", p2: "#A00000",
-    danger: "#C00000", success: "#1F7A3A",
-    gold: "#B8860B", boardBg: "#FFFFFF", boardLine: "#C8C8CC",
-    navBg: "rgba(255,255,255,0.96)", inputBg: "#FFFFFF", overlay: "rgba(0,0,0,0.45)",
-    // Cinzel: classical Roman-inspired serif, clear and elegant for the light classic theme.
+    bg: "#F6F1EB",           // warm ivory — not cold grey
+    bgPanel: "#FFFFFF",      // pure white panels with drop shadows
+    bgCard: "#FDFAF7",       // slightly warm card white
+    border: "#E0D6CC",       // warm sand border
+    borderAccent: "#9A1010", // deep crimson
+    text: "#1A0E0A",         // warm near-black
+    textSecondary: "#3E2C26",// warm dark brown
+    textMuted: "#7A6560",    // warm grey-brown
+    accent: "#9A1010",       // deep crimson
+    accentGlow: "#C41818",   // brighter crimson for glows
+    p1: "#1A0E0A", p2: "#9A1010",
+    danger: "#BE0000", success: "#175C28",
+    gold: "#8B6500",         // warm antique gold
+    boardBg: "#FAF6F1", boardLine: "#E4DDD4",
+    navBg: "rgba(246,241,235,0.97)",
+    inputBg: "#FAF6F1", overlay: "rgba(20,10,6,0.38)",
+    // Cinzel: classical Roman-inspired serif, elegant on the warm ivory background.
     fontDisplay: "'Cinzel', 'GuildOf', serif",
     fontBody: "'Cinzel', 'GuildOf', serif",
     fontMono: "'Cinzel', serif",

@@ -282,26 +282,23 @@ function ParticleCanvas({ settings }: { settings: ParticleSettings }) {
     // If the tab is buried for a while we clamp the catch-up to a
     // single step so we don't run hundreds of physics ticks back-to-
     // back when it returns.
-    const STEP_MS = 1000 / 60;
     let lastTs = 0;
     let frameParity = 0;
 
     const tick = (ts: number) => {
       if (!running) return;
       animId = requestAnimationFrame(tick);
-      if (!visible) { lastTs = ts; return; }
-      if (lastTs === 0) lastTs = ts;
-      let elapsed = ts - lastTs;
-      if (elapsed < STEP_MS - 0.5) return;
-      // Clamp catch-up: at most 2 sim ticks per RAF callback. Beyond
-      // that just snap forward so the system stays responsive after
-      // long pauses (tab switch, OS sleep, etc.).
-      if (elapsed > STEP_MS * 3) elapsed = STEP_MS;
-      lastTs = ts - (elapsed % STEP_MS);
-      step();
+      if (!visible) { lastTs = 0; return; }
+      // Adaptive delta-time: normalised to 60fps baseline (dt=1.0 at 60fps,
+      // 0.5 at 120fps, 0.667 at 90fps). Clamped to 100ms to survive
+      // tab backgrounding / OS sleep without physics explosions.
+      const rawDelta = lastTs > 0 ? ts - lastTs : 16.667;
+      const dt = Math.min(rawDelta, 100) / 16.667;
+      lastTs = ts;
+      step(dt);
     };
 
-    const step = () => {
+    const step = (dt: number = 1) => {
       const s = settingsRef.current;
       const count = s.count;
       const connect = s.connect;
@@ -310,13 +307,14 @@ function ParticleCanvas({ settings }: { settings: ParticleSettings }) {
       const maxSpeed = s.maxSpeed;
       if (count !== currentCount) seed(count);
 
-      // Trail fade every other frame. At 60 fps the strobe is well
-      // below perceptual threshold (the eye averages over ~33 ms), but
-      // it halves the cost of the single most expensive op in the loop
-      // — filling the entire canvas with a semi-transparent rect.
+      // Trail fade: alpha is dt-scaled so it looks identical at any
+      // refresh rate. Formula: per-frame remaining = 1 - 0.4 at 60fps.
+      // At higher fps we use a smaller alpha so the same visual
+      // fade-to-black rate is preserved in real time.
+      const fadeAlpha = Math.min(0.99, 1 - Math.pow(1 - 0.4, dt));
       frameParity ^= 1;
       if (frameParity === 0) {
-        ctx.fillStyle = "rgba(3,3,3,0.4)";
+        ctx.fillStyle = `rgba(3,3,3,${fadeAlpha.toFixed(3)})`;
         ctx.fillRect(0, 0, W, H);
       }
 
@@ -339,13 +337,13 @@ function ParticleCanvas({ settings }: { settings: ParticleSettings }) {
           vx += dx * inv;
           vy += dy * inv;
         }
-        vx *= 0.98; vy *= 0.98;
+        vx *= Math.pow(0.98, dt); vy *= Math.pow(0.98, dt);
         const sp2 = vx * vx + vy * vy;
         if (sp2 > ms2) {
           const inv = maxSpeed / Math.sqrt(sp2);
           vx *= inv; vy *= inv;
         }
-        px += vx; py += vy;
+        px += vx * dt; py += vy * dt;
         if (px < 0) px = W; else if (px > W) px = 0;
         if (py < 0) py = H; else if (py > H) py = 0;
         xs[i] = px; ys[i] = py;

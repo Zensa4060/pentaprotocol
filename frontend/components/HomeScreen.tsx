@@ -7,6 +7,8 @@ import type { ThemeId } from "@/lib/themes";
 import { getRank, NavRankBadge } from "./NavBar";
 import FriendsSidePanel from "./FriendsSidePanel";
 import { openDiscordInvite, openRedditCommunity, openFeedbackEmail, openItchIoPage, openInstagramPage } from "@/lib/community";
+import { loadCustomTheme } from "@/lib/customTheme";
+import { BannerRenderer } from "./BannerRenderer";
 
 interface Props {
   setScreenAction: (s: Screen) => void;
@@ -374,6 +376,7 @@ export default function HomeScreen({ setScreenAction, themeId, onHoverAction, on
   const t = THEMES[themeId];
   const ip = themeId === "pixel";
   const isSp = themeId === "space";
+  const isLight = t.isLight;
   const BLOOD_RED = "#FF0000";
   const AI_PURPLE = "#A855F7";
   const bp = useBreakpoint();
@@ -396,6 +399,21 @@ export default function HomeScreen({ setScreenAction, themeId, onHoverAction, on
   const isTablet = bp === "tablet";
 
   const accent = themeId === "classic_light" || themeId === "classic_dark" ? "#CC0000" : t.accent;
+
+  // Banner skin: read from localStorage. Only show the hero strip when
+  // the player has equipped a non-default animated banner.
+  const [equippedBanner, setEquippedBanner] = useState<string>("default");
+  useEffect(() => {
+    setEquippedBanner(loadCustomTheme().bannerSkin ?? "default");
+    // Re-read whenever localStorage changes (e.g. from CollectionScreen).
+    const onStorage = () => setEquippedBanner(loadCustomTheme().bannerSkin ?? "default");
+    window.addEventListener("storage", onStorage);
+    window.addEventListener("pp_custom_theme_change", onStorage);
+    return () => {
+      window.removeEventListener("storage", onStorage);
+      window.removeEventListener("pp_custom_theme_change", onStorage);
+    };
+  }, []);
 
   // Nav height must match NavBar.tsx exactly (isMobile:52 / isTablet:60 / desktop:64)
   const NAV_H = isMobile ? 52 : isTablet ? 60 : 64;
@@ -428,6 +446,10 @@ export default function HomeScreen({ setScreenAction, themeId, onHoverAction, on
   const rank = getRank(user?.elo ?? 0);
   const isPlacement = (user as any)?.placement_matches < 5;
   const placementCol = "#FF33FF";
+  // Don't show banner background on light themes — dark animated canvases are
+  // visually incompatible with a light-mode layout and override all the warm
+  // ivory card/text styling we've carefully built.
+  const showBannerHero = equippedBanner !== "default" && !!user && !isLight;
 
   const cardStyle = (key: Screen, _index: number): React.CSSProperties => {
     const isHov = hovered === key;
@@ -461,8 +483,18 @@ export default function HomeScreen({ setScreenAction, themeId, onHoverAction, on
       "inset 0 0 14px rgba(46,16,101,0.28)",
     ].join(", ");
 
+    // Light theme: cards have a permanent drop-shadow (they sit on ivory, not dark bg)
+    const lightRest  = "0 2px 14px rgba(0,0,0,0.07), 0 1px 4px rgba(0,0,0,0.04)";
+    const lightHover = isMulti
+      ? `0 14px 44px rgba(154,16,16,0.18), 0 4px 18px rgba(154,16,16,0.10), ${lightRest}`
+      : isAI
+        ? `0 14px 44px rgba(168,85,247,0.18), 0 4px 18px rgba(168,85,247,0.10), ${lightRest}`
+        : `0 14px 44px rgba(60,130,255,0.15), 0 4px 18px rgba(255,210,70,0.10), ${lightRest}`;
+
     let hoverShadow: string;
-    if (isHov && isMulti) {
+    if (isLight && !showBannerHero) {
+      hoverShadow = isHov ? lightHover : lightRest;
+    } else if (isHov && isMulti) {
       hoverShadow = isSp
         ? `0 24px 64px rgba(58,120,212,0.35), 0 0 30px rgba(96,168,255,0.15), inset 0 1px 0 rgba(255,255,255,0.08), ${lobbyAura}`
         : `0 24px 64px ${hovCol}38, 0 0 24px ${hovCol}18, ${lobbyAura}`;
@@ -480,14 +512,24 @@ export default function HomeScreen({ setScreenAction, themeId, onHoverAction, on
       hoverShadow = isSp ? "inset 0 1px 0 rgba(255,255,255,0.04)" : "none";
     }
 
-    return {
-      background: isSp
+    // When a banner is in the background, make cards more solid/opaque
+    // so they read clearly against the animated canvas.
+    const cardBg = showBannerHero
+      ? (isHov ? `linear-gradient(145deg, ${hovCol}30, rgba(8,8,12,0.92))` : "rgba(8,8,12,0.82)")
+      : isSp
         ? spaceBg
-        : isHov
-          ? `linear-gradient(145deg, ${hovCol}22, ${t.bgCard}dd)`
-          : t.bgCard,
+        : isLight
+          ? isHov
+            ? `linear-gradient(145deg, ${hovCol}14, ${t.bgCard})`
+            : t.bgCard
+          : isHov
+            ? `linear-gradient(145deg, ${hovCol}22, ${t.bgCard}dd)`
+            : t.bgCard;
+
+    return {
+      background: cardBg,
       border: `${isMobile ? "1.5px" : "2px"} solid ${
-        isHov ? hovCol : isSp ? "rgba(58,120,212,0.25)" : t.border
+        isHov ? hovCol : showBannerHero ? "rgba(255,255,255,0.12)" : isSp ? "rgba(58,120,212,0.25)" : t.border
       }`,
       borderRadius: ip ? 2 : isMobile ? 12 : 20,
       padding: cardPadding,
@@ -538,15 +580,45 @@ export default function HomeScreen({ setScreenAction, themeId, onHoverAction, on
   return (
     <div style={{
       position: "fixed", inset: 0, zIndex: 2, overflowY: "auto",
-      background: t.bg,
+      background: "transparent",
       display: "flex", flexDirection: "column",
       alignItems: "center", justifyContent: "flex-start",
       paddingTop: outerPaddingTop,
       paddingLeft: outerPaddingX,
       paddingRight: outerPaddingX,
       paddingBottom: outerPaddingBottom,
-      transition: "background 0.4s",
+      transition: "background 0.6s",
     }}>
+
+      {/* ── Full-screen banner background (only when premium banner equipped) ── */}
+      {showBannerHero && (
+        <>
+          {/* Banner canvas fills the entire screen */}
+          <div style={{
+            position: "fixed", inset: 0, zIndex: 0, pointerEvents: "none",
+          }}>
+            <BannerRenderer bannerId={equippedBanner} style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }} />
+          </div>
+          {/* Dark vignette overlay — keeps content readable while banner shows through */}
+          <div style={{
+            position: "fixed", inset: 0, zIndex: 1, pointerEvents: "none",
+            background: "radial-gradient(ellipse at center, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.78) 100%)",
+          }} />
+        </>
+      )}
+
+      {/* Normal theme background when no banner (fills behind everything) */}
+      {!showBannerHero && (
+        <div style={{
+          position: "fixed", inset: 0, zIndex: 0, pointerEvents: "none",
+          background: isLight
+            ? `radial-gradient(ellipse at 50% -5%, rgba(190,150,110,0.10) 0%, transparent 52%),
+               radial-gradient(ellipse at 92% 95%, rgba(154,16,16,0.05) 0%, transparent 42%),
+               radial-gradient(ellipse at 4% 80%, rgba(100,80,60,0.04) 0%, transparent 38%),
+               ${t.bg}`
+            : t.bg,
+        }} />
+      )}
 
       <FriendsSidePanel themeId={themeId} onHoverAction={onHoverAction} />
 
@@ -603,19 +675,43 @@ export default function HomeScreen({ setScreenAction, themeId, onHoverAction, on
         {/* ── Title ── */}
         <div style={{ position: "relative", textAlign: "center", width: "100%", marginTop: isMobile ? "1vh" : "2vh" }}>
           <h1 style={{
-            fontFamily: "'Courier New', monospace",
+            fontFamily: isLight ? "'Cinzel', 'GuildOf', serif" : "'Courier New', monospace",
             fontSize: titleSize,
             fontWeight: 900,
             letterSpacing: isMobile ? "0.08em" : "0.18em",
             textAlign: "center", lineHeight: 1,
             margin: 0,
           }}>
-            <span style={{ display: "inline", filter: isSp ? "drop-shadow(0 0 18px rgba(80,140,255,0.55))" : "drop-shadow(0 0 8px rgba(255,255,255,0.4))" }}>
-              <span style={{ background: isSp ? "linear-gradient(to bottom, #ffffff 0%, #a0c8ff 45%, #6090ff 100%)" : "linear-gradient(to bottom, #ffffff 0%, #999999 50%, #ffffff 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", display: "inline" }}>PENTA</span>
+            <span style={{
+              display: "inline",
+              filter: isSp
+                ? "drop-shadow(0 0 18px rgba(80,140,255,0.55))"
+                : isLight
+                  ? "drop-shadow(0 0 4px rgba(26,14,10,0.12))"
+                  : "drop-shadow(0 0 8px rgba(255,255,255,0.4))",
+            }}>
+              <span style={{
+                background: isSp
+                  ? "linear-gradient(to bottom, #ffffff 0%, #a0c8ff 45%, #6090ff 100%)"
+                  : isLight
+                    ? "linear-gradient(to bottom, #1A0E0A 0%, #5A3C32 50%, #2C1A14 100%)"
+                    : "linear-gradient(to bottom, #ffffff 0%, #999999 50%, #ffffff 100%)",
+                WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", display: "inline",
+              }}>PENTA</span>
             </span>
             <br style={{ display: isMobile ? "block" : "none" }} />
-            <span style={{ display: "inline", filter: "drop-shadow(0 0 12px rgba(255,30,0,0.7))" }}>
-              <span style={{ background: "linear-gradient(to bottom, #FF2200 0%, #8B0000 45%, #FF1100 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", display: "inline" }}>PROTOCOL</span>
+            <span style={{
+              display: "inline",
+              filter: isLight
+                ? "drop-shadow(0 0 10px rgba(154,16,16,0.35))"
+                : "drop-shadow(0 0 12px rgba(255,30,0,0.7))",
+            }}>
+              <span style={{
+                background: isLight
+                  ? "linear-gradient(to bottom, #C41818 0%, #7A0000 45%, #C41818 100%)"
+                  : "linear-gradient(to bottom, #FF2200 0%, #8B0000 45%, #FF1100 100%)",
+                WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", display: "inline",
+              }}>PROTOCOL</span>
             </span>
           </h1>
 
@@ -755,12 +851,15 @@ export default function HomeScreen({ setScreenAction, themeId, onHoverAction, on
               padding: isMobile ? "12px 20px" : "14px 28px",
               background: isSp
                 ? "rgba(6,12,34,0.65)"
-                : themeId === "classic_light"
-                  ? "rgba(0,0,0,0.04)"
+                : isLight
+                  ? "rgba(253,250,247,0.92)"
                   : "rgba(255,255,255,0.04)",
-              border: `1px solid ${isPlacement ? `${placementCol}33` : `${rank.color}28`}`,
+              border: `1px solid ${isLight
+                ? (isPlacement ? `${placementCol}55` : `${rank.color}40`)
+                : (isPlacement ? `${placementCol}33` : `${rank.color}28`)}`,
               borderRadius: ip ? 2 : 50, // pill shape
               backdropFilter: "blur(12px)",
+              boxShadow: isLight ? "0 2px 16px rgba(0,0,0,0.08), 0 1px 4px rgba(0,0,0,0.04)" : undefined,
               position: "relative", overflow: "hidden",
               transition: "filter 0.4s",
               filter: hovered === "lobby" ? `drop-shadow(0 0 16px ${BLOOD_RED}55)` : "none",
@@ -918,8 +1017,9 @@ export default function HomeScreen({ setScreenAction, themeId, onHoverAction, on
             zIndex: 3,
             marginTop: isMobile ? -4 : 0,
             marginBottom: 4,
-            border: `1px solid ${t.border}66`,
-            background: "rgba(0,0,0,0.45)",
+            border: `1px solid ${t.border}88`,
+            background: isLight ? "rgba(253,250,247,0.92)" : "rgba(0,0,0,0.45)",
+            boxShadow: isLight ? "0 2px 10px rgba(0,0,0,0.06)" : undefined,
             borderRadius: ip ? 2 : 10,
             padding: isMobile ? "8px 14px" : "9px 16px",
             fontFamily: t.fontMono,
@@ -943,17 +1043,17 @@ export default function HomeScreen({ setScreenAction, themeId, onHoverAction, on
             e.currentTarget.style.color = t.accent;
           }}
           onBlur={(e) => {
-            e.currentTarget.style.borderColor = `${t.border}66`;
+            e.currentTarget.style.borderColor = `${t.border}88`;
             e.currentTarget.style.color = t.textSecondary;
           }}
           onMouseOver={(e) => {
-            e.currentTarget.style.background = "rgba(0,0,0,0.6)";
+            e.currentTarget.style.background = isLight ? "rgba(255,252,249,0.98)" : "rgba(0,0,0,0.6)";
             e.currentTarget.style.borderColor = `${t.accent}cc`;
             e.currentTarget.style.color = t.accent;
           }}
           onMouseOut={(e) => {
-            e.currentTarget.style.background = "rgba(0,0,0,0.45)";
-            e.currentTarget.style.borderColor = `${t.border}66`;
+            e.currentTarget.style.background = isLight ? "rgba(253,250,247,0.92)" : "rgba(0,0,0,0.45)";
+            e.currentTarget.style.borderColor = `${t.border}88`;
             e.currentTarget.style.color = t.textSecondary;
           }}
         >

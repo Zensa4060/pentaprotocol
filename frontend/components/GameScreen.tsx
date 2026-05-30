@@ -2019,6 +2019,14 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
                 : Math.max(0, Math.ceil((deadlineMs - Date.now()) / 1000));
             setDisconnectCountdown({ slot, deadlineMs, remainingSeconds });
           }
+            } else if (msg.type === "banner_update") {
+          // Server relays this when the opponent sends their fresh
+          // bannerId via player_info on WS open. Keeps banners in sync
+          // even if the player changed their banner after queuing.
+          const bannerSlot = msg.slot === "P2" ? "P2" : "P1";
+          const bannerVal  = typeof msg.banner === "string" ? msg.banner : "default";
+          if (bannerSlot === "P1") setP1Banner(bannerVal);
+          else setP2Banner(bannerVal);
             } else if (msg.type === "player_reconnected") {
           const slot = msg.slot === "P2" ? "P2" : "P1";
           setDisconnectCountdown((prev) => (prev && prev.slot === slot ? null : prev));

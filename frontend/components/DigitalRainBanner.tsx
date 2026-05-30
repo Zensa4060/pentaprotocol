@@ -5,6 +5,7 @@ import { useBannerCanvas } from "./useBannerCanvas";
 type DrawState = {
   nc?: number;
   trail?: number;
+  _dt?: number;
   c?: Array<{
     y: number;
     spd: number;
@@ -41,7 +42,12 @@ function draw(
     }));
   }
 
-  ctx.fillStyle = "rgba(0,6,2,0.88)";
+  // Delta-time: normalised to 60fps baseline (1.0 at 60fps, 0.5 at 120fps).
+  const dt = (s._dt as number) ?? 1;
+  // Trail persistence: alpha is dt-scaled so trails look identical
+  // at any refresh rate (30/60/90/120/144 Hz).
+  const trailAlpha = Math.min(0.99, 1 - Math.pow(1 - 0.88, dt));
+  ctx.fillStyle = `rgba(0,6,2,${trailAlpha.toFixed(3)})`;
   ctx.fillRect(0, 0, W, H);
 
   const fz = CW - 1;
@@ -49,8 +55,8 @@ function draw(
   ctx.textAlign = "center";
 
   s.c.forEach((col, i) => {
-    col.y += col.spd;
-    col.ct++;
+    col.y += col.spd * dt;
+    col.ct += dt;
     if (col.ct >= col.cs) {
       col.ct = 0;
       col.chars.shift();
