@@ -1875,9 +1875,8 @@ export default function AppShell({ children }: { children: ReactNode }) {
   /* ═══════════════════════════════════════════════════════════════════════ */
 
   const isGameScreen = isMatchPath || pathname.startsWith("/challenge/");
-  /** Space parallax canvas: skip entry shells (same idea as /home — no animated bg behind full UI). */
+  /** Space parallax canvas: skip auth entry shells only (no animated bg behind login UI). */
   const noSpaceParallaxBg =
-    pathname === ROUTES.HOME ||
     pathname === ROUTES.ROOT ||
     pathname === ROUTES.AUTH ||
     pathname === "/auth";

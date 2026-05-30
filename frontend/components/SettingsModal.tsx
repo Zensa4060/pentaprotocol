@@ -464,6 +464,38 @@ export default function SettingsModal({
                     onCloseAction();
                   }}
                 />
+
+                <div style={{ borderTop: `1px solid ${t.border}`, paddingTop: 20, marginTop: 24 }}>
+                  <div style={{ fontFamily: t.fontMono, fontSize: 10, color: t.textMuted, letterSpacing: "0.14em", marginBottom: 14 }}>DANGER ZONE</div>
+                  <div style={{ background: `${t.danger}08`, border: `1.5px solid ${t.danger}33`, borderRadius: ip ? 2 : 14, padding: "18px 20px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap" as const }}>
+                    <div>
+                      <div style={{ fontFamily: t.fontDisplay, fontSize: 14, fontWeight: 700, color: t.text, marginBottom: 3 }}>Sign Out</div>
+                      <div style={{ fontFamily: t.fontBody, fontSize: 12, color: t.textSecondary }}>You will be returned to the login screen.</div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowSignOutConfirm(true)}
+                      style={{
+                        padding: "10px 22px",
+                        background: `${t.danger}14`,
+                        border: `1.5px solid ${t.danger}66`,
+                        borderRadius: ip ? 2 : 10,
+                        color: t.danger,
+                        fontFamily: t.fontDisplay,
+                        fontSize: 12,
+                        fontWeight: 800,
+                        cursor: "pointer",
+                        letterSpacing: "0.06em",
+                        flexShrink: 0,
+                        transition: "background 0.2s, color 0.2s",
+                      }}
+                      onMouseEnter={(e) => { e.currentTarget.style.background = t.danger; e.currentTarget.style.color = "#fff"; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.background = `${t.danger}14`; e.currentTarget.style.color = t.danger; }}
+                    >
+                      SIGN OUT
+                    </button>
+                  </div>
+                </div>
               </div>
             )}
 
@@ -544,40 +576,6 @@ export default function SettingsModal({
                     {focusMode ? "EXIT FOCUS MODE" : "ENTER FOCUS MODE"}
                   </button>
                 </div>
-
-                {user && !suppressAccountActionsDuringMatch && (
-                  <div style={{ borderTop: `1px solid ${t.border}`, paddingTop: 20, marginTop: 8 }}>
-                    <div style={{ fontFamily: t.fontMono, fontSize: 10, color: t.textMuted, letterSpacing: "0.14em", marginBottom: 14 }}>DANGER ZONE</div>
-                    <div style={{ background: `${t.danger}08`, border: `1.5px solid ${t.danger}33`, borderRadius: ip ? 2 : 14, padding: "18px 20px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap" as const }}>
-                      <div>
-                        <div style={{ fontFamily: t.fontDisplay, fontSize: 14, fontWeight: 700, color: t.text, marginBottom: 3 }}>Sign Out</div>
-                        <div style={{ fontFamily: t.fontBody, fontSize: 12, color: t.textSecondary }}>You will be returned to the login screen.</div>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => setShowSignOutConfirm(true)}
-                        style={{
-                          padding: "10px 22px",
-                          background: `${t.danger}14`,
-                          border: `1.5px solid ${t.danger}66`,
-                          borderRadius: ip ? 2 : 10,
-                          color: t.danger,
-                          fontFamily: t.fontDisplay,
-                          fontSize: 12,
-                          fontWeight: 800,
-                          cursor: "pointer",
-                          letterSpacing: "0.06em",
-                          flexShrink: 0,
-                          transition: "background 0.2s, color 0.2s",
-                        }}
-                        onMouseEnter={(e) => { e.currentTarget.style.background = t.danger; e.currentTarget.style.color = "#fff"; }}
-                        onMouseLeave={(e) => { e.currentTarget.style.background = `${t.danger}14`; e.currentTarget.style.color = t.danger; }}
-                      >
-                        SIGN OUT
-                      </button>
-                    </div>
-                  </div>
-                )}
               </div>
             )}
           </main>

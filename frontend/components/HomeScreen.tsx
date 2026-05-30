@@ -618,7 +618,9 @@ export default function HomeScreen({ setScreenAction, themeId, onHoverAction, on
                radial-gradient(ellipse at 92% 96%, rgba(139,30,30,0.07) 0%, transparent 42%),
                radial-gradient(ellipse at 4% 82%, rgba(80,110,170,0.05) 0%, transparent 38%),
                ${t.bg}`
-            : t.bg,
+            : isSp
+              ? "transparent"
+              : t.bg,
         }} />
       )}
 
@@ -637,7 +639,6 @@ export default function HomeScreen({ setScreenAction, themeId, onHoverAction, on
 
         <style>{`
           @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&display=swap');
-          @keyframes starPulse { from { opacity:0.2; transform:scale(0.8); } to { opacity:0.9; transform:scale(1.2); } }
           @keyframes pixelBlink { 0%,100%{opacity:1} 50%{opacity:0.7} }
           @keyframes spaceCardIn { from { opacity:0; transform:translateY(24px); } to { opacity:1; transform:translateY(0); } }
           /* MULTIPLAYER laser-slash pulse: bright at the peak, dim between cuts. */
@@ -719,14 +720,6 @@ export default function HomeScreen({ setScreenAction, themeId, onHoverAction, on
 
           {isSp && !isMobile && (
             <div style={{ fontFamily: t.fontBody, fontSize: 13, letterSpacing: "0.4em", color: "rgba(140,180,255,0.45)", textTransform: "uppercase", marginTop: 12 }}>
-            </div>
-          )}
-
-          {isSp && !isMobile && (
-            <div style={{ position: "absolute", inset: 0, pointerEvents: "none" }}>
-              {["✦", "·", "✧", "★", "·", "✦", "✧", "·", "★"].map((star, i) => (
-                <span key={i} style={{ position: "absolute", left: `${8 + i * 10}%`, top: `${20 + (i % 3) * 30}%`, color: ["#FFD060", "#60A8FF", "#00E87A", "#FFFFFF"][i % 4], fontSize: [8, 12, 6, 10, 14, 7, 11, 9, 13][i], opacity: 0.6, animation: `starPulse ${1.5 + i * 0.3}s ease-in-out infinite alternate`, animationDelay: `${i * 0.2}s` }}>{star}</span>
-              ))}
             </div>
           )}
         </div>
