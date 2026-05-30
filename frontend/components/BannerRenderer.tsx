@@ -63,18 +63,47 @@ export function BannerRenderer({
   bannerId,
   style = {},
   hideLabels: _hideLabels = false,
+  preview = false,
 }: {
   bannerId: string;
   style?: React.CSSProperties;
   hideLabels?: boolean;
+  /** Thumbnail mode — zooms + brightens so collection cards match the hero preview. */
+  preview?: boolean;
 }) {
   const nid    = normalizeId(bannerId);
   const banner = BANNERS_DATA[nid] || BANNERS_DATA.default;
 
-  // The outer div always shows the gradient immediately.
-  // If there is an animated component, it mounts on top once its chunk loads.
-  if (banner.component) {
-    const BannerComp = banner.component;
+  const BannerComp = banner.component;
+  const inner = BannerComp ? (
+    <div style={{ position: "relative", width: "100%", height: "100%", background: banner.gradient }}>
+      <BannerComp style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }} />
+    </div>
+  ) : (
+    <div style={{ width: "100%", height: "100%", background: banner.gradient }} />
+  );
+
+  if (preview) {
+    return (
+      <div style={{ position: "relative", width: "100%", height: "100%", overflow: "hidden", ...style }}>
+        <div
+          style={{
+            position: "absolute",
+            left: "50%",
+            top: "50%",
+            width: "152%",
+            height: "152%",
+            transform: "translate(-50%, -50%)",
+            filter: "brightness(1.38) contrast(1.18) saturate(1.25)",
+          }}
+        >
+          {inner}
+        </div>
+      </div>
+    );
+  }
+
+  if (BannerComp) {
     return (
       <div style={{ position: "relative", width: "100%", height: "100%", background: banner.gradient, ...style }}>
         <BannerComp style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }} />

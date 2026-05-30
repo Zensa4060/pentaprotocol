@@ -1261,9 +1261,9 @@ export default function CollectionScreen({ themeId, setThemeIdAction, onHoverAct
                         onClick={() => { if (owned && !isActive) { onClickAction?.(); equipBanner(item.id); } }}
                         style={{ minWidth: 230, maxWidth: 230, flex: "0 0 230px", scrollSnapAlign: "start", borderRadius: 16, overflow: "hidden", border: `1px solid ${owned ? (isActive ? hoverColor : cardBorderOwned) : cardBorderLocked}`, background: cardBg, backdropFilter: "blur(12px)", cursor: owned && !isActive ? "pointer" : "default", boxShadow: isActive ? `0 0 20px ${hoverColor}33` : "none" }}>
                         {!owned && (<div className="coll-locked-overlay"><div style={{ background: lockChipBg, border: `1px solid ${lockChipBorder}`, borderRadius: 12, padding: "8px 16px", display: "flex", alignItems: "center", gap: 8 }}><LockIcon size={14} color={lockIconColor} /><span style={{ fontFamily: t.fontMono, fontSize: 10, color: lockChipText, fontWeight: 800, letterSpacing: "0.1em" }}>LOCKED</span></div></div>)}
-                        <div style={{ height: 110, overflow: "hidden", position: "relative" }}>
-                          <BannerRenderer bannerId={item.id} />
-                          {owned && isActive && (<><div style={{ position: "absolute", top: 12, right: 12, background: hoverColor, borderRadius: 12, padding: "4px 12px", fontFamily: t.fontMono, fontSize: 10, color: "#fff", fontWeight: 900, letterSpacing: "0.05em", zIndex: 3, boxShadow: "0 4px 12px rgba(0,0,0,0.3)" }}>EQUIPPED</div><div style={{ position: "absolute", inset: 0, background: "linear-gradient(110deg, transparent 40%, rgba(255,255,255,0.1) 45%, rgba(255,255,255,0.2) 50%, rgba(255,255,255,0.1) 55%, transparent 60%)", backgroundSize: "200% 100%", animation: "bannerShine 3s infinite linear", zIndex: 2, pointerEvents: "none" }} /></>)}
+                        <div style={{ height: 132, overflow: "hidden", position: "relative" }}>
+                          <BannerRenderer bannerId={item.id} preview />
+                          {owned && isActive && (<><div style={{ position: "absolute", top: 12, right: 12, background: hoverColor, borderRadius: 12, padding: "4px 12px", fontFamily: t.fontMono, fontSize: 10, color: "#fff", fontWeight: 900, letterSpacing: "0.05em", zIndex: 3, boxShadow: "0 4px 12px rgba(0,0,0,0.3)" }}>EQUIPPED</div><div style={{ position: "absolute", inset: 0, background: "linear-gradient(110deg, transparent 40%, rgba(255,255,255,0.08) 45%, rgba(255,255,255,0.14) 50%, rgba(255,255,255,0.08) 55%, transparent 60%)", backgroundSize: "200% 100%", animation: "bannerShine 3s infinite linear", zIndex: 2, pointerEvents: "none" }} /></>)}
                         </div>
                         <div style={{ padding: "16px" }}>
                           <div style={{ fontFamily: t.fontDisplay, fontSize: 18, fontWeight: 800, color: isActive ? hoverColor : t.text }}>{item.label}</div>
@@ -1324,12 +1324,12 @@ export default function CollectionScreen({ themeId, setThemeIdAction, onHoverAct
                          </div>
                       </div>
                     )}
-                    <div style={{ height: 110, overflow: "hidden", position: "relative" }}>
-                      <BannerRenderer bannerId={item.id} />
+                    <div style={{ height: 132, overflow: "hidden", position: "relative" }}>
+                      <BannerRenderer bannerId={item.id} preview />
                       {owned && isActive && (
                         <>
                           <div style={{ position: "absolute", top: 12, right: 12, background: hoverColor, borderRadius: 12, padding: "4px 12px", fontFamily: t.fontMono, fontSize: 10, color: "#fff", fontWeight: 900, letterSpacing: "0.05em", zIndex: 3, boxShadow: "0 4px 12px rgba(0,0,0,0.3)" }}>EQUIPPED</div>
-                          <div style={{ position: "absolute", inset: 0, background: "linear-gradient(110deg, transparent 40%, rgba(255,255,255,0.1) 45%, rgba(255,255,255,0.2) 50%, rgba(255,255,255,0.1) 55%, transparent 60%)", backgroundSize: "200% 100%", animation: "bannerShine 3s infinite linear", zIndex: 2, pointerEvents: "none" }} />
+                          <div style={{ position: "absolute", inset: 0, background: "linear-gradient(110deg, transparent 40%, rgba(255,255,255,0.08) 45%, rgba(255,255,255,0.14) 50%, rgba(255,255,255,0.08) 55%, transparent 60%)", backgroundSize: "200% 100%", animation: "bannerShine 3s infinite linear", zIndex: 2, pointerEvents: "none" }} />
                         </>
                       )}
                     </div>

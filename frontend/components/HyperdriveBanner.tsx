@@ -10,7 +10,8 @@ function draw(ctx: CanvasRenderingContext2D, t: number, W: number, H: number, s:
       return { angle, dist: 0.02 + Math.random() * 0.3, speed: 0.008 + Math.random() * 0.022, size: Math.random() * 1.5 + 0.3, col: Math.random() > 0.82 ? [200, 220, 255] : [255, 255, 255], trailFrac: 0.08 + Math.random() * 0.14 };
     });
   }
-  ctx.fillStyle = "rgba(2,3,14,0.75)"; ctx.fillRect(0, 0, W, H);
+  const compact = Math.max(W, H) < 200;
+  ctx.fillStyle = compact ? "rgba(2,3,14,0.45)" : "rgba(2,3,14,0.75)"; ctx.fillRect(0, 0, W, H);
   const cx = W / 2, cy = H / 2;
   const maxR = Math.hypot(W / 2, H / 2) * 1.02;
   s.stars.forEach((star: any) => {
@@ -36,8 +37,8 @@ function draw(ctx: CanvasRenderingContext2D, t: number, W: number, H: number, s:
   cg.addColorStop(0, `rgba(180,160,255,${0.45 + Math.sin(t * 2) * 0.08})`);
   cg.addColorStop(0.5, "rgba(100,80,200,0.15)"); cg.addColorStop(1, "rgba(0,0,0,0)");
   ctx.fillStyle = cg; ctx.fillRect(0, 0, W, H); ctx.restore();
-  const vig = ctx.createRadialGradient(cx, cy, Math.min(W, H) * 0.15, cx, cy, Math.max(W, H) * 0.75);
-  vig.addColorStop(0, "rgba(0,0,0,0)"); vig.addColorStop(1, "rgba(1,2,12,0.72)");
+  const vig = ctx.createRadialGradient(cx, cy, Math.min(W, H) * (compact ? 0.08 : 0.15), cx, cy, Math.max(W, H) * (compact ? 0.92 : 0.75));
+  vig.addColorStop(0, "rgba(0,0,0,0)"); vig.addColorStop(1, compact ? "rgba(1,2,12,0.38)" : "rgba(1,2,12,0.72)");
   ctx.fillStyle = vig; ctx.fillRect(0, 0, W, H);
 }
 
