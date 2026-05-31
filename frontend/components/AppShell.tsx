@@ -225,7 +225,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
     pathname === "/refund";
 
   /* ── Theme ──────────────────────────────────────────────────────────────── */
-  const [themeId, setThemeIdRaw] = useState<ThemeId>("classic_dark");
+  const [themeId, setThemeIdRaw] = useState<ThemeId>("classic_1");
   const [fadingOut, setFadingOut] = useState(false);
   const pendingTheme = useRef<ThemeId | null>(null);
   const [customRev, setCustomRev] = useState(0);
@@ -392,7 +392,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
 
   /* ── Derived ────────────────────────────────────────────────────────────── */
   const currentScreen: Screen = isBotGameRoute ? "aiGame" : pathnameToScreen(pathname);
-  const routeThemeId: ThemeId = isClassicForcedLegalPage ? "classic_dark" : themeId;
+  const routeThemeId: ThemeId = isClassicForcedLegalPage ? "classic_1" : themeId;
   const t = THEMES[routeThemeId];
   const ip = routeThemeId === "pixel";
 

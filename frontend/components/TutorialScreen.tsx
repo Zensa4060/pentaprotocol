@@ -71,7 +71,7 @@ export default function TutorialScreen({
   mode,
   onDoneAction,
 }: TutorialScreenProps) {
-  const t = THEMES[themeId] ?? THEMES.classic_dark;
+  const t = THEMES[themeId] ?? THEMES.classic_1;
   const steps = useMemo(() => flattenTutorial(), []);
   const totalSteps = steps.length;
 

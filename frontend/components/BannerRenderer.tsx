@@ -59,19 +59,51 @@ export const BANNERS_DATA: Record<string, { id: string; gradient: string; compon
 
 const normalizeId = (id: string) => id?.toLowerCase().replace(/\s+/g, "_") || "default";
 
+/** When the player has "default" equipped, resolve to a complementary gradient that blends with their theme. */
+const DEFAULT_THEME_GRADIENTS: Record<string, string> = {
+  // Classic 1 (cool charcoal) → cool slate-blue complement
+  classic_1: "linear-gradient(160deg,#0C0E18 0%,#141824 55%,#1C2232 100%)",
+  // Classic 2 (warm espresso) → deep burgundy-plum complement
+  classic_2: "linear-gradient(160deg,#14080E 0%,#200C16 55%,#2C101C 100%)",
+  // Space (deep navy) → rich violet-indigo complement
+  space:     "linear-gradient(160deg,#08041A 0%,#100830 55%,#1A0C40 100%)",
+  // Pixel (dark forest green) → deep amber-earth complement
+  pixel:     "linear-gradient(160deg,#100C02 0%,#1A1006 55%,#241408 100%)",
+};
+
 export function BannerRenderer({
   bannerId,
   style = {},
   hideLabels: _hideLabels = false,
   preview = false,
+  themeId,
 }: {
   bannerId: string;
   style?: React.CSSProperties;
   hideLabels?: boolean;
   /** Thumbnail mode — zooms + brightens so collection cards match the hero preview. */
   preview?: boolean;
+  /** When provided and bannerId is "default", resolves to a theme-matched gradient. */
+  themeId?: string;
 }) {
-  const nid    = normalizeId(bannerId);
+  const nid = normalizeId(bannerId);
+
+  // Resolve "default" to a theme-matched static gradient when themeId is known
+  if (nid === "default" && themeId && DEFAULT_THEME_GRADIENTS[themeId]) {
+    const gradient = DEFAULT_THEME_GRADIENTS[themeId];
+    const inner = <div style={{ width: "100%", height: "100%", background: gradient }} />;
+    if (preview) {
+      return (
+        <div style={{ position: "relative", width: "100%", height: "100%", overflow: "hidden", ...style }}>
+          <div style={{ position: "absolute", left: "50%", top: "50%", width: "152%", height: "152%", transform: "translate(-50%,-50%)", filter: "brightness(1.38) contrast(1.18) saturate(1.25)" }}>
+            {inner}
+          </div>
+        </div>
+      );
+    }
+    return <div style={{ width: "100%", height: "100%", background: gradient, ...style }} />;
+  }
+
   const banner = BANNERS_DATA[nid] || BANNERS_DATA.default;
 
   const BannerComp = banner.component;

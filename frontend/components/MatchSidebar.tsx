@@ -614,7 +614,7 @@ interface MatchSidebarProps {
     pieces: { p1: string; p2: string };
     /** Optional light-theme flag — when true the sidebar's hardcoded dark
      *  banner washes / dark text shadows flip to light-on-light equivalents
-     *  so timer cards read as light surfaces in `classic_light`. */
+     *  so timer cards read as light surfaces in `classic_2`. */
     isLight?: boolean;
   };
   p1Banner?: string;
@@ -2023,7 +2023,7 @@ export function WinOverlay({
    * `isLight` flips the overlay's hardcoded dark surfaces (modal card,
    * subtle white-on-dark hints, disabled-button tints) into white-on-
    * light equivalents so the per-game / ready / series-complete panes
-   * are readable when the rest of the app is rendered in `classic_light`.
+   * are readable when the rest of the app is rendered in `classic_2`.
    * Defaults to dark behaviour so older callers are unaffected.
    */
   t: { fontDisplay: string; fontMono: string; fontBody: string; isLight?: boolean };

@@ -555,9 +555,14 @@ VALID_BOARD_STYLES = [
     "pixel_grid",
 ]
 VALID_TITLES = {
+    # Original titles
     "newcomer", "sharpshooter", "strategist", "gladiator", "emerald_eye",
     "penta_master", "the_legend", "centurion", "unbreakable", "veteran",
     "protocol", "architect",
+    # New mission-tied titles
+    "rookie", "duelist", "rising_star", "ironbound", "apex", "breaker",
+    "warlord", "chaos_agent", "conqueror", "relentless", "sovereign",
+    "ascendant", "immortal", "transcendent",
 }
 
 

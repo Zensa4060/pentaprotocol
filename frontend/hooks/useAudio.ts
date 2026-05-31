@@ -7,8 +7,8 @@ import authBgmBundled from "../assets/bgm/auth.mp3";
 export const AUTH_BGM_FILE = "auth.mp3";
 
 const BGM_MAP: Record<string, Record<string, string>> = {
-  classic_light: { lobby: "classic_lobby.mp3", game: "classic_game.mp3", ranked: "classic_ranked.mp3" },
-  classic_dark: { lobby: "classic_lobby.mp3", game: "classic_game.mp3", ranked: "classic_ranked.mp3" },
+  classic_2: { lobby: "classic_lobby.mp3", game: "classic_game.mp3", ranked: "classic_ranked.mp3" },
+  classic_1: { lobby: "classic_lobby.mp3", game: "classic_game.mp3", ranked: "classic_ranked.mp3" },
   classic: { lobby: "classic_lobby.mp3", game: "classic_game.mp3", ranked: "classic_ranked.mp3" },
   space: { lobby: "space_lobby.mp3", game: "space_game.mp3", ranked: "space_ranked.mp3" },
   pixel: { lobby: "pixel_lobby.mp3", game: "pixel_game.mp3", ranked: "pixel_ranked.mp3" },
@@ -102,12 +102,12 @@ export function useAudio() {
     }
     return false;
   });
-  const [theme, setTheme] = useState("classic_dark");
+  const [theme, setTheme] = useState("classic_1");
 
   const mutedRef = useRef(false);
   const sfxVolRef = useRef(0.6);
   const musicVolRef = useRef(0.5);
-  const themeRef = useRef("classic_dark");
+  const themeRef = useRef("classic_1");
   const currentSrc = useRef("");
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const fadeTimer = useRef<ReturnType<typeof setInterval> | null>(null);

@@ -36,7 +36,7 @@ interface GameWinScreenProps {
     /** Optional light-theme flag — when true the screen's hardcoded
      *  near-black backdrop, dark card surface and white-tinted stat
      *  blocks flip to light-on-light equivalents so the multiplayer-
-     *  match-complete celebration is readable in `classic_light`. */
+     *  match-complete celebration is readable in `classic_2`. */
     isLight?: boolean;
   };
   onQuit: () => void;

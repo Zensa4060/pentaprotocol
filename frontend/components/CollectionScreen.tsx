@@ -9,7 +9,6 @@ import { clearCollectionNavBadge } from "@/lib/navBadgeState";
 import { TITLES } from "./ProfileScreen";
 import { BannerRenderer } from "./BannerRenderer";
 import { GlacierSigilPiece, GlacierPrismPiece } from "./GamePieces";
-import { WraithKingCoinTossPreview } from "./WraithKingCoinToss";
 
 // Profile borders — only default for now, more coming later
 const PROFILE_BORDERS = [
@@ -100,8 +99,8 @@ type CollectionTheme = {
 };
 
 const COLLECTION_THEMES: CollectionTheme[] = [
-  { id: "classic_light", label: "Classic Light", desc: "Cool slate — crisp and refined", comingSoon: false, preview: "linear-gradient(135deg,#D4DAE6,#F2F5FA)", owned: () => true },
-  { id: "classic_dark",  label: "Classic Dark",  desc: "Dark mode classic",            comingSoon: false, preview: "linear-gradient(135deg,#1a1a1a,#2a2a2a)", owned: () => true },
+  { id: "classic_1",  label: "Classic 1",  desc: "Dark mode classic",            comingSoon: false, preview: "linear-gradient(135deg,#1a1a1a,#2a2a2a)", owned: () => true },
+  { id: "classic_2", label: "Classic 2", desc: "Deep espresso — warm and premium", comingSoon: false, preview: "linear-gradient(135deg,#1E1410,#30241E)", owned: () => true },
   { id: "space",         label: "Space",         desc: "Deep space atmosphere",       comingSoon: false, preview: "linear-gradient(135deg,#020410,#0d1b4b)", owned: (p) => (p?.purchased_items ?? []).includes("theme_space") },
   { id: "pixel",         label: "Pixel",         desc: "Retro pixel art style",        comingSoon: false, preview: "linear-gradient(135deg,#0d1007,#1a2e0a)", owned: (p) => (p?.purchased_items ?? []).includes("theme_pixel") },
 ];
@@ -113,29 +112,8 @@ const BOARD_SKINS: { id: string; label: string; desc: string; condition: (p: any
   { id: "glacier_grid", label: "Glacier Board", desc: "Aurora ice lattice with crystalline glow", condition: (p: any) => (p?.purchased_items ?? []).includes("glacier_grid"), preview: "linear-gradient(135deg,#020b1a,#031329)", border: "#7dd3fc", price: 1599 },
 ];
 
-const COIN_SKINS: { id: string; label: string; desc: string; c1: string; c2: string; img1: string; img2: string; owned?: boolean; condition?: (p: any) => boolean }[] = [
-  { id: "default", label: "Standard", desc: "Default", owned: true, condition: (_p: any) => true, c1: "#F59E0B", c2: "#4FC3F7", img1: "/penta-coin.png", img2: "/proto-coin.png" },
-  {
-    id: "wraith_king",
-    label: "Wraith King",
-    desc: "Crowned skull & soul portal — unlock the store bundle",
-    condition: (p: any) => (p?.purchased_items ?? []).includes("coin_bundle_wraith_king"),
-    c1: "#cc88ff",
-    c2: "#88aadd",
-    img1: "/penta-coin.png",
-    img2: "/proto-coin.png",
-  },
-];
+// ── Standard coin inline components ──────────────────────────────────────────
 
-const COIN_TOSS_ANIMS: { id: string; label: string; desc: string; condition: (p: any) => boolean; price?: number }[] = [
-  { id: "default", label: "Classic Flip", desc: "Default animation", condition: (_p: any) => true },
-  {
-    id: "wraith_king",
-    label: "Wraith King",
-    desc: "Spectral toss, DOMINION / SERVITUDE faces — unlock in Store",
-    condition: (p: any) => (p?.purchased_items ?? []).includes("coin_bundle_wraith_king"),
-  },
-];
 
 const PIECE_SKINS: { id: string; label: string; desc: string; condition: (p: any) => boolean; p1: string; p2: string; p1c: string; p2c: string; price?: number; isFlameSkull?: boolean; isSnowShard?: boolean; isGlacierShard?: boolean }[] = [
   { id: "default",          label: "Classic",      desc: "Default pieces",     condition: (_p: any) => true,                                                             p1: "X",  p2: "Y",  p1c: "#FFFFFF", p2c: "#CC0000" },
@@ -179,8 +157,8 @@ const SFX_PACKS: { id: SfxPack; label: string; desc: string; owned: boolean; col
 
 // Background sources
 const BG_SOURCES: { id: BgSource; label: string; preview: string; owned: boolean }[] = [
-  { id: "classic_light", label: "Classic Light", preview: "linear-gradient(135deg,#D4DAE6,#F2F5FA)", owned: true },
-  { id: "classic_dark",  label: "Classic Dark",  preview: "linear-gradient(135deg,#1a1a1a,#2a2a2a)", owned: true },
+  { id: "classic_1",  label: "Classic 1",  preview: "linear-gradient(135deg,#1a1a1a,#2a2a2a)", owned: true },
+  { id: "classic_2", label: "Classic 2", preview: "linear-gradient(135deg,#1E1410,#30241E)", owned: true },
   { id: "space",         label: "Space",         preview: "linear-gradient(135deg,#020410,#0d1b4b)", owned: true },
   { id: "pixel",         label: "Pixel",         preview: "linear-gradient(135deg,#0d1007,#1a2e0a)", owned: true },
 ];
@@ -311,13 +289,12 @@ const BOARD_BUNDLES = [
 type BoardBundle = typeof BOARD_BUNDLES[number];
 
 // ── Category definitions ──────────────────────────────────────────────────────
-type CatId = "themes" | "board_bundles" | "profile_bundles" | "coin_bundles" | "titles";
+type CatId = "themes" | "board_bundles" | "profile_bundles" | "titles";
 
 const CATEGORIES: { id: CatId; label: string; icon: string; count: (p: any) => number }[] = [
   { id: "themes",          label: "Themes",          icon: "palette", count: (p) => COLLECTION_THEMES.filter(x => x.owned(p)).length },
   { id: "board_bundles",   label: "GRIDS",           icon: "board",   count: (p) => BOARD_BUNDLES.filter(b => b.bOwned(p) || b.pOwned(p)).length },
   { id: "profile_bundles", label: "BANNERS",         icon: "banner",  count: (p) => BANNERS.filter(x => x.condition(p)).length + PROFILE_BORDERS.filter(x => x.condition(p)).length },
-  { id: "coin_bundles",    label: "COINS",           icon: "coin",    count: (p) => COIN_SKINS.filter(x => (x.condition ? x.condition(p) : !!x.owned)).length + COIN_TOSS_ANIMS.filter(x => x.condition(p)).length },
   { id: "titles",          label: "BADGES",          icon: "title",   count: (p) => TITLES.filter(ti => ti.condition(p)).length },
 ];
 
@@ -325,8 +302,8 @@ function getSlotOptions(key: keyof CustomThemeConfig, profile?: any) {
   if (key === "sfxPack")    return SFX_PACKS.map(x => ({ id: x.id, label: x.label, desc: x.desc, owned: x.owned, preview: null, color: x.color }));
   if (key === "background") return BG_SOURCES.map(x => ({ id: x.id, label: x.label, desc: "", owned: x.owned, preview: x.preview, color: null }));
   if (key === "boardSkin")  return BOARD_SKINS.map(x => ({ id: x.id, label: x.label, desc: x.desc, owned: x.condition(profile ?? {}), preview: x.preview, color: x.border }));
-  if (key === "coinSkin")   return COIN_SKINS.map(x => ({ id: x.id, label: x.label, desc: x.desc, owned: x.condition ? x.condition(profile ?? {}) : !!x.owned, preview: null, color: x.c1 }));
-  if (key === "tossSkin")   return COIN_TOSS_ANIMS.map(x => ({ id: x.id, label: x.label, desc: x.desc, owned: x.condition(profile ?? {}), preview: null, color: null }));
+  if (key === "coinSkin")   return [{ id: "default", label: "Standard", desc: "Default coin", owned: true, preview: null, color: "#F59E0B" }];
+  if (key === "tossSkin")   return [{ id: "default", label: "Classic Flip", desc: "Default toss", owned: true, preview: null, color: null }];
   if (key === "pieceSkin")  return PIECE_SKINS.map(x => ({ id: x.id, label: x.label, desc: x.desc, owned: x.condition(profile ?? {}), preview: null, color: x.p1c }));
   return [];
 }
@@ -341,8 +318,6 @@ const CUSTOM_SLOTS: CustomSlot[] = [
   { key: "sfxPack",    label: "Sound Pack",     icon: "🔊" },
   { key: "background", label: "Background",     icon: "🖼" },
   { key: "boardSkin",  label: "Board Skin",     icon: "⬛" },
-  { key: "coinSkin",   label: "Coin Skin",      icon: "🪙" },
-  { key: "tossSkin",   label: "Toss Animation", icon: "🌀" },
   { key: "pieceSkin",  label: "Piece Skin",     icon: "✖" },
 ];
 
@@ -520,6 +495,112 @@ function CustomThemeSection({ t, ip, themeId, profile, setThemeIdAction, onHover
   );
 }
 
+// ── Theme preview mockup ─────────────────────────────────────────────────────
+// Pieces placed at % positions — avoids cramped tiny grid cells
+// P1 pieces on main diagonal (win in progress), P2 scattered
+const P1_POS = [[12,28],[31,44],[50,60],[69,76]] as const; // glowing diagonal
+const P2_POS = [[50,28],[69,44],[88,60],[31,76]] as const;
+
+function ThemePreviewMockup({ id }: { id: string }) {
+  const th = THEMES[id as ThemeId];
+  if (!th) return <div style={{ width: "100%", height: "100%", background: "#111" }} />;
+
+  return (
+    <div style={{ width: "100%", height: "100%", position: "relative", overflow: "hidden" }}>
+
+      {/* ── Deep background ── */}
+      <div style={{ position: "absolute", inset: 0, background: th.boardBg }} />
+      <div style={{ position: "absolute", inset: 0, background: `radial-gradient(ellipse at 50% -10%, ${th.accentGlow}38 0%, transparent 60%)` }} />
+      <div style={{ position: "absolute", inset: 0, background: `radial-gradient(ellipse at 110% 110%, ${th.bgCard}cc 0%, transparent 55%)` }} />
+
+      {/* ── Board grid lines via repeating-linear-gradient ── */}
+      <div style={{
+        position: "absolute", top: 20, left: 0, right: 0, bottom: 14,
+        backgroundImage: `linear-gradient(${th.boardLine}55 1px, transparent 1px), linear-gradient(90deg, ${th.boardLine}55 1px, transparent 1px)`,
+        backgroundSize: "20% 20%",
+        backgroundPosition: "10% 5%",
+      }} />
+
+      {/* ── Win streak glow — connecting line under P1 diagonal ── */}
+      <div style={{
+        position: "absolute",
+        top: "calc(20px + 28%)",
+        left: "12%",
+        width: "57%",
+        height: 2,
+        background: `linear-gradient(90deg, transparent, ${th.p1}88, ${th.p1}bb, ${th.p1}88, transparent)`,
+        transform: "rotate(32deg)",
+        transformOrigin: "left center",
+        filter: `blur(1.5px)`,
+        opacity: 0.7,
+        zIndex: 1,
+      }} />
+
+      {/* ── P1 pieces — glowing circles ── */}
+      {P1_POS.map(([x, y], i) => (
+        <div key={i} style={{
+          position: "absolute",
+          left: `${x}%`, top: `calc(20px + ${y}%)`,
+          transform: "translate(-50%, -50%)",
+          width: 20, height: 20, borderRadius: "50%",
+          background: `radial-gradient(circle at 35% 32%, ${th.p1}ff 0%, ${th.p1}bb 55%, ${th.p1}55 100%)`,
+          boxShadow: `0 0 14px ${th.p1}cc, 0 0 4px ${th.p1}, inset 0 1px 2px rgba(255,255,255,0.3)`,
+          zIndex: 2,
+        }} />
+      ))}
+
+      {/* ── P2 pieces — rotated diamonds ── */}
+      {P2_POS.map(([x, y], i) => (
+        <div key={i} style={{
+          position: "absolute",
+          left: `${x}%`, top: `calc(20px + ${y}%)`,
+          transform: "translate(-50%, -50%) rotate(45deg)",
+          width: 14, height: 14, borderRadius: 2,
+          background: `linear-gradient(135deg, ${th.p2}ff, ${th.p2}99)`,
+          boxShadow: `0 0 10px ${th.p2}bb, 0 0 3px ${th.p2}`,
+          zIndex: 2,
+        }} />
+      ))}
+
+      {/* ── Navbar ── */}
+      <div style={{
+        position: "absolute", top: 0, left: 0, right: 0, height: 20,
+        background: `${th.bgPanel}F4`, backdropFilter: "blur(4px)",
+        borderBottom: `1px solid ${th.border}88`,
+        display: "flex", alignItems: "center", padding: "0 9px", gap: 4, zIndex: 5,
+      }}>
+        {/* 5-bar PENTA logo */}
+        {[11, 8, 11, 7, 11].map((h, i) => (
+          <div key={i} style={{ width: 2.5, height: h, borderRadius: 1.5, background: th.accent, boxShadow: `0 0 5px ${th.accentGlow}cc` }} />
+        ))}
+        <div style={{ width: 1, height: 9, background: th.border, marginLeft: 2, opacity: 0.5 }} />
+        <div style={{ width: 22, height: 3.5, borderRadius: 2, background: th.text, opacity: 0.2 }} />
+        <div style={{ flex: 1 }} />
+        {/* Turn indicator */}
+        <div style={{ display: "flex", alignItems: "center", gap: 3, background: `${th.bgCard}cc`, border: `1px solid ${th.border}`, borderRadius: 5, padding: "2px 6px" }}>
+          <div style={{ width: 7, height: 7, borderRadius: "50%", background: th.p1, boxShadow: `0 0 5px ${th.p1}` }} />
+          <div style={{ width: 14, height: 2.5, borderRadius: 2, background: th.text, opacity: 0.3 }} />
+        </div>
+        <div style={{ width: 13, height: 13, borderRadius: "50%", background: `linear-gradient(135deg, ${th.accent}dd, ${th.accentGlow}bb)`, boxShadow: `0 0 7px ${th.accentGlow}99`, marginLeft: 2 }} />
+      </div>
+
+      {/* ── Bottom palette strip ── */}
+      <div style={{
+        position: "absolute", bottom: 0, left: 0, right: 0, height: 14,
+        background: `${th.bgPanel}F0`, borderTop: `1px solid ${th.border}66`,
+        display: "flex", alignItems: "center", justifyContent: "center", gap: 7, zIndex: 5,
+      }}>
+        {[th.accent, th.p1, th.p2, th.gold, th.success].map((c, i) => (
+          <div key={i} style={{ width: 8, height: 8, borderRadius: "50%", background: c, boxShadow: `0 0 6px ${c}cc` }} />
+        ))}
+      </div>
+
+      {/* ── Edge vignette ── */}
+      <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse at 50% 50%, transparent 50%, rgba(0,0,0,0.5) 100%)", pointerEvents: "none", zIndex: 3 }} />
+    </div>
+  );
+}
+
 // ── ThemesWithCustomize ───────────────────────────────────────────────────────
 interface ThemesWithCustomizeProps {
   t: typeof THEMES[ThemeId];
@@ -564,13 +645,17 @@ function ThemesWithCustomize({ t, ip, themeId, setThemeIdAction, profile, active
                 </div>
               </div>
             )}
-            <div style={{ height: 90, background: item.preview, position: "relative", overflow: "hidden" }}>
+            <div style={{ height: 130, position: "relative", overflow: "hidden" }}>
+              {/* Mini UI mockup */}
+              <div style={{ position: "absolute", inset: 0, zIndex: 0 }}>
+                <ThemePreviewMockup id={item.id} />
+              </div>
               {item.isOwned && activeTheme === item.id && (
-                <div style={{ position: "absolute", top: 12, right: 12, background: accentHex, borderRadius: 12, padding: "4px 12px", fontFamily: t.fontMono, fontSize: 10, color: "#000", fontWeight: 900, letterSpacing: "0.05em", zIndex: 2, boxShadow: "0 4px 12px rgba(0,0,0,0.3)" }}>ACTIVE</div>
+                <div style={{ position: "absolute", top: 8, right: 8, background: accentHex, borderRadius: 10, padding: "3px 10px", fontFamily: t.fontMono, fontSize: 9, color: "#000", fontWeight: 900, letterSpacing: "0.05em", zIndex: 3, boxShadow: "0 2px 8px rgba(0,0,0,0.4)" }}>ACTIVE</div>
               )}
-              {/* Shiny Overlay for Active */}
+              {/* Shiny overlay for active */}
               {item.isOwned && activeTheme === item.id && (
-                <div style={{ position: "absolute", inset: 0, background: "linear-gradient(110deg, transparent 40%, rgba(255,255,255,0.1) 45%, rgba(255,255,255,0.2) 50%, rgba(255,255,255,0.1) 55%, transparent 60%)", backgroundSize: "200% 100%", animation: "bannerShine 3s infinite linear", zIndex: 1, pointerEvents: "none" }} />
+                <div style={{ position: "absolute", inset: 0, background: "linear-gradient(110deg,transparent 40%,rgba(255,255,255,0.08) 45%,rgba(255,255,255,0.16) 50%,rgba(255,255,255,0.08) 55%,transparent 60%)", backgroundSize: "200% 100%", animation: "bannerShine 3s infinite linear", zIndex: 2, pointerEvents: "none" }} />
               )}
             </div>
             <div style={{ padding: "16px" }}>
@@ -582,35 +667,6 @@ function ThemesWithCustomize({ t, ip, themeId, setThemeIdAction, profile, active
           </div>
         ))}
 
-        {/* Customize card */}
-        <div className="coll-item coll-locked"
-          onClick={() => {}}
-          onMouseEnter={() => {}}
-          style={{ 
-            borderRadius: 16, overflow: "hidden", 
-            border: `1px solid rgba(255,255,255,0.14)`, 
-            background: "rgba(30,30,30,0.4)", 
-            backdropFilter: "blur(12px)",
-            boxShadow: "0 10px 30px rgba(0,0,0,0.2)", 
-            cursor: "not-allowed",
-            opacity: 0.9,
-          }}>
-          <div style={{ height: 90, background: `linear-gradient(135deg, ${accentHex}22, ${accentHex}08)`, display: "flex", alignItems: "center", justifyContent: "center", gap: 10, position: "relative" }}>
-            <div style={{ width: 44, height: 44, borderRadius: 12, background: `${accentHex}22`, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: `0 0 15px ${accentHex}33` }}>
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={accentHex} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
-            </div>
-            <div style={{ position: "absolute", top: 12, right: 12, background: "rgba(0,0,0,0.7)", borderRadius: 10, padding: "3px 10px", fontFamily: t.fontMono, fontSize: 9, color: "#b7b7b7", fontWeight: 900, letterSpacing: "0.08em", border: "1px solid rgba(255,255,255,0.12)" }}>
-              COMING SOON
-            </div>
-          </div>
-          <div style={{ padding: "16px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-            <div>
-              <div style={{ fontFamily: t.fontDisplay, fontSize: 18, fontWeight: 800, color: accentHex }}>Customize</div>
-              <div style={{ fontFamily: t.fontBody, fontSize: 13, color: t.textMuted, marginTop: 4, fontWeight: 500 }}>Customization options are coming soon</div>
-            </div>
-            <LockIcon size={14} color="#777" />
-          </div>
-        </div>
       </div>
 
       {customizeOpen && (
@@ -629,7 +685,6 @@ const CAT_TO_SLUG: Record<CatId, string> = {
   themes: "themes",
   board_bundles: "grids",
   profile_bundles: "banners",
-  coin_bundles: "coins",
   titles: "badges",
 };
 
@@ -654,8 +709,9 @@ export default function CollectionScreen({ themeId, setThemeIdAction, onHoverAct
   const [activeTheme, setActiveTheme] = useState<string>(themeId);
   const [activeBoard,  setActiveBoard]  = useState<string>(() => loadCustomTheme().boardSkin  ?? (user as any)?.board_style ?? "default");
   const [activePiece,  setActivePiece]  = useState<string>(() => loadCustomTheme().pieceSkin  ?? "default");
-  const [activeToss,   setActiveToss]   = useState<string>(() => loadCustomTheme().tossSkin   ?? "default");
   const [activeBanner, setActiveBanner] = useState<string>(() => loadCustomTheme().bannerSkin ?? (user as any)?.banner ?? "default");
+  const [activeTitle,  setActiveTitle]  = useState<string>(() => (user as any)?.title ?? "newcomer");
+  const [equippingTitle, setEquippingTitle] = useState<string | null>(null);
   const [equipping, setEquipping] = useState<string | null>(null);
   const [equippingBanner, setEquippingBanner] = useState<string | null>(null);
   const [equipMsg, setEquipMsg] = useState<{ text: string; ok: boolean } | null>(null);
@@ -665,7 +721,7 @@ export default function CollectionScreen({ themeId, setThemeIdAction, onHoverAct
 
   const profile = user || {};
   const ip = themeId === "pixel";
-  const isClassic = themeId === "classic_light" || themeId === "classic_dark";
+  const isClassic = themeId === "classic_2" || themeId === "classic_1";
   const hoverColor = isClassic ? "#CC0000" : t.accent;
   /**
    * Light-theme card surfaces. Every card in this screen used to be a
@@ -704,7 +760,7 @@ export default function CollectionScreen({ themeId, setThemeIdAction, onHoverAct
   useEffect(() => {
     if (!token) return;
     API.get("/api/profile/me", { headers: { Authorization: `Bearer ${token}` }, timeout: PROFILE_FETCH_TIMEOUT })
-      .then(res => updateUser(res.data))
+      .then(res => { updateUser(res.data); setActiveTitle(res.data?.title ?? "newcomer"); })
       .catch(() => {});
   }, [token]);
 
@@ -748,13 +804,22 @@ export default function CollectionScreen({ themeId, setThemeIdAction, onHoverAct
     setTimeout(() => setEquipMsg(null), 1800);
   };
 
-  const equipToss = (id: string) => {
-    const current = loadCustomTheme();
-    saveCustomTheme({ ...current, tossSkin: id as any });
-    emitThemeChanged();
-    setActiveToss(id);
-    setEquipMsg({ text: "Toss animation equipped!", ok: true });
-    setTimeout(() => setEquipMsg(null), 1800);
+
+  const equipTitle = async (id: string) => {
+    if (!token || equippingTitle) return;
+    setEquippingTitle(id);
+    try {
+      const res = await API.put("/api/profile/me", { title: id }, { headers: { Authorization: `Bearer ${token}` }, timeout: 10000 });
+      updateUser(res.data);
+      setActiveTitle(id);
+      setEquipMsg({ text: "Badge equipped!", ok: true });
+      setTimeout(() => setEquipMsg(null), 1800);
+    } catch {
+      setEquipMsg({ text: "Failed to equip badge", ok: false });
+      setTimeout(() => setEquipMsg(null), 2000);
+    } finally {
+      setEquippingTitle(null);
+    }
   };
 
   const equipBanner = (id: string) => {
@@ -831,7 +896,6 @@ export default function CollectionScreen({ themeId, setThemeIdAction, onHoverAct
     if (id === "themes")          return COLLECTION_THEMES.length;
     if (id === "board_bundles")   return BOARD_BUNDLES.length;
     if (id === "profile_bundles") return BANNERS.length + PROFILE_BORDERS.length;
-    if (id === "coin_bundles")    return COIN_SKINS.length + COIN_TOSS_ANIMS.length;
     return 0;
   };
 
@@ -912,7 +976,7 @@ export default function CollectionScreen({ themeId, setThemeIdAction, onHoverAct
         }}>
           {/* Banner as background */}
           <div style={{ position: "absolute", inset: 0, zIndex: 0 }}>
-            <BannerRenderer bannerId={activeBanner} style={{ width: "100%", height: "100%" }} />
+            <BannerRenderer bannerId={activeBanner} themeId={themeId} style={{ width: "100%", height: "100%" }} />
           </div>
           {/* Layered overlays for depth + legibility */}
           <div style={{ position: "absolute", inset: 0, zIndex: 1, background: "linear-gradient(135deg, rgba(0,0,0,0.70) 0%, rgba(0,0,0,0.15) 55%, rgba(0,0,0,0.50) 100%)" }} />
@@ -1105,7 +1169,7 @@ export default function CollectionScreen({ themeId, setThemeIdAction, onHoverAct
             {(isMobile ? CATEGORIES : [{ id: activeCat, icon: catData.icon, label: catData.label } as any]).map(renderCat => {
               const cat = renderCat.id;
               return (
-                <div key={cat} style={{ width: "100%" }}>
+                <div key={cat} className="cat-content-enter" style={{ width: "100%" }}>
                   {isMobile && (
                     <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
                       <div style={{ width: 34, height: 34, borderRadius: 8, background: `${t.accent}14`, border: `1px solid ${t.accent}33`, display: "flex", alignItems: "center", justifyContent: "center" }}><CatIcon id={renderCat.icon} size={18} color={t.accent} /></div>
@@ -1127,7 +1191,11 @@ export default function CollectionScreen({ themeId, setThemeIdAction, onHoverAct
                 const pOk = bundle.pOwned(profile);
                 const anyOwned = bOk || pOk || !!bundle.isDefault;
                 const fullyOwned = (bOk && pOk) || !!bundle.isDefault;
-                const isActive = activeBoard === bundle.boardId && activePiece === bundle.pieceId;
+                // A bundle is "active" when its board is equipped.
+                // Piece may differ (e.g. partial ownership) — board is the grid identity.
+                const isActive = bundle.isDefault
+                  ? activeBoard === "default"
+                  : activeBoard === bundle.boardId;
                 const ac = bundle.accentColor;
                 return (
                   <div key={`${bundle.id}-${i}`}
@@ -1383,202 +1451,107 @@ export default function CollectionScreen({ themeId, setThemeIdAction, onHoverAct
             </div>
           )}
 
-          {/* ── COINS (coin skins + toss animations) ── */}
-          {cat === "coin_bundles" && (
-            <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
-              <div>
-                <div style={{ fontFamily: t.fontMono, fontSize: 10, color: t.textMuted, letterSpacing: "0.18em", marginBottom: 12, opacity: 0.7 }}> COINS </div>
-                <div style={{ display: "flex", gap: 14, overflowX: "auto", paddingBottom: 8, scrollSnapType: "x mandatory" }}>
-                  {COIN_SKINS.filter(x => showAll || (x.condition ? x.condition(profile) : !!x.owned)).map((item, idx) => {
-                    const skinOwned = item.condition ? item.condition(profile) : !!item.owned;
-                    return (
-                    <div key={`${item.id}-${idx}`} className={`coll-item ${!skinOwned ? "coll-locked" : ""}`}
-                      style={{ minWidth: 190, maxWidth: 190, flex: "0 0 190px", scrollSnapAlign: "start", borderRadius: 16, padding: "24px 16px", border: `1px solid ${skinOwned ? item.c1 + "44" : cardBorderLocked}`, background: cardBg, backdropFilter: "blur(12px)", display: "flex", flexDirection: "column", alignItems: "center", gap: 16, position: "relative", boxShadow: skinOwned ? `0 0 20px ${item.c1}11` : "none" }}>
-                      <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
-                        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
-                          <div style={{ width: 52, height: 52, borderRadius: "50%", background: skinOwned ? `radial-gradient(circle at 35% 35%, ${item.c1}FF, ${item.c1}88)` : coinPlaceholderBg, boxShadow: skinOwned ? `0 0 15px ${item.c1}55` : "none", display: "flex", alignItems: "center", justifyContent: "center", position: "relative", overflow: "hidden" }}>
-                            {item.id === "wraith_king" ? (
-                              <DominionMark size={26} color={skinOwned ? item.c1 : coinPlaceholderIcon} />
-                            ) : (
-                              <img src={item.img1} alt="penta" style={{ width: 32, height: 32, objectFit: "contain", opacity: skinOwned ? 1 : 0.15 }} />
-                            )}
-                            {skinOwned && item.id !== "wraith_king" && (
-                              <div style={{ position: "absolute", inset: 0, borderRadius: "50%", background: "linear-gradient(110deg, transparent 40%, rgba(255,255,255,0.2) 45%, rgba(255,255,255,0.4) 50%, rgba(255,255,255,0.2) 55%, transparent 60%)", backgroundSize: "200% 100%", animation: "bannerShine 4s infinite linear" }} />
-                            )}
-                          </div>
-                          <span style={{ fontFamily: t.fontMono, fontSize: 9, color: skinOwned ? item.c1 : t.textMuted, letterSpacing: "0.1em", fontWeight: 800 }}>{item.id === "wraith_king" ? "DOMINION" : "PENTA"}</span>
-                        </div>
-                        <div style={{ width: 1, height: 44, background: dividerColor, flexShrink: 0 }} />
-                        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
-                          <div style={{ width: 52, height: 52, borderRadius: "50%", background: skinOwned ? `radial-gradient(circle at 35% 35%, ${item.c2}FF, ${item.c2}88)` : coinPlaceholderBg, boxShadow: skinOwned ? `0 0 15px ${item.c2}55` : "none", display: "flex", alignItems: "center", justifyContent: "center", position: "relative", overflow: "hidden" }}>
-                            {item.id === "wraith_king" ? (
-                              <ServitudeMark size={26} color={skinOwned ? item.c2 : coinPlaceholderIcon} />
-                            ) : (
-                              <img src={item.img2} alt="proto" style={{ width: 32, height: 32, objectFit: "contain", opacity: skinOwned ? 1 : 0.15 }} />
-                            )}
-                            {skinOwned && item.id !== "wraith_king" && (
-                              <div style={{ position: "absolute", inset: 0, borderRadius: "50%", background: "linear-gradient(110deg, transparent 40%, rgba(255,255,255,0.2) 45%, rgba(255,255,255,0.4) 50%, rgba(255,255,255,0.2) 55%, transparent 60%)", backgroundSize: "200% 100%", animation: "bannerShine 4s infinite linear" }} />
-                            )}
-                          </div>
-                          <span style={{ fontFamily: t.fontMono, fontSize: 9, color: skinOwned ? item.c2 : t.textMuted, letterSpacing: "0.1em", fontWeight: 800 }}>{item.id === "wraith_king" ? "SERVITUDE" : "PROTO"}</span>
-                        </div>
-                      </div>
-                      <div style={{ textAlign: "center" as const }}><div style={{ fontFamily: t.fontDisplay, fontSize: 18, fontWeight: 800, color: skinOwned ? t.text : t.textMuted }}>{item.label}</div><div style={{ fontFamily: t.fontBody, fontSize: 13, color: t.textMuted, marginTop: 4, fontWeight: 500, opacity: 0.7 }}>{skinOwned ? "Active mint" : item.desc}</div></div>
-                      {item.id === "wraith_king" && (
-                        <div style={{ width: 120, height: 112, borderRadius: 18, border: `1px solid ${item.c1}33`, background: `${item.c1}0d`, overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                          <div style={{ transform: "scale(0.6)", transformOrigin: "center", marginTop: -4 }}>
-                            <WraithKingCoinTossPreview coinDiam={110} compact={true} />
-                          </div>
-                        </div>
-                      )}
-                      {!skinOwned && (<div className="coll-locked-overlay"><LockIcon size={16} color={lockIconColor} /></div>)}
-                    </div>
-                  );})}
-                </div>
-              </div>
-              <div>
-                <div style={{ fontFamily: t.fontMono, fontSize: 10, color: t.textMuted, letterSpacing: "0.18em", marginBottom: 12, opacity: 0.7 }}>TOSS ANIMATIONS</div>
-                <div style={{ display: "flex", gap: 14, overflowX: "auto", paddingBottom: 8, scrollSnapType: "x mandatory" }}>
-                  {COIN_TOSS_ANIMS.filter(x => showAll || x.condition(profile)).map((item, idx) => {
-                    const owned = item.condition(profile);
-                    const isPurchasable = !!item.price && !owned;
-                    const ac = t.accent;
-                    return (
-                      <div key={`${item.id}-${idx}`} className={`coll-item ${!owned ? "coll-locked" : ""}`}
-                        onClick={() => { if (owned && activeToss !== item.id) { onClickAction?.(); equipToss(item.id); } }}
-                        onMouseEnter={() => { if (owned) onHoverAction?.(); }}
-                        style={{ minWidth: 210, maxWidth: 210, flex: "0 0 210px", scrollSnapAlign: "start", borderRadius: 16, padding: "20px 16px", border: `1px solid ${owned ? (activeToss === item.id ? ac : cardBorderOwned) : cardBorderLocked}`, background: cardBg, backdropFilter: "blur(12px)", display: "flex", alignItems: "center", gap: 16, position: "relative", boxShadow: activeToss === item.id ? `0 0 20px ${ac}33` : "none", cursor: owned && activeToss !== item.id ? "pointer" : "default" }}>
-                        {!owned && (<div className="coll-locked-overlay"><div style={{ background: lockChipBg, border: `1px solid ${lockChipBorder}`, borderRadius: 12, padding: "6px 14px", display: "flex", alignItems: "center", gap: 6 }}><LockIcon size={12} color={lockIconColor} /><span style={{ fontFamily: t.fontMono, fontSize: 9, color: lockChipText, fontWeight: 800, letterSpacing: "0.1em" }}>LOCKED</span></div></div>)}
-                        <div style={{ width: 48, height: 48, borderRadius: "50%", background: owned ? `linear-gradient(135deg,${ac},${ac}88)` : coinPlaceholderBg, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, boxShadow: owned ? `0 0 15px ${ac}44` : "none", position: "relative", overflow: "hidden" }}>
-                          {owned ? <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg> : <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={tossUnownedRingStroke} strokeWidth="2.5" strokeLinecap="round"><circle cx="12" cy="12" r="9"/></svg>}
-                          {owned && activeToss === item.id && <div style={{ position: "absolute", inset: 0, background: "linear-gradient(110deg, transparent 40%, rgba(255,255,255,0.3) 45%, rgba(255,255,255,0.6) 50%, rgba(255,255,255,0.3) 55%, transparent 60%)", backgroundSize: "200% 100%", animation: "bannerShine 2s infinite linear" }} />}
-                        </div>
-                        <div style={{ flex: 1 }}>
-                          <div style={{ fontFamily: t.fontDisplay, fontSize: 18, fontWeight: 800, color: activeToss === item.id ? ac : t.text }}>{item.label}</div>
-                          <div style={{ fontFamily: t.fontBody, fontSize: 13, color: t.textMuted, marginTop: 4, fontWeight: 500, opacity: 0.7 }}>{owned ? (activeToss === item.id ? "Currently active" : "Impact selection") : item.desc}</div>
-                        </div>
-                        {owned && activeToss === item.id && <div style={{ position: "absolute", top: 12, right: 12, background: ac, borderRadius: 10, padding: "3px 10px", fontFamily: t.fontMono, fontSize: 9, color: "#000", fontWeight: 900, letterSpacing: "0.05em", boxShadow: "0 2px 8px rgba(0,0,0,0.3)" }}>ACTIVE</div>}
-                        {isPurchasable && <div style={{ position: "absolute", top: 12, left: 12, background: `linear-gradient(135deg, ${hoverColor}, #000)`, border: `1px solid ${hoverColor}88`, borderRadius: 8, padding: "4px 10px", fontFamily: t.fontMono, fontSize: 10, color: "#fff", fontWeight: 800, letterSpacing: "0.08em", zIndex: 6, boxShadow: `0 4px 10px rgba(0,0,0,0.4)` }}>EXCLUSIVE</div>}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* ── OLD coin skins (hidden) ── */}
-          {cat === "coins_hidden" && (
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(190px,1fr))", gap: 14 }}>
-              {COIN_SKINS.filter(x => showAll || (x.condition ? x.condition(profile) : !!x.owned)).map(item => {
-                const skinOwned = item.condition ? item.condition(profile) : !!item.owned;
-                return (
-                <div key={item.id} className={`coll-item ${!skinOwned ? "coll-locked" : ""}`}
-                  style={{ 
-                    borderRadius: 16, padding: "24px 16px", 
-                    border: `1px solid ${skinOwned ? item.c1 + "44" : "rgba(255,255,255,0.05)"}`, 
-                    background: "rgba(30,30,30,0.6)", backdropFilter: "blur(12px)",
-                    display: "flex", flexDirection: "column", alignItems: "center", gap: 16, position: "relative",
-                    boxShadow: skinOwned ? `0 0 20px ${item.c1}11` : "none"
-                  }}>
-                  <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
-                    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
-                      <div style={{ width: 52, height: 52, borderRadius: "50%", background: skinOwned ? `radial-gradient(circle at 35% 35%, ${item.c1}FF, ${item.c1}88)` : "#1a1a1a", boxShadow: skinOwned ? `0 0 15px ${item.c1}55` : "none", display: "flex", alignItems: "center", justifyContent: "center", position: "relative" }}>
-                        <img src={item.img1} alt="penta" style={{ width: 32, height: 32, objectFit: "contain", opacity: skinOwned ? 1 : 0.15 }} />
-                        {skinOwned && <div style={{ position: "absolute", inset: 0, borderRadius: "50%", background: "linear-gradient(110deg, transparent 40%, rgba(255,255,255,0.2) 45%, rgba(255,255,255,0.4) 50%, rgba(255,255,255,0.2) 55%, transparent 60%)", backgroundSize: "200% 100%", animation: "bannerShine 4s infinite linear" }} />}
-                      </div>
-                      <span style={{ fontFamily: t.fontMono, fontSize: 9, color: skinOwned ? item.c1 : t.textMuted, letterSpacing: "0.1em", fontWeight: 800 }}>PENTA</span>
-                    </div>
-                    <div style={{ width: 1, height: 44, background: "rgba(255,255,255,0.1)", flexShrink: 0 }} />
-                    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
-                      <div style={{ width: 52, height: 52, borderRadius: "50%", background: skinOwned ? `radial-gradient(circle at 35% 35%, ${item.c2}FF, ${item.c2}88)` : "#1a1a1a", boxShadow: skinOwned ? `0 0 15px ${item.c2}55` : "none", display: "flex", alignItems: "center", justifyContent: "center", position: "relative" }}>
-                        <img src={item.img2} alt="proto" style={{ width: 32, height: 32, objectFit: "contain", opacity: skinOwned ? 1 : 0.15 }} />
-                        {skinOwned && <div style={{ position: "absolute", inset: 0, borderRadius: "50%", background: "linear-gradient(110deg, transparent 40%, rgba(255,255,255,0.2) 45%, rgba(255,255,255,0.4) 50%, rgba(255,255,255,0.2) 55%, transparent 60%)", backgroundSize: "200% 100%", animation: "bannerShine 4s infinite linear" }} />}
-                      </div>
-                      <span style={{ fontFamily: t.fontMono, fontSize: 9, color: skinOwned ? item.c2 : t.textMuted, letterSpacing: "0.1em", fontWeight: 800 }}>PROTO</span>
-                    </div>
-                  </div>
-                  <div style={{ textAlign: "center" as const }}>
-                    <div style={{ fontFamily: t.fontDisplay, fontSize: 18, fontWeight: 800, color: skinOwned ? t.text : t.textMuted }}>{item.label}</div>
-                    <div style={{ fontFamily: t.fontBody, fontSize: 13, color: t.textMuted, marginTop: 4, fontWeight: 500, opacity: 0.7 }}>{skinOwned ? "Active mint" : item.desc}</div>
-                  </div>
-                  {!skinOwned && (
-                    <div className="coll-locked-overlay">
-                      <LockIcon size={16} color="#666" />
-                    </div>
-                  )}
-                </div>
-              );})}
-            </div>
-          )}
-
-          {/* ── OLD toss (hidden) ── */}
-          {cat === "toss_hidden" && (
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(210px,1fr))", gap: 14 }}>
-              {COIN_TOSS_ANIMS.filter(x => showAll || x.condition(profile)).map(item => {
-                const owned = item.condition(profile);
-                const isPurchasable = !!item.price && !owned;
-                const ac = t.accent;
-                return (
-                  <div key={item.id} className={`coll-item ${!owned ? "coll-locked" : ""}`}
-                    onClick={() => { if (owned && activeToss !== item.id) { onClickAction?.(); equipToss(item.id); } }}
-                    onMouseEnter={() => { if (owned) onHoverAction?.(); }}
-                    style={{ 
-                      borderRadius: 16, padding: "20px 16px", 
-                      border: `1px solid ${owned ? (activeToss === item.id ? ac : "rgba(255,255,255,0.1)") : "rgba(255,255,255,0.05)"}`, 
-                      background: "rgba(30,30,30,0.6)", backdropFilter: "blur(12px)",
-                      display: "flex", alignItems: "center", gap: 16, position: "relative", 
-                      boxShadow: activeToss === item.id ? `0 0 20px ${ac}33` : "none", 
-                      cursor: owned && activeToss !== item.id ? "pointer" : "default" 
-                    }}>
-                    {!owned && (
-                      <div className="coll-locked-overlay">
-                         <div style={{ background: "rgba(0,0,0,0.8)", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 12, padding: "6px 14px", display: "flex", alignItems: "center", gap: 6 }}>
-                          <LockIcon size={12} color="#888" />
-                          <span style={{ fontFamily: t.fontMono, fontSize: 9, color: "#888", fontWeight: 800, letterSpacing: "0.1em" }}>LOCKED</span>
-                         </div>
-                      </div>
-                    )}
-                    <div style={{ width: 48, height: 48, borderRadius: "50%", background: owned ? `linear-gradient(135deg,${ac},${ac}88)` : "#1a1a1a", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, boxShadow: owned ? `0 0 15px ${ac}44` : "none", position: "relative", overflow: "hidden" }}>
-                      {owned
-                        ? <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
-                        : <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#333" strokeWidth="2.5" strokeLinecap="round"><circle cx="12" cy="12" r="9"/></svg>}
-                      {owned && activeToss === item.id && <div style={{ position: "absolute", inset: 0, background: "linear-gradient(110deg, transparent 40%, rgba(255,255,255,0.3) 45%, rgba(255,255,255,0.6) 50%, rgba(255,255,255,0.3) 55%, transparent 60%)", backgroundSize: "200% 100%", animation: "bannerShine 2s infinite linear" }} />}
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontFamily: t.fontDisplay, fontSize: 18, fontWeight: 800, color: activeToss === item.id ? ac : t.text }}>{item.label}</div>
-                      <div style={{ fontFamily: t.fontBody, fontSize: 13, color: t.textMuted, marginTop: 4, fontWeight: 500, opacity: 0.7 }}>{owned ? (activeToss === item.id ? "Currently active" : "Impact selection") : item.desc}</div>
-                    </div>
-                    {owned && activeToss === item.id && <div style={{ position: "absolute", top: 12, right: 12, background: ac, borderRadius: 10, padding: "3px 10px", fontFamily: t.fontMono, fontSize: 9, color: "#000", fontWeight: 900, letterSpacing: "0.05em", boxShadow: "0 2px 8px rgba(0,0,0,0.3)" }}>ACTIVE</div>}
-                    {isPurchasable && <div style={{ position: "absolute", top: 12, left: 12, background: `linear-gradient(135deg, ${hoverColor}, #000)`, border: `1px solid ${hoverColor}88`, borderRadius: 8, padding: "4px 10px", fontFamily: t.fontMono, fontSize: 10, color: "#fff", fontWeight: 800, letterSpacing: "0.08em", zIndex: 6, boxShadow: `0 4px 10px rgba(0,0,0,0.4)` }}>EXCLUSIVE</div>}
-                  </div>
-                );
-              })}
-            </div>
-          )}
-
           {/* ── BADGES ── */}
           {cat === "titles" && (
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 12 }}>
               {TITLES.filter(ti => showAll || ti.condition(profile)).map(ti => {
                 const owned = ti.condition(profile);
+                const isActive = activeTitle === ti.id;
+                const isEquipping = equippingTitle === ti.id;
                 return (
-                  <div key={ti.id} className="coll-item"
-                    style={{ 
-                      display: "flex", alignItems: "center", gap: 16, padding: "18px 24px", 
-                      borderRadius: 16, border: `1px solid ${owned ? ti.color + "44" : "rgba(255,255,255,0.05)"}`, 
-                      background: owned ? `${ti.color}0a` : "rgba(30,30,30,0.6)", 
-                      backdropFilter: "blur(12px)",
-                      opacity: owned ? 1 : 0.4 
-                    }}>
-                    <div style={{ width: 12, height: 12, borderRadius: "50%", background: owned ? ti.color : "#333", boxShadow: owned ? `0 0 12px ${ti.glow}` : "none", flexShrink: 0 }} />
-                    <div style={{ flex: 1 }}>
-                      <span style={{ fontFamily: t.fontMono, fontSize: 16, fontWeight: 800, color: owned ? ti.color : t.textMuted, letterSpacing: "0.06em" }}>{ti.label}</span>
-                      <div style={{ fontFamily: t.fontBody, fontSize: 13, color: t.textMuted, marginTop: 4, fontWeight: 500, opacity: 0.7 }}>{ti.unlockDesc}</div>
+                  <div key={ti.id}
+                    className={`coll-item${!owned ? " coll-locked" : ""}`}
+                    onClick={() => { if (owned && !isActive && !isEquipping) { onClickAction?.(); equipTitle(ti.id); } }}
+                    onMouseEnter={() => { if (owned && !isActive) onHoverAction?.(); }}
+                    style={{
+                      borderRadius: 16, overflow: "hidden",
+                      border: `1.5px solid ${isActive ? ti.color : owned ? ti.color + "33" : "rgba(255,255,255,0.06)"}`,
+                      background: isActive
+                        ? `linear-gradient(135deg, ${ti.color}18 0%, ${isLight ? "rgba(242,245,250,0.97)" : "rgba(14,14,22,0.97)"} 50%)`
+                        : isLight ? "rgba(242,245,250,0.85)" : "rgba(18,18,28,0.85)",
+                      backdropFilter: "blur(14px)",
+                      boxShadow: isActive ? `0 0 0 1px ${ti.color}33, 0 6px 28px ${ti.color}22` : "none",
+                      cursor: owned && !isActive ? "pointer" : "default",
+                      position: "relative",
+                      transition: "border-color 0.2s, box-shadow 0.2s, transform 0.15s",
+                    }}
+                  >
+                    {/* Active glow bar */}
+                    {isActive && (
+                      <div style={{ height: 3, background: `linear-gradient(90deg, transparent, ${ti.color}, transparent)`, boxShadow: `0 0 12px ${ti.color}88` }} />
+                    )}
+
+                    {!owned && (
+                      <div className="coll-locked-overlay">
+                        <div style={{ background: lockChipBg, border: `1px solid ${lockChipBorder}`, borderRadius: 10, padding: "6px 14px", display: "flex", alignItems: "center", gap: 6 }}>
+                          <LockIcon size={13} color={lockIconColor} />
+                          <span style={{ fontFamily: t.fontMono, fontSize: 9, color: lockChipText, fontWeight: 800, letterSpacing: "0.1em" }}>LOCKED</span>
+                        </div>
+                      </div>
+                    )}
+
+                    <div style={{ padding: "18px 20px 16px" }}>
+                      {/* Title preview — the actual styled badge */}
+                      <div style={{ marginBottom: 12 }}>
+                        <span
+                          className={owned ? `title-anim-${ti.animation}` : ""}
+                          style={{
+                            fontFamily: t.fontMono,
+                            fontSize: 20,
+                            fontWeight: 900,
+                            color: owned ? ti.color : t.textMuted,
+                            letterSpacing: "0.08em",
+                            textShadow: owned && isActive ? `0 0 20px ${ti.color}99, 0 0 40px ${ti.color}44` : owned ? `0 0 12px ${ti.color}44` : "none",
+                            opacity: owned ? 1 : 0.35,
+                          }}
+                        >{ti.label}</span>
+                      </div>
+
+                      {/* Unlock requirement */}
+                      <div style={{ fontFamily: t.fontBody, fontSize: 12, color: t.textMuted, opacity: 0.65, marginBottom: 14 }}>
+                        {ti.unlockDesc}
+                      </div>
+
+                      {/* Footer row */}
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                        {/* Animation type chip */}
+                        <span style={{
+                          fontFamily: t.fontMono, fontSize: 8, letterSpacing: "0.12em", fontWeight: 700,
+                          color: owned ? ti.color : t.textMuted,
+                          background: owned ? `${ti.color}18` : "transparent",
+                          border: `1px solid ${owned ? ti.color + "33" : "transparent"}`,
+                          padding: "2px 8px", borderRadius: 5,
+                          textTransform: "uppercase" as const,
+                          opacity: owned ? 1 : 0.4,
+                        }}>
+                          {ti.animation === "none" ? "STATIC" : ti.animation.toUpperCase()}
+                        </span>
+
+                        {/* Action */}
+                        {owned && (
+                          isActive
+                            ? <span style={{ fontFamily: t.fontMono, fontSize: 10, color: ti.color, fontWeight: 900, letterSpacing: "0.05em", display: "flex", alignItems: "center", gap: 5 }}>
+                                <span style={{ width: 6, height: 6, borderRadius: "50%", background: ti.color, boxShadow: `0 0 8px ${ti.color}`, display: "inline-block" }} />
+                                EQUIPPED
+                              </span>
+                            : <button
+                                type="button"
+                                onClick={e => { e.stopPropagation(); onClickAction?.(); equipTitle(ti.id); }}
+                                disabled={!!equippingTitle}
+                                style={{
+                                  background: `${ti.color}22`, border: `1px solid ${ti.color}55`,
+                                  borderRadius: 8, padding: "5px 14px",
+                                  fontFamily: t.fontMono, fontSize: 10, fontWeight: 800,
+                                  color: ti.color, letterSpacing: "0.06em",
+                                  cursor: equippingTitle ? "wait" : "pointer",
+                                  transition: "background 0.15s",
+                                }}
+                              >
+                                {isEquipping ? "…" : "EQUIP"}
+                              </button>
+                        )}
+                      </div>
                     </div>
-                    {owned
-                      ? <span style={{ fontFamily: t.fontMono, fontSize: 10, color: ti.color, background: `${ti.color}1e`, border: `1px solid ${ti.color}33`, padding: "4px 12px", borderRadius: 8, fontWeight: 900, letterSpacing: "0.05em" }}>CLAIMED</span>
-                      : <LockIcon size={16} color="#666" />}
                   </div>
                 );
               })}

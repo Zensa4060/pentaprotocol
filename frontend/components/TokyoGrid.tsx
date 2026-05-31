@@ -25,6 +25,7 @@ function TokyoBg({ W, H, gridSize = 5, isPaused = false }: { W: number; H: numbe
   const ref = useRef<HTMLCanvasElement | null>(null);
   const raf = useRef<number | null>(null);
   const t = useRef(0);
+  const lastTime = useRef(0);
 
   useEffect(() => {
     const cv = ref.current;
@@ -34,11 +35,11 @@ function TokyoBg({ W, H, gridSize = 5, isPaused = false }: { W: number; H: numbe
       return;
     }
     const dpr = boardSkinCanvasDpr(gridSize);
-    cv.width = W * dpr;
-    cv.height = H * dpr;
+    const tw = Math.round(W * dpr), th = Math.round(H * dpr);
+    if (cv.width !== tw || cv.height !== th) { cv.width = tw; cv.height = th; }
     cv.style.width = W + "px";
     cv.style.height = H + "px";
-    const ctx = cv.getContext("2d");
+    const ctx = cv.getContext("2d", { alpha: true, willReadFrequently: false }) as CanvasRenderingContext2D | null;
     if (!ctx) return;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
@@ -58,8 +59,10 @@ function TokyoBg({ W, H, gridSize = 5, isPaused = false }: { W: number; H: numbe
       { x: W * 0.8, y: H * 0.25, w: W * 0.14, h: H * 0.06, col: "rgba(255,80,0,.65)", p: 0.4 },
     ];
 
-    const draw = () => {
-      t.current += 0.016;
+    const draw = (now: number) => {
+      const dt = lastTime.current ? Math.min((now - lastTime.current) / 16.667, 3) : 1;
+      lastTime.current = now;
+      t.current += 0.016 * dt;
       const tc = t.current;
       ctx.clearRect(0, 0, W, H);
 
@@ -118,7 +121,7 @@ function TokyoBg({ W, H, gridSize = 5, isPaused = false }: { W: number; H: numbe
       raf.current = requestAnimationFrame(draw);
     };
 
-    draw();
+    raf.current = requestAnimationFrame(draw);
     return () => {
       if (raf.current) cancelAnimationFrame(raf.current);
     };
@@ -131,6 +134,7 @@ function GridLines({ W, H, PAD, CS, SIZE, isPaused = false }: { W: number; H: nu
   const ref = useRef<HTMLCanvasElement | null>(null);
   const raf = useRef<number | null>(null);
   const t = useRef(0);
+  const lastTime = useRef(0);
 
   useEffect(() => {
     const cv = ref.current;
@@ -140,19 +144,21 @@ function GridLines({ W, H, PAD, CS, SIZE, isPaused = false }: { W: number; H: nu
       return;
     }
     const dpr = boardSkinCanvasDpr(SIZE);
-    cv.width = W * dpr;
-    cv.height = H * dpr;
+    const tw = Math.round(W * dpr), th = Math.round(H * dpr);
+    if (cv.width !== tw || cv.height !== th) { cv.width = tw; cv.height = th; }
     cv.style.width = W + "px";
     cv.style.height = H + "px";
-    const ctx = cv.getContext("2d");
+    const ctx = cv.getContext("2d", { alpha: true, willReadFrequently: false }) as CanvasRenderingContext2D | null;
     if (!ctx) return;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
     const vC = ["#ff0078", "#ff5500", "#ffe500", "#00ff80", "#00ccff", "#cc00ff", "#ff00ff"];
     const hC = ["#00bbff", "#9900ff", "#ff0055", "#0077ff", "#ff3300", "#00ffbb", "#00ffff"];
 
-    const draw = () => {
-      t.current += 0.016;
+    const draw = (now: number) => {
+      const dt = lastTime.current ? Math.min((now - lastTime.current) / 16.667, 3) : 1;
+      lastTime.current = now;
+      t.current += 0.016 * dt;
       const tc = t.current;
       ctx.clearRect(0, 0, W, H);
       for (let i = 0; i <= SIZE; i++) {
@@ -195,7 +201,7 @@ function GridLines({ W, H, PAD, CS, SIZE, isPaused = false }: { W: number; H: nu
 
       raf.current = requestAnimationFrame(draw);
     };
-    draw();
+    raf.current = requestAnimationFrame(draw);
     return () => { if (raf.current) cancelAnimationFrame(raf.current); };
   }, [W, H, PAD, CS, SIZE, isPaused]);
 
@@ -220,7 +226,7 @@ function BurstCanvas({ burstRef, W, H, gridSize = 5 }: { burstRef: React.Mutable
   const loop = () => {
     const cv = ref.current;
     if (!cv) return;
-    const ctx = cv.getContext("2d");
+    const ctx = cv.getContext("2d", { alpha: true, willReadFrequently: false }) as CanvasRenderingContext2D | null;
     if (!ctx) return;
     ctx.clearRect(0, 0, cv.width, cv.height);
     pts.current = pts.current.filter((p) => p.alpha > 0.01);
@@ -253,8 +259,9 @@ function BurstCanvas({ burstRef, W, H, gridSize = 5 }: { burstRef: React.Mutable
   useEffect(() => {
     const cv = ref.current; if (!cv) return;
     const dpr = boardSkinCanvasDpr(gridSize);
-    cv.width = W * dpr; cv.height = H * dpr; cv.style.width = W + "px"; cv.style.height = H + "px";
-    const ctx = cv.getContext("2d"); if (!ctx) return;
+    const tw = Math.round(W * dpr), th = Math.round(H * dpr);
+    if (cv.width !== tw || cv.height !== th) { cv.width = tw; cv.height = th; } cv.style.width = W + "px"; cv.style.height = H + "px";
+    const ctx = cv.getContext("2d", { alpha: true, willReadFrequently: false }) as CanvasRenderingContext2D | null; if (!ctx) return;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     return () => { if (raf.current) cancelAnimationFrame(raf.current); };
   }, [W, H, gridSize]);

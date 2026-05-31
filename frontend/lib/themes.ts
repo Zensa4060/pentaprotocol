@@ -1,4 +1,4 @@
-export type ThemeId = "classic_light" | "classic_dark" | "space" | "pixel" | "custom";
+export type ThemeId = "classic_2" | "classic_1" | "space" | "pixel" | "custom";
 
 export type Theme = (typeof THEMES)[ThemeId];
 
@@ -13,7 +13,7 @@ export const THEMES: Record<ThemeId, {
   fontDisplay: string; fontBody: string; fontMono: string;
   pieces: { p1: string; p2: string };
   /**
-   * `true` only for "true light-mode" palettes (classic_light). Used by
+   * `true` only for "true light-mode" palettes (classic_2). Used by
    * components to flip hardcoded dark backgrounds / shadows into light-
    * theme equivalents without needing the full ThemeId enum threaded
    * through. Defaults to `false` so existing dark/space/pixel/custom
@@ -22,25 +22,26 @@ export const THEMES: Record<ThemeId, {
   isLight: boolean;
 }> = {
 
-  // ── Classic Light — Warm Brown, ~25% lighter than the previous sage.
-  // Mid-dark warm brown — clearly brighter than classic dark, brown personality.
-  classic_light: {
-    bg:            "#9E774C",  // warm medium tan-brown, 50% lighter + gentler
-    bgPanel:       "#A8825A",  // elevated panel
-    bgCard:        "#B28E68",  // card surface
-    border:        "#C4A07A",  // warm border
-    borderAccent:  "#CC4422",  // burnt orange-red
-    text:          "#FAF0E0",  // warm near-white
-    textSecondary: "#F0D4A8",  // warm tan secondary
-    textMuted:     "#D4AE80",  // warm muted
-    accent:        "#CC4422",  // burnt orange-red
-    accentGlow:    "#E05A30",
-    p1: "#FAF0E0", p2: "#CC4422",
-    danger: "#E04040", success: "#48A858",
+  // ── Classic 2 — Deep Espresso with Amber/Gold accents
+  // Premium dark-warm: like a high-end wooden chess board.
+  // Distinct from Classic 1's cool pure black — this is warm, rich, intentional.
+  classic_2: {
+    bg:            "#1E1410",  // deep espresso — dark warm brown, rich and premium
+    bgPanel:       "#261C16",  // slightly lighter panel
+    bgCard:        "#30241E",  // card surface
+    border:        "#4A3628",  // warm border
+    borderAccent:  "#C84C1A",  // deep terracotta
+    text:          "#F8EED8",  // warm cream — legible, not harsh
+    textSecondary: "#D4B888",  // warm amber secondary
+    textMuted:     "#8A6848",  // muted warm brown
+    accent:        "#C84C1A",  // deep terracotta — pops on espresso
+    accentGlow:    "#E06030",
+    p1: "#F8EED8", p2: "#C84C1A",
+    danger: "#E04040", success: "#4AAE58",
     gold: "#D4A020",
-    boardBg: "#8A6638", boardLine: "#A07850",
-    navBg: "rgba(158,119,76,0.97)",
-    inputBg: "#8A6638", overlay: "rgba(0,0,0,0.65)",
+    boardBg: "#16100C", boardLine: "#3A2818",
+    navBg: "rgba(30,20,16,0.97)",
+    inputBg: "#16100C", overlay: "rgba(0,0,0,0.72)",
     fontDisplay: "'Cinzel', 'GuildOf', serif",
     fontBody:    "'Cinzel', 'GuildOf', serif",
     fontMono:    "'Cinzel', serif",
@@ -48,7 +49,7 @@ export const THEMES: Record<ThemeId, {
     isLight: false,
   },
 
-  classic_dark: {
+  classic_1: {
     bg: "#0A0A0A", bgPanel: "#141414", bgCard: "#1C1C1C",
     border: "#2E2E2E", borderAccent: "#888888",
     text: "#F0F0F0", textSecondary: "#AAAAAA", textMuted: "#555555",

@@ -78,10 +78,159 @@
   src: url('/fonts/Eunomia-Light.otf') format('opentype');
   font-weight: 300;
 }
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
 html, body {
   margin: 0;
   padding: 0;
   background: transparent;
+}
+
+/* ── Hardware acceleration for animated elements ─────────────────────────── */
+.store-card {
+  will-change: transform;
+}
+
+/* ── Global smooth transitions ───────────────────────────────────────────── */
+
+/* Every button/interactive element gets a base transition */
+button, [role="button"] {
+  transition: opacity 0.15s ease, transform 0.15s ease, background-color 0.15s ease,
+              border-color 0.15s ease, box-shadow 0.18s ease, color 0.15s ease;
+}
+button:active:not(:disabled), [role="button"]:active {
+  transform: scale(0.97);
+}
+
+/* Collection / store cards */
+.coll-item {
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.18s ease,
+              opacity 0.18s ease, transform 0.15s ease;
+}
+.coll-item:hover:not(.coll-locked) {
+  transform: translateY(-1px);
+}
+
+/* Screen fade-in for all major screens */
+.phase-screen {
+  animation: screenFadeIn 0.28s cubic-bezier(0.22, 0.68, 0, 1.2) both;
+}
+@keyframes screenFadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0);   }
+}
+
+/* Smooth category tab switch in collection */
+.cat-content-enter {
+  animation: catSlideIn 0.22s cubic-bezier(0.22, 0.68, 0, 1.2) both;
+}
+@keyframes catSlideIn {
+  from { opacity: 0; transform: translateX(12px); }
+  to   { opacity: 1; transform: translateX(0);    }
+}
+
+/* Modal appear */
+.modal-backdrop {
+  animation: modalBgIn 0.2s ease both;
+}
+.modal-panel {
+  animation: modalPanelIn 0.25s cubic-bezier(0.34, 1.4, 0.64, 1) both;
+}
+@keyframes modalBgIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes modalPanelIn {
+  from { opacity: 0; transform: scale(0.93) translateY(12px); }
+  to   { opacity: 1; transform: scale(1)    translateY(0);    }
+}
+
+/* Toast / equip message */
+@keyframes toastSlideUp {
+  from { opacity: 0; transform: translateX(-50%) translateY(10px); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0);    }
+}
+
+/* Smooth image loads */
+img {
+  transition: opacity 0.2s ease;
+}
+
+/* ── Title / badge animations ────────────────────────────────────────────── */
+.title-anim-pulse {
+  animation: titlePulse 2.4s ease-in-out infinite;
+}
+@keyframes titlePulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.65; }
+}
+
+.title-anim-shimmer {
+  background: linear-gradient(90deg, currentColor 0%, #fff 50%, currentColor 100%);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: titleShimmer 2.8s linear infinite;
+}
+@keyframes titleShimmer {
+  to { background-position: 200% center; }
+}
+
+.title-anim-flicker {
+  animation: titleFlicker 1.8s ease-in-out infinite;
+}
+@keyframes titleFlicker {
+  0%, 90%, 100% { opacity: 1; }
+  92%           { opacity: 0.3; }
+  95%           { opacity: 1; }
+  97%           { opacity: 0.5; }
+}
+
+.title-anim-rainbow {
+  background: linear-gradient(90deg, #ff4444, #ffaa00, #44ff44, #44aaff, #aa44ff, #ff4444);
+  background-size: 300% auto;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: titleRainbow 3s linear infinite;
+}
+@keyframes titleRainbow {
+  to { background-position: 300% center; }
+}
+
+.title-anim-fire {
+  animation: titleFire 0.08s ease-in-out infinite alternate;
+  text-shadow: 0 0 8px #FF3333, 0 0 20px #FF6600, 0 0 40px #FF0000;
+}
+@keyframes titleFire {
+  from { transform: skewX(-1deg); }
+  to   { transform: skewX(1deg); }
+}
+
+.title-anim-electric {
+  animation: titleElectric 0.12s linear infinite;
+}
+@keyframes titleElectric {
+  0%   { text-shadow: 0 0 6px currentColor,  0 0 12px currentColor; }
+  25%  { text-shadow: 0 0 12px currentColor, 0 0 28px currentColor; }
+  50%  { text-shadow: 0 0 4px currentColor,  0 0 8px currentColor;  }
+  75%  { text-shadow: 0 0 16px currentColor, 0 0 32px currentColor; }
+  100% { text-shadow: 0 0 6px currentColor,  0 0 12px currentColor; }
+}
+
+/* ── Navigation smoothing ────────────────────────────────────────────────── */
+/* Prevents layout jumps during client-side route transitions */
+main {
+  transition: opacity 0.18s ease;
 }
 
 /* Rank emblems: internal radiating glow (halo pulses behind transparent logos) */

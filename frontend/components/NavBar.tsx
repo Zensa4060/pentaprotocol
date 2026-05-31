@@ -232,7 +232,7 @@ export default function NavBar({
   const storeCatalogSig = useMemo(() => getStoreCatalogSignature(), []);
 
   const ip        = themeId === "pixel";
-  const isClassic = themeId === "classic_light" || themeId === "classic_dark";
+  const isClassic = themeId === "classic_2" || themeId === "classic_1";
 
   // Track viewport width
   useEffect(() => {

@@ -28,6 +28,14 @@ import {
   type MissionPeriod,
 } from "@/lib/missionsDefinitions";
 import { SHARDS_LIGHT_SVG, SHARDS_DARK_SVG } from "@/lib/currencyIcons";
+import { TITLES } from "./ProfileScreen";
+
+// Map: mission ID → badge that unlocks when this mission is completed
+const MISSION_BADGE_MAP: Record<string, { label: string; color: string }> = Object.fromEntries(
+  TITLES
+    .filter(ti => ti.missionId)
+    .map(ti => [ti.missionId!, { label: ti.label, color: ti.color }])
+);
 
 type Theme = (typeof THEMES)[ThemeId];
 type ProfileLike = Record<string, unknown> & { level?: number; elo?: number };
@@ -69,7 +77,7 @@ interface Props {
 export default function MissionsScreen({ themeId, initialTab }: Props) {
   const t = THEMES[themeId];
   const router = useRouter();
-  const shardsSvg = themeId === "classic_light" ? SHARDS_LIGHT_SVG : SHARDS_DARK_SVG;
+  const shardsSvg = themeId === "classic_2" ? SHARDS_LIGHT_SVG : SHARDS_DARK_SVG;
 
   const { user, token, updateUser } = useAuthStore();
   const userKey = getUserKey(user);
@@ -429,6 +437,21 @@ function MissionCard({ mission, claimed, done, progress, progressPct, xp, onClai
           </div>
         </div>
       </div>
+
+      {/* Badge unlock hint */}
+      {MISSION_BADGE_MAP[mission.id] && (
+        <div style={{
+          display: "inline-flex", alignItems: "center", gap: 6,
+          background: `${MISSION_BADGE_MAP[mission.id].color}14`,
+          border: `1px solid ${MISSION_BADGE_MAP[mission.id].color}44`,
+          borderRadius: 6, padding: "4px 10px", alignSelf: "flex-start",
+        }}>
+          <svg width="10" height="10" viewBox="0 0 24 24" fill={MISSION_BADGE_MAP[mission.id].color} opacity="0.9"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+          <span style={{ fontFamily: t.fontMono, fontSize: 9, fontWeight: 800, color: MISSION_BADGE_MAP[mission.id].color, letterSpacing: "0.1em" }}>
+            UNLOCKS BADGE: {MISSION_BADGE_MAP[mission.id].label.toUpperCase()}
+          </span>
+        </div>
+      )}
 
       {/* Progress bar */}
       <div>

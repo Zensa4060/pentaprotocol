@@ -398,9 +398,9 @@ export default function HomeScreen({ setScreenAction, themeId, onHoverAction, on
   const isMobile = bp === "mobile";
   const isTablet = bp === "tablet";
 
-  // classic_dark has a near-grey t.accent so override to a visible red;
-  // classic_light now has a proper wine-red t.accent so just use it.
-  const accent = themeId === "classic_dark" ? "#CC0000" : t.accent;
+  // classic_1 has a near-grey t.accent so override to a visible red;
+  // classic_2 now has a proper wine-red t.accent so just use it.
+  const accent = themeId === "classic_1" ? "#CC0000" : t.accent;
 
   // Banner skin: read from localStorage. Only show the hero strip when
   // the player has equipped a non-default animated banner.
@@ -599,7 +599,7 @@ export default function HomeScreen({ setScreenAction, themeId, onHoverAction, on
           <div style={{
             position: "fixed", inset: 0, zIndex: 0, pointerEvents: "none",
           }}>
-            <BannerRenderer bannerId={equippedBanner} style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }} />
+            <BannerRenderer bannerId={equippedBanner} themeId={themeId} style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }} />
           </div>
           {/* Dark vignette overlay — keeps content readable while banner shows through */}
           <div style={{
@@ -782,7 +782,7 @@ export default function HomeScreen({ setScreenAction, themeId, onHoverAction, on
                 }}
               >
                 <div style={{
-                  fontFamily: (themeId === "classic_light" || themeId === "classic_dark" || themeId === "space") ? "'Cinzel', serif" : t.fontDisplay,
+                  fontFamily: (themeId === "classic_2" || themeId === "classic_1" || themeId === "space") ? "'Cinzel', serif" : t.fontDisplay,
                   fontSize: cardTitleSize, fontWeight: 700,
                   color: hovered === card.key ? (card.key === "lobby" ? BLOOD_RED : card.key === "ai" ? AI_PURPLE : t.accent) : t.text,
                   marginBottom: isMobile ? 4 : 8,

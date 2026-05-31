@@ -44,7 +44,7 @@ interface MatchResultScreenProps {
     textMuted: string;
     /** Optional light-theme flag — flips the full-screen backdrop and a
      *  few SYROS-reward surfaces into light-on-light equivalents so the
-     *  series-result celebration is readable in `classic_light`. */
+     *  series-result celebration is readable in `classic_2`. */
     isLight?: boolean;
   };
   onQuit: () => void;

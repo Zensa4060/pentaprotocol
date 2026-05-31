@@ -703,7 +703,7 @@ export default function LobbyScreen({
     const vsSize = isMobile ? 220 : 380;
     const myMatchBanner = myBannerSkin;
     const oppMatchBanner = String(propMatchupOpponent?.banner || "default");
-    const barTrack = mfSkin === "classic_light" ? "rgba(0,0,0,0.14)" : "rgba(255,255,255,0.12)";
+    const barTrack = mfSkin === "classic_2" ? "rgba(0,0,0,0.14)" : "rgba(255,255,255,0.12)";
 
     const MatchBannerShowcase = ({
       bannerId,
@@ -1098,7 +1098,7 @@ export default function LobbyScreen({
         lineHeight: 1.3,
         textTransform: "uppercase",
         // Use the theme's primary text color so the taunt reads as bold
-        // dark-on-light in `classic_light` instead of white-on-white. The
+        // dark-on-light in `classic_2` instead of white-on-white. The
         // glowing white halo only made sense over a dark page bg, so we
         // swap it for a soft accent halo in light mode and keep the
         // original neon-white halo on every dark theme.

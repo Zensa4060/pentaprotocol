@@ -3,21 +3,21 @@ import type { BgSource } from "@/lib/customTheme";
 import { loadCustomTheme } from "@/lib/customTheme";
 
 /** Visual family for the match-found screen (mirrors app theme / custom background). */
-export type MatchFoundSkin = "space" | "pixel" | "classic_light" | "classic_dark";
+export type MatchFoundSkin = "space" | "pixel" | "classic_2" | "classic_1";
 
 export function resolveMatchFoundSkin(themeId: ThemeId): MatchFoundSkin {
   if (themeId === "space") return "space";
   if (themeId === "pixel") return "pixel";
-  if (themeId === "classic_light") return "classic_light";
-  if (themeId === "classic_dark") return "classic_dark";
+  if (themeId === "classic_2") return "classic_2";
+  if (themeId === "classic_1") return "classic_1";
   if (themeId === "custom") {
     const bg = loadCustomTheme().background as BgSource;
     if (bg === "space") return "space";
     if (bg === "pixel") return "pixel";
-    if (bg === "classic_light") return "classic_light";
-    return "classic_dark";
+    if (bg === "classic_2") return "classic_2";
+    return "classic_1";
   }
-  return "classic_dark";
+  return "classic_1";
 }
 
 export type MatchFoundPalette = {
@@ -38,7 +38,7 @@ export type MatchFoundPalette = {
 
 export function getMatchFoundPalette(skin: MatchFoundSkin): MatchFoundPalette {
   switch (skin) {
-    case "classic_light":
+    case "classic_2":
       return {
         pageBg: "#EFE5CF",
         pageBgOuter: "#E4D6B7",
@@ -54,7 +54,7 @@ export function getMatchFoundPalette(skin: MatchFoundSkin): MatchFoundPalette {
         unrankedAccent: "#0A0A0A",
         avatarInnerBg: "#1A1410",
       };
-    case "classic_dark":
+    case "classic_1":
       return {
         pageBg: "#161311",
         pageBgOuter: "#0B0908",
@@ -103,6 +103,6 @@ export function getMatchFoundPalette(skin: MatchFoundSkin): MatchFoundPalette {
         avatarInnerBg: "#0d1209",
       };
     default:
-      return getMatchFoundPalette("classic_dark");
+      return getMatchFoundPalette("classic_1");
   }
 }

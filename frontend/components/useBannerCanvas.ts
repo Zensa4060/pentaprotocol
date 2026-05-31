@@ -94,7 +94,7 @@ export function useBannerCanvas(drawFn: DrawFn, _fps: number = 60) {
 
       const { W, H, D } = dimRef.current;
       if (W > 1 && H > 1) {
-        const ctx = cv.getContext("2d");
+        const ctx = cv.getContext("2d", { alpha: true, willReadFrequently: false });
         if (ctx) {
           ctx.setTransform(D, 0, 0, D, 0, 0);
           try {

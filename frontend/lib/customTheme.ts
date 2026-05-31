@@ -6,11 +6,11 @@ export type BoardSkin =
   | "default" | "marble" | "forest" | "void" | "gold" | "ice"
   | "red_grid" | "ice_grid" | "glacier_grid" | "bloodmoon_grid" | "egypt_grid" | "synthwave_grid" | "matrix_grid" | "arcane_grid" | "bio_grid" | "forge_grid" | "void_grid" | "tokyo_grid" | "space_grid" | "pixel_grid";
 export type CoinSkin   = "default" | "crystal" | "emerald" | "ruby" | "obsidian" | "legend";
-export type TossAnim   = "default" | "slow_mo" | "lightning" | "galaxy" | "matrix" | "wraith_king";
+export type TossAnim   = "default" | "slow_mo" | "lightning" | "galaxy" | "matrix" | "wraith_king" | "solar_flare" | "void_rift" | "neon_strike";
 export type PieceSkin =
   | "default" | "roman" | "rune" | "symbol" | "legend"
   | "flame_skull" | "snowflake_shard" | "glacier_shard" | "bloodmoon_sigils" | "egypt_sigils" | "synthwave_sigils" | "matrix_sigils" | "arcane_sigils" | "bio_sigils" | "forge_sigils" | "void_sigils" | "tokyo_sigils" | "space_sigils" | "pixel_sigils";
-export type BgSource   = "classic_light" | "classic_dark" | "space" | "pixel";
+export type BgSource   = "classic_2" | "classic_1" | "space" | "pixel";
 
 // Keep SoundPack as alias for backward compat
 export type SoundPack = SfxPack;
@@ -33,7 +33,7 @@ export const DEFAULT_CUSTOM_THEME: CustomThemeConfig = {
   coinSkin:   "default",
   tossSkin:   "default",
   pieceSkin:  "default",
-  background: "classic_dark",
+  background: "classic_1",
   bannerSkin: "default",
 };
 

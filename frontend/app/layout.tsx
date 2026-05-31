@@ -59,8 +59,8 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
-        {/* Preload Cinzel eagerly — it is the active font for classic_dark (the
-            default theme) and classic_light. Orbitron / PentaPixel are only used
+        {/* Preload Cinzel eagerly — it is the active font for classic_1 (the
+            default theme) and classic_2. Orbitron / PentaPixel are only used
             when the user switches to space / pixel theme, so they load on-demand
             via font-display:swap with no layout shift. */}
         <link rel="preload" href="/fonts/Cinzel-Variable.ttf" as="font" type="font/ttf" crossOrigin="anonymous" />

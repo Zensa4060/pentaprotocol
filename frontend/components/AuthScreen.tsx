@@ -191,7 +191,7 @@ function ParticleCanvas({ settings }: { settings: ParticleSettings }) {
       const size = Math.ceil(radius * 4);
       const off = document.createElement("canvas");
       off.width = off.height = size;
-      const g = off.getContext("2d");
+      const g = off.getContext("2d", { alpha: true, willReadFrequently: false });
       if (!g) return off;
       const cx = size / 2;
       const grad = g.createRadialGradient(cx, cx, 0, cx, cx, cx);

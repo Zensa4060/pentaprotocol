@@ -484,9 +484,9 @@ export default function CareerScreen({ themeId, onHoverAction, initialMatchId }:
    * styled with `rgba(25,25,25,…)` and `rgba(255,255,255,…)` accents
    * baked for the dark theme. On the light palette those produce a
    * washed-out grey-on-grey table. Flip them to subtle dark-on-light
-   * surfaces when the active theme is `classic_light`.
+   * surfaces when the active theme is `classic_2`.
    */
-  const isLight = themeId === "classic_light";
+  const isLight = themeId === "classic_2";
   const careerShellBg = isLight ? "rgba(255,255,255,0.96)" : "rgba(25,25,25,0.4)";
   const careerShellShadow = isLight ? "0 18px 36px rgba(0,0,0,0.10)" : "0 18px 36px rgba(0,0,0,0.32)";
   const careerHeaderBg = isLight ? "rgba(0,0,0,0.04)" : "rgba(255,255,255,0.03)";
@@ -756,7 +756,7 @@ export default function CareerScreen({ themeId, onHoverAction, initialMatchId }:
               }}
             >
               <div style={{ position: "absolute", inset: 0, opacity: 1.0, zIndex: 0 }}>
-                <BannerRenderer bannerId={loadCustomTheme().bannerSkin ?? "default"} />
+                <BannerRenderer bannerId={loadCustomTheme().bannerSkin ?? "default"} themeId={themeId} />
                 {bannerShineEnabled && (
                   <div
                     style={{

@@ -1346,7 +1346,7 @@ function Stat({
   value,
   color,
 }: {
-  t: typeof THEMES["classic_dark"];
+  t: typeof THEMES["classic_1"];
   label: string;
   value: string;
   color?: string;

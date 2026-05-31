@@ -83,7 +83,7 @@ interface Props {
 }
 
 export default function FriendsSidePanel({ themeId, onHoverAction, forceSolidBackdrop, roomCodeToShare }: Props) {
-  const t = THEMES[themeId as keyof typeof THEMES] ?? THEMES.classic_dark;
+  const t = THEMES[themeId as keyof typeof THEMES] ?? THEMES.classic_1;
   const router = useRouter();
   const { user, token } = useAuthStore();
   const meId = String((user as unknown as { id?: string; _id?: string })?.id

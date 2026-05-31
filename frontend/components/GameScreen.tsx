@@ -71,6 +71,36 @@ import { matchMsForGridSize } from "@/lib/matchClock";
 
 const EPS = 1e-9;
 const PP_HOME_NOTICE_KEY = "pp_home_notice";
+
+// Minimal title colour lookup for in-game badge display — kept in sync with ProfileScreen.TITLES
+const TITLES_DATA: { id: string; label: string; color: string }[] = [
+  { id: "newcomer",     label: "Newcomer",     color: "#9CA3AF" },
+  { id: "rookie",       label: "Rookie",       color: "#6B7280" },
+  { id: "sharpshooter", label: "Sharpshooter", color: "#60A5FA" },
+  { id: "duelist",      label: "Duelist",      color: "#FCD34D" },
+  { id: "rising_star",  label: "Rising Star",  color: "#93C5FD" },
+  { id: "gladiator",    label: "Gladiator",    color: "#F97316" },
+  { id: "strategist",   label: "Strategist",   color: "#34D399" },
+  { id: "ironbound",    label: "Ironbound",    color: "#78716C" },
+  { id: "apex",         label: "Apex",         color: "#2DD4BF" },
+  { id: "centurion",    label: "Centurion",    color: "#C084FC" },
+  { id: "breaker",      label: "Breaker",      color: "#F87171" },
+  { id: "protocol",     label: "Protocol",     color: "#38BDF8" },
+  { id: "emerald_eye",  label: "Emerald Eye",  color: "#10B981" },
+  { id: "unbreakable",  label: "Unbreakable",  color: "#FB7185" },
+  { id: "warlord",      label: "Warlord",      color: "#DC2626" },
+  { id: "veteran",      label: "Veteran",      color: "#A78BFA" },
+  { id: "chaos_agent",  label: "Chaos Agent",  color: "#F97316" },
+  { id: "architect",    label: "Architect",    color: "#E879F9" },
+  { id: "penta_master", label: "Penta Master", color: "#FF3333" },
+  { id: "conqueror",    label: "Conqueror",    color: "#D97706" },
+  { id: "relentless",   label: "Relentless",   color: "#4ADE80" },
+  { id: "sovereign",    label: "Sovereign",    color: "#7C3AED" },
+  { id: "the_legend",   label: "The Legend",   color: "#F59E0B" },
+  { id: "ascendant",    label: "Ascendant",    color: "#818CF8" },
+  { id: "immortal",     label: "Immortal",     color: "#BAE6FD" },
+  { id: "transcendent", label: "Transcendent", color: "#F0ABFC" },
+];
 const DISCONNECT_HOME_NOTICE =
   "your opponent disconnected or left the game. repeated disconnecting/quitting is a bannable offense.";
 
@@ -613,8 +643,10 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
   const pieceSkin = _ct.pieceSkin ?? "default";
   const tossSkin = _ct.tossSkin ?? "default";
   const purchasedItems = ((user as { purchased_items?: string[] } | null)?.purchased_items ?? []) as string[];
-  const wraithKingTossActive = tossSkin === "wraith_king" && purchasedItems.includes("coin_bundle_wraith_king");
-  const rbCoinFlipSeconds = wraithKingTossActive ? 4.15 : 3;
+  // Coin toss skins removed — always use default flip
+  const wraithKingTossActive = false;
+  const activeCoinTossId = "default";
+  const rbCoinFlipSeconds = 3;
 
   // Bundle boards should always use their matching pieces (no mixing).
   const effectivePieceSkin = (
@@ -778,6 +810,9 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
 
   const myDisplayName = p1Name ?? (mySlot === "P1" ? "P1" : "P2");
   const oppDisplayName = opponentName ?? (mySlot === "P1" ? "P2" : "P1");
+  // Active title badge for local player — shown in player chips
+  const myTitleId = (user as any)?.title ?? "newcomer";
+  const myTitleData = TITLES_DATA.find((ti: any) => ti.id === myTitleId) ?? TITLES_DATA[0];
 
   // Sync banners from matchupData on start
   useEffect(() => {
@@ -4658,6 +4693,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
         gameMode={gameMode}
         p1Label={p1Label} p2Label={p2Label}
         wraithKingToss={wraithKingTossActive}
+        activeCoinTossId={activeCoinTossId}
         rbCoinPendingResult={rbCoinPendingResult}
         onLeftAction={onLeftAction} onRightAction={onRightAction} fmtSecAction={fmtSecAction}
         is7x7={is7x7} is6x6={is6x6} selectedPatterns={liveSelectedPatterns} rbBannedPatterns={rbBannedPatterns} onBanPattern={onBanPattern}
@@ -4698,6 +4734,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
       p1Label={p1Label}
       p2Label={p2Label}
       wraithKingToss={wraithKingTossActive}
+      activeCoinTossId={activeCoinTossId}
       rbCoinPendingResult={rbCoinPendingResult}
       onLeftAction={onLeftAction}
       onRightAction={onRightAction}
@@ -5431,16 +5468,34 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
 
         {/* Floating timer chips */}
         <div style={{ position: "absolute", top: 8, left: 8, zIndex: 10, display: "flex", flexDirection: "column", gap: 5 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 6, background: "rgba(0,0,0,0.75)", border: `1px solid ${current === "P1" && !winner ? p1c : "rgba(255,255,255,0.1)"}`, borderRadius: 8, padding: "5px 10px", backdropFilter: "blur(6px)" }}>
-            <div style={{ width: 7, height: 7, borderRadius: "50%", background: p1c, opacity: current === "P1" && !winner ? 1 : 0.35 }} />
-            <span style={{ fontFamily: t.fontMono, fontSize: 11, color: current === "P1" && !winner ? p1c : "#666", fontWeight: 700 }}>{p1Label}</span>
-            <span style={{ fontFamily: t.fontMono, fontSize: 13, color: current === "P1" && !winner ? p1c : "#444", fontWeight: 900, marginLeft: 4 }}>{fmtTime(p1Time)}</span>
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 6, background: "rgba(0,0,0,0.75)", border: `1px solid ${current === "P2" && !winner ? p2c : "rgba(255,255,255,0.1)"}`, borderRadius: 8, padding: "5px 10px", backdropFilter: "blur(6px)" }}>
-            <div style={{ width: 7, height: 7, borderRadius: "50%", background: p2c, opacity: current === "P2" && !winner ? 1 : 0.35 }} />
-            <span style={{ fontFamily: t.fontMono, fontSize: 11, color: current === "P2" && !winner ? p2c : "#666", fontWeight: 700 }}>{p2Label}</span>
-            <span style={{ fontFamily: t.fontMono, fontSize: 13, color: current === "P2" && !winner ? p2c : "#444", fontWeight: 900, marginLeft: 4 }}>{fmtTime(p2Time)}</span>
-          </div>
+          {(() => {
+            // Determine which player is "me" to show their title badge
+            const myIsP1 = mySlot === "P1" || isSingleplayer;
+            const p1TitleData = myIsP1 ? myTitleData : null;
+            const p2TitleData = !myIsP1 ? myTitleData : null;
+            return (<>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, background: "rgba(0,0,0,0.75)", border: `1px solid ${current === "P1" && !winner ? p1c : "rgba(255,255,255,0.1)"}`, borderRadius: 8, padding: "5px 10px", backdropFilter: "blur(6px)" }}>
+                <div style={{ width: 7, height: 7, borderRadius: "50%", background: p1c, opacity: current === "P1" && !winner ? 1 : 0.35, flexShrink: 0 }} />
+                <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
+                  <span style={{ fontFamily: t.fontMono, fontSize: 11, color: current === "P1" && !winner ? p1c : "#666", fontWeight: 700, lineHeight: 1 }}>{p1Label}</span>
+                  {p1TitleData && p1TitleData.id !== "newcomer" && (
+                    <span style={{ fontFamily: t.fontMono, fontSize: 8, color: p1TitleData.color, opacity: current === "P1" && !winner ? 0.9 : 0.45, fontWeight: 700, letterSpacing: "0.05em", lineHeight: 1 }}>{p1TitleData.label}</span>
+                  )}
+                </div>
+                <span style={{ fontFamily: t.fontMono, fontSize: 13, color: current === "P1" && !winner ? p1c : "#444", fontWeight: 900, marginLeft: 4 }}>{fmtTime(p1Time)}</span>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, background: "rgba(0,0,0,0.75)", border: `1px solid ${current === "P2" && !winner ? p2c : "rgba(255,255,255,0.1)"}`, borderRadius: 8, padding: "5px 10px", backdropFilter: "blur(6px)" }}>
+                <div style={{ width: 7, height: 7, borderRadius: "50%", background: p2c, opacity: current === "P2" && !winner ? 1 : 0.35, flexShrink: 0 }} />
+                <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
+                  <span style={{ fontFamily: t.fontMono, fontSize: 11, color: current === "P2" && !winner ? p2c : "#666", fontWeight: 700, lineHeight: 1 }}>{p2Label}</span>
+                  {p2TitleData && p2TitleData.id !== "newcomer" && (
+                    <span style={{ fontFamily: t.fontMono, fontSize: 8, color: p2TitleData.color, opacity: current === "P2" && !winner ? 0.9 : 0.45, fontWeight: 700, letterSpacing: "0.05em", lineHeight: 1 }}>{p2TitleData.label}</span>
+                  )}
+                </div>
+                <span style={{ fontFamily: t.fontMono, fontSize: 13, color: current === "P2" && !winner ? p2c : "#444", fontWeight: 900, marginLeft: 4 }}>{fmtTime(p2Time)}</span>
+              </div>
+            </>);
+          })()}
         </div>
 
         {/* Match history chips */}

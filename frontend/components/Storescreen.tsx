@@ -1,5 +1,5 @@
 "use client";
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import type { Screen } from "@/lib/types";
 import type { ThemeId } from "@/lib/themes";
@@ -15,6 +15,8 @@ import {
   RedCell, IceCell, GlacierAurora, GlacierSnow,
 } from "./GamePieces";
 import GlacierGrid from "./GlacierGrid";
+import { WraithKingCoinToss } from "./WraithKingCoinToss";
+import { SolarFlareCoinToss, VoidRiftCoinToss, NeonStrikeCoinToss } from "./CoinTossAnimations";
 import BloodMoonGrid from "./BloodMoonGrid";
 import EgyptGrid from "./EgyptGrid";
 import SynthwaveGrid from "./SynthwaveGrid";
@@ -202,6 +204,9 @@ function resolveBundleFromSlug(raw: string): Bundle | undefined {
 type CoinBundle = { id: string; label: string; tagline: string; desc: string; accentColor: string; bgGradient: string; bundlePrice: number; shardPrice: number; purchaseId: string; tags: string[] };
 const COIN_BUNDLES: CoinBundle[] = [
   { id: "wraith_king_coin", label: "WRAITH KING COIN", tagline: "DOMINION & SERVITUDE — Rulebreaker toss skin", desc: "Crowned skull (PENTA) and soul portal (PROTO), spectral particles, and a full Rulebreaker toss animation. Equip the toss in Collection after unlock.", accentColor: "#aa66ee", bgGradient: "linear-gradient(160deg,#0c0618,#12041c,#06020c)", bundlePrice: 299, shardPrice: 50, purchaseId: "coin_bundle_wraith_king", tags: ["COIN", "RULEBREAKER", "BUNDLE"] },
+  { id: "solar_flare_coin", label: "SOLAR FLARE COIN", tagline: "RADIANCE & ECLIPSE — Sun and moon toss faces", desc: "Burnished gold sun (PENTA) and solar eclipse (PROTO) faces with fiery particle effects. Equip the toss in Collection after unlock.", accentColor: "#ffcc44", bgGradient: "linear-gradient(160deg,#1a0800,#2a1000,#0c0400)", bundlePrice: 499, shardPrice: 75, purchaseId: "coin_bundle_solar_flare", tags: ["COIN", "SOLAR", "BUNDLE"] },
+  { id: "void_rift_coin", label: "VOID RIFT COIN", tagline: "COSMOS & THE VOID — Galaxy and rift toss faces", desc: "Spiral galaxy eye (PENTA) and reality rift (PROTO) faces with deep void particle effects. Equip the toss in Collection after unlock.", accentColor: "#aa66ff", bgGradient: "linear-gradient(160deg,#08041a,#10062e,#04020e)", bundlePrice: 499, shardPrice: 75, purchaseId: "coin_bundle_void_rift", tags: ["COIN", "VOID", "BUNDLE"] },
+  { id: "neon_strike_coin", label: "NEON STRIKE COIN", tagline: "SURGE & CIRCUIT — Cyberpunk neon toss faces", desc: "Neon circuit P (PENTA) and circuit board (PROTO) faces with electric particle effects. Equip the toss in Collection after unlock.", accentColor: "#00ffdd", bgGradient: "linear-gradient(160deg,#001a18,#002e28,#000e0c)", bundlePrice: 499, shardPrice: 75, purchaseId: "coin_bundle_neon_strike", tags: ["COIN", "NEON", "BUNDLE"] },
 ];
 
 /** Sorted signature of purchasable cosmetic ids — bump nav “Store” badge when this string changes. */
@@ -716,7 +721,7 @@ export default function StoreScreen({ setScreenAction, themeId, audio, initialSe
   const activePackages = buyCurrencyType === "shards" ? SHARD_PACKAGES : PACKAGES;
   const selectedPackageId = buyCurrencyType === "shards" ? selectedShards : selectedProto;
   const pkg = activePackages.find(p => p.id === selectedPackageId)!;
-  const isClassic = themeId === "classic_light" || themeId === "classic_dark";
+  const isClassic = themeId === "classic_2" || themeId === "classic_1";
   const accent = isClassic ? "#CC0000" : t.accent;
   const balance = (user as any)?.protocredits ?? 0;
   const shardBalance = (user as any)?.pentashards ?? (user as any)?.shards ?? 0;
@@ -738,6 +743,7 @@ export default function StoreScreen({ setScreenAction, themeId, audio, initialSe
   const canClaimAnyFreeBoardSkin = canClaimFreeBoardSkin || canClaimFreeSyrosSkin;
   const [claimingBannerId,    setClaimingBannerId]    = useState<string | null>(null);
   const [claimingCoinTossId,  setClaimingCoinTossId]  = useState<string | null>(null);
+  const [coinPreviewId,       setCoinPreviewId]       = useState<string | null>(null); // purchaseId of coin being previewed
   const [claimingBoardSkinId, setClaimingBoardSkinId] = useState<string | null>(null);
 
   // Shared claim helper — calls one of the four redeem endpoints and syncs
@@ -1199,57 +1205,7 @@ export default function StoreScreen({ setScreenAction, themeId, audio, initialSe
           )} />
         </div>
 
-        {/* COIN BUNDLES */}
-        <div style={{ marginBottom: 56 }}>
-          <SectionHeader label="COIN BUNDLES" accent={accent} icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={accent} strokeWidth="1.8" strokeLinecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v10M9 10h4.5a1.5 1.5 0 010 3H9"/></svg>}/>
-          {canClaimFreeCoinToss && (
-            <div style={{
-              marginTop: -8, marginBottom: 20,
-              border: "2px solid #FCD34D",
-              borderRadius: 14,
-              padding: "16px 20px",
-              background: "linear-gradient(135deg, rgba(252,211,77,0.12), rgba(217,119,6,0.22))",
-              boxShadow: "0 0 32px rgba(252,211,77,0.25)",
-              display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap",
-            }}>
-              <div style={{ minWidth: 0 }}>
-                <div style={{ fontFamily: t.fontDisplay, fontSize: 16, fontWeight: 900, color: "#FCD34D", letterSpacing: "0.06em", marginBottom: 4 }}>
-                  HIM DEFEATED — FREE COIN-TOSS SKIN UNLOCKED
-                </div>
-                <div style={{ fontFamily: t.fontBody, fontSize: 13, color: "rgba(255,255,255,0.82)", lineHeight: 1.5 }}>
-                  Claim a coin-toss skin below for free. This choice is permanent.
-                </div>
-              </div>
-              <div style={{ fontFamily: t.fontMono, fontSize: 11, color: "#FCD34D", letterSpacing: "0.14em", padding: "6px 10px", border: "1px solid #FCD34D88", borderRadius: 8, whiteSpace: "nowrap" as const }}>
-                1 REWARD REMAINING
-              </div>
-            </div>
-          )}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(320px,1fr))", gap: 20 }}>
-            {COIN_BUNDLES.map(bundle => {
-              const owned = purchasedItems.includes(bundle.purchaseId); const glow = bundle.accentColor;
-              const showFreeClaim = canClaimFreeCoinToss && !owned;
-              const isClaiming = claimingCoinTossId === bundle.purchaseId;
-              const cardBorder = owned ? "#4CAF50" : showFreeClaim ? "#FCD34D" : bundle.accentColor + "33";
-              const cardShadow = owned ? "none" : showFreeClaim ? "0 8px 32px rgba(252,211,77,0.35)" : `0 8px 32px ${bundle.accentColor}22`;
-              return (
-                <div key={bundle.id} className="store-card" style={{ borderRadius: 18, overflow: "hidden", border: `2px solid ${cardBorder}`, background: bundle.bgGradient, padding: "24px", position: "relative", boxShadow: cardShadow }}>
-                  <div style={{ position: "absolute", top: 14, right: 14, zIndex: 2 }}>
-                    {owned ? <UnlockBadge text="Owned" accent="#4CAF50" /> : showFreeClaim ? <UnlockBadge text="Free Reward" accent="#FCD34D" /> : (<span style={{ fontFamily: "var(--font-mono)", fontSize: 10, fontWeight: 800, color: "#fff", display: "inline-flex", alignItems: "center", gap: 8, background: "rgba(0,0,0,0.45)", border: `1px solid ${glow}55`, padding: "4px 10px", borderRadius: 8 }}>{bundle.bundlePrice.toLocaleString()} <ProtoSVG size={12} /> {bundle.shardPrice.toLocaleString()} <ShardSVG size={12} /></span>)}
-                  </div>
-                  <div style={{ fontFamily: t.fontDisplay, fontSize: 22, fontWeight: 900, color: "#fff", letterSpacing: "0.04em", marginBottom: 3 }}>{bundle.label}</div>
-                  <div style={{ fontFamily: t.fontBody, fontSize: 13, color: `${bundle.accentColor}cc`, fontStyle: "italic", marginBottom: 10 }}>{bundle.tagline}</div>
-                  <div style={{ fontFamily: t.fontBody, fontSize: 12, color: "rgba(255,255,255,0.72)", marginBottom: 14, lineHeight: 1.45 }}>{bundle.desc}</div>
-                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap" as const, marginBottom: 18 }}>{bundle.tags.map(tag => (<span key={tag} style={{ fontFamily: "monospace", fontSize: 9, fontWeight: 700, color: bundle.accentColor, background: `${bundle.accentColor}18`, border: `1px solid ${bundle.accentColor}44`, padding: "2px 7px", borderRadius: 4 }}>{tag}</span>))}</div>
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-                    {owned ? (<span style={{ fontFamily: t.fontMono, fontSize: 12, fontWeight: 900, color: "#4CAF50", letterSpacing: "0.06em" }}>OWNED — equip in Collection</span>) : showFreeClaim ? (<span style={{ fontFamily: t.fontMono, fontSize: 12, fontWeight: 900, color: "#FCD34D", letterSpacing: "0.06em" }}>FREE REWARD</span>) : (<span style={{ fontFamily: t.fontMono, fontSize: 12, fontWeight: 900, color: glow, letterSpacing: "0.06em", display: "inline-flex", alignItems: "center", gap: 6 }}>{bundle.bundlePrice.toLocaleString()} <ProtoSVG size={16} /> + {bundle.shardPrice.toLocaleString()} <ShardSVG size={16} /></span>)}
-                    {owned ? (<button type="button" disabled style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.14)", borderRadius: 10, padding: "10px 14px", fontFamily: t.fontDisplay, fontSize: 12, fontWeight: 900, color: "rgba(255,255,255,0.65)", cursor: "not-allowed" }}>✓</button>) : showFreeClaim ? (<button type="button" onClick={() => claimFreeCoinToss(bundle.purchaseId, bundle.label)} disabled={!!claimingCoinTossId} style={{ background: "#FCD34D", border: "none", borderRadius: 10, padding: "10px 14px", fontFamily: t.fontDisplay, fontSize: 12, fontWeight: 900, color: "#000", cursor: claimingCoinTossId ? "wait" : "pointer", boxShadow: "0 0 16px rgba(252,211,77,0.5)", opacity: claimingCoinTossId && !isClaiming ? 0.6 : 1 }}>{isClaiming ? "CLAIMING…" : "CLAIM FREE"}</button>) : (<button type="button" onClick={() => handleBuyCosmetic(bundle.purchaseId, bundle.bundlePrice, bundle.label, bundle.shardPrice)} style={{ background: glow, border: "none", borderRadius: 10, padding: "10px 14px", fontFamily: t.fontDisplay, fontSize: 12, fontWeight: 900, color: "#000", cursor: "pointer", boxShadow: `0 4px 20px ${glow}44` }}>UNLOCK</button>)}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
+
 
         {/* BANNERS */}
         <div style={{ marginBottom: 56 }}>

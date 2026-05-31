@@ -414,12 +414,12 @@ export function GlacierGridLines() {
 
     const startDraw = (W: number, H: number) => {
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
-      const dpr = window.devicePixelRatio || 1;
-      cv.width = W * dpr;
-      cv.height = H * dpr;
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const tw = Math.round(W * dpr), th = Math.round(H * dpr);
+      if (cv.width !== tw || cv.height !== th) { cv.width = tw; cv.height = th; }
       cv.style.width = `${W}px`;
       cv.style.height = `${H}px`;
-      const ctx = cv.getContext("2d");
+      const ctx = cv.getContext("2d", { alpha: true, willReadFrequently: false });
       if (!ctx) return;
       ctx.scale(dpr, dpr);
 

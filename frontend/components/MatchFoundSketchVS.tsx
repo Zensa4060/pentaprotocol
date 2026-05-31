@@ -22,7 +22,7 @@ const MatchFoundSketchVS = React.memo(
     useEffect(() => {
       const canvas = canvasRef.current;
       if (!canvas) return;
-      const ctx = canvas.getContext("2d");
+      const ctx = canvas.getContext("2d", { alpha: true, willReadFrequently: false });
       if (!ctx) return;
 
       const W = 820;

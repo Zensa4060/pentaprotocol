@@ -44,31 +44,143 @@ export const TITLES: {
   unlockDesc: string;
   condition: (profile: any) => boolean;
   animation: "none" | "pulse" | "shimmer" | "flicker" | "rainbow" | "fire" | "electric";
+  /** Mission ID that unlocks this badge (display hint only) */
+  missionId?: string;
 }[] = [
-  { id: "newcomer",     label: "Newcomer",       color: "#9CA3AF", glow: "#9CA3AF44",
-    unlockDesc: "Default title",         condition: () => true,                                   animation: "none" },
-  { id: "sharpshooter", label: "Sharpshooter",   color: "#60A5FA", glow: "#60A5FA44",
-    unlockDesc: "Win 10 ranked matches", condition: p => (p.wins || 0) >= 10,                    animation: "pulse" },
-  { id: "strategist",   label: "Strategist",     color: "#34D399", glow: "#34D39944",
-    unlockDesc: "Reach 1000 ELO",        condition: p => (p.elo || 0) >= 1000,                   animation: "shimmer" },
-  { id: "gladiator",    label: "Gladiator",      color: "#F97316", glow: "#F9731644",
-    unlockDesc: "Win 50 ranked matches", condition: p => (p.wins || 0) >= 50,                    animation: "flicker" },
-  { id: "emerald_eye",  label: "Emerald Eye",    color: "#10B981", glow: "#10B98144",
-    unlockDesc: "Reach Emerald rank",    condition: p => (p.elo || 0) >= 1500,                   animation: "pulse" },
-  { id: "penta_master", label: "Penta Master",   color: "#FF3333", glow: "#FF333344",
-    unlockDesc: "Reach Master rank",     condition: p => (p.elo || 0) >= 2000,                   animation: "fire" },
-  { id: "the_legend",   label: "The Legend",     color: "#F59E0B", glow: "#F59E0B44",
-    unlockDesc: "Reach Legend rank",     condition: p => (p.elo || 0) >= 2500,                   animation: "rainbow" },
-  { id: "centurion",    label: "Centurion",      color: "#C084FC", glow: "#C084FC44",
-    unlockDesc: "Win 100 ranked matches",condition: p => (p.wins || 0) >= 100,                   animation: "electric" },
-  { id: "unbreakable",  label: "Unbreakable",    color: "#FB7185", glow: "#FB718544",
-    unlockDesc: "Win 3 Rulebreaker rounds in a row", condition: p => (p.rb_wins || 0) >= 3,     animation: "flicker" },
-  { id: "veteran",      label: "Veteran",        color: "#A78BFA", glow: "#A78BFA44",
-    unlockDesc: "Play 200 total games",  condition: p => ((p.wins||0)+(p.losses||0)+(p.draws||0)) >= 200, animation: "shimmer" },
-  { id: "protocol",     label: "Protocol",       color: "#38BDF8", glow: "#38BDF844",
-    unlockDesc: "Reach level 20",        condition: p => (p.level || 0) >= 20,                   animation: "electric" },
-  { id: "architect",    label: "Architect",      color: "#E879F9", glow: "#E879F944",
-    unlockDesc: "Reach level 50",        condition: p => (p.level || 0) >= 50,                   animation: "rainbow" },
+  // ── Default ──────────────────────────────────────────────────────────────
+  { id: "newcomer",     label: "Newcomer",     color: "#9CA3AF", glow: "#9CA3AF44",
+    unlockDesc: "Default title — every player starts here",
+    condition: () => true, animation: "none" },
+
+  // ── Early milestones ─────────────────────────────────────────────────────
+  { id: "rookie",       label: "Rookie",       color: "#6B7280", glow: "#6B728044",
+    unlockDesc: "Play 5 matches (any mode)",
+    condition: p => ((p.wins||0)+(p.losses||0)+(p.draws||0)) >= 5,
+    animation: "none", missionId: "perm_level_5" },
+
+  { id: "sharpshooter", label: "Sharpshooter", color: "#60A5FA", glow: "#60A5FA44",
+    unlockDesc: "Win 10 matches",
+    condition: p => (p.wins || 0) >= 10,
+    animation: "pulse", missionId: "perm_total_wins_20" },
+
+  { id: "duelist",      label: "Duelist",      color: "#FCD34D", glow: "#FCD34D44",
+    unlockDesc: "Win 25 matches — mission: Win 25 ranked",
+    condition: p => (p.wins || 0) >= 25,
+    animation: "shimmer", missionId: "perm_ranked_wins_25" },
+
+  { id: "rising_star",  label: "Rising Star",  color: "#93C5FD", glow: "#93C5FD44",
+    unlockDesc: "Reach Advanced rank (500 ELO)",
+    condition: p => (p.elo || 0) >= 500,
+    animation: "shimmer", missionId: "perm_rank_advanced" },
+
+  // ── Mid game ─────────────────────────────────────────────────────────────
+  { id: "gladiator",    label: "Gladiator",    color: "#F97316", glow: "#F9731644",
+    unlockDesc: "Win 50 matches — mission: Win 50 ranked",
+    condition: p => (p.wins || 0) >= 50,
+    animation: "flicker", missionId: "perm_ranked_wins_50" },
+
+  { id: "strategist",   label: "Strategist",   color: "#34D399", glow: "#34D39944",
+    unlockDesc: "Reach Professional rank (1000 ELO)",
+    condition: p => (p.elo || 0) >= 1000,
+    animation: "shimmer", missionId: "perm_rank_professional" },
+
+  { id: "ironbound",    label: "Ironbound",    color: "#78716C", glow: "#78716C44",
+    unlockDesc: "Win 75 matches — the grind forges iron",
+    condition: p => (p.wins || 0) >= 75,
+    animation: "pulse", missionId: "perm_ranked_wins_75" },
+
+  { id: "apex",         label: "Apex",         color: "#2DD4BF", glow: "#2DD4BF44",
+    unlockDesc: "Reach level 30 — mission: Level up to 30",
+    condition: p => (p.level || 0) >= 30,
+    animation: "shimmer", missionId: "perm_level_30" },
+
+  { id: "centurion",    label: "Centurion",    color: "#C084FC", glow: "#C084FC44",
+    unlockDesc: "Win 100 matches — mission: Win 100 ranked",
+    condition: p => (p.wins || 0) >= 100,
+    animation: "electric", missionId: "perm_ranked_wins_100" },
+
+  { id: "breaker",      label: "Breaker",      color: "#F87171", glow: "#F8717144",
+    unlockDesc: "Win 10 Rulebreaker series — chaos mastered",
+    condition: p => (p.rb_wins || 0) >= 10,
+    animation: "flicker", missionId: "perm_ranked_winstreak_10" },
+
+  { id: "protocol",     label: "Protocol",     color: "#38BDF8", glow: "#38BDF844",
+    unlockDesc: "Reach level 20 — mission: Level up to 20",
+    condition: p => (p.level || 0) >= 20,
+    animation: "electric", missionId: "perm_level_20" },
+
+  { id: "emerald_eye",  label: "Emerald Eye",  color: "#10B981", glow: "#10B98144",
+    unlockDesc: "Reach Emerald rank (1500 ELO)",
+    condition: p => (p.elo || 0) >= 1500,
+    animation: "pulse", missionId: "perm_rank_emerald" },
+
+  { id: "unbreakable",  label: "Unbreakable",  color: "#FB7185", glow: "#FB718544",
+    unlockDesc: "Win 3 Rulebreaker rounds in a row — undeniable",
+    condition: p => (p.rb_wins || 0) >= 3,
+    animation: "flicker" },
+
+  // ── Advanced ─────────────────────────────────────────────────────────────
+  { id: "warlord",      label: "Warlord",      color: "#DC2626", glow: "#DC262644",
+    unlockDesc: "Win 150 matches — mission: Win 150 ranked",
+    condition: p => (p.wins || 0) >= 150,
+    animation: "flicker", missionId: "perm_ranked_wins_150" },
+
+  { id: "veteran",      label: "Veteran",      color: "#A78BFA", glow: "#A78BFA44",
+    unlockDesc: "Play 200 total games — battle-hardened",
+    condition: p => ((p.wins||0)+(p.losses||0)+(p.draws||0)) >= 200,
+    animation: "shimmer", missionId: "perm_total_wins_200" },
+
+  { id: "chaos_agent",  label: "Chaos Agent",  color: "#F97316", glow: "#F9731644",
+    unlockDesc: "Win 30 Rulebreaker series — you live for chaos",
+    condition: p => (p.rb_wins || 0) >= 30,
+    animation: "fire" },
+
+  { id: "architect",    label: "Architect",    color: "#E879F9", glow: "#E879F944",
+    unlockDesc: "Reach level 50 — mission: Level up to 50",
+    condition: p => (p.level || 0) >= 50,
+    animation: "rainbow", missionId: "perm_level_50" },
+
+  { id: "penta_master", label: "Penta Master", color: "#FF3333", glow: "#FF333344",
+    unlockDesc: "Reach Master rank (2000 ELO)",
+    condition: p => (p.elo || 0) >= 2000,
+    animation: "fire", missionId: "perm_rank_master" },
+
+  { id: "conqueror",    label: "Conqueror",    color: "#D97706", glow: "#D9770644",
+    unlockDesc: "Win 200 matches — empires are built on 200 wins",
+    condition: p => (p.wins || 0) >= 200,
+    animation: "fire", missionId: "perm_ranked_wins_200" },
+
+  { id: "relentless",   label: "Relentless",   color: "#4ADE80", glow: "#4ADE8044",
+    unlockDesc: "Play 500 total games — nothing stops you",
+    condition: p => ((p.wins||0)+(p.losses||0)+(p.draws||0)) >= 500,
+    animation: "pulse" },
+
+  // ── Elite ────────────────────────────────────────────────────────────────
+  { id: "sovereign",    label: "Sovereign",    color: "#7C3AED", glow: "#7C3AED44",
+    unlockDesc: "Win 300 matches — mission: Win 300 ranked",
+    condition: p => (p.wins || 0) >= 300,
+    animation: "rainbow", missionId: "perm_ranked_wins_300" },
+
+  { id: "the_legend",   label: "The Legend",   color: "#F59E0B", glow: "#F59E0B44",
+    unlockDesc: "Reach Legend rank (2500 ELO)",
+    condition: p => (p.elo || 0) >= 2500,
+    animation: "rainbow", missionId: "perm_rank_legend" },
+
+  { id: "ascendant",    label: "Ascendant",    color: "#818CF8", glow: "#818CF844",
+    unlockDesc: "Reach level 100 — mission: Level up to 100",
+    condition: p => (p.level || 0) >= 100,
+    animation: "rainbow", missionId: "perm_level_100" },
+
+  // ── Legendary ────────────────────────────────────────────────────────────
+  { id: "immortal",     label: "Immortal",     color: "#BAE6FD", glow: "#BAE6FD44",
+    unlockDesc: "Win 500 matches — your name lives forever",
+    condition: p => (p.wins || 0) >= 500,
+    animation: "electric", missionId: "perm_ranked_wins_500" },
+
+  { id: "transcendent", label: "Transcendent", color: "#F0ABFC", glow: "#F0ABFC44",
+    unlockDesc: "Reach level 300 — beyond all limits",
+    condition: p => (p.level || 0) >= 300,
+    animation: "electric", missionId: "perm_level_300" },
 ];
 
 import DigitalRainBanner    from "./DigitalRainBanner";
@@ -781,7 +893,7 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
       {/* ── Banner + Avatar + Name ─────────────────────────────────────────── */}
       <div style={{ background:t.bgPanel, border:`1px solid ${t.border}`, borderRadius:16, marginBottom:18, overflow:"hidden", position:"relative", minHeight:200 }}>
         <div style={{ position:"absolute", inset:0, zIndex:0, opacity:1.0 }}>
-          <BannerRenderer bannerId={activeBanner.id} />
+          <BannerRenderer bannerId={activeBanner.id} themeId={themeId} />
           {bannerShineEnabled && (
             <div style={{ position:"absolute", top:0, left:"-150%", width:"200%", height:"100%", background:"linear-gradient(120deg, rgba(255,255,255,0) 30%, rgba(255,255,255,0.1) 38%, rgba(255,255,255,0.2) 40%, rgba(255,255,255,0.1) 42%, rgba(255,255,255,0) 50%)", zIndex:1, animation:"shineSweep 4s infinite linear" }} />
           )}
@@ -1032,8 +1144,8 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
             <div key={i} style={{ background:t.bgCard, border:`1px solid ${t.border}`, borderRadius:10, padding:"15px 17px" }}>
               <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:6 }}>
                 <div style={{ fontFamily:t.fontDisplay, fontSize:24, fontWeight:700, color:s.c }}>{s.v}</div>
-                {isPenta && <div style={{ width:32, height:32, flexShrink:0 }} dangerouslySetInnerHTML={{ __html: (themeId==="classic_light"?SHARDS_LIGHT_SVG:SHARDS_DARK_SVG).replace('<svg ','<svg width="32" height="32" ') }} />}
-                {isProto && <div style={{ width:32, height:32, flexShrink:0 }} dangerouslySetInnerHTML={{ __html: (themeId==="classic_light"?PROTO_LIGHT_SVG:PROTO_DARK_SVG).replace('<svg ','<svg width="32" height="32" ') }} />}
+                {isPenta && <div style={{ width:32, height:32, flexShrink:0 }} dangerouslySetInnerHTML={{ __html: (themeId==="classic_2"?SHARDS_LIGHT_SVG:SHARDS_DARK_SVG).replace('<svg ','<svg width="32" height="32" ') }} />}
+                {isProto && <div style={{ width:32, height:32, flexShrink:0 }} dangerouslySetInnerHTML={{ __html: (themeId==="classic_2"?PROTO_LIGHT_SVG:PROTO_DARK_SVG).replace('<svg ','<svg width="32" height="32" ') }} />}
               </div>
               <div style={{ fontFamily:t.fontMono, fontSize:13, color:t.text, letterSpacing:"0.08em", fontWeight:600 }}>{s.l.toUpperCase()}</div>
             </div>

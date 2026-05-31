@@ -28,7 +28,7 @@ function extractApiError(err: unknown): string {
  * `POST /api/syros/ask` when the backend and Gemini key are configured.
  */
 export default function SyrosChat({ themeId }: { themeId: ThemeId }) {
-  const t = THEMES[themeId] ?? THEMES.classic_dark;
+  const t = THEMES[themeId] ?? THEMES.classic_1;
   const [input, setInput] = useState("");
   const [lines, setLines] = useState<ChatLine[]>([]);
   const [pending, setPending] = useState(false);

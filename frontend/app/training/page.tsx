@@ -10,7 +10,7 @@ import { THEMES } from "@/lib/themes";
 export default function TrainingPage() {
   const ctx = useApp();
   const router = useRouter();
-  const t = THEMES[ctx.themeId] ?? THEMES.classic_dark;
+  const t = THEMES[ctx.themeId] ?? THEMES.classic_1;
   const [mode, setMode] = useState<"menu" | "singleplayer">("menu");
   const [hoveredCard, setHoveredCard] = useState<"tutorial" | "singleplayer" | null>(null);
 

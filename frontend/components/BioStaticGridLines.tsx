@@ -28,12 +28,12 @@ export default function BioStaticGridLines({
     if (!cv) return;
 
     const dpr = boardSkinCanvasDpr(SIZE);
-    cv.width = W * dpr;
-    cv.height = H * dpr;
+    const tw = Math.round(W * dpr), th = Math.round(H * dpr);
+    if (cv.width !== tw || cv.height !== th) { cv.width = tw; cv.height = th; }
     cv.style.width = `${W}px`;
     cv.style.height = `${H}px`;
 
-    const ctx = cv.getContext("2d");
+    const ctx = cv.getContext("2d", { alpha: true, willReadFrequently: false });
     if (!ctx) return;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 

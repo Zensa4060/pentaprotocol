@@ -3,6 +3,7 @@ import React from "react";
 import { Piece as GamePieceComp, CoinFace, TossCard } from "./GamePieces";
 import type { Phase } from "./GamePieces";
 import { WraithKingCoinToss } from "./WraithKingCoinToss";
+import { SolarFlareCoinToss, VoidRiftCoinToss, NeonStrikeCoinToss } from "./CoinTossAnimations";
 
 export const PHASE_TIMERS: Partial<Record<Phase, number>> = {
   rule_choice: 30, who_first_winner: 30, c3_choice: 30, c3_choice_loser: 30, who_first_loser: 30,
@@ -53,6 +54,8 @@ interface RulebreakerFlowProps {
   p2Label?: string;
   /** Wraith King bundle equipped + owned */
   wraithKingToss?: boolean;
+  /** Active toss skin ID for custom coin animations */
+  activeCoinTossId?: string;
   /** Pre-rolled face for authoritative client during toss (null for P2 until reveal) */
   rbCoinPendingResult?: "PENTA" | "PROTO" | null;
   /** 7x7 mode flag for pattern-ban rulebreaker */
@@ -85,6 +88,7 @@ export function RulebreakerFlow({
   onLeftAction, onRightAction, fmtSecAction, gameMode, botPickedSide,
   p1Label: p1LabelProp, p2Label: p2LabelProp,
   wraithKingToss = false,
+  activeCoinTossId = "default",
   rbCoinPendingResult = null,
   is7x7 = false,
   is6x6 = false,
@@ -441,7 +445,11 @@ export function RulebreakerFlow({
     const coinDiam = 240;
     const revType = coinResult ?? "PENTA";
     const winCol = revealed ? (coinResult === "PENTA" ? p1c : p2c) : t.textSecondary;
-    const useWraith = wraithKingToss;
+    const useWraith = wraithKingToss || (activeCoinTossId !== "default" && activeCoinTossId !== "");
+    const useWraithKing = wraithKingToss || activeCoinTossId === "wraith_king";
+    const useSolarFlare = activeCoinTossId === "solar_flare";
+    const useVoidRift = activeCoinTossId === "void_rift";
+    const useNeonStrike = activeCoinTossId === "neon_strike";
 
     return (
       <div className="phase-screen" style={{ position: "fixed", top: 64, left: 0, right: 0, bottom: 0, zIndex: 10000, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-start", background: t.bg, overflowY: "auto", userSelect: "none" }}>
@@ -454,9 +462,19 @@ export function RulebreakerFlow({
         <div style={{ width: "clamp(160px,30vw,360px)", height: 2, background: `linear-gradient(90deg, transparent, ${t.accent}, transparent)`, marginBottom: 18, boxShadow: `0 0 14px ${t.accentGlow}55`, animation: "rbLineIn 0.6s cubic-bezier(.22,.68,0,1.2) 0.1s both" }} />
         {useWraith ? (
           <div style={{ display: "flex", gap: 22, flexWrap: "wrap" as const, justifyContent: "center", fontFamily: t.fontMono, fontSize: ip ? 13 : 17, color: t.textMuted, marginBottom: 16, padding: "0 12px", animation: "fadeUp 0.5s cubic-bezier(.22,.68,0,1.2) 0.12s both", textAlign: "center" as const }}>
-            <span><span style={{ color: "#cc88ff", fontWeight: 900, letterSpacing: "0.06em" }}>DOMINION</span> <span style={{ color: t.textMuted }}>(PENTA)</span> = {p1Name}</span>
+            <span>
+              <span style={{ color: useSolarFlare ? "#ffcc44" : useVoidRift ? "#aa66ff" : useNeonStrike ? "#00ffdd" : "#cc88ff", fontWeight: 900, letterSpacing: "0.06em" }}>
+                {useSolarFlare ? "RADIANCE" : useVoidRift ? "COSMOS" : useNeonStrike ? "SURGE" : "DOMINION"}
+              </span>{" "}
+              <span style={{ color: t.textMuted }}>(PENTA)</span> = {p1Name}
+            </span>
             <span style={{ color: t.border }}>|</span>
-            <span><span style={{ color: "#88aadd", fontWeight: 900, letterSpacing: "0.06em" }}>SERVITUDE</span> <span style={{ color: t.textMuted }}>(PROTO)</span> = {p2Name}</span>
+            <span>
+              <span style={{ color: useSolarFlare ? "#ff9922" : useVoidRift ? "#7733cc" : useNeonStrike ? "#ff00aa" : "#88aadd", fontWeight: 900, letterSpacing: "0.06em" }}>
+                {useSolarFlare ? "ECLIPSE" : useVoidRift ? "THE VOID" : useNeonStrike ? "CIRCUIT" : "SERVITUDE"}
+              </span>{" "}
+              <span style={{ color: t.textMuted }}>(PROTO)</span> = {p2Name}
+            </span>
           </div>
         ) : (
           <div
@@ -489,14 +507,10 @@ export function RulebreakerFlow({
           {useWraith ? (
             <div style={{ position: "relative", width: "100%", maxWidth: 400, display: "flex", justifyContent: "center" }}>
               <div style={{ position: "absolute", width: coinDiam * 2.4, height: coinDiam * 2.4, borderRadius: "50%", left: "50%", top: "42%", transform: "translate(-50%,-50%)", background: revealed ? `radial-gradient(circle, ${winCol}28 0%, transparent 68%)` : `radial-gradient(circle, ${t.accent}14 0%, transparent 68%)`, transition: "background 0.6s ease", pointerEvents: "none" }} />
-              <WraithKingCoinToss
-                revealed={revealed}
-                result={coinResult}
-                pendingForSpin={revealed ? null : rbCoinPendingResult}
-                coinDiam={coinDiam}
-                showOutcomeText={false}
-                compact={false}
-              />
+              {useWraithKing && <WraithKingCoinToss revealed={revealed} result={coinResult} pendingForSpin={revealed ? null : rbCoinPendingResult} coinDiam={coinDiam} showOutcomeText={false} compact={false} />}
+              {useSolarFlare && <SolarFlareCoinToss revealed={revealed} result={coinResult} pendingForSpin={revealed ? null : rbCoinPendingResult} coinDiam={coinDiam} showOutcomeText={false} compact={false} />}
+              {useVoidRift && <VoidRiftCoinToss revealed={revealed} result={coinResult} pendingForSpin={revealed ? null : rbCoinPendingResult} coinDiam={coinDiam} showOutcomeText={false} compact={false} />}
+              {useNeonStrike && <NeonStrikeCoinToss revealed={revealed} result={coinResult} pendingForSpin={revealed ? null : rbCoinPendingResult} coinDiam={coinDiam} showOutcomeText={false} compact={false} />}
             </div>
           ) : (
             <>
