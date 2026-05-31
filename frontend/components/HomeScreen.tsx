@@ -383,6 +383,7 @@ export default function HomeScreen({ setScreenAction, themeId, onHoverAction, on
   const scale = useScale();
   const [hovered, setHovered] = useState<Screen | null>(null);
   const [hovFooter, setHovFooter] = useState<string | null>(null);
+  const [hovRankChip, setHovRankChip] = useState(false);
   const [hovCommunity, setHovCommunity] = useState<"itch" | "reddit" | "discord" | "feedback" | "instagram" | null>(null);
   // Each card bumps its own seed on mouse-enter so the effect re-shuffles
   // every time you hover — keeps the interaction feeling alive instead of
@@ -840,7 +841,13 @@ export default function HomeScreen({ setScreenAction, themeId, onHoverAction, on
 
           {/* Row 1: Player chip — compact horizontal card, centered */}
           {user && (
-            <div style={{
+            <button
+              type="button"
+              aria-label="View career and rank stats"
+              onClick={() => { onClickAction?.(); setScreenAction("career"); }}
+              onMouseEnter={() => { onHoverAction?.(); setHovRankChip(true); }}
+              onMouseLeave={() => setHovRankChip(false)}
+              style={{
               display: "inline-flex", alignItems: "center",
               gap: isMobile ? 14 : 20,
               padding: isMobile ? "12px 20px" : "14px 28px",
@@ -849,15 +856,24 @@ export default function HomeScreen({ setScreenAction, themeId, onHoverAction, on
                 : isLight
                   ? "rgba(242,245,250,0.97)"
                   : "rgba(255,255,255,0.04)",
-              border: `1px solid ${isLight
-                ? (isPlacement ? `${placementCol}55` : `${rank.color}40`)
-                : (isPlacement ? `${placementCol}33` : `${rank.color}28`)}`,
-              borderRadius: ip ? 2 : 50, // pill shape
+              border: `1px solid ${hovRankChip
+                ? (isLight ? (isPlacement ? placementCol : rank.color) : (isPlacement ? `${placementCol}66` : `${rank.color}55`))
+                : (isLight
+                  ? (isPlacement ? `${placementCol}55` : `${rank.color}40`)
+                  : (isPlacement ? `${placementCol}33` : `${rank.color}28`))}`,
+              borderRadius: ip ? 2 : 50,
               backdropFilter: "blur(12px)",
-              boxShadow: isLight ? "0 2px 16px rgba(0,0,0,0.08), 0 1px 4px rgba(0,0,0,0.04)" : undefined,
+              boxShadow: hovRankChip
+                ? (isLight ? "0 6px 20px rgba(0,0,0,0.12)" : `0 8px 28px ${isPlacement ? placementCol : rank.color}22`)
+                : (isLight ? "0 2px 16px rgba(0,0,0,0.08), 0 1px 4px rgba(0,0,0,0.04)" : undefined),
               position: "relative", overflow: "hidden",
-              transition: "filter 0.4s",
+              transition: "filter 0.4s, transform 0.18s, border-color 0.18s, box-shadow 0.18s",
               filter: hovered === "lobby" ? `drop-shadow(0 0 16px ${BLOOD_RED}55)` : "none",
+              cursor: "pointer",
+              transform: hovRankChip ? "translateY(-2px)" : "none",
+              color: "inherit",
+              font: "inherit",
+              textAlign: "left" as const,
             }}>
               {/* Rank-colour ambient glow */}
               <div style={{
@@ -907,7 +923,7 @@ export default function HomeScreen({ setScreenAction, themeId, onHoverAction, on
                   ⬤ TARGET
                 </div>
               )}
-            </div>
+            </button>
           )}
 
           {/* Row 2: Community links — centered row of equal buttons */}
