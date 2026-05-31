@@ -783,8 +783,6 @@ export default function ProfileScreen({ themeId, onHoverAction, onClickAction, s
 
   const TABS: { id: EditTab; label: string }[] = [
     { id: "profile",  label: "Profile"  },
-    { id: "border",   label: "Border"   },
-    { id: "title",    label: "Badges"   },
     { id: "password", label: "Password" },
     { id: "email",    label: "Email"    },
   ];
