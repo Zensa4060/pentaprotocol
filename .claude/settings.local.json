@@ -13,7 +13,10 @@
       "PowerShell(cmd /c \"C:\\\\Users\\\\sushr\\\\OneDrive\\\\Desktop\\\\Start PentaProtocol.bat\" 2>&1)",
       "Bash(python -m py_compile app/routers/room.py app/routers/profile.py)",
       "Bash(node -e ' *)",
-      "Bash(echo \"EXIT: $?\")"
+      "Bash(echo \"EXIT: $?\")",
+      "Bash(python -c ' *)",
+      "Bash(pip install *)",
+      "Bash(cd /c/Users/yagya/Documents/pentaprotocol/frontend && echo \"===structure===\" && find . -path ./node_modules -prune -o -type d -print 2>/dev/null | grep -v node_modules | head -60)"
     ]
   }
 }

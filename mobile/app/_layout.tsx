@@ -34,6 +34,7 @@ import { AudioProvider } from "@/lib/audio/AudioProvider";
 import { useProfileSync } from "@/lib/hooks/useProfileSync";
 import { useAuthStore } from "@/lib/store";
 import { tamaguiConfig } from "@/theme/tamagui.config";
+import { ThemeProvider } from "@/theme/ThemeProvider";
 
 // Keep the splash up until React + the store have both settled.
 // ``preventAutoHideAsync`` is safe to call multiple times; if it
@@ -71,10 +72,12 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
         <TamaguiProvider config={tamaguiConfig} defaultTheme="dark">
-          <AudioProvider>
-            <StatusBar style="light" backgroundColor="#030303" translucent={false} />
-            <AuthSyncedTree />
-          </AudioProvider>
+          <ThemeProvider>
+            <AudioProvider>
+              <StatusBar style="light" backgroundColor="#030303" translucent={false} />
+              <AuthSyncedTree />
+            </AudioProvider>
+          </ThemeProvider>
         </TamaguiProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
@@ -106,6 +109,11 @@ function AuthSyncedTree() {
       <Stack.Screen name="onboarding" />
       <Stack.Screen name="store" />
       <Stack.Screen name="collection" />
+      <Stack.Screen name="settings" />
+      <Stack.Screen name="career" />
+      <Stack.Screen name="syros" />
+      <Stack.Screen name="messages/[id]" />
+      <Stack.Screen name="pregame" />
     </Stack>
   );
 }

@@ -33,7 +33,6 @@
  */
 
 import { router, type Href } from "expo-router";
-import { useEffect, useState } from "react";
 
 import {
   Avatar,
@@ -50,16 +49,18 @@ import {
   Title,
 } from "@/components/ui";
 import { RankBadge } from "@/components/RankBadge";
+import { BannerRenderer } from "@/components/BannerRenderer";
 import { useSyncAudioTheme } from "@/lib/audio/AudioProvider";
 import { useLobbyBgm } from "@/lib/hooks/useMatchSounds";
-import { loadThemePreference } from "@/lib/themePreference";
+import { useLocalAvatar } from "@/lib/avatar";
 import { useAuthStore } from "@/lib/store";
 import { winRate } from "@/lib/types";
 import { colors, radii, space } from "@/theme/tokens";
+import { useTheme } from "@/theme/ThemeProvider";
 
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
-type ModeKey = "multiplayer" | "training" | "ai";
+type ModeKey = "multiplayer" | "training";
 
 interface ModeDef {
   key: ModeKey;
@@ -71,30 +72,23 @@ interface ModeDef {
 const MODES: ModeDef[] = [
   {
     key: "multiplayer",
-    title: "MULTIPLAYER",
+    title: "1V1 : ONLINE",
     description: "Ranked & casual matches against humans.",
     accent: colors.accent,
   },
   {
     key: "training",
-    title: "TRAINING",
-    description: "Tutorial replay and local practice — no bot, no rating.",
+    title: "1V1 : OFFLINE",
+    description: "Tutorial, solo practice, and AI Bot — no rating.",
     accent: colors.info,
-  },
-  {
-    key: "ai",
-    title: "AI ENGINE",
-    description: "Named server opponents — SERAPHINA, REGINA, HER.",
-    accent: "#A065FF",
   },
 ];
 
 export default function HomeScreen() {
   const user = useAuthStore((s) => s.user);
-  const [themeId, setThemeId] = useState("classic_dark");
-  useEffect(() => {
-    loadThemePreference().then(setThemeId).catch(() => undefined);
-  }, []);
+  const { themeId } = useTheme();
+  const localAvatar = useLocalAvatar();
+  const avatarUri = localAvatar ?? user?.avatar ?? null;
   useSyncAudioTheme(themeId);
   useLobbyBgm();
 
@@ -105,10 +99,6 @@ export default function HomeScreen() {
     }
     if (mode === "multiplayer") {
       router.push("/multiplayer");
-      return;
-    }
-    if (mode === "ai") {
-      router.push("/engine");
     }
   };
 
@@ -119,22 +109,35 @@ export default function HomeScreen() {
     : 0;
 
   return (
-    <Screen scrollable padded contentContainerStyle={{ paddingBottom: space[10] }}>
-      {/* ── Brand row ───────────────────────────────────────────── */}
+    <View style={{ flex: 1, backgroundColor: colors.bg }}>
+      {/* ── Equipped banner — full-bleed backdrop (home + parity with web) ── */}
+      <BannerRenderer
+        bannerId={user?.banner}
+        themeId={themeId}
+        overlayOpacity={0.62}
+        style={StyleSheet.absoluteFill}
+      />
+      <Screen
+        scrollable
+        padded
+        background="transparent"
+        contentContainerStyle={{ paddingBottom: space[10] }}
+      >
+        {/* ── Brand row ───────────────────────────────────────────── */}
       <Row justify="between" align="center" style={{ marginTop: space[3] }}>
         <Row gap={2} align="baseline">
           <Text style={styles.brandPenta}>PENTA</Text>
           <Text style={styles.brandProtocol}>PROTOCOL</Text>
         </Row>
         <Pressable onPress={goToProfile} hitSlop={8} accessibilityRole="button">
-          <Avatar uri={user?.avatar ?? null} name={user?.username} size="sm" />
+          <Avatar uri={avatarUri} name={user?.username} size="sm" />
         </Pressable>
       </Row>
 
       {/* ── Identity card ───────────────────────────────────────── */}
       <Card variant="accent" padding="md" style={{ marginTop: space[6] }}>
         <Row gap={4} align="center">
-          <Avatar uri={user?.avatar ?? null} name={user?.username} size="lg" highlighted />
+          <Avatar uri={avatarUri} name={user?.username} size="lg" highlighted />
           <Stack gap={1} fill>
             <Title numberOfLines={1}>{user?.username ?? "—"}</Title>
             <Row gap={2} align="center">
@@ -158,6 +161,12 @@ export default function HomeScreen() {
         <StatTile label="WINS" value={user?.wins ?? 0} tone="success" />
         <StatTile label="LOSSES" value={user?.losses ?? 0} tone="danger" />
         <StatTile label="WIN RATE" value={`${wr}%`} tone="accent" />
+      </Row>
+
+      {/* ── Currency row ────────────────────────────────────────── */}
+      <Row gap={3} style={{ marginTop: space[3] }}>
+        <StatTile label="⬡ PROTOCREDITS" value={user?.protocredits ?? 0} tone="accent" />
+        <StatTile label="◆ PENTASHARDS" value={user?.shards ?? 0} tone="info" />
       </Row>
 
       <SectionHeader label="EXTRAS" />
@@ -204,7 +213,8 @@ export default function HomeScreen() {
       <Btn variant="ghost" onPress={goToProfile}>
         View profile
       </Btn>
-    </Screen>
+      </Screen>
+    </View>
   );
 }
 
@@ -227,10 +237,16 @@ function StatTile({
 }: {
   label: string;
   value: string | number;
-  tone: "success" | "danger" | "accent";
+  tone: "success" | "danger" | "accent" | "info";
 }) {
   const valueColor =
-    tone === "success" ? colors.success : tone === "danger" ? colors.danger : colors.accent;
+    tone === "success"
+      ? colors.success
+      : tone === "danger"
+      ? colors.danger
+      : tone === "info"
+      ? colors.info
+      : colors.accent;
   return (
     <View style={styles.statTile}>
       <Text style={[styles.statValue, { color: valueColor }]}>{value}</Text>

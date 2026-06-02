@@ -23,6 +23,7 @@ export default function ProfileEditLayout() {
       }}
     >
       <Stack.Screen name="edit" />
+      <Stack.Screen name="avatar" />
       <Stack.Screen name="username" />
       <Stack.Screen name="bio" />
       <Stack.Screen name="password" />

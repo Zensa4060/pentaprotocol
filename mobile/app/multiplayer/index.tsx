@@ -40,7 +40,7 @@ import {
   RoomError,
 } from "@/lib/multiplayer/rooms";
 import type { ActiveRoomCheck } from "@/lib/multiplayer/types";
-import type { BoardMode } from "@/lib/game/boardConfig";
+import { gridFromBoardMode, type BoardMode } from "@/lib/game/boardConfig";
 import { colors, radii, space } from "@/theme/tokens";
 
 export default function MultiplayerLobby() {
@@ -115,13 +115,16 @@ export default function MultiplayerLobby() {
     setJoining(true);
     try {
       const room = await joinRoom(cleaned);
-      // After joining, the server flips status to "active". Go
-      // straight to the match screen.
+      // After joining, the server flips status to "active". Show the
+      // pre-game lobby (rules / patterns / ready) before the board.
+      const g = gridFromBoardMode(room.board_mode);
       router.replace({
-        pathname: "/multiplayer/match",
+        pathname: "/pregame",
         params: {
+          mode: "multiplayer",
           code: room.room_code,
           slot: room.player_slot ?? "P2",
+          grid: g === 5 ? "5" : g === 6 ? "6" : "7",
         },
       });
     } catch (err) {

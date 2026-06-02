@@ -64,7 +64,7 @@ type Snapshot = {
 const INITIAL_RESULT: MatchResult = { status: "playing", winner: null, line: null };
 
 export function usePracticeMatch({
-  gridSize = 7,
+  gridSize = 5,
   patterns: patternsProp,
 }: UsePracticeMatchOptions = {}): PracticeMatch {
   const patterns = patternsProp ?? defaultPatternsForGrid(gridSize);
@@ -141,7 +141,7 @@ export function usePracticeMatch({
         r,
         c,
         current,
-        newMoves === 1 && r === center && c === center,
+        gridSize !== 6 && newMoves === 1 && r === center && c === center,
       );
 
       setBoard(newBoard);

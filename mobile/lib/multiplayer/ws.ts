@@ -28,9 +28,18 @@
  *     types that aren't in our union yet without a recompile.
  */
 
+import { AppState, type AppStateStatus } from "react-native";
+
 import API, { getWsBaseUrl } from "@/lib/api";
 
 import type { InboundMessage, OutboundMessage, PlayerSlot } from "./types";
+
+/** Heartbeat ping cadence — keeps NAT / load-balancer idle timers alive. */
+const HEARTBEAT_MS = 20_000;
+/** If no inbound frame arrives for this long, assume a dead socket and reconnect. */
+const SILENCE_TIMEOUT_MS = 45_000;
+/** Bounded reconnect backoff (ms) — one entry per attempt. */
+const RECONNECT_BACKOFFS_MS = [1_200, 3_000, 6_000];
 
 interface TicketResponse {
   ticket: string;
@@ -96,14 +105,44 @@ export function openMatchSocket(opts: MatchSocketOptions): MatchSocket {
   let socket: WebSocket | null = null;
   let status: WsConnectionStatus = "connecting";
   let disposed = false;
-  let triedReconnect = false;
+  let reconnectAttempts = 0;
   let outboundSeq = 0;
+  let lastActivity = Date.now();
+  let heartbeat: ReturnType<typeof setInterval> | null = null;
   const outboundBuffer: OutboundMessage[] = [];
 
   const setStatus = (next: WsConnectionStatus, detail?: string) => {
     if (status === next) return;
     status = next;
     opts.onStatus?.(next, detail);
+  };
+
+  const stopHeartbeat = () => {
+    if (heartbeat) {
+      clearInterval(heartbeat);
+      heartbeat = null;
+    }
+  };
+
+  const startHeartbeat = () => {
+    stopHeartbeat();
+    lastActivity = Date.now();
+    heartbeat = setInterval(() => {
+      if (disposed || !socket) return;
+      // Dead-socket watchdog: no inbound traffic (incl. pong) for too
+      // long → force a close so the onclose path reconnects.
+      if (Date.now() - lastActivity > SILENCE_TIMEOUT_MS) {
+        try {
+          socket.close();
+        } catch {
+          /* ignore */
+        }
+        return;
+      }
+      if (socket.readyState === WebSocket.OPEN) {
+        writeEnvelope(socket, { type: "ping", ts: Date.now() }, ++outboundSeq);
+      }
+    }, HEARTBEAT_MS);
   };
 
   const flushBuffer = () => {
@@ -130,13 +169,15 @@ export function openMatchSocket(opts: MatchSocketOptions): MatchSocket {
           ws.close();
           return;
         }
-        triedReconnect = false;
+        reconnectAttempts = 0;
         setStatus("open");
         flushBuffer();
+        startHeartbeat();
       };
 
       ws.onmessage = (ev: WebSocketMessageEvent) => {
         if (disposed) return;
+        lastActivity = Date.now();
         const raw = typeof ev.data === "string" ? ev.data : "";
         if (!raw) return;
         let parsed: unknown;
@@ -163,6 +204,7 @@ export function openMatchSocket(opts: MatchSocketOptions): MatchSocket {
       ws.onclose = (ev: WebSocketCloseEvent) => {
         if (disposed) return;
         socket = null;
+        stopHeartbeat();
 
         // Server-side rejections (auth, slot mismatch, etc.) come
         // back as 1008 (policy) or 4xxx (custom). Don't retry —
@@ -175,15 +217,16 @@ export function openMatchSocket(opts: MatchSocketOptions): MatchSocket {
           return;
         }
 
-        if (triedReconnect) {
+        if (reconnectAttempts >= RECONNECT_BACKOFFS_MS.length) {
           setStatus("disconnected", reason || "Connection lost");
           return;
         }
-        triedReconnect = true;
+        const delay = RECONNECT_BACKOFFS_MS[reconnectAttempts];
+        reconnectAttempts += 1;
         setStatus("reconnecting", reason);
-        // Brief backoff — long enough for a transient network blip
-        // to recover, short enough that a real player isn't staring
-        // at a loading state.
+        // Bounded backoff: a few escalating retries cover a transient
+        // network blip / backgrounded-app resume without leaving the
+        // player stuck on a silent dead socket.
         setTimeout(() => {
           if (disposed) return;
           connect().catch((err) => {
@@ -193,7 +236,7 @@ export function openMatchSocket(opts: MatchSocketOptions): MatchSocket {
             }
             setStatus("disconnected", "Reconnect failed");
           });
-        }, 1200);
+        }, delay);
       };
     } catch (err) {
       if (disposed) return;
@@ -207,6 +250,20 @@ export function openMatchSocket(opts: MatchSocketOptions): MatchSocket {
 
   connect().catch(() => setStatus("disconnected", "Connect threw"));
 
+  // When the app returns to the foreground, a socket that silently
+  // died while backgrounded should reconnect promptly rather than
+  // waiting for the next failed send. Reset the backoff and retry.
+  const onAppState = (next: AppStateStatus) => {
+    if (disposed || next !== "active") return;
+    const live = socket && socket.readyState === WebSocket.OPEN;
+    if (!live && status !== "connecting" && status !== "reconnecting" && status !== "rejected") {
+      reconnectAttempts = 0;
+      setStatus("reconnecting", "Resuming");
+      connect().catch(() => setStatus("disconnected", "Reconnect failed"));
+    }
+  };
+  const appStateSub = AppState.addEventListener("change", onAppState);
+
   return {
     status: () => status,
     send: (msg) => {
@@ -219,6 +276,8 @@ export function openMatchSocket(opts: MatchSocketOptions): MatchSocket {
     close: () => {
       if (disposed) return;
       disposed = true;
+      stopHeartbeat();
+      appStateSub.remove();
       const ws = socket;
       socket = null;
       if (ws) {

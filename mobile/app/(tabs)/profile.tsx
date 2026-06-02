@@ -45,16 +45,22 @@ import {
   Title,
 } from "@/components/ui";
 import { RankBadge } from "@/components/RankBadge";
+import { BannerRenderer } from "@/components/BannerRenderer";
+import { useLocalAvatar } from "@/lib/avatar";
 import { logout } from "@/lib/auth";
 import { ApiError, fetchProfile } from "@/lib/profile";
+import { levelProgress, xpForLevel } from "@/lib/ranks";
 import { useAuthStore } from "@/lib/store";
 import { winRate } from "@/lib/types";
 import { colors, radii, space } from "@/theme/tokens";
+import { useTheme } from "@/theme/ThemeProvider";
 
 type FetchState = "idle" | "loading" | "error";
 
 export default function ProfileScreen() {
   const user = useAuthStore((s) => s.user);
+  const { themeId } = useTheme();
+  const localAvatar = useLocalAvatar();
   const [state, setState] = useState<FetchState>(user ? "idle" : "loading");
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -183,9 +189,17 @@ export default function ProfileScreen() {
         </View>
       ) : null}
 
-      {/* ── Identity ────────────────────────────────────────────── */}
-      <Stack gap={4} align="center" style={{ marginVertical: space[5] }}>
-        <Avatar uri={user.avatar} name={user.username} size="xl" highlighted />
+      {/* ── Identity (with equipped banner header) ──────────────── */}
+      <View style={styles.bannerHeader}>
+        <BannerRenderer
+          bannerId={user.banner}
+          themeId={themeId}
+          overlayOpacity={0.5}
+          style={StyleSheet.absoluteFill}
+        />
+      </View>
+      <Stack gap={4} align="center" style={{ marginTop: -44, marginBottom: space[5] }}>
+        <Avatar uri={localAvatar ?? user.avatar} name={user.username} size="xl" highlighted />
         <Stack gap={1} align="center">
           <Title center>{user.username}</Title>
           <Caption tone="muted" center>
@@ -198,6 +212,12 @@ export default function ProfileScreen() {
           {user.under_review ? <Pill label="UNDER REVIEW" tone="warn" /> : null}
         </Row>
       </Stack>
+
+      {/* ── Dual-currency widget ────────────────────────────────── */}
+      <Row gap={3}>
+        <CurrencyTile glyph="⬡" label="PROTOCREDITS" value={user.protocredits} tone="accent" />
+        <CurrencyTile glyph="◆" label="PENTASHARDS" value={user.shards} tone="info" />
+      </Row>
 
       {/* ── Rating ──────────────────────────────────────────────── */}
       <Section label="RATING">
@@ -250,9 +270,15 @@ export default function ProfileScreen() {
       <Section label="PROGRESSION">
         <Card variant="surface" padding="md">
           <Stack gap={3}>
-            <KV left="Level" right={String(user.level)} />
+            <Row justify="between" align="baseline">
+              <Body tone="muted">Level {user.level}</Body>
+              <Caption tone="muted">
+                {user.xp.toLocaleString()} / {xpForLevel(user.level).toLocaleString()} XP
+              </Caption>
+            </Row>
+            <LevelBar progress={levelProgress(user.level, user.xp)} />
             <Divider />
-            <KV left="XP" right={user.xp.toLocaleString()} />
+            <KV left="XP to next level" right={Math.max(0, xpForLevel(user.level) - user.xp).toLocaleString()} />
             <Divider />
             <KV left="Shards" right={user.shards.toLocaleString()} />
             <Divider />
@@ -286,8 +312,16 @@ export default function ProfileScreen() {
         Edit profile
       </Btn>
       <View style={{ height: space[3] }} />
+      <Btn variant="secondary" onPress={() => router.push("/settings" as never)}>
+        Settings
+      </Btn>
+      <View style={{ height: space[3] }} />
       <Btn variant="secondary" onPress={handleLogout}>
         Sign out
+      </Btn>
+      <View style={{ height: space[3] }} />
+      <Btn variant="ghost" onPress={() => router.push("/settings?focus=delete" as never)}>
+        Delete account
       </Btn>
     </Screen>
   );
@@ -338,6 +372,37 @@ function StatTile({
     <View style={styles.statTile}>
       <Heading style={{ color: valueColor }}>{value}</Heading>
       <Caption tone="muted">{label}</Caption>
+    </View>
+  );
+}
+
+function CurrencyTile({
+  glyph,
+  label,
+  value,
+  tone,
+}: {
+  glyph: string;
+  label: string;
+  value: number;
+  tone: "accent" | "info";
+}) {
+  const color = tone === "accent" ? colors.accent : colors.info;
+  return (
+    <View style={styles.currencyTile}>
+      <Row gap={2} align="center">
+        <Text style={{ color, fontSize: 18, fontWeight: "900" }}>{glyph}</Text>
+        <Heading style={{ color }}>{value.toLocaleString()}</Heading>
+      </Row>
+      <Caption tone="muted">{label}</Caption>
+    </View>
+  );
+}
+
+function LevelBar({ progress }: { progress: number }) {
+  return (
+    <View style={styles.levelTrack}>
+      <View style={[styles.levelFill, { width: `${Math.round(progress * 100)}%` }]} />
     </View>
   );
 }
@@ -402,5 +467,34 @@ const styles = StyleSheet.create({
     borderColor: colors.warn,
     padding: space[3],
     marginTop: space[3],
+  },
+  bannerHeader: {
+    height: 120,
+    borderRadius: radii.lg,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: colors.border,
+    marginTop: space[3],
+  },
+  currencyTile: {
+    flex: 1,
+    backgroundColor: colors.bgCard,
+    borderRadius: radii.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingVertical: space[3],
+    paddingHorizontal: space[4],
+    gap: 2,
+  },
+  levelTrack: {
+    height: 10,
+    borderRadius: radii.pill,
+    backgroundColor: colors.bgRaised,
+    overflow: "hidden",
+  },
+  levelFill: {
+    height: "100%",
+    borderRadius: radii.pill,
+    backgroundColor: colors.accent,
   },
 });

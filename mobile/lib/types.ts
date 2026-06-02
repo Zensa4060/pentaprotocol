@@ -124,3 +124,81 @@ export function winRate(u: Pick<User, "wins" | "losses" | "draws">): number {
   if (total === 0) return 0;
   return Math.round((u.wins / total) * 100);
 }
+
+// ─── Social / community shapes (mirror backend serializers) ───────────────────
+
+/** ``_public_user_slice`` from ``backend/app/routers/friends.py``. */
+export interface PublicUser {
+  id: string;
+  username: string;
+  level: number;
+  elo: number;
+  rank: string;
+  avatar: string | null;
+  banner: string;
+  border_style: string;
+  title: string;
+  placement_matches: number;
+  bio: string;
+  online: boolean;
+  // friend_profile adds these:
+  wins?: number;
+  losses?: number;
+  draws?: number;
+}
+
+export interface FriendRequestRow {
+  id: string;
+  from: PublicUser;
+  created_at: string | null;
+  source: string;
+}
+
+export interface FriendsList {
+  friends: PublicUser[];
+  blocked: string[];
+  invites_remaining: number;
+  invites_limit: number;
+  unread_dm_count: number;
+}
+
+export interface DirectMessage {
+  from_user: string;
+  to_user: string;
+  text: string;
+  created_at: string | null;
+}
+
+/** A row from ``GET /api/profile/leaderboard``. */
+export interface LeaderboardRow {
+  username: string;
+  elo: number | "?";
+  rank: string;
+  wins: number;
+  is_placement: boolean;
+}
+
+/** A row from ``GET /api/profile/career`` (subset of ``_career_row_from_doc``). */
+export interface CareerMatch {
+  id: string;
+  opponent_username: string;
+  opponent_elo: number;
+  result: string;
+  elo_before: number;
+  elo_after: number;
+  elo_delta: number;
+  mode: string;
+  played_at: string;
+  was_placement: boolean;
+  placement_matches: number;
+  board_mode?: string;
+  game_number?: number;
+}
+
+export interface HeadToHead {
+  wins: number;
+  losses: number;
+  draws: number;
+  total: number;
+  recent: string[];
+}

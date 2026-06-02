@@ -1,9 +1,17 @@
 /**
- * Native collection — equip owned themes, boards, banners.
+ * Native collection — equip owned **themes** and **banners**.
+ *
+ * Equipping is applied live (fixes BUG-10):
+ *   - Theme  → ``useTheme().setTheme`` re-renders the board + every
+ *     themed surface immediately and persists the preference.
+ *   - Banner → ``updateProfile({ banner })`` persists server-side and
+ *     the home/profile banner updates as soon as the profile refreshes.
+ *
+ * Board skins / grids / pieces are intentionally not offered here.
  */
 
 import { router, Stack } from "expo-router";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { Alert, Pressable, ScrollView, StyleSheet, View } from "react-native";
 
 import {
@@ -15,29 +23,28 @@ import {
   Screen,
   Title,
 } from "@/components/ui";
+import { BannerRenderer } from "@/components/BannerRenderer";
 import {
   COLLECTION_ENTRIES,
+  type CollectionEntry,
   type CollectionTab,
 } from "@/lib/collection/catalog";
 import { updateProfile } from "@/lib/profile";
 import { useAuthStore } from "@/lib/store";
-import { loadThemePreference, saveThemePreference } from "@/lib/themePreference";
 import { useSyncAudioTheme } from "@/lib/audio/AudioProvider";
+import { THEMES, type ThemeId } from "@/theme/themes";
+import { useTheme } from "@/theme/ThemeProvider";
 import { colors, radii, space } from "@/theme/tokens";
 
-const TABS: CollectionTab[] = ["themes", "grids", "banners"];
+const TABS: CollectionTab[] = ["themes", "banners"];
 
 export default function CollectionScreen() {
   const user = useAuthStore((s) => s.user);
+  const { themeId, setTheme } = useTheme();
   const [tab, setTab] = useState<CollectionTab>("themes");
-  const [themeId, setThemeId] = useState("classic_dark");
   const [busy, setBusy] = useState<string | null>(null);
 
   useSyncAudioTheme(themeId);
-
-  useEffect(() => {
-    loadThemePreference().then(setThemeId).catch(() => undefined);
-  }, []);
 
   const owned = user?.purchased_items ?? [];
   const entries = COLLECTION_ENTRIES.filter((e) => e.tab === tab);
@@ -58,12 +65,9 @@ export default function CollectionScreen() {
       setBusy(entryId);
       try {
         if (entry.equipField === "theme") {
-          await saveThemePreference(entry.equipValue);
-          setThemeId(entry.equipValue);
-        } else if (entry.equipField === "banner") {
-          await updateProfile({ banner: entry.equipValue });
+          await setTheme(entry.equipValue as ThemeId);
         } else {
-          await updateProfile({ board_style: entry.equipValue });
+          await updateProfile({ banner: entry.equipValue });
         }
         Alert.alert("Equipped", `${entry.label} is now active.`);
       } catch (err) {
@@ -72,13 +76,12 @@ export default function CollectionScreen() {
         setBusy(null);
       }
     },
-    [busy, owned, tab, user],
+    [busy, owned, setTheme, tab, user],
   );
 
-  const isEquipped = (entry: (typeof COLLECTION_ENTRIES)[0]) => {
+  const isEquipped = (entry: CollectionEntry) => {
     if (entry.equipField === "theme") return themeId === entry.equipValue;
-    if (entry.equipField === "banner") return user?.banner === entry.equipValue;
-    return user?.board_style === entry.equipValue;
+    return (user?.banner ?? "default") === entry.equipValue;
   };
 
   return (
@@ -90,7 +93,8 @@ export default function CollectionScreen() {
 
       <Title style={{ marginTop: space[4] }}>Collection</Title>
       <Body tone="muted" style={{ marginTop: space[2] }}>
-        Equip cosmetics you own. Themes also switch lobby / match music packs.
+        Equip themes and banners you own. Themes restyle the board, pieces and UI; banners show on
+        your home and profile.
       </Body>
 
       <Row gap={2} style={{ marginTop: space[4] }}>
@@ -106,19 +110,32 @@ export default function CollectionScreen() {
       </Row>
 
       <ScrollView style={{ marginTop: space[4] }} contentContainerStyle={{ paddingBottom: space[10] }}>
-        {entries.map((entry, idx) => {
-          const key = `${entry.tab}-${entry.equipValue}-${idx}`;
+        {entries.map((entry) => {
           const hasIt = entry.owned(owned);
           const equipped = isEquipped(entry);
           return (
-            <View key={key} style={styles.card}>
+            <View key={entry.id} style={styles.card}>
               <Row justify="between" align="center">
                 <Heading>{entry.label}</Heading>
-                {!hasIt ? <Caption tone="warn">LOCKED</Caption> : equipped ? (
+                {!hasIt ? (
+                  <Caption tone="warn">LOCKED</Caption>
+                ) : equipped ? (
                   <Caption tone="accent">ACTIVE</Caption>
                 ) : null}
               </Row>
               <Body tone="muted">{entry.description}</Body>
+
+              {/* Live preview */}
+              {entry.equipField === "theme" ? (
+                <ThemeSwatch themeId={entry.equipValue as ThemeId} />
+              ) : (
+                <BannerRenderer
+                  bannerId={entry.equipValue}
+                  themeId={themeId}
+                  style={styles.bannerPreview}
+                />
+              )}
+
               <View style={{ marginTop: space[3] }}>
                 <Btn
                   variant={equipped ? "ghost" : "secondary"}
@@ -134,6 +151,42 @@ export default function CollectionScreen() {
         })}
       </ScrollView>
     </Screen>
+  );
+}
+
+/** Mini board + palette swatch so the user sees the theme before equipping. */
+function ThemeSwatch({ themeId }: { themeId: ThemeId }) {
+  const p = THEMES[themeId];
+  return (
+    <View style={[styles.swatch, { backgroundColor: p.bg, borderColor: p.border }]}>
+      <View style={[styles.swatchBoard, { backgroundColor: p.boardBg, borderColor: p.boardLine }]}>
+        {[0, 1, 2].map((r) => (
+          <View key={r} style={styles.swatchRow}>
+            {[0, 1, 2].map((c) => {
+              const owner = (r + c) % 3;
+              return (
+                <View
+                  key={c}
+                  style={[styles.swatchCell, { backgroundColor: p.boardCell, borderColor: p.boardLine }]}
+                >
+                  {owner === 1 ? (
+                    <View style={[styles.swatchDot, { backgroundColor: p.p1 }]} />
+                  ) : owner === 2 ? (
+                    <View style={[styles.swatchDot, { backgroundColor: p.p2 }]} />
+                  ) : null}
+                </View>
+              );
+            })}
+          </View>
+        ))}
+      </View>
+      <View style={{ flexDirection: "row", gap: 6 }}>
+        <View style={[styles.chip, { backgroundColor: p.accent }]} />
+        <View style={[styles.chip, { backgroundColor: p.p1 }]} />
+        <View style={[styles.chip, { backgroundColor: p.p2 }]} />
+        <View style={[styles.chip, { backgroundColor: p.bgCard, borderWidth: 1, borderColor: p.border }]} />
+      </View>
+    </View>
   );
 }
 
@@ -158,4 +211,37 @@ const styles = StyleSheet.create({
     padding: space[4],
     marginBottom: space[3],
   },
+  bannerPreview: {
+    height: 64,
+    borderRadius: radii.md,
+    marginTop: space[3],
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  swatch: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: space[3],
+    marginTop: space[3],
+    padding: space[3],
+    borderRadius: radii.md,
+    borderWidth: 1,
+  },
+  swatchBoard: {
+    padding: 4,
+    borderRadius: radii.sm,
+    borderWidth: 1,
+    gap: 3,
+  },
+  swatchRow: { flexDirection: "row", gap: 3 },
+  swatchCell: {
+    width: 16,
+    height: 16,
+    borderRadius: 3,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  swatchDot: { width: 8, height: 8, borderRadius: 4 },
+  chip: { width: 22, height: 22, borderRadius: 6 },
 });

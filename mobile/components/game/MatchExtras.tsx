@@ -197,8 +197,10 @@ const styles = StyleSheet.create({
     paddingVertical: space[1],
   },
   logPanel: {
+    // Fixed height so appending move-log rows never grows the panel
+    // and pushes / resizes the board above it (BUG-07).
     marginTop: space[3],
-    maxHeight: 120,
+    height: 124,
     padding: space[3],
     borderRadius: radii.md,
     borderWidth: 1,
@@ -206,7 +208,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.bgCard,
   },
   logScroll: {
-    maxHeight: 88,
+    flex: 1,
   },
   logLine: {
     fontFamily: "monospace",

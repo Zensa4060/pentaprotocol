@@ -4,7 +4,7 @@
 
 import { router, Stack, useLocalSearchParams } from "expo-router";
 import { useCallback, useMemo } from "react";
-import { Pressable, StyleSheet, View } from "react-native";
+import { Dimensions, Pressable, StyleSheet, View } from "react-native";
 
 import { BoardGrid } from "@/components/game/BoardGrid";
 import { PatternsToggle } from "@/components/game/PatternsToggle";
@@ -32,10 +32,15 @@ import {
 } from "@/lib/hooks/useMatchSounds";
 import { usePracticeMatch } from "@/lib/hooks/usePracticeMatch";
 import { colors, radii, space } from "@/theme/tokens";
+import { usePalette } from "@/theme/ThemeProvider";
 
 export default function TrainingPracticeScreen() {
   const params = useLocalSearchParams<{ grid?: string }>();
   const gridSize = parseGridParam(params.grid);
+  const palette = usePalette();
+  // Fixed board box (width minus the screen's horizontal gutter) so the
+  // board never resizes/recenters as HUD or move-log content changes.
+  const boardDim = Dimensions.get("window").width - space[5] * 2;
   const match = usePracticeMatch({ gridSize });
   const clock = useMatchClock(
     match.current,
@@ -85,7 +90,7 @@ export default function TrainingPracticeScreen() {
   };
 
   return (
-    <Screen padded>
+    <Screen padded background={palette.bg}>
       <Stack.Screen options={{ headerShown: false }} />
 
       <Row justify="between" align="center" style={{ marginTop: space[3] }}>
@@ -112,12 +117,12 @@ export default function TrainingPracticeScreen() {
       </View>
 
       <Row justify="between" align="center" style={{ marginTop: space[4] }}>
-        <PlayerTile label="X" color={colors.p1} active={match.current === "P1" && match.result.status === "playing"} />
-        <PlayerTile label="Y" color={colors.p2} active={match.current === "P2" && match.result.status === "playing"} />
+        <PlayerTile label={palette.glyphP1} color={palette.p1} active={match.current === "P1" && match.result.status === "playing"} />
+        <PlayerTile label={palette.glyphP2} color={palette.p2} active={match.current === "P2" && match.result.status === "playing"} />
       </Row>
 
       <CenterRuleBanner
-        visible={match.centerRuleHint && match.movesPlayed === 0}
+        visible={match.centerRuleHint && match.movesPlayed === 0 && gridSize !== 6}
         gridSize={gridSize}
       />
       <ExtraTurnsBadge count={match.extraTurns} player={match.extraTurnsHolder} />
@@ -126,7 +131,7 @@ export default function TrainingPracticeScreen() {
         <Eyebrow tone={statusTone}>{status}</Eyebrow>
       </Row>
 
-      <View style={{ marginTop: space[3], flex: 1, justifyContent: "center", minHeight: 280 }}>
+      <View style={{ marginTop: space[3], height: boardDim, justifyContent: "center" }}>
         <BoardGrid
           gridSize={gridSize}
           board={match.board}

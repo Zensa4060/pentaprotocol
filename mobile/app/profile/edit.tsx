@@ -30,11 +30,16 @@ import { colors, radii, space } from "@/theme/tokens";
 interface EditRowDef {
   label: string;
   description: (user: ReturnType<typeof useAuthStore.getState>["user"]) => string;
-  route: "/profile/username" | "/profile/bio" | "/profile/password" | "/profile/two-factor";
+  route: "/profile/avatar" | "/profile/username" | "/profile/bio" | "/profile/password" | "/profile/two-factor";
   badge?: (user: ReturnType<typeof useAuthStore.getState>["user"]) => string | null;
 }
 
 const ROWS: EditRowDef[] = [
+  {
+    label: "Profile picture",
+    description: (u) => (u?.avatar ? "Custom avatar set" : "Set a photo or image URL"),
+    route: "/profile/avatar",
+  },
   {
     label: "Username",
     description: (u) => (u ? `@${u.username}` : "—"),

@@ -43,6 +43,7 @@ import {
 } from "@/lib/multiplayer/rooms";
 import type { PlayerSlot } from "@/lib/multiplayer/types";
 import { useMatchSocket } from "@/lib/multiplayer/useMatchSocket";
+import { gridFromBoardMode } from "@/lib/game/boardConfig";
 import { colors, radii, space } from "@/theme/tokens";
 
 export default function MultiplayerWaiting() {
@@ -60,9 +61,15 @@ export default function MultiplayerWaiting() {
   useEffect(() => {
     if (!room) return;
     if (room.status === "active") {
+      const g = gridFromBoardMode(room.board_mode);
       router.replace({
-        pathname: "/multiplayer/match",
-        params: { code, slot },
+        pathname: "/pregame",
+        params: {
+          mode: "multiplayer",
+          code,
+          slot,
+          grid: g === 5 ? "5" : g === 6 ? "6" : "7",
+        },
       });
     }
   }, [room, code, slot]);

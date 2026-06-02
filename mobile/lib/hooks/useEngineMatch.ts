@@ -62,7 +62,7 @@ const INITIAL_RESULT: MatchResult = { status: "playing", winner: null, line: nul
 
 export function useEngineMatch({
   difficulty,
-  gridSize = 7,
+  gridSize = 5,
   patterns: patternsProp,
 }: UseEngineMatchOptions): EngineMatch {
   const patterns = patternsProp ?? defaultPatternsForGrid(gridSize);
@@ -176,7 +176,7 @@ export function useEngineMatch({
         r,
         c,
         player,
-        newMoves === 1 && r === center && c === center,
+        gridSize !== 6 && newMoves === 1 && r === center && c === center,
       );
       commitState(newBoard, newMoves, [r, c], nextResult, next, newExtra, logEntry);
       return nextResult;

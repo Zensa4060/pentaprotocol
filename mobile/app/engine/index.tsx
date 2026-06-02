@@ -34,7 +34,8 @@ export default function EnginePickerScreen() {
   const user = useAuthStore((s) => s.user);
   const defeats = user?.bot_defeats ?? {};
   const [selected, setSelected] = useState<BotId>("seraphina");
-  const [gridSize, setGridSize] = useState<GridSize>(7);
+  // Default to the standard 5×5 board (BUG-03) — not 7×7.
+  const [gridSize, setGridSize] = useState<GridSize>(5);
 
   const gridOptions = useMemo(
     () =>
@@ -63,8 +64,9 @@ export default function EnginePickerScreen() {
       return;
     }
     router.push({
-      pathname: "/engine/match",
+      pathname: "/pregame",
       params: {
+        mode: "engine",
         botId: card.id,
         difficulty: card.difficulty,
         label: card.label,
@@ -83,7 +85,7 @@ export default function EnginePickerScreen() {
       </Pressable>
 
       <VStack gap={3} style={{ marginTop: space[6] }}>
-        <Eyebrow tone="muted">AI ENGINE</Eyebrow>
+        <Eyebrow tone="muted">AI BOT</Eyebrow>
         <Title>Choose your demise</Title>
         <Body tone="muted">
           Server-backed opponents on 5×5, 6×6, or 7×7. Wins can grant XP and unlock the next bot.

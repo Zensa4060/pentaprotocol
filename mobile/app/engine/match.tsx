@@ -4,7 +4,7 @@
 
 import { router, Stack, useLocalSearchParams } from "expo-router";
 import { useCallback, useMemo } from "react";
-import { Pressable, StyleSheet, View } from "react-native";
+import { Dimensions, Pressable, StyleSheet, View } from "react-native";
 
 import { BoardGrid } from "@/components/game/BoardGrid";
 import { PatternsToggle } from "@/components/game/PatternsToggle";
@@ -34,6 +34,7 @@ import {
   useMatchGameBgm,
 } from "@/lib/hooks/useMatchSounds";
 import { colors, radii, space } from "@/theme/tokens";
+import { usePalette } from "@/theme/ThemeProvider";
 
 export default function EngineMatchScreen() {
   const params = useLocalSearchParams<{
@@ -47,6 +48,8 @@ export default function EngineMatchScreen() {
       : "hard";
   const botName = (params.label ?? "BOT").toUpperCase();
   const gridSize = parseGridParam(params.grid);
+  const palette = usePalette();
+  const boardDim = Dimensions.get("window").width - space[5] * 2;
 
   const match = useEngineMatch({ difficulty, gridSize });
   const clock = useMatchClock(
@@ -119,7 +122,7 @@ export default function EngineMatchScreen() {
   };
 
   return (
-    <Screen padded>
+    <Screen padded background={palette.bg}>
       <Stack.Screen options={{ headerShown: false }} />
 
       <Row justify="between" align="center" style={{ marginTop: space[3] }}>
@@ -148,12 +151,12 @@ export default function EngineMatchScreen() {
       </View>
 
       <Row justify="between" align="center" style={{ marginTop: space[4] }}>
-        <PlayerTile label="YOU · X" color={colors.p1} active={match.current === "P1" && match.result.status === "playing"} />
-        <PlayerTile label={`${botName} · Y`} color={colors.p2} active={match.current === "P2" && match.result.status === "playing"} />
+        <PlayerTile label={`YOU · ${palette.glyphP1}`} color={palette.p1} active={match.current === "P1" && match.result.status === "playing"} />
+        <PlayerTile label={`${botName} · ${palette.glyphP2}`} color={palette.p2} active={match.current === "P2" && match.result.status === "playing"} />
       </Row>
 
       <CenterRuleBanner
-        visible={match.centerRuleHint && match.movesPlayed === 0}
+        visible={match.centerRuleHint && match.movesPlayed === 0 && gridSize !== 6}
         gridSize={gridSize}
       />
       <ExtraTurnsBadge count={match.extraTurns} player={match.extraTurnsHolder} />
@@ -165,7 +168,7 @@ export default function EngineMatchScreen() {
         </Eyebrow>
       </Row>
 
-      <View style={{ marginTop: space[3], flex: 1, justifyContent: "center", minHeight: 280 }}>
+      <View style={{ marginTop: space[3], height: boardDim, justifyContent: "center" }}>
         <BoardGrid
           gridSize={gridSize}
           board={match.board}

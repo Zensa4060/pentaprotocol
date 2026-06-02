@@ -40,8 +40,11 @@ export function resolveTurnAfterMove(
 ): TurnResolution {
   const center = centerCell(grid);
   const suppressCenter = opts?.suppressCenterOpening ?? false;
+  // Center-opening rule applies on 5×5 and 7×7 only (web parity:
+  // GRID_SIZE !== 6). On 6×6 there is no single true centre.
   const centerOpenBonus =
     !suppressCenter &&
+    grid !== 6 &&
     movesAfter === 1 &&
     row === center &&
     col === center;

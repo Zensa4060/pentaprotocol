@@ -149,6 +149,8 @@ export interface ProfilePatchInput {
   bio?: string;
   banner?: string;
   board_style?: string;
+  /** Public https URL of the avatar image (server-persisted). */
+  avatar?: string;
   /** Active UI theme (classic_dark, space, pixel, …). */
   theme?: string;
 }

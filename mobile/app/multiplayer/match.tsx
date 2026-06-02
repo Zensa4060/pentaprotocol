@@ -22,7 +22,7 @@
 
 import { router, Stack, useLocalSearchParams } from "expo-router";
 import { useEffect, useRef } from "react";
-import { Alert, BackHandler, Pressable, StyleSheet, View } from "react-native";
+import { Alert, BackHandler, Dimensions, Pressable, StyleSheet, View } from "react-native";
 
 import {
   Body,
@@ -58,7 +58,9 @@ import type {
   Room,
 } from "@/lib/multiplayer/types";
 import { useMatchSocket } from "@/lib/multiplayer/useMatchSocket";
+import { reportPlayer, sendPeerRequest } from "@/lib/social/friends";
 import { colors, radii, space } from "@/theme/tokens";
+import { usePalette } from "@/theme/ThemeProvider";
 
 export default function MultiplayerMatch() {
   const params = useLocalSearchParams<{ code?: string; slot?: string }>();
@@ -80,6 +82,8 @@ export default function MultiplayerMatch() {
   } = useMatchSocket({ roomCode: code, slot });
 
   const audio = useGameAudio();
+  const palette = usePalette();
+  const boardDim = Dimensions.get("window").width - space[5] * 2;
   useMatchGameBgm();
   const prevGameStatus = useRef<string | null>(null);
 
@@ -175,7 +179,7 @@ export default function MultiplayerMatch() {
   const gridSize = gridFromBoardMode(room.board_mode);
 
   return (
-    <Screen padded>
+    <Screen padded background={palette.bg}>
       <Stack.Screen options={{ headerShown: false }} />
 
       {/* ── Top bar ───────────────────────────────────────────── */}
@@ -228,7 +232,7 @@ export default function MultiplayerMatch() {
       ) : null}
 
       {/* ── Board ─────────────────────────────────────────────── */}
-      <View style={{ marginTop: space[4], flex: 1, justifyContent: "center" }}>
+      <View style={{ marginTop: space[4], height: boardDim, justifyContent: "center" }}>
         <BoardGrid
           gridSize={gridSize}
           board={room.board ?? emptyBoard(gridSize)}
@@ -245,7 +249,14 @@ export default function MultiplayerMatch() {
 
       {/* ── Bottom panels ─────────────────────────────────────── */}
       {seriesOver ? (
-        <SeriesEndPanel room={room} mySlot={slot} />
+        <>
+          <SeriesEndPanel room={room} mySlot={slot} />
+          <PostMatchSocial
+            opponentId={slot === "P1" ? room.player2_id : room.player1_id}
+            opponentName={slot === "P1" ? room.player2_name : room.player1_name}
+            roomCode={room.room_code}
+          />
+        </>
       ) : gameOver ? (
         <GameEndPanel
           room={room}
@@ -370,6 +381,63 @@ function SeriesEndPanel({
       <Btn variant="primary" onPress={() => router.replace("/multiplayer")}>
         Back to lobby
       </Btn>
+    </Card>
+  );
+}
+
+function PostMatchSocial({
+  opponentId,
+  opponentName,
+  roomCode,
+}: {
+  opponentId: string | null;
+  opponentName: string | null;
+  roomCode: string;
+}) {
+  if (!opponentId) return null;
+  const name = opponentName ?? "opponent";
+
+  const addFriend = async () => {
+    try {
+      await sendPeerRequest(opponentId);
+      Alert.alert("Sent", `Friend request sent to ${name}.`);
+    } catch (err) {
+      Alert.alert("Error", err instanceof Error ? err.message : "Try again.");
+    }
+  };
+
+  const report = () => {
+    Alert.alert("Report player", `Report ${name} for abuse?`, [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Report",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            await reportPlayer({ userId: opponentId, category: "abuse", roomCode });
+            Alert.alert("Reported", "Thanks — our team will review.");
+          } catch (err) {
+            Alert.alert("Error", err instanceof Error ? err.message : "Try again.");
+          }
+        },
+      },
+    ]);
+  };
+
+  return (
+    <Card variant="surface" padding="md" style={{ marginTop: space[3] }}>
+      <Eyebrow tone="muted">OPPONENT</Eyebrow>
+      <View style={{ height: space[2] }} />
+      <Heading numberOfLines={1}>{name}</Heading>
+      <View style={{ height: space[3] }} />
+      <Row gap={2}>
+        <View style={{ flex: 1 }}>
+          <Btn variant="secondary" onPress={addFriend}>Add friend</Btn>
+        </View>
+        <View style={{ flex: 1 }}>
+          <Btn variant="ghost" onPress={report}>Report</Btn>
+        </View>
+      </Row>
     </Card>
   );
 }

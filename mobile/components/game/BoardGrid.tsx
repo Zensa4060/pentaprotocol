@@ -7,6 +7,7 @@ import {
   Animated,
   Pressable,
   StyleSheet,
+  Text,
   View,
   type LayoutChangeEvent,
   type StyleProp,
@@ -14,13 +15,16 @@ import {
 } from "react-native";
 
 import type { GridSize } from "@/lib/game/boardConfig";
-import { pieceGlyph } from "@/lib/game/matchRules";
 import { colors, radii } from "@/theme/tokens";
+import { usePalette } from "@/theme/ThemeProvider";
+import type { ThemePalette } from "@/theme/themes";
 
 import type { Board, Coord } from "@/lib/game/winCheck";
 
 const CELL_GAP = 4;
 const BOARD_PAD = 8;
+/** Gutter reserved for the A–E / 1–5 coordinate labels. */
+const LABEL_GUTTER = 18;
 
 export interface BoardGridProps {
   gridSize: GridSize;
@@ -41,6 +45,7 @@ export function BoardGrid({
   disabled = false,
   style,
 }: BoardGridProps) {
+  const palette = usePalette();
   const [size, setSize] = useState(0);
 
   const handleLayout = (e: LayoutChangeEvent) => {
@@ -48,9 +53,11 @@ export function BoardGrid({
     if (next !== size && next > 0) setSize(next);
   };
 
+  // The square is split into a label gutter (top + left) and the board.
+  const boardSize = size > 0 ? size - LABEL_GUTTER : 0;
   const cellSize =
-    size > 0
-      ? Math.floor((size - BOARD_PAD * 2 - CELL_GAP * (gridSize - 1)) / gridSize)
+    boardSize > 0
+      ? Math.floor((boardSize - BOARD_PAD * 2 - CELL_GAP * (gridSize - 1)) / gridSize)
       : 0;
 
   const winningSet = new Set<string>();
@@ -59,29 +66,74 @@ export function BoardGrid({
   }
   const lastKey = lastMove ? `${lastMove[0]},${lastMove[1]}` : null;
 
+  const colLabels = Array.from({ length: gridSize }, (_, i) => String.fromCharCode(65 + i));
+
   return (
     <View style={[styles.boardWrap, style]} onLayout={handleLayout}>
       {size > 0 ? (
-        <View style={[styles.board, { width: size, height: size }]}>
-          {board.map((row, r) => (
-            <View key={`row-${r}`} style={styles.row}>
-              {row.map((cell, c) => {
-                const isLast = lastKey === `${r},${c}`;
-                const isWinning = winningSet.has(`${r},${c}`);
-                return (
-                  <Cell
-                    key={`${r}-${c}`}
-                    size={cellSize}
-                    owner={cell}
-                    isLast={isLast}
-                    isWinning={isWinning}
-                    disabled={disabled || cell !== null}
-                    onPress={() => onCellPress?.(r, c)}
-                  />
-                );
-              })}
+        <View style={{ width: size, height: size }}>
+          {/* ── Column labels (A–E) ── */}
+          <View style={{ flexDirection: "row", height: LABEL_GUTTER, marginLeft: LABEL_GUTTER + BOARD_PAD }}>
+            {colLabels.map((ch, c) => (
+              <Text
+                key={`col-${c}`}
+                style={[
+                  styles.coordLabel,
+                  { width: cellSize, marginRight: CELL_GAP, color: palette.textDim },
+                ]}
+              >
+                {ch}
+              </Text>
+            ))}
+          </View>
+
+          <View style={{ flexDirection: "row" }}>
+            {/* ── Row labels (1–5) ── */}
+            <View style={{ width: LABEL_GUTTER, marginTop: BOARD_PAD }}>
+              {board.map((_, r) => (
+                <View
+                  key={`rowlbl-${r}`}
+                  style={{ height: cellSize, marginBottom: CELL_GAP, justifyContent: "center" }}
+                >
+                  <Text style={[styles.coordLabel, { color: palette.textDim }]}>{r + 1}</Text>
+                </View>
+              ))}
             </View>
-          ))}
+
+            {/* ── Board ── */}
+            <View
+              style={[
+                styles.board,
+                {
+                  width: boardSize,
+                  height: boardSize,
+                  backgroundColor: palette.boardBg,
+                  borderColor: palette.boardLine,
+                },
+              ]}
+            >
+              {board.map((row, r) => (
+                <View key={`row-${r}`} style={styles.row}>
+                  {row.map((cell, c) => {
+                    const isLast = lastKey === `${r},${c}`;
+                    const isWinning = winningSet.has(`${r},${c}`);
+                    return (
+                      <Cell
+                        key={`${r}-${c}`}
+                        size={cellSize}
+                        owner={cell}
+                        isLast={isLast}
+                        isWinning={isWinning}
+                        palette={palette}
+                        disabled={disabled || cell !== null}
+                        onPress={() => onCellPress?.(r, c)}
+                      />
+                    );
+                  })}
+                </View>
+              ))}
+            </View>
+          </View>
         </View>
       ) : null}
     </View>
@@ -100,11 +152,12 @@ interface CellProps {
   owner: string | null;
   isLast: boolean;
   isWinning: boolean;
+  palette: ThemePalette;
   disabled: boolean;
   onPress: () => void;
 }
 
-function Cell({ size, owner, isLast, isWinning, disabled, onPress }: CellProps) {
+function Cell({ size, owner, isLast, isWinning, palette, disabled, onPress }: CellProps) {
   const pulse = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
@@ -122,37 +175,41 @@ function Cell({ size, owner, isLast, isWinning, disabled, onPress }: CellProps) 
     return () => loop.stop();
   }, [isWinning, pulse]);
 
+  // Per-theme glyphs: P1/P2 use the active theme's piece glyphs
+  // (X/Y, α/Ω, ⚔/🛡, …); legacy X/O owners render literally.
   const glyph =
-    owner === "P1" || owner === "P2"
-      ? pieceGlyph(owner)
+    owner === "P1"
+      ? palette.glyphP1
+      : owner === "P2"
+      ? palette.glyphP2
       : owner === "X" || owner === "O"
       ? owner
       : null;
   const pieceColor =
     owner === "P1" || owner === "X"
-      ? colors.p1
+      ? palette.p1
       : owner === "P2" || owner === "O" || owner === "Y"
-      ? colors.p2
-      : colors.textMuted;
+      ? palette.p2
+      : palette.textMuted;
 
   return (
     <Pressable
       disabled={disabled}
       onPress={onPress}
-      android_ripple={!disabled ? { color: colors.bgRaised } : undefined}
+      android_ripple={!disabled ? { color: palette.bgRaised } : undefined}
       style={({ pressed }) => [
         {
           width: size,
           height: size,
           marginRight: CELL_GAP,
-          backgroundColor: colors.bgRaised,
+          backgroundColor: palette.boardCell,
           borderRadius: radii.xs,
           borderWidth: 1,
-          borderColor: colors.border,
+          borderColor: palette.boardLine,
           alignItems: "center",
           justifyContent: "center",
         },
-        pressed && !disabled ? { backgroundColor: colors.bgCard } : null,
+        pressed && !disabled ? { backgroundColor: palette.bgCard } : null,
       ]}
     >
       {glyph ? (
@@ -178,7 +235,7 @@ function Cell({ size, owner, isLast, isWinning, disabled, onPress }: CellProps) 
             bottom: 0,
             borderRadius: radii.xs,
             borderWidth: 2,
-            borderColor: colors.borderStrong,
+            borderColor: palette.borderStrong,
           }}
         />
       ) : null}
@@ -193,7 +250,7 @@ function Cell({ size, owner, isLast, isWinning, disabled, onPress }: CellProps) 
             bottom: 0,
             borderRadius: radii.xs,
             borderWidth: 2,
-            borderColor: colors.accentHot,
+            borderColor: palette.accentHot,
           }}
         />
       ) : null}
@@ -224,5 +281,11 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: "row",
     marginBottom: CELL_GAP,
+  },
+  coordLabel: {
+    fontSize: 10,
+    fontWeight: "700",
+    letterSpacing: 0.5,
+    textAlign: "center",
   },
 });

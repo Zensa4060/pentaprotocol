@@ -1,5 +1,9 @@
 /**
- * Store catalog — prices mirror ``backend/app/routers/store.py``.
+ * Store catalog — **themes + banners only** on mobile.
+ *
+ * Prices mirror ``backend/app/routers/store.py::_ITEM_PRICE_OVERRIDES``
+ * (themes 2099 PC + 700 PS; animated banners 299 PC). Board skins /
+ * grids / pieces are intentionally not sold on mobile.
  */
 
 export interface StoreItem {
@@ -8,14 +12,14 @@ export interface StoreItem {
   description: string;
   pricePc: number;
   pricePs: number;
-  category: "theme" | "banner" | "grid" | "piece" | "bundle";
+  category: "theme" | "banner";
 }
 
 export const STORE_THEMES: StoreItem[] = [
   {
     id: "theme_space",
     label: "Space Theme",
-    description: "Space board + ranked OST pack",
+    description: "Deep-navy UI, neon pieces + ranked OST pack.",
     pricePc: 2099,
     pricePs: 700,
     category: "theme",
@@ -23,31 +27,43 @@ export const STORE_THEMES: StoreItem[] = [
   {
     id: "theme_pixel",
     label: "Pixel Theme",
-    description: "Pixel board + ranked OST pack",
+    description: "Retro pixel forest UI + ranked OST pack.",
     pricePc: 2099,
     pricePs: 700,
     category: "theme",
   },
 ];
 
+const banner = (id: string, label: string): StoreItem => ({
+  id,
+  label,
+  description: "Animated profile & home banner.",
+  pricePc: 299,
+  pricePs: 0,
+  category: "banner",
+});
+
 export const STORE_BANNERS: StoreItem[] = [
-  { id: "void_rift", label: "Void Rift", description: "Profile banner", pricePc: 299, pricePs: 0, category: "banner" },
-  { id: "blood_moon", label: "Blood Moon", description: "Profile banner", pricePc: 299, pricePs: 0, category: "banner" },
-  { id: "inferno", label: "Inferno", description: "Profile banner", pricePc: 299, pricePs: 0, category: "banner" },
-  { id: "starfield", label: "Starfield", description: "Profile banner", pricePc: 299, pricePs: 0, category: "banner" },
-];
-
-export const STORE_GRIDS: StoreItem[] = [
-  { id: "red_grid", label: "Inferno Grid", description: "5×5 board skin", pricePc: 1599, pricePs: 0, category: "grid" },
-  { id: "ice_grid", label: "Ice Grid", description: "5×5 board skin", pricePc: 1599, pricePs: 0, category: "grid" },
-  { id: "glacier_grid", label: "Glacier Grid", description: "5×5 board skin", pricePc: 1599, pricePs: 0, category: "grid" },
-  { id: "space_grid", label: "Space Grid", description: "Premium grid", pricePc: 900, pricePs: 300, category: "grid" },
-  { id: "pixel_grid", label: "Pixel Grid", description: "Premium grid", pricePc: 900, pricePs: 300, category: "grid" },
-];
-
-export const STORE_PIECES: StoreItem[] = [
-  { id: "piece_flame_skull", label: "Flame & Skull", description: "Piece skin", pricePc: 599, pricePs: 0, category: "piece" },
-  { id: "piece_snowflake_shard", label: "Snow & Shard", description: "Piece skin", pricePc: 599, pricePs: 0, category: "piece" },
+  banner("digital_rain", "Digital Rain"),
+  banner("lightsaber_duel", "Lightsaber Duel"),
+  banner("arcade", "Arcade"),
+  banner("hyperdrive", "Hyperdrive"),
+  banner("northern_lights", "Northern Lights"),
+  banner("void_collapse", "Void Collapse"),
+  banner("lava_flow", "Lava Flow"),
+  banner("particle_web", "Particle Web"),
+  banner("ink_drop", "Ink Drop"),
+  banner("thunder_storm", "Thunder Storm"),
+  banner("neon_pulse", "Neon Pulse"),
+  banner("deep_sea", "Deep Sea"),
+  banner("prismatic_light", "Prismatic Light"),
+  banner("sand_dunes", "Sand Dunes"),
+  banner("ember_phoenix", "Ember Phoenix"),
+  banner("crystal_cave", "Crystal Cave"),
+  banner("hacker_terminal", "Hacker Terminal"),
+  banner("tidal_surge", "Tidal Surge"),
+  banner("solar_wind", "Solar Wind"),
+  banner("lava_lamp", "Lava Lamp"),
 ];
 
 export const PC_PACKAGES = [

@@ -1,12 +1,11 @@
 /**
- * Training hub — practice mode only (no bot).
+ * 1V1 : OFFLINE hub.
  *
- * Mirrors the web ``/training`` menu:
+ * Three offline options:
  *   - Tutorial replay
- *   - Singleplayer practice (local alternating stones, undo)
- *
- * Named AI opponents live under AI Engine (`/engine`) and use
- * ``POST /api/bot/move`` on the backend.
+ *   - Solo practice (local alternating stones, undo)
+ *   - AI Bot — named server opponents via ``POST /api/bot/move``
+ *     (lives here, under offline, rather than as its own home tile).
  */
 
 import { router, Stack } from "expo-router";
@@ -39,11 +38,11 @@ export default function TrainingHubScreen() {
       </Pressable>
 
       <VStack gap={3} style={{ marginTop: space[6] }}>
-        <Eyebrow tone="muted">TRAINING</Eyebrow>
-        <Title>Practice & learn</Title>
+        <Eyebrow tone="muted">1V1 : OFFLINE</Eyebrow>
+        <Title>Play offline</Title>
         <Body tone="muted">
-          No rating, no rewards. Replay the tutorial or run a local practice board — you
-          control both colours.
+          No queue required. Replay the tutorial, practise solo on a local board, or fight the
+          AI Bot for XP.
         </Body>
       </VStack>
 
@@ -58,31 +57,30 @@ export default function TrainingHubScreen() {
           onPress={() => router.push("/onboarding")}
         />
         <HubCard
-          title="PRACTICE · 5×5"
+          title="SOLO · 5×5"
           subtitle="Classic leg · lines & shapes · 5:00 per player."
           accent={colors.info}
-          onPress={() => router.push({ pathname: "/training/match", params: { grid: "5" } })}
+          onPress={() => router.push({ pathname: "/pregame", params: { mode: "training", grid: "5" } })}
         />
         <HubCard
-          title="PRACTICE · 6×6"
+          title="SOLO · 6×6"
           subtitle="Mid leg · six-in-a-row & fixed shapes · 8:00 per player."
           accent={colors.info}
-          onPress={() => router.push({ pathname: "/training/match", params: { grid: "6" } })}
+          onPress={() => router.push({ pathname: "/pregame", params: { mode: "training", grid: "6" } })}
         />
         <HubCard
-          title="PRACTICE · 7×7"
+          title="SOLO · 7×7"
           subtitle="Top leg · center rule · 10:00 per player · move log · win line."
           accent={colors.info}
-          onPress={() => router.push({ pathname: "/training/match", params: { grid: "7" } })}
+          onPress={() => router.push({ pathname: "/pregame", params: { mode: "training", grid: "7" } })}
+        />
+        <HubCard
+          title="AI BOT"
+          subtitle="Named server opponents — earn XP and unlock the next bot."
+          accent="#A065FF"
+          onPress={() => router.push("/engine")}
         />
       </VStack>
-
-      <View style={[styles.noteCard, { marginTop: space[7] }]}>
-        <Caption tone="muted">
-          Want to fight the server AI and earn XP? Use{" "}
-          <Caption tone="accent">AI Engine</Caption> from the home screen.
-        </Caption>
-      </View>
     </Screen>
   );
 }

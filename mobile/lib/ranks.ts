@@ -67,3 +67,21 @@ export function getRank(elo: number, isPlacement = false): RankDef {
   if (isPlacement) return RANKS.find((r) => r.name === "UNRANKED") ?? RANKS[0];
   return RANKS.find((r) => elo >= r.min && elo < r.max) ?? RANKS[0];
 }
+
+/**
+ * XP required to advance *from* ``level`` to the next.
+ * Mirrors ``backend/app/routers/game.py::xp_for_level``:
+ *   1000 + (level - 1) * 500.
+ * The user's stored ``xp`` is the progress already banked toward this.
+ */
+export function xpForLevel(level: number): number {
+  if (level <= 0) return 1000;
+  return 1000 + (level - 1) * 500;
+}
+
+/** Fraction (0–1) of the way through the current level. */
+export function levelProgress(level: number, xp: number): number {
+  const need = xpForLevel(level);
+  if (need <= 0) return 0;
+  return Math.max(0, Math.min(1, xp / need));
+}

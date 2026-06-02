@@ -16,7 +16,7 @@ import {
   Spinner,
   Title,
 } from "@/components/ui";
-import type { BoardMode } from "@/lib/game/boardConfig";
+import { gridFromBoardMode, type BoardMode } from "@/lib/game/boardConfig";
 import { useLobbyBgm } from "@/lib/hooks/useMatchSounds";
 import {
   isQueueMatched,
@@ -34,9 +34,14 @@ export default function MatchmakingQueueScreen() {
   const boardMode: BoardMode | "5x5_6x6_7x7" =
     format === "ranked" ? "5x5_6x6_7x7" : ((params.board as BoardMode) ?? "5x5");
 
+  /** Stop searching and surface a clear message after this long with no match. */
+  const SEARCH_TIMEOUT_S = 45;
+
   const [elapsed, setElapsed] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [cancelling, setCancelling] = useState(false);
+  const [timedOut, setTimedOut] = useState(false);
+  const [retryKey, setRetryKey] = useState(0);
   const roomCodeRef = useRef<string | null>(null);
   const slotRef = useRef<PlayerSlot>("P1");
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -62,8 +67,29 @@ export default function MatchmakingQueueScreen() {
     goLobby();
   }, [boardMode, cancelling, format]);
 
+  /** Give up gracefully — leave the queue and show a no-opponent state. */
+  const giveUp = useCallback(async () => {
+    cancelledRef.current = true;
+    if (pollRef.current) clearInterval(pollRef.current);
+    try {
+      await leaveQueue(format, boardMode, roomCodeRef.current ?? undefined);
+    } catch {
+      /* best effort */
+    }
+    setTimedOut(true);
+  }, [boardMode, format]);
+
+  const retry = useCallback(() => {
+    setTimedOut(false);
+    setError(null);
+    setElapsed(0);
+    roomCodeRef.current = null;
+    setRetryKey((k) => k + 1);
+  }, []);
+
   useEffect(() => {
     cancelledRef.current = false;
+    setTimedOut(false);
     let tick: ReturnType<typeof setInterval> | null = null;
 
     (async () => {
@@ -75,8 +101,13 @@ export default function MatchmakingQueueScreen() {
 
         if (res.matched && res.room && isQueueMatched(res.room, res.player_slot)) {
           router.replace({
-            pathname: "/multiplayer/match",
-            params: { code: res.room_code, slot: res.player_slot },
+            pathname: "/pregame",
+            params: {
+              mode: "multiplayer",
+              code: res.room_code,
+              slot: res.player_slot,
+              grid: gridFromBoardMode(res.room.board_mode) === 5 ? "5" : gridFromBoardMode(res.room.board_mode) === 6 ? "6" : "7",
+            },
           });
           return;
         }
@@ -88,9 +119,15 @@ export default function MatchmakingQueueScreen() {
             const room = await pollQueueStatus(code);
             if (isQueueMatched(room, slotRef.current)) {
               if (pollRef.current) clearInterval(pollRef.current);
+              const g = gridFromBoardMode(room.board_mode);
               router.replace({
-                pathname: "/multiplayer/match",
-                params: { code, slot: slotRef.current },
+                pathname: "/pregame",
+                params: {
+                  mode: "multiplayer",
+                  code,
+                  slot: slotRef.current,
+                  grid: g === 5 ? "5" : g === 6 ? "6" : "7",
+                },
               });
             }
           } catch {
@@ -107,14 +144,24 @@ export default function MatchmakingQueueScreen() {
       }
     })();
 
-    tick = setInterval(() => setElapsed((e) => e + 1), 1000);
+    tick = setInterval(() => {
+      setElapsed((e) => {
+        const next = e + 1;
+        if (next >= SEARCH_TIMEOUT_S && !cancelledRef.current) {
+          if (tick) clearInterval(tick);
+          void giveUp();
+        }
+        return next;
+      });
+    }, 1000);
 
     return () => {
       cancelledRef.current = true;
       if (pollRef.current) clearInterval(pollRef.current);
       if (tick) clearInterval(tick);
     };
-  }, [boardMode, format]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [boardMode, format, retryKey]);
 
   const mm = Math.floor(elapsed / 60);
   const ss = String(elapsed % 60).padStart(2, "0");
@@ -128,16 +175,28 @@ export default function MatchmakingQueueScreen() {
 
       <View style={styles.center}>
         <Eyebrow tone="accent">{format === "ranked" ? "RANKED" : "UNRANKED"} QUEUE</Eyebrow>
-        <Title style={{ marginTop: space[3] }}>Searching…</Title>
-        <Body tone="muted" style={{ marginTop: space[2], textAlign: "center" }}>
-          {format === "ranked"
-            ? "Matching by hidden MMR across 5×5 → 6×6 → 7×7 legs."
-            : `Board: ${boardMode} · waiting for an opponent.`}
-        </Body>
-        <Text style={styles.timer}>
-          {mm}:{ss}
-        </Text>
-        {!error ? <Spinner style={{ marginTop: space[6] }} /> : null}
+        {timedOut ? (
+          <>
+            <Title style={{ marginTop: space[3] }}>No opponent found</Title>
+            <Body tone="muted" style={{ marginTop: space[2], textAlign: "center" }}>
+              We couldn&apos;t match you within {SEARCH_TIMEOUT_S}s. The queue may be quiet right now —
+              try again, or play the AI Bot offline.
+            </Body>
+          </>
+        ) : (
+          <>
+            <Title style={{ marginTop: space[3] }}>Searching…</Title>
+            <Body tone="muted" style={{ marginTop: space[2], textAlign: "center" }}>
+              {format === "ranked"
+                ? "Matching by hidden MMR across 5×5 → 6×6 → 7×7 legs."
+                : `Board: ${boardMode} · waiting for an opponent.`}
+            </Body>
+            <Text style={styles.timer}>
+              {mm}:{ss}
+            </Text>
+            {!error ? <Spinner style={{ marginTop: space[6] }} /> : null}
+          </>
+        )}
         {error ? (
           <Caption tone="warn" style={{ marginTop: space[4], textAlign: "center" }}>
             {error}
@@ -146,9 +205,21 @@ export default function MatchmakingQueueScreen() {
       </View>
 
       <View style={{ marginTop: space[8] }}>
-        <Btn variant="secondary" onPress={cancel} disabled={cancelling}>
-          {cancelling ? "Leaving…" : "Cancel search"}
-        </Btn>
+        {timedOut ? (
+          <>
+            <Btn variant="primary" onPress={retry}>
+              Search again
+            </Btn>
+            <View style={{ height: space[3] }} />
+            <Btn variant="secondary" onPress={goLobby}>
+              Back to lobby
+            </Btn>
+          </>
+        ) : (
+          <Btn variant="secondary" onPress={cancel} disabled={cancelling}>
+            {cancelling ? "Leaving…" : "Cancel search"}
+          </Btn>
+        )}
       </View>
     </Screen>
   );
