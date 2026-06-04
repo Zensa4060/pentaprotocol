@@ -18,9 +18,7 @@
 import { type ReactNode } from "react";
 import { StyleSheet, View, type StyleProp, type ViewStyle } from "react-native";
 
-import { radii, space } from "@/theme/tokens";
-import { usePalette } from "@/theme/ThemeProvider";
-import type { ThemePalette } from "@/theme/themes";
+import { colors, radii, space } from "@/theme/tokens";
 
 type Variant = "surface" | "raised" | "accent" | "ghost";
 type Padding = "none" | "sm" | "md" | "lg";
@@ -31,34 +29,31 @@ export interface CardProps {
   variant?: Variant;
   padding?: Padding;
   tone?: Tone;
-  /** Add a soft accent glow (used for featured / CTA cards). Auto-on for the ``accent`` variant. */
-  glow?: boolean;
   style?: StyleProp<ViewStyle>;
 }
 
-/** Variant surface/border built from the *active* theme palette. */
-function variantStyle(p: ThemePalette, variant: Variant): ViewStyle {
-  switch (variant) {
-    case "raised":
-      return { backgroundColor: p.bgRaised, borderColor: p.borderStrong, borderWidth: 1 };
-    case "accent":
-      return { backgroundColor: p.bgCard, borderColor: p.borderAccent, borderWidth: 1 };
-    case "ghost":
-      return { backgroundColor: "transparent", borderColor: p.border, borderWidth: 1 };
-    default:
-      return { backgroundColor: p.bgCard, borderColor: p.border, borderWidth: 1 };
-  }
-}
-
-function toneBarColor(p: ThemePalette, tone: Exclude<Tone, null>): string {
-  switch (tone) {
-    case "success": return p.success;
-    case "warn": return p.warn;
-    case "danger": return p.danger;
-    case "info": return p.info;
-    default: return p.accent;
-  }
-}
+const VARIANT_STYLES: Record<Variant, ViewStyle> = {
+  surface: {
+    backgroundColor: colors.bgCard,
+    borderColor: colors.border,
+    borderWidth: 1,
+  },
+  raised: {
+    backgroundColor: colors.bgRaised,
+    borderColor: colors.borderStrong,
+    borderWidth: 1,
+  },
+  accent: {
+    backgroundColor: colors.bgCard,
+    borderColor: colors.borderAccent,
+    borderWidth: 1,
+  },
+  ghost: {
+    backgroundColor: "transparent",
+    borderColor: colors.border,
+    borderWidth: 1,
+  },
+};
 
 const PADDING_VALUES: Record<Padding, number> = {
   none: 0,
@@ -67,33 +62,26 @@ const PADDING_VALUES: Record<Padding, number> = {
   lg: space[5],
 };
 
+const TONE_BAR: Record<Exclude<Tone, null>, string> = {
+  success: colors.success,
+  warn: colors.warn,
+  danger: colors.danger,
+  info: colors.info,
+  accent: colors.accent,
+};
+
 export function Card({
   children,
   variant = "surface",
   padding = "md",
   tone = null,
-  glow,
   style,
 }: CardProps) {
-  const palette = usePalette();
-  const showGlow = glow ?? variant === "accent";
-
   const base: ViewStyle = {
-    ...variantStyle(palette, variant),
+    ...VARIANT_STYLES[variant],
     borderRadius: radii.lg,
     padding: PADDING_VALUES[padding],
     overflow: "hidden",
-    ...(showGlow
-      ? {
-          // Cheap native glow — no blur layers. iOS reads the shadow*,
-          // Android reads elevation; we tint the Android shadow too.
-          shadowColor: palette.accent,
-          shadowOpacity: 0.35,
-          shadowRadius: 12,
-          shadowOffset: { width: 0, height: 0 },
-          elevation: 6,
-        }
-      : null),
   };
 
   if (!tone) {
@@ -103,10 +91,9 @@ export function Card({
   // Tone bar mode: wrap with an outer container that hosts the
   // 3px colored stripe on the left. We pad the inner content to
   // restore the visual gutter that the stripe steals.
-  // ``overflow: hidden`` clips the glow, so drop it in tone-bar mode.
   return (
     <View style={[styles.toneWrap, base, { padding: 0 }, style]}>
-      <View style={[styles.toneBar, { backgroundColor: toneBarColor(palette, tone) }]} />
+      <View style={[styles.toneBar, { backgroundColor: TONE_BAR[tone] }]} />
       <View style={{ padding: PADDING_VALUES[padding], flex: 1 }}>{children}</View>
     </View>
   );

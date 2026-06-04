@@ -13,8 +13,7 @@
 
 import { Image, StyleSheet, Text, View, type StyleProp, type ViewStyle } from "react-native";
 
-import { fontSizes, radii } from "@/theme/tokens";
-import { usePalette } from "@/theme/ThemeProvider";
+import { colors, fontSizes, radii } from "@/theme/tokens";
 
 type Size = "sm" | "md" | "lg" | "xl";
 
@@ -44,7 +43,6 @@ export interface AvatarProps {
 }
 
 export function Avatar({ uri, name, size = "md", highlighted = false, style }: AvatarProps) {
-  const palette = usePalette();
   const dim = SIZE_PX[size];
   const initial = (name ?? "?").trim().charAt(0).toUpperCase() || "?";
 
@@ -55,8 +53,7 @@ export function Avatar({ uri, name, size = "md", highlighted = false, style }: A
       height: dim,
       borderRadius: radii.pill,
       borderWidth: highlighted ? 2 : 1,
-      borderColor: highlighted ? palette.accent : palette.border,
-      backgroundColor: palette.bgRaised,
+      borderColor: highlighted ? colors.accent : colors.border,
     },
     style,
   ];
@@ -71,21 +68,21 @@ export function Avatar({ uri, name, size = "md", highlighted = false, style }: A
 
   return (
     <View style={containerStyle}>
-      <Text style={[styles.initial, { color: palette.text, fontFamily: palette.fontDisplay, fontSize: INITIAL_FONT[size] }]}>
-        {initial}
-      </Text>
+      <Text style={[styles.initial, { fontSize: INITIAL_FONT[size] }]}>{initial}</Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   base: {
+    backgroundColor: colors.bgRaised,
     alignItems: "center",
     justifyContent: "center",
     overflow: "hidden",
   },
   image: { width: "100%", height: "100%" },
   initial: {
+    color: colors.text,
     fontWeight: "800",
     letterSpacing: 1,
   },

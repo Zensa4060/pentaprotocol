@@ -20,11 +20,9 @@ import {
   Stack as VStack,
   Title,
 } from "@/components/ui";
-import { radii, space } from "@/theme/tokens";
-import { usePalette } from "@/theme/ThemeProvider";
+import { colors, radii, space } from "@/theme/tokens";
 
 export default function TrainingHubScreen() {
-  const palette = usePalette();
   const goBack = () => {
     if (router.canGoBack()) router.back();
     else router.replace("/(tabs)");
@@ -61,19 +59,19 @@ export default function TrainingHubScreen() {
         <HubCard
           title="SOLO · 5×5"
           subtitle="Classic leg · lines & shapes · 5:00 per player."
-          accent={palette.info}
+          accent={colors.info}
           onPress={() => router.push({ pathname: "/pregame", params: { mode: "training", grid: "5" } })}
         />
         <HubCard
           title="SOLO · 6×6"
           subtitle="Mid leg · six-in-a-row & fixed shapes · 8:00 per player."
-          accent={palette.info}
+          accent={colors.info}
           onPress={() => router.push({ pathname: "/pregame", params: { mode: "training", grid: "6" } })}
         />
         <HubCard
           title="SOLO · 7×7"
           subtitle="Top leg · center rule · 10:00 per player · move log · win line."
-          accent={palette.info}
+          accent={colors.info}
           onPress={() => router.push({ pathname: "/pregame", params: { mode: "training", grid: "7" } })}
         />
         <HubCard
@@ -90,7 +88,7 @@ export default function TrainingHubScreen() {
 function HubCard({
   title,
   subtitle,
-  accent,
+  accent = colors.accent,
   onPress,
 }: {
   title: string;
@@ -98,16 +96,15 @@ function HubCard({
   accent?: string;
   onPress: () => void;
 }) {
-  const palette = usePalette();
   return (
     <Pressable
       onPress={onPress}
-      android_ripple={{ color: palette.bgRaised }}
+      android_ripple={{ color: colors.bgRaised }}
       accessibilityRole="button"
       style={({ pressed }) => [
         styles.card,
-        { backgroundColor: palette.bgCard, borderColor: palette.border, borderLeftColor: accent ?? palette.accent },
-        pressed && { backgroundColor: palette.bgRaised, transform: [{ scale: 0.99 }] },
+        { borderLeftColor: accent },
+        pressed && { backgroundColor: colors.bgRaised },
       ]}
     >
       <VStack gap={1} fill>
@@ -128,6 +125,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: space[4],
     borderRadius: radii.lg,
     borderWidth: 1,
+    borderColor: colors.border,
     borderLeftWidth: 4,
+    backgroundColor: colors.bgCard,
+  },
+  noteCard: {
+    backgroundColor: colors.bgCard,
+    borderRadius: radii.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: space[4],
   },
 });

@@ -58,18 +58,10 @@ export interface ThemePalette {
   glyphP2: string;
   /** True only for genuine light-mode palettes. */
   isLight: boolean;
-  /**
-   * Display typeface for titles / headings / wordmark / big numbers —
-   * the typographic identity ported from web ``THEMES[id].fontDisplay``.
-   * Body copy deliberately stays on the system font for legibility.
-   * Loaded in ``app/_layout.tsx`` via ``expo-font``.
-   */
-  fontDisplay: string;
 }
 
 /** Default — identical to the static ``colors`` token map (mobile blood-red dark). */
 const classic_dark: ThemePalette = {
-  fontDisplay: "Cinzel",
   bg: colors.bg,
   bgElevated: colors.bgElevated,
   bgCard: colors.bgCard,
@@ -102,7 +94,6 @@ const classic_dark: ThemePalette = {
 
 /** Warm espresso / amber — mirrors web ``classic_2``. */
 const classic_light: ThemePalette = {
-  fontDisplay: "Cinzel",
   bg: "#1E1410",
   bgElevated: "#261C16",
   bgCard: "#30241E",
@@ -135,7 +126,6 @@ const classic_light: ThemePalette = {
 
 /** Deep navy space — mirrors web ``space``. */
 const space: ThemePalette = {
-  fontDisplay: "Orbitron",
   bg: "#02040F",
   bgElevated: "#0D1835",
   bgCard: "#101F40",
@@ -168,7 +158,6 @@ const space: ThemePalette = {
 
 /** Retro pixel forest — mirrors web ``pixel``. */
 const pixel: ThemePalette = {
-  fontDisplay: "PentaPixel",
   bg: "#10140B",
   bgElevated: "#181E13",
   bgCard: "#1D2417",
