@@ -8,7 +8,7 @@
 
 import { router, useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
-import { ActivityIndicator, Alert, Pressable, RefreshControl, StyleSheet, View } from "react-native";
+import { ActivityIndicator, Alert, Pressable, RefreshControl, Share, StyleSheet, View } from "react-native";
 
 import {
   Avatar,
@@ -27,6 +27,7 @@ import {
   acceptFriendRequest,
   blockUser,
   declineFriendRequest,
+  getFriendProfile,
   getMyFriendCode,
   listFriendRequests,
   listFriends,
@@ -104,8 +105,26 @@ export default function FriendsScreen() {
     }
   };
 
+  const viewProfile = async (f: PublicUser) => {
+    try {
+      const p = await getFriendProfile(f.id);
+      const presence = p.online ? "🟢 Online · Available" : "⚪ Offline";
+      Alert.alert(
+        p.username,
+        `${presence}\nLevel ${p.level} · ${p.rank}\nELO ${p.elo}\nW ${p.wins ?? 0} · L ${p.losses ?? 0} · D ${p.draws ?? 0}`,
+        [
+          { text: "Message", onPress: () => router.push(`/messages/${f.id}?name=${encodeURIComponent(f.username)}` as never) },
+          { text: "Close", style: "cancel" },
+        ],
+      );
+    } catch (err) {
+      Alert.alert("Error", err instanceof Error ? err.message : "Could not load profile.");
+    }
+  };
+
   const onFriendActions = (f: PublicUser) => {
-    Alert.alert(f.username, undefined, [
+    Alert.alert(f.username, f.online ? "🟢 Online · Available" : "⚪ Offline", [
+      { text: "View profile", onPress: () => viewProfile(f) },
       { text: "Message", onPress: () => router.push(`/messages/${f.id}?name=${encodeURIComponent(f.username)}` as never) },
       {
         text: "Remove friend",
@@ -178,12 +197,31 @@ export default function FriendsScreen() {
       }}
     >
       <View style={{ height: space[3] }} />
-      <Title>Friends</Title>
+      <Row justify="between" align="center">
+        <Title>Friends</Title>
+        <Pressable style={styles.communityBtn} onPress={() => router.push("/community")}>
+          <Caption tone="accent" style={{ fontWeight: "800" }}>COMMUNITY ›</Caption>
+        </Pressable>
+      </Row>
 
       {/* My code + add */}
       <View style={styles.card}>
         <Caption tone="muted">YOUR FRIEND CODE</Caption>
-        <Heading style={{ letterSpacing: 2, marginTop: space[1] }}>{myCode}</Heading>
+        <Row justify="between" align="center" style={{ marginTop: space[1] }}>
+          <Heading style={{ letterSpacing: 2 }}>{myCode}</Heading>
+          <Pressable
+            style={styles.copyBtn}
+            onPress={() => {
+              if (myCode && myCode !== "—") {
+                Share.share({ message: `Add me on PentaProtocol — friend code: ${myCode}` }).catch(
+                  () => undefined,
+                );
+              }
+            }}
+          >
+            <Caption tone="accent" style={{ fontWeight: "800" }}>COPY / SHARE</Caption>
+          </Pressable>
+        </Row>
         <View style={{ height: space[3] }} />
         <TextField
           label="Add by code"
@@ -256,6 +294,21 @@ export default function FriendsScreen() {
 }
 
 const styles = StyleSheet.create({
+  communityBtn: {
+    paddingHorizontal: space[3],
+    paddingVertical: space[2],
+    borderRadius: radii.sm,
+    borderWidth: 1,
+    borderColor: colors.borderAccent,
+  },
+  copyBtn: {
+    paddingHorizontal: space[3],
+    paddingVertical: space[2],
+    borderRadius: radii.sm,
+    borderWidth: 1,
+    borderColor: colors.borderAccent,
+    backgroundColor: colors.bgRaised,
+  },
   card: {
     marginTop: space[4],
     backgroundColor: colors.bgCard,

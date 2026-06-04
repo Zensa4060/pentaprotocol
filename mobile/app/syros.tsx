@@ -4,7 +4,7 @@
 
 import { router, Stack } from "expo-router";
 import { useRef, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { Image, Pressable, ScrollView, StyleSheet, View } from "react-native";
 
 import {
   Body,
@@ -60,10 +60,13 @@ export default function SyrosScreen() {
         <Caption tone="muted">← BACK</Caption>
       </Pressable>
 
-      <VStack gap={2} style={{ marginTop: space[4] }}>
-        <Eyebrow tone="accent">SYROS</Eyebrow>
-        <Title>The Oracle</Title>
-      </VStack>
+      <Row gap={3} align="center" style={{ marginTop: space[4] }}>
+        <Image source={require("../assets/images/syros-pfp.png")} style={styles.logo} resizeMode="contain" />
+        <VStack gap={1} fill>
+          <Eyebrow tone="accent">SYROS</Eyebrow>
+          <Title>The Oracle</Title>
+        </VStack>
+      </Row>
 
       <ScrollView
         ref={scrollRef}
@@ -108,6 +111,7 @@ export default function SyrosScreen() {
 }
 
 const styles = StyleSheet.create({
+  logo: { width: 48, height: 48, borderRadius: radii.pill },
   q: {
     alignSelf: "flex-end",
     maxWidth: "85%",

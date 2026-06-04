@@ -51,11 +51,13 @@ export default function TabLayout() {
           tabBarIcon: ({ color }) => <IconSymbol size={26} name="person.2.fill" color={color} />,
         }}
       />
+      {/* Community is reachable from the Friends screen (button), not a
+          top-level tab — keeps the bar to 4 items like the web. */}
       <Tabs.Screen
         name="community"
         options={{
+          href: null,
           title: "Community",
-          tabBarIcon: ({ color }) => <IconSymbol size={26} name="trophy.fill" color={color} />,
         }}
       />
       <Tabs.Screen

@@ -12,8 +12,9 @@ import API from "@/lib/api";
 import type { BoardMode } from "@/lib/game/boardConfig";
 import type { Board } from "@/lib/game/winCheck";
 import { DEFAULT_PATTERNS_7 } from "@/lib/game/patterns7";
+import type { EngineDifficulty } from "@/lib/botRewards";
 
-export type EngineDifficulty = "easy" | "hard" | "danger";
+export type { EngineDifficulty } from "@/lib/botRewards";
 
 export interface BotMoveRequest {
   board: Board;
@@ -45,15 +46,21 @@ export class BotMoveError extends Error {
 
 export async function requestBotMove(req: BotMoveRequest): Promise<BotMoveResponse | null> {
   try {
-    const res = await API.post<BotMoveResponse>("/api/bot/move", {
-      board: req.board,
-      difficulty: req.difficulty,
-      current_player: req.current_player,
-      board_mode: req.board_mode,
-      selected_patterns: req.selected_patterns ?? DEFAULT_PATTERNS_7,
-      c3_blocked: req.c3_blocked ?? false,
-      moves_played: req.moves_played,
-    });
+    const res = await API.post<BotMoveResponse>(
+      "/api/bot/move",
+      {
+        board: req.board,
+        difficulty: req.difficulty,
+        current_player: req.current_player,
+        board_mode: req.board_mode,
+        selected_patterns: req.selected_patterns ?? DEFAULT_PATTERNS_7,
+        c3_blocked: req.c3_blocked ?? false,
+        moves_played: req.moves_played,
+      },
+      // Danger / machine_god engines can take several seconds — the
+      // default 15s client timeout occasionally clips them.
+      { timeout: 30_000 },
+    );
     const data = res.data;
     if (typeof data?.row === "number" && typeof data?.col === "number") {
       return { row: data.row, col: data.col };

@@ -48,12 +48,12 @@ export const unstable_settings = {
 };
 
 export default function RootLayout() {
-  // We don't load any custom fonts on v1 — the design system uses
-  // the system font stack (see ``theme/tokens.ts``) which renders
-  // instantly with no FOIT. ``useFonts`` still gives us a clean
-  // ``loaded`` signal we can chain other startup work onto when we
-  // do add Cinzel/Courier later.
-  const [fontsLoaded] = useFonts({});
+  // Display fonts per theme (``themes.ts`` ``fontDisplay``) — body stays system.
+  const [fontsLoaded] = useFonts({
+    Cinzel: require("../assets/fonts/Cinzel-Variable.ttf"),
+    Orbitron: require("../assets/fonts/Orbitron-Variable.ttf"),
+    PentaPixel: require("../assets/fonts/PentaPixel-Regular.ttf"),
+  });
 
   const hydrated = useAuthStore((s) => s.hydrated);
 

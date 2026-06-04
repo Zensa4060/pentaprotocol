@@ -1,5 +1,7 @@
 /**
- * Syros — the in-universe AI oracle. ``POST /api/syros/ask``.
+ * Syros — the in-universe AI oracle.
+ *   - ``POST /api/syros/ask``     — lore / strategy Q&A
+ *   - ``POST /api/analyze/game``  — post-game move analysis
  */
 
 import API from "@/lib/api";
@@ -20,5 +22,61 @@ export async function askSyros(question: string): Promise<string> {
       throw new ApiError(typeof detail === "string" ? detail : "Syros is unreachable.", err.response?.status);
     }
     throw new ApiError("Syros is unreachable.");
+  }
+}
+
+// ─── Game analysis ────────────────────────────────────────────────────────────
+
+export interface AnalyzeMove {
+  player: "P1" | "P2";
+  row: number;
+  col: number;
+}
+
+/** Per-player summary shape from ``analyzer.compute_summary``. */
+export interface PlayerSummary {
+  best_moves: number;
+  good: number;
+  inaccuracies: number;
+  mistakes: number;
+  blunders: number;
+  accuracy: number;
+}
+
+export interface AnalyzeResult {
+  move_annotations: Array<{
+    player: string;
+    row: number;
+    col: number;
+    quality: string;
+    score_delta: number;
+  }>;
+  summary: { P1: PlayerSummary; P2: PlayerSummary };
+}
+
+export interface AnalyzeGameInput {
+  boardSize: 5 | 6 | 7;
+  selectedPatterns: string[];
+  moves: AnalyzeMove[];
+}
+
+export async function analyzeGame(input: AnalyzeGameInput): Promise<AnalyzeResult> {
+  try {
+    const res = await API.post<AnalyzeResult>(
+      "/api/analyze/game",
+      {
+        board_size: input.boardSize,
+        selected_patterns: input.selectedPatterns,
+        move_history: input.moves,
+      },
+      { timeout: 40_000 },
+    );
+    return res.data;
+  } catch (err) {
+    if (isAxiosError(err)) {
+      const detail = (err.response?.data as { detail?: string } | undefined)?.detail;
+      throw new ApiError(typeof detail === "string" ? detail : "Analysis unavailable.", err.response?.status);
+    }
+    throw new ApiError("Analysis unavailable.");
   }
 }

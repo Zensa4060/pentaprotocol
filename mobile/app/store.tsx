@@ -19,6 +19,7 @@ import {
   Title,
 } from "@/components/ui";
 import { BannerRenderer } from "@/components/BannerRenderer";
+import { CurrencyChip } from "@/components/CurrencyChip";
 import { purchaseStoreItem } from "@/lib/store/api";
 import {
   STORE_BANNERS,
@@ -89,9 +90,9 @@ export default function StoreScreen() {
       </Pressable>
 
       <Title style={{ marginTop: space[4] }}>ProtoShop</Title>
-      <Row gap={4} style={{ marginTop: space[2] }}>
-        <Caption tone="accent">⬡ {user?.protocredits ?? 0} PC</Caption>
-        <Caption tone="muted">◆ {user?.shards ?? 0} PS</Caption>
+      <Row gap={4} style={{ marginTop: space[2] }} align="center">
+        <CurrencyChip kind="pc" value={user?.protocredits ?? 0} size={20} />
+        <CurrencyChip kind="ps" value={user?.shards ?? 0} size={20} />
       </Row>
 
       <Row gap={2} style={{ marginTop: space[4] }}>

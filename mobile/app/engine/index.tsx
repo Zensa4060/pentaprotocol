@@ -21,21 +21,37 @@ import {
   Title,
 } from "@/components/ui";
 import {
-  BOTS_7X7,
+  BOTS_BY_MODE,
+  BOT_LABEL,
+  boardModeGate,
+  isBoardModeUnlocked,
   isBotUnlocked,
   lockedByLabel,
+  type BotBoardMode,
   type BotId,
 } from "@/lib/botRewards";
-import type { GridSize } from "@/lib/game/boardConfig";
+import { boardModeFromGrid, type GridSize } from "@/lib/game/boardConfig";
 import { useAuthStore } from "@/lib/store";
-import { colors, radii, space } from "@/theme/tokens";
+import { radii, space } from "@/theme/tokens";
+import { usePalette } from "@/theme/ThemeProvider";
 
 export default function EnginePickerScreen() {
   const user = useAuthStore((s) => s.user);
+  const palette = usePalette();
   const defeats = user?.bot_defeats ?? {};
-  const [selected, setSelected] = useState<BotId>("seraphina");
   // Default to the standard 5×5 board (BUG-03) — not 7×7.
   const [gridSize, setGridSize] = useState<GridSize>(5);
+  const mode = boardModeFromGrid(gridSize) as BotBoardMode;
+  const roster = BOTS_BY_MODE[mode];
+  const [selected, setSelected] = useState<BotId>(roster[0].id);
+
+  // When the board size changes, reset the selected opponent to that
+  // roster's first bot so we never carry a 7×7 bot into a 5×5 match.
+  const onPickSize = (size: GridSize) => {
+    setGridSize(size);
+    const nextMode = boardModeFromGrid(size) as BotBoardMode;
+    setSelected(BOTS_BY_MODE[nextMode][0].id);
+  };
 
   const gridOptions = useMemo(
     () =>
@@ -53,7 +69,7 @@ export default function EnginePickerScreen() {
   };
 
   const start = () => {
-    const card = BOTS_7X7.find((b) => b.id === selected);
+    const card = roster.find((b) => b.id === selected);
     if (!card) return;
     if (!isBotUnlocked(defeats, selected)) {
       const prev = lockedByLabel(selected);
@@ -98,17 +114,31 @@ export default function EnginePickerScreen() {
       <Row gap={2}>
         {gridOptions.map((g) => {
           const on = gridSize === g.size;
+          const gMode = boardModeFromGrid(g.size) as BotBoardMode;
+          const unlocked = isBoardModeUnlocked(defeats, gMode);
+          const gate = boardModeGate(gMode);
           return (
             <Pressable
               key={g.size}
-              onPress={() => setGridSize(g.size)}
+              onPress={() => {
+                if (!unlocked) {
+                  Alert.alert(
+                    "Locked",
+                    gate ? `Defeat ${BOT_LABEL[gate]} (board below) to unlock ${g.label}.` : "Locked.",
+                  );
+                  return;
+                }
+                onPickSize(g.size);
+              }}
               style={[
                 styles.gridChip,
-                on && { borderColor: colors.accent, backgroundColor: colors.bgRaised },
+                { borderColor: palette.border, backgroundColor: palette.bgCard },
+                on && { borderColor: palette.accent, backgroundColor: palette.bgRaised },
+                !unlocked && { opacity: 0.5 },
               ]}
             >
               <Caption tone={on ? "accent" : "muted"} style={{ fontWeight: "800" }}>
-                {g.label}
+                {g.label}{!unlocked ? " 🔒" : ""}
               </Caption>
               <Caption tone="dim">{g.sub}</Caption>
             </Pressable>
@@ -121,7 +151,7 @@ export default function EnginePickerScreen() {
       </Eyebrow>
 
       <VStack gap={3}>
-        {BOTS_7X7.map((bot) => {
+        {roster.map((bot) => {
           const unlocked = isBotUnlocked(defeats, bot.id);
           const defeated = !!defeats[bot.id];
           const isSelected = selected === bot.id;
@@ -130,17 +160,17 @@ export default function EnginePickerScreen() {
               key={bot.id}
               onPress={() => setSelected(bot.id)}
               disabled={!unlocked}
-              android_ripple={{ color: colors.bgRaised }}
+              android_ripple={{ color: palette.bgRaised }}
               accessibilityRole="radio"
               accessibilityState={{ selected: isSelected, disabled: !unlocked }}
               style={({ pressed }) => [
                 styles.option,
                 {
-                  borderColor: isSelected ? bot.color : colors.border,
-                  backgroundColor: isSelected ? colors.bgRaised : colors.bgCard,
+                  borderColor: isSelected ? bot.color : palette.border,
+                  backgroundColor: isSelected ? palette.bgRaised : palette.bgCard,
                   opacity: unlocked ? 1 : 0.45,
                 },
-                pressed && unlocked && { backgroundColor: colors.bgRaised },
+                pressed && unlocked && { backgroundColor: palette.bgRaised },
               ]}
             >
               <View style={[styles.dot, { backgroundColor: bot.color, opacity: isSelected ? 1 : 0.35 }]} />
@@ -163,7 +193,7 @@ export default function EnginePickerScreen() {
         })}
       </VStack>
 
-      <View style={styles.rulesCard}>
+      <View style={[styles.rulesCard, { backgroundColor: palette.bgCard, borderColor: palette.border }]}>
         <Caption tone="muted">
           You play P1 (red). The server engine plays P2 (blue). Requires network + sign-in.
         </Caption>
@@ -184,8 +214,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: space[2],
     borderRadius: radii.md,
     borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.bgCard,
     alignItems: "center",
     gap: 2,
   },
@@ -205,10 +233,8 @@ const styles = StyleSheet.create({
   },
   rulesCard: {
     marginTop: space[5],
-    backgroundColor: colors.bgCard,
     borderRadius: radii.md,
     borderWidth: 1,
-    borderColor: colors.border,
     padding: space[4],
   },
 });

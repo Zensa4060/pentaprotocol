@@ -217,22 +217,22 @@ export default function MultiplayerMatch() {
         />
       </Row>
 
-      {/* ── Status banner ─────────────────────────────────────── */}
-      <View style={styles.statusBar}>
-        <Eyebrow tone={statusToneFor(room, slot, status)}>
-          {statusLabelFor(room, slot, status)}
-        </Eyebrow>
+      {/* ── Status banner + error (fixed slot so the board stays put) ── */}
+      <View style={styles.hudSlot}>
+        <View style={styles.statusBar}>
+          <Eyebrow tone={statusToneFor(room, slot, status)}>
+            {statusLabelFor(room, slot, status)}
+          </Eyebrow>
+        </View>
+        {lastError ? (
+          <View style={styles.errorToast}>
+            <Caption tone="danger">{lastError}</Caption>
+          </View>
+        ) : null}
       </View>
 
-      {/* ── Server error toast (non-blocking) ─────────────────── */}
-      {lastError ? (
-        <View style={styles.errorToast}>
-          <Caption tone="danger">{lastError}</Caption>
-        </View>
-      ) : null}
-
       {/* ── Board ─────────────────────────────────────────────── */}
-      <View style={{ marginTop: space[4], height: boardDim, justifyContent: "center" }}>
+      <View style={{ height: boardDim, justifyContent: "center" }}>
         <BoardGrid
           gridSize={gridSize}
           board={room.board ?? emptyBoard(gridSize)}
@@ -535,8 +535,11 @@ function statusToneFor(
 }
 
 const styles = StyleSheet.create({
+  hudSlot: {
+    height: 76,
+    justifyContent: "center",
+  },
   statusBar: {
-    marginTop: space[3],
     alignItems: "center",
   },
   errorToast: {

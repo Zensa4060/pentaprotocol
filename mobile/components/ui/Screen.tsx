@@ -26,14 +26,18 @@ import {
   ScrollView,
   type ScrollViewProps,
   StyleSheet,
-  View,
   type ViewStyle,
 } from "react-native";
+import Animated, { FadeIn } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { colors, space } from "@/theme/tokens";
+import { space } from "@/theme/tokens";
+import { usePalette } from "@/theme/ThemeProvider";
 
 type Edge = "top" | "bottom" | "left" | "right";
+
+/** Subtle screen entrance — mirrors the web ``screenFadeIn`` keyframe. */
+const SCREEN_ENTER = FadeIn.duration(240);
 
 export interface ScreenProps {
   children: ReactNode;
@@ -65,6 +69,7 @@ export function Screen({
   contentContainerStyle,
 }: ScreenProps) {
   const insets = useSafeAreaInsets();
+  const palette = usePalette();
 
   const padding: ViewStyle = {
     paddingTop: edges.includes("top") ? insets.top : 0,
@@ -77,11 +82,11 @@ export function Screen({
     ? { paddingHorizontal: space[5] }
     : {};
 
-  const bg = background ?? colors.bg;
+  const bg = background ?? palette.bg;
 
   if (scrollable) {
     return (
-      <View style={[styles.root, { backgroundColor: bg }, padding, style]}>
+      <Animated.View entering={SCREEN_ENTER} style={[styles.root, { backgroundColor: bg }, padding, style]}>
         <ScrollView
           {...scrollViewProps}
           contentContainerStyle={[gutter, contentContainerStyle]}
@@ -89,14 +94,14 @@ export function Screen({
         >
           {children}
         </ScrollView>
-      </View>
+      </Animated.View>
     );
   }
 
   return (
-    <View style={[styles.root, { backgroundColor: bg }, padding, gutter, style]}>
+    <Animated.View entering={SCREEN_ENTER} style={[styles.root, { backgroundColor: bg }, padding, gutter, style]}>
       {children}
-    </View>
+    </Animated.View>
   );
 }
 

@@ -1,23 +1,19 @@
 /**
- * First-run onboarding tutorial — 3-slide carousel.
+ * Tutorial / onboarding — full walkthrough condensed into paged
+ * sections, mirroring the web tutorial content
+ * (``frontend/lib/tutorialContent.ts``):
+ *   Syros greeting → core rules → centre rule → win patterns for
+ *   5×5 / 6×6 / 7×7 → connection rule → the Breakers → rank ladder →
+ *   modes → finish.
  *
- * Shown after legal acceptance when ``user.onboarding_tutorial``
- * is ``"none"``. Tap "Get started" to mark ``completed`` and
- * land on the home tab; "Skip" marks ``skipped`` (so the gate
- * doesn't return) but the distinction lets a future "What's new"
- * banner re-invite skippers to the full tutorial without
- * re-prompting completers.
- *
- * Implementation note: I deliberately avoided ``react-native-pager-view``.
- * The slide count is fixed at 3, contents are local strings,
- * and a state-driven swap with a horizontal indicator reads
- * cleaner than wrestling a pager native module for what's
- * essentially three static screens.
+ * Reuses ``PatternDiagram`` + ``patternMetadataForGrid`` for the win
+ * showcases and ``RankLadder`` for ranks, so the patterns match the
+ * real game. Theme-reactive via ``usePalette``.
  */
 
 import { router } from "expo-router";
 import { useState } from "react";
-import { Alert, Pressable, StyleSheet, View } from "react-native";
+import { Alert, Image, Pressable, ScrollView, StyleSheet, View } from "react-native";
 
 import {
   Body,
@@ -28,48 +24,57 @@ import {
   Row,
   Screen,
   Stack as VStack,
-  Subheading,
   Title,
 } from "@/components/ui";
+import { PatternDiagram } from "@/components/game/PatternDiagram";
+import { RankLadder } from "@/components/RankLadder";
+import { defaultPatternsForGrid, type GridSize } from "@/lib/game/boardConfig";
+import { patternMetadataForGrid } from "@/lib/game/patterns";
 import { ApiError, setTutorialState } from "@/lib/profile";
-import { colors, radii, space } from "@/theme/tokens";
+import { radii, space } from "@/theme/tokens";
+import { usePalette } from "@/theme/ThemeProvider";
+import type { ThemePalette } from "@/theme/themes";
 
-interface Slide {
+type PageKind =
+  | "syros"
+  | "rules"
+  | "centre"
+  | "patterns5"
+  | "patterns6"
+  | "patterns7"
+  | "connection"
+  | "breakers"
+  | "ranks"
+  | "modes"
+  | "done";
+
+interface Page {
+  kind: PageKind;
   eyebrow: string;
   title: string;
   body: string;
-  diagram: "board" | "patterns" | "ladder";
 }
 
-const SLIDES: Slide[] = [
-  {
-    eyebrow: "WELCOME TO PENTAPROTOCOL",
-    title: "Five-in-a-row, evolved.",
-    body:
-      "A turn-based grid game built around shape recognition. Place stones on a 7×7 board, race to complete one of eight winning patterns — or chain 20 stones together.",
-    diagram: "board",
-  },
-  {
-    eyebrow: "WIN PATTERNS",
-    title: "Eight ways to win.",
-    body:
-      "Y, L, V, C, T, ZIGZAG, straight lines, and diagonals. Each shape has every rotation + reflection live, so they show up where you don't expect.",
-    diagram: "patterns",
-  },
-  {
-    eyebrow: "HOW TO START",
-    title: "Train first, climb later.",
-    body:
-      "Tap TRAINING on the home tab to learn the patterns against the engine. Multiplayer ladder and AI engine modes are landing in the next update.",
-    diagram: "ladder",
-  },
+const PAGES: Page[] = [
+  { kind: "syros", eyebrow: "SYROS", title: "I am Syros.", body: "Ancient intelligence of the Protocol. I will teach you to win — once. Listen." },
+  { kind: "rules", eyebrow: "THE BASICS", title: "Five-in-a-row, evolved.", body: "Turn-based. You and your opponent alternate placing stones on the grid. Win by completing a win pattern, or by chaining enough connected stones." },
+  { kind: "centre", eyebrow: "CENTRE RULE", title: "Odd boards have a centre.", body: "On 5×5 and 7×7, opening on the exact centre cell grants the OPPONENT 2 extra turns. 6×6 has no single centre — the rule doesn't apply." },
+  { kind: "patterns5", eyebrow: "5×5 · CLASSIC LEG", title: "Win shapes — 5×5.", body: "On 5×5 you pick which structural shapes are live. Straight lines & diagonals are always active." },
+  { kind: "patterns6", eyebrow: "6×6 · MID LEG", title: "Win shapes — 6×6.", body: "Bigger board, fixed shape set. Six-in-a-row lines, plus the structural shapes below." },
+  { kind: "patterns7", eyebrow: "7×7 · TOP LEG", title: "Win shapes — 7×7.", body: "The full roster of shapes — every rotation and reflection is live, so they appear where you don't expect." },
+  { kind: "connection", eyebrow: "CORE RULE", title: "Connection win.", body: "Even without a shape, chaining enough connected stones wins: 10 on 5×5, 15 on 6×6, 20 on 7×7." },
+  { kind: "breakers", eyebrow: "THE BREAKERS", title: "When a series tightens.", body: "Best-of series escalate. Game 3 = Rulebreaker (5×5), Game 6 = Timebreaker (6×6), Game 9 = Mindbreaker (7×7). Tied 4–4? Game 10 = Limitbreaker decides it." },
+  { kind: "ranks", eyebrow: "THE LADDER", title: "Climb the ranks.", body: "Win ranked matches to raise your ELO and ascend from Rookie to Chronicle." },
+  { kind: "modes", eyebrow: "WHERE TO PLAY", title: "Pick your battlefield.", body: "1V1 Online for ranked & casual humans. 1V1 Offline for the tutorial, solo practice, and the AI Bot ladder." },
+  { kind: "done", eyebrow: "BEGIN", title: "The Protocol awaits.", body: "Start with the AI Bot on 5×5 to drill the shapes, then climb. I won't repeat myself." },
 ];
 
 export default function OnboardingScreen() {
+  const palette = usePalette();
   const [index, setIndex] = useState(0);
   const [submitting, setSubmitting] = useState(false);
-  const slide = SLIDES[index];
-  const isLast = index === SLIDES.length - 1;
+  const page = PAGES[index];
+  const isLast = index === PAGES.length - 1;
 
   const finalize = async (state: "skipped" | "completed") => {
     if (submitting) return;
@@ -89,63 +94,49 @@ export default function OnboardingScreen() {
   };
 
   const onNext = () => {
-    if (isLast) {
-      finalize("completed");
-    } else {
-      setIndex((i) => i + 1);
-    }
+    if (isLast) finalize("completed");
+    else setIndex((i) => i + 1);
   };
 
   return (
     <Screen padded>
-      {/* ── Top bar ─────────────────────────────────────────────── */}
       <Row justify="between" align="center" style={{ marginTop: space[3] }}>
-        <Caption tone="muted">
-          {index + 1} / {SLIDES.length}
-        </Caption>
-        <Pressable
-          onPress={() => finalize("skipped")}
-          hitSlop={12}
-          disabled={submitting}
-          accessibilityRole="button"
-        >
+        <Caption tone="muted">{index + 1} / {PAGES.length}</Caption>
+        <Pressable onPress={() => finalize("skipped")} hitSlop={12} disabled={submitting}>
           <Caption tone="muted">SKIP</Caption>
         </Pressable>
       </Row>
 
-      {/* ── Slide content ───────────────────────────────────────── */}
-      <View style={styles.slide}>
-        <View style={{ alignItems: "center", marginBottom: space[7] }}>
-          <Diagram kind={slide.diagram} />
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingVertical: space[5] }} showsVerticalScrollIndicator={false}>
+        <View style={{ alignItems: "center", marginBottom: space[6] }}>
+          <Visual kind={page.kind} palette={palette} />
         </View>
-        <Eyebrow tone="accent">{slide.eyebrow}</Eyebrow>
+        <Eyebrow tone="accent">{page.eyebrow}</Eyebrow>
         <View style={{ height: space[3] }} />
-        <Title>{slide.title}</Title>
+        <Title>{page.title}</Title>
         <View style={{ height: space[4] }} />
-        <Body tone="muted">{slide.body}</Body>
-      </View>
+        <Body tone="muted">{page.body}</Body>
+      </ScrollView>
 
-      {/* ── Indicator + actions ─────────────────────────────────── */}
       <Row gap={2} justify="center" style={{ marginBottom: space[5] }}>
-        {SLIDES.map((_, i) => (
+        {PAGES.map((_, i) => (
           <View
             key={i}
             style={[
               styles.dot,
-              i === index ? styles.dotActive : null,
+              { backgroundColor: i === index ? palette.accent : palette.border },
+              i === index && styles.dotActive,
             ]}
           />
         ))}
       </Row>
 
       <Btn variant="primary" size="lg" loading={submitting} onPress={onNext}>
-        {isLast ? "Get started" : "Next"}
+        {isLast ? "Enter the Protocol" : "Next"}
       </Btn>
       <View style={{ height: space[3] }} />
       {index > 0 ? (
-        <Btn variant="ghost" onPress={() => setIndex((i) => Math.max(0, i - 1))}>
-          Back
-        </Btn>
+        <Btn variant="ghost" onPress={() => setIndex((i) => Math.max(0, i - 1))}>Back</Btn>
       ) : (
         <View style={{ height: space[5] }} />
       )}
@@ -153,160 +144,160 @@ export default function OnboardingScreen() {
   );
 }
 
-// ─── Slide diagrams ────────────────────────────────────────────────────────
-// Tiny visual touch for each slide. Pure View blocks — no SVG, no assets, so
-// they load instantly and remix per-tutorial. NOT the actual board renderer
-// (Phase 6 will likely replace these with stylized native illustrations).
+// ─── Visuals ──────────────────────────────────────────────────────────────────
 
-function Diagram({ kind }: { kind: Slide["diagram"] }) {
-  if (kind === "board") return <BoardDiagram />;
-  if (kind === "patterns") return <PatternsDiagram />;
-  return <LadderDiagram />;
+function Visual({ kind, palette }: { kind: PageKind; palette: ThemePalette }) {
+  if (kind === "syros") {
+    return (
+      <Image source={require("../assets/images/syros-pfp.png")} style={styles.syros} resizeMode="contain" />
+    );
+  }
+  if (kind === "ranks") return <View style={{ width: "100%" }}><RankLadder elo={0} isPlacement /></View>;
+  if (kind === "centre") return <CentreCompare palette={palette} />;
+  if (kind === "patterns5") return <PatternGallery grid={5} palette={palette} />;
+  if (kind === "patterns6") return <PatternGallery grid={6} palette={palette} />;
+  if (kind === "patterns7") return <PatternGallery grid={7} palette={palette} />;
+  if (kind === "connection") return <ConnectionVisual palette={palette} />;
+  if (kind === "breakers") return <BreakersVisual palette={palette} />;
+  if (kind === "modes") return <ModesVisual palette={palette} />;
+  // rules / done → simple mini board
+  return <MiniBoard palette={palette} />;
 }
 
-function BoardDiagram() {
+function PatternGallery({ grid, palette }: { grid: GridSize; palette: ThemePalette }) {
+  const meta = patternMetadataForGrid(grid);
+  const keys = defaultPatternsForGrid(grid).filter((k) => meta[k]);
   return (
-    <View style={styles.diagramFrame}>
-      <Subheading center>7 × 7</Subheading>
-      <View style={{ height: space[3] }} />
-      <View style={styles.miniBoard}>
-        {Array.from({ length: 7 }).map((_, r) => (
-          <View key={r} style={styles.miniRow}>
-            {Array.from({ length: 7 }).map((__, c) => {
-              const isP1 = (r === 2 && c === 2) || (r === 3 && c === 3) || (r === 4 && c === 4);
-              const isP2 = (r === 1 && c === 5) || (r === 2 && c === 4) || (r === 3 && c === 2);
-              return (
-                <View
-                  key={c}
-                  style={[
-                    styles.miniCell,
-                    isP1 ? { backgroundColor: colors.accent } : null,
-                    isP2 ? { backgroundColor: colors.info } : null,
-                  ]}
-                />
-              );
-            })}
-          </View>
-        ))}
-      </View>
+    <View style={styles.galleryWrap}>
+      {keys.map((k) => (
+        <View key={k} style={[styles.galleryCell, { backgroundColor: palette.bgCard, borderColor: palette.border }]}>
+          <PatternDiagram info={meta[k]} accent={palette.accent} cellSize={grid >= 7 ? 8 : 10} />
+          <Caption tone="muted" style={{ marginTop: space[1], textAlign: "center" }}>{meta[k].label}</Caption>
+        </View>
+      ))}
     </View>
   );
 }
 
-function PatternsDiagram() {
-  // Three example patterns laid out side-by-side: L, V, ZIGZAG.
-  const patterns: number[][][] = [
-    // L
-    [[1, 0], [1, 0], [1, 0], [1, 1]],
-    // V
-    [[1, 0, 0, 0, 1], [0, 1, 0, 1, 0], [0, 0, 1, 0, 0]],
-    // ZIGZAG
-    [[1, 0, 1, 0], [0, 1, 0, 1]],
+function CentreCompare({ palette }: { palette: ThemePalette }) {
+  const boards: { label: string; ok: boolean; n: number }[] = [
+    { label: "5×5", ok: true, n: 5 },
+    { label: "6×6", ok: false, n: 6 },
+    { label: "7×7", ok: true, n: 7 },
   ];
   return (
-    <View style={styles.diagramFrame}>
-      <Row gap={5} justify="center" align="center">
-        {patterns.map((rows, i) => (
-          <View key={i}>
-            {rows.map((row, ri) => (
-              <View key={ri} style={styles.miniRow}>
-                {row.map((cell, ci) => (
-                  <View
-                    key={ci}
-                    style={[
-                      styles.miniCell,
-                      cell === 1 ? { backgroundColor: colors.accent } : { opacity: 0.4 },
-                    ]}
-                  />
-                ))}
+    <Row gap={4} justify="center">
+      {boards.map((b) => (
+        <View key={b.label} style={{ alignItems: "center", gap: space[2] }}>
+          <View style={[styles.compareBoard, { borderColor: palette.border }]}>
+            {Array.from({ length: b.n }).map((_, r) => (
+              <View key={r} style={{ flexDirection: "row" }}>
+                {Array.from({ length: b.n }).map((__, c) => {
+                  const isCentre = b.ok && r === Math.floor(b.n / 2) && c === Math.floor(b.n / 2);
+                  return <View key={c} style={[styles.compareCell, { backgroundColor: isCentre ? palette.accent : palette.bgRaised, borderColor: palette.border }]} />;
+                })}
               </View>
             ))}
           </View>
-        ))}
-      </Row>
-      <View style={{ height: space[3] }} />
-      <Heading tone="muted" center>
-        L · V · ZIGZAG
-      </Heading>
-    </View>
+          <Caption tone={b.ok ? "success" : "danger"}>{b.label} {b.ok ? "✓" : "✗"}</Caption>
+        </View>
+      ))}
+    </Row>
   );
 }
 
-function LadderDiagram() {
+function ConnectionVisual({ palette }: { palette: ThemePalette }) {
+  const rows: [string, string][] = [["5×5", "10 stones"], ["6×6", "15 stones"], ["7×7", "20 stones"]];
   return (
-    <View style={[styles.diagramFrame, { paddingHorizontal: space[5] }]}>
-      <VStack gap={3} fill>
-        <LadderRow label="TRAINING" tone="default" />
-        <LadderRow label="MULTIPLAYER" tone="muted" />
-        <LadderRow label="AI ENGINE" tone="muted" />
-      </VStack>
-    </View>
+    <VStack gap={2} style={{ width: "100%", maxWidth: 280 }}>
+      {rows.map(([a, b]) => (
+        <Row key={a} justify="between" align="center" style={[styles.kvRow, { backgroundColor: palette.bgCard, borderColor: palette.border }]}>
+          <Heading>{a}</Heading>
+          <Caption tone="accent" style={{ fontWeight: "800" }}>{b}</Caption>
+        </Row>
+      ))}
+    </VStack>
   );
 }
 
-function LadderRow({ label, tone }: { label: string; tone: "default" | "muted" }) {
+function BreakersVisual({ palette }: { palette: ThemePalette }) {
+  const rows: [string, string][] = [
+    ["Rulebreaker", "Game 3 · 5×5"],
+    ["Timebreaker", "Game 6 · 6×6"],
+    ["Mindbreaker", "Game 9 · 7×7"],
+    ["Limitbreaker", "Game 10 · decider"],
+  ];
   return (
-    <View style={[styles.ladderRow, tone === "default" ? styles.ladderRowActive : null]}>
-      <Caption tone={tone === "default" ? "default" : "muted"} style={{ fontWeight: "700" }}>
-        {label}
-      </Caption>
+    <VStack gap={2} style={{ width: "100%", maxWidth: 300 }}>
+      {rows.map(([a, b]) => (
+        <Row key={a} justify="between" align="center" style={[styles.kvRow, { backgroundColor: palette.bgCard, borderColor: palette.borderAccent }]}>
+          <Heading tone="accent">{a}</Heading>
+          <Caption tone="muted">{b}</Caption>
+        </Row>
+      ))}
+    </VStack>
+  );
+}
+
+function ModesVisual({ palette }: { palette: ThemePalette }) {
+  const rows = ["1V1 : ONLINE", "1V1 : OFFLINE", "AI BOT", "MISSIONS"];
+  return (
+    <VStack gap={2} style={{ width: "100%", maxWidth: 280 }}>
+      {rows.map((r) => (
+        <View key={r} style={[styles.kvRow, { backgroundColor: palette.bgCard, borderColor: palette.border }]}>
+          <Caption style={{ fontWeight: "800", color: palette.text }}>{r}</Caption>
+        </View>
+      ))}
+    </VStack>
+  );
+}
+
+function MiniBoard({ palette }: { palette: ThemePalette }) {
+  return (
+    <View style={[styles.compareBoard, { borderColor: palette.border, padding: 6 }]}>
+      {Array.from({ length: 5 }).map((_, r) => (
+        <View key={r} style={{ flexDirection: "row" }}>
+          {Array.from({ length: 5 }).map((__, c) => {
+            const p1 = r === c;
+            const p2 = r + c === 4;
+            return <View key={c} style={[styles.compareCell, { width: 22, height: 22, backgroundColor: p1 ? palette.p1 : p2 ? palette.p2 : palette.bgRaised, borderColor: palette.border }]} />;
+          })}
+        </View>
+      ))}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  slide: {
-    flex: 1,
-    justifyContent: "center",
-  },
-  dot: {
-    width: 8,
-    height: 8,
-    borderRadius: radii.pill,
-    backgroundColor: colors.border,
-  },
-  dotActive: {
-    width: 24,
-    backgroundColor: colors.accent,
-  },
-  diagramFrame: {
-    width: "100%",
-    maxWidth: 320,
-    aspectRatio: 1.4,
-    backgroundColor: colors.bgCard,
-    borderRadius: radii.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: space[4],
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  miniBoard: {
-    backgroundColor: colors.bg,
-    padding: 4,
-    borderRadius: radii.sm,
-  },
-  miniRow: {
-    flexDirection: "row",
-  },
-  miniCell: {
-    width: 14,
-    height: 14,
-    marginRight: 2,
-    marginBottom: 2,
-    borderRadius: radii.xs,
-    backgroundColor: colors.bgRaised,
-  },
-  ladderRow: {
-    backgroundColor: colors.bg,
+  dot: { width: 8, height: 8, borderRadius: radii.pill },
+  dotActive: { width: 24 },
+  syros: { width: 120, height: 120, borderRadius: radii.pill },
+  galleryWrap: { flexDirection: "row", flexWrap: "wrap", justifyContent: "center", gap: space[2] },
+  galleryCell: {
+    width: 96,
     borderRadius: radii.md,
     borderWidth: 1,
-    borderColor: colors.border,
+    padding: space[2],
+    alignItems: "center",
+  },
+  compareBoard: {
+    borderWidth: 1,
+    borderRadius: radii.sm,
+    padding: 4,
+    gap: 2,
+  },
+  compareCell: {
+    width: 12,
+    height: 12,
+    marginRight: 2,
+    marginBottom: 2,
+    borderRadius: 2,
+    borderWidth: 1,
+  },
+  kvRow: {
+    borderRadius: radii.md,
+    borderWidth: 1,
     paddingVertical: space[3],
     paddingHorizontal: space[4],
-  },
-  ladderRowActive: {
-    borderColor: colors.borderAccent,
-    backgroundColor: colors.bgRaised,
   },
 });

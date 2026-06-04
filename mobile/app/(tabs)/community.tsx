@@ -6,7 +6,7 @@
 
 import { router, useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
-import { ActivityIndicator, Pressable, RefreshControl, StyleSheet, View } from "react-native";
+import { ActivityIndicator, Image, Pressable, RefreshControl, StyleSheet, View } from "react-native";
 
 import {
   Body,
@@ -61,6 +61,7 @@ export default function CommunityScreen() {
 
       {/* Syros entry */}
       <Pressable style={styles.syrosCard} onPress={() => router.push("/syros")}>
+        <Image source={require("../../assets/images/syros-pfp.png")} style={styles.syrosLogo} resizeMode="contain" />
         <Stack gap={1} fill>
           <Heading>Ask Syros</Heading>
           <Body tone="muted">Consult the ancient intelligence about rules, lore and strategy.</Body>
@@ -116,6 +117,7 @@ const styles = StyleSheet.create({
     borderColor: colors.borderAccent,
     padding: space[4],
   },
+  syrosLogo: { width: 44, height: 44, borderRadius: radii.pill },
   row: {
     flexDirection: "row",
     alignItems: "center",

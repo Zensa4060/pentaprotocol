@@ -35,13 +35,14 @@ import { colors, radii, space } from "@/theme/tokens";
 import { usePalette } from "@/theme/ThemeProvider";
 
 export default function TrainingPracticeScreen() {
-  const params = useLocalSearchParams<{ grid?: string }>();
+  const params = useLocalSearchParams<{ grid?: string; patterns?: string }>();
   const gridSize = parseGridParam(params.grid);
   const palette = usePalette();
   // Fixed board box (width minus the screen's horizontal gutter) so the
   // board never resizes/recenters as HUD or move-log content changes.
   const boardDim = Dimensions.get("window").width - space[5] * 2;
-  const match = usePracticeMatch({ gridSize });
+  const patterns = params.patterns ? params.patterns.split(",").filter(Boolean) : undefined;
+  const match = usePracticeMatch({ gridSize, patterns });
   const clock = useMatchClock(
     match.current,
     match.result.status === "playing",
@@ -121,17 +122,20 @@ export default function TrainingPracticeScreen() {
         <PlayerTile label={palette.glyphP2} color={palette.p2} active={match.current === "P2" && match.result.status === "playing"} />
       </Row>
 
-      <CenterRuleBanner
-        visible={match.centerRuleHint && match.movesPlayed === 0 && gridSize !== 6}
-        gridSize={gridSize}
-      />
-      <ExtraTurnsBadge count={match.extraTurns} player={match.extraTurnsHolder} />
+      {/* Fixed-height HUD slot so the board never shifts when the
+          center-rule banner / extra-turns badge appear or disappear. */}
+      <View style={styles.hudSlot}>
+        <CenterRuleBanner
+          visible={match.centerRuleHint && match.movesPlayed === 0 && gridSize !== 6}
+          gridSize={gridSize}
+        />
+        <ExtraTurnsBadge count={match.extraTurns} player={match.extraTurnsHolder} />
+        <Row gap={2} align="center" justify="center" style={{ marginTop: space[2] }}>
+          <Eyebrow tone={statusTone}>{status}</Eyebrow>
+        </Row>
+      </View>
 
-      <Row gap={2} align="center" justify="center" style={{ marginTop: space[2] }}>
-        <Eyebrow tone={statusTone}>{status}</Eyebrow>
-      </Row>
-
-      <View style={{ marginTop: space[3], height: boardDim, justifyContent: "center" }}>
+      <View style={{ height: boardDim, justifyContent: "center" }}>
         <BoardGrid
           gridSize={gridSize}
           board={match.board}
@@ -197,6 +201,10 @@ function PlayerTile({
 }
 
 const styles = StyleSheet.create({
+  hudSlot: {
+    height: 92,
+    justifyContent: "center",
+  },
   playerTile: {
     flex: 1,
     paddingVertical: space[2],

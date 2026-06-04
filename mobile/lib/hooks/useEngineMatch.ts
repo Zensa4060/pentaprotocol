@@ -2,7 +2,7 @@
  * AI Engine match — human P1 vs server bot P2 via ``POST /api/bot/move``.
  */
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { InteractionManager } from "react-native";
 
 import { BotMoveError, requestBotMove, type EngineDifficulty } from "@/lib/botApi/botMove";
@@ -49,6 +49,8 @@ export interface EngineMatch {
   extraTurns: number;
   extraTurnsHolder: Player | null;
   moveLog: MoveLogEntry[];
+  /** Structured move history for Syros analysis ({player,row,col}). */
+  moves: { player: Player; row: number; col: number }[];
   centerRuleHint: boolean;
   botThinking: boolean;
   botError: string | null;
@@ -65,7 +67,18 @@ export function useEngineMatch({
   gridSize = 5,
   patterns: patternsProp,
 }: UseEngineMatchOptions): EngineMatch {
-  const patterns = patternsProp ?? defaultPatternsForGrid(gridSize);
+  // CRITICAL: ``patterns`` must have a STABLE identity. It sits in the bot
+  // effect's dependency array; if it were a fresh array each render (as
+  // ``patternsProp ?? defaultPatternsForGrid(gridSize)`` is), every
+  // ``setBotThinking`` re-render would re-run the effect, cancel the in-flight
+  // ``/api/bot/move`` request, and restart it — the bot would never move
+  // ("ENGINE THINKING…" forever). Memoise on a stable key.
+  const patternsKey = (patternsProp ?? defaultPatternsForGrid(gridSize)).join("|");
+  const patterns = useMemo(
+    () => patternsProp ?? defaultPatternsForGrid(gridSize),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [patternsKey],
+  );
   const center = centerCell(gridSize);
   const boardMode = boardModeFromGrid(gridSize);
 
@@ -76,6 +89,7 @@ export function useEngineMatch({
   const [result, setResult] = useState<MatchResult>(INITIAL_RESULT);
   const [extraTurns, setExtraTurns] = useState(0);
   const [moveLog, setMoveLog] = useState<MoveLogEntry[]>([]);
+  const [moves, setMoves] = useState<{ player: Player; row: number; col: number }[]>([]);
   const [centerRuleHint, setCenterRuleHint] = useState(true);
   const [botThinking, setBotThinking] = useState(false);
   const [botError, setBotError] = useState<string | null>(null);
@@ -179,6 +193,7 @@ export function useEngineMatch({
         gridSize !== 6 && newMoves === 1 && r === center && c === center,
       );
       commitState(newBoard, newMoves, [r, c], nextResult, next, newExtra, logEntry);
+      setMoves((m) => [...m, { player, row: r, col: c }]);
       return nextResult;
     },
     [center, commitState, gridSize, patterns],
@@ -297,6 +312,7 @@ export function useEngineMatch({
     setResult(INITIAL_RESULT);
     setExtraTurns(0);
     setMoveLog([]);
+    setMoves([]);
     setCenterRuleHint(true);
     setBotThinking(false);
     setBotError(null);
@@ -326,6 +342,7 @@ export function useEngineMatch({
     extraTurns,
     extraTurnsHolder,
     moveLog,
+    moves,
     centerRuleHint,
     botThinking,
     botError,

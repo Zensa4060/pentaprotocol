@@ -45,21 +45,24 @@ import {
   Title,
 } from "@/components/ui";
 import { RankBadge } from "@/components/RankBadge";
+import { RankLadder } from "@/components/RankLadder";
 import { BannerRenderer } from "@/components/BannerRenderer";
+import { CurrencyChip } from "@/components/CurrencyChip";
 import { useLocalAvatar } from "@/lib/avatar";
 import { logout } from "@/lib/auth";
 import { ApiError, fetchProfile } from "@/lib/profile";
 import { levelProgress, xpForLevel } from "@/lib/ranks";
 import { useAuthStore } from "@/lib/store";
 import { winRate } from "@/lib/types";
-import { colors, radii, space } from "@/theme/tokens";
-import { useTheme } from "@/theme/ThemeProvider";
+import { radii, space } from "@/theme/tokens";
+import { useTheme, usePalette } from "@/theme/ThemeProvider";
 
 type FetchState = "idle" | "loading" | "error";
 
 export default function ProfileScreen() {
   const user = useAuthStore((s) => s.user);
   const { themeId } = useTheme();
+  const palette = usePalette();
   const localAvatar = useLocalAvatar();
   const [state, setState] = useState<FetchState>(user ? "idle" : "loading");
   const [error, setError] = useState<string | null>(null);
@@ -113,7 +116,7 @@ export default function ProfileScreen() {
     return (
       <Screen padded>
         <Stack gap={4} fill align="center" justify="center">
-          <ActivityIndicator color={colors.accent} />
+          <ActivityIndicator color={palette.accent} />
           <Caption tone="muted">Loading profile…</Caption>
         </Stack>
       </Screen>
@@ -170,8 +173,8 @@ export default function ProfileScreen() {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={() => refresh("pull")}
-            tintColor={colors.accent}
-            colors={[colors.accent]}
+            tintColor={palette.accent}
+            colors={[palette.accent]}
           />
         ),
       }}
@@ -182,7 +185,7 @@ export default function ProfileScreen() {
           refresh failed. Lets the user know they may be looking at
           stale data without blowing up the whole screen. */}
       {error ? (
-        <View style={styles.warnBanner}>
+        <View style={[styles.warnBanner, { borderColor: palette.warn }]}>
           <Caption tone="warn">
             Could not refresh — showing cached data. {error}
           </Caption>
@@ -190,7 +193,7 @@ export default function ProfileScreen() {
       ) : null}
 
       {/* ── Identity (with equipped banner header) ──────────────── */}
-      <View style={styles.bannerHeader}>
+      <View style={[styles.bannerHeader, { borderColor: palette.border }]}>
         <BannerRenderer
           bannerId={user.banner}
           themeId={themeId}
@@ -213,10 +216,10 @@ export default function ProfileScreen() {
         </Row>
       </Stack>
 
-      {/* ── Dual-currency widget ────────────────────────────────── */}
+      {/* ── Dual-currency widget (logos) ────────────────────────── */}
       <Row gap={3}>
-        <CurrencyTile glyph="⬡" label="PROTOCREDITS" value={user.protocredits} tone="accent" />
-        <CurrencyTile glyph="◆" label="PENTASHARDS" value={user.shards} tone="info" />
+        <CurrencyChip kind="pc" value={user.protocredits} variant="tile" />
+        <CurrencyChip kind="ps" value={user.shards} variant="tile" />
       </Row>
 
       {/* ── Rating ──────────────────────────────────────────────── */}
@@ -248,6 +251,11 @@ export default function ProfileScreen() {
         </Card>
       </Section>
 
+      {/* ── Rank ladder (all ranks + ELO ranges) ────────────────── */}
+      <Section label="RANKS">
+        <RankLadder elo={user.elo} isPlacement={user.is_placement} />
+      </Section>
+
       {/* ── Match record ────────────────────────────────────────── */}
       <Section label="MATCH RECORD">
         <Row gap={3}>
@@ -264,6 +272,10 @@ export default function ProfileScreen() {
             <KV left="Protocol Breaker wins" right={String(user.rb_wins)} />
           </Stack>
         </Card>
+        <View style={{ height: space[3] }} />
+        <Btn variant="secondary" onPress={() => router.push("/career")}>
+          Career & match history
+        </Btn>
       </Section>
 
       {/* ── Progression ─────────────────────────────────────────── */}
@@ -366,43 +378,22 @@ function StatTile({
   value: number;
   tone: "success" | "danger" | "muted";
 }) {
+  const palette = usePalette();
   const valueColor =
-    tone === "success" ? colors.success : tone === "danger" ? colors.danger : colors.textMuted;
+    tone === "success" ? palette.success : tone === "danger" ? palette.danger : palette.textMuted;
   return (
-    <View style={styles.statTile}>
+    <View style={[styles.statTile, { backgroundColor: palette.bgCard, borderColor: palette.border }]}>
       <Heading style={{ color: valueColor }}>{value}</Heading>
       <Caption tone="muted">{label}</Caption>
     </View>
   );
 }
 
-function CurrencyTile({
-  glyph,
-  label,
-  value,
-  tone,
-}: {
-  glyph: string;
-  label: string;
-  value: number;
-  tone: "accent" | "info";
-}) {
-  const color = tone === "accent" ? colors.accent : colors.info;
-  return (
-    <View style={styles.currencyTile}>
-      <Row gap={2} align="center">
-        <Text style={{ color, fontSize: 18, fontWeight: "900" }}>{glyph}</Text>
-        <Heading style={{ color }}>{value.toLocaleString()}</Heading>
-      </Row>
-      <Caption tone="muted">{label}</Caption>
-    </View>
-  );
-}
-
 function LevelBar({ progress }: { progress: number }) {
+  const palette = usePalette();
   return (
-    <View style={styles.levelTrack}>
-      <View style={[styles.levelFill, { width: `${Math.round(progress * 100)}%` }]} />
+    <View style={[styles.levelTrack, { backgroundColor: palette.bgRaised }]}>
+      <View style={[styles.levelFill, { backgroundColor: palette.accent, width: `${Math.round(progress * 100)}%` }]} />
     </View>
   );
 }
@@ -414,15 +405,16 @@ function Pill({
   label: string;
   tone: "accent" | "muted" | "warn";
 }) {
+  const palette = usePalette();
   const bg =
     tone === "accent"
       ? "rgba(204,0,0,0.12)"
       : tone === "warn"
       ? "rgba(255,176,32,0.12)"
-      : colors.bgRaised;
+      : palette.bgRaised;
   const border =
-    tone === "accent" ? colors.borderAccent : tone === "warn" ? colors.warn : colors.border;
-  const color = tone === "accent" ? colors.accent : tone === "warn" ? colors.warn : colors.text;
+    tone === "accent" ? palette.borderAccent : tone === "warn" ? palette.warn : palette.border;
+  const color = tone === "accent" ? palette.accent : tone === "warn" ? palette.warn : palette.text;
 
   return (
     <View
@@ -452,10 +444,8 @@ function Pill({
 const styles = StyleSheet.create({
   statTile: {
     flex: 1,
-    backgroundColor: colors.bgCard,
     borderRadius: radii.md,
     borderWidth: 1,
-    borderColor: colors.border,
     paddingVertical: space[3],
     alignItems: "center",
     justifyContent: "center",
@@ -464,7 +454,6 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255,176,32,0.10)",
     borderRadius: radii.md,
     borderWidth: 1,
-    borderColor: colors.warn,
     padding: space[3],
     marginTop: space[3],
   },
@@ -473,15 +462,12 @@ const styles = StyleSheet.create({
     borderRadius: radii.lg,
     overflow: "hidden",
     borderWidth: 1,
-    borderColor: colors.border,
     marginTop: space[3],
   },
   currencyTile: {
     flex: 1,
-    backgroundColor: colors.bgCard,
     borderRadius: radii.md,
     borderWidth: 1,
-    borderColor: colors.border,
     paddingVertical: space[3],
     paddingHorizontal: space[4],
     gap: 2,
@@ -489,12 +475,10 @@ const styles = StyleSheet.create({
   levelTrack: {
     height: 10,
     borderRadius: radii.pill,
-    backgroundColor: colors.bgRaised,
     overflow: "hidden",
   },
   levelFill: {
     height: "100%",
     borderRadius: radii.pill,
-    backgroundColor: colors.accent,
   },
 });
