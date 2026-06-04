@@ -9,7 +9,8 @@
 
 import { View, type ViewStyle } from "react-native";
 
-import { colors, space } from "@/theme/tokens";
+import { space } from "@/theme/tokens";
+import { usePalette } from "@/theme/ThemeProvider";
 
 export interface DividerProps {
   orientation?: "horizontal" | "vertical";
@@ -23,12 +24,13 @@ export function Divider({
   tone = "default",
   spacing = 0,
 }: DividerProps) {
+  const palette = usePalette();
   const color =
     tone === "accent"
-      ? colors.borderAccent
+      ? palette.borderAccent
       : tone === "strong"
-      ? colors.borderStrong
-      : colors.border;
+      ? palette.borderStrong
+      : palette.border;
 
   const style: ViewStyle =
     orientation === "horizontal"

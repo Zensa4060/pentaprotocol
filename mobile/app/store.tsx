@@ -1,12 +1,15 @@
 /**
- * Native store — buy **themes** and **banners** with ProtoCredits /
- * PentaShards. Every item opens a live **preview** before purchase
- * (fixes BUG-04: stale listings + no preview).
+ * Native store — buy **themes**, **banners** and **grids** with
+ * ProtoCredits / PentaShards. Every item opens a live **preview** before
+ * purchase. Grids are lightweight board skins (gradient identity + paired
+ * pieces); their id is the backend-priced ``*_grid`` id, so purchasing
+ * needs no backend changes. After buying, equip from Collection.
  */
 
 import { router, Stack } from "expo-router";
 import { useState } from "react";
-import { Alert, Modal, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { Alert, Modal, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
 
 import {
   Body,
@@ -22,18 +25,21 @@ import { BannerRenderer } from "@/components/BannerRenderer";
 import { purchaseStoreItem } from "@/lib/store/api";
 import {
   STORE_BANNERS,
+  STORE_GRIDS,
   STORE_THEMES,
   type StoreItem,
 } from "@/lib/store/catalog";
+import { BOARD_SKINS, PIECE_SKINS, SKIN_BUNDLES } from "@/lib/cosmetics/skins";
 import { useAuthStore } from "@/lib/store";
-import { THEMES, normalizeThemeId, type ThemeId } from "@/theme/themes";
-import { useTheme } from "@/theme/ThemeProvider";
-import { colors, radii, space } from "@/theme/tokens";
+import { THEMES, normalizeThemeId, type ThemeId, type ThemePalette } from "@/theme/themes";
+import { useTheme, usePalette } from "@/theme/ThemeProvider";
+import { radii, space } from "@/theme/tokens";
 
-type Tab = "themes" | "banners";
+type Tab = "themes" | "banners" | "grids";
 
 const TABS: { key: Tab; label: string; items: StoreItem[] }[] = [
   { key: "themes", label: "THEMES", items: STORE_THEMES },
+  { key: "grids", label: "GRIDS", items: STORE_GRIDS },
   { key: "banners", label: "BANNERS", items: STORE_BANNERS },
 ];
 
@@ -44,9 +50,15 @@ function themeIdForItem(itemId: string): ThemeId {
   return normalizeThemeId(itemId);
 }
 
+/** Bundle whose board == this grid store id (for the piece preview). */
+function bundleForGrid(itemId: string) {
+  return SKIN_BUNDLES.find((b) => b.boardId === itemId);
+}
+
 export default function StoreScreen() {
   const user = useAuthStore((s) => s.user);
   const { themeId } = useTheme();
+  const palette = usePalette();
   const [tab, setTab] = useState<Tab>("themes");
   const [busy, setBusy] = useState<string | null>(null);
   const [preview, setPreview] = useState<StoreItem | null>(null);
@@ -81,6 +93,8 @@ export default function StoreScreen() {
     }
   };
 
+  const cardStyle = { backgroundColor: palette.bgCard, borderColor: palette.border };
+
   return (
     <Screen padded>
       <Stack.Screen options={{ headerShown: false }} />
@@ -99,7 +113,11 @@ export default function StoreScreen() {
           <Pressable
             key={t.key}
             onPress={() => setTab(t.key)}
-            style={[styles.tab, tab === t.key && styles.tabOn]}
+            style={[
+              styles.tab,
+              { borderColor: palette.border },
+              tab === t.key && { borderColor: palette.accent, backgroundColor: palette.bgRaised },
+            ]}
           >
             <Caption tone={tab === t.key ? "accent" : "muted"}>{t.label}</Caption>
           </Pressable>
@@ -110,12 +128,14 @@ export default function StoreScreen() {
         {items.map((item) => {
           const isOwned = owned.has(item.id);
           return (
-            <View key={item.id} style={styles.card}>
+            <View key={item.id} style={[styles.card, cardStyle]}>
               {/* Inline preview thumbnail */}
               {item.category === "banner" ? (
-                <BannerRenderer bannerId={item.id} themeId={themeId} style={styles.thumb} />
+                <BannerRenderer bannerId={item.id} themeId={themeId} style={[styles.thumb, { borderColor: palette.border }]} />
+              ) : item.category === "grid" ? (
+                <GridThumb itemId={item.id} palette={palette} />
               ) : (
-                <View style={[styles.thumb, { backgroundColor: THEMES[themeIdForItem(item.id)].bg, alignItems: "center", justifyContent: "center", flexDirection: "row", gap: 8 }]}>
+                <View style={[styles.thumb, { borderColor: palette.border, backgroundColor: THEMES[themeIdForItem(item.id)].bg, alignItems: "center", justifyContent: "center", flexDirection: "row", gap: 8 }]}>
                   <View style={[styles.dot, { backgroundColor: THEMES[themeIdForItem(item.id)].accent }]} />
                   <View style={[styles.dot, { backgroundColor: THEMES[themeIdForItem(item.id)].p1 }]} />
                   <View style={[styles.dot, { backgroundColor: THEMES[themeIdForItem(item.id)].p2 }]} />
@@ -159,20 +179,20 @@ export default function StoreScreen() {
 
       {/* ── Preview modal ─────────────────────────────────────────── */}
       <Modal visible={!!preview} transparent animationType="fade" onRequestClose={() => setPreview(null)}>
-        <Pressable style={styles.modalScrim} onPress={() => setPreview(null)}>
-          <Pressable style={styles.modalCard} onPress={() => undefined}>
+        <Pressable style={[styles.modalScrim, { backgroundColor: palette.scrim }]} onPress={() => setPreview(null)}>
+          <Pressable style={[styles.modalCard, { backgroundColor: palette.bgCard, borderColor: palette.borderAccent }]} onPress={() => undefined}>
             {preview ? (
               <>
-                <Eyebrow tone="accent">{preview.category === "theme" ? "THEME PREVIEW" : "BANNER PREVIEW"}</Eyebrow>
+                <Eyebrow tone="accent">
+                  {preview.category === "theme" ? "THEME PREVIEW" : preview.category === "grid" ? "GRID PREVIEW" : "BANNER PREVIEW"}
+                </Eyebrow>
                 <Heading style={{ marginTop: space[2] }}>{preview.label}</Heading>
                 {preview.category === "banner" ? (
-                  <BannerRenderer
-                    bannerId={preview.id}
-                    themeId={themeId}
-                    style={styles.previewBig}
-                  />
+                  <BannerRenderer bannerId={preview.id} themeId={themeId} style={[styles.previewBig, { borderColor: palette.border }]} />
+                ) : preview.category === "grid" ? (
+                  <GridPreview itemId={preview.id} palette={palette} />
                 ) : (
-                  <ThemePreview themeId={themeIdForItem(preview.id)} />
+                  <ThemePreview themeId={themeIdForItem(preview.id)} palette={palette} />
                 )}
                 <Body tone="muted" style={{ marginTop: space[3] }}>
                   {preview.description}
@@ -203,11 +223,86 @@ export default function StoreScreen() {
   );
 }
 
+/** Small gradient board thumbnail for a grid store item. */
+function GridThumb({ itemId, palette }: { itemId: string; palette: ThemePalette }) {
+  const board = BOARD_SKINS[itemId];
+  const bundle = bundleForGrid(itemId);
+  const piece = bundle ? PIECE_SKINS[bundle.pieceId] : PIECE_SKINS.default;
+  if (!board) return null;
+  return (
+    <View style={[styles.thumb, { borderColor: palette.border, alignItems: "center", justifyContent: "center" }]}>
+      {board.bgStops ? (
+        <LinearGradient
+          colors={board.bgStops as unknown as [string, string, ...string[]]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={StyleSheet.absoluteFill}
+        />
+      ) : null}
+      <Row gap={3} align="center">
+        <Text style={{ fontSize: 22, color: piece.p1 ?? palette.p1, fontWeight: "800" }}>
+          {piece.p1Glyph || palette.glyphP1}
+        </Text>
+        <Text style={{ fontSize: 22, color: piece.p2 ?? palette.p2, fontWeight: "800" }}>
+          {piece.p2Glyph || palette.glyphP2}
+        </Text>
+      </Row>
+    </View>
+  );
+}
+
+/** Larger gradient board preview (modal) for a grid. */
+function GridPreview({ itemId, palette }: { itemId: string; palette: ThemePalette }) {
+  const board = BOARD_SKINS[itemId];
+  const bundle = bundleForGrid(itemId);
+  const piece = bundle ? PIECE_SKINS[bundle.pieceId] : PIECE_SKINS.default;
+  if (!board) return null;
+  const line = board.line ?? palette.boardLine;
+  const cell = board.cell ?? palette.boardCell;
+  const g1 = piece.p1Glyph || palette.glyphP1;
+  const g2 = piece.p2Glyph || palette.glyphP2;
+  const c1 = piece.p1 ?? palette.p1;
+  const c2 = piece.p2 ?? palette.p2;
+  const glyphAt = (r: number, c: number) =>
+    r === c ? { g: r === 1 ? g2 : g1, color: r === 1 ? c2 : c1 } : null;
+  return (
+    <View style={[styles.previewBig, { borderColor: palette.border, alignItems: "center", justifyContent: "center" }]}>
+      {board.bgStops ? (
+        <LinearGradient
+          colors={board.bgStops as unknown as [string, string, ...string[]]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={StyleSheet.absoluteFill}
+        />
+      ) : null}
+      <View style={{ padding: 6, borderRadius: 8, borderWidth: 1, borderColor: line, gap: 4 }}>
+        {[0, 1, 2].map((r) => (
+          <View key={r} style={{ flexDirection: "row", gap: 4 }}>
+            {[0, 1, 2].map((c) => {
+              const cellGlyph = glyphAt(r, c);
+              return (
+                <View
+                  key={c}
+                  style={{ width: 30, height: 30, borderRadius: 4, backgroundColor: cell, borderWidth: 1, borderColor: line, alignItems: "center", justifyContent: "center" }}
+                >
+                  {cellGlyph ? (
+                    <Text style={{ fontSize: 16, color: cellGlyph.color, fontWeight: "800" }}>{cellGlyph.g}</Text>
+                  ) : null}
+                </View>
+              );
+            })}
+          </View>
+        ))}
+      </View>
+    </View>
+  );
+}
+
 /** Board-on-palette preview for a theme. */
-function ThemePreview({ themeId }: { themeId: ThemeId }) {
+function ThemePreview({ themeId, palette }: { themeId: ThemeId; palette: ThemePalette }) {
   const p = THEMES[themeId];
   return (
-    <View style={[styles.previewBig, { backgroundColor: p.bg, alignItems: "center", justifyContent: "center" }]}>
+    <View style={[styles.previewBig, { borderColor: palette.border, backgroundColor: p.bg, alignItems: "center", justifyContent: "center" }]}>
       <View style={{ padding: 6, borderRadius: 8, backgroundColor: p.boardBg, borderWidth: 1, borderColor: p.boardLine, gap: 4 }}>
         {[0, 1, 2].map((r) => (
           <View key={r} style={{ flexDirection: "row", gap: 4 }}>
@@ -235,18 +330,11 @@ const styles = StyleSheet.create({
     paddingVertical: space[2],
     borderRadius: radii.sm,
     borderWidth: 1,
-    borderColor: colors.border,
     alignItems: "center",
   },
-  tabOn: {
-    borderColor: colors.accent,
-    backgroundColor: colors.bgRaised,
-  },
   card: {
-    backgroundColor: colors.bgCard,
     borderRadius: radii.lg,
     borderWidth: 1,
-    borderColor: colors.border,
     padding: space[4],
     marginBottom: space[3],
   },
@@ -254,30 +342,25 @@ const styles = StyleSheet.create({
     height: 72,
     borderRadius: radii.md,
     borderWidth: 1,
-    borderColor: colors.border,
     overflow: "hidden",
   },
   dot: { width: 14, height: 14, borderRadius: 7 },
   modalScrim: {
     flex: 1,
-    backgroundColor: colors.scrim,
     alignItems: "center",
     justifyContent: "center",
     padding: space[5],
   },
   modalCard: {
     width: "100%",
-    backgroundColor: colors.bgCard,
     borderRadius: radii.lg,
     borderWidth: 1,
-    borderColor: colors.borderAccent,
     padding: space[5],
   },
   previewBig: {
     height: 160,
     borderRadius: radii.md,
     borderWidth: 1,
-    borderColor: colors.border,
     marginTop: space[3],
     overflow: "hidden",
   },

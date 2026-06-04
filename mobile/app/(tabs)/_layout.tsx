@@ -15,19 +15,20 @@ import { Tabs } from "expo-router";
 
 import { HapticTab } from "@/components/haptic-tab";
 import { IconSymbol } from "@/components/ui/icon-symbol";
-import { colors } from "@/theme/tokens";
+import { usePalette } from "@/theme/ThemeProvider";
 
 export default function TabLayout() {
+  const palette = usePalette();
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
         tabBarButton: HapticTab,
-        tabBarActiveTintColor: colors.accent,
-        tabBarInactiveTintColor: colors.textMuted,
+        tabBarActiveTintColor: palette.accent,
+        tabBarInactiveTintColor: palette.textMuted,
         tabBarStyle: {
-          backgroundColor: colors.bgElevated,
-          borderTopColor: colors.border,
+          backgroundColor: palette.bgElevated,
+          borderTopColor: palette.border,
         },
         tabBarLabelStyle: {
           fontSize: 11,

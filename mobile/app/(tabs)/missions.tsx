@@ -11,6 +11,7 @@ import {
   Body,
   Btn,
   Caption,
+  Card,
   Eyebrow,
   Heading,
   Row,
@@ -21,10 +22,12 @@ import {
 import { fetchProfile } from "@/lib/profile";
 import { claimMission, missionsForUser, type MissionView } from "@/lib/missions";
 import { useAuthStore } from "@/lib/store";
-import { colors, radii, space } from "@/theme/tokens";
+import { radii, space } from "@/theme/tokens";
+import { usePalette } from "@/theme/ThemeProvider";
 
 export default function MissionsScreen() {
   const user = useAuthStore((s) => s.user);
+  const palette = usePalette();
   const [refreshing, setRefreshing] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [claimed, setClaimed] = useState<Set<string>>(new Set());
@@ -72,7 +75,7 @@ export default function MissionsScreen() {
       contentContainerStyle={{ paddingBottom: space[10] }}
       scrollViewProps={{
         refreshControl: (
-          <RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colors.accent} />
+          <RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={palette.accent} />
         ),
       }}
     >
@@ -88,7 +91,7 @@ export default function MissionsScreen() {
           const pct = Math.min(1, m.value / m.target);
           const isClaimed = claimed.has(m.id);
           return (
-            <View key={m.id} style={styles.card}>
+            <Card key={m.id} padding="md" style={{ gap: space[2] }}>
               <Row justify="between" align="center">
                 <Heading>{m.label}</Heading>
                 {m.complete ? (
@@ -96,8 +99,8 @@ export default function MissionsScreen() {
                 ) : null}
               </Row>
               <Body tone="muted">{m.description}</Body>
-              <View style={styles.track}>
-                <View style={[styles.fill, { width: `${Math.round(pct * 100)}%` }]} />
+              <View style={[styles.track, { backgroundColor: palette.bgRaised }]}>
+                <View style={[styles.fill, { backgroundColor: palette.accent, width: `${Math.round(pct * 100)}%` }]} />
               </View>
               <Row justify="between" align="center">
                 <Caption tone="muted">
@@ -114,7 +117,7 @@ export default function MissionsScreen() {
                   </Btn>
                 </View>
               </Row>
-            </View>
+            </Card>
           );
         })}
       </Stack>
@@ -124,24 +127,14 @@ export default function MissionsScreen() {
 
 const styles = StyleSheet.create({
   section: { marginTop: space[6], marginBottom: space[2] },
-  card: {
-    backgroundColor: colors.bgCard,
-    borderRadius: radii.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: space[4],
-    gap: space[2],
-  },
   track: {
     height: 8,
     borderRadius: radii.pill,
-    backgroundColor: colors.bgRaised,
     overflow: "hidden",
     marginVertical: space[1],
   },
   fill: {
     height: "100%",
     borderRadius: radii.pill,
-    backgroundColor: colors.accent,
   },
 });

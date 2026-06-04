@@ -41,10 +41,12 @@ import {
 } from "@/lib/multiplayer/rooms";
 import type { ActiveRoomCheck } from "@/lib/multiplayer/types";
 import { gridFromBoardMode, type BoardMode } from "@/lib/game/boardConfig";
-import { colors, radii, space } from "@/theme/tokens";
+import { radii, space } from "@/theme/tokens";
+import { usePalette } from "@/theme/ThemeProvider";
 
 export default function MultiplayerLobby() {
   const user = useAuthStore((s) => s.user);
+  const palette = usePalette();
   useLobbyBgm();
   const [code, setCode] = useState("");
   const [active, setActive] = useState<ActiveRoomCheck | null>(null);
@@ -209,7 +211,11 @@ export default function MultiplayerLobby() {
             <Pressable
               key={mode}
               onPress={() => setBoardMode(mode)}
-              style={[styles.sizeChip, on && styles.sizeChipOn]}
+              style={[
+                styles.sizeChip,
+                { borderColor: palette.border, backgroundColor: palette.bgCard },
+                on && { borderColor: palette.accent, backgroundColor: palette.bgRaised },
+              ]}
             >
               <Caption tone={on ? "accent" : "muted"} style={{ fontWeight: "800" }}>
                 {label}
@@ -226,7 +232,7 @@ export default function MultiplayerLobby() {
           <Caption tone="muted">Checking for active matches…</Caption>
         </Row>
       ) : active ? (
-        <View style={styles.activeBanner}>
+        <View style={[styles.activeBanner, { backgroundColor: palette.bgCard, borderColor: palette.borderAccent }]}>
           <Eyebrow tone="accent">REJOIN</Eyebrow>
           <View style={{ height: space[2] }} />
           <Body>
@@ -247,7 +253,7 @@ export default function MultiplayerLobby() {
       <Eyebrow tone="muted" style={{ marginTop: space[8], marginBottom: space[3] }}>
         CREATE A ROOM
       </Eyebrow>
-      <View style={styles.actionCard}>
+      <View style={[styles.actionCard, { backgroundColor: palette.bgCard, borderColor: palette.border }]}>
         <Body tone="muted">
           Creates a {boardMode.replace("x", "×")} room — opponent must join the same board size.
         </Body>
@@ -261,7 +267,7 @@ export default function MultiplayerLobby() {
       <Eyebrow tone="muted" style={{ marginTop: space[7], marginBottom: space[3] }}>
         JOIN BY CODE
       </Eyebrow>
-      <View style={styles.actionCard}>
+      <View style={[styles.actionCard, { backgroundColor: palette.bgCard, borderColor: palette.border }]}>
         <TextField
           label="Room code"
           value={code}
@@ -293,27 +299,17 @@ const styles = StyleSheet.create({
     paddingVertical: space[3],
     borderRadius: radii.md,
     borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.bgCard,
     alignItems: "center",
   },
-  sizeChipOn: {
-    borderColor: colors.accent,
-    backgroundColor: colors.bgRaised,
-  },
   actionCard: {
-    backgroundColor: colors.bgCard,
     borderRadius: radii.lg,
     borderWidth: 1,
-    borderColor: colors.border,
     padding: space[5],
   },
   activeBanner: {
     marginTop: space[6],
-    backgroundColor: colors.bgCard,
     borderRadius: radii.lg,
     borderWidth: 2,
-    borderColor: colors.borderAccent,
     padding: space[5],
   },
 });

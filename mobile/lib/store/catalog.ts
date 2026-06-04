@@ -1,10 +1,14 @@
 /**
- * Store catalog — **themes + banners only** on mobile.
+ * Store catalog — **themes, banners + grids** on mobile.
  *
- * Prices mirror ``backend/app/routers/store.py::_ITEM_PRICE_OVERRIDES``
- * (themes 2099 PC + 700 PS; animated banners 299 PC). Board skins /
- * grids / pieces are intentionally not sold on mobile.
+ * Prices mirror ``backend/app/routers/store.py::_canonical_item_price``
+ * (themes 2099 PC + 700 PS; animated banners 299 PC; any ``*_grid``
+ * 1599 PC, with ``space_grid`` / ``pixel_grid`` at 900 PC + 300 PS).
+ * Grids are derived from ``SKIN_BUNDLES`` so the store id == the board's
+ * ``*_grid`` id the backend already accepts (no backend changes).
  */
+
+import { SKIN_BUNDLES } from "@/lib/cosmetics/skins";
 
 export interface StoreItem {
   id: string;
@@ -12,7 +16,7 @@ export interface StoreItem {
   description: string;
   pricePc: number;
   pricePs: number;
-  category: "theme" | "banner";
+  category: "theme" | "banner" | "grid";
 }
 
 export const STORE_THEMES: StoreItem[] = [
@@ -65,6 +69,17 @@ export const STORE_BANNERS: StoreItem[] = [
   banner("solar_wind", "Solar Wind"),
   banner("lava_lamp", "Lava Lamp"),
 ];
+
+// ── Grids (board skins + matching pieces) ───────────────────────────────────
+// id == the board's ``*_grid`` id (backend-priced); skips the free default.
+export const STORE_GRIDS: StoreItem[] = SKIN_BUNDLES.filter((b) => !b.free).map((b) => ({
+  id: b.boardId,
+  label: `${b.label} Grid`,
+  description: "Board skin + matching pieces.",
+  pricePc: b.pricePc,
+  pricePs: b.pricePs,
+  category: "grid" as const,
+}));
 
 export const PC_PACKAGES = [
   { id: "starter", credits: 100, priceInr: 49, bonus: 0, label: "STARTER" },

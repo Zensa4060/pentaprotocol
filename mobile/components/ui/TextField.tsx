@@ -24,7 +24,8 @@ import {
   type ViewStyle,
 } from "react-native";
 
-import { colors, fonts, fontSizes, radii, space } from "@/theme/tokens";
+import { fonts, fontSizes, radii, space } from "@/theme/tokens";
+import { usePalette } from "@/theme/ThemeProvider";
 
 import { Caption } from "./Text";
 
@@ -42,6 +43,7 @@ export const TextField = forwardRef<TextInput, TextFieldProps>(function TextFiel
   { label, hint, error, characterCount, containerStyle, style, multiline, ...rest },
   ref,
 ) {
+  const palette = usePalette();
   const hasError = !!error;
   return (
     <View style={[styles.wrap, containerStyle]}>
@@ -51,11 +53,15 @@ export const TextField = forwardRef<TextInput, TextFieldProps>(function TextFiel
       <TextInput
         ref={ref}
         multiline={multiline}
-        placeholderTextColor={colors.textDim}
+        placeholderTextColor={palette.textDim}
         style={[
           styles.input,
+          {
+            backgroundColor: palette.bgCard,
+            borderColor: hasError ? palette.danger : palette.border,
+            color: palette.text,
+          },
           multiline ? styles.multiline : null,
-          hasError ? styles.inputError : null,
           style,
         ]}
         {...rest}
@@ -89,11 +95,8 @@ const styles = StyleSheet.create({
     letterSpacing: 1.2,
   },
   input: {
-    backgroundColor: colors.bgCard,
     borderRadius: radii.md,
     borderWidth: 1,
-    borderColor: colors.border,
-    color: colors.text,
     fontFamily: fonts.body,
     fontSize: fontSizes.md,
     paddingVertical: space[3],
@@ -103,9 +106,6 @@ const styles = StyleSheet.create({
     minHeight: 96,
     textAlignVertical: "top",
     paddingTop: space[3],
-  },
-  inputError: {
-    borderColor: colors.danger,
   },
   footer: {
     marginTop: space[2],

@@ -30,6 +30,9 @@ export type { TextFieldProps } from "./TextField";
 
 export { Row, Stack } from "./Stack";
 
+export { Wordmark } from "./Wordmark";
+export type { WordmarkProps } from "./Wordmark";
+
 export {
   Body,
   Caption,

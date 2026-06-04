@@ -38,7 +38,9 @@ import {
   type ViewStyle,
 } from "react-native";
 
-import { colors, fontSizes, radii, space } from "@/theme/tokens";
+import { fontSizes, radii, space } from "@/theme/tokens";
+import { usePalette } from "@/theme/ThemeProvider";
+import type { ThemePalette } from "@/theme/themes";
 
 type Variant = "primary" | "secondary" | "ghost" | "danger" | "inverse";
 type Size = "sm" | "md" | "lg";
@@ -69,43 +71,21 @@ interface VariantStyle {
   ripple: string;
 }
 
-const VARIANTS: Record<Variant, VariantStyle> = {
-  primary: {
-    bg: colors.accent,
-    bgPressed: colors.accentDeep,
-    border: "transparent",
-    label: colors.text,
-    ripple: colors.accentDeep,
-  },
-  secondary: {
-    bg: colors.bgCard,
-    bgPressed: colors.bgRaised,
-    border: colors.border,
-    label: colors.text,
-    ripple: colors.bgRaised,
-  },
-  ghost: {
-    bg: "transparent",
-    bgPressed: colors.bgRaised,
-    border: "transparent",
-    label: colors.textMuted,
-    ripple: colors.bgRaised,
-  },
-  danger: {
-    bg: colors.danger,
-    bgPressed: "#CC3D3D",
-    border: "transparent",
-    label: colors.text,
-    ripple: "#CC3D3D",
-  },
-  inverse: {
-    bg: "#FFFFFF",
-    bgPressed: "#EAEAEA",
-    border: "transparent",
-    label: colors.textInverse,
-    ripple: "rgba(0,0,0,0.08)",
-  },
-};
+/** Variant colors built from the *active* theme palette (reskins live). */
+function variantStyle(p: ThemePalette, variant: Variant): VariantStyle {
+  switch (variant) {
+    case "secondary":
+      return { bg: p.bgCard, bgPressed: p.bgRaised, border: p.border, label: p.text, ripple: p.bgRaised };
+    case "ghost":
+      return { bg: "transparent", bgPressed: p.bgRaised, border: "transparent", label: p.textMuted, ripple: p.bgRaised };
+    case "danger":
+      return { bg: p.danger, bgPressed: "#CC3D3D", border: "transparent", label: "#FFFFFF", ripple: "#CC3D3D" };
+    case "inverse":
+      return { bg: "#FFFFFF", bgPressed: "#EAEAEA", border: "transparent", label: "#0A0A0A", ripple: "rgba(0,0,0,0.08)" };
+    default:
+      return { bg: p.accent, bgPressed: p.accentDeep, border: "transparent", label: "#FFFFFF", ripple: p.accentDeep };
+  }
+}
 
 interface SizeStyle {
   minHeight: number;
@@ -149,7 +129,8 @@ export function Btn({
   onPress,
   ...rest
 }: BtnProps) {
-  const v = VARIANTS[variant];
+  const palette = usePalette();
+  const v = variantStyle(palette, variant);
   const s = SIZES[size];
   const isDisabled = disabled || loading;
 
@@ -167,11 +148,13 @@ export function Btn({
     alignSelf: block ? "stretch" : "flex-start",
   };
 
-  const pressedStyle: ViewStyle = { backgroundColor: v.bgPressed };
+  // Press feedback mirrors the web ``button:active`` (scale 0.97).
+  const pressedStyle: ViewStyle = { backgroundColor: v.bgPressed, transform: [{ scale: 0.97 }] };
   const disabledStyle: ViewStyle = { opacity: 0.5 };
 
   const labelStyle: TextStyle = {
     color: v.label,
+    fontFamily: palette.fontDisplay,
     fontSize: s.fontSize,
     fontWeight: "800",
     letterSpacing: s.letterSpacing,

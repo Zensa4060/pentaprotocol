@@ -10,20 +10,16 @@
 
 import { ActivityIndicator, type ActivityIndicatorProps } from "react-native";
 
-import { colors } from "@/theme/tokens";
+import { usePalette } from "@/theme/ThemeProvider";
 
 export interface SpinnerProps extends Omit<ActivityIndicatorProps, "color"> {
   /** Token-named color choice. */
   tone?: "default" | "accent" | "muted" | "inverse";
 }
 
-const TONE: Record<NonNullable<SpinnerProps["tone"]>, string> = {
-  default: colors.text,
-  accent: colors.accent,
-  muted: colors.textMuted,
-  inverse: colors.textInverse,
-};
-
 export function Spinner({ tone = "default", size = "small", ...rest }: SpinnerProps) {
-  return <ActivityIndicator size={size} color={TONE[tone]} {...rest} />;
+  const p = usePalette();
+  const color =
+    tone === "accent" ? p.accent : tone === "muted" ? p.textMuted : tone === "inverse" ? p.textInverse : p.text;
+  return <ActivityIndicator size={size} color={color} {...rest} />;
 }

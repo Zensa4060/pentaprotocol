@@ -14,10 +14,11 @@ import {
   type ViewStyle,
 } from "react-native";
 
+import { LinearGradient } from "expo-linear-gradient";
+
 import type { GridSize } from "@/lib/game/boardConfig";
-import { colors, radii } from "@/theme/tokens";
-import { usePalette } from "@/theme/ThemeProvider";
-import type { ThemePalette } from "@/theme/themes";
+import { radii } from "@/theme/tokens";
+import { useBoardStyle, type BoardStyle } from "@/theme/ThemeProvider";
 
 import type { Board, Coord } from "@/lib/game/winCheck";
 
@@ -45,7 +46,7 @@ export function BoardGrid({
   disabled = false,
   style,
 }: BoardGridProps) {
-  const palette = usePalette();
+  const palette = useBoardStyle();
   const [size, setSize] = useState(0);
 
   const handleLayout = (e: LayoutChangeEvent) => {
@@ -107,11 +108,21 @@ export function BoardGrid({
                 {
                   width: boardSize,
                   height: boardSize,
-                  backgroundColor: palette.boardBg,
+                  backgroundColor: palette.boardBgStops ? palette.boardBgStops[0] : palette.boardBg,
                   borderColor: palette.boardLine,
                 },
               ]}
             >
+              {/* Equipped-skin board gradient (lightweight — no animation). */}
+              {palette.boardBgStops ? (
+                <LinearGradient
+                  colors={palette.boardBgStops as unknown as [string, string, ...string[]]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={StyleSheet.absoluteFill}
+                  pointerEvents="none"
+                />
+              ) : null}
               {board.map((row, r) => (
                 <View key={`row-${r}`} style={styles.row}>
                   {row.map((cell, c) => {
@@ -152,7 +163,7 @@ interface CellProps {
   owner: string | null;
   isLast: boolean;
   isWinning: boolean;
-  palette: ThemePalette;
+  palette: BoardStyle;
   disabled: boolean;
   onPress: () => void;
 }
@@ -273,10 +284,9 @@ const styles = StyleSheet.create({
   },
   board: {
     padding: BOARD_PAD,
-    backgroundColor: colors.bgCard,
     borderRadius: radii.md,
     borderWidth: 1,
-    borderColor: colors.border,
+    overflow: "hidden",
   },
   row: {
     flexDirection: "row",

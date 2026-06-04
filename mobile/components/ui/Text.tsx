@@ -33,7 +33,9 @@ import {
   type TextStyle,
 } from "react-native";
 
-import { colors, fontSizes, lineHeights } from "@/theme/tokens";
+import { fontSizes, lineHeights } from "@/theme/tokens";
+import { usePalette } from "@/theme/ThemeProvider";
+import type { ThemePalette } from "@/theme/themes";
 
 type Tone =
   | "default"
@@ -46,17 +48,20 @@ type Tone =
   | "info"
   | "inverse";
 
-const TONE_COLOR: Record<Tone, string> = {
-  default: colors.text,
-  muted: colors.textMuted,
-  dim: colors.textDim,
-  accent: colors.accent,
-  success: colors.success,
-  warn: colors.warn,
-  danger: colors.danger,
-  info: colors.info,
-  inverse: colors.textInverse,
-};
+/** Resolve a tone to a color from the *active* theme palette (reskins live). */
+function toneColor(p: ThemePalette, tone: Tone): string {
+  switch (tone) {
+    case "muted": return p.textMuted;
+    case "dim": return p.textDim;
+    case "accent": return p.accent;
+    case "success": return p.success;
+    case "warn": return p.warn;
+    case "danger": return p.danger;
+    case "info": return p.info;
+    case "inverse": return p.textInverse;
+    default: return p.text;
+  }
+}
 
 interface BaseProps extends Omit<RNTextProps, "children" | "style"> {
   children?: ReactNode;
@@ -67,11 +72,19 @@ interface BaseProps extends Omit<RNTextProps, "children" | "style"> {
   style?: TextStyle;
 }
 
-function makePreset(preset: TextStyle, displayName: string) {
+/**
+ * @param displayFont  When true, the preset wears the active theme's
+ *   display typeface (``palette.fontDisplay`` — Cinzel / Orbitron /
+ *   PentaPixel). Used for titles / headings / eyebrows. Body-tier
+ *   presets pass false so paragraph copy stays on the system font.
+ */
+function makePreset(preset: TextStyle, displayName: string, displayFont = false) {
   const Component = ({ children, tone = "default", center, style, ...rest }: BaseProps) => {
+    const palette = usePalette();
     const composed: TextStyle = {
       ...preset,
-      color: TONE_COLOR[tone],
+      color: toneColor(palette, tone),
+      ...(displayFont ? { fontFamily: palette.fontDisplay } : null),
       ...(center ? { textAlign: "center" } : null),
       ...(style ?? {}),
     };
@@ -93,6 +106,7 @@ export const Display = makePreset(
     letterSpacing: 1,
   },
   "Display",
+  true,
 );
 
 export const Title = makePreset(
@@ -103,6 +117,7 @@ export const Title = makePreset(
     letterSpacing: 0.5,
   },
   "Title",
+  true,
 );
 
 export const Heading = makePreset(
@@ -113,6 +128,7 @@ export const Heading = makePreset(
     letterSpacing: 0.25,
   },
   "Heading",
+  true,
 );
 
 export const Subheading = makePreset(
@@ -123,6 +139,7 @@ export const Subheading = makePreset(
     letterSpacing: 0.25,
   },
   "Subheading",
+  true,
 );
 
 export const Body = makePreset(
@@ -152,6 +169,7 @@ export const Eyebrow = makePreset(
     textTransform: "uppercase",
   },
   "Eyebrow",
+  true,
 );
 
 export const Mono = makePreset(

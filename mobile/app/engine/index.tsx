@@ -28,10 +28,12 @@ import {
 } from "@/lib/botRewards";
 import type { GridSize } from "@/lib/game/boardConfig";
 import { useAuthStore } from "@/lib/store";
-import { colors, radii, space } from "@/theme/tokens";
+import { radii, space } from "@/theme/tokens";
+import { usePalette } from "@/theme/ThemeProvider";
 
 export default function EnginePickerScreen() {
   const user = useAuthStore((s) => s.user);
+  const palette = usePalette();
   const defeats = user?.bot_defeats ?? {};
   const [selected, setSelected] = useState<BotId>("seraphina");
   // Default to the standard 5×5 board (BUG-03) — not 7×7.
@@ -104,7 +106,8 @@ export default function EnginePickerScreen() {
               onPress={() => setGridSize(g.size)}
               style={[
                 styles.gridChip,
-                on && { borderColor: colors.accent, backgroundColor: colors.bgRaised },
+                { borderColor: palette.border, backgroundColor: palette.bgCard },
+                on && { borderColor: palette.accent, backgroundColor: palette.bgRaised },
               ]}
             >
               <Caption tone={on ? "accent" : "muted"} style={{ fontWeight: "800" }}>
@@ -130,17 +133,17 @@ export default function EnginePickerScreen() {
               key={bot.id}
               onPress={() => setSelected(bot.id)}
               disabled={!unlocked}
-              android_ripple={{ color: colors.bgRaised }}
+              android_ripple={{ color: palette.bgRaised }}
               accessibilityRole="radio"
               accessibilityState={{ selected: isSelected, disabled: !unlocked }}
               style={({ pressed }) => [
                 styles.option,
                 {
-                  borderColor: isSelected ? bot.color : colors.border,
-                  backgroundColor: isSelected ? colors.bgRaised : colors.bgCard,
+                  borderColor: isSelected ? bot.color : palette.border,
+                  backgroundColor: isSelected ? palette.bgRaised : palette.bgCard,
                   opacity: unlocked ? 1 : 0.45,
                 },
-                pressed && unlocked && { backgroundColor: colors.bgRaised },
+                pressed && unlocked && { backgroundColor: palette.bgRaised },
               ]}
             >
               <View style={[styles.dot, { backgroundColor: bot.color, opacity: isSelected ? 1 : 0.35 }]} />
@@ -163,7 +166,7 @@ export default function EnginePickerScreen() {
         })}
       </VStack>
 
-      <View style={styles.rulesCard}>
+      <View style={[styles.rulesCard, { backgroundColor: palette.bgCard, borderColor: palette.border }]}>
         <Caption tone="muted">
           You play P1 (red). The server engine plays P2 (blue). Requires network + sign-in.
         </Caption>
@@ -184,8 +187,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: space[2],
     borderRadius: radii.md,
     borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.bgCard,
     alignItems: "center",
     gap: 2,
   },
@@ -205,10 +206,8 @@ const styles = StyleSheet.create({
   },
   rulesCard: {
     marginTop: space[5],
-    backgroundColor: colors.bgCard,
     borderRadius: radii.md,
     borderWidth: 1,
-    borderColor: colors.border,
     padding: space[4],
   },
 });
