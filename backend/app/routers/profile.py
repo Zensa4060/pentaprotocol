@@ -1069,6 +1069,10 @@ async def claim_unranked_bot_series(
     }
     try:
         await db.match_history.insert_one(history_doc)
+        await db.users.update_one(
+            {"_id": oid},
+            {"$set": {"last_active_at": datetime.utcnow()}},
+        )
     except Exception:
         # Career recording is best-effort; a storage error should not prevent
         # the XP grant from succeeding (the claim has already committed).

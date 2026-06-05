@@ -91,12 +91,9 @@ async def ensure_indexes():
             [("per_slot.P2.user_id", ASCENDING), ("at", DESCENDING)], background=True
         )
         # Economy events (Phase 3). Detection only — never read on a
-        # hot request path, so the TTL can be generous and indexes
-        # kept minimal. 90 days matches anticheat_matches so staff
-        # investigating a funnel can cross-reference gameplay.
+        # hot request path; indexes kept minimal.
         await db.db.economy_events.create_index(
             [("at", ASCENDING)],
-            expireAfterSeconds=90 * 24 * 60 * 60,
             background=True,
         )
         await db.db.economy_events.create_index(

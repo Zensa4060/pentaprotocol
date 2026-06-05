@@ -253,6 +253,10 @@ async def award_game_result(db, game: dict, winner: str | None):
             doc["board_mode"] = game.get("board_mode", "7x7")
             doc["game_number"] = game.get("game_number")
         await db.match_history.insert_one(doc)
+        await db.users.update_one(
+            {"_id": ObjectId(user_id)},
+            {"$set": {"last_active_at": datetime.utcnow()}},
+        )
 
     if w == "P1":
         await log_match(p1_id, p2_id, "win",  p1_user, p2_user)
@@ -425,6 +429,10 @@ async def award_ranked_match_result(
             "p2_time_used_ms":        p2_time_used_ms,
         }
         ins = await db.match_history.insert_one(doc)
+        await db.users.update_one(
+            {"_id": ObjectId(u_id_str)},
+            {"$set": {"last_active_at": datetime.utcnow()}},
+        )
         return str(ins.inserted_id)
 
     p1_career_entry_id = None

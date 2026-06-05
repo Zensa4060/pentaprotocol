@@ -193,6 +193,10 @@ _ITEM_PRICE_OVERRIDES: dict[str, tuple[int, int]] = {
 }
 
 
+def _item_display_name(item_id: str) -> str:
+    return item_id.replace("_", " ").title()
+
+
 def _canonical_item_price(item_id: str) -> tuple[int, int]:
     if item_id in _ITEM_PRICE_OVERRIDES:
         return _ITEM_PRICE_OVERRIDES[item_id]
@@ -239,5 +243,27 @@ async def purchase_item(
             "$addToSet": {"purchased_items": req.item_id},
         }
     )
+
+    purchased_at = datetime.utcnow()
+    item_name = _item_display_name(req.item_id)
+    ledger_base = {
+        "user_id": user_id,
+        "item_id": req.item_id,
+        "item_name": item_name,
+        "purchased_at": purchased_at,
+        "source": "in-game-store",
+    }
+    if req.price > 0:
+        await db["store_purchases"].insert_one({
+            **ledger_base,
+            "currency_type": "protocredits",
+            "amount_spent": req.price,
+        })
+    if req.shard_price > 0:
+        await db["store_purchases"].insert_one({
+            **ledger_base,
+            "currency_type": "shards",
+            "amount_spent": req.shard_price,
+        })
 
     return {"ok": True}

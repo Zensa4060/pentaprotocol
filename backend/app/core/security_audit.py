@@ -72,11 +72,6 @@ SEVERITY_WARN  = "warn"
 SEVERITY_ALERT = "alert"
 
 
-# 90 days matches the Privacy Policy retention commitment. Anything older
-# is low-signal for investigations and high-risk for long-term PII bloat.
-RETENTION_SECONDS = 90 * 24 * 60 * 60
-
-
 def _hash(value: str) -> str:
     return hashlib.sha256(value.encode("utf-8")).hexdigest()[:24]
 
@@ -102,7 +97,6 @@ async def ensure_indexes() -> None:
     try:
         await db.security_events.create_index(
             [("at", ASCENDING)],
-            expireAfterSeconds=RETENTION_SECONDS,
             background=True,
         )
         await db.security_events.create_index(

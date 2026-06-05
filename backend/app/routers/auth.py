@@ -436,7 +436,7 @@ async def login(
     # Persist the new session id so future requests can validate it
     await get_db().users.update_one(
         {"_id": user["_id"]},
-        {"$set": {"current_session_id": new_sid}},
+        {"$set": {"current_session_id": new_sid, "last_active_at": datetime.utcnow()}},
     )
     token = create_access_token({"sub": str(user["_id"])}, sid=new_sid)
     audit.log_event(
@@ -630,7 +630,7 @@ async def google_auth(data: GoogleAuthRequest, request: Request, response: Respo
     await ws_manager.kick_user(str(user["_id"]))
     await db.users.update_one(
         {"_id": user["_id"]},
-        {"$set": {"current_session_id": new_sid}},
+        {"$set": {"current_session_id": new_sid, "last_active_at": datetime.utcnow()}},
     )
     token = create_access_token({"sub": str(user["_id"])}, sid=new_sid)
 
@@ -782,7 +782,11 @@ async def login_2fa(data: TwoFALoginCheck, request: Request, response: Response)
     existing.append({"token_hash": device_token_hash, "expires_at": expiry})
     await db.users.update_one(
         {"_id": user["_id"]},
-        {"$set": {"device_tokens_list": existing, "current_session_id": new_sid}}
+        {"$set": {
+            "device_tokens_list": existing,
+            "current_session_id": new_sid,
+            "last_active_at": datetime.utcnow(),
+        }},
     )
     audit.log_event(
         event_type=audit.EVENT_LOGIN_SUCCESS,
