@@ -46,13 +46,16 @@ function toRoomError(err: unknown, fallback: string): RoomError {
 }
 
 /**
- * Create a new room. Always 7×7 / unranked for mobile v1.
- * Returns the room (with ``player_slot`` populated). The caller
- * should immediately navigate to the waiting / match screen and
- * open the WS — the room exists in "waiting" status until P2
- * joins via ``joinRoom``.
+ * Create a new room. Always a **full leg** (``5x5_6x6_7x7``) — the board
+ * progresses 5×5 → 6×6 → 7×7 across the leg, exactly like the web and
+ * matchmaking. (Mobile no longer offers a single-board pick.)
+ * Returns the room (with ``player_slot`` populated). The caller should
+ * immediately navigate to the waiting / match screen and open the WS —
+ * the room exists in "waiting" status until P2 joins via ``joinRoom``.
  */
-export async function createRoom(boardMode: BoardMode = "7x7"): Promise<Room> {
+export async function createRoom(
+  boardMode: BoardMode | "5x5_6x6_7x7" = "5x5_6x6_7x7",
+): Promise<Room> {
   try {
     const res = await API.post<Room>("/api/room/create", {
       format: "unranked",

@@ -7,22 +7,20 @@
  * validates → broadcasts ``move_made`` to both sockets → both
  * clients paint identically.
  *
- * v1 surface ceiling (per Phase-4 scoping):
- *   - 7×7 board only (the only mode the create flow ships).
- *   - Best-of-N series with auto-ready between games.
- *   - No ProtocolBreaker UI. If a server-side RB triggers (after
- *     every pair of games when the score is sub-3), we show an
- *     "open in web app" panel and the user can either wait for
- *     their opponent to bail or hit "Forfeit and exit". Full RB
- *     port is a follow-up phase.
- *   - No chat, no rematch consent, no spectator view. After a
- *     series ends the user navigates back to the lobby — a new
- *     match means a new room.
+ * Match shape:
+ *   - A full leg: the board progresses 5×5 → 6×6 → 7×7, first-to-3
+ *     points per board (server-authoritative via ``room.py``).
+ *   - Ready system between games (``GameEndPanel`` → ``readyForNextGame``).
+ *   - All three Protocol Breakers are handled in-app by
+ *     ``RulebreakerOverlay`` (5×5 Rulebreaker, 6×6 Timebreaker, 7×7
+ *     Mindbreaker): coin toss → rule choice → start, over the WS.
+ *   - No chat / rematch consent / spectator view. After a series ends
+ *     the user returns to the lobby — a new match means a new room.
  */
 
 import { router, Stack, useLocalSearchParams } from "expo-router";
 import { useEffect, useRef } from "react";
-import { Alert, BackHandler, Dimensions, Pressable, StyleSheet, View } from "react-native";
+import { Alert, BackHandler, Pressable, StyleSheet, View } from "react-native";
 
 import {
   Body,
@@ -41,12 +39,7 @@ import { PatternsToggle } from "@/components/game/PatternsToggle";
 import { RulebreakerOverlay } from "@/components/game/RulebreakerOverlay";
 import { isRbPhase } from "@/lib/multiplayer/rulebreakerPhases";
 import { useGameAudio } from "@/lib/audio/AudioProvider";
-import {
-  breakerDisplayName,
-  breakerKindForGame,
-  legBoardLabel,
-  legGameIndex,
-} from "@/lib/audio/series";
+import { legBoardLabel, legGameIndex } from "@/lib/audio/series";
 import { emptyBoard, gridFromBoardMode } from "@/lib/game/boardConfig";
 import type { Coord } from "@/lib/game/winCheck";
 import {
@@ -83,7 +76,6 @@ export default function MultiplayerMatch() {
 
   const audio = useGameAudio();
   const palette = usePalette();
-  const boardDim = Dimensions.get("window").width - space[5] * 2;
   useMatchGameBgm();
   const prevGameStatus = useRef<string | null>(null);
 
@@ -174,7 +166,6 @@ export default function MultiplayerMatch() {
   const isMyTurn = room.current_player === slot && room.game_status === "playing";
   const gameOver = room.game_status === "finished";
   const seriesOver = room.series_winner !== null;
-  const breakerKind = breakerKindForGame(room.game_number, room.board_mode);
   const legLabel = `G${legGameIndex(room.game_number)} · ${legBoardLabel(room.board_mode)}`;
   const gridSize = gridFromBoardMode(room.board_mode);
 
@@ -232,7 +223,7 @@ export default function MultiplayerMatch() {
       </View>
 
       {/* ── Board ─────────────────────────────────────────────── */}
-      <View style={{ height: boardDim, justifyContent: "center" }}>
+      <View style={{ flex: 1, minHeight: 0, justifyContent: "center" }}>
         <BoardGrid
           gridSize={gridSize}
           board={room.board ?? emptyBoard(gridSize)}
@@ -438,47 +429,6 @@ function PostMatchSocial({
           <Btn variant="ghost" onPress={report}>Report</Btn>
         </View>
       </Row>
-    </Card>
-  );
-}
-
-function ProtocolBreakerPanel({
-  breakerKind,
-  gameNumber,
-  onForfeit,
-  onScreenBack,
-}: {
-  breakerKind: ReturnType<typeof breakerKindForGame>;
-  gameNumber: number;
-  onForfeit: () => void;
-  onScreenBack: () => void;
-}) {
-  const name =
-    breakerKind !== null
-      ? breakerDisplayName(breakerKind)
-      : "Protocol Breaker";
-  return (
-    <Card variant="surface" padding="lg" style={{ marginTop: space[3] }}>
-      <Eyebrow tone="warn">
-        {name.toUpperCase()} · GAME {gameNumber}
-      </Eyebrow>
-      <View style={{ height: space[2] }} />
-      <Title>Open in web to continue</Title>
-      <View style={{ height: space[3] }} />
-      <Body tone="muted">
-        After G1 the series runs {name} (coin toss, rule pick, pattern ban on 7×7, grid
-        block + timer on 6×6, etc.). That full flow is on web today — mobile shows the board
-        for G1/G3 but not the breaker UI yet. Sign in on the same account at pentaprotocol.com
-        to finish this game.
-      </Body>
-      <View style={{ height: space[4] }} />
-      <Btn variant="secondary" onPress={onScreenBack}>
-        I&apos;ll open on web
-      </Btn>
-      <View style={{ height: space[2] }} />
-      <Btn variant="ghost" onPress={onForfeit}>
-        Forfeit instead
-      </Btn>
     </Card>
   );
 }

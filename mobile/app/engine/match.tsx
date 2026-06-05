@@ -4,7 +4,7 @@
 
 import { router, Stack, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Dimensions, Image, Modal, Pressable, StyleSheet, View } from "react-native";
+import { Image, Modal, Pressable, StyleSheet, View } from "react-native";
 
 import { BoardGrid } from "@/components/game/BoardGrid";
 import { PatternsToggle } from "@/components/game/PatternsToggle";
@@ -13,7 +13,7 @@ import {
   ExtraTurnsBadge,
   MatchClockRow,
   MoveLogPanel,
-  WinOverlay,
+  SeriesOverlay,
 } from "@/components/game/MatchExtras";
 import {
   Body,
@@ -24,6 +24,7 @@ import {
   Row,
   Screen,
   Spinner,
+  Stack as VStack,
 } from "@/components/ui";
 import { useGameAudio } from "@/lib/audio/AudioProvider";
 import type { EngineDifficulty } from "@/lib/botApi/botMove";
@@ -32,6 +33,7 @@ import { analyzeGame, type AnalyzeResult } from "@/lib/syros";
 import { fetchProfile } from "@/lib/profile";
 import { useEngineMatch } from "@/lib/hooks/useEngineMatch";
 import { useMatchClock } from "@/lib/hooks/useMatchClock";
+import { useMatchSeries } from "@/lib/hooks/useMatchSeries";
 import {
   useGameEndSounds,
   useMatchGameBgm,
@@ -57,7 +59,6 @@ export default function EngineMatchScreen() {
   const botName = (params.label ?? "BOT").toUpperCase();
   const gridSize = parseGridParam(params.grid);
   const palette = usePalette();
-  const boardDim = Dimensions.get("window").width - space[5] * 2;
   const patterns = params.patterns ? params.patterns.split(",").filter(Boolean) : undefined;
 
   const match = useEngineMatch({ difficulty, gridSize, patterns });
@@ -66,17 +67,40 @@ export default function EngineMatchScreen() {
     match.result.status === "playing",
     matchMsForGrid(gridSize),
   );
+  const series = useMatchSeries(match.result, match.reset);
   const audio = useGameAudio();
   useMatchGameBgm();
   useGameEndSounds(match.result.status, match.result.winner, "P1");
 
+  const handleNextGame = () => {
+    audio.sfx.transition();
+    series.nextGame();
+    clock.reset();
+  };
+  const handlePlayAgain = () => {
+    audio.sfx.transition();
+    series.resetSeries();
+    clock.reset();
+  };
+
+  // Refresh profile once the leg is decided (picks up bot-defeat rewards/XP).
   const profileSynced = useRef(false);
   useEffect(() => {
     if (profileSynced.current) return;
-    if (match.result.status !== "won" || match.result.winner !== "P1") return;
+    if (series.phase !== "over") return;
     profileSynced.current = true;
     fetchProfile().catch(() => undefined);
-  }, [match.result.status, match.result.winner]);
+  }, [series.phase]);
+
+  const scoreLine = `YOU ${series.p1Points} – ${series.p2Points} ${botName} · first to 5`;
+  const intermissionTitle =
+    series.lastOutcome === "P1"
+      ? `YOU WIN GAME ${series.gameNumber}`
+      : series.lastOutcome === "P2"
+      ? `${botName} WINS GAME ${series.gameNumber}`
+      : `GAME ${series.gameNumber} DRAWN`;
+  const legOverTitle =
+    series.seriesWinner === "P1" ? "VICTORY — YOU WIN THE LEG" : `DEFEAT — ${botName} WINS THE LEG`;
 
   const onCellPress = useCallback(
     (row: number, col: number) => {
@@ -118,24 +142,9 @@ export default function EngineMatchScreen() {
       ? "accent"
       : "info";
 
-  const winTitle =
-    match.result.status === "won"
-      ? match.result.winner === "P1"
-        ? "VICTORY"
-        : "DEFEAT"
-      : match.result.status === "draw"
-      ? "DRAW"
-      : "";
-
   const goBack = () => {
     if (router.canGoBack()) router.back();
     else router.replace("/engine");
-  };
-
-  const onRematch = () => {
-    audio.sfx.transition();
-    match.reset();
-    clock.reset();
   };
 
   // ── Syros post-game analysis ──────────────────────────────────
@@ -175,7 +184,7 @@ export default function EngineMatchScreen() {
             enabled={match.result.status === "playing"}
           />
           <Caption tone="muted">
-            {botName} · {gridSize}×{gridSize} · {match.movesPlayed} MV
+            G{series.gameNumber} · {gridSize}×{gridSize} · {match.movesPlayed} MV
           </Caption>
         </Row>
       </Row>
@@ -203,15 +212,18 @@ export default function EngineMatchScreen() {
           gridSize={gridSize}
         />
         <ExtraTurnsBadge count={match.extraTurns} player={match.extraTurnsHolder} />
-        <Row gap={2} align="center" justify="center" style={{ marginTop: space[2] }}>
-          {match.botThinking ? <Spinner tone="muted" /> : null}
-          <Eyebrow tone={statusTone} center>
-            {status}
-          </Eyebrow>
-        </Row>
+        <VStack gap={1} align="center" style={{ marginTop: space[2] }}>
+          <Row gap={2} align="center" justify="center">
+            {match.botThinking ? <Spinner tone="muted" /> : null}
+            <Eyebrow tone={statusTone} center>
+              {status}
+            </Eyebrow>
+          </Row>
+          <Caption tone="muted">{scoreLine}</Caption>
+        </VStack>
       </View>
 
-      <View style={{ height: boardDim, justifyContent: "center" }}>
+      <View style={{ flex: 1, minHeight: 0, justifyContent: "center" }}>
         <BoardGrid
           gridSize={gridSize}
           board={match.board}
@@ -222,14 +234,19 @@ export default function EngineMatchScreen() {
         />
       </View>
 
-      <WinOverlay
-        visible={match.result.status !== "playing"}
-        title={winTitle}
-        subtitle={
-          match.result.connectionScores
-            ? `Chains · X ${match.result.connectionScores.p1} · Y ${match.result.connectionScores.p2}`
-            : undefined
-        }
+      <SeriesOverlay
+        visible={series.phase === "intermission"}
+        title={intermissionTitle}
+        subtitle={`Series  ${scoreLine}`}
+        actionLabel={`NEXT GAME (G${series.gameNumber + 1})`}
+        onAction={handleNextGame}
+      />
+      <SeriesOverlay
+        visible={series.phase === "over"}
+        title={legOverTitle}
+        subtitle={`Final  YOU ${series.p1Points} – ${series.p2Points} ${botName}`}
+        actionLabel="PLAY AGAIN"
+        onAction={handlePlayAgain}
       />
 
       <MoveLogPanel entries={match.moveLog} />
@@ -249,8 +266,8 @@ export default function EngineMatchScreen() {
           </Btn>
         </View>
         <View style={{ flex: 1 }}>
-          <Btn variant="primary" onPress={onRematch}>
-            Rematch
+          <Btn variant="primary" onPress={handlePlayAgain}>
+            New leg
           </Btn>
         </View>
       </Row>

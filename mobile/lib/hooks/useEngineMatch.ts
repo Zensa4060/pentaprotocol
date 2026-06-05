@@ -56,7 +56,8 @@ export interface EngineMatch {
   botError: string | null;
   inputEnabled: boolean;
   placeHuman: (row: number, col: number) => void;
-  reset: () => void;
+  /** Start a fresh game. ``starter`` lets the series alternate who opens (P2 ⇒ bot moves first). */
+  reset: (starter?: Player) => void;
   dismissBotError: () => void;
 }
 
@@ -303,10 +304,10 @@ export function useEngineMatch({
     result.status,
   ]);
 
-  const reset = useCallback(() => {
+  const reset = useCallback((starter: Player = "P1") => {
     const fresh = emptyBoard(gridSize);
     setBoard(fresh);
-    setCurrent("P1");
+    setCurrent(starter);
     setMovesPlayed(0);
     setLastMove(null);
     setResult(INITIAL_RESULT);
@@ -321,7 +322,7 @@ export function useEngineMatch({
     boardRef.current = fresh;
     movesRef.current = 0;
     extraRef.current = 0;
-    currentRef.current = "P1";
+    currentRef.current = starter;
     statusRef.current = "playing";
   }, [gridSize]);
 

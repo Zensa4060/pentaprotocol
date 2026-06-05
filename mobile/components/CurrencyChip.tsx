@@ -1,17 +1,25 @@
 /**
- * Currency chip — coin logo + value, used wherever ProtoCredits /
- * PentaShards balances are shown (home, profile, store). Both variants
- * render at an identical size so the two chips are visually symmetric.
+ * Currency chip — logo + value, used wherever ProtoCredits / PentaShards
+ * balances are shown (home, profile, store). Both variants render at an
+ * identical size so the two chips are visually symmetric.
  *
- * Logos copied from the web ``frontend/public`` (proto-coin / penta-coin).
+ * Logos are the official currency marks (the same ones the web NavBar
+ * uses): the "PR" circle for ProtoCredits and the octagonal gem for
+ * PentaShards — NOT the coin-toss coins. Stored as white-on-transparent
+ * PNGs and tinted to the brand currency colours (gold PC / blue PS),
+ * matching the web's coloured balances.
  */
 
 import { Image, StyleSheet, Text, View, type StyleProp, type ViewStyle } from "react-native";
 
 import { colors, radii, space } from "@/theme/tokens";
 
-const PROTO = require("../assets/images/proto-coin.png");
-const PENTA = require("../assets/images/penta-coin.png");
+const PROTO = require("../assets/images/proto-credits.png");
+const PENTA = require("../assets/images/penta-shards.png");
+
+/** Brand currency colours (mirror web NavBar: ProtoCredits gold, PentaShards blue). */
+const PC_COLOR = "#FFD700";
+const PS_COLOR = "#4FC3F7";
 
 export type CurrencyKind = "pc" | "ps";
 
@@ -28,13 +36,13 @@ export interface CurrencyChipProps {
 export function CurrencyChip({ kind, value, size = 22, variant = "inline", style }: CurrencyChipProps) {
   const source = kind === "pc" ? PROTO : PENTA;
   const label = kind === "pc" ? "PROTOCREDITS" : "PENTASHARDS";
-  const color = kind === "pc" ? colors.accent : colors.info;
+  const color = kind === "pc" ? PC_COLOR : PS_COLOR;
 
   if (variant === "tile") {
     return (
       <View style={[styles.tile, style]}>
         <View style={styles.tileRow}>
-          <Image source={source} style={{ width: size, height: size }} resizeMode="contain" />
+          <Image source={source} style={{ width: size, height: size, tintColor: color }} resizeMode="contain" />
           <Text style={[styles.tileValue, { color }]}>{value.toLocaleString()}</Text>
         </View>
         <Text style={styles.tileLabel}>{label}</Text>
@@ -44,7 +52,7 @@ export function CurrencyChip({ kind, value, size = 22, variant = "inline", style
 
   return (
     <View style={[styles.inline, style]}>
-      <Image source={source} style={{ width: size, height: size }} resizeMode="contain" />
+      <Image source={source} style={{ width: size, height: size, tintColor: color }} resizeMode="contain" />
       <Text style={[styles.inlineValue, { color }]}>{value.toLocaleString()}</Text>
     </View>
   );

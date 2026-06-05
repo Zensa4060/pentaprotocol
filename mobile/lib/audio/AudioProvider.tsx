@@ -84,6 +84,12 @@ export function AudioProvider({ children }: { children: ReactNode }) {
   const bgmPackRef = useRef<BgmPack>("classic");
   const bgmContextRef = useRef<BgmContext>("lobby");
   const bgmRef = useRef<Audio.Sound | null>(null);
+  // Monotonic token: every switchBgm call claims the next value. A call
+  // whose token is no longer the latest discards whatever it created, so
+  // overlapping switches (screen A unmount + screen B mount, or
+  // setBgmPack + playBgm firing together) can never leave an orphaned
+  // looping sound playing underneath the current one (the "echo" bug).
+  const bgmSeqRef = useRef(0);
   const readyRef = useRef(false);
 
   mutedRef.current = muted;
@@ -173,20 +179,32 @@ export function AudioProvider({ children }: { children: ReactNode }) {
 
   const switchBgm = useCallback(async (source: AVPlaybackSource) => {
     if (!readyRef.current) return;
+    const seq = ++bgmSeqRef.current;
+    // Tear down whatever is currently playing first.
+    const existing = bgmRef.current;
+    bgmRef.current = null;
+    if (existing) {
+      await existing.stopAsync().catch(() => undefined);
+      await existing.unloadAsync().catch(() => undefined);
+    }
+    // A newer switch claimed the token while we were tearing down — bail
+    // so we don't start a track the caller has already moved past.
+    if (seq !== bgmSeqRef.current) return;
     try {
-      if (bgmRef.current) {
-        await bgmRef.current.stopAsync();
-        await bgmRef.current.unloadAsync();
-        bgmRef.current = null;
-      }
       const { sound } = await Audio.Sound.createAsync(source, {
         isLooping: true,
         volume: mutedRef.current ? 0 : musicVolRef.current,
         shouldPlay: true,
       });
+      // Superseded during the async load: discard the sound we just made
+      // so it can't keep looping as an untracked orphan (the echo).
+      if (seq !== bgmSeqRef.current) {
+        await sound.unloadAsync().catch(() => undefined);
+        return;
+      }
       bgmRef.current = sound;
     } catch {
-      if (source !== BGM_FALLBACK && source !== AUTH_BGM) {
+      if (seq === bgmSeqRef.current && source !== BGM_FALLBACK && source !== AUTH_BGM) {
         switchBgm(BGM_FALLBACK).catch(() => undefined);
       }
     }

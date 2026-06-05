@@ -16,7 +16,7 @@ import {
   Spinner,
   Title,
 } from "@/components/ui";
-import { gridFromBoardMode, type BoardMode } from "@/lib/game/boardConfig";
+import { gridFromBoardMode } from "@/lib/game/boardConfig";
 import { useLobbyBgm } from "@/lib/hooks/useMatchSounds";
 import {
   isQueueMatched,
@@ -26,13 +26,16 @@ import {
   QueueError,
 } from "@/lib/multiplayer/queue";
 import type { PlayerSlot, RoomFormat } from "@/lib/multiplayer/types";
+import { openMatchSocket, type MatchSocket } from "@/lib/multiplayer/ws";
 import { colors, radii, space } from "@/theme/tokens";
 
 export default function MatchmakingQueueScreen() {
-  const params = useLocalSearchParams<{ format?: string; board?: string }>();
+  const params = useLocalSearchParams<{ format?: string }>();
   const format: RoomFormat = params.format === "ranked" ? "ranked" : "unranked";
-  const boardMode: BoardMode | "5x5_6x6_7x7" =
-    format === "ranked" ? "5x5_6x6_7x7" : ((params.board as BoardMode) ?? "5x5");
+  // Every multiplayer match is a full leg (board progresses 5×5 → 6×6 → 7×7),
+  // so we always queue into the same pool the web uses. No per-board sub-queues
+  // — that isolation was why mobile unranked never found an opponent.
+  const boardMode = "5x5_6x6_7x7" as const;
 
   /** Stop searching and surface a clear message after this long with no match. */
   const SEARCH_TIMEOUT_S = 45;
@@ -46,6 +49,13 @@ export default function MatchmakingQueueScreen() {
   const slotRef = useRef<PlayerSlot>("P1");
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const cancelledRef = useRef(false);
+  /** Liveness socket: held open while waiting so the matchmaker can pair us. */
+  const socketRef = useRef<MatchSocket | null>(null);
+
+  const closeSocket = () => {
+    socketRef.current?.close();
+    socketRef.current = null;
+  };
 
   useLobbyBgm();
 
@@ -59,6 +69,7 @@ export default function MatchmakingQueueScreen() {
     cancelledRef.current = true;
     setCancelling(true);
     if (pollRef.current) clearInterval(pollRef.current);
+    closeSocket();
     try {
       await leaveQueue(format, boardMode, roomCodeRef.current ?? undefined);
     } catch {
@@ -71,6 +82,7 @@ export default function MatchmakingQueueScreen() {
   const giveUp = useCallback(async () => {
     cancelledRef.current = true;
     if (pollRef.current) clearInterval(pollRef.current);
+    closeSocket();
     try {
       await leaveQueue(format, boardMode, roomCodeRef.current ?? undefined);
     } catch {
@@ -112,6 +124,15 @@ export default function MatchmakingQueueScreen() {
           return;
         }
 
+        // Waiting for an opponent — hold a socket open to our room so the
+        // matchmaker's liveness check pairs us (it skips players with no WS).
+        socketRef.current = openMatchSocket({
+          roomCode: res.room_code,
+          slot: res.player_slot,
+          onMessage: () => undefined,
+          onStatus: () => undefined,
+        });
+
         pollRef.current = setInterval(async () => {
           const code = roomCodeRef.current;
           if (!code || cancelledRef.current) return;
@@ -119,6 +140,7 @@ export default function MatchmakingQueueScreen() {
             const room = await pollQueueStatus(code);
             if (isQueueMatched(room, slotRef.current)) {
               if (pollRef.current) clearInterval(pollRef.current);
+              closeSocket();
               const g = gridFromBoardMode(room.board_mode);
               router.replace({
                 pathname: "/pregame",
@@ -159,6 +181,7 @@ export default function MatchmakingQueueScreen() {
       cancelledRef.current = true;
       if (pollRef.current) clearInterval(pollRef.current);
       if (tick) clearInterval(tick);
+      closeSocket();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [boardMode, format, retryKey]);
@@ -189,7 +212,7 @@ export default function MatchmakingQueueScreen() {
             <Body tone="muted" style={{ marginTop: space[2], textAlign: "center" }}>
               {format === "ranked"
                 ? "Matching by hidden MMR across 5×5 → 6×6 → 7×7 legs."
-                : `Board: ${boardMode} · waiting for an opponent.`}
+                : "Full leg · 5×5 → 6×6 → 7×7 · waiting for an opponent."}
             </Body>
             <Text style={styles.timer}>
               {mm}:{ss}

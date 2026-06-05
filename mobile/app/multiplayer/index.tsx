@@ -51,7 +51,6 @@ export default function MultiplayerLobby() {
   const [activeChecking, setActiveChecking] = useState(true);
   const [creating, setCreating] = useState(false);
   const [joining, setJoining] = useState(false);
-  const [boardMode, setBoardMode] = useState<BoardMode>("7x7");
 
   // ── Active-room probe ───────────────────────────────────────
   // Run on every focus so a backgrounded app that comes back has
@@ -89,7 +88,7 @@ export default function MultiplayerLobby() {
     if (creating) return;
     setCreating(true);
     try {
-      const room = await createRoom(boardMode);
+      const room = await createRoom();
       router.replace({
         pathname: "/multiplayer/waiting",
         params: {
@@ -170,7 +169,7 @@ export default function MultiplayerLobby() {
             onPress={() =>
               router.push({
                 pathname: "/multiplayer/queue",
-                params: { format: "unranked", board: boardMode },
+                params: { format: "unranked" },
               } as unknown as Href)
             }
           >
@@ -197,27 +196,6 @@ export default function MultiplayerLobby() {
           Ranked unlocks at account level 5.
         </Caption>
       ) : null}
-
-      <Eyebrow tone="muted" style={{ marginTop: space[6], marginBottom: space[2] }}>
-        BOARD SIZE (PRIVATE CREATE)
-      </Eyebrow>
-      <Row gap={2}>
-        {(["5x5", "6x6", "7x7"] as BoardMode[]).map((mode) => {
-          const on = boardMode === mode;
-          const label = mode.replace("x", "×");
-          return (
-            <Pressable
-              key={mode}
-              onPress={() => setBoardMode(mode)}
-              style={[styles.sizeChip, on && styles.sizeChipOn]}
-            >
-              <Caption tone={on ? "accent" : "muted"} style={{ fontWeight: "800" }}>
-                {label}
-              </Caption>
-            </Pressable>
-          );
-        })}
-      </Row>
 
       {/* ── Active match banner ────────────────────────────────── */}
       {activeChecking ? (
@@ -249,7 +227,7 @@ export default function MultiplayerLobby() {
       </Eyebrow>
       <View style={styles.actionCard}>
         <Body tone="muted">
-          Creates a {boardMode.replace("x", "×")} room — opponent must join the same board size.
+          Creates a private full leg (5×5 → 6×6 → 7×7). Share the code with a friend to play.
         </Body>
         <View style={{ height: space[4] }} />
         <Btn variant="primary" size="lg" loading={creating} onPress={onCreate}>

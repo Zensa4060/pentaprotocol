@@ -4,7 +4,7 @@
 
 import { router, Stack, useLocalSearchParams } from "expo-router";
 import { useCallback, useMemo } from "react";
-import { Dimensions, Pressable, StyleSheet, View } from "react-native";
+import { Pressable, StyleSheet, View } from "react-native";
 
 import { BoardGrid } from "@/components/game/BoardGrid";
 import { PatternsToggle } from "@/components/game/PatternsToggle";
@@ -13,7 +13,7 @@ import {
   ExtraTurnsBadge,
   MatchClockRow,
   MoveLogPanel,
-  WinOverlay,
+  SeriesOverlay,
 } from "@/components/game/MatchExtras";
 import {
   Btn,
@@ -21,6 +21,7 @@ import {
   Eyebrow,
   Row,
   Screen,
+  Stack as VStack,
 } from "@/components/ui";
 import { useGameAudio } from "@/lib/audio/AudioProvider";
 import { matchMsForGrid, parseGridParam } from "@/lib/game/boardConfig";
@@ -30,6 +31,7 @@ import {
   useGameEndSounds,
   useMatchGameBgm,
 } from "@/lib/hooks/useMatchSounds";
+import { useMatchSeries } from "@/lib/hooks/useMatchSeries";
 import { usePracticeMatch } from "@/lib/hooks/usePracticeMatch";
 import { colors, radii, space } from "@/theme/tokens";
 import { usePalette } from "@/theme/ThemeProvider";
@@ -38,9 +40,6 @@ export default function TrainingPracticeScreen() {
   const params = useLocalSearchParams<{ grid?: string; patterns?: string }>();
   const gridSize = parseGridParam(params.grid);
   const palette = usePalette();
-  // Fixed board box (width minus the screen's horizontal gutter) so the
-  // board never resizes/recenters as HUD or move-log content changes.
-  const boardDim = Dimensions.get("window").width - space[5] * 2;
   const patterns = params.patterns ? params.patterns.split(",").filter(Boolean) : undefined;
   const match = usePracticeMatch({ gridSize, patterns });
   const clock = useMatchClock(
@@ -48,9 +47,33 @@ export default function TrainingPracticeScreen() {
     match.result.status === "playing",
     matchMsForGrid(gridSize),
   );
+  const series = useMatchSeries(match.result, match.reset);
   const audio = useGameAudio();
   useMatchGameBgm();
   useGameEndSounds(match.result.status, match.result.winner, "any");
+
+  const handleNextGame = () => {
+    audio.sfx.transition();
+    series.nextGame();
+    clock.reset();
+  };
+  const handlePlayAgain = () => {
+    audio.sfx.transition();
+    series.resetSeries();
+    clock.reset();
+  };
+
+  const lastGlyph =
+    series.lastOutcome === "P1"
+      ? palette.glyphP1
+      : series.lastOutcome === "P2"
+      ? palette.glyphP2
+      : null;
+  const intermissionTitle =
+    series.lastOutcome === "DRAW"
+      ? `GAME ${series.gameNumber} DRAWN`
+      : `${lastGlyph} WINS GAME ${series.gameNumber}`;
+  const scoreLine = `${palette.glyphP1} ${series.p1Points} – ${series.p2Points} ${palette.glyphP2} · first to ${5}`;
 
   const onCellPress = useCallback(
     (row: number, col: number) => {
@@ -86,7 +109,7 @@ export default function TrainingPracticeScreen() {
 
   const onReset = () => {
     audio.sfx.transition();
-    match.reset();
+    series.resetSeries();
     clock.reset();
   };
 
@@ -104,7 +127,7 @@ export default function TrainingPracticeScreen() {
             enabled={match.result.status === "playing"}
           />
           <Caption tone="muted">
-            {gridSize}×{gridSize} · {match.movesPlayed} MV
+            G{series.gameNumber} · {gridSize}×{gridSize} · {match.movesPlayed} MV
           </Caption>
         </Row>
       </Row>
@@ -130,12 +153,13 @@ export default function TrainingPracticeScreen() {
           gridSize={gridSize}
         />
         <ExtraTurnsBadge count={match.extraTurns} player={match.extraTurnsHolder} />
-        <Row gap={2} align="center" justify="center" style={{ marginTop: space[2] }}>
+        <VStack gap={1} align="center" style={{ marginTop: space[2] }}>
           <Eyebrow tone={statusTone}>{status}</Eyebrow>
-        </Row>
+          <Caption tone="muted">{scoreLine}</Caption>
+        </VStack>
       </View>
 
-      <View style={{ height: boardDim, justifyContent: "center" }}>
+      <View style={{ flex: 1, minHeight: 0, justifyContent: "center" }}>
         <BoardGrid
           gridSize={gridSize}
           board={match.board}
@@ -146,14 +170,23 @@ export default function TrainingPracticeScreen() {
         />
       </View>
 
-      <WinOverlay
-        visible={match.result.status !== "playing"}
-        title={match.result.status === "draw" ? "DRAW" : status}
-        subtitle={
-          match.result.connectionScores
-            ? `Chains · X ${match.result.connectionScores.p1} · Y ${match.result.connectionScores.p2}`
-            : undefined
+      <SeriesOverlay
+        visible={series.phase === "intermission"}
+        title={intermissionTitle}
+        subtitle={`Series  ${scoreLine}`}
+        actionLabel={`NEXT GAME (G${series.gameNumber + 1})`}
+        onAction={handleNextGame}
+      />
+      <SeriesOverlay
+        visible={series.phase === "over"}
+        title={
+          series.seriesWinner === "P1"
+            ? `${palette.glyphP1} WINS THE LEG`
+            : `${palette.glyphP2} WINS THE LEG`
         }
+        subtitle={`Final  ${palette.glyphP1} ${series.p1Points} – ${series.p2Points} ${palette.glyphP2}`}
+        actionLabel="PLAY AGAIN"
+        onAction={handlePlayAgain}
       />
 
       <MoveLogPanel entries={match.moveLog} />

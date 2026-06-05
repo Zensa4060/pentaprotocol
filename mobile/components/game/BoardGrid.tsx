@@ -266,8 +266,13 @@ function gridSizeFontScale(cellSize: number): number {
 
 const styles = StyleSheet.create({
   boardWrap: {
+    // Fill the (flexible) parent slot and size the square board to the
+    // smaller of the available width/height — so the whole board always
+    // fits on screen instead of forcing a width-sized square that pushes
+    // the bottom row / controls out of bounds on shorter phones.
     width: "100%",
-    aspectRatio: 1,
+    flex: 1,
+    minHeight: 0,
     alignItems: "center",
     justifyContent: "center",
   },

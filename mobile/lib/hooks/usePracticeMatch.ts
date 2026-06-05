@@ -42,7 +42,8 @@ export interface PracticeMatch {
   canUndo: boolean;
   place: (row: number, col: number) => void;
   undo: () => void;
-  reset: () => void;
+  /** Start a fresh game. ``starter`` lets the series alternate who opens. */
+  reset: (starter?: Player) => void;
 }
 
 export interface UsePracticeMatchOptions {
@@ -180,9 +181,9 @@ export function usePracticeMatch({
     setCenterRuleHint(snap.centerRuleHint);
   }, []);
 
-  const reset = useCallback(() => {
+  const reset = useCallback((starter: Player = "P1") => {
     setBoard(emptyBoard(gridSize));
-    setCurrent("P1");
+    setCurrent(starter);
     setMovesPlayed(0);
     setLastMove(null);
     setResult(INITIAL_RESULT);

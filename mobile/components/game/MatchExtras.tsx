@@ -12,7 +12,7 @@ import {
   type ViewStyle,
 } from "react-native";
 
-import { Body, Caption, Eyebrow } from "@/components/ui";
+import { Body, Btn, Caption, Eyebrow } from "@/components/ui";
 import { centerCell, type GridSize } from "@/lib/game/boardConfig";
 import { type MoveLogEntry, type Player7 } from "@/lib/game/matchRules";
 import { colors, radii, space } from "@/theme/tokens";
@@ -164,6 +164,60 @@ export function WinOverlay({
           {subtitle}
         </Body>
       ) : null}
+    </Animated.View>
+  );
+}
+
+/**
+ * Series overlay — shown between games (intermission) and at leg end. Like
+ * ``WinOverlay`` but with a primary action button (Next game / Play again /
+ * Ready) so a leg never dead-ends after a single game.
+ */
+export function SeriesOverlay({
+  visible,
+  title,
+  subtitle,
+  actionLabel,
+  onAction,
+}: {
+  visible: boolean;
+  title: string;
+  subtitle?: string;
+  actionLabel: string;
+  onAction: () => void;
+}) {
+  const scale = useRef(new Animated.Value(0.9)).current;
+  const opacity = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (!visible) {
+      opacity.setValue(0);
+      scale.setValue(0.9);
+      return;
+    }
+    Animated.parallel([
+      Animated.spring(scale, { toValue: 1, friction: 6, useNativeDriver: true }),
+      Animated.timing(opacity, { toValue: 1, duration: 220, useNativeDriver: true }),
+    ]).start();
+  }, [opacity, scale, visible]);
+
+  if (!visible) return null;
+
+  return (
+    <Animated.View style={[styles.winOverlay, { opacity, transform: [{ scale }] }]}>
+      <Eyebrow tone="accent" center>
+        {title}
+      </Eyebrow>
+      {subtitle ? (
+        <Body tone="muted" center style={{ marginTop: space[2] }}>
+          {subtitle}
+        </Body>
+      ) : null}
+      <View style={{ marginTop: space[3], alignSelf: "stretch" }}>
+        <Btn variant="primary" onPress={onAction}>
+          {actionLabel}
+        </Btn>
+      </View>
     </Animated.View>
   );
 }
