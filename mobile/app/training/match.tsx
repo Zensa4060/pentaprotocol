@@ -73,7 +73,7 @@ export default function TrainingPracticeScreen() {
     series.lastOutcome === "DRAW"
       ? `GAME ${series.gameNumber} DRAWN`
       : `${lastGlyph} WINS GAME ${series.gameNumber}`;
-  const scoreLine = `${palette.glyphP1} ${series.p1Points} – ${series.p2Points} ${palette.glyphP2} · first to ${5}`;
+  const scoreLine = `${palette.glyphP1} ${series.p1Points} – ${series.p2Points} ${palette.glyphP2} · BO3 (first to 2 wins)`;
 
   const onCellPress = useCallback(
     (row: number, col: number) => {

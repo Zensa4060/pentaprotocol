@@ -16,7 +16,7 @@ import {
   Spinner,
   Title,
 } from "@/components/ui";
-import { gridFromBoardMode } from "@/lib/game/boardConfig";
+import { gridParamFromBoardMode } from "@/lib/game/boardConfig";
 import { useLobbyBgm } from "@/lib/hooks/useMatchSounds";
 import {
   isQueueMatched,
@@ -118,7 +118,8 @@ export default function MatchmakingQueueScreen() {
               mode: "multiplayer",
               code: res.room_code,
               slot: res.player_slot,
-              grid: gridFromBoardMode(res.room.board_mode) === 5 ? "5" : gridFromBoardMode(res.room.board_mode) === 6 ? "6" : "7",
+              grid: gridParamFromBoardMode(res.room.board_mode),
+              board_mode: res.room.board_mode,
             },
           });
           return;
@@ -141,14 +142,14 @@ export default function MatchmakingQueueScreen() {
             if (isQueueMatched(room, slotRef.current)) {
               if (pollRef.current) clearInterval(pollRef.current);
               closeSocket();
-              const g = gridFromBoardMode(room.board_mode);
               router.replace({
                 pathname: "/pregame",
                 params: {
                   mode: "multiplayer",
                   code,
                   slot: slotRef.current,
-                  grid: g === 5 ? "5" : g === 6 ? "6" : "7",
+                  grid: gridParamFromBoardMode(room.board_mode),
+                  board_mode: room.board_mode,
                 },
               });
             }

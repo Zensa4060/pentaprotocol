@@ -1,5 +1,6 @@
 /**
  * In-match Protocol Breaker UI (Rulebreaker / Timebreaker / Mindbreaker).
+ * Payload keys align with web ``GameScreen`` / backend ``room.py``.
  */
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
@@ -13,6 +14,7 @@ import {
 
 import { Btn, Caption, Eyebrow, Heading, Title } from "@/components/ui";
 import type { GridSize } from "@/lib/game/boardConfig";
+import { patternMetadataForGrid } from "@/lib/game/patterns";
 import { breakerTitle, type RbPhase } from "@/lib/multiplayer/rulebreakerPhases";
 import type { PlayerSlot } from "@/lib/multiplayer/types";
 import { colors, radii, space } from "@/theme/tokens";
@@ -26,6 +28,7 @@ interface RulebreakerOverlayProps {
   tossWinner: PlayerSlot | null;
   coinResult: "PENTA" | "PROTO" | null;
   gridSize: GridSize;
+  rb6CellChooser?: PlayerSlot | null;
   onTossAction: (action: string, payload: Record<string, unknown>) => void;
 }
 
@@ -38,13 +41,22 @@ export function RulebreakerOverlay({
   tossWinner,
   coinResult,
   gridSize,
+  rb6CellChooser,
   onTossAction,
 }: RulebreakerOverlayProps) {
   const title = breakerTitle(boardMode, gameNumber);
   const isWinner = tossWinner === mySlot;
+  const tossLoser = tossWinner === "P1" ? "P2" : tossWinner === "P2" ? "P1" : null;
   const splashSent = useRef(false);
   const coinSent = useRef(false);
   const [choiceTimer, setChoiceTimer] = useState(30);
+  const [bannedSoFar, setBannedSoFar] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (phase === "ban_pattern_winner" || phase === "ban_pattern_loser") {
+      setBannedSoFar([]);
+    }
+  }, [phase]);
 
   useEffect(() => {
     if (!visible || phase !== "rb_splash") {
@@ -77,63 +89,115 @@ export function RulebreakerOverlay({
   }, [visible, phase, coinResult, mySlot, onTossAction]);
 
   useEffect(() => {
-    if (phase === "rule_choice" || phase.startsWith("ban_") || phase.startsWith("who_")) {
+    if (phase === "rule_choice" || phase.startsWith("ban_") || phase.startsWith("who_") || phase.startsWith("c3_") || phase.startsWith("grid_block")) {
       setChoiceTimer(30);
       const iv = setInterval(() => setChoiceTimer((v) => Math.max(0, v - 1)), 1000);
       return () => clearInterval(iv);
     }
   }, [phase]);
 
+  const broadcastPhase = (ph: string, extra: Record<string, unknown> = {}) => {
+    onTossAction("phase_choice", { phase: ph, ...extra });
+  };
+
   const pickRuleChoice = (side: "left" | "right") => {
     if (gridSize === 7) {
-      const rule = side === "left" ? "extra_turn" : "ban";
-      onTossAction("phase_choice", {
-        phase: "ban_pattern_winner",
-        winnerPickedRule: rule,
-      });
-      return;
-    }
-    if (gridSize === 6) {
       if (side === "left") {
-        onTossAction("phase_choice", {
-          phase: "grid_block_warning",
-          winnerPickedRule: "timer",
-          rb6TimerOwner: mySlot === "P1" ? "P2" : "P1",
-        });
+        broadcastPhase("ban_pattern_loser", { winnerPickedRule: "extra_turn" });
       } else {
-        onTossAction("phase_choice", {
-          phase: "grid_block_selection",
-          winnerPickedRule: "trap",
-          rb6CellChooser: mySlot,
-        });
+        broadcastPhase("ban_pattern_winner", { winnerPickedRule: "ban" });
       }
       return;
     }
-    const rule = side === "left" ? "center_block" : "force_first";
-    onTossAction("phase_choice", {
-      phase: "who_first_winner",
-      winnerPickedRule: rule,
-    });
+    if (gridSize === 6) {
+      if (side === "left" && tossWinner) {
+        broadcastPhase("grid_block_warning", {
+          winnerPickedRule: "timer_half",
+          rb6TimerOwner: tossWinner,
+          rb6CellChooser: tossWinner,
+        });
+      } else {
+        broadcastPhase("who_first_winner", { winnerPickedRule: "choose_first" });
+      }
+      return;
+    }
+    if (side === "left") {
+      broadcastPhase("who_first_winner", { winnerPickedRule: "first" });
+    } else {
+      broadcastPhase("c3_choice", { winnerPickedRule: "c3" });
+    }
   };
 
   const pickFirst = (who: "self" | "opponent") => {
-    const fp = who === "self" ? mySlot : mySlot === "P1" ? "P2" : "P1";
-    onTossAction("phase_choice", {
-      phase: "toss_summary",
+    const fp = who === "self" ? tossWinner : tossLoser;
+    if (gridSize === 6 && tossWinner) {
+      const forcedOther = tossWinner === "P1" ? "P2" : "P1";
+      broadcastPhase("grid_block_selection", {
+        firstPlayerChosen: fp,
+        winnerPickedFirst: fp,
+        rb6TimerOwner: forcedOther,
+        rb6CellChooser: forcedOther,
+        winnerPickedRule: "choose_first",
+      });
+      return;
+    }
+    broadcastPhase("c3_choice_loser", {
+      firstPlayerChosen: fp,
+      winnerPickedFirst: fp,
+    });
+  };
+
+  const pickC3 = (block: boolean) => {
+    broadcastPhase("who_first_loser", {
+      rbC3Blocked: block,
+      winnerPickedC3: block,
+    });
+  };
+
+  const pickC3Loser = (block: boolean) => {
+    broadcastPhase("toss_summary", {
+      rbC3Blocked: block,
+      summaryTimer: 5,
+    });
+  };
+
+  const pickWhoFirstLoser = (who: "self" | "opponent") => {
+    const fp = who === "self" ? tossLoser : tossWinner;
+    broadcastPhase("toss_summary", {
       firstPlayerChosen: fp,
       summaryTimer: 5,
     });
   };
 
   const pickBanPattern = (patternId: string) => {
-    onTossAction("phase_choice", {
-      phase: "toss_summary",
-      rb_banned_patterns: [patternId],
-      winnerPickedRule: "ban",
-      firstPlayerChosen: tossWinner,
+    const next = [...bannedSoFar, patternId];
+    setBannedSoFar(next);
+    const limit = gridSize === 7 ? 2 : 1;
+    if (next.length >= limit) {
+      broadcastPhase("who_first_loser", { rb_banned_patterns: next });
+    } else {
+      broadcastPhase(phase, { rb_banned_patterns: next });
+    }
+  };
+
+  const pickTrapCell = (r: number, c: number) => {
+    const chooser = rb6CellChooser ?? tossWinner;
+    if (!chooser) return;
+    broadcastPhase("toss_summary", {
+      rb6_special_cell: { r, c, owner: chooser },
       summaryTimer: 5,
     });
   };
+
+  const confirmGridBlockWarning = () => {
+    broadcastPhase("grid_block_selection", {
+      rb6TimerOwner: tossWinner,
+      rb6CellChooser: rb6CellChooser ?? tossWinner,
+      winnerPickedRule: "timer_half",
+    });
+  };
+
+  const patternKeys = Object.keys(patternMetadataForGrid(gridSize === 7 ? 7 : gridSize === 6 ? 6 : 5));
 
   let body: ReactNode = null;
 
@@ -159,15 +223,15 @@ export function RulebreakerOverlay({
         <Heading>Your choice · {choiceTimer}s</Heading>
         {gridSize === 5 ? (
           <RowChoices
-            left="Center block"
-            right="Force opponent first"
+            left="Choose who goes first"
+            right="Center block (C3) rule"
             onLeft={() => pickRuleChoice("left")}
             onRight={() => pickRuleChoice("right")}
           />
         ) : gridSize === 6 ? (
           <RowChoices
             left="Cut opponent clock to 1:00"
-            right="Secret trap cell"
+            right="Choose who goes first"
             onLeft={() => pickRuleChoice("left")}
             onRight={() => pickRuleChoice("right")}
           />
@@ -185,25 +249,88 @@ export function RulebreakerOverlay({
     body = <Caption tone="muted">Waiting for toss winner to choose…</Caption>;
   } else if (phase === "who_first_winner" && isWinner) {
     body = (
-      <RowChoices
-        left="You go first"
-        right="Opponent first"
-        onLeft={() => pickFirst("self")}
-        onRight={() => pickFirst("opponent")}
-      />
+      <>
+        <Heading>Who goes first? · {choiceTimer}s</Heading>
+        <RowChoices
+          left="You go first"
+          right="Opponent first"
+          onLeft={() => pickFirst("self")}
+          onRight={() => pickFirst("opponent")}
+        />
+      </>
     );
-  } else if (phase === "ban_pattern_winner" && isWinner) {
-    const patterns = gridSize === 7
-      ? ["Y", "L", "T", "V", "zigzag"]
-      : ["ZZ", "T", "L"];
+  } else if (phase === "c3_choice" && isWinner) {
+    body = (
+      <>
+        <Heading>Center rule · {choiceTimer}s</Heading>
+        <RowChoices
+          left="Block center (C3)"
+          right="Allow 2 extra turns on center"
+          onLeft={() => pickC3(true)}
+          onRight={() => pickC3(false)}
+        />
+      </>
+    );
+  } else if (phase === "c3_choice_loser" && tossLoser === mySlot) {
+    body = (
+      <>
+        <Heading>Center rule · {choiceTimer}s</Heading>
+        <RowChoices
+          left="Block center (C3)"
+          right="Allow 2 extra turns on center"
+          onLeft={() => pickC3Loser(true)}
+          onRight={() => pickC3Loser(false)}
+        />
+      </>
+    );
+  } else if (phase === "who_first_loser" && tossLoser === mySlot) {
+    body = (
+      <>
+        <Heading>Who goes first? · {choiceTimer}s</Heading>
+        <RowChoices
+          left="You go first"
+          right="Opponent first"
+          onLeft={() => pickWhoFirstLoser("self")}
+          onRight={() => pickWhoFirstLoser("opponent")}
+        />
+      </>
+    );
+  } else if (phase === "grid_block_warning" && (rb6CellChooser ?? tossWinner) === mySlot) {
+    body = (
+      <>
+        <Heading>Timer halved · pick trap cell next</Heading>
+        <Caption tone="muted">Opponent clock will be cut to 1:00.</Caption>
+        <View style={{ marginTop: space[4], width: "100%" }}>
+          <Btn variant="primary" onPress={confirmGridBlockWarning}>
+            Continue to cell pick
+          </Btn>
+        </View>
+      </>
+    );
+  } else if (phase === "grid_block_selection" && (rb6CellChooser ?? tossWinner) === mySlot) {
+    body = (
+      <>
+        <Heading>Pick trap cell · {choiceTimer}s</Heading>
+        <Caption tone="muted">Tap a cell — opponent loses if they play here.</Caption>
+        <TrapGrid size={6} onPick={pickTrapCell} />
+      </>
+    );
+  } else if (
+    (phase === "ban_pattern_winner" && isWinner) ||
+    (phase === "ban_pattern_loser" && tossLoser === mySlot)
+  ) {
     body = (
       <View style={{ gap: space[2], width: "100%" }}>
-        <Heading>Ban a pattern</Heading>
-        {patterns.map((p) => (
-          <Btn key={p} variant="secondary" onPress={() => pickBanPattern(p)}>
-            Ban {p}
-          </Btn>
-        ))}
+        <Heading>
+          Ban {gridSize === 7 ? `${bannedSoFar.length + 1}/2` : "a"} pattern · {choiceTimer}s
+        </Heading>
+        {patternKeys
+          .filter((p) => !bannedSoFar.includes(p))
+          .map((p) => (
+            <Btn key={p} variant="secondary" onPress={() => pickBanPattern(p)}>
+              Ban {p}
+            </Btn>
+          ))}
       </View>
     );
   } else if (phase === "toss_summary") {
@@ -215,7 +342,9 @@ export function RulebreakerOverlay({
           <View style={{ marginTop: space[4] }}>
             <Btn
               variant="primary"
-              onPress={() => onTossAction("rb_start_game", { first_player: tossWinner ?? "P1" })}
+              onPress={() =>
+                onTossAction("rb_start_game", { first_player: tossWinner ?? "P1" })
+              }
             >
               Start game
             </Btn>
@@ -226,7 +355,7 @@ export function RulebreakerOverlay({
   } else {
     body = (
       <Caption tone="muted">
-        {phase.replace(/_/g, " ").toUpperCase()} — follow prompts…
+        {phase.replace(/_/g, " ").toUpperCase()} — waiting…
       </Caption>
     );
   }
@@ -240,6 +369,33 @@ export function RulebreakerOverlay({
         </View>
       </View>
     </Modal>
+  );
+}
+
+function TrapGrid({ size, onPick }: { size: number; onPick: (r: number, c: number) => void }) {
+  const cell = 28;
+  return (
+    <View style={{ marginTop: space[4], alignItems: "center" }}>
+      {Array.from({ length: size }, (_, r) => (
+        <View key={r} style={{ flexDirection: "row" }}>
+          {Array.from({ length: size }, (_, c) => (
+            <Pressable
+              key={c}
+              onPress={() => onPick(r, c)}
+              style={{
+                width: cell,
+                height: cell,
+                margin: 2,
+                borderRadius: 4,
+                borderWidth: 1,
+                borderColor: colors.borderAccent,
+                backgroundColor: colors.bg,
+              }}
+            />
+          ))}
+        </View>
+      ))}
+    </View>
   );
 }
 

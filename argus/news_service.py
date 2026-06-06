@@ -96,11 +96,11 @@ def _articles_from_response(data: dict[str, Any] | None) -> list[dict[str, str]]
     return [row for row in rows if row["title"]]
 
 
-def get_top_headlines(country: str = "in", page_size: int = 5) -> list[dict[str, str]]:
+def get_top_headlines(language: str = "en", page_size: int = 5) -> list[dict[str, str]]:
     """Top headlines for a country. Returns title, source, url per item."""
-    params = {"country": country, "pageSize": page_size}
+    params = {"language": language, "pageSize": page_size}
 
-    data = _fetch_via_newsapi_client("top_headlines", country=country, page_size=page_size)
+    data = _fetch_via_newsapi_client("top_headlines", language=language, page_size=page_size)
     if data is None:
         data = _fetch_via_requests(TOP_HEADLINES_URL, params)
     return _articles_from_response(data)

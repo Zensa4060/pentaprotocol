@@ -272,6 +272,7 @@ export default function MultiplayerMatch() {
           tossWinner={room.rb_toss_winner ?? null}
           coinResult={room.rb_coin_result ?? null}
           gridSize={gridSize}
+          rb6CellChooser={room.rb6_cell_chooser ?? null}
           onTossAction={sendTossAction}
         />
       ) : null}

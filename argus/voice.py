@@ -4,6 +4,7 @@ from __future__ import annotations
 import os
 import re
 import tempfile
+import threading
 
 import speech_recognition as sr
 from faster_whisper import WhisperModel
@@ -15,6 +16,8 @@ FOLLOW_UP_TIMEOUT = 900.0
 
 # Returned by listen helpers when the user wants to exit.
 EXIT_SIGNAL = "__EXIT__"
+
+STOP_SPEAKING = threading.Event()
 
 
 def strip_markdown(text: str) -> str:
@@ -37,6 +40,15 @@ def strip_markdown(text: str) -> str:
     return out
 
 
+def _is_stop_command(text: str) -> bool:
+    lower = text.strip().lower()
+    if not lower:
+        return False
+    if STOP_PHRASE in lower:
+        return True
+    return lower == "stop"
+
+
 class VoiceInput:
     """Microphone listener using speech_recognition + local faster-whisper."""
 
@@ -47,6 +59,7 @@ class VoiceInput:
         self.recognizer.dynamic_energy_threshold = True
         self.recognizer.energy_threshold = 300
         self.recognizer.pause_threshold = 0.5
+        self.recognizer.non_speaking_duration = 0.3
         self._microphone = sr.Microphone()
 
     def calibrate(self) -> None:
@@ -145,10 +158,12 @@ class VoiceInput:
 
 
 class VoiceOutput:
-    """Offline text-to-speech via pyttsx3."""
+    """Offline text-to-speech via pyttsx3 with interruptible playback."""
 
-    def __init__(self) -> None:
-        pass
+    def __init__(self, voice_input: VoiceInput | None = None) -> None:
+        self._voice_input = voice_input
+        self._engine_lock = threading.Lock()
+        self._engine = None
 
     def _select_male_voice_on(self, engine) -> None:
         voices = engine.getProperty("voices") or []
@@ -159,14 +174,65 @@ class VoiceOutput:
                 engine.setProperty("voice", voice.id)
                 break
 
+    def _stop_engine(self) -> None:
+        with self._engine_lock:
+            if self._engine is not None:
+                try:
+                    self._engine.stop()
+                except Exception:
+                    pass
+
+    def _listen_for_interrupt(self) -> str | None:
+        if self._voice_input is None:
+            return None
+        audio = self._voice_input._listen(timeout=1.0, phrase_limit=1.5)
+        if audio is None:
+            return None
+        return self._voice_input._transcribe(audio).strip()
+
     def speak(self, text: str) -> None:
         clean = strip_markdown(text)
         if not clean:
             return
-        import pyttsx3
-        engine = pyttsx3.init()
-        engine.setProperty("rate", SPEECH_RATE_WPM)
-        self._select_male_voice_on(engine)
-        engine.say(clean)
-        engine.runAndWait()
-        engine.stop()
+
+        STOP_SPEAKING.clear()
+        speech_done = threading.Event()
+
+        def _run_tts() -> None:
+            import pyttsx3
+
+            engine = pyttsx3.init()
+            with self._engine_lock:
+                self._engine = engine
+            try:
+                engine.setProperty("rate", SPEECH_RATE_WPM)
+                self._select_male_voice_on(engine)
+                engine.say(clean)
+                engine.runAndWait()
+            finally:
+                with self._engine_lock:
+                    self._engine = None
+                try:
+                    engine.stop()
+                except Exception:
+                    pass
+                speech_done.set()
+
+        thread = threading.Thread(target=_run_tts, daemon=True)
+        thread.start()
+
+        try:
+            while not speech_done.is_set():
+                if STOP_SPEAKING.is_set():
+                    self._stop_engine()
+                    break
+
+                heard = self._listen_for_interrupt()
+                if heard and _is_stop_command(heard):
+                    STOP_SPEAKING.set()
+                    self._stop_engine()
+                    break
+        finally:
+            speech_done.wait(timeout=2.0)
+            thread.join(timeout=2.0)
+            STOP_SPEAKING.clear()

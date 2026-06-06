@@ -31,8 +31,11 @@ export function legGameIndex(gameNumber: number): 1 | 2 | 3 {
   return (((gameNumber - 1) % 3) + 1) as 1 | 2 | 3;
 }
 
+import { effectivePlayBoardMode } from "@/lib/game/boardConfig";
+
 export function legBoardLabel(boardMode: string): string {
-  if (boardMode === "7x7") return "7×7";
-  if (boardMode === "6x6") return "6×6";
+  const leg = effectivePlayBoardMode(boardMode);
+  if (leg === "7x7") return "7×7";
+  if (leg === "6x6") return "6×6";
   return "5×5";
 }

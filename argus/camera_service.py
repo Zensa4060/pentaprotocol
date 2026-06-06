@@ -10,6 +10,7 @@ import cv2
 PHOTOS_DIR = Path(__file__).resolve().parent / "photos"
 WINDOW_TITLE = "Argus Camera"
 _camera_thread: threading.Thread | None = None
+_camera_stop = threading.Event()
 
 
 def _ensure_photos_dir() -> Path:
@@ -23,7 +24,7 @@ def _camera_loop() -> None:
         print("Could not open camera.")
         return
     try:
-        while True:
+        while not _camera_stop.is_set():
             ok, frame = cap.read()
             if not ok:
                 break
@@ -36,12 +37,32 @@ def _camera_loop() -> None:
         cv2.destroyWindow(WINDOW_TITLE)
 
 
-def open_camera() -> None:
-    """Show live camera feed in a background thread until user presses Q."""
+def is_camera_open() -> bool:
+    return _camera_thread is not None and _camera_thread.is_alive()
+
+
+def close_camera() -> None:
+    """Stop the camera feed thread and close the preview window."""
     global _camera_thread
+    _camera_stop.set()
+    try:
+        cv2.destroyWindow(WINDOW_TITLE)
+    except Exception:
+        pass
     if _camera_thread is not None and _camera_thread.is_alive():
-        print("Camera is already open.")
+        _camera_thread.join(timeout=2.0)
+    _camera_thread = None
+    _camera_stop.clear()
+    print("Camera closed.")
+
+
+def open_camera() -> None:
+    """Show live camera feed; toggles off if already open."""
+    global _camera_thread
+    if is_camera_open():
+        close_camera()
         return
+    _camera_stop.clear()
     _camera_thread = threading.Thread(target=_camera_loop, daemon=True)
     _camera_thread.start()
 

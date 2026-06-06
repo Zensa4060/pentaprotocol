@@ -74,7 +74,11 @@ export interface Room {
   rb_coin_result?: "PENTA" | "PROTO" | null;
   rb_phase_payload?: Record<string, unknown> | null;
   rb6_timer_owner?: PlayerSlot | null;
+  rb6_cell_chooser?: PlayerSlot | null;
   rb6_special_cell?: { r: number; c: number; owner: PlayerSlot } | null;
+  c3_blocked?: boolean;
+  suppress_center_opening?: boolean;
+  awaiting_limitbreaker?: boolean;
   awaiting_5x5_rules_ready: boolean;
   awaiting_6x6_rules_ready: boolean;
   awaiting_7x7_rules_ready: boolean;
@@ -135,6 +139,15 @@ export type InboundMessage =
       game_number: number;
       board_mode: string;
       suppress_center_opening?: boolean;
+      p1_series_points?: number;
+      p2_series_points?: number;
+      selected_patterns?: string[];
+      c3_blocked?: boolean;
+      rb6_special_cell?: { r: number; c: number; owner: PlayerSlot } | null;
+      rb6_timer_owner?: PlayerSlot | null;
+      awaiting_5x5_rules_ready?: boolean;
+      awaiting_6x6_rules_ready?: boolean;
+      awaiting_7x7_rules_ready?: boolean;
     }
   | { type: "match_start"; start_at_ms: number }
   | { type: "match_over" }

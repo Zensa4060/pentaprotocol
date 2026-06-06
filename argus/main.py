@@ -29,7 +29,7 @@ def main() -> None:
     try:
         brain = ArgusBrain()
         voice_in = VoiceInput()
-        voice_out = VoiceOutput()
+        voice_out = VoiceOutput(voice_in)
     except RuntimeError as exc:
         print(f"Startup failed: {exc}")
         sys.exit(1)

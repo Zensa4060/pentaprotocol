@@ -9,10 +9,28 @@ _MEMORY_PATH = Path(__file__).resolve().parent / "memory.json"
 
 REMEMBER_PATTERNS: list[re.Pattern[str]] = [
     re.compile(r"\bremember that\s+(.+)", re.I),
-    re.compile(r"\bkeep in mind(?: that)?\s+(.+)", re.I),
-    re.compile(r"\bdon'?t forget(?: that)?\s+(.+)", re.I),
+    re.compile(r"\bkeep in mind that\s+(.+)", re.I),
+    re.compile(r"\bdon'?t forget that\s+(.+)", re.I),
     re.compile(r"\bsave that\s+(.+)", re.I),
+    re.compile(r"\bnote that\s+(.+)", re.I),
 ]
+
+SAVE_TRIGGER_PATTERNS: list[re.Pattern[str]] = [
+    re.compile(r"\bremember that\b", re.I),
+    re.compile(r"\bkeep in mind that\b", re.I),
+    re.compile(r"\bdon'?t forget that\b", re.I),
+    re.compile(r"\bsave that\b", re.I),
+    re.compile(r"\bnote that\b", re.I),
+]
+
+QUESTION_START = re.compile(
+    r"^\s*(what|who|whom|whose|why|how|when|where|which|"
+    r"is|are|was|were|do|does|did|can|could|should|would|will|shall|"
+    r"have|has|had|am)\b",
+    re.I,
+)
+
+MIN_MEMORY_WORDS = 5
 
 FORGET_PATTERN = re.compile(r"\bforget about\s+(.+)", re.I)
 
@@ -93,7 +111,7 @@ def _parse_memory_content(content: str) -> tuple[str, str] | None:
     if not cleaned:
         return None
 
-    is_match = re.match(r"^(.+?)\s+is\s+(.+)$", cleaned, re.I)
+    is_match = re.match(r"^(.+)\s+is\s+(.+)$", cleaned, re.I)
     if is_match:
         key, value = is_match.group(1).strip(), is_match.group(2).strip()
         if key and value:
@@ -106,6 +124,37 @@ def _parse_memory_content(content: str) -> tuple[str, str] | None:
             return key, value
 
     return None
+
+
+def _has_save_trigger(text: str) -> bool:
+    return any(pattern.search(text) for pattern in SAVE_TRIGGER_PATTERNS)
+
+
+def _is_question(text: str) -> bool:
+    stripped = text.strip()
+    if stripped.endswith("?"):
+        return True
+    return bool(QUESTION_START.match(stripped))
+
+
+def _has_assignment(text: str) -> bool:
+    return bool(re.search(r"\s+is\s+", text, re.I)) or "=" in text
+
+
+def _word_count(text: str) -> int:
+    return len(text.split())
+
+
+def _should_attempt_save(text: str, assignment: str) -> bool:
+    if not _has_save_trigger(text):
+        return False
+    if _is_question(text):
+        return False
+    if not _has_assignment(assignment):
+        return False
+    if _word_count(assignment) < MIN_MEMORY_WORDS:
+        return False
+    return True
 
 
 def _find_memory_keys(query: str) -> list[str]:
@@ -141,10 +190,12 @@ def handle_memory_actions(user_query: str) -> bool:
         match = pattern.search(text)
         if not match:
             continue
-        parsed = _parse_memory_content(match.group(1))
+        content = match.group(1)
+        if not _should_attempt_save(text, content):
+            return False
+        parsed = _parse_memory_content(content)
         if parsed:
             return save_memory(*parsed)
-        print(f"Memory parse failed: {match.group(1)}")
         return False
 
     return False

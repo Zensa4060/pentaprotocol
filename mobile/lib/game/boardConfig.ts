@@ -7,6 +7,30 @@ import type { Board } from "@/lib/game/winChecker7";
 
 export type GridSize = 5 | 6 | 7;
 export type BoardMode = "5x5" | "6x6" | "7x7";
+export type CompoundBoardMode =
+  | BoardMode
+  | "5x5_7x7"
+  | "5x5_6x6"
+  | "6x6_7x7"
+  | "5x5_6x6_7x7";
+
+export function startingLegFromBoardMode(mode: string | undefined | null): BoardMode {
+  const m = (mode ?? "5x5").trim();
+  if (m === "5x5" || m === "6x6" || m === "7x7") return m;
+  const seg = m.split("_").filter((p): p is BoardMode => p === "5x5" || p === "6x6" || p === "7x7");
+  return seg[0] ?? "5x5";
+}
+
+/** Playable leg size for a room `board_mode` (matches backend `_effective_board_mode`). */
+export function effectivePlayBoardMode(mode: string | undefined | null): BoardMode {
+  const m = (mode ?? "5x5").trim();
+  if (m === "5x5" || m === "6x6" || m === "7x7") return m;
+  return startingLegFromBoardMode(m);
+}
+
+export function isTripleLegMode(mode: string | undefined | null): boolean {
+  return (mode ?? "").includes("_");
+}
 
 export function boardModeFromGrid(grid: GridSize): BoardMode {
   if (grid === 5) return "5x5";
@@ -15,9 +39,17 @@ export function boardModeFromGrid(grid: GridSize): BoardMode {
 }
 
 export function gridFromBoardMode(mode: string | undefined | null): GridSize {
-  if (mode === "5x5") return 5;
-  if (mode === "6x6") return 6;
+  const leg = effectivePlayBoardMode(mode);
+  if (leg === "5x5") return 5;
+  if (leg === "6x6") return 6;
   return 7;
+}
+
+export function gridParamFromBoardMode(mode: string | undefined | null): "5" | "6" | "7" {
+  const g = gridFromBoardMode(mode);
+  if (g === 5) return "5";
+  if (g === 6) return "6";
+  return "7";
 }
 
 export function parseGridParam(value: string | undefined): GridSize {

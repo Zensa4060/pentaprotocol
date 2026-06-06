@@ -92,7 +92,7 @@ export default function EngineMatchScreen() {
     fetchProfile().catch(() => undefined);
   }, [series.phase]);
 
-  const scoreLine = `YOU ${series.p1Points} – ${series.p2Points} ${botName} · first to 5`;
+  const scoreLine = `YOU ${series.p1Points} – ${series.p2Points} ${botName} · BO3 (first to 2 wins)`;
   const intermissionTitle =
     series.lastOutcome === "P1"
       ? `YOU WIN GAME ${series.gameNumber}`

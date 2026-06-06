@@ -26,8 +26,10 @@ import {
 } from "@/components/ui";
 import {
   defaultPatternsForGrid,
+  isTripleLegMode,
   matchMsForGrid,
   parseGridParam,
+  gridFromBoardMode,
 } from "@/lib/game/boardConfig";
 import { formatClock } from "@/lib/game/matchRules";
 import { coreRulesForGrid, patternMetadataForGrid } from "@/lib/game/patterns";
@@ -51,13 +53,16 @@ export default function PreGameScreen() {
   const params = useLocalSearchParams<Record<string, string>>();
   const mode = (params.mode as Mode) ?? "training";
   const grid = parseGridParam(params.grid);
+  const boardModeParam = params.board_mode;
+  const tripleLeg = mode === "multiplayer" && isTripleLegMode(boardModeParam);
+  const displayGrid = tripleLeg ? gridFromBoardMode(boardModeParam) : grid;
 
-  const meta = patternMetadataForGrid(grid);
-  const coreMeta = coreRulesForGrid(grid);
-  const optionalKeys = useMemo(() => Object.keys(meta), [grid]);
-  const clock = formatClock(matchMsForGrid(grid));
+  const meta = patternMetadataForGrid(displayGrid);
+  const coreMeta = coreRulesForGrid(displayGrid);
+  const optionalKeys = useMemo(() => Object.keys(meta), [displayGrid]);
+  const clock = formatClock(matchMsForGrid(displayGrid));
 
-  const canPick5 = (mode === "training" || mode === "engine") && grid === 5;
+  const canPick5 = (mode === "training" || mode === "engine") && displayGrid === 5;
   const [selected5, setSelected5] = useState<string[]>(() => randomFiveOfSix(optionalKeys));
 
   const toggle5 = (id: string) => {
@@ -72,7 +77,7 @@ export default function PreGameScreen() {
   };
 
   const activePatterns =
-    grid === 5 && canPick5 ? selected5 : defaultPatternsForGrid(grid);
+    displayGrid === 5 && canPick5 ? selected5 : defaultPatternsForGrid(displayGrid);
 
   const onReady = () => {
     const { mode: _m, ...rest } = params;
@@ -103,19 +108,42 @@ export default function PreGameScreen() {
 
       <VStack gap={2} style={{ marginTop: space[5] }}>
         <Eyebrow tone="muted">{modeLabel}</Eyebrow>
-        <Title>{grid}×{grid} — get ready</Title>
+        {tripleLeg ? (
+          <>
+            <Title>Triple leg — starts 5×5</Title>
+            <Body tone="muted">
+              First to 3 wins · 9 games (5×5 → 6×6 → 7×7) · draws score 0
+            </Body>
+          </>
+        ) : (
+          <Title>{displayGrid}×{displayGrid} — get ready</Title>
+        )}
         {params.label ? <Body tone="muted">Opponent: {params.label}</Body> : null}
       </VStack>
 
       <Eyebrow tone="muted" style={styles.section}>RULES</Eyebrow>
       <View style={[styles.card, { backgroundColor: palette.bgCard, borderColor: palette.border }]}>
-        <RuleLine label="Board" value={`${grid} × ${grid}`} />
-        <RuleLine label="Clock" value={`${clock} per player`} />
-        <RuleLine
-          label="Center rule"
-          value={grid === 6 ? "Not used on 6×6" : "Center opening → opponent gets 2 extra turns"}
-        />
-        <RuleLine label="Goal" value="Complete a win pattern below before your opponent" />
+        {tripleLeg ? (
+          <>
+            <RuleLine label="Format" value="5×5 G1–3, then 6×6 G4–6, then 7×7 G7–9" />
+            <RuleLine label="Score" value="First to 3 wins (draws = 0 pts)" />
+            <RuleLine label="Breakers" value="Rulebreaker G3 · Timebreaker G6 · Mindbreaker G9" />
+            <RuleLine label="This leg" value={`${displayGrid}×${displayGrid} — game 1 patterns below`} />
+          </>
+        ) : (
+          <>
+            <RuleLine label="Board" value={`${displayGrid} × ${displayGrid}`} />
+            <RuleLine label="Clock" value={`${clock} per player`} />
+            <RuleLine
+              label="Center rule"
+              value={displayGrid === 6 ? "Not used on 6×6" : "Center opening → opponent gets 2 extra turns"}
+            />
+            <RuleLine label="Goal" value="Complete a win pattern below before your opponent" />
+            {(mode === "training" || mode === "engine") ? (
+              <RuleLine label="Series" value="BO3 — first to 2 wins, draws score 0" />
+            ) : null}
+          </>
+        )}
       </View>
 
       <Row justify="between" align="baseline" style={styles.section}>
@@ -138,7 +166,7 @@ export default function PreGameScreen() {
       ) : (
         <Body tone="muted" style={{ marginBottom: space[2] }}>
           All {optionalKeys.length} patterns are active. Core rule:{" "}
-          {grid === 7 ? "20+" : "15+"} connected stones.
+          {displayGrid === 7 ? "20+" : "15+"} connected stones.
         </Body>
       )}
       <ScrollView horizontal showsHorizontalScrollIndicator={false}>
@@ -160,7 +188,7 @@ export default function PreGameScreen() {
                 <PatternDiagram
                   info={meta[key]}
                   accent={chosen ? palette.accent : palette.textDim}
-                  cellSize={grid >= 7 ? 9 : 12}
+                  cellSize={displayGrid >= 7 ? 9 : 12}
                 />
                 <Caption tone={chosen ? "default" : "muted"} style={{ marginTop: space[2], textAlign: "center" }}>
                   {meta[key].label}

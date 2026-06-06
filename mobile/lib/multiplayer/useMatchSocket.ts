@@ -1,29 +1,13 @@
 /**
  * ``useMatchSocket`` — React hook around ``openMatchSocket``.
  *
- * The match screen calls this with a ``roomCode`` + ``slot`` and
- * gets back:
- *   - The latest room snapshot (mirrors what the server holds).
- *   - The current connection status.
- *   - Typed action functions (``placeStone``, ``readyForNextGame``,
- *     ``quitMatch``).
- *   - A "last error" string surfaced by the server (e.g. "Not your
- *     turn") so the UI can flash it.
- *
- * State management strategy:
- *   - We treat server frames as the source of truth. A ``move_made``
- *     frame brings the full board / current_player / winner / etc.,
- *     so we replace the relevant slice atomically rather than
- *     trying to apply moves locally and reconcile (the web frontend
- *     learned that the hard way — see GameScreen).
- *   - We do NOT optimistically render the local user's move. Round
- *     trip on a typical mobile network is 80-150ms, well under what
- *     the eye reads as lag, and the optimistic path adds a whole
- *     "rollback on reject" code path we don't need for MVP.
+ * Server frames are the source of truth. Protocol-breaker toss state is
+ * merged into ``room`` so UI reads one snapshot (matches web GameScreen).
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { gridFromBoardMode } from "@/lib/game/boardConfig";
 import {
   openMatchSocket,
   type MatchSocket,
@@ -40,35 +24,59 @@ import type {
 export interface UseMatchSocketOptions {
   roomCode: string;
   slot: PlayerSlot;
-  /** Optional seed from the create/join REST call — paints the UI immediately. */
   initialRoom?: Room | null;
 }
 
 export interface UseMatchSocketResult {
-  /** Latest room snapshot, or null until the first frame lands. */
   room: Room | null;
-  /** WS lifecycle state. */
   status: WsConnectionStatus;
-  /** Last server-reported error message (e.g. "Not your turn"). */
   lastError: string | null;
-  /** Sticky "match was disbanded by server" flag — set on disband/disconnect. */
   disbanded: { reason?: string } | null;
-  /** True once the server has emitted ``match_start``. */
   matchStarted: boolean;
-
-  /** Place a stone in the current game. Caller filters by turn. */
   placeStone: (row: number, col: number) => void;
-  /** Tell the server we're ready for the next game in the series. */
   readyForNextGame: () => void;
-  /** Send a ``quit_match`` frame — voluntary forfeit. */
   quitMatch: (reason?: string) => void;
-  /** Tell the server whether we're currently looking at the game screen. */
   setOnGameScreen: (on: boolean) => void;
-  /** Clear ``lastError`` so the UI banner dismisses. */
   dismissError: () => void;
-  /** Active protocol-breaker phase, if any. */
   rbPhase: RbPhase | null;
   sendTossAction: (action: string, payload?: Record<string, unknown>) => void;
+}
+
+function emptyBoardForMode(mode: string): Room["board"] {
+  const n = gridFromBoardMode(mode);
+  return Array.from({ length: n }, () => Array.from({ length: n }, () => null));
+}
+
+function mergeRbPayload(
+  prev: Room,
+  payload: Record<string, unknown>,
+): Room {
+  const next: Room = { ...prev, rb_phase_payload: payload };
+  if (typeof payload.phase === "string") next.phase = payload.phase;
+  if (payload.toss_winner === "P1" || payload.toss_winner === "P2") {
+    next.rb_toss_winner = payload.toss_winner;
+  }
+  if (payload.result === "PENTA" || payload.result === "PROTO") {
+    next.rb_coin_result = payload.result;
+  }
+  if (payload.rb6TimerOwner === "P1" || payload.rb6TimerOwner === "P2") {
+    next.rb6_timer_owner = payload.rb6TimerOwner;
+  }
+  if (payload.rb6CellChooser === "P1" || payload.rb6CellChooser === "P2") {
+    next.rb6_cell_chooser = payload.rb6CellChooser;
+  }
+  if (
+    payload.rb6_special_cell &&
+    typeof payload.rb6_special_cell === "object" &&
+    payload.rb6_special_cell !== null
+  ) {
+    const cell = payload.rb6_special_cell as { r?: number; c?: number; owner?: PlayerSlot };
+    if (typeof cell.r === "number" && typeof cell.c === "number" && cell.owner) {
+      next.rb6_special_cell = { r: cell.r, c: cell.c, owner: cell.owner };
+    }
+  }
+  if (typeof payload.rbC3Blocked === "boolean") next.c3_blocked = payload.rbC3Blocked;
+  return next;
 }
 
 export function useMatchSocket({
@@ -82,57 +90,70 @@ export function useMatchSocket({
   const [disbanded, setDisbanded] = useState<{ reason?: string } | null>(null);
   const [matchStarted, setMatchStarted] = useState(false);
   const [rbPhase, setRbPhase] = useState<RbPhase | null>(null);
-  const [rbTossWinner, setRbTossWinner] = useState<PlayerSlot | null>(null);
-  const [rbCoinResult, setRbCoinResult] = useState<"PENTA" | "PROTO" | null>(null);
 
   const socketRef = useRef<MatchSocket | null>(null);
-  // We need stable references to the callbacks inside ``openMatchSocket``
-  // (which only takes them once at construction). Refs let us keep
-  // a fresh closure without rebuilding the socket on every state tick.
   const roomRef = useRef(room);
   roomRef.current = room;
 
-  // ── Message router ──────────────────────────────────────────
-  // Centralized: every inbound type lands here, the dispatch table
-  // mutates the appropriate piece of state. Easier to follow + a
-  // single place to add new message kinds later.
+  const syncRbPhase = useCallback((phase: string | null | undefined) => {
+    if (phase && isRbPhase(phase)) setRbPhase(phase);
+    else setRbPhase(null);
+  }, []);
+
   const onMessage = useCallback(
     (msg: InboundMessage) => {
       switch (msg.type) {
         case "room_state":
         case "player_joined": {
           setRoom(msg.room);
-          if (isRbPhase(msg.room.phase)) setRbPhase(msg.room.phase);
+          syncRbPhase(msg.room.phase);
+          if (isRbPhase(msg.room.phase ?? "")) setRbPhase(msg.room.phase as RbPhase);
           else if (!msg.room.awaiting_rulebreaker) setRbPhase(null);
-          if (msg.room.rb_toss_winner) setRbTossWinner(msg.room.rb_toss_winner);
-          if (msg.room.rb_coin_result) setRbCoinResult(msg.room.rb_coin_result);
           break;
         }
         case "rulebreaker_start": {
+          setRoom((prev) => {
+            if (!prev) return prev;
+            return {
+              ...prev,
+              awaiting_rulebreaker: true,
+              phase: "rb_splash",
+              rb_toss_winner: msg.toss_winner ?? prev.rb_toss_winner ?? null,
+              rb_coin_result: null,
+            };
+          });
           setRbPhase("rb_splash");
-          if (msg.toss_winner) setRbTossWinner(msg.toss_winner);
-          setRbCoinResult(null);
           break;
         }
         case "toss_action": {
           const payload = msg.payload ?? {};
           if (msg.action === "coin_result") {
-            const r = payload.result as "PENTA" | "PROTO" | undefined;
-            if (r) setRbCoinResult(r);
-            const tw = payload.toss_winner as PlayerSlot | undefined;
-            if (tw) setRbTossWinner(tw);
+            setRoom((prev) => {
+              if (!prev) return prev;
+              const merged = mergeRbPayload(prev, payload);
+              merged.rb_coin_result =
+                payload.result === "PENTA" || payload.result === "PROTO"
+                  ? payload.result
+                  : merged.rb_coin_result ?? null;
+              if (payload.toss_winner === "P1" || payload.toss_winner === "P2") {
+                merged.rb_toss_winner = payload.toss_winner;
+              }
+              merged.phase = "rb_coin";
+              return merged;
+            });
             setRbPhase("rb_coin");
           } else if (msg.action === "start_rb") {
+            setRoom((prev) =>
+              prev ? { ...prev, phase: "rb_splash", awaiting_rulebreaker: true } : prev,
+            );
             setRbPhase("rb_splash");
           } else if (msg.action === "phase_choice" && typeof payload.phase === "string") {
+            setRoom((prev) => (prev ? mergeRbPayload(prev, payload) : prev));
             if (isRbPhase(payload.phase)) setRbPhase(payload.phase);
           }
           break;
         }
         case "move_made": {
-          // Patch the slice of the room the frame carries. Anything
-          // the frame doesn't include (player metadata, format,
-          // etc.) is left untouched.
           setRoom((prev) => {
             if (!prev) return prev;
             return {
@@ -163,16 +184,11 @@ export function useMatchSocket({
           break;
         }
         case "game_reset": {
-          // Fresh game in the same series — clear the board state.
           setRoom((prev) => {
             if (!prev) return prev;
-            const emptySize = msg.board_mode === "5x5" ? 5 : msg.board_mode === "6x6" ? 6 : 7;
-            const emptyBoard = Array.from({ length: emptySize }, () =>
-              Array.from({ length: emptySize }, () => null),
-            );
             return {
               ...prev,
-              board: emptyBoard,
+              board: emptyBoardForMode(msg.board_mode),
               current_player: msg.first_player,
               moves_played: 0,
               winner: null,
@@ -180,20 +196,54 @@ export function useMatchSocket({
               game_number: msg.game_number,
               board_mode: msg.board_mode,
               awaiting_rulebreaker: false,
-              phase: undefined,
+              phase: null,
+              rb_toss_winner: null,
+              rb_coin_result: null,
+              rb_phase_payload: null,
+              rb6_timer_owner: msg.rb6_timer_owner ?? null,
+              rb6_cell_chooser: null,
+              rb6_special_cell: msg.rb6_special_cell ?? null,
+              c3_blocked: msg.c3_blocked ?? false,
+              suppress_center_opening: msg.suppress_center_opening ?? false,
+              awaiting_limitbreaker: false,
+              ...(msg.p1_series_points !== undefined
+                ? { p1_series_points: msg.p1_series_points }
+                : null),
+              ...(msg.p2_series_points !== undefined
+                ? { p2_series_points: msg.p2_series_points }
+                : null),
+              ...(msg.selected_patterns !== undefined
+                ? { selected_patterns: msg.selected_patterns }
+                : null),
+              ...(msg.awaiting_5x5_rules_ready !== undefined
+                ? { awaiting_5x5_rules_ready: msg.awaiting_5x5_rules_ready }
+                : null),
+              ...(msg.awaiting_6x6_rules_ready !== undefined
+                ? { awaiting_6x6_rules_ready: msg.awaiting_6x6_rules_ready }
+                : null),
+              ...(msg.awaiting_7x7_rules_ready !== undefined
+                ? { awaiting_7x7_rules_ready: msg.awaiting_7x7_rules_ready }
+                : null),
             };
           });
           setRbPhase(null);
           break;
         }
-        case "match_start": {
-          setMatchStarted(true);
+        case "limitbreaker_start": {
+          setRoom((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  awaiting_limitbreaker: true,
+                  rb_toss_winner:
+                    (msg as { toss_winner?: PlayerSlot }).toss_winner ?? prev.rb_toss_winner,
+                }
+              : prev,
+          );
           break;
         }
-        case "match_over": {
-          // No state to mutate — the preceding move_made already
-          // delivered series_winner. This frame is a heads-up that
-          // the room is wrapping up.
+        case "match_start": {
+          setMatchStarted(true);
           break;
         }
         case "match_disbanded": {
@@ -209,23 +259,19 @@ export function useMatchSocket({
           break;
         }
         default:
-          // Ignored types: chat, ready_update, net_update, levelup_*,
-          // player_reconnect_countdown, pong, rulebreaker_start, etc.
-          // We just no-op so future server-side additions don't
-          // break the client.
           break;
       }
     },
-    [],
+    [syncRbPhase],
   );
 
-  // ── Connect / disconnect lifecycle ─────────────────────────
   useEffect(() => {
     setRoom(initialRoom);
     setStatus("connecting");
     setLastError(null);
     setDisbanded(null);
     setMatchStarted(false);
+    setRbPhase(null);
 
     const socket = openMatchSocket({
       roomCode,
@@ -234,10 +280,6 @@ export function useMatchSocket({
       onStatus: (next, detail) => {
         setStatus(next);
         if (next === "open") {
-          // Fire-and-forget: tell the server we're ready to start.
-          // Idempotent server-side, so no harm if we send it twice
-          // on a reconnect (and the second time the game's already
-          // in progress, it's just ignored).
           socket.send({ type: "match_found_ready" });
           socket.send({ type: "screen_presence", on_game_screen: true });
         }
@@ -254,14 +296,8 @@ export function useMatchSocket({
       socket.close();
       socketRef.current = null;
     };
-    // Intentionally not depending on `onMessage` / `initialRoom`:
-    // the socket reconnect logic is keyed only on the room/slot
-    // pair. Changes to handlers would force an unnecessary
-    // teardown of the live connection.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [roomCode, slot]);
-
-  // ── Public actions ─────────────────────────────────────────
 
   const placeStone = useCallback((row: number, col: number) => {
     socketRef.current?.send({ type: "move", row, col });
@@ -285,6 +321,10 @@ export function useMatchSocket({
 
   const sendTossAction = useCallback((action: string, payload?: Record<string, unknown>) => {
     socketRef.current?.send({ type: "toss_action", action, payload });
+    if (action === "phase_choice" && payload?.phase && isRbPhase(String(payload.phase))) {
+      setRbPhase(payload.phase as RbPhase);
+      setRoom((prev) => (prev ? mergeRbPayload(prev, payload ?? {}) : prev));
+    }
   }, []);
 
   return {
