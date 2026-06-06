@@ -17,14 +17,14 @@ def _process_query(brain: ArgusBrain, voice_out: VoiceOutput, query: str) -> Non
         reply = f"I hit an error processing that: {exc}"
         print(reply)
 
-    print(f"Argus: {reply}")
+    print(f"Mythos: {reply}")
     voice_out.speak(reply)
 
 
 def main() -> None:
     load_dotenv()
 
-    print('Argus starting. Say "August" to wake. Say "Argus stop" to exit.')
+    print('Mythos starting. Say "Friday" to wake. Say "Mythos stop" to exit.')
 
     try:
         brain = ArgusBrain()
@@ -35,7 +35,7 @@ def main() -> None:
         sys.exit(1)
 
     voice_in.calibrate()
-    voice_out.speak("Argus online.")
+    voice_out.speak("Mythos online.")
 
     running = True
     while running:

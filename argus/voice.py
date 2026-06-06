@@ -1,13 +1,15 @@
-"""Speech input (Google Speech API) and offline TTS output for Argus."""
+"""Speech input (local faster-whisper) and offline TTS output for Mythos."""
 from __future__ import annotations
 
+import os
 import re
-import time
+import tempfile
 
 import speech_recognition as sr
+from faster_whisper import WhisperModel
 
-WAKE_WORD = "august"
-STOP_PHRASE = "argus stop"
+WAKE_WORD = "friday"
+STOP_PHRASE = "mythos stop"
 SPEECH_RATE_WPM = 175
 FOLLOW_UP_TIMEOUT = 900.0
 
@@ -36,11 +38,15 @@ def strip_markdown(text: str) -> str:
 
 
 class VoiceInput:
-    """Microphone listener using speech_recognition + Google Speech API."""
+    """Microphone listener using speech_recognition + local faster-whisper."""
 
     def __init__(self) -> None:
+        print("Loading Whisper model...")
+        self._whisper_model = WhisperModel("tiny", device="cpu", compute_type="int8")
         self.recognizer = sr.Recognizer()
         self.recognizer.dynamic_energy_threshold = True
+        self.recognizer.energy_threshold = 300
+        self.recognizer.pause_threshold = 0.5
         self._microphone = sr.Microphone()
 
     def calibrate(self) -> None:
@@ -51,7 +57,19 @@ class VoiceInput:
         print("Ready.")
 
     def _transcribe(self, audio: sr.AudioData) -> str:
-        return self.recognizer.recognize_google(audio)
+        path = ""
+        try:
+            with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
+                tmp.write(audio.get_wav_data())
+                path = tmp.name
+            segments, _ = self._whisper_model.transcribe(path, beam_size=1)
+            return " ".join(segment.text for segment in segments).strip()
+        except Exception as exc:
+            print(f"Speech recognition error: {exc}")
+            return ""
+        finally:
+            if path and os.path.exists(path):
+                os.unlink(path)
 
     def _listen(self, *, timeout: float, phrase_limit: float) -> sr.AudioData | None:
         try:
@@ -68,21 +86,17 @@ class VoiceInput:
         """Listen silently until the wake word or stop phrase is heard.
 
         Returns:
-            EXIT_SIGNAL — user said "Argus stop"
+            EXIT_SIGNAL — user said stop phrase
             str — query text if wake word and query were in the same utterance
             None — wake word only; caller should record the query next
         """
         while True:
-            audio = self._listen(timeout=3.0, phrase_limit=8.0)
+            audio = self._listen(timeout=1.0, phrase_limit=2.0)
             if audio is None:
                 continue
-            try:
-                text = self._transcribe(audio).strip()
-            except sr.UnknownValueError:
-                continue
-            except sr.RequestError as exc:
-                print(f"Speech recognition unavailable: {exc}")
-                time.sleep(1.0)
+
+            text = self._transcribe(audio).strip()
+            if not text:
                 continue
 
             lower = text.lower()
@@ -99,20 +113,17 @@ class VoiceInput:
     def listen_for_query(self) -> str | None:
         """Record the user's question after the wake word."""
         print("Listening…")
-        audio = self._listen(timeout=5.0, phrase_limit=15.0)
+        audio = self._listen(timeout=5.0, phrase_limit=8.0)
         if audio is None:
             return None
-        try:
-            text = self._transcribe(audio).strip()
-        except sr.UnknownValueError:
-            return None
-        except sr.RequestError as exc:
-            print(f"Speech recognition unavailable: {exc}")
+
+        text = self._transcribe(audio).strip()
+        if not text:
             return None
 
         if STOP_PHRASE in text.lower():
             return EXIT_SIGNAL
-        return text or None
+        return text
 
     def listen_for_follow_up(self) -> str | None:
         """Active mode: listen for a follow-up without the wake word.
@@ -120,20 +131,17 @@ class VoiceInput:
         Returns query text, None after silence timeout, or EXIT_SIGNAL.
         """
         print("Listening for follow-up...")
-        audio = self._listen(timeout=FOLLOW_UP_TIMEOUT, phrase_limit=FOLLOW_UP_TIMEOUT)
+        audio = self._listen(timeout=FOLLOW_UP_TIMEOUT, phrase_limit=8.0)
         if audio is None:
             return None
-        try:
-            text = self._transcribe(audio).strip()
-        except sr.UnknownValueError:
-            return None
-        except sr.RequestError as exc:
-            print(f"Speech recognition unavailable: {exc}")
+
+        text = self._transcribe(audio).strip()
+        if not text:
             return None
 
         if STOP_PHRASE in text.lower():
             return EXIT_SIGNAL
-        return text or None
+        return text
 
 
 class VoiceOutput:
