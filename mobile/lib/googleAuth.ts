@@ -6,6 +6,7 @@
  * load the module on first sign-in attempt.
  */
 import Constants, { ExecutionEnvironment } from "expo-constants";
+import { Platform } from "react-native";
 
 /** Thrown for any non-success path callers should surface to the user. */
 export class GoogleAuthError extends Error {
@@ -39,16 +40,22 @@ let configured = false;
 function ensureConfigured(GoogleSignin: GoogleSigninModule["GoogleSignin"]): void {
   if (configured) return;
   const webClientId = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID;
+  const androidClientId = process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID;
   if (!webClientId) {
     throw new GoogleAuthError(
       "Google Sign-In isn't configured. Set EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID in mobile/.env and rebuild the dev client.",
       "missing_config",
     );
   }
-  const androidClientId = process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID;
+  if (Platform.OS === "android" && !androidClientId) {
+    throw new GoogleAuthError(
+      "Google Sign-In isn't configured for Android. Set EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID (Android OAuth client from Google Cloud) and rebuild.",
+      "missing_config",
+    );
+  }
   GoogleSignin.configure({
     webClientId,
-    ...(androidClientId ? { androidClientId } : {}),
+    androidClientId: androidClientId ?? undefined,
     offlineAccess: false,
     forceCodeForRefreshToken: false,
   });
@@ -99,7 +106,7 @@ export async function signInWithGoogleNative(): Promise<string> {
     const msg = err instanceof Error ? err.message : "Google sign-in failed.";
     if (/DEVELOPER_ERROR/i.test(msg)) {
       throw new GoogleAuthError(
-        "Google Sign-In DEVELOPER_ERROR: add your EAS production SHA-1 to Google Cloud → Credentials → Android OAuth client (package com.pentaprotocol.app). Run: eas credentials -p android",
+        "Google Sign-In DEVELOPER_ERROR: register the EAS SHA-1 in Google Cloud (Android OAuth client, package com.pentaprotocol.app). Run: npm run android:sha1",
         "unknown",
       );
     }

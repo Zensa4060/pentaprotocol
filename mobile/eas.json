@@ -9,21 +9,24 @@
       "distribution": "internal",
       "env": {
         "EXPO_PUBLIC_API_URL": "https://pentaprotocol-production.up.railway.app",
-        "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "570716503670-2m30gckgsk31dqm22s41j690jbngrldg.apps.googleusercontent.com"
+        "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "570716503670-2m30gckgsk31dqm22s41j690jbngrldg.apps.googleusercontent.com",
+        "EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID": "570716503670-q1eu9dtlrh5skqi3rv2036qqa1ic5pdb.apps.googleusercontent.com"
       }
     },
     "preview": {
       "distribution": "internal",
       "env": {
         "EXPO_PUBLIC_API_URL": "https://pentaprotocol-production.up.railway.app",
-        "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "570716503670-2m30gckgsk31dqm22s41j690jbngrldg.apps.googleusercontent.com"
+        "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "570716503670-2m30gckgsk31dqm22s41j690jbngrldg.apps.googleusercontent.com",
+        "EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID": "570716503670-q1eu9dtlrh5skqi3rv2036qqa1ic5pdb.apps.googleusercontent.com"
       }
     },
     "production": {
       "autoIncrement": true,
       "env": {
         "EXPO_PUBLIC_API_URL": "https://pentaprotocol-production.up.railway.app",
-        "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "570716503670-2m30gckgsk31dqm22s41j690jbngrldg.apps.googleusercontent.com"
+        "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "570716503670-2m30gckgsk31dqm22s41j690jbngrldg.apps.googleusercontent.com",
+        "EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID": "570716503670-q1eu9dtlrh5skqi3rv2036qqa1ic5pdb.apps.googleusercontent.com"
       }
     }
   },
