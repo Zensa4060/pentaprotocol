@@ -1,13 +1,16 @@
 /**
- * AI Engine match — human vs server bot (``/api/bot/move``).
+ * AI Engine match — human vs server bot with triple-leg series + breakers.
  */
 
 import { router, Stack, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Image, Modal, Pressable, StyleSheet, View } from "react-native";
 
+import { BotRewardOverlay } from "@/components/game/BotRewardOverlay";
 import { BoardGrid } from "@/components/game/BoardGrid";
+import { LimitbreakerOverlay } from "@/components/game/LimitbreakerOverlay";
 import { PatternsToggle } from "@/components/game/PatternsToggle";
+import { RulebreakerOverlay } from "@/components/game/RulebreakerOverlay";
 import {
   CenterRuleBanner,
   ExtraTurnsBadge,
@@ -28,16 +31,36 @@ import {
 } from "@/components/ui";
 import { useGameAudio } from "@/lib/audio/AudioProvider";
 import type { EngineDifficulty } from "@/lib/botApi/botMove";
-import { defaultPatternsForGrid, matchMsForGrid, parseGridParam } from "@/lib/game/boardConfig";
+import {
+  ALL_BOT_IDS,
+  BOT_LABEL,
+  type BotId,
+} from "@/lib/botRewards";
+import {
+  defaultPatternsForGrid,
+  matchMsForGrid,
+} from "@/lib/game/boardConfig";
 import { analyzeGame, type AnalyzeResult } from "@/lib/syros";
-import { fetchProfile } from "@/lib/profile";
+import { claimBotDefeat } from "@/lib/profile";
 import { useEngineMatch } from "@/lib/hooks/useEngineMatch";
+import { useLocalLimitbreaker } from "@/lib/hooks/useLocalLimitbreaker";
+import { useLocalRulebreaker } from "@/lib/hooks/useLocalRulebreaker";
 import { useMatchClock } from "@/lib/hooks/useMatchClock";
-import { useMatchSeries } from "@/lib/hooks/useMatchSeries";
+import {
+  boardModeForGameNumber,
+  clockMsForGameReset,
+  gridForGameNumber,
+  patternsForLeg,
+  seriesScoreLine,
+  type SeriesPlayer,
+} from "@/lib/hooks/seriesConfig";
+import { useTripleLegSeries } from "@/lib/hooks/useTripleLegSeries";
 import {
   useGameEndSounds,
   useMatchGameBgm,
+  useRulebreakerPendingSound,
 } from "@/lib/hooks/useMatchSounds";
+import { useAuthStore } from "@/lib/store";
 import { colors, radii, space } from "@/theme/tokens";
 import { usePalette } from "@/theme/ThemeProvider";
 
@@ -45,6 +68,7 @@ export default function EngineMatchScreen() {
   const params = useLocalSearchParams<{
     difficulty?: string;
     label?: string;
+    botId?: string;
     grid?: string;
     patterns?: string;
   }>();
@@ -56,43 +80,121 @@ export default function EngineMatchScreen() {
   )
     ? (params.difficulty as EngineDifficulty)
     : "hard";
-  const botName = (params.label ?? "BOT").toUpperCase();
-  const gridSize = parseGridParam(params.grid);
+  const botIdParam = (params.botId ?? "").toLowerCase();
+  const botId: BotId | null = ALL_BOT_IDS.includes(botIdParam as BotId)
+    ? (botIdParam as BotId)
+    : null;
+  const botName = (params.label ?? BOT_LABEL.baltazar).toUpperCase();
   const palette = usePalette();
-  const patterns = params.patterns ? params.patterns.split(",").filter(Boolean) : undefined;
+  const username = useAuthStore((s) => s.user?.username);
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const picked5 = params.patterns ? params.patterns.split(",").filter(Boolean) : undefined;
 
-  const match = useEngineMatch({ difficulty, gridSize, patterns });
+  const match = useEngineMatch({ difficulty, gridSize: 5, patterns: picked5 });
+  const gridSize = match.gridSize;
+
   const clock = useMatchClock(
     match.current,
     match.result.status === "playing",
     matchMsForGrid(gridSize),
   );
-  const series = useMatchSeries(match.result, match.reset);
+
+  const onResetGame = useCallback(
+    (starter: SeriesPlayer, nextGameNumber: number) => {
+      const grid = gridForGameNumber(nextGameNumber);
+      const pats = patternsForLeg(nextGameNumber, picked5);
+      const clocks = clockMsForGameReset(grid, nextGameNumber, null);
+      match.reset(starter, { gridSize: grid, patterns: pats, c3Blocked: false });
+      clock.reset(clocks.p1, clocks.p2);
+    },
+    [clock, match, picked5],
+  );
+
+  const series = useTripleLegSeries(match.result, onResetGame);
+
+  const onBreakerComplete = useCallback(
+    (outcome: { reset: Parameters<typeof match.reset>[1] }) => {
+      const nextGn = series.gameNumber + 1;
+      const grid = outcome.reset?.gridSize ?? gridForGameNumber(nextGn);
+      const clocks = clockMsForGameReset(grid, nextGn, null);
+      match.reset(outcome.reset?.starter ?? "P1", outcome.reset);
+      clock.reset(
+        outcome.reset?.p1ClockMs ?? clocks.p1,
+        outcome.reset?.p2ClockMs ?? clocks.p2,
+      );
+      series.completeBreaker();
+    },
+    [match, series],
+  );
+
+  const breaker = useLocalRulebreaker({
+    active: series.phase === "breaker",
+    gridSize: gridForGameNumber(series.gameNumber + 1),
+    gameNumber: series.gameNumber + 1,
+    boardMode: boardModeForGameNumber(series.gameNumber + 1),
+    patterns: patternsForLeg(series.gameNumber + 1, picked5),
+    botMode: true,
+    onComplete: onBreakerComplete,
+  });
+
+  const onLimitComplete = useCallback(
+    (outcome: { reset: Parameters<typeof match.reset>[1] }) => {
+      match.reset(outcome.reset?.starter ?? "P1", outcome.reset);
+      clock.reset(matchMsForGrid(outcome.reset?.gridSize ?? 5));
+      series.completeLimitbreaker();
+    },
+    [match, series],
+  );
+
+  const limitbreaker = useLocalLimitbreaker({
+    active: series.phase === "limitbreaker",
+    botMode: true,
+    onComplete: onLimitComplete,
+  });
+
   const audio = useGameAudio();
   useMatchGameBgm();
   useGameEndSounds(match.result.status, match.result.winner, "P1");
+  useRulebreakerPendingSound(series.phase === "breaker" || series.phase === "limitbreaker");
+
+  const [rewardVisible, setRewardVisible] = useState(false);
+  const [xpAwarded, setXpAwarded] = useState(0);
+  const [rewardUnlocked, setRewardUnlocked] = useState<string | null>(null);
+  const claimRef = useRef(false);
+
+  useEffect(() => {
+    if (series.phase !== "over") {
+      claimRef.current = false;
+      return;
+    }
+    if (claimRef.current) return;
+    if (series.seriesWinner !== "P1") return;
+    if (!botId || !isAuthenticated) return;
+    claimRef.current = true;
+    claimBotDefeat(botId)
+      .then((data) => {
+        setXpAwarded(data.xp_awarded ?? 0);
+        setRewardUnlocked(data.reward_unlocked ?? null);
+        if ((data.xp_awarded ?? 0) > 0 || data.reward_unlocked) {
+          setRewardVisible(true);
+        }
+      })
+      .catch(() => {
+        claimRef.current = false;
+      });
+  }, [botId, isAuthenticated, series.phase, series.seriesWinner]);
 
   const handleNextGame = () => {
     audio.sfx.transition();
-    series.nextGame();
-    clock.reset();
+    series.advanceToNextGame();
   };
   const handlePlayAgain = () => {
     audio.sfx.transition();
     series.resetSeries();
-    clock.reset();
   };
 
-  // Refresh profile once the leg is decided (picks up bot-defeat rewards/XP).
-  const profileSynced = useRef(false);
-  useEffect(() => {
-    if (profileSynced.current) return;
-    if (series.phase !== "over") return;
-    profileSynced.current = true;
-    fetchProfile().catch(() => undefined);
-  }, [series.phase]);
-
-  const scoreLine = `YOU ${series.p1Points} – ${series.p2Points} ${botName} · BO3 (first to 2 wins)`;
+  const p1Display = (username ?? "YOU").toUpperCase();
+  const scoreLine = `${p1Display} ${series.p1Points} – ${series.p2Points} ${botName} · ${seriesScoreLine(series.p1Points, series.p2Points)}`;
   const intermissionTitle =
     series.lastOutcome === "P1"
       ? `YOU WIN GAME ${series.gameNumber}`
@@ -100,17 +202,24 @@ export default function EngineMatchScreen() {
       ? `${botName} WINS GAME ${series.gameNumber}`
       : `GAME ${series.gameNumber} DRAWN`;
   const legOverTitle =
-    series.seriesWinner === "P1" ? "VICTORY — YOU WIN THE LEG" : `DEFEAT — ${botName} WINS THE LEG`;
+    series.seriesWinner === "P1"
+      ? `VICTORY — YOU WIN THE MATCH`
+      : series.seriesWinner === "P2"
+      ? `DEFEAT — ${botName} WINS THE MATCH`
+      : "MATCH DRAWN";
 
   const onCellPress = useCallback(
     (row: number, col: number) => {
+      if (series.phase !== "playing") return;
       if (match.inputEnabled) audio.sfx.place();
       match.placeHuman(row, col);
     },
-    [audio, match],
+    [audio, match, series.phase],
   );
 
   const status = useMemo(() => {
+    if (series.phase === "breaker") return "PROTOCOL BREAKER";
+    if (series.phase === "limitbreaker") return "LIMITBREAKER";
     if (match.result.status === "won") {
       return match.result.winner === "P1" ? "YOU WIN" : `${botName} WINS`;
     }
@@ -125,10 +234,13 @@ export default function EngineMatchScreen() {
     match.current,
     match.result.status,
     match.result.winner,
+    series.phase,
   ]);
 
   const statusTone: "default" | "accent" | "info" | "muted" | "warn" =
     match.botError
+      ? "warn"
+      : series.phase === "breaker" || series.phase === "limitbreaker"
       ? "warn"
       : match.result.status === "won"
       ? match.result.winner === "P1"
@@ -147,7 +259,6 @@ export default function EngineMatchScreen() {
     else router.replace("/engine");
   };
 
-  // ── Syros post-game analysis ──────────────────────────────────
   const [analysis, setAnalysis] = useState<AnalyzeResult | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
   const [showAnalysis, setShowAnalysis] = useState(false);
@@ -159,7 +270,7 @@ export default function EngineMatchScreen() {
     try {
       const res = await analyzeGame({
         boardSize: gridSize,
-        selectedPatterns: patterns ?? defaultPatternsForGrid(gridSize),
+        selectedPatterns: match.activePatterns,
         moves: match.moves.map((m) => ({ player: m.player, row: m.row, col: m.col })),
       });
       setAnalysis(res);
@@ -182,6 +293,7 @@ export default function EngineMatchScreen() {
           <PatternsToggle
             gridSize={gridSize}
             enabled={match.result.status === "playing"}
+            activePatternIds={match.activePatterns}
           />
           <Caption tone="muted">
             G{series.gameNumber} · {gridSize}×{gridSize} · {match.movesPlayed} MV
@@ -194,18 +306,11 @@ export default function EngineMatchScreen() {
           p1Label={clock.p1Label}
           p2Label={clock.p2Label}
           active={clock.active}
-          p1Name="X"
-          p2Name="Y"
+          p1Name={p1Display}
+          p2Name={botName}
         />
       </View>
 
-      <Row justify="between" align="center" style={{ marginTop: space[4] }}>
-        <PlayerTile label={`YOU · ${palette.glyphP1}`} color={palette.p1} active={match.current === "P1" && match.result.status === "playing"} />
-        <PlayerTile label={`${botName} · ${palette.glyphP2}`} color={palette.p2} active={match.current === "P2" && match.result.status === "playing"} />
-      </Row>
-
-      {/* Fixed-height HUD slot so the board never shifts when the
-          center-rule banner / extra-turns badge / spinner appear. */}
       <View style={styles.hudSlot}>
         <CenterRuleBanner
           visible={match.centerRuleHint && match.movesPlayed === 0 && gridSize !== 6}
@@ -219,17 +324,19 @@ export default function EngineMatchScreen() {
               {status}
             </Eyebrow>
           </Row>
-          <Caption tone="muted">{scoreLine}</Caption>
+          <Caption tone="muted" center style={styles.scoreLine}>
+            {scoreLine}
+          </Caption>
         </VStack>
       </View>
 
-      <View style={{ flex: 1, minHeight: 0, justifyContent: "center" }}>
+      <View style={{ flex: 1, minHeight: 0, justifyContent: "center", marginTop: space[2] }}>
         <BoardGrid
           gridSize={gridSize}
           board={match.board}
           lastMove={match.lastMove}
           winningLine={match.result.line}
-          disabled={!match.inputEnabled}
+          disabled={!match.inputEnabled || series.phase !== "playing"}
           onCellPress={onCellPress}
         />
       </View>
@@ -242,11 +349,51 @@ export default function EngineMatchScreen() {
         onAction={handleNextGame}
       />
       <SeriesOverlay
+        visible={series.phase === "leg_transition"}
+        title={`LEVEL UP · ${series.legTransitionLabel ?? "NEXT LEG"}`}
+        subtitle="New board size — new patterns"
+        actionLabel={`START ${series.legTransitionLabel ?? "NEXT LEG"}`}
+        onAction={handleNextGame}
+      />
+      <SeriesOverlay
         visible={series.phase === "over"}
         title={legOverTitle}
-        subtitle={`Final  YOU ${series.p1Points} – ${series.p2Points} ${botName}`}
+        subtitle={`Final  ${p1Display} ${series.p1Points} – ${series.p2Points} ${botName}`}
         actionLabel="PLAY AGAIN"
         onAction={handlePlayAgain}
+      />
+
+      <RulebreakerOverlay
+        visible={breaker.visible}
+        phase={breaker.phase}
+        boardMode={breaker.boardMode}
+        gameNumber={series.gameNumber + 1}
+        mySlot="P1"
+        tossWinner={breaker.tossWinner}
+        coinResult={breaker.coinResult}
+        gridSize={gridForGameNumber(series.gameNumber + 1)}
+        rb6CellChooser={breaker.rb6CellChooser}
+        onTossAction={breaker.handleTossAction}
+      />
+      <LimitbreakerOverlay
+        visible={limitbreaker.visible}
+        phase={limitbreaker.phase}
+        tossWinner={limitbreaker.tossWinner}
+        coinResult={limitbreaker.coinResult}
+        mySlot="P1"
+        nextSlot={limitbreaker.nextSlot}
+        bans={limitbreaker.bans}
+        remainingBoard={limitbreaker.remainingBoard}
+        onPickChoice={limitbreaker.pickChoice}
+        onPickFirst={limitbreaker.pickFirst}
+        onPickBan={limitbreaker.pickBan}
+      />
+      <BotRewardOverlay
+        visible={rewardVisible}
+        botId={botId}
+        xpAwarded={xpAwarded}
+        rewardUnlocked={rewardUnlocked}
+        onDismiss={() => setRewardVisible(false)}
       />
 
       <MoveLogPanel entries={match.moveLog} />
@@ -267,7 +414,7 @@ export default function EngineMatchScreen() {
         </View>
         <View style={{ flex: 1 }}>
           <Btn variant="primary" onPress={handlePlayAgain}>
-            New leg
+            New match
           </Btn>
         </View>
       </Row>
@@ -312,9 +459,9 @@ function SyrosAnalysisModal({
             </Body>
           ) : (
             <View style={{ marginTop: space[4] }}>
-              <AnalysisRow label={`YOU (X)`} s={analysis.summary.P1} />
+              <AnalysisRow label="YOU" s={analysis.summary.P1} />
               <View style={{ height: space[3] }} />
-              <AnalysisRow label={`${botName} (Y)`} s={analysis.summary.P2} />
+              <AnalysisRow label={botName} s={analysis.summary.P2} />
             </View>
           )}
           <View style={{ height: space[4] }} />
@@ -339,41 +486,14 @@ function AnalysisRow({ label, s }: { label: string; s: AnalyzeResult["summary"][
   );
 }
 
-function PlayerTile({
-  label,
-  color,
-  active,
-}: {
-  label: string;
-  color: string;
-  active: boolean;
-}) {
-  return (
-    <View
-      style={[
-        styles.playerTile,
-        { borderColor: active ? color : colors.border, opacity: active ? 1 : 0.6 },
-      ]}
-    >
-      <Caption style={{ color, fontWeight: "800" }}>{label}</Caption>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   hudSlot: {
-    height: 92,
+    minHeight: 72,
     justifyContent: "center",
+    marginTop: space[2],
   },
-  playerTile: {
-    flex: 1,
-    maxWidth: "48%",
-    paddingVertical: space[2],
-    paddingHorizontal: space[3],
-    borderRadius: radii.md,
-    borderWidth: 2,
-    backgroundColor: colors.bgCard,
-    alignItems: "center",
+  scoreLine: {
+    paddingHorizontal: space[2],
   },
 });
 

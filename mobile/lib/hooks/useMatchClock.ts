@@ -8,16 +8,18 @@ export interface MatchClock {
   p1Label: string;
   p2Label: string;
   active: Player7 | null;
-  reset: () => void;
+  reset: (p1Ms?: number, p2Ms?: number) => void;
 }
 
 export function useMatchClock(
   activePlayer: Player7,
   playing: boolean,
   initialMs: number = MATCH_MS_7,
+  initialP2Ms?: number,
 ): MatchClock {
+  const p2Start = initialP2Ms ?? initialMs;
   const [p1Ms, setP1Ms] = useState(initialMs);
-  const [p2Ms, setP2Ms] = useState(initialMs);
+  const [p2Ms, setP2Ms] = useState(p2Start);
   const activeRef = useRef(activePlayer);
   activeRef.current = activePlayer;
 
@@ -31,10 +33,13 @@ export function useMatchClock(
     return () => clearInterval(id);
   }, [playing]);
 
-  const reset = useCallback(() => {
-    setP1Ms(initialMs);
-    setP2Ms(initialMs);
-  }, [initialMs]);
+  const reset = useCallback(
+    (p1?: number, p2?: number) => {
+      setP1Ms(p1 ?? initialMs);
+      setP2Ms(p2 ?? p2Start);
+    },
+    [initialMs, p2Start],
+  );
 
   return {
     p1Ms,

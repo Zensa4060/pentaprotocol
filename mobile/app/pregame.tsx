@@ -116,7 +116,12 @@ export default function PreGameScreen() {
             </Body>
           </>
         ) : (
-          <Title>{displayGrid}×{displayGrid} — get ready</Title>
+          <>
+            <Title>Triple leg — get ready</Title>
+            <Body tone="muted">
+              First to 3 wins · 9 games (5×5 → 6×6 → 7×7) · draws score 0
+            </Body>
+          </>
         )}
         {params.label ? <Body tone="muted">Opponent: {params.label}</Body> : null}
       </VStack>
@@ -140,7 +145,10 @@ export default function PreGameScreen() {
             />
             <RuleLine label="Goal" value="Complete a win pattern below before your opponent" />
             {(mode === "training" || mode === "engine") ? (
-              <RuleLine label="Series" value="BO3 — first to 2 wins, draws score 0" />
+              <RuleLine
+                label="Series"
+                value="Triple leg — first to 3 wins · Rulebreaker G3 · Timebreaker G6 · Mindbreaker G9 · Limitbreaker at 3–3"
+              />
             ) : null}
           </>
         )}

@@ -238,3 +238,27 @@ export async function confirmTwoFa(code: string): Promise<void> {
     throw toApiError(err, "Invalid code — try again.");
   }
 }
+
+// ─── Bot defeat claim ────────────────────────────────────────────────────────
+
+export interface ClaimBotDefeatResult {
+  already_claimed: boolean;
+  xp_awarded: number;
+  reward_unlocked: string | null;
+  profile: User;
+}
+
+/** POST /api/profile/claim-bot-defeat — idempotent XP + unlock on first defeat. */
+export async function claimBotDefeat(botId: string): Promise<ClaimBotDefeatResult> {
+  try {
+    const res = await API.post<ClaimBotDefeatResult>("/api/profile/claim-bot-defeat", {
+      botId: botId.toLowerCase(),
+    });
+    if (res.data.profile) {
+      useAuthStore.getState().setProfile(res.data.profile);
+    }
+    return res.data;
+  } catch (err) {
+    throw toApiError(err, "Could not claim bot defeat reward.");
+  }
+}

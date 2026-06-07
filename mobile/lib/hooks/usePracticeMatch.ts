@@ -10,8 +10,10 @@ import {
   emptyBoard,
   type GridSize,
 } from "@/lib/game/boardConfig";
+import type { GameResetOptions } from "@/lib/hooks/seriesConfig";
 import {
   buildMoveLogEntry,
+  isBlockedCenterOpening,
   resolveTurnAfterMove,
   type MoveLogEntry,
 } from "@/lib/game/matchRules";
@@ -42,8 +44,10 @@ export interface PracticeMatch {
   canUndo: boolean;
   place: (row: number, col: number) => void;
   undo: () => void;
-  /** Start a fresh game. ``starter`` lets the series alternate who opens. */
-  reset: (starter?: Player) => void;
+  /** Start a fresh game — optional breaker / leg reset options. */
+  reset: (starter?: Player, opts?: GameResetOptions) => void;
+  activePatterns: string[];
+  c3Blocked: boolean;
 }
 
 export interface UsePracticeMatchOptions {
@@ -65,13 +69,17 @@ type Snapshot = {
 const INITIAL_RESULT: MatchResult = { status: "playing", winner: null, line: null };
 
 export function usePracticeMatch({
-  gridSize = 5,
+  gridSize: initialGrid = 5,
   patterns: patternsProp,
 }: UsePracticeMatchOptions = {}): PracticeMatch {
-  const patterns = patternsProp ?? defaultPatternsForGrid(gridSize);
-  const center = centerCell(gridSize);
+  const [liveGrid, setLiveGrid] = useState<GridSize>(initialGrid);
+  const [patterns, setPatterns] = useState<string[]>(
+    () => patternsProp ?? defaultPatternsForGrid(initialGrid),
+  );
+  const [c3Blocked, setC3Blocked] = useState(false);
+  const center = centerCell(liveGrid);
 
-  const [board, setBoard] = useState<Board>(() => emptyBoard(gridSize));
+  const [board, setBoard] = useState<Board>(() => emptyBoard(initialGrid));
   const [current, setCurrent] = useState<Player>("P1");
   const [movesPlayed, setMovesPlayed] = useState(0);
   const [lastMove, setLastMove] = useState<Coord | null>(null);
@@ -85,6 +93,7 @@ export function usePracticeMatch({
     (r: number, c: number) => {
       if (result.status !== "playing") return;
       if (board[r]?.[c] !== null) return;
+      if (isBlockedCenterOpening(movesPlayed, r, c, c3Blocked, liveGrid)) return;
 
       undoStack.current.push({
         board: board.map((row) => [...row]),
@@ -100,7 +109,7 @@ export function usePracticeMatch({
       const newBoard = board.map((row) => [...row]);
       newBoard[r][c] = current;
       const newMoves = movesPlayed + 1;
-      const winRes = checkWinForGrid(gridSize, newBoard, r, c, current, newMoves, patterns);
+      const winRes = checkWinForGrid(liveGrid, newBoard, r, c, current, newMoves, patterns);
 
       let nextResult: MatchResult = INITIAL_RESULT;
       if (winRes) {
@@ -130,7 +139,7 @@ export function usePracticeMatch({
           r,
           c,
           extraTurns,
-          gridSize,
+          liveGrid,
         );
         next = turn.next;
         newExtra = turn.extraTurns;
@@ -142,7 +151,7 @@ export function usePracticeMatch({
         r,
         c,
         current,
-        gridSize !== 6 && newMoves === 1 && r === center && c === center,
+        liveGrid !== 6 && newMoves === 1 && r === center && c === center,
       );
 
       setBoard(newBoard);
@@ -157,9 +166,10 @@ export function usePracticeMatch({
       board,
       center,
       centerRuleHint,
+      c3Blocked,
       current,
       extraTurns,
-      gridSize,
+      liveGrid,
       lastMove,
       moveLog,
       movesPlayed,
@@ -181,8 +191,12 @@ export function usePracticeMatch({
     setCenterRuleHint(snap.centerRuleHint);
   }, []);
 
-  const reset = useCallback((starter: Player = "P1") => {
-    setBoard(emptyBoard(gridSize));
+  const reset = useCallback((starter: Player = "P1", opts?: GameResetOptions) => {
+    const grid = opts?.gridSize ?? liveGrid;
+    if (opts?.gridSize) setLiveGrid(opts.gridSize);
+    if (opts?.patterns) setPatterns(opts.patterns);
+    setC3Blocked(opts?.c3Blocked ?? false);
+    setBoard(emptyBoard(grid));
     setCurrent(starter);
     setMovesPlayed(0);
     setLastMove(null);
@@ -191,13 +205,13 @@ export function usePracticeMatch({
     setMoveLog([]);
     setCenterRuleHint(true);
     undoStack.current = [];
-  }, [gridSize]);
+  }, [liveGrid]);
 
   const extraTurnsHolder =
     result.status === "playing" && extraTurns > 0 ? current : null;
 
   return {
-    gridSize,
+    gridSize: liveGrid,
     board,
     current,
     movesPlayed,
@@ -212,5 +226,7 @@ export function usePracticeMatch({
     place,
     undo,
     reset,
+    activePatterns: patterns,
+    c3Blocked,
   };
 }

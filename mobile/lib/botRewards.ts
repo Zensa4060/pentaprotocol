@@ -45,6 +45,12 @@ export const BOT_CHAINS: Record<BotBoardMode, BotId[]> = {
   "7x7": BOT_CHAIN_7X7,
 };
 
+export const ALL_BOT_IDS: BotId[] = [
+  ...BOT_CHAIN_5X5,
+  ...BOT_CHAIN_6X6,
+  ...BOT_CHAIN_7X7,
+];
+
 export const BOTS_5X5: BotCard[] = [
   { id: "baltazar", label: "BALTAZAR", sub: "LEVEL 1", difficulty: "easy", color: "#22C55E" },
   { id: "salazar", label: "SALAZAR", sub: "LEVEL 10", difficulty: "medium", color: "#FFDD00" },
@@ -144,4 +150,35 @@ export function botsForMode(mode: BoardMode | BotBoardMode): BotCard[] {
   if (mode === "6x6") return BOTS_6X6;
   if (mode === "7x7") return BOTS_7X7;
   return BOTS_5X5;
+}
+
+export type BotRewardSlot = "banner" | "coin_toss" | "board_skin" | "syros_skin";
+
+export const BOT_XP_REWARD: Record<BotId, number> = {
+  baltazar: 500,
+  salazar: 1500,
+  jr: 5000,
+  valdorin: 500,
+  eldorin: 1500,
+  him: 5000,
+  seraphina: 500,
+  regina: 1500,
+  her: 5000,
+};
+
+export const REWARD_SLOT_LABEL: Record<BotRewardSlot, string> = {
+  banner: "Free Banner",
+  coin_toss: "Free Coin Toss Skin",
+  board_skin: "Free Board Skin",
+  syros_skin: "Free Board Skin (SYROS)",
+};
+
+export const BOT_REWARD_SLOT: Partial<Record<BotId, BotRewardSlot>> = {
+  jr: "banner",
+  him: "coin_toss",
+  her: "board_skin",
+};
+
+export function rewardSlotForBot(botId: BotId): BotRewardSlot | null {
+  return BOT_REWARD_SLOT[botId] ?? null;
 }
