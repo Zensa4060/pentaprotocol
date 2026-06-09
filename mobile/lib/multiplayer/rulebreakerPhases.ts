@@ -21,9 +21,9 @@ export function isRbPhase(phase: string | null | undefined): phase is RbPhase {
   return !!phase && (RB_PHASES as readonly string[]).includes(phase);
 }
 
-export function breakerTitle(boardMode: string, gameNumber: number): string {
-  const gn = gameNumber;
-  if (gn === 6 || boardMode === "6x6") return "TIMEBREAKER";
-  if (gn === 9 || boardMode === "7x7") return "MINDBREAKER";
-  return "RULEBREAKER";
+export function breakerTitle(_boardMode: string, gameNumber: number): string {
+  if (gameNumber === 6) return "TIMEBREAKER";
+  if (gameNumber === 9) return "MINDBREAKER";
+  if (gameNumber === 3) return "RULEBREAKER";
+  return "PROTOCOL BREAKER";
 }

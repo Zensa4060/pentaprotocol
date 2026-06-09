@@ -3,16 +3,15 @@
  */
 
 import { router, Stack, useLocalSearchParams } from "expo-router";
-import { useCallback, useMemo } from "react";
-import { Pressable, StyleSheet, View } from "react-native";
+import { useCallback, useEffect, useMemo } from "react";
+import { Pressable, StyleSheet, useWindowDimensions, View } from "react-native";
 
 import { BoardGrid } from "@/components/game/BoardGrid";
 import { LimitbreakerOverlay } from "@/components/game/LimitbreakerOverlay";
+import { MatchStatusHud } from "@/components/game/MatchStatusHud";
 import { PatternsToggle } from "@/components/game/PatternsToggle";
 import { RulebreakerOverlay } from "@/components/game/RulebreakerOverlay";
 import {
-  CenterRuleBanner,
-  ExtraTurnsBadge,
   MatchClockRow,
   MoveLogPanel,
   SeriesOverlay,
@@ -20,15 +19,12 @@ import {
 import {
   Btn,
   Caption,
-  Eyebrow,
   Row,
   Screen,
-  Stack as VStack,
 } from "@/components/ui";
 import { useGameAudio } from "@/lib/audio/AudioProvider";
-import {
-  matchMsForGrid,
-} from "@/lib/game/boardConfig";
+import { boardSideForGrid } from "@/lib/game/boardLayout";
+import { matchMsForGrid } from "@/lib/game/boardConfig";
 import { pieceGlyph } from "@/lib/game/matchRules";
 import { useLocalLimitbreaker } from "@/lib/hooks/useLocalLimitbreaker";
 import { useLocalRulebreaker } from "@/lib/hooks/useLocalRulebreaker";
@@ -44,7 +40,6 @@ import {
   clockMsForGameReset,
   gridForGameNumber,
   patternsForLeg,
-  seriesScoreLine,
   type SeriesPlayer,
 } from "@/lib/hooks/seriesConfig";
 import { useTripleLegSeries } from "@/lib/hooks/useTripleLegSeries";
@@ -58,11 +53,16 @@ const P2_LABEL = "PLAYER 2";
 export default function TrainingPracticeScreen() {
   const params = useLocalSearchParams<{ grid?: string; patterns?: string }>();
   const palette = usePalette();
+  const { width: screenWidth } = useWindowDimensions();
   const username = useAuthStore((s) => s.user?.username);
   const picked5 = params.patterns ? params.patterns.split(",").filter(Boolean) : undefined;
 
   const match = usePracticeMatch({ gridSize: 5, patterns: picked5 });
   const gridSize = match.gridSize;
+  const boardSide = useMemo(
+    () => boardSideForGrid(gridSize, screenWidth),
+    [gridSize, screenWidth],
+  );
 
   const clock = useMatchClock(
     match.current,
@@ -98,12 +98,18 @@ export default function TrainingPracticeScreen() {
     [match, series],
   );
 
+  const nextGn = series.phase === "breaker" ? series.gameNumber + 1 : series.gameNumber;
+  const breakerPatterns = useMemo(
+    () => patternsForLeg(nextGn, picked5),
+    [nextGn, picked5?.join("|")],
+  );
+
   const breaker = useLocalRulebreaker({
     active: series.phase === "breaker",
-    gridSize: gridForGameNumber(series.gameNumber + 1),
-    gameNumber: series.gameNumber + 1,
-    boardMode: boardModeForGameNumber(series.gameNumber + 1),
-    patterns: patternsForLeg(series.gameNumber + 1, picked5),
+    gridSize: gridForGameNumber(nextGn),
+    gameNumber: nextGn,
+    boardMode: boardModeForGameNumber(nextGn),
+    patterns: breakerPatterns,
     botMode: false,
     onComplete: onBreakerComplete,
   });
@@ -150,7 +156,7 @@ export default function TrainingPracticeScreen() {
     series.lastOutcome === "DRAW"
       ? `GAME ${series.gameNumber} DRAWN`
       : `${lastGlyph} WINS GAME ${series.gameNumber}`;
-  const scoreLine = `${palette.glyphP1} ${series.p1Points} – ${series.p2Points} ${palette.glyphP2} · ${seriesScoreLine(series.p1Points, series.p2Points)}`;
+  const scoreLine = `${p1Display} ${series.p1Points} – ${series.p2Points} ${p2Display} · first to 3`;
 
   const onCellPress = useCallback(
     (row: number, col: number) => {
@@ -194,8 +200,11 @@ export default function TrainingPracticeScreen() {
     series.resetSeries();
   };
 
-  const rbMySlot =
-    breaker.tossWinner === "P2" ? "P2" : breaker.tossWinner === "P1" ? "P1" : "P1";
+  useEffect(() => {
+    const ms = matchMsForGrid(gridSize);
+    clock.reset(ms, ms);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gridSize]);
 
   return (
     <Screen padded background={palette.bg}>
@@ -227,23 +236,20 @@ export default function TrainingPracticeScreen() {
         />
       </View>
 
-      <View style={styles.hudSlot}>
-        <CenterRuleBanner
-          visible={match.centerRuleHint && match.movesPlayed === 0 && gridSize !== 6}
-          gridSize={gridSize}
-        />
-        <ExtraTurnsBadge count={match.extraTurns} player={match.extraTurnsHolder} />
-        <VStack gap={1} align="center" style={{ marginTop: space[2] }}>
-          <Eyebrow tone={statusTone}>{status}</Eyebrow>
-          <Caption tone="muted" center style={styles.scoreLine}>
-            {scoreLine}
-          </Caption>
-        </VStack>
-      </View>
+      <MatchStatusHud
+        gridSize={gridSize}
+        showCenterBanner={match.centerRuleHint && match.movesPlayed === 0 && gridSize !== 6}
+        extraTurns={match.extraTurns}
+        extraPlayer={match.extraTurnsHolder}
+        status={status}
+        statusTone={statusTone}
+        scoreLine={scoreLine}
+      />
 
-      <View style={{ flex: 1, minHeight: 0, justifyContent: "center", marginTop: space[2] }}>
+      <View style={[styles.boardSlot, { height: boardSide }]}>
         <BoardGrid
           gridSize={gridSize}
+          sideLength={boardSide}
           board={match.board}
           lastMove={match.lastMove}
           winningLine={match.result.line}
@@ -284,12 +290,14 @@ export default function TrainingPracticeScreen() {
         visible={breaker.visible}
         phase={breaker.phase}
         boardMode={breaker.boardMode}
-        gameNumber={series.gameNumber + 1}
-        mySlot={rbMySlot}
+        gameNumber={nextGn}
+        mySlot="P1"
         tossWinner={breaker.tossWinner}
         coinResult={breaker.coinResult}
-        gridSize={gridForGameNumber(series.gameNumber + 1)}
+        gridSize={gridForGameNumber(nextGn)}
         rb6CellChooser={breaker.rb6CellChooser}
+        localOffline
+        onDismiss={goBack}
         onTossAction={breaker.handleTossAction}
       />
       <LimitbreakerOverlay
@@ -330,12 +338,9 @@ export default function TrainingPracticeScreen() {
 }
 
 const styles = StyleSheet.create({
-  hudSlot: {
-    minHeight: 72,
+  boardSlot: {
+    alignItems: "center",
     justifyContent: "center",
-    marginTop: space[2],
-  },
-  scoreLine: {
-    paddingHorizontal: space[2],
+    alignSelf: "center",
   },
 });

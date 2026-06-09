@@ -88,6 +88,31 @@ export interface MatchSocket {
   close: () => void;
 }
 
+/** Block until the socket is open (queue liveness) or timeout. */
+export function waitForSocketOpen(socket: MatchSocket, timeoutMs = 12_000): Promise<void> {
+  if (socket.status() === "open") return Promise.resolve();
+  return new Promise((resolve, reject) => {
+    const start = Date.now();
+    const tick = () => {
+      const st = socket.status();
+      if (st === "open") {
+        resolve();
+        return;
+      }
+      if (st === "rejected" || st === "disconnected") {
+        reject(new Error(`Socket ${st}`));
+        return;
+      }
+      if (Date.now() - start > timeoutMs) {
+        reject(new Error("Socket open timeout"));
+        return;
+      }
+      setTimeout(tick, 120);
+    };
+    tick();
+  });
+}
+
 /**
  * Open and manage a single room WebSocket.
  *

@@ -19,8 +19,8 @@
  */
 
 import { router, Stack, useLocalSearchParams } from "expo-router";
-import { useEffect, useRef } from "react";
-import { Alert, BackHandler, Pressable, StyleSheet, View } from "react-native";
+import { useEffect, useMemo, useRef } from "react";
+import { Alert, BackHandler, Pressable, StyleSheet, useWindowDimensions, View } from "react-native";
 
 import {
   Body,
@@ -41,6 +41,7 @@ import { isRbPhase } from "@/lib/multiplayer/rulebreakerPhases";
 import { useGameAudio } from "@/lib/audio/AudioProvider";
 import { legBoardLabel, legGameIndex } from "@/lib/audio/series";
 import { emptyBoard, gridFromBoardMode } from "@/lib/game/boardConfig";
+import { boardSideForGrid } from "@/lib/game/boardLayout";
 import type { Coord } from "@/lib/game/winCheck";
 import {
   useMatchGameBgm,
@@ -76,8 +77,14 @@ export default function MultiplayerMatch() {
 
   const audio = useGameAudio();
   const palette = usePalette();
+  const { width: screenWidth } = useWindowDimensions();
   useMatchGameBgm();
   const prevGameStatus = useRef<string | null>(null);
+  const gridSize = room ? gridFromBoardMode(room.board_mode) : 5;
+  const boardSide = useMemo(
+    () => boardSideForGrid(gridSize, screenWidth),
+    [gridSize, screenWidth],
+  );
 
   // ── Android hardware-back guard ───────────────────────────
   // Mid-match back press is a really common foot-gun on Android.
@@ -167,7 +174,6 @@ export default function MultiplayerMatch() {
   const gameOver = room.game_status === "finished";
   const seriesOver = room.series_winner !== null;
   const legLabel = `G${legGameIndex(room.game_number)} · ${legBoardLabel(room.board_mode)}`;
-  const gridSize = gridFromBoardMode(room.board_mode);
 
   return (
     <Screen padded background={palette.bg}>
@@ -210,22 +216,27 @@ export default function MultiplayerMatch() {
 
       {/* ── Status banner + error (fixed slot so the board stays put) ── */}
       <View style={styles.hudSlot}>
-        <View style={styles.statusBar}>
-          <Eyebrow tone={statusToneFor(room, slot, status)}>
+        <View style={styles.statusRow}>
+          <Eyebrow tone={statusToneFor(room, slot, status)} numberOfLines={1}>
             {statusLabelFor(room, slot, status)}
           </Eyebrow>
         </View>
-        {lastError ? (
-          <View style={styles.errorToast}>
-            <Caption tone="danger">{lastError}</Caption>
-          </View>
-        ) : null}
+        <View style={styles.errorRow}>
+          {lastError ? (
+            <View style={styles.errorToast}>
+              <Caption tone="danger" numberOfLines={1}>
+                {lastError}
+              </Caption>
+            </View>
+          ) : null}
+        </View>
       </View>
 
       {/* ── Board ─────────────────────────────────────────────── */}
-      <View style={{ flex: 1, minHeight: 0, justifyContent: "center" }}>
+      <View style={[styles.boardSlot, { height: boardSide }]}>
         <BoardGrid
           gridSize={gridSize}
+          sideLength={boardSide}
           board={room.board ?? emptyBoard(gridSize)}
           lastMove={lastMoveOf(room)}
           winningLine={null /* server doesn't currently send a stable line for the seated state */}
@@ -487,14 +498,29 @@ function statusToneFor(
 
 const styles = StyleSheet.create({
   hudSlot: {
-    height: 76,
-    justifyContent: "center",
+    height: 116,
+    marginTop: space[2],
+    marginBottom: space[3],
+    justifyContent: "flex-start",
   },
-  statusBar: {
+  statusRow: {
+    height: 52,
+    justifyContent: "center",
     alignItems: "center",
+    paddingHorizontal: space[2],
+  },
+  errorRow: {
+    height: 38,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: space[2],
+  },
+  boardSlot: {
+    alignItems: "center",
+    justifyContent: "center",
+    alignSelf: "center",
   },
   errorToast: {
-    marginTop: space[2],
     paddingVertical: space[2],
     paddingHorizontal: space[3],
     backgroundColor: colors.bgCard,
@@ -502,6 +528,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: radii.md,
     alignSelf: "center",
+    maxWidth: "100%",
   },
   playerCard: {
     flex: 1,

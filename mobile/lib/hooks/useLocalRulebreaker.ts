@@ -1,10 +1,9 @@
 /**
  * Offline Protocol Breaker state machine (Rulebreaker / Timebreaker /
- * Mindbreaker). P1 hosts the coin toss; bot (P2) auto-picks when it is
- * the toss winner or active chooser.
+ * Mindbreaker). Hosts coin toss locally; bot (P2) auto-picks on its turns.
  */
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import type { GridSize } from "@/lib/game/boardConfig";
 import { clockMsForGameReset } from "@/lib/hooks/seriesConfig";
@@ -35,7 +34,6 @@ interface UseLocalRulebreakerOptions {
   gameNumber: number;
   boardMode: string;
   patterns: string[];
-  /** When true, P2 (bot) makes random choices on its turns. */
   botMode: boolean;
   onComplete: (outcome: RulebreakerOutcome) => void;
 }
@@ -49,12 +47,18 @@ export function useLocalRulebreaker({
   botMode,
   onComplete,
 }: UseLocalRulebreakerOptions) {
+  const patternsKey = useMemo(() => patterns.join("|"), [patterns]);
+  const patternsRef = useRef(patterns);
+  patternsRef.current = patterns;
+
   const [phase, setPhase] = useState<RbPhase | null>(null);
   const [tossWinner, setTossWinner] = useState<PlayerSlot | null>(null);
   const [coinResult, setCoinResult] = useState<"PENTA" | "PROTO" | null>(null);
   const [rb6CellChooser, setRb6CellChooser] = useState<PlayerSlot | null>(null);
   const stateRef = useRef<LocalRbState | null>(null);
   const completedRef = useRef(false);
+  const splashDoneRef = useRef(false);
+  const coinDoneRef = useRef(false);
 
   useEffect(() => {
     if (!active) {
@@ -64,9 +68,14 @@ export function useLocalRulebreaker({
       setRb6CellChooser(null);
       stateRef.current = null;
       completedRef.current = false;
+      splashDoneRef.current = false;
+      coinDoneRef.current = false;
       return;
     }
     completedRef.current = false;
+    splashDoneRef.current = false;
+    coinDoneRef.current = false;
+    const pats = [...patternsRef.current];
     stateRef.current = {
       phase: "rb_splash",
       tossWinner: null,
@@ -77,13 +86,14 @@ export function useLocalRulebreaker({
       rb6TimerOwner: null,
       rb6CellChooser: null,
       rb6SpecialCell: null,
-      activePatterns: [...patterns],
+      activePatterns: pats,
     };
     setPhase("rb_splash");
     setTossWinner(null);
     setCoinResult(null);
     setRb6CellChooser(null);
-  }, [active, gameNumber, patterns]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active, gameNumber, patternsKey]);
 
   const finish = useCallback(
     (state: LocalRbState) => {
@@ -95,7 +105,7 @@ export function useLocalRulebreaker({
         reset: {
           starter: state.firstPlayer,
           gridSize,
-          patterns: filtered.length > 0 ? filtered : patterns,
+          patterns: filtered.length > 0 ? filtered : patternsRef.current,
           c3Blocked: state.c3Blocked,
           p1ClockMs: clocks.p1,
           p2ClockMs: clocks.p2,
@@ -103,7 +113,7 @@ export function useLocalRulebreaker({
       });
       setPhase(null);
     },
-    [gameNumber, gridSize, onComplete, patterns],
+    [gameNumber, gridSize, onComplete],
   );
 
   const applyPayload = useCallback((payload: Record<string, unknown>) => {
@@ -123,7 +133,7 @@ export function useLocalRulebreaker({
     if (typeof payload.rbC3Blocked === "boolean") s.c3Blocked = payload.rbC3Blocked;
     if (Array.isArray(payload.rb_banned_patterns)) {
       s.bannedPatterns = payload.rb_banned_patterns as string[];
-      s.activePatterns = patterns.filter((p) => !s.bannedPatterns.includes(p));
+      s.activePatterns = patternsRef.current.filter((p) => !s.bannedPatterns.includes(p));
     }
     if (payload.rb6TimerOwner === "P1" || payload.rb6TimerOwner === "P2") {
       s.rb6TimerOwner = payload.rb6TimerOwner;
@@ -146,10 +156,10 @@ export function useLocalRulebreaker({
       s.phase = payload.phase;
       setPhase(payload.phase);
       if (payload.phase === "toss_summary") {
-        setTimeout(() => finish(s), 1200);
+        setTimeout(() => finish(s), 1400);
       }
     }
-  }, [finish, patterns]);
+  }, [finish]);
 
   const handleTossAction = useCallback(
     (action: string, payload: Record<string, unknown> = {}) => {
@@ -180,37 +190,38 @@ export function useLocalRulebreaker({
     [applyPayload, finish],
   );
 
-  // Bot auto-picks on P2's decision turns (mirrors web GameScreen bot RB effect).
+  // Host coin toss locally (do not depend on RulebreakerOverlay mySlot === P1).
   useEffect(() => {
-    if (!active || !botMode || !phase || phase === "rb_splash" || phase === "rb_coin") return;
-    const s = stateRef.current;
-    if (!s) return;
-    const tw = s.tossWinner;
-    const tl = tw === "P1" ? "P2" : tw === "P2" ? "P1" : null;
-    const chooser6 = s.rb6CellChooser ?? tw;
+    if (!active || phase !== "rb_splash" || splashDoneRef.current) return;
+    const t = setTimeout(() => {
+      splashDoneRef.current = true;
+      handleTossAction("start_rb", {});
+    }, 700);
+    return () => clearTimeout(t);
+  }, [active, phase, handleTossAction]);
 
-    const winnerPhases: RbPhase[] = [
-      "rule_choice",
-      "who_first_winner",
-      "c3_choice",
-      "ban_pattern_winner",
-    ];
-    const loserPhases: RbPhase[] = [
-      "c3_choice_loser",
-      "who_first_loser",
-      "ban_pattern_loser",
-    ];
+  useEffect(() => {
+    if (!active || phase !== "rb_coin" || coinResult || coinDoneRef.current) return;
+    const t = setTimeout(() => {
+      coinDoneRef.current = true;
+      const r = Math.random() < 0.5 ? "PENTA" : "PROTO";
+      handleTossAction("coin_result", {
+        result: r,
+        toss_winner: r === "PENTA" ? "P1" : "P2",
+      });
+    }, 2800);
+    return () => clearTimeout(t);
+  }, [active, phase, coinResult, handleTossAction]);
 
-    const botTurn =
-      (winnerPhases.includes(phase) && tw === "P2") ||
-      (loserPhases.includes(phase) && tl === "P2") ||
-      ((phase === "grid_block_warning" || phase === "grid_block_selection") && chooser6 === "P2");
+  const randomPick = useCallback(
+    (p: RbPhase) => {
+      const s = stateRef.current;
+      if (!s) return;
+      const tw = s.tossWinner;
+      const tl = tw === "P1" ? "P2" : tw === "P2" ? "P1" : null;
+      const chooser6 = s.rb6CellChooser ?? tw;
 
-    if (!botTurn) return;
-
-    const delay = 900 + Math.random() * 900;
-    const timer = setTimeout(() => {
-      if (phase === "grid_block_warning") {
+      if (p === "grid_block_warning") {
         handleTossAction("phase_choice", {
           phase: "grid_block_selection",
           rb6TimerOwner: tw,
@@ -219,7 +230,7 @@ export function useLocalRulebreaker({
         });
         return;
       }
-      if (phase === "grid_block_selection") {
+      if (p === "grid_block_selection") {
         handleTossAction("phase_choice", {
           phase: "toss_summary",
           rb6_special_cell: {
@@ -231,22 +242,21 @@ export function useLocalRulebreaker({
         });
         return;
       }
-      if (phase === "ban_pattern_winner" || phase === "ban_pattern_loser") {
-        const avail = s.activePatterns.filter((p) => !s.bannedPatterns.includes(p));
+      if (p === "ban_pattern_winner" || p === "ban_pattern_loser") {
+        const avail = s.activePatterns.filter((x) => !s.bannedPatterns.includes(x));
         if (!avail.length) return;
         const pick = avail[Math.floor(Math.random() * avail.length)]!;
         const next = [...s.bannedPatterns, pick];
         const limit = gridSize === 7 ? 2 : 1;
         handleTossAction("phase_choice", {
-          phase: next.length >= limit ? "who_first_loser" : phase,
+          phase: next.length >= limit ? "who_first_loser" : p,
           rb_banned_patterns: next,
         });
         return;
       }
 
-      // Generic left/right pick — delegate through overlay-equivalent payloads
       const side = Math.random() < 0.5 ? "left" : "right";
-      if (phase === "rule_choice") {
+      if (p === "rule_choice") {
         if (gridSize === 7) {
           handleTossAction("phase_choice", {
             phase: side === "left" ? "ban_pattern_loser" : "ban_pattern_winner",
@@ -276,7 +286,7 @@ export function useLocalRulebreaker({
         }
         return;
       }
-      if (phase === "who_first_winner" && tw) {
+      if (p === "who_first_winner" && tw) {
         const fp = side === "left" ? tw : tl;
         if (gridSize === 6) {
           const forcedOther = tw === "P1" ? "P2" : "P1";
@@ -294,7 +304,7 @@ export function useLocalRulebreaker({
         }
         return;
       }
-      if (phase === "c3_choice") {
+      if (p === "c3_choice") {
         handleTossAction("phase_choice", {
           phase: "who_first_loser",
           rbC3Blocked: side === "left",
@@ -302,7 +312,7 @@ export function useLocalRulebreaker({
         });
         return;
       }
-      if (phase === "c3_choice_loser") {
+      if (p === "c3_choice_loser") {
         handleTossAction("phase_choice", {
           phase: "toss_summary",
           rbC3Blocked: side === "left",
@@ -310,7 +320,7 @@ export function useLocalRulebreaker({
         });
         return;
       }
-      if (phase === "who_first_loser" && tl) {
+      if (p === "who_first_loser" && tl) {
         const fp = side === "left" ? tl : tw;
         handleTossAction("phase_choice", {
           phase: "toss_summary",
@@ -318,10 +328,47 @@ export function useLocalRulebreaker({
           summaryTimer: 5,
         });
       }
-    }, delay);
+    },
+    [gridSize, handleTossAction],
+  );
 
+  // Bot auto-picks on P2 turns; pass-and-play uses 30s timeout per choice phase.
+  useEffect(() => {
+    if (!active || !phase || phase === "rb_splash" || phase === "rb_coin" || phase === "toss_summary") {
+      return;
+    }
+    const s = stateRef.current;
+    if (!s) return;
+    const tw = s.tossWinner;
+    const tl = tw === "P1" ? "P2" : tw === "P2" ? "P1" : null;
+    const chooser6 = s.rb6CellChooser ?? tw;
+
+    const winnerPhases: RbPhase[] = [
+      "rule_choice",
+      "who_first_winner",
+      "c3_choice",
+      "ban_pattern_winner",
+    ];
+    const loserPhases: RbPhase[] = [
+      "c3_choice_loser",
+      "who_first_loser",
+      "ban_pattern_loser",
+    ];
+
+    const needsBot =
+      botMode &&
+      ((winnerPhases.includes(phase) && tw === "P2") ||
+        (loserPhases.includes(phase) && tl === "P2") ||
+        ((phase === "grid_block_warning" || phase === "grid_block_selection") && chooser6 === "P2"));
+
+    const needsTimeout = !botMode;
+
+    if (!needsBot && !needsTimeout) return;
+
+    const delay = needsBot ? 900 + Math.random() * 900 : 30_000;
+    const timer = setTimeout(() => randomPick(phase), delay);
     return () => clearTimeout(timer);
-  }, [active, botMode, gridSize, handleTossAction, phase]);
+  }, [active, botMode, phase, randomPick]);
 
   return {
     visible: active && phase !== null,

@@ -3,7 +3,7 @@
  * Payload keys align with web ``GameScreen`` / backend ``room.py``.
  */
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import {
   Modal,
   Pressable,
@@ -29,6 +29,9 @@ interface RulebreakerOverlayProps {
   coinResult: "PENTA" | "PROTO" | null;
   gridSize: GridSize;
   rb6CellChooser?: PlayerSlot | null;
+  /** Pass-and-play / local — either player can tap on their turn. */
+  localOffline?: boolean;
+  onDismiss?: () => void;
   onTossAction: (action: string, payload: Record<string, unknown>) => void;
 }
 
@@ -42,13 +45,22 @@ export function RulebreakerOverlay({
   coinResult,
   gridSize,
   rb6CellChooser,
+  localOffline = false,
+  onDismiss,
   onTossAction,
 }: RulebreakerOverlayProps) {
   const title = breakerTitle(boardMode, gameNumber);
-  const isWinner = tossWinner === mySlot;
   const tossLoser = tossWinner === "P1" ? "P2" : tossWinner === "P2" ? "P1" : null;
-  const splashSent = useRef(false);
-  const coinSent = useRef(false);
+  const activeChooser: PlayerSlot | null =
+    phase === "c3_choice_loser" || phase === "who_first_loser" || phase === "ban_pattern_loser"
+      ? tossLoser
+      : phase === "grid_block_warning" || phase === "grid_block_selection"
+      ? rb6CellChooser ?? tossWinner
+      : tossWinner;
+  const canAct = localOffline
+    ? activeChooser !== null
+    : tossWinner === mySlot || (tossLoser === mySlot && (phase.includes("loser") || phase === "c3_choice_loser"));
+  const isWinner = localOffline ? activeChooser === tossWinner : tossWinner === mySlot;
   const [choiceTimer, setChoiceTimer] = useState(30);
   const [bannedSoFar, setBannedSoFar] = useState<string[]>([]);
 
@@ -57,36 +69,6 @@ export function RulebreakerOverlay({
       setBannedSoFar([]);
     }
   }, [phase]);
-
-  useEffect(() => {
-    if (!visible || phase !== "rb_splash") {
-      splashSent.current = false;
-      return;
-    }
-    if (mySlot !== "P1" || splashSent.current) return;
-    const t = setTimeout(() => {
-      splashSent.current = true;
-      onTossAction("start_rb", {});
-    }, 800);
-    return () => clearTimeout(t);
-  }, [visible, phase, mySlot, onTossAction]);
-
-  useEffect(() => {
-    if (!visible || phase !== "rb_coin" || coinResult) {
-      coinSent.current = false;
-      return;
-    }
-    if (mySlot !== "P1" || coinSent.current) return;
-    const t = setTimeout(() => {
-      coinSent.current = true;
-      const r = Math.random() < 0.5 ? "PENTA" : "PROTO";
-      onTossAction("coin_result", {
-        result: r,
-        toss_winner: r === "PENTA" ? "P1" : "P2",
-      });
-    }, 3500);
-    return () => clearTimeout(t);
-  }, [visible, phase, coinResult, mySlot, onTossAction]);
 
   useEffect(() => {
     if (phase === "rule_choice" || phase.startsWith("ban_") || phase.startsWith("who_") || phase.startsWith("c3_") || phase.startsWith("grid_block")) {
@@ -217,7 +199,7 @@ export function RulebreakerOverlay({
         </Caption>
       </>
     );
-  } else if (phase === "rule_choice" && isWinner) {
+  } else if (phase === "rule_choice" && (localOffline ? canAct && isWinner : isWinner)) {
     body = (
       <>
         <Heading>Your choice · {choiceTimer}s</Heading>
@@ -247,7 +229,7 @@ export function RulebreakerOverlay({
     );
   } else if (phase === "rule_choice") {
     body = <Caption tone="muted">Waiting for toss winner to choose…</Caption>;
-  } else if (phase === "who_first_winner" && isWinner) {
+  } else if (phase === "who_first_winner" && (localOffline ? canAct && isWinner : isWinner)) {
     body = (
       <>
         <Heading>Who goes first? · {choiceTimer}s</Heading>
@@ -259,7 +241,7 @@ export function RulebreakerOverlay({
         />
       </>
     );
-  } else if (phase === "c3_choice" && isWinner) {
+  } else if (phase === "c3_choice" && (localOffline ? canAct && isWinner : isWinner)) {
     body = (
       <>
         <Heading>Center rule · {choiceTimer}s</Heading>
@@ -271,7 +253,7 @@ export function RulebreakerOverlay({
         />
       </>
     );
-  } else if (phase === "c3_choice_loser" && tossLoser === mySlot) {
+  } else if (phase === "c3_choice_loser" && (localOffline ? canAct : tossLoser === mySlot)) {
     body = (
       <>
         <Heading>Center rule · {choiceTimer}s</Heading>
@@ -283,7 +265,7 @@ export function RulebreakerOverlay({
         />
       </>
     );
-  } else if (phase === "who_first_loser" && tossLoser === mySlot) {
+  } else if (phase === "who_first_loser" && (localOffline ? canAct : tossLoser === mySlot)) {
     body = (
       <>
         <Heading>Who goes first? · {choiceTimer}s</Heading>
@@ -295,7 +277,7 @@ export function RulebreakerOverlay({
         />
       </>
     );
-  } else if (phase === "grid_block_warning" && (rb6CellChooser ?? tossWinner) === mySlot) {
+  } else if (phase === "grid_block_warning" && (localOffline ? canAct : (rb6CellChooser ?? tossWinner) === mySlot)) {
     body = (
       <>
         <Heading>Timer halved · pick trap cell next</Heading>
@@ -307,7 +289,7 @@ export function RulebreakerOverlay({
         </View>
       </>
     );
-  } else if (phase === "grid_block_selection" && (rb6CellChooser ?? tossWinner) === mySlot) {
+  } else if (phase === "grid_block_selection" && (localOffline ? canAct : (rb6CellChooser ?? tossWinner) === mySlot)) {
     body = (
       <>
         <Heading>Pick trap cell · {choiceTimer}s</Heading>
@@ -316,8 +298,8 @@ export function RulebreakerOverlay({
       </>
     );
   } else if (
-    (phase === "ban_pattern_winner" && isWinner) ||
-    (phase === "ban_pattern_loser" && tossLoser === mySlot)
+    (phase === "ban_pattern_winner" && (localOffline ? canAct && isWinner : isWinner)) ||
+    (phase === "ban_pattern_loser" && (localOffline ? canAct : tossLoser === mySlot))
   ) {
     body = (
       <View style={{ gap: space[2], width: "100%" }}>
@@ -361,11 +343,18 @@ export function RulebreakerOverlay({
   }
 
   return (
-    <Modal visible={visible} animationType="fade" transparent>
+    <Modal visible={visible} animationType="fade" transparent onRequestClose={onDismiss}>
       <View style={styles.backdrop}>
         <View style={styles.card}>
           <Eyebrow tone="accent">{title}</Eyebrow>
           {body}
+          {localOffline && onDismiss ? (
+            <View style={{ marginTop: space[4], width: "100%" }}>
+              <Btn variant="secondary" onPress={onDismiss}>
+                Back to menu
+              </Btn>
+            </View>
+          ) : null}
         </View>
       </View>
     </Modal>

@@ -24,6 +24,11 @@ export function useMatchClock(
   activeRef.current = activePlayer;
 
   useEffect(() => {
+    setP1Ms(initialMs);
+    setP2Ms(initialP2Ms ?? initialMs);
+  }, [initialMs, initialP2Ms]);
+
+  useEffect(() => {
     if (!playing) return;
     const id = setInterval(() => {
       const who = activeRef.current;

@@ -26,7 +26,7 @@ import {
   QueueError,
 } from "@/lib/multiplayer/queue";
 import type { PlayerSlot, RoomFormat } from "@/lib/multiplayer/types";
-import { openMatchSocket, type MatchSocket } from "@/lib/multiplayer/ws";
+import { openMatchSocket, waitForSocketOpen, type MatchSocket } from "@/lib/multiplayer/ws";
 import { colors, radii, space } from "@/theme/tokens";
 
 export default function MatchmakingQueueScreen() {
@@ -133,6 +133,11 @@ export default function MatchmakingQueueScreen() {
           onMessage: () => undefined,
           onStatus: () => undefined,
         });
+        try {
+          await waitForSocketOpen(socketRef.current);
+        } catch {
+          /* global notify may still satisfy liveness; keep polling */
+        }
 
         pollRef.current = setInterval(async () => {
           const code = roomCodeRef.current;

@@ -109,8 +109,6 @@ export function clockMsForGameReset(
   const base = matchMsForGrid(grid);
   let p1 = base;
   let p2 = base;
-  if (grid === 6 && gameNumber === 3 && rb6TimerOwner === "P1") p1 = TIMEBREAKER_CUT_MS;
-  if (grid === 6 && gameNumber === 3 && rb6TimerOwner === "P2") p2 = TIMEBREAKER_CUT_MS;
   if (grid === 6 && gameNumber === 6 && rb6TimerOwner === "P1") p1 = TIMEBREAKER_CUT_MS;
   if (grid === 6 && gameNumber === 6 && rb6TimerOwner === "P2") p2 = TIMEBREAKER_CUT_MS;
   return { p1, p2 };

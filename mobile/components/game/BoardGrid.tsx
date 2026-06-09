@@ -33,6 +33,8 @@ export interface BoardGridProps {
   winningLine?: Coord[] | null;
   onCellPress?: (row: number, col: number) => void;
   disabled?: boolean;
+  /** Lock total square side (px) — stops relayout when HUD above changes. */
+  sideLength?: number;
   style?: StyleProp<ViewStyle>;
 }
 
@@ -43,14 +45,22 @@ export function BoardGrid({
   winningLine,
   onCellPress,
   disabled = false,
+  sideLength,
   style,
 }: BoardGridProps) {
   const palette = usePalette();
-  const [size, setSize] = useState(0);
+  const locked = sideLength != null && sideLength > 0;
+  const [measured, setMeasured] = useState(0);
+  const size = locked ? sideLength! : measured;
+
+  useEffect(() => {
+    if (locked) setMeasured(sideLength!);
+  }, [locked, sideLength]);
 
   const handleLayout = (e: LayoutChangeEvent) => {
+    if (locked) return;
     const next = Math.min(e.nativeEvent.layout.width, e.nativeEvent.layout.height);
-    if (next !== size && next > 0) setSize(next);
+    if (next !== measured && next > 0) setMeasured(next);
   };
 
   // The square is split into a label gutter (top + left) and the board.
@@ -69,7 +79,14 @@ export function BoardGrid({
   const colLabels = Array.from({ length: gridSize }, (_, i) => String.fromCharCode(65 + i));
 
   return (
-    <View style={[styles.boardWrap, style]} onLayout={handleLayout}>
+    <View
+      style={[
+        styles.boardWrap,
+        locked && size > 0 ? { width: size, height: size, flex: undefined } : null,
+        style,
+      ]}
+      onLayout={locked ? undefined : handleLayout}
+    >
       {size > 0 ? (
         <View style={{ width: size, height: size }}>
           {/* ── Column labels (A–E) ── */}

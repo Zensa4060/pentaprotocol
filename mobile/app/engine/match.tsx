@@ -4,16 +4,15 @@
 
 import { router, Stack, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Image, Modal, Pressable, StyleSheet, View } from "react-native";
+import { Image, Modal, Pressable, StyleSheet, useWindowDimensions, View } from "react-native";
 
 import { BotRewardOverlay } from "@/components/game/BotRewardOverlay";
 import { BoardGrid } from "@/components/game/BoardGrid";
 import { LimitbreakerOverlay } from "@/components/game/LimitbreakerOverlay";
+import { MatchStatusHud } from "@/components/game/MatchStatusHud";
 import { PatternsToggle } from "@/components/game/PatternsToggle";
 import { RulebreakerOverlay } from "@/components/game/RulebreakerOverlay";
 import {
-  CenterRuleBanner,
-  ExtraTurnsBadge,
   MatchClockRow,
   MoveLogPanel,
   SeriesOverlay,
@@ -27,7 +26,6 @@ import {
   Row,
   Screen,
   Spinner,
-  Stack as VStack,
 } from "@/components/ui";
 import { useGameAudio } from "@/lib/audio/AudioProvider";
 import type { EngineDifficulty } from "@/lib/botApi/botMove";
@@ -36,6 +34,7 @@ import {
   BOT_LABEL,
   type BotId,
 } from "@/lib/botRewards";
+import { boardSideForGrid } from "@/lib/game/boardLayout";
 import {
   defaultPatternsForGrid,
   matchMsForGrid,
@@ -51,7 +50,6 @@ import {
   clockMsForGameReset,
   gridForGameNumber,
   patternsForLeg,
-  seriesScoreLine,
   type SeriesPlayer,
 } from "@/lib/hooks/seriesConfig";
 import { useTripleLegSeries } from "@/lib/hooks/useTripleLegSeries";
@@ -86,12 +84,17 @@ export default function EngineMatchScreen() {
     : null;
   const botName = (params.label ?? BOT_LABEL.baltazar).toUpperCase();
   const palette = usePalette();
+  const { width: screenWidth } = useWindowDimensions();
   const username = useAuthStore((s) => s.user?.username);
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const picked5 = params.patterns ? params.patterns.split(",").filter(Boolean) : undefined;
 
   const match = useEngineMatch({ difficulty, gridSize: 5, patterns: picked5 });
   const gridSize = match.gridSize;
+  const boardSide = useMemo(
+    () => boardSideForGrid(gridSize, screenWidth),
+    [gridSize, screenWidth],
+  );
 
   const clock = useMatchClock(
     match.current,
@@ -127,12 +130,18 @@ export default function EngineMatchScreen() {
     [match, series],
   );
 
+  const nextGn = series.phase === "breaker" ? series.gameNumber + 1 : series.gameNumber;
+  const breakerPatterns = useMemo(
+    () => patternsForLeg(nextGn, picked5),
+    [nextGn, picked5?.join("|")],
+  );
+
   const breaker = useLocalRulebreaker({
     active: series.phase === "breaker",
-    gridSize: gridForGameNumber(series.gameNumber + 1),
-    gameNumber: series.gameNumber + 1,
-    boardMode: boardModeForGameNumber(series.gameNumber + 1),
-    patterns: patternsForLeg(series.gameNumber + 1, picked5),
+    gridSize: gridForGameNumber(nextGn),
+    gameNumber: nextGn,
+    boardMode: boardModeForGameNumber(nextGn),
+    patterns: breakerPatterns,
     botMode: true,
     onComplete: onBreakerComplete,
   });
@@ -194,7 +203,7 @@ export default function EngineMatchScreen() {
   };
 
   const p1Display = (username ?? "YOU").toUpperCase();
-  const scoreLine = `${p1Display} ${series.p1Points} – ${series.p2Points} ${botName} · ${seriesScoreLine(series.p1Points, series.p2Points)}`;
+  const scoreLine = `${p1Display} ${series.p1Points} – ${series.p2Points} ${botName} · first to 3`;
   const intermissionTitle =
     series.lastOutcome === "P1"
       ? `YOU WIN GAME ${series.gameNumber}`
@@ -263,6 +272,12 @@ export default function EngineMatchScreen() {
   const [analyzing, setAnalyzing] = useState(false);
   const [showAnalysis, setShowAnalysis] = useState(false);
 
+  useEffect(() => {
+    const ms = matchMsForGrid(gridSize);
+    clock.reset(ms, ms);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gridSize]);
+
   const onAnalyze = async () => {
     if (match.moves.length < 2) return;
     setAnalyzing(true);
@@ -311,28 +326,21 @@ export default function EngineMatchScreen() {
         />
       </View>
 
-      <View style={styles.hudSlot}>
-        <CenterRuleBanner
-          visible={match.centerRuleHint && match.movesPlayed === 0 && gridSize !== 6}
-          gridSize={gridSize}
-        />
-        <ExtraTurnsBadge count={match.extraTurns} player={match.extraTurnsHolder} />
-        <VStack gap={1} align="center" style={{ marginTop: space[2] }}>
-          <Row gap={2} align="center" justify="center">
-            {match.botThinking ? <Spinner tone="muted" /> : null}
-            <Eyebrow tone={statusTone} center>
-              {status}
-            </Eyebrow>
-          </Row>
-          <Caption tone="muted" center style={styles.scoreLine}>
-            {scoreLine}
-          </Caption>
-        </VStack>
-      </View>
+      <MatchStatusHud
+        gridSize={gridSize}
+        showCenterBanner={match.centerRuleHint && match.movesPlayed === 0 && gridSize !== 6}
+        extraTurns={match.extraTurns}
+        extraPlayer={match.extraTurnsHolder}
+        status={status}
+        statusTone={statusTone}
+        scoreLine={scoreLine}
+        spinner={match.botThinking ? <Spinner tone="muted" /> : undefined}
+      />
 
-      <View style={{ flex: 1, minHeight: 0, justifyContent: "center", marginTop: space[2] }}>
+      <View style={[styles.boardSlot, { height: boardSide }]}>
         <BoardGrid
           gridSize={gridSize}
+          sideLength={boardSide}
           board={match.board}
           lastMove={match.lastMove}
           winningLine={match.result.line}
@@ -367,12 +375,13 @@ export default function EngineMatchScreen() {
         visible={breaker.visible}
         phase={breaker.phase}
         boardMode={breaker.boardMode}
-        gameNumber={series.gameNumber + 1}
+        gameNumber={nextGn}
         mySlot="P1"
         tossWinner={breaker.tossWinner}
         coinResult={breaker.coinResult}
-        gridSize={gridForGameNumber(series.gameNumber + 1)}
+        gridSize={gridForGameNumber(nextGn)}
         rb6CellChooser={breaker.rb6CellChooser}
+        onDismiss={goBack}
         onTossAction={breaker.handleTossAction}
       />
       <LimitbreakerOverlay
@@ -487,13 +496,10 @@ function AnalysisRow({ label, s }: { label: string; s: AnalyzeResult["summary"][
 }
 
 const styles = StyleSheet.create({
-  hudSlot: {
-    minHeight: 72,
+  boardSlot: {
+    alignItems: "center",
     justifyContent: "center",
-    marginTop: space[2],
-  },
-  scoreLine: {
-    paddingHorizontal: space[2],
+    alignSelf: "center",
   },
 });
 

@@ -31,6 +31,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { TamaguiProvider } from "tamagui";
 
 import { AudioProvider } from "@/lib/audio/AudioProvider";
+import { useGlobalNotifySocket } from "@/lib/hooks/useGlobalNotifySocket";
 import { useProfileSync } from "@/lib/hooks/useProfileSync";
 import { useAuthStore } from "@/lib/store";
 import { tamaguiConfig } from "@/theme/tamagui.config";
@@ -96,6 +97,7 @@ export default function RootLayout() {
  */
 function AuthSyncedTree() {
   useProfileSync();
+  useGlobalNotifySocket();
   return (
     <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: "#030303" } }}>
       <Stack.Screen name="index" />
