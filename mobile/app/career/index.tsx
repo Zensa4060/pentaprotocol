@@ -1,30 +1,32 @@
 /**
- * Career screen (BUG-11) — recent match history from
- * ``GET /api/profile/career``.
+ * Career — match history with ranked / unranked tabs.
  */
 
 import { router, Stack } from "expo-router";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Pressable, StyleSheet, View } from "react-native";
 
 import {
   Body,
   Caption,
   Eyebrow,
-  Heading,
   Row,
   Screen,
   Stack as VStack,
   Title,
 } from "@/components/ui";
+import { formatCareerDate } from "@/lib/careerHelpers";
 import { fetchCareer } from "@/lib/career";
 import type { CareerMatch } from "@/lib/types";
 import { colors, radii, space } from "@/theme/tokens";
 
-export default function CareerScreen() {
+type CareerTab = "ranked" | "unranked";
+
+export default function CareerListScreen() {
   const [matches, setMatches] = useState<CareerMatch[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [tab, setTab] = useState<CareerTab>("ranked");
 
   useEffect(() => {
     let cancelled = false;
@@ -36,6 +38,16 @@ export default function CareerScreen() {
       cancelled = true;
     };
   }, []);
+
+  const filtered = useMemo(() => {
+    if (tab === "ranked") return matches.filter((m) => m.mode === "ranked");
+    return matches.filter(
+      (m) => m.mode === "unranked" || m.mode === "custom" || !m.mode,
+    );
+  }, [matches, tab]);
+
+  const wins = filtered.filter((m) => m.result === "win").length;
+  const losses = filtered.filter((m) => m.result === "loss").length;
 
   const goBack = () => {
     if (router.canGoBack()) router.back();
@@ -50,6 +62,8 @@ export default function CareerScreen() {
     return "muted";
   };
 
+  const isSyros = (name: string) => name.toUpperCase() === "SYROS";
+
   return (
     <Screen scrollable padded contentContainerStyle={{ paddingBottom: space[10] }}>
       <Stack.Screen options={{ headerShown: false }} />
@@ -60,8 +74,28 @@ export default function CareerScreen() {
 
       <Title style={{ marginTop: space[4] }}>Career</Title>
       <Body tone="muted" style={{ marginTop: space[2] }}>
-        Your last {matches.length || "10"} matches.
+        Battle archive — tap a match for replay and Syros analysis.
       </Body>
+
+      <Row gap={2} style={{ marginTop: space[4] }}>
+        {(["ranked", "unranked"] as const).map((t) => (
+          <Pressable
+            key={t}
+            style={[styles.tab, tab === t && styles.tabOn]}
+            onPress={() => setTab(t)}
+          >
+            <Caption tone={tab === t ? "accent" : "muted"} style={{ fontWeight: "800" }}>
+              {t.toUpperCase()}
+            </Caption>
+          </Pressable>
+        ))}
+      </Row>
+
+      {!loading && filtered.length > 0 ? (
+        <Caption tone="muted" style={{ marginTop: space[3] }}>
+          {wins}W · {losses}L · {filtered.length} matches
+        </Caption>
+      ) : null}
 
       {loading ? (
         <View style={{ paddingVertical: space[8] }}>
@@ -69,27 +103,40 @@ export default function CareerScreen() {
         </View>
       ) : error ? (
         <Caption tone="warn" style={{ marginTop: space[4] }}>{error}</Caption>
-      ) : matches.length === 0 ? (
-        <Caption tone="muted" style={{ marginTop: space[4] }}>No matches played yet.</Caption>
+      ) : filtered.length === 0 ? (
+        <Caption tone="muted" style={{ marginTop: space[4] }}>No matches in this tab yet.</Caption>
       ) : (
         <VStack gap={2} style={{ marginTop: space[4] }}>
-          {matches.map((m) => (
-            <View key={m.id} style={styles.row}>
+          {filtered.map((m) => (
+            <Pressable
+              key={m.id}
+              style={[styles.row, isSyros(m.opponent_username) && styles.syrosRow]}
+              onPress={() =>
+                router.push({
+                  pathname: "/career/[id]",
+                  params: { id: m.id },
+                } as never)
+              }
+            >
               <View style={{ flex: 1 }}>
                 <Body>vs {m.opponent_username}</Body>
                 <Caption tone="muted">
-                  {m.mode}{m.board_mode ? ` · ${m.board_mode}` : ""} · {m.opponent_elo} ELO
+                  {m.mode}
+                  {m.board_mode ? ` · ${m.board_mode}` : ""}
+                  {" · "}
+                  {formatCareerDate(m.played_at)}
                 </Caption>
               </View>
               <VStack gap={1} align="end">
                 <Eyebrow tone={resultTone(m.result)}>{m.result.toUpperCase()}</Eyebrow>
-                {m.elo_delta !== 0 ? (
+                {tab === "ranked" && m.elo_delta !== 0 ? (
                   <Caption tone={m.elo_delta > 0 ? "success" : "danger"}>
-                    {m.elo_delta > 0 ? "+" : ""}{m.elo_delta}
+                    {m.elo_delta > 0 ? "+" : ""}{m.elo_delta} ELO
                   </Caption>
                 ) : null}
+                <Caption tone="muted">›</Caption>
               </VStack>
-            </View>
+            </Pressable>
           ))}
         </VStack>
       )}
@@ -98,6 +145,19 @@ export default function CareerScreen() {
 }
 
 const styles = StyleSheet.create({
+  tab: {
+    flex: 1,
+    paddingVertical: space[3],
+    borderRadius: radii.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.bgCard,
+    alignItems: "center",
+  },
+  tabOn: {
+    borderColor: colors.borderAccent,
+    backgroundColor: colors.bgRaised,
+  },
   row: {
     flexDirection: "row",
     alignItems: "center",
@@ -107,5 +167,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     padding: space[3],
+  },
+  syrosRow: {
+    borderColor: "rgba(220,38,38,0.55)",
+    backgroundColor: "rgba(127,29,29,0.12)",
   },
 });

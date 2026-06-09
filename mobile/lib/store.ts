@@ -60,8 +60,24 @@ interface AuthState {
   /** Shallow-merge a partial onto the cached profile. */
   patchUser: (patch: Partial<User>) => void;
 
+  /** Pending level-up celebration (global overlay). */
+  pendingLevelUp: { from: number; to: number } | null;
+  setPendingLevelUp: (val: { from: number; to: number } | null) => void;
+
   /** Clear JWT + profile + auth flag. Safe to call from anywhere. */
   logout: () => Promise<void>;
+}
+
+function noteLevelUp(
+  prev: User | null,
+  next: User,
+  set: (partial: Partial<AuthState>) => void,
+): void {
+  const oldLevel = Number(prev?.level ?? 1);
+  const newLevel = Number(next.level ?? oldLevel);
+  if (newLevel > oldLevel) {
+    set({ pendingLevelUp: { from: oldLevel, to: newLevel } });
+  }
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -70,27 +86,34 @@ export const useAuthStore = create<AuthState>()(
       user: null,
       isAuthenticated: false,
       hydrated: false,
+      pendingLevelUp: null,
 
       setHydrated: () => set({ hydrated: true }),
 
+      setPendingLevelUp: (val) => set({ pendingLevelUp: val }),
+
       setUser: async (user, token) => {
         await setToken(token);
+        noteLevelUp(get().user, user, set);
         set({ user, isAuthenticated: true });
       },
 
       setProfile: (user) => {
+        noteLevelUp(get().user, user, set);
         set({ user });
       },
 
       patchUser: (patch) => {
         const current = get().user;
         if (!current) return;
-        set({ user: { ...current, ...patch } });
+        const updated = { ...current, ...patch };
+        noteLevelUp(current, updated, set);
+        set({ user: updated });
       },
 
       logout: async () => {
         await clearToken();
-        set({ user: null, isAuthenticated: false });
+        set({ user: null, isAuthenticated: false, pendingLevelUp: null });
       },
     }),
     {

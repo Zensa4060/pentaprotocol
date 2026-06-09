@@ -22,6 +22,7 @@ export interface BotRewards {
   banner: BotRewardSlot;
   coin_toss: BotRewardSlot;
   board_skin: BotRewardSlot;
+  syros_skin?: BotRewardSlot;
 }
 
 /**
@@ -192,7 +193,30 @@ export interface CareerMatch {
   was_placement: boolean;
   placement_matches: number;
   board_mode?: string;
+  board_mode_full?: string;
   game_number?: number;
+  my_slot?: "P1" | "P2";
+  surrendered_by?: "P1" | "P2";
+  p1_time_used_ms?: number;
+  p2_time_used_ms?: number;
+  protocolbreaker_played?: boolean;
+  limitbreaker_played?: boolean;
+  match_rounds?: CareerMatchRound[];
+}
+
+export interface CareerMatchRound {
+  winner?: string;
+  board?: (string | null)[][];
+  moves?: CareerMatchMove[];
+  board_mode?: string;
+  game_number?: number;
+}
+
+export interface CareerMatchMove {
+  row: number;
+  col: number;
+  player: string;
+  ext?: number;
 }
 
 export interface HeadToHead {

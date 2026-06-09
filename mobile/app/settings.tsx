@@ -41,6 +41,7 @@ import {
 import { useGameAudio } from "@/lib/audio/AudioProvider";
 import { logout } from "@/lib/auth";
 import { deleteAccount, requestDataExport } from "@/lib/account";
+import { CommunityLinks } from "@/components/community/CommunityLinks";
 import { useAuthStore } from "@/lib/store";
 import { colors, radii, space } from "@/theme/tokens";
 
@@ -195,6 +196,12 @@ export default function SettingsScreen() {
             Delete account
           </Btn>
         </VStack>
+      </Card>
+
+      {/* ── Community ─────────────────────────────────────────── */}
+      <Eyebrow tone="muted" style={styles.section}>COMMUNITY</Eyebrow>
+      <Card variant="surface" padding="md">
+        <CommunityLinks title="" />
       </Card>
 
       {/* ── Legal ─────────────────────────────────────────────── */}

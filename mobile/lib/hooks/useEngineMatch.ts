@@ -37,6 +37,8 @@ export interface MatchResult {
 
 export interface UseEngineMatchOptions {
   difficulty: EngineDifficulty;
+  /** When set, overrides ``difficulty`` per active grid (unranked filler bots). */
+  resolveDifficulty?: (grid: GridSize) => EngineDifficulty;
   gridSize?: GridSize;
   patterns?: string[];
 }
@@ -69,9 +71,12 @@ const INITIAL_RESULT: MatchResult = { status: "playing", winner: null, line: nul
 
 export function useEngineMatch({
   difficulty,
+  resolveDifficulty,
   gridSize: initialGrid = 5,
   patterns: patternsProp,
 }: UseEngineMatchOptions): EngineMatch {
+  const resolveDifficultyRef = useRef(resolveDifficulty);
+  resolveDifficultyRef.current = resolveDifficulty;
   const [liveGrid, setLiveGrid] = useState<GridSize>(initialGrid);
   const patternsKey = (patternsProp ?? defaultPatternsForGrid(initialGrid)).join("|");
   const [patterns, setPatterns] = useState<string[]>(
@@ -233,9 +238,11 @@ export function useEngineMatch({
       }
 
       try {
+        const activeDifficulty =
+          resolveDifficultyRef.current?.(gridRef.current) ?? difficulty;
         const mv = await requestBotMove({
           board: boardRef.current,
-          difficulty,
+          difficulty: activeDifficulty,
           current_player: "P2",
           board_mode: boardModeFromGrid(gridRef.current),
           selected_patterns: patternsRef.current,

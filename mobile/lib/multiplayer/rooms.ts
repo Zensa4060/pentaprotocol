@@ -15,7 +15,7 @@ import { isAxiosError } from "axios";
 
 import API from "@/lib/api";
 
-import type { BoardMode } from "@/lib/game/boardConfig";
+import type { CompoundBoardMode } from "@/lib/game/boardConfig";
 
 import type { ActiveRoomCheck, Room } from "./types";
 
@@ -54,7 +54,7 @@ function toRoomError(err: unknown, fallback: string): RoomError {
  * the room exists in "waiting" status until P2 joins via ``joinRoom``.
  */
 export async function createRoom(
-  boardMode: BoardMode | "5x5_6x6_7x7" = "5x5_6x6_7x7",
+  boardMode: CompoundBoardMode = "5x5_6x6_7x7",
 ): Promise<Room> {
   try {
     const res = await API.post<Room>("/api/room/create", {

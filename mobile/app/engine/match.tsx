@@ -4,7 +4,7 @@
 
 import { router, Stack, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Image, Modal, Pressable, StyleSheet, useWindowDimensions, View } from "react-native";
+import { Pressable, StyleSheet, useWindowDimensions, View } from "react-native";
 
 import { BotRewardOverlay } from "@/components/game/BotRewardOverlay";
 import { BoardGrid } from "@/components/game/BoardGrid";
@@ -39,6 +39,7 @@ import {
   defaultPatternsForGrid,
   matchMsForGrid,
 } from "@/lib/game/boardConfig";
+import { SyrosAnalysisModal } from "@/components/syros/SyrosAnalysisModal";
 import { analyzeGame, type AnalyzeResult } from "@/lib/syros";
 import { claimBotDefeat } from "@/lib/profile";
 import { useEngineMatch } from "@/lib/hooks/useEngineMatch";
@@ -59,6 +60,11 @@ import {
   useRulebreakerPendingSound,
 } from "@/lib/hooks/useMatchSounds";
 import { useAuthStore } from "@/lib/store";
+import {
+  difficultyForLevel,
+  type UnrankedBotLevel,
+} from "@/lib/unrankedBots";
+import type { GridSize } from "@/lib/game/boardConfig";
 import { colors, radii, space } from "@/theme/tokens";
 import { usePalette } from "@/theme/ThemeProvider";
 
@@ -69,6 +75,10 @@ export default function EngineMatchScreen() {
     botId?: string;
     grid?: string;
     patterns?: string;
+    unrankedFiller?: string;
+    botTier?: string;
+    botLevel?: string;
+    botSyros?: string;
   }>();
   const VALID_DIFFICULTIES: EngineDifficulty[] = [
     "easy", "medium", "normal", "hard", "machine_god", "danger",
@@ -82,6 +92,8 @@ export default function EngineMatchScreen() {
   const botId: BotId | null = ALL_BOT_IDS.includes(botIdParam as BotId)
     ? (botIdParam as BotId)
     : null;
+  const isUnrankedFiller = params.unrankedFiller === "1";
+  const fillerTier = (params.botTier ?? "SKILLED") as UnrankedBotLevel;
   const botName = (params.label ?? BOT_LABEL.baltazar).toUpperCase();
   const palette = usePalette();
   const { width: screenWidth } = useWindowDimensions();
@@ -89,7 +101,24 @@ export default function EngineMatchScreen() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const picked5 = params.patterns ? params.patterns.split(",").filter(Boolean) : undefined;
 
-  const match = useEngineMatch({ difficulty, gridSize: 5, patterns: picked5 });
+  const resolveFillerDifficulty = useMemo(() => {
+    if (!isUnrankedFiller) return undefined;
+    return (grid: GridSize) => {
+      const size = grid === 5 ? "5x5" : grid === 6 ? "6x6" : "7x7";
+      return difficultyForLevel(fillerTier, size);
+    };
+  }, [fillerTier, isUnrankedFiller]);
+
+  const fillerDifficulty = isUnrankedFiller
+    ? difficultyForLevel(fillerTier, "5x5")
+    : difficulty;
+
+  const match = useEngineMatch({
+    difficulty: fillerDifficulty,
+    resolveDifficulty: resolveFillerDifficulty,
+    gridSize: 5,
+    patterns: picked5,
+  });
   const gridSize = match.gridSize;
   const boardSide = useMemo(
     () => boardSideForGrid(gridSize, screenWidth),
@@ -432,66 +461,10 @@ export default function EngineMatchScreen() {
         visible={showAnalysis}
         loading={analyzing}
         analysis={analysis}
-        botName={botName}
+        p2Label={botName}
         onClose={() => setShowAnalysis(false)}
       />
     </Screen>
-  );
-}
-
-function SyrosAnalysisModal({
-  visible,
-  loading,
-  analysis,
-  botName,
-  onClose,
-}: {
-  visible: boolean;
-  loading: boolean;
-  analysis: AnalyzeResult | null;
-  botName: string;
-  onClose: () => void;
-}) {
-  return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
-      <Pressable style={analysisStyles.scrim} onPress={onClose}>
-        <Pressable style={analysisStyles.card} onPress={() => undefined}>
-          <Row gap={3} align="center">
-            <Image source={SYROS_LOGO} style={analysisStyles.logo} resizeMode="contain" />
-            <Eyebrow tone="accent">SYROS · ANALYSIS</Eyebrow>
-          </Row>
-          {loading ? (
-            <Body tone="muted" style={{ marginTop: space[4] }}>Syros is reading the board…</Body>
-          ) : !analysis ? (
-            <Body tone="muted" style={{ marginTop: space[4] }}>
-              Analysis unavailable for this game.
-            </Body>
-          ) : (
-            <View style={{ marginTop: space[4] }}>
-              <AnalysisRow label="YOU" s={analysis.summary.P1} />
-              <View style={{ height: space[3] }} />
-              <AnalysisRow label={botName} s={analysis.summary.P2} />
-            </View>
-          )}
-          <View style={{ height: space[4] }} />
-          <Btn variant="primary" onPress={onClose}>Close</Btn>
-        </Pressable>
-      </Pressable>
-    </Modal>
-  );
-}
-
-function AnalysisRow({ label, s }: { label: string; s: AnalyzeResult["summary"]["P1"] }) {
-  return (
-    <View style={analysisStyles.row}>
-      <Row justify="between" align="center">
-        <Body style={{ fontWeight: "800" }}>{label}</Body>
-        <Heading tone="accent">{s.accuracy}%</Heading>
-      </Row>
-      <Caption tone="muted" style={{ marginTop: space[1] }}>
-        ★ {s.best_moves} best · {s.good} good · {s.inaccuracies} inacc · {s.mistakes} mist · {s.blunders} blund
-      </Caption>
-    </View>
   );
 }
 
@@ -500,33 +473,5 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     alignSelf: "center",
-  },
-});
-
-const SYROS_LOGO = require("../../assets/images/syros-pfp.png");
-
-const analysisStyles = StyleSheet.create({
-  scrim: {
-    flex: 1,
-    backgroundColor: colors.scrim,
-    alignItems: "center",
-    justifyContent: "center",
-    padding: space[5],
-  },
-  card: {
-    width: "100%",
-    backgroundColor: colors.bgCard,
-    borderRadius: radii.lg,
-    borderWidth: 1,
-    borderColor: colors.borderAccent,
-    padding: space[5],
-  },
-  logo: { width: 40, height: 40, borderRadius: radii.pill },
-  row: {
-    backgroundColor: colors.bgRaised,
-    borderRadius: radii.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: space[3],
   },
 });

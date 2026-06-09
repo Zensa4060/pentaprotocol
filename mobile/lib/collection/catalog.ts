@@ -1,15 +1,13 @@
 /**
- * Collection inventory — **themes + banners only** on mobile.
- *
- * Board skins / grids / pieces are intentionally out of scope on mobile
- * (per the bug-fix plan). Ownership is derived from ``purchased_items``;
- * themes map to mobile ``ThemeId``s and banners to ``user.banner`` ids
- * (which mirror the web ``BANNERS_DATA`` / backend ``VALID_BANNERS``).
+ * Collection inventory — themes, banners, grids, coins, badges.
  */
 
+import { PROFILE_TITLES } from "@/lib/collection/titles";
+import { STORE_COINS, STORE_GRID_BUNDLES } from "@/lib/store/catalog";
 import type { ThemeId } from "@/theme/themes";
+import type { User } from "@/lib/types";
 
-export type CollectionTab = "themes" | "banners";
+export type CollectionTab = "themes" | "banners" | "grids" | "coins" | "badges";
 
 export interface CollectionEntry {
   id: string;
@@ -17,13 +15,54 @@ export interface CollectionEntry {
   description: string;
   tab: CollectionTab;
   /** Profile field / preference to set when equipping. */
-  equipField: "theme" | "banner";
-  /** Theme: a ThemeId. Banner: a banner id. */
+  equipField: "theme" | "banner" | "board_style" | "title" | "coin";
   equipValue: string;
-  owned: (items: string[]) => boolean;
+  owned: (items: string[], user?: User | null) => boolean;
+  lockedHint?: string;
 }
 
 const has = (items: string[], id: string) => items.includes(id);
+
+const GRID_ENTRIES: CollectionEntry[] = [
+  {
+    id: "grid_default",
+    label: "Classic Grid",
+    description: "Default board skin.",
+    tab: "grids",
+    equipField: "board_style",
+    equipValue: "default",
+    owned: () => true,
+  },
+  ...STORE_GRID_BUNDLES.map((b) => ({
+    id: `grid_${b.id}`,
+    label: b.label,
+    description: b.description,
+    tab: "grids" as const,
+    equipField: "board_style" as const,
+    equipValue: b.boardId,
+    owned: (items: string[]) => has(items, b.boardId),
+  })),
+];
+
+const COIN_ENTRIES: CollectionEntry[] = STORE_COINS.map((c) => ({
+  id: `coin_${c.id}`,
+  label: c.label,
+  description: c.description + " (Rulebreaker toss on web; owned here syncs account-wide.)",
+  tab: "coins" as const,
+  equipField: "coin" as const,
+  equipValue: c.id,
+  owned: (items: string[]) => has(items, c.id),
+}));
+
+const BADGE_ENTRIES: CollectionEntry[] = PROFILE_TITLES.map((t) => ({
+  id: `badge_${t.id}`,
+  label: t.label,
+  description: t.unlockDesc,
+  tab: "badges" as const,
+  equipField: "title" as const,
+  equipValue: t.id,
+  owned: (_items: string[], user?: User | null) => (user ? t.condition(user) : t.id === "newcomer"),
+}));
 
 // ── Themes ────────────────────────────────────────────────────────────────────
 const THEME_ENTRIES: CollectionEntry[] = [
@@ -102,4 +141,10 @@ const BANNER_ENTRIES: CollectionEntry[] = BANNER_DEFS.map((b) => ({
   owned: b.free ? () => true : (i: string[]) => has(i, b.id),
 }));
 
-export const COLLECTION_ENTRIES: CollectionEntry[] = [...THEME_ENTRIES, ...BANNER_ENTRIES];
+export const COLLECTION_ENTRIES: CollectionEntry[] = [
+  ...THEME_ENTRIES,
+  ...BANNER_ENTRIES,
+  ...GRID_ENTRIES,
+  ...COIN_ENTRIES,
+  ...BADGE_ENTRIES,
+];

@@ -19,7 +19,7 @@
  */
 
 import { router, Stack, useLocalSearchParams } from "expo-router";
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Alert, BackHandler, Pressable, StyleSheet, useWindowDimensions, View } from "react-native";
 
 import {
@@ -35,8 +35,11 @@ import {
   Title,
 } from "@/components/ui";
 import { BoardGrid } from "@/components/game/BoardGrid";
+import { MatchResultOverlay } from "@/components/game/MatchResultOverlay";
+import { MpLimitbreakerOverlay } from "@/components/game/MpLimitbreakerOverlay";
 import { PatternsToggle } from "@/components/game/PatternsToggle";
 import { RulebreakerOverlay } from "@/components/game/RulebreakerOverlay";
+import { XpLevelUpOverlay } from "@/components/game/XpLevelUpOverlay";
 import { isRbPhase } from "@/lib/multiplayer/rulebreakerPhases";
 import { useGameAudio } from "@/lib/audio/AudioProvider";
 import { legBoardLabel, legGameIndex } from "@/lib/audio/series";
@@ -52,6 +55,7 @@ import type {
   Room,
 } from "@/lib/multiplayer/types";
 import { useMatchSocket } from "@/lib/multiplayer/useMatchSocket";
+import { useAuthStore } from "@/lib/store";
 import { reportPlayer, sendPeerRequest } from "@/lib/social/friends";
 import { colors, radii, space } from "@/theme/tokens";
 import { usePalette } from "@/theme/ThemeProvider";
@@ -73,7 +77,14 @@ export default function MultiplayerMatch() {
     dismissError,
     rbPhase,
     sendTossAction,
+    lbState,
+    sendLimitbreakerAction,
+    matchResult,
+    dismissMatchResult,
   } = useMatchSocket({ roomCode: code, slot });
+
+  const patchUser = useAuthStore((s) => s.patchUser);
+  const [mpLevelUp, setMpLevelUp] = useState<{ from: number; to: number } | null>(null);
 
   const audio = useGameAudio();
   const palette = usePalette();
@@ -85,6 +96,58 @@ export default function MultiplayerMatch() {
     () => boardSideForGrid(gridSize, screenWidth),
     [gridSize, screenWidth],
   );
+
+  useEffect(() => {
+    if (!matchResult) {
+      setMpLevelUp(null);
+      return;
+    }
+    const me = slot === "P1" ? matchResult.p1 : matchResult.p2;
+    if (me.level_after > me.level_before) {
+      setMpLevelUp({ from: me.level_before, to: me.level_after });
+    } else {
+      setMpLevelUp(null);
+    }
+  }, [matchResult, slot]);
+
+  const applyMatchResultProfile = () => {
+    if (!matchResult) return;
+    const me = slot === "P1" ? matchResult.p1 : matchResult.p2;
+    patchUser({
+      level: me.level_after,
+      xp: me.xp_after,
+      elo: me.elo_after,
+      ranked_rating: me.rr_after,
+    });
+    useAuthStore.getState().setPendingLevelUp(null);
+  };
+
+  const handleMatchResultDismiss = () => {
+    applyMatchResultProfile();
+    dismissMatchResult();
+    router.replace("/multiplayer");
+  };
+
+  const handleFindNewMatch = () => {
+    const format = matchResult?.format ?? "unranked";
+    applyMatchResultProfile();
+    dismissMatchResult();
+    router.replace({
+      pathname: "/multiplayer/queue",
+      params: { format },
+    });
+  };
+
+  const handleViewCareer = () => {
+    const entryId = matchResult?.careerEntryId;
+    if (!entryId) return;
+    applyMatchResultProfile();
+    dismissMatchResult();
+    router.replace({
+      pathname: "/career/[id]",
+      params: { id: entryId },
+    } as never);
+  };
 
   // ── Android hardware-back guard ───────────────────────────
   // Mid-match back press is a really common foot-gun on Android.
@@ -250,7 +313,7 @@ export default function MultiplayerMatch() {
       </View>
 
       {/* ── Bottom panels ─────────────────────────────────────── */}
-      {seriesOver ? (
+      {seriesOver && !matchResult ? (
         <>
           <SeriesEndPanel room={room} mySlot={slot} />
           <PostMatchSocial
@@ -285,6 +348,35 @@ export default function MultiplayerMatch() {
           gridSize={gridSize}
           rb6CellChooser={room.rb6_cell_chooser ?? null}
           onTossAction={sendTossAction}
+        />
+      ) : null}
+
+      {lbState ? (
+        <MpLimitbreakerOverlay
+          visible
+          state={lbState}
+          mySlot={slot}
+          onAction={sendLimitbreakerAction}
+        />
+      ) : null}
+
+      {mpLevelUp ? (
+        <XpLevelUpOverlay
+          visible
+          fromLevel={mpLevelUp.from}
+          toLevel={mpLevelUp.to}
+          onDone={() => setMpLevelUp(null)}
+        />
+      ) : null}
+
+      {matchResult && !mpLevelUp ? (
+        <MatchResultOverlay
+          visible
+          result={matchResult}
+          mySlot={slot}
+          onDismiss={handleMatchResultDismiss}
+          onFindNewMatch={handleFindNewMatch}
+          onViewCareer={matchResult.careerEntryId ? handleViewCareer : undefined}
         />
       ) : null}
     </Screen>

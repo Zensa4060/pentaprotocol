@@ -18,6 +18,7 @@ import {
   Stack,
   Title,
 } from "@/components/ui";
+import { CommunityLinks } from "@/components/community/CommunityLinks";
 import { fetchLeaderboard } from "@/lib/leaderboard";
 import type { LeaderboardRow } from "@/lib/types";
 import { colors, radii, space } from "@/theme/tokens";
@@ -100,6 +101,10 @@ export default function CommunityScreen() {
       <Pressable style={styles.linkRow} onPress={() => router.push("/career")}>
         <Body tone="muted">My career & match history ›</Body>
       </Pressable>
+
+      <View style={{ marginTop: space[6] }}>
+        <CommunityLinks title="JOIN US" />
+      </View>
     </Screen>
   );
 }

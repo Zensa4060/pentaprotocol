@@ -14,6 +14,13 @@ import {
   type WsConnectionStatus,
 } from "./ws";
 
+import {
+  buildLbStateFromStart,
+  mergeLbUpdate,
+  parseMatchSeriesComplete,
+  type MatchSeriesComplete,
+  type MpLimitbreakerState,
+} from "./matchResult";
 import { isRbPhase, type RbPhase } from "./rulebreakerPhases";
 import type {
   InboundMessage,
@@ -40,6 +47,14 @@ export interface UseMatchSocketResult {
   dismissError: () => void;
   rbPhase: RbPhase | null;
   sendTossAction: (action: string, payload?: Record<string, unknown>) => void;
+  lbState: MpLimitbreakerState | null;
+  sendLimitbreakerAction: (payload: {
+    choice?: "choose_first_player" | "ban_first";
+    first_player?: PlayerSlot;
+    board_mode?: string;
+  }) => void;
+  matchResult: MatchSeriesComplete | null;
+  dismissMatchResult: () => void;
 }
 
 function emptyBoardForMode(mode: string): Room["board"] {
@@ -90,6 +105,8 @@ export function useMatchSocket({
   const [disbanded, setDisbanded] = useState<{ reason?: string } | null>(null);
   const [matchStarted, setMatchStarted] = useState(false);
   const [rbPhase, setRbPhase] = useState<RbPhase | null>(null);
+  const [lbState, setLbState] = useState<MpLimitbreakerState | null>(null);
+  const [matchResult, setMatchResult] = useState<MatchSeriesComplete | null>(null);
 
   const socketRef = useRef<MatchSocket | null>(null);
   const roomRef = useRef(room);
@@ -184,6 +201,13 @@ export function useMatchSocket({
           break;
         }
         case "game_reset": {
+          const gr = msg as {
+            limitbreaker_final?: boolean;
+            protocolbreaker_final?: boolean;
+          };
+          if (gr.limitbreaker_final || gr.protocolbreaker_final) {
+            setLbState(null);
+          }
           setRoom((prev) => {
             if (!prev) return prev;
             return {
@@ -230,13 +254,40 @@ export function useMatchSocket({
           break;
         }
         case "limitbreaker_start": {
+          const raw = msg as Record<string, unknown>;
+          setLbState(buildLbStateFromStart(raw));
           setRoom((prev) =>
             prev
               ? {
                   ...prev,
                   awaiting_limitbreaker: true,
                   rb_toss_winner:
-                    (msg as { toss_winner?: PlayerSlot }).toss_winner ?? prev.rb_toss_winner,
+                    raw.toss_winner === "P1" || raw.toss_winner === "P2"
+                      ? raw.toss_winner
+                      : prev.rb_toss_winner,
+                }
+              : prev,
+          );
+          break;
+        }
+        case "limitbreaker_update": {
+          setLbState((prev) =>
+            prev ? mergeLbUpdate(prev, msg as Record<string, unknown>) : prev,
+          );
+          break;
+        }
+        case "match_series_complete":
+        case "ranked_match_complete": {
+          const parsed = parseMatchSeriesComplete(msg as Record<string, unknown>, slot);
+          setMatchResult(parsed);
+          setLbState(null);
+          setRoom((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  series_winner:
+                    parsed.series_winner === "DRAW" ? null : parsed.series_winner,
+                  game_status: "finished",
                 }
               : prev,
           );
@@ -272,6 +323,8 @@ export function useMatchSocket({
     setDisbanded(null);
     setMatchStarted(false);
     setRbPhase(null);
+    setLbState(null);
+    setMatchResult(null);
 
     const socket = openMatchSocket({
       roomCode,
@@ -327,6 +380,21 @@ export function useMatchSocket({
     }
   }, []);
 
+  const sendLimitbreakerAction = useCallback(
+    (payload: {
+      choice?: "choose_first_player" | "ban_first";
+      first_player?: PlayerSlot;
+      board_mode?: string;
+    }) => {
+      socketRef.current?.send({ type: "limitbreaker_action", ...payload });
+    },
+    [],
+  );
+
+  const dismissMatchResult = useCallback(() => {
+    setMatchResult(null);
+  }, []);
+
   return {
     room,
     status,
@@ -340,5 +408,9 @@ export function useMatchSocket({
     dismissError,
     rbPhase,
     sendTossAction,
+    lbState,
+    sendLimitbreakerAction,
+    matchResult,
+    dismissMatchResult,
   };
 }

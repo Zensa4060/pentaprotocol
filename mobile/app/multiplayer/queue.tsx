@@ -2,7 +2,7 @@
  * Ranked / unranked matchmaking queue.
  */
 
-import { router, Stack, useLocalSearchParams } from "expo-router";
+import { router, Stack, useLocalSearchParams, type Href } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
 
@@ -16,7 +16,10 @@ import {
   Spinner,
   Title,
 } from "@/components/ui";
-import { gridParamFromBoardMode } from "@/lib/game/boardConfig";
+import {
+  fillerMatchFoundParams,
+  humanMatchFoundParams,
+} from "@/lib/multiplayer/matchFound";
 import { useLobbyBgm } from "@/lib/hooks/useMatchSounds";
 import {
   isQueueMatched,
@@ -27,14 +30,20 @@ import {
 } from "@/lib/multiplayer/queue";
 import type { PlayerSlot, RoomFormat } from "@/lib/multiplayer/types";
 import { openMatchSocket, waitForSocketOpen, type MatchSocket } from "@/lib/multiplayer/ws";
-import { colors, radii, space } from "@/theme/tokens";
+import {
+  isUnrankedBotsAllowed,
+  numericLevelForTier,
+  pickQueueWaitMs,
+  pickRandomPatterns5x5,
+  pickUnrankedBot,
+  pickUnrankedBotBanner,
+  pickUnrankedBotEmoji,
+} from "@/lib/unrankedBots";
+import { colors, space } from "@/theme/tokens";
 
 export default function MatchmakingQueueScreen() {
   const params = useLocalSearchParams<{ format?: string }>();
   const format: RoomFormat = params.format === "ranked" ? "ranked" : "unranked";
-  // Every multiplayer match is a full leg (board progresses 5×5 → 6×6 → 7×7),
-  // so we always queue into the same pool the web uses. No per-board sub-queues
-  // — that isolation was why mobile unranked never found an opponent.
   const boardMode = "5x5_6x6_7x7" as const;
 
   /** Stop searching and surface a clear message after this long with no match. */
@@ -48,14 +57,37 @@ export default function MatchmakingQueueScreen() {
   const roomCodeRef = useRef<string | null>(null);
   const slotRef = useRef<PlayerSlot>("P1");
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const botTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const matchedRef = useRef(false);
   const cancelledRef = useRef(false);
-  /** Liveness socket: held open while waiting so the matchmaker can pair us. */
   const socketRef = useRef<MatchSocket | null>(null);
+
+  const clearBotTimer = () => {
+    if (botTimerRef.current) {
+      clearTimeout(botTimerRef.current);
+      botTimerRef.current = null;
+    }
+  };
 
   const closeSocket = () => {
     socketRef.current?.close();
     socketRef.current = null;
   };
+
+  const goMatchFound = useCallback(
+    (routeParams: Record<string, string>) => {
+      if (matchedRef.current) return;
+      matchedRef.current = true;
+      clearBotTimer();
+      if (pollRef.current) clearInterval(pollRef.current);
+      closeSocket();
+      router.replace({
+        pathname: "/multiplayer/match-found",
+        params: routeParams,
+      } as unknown as Href);
+    },
+    [],
+  );
 
   useLobbyBgm();
 
@@ -68,6 +100,7 @@ export default function MatchmakingQueueScreen() {
     if (cancelling) return;
     cancelledRef.current = true;
     setCancelling(true);
+    clearBotTimer();
     if (pollRef.current) clearInterval(pollRef.current);
     closeSocket();
     try {
@@ -78,9 +111,9 @@ export default function MatchmakingQueueScreen() {
     goLobby();
   }, [boardMode, cancelling, format]);
 
-  /** Give up gracefully — leave the queue and show a no-opponent state. */
   const giveUp = useCallback(async () => {
     cancelledRef.current = true;
+    clearBotTimer();
     if (pollRef.current) clearInterval(pollRef.current);
     closeSocket();
     try {
@@ -92,6 +125,7 @@ export default function MatchmakingQueueScreen() {
   }, [boardMode, format]);
 
   const retry = useCallback(() => {
+    matchedRef.current = false;
     setTimedOut(false);
     setError(null);
     setElapsed(0);
@@ -99,8 +133,49 @@ export default function MatchmakingQueueScreen() {
     setRetryKey((k) => k + 1);
   }, []);
 
+  const scheduleUnrankedBot = useCallback(
+    async (queueCode: string) => {
+      const allowed = await isUnrankedBotsAllowed();
+      if (!allowed) return;
+
+      clearBotTimer();
+      const waitMs = pickQueueWaitMs();
+      botTimerRef.current = setTimeout(async () => {
+        botTimerRef.current = null;
+        if (cancelledRef.current || matchedRef.current) return;
+        if (!(await isUnrankedBotsAllowed())) return;
+
+        const bot = pickUnrankedBot();
+        const patterns = pickRandomPatterns5x5();
+        const botLevel = numericLevelForTier(bot.level);
+        const botEmoji = bot.isSyros ? "" : pickUnrankedBotEmoji();
+        const botBanner = bot.isSyros ? "void_rift" : pickUnrankedBotBanner();
+
+        try {
+          await leaveQueue(format, boardMode, queueCode);
+        } catch {
+          /* proceed into filler match even if leave fails */
+        }
+
+        goMatchFound(
+          fillerMatchFoundParams({
+            botName: bot.name,
+            botTier: bot.level,
+            botLevel,
+            botEmoji,
+            botBanner,
+            isSyros: bot.isSyros,
+            patterns,
+          }),
+        );
+      }, waitMs);
+    },
+    [boardMode, format, goMatchFound],
+  );
+
   useEffect(() => {
     cancelledRef.current = false;
+    matchedRef.current = false;
     setTimedOut(false);
     let tick: ReturnType<typeof setInterval> | null = null;
 
@@ -112,21 +187,12 @@ export default function MatchmakingQueueScreen() {
         slotRef.current = res.player_slot;
 
         if (res.matched && res.room && isQueueMatched(res.room, res.player_slot)) {
-          router.replace({
-            pathname: "/pregame",
-            params: {
-              mode: "multiplayer",
-              code: res.room_code,
-              slot: res.player_slot,
-              grid: gridParamFromBoardMode(res.room.board_mode),
-              board_mode: res.room.board_mode,
-            },
-          });
+          goMatchFound(
+            humanMatchFoundParams(format, res.room_code, res.player_slot, res.room),
+          );
           return;
         }
 
-        // Waiting for an opponent — hold a socket open to our room so the
-        // matchmaker's liveness check pairs us (it skips players with no WS).
         socketRef.current = openMatchSocket({
           roomCode: res.room_code,
           slot: res.player_slot,
@@ -139,24 +205,19 @@ export default function MatchmakingQueueScreen() {
           /* global notify may still satisfy liveness; keep polling */
         }
 
+        if (format === "unranked") {
+          void scheduleUnrankedBot(res.room_code);
+        }
+
         pollRef.current = setInterval(async () => {
           const code = roomCodeRef.current;
-          if (!code || cancelledRef.current) return;
+          if (!code || cancelledRef.current || matchedRef.current) return;
           try {
             const room = await pollQueueStatus(code);
             if (isQueueMatched(room, slotRef.current)) {
-              if (pollRef.current) clearInterval(pollRef.current);
-              closeSocket();
-              router.replace({
-                pathname: "/pregame",
-                params: {
-                  mode: "multiplayer",
-                  code,
-                  slot: slotRef.current,
-                  grid: gridParamFromBoardMode(room.board_mode),
-                  board_mode: room.board_mode,
-                },
-              });
+              goMatchFound(
+                humanMatchFoundParams(format, code, slotRef.current, room),
+              );
             }
           } catch {
             /* keep polling */
@@ -175,7 +236,7 @@ export default function MatchmakingQueueScreen() {
     tick = setInterval(() => {
       setElapsed((e) => {
         const next = e + 1;
-        if (next >= SEARCH_TIMEOUT_S && !cancelledRef.current) {
+        if (next >= SEARCH_TIMEOUT_S && !cancelledRef.current && !matchedRef.current) {
           if (tick) clearInterval(tick);
           void giveUp();
         }
@@ -185,6 +246,7 @@ export default function MatchmakingQueueScreen() {
 
     return () => {
       cancelledRef.current = true;
+      clearBotTimer();
       if (pollRef.current) clearInterval(pollRef.current);
       if (tick) clearInterval(tick);
       closeSocket();
@@ -218,7 +280,7 @@ export default function MatchmakingQueueScreen() {
             <Body tone="muted" style={{ marginTop: space[2], textAlign: "center" }}>
               {format === "ranked"
                 ? "Matching by hidden MMR across 5×5 → 6×6 → 7×7 legs."
-                : "Full leg · 5×5 → 6×6 → 7×7 · waiting for an opponent."}
+                : "Full leg · 5×5 → 6×6 → 7×7 · a filler bot may join after ~10s."}
             </Body>
             <Text style={styles.timer}>
               {mm}:{ss}

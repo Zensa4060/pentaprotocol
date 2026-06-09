@@ -127,8 +127,8 @@ export async function getFriendProfile(targetId: string): Promise<PublicUser> {
 
 export async function getFriendCareer(targetId: string): Promise<CareerMatch[]> {
   try {
-    const res = await API.get<CareerMatch[]>(`/api/friends/career/${targetId}`);
-    return res.data ?? [];
+    const res = await API.get<{ history?: CareerMatch[] }>(`/api/friends/career/${targetId}`);
+    return res.data?.history ?? [];
   } catch (err) {
     throw wrap(err, "Could not load match history.");
   }

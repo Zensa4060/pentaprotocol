@@ -7,7 +7,7 @@
  *   - Banner → ``updateProfile({ banner })`` persists server-side and
  *     the home/profile banner updates as soon as the profile refreshes.
  *
- * Board skins / grids / pieces are intentionally not offered here.
+ * Grids equip ``board_style``; badges equip profile ``title``.
  */
 
 import { router, Stack } from "expo-router";
@@ -36,7 +36,7 @@ import { THEMES, type ThemeId } from "@/theme/themes";
 import { useTheme } from "@/theme/ThemeProvider";
 import { colors, radii, space } from "@/theme/tokens";
 
-const TABS: CollectionTab[] = ["themes", "banners"];
+const TABS: CollectionTab[] = ["themes", "banners", "grids", "coins", "badges"];
 
 export default function CollectionScreen() {
   const user = useAuthStore((s) => s.user);
@@ -58,16 +58,24 @@ export default function CollectionScreen() {
     async (entryId: string) => {
       const entry = COLLECTION_ENTRIES.find((e) => e.id === entryId && e.tab === tab);
       if (!entry || !user || busy) return;
-      if (!entry.owned(owned)) {
-        Alert.alert("Locked", "Purchase this item in the Store first.");
+      if (!entry.owned(owned, user)) {
+        Alert.alert("Locked", "Unlock this item in the Store or via missions.");
+        return;
+      }
+      if (entry.equipField === "coin") {
+        Alert.alert("Coin toss skin", "Owned on your account. Rulebreaker coin animation uses this on web; mobile syncs ownership.");
         return;
       }
       setBusy(entryId);
       try {
         if (entry.equipField === "theme") {
           await setTheme(entry.equipValue as ThemeId);
-        } else {
+        } else if (entry.equipField === "banner") {
           await updateProfile({ banner: entry.equipValue });
+        } else if (entry.equipField === "board_style") {
+          await updateProfile({ board_style: entry.equipValue });
+        } else if (entry.equipField === "title") {
+          await updateProfile({ title: entry.equipValue });
         }
         Alert.alert("Equipped", `${entry.label} is now active.`);
       } catch (err) {
@@ -80,8 +88,12 @@ export default function CollectionScreen() {
   );
 
   const isEquipped = (entry: CollectionEntry) => {
+    if (!user) return false;
     if (entry.equipField === "theme") return themeId === entry.equipValue;
-    return (user?.banner ?? "default") === entry.equipValue;
+    if (entry.equipField === "banner") return (user.banner ?? "default") === entry.equipValue;
+    if (entry.equipField === "board_style") return (user.board_style ?? "default") === entry.equipValue;
+    if (entry.equipField === "title") return (user.title ?? "newcomer") === entry.equipValue;
+    return false;
   };
 
   return (
@@ -93,25 +105,27 @@ export default function CollectionScreen() {
 
       <Title style={{ marginTop: space[4] }}>Collection</Title>
       <Body tone="muted" style={{ marginTop: space[2] }}>
-        Equip themes and banners you own. Themes restyle the board, pieces and UI; banners show on
-        your home and profile.
+        Equip themes, banners, board grids, and profile badges. Coin toss skins sync ownership
+        across devices.
       </Body>
 
-      <Row gap={2} style={{ marginTop: space[4] }}>
-        {TABS.map((t) => (
-          <Pressable
-            key={t}
-            onPress={() => setTab(t)}
-            style={[styles.tab, tab === t && styles.tabOn]}
-          >
-            <Caption tone={tab === t ? "accent" : "muted"}>{t.toUpperCase()}</Caption>
-          </Pressable>
-        ))}
-      </Row>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: space[4] }}>
+        <Row gap={2}>
+          {TABS.map((t) => (
+            <Pressable
+              key={t}
+              onPress={() => setTab(t)}
+              style={[styles.tab, tab === t && styles.tabOn]}
+            >
+              <Caption tone={tab === t ? "accent" : "muted"}>{t.toUpperCase()}</Caption>
+            </Pressable>
+          ))}
+        </Row>
+      </ScrollView>
 
       <ScrollView style={{ marginTop: space[4] }} contentContainerStyle={{ paddingBottom: space[10] }}>
         {entries.map((entry) => {
-          const hasIt = entry.owned(owned);
+          const hasIt = entry.owned(owned, user);
           const equipped = isEquipped(entry);
           return (
             <View key={entry.id} style={styles.card}>
@@ -128,12 +142,18 @@ export default function CollectionScreen() {
               {/* Live preview */}
               {entry.equipField === "theme" ? (
                 <ThemeSwatch themeId={entry.equipValue as ThemeId} />
-              ) : (
+              ) : entry.equipField === "banner" ? (
                 <BannerRenderer
                   bannerId={entry.equipValue}
                   themeId={themeId}
                   style={styles.bannerPreview}
                 />
+              ) : entry.equipField === "title" ? (
+                <View style={[styles.bannerPreview, { justifyContent: "center", alignItems: "center" }]}>
+                  <Caption tone="accent">{entry.label}</Caption>
+                </View>
+              ) : (
+                <View style={[styles.bannerPreview, { backgroundColor: colors.bgRaised }]} />
               )}
 
               <View style={{ marginTop: space[3] }}>
@@ -143,7 +163,15 @@ export default function CollectionScreen() {
                   loading={busy === entry.id}
                   onPress={() => onEquip(entry.id)}
                 >
-                  {equipped ? "Equipped" : hasIt ? "Equip" : "Get in Store"}
+                  {entry.equipField === "coin"
+                    ? hasIt
+                      ? "Owned"
+                      : "Get in Store"
+                    : equipped
+                      ? "Equipped"
+                      : hasIt
+                        ? "Equip"
+                        : "Get in Store"}
                 </Btn>
               </View>
             </View>

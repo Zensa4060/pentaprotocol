@@ -34,6 +34,7 @@ import { radii, space } from "@/theme/tokens";
 import { useTheme } from "@/theme/ThemeProvider";
 import type { ThemePalette } from "@/theme/themes";
 
+import { CommunityLinks } from "@/components/community/CommunityLinks";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 type ModeKey = "multiplayer" | "training";
@@ -168,6 +169,9 @@ export default function HomeScreen() {
             </Card>
           </>
         ) : null}
+
+        <SectionLabel label="COMMUNITY" />
+        <CommunityLinks />
 
         <View style={{ height: space[5] }} />
         <Btn variant="ghost" onPress={goToProfile}>

@@ -24,6 +24,10 @@ import {
   Title,
 } from "@/components/ui";
 import {
+  FriendCareerModal,
+  type FriendCareerFilter,
+} from "@/components/social/FriendCareerModal";
+import {
   acceptFriendRequest,
   blockUser,
   declineFriendRequest,
@@ -46,6 +50,8 @@ export default function FriendsScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [careerFriend, setCareerFriend] = useState<PublicUser | null>(null);
+  const [careerFilter, setCareerFilter] = useState<FriendCareerFilter>("all");
 
   const load = useCallback(async (mode: "mount" | "pull") => {
     if (mode === "pull") setRefreshing(true);
@@ -122,9 +128,17 @@ export default function FriendsScreen() {
     }
   };
 
+  const openFriendCareer = (f: PublicUser, filter: FriendCareerFilter = "all") => {
+    setCareerFilter(filter);
+    setCareerFriend(f);
+  };
+
   const onFriendActions = (f: PublicUser) => {
     Alert.alert(f.username, f.online ? "🟢 Online · Available" : "⚪ Offline", [
       { text: "View profile", onPress: () => viewProfile(f) },
+      { text: "View career", onPress: () => openFriendCareer(f, "all") },
+      { text: "Ranked history", onPress: () => openFriendCareer(f, "ranked") },
+      { text: "Unranked history", onPress: () => openFriendCareer(f, "unranked") },
       { text: "Message", onPress: () => router.push(`/messages/${f.id}?name=${encodeURIComponent(f.username)}` as never) },
       {
         text: "Remove friend",
@@ -289,6 +303,12 @@ export default function FriendsScreen() {
           ))}
         </Stack>
       )}
+      <FriendCareerModal
+        visible={!!careerFriend}
+        friend={careerFriend}
+        filter={careerFilter}
+        onClose={() => setCareerFriend(null)}
+      />
     </Screen>
   );
 }

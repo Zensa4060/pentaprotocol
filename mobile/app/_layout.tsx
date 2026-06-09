@@ -30,6 +30,7 @@ import "react-native-reanimated";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { TamaguiProvider } from "tamagui";
 
+import { GlobalLevelUpHost } from "@/components/GlobalLevelUpHost";
 import { AudioProvider } from "@/lib/audio/AudioProvider";
 import { useGlobalNotifySocket } from "@/lib/hooks/useGlobalNotifySocket";
 import { useProfileSync } from "@/lib/hooks/useProfileSync";
@@ -99,6 +100,8 @@ function AuthSyncedTree() {
   useProfileSync();
   useGlobalNotifySocket();
   return (
+    <>
+    <GlobalLevelUpHost />
     <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: "#030303" } }}>
       <Stack.Screen name="index" />
       <Stack.Screen name="(auth)" />
@@ -117,5 +120,6 @@ function AuthSyncedTree() {
       <Stack.Screen name="messages/[id]" />
       <Stack.Screen name="pregame" />
     </Stack>
+    </>
   );
 }

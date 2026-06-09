@@ -17,7 +17,7 @@
 
 import { router, Stack, useFocusEffect, type Href } from "expo-router";
 import { useCallback, useState } from "react";
-import { Alert, Pressable, StyleSheet, View } from "react-native";
+import { Alert, Modal, Pressable, StyleSheet, View } from "react-native";
 
 import {
   Body,
@@ -40,7 +40,7 @@ import {
   RoomError,
 } from "@/lib/multiplayer/rooms";
 import type { ActiveRoomCheck } from "@/lib/multiplayer/types";
-import { gridParamFromBoardMode, type BoardMode } from "@/lib/game/boardConfig";
+import { gridParamFromBoardMode, type CompoundBoardMode } from "@/lib/game/boardConfig";
 import { colors, radii, space } from "@/theme/tokens";
 
 export default function MultiplayerLobby() {
@@ -51,6 +51,22 @@ export default function MultiplayerLobby() {
   const [activeChecking, setActiveChecking] = useState(true);
   const [creating, setCreating] = useState(false);
   const [joining, setJoining] = useState(false);
+  const [showBoardPicker, setShowBoardPicker] = useState(false);
+
+  const BOARD_MODE_OPTIONS: Array<{
+    id: CompoundBoardMode;
+    label: string;
+    sub: string;
+    recommended?: boolean;
+  }> = [
+    { id: "5x5", label: "5 × 5", sub: "Standard Rulebreak grid" },
+    { id: "6x6", label: "6 × 6", sub: "Timebomb protocol" },
+    { id: "7x7", label: "7 × 7", sub: "Mindlock advanced grid" },
+    { id: "5x5_7x7", label: "5×5 + 7×7", sub: "Classic Rulebreaker flow", recommended: true },
+    { id: "5x5_6x6", label: "5×5 + 6×6", sub: "Hybrid progression" },
+    { id: "6x6_7x7", label: "6×6 + 7×7", sub: "Elite progression" },
+    { id: "5x5_6x6_7x7", label: "5×6×7", sub: "Full leg progression" },
+  ];
 
   // ── Active-room probe ───────────────────────────────────────
   // Run on every focus so a backgrounded app that comes back has
@@ -84,11 +100,12 @@ export default function MultiplayerLobby() {
     else router.replace("/(tabs)");
   };
 
-  const onCreate = async () => {
+  const onCreateWithMode = async (boardMode: CompoundBoardMode) => {
     if (creating) return;
     setCreating(true);
+    setShowBoardPicker(false);
     try {
-      const room = await createRoom();
+      const room = await createRoom(boardMode);
       router.replace({
         pathname: "/multiplayer/waiting",
         params: {
@@ -227,10 +244,15 @@ export default function MultiplayerLobby() {
       </Eyebrow>
       <View style={styles.actionCard}>
         <Body tone="muted">
-          Creates a private full leg (5×5 → 6×6 → 7×7). Share the code with a friend to play.
+          Pick a board protocol, then share the room code with a friend.
         </Body>
         <View style={{ height: space[4] }} />
-        <Btn variant="primary" size="lg" loading={creating} onPress={onCreate}>
+        <Btn
+          variant="primary"
+          size="lg"
+          loading={creating}
+          onPress={() => setShowBoardPicker(true)}
+        >
           Create room
         </Btn>
       </View>
@@ -261,6 +283,34 @@ export default function MultiplayerLobby() {
           Join
         </Btn>
       </View>
+      <Modal visible={showBoardPicker} animationType="fade" transparent>
+        <View style={styles.pickerBackdrop}>
+          <View style={styles.pickerCard}>
+            <Eyebrow tone="accent">SELECT PROTOCOL</Eyebrow>
+            <Title style={{ marginVertical: space[4] }}>Board mode</Title>
+            {BOARD_MODE_OPTIONS.map((opt) => (
+              <Pressable
+                key={opt.id}
+                style={styles.modeOption}
+                onPress={() => void onCreateWithMode(opt.id)}
+                disabled={creating}
+              >
+                <Row justify="between" align="center">
+                  <Body style={{ fontWeight: "800" }}>{opt.label}</Body>
+                  {opt.recommended ? <Caption tone="accent">RECOMMENDED</Caption> : null}
+                </Row>
+                <Caption tone="muted" style={{ marginTop: space[1] }}>
+                  {opt.sub}
+                </Caption>
+              </Pressable>
+            ))}
+            <View style={{ height: space[4] }} />
+            <Btn variant="secondary" onPress={() => setShowBoardPicker(false)}>
+              Cancel
+            </Btn>
+          </View>
+        </View>
+      </Modal>
     </Screen>
   );
 }
@@ -293,5 +343,27 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: colors.borderAccent,
     padding: space[5],
+  },
+  pickerBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.94)",
+    justifyContent: "center",
+    padding: space[5],
+  },
+  pickerCard: {
+    backgroundColor: colors.bgElevated,
+    borderRadius: radii.lg,
+    borderWidth: 1,
+    borderColor: colors.borderAccent,
+    padding: space[5],
+    maxHeight: "90%",
+  },
+  modeOption: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radii.md,
+    backgroundColor: colors.bgCard,
+    padding: space[4],
+    marginBottom: space[3],
   },
 });

@@ -7,12 +7,25 @@ import API from "@/lib/api";
 import { ApiError } from "@/lib/profile";
 import type { CareerMatch, HeadToHead } from "@/lib/types";
 
+export type CareerMatchDetail = CareerMatch;
+
 export async function fetchCareer(): Promise<CareerMatch[]> {
   try {
     const res = await API.get<CareerMatch[]>("/api/profile/career");
     return res.data ?? [];
   } catch {
     throw new ApiError("Could not load your match history.");
+  }
+}
+
+export async function fetchCareerMatch(entryId: string): Promise<CareerMatchDetail> {
+  try {
+    const res = await API.get<CareerMatchDetail>(
+      `/api/profile/career-match/${encodeURIComponent(entryId)}`,
+    );
+    return res.data;
+  } catch {
+    throw new ApiError("Could not load this match.");
   }
 }
 

@@ -21,6 +21,7 @@ export default function MultiplayerLayout() {
       <Stack.Screen name="waiting" />
       <Stack.Screen name="match" />
       <Stack.Screen name="queue" />
+      <Stack.Screen name="match-found" options={{ animation: "fade" }} />
     </Stack>
   );
 }

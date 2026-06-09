@@ -138,6 +138,8 @@ export type InboundMessage =
       first_player: PlayerSlot;
       game_number: number;
       board_mode: string;
+      limitbreaker_final?: boolean;
+      protocolbreaker_final?: boolean;
       suppress_center_opening?: boolean;
       p1_series_points?: number;
       p2_series_points?: number;
@@ -178,7 +180,10 @@ export type InboundMessage =
       payload?: Record<string, unknown>;
       from?: PlayerSlot;
     }
-  | { type: "limitbreaker_start"; [key: string]: unknown };
+  | { type: "limitbreaker_start"; [key: string]: unknown }
+  | { type: "limitbreaker_update"; [key: string]: unknown }
+  | { type: "match_series_complete"; [key: string]: unknown }
+  | { type: "ranked_match_complete"; [key: string]: unknown };
 
 /**
  * Outbound from client. Server uses strict schemas for ``move``,
@@ -194,4 +199,10 @@ export type OutboundMessage =
   | { type: "ping"; ts: number }
   | { type: "quit_match"; reason?: string }
   | { type: "toss_action"; action: string; payload?: Record<string, unknown> }
-  | { type: "rb_start_game"; first_player?: PlayerSlot; resolve_series_only?: boolean };
+  | { type: "rb_start_game"; first_player?: PlayerSlot; resolve_series_only?: boolean }
+  | {
+      type: "limitbreaker_action";
+      choice?: "choose_first_player" | "ban_first";
+      first_player?: PlayerSlot;
+      board_mode?: string;
+    };

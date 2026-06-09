@@ -153,6 +153,7 @@ export function botsForMode(mode: BoardMode | BotBoardMode): BotCard[] {
 }
 
 export type BotRewardSlot = "banner" | "coin_toss" | "board_skin" | "syros_skin";
+// syros_skin included for unranked SYROS boss reward
 
 export const BOT_XP_REWARD: Record<BotId, number> = {
   baltazar: 500,
