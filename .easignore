@@ -1,0 +1,16 @@
+# Monorepo — only upload the Expo app (mobile/)
+frontend/
+backend/
+agent-transcripts/
+.git/
+**/.git/
+**/node_modules/
+mobile/node_modules/
+**/.expo/
+**/dist/
+**/web-build/
+**/__pycache__/
+**/.venv/
+**/*.pyc
+*.md
+!mobile/README.md

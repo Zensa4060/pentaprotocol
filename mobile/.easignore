@@ -1,0 +1,13 @@
+# Shrink EAS upload — exclude monorepo siblings and dev cruft
+../frontend
+../backend
+../.git
+**/.git
+**/node_modules
+**/.expo
+**/dist
+**/web-build
+**/*.md
+!README.md
+../agent-transcripts
+../assets
