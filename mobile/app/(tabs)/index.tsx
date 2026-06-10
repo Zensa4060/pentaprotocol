@@ -171,7 +171,7 @@ export default function HomeScreen() {
         ) : null}
 
         <SectionLabel label="COMMUNITY" />
-        <CommunityLinks />
+        <CommunityLinks title="" />
 
         <View style={{ height: space[5] }} />
         <Btn variant="ghost" onPress={goToProfile}>

@@ -78,6 +78,7 @@ export default function MultiplayerMatch() {
     dismissError,
     rbPhase,
     sendTossAction,
+    sendUseExtraTurn,
     lbState,
     sendLimitbreakerAction,
     matchResult,
@@ -254,6 +255,31 @@ export default function MultiplayerMatch() {
   const seriesOver = room.series_winner !== null;
   const legLabel = `G${legGameIndex(room.game_number)} · ${legBoardLabel(room.board_mode)}`;
 
+  // Accumulated Protocol Breaker selections (kept current by useMatchSocket
+  // merging every phase_choice payload, mirroring the server).
+  const rbPayload = (room.rb_phase_payload ?? {}) as Record<string, unknown>;
+  const rbWinnerPickedRule =
+    typeof rbPayload.winnerPickedRule === "string" ? rbPayload.winnerPickedRule : null;
+  const rbFirstPlayerChosen =
+    rbPayload.firstPlayerChosen === "P1" || rbPayload.firstPlayerChosen === "P2"
+      ? rbPayload.firstPlayerChosen
+      : null;
+  const rbBannedPatterns = Array.isArray(rbPayload.rb_banned_patterns)
+    ? (rbPayload.rb_banned_patterns as string[])
+    : [];
+  const rbHideFromMe =
+    rbPayload.rbHideBannedPatternFromSlot === slot ||
+    room.rb_hide_banned_from_slot === slot;
+
+  // Mindbreaker extra-turn token: holder cashes it on their turn for one
+  // bonus consecutive move. Server validates; we just offer the button.
+  const canUseExtraTurn =
+    gridSize === 7 &&
+    isMyTurn &&
+    room.rb_extra_turn_token_holder === slot &&
+    !room.rb_extra_turn_token_used &&
+    (room.extra_turns ?? 0) === 0;
+
   return (
     <Screen padded background={palette.bg}>
       <Stack.Screen options={{ headerShown: false }} />
@@ -328,6 +354,14 @@ export default function MultiplayerMatch() {
         />
       </View>
 
+      {canUseExtraTurn ? (
+        <View style={{ marginTop: space[3] }}>
+          <Btn variant="secondary" onPress={sendUseExtraTurn}>
+            Use extra turn token
+          </Btn>
+        </View>
+      ) : null}
+
       {/* ── Bottom panels ─────────────────────────────────────── */}
       {seriesOver && !matchResult ? (
         <>
@@ -377,6 +411,13 @@ export default function MultiplayerMatch() {
           coinResult={room.rb_coin_result ?? null}
           gridSize={gridSize}
           rb6CellChooser={room.rb6_cell_chooser ?? null}
+          rb6TimerOwner={room.rb6_timer_owner ?? null}
+          winnerPickedRule={rbWinnerPickedRule}
+          firstPlayerChosen={rbFirstPlayerChosen}
+          bannedPatterns={rbBannedPatterns}
+          c3Blocked={room.c3_blocked ?? null}
+          hideBannedFromMe={rbHideFromMe}
+          selectedPatterns={room.selected_patterns}
           p1Name={room.player1_name ?? "P1"}
           p2Name={room.player2_name ?? "P2"}
           onTossAction={sendTossAction}

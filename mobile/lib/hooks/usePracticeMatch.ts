@@ -48,6 +48,11 @@ export interface PracticeMatch {
   reset: (starter?: Player, opts?: GameResetOptions) => void;
   activePatterns: string[];
   c3Blocked: boolean;
+  /** Mindbreaker extra-turn token (7×7 decider only). */
+  extraTokenHolder: Player | null;
+  extraTokenUsed: boolean;
+  useExtraTurnToken: () => void;
+  suppressCenterOpening: boolean;
 }
 
 export interface UsePracticeMatchOptions {
@@ -77,6 +82,14 @@ export function usePracticeMatch({
     () => patternsProp ?? defaultPatternsForGrid(initialGrid),
   );
   const [c3Blocked, setC3Blocked] = useState(false);
+  const [patternsP1, setPatternsP1] = useState<string[] | null>(null);
+  const [patternsP2, setPatternsP2] = useState<string[] | null>(null);
+  const [specialCell, setSpecialCell] = useState<
+    { r: number; c: number; owner: Player } | null
+  >(null);
+  const [suppressCenterOpening, setSuppressCenterOpening] = useState(false);
+  const [extraTokenHolder, setExtraTokenHolder] = useState<Player | null>(null);
+  const [extraTokenUsed, setExtraTokenUsed] = useState(false);
   const center = centerCell(liveGrid);
 
   const [board, setBoard] = useState<Board>(() => emptyBoard(initialGrid));
@@ -107,9 +120,18 @@ export function usePracticeMatch({
       });
 
       const newBoard = board.map((row) => [...row]);
-      newBoard[r][c] = current;
+      // Timebreaker special cell: any stone placed there materialises as
+      // the owner's symbol (web parity — the trap converts the stone).
+      const rbTrap =
+        liveGrid === 6 && specialCell && specialCell.r === r && specialCell.c === c;
+      const stoneOwner: Player = rbTrap ? specialCell!.owner : current;
+      newBoard[r][c] = stoneOwner;
       const newMoves = movesPlayed + 1;
-      const winRes = checkWinForGrid(liveGrid, newBoard, r, c, current, newMoves, patterns);
+      const ownerPatterns =
+        stoneOwner === "P1" ? patternsP1 ?? patterns : patternsP2 ?? patterns;
+      const winRes = checkWinForGrid(
+        liveGrid, newBoard, r, c, stoneOwner, newMoves, ownerPatterns,
+      );
 
       let nextResult: MatchResult = INITIAL_RESULT;
       if (winRes) {
@@ -140,6 +162,7 @@ export function usePracticeMatch({
           c,
           extraTurns,
           liveGrid,
+          { suppressCenterOpening },
         );
         next = turn.next;
         newExtra = turn.extraTurns;
@@ -151,7 +174,11 @@ export function usePracticeMatch({
         r,
         c,
         current,
-        liveGrid !== 6 && newMoves === 1 && r === center && c === center,
+        !suppressCenterOpening &&
+          liveGrid !== 6 &&
+          newMoves === 1 &&
+          r === center &&
+          c === center,
       );
 
       setBoard(newBoard);
@@ -174,7 +201,11 @@ export function usePracticeMatch({
       moveLog,
       movesPlayed,
       patterns,
+      patternsP1,
+      patternsP2,
       result,
+      specialCell,
+      suppressCenterOpening,
     ],
   );
 
@@ -196,6 +227,12 @@ export function usePracticeMatch({
     if (opts?.gridSize) setLiveGrid(opts.gridSize);
     if (opts?.patterns) setPatterns(opts.patterns);
     setC3Blocked(opts?.c3Blocked ?? false);
+    setPatternsP1(opts?.patternsP1 ?? null);
+    setPatternsP2(opts?.patternsP2 ?? null);
+    setSpecialCell(opts?.rb6SpecialCell ?? null);
+    setSuppressCenterOpening(opts?.suppressCenterOpening ?? false);
+    setExtraTokenHolder(opts?.extraTurnTokenHolder ?? null);
+    setExtraTokenUsed(false);
     setBoard(emptyBoard(grid));
     setCurrent(starter);
     setMovesPlayed(0);
@@ -206,6 +243,17 @@ export function usePracticeMatch({
     setCenterRuleHint(true);
     undoStack.current = [];
   }, [liveGrid]);
+
+  // Mindbreaker token: the holder cashes it on their own turn for one
+  // bonus consecutive move (extraTurns=2 ⇒ this move + one more).
+  const useExtraTurnToken = useCallback(() => {
+    if (result.status !== "playing") return;
+    if (!extraTokenHolder || extraTokenUsed) return;
+    if (extraTurns !== 0) return;
+    if (current !== extraTokenHolder) return;
+    setExtraTurns(2);
+    setExtraTokenUsed(true);
+  }, [current, extraTokenHolder, extraTokenUsed, extraTurns, result.status]);
 
   const extraTurnsHolder =
     result.status === "playing" && extraTurns > 0 ? current : null;
@@ -228,5 +276,9 @@ export function usePracticeMatch({
     reset,
     activePatterns: patterns,
     c3Blocked,
+    extraTokenHolder,
+    extraTokenUsed,
+    useExtraTurnToken,
+    suppressCenterOpening,
   };
 }

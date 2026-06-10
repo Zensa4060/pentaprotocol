@@ -78,6 +78,12 @@ export interface Room {
   rb6_special_cell?: { r: number; c: number; owner: PlayerSlot } | null;
   c3_blocked?: boolean;
   suppress_center_opening?: boolean;
+  /** Mindbreaker extra-turn token (7×7 decider). */
+  rb_extra_turn_token_holder?: PlayerSlot | null;
+  rb_extra_turn_token_used?: boolean;
+  extra_turns?: number;
+  /** Mindbreaker: which slot the banned-pattern names are hidden from. */
+  rb_hide_banned_from_slot?: PlayerSlot | null;
   awaiting_limitbreaker?: boolean;
   awaiting_5x5_rules_ready: boolean;
   awaiting_6x6_rules_ready: boolean;
@@ -147,6 +153,9 @@ export type InboundMessage =
       c3_blocked?: boolean;
       rb6_special_cell?: { r: number; c: number; owner: PlayerSlot } | null;
       rb6_timer_owner?: PlayerSlot | null;
+      rb_extra_turn_token_holder?: PlayerSlot | null;
+      rb_extra_turn_token_used?: boolean;
+      rb_hide_banned_from_slot?: PlayerSlot | null;
       awaiting_5x5_rules_ready?: boolean;
       awaiting_6x6_rules_ready?: boolean;
       awaiting_7x7_rules_ready?: boolean;
@@ -182,6 +191,11 @@ export type InboundMessage =
     }
   | { type: "limitbreaker_start"; [key: string]: unknown }
   | { type: "limitbreaker_update"; [key: string]: unknown }
+  | {
+      type: "rb_extra_turn_update";
+      extra_turns: number;
+      rb_extra_turn_token_used: boolean;
+    }
   | { type: "match_series_complete"; [key: string]: unknown }
   | { type: "ranked_match_complete"; [key: string]: unknown }
   // Rules-show ("level up") gate at the start of each leg — both clients
@@ -205,6 +219,7 @@ export type OutboundMessage =
   | { type: "quit_match"; reason?: string }
   | { type: "toss_action"; action: string; payload?: Record<string, unknown> }
   | { type: "rb_start_game"; first_player?: PlayerSlot; resolve_series_only?: boolean }
+  | { type: "rb_use_extra_turn" }
   | { type: "levelup_ready"; ready: boolean; selected_patterns?: string[] }
   | {
       type: "limitbreaker_action";

@@ -352,7 +352,8 @@ export default function EngineMatchScreen() {
             activePatternIds={match.activePatterns}
           />
           <Caption tone="muted">
-            G{series.gameNumber} · {gridSize}×{gridSize} · {match.movesPlayed} MV
+            G{series.gameNumber} · {gridSize}×{gridSize} · {match.movesPlayed}{" "}
+            {match.movesPlayed === 1 ? "MOVE" : "MOVES"}
           </Caption>
         </Row>
       </Row>
@@ -369,7 +370,12 @@ export default function EngineMatchScreen() {
 
       <MatchStatusHud
         gridSize={gridSize}
-        showCenterBanner={match.centerRuleHint && match.movesPlayed === 0 && gridSize !== 6}
+        showCenterBanner={
+          match.centerRuleHint &&
+          match.movesPlayed === 0 &&
+          gridSize !== 6 &&
+          !match.suppressCenterOpening
+        }
         extraTurns={match.extraTurns}
         extraPlayer={match.extraTurnsHolder}
         status={status}
@@ -377,6 +383,20 @@ export default function EngineMatchScreen() {
         scoreLine={scoreLine}
         spinner={match.botThinking ? <Spinner tone="muted" /> : undefined}
       />
+
+      {gridSize === 7 &&
+      series.phase === "playing" &&
+      match.result.status === "playing" &&
+      match.extraTokenHolder === "P1" &&
+      !match.extraTokenUsed &&
+      match.extraTurns === 0 &&
+      match.current === "P1" ? (
+        <View style={{ marginTop: space[2] }}>
+          <Btn variant="secondary" size="sm" onPress={match.useExtraTurnToken}>
+            Use extra turn token
+          </Btn>
+        </View>
+      ) : null}
 
       <View style={[styles.boardSlot, { height: boardSide }]}>
         <BoardGrid
@@ -422,6 +442,17 @@ export default function EngineMatchScreen() {
         coinResult={breaker.coinResult}
         gridSize={specGridForGame(spec, nextGn)}
         rb6CellChooser={breaker.rb6CellChooser}
+        rb6TimerOwner={breaker.rb6TimerOwner}
+        winnerPickedRule={breaker.winnerPickedRule}
+        firstPlayerChosen={breaker.firstPlayerChosen}
+        bannedPatterns={breaker.bannedPatterns}
+        c3Blocked={breaker.c3Blocked}
+        hideBannedFromMe={
+          // The bot's bans stay hidden from the human for the whole game.
+          (breaker.winnerPickedRule === "ban" && breaker.tossWinner === "P2") ||
+          (breaker.winnerPickedRule === "extra_turn" && breaker.tossWinner === "P1")
+        }
+        selectedPatterns={breakerPatterns}
         p1Name={p1Display}
         p2Name={botName}
         onDismiss={goBack}

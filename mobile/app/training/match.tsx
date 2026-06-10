@@ -208,7 +208,8 @@ export default function TrainingPracticeScreen() {
             activePatternIds={match.activePatterns}
           />
           <Caption tone="muted">
-            G{series.gameNumber} · {gridSize}×{gridSize} · {match.movesPlayed} MV
+            G{series.gameNumber} · {gridSize}×{gridSize} · {match.movesPlayed}{" "}
+            {match.movesPlayed === 1 ? "MOVE" : "MOVES"}
           </Caption>
         </Row>
       </Row>
@@ -225,13 +226,32 @@ export default function TrainingPracticeScreen() {
 
       <MatchStatusHud
         gridSize={gridSize}
-        showCenterBanner={match.centerRuleHint && match.movesPlayed === 0 && gridSize !== 6}
+        showCenterBanner={
+          match.centerRuleHint &&
+          match.movesPlayed === 0 &&
+          gridSize !== 6 &&
+          !match.suppressCenterOpening
+        }
         extraTurns={match.extraTurns}
         extraPlayer={match.extraTurnsHolder}
         status={status}
         statusTone={statusTone}
         scoreLine={scoreLine}
       />
+
+      {gridSize === 7 &&
+      series.phase === "playing" &&
+      match.result.status === "playing" &&
+      match.extraTokenHolder !== null &&
+      !match.extraTokenUsed &&
+      match.extraTurns === 0 &&
+      match.current === match.extraTokenHolder ? (
+        <View style={{ marginTop: space[2] }}>
+          <Btn variant="secondary" size="sm" onPress={match.useExtraTurnToken}>
+            {pieceGlyph(match.extraTokenHolder)} — use extra turn token
+          </Btn>
+        </View>
+      ) : null}
 
       <View style={[styles.boardSlot, { height: boardSide }]}>
         <BoardGrid
@@ -276,6 +296,12 @@ export default function TrainingPracticeScreen() {
         coinResult={breaker.coinResult}
         gridSize={spec.grid}
         rb6CellChooser={breaker.rb6CellChooser}
+        rb6TimerOwner={breaker.rb6TimerOwner}
+        winnerPickedRule={breaker.winnerPickedRule}
+        firstPlayerChosen={breaker.firstPlayerChosen}
+        bannedPatterns={breaker.bannedPatterns}
+        c3Blocked={breaker.c3Blocked}
+        selectedPatterns={breakerPatterns}
         localOffline
         p1Name={p1Display}
         p2Name={p2Display}

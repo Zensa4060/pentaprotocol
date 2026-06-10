@@ -176,9 +176,18 @@ export interface GameResetOptions {
   starter?: SeriesPlayer;
   gridSize?: GridSize;
   patterns?: string[];
+  /** Mindbreaker: per-player win-condition lists (bans hit only the banner's opponent). */
+  patternsP1?: string[];
+  patternsP2?: string[];
   c3Blocked?: boolean;
   p1ClockMs?: number;
   p2ClockMs?: number;
+  /** Timebreaker: hidden cell — any stone placed there counts as the owner's symbol. */
+  rb6SpecialCell?: { r: number; c: number; owner: SeriesPlayer } | null;
+  /** Mindbreaker: center-opening bonus is off for the decider. */
+  suppressCenterOpening?: boolean;
+  /** Mindbreaker: who may cash the one-time extra-turn token. */
+  extraTurnTokenHolder?: SeriesPlayer | null;
 }
 
 export function clockMsForGameReset(
@@ -189,8 +198,11 @@ export function clockMsForGameReset(
   const base = matchMsForGrid(grid);
   let p1 = base;
   let p2 = base;
-  if (grid === 6 && gameNumber === 6 && rb6TimerOwner === "P1") p1 = TIMEBREAKER_CUT_MS;
-  if (grid === 6 && gameNumber === 6 && rb6TimerOwner === "P2") p2 = TIMEBREAKER_CUT_MS;
+  // `rb6TimerOwner` is only ever set by the 6×6 Timebreaker, so its
+  // presence is the gate — not the game number, which is 6 in the full
+  // ladder but 3 in a local BO3 series.
+  if (grid === 6 && rb6TimerOwner === "P1") p1 = TIMEBREAKER_CUT_MS;
+  if (grid === 6 && rb6TimerOwner === "P2") p2 = TIMEBREAKER_CUT_MS;
   return { p1, p2 };
 }
 

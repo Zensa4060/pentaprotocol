@@ -65,6 +65,11 @@ export interface EngineMatch {
   dismissBotError: () => void;
   activePatterns: string[];
   c3Blocked: boolean;
+  /** Mindbreaker extra-turn token (7×7 decider only). */
+  extraTokenHolder: Player | null;
+  extraTokenUsed: boolean;
+  useExtraTurnToken: () => void;
+  suppressCenterOpening: boolean;
 }
 
 const INITIAL_RESULT: MatchResult = { status: "playing", winner: null, line: null };
@@ -83,6 +88,14 @@ export function useEngineMatch({
     () => patternsProp ?? defaultPatternsForGrid(initialGrid),
   );
   const [c3Blocked, setC3Blocked] = useState(false);
+  const [patternsP1, setPatternsP1] = useState<string[] | null>(null);
+  const [patternsP2, setPatternsP2] = useState<string[] | null>(null);
+  const [specialCell, setSpecialCell] = useState<
+    { r: number; c: number; owner: Player } | null
+  >(null);
+  const [suppressCenterOpening, setSuppressCenterOpening] = useState(false);
+  const [extraTokenHolder, setExtraTokenHolder] = useState<Player | null>(null);
+  const [extraTokenUsed, setExtraTokenUsed] = useState(false);
   const center = centerCell(liveGrid);
   const boardMode = boardModeFromGrid(liveGrid);
 
@@ -107,6 +120,10 @@ export function useEngineMatch({
   const gridRef = useRef(liveGrid);
   const c3Ref = useRef(c3Blocked);
   const patternsRef = useRef(patterns);
+  const patternsP1Ref = useRef(patternsP1);
+  const patternsP2Ref = useRef(patternsP2);
+  const specialCellRef = useRef(specialCell);
+  const suppressCenterRef = useRef(suppressCenterOpening);
   const retryAfterRef = useRef(0);
   boardRef.current = board;
   movesRef.current = movesPlayed;
@@ -116,6 +133,10 @@ export function useEngineMatch({
   gridRef.current = liveGrid;
   c3Ref.current = c3Blocked;
   patternsRef.current = patterns;
+  patternsP1Ref.current = patternsP1;
+  patternsP2Ref.current = patternsP2;
+  specialCellRef.current = specialCell;
+  suppressCenterRef.current = suppressCenterOpening;
 
   const commitState = useCallback(
     (
@@ -146,16 +167,26 @@ export function useEngineMatch({
   const applyMove = useCallback(
     (player: Player, r: number, c: number): MatchResult => {
       const newBoard = boardRef.current.map((row) => [...row]);
-      newBoard[r][c] = player;
+      // Timebreaker special cell: a stone placed there always materialises
+      // as the cell owner's symbol (web parity).
+      const cell = specialCellRef.current;
+      const rbTrap =
+        gridRef.current === 6 && cell && cell.r === r && cell.c === c;
+      const stoneOwner: Player = rbTrap ? cell!.owner : player;
+      newBoard[r][c] = stoneOwner;
       const newMoves = movesRef.current + 1;
+      const ownerPatterns =
+        stoneOwner === "P1"
+          ? patternsP1Ref.current ?? patternsRef.current
+          : patternsP2Ref.current ?? patternsRef.current;
       const winRes = checkWinForGrid(
         gridRef.current,
         newBoard,
         r,
         c,
-        player,
+        stoneOwner,
         newMoves,
-        patternsRef.current,
+        ownerPatterns,
       );
 
       let nextResult: MatchResult;
@@ -189,6 +220,7 @@ export function useEngineMatch({
           c,
           extraRef.current,
           gridRef.current,
+          { suppressCenterOpening: suppressCenterRef.current },
         );
         next = turn.next;
         newExtra = turn.extraTurns;
@@ -200,10 +232,16 @@ export function useEngineMatch({
         r,
         c,
         player,
-        gridRef.current !== 6 && newMoves === 1 && r === center && c === center,
+        !suppressCenterRef.current &&
+          gridRef.current !== 6 &&
+          newMoves === 1 &&
+          r === center &&
+          c === center,
       );
       commitState(newBoard, newMoves, [r, c], nextResult, next, newExtra, logEntry);
-      setMoves((m) => [...m, { player, row: r, col: c }]);
+      // Record the stone's owner (not the slot that tapped) so trap-cell
+      // ownership matches the final board state in Syros analysis.
+      setMoves((m) => [...m, { player: stoneOwner, row: r, col: c }]);
       return nextResult;
     },
     [center, commitState],
@@ -245,7 +283,7 @@ export function useEngineMatch({
           difficulty: activeDifficulty,
           current_player: "P2",
           board_mode: boardModeFromGrid(gridRef.current),
-          selected_patterns: patternsRef.current,
+          selected_patterns: patternsP2Ref.current ?? patternsRef.current,
           moves_played: movesRef.current,
         });
         if (cancelled) return;
@@ -321,6 +359,16 @@ export function useEngineMatch({
     if (opts?.gridSize) setLiveGrid(opts.gridSize);
     if (opts?.patterns) setPatterns(opts.patterns);
     setC3Blocked(opts?.c3Blocked ?? false);
+    setPatternsP1(opts?.patternsP1 ?? null);
+    setPatternsP2(opts?.patternsP2 ?? null);
+    setSpecialCell(opts?.rb6SpecialCell ?? null);
+    setSuppressCenterOpening(opts?.suppressCenterOpening ?? false);
+    setExtraTokenHolder(opts?.extraTurnTokenHolder ?? null);
+    setExtraTokenUsed(false);
+    patternsP1Ref.current = opts?.patternsP1 ?? null;
+    patternsP2Ref.current = opts?.patternsP2 ?? null;
+    specialCellRef.current = opts?.rb6SpecialCell ?? null;
+    suppressCenterRef.current = opts?.suppressCenterOpening ?? false;
     const fresh = emptyBoard(grid);
     setBoard(fresh);
     setCurrent(starter);
@@ -347,6 +395,18 @@ export function useEngineMatch({
 
   const dismissBotError = useCallback(() => setBotError(null), []);
 
+  // Mindbreaker token: the holder cashes it on their own turn for one
+  // bonus consecutive move (extraTurns=2 ⇒ this move + one more).
+  const useExtraTurnToken = useCallback(() => {
+    if (statusRef.current !== "playing") return;
+    if (!extraTokenHolder || extraTokenUsed) return;
+    if (extraRef.current !== 0) return;
+    if (currentRef.current !== extraTokenHolder) return;
+    setExtraTurns(2);
+    extraRef.current = 2;
+    setExtraTokenUsed(true);
+  }, [extraTokenHolder, extraTokenUsed]);
+
   const extraTurnsHolder =
     result.status === "playing" && extraTurns > 0 ? current : null;
 
@@ -372,5 +432,9 @@ export function useEngineMatch({
     dismissBotError,
     activePatterns: patterns,
     c3Blocked,
+    extraTokenHolder,
+    extraTokenUsed,
+    useExtraTurnToken,
+    suppressCenterOpening,
   };
 }

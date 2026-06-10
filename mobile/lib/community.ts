@@ -2,7 +2,7 @@
  * Community / social links — mirrors ``frontend/lib/community.ts``.
  */
 
-import { Linking } from "react-native";
+import { Alert, Linking } from "react-native";
 
 export const DISCORD_INVITE_URL = "https://discord.gg/W6prvWmrR3";
 export const REDDIT_URL = "https://www.reddit.com/r/PentaProtocol/";
@@ -25,8 +25,15 @@ export const COMMUNITY_LINKS: CommunityLink[] = [
 ];
 
 export async function openExternalUrl(url: string): Promise<void> {
-  const can = await Linking.canOpenURL(url);
-  if (can) await Linking.openURL(url);
+  // Don't gate on Linking.canOpenURL — on Android 11+ it reports false
+  // for schemes not declared in the manifest <queries> block, which made
+  // every community link a silent no-op. openURL itself resolves https
+  // intents fine; just catch the rare genuine failure.
+  try {
+    await Linking.openURL(url);
+  } catch {
+    Alert.alert("Couldn't open link", url);
+  }
 }
 
 export async function openFeedbackEmail(): Promise<void> {
@@ -34,5 +41,9 @@ export async function openFeedbackEmail(): Promise<void> {
   const body = encodeURIComponent(
     "Hey PentaProtocol team,\n\n(Share your feedback, bug report, or suggestion below.)\n\n—\nSent from PentaProtocol mobile",
   );
-  await Linking.openURL(`mailto:${FEEDBACK_EMAIL}?subject=${subject}&body=${body}`);
+  try {
+    await Linking.openURL(`mailto:${FEEDBACK_EMAIL}?subject=${subject}&body=${body}`);
+  } catch {
+    Alert.alert("No email app found", `Write to us at ${FEEDBACK_EMAIL}.`);
+  }
 }

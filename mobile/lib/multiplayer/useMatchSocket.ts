@@ -47,6 +47,8 @@ export interface UseMatchSocketResult {
   dismissError: () => void;
   rbPhase: RbPhase | null;
   sendTossAction: (action: string, payload?: Record<string, unknown>) => void;
+  /** Cash the Mindbreaker extra-turn token (server validates everything). */
+  sendUseExtraTurn: () => void;
   lbState: MpLimitbreakerState | null;
   sendLimitbreakerAction: (payload: {
     choice?: "choose_first_player" | "ban_first";
@@ -69,7 +71,15 @@ function mergeRbPayload(
   prev: Room,
   payload: Record<string, unknown>,
 ): Room {
-  const next: Room = { ...prev, rb_phase_payload: payload };
+  // Accumulate phase payloads (server-side parity): later phases omit
+  // earlier keys (e.g. toss_summary doesn't repeat winnerPickedRule), so
+  // replacing the payload wholesale would lose the toss selections the
+  // summary screen needs.
+  const mergedPayload = {
+    ...(prev.rb_phase_payload ?? {}),
+    ...payload,
+  };
+  const next: Room = { ...prev, rb_phase_payload: mergedPayload };
   if (typeof payload.phase === "string") next.phase = payload.phase;
   if (payload.toss_winner === "P1" || payload.toss_winner === "P2") {
     next.rb_toss_winner = payload.toss_winner;
@@ -203,6 +213,7 @@ export function useMatchSocket({
               ...(msg.awaiting_rulebreaker !== undefined
                 ? { awaiting_rulebreaker: msg.awaiting_rulebreaker }
                 : null),
+              ...(msg.extra_turns !== undefined ? { extra_turns: msg.extra_turns } : null),
             };
           });
           break;
@@ -245,6 +256,10 @@ export function useMatchSocket({
               rb6_special_cell: msg.rb6_special_cell ?? null,
               c3_blocked: msg.c3_blocked ?? false,
               suppress_center_opening: msg.suppress_center_opening ?? false,
+              rb_extra_turn_token_holder: msg.rb_extra_turn_token_holder ?? null,
+              rb_extra_turn_token_used: msg.rb_extra_turn_token_used ?? false,
+              rb_hide_banned_from_slot: msg.rb_hide_banned_from_slot ?? null,
+              extra_turns: 0,
               awaiting_limitbreaker: false,
               ...(msg.p1_series_points !== undefined
                 ? { p1_series_points: msg.p1_series_points }
@@ -304,6 +319,18 @@ export function useMatchSocket({
                   series_winner:
                     parsed.series_winner === "DRAW" ? null : parsed.series_winner,
                   game_status: "finished",
+                }
+              : prev,
+          );
+          break;
+        }
+        case "rb_extra_turn_update": {
+          setRoom((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  extra_turns: msg.extra_turns,
+                  rb_extra_turn_token_used: msg.rb_extra_turn_token_used,
                 }
               : prev,
           );
@@ -395,6 +422,46 @@ export function useMatchSocket({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [roomCode, slot]);
 
+  // ── Coin-toss cadence (web GameScreen parity) ────────────────────
+  // Each client advances its own splash → coin reveal → rule choice;
+  // only P1 rolls the coin and broadcasts ``coin_result``. Without this
+  // a mobile P1 room sat on the splash until the server stall-watchdog
+  // force-resolved the whole toss with default picks.
+  useEffect(() => {
+    if (rbPhase !== "rb_splash") return;
+    const t = setTimeout(() => {
+      setRbPhase((p) => (p === "rb_splash" ? "rb_coin" : p));
+      setRoom((prev) =>
+        prev && prev.phase === "rb_splash" ? { ...prev, phase: "rb_coin" } : prev,
+      );
+    }, 3200);
+    return () => clearTimeout(t);
+  }, [rbPhase]);
+
+  const rbCoinResult = room?.rb_coin_result ?? null;
+  useEffect(() => {
+    if (rbPhase !== "rb_coin") return;
+    if (rbCoinResult) {
+      const t = setTimeout(() => {
+        setRbPhase((p) => (p === "rb_coin" ? "rule_choice" : p));
+        setRoom((prev) =>
+          prev && prev.phase === "rb_coin" ? { ...prev, phase: "rule_choice" } : prev,
+        );
+      }, 2500);
+      return () => clearTimeout(t);
+    }
+    if (slot !== "P1") return;
+    const t = setTimeout(() => {
+      const r = Math.random() < 0.5 ? "PENTA" : "PROTO";
+      socketRef.current?.send({
+        type: "toss_action",
+        action: "coin_result",
+        payload: { result: r, toss_winner: r === "PENTA" ? "P1" : "P2" },
+      });
+    }, 2800);
+    return () => clearTimeout(t);
+  }, [rbPhase, rbCoinResult, slot]);
+
   const placeStone = useCallback((row: number, col: number) => {
     socketRef.current?.send({ type: "move", row, col });
   }, []);
@@ -421,6 +488,10 @@ export function useMatchSocket({
       setRbPhase(payload.phase as RbPhase);
       setRoom((prev) => (prev ? mergeRbPayload(prev, payload ?? {}) : prev));
     }
+  }, []);
+
+  const sendUseExtraTurn = useCallback(() => {
+    socketRef.current?.send({ type: "rb_use_extra_turn" });
   }, []);
 
   const sendLimitbreakerAction = useCallback(
@@ -466,6 +537,7 @@ export function useMatchSocket({
     dismissError,
     rbPhase,
     sendTossAction,
+    sendUseExtraTurn,
     lbState,
     sendLimitbreakerAction,
     matchResult,

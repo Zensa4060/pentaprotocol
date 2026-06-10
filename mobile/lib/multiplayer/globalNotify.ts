@@ -11,6 +11,14 @@ import { AppState, type AppStateStatus } from "react-native";
 import API, { getWsBaseUrl } from "@/lib/api";
 
 const HEARTBEAT_MS = 20_000;
+/**
+ * Reconnect backoff: starts gentle, doubles to a 60s ceiling, resets on a
+ * successful open. Every retry mints a WS ticket, and the server caps
+ * tickets per user per minute — a fixed 4s loop here could starve the
+ * match socket of tickets during an outage (the "429 on rejoin" spiral).
+ */
+const RECONNECT_BASE_MS = 5_000;
+const RECONNECT_MAX_MS = 60_000;
 
 interface TicketResponse {
   ticket: string;
@@ -31,12 +39,22 @@ export function openGlobalNotifySocket(): GlobalNotifySocket {
   let disposed = false;
   let heartbeat: ReturnType<typeof setInterval> | null = null;
   let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  let reconnectDelay = RECONNECT_BASE_MS;
 
   const stopHeartbeat = () => {
     if (heartbeat) {
       clearInterval(heartbeat);
       heartbeat = null;
     }
+  };
+
+  const scheduleReconnect = () => {
+    if (disposed) return;
+    if (reconnectTimer) clearTimeout(reconnectTimer);
+    reconnectTimer = setTimeout(() => {
+      void connect();
+    }, reconnectDelay);
+    reconnectDelay = Math.min(reconnectDelay * 2, RECONNECT_MAX_MS);
   };
 
   const connect = async () => {
@@ -49,6 +67,7 @@ export function openGlobalNotifySocket(): GlobalNotifySocket {
       socket = ws;
 
       ws.onopen = () => {
+        reconnectDelay = RECONNECT_BASE_MS;
         stopHeartbeat();
         heartbeat = setInterval(() => {
           if (ws.readyState === WebSocket.OPEN) {
@@ -60,22 +79,14 @@ export function openGlobalNotifySocket(): GlobalNotifySocket {
       ws.onclose = () => {
         stopHeartbeat();
         socket = null;
-        if (!disposed) {
-          reconnectTimer = setTimeout(() => {
-            void connect();
-          }, 4000);
-        }
+        scheduleReconnect();
       };
 
       ws.onerror = () => {
         /* onclose handles reconnect */
       };
     } catch {
-      if (!disposed) {
-        reconnectTimer = setTimeout(() => {
-          void connect();
-        }, 8000);
-      }
+      scheduleReconnect();
     }
   };
 

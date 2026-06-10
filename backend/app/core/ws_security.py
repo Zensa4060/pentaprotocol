@@ -81,10 +81,15 @@ def _ticket_secret() -> bytes:
 # ──────────────────────────────────────────────────────────────────────────────
 TICKET_TTL_SECONDS = 30
 
-# Hard cap on tickets a user can mint in a rolling minute. 5 is enough
-# for a normal reconnect storm (browser refresh during a match). More
-# than that and the user is either buggy or hostile.
-TICKET_RATE_LIMIT = 5
+# Hard cap on tickets a user can mint in a rolling minute. A legitimate
+# client holds several sockets at once (global notify + queue + match),
+# each minting its own ticket, and reconnect ladders mint more — the
+# mobile queue→match-found→match flow alone consumes 4–6 within a
+# minute. 30 leaves generous headroom for that while still stopping a
+# flood: tickets are cheap to mint (one Redis SET) and every other
+# abuse path is gated separately (single-use nonces, per-connection
+# token buckets, the 120 msgs/10s per-user cap).
+TICKET_RATE_LIMIT = 30
 TICKET_RATE_WINDOW_SECONDS = 60
 
 

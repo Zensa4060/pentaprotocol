@@ -1,6 +1,16 @@
 /**
  * Offline Protocol Breaker state machine (Rulebreaker / Timebreaker /
  * Mindbreaker). Hosts coin toss locally; bot (P2) auto-picks on its turns.
+ *
+ * Phase flow mirrors web ``GameScreen`` exactly:
+ *  - 5×5: rule_choice → (who_first_winner → c3_choice_loser) | (c3_choice →
+ *    who_first_loser) → toss_summary.
+ *  - 6×6: rule_choice → [own cell] grid_block_warning → grid_block_selection
+ *    → who_first_loser → toss_summary, OR [choose first] who_first_winner →
+ *    grid_block_selection (loser owns cell + 1:00 timer) → toss_summary.
+ *  - 7×7: rule_choice → ban_pattern_(winner|loser) ×2 → who_first_loser →
+ *    toss_summary. Bans hit only the banner's opponent; the non-banner
+ *    holds the extra-turn token and the center opening is off.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -21,6 +31,7 @@ interface LocalRbState {
   coinResult: "PENTA" | "PROTO" | null;
   firstPlayer: SeriesPlayer;
   c3Blocked: boolean;
+  winnerPickedRule: string | null;
   bannedPatterns: string[];
   rb6TimerOwner: SeriesPlayer | null;
   rb6CellChooser: SeriesPlayer | null;
@@ -55,6 +66,11 @@ export function useLocalRulebreaker({
   const [tossWinner, setTossWinner] = useState<PlayerSlot | null>(null);
   const [coinResult, setCoinResult] = useState<"PENTA" | "PROTO" | null>(null);
   const [rb6CellChooser, setRb6CellChooser] = useState<PlayerSlot | null>(null);
+  const [rb6TimerOwner, setRb6TimerOwner] = useState<PlayerSlot | null>(null);
+  const [winnerPickedRule, setWinnerPickedRule] = useState<string | null>(null);
+  const [firstPlayerChosen, setFirstPlayerChosen] = useState<PlayerSlot | null>(null);
+  const [bannedPatterns, setBannedPatterns] = useState<string[]>([]);
+  const [c3Blocked, setC3Blocked] = useState<boolean | null>(null);
   const stateRef = useRef<LocalRbState | null>(null);
   const completedRef = useRef(false);
   const splashDoneRef = useRef(false);
@@ -66,6 +82,11 @@ export function useLocalRulebreaker({
       setTossWinner(null);
       setCoinResult(null);
       setRb6CellChooser(null);
+      setRb6TimerOwner(null);
+      setWinnerPickedRule(null);
+      setFirstPlayerChosen(null);
+      setBannedPatterns([]);
+      setC3Blocked(null);
       stateRef.current = null;
       completedRef.current = false;
       splashDoneRef.current = false;
@@ -82,6 +103,7 @@ export function useLocalRulebreaker({
       coinResult: null,
       firstPlayer: "P1",
       c3Blocked: false,
+      winnerPickedRule: null,
       bannedPatterns: [],
       rb6TimerOwner: null,
       rb6CellChooser: null,
@@ -92,6 +114,11 @@ export function useLocalRulebreaker({
     setTossWinner(null);
     setCoinResult(null);
     setRb6CellChooser(null);
+    setRb6TimerOwner(null);
+    setWinnerPickedRule(null);
+    setFirstPlayerChosen(null);
+    setBannedPatterns([]);
+    setC3Blocked(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active, gameNumber, patternsKey]);
 
@@ -99,16 +126,43 @@ export function useLocalRulebreaker({
     (state: LocalRbState) => {
       if (completedRef.current) return;
       completedRef.current = true;
-      const filtered = state.activePatterns.filter((p) => !state.bannedPatterns.includes(p));
+      const all = [...state.activePatterns];
+      const filtered = all.filter((p) => !state.bannedPatterns.includes(p));
       const clocks = clockMsForGameReset(gridSize, gameNumber, state.rb6TimerOwner);
+
+      // Mindbreaker: the banner keeps the full pool; only the opponent
+      // loses the banned shapes. Ban actor = toss winner on the "ban"
+      // path, toss loser on the "extra_turn" path (web structuralPatterns).
+      const tw = state.tossWinner;
+      const tl = tw === "P1" ? "P2" : tw === "P2" ? "P1" : null;
+      const wr = state.winnerPickedRule;
+      const is7 = gridSize === 7;
+      const mindbreaker = is7 && (wr === "extra_turn" || wr === "ban");
+      let patternsP1: string[] | undefined;
+      let patternsP2: string[] | undefined;
+      let tokenHolder: SeriesPlayer | null = null;
+      if (is7 && state.bannedPatterns.length > 0 && tw && tl) {
+        const banActor = wr === "ban" ? tw : tl;
+        patternsP1 = banActor === "P1" ? all : filtered;
+        patternsP2 = banActor === "P2" ? all : filtered;
+      }
+      if (mindbreaker && tw && tl) {
+        tokenHolder = wr === "extra_turn" ? tw : tl;
+      }
+
       onComplete({
         reset: {
           starter: state.firstPlayer,
           gridSize,
           patterns: filtered.length > 0 ? filtered : patternsRef.current,
+          patternsP1,
+          patternsP2,
           c3Blocked: state.c3Blocked,
           p1ClockMs: clocks.p1,
           p2ClockMs: clocks.p2,
+          rb6SpecialCell: gridSize === 6 ? state.rb6SpecialCell : null,
+          suppressCenterOpening: mindbreaker,
+          extraTurnTokenHolder: tokenHolder,
         },
       });
       setPhase(null);
@@ -127,20 +181,30 @@ export function useLocalRulebreaker({
       s.coinResult = payload.result;
       setCoinResult(payload.result);
     }
+    if (typeof payload.winnerPickedRule === "string" || payload.winnerPickedRule === null) {
+      s.winnerPickedRule = payload.winnerPickedRule as string | null;
+      setWinnerPickedRule(s.winnerPickedRule);
+    }
     if (payload.firstPlayerChosen === "P1" || payload.firstPlayerChosen === "P2") {
       s.firstPlayer = payload.firstPlayerChosen;
+      setFirstPlayerChosen(payload.firstPlayerChosen);
     }
-    if (typeof payload.rbC3Blocked === "boolean") s.c3Blocked = payload.rbC3Blocked;
+    if (typeof payload.rbC3Blocked === "boolean") {
+      s.c3Blocked = payload.rbC3Blocked;
+      setC3Blocked(payload.rbC3Blocked);
+    }
     if (Array.isArray(payload.rb_banned_patterns)) {
       s.bannedPatterns = payload.rb_banned_patterns as string[];
       s.activePatterns = patternsRef.current.filter((p) => !s.bannedPatterns.includes(p));
+      setBannedPatterns([...s.bannedPatterns]);
     }
-    if (payload.rb6TimerOwner === "P1" || payload.rb6TimerOwner === "P2") {
-      s.rb6TimerOwner = payload.rb6TimerOwner;
+    if (payload.rb6TimerOwner === "P1" || payload.rb6TimerOwner === "P2" || payload.rb6TimerOwner === null) {
+      s.rb6TimerOwner = payload.rb6TimerOwner as SeriesPlayer | null;
+      setRb6TimerOwner(s.rb6TimerOwner);
     }
-    if (payload.rb6CellChooser === "P1" || payload.rb6CellChooser === "P2") {
-      s.rb6CellChooser = payload.rb6CellChooser;
-      setRb6CellChooser(payload.rb6CellChooser);
+    if (payload.rb6CellChooser === "P1" || payload.rb6CellChooser === "P2" || payload.rb6CellChooser === null) {
+      s.rb6CellChooser = payload.rb6CellChooser as SeriesPlayer | null;
+      setRb6CellChooser(s.rb6CellChooser);
     }
     if (
       payload.rb6_special_cell &&
@@ -156,7 +220,7 @@ export function useLocalRulebreaker({
       s.phase = payload.phase;
       setPhase(payload.phase);
       if (payload.phase === "toss_summary") {
-        setTimeout(() => finish(s), 1400);
+        setTimeout(() => finish(s), 5000);
       }
     }
   }, [finish]);
@@ -171,7 +235,13 @@ export function useLocalRulebreaker({
         return;
       }
       if (action === "coin_result") {
-        applyPayload({ phase: "rule_choice", ...payload });
+        // Land the coin first (reveal beat), then open the rule choice —
+        // jumping straight to rule_choice skipped the toss reveal.
+        applyPayload({ phase: "rb_coin", ...payload });
+        setTimeout(() => {
+          const cur = stateRef.current;
+          if (cur && cur.phase === "rb_coin") applyPayload({ phase: "rule_choice" });
+        }, 2500);
         return;
       }
       if (action === "phase_choice") {
@@ -196,7 +266,7 @@ export function useLocalRulebreaker({
     const t = setTimeout(() => {
       splashDoneRef.current = true;
       handleTossAction("start_rb", {});
-    }, 700);
+    }, 1600);
     return () => clearTimeout(t);
   }, [active, phase, handleTossAction]);
 
@@ -224,22 +294,35 @@ export function useLocalRulebreaker({
       if (p === "grid_block_warning") {
         handleTossAction("phase_choice", {
           phase: "grid_block_selection",
-          rb6TimerOwner: tw,
+          rb6TimerOwner: s.rb6TimerOwner ?? tw,
           rb6CellChooser: chooser6,
-          winnerPickedRule: "timer_half",
+          winnerPickedRule: s.winnerPickedRule ?? "timer_half",
         });
         return;
       }
       if (p === "grid_block_selection") {
-        handleTossAction("phase_choice", {
-          phase: "toss_summary",
-          rb6_special_cell: {
-            r: Math.floor(Math.random() * 6),
-            c: Math.floor(Math.random() * 6),
-            owner: chooser6,
-          },
-          summaryTimer: 5,
-        });
+        const cell = {
+          r: Math.floor(Math.random() * 6),
+          c: Math.floor(Math.random() * 6),
+          owner: chooser6,
+        };
+        // Winner-owned cell (timer_half path): the toss loser still has to
+        // pick who plays first. Loser-owned cell (choose_first path): the
+        // winner already picked, so the toss resolves now.
+        if (s.winnerPickedRule === "timer_half") {
+          handleTossAction("phase_choice", {
+            phase: "who_first_loser",
+            rb6_special_cell: cell,
+            rb6TimerOwner: chooser6,
+            winnerPickedRule: s.winnerPickedRule,
+          });
+        } else {
+          handleTossAction("phase_choice", {
+            phase: "toss_summary",
+            rb6_special_cell: cell,
+            summaryTimer: 5,
+          });
+        }
         return;
       }
       if (p === "ban_pattern_winner" || p === "ban_pattern_loser") {
@@ -295,6 +378,7 @@ export function useLocalRulebreaker({
             firstPlayerChosen: fp,
             rb6TimerOwner: forcedOther,
             rb6CellChooser: forcedOther,
+            winnerPickedRule: "choose_first",
           });
         } else {
           handleTossAction("phase_choice", {
@@ -365,7 +449,11 @@ export function useLocalRulebreaker({
 
     if (!needsBot && !needsTimeout) return;
 
-    const delay = needsBot ? 900 + Math.random() * 900 : 30_000;
+    const delay = needsBot
+      ? 900 + Math.random() * 900
+      : phase === "grid_block_selection"
+      ? 60_000
+      : 30_000;
     const timer = setTimeout(() => randomPick(phase), delay);
     return () => clearTimeout(timer);
   }, [active, botMode, phase, randomPick]);
@@ -376,6 +464,11 @@ export function useLocalRulebreaker({
     tossWinner,
     coinResult,
     rb6CellChooser,
+    rb6TimerOwner,
+    winnerPickedRule,
+    firstPlayerChosen,
+    bannedPatterns,
+    c3Blocked,
     boardMode,
     handleTossAction,
   };

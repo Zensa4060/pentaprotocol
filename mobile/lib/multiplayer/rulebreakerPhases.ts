@@ -21,9 +21,15 @@ export function isRbPhase(phase: string | null | undefined): phase is RbPhase {
   return !!phase && (RB_PHASES as readonly string[]).includes(phase);
 }
 
-export function breakerTitle(_boardMode: string, gameNumber: number): string {
-  if (gameNumber === 6) return "TIMEBREAKER";
-  if (gameNumber === 9) return "MINDBREAKER";
-  if (gameNumber === 3) return "RULEBREAKER";
+/**
+ * Breaker name follows the BOARD SIZE, not the game number (web parity:
+ * splash uses is6x6/is7x7). Game numbers differ between the full ladder
+ * (breakers before G3/G6/G9) and local BO3 (breaker before G3 on any
+ * board), so keying off the number showed "RULEBREAKER" for 6×6/7×7 BO3.
+ */
+export function breakerTitle(boardMode: string, _gameNumber: number): string {
+  if (boardMode.startsWith("6x6")) return "TIMEBREAKER";
+  if (boardMode.startsWith("7x7")) return "MINDBREAKER";
+  if (boardMode.startsWith("5x5")) return "RULEBREAKER";
   return "PROTOCOL BREAKER";
 }

@@ -28,6 +28,7 @@
  *     types that aren't in our union yet without a recompile.
  */
 
+import { isAxiosError } from "axios";
 import { AppState, type AppStateStatus } from "react-native";
 
 import API, { getWsBaseUrl } from "@/lib/api";
@@ -52,11 +53,25 @@ interface TicketResponse {
  * one ticket to connect to a different room.
  */
 async function fetchTicket(roomCode: string, slot: PlayerSlot): Promise<string> {
-  const res = await API.post<TicketResponse>("/api/room/ws-ticket", {
-    room_code: roomCode.toUpperCase(),
-    slot,
-  });
-  return res.data.ticket;
+  try {
+    const res = await API.post<TicketResponse>("/api/room/ws-ticket", {
+      room_code: roomCode.toUpperCase(),
+      slot,
+    });
+    return res.data.ticket;
+  } catch (err) {
+    // Surface the server's human-readable detail (e.g. the reconnect
+    // throttle's "try again in a minute") instead of axios's generic
+    // "Request failed with status code NNN".
+    if (isAxiosError(err)) {
+      const detail = (err.response?.data as { detail?: string } | undefined)?.detail;
+      if (typeof detail === "string" && detail) throw new Error(detail);
+      if (err.response?.status === 429) {
+        throw new Error("Connection is rate-limited — retrying shortly.");
+      }
+    }
+    throw err;
+  }
 }
 
 export type WsConnectionStatus =
@@ -269,7 +284,22 @@ export function openMatchSocket(opts: MatchSocketOptions): MatchSocket {
         // eslint-disable-next-line no-console
         console.warn("[ws] connect failed", err);
       }
-      setStatus("disconnected", err instanceof Error ? err.message : "Connect failed");
+      const message = err instanceof Error ? err.message : "Connect failed";
+      // A failed ticket fetch (transient network blip, 429 reconnect
+      // throttle) deserves the same bounded retry ladder as a dropped
+      // socket — failing straight to "disconnected" turned a one-minute
+      // throttle into a "Match ended" dead end.
+      if (reconnectAttempts >= RECONNECT_BACKOFFS_MS.length) {
+        setStatus("disconnected", message);
+        return;
+      }
+      const delay = RECONNECT_BACKOFFS_MS[reconnectAttempts];
+      reconnectAttempts += 1;
+      setStatus("reconnecting", message);
+      setTimeout(() => {
+        if (disposed) return;
+        connect().catch(() => setStatus("disconnected", message));
+      }, delay);
     }
   };
 
