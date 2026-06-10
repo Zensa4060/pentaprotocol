@@ -5,6 +5,7 @@
 import { useEffect, useState } from "react";
 import { Modal, StyleSheet, View } from "react-native";
 
+import { CoinFlip } from "@/components/game/RulebreakerOverlay";
 import { Btn, Caption, Eyebrow, Heading, Title } from "@/components/ui";
 import type { MpLimitbreakerState } from "@/lib/multiplayer/matchResult";
 import type { PlayerSlot } from "@/lib/multiplayer/types";
@@ -61,6 +62,12 @@ export function MpLimitbreakerOverlay({
         <Caption tone="muted" center>
           Series tied at {state.p1SeriesPts}–{state.p2SeriesPts}. G10 decides the match.
         </Caption>
+        <View style={{ marginTop: space[3], alignItems: "center" }}>
+          <CoinFlip
+            result={state.tossWinner ? (state.tossWinner === "P1" ? "PENTA" : "PROTO") : null}
+            size={140}
+          />
+        </View>
         <Caption tone="accent" style={{ marginTop: space[3] }}>
           {state.tossWinner} won the toss
         </Caption>

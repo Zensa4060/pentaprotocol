@@ -113,6 +113,8 @@ export interface LoginResponse {
   requires_merge_consent?: boolean;
   requires_policy_gate?: boolean;
   temp_token?: string;
+  /** Present on ``requires_merge_consent`` responses. */
+  email?: string;
 }
 
 /**

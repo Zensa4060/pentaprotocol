@@ -55,6 +55,9 @@ export interface UseMatchSocketResult {
   }) => void;
   matchResult: MatchSeriesComplete | null;
   dismissMatchResult: () => void;
+  /** Rules-show gate readiness per slot (``levelup_ready`` protocol). */
+  rulesReady: Record<PlayerSlot, boolean>;
+  sendLevelupReady: (ready: boolean, selectedPatterns?: string[]) => void;
 }
 
 function emptyBoardForMode(mode: string): Room["board"] {
@@ -107,6 +110,10 @@ export function useMatchSocket({
   const [rbPhase, setRbPhase] = useState<RbPhase | null>(null);
   const [lbState, setLbState] = useState<MpLimitbreakerState | null>(null);
   const [matchResult, setMatchResult] = useState<MatchSeriesComplete | null>(null);
+  const [rulesReady, setRulesReady] = useState<Record<PlayerSlot, boolean>>({
+    P1: false,
+    P2: false,
+  });
 
   const socketRef = useRef<MatchSocket | null>(null);
   const roomRef = useRef(room);
@@ -208,6 +215,15 @@ export function useMatchSocket({
           if (gr.limitbreaker_final || gr.protocolbreaker_final) {
             setLbState(null);
           }
+          // A fresh leg can raise a rules-show gate — start with both
+          // sides un-ready so the sheet shows live READY states.
+          if (
+            msg.awaiting_5x5_rules_ready ||
+            msg.awaiting_6x6_rules_ready ||
+            msg.awaiting_7x7_rules_ready
+          ) {
+            setRulesReady({ P1: false, P2: false });
+          }
           setRoom((prev) => {
             if (!prev) return prev;
             return {
@@ -293,6 +309,32 @@ export function useMatchSocket({
           );
           break;
         }
+        case "levelup_ready_update": {
+          setRulesReady((prev) => ({ ...prev, [msg.player]: msg.ready }));
+          break;
+        }
+        case "levelup_sync": {
+          setRulesReady({
+            P1: Boolean(msg.p1_ready),
+            P2: Boolean(msg.p2_ready),
+          });
+          break;
+        }
+        case "levelup_start": {
+          // Both sides ready — server opened the board. Clear the gate.
+          setRulesReady({ P1: false, P2: false });
+          setRoom((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  awaiting_5x5_rules_ready: false,
+                  awaiting_6x6_rules_ready: false,
+                  awaiting_7x7_rules_ready: false,
+                }
+              : prev,
+          );
+          break;
+        }
         case "match_start": {
           setMatchStarted(true);
           break;
@@ -325,6 +367,7 @@ export function useMatchSocket({
     setRbPhase(null);
     setLbState(null);
     setMatchResult(null);
+    setRulesReady({ P1: false, P2: false });
 
     const socket = openMatchSocket({
       roomCode,
@@ -395,6 +438,21 @@ export function useMatchSocket({
     setMatchResult(null);
   }, []);
 
+  const sendLevelupReady = useCallback(
+    (ready: boolean, selectedPatterns?: string[]) => {
+      socketRef.current?.send({
+        type: "levelup_ready",
+        ready,
+        ...(selectedPatterns?.length ? { selected_patterns: selectedPatterns } : null),
+      });
+      // Optimistic local echo — the server broadcasts levelup_ready_update
+      // to both peers, but reflecting our own tap immediately keeps the
+      // button state snappy.
+      setRulesReady((prev) => ({ ...prev, [slot]: ready }));
+    },
+    [slot],
+  );
+
   return {
     room,
     status,
@@ -412,5 +470,7 @@ export function useMatchSocket({
     sendLimitbreakerAction,
     matchResult,
     dismissMatchResult,
+    rulesReady,
+    sendLevelupReady,
   };
 }

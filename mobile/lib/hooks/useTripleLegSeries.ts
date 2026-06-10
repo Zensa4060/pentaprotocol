@@ -7,17 +7,20 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
   defaultStarterForGame,
-  gridForGameNumber,
-  isBreakerGate,
-  isLegTransition,
   LIMITBREAKER_GAME,
-  MAX_REGULATION_GAMES,
-  resolveSeries,
+  specGridForGame,
+  specIsBreakerGate,
+  specIsLegTransition,
+  specMaxGames,
+  specResolveSeries,
   type SeriesOutcome,
   type SeriesPhase,
   type SeriesPlayer,
+  type SeriesSpec,
   winsOf,
 } from "./seriesConfig";
+
+const FULL_SPEC: SeriesSpec = { kind: "full", grid: 5 };
 
 export interface TripleLegSeries {
   gameNumber: number;
@@ -48,6 +51,7 @@ interface GameResultLike {
 export function useTripleLegSeries(
   result: GameResultLike,
   onResetGame: (starter: SeriesPlayer, nextGameNumber: number) => void,
+  spec: SeriesSpec = FULL_SPEC,
 ): TripleLegSeries {
   const [gameNumber, setGameNumber] = useState(1);
   const [history, setHistory] = useState<SeriesOutcome[]>([]);
@@ -68,7 +72,7 @@ export function useTripleLegSeries(
     const nextHistory = [...history, outcome];
     setHistory(nextHistory);
 
-    const resolved = resolveSeries(nextHistory);
+    const resolved = specResolveSeries(spec, nextHistory);
     if (resolved.over) {
       setPhase("over");
       return;
@@ -77,19 +81,19 @@ export function useTripleLegSeries(
       setPhase("limitbreaker");
       return;
     }
-    if (isBreakerGate(gameNumber)) {
+    if (specIsBreakerGate(spec, gameNumber)) {
       setPhase("breaker");
       return;
     }
-    if (isLegTransition(gameNumber)) {
+    if (specIsLegTransition(spec, gameNumber)) {
       setPhase("leg_transition");
       return;
     }
     setPhase("intermission");
-  }, [result.status, result.winner, phase, history, gameNumber]);
+  }, [result.status, result.winner, phase, history, gameNumber, spec]);
 
   const { p1: p1Points, p2: p2Points } = useMemo(() => winsOf(history), [history]);
-  const resolved = useMemo(() => resolveSeries(history), [history]);
+  const resolved = useMemo(() => specResolveSeries(spec, history), [history, spec]);
 
   const bumpGame = useCallback(() => {
     setGameNumber((g) => g + 1);
@@ -98,13 +102,13 @@ export function useTripleLegSeries(
   }, []);
 
   const advanceToNextGame = useCallback(() => {
-    if (gameNumber >= MAX_REGULATION_GAMES && phase !== "leg_transition") return;
+    if (gameNumber >= specMaxGames(spec) && phase !== "leg_transition") return;
     const nextGn = gameNumber + 1;
     setGameNumber(nextGn);
     onResetGame(defaultStarterForGame(nextGn), nextGn);
     recordedRef.current = false;
     setPhase("playing");
-  }, [gameNumber, onResetGame, phase]);
+  }, [gameNumber, onResetGame, phase, spec]);
 
   const completeBreaker = useCallback(() => {
     bumpGame();
@@ -130,9 +134,9 @@ export function useTripleLegSeries(
 
   const legTransitionLabel = useMemo(() => {
     if (phase !== "leg_transition") return null;
-    const nextGrid = gridForGameNumber(gameNumber + 1);
+    const nextGrid = specGridForGame(spec, gameNumber + 1);
     return `${nextGrid}×${nextGrid} LEG`;
-  }, [phase, gameNumber]);
+  }, [phase, gameNumber, spec]);
 
   const lastOutcome = history.length > 0 ? history[history.length - 1] : null;
 

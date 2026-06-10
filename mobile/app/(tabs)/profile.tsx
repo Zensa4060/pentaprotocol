@@ -24,6 +24,7 @@ import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Pressable,
   RefreshControl,
   StyleSheet,
   Text,
@@ -211,7 +212,14 @@ export default function ProfileScreen() {
         </Stack>
         <Row gap={2} align="center">
           <RankBadge elo={user.elo ?? 0} isPlacement={user.is_placement} size={40} showLabel />
-          {user.title ? <Pill label={user.title.toUpperCase()} tone="muted" /> : null}
+          <Pressable
+            onPress={() => router.push("/collection?tab=badges" as never)}
+            hitSlop={6}
+            accessibilityRole="button"
+            accessibilityLabel="Change badge"
+          >
+            <Pill label={(user.title ?? "newcomer").toUpperCase()} tone="muted" />
+          </Pressable>
           {user.under_review ? <Pill label="UNDER REVIEW" tone="warn" /> : null}
         </Row>
       </Stack>

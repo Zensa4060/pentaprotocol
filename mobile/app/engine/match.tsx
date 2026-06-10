@@ -1,5 +1,10 @@
 /**
- * AI Engine match — human vs server bot with triple-leg series + breakers.
+ * AI Engine match — human vs server bot.
+ *
+ * Regular AI ladder bouts are **BO3 on the chosen board size** (web
+ * ``isLocalShortSeries``): max 3 games, first to 2, drawable, Rulebreaker
+ * before the G3 decider. Unranked queue **filler** bots instead play the
+ * full multiplayer triple-leg ladder (first to 3, 9 games + Limitbreaker).
  */
 
 import { router, Stack, useLocalSearchParams } from "expo-router";
@@ -35,10 +40,7 @@ import {
   type BotId,
 } from "@/lib/botRewards";
 import { boardSideForGrid } from "@/lib/game/boardLayout";
-import {
-  defaultPatternsForGrid,
-  matchMsForGrid,
-} from "@/lib/game/boardConfig";
+import { matchMsForGrid, parseGridParam } from "@/lib/game/boardConfig";
 import { SyrosAnalysisModal } from "@/components/syros/SyrosAnalysisModal";
 import { analyzeGame, type AnalyzeResult } from "@/lib/syros";
 import { claimBotDefeat } from "@/lib/profile";
@@ -47,11 +49,13 @@ import { useLocalLimitbreaker } from "@/lib/hooks/useLocalLimitbreaker";
 import { useLocalRulebreaker } from "@/lib/hooks/useLocalRulebreaker";
 import { useMatchClock } from "@/lib/hooks/useMatchClock";
 import {
-  boardModeForGameNumber,
   clockMsForGameReset,
-  gridForGameNumber,
-  patternsForLeg,
+  specBoardModeForGame,
+  specGridForGame,
+  specPatternsForGame,
+  specScoreSuffix,
   type SeriesPlayer,
+  type SeriesSpec,
 } from "@/lib/hooks/seriesConfig";
 import { useTripleLegSeries } from "@/lib/hooks/useTripleLegSeries";
 import {
@@ -100,6 +104,14 @@ export default function EngineMatchScreen() {
   const username = useAuthStore((s) => s.user?.username);
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const picked5 = params.patterns ? params.patterns.split(",").filter(Boolean) : undefined;
+  const chosenGrid = parseGridParam(params.grid);
+
+  // Filler bots replay the full MP ladder; the regular AI ladder is BO3
+  // on whichever board the player queued (5×5 / 6×6 / 7×7).
+  const spec = useMemo<SeriesSpec>(
+    () => (isUnrankedFiller ? { kind: "full", grid: 5 } : { kind: "bo3", grid: chosenGrid }),
+    [chosenGrid, isUnrankedFiller],
+  );
 
   const resolveFillerDifficulty = useMemo(() => {
     if (!isUnrankedFiller) return undefined;
@@ -116,7 +128,7 @@ export default function EngineMatchScreen() {
   const match = useEngineMatch({
     difficulty: fillerDifficulty,
     resolveDifficulty: resolveFillerDifficulty,
-    gridSize: 5,
+    gridSize: specGridForGame(spec, 1),
     patterns: picked5,
   });
   const gridSize = match.gridSize;
@@ -133,21 +145,21 @@ export default function EngineMatchScreen() {
 
   const onResetGame = useCallback(
     (starter: SeriesPlayer, nextGameNumber: number) => {
-      const grid = gridForGameNumber(nextGameNumber);
-      const pats = patternsForLeg(nextGameNumber, picked5);
+      const grid = specGridForGame(spec, nextGameNumber);
+      const pats = specPatternsForGame(spec, nextGameNumber, picked5);
       const clocks = clockMsForGameReset(grid, nextGameNumber, null);
       match.reset(starter, { gridSize: grid, patterns: pats, c3Blocked: false });
       clock.reset(clocks.p1, clocks.p2);
     },
-    [clock, match, picked5],
+    [clock, match, picked5, spec],
   );
 
-  const series = useTripleLegSeries(match.result, onResetGame);
+  const series = useTripleLegSeries(match.result, onResetGame, spec);
 
   const onBreakerComplete = useCallback(
     (outcome: { reset: Parameters<typeof match.reset>[1] }) => {
       const nextGn = series.gameNumber + 1;
-      const grid = outcome.reset?.gridSize ?? gridForGameNumber(nextGn);
+      const grid = outcome.reset?.gridSize ?? specGridForGame(spec, nextGn);
       const clocks = clockMsForGameReset(grid, nextGn, null);
       match.reset(outcome.reset?.starter ?? "P1", outcome.reset);
       clock.reset(
@@ -156,20 +168,20 @@ export default function EngineMatchScreen() {
       );
       series.completeBreaker();
     },
-    [match, series],
+    [match, series, spec],
   );
 
   const nextGn = series.phase === "breaker" ? series.gameNumber + 1 : series.gameNumber;
   const breakerPatterns = useMemo(
-    () => patternsForLeg(nextGn, picked5),
-    [nextGn, picked5?.join("|")],
+    () => specPatternsForGame(spec, nextGn, picked5),
+    [nextGn, picked5?.join("|"), spec],
   );
 
   const breaker = useLocalRulebreaker({
     active: series.phase === "breaker",
-    gridSize: gridForGameNumber(nextGn),
+    gridSize: specGridForGame(spec, nextGn),
     gameNumber: nextGn,
-    boardMode: boardModeForGameNumber(nextGn),
+    boardMode: specBoardModeForGame(spec, nextGn),
     patterns: breakerPatterns,
     botMode: true,
     onComplete: onBreakerComplete,
@@ -232,7 +244,7 @@ export default function EngineMatchScreen() {
   };
 
   const p1Display = (username ?? "YOU").toUpperCase();
-  const scoreLine = `${p1Display} ${series.p1Points} – ${series.p2Points} ${botName} · first to 3`;
+  const scoreLine = `${p1Display} ${series.p1Points} – ${series.p2Points} ${botName} · ${specScoreSuffix(spec)}`;
   const intermissionTitle =
     series.lastOutcome === "P1"
       ? `YOU WIN GAME ${series.gameNumber}`
@@ -408,8 +420,10 @@ export default function EngineMatchScreen() {
         mySlot="P1"
         tossWinner={breaker.tossWinner}
         coinResult={breaker.coinResult}
-        gridSize={gridForGameNumber(nextGn)}
+        gridSize={specGridForGame(spec, nextGn)}
         rb6CellChooser={breaker.rb6CellChooser}
+        p1Name={p1Display}
+        p2Name={botName}
         onDismiss={goBack}
         onTossAction={breaker.handleTossAction}
       />

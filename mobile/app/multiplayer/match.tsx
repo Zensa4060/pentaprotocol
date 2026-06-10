@@ -39,6 +39,7 @@ import { MatchResultOverlay } from "@/components/game/MatchResultOverlay";
 import { MpLimitbreakerOverlay } from "@/components/game/MpLimitbreakerOverlay";
 import { PatternsToggle } from "@/components/game/PatternsToggle";
 import { RulebreakerOverlay } from "@/components/game/RulebreakerOverlay";
+import { RulesShowOverlay } from "@/components/game/RulesShowOverlay";
 import { XpLevelUpOverlay } from "@/components/game/XpLevelUpOverlay";
 import { isRbPhase } from "@/lib/multiplayer/rulebreakerPhases";
 import { useGameAudio } from "@/lib/audio/AudioProvider";
@@ -81,6 +82,8 @@ export default function MultiplayerMatch() {
     sendLimitbreakerAction,
     matchResult,
     dismissMatchResult,
+    rulesReady,
+    sendLevelupReady,
   } = useMatchSocket({ roomCode: code, slot });
 
   const patchUser = useAuthStore((s) => s.patchUser);
@@ -95,6 +98,19 @@ export default function MultiplayerMatch() {
   const boardSide = useMemo(
     () => boardSideForGrid(gridSize, screenWidth),
     [gridSize, screenWidth],
+  );
+
+  // Rules-show gate for the current leg (server `awaiting_*_rules_ready`).
+  // While active the server won't accept moves — both clients must send
+  // `levelup_ready`. Suppressed during breakers / series end.
+  const rulesGateActive = Boolean(
+    room &&
+      !room.series_winner &&
+      !room.awaiting_rulebreaker &&
+      !room.awaiting_limitbreaker &&
+      ((gridSize === 5 && room.awaiting_5x5_rules_ready) ||
+        (gridSize === 6 && room.awaiting_6x6_rules_ready) ||
+        (gridSize === 7 && room.awaiting_7x7_rules_ready)),
   );
 
   useEffect(() => {
@@ -336,6 +352,20 @@ export default function MultiplayerMatch() {
         />
       ) : null}
 
+      {room && rulesGateActive ? (
+        <RulesShowOverlay
+          visible
+          gridSize={gridSize}
+          gameNumber={room.game_number}
+          selectedPatterns={room.selected_patterns}
+          mySlot={slot}
+          p1Name={(room.player1_name ?? "P1").toUpperCase()}
+          p2Name={(room.player2_name ?? "P2").toUpperCase()}
+          rulesReady={rulesReady}
+          onToggleReady={sendLevelupReady}
+        />
+      ) : null}
+
       {inRulebreaker && rbPhase ? (
         <RulebreakerOverlay
           visible
@@ -347,6 +377,8 @@ export default function MultiplayerMatch() {
           coinResult={room.rb_coin_result ?? null}
           gridSize={gridSize}
           rb6CellChooser={room.rb6_cell_chooser ?? null}
+          p1Name={room.player1_name ?? "P1"}
+          p2Name={room.player2_name ?? "P2"}
           onTossAction={sendTossAction}
         />
       ) : null}

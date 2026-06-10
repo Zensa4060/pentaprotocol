@@ -44,30 +44,55 @@ function toAuthError(err: unknown, fallback: string): AuthError {
   return new AuthError(fallback);
 }
 
+/** Password sign-in either completes, or hands back a 2FA challenge. */
+export type PasswordSignInResult =
+  | { status: "ok"; user: User }
+  | { status: "2fa_required"; tempToken: string };
+
 /**
  * Sign in with username/email + password.
  *
- * Returns the user on the happy path; throws ``AuthError`` on
- * everything else (invalid creds, server down, 2FA-required, etc.).
- * 2FA + merge consent + policy-gate branches are intentionally not
- * exposed here yet — the login screen surfaces a generic error for
- * those cases until we wire dedicated screens for each.
+ * Resolves ``{status:"ok"}`` on the happy path or
+ * ``{status:"2fa_required"}`` when the account has TOTP enabled (the
+ * caller then collects the 6-digit code and calls
+ * ``completeTwoFactorLogin``). Throws ``AuthError`` on everything else.
  */
 export async function signInWithPassword(input: {
   username: string;
   password: string;
-}): Promise<User> {
+}): Promise<PasswordSignInResult> {
   try {
     const res = await API.post<LoginResponse>("/api/auth/login", {
       username: input.username,
       password: input.password,
     });
     if (res.data.requires_2fa) {
-      throw new AuthError(
-        "Two-factor authentication required. Open in the web app to complete sign-in (native 2FA screen coming soon).",
-        200,
-      );
+      if (!res.data.temp_token) {
+        throw new AuthError("Server returned an incomplete 2FA challenge.");
+      }
+      return { status: "2fa_required", tempToken: res.data.temp_token };
     }
+    if (!res.data.access_token || !res.data.user) {
+      throw new AuthError("Server returned an incomplete login response.");
+    }
+    await useAuthStore.getState().setUser(res.data.user, res.data.access_token);
+    return { status: "ok", user: res.data.user };
+  } catch (err) {
+    if (err instanceof AuthError) throw err;
+    throw toAuthError(err, "Invalid credentials or server error.");
+  }
+}
+
+/** Step 2 of a 2FA login — exchanges the temp token + TOTP code for a session. */
+export async function completeTwoFactorLogin(input: {
+  tempToken: string;
+  code: string;
+}): Promise<User> {
+  try {
+    const res = await API.post<LoginResponse>("/api/auth/2fa/login", {
+      temp_token: input.tempToken,
+      code: input.code.trim(),
+    });
     if (!res.data.access_token || !res.data.user) {
       throw new AuthError("Server returned an incomplete login response.");
     }
@@ -75,9 +100,14 @@ export async function signInWithPassword(input: {
     return res.data.user;
   } catch (err) {
     if (err instanceof AuthError) throw err;
-    throw toAuthError(err, "Invalid credentials or server error.");
+    throw toAuthError(err, "Invalid authenticator code.");
   }
 }
+
+/** Google sign-in either completes, or asks consent to merge with an email account. */
+export type GoogleSignInResult =
+  | { status: "ok"; user: User }
+  | { status: "merge_consent"; email: string };
 
 /**
  * Sign in with a Google ID-token JWT.
@@ -88,28 +118,57 @@ export async function signInWithPassword(input: {
  * iOS-Safari path) and OAuth access tokens (desktop popup path),
  * verified through ``google-auth``. So we can hand the value
  * straight through.
+ *
+ * When the Google email matches an existing password account the
+ * server replies ``requires_merge_consent`` — surface the consent
+ * prompt, then call again with ``confirmMerge: true``.
  */
 export async function signInWithGoogle(input: {
   credential: string;
-}): Promise<User> {
+  confirmMerge?: boolean;
+}): Promise<GoogleSignInResult> {
   try {
     const res = await API.post<LoginResponse>("/api/auth/google", {
       credential: input.credential,
+      confirm_merge: input.confirmMerge ?? false,
     });
     if (res.data.requires_merge_consent) {
-      throw new AuthError(
-        "An account with this email exists. Open in the web app to merge it (native merge screen coming soon).",
-        409,
-      );
+      return { status: "merge_consent", email: res.data.email ?? "" };
     }
     if (!res.data.access_token || !res.data.user) {
       throw new AuthError("Server returned an incomplete login response.");
     }
     await useAuthStore.getState().setUser(res.data.user, res.data.access_token);
-    return res.data.user;
+    return { status: "ok", user: res.data.user };
   } catch (err) {
     if (err instanceof AuthError) throw err;
     throw toAuthError(err, "Google sign-in failed.");
+  }
+}
+
+/** Request a 6-digit password-reset code (always resolves — no account enumeration). */
+export async function requestPasswordReset(email: string): Promise<void> {
+  try {
+    await API.post("/api/auth/forgot-password", { email: email.trim().toLowerCase() });
+  } catch (err) {
+    throw toAuthError(err, "Could not send the reset code.");
+  }
+}
+
+/** Complete the reset with the emailed code + new password (8+ chars). */
+export async function resetPasswordWithCode(input: {
+  email: string;
+  code: string;
+  newPassword: string;
+}): Promise<void> {
+  try {
+    await API.post("/api/auth/reset-password", {
+      email: input.email.trim().toLowerCase(),
+      code: input.code.trim(),
+      new_password: input.newPassword,
+    });
+  } catch (err) {
+    throw toAuthError(err, "Invalid or expired reset code.");
   }
 }
 

@@ -28,7 +28,9 @@ import { Stack, router } from "expo-router";
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -41,7 +43,14 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useGameAudio } from "@/lib/audio/AudioProvider";
 import { getApiBaseUrl } from "@/lib/api";
-import { AuthError, signInWithGoogle, signInWithPassword } from "@/lib/auth";
+import {
+  AuthError,
+  completeTwoFactorLogin,
+  requestPasswordReset,
+  resetPasswordWithCode,
+  signInWithGoogle,
+  signInWithPassword,
+} from "@/lib/auth";
 import { GoogleAuthError, isGoogleSignInAvailable, signInWithGoogleNative } from "@/lib/googleAuth";
 import { colors, fontSizes, radii, space } from "@/theme/tokens";
 
@@ -61,6 +70,22 @@ export default function LoginScreen() {
   const [generalError, setGeneralError] = useState("");
   const [fieldErrors, setFieldErrors] = useState<{ username?: string; password?: string }>({});
 
+  // ── 2FA challenge (TOTP accounts) ─────────────────────────────
+  const [twoFaToken, setTwoFaToken] = useState<string | null>(null);
+  const [twoFaCode, setTwoFaCode] = useState("");
+  const [twoFaError, setTwoFaError] = useState("");
+  const [twoFaBusy, setTwoFaBusy] = useState(false);
+
+  // ── Forgot-password (email → code → new password) ─────────────
+  const [resetOpen, setResetOpen] = useState(false);
+  const [resetStep, setResetStep] = useState<"email" | "code">("email");
+  const [resetEmail, setResetEmail] = useState("");
+  const [resetCode, setResetCode] = useState("");
+  const [resetNewPw, setResetNewPw] = useState("");
+  const [resetError, setResetError] = useState("");
+  const [resetInfo, setResetInfo] = useState("");
+  const [resetBusy, setResetBusy] = useState(false);
+
   const busy = loading || googleLoading;
 
   const validate = (): boolean => {
@@ -77,7 +102,13 @@ export default function LoginScreen() {
     if (!validate()) return;
     setLoading(true);
     try {
-      await signInWithPassword({ username: username.trim(), password });
+      const result = await signInWithPassword({ username: username.trim(), password });
+      if (result.status === "2fa_required") {
+        setTwoFaCode("");
+        setTwoFaError("");
+        setTwoFaToken(result.tempToken);
+        return;
+      }
       router.replace("/(tabs)");
     } catch (err) {
       const msg = err instanceof AuthError ? err.message : "Something went wrong. Try again.";
@@ -87,14 +118,67 @@ export default function LoginScreen() {
     }
   };
 
+  const onSubmit2fa = async () => {
+    if (!twoFaToken || twoFaBusy) return;
+    const code = twoFaCode.trim();
+    if (code.length < 6) {
+      setTwoFaError("Enter the 6-digit code from your authenticator app.");
+      return;
+    }
+    setTwoFaBusy(true);
+    setTwoFaError("");
+    try {
+      await completeTwoFactorLogin({ tempToken: twoFaToken, code });
+      setTwoFaToken(null);
+      router.replace("/(tabs)");
+    } catch (err) {
+      const msg = err instanceof AuthError ? err.message : "Invalid code. Try again.";
+      setTwoFaError(msg);
+      // An expired temp token means the whole sign-in must restart.
+      if (err instanceof AuthError && err.status === 400 && /expired/i.test(msg)) {
+        setTwoFaToken(null);
+        setGeneralError("Sign-in session expired — please sign in again.");
+      }
+    } finally {
+      setTwoFaBusy(false);
+    }
+  };
+
+  const runGoogle = async (confirmMerge: boolean, credential?: string) => {
+    const idToken = credential ?? (await signInWithGoogleNative());
+    const result = await signInWithGoogle({ credential: idToken, confirmMerge });
+    if (result.status === "merge_consent") {
+      Alert.alert(
+        "Link accounts?",
+        `An account already exists for ${result.email || "this email"}. Link your Google account to it? You'll keep your profile, rating and purchases, and can sign in either way.`,
+        [
+          { text: "Cancel", style: "cancel" },
+          {
+            text: "Link accounts",
+            onPress: () => {
+              setGoogleLoading(true);
+              runGoogle(true, idToken)
+                .catch((err) => {
+                  setGeneralError(
+                    err instanceof AuthError ? err.message : "Could not link accounts. Try again.",
+                  );
+                })
+                .finally(() => setGoogleLoading(false));
+            },
+          },
+        ],
+      );
+      return;
+    }
+    router.replace("/(tabs)");
+  };
+
   const onGoogle = async () => {
     if (busy) return;
     setGeneralError("");
     setGoogleLoading(true);
     try {
-      const idToken = await signInWithGoogleNative();
-      await signInWithGoogle({ credential: idToken });
-      router.replace("/(tabs)");
+      await runGoogle(false);
     } catch (err) {
       if (err instanceof GoogleAuthError) {
         // User cancelling shouldn't look like an error — just reset.
@@ -106,6 +190,63 @@ export default function LoginScreen() {
       }
     } finally {
       setGoogleLoading(false);
+    }
+  };
+
+  const openReset = () => {
+    setResetStep("email");
+    setResetEmail(username.includes("@") ? username.trim() : "");
+    setResetCode("");
+    setResetNewPw("");
+    setResetError("");
+    setResetInfo("");
+    setResetOpen(true);
+  };
+
+  const onSendResetCode = async () => {
+    const email = resetEmail.trim();
+    if (!/^\S+@\S+\.\S+$/.test(email)) {
+      setResetError("Enter a valid email address.");
+      return;
+    }
+    setResetBusy(true);
+    setResetError("");
+    try {
+      await requestPasswordReset(email);
+      setResetInfo("If that email is registered, a 6-digit code is on its way. It expires in 15 minutes.");
+      setResetStep("code");
+    } catch (err) {
+      setResetError(err instanceof AuthError ? err.message : "Could not send the code. Try again.");
+    } finally {
+      setResetBusy(false);
+    }
+  };
+
+  const onConfirmReset = async () => {
+    if (resetCode.trim().length !== 6) {
+      setResetError("Enter the 6-digit code from the email.");
+      return;
+    }
+    if (resetNewPw.length < 8) {
+      setResetError("New password must be at least 8 characters.");
+      return;
+    }
+    setResetBusy(true);
+    setResetError("");
+    try {
+      await resetPasswordWithCode({
+        email: resetEmail,
+        code: resetCode,
+        newPassword: resetNewPw,
+      });
+      setResetOpen(false);
+      setPassword("");
+      setGeneralError("");
+      Alert.alert("Password reset", "Your password was updated. Sign in with the new password.");
+    } catch (err) {
+      setResetError(err instanceof AuthError ? err.message : "Reset failed. Try again.");
+    } finally {
+      setResetBusy(false);
     }
   };
 
@@ -193,6 +334,9 @@ export default function LoginScreen() {
               </Pressable>
             </View>
             {fieldErrors.password ? <Text style={styles.fieldError}>{fieldErrors.password}</Text> : null}
+            <Pressable onPress={openReset} hitSlop={8} style={{ alignSelf: "flex-end", marginTop: space[2] }}>
+              <Text style={styles.footerLink}>Forgot password?</Text>
+            </Pressable>
           </View>
 
           {/* ── Server-side error banner ────────────────────────────── */}
@@ -260,6 +404,166 @@ export default function LoginScreen() {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {/* ── 2FA challenge modal ─────────────────────────────────────── */}
+      <Modal
+        visible={twoFaToken !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setTwoFaToken(null)}
+      >
+        <View style={styles.modalScrim}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>TWO-FACTOR CHECK</Text>
+            <Text style={styles.modalBody}>
+              Enter the 6-digit code from your authenticator app.
+            </Text>
+            <TextInput
+              value={twoFaCode}
+              onChangeText={(v) => {
+                setTwoFaCode(v.replace(/[^0-9]/g, ""));
+                if (twoFaError) setTwoFaError("");
+              }}
+              placeholder="000000"
+              placeholderTextColor={colors.textDim}
+              keyboardType="number-pad"
+              maxLength={8}
+              autoFocus
+              style={[styles.input, styles.codeInput, twoFaError ? styles.inputError : null]}
+              editable={!twoFaBusy}
+              onSubmitEditing={onSubmit2fa}
+            />
+            {twoFaError ? <Text style={styles.fieldError}>{twoFaError}</Text> : null}
+            <Pressable
+              onPress={onSubmit2fa}
+              disabled={twoFaBusy}
+              style={({ pressed }) => [
+                styles.primaryBtn,
+                pressed && styles.primaryBtnPressed,
+                twoFaBusy && styles.primaryBtnDisabled,
+                { marginTop: space[4] },
+              ]}
+            >
+              {twoFaBusy ? (
+                <ActivityIndicator color={colors.text} />
+              ) : (
+                <Text style={styles.primaryBtnLabel}>VERIFY</Text>
+              )}
+            </Pressable>
+            <Pressable onPress={() => setTwoFaToken(null)} hitSlop={8} style={styles.modalCancel}>
+              <Text style={styles.footerLink}>Cancel</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ── Forgot-password modal ───────────────────────────────────── */}
+      <Modal
+        visible={resetOpen}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setResetOpen(false)}
+      >
+        <View style={styles.modalScrim}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>RESET PASSWORD</Text>
+            {resetStep === "email" ? (
+              <>
+                <Text style={styles.modalBody}>
+                  Enter your account email — we&apos;ll send a 6-digit reset code.
+                </Text>
+                <TextInput
+                  value={resetEmail}
+                  onChangeText={(v) => {
+                    setResetEmail(v);
+                    if (resetError) setResetError("");
+                  }}
+                  placeholder="you@example.com"
+                  placeholderTextColor={colors.textDim}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  keyboardType="email-address"
+                  style={[styles.input, resetError ? styles.inputError : null]}
+                  editable={!resetBusy}
+                  onSubmitEditing={onSendResetCode}
+                />
+                {resetError ? <Text style={styles.fieldError}>{resetError}</Text> : null}
+                <Pressable
+                  onPress={onSendResetCode}
+                  disabled={resetBusy}
+                  style={({ pressed }) => [
+                    styles.primaryBtn,
+                    pressed && styles.primaryBtnPressed,
+                    resetBusy && styles.primaryBtnDisabled,
+                    { marginTop: space[4] },
+                  ]}
+                >
+                  {resetBusy ? (
+                    <ActivityIndicator color={colors.text} />
+                  ) : (
+                    <Text style={styles.primaryBtnLabel}>SEND CODE</Text>
+                  )}
+                </Pressable>
+              </>
+            ) : (
+              <>
+                {resetInfo ? <Text style={styles.modalBody}>{resetInfo}</Text> : null}
+                <TextInput
+                  value={resetCode}
+                  onChangeText={(v) => {
+                    setResetCode(v.replace(/[^0-9]/g, ""));
+                    if (resetError) setResetError("");
+                  }}
+                  placeholder="6-digit code"
+                  placeholderTextColor={colors.textDim}
+                  keyboardType="number-pad"
+                  maxLength={6}
+                  style={[styles.input, styles.codeInput]}
+                  editable={!resetBusy}
+                />
+                <TextInput
+                  value={resetNewPw}
+                  onChangeText={(v) => {
+                    setResetNewPw(v);
+                    if (resetError) setResetError("");
+                  }}
+                  placeholder="New password (8+ characters)"
+                  placeholderTextColor={colors.textDim}
+                  secureTextEntry
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  style={[styles.input, { marginTop: space[3] }]}
+                  editable={!resetBusy}
+                  onSubmitEditing={onConfirmReset}
+                />
+                {resetError ? <Text style={styles.fieldError}>{resetError}</Text> : null}
+                <Pressable
+                  onPress={onConfirmReset}
+                  disabled={resetBusy}
+                  style={({ pressed }) => [
+                    styles.primaryBtn,
+                    pressed && styles.primaryBtnPressed,
+                    resetBusy && styles.primaryBtnDisabled,
+                    { marginTop: space[4] },
+                  ]}
+                >
+                  {resetBusy ? (
+                    <ActivityIndicator color={colors.text} />
+                  ) : (
+                    <Text style={styles.primaryBtnLabel}>SET NEW PASSWORD</Text>
+                  )}
+                </Pressable>
+                <Pressable onPress={onSendResetCode} hitSlop={8} style={styles.modalCancel} disabled={resetBusy}>
+                  <Text style={styles.footerLink}>Resend code</Text>
+                </Pressable>
+              </>
+            )}
+            <Pressable onPress={() => setResetOpen(false)} hitSlop={8} style={styles.modalCancel}>
+              <Text style={styles.footerText}>Close</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -438,6 +742,45 @@ const styles = StyleSheet.create({
     fontSize: fontSizes.base,
     fontWeight: "700",
     letterSpacing: 0.5,
+  },
+
+  modalScrim: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.78)",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: space[5],
+  },
+  modalCard: {
+    width: "100%",
+    maxWidth: 420,
+    backgroundColor: colors.bgElevated,
+    borderRadius: radii.lg,
+    borderWidth: 1,
+    borderColor: colors.borderAccent,
+    padding: space[5],
+  },
+  modalTitle: {
+    color: colors.accent,
+    fontSize: fontSizes.sm,
+    fontWeight: "900",
+    letterSpacing: 2.4,
+    marginBottom: space[3],
+  },
+  modalBody: {
+    color: colors.textMuted,
+    fontSize: fontSizes.sm,
+    lineHeight: 20,
+    marginBottom: space[4],
+  },
+  codeInput: {
+    letterSpacing: 6,
+    textAlign: "center",
+    fontWeight: "800",
+  },
+  modalCancel: {
+    alignSelf: "center",
+    marginTop: space[4],
   },
 
   footer: {

@@ -178,6 +178,13 @@ export default function SettingsScreen() {
               <Caption tone="muted">›</Caption>
             </Row>
           </Pressable>
+          <Divider />
+          <Pressable onPress={() => router.push("/patchnotes" as never)}>
+            <Row justify="between" align="center">
+              <Body tone="muted">Patch notes</Body>
+              <Caption tone="muted">›</Caption>
+            </Row>
+          </Pressable>
         </VStack>
       </Card>
 
@@ -204,16 +211,20 @@ export default function SettingsScreen() {
         <CommunityLinks title="" />
       </Card>
 
-      {/* ── Legal ─────────────────────────────────────────────── */}
+      {/* ── Legal (bundled in-app, with web fallback) ──────────── */}
       <Eyebrow tone="muted" style={styles.section}>LEGAL</Eyebrow>
       <Card variant="surface" padding="md">
         <VStack gap={3}>
-          <Pressable onPress={() => Linking.openURL("https://pentaprotocol.com/terms")}>
+          <Pressable onPress={() => router.push("/legal/terms" as never)}>
             <Body tone="muted">Terms of Service ›</Body>
           </Pressable>
           <Divider />
-          <Pressable onPress={() => Linking.openURL("https://pentaprotocol.com/privacy")}>
+          <Pressable onPress={() => router.push("/legal/privacy" as never)}>
             <Body tone="muted">Privacy Policy ›</Body>
+          </Pressable>
+          <Divider />
+          <Pressable onPress={() => Linking.openURL("https://pentaprotocol.com/refund")}>
+            <Body tone="muted">Refund Policy (web) ›</Body>
           </Pressable>
         </VStack>
       </Card>

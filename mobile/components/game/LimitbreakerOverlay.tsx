@@ -4,6 +4,7 @@
 
 import { Modal, StyleSheet, View } from "react-native";
 
+import { CoinFlip } from "@/components/game/RulebreakerOverlay";
 import { Btn, Caption, Eyebrow, Heading, Title } from "@/components/ui";
 import type { BoardMode } from "@/lib/game/boardConfig";
 import type { PlayerSlot } from "@/lib/multiplayer/types";
@@ -45,6 +46,9 @@ export function LimitbreakerOverlay({
     body = (
       <>
         <Title style={styles.splashTitle}>LIMITBREAKER</Title>
+        <View style={{ marginVertical: space[4], alignItems: "center" }}>
+          <CoinFlip result={coinResult} size={160} />
+        </View>
         <Caption tone="muted">{coinResult ?? "Flipping coin…"}</Caption>
         {tossWinner ? (
           <Caption tone="accent" style={{ marginTop: space[2] }}>

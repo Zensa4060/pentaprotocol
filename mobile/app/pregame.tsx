@@ -108,7 +108,7 @@ export default function PreGameScreen() {
 
       <VStack gap={2} style={{ marginTop: space[5] }}>
         <Eyebrow tone="muted">{modeLabel}</Eyebrow>
-        {tripleLeg ? (
+        {mode === "multiplayer" ? (
           <>
             <Title>Triple leg — starts 5×5</Title>
             <Body tone="muted">
@@ -117,9 +117,9 @@ export default function PreGameScreen() {
           </>
         ) : (
           <>
-            <Title>Triple leg — get ready</Title>
+            <Title>Best of 3 — {displayGrid}×{displayGrid}</Title>
             <Body tone="muted">
-              First to 3 wins · 9 games (5×5 → 6×6 → 7×7) · draws score 0
+              First to 2 wins · max 3 games · all on {displayGrid}×{displayGrid}
             </Body>
           </>
         )}
@@ -147,7 +147,7 @@ export default function PreGameScreen() {
             {(mode === "training" || mode === "engine") ? (
               <RuleLine
                 label="Series"
-                value="Triple leg — first to 3 wins · Rulebreaker G3 · Timebreaker G6 · Mindbreaker G9 · Limitbreaker at 3–3"
+                value="Best of 3 — first to 2 wins · Protocol Breaker before the game-3 decider · drawn series possible"
               />
             ) : null}
           </>

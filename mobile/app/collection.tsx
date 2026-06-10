@@ -10,7 +10,7 @@
  * Grids equip ``board_style``; badges equip profile ``title``.
  */
 
-import { router, Stack } from "expo-router";
+import { router, Stack, useLocalSearchParams } from "expo-router";
 import { useCallback, useState } from "react";
 import { Alert, Pressable, ScrollView, StyleSheet, View } from "react-native";
 
@@ -29,6 +29,7 @@ import {
   type CollectionEntry,
   type CollectionTab,
 } from "@/lib/collection/catalog";
+import { tossSkinFromStoreId, useTossSkin } from "@/lib/cosmetics/tossSkin";
 import { updateProfile } from "@/lib/profile";
 import { useAuthStore } from "@/lib/store";
 import { useSyncAudioTheme } from "@/lib/audio/AudioProvider";
@@ -39,10 +40,15 @@ import { colors, radii, space } from "@/theme/tokens";
 const TABS: CollectionTab[] = ["themes", "banners", "grids", "coins", "badges"];
 
 export default function CollectionScreen() {
+  const params = useLocalSearchParams<{ tab?: string }>();
+  const initialTab: CollectionTab = TABS.includes(params.tab as CollectionTab)
+    ? (params.tab as CollectionTab)
+    : "themes";
   const user = useAuthStore((s) => s.user);
   const { themeId, setTheme } = useTheme();
-  const [tab, setTab] = useState<CollectionTab>("themes");
+  const [tab, setTab] = useState<CollectionTab>(initialTab);
   const [busy, setBusy] = useState<string | null>(null);
+  const [tossSkin, setTossSkin] = useTossSkin();
 
   useSyncAudioTheme(themeId);
 
@@ -62,10 +68,6 @@ export default function CollectionScreen() {
         Alert.alert("Locked", "Unlock this item in the Store or via missions.");
         return;
       }
-      if (entry.equipField === "coin") {
-        Alert.alert("Coin toss skin", "Owned on your account. Rulebreaker coin animation uses this on web; mobile syncs ownership.");
-        return;
-      }
       setBusy(entryId);
       try {
         if (entry.equipField === "theme") {
@@ -76,6 +78,13 @@ export default function CollectionScreen() {
           await updateProfile({ board_style: entry.equipValue });
         } else if (entry.equipField === "title") {
           await updateProfile({ title: entry.equipValue });
+        } else if (entry.equipField === "coin") {
+          const skin =
+            entry.equipValue === "default"
+              ? ("default" as const)
+              : tossSkinFromStoreId(entry.equipValue);
+          if (!skin) throw new Error("Unknown coin toss skin.");
+          await setTossSkin(skin);
         }
         Alert.alert("Equipped", `${entry.label} is now active.`);
       } catch (err) {
@@ -84,7 +93,7 @@ export default function CollectionScreen() {
         setBusy(null);
       }
     },
-    [busy, owned, setTheme, tab, user],
+    [busy, owned, setTheme, setTossSkin, tab, user],
   );
 
   const isEquipped = (entry: CollectionEntry) => {
@@ -93,6 +102,11 @@ export default function CollectionScreen() {
     if (entry.equipField === "banner") return (user.banner ?? "default") === entry.equipValue;
     if (entry.equipField === "board_style") return (user.board_style ?? "default") === entry.equipValue;
     if (entry.equipField === "title") return (user.title ?? "newcomer") === entry.equipValue;
+    if (entry.equipField === "coin") {
+      const skin =
+        entry.equipValue === "default" ? "default" : tossSkinFromStoreId(entry.equipValue);
+      return skin !== null && skin === tossSkin;
+    }
     return false;
   };
 
@@ -105,8 +119,7 @@ export default function CollectionScreen() {
 
       <Title style={{ marginTop: space[4] }}>Collection</Title>
       <Body tone="muted" style={{ marginTop: space[2] }}>
-        Equip themes, banners, board grids, and profile badges. Coin toss skins sync ownership
-        across devices.
+        Equip themes, banners, board grids, coin toss skins, and profile badges.
       </Body>
 
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: space[4] }}>
@@ -163,15 +176,7 @@ export default function CollectionScreen() {
                   loading={busy === entry.id}
                   onPress={() => onEquip(entry.id)}
                 >
-                  {entry.equipField === "coin"
-                    ? hasIt
-                      ? "Owned"
-                      : "Get in Store"
-                    : equipped
-                      ? "Equipped"
-                      : hasIt
-                        ? "Equip"
-                        : "Get in Store"}
+                  {equipped ? "Equipped" : hasIt ? "Equip" : "Get in Store"}
                 </Btn>
               </View>
             </View>

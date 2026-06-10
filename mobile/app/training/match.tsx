@@ -1,5 +1,7 @@
 /**
- * Training practice match — local triple-leg series with Protocol Breakers.
+ * Training practice match — local BO3 on the chosen board size (web
+ * ``isLocalShortSeries``): max 3 games, first to 2 wins, drawable, with a
+ * Rulebreaker before the G3 decider. No leg escalation, no Limitbreaker.
  */
 
 import { router, Stack, useLocalSearchParams } from "expo-router";
@@ -7,7 +9,6 @@ import { useCallback, useEffect, useMemo } from "react";
 import { Pressable, StyleSheet, useWindowDimensions, View } from "react-native";
 
 import { BoardGrid } from "@/components/game/BoardGrid";
-import { LimitbreakerOverlay } from "@/components/game/LimitbreakerOverlay";
 import { MatchStatusHud } from "@/components/game/MatchStatusHud";
 import { PatternsToggle } from "@/components/game/PatternsToggle";
 import { RulebreakerOverlay } from "@/components/game/RulebreakerOverlay";
@@ -24,9 +25,8 @@ import {
 } from "@/components/ui";
 import { useGameAudio } from "@/lib/audio/AudioProvider";
 import { boardSideForGrid } from "@/lib/game/boardLayout";
-import { matchMsForGrid } from "@/lib/game/boardConfig";
+import { matchMsForGrid, parseGridParam } from "@/lib/game/boardConfig";
 import { pieceGlyph } from "@/lib/game/matchRules";
-import { useLocalLimitbreaker } from "@/lib/hooks/useLocalLimitbreaker";
 import { useLocalRulebreaker } from "@/lib/hooks/useLocalRulebreaker";
 import { useMatchClock } from "@/lib/hooks/useMatchClock";
 import {
@@ -36,11 +36,12 @@ import {
 } from "@/lib/hooks/useMatchSounds";
 import { usePracticeMatch } from "@/lib/hooks/usePracticeMatch";
 import {
-  boardModeForGameNumber,
   clockMsForGameReset,
-  gridForGameNumber,
-  patternsForLeg,
+  specBoardModeForGame,
+  specPatternsForGame,
+  specScoreSuffix,
   type SeriesPlayer,
+  type SeriesSpec,
 } from "@/lib/hooks/seriesConfig";
 import { useTripleLegSeries } from "@/lib/hooks/useTripleLegSeries";
 import { useAuthStore } from "@/lib/store";
@@ -55,9 +56,12 @@ export default function TrainingPracticeScreen() {
   const palette = usePalette();
   const { width: screenWidth } = useWindowDimensions();
   const username = useAuthStore((s) => s.user?.username);
-  const picked5 = params.patterns ? params.patterns.split(",").filter(Boolean) : undefined;
+  const chosenGrid = parseGridParam(params.grid);
+  const picked = params.patterns ? params.patterns.split(",").filter(Boolean) : undefined;
 
-  const match = usePracticeMatch({ gridSize: 5, patterns: picked5 });
+  const spec = useMemo<SeriesSpec>(() => ({ kind: "bo3", grid: chosenGrid }), [chosenGrid]);
+
+  const match = usePracticeMatch({ gridSize: chosenGrid, patterns: picked });
   const gridSize = match.gridSize;
   const boardSide = useMemo(
     () => boardSideForGrid(gridSize, screenWidth),
@@ -72,21 +76,20 @@ export default function TrainingPracticeScreen() {
 
   const onResetGame = useCallback(
     (starter: SeriesPlayer, nextGameNumber: number) => {
-      const grid = gridForGameNumber(nextGameNumber);
-      const pats = patternsForLeg(nextGameNumber, picked5);
-      const clocks = clockMsForGameReset(grid, nextGameNumber, null);
-      match.reset(starter, { gridSize: grid, patterns: pats, c3Blocked: false });
+      const pats = specPatternsForGame(spec, nextGameNumber, picked);
+      const clocks = clockMsForGameReset(spec.grid, nextGameNumber, null);
+      match.reset(starter, { gridSize: spec.grid, patterns: pats, c3Blocked: false });
       clock.reset(clocks.p1, clocks.p2);
     },
-    [clock, match, picked5],
+    [clock, match, picked, spec],
   );
 
-  const series = useTripleLegSeries(match.result, onResetGame);
+  const series = useTripleLegSeries(match.result, onResetGame, spec);
 
   const onBreakerComplete = useCallback(
     (outcome: { reset: Parameters<typeof match.reset>[1] }) => {
       const nextGn = series.gameNumber + 1;
-      const grid = outcome.reset?.gridSize ?? gridForGameNumber(nextGn);
+      const grid = outcome.reset?.gridSize ?? spec.grid;
       const clocks = clockMsForGameReset(grid, nextGn, null);
       match.reset(outcome.reset?.starter ?? "P1", outcome.reset);
       clock.reset(
@@ -95,44 +98,29 @@ export default function TrainingPracticeScreen() {
       );
       series.completeBreaker();
     },
-    [match, series],
+    [match, series, spec],
   );
 
   const nextGn = series.phase === "breaker" ? series.gameNumber + 1 : series.gameNumber;
   const breakerPatterns = useMemo(
-    () => patternsForLeg(nextGn, picked5),
-    [nextGn, picked5?.join("|")],
+    () => specPatternsForGame(spec, nextGn, picked),
+    [nextGn, picked?.join("|"), spec],
   );
 
   const breaker = useLocalRulebreaker({
     active: series.phase === "breaker",
-    gridSize: gridForGameNumber(nextGn),
+    gridSize: spec.grid,
     gameNumber: nextGn,
-    boardMode: boardModeForGameNumber(nextGn),
+    boardMode: specBoardModeForGame(spec, nextGn),
     patterns: breakerPatterns,
     botMode: false,
     onComplete: onBreakerComplete,
   });
 
-  const onLimitComplete = useCallback(
-    (outcome: { reset: Parameters<typeof match.reset>[1] }) => {
-      match.reset(outcome.reset?.starter ?? "P1", outcome.reset);
-      clock.reset(matchMsForGrid(outcome.reset?.gridSize ?? 5));
-      series.completeLimitbreaker();
-    },
-    [match, series],
-  );
-
-  const limitbreaker = useLocalLimitbreaker({
-    active: series.phase === "limitbreaker",
-    botMode: false,
-    onComplete: onLimitComplete,
-  });
-
   const audio = useGameAudio();
   useMatchGameBgm();
   useGameEndSounds(match.result.status, match.result.winner, "any");
-  useRulebreakerPendingSound(series.phase === "breaker" || series.phase === "limitbreaker");
+  useRulebreakerPendingSound(series.phase === "breaker");
 
   const handleNextGame = () => {
     audio.sfx.transition();
@@ -156,7 +144,7 @@ export default function TrainingPracticeScreen() {
     series.lastOutcome === "DRAW"
       ? `GAME ${series.gameNumber} DRAWN`
       : `${lastGlyph} WINS GAME ${series.gameNumber}`;
-  const scoreLine = `${p1Display} ${series.p1Points} – ${series.p2Points} ${p2Display} · first to 3`;
+  const scoreLine = `${p1Display} ${series.p1Points} – ${series.p2Points} ${p2Display} · ${specScoreSuffix(spec)}`;
 
   const onCellPress = useCallback(
     (row: number, col: number) => {
@@ -169,7 +157,6 @@ export default function TrainingPracticeScreen() {
 
   const status = useMemo(() => {
     if (series.phase === "breaker") return "PROTOCOL BREAKER";
-    if (series.phase === "limitbreaker") return "LIMITBREAKER";
     if (match.result.status === "won") {
       return `${pieceGlyph(match.result.winner!)} WINS`;
     }
@@ -178,7 +165,7 @@ export default function TrainingPracticeScreen() {
   }, [match.current, match.result.status, match.result.winner, series.phase]);
 
   const statusTone: "default" | "accent" | "info" | "muted" | "warn" =
-    series.phase === "breaker" || series.phase === "limitbreaker"
+    series.phase === "breaker"
       ? "warn"
       : match.result.status === "won"
       ? match.result.winner === "P1"
@@ -266,13 +253,6 @@ export default function TrainingPracticeScreen() {
         onAction={handleNextGame}
       />
       <SeriesOverlay
-        visible={series.phase === "leg_transition"}
-        title={`LEVEL UP · ${series.legTransitionLabel ?? "NEXT LEG"}`}
-        subtitle="New board size — new patterns"
-        actionLabel={`START ${series.legTransitionLabel ?? "NEXT LEG"}`}
-        onAction={handleNextGame}
-      />
-      <SeriesOverlay
         visible={series.phase === "over"}
         title={
           series.seriesWinner === "P1"
@@ -294,24 +274,13 @@ export default function TrainingPracticeScreen() {
         mySlot="P1"
         tossWinner={breaker.tossWinner}
         coinResult={breaker.coinResult}
-        gridSize={gridForGameNumber(nextGn)}
+        gridSize={spec.grid}
         rb6CellChooser={breaker.rb6CellChooser}
         localOffline
+        p1Name={p1Display}
+        p2Name={p2Display}
         onDismiss={goBack}
         onTossAction={breaker.handleTossAction}
-      />
-      <LimitbreakerOverlay
-        visible={limitbreaker.visible}
-        phase={limitbreaker.phase}
-        tossWinner={limitbreaker.tossWinner}
-        coinResult={limitbreaker.coinResult}
-        mySlot="P1"
-        nextSlot={limitbreaker.nextSlot}
-        bans={limitbreaker.bans}
-        remainingBoard={limitbreaker.remainingBoard}
-        onPickChoice={limitbreaker.pickChoice}
-        onPickFirst={limitbreaker.pickFirst}
-        onPickBan={limitbreaker.pickBan}
       />
 
       <MoveLogPanel entries={match.moveLog} />

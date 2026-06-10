@@ -26,6 +26,7 @@ import {
   Stack as VStack,
   Title,
 } from "@/components/ui";
+import { DemoBoard, type DemoGame } from "@/components/game/DemoBoard";
 import { PatternDiagram } from "@/components/game/PatternDiagram";
 import { RankLadder } from "@/components/RankLadder";
 import { defaultPatternsForGrid, type GridSize } from "@/lib/game/boardConfig";
@@ -55,6 +56,75 @@ interface Page {
   body: string;
 }
 
+// ─── Scripted demo games (ported from web ``tutorialContent.ts``) ─────────────
+
+const DEMO_5X5_LINE: DemoGame = {
+  id: "demo-5x5-line",
+  size: 5,
+  moveDelayMs: 375,
+  moves: [
+    { r: 2, c: 0, p: "P1" }, { r: 0, c: 0, p: "P2" },
+    { r: 2, c: 1, p: "P1" }, { r: 4, c: 4, p: "P2" },
+    { r: 2, c: 2, p: "P1" }, { r: 0, c: 4, p: "P2" },
+    { r: 2, c: 3, p: "P1" }, { r: 4, c: 0, p: "P2" },
+    { r: 2, c: 4, p: "P1" },
+  ],
+  winCells: [[2, 0], [2, 1], [2, 2], [2, 3], [2, 4]],
+  outcome: "P1_WIN",
+  caption: "Five in a row across the middle — P1 wins.",
+};
+
+const DEMO_CENTRE_RULE: DemoGame = {
+  id: "demo-centre-rule",
+  size: 5,
+  moves: [
+    { r: 2, c: 2, p: "P1" },
+    { r: 0, c: 0, p: "P2" },
+    { r: 4, c: 4, p: "P2" },
+    { r: 1, c: 1, p: "P1" },
+    { r: 3, c: 3, p: "P2" },
+    { r: 1, c: 3, p: "P1" },
+    { r: 3, c: 1, p: "P2" },
+  ],
+  caption:
+    "Move 1 (P1) lands on the centre → P2 earns 2 extra turns (moves 2 & 3). From move 4 the turn order is normal again.",
+};
+
+const DEMO_6X6_LINE: DemoGame = {
+  id: "demo-6x6-line",
+  size: 6,
+  moveDelayMs: 375,
+  moves: [
+    { r: 3, c: 0, p: "P1" }, { r: 0, c: 0, p: "P2" },
+    { r: 3, c: 1, p: "P1" }, { r: 5, c: 5, p: "P2" },
+    { r: 3, c: 2, p: "P1" }, { r: 0, c: 5, p: "P2" },
+    { r: 3, c: 3, p: "P1" }, { r: 5, c: 0, p: "P2" },
+    { r: 3, c: 4, p: "P1" }, { r: 1, c: 2, p: "P2" },
+    { r: 3, c: 5, p: "P1" },
+  ],
+  winCells: [[3, 0], [3, 1], [3, 2], [3, 3], [3, 4], [3, 5]],
+  outcome: "P1_WIN",
+  caption: "Six in a row — P1 wins on 6×6.",
+};
+
+const DEMO_7X7_LINE: DemoGame = {
+  id: "demo-7x7-line",
+  size: 7,
+  moveDelayMs: 300,
+  moves: [
+    { r: 3, c: 0, p: "P1" }, { r: 0, c: 0, p: "P2" },
+    { r: 3, c: 1, p: "P1" }, { r: 6, c: 6, p: "P2" },
+    { r: 3, c: 2, p: "P1" }, { r: 0, c: 6, p: "P2" },
+    { r: 3, c: 3, p: "P1" }, { r: 6, c: 0, p: "P2" },
+    { r: 3, c: 4, p: "P1" }, { r: 1, c: 1, p: "P2" },
+    { r: 3, c: 5, p: "P1" }, { r: 5, c: 5, p: "P2" },
+    { r: 3, c: 6, p: "P1" },
+  ],
+  winCells: [[3, 0], [3, 1], [3, 2], [3, 3], [3, 4], [3, 5], [3, 6]],
+  outcome: "P1_WIN",
+  caption: "Seven in a row across 7×7 — P1 wins.",
+};
+
 const PAGES: Page[] = [
   { kind: "syros", eyebrow: "SYROS", title: "I am Syros.", body: "Ancient intelligence of the Protocol. I will teach you to win — once. Listen." },
   { kind: "rules", eyebrow: "THE BASICS", title: "Five-in-a-row, evolved.", body: "Turn-based. You and your opponent alternate placing stones on the grid. Win by completing a win pattern, or by chaining enough connected stones." },
@@ -63,7 +133,7 @@ const PAGES: Page[] = [
   { kind: "patterns6", eyebrow: "6×6 · MID LEG", title: "Win shapes — 6×6.", body: "Bigger board, fixed shape set. Six-in-a-row lines, plus the structural shapes below." },
   { kind: "patterns7", eyebrow: "7×7 · TOP LEG", title: "Win shapes — 7×7.", body: "The full roster of shapes — every rotation and reflection is live, so they appear where you don't expect." },
   { kind: "connection", eyebrow: "CORE RULE", title: "Connection win.", body: "Even without a shape, chaining enough connected stones wins: 10 on 5×5, 15 on 6×6, 20 on 7×7." },
-  { kind: "breakers", eyebrow: "THE BREAKERS", title: "When a series tightens.", body: "Best-of series escalate. Game 3 = Rulebreaker (5×5), Game 6 = Timebreaker (6×6), Game 9 = Mindbreaker (7×7). Tied 4–4? Game 10 = Limitbreaker decides it." },
+  { kind: "breakers", eyebrow: "THE BREAKERS", title: "When a series tightens.", body: "Multiplayer series escalate. Game 3 = Rulebreaker (5×5), Game 6 = Timebreaker (6×6), Game 9 = Mindbreaker (7×7). Tied 3–3 after nine? Game 10 = Limitbreaker decides it. Offline BO3 runs a Rulebreaker before its game-3 decider." },
   { kind: "ranks", eyebrow: "THE LADDER", title: "Climb the ranks.", body: "Win ranked matches to raise your ELO and ascend from Rookie to Chronicle." },
   { kind: "modes", eyebrow: "WHERE TO PLAY", title: "Pick your battlefield.", body: "1V1 Online for ranked & casual humans. 1V1 Offline for the tutorial, solo practice, and the AI Bot ladder." },
   { kind: "done", eyebrow: "BEGIN", title: "The Protocol awaits.", body: "Start with the AI Bot on 5×5 to drill the shapes, then climb. I won't repeat myself." },
@@ -153,14 +223,36 @@ function Visual({ kind, palette }: { kind: PageKind; palette: ThemePalette }) {
     );
   }
   if (kind === "ranks") return <View style={{ width: "100%" }}><RankLadder elo={0} isPlacement /></View>;
-  if (kind === "centre") return <CentreCompare palette={palette} />;
+  if (kind === "centre") {
+    return (
+      <VStack gap={5} align="center" style={{ width: "100%" }}>
+        <CentreCompare palette={palette} />
+        <DemoBoard demo={DEMO_CENTRE_RULE} maxWidth={260} />
+      </VStack>
+    );
+  }
+  if (kind === "rules") return <DemoBoard demo={DEMO_5X5_LINE} maxWidth={280} />;
   if (kind === "patterns5") return <PatternGallery grid={5} palette={palette} />;
-  if (kind === "patterns6") return <PatternGallery grid={6} palette={palette} />;
-  if (kind === "patterns7") return <PatternGallery grid={7} palette={palette} />;
+  if (kind === "patterns6") {
+    return (
+      <VStack gap={5} align="center" style={{ width: "100%" }}>
+        <PatternGallery grid={6} palette={palette} />
+        <DemoBoard demo={DEMO_6X6_LINE} maxWidth={270} />
+      </VStack>
+    );
+  }
+  if (kind === "patterns7") {
+    return (
+      <VStack gap={5} align="center" style={{ width: "100%" }}>
+        <PatternGallery grid={7} palette={palette} />
+        <DemoBoard demo={DEMO_7X7_LINE} maxWidth={280} />
+      </VStack>
+    );
+  }
   if (kind === "connection") return <ConnectionVisual palette={palette} />;
   if (kind === "breakers") return <BreakersVisual palette={palette} />;
   if (kind === "modes") return <ModesVisual palette={palette} />;
-  // rules / done → simple mini board
+  // done → simple mini board
   return <MiniBoard palette={palette} />;
 }
 

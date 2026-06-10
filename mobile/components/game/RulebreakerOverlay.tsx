@@ -1,23 +1,39 @@
 /**
  * In-match Protocol Breaker UI (Rulebreaker / Timebreaker / Mindbreaker).
  * Payload keys align with web ``GameScreen`` / backend ``room.py``.
+ *
+ * Full-screen takeover (mirrors web ``RulebreakerFlow``): the coin toss
+ * spins the real PENTA / PROTO coin faces on a Y-axis flip and reveals the
+ * winning face, instead of the old small text-only card.
  */
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
+  Animated,
+  Easing,
+  Image,
   Modal,
   Pressable,
   StyleSheet,
   Text,
+  useWindowDimensions,
   View,
 } from "react-native";
 
 import { Btn, Caption, Eyebrow, Heading, Title } from "@/components/ui";
+import { TOSS_SKIN_GLOW, useTossSkin } from "@/lib/cosmetics/tossSkin";
 import type { GridSize } from "@/lib/game/boardConfig";
 import { patternMetadataForGrid } from "@/lib/game/patterns";
 import { breakerTitle, type RbPhase } from "@/lib/multiplayer/rulebreakerPhases";
 import type { PlayerSlot } from "@/lib/multiplayer/types";
-import { colors, radii, space } from "@/theme/tokens";
+import { colors, space } from "@/theme/tokens";
+
+const PENTA_COIN = require("../../assets/images/penta-coin.png");
+const PROTO_COIN = require("../../assets/images/proto-coin.png");
+
+/** PENTA face colour (P1) / PROTO face colour (P2) — mirror web p1c/p2c. */
+const PENTA_COLOR = "#E53935";
+const PROTO_COLOR = "#42A5F5";
 
 interface RulebreakerOverlayProps {
   visible: boolean;
@@ -31,8 +47,105 @@ interface RulebreakerOverlayProps {
   rb6CellChooser?: PlayerSlot | null;
   /** Pass-and-play / local — either player can tap on their turn. */
   localOffline?: boolean;
+  /** Display names for the toss legend (default P1 / P2). */
+  p1Name?: string;
+  p2Name?: string;
   onDismiss?: () => void;
   onTossAction: (action: string, payload: Record<string, unknown>) => void;
+}
+
+/**
+ * Spinning coin — two coin faces back-to-back, each with backface culling,
+ * rotating on Y. When ``result`` lands we stop and show the winning face.
+ * Shared with the Limitbreaker overlays.
+ */
+export function CoinFlip({ result, size }: { result: "PENTA" | "PROTO" | null; size: number }) {
+  const [tossSkin] = useTossSkin();
+  const skinGlow = TOSS_SKIN_GLOW[tossSkin];
+  const spin = useRef(new Animated.Value(0)).current;
+  const revealScale = useRef(new Animated.Value(0.7)).current;
+
+  useEffect(() => {
+    if (result) {
+      spin.stopAnimation();
+      revealScale.setValue(0.7);
+      Animated.timing(revealScale, {
+        toValue: 1,
+        duration: 450,
+        easing: Easing.out(Easing.back(1.4)),
+        useNativeDriver: true,
+      }).start();
+      return;
+    }
+    spin.setValue(0);
+    const loop = Animated.loop(
+      Animated.timing(spin, {
+        toValue: 1,
+        duration: 650,
+        easing: Easing.linear,
+        useNativeDriver: true,
+      }),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [result, revealScale, spin]);
+
+  const half = size / 2;
+
+  if (result) {
+    const winCol = skinGlow ?? (result === "PENTA" ? PENTA_COLOR : PROTO_COLOR);
+    return (
+      <Animated.View
+        style={{
+          transform: [{ scale: revealScale }],
+          borderRadius: half,
+          shadowColor: winCol,
+          shadowOpacity: 0.8,
+          shadowRadius: 40,
+          shadowOffset: { width: 0, height: 0 },
+          elevation: 24,
+        }}
+      >
+        <Image
+          source={result === "PENTA" ? PENTA_COIN : PROTO_COIN}
+          style={{ width: size, height: size, borderRadius: half }}
+          resizeMode="cover"
+        />
+      </Animated.View>
+    );
+  }
+
+  const frontRotate = spin.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "360deg"] });
+  const backRotate = spin.interpolate({ inputRange: [0, 1], outputRange: ["180deg", "540deg"] });
+
+  return (
+    <View style={{ width: size, height: size }}>
+      <Animated.Image
+        source={PENTA_COIN}
+        resizeMode="cover"
+        style={{
+          position: "absolute",
+          width: size,
+          height: size,
+          borderRadius: half,
+          backfaceVisibility: "hidden",
+          transform: [{ perspective: 900 }, { rotateY: frontRotate }],
+        }}
+      />
+      <Animated.Image
+        source={PROTO_COIN}
+        resizeMode="cover"
+        style={{
+          position: "absolute",
+          width: size,
+          height: size,
+          borderRadius: half,
+          backfaceVisibility: "hidden",
+          transform: [{ perspective: 900 }, { rotateY: backRotate }],
+        }}
+      />
+    </View>
+  );
 }
 
 export function RulebreakerOverlay({
@@ -46,10 +159,15 @@ export function RulebreakerOverlay({
   gridSize,
   rb6CellChooser,
   localOffline = false,
+  p1Name = "P1",
+  p2Name = "P2",
   onDismiss,
   onTossAction,
 }: RulebreakerOverlayProps) {
+  const { width: screenWidth } = useWindowDimensions();
+  const coinSize = Math.min(Math.round(screenWidth * 0.58), 240);
   const title = breakerTitle(boardMode, gameNumber);
+  const nameOf = (slot: PlayerSlot) => (slot === "P1" ? p1Name : p2Name);
   const tossLoser = tossWinner === "P1" ? "P2" : tossWinner === "P2" ? "P1" : null;
   const activeChooser: PlayerSlot | null =
     phase === "c3_choice_loser" || phase === "who_first_loser" || phase === "ban_pattern_loser"
@@ -191,13 +309,37 @@ export function RulebreakerOverlay({
       </>
     );
   } else if (phase === "rb_coin") {
+    const winCol = coinResult === "PENTA" ? PENTA_COLOR : PROTO_COLOR;
     body = (
-      <>
-        <Text style={styles.coin}>{coinResult ?? "…"}</Text>
-        <Caption tone="muted">
-          {coinResult ? `${tossWinner} wins the toss` : "Flipping…"}
-        </Caption>
-      </>
+      <View style={styles.coinStage}>
+        <Text style={styles.commencing}>COMMENCING</Text>
+        <View style={styles.commencingRule} />
+        <View style={styles.coinLegend}>
+          <View style={styles.coinLegendItem}>
+            <Image source={PENTA_COIN} style={styles.coinLegendIcon} resizeMode="cover" />
+            <Caption tone="muted">PENTA = {p1Name}</Caption>
+          </View>
+          <Caption tone="muted">|</Caption>
+          <View style={styles.coinLegendItem}>
+            <Image source={PROTO_COIN} style={styles.coinLegendIcon} resizeMode="cover" />
+            <Caption tone="muted">PROTO = {p2Name}</Caption>
+          </View>
+        </View>
+        <View style={{ marginVertical: space[6] }}>
+          <CoinFlip result={coinResult} size={coinSize} />
+        </View>
+        {coinResult ? (
+          <>
+            <Text style={[styles.coinResultLabel, { color: winCol }]}>{coinResult}</Text>
+            <Text style={styles.tossWinnerLine}>
+              <Text style={{ color: winCol }}>{tossWinner ? nameOf(tossWinner) : ""}</Text>
+              <Text style={{ color: colors.textMuted }}> WINS THE TOSS</Text>
+            </Text>
+          </>
+        ) : (
+          <Caption tone="muted">Flipping…</Caption>
+        )}
+      </View>
     );
   } else if (phase === "rule_choice" && (localOffline ? canAct && isWinner : isWinner)) {
     body = (
@@ -343,13 +485,13 @@ export function RulebreakerOverlay({
   }
 
   return (
-    <Modal visible={visible} animationType="fade" transparent onRequestClose={onDismiss}>
+    <Modal visible={visible} animationType="fade" onRequestClose={onDismiss}>
       <View style={styles.backdrop}>
-        <View style={styles.card}>
+        <View style={styles.content}>
           <Eyebrow tone="accent">{title}</Eyebrow>
           {body}
           {localOffline && onDismiss ? (
-            <View style={{ marginTop: space[4], width: "100%" }}>
+            <View style={{ marginTop: space[5], width: "100%" }}>
               <Btn variant="secondary" onPress={onDismiss}>
                 Back to menu
               </Btn>
@@ -412,31 +554,75 @@ function RowChoices({
 }
 
 const styles = StyleSheet.create({
+  // Full-screen takeover, parity with web RulebreakerFlow (opaque bg, not
+  // a small floating card).
   backdrop: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.92)",
+    backgroundColor: colors.bg,
     justifyContent: "center",
     padding: space[5],
   },
-  card: {
-    backgroundColor: colors.bgElevated,
-    borderRadius: radii.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: space[6],
+  content: {
+    width: "100%",
+    maxWidth: 520,
+    alignSelf: "center",
     alignItems: "center",
   },
   splashTitle: {
     color: colors.accent,
-    fontSize: 28,
+    fontSize: 32,
     fontWeight: "900",
     letterSpacing: 2,
     marginVertical: space[4],
+    textAlign: "center",
   },
-  coin: {
-    fontSize: 36,
+  coinStage: {
+    width: "100%",
+    alignItems: "center",
+    marginTop: space[4],
+  },
+  commencing: {
+    color: colors.accent,
+    fontSize: 26,
     fontWeight: "900",
-    color: colors.text,
-    marginVertical: space[4],
+    letterSpacing: 3,
+  },
+  commencingRule: {
+    width: 180,
+    height: 2,
+    backgroundColor: colors.accent,
+    opacity: 0.6,
+    marginTop: space[2],
+    marginBottom: space[4],
+    borderRadius: 1,
+  },
+  coinLegend: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: space[3],
+    flexWrap: "wrap",
+    justifyContent: "center",
+  },
+  coinLegendItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: space[2],
+  },
+  coinLegendIcon: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+  },
+  coinResultLabel: {
+    fontSize: 26,
+    fontWeight: "800",
+    letterSpacing: 4,
+    marginBottom: space[2],
+  },
+  tossWinnerLine: {
+    fontSize: 18,
+    fontWeight: "700",
+    letterSpacing: 1,
+    textAlign: "center",
   },
 });

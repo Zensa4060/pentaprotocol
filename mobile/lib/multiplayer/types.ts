@@ -183,7 +183,12 @@ export type InboundMessage =
   | { type: "limitbreaker_start"; [key: string]: unknown }
   | { type: "limitbreaker_update"; [key: string]: unknown }
   | { type: "match_series_complete"; [key: string]: unknown }
-  | { type: "ranked_match_complete"; [key: string]: unknown };
+  | { type: "ranked_match_complete"; [key: string]: unknown }
+  // Rules-show ("level up") gate at the start of each leg — both clients
+  // must send ``levelup_ready`` before the server opens the board.
+  | { type: "levelup_ready_update"; player: PlayerSlot; ready: boolean }
+  | { type: "levelup_sync"; p1_ready?: boolean; p2_ready?: boolean }
+  | { type: "levelup_start" };
 
 /**
  * Outbound from client. Server uses strict schemas for ``move``,
@@ -200,6 +205,7 @@ export type OutboundMessage =
   | { type: "quit_match"; reason?: string }
   | { type: "toss_action"; action: string; payload?: Record<string, unknown> }
   | { type: "rb_start_game"; first_player?: PlayerSlot; resolve_series_only?: boolean }
+  | { type: "levelup_ready"; ready: boolean; selected_patterns?: string[] }
   | {
       type: "limitbreaker_action";
       choice?: "choose_first_player" | "ban_first";

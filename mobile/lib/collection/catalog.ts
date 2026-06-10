@@ -44,15 +44,26 @@ const GRID_ENTRIES: CollectionEntry[] = [
   })),
 ];
 
-const COIN_ENTRIES: CollectionEntry[] = STORE_COINS.map((c) => ({
-  id: `coin_${c.id}`,
-  label: c.label,
-  description: c.description + " (Rulebreaker toss on web; owned here syncs account-wide.)",
-  tab: "coins" as const,
-  equipField: "coin" as const,
-  equipValue: c.id,
-  owned: (items: string[]) => has(items, c.id),
-}));
+const COIN_ENTRIES: CollectionEntry[] = [
+  {
+    id: "coin_default",
+    label: "Classic Flip",
+    description: "The standard PENTA / PROTO coin toss.",
+    tab: "coins",
+    equipField: "coin",
+    equipValue: "default",
+    owned: () => true,
+  },
+  ...STORE_COINS.map((c) => ({
+    id: `coin_${c.id}`,
+    label: c.label,
+    description: c.description,
+    tab: "coins" as const,
+    equipField: "coin" as const,
+    equipValue: c.id,
+    owned: (items: string[]) => has(items, c.id),
+  })),
+];
 
 const BADGE_ENTRIES: CollectionEntry[] = PROFILE_TITLES.map((t) => ({
   id: `badge_${t.id}`,
