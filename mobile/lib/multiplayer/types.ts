@@ -84,6 +84,13 @@ export interface Room {
   extra_turns?: number;
   /** Mindbreaker: which slot the banned-pattern names are hidden from. */
   rb_hide_banned_from_slot?: PlayerSlot | null;
+  rb_banned_patterns?: string[];
+  /** Server-kept per-game move log (seeds the panel on rejoin). */
+  move_log?: ServerMoveLogEntry[];
+  segment_start_index?: number;
+  history_display_start_index?: number;
+  /** Original compound mode for triple-leg rooms (board_mode mutates per leg). */
+  board_mode_full?: string | null;
   awaiting_limitbreaker?: boolean;
   awaiting_5x5_rules_ready: boolean;
   awaiting_6x6_rules_ready: boolean;
@@ -100,6 +107,20 @@ export interface MatchHistoryEntry {
   moves?: unknown[];
   board_mode?: string;
   game_number?: number;
+}
+
+export interface ServerMoveLogEntry {
+  row: number;
+  col: number;
+  player: PlayerSlot;
+  ext?: number;
+  ts_ms?: number;
+}
+
+export interface ChatMessage {
+  from: PlayerSlot;
+  text: string;
+  ts: number;
 }
 
 // ── Active-room peek (mobile uses to nudge a rejoin) ─────────────
@@ -156,6 +177,7 @@ export type InboundMessage =
       rb_extra_turn_token_holder?: PlayerSlot | null;
       rb_extra_turn_token_used?: boolean;
       rb_hide_banned_from_slot?: PlayerSlot | null;
+      rb_banned_patterns?: string[];
       awaiting_5x5_rules_ready?: boolean;
       awaiting_6x6_rules_ready?: boolean;
       awaiting_7x7_rules_ready?: boolean;
@@ -196,6 +218,7 @@ export type InboundMessage =
       extra_turns: number;
       rb_extra_turn_token_used: boolean;
     }
+  | { type: "chat_message"; from: PlayerSlot; text: string; ts?: number }
   | { type: "match_series_complete"; [key: string]: unknown }
   | { type: "ranked_match_complete"; [key: string]: unknown }
   // Rules-show ("level up") gate at the start of each leg — both clients
@@ -220,6 +243,8 @@ export type OutboundMessage =
   | { type: "toss_action"; action: string; payload?: Record<string, unknown> }
   | { type: "rb_start_game"; first_player?: PlayerSlot; resolve_series_only?: boolean }
   | { type: "rb_use_extra_turn" }
+  | { type: "chat"; text: string; ts?: number }
+  | { type: "timeout"; winner?: PlayerSlot }
   | { type: "levelup_ready"; ready: boolean; selected_patterns?: string[] }
   | {
       type: "limitbreaker_action";

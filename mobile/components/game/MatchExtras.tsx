@@ -69,8 +69,8 @@ export function CenterRuleBanner({
   const c = centerCell(gridSize);
   return (
     <View style={styles.centerBanner}>
-      <Caption tone="accent" center>
-        Center ({String.fromCharCode(65 + c)}{c + 1}) — opener grants opponent 2 extra turns
+      <Caption tone="accent" center numberOfLines={1} adjustsFontSizeToFit>
+        Center ({String.fromCharCode(65 + c)}{c + 1}) opener → opponent gets 2 extra turns
       </Caption>
     </View>
   );
@@ -80,9 +80,49 @@ export function ExtraTurnsBadge({ count, player }: { count: number; player: Play
   if (count <= 0 || !player) return null;
   return (
     <View style={styles.extraBadge}>
-      <Caption tone="warn" center>
+      <Caption tone="warn" center numberOfLines={1}>
         {player === "P1" ? "X" : "Y"} has {count} extra turn{count > 1 ? "s" : ""}
       </Caption>
+    </View>
+  );
+}
+
+/**
+ * Mindbreaker extra-turn token row — FIXED HEIGHT whenever a token exists
+ * for this game, so the button appearing/disappearing on turn changes
+ * never shifts the board below it.
+ */
+export function ExtraTurnTokenRow({
+  holder,
+  holderName,
+  used,
+  current,
+  canUse,
+  onUse,
+}: {
+  holder: Player7 | null;
+  holderName: string;
+  used: boolean;
+  current: Player7;
+  canUse: boolean;
+  onUse: () => void;
+}) {
+  if (!holder) return null;
+  return (
+    <View style={styles.tokenRow}>
+      {used ? (
+        <Caption tone="muted" center numberOfLines={1}>
+          Extra turn token used
+        </Caption>
+      ) : canUse && current === holder ? (
+        <Btn variant="secondary" size="sm" onPress={onUse}>
+          {`Use extra turn token (${holderName})`}
+        </Btn>
+      ) : (
+        <Caption tone="warn" center numberOfLines={1}>
+          {holderName} holds an extra turn token
+        </Caption>
+      )}
     </View>
   );
 }
@@ -238,17 +278,26 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     backgroundColor: colors.bgCard,
   },
+  // No vertical margins on banner/badge — they live inside fixed-height
+  // HUD rows and a margin pushed the text out of the row (clipped to a
+  // sliver / hidden behind the status line).
   centerBanner: {
-    marginTop: space[2],
-    padding: space[2],
+    paddingVertical: space[1],
+    paddingHorizontal: space[2],
     borderRadius: radii.sm,
     backgroundColor: colors.bgRaised,
     borderWidth: 1,
     borderColor: colors.borderAccent,
+    justifyContent: "center",
   },
   extraBadge: {
+    paddingVertical: 2,
+    justifyContent: "center",
+  },
+  tokenRow: {
+    height: 44,
     marginTop: space[2],
-    paddingVertical: space[1],
+    justifyContent: "center",
   },
   logPanel: {
     // Fixed height so appending move-log rows never grows the panel

@@ -5,7 +5,7 @@
  */
 
 import { router, Stack, useLocalSearchParams } from "expo-router";
-import { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Pressable, StyleSheet, useWindowDimensions, View } from "react-native";
 
 import { BoardGrid } from "@/components/game/BoardGrid";
@@ -13,6 +13,7 @@ import { MatchStatusHud } from "@/components/game/MatchStatusHud";
 import { PatternsToggle } from "@/components/game/PatternsToggle";
 import { RulebreakerOverlay } from "@/components/game/RulebreakerOverlay";
 import {
+  ExtraTurnTokenRow,
   MatchClockRow,
   MoveLogPanel,
   SeriesOverlay,
@@ -74,10 +75,15 @@ export default function TrainingPracticeScreen() {
     matchMsForGrid(gridSize),
   );
 
+  // Mindbreaker ban info for the pattern-reference sheet (pass-and-play:
+  // both players share the screen, so bans are never hidden).
+  const [rbBans, setRbBans] = useState<string[]>([]);
+
   const onResetGame = useCallback(
     (starter: SeriesPlayer, nextGameNumber: number) => {
       const pats = specPatternsForGame(spec, nextGameNumber, picked);
       const clocks = clockMsForGameReset(spec.grid, nextGameNumber, null);
+      setRbBans([]);
       match.reset(starter, { gridSize: spec.grid, patterns: pats, c3Blocked: false });
       clock.reset(clocks.p1, clocks.p2);
     },
@@ -91,6 +97,7 @@ export default function TrainingPracticeScreen() {
       const nextGn = series.gameNumber + 1;
       const grid = outcome.reset?.gridSize ?? spec.grid;
       const clocks = clockMsForGameReset(grid, nextGn, null);
+      setRbBans(outcome.reset?.bannedPatterns ?? []);
       match.reset(outcome.reset?.starter ?? "P1", outcome.reset);
       clock.reset(
         outcome.reset?.p1ClockMs ?? clocks.p1,
@@ -205,7 +212,12 @@ export default function TrainingPracticeScreen() {
           <PatternsToggle
             gridSize={gridSize}
             enabled={match.result.status === "playing"}
-            activePatternIds={match.activePatterns}
+            activePatternIds={
+              rbBans.length > 0
+                ? specPatternsForGame(spec, series.gameNumber, picked)
+                : match.activePatterns
+            }
+            bannedPatternIds={rbBans.length > 0 ? rbBans : undefined}
           />
           <Caption tone="muted">
             G{series.gameNumber} · {gridSize}×{gridSize} · {match.movesPlayed}{" "}
@@ -239,18 +251,17 @@ export default function TrainingPracticeScreen() {
         scoreLine={scoreLine}
       />
 
-      {gridSize === 7 &&
-      series.phase === "playing" &&
-      match.result.status === "playing" &&
-      match.extraTokenHolder !== null &&
-      !match.extraTokenUsed &&
-      match.extraTurns === 0 &&
-      match.current === match.extraTokenHolder ? (
-        <View style={{ marginTop: space[2] }}>
-          <Btn variant="secondary" size="sm" onPress={match.useExtraTurnToken}>
-            {pieceGlyph(match.extraTokenHolder)} — use extra turn token
-          </Btn>
-        </View>
+      {gridSize === 7 && series.phase === "playing" ? (
+        <ExtraTurnTokenRow
+          holder={match.extraTokenHolder}
+          holderName={
+            match.extraTokenHolder ? pieceGlyph(match.extraTokenHolder) : ""
+          }
+          used={match.extraTokenUsed}
+          current={match.current}
+          canUse={match.result.status === "playing" && match.extraTurns === 0}
+          onUse={match.useExtraTurnToken}
+        />
       ) : null}
 
       <View style={[styles.boardSlot, { height: boardSide }]}>

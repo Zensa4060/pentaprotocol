@@ -58,19 +58,22 @@ export function MatchStatusHud({
 }
 
 const styles = StyleSheet.create({
+  // Row heights must fit their content (banner ≈ 30px incl. border,
+  // text rows ≈ 22px) — undersized rows clipped the center-rule banner
+  // and hid the extra-turns badge behind the status line.
   slot: {
-    height: 116,
+    height: 122,
     marginTop: space[2],
     marginBottom: space[3],
     justifyContent: "flex-start",
   },
   bannerRow: {
-    height: 34,
+    height: 38,
     justifyContent: "center",
     paddingHorizontal: space[1],
   },
   row: {
-    height: 26,
+    height: 28,
     justifyContent: "center",
     alignItems: "center",
     flexDirection: "row",

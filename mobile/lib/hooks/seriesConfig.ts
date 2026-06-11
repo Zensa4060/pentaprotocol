@@ -188,6 +188,9 @@ export interface GameResetOptions {
   suppressCenterOpening?: boolean;
   /** Mindbreaker: who may cash the one-time extra-turn token. */
   extraTurnTokenHolder?: SeriesPlayer | null;
+  /** Mindbreaker: banned shapes + who banned them (for the pattern reference UI). */
+  bannedPatterns?: string[];
+  banActor?: SeriesPlayer | null;
 }
 
 export function clockMsForGameReset(

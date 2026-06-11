@@ -1,21 +1,19 @@
 /**
- * Multiplayer match screen.
+ * Multiplayer match screen — web ``GameScreen`` + ``MatchSidebar`` parity,
+ * stacked for phones.
  *
- * Reused renderer: ``<Board7 />`` from training. The match
- * controller is different though — every state transition lives
- * on the server, not the client. Move → send WS frame → server
- * validates → broadcasts ``move_made`` to both sockets → both
- * clients paint identically.
- *
- * Match shape:
- *   - A full leg: the board progresses 5×5 → 6×6 → 7×7, first-to-3
- *     points per board (server-authoritative via ``room.py``).
- *   - Ready system between games (``GameEndPanel`` → ``readyForNextGame``).
- *   - All three Protocol Breakers are handled in-app by
- *     ``RulebreakerOverlay`` (5×5 Rulebreaker, 6×6 Timebreaker, 7×7
- *     Mindbreaker): coin toss → rule choice → start, over the WS.
- *   - No chat / rematch consent / spectator view. After a series ends
- *     the user returns to the lobby — a new match means a new room.
+ * Server frames are the source of truth (``room.py``): every state
+ * transition arrives over the WS; this screen renders one ``room``
+ * snapshot. On top of the board it carries the sidebar features:
+ *   - both players' match clocks (client-ticked, server-authoritative
+ *     flag fall via the ``timeout`` frame),
+ *   - chat with an unread badge,
+ *   - per-game move log (server-seeded on rejoin),
+ *   - full match history G1…LIMITB with breaker rows,
+ *   - add friend / report during the match,
+ *   - head-to-head record vs the opponent,
+ *   - Protocol Breakers (Rulebreaker / Timebreaker / Mindbreaker) via
+ *     ``RulebreakerOverlay`` and the Limitbreaker decider.
  */
 
 import { router, Stack, useLocalSearchParams } from "expo-router";
@@ -35,18 +33,37 @@ import {
   Title,
 } from "@/components/ui";
 import { BoardGrid } from "@/components/game/BoardGrid";
+import {
+  ExtraTurnTokenRow,
+  MatchClockRow,
+  MoveLogPanel,
+} from "@/components/game/MatchExtras";
 import { MatchResultOverlay } from "@/components/game/MatchResultOverlay";
 import { MpLimitbreakerOverlay } from "@/components/game/MpLimitbreakerOverlay";
 import { PatternsToggle } from "@/components/game/PatternsToggle";
 import { RulebreakerOverlay } from "@/components/game/RulebreakerOverlay";
 import { RulesShowOverlay } from "@/components/game/RulesShowOverlay";
 import { XpLevelUpOverlay } from "@/components/game/XpLevelUpOverlay";
+import {
+  ChatButton,
+  ChatSheet,
+  HeadToHeadCard,
+  MatchHistoryPanel,
+  MpReadyOverlay,
+  type HeadToHead,
+} from "@/components/multiplayer/MatchPanels";
+import API from "@/lib/api";
 import { isRbPhase } from "@/lib/multiplayer/rulebreakerPhases";
 import { useGameAudio } from "@/lib/audio/AudioProvider";
 import { legBoardLabel, legGameIndex } from "@/lib/audio/series";
-import { emptyBoard, gridFromBoardMode } from "@/lib/game/boardConfig";
+import {
+  emptyBoard,
+  gridFromBoardMode,
+  matchMsForGrid,
+  TIMEBREAKER_CUT_MS,
+} from "@/lib/game/boardConfig";
 import { boardSideForGrid } from "@/lib/game/boardLayout";
-import type { Coord } from "@/lib/game/winCheck";
+import { formatClock } from "@/lib/game/matchRules";
 import {
   useMatchGameBgm,
   useRulebreakerPendingSound,
@@ -85,10 +102,20 @@ export default function MultiplayerMatch() {
     dismissMatchResult,
     rulesReady,
     sendLevelupReady,
+    winLine,
+    readyStates,
+    moveLog,
+    chatMessages,
+    unreadChat,
+    sendChat,
+    markChatRead,
+    sendTimeout,
   } = useMatchSocket({ roomCode: code, slot });
 
   const patchUser = useAuthStore((s) => s.patchUser);
   const [mpLevelUp, setMpLevelUp] = useState<{ from: number; to: number } | null>(null);
+  const [chatOpen, setChatOpen] = useState(false);
+  const [headToHead, setHeadToHead] = useState<HeadToHead | null>(null);
 
   const audio = useGameAudio();
   const palette = usePalette();
@@ -102,8 +129,6 @@ export default function MultiplayerMatch() {
   );
 
   // Rules-show gate for the current leg (server `awaiting_*_rules_ready`).
-  // While active the server won't accept moves — both clients must send
-  // `levelup_ready`. Suppressed during breakers / series end.
   const rulesGateActive = Boolean(
     room &&
       !room.series_winner &&
@@ -113,6 +138,83 @@ export default function MultiplayerMatch() {
         (gridSize === 6 && room.awaiting_6x6_rules_ready) ||
         (gridSize === 7 && room.awaiting_7x7_rules_ready)),
   );
+
+  const inRulebreaker = rbPhase !== null && isRbPhase(rbPhase);
+  useRulebreakerPendingSound(inRulebreaker || !!room?.awaiting_rulebreaker);
+
+  // ── Match clocks ────────────────────────────────────────────
+  // Client-ticked mirror of the server-side game pace (web parity —
+  // the server doesn't stream clocks; both clients tick the current
+  // player and either may report the flag fall, which the server
+  // resolves authoritatively against `current_player`).
+  const gameKey = `${room?.game_number ?? 0}|${room?.board_mode ?? ""}`;
+  const [clocks, setClocks] = useState<Record<PlayerSlot, number>>({
+    P1: matchMsForGrid(5),
+    P2: matchMsForGrid(5),
+  });
+  const timeoutSentForRef = useRef<string | null>(null);
+  const roomRef = useRef(room);
+  roomRef.current = room;
+
+  useEffect(() => {
+    const r = roomRef.current;
+    const grid = r ? gridFromBoardMode(r.board_mode) : 5;
+    const base = matchMsForGrid(grid);
+    let p1 = base;
+    let p2 = base;
+    if (grid === 6 && r?.rb6_timer_owner === "P1") p1 = TIMEBREAKER_CUT_MS;
+    if (grid === 6 && r?.rb6_timer_owner === "P2") p2 = TIMEBREAKER_CUT_MS;
+    setClocks({ P1: p1, P2: p2 });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gameKey, room?.rb6_timer_owner]);
+
+  const clocksRunning = Boolean(
+    room &&
+      room.game_status === "playing" &&
+      !room.series_winner &&
+      !inRulebreaker &&
+      !room.awaiting_rulebreaker &&
+      !rulesGateActive &&
+      !lbState &&
+      status === "open",
+  );
+
+  useEffect(() => {
+    if (!clocksRunning || !room) return;
+    const who = room.current_player;
+    const id = setInterval(() => {
+      setClocks((prev) => ({ ...prev, [who]: Math.max(0, prev[who] - 1000) }));
+    }, 1000);
+    return () => clearInterval(id);
+  }, [clocksRunning, room?.current_player, room]);
+
+  useEffect(() => {
+    if (!room || room.game_status !== "playing") return;
+    const who = room.current_player;
+    if (clocks[who] > 0) return;
+    if (timeoutSentForRef.current === gameKey) return;
+    timeoutSentForRef.current = gameKey;
+    sendTimeout();
+  }, [clocks, room, gameKey, sendTimeout]);
+
+  // ── Head-to-head record (web MatchSidebar HISTORY card) ─────
+  const opponentId = slot === "P1" ? room?.player2_id : room?.player1_id;
+  useEffect(() => {
+    if (!opponentId) return;
+    let cancelled = false;
+    const mode = room?.format === "ranked" ? "ranked" : "unranked";
+    API.get<HeadToHead>(`/api/profile/head-to-head/${opponentId}?mode=${mode}`)
+      .then((res) => {
+        if (!cancelled) setHeadToHead(res.data);
+      })
+      .catch(() => {
+        if (!cancelled) setHeadToHead({ wins: 0, losses: 0, draws: 0, total: 0, recent: [] });
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [opponentId]);
 
   useEffect(() => {
     if (!matchResult) {
@@ -167,10 +269,6 @@ export default function MultiplayerMatch() {
   };
 
   // ── Android hardware-back guard ───────────────────────────
-  // Mid-match back press is a really common foot-gun on Android.
-  // We intercept and route through the same "quit" confirm dialog
-  // as the on-screen back button, so back never silently abandons
-  // the opponent.
   useEffect(() => {
     const sub = BackHandler.addEventListener("hardwareBackPress", () => {
       if (room?.game_status === "playing") {
@@ -200,9 +298,6 @@ export default function MultiplayerMatch() {
     return () => clearTimeout(id);
   }, [lastError, dismissError]);
 
-  const inRulebreaker = rbPhase !== null && isRbPhase(rbPhase);
-  useRulebreakerPendingSound(inRulebreaker || !!room?.awaiting_rulebreaker);
-
   useEffect(() => {
     if (!room) return;
     const wasPlaying = prevGameStatus.current === "playing";
@@ -225,9 +320,6 @@ export default function MultiplayerMatch() {
           style: "destructive",
           onPress: () => {
             quitMatch("user_forfeit");
-            // Server will broadcast match_disbanded shortly; in the
-            // meantime, bounce. The "match ended" alert above is
-            // suppressed because we leave before the frame arrives.
             router.replace("/multiplayer");
           },
         },
@@ -266,22 +358,31 @@ export default function MultiplayerMatch() {
       : null;
   const rbBannedPatterns = Array.isArray(rbPayload.rb_banned_patterns)
     ? (rbPayload.rb_banned_patterns as string[])
-    : [];
+    : room.rb_banned_patterns ?? [];
   const rbHideFromMe =
     rbPayload.rbHideBannedPatternFromSlot === slot ||
     room.rb_hide_banned_from_slot === slot;
 
-  // Mindbreaker extra-turn token: holder cashes it on their turn for one
-  // bonus consecutive move. Server validates; we just offer the button.
-  const canUseExtraTurn =
-    gridSize === 7 &&
-    isMyTurn &&
-    room.rb_extra_turn_token_holder === slot &&
-    !room.rb_extra_turn_token_used &&
-    (room.extra_turns ?? 0) === 0;
+  // Ready overlay between games (full-screen, both players' states).
+  const showReadyOverlay =
+    gameOver &&
+    !seriesOver &&
+    !matchResult &&
+    !inRulebreaker &&
+    !rulesGateActive &&
+    !lbState &&
+    !mpLevelUp;
+
+  const p1Name = room.player1_name ?? "P1";
+  const p2Name = room.player2_name ?? "P2";
 
   return (
-    <Screen padded background={palette.bg}>
+    <Screen
+      scrollable
+      padded
+      background={palette.bg}
+      contentContainerStyle={{ paddingBottom: space[10] }}
+    >
       <Stack.Screen options={{ headerShown: false }} />
 
       {/* ── Top bar ───────────────────────────────────────────── */}
@@ -290,7 +391,19 @@ export default function MultiplayerMatch() {
           <Caption tone="muted">← QUIT</Caption>
         </Pressable>
         <Row gap={2} align="center">
-          <PatternsToggle gridSize={gridSize} enabled={!gameOver && !seriesOver} />
+          <ChatButton
+            unread={unreadChat}
+            onPress={() => {
+              markChatRead();
+              setChatOpen(true);
+            }}
+          />
+          <PatternsToggle
+            gridSize={gridSize}
+            enabled={!seriesOver}
+            activePatternIds={room.selected_patterns}
+            bannedPatternIds={rbHideFromMe ? undefined : rbBannedPatterns}
+          />
           <Caption tone="muted">
             {room.room_code} · {legLabel}
           </Caption>
@@ -298,7 +411,7 @@ export default function MultiplayerMatch() {
       </Row>
 
       {/* ── Scoreboard ────────────────────────────────────────── */}
-      <Row gap={3} style={{ marginTop: space[4] }}>
+      <Row gap={3} style={{ marginTop: space[3] }}>
         <PlayerCard
           slot="P1"
           self={slot === "P1"}
@@ -318,6 +431,24 @@ export default function MultiplayerMatch() {
           color={colors.info}
         />
       </Row>
+
+      {/* ── Opponent actions (web sidebar parity — during the match) ── */}
+      <OpponentActionsRow
+        opponentId={slot === "P1" ? room.player2_id : room.player1_id}
+        opponentName={slot === "P1" ? room.player2_name : room.player1_name}
+        roomCode={room.room_code}
+      />
+
+      {/* ── Match timer ───────────────────────────────────────── */}
+      <View style={{ marginTop: space[3] }}>
+        <MatchClockRow
+          p1Label={formatClock(clocks.P1)}
+          p2Label={formatClock(clocks.P2)}
+          active={clocksRunning ? room.current_player : null}
+          p1Name={p1Name.toUpperCase()}
+          p2Name={p2Name.toUpperCase()}
+        />
+      </View>
 
       {/* ── Status banner + error (fixed slot so the board stays put) ── */}
       <View style={styles.hudSlot}>
@@ -343,8 +474,8 @@ export default function MultiplayerMatch() {
           gridSize={gridSize}
           sideLength={boardSide}
           board={room.board ?? emptyBoard(gridSize)}
-          lastMove={lastMoveOf(room)}
-          winningLine={null /* server doesn't currently send a stable line for the seated state */}
+          lastMove={null}
+          winningLine={winLine}
           disabled={!isMyTurn || gameOver}
           onCellPress={(r, c) => {
             if (!isMyTurn) return;
@@ -354,28 +485,51 @@ export default function MultiplayerMatch() {
         />
       </View>
 
-      {canUseExtraTurn ? (
-        <View style={{ marginTop: space[3] }}>
-          <Btn variant="secondary" onPress={sendUseExtraTurn}>
-            Use extra turn token
-          </Btn>
-        </View>
+      {/* ── Mindbreaker extra-turn token (fixed-height row) ───── */}
+      {gridSize === 7 && room.game_status === "playing" ? (
+        <ExtraTurnTokenRow
+          holder={room.rb_extra_turn_token_holder ?? null}
+          holderName={room.rb_extra_turn_token_holder === "P1" ? p1Name : p2Name}
+          used={room.rb_extra_turn_token_used ?? false}
+          current={room.current_player}
+          canUse={
+            room.rb_extra_turn_token_holder === slot &&
+            isMyTurn &&
+            (room.extra_turns ?? 0) === 0
+          }
+          onUse={sendUseExtraTurn}
+        />
       ) : null}
 
-      {/* ── Bottom panels ─────────────────────────────────────── */}
+      {/* ── Sidebar panels (stacked) ──────────────────────────── */}
+      <MatchHistoryPanel room={room} />
+      <HeadToHeadCard record={headToHead} />
+      <MoveLogPanel entries={moveLog} />
+
+      {/* ── Series end ────────────────────────────────────────── */}
       {seriesOver && !matchResult ? (
-        <>
-          <SeriesEndPanel room={room} mySlot={slot} />
-          <PostMatchSocial
-            opponentId={slot === "P1" ? room.player2_id : room.player1_id}
-            opponentName={slot === "P1" ? room.player2_name : room.player1_name}
-            roomCode={room.room_code}
-          />
-        </>
-      ) : gameOver ? (
-        <GameEndPanel
+        <SeriesEndPanel room={room} mySlot={slot} />
+      ) : null}
+
+      <ChatSheet
+        visible={chatOpen}
+        messages={chatMessages}
+        mySlot={slot}
+        p1Name={p1Name}
+        p2Name={p2Name}
+        onSend={sendChat}
+        onClose={() => {
+          markChatRead();
+          setChatOpen(false);
+        }}
+      />
+
+      {showReadyOverlay ? (
+        <MpReadyOverlay
+          visible
           room={room}
           mySlot={slot}
+          readyStates={readyStates}
           onReady={() => {
             readyForNextGame();
             setOnGameScreen(true);
@@ -393,8 +547,8 @@ export default function MultiplayerMatch() {
           gameNumber={room.game_number}
           selectedPatterns={room.selected_patterns}
           mySlot={slot}
-          p1Name={(room.player1_name ?? "P1").toUpperCase()}
-          p2Name={(room.player2_name ?? "P2").toUpperCase()}
+          p1Name={p1Name.toUpperCase()}
+          p2Name={p2Name.toUpperCase()}
           rulesReady={rulesReady}
           onToggleReady={sendLevelupReady}
         />
@@ -418,8 +572,8 @@ export default function MultiplayerMatch() {
           c3Blocked={room.c3_blocked ?? null}
           hideBannedFromMe={rbHideFromMe}
           selectedPatterns={room.selected_patterns}
-          p1Name={room.player1_name ?? "P1"}
-          p2Name={room.player2_name ?? "P2"}
+          p1Name={p1Name}
+          p2Name={p2Name}
           onTossAction={sendTossAction}
         />
       ) : null}
@@ -497,36 +651,61 @@ function PlayerCard({
   );
 }
 
-function GameEndPanel({
-  room,
-  mySlot,
-  onReady,
+/** Compact ADD FRIEND / REPORT row, available for the whole match. */
+function OpponentActionsRow({
+  opponentId,
+  opponentName,
+  roomCode,
 }: {
-  room: Room;
-  mySlot: PlayerSlot;
-  onReady: () => void;
+  opponentId: string | null;
+  opponentName: string | null;
+  roomCode: string;
 }) {
-  const winnerLabel =
-    room.winner === "DRAW"
-      ? "Draw"
-      : room.winner === mySlot
-      ? "You won"
-      : "Opponent won";
-  const winnerTone = room.winner === "DRAW" ? "warn" : room.winner === mySlot ? "accent" : "info";
+  const [friendSent, setFriendSent] = useState(false);
+  if (!opponentId) return null;
+  const name = opponentName ?? "opponent";
+
+  const addFriend = async () => {
+    try {
+      await sendPeerRequest(opponentId);
+      setFriendSent(true);
+      Alert.alert("Sent", `Friend request sent to ${name}.`);
+    } catch (err) {
+      Alert.alert("Error", err instanceof Error ? err.message : "Try again.");
+    }
+  };
+
+  const report = () => {
+    Alert.alert("Report player", `Report ${name} for abuse?`, [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Report",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            await reportPlayer({ userId: opponentId, category: "abuse", roomCode });
+            Alert.alert("Reported", "Thanks — our team will review.");
+          } catch (err) {
+            Alert.alert("Error", err instanceof Error ? err.message : "Try again.");
+          }
+        },
+      },
+    ]);
+  };
+
   return (
-    <Card variant="surface" padding="lg" style={{ marginTop: space[3] }}>
-      <Eyebrow tone={winnerTone}>GAME {room.game_number}</Eyebrow>
-      <View style={{ height: space[2] }} />
-      <Title>{winnerLabel}</Title>
-      <View style={{ height: space[2] }} />
-      <Body tone="muted">
-        Series at {room.p1_series_points} — {room.p2_series_points}. First to 3 wins the match.
-      </Body>
-      <View style={{ height: space[3] }} />
-      <Btn variant="primary" onPress={onReady}>
-        Ready for next game
-      </Btn>
-    </Card>
+    <Row gap={2} style={{ marginTop: space[2] }}>
+      <View style={{ flex: 1 }}>
+        <Btn variant="secondary" size="sm" onPress={addFriend} disabled={friendSent}>
+          {friendSent ? "Request sent" : "Add friend"}
+        </Btn>
+      </View>
+      <View style={{ flex: 1 }}>
+        <Btn variant="ghost" size="sm" onPress={report}>
+          Report
+        </Btn>
+      </View>
+    </Row>
   );
 }
 
@@ -553,80 +732,7 @@ function SeriesEndPanel({
   );
 }
 
-function PostMatchSocial({
-  opponentId,
-  opponentName,
-  roomCode,
-}: {
-  opponentId: string | null;
-  opponentName: string | null;
-  roomCode: string;
-}) {
-  if (!opponentId) return null;
-  const name = opponentName ?? "opponent";
-
-  const addFriend = async () => {
-    try {
-      await sendPeerRequest(opponentId);
-      Alert.alert("Sent", `Friend request sent to ${name}.`);
-    } catch (err) {
-      Alert.alert("Error", err instanceof Error ? err.message : "Try again.");
-    }
-  };
-
-  const report = () => {
-    Alert.alert("Report player", `Report ${name} for abuse?`, [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Report",
-        style: "destructive",
-        onPress: async () => {
-          try {
-            await reportPlayer({ userId: opponentId, category: "abuse", roomCode });
-            Alert.alert("Reported", "Thanks — our team will review.");
-          } catch (err) {
-            Alert.alert("Error", err instanceof Error ? err.message : "Try again.");
-          }
-        },
-      },
-    ]);
-  };
-
-  return (
-    <Card variant="surface" padding="md" style={{ marginTop: space[3] }}>
-      <Eyebrow tone="muted">OPPONENT</Eyebrow>
-      <View style={{ height: space[2] }} />
-      <Heading numberOfLines={1}>{name}</Heading>
-      <View style={{ height: space[3] }} />
-      <Row gap={2}>
-        <View style={{ flex: 1 }}>
-          <Btn variant="secondary" onPress={addFriend}>Add friend</Btn>
-        </View>
-        <View style={{ flex: 1 }}>
-          <Btn variant="ghost" onPress={report}>Report</Btn>
-        </View>
-      </Row>
-    </Card>
-  );
-}
-
 // ─── Helpers ─────────────────────────────────────────────────────────────────
-
-/**
- * Pull the most-recent move's coord off the room's ``move_log`` if
- * we have it. ``move_log`` isn't always populated on every
- * ``move_made`` frame (the broadcast omits it for size reasons),
- * so we fall back to ``null`` when missing — board still renders
- * fine, just without the last-move ring.
- */
-function lastMoveOf(_room: Room): Coord | null {
-  // The ``move_made`` broadcast carries the row/col of the latest
-  // move, but our typed Room shape doesn't store it separately
-  // (we only mirror the bigger fields). For v1 we accept "no
-  // last-move ring on MP" and leave the helper as a hook for
-  // adding it later via a parallel local cache.
-  return null;
-}
 
 function statusLabelFor(room: Room, mySlot: PlayerSlot, conn: string): string {
   if (room.series_winner) return room.series_winner === mySlot ? "YOU WIN THE SERIES" : "SERIES OVER";
@@ -663,13 +769,13 @@ function statusToneFor(
 
 const styles = StyleSheet.create({
   hudSlot: {
-    height: 116,
+    height: 84,
     marginTop: space[2],
-    marginBottom: space[3],
+    marginBottom: space[2],
     justifyContent: "flex-start",
   },
   statusRow: {
-    height: 52,
+    height: 44,
     justifyContent: "center",
     alignItems: "center",
     paddingHorizontal: space[2],

@@ -21,6 +21,9 @@ interface PatternOverlayModalProps {
   visible: boolean;
   gridSize: GridSize;
   activePatternIds: string[];
+  /** Mindbreaker bans — still active for the banner, dead for the opponent.
+   *  Callers must pass [] when the ban is hidden from this viewer. */
+  bannedPatternIds?: string[];
   onClose: () => void;
 }
 
@@ -28,12 +31,19 @@ export function PatternOverlayModal({
   visible,
   gridSize,
   activePatternIds,
+  bannedPatternIds = [],
   onClose,
 }: PatternOverlayModalProps) {
   const allMeta = patternMetadataForGrid(gridSize);
   const coreRules = coreRulesForGrid(gridSize);
-  const active = activePatternIds.map((id) => allMeta[id]).filter(Boolean);
-  const inactive = Object.values(allMeta).filter((p) => !activePatternIds.includes(p.id));
+  const active = activePatternIds
+    .filter((id) => !bannedPatternIds.includes(id))
+    .map((id) => allMeta[id])
+    .filter(Boolean);
+  const banned = bannedPatternIds.map((id) => allMeta[id]).filter(Boolean);
+  const inactive = Object.values(allMeta).filter(
+    (p) => !activePatternIds.includes(p.id) && !bannedPatternIds.includes(p.id),
+  );
   const coreList = Object.values(coreRules);
   const cellSize = gridSize === 7 ? 10 : gridSize === 6 ? 11 : 12;
 
@@ -60,11 +70,24 @@ export function PatternOverlayModal({
                   cellSize={cellSize}
                 />
               ))}
+              {banned.map((p) => (
+                <PatternCard
+                  key={`banned-${p.id}`}
+                  label={p.label}
+                  desc="Banned in the Protocol Breaker — still counts for the player who banned it, dead for their opponent."
+                  info={p}
+                  accent="#ef4444"
+                  selected={false}
+                  inactive
+                  inactiveTag="BANNED"
+                  cellSize={cellSize}
+                />
+              ))}
               {inactive.map((p) => (
                 <PatternCard
                   key={`inactive-${p.id}`}
                   label={p.label}
-                  desc="This pattern is inactive this match."
+                  desc="This pattern is not active this match."
                   info={p}
                   accent="#ef4444"
                   selected={false}
@@ -106,6 +129,7 @@ function PatternCard({
   accent,
   selected,
   inactive,
+  inactiveTag = "INACTIVE",
   cellSize,
 }: {
   label: string;
@@ -114,13 +138,14 @@ function PatternCard({
   accent: string;
   selected: boolean;
   inactive?: boolean;
+  inactiveTag?: string;
   cellSize: number;
 }) {
   return (
     <View style={[styles.card, inactive && styles.cardInactive]}>
       <View style={styles.cardHeader}>
         <Text style={[styles.cardLabel, inactive && styles.cardLabelInactive]}>{label}</Text>
-        {inactive ? <Text style={styles.inactiveTag}>INACTIVE</Text> : null}
+        {inactive ? <Text style={styles.inactiveTag}>{inactiveTag}</Text> : null}
       </View>
       <Text style={[styles.cardDesc, inactive && styles.cardDescInactive]}>{desc}</Text>
       <PatternDiagram info={info} accent={accent} isSelected={selected} cellSize={cellSize} />

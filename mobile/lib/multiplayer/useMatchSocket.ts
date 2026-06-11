@@ -8,6 +8,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { gridFromBoardMode } from "@/lib/game/boardConfig";
+import { buildMoveLogEntry, type MoveLogEntry } from "@/lib/game/matchRules";
+import type { Coord } from "@/lib/game/winCheck";
 import {
   openMatchSocket,
   type MatchSocket,
@@ -23,6 +25,7 @@ import {
 } from "./matchResult";
 import { isRbPhase, type RbPhase } from "./rulebreakerPhases";
 import type {
+  ChatMessage,
   InboundMessage,
   PlayerSlot,
   Room,
@@ -60,6 +63,18 @@ export interface UseMatchSocketResult {
   /** Rules-show gate readiness per slot (``levelup_ready`` protocol). */
   rulesReady: Record<PlayerSlot, boolean>;
   sendLevelupReady: (ready: boolean, selectedPatterns?: string[]) => void;
+  /** Winning line of the just-finished game (animates the board). */
+  winLine: Coord[] | null;
+  /** Between-games readiness per slot (``ready_update`` protocol). */
+  readyStates: Record<PlayerSlot, boolean>;
+  /** Per-game move log (server-seeded on rejoin, appended per move). */
+  moveLog: MoveLogEntry[];
+  chatMessages: ChatMessage[];
+  unreadChat: number;
+  sendChat: (text: string) => void;
+  markChatRead: () => void;
+  /** Server-authoritative flag fall — loser is always current_player. */
+  sendTimeout: () => void;
 }
 
 function emptyBoardForMode(mode: string): Room["board"] {
@@ -124,6 +139,14 @@ export function useMatchSocket({
     P1: false,
     P2: false,
   });
+  const [winLine, setWinLine] = useState<Coord[] | null>(null);
+  const [readyStates, setReadyStates] = useState<Record<PlayerSlot, boolean>>({
+    P1: false,
+    P2: false,
+  });
+  const [moveLog, setMoveLog] = useState<MoveLogEntry[]>([]);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [unreadChat, setUnreadChat] = useState(0);
 
   const socketRef = useRef<MatchSocket | null>(null);
   const roomRef = useRef(room);
@@ -143,6 +166,14 @@ export function useMatchSocket({
           syncRbPhase(msg.room.phase);
           if (isRbPhase(msg.room.phase ?? "")) setRbPhase(msg.room.phase as RbPhase);
           else if (!msg.room.awaiting_rulebreaker) setRbPhase(null);
+          // Seed the move log from the server copy (rejoin mid-game).
+          if (Array.isArray(msg.room.move_log)) {
+            setMoveLog(
+              msg.room.move_log.map((e, i) =>
+                buildMoveLogEntry(i + 1, e.row, e.col, e.player),
+              ),
+            );
+          }
           break;
         }
         case "rulebreaker_start": {
@@ -188,6 +219,20 @@ export function useMatchSocket({
           break;
         }
         case "move_made": {
+          // Append to the move log — the stone's owner is read off the
+          // board (a Timebreaker trap cell converts the stone, and the
+          // log should show the resulting owner).
+          const mover =
+            (msg.board?.[msg.row]?.[msg.col] as PlayerSlot | null) ?? null;
+          if (mover) {
+            setMoveLog((l) => [
+              ...l,
+              buildMoveLogEntry(msg.moves_played, msg.row, msg.col, mover),
+            ]);
+          }
+          if (msg.winner && msg.winner !== "DRAW" && msg.win_line?.length) {
+            setWinLine(msg.win_line as Coord[]);
+          }
           setRoom((prev) => {
             if (!prev) return prev;
             return {
@@ -235,6 +280,9 @@ export function useMatchSocket({
           ) {
             setRulesReady({ P1: false, P2: false });
           }
+          setWinLine(null);
+          setMoveLog([]);
+          setReadyStates({ P1: false, P2: false });
           setRoom((prev) => {
             if (!prev) return prev;
             return {
@@ -259,6 +307,7 @@ export function useMatchSocket({
               rb_extra_turn_token_holder: msg.rb_extra_turn_token_holder ?? null,
               rb_extra_turn_token_used: msg.rb_extra_turn_token_used ?? false,
               rb_hide_banned_from_slot: msg.rb_hide_banned_from_slot ?? null,
+              rb_banned_patterns: msg.rb_banned_patterns ?? [],
               extra_turns: 0,
               awaiting_limitbreaker: false,
               ...(msg.p1_series_points !== undefined
@@ -324,6 +373,20 @@ export function useMatchSocket({
           );
           break;
         }
+        case "ready_update": {
+          setReadyStates((prev) => ({ ...prev, [msg.player]: msg.ready }));
+          break;
+        }
+        case "chat_message": {
+          const entry: ChatMessage = {
+            from: msg.from,
+            text: msg.text,
+            ts: typeof msg.ts === "number" && msg.ts > 0 ? msg.ts : Date.now(),
+          };
+          setChatMessages((prev) => [...prev.slice(-99), entry]);
+          if (msg.from !== slot) setUnreadChat((c) => c + 1);
+          break;
+        }
         case "rb_extra_turn_update": {
           setRoom((prev) =>
             prev
@@ -382,7 +445,7 @@ export function useMatchSocket({
           break;
       }
     },
-    [syncRbPhase],
+    [syncRbPhase, slot],
   );
 
   useEffect(() => {
@@ -395,6 +458,11 @@ export function useMatchSocket({
     setLbState(null);
     setMatchResult(null);
     setRulesReady({ P1: false, P2: false });
+    setWinLine(null);
+    setReadyStates({ P1: false, P2: false });
+    setMoveLog([]);
+    setChatMessages([]);
+    setUnreadChat(0);
 
     const socket = openMatchSocket({
       roomCode,
@@ -468,6 +536,20 @@ export function useMatchSocket({
 
   const readyForNextGame = useCallback(() => {
     socketRef.current?.send({ type: "ready", ready: true });
+    // Optimistic echo so the ready overlay flips my row immediately.
+    setReadyStates((prev) => ({ ...prev, [slot]: true }));
+  }, [slot]);
+
+  const sendChat = useCallback((text: string) => {
+    const trimmed = text.trim();
+    if (!trimmed) return;
+    socketRef.current?.send({ type: "chat", text: trimmed.slice(0, 300), ts: Date.now() });
+  }, []);
+
+  const markChatRead = useCallback(() => setUnreadChat(0), []);
+
+  const sendTimeout = useCallback(() => {
+    socketRef.current?.send({ type: "timeout" });
   }, []);
 
   const quitMatch = useCallback((reason?: string) => {
@@ -544,5 +626,13 @@ export function useMatchSocket({
     dismissMatchResult,
     rulesReady,
     sendLevelupReady,
+    winLine,
+    readyStates,
+    moveLog,
+    chatMessages,
+    unreadChat,
+    sendChat,
+    markChatRead,
+    sendTimeout,
   };
 }

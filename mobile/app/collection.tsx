@@ -11,8 +11,8 @@
  */
 
 import { router, Stack, useLocalSearchParams } from "expo-router";
-import { useCallback, useState } from "react";
-import { Alert, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Alert, Animated, Easing, Pressable, ScrollView, StyleSheet, View } from "react-native";
 
 import {
   Body,
@@ -29,6 +29,7 @@ import {
   type CollectionEntry,
   type CollectionTab,
 } from "@/lib/collection/catalog";
+import { boardSkinFor } from "@/lib/cosmetics/boardSkin";
 import { tossSkinFromStoreId, useTossSkin } from "@/lib/cosmetics/tossSkin";
 import { updateProfile } from "@/lib/profile";
 import { useAuthStore } from "@/lib/store";
@@ -48,6 +49,7 @@ export default function CollectionScreen() {
   const { themeId, setTheme } = useTheme();
   const [tab, setTab] = useState<CollectionTab>(initialTab);
   const [busy, setBusy] = useState<string | null>(null);
+  const [equipFlash, setEquipFlash] = useState<string | null>(null);
   const [tossSkin, setTossSkin] = useTossSkin();
 
   useSyncAudioTheme(themeId);
@@ -86,7 +88,7 @@ export default function CollectionScreen() {
           if (!skin) throw new Error("Unknown coin toss skin.");
           await setTossSkin(skin);
         }
-        Alert.alert("Equipped", `${entry.label} is now active.`);
+        setEquipFlash(entry.label);
       } catch (err) {
         Alert.alert("Could not equip", err instanceof Error ? err.message : "Try again.");
       } finally {
@@ -165,6 +167,8 @@ export default function CollectionScreen() {
                 <View style={[styles.bannerPreview, { justifyContent: "center", alignItems: "center" }]}>
                   <Caption tone="accent">{entry.label}</Caption>
                 </View>
+              ) : entry.equipField === "board_style" ? (
+                <GridSwatch boardStyle={entry.equipValue} />
               ) : (
                 <View style={[styles.bannerPreview, { backgroundColor: colors.bgRaised }]} />
               )}
@@ -183,7 +187,100 @@ export default function CollectionScreen() {
           );
         })}
       </ScrollView>
+
+      <EquipFlash label={equipFlash} onDone={() => setEquipFlash(null)} />
     </Screen>
+  );
+}
+
+/**
+ * Animated equip confirmation — scales/glows in over the screen and
+ * auto-dismisses, replacing the old bare system alert.
+ */
+function EquipFlash({ label, onDone }: { label: string | null; onDone: () => void }) {
+  const scale = useRef(new Animated.Value(0.6)).current;
+  const opacity = useRef(new Animated.Value(0)).current;
+  const ring = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (!label) return;
+    scale.setValue(0.6);
+    opacity.setValue(0);
+    ring.setValue(0);
+    Animated.parallel([
+      Animated.spring(scale, { toValue: 1, friction: 5, tension: 90, useNativeDriver: true }),
+      Animated.timing(opacity, { toValue: 1, duration: 180, useNativeDriver: true }),
+      Animated.timing(ring, {
+        toValue: 1,
+        duration: 700,
+        easing: Easing.out(Easing.quad),
+        useNativeDriver: true,
+      }),
+    ]).start();
+    const id = setTimeout(() => {
+      Animated.timing(opacity, { toValue: 0, duration: 220, useNativeDriver: true }).start(
+        ({ finished }) => {
+          if (finished) onDone();
+        },
+      );
+    }, 1500);
+    return () => clearTimeout(id);
+  }, [label, onDone, opacity, ring, scale]);
+
+  if (!label) return null;
+
+  const ringScale = ring.interpolate({ inputRange: [0, 1], outputRange: [0.7, 1.7] });
+  const ringOpacity = ring.interpolate({ inputRange: [0, 0.25, 1], outputRange: [0, 0.7, 0] });
+
+  return (
+    <View pointerEvents="none" style={styles.flashWrap}>
+      <Animated.View
+        style={[
+          styles.flashRing,
+          { opacity: ringOpacity, transform: [{ scale: ringScale }] },
+        ]}
+      />
+      <Animated.View style={[styles.flashCard, { opacity, transform: [{ scale }] }]}>
+        <Caption tone="accent" style={{ letterSpacing: 2, fontWeight: "900" }}>
+          ✓ EQUIPPED
+        </Caption>
+        <Heading style={{ marginTop: space[1], textAlign: "center" }}>{label}</Heading>
+        <Caption tone="muted" style={{ marginTop: 2 }}>
+          now active
+        </Caption>
+      </Animated.View>
+    </View>
+  );
+}
+
+/** Mini board preview rendered with the grid bundle's skin colors. */
+function GridSwatch({ boardStyle }: { boardStyle: string }) {
+  const skin = boardSkinFor(boardStyle);
+  const boardBg = skin?.boardBg ?? colors.bgRaised;
+  const line = skin?.boardLine ?? colors.border;
+  const cellBg = skin?.cellBg ?? colors.bgCard;
+  const cellBorder = skin?.cellBorder ?? colors.border;
+  const accent = skin?.accent ?? colors.textMuted;
+  return (
+    <View style={[styles.gridSwatch, { backgroundColor: boardBg, borderColor: line }]}>
+      {[0, 1, 2].map((r) => (
+        <View key={r} style={styles.swatchRow}>
+          {[0, 1, 2, 3, 4].map((c) => (
+            <View
+              key={c}
+              style={[
+                styles.gridSwatchCell,
+                { backgroundColor: cellBg, borderColor: cellBorder },
+              ]}
+            >
+              {(r + c) % 4 === 1 ? (
+                <View style={[styles.swatchDot, { backgroundColor: accent }]} />
+              ) : null}
+            </View>
+          ))}
+        </View>
+      ))}
+    </View>
   );
 }
 
@@ -277,4 +374,50 @@ const styles = StyleSheet.create({
   },
   swatchDot: { width: 8, height: 8, borderRadius: 4 },
   chip: { width: 22, height: 22, borderRadius: 6 },
+  gridSwatch: {
+    marginTop: space[3],
+    padding: space[2],
+    borderRadius: radii.md,
+    borderWidth: 1.5,
+    gap: 3,
+    alignItems: "center",
+  },
+  gridSwatchCell: {
+    width: 26,
+    height: 26,
+    borderRadius: 4,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 3,
+  },
+  flashWrap: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  flashRing: {
+    position: "absolute",
+    width: 220,
+    height: 220,
+    borderRadius: 110,
+    borderWidth: 2,
+    borderColor: colors.accent,
+  },
+  flashCard: {
+    minWidth: 220,
+    maxWidth: "80%",
+    alignItems: "center",
+    backgroundColor: colors.bgElevated,
+    borderRadius: radii.lg,
+    borderWidth: 2,
+    borderColor: colors.borderAccent,
+    paddingVertical: space[5],
+    paddingHorizontal: space[6],
+    shadowColor: colors.accent,
+    shadowOpacity: 0.5,
+    shadowRadius: 24,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 16,
+  },
 });

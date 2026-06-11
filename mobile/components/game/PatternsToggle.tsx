@@ -17,12 +17,15 @@ interface PatternsToggleProps {
   /** When false, hide the button (e.g. match over). */
   enabled?: boolean;
   activePatternIds?: string[];
+  /** Mindbreaker bans for the reference sheet ([] when hidden from viewer). */
+  bannedPatternIds?: string[];
 }
 
 export function PatternsToggle({
   gridSize,
   enabled = true,
   activePatternIds,
+  bannedPatternIds,
 }: PatternsToggleProps) {
   const [open, setOpen] = useState(false);
   const ids = useMemo(
@@ -52,6 +55,7 @@ export function PatternsToggle({
         visible={open}
         gridSize={gridSize}
         activePatternIds={ids}
+        bannedPatternIds={bannedPatternIds}
         onClose={() => setOpen(false)}
       />
     </>

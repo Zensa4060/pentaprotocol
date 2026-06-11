@@ -18,6 +18,7 @@ import { MatchStatusHud } from "@/components/game/MatchStatusHud";
 import { PatternsToggle } from "@/components/game/PatternsToggle";
 import { RulebreakerOverlay } from "@/components/game/RulebreakerOverlay";
 import {
+  ExtraTurnTokenRow,
   MatchClockRow,
   MoveLogPanel,
   SeriesOverlay,
@@ -143,11 +144,19 @@ export default function EngineMatchScreen() {
     matchMsForGrid(gridSize),
   );
 
+  // Mindbreaker ban info for the pattern-reference sheet. The bot's bans
+  // stay hidden from the human; the human's own bans are shown flagged.
+  const [rbBanInfo, setRbBanInfo] = useState<{
+    banned: string[];
+    banActor: SeriesPlayer | null;
+  }>({ banned: [], banActor: null });
+
   const onResetGame = useCallback(
     (starter: SeriesPlayer, nextGameNumber: number) => {
       const grid = specGridForGame(spec, nextGameNumber);
       const pats = specPatternsForGame(spec, nextGameNumber, picked5);
       const clocks = clockMsForGameReset(grid, nextGameNumber, null);
+      setRbBanInfo({ banned: [], banActor: null });
       match.reset(starter, { gridSize: grid, patterns: pats, c3Blocked: false });
       clock.reset(clocks.p1, clocks.p2);
     },
@@ -161,6 +170,10 @@ export default function EngineMatchScreen() {
       const nextGn = series.gameNumber + 1;
       const grid = outcome.reset?.gridSize ?? specGridForGame(spec, nextGn);
       const clocks = clockMsForGameReset(grid, nextGn, null);
+      setRbBanInfo({
+        banned: outcome.reset?.bannedPatterns ?? [],
+        banActor: outcome.reset?.banActor ?? null,
+      });
       match.reset(outcome.reset?.starter ?? "P1", outcome.reset);
       clock.reset(
         outcome.reset?.p1ClockMs ?? clocks.p1,
@@ -349,7 +362,17 @@ export default function EngineMatchScreen() {
           <PatternsToggle
             gridSize={gridSize}
             enabled={match.result.status === "playing"}
-            activePatternIds={match.activePatterns}
+            activePatternIds={
+              rbBanInfo.banned.length > 0
+                ? specPatternsForGame(spec, series.gameNumber, picked5)
+                : match.activePatterns
+            }
+            bannedPatternIds={
+              // The bot's bans stay hidden from the human for the whole game.
+              rbBanInfo.banned.length > 0 && rbBanInfo.banActor !== "P2"
+                ? rbBanInfo.banned
+                : undefined
+            }
           />
           <Caption tone="muted">
             G{series.gameNumber} · {gridSize}×{gridSize} · {match.movesPlayed}{" "}
@@ -384,18 +407,19 @@ export default function EngineMatchScreen() {
         spinner={match.botThinking ? <Spinner tone="muted" /> : undefined}
       />
 
-      {gridSize === 7 &&
-      series.phase === "playing" &&
-      match.result.status === "playing" &&
-      match.extraTokenHolder === "P1" &&
-      !match.extraTokenUsed &&
-      match.extraTurns === 0 &&
-      match.current === "P1" ? (
-        <View style={{ marginTop: space[2] }}>
-          <Btn variant="secondary" size="sm" onPress={match.useExtraTurnToken}>
-            Use extra turn token
-          </Btn>
-        </View>
+      {gridSize === 7 && series.phase === "playing" ? (
+        <ExtraTurnTokenRow
+          holder={match.extraTokenHolder}
+          holderName={match.extraTokenHolder === "P1" ? p1Display : botName}
+          used={match.extraTokenUsed}
+          current={match.current}
+          canUse={
+            match.extraTokenHolder === "P1" &&
+            match.result.status === "playing" &&
+            match.extraTurns === 0
+          }
+          onUse={match.useExtraTurnToken}
+        />
       ) : null}
 
       <View style={[styles.boardSlot, { height: boardSide }]}>

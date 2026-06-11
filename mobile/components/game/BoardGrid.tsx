@@ -14,7 +14,9 @@ import {
   type ViewStyle,
 } from "react-native";
 
+import { boardSkinFor, type BoardSkin } from "@/lib/cosmetics/boardSkin";
 import type { GridSize } from "@/lib/game/boardConfig";
+import { useAuthStore } from "@/lib/store";
 import { colors, radii } from "@/theme/tokens";
 import { usePalette } from "@/theme/ThemeProvider";
 import type { ThemePalette } from "@/theme/themes";
@@ -49,6 +51,10 @@ export function BoardGrid({
   style,
 }: BoardGridProps) {
   const palette = usePalette();
+  // Equipped board skin (Collection → Grids). Overrides the theme's board
+  // surface colors; pieces keep the theme glyphs/colors.
+  const boardStyle = useAuthStore((s) => s.user?.board_style);
+  const skin = boardSkinFor(boardStyle);
   const locked = sideLength != null && sideLength > 0;
   const [measured, setMeasured] = useState(0);
   const size = locked ? sideLength! : measured;
@@ -124,8 +130,8 @@ export function BoardGrid({
                 {
                   width: boardSize,
                   height: boardSize,
-                  backgroundColor: palette.boardBg,
-                  borderColor: palette.boardLine,
+                  backgroundColor: skin?.boardBg ?? palette.boardBg,
+                  borderColor: skin?.boardLine ?? palette.boardLine,
                 },
               ]}
             >
@@ -142,6 +148,7 @@ export function BoardGrid({
                         isLast={isLast}
                         isWinning={isWinning}
                         palette={palette}
+                        skin={skin}
                         disabled={disabled || cell !== null}
                         onPress={() => onCellPress?.(r, c)}
                       />
@@ -170,11 +177,12 @@ interface CellProps {
   isLast: boolean;
   isWinning: boolean;
   palette: ThemePalette;
+  skin: BoardSkin | null;
   disabled: boolean;
   onPress: () => void;
 }
 
-function Cell({ size, owner, isLast, isWinning, palette, disabled, onPress }: CellProps) {
+function Cell({ size, owner, isLast, isWinning, palette, skin, disabled, onPress }: CellProps) {
   const pulse = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
@@ -219,10 +227,10 @@ function Cell({ size, owner, isLast, isWinning, palette, disabled, onPress }: Ce
           width: size,
           height: size,
           marginRight: CELL_GAP,
-          backgroundColor: palette.boardCell,
+          backgroundColor: skin?.cellBg ?? palette.boardCell,
           borderRadius: radii.xs,
           borderWidth: 1,
-          borderColor: palette.boardLine,
+          borderColor: skin?.cellBorder ?? palette.boardLine,
           alignItems: "center",
           justifyContent: "center",
         },

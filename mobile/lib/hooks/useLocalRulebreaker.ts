@@ -126,7 +126,10 @@ export function useLocalRulebreaker({
     (state: LocalRbState) => {
       if (completedRef.current) return;
       completedRef.current = true;
-      const all = [...state.activePatterns];
+      // The banner KEEPS the banned shapes as win conditions — so the
+      // "full" pool must be the pre-ban list, not state.activePatterns
+      // (which applyPayload already filtered when the bans arrived).
+      const all = [...patternsRef.current];
       const filtered = all.filter((p) => !state.bannedPatterns.includes(p));
       const clocks = clockMsForGameReset(gridSize, gameNumber, state.rb6TimerOwner);
 
@@ -141,8 +144,9 @@ export function useLocalRulebreaker({
       let patternsP1: string[] | undefined;
       let patternsP2: string[] | undefined;
       let tokenHolder: SeriesPlayer | null = null;
+      let banActor: SeriesPlayer | null = null;
       if (is7 && state.bannedPatterns.length > 0 && tw && tl) {
-        const banActor = wr === "ban" ? tw : tl;
+        banActor = wr === "ban" ? tw : tl;
         patternsP1 = banActor === "P1" ? all : filtered;
         patternsP2 = banActor === "P2" ? all : filtered;
       }
@@ -163,6 +167,8 @@ export function useLocalRulebreaker({
           rb6SpecialCell: gridSize === 6 ? state.rb6SpecialCell : null,
           suppressCenterOpening: mindbreaker,
           extraTurnTokenHolder: tokenHolder,
+          bannedPatterns: [...state.bannedPatterns],
+          banActor,
         },
       });
       setPhase(null);
