@@ -4470,7 +4470,10 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     }
     if (p === "ban_pattern_winner" || p === "ban_pattern_loser") {
       const banned = R.current.rbBannedPatterns || [];
-      const avail = liveSelectedPatternsRef.current.filter(x => !banned.includes(x));
+      // LINE / DIAGONAL are core rules — never bannable.
+      const avail = liveSelectedPatternsRef.current.filter(
+        x => !banned.includes(x) && x !== "LINE" && x !== "DIAGONAL",
+      );
       if (avail.length > 0) onBanPattern(avail[Math.floor(Math.random() * avail.length)]!);
     }
   };
@@ -4506,7 +4509,10 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
         return;
       }
       if (phase === "ban_pattern_winner" || phase === "ban_pattern_loser") {
-        const available = liveSelectedPatterns.filter(pat => !rbBannedPatterns.includes(pat));
+        // LINE / DIAGONAL are core rules — never bannable.
+        const available = liveSelectedPatterns.filter(
+          pat => !rbBannedPatterns.includes(pat) && pat !== "LINE" && pat !== "DIAGONAL",
+        );
         if (available.length === 0) return;
         const rndIdx = Math.floor(Math.random() * available.length);
         const patToBan = available[rndIdx];

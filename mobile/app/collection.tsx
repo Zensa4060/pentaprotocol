@@ -321,13 +321,16 @@ function ThemeSwatch({ themeId }: { themeId: ThemeId }) {
 }
 
 const styles = StyleSheet.create({
+  // Size each chip to its label — `flex: 1` inside the horizontal
+  // ScrollView squeezed the chips and clipped the text edges.
   tab: {
-    flex: 1,
     paddingVertical: space[2],
+    paddingHorizontal: space[4],
     borderRadius: radii.sm,
     borderWidth: 1,
     borderColor: colors.border,
     alignItems: "center",
+    justifyContent: "center",
   },
   tabOn: {
     borderColor: colors.accent,

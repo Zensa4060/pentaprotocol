@@ -25,7 +25,9 @@ import {
   Title,
 } from "@/components/ui";
 import {
+  CORE_LINE_PATTERNS,
   defaultPatternsForGrid,
+  isCorePatternId,
   isTripleLegMode,
   matchMsForGrid,
   parseGridParam,
@@ -44,8 +46,12 @@ const MATCH_ROUTE: Record<Mode, string> = {
   multiplayer: "/multiplayer/match",
 };
 
-function randomFiveOfSix(keys: string[]): string[] {
-  return [...keys].sort(() => Math.random() - 0.5).slice(0, 5);
+/** Random 3 of the 4 special 5×5 shapes (LINE/DIAGONAL are core, always in). */
+function randomThreeSpecials(keys: string[]): string[] {
+  return keys
+    .filter((k) => !isCorePatternId(k))
+    .sort(() => Math.random() - 0.5)
+    .slice(0, 3);
 }
 
 export default function PreGameScreen() {
@@ -63,21 +69,26 @@ export default function PreGameScreen() {
   const clock = formatClock(matchMsForGrid(displayGrid));
 
   const canPick5 = (mode === "training" || mode === "engine") && displayGrid === 5;
-  const [selected5, setSelected5] = useState<string[]>(() => randomFiveOfSix(optionalKeys));
+  const [selected5, setSelected5] = useState<string[]>(() => randomThreeSpecials(optionalKeys));
 
   const toggle5 = (id: string) => {
+    if (isCorePatternId(id)) return; // core — always active
     setSelected5((prev) => {
       if (prev.includes(id)) {
-        if (prev.length <= 4) return prev;
+        // Allow a swap: deselect down to 2, then pick the replacement.
+        if (prev.length <= 2) return prev;
         return prev.filter((p) => p !== id);
       }
-      if (prev.length >= 5) return prev;
+      // Exactly 3 of the 4 specials are active.
+      if (prev.length >= 3) return prev;
       return [...prev, id];
     });
   };
 
   const activePatterns =
-    displayGrid === 5 && canPick5 ? selected5 : defaultPatternsForGrid(displayGrid);
+    displayGrid === 5 && canPick5
+      ? [...selected5, ...CORE_LINE_PATTERNS]
+      : defaultPatternsForGrid(displayGrid);
 
   const onReady = () => {
     const { mode: _m, ...rest } = params;
@@ -95,7 +106,7 @@ export default function PreGameScreen() {
   const modeLabel =
     mode === "multiplayer" ? "1V1 : ONLINE" : mode === "engine" ? "AI BOT" : "SOLO";
 
-  const readyDisabled = canPick5 && selected5.length !== 5;
+  const readyDisabled = canPick5 && selected5.length !== 3;
 
   return (
     <Screen scrollable padded background={palette.bg} contentContainerStyle={{ paddingBottom: space[10] }}>
@@ -158,10 +169,10 @@ export default function PreGameScreen() {
         <Eyebrow tone="muted">{canPick5 ? "PICK YOUR PATTERNS" : "WIN PATTERNS"}</Eyebrow>
         {canPick5 ? (
           <Row gap={2} align="center">
-            <Caption tone={selected5.length === 5 ? "accent" : "danger"}>
-              {selected5.length}/5
+            <Caption tone={selected5.length === 3 ? "accent" : "danger"}>
+              SPECIALS {selected5.length}/3
             </Caption>
-            <Pressable onPress={() => setSelected5(randomFiveOfSix(optionalKeys))} hitSlop={8}>
+            <Pressable onPress={() => setSelected5(randomThreeSpecials(optionalKeys))} hitSlop={8}>
               <Caption tone="muted">RANDOM</Caption>
             </Pressable>
           </Row>
@@ -169,23 +180,25 @@ export default function PreGameScreen() {
       </Row>
       {canPick5 ? (
         <Body tone="muted" style={{ marginBottom: space[2] }}>
-          Choose exactly 5 of 6 patterns for this match.
+          STRAIGHT LINE & DIAGONAL are core — always active. Pick exactly 3 of the 4
+          special patterns; one special always sits out.
         </Body>
       ) : (
         <Body tone="muted" style={{ marginBottom: space[2] }}>
-          All {optionalKeys.length} patterns are active. Core rule:{" "}
-          {displayGrid === 7 ? "20+" : "15+"} connected stones.
+          All {optionalKeys.length} patterns are active. Core rules:{" "}
+          {displayGrid === 7 ? "20+" : "15+"} connected stones · STRAIGHT LINE · DIAGONAL.
         </Body>
       )}
       <ScrollView horizontal showsHorizontalScrollIndicator={false}>
         <Row gap={3}>
           {optionalKeys.map((key) => {
-            const chosen = !canPick5 || selected5.includes(key);
+            const isCore = isCorePatternId(key);
+            const chosen = !canPick5 || isCore || selected5.includes(key);
             return (
               <Pressable
                 key={key}
                 onPress={() => canPick5 && toggle5(key)}
-                disabled={!canPick5}
+                disabled={!canPick5 || isCore}
                 style={[
                   styles.patternCard,
                   { backgroundColor: palette.bgCard, borderColor: palette.border },
@@ -201,6 +214,11 @@ export default function PreGameScreen() {
                 <Caption tone={chosen ? "default" : "muted"} style={{ marginTop: space[2], textAlign: "center" }}>
                   {meta[key].label}
                 </Caption>
+                {canPick5 && isCore ? (
+                  <Caption tone="accent" style={{ marginTop: 2, textAlign: "center", fontWeight: "800" }}>
+                    CORE
+                  </Caption>
+                ) : null}
               </Pressable>
             );
           })}

@@ -332,7 +332,13 @@ export function useLocalRulebreaker({
         return;
       }
       if (p === "ban_pattern_winner" || p === "ban_pattern_loser") {
-        const avail = s.activePatterns.filter((x) => !s.bannedPatterns.includes(x));
+        // LINE / DIAGONAL are core rules — never bannable.
+        const avail = s.activePatterns.filter(
+          (x) =>
+            !s.bannedPatterns.includes(x) &&
+            x.toUpperCase() !== "LINE" &&
+            x.toUpperCase() !== "DIAGONAL",
+        );
         if (!avail.length) return;
         const pick = avail[Math.floor(Math.random() * avail.length)]!;
         const next = [...s.bannedPatterns, pick];

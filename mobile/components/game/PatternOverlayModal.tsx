@@ -13,7 +13,7 @@ import {
 
 import { PatternDiagram } from "@/components/game/PatternDiagram";
 import type { GridSize } from "@/lib/game/boardConfig";
-import { defaultPatternsForGrid } from "@/lib/game/boardConfig";
+import { defaultPatternsForGrid, isCorePatternId } from "@/lib/game/boardConfig";
 import { coreRulesForGrid, patternMetadataForGrid } from "@/lib/game/patterns";
 import { colors, radii, space } from "@/theme/tokens";
 
@@ -36,21 +36,32 @@ export function PatternOverlayModal({
 }: PatternOverlayModalProps) {
   const allMeta = patternMetadataForGrid(gridSize);
   const coreRules = coreRulesForGrid(gridSize);
+  // LINE / DIAGONAL are core rules on every grid — shown alongside the
+  // N-point connection rule, never in the selectable/banned pools.
   const active = activePatternIds
-    .filter((id) => !bannedPatternIds.includes(id))
+    .filter((id) => !bannedPatternIds.includes(id) && !isCorePatternId(id))
     .map((id) => allMeta[id])
     .filter(Boolean);
-  const banned = bannedPatternIds.map((id) => allMeta[id]).filter(Boolean);
+  const banned = bannedPatternIds
+    .filter((id) => !isCorePatternId(id))
+    .map((id) => allMeta[id])
+    .filter(Boolean);
   const inactive = Object.values(allMeta).filter(
-    (p) => !activePatternIds.includes(p.id) && !bannedPatternIds.includes(p.id),
+    (p) =>
+      !activePatternIds.includes(p.id) &&
+      !bannedPatternIds.includes(p.id) &&
+      !isCorePatternId(p.id),
   );
-  const coreList = Object.values(coreRules);
-  const cellSize = gridSize === 7 ? 10 : gridSize === 6 ? 11 : 12;
+  const coreLinePatterns = Object.values(allMeta).filter((p) => isCorePatternId(p.id));
+  const coreList = [...Object.values(coreRules), ...coreLinePatterns];
+  // Half-size cards (3-up) so the full pattern set AND the core rules fit
+  // on one phone screen without scrolling.
+  const cellSize = gridSize === 7 ? 5 : gridSize === 6 ? 6 : 7;
 
   return (
     <Modal visible={visible} animationType="fade" transparent onRequestClose={onClose}>
       <Pressable style={styles.backdrop} onPress={onClose}>
-        <Pressable style={styles.sheet} onPress={(e) => e.stopPropagation()}>
+        <View style={styles.sheet}>
           <ScrollView
             contentContainerStyle={styles.scroll}
             showsVerticalScrollIndicator={false}
@@ -116,7 +127,7 @@ export function PatternOverlayModal({
               <Text style={styles.closeBtnText}>CLOSE</Text>
             </Pressable>
           </ScrollView>
-        </Pressable>
+        </View>
       </Pressable>
     </Modal>
   );
@@ -143,11 +154,20 @@ function PatternCard({
 }) {
   return (
     <View style={[styles.card, inactive && styles.cardInactive]}>
-      <View style={styles.cardHeader}>
-        <Text style={[styles.cardLabel, inactive && styles.cardLabelInactive]}>{label}</Text>
-        {inactive ? <Text style={styles.inactiveTag}>{inactiveTag}</Text> : null}
-      </View>
-      <Text style={[styles.cardDesc, inactive && styles.cardDescInactive]}>{desc}</Text>
+      <Text
+        style={[styles.cardLabel, inactive && styles.cardLabelInactive]}
+        numberOfLines={1}
+        adjustsFontSizeToFit
+      >
+        {label}
+      </Text>
+      {inactive ? <Text style={styles.inactiveTag}>{inactiveTag}</Text> : null}
+      <Text
+        style={[styles.cardDesc, inactive && styles.cardDescInactive]}
+        numberOfLines={2}
+      >
+        {desc}
+      </Text>
       <PatternDiagram info={info} accent={accent} isSelected={selected} cellSize={cellSize} />
     </View>
   );
@@ -186,62 +206,62 @@ const styles = StyleSheet.create({
   },
   title: {
     color: colors.accent,
-    fontSize: 26,
+    fontSize: 22,
     fontWeight: "900",
     letterSpacing: 1,
     textAlign: "center",
     marginTop: space[2],
-    marginBottom: space[5],
+    marginBottom: space[3],
   },
   grid: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: space[3],
+    gap: space[2],
     justifyContent: "center",
   },
+  // Compact 3-up cards — roughly half the old footprint so all patterns
+  // plus the always-active core rules fit a phone screen at once.
   card: {
-    width: "46%",
-    minWidth: 150,
+    width: "31%",
+    minWidth: 96,
     backgroundColor: "rgba(255,255,255,0.03)",
     borderRadius: radii.md,
     borderWidth: 1,
     borderColor: colors.border,
-    padding: space[3],
+    padding: space[2],
+    alignItems: "center",
   },
   cardInactive: {
     backgroundColor: "rgba(96,0,0,0.35)",
     borderColor: "rgba(255,70,70,0.7)",
   },
-  cardHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    gap: space[2],
-  },
   cardLabel: {
     color: colors.text,
-    fontSize: 13,
+    fontSize: 10,
     fontWeight: "800",
-    flex: 1,
+    letterSpacing: 0.4,
+    textAlign: "center",
   },
   cardLabelInactive: { color: "#ffb0b0" },
   inactiveTag: {
-    fontSize: 9,
+    fontSize: 8,
     fontWeight: "900",
     color: "#ffd2d2",
     backgroundColor: "rgba(255,40,40,0.22)",
     borderWidth: 1,
     borderColor: "rgba(255,100,100,0.72)",
     borderRadius: 4,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
+    paddingHorizontal: 5,
+    paddingVertical: 1,
     letterSpacing: 0.8,
+    marginTop: 2,
   },
   cardDesc: {
     color: colors.textMuted,
-    fontSize: 11,
-    lineHeight: 16,
-    marginTop: 4,
+    fontSize: 8,
+    lineHeight: 11,
+    marginTop: 2,
+    textAlign: "center",
   },
   cardDescInactive: { color: "#ffc0c0" },
   closeBtn: {

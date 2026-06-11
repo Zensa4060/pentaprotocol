@@ -75,6 +75,8 @@ export interface UseMatchSocketResult {
   markChatRead: () => void;
   /** Server-authoritative flag fall — loser is always current_player. */
   sendTimeout: () => void;
+  /** Opponent dropped — server forfeits them when the deadline passes. */
+  reconnectCountdown: { slot: PlayerSlot; deadlineMs: number } | null;
 }
 
 function emptyBoardForMode(mode: string): Room["board"] {
@@ -147,6 +149,10 @@ export function useMatchSocket({
   const [moveLog, setMoveLog] = useState<MoveLogEntry[]>([]);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [unreadChat, setUnreadChat] = useState(0);
+  const [reconnectCountdown, setReconnectCountdown] = useState<{
+    slot: PlayerSlot;
+    deadlineMs: number;
+  } | null>(null);
 
   const socketRef = useRef<MatchSocket | null>(null);
   const roomRef = useRef(room);
@@ -162,6 +168,12 @@ export function useMatchSocket({
       switch (msg.type) {
         case "room_state":
         case "player_joined": {
+          // A room that died while we were between routes (e.g. the
+          // opponent aborted during the match-found handoff) must not
+          // leave us parked on a dead board.
+          if (msg.room.status === "disbanded" || msg.room.game_status === "disbanded") {
+            setDisbanded((current) => current ?? { reason: "The match is no longer active." });
+          }
           setRoom(msg.room);
           syncRbPhase(msg.room.phase);
           if (isRbPhase(msg.room.phase ?? "")) setRbPhase(msg.room.phase as RbPhase);
@@ -433,6 +445,26 @@ export function useMatchSocket({
           setDisbanded({ reason: msg.reason });
           break;
         }
+        case "match_aborted_no_play": {
+          setDisbanded({
+            reason:
+              msg.reason ??
+              "Your opponent aborted or could not connect to the match. No result was recorded.",
+          });
+          break;
+        }
+        case "player_reconnect_countdown": {
+          setReconnectCountdown({ slot: msg.slot, deadlineMs: msg.deadline_ms });
+          break;
+        }
+        case "player_reconnected": {
+          setReconnectCountdown((prev) => (prev && prev.slot === msg.slot ? null : prev));
+          break;
+        }
+        case "player_disconnect_confirmed": {
+          setReconnectCountdown(null);
+          break;
+        }
         case "duplicate_session": {
           setDisbanded({ reason: msg.reason ?? "Signed in elsewhere" });
           break;
@@ -463,6 +495,7 @@ export function useMatchSocket({
     setMoveLog([]);
     setChatMessages([]);
     setUnreadChat(0);
+    setReconnectCountdown(null);
 
     const socket = openMatchSocket({
       roomCode,
@@ -634,5 +667,6 @@ export function useMatchSocket({
     sendChat,
     markChatRead,
     sendTimeout,
+    reconnectCountdown,
   };
 }

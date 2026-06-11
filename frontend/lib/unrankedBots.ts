@@ -181,17 +181,29 @@ export const UNRANKED_5X5_PATTERN_POOL: readonly string[] = [
   "DIAGONAL",
 ] as const;
 
-/** Fisher–Yates sample of `k` distinct ids from the 5×5 pool (default 5). */
-export function pickRandomPatterns5x5(count: number = 5): string[] {
-  const pool = [...UNRANKED_5X5_PATTERN_POOL];
-  const n = Math.max(0, Math.min(count, pool.length));
+/** Core line patterns — always active on every grid, never deselectable or bannable. */
+export const CORE_LINE_PATTERNS: readonly string[] = ["LINE", "DIAGONAL"] as const;
+/** The 5×5 special pool — exactly one of these sits out of every match. */
+export const SPECIAL_5X5_PATTERNS: readonly string[] = ["V", "L", "ZZ-5", "T"] as const;
+
+export function isCoreLinePattern(id: string): boolean {
+  const v = id.trim().toUpperCase();
+  return v === "LINE" || v === "DIAGONAL";
+}
+
+/**
+ * Active 5×5 set for a new match: LINE + DIAGONAL (core, always in) plus a
+ * random 3 of the 4 special shapes — one special is always absent.
+ */
+export function pickRandomPatterns5x5(_count: number = 5): string[] {
+  const pool = [...SPECIAL_5X5_PATTERNS];
   for (let i = pool.length - 1; i > 0; i -= 1) {
     const j = Math.floor(Math.random() * (i + 1));
     const tmp = pool[i];
     pool[i] = pool[j];
     pool[j] = tmp;
   }
-  return pool.slice(0, n);
+  return [...pool.slice(0, 3), ...CORE_LINE_PATTERNS];
 }
 
 /* ── Level cosmetics (mirrors the rank palette) ─────────────────────────── */

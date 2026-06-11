@@ -87,3 +87,28 @@ export function defaultPatternsForGrid(grid: GridSize): string[] {
   if (grid === 6) return [...DEFAULT_PATTERNS_6];
   return [...DEFAULT_PATTERNS_7];
 }
+
+// ── Core vs special split ────────────────────────────────────────────────────
+// STRAIGHT LINE and DIAGONAL are CORE rules on every grid — always active,
+// never deselectable, never bannable (alongside the N-point connection rule).
+// On 5×5 the four special shapes are the variable pool: exactly ONE of them
+// sits out of every match (player-picked in solo, server-drawn in MP).
+export const CORE_LINE_PATTERNS = ["LINE", "DIAGONAL"] as const;
+export const SPECIAL_PATTERNS_5 = ["V", "L", "ZZ-5", "T"] as const;
+
+export function isCorePatternId(id: string): boolean {
+  const v = id.trim().toUpperCase();
+  return v === "LINE" || v === "DIAGONAL";
+}
+
+/** Active 5×5 set for a new match: both cores + a random 3 of the 4 specials. */
+export function pickMatchPatterns5(): string[] {
+  const pool = [...SPECIAL_PATTERNS_5];
+  for (let i = pool.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    const tmp = pool[i];
+    pool[i] = pool[j];
+    pool[j] = tmp;
+  }
+  return [...pool.slice(0, 3), ...CORE_LINE_PATTERNS];
+}

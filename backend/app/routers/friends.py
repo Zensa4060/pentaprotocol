@@ -755,12 +755,9 @@ async def accept_invite(invite_id: str, user_id: str = Depends(get_current_user)
     start_mode = _starting_board_mode(full_board_mode)
 
     if start_mode == "5x5":
-        from app.core.patterns import PATTERN_NAMES_5
-        import random as _rnd
-        if len(PATTERN_NAMES_5) >= 5:
-            selected = _rnd.sample(PATTERN_NAMES_5, 5)
-        else:
-            selected = list(PATTERN_NAMES_5)
+        from app.core.patterns import pick_match_patterns_5
+        # Core rules: LINE + DIAGONAL always in; one of the 4 specials sits out.
+        selected = pick_match_patterns_5()
     elif start_mode == "6x6":
         from app.core.patterns6 import PATTERN_NAMES_6
         selected = list(PATTERN_NAMES_6)

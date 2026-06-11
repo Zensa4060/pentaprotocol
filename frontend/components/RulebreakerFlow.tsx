@@ -922,6 +922,11 @@ export function RulebreakerFlow({
       Y: "Y-SHAPE", L: "L-SHAPE", W: "W-SHAPE", V: "V-SHAPE", C: "C-SHAPE", zigzag: "ZIGZAG",
     };
 
+    // LINE / DIAGONAL are core rules — always active, never bannable.
+    const bannablePatterns = selectedPatterns.filter(
+      (name) => name !== "LINE" && name !== "DIAGONAL",
+    );
+
     return (
       <div className="phase-screen" style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, zIndex: 10000, overflowY: "auto", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: t.bg, padding: "40px 24px", gap: 20, userSelect: "none" }}>
         <style>{`@keyframes cardSlideIn{from{opacity:0;transform:translateY(22px)}to{opacity:1;transform:translateY(0)}} .toss-card-enter{animation:cardSlideIn 0.45s cubic-bezier(.22,.68,0,1.2) both;}`}</style>
@@ -968,7 +973,7 @@ export function RulebreakerFlow({
           gap: 12, width: "100%", maxWidth: 660,
           pointerEvents: (isMyTurn && !isBotTurnToChoose) ? "auto" : "none",
         }}>
-          {selectedPatterns.map((name, i) => {
+          {bannablePatterns.map((name, i) => {
             const label = PATTERN_LABELS[name] || name.toUpperCase();
             const isBanned = rbBannedPatterns.includes(name);
             return (

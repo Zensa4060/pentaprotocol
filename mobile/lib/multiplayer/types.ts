@@ -185,6 +185,8 @@ export type InboundMessage =
   | { type: "match_start"; start_at_ms: number }
   | { type: "match_over" }
   | { type: "match_disbanded"; reason?: string }
+  | { type: "match_aborted_no_play"; aborted_by?: PlayerSlot; reason?: string }
+  | { type: "player_disconnect_confirmed"; slot: PlayerSlot; winner_slot?: PlayerSlot }
   | { type: "ready_update"; player: PlayerSlot; ready: boolean }
   | { type: "player_joined"; room: Room }
   | { type: "player_reconnected"; slot: PlayerSlot }

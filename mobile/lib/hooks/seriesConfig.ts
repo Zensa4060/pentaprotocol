@@ -8,6 +8,7 @@ import {
   boardModeFromGrid,
   defaultPatternsForGrid,
   matchMsForGrid,
+  pickMatchPatterns5,
   TIMEBREAKER_CUT_MS,
   type BoardMode,
   type GridSize,
@@ -73,7 +74,9 @@ export function specPatternsForGame(
   picked: string[] | undefined,
 ): string[] {
   if (spec.kind === "bo3") {
-    return picked?.length ? picked : defaultPatternsForGrid(spec.grid);
+    if (picked?.length) return picked;
+    // 5×5 fallback must honor the core rule split (one special sits out).
+    return spec.grid === 5 ? pickMatchPatterns5() : defaultPatternsForGrid(spec.grid);
   }
   return patternsForLeg(gameNumber, picked);
 }
@@ -133,7 +136,10 @@ export function patternsForLeg(
   picked5x5: string[] | undefined,
 ): string[] {
   const grid = gridForGameNumber(gameNumber);
-  if (grid === 5 && picked5x5?.length) return picked5x5;
+  if (grid === 5) {
+    // Core rule split: LINE/DIAGONAL always in, one of 4 specials out.
+    return picked5x5?.length ? picked5x5 : pickMatchPatterns5();
+  }
   return defaultPatternsForGrid(grid);
 }
 

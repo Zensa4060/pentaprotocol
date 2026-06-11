@@ -41,6 +41,14 @@ _inter_game_ready_tasks: dict[str, asyncio.Task] = {}
 _rb_stall_tasks: dict[str, asyncio.Task] = {}
 RULES_SHEET_TIMEOUT_SECONDS = 60.0
 DISCONNECT_CONFIRM_SECONDS = 30.0
+# Reconnect grace for a freshly-matched room BEFORE the first stone lands.
+# Clients legitimately drop and re-open their room socket while hopping
+# match-found → rules → game routes (the mobile app closes its queue-time
+# socket on every navigation, and the web holds the VS card ~10s before it
+# ever connects). The old behavior insta-disbanded the room on any pre-move
+# disconnect, which voided every phone↔web pairing mid-handshake. Generous
+# on purpose: covers the VS card + a slow read of the pre-game rules sheet.
+PREMATCH_DISCONNECT_GRACE_SECONDS = 75.0
 # Server-side ceiling on the inter-game ready phase. The client UI shows a
 # 30-second countdown ("Next game starts in Ns") and tries to broadcast a
 # `ready: true` WS message when it hits zero, but throttled background tabs
@@ -121,8 +129,6 @@ async def _broadcast_disconnect_countdown(room_code: str, slot: str, deadline_ms
 
 async def _resolve_disconnect_forfeit(db, room_code: str, disconnected_slot: str) -> None:
     peers = _room_connections.get(room_code, {})
-    if not peers:
-        return
     room_d = await db.rooms.find_one({"room_code": room_code})
     if not room_d:
         return
@@ -135,6 +141,12 @@ async def _resolve_disconnect_forfeit(db, room_code: str, disconnected_slot: str
         return
 
     void_no_play = room_d.get("game_status") == "playing" and not _series_g1_had_any_move(room_d)
+    # A no-play void must be recorded even when nobody is connected
+    # (pre-move handoff where BOTH sockets are between routes) so queue
+    # status pollers and late rejoiners see the room as gone. Forfeits
+    # mid-game still require a connected peer to award.
+    if not peers and not void_no_play:
+        return
     if void_no_play:
         await db.rooms.update_one(
             {"room_code": room_code},
@@ -221,6 +233,11 @@ async def _disconnect_confirm_worker(db, room_code: str, disconnected_slot: str,
             return
         pending.pop(disconnected_slot, None)
         await _resolve_disconnect_forfeit(db, room_code, disconnected_slot)
+        # Nobody came back — drop the in-memory room entries so a voided
+        # handoff room doesn't linger in the registries.
+        if not _room_connections.get(room_code):
+            _room_connections.pop(room_code, None)
+            _room_runtime.pop(room_code, None)
     except asyncio.CancelledError:
         raise
     finally:
@@ -1877,6 +1894,10 @@ async def _finalize_rulebreaker_start(
         banned_pat = None
     if banned_pat and banned_pat not in banned_pats:
         banned_pats.append(banned_pat)
+    # Core rules can never be banned: LINE and DIAGONAL are always-active win
+    # conditions on every grid (alongside the N-point connection rule).
+    from app.core.patterns import is_core_pattern
+    banned_pats = [b for b in banned_pats if not is_core_pattern(b)]
 
     def _valid_rb6_cell(d) -> bool:
         if not isinstance(d, dict):
@@ -2396,8 +2417,9 @@ async def queue_join(data: QueueRequest, user_id: str = Depends(get_current_user
     start_mode = _starting_board_mode(full_board_mode)
     selected_patterns = data.selected_patterns
     if start_mode == "5x5" and not selected_patterns:
-        from app.core.patterns import PATTERN_NAMES_5
-        selected_patterns = random.sample(PATTERN_NAMES_5, 5)
+        from app.core.patterns import pick_match_patterns_5
+        # Core rules: LINE + DIAGONAL always in; one of the 4 specials sits out.
+        selected_patterns = pick_match_patterns_5()
     elif start_mode == "6x6" and not selected_patterns:
         from app.core.patterns6 import PATTERN_NAMES_6
         selected_patterns = list(PATTERN_NAMES_6)
@@ -2538,8 +2560,9 @@ async def create_room(data: CreateRoomRequest, user_id: str = Depends(get_curren
     start_mode = _starting_board_mode(full_board_mode)
     selected_patterns = data.selected_patterns
     if start_mode == "5x5" and not selected_patterns:
-        from app.core.patterns import PATTERN_NAMES_5
-        selected_patterns = random.sample(PATTERN_NAMES_5, 5)
+        from app.core.patterns import pick_match_patterns_5
+        # Core rules: LINE + DIAGONAL always in; one of the 4 specials sits out.
+        selected_patterns = pick_match_patterns_5()
     elif start_mode == "6x6" and not selected_patterns:
         from app.core.patterns6 import PATTERN_NAMES_6
         selected_patterns = list(PATTERN_NAMES_6)
@@ -3765,8 +3788,8 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                     }
 
                     bm = "5x5"
-                    from app.core.patterns import PATTERN_NAMES_5
-                    sp = random.sample(PATTERN_NAMES_5, 5)
+                    from app.core.patterns import pick_match_patterns_5
+                    sp = pick_match_patterns_5()
                     new_engine = GameEngine(board_mode=bm, selected_pattern_ids=sp)
 
                     reset = {
@@ -4610,16 +4633,8 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                     _room_runtime.pop(room_code, None)
                 return
 
-            is_start = room and (
-                room.get("status") == "waiting"
-                or (
-                    room.get("moves_played", 0) == 0
-                    and phase_now not in rulebreaker_instant_loss_phases
-                )
-            )
-            
-            if is_start:
-                # Instant disband for queue/start disconnects
+            if room and room.get("status") == "waiting":
+                # Instant disband — the creator left before anyone joined.
                 await db.rooms.update_one({"room_code": room_code}, {"$set": {"game_status": "disbanded", "status": "disbanded"}})
                 other_slot = "P2" if player_slot == "P1" else "P1"
                 other_ws = _room_connections.get(room_code, {}).get(other_slot)
@@ -4634,11 +4649,58 @@ async def room_websocket(websocket: WebSocket, room_code: str, player_slot: str)
                         )
                     except:
                         pass
-                
+
                 # Cleanup
                 if not _room_connections.get(room_code):
                     _room_connections.pop(room_code, None)
                     _room_runtime.pop(room_code, None)
+                return
+
+            pre_move_handoff = bool(
+                room
+                and room.get("game_status") not in ("disbanded", "finished")
+                and room.get("series_winner") is None
+                and room.get("moves_played", 0) == 0
+                and phase_now not in rulebreaker_instant_loss_phases
+            )
+
+            if pre_move_handoff:
+                # Freshly matched room, no stone played yet. Clients
+                # legitimately bounce their socket while hopping
+                # match-found → rules → game routes (mobile reconnects on
+                # every navigation; web doesn't connect until after its VS
+                # card). Previously this insta-disbanded the room, voiding
+                # every phone↔web pairing mid-handshake. Give a generous
+                # reconnect window instead; on expiry the confirm worker
+                # voids the match and notifies whoever is still seated via
+                # ``match_aborted_no_play``. Runs regardless of whether the
+                # peer is currently connected — during the handoff both
+                # sockets are often between routes at once.
+                rt = _room_runtime.get(room_code)
+                if rt is None:
+                    rt = {
+                        "match_ready": {"P1": False, "P2": False},
+                        "levelup_ready": {"P1": False, "P2": False},
+                        "ready_since_ms": None,
+                        "start_at_ms": None,
+                        "rtt_ms": {"P1": None, "P2": None},
+                        "screen_presence": {"P1": True, "P2": True},
+                        "pending_disconnect": {},
+                    }
+                    _room_runtime[room_code] = rt
+                pending = rt.get("pending_disconnect")
+                if not isinstance(pending, dict):
+                    pending = {}
+                    rt["pending_disconnect"] = pending
+                deadline_ms = int(datetime.utcnow().timestamp() * 1000) + int(
+                    PREMATCH_DISCONNECT_GRACE_SECONDS * 1000
+                )
+                pending[player_slot] = deadline_ms
+                await _broadcast_disconnect_countdown(room_code, player_slot, deadline_ms)
+                _cancel_disconnect_confirm(room_code, player_slot)
+                _disconnect_confirm_tasks[_disconnect_task_key(room_code, player_slot)] = asyncio.create_task(
+                    _disconnect_confirm_worker(db, room_code, player_slot, deadline_ms)
+                )
                 return
 
             if not _room_connections.get(room_code):

@@ -92,9 +92,13 @@ function PatternDiagram({ info, accent, isSelected }: { info: PatternInfo; accen
 }
 
 const ALL_5X5_AI = Object.keys(PATTERN_METADATA_5);
+// Core rules: STRAIGHT LINE + DIAGONAL are always active (never deselectable).
+// The four special shapes are the variable pool — exactly one sits out.
+const CORE_5X5_AI = ["LINE", "DIAGONAL"];
+const SPECIAL_5X5_AI = ALL_5X5_AI.filter(p => !CORE_5X5_AI.includes(p));
 
 function randomFiveAI(): string[] {
-  return [...ALL_5X5_AI].sort(() => Math.random() - 0.5).slice(0, 5);
+  return [...SPECIAL_5X5_AI].sort(() => Math.random() - 0.5).slice(0, 3);
 }
 
 export default function AIScreen({ setScreenAction, themeId, onSelectDifficultyAction, onHoverAction, onBoardModeAction }: Props) {
@@ -117,19 +121,22 @@ export default function AIScreen({ setScreenAction, themeId, onSelectDifficultyA
   const referenceNames = Object.keys(references);
 
   const toggle5AI = (id: string) => {
+    if (CORE_5X5_AI.includes(id)) return; // core — always active
     setSelected5(prev => {
       if (prev.includes(id)) {
-        if (prev.length <= 4) return prev;
+        // Allow a swap: deselect down to 2, then pick the replacement.
+        if (prev.length <= 2) return prev;
         return prev.filter(p => p !== id);
       } else {
-        if (prev.length >= 5) return prev;
+        // Exactly 3 of the 4 specials are active.
+        if (prev.length >= 3) return prev;
         return [...prev, id];
       }
     });
   };
 
   const getSelectedPatterns = () => {
-    if (boardMode === "5x5") return selected5;
+    if (boardMode === "5x5") return [...selected5, ...CORE_5X5_AI];
     if (boardMode === "6x6") return DEFAULT_PATTERNS_6;
     return DEFAULT_PATTERNS_7;
   };
@@ -271,12 +278,14 @@ export default function AIScreen({ setScreenAction, themeId, onSelectDifficultyA
 
           {boardMode === "5x5" ? (
             <>
-              <div style={{ fontFamily: t.fontBody, fontSize: 14, color: t.textMuted, textAlign: "center", maxWidth: 500, lineHeight: 1.6 }}>
-                Choose exactly <span style={{ color: t.accent, fontWeight: 700 }}>5 of 6</span> patterns for this match.
+              <div style={{ fontFamily: t.fontBody, fontSize: 14, color: t.textMuted, textAlign: "center", maxWidth: 520, lineHeight: 1.6 }}>
+                <span style={{ color: t.accent, fontWeight: 700 }}>STRAIGHT LINE</span> and{" "}
+                <span style={{ color: t.accent, fontWeight: 700 }}>DIAGONAL</span> are core — always active.
+                {" "}Choose exactly <span style={{ color: t.accent, fontWeight: 700 }}>3 of 4</span> special patterns.
               </div>
               <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                 <div style={{ fontFamily: t.fontMono, fontSize: 12, color: t.textMuted }}>
-                  SELECTED: <span style={{ color: selected5.length === 5 ? t.accent : "#ef4444", fontWeight: 700 }}>{selected5.length}/5</span>
+                  SPECIALS: <span style={{ color: selected5.length === 3 ? t.accent : "#ef4444", fontWeight: 700 }}>{selected5.length}/3</span>
                 </div>
                 <button type="button" onClick={() => setSelected5(randomFiveAI())} style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: ip ? 2 : 6, color: t.textMuted, fontFamily: t.fontMono, fontSize: 10, padding: "4px 10px", cursor: "pointer", letterSpacing: "0.08em" }}>
                   RANDOMIZE
@@ -285,14 +294,19 @@ export default function AIScreen({ setScreenAction, themeId, onSelectDifficultyA
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 8, width: "100%", maxWidth: 720 }}>
                 {ALL_5X5_AI.map((name, i) => {
                   const info = PATTERN_METADATA_5[name];
-                  const isChosen = selected5.includes(name);
+                  const isCore = CORE_5X5_AI.includes(name);
+                  const isChosen = isCore || selected5.includes(name);
                   return (
-                    <button key={name} type="button" onClick={() => toggle5AI(name)} className="ai-card"
-                      style={{ background: isChosen ? `${t.accent}15` : t.bgCard, border: isChosen ? `2px solid ${t.accent}` : `2px solid ${t.border}`, borderRadius: ip ? 2 : 14, padding: "14px 12px", cursor: "pointer", textAlign: "left", animation: `cardFadeUp 0.4s cubic-bezier(.22,.68,0,1.2) ${i * 0.06}s both`, opacity: isChosen ? 1 : 0.5, transition: "all 0.2s" } as any}
+                    <button key={name} type="button" onClick={() => toggle5AI(name)} className="ai-card" disabled={isCore}
+                      style={{ background: isChosen ? `${t.accent}15` : t.bgCard, border: isChosen ? `2px solid ${t.accent}` : `2px solid ${t.border}`, borderRadius: ip ? 2 : 14, padding: "14px 12px", cursor: isCore ? "default" : "pointer", textAlign: "left", animation: `cardFadeUp 0.4s cubic-bezier(.22,.68,0,1.2) ${i * 0.06}s both`, opacity: isChosen ? 1 : 0.5, transition: "all 0.2s" } as any}
                     >
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
                         <div style={{ fontFamily: t.fontDisplay, fontSize: ip ? 11 : 13, fontWeight: 700, color: isChosen ? t.accent : t.textSecondary, letterSpacing: "0.06em" }}>{info.label}</div>
-                        <div style={{ width: 14, height: 14, borderRadius: "50%", border: `2px solid ${isChosen ? t.accent : t.border}`, background: isChosen ? t.accent : "transparent", flexShrink: 0 }} />
+                        {isCore ? (
+                          <div style={{ fontFamily: t.fontMono, fontSize: 9, fontWeight: 800, letterSpacing: "0.1em", color: t.accent, border: `1px solid ${t.accent}66`, borderRadius: 4, padding: "2px 6px", flexShrink: 0 }}>CORE</div>
+                        ) : (
+                          <div style={{ width: 14, height: 14, borderRadius: "50%", border: `2px solid ${isChosen ? t.accent : t.border}`, background: isChosen ? t.accent : "transparent", flexShrink: 0 }} />
+                        )}
                       </div>
                       <div style={{ fontFamily: t.fontBody, fontSize: 10, color: t.textMuted, lineHeight: 1.4, marginBottom: 8 }}>{info.desc}</div>
                       <PatternDiagram info={info} accent={isChosen ? t.accent : t.textMuted} isSelected={isChosen} />
@@ -301,24 +315,25 @@ export default function AIScreen({ setScreenAction, themeId, onSelectDifficultyA
                 })}
               </div>
               <div style={{ fontFamily: t.fontBody, fontSize: 12, color: t.textMuted, textAlign: "center" }}>
-                Core rule always active: <span style={{ color: t.accent }}>10+ connected stones wins</span>
+                Core rules always active: <span style={{ color: t.accent }}>10+ connected stones · STRAIGHT LINE · DIAGONAL</span>
               </div>
             </>
           ) : (
             <>
-              <div style={{ fontFamily: t.fontBody, fontSize: 14, color: t.textMuted, textAlign: "center", maxWidth: 500, lineHeight: 1.6 }}>
+              <div style={{ fontFamily: t.fontBody, fontSize: 14, color: t.textMuted, textAlign: "center", maxWidth: 520, lineHeight: 1.6 }}>
                 All <span style={{ color: t.accent, fontWeight: 700 }}>{patternNames.length}</span> patterns are active for {boardMode}.
-                {" "}Core rule: {boardMode === "7x7" ? "20" : "15"}+ connected stones.
+                {" "}Core rules: {boardMode === "7x7" ? "20" : "15"}+ connected stones · STRAIGHT LINE · DIAGONAL.
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 8, width: "100%", maxWidth: boardMode === "7x7" ? 800 : 640 }}>
                 {[...patternNames, ...referenceNames].map((name, i) => {
                   const isRef = referenceNames.includes(name);
+                  const isCore = isRef || name === "LINE" || name === "DIAGONAL";
                   const info = isRef ? (references as any)[name] : meta[name];
                   return (
                     <div key={name} className="ai-card" style={{ background: t.bgCard, border: isRef ? `2px dashed ${t.border}aa` : `2px solid ${t.border}`, borderRadius: ip ? 2 : 14, padding: "14px 12px", cursor: "default", textAlign: "left", animation: `cardFadeUp 0.4s cubic-bezier(.22,.68,0,1.2) ${i * 0.06}s both`, opacity: isRef ? 0.75 : 1 }}>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}>
                         <div style={{ fontFamily: t.fontDisplay, fontSize: ip ? 11 : 13, fontWeight: 700, color: isRef ? t.textSecondary : t.text, letterSpacing: "0.06em" }}>{info.label}</div>
-                        {isRef && <div style={{ fontFamily: t.fontMono, fontSize: 8, fontWeight: 900, padding: "2px 6px", borderRadius: 4, background: `${t.accent}15`, color: t.accent, border: `1px solid ${t.accent}44`, letterSpacing: "0.1em" }}>CORE</div>}
+                        {isCore && <div style={{ fontFamily: t.fontMono, fontSize: 8, fontWeight: 900, padding: "2px 6px", borderRadius: 4, background: `${t.accent}15`, color: t.accent, border: `1px solid ${t.accent}44`, letterSpacing: "0.1em" }}>CORE</div>}
                       </div>
                       <div style={{ fontFamily: t.fontBody, fontSize: 10, color: t.textMuted, lineHeight: 1.4, marginBottom: 8 }}>{info.desc}</div>
                       <PatternDiagram info={info} accent={isRef ? t.textMuted : t.accent} isSelected={!isRef} />
@@ -332,16 +347,16 @@ export default function AIScreen({ setScreenAction, themeId, onSelectDifficultyA
           <button
             type="button"
             onClick={() => { onHoverAction?.(); setStep("difficulty"); }}
-            disabled={boardMode === "5x5" && selected5.length !== 5}
+            disabled={boardMode === "5x5" && selected5.length !== 3}
             style={{
-              background: boardMode === "5x5" && selected5.length !== 5 ? "rgba(255,255,255,0.1)" : t.accent,
-              border: `2px solid ${boardMode === "5x5" && selected5.length !== 5 ? "rgba(255,255,255,0.2)" : t.accent}`,
-              color: boardMode === "5x5" && selected5.length !== 5 ? t.textMuted : "#000",
+              background: boardMode === "5x5" && selected5.length !== 3 ? "rgba(255,255,255,0.1)" : t.accent,
+              border: `2px solid ${boardMode === "5x5" && selected5.length !== 3 ? "rgba(255,255,255,0.2)" : t.accent}`,
+              color: boardMode === "5x5" && selected5.length !== 3 ? t.textMuted : "#000",
               fontFamily: t.fontDisplay, fontSize: 16, fontWeight: 700,
               padding: "14px 52px", borderRadius: ip ? 2 : 10,
-              cursor: boardMode === "5x5" && selected5.length !== 5 ? "not-allowed" : "pointer",
+              cursor: boardMode === "5x5" && selected5.length !== 3 ? "not-allowed" : "pointer",
               letterSpacing: "0.06em", transition: "all 0.3s",
-              boxShadow: boardMode === "5x5" && selected5.length !== 5 ? "none" : `0 0 24px ${t.accentGlow}44`,
+              boxShadow: boardMode === "5x5" && selected5.length !== 3 ? "none" : `0 0 24px ${t.accentGlow}44`,
             }}
           >
             PROCEED →

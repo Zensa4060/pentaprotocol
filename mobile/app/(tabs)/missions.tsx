@@ -133,14 +133,68 @@ export default function MissionsScreen() {
     );
   };
 
-  const sectionHeader = (label: string, period: MissionPeriod) => (
-    <Row justify="between" align="baseline" style={styles.section}>
-      <Eyebrow tone="muted">{label}</Eyebrow>
-      {period !== "permanent" ? (
-        <Caption tone="dim">resets in {formatCountdown(msUntilReset(period))}</Caption>
-      ) : null}
-    </Row>
-  );
+  const claimableOf = (list: MissionView[]) =>
+    list.filter((m) => m.complete && !claimed.has(m.id));
+
+  // Claim every completed mission in a section with one tap (web parity).
+  const onClaimAll = async (list: MissionView[]) => {
+    const targets = claimableOf(list);
+    if (targets.length === 0 || busy) return;
+    setBusy("claim_all");
+    let totalXp = 0;
+    let count = 0;
+    let pc = 0;
+    try {
+      for (const m of targets) {
+        try {
+          const res = await claimMission(m.id, m.period);
+          setClaimed((prev) => new Set(prev).add(m.id));
+          if (!res.already_claimed) {
+            totalXp += res.xp_awarded;
+            count += 1;
+            if (m.betaProtoCredits) pc += m.betaProtoCredits;
+          }
+        } catch {
+          // Keep claiming the rest — a single failure shouldn't block the batch.
+        }
+      }
+      Alert.alert(
+        count > 0 ? "Claimed" : "Nothing to claim",
+        count > 0
+          ? `${count} mission${count > 1 ? "s" : ""} · +${totalXp.toLocaleString()} XP` +
+            (pc ? `\n+${pc} ProtoCredits (beta offer; credited once enabled.)` : "")
+          : "No new rewards right now.",
+      );
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const sectionHeader = (label: string, period: MissionPeriod, list: MissionView[]) => {
+    const claimable = claimableOf(list);
+    return (
+      <Row justify="between" align="center" style={styles.section}>
+        <Row gap={2} align="baseline">
+          <Eyebrow tone="muted">{label}</Eyebrow>
+          {period !== "permanent" ? (
+            <Caption tone="dim">resets in {formatCountdown(msUntilReset(period))}</Caption>
+          ) : null}
+        </Row>
+        {claimable.length > 0 ? (
+          <Btn
+            variant="primary"
+            size="sm"
+            block={false}
+            disabled={busy !== null}
+            loading={busy === "claim_all"}
+            onPress={() => void onClaimAll(list)}
+          >
+            {`Claim all (${claimable.length})`}
+          </Btn>
+        ) : null}
+      </Row>
+    );
+  };
 
   return (
     <Screen
@@ -168,13 +222,13 @@ export default function MissionsScreen() {
         </Caption>
       </View>
 
-      {sectionHeader("DAILY", "daily")}
+      {sectionHeader("DAILY", "daily", board.daily)}
       <Stack gap={3}>{board.daily.map(renderMission)}</Stack>
 
-      {sectionHeader("WEEKLY", "weekly")}
+      {sectionHeader("WEEKLY", "weekly", board.weekly)}
       <Stack gap={3}>{board.weekly.map(renderMission)}</Stack>
 
-      {sectionHeader("PERMANENT", "permanent")}
+      {sectionHeader("PERMANENT", "permanent", board.permanent)}
       <Stack gap={3}>{board.permanent.map(renderMission)}</Stack>
     </Screen>
   );

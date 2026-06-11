@@ -5,6 +5,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import type { EngineDifficulty } from "@/lib/botRewards";
+import { pickMatchPatterns5 } from "@/lib/game/boardConfig";
 export const UNRANKED_BOT_NAMES = [
   "NADAF",
   "SARAH",
@@ -120,16 +121,12 @@ export const UNRANKED_5X5_PATTERN_POOL: readonly string[] = [
   "DIAGONAL",
 ] as const;
 
-export function pickRandomPatterns5x5(count: number = 5): string[] {
-  const pool = [...UNRANKED_5X5_PATTERN_POOL];
-  const n = Math.max(0, Math.min(count, pool.length));
-  for (let i = pool.length - 1; i > 0; i -= 1) {
-    const j = Math.floor(Math.random() * (i + 1));
-    const tmp = pool[i];
-    pool[i] = pool[j];
-    pool[j] = tmp;
-  }
-  return pool.slice(0, n);
+/**
+ * Active 5×5 set: LINE + DIAGONAL are core (always in); a random 3 of the
+ * 4 special shapes join them — one special always sits out.
+ */
+export function pickRandomPatterns5x5(_count: number = 5): string[] {
+  return pickMatchPatterns5();
 }
 
 export interface LevelStyle {

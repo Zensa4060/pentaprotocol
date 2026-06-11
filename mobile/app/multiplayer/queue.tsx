@@ -29,7 +29,6 @@ import {
   QueueError,
 } from "@/lib/multiplayer/queue";
 import type { PlayerSlot, RoomFormat } from "@/lib/multiplayer/types";
-import { openMatchSocket, waitForSocketOpen, type MatchSocket } from "@/lib/multiplayer/ws";
 import {
   isUnrankedBotsAllowed,
   numericLevelForTier,
@@ -60,7 +59,6 @@ export default function MatchmakingQueueScreen() {
   const botTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const matchedRef = useRef(false);
   const cancelledRef = useRef(false);
-  const socketRef = useRef<MatchSocket | null>(null);
 
   const clearBotTimer = () => {
     if (botTimerRef.current) {
@@ -69,18 +67,12 @@ export default function MatchmakingQueueScreen() {
     }
   };
 
-  const closeSocket = () => {
-    socketRef.current?.close();
-    socketRef.current = null;
-  };
-
   const goMatchFound = useCallback(
     (routeParams: Record<string, string>) => {
       if (matchedRef.current) return;
       matchedRef.current = true;
       clearBotTimer();
       if (pollRef.current) clearInterval(pollRef.current);
-      closeSocket();
       router.replace({
         pathname: "/multiplayer/match-found",
         params: routeParams,
@@ -102,7 +94,6 @@ export default function MatchmakingQueueScreen() {
     setCancelling(true);
     clearBotTimer();
     if (pollRef.current) clearInterval(pollRef.current);
-    closeSocket();
     try {
       await leaveQueue(format, boardMode, roomCodeRef.current ?? undefined);
     } catch {
@@ -115,7 +106,6 @@ export default function MatchmakingQueueScreen() {
     cancelledRef.current = true;
     clearBotTimer();
     if (pollRef.current) clearInterval(pollRef.current);
-    closeSocket();
     try {
       await leaveQueue(format, boardMode, roomCodeRef.current ?? undefined);
     } catch {
@@ -193,17 +183,10 @@ export default function MatchmakingQueueScreen() {
           return;
         }
 
-        socketRef.current = openMatchSocket({
-          roomCode: res.room_code,
-          slot: res.player_slot,
-          onMessage: () => undefined,
-          onStatus: () => undefined,
-        });
-        try {
-          await waitForSocketOpen(socketRef.current);
-        } catch {
-          /* global notify may still satisfy liveness; keep polling */
-        }
+        // NOTE: no room socket while queueing. Matchmaker liveness is
+        // satisfied by the session-wide global-notify socket; a queue-time
+        // room socket would disconnect on the match-found navigation and
+        // (pre-move) trip the server's reconnect machinery for no benefit.
 
         if (format === "unranked") {
           void scheduleUnrankedBot(res.room_code);
@@ -249,7 +232,6 @@ export default function MatchmakingQueueScreen() {
       clearBotTimer();
       if (pollRef.current) clearInterval(pollRef.current);
       if (tick) clearInterval(tick);
-      closeSocket();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [boardMode, format, retryKey]);

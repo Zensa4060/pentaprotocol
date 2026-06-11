@@ -1,6 +1,8 @@
 # patterns.py
 # Shape pattern definitions and variant generation for 5×5 board.
 
+import random
+
 GRID_SIZE = 5
 
 # Named base patterns for 5×5
@@ -12,10 +14,26 @@ BASE_PATTERNS_5 = {
     "T":    [(0, 0), (0, 1), (0, 2), (1, 1), (2, 1)],
 }
 
-# Full selectable pool: 4 shapes + straight-line + diagonal = 6 total
-# For 5×5 multiplayer: server randomly picks 5 of these 6
-# For singleplayer/AI: player picks 5 of these 6 (or randomizes)
+# Full pool: 4 special shapes + straight-line + diagonal = 6 total.
 PATTERN_NAMES_5 = ["V", "L", "ZZ-5", "T", "LINE", "DIAGONAL"]
+
+# ── Core vs special split ────────────────────────────────────────────────────
+# STRAIGHT LINE and DIAGONAL are CORE rules on every grid — always active,
+# never deselectable, never bannable (alongside the N-point connection rule).
+# The four special shapes are the variable pool: exactly ONE of them sits out
+# of every 5×5 match (player-picked in solo, server-drawn in multiplayer).
+CORE_PATTERN_NAMES = ["LINE", "DIAGONAL"]
+SPECIAL_PATTERN_NAMES_5 = ["V", "L", "ZZ-5", "T"]
+
+
+def is_core_pattern(name) -> bool:
+    return str(name).strip().upper() in ("LINE", "DIAGONAL")
+
+
+def pick_match_patterns_5() -> list:
+    """Active 5×5 set for a new match: both core line patterns plus a random
+    3 of the 4 special shapes (one special is always absent)."""
+    return random.sample(SPECIAL_PATTERN_NAMES_5, 3) + list(CORE_PATTERN_NAMES)
 
 # Legacy alias for back-compat (any code that imported BASE_PATTERNS directly)
 BASE_PATTERNS = list(BASE_PATTERNS_5.values())

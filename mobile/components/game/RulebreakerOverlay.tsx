@@ -33,7 +33,7 @@ import {
 import { PatternDiagram } from "@/components/game/PatternDiagram";
 import { Btn, Caption, Eyebrow, Heading, Title } from "@/components/ui";
 import { TOSS_SKIN_GLOW, useTossSkin } from "@/lib/cosmetics/tossSkin";
-import { boardModeFromGrid, type GridSize } from "@/lib/game/boardConfig";
+import { boardModeFromGrid, isCorePatternId, type GridSize } from "@/lib/game/boardConfig";
 import { patternMetadataForGrid } from "@/lib/game/patterns";
 import { breakerTitle, type RbPhase } from "@/lib/multiplayer/rulebreakerPhases";
 import type { PlayerSlot } from "@/lib/multiplayer/types";
@@ -235,10 +235,12 @@ export function RulebreakerOverlay({
   const banLimit = gridSize === 7 ? 2 : 1;
   const bansSoFar = bannedPatterns ?? [];
   const patternMeta = patternMetadataForGrid(gridSize);
-  const banPool =
+  // LINE / DIAGONAL are core rules — always active, never bannable.
+  const banPool = (
     selectedPatterns && selectedPatterns.length > 0
       ? selectedPatterns
-      : Object.keys(patternMeta);
+      : Object.keys(patternMeta)
+  ).filter((p) => !isCorePatternId(p));
 
   const [choiceTimer, setChoiceTimer] = useState(30);
   const [summaryTimer, setSummaryTimer] = useState(5);

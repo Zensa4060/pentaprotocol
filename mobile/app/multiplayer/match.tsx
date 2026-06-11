@@ -110,6 +110,7 @@ export default function MultiplayerMatch() {
     sendChat,
     markChatRead,
     sendTimeout,
+    reconnectCountdown,
   } = useMatchSocket({ roomCode: code, slot });
 
   const patchUser = useAuthStore((s) => s.patchUser);
@@ -196,6 +197,19 @@ export default function MultiplayerMatch() {
     timeoutSentForRef.current = gameKey;
     sendTimeout();
   }, [clocks, room, gameKey, sendTimeout]);
+
+  // ── Opponent reconnect countdown (server forfeits them at 0) ─
+  const [, setCountdownTick] = useState(0);
+  useEffect(() => {
+    if (!reconnectCountdown) return;
+    const id = setInterval(() => setCountdownTick((n) => n + 1), 1000);
+    return () => clearInterval(id);
+  }, [reconnectCountdown]);
+  const opponentDropped =
+    reconnectCountdown !== null && reconnectCountdown.slot !== slot;
+  const reconnectRemaining = reconnectCountdown
+    ? Math.max(0, Math.ceil((reconnectCountdown.deadlineMs - Date.now()) / 1000))
+    : 0;
 
   // ── Head-to-head record (web MatchSidebar HISTORY card) ─────
   const opponentId = slot === "P1" ? room?.player2_id : room?.player1_id;
@@ -453,8 +467,13 @@ export default function MultiplayerMatch() {
       {/* ── Status banner + error (fixed slot so the board stays put) ── */}
       <View style={styles.hudSlot}>
         <View style={styles.statusRow}>
-          <Eyebrow tone={statusToneFor(room, slot, status)} numberOfLines={1}>
-            {statusLabelFor(room, slot, status)}
+          <Eyebrow
+            tone={opponentDropped ? "warn" : statusToneFor(room, slot, status)}
+            numberOfLines={1}
+          >
+            {opponentDropped
+              ? `OPPONENT DISCONNECTED — FORFEITS IN ${reconnectRemaining}s`
+              : statusLabelFor(room, slot, status)}
           </Eyebrow>
         </View>
         <View style={styles.errorRow}>
