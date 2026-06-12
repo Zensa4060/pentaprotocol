@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import os
+import re
 from datetime import datetime, timezone
 from typing import Optional
 
@@ -9,7 +10,11 @@ from browser_service import handle_browser_actions, handle_camera_actions, handl
 from dev_service import handle_dev_actions
 from github_service import PENTAPROTOCOL_CONTEXT
 from memory_service import get_memories_text, handle_memory_actions
-from news_service import get_news_text
+from news_service import (
+    format_country_news_for_reply,
+    get_country_news,
+    get_news_text,
+)
 from stats_service import get_project_stats_text
 from weather_service import get_weather_text
 
@@ -42,12 +47,14 @@ phrases like "shut down my laptop" — not for "go to sleep" or "sleep mode".
 When the user says "go to sleep" or wants to stop listening, say you will stop
 listening and wait for the wake word again. Do not shut down the laptop.
 
-When user asks to open camera, start reply with "Opening camera".
+When the user asks to open camera, start reply with "Opening camera".
 When user asks to close or stop the camera, start reply with "Closing camera".
 When user asks to take a photo, start reply with "Taking photo".
 
 When the user asks to push to git, ask for confirmation before pushing.
-Use the phrase "About to push with message: [message]. Confirm?" and wait for yes or confirm."""
+Use the phrase "About to push with message: [message]. Confirm?" and wait for yes or confirm.
+
+When live country headlines are provided in the user message, summarize the top stories briefly in your reply."""
 
 
 def build_system_prompt(
@@ -85,6 +92,39 @@ WEATHER:
 NEWS:
 {news_block}
 """
+
+
+_COUNTRY_NEWS_PATTERNS: list[re.Pattern[str]] = [
+    re.compile(r"news from (.+)", re.IGNORECASE),
+    re.compile(r"what(?:'s| is) happening in (.+)", re.IGNORECASE),
+    re.compile(r"(.+?) news$", re.IGNORECASE),
+]
+
+
+def _clean_country_query(raw: str) -> str | None:
+    country = re.sub(r"\s+", " ", raw.strip()).strip(" ?!.,")
+    if not country or len(country) < 2:
+        return None
+    lowered = country.lower()
+    if lowered in {"the", "latest", "today", "world", "global", "top", "breaking"}:
+        return None
+    return country
+
+
+def detect_country_news_request(text: str) -> str | None:
+    """Return a country name if the user is asking for on-demand country news."""
+    cleaned = (text or "").strip()
+    if not cleaned:
+        return None
+
+    for pattern in _COUNTRY_NEWS_PATTERNS:
+        match = pattern.search(cleaned)
+        if not match:
+            continue
+        country = _clean_country_query(match.group(1))
+        if country:
+            return country
+    return None
 
 
 class ArgusBrain:
@@ -141,10 +181,21 @@ class ArgusBrain:
 
         self._refresh_system_prompt()
 
+        country_query = detect_country_news_request(text)
+        user_content = text
+        if country_query:
+            headlines = get_country_news(country_query)
+            news_block = format_country_news_for_reply(country_query, headlines)
+            user_content = (
+                f"{text}\n\n[LIVE COUNTRY NEWS — summarize briefly in your reply]\n"
+                f"{news_block}"
+            )
+
         self._history.append({"role": "user", "content": text})
 
         messages = [{"role": "system", "content": self._system_prompt}]
-        messages.extend(self._history)
+        messages.extend(self._history[:-1])
+        messages.append({"role": "user", "content": user_content})
 
         response = self._client.chat.completions.create(
             model=MODEL,
