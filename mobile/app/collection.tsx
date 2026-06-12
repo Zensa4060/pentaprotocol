@@ -124,7 +124,14 @@ export default function CollectionScreen() {
         Equip themes, banners, board grids, coin toss skins, and profile badges.
       </Body>
 
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: space[4] }}>
+      {/* flexGrow/flexShrink 0: the flex column otherwise compresses this
+          horizontal scroller vertically and clips the chip labels. */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={{ marginTop: space[4], flexGrow: 0, flexShrink: 0 }}
+        contentContainerStyle={{ alignItems: "center" }}
+      >
         <Row gap={2}>
           {TABS.map((t) => (
             <Pressable
@@ -132,7 +139,14 @@ export default function CollectionScreen() {
               onPress={() => setTab(t)}
               style={[styles.tab, tab === t && styles.tabOn]}
             >
-              <Caption tone={tab === t ? "accent" : "muted"}>{t.toUpperCase()}</Caption>
+              <Caption
+                tone={tab === t ? "accent" : "muted"}
+                maxFontSizeMultiplier={1.2}
+                numberOfLines={1}
+                style={{ lineHeight: 18, includeFontPadding: false }}
+              >
+                {t.toUpperCase()}
+              </Caption>
             </Pressable>
           ))}
         </Row>
@@ -324,6 +338,7 @@ const styles = StyleSheet.create({
   // Size each chip to its label — `flex: 1` inside the horizontal
   // ScrollView squeezed the chips and clipped the text edges.
   tab: {
+    minHeight: 40,
     paddingVertical: space[2],
     paddingHorizontal: space[4],
     borderRadius: radii.sm,

@@ -43,14 +43,25 @@ export interface PlayerSummary {
   accuracy: number;
 }
 
+export type MoveQuality = "best" | "good" | "inaccuracy" | "mistake" | "blunder";
+
+/** Per-move annotation from ``analyzer.analyze_game``. */
+export interface MoveAnnotation {
+  move_index: number;
+  player: "P1" | "P2";
+  /** [row, col] actually played. */
+  played: [number, number];
+  /** Engine's preferred [row, col] from the same position (null if none). */
+  engine_best: [number, number] | null;
+  quality: MoveQuality;
+  score_before: number;
+  score_after: number;
+  score_delta: number;
+  token_window?: boolean;
+}
+
 export interface AnalyzeResult {
-  move_annotations: Array<{
-    player: string;
-    row: number;
-    col: number;
-    quality: string;
-    score_delta: number;
-  }>;
+  move_annotations: MoveAnnotation[];
   summary: { P1: PlayerSummary; P2: PlayerSummary };
 }
 

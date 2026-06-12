@@ -269,6 +269,8 @@ export default function CareerMatchDetailScreen() {
         visible={showAnalysis}
         loading={analyzing}
         analysis={analysis}
+        moves={moves}
+        gridSize={gridSize}
         p1Label="P1"
         p2Label={match.opponent_username.toUpperCase()}
         onClose={() => setShowAnalysis(false)}

@@ -135,6 +135,7 @@ export function BoardGrid({
                 },
               ]}
             >
+              {skin ? <SkinAtmosphere skin={skin} /> : null}
               {board.map((row, r) => (
                 <View key={`row-${r}`} style={styles.row}>
                   {row.map((cell, c) => {
@@ -184,6 +185,22 @@ interface CellProps {
 
 function Cell({ size, owner, isLast, isWinning, palette, skin, disabled, onPress }: CellProps) {
   const pulse = useRef(new Animated.Value(1)).current;
+  // Stone-place pop: when a cell goes empty → occupied, spring the glyph in.
+  const pop = useRef(new Animated.Value(1)).current;
+  const prevOwnerRef = useRef<string | null>(owner);
+
+  useEffect(() => {
+    if (prevOwnerRef.current === null && owner !== null) {
+      pop.setValue(0.3);
+      Animated.spring(pop, {
+        toValue: 1,
+        friction: 4,
+        tension: 160,
+        useNativeDriver: true,
+      }).start();
+    }
+    prevOwnerRef.current = owner;
+  }, [owner, pop]);
 
   useEffect(() => {
     if (!isWinning) {
@@ -210,11 +227,12 @@ function Cell({ size, owner, isLast, isWinning, palette, skin, disabled, onPress
       : owner === "X" || owner === "O"
       ? owner
       : null;
+  // Bundle piece skins recolor the stones (glacier shards / bloodmoon sigils).
   const pieceColor =
     owner === "P1" || owner === "X"
-      ? palette.p1
+      ? skin?.p1Color ?? palette.p1
       : owner === "P2" || owner === "O" || owner === "Y"
-      ? palette.p2
+      ? skin?.p2Color ?? palette.p2
       : palette.textMuted;
 
   return (
@@ -243,7 +261,14 @@ function Cell({ size, owner, isLast, isWinning, palette, skin, disabled, onPress
             fontSize: Math.max(12, Math.floor(size * (gridSizeFontScale(size)))),
             fontWeight: "800",
             color: pieceColor,
-            transform: isWinning ? [{ scale: pulse }] : undefined,
+            transform: isWinning ? [{ scale: pulse }] : [{ scale: pop }],
+            ...(skin
+              ? {
+                  textShadowColor: skin.pieceGlow,
+                  textShadowRadius: 8,
+                  textShadowOffset: { width: 0, height: 0 },
+                }
+              : null),
           }}
         >
           {glyph}
@@ -287,6 +312,46 @@ function gridSizeFontScale(cellSize: number): number {
   if (cellSize < 36) return 0.38;
   if (cellSize < 44) return 0.4;
   return 0.42;
+}
+
+/**
+ * Bundle atmosphere — two slow-breathing tinted washes layered over the
+ * board surface (glacier aurora / bloodmoon omen). Pointer-transparent and
+ * driven by a single looped Animated.Value, so it costs almost nothing.
+ */
+function SkinAtmosphere({ skin }: { skin: BoardSkin }) {
+  const breathe = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(breathe, { toValue: 1, duration: 2600, useNativeDriver: true }),
+        Animated.timing(breathe, { toValue: 0, duration: 2600, useNativeDriver: true }),
+      ]),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [breathe]);
+
+  const innerOpacity = breathe.interpolate({ inputRange: [0, 1], outputRange: [0.25, 0.7] });
+  const outerOpacity = breathe.interpolate({ inputRange: [0, 1], outputRange: [0.6, 0.2] });
+
+  return (
+    <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+      <Animated.View
+        style={[
+          StyleSheet.absoluteFill,
+          { backgroundColor: skin.atmosphereInner, opacity: innerOpacity, borderRadius: radii.md },
+        ]}
+      />
+      <Animated.View
+        style={[
+          StyleSheet.absoluteFill,
+          { backgroundColor: skin.atmosphereOuter, opacity: outerOpacity, borderRadius: radii.md },
+        ]}
+      />
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({

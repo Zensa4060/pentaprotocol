@@ -157,7 +157,14 @@ export default function StoreScreen() {
 
       <BotRewardsBanner user={user} />
 
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: space[3] }}>
+      {/* flexGrow/flexShrink 0: the flex column otherwise compresses this
+          horizontal scroller vertically and clips the chip labels. */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={{ marginTop: space[3], flexGrow: 0, flexShrink: 0 }}
+        contentContainerStyle={{ alignItems: "center" }}
+      >
         <Row gap={2}>
           {TABS.map((t) => (
             <Pressable
@@ -165,7 +172,14 @@ export default function StoreScreen() {
               onPress={() => setTab(t.key)}
               style={[styles.tab, tab === t.key && styles.tabOn]}
             >
-              <Caption tone={tab === t.key ? "accent" : "muted"}>{t.label}</Caption>
+              <Caption
+                tone={tab === t.key ? "accent" : "muted"}
+                maxFontSizeMultiplier={1.2}
+                numberOfLines={1}
+                style={{ lineHeight: 18, includeFontPadding: false }}
+              >
+                {t.label}
+              </Caption>
             </Pressable>
           ))}
         </Row>
@@ -408,11 +422,14 @@ function ThemePreview({ themeId }: { themeId: ThemeId }) {
 
 const styles = StyleSheet.create({
   tab: {
+    minHeight: 40,
     paddingVertical: space[2],
-    paddingHorizontal: space[3],
+    paddingHorizontal: space[4],
     borderRadius: radii.sm,
     borderWidth: 1,
     borderColor: colors.border,
+    alignItems: "center",
+    justifyContent: "center",
   },
   tabOn: {
     borderColor: colors.accent,

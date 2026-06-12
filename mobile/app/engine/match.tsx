@@ -530,6 +530,9 @@ export default function EngineMatchScreen() {
         visible={showAnalysis}
         loading={analyzing}
         analysis={analysis}
+        moves={match.moves}
+        gridSize={gridSize}
+        p1Label={p1Display}
         p2Label={botName}
         onClose={() => setShowAnalysis(false)}
       />

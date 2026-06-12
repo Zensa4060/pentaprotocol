@@ -27,11 +27,11 @@ import {
   FriendCareerModal,
   type FriendCareerFilter,
 } from "@/components/social/FriendCareerModal";
+import { FriendProfileSheet } from "@/components/social/FriendProfileSheet";
 import {
   acceptFriendRequest,
   blockUser,
   declineFriendRequest,
-  getFriendProfile,
   getMyFriendCode,
   listFriendRequests,
   listFriends,
@@ -52,6 +52,7 @@ export default function FriendsScreen() {
   const [busy, setBusy] = useState(false);
   const [careerFriend, setCareerFriend] = useState<PublicUser | null>(null);
   const [careerFilter, setCareerFilter] = useState<FriendCareerFilter>("all");
+  const [profileFriend, setProfileFriend] = useState<PublicUser | null>(null);
 
   const load = useCallback(async (mode: "mount" | "pull") => {
     if (mode === "pull") setRefreshing(true);
@@ -111,80 +112,78 @@ export default function FriendsScreen() {
     }
   };
 
-  const viewProfile = async (f: PublicUser) => {
-    try {
-      const p = await getFriendProfile(f.id);
-      const presence = p.online ? "🟢 Online · Available" : "⚪ Offline";
-      Alert.alert(
-        p.username,
-        `${presence}\nLevel ${p.level} · ${p.rank}\nELO ${p.elo}\nW ${p.wins ?? 0} · L ${p.losses ?? 0} · D ${p.draws ?? 0}`,
-        [
-          { text: "Message", onPress: () => router.push(`/messages/${f.id}?name=${encodeURIComponent(f.username)}` as never) },
-          { text: "Close", style: "cancel" },
-        ],
-      );
-    } catch (err) {
-      Alert.alert("Error", err instanceof Error ? err.message : "Could not load profile.");
-    }
-  };
-
   const openFriendCareer = (f: PublicUser, filter: FriendCareerFilter = "all") => {
     setCareerFilter(filter);
     setCareerFriend(f);
   };
 
-  const onFriendActions = (f: PublicUser) => {
-    Alert.alert(f.username, f.online ? "🟢 Online · Available" : "⚪ Offline", [
-      { text: "View profile", onPress: () => viewProfile(f) },
-      { text: "View career", onPress: () => openFriendCareer(f, "all") },
-      { text: "Ranked history", onPress: () => openFriendCareer(f, "ranked") },
-      { text: "Unranked history", onPress: () => openFriendCareer(f, "unranked") },
-      { text: "Message", onPress: () => router.push(`/messages/${f.id}?name=${encodeURIComponent(f.username)}` as never) },
+  // Tapping a friend opens the styled in-game profile sheet (no more
+  // generic system alerts). Destructive actions keep a native confirm.
+  const onFriendActions = (f: PublicUser) => setProfileFriend(f);
+
+  const onMessageFriend = (f: PublicUser) => {
+    setProfileFriend(null);
+    router.push(`/messages/${f.id}?name=${encodeURIComponent(f.username)}` as never);
+  };
+
+  const onCareerFriend = (f: PublicUser, filter: FriendCareerFilter) => {
+    setProfileFriend(null);
+    openFriendCareer(f, filter);
+  };
+
+  const onRemoveFriend = (f: PublicUser) => {
+    Alert.alert("Remove friend?", `Remove ${f.username} from your friends list?`, [
+      { text: "Cancel", style: "cancel" },
       {
-        text: "Remove friend",
+        text: "Remove",
         style: "destructive",
         onPress: async () => {
           try {
             await removeFriend(f.id);
+            setProfileFriend(null);
             void load("mount");
           } catch (err) {
             Alert.alert("Error", err instanceof Error ? err.message : "Try again.");
           }
         },
       },
+    ]);
+  };
+
+  const onBlockFriend = (f: PublicUser) => {
+    Alert.alert("Block player?", `${f.username} won't be able to contact you.`, [
+      { text: "Cancel", style: "cancel" },
       {
         text: "Block",
         style: "destructive",
         onPress: async () => {
           try {
             await blockUser(f.id);
+            setProfileFriend(null);
             void load("mount");
           } catch (err) {
             Alert.alert("Error", err instanceof Error ? err.message : "Try again.");
           }
         },
       },
+    ]);
+  };
+
+  const onReportFriend = (f: PublicUser) => {
+    Alert.alert("Report player", `Report ${f.username} for abuse?`, [
+      { text: "Cancel", style: "cancel" },
       {
         text: "Report",
         style: "destructive",
-        onPress: () =>
-          Alert.alert("Report player", `Report ${f.username} for abuse?`, [
-            { text: "Cancel", style: "cancel" },
-            {
-              text: "Report",
-              style: "destructive",
-              onPress: async () => {
-                try {
-                  await reportPlayer({ userId: f.id, category: "abuse" });
-                  Alert.alert("Reported", "Thanks — our team will review.");
-                } catch (err) {
-                  Alert.alert("Error", err instanceof Error ? err.message : "Try again.");
-                }
-              },
-            },
-          ]),
+        onPress: async () => {
+          try {
+            await reportPlayer({ userId: f.id, category: "abuse" });
+            Alert.alert("Reported", "Thanks — our team will review.");
+          } catch (err) {
+            Alert.alert("Error", err instanceof Error ? err.message : "Try again.");
+          }
+        },
       },
-      { text: "Cancel", style: "cancel" },
     ]);
   };
 
@@ -308,6 +307,15 @@ export default function FriendsScreen() {
         friend={careerFriend}
         filter={careerFilter}
         onClose={() => setCareerFriend(null)}
+      />
+      <FriendProfileSheet
+        friend={profileFriend}
+        onClose={() => setProfileFriend(null)}
+        onMessage={onMessageFriend}
+        onCareer={onCareerFriend}
+        onRemove={onRemoveFriend}
+        onBlock={onBlockFriend}
+        onReport={onReportFriend}
       />
     </Screen>
   );
