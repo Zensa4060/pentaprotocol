@@ -20,6 +20,9 @@ export interface BoardSkin {
   p1Color: string;
   p2Color: string;
   pieceGlow: string;
+  /** Bundle piece glyphs — REPLACE the theme glyphs (e.g. glacier shards). */
+  p1Glyph: string;
+  p2Glyph: string;
   /** Animated atmosphere overlay tints (slow-breathing wash on the board). */
   atmosphereInner: string;
   atmosphereOuter: string;
@@ -37,6 +40,8 @@ const SKINS: Record<string, BoardSkin> = {
     p1Color: "#E0F2FE",
     p2Color: "#38BDF8",
     pieceGlow: "rgba(125,211,252,0.85)",
+    p1Glyph: "❅",
+    p2Glyph: "❖",
     atmosphereInner: "rgba(56,189,248,0.16)",
     atmosphereOuter: "rgba(167,139,250,0.10)",
   },
@@ -51,6 +56,8 @@ const SKINS: Record<string, BoardSkin> = {
     p1Color: "#FCA5A5",
     p2Color: "#C4B5FD",
     pieceGlow: "rgba(220,38,38,0.85)",
+    p1Glyph: "✠",
+    p2Glyph: "☾",
     atmosphereInner: "rgba(220,38,38,0.16)",
     atmosphereOuter: "rgba(139,92,246,0.10)",
   },

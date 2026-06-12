@@ -41,6 +41,8 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { Ionicons } from "@expo/vector-icons";
+
 import { useGameAudio } from "@/lib/audio/AudioProvider";
 import { getApiBaseUrl } from "@/lib/api";
 import {
@@ -389,7 +391,11 @@ export default function LoginScreen() {
                 {googleLoading ? (
                   <ActivityIndicator color={colors.textInverse} />
                 ) : (
-                  <Text style={styles.googleBtnLabel}>Continue with Google</Text>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+                    {/* Official G mark in Google blue — never re-tinted. */}
+                    <Ionicons name="logo-google" size={20} color="#4285F4" />
+                    <Text style={styles.googleBtnLabel}>Continue with Google</Text>
+                  </View>
                 )}
               </Pressable>
             </>

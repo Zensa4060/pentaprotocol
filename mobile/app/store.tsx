@@ -4,7 +4,7 @@
 
 import { router, Stack } from "expo-router";
 import { useMemo, useState } from "react";
-import { Alert, Linking, Modal, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { Alert, Image, Modal, Pressable, ScrollView, StyleSheet, View } from "react-native";
 
 import { BotRewardsBanner } from "@/components/store/BotRewardsBanner";
 import {
@@ -50,7 +50,8 @@ const TABS: { key: Tab; label: string }[] = [
   { key: "topup", label: "TOP-UP" },
 ];
 
-const WEB_STORE = "https://pentaprotocol.com/store";
+/** Developer UPI QR — same asset the web store shows (public/creator-payment-qr.png). */
+const PAYMENT_QR = require("../assets/images/creator-payment-qr.png");
 
 function themeIdForItem(itemId: string): ThemeId {
   if (itemId === "theme_space") return "space";
@@ -136,11 +137,14 @@ export default function StoreScreen() {
     }
   };
 
-  const openWebTopUp = (path: "buypc" | "buyps") => {
-    Linking.openURL(`${WEB_STORE}/${path}`).catch(() => {
-      Alert.alert("Could not open browser", `Visit ${WEB_STORE}/${path} to buy currency.`);
-    });
-  };
+  // In-app top-up sheet (no web redirect): pack details + the developer's
+  // UPI QR while the Razorpay gateway is being integrated.
+  const [topup, setTopup] = useState<{
+    label: string;
+    amount: number;
+    currency: "PC" | "PS";
+    priceInr: number;
+  } | null>(null);
 
   return (
     <Screen padded>
@@ -273,7 +277,7 @@ export default function StoreScreen() {
           <>
             <Eyebrow tone="accent">PROTOCREDITS (INR / UPI)</Eyebrow>
             <Body tone="muted" style={{ marginTop: space[2], marginBottom: space[3] }}>
-              Complete purchases on the web store — balance syncs to this account after verification.
+              Buy in-app — your balance is credited to this account after verification.
             </Body>
             {PC_PACKAGES.map((p) => (
               <View key={p.id} style={styles.packageRow}>
@@ -283,7 +287,17 @@ export default function StoreScreen() {
                     {(p.credits + p.bonus).toLocaleString()} PC · ₹{p.priceInr}
                   </Caption>
                 </View>
-                <Btn variant="secondary" onPress={() => openWebTopUp("buypc")}>
+                <Btn
+                  variant="secondary"
+                  onPress={() =>
+                    setTopup({
+                      label: p.label,
+                      amount: p.credits + p.bonus,
+                      currency: "PC",
+                      priceInr: p.priceInr,
+                    })
+                  }
+                >
                   Buy
                 </Btn>
               </View>
@@ -299,7 +313,17 @@ export default function StoreScreen() {
                     {(p.credits + p.bonus).toLocaleString()} PS · ₹{p.priceInr}
                   </Caption>
                 </View>
-                <Btn variant="secondary" onPress={() => openWebTopUp("buyps")}>
+                <Btn
+                  variant="secondary"
+                  onPress={() =>
+                    setTopup({
+                      label: p.label,
+                      amount: p.credits + p.bonus,
+                      currency: "PS",
+                      priceInr: p.priceInr,
+                    })
+                  }
+                >
                   Buy
                 </Btn>
               </View>
@@ -307,6 +331,46 @@ export default function StoreScreen() {
           </>
         )}
       </ScrollView>
+
+      {/* ── In-app top-up sheet (web redirect removed) ─────────────── */}
+      <Modal visible={!!topup} transparent animationType="slide" onRequestClose={() => setTopup(null)}>
+        <Pressable style={styles.modalScrim} onPress={() => setTopup(null)}>
+          <Pressable style={styles.topupCard} onPress={() => undefined}>
+            {topup ? (
+              <ScrollView showsVerticalScrollIndicator={false} bounces={false}>
+                <Eyebrow tone="accent">CHECKOUT · {topup.currency === "PC" ? "PROTOCREDITS" : "PENTASHARDS"}</Eyebrow>
+                <Heading style={{ marginTop: space[2] }}>{topup.label}</Heading>
+                <Body tone="muted" style={{ marginTop: 2 }}>
+                  {topup.amount.toLocaleString()} {topup.currency} · ₹{topup.priceInr}
+                </Body>
+
+                <View style={styles.gatewayNote}>
+                  <Eyebrow tone="warn">PAYMENT GATEWAY COMING SOON</Eyebrow>
+                  <Caption tone="muted" style={{ marginTop: space[1], lineHeight: 18 }}>
+                    Razorpay checkout is on the way. Until then you can pay by UPI
+                    using the QR below.
+                  </Caption>
+                </View>
+
+                <View style={styles.qrWrap}>
+                  <Image source={PAYMENT_QR} style={styles.qrImage} resizeMode="contain" />
+                </View>
+                <Caption tone="muted" center style={{ marginTop: space[2], lineHeight: 18 }}>
+                  This QR belongs directly to the developer. Purchases are still
+                  honored — pay ₹{topup.priceInr} via any UPI app and your{" "}
+                  {topup.currency} balance is credited to this account after
+                  verification.
+                </Caption>
+
+                <View style={{ height: space[4] }} />
+                <Btn variant="primary" onPress={() => setTopup(null)}>
+                  Done
+                </Btn>
+              </ScrollView>
+            ) : null}
+          </Pressable>
+        </Pressable>
+      </Modal>
 
       <Modal visible={!!preview} transparent animationType="fade" onRequestClose={() => setPreview(null)}>
         <Pressable style={styles.modalScrim} onPress={() => setPreview(null)}>
@@ -434,6 +498,34 @@ const styles = StyleSheet.create({
   tabOn: {
     borderColor: colors.accent,
     backgroundColor: colors.bgRaised,
+  },
+  topupCard: {
+    backgroundColor: colors.bgElevated,
+    borderRadius: radii.lg,
+    borderWidth: 1,
+    borderColor: colors.borderAccent,
+    padding: space[5],
+    width: "100%",
+    maxHeight: "88%",
+  },
+  gatewayNote: {
+    marginTop: space[4],
+    borderRadius: radii.md,
+    borderWidth: 1,
+    borderColor: colors.warn,
+    backgroundColor: colors.bgCard,
+    padding: space[3],
+  },
+  qrWrap: {
+    marginTop: space[4],
+    alignSelf: "center",
+    backgroundColor: "#FFFFFF",
+    borderRadius: radii.md,
+    padding: space[3],
+  },
+  qrImage: {
+    width: 200,
+    height: 200,
   },
   card: {
     backgroundColor: colors.bgCard,

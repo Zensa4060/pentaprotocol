@@ -14,6 +14,7 @@ import {
   type ViewStyle,
 } from "react-native";
 
+import { AuroraBands, ParticleDrift } from "@/components/cosmetics/AnimatedFx";
 import { boardSkinFor, type BoardSkin } from "@/lib/cosmetics/boardSkin";
 import type { GridSize } from "@/lib/game/boardConfig";
 import { useAuthStore } from "@/lib/store";
@@ -217,15 +218,14 @@ function Cell({ size, owner, isLast, isWinning, palette, skin, disabled, onPress
     return () => loop.stop();
   }, [isWinning, pulse]);
 
-  // Per-theme glyphs: P1/P2 use the active theme's piece glyphs
-  // (X/Y, α/Ω, ⚔/🛡, …); legacy X/O owners render literally.
+  // Bundle piece skins REPLACE the theme glyphs (glacier shards /
+  // bloodmoon sigils); otherwise P1/P2 use the active theme's pieces
+  // (X/Y, α/Ω, ⚔/🛡, …). Legacy X/O owners render literally.
   const glyph =
-    owner === "P1"
-      ? palette.glyphP1
-      : owner === "P2"
-      ? palette.glyphP2
-      : owner === "X" || owner === "O"
-      ? owner
+    owner === "P1" || owner === "X"
+      ? skin?.p1Glyph ?? (owner === "X" ? "X" : palette.glyphP1)
+      : owner === "P2" || owner === "O" || owner === "Y"
+      ? skin?.p2Glyph ?? (owner === "O" || owner === "Y" ? owner : palette.glyphP2)
       : null;
   // Bundle piece skins recolor the stones (glacier shards / bloodmoon sigils).
   const pieceColor =
@@ -315,9 +315,10 @@ function gridSizeFontScale(cellSize: number): number {
 }
 
 /**
- * Bundle atmosphere — two slow-breathing tinted washes layered over the
- * board surface (glacier aurora / bloodmoon omen). Pointer-transparent and
- * driven by a single looped Animated.Value, so it costs almost nothing.
+ * Bundle atmosphere — breathing tinted washes PLUS the bundle's particle
+ * weather (web parity): glacier gets drifting aurora bands and falling
+ * snow; bloodmoon gets rising embers. Pointer-transparent, native-driver
+ * loops only.
  */
 function SkinAtmosphere({ skin }: { skin: BoardSkin }) {
   const breathe = useRef(new Animated.Value(0)).current;
@@ -337,19 +338,36 @@ function SkinAtmosphere({ skin }: { skin: BoardSkin }) {
   const outerOpacity = breathe.interpolate({ inputRange: [0, 1], outputRange: [0.6, 0.2] });
 
   return (
-    <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+    <View pointerEvents="none" style={[StyleSheet.absoluteFill, { borderRadius: radii.md, overflow: "hidden" }]}>
       <Animated.View
-        style={[
-          StyleSheet.absoluteFill,
-          { backgroundColor: skin.atmosphereInner, opacity: innerOpacity, borderRadius: radii.md },
-        ]}
+        style={[StyleSheet.absoluteFill, { backgroundColor: skin.atmosphereInner, opacity: innerOpacity }]}
       />
       <Animated.View
-        style={[
-          StyleSheet.absoluteFill,
-          { backgroundColor: skin.atmosphereOuter, opacity: outerOpacity, borderRadius: radii.md },
-        ]}
+        style={[StyleSheet.absoluteFill, { backgroundColor: skin.atmosphereOuter, opacity: outerOpacity }]}
       />
+      {skin.id === "glacier_grid" ? (
+        <>
+          <AuroraBands colors={["rgba(56,189,248,0.28)", "rgba(167,139,250,0.22)"]} seed={6} />
+          <ParticleDrift
+            color="rgba(224,242,254,0.85)"
+            count={10}
+            direction="down"
+            sizeRange={[1.5, 3.5]}
+            durationRange={[4200, 8600]}
+            glow={false}
+            seed={23}
+          />
+        </>
+      ) : skin.id === "bloodmoon_grid" ? (
+        <ParticleDrift
+          color="rgba(251,146,60,0.9)"
+          count={10}
+          direction="up"
+          sizeRange={[1.5, 3.5]}
+          durationRange={[2600, 6200]}
+          seed={29}
+        />
+      ) : null}
     </View>
   );
 }

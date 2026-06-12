@@ -17,20 +17,23 @@ interface CommunityLinksProps {
   title?: string;
 }
 
-const LINK_ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
-  discord: "logo-discord",
-  reddit: "logo-reddit",
-  instagram: "logo-instagram",
-  itch: "game-controller",
+/** Official brand marks in their REAL brand colors — never re-tinted. */
+const LINK_BRANDS: Record<string, { icon: keyof typeof Ionicons.glyphMap; color: string }> = {
+  discord: { icon: "logo-discord", color: "#5865F2" },
+  reddit: { icon: "logo-reddit", color: "#FF4500" },
+  instagram: { icon: "logo-instagram", color: "#E4405F" },
+  itch: { icon: "game-controller", color: "#FA5C5C" },
 };
 
 function LinkRow({
   icon,
+  color,
   label,
   subtitle,
   onPress,
 }: {
   icon: keyof typeof Ionicons.glyphMap;
+  color: string;
   label: string;
   subtitle: string;
   onPress: () => void;
@@ -43,8 +46,8 @@ function LinkRow({
       accessibilityRole="link"
       accessibilityLabel={label}
     >
-      <View style={styles.iconWrap}>
-        <Ionicons name={icon} size={22} color={colors.accent} />
+      <View style={[styles.iconWrap, { backgroundColor: `${color}1F` }]}>
+        <Ionicons name={icon} size={22} color={color} />
       </View>
       <View style={styles.rowText}>
         <Body style={{ fontWeight: "700" }}>{label}</Body>
@@ -61,17 +64,22 @@ export function CommunityLinks({ title = "COMMUNITY" }: CommunityLinksProps) {
       {title ? (
         <Eyebrow tone="muted" style={{ marginBottom: space[2] }}>{title}</Eyebrow>
       ) : null}
-      {COMMUNITY_LINKS.map((link) => (
-        <LinkRow
-          key={link.id}
-          icon={LINK_ICONS[link.id] ?? "globe-outline"}
-          label={link.label}
-          subtitle={link.subtitle}
-          onPress={() => void openExternalUrl(link.url)}
-        />
-      ))}
+      {COMMUNITY_LINKS.map((link) => {
+        const brand = LINK_BRANDS[link.id] ?? { icon: "globe-outline" as const, color: "#9CA3AF" };
+        return (
+          <LinkRow
+            key={link.id}
+            icon={brand.icon}
+            color={brand.color}
+            label={link.label}
+            subtitle={link.subtitle}
+            onPress={() => void openExternalUrl(link.url)}
+          />
+        );
+      })}
       <LinkRow
         icon="mail-outline"
+        color="#E5E7EB"
         label="Send feedback"
         subtitle="Email the team"
         onPress={() => void openFeedbackEmail()}
