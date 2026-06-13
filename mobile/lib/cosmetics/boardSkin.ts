@@ -29,6 +29,24 @@ export interface BoardSkin {
 }
 
 const SKINS: Record<string, BoardSkin> = {
+  // Inferno Bundle — charred forge board, ember-glow lines + flame & skull
+  // pieces. Ports the web ``RedGrid`` palette (#140300 board, #ff6633 glow,
+  // rising embers) into the phone-optimized skin model.
+  red_grid: {
+    id: "red_grid",
+    boardBg: "#160400",
+    boardLine: "rgba(255,80,0,0.5)",
+    cellBg: "#240700",
+    cellBorder: "rgba(255,80,0,0.26)",
+    accent: "#FF6633",
+    p1Color: "#FFD9B0",
+    p2Color: "#FF6A3D",
+    pieceGlow: "rgba(255,80,0,0.85)",
+    p1Glyph: "✸",
+    p2Glyph: "☠︎",
+    atmosphereInner: "rgba(255,80,0,0.16)",
+    atmosphereOuter: "rgba(190,18,60,0.10)",
+  },
   // Glacier Bundle — aurora-lit arctic grid + glacier shard pieces.
   glacier_grid: {
     id: "glacier_grid",

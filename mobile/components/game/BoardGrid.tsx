@@ -14,8 +14,9 @@ import {
   type ViewStyle,
 } from "react-native";
 
-import { AuroraBands, ParticleDrift } from "@/components/cosmetics/AnimatedFx";
+import { AuroraBands, ParticleDrift, PulseGlow } from "@/components/cosmetics/AnimatedFx";
 import { boardSkinFor, type BoardSkin } from "@/lib/cosmetics/boardSkin";
+import { SkinPieceArt, skinHasPieceArt, skinPieceGlow } from "@/components/game/SkinPieces";
 import type { GridSize } from "@/lib/game/boardConfig";
 import { useAuthStore } from "@/lib/store";
 import { colors, radii } from "@/theme/tokens";
@@ -255,7 +256,19 @@ function Cell({ size, owner, isLast, isWinning, palette, skin, disabled, onPress
         pressed && !disabled ? { backgroundColor: palette.bgCard } : null,
       ]}
     >
-      {glyph ? (
+      {owner && skin && skinHasPieceArt(skin.id) ? (
+        <Animated.View
+          style={{
+            transform: isWinning ? [{ scale: pulse }] : [{ scale: pop }],
+            shadowColor: skinPieceGlow(skin.id, owner),
+            shadowOpacity: 0.9,
+            shadowRadius: 8,
+            shadowOffset: { width: 0, height: 0 },
+          }}
+        >
+          <SkinPieceArt skinId={skin.id} owner={owner} size={size} />
+        </Animated.View>
+      ) : glyph ? (
         <Animated.Text
           style={{
             fontSize: Math.max(12, Math.floor(size * (gridSizeFontScale(size)))),
@@ -345,7 +358,20 @@ function SkinAtmosphere({ skin }: { skin: BoardSkin }) {
       <Animated.View
         style={[StyleSheet.absoluteFill, { backgroundColor: skin.atmosphereOuter, opacity: outerOpacity }]}
       />
-      {skin.id === "glacier_grid" ? (
+      {skin.id === "red_grid" ? (
+        <>
+          {/* Heat core breathing up from the forge + rising embers (web RedGrid). */}
+          <PulseGlow color="rgba(255,90,0,0.28)" secondary="rgba(180,20,0,0.34)" durationMs={3000} />
+          <ParticleDrift
+            color="rgba(255,140,0,0.95)"
+            count={12}
+            direction="up"
+            sizeRange={[1.5, 3.5]}
+            durationRange={[2200, 5200]}
+            seed={31}
+          />
+        </>
+      ) : skin.id === "glacier_grid" ? (
         <>
           <AuroraBands colors={["rgba(56,189,248,0.28)", "rgba(167,139,250,0.22)"]} seed={6} />
           <ParticleDrift
