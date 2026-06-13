@@ -98,7 +98,7 @@ export function LimitbreakerOverlay({
             .filter((m) => !bans.includes(m))
             .map((m) => (
               <Btn key={m} variant="secondary" onPress={() => onPickBan(m)}>
-                Ban {m}
+                {`Ban ${m}`}
               </Btn>
             ))}
         </View>

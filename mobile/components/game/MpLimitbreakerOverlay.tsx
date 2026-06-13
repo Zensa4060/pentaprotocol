@@ -113,7 +113,7 @@ export function MpLimitbreakerOverlay({
         </Caption>
         {modes.map((m) => (
           <Btn key={m} variant="secondary" onPress={() => onAction({ board_mode: m })}>
-            Ban {m}
+            {`Ban ${m}`}
           </Btn>
         ))}
       </View>

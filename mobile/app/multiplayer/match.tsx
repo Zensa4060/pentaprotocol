@@ -74,7 +74,7 @@ import type {
 } from "@/lib/multiplayer/types";
 import { useMatchSocket } from "@/lib/multiplayer/useMatchSocket";
 import { useAuthStore } from "@/lib/store";
-import { reportPlayer, sendPeerRequest } from "@/lib/social/friends";
+import { listFriends, reportPlayer, sendPeerRequest } from "@/lib/social/friends";
 import { colors, radii, space } from "@/theme/tokens";
 import { usePalette } from "@/theme/ThemeProvider";
 
@@ -681,6 +681,28 @@ function OpponentActionsRow({
   roomCode: string;
 }) {
   const [friendSent, setFriendSent] = useState(false);
+  // Pre-check friend status so the "Add friend" button hides immediately for
+  // opponents already in your friends list (matches the web client) — leaving
+  // only the Report button.
+  const [alreadyFriend, setAlreadyFriend] = useState(false);
+
+  useEffect(() => {
+    if (!opponentId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const { friends } = await listFriends();
+        const isFriend = friends.some((f) => String(f.id) === String(opponentId));
+        if (!cancelled && isFriend) setAlreadyFriend(true);
+      } catch {
+        // best-effort precheck — leave the Add friend button in place on failure
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [opponentId]);
+
   if (!opponentId) return null;
   const name = opponentName ?? "opponent";
 
@@ -714,11 +736,13 @@ function OpponentActionsRow({
 
   return (
     <Row gap={2} style={{ marginTop: space[2] }}>
-      <View style={{ flex: 1 }}>
-        <Btn variant="secondary" size="sm" onPress={addFriend} disabled={friendSent}>
-          {friendSent ? "Request sent" : "Add friend"}
-        </Btn>
-      </View>
+      {!alreadyFriend ? (
+        <View style={{ flex: 1 }}>
+          <Btn variant="secondary" size="sm" onPress={addFriend} disabled={friendSent}>
+            {friendSent ? "Request sent" : "Add friend"}
+          </Btn>
+        </View>
+      ) : null}
       <View style={{ flex: 1 }}>
         <Btn variant="ghost" size="sm" onPress={report}>
           Report
