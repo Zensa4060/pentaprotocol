@@ -217,7 +217,7 @@ export default function MissionsScreen({ themeId, initialTab }: Props) {
               MISSIONS
             </div>
             <div style={{ fontFamily: t.fontMono, fontSize: 11, color: t.textSecondary }}>
-              Earn Shards &amp; XP — ranked matches only
+              Earn Shards &amp; XP 
             </div>
           </div>
         </div>
