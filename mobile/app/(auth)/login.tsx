@@ -81,6 +81,10 @@ export default function LoginScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  // Mirrors the web "Stay signed in for 30 days" checkbox. Off by
+  // default → a session-only login that's dropped on the next cold
+  // start (see lib/store.ts applySessionPolicy).
+  const [staySignedIn, setStaySignedIn] = useState(false);
   const [generalError, setGeneralError] = useState("");
   const [fieldErrors, setFieldErrors] = useState<{ username?: string; password?: string }>({});
 
@@ -116,7 +120,11 @@ export default function LoginScreen() {
     if (!validate()) return;
     setLoading(true);
     try {
-      const result = await signInWithPassword({ username: username.trim(), password });
+      const result = await signInWithPassword({
+        username: username.trim(),
+        password,
+        keepSignedIn: staySignedIn,
+      });
       if (result.status === "2fa_required") {
         setTwoFaCode("");
         setTwoFaError("");
@@ -142,7 +150,7 @@ export default function LoginScreen() {
     setTwoFaBusy(true);
     setTwoFaError("");
     try {
-      await completeTwoFactorLogin({ tempToken: twoFaToken, code });
+      await completeTwoFactorLogin({ tempToken: twoFaToken, code, keepSignedIn: staySignedIn });
       setTwoFaToken(null);
       router.replace("/(tabs)");
     } catch (err) {
@@ -160,7 +168,7 @@ export default function LoginScreen() {
 
   const runGoogle = async (confirmMerge: boolean, credential?: string) => {
     const idToken = credential ?? (await signInWithGoogleNative());
-    const result = await signInWithGoogle({ credential: idToken, confirmMerge });
+    const result = await signInWithGoogle({ credential: idToken, confirmMerge, keepSignedIn: staySignedIn });
     if (result.status === "merge_consent") {
       Alert.alert(
         "Link accounts?",
@@ -352,6 +360,22 @@ export default function LoginScreen() {
               <Text style={styles.footerLink}>Forgot password?</Text>
             </Pressable>
           </View>
+
+          {/* ── Stay signed in (30 days) ────────────────────────────── */}
+          <Pressable
+            onPress={() => setStaySignedIn((s) => !s)}
+            disabled={busy}
+            hitSlop={8}
+            style={styles.staySignedRow}
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked: staySignedIn, disabled: busy }}
+            accessibilityLabel="Stay signed in for 30 days"
+          >
+            <View style={[styles.checkbox, staySignedIn && styles.checkboxChecked]}>
+              {staySignedIn ? <Text style={styles.checkboxTick}>✓</Text> : null}
+            </View>
+            <Text style={styles.staySignedLabel}>Stay signed in for 30 days</Text>
+          </Pressable>
 
           {/* ── Server-side error banner ────────────────────────────── */}
           {generalError ? (
@@ -684,6 +708,37 @@ const styles = StyleSheet.create({
     color: colors.danger,
     fontSize: fontSizes.xs,
     marginTop: space[2],
+  },
+
+  staySignedRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: space[3],
+    marginBottom: space[4],
+  },
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderRadius: radii.sm,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    backgroundColor: colors.bgCard,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  checkboxChecked: {
+    backgroundColor: colors.accent,
+    borderColor: colors.accent,
+  },
+  checkboxTick: {
+    color: colors.text,
+    fontSize: fontSizes.sm,
+    fontWeight: "900",
+    lineHeight: 18,
+  },
+  staySignedLabel: {
+    color: colors.textMuted,
+    fontSize: fontSizes.sm,
   },
 
   errorBanner: {

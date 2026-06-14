@@ -22,6 +22,7 @@ import {
   Switch,
   View,
 } from "react-native";
+import type { AlertButton } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import {
@@ -40,6 +41,7 @@ import {
 } from "@/components/ui";
 import { useGameAudio } from "@/lib/audio/AudioProvider";
 import { logout } from "@/lib/auth";
+import { isGoogleSignInAvailable, signOutGoogleNative } from "@/lib/googleAuth";
 import { deleteAccount, requestDataExport } from "@/lib/account";
 import { CommunityLinks } from "@/components/community/CommunityLinks";
 import { useAuthStore } from "@/lib/store";
@@ -106,17 +108,46 @@ export default function SettingsScreen() {
   };
 
   const signOut = () => {
-    Alert.alert("Sign out", "Sign out of this device?", [
+    // `forgetGoogle` clears the cached Google account so the next Google
+    // sign-in shows the account chooser instead of silently re-selecting
+    // the one we just signed out from.
+    const finishLogout = async (forgetGoogle: boolean) => {
+      if (forgetGoogle) await signOutGoogleNative();
+      await logout();
+      router.replace("/(auth)/login");
+    };
+
+    // Only offer the "switch account" path when it can actually do
+    // something: a Google-linked account on a build that bundles the
+    // native SDK (i.e. not Expo Go).
+    const offerSwitch = isGoogleSignInAvailable() && !!user?.google_linked;
+
+    const buttons: AlertButton[] = [
       { text: "Cancel", style: "cancel" },
       {
         text: "Sign out",
         style: "destructive",
-        onPress: async () => {
-          await logout();
-          router.replace("/(auth)/login");
+        onPress: () => {
+          void finishLogout(false);
         },
       },
-    ]);
+    ];
+    if (offerSwitch) {
+      buttons.push({
+        text: "Sign out & switch Google account",
+        onPress: () => {
+          void finishLogout(true);
+        },
+      });
+    }
+
+    Alert.alert(
+      "Sign out",
+      offerSwitch
+        ? "Sign out of this device?\n\n“Switch Google account” also forgets your Google account, so you can pick a different one the next time you sign in with Google."
+        : "Sign out of this device?",
+      buttons,
+    );
   };
 
   return (

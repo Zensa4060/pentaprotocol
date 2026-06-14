@@ -60,6 +60,8 @@ export type PasswordSignInResult =
 export async function signInWithPassword(input: {
   username: string;
   password: string;
+  /** "Stay signed in for 30 days" — defaults to a session-only login. */
+  keepSignedIn?: boolean;
 }): Promise<PasswordSignInResult> {
   try {
     const res = await API.post<LoginResponse>("/api/auth/login", {
@@ -75,7 +77,9 @@ export async function signInWithPassword(input: {
     if (!res.data.access_token || !res.data.user) {
       throw new AuthError("Server returned an incomplete login response.");
     }
-    await useAuthStore.getState().setUser(res.data.user, res.data.access_token);
+    await useAuthStore
+      .getState()
+      .setUser(res.data.user, res.data.access_token, input.keepSignedIn ?? false);
     return { status: "ok", user: res.data.user };
   } catch (err) {
     if (err instanceof AuthError) throw err;
@@ -87,6 +91,8 @@ export async function signInWithPassword(input: {
 export async function completeTwoFactorLogin(input: {
   tempToken: string;
   code: string;
+  /** Carried over from the login screen's "stay signed in" checkbox. */
+  keepSignedIn?: boolean;
 }): Promise<User> {
   try {
     const res = await API.post<LoginResponse>("/api/auth/2fa/login", {
@@ -96,7 +102,9 @@ export async function completeTwoFactorLogin(input: {
     if (!res.data.access_token || !res.data.user) {
       throw new AuthError("Server returned an incomplete login response.");
     }
-    await useAuthStore.getState().setUser(res.data.user, res.data.access_token);
+    await useAuthStore
+      .getState()
+      .setUser(res.data.user, res.data.access_token, input.keepSignedIn ?? false);
     return res.data.user;
   } catch (err) {
     if (err instanceof AuthError) throw err;
@@ -126,6 +134,8 @@ export type GoogleSignInResult =
 export async function signInWithGoogle(input: {
   credential: string;
   confirmMerge?: boolean;
+  /** "Stay signed in for 30 days" — defaults to a session-only login. */
+  keepSignedIn?: boolean;
 }): Promise<GoogleSignInResult> {
   try {
     const res = await API.post<LoginResponse>("/api/auth/google", {
@@ -138,7 +148,9 @@ export async function signInWithGoogle(input: {
     if (!res.data.access_token || !res.data.user) {
       throw new AuthError("Server returned an incomplete login response.");
     }
-    await useAuthStore.getState().setUser(res.data.user, res.data.access_token);
+    await useAuthStore
+      .getState()
+      .setUser(res.data.user, res.data.access_token, input.keepSignedIn ?? false);
     return { status: "ok", user: res.data.user };
   } catch (err) {
     if (err instanceof AuthError) throw err;

@@ -113,3 +113,28 @@ export async function signInWithGoogleNative(): Promise<string> {
     throw new GoogleAuthError(msg, "unknown");
   }
 }
+
+/**
+ * Forget the cached Google account on this device.
+ *
+ * The native SDK remembers the last account that signed in, so a plain
+ * app logout leaves it in place and the *next* ``signIn()`` silently
+ * re-selects it instead of showing the account chooser. Calling
+ * ``signOut()`` clears that cache, so the picker (with all accounts)
+ * shows again next time.
+ *
+ * Best-effort by design: it must never block or fail the app's own
+ * logout. In Expo Go (no native module) or with missing config it's a
+ * no-op, and any SDK error is swallowed.
+ */
+export async function signOutGoogleNative(): Promise<void> {
+  if (!isGoogleSignInAvailable()) return;
+  try {
+    const { GoogleSignin } = loadGoogleSignin();
+    ensureConfigured(GoogleSignin);
+    await GoogleSignin.signOut();
+  } catch {
+    // Clearing the cached Google account is opportunistic — never let it
+    // stop the user from signing out of the app.
+  }
+}
