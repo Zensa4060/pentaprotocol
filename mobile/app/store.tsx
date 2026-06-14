@@ -1,5 +1,9 @@
 /**
  * ProtoShop — themes, banners, grids, coins, bot reward claims, UPI top-up links.
+ *
+ * Futuristic-minimalist redesign (UI only): void canvas, HUD wallet readout,
+ * underline segmented tabs, hairline-separated cosmetic rows with live preview
+ * thumbs and mono prices. All purchase / claim / top-up logic is unchanged.
  */
 
 import { router, Stack } from "expo-router";
@@ -7,16 +11,8 @@ import { useMemo, useState } from "react";
 import { Alert, Image, Modal, Pressable, ScrollView, StyleSheet, View } from "react-native";
 
 import { BotRewardsBanner } from "@/components/store/BotRewardsBanner";
-import {
-  Body,
-  Btn,
-  Caption,
-  Eyebrow,
-  Heading,
-  Row,
-  Screen,
-  Title,
-} from "@/components/ui";
+import { Body, Btn, Caption, Eyebrow, Mono, Screen } from "@/components/ui";
+import { Hairline, HudHeader, Panel, SectionLabel, SegTabs } from "@/components/ui/hud";
 import { BannerRenderer } from "@/components/BannerRenderer";
 import { CurrencyChip } from "@/components/CurrencyChip";
 import {
@@ -149,45 +145,22 @@ export default function StoreScreen() {
   return (
     <Screen padded>
       <Stack.Screen options={{ headerShown: false }} />
-      <Pressable onPress={goBack} hitSlop={12}>
-        <Caption tone="muted">← BACK</Caption>
-      </Pressable>
 
-      <Title style={{ marginTop: space[4] }}>ProtoShop</Title>
-      <Row gap={4} style={{ marginTop: space[2] }} align="center">
-        <CurrencyChip kind="pc" value={user?.protocredits ?? 0} size={20} />
-        <CurrencyChip kind="ps" value={user?.shards ?? 0} size={20} />
-      </Row>
+      <HudHeader
+        title="PROTOSHOP"
+        eyebrow="ACQUIRE COSMETICS · PROTOCREDITS / PENTASHARDS"
+        onBack={goBack}
+        right={
+          <View style={styles.wallet}>
+            <CurrencyChip kind="pc" value={user?.protocredits ?? 0} size={18} />
+            <CurrencyChip kind="ps" value={user?.shards ?? 0} size={18} />
+          </View>
+        }
+      />
 
       <BotRewardsBanner user={user} />
 
-      {/* flexGrow/flexShrink 0: the flex column otherwise compresses this
-          horizontal scroller vertically and clips the chip labels. */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={{ marginTop: space[3], flexGrow: 0, flexShrink: 0 }}
-        contentContainerStyle={{ alignItems: "center" }}
-      >
-        <Row gap={2}>
-          {TABS.map((t) => (
-            <Pressable
-              key={t.key}
-              onPress={() => setTab(t.key)}
-              style={[styles.tab, tab === t.key && styles.tabOn]}
-            >
-              <Caption
-                tone={tab === t.key ? "accent" : "muted"}
-                maxFontSizeMultiplier={1.2}
-                numberOfLines={1}
-                style={{ lineHeight: 18, includeFontPadding: false }}
-              >
-                {t.label}
-              </Caption>
-            </Pressable>
-          ))}
-        </Row>
-      </ScrollView>
+      <SegTabs<Tab> tabs={TABS} value={tab} onChange={setTab} style={{ marginTop: space[5] }} />
 
       <ScrollView style={{ marginTop: space[4] }} contentContainerStyle={{ paddingBottom: space[10] }}>
         {tab === "themes" &&
@@ -228,29 +201,37 @@ export default function StoreScreen() {
             const canClaim =
               (rewards.board_skin === "pending" || rewards.syros_skin === "pending") && !owned.has(bundle.boardId);
             return (
-              <View key={bundle.id} style={styles.card}>
-                <View style={[styles.thumb, { backgroundColor: bundle.accentColor + "33", borderColor: bundle.accentColor }]} />
-                <Heading style={{ marginTop: space[3] }}>{bundle.label}</Heading>
-                <Body tone="muted">{bundle.description}</Body>
-                <Caption tone="muted" style={{ marginTop: space[2] }}>
-                  {bundle.bundlePrice} PC (board 1599 + pieces 599)
-                </Caption>
-                <Row gap={2} style={{ marginTop: space[3] }}>
-                  <View style={{ flex: 1 }}>
-                    <Btn
-                      variant={canClaim ? "primary" : isOwned ? "ghost" : "primary"}
-                      disabled={isOwned || busy === bundle.id}
-                      loading={busy === bundle.id || busy === `claim-${bundle.boardId}`}
-                      onPress={() =>
-                        canClaim
-                          ? onClaim(boardSkinClaimSlot(rewards), bundle.boardId, bundle.label)
-                          : onBuyGrid(bundle)
-                      }
-                    >
-                      {isOwned ? "Owned" : canClaim ? "Claim free" : "Purchase"}
-                    </Btn>
+              <View key={bundle.id}>
+                <View style={styles.row}>
+                  <View
+                    style={[
+                      styles.thumb,
+                      { backgroundColor: bundle.accentColor + "22", borderColor: bundle.accentColor },
+                    ]}
+                  >
+                    <View style={[styles.thumbDot, { backgroundColor: bundle.accentColor }]} />
                   </View>
-                </Row>
+                  <View style={styles.rowMid}>
+                    <Body style={styles.itemName} numberOfLines={1}>{bundle.label}</Body>
+                    <Mono tone="dim" style={styles.itemMeta} numberOfLines={1}>
+                      {bundle.description}
+                    </Mono>
+                    <Mono tone="dim" style={styles.itemMeta}>
+                      {bundle.bundlePrice} PC · board 1599 + pieces 599
+                    </Mono>
+                  </View>
+                  <RowAction
+                    label={isOwned ? "OWNED" : canClaim ? "CLAIM" : "ACQUIRE"}
+                    disabled={isOwned}
+                    loading={busy === bundle.id || busy === `claim-${bundle.boardId}`}
+                    onPress={() =>
+                      canClaim
+                        ? onClaim(boardSkinClaimSlot(rewards), bundle.boardId, bundle.label)
+                        : onBuyGrid(bundle)
+                    }
+                  />
+                </View>
+                <Hairline />
               </View>
             );
           })}
@@ -275,57 +256,57 @@ export default function StoreScreen() {
 
         {tab === "topup" && (
           <>
-            <Eyebrow tone="accent">PROTOCREDITS (INR / UPI)</Eyebrow>
-            <Body tone="muted" style={{ marginTop: space[2], marginBottom: space[3] }}>
+            <SectionLabel label="PROTOCREDITS · INR / UPI" style={{ marginBottom: space[2] }} />
+            <Caption tone="muted" style={{ marginBottom: space[3], lineHeight: 18 }}>
               Buy in-app — your balance is credited to this account after verification.
-            </Body>
+            </Caption>
             {PC_PACKAGES.map((p) => (
-              <View key={p.id} style={styles.packageRow}>
-                <View style={{ flex: 1 }}>
-                  <Heading>{p.label}</Heading>
-                  <Caption tone="muted">
-                    {(p.credits + p.bonus).toLocaleString()} PC · ₹{p.priceInr}
-                  </Caption>
+              <View key={p.id}>
+                <View style={styles.packageRow}>
+                  <View style={{ flex: 1 }}>
+                    <Body style={styles.itemName}>{p.label}</Body>
+                    <Mono tone="dim" style={styles.itemMeta}>
+                      {(p.credits + p.bonus).toLocaleString()} PC · ₹{p.priceInr}
+                    </Mono>
+                  </View>
+                  <RowAction
+                    label="BUY"
+                    onPress={() =>
+                      setTopup({
+                        label: p.label,
+                        amount: p.credits + p.bonus,
+                        currency: "PC",
+                        priceInr: p.priceInr,
+                      })
+                    }
+                  />
                 </View>
-                <Btn
-                  variant="secondary"
-                  onPress={() =>
-                    setTopup({
-                      label: p.label,
-                      amount: p.credits + p.bonus,
-                      currency: "PC",
-                      priceInr: p.priceInr,
-                    })
-                  }
-                >
-                  Buy
-                </Btn>
+                <Hairline />
               </View>
             ))}
-            <Eyebrow tone="accent" style={{ marginTop: space[6] }}>
-              PENTASHARDS
-            </Eyebrow>
+            <SectionLabel label="PENTASHARDS" style={{ marginTop: space[6], marginBottom: space[2] }} />
             {PS_PACKAGES.map((p) => (
-              <View key={`ps-${p.id}`} style={styles.packageRow}>
-                <View style={{ flex: 1 }}>
-                  <Heading>{p.label}</Heading>
-                  <Caption tone="muted">
-                    {(p.credits + p.bonus).toLocaleString()} PS · ₹{p.priceInr}
-                  </Caption>
+              <View key={`ps-${p.id}`}>
+                <View style={styles.packageRow}>
+                  <View style={{ flex: 1 }}>
+                    <Body style={styles.itemName}>{p.label}</Body>
+                    <Mono tone="dim" style={styles.itemMeta}>
+                      {(p.credits + p.bonus).toLocaleString()} PS · ₹{p.priceInr}
+                    </Mono>
+                  </View>
+                  <RowAction
+                    label="BUY"
+                    onPress={() =>
+                      setTopup({
+                        label: p.label,
+                        amount: p.credits + p.bonus,
+                        currency: "PS",
+                        priceInr: p.priceInr,
+                      })
+                    }
+                  />
                 </View>
-                <Btn
-                  variant="secondary"
-                  onPress={() =>
-                    setTopup({
-                      label: p.label,
-                      amount: p.credits + p.bonus,
-                      currency: "PS",
-                      priceInr: p.priceInr,
-                    })
-                  }
-                >
-                  Buy
-                </Btn>
+                <Hairline />
               </View>
             ))}
           </>
@@ -339,10 +320,10 @@ export default function StoreScreen() {
             {topup ? (
               <ScrollView showsVerticalScrollIndicator={false} bounces={false}>
                 <Eyebrow tone="accent">CHECKOUT · {topup.currency === "PC" ? "PROTOCREDITS" : "PENTASHARDS"}</Eyebrow>
-                <Heading style={{ marginTop: space[2] }}>{topup.label}</Heading>
-                <Body tone="muted" style={{ marginTop: 2 }}>
+                <Body style={{ ...styles.itemName, fontSize: 20, marginTop: space[2] }}>{topup.label}</Body>
+                <Mono tone="muted" style={{ marginTop: 2 }}>
                   {topup.amount.toLocaleString()} {topup.currency} · ₹{topup.priceInr}
-                </Body>
+                </Mono>
 
                 <View style={styles.gatewayNote}>
                   <Eyebrow tone="warn">PAYMENT GATEWAY COMING SOON</Eyebrow>
@@ -378,7 +359,7 @@ export default function StoreScreen() {
             {preview ? (
               <>
                 <Eyebrow tone="accent">PREVIEW</Eyebrow>
-                <Heading style={{ marginTop: space[2] }}>{preview.label}</Heading>
+                <Body style={{ ...styles.itemName, fontSize: 20, marginTop: space[2] }}>{preview.label}</Body>
                 {preview.category === "banner" ? (
                   <BannerRenderer bannerId={preview.id} themeId={themeId} style={styles.previewBig} />
                 ) : (
@@ -387,7 +368,7 @@ export default function StoreScreen() {
                 <Body tone="muted" style={{ marginTop: space[3] }}>
                   {preview.description}
                 </Body>
-                <Row gap={2} style={{ marginTop: space[4] }}>
+                <View style={styles.previewActions}>
                   <View style={{ flex: 1 }}>
                     <Btn variant="secondary" onPress={() => setPreview(null)}>
                       Close
@@ -403,13 +384,44 @@ export default function StoreScreen() {
                       {owned.has(preview.id) ? "Owned" : "Purchase"}
                     </Btn>
                   </View>
-                </Row>
+                </View>
               </>
             ) : null}
           </Pressable>
         </Pressable>
       </Modal>
     </Screen>
+  );
+}
+
+/** Minimalist row action — ghost-by-default, accent border; mono caps label. */
+function RowAction({
+  label,
+  onPress,
+  disabled,
+  loading,
+}: {
+  label: string;
+  onPress: () => void;
+  disabled?: boolean;
+  loading?: boolean;
+}) {
+  const isOwned = label === "OWNED";
+  return (
+    <Pressable
+      onPress={onPress}
+      disabled={disabled || loading}
+      accessibilityRole="button"
+      style={({ pressed }) => [
+        styles.action,
+        isOwned && styles.actionOwned,
+        pressed && !disabled ? { backgroundColor: "rgba(204,0,0,0.16)" } : null,
+      ]}
+    >
+      <Caption tone={isOwned ? "dim" : "accent"} style={styles.actionLabel}>
+        {loading ? "···" : label}
+      </Caption>
+    </Pressable>
   );
 }
 
@@ -433,42 +445,61 @@ function ItemCard({
   onBuy: () => void;
 }) {
   return (
-    <View style={styles.card}>
-      {item.category === "banner" ? (
-        <BannerRenderer bannerId={item.id} themeId={themeId} style={styles.thumb} />
-      ) : item.category === "theme" ? (
-        <View style={[styles.thumb, { backgroundColor: THEMES[themeIdForItem(item.id)].bg, alignItems: "center", justifyContent: "center", flexDirection: "row", gap: 8 }]}>
-          <View style={[styles.dot, { backgroundColor: THEMES[themeIdForItem(item.id)].accent }]} />
+    <View>
+      <View style={styles.row}>
+        <Pressable
+          disabled={!onPreview}
+          onPress={onPreview}
+          style={styles.thumb}
+          accessibilityRole={onPreview ? "button" : undefined}
+        >
+          {item.category === "banner" ? (
+            <BannerRenderer bannerId={item.id} themeId={themeId} style={StyleSheet.absoluteFill} />
+          ) : item.category === "theme" ? (
+            <View
+              style={[
+                StyleSheet.absoluteFill,
+                { backgroundColor: THEMES[themeIdForItem(item.id)].bg, alignItems: "center", justifyContent: "center" },
+              ]}
+            >
+              <View style={[styles.thumbDot, { backgroundColor: THEMES[themeIdForItem(item.id)].accent }]} />
+            </View>
+          ) : (
+            <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.bgRaised }]} />
+          )}
+        </Pressable>
+
+        <View style={styles.rowMid}>
+          <Body style={styles.itemName} numberOfLines={1}>{item.label}</Body>
+          <Mono tone="dim" style={styles.itemMeta} numberOfLines={2}>{item.description}</Mono>
         </View>
-      ) : (
-        <View style={[styles.thumb, { backgroundColor: colors.bgRaised }]} />
-      )}
-      <Heading style={{ marginTop: space[3] }}>{item.label}</Heading>
-      <Body tone="muted">{item.description}</Body>
-      <Caption tone="muted" style={{ marginTop: space[2] }}>
-        {item.pricePc > 0 ? `${item.pricePc} PC` : ""}
-        {item.pricePc > 0 && item.pricePs > 0 ? " + " : ""}
-        {item.pricePs > 0 ? `${item.pricePs} PS` : ""}
-      </Caption>
-      <Row gap={2} style={{ marginTop: space[3] }}>
-        {onPreview ? (
-          <View style={{ flex: 1 }}>
-            <Btn variant="secondary" onPress={onPreview}>
-              Preview
-            </Btn>
-          </View>
-        ) : null}
-        <View style={{ flex: 1 }}>
-          <Btn
-            variant={claimFree ? "primary" : isOwned ? "ghost" : "primary"}
+
+        <View style={styles.rowRight}>
+          {item.pricePc > 0 || item.pricePs > 0 ? (
+            <View style={{ alignItems: "flex-end" }}>
+              {item.pricePc > 0 ? (
+                <View style={styles.priceLine}>
+                  <Body style={styles.price}>{item.pricePc}</Body>
+                  <Caption tone="dim" style={styles.priceUnit}>PC</Caption>
+                </View>
+              ) : null}
+              {item.pricePs > 0 ? (
+                <View style={styles.priceLine}>
+                  <Caption tone="dim" style={styles.priceUnit}>+{item.pricePs}</Caption>
+                  <Caption tone="dim" style={styles.priceUnit}>PS</Caption>
+                </View>
+              ) : null}
+            </View>
+          ) : null}
+          <RowAction
+            label={isOwned && !claimFree ? "OWNED" : claimFree ? "CLAIM" : "ACQUIRE"}
             disabled={isOwned && !claimFree}
             loading={busy}
             onPress={claimFree && onClaimFree ? onClaimFree : onBuy}
-          >
-            {isOwned ? "Owned" : claimFree ? "Claim free" : "Purchase"}
-          </Btn>
+          />
         </View>
-      </Row>
+      </View>
+      <Hairline />
     </View>
   );
 }
@@ -485,19 +516,82 @@ function ThemePreview({ themeId }: { themeId: ThemeId }) {
 }
 
 const styles = StyleSheet.create({
-  tab: {
-    minHeight: 40,
-    paddingVertical: space[2],
-    paddingHorizontal: space[4],
-    borderRadius: radii.sm,
+  wallet: {
+    flexDirection: "row",
+    gap: space[2],
+    alignItems: "center",
+  },
+  row: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: space[3],
+    paddingVertical: space[4],
+  },
+  rowMid: {
+    flex: 1,
+    gap: 4,
+  },
+  rowRight: {
+    alignItems: "flex-end",
+    gap: space[2],
+  },
+  thumb: {
+    width: 58,
+    height: 58,
+    borderRadius: radii.md,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: "rgba(255,255,255,0.12)",
+    overflow: "hidden",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.bgElevated,
+  },
+  thumbDot: { width: 14, height: 14, borderRadius: 7 },
+  itemName: {
+    fontWeight: "700",
+    letterSpacing: 0.3,
+  },
+  itemMeta: {
+    fontSize: 11,
+    lineHeight: 15,
+  },
+  priceLine: {
+    flexDirection: "row",
+    alignItems: "baseline",
+    gap: 4,
+  },
+  price: {
+    fontWeight: "800",
+    letterSpacing: 0.3,
+  },
+  priceUnit: {
+    fontSize: 10,
+    letterSpacing: 0.5,
+  },
+  action: {
+    minWidth: 92,
+    paddingVertical: space[2],
+    paddingHorizontal: space[3],
+    borderRadius: radii.pill,
+    borderWidth: 1,
+    borderColor: colors.borderAccent,
+    backgroundColor: "rgba(204,0,0,0.08)",
     alignItems: "center",
     justifyContent: "center",
   },
-  tabOn: {
-    borderColor: colors.accent,
-    backgroundColor: colors.bgRaised,
+  actionOwned: {
+    borderColor: "rgba(255,255,255,0.12)",
+    backgroundColor: "transparent",
+  },
+  actionLabel: {
+    fontWeight: "800",
+    letterSpacing: 1.2,
+  },
+  packageRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: space[3],
+    paddingVertical: space[4],
   },
   topupCard: {
     backgroundColor: colors.bgElevated,
@@ -527,30 +621,6 @@ const styles = StyleSheet.create({
     width: 200,
     height: 200,
   },
-  card: {
-    backgroundColor: colors.bgCard,
-    borderRadius: radii.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: space[4],
-    marginBottom: space[3],
-  },
-  packageRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: space[3],
-    paddingVertical: space[3],
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  thumb: {
-    height: 72,
-    borderRadius: radii.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    overflow: "hidden",
-  },
-  dot: { width: 14, height: 14, borderRadius: 7 },
   modalScrim: {
     flex: 1,
     backgroundColor: colors.scrim,
@@ -560,17 +630,22 @@ const styles = StyleSheet.create({
   },
   modalCard: {
     width: "100%",
-    backgroundColor: colors.bgCard,
+    backgroundColor: colors.bgElevated,
     borderRadius: radii.lg,
     borderWidth: 1,
     borderColor: colors.borderAccent,
     padding: space[5],
   },
+  previewActions: {
+    flexDirection: "row",
+    gap: space[2],
+    marginTop: space[4],
+  },
   previewBig: {
     height: 160,
     borderRadius: radii.md,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: "rgba(255,255,255,0.12)",
     marginTop: space[3],
     overflow: "hidden",
   },

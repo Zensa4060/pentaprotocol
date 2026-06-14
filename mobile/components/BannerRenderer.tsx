@@ -15,10 +15,14 @@
  */
 
 import { LinearGradient } from "expo-linear-gradient";
+import { useMemo } from "react";
 import { StyleSheet, View, type StyleProp, type ViewStyle } from "react-native";
+
+import { CanvasWebView, bannerHtmlFor } from "@/components/game/skins";
 
 import {
   AuroraBands,
+  DigitalRain,
   DriftBlobs,
   ExpandingRings,
   FallingGlyphs,
@@ -36,7 +40,7 @@ type Stops = readonly [string, string, ...string[]];
 const BANNER_GRADIENTS: Record<string, Stops> = {
   default: ["#1a1a2e", "#16213e"],
   // Animated canvas banners (web) — represented here by their gradient.
-  digital_rain: ["#000702", "#14532d"],
+  digital_rain: ["#000602", "#001509"],
   lightsaber_duel: ["#06020e", "#0d0520"],
   arcade: ["#000010", "#000520"],
   hyperdrive: ["#02030e", "#05041a"],
@@ -89,7 +93,7 @@ const normalizeId = (id?: string | null) =>
 function BannerFx({ id }: { id: string }) {
   switch (id) {
     case "digital_rain":
-      return <FallingGlyphs color="#4ADE80" columns={9} seed={2} />;
+      return <DigitalRain columns={18} fontSize={12} seed={2} />;
     case "hacker_terminal":
       return <FallingGlyphs color="#22C55E" columns={7} fontSize={9} seed={17} />;
     case "lightsaber_duel":
@@ -186,6 +190,12 @@ export interface BannerRendererProps {
   overlayOpacity?: number;
   /** Set false to render the static gradient only (perf escape hatch). */
   animated?: boolean;
+  /**
+   * Render the **verbatim web canvas** (via WebView) for banners that have one
+   * ported. Use on the single showcased banner (home backdrop / preview) — NOT
+   * on many-at-once list thumbnails, which stay on the light gradient + Fx.
+   */
+  live?: boolean;
 }
 
 export function BannerRenderer({
@@ -194,12 +204,15 @@ export function BannerRenderer({
   style,
   overlayOpacity = 0,
   animated = true,
+  live = false,
 }: BannerRendererProps) {
   const id = normalizeId(bannerId);
   const stops: Stops =
     id === "default"
       ? DEFAULT_THEME_GRADIENTS[themeId] ?? DEFAULT_THEME_GRADIENTS.classic_dark
       : BANNER_GRADIENTS[id] ?? DEFAULT_THEME_GRADIENTS[themeId] ?? BANNER_GRADIENTS.default;
+  // Verbatim web-canvas banner (WebView) — only when showcased and ported.
+  const liveHtml = useMemo(() => (live ? bannerHtmlFor(id) : null), [live, id]);
 
   return (
     <View style={[styles.fill, style]} pointerEvents="none">
@@ -209,7 +222,7 @@ export function BannerRenderer({
         end={{ x: 1, y: 1 }}
         style={StyleSheet.absoluteFill}
       />
-      {animated ? <BannerFx id={id} /> : null}
+      {liveHtml ? <CanvasWebView html={liveHtml} /> : animated ? <BannerFx id={id} /> : null}
       {overlayOpacity > 0 ? (
         <View
           style={[

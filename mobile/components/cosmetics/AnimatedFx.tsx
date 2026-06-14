@@ -131,6 +131,89 @@ export function FallingGlyphs({
   );
 }
 
+/* ── Digital Rain (matrix code rain — web ``DigitalRainBanner`` parity) ──── */
+
+const KATAKANA = Array.from({ length: 96 }, (_, i) => String.fromCharCode(0x30a0 + i)).join("");
+
+function MatrixColumn({
+  x,
+  duration,
+  delay,
+  fontSize,
+  length,
+  seed,
+}: {
+  x: DimensionValue;
+  duration: number;
+  delay: number;
+  fontSize: number;
+  length: number;
+  seed: number;
+}) {
+  const t = useLoop(duration, delay);
+  const translateY = t.interpolate({ inputRange: [0, 1], outputRange: ["-110%", "110%"] });
+  const chars = useMemo(() => {
+    const rand = mulberry32(seed);
+    return Array.from({ length }, () => KATAKANA[Math.floor(rand() * KATAKANA.length)]);
+  }, [length, seed]);
+  return (
+    <Animated.View style={{ position: "absolute", left: x, top: 0, bottom: 0, transform: [{ translateY }] }}>
+      {chars.map((c, i) => {
+        // Bottom char (last) is the bright falling head; the trail fades up.
+        const head = i === length - 1;
+        const fade = length > 1 ? i / (length - 1) : 1;
+        const g = Math.floor(70 + fade * 170);
+        return (
+          <Text
+            key={i}
+            style={{
+              color: head ? "#E8FFEC" : `rgb(0,${g},${Math.floor(fade * 55)})`,
+              opacity: head ? 1 : 0.2 + fade * 0.7,
+              fontSize,
+              lineHeight: fontSize + 1,
+              fontFamily: "monospace",
+              fontWeight: head ? "700" : "400",
+              textShadowColor: head ? "rgba(120,255,170,0.95)" : "transparent",
+              textShadowRadius: head ? 8 : 0,
+            }}
+          >
+            {c}
+          </Text>
+        );
+      })}
+    </Animated.View>
+  );
+}
+
+export function DigitalRain({
+  columns = 18,
+  fontSize = 12,
+  length = 14,
+  seed = 2,
+}: {
+  columns?: number;
+  fontSize?: number;
+  length?: number;
+  seed?: number;
+}) {
+  const cols = useMemo(() => {
+    const rand = mulberry32(seed);
+    return Array.from({ length: columns }, (_, i) => ({
+      x: pct((i / columns) * 100 + rand() * 1.5),
+      duration: 2600 + rand() * 3200,
+      delay: rand() * 2600,
+      seed: seed * 97 + i,
+    }));
+  }, [columns, seed]);
+  return (
+    <View style={StyleSheet.absoluteFill} pointerEvents="none">
+      {cols.map((c, i) => (
+        <MatrixColumn key={i} x={c.x} duration={c.duration} delay={c.delay} fontSize={fontSize} length={length} seed={c.seed} />
+      ))}
+    </View>
+  );
+}
+
 /* ── Drifting particles (embers / snow / bubbles / stars) ───────────────── */
 
 function Particle({

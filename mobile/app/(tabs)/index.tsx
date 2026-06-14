@@ -89,6 +89,7 @@ export default function HomeScreen() {
         bannerId={user?.banner}
         themeId={themeId}
         overlayOpacity={0.62}
+        live
         style={StyleSheet.absoluteFill}
       />
       <Screen
