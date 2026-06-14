@@ -28,7 +28,7 @@ interface Props {
 const CARDS = [
   { key: "singleplayer" as Screen, title: "PASS & PLAY", sub: "" },
   { key: "lobby" as Screen, title: "1V1: ONLINE", sub: "" },
-  { key: "ai" as Screen, title: "TRAINING BOTS", sub: "" },
+  { key: "ai" as Screen, title: "TRAINING", sub: "" },
 ];
 
 type Breakpoint = "mobile" | "tablet" | "desktop";
