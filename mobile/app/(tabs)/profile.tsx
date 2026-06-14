@@ -199,7 +199,6 @@ export default function ProfileScreen() {
           bannerId={user.banner}
           themeId={themeId}
           overlayOpacity={0.5}
-          live
           style={StyleSheet.absoluteFill}
         />
       </View>
