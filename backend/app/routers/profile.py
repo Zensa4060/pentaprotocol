@@ -137,6 +137,13 @@ def _serialize_user(user: dict) -> dict:
         # respectively and "claimed" once the player consumes the reward.
         "bot_defeats":         user.get("bot_defeats") or {},
         "bot_rewards":         _normalize_bot_rewards(user),
+        # ── missions ──────────────────────────────────────────────────────
+        # Authoritative per-period claim ledger, keyed
+        # "{period}:{periodKey}:{missionId}" → true. Surfaced so the client
+        # can render already-claimed missions correctly on any device / after
+        # a cache wipe, instead of trusting only its local state (which made
+        # claimed missions reappear as claimable every visit).
+        "mission_claims":      user.get("mission_claims") or {},
         # Kept for backward compat with any older clients still reading the
         # single-field banner reward; equals `bot_rewards.banner`.
         "bot_banner_reward":   _normalize_bot_rewards(user)["banner"],

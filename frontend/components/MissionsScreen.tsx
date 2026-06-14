@@ -12,6 +12,7 @@ import {
   getWeekStartLocal,
   loadMissionEvents,
   loadMissionState,
+  saveMissionState,
   claimMissionReward,
   postClaimMissionToServer,
   syncMissionClaimedLocal,
@@ -112,6 +113,29 @@ export default function MissionsScreen({ themeId, initialTab }: Props) {
     const id = window.setInterval(() => setNowMs(Date.now()), 1000);
     return () => window.clearInterval(id);
   }, []);
+
+  // Seed the local claimed ledger from the server's authoritative
+  // ``mission_claims`` map. Previously the claimed state lived only in
+  // localStorage, so on a fresh device / cleared cache every already-claimed
+  // mission reappeared as claimable. We merge any server-claimed keys the
+  // local copy is missing, then notify so the board re-renders.
+  useEffect(() => {
+    if (!userKey) return;
+    const serverClaims = (profile as { mission_claims?: Record<string, boolean> }).mission_claims;
+    if (!serverClaims || typeof serverClaims !== "object") return;
+    const local = loadMissionState(userKey);
+    let changed = false;
+    for (const [key, val] of Object.entries(serverClaims)) {
+      if (val && !local.claimed[key]) {
+        local.claimed[key] = true;
+        changed = true;
+      }
+    }
+    if (changed) {
+      saveMissionState(userKey, local);
+      window.dispatchEvent(new CustomEvent("pp_mission_state_change"));
+    }
+  }, [profile, userKey]);
 
   const unifiedNow = new Date(nowMs);
   const todayKey = formatDateKeyLocal(unifiedNow);

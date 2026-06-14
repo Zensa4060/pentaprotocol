@@ -27,6 +27,7 @@ import {
   claimMission,
   formatCountdown,
   msUntilReset,
+  periodKeyFor,
   type MissionBoard,
   type MissionPeriod,
   type MissionView,
@@ -73,6 +74,15 @@ export default function MissionsScreen() {
 
   const board = user ? buildMissions(user, career) : EMPTY;
 
+  // A mission counts as claimed if either this session just claimed it OR
+  // the server's authoritative ledger (refreshed on focus via fetchProfile)
+  // already has it. Without the server check, claimed missions reappeared
+  // as claimable on every tab visit / app restart because `claimed` is
+  // session-local state that resets on mount.
+  const missionClaimed = (m: MissionView) =>
+    claimed.has(m.id) ||
+    Boolean(user?.mission_claims?.[`${m.period}:${periodKeyFor(m.period)}:${m.id}`]);
+
   const onClaim = async (m: MissionView) => {
     if (busy) return;
     setBusy(m.id);
@@ -97,7 +107,7 @@ export default function MissionsScreen() {
 
   const renderMission = (m: MissionView) => {
     const pct = Math.min(1, m.target > 0 ? m.value / m.target : 0);
-    const isClaimed = claimed.has(m.id);
+    const isClaimed = missionClaimed(m);
     return (
       <Card key={m.id} padding="md" style={{ gap: space[2] }} glow={!!m.betaProtoCredits}>
         <Row justify="between" align="center">
@@ -134,7 +144,7 @@ export default function MissionsScreen() {
   };
 
   const claimableOf = (list: MissionView[]) =>
-    list.filter((m) => m.complete && !claimed.has(m.id));
+    list.filter((m) => m.complete && !missionClaimed(m));
 
   // Claim every completed mission in a section with one tap (web parity).
   const onClaimAll = async (list: MissionView[]) => {

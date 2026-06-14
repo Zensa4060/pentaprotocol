@@ -112,6 +112,8 @@ export default function SettingsScreen() {
         text: "Sign out",
         style: "destructive",
         onPress: async () => {
+          // logout() also clears the cached Google account, so the next
+          // Google sign-in shows the account chooser again.
           await logout();
           router.replace("/(auth)/login");
         },
