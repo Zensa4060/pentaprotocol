@@ -207,12 +207,18 @@ export function BannerRenderer({
   live = false,
 }: BannerRendererProps) {
   const id = normalizeId(bannerId);
-  const stops: Stops =
-    id === "default"
-      ? DEFAULT_THEME_GRADIENTS[themeId] ?? DEFAULT_THEME_GRADIENTS.classic_dark
-      : BANNER_GRADIENTS[id] ?? DEFAULT_THEME_GRADIENTS[themeId] ?? BANNER_GRADIENTS.default;
-  // Verbatim web-canvas banner (WebView) — only when showcased and ported.
-  const liveHtml = useMemo(() => (live ? bannerHtmlFor(id) : null), [live, id]);
+  // Only Digital Rain renders its banner skin right now; every other banner
+  // (including "default") falls back to the plain theme backdrop — all other
+  // banner skins are intentionally removed from the game for now.
+  const isDigitalRain = id === "digital_rain";
+  const stops: Stops = isDigitalRain
+    ? BANNER_GRADIENTS.digital_rain
+    : DEFAULT_THEME_GRADIENTS[themeId] ?? DEFAULT_THEME_GRADIENTS.classic_dark;
+  // Verbatim web-canvas Digital Rain (WebView) when showcased; gradient + Fx otherwise.
+  const liveHtml = useMemo(
+    () => (live && isDigitalRain ? bannerHtmlFor("digital_rain") : null),
+    [live, isDigitalRain],
+  );
 
   return (
     <View style={[styles.fill, style]} pointerEvents="none">
@@ -222,7 +228,7 @@ export function BannerRenderer({
         end={{ x: 1, y: 1 }}
         style={StyleSheet.absoluteFill}
       />
-      {liveHtml ? <CanvasWebView html={liveHtml} /> : animated ? <BannerFx id={id} /> : null}
+      {liveHtml ? <CanvasWebView html={liveHtml} /> : isDigitalRain && animated ? <BannerFx id="digital_rain" /> : null}
       {overlayOpacity > 0 ? (
         <View
           style={[
