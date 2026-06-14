@@ -104,7 +104,12 @@ function noteLevelUp(
   next: User,
   set: (partial: Partial<AuthState>) => void,
 ): void {
-  const oldLevel = Number(prev?.level ?? 1);
+  // No prior profile means this is the initial login / hydration, not a
+  // real level *change* — comparing against a default of 1 would fire a
+  // bogus "1 → N" celebration on every fresh sign-in. Only a genuine
+  // increase between two known profiles counts.
+  if (!prev) return;
+  const oldLevel = Number(prev.level ?? 1);
   const newLevel = Number(next.level ?? oldLevel);
   if (newLevel > oldLevel) {
     set({ pendingLevelUp: { from: oldLevel, to: newLevel } });
@@ -148,7 +153,9 @@ export const useAuthStore = create<AuthState>()(
 
       setUser: async (user, token, keepSignedIn = false) => {
         await setToken(token);
-        noteLevelUp(get().user, user, set);
+        // Login is never a level-up moment (mirrors the web's setAuth,
+        // which doesn't check). The XP overlay only fires from profile
+        // refreshes / match results via setProfile + patchUser.
         set({
           user,
           isAuthenticated: true,

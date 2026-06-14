@@ -13,6 +13,7 @@
 import { isAxiosError } from "axios";
 
 import API from "./api";
+import { signOutGoogleNative } from "./googleAuth";
 import { useAuthStore } from "./store";
 import type { LoginResponse, User } from "./types";
 
@@ -190,6 +191,11 @@ export async function resetPasswordWithCode(input: {
  * just to call ``logout()``.
  */
 export async function logout(): Promise<void> {
+  // Forget the cached Google account on the way out. Without this the
+  // native SDK silently re-selects the last account on the next
+  // ``signIn()``, so the user never sees the account chooser again.
+  // Best-effort + no-op off Google builds (see signOutGoogleNative).
+  await signOutGoogleNative();
   await useAuthStore.getState().logout();
 }
 

@@ -96,6 +96,15 @@ export interface User {
   // ── AI-bot progression ───────────────────────────────────────
   bot_defeats: Record<string, boolean>;
   bot_rewards: BotRewards;
+
+  // ── missions ─────────────────────────────────────────────────
+  /**
+   * Server-authoritative claim ledger, keyed
+   * ``"{period}:{periodKey}:{missionId}"`` → true. Used to render
+   * already-claimed missions correctly across devices / restarts.
+   * Optional for resilience against older backends that omit it.
+   */
+  mission_claims?: Record<string, boolean>;
 }
 
 /**
