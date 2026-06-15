@@ -28,6 +28,8 @@ import {
   type FriendCareerFilter,
 } from "@/components/social/FriendCareerModal";
 import { FriendProfileSheet } from "@/components/social/FriendProfileSheet";
+import { CommunityLinks } from "@/components/community/CommunityLinks";
+import { TabSwipe } from "@/components/TabSwipe";
 import {
   acceptFriendRequest,
   blockUser,
@@ -199,6 +201,7 @@ export default function FriendsScreen() {
   }
 
   return (
+    <TabSwipe index={1}>
     <Screen
       scrollable
       padded
@@ -302,6 +305,11 @@ export default function FriendsScreen() {
           ))}
         </Stack>
       )}
+
+      {/* Community links — moved here from the Home tab (last section). */}
+      <Eyebrow tone="muted" style={styles.section}>COMMUNITY</Eyebrow>
+      <CommunityLinks title="" />
+
       <FriendCareerModal
         visible={!!careerFriend}
         friend={careerFriend}
@@ -318,6 +326,7 @@ export default function FriendsScreen() {
         onReport={onReportFriend}
       />
     </Screen>
+    </TabSwipe>
   );
 }
 

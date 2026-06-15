@@ -16,7 +16,8 @@
       "Bash(echo \"EXIT: $?\")",
       "Bash(python -c ' *)",
       "Bash(pip install *)",
-      "Bash(cd /c/Users/yagya/Documents/pentaprotocol/frontend && echo \"===structure===\" && find . -path ./node_modules -prune -o -type d -print 2>/dev/null | grep -v node_modules | head -60)"
+      "Bash(cd /c/Users/yagya/Documents/pentaprotocol/frontend && echo \"===structure===\" && find . -path ./node_modules -prune -o -type d -print 2>/dev/null | grep -v node_modules | head -60)",
+      "Bash(cd /d/pentaprotocol/mobile && ls node_modules 2>/dev/null | head -1 || echo \"NO_MOBILE_NM\"; ls /d/pentaprotocol/node_modules/.bin/tsc 2>/dev/null && echo \"ROOT_TSC\" || echo \"NO_ROOT_TSC\")"
     ]
   }
 }

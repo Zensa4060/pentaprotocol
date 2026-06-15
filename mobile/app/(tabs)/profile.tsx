@@ -49,6 +49,7 @@ import { RankBadge } from "@/components/RankBadge";
 import { RankLadder } from "@/components/RankLadder";
 import { BannerRenderer } from "@/components/BannerRenderer";
 import { CurrencyChip } from "@/components/CurrencyChip";
+import { TabSwipe } from "@/components/TabSwipe";
 import { useLocalAvatar } from "@/lib/avatar";
 import { logout } from "@/lib/auth";
 import { ApiError, fetchProfile } from "@/lib/profile";
@@ -165,6 +166,7 @@ export default function ProfileScreen() {
   const totalGames = user.wins + user.losses + user.draws;
 
   return (
+    <TabSwipe index={3}>
     <Screen
       scrollable
       padded
@@ -344,6 +346,7 @@ export default function ProfileScreen() {
         Delete account
       </Btn>
     </Screen>
+    </TabSwipe>
   );
 }
 

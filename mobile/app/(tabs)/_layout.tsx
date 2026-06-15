@@ -22,6 +22,9 @@ export default function TabLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
+        // Smooth horizontal slide when switching tabs — pairs with the
+        // swipe-to-switch gesture (``components/TabSwipe``).
+        animation: "shift",
         tabBarButton: HapticTab,
         tabBarActiveTintColor: colors.accent,
         tabBarInactiveTintColor: colors.textMuted,

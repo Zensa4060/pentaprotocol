@@ -35,6 +35,7 @@ import { useAuthStore } from "@/lib/store";
 import type { CareerMatch } from "@/lib/types";
 import { radii, space } from "@/theme/tokens";
 import { usePalette } from "@/theme/ThemeProvider";
+import { TabSwipe } from "@/components/TabSwipe";
 
 const EMPTY: MissionBoard = { daily: [], weekly: [], permanent: [] };
 
@@ -197,6 +198,7 @@ export default function MissionsScreen() {
   };
 
   return (
+    <TabSwipe index={2}>
     <Screen
       scrollable
       padded
@@ -231,6 +233,7 @@ export default function MissionsScreen() {
       {sectionHeader("PERMANENT", "permanent", board.permanent)}
       <Stack gap={3}>{board.permanent.map(renderMission)}</Stack>
     </Screen>
+    </TabSwipe>
   );
 }
 
