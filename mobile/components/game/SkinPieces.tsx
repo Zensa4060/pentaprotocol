@@ -13,11 +13,11 @@
  */
 
 import { useId } from "react";
-import Svg, { Circle, Defs, G, Line, Path, Polygon, RadialGradient, Rect, Stop } from "react-native-svg";
+import Svg, { Circle, Defs, G, Line, Path, Polygon, RadialGradient, Rect, Stop, Text as SvgText } from "react-native-svg";
 
 /** True when a skin ships illustrated (SVG) pieces rather than glyphs. */
 export function skinHasPieceArt(skinId: string): boolean {
-  return skinId === "red_grid" || skinId === "glacier_grid";
+  return skinId === "red_grid" || skinId === "glacier_grid" || skinId === "matrix_grid";
 }
 
 /** Normalize a board owner token to player 1 vs player 2. */
@@ -42,6 +42,9 @@ export function SkinPieceArt({ skinId, owner, size }: SkinPieceArtProps) {
   }
   if (skinId === "glacier_grid") {
     return isPlayerOne(owner) ? <SnowflakePiece size={size} /> : <IceShardPiece size={size} />;
+  }
+  if (skinId === "matrix_grid") {
+    return isPlayerOne(owner) ? <MatrixBracketPiece size={size} /> : <BinaryPillPiece size={size} />;
   }
   return null;
 }
@@ -157,6 +160,34 @@ function IceShardPiece({ size }: { size: number }) {
   );
 }
 
+/** Matrix P1 — code brackets ``[ ]`` with rungs + cursor (web ``MatrixBracket``). */
+function MatrixBracketPiece({ size }: { size: number }) {
+  const s = Math.max(16, Math.floor(size * 0.58));
+  return (
+    <Svg width={s} height={s} viewBox="0 0 48 48">
+      <Path d="M22,6 L16,6 L16,42 L22,42" fill="none" stroke="#00ff41" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M26,6 L32,6 L32,42 L26,42" fill="none" stroke="#00ff41" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
+      {[14, 19, 24, 29, 34].map((y, i) => (
+        <Line key={i} x1={19} y1={y} x2={29} y2={y} stroke="#00cc33" strokeWidth={1.2} opacity={0.4 + i * 0.05} />
+      ))}
+      <Rect x={21} y={22} width={6} height={3} fill="#00ff41" opacity={0.9} />
+    </Svg>
+  );
+}
+
+/** Matrix P2 — binary pill ``01 | 10`` (web ``BinaryPill``). */
+function BinaryPillPiece({ size }: { size: number }) {
+  const s = Math.max(16, Math.floor(size * 0.58));
+  return (
+    <Svg width={s} height={s} viewBox="0 0 48 48">
+      <Rect x={6} y={10} width={36} height={28} rx={14} fill="rgba(74,222,128,0.08)" stroke="#4ade80" strokeWidth={2.2} />
+      <Line x1={24} y1={10} x2={24} y2={38} stroke="#4ade80" strokeWidth={1.2} opacity={0.4} />
+      <SvgText x={10} y={28} fontSize={10} fontFamily="monospace" fontWeight="bold" fill="#4ade80">01</SvgText>
+      <SvgText x={26} y={28} fontSize={10} fontFamily="monospace" fontWeight="bold" fill="#86efac">10</SvgText>
+    </Svg>
+  );
+}
+
 /** Colored glow per skin/owner for the caller's iOS view shadow. */
 export function skinPieceGlow(skinId: string, owner: string): string {
   if (skinId === "red_grid") {
@@ -164,6 +195,9 @@ export function skinPieceGlow(skinId: string, owner: string): string {
   }
   if (skinId === "glacier_grid") {
     return isPlayerOne(owner) ? "rgba(125,211,252,0.9)" : "rgba(147,197,253,0.9)";
+  }
+  if (skinId === "matrix_grid") {
+    return isPlayerOne(owner) ? "rgba(0,255,65,0.9)" : "rgba(74,222,128,0.9)";
   }
   return "rgba(0,0,0,0)";
 }

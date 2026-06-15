@@ -51,6 +51,23 @@ const SKINS: Record<string, BoardSkin> = {
     atmosphereInner: "rgba(56,189,248,0.16)",
     atmosphereOuter: "rgba(167,139,250,0.10)",
   },
+  // Matrix Bundle — falling code rain + glowing green grid, code-bracket &
+  // binary-pill pieces. Rendered via the verbatim web MatrixGrid canvas.
+  matrix_grid: {
+    id: "matrix_grid",
+    boardBg: "#000800",
+    boardLine: "rgba(0,255,65,0.45)",
+    cellBg: "#02160A",
+    cellBorder: "rgba(0,255,65,0.22)",
+    accent: "#00FF41",
+    p1Color: "#00FF41",
+    p2Color: "#4ADE80",
+    pieceGlow: "rgba(0,255,65,0.85)",
+    p1Glyph: "[ ]",
+    p2Glyph: "01",
+    atmosphereInner: "rgba(0,255,65,0.14)",
+    atmosphereOuter: "rgba(0,200,40,0.08)",
+  },
 };
 
 /** Skin for an equipped ``board_style`` — null for default/unknown/removed ids. */
