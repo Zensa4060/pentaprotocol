@@ -6,20 +6,22 @@
  *   - Solo practice (local alternating stones, undo)
  *   - AI Bot — named server opponents via ``POST /api/bot/move``
  *     (lives here, under offline, rather than as its own home tile).
+ *
+ * Redesign (UI only): HUD header + accent-ticked section and left-tick mode
+ * cards, matching the rest of the app. Navigation targets are unchanged.
  */
 
 import { router, Stack } from "expo-router";
-import { Pressable, StyleSheet, View } from "react-native";
+import { Pressable, StyleSheet } from "react-native";
 
 import {
   Body,
   Caption,
-  Eyebrow,
   Heading,
   Screen,
   Stack as VStack,
-  Title,
 } from "@/components/ui";
+import { HudHeader, SectionLabel } from "@/components/ui/hud";
 import { colors, radii, space } from "@/theme/tokens";
 
 export default function TrainingHubScreen() {
@@ -32,23 +34,18 @@ export default function TrainingHubScreen() {
     <Screen scrollable padded contentContainerStyle={{ paddingBottom: space[10] }}>
       <Stack.Screen options={{ headerShown: false }} />
 
-      <View style={{ height: space[3] }} />
-      <Pressable onPress={goBack} hitSlop={12} accessibilityRole="button">
-        <Caption tone="muted">← BACK</Caption>
-      </Pressable>
+      <HudHeader
+        title="PLAY OFFLINE"
+        eyebrow="1V1 · OFFLINE — TUTORIAL · SOLO · AI BOT"
+        onBack={goBack}
+      />
 
-      <VStack gap={3} style={{ marginTop: space[6] }}>
-        <Eyebrow tone="muted">1V1 : OFFLINE</Eyebrow>
-        <Title>Play offline</Title>
-        <Body tone="muted">
-          No queue required. Replay the tutorial, practise solo on a local board, or fight the
-          AI Bot for XP.
-        </Body>
-      </VStack>
+      <Body tone="muted" style={{ marginTop: space[4] }}>
+        No queue required. Replay the tutorial, practise solo on a local board, or fight the
+        AI Bot for XP.
+      </Body>
 
-      <Eyebrow tone="muted" style={{ marginTop: space[7], marginBottom: space[2] }}>
-        MODES
-      </Eyebrow>
+      <SectionLabel label="MODES" style={styles.section} />
 
       <VStack gap={3}>
         <HubCard
@@ -104,19 +101,20 @@ function HubCard({
       style={({ pressed }) => [
         styles.card,
         { borderLeftColor: accent },
-        pressed && { backgroundColor: colors.bgRaised },
+        pressed && { backgroundColor: colors.bgCard, borderColor: colors.borderAccent },
       ]}
     >
       <VStack gap={1} fill>
         <Heading>{title}</Heading>
         <Body tone="muted">{subtitle}</Body>
       </VStack>
-      <Caption tone="dim">›</Caption>
+      <Caption tone="dim" style={{ fontSize: 18 }}>›</Caption>
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
+  section: { marginTop: space[7], marginBottom: space[3] },
   card: {
     flexDirection: "row",
     alignItems: "center",
@@ -127,13 +125,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     borderLeftWidth: 4,
-    backgroundColor: colors.bgCard,
-  },
-  noteCard: {
-    backgroundColor: colors.bgCard,
-    borderRadius: radii.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: space[4],
+    backgroundColor: colors.bgElevated,
   },
 });

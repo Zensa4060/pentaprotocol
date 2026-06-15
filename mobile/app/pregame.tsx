@@ -17,13 +17,11 @@ import {
   Body,
   Btn,
   Caption,
-  Eyebrow,
-  Heading,
   Row,
   Screen,
   Stack as VStack,
-  Title,
 } from "@/components/ui";
+import { HudHeader, Panel, SectionLabel } from "@/components/ui/hud";
 import {
   CORE_LINE_PATTERNS,
   defaultPatternsForGrid,
@@ -112,33 +110,27 @@ export default function PreGameScreen() {
     <Screen scrollable padded background={palette.bg} contentContainerStyle={{ paddingBottom: space[10] }}>
       <Stack.Screen options={{ headerShown: false }} />
 
-      <View style={{ height: space[3] }} />
-      <Pressable onPress={goBack} hitSlop={12}>
-        <Caption tone="muted">← BACK</Caption>
-      </Pressable>
+      <HudHeader
+        onBack={goBack}
+        eyebrow={modeLabel}
+        title={
+          mode === "multiplayer"
+            ? "TRIPLE LEG — 5×5 START"
+            : `BEST OF 3 — ${displayGrid}×${displayGrid}`
+        }
+      />
 
-      <VStack gap={2} style={{ marginTop: space[5] }}>
-        <Eyebrow tone="muted">{modeLabel}</Eyebrow>
+      <VStack gap={1} style={{ marginTop: space[3] }}>
         {mode === "multiplayer" ? (
-          <>
-            <Title>Triple leg — starts 5×5</Title>
-            <Body tone="muted">
-              First to 3 wins · 9 games (5×5 → 6×6 → 7×7) · draws score 0
-            </Body>
-          </>
+          <Body tone="muted">First to 3 wins · 9 games (5×5 → 6×6 → 7×7) · draws score 0</Body>
         ) : (
-          <>
-            <Title>Best of 3 — {displayGrid}×{displayGrid}</Title>
-            <Body tone="muted">
-              First to 2 wins · max 3 games · all on {displayGrid}×{displayGrid}
-            </Body>
-          </>
+          <Body tone="muted">First to 2 wins · max 3 games · all on {displayGrid}×{displayGrid}</Body>
         )}
         {params.label ? <Body tone="muted">Opponent: {params.label}</Body> : null}
       </VStack>
 
-      <Eyebrow tone="muted" style={styles.section}>RULES</Eyebrow>
-      <View style={[styles.card, { backgroundColor: palette.bgCard, borderColor: palette.border }]}>
+      <SectionLabel label="RULES" style={styles.section} />
+      <Panel style={styles.card}>
         {tripleLeg ? (
           <>
             <RuleLine label="Format" value="5×5 G1–3, then 6×6 G4–6, then 7×7 G7–9" />
@@ -163,10 +155,10 @@ export default function PreGameScreen() {
             ) : null}
           </>
         )}
-      </View>
+      </Panel>
 
-      <Row justify="between" align="baseline" style={styles.section}>
-        <Eyebrow tone="muted">{canPick5 ? "PICK YOUR PATTERNS" : "WIN PATTERNS"}</Eyebrow>
+      <Row justify="between" align="center" style={styles.section}>
+        <SectionLabel label={canPick5 ? "PICK YOUR PATTERNS" : "WIN PATTERNS"} />
         {canPick5 ? (
           <Row gap={2} align="center">
             <Caption tone={selected5.length === 3 ? "accent" : "danger"}>
@@ -227,9 +219,7 @@ export default function PreGameScreen() {
 
       {Object.keys(coreMeta).length > 0 ? (
         <>
-          <Eyebrow tone="muted" style={{ marginTop: space[4], marginBottom: space[2] }}>
-            CORE RULE
-          </Eyebrow>
+          <SectionLabel label="CORE RULE" style={{ marginTop: space[4], marginBottom: space[2] }} />
           <Body tone="muted">{coreMeta[Object.keys(coreMeta)[0]].desc}</Body>
         </>
       ) : null}

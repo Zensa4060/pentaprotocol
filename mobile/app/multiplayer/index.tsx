@@ -8,16 +8,14 @@
  *   - **Rejoin**: surfaces when ``/api/room/active/check`` finds
  *     the user is mid-match — bypasses the lobby entirely.
  *
- * v1 deliberately ships a private-rooms-only flow (no public
- * matchmaking, no ranked queue, no chat). Most invites in the wild
- * happen through a friend channel anyway (share the 4-char code
- * over messages), and the queue server-side is more complex to
- * surface honestly without skin-level cosmetics.
+ * Redesign (UI only): HUD header + accent-ticked sections, void Panels for
+ * the create / join blocks, and an accent-active rejoin Panel — matching the
+ * Store / Collection / Profile aesthetic. All room logic is unchanged.
  */
 
 import { router, Stack, useFocusEffect, type Href } from "expo-router";
 import { useCallback, useState } from "react";
-import { Alert, Pressable, StyleSheet, View } from "react-native";
+import { Alert, StyleSheet, View } from "react-native";
 
 import {
   Body,
@@ -27,10 +25,9 @@ import {
   Row,
   Screen,
   Spinner,
-  Stack as VStack,
   TextField,
-  Title,
 } from "@/components/ui";
+import { HudHeader, Panel, SectionLabel } from "@/components/ui/hud";
 import { useLobbyBgm } from "@/lib/hooks/useMatchSounds";
 import { useAuthStore } from "@/lib/store";
 import {
@@ -41,7 +38,7 @@ import {
 } from "@/lib/multiplayer/rooms";
 import type { ActiveRoomCheck } from "@/lib/multiplayer/types";
 import { gridParamFromBoardMode } from "@/lib/game/boardConfig";
-import { colors, radii, space } from "@/theme/tokens";
+import { space } from "@/theme/tokens";
 
 export default function MultiplayerLobby() {
   const user = useAuthStore((s) => s.user);
@@ -148,22 +145,17 @@ export default function MultiplayerLobby() {
     <Screen scrollable padded contentContainerStyle={{ paddingBottom: space[10] }}>
       <Stack.Screen options={{ headerShown: false }} />
 
-      <View style={{ height: space[3] }} />
-      <Pressable onPress={goBack} hitSlop={12} accessibilityRole="button">
-        <Caption tone="muted">← BACK</Caption>
-      </Pressable>
+      <HudHeader
+        title="MULTIPLAYER"
+        eyebrow="RANKED · UNRANKED · PRIVATE ROOMS"
+        onBack={goBack}
+      />
 
-      <VStack gap={3} style={{ marginTop: space[6] }}>
-        <Eyebrow tone="muted">MULTIPLAYER</Eyebrow>
-        <Title>Multiplayer</Title>
-        <Body tone="muted">
-          Queue for ranked or unranked matches, or create a private room for a friend.
-        </Body>
-      </VStack>
+      <Body tone="muted" style={{ marginTop: space[4] }}>
+        Queue for ranked or unranked matches, or create a private room for a friend.
+      </Body>
 
-      <Eyebrow tone="muted" style={{ marginTop: space[6], marginBottom: space[2] }}>
-        MATCHMAKING
-      </Eyebrow>
+      <SectionLabel label="MATCHMAKING" style={styles.section} />
       <Row gap={3}>
         <View style={{ flex: 1 }}>
           <Btn
@@ -206,7 +198,7 @@ export default function MultiplayerLobby() {
           <Caption tone="muted">Checking for active matches…</Caption>
         </Row>
       ) : active ? (
-        <View style={styles.activeBanner}>
+        <Panel active style={styles.activeBanner}>
           <Eyebrow tone="accent">REJOIN</Eyebrow>
           <View style={{ height: space[2] }} />
           <Body>
@@ -220,14 +212,12 @@ export default function MultiplayerLobby() {
           <Btn variant="primary" onPress={onRejoin}>
             Rejoin match
           </Btn>
-        </View>
+        </Panel>
       ) : null}
 
       {/* ── Create ─────────────────────────────────────────────── */}
-      <Eyebrow tone="muted" style={{ marginTop: space[8], marginBottom: space[3] }}>
-        CREATE A ROOM
-      </Eyebrow>
-      <View style={styles.actionCard}>
+      <SectionLabel label="CREATE A ROOM" style={styles.section} />
+      <Panel style={styles.actionCard}>
         <Body tone="muted">
           Full leg · 5×5 → 6×6 → 7×7 · first to 3 · XP rewarded. Share the room
           code with a friend.
@@ -241,13 +231,11 @@ export default function MultiplayerLobby() {
         >
           Create room
         </Btn>
-      </View>
+      </Panel>
 
       {/* ── Join ───────────────────────────────────────────────── */}
-      <Eyebrow tone="muted" style={{ marginTop: space[7], marginBottom: space[3] }}>
-        JOIN BY CODE
-      </Eyebrow>
-      <View style={styles.actionCard}>
+      <SectionLabel label="JOIN BY CODE" style={styles.section} />
+      <Panel style={styles.actionCard}>
         <TextField
           label="Room code"
           value={code}
@@ -268,38 +256,18 @@ export default function MultiplayerLobby() {
         >
           Join
         </Btn>
-      </View>
+      </Panel>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  sizeChip: {
-    flex: 1,
-    paddingVertical: space[3],
-    borderRadius: radii.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.bgCard,
-    alignItems: "center",
-  },
-  sizeChipOn: {
-    borderColor: colors.accent,
-    backgroundColor: colors.bgRaised,
-  },
+  section: { marginTop: space[7], marginBottom: space[3] },
   actionCard: {
-    backgroundColor: colors.bgCard,
-    borderRadius: radii.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
     padding: space[5],
   },
   activeBanner: {
     marginTop: space[6],
-    backgroundColor: colors.bgCard,
-    borderRadius: radii.lg,
-    borderWidth: 2,
-    borderColor: colors.borderAccent,
     padding: space[5],
   },
 });

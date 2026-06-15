@@ -66,13 +66,13 @@ const styles = StyleSheet.create({
   btn: {
     paddingVertical: space[2],
     paddingHorizontal: space[3],
-    borderRadius: radii.sm,
-    borderWidth: 2,
-    borderColor: "rgba(0,229,255,0.55)",
-    backgroundColor: "rgba(0,229,255,0.1)",
+    borderRadius: radii.pill,
+    borderWidth: 1,
+    borderColor: colors.borderAccent,
+    backgroundColor: "rgba(204,0,0,0.1)",
   },
   btnActive: {
-    backgroundColor: "rgba(0,229,255,0.22)",
+    backgroundColor: "rgba(204,0,0,0.22)",
     borderColor: colors.accent,
   },
   btnPressed: {

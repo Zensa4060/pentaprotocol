@@ -18,8 +18,8 @@ import {
   Row,
   Screen,
   Stack,
-  Title,
 } from "@/components/ui";
+import { HudHeader, SectionLabel } from "@/components/ui/hud";
 import { fetchCareer } from "@/lib/career";
 import { fetchProfile } from "@/lib/profile";
 import {
@@ -185,8 +185,8 @@ export default function MissionsScreen() {
     const claimable = claimableOf(list);
     return (
       <Row justify="between" align="center" style={styles.section}>
-        <Row gap={2} align="baseline">
-          <Eyebrow tone="muted">{label}</Eyebrow>
+        <Row gap={3} align="center">
+          <SectionLabel label={label} />
           {period !== "permanent" ? (
             <Caption tone="dim">resets in {formatCountdown(msUntilReset(period))}</Caption>
           ) : null}
@@ -219,11 +219,7 @@ export default function MissionsScreen() {
         ),
       }}
     >
-      <View style={{ height: space[3] }} />
-      <Title>Missions</Title>
-      <Body tone="muted" style={{ marginTop: space[2] }}>
-        Complete goals to earn XP. Daily & weekly reset on a timer.
-      </Body>
+      <HudHeader title="MISSIONS" eyebrow="COMPLETE GOALS · EARN XP · DAILY & WEEKLY RESET" />
 
       {/* Beta offer banner */}
       <View style={[styles.betaBanner, { borderColor: palette.accent, backgroundColor: palette.bgCard }]}>

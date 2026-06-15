@@ -273,10 +273,10 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     paddingVertical: space[2],
-    borderRadius: radii.sm,
+    borderRadius: radii.md,
     borderWidth: 1,
     borderColor: colors.border,
-    backgroundColor: colors.bgCard,
+    backgroundColor: colors.bgElevated,
   },
   // No vertical margins on banner/badge — they live inside fixed-height
   // HUD rows and a margin pushed the text out of the row (clipped to a
@@ -285,7 +285,7 @@ const styles = StyleSheet.create({
     paddingVertical: space[1],
     paddingHorizontal: space[2],
     borderRadius: radii.sm,
-    backgroundColor: colors.bgRaised,
+    backgroundColor: "rgba(204,0,0,0.08)",
     borderWidth: 1,
     borderColor: colors.borderAccent,
     justifyContent: "center",
@@ -308,7 +308,7 @@ const styles = StyleSheet.create({
     borderRadius: radii.md,
     borderWidth: 1,
     borderColor: colors.border,
-    backgroundColor: colors.bgCard,
+    backgroundColor: colors.bgElevated,
   },
   logScroll: {
     flex: 1,

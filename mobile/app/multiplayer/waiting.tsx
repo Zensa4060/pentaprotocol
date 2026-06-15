@@ -29,7 +29,6 @@ import {
   Body,
   Btn,
   Caption,
-  Eyebrow,
   Heading,
   Row,
   Screen,
@@ -37,6 +36,7 @@ import {
   Stack as VStack,
   Title,
 } from "@/components/ui";
+import { SectionLabel } from "@/components/ui/hud";
 import {
   forfeitMatch,
   RoomError,
@@ -147,11 +147,11 @@ export default function MultiplayerWaiting() {
 
       <View style={{ height: space[3] }} />
       <Pressable onPress={onCancel} hitSlop={12} accessibilityRole="button">
-        <Caption tone="muted">← CANCEL</Caption>
+        <Caption tone="muted">‹  CANCEL</Caption>
       </Pressable>
 
       <VStack gap={3} style={{ marginTop: space[6] }}>
-        <Eyebrow tone="muted">ROOM CODE</Eyebrow>
+        <SectionLabel label="ROOM CODE — SHARE WITH A FRIEND" />
         <View style={styles.codeBox}>
           <Heading style={styles.code}>{code || "----"}</Heading>
         </View>

@@ -1,19 +1,21 @@
 /**
  * Ranked / unranked matchmaking queue.
+ *
+ * Redesign (UI only): a centered matchmaking "radar" — a pulsing accent ring
+ * around the live search timer — over the void canvas, matching the rest of
+ * the app. All queue / poll / bot-filler / timeout logic is unchanged.
  */
 
 import { router, Stack, useLocalSearchParams, type Href } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
+import { Alert, Animated, Easing, Pressable, StyleSheet, Text, View } from "react-native";
 
 import {
   Body,
   Btn,
   Caption,
   Eyebrow,
-  Row,
   Screen,
-  Spinner,
   Title,
 } from "@/components/ui";
 import {
@@ -243,14 +245,19 @@ export default function MatchmakingQueueScreen() {
     <Screen padded>
       <Stack.Screen options={{ headerShown: false }} />
       <Pressable onPress={cancel} hitSlop={12}>
-        <Caption tone="muted">← CANCEL</Caption>
+        <Caption tone="muted">‹  CANCEL</Caption>
       </Pressable>
 
       <View style={styles.center}>
-        <Eyebrow tone="accent">{format === "ranked" ? "RANKED" : "UNRANKED"} QUEUE</Eyebrow>
+        <Eyebrow tone="accent" style={{ letterSpacing: 2 }}>
+          {format === "ranked" ? "RANKED" : "UNRANKED"} QUEUE
+        </Eyebrow>
         {timedOut ? (
           <>
-            <Title style={{ marginTop: space[3] }}>No opponent found</Title>
+            <View style={styles.idleOrb}>
+              <Text style={styles.orbX}>×</Text>
+            </View>
+            <Title style={{ marginTop: space[5] }}>No opponent found</Title>
             <Body tone="muted" style={{ marginTop: space[2], textAlign: "center" }}>
               We couldn&apos;t match you within {SEARCH_TIMEOUT_S}s. The queue may be quiet right now —
               try again, or play the AI Bot offline.
@@ -258,16 +265,18 @@ export default function MatchmakingQueueScreen() {
           </>
         ) : (
           <>
-            <Title style={{ marginTop: space[3] }}>Searching…</Title>
+            <RadarRing>
+              <Text style={styles.timer}>
+                {mm}:{ss}
+              </Text>
+              <Caption tone="dim" style={{ letterSpacing: 1.5, marginTop: 2 }}>SEARCHING</Caption>
+            </RadarRing>
+            <Title style={{ marginTop: space[6] }}>Finding a match…</Title>
             <Body tone="muted" style={{ marginTop: space[2], textAlign: "center" }}>
               {format === "ranked"
                 ? "Matching by hidden MMR across 5×5 → 6×6 → 7×7 legs."
                 : "Full leg · 5×5 → 6×6 → 7×7 · a filler bot may join after ~10s."}
             </Body>
-            <Text style={styles.timer}>
-              {mm}:{ss}
-            </Text>
-            {!error ? <Spinner style={{ marginTop: space[6] }} /> : null}
           </>
         )}
         {error ? (
@@ -298,18 +307,109 @@ export default function MatchmakingQueueScreen() {
   );
 }
 
+/** Matchmaking radar — two concentric static rings + an outward-pulsing ring. */
+function RadarRing({ children }: { children: React.ReactNode }) {
+  const a = useRef(new Animated.Value(0)).current;
+  const b = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const mk = (v: Animated.Value, delay: number) =>
+      Animated.loop(
+        Animated.sequence([
+          Animated.delay(delay),
+          Animated.timing(v, {
+            toValue: 1,
+            duration: 2200,
+            easing: Easing.out(Easing.ease),
+            useNativeDriver: true,
+          }),
+        ]),
+      );
+    const l1 = mk(a, 0);
+    const l2 = mk(b, 1100);
+    l1.start();
+    l2.start();
+    return () => {
+      l1.stop();
+      l2.stop();
+    };
+  }, [a, b]);
+
+  const ring = (v: Animated.Value) => ({
+    transform: [{ scale: v.interpolate({ inputRange: [0, 1], outputRange: [0.7, 1.85] }) }],
+    opacity: v.interpolate({ inputRange: [0, 0.4, 1], outputRange: [0, 0.55, 0] }),
+  });
+
+  return (
+    <View style={styles.ringWrap}>
+      <Animated.View style={[styles.pulseRing, ring(a)]} />
+      <Animated.View style={[styles.pulseRing, ring(b)]} />
+      <View style={styles.ringMid} />
+      <View style={styles.ringCore}>{children}</View>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   center: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    paddingTop: space[10],
+    paddingTop: space[8],
+  },
+  ringWrap: {
+    width: 220,
+    height: 220,
+    marginTop: space[6],
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  pulseRing: {
+    position: "absolute",
+    width: 200,
+    height: 200,
+    borderRadius: 100,
+    borderWidth: 1.5,
+    borderColor: colors.accent,
+  },
+  ringMid: {
+    position: "absolute",
+    width: 150,
+    height: 150,
+    borderRadius: 75,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  ringCore: {
+    width: 116,
+    height: 116,
+    borderRadius: 58,
+    borderWidth: 1.5,
+    borderColor: colors.borderAccent,
+    backgroundColor: colors.bgElevated,
+    alignItems: "center",
+    justifyContent: "center",
   },
   timer: {
-    marginTop: space[5],
     color: colors.accent,
-    fontSize: 32,
+    fontSize: 34,
     fontWeight: "900",
     letterSpacing: 2,
+  },
+  idleOrb: {
+    width: 116,
+    height: 116,
+    borderRadius: 58,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    backgroundColor: colors.bgElevated,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: space[6],
+  },
+  orbX: {
+    color: colors.textDim,
+    fontSize: 44,
+    fontWeight: "300",
   },
 });

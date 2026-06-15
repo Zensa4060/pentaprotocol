@@ -4,6 +4,10 @@
  * Wired to the existing ``/api/friends/*`` backend: friend code,
  * add-by-code, incoming requests (accept/decline), friends list with
  * presence, and per-friend actions (message / remove / block / report).
+ *
+ * Redesign (UI only): HUD header + accent-ticked sections, a void Panel
+ * for the friend code / add-by-code block, and presence-dot rows that match
+ * the Store / Collection / Profile aesthetic. All social logic is unchanged.
  */
 
 import { router, useFocusEffect } from "expo-router";
@@ -15,14 +19,13 @@ import {
   Body,
   Btn,
   Caption,
-  Eyebrow,
   Heading,
   Row,
   Screen,
   Stack,
   TextField,
-  Title,
 } from "@/components/ui";
+import { HudHeader, Panel, SectionLabel } from "@/components/ui/hud";
 import {
   FriendCareerModal,
   type FriendCareerFilter,
@@ -212,19 +215,21 @@ export default function FriendsScreen() {
         ),
       }}
     >
-      <View style={{ height: space[3] }} />
-      <Row justify="between" align="center">
-        <Title>Friends</Title>
-        <Pressable style={styles.communityBtn} onPress={() => router.push("/community")}>
-          <Caption tone="accent" style={{ fontWeight: "800" }}>COMMUNITY ›</Caption>
-        </Pressable>
-      </Row>
+      <HudHeader
+        title="FRIENDS"
+        eyebrow="ADD PLAYERS · REQUESTS · PRESENCE"
+        right={
+          <Pressable style={styles.communityBtn} onPress={() => router.push("/community")}>
+            <Caption tone="accent" style={{ fontWeight: "800" }}>COMMUNITY ›</Caption>
+          </Pressable>
+        }
+      />
 
       {/* My code + add */}
-      <View style={styles.card}>
-        <Caption tone="muted">YOUR FRIEND CODE</Caption>
-        <Row justify="between" align="center" style={{ marginTop: space[1] }}>
-          <Heading style={{ letterSpacing: 2 }}>{myCode}</Heading>
+      <Panel style={styles.codeCard}>
+        <SectionLabel label="YOUR FRIEND CODE" />
+        <Row justify="between" align="center" style={{ marginTop: space[2] }}>
+          <Heading style={{ letterSpacing: 3, fontWeight: "900" }}>{myCode}</Heading>
           <Pressable
             style={styles.copyBtn}
             onPress={() => {
@@ -235,10 +240,10 @@ export default function FriendsScreen() {
               }
             }}
           >
-            <Caption tone="accent" style={{ fontWeight: "800" }}>COPY / SHARE</Caption>
+            <Caption tone="accent" style={{ fontWeight: "800", letterSpacing: 0.5 }}>COPY / SHARE</Caption>
           </Pressable>
         </Row>
-        <View style={{ height: space[3] }} />
+        <View style={{ height: space[4] }} />
         <TextField
           label="Add by code"
           value={addCode}
@@ -252,23 +257,23 @@ export default function FriendsScreen() {
         <Btn variant="primary" loading={busy} disabled={addCode.trim().length < 4} onPress={onAdd}>
           Send request
         </Btn>
-      </View>
+      </Panel>
 
       {/* Requests */}
       {requests.length > 0 ? (
         <>
-          <Eyebrow tone="muted" style={styles.section}>REQUESTS</Eyebrow>
+          <SectionLabel label={`REQUESTS · ${requests.length}`} style={styles.section} />
           <Stack gap={2}>
             {requests.map((r) => (
               <View key={r.id} style={styles.row}>
                 <Avatar uri={r.from.avatar} name={r.from.username} size="sm" />
                 <View style={{ flex: 1 }}>
-                  <Body>{r.from.username}</Body>
+                  <Body style={{ fontWeight: "700" }}>{r.from.username}</Body>
                   <Caption tone="muted">Lvl {r.from.level} · {r.from.rank}</Caption>
                 </View>
                 <Row gap={2}>
                   <Pressable style={[styles.pill, { borderColor: colors.success }]} onPress={() => onAccept(r.id)}>
-                    <Caption tone="success">Accept</Caption>
+                    <Caption tone="success" style={{ fontWeight: "700" }}>Accept</Caption>
                   </Pressable>
                   <Pressable style={[styles.pill, { borderColor: colors.border }]} onPress={() => onDecline(r.id)}>
                     <Caption tone="muted">Decline</Caption>
@@ -281,33 +286,37 @@ export default function FriendsScreen() {
       ) : null}
 
       {/* Friends */}
-      <Eyebrow tone="muted" style={styles.section}>
-        ALL FRIENDS · {friends.length}
-      </Eyebrow>
+      <SectionLabel label={`ALL FRIENDS · ${friends.length}`} style={styles.section} />
       {friends.length === 0 ? (
-        <Caption tone="muted">No friends yet. Share your code to add some.</Caption>
+        <Panel style={styles.emptyCard}>
+          <Caption tone="muted" center>No friends yet. Share your code to add some.</Caption>
+        </Panel>
       ) : (
         <Stack gap={2}>
           {friends.map((f) => (
-            <Pressable key={f.id} style={styles.row} onPress={() => onFriendActions(f)}>
+            <Pressable
+              key={f.id}
+              style={({ pressed }) => [styles.row, pressed ? styles.rowPressed : null]}
+              onPress={() => onFriendActions(f)}
+            >
               <View>
                 <Avatar uri={f.avatar} name={f.username} size="sm" />
                 <View style={[styles.presence, { backgroundColor: f.online ? colors.success : colors.textDim }]} />
               </View>
               <View style={{ flex: 1 }}>
-                <Body>{f.username}</Body>
+                <Body style={{ fontWeight: "700" }}>{f.username}</Body>
                 <Caption tone="muted">
                   {f.online ? "Online" : "Offline"} · Lvl {f.level} · {f.rank}
                 </Caption>
               </View>
-              <Caption tone="muted">›</Caption>
+              <Caption tone="dim" style={{ fontSize: 18 }}>›</Caption>
             </Pressable>
           ))}
         </Stack>
       )}
 
       {/* Community links — moved here from the Home tab (last section). */}
-      <Eyebrow tone="muted" style={styles.section}>COMMUNITY</Eyebrow>
+      <SectionLabel label="COMMUNITY" style={styles.section} />
       <CommunityLinks title="" />
 
       <FriendCareerModal
@@ -337,38 +346,42 @@ const styles = StyleSheet.create({
     borderRadius: radii.sm,
     borderWidth: 1,
     borderColor: colors.borderAccent,
+    backgroundColor: "rgba(204,0,0,0.08)",
   },
   copyBtn: {
     paddingHorizontal: space[3],
     paddingVertical: space[2],
-    borderRadius: radii.sm,
+    borderRadius: radii.pill,
     borderWidth: 1,
     borderColor: colors.borderAccent,
-    backgroundColor: colors.bgRaised,
+    backgroundColor: "rgba(204,0,0,0.08)",
   },
-  card: {
-    marginTop: space[4],
-    backgroundColor: colors.bgCard,
-    borderRadius: radii.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
+  codeCard: {
+    marginTop: space[5],
     padding: space[4],
   },
-  section: { marginTop: space[6], marginBottom: space[2] },
+  emptyCard: {
+    padding: space[5],
+  },
+  section: { marginTop: space[6], marginBottom: space[3] },
   row: {
     flexDirection: "row",
     alignItems: "center",
     gap: space[3],
-    backgroundColor: colors.bgCard,
+    backgroundColor: colors.bgElevated,
     borderRadius: radii.md,
     borderWidth: 1,
     borderColor: colors.border,
     padding: space[3],
   },
+  rowPressed: {
+    borderColor: colors.borderAccent,
+    backgroundColor: colors.bgCard,
+  },
   pill: {
     paddingHorizontal: space[3],
     paddingVertical: space[1],
-    borderRadius: radii.sm,
+    borderRadius: radii.pill,
     borderWidth: 1,
   },
   presence: {
@@ -379,6 +392,6 @@ const styles = StyleSheet.create({
     height: 12,
     borderRadius: 6,
     borderWidth: 2,
-    borderColor: colors.bgCard,
+    borderColor: colors.bgElevated,
   },
 });
