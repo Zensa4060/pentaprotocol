@@ -73,6 +73,9 @@ import type { GridSize } from "@/lib/game/boardConfig";
 import { colors, radii, space } from "@/theme/tokens";
 import { usePalette } from "@/theme/ThemeProvider";
 
+/** Named hard bots that use the ranked BGM track (one per board chain). */
+const RANKED_BOT_IDS = new Set<BotId>(["jr", "him", "her"]);
+
 export default function EngineMatchScreen() {
   const params = useLocalSearchParams<{
     difficulty?: string;
@@ -216,7 +219,10 @@ export default function EngineMatchScreen() {
   });
 
   const audio = useGameAudio();
-  useMatchGameBgm();
+  // The named hard bots (JR. / HIM / HER) play the theme's ranked track,
+  // like ranked PvP — every other bot uses the normal game track. Mirrors
+  // the web's getBgmCtx rankedBotNames set in AppShell.
+  useMatchGameBgm(botId && RANKED_BOT_IDS.has(botId) ? "ranked" : "game");
   useGameEndSounds(match.result.status, match.result.winner, "P1");
   useRulebreakerPendingSound(series.phase === "breaker" || series.phase === "limitbreaker");
 
