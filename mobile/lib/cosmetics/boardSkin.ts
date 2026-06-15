@@ -68,6 +68,23 @@ const SKINS: Record<string, BoardSkin> = {
     atmosphereInner: "rgba(0,255,65,0.14)",
     atmosphereOuter: "rgba(0,200,40,0.08)",
   },
+  // Inferno Bundle — molten-ember board + flame / skull pieces. Rendered via
+  // the verbatim web RedGrid backdrop (embers + diagonal heat wash).
+  red_grid: {
+    id: "red_grid",
+    boardBg: "#140300",
+    boardLine: "rgba(255,50,0,0.30)",
+    cellBg: "rgba(255,50,0,0.02)",
+    cellBorder: "rgba(255,50,0,0.12)",
+    accent: "#FF6633",
+    p1Color: "#FF7722",
+    p2Color: "#CC0000",
+    pieceGlow: "rgba(255,90,0,0.85)",
+    p1Glyph: "🔥",
+    p2Glyph: "☠",
+    atmosphereInner: "rgba(255,90,0,0.12)",
+    atmosphereOuter: "rgba(204,0,0,0.08)",
+  },
 };
 
 /** Skin for an equipped ``board_style`` — null for default/unknown/removed ids. */
