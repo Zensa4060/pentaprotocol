@@ -8,9 +8,10 @@
 
 import { router, Stack } from "expo-router";
 import { useMemo, useState } from "react";
-import { Alert, Image, Modal, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { Alert, Image, Modal, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from "react-native";
 
 import { BotRewardsBanner } from "@/components/store/BotRewardsBanner";
+import { GridLivePreview } from "@/components/cosmetics/GridLivePreview";
 import { Body, Btn, Caption, Eyebrow, Mono, Screen } from "@/components/ui";
 import { Hairline, HudHeader, Panel, SectionLabel, SegTabs } from "@/components/ui/hud";
 import { BannerRenderer } from "@/components/BannerRenderer";
@@ -26,7 +27,7 @@ import {
   PS_PACKAGES,
   STORE_BANNERS,
   STORE_COINS,
-  STORE_GRID_BUNDLES,
+  LIVE_GRID_BUNDLES,
   STORE_THEMES,
   type GridBundle,
   type StoreItem,
@@ -61,6 +62,9 @@ export default function StoreScreen() {
   const [tab, setTab] = useState<Tab>("themes");
   const [busy, setBusy] = useState<string | null>(null);
   const [preview, setPreview] = useState<StoreItem | null>(null);
+  const [previewGrid, setPreviewGrid] = useState<GridBundle | null>(null);
+  const { width: winW } = useWindowDimensions();
+  const gridPreviewSize = Math.min(winW - 96, 300);
 
   const owned = useMemo(() => new Set(user?.purchased_items ?? []), [user?.purchased_items]);
   const rewards = readBotRewards(user);
@@ -196,30 +200,25 @@ export default function StoreScreen() {
           })}
 
         {tab === "grids" &&
-          STORE_GRID_BUNDLES.map((bundle) => {
+          LIVE_GRID_BUNDLES.map((bundle) => {
             const isOwned = owned.has(bundle.boardId) && owned.has(bundle.pieceId);
             const canClaim =
               (rewards.board_skin === "pending" || rewards.syros_skin === "pending") && !owned.has(bundle.boardId);
             return (
               <View key={bundle.id}>
                 <View style={styles.row}>
-                  <View
-                    style={[
-                      styles.thumb,
-                      { backgroundColor: bundle.accentColor + "22", borderColor: bundle.accentColor },
-                    ]}
-                  >
-                    <View style={[styles.thumbDot, { backgroundColor: bundle.accentColor }]} />
-                  </View>
-                  <View style={styles.rowMid}>
+                  <Pressable onPress={() => setPreviewGrid(bundle)} accessibilityRole="button">
+                    <GridLivePreview boardStyle={bundle.boardId} size={58} pieces={false} />
+                  </Pressable>
+                  <Pressable style={styles.rowMid} onPress={() => setPreviewGrid(bundle)}>
                     <Body style={styles.itemName} numberOfLines={1}>{bundle.label}</Body>
                     <Mono tone="dim" style={styles.itemMeta} numberOfLines={1}>
                       {bundle.description}
                     </Mono>
                     <Mono tone="dim" style={styles.itemMeta}>
-                      {bundle.bundlePrice} PC · board 1599 + pieces 599
+                      {bundle.bundlePrice} PC · tap to preview
                     </Mono>
-                  </View>
+                  </Pressable>
                   <RowAction
                     label={isOwned ? "OWNED" : canClaim ? "CLAIM" : "ACQUIRE"}
                     disabled={isOwned}
@@ -348,6 +347,48 @@ export default function StoreScreen() {
                   Done
                 </Btn>
               </ScrollView>
+            ) : null}
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      <Modal visible={!!previewGrid} transparent animationType="fade" onRequestClose={() => setPreviewGrid(null)}>
+        <Pressable style={styles.modalScrim} onPress={() => setPreviewGrid(null)}>
+          <Pressable style={styles.modalCard} onPress={() => undefined}>
+            {previewGrid ? (
+              (() => {
+                const gOwned = owned.has(previewGrid.boardId) && owned.has(previewGrid.pieceId);
+                return (
+                  <>
+                    <Eyebrow tone="accent">GRID PREVIEW · LIVE</Eyebrow>
+                    <Body style={{ ...styles.itemName, fontSize: 20, marginTop: space[2] }}>{previewGrid.label}</Body>
+                    <View style={{ alignItems: "center", marginTop: space[3] }}>
+                      <GridLivePreview boardStyle={previewGrid.boardId} size={gridPreviewSize} />
+                    </View>
+                    <Body tone="muted" style={{ marginTop: space[3] }}>{previewGrid.description}</Body>
+                    <Mono tone="dim" style={{ marginTop: space[1] }}>
+                      {previewGrid.bundlePrice} PC · board 1599 + pieces 599
+                    </Mono>
+                    <View style={styles.previewActions}>
+                      <View style={{ flex: 1 }}>
+                        <Btn variant="secondary" onPress={() => setPreviewGrid(null)}>
+                          Close
+                        </Btn>
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Btn
+                          variant="primary"
+                          disabled={gOwned || busy === previewGrid.id}
+                          loading={busy === previewGrid.id}
+                          onPress={() => onBuyGrid(previewGrid)}
+                        >
+                          {gOwned ? "Owned" : "Purchase"}
+                        </Btn>
+                      </View>
+                    </View>
+                  </>
+                );
+              })()
             ) : null}
           </Pressable>
         </Pressable>

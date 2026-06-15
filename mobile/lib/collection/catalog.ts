@@ -3,7 +3,7 @@
  */
 
 import { PROFILE_TITLES } from "@/lib/collection/titles";
-import { STORE_COINS, STORE_GRID_BUNDLES } from "@/lib/store/catalog";
+import { isGridLive, STORE_COINS, STORE_GRID_BUNDLES } from "@/lib/store/catalog";
 import type { ThemeId } from "@/theme/themes";
 import type { User } from "@/lib/types";
 
@@ -33,7 +33,7 @@ const GRID_ENTRIES: CollectionEntry[] = [
     equipValue: "default",
     owned: () => true,
   },
-  ...STORE_GRID_BUNDLES.map((b) => ({
+  ...STORE_GRID_BUNDLES.filter((b) => isGridLive(b.boardId)).map((b) => ({
     id: `grid_${b.id}`,
     label: b.label,
     description: b.description,

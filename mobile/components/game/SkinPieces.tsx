@@ -21,7 +21,16 @@ export function skinHasPieceArt(skinId: string): boolean {
     skinId === "red_grid" ||
     skinId === "glacier_grid" ||
     skinId === "matrix_grid" ||
-    skinId === "synthwave_grid"
+    skinId === "synthwave_grid" ||
+    skinId === "bloodmoon_grid" ||
+    skinId === "egypt_grid" ||
+    skinId === "arcane_grid" ||
+    skinId === "bio_grid" ||
+    skinId === "forge_grid" ||
+    skinId === "void_grid" ||
+    skinId === "space_grid" ||
+    skinId === "pixel_grid" ||
+    skinId === "tokyo_grid"
   );
 }
 
@@ -53,6 +62,33 @@ export function SkinPieceArt({ skinId, owner, size }: SkinPieceArtProps) {
   }
   if (skinId === "synthwave_grid") {
     return isPlayerOne(owner) ? <RetroSunPiece size={size} /> : <NeonPalmPiece size={size} />;
+  }
+  if (skinId === "bloodmoon_grid") {
+    return isPlayerOne(owner) ? <PentagramPiece size={size} /> : <EvilEyePiece size={size} />;
+  }
+  if (skinId === "egypt_grid") {
+    return isPlayerOne(owner) ? <AnkhPiece size={size} /> : <EyeOfRaPiece size={size} />;
+  }
+  if (skinId === "arcane_grid") {
+    return isPlayerOne(owner) ? <RunePortalPiece size={size} /> : <GoldSigilPiece size={size} />;
+  }
+  if (skinId === "bio_grid") {
+    return isPlayerOne(owner) ? <JellyfishPiece size={size} /> : <AnglerFishPiece size={size} />;
+  }
+  if (skinId === "forge_grid") {
+    return isPlayerOne(owner) ? <HammerPiece size={size} /> : <MoltenSigilPiece size={size} />;
+  }
+  if (skinId === "void_grid") {
+    return isPlayerOne(owner) ? <PulsarPiece size={size} /> : <QuasarPiece size={size} />;
+  }
+  if (skinId === "space_grid") {
+    return isPlayerOne(owner) ? <RocketPiece size={size} /> : <SatellitePiece size={size} />;
+  }
+  if (skinId === "pixel_grid") {
+    return isPlayerOne(owner) ? <PixelCoinPiece size={size} /> : <PixelHeartPiece size={size} />;
+  }
+  if (skinId === "tokyo_grid") {
+    return isPlayerOne(owner) ? <DragonSealPiece size={size} /> : <KatanaPiece size={size} />;
   }
   return null;
 }
@@ -298,6 +334,501 @@ function NeonPalmPiece({ size }: { size: number }) {
   );
 }
 
+/** Bloodmoon P1 — crimson pentagram ring with pulsing core (web ``Pentagram``). */
+function PentagramPiece({ size }: { size: number }) {
+  const s = Math.max(16, Math.floor(size * 0.58));
+  const gid = `penGlow-${useId()}`;
+  return (
+    <Svg width={s} height={s} viewBox="0 0 48 48">
+      <Defs>
+        <RadialGradient id={gid} cx="50%" cy="50%" r="55%">
+          <Stop offset="0" stopColor="#dc2626" stopOpacity={0.45} />
+          <Stop offset="0.6" stopColor="#dc2626" stopOpacity={0.15} />
+          <Stop offset="1" stopColor="#dc2626" stopOpacity={0} />
+        </RadialGradient>
+      </Defs>
+      <Rect x={0} y={0} width={48} height={48} fill={`url(#${gid})`} />
+      <Circle cx={24} cy={24} r={20} fill="none" stroke="#dc2626" strokeWidth={1.2} />
+      <Circle cx={24} cy={24} r={9} fill="none" stroke="#dc2626" strokeWidth={0.8} opacity={0.5} />
+      <Polygon
+        points="24,4 43.02,17.82 35.76,40.18 12.24,40.18 4.98,17.82"
+        fill="rgba(220,38,38,0.09)"
+        stroke="#dc2626"
+        strokeWidth={1.8}
+        strokeLinejoin="round"
+      />
+      <Circle cx={24} cy={24} r={3} fill="#ff4444" opacity={0.75} />
+    </Svg>
+  );
+}
+
+/** Bloodmoon P2 — violet evil-eye with glowing pupil (web ``EvilEye``). */
+function EvilEyePiece({ size }: { size: number }) {
+  const s = Math.max(16, Math.floor(size * 0.58));
+  const gid = `eyeGlow-${useId()}`;
+  return (
+    <Svg width={s} height={s} viewBox="0 0 48 48">
+      <Defs>
+        <RadialGradient id={gid} cx="50%" cy="50%" r="55%">
+          <Stop offset="0" stopColor="#7c3aed" stopOpacity={0.45} />
+          <Stop offset="0.6" stopColor="#7c3aed" stopOpacity={0.15} />
+          <Stop offset="1" stopColor="#7c3aed" stopOpacity={0} />
+        </RadialGradient>
+      </Defs>
+      <Rect x={0} y={0} width={48} height={48} fill={`url(#${gid})`} />
+      <Path d="M6,24 Q24,6 42,24" fill="none" stroke="#7c3aed" strokeWidth={2.2} strokeLinecap="round" />
+      <Path d="M6,24 Q24,42 42,24" fill="none" stroke="#7c3aed" strokeWidth={2.2} strokeLinecap="round" />
+      <Circle cx={24} cy={24} r={9} fill="rgba(124,58,237,0.17)" stroke="#9f67ff" strokeWidth={1.8} />
+      <Circle cx={24} cy={24} r={4.5} fill="#110020" stroke="#9f67ff" strokeWidth={1.2} />
+      <Circle cx={24} cy={24} r={2.4} fill="#cc44ff" opacity={0.7} />
+      <Circle cx={27} cy={20} r={1.5} fill="#ffffff" opacity={0.6} />
+    </Svg>
+  );
+}
+
+/** Egypt P1 — golden ankh (web ``AnkhSymbol``). */
+function AnkhPiece({ size }: { size: number }) {
+  const s = Math.max(16, Math.floor(size * 0.58));
+  const gid = `ankhGlow-${useId()}`;
+  return (
+    <Svg width={s} height={s} viewBox="0 0 48 48">
+      <Defs>
+        <RadialGradient id={gid} cx="50%" cy="50%" r="55%">
+          <Stop offset="0" stopColor="#fbbf24" stopOpacity={0.4} />
+          <Stop offset="0.6" stopColor="#f59e0b" stopOpacity={0.14} />
+          <Stop offset="1" stopColor="#f59e0b" stopOpacity={0} />
+        </RadialGradient>
+      </Defs>
+      <Rect x={0} y={0} width={48} height={48} fill={`url(#${gid})`} />
+      <Line x1={24} y1={22} x2={24} y2={44} stroke="#fbbf24" strokeWidth={3.5} strokeLinecap="round" />
+      <Line x1={10} y1={28} x2={38} y2={28} stroke="#fbbf24" strokeWidth={3} strokeLinecap="round" />
+      <Ellipse cx={24} cy={16} rx={11} ry={9} fill="rgba(251,191,36,0.10)" stroke="#fbbf24" strokeWidth={2.8} />
+      <Line x1={24} y1={22} x2={24} y2={44} stroke="rgba(255,255,200,0.5)" strokeWidth={1} strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+const RA_RAYS: [number, number][] = [[-15, 8], [-18, 15], [-8, 22], [8, 22], [18, 15], [15, 8]];
+
+/** Egypt P2 — violet Eye of Ra (web ``EyeOfRa``). */
+function EyeOfRaPiece({ size }: { size: number }) {
+  const s = Math.max(16, Math.floor(size * 0.58));
+  const gid = `raGlow-${useId()}`;
+  return (
+    <Svg width={s} height={s} viewBox="0 0 48 48">
+      <Defs>
+        <RadialGradient id={gid} cx="50%" cy="50%" r="55%">
+          <Stop offset="0" stopColor="#c084fc" stopOpacity={0.4} />
+          <Stop offset="0.6" stopColor="#a855f7" stopOpacity={0.14} />
+          <Stop offset="1" stopColor="#a855f7" stopOpacity={0} />
+        </RadialGradient>
+      </Defs>
+      <Rect x={0} y={0} width={48} height={48} fill={`url(#${gid})`} />
+      <Path d="M4,24 Q24,6 44,24 Q24,42 4,24Z" fill="rgba(192,132,252,0.10)" stroke="#c084fc" strokeWidth={2} strokeLinecap="round" />
+      <Circle cx={24} cy={24} r={8} fill="none" stroke="#e9d5ff" strokeWidth={1.5} />
+      <Circle cx={24} cy={24} r={4.5} fill="#110020" />
+      <Circle cx={24} cy={24} r={2.5} fill="#e9d5ff" opacity={0.9} />
+      <Line x1={24} y1={4} x2={24} y2={10} stroke="#c084fc" strokeWidth={1.8} strokeLinecap="round" opacity={0.8} />
+      {RA_RAYS.map(([ex, ey], i) => (
+        <Line key={i} x1={24} y1={24} x2={24 + ex} y2={24 + ey} stroke="#c084fc" strokeWidth={0.8} strokeLinecap="round" opacity={0.5} />
+      ))}
+    </Svg>
+  );
+}
+
+/** Arcane P1 — violet rune portal: concentric rings + radial ticks (web ``RunePortal``). */
+function RunePortalPiece({ size }: { size: number }) {
+  const s = Math.max(16, Math.floor(size * 0.58));
+  const gid = `rpGlow-${useId()}`;
+  return (
+    <Svg width={s} height={s} viewBox="0 0 48 48">
+      <Defs>
+        <RadialGradient id={gid} cx="50%" cy="50%" r="55%">
+          <Stop offset="0" stopColor="#cc88ff" stopOpacity={0.4} />
+          <Stop offset="0.6" stopColor="#8800ff" stopOpacity={0.14} />
+          <Stop offset="1" stopColor="#8800ff" stopOpacity={0} />
+        </RadialGradient>
+      </Defs>
+      <Rect x={0} y={0} width={48} height={48} fill={`url(#${gid})`} />
+      <Circle cx={24} cy={24} r={20} fill="none" stroke="#cc88ff" strokeWidth={2} />
+      <Circle cx={24} cy={24} r={14} fill="none" stroke="#aa44ff" strokeWidth={1.2} />
+      {Array.from({ length: 6 }, (_, i) => {
+        const a = (i * 60 * Math.PI) / 180;
+        return (
+          <Line
+            key={i}
+            x1={24 + 14 * Math.cos(a)}
+            y1={24 + 14 * Math.sin(a)}
+            x2={24 + 20 * Math.cos(a)}
+            y2={24 + 20 * Math.sin(a)}
+            stroke="#cc88ff"
+            strokeWidth={2.2}
+            strokeLinecap="round"
+          />
+        );
+      })}
+      <Circle cx={24} cy={24} r={5} fill="none" stroke="#ee88ff" strokeWidth={1.5} />
+      <Circle cx={24} cy={24} r={2.5} fill="#eebbff" />
+    </Svg>
+  );
+}
+
+/** Arcane P2 — gold sigil: ring + dual offset pentagons (web ``GoldSigil``). */
+function GoldSigilPiece({ size }: { size: number }) {
+  const s = Math.max(16, Math.floor(size * 0.58));
+  const gid = `gsGlow-${useId()}`;
+  return (
+    <Svg width={s} height={s} viewBox="0 0 48 48">
+      <Defs>
+        <RadialGradient id={gid} cx="50%" cy="50%" r="55%">
+          <Stop offset="0" stopColor="#ffdd60" stopOpacity={0.4} />
+          <Stop offset="0.6" stopColor="#ffaa00" stopOpacity={0.14} />
+          <Stop offset="1" stopColor="#ffaa00" stopOpacity={0} />
+        </RadialGradient>
+      </Defs>
+      <Rect x={0} y={0} width={48} height={48} fill={`url(#${gid})`} />
+      <Circle cx={24} cy={24} r={20} fill="none" stroke="#ffdd60" strokeWidth={1.5} />
+      <Polygon
+        points="24,6 41.12,18.44 34.58,38.56 13.42,38.56 6.88,18.44"
+        fill="rgba(255,170,0,0.10)"
+        stroke="#ffaa00"
+        strokeWidth={2.2}
+        strokeLinejoin="round"
+      />
+      <Polygon
+        points="28.70,17.53 31.61,26.47 24,32 16.39,26.47 19.30,17.53"
+        fill="none"
+        stroke="#ffee80"
+        strokeWidth={1.2}
+        opacity={0.8}
+      />
+      <Circle cx={24} cy={24} r={3.5} fill="#ffee80" />
+    </Svg>
+  );
+}
+
+const BIO_TENTACLES: [number, number, number, number][] = [
+  [12, 22, 10, 46], [16, 22, 14, 44], [20, 22, 20, 48], [24, 22, 24, 46],
+  [28, 22, 28, 44], [32, 22, 34, 48], [36, 22, 38, 44],
+];
+const BIO_SPOTS: [number, number][] = [[14, 13], [24, 9], [34, 13]];
+
+/** Bio P1 — teal bioluminescent jellyfish: dome + tentacles (web ``Jellyfish``). */
+function JellyfishPiece({ size }: { size: number }) {
+  const s = Math.max(16, Math.floor(size * 0.58));
+  const gid = `jelGlow-${useId()}`;
+  return (
+    <Svg width={s} height={s} viewBox="0 0 48 48">
+      <Defs>
+        <RadialGradient id={gid} cx="50%" cy="40%" r="55%">
+          <Stop offset="0" stopColor="#00ffcc" stopOpacity={0.4} />
+          <Stop offset="0.6" stopColor="#00ffaa" stopOpacity={0.14} />
+          <Stop offset="1" stopColor="#00ffaa" stopOpacity={0} />
+        </RadialGradient>
+      </Defs>
+      <Rect x={0} y={0} width={48} height={48} fill={`url(#${gid})`} />
+      <Path d="M7,22 Q7,4 24,4 Q41,4 41,22 Z" fill="rgba(0,255,200,0.10)" stroke="#00ffcc" strokeWidth={2.2} />
+      {BIO_TENTACLES.map(([x1, y1, x2, y2], i) => (
+        <Path
+          key={i}
+          d={`M${x1},${y1} Q${(x1 + x2) / 2 + Math.sin(i) * 3},${(y1 + y2) * 0.55} ${x2},${y2}`}
+          fill="none"
+          stroke="#00ffcc"
+          strokeWidth={1.2}
+          strokeLinecap="round"
+        />
+      ))}
+      {BIO_SPOTS.map(([cx, cy], i) => (
+        <Circle key={i} cx={cx} cy={cy} r={1.8} fill="#80ffee" opacity={0.75} />
+      ))}
+    </Svg>
+  );
+}
+
+const BIO_FINS: [number, number, number, number][] = [[16, 22, 6, 18], [18, 22, 5, 25], [32, 22, 42, 18], [30, 22, 43, 25]];
+
+/** Bio P2 — violet anglerfish with glowing lure (web ``AnglerFish``). */
+function AnglerFishPiece({ size }: { size: number }) {
+  const s = Math.max(16, Math.floor(size * 0.58));
+  const gid = `angGlow-${useId()}`;
+  const body = "M6,28 Q4,18 12,14 Q10,10 18,10 Q18,6 24,6 Q30,6 30,10 Q38,10 36,14 Q44,18 42,28 Q40,36 24,38 Q8,36 6,28Z";
+  return (
+    <Svg width={s} height={s} viewBox="0 0 48 48">
+      <Defs>
+        <RadialGradient id={gid} cx="50%" cy="50%" r="55%">
+          <Stop offset="0" stopColor="#b464ff" stopOpacity={0.4} />
+          <Stop offset="0.6" stopColor="#8000ff" stopOpacity={0.14} />
+          <Stop offset="1" stopColor="#8000ff" stopOpacity={0} />
+        </RadialGradient>
+      </Defs>
+      <Rect x={0} y={0} width={48} height={48} fill={`url(#${gid})`} />
+      <Path d={body} fill="rgba(96,0,170,0.15)" stroke="#b464ff" strokeWidth={2} strokeLinejoin="round" />
+      {BIO_FINS.map(([x1, y1, x2, y2], i) => (
+        <Line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke="#d090ff" strokeWidth={1.5} strokeLinecap="round" opacity={0.7} />
+      ))}
+      <Ellipse cx={17} cy={20} rx={4} ry={4.5} fill="#110020" />
+      <Circle cx={17} cy={20} r={2} fill="#d090ff" />
+      <Ellipse cx={31} cy={20} rx={4} ry={4.5} fill="#110020" />
+      <Circle cx={31} cy={20} r={2} fill="#d090ff" />
+      <Path d="M24,6 L24,2" stroke="#e0b0ff" strokeWidth={2} strokeLinecap="round" />
+      <Circle cx={24} cy={1.5} r={3} fill="#e0b0ff" />
+    </Svg>
+  );
+}
+
+/** Forge P1 — glowing blacksmith hammer (web ``Hammer``). */
+function HammerPiece({ size }: { size: number }) {
+  const s = Math.max(16, Math.floor(size * 0.58));
+  const gid = `hamGlow-${useId()}`;
+  return (
+    <Svg width={s} height={s} viewBox="0 0 48 48">
+      <Defs>
+        <RadialGradient id={gid} cx="50%" cy="40%" r="55%">
+          <Stop offset="0" stopColor="#ff6600" stopOpacity={0.4} />
+          <Stop offset="0.6" stopColor="#ff4400" stopOpacity={0.14} />
+          <Stop offset="1" stopColor="#ff4400" stopOpacity={0} />
+        </RadialGradient>
+      </Defs>
+      <Rect x={0} y={0} width={48} height={48} fill={`url(#${gid})`} />
+      <Rect x={16} y={6} width={22} height={14} rx={3} fill="rgba(255,68,0,0.20)" stroke="#ff6600" strokeWidth={2.2} />
+      <Rect x={21} y={20} width={6} height={22} rx={2} fill="rgba(170,51,0,0.60)" stroke="#cc4400" strokeWidth={2} />
+      {([[14, 8], [38, 8], [14, 19], [38, 19]] as [number, number][]).map(([cx, cy], i) => (
+        <Circle key={i} cx={cx} cy={cy} r={1.5} fill="#ffcc00" opacity={0.75} />
+      ))}
+    </Svg>
+  );
+}
+
+/** Forge P2 — molten sigil: ring + 6 radial arms + core (web ``MoltenSigil``). */
+function MoltenSigilPiece({ size }: { size: number }) {
+  const s = Math.max(16, Math.floor(size * 0.58));
+  const gid = `molGlow-${useId()}`;
+  return (
+    <Svg width={s} height={s} viewBox="0 0 48 48">
+      <Defs>
+        <RadialGradient id={gid} cx="50%" cy="50%" r="55%">
+          <Stop offset="0" stopColor="#ffaa00" stopOpacity={0.4} />
+          <Stop offset="0.6" stopColor="#ff8800" stopOpacity={0.14} />
+          <Stop offset="1" stopColor="#ff8800" stopOpacity={0} />
+        </RadialGradient>
+      </Defs>
+      <Rect x={0} y={0} width={48} height={48} fill={`url(#${gid})`} />
+      <Circle cx={24} cy={24} r={19} fill="none" stroke="#ffaa00" strokeWidth={1.8} />
+      {Array.from({ length: 6 }, (_, i) => {
+        const a = (i * 60 * Math.PI) / 180;
+        return (
+          <Line key={i} x1={24} y1={24} x2={24 + 19 * Math.cos(a)} y2={24 + 19 * Math.sin(a)} stroke="#ff8800" strokeWidth={2} />
+        );
+      })}
+      <Circle cx={24} cy={24} r={7} fill="none" stroke="#ffcc00" strokeWidth={1.5} />
+      <Circle cx={24} cy={24} r={3.5} fill="#ffee80" />
+    </Svg>
+  );
+}
+
+/** Void P1 — violet pulsar: 8-point star + core + cross rays (web ``Pulsar``). */
+function PulsarPiece({ size }: { size: number }) {
+  const s = Math.max(16, Math.floor(size * 0.58));
+  const gid = `pulGlow-${useId()}`;
+  return (
+    <Svg width={s} height={s} viewBox="0 0 48 48">
+      <Defs>
+        <RadialGradient id={gid} cx="50%" cy="50%" r="55%">
+          <Stop offset="0" stopColor="#b464ff" stopOpacity={0.4} />
+          <Stop offset="0.6" stopColor="#8020ff" stopOpacity={0.14} />
+          <Stop offset="1" stopColor="#8020ff" stopOpacity={0} />
+        </RadialGradient>
+      </Defs>
+      <Rect x={0} y={0} width={48} height={48} fill={`url(#${gid})`} />
+      <Polygon
+        points="44,24 30.36,30.36 24,44 17.64,30.36 4,24 17.64,17.64 24,4 30.36,17.64"
+        fill="rgba(128,32,204,0.25)"
+        stroke="#b464ff"
+        strokeWidth={2}
+        strokeLinejoin="round"
+      />
+      {Array.from({ length: 4 }, (_, i) => {
+        const a = (i * 90 * Math.PI) / 180;
+        return (
+          <Line key={i} x1={24} y1={24} x2={24 + 24 * Math.cos(a)} y2={24 + 24 * Math.sin(a)} stroke="#d090ff" strokeWidth={0.8} opacity={0.6} />
+        );
+      })}
+      <Circle cx={24} cy={24} r={5} fill="#e0b4ff" />
+    </Svg>
+  );
+}
+
+/** Void P2 — cyan quasar: crossed accretion ellipses + core (web ``Quasar``). */
+function QuasarPiece({ size }: { size: number }) {
+  const s = Math.max(16, Math.floor(size * 0.58));
+  const gid = `quaGlow-${useId()}`;
+  return (
+    <Svg width={s} height={s} viewBox="0 0 48 48">
+      <Defs>
+        <RadialGradient id={gid} cx="50%" cy="50%" r="55%">
+          <Stop offset="0" stopColor="#40d0ff" stopOpacity={0.4} />
+          <Stop offset="0.6" stopColor="#0080ff" stopOpacity={0.14} />
+          <Stop offset="1" stopColor="#0080ff" stopOpacity={0} />
+        </RadialGradient>
+      </Defs>
+      <Rect x={0} y={0} width={48} height={48} fill={`url(#${gid})`} />
+      <Ellipse cx={24} cy={24} rx={20} ry={7} fill="none" stroke="#40c0ff" strokeWidth={2} />
+      <Ellipse cx={24} cy={24} rx={7} ry={20} fill="none" stroke="#40c0ff" strokeWidth={2} />
+      <Circle cx={24} cy={24} r={13} fill="none" stroke="rgba(80,200,255,0.5)" strokeWidth={1.2} />
+      <Circle cx={24} cy={24} r={5} fill="#80e0ff" />
+      <Circle cx={24} cy={24} r={2} fill="#ffffff" opacity={0.9} />
+    </Svg>
+  );
+}
+
+/** Space P1 — cyan rocket with flame (web ``Rocket``). */
+function RocketPiece({ size }: { size: number }) {
+  const s = Math.max(16, Math.floor(size * 0.6));
+  const gid = `rktGlow-${useId()}`;
+  return (
+    <Svg width={s} height={s} viewBox="0 0 48 48">
+      <Defs>
+        <RadialGradient id={gid} cx="50%" cy="50%" r="55%">
+          <Stop offset="0" stopColor="#00ddff" stopOpacity={0.38} />
+          <Stop offset="0.6" stopColor="#00aaff" stopOpacity={0.12} />
+          <Stop offset="1" stopColor="#00aaff" stopOpacity={0} />
+        </RadialGradient>
+      </Defs>
+      <Rect x={0} y={0} width={48} height={48} fill={`url(#${gid})`} />
+      <Path d="M24,5 Q30,10 32,22 L32,36 L16,36 L16,22 Q18,10 24,5Z" fill="rgba(0,170,204,0.15)" stroke="#00ddff" strokeWidth={2.2} strokeLinejoin="round" />
+      <Path d="M24,5 Q27,10 28,16 L24,14 L20,16 Q21,10 24,5Z" fill="#80eeff" opacity={0.5} />
+      <Circle cx={24} cy={22} r={4.5} fill="none" stroke="#80eeff" strokeWidth={1.5} opacity={0.9} />
+      <Circle cx={24} cy={22} r={2.5} fill="#00ffff" opacity={0.7} />
+      <Path d="M16,32 L10,40 L16,38Z" fill="#00aacc" stroke="#00ddff" strokeWidth={1.2} opacity={0.8} />
+      <Path d="M32,32 L38,40 L32,38Z" fill="#00aacc" stroke="#00ddff" strokeWidth={1.2} opacity={0.8} />
+      <Path d="M20,36 Q22,42 24,44 Q26,42 28,36Z" fill="#ff8800" opacity={0.7} />
+      <Path d="M22,36 Q23,40 24,41 Q25,40 26,36Z" fill="#ffff80" opacity={0.9} />
+    </Svg>
+  );
+}
+
+/** Space P2 — amber satellite with solar panels + signal (web ``Satellite``). */
+function SatellitePiece({ size }: { size: number }) {
+  const s = Math.max(16, Math.floor(size * 0.6));
+  const gid = `satGlow-${useId()}`;
+  return (
+    <Svg width={s} height={s} viewBox="0 0 48 48">
+      <Defs>
+        <RadialGradient id={gid} cx="50%" cy="50%" r="55%">
+          <Stop offset="0" stopColor="#ff9922" stopOpacity={0.38} />
+          <Stop offset="0.6" stopColor="#ff6600" stopOpacity={0.12} />
+          <Stop offset="1" stopColor="#ff6600" stopOpacity={0} />
+        </RadialGradient>
+      </Defs>
+      <Rect x={0} y={0} width={48} height={48} fill={`url(#${gid})`} />
+      <Rect x={17} y={17} width={14} height={14} rx={2} fill="rgba(204,85,0,0.20)" stroke="#ff9922" strokeWidth={2} />
+      <Rect x={2} y={19} width={14} height={10} rx={1} fill="rgba(255,102,0,0.15)" stroke="#ff9922" strokeWidth={1.5} />
+      {[5, 9, 13].map((x, i) => (
+        <Line key={`l${i}`} x1={x} y1={19} x2={x} y2={29} stroke="#ffbb44" strokeWidth={0.9} opacity={0.6} />
+      ))}
+      <Rect x={32} y={19} width={14} height={10} rx={1} fill="rgba(255,102,0,0.15)" stroke="#ff9922" strokeWidth={1.5} />
+      {[35, 39, 43].map((x, i) => (
+        <Line key={`r${i}`} x1={x} y1={19} x2={x} y2={29} stroke="#ffbb44" strokeWidth={0.9} opacity={0.6} />
+      ))}
+      <Line x1={24} y1={17} x2={24} y2={9} stroke="#ffcc44" strokeWidth={1.5} strokeLinecap="round" />
+      <Circle cx={24} cy={8} r={2.5} fill="none" stroke="#ffcc44" strokeWidth={1.2} opacity={0.8} />
+      <Circle cx={24} cy={24} r={2} fill="#ffdd88" opacity={0.9} />
+    </Svg>
+  );
+}
+
+// 8×8 sprite maps ported verbatim from web PixelGrid (`0` = empty pixel).
+const COIN_MAP = [
+  [0, 0, 1, 1, 1, 1, 0, 0], [0, 1, 1, 1, 1, 1, 1, 0], [1, 1, 0, 1, 1, 0, 1, 1], [1, 1, 0, 1, 1, 0, 1, 1],
+  [1, 1, 0, 1, 1, 0, 1, 1], [1, 1, 0, 1, 1, 0, 1, 1], [0, 1, 1, 1, 1, 1, 1, 0], [0, 0, 1, 1, 1, 1, 0, 0],
+];
+const COIN_COL: (string | 0)[][] = [
+  [0, 0, "#ffd700", "#ffee44", "#ffee44", "#ffd700", 0, 0],
+  [0, "#ffd700", "#ffee44", "#ffee44", "#ffee44", "#ffee44", "#ffd700", 0],
+  ["#cc9900", "#ffd700", "#1a1a00", "#ffd700", "#ffd700", "#1a1a00", "#ffd700", "#cc9900"],
+  ["#cc9900", "#ffd700", "#1a1a00", "#ffd700", "#ffd700", "#1a1a00", "#ffd700", "#cc9900"],
+  ["#cc9900", "#ffd700", "#1a1a00", "#ffd700", "#ffd700", "#1a1a00", "#ffd700", "#cc9900"],
+  ["#cc9900", "#ffd700", "#1a1a00", "#ffd700", "#ffd700", "#1a1a00", "#ffd700", "#cc9900"],
+  [0, "#ffd700", "#ffee44", "#ffee44", "#ffee44", "#ffee44", "#ffd700", 0],
+  [0, 0, "#ffd700", "#ffee44", "#ffee44", "#ffd700", 0, 0],
+];
+const HEART_MAP = [
+  [0, 1, 1, 0, 0, 1, 1, 0], [1, 1, 1, 1, 1, 1, 1, 1], [1, 1, 1, 1, 1, 1, 1, 1], [1, 1, 1, 1, 1, 1, 1, 1],
+  [0, 1, 1, 1, 1, 1, 1, 0], [0, 0, 1, 1, 1, 1, 0, 0], [0, 0, 0, 1, 1, 0, 0, 0], [0, 0, 0, 0, 0, 0, 0, 0],
+];
+const HEART_COL: (string | 0)[][] = [
+  [0, "#ff6677", 0, 0, 0, "#ff6677", 0, 0],
+  ["#ff4455", "#ff9999", "#ff4455", "#ff4455", "#ff4455", "#ff4455", "#ff9999", "#ff4455"],
+  ["#ff4455", "#ff4455", "#ff4455", "#ff4455", "#ff4455", "#ff4455", "#ff4455", "#ff4455"],
+  ["#cc1122", "#ff4455", "#ff4455", "#ff4455", "#ff4455", "#ff4455", "#ff4455", "#cc1122"],
+  [0, "#cc1122", "#ff4455", "#ff4455", "#ff4455", "#ff4455", "#cc1122", 0],
+  [0, 0, "#cc1122", "#ff4455", "#ff4455", "#cc1122", 0, 0],
+  [0, 0, 0, "#cc1122", "#cc1122", 0, 0, 0],
+];
+
+function PixelSprite({ size, map, colMap, fallback }: { size: number; map: number[][]; colMap: (string | 0)[][]; fallback: string }) {
+  const s = Math.max(16, Math.floor(size * 0.62));
+  return (
+    <Svg width={s} height={s} viewBox="0 0 8 8">
+      {map.map((row, ry) =>
+        row.map((on, rx) =>
+          on ? <Rect key={`${ry}-${rx}`} x={rx} y={ry} width={1.02} height={1.02} fill={(colMap[ry]?.[rx] as string) || fallback} /> : null,
+        ),
+      )}
+    </Svg>
+  );
+}
+
+/** Pixel P1 — 8-bit gold coin (web ``PixelCoin``). */
+function PixelCoinPiece({ size }: { size: number }) {
+  return <PixelSprite size={size} map={COIN_MAP} colMap={COIN_COL} fallback="#ffd700" />;
+}
+
+/** Pixel P2 — 8-bit red heart (web ``PixelHeart``). */
+function PixelHeartPiece({ size }: { size: number }) {
+  return <PixelSprite size={size} map={HEART_MAP} colMap={HEART_COL} fallback="#ff4455" />;
+}
+
+/** Tokyo P1 — pink 8-point dragon seal (web ``DragonSeal``). */
+function DragonSealPiece({ size }: { size: number }) {
+  const s = Math.max(16, Math.floor(size * 0.58));
+  const gid = `drGlow-${useId()}`;
+  return (
+    <Svg width={s} height={s} viewBox="0 0 48 48">
+      <Defs>
+        <RadialGradient id={gid} cx="50%" cy="50%" r="55%">
+          <Stop offset="0" stopColor="#ff0066" stopOpacity={0.4} />
+          <Stop offset="0.6" stopColor="#ff0066" stopOpacity={0.14} />
+          <Stop offset="1" stopColor="#ff0066" stopOpacity={0} />
+        </RadialGradient>
+      </Defs>
+      <Rect x={0} y={0} width={48} height={48} fill={`url(#${gid})`} />
+      <Polygon points="24,4 28,20 44,24 28,28 24,44 20,28 4,24 20,20" fill="rgba(255,0,102,0.12)" stroke="#ff0066" strokeWidth={2.2} strokeLinejoin="round" />
+      <Circle cx={24} cy={24} r={4} fill="#ff88aa" />
+    </Svg>
+  );
+}
+
+/** Tokyo P2 — cyan neon katana cross (web ``Katana``). */
+function KatanaPiece({ size }: { size: number }) {
+  const s = Math.max(16, Math.floor(size * 0.58));
+  const gid = `katGlow-${useId()}`;
+  return (
+    <Svg width={s} height={s} viewBox="0 0 48 48">
+      <Defs>
+        <RadialGradient id={gid} cx="50%" cy="50%" r="55%">
+          <Stop offset="0" stopColor="#00ccff" stopOpacity={0.38} />
+          <Stop offset="0.6" stopColor="#0088ff" stopOpacity={0.12} />
+          <Stop offset="1" stopColor="#0088ff" stopOpacity={0} />
+        </RadialGradient>
+      </Defs>
+      <Rect x={0} y={0} width={48} height={48} fill={`url(#${gid})`} />
+      <Line x1={24} y1={5} x2={24} y2={40} stroke="#00ccff" strokeWidth={3} strokeLinecap="round" />
+      <Line x1={14} y1={28} x2={34} y2={28} stroke="#00ccff" strokeWidth={2.5} strokeLinecap="round" />
+    </Svg>
+  );
+}
+
 /** Colored glow per skin/owner for the caller's iOS view shadow. */
 export function skinPieceGlow(skinId: string, owner: string): string {
   if (skinId === "red_grid") {
@@ -311,6 +842,33 @@ export function skinPieceGlow(skinId: string, owner: string): string {
   }
   if (skinId === "synthwave_grid") {
     return isPlayerOne(owner) ? "rgba(255,0,100,0.9)" : "rgba(0,200,255,0.9)";
+  }
+  if (skinId === "bloodmoon_grid") {
+    return isPlayerOne(owner) ? "rgba(220,38,38,0.9)" : "rgba(124,58,237,0.9)";
+  }
+  if (skinId === "egypt_grid") {
+    return isPlayerOne(owner) ? "rgba(245,158,11,0.9)" : "rgba(192,132,252,0.9)";
+  }
+  if (skinId === "arcane_grid") {
+    return isPlayerOne(owner) ? "rgba(168,85,247,0.9)" : "rgba(255,180,0,0.9)";
+  }
+  if (skinId === "bio_grid") {
+    return isPlayerOne(owner) ? "rgba(0,255,200,0.9)" : "rgba(140,0,255,0.9)";
+  }
+  if (skinId === "forge_grid") {
+    return isPlayerOne(owner) ? "rgba(255,90,0,0.9)" : "rgba(255,160,0,0.9)";
+  }
+  if (skinId === "void_grid") {
+    return isPlayerOne(owner) ? "rgba(140,60,255,0.9)" : "rgba(0,160,255,0.9)";
+  }
+  if (skinId === "space_grid") {
+    return isPlayerOne(owner) ? "rgba(0,200,255,0.9)" : "rgba(255,140,0,0.9)";
+  }
+  if (skinId === "pixel_grid") {
+    return isPlayerOne(owner) ? "rgba(255,200,0,0.9)" : "rgba(255,0,40,0.9)";
+  }
+  if (skinId === "tokyo_grid") {
+    return isPlayerOne(owner) ? "rgba(255,0,102,0.9)" : "rgba(0,200,255,0.9)";
   }
   return "rgba(0,0,0,0)";
 }

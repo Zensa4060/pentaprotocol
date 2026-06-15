@@ -141,6 +141,35 @@ export const STORE_GRID_BUNDLES: GridBundle[] = [
   grid("bundle_tokyo", "Tokyo Bundle", "Neon rain and city glow.", "tokyo_grid", "piece_tokyo_sigils", "#FF0066"),
 ];
 
+/**
+ * Grid bundles whose verbatim web canvas + piece skin are fully ported and
+ * verified — the ONLY grids surfaced in the Store and Collection. Every other
+ * bundle in `STORE_GRID_BUNDLES` stays hidden until its board id is added here.
+ * Widen this set one id at a time as each grid is ported in `boardSkin.ts` /
+ * `webCanvas.ts`.
+ */
+export const LIVE_GRID_BOARD_IDS = new Set<string>([
+  "glacier_grid",
+  "red_grid",
+  "synthwave_grid",
+  "matrix_grid",
+  "bloodmoon_grid",
+  "egypt_grid",
+  "arcane_grid",
+  "bio_grid",
+  "forge_grid",
+  "void_grid",
+  "space_grid",
+  "pixel_grid",
+  "tokyo_grid",
+]);
+
+/** True if a grid bundle's board skin is live (shown in Store / Collection). */
+export const isGridLive = (boardId: string): boolean => LIVE_GRID_BOARD_IDS.has(boardId);
+
+/** Live grid bundles only — what the Store and Collection actually display. */
+export const LIVE_GRID_BUNDLES: GridBundle[] = STORE_GRID_BUNDLES.filter((b) => isGridLive(b.boardId));
+
 export const PC_PACKAGES = [
   { id: "starter", credits: 100, priceInr: 49, bonus: 0, label: "STARTER" },
   { id: "plus", credits: 500, priceInr: 199, bonus: 50, label: "PLUS" },

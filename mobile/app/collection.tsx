@@ -24,12 +24,12 @@ import {
   Title,
 } from "@/components/ui";
 import { BannerRenderer } from "@/components/BannerRenderer";
+import { GridLivePreview } from "@/components/cosmetics/GridLivePreview";
 import {
   COLLECTION_ENTRIES,
   type CollectionEntry,
   type CollectionTab,
 } from "@/lib/collection/catalog";
-import { boardSkinFor } from "@/lib/cosmetics/boardSkin";
 import { tossSkinFromStoreId, useTossSkin } from "@/lib/cosmetics/tossSkin";
 import { updateProfile } from "@/lib/profile";
 import { useAuthStore } from "@/lib/store";
@@ -267,33 +267,11 @@ function EquipFlash({ label, onDone }: { label: string | null; onDone: () => voi
   );
 }
 
-/** Mini board preview rendered with the grid bundle's skin colors. */
+/** Live animated board preview for the equipped grid skin. */
 function GridSwatch({ boardStyle }: { boardStyle: string }) {
-  const skin = boardSkinFor(boardStyle);
-  const boardBg = skin?.boardBg ?? colors.bgRaised;
-  const line = skin?.boardLine ?? colors.border;
-  const cellBg = skin?.cellBg ?? colors.bgCard;
-  const cellBorder = skin?.cellBorder ?? colors.border;
-  const accent = skin?.accent ?? colors.textMuted;
   return (
-    <View style={[styles.gridSwatch, { backgroundColor: boardBg, borderColor: line }]}>
-      {[0, 1, 2].map((r) => (
-        <View key={r} style={styles.swatchRow}>
-          {[0, 1, 2, 3, 4].map((c) => (
-            <View
-              key={c}
-              style={[
-                styles.gridSwatchCell,
-                { backgroundColor: cellBg, borderColor: cellBorder },
-              ]}
-            >
-              {(r + c) % 4 === 1 ? (
-                <View style={[styles.swatchDot, { backgroundColor: accent }]} />
-              ) : null}
-            </View>
-          ))}
-        </View>
-      ))}
+    <View style={{ alignItems: "center", marginTop: space[3] }}>
+      <GridLivePreview boardStyle={boardStyle} size={188} />
     </View>
   );
 }
