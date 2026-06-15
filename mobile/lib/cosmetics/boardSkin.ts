@@ -1,7 +1,12 @@
 /**
  * Board grid skins — the ``board_style`` cosmetic equipped from the
- * Collection (store grid bundles). Applied as color overrides on top of
- * the active theme palette in ``BoardGrid``.
+ * Collection (store grid bundles). Applied in ``BoardGrid``.
+ *
+ * Currently ONLY ``glacier_grid`` is implemented (rendered 1:1 from the web
+ * via a WebView canvas + SVG pieces). Every other ``board_style`` resolves to
+ * ``null`` here, so those boards fall back to the plain theme board — i.e. all
+ * other grid skins are intentionally removed from the game for now. The
+ * remaining 13 get re-added here as each is ported.
  */
 
 export interface BoardSkin {
@@ -29,25 +34,8 @@ export interface BoardSkin {
 }
 
 const SKINS: Record<string, BoardSkin> = {
-  // Inferno Bundle — charred forge board, ember-glow lines + flame & skull
-  // pieces. Ports the web ``RedGrid`` palette (#140300 board, #ff6633 glow,
-  // rising embers) into the phone-optimized skin model.
-  red_grid: {
-    id: "red_grid",
-    boardBg: "#160400",
-    boardLine: "rgba(255,80,0,0.5)",
-    cellBg: "#240700",
-    cellBorder: "rgba(255,80,0,0.26)",
-    accent: "#FF6633",
-    p1Color: "#FFD9B0",
-    p2Color: "#FF6A3D",
-    pieceGlow: "rgba(255,80,0,0.85)",
-    p1Glyph: "✸",
-    p2Glyph: "☠︎",
-    atmosphereInner: "rgba(255,80,0,0.16)",
-    atmosphereOuter: "rgba(190,18,60,0.10)",
-  },
-  // Glacier Bundle — aurora-lit arctic grid + glacier shard pieces.
+  // Glacier Bundle — aurora-lit arctic grid + glacier shard pieces. Rendered
+  // via the verbatim web GlacierGrid canvas (WebView) + SVG snowflake/shard.
   glacier_grid: {
     id: "glacier_grid",
     boardBg: "#04101E",
@@ -63,25 +51,9 @@ const SKINS: Record<string, BoardSkin> = {
     atmosphereInner: "rgba(56,189,248,0.16)",
     atmosphereOuter: "rgba(167,139,250,0.10)",
   },
-  // Bloodmoon Bundle — ritual crimson & violet omen + sigil pieces.
-  bloodmoon_grid: {
-    id: "bloodmoon_grid",
-    boardBg: "#170404",
-    boardLine: "rgba(220,38,38,0.5)",
-    cellBg: "#220707",
-    cellBorder: "rgba(220,38,38,0.3)",
-    accent: "#F87171",
-    p1Color: "#FCA5A5",
-    p2Color: "#C4B5FD",
-    pieceGlow: "rgba(220,38,38,0.85)",
-    p1Glyph: "✠",
-    p2Glyph: "☾",
-    atmosphereInner: "rgba(220,38,38,0.16)",
-    atmosphereOuter: "rgba(139,92,246,0.10)",
-  },
 };
 
-/** Skin for an equipped ``board_style`` — null for default/unknown ids. */
+/** Skin for an equipped ``board_style`` — null for default/unknown/removed ids. */
 export function boardSkinFor(boardStyle: string | null | undefined): BoardSkin | null {
   if (!boardStyle || boardStyle === "default") return null;
   return SKINS[boardStyle] ?? null;

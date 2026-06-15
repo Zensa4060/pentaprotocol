@@ -26,6 +26,9 @@ import { createJSONStorage, persist } from "zustand/middleware";
 import { clearToken, setToken } from "./secureStore";
 import type { User } from "./types";
 
+/** "Stay signed in" window — mirrors the web's 30-day device token. */
+const KEEP_SIGNED_IN_MS = 30 * 24 * 60 * 60 * 1000;
+
 interface AuthState {
   /** Cached profile from the last successful login / /profile/me. */
   user: User | null;
@@ -40,14 +43,42 @@ interface AuthState {
   /** True only between app cold-start and first store hydration. */
   hydrated: boolean;
 
+  /**
+   * The user ticked "Stay signed in for 30 days" at login. When
+   * false, the session is treated as session-only: it survives
+   * backgrounding (the JS context stays alive) but is dropped on the
+   * next cold start so the login screen reappears.
+   */
+  keepSignedIn: boolean;
+
+  /**
+   * Epoch-ms deadline for a "kept" session (30 days out), or null for
+   * a session-only login. Past this, the persisted session is dropped
+   * on cold start even if "stay signed in" was ticked.
+   */
+  sessionExpiresAt: number | null;
+
   /** Mark the persisted slice as loaded. Wired in below. */
   setHydrated: () => void;
 
   /**
+   * Cold-start gate for the "stay signed in" choice. Runs once during
+   * rehydration (before ``setHydrated``), so the very first render of
+   * the auth gate already sees the correct state — no logged-in flash.
+   * Drops the session when the user did not opt to stay signed in, or
+   * when the 30-day window has lapsed.
+   */
+  applySessionPolicy: () => void;
+
+  /**
    * Atomically set the JWT (SecureStore) + cached profile (this
    * store). Used by login / signup / Google / 2FA success paths.
+   *
+   * ``keepSignedIn`` records the login screen's checkbox: true keeps
+   * the session for 30 days across cold starts; false (the default,
+   * matching the web) makes it session-only.
    */
-  setUser: (user: User, token: string) => Promise<void>;
+  setUser: (user: User, token: string, keepSignedIn?: boolean) => Promise<void>;
 
   /**
    * Replace the cached profile wholesale. Use after a fresh
@@ -73,7 +104,12 @@ function noteLevelUp(
   next: User,
   set: (partial: Partial<AuthState>) => void,
 ): void {
-  const oldLevel = Number(prev?.level ?? 1);
+  // No prior profile means this is the initial login / hydration, not a
+  // real level *change* — comparing against a default of 1 would fire a
+  // bogus "1 → N" celebration on every fresh sign-in. Only a genuine
+  // increase between two known profiles counts.
+  if (!prev) return;
+  const oldLevel = Number(prev.level ?? 1);
   const newLevel = Number(next.level ?? oldLevel);
   if (newLevel > oldLevel) {
     set({ pendingLevelUp: { from: oldLevel, to: newLevel } });
@@ -86,16 +122,46 @@ export const useAuthStore = create<AuthState>()(
       user: null,
       isAuthenticated: false,
       hydrated: false,
+      keepSignedIn: false,
+      sessionExpiresAt: null,
       pendingLevelUp: null,
 
       setHydrated: () => set({ hydrated: true }),
 
+      applySessionPolicy: () => {
+        const { isAuthenticated, keepSignedIn, sessionExpiresAt } = get();
+        if (!isAuthenticated) return;
+        const lapsed = keepSignedIn
+          ? sessionExpiresAt != null && Date.now() > sessionExpiresAt
+          : true; // session-only login — never survives a cold start.
+        if (lapsed) {
+          // Clear the JWT too. Fire-and-forget: the flags below flip
+          // synchronously, which is what the auth gate reads, and the
+          // login screen issues no authed requests in the meantime.
+          void clearToken();
+          set({
+            user: null,
+            isAuthenticated: false,
+            keepSignedIn: false,
+            sessionExpiresAt: null,
+            pendingLevelUp: null,
+          });
+        }
+      },
+
       setPendingLevelUp: (val) => set({ pendingLevelUp: val }),
 
-      setUser: async (user, token) => {
+      setUser: async (user, token, keepSignedIn = false) => {
         await setToken(token);
-        noteLevelUp(get().user, user, set);
-        set({ user, isAuthenticated: true });
+        // Login is never a level-up moment (mirrors the web's setAuth,
+        // which doesn't check). The XP overlay only fires from profile
+        // refreshes / match results via setProfile + patchUser.
+        set({
+          user,
+          isAuthenticated: true,
+          keepSignedIn,
+          sessionExpiresAt: keepSignedIn ? Date.now() + KEEP_SIGNED_IN_MS : null,
+        });
       },
 
       setProfile: (user) => {
@@ -113,7 +179,13 @@ export const useAuthStore = create<AuthState>()(
 
       logout: async () => {
         await clearToken();
-        set({ user: null, isAuthenticated: false, pendingLevelUp: null });
+        set({
+          user: null,
+          isAuthenticated: false,
+          keepSignedIn: false,
+          sessionExpiresAt: null,
+          pendingLevelUp: null,
+        });
       },
     }),
     {
@@ -125,11 +197,30 @@ export const useAuthStore = create<AuthState>()(
       partialize: (state) => ({
         user: state.user,
         isAuthenticated: state.isAuthenticated,
+        keepSignedIn: state.keepSignedIn,
+        sessionExpiresAt: state.sessionExpiresAt,
       }),
+      migrate: (persisted, fromVersion) => {
+        // v1 predates the "stay signed in" choice and always persisted
+        // the session. Honour existing logins as "kept" so upgrading
+        // doesn't force a surprise re-login; the new policy applies to
+        // every login from here on.
+        if (fromVersion < 2 && persisted && typeof persisted === "object") {
+          const p = persisted as Record<string, unknown>;
+          if (p.isAuthenticated) {
+            p.keepSignedIn = true;
+            p.sessionExpiresAt = Date.now() + KEEP_SIGNED_IN_MS;
+          }
+        }
+        return persisted as never;
+      },
       onRehydrateStorage: () => (state) => {
+        // Enforce the stay-signed-in policy *before* unblocking render,
+        // so the auth gate's first read is already correct.
+        state?.applySessionPolicy();
         state?.setHydrated();
       },
-      version: 1,
+      version: 2,
     },
   ),
 );

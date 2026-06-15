@@ -2,7 +2,7 @@
  * Square board renderer for 5×5, 6×6, or 7×7.
  */
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Animated,
   Pressable,
@@ -14,9 +14,18 @@ import {
   type ViewStyle,
 } from "react-native";
 
-import { AuroraBands, ParticleDrift, PulseGlow } from "@/components/cosmetics/AnimatedFx";
+import {
+  AuroraBands,
+  DriftBlobs,
+  FallingGlyphs,
+  ParticleDrift,
+  PixelBlink,
+  PulseGlow,
+  StreakSweep,
+} from "@/components/cosmetics/AnimatedFx";
 import { boardSkinFor, type BoardSkin } from "@/lib/cosmetics/boardSkin";
 import { SkinPieceArt, skinHasPieceArt, skinPieceGlow } from "@/components/game/SkinPieces";
+import { CanvasWebView, buildSkinBgHtml, skinHasWebBg } from "@/components/game/skins";
 import type { GridSize } from "@/lib/game/boardConfig";
 import { useAuthStore } from "@/lib/store";
 import { colors, radii } from "@/theme/tokens";
@@ -57,6 +66,9 @@ export function BoardGrid({
   // surface colors; pieces keep the theme glyphs/colors.
   const boardStyle = useAuthStore((s) => s.user?.board_style);
   const skin = boardSkinFor(boardStyle);
+  // Verbatim web-canvas background (via WebView) for this skin. When present
+  // the cells render transparent so the canvas (bg + glowing grid lines) shows.
+  const webBg = skin ? skinHasWebBg(skin.id) : false;
   const locked = sideLength != null && sideLength > 0;
   const [measured, setMeasured] = useState(0);
   const size = locked ? sideLength! : measured;
@@ -77,6 +89,17 @@ export function BoardGrid({
     boardSize > 0
       ? Math.floor((boardSize - BOARD_PAD * 2 - CELL_GAP * (gridSize - 1)) / gridSize)
       : 0;
+
+  // Build the skin's web-canvas background HTML once per geometry change (NOT
+  // per move) so the WebView never reloads mid-game. Grid lines are placed at
+  // the RN cell boundaries so they line up with the interactive cells on top.
+  const bgHtml = useMemo(() => {
+    if (!webBg || !skin || boardSize <= 0) return null;
+    const lines = Array.from({ length: gridSize + 1 }, (_, i) =>
+      Math.max(1, Math.min(boardSize - 1, BOARD_PAD + i * (cellSize + CELL_GAP) - CELL_GAP / 2)),
+    );
+    return buildSkinBgHtml(skin.id, { width: boardSize, height: boardSize, lines });
+  }, [webBg, skin, boardSize, cellSize, gridSize]);
 
   const winningSet = new Set<string>();
   if (winningLine) {
@@ -137,7 +160,16 @@ export function BoardGrid({
                 },
               ]}
             >
-              {skin ? <SkinAtmosphere skin={skin} /> : null}
+              {bgHtml ? (
+                <View
+                  pointerEvents="none"
+                  style={[StyleSheet.absoluteFill, { borderRadius: radii.md, overflow: "hidden" }]}
+                >
+                  <CanvasWebView html={bgHtml} />
+                </View>
+              ) : skin ? (
+                <SkinAtmosphere skin={skin} />
+              ) : null}
               {board.map((row, r) => (
                 <View key={`row-${r}`} style={styles.row}>
                   {row.map((cell, c) => {
@@ -152,6 +184,7 @@ export function BoardGrid({
                         isWinning={isWinning}
                         palette={palette}
                         skin={skin}
+                        onCanvas={!!bgHtml}
                         disabled={disabled || cell !== null}
                         onPress={() => onCellPress?.(r, c)}
                       />
@@ -181,11 +214,13 @@ interface CellProps {
   isWinning: boolean;
   palette: ThemePalette;
   skin: BoardSkin | null;
+  /** When a Skia skin canvas is painting the board, cells render transparent. */
+  onCanvas: boolean;
   disabled: boolean;
   onPress: () => void;
 }
 
-function Cell({ size, owner, isLast, isWinning, palette, skin, disabled, onPress }: CellProps) {
+function Cell({ size, owner, isLast, isWinning, palette, skin, onCanvas, disabled, onPress }: CellProps) {
   const pulse = useRef(new Animated.Value(1)).current;
   // Stone-place pop: when a cell goes empty → occupied, spring the glyph in.
   const pop = useRef(new Animated.Value(1)).current;
@@ -246,14 +281,16 @@ function Cell({ size, owner, isLast, isWinning, palette, skin, disabled, onPress
           width: size,
           height: size,
           marginRight: CELL_GAP,
-          backgroundColor: skin?.cellBg ?? palette.boardCell,
+          backgroundColor: onCanvas ? "transparent" : skin?.cellBg ?? palette.boardCell,
           borderRadius: radii.xs,
-          borderWidth: 1,
-          borderColor: skin?.cellBorder ?? palette.boardLine,
+          borderWidth: onCanvas ? 0 : 1,
+          borderColor: onCanvas ? "transparent" : skin?.cellBorder ?? palette.boardLine,
           alignItems: "center",
           justifyContent: "center",
         },
-        pressed && !disabled ? { backgroundColor: palette.bgCard } : null,
+        pressed && !disabled
+          ? { backgroundColor: onCanvas ? "rgba(255,255,255,0.06)" : palette.bgCard }
+          : null,
       ]}
     >
       {owner && skin && skinHasPieceArt(skin.id) ? (
@@ -358,44 +395,115 @@ function SkinAtmosphere({ skin }: { skin: BoardSkin }) {
       <Animated.View
         style={[StyleSheet.absoluteFill, { backgroundColor: skin.atmosphereOuter, opacity: outerOpacity }]}
       />
-      {skin.id === "red_grid" ? (
-        <>
-          {/* Heat core breathing up from the forge + rising embers (web RedGrid). */}
-          <PulseGlow color="rgba(255,90,0,0.28)" secondary="rgba(180,20,0,0.34)" durationMs={3000} />
-          <ParticleDrift
-            color="rgba(255,140,0,0.95)"
-            count={12}
-            direction="up"
-            sizeRange={[1.5, 3.5]}
-            durationRange={[2200, 5200]}
-            seed={31}
-          />
-        </>
-      ) : skin.id === "glacier_grid" ? (
-        <>
-          <AuroraBands colors={["rgba(56,189,248,0.28)", "rgba(167,139,250,0.22)"]} seed={6} />
-          <ParticleDrift
-            color="rgba(224,242,254,0.85)"
-            count={10}
-            direction="down"
-            sizeRange={[1.5, 3.5]}
-            durationRange={[4200, 8600]}
-            glow={false}
-            seed={23}
-          />
-        </>
-      ) : skin.id === "bloodmoon_grid" ? (
-        <ParticleDrift
-          color="rgba(251,146,60,0.9)"
-          count={10}
-          direction="up"
-          sizeRange={[1.5, 3.5]}
-          durationRange={[2600, 6200]}
-          seed={29}
-        />
-      ) : null}
+      <SkinWeather id={skin.id} />
     </View>
   );
+}
+
+/**
+ * Per-skin animated weather — each grid bundle's signature effect, ported
+ * from its web canvas component using the shared ``AnimatedFx`` primitives.
+ * Pointer-transparent, native-driver loops only.
+ */
+function SkinWeather({ id }: { id: string }) {
+  switch (id) {
+    case "red_grid":
+      // Heat core + rising embers (web RedGrid).
+      return (
+        <>
+          <PulseGlow color="rgba(255,90,0,0.28)" secondary="rgba(180,20,0,0.34)" durationMs={3000} />
+          <ParticleDrift color="rgba(255,140,0,0.95)" count={12} direction="up" sizeRange={[1.5, 3.5]} durationRange={[2200, 5200]} seed={31} />
+        </>
+      );
+    case "glacier_grid":
+      return (
+        <>
+          <AuroraBands colors={["rgba(56,189,248,0.28)", "rgba(167,139,250,0.22)"]} seed={6} />
+          <ParticleDrift color="rgba(224,242,254,0.85)" count={10} direction="down" sizeRange={[1.5, 3.5]} durationRange={[4200, 8600]} glow={false} seed={23} />
+        </>
+      );
+    case "ice_grid":
+      return (
+        <>
+          <AuroraBands colors={["rgba(96,200,255,0.26)", "rgba(125,211,252,0.2)"]} seed={12} />
+          <ParticleDrift color="rgba(200,238,255,0.85)" count={11} direction="down" sizeRange={[1.5, 3.5]} durationRange={[4000, 8200]} glow={false} seed={24} />
+        </>
+      );
+    case "bloodmoon_grid":
+      return <ParticleDrift color="rgba(251,146,60,0.9)" count={10} direction="up" sizeRange={[1.5, 3.5]} durationRange={[2600, 6200]} seed={29} />;
+    case "egypt_grid":
+      // Drifting golden sand motes + warm glow (web EgyptGrid).
+      return (
+        <>
+          <PulseGlow color="rgba(214,160,48,0.22)" durationMs={3400} />
+          <ParticleDrift color="rgba(245,210,120,0.85)" count={12} direction="up" sizeRange={[1, 2.6]} durationRange={[3200, 6600]} glow={false} seed={33} />
+        </>
+      );
+    case "synthwave_grid":
+      // Neon horizon sweep (web SynthwaveGrid).
+      return (
+        <>
+          <StreakSweep colors={["rgba(255,77,109,0.7)", "rgba(0,229,255,0.6)"]} count={5} heightRange={[1.5, 3]} angle="-4deg" durationRange={[1800, 3400]} seed={37} />
+          <PulseGlow color="rgba(255,77,109,0.22)" secondary="rgba(0,229,255,0.18)" durationMs={2600} />
+        </>
+      );
+    case "matrix_grid":
+      // Falling code rain (web MatrixGrid).
+      return <FallingGlyphs color="#22FF66" columns={8} fontSize={10} seed={41} />;
+    case "arcane_grid":
+      // Magic-circle pulse + rune sparkle (web ArcaneGrid).
+      return (
+        <>
+          <PulseGlow color="rgba(168,85,247,0.3)" secondary="rgba(251,191,36,0.16)" durationMs={2800} />
+          <PixelBlink colors={["#C084FC", "#A855F7", "#FBBF24"]} count={10} seed={45} />
+        </>
+      );
+    case "bio_grid":
+      // Drifting bioluminescent masses + rising orbs (web BioGrid).
+      return (
+        <>
+          <DriftBlobs colors={["rgba(0,255,208,0.4)", "rgba(180,100,255,0.34)"]} count={3} seed={49} />
+          <ParticleDrift color="rgba(0,255,208,0.9)" count={11} direction="up" sizeRange={[2, 4.5]} durationRange={[3800, 7600]} seed={51} />
+        </>
+      );
+    case "forge_grid":
+      // Molten heat + sparks (web ForgeGrid).
+      return (
+        <>
+          <PulseGlow color="rgba(255,110,0,0.28)" secondary="rgba(255,204,0,0.22)" durationMs={2800} />
+          <ParticleDrift color="rgba(255,170,40,0.95)" count={12} direction="up" sizeRange={[1.5, 3.5]} durationRange={[2200, 5000]} seed={53} />
+        </>
+      );
+    case "void_grid":
+      // Cosmic pulse + rising stardust (web VoidGrid).
+      return (
+        <>
+          <PulseGlow color="rgba(140,80,255,0.3)" secondary="rgba(64,192,255,0.18)" durationMs={3000} />
+          <ParticleDrift color="rgba(216,200,255,0.85)" count={14} direction="up" sizeRange={[1, 2.6]} durationRange={[5200, 9600]} glow={false} seed={57} />
+        </>
+      );
+    case "space_grid":
+      // Slow starfield + shooting streaks (web SpaceGrid).
+      return (
+        <>
+          <ParticleDrift color="rgba(224,231,255,0.85)" count={14} direction="up" sizeRange={[1, 2.4]} durationRange={[6000, 11000]} glow={false} seed={61} />
+          <StreakSweep colors={["rgba(0,217,255,0.7)"]} count={2} heightRange={[1, 2]} angle="-18deg" durationRange={[2600, 4200]} seed={63} />
+        </>
+      );
+    case "pixel_grid":
+      // 8-bit blinking pixels (web PixelGrid).
+      return <PixelBlink colors={["#FFDD00", "#FF4455", "#FFFFFF", "#00D9FF"]} count={16} seed={67} />;
+    case "tokyo_grid":
+      // Neon rain + city streak (web TokyoGrid).
+      return (
+        <>
+          <FallingGlyphs color="#FF2A7A" columns={6} fontSize={9} seed={71} />
+          <StreakSweep colors={["rgba(0,204,255,0.6)"]} count={3} heightRange={[1.5, 2.5]} angle="6deg" durationRange={[1600, 3000]} seed={73} />
+        </>
+      );
+    default:
+      return null;
+  }
 }
 
 const styles = StyleSheet.create({

@@ -13,11 +13,11 @@
  */
 
 import { useId } from "react";
-import Svg, { Circle, Defs, Path, RadialGradient, Rect, Stop } from "react-native-svg";
+import Svg, { Circle, Defs, G, Line, Path, Polygon, RadialGradient, Rect, Stop } from "react-native-svg";
 
 /** True when a skin ships illustrated (SVG) pieces rather than glyphs. */
 export function skinHasPieceArt(skinId: string): boolean {
-  return skinId === "red_grid";
+  return skinId === "red_grid" || skinId === "glacier_grid";
 }
 
 /** Normalize a board owner token to player 1 vs player 2. */
@@ -39,6 +39,9 @@ export interface SkinPieceArtProps {
 export function SkinPieceArt({ skinId, owner, size }: SkinPieceArtProps) {
   if (skinId === "red_grid") {
     return isPlayerOne(owner) ? <FlamePiece size={size} /> : <SkullPiece size={size} />;
+  }
+  if (skinId === "glacier_grid") {
+    return isPlayerOne(owner) ? <SnowflakePiece size={size} /> : <IceShardPiece size={size} />;
   }
   return null;
 }
@@ -110,10 +113,57 @@ function SkullPiece({ size }: { size: number }) {
   );
 }
 
+/** Glacier P1 — 6-arm crystal snowflake (web ``Snowflake``). */
+function SnowflakePiece({ size }: { size: number }) {
+  const s = Math.max(16, Math.floor(size * 0.62));
+  return (
+    <Svg width={s} height={s} viewBox="0 0 56 56">
+      <G transform="translate(28,28)">
+        {[0, 60, 120, 180, 240, 300].map((deg) => (
+          <G key={deg} transform={`rotate(${deg})`}>
+            <Line x1={0} y1={-22} x2={0} y2={22} stroke="#7dd3fc" strokeWidth={2.2} strokeLinecap="round" />
+            <Line x1={-5.5} y1={-13} x2={0} y2={-13} stroke="#38bdf8" strokeWidth={1.6} strokeLinecap="round" />
+            <Line x1={5.5} y1={-13} x2={0} y2={-13} stroke="#38bdf8" strokeWidth={1.6} strokeLinecap="round" />
+            <Line x1={-3.5} y1={-7} x2={0} y2={-7} stroke="#bae6fd" strokeWidth={1.2} strokeLinecap="round" />
+            <Line x1={3.5} y1={-7} x2={0} y2={-7} stroke="#bae6fd" strokeWidth={1.2} strokeLinecap="round" />
+            <Polygon points="0,-22 -2,-18 0,-25 2,-18" fill="#e0f2fe" opacity={0.85} />
+          </G>
+        ))}
+        <Polygon
+          points="0,-9 7.8,-4.5 7.8,4.5 0,9 -7.8,4.5 -7.8,-4.5"
+          fill="none"
+          stroke="#93c5fd"
+          strokeWidth={1.2}
+          opacity={0.7}
+        />
+        <Circle cx={0} cy={0} r={3.5} fill="#e0f2fe" />
+        <Circle cx={0} cy={0} r={5.5} fill="none" stroke="#bae6fd" strokeWidth={0.8} opacity={0.5} />
+      </G>
+    </Svg>
+  );
+}
+
+/** Glacier P2 — faceted ice shard cluster (web ``IceShard``). */
+function IceShardPiece({ size }: { size: number }) {
+  const s = Math.max(16, Math.floor(size * 0.62));
+  return (
+    <Svg width={s} height={s} viewBox="0 0 56 56">
+      <Path d="M28,5 L33,24 L28,51 L23,24 Z" fill="rgba(147,197,253,0.14)" stroke="#93c5fd" strokeWidth={2.4} strokeLinejoin="round" />
+      <Line x1={28} y1={5} x2={31} y2={22} stroke="rgba(255,255,255,0.55)" strokeWidth={0.9} />
+      <Path d="M12,14 L18,26 L16,42 L11,27 Z" fill="rgba(191,219,254,0.10)" stroke="#bfdbfe" strokeWidth={1.8} strokeLinejoin="round" />
+      <Path d="M44,14 L38,26 L40,42 L45,27 Z" fill="rgba(191,219,254,0.10)" stroke="#bfdbfe" strokeWidth={1.8} strokeLinejoin="round" />
+      <Circle cx={28} cy={5} r={2.8} fill="#e0f2fe" />
+    </Svg>
+  );
+}
+
 /** Colored glow per skin/owner for the caller's iOS view shadow. */
 export function skinPieceGlow(skinId: string, owner: string): string {
   if (skinId === "red_grid") {
     return isPlayerOne(owner) ? "rgba(255,80,0,0.9)" : "rgba(204,0,0,0.9)";
+  }
+  if (skinId === "glacier_grid") {
+    return isPlayerOne(owner) ? "rgba(125,211,252,0.9)" : "rgba(147,197,253,0.9)";
   }
   return "rgba(0,0,0,0)";
 }

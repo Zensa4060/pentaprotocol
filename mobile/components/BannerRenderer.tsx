@@ -15,19 +15,11 @@
  */
 
 import { LinearGradient } from "expo-linear-gradient";
+import { useMemo } from "react";
 import { StyleSheet, View, type StyleProp, type ViewStyle } from "react-native";
 
-import {
-  AuroraBands,
-  DriftBlobs,
-  ExpandingRings,
-  FallingGlyphs,
-  ParticleDrift,
-  PixelBlink,
-  PulseGlow,
-  StormFlash,
-  StreakSweep,
-} from "@/components/cosmetics/AnimatedFx";
+import { CanvasWebView, bannerHtmlFor } from "@/components/game/skins";
+
 import type { ThemeId } from "@/theme/themes";
 
 type Stops = readonly [string, string, ...string[]];
@@ -36,7 +28,7 @@ type Stops = readonly [string, string, ...string[]];
 const BANNER_GRADIENTS: Record<string, Stops> = {
   default: ["#1a1a2e", "#16213e"],
   // Animated canvas banners (web) — represented here by their gradient.
-  digital_rain: ["#000702", "#14532d"],
+  digital_rain: ["#000602", "#001509"],
   lightsaber_duel: ["#06020e", "#0d0520"],
   arcade: ["#000010", "#000520"],
   hyperdrive: ["#02030e", "#05041a"],
@@ -82,102 +74,6 @@ const DEFAULT_THEME_GRADIENTS: Record<ThemeId, Stops> = {
 const normalizeId = (id?: string | null) =>
   (id ?? "default").toLowerCase().replace(/\s+/g, "_") || "default";
 
-/**
- * Live animation layer per banner — mirrors the web's animated canvas
- * banners. Every id gets a real moving effect, not just its gradient.
- */
-function BannerFx({ id }: { id: string }) {
-  switch (id) {
-    case "digital_rain":
-      return <FallingGlyphs color="#4ADE80" columns={9} seed={2} />;
-    case "hacker_terminal":
-      return <FallingGlyphs color="#22C55E" columns={7} fontSize={9} seed={17} />;
-    case "lightsaber_duel":
-      return (
-        <>
-          <StreakSweep colors={["#60A5FA"]} count={2} heightRange={[3, 4]} angle="18deg" durationRange={[2200, 2600]} seed={4} />
-          <StreakSweep colors={["#F87171"]} count={2} heightRange={[3, 4]} angle="-16deg" durationRange={[2500, 3100]} seed={9} />
-        </>
-      );
-    case "arcade":
-      return <PixelBlink colors={["#F472B6", "#60A5FA", "#FACC15", "#4ADE80"]} count={16} seed={6} />;
-    case "hyperdrive":
-      return <StreakSweep colors={["#BFDBFE", "#93C5FD", "#E0E7FF"]} count={8} heightRange={[1.5, 2.5]} durationRange={[900, 1900]} seed={3} />;
-    case "northern_lights":
-      return <AuroraBands colors={["rgba(74,222,128,0.5)", "rgba(96,165,250,0.45)"]} seed={5} />;
-    case "aurora":
-      return <AuroraBands colors={["rgba(52,211,153,0.5)", "rgba(45,212,191,0.4)"]} seed={8} />;
-    case "void_collapse":
-      return <PulseGlow color="rgba(124,58,237,0.55)" secondary="rgba(15,5,35,0.95)" durationMs={2000} />;
-    case "void":
-    case "void_rift":
-      return <PulseGlow color="rgba(139,92,246,0.5)" secondary="rgba(76,29,149,0.6)" durationMs={2400} />;
-    case "lava_flow":
-    case "inferno":
-      return (
-        <>
-          <DriftBlobs colors={["rgba(234,88,12,0.55)", "rgba(190,18,60,0.5)"]} count={3} seed={12} />
-          <ParticleDrift color="#FB923C" count={8} direction="up" sizeRange={[2, 4]} seed={14} />
-        </>
-      );
-    case "particle_web":
-      return <ParticleDrift color="#93C5FD" count={14} direction="up" sizeRange={[2, 3.5]} durationRange={[5200, 9000]} seed={21} />;
-    case "ink_drop":
-      return <ExpandingRings color="rgba(30,30,30,0.7)" count={3} />;
-    case "thunder_storm":
-      return (
-        <>
-          <ParticleDrift color="rgba(147,197,253,0.7)" count={10} direction="down" sizeRange={[1.5, 2.5]} durationRange={[1100, 2100]} glow={false} seed={19} />
-          <StormFlash />
-        </>
-      );
-    case "neon_pulse":
-      return <PulseGlow color="rgba(217,70,239,0.5)" secondary="rgba(34,211,238,0.45)" durationMs={1300} />;
-    case "deep_sea":
-      return <ParticleDrift color="rgba(125,211,252,0.8)" count={11} direction="up" sizeRange={[2.5, 6]} durationRange={[4200, 8600]} seed={25} />;
-    case "prismatic_light":
-      return <AuroraBands colors={["rgba(244,114,182,0.4)", "rgba(96,165,250,0.4)"]} seed={10} />;
-    case "sand_dunes":
-      return <DriftBlobs colors={["rgba(252,211,77,0.4)", "rgba(217,119,6,0.45)"]} count={3} seed={16} />;
-    case "ember_phoenix":
-      return <ParticleDrift color="#F97316" count={14} direction="up" sizeRange={[2, 5]} durationRange={[2400, 5400]} seed={27} />;
-    case "crystal_cave":
-      return (
-        <>
-          <PulseGlow color="rgba(167,139,250,0.4)" durationMs={2600} />
-          <PixelBlink colors={["#C4B5FD", "#A5F3FC", "#F5D0FE"]} count={10} seed={30} />
-        </>
-      );
-    case "tidal_surge":
-      return (
-        <>
-          <DriftBlobs colors={["rgba(14,116,144,0.6)", "rgba(3,105,161,0.55)"]} count={3} seed={33} />
-          <ExpandingRings color="rgba(125,211,252,0.5)" count={2} durationMs={4200} />
-        </>
-      );
-    case "solar_wind":
-      return <StreakSweep colors={["#FDBA74", "#FCD34D"]} count={6} heightRange={[1.5, 2.5]} angle="-6deg" durationRange={[1300, 2600]} seed={36} />;
-    case "lava_lamp":
-      return <DriftBlobs colors={["rgba(249,115,22,0.6)", "rgba(217,70,239,0.5)", "rgba(234,88,12,0.55)"]} count={4} seed={39} />;
-    case "starfield":
-    case "nebula":
-      return <ParticleDrift color="#E0E7FF" count={14} direction="up" sizeRange={[1.5, 3]} durationRange={[7000, 12000]} seed={41} />;
-    case "blood_moon":
-    case "crimson":
-      return <PulseGlow color="rgba(220,38,38,0.45)" secondary="rgba(127,29,29,0.55)" durationMs={2600} />;
-    case "emerald":
-      return <AuroraBands colors={["rgba(16,185,129,0.45)", "rgba(5,150,105,0.4)"]} seed={44} />;
-    case "ocean":
-      return <ParticleDrift color="rgba(125,211,252,0.7)" count={9} direction="up" sizeRange={[2, 4]} durationRange={[4600, 8400]} seed={47} />;
-    case "gold":
-      return <ParticleDrift color="rgba(252,211,77,0.85)" count={10} direction="up" sizeRange={[1.5, 3.5]} durationRange={[3600, 7000]} seed={50} />;
-    case "plasma_core":
-      return <PulseGlow color="rgba(217,70,239,0.55)" secondary="rgba(124,58,237,0.6)" durationMs={1500} />;
-    default:
-      return null;
-  }
-}
-
 export interface BannerRendererProps {
   bannerId?: string | null;
   themeId?: ThemeId;
@@ -196,10 +92,14 @@ export function BannerRenderer({
   animated = true,
 }: BannerRendererProps) {
   const id = normalizeId(bannerId);
-  const stops: Stops =
-    id === "default"
-      ? DEFAULT_THEME_GRADIENTS[themeId] ?? DEFAULT_THEME_GRADIENTS.classic_dark
-      : BANNER_GRADIENTS[id] ?? DEFAULT_THEME_GRADIENTS[themeId] ?? BANNER_GRADIENTS.default;
+  // A banner renders its skin iff it's been ported to a verbatim web canvas
+  // (``bannerHtmlFor``). Ported banners render via the size-adaptive WebView —
+  // identically wherever they appear. Un-ported banners fall back to the plain
+  // theme backdrop. So adding a banner to BANNER_DRAWS lights it up everywhere.
+  const liveHtml = useMemo(() => bannerHtmlFor(id), [id]);
+  const stops: Stops = liveHtml
+    ? BANNER_GRADIENTS[id] ?? DEFAULT_THEME_GRADIENTS[themeId] ?? DEFAULT_THEME_GRADIENTS.classic_dark
+    : DEFAULT_THEME_GRADIENTS[themeId] ?? DEFAULT_THEME_GRADIENTS.classic_dark;
 
   return (
     <View style={[styles.fill, style]} pointerEvents="none">
@@ -209,7 +109,7 @@ export function BannerRenderer({
         end={{ x: 1, y: 1 }}
         style={StyleSheet.absoluteFill}
       />
-      {animated ? <BannerFx id={id} /> : null}
+      {animated && liveHtml ? <CanvasWebView html={liveHtml} /> : null}
       {overlayOpacity > 0 ? (
         <View
           style={[

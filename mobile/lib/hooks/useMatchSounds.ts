@@ -4,16 +4,21 @@
 
 import { useEffect, useRef } from "react";
 
-import { useGameAudio } from "@/lib/audio/AudioProvider";
+import { useGameAudio, type BgmContext } from "@/lib/audio/AudioProvider";
 
-export function useMatchGameBgm() {
+/**
+ * Match BGM. Defaults to the normal "game" track; pass "ranked" for
+ * matches that should use the theme's ranked track (ranked PvP and the
+ * named hard bots — JR. / HIM / HER — mirroring the web's getBgmCtx).
+ */
+export function useMatchGameBgm(context: BgmContext = "game") {
   const audio = useGameAudio();
   useEffect(() => {
-    audio.playBgm("game");
+    audio.playBgm(context);
     return () => {
       audio.pauseBgm();
     };
-  }, [audio]);
+  }, [audio, context]);
 }
 
 export function useLobbyBgm() {
