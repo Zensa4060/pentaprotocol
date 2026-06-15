@@ -1,5 +1,12 @@
 /**
- * Native collection — equip owned **themes** and **banners**.
+ * Native collection — "The Locker". Equip owned **themes, banners, grids,
+ * coins** and profile **badges**.
+ *
+ * Redesign (UI only): a live "Your Loadout" hero showing the four equipped
+ * slots at a glance, then a 2-column gallery of live preview tiles. The
+ * equipped item gets an accent border + a ``✓ EQUIPPED`` badge; tapping any
+ * owned tile equips it directly (live apply + EquipFlash). Locked tiles route
+ * to the Store. All equip logic is unchanged.
  *
  * Equipping is applied live (fixes BUG-10):
  *   - Theme  → ``useTheme().setTheme`` re-renders the board + every
@@ -12,17 +19,19 @@
 
 import { router, Stack, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Alert, Animated, Easing, Pressable, ScrollView, StyleSheet, View } from "react-native";
-
 import {
-  Body,
-  Btn,
-  Caption,
-  Heading,
-  Row,
-  Screen,
-  Title,
-} from "@/components/ui";
+  Alert,
+  Animated,
+  Easing,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  useWindowDimensions,
+  View,
+} from "react-native";
+
+import { Body, Caption, Heading, Mono, Screen } from "@/components/ui";
+import { HudHeader, Panel, SectionLabel, SegTabs } from "@/components/ui/hud";
 import { BannerRenderer } from "@/components/BannerRenderer";
 import { GridLivePreview } from "@/components/cosmetics/GridLivePreview";
 import {
@@ -39,6 +48,10 @@ import { useTheme } from "@/theme/ThemeProvider";
 import { colors, radii, space } from "@/theme/tokens";
 
 const TABS: CollectionTab[] = ["themes", "banners", "grids", "coins", "badges"];
+const SEG_TABS: { key: CollectionTab; label: string }[] = TABS.map((t) => ({
+  key: t,
+  label: t.toUpperCase(),
+}));
 
 export default function CollectionScreen() {
   const params = useLocalSearchParams<{ tab?: string }>();
@@ -51,11 +64,16 @@ export default function CollectionScreen() {
   const [busy, setBusy] = useState<string | null>(null);
   const [equipFlash, setEquipFlash] = useState<string | null>(null);
   const [tossSkin, setTossSkin] = useTossSkin();
+  const { width: winW } = useWindowDimensions();
 
   useSyncAudioTheme(themeId);
 
   const owned = user?.purchased_items ?? [];
   const entries = COLLECTION_ENTRIES.filter((e) => e.tab === tab);
+
+  // 2-column gallery geometry (Screen `padded` = 20px gutters; 12px column gap).
+  const colW = Math.floor((winW - space[5] * 2 - space[3]) / 2);
+  const innerW = colW - space[3] * 2;
 
   const goBack = () => {
     if (router.canGoBack()) router.back();
@@ -112,98 +130,193 @@ export default function CollectionScreen() {
     return false;
   };
 
+  const onTilePress = (entry: CollectionEntry, hasIt: boolean, equipped: boolean) => {
+    if (!hasIt) {
+      router.push("/store" as never);
+      return;
+    }
+    if (equipped) return;
+    void onEquip(entry.id);
+  };
+
   return (
     <Screen padded>
       <Stack.Screen options={{ headerShown: false }} />
-      <Pressable onPress={goBack} hitSlop={12}>
-        <Caption tone="muted">← BACK</Caption>
-      </Pressable>
 
-      <Title style={{ marginTop: space[4] }}>Collection</Title>
-      <Body tone="muted" style={{ marginTop: space[2] }}>
-        Equip themes, banners, board grids, coin toss skins, and profile badges.
-      </Body>
+      <HudHeader title="COLLECTION" eyebrow="EQUIP YOUR LOADOUT" onBack={goBack} />
 
-      {/* flexGrow/flexShrink 0: the flex column otherwise compresses this
-          horizontal scroller vertically and clips the chip labels. */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={{ marginTop: space[4], flexGrow: 0, flexShrink: 0 }}
-        contentContainerStyle={{ alignItems: "center" }}
-      >
-        <Row gap={2}>
-          {TABS.map((t) => (
-            <Pressable
-              key={t}
-              onPress={() => setTab(t)}
-              style={[styles.tab, tab === t && styles.tabOn]}
-            >
-              <Caption
-                tone={tab === t ? "accent" : "muted"}
-                maxFontSizeMultiplier={1.2}
-                numberOfLines={1}
-                style={{ lineHeight: 18, includeFontPadding: false }}
-              >
-                {t.toUpperCase()}
-              </Caption>
-            </Pressable>
-          ))}
-        </Row>
-      </ScrollView>
+      {/* ── Your Loadout · the four currently-equipped slots ─────────── */}
+      <LoadoutHero
+        themeId={themeId}
+        banner={user?.banner ?? "default"}
+        boardStyle={user?.board_style ?? "default"}
+        title={(user?.title ?? "newcomer").toUpperCase()}
+      />
+
+      <SegTabs<CollectionTab> tabs={SEG_TABS} value={tab} onChange={setTab} style={{ marginTop: space[5] }} />
 
       <ScrollView style={{ marginTop: space[4] }} contentContainerStyle={{ paddingBottom: space[10] }}>
-        {entries.map((entry) => {
-          const hasIt = entry.owned(owned, user);
-          const equipped = isEquipped(entry);
-          return (
-            <View key={entry.id} style={styles.card}>
-              <Row justify="between" align="center">
-                <Heading>{entry.label}</Heading>
-                {!hasIt ? (
-                  <Caption tone="warn">LOCKED</Caption>
-                ) : equipped ? (
-                  <Caption tone="accent">ACTIVE</Caption>
-                ) : null}
-              </Row>
-              <Body tone="muted">{entry.description}</Body>
-
-              {/* Live preview */}
-              {entry.equipField === "theme" ? (
-                <ThemeSwatch themeId={entry.equipValue as ThemeId} />
-              ) : entry.equipField === "banner" ? (
-                <BannerRenderer
-                  bannerId={entry.equipValue}
-                  themeId={themeId}
-                  style={styles.bannerPreview}
-                />
-              ) : entry.equipField === "title" ? (
-                <View style={[styles.bannerPreview, { justifyContent: "center", alignItems: "center" }]}>
-                  <Caption tone="accent">{entry.label}</Caption>
+        <View style={styles.gallery}>
+          {entries.map((entry) => {
+            const hasIt = entry.owned(owned, user);
+            const equipped = isEquipped(entry);
+            return (
+              <Pressable
+                key={entry.id}
+                onPress={() => onTilePress(entry, hasIt, equipped)}
+                accessibilityRole="button"
+                accessibilityLabel={entry.label}
+                style={({ pressed }) => [
+                  styles.tile,
+                  { width: colW },
+                  equipped ? styles.tileEquipped : null,
+                  !hasIt ? styles.tileLocked : null,
+                  pressed ? { transform: [{ scale: 0.985 }] } : null,
+                ]}
+              >
+                <View style={styles.tilePrevWrap}>
+                  <TilePreview entry={entry} innerW={innerW} themeId={themeId} />
+                  {!hasIt ? (
+                    <View style={styles.lockOverlay}>
+                      <Caption tone="muted" style={{ letterSpacing: 1 }}>🔒</Caption>
+                    </View>
+                  ) : null}
                 </View>
-              ) : entry.equipField === "board_style" ? (
-                <GridSwatch boardStyle={entry.equipValue} />
-              ) : (
-                <View style={[styles.bannerPreview, { backgroundColor: colors.bgRaised }]} />
-              )}
 
-              <View style={{ marginTop: space[3] }}>
-                <Btn
-                  variant={equipped ? "ghost" : "secondary"}
-                  disabled={!hasIt || equipped || busy === entry.id}
-                  loading={busy === entry.id}
-                  onPress={() => onEquip(entry.id)}
-                >
-                  {equipped ? "Equipped" : hasIt ? "Equip" : "Get in Store"}
-                </Btn>
-              </View>
-            </View>
-          );
-        })}
+                <Body style={styles.tileName} numberOfLines={1}>{entry.label}</Body>
+
+                <View style={styles.tileFoot}>
+                  {!hasIt ? (
+                    <Caption tone="warn" style={styles.footTxt}>STORE ›</Caption>
+                  ) : equipped ? (
+                    <View style={styles.equippedBadge}>
+                      <Caption tone="accent" style={styles.equippedTxt}>✓ EQUIPPED</Caption>
+                    </View>
+                  ) : (
+                    <Caption tone={busy === entry.id ? "dim" : "accent"} style={styles.footTxt}>
+                      {busy === entry.id ? "···" : "EQUIP"}
+                    </Caption>
+                  )}
+                </View>
+              </Pressable>
+            );
+          })}
+        </View>
       </ScrollView>
 
       <EquipFlash label={equipFlash} onDone={() => setEquipFlash(null)} />
     </Screen>
+  );
+}
+
+/** Per-entry live preview inside a gallery tile. */
+function TilePreview({
+  entry,
+  innerW,
+  themeId,
+}: {
+  entry: CollectionEntry;
+  innerW: number;
+  themeId: ThemeId;
+}) {
+  if (entry.equipField === "theme") {
+    return <ThemeMini themeId={entry.equipValue as ThemeId} width={innerW} />;
+  }
+  if (entry.equipField === "banner") {
+    return (
+      <View style={[styles.prevBox, { width: innerW, height: innerW * 0.58 }]}>
+        <BannerRenderer bannerId={entry.equipValue} themeId={themeId} style={StyleSheet.absoluteFill} />
+      </View>
+    );
+  }
+  if (entry.equipField === "board_style") {
+    return <GridLivePreview boardStyle={entry.equipValue} size={innerW} pieces={false} />;
+  }
+  if (entry.equipField === "title") {
+    return (
+      <View style={[styles.prevBox, styles.badgePrev, { width: innerW, height: innerW * 0.58 }]}>
+        <Caption tone="accent" style={{ letterSpacing: 1.4, fontWeight: "800" }} numberOfLines={1}>
+          {entry.label.toUpperCase()}
+        </Caption>
+      </View>
+    );
+  }
+  // coin
+  return (
+    <View style={[styles.prevBox, styles.coinPrev, { width: innerW, height: innerW * 0.58 }]}>
+      <Mono tone="accent" style={{ fontSize: 26 }}>◉</Mono>
+    </View>
+  );
+}
+
+/** The four equipped slots, rendered live. */
+function LoadoutHero({
+  themeId,
+  banner,
+  boardStyle,
+  title,
+}: {
+  themeId: ThemeId;
+  banner: string;
+  boardStyle: string;
+  title: string;
+}) {
+  return (
+    <Panel style={styles.loadout}>
+      <SectionLabel label="YOUR LOADOUT" />
+      <View style={styles.slots}>
+        <View style={styles.slot}>
+          <GridLivePreview boardStyle={boardStyle} size={56} pieces={false} style={styles.slotArt} />
+          <Caption tone="dim" style={styles.slotLabel}>GRID</Caption>
+        </View>
+        <View style={styles.slot}>
+          <ThemeMini themeId={themeId} width={56} compact />
+          <Caption tone="dim" style={styles.slotLabel}>THEME</Caption>
+        </View>
+        <View style={styles.slot}>
+          <View style={[styles.slotArt, { width: 56, height: 56 }]}>
+            <BannerRenderer bannerId={banner} themeId={themeId} style={StyleSheet.absoluteFill} />
+          </View>
+          <Caption tone="dim" style={styles.slotLabel}>BANNER</Caption>
+        </View>
+        <View style={styles.slot}>
+          <View style={[styles.slotArt, styles.badgeSlot, { width: 56, height: 56 }]}>
+            <Caption tone="accent" style={{ fontSize: 9, letterSpacing: 0.5, textAlign: "center" }} numberOfLines={2}>
+              {title}
+            </Caption>
+          </View>
+          <Caption tone="dim" style={styles.slotLabel}>BADGE</Caption>
+        </View>
+      </View>
+    </Panel>
+  );
+}
+
+/** Mini theme swatch — board + palette dots (compact = single board square). */
+function ThemeMini({ themeId, width, compact }: { themeId: ThemeId; width: number; compact?: boolean }) {
+  const p = THEMES[themeId];
+  if (compact) {
+    return (
+      <View style={[styles.slotArt, { width, height: width, backgroundColor: p.bg, borderColor: p.border }]}>
+        <View style={[styles.miniBoard, { backgroundColor: p.boardBg, borderColor: p.boardLine }]}>
+          <View style={[styles.miniDot, { backgroundColor: p.p1 }]} />
+          <View style={[styles.miniDot, { backgroundColor: p.p2 }]} />
+        </View>
+      </View>
+    );
+  }
+  return (
+    <View style={[styles.prevBox, { width, height: width * 0.58, backgroundColor: p.bg, flexDirection: "row", gap: 8 }]}>
+      <View style={[styles.miniBoard, { backgroundColor: p.boardBg, borderColor: p.boardLine }]}>
+        <View style={[styles.miniDot, { backgroundColor: p.p1 }]} />
+        <View style={[styles.miniDot, { backgroundColor: p.p2 }]} />
+      </View>
+      <View style={{ flexDirection: "row", gap: 4, alignItems: "center" }}>
+        <View style={[styles.palChip, { backgroundColor: p.accent }]} />
+        <View style={[styles.palChip, { backgroundColor: p.p1 }]} />
+        <View style={[styles.palChip, { backgroundColor: p.p2 }]} />
+      </View>
+    </View>
   );
 }
 
@@ -267,126 +380,122 @@ function EquipFlash({ label, onDone }: { label: string | null; onDone: () => voi
   );
 }
 
-/** Live animated board preview for the equipped grid skin. */
-function GridSwatch({ boardStyle }: { boardStyle: string }) {
-  return (
-    <View style={{ alignItems: "center", marginTop: space[3] }}>
-      <GridLivePreview boardStyle={boardStyle} size={188} />
-    </View>
-  );
-}
-
-/** Mini board + palette swatch so the user sees the theme before equipping. */
-function ThemeSwatch({ themeId }: { themeId: ThemeId }) {
-  const p = THEMES[themeId];
-  return (
-    <View style={[styles.swatch, { backgroundColor: p.bg, borderColor: p.border }]}>
-      <View style={[styles.swatchBoard, { backgroundColor: p.boardBg, borderColor: p.boardLine }]}>
-        {[0, 1, 2].map((r) => (
-          <View key={r} style={styles.swatchRow}>
-            {[0, 1, 2].map((c) => {
-              const owner = (r + c) % 3;
-              return (
-                <View
-                  key={c}
-                  style={[styles.swatchCell, { backgroundColor: p.boardCell, borderColor: p.boardLine }]}
-                >
-                  {owner === 1 ? (
-                    <View style={[styles.swatchDot, { backgroundColor: p.p1 }]} />
-                  ) : owner === 2 ? (
-                    <View style={[styles.swatchDot, { backgroundColor: p.p2 }]} />
-                  ) : null}
-                </View>
-              );
-            })}
-          </View>
-        ))}
-      </View>
-      <View style={{ flexDirection: "row", gap: 6 }}>
-        <View style={[styles.chip, { backgroundColor: p.accent }]} />
-        <View style={[styles.chip, { backgroundColor: p.p1 }]} />
-        <View style={[styles.chip, { backgroundColor: p.p2 }]} />
-        <View style={[styles.chip, { backgroundColor: p.bgCard, borderWidth: 1, borderColor: p.border }]} />
-      </View>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
-  // Size each chip to its label — `flex: 1` inside the horizontal
-  // ScrollView squeezed the chips and clipped the text edges.
-  tab: {
-    minHeight: 40,
-    paddingVertical: space[2],
-    paddingHorizontal: space[4],
-    borderRadius: radii.sm,
+  loadout: {
+    marginTop: space[4],
+    padding: space[4],
+  },
+  slots: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: space[3],
+  },
+  slot: {
+    alignItems: "center",
+    gap: space[2],
+  },
+  slotArt: {
+    borderRadius: radii.md,
+    overflow: "hidden",
     borderWidth: 1,
     borderColor: colors.border,
     alignItems: "center",
     justifyContent: "center",
   },
-  tabOn: {
-    borderColor: colors.accent,
-    backgroundColor: colors.bgRaised,
+  badgeSlot: {
+    backgroundColor: "rgba(204,0,0,0.08)",
+    borderColor: colors.borderAccent,
+    padding: 4,
   },
-  card: {
-    backgroundColor: colors.bgCard,
+  slotLabel: {
+    fontSize: 9,
+    letterSpacing: 1,
+  },
+  gallery: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+  },
+  tile: {
+    backgroundColor: colors.bgElevated,
     borderRadius: radii.lg,
     borderWidth: 1,
     borderColor: colors.border,
-    padding: space[4],
+    padding: space[3],
     marginBottom: space[3],
   },
-  bannerPreview: {
-    height: 64,
-    borderRadius: radii.md,
-    marginTop: space[3],
-    borderWidth: 1,
-    borderColor: colors.border,
+  tileEquipped: {
+    borderColor: colors.borderAccent,
+    borderWidth: 1.5,
+    backgroundColor: "rgba(204,0,0,0.06)",
   },
-  swatch: {
+  tileLocked: {
+    opacity: 0.85,
+  },
+  tilePrevWrap: {
+    borderRadius: radii.md,
+    overflow: "hidden",
+  },
+  prevBox: {
+    borderRadius: radii.md,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.1)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  badgePrev: {
+    backgroundColor: "rgba(204,0,0,0.06)",
+    borderColor: colors.borderAccent,
+    paddingHorizontal: space[2],
+  },
+  coinPrev: {
+    backgroundColor: colors.bgRaised,
+  },
+  lockOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0,0,0,0.45)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  tileName: {
+    fontWeight: "700",
+    letterSpacing: 0.3,
+    marginTop: space[2],
+  },
+  tileFoot: {
     flexDirection: "row",
     alignItems: "center",
-    gap: space[3],
-    marginTop: space[3],
-    padding: space[3],
-    borderRadius: radii.md,
-    borderWidth: 1,
+    marginTop: 4,
+    minHeight: 18,
   },
-  swatchBoard: {
+  footTxt: {
+    fontWeight: "800",
+    letterSpacing: 1,
+    fontSize: 10,
+  },
+  equippedBadge: {
+    paddingVertical: 2,
+    paddingHorizontal: space[2],
+    borderRadius: radii.pill,
+    borderWidth: 1,
+    borderColor: colors.borderAccent,
+    backgroundColor: "rgba(204,0,0,0.14)",
+  },
+  equippedTxt: {
+    fontWeight: "900",
+    letterSpacing: 1,
+    fontSize: 9.5,
+  },
+  miniBoard: {
     padding: 4,
     borderRadius: radii.sm,
     borderWidth: 1,
+    flexDirection: "row",
     gap: 3,
   },
-  swatchRow: { flexDirection: "row", gap: 3 },
-  swatchCell: {
-    width: 16,
-    height: 16,
-    borderRadius: 3,
-    borderWidth: 1,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  swatchDot: { width: 8, height: 8, borderRadius: 4 },
-  chip: { width: 22, height: 22, borderRadius: 6 },
-  gridSwatch: {
-    marginTop: space[3],
-    padding: space[2],
-    borderRadius: radii.md,
-    borderWidth: 1.5,
-    gap: 3,
-    alignItems: "center",
-  },
-  gridSwatchCell: {
-    width: 26,
-    height: 26,
-    borderRadius: 4,
-    borderWidth: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 3,
-  },
+  miniDot: { width: 7, height: 7, borderRadius: 4 },
+  palChip: { width: 12, height: 12, borderRadius: 4 },
   flashWrap: {
     ...StyleSheet.absoluteFillObject,
     alignItems: "center",

@@ -17,6 +17,11 @@
  *   - Pull-to-refresh gives the user an explicit re-pull.
  *   - On error we render the offline cache if we have one, or
  *     a clean error panel with a Retry / Sign out pair if we don't.
+ *
+ * Redesign (UI only): a cinematic banner + avatar hero with the identity
+ * chips (rank · title · status) in one row, currency tiles, and the rating /
+ * rank-ladder / record / progression / security sections kept intact but
+ * reorganized into accent-ticked, scannable blocks. No data or logic changed.
  */
 
 import { router } from "expo-router";
@@ -38,13 +43,13 @@ import {
   Caption,
   Card,
   Divider,
-  Eyebrow,
   Heading,
   Row,
   Screen,
   Stack,
   Title,
 } from "@/components/ui";
+import { SectionLabel } from "@/components/ui/hud";
 import { RankBadge } from "@/components/RankBadge";
 import { RankLadder } from "@/components/RankLadder";
 import { BannerRenderer } from "@/components/BannerRenderer";
@@ -195,7 +200,7 @@ export default function ProfileScreen() {
         </View>
       ) : null}
 
-      {/* ── Identity (with equipped banner header) ──────────────── */}
+      {/* ── Identity hero — banner backdrop + avatar + chips ─────── */}
       <View style={[styles.bannerHeader, { borderColor: palette.border }]}>
         <BannerRenderer
           bannerId={user.banner}
@@ -204,7 +209,7 @@ export default function ProfileScreen() {
           style={StyleSheet.absoluteFill}
         />
       </View>
-      <Stack gap={4} align="center" style={{ marginTop: -44, marginBottom: space[5] }}>
+      <Stack gap={4} align="center" style={{ marginTop: -52, marginBottom: space[5] }}>
         <Avatar uri={localAvatar ?? user.avatar} name={user.username} size="xl" highlighted />
         <Stack gap={1} align="center">
           <Title center>{user.username}</Title>
@@ -212,15 +217,15 @@ export default function ProfileScreen() {
             {user.email}
           </Caption>
         </Stack>
-        <Row gap={2} align="center">
-          <RankBadge elo={user.elo ?? 0} isPlacement={user.is_placement} size={40} showLabel />
+        <Row gap={2} align="center" style={styles.chipRow}>
+          <RankBadge elo={user.elo ?? 0} isPlacement={user.is_placement} size={36} showLabel />
           <Pressable
             onPress={() => router.push("/collection?tab=badges" as never)}
             hitSlop={6}
             accessibilityRole="button"
             accessibilityLabel="Change badge"
           >
-            <Pill label={(user.title ?? "newcomer").toUpperCase()} tone="muted" />
+            <Pill label={(user.title ?? "newcomer").toUpperCase()} tone="accent" />
           </Pressable>
           {user.under_review ? <Pill label="UNDER REVIEW" tone="warn" /> : null}
         </Row>
@@ -355,9 +360,7 @@ export default function ProfileScreen() {
 function Section({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <View style={{ marginTop: space[6] }}>
-      <Eyebrow tone="muted" style={{ marginBottom: space[2] }}>
-        {label}
-      </Eyebrow>
+      <SectionLabel label={label} style={{ marginBottom: space[3] }} />
       {children}
     </View>
   );
@@ -469,19 +472,15 @@ const styles = StyleSheet.create({
     marginTop: space[3],
   },
   bannerHeader: {
-    height: 120,
+    height: 140,
     borderRadius: radii.lg,
     overflow: "hidden",
     borderWidth: 1,
     marginTop: space[3],
   },
-  currencyTile: {
-    flex: 1,
-    borderRadius: radii.md,
-    borderWidth: 1,
-    paddingVertical: space[3],
-    paddingHorizontal: space[4],
-    gap: 2,
+  chipRow: {
+    flexWrap: "wrap",
+    justifyContent: "center",
   },
   levelTrack: {
     height: 10,

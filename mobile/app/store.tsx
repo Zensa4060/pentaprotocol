@@ -1,19 +1,30 @@
 /**
  * ProtoShop — themes, banners, grids, coins, bot reward claims, UPI top-up links.
  *
- * Futuristic-minimalist redesign (UI only): void canvas, HUD wallet readout,
- * underline segmented tabs, hairline-separated cosmetic rows with live preview
- * thumbs and mono prices. All purchase / claim / top-up logic is unchanged.
+ * Futuristic-minimalist redesign (UI only): a 2-column **live preview gallery**
+ * — every grid and banner renders its real animated skin as a framed tile, with
+ * name, price and an ACQUIRE / OWNED / CLAIM pill. Tapping a tile opens the
+ * existing full-screen live preview + purchase sheet. All purchase / claim /
+ * top-up logic is unchanged.
  */
 
 import { router, Stack } from "expo-router";
 import { useMemo, useState } from "react";
-import { Alert, Image, Modal, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from "react-native";
+import {
+  Alert,
+  Image,
+  Modal,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  useWindowDimensions,
+  View,
+} from "react-native";
 
 import { BotRewardsBanner } from "@/components/store/BotRewardsBanner";
 import { GridLivePreview } from "@/components/cosmetics/GridLivePreview";
 import { Body, Btn, Caption, Eyebrow, Mono, Screen } from "@/components/ui";
-import { Hairline, HudHeader, Panel, SectionLabel, SegTabs } from "@/components/ui/hud";
+import { Hairline, HudHeader, SectionLabel, SegTabs } from "@/components/ui/hud";
 import { BannerRenderer } from "@/components/BannerRenderer";
 import { CurrencyChip } from "@/components/CurrencyChip";
 import {
@@ -50,6 +61,13 @@ const TABS: { key: Tab; label: string }[] = [
 /** Developer UPI QR — same asset the web store shows (public/creator-payment-qr.png). */
 const PAYMENT_QR = require("../assets/images/creator-payment-qr.png");
 
+/** Translucent version of a #rrggbb accent — used for the live grid tile border. */
+function hexA(hex: string, a: number): string {
+  const h = hex.replace("#", "");
+  const n = parseInt(h.length === 3 ? h.split("").map((c) => c + c).join("") : h, 16);
+  return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${a})`;
+}
+
 function themeIdForItem(itemId: string): ThemeId {
   if (itemId === "theme_space") return "space";
   if (itemId === "theme_pixel") return "pixel";
@@ -65,6 +83,10 @@ export default function StoreScreen() {
   const [previewGrid, setPreviewGrid] = useState<GridBundle | null>(null);
   const { width: winW } = useWindowDimensions();
   const gridPreviewSize = Math.min(winW - 96, 300);
+
+  // 2-column gallery geometry (Screen `padded` = 20px gutters; 12px column gap).
+  const colW = Math.floor((winW - space[5] * 2 - space[3]) / 2);
+  const innerW = colW - space[3] * 2;
 
   const owned = useMemo(() => new Set(user?.purchased_items ?? []), [user?.purchased_items]);
   const rewards = readBotRewards(user);
@@ -167,67 +189,125 @@ export default function StoreScreen() {
       <SegTabs<Tab> tabs={TABS} value={tab} onChange={setTab} style={{ marginTop: space[5] }} />
 
       <ScrollView style={{ marginTop: space[4] }} contentContainerStyle={{ paddingBottom: space[10] }}>
-        {tab === "themes" &&
-          STORE_THEMES.map((item) => (
-            <ItemCard
-              key={item.id}
-              item={item}
-              owned={owned.has(item.id)}
-              busy={busy === item.id}
-              themeId={themeId}
-              onPreview={() => setPreview(item)}
-              onBuy={() => onBuy(item)}
-            />
-          ))}
+        {/* ── Themes · live palette tiles ──────────────────────────── */}
+        {tab === "themes" && (
+          <View style={styles.gallery}>
+            {STORE_THEMES.map((item) => {
+              const isOwned = owned.has(item.id);
+              const p = THEMES[themeIdForItem(item.id)];
+              return (
+                <Tile
+                  key={item.id}
+                  width={colW}
+                  name={item.label}
+                  meta={`${item.pricePc} PC · +${item.pricePs} PS`}
+                  pill={<StatusPill kind={isOwned ? "owned" : "acquire"} loading={busy === item.id} />}
+                  onOpen={() => setPreview(item)}
+                >
+                  <View style={[styles.prev, { width: innerW, height: innerW * 0.62, backgroundColor: p.bg }]}>
+                    <View style={[styles.themeBoard, { backgroundColor: p.boardBg, borderColor: p.boardLine }]}>
+                      <View style={[styles.themeDot, { backgroundColor: p.accent }]} />
+                    </View>
+                  </View>
+                </Tile>
+              );
+            })}
+          </View>
+        )}
 
-        {tab === "banners" &&
-          STORE_BANNERS.map((item) => {
+        {/* ── Banners · live animated tiles ────────────────────────── */}
+        {tab === "banners" && (
+          <View style={styles.gallery}>
+            {STORE_BANNERS.map((item) => {
+              const isOwned = owned.has(item.id);
+              const canClaim = rewards.banner === "pending" && !isOwned;
+              return (
+                <Tile
+                  key={item.id}
+                  width={colW}
+                  name={item.label}
+                  meta={isOwned ? "owned" : canClaim ? "free reward" : `${item.pricePc} PC`}
+                  pill={
+                    <StatusPill
+                      kind={isOwned ? "owned" : canClaim ? "claim" : "acquire"}
+                      loading={busy === item.id || busy === `claim-${item.id}`}
+                      onPress={canClaim ? () => onClaim("banner", item.id, item.label) : undefined}
+                    />
+                  }
+                  onOpen={() => setPreview(item)}
+                >
+                  <View style={[styles.prev, { width: innerW, height: innerW * 0.6 }]}>
+                    <BannerRenderer bannerId={item.id} themeId={themeId} style={StyleSheet.absoluteFill} />
+                  </View>
+                </Tile>
+              );
+            })}
+          </View>
+        )}
+
+        {/* ── Grids · verbatim live board tiles ────────────────────── */}
+        {tab === "grids" && (
+          <View style={styles.gallery}>
+            {LIVE_GRID_BUNDLES.map((bundle) => {
+              const isOwned = owned.has(bundle.boardId) && owned.has(bundle.pieceId);
+              const canClaim =
+                (rewards.board_skin === "pending" || rewards.syros_skin === "pending") &&
+                !owned.has(bundle.boardId);
+              return (
+                <Tile
+                  key={bundle.id}
+                  width={colW}
+                  accent={bundle.accentColor}
+                  name={bundle.label}
+                  meta={isOwned ? "owned" : canClaim ? "free reward" : `${bundle.bundlePrice} PC`}
+                  pill={
+                    <StatusPill
+                      kind={isOwned ? "owned" : canClaim ? "claim" : "acquire"}
+                      loading={busy === bundle.id || busy === `claim-${bundle.boardId}`}
+                      onPress={
+                        canClaim
+                          ? () => onClaim(boardSkinClaimSlot(rewards), bundle.boardId, bundle.label)
+                          : undefined
+                      }
+                    />
+                  }
+                  onOpen={() => setPreviewGrid(bundle)}
+                >
+                  <GridLivePreview
+                    boardStyle={bundle.boardId}
+                    size={innerW}
+                    pieces={false}
+                    style={{ borderColor: hexA(bundle.accentColor, 0.5) }}
+                  />
+                </Tile>
+              );
+            })}
+          </View>
+        )}
+
+        {/* ── Coins · row list (no live face preview) ──────────────── */}
+        {tab === "coins" &&
+          STORE_COINS.map((item) => {
             const isOwned = owned.has(item.id);
-            const canClaim = rewards.banner === "pending" && !isOwned;
+            const canClaim = rewards.coin_toss === "pending" && !isOwned;
             return (
-              <ItemCard
-                key={item.id}
-                item={item}
-                owned={isOwned}
-                busy={busy === item.id || busy === `claim-${item.id}`}
-                themeId={themeId}
-                claimFree={canClaim}
-                onClaimFree={() => onClaim("banner", item.id, item.label)}
-                onPreview={() => setPreview(item)}
-                onBuy={() => onBuy(item)}
-              />
-            );
-          })}
-
-        {tab === "grids" &&
-          LIVE_GRID_BUNDLES.map((bundle) => {
-            const isOwned = owned.has(bundle.boardId) && owned.has(bundle.pieceId);
-            const canClaim =
-              (rewards.board_skin === "pending" || rewards.syros_skin === "pending") && !owned.has(bundle.boardId);
-            return (
-              <View key={bundle.id}>
+              <View key={item.id}>
                 <View style={styles.row}>
-                  <Pressable onPress={() => setPreviewGrid(bundle)} accessibilityRole="button">
-                    <GridLivePreview boardStyle={bundle.boardId} size={58} pieces={false} />
-                  </Pressable>
-                  <Pressable style={styles.rowMid} onPress={() => setPreviewGrid(bundle)}>
-                    <Body style={styles.itemName} numberOfLines={1}>{bundle.label}</Body>
-                    <Mono tone="dim" style={styles.itemMeta} numberOfLines={1}>
-                      {bundle.description}
-                    </Mono>
+                  <View style={styles.coinFace}>
+                    <Mono tone="accent" style={{ fontSize: 18 }}>◉</Mono>
+                  </View>
+                  <View style={styles.rowMid}>
+                    <Body style={styles.itemName} numberOfLines={1}>{item.label}</Body>
+                    <Mono tone="dim" style={styles.itemMeta} numberOfLines={2}>{item.description}</Mono>
                     <Mono tone="dim" style={styles.itemMeta}>
-                      {bundle.bundlePrice} PC · tap to preview
+                      {item.pricePc} PC{item.pricePs ? ` · +${item.pricePs} PS` : ""}
                     </Mono>
-                  </Pressable>
+                  </View>
                   <RowAction
                     label={isOwned ? "OWNED" : canClaim ? "CLAIM" : "ACQUIRE"}
                     disabled={isOwned}
-                    loading={busy === bundle.id || busy === `claim-${bundle.boardId}`}
-                    onPress={() =>
-                      canClaim
-                        ? onClaim(boardSkinClaimSlot(rewards), bundle.boardId, bundle.label)
-                        : onBuyGrid(bundle)
-                    }
+                    loading={busy === item.id || busy === `claim-${item.id}`}
+                    onPress={canClaim ? () => onClaim("coin_toss", item.id, item.label) : () => onBuy(item)}
                   />
                 </View>
                 <Hairline />
@@ -235,24 +315,7 @@ export default function StoreScreen() {
             );
           })}
 
-        {tab === "coins" &&
-          STORE_COINS.map((item) => {
-            const isOwned = owned.has(item.id);
-            const canClaim = rewards.coin_toss === "pending" && !isOwned;
-            return (
-              <ItemCard
-                key={item.id}
-                item={item}
-                owned={isOwned}
-                busy={busy === item.id || busy === `claim-${item.id}`}
-                themeId={themeId}
-                claimFree={canClaim}
-                onClaimFree={() => onClaim("coin_toss", item.id, item.label)}
-                onBuy={() => onBuy(item)}
-              />
-            );
-          })}
-
+        {/* ── Top-up · INR / UPI packages ──────────────────────────── */}
         {tab === "topup" && (
           <>
             <SectionLabel label="PROTOCREDITS · INR / UPI" style={{ marginBottom: space[2] }} />
@@ -435,6 +498,77 @@ export default function StoreScreen() {
   );
 }
 
+/** Framed gallery tile — live preview on top, name + meta + status pill below. */
+function Tile({
+  width,
+  name,
+  meta,
+  pill,
+  accent,
+  onOpen,
+  children,
+}: {
+  width: number;
+  name: string;
+  meta: string;
+  pill: React.ReactNode;
+  accent?: string;
+  onOpen: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <Pressable
+      onPress={onOpen}
+      accessibilityRole="button"
+      style={({ pressed }) => [
+        styles.tile,
+        { width },
+        accent ? { borderColor: hexA(accent, 0.32) } : null,
+        pressed ? { transform: [{ scale: 0.985 }] } : null,
+      ]}
+    >
+      <View style={styles.tilePrevWrap}>{children}</View>
+      <Body style={styles.tileName} numberOfLines={1}>{name}</Body>
+      <View style={styles.tileFoot}>
+        <Mono tone="dim" style={styles.tileMeta} numberOfLines={1}>{meta}</Mono>
+        {pill}
+      </View>
+    </Pressable>
+  );
+}
+
+/** Status / action pill: ACQUIRE (decorative), OWNED (dim), CLAIM (tappable). */
+function StatusPill({
+  kind,
+  loading,
+  onPress,
+}: {
+  kind: "acquire" | "owned" | "claim";
+  loading?: boolean;
+  onPress?: () => void;
+}) {
+  const label = kind === "owned" ? "OWNED" : kind === "claim" ? "CLAIM" : "GET";
+  const owned = kind === "owned";
+  const inner = (
+    <Caption tone={owned ? "dim" : "accent"} style={styles.pillTxt}>
+      {loading ? "···" : label}
+    </Caption>
+  );
+  if (onPress) {
+    return (
+      <Pressable
+        onPress={onPress}
+        disabled={loading}
+        accessibilityRole="button"
+        style={({ pressed }) => [styles.pill, pressed ? { backgroundColor: "rgba(204,0,0,0.18)" } : null]}
+      >
+        {inner}
+      </Pressable>
+    );
+  }
+  return <View style={[styles.pill, owned && styles.pillOwned]}>{inner}</View>;
+}
+
 /** Minimalist row action — ghost-by-default, accent border; mono caps label. */
 function RowAction({
   label,
@@ -466,85 +600,6 @@ function RowAction({
   );
 }
 
-function ItemCard({
-  item,
-  owned: isOwned,
-  busy,
-  themeId,
-  claimFree,
-  onClaimFree,
-  onPreview,
-  onBuy,
-}: {
-  item: StoreItem;
-  owned: boolean;
-  busy: boolean;
-  themeId: ThemeId;
-  claimFree?: boolean;
-  onClaimFree?: () => void;
-  onPreview?: () => void;
-  onBuy: () => void;
-}) {
-  return (
-    <View>
-      <View style={styles.row}>
-        <Pressable
-          disabled={!onPreview}
-          onPress={onPreview}
-          style={styles.thumb}
-          accessibilityRole={onPreview ? "button" : undefined}
-        >
-          {item.category === "banner" ? (
-            <BannerRenderer bannerId={item.id} themeId={themeId} style={StyleSheet.absoluteFill} />
-          ) : item.category === "theme" ? (
-            <View
-              style={[
-                StyleSheet.absoluteFill,
-                { backgroundColor: THEMES[themeIdForItem(item.id)].bg, alignItems: "center", justifyContent: "center" },
-              ]}
-            >
-              <View style={[styles.thumbDot, { backgroundColor: THEMES[themeIdForItem(item.id)].accent }]} />
-            </View>
-          ) : (
-            <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.bgRaised }]} />
-          )}
-        </Pressable>
-
-        <View style={styles.rowMid}>
-          <Body style={styles.itemName} numberOfLines={1}>{item.label}</Body>
-          <Mono tone="dim" style={styles.itemMeta} numberOfLines={2}>{item.description}</Mono>
-        </View>
-
-        <View style={styles.rowRight}>
-          {item.pricePc > 0 || item.pricePs > 0 ? (
-            <View style={{ alignItems: "flex-end" }}>
-              {item.pricePc > 0 ? (
-                <View style={styles.priceLine}>
-                  <Body style={styles.price}>{item.pricePc}</Body>
-                  <Caption tone="dim" style={styles.priceUnit}>PC</Caption>
-                </View>
-              ) : null}
-              {item.pricePs > 0 ? (
-                <View style={styles.priceLine}>
-                  <Caption tone="dim" style={styles.priceUnit}>+{item.pricePs}</Caption>
-                  <Caption tone="dim" style={styles.priceUnit}>PS</Caption>
-                </View>
-              ) : null}
-            </View>
-          ) : null}
-          <RowAction
-            label={isOwned && !claimFree ? "OWNED" : claimFree ? "CLAIM" : "ACQUIRE"}
-            disabled={isOwned && !claimFree}
-            loading={busy}
-            onPress={claimFree && onClaimFree ? onClaimFree : onBuy}
-          />
-        </View>
-      </View>
-      <Hairline />
-    </View>
-  );
-}
-
 function ThemePreview({ themeId }: { themeId: ThemeId }) {
   const p = THEMES[themeId];
   return (
@@ -562,6 +617,72 @@ const styles = StyleSheet.create({
     gap: space[2],
     alignItems: "center",
   },
+  gallery: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+  },
+  tile: {
+    backgroundColor: colors.bgElevated,
+    borderRadius: radii.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: space[3],
+    marginBottom: space[3],
+  },
+  tilePrevWrap: {
+    borderRadius: radii.md,
+    overflow: "hidden",
+  },
+  prev: {
+    borderRadius: radii.md,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.1)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  themeBoard: {
+    padding: 8,
+    borderRadius: radii.sm,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  themeDot: { width: 18, height: 18, borderRadius: 9 },
+  tileName: {
+    fontWeight: "700",
+    letterSpacing: 0.3,
+    marginTop: space[2],
+  },
+  tileFoot: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: 4,
+    gap: space[2],
+  },
+  tileMeta: {
+    fontSize: 11,
+    flexShrink: 1,
+  },
+  pill: {
+    paddingVertical: 4,
+    paddingHorizontal: space[2],
+    borderRadius: radii.pill,
+    borderWidth: 1,
+    borderColor: colors.borderAccent,
+    backgroundColor: "rgba(204,0,0,0.08)",
+  },
+  pillOwned: {
+    borderColor: "rgba(255,255,255,0.12)",
+    backgroundColor: "transparent",
+  },
+  pillTxt: {
+    fontWeight: "800",
+    letterSpacing: 1,
+    fontSize: 10,
+  },
   row: {
     flexDirection: "row",
     alignItems: "center",
@@ -572,22 +693,16 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: 4,
   },
-  rowRight: {
-    alignItems: "flex-end",
-    gap: space[2],
-  },
-  thumb: {
+  coinFace: {
     width: 58,
     height: 58,
-    borderRadius: radii.md,
+    borderRadius: radii.pill,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.12)",
-    overflow: "hidden",
+    borderColor: colors.borderAccent,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: colors.bgElevated,
   },
-  thumbDot: { width: 14, height: 14, borderRadius: 7 },
   itemName: {
     fontWeight: "700",
     letterSpacing: 0.3,
@@ -595,19 +710,6 @@ const styles = StyleSheet.create({
   itemMeta: {
     fontSize: 11,
     lineHeight: 15,
-  },
-  priceLine: {
-    flexDirection: "row",
-    alignItems: "baseline",
-    gap: 4,
-  },
-  price: {
-    fontWeight: "800",
-    letterSpacing: 0.3,
-  },
-  priceUnit: {
-    fontSize: 10,
-    letterSpacing: 0.5,
   },
   action: {
     minWidth: 92,
