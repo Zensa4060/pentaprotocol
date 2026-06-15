@@ -13,11 +13,16 @@
  */
 
 import { useId } from "react";
-import Svg, { Circle, Defs, G, Line, Path, Polygon, RadialGradient, Rect, Stop, Text as SvgText } from "react-native-svg";
+import Svg, { Circle, ClipPath, Defs, Ellipse, G, Line, LinearGradient, Path, Polygon, RadialGradient, Rect, Stop, Text as SvgText } from "react-native-svg";
 
 /** True when a skin ships illustrated (SVG) pieces rather than glyphs. */
 export function skinHasPieceArt(skinId: string): boolean {
-  return skinId === "red_grid" || skinId === "glacier_grid" || skinId === "matrix_grid";
+  return (
+    skinId === "red_grid" ||
+    skinId === "glacier_grid" ||
+    skinId === "matrix_grid" ||
+    skinId === "synthwave_grid"
+  );
 }
 
 /** Normalize a board owner token to player 1 vs player 2. */
@@ -45,6 +50,9 @@ export function SkinPieceArt({ skinId, owner, size }: SkinPieceArtProps) {
   }
   if (skinId === "matrix_grid") {
     return isPlayerOne(owner) ? <MatrixBracketPiece size={size} /> : <BinaryPillPiece size={size} />;
+  }
+  if (skinId === "synthwave_grid") {
+    return isPlayerOne(owner) ? <RetroSunPiece size={size} /> : <NeonPalmPiece size={size} />;
   }
   return null;
 }
@@ -188,6 +196,108 @@ function BinaryPillPiece({ size }: { size: number }) {
   );
 }
 
+/** Synthwave P1 — retro sun: sunset disc, scanlines, rays (web ``RetroSun``). */
+function RetroSunPiece({ size }: { size: number }) {
+  const s = Math.max(16, Math.floor(size * 0.58));
+  const uid = useId();
+  const gid = `rsGrad-${uid}`;
+  const cid = `rsClip-${uid}`;
+  return (
+    <Svg width={s} height={s} viewBox="0 0 48 48">
+      <Defs>
+        <LinearGradient id={gid} x1="0" y1="0" x2="0" y2="1">
+          <Stop offset="0" stopColor="#ffcc00" />
+          <Stop offset="0.5" stopColor="#ff6600" />
+          <Stop offset="1" stopColor="#ff0066" />
+        </LinearGradient>
+        <ClipPath id={cid}>
+          <Circle cx={24} cy={24} r={17} />
+        </ClipPath>
+      </Defs>
+      <Circle cx={24} cy={24} r={17} fill={`url(#${gid})`} />
+      <G clipPath={`url(#${cid})`}>
+        {[14, 17, 20, 23, 26, 29, 32].map((y, i) => (
+          <Rect key={i} x={5} y={y} width={38} height={2.5} fill="#1a002a" opacity={0.85} />
+        ))}
+      </G>
+      <Circle cx={24} cy={24} r={17} fill="none" stroke="#ff6688" strokeWidth={2} />
+      {Array.from({ length: 12 }, (_, i) => {
+        const a = (i * 30 * Math.PI) / 180;
+        return (
+          <Line
+            key={i}
+            x1={24 + 17 * Math.cos(a)}
+            y1={24 + 17 * Math.sin(a)}
+            x2={24 + 21 * Math.cos(a)}
+            y2={24 + 21 * Math.sin(a)}
+            stroke="#ffcc00"
+            strokeWidth={2}
+            strokeLinecap="round"
+            opacity={0.9}
+          />
+        );
+      })}
+    </Svg>
+  );
+}
+
+const PALM_FRONDS: [number, number][] = [[-14, -12], [-10, -8], [-8, -14], [10, -8], [14, -12]];
+
+/** Synthwave P2 — neon palm tree (web ``NeonPalm``). */
+function NeonPalmPiece({ size }: { size: number }) {
+  const s = Math.max(16, Math.floor(size * 0.58));
+  return (
+    <Svg width={s} height={s} viewBox="0 0 48 48">
+      <Path
+        d="M22,10 Q21,20 20,34 Q22,36 24,36 Q26,36 28,34 Q27,20 26,10 Z"
+        fill="rgba(0,204,255,0.12)"
+        stroke="#00eeff"
+        strokeWidth={2}
+        strokeLinejoin="round"
+      />
+      {PALM_FRONDS.map(([ex, ey], i) => {
+        const ax = 24;
+        const ay = 10 + (i > 2 ? 4 : 0);
+        return (
+          <Path
+            key={i}
+            d={`M${ax},${ay} Q${ax + ex * 0.4},${ay + ey * 0.5} ${ax + ex},${ay + ey}`}
+            fill="none"
+            stroke="#00eeff"
+            strokeWidth={1.8}
+            strokeLinecap="round"
+          />
+        );
+      })}
+      {PALM_FRONDS.map(([ex, ey], i) => {
+        const ax = 24;
+        const ay = 10 + (i > 2 ? 4 : 0);
+        const perp = Math.atan2(ey, ex) + Math.PI / 2;
+        return [0, 1, 2].map((j) => {
+          const t2 = (j + 1) * 0.25;
+          const bx = ax + ex * t2;
+          const by = ay + ey * t2;
+          const leafLen = 5 - t2 * 2;
+          return (
+            <Line
+              key={`${i}-${j}`}
+              x1={bx + Math.cos(perp) * leafLen}
+              y1={by + Math.sin(perp) * leafLen}
+              x2={bx - Math.cos(perp) * leafLen}
+              y2={by - Math.sin(perp) * leafLen}
+              stroke="#80ffff"
+              strokeWidth={0.9}
+              strokeLinecap="round"
+              opacity={0.6}
+            />
+          );
+        });
+      })}
+      <Ellipse cx={24} cy={36} rx={4} ry={6} fill="#006688" opacity={0.4} />
+    </Svg>
+  );
+}
+
 /** Colored glow per skin/owner for the caller's iOS view shadow. */
 export function skinPieceGlow(skinId: string, owner: string): string {
   if (skinId === "red_grid") {
@@ -198,6 +308,9 @@ export function skinPieceGlow(skinId: string, owner: string): string {
   }
   if (skinId === "matrix_grid") {
     return isPlayerOne(owner) ? "rgba(0,255,65,0.9)" : "rgba(74,222,128,0.9)";
+  }
+  if (skinId === "synthwave_grid") {
+    return isPlayerOne(owner) ? "rgba(255,0,100,0.9)" : "rgba(0,200,255,0.9)";
   }
   return "rgba(0,0,0,0)";
 }

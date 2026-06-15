@@ -85,6 +85,23 @@ const SKINS: Record<string, BoardSkin> = {
     atmosphereInner: "rgba(255,90,0,0.12)",
     atmosphereOuter: "rgba(204,0,0,0.08)",
   },
+  // Synthwave Bundle — retro sunset, neon skyline + perspective grid, with
+  // retro-sun / neon-palm pieces. Rendered via the verbatim web SynthwaveGrid.
+  synthwave_grid: {
+    id: "synthwave_grid",
+    boardBg: "#1A004A",
+    boardLine: "rgba(255,0,180,0.40)",
+    cellBg: "rgba(40,0,60,0.30)",
+    cellBorder: "rgba(255,0,180,0.18)",
+    accent: "#FF00B4",
+    p1Color: "#FF2DB4",
+    p2Color: "#00DCFF",
+    pieceGlow: "rgba(255,0,200,0.85)",
+    p1Glyph: "◎",
+    p2Glyph: "⩘",
+    atmosphereInner: "rgba(255,0,180,0.14)",
+    atmosphereOuter: "rgba(0,200,255,0.08)",
+  },
 };
 
 /** Skin for an equipped ``board_style`` — null for default/unknown/removed ids. */
