@@ -47,7 +47,7 @@ import { THEMES, type ThemeId } from "@/theme/themes";
 import { useTheme } from "@/theme/ThemeProvider";
 import { colors, radii, space } from "@/theme/tokens";
 
-const TABS: CollectionTab[] = ["themes", "banners", "grids", "coins", "badges"];
+const TABS: CollectionTab[] = ["themes", "banners", "grids", "badges"];
 const SEG_TABS: { key: CollectionTab; label: string }[] = TABS.map((t) => ({
   key: t,
   label: t.toUpperCase(),
@@ -63,6 +63,7 @@ export default function CollectionScreen() {
   const [tab, setTab] = useState<CollectionTab>(initialTab);
   const [busy, setBusy] = useState<string | null>(null);
   const [equipFlash, setEquipFlash] = useState<string | null>(null);
+  const [previewEntry, setPreviewEntry] = useState<CollectionEntry | null>(null);
   const [tossSkin, setTossSkin] = useTossSkin();
   const { width: winW } = useWindowDimensions();
 
@@ -175,7 +176,7 @@ export default function CollectionScreen() {
                 ]}
               >
                 <View style={styles.tilePrevWrap}>
-                  <TilePreview entry={entry} innerW={innerW} themeId={themeId} />
+                  <TilePreview entry={entry} innerW={innerW} themeId={themeId} onPreview={() => setPreviewEntry(entry)} />
                   {!hasIt ? (
                     <View style={styles.lockOverlay}>
                       <Caption tone="muted" style={{ letterSpacing: 1 }}>🔒</Caption>
@@ -205,6 +206,13 @@ export default function CollectionScreen() {
       </ScrollView>
 
       <EquipFlash label={equipFlash} onDone={() => setEquipFlash(null)} />
+      {previewEntry && (
+        <PreviewModal 
+          entry={previewEntry} 
+          themeId={themeId} 
+          onClose={() => setPreviewEntry(null)} 
+        />
+      )}
     </Screen>
   );
 }
@@ -214,10 +222,12 @@ function TilePreview({
   entry,
   innerW,
   themeId,
+  onPreview,
 }: {
   entry: CollectionEntry;
   innerW: number;
   themeId: ThemeId;
+  onPreview: () => void;
 }) {
   if (entry.equipField === "theme") {
     return <ThemeMini themeId={entry.equipValue as ThemeId} width={innerW} />;
@@ -225,12 +235,22 @@ function TilePreview({
   if (entry.equipField === "banner") {
     return (
       <View style={[styles.prevBox, { width: innerW, height: innerW * 0.58 }]}>
-        <BannerRenderer bannerId={entry.equipValue} themeId={themeId} style={StyleSheet.absoluteFill} />
+        <BannerRenderer bannerId={entry.equipValue} themeId={themeId} style={StyleSheet.absoluteFill} animated={false} />
+        <Pressable onPress={onPreview} style={styles.previewBtnOverlay}>
+          <Caption tone="accent" style={styles.previewBtnTxt}>PREVIEW</Caption>
+        </Pressable>
       </View>
     );
   }
   if (entry.equipField === "board_style") {
-    return <GridLivePreview boardStyle={entry.equipValue} size={innerW} pieces={false} live={false} />;
+    return (
+      <View style={[styles.prevBox, { width: innerW, height: innerW * 0.58 }]}>
+        <GridLivePreview boardStyle={entry.equipValue} size={innerW} pieces={false} live={false} />
+        <Pressable onPress={onPreview} style={styles.previewBtnOverlay}>
+          <Caption tone="accent" style={styles.previewBtnTxt}>PREVIEW</Caption>
+        </Pressable>
+      </View>
+    );
   }
   if (entry.equipField === "title") {
     return (
@@ -241,12 +261,7 @@ function TilePreview({
       </View>
     );
   }
-  // coin
-  return (
-    <View style={[styles.prevBox, styles.coinPrev, { width: innerW, height: innerW * 0.58 }]}>
-      <Mono tone="accent" style={{ fontSize: 26 }}>◉</Mono>
-    </View>
-  );
+  return null;
 }
 
 /** The four equipped slots, rendered live. */
@@ -275,7 +290,7 @@ function LoadoutHero({
         </View>
         <View style={styles.slot}>
           <View style={[styles.slotArt, { width: 56, height: 56 }]}>
-            <BannerRenderer bannerId={banner} themeId={themeId} style={StyleSheet.absoluteFill} />
+            <BannerRenderer bannerId={banner} themeId={themeId} style={StyleSheet.absoluteFill} animated={false} />
           </View>
           <Caption tone="dim" style={styles.slotLabel}>BANNER</Caption>
         </View>
@@ -377,6 +392,37 @@ function EquipFlash({ label, onDone }: { label: string | null; onDone: () => voi
         </Caption>
       </Animated.View>
     </View>
+  );
+}
+
+import { Modal } from "react-native";
+
+function PreviewModal({ entry, themeId, onClose }: { entry: CollectionEntry, themeId: ThemeId, onClose: () => void }) {
+  const { width } = useWindowDimensions();
+  const boxW = Math.min(width - space[8] * 2, 320);
+
+  return (
+    <Modal transparent visible animationType="fade" onRequestClose={onClose}>
+      <View style={styles.modalOverlay}>
+        <View style={[styles.modalCard, { width: width - space[6] * 2 }]}>
+          <Pressable style={styles.modalClose} onPress={onClose}>
+            <Caption tone="muted" style={{ fontSize: 16 }}>✕</Caption>
+          </Pressable>
+          
+          <Heading style={{ marginBottom: space[2] }}>{entry.label}</Heading>
+          
+          <View style={[styles.prevBox, { width: boxW, height: boxW * 0.58, alignSelf: "center", marginVertical: space[4] }]}>
+            {entry.equipField === "banner" ? (
+              <BannerRenderer bannerId={entry.equipValue} themeId={themeId} style={StyleSheet.absoluteFill} animated={true} />
+            ) : (
+              <GridLivePreview boardStyle={entry.equipValue} size={boxW} pieces={true} live={true} />
+            )}
+          </View>
+          
+          <Caption tone="dim" style={{ textAlign: "center" }}>Live animated preview</Caption>
+        </View>
+      </View>
+    </Modal>
   );
 }
 
@@ -524,5 +570,51 @@ const styles = StyleSheet.create({
     shadowRadius: 24,
     shadowOffset: { width: 0, height: 0 },
     elevation: 16,
+  },
+  previewBtnOverlay: {
+    position: "absolute",
+    bottom: space[1],
+    right: space[1],
+    backgroundColor: "rgba(0,0,0,0.6)",
+    paddingHorizontal: space[2],
+    paddingVertical: 2,
+    borderRadius: radii.sm,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.15)",
+  },
+  previewBtnTxt: {
+    fontSize: 9,
+    fontWeight: "700",
+    letterSpacing: 1,
+  },
+  modalOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0,0,0,0.85)",
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 100,
+  },
+  modalCard: {
+    backgroundColor: colors.bgElevated,
+    borderRadius: radii.xl,
+    padding: space[6],
+    borderWidth: 1,
+    borderColor: colors.borderAccent,
+    shadowColor: colors.accent,
+    shadowOpacity: 0.15,
+    shadowRadius: 32,
+    position: "relative",
+  },
+  modalClose: {
+    position: "absolute",
+    top: space[4],
+    right: space[4],
+    width: 32,
+    height: 32,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: colors.bgRaised,
+    borderRadius: 16,
+    zIndex: 10,
   },
 });

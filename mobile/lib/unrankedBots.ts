@@ -220,10 +220,9 @@ export function pickUnrankedBotEmoji(): string {
 }
 
 export const UNRANKED_BOT_BANNER_POOL: readonly string[] = [
-  "void_rift",
   "blood_moon",
   "phantom_strike",
-  "solar_flare",
+
   "cryo_storm",
   "neon_circuit",
   "static_glitch",

@@ -187,9 +187,6 @@ _ITEM_PRICE_OVERRIDES: dict[str, tuple[int, int]] = {
     "space_grid": (900, 300),
     "pixel_grid": (900, 300),
     "coin_bundle_wraith_king": (299, 50),
-    "coin_bundle_solar_flare": (499, 75),
-    "coin_bundle_void_rift":   (499, 75),
-    "coin_bundle_neon_strike": (499, 75),
 }
 
 

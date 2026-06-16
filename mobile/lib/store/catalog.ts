@@ -81,30 +81,7 @@ export const STORE_COINS: StoreItem[] = [
     pricePs: 50,
     category: "coin",
   },
-  {
-    id: "coin_bundle_solar_flare",
-    label: "Solar Flare Coin",
-    description: "Sun & eclipse toss faces with fiery particles.",
-    pricePc: 499,
-    pricePs: 75,
-    category: "coin",
-  },
-  {
-    id: "coin_bundle_void_rift",
-    label: "Void Rift Coin",
-    description: "Galaxy eye & reality rift toss animation.",
-    pricePc: 499,
-    pricePs: 75,
-    category: "coin",
-  },
-  {
-    id: "coin_bundle_neon_strike",
-    label: "Neon Strike Coin",
-    description: "Cyberpunk circuit toss faces.",
-    pricePc: 499,
-    pricePs: 75,
-    category: "coin",
-  },
+
 ];
 
 const grid = (

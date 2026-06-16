@@ -16,17 +16,11 @@ const KEY = "pp_toss_skin";
 
 export type TossSkinId =
   | "default"
-  | "wraith_king"
-  | "solar_flare"
-  | "void_rift"
-  | "neon_strike";
+  | "wraith_king";
 
 export const TOSS_SKIN_IDS: TossSkinId[] = [
   "default",
   "wraith_king",
-  "solar_flare",
-  "void_rift",
-  "neon_strike",
 ];
 
 /** Store catalog id → toss skin id (``coin_bundle_wraith_king`` → ``wraith_king``). */
@@ -39,9 +33,6 @@ export function tossSkinFromStoreId(storeId: string): TossSkinId | null {
 export const TOSS_SKIN_GLOW: Record<TossSkinId, string | null> = {
   default: null, // falls back to the winning face's PENTA/PROTO colour
   wraith_king: "#CC88FF",
-  solar_flare: "#FF9922",
-  void_rift: "#AA66FF",
-  neon_strike: "#00FFDD",
 };
 
 export async function loadTossSkin(): Promise<TossSkinId> {

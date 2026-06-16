@@ -16,7 +16,7 @@ import {
 } from "./GamePieces";
 import GlacierGrid from "./GlacierGrid";
 import { WraithKingCoinToss } from "./WraithKingCoinToss";
-import { SolarFlareCoinToss, VoidRiftCoinToss, NeonStrikeCoinToss } from "./CoinTossAnimations";
+
 import BloodMoonGrid from "./BloodMoonGrid";
 import EgyptGrid from "./EgyptGrid";
 import SynthwaveGrid from "./SynthwaveGrid";
@@ -204,9 +204,7 @@ function resolveBundleFromSlug(raw: string): Bundle | undefined {
 type CoinBundle = { id: string; label: string; tagline: string; desc: string; accentColor: string; bgGradient: string; bundlePrice: number; shardPrice: number; purchaseId: string; tags: string[] };
 const COIN_BUNDLES: CoinBundle[] = [
   { id: "wraith_king_coin", label: "WRAITH KING COIN", tagline: "DOMINION & SERVITUDE — Rulebreaker toss skin", desc: "Crowned skull (PENTA) and soul portal (PROTO), spectral particles, and a full Rulebreaker toss animation. Equip the toss in Collection after unlock.", accentColor: "#aa66ee", bgGradient: "linear-gradient(160deg,#0c0618,#12041c,#06020c)", bundlePrice: 299, shardPrice: 50, purchaseId: "coin_bundle_wraith_king", tags: ["COIN", "RULEBREAKER", "BUNDLE"] },
-  { id: "solar_flare_coin", label: "SOLAR FLARE COIN", tagline: "RADIANCE & ECLIPSE — Sun and moon toss faces", desc: "Burnished gold sun (PENTA) and solar eclipse (PROTO) faces with fiery particle effects. Equip the toss in Collection after unlock.", accentColor: "#ffcc44", bgGradient: "linear-gradient(160deg,#1a0800,#2a1000,#0c0400)", bundlePrice: 499, shardPrice: 75, purchaseId: "coin_bundle_solar_flare", tags: ["COIN", "SOLAR", "BUNDLE"] },
-  { id: "void_rift_coin", label: "VOID RIFT COIN", tagline: "COSMOS & THE VOID — Galaxy and rift toss faces", desc: "Spiral galaxy eye (PENTA) and reality rift (PROTO) faces with deep void particle effects. Equip the toss in Collection after unlock.", accentColor: "#aa66ff", bgGradient: "linear-gradient(160deg,#08041a,#10062e,#04020e)", bundlePrice: 499, shardPrice: 75, purchaseId: "coin_bundle_void_rift", tags: ["COIN", "VOID", "BUNDLE"] },
-  { id: "neon_strike_coin", label: "NEON STRIKE COIN", tagline: "SURGE & CIRCUIT — Cyberpunk neon toss faces", desc: "Neon circuit P (PENTA) and circuit board (PROTO) faces with electric particle effects. Equip the toss in Collection after unlock.", accentColor: "#00ffdd", bgGradient: "linear-gradient(160deg,#001a18,#002e28,#000e0c)", bundlePrice: 499, shardPrice: 75, purchaseId: "coin_bundle_neon_strike", tags: ["COIN", "NEON", "BUNDLE"] },
+
 ];
 
 /** Sorted signature of purchasable cosmetic ids — bump nav “Store” badge when this string changes. */

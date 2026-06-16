@@ -369,10 +369,9 @@ export function pickUnrankedBotEmoji(): string {
  *  every id here must resolve in `BANNERS_DATA`. We intentionally skip
  *  "default" so filler bots always show a vivid animated banner. */
 export const UNRANKED_BOT_BANNER_POOL: readonly string[] = [
-  "void_rift",
   "blood_moon",
   "phantom_strike",
-  "solar_flare",
+
   "cryo_storm",
   "neon_circuit",
   "static_glitch",
