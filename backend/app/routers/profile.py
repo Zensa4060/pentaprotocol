@@ -22,6 +22,7 @@ from datetime import datetime
 
 # Banner IDs eligible for the free-banner reward (awarded on defeating JR).
 # Must match `STORE_BANNERS`/`BANNERS` in the frontend.
+_ELIGIBLE_REWARD_BANNERS: set[str] = {
     "default", "blood_moon", "phantom_strike",
     "cryo_storm", "neon_circuit", "static_glitch", "golden_nexus",
     "plasma_core", "toxic_spill", "storm_protocol", "arctic_veil",
