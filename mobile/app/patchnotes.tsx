@@ -4,9 +4,10 @@
  */
 
 import { router, Stack } from "expo-router";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ScrollView, StyleSheet, Text, View } from "react-native";
 
-import { Body, Caption, Eyebrow, Heading, Screen, Title } from "@/components/ui";
+import { Body, Caption, Heading, Screen } from "@/components/ui";
+import { HudHeader, SectionLabel } from "@/components/ui/hud";
 import { usePalette } from "@/theme/ThemeProvider";
 import { colors, radii, space } from "@/theme/tokens";
 
@@ -63,15 +64,11 @@ export default function PatchNotesScreen() {
   return (
     <Screen padded background={palette.bg}>
       <Stack.Screen options={{ headerShown: false }} />
-      <View style={{ height: space[3] }} />
-      <Pressable onPress={goBack} hitSlop={12} accessibilityRole="button">
-        <Caption tone="muted">← BACK</Caption>
-      </Pressable>
-
-      <Title style={{ marginTop: space[4], textAlign: "center" }}>Patch notes</Title>
-      <Caption tone="muted" style={{ textAlign: "center", marginTop: space[2] }}>
-        Open beta · v{PATCH_NOTES_STAMP}
-      </Caption>
+      <HudHeader
+        title="PATCH NOTES"
+        eyebrow={`OPEN BETA · v${PATCH_NOTES_STAMP}`}
+        onBack={goBack}
+      />
 
       <ScrollView
         style={{ marginTop: space[5] }}
@@ -79,7 +76,7 @@ export default function PatchNotesScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={[styles.panel, { backgroundColor: palette.bgCard, borderColor: palette.border }]}>
-          <Eyebrow tone="muted" style={{ marginBottom: space[4] }}>RECENT UPDATES</Eyebrow>
+          <SectionLabel label="RECENT UPDATES" style={{ marginBottom: space[4] }} />
           {UPDATES.map((block) => (
             <View
               key={block.date}

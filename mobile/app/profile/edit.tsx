@@ -18,12 +18,11 @@ import { Pressable, StyleSheet, View } from "react-native";
 import {
   Body,
   Caption,
-  Eyebrow,
   Row,
   Screen,
   Stack as VStack,
-  Title,
 } from "@/components/ui";
+import { HudHeader } from "@/components/ui/hud";
 import { useAuthStore } from "@/lib/store";
 import { colors, radii, space } from "@/theme/tokens";
 
@@ -84,20 +83,17 @@ export default function ProfileEditHub() {
     <Screen scrollable padded contentContainerStyle={{ paddingBottom: space[10] }}>
       <Stack.Screen options={{ headerShown: false }} />
 
-      <View style={{ height: space[3] }} />
-      <Pressable onPress={goBack} hitSlop={12} accessibilityRole="button">
-        <Caption tone="muted">← BACK</Caption>
-      </Pressable>
+      <HudHeader
+        title="EDIT PROFILE"
+        eyebrow="ACCOUNT · IDENTITY · SECURITY"
+        onBack={goBack}
+      />
 
-      <VStack gap={3} style={{ marginTop: space[6] }}>
-        <Eyebrow tone="muted">ACCOUNT</Eyebrow>
-        <Title>Edit profile</Title>
-        <Body tone="muted">
-          Change your identity, bio, password, or set up two-factor auth.
-        </Body>
-      </VStack>
+      <Body tone="muted" style={{ marginTop: space[4] }}>
+        Change your identity, bio, password, or set up two-factor auth.
+      </Body>
 
-      <View style={{ height: space[7] }} />
+      <View style={{ height: space[6] }} />
       <VStack gap={3}>
         {ROWS.map((row) => {
           const badge = row.badge?.(user) ?? null;
@@ -141,6 +137,6 @@ const styles = StyleSheet.create({
     borderRadius: radii.md,
     borderWidth: 1,
     borderColor: colors.border,
-    backgroundColor: colors.bgCard,
+    backgroundColor: colors.bgElevated,
   },
 });

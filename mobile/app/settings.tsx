@@ -30,14 +30,13 @@ import {
   Caption,
   Card,
   Divider,
-  Eyebrow,
   Heading,
   Row,
   Screen,
   Stack as VStack,
   TextField,
-  Title,
 } from "@/components/ui";
+import { HudHeader, SectionLabel } from "@/components/ui/hud";
 import { useGameAudio } from "@/lib/audio/AudioProvider";
 import { logout } from "@/lib/auth";
 import { deleteAccount, requestDataExport } from "@/lib/account";
@@ -125,15 +124,14 @@ export default function SettingsScreen() {
     <Screen scrollable padded contentContainerStyle={{ paddingBottom: space[10] }}>
       <Stack.Screen options={{ headerShown: false }} />
 
-      <View style={{ height: space[3] }} />
-      <Pressable onPress={goBack} hitSlop={12} accessibilityRole="button">
-        <Caption tone="muted">← BACK</Caption>
-      </Pressable>
-
-      <Title style={{ marginTop: space[4] }}>Settings</Title>
+      <HudHeader
+        title="SETTINGS"
+        eyebrow="AUDIO · PREFERENCES · ACCOUNT · LEGAL"
+        onBack={goBack}
+      />
 
       {/* ── Audio ─────────────────────────────────────────────── */}
-      <Eyebrow tone="muted" style={styles.section}>AUDIO</Eyebrow>
+      <SectionLabel label="AUDIO" style={styles.section} />
       <Card variant="surface" padding="md">
         <VStack gap={3}>
           <Row justify="between" align="center">
@@ -162,7 +160,7 @@ export default function SettingsScreen() {
       </Card>
 
       {/* ── Preferences ───────────────────────────────────────── */}
-      <Eyebrow tone="muted" style={styles.section}>PREFERENCES</Eyebrow>
+      <SectionLabel label="PREFERENCES" style={styles.section} />
       <Card variant="surface" padding="md">
         <VStack gap={3}>
           <Row justify="between" align="center">
@@ -191,7 +189,7 @@ export default function SettingsScreen() {
       </Card>
 
       {/* ── Account ───────────────────────────────────────────── */}
-      <Eyebrow tone="muted" style={styles.section}>ACCOUNT</Eyebrow>
+      <SectionLabel label="ACCOUNT" style={styles.section} />
       <Card variant="surface" padding="md">
         <VStack gap={3}>
           <Caption tone="muted">{user?.email ?? "—"}</Caption>
@@ -208,13 +206,13 @@ export default function SettingsScreen() {
       </Card>
 
       {/* ── Community ─────────────────────────────────────────── */}
-      <Eyebrow tone="muted" style={styles.section}>COMMUNITY</Eyebrow>
+      <SectionLabel label="COMMUNITY" style={styles.section} />
       <Card variant="surface" padding="md">
         <CommunityLinks title="" />
       </Card>
 
       {/* ── Legal (bundled in-app, with web fallback) ──────────── */}
-      <Eyebrow tone="muted" style={styles.section}>LEGAL</Eyebrow>
+      <SectionLabel label="LEGAL" style={styles.section} />
       <Card variant="surface" padding="md">
         <VStack gap={3}>
           <Pressable onPress={() => router.push("/legal/terms" as never)}>

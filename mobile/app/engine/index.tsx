@@ -13,13 +13,12 @@ import {
   Body,
   Btn,
   Caption,
-  Eyebrow,
   Heading,
   Row,
   Screen,
   Stack as VStack,
-  Title,
 } from "@/components/ui";
+import { HudHeader, SectionLabel } from "@/components/ui/hud";
 import {
   BOTS_BY_MODE,
   BOT_LABEL,
@@ -95,22 +94,17 @@ export default function EnginePickerScreen() {
     <Screen scrollable padded contentContainerStyle={{ paddingBottom: space[10] }}>
       <Stack.Screen options={{ headerShown: false }} />
 
-      <View style={{ height: space[3] }} />
-      <Pressable onPress={goBack} hitSlop={12} accessibilityRole="button">
-        <Caption tone="muted">← BACK</Caption>
-      </Pressable>
+      <HudHeader
+        title="CHOOSE YOUR DEMISE"
+        eyebrow="AI BOT · SERVER OPPONENTS"
+        onBack={goBack}
+      />
 
-      <VStack gap={3} style={{ marginTop: space[6] }}>
-        <Eyebrow tone="muted">AI BOT</Eyebrow>
-        <Title>Choose your demise</Title>
-        <Body tone="muted">
-          Server-backed opponents on 5×5, 6×6, or 7×7. Wins can grant XP and unlock the next bot.
-        </Body>
-      </VStack>
+      <Body tone="muted" style={{ marginTop: space[4] }}>
+        Server-backed opponents on 5×5, 6×6, or 7×7. Wins can grant XP and unlock the next bot.
+      </Body>
 
-      <Eyebrow tone="muted" style={{ marginTop: space[7], marginBottom: space[2] }}>
-        BOARD SIZE
-      </Eyebrow>
+      <SectionLabel label="BOARD SIZE" style={{ marginTop: space[7], marginBottom: space[3] }} />
       <Row gap={2}>
         {gridOptions.map((g) => {
           const on = gridSize === g.size;
@@ -146,9 +140,7 @@ export default function EnginePickerScreen() {
         })}
       </Row>
 
-      <Eyebrow tone="muted" style={{ marginTop: space[6], marginBottom: space[2] }}>
-        OPPONENTS
-      </Eyebrow>
+      <SectionLabel label="OPPONENTS" style={{ marginTop: space[6], marginBottom: space[3] }} />
 
       <VStack gap={3}>
         {roster.map((bot) => {

@@ -24,6 +24,7 @@ import {
   Screen,
   Title,
 } from "@/components/ui";
+import { HudHeader } from "@/components/ui/hud";
 import { fetchCareerMatch } from "@/lib/career";
 import {
   boardAtMoveIndex,
@@ -166,13 +167,12 @@ export default function CareerMatchDetailScreen() {
   return (
     <Screen padded contentContainerStyle={{ paddingBottom: space[10] }}>
       <Stack.Screen options={{ headerShown: false }} />
-      <Pressable onPress={goBack} hitSlop={12}>
-        <Caption tone="muted">← BACK</Caption>
-      </Pressable>
-
-      <Eyebrow tone="muted" style={{ marginTop: space[3] }}>MATCH ARCHIVE</Eyebrow>
-      <Title style={{ marginTop: space[1] }}>VS {match.opponent_username.toUpperCase()}</Title>
-      <Row justify="between" align="center" style={{ marginTop: space[2] }}>
+      <HudHeader
+        title={`VS ${match.opponent_username.toUpperCase()}`}
+        eyebrow="MATCH ARCHIVE"
+        onBack={goBack}
+      />
+      <Row justify="between" align="center" style={{ marginTop: space[3] }}>
         <Eyebrow
           tone={
             match.result === "win" ? "success" : match.result === "draw" ? "warn" : "danger"

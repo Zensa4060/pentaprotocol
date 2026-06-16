@@ -277,6 +277,7 @@ export default function StoreScreen() {
                     boardStyle={bundle.boardId}
                     size={innerW}
                     pieces={false}
+                    live={false}
                     style={{ borderColor: hexA(bundle.accentColor, 0.5) }}
                   />
                 </Tile>

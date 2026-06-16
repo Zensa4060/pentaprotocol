@@ -53,9 +53,12 @@ function ensureConfigured(GoogleSignin: GoogleSigninModule["GoogleSignin"]): voi
       "missing_config",
     );
   }
+  // Android resolves its OAuth client from the package name + SHA registered in
+  // Google Cloud and uses ``webClientId`` for the ID-token audience — the native
+  // module has no ``androidClientId`` config field (the env var is still
+  // validated above so a misconfigured build fails loudly).
   GoogleSignin.configure({
     webClientId,
-    androidClientId: androidClientId ?? undefined,
     offlineAccess: false,
     forceCodeForRefreshToken: false,
   });

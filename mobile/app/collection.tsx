@@ -230,7 +230,7 @@ function TilePreview({
     );
   }
   if (entry.equipField === "board_style") {
-    return <GridLivePreview boardStyle={entry.equipValue} size={innerW} pieces={false} />;
+    return <GridLivePreview boardStyle={entry.equipValue} size={innerW} pieces={false} live={false} />;
   }
   if (entry.equipField === "title") {
     return (

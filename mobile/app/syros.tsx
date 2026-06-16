@@ -57,7 +57,7 @@ export default function SyrosScreen() {
       <Stack.Screen options={{ headerShown: false }} />
       <View style={{ height: space[3] }} />
       <Pressable onPress={goBack} hitSlop={12}>
-        <Caption tone="muted">← BACK</Caption>
+        <Caption tone="muted">‹  BACK</Caption>
       </Pressable>
 
       <Row gap={3} align="center" style={{ marginTop: space[4] }}>

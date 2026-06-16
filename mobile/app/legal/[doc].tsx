@@ -9,6 +9,7 @@ import { router, Stack, useLocalSearchParams } from "expo-router";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { Body, Caption, Screen, Title } from "@/components/ui";
+import { HudHeader } from "@/components/ui/hud";
 import { usePalette } from "@/theme/ThemeProvider";
 import { colors, space } from "@/theme/tokens";
 
@@ -177,15 +178,7 @@ export default function LegalDocScreen() {
   return (
     <Screen padded background={palette.bg}>
       <Stack.Screen options={{ headerShown: false }} />
-      <View style={{ height: space[3] }} />
-      <Pressable onPress={goBack} hitSlop={12} accessibilityRole="button">
-        <Caption tone="muted">← BACK</Caption>
-      </Pressable>
-
-      <Caption tone="accent" style={{ marginTop: space[4], letterSpacing: 4 }}>
-        LEGAL
-      </Caption>
-      <Title style={{ marginTop: space[2] }}>{doc.title}</Title>
+      <HudHeader title={doc.title} eyebrow="LEGAL" onBack={goBack} />
       <Caption tone="muted" style={{ marginTop: space[2] }}>
         {doc.effective}
       </Caption>

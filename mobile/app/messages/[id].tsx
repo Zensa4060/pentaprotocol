@@ -97,7 +97,7 @@ export default function DmThreadScreen() {
       <View style={{ height: space[3] }} />
       <Row justify="between" align="center">
         <Pressable onPress={goBack} hitSlop={12}>
-          <Caption tone="muted">← BACK</Caption>
+          <Caption tone="muted">‹  BACK</Caption>
         </Pressable>
         <Title numberOfLines={1} style={{ flex: 1, textAlign: "right" }}>{name}</Title>
       </Row>

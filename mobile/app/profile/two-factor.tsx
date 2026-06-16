@@ -28,15 +28,14 @@ import {
   Btn,
   Caption,
   Card,
-  Eyebrow,
   Mono,
   Row,
   Screen,
   Spinner,
   Stack as VStack,
   TextField,
-  Title,
 } from "@/components/ui";
+import { HudHeader } from "@/components/ui/hud";
 import {
   ApiError,
   confirmTwoFa,
@@ -106,15 +105,7 @@ export default function TwoFactorScreen() {
     <Screen scrollable padded contentContainerStyle={{ paddingBottom: space[10] }}>
       <Stack.Screen options={{ headerShown: false }} />
 
-      <View style={{ height: space[3] }} />
-      <Pressable onPress={goBack} hitSlop={12} accessibilityRole="button">
-        <Caption tone="muted">← BACK</Caption>
-      </Pressable>
-
-      <VStack gap={3} style={{ marginTop: space[6] }}>
-        <Eyebrow tone="muted">SECURITY · 2FA</Eyebrow>
-        <Title>Two-factor auth</Title>
-      </VStack>
+      <HudHeader title="TWO-FACTOR AUTH" eyebrow="SECURITY · 2FA" onBack={goBack} />
 
       {/* ── Already on ─────────────────────────────────────────── */}
       {user?.totp_enabled ? (

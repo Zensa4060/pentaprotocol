@@ -11,13 +11,11 @@ import { ActivityIndicator, Image, Pressable, RefreshControl, StyleSheet, View }
 import {
   Body,
   Caption,
-  Eyebrow,
   Heading,
-  Row,
   Screen,
   Stack,
-  Title,
 } from "@/components/ui";
+import { HudHeader, SectionLabel } from "@/components/ui/hud";
 import { CommunityLinks } from "@/components/community/CommunityLinks";
 import { fetchLeaderboard } from "@/lib/leaderboard";
 import type { LeaderboardRow } from "@/lib/types";
@@ -57,8 +55,7 @@ export default function CommunityScreen() {
         ),
       }}
     >
-      <View style={{ height: space[3] }} />
-      <Title>Community</Title>
+      <HudHeader title="COMMUNITY" eyebrow="LEADERBOARD · ORACLE · LINKS" />
 
       {/* Syros entry */}
       <Pressable style={styles.syrosCard} onPress={() => router.push("/syros")}>
@@ -70,7 +67,7 @@ export default function CommunityScreen() {
         <Caption tone="accent">›</Caption>
       </Pressable>
 
-      <Eyebrow tone="muted" style={styles.section}>GLOBAL LEADERBOARD</Eyebrow>
+      <SectionLabel label="GLOBAL LEADERBOARD" style={styles.section} />
       {loading ? (
         <View style={{ paddingVertical: space[6] }}>
           <ActivityIndicator color={colors.accent} />
@@ -116,7 +113,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: space[3],
     marginTop: space[4],
-    backgroundColor: colors.bgCard,
+    backgroundColor: colors.bgElevated,
     borderRadius: radii.lg,
     borderWidth: 1,
     borderColor: colors.borderAccent,
@@ -127,7 +124,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: space[3],
-    backgroundColor: colors.bgCard,
+    backgroundColor: colors.bgElevated,
     borderRadius: radii.md,
     borderWidth: 1,
     borderColor: colors.border,
@@ -144,6 +141,6 @@ const styles = StyleSheet.create({
     borderRadius: radii.md,
     borderWidth: 1,
     borderColor: colors.border,
-    backgroundColor: colors.bgCard,
+    backgroundColor: colors.bgElevated,
   },
 });

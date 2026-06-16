@@ -34,6 +34,7 @@ import {
   Stack as VStack,
   Title,
 } from "@/components/ui";
+import { HudHeader } from "@/components/ui/hud";
 import { acceptLegal, ApiError, POLICY_VERSION } from "@/lib/profile";
 import { logout } from "@/lib/auth";
 import { colors, radii, space } from "@/theme/tokens";
@@ -79,10 +80,7 @@ export default function LegalGateScreen() {
 
   return (
     <Screen scrollable padded contentContainerStyle={{ paddingBottom: space[10] }}>
-      <View style={{ height: space[4] }} />
-      <Eyebrow tone="muted">PENTAPROTOCOL · TERMS & PRIVACY</Eyebrow>
-      <View style={{ height: space[3] }} />
-      <Title>Before we start</Title>
+      <HudHeader title="BEFORE WE START" eyebrow="PENTAPROTOCOL · TERMS & PRIVACY" />
 
       <View style={{ height: space[5] }} />
       <Body tone="muted">

@@ -30,12 +30,20 @@ export function GridLivePreview({
   boardStyle,
   size,
   pieces = true,
+  live = true,
   style,
 }: {
   boardStyle: string;
   size: number;
   /** Overlay sample stones (off for the smallest thumbnails). */
   pieces?: boolean;
+  /**
+   * Run the animated WebView canvas. Set ``false`` for list thumbnails — a
+   * cheap static board (flat bg + grid lines) renders instead, so a long list
+   * never spins up dozens of WebViews. Keep ``true`` for the one-at-a-time
+   * modal / hero preview where the full animation is wanted.
+   */
+  live?: boolean;
   style?: StyleProp<ViewStyle>;
 }) {
   const skin = boardSkinFor(boardStyle);
@@ -44,11 +52,12 @@ export function GridLivePreview({
   const cell = (size - pad * 2) / 5;
 
   const html = useMemo(() => {
-    if (!skin || !webBg || size <= 0) return null;
+    if (!live || !skin || !webBg || size <= 0) return null;
     const lines = Array.from({ length: 6 }, (_, i) => pad + i * cell);
     return buildSkinBgHtml(skin.id, { width: size, height: size, lines });
-  }, [skin, webBg, size, pad, cell]);
+  }, [live, skin, webBg, size, pad, cell]);
 
+  const lineColor = skin?.boardLine ?? colors.border;
   const showPieces = pieces && skin != null && skinHasPieceArt(skin.id);
 
   return (
@@ -67,6 +76,22 @@ export function GridLivePreview({
       ]}
     >
       {html ? <CanvasWebView html={html} /> : null}
+      {!live ? (
+        <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+          {[1, 2, 3, 4].map((i) => (
+            <View
+              key={`v${i}`}
+              style={{ position: "absolute", left: pad + i * cell, top: pad, bottom: pad, width: 1, backgroundColor: lineColor }}
+            />
+          ))}
+          {[1, 2, 3, 4].map((i) => (
+            <View
+              key={`h${i}`}
+              style={{ position: "absolute", top: pad + i * cell, left: pad, right: pad, height: 1, backgroundColor: lineColor }}
+            />
+          ))}
+        </View>
+      ) : null}
       {showPieces && skin ? (
         <View pointerEvents="none" style={StyleSheet.absoluteFill}>
           {SAMPLE.map((p, i) => (

@@ -22,13 +22,10 @@ import {
   Body,
   Btn,
   Caption,
-  Eyebrow,
-  Row,
   Screen,
-  Stack as VStack,
   TextField,
-  Title,
 } from "@/components/ui";
+import { HudHeader, SectionLabel } from "@/components/ui/hud";
 import { setLocalAvatar, useLocalAvatar } from "@/lib/avatar";
 import { updateProfile } from "@/lib/profile";
 import { useAuthStore } from "@/lib/store";
@@ -113,15 +110,11 @@ export default function AvatarScreen() {
     <Screen scrollable padded contentContainerStyle={{ paddingBottom: space[10] }}>
       <Stack.Screen options={{ headerShown: false }} />
 
-      <View style={{ height: space[3] }} />
-      <Pressable onPress={goBack} hitSlop={12} accessibilityRole="button">
-        <Caption tone="muted">← BACK</Caption>
-      </Pressable>
+      <HudHeader title="PROFILE PICTURE" eyebrow="ACCOUNT · AVATAR" onBack={goBack} />
 
-      <VStack gap={3} style={{ marginTop: space[6] }} align="center">
-        <Eyebrow tone="muted">PROFILE PICTURE</Eyebrow>
+      <View style={{ alignItems: "center", marginTop: space[5] }}>
         <Avatar uri={previewUri} name={user?.username} size="xl" highlighted />
-      </VStack>
+      </View>
 
       <View style={{ height: space[7] }} />
       <Btn variant="primary" size="lg" loading={busy === "pick"} onPress={pickPhoto}>
@@ -144,9 +137,7 @@ export default function AvatarScreen() {
         </Caption>
       </View>
 
-      <Eyebrow tone="muted" style={{ marginTop: space[7], marginBottom: space[3] }}>
-        IMAGE URL
-      </Eyebrow>
+      <SectionLabel label="IMAGE URL" style={{ marginTop: space[7], marginBottom: space[3] }} />
       <View style={styles.card}>
         <TextField
           label="Image URL"
@@ -171,14 +162,14 @@ export default function AvatarScreen() {
 const styles = StyleSheet.create({
   note: {
     marginTop: space[4],
-    backgroundColor: colors.bgCard,
+    backgroundColor: colors.bgElevated,
     borderRadius: radii.md,
     borderWidth: 1,
     borderColor: colors.border,
     padding: space[4],
   },
   card: {
-    backgroundColor: colors.bgCard,
+    backgroundColor: colors.bgElevated,
     borderRadius: radii.lg,
     borderWidth: 1,
     borderColor: colors.border,

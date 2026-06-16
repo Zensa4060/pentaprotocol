@@ -13,8 +13,8 @@ import {
   Row,
   Screen,
   Stack as VStack,
-  Title,
 } from "@/components/ui";
+import { HudHeader } from "@/components/ui/hud";
 import { formatCareerDate } from "@/lib/careerHelpers";
 import { fetchCareer } from "@/lib/career";
 import type { CareerMatch } from "@/lib/types";
@@ -67,13 +67,12 @@ export default function CareerListScreen() {
   return (
     <Screen scrollable padded contentContainerStyle={{ paddingBottom: space[10] }}>
       <Stack.Screen options={{ headerShown: false }} />
-      <View style={{ height: space[3] }} />
-      <Pressable onPress={goBack} hitSlop={12}>
-        <Caption tone="muted">← BACK</Caption>
-      </Pressable>
-
-      <Title style={{ marginTop: space[4] }}>Career</Title>
-      <Body tone="muted" style={{ marginTop: space[2] }}>
+      <HudHeader
+        title="CAREER"
+        eyebrow="MATCH ARCHIVE · REPLAY · SYROS ANALYSIS"
+        onBack={goBack}
+      />
+      <Body tone="muted" style={{ marginTop: space[4] }}>
         Battle archive — tap a match for replay and Syros analysis.
       </Body>
 
@@ -151,7 +150,7 @@ const styles = StyleSheet.create({
     borderRadius: radii.md,
     borderWidth: 1,
     borderColor: colors.border,
-    backgroundColor: colors.bgCard,
+    backgroundColor: colors.bgElevated,
     alignItems: "center",
   },
   tabOn: {
@@ -162,7 +161,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: space[3],
-    backgroundColor: colors.bgCard,
+    backgroundColor: colors.bgElevated,
     borderRadius: radii.md,
     borderWidth: 1,
     borderColor: colors.border,

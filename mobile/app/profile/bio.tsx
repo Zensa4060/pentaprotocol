@@ -18,13 +18,10 @@ import { Alert, Pressable, View } from "react-native";
 import {
   Body,
   Btn,
-  Caption,
-  Eyebrow,
   Screen,
-  Stack as VStack,
   TextField,
-  Title,
 } from "@/components/ui";
+import { HudHeader } from "@/components/ui/hud";
 import { ApiError, updateProfile } from "@/lib/profile";
 import { useAuthStore } from "@/lib/store";
 import { space } from "@/theme/tokens";
@@ -69,18 +66,11 @@ export default function BioEditScreen() {
     <Screen scrollable padded contentContainerStyle={{ paddingBottom: space[10] }}>
       <Stack.Screen options={{ headerShown: false }} />
 
-      <View style={{ height: space[3] }} />
-      <Pressable onPress={goBack} hitSlop={12} accessibilityRole="button">
-        <Caption tone="muted">← BACK</Caption>
-      </Pressable>
+      <HudHeader title="EDIT BIO" eyebrow="ACCOUNT · BIO" onBack={goBack} />
 
-      <VStack gap={3} style={{ marginTop: space[6] }}>
-        <Eyebrow tone="muted">ACCOUNT · BIO</Eyebrow>
-        <Title>Edit bio</Title>
-        <Body tone="muted">
-          Shown on your public profile. Keep it short — {MAX_LEN} characters max.
-        </Body>
-      </VStack>
+      <Body tone="muted" style={{ marginTop: space[4] }}>
+        Shown on your public profile. Keep it short — {MAX_LEN} characters max.
+      </Body>
 
       <View style={{ height: space[6] }} />
       <TextField

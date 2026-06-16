@@ -10,7 +10,10 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.pentaprotocol.app"
+      "bundleIdentifier": "com.pentaprotocol.app",
+      "infoPlist": {
+        "CADisableMinimumFrameDurationOnPhone": true
+      }
     },
     "android": {
       "package": "com.pentaprotocol.app",
