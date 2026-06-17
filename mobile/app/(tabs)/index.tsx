@@ -13,7 +13,6 @@ import { LinearGradient } from "expo-linear-gradient";
 
 import {
   Avatar,
-  Btn,
   Caption,
   Card,
   Eyebrow,
@@ -60,14 +59,13 @@ type TileKey = "multiplayer" | "training" | "store" | "collection";
 interface TileDef {
   key: TileKey;
   title: string;
-  subtitle?: string;
 }
 
 const TILES: TileDef[] = [
-  { key: "multiplayer", title: "Play Online" },
-  { key: "training", title: "Training" },
-  { key: "store", title: "Store", subtitle: "Themes & banners" },
-  { key: "collection", title: "Collection", subtitle: "Owned cosmetics" },
+  { key: "multiplayer", title: "PLAY ONLINE" },
+  { key: "training", title: "TRAINING" },
+  { key: "store", title: "STORE" },
+  { key: "collection", title: "COLLECTION" },
 ];
 
 export default function HomeScreen() {
@@ -97,12 +95,7 @@ export default function HomeScreen() {
           overlayOpacity={0.62}
           style={StyleSheet.absoluteFill}
         />
-        <Screen
-          scrollable
-          padded
-          background="transparent"
-          contentContainerStyle={{ paddingBottom: space[10] }}
-        >
+        <Screen padded background="transparent">
           {/* ── Brand row ───────────────────────────────────────────── */}
           <Row justify="between" align="center" style={{ marginTop: space[3] }}>
             <Wordmark size="md" />
@@ -112,7 +105,7 @@ export default function HomeScreen() {
           </Row>
 
           {/* ── Identity card ───────────────────────────────────────── */}
-          <Card variant="accent" padding="md" style={{ marginTop: space[6] }}>
+          <Card variant="accent" padding="md" style={{ marginTop: space[5] }}>
             <Row gap={4} align="center">
               <Avatar uri={avatarUri} name={user?.username} size="lg" highlighted />
               <Stack gap={1} fill>
@@ -148,13 +141,14 @@ export default function HomeScreen() {
             </Row>
           </Card>
 
-          {/* ── One panel of four equal red-glass tiles ─────────────── */}
-          <Stack gap={3} style={{ marginTop: space[6] }}>
+          {/* ── One panel of four equal red-glass tiles. ``fill`` makes
+              the panel claim every remaining pixel so the four tiles
+              grow to fit the screen with no scrolling. ──────────────── */}
+          <Stack gap={3} fill style={{ marginTop: space[5], paddingBottom: space[3] }}>
             {TILES.map((tile) => (
               <GlassTile
                 key={tile.key}
                 title={tile.title}
-                subtitle={tile.subtitle}
                 palette={palette}
                 onPress={() => handleTilePress(tile.key)}
               />
@@ -163,22 +157,14 @@ export default function HomeScreen() {
 
           {/* ── Status (review banner, etc.) ────────────────────────── */}
           {user?.under_review ? (
-            <>
-              <SectionLabel label="STATUS" />
-              <Card variant="surface" padding="md" tone="warn">
-                <Eyebrow tone="warn">ACCOUNT UNDER REVIEW</Eyebrow>
-                <Caption tone="muted" style={{ marginTop: space[2] }}>
-                  Recent activity flagged your account for review. Matchmaking may be
-                  restricted while we look into it.
-                </Caption>
-              </Card>
-            </>
+            <Card variant="surface" padding="md" tone="warn" style={{ marginBottom: space[3] }}>
+              <Eyebrow tone="warn">ACCOUNT UNDER REVIEW</Eyebrow>
+              <Caption tone="muted" style={{ marginTop: space[2] }}>
+                Recent activity flagged your account for review. Matchmaking may be
+                restricted while we look into it.
+              </Caption>
+            </Card>
           ) : null}
-
-          <View style={{ height: space[6] }} />
-          <Btn variant="ghost" onPress={goToProfile}>
-            View profile
-          </Btn>
         </Screen>
       </View>
     </TabSwipe>
@@ -187,28 +173,18 @@ export default function HomeScreen() {
 
 // ─── Sub-components ──────────────────────────────────────────────────────────
 
-// Left-aligned section label (no flex dividers — those were clipping the
-// eyebrow text to a stray "E"/"M" at the screen edge).
-function SectionLabel({ label }: { label: string }) {
-  return (
-    <Eyebrow tone="muted" style={{ marginTop: space[7], marginBottom: space[3] }}>
-      {label}
-    </Eyebrow>
-  );
-}
-
 /**
  * A single "colored glass" tile — red translucent gradient with a lighter-red
  * label, used uniformly for all four home actions so they read as one panel.
+ * ``flex: 1`` lets the four tiles split the panel's height evenly, so they
+ * grow to fill the screen (no scrolling) while staying equal.
  */
 function GlassTile({
   title,
-  subtitle,
   palette,
   onPress,
 }: {
   title: string;
-  subtitle?: string;
   palette: ThemePalette;
   onPress: () => void;
 }) {
@@ -232,19 +208,12 @@ function GlassTile({
         style={StyleSheet.absoluteFill}
       />
       <View style={styles.glassInner}>
-        <Stack gap={subtitle ? 1 : 0} fill>
-          <Text
-            numberOfLines={1}
-            style={[styles.glassTitle, { color: lighten(tint, 0.6), fontFamily: palette.fontDisplay }]}
-          >
-            {title}
-          </Text>
-          {subtitle ? (
-            <Text numberOfLines={1} style={[styles.glassSub, { color: withAlpha(lighten(tint, 0.7), 0.85) }]}>
-              {subtitle}
-            </Text>
-          ) : null}
-        </Stack>
+        <Text
+          numberOfLines={1}
+          style={[styles.glassTitle, { color: lighten(tint, 0.6), fontFamily: palette.fontDisplay }]}
+        >
+          {title}
+        </Text>
         <Text style={[styles.glassChevron, { color: lighten(tint, 0.5) }]}>›</Text>
       </View>
     </Pressable>
@@ -262,29 +231,34 @@ const styles = StyleSheet.create({
     textShadowRadius: 12,
   },
   glassTile: {
-    height: 84,
+    // Grow to share the panel's height (fills the screen, no scroll). The
+    // floor is the old 84 px tile + ~10%, so they never shrink below the
+    // bigger baseline on short devices.
+    flex: 1,
+    minHeight: 92,
     borderRadius: radii.lg,
     borderWidth: 1,
     overflow: "hidden",
     justifyContent: "center",
   },
   glassInner: {
-    flexDirection: "row",
+    flex: 1,
     alignItems: "center",
+    justifyContent: "center",
     paddingHorizontal: space[5],
-    gap: space[3],
   },
   glassTitle: {
     fontSize: 24,
     fontWeight: "900",
     letterSpacing: 0.5,
-  },
-  glassSub: {
-    fontSize: 13,
-    fontWeight: "600",
-    letterSpacing: 0.4,
+    textAlign: "center",
+    textTransform: "uppercase",
   },
   glassChevron: {
+    position: "absolute",
+    right: space[5],
+    top: "50%",
+    transform: [{ translateY: -15 }],
     fontSize: 30,
     fontWeight: "300",
     lineHeight: 30,

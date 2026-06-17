@@ -55,6 +55,13 @@ export default function RootLayout() {
     Cinzel: require("../assets/fonts/Cinzel-Variable.ttf"),
     Orbitron: require("../assets/fonts/Orbitron-Variable.ttf"),
     PentaPixel: require("../assets/fonts/PentaPixel-Regular.ttf"),
+    // Courier Prime — open ``Courier New`` clone. Drives the classic-theme
+    // display type so the wordmark + headings match the web brand lockup
+    // (web uses ``'Courier New', monospace``) on Android, which ships no
+    // Courier face of its own. Bold is the brand weight; Regular kept for
+    // future body use.
+    CourierPrime: require("../assets/fonts/CourierPrime-Regular.ttf"),
+    CourierPrimeBold: require("../assets/fonts/CourierPrime-Bold.ttf"),
   });
 
   const hydrated = useAuthStore((s) => s.hydrated);

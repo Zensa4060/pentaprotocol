@@ -69,7 +69,7 @@ export interface ThemePalette {
 
 /** Default — identical to the static ``colors`` token map (mobile blood-red dark). */
 const classic_dark: ThemePalette = {
-  fontDisplay: "Cinzel",
+  fontDisplay: "CourierPrimeBold",
   bg: colors.bg,
   bgElevated: colors.bgElevated,
   bgCard: colors.bgCard,
@@ -102,7 +102,7 @@ const classic_dark: ThemePalette = {
 
 /** Warm espresso / amber — mirrors web ``classic_2``. */
 const classic_light: ThemePalette = {
-  fontDisplay: "Cinzel",
+  fontDisplay: "CourierPrimeBold",
   bg: "#1E1410",
   bgElevated: "#261C16",
   bgCard: "#30241E",
