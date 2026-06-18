@@ -220,8 +220,7 @@ export default function TrainingPracticeScreen() {
             bannedPatternIds={rbBans.length > 0 ? rbBans : undefined}
           />
           <Caption tone="muted">
-            G{series.gameNumber} · {gridSize}×{gridSize} · {match.movesPlayed}{" "}
-            {match.movesPlayed === 1 ? "MOVE" : "MOVES"}
+            G{series.gameNumber} · {gridSize}×{gridSize}
           </Caption>
         </Row>
       </Row>

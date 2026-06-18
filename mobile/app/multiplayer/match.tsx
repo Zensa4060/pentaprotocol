@@ -45,7 +45,6 @@ import { RulebreakerOverlay } from "@/components/game/RulebreakerOverlay";
 import { RulesShowOverlay } from "@/components/game/RulesShowOverlay";
 import { XpLevelUpOverlay } from "@/components/game/XpLevelUpOverlay";
 import {
-  ChatButton,
   ChatSheet,
   HeadToHeadCard,
   MatchHistoryPanel,
@@ -405,13 +404,6 @@ export default function MultiplayerMatch() {
           <Caption tone="muted">← QUIT</Caption>
         </Pressable>
         <Row gap={2} align="center">
-          <ChatButton
-            unread={unreadChat}
-            onPress={() => {
-              markChatRead();
-              setChatOpen(true);
-            }}
-          />
           <PatternsToggle
             gridSize={gridSize}
             enabled={!seriesOver}
@@ -419,7 +411,7 @@ export default function MultiplayerMatch() {
             bannedPatternIds={rbHideFromMe ? undefined : rbBannedPatterns}
           />
           <Caption tone="muted">
-            {room.room_code} · {legLabel}
+            {room.room_code}
           </Caption>
         </Row>
       </Row>
@@ -464,18 +456,43 @@ export default function MultiplayerMatch() {
         />
       </View>
 
-      {/* ── Status banner + error (fixed slot so the board stays put) ── */}
+      {/* ── Status banner + disconnect + chat (​fixed slot so the board stays put) ── */}
       <View style={styles.hudSlot}>
         <View style={styles.statusRow}>
-          <Eyebrow
-            tone={opponentDropped ? "warn" : statusToneFor(room, slot, status)}
-            numberOfLines={1}
-          >
-            {opponentDropped
-              ? `OPPONENT DISCONNECTED — FORFEITS IN ${reconnectRemaining}s`
-              : statusLabelFor(room, slot, status)}
-          </Eyebrow>
+          {opponentDropped ? (
+            <View style={styles.disconnectBanner}>
+              <Eyebrow tone="warn" style={{ textAlign: "center" }}>
+                OPPONENT DISCONNECTED
+              </Eyebrow>
+              <Caption tone="warn" style={{ textAlign: "center", marginTop: 2 }}>
+                Forfeits in {reconnectRemaining}s if they don't return
+              </Caption>
+            </View>
+          ) : (
+            <Eyebrow
+              tone={statusToneFor(room, slot, status)}
+              numberOfLines={1}
+            >
+              {statusLabelFor(room, slot, status)}
+            </Eyebrow>
+          )}
         </View>
+
+        {/* ── Inline chat bar ── */}
+        <Pressable
+          onPress={() => {
+            markChatRead();
+            setChatOpen(true);
+          }}
+          style={styles.chatBar}
+          accessibilityRole="button"
+          accessibilityLabel="Open chat"
+        >
+          <Caption tone="accent" style={styles.chatBarTxt}>
+            💬  CHAT{unreadChat > 0 ? ` (${unreadChat} NEW)` : ""}
+          </Caption>
+        </Pressable>
+
         <View style={styles.errorRow}>
           {lastError ? (
             <View style={styles.errorToast}>
@@ -812,16 +829,42 @@ function statusToneFor(
 
 const styles = StyleSheet.create({
   hudSlot: {
-    height: 84,
+    minHeight: 84,
     marginTop: space[2],
     marginBottom: space[2],
     justifyContent: "flex-start",
   },
   statusRow: {
-    height: 44,
+    minHeight: 44,
     justifyContent: "center",
     alignItems: "center",
     paddingHorizontal: space[2],
+  },
+  disconnectBanner: {
+    paddingVertical: space[2],
+    paddingHorizontal: space[3],
+    backgroundColor: "rgba(255,180,0,0.08)",
+    borderWidth: 1,
+    borderColor: "rgba(255,180,0,0.3)",
+    borderRadius: radii.md,
+    alignItems: "center",
+    width: "100%",
+  },
+  chatBar: {
+    marginTop: space[2],
+    marginHorizontal: space[2],
+    paddingVertical: space[3],
+    backgroundColor: "rgba(204,0,0,0.08)",
+    borderWidth: 1,
+    borderColor: colors.borderAccent,
+    borderRadius: radii.md,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  chatBarTxt: {
+    fontWeight: "800",
+    letterSpacing: 1.5,
+    fontSize: 13,
   },
   errorRow: {
     height: 38,

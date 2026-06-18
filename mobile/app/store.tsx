@@ -37,7 +37,6 @@ import {
   PC_PACKAGES,
   PS_PACKAGES,
   STORE_BANNERS,
-  STORE_COINS,
   LIVE_GRID_BUNDLES,
   STORE_THEMES,
   type GridBundle,
@@ -48,13 +47,12 @@ import { THEMES, normalizeThemeId, type ThemeId } from "@/theme/themes";
 import { useTheme } from "@/theme/ThemeProvider";
 import { colors, radii, space } from "@/theme/tokens";
 
-type Tab = "themes" | "banners" | "grids" | "coins" | "topup";
+type Tab = "themes" | "banners" | "grids" | "topup";
 
 const TABS: { key: Tab; label: string }[] = [
   { key: "themes", label: "THEMES" },
   { key: "banners", label: "BANNERS" },
   { key: "grids", label: "GRIDS" },
-  { key: "coins", label: "COINS" },
   { key: "topup", label: "TOP-UP" },
 ];
 
@@ -237,7 +235,10 @@ export default function StoreScreen() {
                   onOpen={() => setPreview(item)}
                 >
                   <View style={[styles.prev, { width: innerW, height: innerW * 0.6 }]}>
-                    <BannerRenderer bannerId={item.id} themeId={themeId} style={StyleSheet.absoluteFill} />
+                    <BannerRenderer bannerId={item.id} themeId={themeId} style={StyleSheet.absoluteFill} animated={false} />
+                    <View style={styles.previewBtnOverlay}>
+                      <Caption tone="accent" style={styles.previewBtnTxt}>PREVIEW</Caption>
+                    </View>
                   </View>
                 </Tile>
               );
@@ -273,48 +274,24 @@ export default function StoreScreen() {
                   }
                   onOpen={() => setPreviewGrid(bundle)}
                 >
-                  <GridLivePreview
-                    boardStyle={bundle.boardId}
-                    size={innerW}
-                    pieces={false}
-                    live={false}
-                    style={{ borderColor: hexA(bundle.accentColor, 0.5) }}
-                  />
+                  <View style={[styles.prev, { width: innerW, height: innerW * 0.6 }]}>
+                    <GridLivePreview
+                      boardStyle={bundle.boardId}
+                      size={innerW}
+                      pieces={false}
+                      live={false}
+                      style={{ borderColor: hexA(bundle.accentColor, 0.5) }}
+                    />
+                    <View style={styles.previewBtnOverlay}>
+                      <Caption tone="accent" style={styles.previewBtnTxt}>PREVIEW</Caption>
+                    </View>
+                  </View>
                 </Tile>
               );
             })}
           </View>
         )}
 
-        {/* ── Coins · row list (no live face preview) ──────────────── */}
-        {tab === "coins" &&
-          STORE_COINS.map((item) => {
-            const isOwned = owned.has(item.id);
-            const canClaim = rewards.coin_toss === "pending" && !isOwned;
-            return (
-              <View key={item.id}>
-                <View style={styles.row}>
-                  <View style={styles.coinFace}>
-                    <Mono tone="accent" style={{ fontSize: 18 }}>◉</Mono>
-                  </View>
-                  <View style={styles.rowMid}>
-                    <Body style={styles.itemName} numberOfLines={1}>{item.label}</Body>
-                    <Mono tone="dim" style={styles.itemMeta} numberOfLines={2}>{item.description}</Mono>
-                    <Mono tone="dim" style={styles.itemMeta}>
-                      {item.pricePc} PC{item.pricePs ? ` · +${item.pricePs} PS` : ""}
-                    </Mono>
-                  </View>
-                  <RowAction
-                    label={isOwned ? "OWNED" : canClaim ? "CLAIM" : "ACQUIRE"}
-                    disabled={isOwned}
-                    loading={busy === item.id || busy === `claim-${item.id}`}
-                    onPress={canClaim ? () => onClaim("coin_toss", item.id, item.label) : () => onBuy(item)}
-                  />
-                </View>
-                <Hairline />
-              </View>
-            );
-          })}
 
         {/* ── Top-up · INR / UPI packages ──────────────────────────── */}
         {tab === "topup" && (
@@ -792,5 +769,21 @@ const styles = StyleSheet.create({
     borderColor: "rgba(255,255,255,0.12)",
     marginTop: space[3],
     overflow: "hidden",
+  },
+  previewBtnOverlay: {
+    position: "absolute",
+    bottom: space[1],
+    right: space[1],
+    backgroundColor: "rgba(0,0,0,0.6)",
+    paddingHorizontal: space[2],
+    paddingVertical: 2,
+    borderRadius: radii.sm,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.15)",
+  },
+  previewBtnTxt: {
+    fontSize: 9,
+    fontWeight: "700",
+    letterSpacing: 1,
   },
 });
