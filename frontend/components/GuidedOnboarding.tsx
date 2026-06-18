@@ -44,15 +44,33 @@ export default function GuidedOnboarding({ themeId, onComplete, onSkip }: Guided
     setMoveIdx(0);
   }, [gameIdx]);
 
+  // Resolve the active narration beat. During play, only moves that have an
+  // explicit `narration[moveIdx]` entry produce a new line — all other moves
+  // hold the most recent beat so the typewriter (and voice) do NOT restart on
+  // every tap. Falls back to `game.intro` until the first beat fires.
+  const activeBeat = useMemo(() => {
+    if (phase !== "play") return null;
+    // Walk backward from the current move to find the most recent beat.
+    for (let i = moveIdx; i >= 0; i--) {
+      if (game.narration[i] !== undefined) return { text: game.narration[i], idx: i };
+    }
+    return null;
+  }, [phase, moveIdx, game]);
+
   const line =
     phase === "intro"
       ? game.intro
       : phase === "outro"
       ? game.outro
-      : game.narration[moveIdx] ?? game.intro;
+      : activeBeat?.text ?? game.intro;
 
+  // Key on the beat index (not the move index) so the narrator only restarts
+  // when a genuinely new narration line arrives.
   const lineKey =
-    phase === "play" ? `${game.id}-play-${moveIdx}` : `${game.id}-${phase}`;
+    phase === "play"
+      ? `${game.id}-beat-${activeBeat?.idx ?? "intro"}`
+      : `${game.id}-${phase}`;
+
 
   const onBoardMove = useCallback(
     (idx: number, finished: boolean) => {

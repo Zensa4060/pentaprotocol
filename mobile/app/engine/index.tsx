@@ -6,8 +6,15 @@
  */
 
 import { router, Stack } from "expo-router";
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { Alert, Image, Pressable, StyleSheet, View } from "react-native";
+
+import { SyrosIntroOverlay } from "@/components/game/SyrosIntroOverlay";
+import { fillerMatchFoundParams } from "@/lib/multiplayer/matchFound";
+import {
+  numericLevelForTier,
+  pickRandomPatterns5x5,
+} from "@/lib/unrankedBots";
 
 import {
   Body,
@@ -43,6 +50,7 @@ export default function EnginePickerScreen() {
   const syrosUnlocked = !!(defeats as Record<string, boolean>).her;
   // Default to the standard 5×5 board (BUG-03) — not 7×7.
   const [gridSize, setGridSize] = useState<GridSize>(5);
+  const [syrosIntroVisible, setSyrosIntroVisible] = useState(false);
   const mode = boardModeFromGrid(gridSize) as BotBoardMode;
   const roster = BOTS_BY_MODE[mode];
   const [selected, setSelected] = useState<BotId>(roster[0].id);
@@ -98,13 +106,31 @@ export default function EnginePickerScreen() {
       Alert.alert("Locked", "Defeat HER on 7×7 to unlock SYROS.");
       return;
     }
-    // Engine ceiling. The full 5×5→6×6→7×7 leg series needs the multi-board
-    // AI flow; until then this opens the strongest board.
-    router.push({
-      pathname: "/pregame",
-      params: { mode: "engine", botId: "her", difficulty: "danger", label: "SYROS", grid: "7" },
-    });
+    // Show the "PREPARING SYROS..." intro overlay — same flow as the
+    // web's SyrosIntroScreen. After the overlay completes, the callback
+    // navigates to the match-found VS splash which then routes into
+    // /engine/match with the full G1→G10 leg ladder.
+    setSyrosIntroVisible(true);
   };
+
+  /** Fired by SyrosIntroOverlay after the 3-second dwell. */
+  const onSyrosIntroDone = useCallback(() => {
+    setSyrosIntroVisible(false);
+    const patterns = pickRandomPatterns5x5(5);
+    const params = fillerMatchFoundParams({
+      botName: "SYROS",
+      botTier: "SYROS",
+      botLevel: numericLevelForTier("SYROS"),
+      botEmoji: "",
+      botBanner: "plasma_core",
+      isSyros: true,
+      patterns,
+    });
+    router.push({
+      pathname: "/multiplayer/match-found",
+      params,
+    } as never);
+  }, []);
 
   return (
     <Screen scrollable padded contentContainerStyle={{ paddingBottom: space[10] }}>
@@ -245,6 +271,12 @@ export default function EnginePickerScreen() {
       <Btn variant="primary" size="lg" onPress={start}>
         Start match
       </Btn>
+
+      {/* ── SYROS boss intro overlay ── */}
+      <SyrosIntroOverlay
+        visible={syrosIntroVisible}
+        onDone={onSyrosIntroDone}
+      />
     </Screen>
   );
 }
