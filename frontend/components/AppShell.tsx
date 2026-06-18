@@ -81,7 +81,7 @@ import NavBar from "@/components/NavBar";
 import SettingsModal from "@/components/SettingsModal";
 import SpaceBg from "@/components/SpaceBg";
 import PolicyAcceptanceGate from "@/components/PolicyAcceptanceGate";
-import TutorialScreen from "@/components/TutorialScreen";
+import GuidedOnboardingFlow from "@/components/GuidedOnboardingFlow";
 import { shouldShowTutorialGate, normalizeTutorialState } from "@/lib/tutorialState";
 import SessionReplacedModal from "@/components/SessionReplacedModal";
 import ActiveMatchRejoinModal from "@/components/ActiveMatchRejoinModal";
@@ -2061,14 +2061,10 @@ export default function AppShell({ children }: { children: ReactNode }) {
          *   except the PolicyAcceptanceGate (which gates the tutorial
          *   gate itself). */}
         {tutorialOpen && user && token && (
-          <TutorialScreen
+          <GuidedOnboardingFlow
             themeId={routeThemeId}
-            userId={getUserId(user)}
-            username={typeof (user as { username?: unknown })?.username === "string"
-              ? (user as { username?: string }).username
-              : undefined}
             token={token}
-            mode={tutorialMode}
+            persist={tutorialMode === "gate"}
             onDoneAction={(result) => {
               setTutorialOpen(false);
               if (tutorialMode === "gate") {
@@ -2078,7 +2074,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
                   onboarding_tutorial: normalizeTutorialState(result),
                 });
                 // Kick a profile refresh so any stale cached fields converge
-                // with the server-side write that TutorialScreen just made.
+                // with the server-side write the flow just made.
                 void useAuthStore.getState().refreshProfile();
               }
             }}

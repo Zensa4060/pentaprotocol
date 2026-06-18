@@ -23,6 +23,18 @@ import {
 } from "@/lib/navBadgeState";
 import { screenToUrl, ROUTES } from "@/lib/routes";
 
+/** Maps a nav target → the onboarding tour anchor key (`data-tour`). Lets the
+ *  first-run SpotlightTour spotlight real nav buttons; unmapped targets get
+ *  no anchor and are skipped by the tour. */
+const NAV_TOUR_ANCHOR: Record<string, string | undefined> = {
+  home: "nav-home",
+  store: "home-store",
+  collection: "home-collection",
+  friends: "nav-friends",
+  battlepass: "nav-missions",
+  profile: "nav-profile",
+};
+
 export const RANKS = [
   { name: "UNRANKED",     min: -1,   max: -1,      color: "#FF33FF", img: undefined,               scale: 1     },
   { name: "ROOKIE",    min: 0,    max: 500,     color: "#9CA3AF", img: "/novice.png?v=2",       scale: 1.3   },
@@ -482,6 +494,7 @@ export default function NavBar({
     return (
       <button
         key={target}
+        data-tour={NAV_TOUR_ANCHOR[target]}
         disabled={effectiveDisabled}
         type="button"
         title={bc || hideLabel ? `${label}${bc ? ` — ${bc}` : ""}` : undefined}
@@ -653,6 +666,7 @@ export default function NavBar({
               ProfileScreen mobile currency section. */}
           {mounted && !lockMultiplayerNav && !isMobile && (
             <div
+              data-tour="currency"
               title="PentaShards: earn rewards from missions and events to redeem free skins in the Store."
               style={{ display: "flex", alignItems: "center", gap: 3, fontFamily: t.fontMono, fontSize: CURRENCY_FONT, fontWeight: 700, letterSpacing: "0.02em" }}
             >

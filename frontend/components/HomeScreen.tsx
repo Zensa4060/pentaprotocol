@@ -731,6 +731,7 @@ export default function HomeScreen({ setScreenAction, themeId, onHoverAction, on
             <button
               key={card.key}
               type="button"
+              data-tour={card.key === "lobby" ? "home-play" : card.key === "singleplayer" ? "home-training" : card.key === "ai" ? "home-bots" : undefined}
               aria-label={card.key === "ai" ? `${card.title}. ${card.sub}` : undefined}
               onClick={() => { onClickAction?.(); setScreenAction(card.key); }}
               onMouseEnter={() => {
