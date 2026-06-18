@@ -168,6 +168,8 @@ export interface AppContextType {
   navigateToGame: (boardMode: BoardMode, variant?: string) => void;
   /** Navigate directly to a challenge URL. */
   navigateToChallenge: (boardMode: BoardMode, difficulty: Difficulty) => void;
+  /** Launch the SYROS boss encounter (full G1→G10 leg ladder vs the level-1000 bot). */
+  challengeSyros: () => void;
 }
 
 const AppContext = createContext<AppContextType | null>(null);
@@ -1518,6 +1520,25 @@ export default function AppShell({ children }: { children: ReactNode }) {
     ],
   );
 
+  /**
+   * Launch the SYROS boss encounter from the AI screen (post-HER). Reuses the
+   * exact unranked filler-bot reveal — the "PREPARING SYROS…" intro, the VS
+   * card, and the full G1→G10 leg ladder (5×5 → 6×6 → 7×7 + breakers) — by
+   * arming a SYROS-tier filler match that starts on 5×5. Per-leg difficulty
+   * escalates automatically (hard / machine_god / danger) via
+   * `difficultyForLevel(SYROS, size)` inside GameScreen.
+   */
+  const challengeSyros = useCallback(() => {
+    // Cold launch (not from the queue) — clear any stale arm guard first.
+    matchFoundArmRef.current = false;
+    armUnrankedBotMatchSequence(
+      null,
+      { name: "SYROS", level: "SYROS", isSyros: true },
+      "unranked",
+      "5x5",
+    );
+  }, [armUnrankedBotMatchSequence]);
+
   const armMatchFoundSequence = useCallback(
     (
       code: string,
@@ -1853,6 +1874,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
     resumeMultiSeriesNavigation,
     navigateToGame,
     navigateToChallenge,
+    challengeSyros,
   };
 
   /* ═══════════════════════════════════════════════════════════════════════ */

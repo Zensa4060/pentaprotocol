@@ -21,6 +21,7 @@ export default function ChallengePage() {
         ctx.setBoardMode(mode);
         ctx.setSelectedPatterns(patterns || []);
       }}
+      onChallengeSyrosAction={ctx.challengeSyros}
     />
   );
 }

@@ -10,7 +10,7 @@
  * This replaces the slide-based first-run tutorial for new accounts.
  */
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { THEMES, type ThemeId } from "@/lib/themes";
 import { GUIDED_GAMES } from "@/lib/guidedGames";
 import { useSyrosVoice } from "@/hooks/useSyrosVoice";

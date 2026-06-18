@@ -36,6 +36,8 @@ interface Props {
   onSelectDifficultyAction: (d: Difficulty, boardMode: BoardMode) => void;
   onHoverAction?: () => void;
   onBoardModeAction?: (mode: BoardMode, patterns?: string[]) => void;
+  /** Launch the SYROS boss encounter (full G1→G10 leg ladder vs the level-1000 bot). */
+  onChallengeSyrosAction?: () => void;
 }
 
 type DifficultyCard = { id: Difficulty; label: string; sub: string; color: string; botId: BotId };
@@ -102,7 +104,7 @@ function randomFiveAI(): string[] {
   return [...SPECIAL_5X5_AI].sort(() => Math.random() - 0.5).slice(0, 3);
 }
 
-export default function AIScreen({ setScreenAction, themeId, onSelectDifficultyAction, onHoverAction, onBoardModeAction }: Props) {
+export default function AIScreen({ setScreenAction, themeId, onSelectDifficultyAction, onHoverAction, onBoardModeAction, onChallengeSyrosAction }: Props) {
   const t = THEMES[themeId as keyof typeof THEMES];
   const ip = themeId === "pixel";
   const [boardMode, setBoardMode] = useState<BoardMode>("5x5");
@@ -126,12 +128,10 @@ export default function AIScreen({ setScreenAction, themeId, onSelectDifficultyA
       setTimeout(() => setLockMsg(null), 2500);
       return;
     }
-    // Launch at the engine ceiling. NOTE: the full 5×5→6×6→7×7 leg series
-    // (Syros switching boards within one match) needs GameScreen's compound
-    // AI-series support; until then this opens the strongest single board.
-    onBoardModeAction?.("7x7", DEFAULT_PATTERNS_7);
-    onSelectDifficultyAction("danger", "7x7");
-    setScreenAction("aiGame");
+    // Launch the real LEVEL 1000 SYROS filler bot: same "PREPARING SYROS…"
+    // intro + VS card, and the full G1→G10 leg ladder (5×5 → 6×6 → 7×7 +
+    // breakers) starting on 5×5. Difficulty escalates per leg automatically.
+    onChallengeSyrosAction?.();
   };
 
   const meta = boardMode === "7x7" ? PATTERN_METADATA_7 : boardMode === "6x6" ? PATTERN_METADATA_6 : PATTERN_METADATA_5;
