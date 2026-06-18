@@ -16,6 +16,7 @@ import {
   DEFAULT_PATTERNS_7,
 } from "@/lib/patterns_metadata";
 import { useAuthStore } from "@/lib/store";
+import { SYROS_PFP_URL } from "@/lib/unrankedBots";
 import {
   BOT_CHAINS,
   BOT_LABEL,
@@ -115,6 +116,24 @@ export default function AIScreen({ setScreenAction, themeId, onSelectDifficultyA
   const defeats: Record<string, boolean> = (user?.bot_defeats as any) || {};
   const [lockMsg, setLockMsg] = useState<string | null>(null);
 
+  // SYROS is the hidden final boss — a single match across all three boards
+  // where she plays the strongest engine on each. She unlocks only once HER
+  // (the 7×7 tier boss) has been defeated.
+  const syrosUnlocked = hasDefeated(defeats, "her");
+  const handleSyros = () => {
+    if (!syrosUnlocked) {
+      setLockMsg("Defeat HER on 7×7 to unlock SYROS.");
+      setTimeout(() => setLockMsg(null), 2500);
+      return;
+    }
+    // Launch at the engine ceiling. NOTE: the full 5×5→6×6→7×7 leg series
+    // (Syros switching boards within one match) needs GameScreen's compound
+    // AI-series support; until then this opens the strongest single board.
+    onBoardModeAction?.("7x7", DEFAULT_PATTERNS_7);
+    onSelectDifficultyAction("danger", "7x7");
+    setScreenAction("aiGame");
+  };
+
   const meta = boardMode === "7x7" ? PATTERN_METADATA_7 : boardMode === "6x6" ? PATTERN_METADATA_6 : PATTERN_METADATA_5;
   const references = boardMode === "7x7" ? CORE_RULES_METADATA_7 : boardMode === "6x6" ? CORE_RULES_METADATA_6 : CORE_RULES_METADATA_5;
   const patternNames = Object.keys(meta);
@@ -174,6 +193,7 @@ export default function AIScreen({ setScreenAction, themeId, onSelectDifficultyA
     }}>
       <style>{`
         @keyframes cardFadeUp { from{opacity:0;transform:translateY(18px)} to{opacity:1;transform:translateY(0)} }
+        @keyframes syrosBossPulse { 0%,100%{ box-shadow:0 0 28px rgba(147,51,234,0.35) } 50%{ box-shadow:0 0 54px rgba(147,51,234,0.62) } }
         .ai-card { will-change: transform; transition: all 0.3s cubic-bezier(.22,.68,0,1.2) !important; }
         .ai-card:hover {
           transform: translateY(-4px) scale(1.02) !important;
@@ -265,6 +285,129 @@ export default function AIScreen({ setScreenAction, themeId, onSelectDifficultyA
                 </button>
               );
             })}
+
+            {/* ── SYROS — hidden final boss across all three boards ── */}
+            <button
+              type="button"
+              onClick={handleSyros}
+              className="ai-card"
+              style={{
+                position: "relative",
+                overflow: "hidden",
+                textAlign: "left",
+                background: syrosUnlocked
+                  ? "linear-gradient(145deg, rgba(124,58,237,0.24), rgba(18,8,34,0.92))"
+                  : t.bgCard,
+                border: `2px solid ${syrosUnlocked ? "#9333EA" : "rgba(255,255,255,0.08)"}`,
+                borderRadius: ip ? 2 : 16,
+                padding: ip ? "22px 20px" : "24px 26px",
+                cursor: syrosUnlocked ? "pointer" : "not-allowed",
+                opacity: syrosUnlocked ? 1 : 0.65,
+                animation: syrosUnlocked
+                  ? "cardFadeUp 0.45s cubic-bezier(.22,.68,0,1.2) 0.3s both, syrosBossPulse 2.6s ease-in-out infinite"
+                  : "cardFadeUp 0.45s cubic-bezier(.22,.68,0,1.2) 0.3s both",
+                ["--hover-color" as any]: "#9333EA",
+                ["--hover-bg" as any]: "rgba(147,51,234,0.18)",
+                ["--hover-glow" as any]: "rgba(147,51,234,0.4)",
+                ["--card-bg" as any]: t.bgCard,
+              } as any}
+            >
+              {syrosUnlocked && (
+                <div
+                  aria-hidden
+                  style={{
+                    position: "absolute",
+                    inset: -50,
+                    background: "radial-gradient(circle at 16% 50%, rgba(147,51,234,0.4), transparent 62%)",
+                    pointerEvents: "none",
+                  }}
+                />
+              )}
+              <div style={{ display: "flex", alignItems: "center", gap: 16, position: "relative", zIndex: 2 }}>
+                <div
+                  style={{
+                    width: 56,
+                    height: 56,
+                    borderRadius: "50%",
+                    padding: 2,
+                    flexShrink: 0,
+                    background: "radial-gradient(circle, #9333EA, #4C1D95)",
+                    boxShadow: syrosUnlocked ? "0 0 22px rgba(147,51,234,0.85)" : "none",
+                    filter: syrosUnlocked ? "none" : "grayscale(1) brightness(0.7)",
+                  }}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={SYROS_PFP_URL}
+                    alt="Syros"
+                    width={52}
+                    height={52}
+                    style={{ width: 52, height: 52, borderRadius: "50%", objectFit: "cover", display: "block" }}
+                  />
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                    <div
+                      style={{
+                        fontFamily: t.fontDisplay,
+                        fontSize: ip ? 20 : 26,
+                        fontWeight: 900,
+                        letterSpacing: "0.08em",
+                        color: syrosUnlocked ? "#C084FC" : t.textMuted,
+                        textShadow: syrosUnlocked ? "0 0 18px rgba(147,51,234,0.9)" : "none",
+                      }}
+                    >
+                      SYROS
+                    </div>
+                    {!syrosUnlocked && (
+                      <span
+                        style={{
+                          fontFamily: t.fontMono,
+                          fontSize: 10,
+                          fontWeight: 900,
+                          color: "#B91C1C",
+                          letterSpacing: "0.12em",
+                          padding: "3px 8px",
+                          border: "1px solid #B91C1C44",
+                          borderRadius: 6,
+                          background: "#B91C1C18",
+                        }}
+                      >
+                        LOCKED
+                      </span>
+                    )}
+                  </div>
+                  <div
+                    style={{
+                      fontFamily: t.fontMono,
+                      fontSize: 12,
+                      color: syrosUnlocked ? "rgba(221,214,254,0.92)" : t.textMuted,
+                      letterSpacing: "0.06em",
+                      marginTop: 5,
+                    }}
+                  >
+                    5×5 + 6×6 + 7×7 · ONE MATCH
+                  </div>
+                  <div
+                    style={{
+                      fontFamily: t.fontBody,
+                      fontSize: 11,
+                      color: syrosUnlocked ? "#A78BFA" : t.textMuted,
+                      marginTop: 6,
+                      lineHeight: 1.5,
+                    }}
+                  >
+                    {syrosUnlocked ? (
+                      "She is the engine. She plays the strongest move on every board."
+                    ) : (
+                      <>
+                        Defeat <span style={{ color: "#FCD34D", fontWeight: 700 }}>HER</span> on 7×7 to unlock the final challenge.
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </button>
           </div>
         </>
       )}

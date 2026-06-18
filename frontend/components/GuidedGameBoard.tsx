@@ -15,7 +15,8 @@ import type { DemoMove } from "@/lib/tutorialContent";
 import type { GuidedGame } from "@/lib/guidedGames";
 import { PieceGlyph } from "@/components/TutorialPiece";
 
-const P2_DELAY_MS = 560;
+const P2_DELAY_SLOW = 520;
+const P2_DELAY_FAST = 180; // long connection games auto-play the opponent quickly
 const SHAKE_MS = 360;
 const DUAL_GOLD = "#FCD34D";
 
@@ -65,6 +66,7 @@ export default function GuidedGameBoard({
   );
   const nextMove = moveIdx < total ? game.moves[moveIdx] : null;
   const finished = moveIdx >= total;
+  const p2Delay = total > 20 ? P2_DELAY_FAST : P2_DELAY_SLOW;
 
   // Report progress + completion to the parent.
   useEffect(() => {
@@ -79,9 +81,9 @@ export default function GuidedGameBoard({
   // Auto-play the scripted P2 reply.
   useEffect(() => {
     if (!nextMove || nextMove.p !== "P2") return;
-    const id = window.setTimeout(() => setMoveIdx((i) => i + 1), P2_DELAY_MS);
+    const id = window.setTimeout(() => setMoveIdx((i) => i + 1), p2Delay);
     return () => window.clearTimeout(id);
-  }, [nextMove]);
+  }, [nextMove, p2Delay]);
 
   const triggerShake = useCallback(() => {
     setShake(true);
@@ -199,6 +201,19 @@ export default function GuidedGameBoard({
           </rect>
         )}
 
+        {/* Winning connection chain — drawn under the stones. */}
+        {finished && game.winPath && game.winPath.length > 1 && (
+          <polyline
+            points={game.winPath.map(([r, c]) => `${c * CELL + CELL / 2},${r * CELL + CELL / 2}`).join(" ")}
+            fill="none"
+            stroke={game.outcome === "DRAW" ? t.textMuted : t.accent}
+            strokeOpacity={game.outcome === "DRAW" ? 0.4 : 0.5}
+            strokeWidth={CELL * 0.5}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        )}
+
         {/* Stones. */}
         {placedMoves.map((m, idx) => (
           <PieceGlyph
@@ -226,6 +241,27 @@ export default function GuidedGameBoard({
             <animate attributeName="stroke-opacity" values="0.3;1;0.85" dur="0.6s" />
           </line>
         )}
+
+        {/* Winning pattern rings on completion. */}
+        {finished &&
+          game.winPattern &&
+          game.winPattern.map(([r, c]) => (
+            <rect
+              key={`wp-${r}-${c}`}
+              x={c * CELL + 4}
+              y={r * CELL + 4}
+              width={CELL - 8}
+              height={CELL - 8}
+              rx={8}
+              fill="none"
+              stroke={t.success}
+              strokeWidth={3}
+              opacity={0.95}
+              pointerEvents="none"
+            >
+              <animate attributeName="stroke-opacity" values="0.4;1;0.9" dur="0.6s" />
+            </rect>
+          ))}
       </svg>
 
       <div
@@ -239,7 +275,9 @@ export default function GuidedGameBoard({
         }}
       >
         {finished
-          ? "✓ VICTORY"
+          ? game.outcome === "DRAW"
+            ? "= DRAW"
+            : "✓ VICTORY"
           : wrongHint
           ? "TAP THE GLOWING CELL"
           : nextMove?.p === "P1"

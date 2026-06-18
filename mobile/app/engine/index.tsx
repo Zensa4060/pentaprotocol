@@ -7,7 +7,7 @@
 
 import { router, Stack } from "expo-router";
 import { useMemo, useState } from "react";
-import { Alert, Pressable, StyleSheet, View } from "react-native";
+import { Alert, Image, Pressable, StyleSheet, View } from "react-native";
 
 import {
   Body,
@@ -38,6 +38,9 @@ export default function EnginePickerScreen() {
   const user = useAuthStore((s) => s.user);
   const palette = usePalette();
   const defeats = user?.bot_defeats ?? {};
+  // SYROS — hidden final boss across all three boards; unlocks once HER (the
+  // 7×7 tier boss) is defeated.
+  const syrosUnlocked = !!(defeats as Record<string, boolean>).her;
   // Default to the standard 5×5 board (BUG-03) — not 7×7.
   const [gridSize, setGridSize] = useState<GridSize>(5);
   const mode = boardModeFromGrid(gridSize) as BotBoardMode;
@@ -87,6 +90,19 @@ export default function EnginePickerScreen() {
         label: card.label,
         grid: String(gridSize),
       },
+    });
+  };
+
+  const onSyros = () => {
+    if (!syrosUnlocked) {
+      Alert.alert("Locked", "Defeat HER on 7×7 to unlock SYROS.");
+      return;
+    }
+    // Engine ceiling. The full 5×5→6×6→7×7 leg series needs the multi-board
+    // AI flow; until then this opens the strongest board.
+    router.push({
+      pathname: "/pregame",
+      params: { mode: "engine", botId: "her", difficulty: "danger", label: "SYROS", grid: "7" },
     });
   };
 
@@ -185,6 +201,40 @@ export default function EnginePickerScreen() {
         })}
       </VStack>
 
+      {/* ── SYROS — hidden final boss across all three boards ── */}
+      <SectionLabel label="FINAL BOSS" style={{ marginTop: space[6], marginBottom: space[3] }} />
+      <Pressable
+        onPress={onSyros}
+        android_ripple={{ color: "rgba(147,51,234,0.25)" }}
+        accessibilityRole="button"
+        accessibilityLabel="SYROS — final boss"
+        style={[
+          styles.syrosCard,
+          {
+            borderColor: syrosUnlocked ? "#9333EA" : palette.border,
+            backgroundColor: syrosUnlocked ? "rgba(124,58,237,0.16)" : palette.bgCard,
+            opacity: syrosUnlocked ? 1 : 0.6,
+          },
+        ]}
+      >
+        <Image
+          source={require("../../assets/images/syros-pfp.png")}
+          style={[styles.syrosPfp, !syrosUnlocked && { opacity: 0.5 }]}
+        />
+        <VStack gap={1} fill>
+          <Row gap={2} align="center">
+            <Heading style={{ color: syrosUnlocked ? "#C084FC" : palette.textMuted }}>SYROS</Heading>
+            {!syrosUnlocked ? <Caption tone="warn">LOCKED</Caption> : null}
+          </Row>
+          <Caption tone="muted">5×5 + 6×6 + 7×7 · ONE MATCH</Caption>
+          <Caption tone={syrosUnlocked ? "accent" : "muted"}>
+            {syrosUnlocked
+              ? "She plays the strongest move on every board."
+              : "Defeat HER on 7×7 to unlock."}
+          </Caption>
+        </VStack>
+      </Pressable>
+
       <View style={[styles.rulesCard, { backgroundColor: palette.bgCard, borderColor: palette.border }]}>
         <Caption tone="muted">
           You play P1 (red). The server engine plays P2 (blue). Requires network + sign-in.
@@ -228,5 +278,19 @@ const styles = StyleSheet.create({
     borderRadius: radii.md,
     borderWidth: 1,
     padding: space[4],
+  },
+  syrosCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: space[3],
+    paddingVertical: space[4],
+    paddingHorizontal: space[4],
+    borderRadius: radii.lg,
+    borderWidth: 2,
+  },
+  syrosPfp: {
+    width: 52,
+    height: 52,
+    borderRadius: radii.pill,
   },
 });

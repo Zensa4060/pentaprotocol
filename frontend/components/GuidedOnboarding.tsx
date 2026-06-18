@@ -144,7 +144,7 @@ export default function GuidedOnboarding({ themeId, onComplete, onSkip }: Guided
           voice={voice}
           lineKey={lineKey}
           onNext={phase === "intro" ? introNext : phase === "outro" ? outroNext : undefined}
-          nextLabel={phase === "intro" ? "BEGIN" : isLastGame ? "FINISH" : "NEXT BOARD"}
+          nextLabel={phase === "intro" ? "BEGIN" : isLastGame ? "FINISH" : "CONTINUE"}
         />
       </div>
 
