@@ -475,7 +475,9 @@ async def head_to_head(
 async def leaderboard():
     db = get_db()
     players = []
-    async for u in db.users.find({"elo": {"$ne": None, "$exists": True}}).sort("elo", -1).limit(20):
+    # Chronicle rank only (elo >= 2500). Players below Chronicle are excluded
+    # from the leaderboard on both web (Career) and mobile (Community).
+    async for u in db.users.find({"elo": {"$gte": 2500}}).sort("elo", -1).limit(100):
         is_p = u.get("placement_matches", 0) < 5
         players.append({
             "username": u["username"],

@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import type { ThemeId } from "@/lib/themes";
 import { THEMES } from "@/lib/themes";
@@ -31,6 +31,87 @@ const CheckIcon = ({ size = 14, color = "#000" }: { size?: number; color?: strin
   </svg>
 );
 
+
+// ── Horizontal scroll row with arrow buttons + wheel scroll ─────────────────
+// Wraps a flex/overflow-x row so users can page through cards without dragging
+// the native scrollbar. Arrows auto-hide at the scroll extents and when the
+// row doesn't overflow. Collection-only (per request).
+function ScrollRow({ children, gap, isLight, accent }: { children: React.ReactNode; gap: number; isLight: boolean; accent: string }) {
+  const ref = useRef<HTMLDivElement | null>(null);
+  const [canLeft, setCanLeft] = useState(false);
+  const [canRight, setCanRight] = useState(false);
+
+  const update = useCallback(() => {
+    const el = ref.current;
+    if (!el) return;
+    setCanLeft(el.scrollLeft > 1);
+    setCanRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 1);
+  }, []);
+
+  useEffect(() => {
+    update();
+    const el = ref.current;
+    if (!el) return;
+    el.addEventListener("scroll", update, { passive: true });
+    window.addEventListener("resize", update);
+    return () => {
+      el.removeEventListener("scroll", update);
+      window.removeEventListener("resize", update);
+    };
+  }, [update]);
+  // Re-measure when the rendered children change (filter toggles, ownership).
+  useEffect(() => { update(); }, [children, update]);
+
+  const scrollByDir = (dir: -1 | 1) => {
+    const el = ref.current;
+    if (!el) return;
+    el.scrollBy({ left: dir * Math.max(240, el.clientWidth * 0.8), behavior: "smooth" });
+  };
+
+  const onWheel = (e: React.WheelEvent) => {
+    const el = ref.current;
+    if (!el) return;
+    if (Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return; // trackpad already horizontal
+    const atStart = e.deltaY < 0 && el.scrollLeft <= 0;
+    const atEnd = e.deltaY > 0 && el.scrollLeft + el.clientWidth >= el.scrollWidth - 1;
+    if (atStart || atEnd) return; // let the page scroll normally at the edges
+    el.scrollLeft += e.deltaY;
+    e.preventDefault();
+  };
+
+  const arrow = (dir: -1 | 1, show: boolean) => (
+    <button
+      aria-label={dir < 0 ? "Scroll left" : "Scroll right"}
+      onClick={() => scrollByDir(dir)}
+      style={{
+        position: "absolute", top: "calc(50% - 4px)",
+        [dir < 0 ? "left" : "right"]: -6, transform: "translateY(-50%)",
+        zIndex: 6, width: 38, height: 38, borderRadius: "50%",
+        display: show ? "flex" : "none", alignItems: "center", justifyContent: "center",
+        cursor: "pointer", padding: 0,
+        background: isLight ? "rgba(255,255,255,0.92)" : "rgba(15,15,22,0.92)",
+        border: `1px solid ${accent}66`, color: accent,
+        boxShadow: `0 4px 14px rgba(0,0,0,0.35), 0 0 12px ${accent}22`,
+        backdropFilter: "blur(6px)",
+        transition: "opacity 0.15s, background 0.15s, border-color 0.15s",
+      } as React.CSSProperties}
+    >
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        {dir < 0 ? <polyline points="15 18 9 12 15 6" /> : <polyline points="9 18 15 12 9 6" />}
+      </svg>
+    </button>
+  );
+
+  return (
+    <div style={{ position: "relative" }}>
+      {arrow(-1, canLeft)}
+      <div ref={ref} onWheel={onWheel} style={{ display: "flex", gap, overflowX: "auto", paddingBottom: 8, scrollSnapType: "x mandatory" as const }}>
+        {children}
+      </div>
+      {arrow(1, canRight)}
+    </div>
+  );
+}
 
 const CatIcon = ({ id, size = 16, color }: { id: string; size?: number; color: string }) => {
   const s = { width: size, height: size };
@@ -1185,7 +1266,7 @@ export default function CollectionScreen({ themeId, setThemeIdAction, onHoverAct
 
           {/* ── GRIDS ── */}
           {cat === "board_bundles" && (
-            <div style={{ display: "flex", gap: isMobile ? 16 : 18, overflowX: "auto", paddingBottom: 8, scrollSnapType: "x mandatory" }}>
+            <ScrollRow gap={isMobile ? 16 : 18} isLight={isLight} accent={t.accent}>
               {BOARD_BUNDLES.filter(b => showAll || b.bOwned(profile) || b.pOwned(profile) || b.isDefault).map((bundle, i) => {
                 const bOk = bundle.bOwned(profile);
                 const pOk = bundle.pOwned(profile);
@@ -1254,7 +1335,7 @@ export default function CollectionScreen({ themeId, setThemeIdAction, onHoverAct
                   </div>
                 );
               })}
-            </div>
+            </ScrollRow>
           )}
 
           {/* ── OLD board skins (hidden) ── */}
@@ -1320,7 +1401,7 @@ export default function CollectionScreen({ themeId, setThemeIdAction, onHoverAct
             <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
               <div>
                 <div style={{ fontFamily: t.fontMono, fontSize: 10, color: t.textMuted, letterSpacing: "0.18em", marginBottom: 12, opacity: 0.7 }}>BANNERS</div>
-                <div style={{ display: "flex", gap: 14, overflowX: "auto", paddingBottom: 8, scrollSnapType: "x mandatory" }}>
+                <ScrollRow gap={14} isLight={isLight} accent={t.accent}>
                   {BANNERS.filter(x => showAll || x.condition(profile)).map((item, idx) => {
                     const owned = item.condition(profile);
                     const isActive = activeBanner === item.id;
@@ -1340,11 +1421,11 @@ export default function CollectionScreen({ themeId, setThemeIdAction, onHoverAct
                       </div>
                     );
                   })}
-                </div>
+                </ScrollRow>
               </div>
               <div>
                 <div style={{ fontFamily: t.fontMono, fontSize: 10, color: t.textMuted, letterSpacing: "0.18em", marginBottom: 12, opacity: 0.7 }}>PROFILE BORDERS</div>
-                <div style={{ display: "flex", gap: 14, overflowX: "auto", paddingBottom: 8, scrollSnapType: "x mandatory" }}>
+                <ScrollRow gap={14} isLight={isLight} accent={t.accent}>
                   {PROFILE_BORDERS.filter(x => showAll || x.condition(profile)).map((item, idx) => {
                     const owned = item.condition(profile);
                     const tc = TIER_COLOR[item.tier];
@@ -1363,7 +1444,7 @@ export default function CollectionScreen({ themeId, setThemeIdAction, onHoverAct
                       </div>
                     );
                   })}
-                </div>
+                </ScrollRow>
               </div>
             </div>
           )}

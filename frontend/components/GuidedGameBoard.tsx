@@ -13,6 +13,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { THEMES, type ThemeId } from "@/lib/themes";
 import type { DemoMove } from "@/lib/tutorialContent";
 import type { GuidedGame } from "@/lib/guidedGames";
+import { getBotLabel } from "@/lib/botNames";
+import type { BotId } from "@/lib/botRewards";
 import { PieceGlyph } from "@/components/TutorialPiece";
 
 const P2_DELAY_SLOW = 520;
@@ -282,7 +284,7 @@ export default function GuidedGameBoard({
           ? "TAP THE GLOWING CELL"
           : nextMove?.p === "P1"
           ? "YOUR MOVE — TAP THE GLOWING CELL"
-          : `${game.opponent.label} IS THINKING…`}
+          : `${getBotLabel(game.opponent.id as BotId) || game.opponent.label} IS THINKING…`}
       </div>
     </div>
   );

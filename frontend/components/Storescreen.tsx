@@ -265,6 +265,31 @@ function InfiniteCarouselRow<T>({ items, itemWidth, gap = 20, renderItem }: { it
   );
 }
 
+// Live HH:MM:SS countdown to the next store rotation. Calls `onExpire` once the
+// timer hits zero so the parent can refetch the new drop.
+function RotationCountdown({ expiresAt, accent, t, onExpire }: { expiresAt: string; accent: string; t: any; onExpire: () => void }) {
+  const [remaining, setRemaining] = useState(() => Math.max(0, Date.parse(expiresAt) - Date.now()));
+  useEffect(() => {
+    setRemaining(Math.max(0, Date.parse(expiresAt) - Date.now()));
+    const iv = setInterval(() => {
+      const r = Math.max(0, Date.parse(expiresAt) - Date.now());
+      setRemaining(r);
+      if (r <= 0) { clearInterval(iv); onExpire(); }
+    }, 1000);
+    return () => clearInterval(iv);
+  }, [expiresAt, onExpire]);
+  const totalSec = Math.floor(remaining / 1000);
+  const h = String(Math.floor(totalSec / 3600)).padStart(2, "0");
+  const m = String(Math.floor((totalSec % 3600) / 60)).padStart(2, "0");
+  const s = String(totalSec % 60).padStart(2, "0");
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 8, fontFamily: t.fontMono, fontSize: 12, color: accent, fontWeight: 800, letterSpacing: "0.08em", background: `${accent}14`, border: `1px solid ${accent}40`, borderRadius: 10, padding: "6px 12px" }}>
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={accent} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9" /><polyline points="12 7 12 12 15 14" /></svg>
+      NEW DROP IN {h}:{m}:{s}
+    </div>
+  );
+}
+
 function BannerRenderer({ banner, style = {}, hideLabels = false }: { banner: any; style?: React.CSSProperties; hideLabels?: boolean }) {
   if (banner.component) {
     const BannerComp = banner.component;
@@ -413,7 +438,7 @@ function BundleAnimatedPreview({ bundle, tick }: { bundle: Bundle; tick: number 
     </div>
   );
 }
-function BundleModal({ bundle, t, buyingId, purchasedItems, balance, onClose, onBuy, onOpenBuyCredits }: { bundle: Bundle; t: any; buyingId: string | null; purchasedItems: string[]; balance: number; onClose: () => void; onBuy: (id: string, price: number, label: string) => void; onOpenBuyCredits: () => void }) {
+function BundleModal({ bundle, t, buyingId, purchasedItems, balance, onClose, onBuy, onOpenBuyCredits, previewOnly = false }: { bundle: Bundle; t: any; buyingId: string | null; purchasedItems: string[]; balance: number; onClose: () => void; onBuy: (id: string, price: number, label: string) => void; onOpenBuyCredits: () => void; previewOnly?: boolean }) {
   const [tick, setTick] = useState(0);
   const [hovOpt, setHovOpt] = useState<string | null>(null);
   useEffect(() => { const iv = setInterval(() => setTick(v => v + 1), 2500); return () => clearInterval(iv); }, []);
@@ -437,6 +462,11 @@ function BundleModal({ bundle, t, buyingId, purchasedItems, balance, onClose, on
         <div style={{ padding: "12px 24px 0" }}>
           <div style={{ fontFamily: t.fontBody, fontSize: 13, color: "rgba(255,255,255,0.45)", lineHeight: 1.65, marginBottom: 16 }}>{bundle.desc}</div>
         </div>
+        {previewOnly ? (
+          <div style={{ padding: "0 24px 28px", display: "flex", justifyContent: "center" }}>
+            <div style={{ fontFamily: "monospace", fontSize: 11, color: `${ac}99`, letterSpacing: "0.16em", border: `1px solid ${ac}33`, borderRadius: 10, padding: "8px 16px", textAlign: "center" as const }}>PREVIEW ONLY · PURCHASABLE WHEN FEATURED IN THE STORE ROTATION</div>
+          </div>
+        ) : (
         <div style={{ padding: "0 24px 24px" }}>
           <div style={{ fontFamily: "monospace", fontSize: 10, color: `${ac}77`, letterSpacing: "0.2em", marginBottom: 10 }}>PURCHASE OPTIONS</div>
           <div style={{ display: "flex", flexDirection: "column" as const, gap: 8 }}>
@@ -466,6 +496,7 @@ function BundleModal({ bundle, t, buyingId, purchasedItems, balance, onClose, on
           </div>
           <div style={{ marginTop: 12, display: "flex", alignItems: "center", justifyContent: "center", gap: 6, fontFamily: "monospace", fontSize: 11, color: "rgba(255,255,255,0.28)" }}>Your balance: <span style={{ color: ac, display: "flex", alignItems: "center", gap: 4 }}>{balance.toLocaleString()} <ProtoSVG size={14} /></span></div>
         </div>
+        )}
       </div>
     </div>
   );
@@ -693,6 +724,12 @@ export default function StoreScreen({ setScreenAction, themeId, audio, initialSe
   const [openBundle,   setOpenBundle]   = useState<string | null>(null);
   const [openThemePreview, setOpenThemePreview] = useState<string | null>(null);
   const [confirmBuy,   setConfirmBuy]   = useState<{ id: string, price: number, shardPrice?: number, label: string } | null>(null);
+  // ── Daily store rotation (server-driven, 24h) ──────────────────────────────
+  const [rotation, setRotation] = useState<{ theme: string; boards: string[]; banners: string[]; expires_at: string } | null>(null);
+  const [previewBundleId, setPreviewBundleId] = useState<string | null>(null);
+  const fetchRotation = useCallback(() => {
+    API.get("/api/store/rotation").then((res) => setRotation(res.data)).catch(() => {});
+  }, []);
 
   /** 0.5s delayed open for heavy modals; avoids double-queue + cleans up on unmount. */
   const STORE_HEAVY_OPEN_MS = 500;
@@ -805,7 +842,15 @@ export default function StoreScreen({ setScreenAction, themeId, audio, initialSe
   };
 
   const ownsBundle = (b: Bundle) => purchasedItems.includes(b.boardId) && purchasedItems.includes(b.pieceId);
-  const visibleBundles = BUNDLES.filter((b) => b.id !== "bundle_space" && b.id !== "bundle_pixel" && !ownsBundle(b));
+
+  // Rotation-derived featured lists (1 theme, 2 boards, 2 banners).
+  const featuredThemes = rotation ? STORE_THEMES.filter((x) => x.purchaseId === rotation.theme) : [];
+  const featuredBoards = rotation ? (rotation.boards.map((bid) => BUNDLES.find((b) => b.boardId === bid)).filter(Boolean) as Bundle[]) : [];
+  const featuredBanners = rotation ? (rotation.banners.map((id) => STORE_BANNERS.find((b) => b.id === id)).filter(Boolean) as typeof STORE_BANNERS) : [];
+  const isThemeFeatured = (purchaseId?: string) => !!purchaseId && rotation?.theme === purchaseId;
+  const isBoardFeatured = (boardId: string) => !!rotation?.boards.includes(boardId);
+  const isBannerFeatured = (id: string) => !!rotation?.banners.includes(id);
+  const previewBundleData = previewBundleId ? BUNDLES.find((b) => b.id === previewBundleId) ?? null : null;
 
   const PROFILE_FETCH_TIMEOUT = 15000;
   useEffect(() => {
@@ -813,6 +858,8 @@ export default function StoreScreen({ setScreenAction, themeId, audio, initialSe
     API.get("/api/profile/me", { headers: { Authorization: `Bearer ${token}` }, timeout: PROFILE_FETCH_TIMEOUT })
       .then(res => updateUser(res.data)).catch(() => {});
   }, [token]);
+
+  useEffect(() => { fetchRotation(); }, [fetchRotation]);
 
   // (purchase modal has no transient redirect state now that only the
   // UPI / bank-QR flow is supported — nothing to reset on close.)
@@ -964,6 +1011,85 @@ export default function StoreScreen({ setScreenAction, themeId, audio, initialSe
 
   const activeBundleData = openBundle ? BUNDLES.find(b => b.id === openBundle) : null;
   const activeThemePreview = openThemePreview ? STORE_THEMES.find(ti => ti.id === openThemePreview) : null;
+
+  // ── Card renderers shared by Featured (mode "buy") and All Skins (mode "showcase") ──
+  const renderThemeCard = (item: typeof STORE_THEMES[number], mode: "buy" | "showcase") => {
+    const themeOwned = item.purchaseId ? purchasedItems.includes(item.purchaseId) : false;
+    const boardOwned = item.boardId ? purchasedItems.includes(item.boardId) : false;
+    const owned = themeOwned && boardOwned;
+    const price = item.price ?? 0; const shardPrice = item.shardPrice ?? 0;
+    const glow = item.accentColor ?? accent;
+    const featured = isThemeFeatured(item.purchaseId);
+    return (
+      <div key={item.id} className="store-card no-lift" onMouseEnter={() => setHovCard(item.id)} onMouseLeave={() => setHovCard(null)} style={{ borderRadius: 18, overflow: "hidden", border: `2px solid ${owned ? "#4CAF50" : hovCard === item.id ? glow + "CC" : glow + "66"}`, background: t.bgCard, boxShadow: owned ? `0 0 44px ${glow}44` : hovCard === item.id ? `0 0 56px ${glow}66` : `0 0 34px ${glow}33`, minHeight: mode === "buy" ? 402 : 300 }}>
+        <div style={{ height: 120, background: item.preview, position: "relative", borderBottom: `1px solid ${glow}33` }}>
+          <div style={{ position: "absolute", inset: 0, background: `radial-gradient(circle at 75% 20%, ${glow}55, transparent 45%)` }} />
+          <div style={{ position: "absolute", top: 10, left: 10, zIndex: 2, display: "flex", gap: 6 }}>
+            <UnlockBadge text={owned ? "Owned" : item.unlock} accent={owned ? "#4CAF50" : glow} />
+            {featured && mode === "showcase" && <span style={{ fontFamily: t.fontMono, fontSize: 9, fontWeight: 800, color: "#000", background: glow, borderRadius: 6, padding: "2px 8px", letterSpacing: "0.06em" }}>FEATURED</span>}
+          </div>
+          {hovCard === item.id && (
+            <div style={{ position: "absolute", inset: 0, zIndex: 3, background: "rgba(0,0,0,0.36)", display: "flex", flexDirection: "column", justifyContent: "space-between", padding: 8 }}>
+              <div style={{ height: 72, borderRadius: 8, overflow: "hidden", border: `1px solid ${glow}66`, background: "rgba(0,0,0,0.42)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                {item.id === "space" ? <div style={{ opacity: 0.98 }}><SpaceGrid showLabels={false} /></div> : <div style={{ opacity: 0.98 }}><PixelGrid showLabels={false} /></div>}
+              </div>
+              <div style={{ fontFamily: t.fontMono, fontSize: 9, color: "#fff", background: "rgba(0,0,0,0.52)", border: `1px solid ${glow}55`, borderRadius: 6, padding: "4px 6px", lineHeight: 1.2 }}>{item.boardLabel} | {item.musicLabel} | {item.fontLabel} | {item.bgLabel}</div>
+            </div>
+          )}
+        </div>
+        <div style={{ padding: "22px 24px 26px", display: "flex", flexDirection: "column", gap: 8 }}>
+          <div style={{ fontFamily: t.fontDisplay, fontSize: 20, fontWeight: 900, color: t.text, letterSpacing: "0.04em" }}>{item.label}</div>
+          <div style={{ fontFamily: t.fontBody, fontSize: 12, color: glow, marginBottom: 4, fontStyle: "italic" }}>{item.tagline}</div>
+          {mode === "buy" && <div style={{ fontFamily: t.fontBody, fontSize: 13, color: t.textMuted, marginBottom: 10 }}>{item.desc}</div>}
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" as const, marginBottom: 8 }}>{(item.tags ?? []).map((tag) => (<span key={tag} style={{ fontFamily: "monospace", fontSize: 9, fontWeight: 700, color: glow, background: `${glow}18`, border: `1px solid ${glow}55`, padding: "2px 7px", borderRadius: 4 }}>{tag}</span>))}</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {mode === "buy" && (owned ? (<div style={{ fontFamily: t.fontMono, fontSize: 12, fontWeight: 900, color: "#4CAF50", letterSpacing: "0.06em" }}>OWNED</div>) : (<div style={{ fontFamily: t.fontMono, fontSize: 12, fontWeight: 900, color: glow, letterSpacing: "0.06em", display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" as const }}>{price.toLocaleString()} <ProtoSVG size={16} /> {shardPrice.toLocaleString()} <ShardSVG size={16} /></div>))}
+            <div style={{ display: "flex", flexDirection: "column", gap: 8, width: "100%" }}>
+              <button type="button" onClick={() => openThemePreviewUrl(item.id)} style={{ width: "100%", boxSizing: "border-box" as const, background: "rgba(0,0,0,0.35)", border: `1.5px solid ${glow}66`, borderRadius: 10, padding: "10px 12px", fontFamily: t.fontDisplay, fontSize: 11, fontWeight: 900, color: glow, cursor: "pointer" }}>VIEW PREVIEW</button>
+              {mode === "buy" && (owned ? (<button type="button" disabled style={{ width: "100%", boxSizing: "border-box" as const, background: "rgba(255,255,255,0.06)", border: `1px solid ${t.border}`, borderRadius: 10, padding: "10px 14px", fontFamily: t.fontDisplay, fontSize: 12, fontWeight: 900, color: "rgba(255,255,255,0.65)", cursor: "not-allowed" }}>✓</button>) : (<button type="button" onClick={() => handleBuyCosmetic(`theme_bundle_${item.id}`, price, `${item.label} Bundle`, shardPrice)} disabled={!item.purchaseId || price <= 0} style={{ width: "100%", boxSizing: "border-box" as const, background: glow, border: "none", borderRadius: 10, padding: "10px 14px", fontFamily: t.fontDisplay, fontSize: 12, fontWeight: 900, color: "#000", cursor: !item.purchaseId || price <= 0 ? "not-allowed" : "pointer", opacity: !item.purchaseId || price <= 0 ? 0.7 : 1 }}>UNLOCK</button>))}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderBannerCard = (banner: typeof STORE_BANNERS[number], mode: "buy" | "showcase") => {
+    const owned = banner.id === "default" || purchasedItems.includes(banner.id);
+    const price = banner.price ?? 0;
+    const featured = isBannerFeatured(banner.id);
+    const showFreeClaim = mode === "showcase" && canClaimFreeBanner && !owned;
+    const isClaiming = claimingBannerId === banner.id;
+    const lt = !!banner.lightTheme;
+    const tc = lt ? "#111" : "#fff";
+    const tc2 = lt ? "rgba(0,0,0,0.6)" : "rgba(255,255,255,0.74)";
+    const ownedBtnBg = lt ? "rgba(0,0,0,0.07)" : "rgba(255,255,255,0.06)";
+    const ownedBtnBorder = lt ? "rgba(0,0,0,0.18)" : "rgba(255,255,255,0.14)";
+    const ownedBtnColor = lt ? "rgba(0,0,0,0.45)" : "rgba(255,255,255,0.65)";
+    const infoBg = lt ? "rgba(0,0,0,0.06)" : "rgba(0,0,0,0.35)";
+    return (
+      <div key={banner.id} className="store-card no-lift" style={{ borderRadius: 18, overflow: "hidden", border: `2px solid ${owned ? "#4CAF50" : showFreeClaim ? "#FCD34D" : accent + "33"}`, background: banner.gradient, padding: "0", position: "relative", boxShadow: owned ? "none" : showFreeClaim ? "0 8px 32px rgba(252,211,77,0.35)" : `0 8px 32px ${accent}22` }}>
+        <div style={{ height: 120, position: "relative" }}>
+          <BannerRenderer banner={banner} style={{ position: "absolute", inset: 0 }} hideLabels={true} />
+          <div style={{ position: "absolute", top: 10, left: 10, zIndex: 2, display: "flex", gap: 6 }}>
+            <UnlockBadge text={owned ? "Owned" : showFreeClaim ? "Free Reward" : banner.unlock} accent={owned ? "#4CAF50" : showFreeClaim ? "#FCD34D" : accent} />
+            {featured && mode === "showcase" && <span style={{ fontFamily: t.fontMono, fontSize: 9, fontWeight: 800, color: "#000", background: accent, borderRadius: 6, padding: "2px 8px", letterSpacing: "0.06em" }}>FEATURED</span>}
+          </div>
+        </div>
+        <div style={{ padding: 22, background: infoBg }}>
+          <div style={{ fontFamily: t.fontDisplay, fontSize: 22, fontWeight: 900, color: tc, letterSpacing: "0.04em", marginBottom: 6 }}>{banner.label}</div>
+          <div style={{ fontFamily: t.fontBody, fontSize: 13, color: tc2, fontStyle: "italic", marginBottom: 16, display: "flex", alignItems: "center", gap: 6 }}>
+            {owned ? (<span style={{ color: "#4CAF50", fontWeight: 700, fontStyle: "normal" }}>In your collection</span>) : showFreeClaim ? (<span style={{ color: "#FCD34D", fontWeight: 700 }}>Redeem with AI Gauntlet reward</span>) : mode === "showcase" ? (<span>Preview only</span>) : (<><span>Unlock for {price.toLocaleString()}</span><ProtoSVG size={12} /></>)}
+          </div>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+            {owned ? (<div style={{ fontFamily: t.fontMono, fontSize: 12, fontWeight: 900, color: "#4CAF50", letterSpacing: "0.06em" }}>OWNED</div>) : showFreeClaim ? (<div style={{ fontFamily: t.fontMono, fontSize: 12, fontWeight: 900, color: "#FCD34D", letterSpacing: "0.06em" }}>FREE</div>) : mode === "buy" ? (<div style={{ fontFamily: t.fontMono, fontSize: 12, fontWeight: 900, color: lt ? "#CC0000" : accent, letterSpacing: "0.06em", display: "inline-flex", alignItems: "center", gap: 6 }}><span>{price.toLocaleString()}</span><ProtoSVG size={16} /></div>) : (<div />)}
+            {owned ? (<button disabled style={{ background: ownedBtnBg, border: `1px solid ${ownedBtnBorder}`, borderRadius: 10, padding: "10px 14px", fontFamily: t.fontDisplay, fontSize: 12, fontWeight: 900, color: ownedBtnColor, cursor: "not-allowed" }}>✓</button>) : showFreeClaim ? (<button onClick={() => claimFreeBanner(banner.id, banner.label)} disabled={!!claimingBannerId} style={{ background: "#FCD34D", border: "none", borderRadius: 10, padding: "10px 14px", fontFamily: t.fontDisplay, fontSize: 12, fontWeight: 900, color: "#000", cursor: claimingBannerId ? "wait" : "pointer", whiteSpace: "nowrap" as const, boxShadow: "0 0 16px rgba(252,211,77,0.5)", opacity: claimingBannerId && !isClaiming ? 0.6 : 1 }}>{isClaiming ? "CLAIMING…" : "CLAIM FREE"}</button>) : mode === "buy" ? (<button onClick={() => handleBuyCosmetic(banner.id, price, `${banner.label} Banner`)} disabled={price <= 0} style={{ background: accent, border: "none", borderRadius: 10, padding: "10px 14px", fontFamily: t.fontDisplay, fontSize: 12, fontWeight: 900, color: "#000", cursor: price <= 0 ? "not-allowed" : "pointer", whiteSpace: "nowrap" as const, opacity: price <= 0 ? 0.7 : 1 }}>{price <= 0 ? "UNAVAILABLE" : "UNLOCK"}</button>) : null}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div style={{ ...cssVars, minHeight: "100vh", background: themeId === "space" ? "transparent" : t.bg, transition: "background 0.4s", paddingTop: 84, overflowY: "auto", position: "relative", zIndex: 2 }}>
       <style>{`
@@ -1000,6 +1126,10 @@ export default function StoreScreen({ setScreenAction, themeId, audio, initialSe
           onOpenBuyCredits={() => { setOpenBundle(null); setMsg(null); openBuyModal("protocredits"); }} />
       )}
       {activeThemePreview && (<ThemePreviewModal item={activeThemePreview} t={t} onClose={closeThemePreview} audio={audio} />)}
+      {previewBundleData && (
+        <BundleModal bundle={previewBundleData} t={t} buyingId={null} purchasedItems={purchasedItems} balance={balance}
+          onClose={() => setPreviewBundleId(null)} onBuy={() => {}} onOpenBuyCredits={() => {}} previewOnly />
+      )}
 
       <div style={{ maxWidth: 1240, margin: "0 auto", padding: "0 28px 72px" }}>
 
@@ -1068,11 +1198,22 @@ export default function StoreScreen({ setScreenAction, themeId, audio, initialSe
             </div>
           </div>
         </div>
-        {/* THEME BUNDLES */}
+        {/* ── FEATURED ROTATION (24h) ── */}
+        <div style={{ marginBottom: 28, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap" as const, padding: "14px 18px", borderRadius: 14, border: `1px solid ${accent}33`, background: `${accent}0C` }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" as const }}>
+            <span style={{ width: 6, height: 6, borderRadius: "50%", background: accent, boxShadow: `0 0 8px ${accent}`, animation: "storePulse 2s ease-in-out infinite" }} />
+            <span style={{ fontFamily: t.fontDisplay, fontSize: 16, fontWeight: 900, color: t.text, letterSpacing: "0.06em" }}>FEATURED ROTATION</span>
+            <span style={{ fontFamily: t.fontMono, fontSize: 10, color: t.textMuted, letterSpacing: "0.08em" }}>1 THEME · 2 BOARDS · 2 BANNERS</span>
+          </div>
+          {rotation && <RotationCountdown expiresAt={rotation.expires_at} accent={accent} t={t} onExpire={fetchRotation} />}
+        </div>
+
+        {/* FEATURED THEME */}
         <div style={{ marginBottom: 56 }}>
-          <SectionHeader label="THEME BUNDLES" accent={accent} icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={accent} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="13.5" cy="6.5" r="1.5"/><circle cx="17.5" cy="10.5" r="1.5"/><circle cx="8.5" cy="7.5" r="1.5"/><circle cx="6.5" cy="12.5" r="1.5"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 011.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg>}/>
+          <SectionHeader label="FEATURED THEME" accent={accent} icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={accent} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="13.5" cy="6.5" r="1.5"/><circle cx="17.5" cy="10.5" r="1.5"/><circle cx="8.5" cy="7.5" r="1.5"/><circle cx="6.5" cy="12.5" r="1.5"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 011.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg>}/>
+          {!rotation && <div style={{ fontFamily: t.fontMono, fontSize: 11, color: t.textMuted, padding: "8px 10px" }}>Loading featured items…</div>}
           <div style={{ paddingTop: 14, paddingInline: 10 }}>
-            <InfiniteCarouselRow items={STORE_THEMES} itemWidth={380} gap={28} renderItem={(item) => (
+            <InfiniteCarouselRow items={featuredThemes} itemWidth={380} gap={28} renderItem={(item) => (
               (() => {
                 const themeOwned = item.purchaseId ? purchasedItems.includes(item.purchaseId) : false;
                 const boardOwned = item.boardId ? purchasedItems.includes(item.boardId) : false;
@@ -1117,9 +1258,9 @@ export default function StoreScreen({ setScreenAction, themeId, audio, initialSe
           </div>
         </div>
 
-        {/* BOARD BUNDLES */}
+        {/* FEATURED BOARDS */}
         <div style={{ marginBottom: 56 }}>
-          <SectionHeader label="BOARD BUNDLES" accent={accent} icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={accent} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2"/><line x1="12" y1="12" x2="12" y2="16"/><line x1="10" y1="14" x2="14" y2="14"/></svg>}/>
+          <SectionHeader label="FEATURED BOARDS" accent={accent} icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={accent} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2"/><line x1="12" y1="12" x2="12" y2="16"/><line x1="10" y1="14" x2="14" y2="14"/></svg>}/>
           {canClaimFreeSyrosSkin && (
             /* SYROS first-defeat reward — boss-tier crimson banner that
              * sits above the regular HER banner so the player notices it
@@ -1158,7 +1299,7 @@ export default function StoreScreen({ setScreenAction, themeId, audio, initialSe
                     SYROS DEFEATED — FREE BOARD SKIN UNLOCKED
                   </div>
                   <div style={{ fontFamily: t.fontBody, fontSize: 13, color: "rgba(255,255,255,0.82)", lineHeight: 1.5 }}>
-                    Boss-tier reward. Pick any <b>one</b> bundle&apos;s board skin below to claim for free.
+                    Boss-tier reward. Claim it on any <b>one</b> board skin in the ALL SKINS section below.
                   </div>
                 </div>
               </div>
@@ -1182,7 +1323,7 @@ export default function StoreScreen({ setScreenAction, themeId, audio, initialSe
                   HER DEFEATED — FREE BOARD SKIN UNLOCKED
                 </div>
                 <div style={{ fontFamily: t.fontBody, fontSize: 13, color: "rgba(255,255,255,0.82)", lineHeight: 1.5 }}>
-                  Pick any <b>one</b> bundle&apos;s board skin below to claim for free (board only, pieces sold separately).
+                  Claim any <b>one</b> board skin in the ALL SKINS section below (board only, pieces sold separately).
                 </div>
               </div>
               <div style={{ fontFamily: t.fontMono, fontSize: 11, color: "#FCD34D", letterSpacing: "0.14em", padding: "6px 10px", border: "1px solid #FCD34D88", borderRadius: 8, whiteSpace: "nowrap" as const }}>
@@ -1190,24 +1331,22 @@ export default function StoreScreen({ setScreenAction, themeId, audio, initialSe
               </div>
             </div>
           )}
-          <InfiniteCarouselRow items={visibleBundles} itemWidth={360} gap={20} renderItem={(bundle) => (
+          {!rotation && <div style={{ fontFamily: t.fontMono, fontSize: 11, color: t.textMuted, padding: "8px 10px" }}>Loading featured items…</div>}
+          <InfiniteCarouselRow items={featuredBoards} itemWidth={360} gap={20} renderItem={(bundle) => (
             <BundleCard
               bundle={bundle}
               purchasedItems={purchasedItems}
               t={t}
               onClick={() => openBundlePreview(bundle.id)}
-              freeBoardSkinEligible={canClaimAnyFreeBoardSkin}
-              claimingBoardSkinId={claimingBoardSkinId}
-              onClaimFreeBoardSkin={() => claimFreeBoardSkin(bundle.boardId, bundle.boardLabel)}
             />
           )} />
         </div>
 
 
 
-        {/* BANNERS */}
+        {/* FEATURED BANNERS */}
         <div style={{ marginBottom: 56 }}>
-          <SectionHeader label="BANNERS" accent={accent} icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={accent} strokeWidth="1.8" strokeLinecap="round"><rect x="3" y="3" width="18" height="13" rx="2"/><path d="M3 18h18"/><path d="M3 21h18"/></svg>}/>
+          <SectionHeader label="FEATURED BANNERS" accent={accent} icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={accent} strokeWidth="1.8" strokeLinecap="round"><rect x="3" y="3" width="18" height="13" rx="2"/><path d="M3 18h18"/><path d="M3 21h18"/></svg>}/>
           {canClaimFreeBanner && (
             <div style={{
               marginTop: -8, marginBottom: 20,
@@ -1223,7 +1362,7 @@ export default function StoreScreen({ setScreenAction, themeId, audio, initialSe
                   JR. DEFEATED — FREE BANNER UNLOCKED
                 </div>
                 <div style={{ fontFamily: t.fontBody, fontSize: 13, color: "rgba(255,255,255,0.82)", lineHeight: 1.5 }}>
-                  Pick any <b>one</b> banner below to claim for free. This choice is permanent.
+                  Claim any <b>one</b> banner in the ALL SKINS section below. This choice is permanent.
                 </div>
               </div>
               <div style={{ fontFamily: t.fontMono, fontSize: 11, color: "#FCD34D", letterSpacing: "0.14em", padding: "6px 10px", border: "1px solid #FCD34D88", borderRadius: 8, whiteSpace: "nowrap" as const }}>
@@ -1231,9 +1370,10 @@ export default function StoreScreen({ setScreenAction, themeId, audio, initialSe
               </div>
             </div>
           )}
-          <InfiniteCarouselRow items={STORE_BANNERS} itemWidth={360} gap={20} renderItem={(banner) => {
+          {!rotation && <div style={{ fontFamily: t.fontMono, fontSize: 11, color: t.textMuted, padding: "8px 10px" }}>Loading featured items…</div>}
+          <InfiniteCarouselRow items={featuredBanners} itemWidth={360} gap={20} renderItem={(banner) => {
             const owned = banner.id === "default" || purchasedItems.includes(banner.id); const price = banner.price ?? 0;
-            const showFreeClaim = canClaimFreeBanner && !owned;
+            const showFreeClaim = false; /* free banner claims happen in ALL SKINS */
             const isClaiming = claimingBannerId === banner.id;
             const lt = !!banner.lightTheme;
             const tc   = lt ? "#111"              : "#fff";
@@ -1263,6 +1403,33 @@ export default function StoreScreen({ setScreenAction, themeId, audio, initialSe
               </div>
             );
           }} />
+        </div>
+
+        {/* ── ALL SKINS (browse the full collection — preview only) ── */}
+        <div style={{ marginBottom: 56 }}>
+          <SectionHeader label="ALL SKINS" accent={accent} icon={<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={accent} strokeWidth="1.8" strokeLinecap="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/></svg>}/>
+          <div style={{ fontFamily: t.fontBody, fontSize: 13, color: t.textMuted, margin: "-6px 0 20px", lineHeight: 1.6 }}>
+            Browse every theme, board, and banner — preview only. Purchasing is limited to the featured rotation above{(canClaimAnyFreeBoardSkin || canClaimFreeBanner) ? ", but pending free rewards can be claimed on any skin here" : ""}.
+          </div>
+
+          <div style={{ fontFamily: t.fontMono, fontSize: 10, color: t.textMuted, letterSpacing: "0.18em", marginBottom: 12, opacity: 0.7 }}>THEMES</div>
+          <InfiniteCarouselRow items={STORE_THEMES} itemWidth={300} gap={20} renderItem={(item) => renderThemeCard(item, "showcase")} />
+
+          <div style={{ fontFamily: t.fontMono, fontSize: 10, color: t.textMuted, letterSpacing: "0.18em", margin: "30px 0 12px", opacity: 0.7 }}>BOARDS</div>
+          <InfiniteCarouselRow items={BUNDLES} itemWidth={360} gap={20} renderItem={(bundle) => (
+            <BundleCard
+              bundle={bundle}
+              purchasedItems={purchasedItems}
+              t={t}
+              onClick={() => setPreviewBundleId(bundle.id)}
+              freeBoardSkinEligible={canClaimAnyFreeBoardSkin}
+              claimingBoardSkinId={claimingBoardSkinId}
+              onClaimFreeBoardSkin={() => claimFreeBoardSkin(bundle.boardId, bundle.boardLabel)}
+            />
+          )} />
+
+          <div style={{ fontFamily: t.fontMono, fontSize: 10, color: t.textMuted, letterSpacing: "0.18em", margin: "30px 0 12px", opacity: 0.7 }}>BANNERS</div>
+          <InfiniteCarouselRow items={STORE_BANNERS} itemWidth={360} gap={20} renderItem={(banner) => renderBannerCard(banner, "showcase")} />
         </div>
 
         <div style={{ textAlign: "center" as const }}>

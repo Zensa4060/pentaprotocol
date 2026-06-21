@@ -19,16 +19,15 @@ import { useAuthStore } from "@/lib/store";
 import { SYROS_PFP_URL } from "@/lib/unrankedBots";
 import {
   BOT_CHAINS,
-  BOT_LABEL,
   type BotBoardMode,
   type BotId,
   formatXpPrize,
   hasDefeated,
   isBoardModeUnlocked,
   isBotUnlocked,
-  lockedByLabel,
   rewardPrizeLabel,
 } from "@/lib/botRewards";
+import { getBotLabel, getLockedByLabel, useBotNamesStore } from "@/lib/botNames";
 
 interface Props {
   setScreenAction: (s: Screen) => void;
@@ -117,6 +116,9 @@ export default function AIScreen({ setScreenAction, themeId, onSelectDifficultyA
   const user = useAuthStore((s) => s.user) as any;
   const defeats: Record<string, boolean> = (user?.bot_defeats as any) || {};
   const [lockMsg, setLockMsg] = useState<string | null>(null);
+  // Re-render the bot labels once the leaderboard top-3 names load (the labels
+  // themselves are read via the non-reactive getBotLabel below).
+  useBotNamesStore((s) => s.loaded);
 
   // SYROS is the hidden final boss — a single match across all three boards
   // where she plays the strongest engine on each. She unlocks only once HER
@@ -124,7 +126,7 @@ export default function AIScreen({ setScreenAction, themeId, onSelectDifficultyA
   const syrosUnlocked = hasDefeated(defeats, "her");
   const handleSyros = () => {
     if (!syrosUnlocked) {
-      setLockMsg("Defeat HER on 7×7 to unlock SYROS.");
+      setLockMsg(`Defeat ${getBotLabel("her")} on 7×7 to unlock SYROS.`);
       setTimeout(() => setLockMsg(null), 2500);
       return;
     }
@@ -165,8 +167,8 @@ export default function AIScreen({ setScreenAction, themeId, onSelectDifficultyA
     const card = (boardMode === "5x5" ? DIFFICULTIES_5X5 : boardMode === "6x6" ? DIFFICULTIES_6X6 : DIFFICULTIES_7X7).find((c) => c.id === d);
     const botId = (card?.botId ?? chain[0]) as BotId;
     if (!isBotUnlocked(defeats, botId)) {
-      const prevLabel = lockedByLabel(botId);
-      setLockMsg(prevLabel ? `Defeat ${prevLabel} to unlock ${BOT_LABEL[botId]}.` : "This bot is locked.");
+      const prevLabel = getLockedByLabel(botId);
+      setLockMsg(prevLabel ? `Defeat ${prevLabel} to unlock ${getBotLabel(botId)}.` : "This bot is locked.");
       setTimeout(() => setLockMsg(null), 2500);
       return;
     }
@@ -227,7 +229,7 @@ export default function AIScreen({ setScreenAction, themeId, onSelectDifficultyA
               const isSelected = boardMode === mode;
               const modeColor = mode === "5x5" ? "#60A8FF" : mode === "6x6" ? "#A78BFA" : "#FF6B35";
               const modeUnlocked = isBoardModeUnlocked(defeats, mode);
-              const gateLabel = mode === "6x6" ? BOT_LABEL.jr : mode === "7x7" ? BOT_LABEL.him : null;
+              const gateLabel = mode === "6x6" ? getBotLabel("jr") : mode === "7x7" ? getBotLabel("him") : null;
               return (
                 <button
                   key={mode}
@@ -537,7 +539,7 @@ export default function AIScreen({ setScreenAction, themeId, onSelectDifficultyA
             ).map((d, i) => {
               const unlocked = isBotUnlocked(defeats, d.botId);
               const defeated = hasDefeated(defeats, d.botId);
-              const prevLabel = lockedByLabel(d.botId);
+              const prevLabel = getLockedByLabel(d.botId);
               const xpLabel = formatXpPrize(d.botId);
               // Capstone bots (jr / him / her) also unlock a free store item.
               const prizeLabel = rewardPrizeLabel(d.botId);
@@ -572,7 +574,7 @@ export default function AIScreen({ setScreenAction, themeId, onSelectDifficultyA
                         fontFamily: t.fontDisplay, fontSize: ip ? 18 : 22, fontWeight: 700,
                         color: t.text, transition: "color 0.2s", letterSpacing: "0.06em",
                       }}>
-                        {d.label}
+                        {getBotLabel(d.botId)}
                       </div>
                     </div>
                     {defeated ? (

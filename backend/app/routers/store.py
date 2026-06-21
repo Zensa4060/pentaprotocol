@@ -8,6 +8,8 @@ from bson.errors import InvalidId
 from datetime import datetime
 import logging
 import re
+import random
+import time
 
 logger = logging.getLogger("pentaprotocol.store")
 
@@ -204,6 +206,105 @@ def _canonical_item_price(item_id: str) -> tuple[int, int]:
     return (-1, -1)
 
 
+# ── Daily store rotation (server-enforced) ───────────────────────────────────
+#
+# The store features a small, randomly-selected set of cosmetics that rotates
+# every 24h: 1 theme, 2 boards, 2 banners. The selection is deterministic per
+# UTC day (seeded by the day index) so every client — web and the rotation
+# endpoint and the purchase gate — agrees without any stored state. Items NOT
+# in the current rotation cannot be purchased (see ``purchase_item``); they are
+# still browsable in the frontend's display-only "All Skins" gallery.
+
+ROTATION_PERIOD_SECONDS = 86_400
+
+# Purchasable pools (item ids only). Mirror of the frontend catalog.
+_ROTATION_THEME_POOL: list[str] = ["theme_space", "theme_pixel"]
+_ROTATION_BOARD_POOL: list[str] = [
+    "red_grid", "ice_grid", "glacier_grid", "bloodmoon_grid", "egypt_grid",
+    "synthwave_grid", "matrix_grid", "arcane_grid", "bio_grid", "forge_grid",
+    "void_grid", "space_grid", "pixel_grid", "tokyo_grid",
+]
+_ROTATION_BANNER_POOL: list[str] = [
+    "digital_rain", "lightsaber_duel", "arcade", "hyperdrive", "northern_lights",
+    "void_collapse", "lava_flow", "particle_web", "ink_drop", "thunder_storm",
+    "neon_pulse", "deep_sea", "prismatic_light", "sand_dunes", "ember_phoenix",
+    "crystal_cave", "hacker_terminal", "tidal_surge", "solar_wind", "lava_lamp",
+]
+
+# Pairings used to expand a rotated item into the full set of ids a purchase of
+# that item legitimately touches. Theme bundles buy {theme + board}; board
+# bundles buy {board + piece}.
+_THEME_BOARD: dict[str, str] = {
+    "theme_space": "space_grid",
+    "theme_pixel": "pixel_grid",
+}
+_BOARD_PIECE: dict[str, str] = {
+    "red_grid":       "piece_flame_skull",
+    "ice_grid":       "piece_snowflake_shard",
+    "glacier_grid":   "piece_glacier_shard",
+    "bloodmoon_grid": "piece_bloodmoon_sigils",
+    "egypt_grid":     "piece_egypt_sigils",
+    "synthwave_grid": "piece_synthwave_sigils",
+    "matrix_grid":    "piece_matrix_sigils",
+    "arcane_grid":    "piece_arcane_sigils",
+    "bio_grid":       "piece_bio_sigils",
+    "forge_grid":     "piece_forge_sigils",
+    "void_grid":      "piece_void_sigils",
+    "space_grid":     "piece_space_sigils",
+    "pixel_grid":     "piece_pixel_sigils",
+    "tokyo_grid":     "piece_tokyo_sigils",
+}
+
+
+def _current_rotation(now: float | None = None) -> dict:
+    """Deterministic per-UTC-day rotation: 1 theme, 2 boards, 2 banners."""
+    epoch = int(now if now is not None else time.time())
+    day_index = epoch // ROTATION_PERIOD_SECONDS
+    rng = random.Random(day_index)
+    theme = rng.choice(_ROTATION_THEME_POOL)
+    boards = rng.sample(_ROTATION_BOARD_POOL, 2)
+    banners = rng.sample(_ROTATION_BANNER_POOL, 2)
+    expires_epoch = (day_index + 1) * ROTATION_PERIOD_SECONDS
+    return {
+        "theme": theme,
+        "boards": boards,
+        "banners": banners,
+        "expires_epoch": expires_epoch,
+    }
+
+
+def _rotation_allowed_item_ids(rot: dict) -> set[str]:
+    """Every item id purchasable under the given rotation (incl. paired pieces)."""
+    allowed: set[str] = set()
+    theme = rot["theme"]
+    allowed.add(theme)
+    board_for_theme = _THEME_BOARD.get(theme)
+    if board_for_theme:
+        allowed.add(board_for_theme)
+        piece = _BOARD_PIECE.get(board_for_theme)
+        if piece:
+            allowed.add(piece)
+    for board in rot["boards"]:
+        allowed.add(board)
+        piece = _BOARD_PIECE.get(board)
+        if piece:
+            allowed.add(piece)
+    for banner in rot["banners"]:
+        allowed.add(banner)
+    return allowed
+
+
+@router.get("/rotation")
+async def store_rotation():
+    rot = _current_rotation()
+    return {
+        "theme": rot["theme"],
+        "boards": rot["boards"],
+        "banners": rot["banners"],
+        "expires_at": datetime.utcfromtimestamp(rot["expires_epoch"]).isoformat() + "Z",
+    }
+
+
 @router.post("/purchase-item")
 async def purchase_item(
     req: PurchaseItemRequest,
@@ -217,6 +318,11 @@ async def purchase_item(
         raise HTTPException(status_code=400, detail="Unknown item id.")
     if req.price != canonical_price or req.shard_price != canonical_shards:
         raise HTTPException(status_code=400, detail="Invalid price for item.")
+    # Only items in the current 24h store rotation may be purchased. Free
+    # bot-reward claims use the dedicated /api/profile/claim-* endpoints and
+    # are unaffected by this gate.
+    if req.item_id not in _rotation_allowed_item_ids(_current_rotation()):
+        raise HTTPException(status_code=400, detail="Item not available in the current store rotation.")
     try:
         oid = ObjectId(user_id)
     except InvalidId:

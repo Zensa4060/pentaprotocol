@@ -18,6 +18,7 @@ import type { ThemeId } from "@/lib/themes";
 import type { Difficulty } from "@/lib/botEngine";
 import type { MatchupData, BoardMode, Screen, SetScreenOptions } from "@/lib/types";
 import { loadCustomTheme, resolveCustomTheme } from "@/lib/customTheme";
+import { loadBotNames } from "@/lib/botNames";
 import {
   LEGAL_VERSION,
   POLICY_GATE_SESSION_KEY,
@@ -699,6 +700,12 @@ export default function AppShell({ children }: { children: ReactNode }) {
       if (timeoutId !== undefined) clearTimeout(timeoutId);
     };
   }, [appReady, router]);
+
+  /* ── Capstone-bot names from the leaderboard top-3 ──────────────────── */
+  useEffect(() => {
+    if (!appReady) return;
+    void loadBotNames();
+  }, [appReady]);
 
   /* ── Global notify WebSocket ────────────────────────────────────────── */
   useEffect(() => {

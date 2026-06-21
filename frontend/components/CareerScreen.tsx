@@ -12,12 +12,67 @@ import { RANKS, getRank, NavRankBadge, rankGlowVisualStrength, buildRankEmblemGl
 import FriendsSidePanel from "./FriendsSidePanel";
 import React from "react";
 import { SYROS_PFP_URL } from "@/lib/unrankedBots";
+import { useBotNamesStore, type LeaderboardRow } from "@/lib/botNames";
 
 
 const RankBadge = ({ elo, size = 48, isPlacement = false }: { elo: number | string; size?: number; isPlacement?: boolean }) => {
   const rank = getRank(typeof elo === "string" ? 0 : elo);
   return <NavRankBadge rank={rank as any} size={size} isPlacement={isPlacement} />;
 };
+
+// ── Career leaderboard (Chronicle rank only) ───────────────────────────────
+// Mirrors the mobile leaderboard: top-3 players are accent-highlighted. The
+// same top-3 also rename the capstone bots (see lib/botNames.ts).
+const LEADERBOARD_MEDALS = ["#FFD700", "#C0C0C0", "#CD7F32"];
+
+function CareerLeaderboard({ rows, t, isMobile, isLight }: { rows: LeaderboardRow[]; t: any; isMobile: boolean; isLight: boolean }) {
+  return (
+    <div style={{ marginBottom: 28 }}>
+      {/* header */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, marginBottom: 14 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div style={{ width: 3, height: 18, borderRadius: 99, background: `linear-gradient(180deg, ${t.accent}, ${t.accent}44)`, boxShadow: `0 0 8px ${t.accent}66` }} />
+          <span style={{ fontFamily: t.fontDisplay, fontSize: 13, fontWeight: 900, color: t.text, letterSpacing: "0.22em", textTransform: "uppercase" as const }}>Leaderboard</span>
+          <span style={{ fontFamily: t.fontMono, fontSize: 9, color: "#F59E0B", background: "#F59E0B18", border: "1px solid #F59E0B33", borderRadius: 20, padding: "2px 8px", fontWeight: 800, letterSpacing: "0.04em" }}>CHRONICLE</span>
+        </div>
+        <div style={{ flex: 1, height: 1, background: `linear-gradient(90deg, ${t.border}66, transparent)` }} />
+      </div>
+      {/* body */}
+      <div style={{ background: isLight ? "rgba(0,0,0,0.02)" : "rgba(255,255,255,0.02)", border: `1px solid ${t.border}`, borderRadius: 20, overflow: "hidden" }}>
+        {rows.length === 0 ? (
+          <div style={{ padding: "28px 20px", textAlign: "center", fontFamily: t.fontMono, fontSize: 12, color: t.textMuted, letterSpacing: "0.04em" }}>
+            No Chronicle-rank players yet.
+          </div>
+        ) : rows.map((r, i) => {
+          const top3 = i < 3;
+          const medal = LEADERBOARD_MEDALS[i];
+          return (
+            <div key={`${r.username}-${i}`} style={{
+              display: "grid",
+              gridTemplateColumns: isMobile ? "44px 1fr auto" : "56px 1fr 120px 90px",
+              alignItems: "center", gap: isMobile ? 8 : 12,
+              padding: isMobile ? "12px 14px" : "13px 20px",
+              borderBottom: i < rows.length - 1 ? `1px solid ${t.border}33` : "none",
+              background: top3 ? `${t.accent}0E` : "transparent",
+              borderLeft: `3px solid ${top3 ? medal : "transparent"}`,
+            }}>
+              <div style={{ fontFamily: t.fontDisplay, fontWeight: 900, fontSize: top3 ? 18 : 14, color: top3 ? medal : t.textMuted, textAlign: "center" }}>{i + 1}</div>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontFamily: t.fontDisplay, fontSize: isMobile ? 14 : 16, fontWeight: top3 ? 900 : 700, color: t.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{r.username}</div>
+                {isMobile && <div style={{ fontFamily: t.fontMono, fontSize: 10, color: t.textMuted, marginTop: 2 }}>{r.is_placement ? "PLACEMENT" : `${r.rank} · ${r.wins} W`}</div>}
+              </div>
+              {!isMobile && <div style={{ fontFamily: t.fontMono, fontSize: 11, color: "#F59E0B", letterSpacing: "0.06em" }}>{r.is_placement ? "PLACEMENT" : r.rank}</div>}
+              <div style={{ textAlign: "right", fontFamily: t.fontMono, fontSize: isMobile ? 13 : 15, fontWeight: 800, color: top3 ? t.accent : t.text }}>
+                {r.is_placement ? "—" : (typeof r.elo === "number" ? r.elo.toLocaleString() : r.elo)}
+                {!isMobile && <div style={{ fontSize: 9, color: t.textMuted, fontWeight: 600, marginTop: 2 }}>{r.wins} WINS</div>}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
 const CAREER_PATTERN_LABELS: Record<string, string> = {
   Y: "Y-SHAPE", H: "Y-SHAPE", L: "L-SHAPE", W: "W-SHAPE", V: "V-SHAPE", C: "C-SHAPE", 
@@ -503,6 +558,7 @@ export default function CareerScreen({ themeId, onHoverAction, initialMatchId }:
   const imgSize = badgeSize * 0.85 * scale;
 
   const [history, setHistory] = useState<MatchRecord[]>([]);
+  const [leaderboard, setLeaderboard] = useState<LeaderboardRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<"ranked" | "unranked" | "custom">("ranked");
   const [selectedMatch, setSelectedMatch] = useState<MatchRecord | null>(null);
@@ -521,6 +577,21 @@ export default function CareerScreen({ themeId, onHoverAction, initialMatchId }:
     check();
     window.addEventListener("resize", check);
     return () => window.removeEventListener("resize", check);
+  }, []);
+
+  // Chronicle-rank leaderboard. The same rows also feed the capstone-bot
+  // rename (top-1→her / top-2→him / top-3→jr) via the shared botNames store.
+  useEffect(() => {
+    let cancelled = false;
+    API.get("/api/profile/leaderboard")
+      .then((res) => {
+        if (cancelled) return;
+        const rows = (Array.isArray(res.data) ? res.data : []) as LeaderboardRow[];
+        setLeaderboard(rows);
+        useBotNamesStore.getState().setFromLeaderboard(rows);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
   }, []);
 
   useEffect(() => {
@@ -926,6 +997,9 @@ export default function CareerScreen({ themeId, onHoverAction, initialMatchId }:
                 </div>
               </div>
             </div>
+
+            {/* ── LEADERBOARD (Chronicle rank) ───────────────────────────────────── */}
+            <CareerLeaderboard rows={leaderboard} t={t} isMobile={isMobile} isLight={isLight} />
 
             {/* ── MATCH HISTORY header ───────────────────────────────────────────── */}
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, marginBottom: 14 }}>

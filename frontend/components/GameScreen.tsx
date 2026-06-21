@@ -48,7 +48,8 @@ const ForgeGridCompat = ForgeGrid as React.ComponentType<any>;
 const VoidGridCompat = VoidGrid as React.ComponentType<any>;
 const TokyoGridCompat = TokyoGrid as React.ComponentType<any>;
 import { getUserKey, pushMissionEvent } from "@/lib/missionsClient";
-import { ALL_BOT_IDS, BOT_LABEL, REWARD_SLOT_LABEL, type BotId, type BotRewardSlot } from "@/lib/botRewards";
+import { ALL_BOT_IDS, REWARD_SLOT_LABEL, type BotId, type BotRewardSlot } from "@/lib/botRewards";
+import { getBotLabel } from "@/lib/botNames";
 import { markCareerAfterMultiplayerSeriesEnd } from "@/lib/navBadgeState";
 import MatchResultScreen from "./MatchResultScreen";
 import GameWinScreen from "./GameWinScreen";
@@ -388,7 +389,9 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     searchParamsHook?.get("syros") === "1" &&
     unrankedBotLevelParam === "SYROS";
   const unrankedBotDisplayName = isUnrankedBotFiller && botId
-    ? botId.toUpperCase()
+    ? ((ALL_BOT_IDS as readonly string[]).includes(botId.toLowerCase())
+        ? getBotLabel(botId.toLowerCase() as BotId)
+        : botId.toUpperCase())
     : null;
 
   /* Bot games (AI / unranked filler) used to always hand the human (P1)
@@ -3653,7 +3656,7 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
         // whenever this defeat triggered a capstone free-item reward (JR/HIM/HER).
         // Prefer that messaging over the plain XP toast so the user knows to redeem it.
         const rewardUnlocked = data.reward_unlocked as BotRewardSlot | null | undefined;
-        const botLabel = BOT_LABEL[botIdLower as BotId] || botIdLower.toUpperCase();
+        const botLabel = getBotLabel(botIdLower as BotId) || botIdLower.toUpperCase();
         if (rewardUnlocked && REWARD_SLOT_LABEL[rewardUnlocked]) {
           setHomeNoticeAction?.(`${botLabel} defeated — ${REWARD_SLOT_LABEL[rewardUnlocked]} unlocked in the Store!`);
         } else if (xpAwarded > 0) {
@@ -3721,7 +3724,11 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
     const prevElo = Number(u.elo ?? 0) || 0;
     const prevRr = Number(u.ranked_rating ?? 0) || 0;
     const myDisplayName = String(u.username ?? currentP1Name ?? "YOU");
-    const opponentName = (botId || "BOT").toUpperCase();
+    const opponentName = botId
+      ? ((ALL_BOT_IDS as readonly string[]).includes(botId.toLowerCase())
+          ? getBotLabel(botId.toLowerCase() as BotId)
+          : botId.toUpperCase())
+      : "BOT";
     const seriesWinnerForPayload: "P1" | "P2" | "DRAW" =
       currentSeriesWinner === "P1" ? "P1" : currentSeriesWinner === "P2" ? "P2" : "DRAW";
 
@@ -3891,7 +3898,11 @@ export default function GameScreen({ themeId, setThemeIdAction, isSingleplayer, 
       const prevElo = Number(u.elo ?? 0) || 0;
       const prevRr = Number(u.ranked_rating ?? 0) || 0;
       const myDisplayName = String(u.username ?? currentP1Name ?? "YOU");
-      const opponentName = (botId || "BOT").toUpperCase();
+      const opponentName = botId
+        ? ((ALL_BOT_IDS as readonly string[]).includes(botId.toLowerCase())
+            ? getBotLabel(botId.toLowerCase() as BotId)
+            : botId.toUpperCase())
+        : "BOT";
       const seriesWinnerForPayload: "P1" | "P2" | "DRAW" =
         currentSeriesWinner === "P1"
           ? "P1"

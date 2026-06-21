@@ -13,6 +13,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { THEMES, type ThemeId } from "@/lib/themes";
 import { GUIDED_GAMES } from "@/lib/guidedGames";
+import { getBotLabel } from "@/lib/botNames";
+import type { BotId } from "@/lib/botRewards";
 import { useSyrosVoice } from "@/hooks/useSyrosVoice";
 import SyrosNarrator from "@/components/SyrosNarrator";
 import GuidedGameBoard from "@/components/GuidedGameBoard";
@@ -151,7 +153,7 @@ export default function GuidedOnboarding({ themeId, onComplete, onSkip }: Guided
         }}
       >
         {game.size}×{game.size} · VS{" "}
-        <span style={{ color: game.opponent.color }}>{game.opponent.label}</span>
+        <span style={{ color: game.opponent.color }}>{getBotLabel(game.opponent.id as BotId) || game.opponent.label}</span>
       </div>
 
       {/* Narrator */}
