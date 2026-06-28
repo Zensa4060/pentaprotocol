@@ -19,7 +19,9 @@
       "Bash(cd /c/Users/yagya/Documents/pentaprotocol/frontend && echo \"===structure===\" && find . -path ./node_modules -prune -o -type d -print 2>/dev/null | grep -v node_modules | head -60)",
       "Bash(cd /d/pentaprotocol/mobile && ls node_modules 2>/dev/null | head -1 || echo \"NO_MOBILE_NM\"; ls /d/pentaprotocol/node_modules/.bin/tsc 2>/dev/null && echo \"ROOT_TSC\" || echo \"NO_ROOT_TSC\")",
       "Bash(dir \"C:\\\\Users\\\\yagya\\\\Documents\\\\pentaprotocol\\\\frontend\\\\app\")",
-      "Bash(dir \"C:\\\\Users\\\\yagya\\\\Documents\\\\pentaprotocol\\\\frontend\\\\app\\\\career\")"
+      "Bash(dir \"C:\\\\Users\\\\yagya\\\\Documents\\\\pentaprotocol\\\\frontend\\\\app\\\\career\")",
+      "Bash(ls frontend/.env.example)",
+      "Bash(ls -la brain/4bf1ed0a-585f-4913-9068-d24780da3a50/)"
     ]
   }
 }
