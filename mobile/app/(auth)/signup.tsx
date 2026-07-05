@@ -6,6 +6,7 @@ import { Stack, router } from "expo-router";
 import { useState } from "react";
 import {
   ActivityIndicator,
+  Image,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -24,6 +25,8 @@ import {
 } from "@/lib/auth";
 import { validateUsername } from "@/lib/validateUsername";
 import { colors, fontSizes, radii, space } from "@/theme/tokens";
+
+const BRAND_LOGO = require("@/assets/images/icon.png");
 
 type Step = "form" | "verify";
 
@@ -89,7 +92,9 @@ export default function SignupScreen() {
         username: username.trim(),
         password,
       });
-      router.replace("/(tabs)");
+      // Through the entry gate ("/") — brand-new accounts must pass
+      // /legal-gate and /onboarding before reaching the tabs.
+      router.replace("/");
     } catch (err) {
       setGeneralError(err instanceof AuthError ? err.message : "Sign-up failed.");
     } finally {
@@ -111,6 +116,7 @@ export default function SignupScreen() {
       >
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
           <View style={styles.brand}>
+            <Image source={BRAND_LOGO} style={styles.brandLogo} resizeMode="contain" />
             <Text style={styles.brandMark}>
               <Text style={styles.brandPenta}>PENTA</Text>
               <Text style={styles.brandProtocol}>PROTOCOL</Text>
@@ -330,6 +336,7 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg, paddingHorizontal: space[5] },
   scroll: { flexGrow: 1, justifyContent: "center", paddingVertical: space[6] },
   brand: { alignItems: "center", marginBottom: space[8] },
+  brandLogo: { width: 96, height: 96, marginBottom: space[4] },
   brandMark: { fontSize: fontSizes["2xl"], fontWeight: "900", letterSpacing: 4 },
   brandPenta: { color: colors.text },
   brandProtocol: { color: colors.accent },

@@ -8,6 +8,7 @@ import { router, Stack, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Pressable, StyleSheet, useWindowDimensions, View } from "react-native";
 
+import { AudioSettingsButton } from "@/components/game/AudioSettingsButton";
 import { BoardGrid } from "@/components/game/BoardGrid";
 import { MatchStatusHud } from "@/components/game/MatchStatusHud";
 import { PatternsToggle } from "@/components/game/PatternsToggle";
@@ -209,6 +210,7 @@ export default function TrainingPracticeScreen() {
           <Caption tone="muted">← BACK</Caption>
         </Pressable>
         <Row gap={2} align="center">
+          <AudioSettingsButton />
           <PatternsToggle
             gridSize={gridSize}
             enabled={match.result.status === "playing"}

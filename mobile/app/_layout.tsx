@@ -24,12 +24,13 @@ import { useFonts } from "expo-font";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import "react-native-reanimated";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { TamaguiProvider } from "tamagui";
 
+import { AnimatedSplash } from "@/components/AnimatedSplash";
 import { GlobalLevelUpHost } from "@/components/GlobalLevelUpHost";
 import { AudioProvider } from "@/lib/audio/AudioProvider";
 import { useGlobalNotifySocket } from "@/lib/hooks/useGlobalNotifySocket";
@@ -66,8 +67,15 @@ export default function RootLayout() {
 
   const hydrated = useAuthStore((s) => s.hydrated);
 
+  // Animated boot sequence — plays once per cold start, on top of the
+  // whole tree, after the native splash hands off (see AnimatedSplash).
+  const [booting, setBooting] = useState(true);
+
   useEffect(() => {
     if (fontsLoaded && hydrated) {
+      // The same commit that unblocks the tree also mounts the animated
+      // splash (identical first frame), so hiding the native splash here
+      // is a seamless hand-off rather than a flash of app UI.
       SplashScreen.hideAsync().catch(() => undefined);
     }
   }, [fontsLoaded, hydrated]);
@@ -85,6 +93,7 @@ export default function RootLayout() {
             <AudioProvider>
               <StatusBar style="light" backgroundColor="#030303" translucent={false} />
               <AuthSyncedTree />
+              {booting ? <AnimatedSplash onDone={() => setBooting(false)} /> : null}
             </AudioProvider>
           </ThemeProvider>
         </TamaguiProvider>

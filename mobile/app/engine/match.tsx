@@ -15,6 +15,7 @@ import { BotRewardOverlay } from "@/components/game/BotRewardOverlay";
 import { BoardGrid } from "@/components/game/BoardGrid";
 import { LimitbreakerOverlay } from "@/components/game/LimitbreakerOverlay";
 import { MatchStatusHud } from "@/components/game/MatchStatusHud";
+import { AudioSettingsButton } from "@/components/game/AudioSettingsButton";
 import { PatternsToggle } from "@/components/game/PatternsToggle";
 import { RulebreakerOverlay } from "@/components/game/RulebreakerOverlay";
 import {
@@ -365,6 +366,7 @@ export default function EngineMatchScreen() {
           <Caption tone="muted">← BACK</Caption>
         </Pressable>
         <Row gap={2} align="center">
+          <AudioSettingsButton />
           <PatternsToggle
             gridSize={gridSize}
             enabled={match.result.status === "playing"}

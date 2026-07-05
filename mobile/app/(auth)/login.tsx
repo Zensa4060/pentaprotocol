@@ -29,6 +29,7 @@ import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Image,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -67,6 +68,8 @@ import {
 } from "@/lib/auth";
 import { GoogleAuthError, isGoogleSignInAvailable, signInWithGoogleNative } from "@/lib/googleAuth";
 import { colors, fontSizes, radii, space } from "@/theme/tokens";
+
+const BRAND_LOGO = require("@/assets/images/icon.png");
 
 export default function LoginScreen() {
   const insets = useSafeAreaInsets();
@@ -131,7 +134,11 @@ export default function LoginScreen() {
         setTwoFaToken(result.tempToken);
         return;
       }
-      router.replace("/(tabs)");
+      // Land on the entry gate ("/"), not the tabs directly — it routes
+      // first-run accounts through /legal-gate and /onboarding before
+      // the tabs. Jumping straight to /(tabs) strands new users with a
+      // "legal required" error on every game API call.
+      router.replace("/");
     } catch (err) {
       const msg = err instanceof AuthError ? err.message : "Something went wrong. Try again.";
       setGeneralError(msg);
@@ -152,7 +159,8 @@ export default function LoginScreen() {
     try {
       await completeTwoFactorLogin({ tempToken: twoFaToken, code, keepSignedIn: staySignedIn });
       setTwoFaToken(null);
-      router.replace("/(tabs)");
+      // Through the entry gate — see onSubmit.
+      router.replace("/");
     } catch (err) {
       const msg = err instanceof AuthError ? err.message : "Invalid code. Try again.";
       setTwoFaError(msg);
@@ -192,7 +200,10 @@ export default function LoginScreen() {
       );
       return;
     }
-    router.replace("/(tabs)");
+    // Through the entry gate — a first-time Google account is created
+    // with legal_accepted=false + onboarding_tutorial="none", so it
+    // must pass /legal-gate and /onboarding before reaching the tabs.
+    router.replace("/");
   };
 
   const onGoogle = async () => {
@@ -286,6 +297,7 @@ export default function LoginScreen() {
         >
           {/* ── Brand block ─────────────────────────────────────────── */}
           <View style={styles.brand}>
+            <Image source={BRAND_LOGO} style={styles.brandLogo} resizeMode="contain" />
             <Text style={styles.brandMark}>
               <Text style={styles.brandPenta}>PENTA</Text>
               <Text style={styles.brandProtocol}>PROTOCOL</Text>
@@ -624,6 +636,11 @@ const styles = StyleSheet.create({
   brand: {
     alignItems: "center",
     marginBottom: space[9],
+  },
+  brandLogo: {
+    width: 96,
+    height: 96,
+    marginBottom: space[4],
   },
   brandMark: {
     fontSize: fontSizes["2xl"],

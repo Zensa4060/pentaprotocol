@@ -1,7 +1,7 @@
 /**
  * Home tab.
  *
- * Brand wordmark, identity card, and a single panel of four equal play /
+ * Brand wordmark, identity card, and a 2×2 grid of four equal play /
  * extras tiles (Play Online · Training · Store · Collection) rendered as
  * "obsidian glass" surfaces — dark frosted panels with a light sheen, a
  * thin neutral edge, a soft accent glow and a glowing mode icon. The same
@@ -45,7 +45,7 @@ import { radii, space } from "@/theme/tokens";
 import { useTheme } from "@/theme/ThemeProvider";
 import type { ThemePalette } from "@/theme/themes";
 
-import { Pressable, StyleSheet, Text, View, type ViewStyle } from "react-native";
+import { Image, Pressable, StyleSheet, Text, View, type ViewStyle } from "react-native";
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -87,6 +87,12 @@ const TILES: TileDef[] = [
   { key: "store", title: "STORE", icon: "storefront" },
   { key: "collection", title: "COLLECTION", icon: "cards" },
 ];
+
+/** 2×2 grid — two rows of two tiles each. */
+const TILE_ROWS: TileDef[][] = [TILES.slice(0, 2), TILES.slice(2)];
+
+/** Brand mark shown top-right in place of the user's avatar. */
+const BRAND_LOGO = require("@/assets/images/icon.png");
 
 export default function HomeScreen() {
   const user = useAuthStore((s) => s.user);
@@ -143,8 +149,13 @@ export default function HomeScreen() {
           {/* ── Brand row ───────────────────────────────────────────── */}
           <Row justify="between" align="center" style={{ marginTop: space[3] }}>
             <Wordmark size="md" />
-            <Pressable onPress={goToProfile} hitSlop={8} accessibilityRole="button">
-              <Avatar uri={avatarUri} name={user?.username} size="sm" />
+            <Pressable
+              onPress={goToProfile}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel="Profile"
+            >
+              <Image source={BRAND_LOGO} style={styles.brandLogo} resizeMode="contain" />
             </Pressable>
           </Row>
 
@@ -193,26 +204,26 @@ export default function HomeScreen() {
             </View>
           </Animated.View>
 
-          {/* ── One panel of four equal obsidian-glass tiles. ``fill``
-              makes the panel claim the remaining height so the tiles fit
-              the screen with no scrolling; the gaps + insets keep them
-              floating with breathing room. ─────────────────────────── */}
-          <Stack
-            gap={4}
-            fill
-            style={{ marginTop: space[5], paddingTop: space[2], paddingBottom: space[4] }}
-          >
-            {TILES.map((tile, i) => (
-              <GlassTile
-                key={tile.key}
-                title={tile.title}
-                icon={tile.icon}
-                index={i}
-                palette={palette}
-                onPress={() => handleTilePress(tile.key)}
-              />
+          {/* ── 2×2 grid of four equal obsidian-glass tiles. The grid
+              claims the remaining height so the tiles fit the screen
+              with no scrolling; the gaps + insets keep them floating
+              with breathing room. ───────────────────────────────────── */}
+          <View style={styles.tileGrid}>
+            {TILE_ROWS.map((row, r) => (
+              <View key={r} style={styles.tileRow}>
+                {row.map((tile, c) => (
+                  <GlassTile
+                    key={tile.key}
+                    title={tile.title}
+                    icon={tile.icon}
+                    index={r * 2 + c}
+                    palette={palette}
+                    onPress={() => handleTilePress(tile.key)}
+                  />
+                ))}
+              </View>
             ))}
-          </Stack>
+          </View>
 
           {/* ── Status (review banner, etc.) ────────────────────────── */}
           {user?.under_review ? (
@@ -314,12 +325,13 @@ function GlassTile({
           <View style={styles.tileContent}>
             <MaterialCommunityIcons
               name={icon}
-              size={26}
+              size={32}
               color={accent}
               style={[styles.tileIcon, { textShadowColor: withAlpha(accent, 0.85) }]}
             />
             <Text
               numberOfLines={1}
+              adjustsFontSizeToFit
               style={[styles.tileTitle, { color: palette.text, fontFamily: palette.fontDisplay }]}
             >
               {title}
@@ -344,6 +356,11 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
     textShadowOffset: { width: 0, height: 0 },
     textShadowRadius: 12,
+  },
+  // Matches Avatar size="sm" (32px) so the header layout doesn't shift.
+  brandLogo: {
+    width: 32,
+    height: 32,
   },
   headerGlow: {
     position: "absolute",
@@ -377,9 +394,21 @@ const styles = StyleSheet.create({
     padding: space[4],
   },
   // Tiles
+  tileGrid: {
+    flex: 1,
+    gap: space[4],
+    marginTop: space[5],
+    paddingTop: space[2],
+    paddingBottom: space[4],
+  },
+  tileRow: {
+    flex: 1,
+    flexDirection: "row",
+    gap: space[4],
+  },
   tileSlot: {
     flex: 1,
-    minHeight: 84,
+    minHeight: 120,
   },
   tilePressable: {
     flex: 1,
@@ -396,21 +425,21 @@ const styles = StyleSheet.create({
   },
   tileContent: {
     flex: 1,
-    flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: space[3],
-    paddingHorizontal: space[5],
+    paddingHorizontal: space[4],
   },
   tileIcon: {
     textShadowOffset: { width: 0, height: 0 },
     textShadowRadius: 10,
   },
   tileTitle: {
-    fontSize: 22,
+    fontSize: 17,
     fontWeight: "900",
     letterSpacing: 1,
     textTransform: "uppercase",
+    textAlign: "center",
     textShadowColor: "rgba(0,0,0,0.5)",
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 5,

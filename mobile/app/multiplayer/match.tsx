@@ -40,6 +40,7 @@ import {
 } from "@/components/game/MatchExtras";
 import { MatchResultOverlay } from "@/components/game/MatchResultOverlay";
 import { MpLimitbreakerOverlay } from "@/components/game/MpLimitbreakerOverlay";
+import { AudioSettingsButton } from "@/components/game/AudioSettingsButton";
 import { PatternsToggle } from "@/components/game/PatternsToggle";
 import { RulebreakerOverlay } from "@/components/game/RulebreakerOverlay";
 import { RulesShowOverlay } from "@/components/game/RulesShowOverlay";
@@ -404,6 +405,7 @@ export default function MultiplayerMatch() {
           <Caption tone="muted">← QUIT</Caption>
         </Pressable>
         <Row gap={2} align="center">
+          <AudioSettingsButton />
           <PatternsToggle
             gridSize={gridSize}
             enabled={!seriesOver}

@@ -24,7 +24,18 @@
 module.exports = function (api) {
   api.cache(true);
   return {
-    presets: ["babel-preset-expo"],
+    presets: [
+      [
+        "babel-preset-expo",
+        {
+          // zustand v5 resolves to its ESM build on web, whose
+          // ``import.meta.env`` is a syntax error in the classic-script
+          // web bundle (black screen on load). This rewrites
+          // ``import.meta`` to Expo's registry shim at build time.
+          unstable_transformImportMeta: true,
+        },
+      ],
+    ],
     plugins: [
       [
         "@tamagui/babel-plugin",
