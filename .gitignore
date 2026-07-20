@@ -1,4 +1,7 @@
 
+# Machine-specific local dev launcher (Windows) — not for the repo.
+start-local.bat
+
 # Dependencies
 node_modules/
 

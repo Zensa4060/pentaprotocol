@@ -2,15 +2,21 @@
   "version": "0.0.1",
   "configurations": [
     {
+      "name": "backend",
+      "runtimeExecutable": "cmd",
+      "runtimeArgs": ["/c", "cd /d backend && .venv\\Scripts\\python.exe -m uvicorn main:app --host 127.0.0.1 --port 8000"],
+      "port": 8000
+    },
+    {
       "name": "frontend",
-      "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev"],
+      "runtimeExecutable": "cmd",
+      "runtimeArgs": ["/c", "cd /d frontend && set PATH=%LOCALAPPDATA%\\Programs\\nodejs;%PATH%&& npm run dev"],
       "port": 3000
     },
     {
       "name": "mobile-web",
-      "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "web", "--prefix", "mobile"],
+      "runtimeExecutable": "cmd",
+      "runtimeArgs": ["/c", "cd /d mobile && set PATH=%LOCALAPPDATA%\\Programs\\nodejs;%PATH%&& npm run web"],
       "port": 8081
     }
   ]
