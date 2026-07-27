@@ -6,6 +6,12 @@ import type { NextConfig } from "next";
 const isProd = process.env.NODE_ENV === "production";
 
 const nextConfig: NextConfig = {
+  // Local dev is reachable as both localhost and 127.0.0.1 (Safari's
+  // automatic HTTPS-upgrade heuristic breaks plain-http localhost, so
+  // 127.0.0.1 is the workaround) — without this, Next.js blocks the
+  // HMR/webpack websocket as a cross-origin request when loaded via
+  // 127.0.0.1, leaving the page stuck mid-hydration forever.
+  ...(isProd ? {} : { allowedDevOrigins: ["127.0.0.1", "localhost"] }),
   turbopack: {
     root: __dirname,
   },
@@ -128,7 +134,11 @@ const nextConfig: NextConfig = {
       "object-src 'none'",
       "base-uri 'self'",
       "form-action 'self'",
-      "upgrade-insecure-requests",
+      // Only upgrade to HTTPS in prod — in dev the app is served over
+      // plain http://localhost, and this directive would make the
+      // browser rewrite every JS/CSS/font fetch to https://, which the
+      // dev server doesn't speak, breaking the page silently.
+      ...(isProd ? ["upgrade-insecure-requests"] : []),
     ].join("; ");
 
     return [
